@@ -1,7 +1,8 @@
 #####################################################
 
-VERSION_PKG := github.com/yunionio/pkg/util/version
 REPO_PREFIX := github.com/yunionio/onecloud
+VENDOR_PATH := $(REPO_PREFIX)/vendor
+VERSION_PKG := $(VENDOR_PATH)/github.com/yunionio/pkg/util/version
 ROOT_DIR := $(shell pwd)
 BUILD_DIR := $(ROOT_DIR)/_output
 BIN_DIR := $(BUILD_DIR)/bin
