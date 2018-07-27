@@ -1,0 +1,83 @@
+package tasks
+
+import (
+	"context"
+
+	"github.com/yunionio/jsonutils"
+
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
+	"github.com/yunionio/onecloud/pkg/compute/models"
+)
+
+type GuestStartTask struct {
+	SGuestBaseTask
+}
+
+func init() {
+	taskman.RegisterTask(GuestStartTask{})
+}
+
+func (self *GuestStartTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	self.checkTemplate(ctx, guest)
+}
+
+func (self *GuestStartTask) checkTemplate(ctx context.Context, guest *models.SGuest) {
+	diskCat := guest.CategorizeDisks()
+	if diskCat.Root != nil && len(diskCat.Root.GetTemplateId()) > 0 {
+		self.SetStage("on_start_template_ready", nil)
+		guest.GetDriver().CheckDiskTemplateOnStorage(ctx, self.UserCred, diskCat.Root.GetTemplateId(), diskCat.Root.StorageId, self.GetTaskId())
+	} else {
+		self.startStart(ctx, guest)
+	}
+}
+
+func (self *GuestStartTask) OnStartTemplateReady(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	self.startStart(ctx, guest)
+}
+
+func (self *GuestStartTask) startStart(ctx context.Context, guest *models.SGuest) {
+	db.OpsLog.LogEvent(guest, db.ACT_STARTING, nil, self.UserCred)
+	self.SetStage("on_start_complete", nil)
+	host := guest.GetHost()
+	guest.SetStatus(self.UserCred, models.VM_STARTING, "")
+	result, err := guest.GetDriver().RequestStartOnHost(guest, host, self.UserCred, self)
+	if err != nil {
+		self.onStartGuestFailed(ctx, guest, err)
+	} else {
+		if result != nil && jsonutils.QueryBoolean(result, "is_running", false) {
+			guest.SetStatus(self.UserCred, models.VM_RUNNING, "start")
+			self.taskComplete(ctx, guest)
+		}
+	}
+}
+
+func (self *GuestStartTask) OnStartComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	db.OpsLog.LogEvent(guest, db.ACT_START, guest.GetShortDesc(), self.UserCred)
+	self.SetStage("on_guest_syncstatus_after_start", nil)
+	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
+	// self.taskComplete(ctx, guest)
+}
+
+func (self *GuestStartTask) OnGuestSyncstatusAfterStart(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	self.taskComplete(ctx, guest)
+}
+
+func (self *GuestStartTask) OnStartCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	db.OpsLog.LogEvent(guest, db.ACT_START_FAIL, err, self.UserCred)
+}
+
+func (self *GuestStartTask) onStartGuestFailed(ctx context.Context, guest *models.SGuest, err error) {
+	self.SetStageFailed(ctx, err.Error())
+	self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+}
+
+func (self *GuestStartTask) taskComplete(ctx context.Context, guest *models.SGuest) {
+	models.HostManager.ClearSchedDescCache(guest.HostId)
+	self.SetStageComplete(ctx, nil)
+}

@@ -1,0 +1,98 @@
+package guestdrivers
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/yunionio/jsonutils"
+	"github.com/yunionio/log"
+	"github.com/yunionio/mcclient"
+
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db/quotas"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
+	"github.com/yunionio/onecloud/pkg/compute/models"
+	"github.com/yunionio/onecloud/pkg/compute/tasks"
+)
+
+type SBaseGuestDriver struct {
+}
+
+func (self *SBaseGuestDriver) StartGuestCreateTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, pendingUsage quotas.IQuota, parentTaskId string) error {
+	taskName, _ := data.GetString("__task__")
+	if len(taskName) > 0 {
+		log.Infof("Start embedded guest start task")
+		switch taskName {
+		case tasks.CONVERT_TASK:
+			hostId, _ := data.GetString("prefer_host_id")
+			if len(hostId) == 0 {
+				hostId, _ = data.GetString("prefer_baremetal_id")
+			}
+			if len(hostId) == 0 {
+				return fmt.Errorf("Not target baremetal for convert task")
+			}
+			host, err := models.HostManager.FetchById(hostId)
+			if err != nil {
+				return fmt.Errorf("Cannot find host")
+			}
+			params := jsonutils.NewDict()
+			params.Add(jsonutils.NewString(guest.Id), "server_id")
+			params.Add(data, "server_params")
+			task, err := taskman.TaskManager.NewTask(ctx, "BaremetalConvertHypervisorTask", host, userCred, params, parentTaskId, "", pendingUsage)
+			if err != nil {
+				return err
+			}
+			task.ScheduleRun(nil)
+		}
+	} else {
+		task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateTask", guest, userCred, data, parentTaskId, "", pendingUsage)
+		if err != nil {
+			return err
+		}
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
+func (self *SBaseGuestDriver) OnGuestCreateTaskComplete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	//if jsonutils.QueryBoolean(task.GetParams(), "auto_start", false) {
+	//	task.SetStage("on_auto_start_guest", nil)
+	//	return guest.StartGueststartTask(ctx, task.GetUserCred(), nil, task.GetTaskId())
+	//} else {
+	task.SetStage("on_sync_status_complete", nil)
+	return guest.StartSyncstatus(ctx, task.GetUserCred(), task.GetTaskId())
+	//}
+}
+
+func (self *SBaseGuestDriver) StartDeleteGuestTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestDeleteTask", guest, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SBaseGuestDriver) RequestDetachDisksFromGuestForDelete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SBaseGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential) error {
+	return guest.DeleteAllDisksInDB(ctx, userCred)
+}
+
+func (self *SVirtualizedGuestDriver) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, data *jsonutils.JSONDict) error {
+	return guest.StartGueststartTask(ctx, userCred, data, "")
+}
+
+func (self *SVirtualizedGuestDriver) CheckDiskTemplateOnStorage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, storageId string, parentTaskId string) error {
+	storage := models.StorageManager.FetchStorageById(storageId)
+	if storage == nil {
+		return fmt.Errorf("No such storage?? %s", storageId)
+	}
+	cache := storage.GetStoragecache()
+	if cache == nil {
+		return fmt.Errorf("Cache is missing from storage")
+	}
+	return cache.StartImageCacheTask(ctx, userCred, imageId, false, parentTaskId)
+}

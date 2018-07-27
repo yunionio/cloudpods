@@ -1,0 +1,135 @@
+package guestdrivers
+
+import (
+	"context"
+	"fmt"
+	"regexp"
+
+	"github.com/yunionio/jsonutils"
+	"github.com/yunionio/mcclient"
+	"github.com/yunionio/pkg/httperrors"
+
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db/quotas"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
+	"github.com/yunionio/onecloud/pkg/compute/models"
+)
+
+type SVirtualizedGuestDriver struct {
+	SBaseGuestDriver
+}
+
+func (self *SVirtualizedGuestDriver) GetMaxVCpuCount() int {
+	return 128
+}
+
+func (self *SVirtualizedGuestDriver) GetMaxVMemSizeGB() int {
+	return 512
+}
+
+func (self *SVirtualizedGuestDriver) PrepareDiskRaidConfig(host *models.SHost, params *jsonutils.JSONDict) error {
+	// do nothing
+	return nil
+}
+
+func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig) (*models.SNetwork, string, int8, models.IPAddlocationDirection) {
+	net, _ := host.GetNetworkWithIdAndCredential(netConfig.Network, userCred, netConfig.Reserved)
+	return net, netConfig.Mac, -1, models.IPAllocationStepdown
+}
+
+func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig, pendingUsage quotas.IQuota) error {
+	var wirePattern *regexp.Regexp
+	if len(netConfig.Wire) > 0 {
+		wirePattern = regexp.MustCompile(netConfig.Wire)
+	}
+	hostwires := host.GetWires()
+	netsAvaiable := make([]models.SNetwork, 0)
+	for i := 0; i < len(hostwires); i += 1 {
+		hostwire := hostwires[i]
+		wire := hostwire.GetWire()
+		if wirePattern != nil && !wirePattern.MatchString(wire.Id) && wirePattern.MatchString(wire.Name) {
+			continue
+		}
+		var net *models.SNetwork
+		if netConfig.Private {
+			net, _ = wire.GetCandidatePrivateNetwork(userCred, netConfig.Exit, models.SERVER_TYPE_GUEST)
+		} else {
+			net, _ = wire.GetCandidatePublicNetwork(netConfig.Exit, models.SERVER_TYPE_GUEST)
+		}
+		if net != nil {
+			netsAvaiable = append(netsAvaiable, *net)
+		}
+	}
+	if len(netsAvaiable) == 0 {
+		return fmt.Errorf("No appropriate host virtual network...")
+	}
+	selNet := models.ChooseCandidateNetworks(netsAvaiable, netConfig.Exit, models.SERVER_TYPE_GUEST)
+	if selNet == nil {
+		return fmt.Errorf("Not enough address in virtual network")
+	}
+	err := guest.Attach2Network(ctx, userCred, selNet, pendingUsage, netConfig.Address, netConfig.Mac, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, -1, netConfig.Reserved, models.IPAllocationDefault, false)
+	return err
+}
+
+func (self *SVirtualizedGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
+	return host.GetLeastUsedStorage(backend)
+}
+
+func (self *SVirtualizedGuestDriver) RequestGuestCreateInsertIso(ctx context.Context, imageId string, guest *models.SGuest, task taskman.ITask) error {
+	return guest.StartInsertIsoTask(ctx, imageId, guest.HostId, task.GetUserCred(), task.GetTaskId())
+}
+
+func (self *SVirtualizedGuestDriver) StartGuestStopTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestStopTask", guest, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SVirtualizedGuestDriver) OnGuestDeployTaskComplete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	if jsonutils.QueryBoolean(task.GetParams(), "restart", false) {
+		return guest.StartGueststartTask(ctx, task.GetUserCred(), nil, task.GetTaskId())
+	} else {
+		guest.SetStatus(task.GetUserCred(), models.VM_READY, "ready")
+		task.SetStageComplete(ctx, nil)
+		return nil
+	}
+}
+
+func (self *SVirtualizedGuestDriver) StartGuestSyncstatusTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestSyncstatusTask", guest, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SVirtualizedGuestDriver) RequestStopGuestForDelete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	guestStatus, _ := task.GetParams().GetString("guest_status")
+	if guestStatus == models.VM_RUNNING {
+		host := guest.GetHost()
+		if host != nil && host.Enabled && host.HostStatus == models.HOST_ONLINE && !jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
+			return guest.StartGuestStopTask(ctx, task.GetUserCred(), true, task.GetTaskId())
+		}
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	return data, nil
+}
+
+func (self *SVirtualizedGuestDriver) ValidateCreateHostData(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *models.SHost, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	if host.HostStatus != models.HOST_ONLINE {
+		return nil, httperrors.NewInvalidStatusError("Host %s is not online", bmName)
+	}
+	data.Add(jsonutils.NewString(host.Id), "prefer_host_id")
+	return data, nil
+}
+
+func (self *SVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
+	return guest.GetJsonDescAtHypervisor(ctx, host)
+}
