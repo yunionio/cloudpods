@@ -305,8 +305,15 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 		q = q.Equals("provider", manager.Provider)
 	}
 	if jsonutils.QueryBoolean(query, "usable", false) {
+		networks := NetworkManager.Query().SubQuery()
+		wires := WireManager.Query().SubQuery()
 		vpcs := VpcManager.Query().SubQuery()
-		sq := vpcs.Query(sqlchemy.DISTINCT("cloudregion_id", vpcs.Field("cloudregion_id"))).Equals("status", VPC_STATUS_AVAILABLE)
+
+		sq := vpcs.Query(sqlchemy.DISTINCT("cloudregion_id", vpcs.Field("cloudregion_id")))
+		sq = sq.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		sq = sq.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+
 		q = q.Filter(sqlchemy.In(q.Field("id"), sq.SubQuery()))
 	}
 	return q, nil

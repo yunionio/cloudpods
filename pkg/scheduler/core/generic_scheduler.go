@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	o "github.com/yunionio/onecloud/cmd/scheduler/options"
 	"github.com/yunionio/log"
+	o "github.com/yunionio/onecloud/cmd/scheduler/options"
 	"github.com/yunionio/pkg/util/errors"
 	gp "github.com/yunionio/pkg/util/goroutine_pool"
 	utiltrace "github.com/yunionio/pkg/util/trace"

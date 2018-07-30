@@ -6,8 +6,8 @@ import (
 	"time"
 
 	o "github.com/yunionio/onecloud/cmd/scheduler/options"
-	u "github.com/yunionio/pkg/utils"
 	"github.com/yunionio/pkg/util/wait"
+	u "github.com/yunionio/pkg/utils"
 )
 
 type HistoryItem struct {

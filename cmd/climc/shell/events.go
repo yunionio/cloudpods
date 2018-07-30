@@ -80,6 +80,31 @@ func init() {
 		return doComputeEventList(s, &nargs)
 	})
 
+	R(&TypeEventListOptions{}, "vpc-event", "Show operation event logs of vpc", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"vpc"}}
+		return doComputeEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "zone-event", "Show operation event logs of zone", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"zone"}}
+		return doComputeEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "region-event", "Show operation event logs of region", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"cloudregion"}}
+		return doComputeEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "wire-event", "Show operation event logs of wire", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"wire"}}
+		return doComputeEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "network-event", "Show operation event logs of network", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"network"}}
+		return doComputeEventList(s, &nargs)
+	})
+
 	R(&TypeEventListOptions{}, "vcenter-event", "Show operation event logs of vcenter", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
 		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"vcenter"}}
 		return doComputeEventList(s, &nargs)

@@ -3,9 +3,9 @@ package aliyun
 import (
 	"fmt"
 
+	"github.com/yunionio/log"
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/onecloud/pkg/compute/models"
-	"github.com/yunionio/log"
 )
 
 type InstanceChargeType string

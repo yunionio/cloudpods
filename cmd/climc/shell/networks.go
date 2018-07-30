@@ -1,6 +1,8 @@
 package shell
 
 import (
+	"fmt"
+
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/mcclient"
 	"github.com/yunionio/mcclient/modules"
@@ -9,14 +11,29 @@ import (
 func init() {
 	type NetworkListOptions struct {
 		BaseListOptions
-		Ip string `help:"search networks that contain this IP"`
+		Ip   string `help:"search networks that contain this IP"`
+		Zone string `help:"search networks in a zone"`
+		Wire string `help:"search networks belongs to a wire"`
+		Vpc  string `help:"search networks belongs to a VPC"`
 	}
 	R(&NetworkListOptions{}, "network-list", "List networks", func(s *mcclient.ClientSession, args *NetworkListOptions) error {
 		params := FetchPagingParams(args.BaseListOptions)
 		if len(args.Ip) > 0 {
 			params.Add(jsonutils.NewString(args.Ip), "ip")
 		}
-		result, err := modules.Networks.List(s, params)
+		if len(args.Zone) > 0 {
+			params.Add(jsonutils.NewString(args.Zone), "zone")
+		}
+		if len(args.Vpc) > 0 {
+			params.Add(jsonutils.NewString(args.Vpc), "vpc")
+		}
+		var result *modules.ListResult
+		var err error
+		if len(args.Wire) > 0 {
+			result, err = modules.Networks.ListInContext(s, params, &modules.Wires, args.Wire)
+		} else {
+			result, err = modules.Networks.List(s, params)
+		}
 		if err != nil {
 			return err
 		}
@@ -143,6 +160,15 @@ func init() {
 		return nil
 	})
 
+	R(&NetworkShowOptions{}, "network-purge", "Purge a managed network, not delete the remote entity", func(s *mcclient.ClientSession, args *NetworkShowOptions) error {
+		result, err := modules.Networks.PerformAction(s, args.ID, "purge", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	type NetworkCreateOptions struct {
 		WIRE        string `help:"ID or Name of wire in wihich the network is created"`
 		NETWORK     string `help:"Name of new network"`
@@ -177,6 +203,41 @@ func init() {
 			params.Add(jsonutils.NewString(args.Desc), "description")
 		}
 		net, e := modules.Networks.CreateInContext(s, params, &modules.Wires, args.WIRE)
+		if e != nil {
+			return e
+		}
+		printObject(net)
+		return nil
+	})
+
+	type NetworkCreateOptions2 struct {
+		Wire    string `help:"ID or Name of wire in which the network is created"`
+		Vpc     string `help:"ID or Name of vpc in which the network is created"`
+		Zone    string `help:"ID or Name of zone in which the network is created"`
+		NETWORK string `help:"Name of new network"`
+		PREFIX  string `help:"Start of IPv4 address range"`
+		Desc    string `help:"Description" metavar:"DESCRIPTION"`
+	}
+	R(&NetworkCreateOptions2{}, "network-create2", "Create a virtual network", func(s *mcclient.ClientSession, args *NetworkCreateOptions2) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.NETWORK), "name")
+		params.Add(jsonutils.NewString(args.PREFIX), "guest_ip_prefix")
+		if len(args.Desc) > 0 {
+			params.Add(jsonutils.NewString(args.Desc), "description")
+		}
+		if len(args.Wire) > 0 {
+			params.Add(jsonutils.NewString(args.Wire), "wire")
+		} else if len(args.Vpc) > 0 {
+			if len(args.Zone) > 0 {
+				params.Add(jsonutils.NewString(args.Zone), "zone")
+				params.Add(jsonutils.NewString(args.Vpc), "vpc")
+			} else {
+				return fmt.Errorf("Either wire or VPC/Zone must be provided")
+			}
+		} else {
+			return fmt.Errorf("Either wire or VPC/Zone must be provided")
+		}
+		net, e := modules.Networks.Create(s, params)
 		if e != nil {
 			return e
 		}

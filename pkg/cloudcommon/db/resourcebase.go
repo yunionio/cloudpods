@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/yunionio/mcclient"
-	"github.com/yunionio/sqlchemy"
 	"github.com/yunionio/pkg/util/timeutils"
+	"github.com/yunionio/sqlchemy"
 )
 
 type SResourceBase struct {

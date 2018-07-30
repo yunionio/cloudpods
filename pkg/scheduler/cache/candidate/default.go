@@ -6,8 +6,8 @@ import (
 	gosync "sync"
 	"time"
 
-	"github.com/yunionio/onecloud/cmd/scheduler/options"
 	"github.com/yunionio/log"
+	"github.com/yunionio/onecloud/cmd/scheduler/options"
 	"github.com/yunionio/onecloud/pkg/scheduler/cache"
 	"github.com/yunionio/onecloud/pkg/scheduler/db/models"
 	u "github.com/yunionio/pkg/utils"

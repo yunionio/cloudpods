@@ -6,8 +6,8 @@ import (
 
 	"gopkg.in/gin-gonic/gin.v1"
 
-	o "github.com/yunionio/onecloud/cmd/scheduler/options"
 	"github.com/yunionio/log"
+	o "github.com/yunionio/onecloud/cmd/scheduler/options"
 	schedman "github.com/yunionio/onecloud/pkg/scheduler/manager"
 )
 

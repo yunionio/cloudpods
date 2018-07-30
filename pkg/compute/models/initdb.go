@@ -1,8 +1,8 @@
 package models
 
 import (
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/log"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 )
 
 func InitDB() error {

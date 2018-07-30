@@ -3,12 +3,13 @@ package models
 import (
 	"context"
 	"fmt"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/pkg/httperrors"
+
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/mcclient"
-	"github.com/yunionio/sqlchemy"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"github.com/yunionio/pkg/httperrors"
 	"github.com/yunionio/pkg/tristate"
+	"github.com/yunionio/sqlchemy"
 )
 
 type SHoststorageManager struct {

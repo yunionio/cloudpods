@@ -5,14 +5,14 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/yunionio/pkg/httperrors"
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 	"github.com/yunionio/mcclient"
-	"github.com/yunionio/sqlchemy"
+	"github.com/yunionio/pkg/httperrors"
 	"github.com/yunionio/pkg/util/regutils"
 	"github.com/yunionio/pkg/util/stringutils"
 	"github.com/yunionio/pkg/utils"
+	"github.com/yunionio/sqlchemy"
 )
 
 type SStandaloneResourceBase struct {
@@ -109,7 +109,7 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Contex
 	}
 
 	showEmulated := jsonutils.QueryBoolean(query, "show_emulated", false)
-	if ! showEmulated {
+	if !showEmulated {
 		q = q.Filter(sqlchemy.IsFalse(q.Field("is_emulated")))
 	}
 

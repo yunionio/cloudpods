@@ -9,10 +9,29 @@ import (
 func init() {
 	type ZoneListOptions struct {
 		BaseListOptions
+		Region  string `help:"cloud region ID or Name"`
+		Usable  bool   `help:"List zones that is usable"`
+		Private bool   `help:"show zones in private cloud regions only"`
+		Public  bool   `help:"show zones in public cloud regions only"`
 	}
-	R(&ZoneListOptions{}, "zone-list", "List zones", func(s *mcclient.ClientSession, suboptions *ZoneListOptions) error {
-		params := FetchPagingParams(suboptions.BaseListOptions)
-		result, err := modules.Zones.List(s, params)
+	R(&ZoneListOptions{}, "zone-list", "List zones", func(s *mcclient.ClientSession, args *ZoneListOptions) error {
+		params := FetchPagingParams(args.BaseListOptions)
+		if args.Usable {
+			params.Add(jsonutils.JSONTrue, "usable")
+		}
+		if args.Private {
+			params.Add(jsonutils.JSONTrue, "is_private")
+		}
+		if args.Public {
+			params.Add(jsonutils.JSONTrue, "is_public")
+		}
+		var err error
+		var result *modules.ListResult
+		if len(args.Region) > 0 {
+			result, err = modules.Zones.ListInContext(s, params, &modules.Cloudregions, args.Region)
+		} else {
+			result, err = modules.Zones.List(s, params)
+		}
 		if err != nil {
 			return err
 		}
@@ -66,6 +85,15 @@ func init() {
 
 	R(&ZoneShowOptions{}, "zone-delete", "Delete zone", func(s *mcclient.ClientSession, args *ZoneShowOptions) error {
 		result, err := modules.Zones.Delete(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&ZoneShowOptions{}, "zone-capabilities", "Show zone's capacibilities", func(s *mcclient.ClientSession, args *ZoneShowOptions) error {
+		result, err := modules.Zones.GetSpecific(s, args.ID, "capabilities", nil)
 		if err != nil {
 			return err
 		}

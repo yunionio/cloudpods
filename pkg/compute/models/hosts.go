@@ -3,26 +3,26 @@ package models
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 
-	"net/http"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/options"
-	"github.com/yunionio/pkg/httperrors"
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 	"github.com/yunionio/mcclient"
 	"github.com/yunionio/mcclient/auth"
 	"github.com/yunionio/mcclient/modules"
-	"github.com/yunionio/sqlchemy"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/onecloud/pkg/compute/options"
+	"github.com/yunionio/pkg/httperrors"
 	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/util/compare"
 	"github.com/yunionio/pkg/util/netutils"
 	"github.com/yunionio/pkg/util/regutils"
 	"github.com/yunionio/pkg/util/sysutils"
 	"github.com/yunionio/pkg/utils"
+	"github.com/yunionio/sqlchemy"
 )
 
 const (
@@ -147,7 +147,6 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	}
 	var scopeQuery *sqlchemy.SSubQuery
 
-
 	schedTagStr := jsonutils.GetAnyString(query, []string{"schedtag", "schedtag_id"})
 	if len(schedTagStr) > 0 {
 		schedTag, _ := SchedtagManager.FetchByIdOrName("", schedTagStr)
@@ -158,7 +157,7 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		scopeQuery = hostschedtags.Query(hostschedtags.Field("host_id")).Equals("schedtag_id", schedTag.GetId()).SubQuery()
 	}
 
-	wireStr :=jsonutils.GetAnyString(query, []string{"wire", "wire_id"})
+	wireStr := jsonutils.GetAnyString(query, []string{"wire", "wire_id"})
 	if len(wireStr) > 0 {
 		wire, _ := WireManager.FetchByIdOrName("", wireStr)
 		if wire == nil {

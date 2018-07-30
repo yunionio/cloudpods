@@ -3,9 +3,9 @@ package tasks
 import (
 	"context"
 
+	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/onecloud/pkg/compute/models"
 	"github.com/yunionio/onecloud/pkg/compute/options"
 )
@@ -27,7 +27,7 @@ func (self *DiskDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 		return
 	}
-	if options.Options.EnablePendingDelete && ! disk.PendingDeleted && ! jsonutils.QueryBoolean(self.Params, "purge", false) && ! jsonutils.QueryBoolean(self.Params, "override_pending_delete", false) {
+	if options.Options.EnablePendingDelete && !disk.PendingDeleted && !jsonutils.QueryBoolean(self.Params, "purge", false) && !jsonutils.QueryBoolean(self.Params, "override_pending_delete", false) {
 		self.startPendingDeleteDisk(ctx, disk)
 	} else {
 		self.startDeleteDisk(ctx, disk)
@@ -43,7 +43,7 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 	storage := disk.GetStorage()
 	host := storage.GetMasterHost()
 	isPurge := false
-	if (host == nil || ! host.Enabled) && jsonutils.QueryBoolean(self.Params, "purge", false) {
+	if (host == nil || !host.Enabled) && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		isPurge = true
 	}
 	disk.SetStatus(self.UserCred, models.DISK_DEALLOC, "")

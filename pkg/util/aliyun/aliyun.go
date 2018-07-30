@@ -3,9 +3,9 @@ package aliyun
 import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
 )
 
 const (

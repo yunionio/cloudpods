@@ -6,9 +6,9 @@ import (
 	"path"
 
 	"github.com/yunionio/log"
-	"github.com/yunionio/structarg"
-	"github.com/yunionio/pkg/utils"
 	"github.com/yunionio/pkg/util/version"
+	"github.com/yunionio/pkg/utils"
+	"github.com/yunionio/structarg"
 )
 
 type Options struct {

@@ -22,15 +22,15 @@ func init() {
 	})
 
 	type InstanceCrateOptions struct {
-		NAME     string `help:"name of instance"`
-		IMAGE    string `help:"image ID"`
-		CPU      int    `help:"CPU count"`
-		MEMORYGB int    `help:"MemoryGB"`
-		Disk     []int  `help:"Data disk sizes int GB"`
-		STORAGE  string `help:"Storage type"`
-		VSWITCH  string `help:"Vswitch ID"`
-		PASSWD   string `help:"password"`
-		PublicKey  string `help:"PublicKey"`
+		NAME      string `help:"name of instance"`
+		IMAGE     string `help:"image ID"`
+		CPU       int    `help:"CPU count"`
+		MEMORYGB  int    `help:"MemoryGB"`
+		Disk      []int  `help:"Data disk sizes int GB"`
+		STORAGE   string `help:"Storage type"`
+		VSWITCH   string `help:"Vswitch ID"`
+		PASSWD    string `help:"password"`
+		PublicKey string `help:"PublicKey"`
 	}
 	R(&InstanceCrateOptions{}, "instance-create", "Create a instance", func(cli *aliyun.SRegion, args *InstanceCrateOptions) error {
 		instance, e := cli.CreateInstanceSimple(args.NAME, args.IMAGE, args.CPU, args.MEMORYGB, args.STORAGE, args.Disk, args.VSWITCH, args.PASSWD, args.PublicKey)

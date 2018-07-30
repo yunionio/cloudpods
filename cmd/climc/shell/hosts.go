@@ -23,6 +23,9 @@ func init() {
 		Disabled  bool   `help:"Show disabled host only"`
 		HostType  string `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv"`
 		AnyMac    string `help:"Mac matches one of the host's interface"`
+
+		Manager string `help:"Show regions belongs to the cloud provider"`
+
 		BaseListOptions
 	}
 	R(&HostListOptions{}, "host-list", "List hosts", func(s *mcclient.ClientSession, args *HostListOptions) error {
@@ -51,6 +54,11 @@ func init() {
 		if len(args.HostType) > 0 {
 			params.Add(jsonutils.NewString(args.HostType), "host_type")
 		}
+
+		if len(args.Manager) > 0 {
+			params.Add(jsonutils.NewString(args.Manager), "manager")
+		}
+
 		if args.Empty {
 			params.Add(jsonutils.JSONTrue, "is_empty")
 		} else if args.Occupied {
@@ -162,6 +170,18 @@ func init() {
 
 	R(&HostDetailOptions{}, "host-vnc", "Get VNC information of a host", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
 		result, err := modules.Hosts.GetSpecific(s, args.ID, "vnc", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type HostPropertyOptions struct {
+	}
+
+	R(&HostPropertyOptions{}, "baremetal-register-script", "Get online baremetal register script", func(s *mcclient.ClientSession, args *HostPropertyOptions) error {
+		result, err := modules.Hosts.Get(s, "bm-start-register-script", nil)
 		if err != nil {
 			return err
 		}

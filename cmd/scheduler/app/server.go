@@ -10,9 +10,9 @@ import (
 
 	"gopkg.in/gin-gonic/gin.v1"
 
-	o "github.com/yunionio/onecloud/cmd/scheduler/options"
 	"github.com/yunionio/log"
 	"github.com/yunionio/mcclient/auth"
+	o "github.com/yunionio/onecloud/cmd/scheduler/options"
 	_ "github.com/yunionio/onecloud/pkg/scheduler/algorithmprovider"
 	"github.com/yunionio/onecloud/pkg/scheduler/db/models"
 	schedhandler "github.com/yunionio/onecloud/pkg/scheduler/handler"

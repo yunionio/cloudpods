@@ -28,6 +28,7 @@ func init() {
 		PROVIDER  string `help:"Driver for cloud provider" choices:"VMware|Aliyun"`
 		AccessUrl string `help:"Access url"`
 		Desc      string `help:"Description"`
+		Enabled   bool   `help:"Enabled the provider automatically"`
 	}
 	R(&CloudproviderCreateOptions{}, "cloud-provider-create", "Create a cloud provider", func(s *mcclient.ClientSession, args *CloudproviderCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -35,6 +36,9 @@ func init() {
 		params.Add(jsonutils.NewString(args.ACCOUNT), "account")
 		params.Add(jsonutils.NewString(args.SECRET), "secret")
 		params.Add(jsonutils.NewString(args.PROVIDER), "provider")
+		if args.Enabled {
+			params.Add(jsonutils.JSONTrue, "enabled")
+		}
 		if len(args.AccessUrl) > 0 {
 			params.Add(jsonutils.NewString(args.AccessUrl), "access_url")
 		}
@@ -91,6 +95,24 @@ func init() {
 
 	R(&CloudproviderShowOptions{}, "cloud-provider-delete", "Delete a cloud provider", func(s *mcclient.ClientSession, args *CloudproviderShowOptions) error {
 		result, err := modules.Cloudproviders.Delete(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&CloudproviderShowOptions{}, "cloud-provider-enable", "Enable cloud provider", func(s *mcclient.ClientSession, args *CloudproviderShowOptions) error {
+		result, err := modules.Cloudproviders.PerformAction(s, args.ID, "enable", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&CloudproviderShowOptions{}, "cloud-provider-disable", "Disable cloud provider", func(s *mcclient.ClientSession, args *CloudproviderShowOptions) error {
+		result, err := modules.Cloudproviders.PerformAction(s, args.ID, "disable", nil)
 		if err != nil {
 			return err
 		}

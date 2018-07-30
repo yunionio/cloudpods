@@ -3,8 +3,9 @@ package aliyun
 import (
 	"strings"
 	"time"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
+
 	"github.com/yunionio/jsonutils"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
 )
 
 const (

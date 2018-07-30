@@ -2,13 +2,15 @@ package aliyun
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
-	"strings"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/models"
+
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/onecloud/pkg/compute/models"
 	"github.com/yunionio/pkg/utils"
 )
 
@@ -404,7 +406,6 @@ func (self *SRegion) GetMatchInstanceTypes(cpu int, memMB int, gpu int, zoneId s
 	return ret, nil
 }
 
-
 func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, memGB int, storageType string, dataDiskSizesGB []int, vswitchId string, passwd string, publicKey string) (*SInstance, error) {
 	izones, err := self.GetIZones()
 	if err != nil {
@@ -534,7 +535,8 @@ func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, er
 }
 
 func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
-	if self.storageCache.GetGlobalId() == id {
+	storageCache := self.getStoragecache()
+	if storageCache.GetGlobalId() == id {
 		return self.storageCache, nil
 	}
 	return nil, cloudprovider.ErrNotFound
