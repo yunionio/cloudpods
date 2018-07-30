@@ -1,0 +1,27 @@
+package guest
+
+import (
+	"github.com/yunionio/onecloud/pkg/scheduler/algorithm/priorities"
+	"github.com/yunionio/onecloud/pkg/scheduler/core"
+)
+
+type CapacityPriority struct {
+	priorities.BasePriority
+}
+
+func (p *CapacityPriority) Name() string {
+	return "host_capacity"
+}
+
+func (p *CapacityPriority) Clone() core.Priority {
+	return &CapacityPriority{}
+}
+
+func (p *CapacityPriority) Map(u *core.Unit, c core.Candidater) (core.HostPriority, error) {
+	h := priorities.NewPriorityHelper(p, u, c)
+
+	capacity := u.GetCapacity(c.IndexKey())
+	h.SetScore(50 * int(capacity))
+
+	return h.GetResult()
+}
