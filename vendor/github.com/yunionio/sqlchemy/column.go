@@ -9,6 +9,7 @@ import (
 
 	"github.com/yunionio/log"
 	"github.com/yunionio/pkg/gotypes"
+	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/util/regutils"
 	"github.com/yunionio/pkg/utils"
 )
@@ -256,14 +257,6 @@ func (c *SBooleanColumn) ConvertFromString(str string) string {
 	}
 }
 
-func (c *SBooleanColumn) ConvertToString(str string) string {
-	if str == "0" {
-		return "false"
-	} else {
-		return "true"
-	}
-}
-
 func (c *SBooleanColumn) ConvertFromValue(val interface{}) interface{} {
 	bVal := val.(bool)
 	if bVal {
@@ -273,28 +266,52 @@ func (c *SBooleanColumn) ConvertFromValue(val interface{}) interface{} {
 	}
 }
 
-func (c *SBooleanColumn) ConvertToValue(val interface{}) interface{} {
-	iVal := val.(int)
-	if iVal == 0 {
-		return false
-	} else {
-		return true
-	}
-}
-
 func (c *SBooleanColumn) IsZero(val interface{}) bool {
 	bVal := val.(bool)
 	return bVal == false
 }
 
-func (c *SBooleanColumn) IsEqual(v1, v2 interface{}) bool {
-	bVal1 := v1.(bool)
-	bVal2 := v2.(bool)
-	return bVal1 == bVal2
-}
-
 func NewBooleanColumn(name string, tagmap map[string]string) SBooleanColumn {
 	bc := SBooleanColumn{SBaseWidthColumn: NewBaseWidthColumn(name, "TINYINT", tagmap)}
+	return bc
+}
+
+type STristateColumn struct {
+	SBaseWidthColumn
+}
+
+func (c *STristateColumn) DefinitionString() string {
+	buf := definitionBuffer(c)
+	return buf.String()
+}
+
+func (c *STristateColumn) ConvertFromString(str string) string {
+	switch strings.ToLower(str) {
+	case "true", "yes", "on", "ok", "1":
+		return "1"
+	case "none", "null", "unknown":
+		return ""
+	default:
+		return "0"
+	}
+}
+
+func (c *STristateColumn) ConvertFromValue(val interface{}) interface{} {
+	bVal := val.(tristate.TriState)
+	if bVal == tristate.True {
+		return 1
+	} else {
+		return 0
+	}
+}
+
+func (c *STristateColumn) IsZero(val interface{}) bool {
+	bVal := val.(tristate.TriState)
+	return bVal == tristate.None
+}
+
+func NewTristateColumn(name string, tagmap map[string]string) STristateColumn {
+	bc := STristateColumn{SBaseWidthColumn: NewBaseWidthColumn(name, "TINYINT", tagmap)}
 	return bc
 }
 
@@ -345,32 +362,6 @@ func (c *SIntegerColumn) IsZero(val interface{}) bool {
 		return val.(uint64) == 0
 	}
 	return true
-}
-
-func (c *SIntegerColumn) IsEqual(v1, v2 interface{}) bool {
-	switch v1.(type) {
-	case int:
-		return v1.(int) == v2.(int)
-	case int8:
-		return v1.(int8) == v2.(int8)
-	case int16:
-		return v1.(int16) == v2.(int16)
-	case int32:
-		return v1.(int32) == v2.(int32)
-	case int64:
-		return v1.(int64) == v2.(int64)
-	case uint:
-		return v1.(uint) == v2.(uint)
-	case uint8:
-		return v1.(uint8) == v2.(uint8)
-	case uint16:
-		return v1.(uint16) == v2.(uint16)
-	case uint32:
-		return v1.(uint32) == v2.(uint32)
-	case uint64:
-		return v1.(uint64) == v2.(uint64)
-	}
-	return false
 }
 
 func (c *SIntegerColumn) ColType() string {
@@ -434,16 +425,6 @@ func (c *SFloatColumn) IsZero(val interface{}) bool {
 	return true
 }
 
-func (c *SFloatColumn) IsEqual(v1, v2 interface{}) bool {
-	switch v1.(type) {
-	case float32:
-		return v1.(float32) == v2.(float32)
-	case float64:
-		return v1.(float64) == v2.(float64)
-	}
-	return false
-}
-
 func NewFloatColumn(name string, sqlType string, tagmap map[string]string) SFloatColumn {
 	return SFloatColumn{SBaseColumn: NewBaseColumn(name, sqlType, tagmap)}
 }
@@ -474,16 +455,6 @@ func (c *SDecimalColumn) IsZero(val interface{}) bool {
 		return val.(float64) == 0.0
 	}
 	return true
-}
-
-func (c *SDecimalColumn) IsEqual(v1, v2 interface{}) bool {
-	switch v1.(type) {
-	case float32:
-		return v1.(float32) == v2.(float32)
-	case float64:
-		return v1.(float64) == v2.(float64)
-	}
-	return false
 }
 
 func NewDecimalColumn(name string, tagmap map[string]string) SDecimalColumn {
@@ -532,12 +503,6 @@ func (c *STextColumn) DefinitionString() string {
 func (c *STextColumn) IsZero(val interface{}) bool {
 	bVal := val.(string)
 	return len(bVal) == 0
-}
-
-func (c *STextColumn) IsEqual(v1, v2 interface{}) bool {
-	bVal1 := v1.(string)
-	bVal2 := v2.(string)
-	return bVal1 == bVal2
 }
 
 func NewTextColumn(name string, tagmap map[string]string) STextColumn {
@@ -607,12 +572,6 @@ func (c *SDateTimeColumn) IsZero(val interface{}) bool {
 	return bVal.IsZero()
 }
 
-func (c *SDateTimeColumn) IsEqual(v1, v2 interface{}) bool {
-	bVal1 := v1.(time.Time)
-	bVal2 := v2.(time.Time)
-	return bVal1.Equal(bVal2)
-}
-
 func NewDateTimeColumn(name string, tagmap map[string]string) SDateTimeColumn {
 	createdAt := false
 	updatedAt := false
@@ -637,12 +596,6 @@ func (c *CompondColumn) DefinitionString() string {
 	buf := definitionBuffer(c)
 	return buf.String()
 }
-
-/* func (c *CompondColumn) IsEqual(v1, v2 interface{}) bool {
-	bVal1 := v1.(gotypes.ISerializable)
-	bVal2 := v2.(gotypes.ISerializable)
-	return bVal1.Equals(bVal2)
-} */
 
 func (c *CompondColumn) IsZero(val interface{}) bool {
 	if val == nil {

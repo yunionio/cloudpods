@@ -9,6 +9,7 @@ import (
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 	"github.com/yunionio/pkg/gotypes"
+	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/util/timeutils"
 )
 
@@ -75,6 +76,14 @@ func setValueBySQLString(value reflect.Value, val string) error {
 			value.SetBool(false)
 		} else {
 			value.SetBool(true)
+		}
+	case tristate.TriStateType:
+		if val == "0" {
+			value.Set(tristate.TriStateFalseValue)
+		} else if val == "1" {
+			value.Set(tristate.TriStateTrueValue)
+		} else {
+			value.Set(tristate.TriStateNoneValue)
 		}
 	case gotypes.IntType, gotypes.Int8Type, gotypes.Int16Type, gotypes.Int32Type, gotypes.Int64Type:
 		valInt, err := strconv.ParseInt(val, 10, 64)
