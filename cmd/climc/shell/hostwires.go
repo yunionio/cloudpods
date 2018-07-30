@@ -10,6 +10,7 @@ func init() {
 	type HostWireListOptions struct {
 		BaseListOptions
 		Host string `help:"ID or Name of Host"`
+		Wire string `help:"ID or Name of Wire"`
 	}
 	R(&HostWireListOptions{}, "host-wire-list", "List host wire", func(s *mcclient.ClientSession, args *HostWireListOptions) error {
 		params := FetchPagingParams(args.BaseListOptions)
@@ -17,6 +18,8 @@ func init() {
 		var err error
 		if len(args.Host) > 0 {
 			result, err = modules.Hostwires.ListDescendent(s, args.Host, params)
+		} else if len(args.Wire) > 0 {
+			result, err = modules.Hostwires.ListDescendent2(s, args.Wire, params)
 		} else {
 			result, err = modules.Hostwires.List(s, params)
 		}

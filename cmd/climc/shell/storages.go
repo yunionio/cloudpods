@@ -11,9 +11,13 @@ import (
 func init() {
 	type StorageListOptions struct {
 		BaseListOptions
-		Share  bool `help:"Share storage list"`
-		Local  bool `help:"Local storage list"`
-		Usable bool `help:"Usable storage list"`
+		Share  bool   `help:"Share storage list"`
+		Local  bool   `help:"Local storage list"`
+		Usable bool   `help:"Usable storage list"`
+		Zone   string `help:"List storages in zone"`
+		Region string `help:"List storages in region"`
+
+		Manager string `help:"Show regions belongs to the cloud provider"`
 	}
 	R(&StorageListOptions{}, "storage-list", "List storages", func(s *mcclient.ClientSession, args *StorageListOptions) error {
 		params := FetchPagingParams(args.BaseListOptions)
@@ -26,7 +30,21 @@ func init() {
 		if args.Usable {
 			params.Add(jsonutils.JSONTrue, "usable")
 		}
-		result, err := modules.Storages.List(s, params)
+		if len(args.Region) > 0 {
+			params.Add(jsonutils.NewString(args.Region), "region")
+		}
+
+		if len(args.Manager) > 0 {
+			params.Add(jsonutils.NewString(args.Manager), "manager")
+		}
+
+		var result *modules.ListResult
+		var err error
+		if len(args.Zone) > 0 {
+			result, err = modules.Storages.ListInContext(s, params, &modules.Zones, args.Zone)
+		} else {
+			result, err = modules.Storages.List(s, params)
+		}
 		if err != nil {
 			return err
 		}
@@ -181,10 +199,14 @@ func init() {
 	type StorageUncacheImageActionOptions struct {
 		ID    string `help:"ID or name of storage"`
 		IMAGE string `help:"ID or name of image"`
+		Force bool   `help:"Force uncache, even if the image exists in cache"`
 	}
 	R(&StorageUncacheImageActionOptions{}, "storage-uncache-image", "Ask a storage to remove image from its cache", func(s *mcclient.ClientSession, args *StorageUncacheImageActionOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.IMAGE), "image")
+		if args.Force {
+			params.Add(jsonutils.JSONTrue, "is_force")
+		}
 		storage, err := modules.Storages.PerformAction(s, args.ID, "uncache-image", params)
 		if err != nil {
 			return err

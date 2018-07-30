@@ -5,12 +5,12 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 
+	"github.com/yunionio/log"
 	"github.com/yunionio/onecloud/pkg/cloudcommon"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/compute"
 	"github.com/yunionio/onecloud/pkg/compute/models"
 	"github.com/yunionio/onecloud/pkg/compute/options"
-	"github.com/yunionio/log"
 
 	_ "github.com/yunionio/onecloud/pkg/compute/tasks"
 

@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/yunionio/jsonutils"
+	"github.com/yunionio/log"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
 	"github.com/yunionio/onecloud/pkg/compute/models"
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
 )
 
 type GuestDeployTask struct {

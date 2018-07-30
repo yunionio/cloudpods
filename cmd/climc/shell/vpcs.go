@@ -9,10 +9,16 @@ import (
 func init() {
 	type VpcListOptions struct {
 		BaseListOptions
-		Region string `help:"ID or Name of region"`
+		Region  string `help:"ID or Name of region"`
+		Manager string `help:"Show regions belongs to the cloud provider"`
 	}
 	R(&VpcListOptions{}, "vpc-list", "List VPCs", func(s *mcclient.ClientSession, args *VpcListOptions) error {
 		params := FetchPagingParams(args.BaseListOptions)
+
+		if len(args.Manager) > 0 {
+			params.Add(jsonutils.NewString(args.Manager), "manager")
+		}
+
 		var result *modules.ListResult
 		var err error
 		if len(args.Region) > 0 {
@@ -23,24 +29,35 @@ func init() {
 		if err != nil {
 			return err
 		}
+
 		printList(result, modules.Vpcs.GetColumns(s))
 		return nil
 	})
 
 	type VpcCreateOptions struct {
-		REGION string `help:"ID or name of the region where the VPC is created"`
-		Id     string `help:"ID of the new VPC"`
-		NAME   string `help:"Name of the VPC"`
-		Desc   string `help:"Description of the VPC"`
+		REGION  string `help:"ID or name of the region where the VPC is created"`
+		Id      string `help:"ID of the new VPC"`
+		NAME    string `help:"Name of the VPC"`
+		CIDR    string `help:"CIDR block"`
+		Default bool   `help:"default VPC for the region" default:"false"`
+		Desc    string `help:"Description of the VPC"`
+		Manager string `help:"ID or Name of Cloud provider"`
 	}
 	R(&VpcCreateOptions{}, "vpc-create", "Create a VPC", func(s *mcclient.ClientSession, args *VpcCreateOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.NAME), "name")
+		params.Add(jsonutils.NewString(args.CIDR), "cidr_block")
 		if len(args.Id) > 0 {
 			params.Add(jsonutils.NewString(args.Id), "id")
 		}
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
+		}
+		if args.Default {
+			params.Add(jsonutils.JSONTrue, "is_default")
+		}
+		if len(args.Manager) > 0 {
+			params.Add(jsonutils.NewString(args.Manager), "manager")
 		}
 		results, err := modules.Vpcs.CreateInContext(s, params, &modules.Cloudregions, args.REGION)
 		if err != nil {
@@ -110,6 +127,15 @@ func init() {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString("pending"), "status")
 		result, err := modules.Vpcs.PerformAction(s, args.ID, "status", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&VpcUpdateStatusOptions{}, "vpc-purge", "Purge a managed VPC, not delete the remote entity", func(s *mcclient.ClientSession, args *VpcUpdateStatusOptions) error {
+		result, err := modules.Vpcs.PerformAction(s, args.ID, "purge", nil)
 		if err != nil {
 			return err
 		}

@@ -2,8 +2,9 @@ package aliyun
 
 import (
 	"fmt"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
+
 	"github.com/yunionio/log"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
 )
 
 type SWire struct {

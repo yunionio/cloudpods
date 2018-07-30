@@ -9,9 +9,25 @@ import (
 func init() {
 	type CloudregionListOptions struct {
 		BaseListOptions
+		Private bool   `help:"show private cloud regions only"`
+		Public  bool   `help:"show public cloud regions only"`
+		Manager string `help:"Show regions belongs to the cloud provider"`
+		Usable  bool   `help:"List regions that are usable"`
 	}
 	R(&CloudregionListOptions{}, "cloud-region-list", "List cloud regions", func(s *mcclient.ClientSession, args *CloudregionListOptions) error {
 		params := FetchPagingParams(args.BaseListOptions)
+		if args.Usable {
+			params.Add(jsonutils.JSONTrue, "usable")
+		}
+		if args.Private {
+			params.Add(jsonutils.JSONTrue, "is_private")
+		}
+		if args.Public {
+			params.Add(jsonutils.JSONTrue, "is_public")
+		}
+		if len(args.Manager) > 0 {
+			params.Add(jsonutils.NewString(args.Manager), "manager")
+		}
 		result, err := modules.Cloudregions.List(s, params)
 		if err != nil {
 			return err

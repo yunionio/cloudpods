@@ -1,8 +1,8 @@
 package provider
 
 import (
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/jsonutils"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	// "github.com/yunionio/log"
 	"github.com/yunionio/onecloud/pkg/util/aliyun"
 )

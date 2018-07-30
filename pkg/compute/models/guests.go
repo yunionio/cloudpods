@@ -1942,7 +1942,7 @@ func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.Token
 	for _, guestdisk := range self.GetDisks() {
 		disk := guestdisk.GetDisk()
 		storage := disk.GetStorage()
-		if utils.IsInStringArray(storage.StorageType, sysutils.LOCAL_STORAGE_TYPES) {
+		if utils.IsInStringArray(storage.StorageType, sysutils.LOCAL_STORAGE_TYPES) || disk.DiskType == DISK_TYPE_SYS || disk.DiskType == DISK_TYPE_SWAP {
 			disk.DoPendingDelete(ctx, userCred)
 		} else {
 			self.detachDisk(ctx, disk, userCred)

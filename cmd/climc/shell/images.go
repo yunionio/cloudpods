@@ -136,13 +136,10 @@ func init() {
 		if args.PendingDelete {
 			params.Add(jsonutils.JSONTrue, "pending_delete")
 		}
-		if !args.Admin && len(args.Tenant) == 0 {
-			if s.IsSystemAdmin() {
-				params.Add(jsonutils.NewString(s.GetTenantId()), "owner")
-			}
-		} else if !s.IsSystemAdmin() {
-			return fmt.Errorf("System admin ONLY options")
-		} else if len(args.Tenant) > 0 {
+		if args.Admin {
+			params.Add(jsonutils.JSONTrue, "admin")
+		}
+		if len(args.Tenant) > 0 {
 			tid, e := modules.Projects.GetId(s, args.Tenant, nil)
 			if e != nil {
 				return e

@@ -34,6 +34,7 @@ type BaseListOptions struct {
 	System        bool     `help:"Show system resource"`
 	PendingDelete bool     `help:"Show pending deleted resource"`
 	Field         []string `help:"Show only specified fields"`
+	ShowEmulated  bool     `help:"Show all resources including the emulated resources"`
 }
 
 func FetchPagingParams(options BaseListOptions) *jsonutils.JSONDict {
@@ -101,6 +102,9 @@ func FetchPagingParams(options BaseListOptions) *jsonutils.JSONDict {
 			arr.Add(jsonutils.NewString(f))
 		}
 		params.Add(arr, "field")
+	}
+	if options.ShowEmulated {
+		params.Add(jsonutils.JSONTrue, "show_emulated")
 	}
 	return params
 }

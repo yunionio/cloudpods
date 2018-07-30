@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
 	"time"
 
 	"github.com/aokoli/goutils"
 	"golang.org/x/crypto/ssh"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/models"
+
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/onecloud/pkg/compute/models"
 )
 
 type SHost struct {

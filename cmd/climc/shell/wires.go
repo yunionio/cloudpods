@@ -9,10 +9,21 @@ import (
 func init() {
 	type WireListOptions struct {
 		BaseListOptions
+		Zone string `help:"list wires in zone"`
+		Vpc  string `help:"List wires in vpc"`
 	}
 	R(&WireListOptions{}, "wire-list", "List wires", func(s *mcclient.ClientSession, args *WireListOptions) error {
 		params := FetchPagingParams(args.BaseListOptions)
-		result, err := modules.Wires.List(s, params)
+		if len(args.Vpc) > 0 {
+			params.Add(jsonutils.NewString(args.Vpc), "vpc")
+		}
+		var result *modules.ListResult
+		var err error
+		if len(args.Zone) > 0 {
+			result, err = modules.Wires.ListInContext(s, params, &modules.Zones, args.Zone)
+		} else {
+			result, err = modules.Wires.List(s, params)
+		}
 		if err != nil {
 			return err
 		}
@@ -59,7 +70,9 @@ func init() {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.NAME), "name")
 		params.Add(jsonutils.NewInt(args.BW), "bandwidth")
-		params.Add(jsonutils.NewString(args.Vpc), "vpc")
+		if len(args.Vpc) > 0 {
+			params.Add(jsonutils.NewString(args.Vpc), "vpc")
+		}
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
 		}

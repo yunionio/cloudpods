@@ -3,14 +3,15 @@ package models
 import (
 	"context"
 	"database/sql"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
+
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 	"github.com/yunionio/mcclient"
-	"github.com/yunionio/sqlchemy"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/pkg/httperrors"
+	"github.com/yunionio/sqlchemy"
 )
 
 type SStoragecacheManager struct {
@@ -165,7 +166,7 @@ func (self *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcc
 }
 
 func (self *SStoragecache) StartImageUncacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, isForce bool, parentTaskId string) error {
-	if ! isForce {
+	if !isForce {
 		err := self.ValidateDeleteCondition(ctx)
 		if err != nil {
 			return err
@@ -218,7 +219,6 @@ func (self *SStoragecache) ValidateDeleteCondition(ctx context.Context) error {
 	}
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
-
 
 func (self *SStoragecache) AllowPerformUncacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return userCred.IsSystemAdmin()

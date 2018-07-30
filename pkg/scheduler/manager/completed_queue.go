@@ -3,8 +3,8 @@ package manager
 import (
 	"time"
 
-	o "github.com/yunionio/onecloud/cmd/scheduler/options"
 	"github.com/yunionio/log"
+	o "github.com/yunionio/onecloud/cmd/scheduler/options"
 	"github.com/yunionio/onecloud/pkg/scheduler/api"
 	"github.com/yunionio/pkg/utils"
 )

@@ -678,4 +678,44 @@ func init() {
 		return nil
 	})
 
+	type ServerInsertISOOptions struct {
+		ID  string `help:"server ID or Name"`
+		ISO string `help:"Glance image ID of the ISO"`
+	}
+	R(&ServerInsertISOOptions{}, "server-insert-iso", "Insert an ISO image into server's cdrom", func(s *mcclient.ClientSession, args *ServerInsertISOOptions) error {
+		img, err := modules.Images.Get(s, args.ISO, nil)
+		if err != nil {
+			return err
+		}
+		imgId, err := img.GetString("id")
+		if err != nil {
+			return err
+		}
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(imgId), "image_id")
+		result, err := modules.Servers.PerformAction(s, args.ID, "insertiso", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&ServerShowOptions{}, "server-eject-iso", "Eject iso from servers' cdrom", func(s *mcclient.ClientSession, args *ServerShowOptions) error {
+		result, err := modules.Servers.PerformAction(s, args.ID, "ejectiso", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&ServerShowOptions{}, "server-iso", "Show server's mounting ISO information", func(s *mcclient.ClientSession, args *ServerShowOptions) error {
+		results, err := modules.Servers.GetSpecific(s, args.ID, "iso", nil)
+		if err != nil {
+			return err
+		}
+		printObject(results)
+		return nil
+	})
 }

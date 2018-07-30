@@ -101,7 +101,7 @@ func (self *SAliyunGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *mo
 			imageId := disk.GetTemplateId()
 			scimg := models.StoragecachedimageManager.GetStoragecachedimage(cache.Id, imageId)
 			config.ExternalImageId = scimg.ExternalId
-			config.SysDiskSize = disk.DiskSize
+			config.SysDiskSize = disk.DiskSize / 1024 // MB => GB
 		} else {
 			config.DataDisks[i-1] = disk.DiskSize / 1024 // MB => GB
 		}
