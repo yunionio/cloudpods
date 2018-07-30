@@ -159,6 +159,10 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 				// add resource
 				reservedNetworks := 0
 				counter := counterOfNetwork(u, net, reservedNetworks)
+				if counter.GetCount() < d.Count {
+					errMsgs = append(errMsgs, fmt.Sprintf("%s: ports not enough, free: %d, required: %d", net.Name, counter.GetCount(), d.Count))
+					continue
+				}
 				p.SelectedNetworks.Store(net.ID, counter.GetCount())
 				counters.Add(counter)
 				return ""
