@@ -30,7 +30,8 @@
   version = "0.2.2"
 
 [[constraint]]
-  branch = "master"
+  #branch = "master"
+  revision = "1edf0ca607c9e49be4705bd3628b2165d7ffee3c"
   name = "github.com/yunionio/jsonutils"
 
 [[constraint]]

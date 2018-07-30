@@ -83,3 +83,13 @@ func CheckRequiredFields(data JSONObject, fields []string) error {
 	}
 	return nil
 }
+
+func GetAnyString(json JSONObject, keys []string) string {
+	for _, key := range keys {
+		val, _ := json.GetString(key)
+		if len(val) > 0 {
+			return val
+		}
+	}
+	return ""
+}

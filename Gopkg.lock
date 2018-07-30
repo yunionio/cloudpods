@@ -2,6 +2,46 @@
 
 
 [[projects]]
+  name = "github.com/aliyun/alibaba-cloud-sdk-go"
+  packages = [
+    "sdk",
+    "sdk/auth",
+    "sdk/auth/credentials",
+    "sdk/auth/signers",
+    "sdk/endpoints",
+    "sdk/errors",
+    "sdk/requests",
+    "sdk/responses",
+    "sdk/utils"
+  ]
+  revision = "f53c66e9cf53d68bcf063643c09cc667efa0e613"
+  version = "1.23.3"
+
+[[projects]]
+  name = "github.com/aliyun/aliyun-oss-go-sdk"
+  packages = ["oss"]
+  revision = "36bf7aa2f916f274137aedd05d1d36f6a3c0f4a6"
+  version = "1.9.0"
+
+[[projects]]
+  name = "github.com/aokoli/goutils"
+  packages = ["."]
+  revision = "3391d3790d23d03408670993e957e8f408993c34"
+  version = "v1.0.1"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/beorn7/perks"
+  packages = ["quantile"]
+  revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
+
+[[projects]]
+  name = "github.com/bitly/go-simplejson"
+  packages = ["."]
+  revision = "aabad6e819789e569bd6aabf444c935aa9ba1e44"
+  version = "v0.5.0"
+
+[[projects]]
   name = "github.com/c-bata/go-prompt"
   packages = ["."]
   revision = "c52492ff1b386e5c0ba5271b5eaad165fab09eca"
@@ -12,6 +52,27 @@
   packages = ["."]
   revision = "5b77d2a35fb0ede96d138fc9a99f5c9b6aef11b4"
   version = "v1.7.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/gin-contrib/sse"
+  packages = ["."]
+  revision = "22d885f9ecc78bf4ee5d72b937e4bbcdc58e8cae"
+
+[[projects]]
+  name = "github.com/gin-gonic/gin"
+  packages = [
+    "binding",
+    "render"
+  ]
+  revision = "d459835d2b077e44f7c9b453505ee29881d5d12d"
+  version = "v1.2"
+
+[[projects]]
+  name = "github.com/go-sql-driver/mysql"
+  packages = ["."]
+  revision = "d523deb1b23d913de5bdada721a6071e71283618"
+  version = "v1.4.0"
 
 [[projects]]
   name = "github.com/golang-plus/errors"
@@ -33,6 +94,39 @@
   ]
   revision = "a0510c37ef1f49c8290c3a9911d0f7f9ed24d335"
   version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/golang/protobuf"
+  packages = ["proto"]
+  revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
+  version = "v1.1.0"
+
+[[projects]]
+  name = "github.com/jinzhu/gorm"
+  packages = [
+    ".",
+    "dialects/mysql"
+  ]
+  revision = "6ed508ec6a4ecb3531899a69cbc746ccf65a4166"
+  version = "v1.9.1"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/jinzhu/inflection"
+  packages = ["."]
+  revision = "04140366298a54a039076d798123ffa108fff46c"
+
+[[projects]]
+  name = "github.com/jmespath/go-jmespath"
+  packages = ["."]
+  revision = "3433f3ea46d9f8019119e7dd41274e112a2359a9"
+  version = "0.2.2"
+
+[[projects]]
+  name = "github.com/json-iterator/go"
+  packages = ["."]
+  revision = "ab8a2e0c74be9d3be70b3184d9acc634935ded82"
+  version = "1.1.4"
 
 [[projects]]
   name = "github.com/mattn/go-colorable"
@@ -59,10 +153,28 @@
   revision = "931426f7535ac39720c8909d70ece5a41a2502a6"
 
 [[projects]]
+  name = "github.com/matttproud/golang_protobuf_extensions"
+  packages = ["pbutil"]
+  revision = "c12348ce28de40eed0136aa2b644d0ee0650e56c"
+  version = "v1.0.1"
+
+[[projects]]
   branch = "master"
   name = "github.com/mgutz/ansi"
   packages = ["."]
   revision = "9520e82c474b0a04dd04f8a40959027271bab992"
+
+[[projects]]
+  name = "github.com/modern-go/concurrent"
+  packages = ["."]
+  revision = "bacd9c7ef1dd9b15be4a9909b8ac7a4e313eec94"
+  version = "1.0.3"
+
+[[projects]]
+  name = "github.com/modern-go/reflect2"
+  packages = ["."]
+  revision = "4b7aa43c6742a2c18fdef89dd197aaae7dac7ccd"
+  version = "1.0.1"
 
 [[projects]]
   branch = "master"
@@ -77,16 +189,60 @@
   revision = "cda20d4ac917ad418d86e151eff439648b06185b"
 
 [[projects]]
+  name = "github.com/prometheus/client_golang"
+  packages = ["prometheus"]
+  revision = "c5b7fccd204277076155f10851dad72b76a49317"
+  version = "v0.8.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/prometheus/client_model"
+  packages = ["go"]
+  revision = "5c3871d89910bfb32f5fcab2aa4b9ec68e65a99f"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/prometheus/common"
+  packages = [
+    "expfmt",
+    "internal/bitbucket.org/ww/goautoneg",
+    "model"
+  ]
+  revision = "7600349dcfe1abd18d72d3a1770870d9800a7801"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/prometheus/procfs"
+  packages = [
+    ".",
+    "internal/util",
+    "nfs",
+    "xfs"
+  ]
+  revision = "05ee40e3a273f7245e8777337fc7b46e533a9a92"
+
+[[projects]]
+  name = "github.com/satori/go.uuid"
+  packages = ["."]
+  revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
+  version = "v1.2.0"
+
+[[projects]]
   name = "github.com/sirupsen/logrus"
   packages = ["."]
   revision = "3e01752db0189b9157070a0e1668a620f9a85da2"
   version = "v1.0.6"
 
 [[projects]]
-  branch = "master"
+  name = "github.com/ugorji/go"
+  packages = ["codec"]
+  revision = "b4c50a2b199d93b13dc15e78929cfb23bfdf21ab"
+  version = "v1.1.1"
+
+[[projects]]
   name = "github.com/yunionio/jsonutils"
   packages = ["."]
-  revision = "7cd91af9430db0aeb6b67cfe4dacfc7de91151d7"
+  revision = "1edf0ca607c9e49be4705bd3628b2165d7ffee3c"
 
 [[projects]]
   branch = "master"
@@ -102,6 +258,7 @@
   name = "github.com/yunionio/mcclient"
   packages = [
     ".",
+    "auth",
     "modules"
   ]
   revision = "3d730c039309cb732abc9946a08fcb1924f51123"
@@ -111,19 +268,51 @@
   name = "github.com/yunionio/pkg"
   packages = [
     "appctx",
+    "appsrv",
+    "appsrv/dispatcher",
     "gotypes",
     "httperrors",
     "prettytable",
+    "proxy",
     "trace",
+    "tristate",
+    "util/cache",
+    "util/clock",
+    "util/compare",
+    "util/errors",
+    "util/fifoutils",
+    "util/fileutils",
+    "util/filterclause",
+    "util/gin/middleware",
+    "util/goroutine_pool",
     "util/httputils",
+    "util/netutils",
+    "util/osprofile",
     "util/printjson",
+    "util/prometheus",
     "util/reflectutils",
     "util/regutils",
+    "util/runtime",
+    "util/seclib",
+    "util/secrules",
+    "util/sets",
+    "util/stringutils",
+    "util/sysutils",
     "util/timeutils",
+    "util/trace",
+    "util/ttlpool",
     "util/version",
+    "util/wait",
+    "util/workqueue",
     "utils"
   ]
-  revision = "a9fe773152c59ad791606358e2d16564971e2d52"
+  revision = "e3d49929d3d3ae3aeea77b188a03e5107f5a8b7e"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/yunionio/sqlchemy"
+  packages = ["."]
+  revision = "9e57e4fa1e915d46e299155f065a954cd7a07e7f"
 
 [[projects]]
   branch = "master"
@@ -134,7 +323,16 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = ["ssh/terminal"]
+  packages = [
+    "curve25519",
+    "ed25519",
+    "ed25519/internal/edwards25519",
+    "internal/chacha20",
+    "internal/subtle",
+    "poly1305",
+    "ssh",
+    "ssh/terminal"
+  ]
   revision = "c126467f60eb25f8f27e5a981f32a87e3965053f"
 
 [[projects]]
@@ -146,9 +344,33 @@
   ]
   revision = "e072cadbbdc8dd3d3ffa82b8b4b9304c261d9311"
 
+[[projects]]
+  name = "google.golang.org/appengine"
+  packages = ["cloudsql"]
+  revision = "b1f26356af11148e710935ed1ac8a7f5702c7612"
+  version = "v1.1.0"
+
+[[projects]]
+  name = "gopkg.in/gin-gonic/gin.v1"
+  packages = ["."]
+  revision = "d459835d2b077e44f7c9b453505ee29881d5d12d"
+  version = "v1.2"
+
+[[projects]]
+  name = "gopkg.in/go-playground/validator.v8"
+  packages = ["."]
+  revision = "5f1438d3fca68893a817e4a66806cea46a9e4ebf"
+  version = "v8.18.2"
+
+[[projects]]
+  name = "gopkg.in/yaml.v2"
+  packages = ["."]
+  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
+  version = "v2.2.1"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a8e21ab20315647cbb38a160c9591d9567ff029229416f50892a45d84692ee3c"
+  inputs-digest = "de3d4429983b4807a82bb7dc8f29a34fff78db2ef986739c4cbd73a6c0a2bf06"
   solver-name = "gps-cdcl"
   solver-version = 1

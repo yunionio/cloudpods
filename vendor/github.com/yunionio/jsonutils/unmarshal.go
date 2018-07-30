@@ -1,13 +1,22 @@
 package jsonutils
 
+/**
+jsonutils.Unmarshal
+
+Fill the value of JSONObject into any object
+
+*/
+
 import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/yunionio/log"
 	"github.com/yunionio/pkg/gotypes"
+	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/util/reflectutils"
 	"github.com/yunionio/pkg/util/timeutils"
 	"github.com/yunionio/pkg/utils"
@@ -72,6 +81,12 @@ func (this *JSONInt) unmarshalValue(val reflect.Value) error {
 		return nil
 	case JSONBoolType, JSONFloatType, JSONArrayType, JSONDictType, JSONBoolPtrType, JSONFloatPtrType, JSONArrayPtrType, JSONDictPtrType:
 		return fmt.Errorf("JSONInt type mismatch %s", val.Type())
+	case tristate.TriStateType:
+		if this.data == 0 {
+			val.Set(tristate.TriStateFalseValue)
+		} else {
+			val.Set(tristate.TriStateTrueValue)
+		}
 	}
 	switch val.Kind() {
 	case reflect.Int, reflect.Uint, reflect.Int8, reflect.Uint8,
@@ -118,6 +133,12 @@ func (this *JSONBool) unmarshalValue(val reflect.Value) error {
 		return nil
 	case JSONIntType, JSONFloatType, JSONArrayType, JSONDictType, JSONIntPtrType, JSONFloatPtrType, JSONArrayPtrType, JSONDictPtrType:
 		return fmt.Errorf("JSONBool type mismatch %s", val.Type())
+	case tristate.TriStateType:
+		if this.data {
+			val.Set(tristate.TriStateTrueValue)
+		} else {
+			val.Set(tristate.TriStateFalseValue)
+		}
 	}
 	switch val.Kind() {
 	case reflect.Int, reflect.Uint, reflect.Int8, reflect.Uint8,
@@ -183,8 +204,18 @@ func (this *JSONFloat) unmarshalValue(val reflect.Value) error {
 			json.data = int64(this.data)
 		}
 		return nil
-	case JSONBoolType, JSONArrayType, JSONDictType, JSONBoolPtrType, JSONArrayPtrType, JSONDictPtrType:
+	case JSONBoolType:
+		json := val.Interface().(JSONBool)
+		json.data = (int(this.data) != 0)
+		return nil
+	case JSONArrayType, JSONDictType, JSONBoolPtrType, JSONArrayPtrType, JSONDictPtrType:
 		return fmt.Errorf("JSONFloat type mismatch %s", val.Type())
+	case tristate.TriStateType:
+		if int(this.data) == 0 {
+			val.Set(tristate.TriStateFalseValue)
+		} else {
+			val.Set(tristate.TriStateTrueValue)
+		}
 	}
 	switch val.Kind() {
 	case reflect.Int, reflect.Uint, reflect.Int8, reflect.Uint8,
@@ -228,9 +259,42 @@ func (this *JSONString) unmarshalValue(val reflect.Value) error {
 		}
 		val.Set(reflect.ValueOf(tm))
 		return nil
-	case JSONBoolType, JSONIntType, JSONFloatType, JSONArrayType, JSONDictType,
+	case JSONBoolType:
+		json := val.Interface().(JSONBool)
+		switch strings.ToLower(this.data) {
+		case "true", "yes", "on", "1":
+			json.data = true
+		default:
+			json.data = false
+		}
+		return nil
+	case JSONBoolPtrType:
+		json := val.Interface().(*JSONBool)
+		var data bool
+		switch strings.ToLower(this.data) {
+		case "true", "yes", "on", "1":
+			data = true
+		default:
+			data = false
+		}
+		if json == nil {
+			json = &JSONBool{data: data}
+		} else {
+			json.data = data
+		}
+		return nil
+	case JSONIntType, JSONFloatType, JSONArrayType, JSONDictType,
 		JSONBoolPtrType, JSONIntPtrType, JSONFloatPtrType, JSONArrayPtrType, JSONDictPtrType:
 		return fmt.Errorf("JSONString type mismatch %s", val.Type())
+	case tristate.TriStateType:
+		switch strings.ToLower(this.data) {
+		case "true", "yes", "on", "1":
+			val.Set(tristate.TriStateTrueValue)
+		case "false", "no", "off", "0":
+			val.Set(tristate.TriStateFalseValue)
+		default:
+			val.Set(tristate.TriStateNoneValue)
+		}
 	}
 	switch val.Kind() {
 	case reflect.Int, reflect.Uint, reflect.Int8, reflect.Uint8,
