@@ -14,6 +14,7 @@ import (
 	"github.com/yunionio/mcclient"
 	"github.com/yunionio/mcclient/auth"
 	"github.com/yunionio/pkg/httperrors"
+	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/util/compare"
 	"github.com/yunionio/pkg/util/fileutils"
 	"github.com/yunionio/pkg/util/osprofile"
@@ -113,8 +114,9 @@ const (
 var VM_RUNNING_STATUS = []string{VM_START_START, VM_STARTING, VM_RUNNING, VM_SNAPSHOT_STREAM}
 var VM_CREATING_STATUS = []string{VM_CREATE_NETWORK, VM_CREATE_DISK, VM_START_DEPLOY, VM_DEPLOYING}
 
-// var HYPERVISORS = []string{HYPERVISOR_KVM, HYPERVISOR_BAREMETAL, HYPERVISOR_ESXI, HYPERVISOR_CONTAINER, HYPERVISOR_ALIYUN}
-var HYPERVISORS = []string{HYPERVISOR_ALIYUN}
+var HYPERVISORS = []string{HYPERVISOR_KVM, HYPERVISOR_BAREMETAL, HYPERVISOR_ESXI, HYPERVISOR_CONTAINER, HYPERVISOR_ALIYUN}
+
+// var HYPERVISORS = []string{HYPERVISOR_ALIYUN}
 
 var HYPERVISOR_HOSTTYPE = map[string]string{
 	HYPERVISOR_KVM:       HOST_TYPE_HYPERVISOR,
@@ -151,8 +153,8 @@ type SGuest struct {
 
 	BootOrder string `width:"8" charset:"ascii" nullable:"true" default:"cdn" list:"user" update:"user" create:"optional"` // Column(VARCHAR(8, charset='ascii'), nullable=True, default='cdn')
 
-	DisableDelete    bool   `nullable:"false" default:"true" list:"user" update:"user" create:"optional"`           // Column(Boolean, nullable=False, default=True)
-	ShutdownBehavior string `width:"16" charset:"ascii" default:"stop" list:"user" update:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), default=SHUTDOWN_STOP)
+	DisableDelete    tristate.TriState `nullable:"false" default:"true" list:"user" update:"user" create:"optional"`           // Column(Boolean, nullable=False, default=True)
+	ShutdownBehavior string            `width:"16" charset:"ascii" default:"stop" list:"user" update:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), default=SHUTDOWN_STOP)
 
 	KeypairId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
 
@@ -322,7 +324,7 @@ func (guest *SGuest) GetDriver() IGuestDriver {
 }
 
 func (guest *SGuest) ValidateDeleteCondition(ctx context.Context) error {
-	if guest.DisableDelete {
+	if guest.DisableDelete.IsTrue() {
 		return fmt.Errorf("Virtual server is locked, cannot delete")
 	}
 	return guest.SVirtualResourceBase.ValidateDeleteCondition(ctx)
@@ -785,17 +787,6 @@ func getGuestResourceRequirements(ctx context.Context, userCred mcclient.TokenCr
 func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	guest.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 
-	log.Debugf("POST Create %s", data)
-	if data.Contains("disable_delete") {
-		_, err := guest.GetModelManager().TableSpec().Update(guest, func() error {
-			guest.DisableDelete = jsonutils.QueryBoolean(data, "disable_delete", true)
-			return nil
-		})
-		if err != nil {
-			log.Errorf("save disable_delete failed: %s", err)
-		}
-	}
-
 	osProfileJson, _ := data.Get("__os_profile__")
 	if osProfileJson != nil {
 		guest.setOSProfile(ctx, userCred, osProfileJson)
@@ -947,6 +938,8 @@ func (self *SGuest) getDiskSize() int {
 
 func (self *SGuest) getCdrom() *SGuestcdrom {
 	cdrom := SGuestcdrom{}
+	cdrom.SetModelManager(GuestcdromManager)
+
 	err := GuestcdromManager.Query().Equals("id", self.Id).First(&cdrom)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -1117,6 +1110,8 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		self.ProjectId = userCred.GetProjectId()
 		self.Hypervisor = extVM.GetHypervisor()
 
+		self.IsEmulated = extVM.IsEmulated()
+
 		return nil
 	})
 	if err != nil {
@@ -1149,6 +1144,8 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.Bios = extVM.GetBios()
 	guest.Machine = extVM.GetMachine()
 	guest.Hypervisor = extVM.GetHypervisor()
+
+	guest.IsEmulated = extVM.IsEmulated()
 
 	guest.HostId = host.Id
 	guest.ProjectId = userCred.GetProjectId()
@@ -2113,7 +2110,7 @@ func (self *SGuest) getVga() string {
 	return "std"
 }
 
-func (self *SGuest) getVdi() string {
+func (self *SGuest) GetVdi() string {
 	if utils.IsInStringArray(self.Vdi, []string{"vnc", "spice"}) {
 		return self.Vdi
 	}
@@ -2153,7 +2150,7 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 	desc.Add(jsonutils.NewInt(int64(self.VmemSize)), "mem")
 	desc.Add(jsonutils.NewInt(int64(self.VcpuCount)), "cpu")
 	desc.Add(jsonutils.NewString(self.getVga()), "vga")
-	desc.Add(jsonutils.NewString(self.getVdi()), "vdi")
+	desc.Add(jsonutils.NewString(self.GetVdi()), "vdi")
 	desc.Add(jsonutils.NewString(self.getMachine()), "machine")
 	desc.Add(jsonutils.NewString(self.getBios()), "bios")
 	desc.Add(jsonutils.NewString(self.BootOrder), "boot_order")
@@ -2541,5 +2538,17 @@ func (self *SGuest) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (model *SGuestManager) AllowPerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SGuest) GetKeypairPublicKey() string {
+	keypair := self.getKeypair()
+	if keypair != nil {
+		return keypair.PublicKey
+	}
+	return ""
+}
+
+func (model *SGuest) AllowPerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return userCred.IsSystemAdmin()
 }

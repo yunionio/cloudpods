@@ -40,12 +40,16 @@ func (dispatcher *DBModelDispatcher) KeywordPlural() string {
 	return dispatcher.modelManager.KeywordPlural()
 }
 
-func (dispatcher *DBModelDispatcher) ContextKeywordPlural() string {
-	ctxMan := dispatcher.modelManager.GetContextManager()
-	if ctxMan != nil {
-		return ctxMan.KeywordPlural()
+func (dispatcher *DBModelDispatcher) ContextKeywordPlural() []string {
+	ctxMans := dispatcher.modelManager.GetContextManager()
+	if ctxMans != nil {
+		keys := make([]string, len(ctxMans))
+		for i := 0; i < len(ctxMans); i += 1 {
+			keys[i] = ctxMans[i].KeywordPlural()
+		}
+		return keys
 	}
-	return ""
+	return nil
 }
 
 /*
@@ -332,21 +336,34 @@ func query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 }
 
 func fetchContextObjectId(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, ctxId string, queryDict *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	ctxMan := manager.GetContextManager()
-	if ctxMan == nil {
+	ctxMans := manager.GetContextManager()
+	if ctxMans == nil {
 		return nil, fmt.Errorf("No context manager")
 	}
-	ctxObj, err := fetchItem(ctxMan, ctx, userCred, ctxId, nil)
-	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError("Resource %s %s not found", ctxMan.Keyword(), ctxId)
-	} else if err != nil {
-		return nil, err
+	find := false
+	keys := make([]string, 0)
+	for i := 0; i < len(ctxMans); i += 1 {
+		ctxObj, err := fetchItem(ctxMans[i], ctx, userCred, ctxId, nil)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				keys = append(keys, ctxMans[i].KeywordPlural())
+				continue
+			} else {
+				return nil, err
+			}
+		} else {
+			find = true
+			queryDict.Add(jsonutils.NewString(ctxObj.GetId()), fmt.Sprintf("%s_id", ctxObj.GetModelManager().Keyword()))
+			if len(ctxObj.GetModelManager().Alias()) > 0 {
+				queryDict.Add(jsonutils.NewString(ctxObj.GetId()), fmt.Sprintf("%s_id", ctxObj.GetModelManager().Alias()))
+			}
+		}
 	}
-	queryDict.Add(jsonutils.NewString(ctxObj.GetId()), fmt.Sprintf("%s_id", ctxObj.GetModelManager().Keyword()))
-	if len(ctxObj.GetModelManager().Alias()) > 0 {
-		queryDict.Add(jsonutils.NewString(ctxObj.GetId()), fmt.Sprintf("%s_id", ctxObj.GetModelManager().Alias()))
+	if !find {
+		return nil, httperrors.NewResourceNotFoundError("Resource %s not found in %s", ctxId, strings.Join(keys, ", "))
+	} else {
+		return queryDict, nil
 	}
-	return queryDict, nil
 }
 
 func listItems(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, ctxId string) (*modules.ListResult, error) {
@@ -439,6 +456,12 @@ func getModelExtraDetails(item IModel, ctx context.Context, extra *jsonutils.JSO
 		extra.Add(jsonutils.JSONFalse, "can_delete")
 	} else {
 		extra.Add(jsonutils.JSONTrue, "can_delete")
+	}
+	err = item.ValidateUpdateCondition(ctx)
+	if err != nil {
+		extra.Add(jsonutils.JSONFalse, "can_update")
+	} else {
+		extra.Add(jsonutils.JSONTrue, "can_update")
 	}
 	return extra
 }
@@ -584,7 +607,7 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 func fetchOwnerProjectId(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) (string, error) {
 	var projId string
 	if data != nil {
-		projId, _ := data.GetString("project")
+		projId, _ = data.GetString("project")
 		if len(projId) == 0 {
 			projId, _ = data.GetString("tenant")
 		}
@@ -726,13 +749,13 @@ func expandMultiCreateParams(data jsonutils.JSONObject, count int) ([]jsonutils.
 	if !ok {
 		return nil, httperrors.NewInputParameterError("body is not a json?")
 	}
-	name, _ := jsonDict.GetString("generated_name")
+	name, _ := jsonDict.GetString("generate_name")
 	if len(name) == 0 {
 		name, _ = jsonDict.GetString("name")
 		if len(name) == 0 {
 			return nil, httperrors.NewInputParameterError("Missing name or generate_name")
 		}
-		jsonDict.Add(jsonutils.NewString(name), "generated_name")
+		jsonDict.Add(jsonutils.NewString(name), "generate_name")
 		jsonDict.Remove("name", false)
 	}
 	ret := make([]jsonutils.JSONObject, count)
@@ -799,7 +822,9 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		}
 		results[i] = result
 	}
-	dispatcher.modelManager.OnCreateComplete(ctx, models, userCred, query, data)
+	if len(models) > 0 {
+		dispatcher.modelManager.OnCreateComplete(ctx, models, userCred, query, data)
+	}
 	return results, nil
 }
 
@@ -918,11 +943,20 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 	if !item.AllowUpdateItem(ctx, userCred) {
 		return nil, httperrors.NewForbiddenError(fmt.Sprintf("Not allow to update item"))
 	}
+
+	var err error
+
+	err = item.ValidateUpdateCondition(ctx)
+
+	if err != nil {
+		log.Errorf("validate update condition error: %s", err)
+		return nil, httperrors.NewGeneralError(err)
+	}
+
 	dataDict, ok := data.(*jsonutils.JSONDict)
 	if !ok {
 		return nil, httperrors.NewInternalServerError("Invalid data JSONObject")
 	}
-	var err error
 
 	name, _ := data.GetString("name")
 	if len(name) > 0 {
@@ -1027,6 +1061,8 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 		log.Errorf("Delete error %s", err)
 		return nil, err
 	}
+
+	model.PostDelete(ctx, userCred)
 
 	return details, nil
 }

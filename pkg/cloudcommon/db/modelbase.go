@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	// "reflect"
 	"database/sql"
 
 	"github.com/yunionio/jsonutils"
@@ -46,7 +45,7 @@ func (manager *SModelBaseManager) KeywordPlural() string {
 	return manager.keywordPlural
 }
 
-func (manager *SModelBaseManager) GetContextManager() IModelManager {
+func (manager *SModelBaseManager) GetContextManager() []IModelManager {
 	return nil
 }
 
@@ -229,6 +228,10 @@ func (model *SModelBase) AllowDeleteItem(ctx context.Context, userCred mcclient.
 	return false
 }
 
+func (model *SModelBase) ValidateUpdateCondition(ctx context.Context) error {
+	return nil
+}
+
 func (model *SModelBase) ValidateDeleteCondition(ctx context.Context) error {
 	return nil
 }
@@ -239,6 +242,10 @@ func (model *SModelBase) CustomizeDelete(ctx context.Context, userCred mcclient.
 }
 
 func (model *SModelBase) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	// do nothing
+}
+
+func (model *SModelBase) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	// do nothing
 }
 

@@ -3,12 +3,10 @@ package aliyun
 import (
 	"fmt"
 	"strings"
-
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/onecloud/pkg/compute/models"
+	"github.com/yunionio/jsonutils"
+	"github.com/yunionio/log"
 )
 
 type SStorage struct {
@@ -17,15 +15,19 @@ type SStorage struct {
 }
 
 func (self *SStorage) GetId() string {
-	return fmt.Sprintf("%s-%s", self.zone.GetId(), self.storageType)
+	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerId, self.zone.GetId(), self.storageType)
 }
 
 func (self *SStorage) GetName() string {
-	return self.GetId()
+	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerName, self.zone.GetId(), self.storageType)
 }
 
 func (self *SStorage) GetGlobalId() string {
-	return fmt.Sprintf("%-%s-%s", self.zone.region.client.providerId, self.zone.GetGlobalId(), self.storageType)
+	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerId, self.zone.GetGlobalId(), self.storageType)
+}
+
+func (self *SStorage) IsEmulated() bool {
+	return true
 }
 
 func (self *SStorage) GetIZone() cloudprovider.ICloudZone {
@@ -35,7 +37,7 @@ func (self *SStorage) GetIZone() cloudprovider.ICloudZone {
 func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	disks := make([]SDisk, 0)
 	for {
-		parts, total, err := self.zone.region.GetDisks("", self.zone.GetId(), self.storageType, len(disks), 50)
+		parts, total, err := self.zone.region.GetDisks("", self.zone.GetId(), self.storageType, nil, len(disks), 50)
 		if err != nil {
 			log.Errorf("GetDisks fail %s", err)
 			return nil, err
@@ -75,8 +77,17 @@ func (self *SStorage) GetStorageConf() jsonutils.JSONObject {
 	return conf
 }
 
+func (self *SStorage) GetManagerId() string {
+	return self.zone.region.client.providerId
+}
+
 func (self *SStorage) GetStatus() string {
-	return models.STORAGE_ENABLED
+	return models.STORAGE_ONLINE
+}
+
+func (self *SStorage) Refresh() error {
+	// do nothing
+	return nil
 }
 
 func (self *SStorage) GetEnabled() bool {
@@ -85,4 +96,19 @@ func (self *SStorage) GetEnabled() bool {
 
 func (self *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 	return self.zone.region.getStoragecache()
+}
+
+func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
+	diskId, err := self.zone.region.createDisk(self.zone.ZoneId, self.storageType, name, sizeGb, desc)
+	if err != nil {
+		log.Errorf("createDisk fail %s", err)
+		return nil, err
+	}
+	disk, err := self.zone.region.getDisk(diskId)
+	if err != nil {
+		log.Errorf("getDisk fail %s", err)
+		return nil, err
+	}
+	disk.storage = self
+	return disk, nil
 }

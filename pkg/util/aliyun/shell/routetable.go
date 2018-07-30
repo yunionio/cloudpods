@@ -2,7 +2,7 @@ package shell
 
 import (
 	"fmt"
-	"yunion.io/yunioncloud/pkg/util/aliyun"
+	"github.com/yunionio/onecloud/pkg/util/aliyun"
 )
 
 func init() {

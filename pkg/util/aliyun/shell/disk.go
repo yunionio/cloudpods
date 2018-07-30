@@ -1,7 +1,7 @@
 package shell
 
 import (
-	"yunion.io/yunioncloud/pkg/util/aliyun"
+	"github.com/yunionio/onecloud/pkg/util/aliyun"
 )
 
 func init() {
@@ -13,7 +13,7 @@ func init() {
 		Limit    int    `help:"List limit"`
 	}
 	R(&DiskListOptions{}, "disk-list", "List disks", func(cli *aliyun.SRegion, args *DiskListOptions) error {
-		disks, total, e := cli.GetDisks(args.Instance, args.Zone, args.Category, args.Offset, args.Limit)
+		disks, total, e := cli.GetDisks(args.Instance, args.Zone, args.Category, nil, args.Offset, args.Limit)
 		if e != nil {
 			return e
 		}

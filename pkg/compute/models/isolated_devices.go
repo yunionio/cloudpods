@@ -5,15 +5,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"github.com/yunionio/pkg/httperrors"
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 	"github.com/yunionio/mcclient"
-	"github.com/yunionio/pkg/httperrors"
+	"github.com/yunionio/sqlchemy"
 	"github.com/yunionio/pkg/util/regutils"
 	"github.com/yunionio/pkg/utils"
-	"github.com/yunionio/sqlchemy"
-
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 )
 
 const (
@@ -80,6 +79,11 @@ func (manager *SIsolatedDeviceManager) AllowListItems(ctx context.Context, userC
 	return true
 }
 
+func (manager *SIsolatedDeviceManager) ExtraSearchConditions(ctx context.Context, q *sqlchemy.SQuery, like string) []sqlchemy.ICondition {
+	sq := HostManager.Query("id").Contains("name", like).SubQuery()
+	return []sqlchemy.ICondition{sqlchemy.In(q.Field("host_id"), sq)}
+}
+
 func (manager *SIsolatedDeviceManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return userCred.IsSystemAdmin()
 }
@@ -96,12 +100,15 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(ctx context.Context, q *sq
 		q = q.Equals("dev_type", "USB")
 	}
 	hostStr, _ := query.GetString("host")
+	var sq *sqlchemy.SSubQuery
 	if len(hostStr) > 0 {
-		host, _ := HostManager.FetchByIdOrName("", hostStr)
-		if host == nil {
-			return nil, httperrors.NewResourceNotFoundError("Host %s not found", hostStr)
-		}
-		q = q.Equals("host_id", host.GetId())
+		hosts := HostManager.Query().SubQuery()
+		sq = hosts.Query(hosts.Field("id")).Filter(sqlchemy.OR(
+			sqlchemy.Equals(hosts.Field("id"), hostStr),
+			sqlchemy.Equals(hosts.Field("name"), hostStr))).SubQuery()
+	}
+	if sq != nil {
+		q = q.Filter(sqlchemy.In(q.Field("host_id"), sq))
 	}
 	if jsonutils.QueryBoolean(query, "unused", false) {
 		q = q.IsEmpty("guest_id")

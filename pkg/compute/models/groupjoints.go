@@ -1,8 +1,6 @@
 package models
 
-import (
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-)
+import "github.com/yunionio/onecloud/pkg/cloudcommon/db"
 
 type SGroupJointsManager struct {
 	db.SVirtualJointResourceBaseManager

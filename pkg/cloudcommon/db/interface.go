@@ -13,7 +13,7 @@ import (
 type IModelManager interface {
 	lockman.ILockedClass
 
-	GetContextManager() IModelManager
+	GetContextManager() []IModelManager
 
 	// Table() *sqlchemy.STable
 	TableSpec() *sqlchemy.STableSpec
@@ -83,6 +83,8 @@ type IModel interface {
 	PerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error)
 
 	// update hooks
+	ValidateUpdateCondition(ctx context.Context) error
+
 	AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool
 	ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
 	PreUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject)
@@ -95,6 +97,7 @@ type IModel interface {
 	PreDelete(ctx context.Context, userCred mcclient.TokenCredential)
 	MarkDelete() error
 	Delete(ctx context.Context, userCred mcclient.TokenCredential) error
+	PostDelete(ctx context.Context, userCred mcclient.TokenCredential)
 
 	GetOwnerProjectId() string
 }

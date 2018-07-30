@@ -4,20 +4,29 @@ import (
 	"context"
 	"database/sql"
 
+	"fmt"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/pkg/httperrors"
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 	"github.com/yunionio/mcclient"
-	"github.com/yunionio/pkg/httperrors"
-	"github.com/yunionio/pkg/util/compare"
 	"github.com/yunionio/sqlchemy"
-
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/pkg/util/compare"
+	"github.com/yunionio/pkg/util/netutils"
 )
 
 const (
-	VPC_STATUS_PENDING   = "pending"
-	VPC_STATUS_AVAILABLE = "available"
+	VPC_STATUS_PENDING       = "pending"
+	VPC_STATUS_AVAILABLE     = "available"
+	VPC_STATUS_FAILED        = "failed"
+	VPC_STATUS_START_DELETE  = "start_delete"
+	VPC_STATUS_DELETING      = "deleting"
+	VPC_STATUS_DELETE_FAILED = "delete_failed"
+	VPC_STATUS_DELETED       = "deleted"
+
+	MAX_VPC_PER_REGION = 3
 )
 
 type SVpcManager struct {
@@ -34,14 +43,17 @@ func init() {
 type SVpc struct {
 	db.SEnabledStatusStandaloneResourceBase
 	SInfrastructure
+	SManagedResourceBase
 
-	IsDefault     bool   `default:"false" list:"admin" create:"admin_required"`
-	CidrBlock     string `width:"64" charset:"ascii" nullable:"true" list:"admin" create:"admin_required"`
+	IsDefault bool `default:"false" list:"admin" create:"admin_optional"`
+
+	CidrBlock string `width:"64" charset:"ascii" nullable:"true" list:"admin" create:"admin_required"`
+
 	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
 }
 
-func (manager *SVpcManager) GetContextManager() db.IModelManager {
-	return CloudregionManager
+func (manager *SVpcManager) GetContextManager() []db.IModelManager {
+	return []db.IModelManager{CloudregionManager}
 }
 
 func (self *SVpc) GetCloudRegionId() string {
@@ -61,25 +73,54 @@ func (self *SVpc) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetWireCount() > 0 {
+	if self.GetNetworkCount() > 0 {
 		return httperrors.NewNotEmptyError("VPC not empty")
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (self *SVpc) GetWireCount() int {
+func (self *SVpc) getWireQuery() *sqlchemy.SQuery {
 	wires := WireManager.Query()
 	if self.Id == "default" {
 		return wires.Filter(sqlchemy.OR(sqlchemy.IsNull(wires.Field("vpc_id")),
 			sqlchemy.IsEmpty(wires.Field("vpc_id")),
-			sqlchemy.Equals(wires.Field("vpc_id"), self.Id))).Count()
+			sqlchemy.Equals(wires.Field("vpc_id"), self.Id)))
 	} else {
-		return wires.Equals("vpc_id", self.Id).Count()
+		return wires.Equals("vpc_id", self.Id)
 	}
+}
+
+func (self *SVpc) GetWireCount() int {
+	q := self.getWireQuery()
+	return q.Count()
+}
+
+func (self *SVpc) GetWires() []SWire {
+	wires := make([]SWire, 0)
+	q := self.getWireQuery()
+	err := db.FetchModelObjects(WireManager, q, &wires)
+	if err != nil {
+		log.Errorf("getWires fail %s", err)
+		return nil
+	}
+	return wires
+}
+
+func (self *SVpc) getNetworkQuery() *sqlchemy.SQuery {
+	q := NetworkManager.Query()
+	wireQ := self.getWireQuery().SubQuery()
+	q = q.In("wire_id", wireQ.Query(wireQ.Field("id")).SubQuery())
+	return q
+}
+
+func (self *SVpc) GetNetworkCount() int {
+	q := self.getNetworkQuery()
+	return q.Count()
 }
 
 func (self *SVpc) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	extra.Add(jsonutils.NewInt(int64(self.GetWireCount())), "wire_count")
+	extra.Add(jsonutils.NewInt(int64(self.GetNetworkCount())), "network_count")
 	region := self.GetRegion()
 	extra.Add(jsonutils.NewString(region.GetName()), "region")
 	return extra
@@ -169,7 +210,7 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudVpc(commonext[i])
+		err = commondb[i].SyncWithCloudVpc(commonext[i])
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -192,12 +233,16 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 	return localVPCs, remoteVPCs, syncResult
 }
 
-func (self *SVpc) syncWithCloudVpc(extVPC cloudprovider.ICloudVpc) error {
+func (self *SVpc) SyncWithCloudVpc(extVPC cloudprovider.ICloudVpc) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Name = extVPC.GetName()
 		self.Status = extVPC.GetStatus()
 		self.CidrBlock = extVPC.GetCidrBlock()
 		self.IsDefault = extVPC.GetIsDefault()
+		self.ExternalId = extVPC.GetGlobalId()
+
+		self.IsEmulated = extVPC.IsEmulated()
+
 		return nil
 	})
 	if err != nil {
@@ -217,6 +262,10 @@ func (manager *SVpcManager) newFromCloudVpc(extVPC cloudprovider.ICloudVpc, regi
 	vpc.CidrBlock = extVPC.GetCidrBlock()
 	vpc.CloudregionId = region.Id
 
+	vpc.ManagerId = extVPC.GetManagerId()
+
+	vpc.IsEmulated = extVPC.IsEmulated()
+
 	err := manager.TableSpec().Insert(&vpc)
 	if err != nil {
 		log.Errorf("newFromCloudVpc fail %s", err)
@@ -226,14 +275,17 @@ func (manager *SVpcManager) newFromCloudVpc(extVPC cloudprovider.ICloudVpc, regi
 }
 
 func (manager *SVpcManager) InitializeData() error {
-	_, err := manager.FetchById("default")
+	vpcObj, err := manager.FetchById("default")
 	if err != nil {
 		if err == sql.ErrNoRows {
 			defVpc := SVpc{}
+			defVpc.SetModelManager(VpcManager)
+
 			defVpc.Id = "default"
 			defVpc.Name = "Default"
 			defVpc.CloudregionId = "default"
 			defVpc.Description = "Default VPC"
+			defVpc.Status = VPC_STATUS_AVAILABLE
 			defVpc.IsDefault = true
 			err = manager.TableSpec().Insert(&defVpc)
 			if err != nil {
@@ -243,6 +295,170 @@ func (manager *SVpcManager) InitializeData() error {
 		} else {
 			return err
 		}
+	} else {
+		vpc := vpcObj.(*SVpc)
+		if vpc.Status != VPC_STATUS_AVAILABLE {
+			_, err = manager.TableSpec().Update(vpc, func() error {
+				vpc.Status = VPC_STATUS_AVAILABLE
+				return nil
+			})
+			return err
+		}
 	}
 	return nil
+}
+
+func (manager *SVpcManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	regionId, err := data.GetString("cloudregion_id")
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("No cloudregion_id")
+	}
+	region := CloudregionManager.FetchRegionById(regionId)
+	if region == nil {
+		return nil, httperrors.NewInputParameterError("Invalid cloudregion_id")
+	}
+	if region.isManaged() {
+		if region.GetVpcCount() >= MAX_VPC_PER_REGION {
+			return nil, httperrors.NewNotAcceptableError("Too many vpcs per region")
+		}
+
+		managerStr, _ := data.GetString("manager_id")
+		if len(managerStr) == 0 {
+			managerStr, _ = data.GetString("manager")
+			if len(managerStr) == 0 {
+				return nil, httperrors.NewInputParameterError("cloud provider/manager must be provided")
+			}
+		}
+		managerObj := CloudproviderManager.FetchCloudproviderByIdOrName(managerStr)
+		if err != nil {
+			return nil, httperrors.NewResourceNotFoundError("Cloud provider/manager %s not found", managerStr)
+		}
+		data.Add(jsonutils.NewString(managerObj.GetId()), "manager_id")
+	} else {
+		return nil, httperrors.NewNotImplementedError("Cannot create VPC in private cloud")
+	}
+
+	cidrBlock, _ := data.GetString("cidr_block")
+	if len(cidrBlock) > 0 {
+		_, err = netutils.NewIPV4Prefix(cidrBlock)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("invalid cidr_block %s", cidrBlock)
+		}
+	}
+	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+}
+
+func (self *SVpc) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	if len(self.ManagerId) == 0 {
+		return
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "VpcCreateTask", self, userCred, nil, "", "", nil)
+	if err != nil {
+		log.Errorf("VpcCreateTask newTask error %s", err)
+	} else {
+		task.ScheduleRun(nil)
+	}
+}
+
+func (self *SVpc) GetIRegion() (cloudprovider.ICloudRegion, error) {
+	region := self.GetRegion()
+	if region == nil {
+		log.Errorf("cannot find region for this vpc??")
+		return nil, fmt.Errorf("Cannot find region")
+	}
+	provider, err := self.GetDriver()
+	if err != nil {
+		log.Errorf("fail to find cloud provider")
+		return nil, err
+	}
+	return provider.GetIRegionById(region.GetExternalId())
+}
+
+func (self *SVpc) GetIVpc() (cloudprovider.ICloudVpc, error) {
+	provider, err := self.GetDriver()
+	if err != nil {
+		log.Errorf("fail to find cloud provider")
+		return nil, err
+	}
+	return provider.GetIVpcById(self.GetExternalId())
+}
+
+func (self *SVpc) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	log.Infof("SVpc delete do nothing")
+	self.SetStatus(userCred, VPC_STATUS_START_DELETE, "")
+	return nil
+}
+
+func (self *SVpc) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if len(self.ExternalId) > 0 {
+		return self.StartDeleteVpcTask(ctx, userCred)
+	} else {
+		return self.RealDelete(ctx, userCred)
+	}
+}
+
+func (self *SVpc) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(), userCred)
+	self.SetStatus(userCred, VPC_STATUS_DELETED, "real delete")
+	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
+}
+
+func (self *SVpc) StartDeleteVpcTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "VpcDeleteTask", self, userCred, nil, "", "", nil)
+	if err != nil {
+		log.Errorf("Start vpcdeleteTask fail %s", err)
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SVpc) getPrefix() netutils.IPV4Prefix {
+	if len(self.CidrBlock) > 0 {
+		prefix, _ := netutils.NewIPV4Prefix(self.CidrBlock)
+		return prefix
+	}
+	return netutils.IPV4Prefix{}
+}
+
+func (self *SVpc) getIPRange() netutils.IPV4AddrRange {
+	pref := self.getPrefix()
+	return pref.ToIPRange()
+}
+
+func (self *SVpc) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SVpc) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	err := self.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	provider := self.GetCloudprovider()
+	if provider != nil {
+		if provider.Enabled {
+			return nil, httperrors.NewInvalidStatusError("Cannot purge vpc on enabled cloud provider")
+		}
+	}
+	err = self.RealDelete(ctx, userCred)
+	return nil, err
+}
+
+func (manager *SVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
+	managerStr := jsonutils.GetAnyString(query, []string{"manager", "provider", "manager_id", "provider_id"})
+	if len(managerStr) > 0 {
+		provider := CloudproviderManager.FetchCloudproviderByIdOrName(managerStr)
+		if provider == nil {
+			return nil, httperrors.NewResourceNotFoundError("provider %s not found", managerStr)
+		}
+		q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), provider.GetId()))
+	}
+
+	return q, nil
 }

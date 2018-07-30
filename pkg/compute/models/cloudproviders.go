@@ -59,7 +59,11 @@ type SCloudprovider struct {
 }
 
 func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetHostCount() > 0 {
+	if self.Enabled {
+		return httperrors.NewInvalidStatusError("provider is enabled")
+	}
+	usage := self.getUsage()
+	if !usage.isEmpty() {
 		return httperrors.NewNotEmptyError("Not an empty cloud provider")
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -67,6 +71,18 @@ func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
 
 func (self *SCloudprovider) GetHostCount() int {
 	return HostManager.Query().Equals("manager_id", self.Id).Count()
+}
+
+func (self *SCloudprovider) getVpcCount() int {
+	return VpcManager.Query().Equals("manager_id", self.Id).Count()
+}
+
+func (self *SCloudprovider) getStorageCount() int {
+	return StorageManager.Query().Equals("manager_id", self.Id).Count()
+}
+
+func (self *SCloudprovider) getStoragecacheCount() int {
+	return StoragecacheManager.Query().Equals("manager_id", self.Id).Count()
 }
 
 func (self *SCloudprovider) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -99,7 +115,10 @@ func (self *SCloudproviderManager) ValidateCreateData(ctx context.Context, userC
 func (self *SCloudprovider) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 	self.savePassword(self.Secret)
-	self.startSyncCloudProviderInfoTask(ctx, userCred, nil, "")
+
+	if self.Enabled {
+		self.startSyncCloudProviderInfoTask(ctx, userCred, nil, "")
+	}
 }
 
 func (self *SCloudprovider) savePassword(secret string) error {
@@ -230,11 +249,14 @@ func (self *SCloudprovider) MarkStartSync(userCred mcclient.TokenCredential) {
 }
 
 func (self *SCloudprovider) GetDriver() (cloudprovider.ICloudProvider, error) {
+	if !self.Enabled {
+		return nil, fmt.Errorf("Cloud provider is not enabled")
+	}
 	secret, err := self.getPassword()
 	if err != nil {
 		return nil, fmt.Errorf("Invalid password %s", err)
 	}
-	return cloudprovider.GetProvider(self.Id, self.AccessUrl, self.Account, secret, self.Provider)
+	return cloudprovider.GetProvider(self.Id, self.Name, self.AccessUrl, self.Account, secret, self.Provider)
 }
 
 func (self *SCloudprovider) SaveSysInfo(info jsonutils.JSONObject) {
@@ -253,10 +275,67 @@ func (manager *SCloudproviderManager) FetchCloudproviderById(providerId string) 
 	return providerObj.(*SCloudprovider)
 }
 
-func (manager *SCloudproviderManager) GetDriverByManagerId(managerId string) (cloudprovider.ICloudProvider, error) {
+func (manager *SCloudproviderManager) FetchCloudproviderByIdOrName(providerId string) *SCloudprovider {
+	providerObj, err := manager.FetchByIdOrName("", providerId)
+	if err != nil {
+		log.Errorf("%s", err)
+		return nil
+	}
+	return providerObj.(*SCloudprovider)
+}
+
+/*func (manager *SCloudproviderManager) GetDriverByManagerId(managerId string) (cloudprovider.ICloudProvider, error) {
 	provider := manager.FetchCloudproviderById(managerId)
 	if provider == nil {
 		return nil, fmt.Errorf("no valid cloud provider")
 	}
 	return provider.GetDriver()
+}*/
+
+type SCloudproviderUsage struct {
+	HostCount         int
+	VpcCount          int
+	StorageCount      int
+	StorageCacheCount int
+}
+
+func (usage *SCloudproviderUsage) isEmpty() bool {
+	if usage.HostCount > 0 {
+		return false
+	}
+	if usage.VpcCount > 0 {
+		return false
+	}
+	if usage.StorageCount > 0 {
+		return false
+	}
+	if usage.StorageCacheCount > 0 {
+		return false
+	}
+	return true
+}
+
+func (self *SCloudprovider) getUsage() *SCloudproviderUsage {
+	usage := SCloudproviderUsage{}
+	usage.HostCount = self.GetHostCount()
+	usage.VpcCount = self.getVpcCount()
+	usage.StorageCount = self.getStorageCount()
+	usage.StorageCacheCount = self.getStoragecacheCount()
+
+	return &usage
+}
+
+func (self *SCloudprovider) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	extra.Update(jsonutils.Marshal(self.getUsage()))
+	return extra
+}
+
+func (self *SCloudprovider) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := self.SEnabledStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	return self.getMoreDetails(extra)
+}
+
+func (self *SCloudprovider) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	return self.getMoreDetails(extra)
 }

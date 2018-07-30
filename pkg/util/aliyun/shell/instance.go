@@ -1,8 +1,8 @@
 package shell
 
 import (
-	"yunion.io/yunioncloud/pkg/util/aliyun"
 	"fmt"
+	"github.com/yunionio/onecloud/pkg/util/aliyun"
 )
 
 func init() {
@@ -30,9 +30,10 @@ func init() {
 		STORAGE  string `help:"Storage type"`
 		VSWITCH  string `help:"Vswitch ID"`
 		PASSWD   string `help:"password"`
+		PublicKey  string `help:"PublicKey"`
 	}
 	R(&InstanceCrateOptions{}, "instance-create", "Create a instance", func(cli *aliyun.SRegion, args *InstanceCrateOptions) error {
-		instance, e := cli.CreateInstanceSimple(args.NAME, args.IMAGE, args.CPU, args.MEMORYGB, args.STORAGE, args.Disk, args.VSWITCH, args.PASSWD)
+		instance, e := cli.CreateInstanceSimple(args.NAME, args.IMAGE, args.CPU, args.MEMORYGB, args.STORAGE, args.Disk, args.VSWITCH, args.PASSWD, args.PublicKey)
 		if e != nil {
 			return e
 		}

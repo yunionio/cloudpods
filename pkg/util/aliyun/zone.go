@@ -3,10 +3,9 @@ package aliyun
 import (
 	"fmt"
 
-	"github.com/yunionio/log"
-
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/onecloud/pkg/compute/models"
+	"github.com/yunionio/log"
 )
 
 type InstanceChargeType string
@@ -124,12 +123,21 @@ func (self *SZone) GetGlobalId() string {
 	return fmt.Sprintf("%s/%s", self.region.GetGlobalId(), self.ZoneId)
 }
 
+func (self *SZone) IsEmulated() bool {
+	return false
+}
+
 func (self *SZone) GetStatus() string {
 	if len(self.AvailableResourceCreation.ResourceTypes) == 0 {
 		return models.ZONE_SOLDOUT
 	} else {
 		return models.ZONE_ENABLE
 	}
+}
+
+func (self *SZone) Refresh() error {
+	// do nothing
+	return nil
 }
 
 func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {

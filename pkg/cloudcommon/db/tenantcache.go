@@ -31,21 +31,25 @@ var TenantCacheManager *STenantCacheManager
 
 func init() {
 	TenantCacheManager = &STenantCacheManager{NewKeystoneCacheObjectManager(STenant{}, "tenant_cache_tbl", "tenant", "tenants")}
-	log.Debugf("Initialize tenant cache manager %s %s", TenantCacheManager.KeywordPlural(), TenantCacheManager)
+	// log.Debugf("Initialize tenant cache manager %s %s", TenantCacheManager.KeywordPlural(), TenantCacheManager)
 }
 
 func (manager *STenantCacheManager) FetchTenantByIdOrName(ctx context.Context, idStr string) (*STenant, error) {
-	tenant, err := manager.SKeystoneCacheObjectManager.FetchByIdOrName("", idStr)
-	if err == sql.ErrNoRows {
-		return manager.fetchTenantFromKeystone(ctx, idStr)
+	tenant, err := manager.FetchByIdOrName("", idStr)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return manager.fetchTenantFromKeystone(ctx, idStr)
+		} else {
+			log.Errorf("FetchTenantByIdOrName fail: %s", err)
+			return nil, err
+		}
 	} else {
-		kObj := tenant.(*SKeystoneCacheObject)
-		return &STenant{*kObj}, err
+		return tenant.(*STenant), nil
 	}
 }
 
 func (manager *STenantCacheManager) FetchTenantById(ctx context.Context, idStr string) (*STenant, error) {
-	tenant, err := manager.SKeystoneCacheObjectManager.FetchById(idStr)
+	tenant, err := manager.FetchById(idStr)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return manager.fetchTenantFromKeystone(ctx, idStr)
@@ -54,12 +58,12 @@ func (manager *STenantCacheManager) FetchTenantById(ctx context.Context, idStr s
 			return nil, err
 		}
 	} else {
-		return tenant.(*STenant), err
+		return tenant.(*STenant), nil
 	}
 }
 
 func (manager *STenantCacheManager) FetchTenantByName(ctx context.Context, idStr string) (*STenant, error) {
-	tenant, err := manager.SKeystoneCacheObjectManager.FetchByName("", idStr)
+	tenant, err := manager.FetchByName("", idStr)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return manager.fetchTenantFromKeystone(ctx, idStr)
@@ -68,7 +72,7 @@ func (manager *STenantCacheManager) FetchTenantByName(ctx context.Context, idStr
 			return nil, err
 		}
 	} else {
-		return tenant.(*STenant), err
+		return tenant.(*STenant), nil
 	}
 }
 

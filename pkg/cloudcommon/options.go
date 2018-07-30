@@ -6,9 +6,9 @@ import (
 	"path"
 
 	"github.com/yunionio/log"
-	"github.com/yunionio/pkg/util/version"
-	"github.com/yunionio/pkg/utils"
 	"github.com/yunionio/structarg"
+	"github.com/yunionio/pkg/utils"
+	"github.com/yunionio/pkg/util/version"
 )
 
 type Options struct {
@@ -31,6 +31,8 @@ type Options struct {
 	RequestWorkerCount int    `default:"4" help:"Request worker thread count, default is 4"`
 
 	NotifyAdminUser string `default:"sysadmin" help:"System administrator user ID or name to notify"`
+
+	GlobalVirtualResourceNamespace bool `help:"Per project namespace or global namespace for virtual resources"`
 
 	structarg.BaseOptions
 }

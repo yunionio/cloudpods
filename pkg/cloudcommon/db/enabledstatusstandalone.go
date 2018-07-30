@@ -11,7 +11,7 @@ import (
 type SEnabledStatusStandaloneResourceBase struct {
 	SStatusStandaloneResourceBase
 
-	Enabled bool `nullable:"false" default:"false" list:"user"` // = Column(Boolean, nullable=False, default=False)
+	Enabled bool `nullable:"false" default:"false" list:"user" create:"optional"` // = Column(Boolean, nullable=False, default=False)
 }
 
 type SEnabledStatusStandaloneResourceBaseManager struct {

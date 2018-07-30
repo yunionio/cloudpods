@@ -79,7 +79,7 @@ func (manager *SVirtualResourceBaseManager) ListItemFilter(ctx context.Context, 
 	}
 	admin, _ := query.GetString("admin")
 	if utils.ToBool(admin) { // admin
-		tenant, _ := query.GetString("tenant")
+		tenant := jsonutils.GetAnyString(query, []string{"project", "project_id", "tenant", "tenant_id"})
 		if len(tenant) > 0 {
 			tobj, _ := TenantCacheManager.FetchTenantByIdOrName(ctx, tenant)
 			if tobj != nil {
@@ -161,29 +161,32 @@ func (model *SVirtualResourceBase) AllowPerformMetadata(ctx context.Context, use
 }
 
 func (model *SVirtualResourceBase) GetTenantCache(ctx context.Context) (*STenant, error) {
+	log.Debugf("Get tenant by Id %s", model.ProjectId)
 	return TenantCacheManager.FetchTenantById(ctx, model.ProjectId)
+}
+
+func (model *SVirtualResourceBase) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	if userCred.IsSystemAdmin() {
+		log.Debugf("GetCustomizeColumns")
+		tobj, err := model.GetTenantCache(ctx)
+		if err == nil {
+			log.Debugf("GetTenantFromCache %s", jsonutils.Marshal(tobj))
+			extra.Add(jsonutils.NewString(tobj.GetName()), "tenant")
+		} else {
+			log.Errorf("GetTenantCache fail %s", err)
+		}
+	}
+	return extra
 }
 
 func (model *SVirtualResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := model.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if userCred.IsSystemAdmin() {
-		tobj, err := model.GetTenantCache(ctx)
-		if err == nil {
-			extra.Add(jsonutils.NewString(tobj.GetName()), "tenant")
-		}
-	}
-	return extra
+	return model.getMoreDetails(ctx, userCred, query, extra)
 }
 
 func (model *SVirtualResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := model.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	if userCred.IsSystemAdmin() {
-		tobj, err := model.GetTenantCache(ctx)
-		if err == nil {
-			extra.Add(jsonutils.NewString(tobj.GetId()), "tenant")
-		}
-	}
-	return extra
+	return model.getMoreDetails(ctx, userCred, query, extra)
 }
 
 func (model *SVirtualResourceBase) AllowPerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -191,7 +194,7 @@ func (model *SVirtualResourceBase) AllowPerformChangeOwner(ctx context.Context, 
 }
 
 func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	tenant, _ := data.GetString("tenant")
+	tenant := jsonutils.GetAnyString(data, []string{"project", "tenant", "project_id", "tenant_id"})
 	if len(tenant) == 0 {
 		return nil, httperrors.NewInputParameterError("missing parameter tenant")
 	}

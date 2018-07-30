@@ -181,6 +181,10 @@ func (self *SCloudregion) syncWithCloudRegion(cloudRegion cloudprovider.ICloudRe
 		self.Status = cloudRegion.GetStatus()
 		self.Latitude = cloudRegion.GetLatitude()
 		self.Longitude = cloudRegion.GetLongitude()
+		self.Provider = cloudRegion.GetProvider()
+
+		self.IsEmulated = cloudRegion.IsEmulated()
+
 		return nil
 	})
 	if err != nil {
@@ -198,6 +202,11 @@ func (manager *SCloudregionManager) newFromCloudRegion(cloudRegion cloudprovider
 	region.Latitude = cloudRegion.GetLatitude()
 	region.Longitude = cloudRegion.GetLongitude()
 	region.Status = cloudRegion.GetStatus()
+	region.Enabled = true
+	region.Provider = cloudRegion.GetProvider()
+
+	region.IsEmulated = cloudRegion.IsEmulated()
+
 	err := manager.TableSpec().Insert(&region)
 	if err != nil {
 		log.Errorf("newFromCloudRegion fail %s", err)
@@ -246,6 +255,7 @@ func (manager *SCloudregionManager) FetchRegionById(id string) *SCloudregion {
 	obj, err := manager.FetchById(id)
 	if err != nil {
 		log.Errorf("%s", err)
+		return nil
 	}
 	return obj.(*SCloudregion)
 }
@@ -258,7 +268,9 @@ func (manager *SCloudregionManager) InitializeData() error {
 			defRegion := SCloudregion{}
 			defRegion.Id = "default"
 			defRegion.Name = "Default"
+			defRegion.Enabled = true
 			defRegion.Description = "Default Region"
+			defRegion.Status = CLOUD_REGION_STATUS_INSERVER
 			err = manager.TableSpec().Insert(&defRegion)
 			if err != nil {
 				log.Errorf("Insert default region fails: %s", err)
@@ -269,4 +281,52 @@ func (manager *SCloudregionManager) InitializeData() error {
 		}
 	}
 	return nil
+}
+
+func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	if jsonutils.QueryBoolean(query, "is_private", false) {
+		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("external_id")),
+			sqlchemy.IsEmpty(q.Field("external_id"))))
+	}
+	if jsonutils.QueryBoolean(query, "is_public", false) {
+		q = q.Filter(sqlchemy.AND(sqlchemy.IsNotNull(q.Field("external_id")),
+			sqlchemy.IsNotEmpty(q.Field("external_id"))))
+	}
+	managerStr, _ := query.GetString("manager")
+	if len(managerStr) > 0 {
+		manager := CloudproviderManager.FetchCloudproviderByIdOrName(managerStr)
+		if manager == nil {
+			return nil, httperrors.NewResourceNotFoundError("Cloud provider/manager %s not found", managerStr)
+		}
+		q = q.Equals("provider", manager.Provider)
+	}
+	if jsonutils.QueryBoolean(query, "usable", false) {
+		vpcs := VpcManager.Query().SubQuery()
+		sq := vpcs.Query(sqlchemy.DISTINCT("cloudregion_id", vpcs.Field("cloudregion_id"))).Equals("status", VPC_STATUS_AVAILABLE)
+		q = q.Filter(sqlchemy.In(q.Field("id"), sq.SubQuery()))
+	}
+	return q, nil
+}
+
+func (manager *SCloudregionManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+}
+
+func (self *SCloudregion) isManaged() bool {
+	if len(self.ExternalId) > 0 {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (self *SCloudregion) ValidateUpdateCondition(ctx context.Context) error {
+	if len(self.ExternalId) > 0 {
+		return httperrors.NewConflictError("Cannot update external resource")
+	}
+	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateCondition(ctx)
 }

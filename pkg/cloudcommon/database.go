@@ -4,8 +4,9 @@ import (
 	"database/sql"
 
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"
 	"github.com/yunionio/sqlchemy"
+
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"
 )
 
 func InitDB(options *DBOptions) {

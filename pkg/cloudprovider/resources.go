@@ -2,7 +2,6 @@ package cloudprovider
 
 import (
 	"time"
-
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/mcclient"
 )
@@ -11,26 +10,38 @@ type ICloudResource interface {
 	GetId() string
 	GetName() string
 	GetGlobalId() string
+
+	GetStatus() string
+
+	Refresh() error
+
+	IsEmulated() bool
 }
 
 type ICloudRegion interface {
 	ICloudResource
+
 	GetLatitude() float32
 	GetLongitude() float32
-	GetStatus() string
 
 	GetIZones() ([]ICloudZone, error)
 	GetIVpcs() ([]ICloudVpc, error)
 
 	GetIZoneById(id string) (ICloudZone, error)
 	GetIVpcById(id string) (ICloudVpc, error)
+	GetIHostById(id string) (ICloudHost, error)
+	GetIStorageById(id string) (ICloudStorage, error)
+	GetIStoragecacheById(id string) (ICloudStoragecache, error)
+
+	CreateIVpc(name string, desc string, cidr string) (ICloudVpc, error)
+
+	GetProvider() string
 }
 
 type ICloudZone interface {
 	ICloudResource
 
 	GetIRegion() ICloudRegion
-	GetStatus() string
 
 	GetIHosts() ([]ICloudHost, error)
 	GetIHostById(id string) (ICloudHost, error)
@@ -43,13 +54,14 @@ type ICloudImage interface {
 	ICloudResource
 
 	GetIStoragecache() ICloudStoragecache
-	GetStatus() string
 }
 
 type ICloudStoragecache interface {
 	ICloudResource
 
 	GetIImages() ([]ICloudImage, error)
+
+	GetManagerId() string
 
 	UploadImage(userCred mcclient.TokenCredential, imageId string, extId string, isForce bool) (string, error)
 }
@@ -66,8 +78,11 @@ type ICloudStorage interface {
 	GetMediumType() string
 	GetCapacityMB() int // MB
 	GetStorageConf() jsonutils.JSONObject
-	GetStatus() string
 	GetEnabled() bool
+
+	GetManagerId() string
+
+	CreateIDisk(name string, sizeGb int, desc string) (ICloudDisk, error)
 }
 
 type ICloudHost interface {
@@ -78,8 +93,9 @@ type ICloudHost interface {
 
 	GetIWires() ([]ICloudWire, error)
 	GetIStorages() ([]ICloudStorage, error)
+	GetIStorageById(id string) (ICloudStorage, error)
 
-	GetStatus() string     // os status
+	// GetStatus() string     // os status
 	GetEnabled() bool      // is enabled
 	GetHostStatus() string // service status
 	GetAccessIp() string   //
@@ -97,8 +113,8 @@ type ICloudHost interface {
 
 	GetManagerId() string
 
-	CreateVM(name string, imgId string, cpu int, memMB int, vswitchId string, ipAddr string, desc string,
-		passwd string, storageType string, diskSizes []int) (ICloudVM, error)
+	CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, vswitchId string, ipAddr string, desc string,
+		passwd string, storageType string, diskSizes []int, publicKey string) (ICloudVM, error)
 }
 
 type ICloudVM interface {
@@ -112,7 +128,7 @@ type ICloudVM interface {
 
 	GetEIP() ICloudEIP
 
-	GetStatus() string
+	// GetStatus() string
 	GetRemoteStatus() string
 
 	GetVcpuCount() int8
@@ -158,7 +174,7 @@ type ICloudDisk interface {
 
 	GetIStorge() ICloudStorage
 
-	GetStatus() string
+	// GetStatus() string
 	GetDiskFormat() string
 	GetDiskSizeMB() int // MB
 	GetIsAutoDelete() bool
@@ -178,8 +194,14 @@ type ICloudVpc interface {
 	GetRegion() ICloudRegion
 	GetIsDefault() bool
 	GetCidrBlock() string
-	GetStatus() string
+	// GetStatus() string
 	GetIWires() ([]ICloudWire, error)
+
+	GetManagerId() string
+
+	Delete() error
+
+	GetIWireById(wireId string) (ICloudWire, error)
 }
 
 type ICloudWire interface {
@@ -188,17 +210,23 @@ type ICloudWire interface {
 	GetIZone() ICloudZone
 	GetINetworks() ([]ICloudNetwork, error)
 	GetBandwidth() int
+
+	GetINetworkById(netid string) (ICloudNetwork, error)
+
+	CreateINetwork(name string, cidr string, desc string) (ICloudNetwork, error)
 }
 
 type ICloudNetwork interface {
 	ICloudResource
 
 	GetIWire() ICloudWire
-	GetStatus() string
+	// GetStatus() string
 	GetIpStart() string
 	GetIpEnd() string
 	GetIpMask() int8
 	GetGateway() string
 	GetServerType() string
 	GetIsPublic() bool
+
+	Delete() error
 }

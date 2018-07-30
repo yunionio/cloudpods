@@ -3,6 +3,7 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
@@ -11,9 +12,10 @@ import (
 	"github.com/yunionio/pkg/util/seclib"
 	"github.com/yunionio/pkg/utils"
 
-	"github.com/yunionio/oneclone/pkg/cloudcommon/db"
-	"github.com/yunionio/oneclone/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/oneclone/pkg/compute/models"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/onecloud/pkg/compute/models"
 )
 
 type SAliyunGuestDriver struct {
@@ -66,7 +68,9 @@ type SAliyunVMCreateConfig struct {
 	IpAddr            string
 	Description       string
 	StorageType       string
+	SysDiskSize       int
 	DataDisks         []int
+	PublicKey         string
 }
 
 func (self *SAliyunGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
@@ -75,6 +79,10 @@ func (self *SAliyunGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *mo
 	config.Cpu = int(guest.VcpuCount)
 	config.Memory = guest.VmemSize
 	config.Description = guest.Description
+
+	if len(guest.KeypairId) > 0 {
+		config.PublicKey = guest.GetKeypairPublicKey()
+	}
 
 	nics := guest.GetNetworks()
 	net := nics[0].GetNetwork()
@@ -93,6 +101,7 @@ func (self *SAliyunGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *mo
 			imageId := disk.GetTemplateId()
 			scimg := models.StoragecachedimageManager.GetStoragecachedimage(cache.Id, imageId)
 			config.ExternalImageId = scimg.ExternalId
+			config.SysDiskSize = disk.DiskSize
 		} else {
 			config.DataDisks[i-1] = disk.DiskSize / 1024 // MB => GB
 		}
@@ -136,11 +145,17 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		passwd := seclib.RandomPassword(12)
 
-		iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-			desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks)
+		iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
+			desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, desc.PublicKey)
 		if err != nil {
 			return nil, err
 		}
+		log.Debugf("VMcreated %s, wait status ready ...", iVM.GetGlobalId())
+		err = cloudprovider.WaitStatus(iVM, models.VM_READY, time.Second*5, time.Second*1800)
+		if err != nil {
+			return nil, err
+		}
+		log.Debugf("VMcreated %s, and status is ready", iVM.GetGlobalId())
 
 		iVM, err = ihost.GetIVMById(iVM.GetGlobalId())
 		if err != nil {

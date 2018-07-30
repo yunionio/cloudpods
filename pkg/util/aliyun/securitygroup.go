@@ -3,8 +3,9 @@ package aliyun
 import (
 	"fmt"
 	"time"
-
 	"github.com/yunionio/log"
+	"github.com/yunionio/pkg/util/secrules"
+	"github.com/yunionio/pkg/utils"
 )
 
 // {"CreationTime":"2017-03-19T13:37:48Z","Description":"System created security group.","SecurityGroupId":"sg-j6cannq0xxj2r9z0yxwl","SecurityGroupName":"sg-j6cannq0xxj2r9z0yxwl","Tags":{"Tag":[]},"VpcId":"vpc-j6c86z3sh8ufhgsxwme0q"}
@@ -98,4 +99,92 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 		return nil, err
 	}
 	return &secgrp, nil
+}
+
+func (self *SRegion) createSecurityGroup(vpcId string, name string, desc string) (string, error) {
+	params := make(map[string]string)
+	if len(vpcId) > 0 {
+		params["VpcId"] = vpcId
+	}
+	if len(name) > 0 {
+		params["SecurityGroupName"] = name
+	}
+	if len(desc) > 0 {
+		params["Description"] = desc
+	}
+	params["ClientToken"] = utils.GenRequestId(20)
+
+	body, err := self.ecsRequest("CreateSecurityGroup", params)
+	if err != nil {
+		return "", err
+	}
+	return body.GetString("SecurityGroupId")
+}
+
+func (self *SRegion) addSecurityGroupRule(secGrpId string, rule *secrules.SecurityRule) error {
+	params := make(map[string]string)
+	params["SecurityGroupId"] = secGrpId
+	protocol := rule.Protocol
+	if len(rule.Protocol) == 0 {
+		protocol = "all"
+	}
+	params["IpProtocol"] = protocol
+	params["PortRange"] = fmt.Sprintf("%d/%d", rule.PortStart, rule.PortEnd)
+	if rule.Action == secrules.SecurityRuleAllow {
+		params["Policy"] = "accept"
+	} else {
+		params["Policy"] = "drop"
+	}
+	params["Priority"] = fmt.Sprintf("%d", rule.Priority)
+	if rule.Direction == secrules.SecurityRuleIngress {
+		if rule.IPNet != nil {
+			params["SourceCidrIp"] = rule.IPNet.String()
+		} else {
+			params["SourceCidrIp"] = "0.0.0.0/0"
+		}
+		params["DestCidrIp"] = "0.0.0.0/0"
+		_, err := self.ecsRequest("AuthorizeSecurityGroup", params)
+		return err
+	} else { // rule.Direction == secrules.SecurityRuleEgress {
+		if rule.IPNet != nil {
+			params["DestCidrIp"] = rule.IPNet.String()
+		} else {
+			params["DestCidrIp"] = "0.0.0.0/0"
+		}
+		params["SourceCidrIp"] = "0.0.0.0/0"
+		_, err := self.ecsRequest("AuthorizeSecurityGroupEgress", params)
+		return err
+	}
+}
+
+func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
+	secId, err := self.createSecurityGroup(vpcId, "", "")
+	if err != nil {
+		return "", err
+	}
+	inRule := secrules.SecurityRule{
+		Priority:  1,
+		Action:    secrules.SecurityRuleAllow,
+		Protocol:  "",
+		Direction: secrules.SecurityRuleIngress,
+		PortStart: -1,
+		PortEnd:   -1,
+	}
+	err = self.addSecurityGroupRule(secId, &inRule)
+	if err != nil {
+		return "", err
+	}
+	outRule := secrules.SecurityRule{
+		Priority:  1,
+		Action:    secrules.SecurityRuleAllow,
+		Protocol:  "",
+		Direction: secrules.SecurityRuleEgress,
+		PortStart: -1,
+		PortEnd:   -1,
+	}
+	err = self.addSecurityGroupRule(secId, &outRule)
+	if err != nil {
+		return "", err
+	}
+	return secId, nil
 }

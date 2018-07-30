@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	"github.com/yunionio/log"
-
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/onecloud/pkg/compute/models"
+	"github.com/yunionio/jsonutils"
+	"github.com/yunionio/log"
 )
 
 type ImageStatusType string
@@ -63,6 +62,10 @@ func (self *SImage) GetName() string {
 	return self.ImageName
 }
 
+func (self *SImage) IsEmulated() bool {
+	return false
+}
+
 func (self *SImage) GetGlobalId() string {
 	return fmt.Sprintf("%s-%s")
 }
@@ -84,6 +87,14 @@ func (self *SImage) GetStatus() string {
 	default:
 		return models.IMAGE_STATUS_KILLED
 	}
+}
+
+func (self *SImage) Refresh() error {
+	new, err := self.storageCache.region.GetImage(self.ImageId)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(self, new)
 }
 
 // {"ImageId":"m-j6c1qlpa7oebbg1n2k60","RegionId":"cn-hongkong","RequestId":"F8B2F6A1-F6AA-4C92-A54C-C4A309CF811F","TaskId":"t-j6c1qlpa7oebbg1rcl9t"}

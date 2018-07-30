@@ -1,15 +1,22 @@
 package aliyun
 
 import (
+	"strings"
 	"time"
-
-	"github.com/yunionio/pkg/util/netutils"
-
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/onecloud/pkg/compute/models"
+	"github.com/yunionio/jsonutils"
+	"github.com/yunionio/log"
+	"github.com/yunionio/pkg/util/netutils"
+	"github.com/yunionio/pkg/utils"
 )
 
 // {"AvailableIpAddressCount":4091,"CidrBlock":"172.31.32.0/20","CreationTime":"2017-03-19T13:37:44Z","Description":"System created default virtual switch.","IsDefault":true,"Status":"Available","VSwitchId":"vsw-j6c3gig5ub4fmi2veyrus","VSwitchName":"","VpcId":"vpc-j6c86z3sh8ufhgsxwme0q","ZoneId":"cn-hongkong-b"}
+
+const (
+	VSwitchPending   = "Pending"
+	VSwitchAvailable = "Available"
+)
 
 type SVSwitch struct {
 	wire *SWire
@@ -31,6 +38,9 @@ func (self *SVSwitch) GetId() string {
 }
 
 func (self *SVSwitch) GetName() string {
+	if len(self.VSwitchName) > 0 {
+		return self.VSwitchName
+	}
 	return self.VSwitchId
 }
 
@@ -38,8 +48,21 @@ func (self *SVSwitch) GetGlobalId() string {
 	return self.VSwitchId
 }
 
+func (self *SVSwitch) IsEmulated() bool {
+	return false
+}
+
 func (self *SVSwitch) GetStatus() string {
-	return self.Status
+	return strings.ToLower(self.Status)
+}
+
+func (self *SVSwitch) Refresh() error {
+	log.Debugf("vsiwtch refresh %s", self.VSwitchId)
+	new, err := self.wire.zone.region.getVSwitch(self.VSwitchId)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(self, new)
 }
 
 func (self *SVSwitch) GetIWire() cloudprovider.ICloudWire {
@@ -81,4 +104,46 @@ func (self *SVSwitch) GetServerType() string {
 func (self *SVSwitch) GetIsPublic() bool {
 	// return self.IsDefault
 	return true
+}
+
+func (self *SRegion) createVSwitch(zoneId string, vpcId string, name string, cidr string, desc string) (string, error) {
+	params := make(map[string]string)
+	params["ZoneId"] = zoneId
+	params["VpcId"] = vpcId
+	params["CidrBlock"] = cidr
+	params["VSwitchName"] = name
+	if len(desc) > 0 {
+		params["Description"] = desc
+	}
+	params["ClientToken"] = utils.GenRequestId(20)
+
+	body, err := self.ecsRequest("CreateVSwitch", params)
+	if err != nil {
+		return "", err
+	}
+	return body.GetString("VSwitchId")
+}
+
+func (self *SRegion) getVSwitch(vswitchId string) (*SVSwitch, error) {
+	vswitches, total, err := self.GetVSwitches([]string{vswitchId}, "", 0, 1)
+	log.Debugf("getVSwitch %d %d %s %s", len(vswitches), total, err, vswitchId)
+	if err != nil {
+		return nil, err
+	}
+	if total != 1 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return &vswitches[0], nil
+}
+
+func (self *SRegion) deleteVSwitch(vswitchId string) error {
+	params := make(map[string]string)
+	params["VSwitchId"] = vswitchId
+
+	_, err := self.ecsRequest("DeleteVSwitch", params)
+	return err
+}
+
+func (self *SVSwitch) Delete() error {
+	return self.wire.zone.region.deleteVSwitch(self.VSwitchId)
 }

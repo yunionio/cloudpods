@@ -6,21 +6,21 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/onecloud/pkg/compute/options"
+	"github.com/yunionio/pkg/httperrors"
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 	"github.com/yunionio/mcclient"
-	"github.com/yunionio/pkg/httperrors"
+	"github.com/yunionio/sqlchemy"
 	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/util/compare"
 	"github.com/yunionio/pkg/util/fileutils"
 	"github.com/yunionio/pkg/util/netutils"
 	"github.com/yunionio/pkg/util/regutils"
 	"github.com/yunionio/pkg/utils"
-	"github.com/yunionio/sqlchemy"
-
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/options"
 )
 
 const (
@@ -35,6 +35,15 @@ const (
 	MAX_NETWORK_NAME_LEN = 11
 
 	EXTRA_DNS_UPDATE_TARGETS = "__extra_dns_update_targets"
+
+	NETWORK_STATUS_INIT          = "init"
+	NETWORK_STATUS_PENDING       = "pending"
+	NETWORK_STATUS_AVAILABLE     = "available"
+	NETWORK_STATUS_FAILED        = "failed"
+	NETWORK_STATUS_START_DELETE  = "start_delete"
+	NETWORK_STATUS_DELETING      = "deleting"
+	NETWORK_STATUS_DELETED       = "deleted"
+	NETWORK_STATUS_DELETE_FAILED = "delete_failed"
 )
 
 type IPAddlocationDirection string
@@ -90,10 +99,22 @@ type SNetwork struct {
 	AllocPolicy string `width:"16" charset:"ascii" nullable:"true" get:"user" update:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
 }
 
+func (manager *SNetworkManager) GetContextManager() []db.IModelManager {
+	return []db.IModelManager{WireManager}
+}
+
 func (self *SNetwork) GetWire() *SWire {
 	w, _ := WireManager.FetchById(self.WireId)
 	if w != nil {
 		return w.(*SWire)
+	}
+	return nil
+}
+
+func (self *SNetwork) GetVpc() *SVpc {
+	wire := self.GetWire()
+	if wire != nil {
+		return wire.getVpc()
 	}
 	return nil
 }
@@ -404,7 +425,7 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudNetwork(userCred, commonext[i])
+		err = commondb[i].SyncWithCloudNetwork(userCred, commonext[i])
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -427,7 +448,7 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 	return localNets, remoteNets, syncResult
 }
 
-func (self *SNetwork) syncWithCloudNetwork(userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork) error {
+func (self *SNetwork) SyncWithCloudNetwork(userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Name = extNet.GetName()
 		self.Status = extNet.GetStatus()
@@ -786,4 +807,440 @@ func (self *SNetwork) GetDetailsReservedIps(ctx context.Context, userCred mcclie
 	ret := jsonutils.NewDict()
 	ret.Add(ripArray, "reserved_ips")
 	return ret, nil
+}
+
+func isValidMaskLen(maskLen int64) bool {
+	if maskLen < 12 || maskLen > 30 {
+		return false
+	} else {
+		return true
+	}
+}
+
+func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	prefixStr, _ := data.GetString("guest_ip_prefix")
+	var maskLen64 int64
+	var err error
+	var startIp, endIp netutils.IPV4Addr
+	if len(prefixStr) > 0 {
+		prefix, err := netutils.NewIPV4Prefix(prefixStr)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("ip_prefix error: %s", err)
+		}
+		iprange := prefix.ToIPRange()
+		startIp = iprange.StartIp().StepUp()
+		endIp = iprange.EndIp().StepDown()
+		maskLen64 = int64(prefix.MaskLen)
+	} else {
+		ipStartStr, _ := data.GetString("guest_ip_start")
+		ipEndStr, _ := data.GetString("guest_ip_start")
+		startIp, err = netutils.NewIPV4Addr(ipStartStr)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("Invalid start ip: %s %s", ipStartStr, err)
+		}
+		endIp, err = netutils.NewIPV4Addr(ipEndStr)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("invalid end ip: %s %s", ipEndStr, err)
+		}
+		if startIp > endIp {
+			tmp := startIp
+			startIp = endIp
+			endIp = tmp
+		}
+		maskLen64, _ = data.Int("guest_ip_mask")
+	}
+	if !isValidMaskLen(maskLen64) {
+		return nil, httperrors.NewInputParameterError("Invalid masklen %d", maskLen64)
+	}
+	data.Add(jsonutils.NewInt(maskLen64), "guest_ip_mask")
+	data.Add(jsonutils.NewString(startIp.String()), "guest_ip_start")
+	data.Add(jsonutils.NewString(endIp.String()), "guest_ip_end")
+
+	for _, key := range []string{"guest_gateway", "guest_dns", "guest_dhcp"} {
+		ipStr, _ := data.GetString(key)
+		if len(ipStr) > 0 && !regutils.MatchIPAddr(ipStr) {
+			return nil, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipStr)
+		}
+	}
+
+	nets := manager.getAllNetworks("")
+	if nets == nil {
+		return nil, httperrors.NewInternalServerError("query all networks fail")
+	}
+
+	if isOverlapNetworks(nets, startIp, endIp) {
+		return nil, httperrors.NewInputParameterError("Conflict address space with existing networks")
+	}
+
+	wireStr := jsonutils.GetAnyString(data, []string{"wire", "wire_id"})
+	if len(wireStr) > 0 {
+		wireObj, err := WireManager.FetchByIdOrName(userCred.GetProjectId(), wireStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewNotFoundError("wire %s not found", wireStr)
+			} else {
+				return nil, httperrors.NewInternalServerError("query wire %s error %s", wireStr, err)
+			}
+		}
+		data.Add(jsonutils.NewString(wireObj.GetId()), "wire_id")
+	} else {
+		zoneStr := jsonutils.GetAnyString(data, []string{"zone", "zone_id"})
+		if len(zoneStr) > 0 {
+			vpcStr := jsonutils.GetAnyString(data, []string{"vpc", "vpc_id"})
+			if len(vpcStr) > 0 {
+				zoneObj, err := ZoneManager.FetchByIdOrName(userCred.GetProjectId(), zoneStr)
+				if err != nil {
+					if err == sql.ErrNoRows {
+						return nil, httperrors.NewNotFoundError("zone %s not found", zoneStr)
+					} else {
+						return nil, httperrors.NewInternalServerError("query zone %s error %s", zoneStr, err)
+					}
+				}
+				vpcObj, err := VpcManager.FetchByIdOrName(userCred.GetProjectId(), vpcStr)
+				if err != nil {
+					if err == sql.ErrNoRows {
+						return nil, httperrors.NewNotFoundError("vpc %s not found", vpcStr)
+					} else {
+						return nil, httperrors.NewInternalServerError("query vpc %s error %s", vpcStr, err)
+					}
+				}
+				vpc := vpcObj.(*SVpc)
+				zone := zoneObj.(*SZone)
+				wires, err := WireManager.getWiresByVpcAndZone(vpc, zone)
+				if err != nil {
+					if err == sql.ErrNoRows {
+						return nil, httperrors.NewNotFoundError("wire not found for zone %s and vpc %s", zoneStr, vpcStr)
+					} else {
+						return nil, httperrors.NewInternalServerError("query wire for zone %s and vpc %s error %s", zoneStr, vpcStr, err)
+					}
+				}
+				if len(wires) == 0 {
+					return nil, httperrors.NewNotFoundError("wire not found for zone %s and vpc %s", zoneStr, vpcStr)
+				} else if len(wires) > 1 {
+					return nil, httperrors.NewConflictError("more than 1 wire found for zone %s and vpc %s", zoneStr, vpcStr)
+				} else {
+					data.Add(jsonutils.NewString(wires[0].Id), "wire_id")
+				}
+			} else {
+				return nil, httperrors.NewInputParameterError("No either wire or vpc provided")
+			}
+		} else {
+			return nil, httperrors.NewInvalidStatusError("No either wire or zone provided")
+		}
+	}
+
+	wireId, _ := data.GetString("wire_id")
+	if len(wireId) == 0 {
+		return nil, httperrors.NewInputParameterError("missing wire_id")
+	}
+	wire := WireManager.FetchWireById(wireId)
+	if wire == nil {
+		return nil, httperrors.NewInputParameterError("wire_id %s not valid", wireId)
+	}
+	vpc := wire.getVpc()
+	if vpc == nil {
+		return nil, httperrors.NewInputParameterError("no valid vpc ???")
+	}
+
+	if vpc.Status != VPC_STATUS_AVAILABLE {
+		return nil, httperrors.NewInvalidStatusError("VPC not ready")
+	}
+
+	vpcRange := vpc.getIPRange()
+
+	netRange := netutils.NewIPV4AddrRange(startIp, endIp)
+
+	if !vpcRange.ContainsRange(netRange) {
+		return nil, httperrors.NewInputParameterError("Network not in range of VPC cidrblock %s", vpc.CidrBlock)
+	}
+
+	serverTypeStr, _ := data.GetString("server_type")
+	if len(serverTypeStr) == 0 {
+		serverTypeStr = SERVER_TYPE_GUEST
+	} else if serverTypeStr != SERVER_TYPE_GUEST && serverTypeStr != SERVER_TYPE_BAREMETAL {
+		return nil, httperrors.NewInputParameterError("Invalid server_type: %s", serverTypeStr)
+	}
+	data.Add(jsonutils.NewString(serverTypeStr), "server_type")
+
+	return manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+}
+
+func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	var startIp, endIp netutils.IPV4Addr
+	var err error
+
+	ipStartStr, _ := data.GetString("guest_ip_start")
+	ipEndStr, _ := data.GetString("guest_ip_start")
+
+	if len(ipStartStr) > 0 || len(ipEndStr) > 0 {
+		if self.isManaged() {
+			return nil, httperrors.NewForbiddenError("Cannot update a managed network")
+		}
+
+		if len(ipStartStr) > 0 {
+			startIp, err = netutils.NewIPV4Addr(ipStartStr)
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("Invalid start ip: %s %s", ipStartStr, err)
+			}
+		} else {
+			startIp, _ = netutils.NewIPV4Addr(self.GuestIpStart)
+		}
+		if len(ipEndStr) > 0 {
+			endIp, err = netutils.NewIPV4Addr(ipEndStr)
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("invalid end ip: %s %s", ipEndStr, err)
+			}
+		} else {
+			endIp, _ = netutils.NewIPV4Addr(self.GuestIpEnd)
+		}
+
+		if startIp > endIp {
+			tmp := startIp
+			startIp = endIp
+			endIp = tmp
+		}
+
+		nets := NetworkManager.getAllNetworks(self.Id)
+		if nets == nil {
+			return nil, httperrors.NewInternalServerError("query all networks fail")
+		}
+
+		if isOverlapNetworks(nets, startIp, endIp) {
+			return nil, httperrors.NewInputParameterError("Conflict address space with existing networks")
+		}
+
+		vpc := self.GetVpc()
+
+		vpcRange := vpc.getIPRange()
+
+		netRange := netutils.NewIPV4AddrRange(startIp, endIp)
+
+		if !vpcRange.ContainsRange(netRange) {
+			return nil, httperrors.NewInputParameterError("Network not in range of VPC cidrblock %s", vpc.CidrBlock)
+		}
+
+		usedMap := self.GetUsedAddresses()
+		for usedIpStr := range usedMap {
+			usedIp, _ := netutils.NewIPV4Addr(usedIpStr)
+			if !netRange.Contains(usedIp) {
+				return nil, httperrors.NewInputParameterError("Address been assigned out of new range")
+			}
+		}
+
+		data.Add(jsonutils.NewString(startIp.String()), "guest_ip_start")
+		data.Add(jsonutils.NewString(endIp.String()), "guest_ip_end")
+
+	}
+
+	if data.Contains("guest_ip_mask") {
+		if self.isManaged() {
+			return nil, httperrors.NewForbiddenError("Cannot update a managed network")
+		}
+
+		maskLen64, _ := data.Int("guest_ip_mask")
+		if !isValidMaskLen(maskLen64) {
+			return nil, httperrors.NewInputParameterError("Invalid masklen %d", maskLen64)
+		}
+	}
+
+	for _, key := range []string{"guest_gateway", "guest_dns", "guest_dhcp"} {
+		ipStr, _ := data.GetString(key)
+		if len(ipStr) > 0 {
+			if self.isManaged() {
+				return nil, httperrors.NewForbiddenError("Cannot update a managed network")
+			} else if !regutils.MatchIPAddr(ipStr) {
+				return nil, httperrors.NewInputParameterError("%s: Invalid IP address %s", key, ipStr)
+			}
+		}
+	}
+
+	return self.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+}
+
+func (manager *SNetworkManager) getAllNetworks(excludeId string) []SNetwork {
+	nets := make([]SNetwork, 0)
+	q := manager.Query()
+	if len(excludeId) > 0 {
+		q = q.NotEquals("id", excludeId)
+	}
+	err := db.FetchModelObjects(manager, q, &nets)
+	if err != nil {
+		log.Errorf("getAllNetworks fail %s", err)
+		return nil
+	}
+	return nets
+}
+
+func isOverlapNetworks(nets []SNetwork, startIp netutils.IPV4Addr, endIp netutils.IPV4Addr) bool {
+	ipRange := netutils.NewIPV4AddrRange(startIp, endIp)
+	for i := 0; i < len(nets); i += 1 {
+		ipRange2 := nets[i].getIPRange()
+		if ipRange2.IsOverlap(ipRange) {
+			return true
+		}
+	}
+	return false
+}
+
+func (self *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if userCred.IsSystemAdmin() && ownerProjId == userCred.GetProjectId() {
+		self.IsPublic = true
+	} else {
+		self.IsPublic = false
+	}
+	return self.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerProjId, query, data)
+}
+
+func (self *SNetwork) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+	wire := self.GetWire()
+	if wire == nil {
+		log.Errorf("cannot find wire???")
+	} else {
+		wire.clearHostSchedDescCache()
+	}
+	vpc := self.GetVpc()
+	if vpc != nil && vpc.IsManaged() {
+		task, err := taskman.TaskManager.NewTask(ctx, "NetworkCreateTask", self, userCred, nil, "", "", nil)
+		if err != nil {
+			log.Errorf("networkcreateTask create fail: %s", err)
+		} else {
+			task.ScheduleRun(nil)
+		}
+	} else {
+		self.SetStatus(userCred, NETWORK_STATUS_AVAILABLE, "")
+	}
+}
+
+func (self *SNetwork) GetPrefix() (netutils.IPV4Prefix, error) {
+	addr, err := netutils.NewIPV4Addr(self.GuestIpStart)
+	if err != nil {
+		return netutils.IPV4Prefix{}, err
+	}
+	addr = addr.NetAddr(self.GuestIpMask)
+	return netutils.IPV4Prefix{Address: addr, MaskLen: self.GuestIpMask}, nil
+}
+
+func (self *SNetwork) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	log.Infof("SNetwork delete do nothing")
+	self.SetStatus(userCred, NETWORK_STATUS_START_DELETE, "")
+	return nil
+}
+
+func (self *SNetwork) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if len(self.ExternalId) > 0 {
+		return self.StartDeleteNetworkTask(ctx, userCred)
+	} else {
+		return self.RealDelete(ctx, userCred)
+	}
+}
+
+func (self *SNetwork) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(), userCred)
+	self.SetStatus(userCred, NETWORK_STATUS_DELETED, "real delete")
+	return self.SSharableVirtualResourceBase.Delete(ctx, userCred)
+}
+
+func (self *SNetwork) StartDeleteNetworkTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "NetworkDeleteTask", self, userCred, nil, "", "", nil)
+	if err != nil {
+		log.Errorf("Start NetworkDeleteTask fail %s", err)
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SNetwork) GetINetwork() (cloudprovider.ICloudNetwork, error) {
+	wire := self.GetWire()
+	if wire == nil {
+		msg := "No wire for this network????"
+		log.Errorf(msg)
+		return nil, fmt.Errorf(msg)
+	}
+	iwire, err := wire.GetIWire()
+	if err != nil {
+		return nil, err
+	}
+	return iwire.GetINetworkById(self.GetExternalId())
+}
+
+func (self *SNetwork) isManaged() bool {
+	if len(self.ExternalId) > 0 {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	zoneStr, _ := query.GetString("zone")
+	if len(zoneStr) > 0 {
+		zoneObj, err := ZoneManager.FetchByIdOrName(userCred.GetProjectId(), zoneStr)
+		if err != nil {
+			return nil, httperrors.NewNotFoundError("Zone %s not found", zoneStr)
+		}
+		sq := WireManager.Query("id").Equals("zone_id", zoneObj.GetId())
+		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
+	}
+	vpcStr, _ := query.GetString("vpc")
+	if len(vpcStr) > 0 {
+		vpcObj, err := VpcManager.FetchByIdOrName(userCred.GetProjectId(), vpcStr)
+		if err != nil {
+			return nil, httperrors.NewNotFoundError("VPC %s not found", vpcStr)
+		}
+		sq := WireManager.Query("id").Equals("vpc_id", vpcObj.GetId())
+		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
+	}
+	return q, nil
+}
+
+func (manager *SNetworkManager) InitializeData() error {
+	// set network status
+	networks := make([]SNetwork, 0)
+	q := manager.Query()
+	err := db.FetchModelObjects(manager, q, &networks)
+	if err != nil {
+		return err
+	}
+	for _, n := range networks {
+		if len(n.ExternalId) == 0 && len(n.WireId) > 0 && n.Status == NETWORK_STATUS_INIT {
+			manager.TableSpec().Update(&n, func() error {
+				n.Status = NETWORK_STATUS_AVAILABLE
+				return nil
+			})
+		}
+	}
+	return nil
+}
+
+func (self *SNetwork) ValidateUpdateCondition(ctx context.Context) error {
+	if len(self.ExternalId) > 0 {
+		return httperrors.NewConflictError("Cannot update external resource")
+	}
+	return self.SSharableVirtualResourceBase.ValidateUpdateCondition(ctx)
+}
+
+func (self *SNetwork) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SNetwork) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	err := self.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	vpc := self.GetVpc()
+	if vpc != nil && len(vpc.ExternalId) > 0 {
+		provider := vpc.GetCloudprovider()
+		if provider != nil && provider.Enabled {
+			return nil, httperrors.NewInvalidStatusError("Cannot purge network on enabled cloud provider")
+		}
+	}
+	err = self.RealDelete(ctx, userCred)
+	return nil, err
 }

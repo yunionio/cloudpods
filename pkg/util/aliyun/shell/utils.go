@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"reflect"
 	"github.com/yunionio/jsonutils"
-	"yunion.io/yunioncloud/pkg/mcclient/modules"
-	"yunion.io/yunioncloud/pkg/util/printjson"
+	"github.com/yunionio/mcclient/modules"
+	"github.com/yunionio/pkg/util/printjson"
 )
 
 func printList(data interface{}, total, offset, limit int, columns []string) {

@@ -1,10 +1,9 @@
 package provider
 
 import (
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/jsonutils"
 	// "github.com/yunionio/log"
-
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/onecloud/pkg/util/aliyun"
 )
 
@@ -16,12 +15,12 @@ func (self *SAliyunProviderFactory) GetId() string {
 	return aliyun.CLOUD_PROVIDER_ALIYUN
 }
 
-func (self *SAliyunProviderFactory) GetProvider(providerId, url, account, secret string) (cloudprovider.ICloudProvider, error) {
+func (self *SAliyunProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
 	provider, ok := self.providerTable[providerId]
 	if ok {
 		return provider, nil
 	}
-	client, err := aliyun.NewAliyunClient(providerId, account, secret)
+	client, err := aliyun.NewAliyunClient(providerId, providerName, account, secret)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +52,7 @@ func (self *SAliyunProvider) GetName() string {
 }
 
 func (self *SAliyunProvider) GetSysInfo() (jsonutils.JSONObject, error) {
-	regions := self.client.GetRegions()
+	regions := self.client.GetIRegions()
 	info := jsonutils.NewDict()
 	info.Add(jsonutils.NewInt(int64(len(regions))), "region_count")
 	return info, nil
@@ -65,4 +64,20 @@ func (self *SAliyunProvider) GetIRegions() []cloudprovider.ICloudRegion {
 
 func (self *SAliyunProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegionById(id)
+}
+
+func (self *SAliyunProvider) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
+	return self.client.GetIHostById(id)
+}
+
+func (self *SAliyunProvider) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
+	return self.client.GetIVpcById(id)
+}
+
+func (self *SAliyunProvider) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
+	return self.client.GetIStorageById(id)
+}
+
+func (self *SAliyunProvider) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
+	return self.client.GetIStoragecacheById(id)
 }

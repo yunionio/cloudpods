@@ -201,6 +201,8 @@ func (man *SDnsRecordManager) QueryDns(projectId, name string) *SDnsRecord {
 	}
 
 	rec := &SDnsRecord{}
+	rec.SetModelManager(DnsRecordManager)
+
 	err := q.First(rec)
 	if err != nil {
 		log.Errorf("QueryDns %q fail: %s", name, err)

@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/pkg/utils"
-
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/onecloud/pkg/compute/models"
+	"github.com/yunionio/jsonutils"
+	"github.com/yunionio/log"
+	"github.com/yunionio/pkg/utils"
 )
 
 type CloudProviderSyncInfoTask struct {
@@ -62,8 +61,8 @@ func (self *CloudProviderSyncInfoTask) OnInit(ctx context.Context, obj db.IStand
 	self.SetStageComplete(ctx, nil)
 }
 
-func logSyncFailed(provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, reason string) {
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, reason, task.UserCred)
+func logSyncFailed(provider *models.SCloudprovider, task taskman.ITask, reason string) {
+	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, reason, task.GetUserCred())
 }
 
 func syncCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, driver cloudprovider.ICloudProvider, syncRange *models.SSyncRange) {
@@ -144,7 +143,7 @@ func syncRegionVPCs(ctx context.Context, provider *models.SCloudprovider, task *
 	}
 }
 
-func syncVpcWires(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localVpc *models.SVpc, remoteVpc cloudprovider.ICloudVpc) {
+func syncVpcWires(ctx context.Context, provider *models.SCloudprovider, task taskman.ITask, localVpc *models.SVpc, remoteVpc cloudprovider.ICloudVpc) {
 	wires, err := remoteVpc.GetIWires()
 	if err != nil {
 		msg := fmt.Sprintf("GetIWires for vps %s failed %s", remoteVpc.GetId(), err)
@@ -152,20 +151,20 @@ func syncVpcWires(ctx context.Context, provider *models.SCloudprovider, task *Cl
 		logSyncFailed(provider, task, msg)
 		return
 	}
-	localWires, remoteWires, result := models.WireManager.SyncWires(ctx, task.UserCred, localVpc, wires)
+	localWires, remoteWires, result := models.WireManager.SyncWires(ctx, task.GetUserCred(), localVpc, wires)
 	msg := result.Result()
 	log.Infof("SyncWires for VPC %s result: %s", localVpc.Name, msg)
 	if result.IsError() {
 		logSyncFailed(provider, task, msg)
 		return
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
+	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.GetUserCred())
 	for i := 0; i < len(localWires); i += 1 {
 		syncWireNetworks(ctx, provider, task, &localWires[i], remoteWires[i])
 	}
 }
 
-func syncWireNetworks(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localWire *models.SWire, remoteWire cloudprovider.ICloudWire) {
+func syncWireNetworks(ctx context.Context, provider *models.SCloudprovider, task taskman.ITask, localWire *models.SWire, remoteWire cloudprovider.ICloudWire) {
 	nets, err := remoteWire.GetINetworks()
 	if err != nil {
 		msg := fmt.Sprintf("GetINetworks for wire %s failed %s", remoteWire.GetId(), err)
@@ -173,14 +172,14 @@ func syncWireNetworks(ctx context.Context, provider *models.SCloudprovider, task
 		logSyncFailed(provider, task, msg)
 		return
 	}
-	_, _, result := models.NetworkManager.SyncNetworks(ctx, task.UserCred, localWire, nets)
+	_, _, result := models.NetworkManager.SyncNetworks(ctx, task.GetUserCred(), localWire, nets)
 	msg := result.Result()
 	log.Infof("SyncNetworks for wire %s result: %s", localWire.Name, msg)
 	if result.IsError() {
 		logSyncFailed(provider, task, msg)
 		return
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
+	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.GetUserCred())
 }
 
 func syncZoneStorages(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localZone *models.SZone, remoteZone cloudprovider.ICloudZone) {
@@ -286,7 +285,7 @@ func syncHostStorages(ctx context.Context, provider *models.SCloudprovider, task
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
 }
 
-func syncHostWires(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localHost *models.SHost, remoteHost cloudprovider.ICloudHost) {
+func syncHostWires(ctx context.Context, provider *models.SCloudprovider, task taskman.ITask, localHost *models.SHost, remoteHost cloudprovider.ICloudHost) {
 	wires, err := remoteHost.GetIWires()
 	if err != nil {
 		msg := fmt.Sprintf("GetIWires for host %s failed %s", remoteHost.GetName(), err)
@@ -294,14 +293,14 @@ func syncHostWires(ctx context.Context, provider *models.SCloudprovider, task *C
 		logSyncFailed(provider, task, msg)
 		return
 	}
-	result := localHost.SyncHostWires(ctx, task.UserCred, wires)
+	result := localHost.SyncHostWires(ctx, task.GetUserCred(), wires)
 	msg := result.Result()
 	log.Infof("SyncHostWires for host %s result: %s", localHost.Name, msg)
 	if result.IsError() {
 		logSyncFailed(provider, task, msg)
 		return
 	}
-	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
+	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.GetUserCred())
 }
 
 func syncHostVMs(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localHost *models.SHost, remoteHost cloudprovider.ICloudHost) {

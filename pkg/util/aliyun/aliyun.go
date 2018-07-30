@@ -3,10 +3,9 @@ package aliyun
 import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
 )
 
 const (
@@ -17,15 +16,15 @@ const (
 )
 
 type SAliyunClient struct {
-	providerId string
-	accessKey  string
-	secret     string
-	regions    []SRegion
-	iregions   []cloudprovider.ICloudRegion
+	providerId   string
+	providerName string
+	accessKey    string
+	secret       string
+	iregions     []cloudprovider.ICloudRegion
 }
 
-func NewAliyunClient(providerId string, accessKey string, secret string) (*SAliyunClient, error) {
-	client := SAliyunClient{providerId: providerId, accessKey: accessKey, secret: secret}
+func NewAliyunClient(providerId string, providerName string, accessKey string, secret string) (*SAliyunClient, error) {
+	client := SAliyunClient{providerId: providerId, providerName: providerName, accessKey: accessKey, secret: secret}
 	err := client.fetchRegions()
 	if err != nil {
 		return nil, err
@@ -75,23 +74,23 @@ func (self *SAliyunClient) fetchRegions() error {
 		return err
 	}
 
-	self.regions = make([]SRegion, 0)
-	err = body.Unmarshal(&self.regions, "Regions", "Region")
+	regions := make([]SRegion, 0)
+	err = body.Unmarshal(&regions, "Regions", "Region")
 	if err != nil {
 		log.Errorf("unmarshal json error %s", err)
 		return err
 	}
-	self.iregions = make([]cloudprovider.ICloudRegion, len(self.regions))
-	for i := 0; i < len(self.regions); i += 1 {
-		self.regions[i].client = self
-		self.iregions[i] = &self.regions[i]
+	self.iregions = make([]cloudprovider.ICloudRegion, len(regions))
+	for i := 0; i < len(regions); i += 1 {
+		regions[i].client = self
+		self.iregions[i] = &regions[i]
 	}
 	return nil
 }
 
-func (self *SAliyunClient) GetRegions() []SRegion {
+/*func (self *SAliyunClient) GetRegions() []SRegion {
 	return self.regions
-}
+}*/
 
 func (self *SAliyunClient) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.iregions
@@ -110,10 +109,58 @@ func (self *SAliyunClient) GetRegion(regionId string) *SRegion {
 	if len(regionId) == 0 {
 		regionId = ALIYUN_DEFAULT_REGION
 	}
-	for i := 0; i < len(self.regions); i += 1 {
-		if self.regions[i].RegionId == regionId {
-			return &self.regions[i]
+	for i := 0; i < len(self.iregions); i += 1 {
+		if self.iregions[i].GetId() == regionId {
+			return self.iregions[i].(*SRegion)
 		}
 	}
 	return nil
+}
+
+func (self *SAliyunClient) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
+	for i := 0; i < len(self.iregions); i += 1 {
+		ihost, err := self.iregions[i].GetIHostById(id)
+		if err == nil {
+			return ihost, nil
+		} else if err != cloudprovider.ErrNotFound {
+			return nil, err
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SAliyunClient) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
+	for i := 0; i < len(self.iregions); i += 1 {
+		ihost, err := self.iregions[i].GetIVpcById(id)
+		if err == nil {
+			return ihost, nil
+		} else if err != cloudprovider.ErrNotFound {
+			return nil, err
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SAliyunClient) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
+	for i := 0; i < len(self.iregions); i += 1 {
+		ihost, err := self.iregions[i].GetIStorageById(id)
+		if err == nil {
+			return ihost, nil
+		} else if err != cloudprovider.ErrNotFound {
+			return nil, err
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SAliyunClient) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
+	for i := 0; i < len(self.iregions); i += 1 {
+		ihost, err := self.iregions[i].GetIStoragecacheById(id)
+		if err == nil {
+			return ihost, nil
+		} else if err != cloudprovider.ErrNotFound {
+			return nil, err
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }

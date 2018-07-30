@@ -1,9 +1,15 @@
 package aliyun
 
 import (
+	"strings"
 	"time"
-
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/jsonutils"
+)
+
+const (
+	VpcAvailable = "Available"
+	VpcPending   = "Pending"
 )
 
 // "CidrBlock":"172.31.0.0/16","CreationTime":"2017-03-19T13:37:40Z","Description":"System created default VPC.","IsDefault":true,"RegionId":"cn-hongkong","Status":"Available","UserCidrs":{"UserCidr":[]},"VRouterId":"vrt-j6c00qrol733dg36iq4qj","VSwitchIds":{"VSwitchId":["vsw-j6c3gig5ub4fmi2veyrus"]},"VpcId":"vpc-j6c86z3sh8ufhgsxwme0q","VpcName":""
@@ -41,11 +47,18 @@ func (self *SVpc) GetId() string {
 }
 
 func (self *SVpc) GetName() string {
+	if len(self.VpcName) > 0 {
+		return self.VpcName
+	}
 	return self.VpcId
 }
 
 func (self *SVpc) GetGlobalId() string {
 	return self.VpcId
+}
+
+func (self *SVpc) IsEmulated() bool {
+	return false
 }
 
 func (self *SVpc) GetIsDefault() bool {
@@ -57,7 +70,15 @@ func (self *SVpc) GetCidrBlock() string {
 }
 
 func (self *SVpc) GetStatus() string {
-	return self.Status
+	return strings.ToLower(self.Status)
+}
+
+func (self *SVpc) Refresh() error {
+	new, err := self.region.getVpc(self.VpcId)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(self, new)
 }
 
 func (self *SVpc) GetRegion() cloudprovider.ICloudRegion {
@@ -82,9 +103,15 @@ func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
 }
 
 func (self *SVpc) fetchVSwitches() error {
-	switches, _, err := self.region.GetVSwitches(self.VSwitchIds.VSwitchId, 0, len(self.VSwitchIds.VSwitchId))
+	switches, total, err := self.region.GetVSwitches(nil, self.VpcId, 0, 50)
 	if err != nil {
 		return err
+	}
+	if total > len(switches) {
+		switches, _, err = self.region.GetVSwitches(nil, self.VpcId, 0, total)
+		if err != nil {
+			return err
+		}
 	}
 	for i := 0; i < len(switches); i += 1 {
 		wire := self.getWireByZoneId(switches[i].ZoneId)
@@ -102,6 +129,21 @@ func (self *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
 		}
 	}
 	return self.iwires, nil
+}
+
+func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
+	if self.iwires == nil {
+		err := self.fetchVSwitches()
+		if err != nil {
+			return nil, err
+		}
+	}
+	for i := 0; i < len(self.iwires); i += 1 {
+		if self.iwires[i].GetGlobalId() == wireId {
+			return self.iwires[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SVpc) fetchSecurityGroups() error {
@@ -128,4 +170,12 @@ func (self *SVpc) GetSecurityGroups() ([]SSecurityGroup, error) {
 		}
 	}
 	return self.secgroups, nil
+}
+
+func (self *SVpc) GetManagerId() string {
+	return self.region.client.providerId
+}
+
+func (self *SVpc) Delete() error {
+	return self.region.DeleteVpc(self.VpcId)
 }

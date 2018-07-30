@@ -123,6 +123,15 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 				sqlchemy.IsFalse(storages.Field("deleted")))).
 			Filter(sqlchemy.Equals(storages.Field("id"), q.Field("storage_id")))
 	}
+
+	storageStr := jsonutils.GetAnyString(queryDict, []string{"storage", "storage_id"})
+	if len(storageStr) > 0 {
+		storageObj, err := StorageManager.FetchByIdOrName(userCred.GetProjectId(), storageStr)
+		if err != nil {
+			return nil, httperrors.NewResourceNotFoundError("storage %s not found: %s", storageStr, err)
+		}
+		q = q.Filter(sqlchemy.Equals(q.Field("storage_id"), storageObj.GetId()))
+	}
 	return q, nil
 }
 
@@ -307,6 +316,8 @@ func (self *SDisk) syncWithCloudDisk(userCred mcclient.TokenCredential, extDisk 
 		// self.FsFormat = extDisk.GetFsFormat()
 		self.Nonpersistent = extDisk.GetIsNonPersistent()
 
+		self.IsEmulated = extDisk.IsEmulated()
+
 		self.ProjectId = userCred.GetProjectId()
 
 		return nil
@@ -332,6 +343,8 @@ func (manager *SDiskManager) newFromCloudDisk(userCred mcclient.TokenCredential,
 	disk.AutoDelete = extDisk.GetIsAutoDelete()
 	disk.DiskType = extDisk.GetDiskType()
 	disk.Nonpersistent = extDisk.GetIsNonPersistent()
+
+	disk.IsEmulated = extDisk.IsEmulated()
 
 	err := manager.TableSpec().Insert(&disk)
 	if err != nil {

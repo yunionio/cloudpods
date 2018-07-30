@@ -133,3 +133,19 @@ func (self *SVirtualizedGuestDriver) ValidateCreateHostData(ctx context.Context,
 func (self *SVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
 	return guest.GetJsonDescAtHypervisor(ctx, host)
 }
+
+func (self *SVirtualizedGuestDriver) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, data *jsonutils.JSONDict) error {
+	return guest.StartGueststartTask(ctx, userCred, data, "")
+}
+
+func (self *SVirtualizedGuestDriver) CheckDiskTemplateOnStorage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, storageId string, task taskman.ITask) error {
+	storage := models.StorageManager.FetchStorageById(storageId)
+	if storage == nil {
+		return fmt.Errorf("No such storage?? %s", storageId)
+	}
+	cache := storage.GetStoragecache()
+	if cache == nil {
+		return fmt.Errorf("Cache is missing from storage")
+	}
+	return cache.StartImageCacheTask(ctx, userCred, imageId, false, task.GetTaskId())
+}

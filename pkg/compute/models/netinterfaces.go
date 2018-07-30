@@ -3,13 +3,11 @@ package models
 import (
 	"context"
 	"database/sql"
-
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 	"github.com/yunionio/mcclient"
 	"github.com/yunionio/pkg/util/regutils"
-
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 )
 
 type SNetInterface struct {
@@ -73,6 +71,8 @@ func (netif *SNetInterface) GetBaremetal() *SHost {
 
 func (netif *SNetInterface) GetBaremetalNetwork() *SHostnetwork {
 	bn := SHostnetwork{}
+	bn.SetModelManager(HostnetworkManager)
+
 	q := HostnetworkManager.Query()
 	q = q.Equals("baremetal_id", netif.BaremetalId).Equals("mac_addr", netif.Mac)
 	err := q.First(&bn)

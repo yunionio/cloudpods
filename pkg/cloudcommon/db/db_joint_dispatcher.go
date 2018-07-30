@@ -44,6 +44,7 @@ func (dispatcher *DBJointModelDispatcher) SlaveKeywordPlural() string {
 }
 
 func (dispatcher *DBJointModelDispatcher) ListMasterDescendent(ctx context.Context, idStr string, query jsonutils.JSONObject) (*modules.ListResult, error) {
+	log.Debugf("ListMasterDescendent %s %s", dispatcher.JointModelManager().GetMasterManager().Keyword(), idStr)
 	userCred := fetchUserCredential(ctx)
 
 	var queryDict *jsonutils.JSONDict
@@ -70,6 +71,8 @@ func (dispatcher *DBJointModelDispatcher) ListMasterDescendent(ctx context.Conte
 }
 
 func (dispatcher *DBJointModelDispatcher) ListSlaveDescendent(ctx context.Context, idStr string, query jsonutils.JSONObject) (*modules.ListResult, error) {
+	log.Debugf("ListSlaveDescendent %s %s", dispatcher.JointModelManager().GetMasterManager().Keyword(), idStr)
+
 	userCred := fetchUserCredential(ctx)
 
 	var queryDict *jsonutils.JSONDict

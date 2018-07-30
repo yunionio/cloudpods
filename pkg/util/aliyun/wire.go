@@ -2,10 +2,8 @@ package aliyun
 
 import (
 	"fmt"
-
-	"github.com/yunionio/log"
-
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/log"
 )
 
 type SWire struct {
@@ -21,6 +19,18 @@ func (self *SWire) GetId() string {
 
 func (self *SWire) GetName() string {
 	return self.GetId()
+}
+
+func (self *SWire) IsEmulated() bool {
+	return true
+}
+
+func (self *SWire) GetStatus() string {
+	return "available"
+}
+
+func (self *SWire) Refresh() error {
+	return nil
 }
 
 func (self *SWire) GetGlobalId() string {
@@ -79,4 +89,32 @@ func (self *SWire) getNetworkById(vswitchId string) *SVSwitch {
 
 func (self *SWire) GetBandwidth() int {
 	return 10000
+}
+
+func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
+	vswitchId, err := self.zone.region.createVSwitch(self.zone.ZoneId, self.vpc.VpcId, name, cidr, desc)
+	if err != nil {
+		log.Errorf("createVSwitch error %s", err)
+		return nil, err
+	}
+	self.inetworks = nil
+	vswitch := self.getNetworkById(vswitchId)
+	if vswitch == nil {
+		log.Errorf("cannot find vswitch after create????")
+		return nil, cloudprovider.ErrNotFound
+	}
+	return vswitch, nil
+}
+
+func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, error) {
+	networks, err := self.GetINetworks()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(networks); i += 1 {
+		if networks[i].GetGlobalId() == netid {
+			return networks[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }

@@ -5,11 +5,11 @@ import (
 	"strings"
 
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"yunion.io/yunioncloud/pkg/httperrors"
+	"github.com/yunionio/pkg/httperrors"
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 	"github.com/yunionio/mcclient"
-	"yunion.io/yunioncloud/pkg/sqlchemy"
+	"github.com/yunionio/sqlchemy"
 )
 
 type SSecurityGroupManager struct {
@@ -129,6 +129,8 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 	}
 
 	secgroup := &SSecurityGroup{}
+	secgroup.SetModelManager(SecurityGroupManager)
+
 	secgroup.Name, _ = data.GetString("name")
 	secgroup.Description, _ = data.GetString("description")
 	secgroup.ProjectId = userCred.GetTenantId()
@@ -139,6 +141,8 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 	secgrouprules := self.getSecurityRules()
 	for _, rule := range secgrouprules {
 		secgrouprule := &SSecurityGroupRule{}
+		secgrouprule.SetModelManager(SecurityGroupRuleManager)
+
 		secgrouprule.Priority = rule.Priority
 		secgrouprule.Protocol = rule.Protocol
 		secgrouprule.Ports = rule.Ports

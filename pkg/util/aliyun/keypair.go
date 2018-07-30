@@ -2,7 +2,6 @@ package aliyun
 
 import (
 	"fmt"
-
 	"github.com/yunionio/log"
 )
 

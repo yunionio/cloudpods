@@ -8,15 +8,17 @@ import (
 	"io"
 	"regexp"
 	"time"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"
-	"github.com/yunionio/onecloud/pkg/compute/options"
+
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 	"github.com/yunionio/mcclient"
-	"yunion.io/yunioncloud/pkg/sqlchemy"
-	"yunion.io/yunioncloud/pkg/util/netutils"
-	"yunion.io/yunioncloud/pkg/util/regutils"
+	"github.com/yunionio/pkg/util/netutils"
+	"github.com/yunionio/pkg/util/regutils"
+	"github.com/yunionio/sqlchemy"
+
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"
+	"github.com/yunionio/onecloud/pkg/compute/options"
 )
 
 const (
@@ -107,7 +109,10 @@ func (manager *SGuestnetworkManager) GenerateMac(netId string, suggestion string
 func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, network *SNetwork,
 	index int8, address string, mac string, driver string, bwLimit int, virtual bool, reserved bool,
 	allocDir IPAddlocationDirection, requiredDesignatedIp bool) (*SGuestnetwork, error) {
+
 	gn := SGuestnetwork{}
+	gn.SetModelManager(GuestnetworkManager)
+
 	gn.GuestId = guest.Id
 	gn.NetworkId = network.Id
 	gn.Index = index
@@ -259,6 +264,8 @@ func (self *SGuestnetwork) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 
 func (manager *SGuestnetworkManager) GetGuestByAddress(address string) *SGuest {
 	gn := SGuestnetwork{}
+	gn.SetModelManager(GuestnetworkManager)
+
 	err := manager.Query().Equals("ip_addr", address).First(&gn)
 	if err != nil {
 		log.Errorf("GetGuestByAddress query fail: %s", err)

@@ -2,13 +2,17 @@ package aliyun
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
+
 	"time"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-
+	"github.com/aokoli/goutils"
+	"golang.org/x/crypto/ssh"
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/onecloud/pkg/compute/models"
+	"github.com/yunionio/jsonutils"
+	"github.com/yunionio/log"
 )
 
 type SHost struct {
@@ -21,6 +25,10 @@ func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
 
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	return self.zone.GetIStorages()
+}
+
+func (self *SHost) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
+	return self.zone.GetIStorageById(id)
 }
 
 func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
@@ -64,19 +72,27 @@ func (self *SHost) GetIVMById(gid string) (cloudprovider.ICloudVM, error) {
 }
 
 func (self *SHost) GetId() string {
-	return self.zone.GetId()
+	return fmt.Sprintf("%s-%s", self.zone.region.client.providerId, self.zone.GetId())
 }
 
 func (self *SHost) GetName() string {
-	return self.GetId()
+	return fmt.Sprintf("%s-%s", self.zone.region.client.providerName, self.zone.GetId())
 }
 
 func (self *SHost) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s", self.zone.region.client.providerId, self.GetId())
+	return fmt.Sprintf("%s-%s", self.zone.region.client.providerId, self.zone.GetId())
+}
+
+func (self *SHost) IsEmulated() bool {
+	return true
 }
 
 func (self *SHost) GetStatus() string {
 	return models.HOST_STATUS_RUNNING
+}
+
+func (self *SHost) Refresh() error {
+	return nil
 }
 
 func (self *SHost) GetHostStatus() string {
@@ -150,8 +166,8 @@ func (self *SHost) getInstanceById(instanceId string) (*SInstance, error) {
 	return inst, nil
 }
 
-func (self *SHost) CreateVM(name string, imgId string, cpu int, memMB int, vswitchId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int) (cloudprovider.ICloudVM, error) {
-	vmId, err := self._createVM(name, imgId, cpu, memMB, vswitchId, ipAddr, desc, passwd, storageType, diskSizes)
+func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, vswitchId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string) (cloudprovider.ICloudVM, error) {
+	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, vswitchId, ipAddr, desc, passwd, storageType, diskSizes, publicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -159,11 +175,40 @@ func (self *SHost) CreateVM(name string, imgId string, cpu int, memMB int, vswit
 	if err != nil {
 		return nil, err
 	}
-	err = vm.waitStatus(InstanceStatusStopped, time.Second*10, time.Second*1800)
+	// err = vm.waitStatus(InstanceStatusStopped, time.Second*10, time.Second*1800)
 	return vm, err
 }
 
-func (self *SHost) _createVM(name string, imgId string, cpu int, memMB int, vswitchId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int) (string, error) {
+func (self *SHost) lookUpAliyunKeypair(publicKey string) (string, error) {
+	pk, _, _, _, err := ssh.ParseAuthorizedKey([]byte(publicKey))
+	if err != nil {
+		return "", fmt.Errorf("publicKey error %s", err)
+	}
+
+	fingerprint := strings.Replace(ssh.FingerprintLegacyMD5(pk), ":", "", -1)
+	ks, total, err := self.zone.region.GetKeypairs(fingerprint, "*", 0, 1)
+	if total < 1 {
+		return "", fmt.Errorf("keypair not found %s", err)
+	} else {
+		return ks[0].KeyPairName, nil
+	}
+}
+
+func (self *SHost) importAliyunKeypair(publicKey string) (string, error) {
+	prefix, e := goutils.RandomAlphabetic(6)
+	if e != nil {
+		return "", fmt.Errorf("publicKey error %s", e)
+	}
+
+	name := prefix + strconv.FormatInt(time.Now().Unix(), 10)
+	if k, e := self.zone.region.ImportKeypair(name, publicKey); e != nil {
+		return "", fmt.Errorf("keypair import error %s", e)
+	} else {
+		return k.KeyPairName, nil
+	}
+}
+
+func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, vswitchId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string) (string, error) {
 	net := self.zone.getNetworkById(vswitchId)
 	if net == nil {
 		return "", fmt.Errorf("invalid switch ID %s", vswitchId)
@@ -182,11 +227,30 @@ func (self *SHost) _createVM(name string, imgId string, cpu int, memMB int, vswi
 		return "", fmt.Errorf("get security group error %s", err)
 	}
 
+	var secgroupId string
 	if len(secgroups) == 0 {
-		return "", fmt.Errorf("no secgroup for vpc!!")
+		secId, err := self.zone.region.createDefaultSecurityGroup(net.wire.vpc.VpcId)
+		if err != nil {
+			return "", fmt.Errorf("no secgroup for vpc and failed to create a default One!!")
+		} else {
+			secgroupId = secId
+		}
+	} else {
+		secgroupId = secgroups[0].SecurityGroupId
 	}
 
-	secgroupId := secgroups[0].SecurityGroupId
+	keypair := ""
+	if len(publicKey) > 0 {
+		if name, e := self.lookUpAliyunKeypair(publicKey); e != nil {
+			if newName, err := self.importAliyunKeypair(publicKey); e != nil {
+				keypair = newName
+			} else {
+				return "", err
+			}
+		} else {
+			keypair = name
+		}
+	}
 
 	img, err := self.zone.region.GetImage(imgId)
 	if err != nil {
@@ -205,6 +269,9 @@ func (self *SHost) _createVM(name string, imgId string, cpu int, memMB int, vswi
 
 	disks := make([]SDisk, len(diskSizes)+1)
 	disks[0].Size = img.Size
+	if sysDiskSize > 0 && sysDiskSize > img.Size {
+		disks[0].Size = sysDiskSize
+	}
 	disks[0].Category = storageType
 
 	for i, sz := range diskSizes {
@@ -223,7 +290,7 @@ func (self *SHost) _createVM(name string, imgId string, cpu int, memMB int, vswi
 	for _, instType := range instanceTypes {
 		instanceTypeId := instType.InstanceTypeId
 		log.Debugf("Try instancetype : %s", instanceTypeId)
-		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceTypeId, secgroupId, self.zone.ZoneId, desc, passwd, disks, vswitchId, ipAddr, "")
+		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceTypeId, secgroupId, self.zone.ZoneId, desc, passwd, disks, vswitchId, ipAddr, keypair)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceTypeId, err)
 		} else {

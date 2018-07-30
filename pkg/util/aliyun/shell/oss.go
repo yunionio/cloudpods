@@ -1,8 +1,41 @@
 package shell
 
 import (
-	"yunion.io/yunioncloud/pkg/util/aliyun"
+	"fmt"
+
+	osslib "github.com/aliyun/aliyun-oss-go-sdk/oss"
+
+	"github.com/yunionio/onecloud/pkg/util/aliyun"
 )
+
+type progressListener struct {
+}
+
+func (this *progressListener) ProgressChanged(event *osslib.ProgressEvent) {
+	switch event.EventType {
+	case osslib.TransferStartedEvent:
+		fmt.Printf("\n")
+	case osslib.TransferDataEvent:
+		fmt.Printf("Progess: %f%%\r", (float64(event.ConsumedBytes) * 100.0 / float64(event.TotalBytes)))
+	case osslib.TransferCompletedEvent:
+		fmt.Printf("Transfer complete!\n")
+	case osslib.TransferFailedEvent:
+		fmt.Printf("Transfer failed!\n")
+	default:
+		fmt.Printf("Unknonw event type %d\n", event.EventType)
+	}
+}
+
+func str2AclType(aclStr string) osslib.ACLType {
+	switch aclStr {
+	case "public-rw":
+		return osslib.ACLPublicReadWrite
+	case "public-read":
+		return osslib.ACLPublicRead
+	default:
+		return osslib.ACLPrivate
+	}
+}
 
 func init() {
 	type OssListOptions struct {
@@ -54,9 +87,11 @@ func init() {
 	})
 
 	type OssUploadOptions struct {
-		BUCKET string `help:"bucket name"`
-		KEY    string `help:"Object key"`
-		FILE   string `help:"Local file path"`
+		BUCKET   string `help:"bucket name"`
+		KEY      string `help:"Object key"`
+		FILE     string `help:"Local file path"`
+		Progress bool   `help:"show progress"`
+		Acl      string `help:"Object ACL" choices:"private|public-read|public-rw"`
 	}
 	R(&OssUploadOptions{}, "oss-upload", "Upload a file to a OSS bucket", func(cli *aliyun.SRegion, args *OssUploadOptions) error {
 		oss, err := cli.GetOssClient()
@@ -67,7 +102,34 @@ func init() {
 		if err != nil {
 			return err
 		}
-		err = bucket.UploadFile(args.KEY, args.FILE, 1024*1024)
+
+		options := make([]osslib.Option, 0)
+		if args.Progress {
+			listener := progressListener{}
+			options = append(options, osslib.Progress(&listener))
+		}
+		if len(args.Acl) > 0 {
+			options = append(options, osslib.ACL(str2AclType(args.Acl)))
+		}
+		err = bucket.UploadFile(args.KEY, args.FILE, 1024*1024, options...)
+		return err
+	})
+
+	type OssObjectAclOptions struct {
+		BUCKET string `help:"bucket name"`
+		KEY    string `help:"object key"`
+		ACL    string `help:"ACL" choices:"private|public-read|public-rw"`
+	}
+	R(&OssObjectAclOptions{}, "oss-set-acl", "Set acl for a object", func(cli *aliyun.SRegion, args *OssObjectAclOptions) error {
+		oss, err := cli.GetOssClient()
+		if err != nil {
+			return err
+		}
+		bucket, err := oss.Bucket(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		err = bucket.SetObjectACL(args.KEY, str2AclType(args.ACL))
 		return err
 	})
 

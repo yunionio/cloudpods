@@ -15,9 +15,9 @@ import (
 	"github.com/yunionio/pkg/util/timeutils"
 	"github.com/yunionio/sqlchemy"
 
-	"github.com/yunionio/oneclone/pkg/compute/options"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"
+	"github.com/yunionio/onecloud/pkg/compute/options"
 )
 
 const (
@@ -110,6 +110,7 @@ func (self *SCachedimage) getStoragecacheCount() int {
 
 func (self *SCachedimage) getImage() (*SImage, error) {
 	image := SImage{}
+
 	err := self.Info.Unmarshal(&image)
 	if err != nil {
 		return nil, err

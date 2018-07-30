@@ -5,14 +5,14 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/yunionio/pkg/httperrors"
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 	"github.com/yunionio/mcclient"
-	"github.com/yunionio/pkg/httperrors"
+	"github.com/yunionio/sqlchemy"
 	"github.com/yunionio/pkg/util/regutils"
 	"github.com/yunionio/pkg/util/stringutils"
 	"github.com/yunionio/pkg/utils"
-	"github.com/yunionio/sqlchemy"
 )
 
 type SStandaloneResourceBase struct {
@@ -23,6 +23,8 @@ type SStandaloneResourceBase struct {
 	ExternalId string `width:"128" charset:"ascii" index:"true" get:"admin" create:"admin_optional"`
 
 	Description string `width:"256" charset:"utf8" get:"user" update:"user" create:"optional"`
+
+	IsEmulated bool `nullable:"false" default:"false" list:"admin" update:"true" create:"admin_optional"`
 }
 
 func (model *SStandaloneResourceBase) BeforeInsert() {
@@ -98,6 +100,20 @@ func (manager *SStandaloneResourceBaseManager) FetchByExternalId(idStr string) (
 	} else {
 		return nil, sql.ErrNoRows
 	}
+}
+
+func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return q, err
+	}
+
+	showEmulated := jsonutils.QueryBoolean(query, "show_emulated", false)
+	if ! showEmulated {
+		q = q.Filter(sqlchemy.IsFalse(q.Field("is_emulated")))
+	}
+
+	return q, nil
 }
 
 func (model *SStandaloneResourceBase) StandaloneModelManager() IStandaloneModelManager {
@@ -224,9 +240,11 @@ func (model *SStandaloneResourceBase) PostCreate(ctx context.Context, userCred m
 	}
 }
 
-func (model *SStandaloneResourceBase) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	model.SResourceBase.PreDelete(ctx, userCred)
-	model.RemoveAllMetadata(ctx, userCred)
+func (model *SStandaloneResourceBase) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	if model.Deleted {
+		model.RemoveAllMetadata(ctx, userCred)
+	}
+	model.SResourceBase.PostDelete(ctx, userCred)
 }
 
 func (model *SStandaloneResourceBase) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

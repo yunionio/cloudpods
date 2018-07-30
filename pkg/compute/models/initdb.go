@@ -1,9 +1,8 @@
 package models
 
 import (
-	"github.com/yunionio/log"
-
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"github.com/yunionio/log"
 )
 
 func InitDB() error {
@@ -14,6 +13,7 @@ func InitDB() error {
 		WireManager,
 		StorageManager,
 		SecurityGroupManager,
+		NetworkManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {

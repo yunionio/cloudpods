@@ -4,16 +4,18 @@ import (
 	"os"
 
 	_ "github.com/go-sql-driver/mysql"
-	"yunion.io/yunioncloud/log"
 
 	"github.com/yunionio/onecloud/pkg/cloudcommon"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/compute"
 	"github.com/yunionio/onecloud/pkg/compute/models"
 	"github.com/yunionio/onecloud/pkg/compute/options"
+	"github.com/yunionio/log"
+
+	_ "github.com/yunionio/onecloud/pkg/compute/tasks"
 
 	_ "github.com/yunionio/onecloud/pkg/compute/guestdrivers"
-	_ "github.com/yunionio/onecloud/pkg/compute/tasks"
+
 	_ "github.com/yunionio/onecloud/pkg/util/aliyun/provider"
 )
 
@@ -28,6 +30,10 @@ func StartService() {
 	cloudcommon.InitAuth(&options.Options.Options, func() {
 		log.Infof("Auth complete!!")
 	})
+
+	if options.Options.GlobalVirtualResourceNamespace {
+		db.EnableGlobalVirtualResourceNamespace()
+	}
 
 	cloudcommon.InitDB(&options.Options.DBOptions)
 	defer cloudcommon.CloseDB()

@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
 	"github.com/yunionio/onecloud/pkg/compute/models"
+	"github.com/yunionio/jsonutils"
+	"github.com/yunionio/log"
 )
 
 type GuestStopTask struct {
@@ -55,7 +54,7 @@ func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, obj db.I
 	db.OpsLog.LogEvent(guest, db.ACT_STOP, nil, self.UserCred)
 	models.HostManager.ClearSchedDescCache(guest.HostId)
 	self.SetStageComplete(ctx, nil)
-	if guest.Status == models.VM_READY && !guest.DisableDelete && guest.ShutdownBehavior == models.SHUTDOWN_TERMINATE {
+	if guest.Status == models.VM_READY && guest.DisableDelete.IsFalse() && guest.ShutdownBehavior == models.SHUTDOWN_TERMINATE {
 		guest.StartAutoDeleteGuestTask(ctx, self.UserCred, "")
 	}
 }

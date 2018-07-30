@@ -1,6 +1,6 @@
 package shell
 
-import "yunion.io/yunioncloud/pkg/util/aliyun"
+import "github.com/yunionio/onecloud/pkg/util/aliyun"
 
 func init() {
 	type TaskListOptions struct {

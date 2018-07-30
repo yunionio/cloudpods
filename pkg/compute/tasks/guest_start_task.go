@@ -3,11 +3,10 @@ package tasks
 import (
 	"context"
 
-	"github.com/yunionio/jsonutils"
-
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
 	"github.com/yunionio/onecloud/pkg/compute/models"
+	"github.com/yunionio/jsonutils"
 )
 
 type GuestStartTask struct {
@@ -27,7 +26,7 @@ func (self *GuestStartTask) checkTemplate(ctx context.Context, guest *models.SGu
 	diskCat := guest.CategorizeDisks()
 	if diskCat.Root != nil && len(diskCat.Root.GetTemplateId()) > 0 {
 		self.SetStage("on_start_template_ready", nil)
-		guest.GetDriver().CheckDiskTemplateOnStorage(ctx, self.UserCred, diskCat.Root.GetTemplateId(), diskCat.Root.StorageId, self.GetTaskId())
+		guest.GetDriver().CheckDiskTemplateOnStorage(ctx, self.UserCred, diskCat.Root.GetTemplateId(), diskCat.Root.StorageId, self)
 	} else {
 		self.startStart(ctx, guest)
 	}

@@ -3,15 +3,16 @@ package models
 import (
 	"context"
 
+	"fmt"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/pkg/httperrors"
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 	"github.com/yunionio/mcclient"
-	"github.com/yunionio/pkg/httperrors"
+	"github.com/yunionio/sqlchemy"
 	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/util/compare"
-
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
 )
 
 const (
@@ -43,11 +44,11 @@ type SZone struct {
 	// status = Column(VARCHAR(36, charset='ascii'), nullable=False, default=ZONE_DISABLE)
 	ManagerUri string `width:"256" charset:"ascii" list:"admin" update:"admin"` // = Column(VARCHAR(256, charset='ascii'), nullable=True)
 	// admin_id = Column(VARCHAR(36, charset='ascii'), nullable=False)
-	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
+	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
 }
 
-func (manager *SZoneManager) GetContextManager() db.IModelManager {
-	return CloudregionManager
+func (manager *SZoneManager) GetContextManager() []db.IModelManager {
+	return []db.IModelManager{CloudregionManager}
 }
 
 func (manager *SZoneManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -55,7 +56,8 @@ func (manager *SZoneManager) AllowListItems(ctx context.Context, userCred mcclie
 }
 
 func (zone *SZone) ValidateDeleteCondition(ctx context.Context) error {
-	if zone.HostCount("", "", tristate.None, "", tristate.None) > 0 || zone.WireCount() > 0 {
+	usage := zone.GeneralUsage()
+	if ! usage.isEmpty() {
 		return httperrors.NewNotEmptyError("not empty zone")
 	}
 	return zone.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -111,6 +113,24 @@ type ZoneGeneralUsage struct {
 	Baremetals        int
 	BaremetalsEnabled int
 	Wires             int
+	Networks          int
+	Storages          int
+}
+
+func (usage *ZoneGeneralUsage) isEmpty() bool {
+	if usage.Hosts > 0 {
+		return false
+	}
+	if usage.Wires > 0 {
+		return false
+	}
+	if usage.Networks > 0 {
+		return false
+	}
+	if usage.Storages > 0 {
+		return false
+	}
+	return true
 }
 
 func (zone *SZone) GeneralUsage() ZoneGeneralUsage {
@@ -119,7 +139,9 @@ func (zone *SZone) GeneralUsage() ZoneGeneralUsage {
 	usage.HostsEnabled = zone.HostCount("", "", tristate.True, "", tristate.None)
 	usage.Baremetals = zone.HostCount("", "", tristate.None, "", tristate.True)
 	usage.BaremetalsEnabled = zone.HostCount("", "", tristate.True, "", tristate.True)
-	usage.Wires = zone.WireCount()
+	usage.Wires = zone.getWireCount()
+	usage.Networks = zone.getNetworkCount()
+	usage.Storages = zone.getStorageCount()
 	return usage
 }
 
@@ -147,8 +169,25 @@ func (zone *SZone) HostCount(status string, hostStatus string, enabled tristate.
 	return q.Count()
 }
 
-func (zone *SZone) WireCount() int {
+func (zone *SZone) getWireCount() int {
 	q := WireManager.Query().Equals("zone_id", zone.Id)
+	return q.Count()
+}
+
+func (zone *SZone) getStorageCount() int {
+	q := StorageManager.Query().Equals("zone_id", zone.Id)
+	return q.Count()
+}
+
+func (zone *SZone) getNetworkCount() int {
+	networks := NetworkManager.Query().SubQuery()
+	wires := WireManager.Query().SubQuery()
+
+	q := networks.Query()
+	q = q.Join(wires, sqlchemy.Equals(networks.Field("wire_id"), wires.Field("id")))
+	q = q.Filter(sqlchemy.Equals(wires.Field("zone_id"), zone.Id))
+	q = q.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+
 	return q.Count()
 }
 
@@ -321,7 +360,7 @@ func (manager *SZoneManager) SyncZones(ctx context.Context, userCred mcclient.To
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudZone(commonext[i])
+		err = commondb[i].syncWithCloudZone(commonext[i], region)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -344,10 +383,15 @@ func (manager *SZoneManager) SyncZones(ctx context.Context, userCred mcclient.To
 	return localZones, remoteZones, syncResult
 }
 
-func (self *SZone) syncWithCloudZone(extZone cloudprovider.ICloudZone) error {
+func (self *SZone) syncWithCloudZone(extZone cloudprovider.ICloudZone, region *SCloudregion) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Name = extZone.GetName()
 		self.Status = extZone.GetStatus()
+
+		self.IsEmulated = extZone.IsEmulated()
+
+		self.CloudregionId = region.Id
+
 		return nil
 	})
 	if err != nil {
@@ -363,7 +407,11 @@ func (manager *SZoneManager) newFromCloudZone(extZone cloudprovider.ICloudZone, 
 	zone.Name = extZone.GetName()
 	zone.Status = extZone.GetStatus()
 	zone.ExternalId = extZone.GetGlobalId()
+
+	zone.IsEmulated = extZone.IsEmulated()
+
 	zone.CloudregionId = region.Id
+
 	err := manager.TableSpec().Insert(&zone)
 	if err != nil {
 		log.Errorf("newFromCloudZone fail %s", err)
@@ -401,4 +449,161 @@ func (manager *SZoneManager) InitializeData() error {
 		}
 	}
 	return nil
+}
+
+func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
+	if jsonutils.QueryBoolean(query, "is_private", false) {
+		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("external_id")),
+			sqlchemy.IsEmpty(q.Field("external_id"))))
+	}
+	if jsonutils.QueryBoolean(query, "is_public", false) {
+		q = q.Filter(sqlchemy.AND(sqlchemy.IsNotNull(q.Field("external_id")),
+			sqlchemy.IsNotEmpty(q.Field("external_id"))))
+	}
+
+	if jsonutils.QueryBoolean(query, "usable", false) {
+		networks := NetworkManager.Query().SubQuery()
+		wires := WireManager.Query().SubQuery()
+
+		zoneQ := wires.Query(sqlchemy.DISTINCT("zone_id", wires.Field("zone_id")))
+		zoneQ = zoneQ.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+		zoneQ = zoneQ.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+
+		q = q.Filter(sqlchemy.In(q.Field("id"), zoneQ.SubQuery()))
+	}
+	return q, nil
+}
+
+func (self *SZone) AllowGetDetailsCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+type SZoneCapabilities struct {
+	Hypervisors        []string
+	StorageTypes       []string
+	GPUModels          []string
+	MinNicCount        int
+	MaxNicCount        int
+	MinDataDiskCount   int
+	MaxDataDiskCount   int
+	SchedPolicySupport bool
+	Usable             bool
+}
+
+func (self *SZone) GetDetailsCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	capa := SZoneCapabilities{}
+	capa.Hypervisors = self.getHypervisors()
+	capa.StorageTypes = self.getStorageTypes()
+	capa.GPUModels = self.getGPUs()
+	capa.SchedPolicySupport = self.isSchedPolicySupported()
+	capa.MinNicCount = self.getMinNicCount()
+	capa.MaxNicCount = self.getMaxNicCount()
+	capa.MinDataDiskCount = self.getMinDataDiskCount()
+	capa.MaxDataDiskCount = self.getMaxDataDiskCount()
+	capa.Usable = self.isUsable()
+	return jsonutils.Marshal(&capa), nil
+}
+
+func (self *SZone) getHypervisors() []string {
+	q := HostManager.Query("host_type").Equals("zone_id", self.Id)
+	rows, err := q.Rows()
+	if err != nil {
+		return nil
+	}
+	hypervisors := make([]string, 0)
+	for rows.Next() {
+		var hostType string
+		rows.Scan(&hostType)
+		if len(hostType) > 0 {
+			hypervisors = append(hypervisors, HOSTTYPE_HYPERVISOR[hostType])
+		}
+	}
+	return hypervisors
+}
+
+func (self *SZone) getStorageTypes() []string {
+	q := StorageManager.Query("storage_type", "medium_type").Equals("zone_id", self.Id).Distinct()
+	rows, err := q.Rows()
+	if err != nil {
+		return nil
+	}
+	storageTypes := make([]string, 0)
+	for rows.Next() {
+		var storageType, mediumType string
+		rows.Scan(&storageType, &mediumType)
+		if len(storageType) > 0 && len(mediumType) > 0 {
+			storageTypes = append(storageTypes, fmt.Sprintf("%s/%s", storageType, mediumType))
+		}
+	}
+	return storageTypes
+}
+
+func (self *SZone) getGPUs() []string {
+	devices := IsolatedDeviceManager.Query().SubQuery()
+	hosts := HostManager.Query().SubQuery()
+
+	q := devices.Query(devices.Field("model"))
+	q = q.Join(hosts, sqlchemy.Equals(devices.Field("host_id"), hosts.Field("id")))
+	q = q.Filter(sqlchemy.Equals(hosts.Field("zone_id"), self.Id))
+	q = q.Distinct()
+
+	rows, err := q.Rows()
+	if err != nil {
+		return nil
+	}
+	gpus := make([]string, 0)
+	for rows.Next() {
+		var model string
+		rows.Scan(&model)
+		if len(model) > 0 {
+			gpus = append(gpus, model)
+		}
+	}
+	return gpus
+}
+
+func (self *SZone) isManaged() bool {
+	region := self.GetRegion()
+	if region != nil && len(region.ExternalId) == 0 {
+		return false
+	} else {
+		return true
+	}
+}
+
+func (self *SZone) isSchedPolicySupported() bool {
+	return !self.isManaged()
+}
+
+func (self *SZone) getMinNicCount() int {
+	return 1
+}
+
+func (self *SZone) getMaxNicCount() int {
+	if self.isManaged() {
+		return 1
+	} else {
+		return 8
+	}
+}
+
+func (self *SZone) getMinDataDiskCount() int {
+	return 0
+}
+
+func (self *SZone) getMaxDataDiskCount() int {
+	return 6
+}
+
+func (self *SZone) isUsable() bool {
+	if self.getNetworkCount() > 0 {
+		return true
+	} else {
+		return false
+	}
 }

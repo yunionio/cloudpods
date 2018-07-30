@@ -2,7 +2,7 @@ package aliyun
 
 import (
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"yunion.io/yunioncloud/pkg/util/netutils"
+	"github.com/yunionio/pkg/util/netutils"
 )
 
 type SInstanceNic struct {

@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+
 	"github.com/yunionio/log"
 
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"
@@ -24,7 +25,7 @@ var UserCacheManager *SUserCacheManager
 
 func init() {
 	UserCacheManager = &SUserCacheManager{NewKeystoneCacheObjectManager(SUser{}, "users_cache_tbl", "user", "users")}
-	log.Debugf("initialize user cache manager %s", UserCacheManager.KeywordPlural())
+	// log.Debugf("initialize user cache manager %s", UserCacheManager.KeywordPlural())
 }
 
 func (manager *SUserCacheManager) FetchUserByIdOrName(idStr string) (*SUser, error) {

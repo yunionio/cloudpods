@@ -2,19 +2,16 @@ package models
 
 import (
 	"context"
-	"fmt"
-
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/mcclient"
-	"github.com/yunionio/pkg/httperrors"
-	"github.com/yunionio/sqlchemy"
-	"yunion.io/yunioncloud/pkg/tristate"
-	"yunion.io/yunioncloud/pkg/util/compare"
-
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/onecloud/pkg/compute/options"
+	"github.com/yunionio/pkg/httperrors"
+	"github.com/yunionio/jsonutils"
+	"github.com/yunionio/log"
+	"github.com/yunionio/mcclient"
+	"github.com/yunionio/sqlchemy"
+	"github.com/yunionio/pkg/tristate"
+	"github.com/yunionio/pkg/util/compare"
 )
 
 const (
@@ -30,6 +27,7 @@ const (
 	STORAGE_ENABLED  = "enabled"
 	STORAGE_DISABLED = "disabled"
 	STORAGE_OFFLINE  = "offline"
+	STORAGE_ONLINE   = "offline"
 
 	DISK_TYPE_ROTATE = "rotate"
 	DISK_TYPE_SSD    = "ssd"
@@ -61,6 +59,7 @@ func init() {
 type SStorage struct {
 	db.SEnabledStatusStandaloneResourceBase
 	SInfrastructure
+	SManagedResourceBase
 
 	Capacity    int                  `nullable:"false" list:"admin" update:"admin" create:"admin_required"`                            // Column(Integer, nullable=False) # capacity of disk in MB
 	Reserved    int                  `nullable:"true" default:"0" list:"admin" update:"admin"`                                         // Column(Integer, nullable=True, default=0)
@@ -74,8 +73,8 @@ type SStorage struct {
 	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" get:"admin"`
 }
 
-func (manager *SStorageManager) GetContextManager() db.IModelManager {
-	return CloudregionManager
+func (manager *SStorageManager) GetContextManager() []db.IModelManager {
+	return []db.IModelManager{ZoneManager, StoragecacheManager}
 }
 
 func (self *SStorage) ValidateDeleteCondition(ctx context.Context) error {
@@ -106,6 +105,9 @@ func (self *SStorage) GetUsedCapacity(isReady tristate.TriState) int {
 	case tristate.False:
 		q = q.NotEquals("status", DISK_READY)
 	}
+	if q.Count() == 0 {
+		return 0
+	}
 	row := q.Row()
 	var sum int
 	err := row.Scan(&sum)
@@ -134,6 +136,7 @@ func (self *SStorage) GetMasterHost() *SHost {
 	q = q.IsTrue("enabled")
 	q = q.Equals("host_status", HOST_ONLINE).Asc("id")
 	host := SHost{}
+	host.SetModelManager(HostManager)
 	err := q.First(&host)
 	if err != nil {
 		log.Errorf("GetMasterHost fail %s", err)
@@ -341,6 +344,9 @@ func (self *SStorage) syncWithCloudStorage(extStorage cloudprovider.ICloudStorag
 
 		self.Enabled = extStorage.GetEnabled()
 
+		self.IsEmulated = extStorage.IsEmulated()
+		self.ManagerId = extStorage.GetManagerId()
+
 		return nil
 	})
 	if err != nil {
@@ -363,6 +369,9 @@ func (manager *SStorageManager) newFromCloudStorage(extStorage cloudprovider.ICl
 	storage.Capacity = extStorage.GetCapacityMB()
 
 	storage.Enabled = extStorage.GetEnabled()
+
+	storage.IsEmulated = extStorage.IsEmulated()
+	storage.ManagerId = extStorage.GetManagerId()
 
 	err := manager.TableSpec().Insert(&storage)
 	if err != nil {
@@ -540,28 +549,12 @@ func (self *SStorage) GetStoragecache() *SStoragecache {
 }
 
 func (self *SStorage) PerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	imageStr, _ := data.GetString("image")
-	if len(imageStr) == 0 {
-		return nil, httperrors.NewInputParameterError("missing image id or name")
-	}
-	isForce := jsonutils.QueryBoolean(data, "is_force", false)
-
-	image, err := CachedimageManager.getImageInfo(ctx, userCred, imageStr, isForce)
-	if err != nil {
-		return nil, httperrors.NewImageNotFoundError("image %s not found: %s", imageStr, err)
-	}
-
-	if len(image.Checksum) == 0 {
-		return nil, httperrors.NewInvalidStatusError("Cannot cache image with no checksum")
-	}
-
 	cache := self.GetStoragecache()
 	if cache == nil {
 		return nil, httperrors.NewInternalServerError("storage cache is missing")
 	}
 
-	err = cache.StartImageCacheTask(ctx, userCred, image.Id, isForce, "")
-	return nil, err
+	return cache.PerformCacheImage(ctx, userCred, query, data)
 }
 
 func (self *SStorage) AllowPerformUncacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -569,54 +562,21 @@ func (self *SStorage) AllowPerformUncacheImage(ctx context.Context, userCred mcc
 }
 
 func (self *SStorage) PerformUncacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	imageStr, _ := data.GetString("image")
-	if len(imageStr) == 0 {
-		return nil, httperrors.NewInputParameterError("missing image id or name")
-	}
-	isForce := jsonutils.QueryBoolean(data, "is_force", false)
-
-	image, err := CachedimageManager.getImageInfo(ctx, userCred, imageStr, isForce)
-	if err != nil {
-		return nil, httperrors.NewImageNotFoundError("image %s not found: %s", imageStr, err)
-	}
-
-	scimg := StoragecachedimageManager.GetStoragecachedimage(self.StoragecacheId, image.Id)
-	if scimg == nil {
-		return nil, httperrors.NewResourceNotFoundError("storage not cache image")
-	}
-
-	if scimg.Status == CACHED_IMAGE_STATUS_INIT {
-		err = scimg.Detach(ctx, userCred)
-		return nil, err
-	}
-
-	err = scimg.markDeleting(ctx, userCred)
-	if err != nil {
-		return nil, httperrors.NewInvalidStatusError("Fail to mark cache status: %s", err)
-	}
-
 	cache := self.GetStoragecache()
 	if cache == nil {
 		return nil, httperrors.NewInternalServerError("storage cache is missing")
 	}
 
-	err = cache.StartImageUncacheTask(ctx, userCred, image.Id, "")
-
-	return nil, err
+	return cache.PerformUncacheImage(ctx, userCred, query, data)
 }
 
 func (self *SStorage) GetIStorage() (cloudprovider.ICloudStorage, error) {
-	host := self.GetMasterHost()
-	if host == nil {
-		return nil, fmt.Errorf("no valid host")
-	}
-
-	izone, err := host.GetIZone()
+	provider, err := self.GetDriver()
 	if err != nil {
-		return nil, fmt.Errorf("not valid izone: %s", err)
+		log.Errorf("fail to find cloud provider")
+		return nil, err
 	}
-
-	return izone.GetIStorageById(self.ExternalId)
+	return provider.GetIStorageById(self.GetExternalId())
 }
 
 func (manager *SStorageManager) FetchStorageById(storageId string) *SStorage {
@@ -669,4 +629,32 @@ func (manager *SStorageManager) InitializeData() error {
 		}
 	}
 	return nil
+}
+
+func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
+	regionStr, _ := query.GetString("region")
+	if len(regionStr) > 0 {
+		regionObj, err := CloudregionManager.FetchByIdOrName(userCred.GetProjectId(), regionStr)
+		if err != nil {
+			return nil, httperrors.NewNotFoundError("Region %s not found: %s", regionStr, err)
+		}
+		sq := ZoneManager.Query("id").Equals("cloudregion_id", regionObj.GetId())
+		q = q.Filter(sqlchemy.In(q.Field("zone_id"), sq.SubQuery()))
+	}
+
+	managerStr := jsonutils.GetAnyString(query, []string{"manager", "provider", "manager_id", "provider_id"})
+	if len(managerStr) > 0 {
+		provider := CloudproviderManager.FetchCloudproviderByIdOrName(managerStr)
+		if provider == nil {
+			return nil, httperrors.NewResourceNotFoundError("provider %s not found", managerStr)
+		}
+		q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), provider.GetId()))
+	}
+
+	return q, err
 }

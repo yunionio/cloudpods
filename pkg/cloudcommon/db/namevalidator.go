@@ -10,7 +10,9 @@ import (
 func isNameUnique(manager IModelManager, ownerProjId string, name string) bool {
 	q := manager.Query()
 	q = manager.FilterByName(q, name)
-	q = manager.FilterByOwner(q, ownerProjId)
+	if !globalVirtualResourceNamespace {
+		q = manager.FilterByOwner(q, ownerProjId)
+	}
 	return q.Count() == 0
 }
 
@@ -29,7 +31,9 @@ func isAlterNameUnique(model IModel, name string) bool {
 	manager := model.GetModelManager()
 	q := manager.Query()
 	q = manager.FilterByName(q, name)
-	q = manager.FilterByOwner(q, model.GetOwnerProjectId())
+	if !globalVirtualResourceNamespace {
+		q = manager.FilterByOwner(q, model.GetOwnerProjectId())
+	}
 	q = manager.FilterByNotId(q, model.GetId())
 	return q.Count() == 0
 }

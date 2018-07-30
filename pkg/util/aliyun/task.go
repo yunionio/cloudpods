@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
 	"github.com/yunionio/log"
 )
 
@@ -24,7 +23,7 @@ type STask struct {
 	CreationTime  time.Time
 }
 
-func (self *SRegion) WaitTaskStatus(action TaskActionType, taskId string, targetStatus string, interval time.Duration, timeout time.Duration) error {
+func (self *SRegion) waitTaskStatus(action TaskActionType, taskId string, targetStatus string, interval time.Duration, timeout time.Duration) error {
 	start := time.Now()
 	for time.Now().Sub(start) < timeout {
 		status, err := self.GetTaskStatus(action, taskId)

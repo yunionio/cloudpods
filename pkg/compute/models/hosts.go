@@ -6,23 +6,23 @@ import (
 	"net/url"
 	"strconv"
 
+	"net/http"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/onecloud/pkg/compute/options"
+	"github.com/yunionio/pkg/httperrors"
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 	"github.com/yunionio/mcclient"
 	"github.com/yunionio/mcclient/auth"
 	"github.com/yunionio/mcclient/modules"
-	"github.com/yunionio/pkg/httperrors"
+	"github.com/yunionio/sqlchemy"
 	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/util/compare"
 	"github.com/yunionio/pkg/util/netutils"
 	"github.com/yunionio/pkg/util/regutils"
 	"github.com/yunionio/pkg/util/sysutils"
 	"github.com/yunionio/pkg/utils"
-	"github.com/yunionio/sqlchemy"
-
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/options"
 )
 
 const (
@@ -82,6 +82,7 @@ func init() {
 type SHost struct {
 	db.SEnabledStatusStandaloneResourceBase
 	SInfrastructure
+	SManagedResourceBase
 
 	Rack  string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
 	Slots string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
@@ -123,8 +124,6 @@ type SHost struct {
 
 	IsBaremetal bool `nullable:"true" default:"false" list:"admin" update:"true" create:"admin_optional"` // Column(Boolean, nullable=True, default=False)
 
-	ManagerId string `width:"128" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=True)
-
 	IsMaintenance bool `nullable:"true" default:"false" list:"admin"` // Column(Boolean, nullable=True, default=False)
 }
 
@@ -147,36 +146,59 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		}
 	}
 	var scopeQuery *sqlchemy.SSubQuery
-	schedTagStr, _ := query.GetString("schedtag")
+
+
+	schedTagStr := jsonutils.GetAnyString(query, []string{"schedtag", "schedtag_id"})
 	if len(schedTagStr) > 0 {
 		schedTag, _ := SchedtagManager.FetchByIdOrName("", schedTagStr)
 		if schedTag == nil {
-			return nil, httperrors.NewResourceNotFoundError("Schedtag %s not found", schedTag)
+			return nil, httperrors.NewResourceNotFoundError("Schedtag %s not found", schedTagStr)
 		}
 		hostschedtags := HostschedtagManager.Query().SubQuery()
 		scopeQuery = hostschedtags.Query(hostschedtags.Field("host_id")).Equals("schedtag_id", schedTag.GetId()).SubQuery()
 	}
-	wireStr, _ := query.GetString("wire")
+
+	wireStr :=jsonutils.GetAnyString(query, []string{"wire", "wire_id"})
 	if len(wireStr) > 0 {
 		wire, _ := WireManager.FetchByIdOrName("", wireStr)
 		if wire == nil {
-			return nil, httperrors.NewResourceNotFoundError("Wire %s not found", wire)
+			return nil, httperrors.NewResourceNotFoundError("Wire %s not found", wireStr)
 		}
 		hostwires := HostwireManager.Query().SubQuery()
 		scopeQuery = hostwires.Query(hostwires.Field("host_id")).Equals("wire_id", wire.GetId()).SubQuery()
 	}
-	storageStr, _ := query.GetString("storage")
+
+	storageStr := jsonutils.GetAnyString(query, []string{"storage", "storage_id"})
 	if len(storageStr) > 0 {
 		storage, _ := StorageManager.FetchByIdOrName("", storageStr)
 		if storage == nil {
-			return nil, httperrors.NewResourceNotFoundError("Storage %s not found", storage)
+			return nil, httperrors.NewResourceNotFoundError("Storage %s not found", storageStr)
 		}
 		hoststorages := HoststorageManager.Query().SubQuery()
 		scopeQuery = hoststorages.Query(hoststorages.Field("host_id")).Equals("storage_id", storage.GetId()).SubQuery()
 	}
+
+	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
+	if len(zoneStr) > 0 {
+		zone, _ := ZoneManager.FetchByIdOrName("", zoneStr)
+		if zone == nil {
+			return nil, httperrors.NewResourceNotFoundError("Zone %s not found", zoneStr)
+		}
+		q = q.Filter(sqlchemy.Equals(q.Field("zone_id"), zone.GetId()))
+	}
 	// vcenter
 	// zone
 	// cachedimage
+
+	managerStr := jsonutils.GetAnyString(query, []string{"manager", "provider", "manager_id", "provider_id"})
+	if len(managerStr) > 0 {
+		provider := CloudproviderManager.FetchCloudproviderByIdOrName(managerStr)
+		if provider == nil {
+			return nil, httperrors.NewResourceNotFoundError("provider %s not found", managerStr)
+		}
+		q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), provider.GetId()))
+	}
+
 	if scopeQuery != nil {
 		q = q.In("id", scopeQuery)
 	}
@@ -282,7 +304,7 @@ func (self *SHost) Delete(ctx context.Context, userCred mcclient.TokenCredential
 }
 
 func (self *SHost) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if self.HostType == HOST_TYPE_BAREMETAL {
+	if self.IsBaremetal {
 		return self.StartDeleteBaremetalTask(userCred)
 	} else {
 		return self.RealDelete(ctx, userCred)
@@ -360,6 +382,7 @@ func (self *SHost) GetHoststorages() []SHoststorage {
 
 func (self *SHost) GetHoststorageOfId(storageId string) *SHoststorage {
 	hoststorage := SHoststorage{}
+	hoststorage.SetModelManager(HoststorageManager)
 	err := self.GetHoststoragesQuery().Equals("storage_id", storageId).First(&hoststorage)
 	if err != nil {
 		log.Errorf("GetHoststorageOfId fail %s", err)
@@ -578,6 +601,8 @@ func (self *SHost) getAttachedWires() []SWire {
 
 func (self *SHost) GetMasterHostwire() *SHostwire {
 	hw := SHostwire{}
+	hw.SetModelManager(HostwireManager)
+
 	q := self.GetWiresQuery().IsTrue("is_master")
 	err := q.First(&hw)
 	if err != nil {
@@ -596,6 +621,8 @@ func (self *SHost) GetMasterWire() *SWire {
 	q = q.Filter(sqlchemy.Equals(hostwires.Field("host_id"), self.Id))
 	q = q.Filter(sqlchemy.IsTrue(hostwires.Field("is_master")))
 	wire := SWire{}
+	wire.SetModelManager(WireManager)
+
 	err := q.First(&wire)
 	if err != nil {
 		log.Errorf("GetMasterWire fail %s", err)
@@ -606,6 +633,8 @@ func (self *SHost) GetMasterWire() *SWire {
 
 func (self *SHost) getHostwireOfId(wireId string) *SHostwire {
 	hostwire := SHostwire{}
+	hostwire.SetModelManager(HostwireManager)
+
 	q := self.GetWiresQuery().Equals("wire_id", wireId)
 	err := q.First(&hostwire)
 	if err != nil {
@@ -665,6 +694,8 @@ func (self *SHost) GetAttach2Network(network *SNetwork) *SHostnetwork {
 	q := self.GetBaremetalnetworksQuery()
 	q = q.Equals("network_id", network.Id)
 	hn := SHostnetwork{}
+	hn.SetModelManager(HostnetworkManager)
+
 	err := q.First(&hn)
 	if err != nil {
 		log.Errorf("GetAttach2Network fail %s", err)
@@ -691,6 +722,8 @@ func (self *SHost) GetNetInterfaces() []SNetInterface {
 
 func (self *SHost) GetAdminNetInterface() *SNetInterface {
 	netif := SNetInterface{}
+	netif.SetModelManager(NetInterfaceManager)
+
 	q := NetInterfaceManager.Query().Equals("baremetal_id", self.Id).Equals("nic_type", NIC_TYPE_ADMIN)
 	err := q.First(&netif)
 	if err != nil {
@@ -814,6 +847,7 @@ func (self *SHost) syncWithCloudHost(extHost cloudprovider.ICloudHost) error {
 		self.HostType = extHost.GetHostType()
 
 		self.ManagerId = extHost.GetManagerId()
+		self.IsEmulated = extHost.IsEmulated()
 
 		return nil
 	})
@@ -850,6 +884,7 @@ func (manager *SHostManager) newFromCloudHost(extHost cloudprovider.ICloudHost, 
 	host.StorageType = extHost.GetStorageType()
 
 	host.ManagerId = extHost.GetManagerId()
+	host.IsEmulated = extHost.IsEmulated()
 
 	err := manager.TableSpec().Insert(&host)
 	if err != nil {
@@ -876,6 +911,7 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 	}
 
 	for i := 0; i < len(removed); i += 1 {
+		log.Infof("host %s not connected with %s any more, to detach...", self.Id, removed[i].Id)
 		hs := self.GetHoststorageOfId(removed[i].Id)
 		err := hs.Detach(ctx, userCred)
 		if err != nil {
@@ -886,6 +922,7 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
+		log.Infof("host %s is still connected with %s, to update ...", self.Id, commondb[i].Id)
 		err := self.syncWithCloudHostStorage(commonext[i])
 		if err != nil {
 			syncResult.UpdateError(err)
@@ -895,6 +932,7 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 	}
 
 	for i := 0; i < len(added); i += 1 {
+		log.Infof("host %s is found connected with %s, to add ...", self.Id, added[i].GetId())
 		err := self.newCloudHostStorage(ctx, userCred, added[i])
 		if err != nil {
 			syncResult.AddError(err)
@@ -956,6 +994,7 @@ func (self *SHost) SyncHostWires(ctx context.Context, userCred mcclient.TokenCre
 	}
 
 	for i := 0; i < len(removed); i += 1 {
+		log.Infof("host %s not connected with %s any more, to detach...", self.Id, removed[i].Id)
 		hw := self.getHostwireOfId(removed[i].Id)
 		err := hw.Detach(ctx, userCred)
 		if err != nil {
@@ -966,6 +1005,7 @@ func (self *SHost) SyncHostWires(ctx context.Context, userCred mcclient.TokenCre
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
+		log.Infof("host %s is still connected with %s, to update...", self.Id, commondb[i].Id)
 		err := self.syncWithCloudHostWire(commonext[i])
 		if err != nil {
 			syncResult.UpdateError(err)
@@ -975,6 +1015,7 @@ func (self *SHost) SyncHostWires(ctx context.Context, userCred mcclient.TokenCre
 	}
 
 	for i := 0; i < len(added); i += 1 {
+		log.Infof("host %s is found connected with %s, to add...", self.Id, added[i].GetId())
 		err := self.newCloudHostWire(ctx, userCred, added[i])
 		if err != nil {
 			syncResult.AddError(err)
@@ -1274,13 +1315,7 @@ func (manager *SHostManager) TotalCount(
 	return stat1
 }
 
-func (self *SHost) GetCloudProvider() (cloudprovider.ICloudProvider, error) {
-	if len(self.ManagerId) == 0 {
-		return nil, fmt.Errorf("Host is self managed")
-	}
-	return CloudproviderManager.GetDriverByManagerId(self.ManagerId)
-}
-
+/*
 func (self *SHost) GetIZone() (cloudprovider.ICloudZone, error) {
 	provider, err := self.GetCloudProvider()
 	if err != nil {
@@ -1304,14 +1339,23 @@ func (self *SHost) GetIZone() (cloudprovider.ICloudZone, error) {
 	}
 	return izone, nil
 }
+*/
 
 func (self *SHost) GetIHost() (cloudprovider.ICloudHost, error) {
-	izone, err := self.GetIZone()
+	provider, err := self.GetDriver()
+	if err != nil {
+		return nil, fmt.Errorf("No cloudprovide for host: %s", err)
+	}
+	ihost, err := provider.GetIHostById(self.ExternalId)
+
+	/* izone, err := self.GetIZone()
 	if err != nil {
 		return nil, fmt.Errorf("fail to find izone by id %s", err)
 	}
-	ihost, err := izone.GetIHostById(self.ExternalId)
+	ihost, err := izone.GetIHostById(self.ExternalId)*/
+
 	if err != nil {
+		log.Errorf("fail to find ihost by id %s", err)
 		return nil, fmt.Errorf("fail to find ihost by id %s", err)
 	}
 	return ihost, nil
@@ -1446,4 +1490,26 @@ func (self *SHost) GetCustomizeColumns(ctx context.Context, userCred mcclient.To
 func (self *SHost) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
 	return self.getMoreDetails(extra)
+}
+
+func (manager *SHostManager) GetHostsByManagerAndRegion(managerId string, regionId string) []SHost {
+	hosts := HostManager.Query().SubQuery()
+	zones := ZoneManager.Query().SubQuery()
+	q := hosts.Query()
+	q = q.Join(zones, sqlchemy.Equals(hosts.Field("zone_id"), zones.Field("id")))
+	q = q.Filter(sqlchemy.Equals(hosts.Field("manager_id"), managerId))
+	q = q.Filter(sqlchemy.Equals(zones.Field("cloudregion_id"), regionId))
+	ret := make([]SHost, 0)
+	err := db.FetchModelObjects(HostManager, q, &ret)
+	if err != nil {
+		log.Errorf("GetHostsByManagerAndRegion fail %s", err)
+		return nil
+	}
+	return ret
+}
+
+func (self *SHost) Request(userCred mcclient.TokenCredential, method string, url string, headers http.Header, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	s := auth.GetSession(userCred, "", "")
+	_, ret, err := s.JSONRequest(self.ManagerUri, "", method, url, headers, body)
+	return ret, err
 }

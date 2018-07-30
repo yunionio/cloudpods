@@ -1,7 +1,7 @@
 package shell
 
 import (
-	"yunion.io/yunioncloud/pkg/util/aliyun"
+	"github.com/yunionio/onecloud/pkg/util/aliyun"
 )
 
 func init() {
@@ -10,7 +10,7 @@ func init() {
 		Offset int `help:"page offset"`
 	}
 	R(&VpcListOptions{}, "vpc-list", "List vpcs", func(cli *aliyun.SRegion, args *VpcListOptions) error {
-		vpcs, total, e := cli.GetVpcs(args.Offset, args.Limit)
+		vpcs, total, e := cli.GetVpcs(nil, args.Offset, args.Limit)
 		if e != nil {
 			return e
 		}

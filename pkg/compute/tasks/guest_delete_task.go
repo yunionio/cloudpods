@@ -3,14 +3,13 @@ package tasks
 import (
 	"context"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/pkg/utils"
-
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/notifyclient"
 	"github.com/yunionio/onecloud/pkg/compute/models"
 	"github.com/yunionio/onecloud/pkg/compute/options"
+	"github.com/yunionio/jsonutils"
+	"github.com/yunionio/pkg/utils"
 )
 
 type GuestDeleteTask struct {
@@ -103,6 +102,7 @@ func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.I
 func (self *GuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGuest) {
 	// host := guest.GetHost()
 	guest.RealDelete(ctx, self.UserCred)
+	guest.RemoveAllMetadata(ctx, self.UserCred)
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE, nil, self.UserCred)
 	if !guest.IsSystem && !guest.PendingDeleted {
 		self.NotifyServerDeleted(ctx, guest)

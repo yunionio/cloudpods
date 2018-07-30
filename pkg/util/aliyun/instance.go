@@ -2,15 +2,14 @@ package aliyun
 
 import (
 	"fmt"
+	"time"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/onecloud/pkg/compute/models"
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 	"github.com/yunionio/pkg/util/osprofile"
 	"github.com/yunionio/pkg/util/seclib"
 	"github.com/yunionio/pkg/utils"
-	"time"
-
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/models"
 )
 
 const (
@@ -180,14 +179,18 @@ func (self *SInstance) GetGlobalId() string {
 	return self.InstanceId
 }
 
+func (self *SInstance) IsEmulated() bool {
+	return false
+}
+
 func (self *SInstance) fetchDisks() error {
-	disks, total, err := self.host.zone.region.GetDisks(self.InstanceId, "", "", 0, 50)
+	disks, total, err := self.host.zone.region.GetDisks(self.InstanceId, "", "", nil, 0, 50)
 	if err != nil {
 		log.Errorf("fetchDisks fail %s", err)
 		return err
 	}
 	if total > len(disks) {
-		disks, _, err = self.host.zone.region.GetDisks(self.InstanceId, "", "", 0, total)
+		disks, _, err = self.host.zone.region.GetDisks(self.InstanceId, "", "", nil, 0, total)
 	}
 	self.idisks = make([]cloudprovider.ICloudDisk, len(disks))
 	for i := 0; i < len(disks); i += 1 {
@@ -279,6 +282,14 @@ func (self *SInstance) GetStatus() string {
 	}
 }
 
+func (self *SInstance) Refresh() error {
+	new, err := self.host.zone.region.GetInstance(self.InstanceId)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(self, new)
+}
+
 func (self *SInstance) GetRemoteStatus() string {
 	// Running：运行中
 	//Starting：启动中
@@ -351,7 +362,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	if len(keypair) > 0 {
 		params["KeyPairName"] = keypair
 	}
-	params["ClientToken"] = utils.GenRequestId(12)
+	params["ClientToken"] = utils.GenRequestId(20)
 
 	body, err := self.ecsRequest("CreateInstance", params)
 	if err != nil {
@@ -381,7 +392,7 @@ func (self *SRegion) doDeleteVM(instanceId string) error {
 	return self.instanceOperation(instanceId, "DeleteInstance", nil)
 }
 
-func (self *SRegion) waitInstanceStatus(instanceId string, target string, interval time.Duration, timeout time.Duration) error {
+/*func (self *SRegion) waitInstanceStatus(instanceId string, target string, interval time.Duration, timeout time.Duration) error {
 	startTime := time.Now()
 	for time.Now().Sub(startTime) < timeout {
 		status, err := self.GetInstanceStatus(instanceId)
@@ -398,66 +409,78 @@ func (self *SRegion) waitInstanceStatus(instanceId string, target string, interv
 
 func (self *SInstance) waitStatus(target string, interval time.Duration, timeout time.Duration) error {
 	return self.host.zone.region.waitInstanceStatus(self.InstanceId, target, interval, timeout)
-}
+}*/
 
 func (self *SRegion) StartVM(instanceId string) error {
-	status, err := self.GetInstanceStatus(instanceId)
+	status, _ := self.GetInstanceStatus(instanceId)
 	if status != InstanceStatusStopped {
 		return cloudprovider.ErrInvalidStatus
 	}
-	err = self.doStartVM(instanceId)
-	if err != nil {
-		return err
-	}
-	return self.waitInstanceStatus(instanceId, InstanceStatusRunning, time.Second*5, time.Second*180) // 3 minutes to timeout
+	return self.doStartVM(instanceId)
+	// if err != nil {
+	//	return err
+	// }
+	// return self.waitInstanceStatus(instanceId, InstanceStatusRunning, time.Second*5, time.Second*180) // 3 minutes to timeout
 }
 
 func (self *SRegion) StopVM(instanceId string, isForce bool) error {
-	status, err := self.GetInstanceStatus(instanceId)
+	status, _ := self.GetInstanceStatus(instanceId)
 	if status != InstanceStatusRunning {
 		return cloudprovider.ErrInvalidStatus
 	}
-	err = self.doStopVM(instanceId, isForce)
-	if err != nil {
-		return err
-	}
-	return self.waitInstanceStatus(instanceId, InstanceStatusStopped, time.Second*10, time.Second*300) // 5 minutes to timeout
+	return self.doStopVM(instanceId, isForce)
+	// if err != nil {
+	//  return err
+	// }
+	// return self.waitInstanceStatus(instanceId, InstanceStatusStopped, time.Second*10, time.Second*300) // 5 minutes to timeout
 }
 
 func (self *SRegion) DeleteVM(instanceId string) error {
 	status, err := self.GetInstanceStatus(instanceId)
 	if status == InstanceStatusRunning {
-		err := self.StopVM(instanceId, true)
+		err = self.StopVM(instanceId, true)
 		if err != nil {
 			return err
 		}
 	} else if status != InstanceStatusStopped {
 		return cloudprovider.ErrInvalidStatus
 	}
-	err = self.doDeleteVM(instanceId)
-	if err != nil {
-		return err
-	}
-	err = self.waitInstanceStatus(instanceId, InstanceStatusRunning, time.Second*10, time.Second*300) // 5 minutes to timeout
-	if err == cloudprovider.ErrNotFound {
-		return nil
-	} else if err == nil {
-		return cloudprovider.ErrTimeout
-	} else {
-		return err
-	}
+	return self.doDeleteVM(instanceId)
+	// if err != nil {
+	// 	return err
+	// }
+	// err = self.waitInstanceStatus(instanceId, InstanceStatusRunning, time.Second*10, time.Second*300) // 5 minutes to timeout
+	// if err == cloudprovider.ErrNotFound {
+	// 	return nil
+	// } else if err == nil {
+	// 	return cloudprovider.ErrTimeout
+	// } else {
+	// 	return err
+	// }
 }
 
 func (self *SInstance) StartVM() error {
-	return self.host.zone.region.StartVM(self.InstanceId)
+	err := self.host.zone.region.StartVM(self.InstanceId)
+	if err != nil {
+		return err
+	}
+	return cloudprovider.WaitStatus(self, models.VM_RUNNING, 5*time.Second, 180*time.Second) // 3minutes
 }
 
 func (self *SInstance) StopVM(isForce bool) error {
-	return self.host.zone.region.StopVM(self.InstanceId, isForce)
+	err := self.host.zone.region.StopVM(self.InstanceId, isForce)
+	if err != nil {
+		return err
+	}
+	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
 }
 
 func (self *SInstance) DeleteVM() error {
-	return self.host.zone.region.DeleteVM(self.InstanceId)
+	err := self.host.zone.region.DeleteVM(self.InstanceId)
+	if err != nil {
+		return err
+	}
+	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
 }
 
 func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {

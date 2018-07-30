@@ -2,16 +2,17 @@ package models
 
 import (
 	"context"
-
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/mcclient"
-	"github.com/yunionio/pkg/httperrors"
-	"github.com/yunionio/pkg/util/compare"
-	"github.com/yunionio/sqlchemy"
+	"fmt"
+	"database/sql"
 
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/pkg/httperrors"
+	"github.com/yunionio/jsonutils"
+	"github.com/yunionio/log"
+	"github.com/yunionio/mcclient"
+	"github.com/yunionio/sqlchemy"
+	"github.com/yunionio/pkg/util/compare"
 )
 
 type SWireManager struct {
@@ -37,8 +38,8 @@ type SWire struct {
 	VpcId        string `wdith:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
 }
 
-func (manager *SWireManager) GetContextManager() db.IModelManager {
-	return ZoneManager
+func (manager *SWireManager) GetContextManager() []db.IModelManager {
+	return []db.IModelManager{ZoneManager, VpcManager}
 }
 
 func (manager *SWireManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -46,6 +47,24 @@ func (manager *SWireManager) ValidateCreateData(ctx context.Context, userCred mc
 	if err != nil || bandwidth == 0 {
 		return nil, httperrors.NewInputParameterError("invalid bandwidth")
 	}
+
+	vpcStr := jsonutils.GetAnyString(data, []string{"vpc", "vpc_id"})
+	if len(vpcStr) == 0 {
+		return nil, httperrors.NewInternalServerError("missing vpc")
+	}
+
+	if len(vpcStr) > 0 {
+		vpcObj, err := VpcManager.FetchByIdOrName(userCred.GetProjectId(), vpcStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewNotFoundError("Vpc %s not found", vpcStr)
+			} else {
+				return nil, httperrors.NewInternalServerError("Fetch Vpc %s error %s", vpcStr, err)
+			}
+		}
+		data.Add(jsonutils.NewString(vpcObj.GetId()), "vpc_id")
+	}
+
 	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
 
@@ -82,12 +101,18 @@ func (wire *SWire) GetVpcId() string {
 	}
 }
 
-func (manager *SWireManager) getWiresByVpc(vpc *SVpc) ([]SWire, error) {
+func (manager *SWireManager) getWiresByVpcAndZone(vpc *SVpc, zone *SZone) ([]SWire, error) {
 	wires := make([]SWire, 0)
-	q := manager.Query().Equals("vpc_id", vpc.Id)
+	q := manager.Query()
+	if vpc != nil {
+		q = q.Equals("vpc_id", vpc.Id)
+	}
+	if zone != nil {
+		q = q.Equals("zone_id", zone.Id)
+	}
 	err := db.FetchModelObjects(manager, q, &wires)
 	if err != nil {
-		log.Errorf("getWiresByVpc error %s", err)
+		log.Errorf("getWiresByVpcAndZone error %s", err)
 		return nil, err
 	}
 	return wires, nil
@@ -98,7 +123,7 @@ func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.To
 	remoteWires := make([]cloudprovider.ICloudWire, 0)
 	syncResult := compare.SyncResult{}
 
-	dbWires, err := manager.getWiresByVpc(vpc)
+	dbWires, err := manager.getWiresByVpcAndZone(vpc, nil)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
@@ -156,6 +181,9 @@ func (self *SWire) syncWithCloudWire(extWire cloudprovider.ICloudWire) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Name = extWire.GetName()
 		self.Bandwidth = extWire.GetBandwidth() // 10G
+
+		self.IsEmulated = extWire.IsEmulated()
+
 		return nil
 	})
 	if err != nil {
@@ -178,6 +206,9 @@ func (manager *SWireManager) newFromCloudWire(extWire cloudprovider.ICloudWire, 
 		return nil, err
 	}
 	wire.ZoneId = zoneObj.(*SZone).Id
+
+	wire.IsEmulated = extWire.IsEmulated()
+
 	err = manager.TableSpec().Insert(&wire)
 	if err != nil {
 		log.Errorf("newFromCloudWire fail %s", err)
@@ -383,4 +414,107 @@ func (manager *SWireManager) InitializeData() error {
 		}
 	}
 	return nil
+}
+
+func (wire *SWire) getEnabledHosts() []SHost {
+	hosts := make([]SHost, 0)
+
+	hostQuery := HostManager.Query().SubQuery()
+	hostwireQuery := HostwireManager.Query().SubQuery()
+
+	q := hostQuery.Query()
+	q = q.Join(hostwireQuery, sqlchemy.AND(sqlchemy.Equals(hostQuery.Field("id"), hostwireQuery.Field("host_id")),
+		sqlchemy.IsFalse(hostwireQuery.Field("deleted"))))
+	q = q.Filter(sqlchemy.Equals(hostwireQuery.Field("wire_id"), wire.Id))
+	q = q.Filter(sqlchemy.IsTrue(hostQuery.Field("enabled")))
+	q = q.Filter(sqlchemy.Equals(hostQuery.Field("host_status"), HOST_ONLINE))
+
+	err := db.FetchModelObjects(HostManager, q, &hosts)
+	if err != nil {
+		log.Errorf("getEnabledHosts fail %s", err)
+		return nil
+	}
+
+	return hosts
+}
+
+func (wire *SWire) clearHostSchedDescCache() error {
+	hosts := wire.getEnabledHosts()
+	if hosts != nil {
+		for i := 0; i < len(hosts); i += 1 {
+			err := hosts[i].ClearSchedDescCache()
+			if err != nil {
+				log.Errorf("%s", err)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (wire *SWire) getVpc() *SVpc {
+	vpcObj, err := VpcManager.FetchById(wire.VpcId)
+	if err != nil {
+		log.Errorf("getVpc fail %s", err)
+		return nil
+	}
+	return vpcObj.(*SVpc)
+}
+
+func (self *SWire) GetIWire() (cloudprovider.ICloudWire, error) {
+	vpc := self.getVpc()
+	if vpc == nil {
+		log.Errorf("Cannot find VPC for wire???")
+		return nil, fmt.Errorf("No VPC?????")
+	}
+	ivpc, err := vpc.GetIVpc()
+	if err != nil {
+		return nil, err
+	}
+	return ivpc.GetIWireById(self.GetExternalId())
+}
+
+func (manager *SWireManager) FetchWireById(wireId string) *SWire {
+	wireObj, err := manager.FetchById(wireId)
+	if err != nil {
+		log.Errorf("FetchWireById fail %s", err)
+		return nil
+	}
+	return wireObj.(*SWire)
+}
+
+func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
+	vpcStr := jsonutils.GetAnyString(query, []string{"vpc_id", "vpc"})
+	if len(vpcStr) > 0 {
+		vpc, err := VpcManager.FetchByIdOrName(userCred.GetProjectId(), vpcStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewNotFoundError("vpc %s not found", vpcStr)
+			} else {
+				return nil, httperrors.NewInternalServerError("vpc %s query fail %s", vpcStr, err)
+			}
+		}
+		q = q.Equals("vpc_id", vpc.GetId())
+	}
+
+	regionStr := jsonutils.GetAnyString(query, []string{"region_id", "region", "cloudregion_id", "cloudregion"})
+	if len(regionStr) > 0 {
+		region, err := CloudregionManager.FetchByIdOrName(userCred.GetProjectId(), regionStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewNotFoundError("region %s not found", regionStr)
+			} else {
+				return nil, httperrors.NewInternalServerError("region %s query fail %s", regionStr, err)
+			}
+		}
+		sq := VpcManager.Query("id").Equals("cloudregion_id", region.GetId())
+		q = q.In("vpc_id", sq.SubQuery())
+	}
+
+	return q, err
 }

@@ -3,11 +3,9 @@ package models
 import (
 	"context"
 	"time"
-
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/mcclient"
-
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 )
 
 type SVCenterManager struct {
