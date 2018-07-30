@@ -1,5 +1,5 @@
 package sqlchemy
 
-const (
+var (
 	DEBUG_SQLCHEMY = false
 )

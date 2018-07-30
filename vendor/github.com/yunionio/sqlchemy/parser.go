@@ -5,6 +5,7 @@ import (
 
 	"github.com/yunionio/log"
 	"github.com/yunionio/pkg/gotypes"
+	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/util/reflectutils"
 	"github.com/yunionio/pkg/utils"
 )
@@ -54,6 +55,10 @@ func fieldToColumnSpec(field *reflect.StructField) IColumnSpec {
 	case gotypes.BoolType:
 		tagmap[TAG_WIDTH] = "1"
 		col := NewBooleanColumn(fieldname, tagmap)
+		return &col
+	case tristate.TriStateType:
+		tagmap[TAG_WIDTH] = "1"
+		col := NewTristateColumn(fieldname, tagmap)
 		return &col
 	case gotypes.Float32Type, gotypes.Float64Type:
 		if _, ok := tagmap[TAG_WIDTH]; ok {

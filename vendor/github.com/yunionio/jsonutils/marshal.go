@@ -1,12 +1,20 @@
 package jsonutils
 
+/**
+jsonutils.Marshal
+
+Convert any object to JSONObject
+
+*/
+
 import (
 	"fmt"
 	"reflect"
 	"time"
 
-	"github.com/yunionio/log"
 	"github.com/yunionio/pkg/gotypes"
+	"github.com/yunionio/log"
+	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/util/reflectutils"
 	"github.com/yunionio/pkg/util/timeutils"
 )
@@ -73,6 +81,16 @@ func marshalBoolean(val bool) *JSONBool {
 		return JSONTrue
 	} else {
 		return JSONFalse
+	}
+}
+
+func marshalTristate(val tristate.TriState) JSONObject {
+	if val.IsTrue() {
+		return JSONTrue
+	} else if val.IsFalse() {
+		return JSONFalse
+	} else {
+		return JSONNull
 	}
 }
 
@@ -146,6 +164,13 @@ func marshalValue(objValue reflect.Value) JSONObject {
 		json, ok := objValue.Interface().(JSONString)
 		if ok {
 			return &json
+		} else {
+			return JSONNull
+		}
+	case tristate.TriStateType:
+		tri, ok := objValue.Interface().(tristate.TriState)
+		if ok {
+			return marshalTristate(tri)
 		} else {
 			return JSONNull
 		}

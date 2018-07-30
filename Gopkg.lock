@@ -242,7 +242,7 @@
 [[projects]]
   name = "github.com/yunionio/jsonutils"
   packages = ["."]
-  revision = "1edf0ca607c9e49be4705bd3628b2165d7ffee3c"
+  revision = "6dd39f8579af6c6b61b971eb3a1ccf55e724b0ca"
 
 [[projects]]
   branch = "master"
@@ -309,10 +309,9 @@
   revision = "e3d49929d3d3ae3aeea77b188a03e5107f5a8b7e"
 
 [[projects]]
-  branch = "master"
   name = "github.com/yunionio/sqlchemy"
   packages = ["."]
-  revision = "9e57e4fa1e915d46e299155f065a954cd7a07e7f"
+  revision = "a14641a90b9e5c72868b7a8358d62ea1d83eab53"
 
 [[projects]]
   branch = "master"
@@ -371,6 +370,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "de3d4429983b4807a82bb7dc8f29a34fff78db2ef986739c4cbd73a6c0a2bf06"
+  inputs-digest = "1bc86ec334153df33c312e01120e9f5f954a209f76b6d9afd3fc7cb6af2b9de2"
   solver-name = "gps-cdcl"
   solver-version = 1

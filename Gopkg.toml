@@ -30,9 +30,12 @@
   version = "0.2.2"
 
 [[constraint]]
-  #branch = "master"
-  revision = "1edf0ca607c9e49be4705bd3628b2165d7ffee3c"
+  revision = "6dd39f8579af6c6b61b971eb3a1ccf55e724b0ca"
   name = "github.com/yunionio/jsonutils"
+
+[[constraint]]
+  revision = "a14641a90b9e5c72868b7a8358d62ea1d83eab53"
+  name = "github.com/yunionio/sqlchemy"
 
 [[constraint]]
   branch = "master"
