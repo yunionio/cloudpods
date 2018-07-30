@@ -10,7 +10,7 @@ func init() {
 		Offset int `help:"page offset"`
 	}
 	R(&VSwitchListOptions{}, "vswitch-list", "List vswitches", func(cli *aliyun.SRegion, args *VSwitchListOptions) error {
-		vswitches, total, e := cli.GetVSwitches(nil, args.Offset, args.Limit)
+		vswitches, total, e := cli.GetVSwitches(nil, "", args.Offset, args.Limit)
 		if e != nil {
 			return e
 		}
