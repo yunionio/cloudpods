@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/mcclient"
-
 	"github.com/yunionio/pkg/httperrors"
 	"github.com/yunionio/pkg/util/httputils"
+
+	"github.com/yunionio/mcclient"
 )
 
 type ResourceManager struct {

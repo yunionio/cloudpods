@@ -254,14 +254,13 @@
   revision = "d2fe137411c230927e28dd82b1a3bcb618dbb28d"
 
 [[projects]]
-  branch = "master"
   name = "github.com/yunionio/mcclient"
   packages = [
     ".",
     "auth",
     "modules"
   ]
-  revision = "3d730c039309cb732abc9946a08fcb1924f51123"
+  revision = "2e236af400fb965cb93e8adc5a45d4bd511f66dc"
 
 [[projects]]
   branch = "master"
@@ -370,6 +369,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1bc86ec334153df33c312e01120e9f5f954a209f76b6d9afd3fc7cb6af2b9de2"
+  inputs-digest = "4fc794f3537a577ea0c7f1c241e3a7c55618d162d982e6201cadde9e911730e7"
   solver-name = "gps-cdcl"
   solver-version = 1
