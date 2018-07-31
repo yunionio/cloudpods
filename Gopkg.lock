@@ -264,9 +264,10 @@
   version = "v1.1.1"
 
 [[projects]]
+  branch = "master"
   name = "github.com/yunionio/jsonutils"
   packages = ["."]
-  revision = "6dd39f8579af6c6b61b971eb3a1ccf55e724b0ca"
+  revision = "895610f4e0f2f4bf3aebf016604e6fec39992fd8"
 
 [[projects]]
   branch = "master"
