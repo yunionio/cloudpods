@@ -22,9 +22,9 @@ type SRegion struct {
 	RegionId  string
 	LocalName string
 
-	_izones []cloudprovider.ICloudZone
+	izones []cloudprovider.ICloudZone
 
-	_ivpcs []cloudprovider.ICloudVpc
+	ivpcs []cloudprovider.ICloudVpc
 
 	storageCache *SStoragecache
 
@@ -116,14 +116,14 @@ func (self *SRegion) Refresh() error {
 }
 
 func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
-	if self._izones == nil {
+	if self.izones == nil {
 		var err error
 		err = self.fetchInfrastructure()
 		if err != nil {
 			return nil, err
 		}
 	}
-	return self._izones, nil
+	return self.izones, nil
 }
 
 func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
@@ -166,11 +166,11 @@ func (self *SRegion) _fetchZones(chargeType InstanceChargeType, spotStrategy Spo
 		return err
 	}
 
-	self._izones = make([]cloudprovider.ICloudZone, len(zones))
+	self.izones = make([]cloudprovider.ICloudZone, len(zones))
 
 	for i := 0; i < len(zones); i += 1 {
 		zones[i].region = self
-		self._izones[i] = &zones[i]
+		self.izones[i] = &zones[i]
 	}
 
 	return nil
@@ -191,13 +191,13 @@ func (self *SRegion) getZoneById(id string) (*SZone, error) {
 }
 
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
-	if self._ivpcs == nil {
+	if self.ivpcs == nil {
 		err := self.fetchInfrastructure()
 		if err != nil {
 			return nil, err
 		}
 	}
-	return self._ivpcs, nil
+	return self.ivpcs, nil
 }
 
 func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
@@ -225,10 +225,10 @@ func (self *SRegion) fetchIVpcs() error {
 			break
 		}
 	}
-	self._ivpcs = make([]cloudprovider.ICloudVpc, len(vpcs))
+	self.ivpcs = make([]cloudprovider.ICloudVpc, len(vpcs))
 	for i := 0; i < len(vpcs); i += 1 {
 		vpcs[i].region = self
-		self._ivpcs[i] = &vpcs[i]
+		self.ivpcs[i] = &vpcs[i]
 	}
 	return nil
 }
@@ -242,10 +242,10 @@ func (self *SRegion) fetchInfrastructure() error {
 	if err != nil {
 		return err
 	}
-	for i := 0; i < len(self._ivpcs); i += 1 {
-		for j := 0; j < len(self._izones); j += 1 {
-			zone := self._izones[j].(*SZone)
-			vpc := self._ivpcs[i].(*SVpc)
+	for i := 0; i < len(self.ivpcs); i += 1 {
+		for j := 0; j < len(self.izones); j += 1 {
+			zone := self.izones[j].(*SZone)
+			vpc := self.ivpcs[i].(*SVpc)
 			wire := SWire{zone: zone, vpc: vpc}
 			zone.addWire(&wire)
 			vpc.addWire(&wire)

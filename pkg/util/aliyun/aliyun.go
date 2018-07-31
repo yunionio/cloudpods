@@ -88,9 +88,14 @@ func (self *SAliyunClient) fetchRegions() error {
 	return nil
 }
 
-/*func (self *SAliyunClient) GetRegions() []SRegion {
-	return self.regions
-}*/
+func (self *SAliyunClient) GetRegions() []SRegion {
+	regions := make([]SRegion, len(self.iregions))
+	for i := 0; i < len(regions); i += 1 {
+		region := self.iregions[i].(*SRegion)
+		regions[i] = *region
+	}
+	return regions
+}
 
 func (self *SAliyunClient) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.iregions
