@@ -27,7 +27,7 @@ type SKeypair struct {
 	Fingerprint string `width:"48" charset:"ascii" nullable:"false" list:"user"`                                // Column(VARCHAR(length=48, charset='ascii'), nullable=False)
 	PrivateKey  string `width:"2048" charset:"ascii" nullable:"false"`                                          // Column(VARCHAR(length=2048, charset='ascii'), nullable=False)
 	PublicKey   string `width:"1024" charset:"ascii" nullable:"false" list:"user"`                              // Column(VARCHAR(length=1024, charset='ascii'), nullable=False)
-	OwnerId     string `width:"36" charset:"ascii" index:"true" nullable:"false"`                               // Column(VARCHAR(length=36, charset='ascii'), index=True, nullable=False)
+	OwnerId     string `width:"128" charset:"ascii" index:"true" nullable:"false"`                              // Column(VARCHAR(length=36, charset='ascii'), index=True, nullable=False)
 }
 
 func (manager *SKeypairManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
@@ -92,7 +92,7 @@ func (self *SKeypair) AllowUpdateItem(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SKeypair) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || userCred.IsSystemAdmin()
 }
 
 func (self *SKeypair) GetLinkedGuestsCount() int {
