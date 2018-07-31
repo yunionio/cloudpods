@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/yunionio/jsonutils"
@@ -255,6 +256,52 @@ func (self *SCachedimage) addRefCount() {
 	if err != nil {
 		log.Errorf("addRefCount fail %s", err)
 	}
+}
+
+func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, excludes []string, rangeObjs interface{}) (*SStoragecachedimage, error) {
+	storageCachedImage := StoragecachedimageManager.Query().SubQuery()
+	storage := StorageManager.Query().SubQuery()
+	hostStorage := HoststorageManager.Query().SubQuery()
+	host := HostManager.Query().SubQuery()
+
+	scimgs := make([]SStoragecachedimage, 0)
+	q := storageCachedImage.Query().
+		Join(storage, sqlchemy.AND(sqlchemy.Equals(storage.Field("storagecache_id"), storageCachedImage.Field("storagecache_id")))).
+		Join(hostStorage, sqlchemy.AND(sqlchemy.Equals(hostStorage.Field("storage_id"), storage.Field("id")))).
+		Join(host, sqlchemy.AND(sqlchemy.Equals(hostStorage.Field("host_id"), host.Field("id")))).
+		Filter(sqlchemy.Equals(storageCachedImage.Field("cacheimage_id"), self.Id)).
+		Filter(sqlchemy.Equals(storageCachedImage.Field("status"), CACHED_IMAGE_STATUS_READY)).
+		Filter(sqlchemy.Equals(host.Field("status"), HOST_STATUS_RUNNING)).
+		Filter(sqlchemy.IsTrue(host.Field("enabled"))).
+		Filter(sqlchemy.Equals(host.Field("host_status"), HOST_ONLINE))
+
+	if len(excludes) > 0 {
+		q = q.Filter(sqlchemy.NotIn(host.Field("id"), excludes))
+	}
+	if len(hostType) > 0 {
+		q = q.Filter(sqlchemy.Equals(host.Field("host_type"), hostType))
+	}
+
+	switch v := rangeObjs.(type) {
+	case []*SZone:
+		for _, obj := range v {
+			q = q.Filter(sqlchemy.Equals(host.Field("zone_id"), obj.Id))
+		}
+	case []*SVCenter:
+		for _, obj := range v {
+			q = q.Filter(sqlchemy.Equals(host.Field("manager_id"), obj.Id))
+		}
+	}
+	err := q.All(scimgs)
+	if err != nil {
+		return nil, err
+	}
+	if len(scimgs) == 0 {
+		return nil, nil
+	}
+
+	rand.Seed(time.Now().Unix())
+	return &scimgs[rand.Intn(len(scimgs))], nil
 }
 
 func (manager *SCachedimageManager) ImageAddRefCount(imageId string) {

@@ -240,6 +240,12 @@
   version = "v1.2.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/serialx/hashring"
+  packages = ["."]
+  revision = "49a4782e9908fe098c907022a1bd7519c79803d6"
+
+[[projects]]
   name = "github.com/sirupsen/logrus"
   packages = ["."]
   revision = "3e01752db0189b9157070a0e1668a620f9a85da2"
