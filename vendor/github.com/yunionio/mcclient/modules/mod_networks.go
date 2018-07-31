@@ -10,7 +10,8 @@ func init() {
 			"Guest_ip_end", "Guest_ip_mask",
 			"wire_id", "wire", "is_public", "exit", "Ports",
 			"vnics",
-			"group_vnics", "bm_vnics", "reserve_vnics", "server_type"},
+			"group_vnics", "bm_vnics", "reserve_vnics", "server_type",
+			"Status"},
 		[]string{})
 
 	registerCompute(&Networks)

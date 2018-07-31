@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/yunionio/jsonutils"
+	"github.com/yunionio/log"
 	"github.com/yunionio/pkg/httperrors"
 	"github.com/yunionio/pkg/util/httputils"
 	"github.com/yunionio/pkg/utils"
@@ -132,7 +133,7 @@ type ImageUsageCount struct {
 	Size  int64
 }
 
-func (this *ImageManager) GetUsage(session *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (this *ImageManager) countUsage(session *mcclient.ClientSession, deleted bool) (map[string]*ImageUsageCount, error) {
 	var limit int64 = 1000
 	var offset int64 = 0
 	ret := make(map[string]*ImageUsageCount)
@@ -142,16 +143,14 @@ func (this *ImageManager) GetUsage(session *mcclient.ClientSession, params jsonu
 			status, _ := r.GetString("status")
 			img_size, _ := r.Int("size")
 			if len(format) > 0 {
-				_, ok := ret[format]
-				if !ok {
+				if _, ok := ret[format]; !ok {
 					ret[format] = &ImageUsageCount{}
 				}
 				ret[format].Size += img_size
 				ret[format].Count += 1
 			}
 			if len(status) > 0 {
-				_, ok := ret[status]
-				if !ok {
+				if _, ok := ret[status]; !ok {
 					ret[status] = &ImageUsageCount{}
 				}
 				ret[status].Size += img_size
@@ -159,34 +158,47 @@ func (this *ImageManager) GetUsage(session *mcclient.ClientSession, params jsonu
 			}
 		}
 	}
-
 	query := jsonutils.NewDict()
 	query.Add(jsonutils.NewInt(limit), "limit")
 	query.Add(jsonutils.NewInt(offset), "offset")
-	results, e := this.List(session, query)
-	if e != nil {
+	if deleted {
+		query.Add(jsonutils.NewString("true"), "pending_delete")
+	}
+	if result, e := this.List(session, query); e != nil {
 		return nil, e
-	}
-	count(ret, results)
-	offset += limit
-
-	for results.Total > int(offset) {
-		query.Add(jsonutils.NewInt(offset), "offset")
-		results, e := this.List(session, query)
-		if e != nil {
-			return nil, e
-		}
-		count(ret, results)
+	} else {
+		count(ret, result)
 		offset += limit
-	}
 
-	body := jsonutils.NewDict()
-	for k, v := range ret {
-		stat := jsonutils.NewDict()
-		stat.Add(jsonutils.NewInt(v.Size), "size")
-		stat.Add(jsonutils.NewInt(v.Count), "count")
-		body.Add(stat, k)
+		for result.Total > int(offset) {
+			query.Add(jsonutils.NewInt(offset), "offset")
+			if result, e := this.List(session, query); e != nil {
+				return nil, e
+			} else {
+				count(ret, result)
+				offset += limit
+			}
+		}
 	}
+	return ret, nil
+}
+
+func (this *ImageManager) GetUsage(session *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	body := jsonutils.NewDict()
+	pendingDelete := jsonutils.NewDict()
+	for deleted, data := range map[bool]*jsonutils.JSONDict{false: body, true: pendingDelete} {
+		if ret, err := this.countUsage(session, deleted); err != nil {
+			return nil, err
+		} else {
+			for k, v := range ret {
+				stat := jsonutils.NewDict()
+				stat.Add(jsonutils.NewInt(v.Size), "size")
+				stat.Add(jsonutils.NewInt(v.Count), "count")
+				data.Add(stat, k)
+			}
+		}
+	}
+	body.Add(pendingDelete, "pending_delete")
 	return body, nil
 }
 
@@ -385,16 +397,22 @@ func (this *ImageManager) Upload(s *mcclient.ClientSession, params jsonutils.JSO
 	return this._create(s, params, body, size)
 }
 
-func (this *ImageManager) IsNameDuplicate(s *mcclient.ClientSession, name string) bool {
+func (this *ImageManager) IsNameDuplicate(s *mcclient.ClientSession, name string) (bool, error) {
 	dupName := true
 	_, e := this.GetByName(s, name, nil)
 	if e != nil {
-		je := e.(*httputils.JSONClientError)
-		if je.Code == 404 {
-			dupName = false
+		switch e.(type) {
+		case *httputils.JSONClientError:
+			je := e.(*httputils.JSONClientError)
+			if je.Code == 404 {
+				dupName = false
+			}
+		default:
+			log.Errorf("GetByName fail %s", e)
+			return false, e
 		}
 	}
-	return dupName
+	return dupName, nil
 }
 
 func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JSONObject, body io.Reader, size int64) (jsonutils.JSONObject, error) {
@@ -421,8 +439,12 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 	if len(name) == 0 {
 		return nil, fmt.Errorf("Missing name")
 	}
-	if this.IsNameDuplicate(s, name) {
+	dupName, e := this.IsNameDuplicate(s, name)
+	if dupName {
 		return nil, fmt.Errorf("Duplicate name %s", name)
+	}
+	if e != nil {
+		return nil, fmt.Errorf("Check name duplicate error %s", e)
 	}
 	headers, e := setImageMeta(params)
 	if e != nil {

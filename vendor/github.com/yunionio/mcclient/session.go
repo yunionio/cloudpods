@@ -74,8 +74,20 @@ func (this *ClientSession) GetServiceURL(service, endpointType string) (string, 
 	return this.token.GetServiceURL(service, this.region, this.zone, endpointType)
 }
 
+func (this *ClientSession) getBaseUrl(service, endpointType string) (string, error) {
+	if len(service) > 0 {
+		if strings.HasPrefix(service, "http://") || strings.HasPrefix(service, "https://") {
+			return service, nil
+		} else {
+			return this.GetServiceURL(service, endpointType)
+		}
+	} else {
+		return "", fmt.Errorf("Empty service type or baseURL")
+	}
+}
+
 func (this *ClientSession) RawRequest(service, endpointType, method, url string, headers http.Header, body io.Reader) (*http.Response, error) {
-	baseurl, err := this.GetServiceURL(service, endpointType)
+	baseurl, err := this.getBaseUrl(service, endpointType)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +102,7 @@ func (this *ClientSession) RawRequest(service, endpointType, method, url string,
 }
 
 func (this *ClientSession) JSONRequest(service, endpointType, method, url string, headers http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	baseurl, err := this.GetServiceURL(service, endpointType)
+	baseUrl, err := this.getBaseUrl(service, endpointType)
 	if err != nil {
 		return headers, nil, err
 	}
@@ -99,7 +111,7 @@ func (this *ClientSession) JSONRequest(service, endpointType, method, url string
 		populateHeader(&tmpHeader, headers)
 	}
 	populateHeader(&tmpHeader, this.Header)
-	return this.client.jsonRequest(baseurl,
+	return this.client.jsonRequest(baseUrl,
 		this.token.GetTokenString(),
 		method, url, tmpHeader, body)
 }

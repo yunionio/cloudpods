@@ -5,8 +5,9 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/mcclient"
 	"github.com/yunionio/pkg/util/httputils"
+
+	"github.com/yunionio/mcclient"
 )
 
 type DomainManager struct {
@@ -89,7 +90,7 @@ func (this *DomainManager) GetDomainConfig(s *mcclient.ClientSession, domain str
 	config, err := this.GetConfig(s, domain)
 	if err != nil {
 		// for empty domain config
-		log.Printf("err fetch domain config for %s with error: %s", domain, err)
+		log.Infof("err fetch domain config for %s with error: %s", domain, err)
 		config = jsonutils.NewDict()
 	}
 
@@ -162,7 +163,7 @@ func (this *DomainManager) DoDomainConfigUpdate(s *mcclient.ClientSession, domai
 
 	if _driver == "ldap" {
 		config.Add(_config, "config")
-		log.Printf("to update config: %v", config)
+		log.Infof("to update config: %s", config)
 		_config, err = this.UpdateConfig(s, domain, config)
 		if err != nil {
 			return ret, err
@@ -235,7 +236,7 @@ func (this *DomainManager) DoDomainConfigDelete(s *mcclient.ClientSession, param
 		result, err := UsersV3.List(s, params)
 
 		if err != nil {
-			log.Printf("user list got error: %v", err)
+			log.Errorf("user list got error: %v", err)
 		}
 
 		if len(result.Data) > 0 {
