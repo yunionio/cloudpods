@@ -73,7 +73,7 @@ func (self *SBaremetalGuestDriver) RequestGuestCreateInsertIso(ctx context.Conte
 	return nil
 }
 
-func (self *SBaremetalGuestDriver) RequestStartOnHost(guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
+func (self *SBaremetalGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
 	data := jsonutils.NewDict()
 	// TODO
 	return data, nil

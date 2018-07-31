@@ -1,6 +1,8 @@
 package taskman
 
 import (
+	"database/sql"
+
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 
@@ -37,7 +39,9 @@ func (manager *SSubTaskmanager) GetSubTask(ptaskId string, subtaskId string) *SS
 	subtask := SSubTask{}
 	err := manager.Query().Equals("task_id", ptaskId).Equals("subtask_id", subtaskId).First(&subtask)
 	if err != nil {
-		log.Errorf("GetSubTask fail %s", err)
+		if err != sql.ErrNoRows {
+			log.Errorf("GetSubTask fail %s %s %s", err, ptaskId, subtaskId)
+		}
 		return nil
 	}
 	return &subtask

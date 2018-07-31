@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/serialx/hashring"
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 	"github.com/yunionio/onecloud/pkg/mcclient"
@@ -60,6 +61,47 @@ func (joint *SStoragecachedimage) Master() db.IStandaloneModel {
 
 func (joint *SStoragecachedimage) Slave() db.IStandaloneModel {
 	return db.JointSlave(joint)
+}
+
+func (self *SStoragecachedimage) getStorageHostId() (string, error) {
+	var s SStorage
+	storage := StorageManager.Query()
+	err := storage.Filter(sqlchemy.Equals(storage.Field("storagecache_id"), self.StoragecacheId)).First(&s)
+	if err != nil {
+		return "", err
+	}
+
+	hosts := s.GetAllAttachingHosts()
+	var hostIds = make([]string, 0)
+	for _, host := range hosts {
+		hostIds = append(hostIds, host.Id)
+	}
+	if len(hostIds) == 0 {
+		return "", nil
+	}
+
+	ring := hashring.New(hostIds)
+	ret, _ := ring.GetNode(self.StoragecacheId)
+	return ret, nil
+}
+
+func (self *SStoragecachedimage) GetHost() (*SHost, error) {
+	hostId, err := self.getStorageHostId()
+	if err != nil {
+		return nil, err
+	} else if len(hostId) == 0 {
+		return nil, nil
+	}
+
+	host, err := HostManager.FetchById(hostId)
+	if err != nil {
+		return nil, err
+	} else if host == nil {
+		return nil, nil
+	}
+	h, _ := host.(*SHost)
+	return h, nil
+
 }
 
 func (self *SStoragecachedimage) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
@@ -241,6 +283,15 @@ func (self *SStoragecachedimage) SetStatus(userCred mcclient.TokenCredential, st
 		db.OpsLog.LogEvent(self, db.ACT_UPDATE_STATUS, notes, userCred)
 	}
 	return nil
+}
+
+func (self *SStoragecachedimage) AddDownloadRefcount() error {
+	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		self.DownloadRefcnt += 1
+		self.LastDownload = time.Now()
+		return nil
+	})
+	return err
 }
 
 func (self *SStoragecachedimage) SetExternalId(externalId string) error {

@@ -50,7 +50,7 @@ type IGuestDriver interface {
 
 	RequestSyncstatusOnHost(ctx context.Context, guest *SGuest, host *SHost, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error)
 
-	RequestStartOnHost(guest *SGuest, host *SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error)
+	RequestStartOnHost(ctx context.Context, guest *SGuest, host *SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error)
 
 	RequestStopOnHost(ctx context.Context, guest *SGuest, host *SHost, task taskman.ITask) error
 

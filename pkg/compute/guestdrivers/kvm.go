@@ -3,15 +3,17 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strconv"
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
 
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
 	"github.com/yunionio/onecloud/pkg/compute/models"
+	"github.com/yunionio/onecloud/pkg/mcclient"
+	"github.com/yunionio/onecloud/pkg/util/httputils"
 )
 
 type SKVMGuestDriver struct {
@@ -90,40 +92,87 @@ func (self *SKVMGuestDriver) GetGuestVncInfo(userCred mcclient.TokenCredential, 
 	return retval, nil
 }
 
-func (self *SKVMGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
-	// TODO
-	return nil
-}
-
-func (self *SKVMGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	// TODO
-
-	return nil
-}
-
-func (self *SKVMGuestDriver) RequestGuestCreateAllDisks(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	// TODO
-	return nil
-}
-
-func (self *SKVMGuestDriver) RequestStartOnHost(guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
-	data := jsonutils.NewDict()
-	// TODO
-	return data, nil
-}
-
 func (self *SKVMGuestDriver) RequestStopOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	// TODO
+	body := jsonutils.NewDict()
+	params := task.GetParams()
+	timeout, err := params.Int("timeout")
+	if err != nil {
+		timeout = 30
+	}
+	isForce, err := params.Bool("is_force")
+	if isForce {
+		timeout = 0
+	}
+	body.Add(jsonutils.NewInt(timeout), "timeout")
+
+	header := http.Header{}
+	header.Set("X-Auth-Token", task.GetUserCred().GetTokenString())
+	header.Set("X-Task-Id", task.GetTaskId())
+	header.Set("X-Region-Version", "v2")
+
+	url := fmt.Sprintf("%s/servers/%s/stop", host.ManagerUri, guest.Id)
+	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-func (self *SKVMGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
-	data := jsonutils.NewDict()
-	// TODO
-	return data, nil
+func (self *SKVMGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
+	// ToDO
+	return fmt.Errorf("Not Implement")
 }
 
 func (self *SKVMGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	// TODO
-	return nil
+	// ToDo
+	return fmt.Errorf("Not Implement")
+}
+
+func (self *SKVMGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
+	header := http.Header{}
+	header.Set("X-Auth-Token", task.GetUserCred().GetTokenString())
+	header.Set("X-Task-Id", task.GetTaskId())
+	header.Set("X-Region-Version", "v2")
+
+	config := jsonutils.NewDict()
+	desc := self.GetJsonDescAtHost(ctx, guest, host)
+	config.Add(desc, "desc")
+	params := task.GetParams()
+	if params.Length() > 0 {
+		config.Add(params, "params")
+	}
+	url := fmt.Sprintf("%s/servers/%s/start", host.ManagerUri, guest.Id)
+	_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, config, false)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (self *SKVMGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
+	header := http.Header{}
+	header.Set("X-Auth-Token", userCred.GetTokenString())
+	header.Set("X-Region-Version", "v2")
+
+	url := fmt.Sprintf("%s/servers/%s/status", host.ManagerUri, guest.Id)
+	_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", url, header, nil, false)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (self *SKVMGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	// ToDo
+	return fmt.Errorf("Not Implement")
+}
+
+func (self *SKVMGuestDriver) RequestGuestCreateInsertIso(ctx context.Context, imageId string, guest *models.SGuest, task taskman.ITask) error {
+	// ToDo
+	return fmt.Errorf("Not Implement")
+}
+
+func (self *SKVMGuestDriver) RequestGuestCreateAllDisks(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	// ToDo
+	return fmt.Errorf("Not Implement")
 }
