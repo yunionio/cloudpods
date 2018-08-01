@@ -8,18 +8,18 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/yunionio/log"
+	"github.com/yunionio/pkg/util/prometheus"
+	"github.com/yunionio/pkg/utils"
 	"gopkg.in/gin-gonic/gin.v1"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/mcclient/auth"
 	o "github.com/yunionio/onecloud/cmd/scheduler/options"
+	"github.com/yunionio/onecloud/pkg/mcclient/auth"
 	_ "github.com/yunionio/onecloud/pkg/scheduler/algorithmprovider"
 	"github.com/yunionio/onecloud/pkg/scheduler/db/models"
 	schedhandler "github.com/yunionio/onecloud/pkg/scheduler/handler"
 	schedman "github.com/yunionio/onecloud/pkg/scheduler/manager"
-	"github.com/yunionio/pkg/util/gin/middleware"
-	"github.com/yunionio/pkg/util/prometheus"
-	"github.com/yunionio/pkg/utils"
+	"github.com/yunionio/onecloud/pkg/util/gin/middleware"
 )
 
 type SchedulerServer struct {

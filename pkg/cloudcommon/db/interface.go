@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/mcclient"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/sqlchemy"
 
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"

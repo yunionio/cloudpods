@@ -1,7 +1,7 @@
 package shell
 
 import (
-	"github.com/yunionio/mcclient"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 )
 
 func init() {

@@ -202,7 +202,14 @@ func (tr *STrace) EndClientTraceHeader(header http.Header) {
 func (tr *STrace) EndClientTrace(spanName, remoteServiceName, localAddr string, tags map[string]string) {
 	tr.Name = spanName
 	tr.RemoteEndpoint.ServiceName = remoteServiceName
-	addr, port := utils.GetAddrPort(localAddr)
+	var addr string
+	var port int
+	if len(localAddr) > 0 {
+		addr, port = utils.GetAddrPort(localAddr)
+	} else {
+		addr = fmt.Sprintf("%s", utils.GetOutboundIP())
+	}
+
 	tr.LocalEndpoint.Addr = addr
 	tr.LocalEndpoint.Port = port
 	if tags != nil {

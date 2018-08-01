@@ -8,7 +8,7 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/mcclient"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/pkg/util/reflectutils"
 	"github.com/yunionio/sqlchemy"
 )

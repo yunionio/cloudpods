@@ -42,11 +42,7 @@
   name = "github.com/yunionio/log"
 
 [[constraint]]
-  revision = "2e236af400fb965cb93e8adc5a45d4bd511f66dc"
-  name = "github.com/yunionio/mcclient"
-
-[[constraint]]
-  branch = "master"
+  revision = "8c5eab6f0b758d3888fd9041419e38a5b1129725"
   name = "github.com/yunionio/pkg"
 
 [[constraint]]

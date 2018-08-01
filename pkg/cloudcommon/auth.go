@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/yunionio/mcclient/auth"
+	"github.com/yunionio/onecloud/pkg/mcclient/auth"
 )
 
 func InitAuth(options *Options, authComplete auth.AuthCompletedCallback) {
