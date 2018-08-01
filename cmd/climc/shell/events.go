@@ -2,8 +2,10 @@ package shell
 
 import (
 	"github.com/yunionio/jsonutils"
+
 	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/onecloud/pkg/mcclient/modules"
+	"github.com/yunionio/onecloud/pkg/mcclient/modules/k8s"
 )
 
 type BaseEventListOptions struct {
@@ -25,6 +27,10 @@ type EventListOptions struct {
 type TypeEventListOptions struct {
 	BaseEventListOptions
 	ID string `help:"" metavar:"OBJ_ID"`
+}
+
+func doK8sEventList(s *mcclient.ClientSession, args *EventListOptions) error {
+	return doEventList(k8s.Logs, s, args)
 }
 
 func doComputeEventList(s *mcclient.ClientSession, args *EventListOptions) error {
@@ -108,5 +114,15 @@ func init() {
 	R(&TypeEventListOptions{}, "vcenter-event", "Show operation event logs of vcenter", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
 		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"vcenter"}}
 		return doComputeEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "k8s-cluster-event", "Show operation event logs of kubernetes cluster", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"cluster"}}
+		return doK8sEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "k8s-node-event", "Show operation event logs of kubernetes node", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"node"}}
+		return doK8sEventList(s, &nargs)
 	})
 }
