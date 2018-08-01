@@ -1,0 +1,17 @@
+[Unit]
+Description=Yunion Cloud Region Scheduler Service
+Documentation=http://doc.yunionyun.com
+After=network.target httpd.service yunion-glance-registry.service yunion-glance-api.service yunion-glance-scrubber.service yunion-region.service yunion-region-dns.service
+
+[Service]
+Type=simple
+User=yunion
+Group=yunion
+ExecStart=/opt/yunion/bin/scheduler --config /etc/yunion/region.conf
+WorkingDirectory=/opt/yunion
+KillMode=process
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
