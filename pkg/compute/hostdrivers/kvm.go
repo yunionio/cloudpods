@@ -74,3 +74,56 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mod
 	}
 	return nil
 }
+
+func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		header := http.Header{}
+		header.Add("X-Task-Id", task.GetTaskId())
+		url := fmt.Sprintf("/disks/%s/create/%s", storage.Id, disk.Id)
+		body := jsonutils.NewDict()
+		body.Add(content, "disk")
+		return host.Request(task.GetUserCred(), "POST", url, header, body)
+	})
+	return nil
+}
+
+func (self *SKVMHostDriver) RequestDeallocateDiskOnHost(host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
+	log.Infof("Deallocating disk on host %s", host.GetName())
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		header := http.Header{}
+		header.Add("X-Task-Id", task.GetTaskId())
+		url := fmt.Sprintf("/disks/%s/delete/%s", storage.Id, disk.Id)
+		body := jsonutils.NewDict()
+		return host.Request(task.GetUserCred(), "POST", url, header, body)
+	})
+	return nil
+}
+
+func (self *SKVMHostDriver) RequestResizeDiskOnHost(host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		header := http.Header{}
+		header.Add("X-Task-Id", task.GetTaskId())
+		url := fmt.Sprintf("/disks/%s/resize/%s", storage.Id, disk.Id)
+		body := jsonutils.NewDict()
+		content := jsonutils.NewDict()
+		content.Add(jsonutils.NewInt(size), "size")
+		body.Add(content, "disk")
+		return host.Request(task.GetUserCred(), "POST", url, header, body)
+	})
+	return nil
+}
+
+func (self *SKVMHostDriver) RequestResizeDiskOnHostOnline(host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
+	self.RequestDeallocateDiskOnHost(host, storage, disk, task)
+	header := http.Header{}
+	header.Add("X-Task-Id", task.GetTaskId())
+	for _, guest := range disk.GetAttachedGuests() {
+		guestdisk := guest.GetGuestDisk(disk.GetId())
+		url := fmt.Sprintf("/servers/%s/monitor", guest.GetId())
+		body := jsonutils.NewDict()
+		cmd := fmt.Sprintf("block_resize drive_%d %dM", guestdisk.Index, size)
+		body.Add(jsonutils.NewString(cmd), "cmd")
+		host.Request(task.GetUserCred(), "POST", url, header, body)
+	}
+	return nil
+}

@@ -2,7 +2,9 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/yunionio/log"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
 	"github.com/yunionio/onecloud/pkg/compute/models"
 )
@@ -13,6 +15,7 @@ type SDiskBaseTask struct {
 
 func (self *SDiskBaseTask) getDisk() *models.SDisk {
 	obj := self.GetObject()
+	fmt.Println(obj)
 	return obj.(*models.SDisk)
 }
 
@@ -28,6 +31,19 @@ func (self *SDiskBaseTask) finalReleasePendingUsage(ctx context.Context) {
 		if !pendingUsage.IsEmpty() {
 			disk := self.getDisk()
 			models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, disk.ProjectId, &pendingUsage, &pendingUsage)
+		}
+	}
+}
+
+func (self *SDiskBaseTask) CleanHostSchedCache(disk *models.SDisk) {
+	storage := disk.GetStorage()
+	if hosts := storage.GetAllAttachingHosts(); hosts == nil {
+		log.Errorf("get attaching host error")
+	} else {
+		for _, h := range hosts {
+			if err := h.ClearSchedDescCache(); err != nil {
+				log.Errorf("host CleanHostSchedCache error: %s", err.Error())
+			}
 		}
 	}
 }

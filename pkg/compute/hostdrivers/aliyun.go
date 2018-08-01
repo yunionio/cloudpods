@@ -2,6 +2,7 @@ package hostdrivers
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
@@ -44,5 +45,40 @@ func (self *SAliyunHostDriver) CheckAndSetCacheImage(ctx context.Context, host *
 			return ret, nil
 		}
 	})
+	return nil
+}
+
+func (self *SAliyunHostDriver) RequestAllocateDiskOnStorage(host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
+	if iCloudStorage, err := storage.GetIStorage(); err != nil {
+		return err
+	} else {
+		if size, err := content.Int("size"); err != nil {
+			return err
+		} else {
+			fmt.Println("size:", size)
+			size = size >> 10
+			fmt.Println("size:", size)
+			if disk, err := iCloudStorage.CreateIDisk(disk.GetName(), int(size), ""); err != nil {
+				return err
+			} else {
+				data := jsonutils.NewDict()
+				data.Add(jsonutils.NewInt(int64(disk.GetDiskSizeMB())), "disk_size")
+				data.Add(jsonutils.NewString(disk.GetDiskFormat()), "disk_format")
+				task.ScheduleRun(data)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (self *SAliyunHostDriver) RequestDeallocateDiskOnHost(host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
+	return nil
+}
+
+func (self *SAliyunHostDriver) RequestResizeDiskOnHostOnline(host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
+	return nil
+}
+func (self *SAliyunHostDriver) RequestResizeDiskOnHost(host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
 	return nil
 }

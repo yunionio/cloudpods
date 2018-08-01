@@ -7,8 +7,8 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/onecloud/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/pkg/util/seclib"
 	"github.com/yunionio/pkg/utils"
 
@@ -261,4 +261,8 @@ func (self *SAliyunGuestDriver) GetGuestVncInfo(userCred mcclient.TokenCredentia
 	dataDict := data.(*jsonutils.JSONDict)
 
 	return dataDict, nil
+}
+
+func (self *SAliyunGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	return nil
 }

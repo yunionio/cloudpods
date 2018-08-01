@@ -3,11 +3,12 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"regexp"
 
 	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/onecloud/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/quotas"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
@@ -148,4 +149,20 @@ func (self *SVirtualizedGuestDriver) CheckDiskTemplateOnStorage(ctx context.Cont
 		return fmt.Errorf("Cache is missing from storage")
 	}
 	return cache.StartImageCacheTask(ctx, userCred, imageId, false, task.GetTaskId())
+}
+
+func (self *SVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		desc := guest.GetDriver().GetJsonDescAtHost(ctx, guest, host)
+		body := jsonutils.NewDict()
+		body.Add(desc, "desc")
+		if fw_only, _ := task.GetParams().Bool("fw_only"); fw_only {
+			body.Add(jsonutils.JSONTrue, "fw_only")
+		}
+		url := fmt.Sprintf("/servers/%s/sync", guest.Id)
+		headers := http.Header{}
+		headers.Add("X-Task-Id", task.GetTaskId())
+		return host.Request(task.GetUserCred(), "POST", url, headers, body)
+	})
+	return nil
 }

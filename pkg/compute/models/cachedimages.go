@@ -294,7 +294,7 @@ func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, exclu
 		}
 	}
 	log.Errorf("=========Debug Query start=============")
-	q.DebugQuery()
+	//q.DebugQuery()
 	log.Errorf("=========Debug Query end=============")
 	err := q.All(scimgs)
 	log.Errorln("ChooseSourceStoragecacheInRange: ", scimgs)
