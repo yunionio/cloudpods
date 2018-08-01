@@ -5,7 +5,7 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/mcclient"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/quotas"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
 )

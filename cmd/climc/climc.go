@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"github.com/c-bata/go-prompt"
-
 	"github.com/yunionio/log"
-	"github.com/yunionio/mcclient"
-	"github.com/yunionio/onecloud/cmd/climc/promputils"
-	"github.com/yunionio/onecloud/cmd/climc/shell"
 	"github.com/yunionio/pkg/util/version"
 	"github.com/yunionio/structarg"
+
+	"github.com/yunionio/onecloud/cmd/climc/promputils"
+	"github.com/yunionio/onecloud/cmd/climc/shell"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 )
 
 type BaseOptions struct {

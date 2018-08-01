@@ -2,7 +2,7 @@ package guestdrivers
 
 import (
 	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/mcclient"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 
 	"github.com/yunionio/onecloud/pkg/compute/models"
 )

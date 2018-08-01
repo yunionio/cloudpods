@@ -7,7 +7,7 @@ import (
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
 	"github.com/yunionio/onecloud/pkg/compute/models"
-	"github.com/yunionio/pkg/util/httputils"
+	"github.com/yunionio/onecloud/pkg/util/httputils"
 )
 
 type GuestUndeployTask struct {

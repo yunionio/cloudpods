@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/yunionio/mcclient"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/pkg/util/timeutils"
 	"github.com/yunionio/sqlchemy"
 )

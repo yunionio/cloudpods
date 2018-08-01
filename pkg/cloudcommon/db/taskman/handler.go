@@ -2,8 +2,8 @@ package taskman
 
 import (
 	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/pkg/appsrv"
-	"github.com/yunionio/pkg/appsrv/dispatcher"
+	"github.com/yunionio/onecloud/pkg/appsrv"
+	"github.com/yunionio/onecloud/pkg/appsrv/dispatcher"
 
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 )

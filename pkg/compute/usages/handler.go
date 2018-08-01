@@ -7,13 +7,13 @@ import (
 
 	json "github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/mcclient"
-	"github.com/yunionio/mcclient/auth"
+	"github.com/yunionio/onecloud/pkg/mcclient"
+	"github.com/yunionio/onecloud/pkg/mcclient/auth"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/compute/models"
-	"github.com/yunionio/pkg/appctx"
-	"github.com/yunionio/pkg/appsrv"
-	"github.com/yunionio/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/appctx"
+	"github.com/yunionio/onecloud/pkg/appsrv"
+	"github.com/yunionio/onecloud/pkg/httperrors"
 	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/utils"
 )

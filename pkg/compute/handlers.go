@@ -2,8 +2,8 @@ package compute
 
 import (
 	"github.com/yunionio/log"
-	"github.com/yunionio/pkg/appsrv"
-	"github.com/yunionio/pkg/appsrv/dispatcher"
+	"github.com/yunionio/onecloud/pkg/appsrv"
+	"github.com/yunionio/onecloud/pkg/appsrv/dispatcher"
 
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/quotas"

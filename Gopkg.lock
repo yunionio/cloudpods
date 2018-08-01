@@ -48,6 +48,12 @@
   version = "v0.2.2"
 
 [[projects]]
+  name = "github.com/davecgh/go-spew"
+  packages = ["spew"]
+  revision = "346938d642f2ec3594ed81d874461961cd0faa76"
+  version = "v1.1.0"
+
+[[projects]]
   name = "github.com/fatih/color"
   packages = ["."]
   revision = "5b77d2a35fb0ede96d138fc9a99f5c9b6aef11b4"
@@ -189,6 +195,12 @@
   revision = "cda20d4ac917ad418d86e151eff439648b06185b"
 
 [[projects]]
+  name = "github.com/pmezard/go-difflib"
+  packages = ["difflib"]
+  revision = "792786c7400a136282c1664665ae0a8db921c6c2"
+  version = "v1.0.0"
+
+[[projects]]
   name = "github.com/prometheus/client_golang"
   packages = ["prometheus"]
   revision = "c5b7fccd204277076155f10851dad72b76a49317"
@@ -234,6 +246,12 @@
   version = "v1.0.6"
 
 [[projects]]
+  name = "github.com/stretchr/testify"
+  packages = ["assert"]
+  revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
+  version = "v1.2.2"
+
+[[projects]]
   name = "github.com/ugorji/go"
   packages = ["codec"]
   revision = "b4c50a2b199d93b13dc15e78929cfb23bfdf21ab"
@@ -254,25 +272,10 @@
   revision = "d2fe137411c230927e28dd82b1a3bcb618dbb28d"
 
 [[projects]]
-  name = "github.com/yunionio/mcclient"
-  packages = [
-    ".",
-    "auth",
-    "modules"
-  ]
-  revision = "2e236af400fb965cb93e8adc5a45d4bd511f66dc"
-
-[[projects]]
-  branch = "master"
   name = "github.com/yunionio/pkg"
   packages = [
-    "appctx",
-    "appsrv",
-    "appsrv/dispatcher",
     "gotypes",
-    "httperrors",
     "prettytable",
-    "proxy",
     "trace",
     "tristate",
     "util/cache",
@@ -282,12 +285,9 @@
     "util/fifoutils",
     "util/fileutils",
     "util/filterclause",
-    "util/gin/middleware",
     "util/goroutine_pool",
-    "util/httputils",
     "util/netutils",
     "util/osprofile",
-    "util/printjson",
     "util/prometheus",
     "util/reflectutils",
     "util/regutils",
@@ -305,7 +305,7 @@
     "util/workqueue",
     "utils"
   ]
-  revision = "e3d49929d3d3ae3aeea77b188a03e5107f5a8b7e"
+  revision = "8c5eab6f0b758d3888fd9041419e38a5b1129725"
 
 [[projects]]
   name = "github.com/yunionio/sqlchemy"
@@ -369,6 +369,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "4fc794f3537a577ea0c7f1c241e3a7c55618d162d982e6201cadde9e911730e7"
+  inputs-digest = "7b33757daccd7b7b9fc876fd74890fc9c7e638b9ee0f68d665559165716eb70d"
   solver-name = "gps-cdcl"
   solver-version = 1
