@@ -293,6 +293,9 @@ func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, exclu
 			q = q.Filter(sqlchemy.Equals(host.Field("manager_id"), obj.Id))
 		}
 	}
+	log.Errorf("=========Debug Query start=============")
+	q.DebugQuery()
+	log.Errorf("=========Debug Query end=============")
 	err := q.All(scimgs)
 	log.Errorln("ChooseSourceStoragecacheInRange: ", scimgs)
 	if err != nil {

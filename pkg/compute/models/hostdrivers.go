@@ -23,9 +23,9 @@ func RegisterHostDriver(driver IHostDriver) {
 }
 
 func GetHostDriver(hostType string) IHostDriver {
-	log.Debugf("%s", hostDrivers)
 	driver, ok := hostDrivers[hostType]
 	if ok {
+		log.Debugf("----------------%s", hostDrivers)
 		return driver
 	} else {
 		log.Fatalf("Unsupported hostType %s", hostType)
