@@ -7,9 +7,9 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/mcclient"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/httperrors"
 	"github.com/yunionio/pkg/util/regutils"
 	"github.com/yunionio/pkg/utils"
 	"github.com/yunionio/sqlchemy"

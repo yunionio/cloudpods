@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/mcclient"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 )
 

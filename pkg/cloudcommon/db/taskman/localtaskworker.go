@@ -6,7 +6,7 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/pkg/appsrv"
+	"github.com/yunionio/onecloud/pkg/appsrv"
 )
 
 var localTaskWorkerMan *appsrv.WorkerManager

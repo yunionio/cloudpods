@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/yunionio/log"
-	"github.com/yunionio/mcclient"
-	"github.com/yunionio/mcclient/auth"
-	"github.com/yunionio/mcclient/modules"
+	"github.com/yunionio/onecloud/pkg/mcclient"
+	"github.com/yunionio/onecloud/pkg/mcclient/auth"
+	"github.com/yunionio/onecloud/pkg/mcclient/modules"
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/onecloud/pkg/compute/options"
 )

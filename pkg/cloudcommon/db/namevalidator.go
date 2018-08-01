@@ -3,7 +3,7 @@ package db
 import (
 	"fmt"
 
-	"github.com/yunionio/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/httperrors"
 	"github.com/yunionio/pkg/util/stringutils"
 )
 

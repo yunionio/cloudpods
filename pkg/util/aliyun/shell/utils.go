@@ -5,8 +5,9 @@ import (
 	"reflect"
 
 	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/mcclient/modules"
-	"github.com/yunionio/pkg/util/printjson"
+
+	"github.com/yunionio/onecloud/pkg/mcclient/modules"
+	"github.com/yunionio/onecloud/pkg/util/printjson"
 )
 
 func printList(data interface{}, total, offset, limit int, columns []string) {

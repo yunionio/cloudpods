@@ -6,8 +6,8 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/mcclient/auth"
-	"github.com/yunionio/mcclient/modules"
+	"github.com/yunionio/onecloud/pkg/mcclient/auth"
+	"github.com/yunionio/onecloud/pkg/mcclient/modules"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"

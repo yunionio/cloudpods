@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/yunionio/log"
-	"github.com/yunionio/pkg/appsrv"
+	"github.com/yunionio/onecloud/pkg/appsrv"
 )
 
 func InitApp(options *Options) *appsrv.Application {
