@@ -5,11 +5,11 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/onecloud/pkg/compute/options"
 	"github.com/yunionio/onecloud/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/util/compare"
 	"github.com/yunionio/sqlchemy"
@@ -28,7 +28,7 @@ const (
 	STORAGE_ENABLED  = "enabled"
 	STORAGE_DISABLED = "disabled"
 	STORAGE_OFFLINE  = "offline"
-	STORAGE_ONLINE   = "offline"
+	STORAGE_ONLINE   = "online"
 
 	DISK_TYPE_ROTATE = "rotate"
 	DISK_TYPE_SSD    = "ssd"

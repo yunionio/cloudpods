@@ -33,6 +33,7 @@ type Options struct {
 	NotifyAdminUser string `default:"sysadmin" help:"System administrator user ID or name to notify"`
 
 	GlobalVirtualResourceNamespace bool `help:"Per project namespace or global namespace for virtual resources"`
+	DebugSqlchemy                  bool `default:"False" help:"Print SQL executed by sqlchemy"`
 
 	structarg.BaseOptions
 }

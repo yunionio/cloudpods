@@ -4,14 +4,16 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/serialx/hashring"
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"github.com/yunionio/sqlchemy"
+
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/sqlchemy"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 )
 
 type SStoragecacheManager struct {
@@ -53,6 +55,58 @@ func (self *SStoragecache) getStorageNames() []string {
 		names[i] = storages[i].Name
 	}
 	return names
+}
+
+func (self *SStoragecache) GetHost() (*SHost, error) {
+	hostId, err := self.getHostId()
+	if err != nil {
+		return nil, err
+	}
+	if len(hostId) == 0 {
+		return nil, nil
+	}
+
+	host, err := HostManager.FetchById(hostId)
+	if err != nil {
+		return nil, err
+	} else if host == nil {
+		return nil, nil
+	}
+	h, _ := host.(*SHost)
+	return h, nil
+}
+
+func (self *SStoragecache) getHostId() (string, error) {
+	hoststorages := HoststorageManager.Query().SubQuery()
+	storages := StorageManager.Query().SubQuery()
+
+	hosts := make([]SHost, 0)
+	host := HostManager.Query().SubQuery()
+	q := host.Query(host.Field("id"))
+	err := q.Join(hoststorages, sqlchemy.AND(sqlchemy.Equals(hoststorages.Field("host_id"), host.Field("id")),
+		sqlchemy.Equals(host.Field("host_status"), HOST_ONLINE),
+		sqlchemy.IsTrue(host.Field("enabled")))).
+		Join(storages, sqlchemy.AND(sqlchemy.Equals(storages.Field("storagecache_id"), self.Id),
+			sqlchemy.Equals(storages.Field("status"), STORAGE_ONLINE),
+			sqlchemy.IsTrue(storages.Field("enabled")))).
+		Filter(sqlchemy.Equals(hoststorages.Field("storage_id"), storages.Field("id"))).All(&hosts)
+	if err != nil {
+		return "", err
+	}
+
+	hostIds := make([]string, 0)
+	for _, h := range hosts {
+		hostIds = append(hostIds, h.Id)
+	}
+
+	log.Debugf("%s", hostIds)
+
+	if len(hostIds) == 0 {
+		return "", nil
+	}
+	ring := hashring.New(hostIds)
+	ret, _ := ring.GetNode(self.Id)
+	return ret, nil
 }
 
 func (manager *SStoragecacheManager) SyncWithCloudStoragecache(cloudCache cloudprovider.ICloudStoragecache) (*SStoragecache, error) {
