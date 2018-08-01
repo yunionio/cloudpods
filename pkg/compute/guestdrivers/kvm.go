@@ -152,7 +152,6 @@ func (self *SKVMGuestDriver) RequestStartOnHost(ctx context.Context, guest *mode
 func (self *SKVMGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
 	header := http.Header{}
 	header.Set("X-Auth-Token", userCred.GetTokenString())
-	header.Set("X-Task-Id", task.GetTaskId())
 	header.Set("X-Region-Version", "v2")
 
 	url := fmt.Sprintf("%s/servers/%s/status", host.ManagerUri, guest.Id)
