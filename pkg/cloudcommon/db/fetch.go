@@ -5,7 +5,7 @@ import (
 	"database/sql"
 
 	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/mcclient"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/sqlchemy"
 )
 
