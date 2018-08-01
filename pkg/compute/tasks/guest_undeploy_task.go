@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/yunionio/jsonutils"
+
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
 	"github.com/yunionio/onecloud/pkg/compute/models"
@@ -33,8 +34,6 @@ func (self *GuestUndeployTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		err := guest.GetDriver().RequestUndeployGuestOnHost(ctx, guest, host, self)
 		if err != nil {
 			self.OnStartDeleteGuestFail(ctx, err)
-		} else {
-			// do nothing
 		}
 	} else {
 		self.SetStageComplete(ctx, nil)

@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
@@ -53,6 +54,7 @@ func (self *DiskResizeTask) StartResizeDisk(ctx context.Context, host *models.SH
 	if err := proc(host, storage, disk, size, self); err != nil {
 		log.Errorf("request_resize_disk_on_host: %v", err)
 		self.OnStartResizeDiskFailed(ctx, err)
+		return
 	}
 	self.OnStartResizeDiskSucc(ctx, disk)
 }
@@ -69,7 +71,31 @@ func (self *DiskResizeTask) OnStartResizeDiskFailed(ctx context.Context, resion 
 }
 
 func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	disk.SetStatus(self.UserCred, models.DISK_READY, "")
+	jSize, err := data.Get("disk_size")
+	if err != nil {
+		log.Errorf("OnDiskResizeComplete error: %s", err.Error())
+		self.OnStartResizeDiskFailed(ctx, err)
+		return
+	}
+	size, err := jSize.Int()
+	if err != nil {
+		log.Errorf("OnDiskResizeComplete error: %s", err.Error())
+		self.OnStartResizeDiskFailed(ctx, err)
+		return
+	}
+	oldStatus := disk.Status
+	_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
+		disk.Status = models.DISK_READY
+		disk.DiskSize = int(size)
+		return nil
+	})
+	if err != nil {
+		log.Errorf("OnDiskResizeComplete error: %s", err.Error())
+		self.OnStartResizeDiskFailed(ctx, err)
+		return
+	}
+	notes := fmt.Sprintf("%s=>%s", oldStatus, disk.Status)
+	db.OpsLog.LogEvent(disk, db.ACT_UPDATE_STATUS, notes, self.UserCred)
 	self.CleanHostSchedCache(disk)
 	db.OpsLog.LogEvent(disk, db.ACT_RESIZE, disk.GetShortDesc(), self.UserCred)
 	self.SetStageComplete(ctx, disk.GetShortDesc())

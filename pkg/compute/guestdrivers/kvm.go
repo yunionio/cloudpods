@@ -38,9 +38,12 @@ func (self *SKVMGuestDriver) RequestDetachDisksFromGuestForDelete(ctx context.Co
 	return nil
 }
 
-func (self *SKVMGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential) error {
-	// guest.DeleteAllDisksInDB(ctx, userCred)
-	// do nothing
+func (self *SKVMGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	subtask, err := taskman.TaskManager.NewTask(ctx, "KVMGuestCreateDiskTask", guest, task.GetUserCred(), task.GetParams(), task.GetTaskId(), "", nil)
+	if err != nil {
+		return err
+	}
+	subtask.ScheduleRun(nil)
 	return nil
 }
 
@@ -112,6 +115,43 @@ func (self *SKVMGuestDriver) RequestStopOnHost(ctx context.Context, guest *model
 
 	url := fmt.Sprintf("%s/servers/%s/stop", host.ManagerUri, guest.Id)
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+	return err
+}
+
+func (self *SKVMGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	url := fmt.Sprintf("%s/servers/%s", host.ManagerUri, guest.Id)
+	header := http.Header{}
+	header.Set("X-Auth-Token", task.GetUserCred().GetTokenString())
+	header.Set("X-Task-Id", task.GetTaskId())
+	header.Set("X-Region-Version", "v2")
+	_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "DELETE", url, header, nil, false)
+	if err != nil {
+		return err
+	}
+	delayClean := jsonutils.QueryBoolean(res, "delay_clean", false)
+	if res != nil && delayClean {
+		return nil
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SKVMGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
+	log.Debugf("RequestDeployGuestOnHost: %s", config)
+	if config.Contains("container") {
+		// ...
+	}
+	action, err := config.GetString("action")
+	if err != nil {
+		return err
+	}
+	url := fmt.Sprintf("%s/servers/%s/%s", host.ManagerUri, guest.Id, action)
+	header := http.Header{}
+	header.Set("X-Auth-Token", task.GetUserCred().GetTokenString())
+	header.Set("X-Task-Id", task.GetTaskId())
+	header.Set("X-Region-Version", "v2")
+	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, config, false)
 	if err != nil {
 		return err
 	}
@@ -119,13 +159,8 @@ func (self *SKVMGuestDriver) RequestStopOnHost(ctx context.Context, guest *model
 }
 
 func (self *SKVMGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
-	// ToDO
-	return fmt.Errorf("Not Implement")
-}
-
-func (self *SKVMGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	// ToDo
-	return fmt.Errorf("Not Implement")
+	guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
+	return nil
 }
 
 func (self *SKVMGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
@@ -162,19 +197,25 @@ func (self *SKVMGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest 
 	return res, nil
 }
 
-func (self *SKVMGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	// ToDo
-	return fmt.Errorf("Not Implement")
+func (self *SKVMGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential) error {
+	return nil
 }
 
-func (self *SKVMGuestDriver) RequestGuestCreateInsertIso(ctx context.Context, imageId string, guest *models.SGuest, task taskman.ITask) error {
-	// ToDo
-	return fmt.Errorf("Not Implement")
+func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, vcpuCount, vmemSize int64) error {
+	// pass
+	return nil
 }
 
-func (self *SKVMGuestDriver) RequestGuestCreateAllDisks(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	// ToDo
-	return fmt.Errorf("Not Implement")
+func (self *SKVMGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
+}
+
+func (self *SKVMGuestDriver) GetDetachDiskStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SKVMGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, disk *models.SDisk, task taskman.ITask, isPurge bool) error {
+	return disk.StartDiskDeleteTask(ctx, task.GetUserCred(), task.GetTaskId(), isPurge)
 }
 
 func (self *SKVMGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
@@ -189,5 +230,16 @@ func (self *SKVMGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest 
 	header.Add("X-Task-Id", task.GetTaskId())
 	header.Add("X-Region-Version", "v2")
 	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+	return err
+}
+
+func (self *SKVMGuestDriver) RqeuestSuspendOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	host := guest.GetHost()
+	url := fmt.Sprintf("%s/servers/%s/suspend", host.ManagerUri, guest.Id)
+	header := http.Header{}
+	header.Add("X-Auth-Token", task.GetUserCred().GetTokenString())
+	header.Add("X-Task-Id", task.GetTaskId())
+	header.Add("X-Region-Version", "v2")
+	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, nil, false)
 	return err
 }
