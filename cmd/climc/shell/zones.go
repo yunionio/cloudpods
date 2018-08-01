@@ -10,9 +10,9 @@ func init() {
 	type ZoneListOptions struct {
 		BaseListOptions
 		Region  string `help:"cloud region ID or Name"`
-		Usable  bool   `help:"List zones that is usable"`
-		Private bool   `help:"show zones in private cloud regions only"`
-		Public  bool   `help:"show zones in public cloud regions only"`
+		Usable  bool   `help:"List all zones that is usable"`
+		Private bool   `help:"show all zones in private cloud regions only"`
+		Public  bool   `help:"show all zones in public cloud regions only"`
 	}
 	R(&ZoneListOptions{}, "zone-list", "List zones", func(s *mcclient.ClientSession, args *ZoneListOptions) error {
 		params := FetchPagingParams(args.BaseListOptions)
