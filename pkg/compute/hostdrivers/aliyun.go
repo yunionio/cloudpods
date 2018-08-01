@@ -20,14 +20,15 @@ func (self *SAliyunHostDriver) GetHostType() string {
 	return models.HOST_TYPE_ALIYUN
 }
 
-func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *SHost, storageCache *SStoragecache, scimg *SStoragecachedimage, task taskman.ITask) error {
+func (self *SAliyunHostDriver) CheckAndSetCacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, scimg *models.SStoragecachedimage, task taskman.ITask) error {
+	params := task.GetParams()
 	imageId, err := params.GetString("image_id")
 	if err != nil {
 		return err
 	}
 	isForce := jsonutils.QueryBoolean(params, "is_force", false)
-	userCred := task.GetUserCred().GetTokenString()
-	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
+	userCred := task.GetUserCred()
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iStorageCache, err := storageCache.GetIStorageCache()
 		if err != nil {
 			return nil, err

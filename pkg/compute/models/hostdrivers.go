@@ -2,8 +2,8 @@ package models
 
 import (
 	"context"
-	"log"
 
+	"github.com/yunionio/log"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
 )
 
@@ -23,6 +23,7 @@ func RegisterHostDriver(driver IHostDriver) {
 }
 
 func GetHostDriver(hostType string) IHostDriver {
+	log.Debugf("%s", hostDrivers)
 	driver, ok := hostDrivers[hostType]
 	if ok {
 		return driver

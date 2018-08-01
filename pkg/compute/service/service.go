@@ -13,6 +13,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/yunionio/onecloud/pkg/compute/guestdrivers"
+	_ "github.com/yunionio/onecloud/pkg/compute/hostdrivers"
 	_ "github.com/yunionio/onecloud/pkg/compute/tasks"
 	_ "github.com/yunionio/onecloud/pkg/util/aliyun/provider"
 )

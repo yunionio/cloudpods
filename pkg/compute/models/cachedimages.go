@@ -9,10 +9,10 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
+	"github.com/yunionio/onecloud/pkg/httperrors"
 	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/onecloud/pkg/mcclient/auth"
 	"github.com/yunionio/onecloud/pkg/mcclient/modules"
-	"github.com/yunionio/onecloud/pkg/httperrors"
 	"github.com/yunionio/pkg/util/timeutils"
 	"github.com/yunionio/sqlchemy"
 
@@ -264,12 +264,13 @@ func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, exclu
 	hostStorage := HoststorageManager.Query().SubQuery()
 	host := HostManager.Query().SubQuery()
 
+	log.Errorln("ChooseSourceStoragecacheInRange =========== begin...")
 	scimgs := make([]SStoragecachedimage, 0)
 	q := storageCachedImage.Query().
 		Join(storage, sqlchemy.AND(sqlchemy.Equals(storage.Field("storagecache_id"), storageCachedImage.Field("storagecache_id")))).
 		Join(hostStorage, sqlchemy.AND(sqlchemy.Equals(hostStorage.Field("storage_id"), storage.Field("id")))).
 		Join(host, sqlchemy.AND(sqlchemy.Equals(hostStorage.Field("host_id"), host.Field("id")))).
-		Filter(sqlchemy.Equals(storageCachedImage.Field("cacheimage_id"), self.Id)).
+		Filter(sqlchemy.Equals(storageCachedImage.Field("cachedimage_id"), self.Id)).
 		Filter(sqlchemy.Equals(storageCachedImage.Field("status"), CACHED_IMAGE_STATUS_READY)).
 		Filter(sqlchemy.Equals(host.Field("status"), HOST_STATUS_RUNNING)).
 		Filter(sqlchemy.IsTrue(host.Field("enabled"))).
@@ -293,6 +294,7 @@ func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, exclu
 		}
 	}
 	err := q.All(scimgs)
+	log.Errorln("ChooseSourceStoragecacheInRange: ", scimgs)
 	if err != nil {
 		return nil, err
 	}
