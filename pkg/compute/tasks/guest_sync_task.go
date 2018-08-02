@@ -28,7 +28,7 @@ func (self *GuestSyncConfTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		self.SetStage("on_sync_complete", nil)
 		if err := guest.GetDriver().RequestSyncConfigOnHost(ctx, guest, host, self); err != nil {
 			self.SetStageFailed(ctx, err.Error())
-			log.Errorf("SyncConfTask faled %s", err.Error())
+			log.Errorf("SyncConfTask faled %v", err)
 		}
 	}
 }
@@ -53,13 +53,13 @@ func (self *GuestSyncConfTask) OnDiskSyncComplete(ctx context.Context, guest *mo
 func (self *GuestSyncConfTask) OnDiskSyncCompleteFailed(ctx context.Context, obj db.IStandaloneModel, resion error) {
 	guest := obj.(*models.SGuest)
 	db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF_FAIL, resion.Error(), self.UserCred)
-	log.Errorf("Guest sync config failed: %s", resion.Error())
+	log.Errorf("Guest sync config failed: %v", resion)
 }
 
 func (self *GuestSyncConfTask) OnSyncCompleteFailed(ctx context.Context, obj db.IStandaloneModel, resion error) {
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.GetUserCred(), models.VM_SYNC_FAIL, resion.Error())
-	log.Errorf("Guest sync config failed: %s", resion.Error())
+	log.Errorf("Guest sync config failed: %v", resion)
 	db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF_FAIL, resion.Error(), self.UserCred)
 }
 

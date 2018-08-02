@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/yunionio/log"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
@@ -15,7 +14,6 @@ type SDiskBaseTask struct {
 
 func (self *SDiskBaseTask) getDisk() *models.SDisk {
 	obj := self.GetObject()
-	fmt.Println(obj)
 	return obj.(*models.SDisk)
 }
 
@@ -42,7 +40,7 @@ func (self *SDiskBaseTask) CleanHostSchedCache(disk *models.SDisk) {
 	} else {
 		for _, h := range hosts {
 			if err := h.ClearSchedDescCache(); err != nil {
-				log.Errorf("host CleanHostSchedCache error: %s", err.Error())
+				log.Errorf("host CleanHostSchedCache error: %v", err)
 			}
 		}
 	}

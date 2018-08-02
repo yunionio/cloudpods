@@ -2,7 +2,6 @@ package hostdrivers
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
@@ -55,9 +54,7 @@ func (self *SAliyunHostDriver) RequestAllocateDiskOnStorage(host *models.SHost, 
 		if size, err := content.Int("size"); err != nil {
 			return err
 		} else {
-			fmt.Println("size:", size)
 			size = size >> 10
-			fmt.Println("size:", size)
 			if disk, err := iCloudStorage.CreateIDisk(disk.GetName(), int(size), ""); err != nil {
 				return err
 			} else {
@@ -68,12 +65,17 @@ func (self *SAliyunHostDriver) RequestAllocateDiskOnStorage(host *models.SHost, 
 			}
 		}
 	}
-
 	return nil
 }
 
 func (self *SAliyunHostDriver) RequestDeallocateDiskOnHost(host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
-	return nil
+	if iCloudStorage, err := storage.GetIStorage(); err != nil {
+		return err
+	} else if iDisk, err := iCloudStorage.GetIDisk(disk.GetExternalId()); err != nil {
+		return err
+	} else {
+		return iDisk.Delete()
+	}
 }
 
 func (self *SAliyunHostDriver) RequestResizeDiskOnHostOnline(host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {

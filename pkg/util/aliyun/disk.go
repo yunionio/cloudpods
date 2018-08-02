@@ -96,6 +96,10 @@ func (self *SDisk) GetId() string {
 	return self.DiskId
 }
 
+func (self *SDisk) Delete() error {
+	return self.storage.zone.region.deleteDisk(self.DiskId)
+}
+
 func (self *SDisk) GetName() string {
 	return self.DiskId
 }

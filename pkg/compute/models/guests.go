@@ -1368,10 +1368,6 @@ func (self *SGuest) isAttach2Disk(disk *SDisk) bool {
 	return q.Count() > 0
 }
 
-func (self *SGuest) isDiskAttached(disk *SDisk) bool {
-	return GuestdiskManager.Query().Equals("disk_id", disk.Id).Count() > 0
-}
-
 func (self *SGuest) getMaxDiskIndex() int8 {
 	guestdisks := self.GetDisks()
 	return int8(len(guestdisks))
@@ -1404,10 +1400,8 @@ func (self *SGuest) AllowPerformSync(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SGuest) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING}) {
-		self.StartSyncTask(ctx, userCred, false, "")
-	} else {
-		return nil, httperrors.NewResourceBusyError("Cannot sync in status %s", self.Status)
+	if err := self.StartSyncTask(ctx, userCred, false, ""); err != nil {
+		return nil, err
 	}
 	return nil, nil
 }
@@ -1417,7 +1411,7 @@ func (self *SGuest) AllowPerformAttachDisk(ctx context.Context, userCred mcclien
 }
 
 func (self *SGuest) ValidateAttachDisk(ctx context.Context, disk *SDisk) error {
-	if self.isDiskAttached(disk) {
+	if disk.isAttached() {
 		return httperrors.NewInputParameterError("Disk %s has been attached", disk.Name)
 	} else if len(disk.GetPathAtHost(self.GetHost())) == 0 {
 		return httperrors.NewInputParameterError("Disk %s not belong the guest's host", disk.Name)
@@ -1454,6 +1448,9 @@ func (self *SGuest) PerformAttachDisk(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SGuest) StartSyncTask(ctx context.Context, userCred mcclient.TokenCredential, fw_only bool, parentTaskId string) error {
+	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING}) {
+		return httperrors.NewResourceBusyError("Cannot sync in status %s", self.Status)
+	}
 	data := jsonutils.NewDict()
 	if fw_only {
 		data.Add(jsonutils.JSONTrue, "fw_only")

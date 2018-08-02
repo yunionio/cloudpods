@@ -6,10 +6,11 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
+	"github.com/yunionio/sqlchemy"
+
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/httperrors"
 	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/sqlchemy"
 )
 
 type SGuestdiskManager struct {
@@ -148,7 +149,6 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 			desc.Add(jsonutils.NewString(localpath), "path")
 		}
 	}
-	desc.Add(jsonutils.NewInt(int64(self.Index)), "index")
 	desc.Add(jsonutils.NewString(disk.DiskFormat), "format")
 	desc.Add(jsonutils.NewInt(int64(self.Index)), "index")
 

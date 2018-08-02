@@ -6,10 +6,7 @@ import (
 	"net/http"
 
 	"github.com/yunionio/jsonutils"
-<<<<<<< HEAD
 	"github.com/yunionio/log"
-=======
->>>>>>> 833be63716371810683e6d775e76dab0da4c2bb3
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
 	"github.com/yunionio/onecloud/pkg/compute/models"
 	"github.com/yunionio/onecloud/pkg/util/httputils"
@@ -78,47 +75,45 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mod
 }
 
 func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		header := http.Header{}
-		header.Add("X-Task-Id", task.GetTaskId())
-		url := fmt.Sprintf("/disks/%s/create/%s", storage.Id, disk.Id)
-		body := jsonutils.NewDict()
-		body.Add(content, "disk")
-		return host.Request(task.GetUserCred(), "POST", url, header, body)
-	})
-	return nil
+	header := http.Header{}
+	header.Add("X-Task-Id", task.GetTaskId())
+	header.Add("X-Region-Version", "v2")
+	url := fmt.Sprintf("/disks/%s/create/%s", storage.Id, disk.Id)
+	body := jsonutils.NewDict()
+	body.Add(content, "disk")
+	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+	return err
 }
 
 func (self *SKVMHostDriver) RequestDeallocateDiskOnHost(host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
 	log.Infof("Deallocating disk on host %s", host.GetName())
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		header := http.Header{}
-		header.Add("X-Task-Id", task.GetTaskId())
-		url := fmt.Sprintf("/disks/%s/delete/%s", storage.Id, disk.Id)
-		body := jsonutils.NewDict()
-		return host.Request(task.GetUserCred(), "POST", url, header, body)
-	})
-	return nil
+	header := http.Header{}
+	header.Add("X-Task-Id", task.GetTaskId())
+	header.Add("X-Region-Version", "v2")
+	url := fmt.Sprintf("/disks/%s/delete/%s", storage.Id, disk.Id)
+	body := jsonutils.NewDict()
+	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+	return err
 }
 
 func (self *SKVMHostDriver) RequestResizeDiskOnHost(host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		header := http.Header{}
-		header.Add("X-Task-Id", task.GetTaskId())
-		url := fmt.Sprintf("/disks/%s/resize/%s", storage.Id, disk.Id)
-		body := jsonutils.NewDict()
-		content := jsonutils.NewDict()
-		content.Add(jsonutils.NewInt(size), "size")
-		body.Add(content, "disk")
-		return host.Request(task.GetUserCred(), "POST", url, header, body)
-	})
-	return nil
+	header := http.Header{}
+	header.Add("X-Task-Id", task.GetTaskId())
+	header.Add("X-Region-Version", "v2")
+	url := fmt.Sprintf("/disks/%s/resize/%s", storage.Id, disk.Id)
+	body := jsonutils.NewDict()
+	content := jsonutils.NewDict()
+	content.Add(jsonutils.NewInt(size), "size")
+	body.Add(content, "disk")
+	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+	return err
 }
 
 func (self *SKVMHostDriver) RequestResizeDiskOnHostOnline(host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
-	self.RequestDeallocateDiskOnHost(host, storage, disk, task)
+	self.RequestResizeDiskOnHost(host, storage, disk, size, task)
 	header := http.Header{}
 	header.Add("X-Task-Id", task.GetTaskId())
+	header.Add("X-Region-Version", "v2")
 	for _, guest := range disk.GetAttachedGuests() {
 		guestdisk := guest.GetGuestDisk(disk.GetId())
 		url := fmt.Sprintf("/servers/%s/monitor", guest.GetId())

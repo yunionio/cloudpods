@@ -156,7 +156,6 @@ func (self *SBaremetalGuestDriver) RequestDeployGuestOnHost(ctx context.Context,
 }
 
 func (self *SBaremetalGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	// TODO
-
+	task.ScheduleRun(nil)
 	return nil
 }

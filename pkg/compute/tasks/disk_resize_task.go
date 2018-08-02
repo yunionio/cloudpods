@@ -24,7 +24,7 @@ func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	host := storage.GetMasterHost()
 	online := disk.GetRuningGuestCount() > 0
 	if online {
-		for _, guest := range disk.GetGuest() {
+		for _, guest := range disk.GetGuests() {
 			host = guest.GetHost()
 		}
 	}
@@ -35,7 +35,7 @@ func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, resion, self.GetUserCred())
 	} else {
 		disk.SetStatus(self.GetUserCred(), models.DISK_START_RESIZE, "")
-		for _, guest := range disk.GetGuest() {
+		for _, guest := range disk.GetGuests() {
 			guest.SetStatus(self.GetUserCred(), models.VM_RESIZE_DISK, "")
 		}
 		self.StartResizeDisk(ctx, host, storage, disk, online)
@@ -51,7 +51,7 @@ func (self *DiskResizeTask) StartResizeDisk(ctx context.Context, host *models.SH
 		proc = host.GetHostDriver().RequestResizeDiskOnHostOnline
 	}
 	if err := proc(host, storage, disk, size, self); err != nil {
-		log.Errorf("request_resize_disk_on_host: %s", err.Error())
+		log.Errorf("request_resize_disk_on_host: %v", err)
 		self.OnStartResizeDiskFailed(ctx, err)
 	}
 	self.OnStartResizeDiskSucc(ctx, disk)

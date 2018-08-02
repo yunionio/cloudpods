@@ -9,8 +9,8 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"github.com/yunionio/sqlchemy"
+
 	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/util/compare"
 	"github.com/yunionio/pkg/util/fileutils"
@@ -18,12 +18,13 @@ import (
 	"github.com/yunionio/pkg/util/regutils"
 	"github.com/yunionio/pkg/util/sysutils"
 	"github.com/yunionio/pkg/utils"
-	"github.com/yunionio/sqlchemy"
 
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/onecloud/pkg/compute/options"
+	"github.com/yunionio/onecloud/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 )
 
 const (
@@ -144,6 +145,10 @@ func (self *SDisk) GetGuestDiskCount() int {
 	return guestdisks.Equals("disk_id", self.Id).Count()
 }
 
+func (self *SDisk) isAttached() bool {
+	return GuestdiskManager.Query().Equals("disk_id", self.Id).Count() > 0
+}
+
 func (self *SDisk) GetGuestdisks() []SGuestdisk {
 	guestdisks := make([]SGuestdisk, 0)
 	q := GuestdiskManager.Query().Equals("disk_id", self.Id)
@@ -154,7 +159,7 @@ func (self *SDisk) GetGuestdisks() []SGuestdisk {
 	}
 	return guestdisks
 }
-func (self *SDisk) GetGuest() []SGuest {
+func (self *SDisk) GetGuests() []SGuest {
 	result := make([]SGuest, 0)
 	guests := GuestManager.Query().SubQuery()
 	guestdisks := GuestdiskManager.Query().SubQuery()
@@ -167,7 +172,7 @@ func (self *SDisk) GetGuest() []SGuest {
 	return result
 }
 
-func (self *SDisk) GetGuestCount() int {
+func (self *SDisk) GetGuestsCount() int {
 	guests := GuestManager.Query().SubQuery()
 	guestdisks := GuestdiskManager.Query().SubQuery()
 	return guests.Query().Join(guestdisks, sqlchemy.AND(
@@ -247,7 +252,10 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 				if _, err := manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
 					return nil, err
 				}
-				// check pending quoto
+				pendingUsage := SQuota{Storage: diskConfig.Size}
+				if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), &pendingUsage); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
