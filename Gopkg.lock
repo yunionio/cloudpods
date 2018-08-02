@@ -240,6 +240,12 @@
   version = "v1.2.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/serialx/hashring"
+  packages = ["."]
+  revision = "49a4782e9908fe098c907022a1bd7519c79803d6"
+
+[[projects]]
   name = "github.com/sirupsen/logrus"
   packages = ["."]
   revision = "3e01752db0189b9157070a0e1668a620f9a85da2"
@@ -258,9 +264,10 @@
   version = "v1.1.1"
 
 [[projects]]
+  branch = "master"
   name = "github.com/yunionio/jsonutils"
   packages = ["."]
-  revision = "6dd39f8579af6c6b61b971eb3a1ccf55e724b0ca"
+  revision = "895610f4e0f2f4bf3aebf016604e6fec39992fd8"
 
 [[projects]]
   branch = "master"
@@ -369,6 +376,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7b33757daccd7b7b9fc876fd74890fc9c7e638b9ee0f68d665559165716eb70d"
+  inputs-digest = "e90b051392bcbf484678dc55e4b1e44b57442f7b000c6d9956b2979560751ec1"
   solver-name = "gps-cdcl"
   solver-version = 1

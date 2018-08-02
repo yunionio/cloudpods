@@ -111,9 +111,11 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	templateId := disk.GetTemplateId()
 	if len(templateId) > 0 {
 		desc.Add(jsonutils.NewString(templateId), "template_id")
-		// hostcachedimg = Hostcachedimages.get_host_cachedimage(host, template_id)
-		// if hostcachedimg is not None:
-		//	desc['image_path'] = hostcachedimg.path
+		storage := disk.GetStorage()
+		storagecacheimg := StoragecachedimageManager.GetStoragecachedimage(storage.StoragecacheId, templateId)
+		if storagecacheimg != nil {
+			desc.Add(jsonutils.NewString(storagecacheimg.Path), "image_path")
+		}
 	}
 	if host.HostType == HOST_TYPE_HYPERVISOR && disk.IsLocal() {
 		desc.Add(jsonutils.NewString(disk.StorageId), "storage_id")
@@ -129,6 +131,8 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 		}
 	}
 	desc.Add(jsonutils.NewString(disk.DiskFormat), "format")
+	desc.Add(jsonutils.NewInt(int64(self.Index)), "index")
+
 	tid := disk.GetTemplateId()
 	if len(tid) > 0 {
 		desc.Add(jsonutils.NewString(tid), "template_id")
