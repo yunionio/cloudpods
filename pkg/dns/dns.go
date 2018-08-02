@@ -5,25 +5,29 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	//"os"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/fall"
+	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/request"
 	_ "github.com/go-sql-driver/mysql"
-	//clog "github.com/coredns/coredns/plugin/log"
-	"github.com/coredns/coredns/plugin/pkg/upstream"
-	//"github.com/coredns/coredns/plugin/pkg/replacer"
 	"github.com/mholt/caddy"
 	"github.com/miekg/dns"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
+
 	ylog "github.com/yunionio/log"
 	"github.com/yunionio/pkg/utils"
 	"github.com/yunionio/sqlchemy"
 
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/compute/models"
+	"github.com/yunionio/onecloud/pkg/util/k8s"
 )
 
 const (
@@ -51,6 +55,7 @@ type SRegionDNS struct {
 	Upstream      upstream.Upstream
 	SqlConnection string
 	K8sConfigFile string
+	K8sClient     *kubernetes.Clientset
 }
 
 func New() *SRegionDNS {
@@ -77,8 +82,19 @@ func (r *SRegionDNS) initDB(c *caddy.Controller) error {
 	return nil
 }
 
-func (r *SRegionDNS) initK8s(c *caddy.Controller) error {
-	return nil
+func (r *SRegionDNS) initK8s(c *caddy.Controller) {
+	cli, err := k8s.NewClientByFile(r.K8sConfigFile, nil)
+	if err != nil {
+		ylog.Errorf("Init kubernetes client error: %v", err)
+		return
+	}
+	r.K8sClient = cli
+	pods, err := cli.CoreV1().Pods("").List(metav1.ListOptions{})
+	if err != nil {
+		ylog.Errorf("Get all pods in kubernetes cluster error: %v", err)
+		return
+	}
+	ylog.Infof("Init k8s client success, %d pods in the cluster", len(pods.Items))
 }
 
 func (r *SRegionDNS) CloseDB() {
@@ -86,11 +102,6 @@ func (r *SRegionDNS) CloseDB() {
 }
 
 func (r *SRegionDNS) ServeDNS(ctx context.Context, w dns.ResponseWriter, rmsg *dns.Msg) (int, error) {
-	//rrw := dnstest.NewRecorder(w)
-	//rep := replacer.New(r, rrw, corelog.CommonLogEmptyValue)
-	//log.Infof("%v", rep.Replace(format))
-	//fmt.Fprintln(output, rep.Replace(format))
-	//count := models.DnsRecordManager.QueryDns("", "drone.yunion.io")
 	var (
 		records []dns.RR
 		extra   []dns.RR
@@ -102,45 +113,45 @@ func (r *SRegionDNS) ServeDNS(ctx context.Context, w dns.ResponseWriter, rmsg *d
 
 	//isMyDomain := true
 	zone := plugin.Zones(r.Zones).Matches(state.Name())
-	if zone == "" {
-		//isMyDomain = false
-		return plugin.NextOrFailure(r.Name(), r.Next, ctx, w, rmsg)
-	}
+	//if zone == "" {
+	////isMyDomain = false
+	//return plugin.NextOrFailure(r.Name(), r.Next, ctx, w, rmsg)
+	//}
 
 	switch state.QType() {
 	case dns.TypeA:
-		ylog.Debugf("===A question: %#v", state)
+		ylog.Debugf("A question: %#v", state)
 		records, err = plugin.A(r, zone, state, nil, opt)
 	case dns.TypeAAAA:
-		ylog.Debugf("===AAAA question: %#v", state)
+		ylog.Debugf("AAAA question: %#v", state)
 		records, err = plugin.AAAA(r, zone, state, nil, opt)
 	case dns.TypeTXT:
-		ylog.Debugf("===TXT question: %#v", state)
+		ylog.Debugf("TXT question: %#v", state)
 		records, err = plugin.TXT(r, zone, state, opt)
 	case dns.TypeCNAME:
-		ylog.Debugf("===CNAME question: %#v", state)
+		ylog.Debugf("CNAME question: %#v", state)
 		records, err = plugin.CNAME(r, zone, state, opt)
 	case dns.TypePTR:
-		ylog.Debugf("===PTR question: %#v", state)
+		ylog.Debugf("PTR question: %#v", state)
 		records, err = plugin.PTR(r, zone, state, opt)
 	case dns.TypeMX:
-		ylog.Debugf("===MX question: %#v", state)
+		ylog.Debugf("MX question: %#v", state)
 		records, extra, err = plugin.MX(r, zone, state, opt)
 	case dns.TypeSRV:
-		ylog.Debugf("===SRV question: %#v", state)
+		ylog.Debugf("SRV question: %#v", state)
 		records, extra, err = plugin.SRV(r, zone, state, opt)
 	case dns.TypeSOA:
-		ylog.Debugf("===SOA question: %#v", state)
+		ylog.Debugf("SOA question: %#v", state)
 		records, err = plugin.SOA(r, zone, state, opt)
 	case dns.TypeNS:
-		ylog.Debugf("===NS question: %#v", state)
+		ylog.Debugf("NS question: %#v", state)
 		if state.Name() == zone {
 			records, extra, err = plugin.NS(r, zone, state, opt)
 			break
 		}
 		fallthrough
 	default:
-		ylog.Infof("=== not processed state: %#v", state)
+		ylog.Warningf("Not processed state: %#v", state)
 		// Do a fake A lookup, so we can distinguish between NODATA and NXDOMAIN
 		_, err = plugin.A(r, zone, state, nil, opt)
 	}
@@ -152,7 +163,6 @@ func (r *SRegionDNS) ServeDNS(ctx context.Context, w dns.ResponseWriter, rmsg *d
 		return plugin.BackendError(r, zone, dns.RcodeNameError, state, nil /* err */, opt)
 	}
 	if err != nil {
-		//return dns.RcodeServerFailure, err
 		return plugin.BackendError(r, zone, dns.RcodeServerFailure, state, err, opt)
 	}
 
@@ -178,11 +188,6 @@ var (
 
 // Services implements the ServiceBackend interface
 func (r *SRegionDNS) Services(state request.Request, exact bool, opt plugin.Options) (services []msg.Service, err error) {
-	//services, err = r.Records(state, exact)
-	//if err != nil {
-	//return
-	//}
-	//services = msg.Group
 	switch state.QType() {
 
 	case dns.TypeTXT:
@@ -213,6 +218,7 @@ func (r *SRegionDNS) Services(state request.Request, exact bool, opt plugin.Opti
 	}
 
 	s, e := r.Records(state, false)
+	ylog.Debugf("Get records: %#v, error: %v", s, e)
 
 	// SRV is not yet implemented, so remove those records.
 	if state.QType() != dns.TypeSRV {
@@ -252,79 +258,66 @@ func (r *SRegionDNS) Records(state request.Request, exact bool) ([]msg.Service, 
 	return r.findRecords(req)
 }
 
+func (r *SRegionDNS) getHostIpWithName(req *recordRequest) []string {
+	name := req.QueryName()
+	host, _ := models.HostManager.FetchByName("", name)
+	if host == nil {
+		return nil
+	}
+	ip := host.(*models.SHost).AccessIp
+	if len(ip) == 0 {
+		return nil
+	}
+	return []string{ip}
+}
+
 func (r *SRegionDNS) getGuestIpWithName(req *recordRequest) []string {
 	ips := []string{}
-	name := req.GuestName()
+	name := req.QueryName()
 	projectId := req.ProjectId()
 	isExitOnly := req.IsExitOnly()
-	ylog.Warningf("===========args: %q, %q, %v", projectId, name, isExitOnly)
 	ips = models.GuestManager.GetIpInProjectWithName(projectId, name, isExitOnly)
 	return ips
+}
+
+func (r *SRegionDNS) getK8sServiceBackends(req *recordRequest) ([]string, error) {
+	queryInfo := req.GetK8sQueryInfo()
+	pods, err := r.getK8sServicePods(queryInfo.Namespace, queryInfo.ServiceName)
+	if err != nil {
+		return nil, err
+	}
+	ips := make([]string, 0)
+	for _, pod := range pods {
+		ip := pod.Status.PodIP
+		if len(ip) != 0 {
+			ips = append(ips, ip)
+		}
+	}
+	return ips, nil
+}
+
+func (r *SRegionDNS) getK8sServicePods(namespace, name string) ([]v1.Pod, error) {
+	cli := r.K8sClient
+	svc, err := cli.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	labelSelector := labels.SelectorFromSet(svc.Spec.Selector)
+	pods, err := cli.CoreV1().Pods(namespace).List(metav1.ListOptions{
+		LabelSelector: labelSelector.String(),
+		FieldSelector: fields.Everything().String(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return pods.Items, nil
 }
 
 func (r *SRegionDNS) Name() string {
 	return PluginName
 }
 
-type SGuestInfo struct {
-	*models.SGuest
-}
-
-func (g *SGuestInfo) GetProjectId() string {
-	return g.SGuest.ProjectId
-}
-
-func (g *SGuestInfo) GetGuestId() string {
-	return g.SGuest.Id
-}
-
-func (g *SGuestInfo) IsExitOnly() bool {
-	return g.SGuest.IsExitOnly()
-}
-
-func NewGuestInfoByAddress(address string) *SGuestInfo {
-	guest := models.GuestnetworkManager.GetGuestByAddress(address)
-	if guest == nil {
-		return nil
-	}
-	return &SGuestInfo{SGuest: guest}
-}
-
-func (r *SRegionDNS) findRecords(req *recordRequest) (recs []msg.Service, err error) {
-	isMyDomain := false
-	zone := plugin.Zones(r.Zones).Matches(req.state.Name())
-	if zone != "" {
-		isMyDomain = true
-	}
-	//isPrivateAddr := false
-	if isMyDomain {
-		return r.findInternalRecords(req)
-	}
-	return r.findExternalRecords(req)
-}
-
-func (r *SRegionDNS) findInternalRecords(req *recordRequest) ([]msg.Service, error) {
-	ylog.Debugf("=======findInternalRecords, srcip: %q, projectId: %q", req.SrcIP4(), req.ProjectId())
-	if req.ProjectId() == "" {
-		return nil, nil
-	}
-	// first, try dns records
-	svcs, _ := r.findLocalRecords(req)
-	if len(svcs) != 0 {
-		return svcs, nil
-	}
-	// second, try guest table
-	ips := r.getGuestIpWithName(req)
-	return ips2DnsRecords(ips), nil
-}
-
-func (r *SRegionDNS) findExternalRecords(req *recordRequest) ([]msg.Service, error) {
-	srcIP := req.SrcIP4()
-	ylog.Debugf("Get client ip: %q", srcIP)
-	return r.findLocalRecords(req)
-}
-
-func (r *SRegionDNS) findLocalRecords(req *recordRequest) (recs []msg.Service, err error) {
+func (r *SRegionDNS) queryLocalDnsRecords(req *recordRequest) (recs []msg.Service, err error) {
 	ips := models.DnsRecordManager.QueryDnsIps(req.ProjectId(), req.Name(), req.Type())
 	if len(ips) == 0 {
 		err = errNoItems
@@ -335,6 +328,71 @@ func (r *SRegionDNS) findLocalRecords(req *recordRequest) (recs []msg.Service, e
 		recs = append(recs, s)
 	}
 	return
+}
+
+func (r *SRegionDNS) IsCloudNetworkIp(req *recordRequest) bool {
+	if req.network != nil {
+		return true
+	}
+	return false
+}
+
+func (r *SRegionDNS) IsK8sClientReady() bool {
+	return r.K8sClient != nil
+}
+
+func (r *SRegionDNS) findRecords(req *recordRequest) (recs []msg.Service, err error) {
+	// 1. try local dns records table
+	recs, err = r.queryLocalDnsRecords(req)
+	if len(recs) != 0 {
+		return
+	}
+
+	isMyDomain := false
+	zone := plugin.Zones(r.Zones).Matches(req.state.Name())
+	if zone != "" {
+		isMyDomain = true
+	}
+
+	isCloudIp := r.IsCloudNetworkIp(req)
+
+	// 2. not my domain and src ip not in cloud network table
+	//    query from upstream
+	if !isMyDomain && !isCloudIp {
+		err = errNoItems
+		return
+	}
+
+	// 3. internal query
+	ips, err := r.findInternalRecordIps(req)
+	return ips2DnsRecords(ips), err
+}
+
+func (r *SRegionDNS) findInternalRecordIps(req *recordRequest) ([]string, error) {
+	// 1. try host table
+	ip := r.getHostIpWithName(req)
+	if len(ip) != 0 {
+		return ip, nil
+	}
+	// 2. try guest table
+	ip = r.getGuestIpWithName(req)
+	if len(ip) != 0 {
+		return ip, nil
+	}
+
+	if !r.IsK8sClientReady() {
+		ylog.Warningf("K8s client not ready, skip it.")
+		return nil, errNoItems
+	}
+	// 3. try k8s service backends
+	ips, err := r.getK8sServiceBackends(req)
+	if len(ips) != 0 {
+		return ips, nil
+	}
+	if err != nil {
+		ylog.Errorf("Get k8s service backends error: %v", err)
+	}
+	return nil, errNoItems
 }
 
 func ips2DnsRecords(ips []string) []msg.Service {

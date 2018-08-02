@@ -7,8 +7,6 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/mholt/caddy"
-
-	"github.com/yunionio/log"
 )
 
 func init() {
@@ -25,17 +23,13 @@ func setup(c *caddy.Controller) error {
 	if err != nil {
 		return plugin.Error(PluginName, err)
 	}
-	log.Infof("regionDNSParse succ: %#v", rDNS)
 
 	err = rDNS.initDB(c)
 	if err != nil {
 		return plugin.Error(PluginName, err)
 	}
 
-	err = rDNS.initK8s(c)
-	if err != nil {
-		return plugin.Error(PluginName, err)
-	}
+	rDNS.initK8s(c)
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		rDNS.Next = next
@@ -60,11 +54,9 @@ func parseConfig(c *caddy.Controller) (*SRegionDNS, error) {
 		for i, str := range rDNS.Zones {
 			rDNS.Zones[i] = plugin.Host(str).Normalize()
 		}
-		log.Warningf("==zones: %v", rDNS.Zones)
 
 		if c.NextBlock() {
 			for {
-				log.Printf("===val: %v", c.Val())
 				switch c.Val() {
 				case "fallthrough":
 					rDNS.Fall.SetZonesFromArgs(c.RemainingArgs())

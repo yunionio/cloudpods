@@ -7,14 +7,17 @@ import (
 	"github.com/coredns/coredns/request"
 	"github.com/miekg/dns"
 
-	"github.com/yunionio/log"
+	"github.com/yunionio/pkg/tristate"
+
+	"github.com/yunionio/onecloud/pkg/compute/models"
 )
 
 type recordRequest struct {
 	state      request.Request
 	domainSegs []string
-	projectId  string
-	guestInfo  *SGuestInfo
+	guest      *models.SGuest
+	host       *models.SHost
+	network    *models.SNetwork
 }
 
 func parseRequest(state request.Request) (r *recordRequest, err error) {
@@ -25,20 +28,20 @@ func parseRequest(state request.Request) (r *recordRequest, err error) {
 		domainSegs: segs,
 	}
 	srcIP := r.SrcIP4()
-	guestInfo := NewGuestInfoByAddress(srcIP)
-	r.guestInfo = guestInfo
+	r.guest = models.GuestnetworkManager.GetGuestByAddress(srcIP)
+	r.host = models.HostnetworkManager.GetHostByAddress(srcIP)
+	r.network, _ = models.NetworkManager.GetNetworkOfIP(srcIP, "", tristate.None)
 	return
 }
 
 func (r recordRequest) Name() string {
 	//fullName, _ := dnsutil.TrimZone(r.state.Name(), "")
 	name := r.state.Name()
-	log.Errorf("==name: %q", name)
 	name = strings.TrimSuffix(name, ".")
 	return name
 }
 
-func (r recordRequest) GuestName() string {
+func (r recordRequest) QueryName() string {
 	seps := strings.Split(r.Name(), ".")
 	if len(seps) == 0 {
 		return ""
@@ -52,20 +55,44 @@ func (r recordRequest) Type() string {
 
 func (r recordRequest) SrcIP4() string {
 	ip := r.state.IP()
-	log.Debugf("Source ip: %q, guestName: %q", ip, r.GuestName())
 	return ip
 }
 
 func (r recordRequest) ProjectId() string {
-	if r.guestInfo == nil {
-		return ""
+	if r.guest != nil {
+		return r.guest.ProjectId
 	}
-	return r.guestInfo.GetProjectId()
+	if r.network != nil {
+		return r.network.ProjectId
+	}
+	return ""
 }
 
 func (r recordRequest) IsExitOnly() bool {
-	if r.guestInfo == nil {
+	if r.guest == nil {
 		return false
 	}
-	return r.guestInfo.IsExitOnly()
+	return r.guest.IsExitOnly()
+}
+
+type K8sQueryInfo struct {
+	ServiceName string
+	Namespace   string
+}
+
+func (r recordRequest) GetK8sQueryInfo() K8sQueryInfo {
+	parts := strings.SplitN(r.Name(), ".", 3)
+	var svcName string
+	var namespace string
+	if len(parts) >= 2 {
+		svcName = parts[0]
+		namespace = parts[1]
+	} else {
+		svcName = parts[0]
+		namespace = "default"
+	}
+	return K8sQueryInfo{
+		ServiceName: svcName,
+		Namespace:   namespace,
+	}
 }
