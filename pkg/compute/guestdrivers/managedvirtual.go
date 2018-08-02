@@ -46,7 +46,7 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
+func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(_ context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		ihost, err := host.GetIHost()
 		if err != nil {
