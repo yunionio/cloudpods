@@ -2213,6 +2213,16 @@ func (self *SGuest) getExtraOptions() jsonutils.JSONObject {
 	return self.GetMetadataJson("extra_options", nil)
 }
 
+/*
+func (self *SGuest) GetFlavor() *SFlav {
+
+}
+
+func (self *SGuest) getFlavorName() string {
+	f := self.GetFlavor()
+}
+*/
+
 func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *jsonutils.JSONDict {
 	desc := jsonutils.NewDict()
 
@@ -2229,13 +2239,14 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 	desc.Add(jsonutils.NewString(self.getBios()), "bios")
 	desc.Add(jsonutils.NewString(self.BootOrder), "boot_order")
 
+	// isolated devices
 	isolatedDevs := IsolatedDeviceManager.generateJsonDescForGuest(self)
-	desc.Add(jsonutils.NewArray(isolatedDevs...), "solated_devices")
+	desc.Add(jsonutils.NewArray(isolatedDevs...), "isolated_devices")
 
+	// nics, domain
 	jsonNics := make([]jsonutils.JSONObject, 0)
 	nics := self.GetNetworks()
 	domain := options.Options.DNSDomain
-
 	if nics != nil && len(nics) > 0 {
 		for _, nic := range nics {
 			nicDesc := nic.getJsonDescAtHost(host)
@@ -2249,6 +2260,7 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 	desc.Add(jsonutils.NewArray(jsonNics...), "nics")
 	desc.Add(jsonutils.NewString(domain), "domain")
 
+	// disks
 	jsonDisks := make([]jsonutils.JSONObject, 0)
 	disks := self.GetDisks()
 	if disks != nil && len(disks) > 0 {
@@ -2259,17 +2271,19 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 	}
 	desc.Add(jsonutils.NewArray(jsonDisks...), "disks")
 
+	// cdrom
 	cdDesc := self.getCdrom().getJsonDesc()
 	if cdDesc != nil {
 		desc.Add(cdDesc, "cdrom")
 	}
 
+	// tenant
 	tc, _ := self.GetTenantCache(ctx)
 	if tc != nil {
 		desc.Add(jsonutils.NewString(tc.GetName()), "tenant")
 	}
-
 	desc.Add(jsonutils.NewString(self.ProjectId), "tenant_id")
+
 	// flavor
 	// desc.Add(jsonuitls.NewString(self.getFlavorName()), "flavor")
 

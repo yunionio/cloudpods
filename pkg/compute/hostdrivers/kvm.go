@@ -6,7 +6,10 @@ import (
 	"net/http"
 
 	"github.com/yunionio/jsonutils"
+<<<<<<< HEAD
 	"github.com/yunionio/log"
+=======
+>>>>>>> 833be63716371810683e6d775e76dab0da4c2bb3
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
 	"github.com/yunionio/onecloud/pkg/compute/models"
 	"github.com/yunionio/onecloud/pkg/util/httputils"
@@ -25,7 +28,6 @@ func (self *SKVMHostDriver) GetHostType() string {
 }
 
 func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, scimg *models.SStoragecachedimage, task taskman.ITask) error {
-	log.Errorln("Start CheckAndSetCacheImage ================")
 	params := task.GetParams()
 	imageId, err := params.GetString("image_id")
 	if err != nil {
@@ -56,7 +58,7 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mod
 		srcUrl := fmt.Sprintf("%s/download/images/%s", srcHost.ManagerUri, imageId)
 		content.Add(jsonutils.NewString(srcUrl), "src_url")
 	}
-	url := "/disks/image_cache"
+	url := fmt.Sprintf("%s/disks/image_cache", host.ManagerUri)
 
 	if isForce {
 		content.Add(jsonutils.NewBool(true), "is_force")

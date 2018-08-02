@@ -2,7 +2,6 @@ package models
 
 import (
 	"context"
-	"runtime/debug"
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
@@ -33,7 +32,6 @@ func GetHostDriver(hostType string) IHostDriver {
 	if ok {
 		return driver
 	} else {
-		debug.PrintStack()
 		log.Fatalf("Unsupported hostType %s", hostType)
 		return nil
 	}

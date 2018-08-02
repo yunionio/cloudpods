@@ -99,8 +99,11 @@ func (self *SStoragecache) getHostId() (string, error) {
 		hostIds = append(hostIds, h.Id)
 	}
 
+<<<<<<< HEAD
 	log.Debugf("%s", hostIds)
 
+=======
+>>>>>>> 833be63716371810683e6d775e76dab0da4c2bb3
 	if len(hostIds) == 0 {
 		return "", nil
 	}
