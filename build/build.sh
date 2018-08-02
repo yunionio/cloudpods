@@ -2,9 +2,11 @@
 
 set -e
 
-pushd $(dirname $(readlink -f "$BASH_SOURCE")) > /dev/null
-ROOT_DIR=$(cd .. && pwd)
-popd > /dev/null
+if [ -z "$ROOT_DIR" ]; then
+	pushd $(dirname $(readlink -f "$BASH_SOURCE")) > /dev/null
+	ROOT_DIR=$(cd .. && pwd)
+	popd > /dev/null
+fi
 
 SRC_BIN=$ROOT_DIR/_output/bin
 SRC_BUILD=$ROOT_DIR/build
@@ -38,14 +40,20 @@ echo "Build root ${BUILDROOT}"
 
 # BRANCH=$(git rev-parse --abbrev-ref HEAD)
 # TAG=$(git describe --exact-match --tags)
-TAG=$(git describe --abbrev=0 --tags)
-VERSION=${TAG/\//-}
-VERSION=${VERSION/v/}
+if [ -z "$VERSION" ]; then
+	TAG=$(git describe --abbrev=0 --tags || echo testing)
+	VERSION=${TAG/\//-}
+	VERSION=${VERSION/v/}
+fi
 RELEASE=`date +"%y%m%d%H"`
 
 SPEC_DIR=$BUILDROOT/SPECS
 SPEC_FILE=$SPEC_DIR/${PKG}.spec
 RPM_DIR=$BUILDROOT/RPMS
+
+if [ -z "$OWNER" ]; then
+	OWNER=yunion
+fi
 
 if [ -z "$SERVICE" ]; then
     SERVICE="0"
@@ -55,7 +63,7 @@ mkdir -p $SPEC_DIR
 
 echo "# Yunion RPM spec
 
-%global owner   yunion
+%global owner   $OWNER
 %global pkgname yunion-$PKG
 %global homedir /var/run/%{owner}
 %global use_systemd $SERVICE
@@ -82,6 +90,9 @@ $DESCRIPTION
 
 %install
 install -D -m 0755 $BIN \$RPM_BUILD_ROOT/opt/yunion/bin/$PKG
+for bin in $EXTRA_BINS; do
+  install -D -m 0755 $SRC_BIN/\$bin \$RPM_BUILD_ROOT/opt/yunion/bin/\$bin
+done
 if [ -d $ROOT/root ]; then
   rsync -a $ROOT/root/ \$RPM_BUILD_ROOT
 fi
@@ -112,7 +123,9 @@ getent passwd %{owner} >/dev/null || /usr/sbin/useradd -r -s /sbin/nologin -d %{
 
 %files
 %doc
-/opt/yunion/bin/$PKG" > $SPEC_FILE
+/opt/yunion/bin/$PKG
+$(for b in $EXTRA_BINS; do echo /opt/yunion/bin/$b; done)
+" > $SPEC_FILE
 
 find $ROOT/root/ -type f | sed -e "s:$ROOT/root::g" >> $SPEC_FILE
 
