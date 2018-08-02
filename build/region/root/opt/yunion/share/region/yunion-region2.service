@@ -1,0 +1,17 @@
+[Unit]
+Description=Yunion Cloud Region Controller Service
+Documentation=http://doc.yunionyun.com
+After=network.target httpd.service yunion-glance-registry.service yunion-glance-api.service yunion-glance-scrubber.service
+
+[Service]
+Type=simple
+User=yunion
+Group=yunion
+ExecStart=/opt/yunion/bin/region --config /etc/yunion/region.conf
+WorkingDirectory=/opt/yunion
+KillMode=process
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
