@@ -64,7 +64,7 @@ const (
 	HOST_STATUS_CONVERTING     = "converting"
 )
 
-var HOST_TYPES = []string{HOST_TYPE_BAREMETAL, HOST_TYPE_HYPERVISOR, HOST_TYPE_ESXI, HOST_TYPE_KUBELET, HOST_TYPE_XEN}
+var HOST_TYPES = []string{HOST_TYPE_BAREMETAL, HOST_TYPE_HYPERVISOR, HOST_TYPE_ESXI, HOST_TYPE_KUBELET, HOST_TYPE_XEN, HOST_TYPE_ALIYUN}
 var NIC_TYPES = []string{NIC_TYPE_IPMI, NIC_TYPE_ADMIN}
 
 type SHostManager struct {
@@ -747,6 +747,13 @@ func (self *SHost) DeleteBaremetalnetwork(ctx context.Context, userCred mcclient
 	if reserve && net != nil && len(bn.IpAddr) > 0 && regutils.MatchIP4Addr(bn.IpAddr) {
 		ReservedipManager.ReserveIP(userCred, net, bn.IpAddr, "Delete baremetalnetwork to reserve")
 	}
+}
+
+func (self *SHost) GetHostDriver() IHostDriver {
+	if !utils.IsInStringArray(self.HostType, HOST_TYPES) {
+		log.Fatalf("Unsupported host type %s", self.HostType)
+	}
+	return GetHostDriver(self.HostType)
 }
 
 func (manager *SHostManager) getHostsByZone(zone *SZone) ([]SHost, error) {

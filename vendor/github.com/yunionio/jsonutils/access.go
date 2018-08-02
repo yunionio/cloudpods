@@ -42,6 +42,13 @@ func NewFloat(val float64) *JSONFloat {
 	return &JSONFloat{data: val}
 }
 
+func NewBool(val bool) *JSONBool {
+	if val {
+		return JSONTrue
+	}
+	return JSONFalse
+}
+
 func (this *JSONDict) Set(key string, value JSONObject) {
 	this.data[key] = value
 }
