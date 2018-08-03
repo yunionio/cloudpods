@@ -12,11 +12,11 @@ type ICondition interface {
 	Variables() []interface{}
 }
 
-type SCompondConditions struct {
+type SCompoundConditions struct {
 	conditions []ICondition
 }
 
-func compondWhereClause(c *SCompondConditions, op string) string {
+func compoundWhereClause(c *SCompoundConditions, op string) string {
 	var buf bytes.Buffer
 	for _, cond := range c.conditions {
 		if buf.Len() > 0 {
@@ -31,11 +31,11 @@ func compondWhereClause(c *SCompondConditions, op string) string {
 	return buf.String()
 }
 
-func (c *SCompondConditions) WhereClause() string {
+func (c *SCompoundConditions) WhereClause() string {
 	return ""
 }
 
-func (c *SCompondConditions) Variables() []interface{} {
+func (c *SCompoundConditions) Variables() []interface{} {
 	vars := make([]interface{}, 0)
 	for _, cond := range c.conditions {
 		nvars := cond.Variables()
@@ -47,19 +47,19 @@ func (c *SCompondConditions) Variables() []interface{} {
 }
 
 type SAndConditions struct {
-	SCompondConditions
+	SCompoundConditions
 }
 
 func (c *SAndConditions) WhereClause() string {
-	return compondWhereClause(&c.SCompondConditions, SQL_OP_AND)
+	return compoundWhereClause(&c.SCompoundConditions, SQL_OP_AND)
 }
 
 type SOrConditions struct {
-	SCompondConditions
+	SCompoundConditions
 }
 
 func (c *SOrConditions) WhereClause() string {
-	return compondWhereClause(&c.SCompondConditions, SQL_OP_OR)
+	return compoundWhereClause(&c.SCompoundConditions, SQL_OP_OR)
 }
 
 func AND(cond ...ICondition) ICondition {
@@ -72,7 +72,7 @@ func AND(cond ...ICondition) ICondition {
 			conds = append(conds, c)
 		}
 	}
-	cc := SAndConditions{SCompondConditions{conditions: conds}}
+	cc := SAndConditions{SCompoundConditions{conditions: conds}}
 	return &cc
 }
 
@@ -86,7 +86,7 @@ func OR(cond ...ICondition) ICondition {
 			conds = append(conds, c)
 		}
 	}
-	cc := SOrConditions{SCompondConditions{conditions: conds}}
+	cc := SOrConditions{SCompoundConditions{conditions: conds}}
 	return &cc
 }
 

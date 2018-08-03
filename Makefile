@@ -3,7 +3,7 @@
 REPO_PREFIX := github.com/yunionio/onecloud
 VENDOR_PATH := $(REPO_PREFIX)/vendor
 VERSION_PKG := $(VENDOR_PATH)/github.com/yunionio/pkg/util/version
-ROOT_DIR := $(shell pwd)
+ROOT_DIR := $(shell readlink -f `pwd`)
 BUILD_DIR := $(ROOT_DIR)/_output
 BIN_DIR := $(BUILD_DIR)/bin
 BUILD_SCRIPT := $(ROOT_DIR)/build/build.sh
@@ -82,6 +82,16 @@ bin_dir: output_dir
 
 output_dir:
 	@mkdir -p $(BUILD_DIR)
+
+
+dep:
+	cd $(ROOT_DIR) && dep ensure -v
+
+dep_clean:
+	rm -fr $(GOPATH)/pkg/dep/sources/*
+
+dep_install:
+	curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 
 
 .PHONY: all build prepare_dir clean fmt rpm

@@ -279,6 +279,7 @@
   revision = "d2fe137411c230927e28dd82b1a3bcb618dbb28d"
 
 [[projects]]
+  branch = "master"
   name = "github.com/yunionio/pkg"
   packages = [
     "gotypes",
@@ -312,12 +313,13 @@
     "util/workqueue",
     "utils"
   ]
-  revision = "8c5eab6f0b758d3888fd9041419e38a5b1129725"
+  revision = "607ffde100f37b77f1a90289c06ed6b103325ee8"
 
 [[projects]]
+  branch = "master"
   name = "github.com/yunionio/sqlchemy"
   packages = ["."]
-  revision = "a14641a90b9e5c72868b7a8358d62ea1d83eab53"
+  revision = "b84d8e2b4313670f24cd50caa5bcc0c5288c16b5"
 
 [[projects]]
   branch = "master"
@@ -376,6 +378,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e90b051392bcbf484678dc55e4b1e44b57442f7b000c6d9956b2979560751ec1"
+  inputs-digest = "a9c0d04bcafa27a0faa8d0725160249702ccf42913c108c3ac50e1191253f2f1"
   solver-name = "gps-cdcl"
   solver-version = 1
