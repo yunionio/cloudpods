@@ -34,7 +34,7 @@
   name = "github.com/yunionio/jsonutils"
 
 [[constraint]]
-  revision = "a14641a90b9e5c72868b7a8358d62ea1d83eab53"
+  branch = "master"
   name = "github.com/yunionio/sqlchemy"
 
 [[constraint]]
@@ -42,7 +42,7 @@
   name = "github.com/yunionio/log"
 
 [[constraint]]
-  revision = "8c5eab6f0b758d3888fd9041419e38a5b1129725"
+  branch = "master"
   name = "github.com/yunionio/pkg"
 
 [[constraint]]
