@@ -18,6 +18,7 @@ type IColumnSpec interface {
 	Name() string
 	ColType() string
 	Default() string
+	IsSupportDefault() bool
 	IsNullable() bool
 	IsPrimary() bool
 	IsKeyIndex() bool
@@ -65,6 +66,10 @@ func (c *SBaseColumn) ColType() string {
 
 func (c *SBaseColumn) Default() string {
 	return c.defaultString
+}
+
+func (c *SBaseColumn) IsSupportDefault() bool {
+	return true
 }
 
 func (c *SBaseColumn) IsNullable() bool {
@@ -146,7 +151,7 @@ func definitionBuffer(c IColumnSpec) bytes.Buffer {
 	}
 
 	def := c.Default()
-	if len(def) > 0 {
+	if len(def) > 0 && c.IsSupportDefault() {
 		def = c.ConvertFromString(def)
 		buf.WriteString(" DEFAULT ")
 		if c.IsText() {
@@ -475,6 +480,16 @@ type STextColumn struct {
 	Charset string
 }
 
+func (c *STextColumn) IsSupportDefault() bool {
+	// https://stackoverflow.com/questions/3466872/why-cant-a-text-column-have-a-default-value-in-mysql
+	// MySQL does not support default for TEXT/BLOB
+	if c.sqlType == "VARCHAR" {
+		return true
+	} else {
+		return false
+	}
+}
+
 func (c *STextColumn) ColType() string {
 	return fmt.Sprintf("%s CHARACTER SET '%s'", c.SBaseWidthColumn.ColType(), c.Charset)
 }
@@ -588,16 +603,16 @@ func NewDateTimeColumn(name string, tagmap map[string]string) SDateTimeColumn {
 	return dtc
 }
 
-type CompondColumn struct {
+type CompoundColumn struct {
 	STextColumn
 }
 
-func (c *CompondColumn) DefinitionString() string {
+func (c *CompoundColumn) DefinitionString() string {
 	buf := definitionBuffer(c)
 	return buf.String()
 }
 
-func (c *CompondColumn) IsZero(val interface{}) bool {
+func (c *CompoundColumn) IsZero(val interface{}) bool {
 	if val == nil {
 		return true
 	}
@@ -606,7 +621,7 @@ func (c *CompondColumn) IsZero(val interface{}) bool {
 	return json.IsZero()
 }
 
-func (c *CompondColumn) ConvertFromValue(val interface{}) interface{} {
+func (c *CompoundColumn) ConvertFromValue(val interface{}) interface{} {
 	bVal, ok := val.(gotypes.ISerializable)
 	if ok && bVal != nil {
 		return bVal.String()
@@ -615,8 +630,8 @@ func (c *CompondColumn) ConvertFromValue(val interface{}) interface{} {
 	}
 }
 
-func NewCompondColumn(name string, tagmap map[string]string) CompondColumn {
-	dtc := CompondColumn{NewTextColumn(name, tagmap)}
+func NewCompoundColumn(name string, tagmap map[string]string) CompoundColumn {
+	dtc := CompoundColumn{NewTextColumn(name, tagmap)}
 	return dtc
 }
 
