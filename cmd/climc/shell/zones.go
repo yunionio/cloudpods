@@ -106,6 +106,7 @@ func init() {
 		NameCN   string `help:"Name in Chinese"`
 		Desc     string `metavar:"<DESCRIPTION>" help:"Description"`
 		Location string `help:"Location"`
+		Region   string `help:"Cloudregion in which zone created"`
 	}
 	R(&ZoneCreateOptions{}, "zone-create", "Create a zone", func(s *mcclient.ClientSession, args *ZoneCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -118,6 +119,9 @@ func init() {
 		}
 		if len(args.Location) > 0 {
 			params.Add(jsonutils.NewString(args.Location), "location")
+		}
+		if len(args.Region) > 0 {
+			params.Add(jsonutils.NewString(args.Region), "region")
 		}
 		zone, err := modules.Zones.Create(s, params)
 		if err != nil {
