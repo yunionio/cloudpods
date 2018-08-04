@@ -388,6 +388,40 @@ func init() {
 		return nil
 	})
 
+	type HostEnableNetIfOptions struct {
+		ID  string `help:"ID or Name of host"`
+		MAC string `help:"MAC of NIC to enable"`
+	}
+	R(&HostEnableNetIfOptions{}, "host-enable-netif", "Enable a network interface for a host", func(s *mcclient.ClientSession, args *HostEnableNetIfOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.MAC), "mac")
+		result, err := modules.Hosts.PerformAction(s, args.ID, "enable-netif", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type HostDisableNetIfOptions struct {
+		ID      string `help:"ID or Name of host"`
+		MAC     string `help:"MAC of NIC to disable"`
+		Reserve bool   `help:"Reserve the IP address"`
+	}
+	R(&HostDisableNetIfOptions{}, "host-disable-netif", "Disable a network interface", func(s *mcclient.ClientSession, args *HostDisableNetIfOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.MAC), "mac")
+		if args.Reserve {
+			params.Add(jsonutils.JSONTrue, "reserve")
+		}
+		result, err := modules.Hosts.PerformAction(s, args.ID, "disable-netif", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	R(&HostDetailOptions{}, "host-remove-all-netifs", "Remvoe all netifs expect admin&ipmi netifs", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
 		result, err := modules.Hosts.PerformAction(s, args.ID, "remove-all-netifs", nil)
 		if err != nil {
