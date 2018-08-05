@@ -2,14 +2,15 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/onecloud/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/util/compare"
 	"github.com/yunionio/sqlchemy"
@@ -288,6 +289,10 @@ return ret
 func zoneExtra(zone *SZone, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	usage := zone.GeneralUsage()
 	extra.Update(jsonutils.Marshal(usage))
+	region := zone.GetRegion()
+	if region != nil {
+		extra.Add(jsonutils.NewString(region.Name), "cloudregion")
+	}
 	return extra
 }
 
@@ -606,4 +611,24 @@ func (self *SZone) isUsable() bool {
 	} else {
 		return false
 	}
+}
+
+func (manager *SZoneManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	regionStr := jsonutils.GetAnyString(query, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
+	var regionId string
+	if len(regionStr) > 0 {
+		regionObj, err := CloudregionManager.FetchByIdOrName("", regionStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError("Region %s not found", regionStr)
+			} else {
+				return nil, httperrors.NewInternalServerError("Query region %s fail %s", regionStr, err)
+			}
+		}
+		regionId = regionObj.GetId()
+	} else {
+		regionId = "default"
+	}
+	data.Add(jsonutils.NewString(regionId), "cloudregion_id")
+	return manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
