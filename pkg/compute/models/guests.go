@@ -896,6 +896,8 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 	if zone != nil {
 		extra.Add(jsonutils.NewString(zone.GetId()), "zone_id")
 		extra.Add(jsonutils.NewString(zone.GetName()), "zone")
+		extra.Add(jsonutils.NewString(zone.GetRegion().GetName()), "region")
+		extra.Add(jsonutils.NewString(zone.GetRegion().GetId()), "region_id")
 	}
 	return extra
 }
