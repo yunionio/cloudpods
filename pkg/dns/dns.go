@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/etcd/msg"
@@ -115,12 +117,7 @@ func (r *SRegionDNS) ServeDNS(ctx context.Context, w dns.ResponseWriter, rmsg *d
 	opt := plugin.Options{}
 	state := request.Request{W: w, Req: rmsg, Context: ctx}
 
-	//isMyDomain := true
 	zone := plugin.Zones(r.Zones).Matches(state.Name())
-	//if zone == "" {
-	////isMyDomain = false
-	//return plugin.NextOrFailure(r.Name(), r.Next, ctx, w, rmsg)
-	//}
 
 	switch state.QType() {
 	case dns.TypeA:
@@ -221,21 +218,9 @@ func (r *SRegionDNS) Services(state request.Request, exact bool, opt plugin.Opti
 		return []msg.Service{svc}, nil
 	}
 
-	s, e := r.Records(state, false)
-	ylog.Debugf("Get records: %#v, error: %v", s, e)
-
-	// SRV is not yet implemented, so remove those records.
-	if state.QType() != dns.TypeSRV {
-		return s, e
-	}
-
-	internal := []msg.Service{}
-	for _, svc := range s {
-		if t, _ := svc.HostType(); t != dns.TypeCNAME {
-			internal = append(internal, svc)
-		}
-	}
-	return internal, e
+	services, err = r.Records(state, false)
+	ylog.Debugf("Get records: %#v, error: %v", services, err)
+	return
 }
 
 // Lookup implements the ServiceBackend interface
@@ -322,8 +307,28 @@ func (r *SRegionDNS) queryLocalDnsRecords(req *recordRequest) (recs []msg.Servic
 		err = errNoItems
 		return
 	}
+
 	for _, ip := range ips {
-		s := msg.Service{Host: ip.Addr, TTL: 5 * 60}
+		var s = msg.Service{}
+		var ttl uint32 = uint32(ip.Ttl)
+		if ttl == 0 {
+			ttl = defaultTTL
+		}
+		if req.IsSRV() {
+			parts := strings.SplitN(ip.Addr, ":", 2)
+			if len(parts) != 2 {
+				err = fmt.Errorf("Invalid SRV records: %q", ip.Addr)
+				return
+			}
+			port, e := strconv.Atoi(parts[1])
+			if e != nil {
+				err = e
+				return
+			}
+			s = msg.Service{Host: parts[0], Port: port, TTL: ttl}
+		} else {
+			s = msg.Service{Host: ip.Addr, TTL: ttl}
+		}
 		recs = append(recs, s)
 	}
 	return
@@ -340,6 +345,15 @@ func (r *SRegionDNS) IsK8sClientReady() bool {
 	return r.K8sClient != nil
 }
 
+func (r *SRegionDNS) isMyDomain(req *recordRequest) bool {
+	zones := []string{fmt.Sprintf("%s.", r.PrimaryZone)}
+	zone := plugin.Zones(zones).Matches(req.state.Name())
+	if zone != "" {
+		return true
+	}
+	return false
+}
+
 func (r *SRegionDNS) findRecords(req *recordRequest) (recs []msg.Service, err error) {
 	// 1. try local dns records table
 	recs, err = r.queryLocalDnsRecords(req)
@@ -347,11 +361,7 @@ func (r *SRegionDNS) findRecords(req *recordRequest) (recs []msg.Service, err er
 		return
 	}
 
-	isMyDomain := false
-	zone := plugin.Zones(r.Zones).Matches(req.state.Name())
-	if zone != "" {
-		isMyDomain = true
-	}
+	isMyDomain := r.isMyDomain(req)
 
 	isCloudIp := r.IsCloudNetworkIp(req)
 

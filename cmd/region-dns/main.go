@@ -15,7 +15,6 @@ import (
 	_ "github.com/coredns/coredns/plugin/proxy"
 	_ "github.com/coredns/coredns/plugin/reload"
 	_ "github.com/coredns/coredns/plugin/trace"
-	_ "github.com/coredns/coredns/plugin/whoami"
 	_ "github.com/mholt/caddy/startupshutdown"
 
 	"github.com/coredns/coredns/core/dnsserver"
@@ -37,7 +36,6 @@ var directives = []string{
 	"yunion",
 	"forward",
 	"proxy",
-	"whoami",
 	"startup",
 	"shutdown",
 }

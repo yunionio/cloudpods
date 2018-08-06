@@ -53,6 +53,10 @@ func (r recordRequest) Type() string {
 	return DNSTypeMap[r.state.QType()]
 }
 
+func (r recordRequest) IsSRV() bool {
+	return r.Type() == DNSTypeMap[dns.TypeSRV]
+}
+
 func (r recordRequest) SrcIP4() string {
 	ip := r.state.IP()
 	return ip
