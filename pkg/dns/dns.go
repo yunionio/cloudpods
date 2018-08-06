@@ -32,6 +32,9 @@ import (
 
 const (
 	PluginName string = "yunion"
+
+	// defaultTTL to apply to all answers
+	defaultTTL = 10
 )
 
 var (
@@ -52,6 +55,7 @@ type SRegionDNS struct {
 	Next          plugin.Handler
 	Fall          fall.F
 	Zones         []string
+	PrimaryZone   string
 	Upstream      upstream.Upstream
 	SqlConnection string
 	K8sConfigFile string
@@ -234,11 +238,6 @@ func (r *SRegionDNS) Services(state request.Request, exact bool, opt plugin.Opti
 	return internal, e
 }
 
-// Reverse implements the ServiceBackend interface
-func (r *SRegionDNS) Reverse(state request.Request, exact bool, opt plugin.Options) (services []msg.Service, err error) {
-	return r.Services(state, exact, opt)
-}
-
 // Lookup implements the ServiceBackend interface
 func (r *SRegionDNS) Lookup(state request.Request, name string, typ uint16) (*dns.Msg, error) {
 	return r.Upstream.Lookup(state, name, typ)
@@ -398,7 +397,7 @@ func (r *SRegionDNS) findInternalRecordIps(req *recordRequest) ([]string, error)
 func ips2DnsRecords(ips []string) []msg.Service {
 	recs := make([]msg.Service, 0)
 	for _, ip := range ips {
-		s := msg.Service{Host: ip, TTL: 5 * 60}
+		s := msg.Service{Host: ip, TTL: defaultTTL}
 		recs = append(recs, s)
 	}
 	return recs
