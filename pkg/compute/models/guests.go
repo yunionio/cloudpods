@@ -1395,6 +1395,78 @@ func (self *SGuest) attach2Disk(disk *SDisk, userCred mcclient.TokenCredential, 
 	return err
 }
 
+func (self *SGuest) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if err := self.StartSyncTask(ctx, userCred, false, ""); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (self *SGuest) AllowPerformAttachDisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) ValidateAttachDisk(ctx context.Context, disk *SDisk) error {
+	if disk.isAttached() {
+		return httperrors.NewInputParameterError("Disk %s has been attached", disk.Name)
+	} else if len(disk.GetPathAtHost(self.GetHost())) == 0 {
+		return httperrors.NewInputParameterError("Disk %s not belong the guest's host", disk.Name)
+	} else if disk.Status != DISK_READY {
+		return httperrors.NewInputParameterError("Disk in %s not able to attach", disk.Status)
+	} else if !utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_READY}) {
+		return httperrors.NewInputParameterError("Server in %s not able to attach disk", self.Status)
+	}
+	return nil
+}
+
+func (self *SGuest) PerformAttachDisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if diskId, err := data.GetString("disk_id"); err != nil {
+		return nil, err
+	} else {
+		if disk, err := DiskManager.FetchByIdOrName(userCred.GetProjectId(), diskId); err != nil {
+			return nil, err
+		} else if disk == nil {
+			return nil, httperrors.NewResourceNotFoundError("Disk %s not found", diskId)
+		} else if err := self.ValidateAttachDisk(ctx, disk.(*SDisk)); err != nil {
+			return nil, err
+		} else {
+			driver, _ := data.GetString("driver")
+			cache, _ := data.GetString("cache")
+			mountpoint, _ := data.GetString("mountpoint")
+			if err := self.attach2Disk(disk.(*SDisk), userCred, driver, cache, mountpoint); err != nil {
+				return nil, err
+			} else {
+				self.StartSyncTask(ctx, userCred, false, "")
+			}
+		}
+	}
+	return nil, nil
+}
+
+func (self *SGuest) StartSyncTask(ctx context.Context, userCred mcclient.TokenCredential, fw_only bool, parentTaskId string) error {
+	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING}) {
+		return httperrors.NewResourceBusyError("Cannot sync in status %s", self.Status)
+	}
+	data := jsonutils.NewDict()
+	if fw_only {
+		data.Add(jsonutils.JSONTrue, "fw_only")
+	} else if err := self.SetStatus(userCred, VM_SYNC_CONFIG, ""); err != nil {
+		log.Errorf(err.Error())
+		return err
+	}
+	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSyncConfTask", self, userCred, data, parentTaskId, "", nil); err != nil {
+		log.Errorf(err.Error())
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
 type sSyncDiskPair struct {
 	disk  *SDisk
 	vdisk cloudprovider.ICloudDisk

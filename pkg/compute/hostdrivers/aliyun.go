@@ -46,3 +46,41 @@ func (self *SAliyunHostDriver) CheckAndSetCacheImage(ctx context.Context, host *
 	})
 	return nil
 }
+
+func (self *SAliyunHostDriver) RequestAllocateDiskOnStorage(host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
+	if iCloudStorage, err := storage.GetIStorage(); err != nil {
+		return err
+	} else {
+		if size, err := content.Int("size"); err != nil {
+			return err
+		} else {
+			size = size >> 10
+			if disk, err := iCloudStorage.CreateIDisk(disk.GetName(), int(size), ""); err != nil {
+				return err
+			} else {
+				data := jsonutils.NewDict()
+				data.Add(jsonutils.NewInt(int64(disk.GetDiskSizeMB())), "disk_size")
+				data.Add(jsonutils.NewString(disk.GetDiskFormat()), "disk_format")
+				task.ScheduleRun(data)
+			}
+		}
+	}
+	return nil
+}
+
+func (self *SAliyunHostDriver) RequestDeallocateDiskOnHost(host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
+	if iCloudStorage, err := storage.GetIStorage(); err != nil {
+		return err
+	} else if iDisk, err := iCloudStorage.GetIDisk(disk.GetExternalId()); err != nil {
+		return err
+	} else {
+		return iDisk.Delete()
+	}
+}
+
+func (self *SAliyunHostDriver) RequestResizeDiskOnHostOnline(host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
+	return nil
+}
+func (self *SAliyunHostDriver) RequestResizeDiskOnHost(host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
+	return nil
+}

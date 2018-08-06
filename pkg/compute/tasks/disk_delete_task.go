@@ -50,7 +50,10 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 	if isPurge {
 		self.OnGuestDiskDeleteSucc(ctx, disk, nil)
 	} else {
-		// TODO
+		self.SetStage("on_guest_disk_delete_succ", nil)
+		if err := host.GetHostDriver().RequestDeallocateDiskOnHost(host, storage, disk, self); err != nil {
+			self.OnGuestDiskDeleteFailed(ctx, disk, err)
+		}
 	}
 }
 
@@ -65,8 +68,14 @@ func (self *DiskDeleteTask) OnGuestDiskDeleteSucc(ctx context.Context, obj db.IS
 		return
 	}
 	disk := obj.(*models.SDisk)
-	// self.clean_host_sched_cache(disk)
+	self.CleanHostSchedCache(disk)
 	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE, disk.GetShortDesc(), self.UserCred)
 	disk.RealDelete(ctx, self.UserCred)
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *DiskDeleteTask) OnGuestDiskDeleteFailed(ctx context.Context, disk *models.SDisk, resion error) {
+	disk.SetStatus(self.GetUserCred(), models.DISK_DEALLOC_FAILED, resion.Error())
+	self.SetStageFailed(ctx, resion.Error())
+	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, disk.GetShortDesc(), self.GetUserCred())
 }
