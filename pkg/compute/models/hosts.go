@@ -1440,6 +1440,8 @@ func (self *SHost) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 	if zone != nil {
 		extra.Add(jsonutils.NewString(zone.Id), "zone_id")
 		extra.Add(jsonutils.NewString(zone.Name), "zone")
+		extra.Add(jsonutils.NewString(zone.GetRegion().GetName()), "region")
+		extra.Add(jsonutils.NewString(zone.GetRegion().GetId()), "region_id")
 	}
 	server := self.getBaremetalServer()
 	if server != nil {
