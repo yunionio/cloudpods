@@ -17,6 +17,7 @@ const (
 	SchedTypeKvm         = "kvm"
 	HostHypervisorForKvm = "hypervisor"
 	HostTypeAliyun       = "aliyun"
+	HostTypeKubelet      = "kubelet"
 
 	AggregateStrategyRequire = "require"
 	AggregateStrategyExclude = "exclude"
