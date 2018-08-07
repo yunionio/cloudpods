@@ -350,6 +350,13 @@ func (manager *SCloudproviderManager) InitializeData() error {
 					log.Errorf("migrateVcenterInfo fail %s", err)
 					return err
 				}
+				_, err = VCenterManager.TableSpec().Update(&vc, func() error {
+					return vc.MarkDelete()
+				})
+				if err != nil {
+					log.Errorf("delete vcenter record fail %s", err)
+					return err
+				}
 			} else {
 				log.Errorf("fetch cloudprovider fail %s", err)
 				return err

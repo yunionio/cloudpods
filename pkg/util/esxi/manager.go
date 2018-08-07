@@ -19,6 +19,7 @@ import (
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/vmware/govmomi/session"
 	"github.com/yunionio/onecloud/pkg/compute/models"
+	"strings"
 )
 
 const (
@@ -202,9 +203,16 @@ func (cli *SESXiClient) FindDatacenterById(dcId string) (*SDatacenter, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
+func (cli *SESXiClient) getPrivateId(idStr string) string {
+	if strings.HasPrefix(idStr, cli.providerId) {
+		idStr = idStr[len(cli.providerId)+1:]
+	}
+	return idStr
+}
+
 func (cli *SESXiClient) FindHostByIp(hostIp string) (*SHost, error) {
 	searchIndex := object.NewSearchIndex(cli.client.Client)
-	hostRef, err := searchIndex.FindByIp(cli.context, nil, hostIp, false)
+	hostRef, err := searchIndex.FindByIp(cli.context, nil, cli.getPrivateId(hostIp), false)
 	if err != nil {
 		log.Errorf("searchIndex.FindByIp fail %s", err)
 		return nil, err

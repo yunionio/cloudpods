@@ -133,6 +133,8 @@ func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 }
 
 func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	id = self.manager.getPrivateId(id)
+
 	vms, err := self.GetIVMs()
 	if err != nil {
 		return nil, err
