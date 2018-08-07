@@ -11,12 +11,10 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/onecloud/pkg/mcclient/auth"
-	"github.com/yunionio/onecloud/pkg/httperrors"
 	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/util/compare"
 	"github.com/yunionio/pkg/util/fileutils"
+	"github.com/yunionio/pkg/util/netutils"
 	"github.com/yunionio/pkg/util/osprofile"
 	"github.com/yunionio/pkg/util/regutils"
 	"github.com/yunionio/pkg/util/sysutils"
@@ -31,6 +29,9 @@ import (
 	"github.com/yunionio/onecloud/pkg/cloudcommon/notifyclient"
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/onecloud/pkg/compute/options"
+	"github.com/yunionio/onecloud/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/mcclient"
+	"github.com/yunionio/onecloud/pkg/mcclient/auth"
 )
 
 const (
@@ -994,6 +995,16 @@ func (self *SGuest) getRealIPs() []string {
 		}
 	}
 	return ips
+}
+
+func (self *SGuest) IsExitOnly() bool {
+	for _, ip := range self.getRealIPs() {
+		addr, _ := netutils.NewIPV4Addr(ip)
+		if !netutils.IsExitAddress(addr) {
+			return false
+		}
+	}
+	return true
 }
 
 func (self *SGuest) getVirtualIPs() []string {
@@ -2551,4 +2562,57 @@ func (self *SGuest) GetKeypairPublicKey() string {
 
 func (model *SGuest) AllowPerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return userCred.IsSystemAdmin()
+}
+
+func (manager *SGuestManager) GetIpInProjectWithName(projectId, name string, isExitOnly bool) []string {
+	guestnics := GuestnetworkManager.Query().SubQuery()
+	guests := manager.Query().SubQuery()
+	networks := NetworkManager.Query().SubQuery()
+	q := guestnics.Query(guestnics.Field("ip_addr")).Join(guests,
+		sqlchemy.AND(
+			sqlchemy.Equals(guests.Field("id"), guestnics.Field("guest_id")),
+			sqlchemy.OR(sqlchemy.IsNull(guests.Field("pending_deleted")),
+				sqlchemy.IsFalse(guests.Field("pending_deleted"))),
+			sqlchemy.IsFalse(guests.Field("deleted")))).
+		Join(networks, sqlchemy.AND(sqlchemy.Equals(networks.Field("id"), guestnics.Field("network_id")),
+			sqlchemy.IsFalse(networks.Field("deleted")))).
+		Filter(sqlchemy.Equals(guests.Field("name"), name)).
+		Filter(sqlchemy.NotEquals(guestnics.Field("ip_addr"), "")).
+		Filter(sqlchemy.IsNotNull(guestnics.Field("ip_addr"))).
+		Filter(sqlchemy.IsNotNull(networks.Field("guest_gateway")))
+	ips := make([]string, 0)
+	rows, err := q.Rows()
+	if err != nil {
+		log.Errorf("Get guest ip with name query err: %v", err)
+		return ips
+	}
+	for rows.Next() {
+		var ip string
+		err = rows.Scan(&ip)
+		if err != nil {
+			log.Errorf("Get guest ip with name scan err: %v", err)
+			return ips
+		}
+		ips = append(ips, ip)
+	}
+	return manager.getIpsByExit(ips, isExitOnly)
+}
+
+func (manager *SGuestManager) getIpsByExit(ips []string, isExitOnly bool) []string {
+	intRet := make([]string, 0)
+	extRet := make([]string, 0)
+	for _, ip := range ips {
+		addr, _ := netutils.NewIPV4Addr(ip)
+		if netutils.IsExitAddress(addr) {
+			extRet = append(extRet, ip)
+			continue
+		}
+		intRet = append(intRet, ip)
+	}
+	if isExitOnly {
+		return extRet
+	} else if len(intRet) > 0 {
+		return intRet
+	}
+	return extRet
 }
