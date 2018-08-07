@@ -9,6 +9,12 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
+	"github.com/yunionio/pkg/tristate"
+	"github.com/yunionio/pkg/util/compare"
+	"github.com/yunionio/pkg/util/netutils"
+	"github.com/yunionio/pkg/util/regutils"
+	"github.com/yunionio/pkg/util/sysutils"
+	"github.com/yunionio/pkg/utils"
 	"github.com/yunionio/sqlchemy"
 
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
@@ -18,13 +24,6 @@ import (
 	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/onecloud/pkg/mcclient/auth"
 	"github.com/yunionio/onecloud/pkg/mcclient/modules"
-
-	"github.com/yunionio/pkg/tristate"
-	"github.com/yunionio/pkg/util/compare"
-	"github.com/yunionio/pkg/util/netutils"
-	"github.com/yunionio/pkg/util/regutils"
-	"github.com/yunionio/pkg/util/sysutils"
-	"github.com/yunionio/pkg/utils"
 )
 
 const (
@@ -1118,7 +1117,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func (self *SHost) getNetworkOfIPOnHost(ipAddr string) (*SNetwork, error) {
-	net, err := NetworkManager.getNetworkOfIP(ipAddr, "", tristate.None)
+	net, err := NetworkManager.GetNetworkOfIP(ipAddr, "", tristate.None)
 	if err != nil {
 		return nil, err
 	}
