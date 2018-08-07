@@ -337,7 +337,7 @@ func (manager *SCloudproviderManager) InitializeData() error {
 	// move vmware info from vcenter to cloudprovider
 	vcenters := make([]SVCenter, 0)
 	q := VCenterManager.Query()
-	err := db.FetchModelObjects(manager, q, &vcenters)
+	err := db.FetchModelObjects(VCenterManager, q, &vcenters)
 	if err != nil {
 		return err
 	}
@@ -368,7 +368,7 @@ func (manager *SCloudproviderManager) migrateVCenterInfo(vc *SVCenter) error {
 	cp.Id = vc.Id
 	cp.Name = db.GenerateName(manager, "", vc.Name)
 	cp.Status = vc.Status
-	cp.AccessUrl = fmt.Sprintf("https://%s:%d", vc.Hostname, vc.Password)
+	cp.AccessUrl = fmt.Sprintf("https://%s:%d", vc.Hostname, vc.Port)
 	cp.Account = vc.Account
 	cp.Secret = vc.Password
 	cp.LastSync = vc.LastSync
