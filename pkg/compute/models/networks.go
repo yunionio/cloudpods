@@ -8,12 +8,6 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/options"
-	"github.com/yunionio/onecloud/pkg/httperrors"
 	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/util/compare"
 	"github.com/yunionio/pkg/util/fileutils"
@@ -21,6 +15,13 @@ import (
 	"github.com/yunionio/pkg/util/regutils"
 	"github.com/yunionio/pkg/utils"
 	"github.com/yunionio/sqlchemy"
+
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/onecloud/pkg/compute/options"
+	"github.com/yunionio/onecloud/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 )
 
 const (
@@ -507,7 +508,7 @@ func (self *SNetwork) isAddressUsed(address string) bool {
 	return false
 }
 
-func (manager *SNetworkManager) getNetworkOfIP(ipAddr string, serverType string, isPublic tristate.TriState) (*SNetwork, error) {
+func (manager *SNetworkManager) GetNetworkOfIP(ipAddr string, serverType string, isPublic tristate.TriState) (*SNetwork, error) {
 	address, err := netutils.NewIPV4Addr(ipAddr)
 	if err != nil {
 		return nil, err
