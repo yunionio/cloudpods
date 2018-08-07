@@ -1,9 +1,6 @@
 package guestdrivers
 
 import (
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-
 	"github.com/yunionio/onecloud/pkg/compute/models"
 )
 
@@ -18,10 +15,4 @@ func init() {
 
 func (self *SESXiGuestDriver) GetHypervisor() string {
 	return models.HYPERVISOR_ESXI
-}
-
-func (self *SESXiGuestDriver) GetGuestVncInfo(userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
-	data := jsonutils.NewDict()
-	// TODO
-	return data, nil
 }

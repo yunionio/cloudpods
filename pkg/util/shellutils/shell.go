@@ -1,4 +1,4 @@
-package shell
+package shellutils
 
 type CMD struct {
 	Options  interface{}

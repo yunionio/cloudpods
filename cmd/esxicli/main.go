@@ -6,25 +6,27 @@ import (
 
 	"github.com/yunionio/log"
 	"github.com/yunionio/structarg"
-	"github.com/yunionio/onecloud/pkg/util/aliyun"
+
+	"github.com/yunionio/onecloud/pkg/util/esxi"
 	"github.com/yunionio/onecloud/pkg/util/shellutils"
 
-	_ "github.com/yunionio/onecloud/pkg/util/aliyun/shell"
+	_ "github.com/yunionio/onecloud/pkg/util/esxi/shell"
 )
 
 type BaseOptions struct {
 	Help       bool   `help:"Show help"`
-	AccessKey  string `help:"Access key" default:"$ALIYUN_ACCESS_KEY"`
-	Secret     string `help:"Secret" default:"$ALIYUN_SECRET"`
-	RegionId   string `help:"RegionId" default:"$ALIYUN_REGION"`
+	Host  string `help:"Host IP or NAME" default:"$VMWARE_HOST"`
+	Port  int `help:"Service port" default:"$VMWARE_PORT"`
+	Account string `help:"VCenter or ESXi Account" default:"$VMWARE_ACCOUNT"`
+	Password   string `help:"Password" default:"$VMWARE_PASSWORD"`
 	SUBCOMMAND string `help:"aliyuncli subcommand" subcommand:"true"`
 }
 
 func getSubcommandParser() (*structarg.ArgumentParser, error) {
 	parse, e := structarg.NewArgumentParser(&BaseOptions{},
-		"aliyuncli",
-		"Command-line interface to aliyun API.",
-		`See "aliyuncli help COMMAND" for help on a specific command.`)
+		"govmcli",
+		"Command-line interface to VMware VSphere Webservice API.",
+		`See "govmcli help COMMAND" for help on a specific command.`)
 
 	if e != nil {
 		return nil, e
@@ -60,26 +62,20 @@ func showErrorAndExit(e error) {
 	os.Exit(1)
 }
 
-func newClient(options *BaseOptions) (*aliyun.SRegion, error) {
-	if len(options.AccessKey) == 0 {
-		return nil, fmt.Errorf("Missing accessKey")
+func newClient(options *BaseOptions) (*esxi.SESXiClient, error) {
+	if len(options.Host) == 0 {
+		return nil, fmt.Errorf("Missing host")
 	}
 
-	if len(options.Secret) == 0 {
-		return nil, fmt.Errorf("Missing secret")
+	if len(options.Account) == 0 {
+		return nil, fmt.Errorf("Missing account")
 	}
 
-	cli, err := aliyun.NewAliyunClient("", "", options.AccessKey, options.Secret)
-	if err != nil {
-		return nil, err
+	if len(options.Password) == 0 {
+		return nil, fmt.Errorf("Missing password")
 	}
 
-	region := cli.GetRegion(options.RegionId)
-	if region == nil {
-		return nil, fmt.Errorf("No such region %s", options.RegionId)
-	}
-
-	return region, nil
+	return esxi.NewESXiClient("", "", options.Host, options.Port, options.Account, options.Password)
 }
 
 func main() {
@@ -107,12 +103,12 @@ func main() {
 			if options.SUBCOMMAND == "help" {
 				e = subcmd.Invoke(suboptions)
 			} else {
-				var region *aliyun.SRegion
-				region, e = newClient(options)
+				var esxicli *esxi.SESXiClient
+				esxicli, e = newClient(options)
 				if e != nil {
 					showErrorAndExit(e)
 				}
-				e = subcmd.Invoke(region, suboptions)
+				e = subcmd.Invoke(esxicli, suboptions)
 			}
 			if e != nil {
 				showErrorAndExit(e)

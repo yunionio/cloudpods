@@ -130,7 +130,7 @@ type ICloudVM interface {
 	GetEIP() ICloudEIP
 
 	// GetStatus() string
-	GetRemoteStatus() string
+	// GetRemoteStatus() string
 
 	GetVcpuCount() int8
 	GetVmemSizeMB() int //MB

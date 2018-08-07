@@ -4,17 +4,17 @@ import (
 	"github.com/yunionio/jsonutils"
 
 	"github.com/yunionio/onecloud/pkg/mcclient/modules"
-	"github.com/yunionio/onecloud/pkg/util/printjson"
+	"github.com/yunionio/onecloud/pkg/util/printutils"
 )
 
 func printList(list *modules.ListResult, columns []string) {
-	printjson.PrintList(list, columns)
+	printutils.PrintJSONList(list, columns)
 }
 
 func printObject(obj jsonutils.JSONObject) {
-	printjson.PrintObject(obj)
+	printutils.PrintJSONObject(obj)
 }
 
 func printBatchResults(results []modules.SubmitResult, columns []string) {
-	printjson.PrintBatchResults(results, columns)
+	printutils.PrintJSONBatchResults(results, columns)
 }
