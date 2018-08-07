@@ -1,13 +1,13 @@
 package printutils
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
-	"fmt"
 
 	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/pkg/utils"
 	"github.com/yunionio/onecloud/pkg/mcclient/modules"
+	"github.com/yunionio/pkg/utils"
 )
 
 func getter2json(obj interface{}) jsonutils.JSONObject {

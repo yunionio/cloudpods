@@ -5,12 +5,12 @@ import (
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
 )
 
-var DATACENTER_PROPS =  []string {"name", "parent", "datastore"}
+var DATACENTER_PROPS = []string{"name", "parent", "datastore"}
 
 type SDatacenter struct {
 	SManagedObject
 
-	ihosts []cloudprovider.ICloudHost
+	ihosts    []cloudprovider.ICloudHost
 	istorages []cloudprovider.ICloudStorage
 
 	Name string

@@ -2,14 +2,14 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
-	"database/sql"
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/onecloud/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/pkg/util/timeutils"
 	"github.com/yunionio/pkg/utils"
 
@@ -283,7 +283,6 @@ func (manager *SCloudproviderManager) FetchCloudproviderByIdOrName(providerId st
 	}
 	return providerObj.(*SCloudprovider)
 }
-
 
 type SCloudproviderUsage struct {
 	HostCount         int

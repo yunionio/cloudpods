@@ -3,14 +3,14 @@ package esxi
 import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/yunionio/log"
-	"reflect"
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"reflect"
 )
 
 type SManagedObject struct {
-	manager *SESXiClient
+	manager    *SESXiClient
 	datacenter *SDatacenter
-	object mo.Entity
+	object     mo.Entity
 
 	path []string
 }
@@ -57,7 +57,7 @@ func reverseArray(array interface{}) {
 		return
 	}
 	tmp := reflect.Indirect(reflect.New(arrayValue.Type().Elem()))
-	for i, j := 0, arrayValue.Len() - 1; i < j; i, j = i + 1, j - 1 {
+	for i, j := 0, arrayValue.Len()-1; i < j; i, j = i+1, j-1 {
 		tmpi := arrayValue.Index(i)
 		tmpj := arrayValue.Index(j)
 		tmp.Set(tmpi)

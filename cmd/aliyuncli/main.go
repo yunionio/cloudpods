@@ -5,9 +5,9 @@ import (
 	"os"
 
 	"github.com/yunionio/log"
-	"github.com/yunionio/structarg"
 	"github.com/yunionio/onecloud/pkg/util/aliyun"
 	"github.com/yunionio/onecloud/pkg/util/shellutils"
+	"github.com/yunionio/structarg"
 
 	_ "github.com/yunionio/onecloud/pkg/util/aliyun/shell"
 )

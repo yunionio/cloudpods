@@ -15,9 +15,9 @@ import (
 
 type BaseOptions struct {
 	Help       bool   `help:"Show help"`
-	Host  string `help:"Host IP or NAME" default:"$VMWARE_HOST"`
-	Port  int `help:"Service port" default:"$VMWARE_PORT"`
-	Account string `help:"VCenter or ESXi Account" default:"$VMWARE_ACCOUNT"`
+	Host       string `help:"Host IP or NAME" default:"$VMWARE_HOST"`
+	Port       int    `help:"Service port" default:"$VMWARE_PORT"`
+	Account    string `help:"VCenter or ESXi Account" default:"$VMWARE_ACCOUNT"`
 	Password   string `help:"Password" default:"$VMWARE_PASSWORD"`
 	SUBCOMMAND string `help:"aliyuncli subcommand" subcommand:"true"`
 }

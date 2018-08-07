@@ -7,17 +7,17 @@ import (
 	"reflect"
 
 	"github.com/vmware/govmomi"
+	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/property"
 	"github.com/vmware/govmomi/view"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
-	"github.com/vmware/govmomi/property"
-	"github.com/vmware/govmomi/object"
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/vmware/govmomi/session"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/onecloud/pkg/compute/models"
 	"strings"
 )

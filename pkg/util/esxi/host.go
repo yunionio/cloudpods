@@ -5,60 +5,60 @@ import (
 
 	"github.com/yunionio/jsonutils"
 
-	"github.com/yunionio/onecloud/pkg/compute/models"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/vmware/govmomi/vim25/types"
-	"github.com/yunionio/pkg/util/netutils"
 	"github.com/yunionio/log"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/onecloud/pkg/compute/models"
+	"github.com/yunionio/pkg/util/netutils"
 )
 
-var HOST_SYSTEM_PROPS = []string {"name", "parent", "summary", "config", "hardware", "vm"}
+var HOST_SYSTEM_PROPS = []string{"name", "parent", "summary", "config", "hardware", "vm"}
 
 type SHostNicInfo struct {
-	Dev string
-	Driver string
-	Mac string
-	Index int
-	LinkUp bool
-	IpAddr string
-	Mtu int
+	Dev     string
+	Driver  string
+	Mac     string
+	Index   int
+	LinkUp  bool
+	IpAddr  string
+	Mtu     int
 	NicType string
 }
 
 type SHostStorageAdapterInfo struct {
-	Device string
-	Model string
-	Driver string
-	Pci string
-	Drivers []SHostStorageDriverInfo
+	Device    string
+	Model     string
+	Driver    string
+	Pci       string
+	Drivers   []SHostStorageDriverInfo
 	Enclosure int
 }
 
 type SHostStorageDriverInfo struct {
-	CN string
-	Name string
-	Model string
-	Vendor string
+	CN       string
+	Name     string
+	Model    string
+	Vendor   string
 	Revision string
-	Status string
-	SSD bool
-	Dev string
-	Size int
+	Status   string
+	SSD      bool
+	Dev      string
+	Size     int
 }
 
 type SHostStorageEnclosureInfo struct {
-	CN string
-	Name string
-	Model string
-	Vendor string
+	CN       string
+	Name     string
+	Model    string
+	Vendor   string
 	Revision string
-	Status string
+	Status   string
 }
 
 type SHost struct {
 	SManagedObject
 
-	nicInfo []SHostNicInfo
+	nicInfo     []SHostNicInfo
 	storageInfo []SHostStorageAdapterInfo
 
 	vms []cloudprovider.ICloudVM
@@ -72,18 +72,17 @@ func (self *SHost) getHostSystem() *mo.HostSystem {
 	return self.object.(*mo.HostSystem)
 }
 
-
 func (self *SHost) GetGlobalId() string {
 	return self.GetAccessIp()
 }
 
 func (self *SHost) GetStatus() string {
 	/*
-	HostSystemPowerStatePoweredOn  = HostSystemPowerState("poweredOn")
-	HostSystemPowerStatePoweredOff = HostSystemPowerState("poweredOff")
-	HostSystemPowerStateStandBy    = HostSystemPowerState("standBy")
-	HostSystemPowerStateUnknown    = HostSystemPowerState("unknown")
-	 */
+		HostSystemPowerStatePoweredOn  = HostSystemPowerState("poweredOn")
+		HostSystemPowerStatePoweredOff = HostSystemPowerState("poweredOff")
+		HostSystemPowerStateStandBy    = HostSystemPowerState("standBy")
+		HostSystemPowerStateUnknown    = HostSystemPowerState("unknown")
+	*/
 	switch self.getHostSystem().Summary.Runtime.PowerState {
 	case types.HostSystemPowerStatePoweredOn:
 		return models.HOST_STATUS_RUNNING
@@ -143,7 +142,7 @@ func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 		if vms[i].GetGlobalId() == id {
 			return vms[i], nil
 		}
- 	}
+	}
 	return nil, cloudprovider.ErrNotFound
 }
 
@@ -165,10 +164,10 @@ func (self *SHost) GetEnabled() bool {
 
 func (self *SHost) GetHostStatus() string {
 	/*
-	HostSystemConnectionStateConnected     = HostSystemConnectionState("connected")
-	HostSystemConnectionStateNotResponding = HostSystemConnectionState("notResponding")
-	HostSystemConnectionStateDisconnected  = HostSystemConnectionState("disconnected")
-	 */
+		HostSystemConnectionStateConnected     = HostSystemConnectionState("connected")
+		HostSystemConnectionStateNotResponding = HostSystemConnectionState("notResponding")
+		HostSystemConnectionStateDisconnected  = HostSystemConnectionState("disconnected")
+	*/
 	switch self.getHostSystem().Summary.Runtime.ConnectionState {
 	case types.HostSystemConnectionStateConnected:
 		return models.HOST_ONLINE
@@ -176,7 +175,6 @@ func (self *SHost) GetHostStatus() string {
 		return models.HOST_OFFLINE
 	}
 }
-
 
 func findHostNicByMac(nicInfoList []SHostNicInfo, mac string) *SHostNicInfo {
 	for i := 0; i < len(nicInfoList); i += 1 {
@@ -256,8 +254,8 @@ func (self *SHost) GetAccessMac() string {
 }
 
 type SSysInfo struct {
-	Manufacture string
-	Model string
+	Manufacture  string
+	Model        string
 	SerialNumber string
 }
 
@@ -290,7 +288,7 @@ func (self *SHost) GetCpuMhz() int {
 }
 
 func (self *SHost) GetMemSizeMB() int {
-	return int(self.getHostSystem().Summary.Hardware.MemorySize/1024/1024)
+	return int(self.getHostSystem().Summary.Hardware.MemorySize / 1024 / 1024)
 }
 
 /*func (self *SHost) fetchStorageInfo() {
@@ -356,7 +354,7 @@ func (self *SHost) GetManagerId() string {
 }
 
 func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, vswitchId string, ipAddr string, desc string,
-passwd string, storageType string, diskSizes []int, publicKey string) (cloudprovider.ICloudVM, error) {
+	passwd string, storageType string, diskSizes []int, publicKey string) (cloudprovider.ICloudVM, error) {
 	log.Debugf("CreateVM")
 	return nil, cloudprovider.ErrNotImplemented
 }

@@ -1,9 +1,9 @@
 package shell
 
 import (
-	"github.com/yunionio/onecloud/pkg/util/shellutils"
 	"github.com/yunionio/onecloud/pkg/util/esxi"
 	"github.com/yunionio/onecloud/pkg/util/printutils"
+	"github.com/yunionio/onecloud/pkg/util/shellutils"
 )
 
 func init() {
@@ -25,7 +25,7 @@ func init() {
 
 	type VirtualMachineShowOptions struct {
 		HOSTIP string `help:"Host IP"`
-		VMID string `help:"VM ID"`
+		VMID   string `help:"VM ID"`
 	}
 	shellutils.R(&VirtualMachineShowOptions{}, "vm-show", "Show vm details", func(cli *esxi.SESXiClient, args *VirtualMachineShowOptions) error {
 		host, err := cli.FindHostByIp(args.HOSTIP)

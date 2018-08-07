@@ -2,15 +2,14 @@ package provider
 
 import (
 	"net/url"
-	"strings"
 	"strconv"
+	"strings"
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 
-	"github.com/yunionio/onecloud/pkg/util/esxi"
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
-
+	"github.com/yunionio/onecloud/pkg/util/esxi"
 )
 
 type SESXiProviderFactory struct {
@@ -116,4 +115,3 @@ func (self *SESXiProvider) GetIStorageById(id string) (cloudprovider.ICloudStora
 func (self *SESXiProvider) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
-

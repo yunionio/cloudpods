@@ -116,7 +116,6 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncstatusOnHost(ctx context.
 	return body, nil
 }
 
-
 func (self *SManagedVirtualizedGuestDriver) GetGuestVncInfo(userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
 	ihost, err := host.GetIHost()
 	if err != nil {

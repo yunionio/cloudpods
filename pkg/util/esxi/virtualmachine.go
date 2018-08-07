@@ -11,8 +11,8 @@ import (
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/onecloud/pkg/compute/models"
 
-	"github.com/vmware/govmomi/object"
 	"fmt"
+	"github.com/vmware/govmomi/object"
 )
 
 var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "runtime", "summary"}
@@ -30,7 +30,6 @@ func NewVirtualMachine(manager *SESXiClient, vm *mo.VirtualMachine, dc *SDatacen
 func (self *SVirtualMachine) getVirtualMachine() *mo.VirtualMachine {
 	return self.object.(*mo.VirtualMachine)
 }
-
 
 func (self *SVirtualMachine) GetGlobalId() string {
 	return self.getUuid()
@@ -178,12 +177,12 @@ func (self *SVirtualMachine) acquireWebmksTicket(ticketType string) (jsonutils.J
 		port = 443
 	}
 	/*
-	ret.Add(jsonutils.NewString(ticketType), "type")
-	ret.Add(jsonutils.NewString(ticket.Host), "host")
-	ret.Add(jsonutils.NewInt(int64(ticket.Port)), "port")
-	ret.Add(jsonutils.NewString(ticket.Ticket), "ticket")
-	ret.Add(jsonutils.NewString(ticket.SslThumbprint), "slThumbprint")
-	ret.Add(jsonutils.NewString(ticket.CfgFile), "cfgFile")
+		ret.Add(jsonutils.NewString(ticketType), "type")
+		ret.Add(jsonutils.NewString(ticket.Host), "host")
+		ret.Add(jsonutils.NewInt(int64(ticket.Port)), "port")
+		ret.Add(jsonutils.NewString(ticket.Ticket), "ticket")
+		ret.Add(jsonutils.NewString(ticket.SslThumbprint), "slThumbprint")
+		ret.Add(jsonutils.NewString(ticket.CfgFile), "cfgFile")
 	*/
 	url := fmt.Sprintf("wss://%s:%d/ticket/%s", host, port, ticket.Ticket)
 	ret.Add(jsonutils.NewString("wmks"), "protocol")

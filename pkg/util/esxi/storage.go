@@ -8,8 +8,7 @@ import (
 	"github.com/yunionio/onecloud/pkg/compute/models"
 )
 
-var DATASTORE_PROPS = []string {"name", "parent"}
-
+var DATASTORE_PROPS = []string{"name", "parent"}
 
 type SDatastore struct {
 	SManagedObject
