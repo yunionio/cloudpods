@@ -4,9 +4,10 @@ import (
 	"context"
 
 	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"github.com/yunionio/sqlchemy"
 
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 )
 
 type SHostnetworkManager struct {
@@ -31,27 +32,27 @@ type SHostnetwork struct {
 	MacAddr     string `width:"18" charset:"ascii" list:"admin"`                                   // Column(VARCHAR(18, charset='ascii'))
 }
 
-func (joint *SHostnetwork) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
+func (bn *SHostnetwork) Master() db.IStandaloneModel {
+	return db.JointMaster(bn)
 }
 
-func (joint *SHostnetwork) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
+func (bn *SHostnetwork) Slave() db.IStandaloneModel {
+	return db.JointSlave(bn)
 }
 
-func (self *SHostnetwork) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SHostJointsBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = db.JointModelExtra(self, extra)
-	netif := self.GetNetInterface()
+func (bn *SHostnetwork) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := bn.SHostJointsBase.GetCustomizeColumns(ctx, userCred, query)
+	extra = db.JointModelExtra(bn, extra)
+	netif := bn.GetNetInterface()
 	if netif != nil {
 		extra.Add(jsonutils.NewString(netif.NicType), "nic_type")
 	}
 	return extra
 }
 
-func (self *SHostnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SHostJointsBase.GetExtraDetails(ctx, userCred, query)
-	return db.JointModelExtra(self, extra)
+func (bn *SHostnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := bn.SHostJointsBase.GetExtraDetails(ctx, userCred, query)
+	return db.JointModelExtra(bn, extra)
 }
 
 func (bn *SHostnetwork) GetHost() *SHost {
@@ -75,10 +76,40 @@ func (bn *SHostnetwork) GetNetInterface() *SNetInterface {
 	return netIf
 }
 
-func (self *SHostnetwork) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return db.DeleteModel(ctx, userCred, self)
+func (bn *SHostnetwork) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return db.DeleteModel(ctx, userCred, bn)
 }
 
-func (self *SHostnetwork) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return db.DetachJoint(ctx, userCred, self)
+func (bn *SHostnetwork) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return db.DetachJoint(ctx, userCred, bn)
+}
+
+func (man *SHostnetworkManager) QueryByAddress(addr string) *sqlchemy.SQuery {
+	q := HostnetworkManager.Query()
+	return q.Filter(sqlchemy.Equals(q.Field("ip_addr"), addr))
+}
+
+func (man *SHostnetworkManager) GetHostNetworkByAddress(addr string) *SHostnetwork {
+	network := SHostnetwork{}
+	err := man.QueryByAddress(addr).First(&network)
+	if err != nil {
+		return &network
+	}
+	return nil
+}
+
+func (man *SHostnetworkManager) GetNetworkByAddress(addr string) *SNetwork {
+	net := man.GetHostNetworkByAddress(addr)
+	if net == nil {
+		return nil
+	}
+	return net.GetNetwork()
+}
+
+func (man *SHostnetworkManager) GetHostByAddress(addr string) *SHost {
+	net := man.GetHostNetworkByAddress(addr)
+	if net == nil {
+		return nil
+	}
+	return net.GetHost()
 }

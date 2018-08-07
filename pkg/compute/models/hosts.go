@@ -9,13 +9,6 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/onecloud/pkg/mcclient/auth"
-	"github.com/yunionio/onecloud/pkg/mcclient/modules"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/options"
-	"github.com/yunionio/onecloud/pkg/httperrors"
 	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/util/compare"
 	"github.com/yunionio/pkg/util/netutils"
@@ -23,6 +16,14 @@ import (
 	"github.com/yunionio/pkg/util/sysutils"
 	"github.com/yunionio/pkg/utils"
 	"github.com/yunionio/sqlchemy"
+
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/onecloud/pkg/compute/options"
+	"github.com/yunionio/onecloud/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/mcclient"
+	"github.com/yunionio/onecloud/pkg/mcclient/auth"
+	"github.com/yunionio/onecloud/pkg/mcclient/modules"
 )
 
 const (
@@ -1109,7 +1110,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func (self *SHost) getNetworkOfIPOnHost(ipAddr string) (*SNetwork, error) {
-	net, err := NetworkManager.getNetworkOfIP(ipAddr, "", tristate.None)
+	net, err := NetworkManager.GetNetworkOfIP(ipAddr, "", tristate.None)
 	if err != nil {
 		return nil, err
 	}
