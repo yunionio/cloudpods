@@ -128,8 +128,16 @@ func initCluster() {
 		return nil
 	})
 
-	R(&getOpt{}, cmdN("kubeconfig"), "Generate kubeconfig of a cluster", func(s *mcclient.ClientSession, args *getOpt) error {
-		ret, err := k8s.Clusters.PerformAction(s, args.ID, "generate-kubeconfig", nil)
+	type kubeConfigOpt struct {
+		getOpt
+		Directly bool `help:"Get directly connect kubeconfig"`
+	}
+	R(&kubeConfigOpt{}, cmdN("kubeconfig"), "Generate kubeconfig of a cluster", func(s *mcclient.ClientSession, args *kubeConfigOpt) error {
+		params := jsonutils.NewDict()
+		if args.Directly {
+			params.Add(jsonutils.JSONTrue, "directly")
+		}
+		ret, err := k8s.Clusters.PerformAction(s, args.ID, "generate-kubeconfig", params)
 		if err != nil {
 			return err
 		}
