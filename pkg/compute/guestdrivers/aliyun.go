@@ -241,28 +241,6 @@ func (self *SAliyunGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Contex
 	return nil
 }
 
-func (self *SAliyunGuestDriver) GetGuestVncInfo(userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
-	ihost, err := host.GetIHost()
-	if err != nil {
-		return nil, err
-	}
-
-	iVM, err := ihost.GetIVMById(guest.ExternalId)
-	if err != nil {
-		log.Errorf("cannot find vm %s %s", iVM, err)
-		return nil, err
-	}
-
-	data, err := iVM.GetVNCInfo()
-	if err != nil {
-		return nil, err
-	}
-
-	dataDict := data.(*jsonutils.JSONDict)
-
-	return dataDict, nil
-}
-
 func (self *SAliyunGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	return nil
 }
