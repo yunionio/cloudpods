@@ -7,10 +7,10 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient/modules"
 	"github.com/yunionio/onecloud/pkg/appctx"
 	"github.com/yunionio/onecloud/pkg/appsrv"
 	"github.com/yunionio/onecloud/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/mcclient/modules"
 )
 
 func AddModelDispatcher(prefix string, app *appsrv.Application, manager IModelDispatchHandler) {

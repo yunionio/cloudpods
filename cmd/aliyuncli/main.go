@@ -5,9 +5,11 @@ import (
 	"os"
 
 	"github.com/yunionio/log"
-	"github.com/yunionio/structarg"
 	"github.com/yunionio/onecloud/pkg/util/aliyun"
-	"github.com/yunionio/onecloud/pkg/util/aliyun/shell"
+	"github.com/yunionio/onecloud/pkg/util/shellutils"
+	"github.com/yunionio/structarg"
+
+	_ "github.com/yunionio/onecloud/pkg/util/aliyun/shell"
 )
 
 type BaseOptions struct {
@@ -35,7 +37,7 @@ func getSubcommandParser() (*structarg.ArgumentParser, error) {
 	type HelpOptions struct {
 		SUBCOMMAND string `help:"sub-command name"`
 	}
-	shell.R(&HelpOptions{}, "help", "Show help of a subcommand", func(args *HelpOptions) error {
+	shellutils.R(&HelpOptions{}, "help", "Show help of a subcommand", func(args *HelpOptions) error {
 		helpstr, e := subcmd.SubHelpString(args.SUBCOMMAND)
 		if e != nil {
 			return e
@@ -44,7 +46,7 @@ func getSubcommandParser() (*structarg.ArgumentParser, error) {
 			return nil
 		}
 	})
-	for _, v := range shell.CommandTable {
+	for _, v := range shellutils.CommandTable {
 		_, e := subcmd.AddSubParser(v.Options, v.Command, v.Desc, v.Callback)
 		if e != nil {
 			return nil, e

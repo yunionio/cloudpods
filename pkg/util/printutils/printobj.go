@@ -1,4 +1,4 @@
-package shell
+package printutils
 
 import (
 	"fmt"
@@ -7,10 +7,9 @@ import (
 	"github.com/yunionio/jsonutils"
 
 	"github.com/yunionio/onecloud/pkg/mcclient/modules"
-	"github.com/yunionio/onecloud/pkg/util/printjson"
 )
 
-func printList(data interface{}, total, offset, limit int, columns []string) {
+func PrintInterfaceList(data interface{}, total, offset, limit int, columns []string) {
 	dataValue := reflect.ValueOf(data)
 	if dataValue.Kind() != reflect.Slice {
 		fmt.Println("Invalid list data")
@@ -29,9 +28,9 @@ func printList(data interface{}, total, offset, limit int, columns []string) {
 		Limit:  limit,
 		Offset: offset,
 	}
-	printjson.PrintList(list, columns)
+	PrintJSONList(list, columns)
 }
 
-func printObject(obj interface{}) {
-	printjson.PrintObject(jsonutils.Marshal(obj))
+func PrintInterfaceObject(obj interface{}) {
+	PrintJSONObject(jsonutils.Marshal(obj))
 }

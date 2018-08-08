@@ -16,6 +16,7 @@ import (
 	_ "github.com/yunionio/onecloud/pkg/compute/hostdrivers"
 	_ "github.com/yunionio/onecloud/pkg/compute/tasks"
 	_ "github.com/yunionio/onecloud/pkg/util/aliyun/provider"
+	_ "github.com/yunionio/onecloud/pkg/util/esxi/provider"
 )
 
 func StartService() {
