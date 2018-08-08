@@ -545,6 +545,28 @@
   revision = "f3cacc17c85ecb7f1b6a9e373ee85d1480919868"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/vmware/govmomi"
+  packages = [
+    ".",
+    "nfc",
+    "object",
+    "property",
+    "session",
+    "task",
+    "view",
+    "vim25",
+    "vim25/debug",
+    "vim25/methods",
+    "vim25/mo",
+    "vim25/progress",
+    "vim25/soap",
+    "vim25/types",
+    "vim25/xml"
+  ]
+  revision = "bbd99532a768d2fe369079ceda730e30726ae1a6"
+
+[[projects]]
   name = "github.com/yunionio/jsonutils"
   packages = ["."]
   revision = "6dd39f8579af6c6b61b971eb3a1ccf55e724b0ca"
@@ -882,6 +904,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ac275c3d7f14e4a959b3029058a3bb40bb016860ad0e9794e7a396ba33e62048"
+  inputs-digest = "1fdd79d4d8791f7e87a3740b3807ea84f6306ecac3095d32a1ccf39b48be1f18"
   solver-name = "gps-cdcl"
   solver-version = 1

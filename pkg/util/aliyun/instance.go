@@ -6,11 +6,12 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/models"
 	"github.com/yunionio/pkg/util/osprofile"
 	"github.com/yunionio/pkg/util/seclib"
 	"github.com/yunionio/pkg/utils"
+
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/onecloud/pkg/compute/models"
 )
 
 const (
@@ -291,6 +292,7 @@ func (self *SInstance) Refresh() error {
 	return jsonutils.Update(self, new)
 }
 
+/*
 func (self *SInstance) GetRemoteStatus() string {
 	// Running：运行中
 	//Starting：启动中
@@ -309,6 +311,7 @@ func (self *SInstance) GetRemoteStatus() string {
 		return cloudprovider.CloudVMStatusOther
 	}
 }
+*/
 
 func (self *SInstance) GetHypervisor() string {
 	return models.HYPERVISOR_ALIYUN

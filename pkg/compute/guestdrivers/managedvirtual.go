@@ -112,6 +112,28 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncstatusOnHost(ctx context.
 		return nil, err
 	}
 	body := jsonutils.NewDict()
-	body.Add(jsonutils.NewString(ivm.GetRemoteStatus()), "status")
+	body.Add(jsonutils.NewString(ivm.GetStatus()), "status")
 	return body, nil
+}
+
+func (self *SManagedVirtualizedGuestDriver) GetGuestVncInfo(userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
+	ihost, err := host.GetIHost()
+	if err != nil {
+		return nil, err
+	}
+
+	iVM, err := ihost.GetIVMById(guest.ExternalId)
+	if err != nil {
+		log.Errorf("cannot find vm %s %s", iVM, err)
+		return nil, err
+	}
+
+	data, err := iVM.GetVNCInfo()
+	if err != nil {
+		return nil, err
+	}
+
+	dataDict := data.(*jsonutils.JSONDict)
+
+	return dataDict, nil
 }
