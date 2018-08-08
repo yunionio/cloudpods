@@ -872,6 +872,7 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 	extra := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
 	extra.Add(jsonutils.NewString(self.getNetworksDetails()), "networks")
 	extra.Add(jsonutils.NewString(self.getDisksDetails()), "disks")
+	extra.Add(self.getDisksInfoDetails(), "disks_info")
 	extra.Add(jsonutils.NewInt(int64(self.getDiskSize())), "disk")
 	cdrom := self.getCdrom()
 	if cdrom != nil {
@@ -920,6 +921,14 @@ func (self *SGuest) getDisksDetails() string {
 		buf.WriteString("\n")
 	}
 	return buf.String()
+}
+
+func (self *SGuest) getDisksInfoDetails() *jsonutils.JSONArray {
+	details := jsonutils.NewArray()
+	for _, disk := range self.GetDisks() {
+		details.Add(disk.GetDetailedJson())
+	}
+	return details
 }
 
 func (self *SGuest) getIsolatedDeviceDetails() string {
