@@ -84,6 +84,7 @@ type ICloudStorage interface {
 	GetManagerId() string
 
 	CreateIDisk(name string, sizeGb int, desc string) (ICloudDisk, error)
+	GetIDisk(idStr string) (ICloudDisk, error)
 }
 
 type ICloudHost interface {
@@ -187,6 +188,7 @@ type ICloudDisk interface {
 	GetDriver() string
 	GetCacheMode() string
 	GetMountpoint() string
+	Delete() error
 }
 
 type ICloudVpc interface {

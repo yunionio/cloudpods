@@ -264,7 +264,6 @@ func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, exclu
 	hostStorage := HoststorageManager.Query().SubQuery()
 	host := HostManager.Query().SubQuery()
 
-	log.Errorln("ChooseSourceStoragecacheInRange =========== begin...")
 	scimgs := make([]SStoragecachedimage, 0)
 	q := storageCachedImage.Query().
 		Join(storage, sqlchemy.AND(sqlchemy.Equals(storage.Field("storagecache_id"), storageCachedImage.Field("storagecache_id")))).
@@ -293,11 +292,7 @@ func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, exclu
 			q = q.Filter(sqlchemy.Equals(host.Field("manager_id"), obj.Id))
 		}
 	}
-	log.Errorf("=========Debug Query start=============")
-	q.DebugQuery()
-	log.Errorf("=========Debug Query end=============")
-	err := q.All(scimgs)
-	log.Errorln("ChooseSourceStoragecacheInRange: ", scimgs)
+	err := q.All(&scimgs)
 	if err != nil {
 		return nil, err
 	}

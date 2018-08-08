@@ -136,6 +136,22 @@ func FillEmbededStructValue(container reflect.Value, embed reflect.Value) bool {
 	return false
 }
 
+func SetStructFieldValue(structValue reflect.Value, fieldName string, val reflect.Value) bool {
+	dataType := structValue.Type()
+	for i := 0; i < dataType.NumField(); i += 1 {
+		fieldType := dataType.Field(i)
+		if gotypes.IsFieldExportable(fieldType.Name) {
+			fName := GetStructFieldName(&fieldType)
+			if fName == fieldName {
+				fieldValue := structValue.Field(i)
+				fieldValue.Set(val)
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func ExpandInterface(val interface{}) []interface{} {
 	value := reflect.Indirect(reflect.ValueOf(val))
 	if value.Kind() == reflect.Slice || value.Kind() == reflect.Array {

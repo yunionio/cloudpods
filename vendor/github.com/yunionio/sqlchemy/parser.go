@@ -86,7 +86,7 @@ func fieldToColumnSpec(field *reflect.StructField) IColumnSpec {
 		return &col*/
 	default:
 		if gotypes.IsSerializable(field.Type) {
-			col := NewCompondColumn(fieldname, tagmap)
+			col := NewCompoundColumn(fieldname, tagmap)
 			return &col
 		} else {
 			log.Fatalf("Unsupported type! %s", field.Type)

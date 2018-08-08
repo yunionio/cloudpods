@@ -11,10 +11,10 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-
 	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/util/compare"
 	"github.com/yunionio/pkg/util/fileutils"
+	"github.com/yunionio/pkg/util/netutils"
 	"github.com/yunionio/pkg/util/osprofile"
 	"github.com/yunionio/pkg/util/regutils"
 	"github.com/yunionio/pkg/util/sysutils"
@@ -899,6 +899,8 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 	if zone != nil {
 		extra.Add(jsonutils.NewString(zone.GetId()), "zone_id")
 		extra.Add(jsonutils.NewString(zone.GetName()), "zone")
+		extra.Add(jsonutils.NewString(zone.GetRegion().GetName()), "region")
+		extra.Add(jsonutils.NewString(zone.GetRegion().GetId()), "region_id")
 	}
 	return extra
 }
@@ -1004,6 +1006,16 @@ func (self *SGuest) getRealIPs() []string {
 		}
 	}
 	return ips
+}
+
+func (self *SGuest) IsExitOnly() bool {
+	for _, ip := range self.getRealIPs() {
+		addr, _ := netutils.NewIPV4Addr(ip)
+		if !netutils.IsExitAddress(addr) {
+			return false
+		}
+	}
+	return true
 }
 
 func (self *SGuest) getVirtualIPs() []string {
@@ -1404,6 +1416,78 @@ func (self *SGuest) attach2Disk(disk *SDisk, userCred mcclient.TokenCredential, 
 		db.OpsLog.LogAttachEvent(self, disk, userCred, nil)
 	}
 	return err
+}
+
+func (self *SGuest) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if err := self.StartSyncTask(ctx, userCred, false, ""); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (self *SGuest) AllowPerformAttachDisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) ValidateAttachDisk(ctx context.Context, disk *SDisk) error {
+	if disk.isAttached() {
+		return httperrors.NewInputParameterError("Disk %s has been attached", disk.Name)
+	} else if len(disk.GetPathAtHost(self.GetHost())) == 0 {
+		return httperrors.NewInputParameterError("Disk %s not belong the guest's host", disk.Name)
+	} else if disk.Status != DISK_READY {
+		return httperrors.NewInputParameterError("Disk in %s not able to attach", disk.Status)
+	} else if !utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_READY}) {
+		return httperrors.NewInputParameterError("Server in %s not able to attach disk", self.Status)
+	}
+	return nil
+}
+
+func (self *SGuest) PerformAttachDisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if diskId, err := data.GetString("disk_id"); err != nil {
+		return nil, err
+	} else {
+		if disk, err := DiskManager.FetchByIdOrName(userCred.GetProjectId(), diskId); err != nil {
+			return nil, err
+		} else if disk == nil {
+			return nil, httperrors.NewResourceNotFoundError("Disk %s not found", diskId)
+		} else if err := self.ValidateAttachDisk(ctx, disk.(*SDisk)); err != nil {
+			return nil, err
+		} else {
+			driver, _ := data.GetString("driver")
+			cache, _ := data.GetString("cache")
+			mountpoint, _ := data.GetString("mountpoint")
+			if err := self.attach2Disk(disk.(*SDisk), userCred, driver, cache, mountpoint); err != nil {
+				return nil, err
+			} else {
+				self.StartSyncTask(ctx, userCred, false, "")
+			}
+		}
+	}
+	return nil, nil
+}
+
+func (self *SGuest) StartSyncTask(ctx context.Context, userCred mcclient.TokenCredential, fw_only bool, parentTaskId string) error {
+	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING}) {
+		return httperrors.NewResourceBusyError("Cannot sync in status %s", self.Status)
+	}
+	data := jsonutils.NewDict()
+	if fw_only {
+		data.Add(jsonutils.JSONTrue, "fw_only")
+	} else if err := self.SetStatus(userCred, VM_SYNC_CONFIG, ""); err != nil {
+		log.Errorf(err.Error())
+		return err
+	}
+	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSyncConfTask", self, userCred, data, parentTaskId, "", nil); err != nil {
+		log.Errorf(err.Error())
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
 }
 
 type sSyncDiskPair struct {
@@ -2149,6 +2233,16 @@ func (self *SGuest) getExtraOptions() jsonutils.JSONObject {
 	return self.GetMetadataJson("extra_options", nil)
 }
 
+/*
+func (self *SGuest) GetFlavor() *SFlav {
+
+}
+
+func (self *SGuest) getFlavorName() string {
+	f := self.GetFlavor()
+}
+*/
+
 func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *jsonutils.JSONDict {
 	desc := jsonutils.NewDict()
 
@@ -2165,13 +2259,14 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 	desc.Add(jsonutils.NewString(self.getBios()), "bios")
 	desc.Add(jsonutils.NewString(self.BootOrder), "boot_order")
 
+	// isolated devices
 	isolatedDevs := IsolatedDeviceManager.generateJsonDescForGuest(self)
-	desc.Add(jsonutils.NewArray(isolatedDevs...), "solated_devices")
+	desc.Add(jsonutils.NewArray(isolatedDevs...), "isolated_devices")
 
+	// nics, domain
 	jsonNics := make([]jsonutils.JSONObject, 0)
 	nics := self.GetNetworks()
 	domain := options.Options.DNSDomain
-
 	if nics != nil && len(nics) > 0 {
 		for _, nic := range nics {
 			nicDesc := nic.getJsonDescAtHost(host)
@@ -2185,6 +2280,7 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 	desc.Add(jsonutils.NewArray(jsonNics...), "nics")
 	desc.Add(jsonutils.NewString(domain), "domain")
 
+	// disks
 	jsonDisks := make([]jsonutils.JSONObject, 0)
 	disks := self.GetDisks()
 	if disks != nil && len(disks) > 0 {
@@ -2195,17 +2291,19 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 	}
 	desc.Add(jsonutils.NewArray(jsonDisks...), "disks")
 
+	// cdrom
 	cdDesc := self.getCdrom().getJsonDesc()
 	if cdDesc != nil {
 		desc.Add(cdDesc, "cdrom")
 	}
 
+	// tenant
 	tc, _ := self.GetTenantCache(ctx)
 	if tc != nil {
 		desc.Add(jsonutils.NewString(tc.GetName()), "tenant")
 	}
-
 	desc.Add(jsonutils.NewString(self.ProjectId), "tenant_id")
+
 	// flavor
 	// desc.Add(jsonuitls.NewString(self.getFlavorName()), "flavor")
 
@@ -2561,4 +2659,57 @@ func (self *SGuest) GetKeypairPublicKey() string {
 
 func (model *SGuest) AllowPerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return userCred.IsSystemAdmin()
+}
+
+func (manager *SGuestManager) GetIpInProjectWithName(projectId, name string, isExitOnly bool) []string {
+	guestnics := GuestnetworkManager.Query().SubQuery()
+	guests := manager.Query().SubQuery()
+	networks := NetworkManager.Query().SubQuery()
+	q := guestnics.Query(guestnics.Field("ip_addr")).Join(guests,
+		sqlchemy.AND(
+			sqlchemy.Equals(guests.Field("id"), guestnics.Field("guest_id")),
+			sqlchemy.OR(sqlchemy.IsNull(guests.Field("pending_deleted")),
+				sqlchemy.IsFalse(guests.Field("pending_deleted"))),
+			sqlchemy.IsFalse(guests.Field("deleted")))).
+		Join(networks, sqlchemy.AND(sqlchemy.Equals(networks.Field("id"), guestnics.Field("network_id")),
+			sqlchemy.IsFalse(networks.Field("deleted")))).
+		Filter(sqlchemy.Equals(guests.Field("name"), name)).
+		Filter(sqlchemy.NotEquals(guestnics.Field("ip_addr"), "")).
+		Filter(sqlchemy.IsNotNull(guestnics.Field("ip_addr"))).
+		Filter(sqlchemy.IsNotNull(networks.Field("guest_gateway")))
+	ips := make([]string, 0)
+	rows, err := q.Rows()
+	if err != nil {
+		log.Errorf("Get guest ip with name query err: %v", err)
+		return ips
+	}
+	for rows.Next() {
+		var ip string
+		err = rows.Scan(&ip)
+		if err != nil {
+			log.Errorf("Get guest ip with name scan err: %v", err)
+			return ips
+		}
+		ips = append(ips, ip)
+	}
+	return manager.getIpsByExit(ips, isExitOnly)
+}
+
+func (manager *SGuestManager) getIpsByExit(ips []string, isExitOnly bool) []string {
+	intRet := make([]string, 0)
+	extRet := make([]string, 0)
+	for _, ip := range ips {
+		addr, _ := netutils.NewIPV4Addr(ip)
+		if netutils.IsExitAddress(addr) {
+			extRet = append(extRet, ip)
+			continue
+		}
+		intRet = append(intRet, ip)
+	}
+	if isExitOnly {
+		return extRet
+	} else if len(intRet) > 0 {
+		return intRet
+	}
+	return extRet
 }
