@@ -138,9 +138,6 @@ func (self *SCloudprovider) getPassword() (string, error) {
 }
 
 func (self *SCloudprovider) CanSync() bool {
-	if ! self.Enabled {
-		return false
-	}
 	if self.Status == CLOUD_PROVIDER_SYNCING {
 		if self.LastSync.IsZero() || time.Now().Sub(self.LastSync) > 900*time.Second {
 			return true
@@ -153,10 +150,11 @@ func (self *SCloudprovider) CanSync() bool {
 }
 
 type SSyncRange struct {
-	Force  bool
-	Region []string
-	Zone   []string
-	Host   []string
+	Force    bool
+	FullSync bool
+	Region   []string
+	Zone     []string
+	Host     []string
 }
 
 func (self *SCloudprovider) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -164,10 +162,13 @@ func (self *SCloudprovider) AllowPerformSync(ctx context.Context, userCred mccli
 }
 
 func (self *SCloudprovider) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if ! self.Enabled {
+		return nil, httperrors.NewInvalidStatusError("Cloudprovider disabled")
+	}
 	syncRange := SSyncRange{}
 	err := data.Unmarshal(&syncRange)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("invalud input %s", err)
+		return nil, httperrors.NewInputParameterError("invalid input %s", err)
 	}
 	if self.CanSync() || syncRange.Force {
 		err = self.startSyncCloudProviderInfoTask(ctx, userCred, &syncRange, "")
@@ -180,6 +181,10 @@ func (self *SCloudprovider) AllowPerformUpdateCredential(ctx context.Context, us
 }
 
 func (self *SCloudprovider) PerformUpdateCredential(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if ! self.Enabled {
+		return nil, httperrors.NewInvalidStatusError("Cloudprovider disabled")
+	}
+
 	var err error
 	changed := false
 	secret, _ := data.GetString("secret")

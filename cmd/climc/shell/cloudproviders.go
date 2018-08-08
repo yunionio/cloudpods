@@ -142,6 +142,7 @@ func init() {
 	type CloudproviderSyncOptions struct {
 		ID     string   `help:"ID or Name of cloud provider"`
 		Force  bool     `help:"Force sync no matter what"`
+		FullSync bool   `help:"Synchronize everything"`
 		Region []string `help:"region to sync"`
 		Zone   []string `help:"region to sync"`
 		Host   []string `help:"region to sync"`
@@ -150,6 +151,9 @@ func init() {
 		params := jsonutils.NewDict()
 		if args.Force {
 			params.Add(jsonutils.JSONTrue, "force")
+		}
+		if args.FullSync {
+			params.Add(jsonutils.JSONTrue, "full_sync")
 		}
 		if len(args.Region) > 0 {
 			params.Add(jsonutils.NewStringArray(args.Region), "region")

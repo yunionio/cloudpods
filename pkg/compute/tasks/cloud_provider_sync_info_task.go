@@ -80,7 +80,7 @@ func syncCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider,
 
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
 	for i := 0; i < len(localRegions); i += 1 {
-		if len(syncRange.Region) > 0 && !utils.IsInStringArray(remoteRegions[i].GetId(), syncRange.Region) {
+		if !syncRange.FullSync && len(syncRange.Region) > 0 && !utils.IsInStringArray(remoteRegions[i].GetId(), syncRange.Region) {
 			continue
 		}
 
@@ -91,7 +91,7 @@ func syncCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider,
 		if localZones != nil && remoteZones != nil {
 			for j := 0; j < len(localZones); j += 1 {
 
-				if len(syncRange.Zone) > 0 && !utils.IsInStringArray(remoteZones[j].GetId(), syncRange.Zone) {
+				if !syncRange.FullSync && len(syncRange.Zone) > 0 && !utils.IsInStringArray(remoteZones[j].GetId(), syncRange.Zone) {
 					continue
 				}
 				syncZoneStorages(ctx, provider, task, &localZones[j], remoteZones[j])
@@ -258,7 +258,7 @@ func syncZoneHosts(ctx context.Context, provider *models.SCloudprovider, task *C
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
 
 	for i := 0; i < len(localHosts); i += 1 {
-		if len(syncRange.Host) > 0 && !utils.IsInStringArray(remoteHosts[i].GetGlobalId(), syncRange.Host) {
+		if !syncRange.FullSync && len(syncRange.Host) > 0 && !utils.IsInStringArray(remoteHosts[i].GetGlobalId(), syncRange.Host) {
 			continue
 		}
 		syncHostStorages(ctx, provider, task, &localHosts[i], remoteHosts[i])
