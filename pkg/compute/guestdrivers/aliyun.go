@@ -7,8 +7,8 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/onecloud/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/pkg/util/seclib"
 	"github.com/yunionio/pkg/utils"
 
@@ -239,26 +239,4 @@ func (self *SAliyunGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Contex
 	}
 	guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
 	return nil
-}
-
-func (self *SAliyunGuestDriver) GetGuestVncInfo(userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
-	ihost, err := host.GetIHost()
-	if err != nil {
-		return nil, err
-	}
-
-	iVM, err := ihost.GetIVMById(guest.ExternalId)
-	if err != nil {
-		log.Errorf("cannot find vm %s %s", iVM, err)
-		return nil, err
-	}
-
-	data, err := iVM.GetVNCInfo()
-	if err != nil {
-		return nil, err
-	}
-
-	dataDict := data.(*jsonutils.JSONDict)
-
-	return dataDict, nil
 }

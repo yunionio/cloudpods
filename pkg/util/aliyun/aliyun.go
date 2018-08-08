@@ -6,10 +6,11 @@ import (
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/onecloud/pkg/compute/models"
 )
 
 const (
-	CLOUD_PROVIDER_ALIYUN    = "Aliyun"
+	CLOUD_PROVIDER_ALIYUN    = models.CLOUD_PROVIDER_ALIYUN
 	CLOUD_PROVIDER_ALIYUN_CN = "阿里云"
 
 	ALIYUN_DEFAULT_REGION = "cn-hangzhou"

@@ -6,14 +6,14 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient/auth"
-	"github.com/yunionio/onecloud/pkg/mcclient/modules"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/notifyclient"
 	"github.com/yunionio/onecloud/pkg/compute/models"
 	"github.com/yunionio/onecloud/pkg/compute/options"
+	"github.com/yunionio/onecloud/pkg/mcclient/auth"
+	"github.com/yunionio/onecloud/pkg/mcclient/modules"
 )
 
 type GuestBatchCreateTask struct {

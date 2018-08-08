@@ -2,13 +2,14 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/onecloud/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/pkg/util/timeutils"
 	"github.com/yunionio/pkg/utils"
 
@@ -24,8 +25,8 @@ const (
 	CLOUD_PROVIDER_START_SYNC   = "start_sync"
 	CLOUD_PROVIDER_SYNCING      = "syncing"
 
-	CLOUD_PROVIDER_DRIVER_VMWARE = "VMware"
-	CLOUD_PROVIDER_DRIVER_ALIYUN = "Aliyun"
+	CLOUD_PROVIDER_VMWARE = "VMware"
+	CLOUD_PROVIDER_ALIYUN = "Aliyun"
 )
 
 type SCloudproviderManager struct {
@@ -195,10 +196,9 @@ func (self *SCloudprovider) PerformUpdateCredential(ctx context.Context, userCre
 		q := self.GetModelManager().Query()
 		q = q.Equals("access_url", accessUrl)
 		q = q.Equals("account", account)
-		q = q.Equals("secret", secret)
 		q = q.NotEquals("id", self.Id)
 		if q.Count() > 0 {
-			return nil, httperrors.NewConflictError("Access url and account and ")
+			return nil, httperrors.NewConflictError("Access url and account conflict")
 		}
 	}
 	if len(secret) > 0 {
@@ -292,14 +292,6 @@ func (manager *SCloudproviderManager) FetchCloudproviderByIdOrName(providerId st
 	return providerObj.(*SCloudprovider)
 }
 
-/*func (manager *SCloudproviderManager) GetDriverByManagerId(managerId string) (cloudprovider.ICloudProvider, error) {
-	provider := manager.FetchCloudproviderById(managerId)
-	if provider == nil {
-		return nil, fmt.Errorf("no valid cloud provider")
-	}
-	return provider.GetDriver()
-}*/
-
 type SCloudproviderUsage struct {
 	HostCount         int
 	VpcCount          int
@@ -346,4 +338,56 @@ func (self *SCloudprovider) GetCustomizeColumns(ctx context.Context, userCred mc
 func (self *SCloudprovider) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
 	return self.getMoreDetails(extra)
+}
+
+func (manager *SCloudproviderManager) InitializeData() error {
+	// move vmware info from vcenter to cloudprovider
+	vcenters := make([]SVCenter, 0)
+	q := VCenterManager.Query()
+	err := db.FetchModelObjects(VCenterManager, q, &vcenters)
+	if err != nil {
+		return err
+	}
+	for _, vc := range vcenters {
+		_, err := CloudproviderManager.FetchById(vc.Id)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				err = manager.migrateVCenterInfo(&vc)
+				if err != nil {
+					log.Errorf("migrateVcenterInfo fail %s", err)
+					return err
+				}
+				_, err = VCenterManager.TableSpec().Update(&vc, func() error {
+					return vc.MarkDelete()
+				})
+				if err != nil {
+					log.Errorf("delete vcenter record fail %s", err)
+					return err
+				}
+			} else {
+				log.Errorf("fetch cloudprovider fail %s", err)
+				return err
+			}
+		} else {
+			log.Debugf("vcenter info has been migrate into cloudprovider")
+		}
+	}
+	return nil
+}
+
+func (manager *SCloudproviderManager) migrateVCenterInfo(vc *SVCenter) error {
+	cp := SCloudprovider{}
+	cp.SetModelManager(manager)
+
+	cp.Id = vc.Id
+	cp.Name = db.GenerateName(manager, "", vc.Name)
+	cp.Status = vc.Status
+	cp.AccessUrl = fmt.Sprintf("https://%s:%d", vc.Hostname, vc.Port)
+	cp.Account = vc.Account
+	cp.Secret = vc.Password
+	cp.LastSync = vc.LastSync
+	cp.Sysinfo = vc.Sysinfo
+	cp.Provider = CLOUD_PROVIDER_VMWARE
+
+	return manager.TableSpec().Insert(&cp)
 }

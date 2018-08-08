@@ -7,6 +7,7 @@ import (
 
 func InitDB() error {
 	for _, manager := range []db.IModelManager{
+		CloudproviderManager,
 		CloudregionManager,
 		ZoneManager,
 		VpcManager,

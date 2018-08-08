@@ -1,4 +1,4 @@
-package printjson
+package printutils
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"github.com/yunionio/onecloud/pkg/mcclient/modules"
 )
 
-func PrintList(list *modules.ListResult, columns []string) {
+func PrintJSONList(list *modules.ListResult, columns []string) {
 	colsWithData := make([]string, 0)
 	if columns == nil || len(columns) == 0 {
 		colsWithDataMap := make(map[string]bool)
@@ -75,7 +75,7 @@ func PrintList(list *modules.ListResult, columns []string) {
 	fmt.Println("*** ", title, " ***")
 }
 
-func PrintObject(obj jsonutils.JSONObject) {
+func PrintJSONObject(obj jsonutils.JSONObject) {
 	dict, ok := obj.(*jsonutils.JSONDict)
 	if !ok {
 		fmt.Println("Not a valid JSON object:", obj.String())
@@ -98,7 +98,7 @@ func PrintObject(obj jsonutils.JSONObject) {
 	fmt.Println(pt.GetString(rows))
 }
 
-func PrintBatchResults(results []modules.SubmitResult, columns []string) {
+func PrintJSONBatchResults(results []modules.SubmitResult, columns []string) {
 	objs := make([]jsonutils.JSONObject, 0)
 	errs := make([]jsonutils.JSONObject, 0)
 	for _, r := range results {
@@ -113,9 +113,9 @@ func PrintBatchResults(results []modules.SubmitResult, columns []string) {
 		}
 	}
 	if len(objs) > 0 {
-		PrintList(&modules.ListResult{Data: objs}, columns)
+		PrintJSONList(&modules.ListResult{Data: objs}, columns)
 	}
 	if len(errs) > 0 {
-		PrintList(&modules.ListResult{Data: errs}, []string{"status", "id", "error"})
+		PrintJSONList(&modules.ListResult{Data: errs}, []string{"status", "id", "error"})
 	}
 }
