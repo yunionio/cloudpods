@@ -834,7 +834,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		maskLen64 = int64(prefix.MaskLen)
 	} else {
 		ipStartStr, _ := data.GetString("guest_ip_start")
-		ipEndStr, _ := data.GetString("guest_ip_start")
+		ipEndStr, _ := data.GetString("guest_ip_end")
 		startIp, err = netutils.NewIPV4Addr(ipStartStr)
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("Invalid start ip: %s %s", ipStartStr, err)
@@ -971,7 +971,7 @@ func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 	var err error
 
 	ipStartStr, _ := data.GetString("guest_ip_start")
-	ipEndStr, _ := data.GetString("guest_ip_start")
+	ipEndStr, _ := data.GetString("guest_ip_end")
 
 	if len(ipStartStr) > 0 || len(ipEndStr) > 0 {
 		if self.isManaged() {

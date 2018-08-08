@@ -51,7 +51,7 @@ type SCloudprovider struct {
 
 	LastSync time.Time `get:"admin" list:"admin"` // = Column(DateTime, nullable=True)
 
-	// Version string `width:"32" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
+	Version string `width:"32" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
 
 	Sysinfo jsonutils.JSONObject `get:"admin"` // Column(JSONEncodedDict, nullable=True)
 
@@ -138,6 +138,9 @@ func (self *SCloudprovider) getPassword() (string, error) {
 }
 
 func (self *SCloudprovider) CanSync() bool {
+	if ! self.Enabled {
+		return false
+	}
 	if self.Status == CLOUD_PROVIDER_SYNCING {
 		if self.LastSync.IsZero() || time.Now().Sub(self.LastSync) > 900*time.Second {
 			return true
@@ -215,7 +218,7 @@ func (self *SCloudprovider) PerformUpdateCredential(ctx context.Context, userCre
 		}
 		changed = true
 	}
-	if changed && self.CanSync() {
+	if changed {
 		self.SetStatus(userCred, CLOUD_PROVIDER_INIT, "Change credential")
 		self.startSyncCloudProviderInfoTask(ctx, userCred, nil, "")
 	}
