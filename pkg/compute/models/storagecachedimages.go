@@ -35,7 +35,16 @@ var StoragecachedimageManager *SStoragecachedimageManager
 
 func init() {
 	db.InitManager(func() {
-		StoragecachedimageManager = &SStoragecachedimageManager{SJointResourceBaseManager: db.NewJointResourceBaseManager(SStoragecachedimage{}, "storagecachedimages_tbl", "storagecachedimage", "storagecachedimages", StoragecacheManager, CachedimageManager)}
+		StoragecachedimageManager = &SStoragecachedimageManager{
+			SJointResourceBaseManager: db.NewJointResourceBaseManager(
+				SStoragecachedimage{},
+				"storagecachedimages_tbl",
+				"storagecachedimage",
+				"storagecachedimages",
+				StoragecacheManager,
+				CachedimageManager,
+			),
+		}
 	})
 }
 

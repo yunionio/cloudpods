@@ -18,8 +18,15 @@ var HostwireManager *SHostwireManager
 
 func init() {
 	db.InitManager(func() {
-		HostwireManager = &SHostwireManager{SHostJointsManager: NewHostJointsManager(SHostwire{},
-			"hostwires_tbl", "hostwire", "hostwires", WireManager)}
+		HostwireManager = &SHostwireManager{
+			SHostJointsManager: NewHostJointsManager(
+				SHostwire{},
+				"hostwires_tbl",
+				"hostwire",
+				"hostwires",
+				WireManager,
+			),
+		}
 	})
 }
 
