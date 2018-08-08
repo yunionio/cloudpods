@@ -3,6 +3,7 @@ package shell
 import (
 	"fmt"
 	"github.com/yunionio/onecloud/pkg/util/aliyun"
+	"github.com/yunionio/onecloud/pkg/util/shellutils"
 )
 
 func init() {
@@ -12,7 +13,7 @@ func init() {
 		Limit  int      `help:"page size"`
 		Offset int      `help:"page offset"`
 	}
-	R(&InstanceListOptions{}, "instance-list", "List intances", func(cli *aliyun.SRegion, args *InstanceListOptions) error {
+	shellutils.R(&InstanceListOptions{}, "instance-list", "List intances", func(cli *aliyun.SRegion, args *InstanceListOptions) error {
 		instances, total, e := cli.GetInstances(args.Zone, args.Id, args.Offset, args.Limit)
 		if e != nil {
 			return e
@@ -32,7 +33,7 @@ func init() {
 		PASSWD    string `help:"password"`
 		PublicKey string `help:"PublicKey"`
 	}
-	R(&InstanceCrateOptions{}, "instance-create", "Create a instance", func(cli *aliyun.SRegion, args *InstanceCrateOptions) error {
+	shellutils.R(&InstanceCrateOptions{}, "instance-create", "Create a instance", func(cli *aliyun.SRegion, args *InstanceCrateOptions) error {
 		instance, e := cli.CreateInstanceSimple(args.NAME, args.IMAGE, args.CPU, args.MEMORYGB, args.STORAGE, args.Disk, args.VSWITCH, args.PASSWD, args.PublicKey)
 		if e != nil {
 			return e
@@ -44,7 +45,7 @@ func init() {
 	type InstanceOperationOptions struct {
 		ID string `help:"instance ID"`
 	}
-	R(&InstanceOperationOptions{}, "instance-start", "Start a instance", func(cli *aliyun.SRegion, args *InstanceOperationOptions) error {
+	shellutils.R(&InstanceOperationOptions{}, "instance-start", "Start a instance", func(cli *aliyun.SRegion, args *InstanceOperationOptions) error {
 		err := cli.StartVM(args.ID)
 		if err != nil {
 			return err
@@ -52,7 +53,7 @@ func init() {
 		return nil
 	})
 
-	R(&InstanceOperationOptions{}, "instance-vnc", "Get a instance VNC url", func(cli *aliyun.SRegion, args *InstanceOperationOptions) error {
+	shellutils.R(&InstanceOperationOptions{}, "instance-vnc", "Get a instance VNC url", func(cli *aliyun.SRegion, args *InstanceOperationOptions) error {
 		url, err := cli.GetInstanceVNCUrl(args.ID)
 		if err != nil {
 			return err
@@ -65,14 +66,14 @@ func init() {
 		ID    string `help:"instance ID"`
 		Force bool   `help:"Force stop instance"`
 	}
-	R(&InstanceStopOptions{}, "instance-stop", "Stop a instance", func(cli *aliyun.SRegion, args *InstanceStopOptions) error {
+	shellutils.R(&InstanceStopOptions{}, "instance-stop", "Stop a instance", func(cli *aliyun.SRegion, args *InstanceStopOptions) error {
 		err := cli.StopVM(args.ID, args.Force)
 		if err != nil {
 			return err
 		}
 		return nil
 	})
-	R(&InstanceOperationOptions{}, "instance-delete", "Delete a instance", func(cli *aliyun.SRegion, args *InstanceOperationOptions) error {
+	shellutils.R(&InstanceOperationOptions{}, "instance-delete", "Delete a instance", func(cli *aliyun.SRegion, args *InstanceOperationOptions) error {
 		err := cli.DeleteVM(args.ID)
 		if err != nil {
 			return err
