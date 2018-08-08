@@ -126,14 +126,14 @@ func (joint *SJointResourceBase) GetJointModelManager() IJointModelManager {
 	return joint.SResourceBase.GetModelManager().(IJointModelManager)
 }
 
-func getFieldValue(joint IJointModel, name1 string, name2 string) string {
+func getFieldValue(joint IJointModel, keyword string, alias string) string {
 	jointValue := reflect.Indirect(reflect.ValueOf(joint))
-	idStr, find := reflectutils.FindStructFieldInterface(jointValue, fmt.Sprintf("%s_id", name1))
-	if find {
+	idStr, ok := reflectutils.FindStructFieldInterface(jointValue, fmt.Sprintf("%s_id", keyword))
+	if ok {
 		return idStr.(string)
 	}
-	idStr, find = reflectutils.FindStructFieldInterface(jointValue, fmt.Sprintf("%s_id", name2))
-	if find {
+	idStr, ok = reflectutils.FindStructFieldInterface(jointValue, fmt.Sprintf("%s_id", alias))
+	if ok {
 		return idStr.(string)
 	}
 	return ""
