@@ -6,9 +6,10 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/mcclient"
+	"github.com/yunionio/pkg/util/secrules"
 	"github.com/yunionio/sqlchemy"
 )
 
@@ -99,6 +100,16 @@ func (self *SSecurityGroup) getSecurityRules() (rules []SSecurityGroupRule) {
 	return
 }
 
+func (self *SSecurityGroup) getSecRules() []*secrules.SecurityRule {
+	rules := make([]*secrules.SecurityRule, 0)
+	for _, rule := range self.getSecurityRules() {
+		r, _ := secrules.ParseSecurityRule(rule.GetRule())
+		r.Priority = int(rule.Priority)
+		rules = append(rules, r)
+	}
+	return rules
+}
+
 func (self *SSecurityGroup) getSecurityRuleString() string {
 	secgrouprules := self.getSecurityRules()
 	var rules []string
@@ -158,11 +169,14 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 	return nil, nil
 }
 
-func (self *SSecurityGroup) DoSync() {
+func (self *SSecurityGroup) DoSync(ctx context.Context, userCred mcclient.TokenCredential) {
 	if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.IsDirty = true
 		return nil
 	}); err != nil {
 		log.Errorf("Update Security Group error: %s", err.Error())
+	}
+	for _, guest := range self.GetGuests() {
+		guest.StartSyncTask(ctx, userCred, true, "")
 	}
 }

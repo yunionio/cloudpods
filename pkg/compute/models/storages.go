@@ -16,14 +16,17 @@ import (
 )
 
 const (
-	STORAGE_LOCAL        = "local"
-	STORAGE_BAREMETAL    = "baremetal"
-	STORAGE_SHEEPDOG     = "sheepdog"
-	STORAGE_RBD          = "rbd"
-	STORAGE_DOCKER       = "docker"
-	STORAGE_NAS          = "nas"
-	STORAGE_VSAN         = "vsan"
-	STORAGE_PUBLIC_CLOUD = "cloud"
+	STORAGE_LOCAL            = "local"
+	STORAGE_BAREMETAL        = "baremetal"
+	STORAGE_SHEEPDOG         = "sheepdog"
+	STORAGE_RBD              = "rbd"
+	STORAGE_DOCKER           = "docker"
+	STORAGE_NAS              = "nas"
+	STORAGE_VSAN             = "vsan"
+	STORAGE_PUBLIC_CLOUD     = "cloud"
+	STORAGE_CLOUD_EFFICIENCY = "cloud_efficiency"
+	STORAGE_CLOUD_SSD        = "cloud_ssd"
+	STORAGE_EPHEMERAL_SSD    = "ephemeral_ssd"
 
 	STORAGE_ENABLED  = "enabled"
 	STORAGE_DISABLED = "disabled"

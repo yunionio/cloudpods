@@ -7,8 +7,8 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/onecloud/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/pkg/util/seclib"
 	"github.com/yunionio/pkg/utils"
 
@@ -163,6 +163,12 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			return nil, err
 		}
 
+		if len(guest.SecgrpId) > 0 {
+			if err := iVM.SyncSecurityGroup(guest.SecgrpId, guest.GetSecRules()); err != nil {
+				return nil, err
+			}
+		}
+
 		if onfinish == "none" {
 			err = iVM.StartVM()
 			if err != nil {
@@ -261,4 +267,20 @@ func (self *SAliyunGuestDriver) GetGuestVncInfo(userCred mcclient.TokenCredentia
 	dataDict := data.(*jsonutils.JSONDict)
 
 	return dataDict, nil
+}
+
+func (self *SAliyunGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		if fw_only, _ := task.GetParams().Bool("fw_only"); fw_only {
+			if ihost, err := host.GetIHost(); err != nil {
+				return nil, err
+			} else if iVM, err := ihost.GetIVMById(guest.ExternalId); err != nil {
+				return nil, err
+			} else if err := iVM.SyncSecurityGroup(guest.SecgrpId, guest.GetSecRules()); err != nil {
+				return nil, err
+			}
+		}
+		return nil, nil
+	})
+	return nil
 }

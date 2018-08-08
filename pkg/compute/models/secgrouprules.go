@@ -8,9 +8,9 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 	"github.com/yunionio/pkg/util/secrules"
 	"github.com/yunionio/pkg/util/stringutils"
 	"github.com/yunionio/sqlchemy"
@@ -212,7 +212,7 @@ func (self *SSecurityGroupRule) PostCreate(ctx context.Context, userCred mcclien
 
 	log.Debugf("POST Create %s", data)
 	if secgroup := self.GetSecGroup(); secgroup != nil {
-		secgroup.DoSync()
+		secgroup.DoSync(ctx, userCred)
 	}
 }
 
@@ -220,7 +220,7 @@ func (self *SSecurityGroupRule) PreDelete(ctx context.Context, userCred mcclient
 	self.SResourceBase.PreDelete(ctx, userCred)
 
 	if secgroup := self.GetSecGroup(); secgroup != nil {
-		secgroup.DoSync()
+		secgroup.DoSync(ctx, userCred)
 	}
 }
 
@@ -229,6 +229,6 @@ func (self *SSecurityGroupRule) PostUpdate(ctx context.Context, userCred mcclien
 
 	log.Debugf("POST Update %s", data)
 	if secgroup := self.GetSecGroup(); secgroup != nil {
-		secgroup.DoSync()
+		secgroup.DoSync(ctx, userCred)
 	}
 }

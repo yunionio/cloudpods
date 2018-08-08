@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/yunionio/log"
-	"github.com/yunionio/pkg/gotypes"
 	"github.com/yunionio/pkg/util/reflectutils"
 )
 
@@ -25,6 +24,7 @@ func (t *STableSpec) Insert(dt interface{}) error {
 	names := make([]string, 0)
 	format := make([]string, 0)
 	values := make([]interface{}, 0)
+
 	fields := reflectutils.FetchStructFieldNameValueInterfaces(dataValue)
 	for _, c := range t.columns {
 		isAutoInc := false
@@ -58,15 +58,23 @@ func (t *STableSpec) Insert(dt interface{}) error {
 			} else {
 				return fmt.Errorf("fail to insert for null primary key `%s`", k)
 			}
+		} else if ! c.IsSupportDefault() && len(c.Default()) > 0 && ov != nil && c.IsZero(ov) { // empty text value
+			val := c.ConvertFromString(c.Default())
+			values = append(values, val)
+			names = append(names, fmt.Sprintf("`%s`", k))
+			format = append(format, "?")
 		}
 	}
+
 	insertSql := fmt.Sprintf("INSERT INTO `%s` (%s) VALUES(%s)",
 		t.name,
 		strings.Join(names, ", "),
 		strings.Join(format, ", "))
+
 	if DEBUG_SQLCHEMY {
 		log.Debugf("%s values: %s", insertSql, values)
 	}
+
 	results, err := _db.Exec(insertSql, values...)
 	if err != nil {
 		return err
@@ -78,6 +86,8 @@ func (t *STableSpec) Insert(dt interface{}) error {
 	if affectCnt != 1 {
 		return fmt.Errorf("Insert affected cnt %d != 1", affectCnt)
 	}
+
+	/*
 	if len(autoIncField) > 0 {
 		lastId, err := results.LastInsertId()
 		if err == nil {
@@ -87,5 +97,32 @@ func (t *STableSpec) Insert(dt interface{}) error {
 			}
 		}
 	}
+	*/
+
+	// query the value, so default value can be feedback into the object
+	// fields = reflectutils.FetchStructFieldNameValueInterfaces(dataValue)
+	q := t.Query()
+	for _, c := range t.columns {
+		if c.IsPrimary() {
+			nc, ok := c.(*SIntegerColumn)
+			if ok && nc.IsAutoIncrement {
+				lastId, err := results.LastInsertId()
+				if err != nil {
+					log.Errorf("Fail to fetch lastInsertId %s", err)
+					return err
+				} else {
+					q = q.Equals(c.Name(), lastId)
+				}
+			} else {
+				q = q.Equals(c.Name(), fields[c.Name()])
+			}
+		}
+	}
+	err = q.First(dt)
+	if err != nil {
+		log.Errorf("query after insert failed %s", err)
+		return err
+	}
+	
 	return nil
 }

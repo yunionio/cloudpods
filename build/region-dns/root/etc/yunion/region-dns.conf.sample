@@ -1,0 +1,11 @@
+.:53 {
+    cache 30
+    yunion . {
+        sql_connection mysql+pymysql://yunioncloud:AxuaId26ZhfPXWgr@10.168.222.183:3306/yunioncloud?charset=utf8
+        dns_domain yunion.local
+        kube_config /home/lzx/.kube/config-hq
+        fallthrough .
+    }
+    proxy . 114.114.114.114:53 8.8.8.8:53
+    log
+}

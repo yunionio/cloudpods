@@ -10,6 +10,7 @@ import (
 	"github.com/yunionio/onecloud/pkg/compute/models"
 	"github.com/yunionio/pkg/util/osprofile"
 	"github.com/yunionio/pkg/util/seclib"
+	"github.com/yunionio/pkg/util/secrules"
 	"github.com/yunionio/pkg/utils"
 )
 
@@ -182,6 +183,10 @@ func (self *SInstance) GetGlobalId() string {
 
 func (self *SInstance) IsEmulated() bool {
 	return false
+}
+
+func (self *SInstance) getVpc() (*SVpc, error) {
+	return self.host.zone.region.getVpc(self.VpcAttributes.VpcId)
 }
 
 func (self *SInstance) fetchDisks() error {
@@ -500,4 +505,23 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 	ret.Add(jsonutils.NewString("aliyun"), "protocol")
 	ret.Add(jsonutils.NewString(self.InstanceId), "instance_id")
 	return ret, nil
+}
+
+func (self *SInstance) SyncSecurityGroup(secgroupId string, rules []*secrules.SecurityRule) error {
+	if vpc, err := self.getVpc(); err != nil {
+		return err
+	} else if len(secgroupId) == 0 {
+		for _, secgrpId := range self.SecurityGroupIds.SecurityGroupId {
+			if err := vpc.revokeSecurityGroup(secgrpId, self.InstanceId); err != nil {
+				return err
+			}
+		}
+	} else if secgrpId, err := vpc.syncSecurityGroup(secgroupId, rules); err != nil {
+		return err
+	} else if err := vpc.assignSecurityGroup(secgrpId, self.InstanceId); err != nil {
+		return err
+	} else {
+		self.SecurityGroupIds.SecurityGroupId = append(self.SecurityGroupIds.SecurityGroupId, secgrpId)
+	}
+	return nil
 }

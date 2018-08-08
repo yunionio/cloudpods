@@ -4,8 +4,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/pkg/util/secrules"
 )
 
 const (
@@ -179,4 +181,37 @@ func (self *SVpc) GetManagerId() string {
 
 func (self *SVpc) Delete() error {
 	return self.region.DeleteVpc(self.VpcId)
+}
+
+func (self *SVpc) syncSecurityGroup(secgroupId string, rules []*secrules.SecurityRule) (string, error) {
+	secgrpId := ""
+	if secgroup, err := self.region.getSecurityGroupByTag(self.VpcId, secgroupId); err != nil {
+		if secgrpId, err = self.region.createSecurityGroup(self.VpcId, "", ""); err != nil {
+			return "", err
+		} else if err := self.region.addTagToSecurityGroup(secgrpId, "id", secgroupId, 1); err != nil {
+			return "", err
+		} else {
+			//addRules
+			log.Debugf("Add Rules: %s", secgrpId)
+			for _, rule := range rules {
+				if err := self.region.addSecurityGroupRule(secgrpId, rule); err != nil {
+					return "", err
+				}
+			}
+		}
+	} else {
+		//syncRules
+		log.Debugf("Sync rules %s", secgrpId)
+		secgrpId = secgroup.SecurityGroupId
+		self.region.syncSecgroupRules(secgrpId, rules)
+	}
+	return secgrpId, nil
+}
+func (self *SVpc) assignSecurityGroup(secgroupId string, instanceId string) error {
+	log.Debugf("Assign secgroup %s => %s", secgroupId, instanceId)
+	return self.region.assignSecurityGroup(secgroupId, instanceId)
+}
+
+func (self *SVpc) revokeSecurityGroup(secgroupId string, instanceId string) error {
+	return self.region.revokeSecurityGroup(secgroupId, instanceId)
 }

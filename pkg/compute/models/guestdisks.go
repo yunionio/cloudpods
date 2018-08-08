@@ -6,9 +6,11 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"github.com/yunionio/sqlchemy"
 
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"github.com/yunionio/onecloud/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 )
 
 type SGuestdiskManager struct {
@@ -45,6 +47,23 @@ func (manager *SGuestdiskManager) AllowCreateItem(ctx context.Context, userCred 
 
 func (self *SGuestdisk) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return false
+}
+
+func (self *SGuestdisk) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	if data.Contains("index") {
+		if index, err := data.Int("index"); err != nil {
+			return nil, err
+		} else {
+			guestdisk := GuestdiskManager.Query().SubQuery()
+			count := guestdisk.Query().Filter(sqlchemy.Equals(guestdisk.Field("guest_id"), self.GuestId)).
+				Filter(sqlchemy.NotEquals(guestdisk.Field("disk_id"), self.DiskId)).
+				Filter(sqlchemy.Equals(guestdisk.Field("index"), index)).Count()
+			if count > 0 {
+				return nil, httperrors.NewInputParameterError("DISK Index %d has been occupied", index)
+			}
+		}
+	}
+	return self.SGuestJointsBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
 func (joint *SGuestdisk) Master() db.IStandaloneModel {

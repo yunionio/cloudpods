@@ -5,6 +5,7 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/onecloud/pkg/mcclient"
+	"github.com/yunionio/pkg/util/secrules"
 )
 
 type ICloudResource interface {
@@ -84,6 +85,7 @@ type ICloudStorage interface {
 	GetManagerId() string
 
 	CreateIDisk(name string, sizeGb int, desc string) (ICloudDisk, error)
+	GetIDisk(idStr string) (ICloudDisk, error)
 }
 
 type ICloudHost interface {
@@ -142,6 +144,7 @@ type ICloudVM interface {
 	GetBios() string
 	GetMachine() string
 
+	SyncSecurityGroup(secgroupId string, rules []*secrules.SecurityRule) error
 	GetHypervisor() string
 
 	// GetSecurityGroup() ICloudSecurityGroup
@@ -187,6 +190,7 @@ type ICloudDisk interface {
 	GetDriver() string
 	GetCacheMode() string
 	GetMountpoint() string
+	Delete() error
 }
 
 type ICloudVpc interface {

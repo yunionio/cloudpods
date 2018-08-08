@@ -2,9 +2,13 @@ package aliyun
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/deckarep/golang-set"
+	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
+	"github.com/yunionio/onecloud/pkg/httperrors"
 	"github.com/yunionio/pkg/util/secrules"
 	"github.com/yunionio/pkg/utils"
 )
@@ -124,13 +128,16 @@ func (self *SRegion) createSecurityGroup(vpcId string, name string, desc string)
 
 func (self *SRegion) addSecurityGroupRule(secGrpId string, rule *secrules.SecurityRule) error {
 	params := make(map[string]string)
+	params["RegionId"] = self.RegionId
 	params["SecurityGroupId"] = secGrpId
+	params["NicType"] = string(IntranetNicType)
+	params["PortRange"] = fmt.Sprintf("%d/%d", rule.PortStart, rule.PortEnd)
 	protocol := rule.Protocol
-	if len(rule.Protocol) == 0 {
+	if len(rule.Protocol) == 0 || rule.Protocol == secrules.PROTO_ANY {
 		protocol = "all"
+		params["PortRange"] = "-1/-1"
 	}
 	params["IpProtocol"] = protocol
-	params["PortRange"] = fmt.Sprintf("%d/%d", rule.PortStart, rule.PortEnd)
 	if rule.Action == secrules.SecurityRuleAllow {
 		params["Policy"] = "accept"
 	} else {
@@ -143,7 +150,7 @@ func (self *SRegion) addSecurityGroupRule(secGrpId string, rule *secrules.Securi
 		} else {
 			params["SourceCidrIp"] = "0.0.0.0/0"
 		}
-		params["DestCidrIp"] = "0.0.0.0/0"
+		log.Debugf("add Security Group params: %v", params)
 		_, err := self.ecsRequest("AuthorizeSecurityGroup", params)
 		return err
 	} else { // rule.Direction == secrules.SecurityRuleEgress {
@@ -152,8 +159,47 @@ func (self *SRegion) addSecurityGroupRule(secGrpId string, rule *secrules.Securi
 		} else {
 			params["DestCidrIp"] = "0.0.0.0/0"
 		}
-		params["SourceCidrIp"] = "0.0.0.0/0"
+		log.Debugf("add Security Group params: %v", params)
 		_, err := self.ecsRequest("AuthorizeSecurityGroupEgress", params)
+		return err
+	}
+}
+
+func (self *SRegion) delSecurityGroupRule(secGrpId string, rule *secrules.SecurityRule) error {
+	params := make(map[string]string)
+	params["RegionId"] = self.RegionId
+	params["SecurityGroupId"] = secGrpId
+	params["NicType"] = string(IntranetNicType)
+	params["PortRange"] = fmt.Sprintf("%d/%d", rule.PortStart, rule.PortEnd)
+	protocol := rule.Protocol
+	if len(rule.Protocol) == 0 || rule.Protocol == secrules.PROTO_ANY {
+		protocol = "all"
+		params["PortRange"] = "-1/-1"
+	}
+	params["IpProtocol"] = protocol
+	if rule.Action == secrules.SecurityRuleAllow {
+		params["Policy"] = "accept"
+	} else {
+		params["Policy"] = "drop"
+	}
+	params["Priority"] = fmt.Sprintf("%d", rule.Priority)
+	if rule.Direction == secrules.SecurityRuleIngress {
+		if rule.IPNet != nil {
+			params["SourceCidrIp"] = rule.IPNet.String()
+		} else {
+			params["SourceCidrIp"] = "0.0.0.0/0"
+		}
+		log.Debugf("del Security Group params: %v", params)
+		_, err := self.ecsRequest("RevokeSecurityGroup", params)
+		return err
+	} else { // rule.Direction == secrules.SecurityRuleEgress {
+		if rule.IPNet != nil {
+			params["DestCidrIp"] = rule.IPNet.String()
+		} else {
+			params["DestCidrIp"] = "0.0.0.0/0"
+		}
+		log.Debugf("del Security Group params: %v", params)
+		_, err := self.ecsRequest("RevokeSecurityGroupEgress", params)
 		return err
 	}
 }
@@ -188,4 +234,154 @@ func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
 		return "", err
 	}
 	return secId, nil
+}
+
+func (self *SRegion) getSecurityGroupByTag(vpcId, secgroupId string) (*SSecurityGroup, error) {
+	params := make(map[string]string)
+	params["RegionId"] = self.RegionId
+	if len(vpcId) > 0 {
+		params["VpcId"] = vpcId
+	}
+	params["Tag.1.Key"] = "id"
+	params["Tag.1.Value"] = secgroupId
+
+	secgrps := make([]SSecurityGroup, 0)
+	if body, err := self.ecsRequest("DescribeSecurityGroups", params); err != nil {
+		return nil, err
+	} else if err := body.Unmarshal(&secgrps, "SecurityGroups", "SecurityGroup"); err != nil {
+		return nil, err
+	} else if len(secgrps) != 1 {
+		return nil, httperrors.NewNotFoundError("failed to find SecurityGroup %s", secgroupId)
+	}
+	return &secgrps[0], nil
+}
+
+func (self *SPermission) toString() string {
+	action := secrules.SecurityRuleDeny
+	if strings.ToLower(self.Policy) == "accept" {
+		action = secrules.SecurityRuleAllow
+	}
+	direction := "in"
+	if self.Direction == "egress" {
+		direction = "out"
+	}
+	cidr := self.SourceCidrIp
+	if direction == "out" {
+		cidr = self.DestCidrIp
+	}
+	protocol := strings.ToLower(self.IpProtocol)
+	if protocol == "all" {
+		protocol = "any"
+	}
+	port, ports := "", strings.Split(self.PortRange, "/")
+	if ports[0] == ports[1] && (ports[0] != "-1") {
+		port = ports[0]
+	} else {
+		port = fmt.Sprintf("%s-%s", ports[0], ports[1])
+	}
+	return fmt.Sprintf("%s:%s %s %s %s", direction, string(action), cidr, protocol, port)
+}
+
+func (self *SRegion) addTagToSecurityGroup(secgroupId, key, value string, index int) error {
+	if index > 5 || index < 1 {
+		index = 1
+	}
+	params := map[string]string{"ResourceType": "securitygroup", "ResourceId": secgroupId}
+	params[fmt.Sprintf("Tag.%d.Key", index)] = key
+	params[fmt.Sprintf("Tag.%d.Value", index)] = value
+	_, err := self.ecsRequest("AddTags", params)
+	return err
+}
+
+func (self *SRegion) revokeSecurityGroup(secgroupId, instanceId string) error {
+	if secgroup, err := self.GetSecurityGroupDetails(secgroupId); err != nil {
+		return err
+	} else {
+		for _, r := range secgroup.Permissions.Permission {
+			if rule, err := secrules.ParseSecurityRule(r.toString()); err != nil {
+				return err
+			} else {
+				rule.Priority = r.Priority
+				if err := self.delSecurityGroupRule(secgroup.SecurityGroupId, rule); err != nil {
+					return err
+				}
+			}
+		}
+		if rule, err := secrules.ParseSecurityRule("in:allow any"); err != nil {
+			rule.Priority = 100
+			if err := self.addSecurityGroupRule(secgroup.SecurityGroupId, rule); err != nil {
+				return err
+			}
+		}
+		if rule, err := secrules.ParseSecurityRule("out:allow any"); err != nil {
+			rule.Priority = 100
+			if err := self.addSecurityGroupRule(secgroup.SecurityGroupId, rule); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (self *SRegion) syncSecgroupRules(secgroupId string, rules []*secrules.SecurityRule) error {
+	if secgroup, err := self.GetSecurityGroupDetails(secgroupId); err != nil {
+		return err
+	} else {
+		newRules, newStr := make(map[string]*secrules.SecurityRule), mapset.NewSet()
+		for _, rule := range rules {
+			rule.Priority = 101 - rule.Priority
+			if len(rule.Ports) > 0 {
+				for _, port := range rule.Ports {
+					rule.PortStart, rule.PortEnd = port, port
+					if jsonStr := jsonutils.Marshal(rule).String(); newStr.Add(jsonStr) {
+						newRules[jsonStr] = rule
+					}
+				}
+				continue
+			} else if rule.PortStart == 0 || rule.PortEnd == 0 {
+				rule.PortStart, rule.PortEnd = -1, -1
+			}
+			if jsonStr := jsonutils.Marshal(rule).String(); newStr.Add(jsonStr) {
+				newRules[jsonStr] = rule
+			}
+		}
+
+		oldRules, oldStr := make(map[string]*secrules.SecurityRule), mapset.NewSet()
+		for _, r := range secgroup.Permissions.Permission {
+			if rule, err := secrules.ParseSecurityRule(r.toString()); err != nil {
+				return err
+			} else {
+				rule.Priority = r.Priority
+				if jsonStr := jsonutils.Marshal(rule).String(); oldStr.Add(jsonStr) {
+					oldRules[jsonStr] = rule
+				}
+			}
+		}
+
+		newStr.Each(func(r interface{}) bool {
+			rStr := r.(string)
+			if !oldStr.Contains(r) {
+				rule := newRules[rStr]
+				log.Debugf("add secgroup rule: %v Priority: %d", rule, rule.Priority)
+				self.addSecurityGroupRule(secgroupId, rule)
+			}
+			return false
+		})
+		oldStr.Each(func(r interface{}) bool {
+			rStr := r.(string)
+			if !newStr.Contains(r) {
+				rule := oldRules[rStr]
+				log.Debugf("del secgroup rule: %v Priority: %d", rule, rule.Priority)
+				self.delSecurityGroupRule(secgroupId, rule)
+			}
+			return false
+		})
+	}
+	return nil
+}
+
+func (self *SRegion) assignSecurityGroup(secgroupId, instanceId string) error {
+	params := map[string]string{"InstanceId": instanceId, "SecurityGroupId": secgroupId}
+	_, err := self.ecsRequest("JoinSecurityGroup", params)
+	return err
 }
