@@ -147,6 +147,30 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	return desc
 }
 
+func (self *SGuestdisk) GetDetailedJson() *jsonutils.JSONDict {
+	desc := jsonutils.NewDict()
+	disk := self.GetDisk()
+	var fs string
+	if len(disk.GetTemplateId()) > 0 {
+		fs = "root"
+	} else if len(disk.GetFsFormat()) > 0 {
+		fs = disk.GetFsFormat()
+	} else {
+		fs = "none"
+	}
+	storage := disk.GetStorage()
+	desc.Add(jsonutils.NewString(fs), "fs")
+	desc.Add(jsonutils.NewInt(int64(self.Index)), "index")
+	desc.Add(jsonutils.NewString(fmt.Sprintf("%dM", disk.DiskSize)), "index")
+	desc.Add(jsonutils.NewString(disk.DiskFormat), "disk_format")
+	desc.Add(jsonutils.NewString(self.Driver), "driver")
+	desc.Add(jsonutils.NewString(self.CacheMode), "cache_mode")
+	desc.Add(jsonutils.NewString(self.AioMode), "aio_mode")
+	desc.Add(jsonutils.NewString(storage.MediumType), "medium_type")
+	desc.Add(jsonutils.NewString(storage.StorageType), "storage_type")
+	return desc
+}
+
 func (self *SGuestdisk) GetDetailedString() string {
 	disk := self.GetDisk()
 	var fs string

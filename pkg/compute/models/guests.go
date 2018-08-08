@@ -11,16 +11,7 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/onecloud/pkg/mcclient/auth"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/quotas"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/notifyclient"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/options"
+
 	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/util/compare"
 	"github.com/yunionio/pkg/util/fileutils"
@@ -30,6 +21,17 @@ import (
 	"github.com/yunionio/pkg/util/timeutils"
 	"github.com/yunionio/pkg/utils"
 	"github.com/yunionio/sqlchemy"
+
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db/quotas"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
+	"github.com/yunionio/onecloud/pkg/cloudcommon/notifyclient"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"github.com/yunionio/onecloud/pkg/compute/options"
+	"github.com/yunionio/onecloud/pkg/httperrors"
+	"github.com/yunionio/onecloud/pkg/mcclient"
+	"github.com/yunionio/onecloud/pkg/mcclient/auth"
 )
 
 const (
@@ -870,6 +872,7 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 	extra := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
 	extra.Add(jsonutils.NewString(self.getNetworksDetails()), "networks")
 	extra.Add(jsonutils.NewString(self.getDisksDetails()), "disks")
+	extra.Add(self.getDisksInfoDetails(), "disks_info")
 	extra.Add(jsonutils.NewInt(int64(self.getDiskSize())), "disk")
 	cdrom := self.getCdrom()
 	if cdrom != nil {
@@ -916,6 +919,14 @@ func (self *SGuest) getDisksDetails() string {
 		buf.WriteString("\n")
 	}
 	return buf.String()
+}
+
+func (self *SGuest) getDisksInfoDetails() *jsonutils.JSONArray {
+	details := jsonutils.NewArray()
+	for _, disk := range self.GetDisks() {
+		details.Add(disk.GetDetailedJson())
+	}
+	return details
 }
 
 func (self *SGuest) getIsolatedDeviceDetails() string {
