@@ -55,6 +55,7 @@ func (self *SAliyunProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	regions := self.client.GetIRegions()
 	info := jsonutils.NewDict()
 	info.Add(jsonutils.NewInt(int64(len(regions))), "region_count")
+	info.Add(jsonutils.NewString(aliyun.ALIYUN_API_VERSION), "api_version")
 	return info, nil
 }
 

@@ -344,8 +344,9 @@ func (self *SHost) RealDelete(ctx context.Context, userCred mcclient.TokenCreden
 	for _, netif := range self.GetNetInterfaces() {
 		netif.Remove(ctx, userCred)
 	}
-	for _, hostwire := range self.GetWires() {
-		hostwire.Delete(ctx, userCred)
+	for _, hostwire := range self.GetHostwires() {
+		hostwire.Detach(ctx, userCred)
+		// hostwire.Delete(ctx, userCred)
 	}
 	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
 }
@@ -572,7 +573,7 @@ func (self *SHost) GetWireCount() int {
 	return self.GetWiresQuery().Count()
 }
 
-func (self *SHost) GetWires() []SHostwire {
+func (self *SHost) GetHostwires() []SHostwire {
 	hw := make([]SHostwire, 0)
 	q := self.GetWiresQuery()
 	err := db.FetchModelObjects(HostwireManager, q, &hw)
@@ -897,7 +898,19 @@ func (manager *SHostManager) newFromCloudHost(extHost cloudprovider.ICloudHost, 
 func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, storages []cloudprovider.ICloudStorage) compare.SyncResult {
 	syncResult := compare.SyncResult{}
 
-	dbStorages := self._getAttachedStorages(tristate.None, tristate.None)
+	dbStorages := make([]SStorage, 0)
+
+	hostStorages := self.GetHoststorages()
+	for i := 0; i < len(hostStorages); i += 1 {
+		storage := hostStorages[i].GetStorage()
+		if storage == nil {
+			hostStorages[i].Delete(ctx, userCred)
+		} else {
+			dbStorages = append(dbStorages, *storage)
+		}
+	}
+
+	// dbStorages := self._getAttachedStorages(tristate.None, tristate.None)
 
 	removed := make([]SStorage, 0)
 	commondb := make([]SStorage, 0)
@@ -980,7 +993,19 @@ func (self *SHost) newCloudHostStorage(ctx context.Context, userCred mcclient.To
 func (self *SHost) SyncHostWires(ctx context.Context, userCred mcclient.TokenCredential, wires []cloudprovider.ICloudWire) compare.SyncResult {
 	syncResult := compare.SyncResult{}
 
-	dbWires := self.getAttachedWires()
+	dbWires := make([]SWire, 0)
+
+	hostWires := self.GetHostwires()
+	for i := 0; i < len(hostWires); i += 1 {
+		wire := hostWires[i].GetWire()
+		if wire == nil {
+			hostWires[i].Delete(ctx, userCred)
+		} else {
+			dbWires = append(dbWires, *wire)
+		}
+	}
+
+	// dbWires := self.getAttachedWires()
 
 	removed := make([]SWire, 0)
 	commondb := make([]SWire, 0)

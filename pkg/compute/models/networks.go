@@ -41,6 +41,7 @@ const (
 	NETWORK_STATUS_PENDING       = "pending"
 	NETWORK_STATUS_AVAILABLE     = "available"
 	NETWORK_STATUS_FAILED        = "failed"
+	NETWORK_STATUS_UNKNOWN       = "unknown"
 	NETWORK_STATUS_START_DELETE  = "start_delete"
 	NETWORK_STATUS_DELETING      = "deleting"
 	NETWORK_STATUS_DELETED       = "deleted"
@@ -413,7 +414,7 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		err = removed[i].ValidateDeleteCondition(ctx)
+		/*err = removed[i].ValidateDeleteCondition(ctx)
 		if err != nil { // cannot delete
 			syncResult.DeleteError(err)
 		} else {
@@ -423,6 +424,12 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 			} else {
 				syncResult.Delete()
 			}
+		}*/
+		err = removed[i].SetStatus(userCred, NETWORK_STATUS_UNKNOWN, "Sync to remove")
+		if err != nil {
+			syncResult.DeleteError(err)
+		} else {
+			syncResult.Delete()
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {

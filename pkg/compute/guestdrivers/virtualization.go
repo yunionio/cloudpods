@@ -6,6 +6,7 @@ import (
 	"regexp"
 
 	"github.com/yunionio/jsonutils"
+	"github.com/yunionio/log"
 	"github.com/yunionio/onecloud/pkg/httperrors"
 	"github.com/yunionio/onecloud/pkg/mcclient"
 
@@ -41,11 +42,18 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 	if len(netConfig.Wire) > 0 {
 		wirePattern = regexp.MustCompile(netConfig.Wire)
 	}
-	hostwires := host.GetWires()
+	hostwires := host.GetHostwires()
 	netsAvaiable := make([]models.SNetwork, 0)
 	for i := 0; i < len(hostwires); i += 1 {
 		hostwire := hostwires[i]
 		wire := hostwire.GetWire()
+
+		if wire == nil {
+			continue
+		}
+
+		log.Debugf("Wire %#v", wire)
+
 		if wirePattern != nil && !wirePattern.MatchString(wire.Id) && wirePattern.MatchString(wire.Name) {
 			continue
 		}
