@@ -567,9 +567,10 @@
   revision = "bbd99532a768d2fe369079ceda730e30726ae1a6"
 
 [[projects]]
+  branch = "release/2.0.0"
   name = "github.com/yunionio/jsonutils"
   packages = ["."]
-  revision = "6dd39f8579af6c6b61b971eb3a1ccf55e724b0ca"
+  revision = "0f3f30adfdac3dec6ffbbfb72116f6f908134f63"
 
 [[projects]]
   branch = "master"
@@ -904,6 +905,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1fdd79d4d8791f7e87a3740b3807ea84f6306ecac3095d32a1ccf39b48be1f18"
+  inputs-digest = "aa5af605c21bc592cbc237ad3539bc2cd9bbe5b8495c6c2d22e4a3bd8b148633"
   solver-name = "gps-cdcl"
   solver-version = 1

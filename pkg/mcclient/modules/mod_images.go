@@ -119,7 +119,7 @@ func (this *ImageManager) List(session *mcclient.ClientSession, params jsonutils
 			path = fmt.Sprintf("%s/detail", path)
 		}
 		dictparams, _ := params.(*jsonutils.JSONDict)
-		dictparams.Remove("details", false)
+		dictparams.RemoveIgnoreCase("details")
 		qs := params.QueryString()
 		if len(qs) > 0 {
 			path = fmt.Sprintf("%s?%s", path, qs)

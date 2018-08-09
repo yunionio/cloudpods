@@ -196,7 +196,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 	isBMstr, _ := queryDict.GetString("baremetal")
 	if len(isBMstr) > 0 && utils.ToBool(isBMstr) {
 		queryDict.Add(jsonutils.NewString(HYPERVISOR_BAREMETAL), "hypervisor")
-		queryDict.Remove("baremetal", true)
+		queryDict.Remove("baremetal")
 	}
 	hypervisor, _ := queryDict.GetString("hypervisor")
 	if len(hypervisor) > 0 {
