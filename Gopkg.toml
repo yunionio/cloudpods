@@ -70,10 +70,6 @@
     revision = "f3cacc17c85ecb7f1b6a9e373ee85d1480919868"
 
 [[constraint]]
-  name = "github.com/coreos/etcd"
-  version = "3.3.5"
-
-[[constraint]]
   name = "github.com/coredns/coredns"
   version = "v1.2.0"
 
