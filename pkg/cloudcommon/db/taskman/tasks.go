@@ -10,17 +10,17 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/appctx"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/onecloud/pkg/util/httputils"
 	"github.com/yunionio/pkg/util/reflectutils"
 	"github.com/yunionio/pkg/util/stringutils"
 	"github.com/yunionio/pkg/utils"
 	"github.com/yunionio/sqlchemy"
 
+	"github.com/yunionio/onecloud/pkg/appctx"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/quotas"
+	"github.com/yunionio/onecloud/pkg/mcclient"
+	"github.com/yunionio/onecloud/pkg/util/httputils"
 )
 
 const (
@@ -387,7 +387,7 @@ func execITask(taskValue reflect.Value, task *STask, data jsonutils.JSONObject, 
 
 	params[2] = reflect.ValueOf(data)
 
-	log.Debugf("Call %s with %s", funcValue, params)
+	log.Debugf("Call %s: %s with %s", stageName, funcValue, params)
 
 	funcValue.Call(params)
 

@@ -9,8 +9,6 @@ import (
 
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
-	"github.com/yunionio/sqlchemy"
-
 	"github.com/yunionio/pkg/tristate"
 	"github.com/yunionio/pkg/util/compare"
 	"github.com/yunionio/pkg/util/fileutils"
@@ -18,6 +16,7 @@ import (
 	"github.com/yunionio/pkg/util/regutils"
 	"github.com/yunionio/pkg/util/sysutils"
 	"github.com/yunionio/pkg/utils"
+	"github.com/yunionio/sqlchemy"
 
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/quotas"
@@ -38,6 +37,7 @@ const (
 	DISK_DEALLOC        = "deallocating"
 	DISK_DEALLOC_FAILED = "dealloc_failed"
 	DISK_UNKNOWN        = "unknown"
+	DISK_DETACHING      = "detaching"
 
 	DISK_START_SAVE = "start_save"
 	DISK_SAVING     = "saving"
@@ -162,11 +162,14 @@ func (self *SDisk) GetGuestdisks() []SGuestdisk {
 }
 func (self *SDisk) GetGuests() []SGuest {
 	result := make([]SGuest, 0)
-	guests := GuestManager.Query().SubQuery()
+	query := GuestManager.Query()
 	guestdisks := GuestdiskManager.Query().SubQuery()
-	if err := guests.Query().Join(guestdisks, sqlchemy.AND(
-		sqlchemy.Equals(guestdisks.Field("guest_id"), guests.Field("id")))).
-		Filter(sqlchemy.Equals(guestdisks.Field("disk_id"), self.Id)).All(&result); err != nil {
+	q := query.Join(guestdisks, sqlchemy.AND(
+		sqlchemy.Equals(guestdisks.Field("guest_id"), query.Field("id")))).
+		Filter(sqlchemy.Equals(guestdisks.Field("disk_id"), self.Id))
+	// q.DebugQuery()
+	err := db.FetchModelObjects(GuestManager, q, &result)
+	if err != nil {
 		log.Errorf(err.Error())
 		return nil
 	}

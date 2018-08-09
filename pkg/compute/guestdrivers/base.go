@@ -63,7 +63,7 @@ func (self *SBaseGuestDriver) OnGuestCreateTaskComplete(ctx context.Context, gue
 	//}
 }
 
-func (self *SBaseGuestDriver) StartDeleteGuestTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+func (self *SBaseGuestDriver) StartDeleteGuestTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestDeleteTask", guest, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
@@ -79,4 +79,37 @@ func (self *SBaseGuestDriver) RequestDetachDisksFromGuestForDelete(ctx context.C
 
 func (self *SBaseGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential) error {
 	return guest.DeleteAllDisksInDB(ctx, userCred)
+}
+
+func (self *SBaseGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SBaseGuestDriver) RequestGuestCreateAllDisks(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement")
+}
+
+func (self *SBaseGuestDriver) GetDetachDiskStatus() ([]string, error) {
+	return []string{}, fmt.Errorf("This Guest driver dose not implement GetDetachDiskStatus")
+}
+
+func (self *SBaseGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, disk *models.SDisk, task taskman.ITask, isPurge bool) error {
+	return fmt.Errorf("Not Implement")
+}
+
+func (self *SBaseGuestDriver) RqeuestSuspendOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement")
+}
+
+func (self *SBaseGuestDriver) AllowReconfigGuest() bool {
+	return true
+}
+
+func (self *SBaseGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement")
+}
+
+func (self *SBaseGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, vcpuCount, vmemSize int64) error {
+	return fmt.Errorf("Not Implement")
 }

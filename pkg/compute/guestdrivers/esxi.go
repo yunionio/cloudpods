@@ -27,3 +27,20 @@ func (self *SESXiGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest
 	task.ScheduleRun(nil)
 	return nil
 }
+
+func (self *SESXiGuestDriver) GetDetachDiskStatus() ([]string, error) {
+	return []string{models.VM_READY}, nil
+}
+
+func (self *SESXiGuestDriver) CanKeepDetachDisk() bool {
+	return false
+}
+
+func (self *SESXiGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, disk *models.SDisk, task taskman.ITask, isPurge bool) error {
+	err := disk.RealDelete(ctx, task.GetUserCred())
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}

@@ -2,13 +2,14 @@ package guestdrivers
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/mcclient"
 
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/quotas"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
 	"github.com/yunionio/onecloud/pkg/compute/models"
+	"github.com/yunionio/onecloud/pkg/mcclient"
 )
 
 type SBaremetalGuestDriver struct {
@@ -155,7 +156,19 @@ func (self *SBaremetalGuestDriver) RequestDeployGuestOnHost(ctx context.Context,
 	return nil
 }
 
+func (self *SBaremetalGuestDriver) CanKeepDetachDisk() bool {
+	return false
+}
+
 func (self *SBaremetalGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (self *SBaremetalGuestDriver) StartGuestDetachdiskTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
+	return fmt.Errorf("Cannot detach disk from a baremetal serer")
+}
+
+func (self *SBaremetalGuestDriver) StartSuspendTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
+	return fmt.Errorf("Cannot suspend a baremetal serer")
 }

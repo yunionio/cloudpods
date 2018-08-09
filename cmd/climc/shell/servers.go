@@ -311,7 +311,7 @@ func init() {
 		return nil
 	})
 
-	R(&ServerOpsOptions{}, "server-sync", "Sync servers status", func(s *mcclient.ClientSession, args *ServerOpsOptions) error {
+	R(&ServerOpsOptions{}, "server-sync", "Sync servers configures", func(s *mcclient.ClientSession, args *ServerOpsOptions) error {
 		ret := modules.Servers.BatchPerformAction(s, args.ID, "sync", nil)
 		printBatchResults(ret, modules.Servers.GetColumns(s))
 		return nil
