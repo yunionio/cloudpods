@@ -1036,13 +1036,13 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 	err := model.ValidateDeleteCondition(ctx)
 	if err != nil {
 		log.Errorf("validate delete condition error: %s", err)
-		return nil, httperrors.NewGeneralError(err)
+		return nil, httperrors.NewNotAcceptableError(err.Error())
 	}
 
 	err = model.CustomizeDelete(ctx, userCred, query, data)
 	if err != nil {
 		log.Errorf("customize delete error: %s", err)
-		return nil, httperrors.NewGeneralError(err)
+		return nil, httperrors.NewNotAcceptableError(err.Error())
 	}
 
 	details, err := getItemDetails(manager, model, ctx, userCred, query)
