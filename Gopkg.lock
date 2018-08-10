@@ -576,7 +576,7 @@
   branch = "master"
   name = "github.com/yunionio/jsonutils"
   packages = ["."]
-  revision = "895610f4e0f2f4bf3aebf016604e6fec39992fd8"
+  revision = "a19572265f525c898629becef50b405afd5e3ec6"
 
 [[projects]]
   branch = "master"

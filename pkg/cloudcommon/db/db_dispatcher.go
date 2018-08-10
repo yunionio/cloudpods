@@ -665,7 +665,7 @@ func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.
 
 	generateName, _ := dataDict.GetString("generate_name")
 	if len(generateName) > 0 {
-		dataDict.Remove("generate_name", true)
+		dataDict.Remove("generate_name")
 		dataDict.Add(jsonutils.NewString(GenerateName(manager, ownerProjId, generateName)), "name")
 	} else {
 		name, _ := data.GetString("name")
@@ -756,7 +756,7 @@ func expandMultiCreateParams(data jsonutils.JSONObject, count int) ([]jsonutils.
 			return nil, httperrors.NewInputParameterError("Missing name or generate_name")
 		}
 		jsonDict.Add(jsonutils.NewString(name), "generate_name")
-		jsonDict.Remove("name", false)
+		jsonDict.RemoveIgnoreCase("name")
 	}
 	ret := make([]jsonutils.JSONObject, count)
 	for i := 0; i < count; i += 1 {

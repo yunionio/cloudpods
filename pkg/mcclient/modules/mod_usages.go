@@ -20,8 +20,8 @@ func (this *UsageManager) GetGeneralUsage(session *mcclient.ClientSession, param
 			url = fmt.Sprintf("%s/%s/%s", url, range_type, range_id)
 		}
 		dict := params.(*jsonutils.JSONDict)
-		dict.Remove("range_type", true)
-		dict.Remove("range_id", true)
+		dict.Remove("range_type")
+		dict.Remove("range_id")
 		qs := dict.QueryString()
 		if len(qs) > 0 {
 			url = fmt.Sprintf("%s?%s", url, qs)

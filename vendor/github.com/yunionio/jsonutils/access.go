@@ -53,7 +53,25 @@ func (this *JSONDict) Set(key string, value JSONObject) {
 	this.data[key] = value
 }
 
-func (this *JSONDict) Remove(key string, caseSensitive bool) bool {
+func (this *JSONDict) Remove(key string) bool {
+	return this.remove(key, true)
+}
+
+func (this *JSONDict) RemoveIgnoreCase(key string) bool {
+	someRemoved := false
+	for {
+		removed := this.remove(key, false)
+		if !removed {
+			break
+		}
+		if !someRemoved {
+			someRemoved = true
+		}
+	}
+	return someRemoved
+}
+
+func (this *JSONDict) remove(key string, caseSensitive bool) bool {
 	_, rk, ok := dictGet(this.data, key, caseSensitive)
 	if ok {
 		delete(this.data, rk)
