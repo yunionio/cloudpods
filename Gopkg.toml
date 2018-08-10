@@ -30,7 +30,7 @@
   version = "0.2.2"
 
 [[constraint]]
-  revision = "6dd39f8579af6c6b61b971eb3a1ccf55e724b0ca"
+  branch = "release/2.0.0"
   name = "github.com/yunionio/jsonutils"
 
 [[constraint]]
@@ -68,10 +68,6 @@
 [[override]]
     name = "github.com/ugorji/go"
     revision = "f3cacc17c85ecb7f1b6a9e373ee85d1480919868"
-
-[[constraint]]
-  name = "github.com/coreos/etcd"
-  version = "3.3.5"
 
 [[constraint]]
   name = "github.com/coredns/coredns"

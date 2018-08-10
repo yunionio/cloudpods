@@ -116,7 +116,7 @@ type IJointModelManager interface {
 	GetMasterManager() IStandaloneModelManager
 	GetSlaveManager() IStandaloneModelManager
 
-	FetchByIds(id1 string, id2 string) (IJointModel, error)
+	FetchByIds(masterId string, slaveId string) (IJointModel, error)
 
 	AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, model IStandaloneModel, query jsonutils.JSONObject) bool
 	AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, master IStandaloneModel, slave IStandaloneModel) bool

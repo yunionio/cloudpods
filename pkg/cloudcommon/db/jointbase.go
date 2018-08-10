@@ -65,7 +65,7 @@ func (manager *SJointResourceBaseManager) SlaveField(q *sqlchemy.SQuery) sqlchem
 	return queryField(q, manager.GetSlaveManager())
 }
 
-func (manager *SJointResourceBaseManager) FetchByIds(id1 string, id2 string) (IJointModel, error) {
+func (manager *SJointResourceBaseManager) FetchByIds(masterId string, slaveId string) (IJointModel, error) {
 	obj, err := NewModelObject(manager)
 	if err != nil {
 		return nil, err
@@ -83,9 +83,8 @@ func (manager *SJointResourceBaseManager) FetchByIds(id1 string, id2 string) (IJ
 	if slaveField == nil {
 		return nil, fmt.Errorf("cannot find slave id")
 	}
-	cond1 := sqlchemy.AND(sqlchemy.Equals(masterField, id1), sqlchemy.Equals(slaveField, id2))
-	cond2 := sqlchemy.AND(sqlchemy.Equals(slaveField, id1), sqlchemy.Equals(masterField, id2))
-	q = q.Filter(sqlchemy.OR(cond1, cond2))
+	cond := sqlchemy.AND(sqlchemy.Equals(masterField, masterId), sqlchemy.Equals(slaveField, slaveId))
+	q = q.Filter(cond)
 	count := q.Count()
 	if count > 1 {
 		return nil, sqlchemy.ErrDuplicateEntry
@@ -127,14 +126,14 @@ func (joint *SJointResourceBase) GetJointModelManager() IJointModelManager {
 	return joint.SResourceBase.GetModelManager().(IJointModelManager)
 }
 
-func getFieldValue(joint IJointModel, name1 string, name2 string) string {
+func getFieldValue(joint IJointModel, keyword string, alias string) string {
 	jointValue := reflect.Indirect(reflect.ValueOf(joint))
-	idStr, find := reflectutils.FindStructFieldInterface(jointValue, fmt.Sprintf("%s_id", name1))
-	if find {
+	idStr, ok := reflectutils.FindStructFieldInterface(jointValue, fmt.Sprintf("%s_id", keyword))
+	if ok {
 		return idStr.(string)
 	}
-	idStr, find = reflectutils.FindStructFieldInterface(jointValue, fmt.Sprintf("%s_id", name2))
-	if find {
+	idStr, ok = reflectutils.FindStructFieldInterface(jointValue, fmt.Sprintf("%s_id", alias))
+	if ok {
 		return idStr.(string)
 	}
 	return ""
