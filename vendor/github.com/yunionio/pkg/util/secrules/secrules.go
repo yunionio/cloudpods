@@ -25,14 +25,15 @@ const (
 )
 
 type SecurityRule struct {
-	Priority  int // [1, 100]
-	Action    TSecurityRuleAction
-	IPNet     *net.IPNet
-	Protocol  string
-	Direction TSecurityRuleDirection
-	PortStart int
-	PortEnd   int
-	Ports     []int
+	Priority    int // [1, 100]
+	Action      TSecurityRuleAction
+	IPNet       *net.IPNet
+	Protocol    string
+	Direction   TSecurityRuleDirection
+	PortStart   int
+	PortEnd     int
+	Ports       []int
+	Description string
 }
 
 const (

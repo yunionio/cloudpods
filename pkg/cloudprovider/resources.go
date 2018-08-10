@@ -171,6 +171,8 @@ type ICloudEIP interface {
 
 type ICloudSecurityGroup interface {
 	ICloudResource
+	GetDescription() string
+	GetRules() ([]secrules.SecurityRule, error)
 }
 
 type ICloudDisk interface {
@@ -201,6 +203,7 @@ type ICloudVpc interface {
 	GetCidrBlock() string
 	// GetStatus() string
 	GetIWires() ([]ICloudWire, error)
+	GetISecurityGroups() ([]ICloudSecurityGroup, error)
 
 	GetManagerId() string
 

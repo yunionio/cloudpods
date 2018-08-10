@@ -11,7 +11,9 @@ import (
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/httperrors"
 	"github.com/yunionio/onecloud/pkg/mcclient"
+	"github.com/yunionio/pkg/util/compare"
 	"github.com/yunionio/pkg/util/secrules"
+	"github.com/yunionio/pkg/util/sets"
 	"github.com/yunionio/pkg/util/stringutils"
 	"github.com/yunionio/sqlchemy"
 )
@@ -231,4 +233,96 @@ func (self *SSecurityGroupRule) PostUpdate(ctx context.Context, userCred mcclien
 	if secgroup := self.GetSecGroup(); secgroup != nil {
 		secgroup.DoSync(ctx, userCred)
 	}
+}
+
+func (manager *SSecurityGroupRuleManager) getRulesBySecurityGroup(secgroup *SSecurityGroup) ([]SSecurityGroupRule, error) {
+	rules := make([]SSecurityGroupRule, 0)
+	q := manager.Query().Equals("secgroup_id", secgroup.Id)
+	if err := db.FetchModelObjects(manager, q, &rules); err != nil {
+		return nil, err
+	}
+	return rules, nil
+}
+
+func (manager *SSecurityGroupRuleManager) SyncRules(ctx context.Context, userCred mcclient.TokenCredential, secgroup *SSecurityGroup, rules []secrules.SecurityRule) ([]SSecurityGroupRule, []SSecurityGroupRule, compare.SyncResult) {
+	syncResult := compare.SyncResult{}
+
+	if _dbRules, err := manager.getRulesBySecurityGroup(secgroup); err != nil {
+		return nil, nil, syncResult
+	} else {
+		dbRules := make([]secrules.SecurityRule, len(_dbRules))
+		for _, _rule := range _dbRules {
+			rule, _ := secrules.ParseSecurityRule(_rule.GetRule())
+			rule.Description = _rule.Description
+			dbRules = append(dbRules, *rule)
+		}
+
+		oldRules, oldStrs := make(map[string]secrules.SecurityRule, len(dbRules)), sets.NewString()
+		for _, rule := range dbRules {
+			if str := jsonutils.Marshal(rule).String(); !oldStrs.Has(str) {
+				oldStrs.Insert(str)
+				log.Errorf("old: %s", str)
+				oldRules[str] = rule
+			}
+		}
+		newRules, newStrs := make(map[string]secrules.SecurityRule, len(rules)), sets.NewString()
+		for _, rule := range rules {
+			if str := jsonutils.Marshal(rule).String(); !newStrs.Has(str) {
+				newStrs.Insert(str)
+				log.Errorf("new: %s", str)
+				newRules[str] = rule
+			}
+		}
+		for _, rule := range newStrs.Difference(oldStrs).List() {
+			log.Errorf("need add : %s", rule)
+			if _, err := manager.newFromCloudSecurityGroup(newRules[rule], secgroup); err != nil {
+				syncResult.AddError(err)
+			} else {
+				syncResult.Add()
+			}
+		}
+		for _, rule := range oldStrs.Difference(newStrs).List() {
+			log.Errorf("need remove : %s", rule)
+			// if _, err := manager.newFromCloudSecurityGroup(newRules[rule], secgroup); err != nil {
+			// 	syncResult.AddError(err)
+			// } else {
+			// 	syncResult.Add()
+			// }
+		}
+	}
+	return nil, nil, syncResult
+}
+
+func (manager *SSecurityGroupRuleManager) newFromCloudSecurityGroup(rule secrules.SecurityRule, secgroup *SSecurityGroup) (*SSecurityGroupRule, error) {
+	protocol := rule.Protocol
+	if rule.Protocol == "any" {
+		protocol = ""
+	}
+	ports, _ports := "", make([]string, len(rule.Ports))
+	if len(rule.Ports) > 0 {
+		for _, port := range rule.Ports {
+			_ports = append(_ports, fmt.Sprintf("%d", port))
+		}
+		ports = strings.Join(_ports, ",")
+	} else if rule.PortStart != 0 || rule.PortEnd != 0 {
+		if rule.PortStart == rule.PortEnd {
+			ports = fmt.Sprintf("%d", rule.PortStart)
+		} else {
+			ports = fmt.Sprintf("%d-%d", rule.PortStart, rule.PortEnd)
+		}
+	}
+	secrule := &SSecurityGroupRule{
+		Priority:    int64(rule.Priority),
+		Protocol:    protocol,
+		Ports:       ports,
+		Direction:   string(rule.Direction),
+		CIDR:        rule.IPNet.String(),
+		Action:      string(rule.Action),
+		Description: rule.Description,
+		SecgroupID:  secgroup.Id,
+	}
+	if err := manager.TableSpec().Insert(secrule); err != nil {
+		return nil, err
+	}
+	return secrule, nil
 }

@@ -30,7 +30,7 @@ type SVpc struct {
 
 	iwires []cloudprovider.ICloudWire
 
-	secgroups []SSecurityGroup
+	secgroups []cloudprovider.ICloudSecurityGroup
 
 	CidrBlock    string
 	CreationTime time.Time
@@ -161,11 +161,15 @@ func (self *SVpc) fetchSecurityGroups() error {
 			break
 		}
 	}
-	self.secgroups = secgroups
+	self.secgroups = make([]cloudprovider.ICloudSecurityGroup, len(secgroups))
+	for index, secgroup := range secgroups {
+		secgroup.vpc = self
+		self.secgroups[index] = &secgroup
+	}
 	return nil
 }
 
-func (self *SVpc) GetSecurityGroups() ([]SSecurityGroup, error) {
+func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
 	if self.secgroups == nil {
 		err := self.fetchSecurityGroups()
 		if err != nil {
@@ -174,6 +178,16 @@ func (self *SVpc) GetSecurityGroups() ([]SSecurityGroup, error) {
 	}
 	return self.secgroups, nil
 }
+
+// func (self *SVpc) GetSecurityGroups() ([]SSecurityGroup, error) {
+// 	if self.secgroups == nil {
+// 		err := self.fetchSecurityGroups()
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 	}
+// 	return self.secgroups, nil
+// }
 
 func (self *SVpc) GetManagerId() string {
 	return self.region.client.providerId

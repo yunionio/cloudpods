@@ -7,8 +7,10 @@ import (
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/onecloud/pkg/httperrors"
 	"github.com/yunionio/onecloud/pkg/mcclient"
+	"github.com/yunionio/pkg/util/compare"
 	"github.com/yunionio/pkg/util/secrules"
 	"github.com/yunionio/sqlchemy"
 )
@@ -167,6 +169,82 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 		}
 	}
 	return nil, nil
+}
+
+func (manager *SSecurityGroupManager) getSecurityGroups() ([]SSecurityGroup, error) {
+	secgroups := make([]SSecurityGroup, 0)
+	q := manager.Query()
+	if err := db.FetchModelObjects(manager, q, &secgroups); err != nil {
+		return nil, err
+	} else {
+		return secgroups, nil
+	}
+}
+
+func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCred mcclient.TokenCredential, secgroups []cloudprovider.ICloudSecurityGroup) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
+	localSecgroups := make([]SSecurityGroup, 0)
+	remoteSecgroups := make([]cloudprovider.ICloudSecurityGroup, 0)
+	syncResult := compare.SyncResult{}
+
+	if dbSecgroups, err := manager.getSecurityGroups(); err != nil {
+		syncResult.Error(err)
+		return nil, nil, syncResult
+	} else {
+		removed := make([]SSecurityGroup, 0)
+		commondb := make([]SSecurityGroup, 0)
+		commonext := make([]cloudprovider.ICloudSecurityGroup, 0)
+		added := make([]cloudprovider.ICloudSecurityGroup, 0)
+		if err := compare.CompareSets(dbSecgroups, secgroups, &removed, &commondb, &commonext, &added); err != nil {
+			syncResult.Error(err)
+			return nil, nil, syncResult
+		}
+
+		for i := 0; i < len(commondb); i += 1 {
+			if err = commondb[i].SyncWithCloudSecurityGroup(userCred, commonext[i]); err != nil {
+				syncResult.UpdateError(err)
+			} else {
+				localSecgroups = append(localSecgroups, commondb[i])
+				remoteSecgroups = append(remoteSecgroups, commonext[i])
+				syncResult.Update()
+			}
+		}
+
+		for i := 0; i < len(added); i += 1 {
+			if new, err := manager.newFromCloudVpc(added[i]); err != nil {
+				syncResult.AddError(err)
+			} else {
+				localSecgroups = append(localSecgroups, *new)
+				remoteSecgroups = append(remoteSecgroups, added[i])
+				syncResult.Add()
+			}
+		}
+	}
+	return localSecgroups, remoteSecgroups, syncResult
+}
+
+func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup) error {
+	if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		self.Name = extSec.GetName()
+		self.Description = extSec.GetDescription()
+		return nil
+	}); err != nil {
+		log.Errorf("syncWithCloudSecurityGroup error %s", err)
+		return err
+	}
+	return nil
+}
+
+func (manager *SSecurityGroupManager) newFromCloudVpc(extSecgroup cloudprovider.ICloudSecurityGroup) (*SSecurityGroup, error) {
+	secgroup := SSecurityGroup{}
+	secgroup.SetModelManager(manager)
+	secgroup.Name = extSecgroup.GetName()
+	secgroup.ExternalId = extSecgroup.GetGlobalId()
+	secgroup.Description = extSecgroup.GetDescription()
+
+	if err := manager.TableSpec().Insert(&secgroup); err != nil {
+		return nil, err
+	}
+	return &secgroup, nil
 }
 
 func (self *SSecurityGroup) DoSync(ctx context.Context, userCred mcclient.TokenCredential) {
