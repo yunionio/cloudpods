@@ -14,6 +14,8 @@ const (
 	CLOUD_PROVIDER_ALIYUN_CN = "阿里云"
 
 	ALIYUN_DEFAULT_REGION = "cn-hangzhou"
+
+	ALIYUN_API_VERSION = "2014-05-26"
 )
 
 type SAliyunClient struct {
@@ -36,7 +38,7 @@ func NewAliyunClient(providerId string, providerName string, accessKey string, s
 func jsonRequest(client *sdk.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	req := requests.NewCommonRequest()
 	req.Domain = "ecs.aliyuncs.com"
-	req.Version = "2014-05-26"
+	req.Version = ALIYUN_API_VERSION
 	req.ApiName = apiName
 	if params != nil {
 		for k, v := range params {
@@ -72,6 +74,7 @@ func (self *SAliyunClient) jsonRequest(apiName string, params map[string]string)
 func (self *SAliyunClient) fetchRegions() error {
 	body, err := self.jsonRequest("DescribeRegions", nil)
 	if err != nil {
+		log.Errorf("fetchRegions fail %s", err)
 		return err
 	}
 

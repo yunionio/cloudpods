@@ -541,3 +541,26 @@ func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStorag
 	}
 	return nil, cloudprovider.ErrNotFound
 }
+
+func (self *SRegion) updateInstance(instId string, name, desc, passwd, hostname string) error {
+	params := make(map[string]string)
+	params["InstanceId"] = instId
+	if len(name) > 0 {
+		params["InstanceName"] = name
+	}
+	if len(desc) > 0 {
+		params["Description"] = desc
+	}
+	if len(passwd) > 0 {
+		params["Password"] = passwd
+	}
+	if len(hostname) > 0 {
+		params["HostName"] = hostname
+	}
+	_, err := self.ecsRequest("ModifyInstanceAttribute", params)
+	return err
+}
+
+func (self *SRegion) UpdateInstancePassword(instId string, passwd string) error {
+	return self.updateInstance(instId, "", "", passwd, "")
+}

@@ -343,7 +343,11 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	params["InternetMaxBandwidthIn"] = "200"
 	params["InternetMaxBandwidthOut"] = "100"
 	params["HostName"] = name
-	params["Password"] = passwd
+	if len(passwd) > 0 {
+		params["Password"] = passwd
+	} else {
+		params["PasswordInherit"] = "True"
+	}
 	params["IoOptimized"] = "optimized"
 	for i, d := range disks {
 		if i == 0 {

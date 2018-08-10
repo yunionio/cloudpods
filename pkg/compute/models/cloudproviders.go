@@ -52,7 +52,7 @@ type SCloudprovider struct {
 
 	LastSync time.Time `get:"admin" list:"admin"` // = Column(DateTime, nullable=True)
 
-	// Version string `width:"32" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
+	Version string `width:"32" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
 
 	Sysinfo jsonutils.JSONObject `get:"admin"` // Column(JSONEncodedDict, nullable=True)
 
@@ -123,10 +123,21 @@ func (self *SCloudprovider) PostCreate(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SCloudprovider) savePassword(secret string) error {
-	sec, err := utils.EncryptAESBase64(self.Id, self.Secret)
+	sec, err := utils.EncryptAESBase64(self.Id, secret)
 	if err != nil {
 		return err
 	}
+
+	/*log.Debugf("savePassword %s => %s", secret, sec)
+	newsec, err := utils.DescryptAESBase64(self.Id, sec)
+	if err != nil {
+		return err
+	}
+	if newsec != secret {
+		log.Errorf("Encrypt/Descrypt mismatch!!")
+		return fmt.Errorf("Encrypt/Descrypt mismatch!!")
+	}*/
+
 	_, err = self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Secret = sec
 		return nil
@@ -151,10 +162,94 @@ func (self *SCloudprovider) CanSync() bool {
 }
 
 type SSyncRange struct {
-	Force  bool
-	Region []string
-	Zone   []string
-	Host   []string
+	Force    bool
+	FullSync bool
+	Region   []string
+	Zone     []string
+	Host     []string
+}
+
+func (sr *SSyncRange) NeedSyncInfo() bool {
+	if sr.FullSync {
+		return true
+	}
+	if sr.Region != nil && len(sr.Region) > 0 {
+		return true
+	}
+	if sr.Zone != nil && len(sr.Zone) > 0 {
+		return true
+	}
+	if sr.Host != nil && len(sr.Host) > 0 {
+		return true
+	}
+	return false
+}
+
+func (sr *SSyncRange) normalizeRegionIds() error {
+	for i := 0; i < len(sr.Region); i += 1 {
+		obj, err := CloudregionManager.FetchByIdOrName("", sr.Region[i])
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return httperrors.NewResourceNotFoundError("Region %s not found", sr.Region[i])
+			} else {
+				return err
+			}
+		}
+		sr.Region[i] = obj.GetId()
+	}
+	return nil
+}
+
+func (sr *SSyncRange) normalizeZoneIds() error {
+	for i := 0; i < len(sr.Zone); i += 1 {
+		obj, err := ZoneManager.FetchByIdOrName("", sr.Zone[i])
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return httperrors.NewResourceNotFoundError("Zone %s not found", sr.Zone[i])
+			} else {
+				return err
+			}
+		}
+		sr.Zone[i] = obj.GetId()
+	}
+	return nil
+}
+
+func (sr *SSyncRange) normalizeHostIds() error {
+	for i := 0; i < len(sr.Host); i += 1 {
+		obj, err := HostManager.FetchByIdOrName("", sr.Host[i])
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return httperrors.NewResourceNotFoundError("Host %s not found", sr.Host[i])
+			} else {
+				return err
+			}
+		}
+		sr.Host[i] = obj.GetId()
+	}
+	return nil
+}
+
+func (sr *SSyncRange) Normalize() error {
+	if sr.Region != nil && len(sr.Region) > 0 {
+		err := sr.normalizeRegionIds()
+		if err != nil {
+			return err
+		}
+	}
+	if sr.Zone != nil && len(sr.Zone) > 0 {
+		err := sr.normalizeZoneIds()
+		if err != nil {
+			return err
+		}
+	}
+	if sr.Host != nil && len(sr.Host) > 0 {
+		err := sr.normalizeHostIds()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (self *SCloudprovider) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -162,10 +257,13 @@ func (self *SCloudprovider) AllowPerformSync(ctx context.Context, userCred mccli
 }
 
 func (self *SCloudprovider) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if ! self.Enabled {
+		return nil, httperrors.NewInvalidStatusError("Cloudprovider disabled")
+	}
 	syncRange := SSyncRange{}
 	err := data.Unmarshal(&syncRange)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("invalud input %s", err)
+		return nil, httperrors.NewInputParameterError("invalid input %s", err)
 	}
 	if self.CanSync() || syncRange.Force {
 		err = self.startSyncCloudProviderInfoTask(ctx, userCred, &syncRange, "")
@@ -178,6 +276,10 @@ func (self *SCloudprovider) AllowPerformUpdateCredential(ctx context.Context, us
 }
 
 func (self *SCloudprovider) PerformUpdateCredential(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if ! self.Enabled {
+		return nil, httperrors.NewInvalidStatusError("Cloudprovider disabled")
+	}
+
 	var err error
 	changed := false
 	secret, _ := data.GetString("secret")
@@ -215,7 +317,7 @@ func (self *SCloudprovider) PerformUpdateCredential(ctx context.Context, userCre
 		}
 		changed = true
 	}
-	if changed && self.CanSync() {
+	if changed {
 		self.SetStatus(userCred, CLOUD_PROVIDER_INIT, "Change credential")
 		self.startSyncCloudProviderInfoTask(ctx, userCred, nil, "")
 	}
@@ -252,10 +354,13 @@ func (self *SCloudprovider) GetDriver() (cloudprovider.ICloudProvider, error) {
 	if !self.Enabled {
 		return nil, fmt.Errorf("Cloud provider is not enabled")
 	}
+
 	secret, err := self.getPassword()
 	if err != nil {
 		return nil, fmt.Errorf("Invalid password %s", err)
 	}
+	// log.Debugf("XXXXX secret: %s", secret)
+
 	return cloudprovider.GetProvider(self.Id, self.Name, self.AccessUrl, self.Account, secret, self.Provider)
 }
 

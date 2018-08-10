@@ -6,6 +6,7 @@ import (
 	"github.com/yunionio/jsonutils"
 	"github.com/yunionio/log"
 
+	"database/sql"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 )
 
