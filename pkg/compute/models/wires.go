@@ -83,9 +83,23 @@ func (wire *SWire) ValidateDeleteCondition(ctx context.Context) error {
 	return wire.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
+func (wire *SWire) getHostwireQuery() *sqlchemy.SQuery {
+	return HostwireManager.Query().Equals("wire_id", wire.Id)
+}
+
 func (wire *SWire) HostCount() int {
-	q := HostwireManager.Query().Equals("wire_id", wire.Id)
+	q := wire.getHostwireQuery()
 	return q.Count()
+}
+
+func (wire *SWire) GetHostwires() ([]SHostwire, error) {
+	q := wire.getHostwireQuery()
+	hostwires := make([]SHostwire, 0)
+	err := db.FetchModelObjects(HostwireManager, q, &hostwires)
+	if err != nil {
+		return nil, err
+	}
+	return hostwires, nil
 }
 
 func (wire *SWire) NetworkCount() int {
@@ -141,7 +155,13 @@ func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.To
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		err = removed[i].ValidateDeleteCondition(ctx)
+		err = removed[i].markNetworkUnknown(userCred)
+		if err != nil { // cannot delete
+			syncResult.DeleteError(err)
+		} else {
+			syncResult.Delete()
+		}
+		/* err = removed[i].ValidateDeleteCondition(ctx)
 		if err != nil { // cannot delete
 			syncResult.DeleteError(err)
 		} else {
@@ -151,7 +171,7 @@ func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.To
 			} else {
 				syncResult.Delete()
 			}
-		}
+		}*/
 	}
 	for i := 0; i < len(commondb); i += 1 {
 		err = commondb[i].syncWithCloudWire(commonext[i])
@@ -190,6 +210,17 @@ func (self *SWire) syncWithCloudWire(extWire cloudprovider.ICloudWire) error {
 		log.Errorf("syncWithCloudWire error %s", err)
 	}
 	return err
+}
+
+func (self *SWire) markNetworkUnknown(userCred mcclient.TokenCredential) error {
+	nets, err := self.getNetworks()
+	if err != nil {
+		return err
+	}
+	for i := 0; i < len(nets); i += 1 {
+		nets[i].SetStatus(userCred, NETWORK_STATUS_UNKNOWN, "wire sync to remove")
+	}
+	return nil
 }
 
 func (manager *SWireManager) newFromCloudWire(extWire cloudprovider.ICloudWire, vpc *SVpc) (*SWire, error) {
@@ -301,6 +332,16 @@ func (manager *SWireManager) TotalCount(rangeObj db.IStandaloneModel, hostTypes 
 
 func (self *SWire) getNetworkQuery() *sqlchemy.SQuery {
 	return NetworkManager.Query().Equals("wire_id", self.Id)
+}
+
+func (self *SWire) getNetworks() ([]SNetwork, error) {
+	q := self.getNetworkQuery()
+	nets := make([]SNetwork, 0)
+	err := db.FetchModelObjects(NetworkManager, q, &nets)
+	if err != nil {
+		return nil, err
+	}
+	return nets, nil
 }
 
 func (self *SWire) getGatewayNetworkQuery() *sqlchemy.SQuery {

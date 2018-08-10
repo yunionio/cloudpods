@@ -5,6 +5,7 @@ import (
 	"github.com/yunionio/log"
 
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"database/sql"
 )
 
 const (
@@ -37,7 +38,9 @@ func (manager *SSubTaskmanager) GetSubTask(ptaskId string, subtaskId string) *SS
 	subtask := SSubTask{}
 	err := manager.Query().Equals("task_id", ptaskId).Equals("subtask_id", subtaskId).First(&subtask)
 	if err != nil {
-		log.Errorf("GetSubTask fail %s", err)
+		if err != sql.ErrNoRows {
+			log.Errorf("GetSubTask fail %s", err)
+		}
 		return nil
 	}
 	return &subtask

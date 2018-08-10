@@ -9,13 +9,13 @@ import (
 	"github.com/yunionio/log"
 	"github.com/yunionio/onecloud/pkg/httperrors"
 	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/pkg/util/seclib"
 	"github.com/yunionio/pkg/utils"
 
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
 	"github.com/yunionio/onecloud/pkg/cloudprovider"
 	"github.com/yunionio/onecloud/pkg/compute/models"
+	"github.com/yunionio/onecloud/pkg/util/seclib2"
 )
 
 type SAliyunGuestDriver struct {
@@ -62,6 +62,8 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 type SAliyunVMCreateConfig struct {
 	Name              string
 	ExternalImageId   string
+	OsDistribution    string
+	OsVersion         string
 	Cpu               int
 	Memory            int
 	ExternalNetworkId string
@@ -101,6 +103,11 @@ func (self *SAliyunGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *mo
 			imageId := disk.GetTemplateId()
 			scimg := models.StoragecachedimageManager.GetStoragecachedimage(cache.Id, imageId)
 			config.ExternalImageId = scimg.ExternalId
+
+			img := scimg.GetCachedimage()
+			config.OsDistribution, _ = img.Info.GetString("properties", "os_distribution")
+			config.OsVersion, _ = img.Info.GetString("properties", "os_version")
+
 			config.SysDiskSize = disk.DiskSize / 1024 // MB => GB
 		} else {
 			config.DataDisks[i-1] = disk.DiskSize / 1024 // MB => GB
@@ -143,7 +150,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 	}
 
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		passwd := seclib.RandomPassword(12)
+		passwd := seclib2.RandomPassword2(12)
 
 		iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
 			desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, desc.PublicKey)
@@ -179,6 +186,13 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
 		data.Add(jsonutils.NewString("root"), "account")
 		data.Add(jsonutils.NewString(encpasswd), "key")
+
+		if len(desc.OsDistribution) > 0 {
+			data.Add(jsonutils.NewString(desc.OsDistribution), "distro")
+		}
+		if len(desc.OsVersion) > 0 {
+			data.Add(jsonutils.NewString(desc.OsVersion), "version")
+		}
 
 		idisks, err := iVM.GetIDisks()
 

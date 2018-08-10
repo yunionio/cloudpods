@@ -87,7 +87,7 @@ func (manager *SStoragecachedimageManager) AllowListDescendent(ctx context.Conte
 	return userCred.IsSystemAdmin()
 }
 
-func (self *SStoragecachedimage) getCachedimage() *SCachedimage {
+func (self *SStoragecachedimage) GetCachedimage() *SCachedimage {
 	cachedImage, _ := CachedimageManager.FetchById(self.CachedimageId)
 	if cachedImage != nil {
 		return cachedImage.(*SCachedimage)
@@ -95,7 +95,7 @@ func (self *SStoragecachedimage) getCachedimage() *SCachedimage {
 	return nil
 }
 
-func (self *SStoragecachedimage) getStoragecache() *SStoragecache {
+func (self *SStoragecachedimage) GetStoragecache() *SStoragecache {
 	cache, _ := StoragecacheManager.FetchById(self.StoragecacheId)
 	if cache != nil {
 		return cache.(*SStoragecache)
@@ -104,11 +104,11 @@ func (self *SStoragecachedimage) getStoragecache() *SStoragecache {
 }
 
 func (self *SStoragecachedimage) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	storagecache := self.getStoragecache()
+	storagecache := self.GetStoragecache()
 	if storagecache != nil {
 		extra.Add(jsonutils.NewStringArray(storagecache.getStorageNames()), "storages")
 	}
-	cachedImage := self.getCachedimage()
+	cachedImage := self.GetCachedimage()
 	if cachedImage != nil {
 		extra.Add(jsonutils.NewString(cachedImage.getName()), "image")
 		extra.Add(jsonutils.NewInt(cachedImage.Size), "size")
@@ -167,7 +167,7 @@ func (self *SStoragecachedimage) ValidateDeleteCondition(ctx context.Context) er
 	if !self.isDownloadSessionExpire() {
 		return httperrors.NewResourceBusyError("Active download session not expired")
 	}
-	image := self.getCachedimage()
+	image := self.GetCachedimage()
 	if !image.canDeleteLastCache() {
 		return httperrors.NewResourceBusyError("Cannot delete the last cache")
 	}
@@ -188,8 +188,8 @@ func (self *SStoragecachedimage) markDeleting(ctx context.Context, userCred mccl
 		return err
 	}
 
-	cache := self.getStoragecache()
-	image := self.getCachedimage()
+	cache := self.GetStoragecache()
+	image := self.GetCachedimage()
 
 	lockman.LockJointObject(ctx, cache, image)
 	defer lockman.ReleaseJointObject(ctx, cache, image)

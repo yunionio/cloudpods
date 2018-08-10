@@ -23,6 +23,7 @@ func (self *GuestSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	guest := obj.(*models.SGuest)
 	host := guest.GetHost()
 	if host == nil || host.HostStatus == models.HOST_OFFLINE {
+		log.Errorf("host is not reachable")
 		guest.SetStatus(self.UserCred, models.VM_UNKNOWN, "Host not responding")
 		self.SetStageComplete(ctx, nil)
 		return

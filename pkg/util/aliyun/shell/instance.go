@@ -80,4 +80,13 @@ func init() {
 		}
 		return nil
 	})
+
+	type InstanceUpdatePasswordOptions struct {
+		ID string `help:"Instance ID"`
+		PASSWD string `help:"new password"`
+	}
+	shellutils.R(&InstanceUpdatePasswordOptions{}, "instance-update-password", "Update instance password", func(cli *aliyun.SRegion, args *InstanceUpdatePasswordOptions) error {
+		err := cli.UpdateInstancePassword(args.ID, args.PASSWD)
+		return err
+	})
 }
