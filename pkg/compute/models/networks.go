@@ -41,6 +41,7 @@ const (
 	NETWORK_STATUS_PENDING       = "pending"
 	NETWORK_STATUS_AVAILABLE     = "available"
 	NETWORK_STATUS_FAILED        = "failed"
+	NETWORK_STATUS_UNKNOWN       = "unknown"
 	NETWORK_STATUS_START_DELETE  = "start_delete"
 	NETWORK_STATUS_DELETING      = "deleting"
 	NETWORK_STATUS_DELETED       = "deleted"
@@ -413,7 +414,7 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		err = removed[i].ValidateDeleteCondition(ctx)
+		/*err = removed[i].ValidateDeleteCondition(ctx)
 		if err != nil { // cannot delete
 			syncResult.DeleteError(err)
 		} else {
@@ -423,6 +424,12 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 			} else {
 				syncResult.Delete()
 			}
+		}*/
+		err = removed[i].SetStatus(userCred, NETWORK_STATUS_UNKNOWN, "Sync to remove")
+		if err != nil {
+			syncResult.DeleteError(err)
+		} else {
+			syncResult.Delete()
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
@@ -834,7 +841,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		maskLen64 = int64(prefix.MaskLen)
 	} else {
 		ipStartStr, _ := data.GetString("guest_ip_start")
-		ipEndStr, _ := data.GetString("guest_ip_start")
+		ipEndStr, _ := data.GetString("guest_ip_end")
 		startIp, err = netutils.NewIPV4Addr(ipStartStr)
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("Invalid start ip: %s %s", ipStartStr, err)
@@ -971,7 +978,7 @@ func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 	var err error
 
 	ipStartStr, _ := data.GetString("guest_ip_start")
-	ipEndStr, _ := data.GetString("guest_ip_start")
+	ipEndStr, _ := data.GetString("guest_ip_end")
 
 	if len(ipStartStr) > 0 || len(ipEndStr) > 0 {
 		if self.isManaged() {

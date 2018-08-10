@@ -111,8 +111,23 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncstatusOnHost(ctx context.
 		log.Errorf("fail to find ivm by id %s", err)
 		return nil, err
 	}
+
+	status := ivm.GetStatus()
+	switch status {
+	case models.VM_RUNNING:
+		status = cloudprovider.CloudVMStatusRunning
+	case models.VM_READY:
+		status = cloudprovider.CloudVMStatusStopped
+	case models.VM_STARTING:
+		status = cloudprovider.CloudVMStatusStopped
+	case models.VM_STOPPING:
+		status = cloudprovider.CloudVMStatusRunning
+	default:
+		status = cloudprovider.CloudVMStatusOther
+	}
+
 	body := jsonutils.NewDict()
-	body.Add(jsonutils.NewString(ivm.GetStatus()), "status")
+	body.Add(jsonutils.NewString(status), "status")
 	return body, nil
 }
 

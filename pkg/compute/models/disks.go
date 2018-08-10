@@ -679,7 +679,8 @@ func (self *SDisk) fetchDiskInfo(diskConfig *SDiskConfig) {
 	if len(diskConfig.ImageId) > 0 {
 		self.TemplateId = diskConfig.ImageId
 		self.DiskType = DISK_TYPE_SYS
-	} else if len(diskConfig.Fs) > 0 {
+	}
+	if len(diskConfig.Fs) > 0 {
 		self.FsFormat = diskConfig.Fs
 	}
 	if self.FsFormat == "swap" {
@@ -822,4 +823,16 @@ func (self *SDisk) isReady() bool {
 
 func (self *SDisk) isInit() bool {
 	return self.Status == DISK_INIT
+}
+
+func (model *SDisk) AllowPerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SDisk) PerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.PendingDeleted {
+		err := self.DoCancelPendingDelete(ctx, userCred)
+		return nil, err
+	}
+	return nil, nil
 }

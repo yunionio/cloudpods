@@ -188,7 +188,7 @@ func (self *SStoragecache) getCachedImageSize() int64 {
 	}
 	var size int64 = 0
 	for _, img := range images {
-		imginfo := img.getCachedimage()
+		imginfo := img.GetCachedimage()
 		size += imginfo.Size
 	}
 	return size

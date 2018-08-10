@@ -2284,13 +2284,33 @@ func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.Token
 	for _, guestdisk := range self.GetDisks() {
 		disk := guestdisk.GetDisk()
 		storage := disk.GetStorage()
-		if utils.IsInStringArray(storage.StorageType, sysutils.LOCAL_STORAGE_TYPES) || disk.DiskType == DISK_TYPE_SYS || disk.DiskType == DISK_TYPE_SWAP {
+		if utils.IsInStringArray(storage.StorageType, sysutils.LOCAL_STORAGE_TYPES) || disk.DiskType == DISK_TYPE_SYS || disk.DiskType == DISK_TYPE_SWAP || self.Hypervisor == HYPERVISOR_ALIYUN {
 			disk.DoPendingDelete(ctx, userCred)
 		} else {
 			self.DetachDisk(ctx, disk, userCred)
 		}
 	}
 	self.SVirtualResourceBase.DoPendingDelete(ctx, userCred)
+}
+
+func (model *SGuest) AllowPerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SGuest) PerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.PendingDeleted {
+		err := self.DoCancelPendingDelete(ctx, userCred)
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (self *SGuest) DoCancelPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	for _, guestdisk := range self.GetDisks() {
+		disk := guestdisk.GetDisk()
+		disk.DoCancelPendingDelete(ctx, userCred)
+	}
+	return self.SVirtualResourceBase.DoCancelPendingDelete(ctx, userCred)
 }
 
 func (self *SGuest) StartUndeployGuestTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, targetHostId string) error {
@@ -2982,20 +3002,12 @@ func (self *SGuest) SendMonitorCommand(ctx context.Context, userCred mcclient.To
 	return ret, nil
 }
 
-func (model *SGuestManager) AllowPerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
-}
-
 func (self *SGuest) GetKeypairPublicKey() string {
 	keypair := self.getKeypair()
 	if keypair != nil {
 		return keypair.PublicKey
 	}
 	return ""
-}
-
-func (model *SGuest) AllowPerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
 }
 
 func (manager *SGuestManager) GetIpInProjectWithName(projectId, name string, isExitOnly bool) []string {
