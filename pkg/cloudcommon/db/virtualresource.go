@@ -256,6 +256,10 @@ func (model *SVirtualResourceBase) AllowPerformCancelDelete(ctx context.Context,
 	return false
 }
 
+/*func DoCancelPendingDelete(model IVirtualModel, ctx context.Context, userCred mcclient.TokenCredential) error {
+	return model.DoCancelPendingDelete(ctx, userCred)
+}*/
+
 func (model *SVirtualResourceBase) PerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if model.PendingDeleted {
 		err := model.DoCancelPendingDelete(ctx, userCred)
