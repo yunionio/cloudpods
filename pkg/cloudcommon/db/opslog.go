@@ -270,17 +270,17 @@ func (manager *SOpsLogManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 	}
 	objTypes := jsonutils.GetQueryStringArray(queryDict, "obj_type")
 	if objTypes != nil && len(objTypes) > 0 {
-		queryDict.Remove("obj_type", false)
+		queryDict.RemoveIgnoreCase("obj_type")
 		q = q.Filter(sqlchemy.In(q.Field("obj_type"), objTypes))
 	}
 	objIds := jsonutils.GetQueryStringArray(queryDict, "obj_id")
 	if objIds != nil && len(objIds) > 0 {
-		queryDict.Remove("obj_id", false)
+		queryDict.RemoveIgnoreCase("obj_id")
 		q = q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("obj_id"), objIds), sqlchemy.In(q.Field("obj_name"), objIds)))
 	}
 	action := jsonutils.GetQueryStringArray(queryDict, "action")
 	if action != nil && len(action) > 0 {
-		queryDict.Remove("action", false)
+		queryDict.RemoveIgnoreCase("action")
 		q = q.Filter(sqlchemy.In(q.Field("action"), action))
 	}
 	if !userCred.IsSystemAdmin() {

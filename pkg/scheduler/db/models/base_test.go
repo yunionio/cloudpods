@@ -155,7 +155,8 @@ func TestGuestDisk(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	size, err := gst.(*Guest).DiskSize()
+	onlyLocal := false
+	size, err := gst.(*Guest).DiskSize(onlyLocal)
 	if err != nil {
 		t.Fatal(err)
 	}
