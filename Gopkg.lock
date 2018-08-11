@@ -574,70 +574,6 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/yunionio/jsonutils"
-  packages = ["."]
-  revision = "a19572265f525c898629becef50b405afd5e3ec6"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/yunionio/log"
-  packages = [
-    ".",
-    "hooks"
-  ]
-  revision = "d2fe137411c230927e28dd82b1a3bcb618dbb28d"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/yunionio/pkg"
-  packages = [
-    "gotypes",
-    "prettytable",
-    "trace",
-    "tristate",
-    "util/cache",
-    "util/clock",
-    "util/compare",
-    "util/errors",
-    "util/fifoutils",
-    "util/fileutils",
-    "util/filterclause",
-    "util/goroutine_pool",
-    "util/netutils",
-    "util/osprofile",
-    "util/prometheus",
-    "util/reflectutils",
-    "util/regutils",
-    "util/runtime",
-    "util/seclib",
-    "util/secrules",
-    "util/sets",
-    "util/stringutils",
-    "util/sysutils",
-    "util/timeutils",
-    "util/trace",
-    "util/ttlpool",
-    "util/version",
-    "util/wait",
-    "util/workqueue",
-    "utils"
-  ]
-  revision = "607ffde100f37b77f1a90289c06ed6b103325ee8"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/yunionio/sqlchemy"
-  packages = ["."]
-  revision = "b84d8e2b4313670f24cd50caa5bcc0c5288c16b5"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/yunionio/structarg"
-  packages = ["."]
-  revision = "7c3bbf8a77dc7b33ccad90087a296f3e34399d09"
-
-[[projects]]
-  branch = "master"
   name = "golang.org/x/crypto"
   packages = [
     "curve25519",
@@ -910,9 +846,72 @@
   revision = "7d04d0e2a0a1a4d4a1cd6baa432a2301492e4e65"
   version = "v8.0.0"
 
+[[projects]]
+  branch = "master"
+  name = "yunion.io/x/jsonutils"
+  packages = ["."]
+  revision = "a86e16793be4a6f4c5ea9203e40c2a0a9361efb8"
+
+[[projects]]
+  branch = "master"
+  name = "yunion.io/x/log"
+  packages = [
+    ".",
+    "hooks"
+  ]
+  revision = "a10b94c5038480920262e0f344656328434955a2"
+
+[[projects]]
+  name = "yunion.io/x/pkg"
+  packages = [
+    "gotypes",
+    "prettytable",
+    "trace",
+    "tristate",
+    "util/cache",
+    "util/clock",
+    "util/compare",
+    "util/errors",
+    "util/fifoutils",
+    "util/fileutils",
+    "util/filterclause",
+    "util/goroutine_pool",
+    "util/netutils",
+    "util/osprofile",
+    "util/prometheus",
+    "util/reflectutils",
+    "util/regutils",
+    "util/runtime",
+    "util/seclib",
+    "util/secrules",
+    "util/sets",
+    "util/stringutils",
+    "util/sysutils",
+    "util/timeutils",
+    "util/trace",
+    "util/ttlpool",
+    "util/version",
+    "util/wait",
+    "util/workqueue",
+    "utils"
+  ]
+  revision = "07cad0cb1df5155b3bfa15079594d01050931554"
+
+[[projects]]
+  branch = "master"
+  name = "yunion.io/x/sqlchemy"
+  packages = ["."]
+  revision = "f6a47145f9b94ebff1517017e790f068698b5b5a"
+
+[[projects]]
+  branch = "master"
+  name = "yunion.io/x/structarg"
+  packages = ["."]
+  revision = "5f84a68c40a2d8eb923f0607f809cbda8d5b944a"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c7bfe16614b0c3ebccbf920779ecaf929daaef2dc863be449279c3bafa45839b"
+  inputs-digest = "63315737a1e02fba65e6ba256ff2571dfb9351af5fe446152e89adaf1c7129fb"
   solver-name = "gps-cdcl"
   solver-version = 1

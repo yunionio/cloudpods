@@ -5,11 +5,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/yunionio/onecloud/pkg/scheduler/algorithm/predicates"
-	"github.com/yunionio/onecloud/pkg/scheduler/api"
-	"github.com/yunionio/onecloud/pkg/scheduler/core"
-	networks "github.com/yunionio/onecloud/pkg/scheduler/db/models"
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
+	"yunion.io/x/onecloud/pkg/scheduler/api"
+	"yunion.io/x/onecloud/pkg/scheduler/core"
+	networks "yunion.io/x/onecloud/pkg/scheduler/db/models"
+	"yunion.io/x/pkg/utils"
 )
 
 // NetworkPredicate will filter the current network information with

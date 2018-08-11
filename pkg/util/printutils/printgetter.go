@@ -5,9 +5,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/mcclient/modules"
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/pkg/utils"
 )
 
 func getter2json(obj interface{}) jsonutils.JSONObject {

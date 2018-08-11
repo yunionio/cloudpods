@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/yunionio/log"
+	"yunion.io/x/log"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 
 type SUserCacheManager struct {

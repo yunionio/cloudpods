@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yunionio/pkg/util/stringutils"
+	"yunion.io/x/pkg/util/stringutils"
 )
 
 type FakeObject struct {

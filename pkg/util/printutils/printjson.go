@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/pkg/prettytable"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/prettytable"
 
-	"github.com/yunionio/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 func PrintJSONList(list *modules.ListResult, columns []string) {

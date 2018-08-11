@@ -3,7 +3,7 @@ package cache
 import (
 	"fmt"
 
-	"github.com/yunionio/log"
+	"yunion.io/x/log"
 )
 
 type GroupManager struct {

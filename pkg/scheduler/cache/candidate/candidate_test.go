@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yunionio/onecloud/pkg/scheduler/cache"
-	"github.com/yunionio/onecloud/pkg/scheduler/cache/db"
-	"github.com/yunionio/onecloud/pkg/scheduler/cache/sync"
-	"github.com/yunionio/onecloud/pkg/scheduler/db/models"
+	"yunion.io/x/onecloud/pkg/scheduler/cache"
+	"yunion.io/x/onecloud/pkg/scheduler/cache/db"
+	"yunion.io/x/onecloud/pkg/scheduler/cache/sync"
+	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 )
 
 var (

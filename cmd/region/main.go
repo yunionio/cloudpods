@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/yunionio/onecloud/pkg/compute/service"
+	"yunion.io/x/onecloud/pkg/compute/service"
 )
 
 func main() {

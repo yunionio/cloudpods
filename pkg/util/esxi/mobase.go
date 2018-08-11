@@ -2,8 +2,8 @@ package esxi
 
 import (
 	"github.com/vmware/govmomi/vim25/mo"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"reflect"
 )
 

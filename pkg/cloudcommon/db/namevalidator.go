@@ -3,8 +3,8 @@ package db
 import (
 	"fmt"
 
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/pkg/util/stringutils"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/pkg/util/stringutils"
 )
 
 func isNameUnique(manager IModelManager, ownerProjId string, name string) bool {

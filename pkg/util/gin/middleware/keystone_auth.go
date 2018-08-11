@@ -6,7 +6,7 @@ import (
 
 	"gopkg.in/gin-gonic/gin.v1"
 
-	"github.com/yunionio/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 const (

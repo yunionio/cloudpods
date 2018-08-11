@@ -7,8 +7,8 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/httperrors"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type EndpointGenerator func(context.Context, http.ResponseWriter, *http.Request) (string, error)

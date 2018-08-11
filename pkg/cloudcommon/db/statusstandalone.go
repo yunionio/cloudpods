@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SStatusStandaloneResourceBase struct {

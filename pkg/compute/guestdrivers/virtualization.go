@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/quotas"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SVirtualizedGuestDriver struct {

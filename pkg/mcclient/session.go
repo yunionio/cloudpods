@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/util/httputils"
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/pkg/utils"
 )
 
 const (

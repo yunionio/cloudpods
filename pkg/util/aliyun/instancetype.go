@@ -2,7 +2,7 @@ package aliyun
 
 import (
 	// "time"
-	"github.com/yunionio/log"
+	"yunion.io/x/log"
 )
 
 // {"CpuCoreCount":1,"EniQuantity":1,"GPUAmount":0,"GPUSpec":"","InstanceTypeFamily":"ecs.t1","InstanceTypeId":"ecs.t1.xsmall","LocalStorageCategory":"","MemorySize":0.500000}

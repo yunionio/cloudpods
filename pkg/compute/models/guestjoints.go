@@ -1,6 +1,6 @@
 package models
 
-import "github.com/yunionio/onecloud/pkg/cloudcommon/db"
+import "yunion.io/x/onecloud/pkg/cloudcommon/db"
 
 type SGuestJointsManager struct {
 	db.SVirtualJointResourceBaseManager

@@ -6,16 +6,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/pkg/util/timeutils"
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/pkg/utils"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 const (

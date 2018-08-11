@@ -4,8 +4,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 const (

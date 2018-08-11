@@ -3,13 +3,13 @@ package esxi
 import (
 	"github.com/vmware/govmomi/vim25/mo"
 
-	"github.com/yunionio/jsonutils"
+	"yunion.io/x/jsonutils"
 
 	"github.com/vmware/govmomi/vim25/types"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/models"
-	"github.com/yunionio/pkg/util/netutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/pkg/util/netutils"
 )
 
 var HOST_SYSTEM_PROPS = []string{"name", "parent", "summary", "config", "hardware", "vm"}

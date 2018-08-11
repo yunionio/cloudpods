@@ -3,9 +3,9 @@ package priorities
 import (
 	"math"
 
-	"github.com/yunionio/onecloud/pkg/scheduler/algorithm"
-	"github.com/yunionio/onecloud/pkg/scheduler/cache/candidate"
-	"github.com/yunionio/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/algorithm"
+	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
+	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
 func aggPriority(x float64) float64 {

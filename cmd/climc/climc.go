@@ -7,14 +7,14 @@ import (
 	"time"
 
 	prompt "github.com/c-bata/go-prompt"
-	"github.com/yunionio/log"
-	"github.com/yunionio/pkg/util/version"
-	"github.com/yunionio/structarg"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/version"
+	"yunion.io/x/structarg"
 
-	"github.com/yunionio/onecloud/cmd/climc/promputils"
-	"github.com/yunionio/onecloud/cmd/climc/shell"
-	_ "github.com/yunionio/onecloud/cmd/climc/shell/k8s"
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/cmd/climc/promputils"
+	"yunion.io/x/onecloud/cmd/climc/shell"
+	_ "yunion.io/x/onecloud/cmd/climc/shell/k8s"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type BaseOptions struct {
@@ -122,7 +122,7 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 		options.Debug,
 		options.Secure)
 
-	if CacheToken == nil || {
+	if CacheToken == nil {
 		token, err := client.Authenticate(options.OsUsername,
 			options.OsPassword,
 			options.OsDomainName,

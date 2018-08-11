@@ -1,9 +1,9 @@
 package shell
 
 import (
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 func init() {

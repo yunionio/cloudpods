@@ -3,8 +3,8 @@ package k8s
 import (
 	"fmt"
 
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/onecloud/pkg/mcclient/modules/k8s"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 )
 
 func initPod() {

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/pkg/util/cache"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/cache"
 
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 var (

@@ -7,13 +7,13 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/onecloud/pkg/util/httputils"
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/pkg/utils"
 
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type ImageManager struct {

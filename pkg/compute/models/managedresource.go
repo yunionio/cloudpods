@@ -3,7 +3,7 @@ package models
 import (
 	"fmt"
 
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SManagedResourceBase struct {

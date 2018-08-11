@@ -5,15 +5,15 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/pkg/tristate"
-	"github.com/yunionio/pkg/util/compare"
-	"github.com/yunionio/sqlchemy"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/sqlchemy"
 )
 
 const (

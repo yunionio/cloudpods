@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 )
 
 func Send(w http.ResponseWriter, text string) {
