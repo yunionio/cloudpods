@@ -453,9 +453,25 @@ func validateMemCpuData(data jsonutils.JSONObject) (int, int, error) {
 }
 
 func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("name") {
-		return nil, httperrors.NewInputParameterError("cannot update server name")
+	vmemSize, vcpuCount, err := validateMemCpuData(data)
+	if err != nil {
+		return nil, err
 	}
+	if vmemSize > 0 {
+		data.Add(jsonutils.NewInt(int64(vmemSize)), "vmem_size")
+	}
+	if vcpuCount > 0 {
+		data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
+	}
+
+	err = self.checkUpdateQuota(ctx, userCred, vcpuCount, vmemSize)
+	if err != nil {
+		return nil, err
+	}
+
+	// if data.Contains("name") {
+	//	return nil, httperrors.NewInputParameterError("cannot update server name")
+	// }
 	/* if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
 		return nil, httperrors.NewInputParameterError("Cannot modify memory for baremetal")
 	}
@@ -735,6 +751,22 @@ func (manager *SGuestManager) checkCreateQuota(ctx context.Context, userCred mcc
 	} else {
 		return nil
 	}
+}
+
+func (self *SGuest) checkUpdateQuota(ctx context.Context, userCred mcclient.TokenCredential, vcpuCount int, vmemSize int) error {
+	req := SQuota{}
+
+	if vcpuCount > 0 && vcpuCount > int(self.VcpuCount) {
+		req.Cpu = vcpuCount - int(self.VcpuCount)
+	}
+
+	if vmemSize > 0 && vmemSize > self.VmemSize {
+		req.Memory = vmemSize - self.VmemSize
+	}
+
+	_, err := QuotaManager.CheckQuota(ctx, userCred, self.ProjectId, &req)
+
+	return err
 }
 
 func getGuestResourceRequirements(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, count int) SQuota {
