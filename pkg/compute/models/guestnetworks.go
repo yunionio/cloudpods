@@ -9,16 +9,16 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/pkg/util/netutils"
-	"github.com/yunionio/pkg/util/regutils"
-	"github.com/yunionio/sqlchemy"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/sqlchemy"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"
-	"github.com/yunionio/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/compute/options"
 )
 
 const (

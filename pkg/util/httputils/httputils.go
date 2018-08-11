@@ -14,11 +14,11 @@ import (
 	"github.com/fatih/color"
 	"github.com/moul/http2curl"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/pkg/trace"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/trace"
 
-	"github.com/yunionio/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/appctx"
 )
 
 const (

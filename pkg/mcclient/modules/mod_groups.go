@@ -3,7 +3,7 @@ package modules
 import (
 	"fmt"
 
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type GroupManager struct {

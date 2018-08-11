@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yunionio/pkg/util/wait"
+	"yunion.io/x/pkg/util/wait"
 )
 
 const (

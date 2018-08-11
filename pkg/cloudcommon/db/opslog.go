@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/pkg/util/stringutils"
-	"github.com/yunionio/sqlchemy"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/util/stringutils"
+	"yunion.io/x/sqlchemy"
 )
 
 const (

@@ -9,9 +9,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/yunionio/structarg"
+	"yunion.io/x/structarg"
 
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 var (

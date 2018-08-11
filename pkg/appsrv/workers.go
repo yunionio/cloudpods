@@ -4,7 +4,7 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/yunionio/log"
+	"yunion.io/x/log"
 )
 
 type WorkerManager struct {

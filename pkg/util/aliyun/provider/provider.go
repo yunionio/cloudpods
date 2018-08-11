@@ -1,10 +1,10 @@
 package provider
 
 import (
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	// "github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/util/aliyun"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	// "yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/util/aliyun"
 )
 
 type SAliyunProviderFactory struct {

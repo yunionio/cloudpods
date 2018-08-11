@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/pkg/gotypes"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/gotypes"
 )
 
 type SSimpleToken struct {

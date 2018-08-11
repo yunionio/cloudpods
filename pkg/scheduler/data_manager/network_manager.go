@@ -3,10 +3,10 @@ package data_manager
 import (
 	"sync"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/scheduler/cache"
-	synccache "github.com/yunionio/onecloud/pkg/scheduler/cache/sync"
-	networks_db "github.com/yunionio/onecloud/pkg/scheduler/cache/sync/networks/db"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/scheduler/cache"
+	synccache "yunion.io/x/onecloud/pkg/scheduler/cache/sync"
+	networks_db "yunion.io/x/onecloud/pkg/scheduler/cache/sync/networks/db"
 )
 
 // ---------------------------------------------------

@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/pkg/util/regutils"
-	"github.com/yunionio/pkg/utils"
-	"github.com/yunionio/sqlchemy"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 )
 
 const (

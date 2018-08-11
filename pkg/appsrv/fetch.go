@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/yunionio/jsonutils"
+	"yunion.io/x/jsonutils"
 )
 
 func Fetch(req *http.Request) ([]byte, error) {

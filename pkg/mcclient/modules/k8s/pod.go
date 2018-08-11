@@ -1,7 +1,7 @@
 package k8s
 
 import (
-	"github.com/yunionio/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 var Pods *PodManager

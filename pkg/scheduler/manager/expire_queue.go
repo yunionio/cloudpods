@@ -4,10 +4,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yunionio/log"
-	o "github.com/yunionio/onecloud/cmd/scheduler/options"
-	"github.com/yunionio/onecloud/pkg/scheduler/api"
-	u "github.com/yunionio/pkg/utils"
+	"yunion.io/x/log"
+	o "yunion.io/x/onecloud/cmd/scheduler/options"
+	"yunion.io/x/onecloud/pkg/scheduler/api"
+	u "yunion.io/x/pkg/utils"
 )
 
 type ExpireManager struct {

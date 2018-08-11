@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient/auth"
-	"github.com/yunionio/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 
 type STenantCacheManager struct {

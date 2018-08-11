@@ -9,11 +9,11 @@ import (
 	"github.com/bitly/go-simplejson"
 	"gopkg.in/gin-gonic/gin.v1"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/scheduler/api"
-	"github.com/yunionio/onecloud/pkg/scheduler/core"
-	"github.com/yunionio/onecloud/pkg/scheduler/db/models"
-	schedman "github.com/yunionio/onecloud/pkg/scheduler/manager"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/scheduler/api"
+	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/db/models"
+	schedman "yunion.io/x/onecloud/pkg/scheduler/manager"
 )
 
 // InstallHandler is an interface that registes route and

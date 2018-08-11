@@ -1,10 +1,10 @@
 package sync
 
 import (
-	o "github.com/yunionio/onecloud/cmd/scheduler/options"
-	"github.com/yunionio/onecloud/pkg/scheduler/cache"
-	networks_db "github.com/yunionio/onecloud/pkg/scheduler/cache/sync/networks/db"
-	u "github.com/yunionio/pkg/utils"
+	o "yunion.io/x/onecloud/cmd/scheduler/options"
+	"yunion.io/x/onecloud/pkg/scheduler/cache"
+	networks_db "yunion.io/x/onecloud/pkg/scheduler/cache/sync/networks/db"
+	u "yunion.io/x/pkg/utils"
 )
 
 const (

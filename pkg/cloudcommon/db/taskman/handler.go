@@ -1,11 +1,11 @@
 package taskman
 
 import (
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/appsrv"
-	"github.com/yunionio/onecloud/pkg/appsrv/dispatcher"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
 var taskWorkMan *appsrv.WorkerManager

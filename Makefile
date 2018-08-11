@@ -1,8 +1,8 @@
 #####################################################
 
-REPO_PREFIX := github.com/yunionio/onecloud
+REPO_PREFIX := yunion.io/x/onecloud
 VENDOR_PATH := $(REPO_PREFIX)/vendor
-VERSION_PKG := $(VENDOR_PATH)/github.com/yunionio/pkg/util/version
+VERSION_PKG := $(VENDOR_PATH)/yunion.io/x/pkg/util/version
 ROOT_DIR := $(shell readlink -f `pwd`)
 BUILD_DIR := $(ROOT_DIR)/_output
 BIN_DIR := $(BUILD_DIR)/bin

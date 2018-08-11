@@ -3,10 +3,10 @@ package baremetal
 import (
 	"fmt"
 
-	//"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/scheduler/algorithm/predicates"
-	"github.com/yunionio/onecloud/pkg/scheduler/core"
-	"github.com/yunionio/onecloud/pkg/scheduler/util/baremetal"
+	//"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
+	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/util/baremetal"
 )
 
 type StoragePredicate struct {

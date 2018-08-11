@@ -1,15 +1,15 @@
 package compute
 
 import (
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/appsrv"
-	"github.com/yunionio/onecloud/pkg/appsrv/dispatcher"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/quotas"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/compute/models"
-	"github.com/yunionio/onecloud/pkg/compute/usages"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/usages"
 )
 
 func InitHandlers(app *appsrv.Application) {

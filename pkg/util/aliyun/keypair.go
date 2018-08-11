@@ -2,7 +2,7 @@ package aliyun
 
 import (
 	"fmt"
-	"github.com/yunionio/log"
+	"yunion.io/x/log"
 )
 
 type SKeypair struct {

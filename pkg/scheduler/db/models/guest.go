@@ -6,7 +6,7 @@ import (
 
 	"github.com/jinzhu/gorm"
 
-	"github.com/yunionio/pkg/util/sets"
+	"yunion.io/x/pkg/util/sets"
 )
 
 const (

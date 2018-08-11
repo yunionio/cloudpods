@@ -3,7 +3,7 @@ package modules
 import (
 	"io/ioutil"
 
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 func GetVersion(s *mcclient.ClientSession, serviceType string) (string, error) {
