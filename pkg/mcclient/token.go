@@ -3,7 +3,7 @@ package mcclient
 import (
 	"time"
 
-	"github.com/yunionio/pkg/gotypes"
+	"yunion.io/x/pkg/gotypes"
 )
 
 type ExternalService struct {

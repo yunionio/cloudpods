@@ -8,12 +8,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/yunionio/log"
-	o "github.com/yunionio/onecloud/cmd/scheduler/options"
-	"github.com/yunionio/pkg/util/errors"
-	gp "github.com/yunionio/pkg/util/goroutine_pool"
-	utiltrace "github.com/yunionio/pkg/util/trace"
-	"github.com/yunionio/pkg/util/workqueue"
+	"yunion.io/x/log"
+	o "yunion.io/x/onecloud/cmd/scheduler/options"
+	"yunion.io/x/pkg/util/errors"
+	gp "yunion.io/x/pkg/util/goroutine_pool"
+	utiltrace "yunion.io/x/pkg/util/trace"
+	"yunion.io/x/pkg/util/workqueue"
 )
 
 const (

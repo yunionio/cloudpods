@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/util/aliyun"
-	"github.com/yunionio/onecloud/pkg/util/shellutils"
-	"github.com/yunionio/structarg"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/util/aliyun"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
+	"yunion.io/x/structarg"
 
-	_ "github.com/yunionio/onecloud/pkg/util/aliyun/shell"
+	_ "yunion.io/x/onecloud/pkg/util/aliyun/shell"
 )
 
 type BaseOptions struct {

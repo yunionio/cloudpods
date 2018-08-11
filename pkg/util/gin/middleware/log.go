@@ -5,7 +5,7 @@ import (
 
 	"gopkg.in/gin-gonic/gin.v1"
 
-	"github.com/yunionio/log"
+	"yunion.io/x/log"
 )
 
 var (

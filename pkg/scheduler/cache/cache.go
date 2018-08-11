@@ -5,9 +5,9 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/yunionio/log"
-	expirationcache "github.com/yunionio/pkg/util/cache"
-	"github.com/yunionio/pkg/util/wait"
+	"yunion.io/x/log"
+	expirationcache "yunion.io/x/pkg/util/cache"
+	"yunion.io/x/pkg/util/wait"
 )
 
 var (

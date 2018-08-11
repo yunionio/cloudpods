@@ -2,7 +2,7 @@ package shell
 
 import (
 	"fmt"
-	"github.com/yunionio/jsonutils"
+	"yunion.io/x/jsonutils"
 )
 
 type CMD struct {

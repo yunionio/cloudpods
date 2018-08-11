@@ -1,7 +1,7 @@
 package sync
 
 import (
-	"github.com/yunionio/onecloud/pkg/scheduler/cache"
+	"yunion.io/x/onecloud/pkg/scheduler/cache"
 )
 
 func NewSyncManager(stopCh <-chan struct{}) *cache.GroupManager {

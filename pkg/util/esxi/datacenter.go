@@ -2,7 +2,7 @@ package esxi
 
 import (
 	"github.com/vmware/govmomi/vim25/mo"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 var DATACENTER_PROPS = []string{"name", "parent", "datastore"}

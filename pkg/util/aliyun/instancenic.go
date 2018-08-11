@@ -1,8 +1,8 @@
 package aliyun
 
 import (
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/pkg/util/netutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/pkg/util/netutils"
 )
 
 type SInstanceNic struct {

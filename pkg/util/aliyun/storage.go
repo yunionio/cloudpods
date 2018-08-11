@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/models"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SStorage struct {

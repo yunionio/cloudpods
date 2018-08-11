@@ -1,10 +1,10 @@
 package manager
 
 import (
-	"github.com/yunionio/onecloud/pkg/scheduler/api"
-	"github.com/yunionio/onecloud/pkg/scheduler/core"
-	"github.com/yunionio/onecloud/pkg/scheduler/data_manager"
-	"github.com/yunionio/onecloud/pkg/scheduler/factory"
+	"yunion.io/x/onecloud/pkg/scheduler/api"
+	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager"
+	"yunion.io/x/onecloud/pkg/scheduler/factory"
 )
 
 type CandidatesProvider interface {

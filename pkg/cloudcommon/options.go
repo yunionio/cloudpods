@@ -5,10 +5,10 @@ import (
 	"os"
 	"path"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/pkg/util/version"
-	"github.com/yunionio/pkg/utils"
-	"github.com/yunionio/structarg"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/version"
+	"yunion.io/x/pkg/utils"
+	"yunion.io/x/structarg"
 )
 
 type Options struct {

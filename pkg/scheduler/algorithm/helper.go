@@ -3,8 +3,8 @@ package algorithm
 import (
 	"fmt"
 
-	"github.com/yunionio/onecloud/pkg/scheduler/cache/candidate"
-	"github.com/yunionio/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
+	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
 func ToHostCandidate(c core.Candidater) (*candidate.HostDesc, error) {

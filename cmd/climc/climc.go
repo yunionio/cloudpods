@@ -6,14 +6,14 @@ import (
 	"strings"
 
 	"github.com/c-bata/go-prompt"
-	"github.com/yunionio/log"
-	"github.com/yunionio/pkg/util/version"
-	"github.com/yunionio/structarg"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/version"
+	"yunion.io/x/structarg"
 
-	"github.com/yunionio/onecloud/cmd/climc/promputils"
-	"github.com/yunionio/onecloud/cmd/climc/shell"
-	_ "github.com/yunionio/onecloud/cmd/climc/shell/k8s"
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/cmd/climc/promputils"
+	"yunion.io/x/onecloud/cmd/climc/shell"
+	_ "yunion.io/x/onecloud/cmd/climc/shell/k8s"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type BaseOptions struct {

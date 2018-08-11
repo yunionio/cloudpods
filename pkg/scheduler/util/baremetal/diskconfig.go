@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/scheduler/api"
-	"github.com/yunionio/pkg/util/sets"
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/scheduler/api"
+	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/pkg/utils"
 )
 
 const (

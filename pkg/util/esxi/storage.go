@@ -3,9 +3,9 @@ package esxi
 import (
 	"github.com/vmware/govmomi/vim25/mo"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/models"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 var DATASTORE_PROPS = []string{"name", "parent"}

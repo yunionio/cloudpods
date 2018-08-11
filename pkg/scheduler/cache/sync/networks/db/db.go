@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/scheduler/db/models"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 )
 
 const (

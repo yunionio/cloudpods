@@ -4,11 +4,11 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 const (

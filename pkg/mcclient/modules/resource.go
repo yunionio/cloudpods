@@ -5,11 +5,11 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/onecloud/pkg/util/httputils"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type ResourceManager struct {

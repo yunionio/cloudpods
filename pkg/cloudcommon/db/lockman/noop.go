@@ -3,7 +3,7 @@ package lockman
 import (
 	"context"
 
-	"github.com/yunionio/log"
+	"yunion.io/x/log"
 )
 
 type SNoopLockManager struct {

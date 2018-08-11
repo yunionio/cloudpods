@@ -4,11 +4,11 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/pkg/gotypes"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/gotypes"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
 /*type TaskStageFunc func(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject)

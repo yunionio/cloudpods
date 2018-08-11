@@ -6,7 +6,7 @@ import (
 
 	"github.com/jinzhu/gorm"
 
-	o "github.com/yunionio/onecloud/cmd/scheduler/options"
+	o "yunion.io/x/onecloud/cmd/scheduler/options"
 )
 
 type Storage struct {

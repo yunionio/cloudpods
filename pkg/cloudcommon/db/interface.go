@@ -3,11 +3,11 @@ package db
 import (
 	"context"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/sqlchemy"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/sqlchemy"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 
 type IModelManager interface {

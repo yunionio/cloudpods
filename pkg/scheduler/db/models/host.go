@@ -6,8 +6,8 @@ import (
 
 	"github.com/jinzhu/gorm"
 
-	o "github.com/yunionio/onecloud/cmd/scheduler/options"
-	"github.com/yunionio/onecloud/pkg/scheduler/api"
+	o "yunion.io/x/onecloud/cmd/scheduler/options"
+	"yunion.io/x/onecloud/pkg/scheduler/api"
 )
 
 const (

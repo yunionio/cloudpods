@@ -1,10 +1,10 @@
 package shell
 
 import (
-	"github.com/yunionio/jsonutils"
+	"yunion.io/x/jsonutils"
 
-	"github.com/yunionio/onecloud/pkg/mcclient/modules"
-	"github.com/yunionio/onecloud/pkg/util/printutils"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/printutils"
 )
 
 func printList(list *modules.ListResult, columns []string) {

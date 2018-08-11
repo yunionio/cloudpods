@@ -8,17 +8,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/yunionio/log"
-	o "github.com/yunionio/onecloud/cmd/scheduler/options"
-	"github.com/yunionio/onecloud/pkg/scheduler/cache"
-	"github.com/yunionio/onecloud/pkg/scheduler/cache/db"
-	"github.com/yunionio/onecloud/pkg/scheduler/db/models"
-	"github.com/yunionio/pkg/util/errors"
-	"github.com/yunionio/pkg/util/sets"
-	"github.com/yunionio/pkg/util/workqueue"
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/log"
+	o "yunion.io/x/onecloud/cmd/scheduler/options"
+	"yunion.io/x/onecloud/pkg/scheduler/cache"
+	"yunion.io/x/onecloud/pkg/scheduler/cache/db"
+	"yunion.io/x/onecloud/pkg/scheduler/db/models"
+	"yunion.io/x/pkg/util/errors"
+	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/pkg/util/workqueue"
+	"yunion.io/x/pkg/utils"
 
-	"github.com/yunionio/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
 type HostDesc struct {

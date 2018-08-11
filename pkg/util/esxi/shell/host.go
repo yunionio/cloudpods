@@ -1,8 +1,8 @@
 package shell
 
 import (
-	"github.com/yunionio/onecloud/pkg/util/esxi"
-	"github.com/yunionio/onecloud/pkg/util/shellutils"
+	"yunion.io/x/onecloud/pkg/util/esxi"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {

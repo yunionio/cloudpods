@@ -3,7 +3,7 @@ package appctx
 import (
 	"context"
 
-	"github.com/yunionio/pkg/trace"
+	"yunion.io/x/pkg/trace"
 )
 
 type AppContextKey string

@@ -1,7 +1,7 @@
 package candidate
 
 import (
-	"github.com/yunionio/onecloud/pkg/scheduler/cache"
+	"yunion.io/x/onecloud/pkg/scheduler/cache"
 )
 
 type groupCacher interface {

@@ -3,12 +3,12 @@ package k8s
 import (
 	"fmt"
 
-	"github.com/yunionio/jsonutils"
+	"yunion.io/x/jsonutils"
 
-	"github.com/yunionio/onecloud/cmd/climc/shell"
-	"github.com/yunionio/onecloud/pkg/mcclient/modules"
-	"github.com/yunionio/onecloud/pkg/mcclient/modules/k8s"
-	"github.com/yunionio/onecloud/pkg/util/printutils"
+	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
+	"yunion.io/x/onecloud/pkg/util/printutils"
 )
 
 func init() {

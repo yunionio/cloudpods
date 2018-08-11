@@ -4,7 +4,7 @@ import (
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 
-	"github.com/yunionio/log"
+	"yunion.io/x/log"
 )
 
 var DB *gorm.DB

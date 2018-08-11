@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yunionio/log"
+	"yunion.io/x/log"
 )
 
 type TaskActionType string

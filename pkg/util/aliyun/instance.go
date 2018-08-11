@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/pkg/util/osprofile"
-	"github.com/yunionio/pkg/util/seclib"
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/osprofile"
+	"yunion.io/x/pkg/util/seclib"
+	"yunion.io/x/pkg/utils"
 
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 const (
