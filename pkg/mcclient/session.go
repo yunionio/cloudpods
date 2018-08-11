@@ -63,6 +63,10 @@ func SplitVersionedURL(url string) (string, string) {
 	return base
 }*/
 
+func (this *ClientSession) GetClient() *Client {
+	return this.client
+}
+
 func (this *ClientSession) GetServiceURL(service, endpointType string) (string, error) {
 	if len(this.endpointType) > 0 {
 		// session specific endpoint type should override the input endpointType, which is supplied by manager

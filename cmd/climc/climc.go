@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -35,9 +37,6 @@ type BaseOptions struct {
 	ApiVersion     string `default:"$API_VERSION|v1" help:"apiVersion, default to v1"`
 	SUBCOMMAND     string `help:"climc subcommand" subcommand:"true"`
 }
-
-var CacheToken mcclient.TokenCredential
-var CacheTime time.Time
 
 func getSubcommandsParser() (*structarg.ArgumentParser, error) {
 	parse, e := structarg.NewArgumentParser(&BaseOptions{},
@@ -122,7 +121,26 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 		options.Debug,
 		options.Secure)
 
-	if CacheToken == nil {
+	var cacheToken mcclient.TokenCredential
+	cacheFile, err := os.Open("/tmp/OS_AUTH_CACHE_TOKEN")
+	if err == nil && cacheFile != nil {
+		fileInfo, _ := cacheFile.Stat()
+		dur, err := time.ParseDuration("-24h")
+		if fileInfo != nil && err == nil && fileInfo.ModTime().After(time.Now().Add(dur)) {
+			bytesToken, err := ioutil.ReadAll(cacheFile)
+			if err == nil {
+				token := client.NewAuthTokenCredential()
+				err := json.Unmarshal(bytesToken, token)
+				if err != nil {
+					fmt.Printf("Unmarshal token error:%s", err)
+				} else {
+					cacheToken = token
+				}
+			}
+			cacheFile.Close()
+		}
+	}
+	if cacheToken == nil {
 		token, err := client.Authenticate(options.OsUsername,
 			options.OsPassword,
 			options.OsDomainName,
@@ -130,14 +148,23 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 		if err != nil {
 			return nil, err
 		}
-		CacheToken = token
-		CacheTime = time.Now()
+		cacheToken = token
+		bytesCacheToken, err := json.Marshal(cacheToken)
+		if err != nil {
+			fmt.Printf("Marshal token error:%s", err)
+		} else {
+			fo, _ := os.Create("/tmp/OS_AUTH_CACHE_TOKEN")
+			fo.Write(bytesCacheToken)
+			fo.Close()
+		}
+	} else {
+		fmt.Println("******** Use Token Cache At /tmp/OS_AUTH_CACHE_TOKEN ********")
 	}
 
 	session := client.NewSession(options.OsRegionName,
 		options.OsZoneName,
 		options.OsEndpointType,
-		CacheToken,
+		cacheToken,
 		options.ApiVersion)
 	return session, nil
 }
@@ -154,7 +181,7 @@ func main() {
 		fmt.Print(parser.HelpString())
 	} else if options.Version {
 		fmt.Printf("Yunion API client version:\n %s\n", version.GetJsonString())
-	} else if len(os.Args) <= 1 || (options.ApiVersion == "v2" && len(os.Args) <= 3) {
+	} else if len(options.SUBCOMMAND) == 0 {
 		session, e := newClientSession(options)
 		if e != nil {
 			showErrorAndExit(e)
