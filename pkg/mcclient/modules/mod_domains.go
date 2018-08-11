@@ -233,19 +233,27 @@ func (this *DomainManager) DoDomainConfigDelete(s *mcclient.ClientSession, param
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(objId), "domain_id")
 
-		result, err := UsersV3.List(s, params)
-
+		detail, err := this.GetById(s, domain, nil)
 		if err != nil {
-			log.Errorf("user list got error: %v", err)
+			log.Errorf("got domain detail error: %v", err)
 		}
 
-		if len(result.Data) > 0 {
-			e := httputils.JSONClientError{
-				Code:    403,
-				Class:   "",
-				Details: fmt.Sprintf("域名%s下存在%d名用户,不允许删除.", objId, len(result.Data)),
+		driver, err := detail.GetString("driver")
+		if err != nil {
+			log.Errorf("got driver from domain detail error: %v", err)
+		}
+
+		if driver != "ldap" {
+			if result, err := UsersV3.List(s, params); err != nil {
+				log.Errorf("user list got error: %v", err)
+			} else if len(result.Data) > 0 {
+				e := httputils.JSONClientError{
+					Code:    403,
+					Class:   "",
+					Details: fmt.Sprintf("域名%s下存在%d名用户,不允许删除.", objId, len(result.Data)),
+				}
+				return ret, &e
 			}
-			return ret, &e
 		}
 
 		this.DeleteConfig(s, objId)
