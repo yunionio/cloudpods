@@ -1,11 +1,11 @@
 package algorithmprovider
 
 import (
-	"github.com/yunionio/onecloud/pkg/scheduler/algorithm/predicates"
-	predicateguest "github.com/yunionio/onecloud/pkg/scheduler/algorithm/predicates/guest"
-	priorityguest "github.com/yunionio/onecloud/pkg/scheduler/algorithm/priorities/guest"
-	"github.com/yunionio/onecloud/pkg/scheduler/factory"
-	"github.com/yunionio/pkg/util/sets"
+	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
+	predicateguest "yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates/guest"
+	priorityguest "yunion.io/x/onecloud/pkg/scheduler/algorithm/priorities/guest"
+	"yunion.io/x/onecloud/pkg/scheduler/factory"
+	"yunion.io/x/pkg/util/sets"
 )
 
 func init() {

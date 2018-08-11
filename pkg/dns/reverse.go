@@ -8,9 +8,9 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/request"
 
-	"github.com/yunionio/log"
+	"yunion.io/x/log"
 
-	"github.com/yunionio/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 // Reverse implements the ServiceBackend interface

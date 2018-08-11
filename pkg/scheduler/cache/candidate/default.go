@@ -6,11 +6,11 @@ import (
 	gosync "sync"
 	"time"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/cmd/scheduler/options"
-	"github.com/yunionio/onecloud/pkg/scheduler/cache"
-	"github.com/yunionio/onecloud/pkg/scheduler/db/models"
-	u "github.com/yunionio/pkg/utils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/cmd/scheduler/options"
+	"yunion.io/x/onecloud/pkg/scheduler/cache"
+	"yunion.io/x/onecloud/pkg/scheduler/db/models"
+	u "yunion.io/x/pkg/utils"
 )
 
 const (

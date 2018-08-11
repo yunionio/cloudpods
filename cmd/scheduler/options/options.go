@@ -6,9 +6,9 @@ import (
 
 	"gopkg.in/gin-gonic/gin.v1"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/pkg/util/version"
-	"github.com/yunionio/structarg"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/version"
+	"yunion.io/x/structarg"
 )
 
 type SchedulerOptions struct {

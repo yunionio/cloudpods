@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/util/httputils"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 /*const (

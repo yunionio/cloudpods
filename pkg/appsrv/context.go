@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/yunionio/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/appctx"
 )
 
 func AppContextDB(ctx context.Context) *sql.DB {

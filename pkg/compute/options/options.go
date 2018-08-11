@@ -1,7 +1,7 @@
 package options
 
 import (
-	"github.com/yunionio/onecloud/pkg/cloudcommon"
+	"yunion.io/x/onecloud/pkg/cloudcommon"
 )
 
 type ComputeOptions struct {

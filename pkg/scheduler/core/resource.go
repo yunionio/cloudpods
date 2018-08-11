@@ -1,7 +1,7 @@
 package core
 
 import (
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/pkg/utils"
 )
 
 type value_t interface{}

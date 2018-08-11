@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/yunionio/pkg/util/version"
+	"yunion.io/x/pkg/util/version"
 )
 
 type FilterHandler func(ctx context.Context, w http.ResponseWriter, r *http.Request)

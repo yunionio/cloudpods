@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yunionio/onecloud/pkg/scheduler/cache"
-	candidatecache "github.com/yunionio/onecloud/pkg/scheduler/cache/candidate"
-	dbcache "github.com/yunionio/onecloud/pkg/scheduler/cache/db"
-	synccache "github.com/yunionio/onecloud/pkg/scheduler/cache/sync"
-	"github.com/yunionio/onecloud/pkg/scheduler/core"
-	"github.com/yunionio/pkg/util/ttlpool"
+	"yunion.io/x/onecloud/pkg/scheduler/cache"
+	candidatecache "yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
+	dbcache "yunion.io/x/onecloud/pkg/scheduler/cache/db"
+	synccache "yunion.io/x/onecloud/pkg/scheduler/cache/sync"
+	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/pkg/util/ttlpool"
 )
 
 type CandidateGetArgs struct {

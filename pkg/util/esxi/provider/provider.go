@@ -5,11 +5,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/util/esxi"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/esxi"
 )
 
 type SESXiProviderFactory struct {

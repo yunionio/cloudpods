@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/pkg/util/secrules"
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/pkg/utils"
 )
 
 // {"CreationTime":"2017-03-19T13:37:48Z","Description":"System created security group.","SecurityGroupId":"sg-j6cannq0xxj2r9z0yxwl","SecurityGroupName":"sg-j6cannq0xxj2r9z0yxwl","Tags":{"Tag":[]},"VpcId":"vpc-j6c86z3sh8ufhgsxwme0q"}

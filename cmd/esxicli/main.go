@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/structarg"
+	"yunion.io/x/log"
+	"yunion.io/x/structarg"
 
-	"github.com/yunionio/onecloud/pkg/util/esxi"
-	"github.com/yunionio/onecloud/pkg/util/shellutils"
+	"yunion.io/x/onecloud/pkg/util/esxi"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 
-	_ "github.com/yunionio/onecloud/pkg/util/esxi/shell"
+	_ "yunion.io/x/onecloud/pkg/util/esxi/shell"
 )
 
 type BaseOptions struct {

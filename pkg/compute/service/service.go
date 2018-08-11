@@ -5,19 +5,19 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/cloudcommon"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/compute"
-	"github.com/yunionio/onecloud/pkg/compute/models"
-	"github.com/yunionio/onecloud/pkg/compute/options"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/compute"
+	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/options"
 
-	_ "github.com/yunionio/onecloud/pkg/compute/tasks"
+	_ "yunion.io/x/onecloud/pkg/compute/tasks"
 
-	_ "github.com/yunionio/onecloud/pkg/compute/guestdrivers"
+	_ "yunion.io/x/onecloud/pkg/compute/guestdrivers"
 
-	_ "github.com/yunionio/onecloud/pkg/util/aliyun/provider"
-	_ "github.com/yunionio/onecloud/pkg/util/esxi/provider"
+	_ "yunion.io/x/onecloud/pkg/util/aliyun/provider"
+	_ "yunion.io/x/onecloud/pkg/util/esxi/provider"
 )
 
 func StartService() {

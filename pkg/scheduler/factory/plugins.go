@@ -5,9 +5,9 @@ import (
 	"regexp"
 	"sync"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/scheduler/core"
-	"github.com/yunionio/pkg/util/sets"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/pkg/util/sets"
 )
 
 type AlgorithmProviderConfig struct {

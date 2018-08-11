@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/scheduler/algorithm"
-	"github.com/yunionio/onecloud/pkg/scheduler/cache/candidate"
-	"github.com/yunionio/onecloud/pkg/scheduler/core"
-	"github.com/yunionio/onecloud/pkg/scheduler/data_manager"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/scheduler/algorithm"
+	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
+	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager"
 )
 
 // BasePredicate is a default struct for all the predicates that will

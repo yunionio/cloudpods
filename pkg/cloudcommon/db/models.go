@@ -3,8 +3,8 @@ package db
 import (
 	"fmt"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/sqlchemy"
+	"yunion.io/x/log"
+	"yunion.io/x/sqlchemy"
 )
 
 var globalTables map[string]IModelManager

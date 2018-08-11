@@ -9,7 +9,7 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/mholt/caddy"
 
-	"github.com/yunionio/pkg/util/regutils"
+	"yunion.io/x/pkg/util/regutils"
 )
 
 func init() {

@@ -1,7 +1,7 @@
 package guestdrivers
 
 import (
-	"github.com/yunionio/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SESXiGuestDriver struct {

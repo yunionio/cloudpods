@@ -5,8 +5,8 @@ import (
 
 	osslib "github.com/aliyun/aliyun-oss-go-sdk/oss"
 
-	"github.com/yunionio/onecloud/pkg/util/aliyun"
-	"github.com/yunionio/onecloud/pkg/util/shellutils"
+	"yunion.io/x/onecloud/pkg/util/aliyun"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 type progressListener struct {
