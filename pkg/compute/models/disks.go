@@ -607,6 +607,11 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 		}
 		return &diskConfig, nil
 	}
+
+	// default backend
+	diskConfig.Backend = STORAGE_LOCAL
+	// diskConfig.Medium = DISK_TYPE_HYBRID
+
 	diskStr, err := info.GetString()
 	if err != nil {
 		log.Errorf("invalid diskinfo format %s", err)

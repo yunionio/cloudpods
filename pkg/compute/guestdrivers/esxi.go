@@ -3,11 +3,8 @@ package guestdrivers
 import (
 	"context"
 
-	"github.com/yunionio/jsonutils"
-
 	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
 	"github.com/yunionio/onecloud/pkg/compute/models"
-	"github.com/yunionio/onecloud/pkg/mcclient"
 )
 
 type SESXiGuestDriver struct {
@@ -41,6 +38,11 @@ func (self *SESXiGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, dis
 	if err != nil {
 		return err
 	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SESXiGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
 }
