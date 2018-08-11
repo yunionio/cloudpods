@@ -217,6 +217,12 @@ func (this *DomainManager) DoDomainConfigDelete(s *mcclient.ClientSession, param
 	ids, _ := params.GetArray("ids")
 	domains := jsonutils.JSONArray2StringArray(ids)
 
+	E := httputils.JSONClientError{
+		Code:    403,
+		Class:   "",
+		Details: "",
+	}
+
 	for _, domain := range domains {
 		objId, err := this.GetId(s, domain, nil)
 		if err != nil {
@@ -236,23 +242,25 @@ func (this *DomainManager) DoDomainConfigDelete(s *mcclient.ClientSession, param
 		detail, err := this.GetById(s, domain, nil)
 		if err != nil {
 			log.Errorf("got domain detail error: %v", err)
+			E.Details = "找不到该认证域"
+			return ret, &E
 		}
 
 		driver, err := detail.GetString("driver")
 		if err != nil {
 			log.Errorf("got driver from domain detail error: %v", err)
+			E.Details = "服务器错误,获取认证协议失败,不允许删除"
+			return ret, &E
 		}
 
 		if driver != "ldap" {
 			if result, err := UsersV3.List(s, params); err != nil {
 				log.Errorf("user list got error: %v", err)
+				E.Details = "服务器错误,获取认证域用户列表失败,不允许删除"
+				return ret, &E
 			} else if len(result.Data) > 0 {
-				e := httputils.JSONClientError{
-					Code:    403,
-					Class:   "",
-					Details: fmt.Sprintf("域名%s下存在%d名用户,不允许删除.", objId, len(result.Data)),
-				}
-				return ret, &e
+				E.Details = fmt.Sprintf("域名%s下存在%d名用户,不允许删除.", objId, len(result.Data))
+				return ret, &E
 			}
 		}
 
