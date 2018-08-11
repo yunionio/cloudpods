@@ -5,10 +5,10 @@ import (
 )
 
 var (
-	Nodes modules.ResourceManager
+	Nodes *modules.ResourceManager
 )
 
 func init() {
 	Nodes = NewManager("node", "nodes", []string{"id", "name", "cluster", "roles", "address", "status"}, []string{})
-	modules.Register(&Nodes)
+	modules.Register(Nodes)
 }
