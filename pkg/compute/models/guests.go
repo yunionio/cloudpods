@@ -521,6 +521,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		hypervisor = HYPERVISOR_BAREMETAL
 	}
 
+	// base validate_create_data
 	if data.Contains("prefer_baremetal") || data.Contains("prefer_host") {
 		if !userCred.IsSystemAdmin() {
 			return nil, httperrors.NewNotSufficientPrivilegeError("Only system admin can specify preferred host")
@@ -558,7 +559,6 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		if err != nil {
 			return nil, err
 		}
-
 	} else {
 		schedtags := make(map[string]string)
 		if data.Contains("aggregate_strategy") {
@@ -613,12 +613,16 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		}
 	}
 
+	// default hypervisor
+	if len(hypervisor) == 0 {
+		hypervisor = HYPERVISOR_KVM
+	}
+
 	if !utils.IsInStringArray(hypervisor, HYPERVISORS) {
 		return nil, httperrors.NewInputParameterError("Hypervisor %s not supported", hypervisor)
 	}
 
 	data.Add(jsonutils.NewString(hypervisor), "hypervisor")
-
 	for idx := 1; data.Contains(fmt.Sprintf("disk.%d", idx)); idx += 1 {
 		diskJson, err := data.Get(fmt.Sprintf("disk.%d", idx))
 		if err != nil {
@@ -789,10 +793,24 @@ func getGuestResourceRequirements(ctx context.Context, userCred mcclient.TokenCr
 
 func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	guest.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
-
+	tags := []string{"cpu_bound", "io_bound", "io_hardlimit"}
+	appTags := make([]string, 0)
+	for _, tag := range tags {
+		if data.Contains(tag) {
+			appTags = append(appTags, tag)
+		}
+	}
+	guest.setApptags(ctx, appTags, userCred)
 	osProfileJson, _ := data.Get("__os_profile__")
 	if osProfileJson != nil {
 		guest.setOSProfile(ctx, userCred, osProfileJson)
+	}
+}
+
+func (guest *SGuest) setApptags(ctx context.Context, appTags []string, userCred mcclient.TokenCredential) {
+	err := guest.SetMetadata(ctx, "app_tags", strings.Join(appTags, ","), userCred)
+	if err != nil {
+		log.Errorln(err)
 	}
 }
 
@@ -2002,9 +2020,24 @@ func (self *SGuest) insertIso(imageId string) bool {
 	return cdrom.insertIso(imageId)
 }
 
-func (self *SGuest) insertIsoSucc(imageId string, path string, size int, name string) bool {
+func (self *SGuest) InsertIsoSucc(imageId string, path string, size int, name string) bool {
 	cdrom := self.getCdrom()
 	return cdrom.insertIsoSucc(imageId, path, size, name)
+}
+
+func (self *SGuest) GetDetailsIso(userCred mcclient.TokenCredential) jsonutils.JSONObject {
+	cdrom := self.getCdrom()
+	desc := jsonutils.NewDict()
+	if len(cdrom.ImageId) > 0 {
+		desc.Set("image_id", jsonutils.NewString(cdrom.ImageId))
+		desc.Set("status", jsonutils.NewString("inserting"))
+	}
+	if len(cdrom.Path) > 0 {
+		desc.Set("name", jsonutils.NewString(cdrom.Name))
+		desc.Set("size", jsonutils.NewInt(int64(cdrom.Size)))
+		desc.Set("status", jsonutils.NewString("ready"))
+	}
+	return desc
 }
 
 func (self *SGuest) StartInsertIsoTask(ctx context.Context, imageId string, hostId string, userCred mcclient.TokenCredential, parentTaskId string) error {
@@ -2014,7 +2047,7 @@ func (self *SGuest) StartInsertIsoTask(ctx context.Context, imageId string, host
 	data.Add(jsonutils.NewString(imageId), "image_id")
 	data.Add(jsonutils.NewString(hostId), "host_id")
 
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestInsertISOTask", self, userCred, data, parentTaskId, "", nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestInsertIsoTask", self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}

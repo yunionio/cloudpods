@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
-	"github.com/c-bata/go-prompt"
+	prompt "github.com/c-bata/go-prompt"
 	"github.com/yunionio/log"
 	"github.com/yunionio/pkg/util/version"
 	"github.com/yunionio/structarg"
@@ -33,6 +34,9 @@ type BaseOptions struct {
 	ApiVersion     string `default:"$API_VERSION|v1" help:"apiVersion, default to v1"`
 	SUBCOMMAND     string `help:"climc subcommand" subcommand:"true"`
 }
+
+var CacheToken mcclient.TokenCredential
+var CacheTime time.Time
 
 func getSubcommandsParser() (*structarg.ArgumentParser, error) {
 	parse, e := structarg.NewArgumentParser(&BaseOptions{},
@@ -116,18 +120,23 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 		options.Timeout,
 		options.Debug,
 		options.Secure)
-	token, err := client.Authenticate(options.OsUsername,
-		options.OsPassword,
-		options.OsDomainName,
-		options.OsProjectName)
-	if err != nil {
-		return nil, err
+
+	if CacheToken == nil || {
+		token, err := client.Authenticate(options.OsUsername,
+			options.OsPassword,
+			options.OsDomainName,
+			options.OsProjectName)
+		if err != nil {
+			return nil, err
+		}
+		CacheToken = token
+		CacheTime = time.Now()
 	}
 
 	session := client.NewSession(options.OsRegionName,
 		options.OsZoneName,
 		options.OsEndpointType,
-		token,
+		CacheToken,
 		options.ApiVersion)
 	return session, nil
 }
@@ -144,7 +153,7 @@ func main() {
 		fmt.Print(parser.HelpString())
 	} else if options.Version {
 		fmt.Printf("Yunion API client version:\n %s\n", version.GetJsonString())
-	} else if len(os.Args) <= 1 {
+	} else if len(os.Args) <= 1 || (options.ApiVersion == "v2" && len(os.Args) <= 3) {
 		session, e := newClientSession(options)
 		if e != nil {
 			showErrorAndExit(e)

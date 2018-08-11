@@ -243,3 +243,11 @@ func (self *SKVMGuestDriver) RqeuestSuspendOnHost(ctx context.Context, guest *mo
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, nil, false)
 	return err
 }
+
+func (self *SKVMGuestDriver) RequestGuestCreateAllDisks(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return guest.StartGuestCreateDiskTask(ctx, task.GetUserCred(), task.GetParams(), task.GetTaskId())
+}
+
+func (self *SKVMGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, task taskman.ITask) error {
+	return guest.StartSyncstatus(ctx, task.GetUserCred(), task.GetTaskId())
+}

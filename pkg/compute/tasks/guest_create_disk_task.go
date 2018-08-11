@@ -28,6 +28,10 @@ func (self *GuestCreateDiskTask) OnDiskPrepared(ctx context.Context, obj db.ISta
 	self.SetStageComplete(ctx, nil)
 }
 
+func (self *GuestCreateDiskTask) OnDiskPreparedFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, data.String())
+}
+
 /* --------------------------------------------- */
 /* -----------KVMGuestCreateDiskTask------------ */
 /* --------------------------------------------- */
