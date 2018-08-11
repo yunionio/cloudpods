@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/fileutils"
@@ -24,6 +23,8 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 const (
@@ -631,4 +632,30 @@ func (self *SDisk) PerformCancelDelete(ctx context.Context, userCred mcclient.To
 		return nil, err
 	}
 	return nil, nil
+}
+
+func (manager *SDiskManager) getExpiredPendingDeleteDisks() ([]SDisk) {
+	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds)*time.Second)
+
+	q := manager.Query()
+	q = q.IsTrue("pending_deleted").LT("pending_deleted_at", deadline).Limit(options.Options.PendingDeleteMaxCleanBatchSize)
+
+	disks := make([]SDisk, 0)
+	err := db.FetchModelObjects(DiskManager, q, &disks)
+	if err != nil {
+		log.Errorf("fetch disks error %s", err)
+		return nil
+	}
+
+	return disks
+}
+
+func (manager *SDiskManager) CleanPendingDeleteDisks(ctx context.Context, userCred mcclient.TokenCredential) {
+	disks := manager.getExpiredPendingDeleteDisks()
+	if disks == nil {
+		return
+	}
+	for i := 0; i < len(disks); i += 1 {
+		disks[i].StartDiskDeleteTask(ctx, userCred, "", false)
+	}
 }

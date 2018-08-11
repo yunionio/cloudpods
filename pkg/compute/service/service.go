@@ -18,6 +18,8 @@ import (
 
 	_ "yunion.io/x/onecloud/pkg/util/aliyun/provider"
 	_ "yunion.io/x/onecloud/pkg/util/esxi/provider"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
+	"time"
 )
 
 func StartService() {
@@ -46,6 +48,13 @@ func StartService() {
 	if db.CheckSync(options.Options.AutoSyncTable) {
 		err := models.InitDB()
 		if err == nil {
+
+			cron := cronman.NewCronJobManager(0)
+			cron.AddJob("CleanPendingDeleteServers", time.Duration(options.Options.PendingDeleteExpireSeconds)*time.Second, models.GuestManager.CleanPendingDeleteServers)
+			cron.AddJob("CleanPendingDeleteDisks", time.Duration(options.Options.PendingDeleteExpireSeconds)*time.Second, models.DiskManager.CleanPendingDeleteDisks)
+			cron.Start()
+			defer cron.Stop()
+
 			cloudcommon.ServeForever(app, &options.Options.Options)
 		} else {
 			log.Errorf("InitDB fail: %s", err)
