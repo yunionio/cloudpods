@@ -5,7 +5,7 @@ import (
 
 	"github.com/bitly/go-simplejson"
 
-	"github.com/yunionio/log"
+	"yunion.io/x/log"
 )
 
 // CandidateListArgs is a struct just for parsing candidate

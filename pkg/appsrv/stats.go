@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/yunionio/jsonutils"
+	"yunion.io/x/jsonutils"
 )
 
 func doStatsHandler(stats *jsonutils.JSONArray, method, path string, hi, total *handlerInfo) {

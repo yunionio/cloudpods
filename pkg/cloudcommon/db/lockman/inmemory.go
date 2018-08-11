@@ -5,8 +5,8 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/pkg/util/fifoutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/fifoutils"
 )
 
 type SInMemoryLockOwner struct {

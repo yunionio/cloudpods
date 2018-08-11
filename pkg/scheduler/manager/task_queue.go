@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/scheduler/api"
-	"github.com/yunionio/onecloud/pkg/scheduler/core"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/scheduler/api"
+	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
 const (

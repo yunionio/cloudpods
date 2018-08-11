@@ -3,11 +3,11 @@ package models
 import (
 	"context"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
 type SGroupnetworkManager struct {

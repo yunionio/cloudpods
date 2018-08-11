@@ -7,18 +7,18 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/onecloud/pkg/mcclient/auth"
-	"github.com/yunionio/onecloud/pkg/mcclient/modules"
-	"github.com/yunionio/pkg/util/timeutils"
-	"github.com/yunionio/sqlchemy"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/sqlchemy"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"
-	"github.com/yunionio/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/compute/options"
 )
 
 const (

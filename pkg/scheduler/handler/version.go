@@ -5,7 +5,7 @@ import (
 
 	"gopkg.in/gin-gonic/gin.v1"
 
-	"github.com/yunionio/pkg/util/version"
+	"yunion.io/x/pkg/util/version"
 )
 
 func InstallVersionHandler(r *gin.Engine) {

@@ -8,9 +8,9 @@ import (
 
 	"github.com/bitly/go-simplejson"
 
-	"github.com/yunionio/log"
-	o "github.com/yunionio/onecloud/cmd/scheduler/options"
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/log"
+	o "yunion.io/x/onecloud/cmd/scheduler/options"
+	"yunion.io/x/pkg/utils"
 )
 
 type Meta map[string]string

@@ -3,10 +3,10 @@ package cloudcommon
 import (
 	"database/sql"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/sqlchemy"
+	"yunion.io/x/log"
+	"yunion.io/x/sqlchemy"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 
 func InitDB(options *DBOptions) {

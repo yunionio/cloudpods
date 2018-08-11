@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/pkg/util/timeutils"
-	"github.com/yunionio/sqlchemy"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/sqlchemy"
 )
 
 type SResourceBase struct {

@@ -4,12 +4,12 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/appctx"
-	"github.com/yunionio/onecloud/pkg/appsrv"
-	"github.com/yunionio/onecloud/pkg/httperrors"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/httperrors"
 
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 const (

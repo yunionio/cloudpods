@@ -3,9 +3,9 @@ package sync
 import (
 	"fmt"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/scheduler/db/models"
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/scheduler/db/models"
+	"yunion.io/x/pkg/utils"
 )
 
 const (

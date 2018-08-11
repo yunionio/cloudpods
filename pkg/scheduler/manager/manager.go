@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/scheduler/api"
-	"github.com/yunionio/onecloud/pkg/scheduler/cache/candidate"
-	"github.com/yunionio/onecloud/pkg/scheduler/core"
-	"github.com/yunionio/onecloud/pkg/scheduler/data_manager"
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/scheduler/api"
+	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
+	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/data_manager"
+	"yunion.io/x/pkg/utils"
 )
 
 const defaultIgnorePool = true

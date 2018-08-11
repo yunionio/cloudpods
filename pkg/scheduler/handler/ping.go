@@ -6,9 +6,9 @@ import (
 
 	"gopkg.in/gin-gonic/gin.v1"
 
-	"github.com/yunionio/log"
-	o "github.com/yunionio/onecloud/cmd/scheduler/options"
-	schedman "github.com/yunionio/onecloud/pkg/scheduler/manager"
+	"yunion.io/x/log"
+	o "yunion.io/x/onecloud/cmd/scheduler/options"
+	schedman "yunion.io/x/onecloud/pkg/scheduler/manager"
 )
 
 var counter = 0

@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/appctx"
-	"github.com/yunionio/onecloud/pkg/proxy"
-	"github.com/yunionio/pkg/trace"
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/proxy"
+	"yunion.io/x/pkg/trace"
+	"yunion.io/x/pkg/utils"
 )
 
 type responseWriterResponse struct {

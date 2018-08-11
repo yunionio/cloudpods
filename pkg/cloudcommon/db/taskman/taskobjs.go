@@ -1,9 +1,9 @@
 package taskman
 
 import (
-	"github.com/yunionio/log"
+	"yunion.io/x/log"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
 type STaskObjectManager struct {

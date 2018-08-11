@@ -7,13 +7,13 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/compute/models"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SKVMGuestDriver struct {
