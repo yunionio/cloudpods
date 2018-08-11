@@ -2,24 +2,23 @@ package service
 
 import (
 	"os"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 
 	_ "yunion.io/x/onecloud/pkg/compute/tasks"
-
 	_ "yunion.io/x/onecloud/pkg/compute/guestdrivers"
-
 	_ "yunion.io/x/onecloud/pkg/util/aliyun/provider"
 	_ "yunion.io/x/onecloud/pkg/util/esxi/provider"
-	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
-	"time"
 )
 
 func StartService() {
