@@ -593,6 +593,7 @@ type SDiskConfig struct {
 	Cache           string //
 	Mountpoint      string //
 	Backend         string // stroageType
+	Medium          string
 	ImageProperties map[string]string
 }
 
@@ -608,9 +609,9 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 		return &diskConfig, nil
 	}
 
-	// default backend
+	// default backend and medium type
 	diskConfig.Backend = STORAGE_LOCAL
-	// diskConfig.Medium = DISK_TYPE_HYBRID
+	diskConfig.Medium = DISK_TYPE_HYBRID
 
 	diskStr, err := info.GetString()
 	if err != nil {
@@ -629,6 +630,8 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 			diskConfig.Driver = p
 		} else if utils.IsInStringArray(p, osprofile.DISK_CACHE_MODES) {
 			diskConfig.Cache = p
+		} else if utils.IsInStringArray(p, DISK_TYPES) {
+			diskConfig.Medium = p
 		} else if p[0] == '/' {
 			diskConfig.Mountpoint = p
 		} else if p == "autoextend" {

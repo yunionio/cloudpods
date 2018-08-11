@@ -53,6 +53,10 @@ func NewClient(authUrl string, timeout int, debug bool, insecure bool) *Client {
 	return &client
 }
 
+func (this *Client) SetDebug(debug bool) {
+	this.debug = debug
+}
+
 func (this *Client) AuthVersion() string {
 	pos := strings.LastIndexByte(this.authUrl, '/')
 	if pos > 0 {
@@ -60,6 +64,13 @@ func (this *Client) AuthVersion() string {
 	} else {
 		return ""
 	}
+}
+
+func (this *Client) NewAuthTokenCredential() TokenCredential {
+	if this.AuthVersion() == "v3" {
+		return &TokenCredentialV3{}
+	}
+	return &TokenCredentialV2{}
 }
 
 func getDefaultHeader(header http.Header, token string) http.Header {
