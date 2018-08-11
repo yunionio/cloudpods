@@ -5,12 +5,12 @@ import (
 )
 
 var (
-	Clusters modules.ResourceManager
+	Clusters *modules.ResourceManager
 )
 
 func init() {
 	Clusters = NewManager("cluster", "clusters",
 		[]string{"id", "name", "mode", "k8s_version", "status", "api_endpoint"},
 		[]string{})
-	modules.Register(&Clusters)
+	modules.Register(Clusters)
 }

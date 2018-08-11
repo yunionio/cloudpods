@@ -13,6 +13,7 @@ import (
 
 	"github.com/yunionio/onecloud/cmd/climc/promputils"
 	"github.com/yunionio/onecloud/cmd/climc/shell"
+	_ "github.com/yunionio/onecloud/cmd/climc/shell/k8s"
 	"github.com/yunionio/onecloud/pkg/mcclient"
 )
 
