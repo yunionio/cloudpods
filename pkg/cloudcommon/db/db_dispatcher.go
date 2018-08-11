@@ -840,6 +840,9 @@ func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, act
 	defer lockman.ReleaseClass(ctx, dispatcher.modelManager, ownerProjId)
 
 	managerValue := reflect.ValueOf(dispatcher.modelManager)
+	if action == "check-create-data" {
+		return dispatcher.modelManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data.(*jsonutils.JSONDict))
+	}
 	return objectPerformAction(dispatcher, managerValue, ctx, userCred, action, query, data)
 }
 
