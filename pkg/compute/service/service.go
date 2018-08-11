@@ -49,8 +49,8 @@ func StartService() {
 		if err == nil {
 
 			cron := cronman.NewCronJobManager(0)
-			cron.AddJob("CleanPendingDeleteServers", time.Duration(options.Options.PendingDeleteExpireSeconds)*time.Second, models.GuestManager.CleanPendingDeleteServers)
-			cron.AddJob("CleanPendingDeleteDisks", time.Duration(options.Options.PendingDeleteExpireSeconds)*time.Second, models.DiskManager.CleanPendingDeleteDisks)
+			cron.AddJob("CleanPendingDeleteServers", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.GuestManager.CleanPendingDeleteServers)
+			cron.AddJob("CleanPendingDeleteDisks", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.DiskManager.CleanPendingDeleteDisks)
 			cron.Start()
 			defer cron.Stop()
 
