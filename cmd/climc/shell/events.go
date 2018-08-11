@@ -30,7 +30,7 @@ type TypeEventListOptions struct {
 }
 
 func doK8sEventList(s *mcclient.ClientSession, args *EventListOptions) error {
-	return doEventList(k8s.Logs, s, args)
+	return doEventList(*k8s.Logs, s, args)
 }
 
 func doComputeEventList(s *mcclient.ClientSession, args *EventListOptions) error {
