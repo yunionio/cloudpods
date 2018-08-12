@@ -76,6 +76,7 @@ func (self *SCronJob) run(now time.Time) {
 	if self.lastRun.IsZero() || now.Sub(self.lastRun) >= self.runInterval {
 		log.Debugf("Run cronjob %s", self.name)
 		go runJob(self.name, self.job)
+		self.lastRun = now
 	}
 }
 
