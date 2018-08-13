@@ -25,7 +25,6 @@ func CheckSync(autoSync bool) bool {
 		tableSpec := modelMan.TableSpec()
 		sqls := tableSpec.SyncSQL()
 		for _, sql := range sqls {
-			// fmt.Printf("%s\n", sql)
 			allSqls = append(allSqls, sql)
 		}
 	}
@@ -63,7 +62,7 @@ func commitSqlDIffs(sqls []string) error {
 		log.Infof("Exec %s", sql)
 		_, err := db.Exec(sql)
 		if err != nil {
-			log.Errorf("Exec sql %s failed %s", sql, err)
+			log.Errorf("Exec sql failed %s\n%s", sql, err)
 			return err
 		}
 	}
