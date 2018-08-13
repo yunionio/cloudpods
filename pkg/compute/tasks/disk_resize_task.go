@@ -54,7 +54,7 @@ func (self *DiskResizeTask) StartResizeDisk(ctx context.Context, host *models.SH
 	}
 	if err := proc(host, storage, disk, size, self); err != nil {
 		log.Errorf("request_resize_disk_on_host: %v", err)
-		self.OnStartResizeDiskFailed(ctx, err)
+		self.OnStartResizeDiskFailed(ctx, disk, err)
 		return
 	}
 	self.OnStartResizeDiskSucc(ctx, disk)
@@ -64,8 +64,7 @@ func (self *DiskResizeTask) OnStartResizeDiskSucc(ctx context.Context, disk *mod
 	disk.SetStatus(self.GetUserCred(), models.DISK_RESIZING, "")
 }
 
-func (self *DiskResizeTask) OnStartResizeDiskFailed(ctx context.Context, resion error) {
-	disk := self.getDisk()
+func (self *DiskResizeTask) OnStartResizeDiskFailed(ctx context.Context, disk *models.SDisk, resion error) {
 	disk.SetStatus(self.GetUserCred(), models.DISK_READY, resion.Error())
 	self.SetStageFailed(ctx, resion.Error())
 	db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, resion.Error(), self.GetUserCred())
@@ -75,13 +74,13 @@ func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *mode
 	jSize, err := data.Get("disk_size")
 	if err != nil {
 		log.Errorf("OnDiskResizeComplete error: %s", err.Error())
-		self.OnStartResizeDiskFailed(ctx, err)
+		self.OnStartResizeDiskFailed(ctx, disk, err)
 		return
 	}
 	size, err := jSize.Int()
 	if err != nil {
 		log.Errorf("OnDiskResizeComplete error: %s", err.Error())
-		self.OnStartResizeDiskFailed(ctx, err)
+		self.OnStartResizeDiskFailed(ctx, disk, err)
 		return
 	}
 	oldStatus := disk.Status
@@ -92,7 +91,7 @@ func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *mode
 	})
 	if err != nil {
 		log.Errorf("OnDiskResizeComplete error: %s", err.Error())
-		self.OnStartResizeDiskFailed(ctx, err)
+		self.OnStartResizeDiskFailed(ctx, disk, err)
 		return
 	}
 	notes := fmt.Sprintf("%s=>%s", oldStatus, disk.Status)
