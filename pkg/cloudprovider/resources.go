@@ -189,6 +189,7 @@ type ICloudDisk interface {
 	GetCacheMode() string
 	GetMountpoint() string
 	Delete() error
+	Resize(int64) error
 }
 
 type ICloudVpc interface {

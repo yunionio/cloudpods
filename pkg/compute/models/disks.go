@@ -251,7 +251,7 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 				if len(hoststorage) == 0 {
 					return nil, httperrors.NewInputParameterError("Storage[%s] must attach to a host", storage.Name)
 				}
-				if diskConfig.Size > storage.GetFreeCapacity() {
+				if diskConfig.Size > storage.GetFreeCapacity() && !storage.IsEmulated {
 					return nil, httperrors.NewInputParameterError("Not enough free space")
 				}
 				if _, err := manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
@@ -338,7 +338,7 @@ func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 	} else {
 		addDisk := size - self.DiskSize
 		storage := self.GetStorage()
-		if addDisk > storage.GetFreeCapacity() {
+		if addDisk > storage.GetFreeCapacity() && !storage.IsEmulated {
 			return nil, httperrors.NewOutOfResourceError("Not enough free space")
 		}
 		pendingUsage := SQuota{Storage: int(addDisk)}

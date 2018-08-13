@@ -79,8 +79,18 @@ func (self *SAliyunHostDriver) RequestDeallocateDiskOnHost(host *models.SHost, s
 }
 
 func (self *SAliyunHostDriver) RequestResizeDiskOnHostOnline(host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
-	return nil
+	return self.RequestResizeDiskOnHost(host, storage, disk, size, task)
 }
+
 func (self *SAliyunHostDriver) RequestResizeDiskOnHost(host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
+	if iCloudStorage, err := storage.GetIStorage(); err != nil {
+		return err
+	} else if iDisk, err := iCloudStorage.GetIDisk(disk.GetExternalId()); err != nil {
+		return err
+	} else if err := iDisk.Resize(size); err != nil {
+		return err
+	} else {
+		task.ScheduleRun(jsonutils.Marshal(map[string]int64{"disk_size": size}))
+	}
 	return nil
 }
