@@ -2660,3 +2660,29 @@ func (manager *SGuestManager) getIpsByExit(ips []string, isExitOnly bool) []stri
 	}
 	return extRet
 }
+
+func (manager *SGuestManager) getExpiredPendingDeleteGuests() ([]SGuest) {
+	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds)*time.Second)
+
+	q := manager.Query()
+	q = q.IsTrue("pending_deleted").LT("pending_deleted_at", deadline).In("hypervisor", []string{"aliyun"}).Limit(options.Options.PendingDeleteMaxCleanBatchSize)
+
+	guests := make([]SGuest, 0)
+	err := db.FetchModelObjects(GuestManager, q, &guests)
+	if err != nil {
+		log.Errorf("fetch guests error %s", err)
+		return nil
+	}
+
+	return guests
+}
+
+func (manager *SGuestManager) CleanPendingDeleteServers(ctx context.Context, userCred mcclient.TokenCredential) {
+	guests := manager.getExpiredPendingDeleteGuests()
+	if guests == nil {
+		return
+	}
+	for i := 0; i < len(guests); i += 1 {
+		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, true)
+	}
+}

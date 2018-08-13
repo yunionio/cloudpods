@@ -281,7 +281,7 @@ func (self *SVpc) markAllNetworksUnknown(userCred mcclient.TokenCredential) erro
 	if wires == nil || len(wires) == 0 {
 		return nil
 	}
-	for i := 0; i <= len(wires); i += 1 {
+	for i := 0; i < len(wires); i += 1 {
 		wires[i].markNetworkUnknown(userCred)
 	}
 	return nil
