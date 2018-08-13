@@ -7,25 +7,24 @@ import (
 	"path"
 	"strings"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/sqlchemy"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/fileutils"
+	"yunion.io/x/pkg/util/osprofile"
+	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/util/sysutils"
+	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
-	"github.com/yunionio/pkg/tristate"
-	"github.com/yunionio/pkg/util/compare"
-	"github.com/yunionio/pkg/util/fileutils"
-	"github.com/yunionio/pkg/util/osprofile"
-	"github.com/yunionio/pkg/util/regutils"
-	"github.com/yunionio/pkg/util/sysutils"
-	"github.com/yunionio/pkg/utils"
-
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/quotas"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/options"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 const (
@@ -38,6 +37,7 @@ const (
 	DISK_DEALLOC        = "deallocating"
 	DISK_DEALLOC_FAILED = "dealloc_failed"
 	DISK_UNKNOWN        = "unknown"
+	DISK_DETACHING      = "detaching"
 
 	DISK_START_SAVE = "start_save"
 	DISK_SAVING     = "saving"
@@ -162,11 +162,14 @@ func (self *SDisk) GetGuestdisks() []SGuestdisk {
 }
 func (self *SDisk) GetGuests() []SGuest {
 	result := make([]SGuest, 0)
-	guests := GuestManager.Query().SubQuery()
+	query := GuestManager.Query()
 	guestdisks := GuestdiskManager.Query().SubQuery()
-	if err := guests.Query().Join(guestdisks, sqlchemy.AND(
-		sqlchemy.Equals(guestdisks.Field("guest_id"), guests.Field("id")))).
-		Filter(sqlchemy.Equals(guestdisks.Field("disk_id"), self.Id)).All(&result); err != nil {
+	q := query.Join(guestdisks, sqlchemy.AND(
+		sqlchemy.Equals(guestdisks.Field("guest_id"), query.Field("id")))).
+		Filter(sqlchemy.Equals(guestdisks.Field("disk_id"), self.Id))
+	// q.DebugQuery()
+	err := db.FetchModelObjects(GuestManager, q, &result)
+	if err != nil {
 		log.Errorf(err.Error())
 		return nil
 	}
@@ -590,6 +593,7 @@ type SDiskConfig struct {
 	Cache           string //
 	Mountpoint      string //
 	Backend         string // stroageType
+	Medium          string
 	ImageProperties map[string]string
 }
 
@@ -604,6 +608,11 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 		}
 		return &diskConfig, nil
 	}
+
+	// default backend and medium type
+	diskConfig.Backend = STORAGE_LOCAL
+	diskConfig.Medium = DISK_TYPE_HYBRID
+
 	diskStr, err := info.GetString()
 	if err != nil {
 		log.Errorf("invalid diskinfo format %s", err)
@@ -621,6 +630,8 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 			diskConfig.Driver = p
 		} else if utils.IsInStringArray(p, osprofile.DISK_CACHE_MODES) {
 			diskConfig.Cache = p
+		} else if utils.IsInStringArray(p, DISK_TYPES) {
+			diskConfig.Medium = p
 		} else if p[0] == '/' {
 			diskConfig.Mountpoint = p
 		} else if p == "autoextend" {
@@ -676,7 +687,8 @@ func (self *SDisk) fetchDiskInfo(diskConfig *SDiskConfig) {
 	if len(diskConfig.ImageId) > 0 {
 		self.TemplateId = diskConfig.ImageId
 		self.DiskType = DISK_TYPE_SYS
-	} else if len(diskConfig.Fs) > 0 {
+	}
+	if len(diskConfig.Fs) > 0 {
 		self.FsFormat = diskConfig.Fs
 	}
 	if self.FsFormat == "swap" {
@@ -819,4 +831,16 @@ func (self *SDisk) isReady() bool {
 
 func (self *SDisk) isInit() bool {
 	return self.Status == DISK_INIT
+}
+
+func (model *SDisk) AllowPerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SDisk) PerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.PendingDeleted {
+		err := self.DoCancelPendingDelete(ctx, userCred)
+		return nil, err
+	}
+	return nil, nil
 }

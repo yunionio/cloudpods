@@ -3,11 +3,12 @@ package tasks
 import (
 	"context"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/compute/models"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type GuestSyncConfTask struct {
@@ -37,7 +38,7 @@ func (self *GuestSyncConfTask) OnSyncComplete(ctx context.Context, obj db.IStand
 	guest := obj.(*models.SGuest)
 	if fw_only, _ := self.GetParams().Bool("fw_only"); fw_only {
 		db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF, nil, self.UserCred)
-		self.OnSyncComplete(ctx, obj, guest.GetShortDesc())
+		self.SetStageComplete(ctx, guest.GetShortDesc())
 	} else if data.Contains("task") {
 		self.SetStage("on_disk_sync_complete", nil)
 	} else {

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/scheduler/api"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/scheduler/api"
 )
 
 const (

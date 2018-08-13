@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SManagedVirtualizedGuestDriver struct {
@@ -111,7 +111,44 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncstatusOnHost(ctx context.
 		log.Errorf("fail to find ivm by id %s", err)
 		return nil, err
 	}
+
+	status := ivm.GetStatus()
+	switch status {
+	case models.VM_RUNNING:
+		status = cloudprovider.CloudVMStatusRunning
+	case models.VM_READY:
+		status = cloudprovider.CloudVMStatusStopped
+	case models.VM_STARTING:
+		status = cloudprovider.CloudVMStatusStopped
+	case models.VM_STOPPING:
+		status = cloudprovider.CloudVMStatusRunning
+	default:
+		status = cloudprovider.CloudVMStatusOther
+	}
+
 	body := jsonutils.NewDict()
-	body.Add(jsonutils.NewString(ivm.GetRemoteStatus()), "status")
+	body.Add(jsonutils.NewString(status), "status")
 	return body, nil
+}
+
+func (self *SManagedVirtualizedGuestDriver) GetGuestVncInfo(userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
+	ihost, err := host.GetIHost()
+	if err != nil {
+		return nil, err
+	}
+
+	iVM, err := ihost.GetIVMById(guest.ExternalId)
+	if err != nil {
+		log.Errorf("cannot find vm %s %s", iVM, err)
+		return nil, err
+	}
+
+	data, err := iVM.GetVNCInfo()
+	if err != nil {
+		return nil, err
+	}
+
+	dataDict := data.(*jsonutils.JSONDict)
+
+	return dataDict, nil
 }

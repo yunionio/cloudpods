@@ -1,7 +1,7 @@
 package models
 
 import (
-	"github.com/yunionio/onecloud/pkg/scheduler/db"
+	"yunion.io/x/onecloud/pkg/scheduler/db"
 )
 
 const (

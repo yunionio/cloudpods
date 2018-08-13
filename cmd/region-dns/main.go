@@ -20,7 +20,7 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/coremain"
 
-	_ "github.com/yunionio/onecloud/pkg/dns"
+	_ "yunion.io/x/onecloud/pkg/dns"
 )
 
 var directives = []string{

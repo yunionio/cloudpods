@@ -9,9 +9,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/yunionio/structarg"
+	"yunion.io/x/structarg"
 
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 var (
@@ -55,6 +55,11 @@ func Executor(s string) {
 	e := parser.ParseArgs(strings.Split(s, " "), false)
 	subcmd := parser.GetSubcommand()
 	subparser := subcmd.GetSubParser()
+	if args[0] == "--debug" {
+		session.GetClient().SetDebug(true)
+	} else {
+		session.GetClient().SetDebug(false)
+	}
 	if e != nil {
 		if subparser != nil {
 			fmt.Print(subparser.Usage())

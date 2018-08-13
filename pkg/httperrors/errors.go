@@ -3,7 +3,7 @@ package httperrors
 import (
 	"fmt"
 
-	"github.com/yunionio/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 func NewJsonClientError(code int, title string, msg string) *httputils.JSONClientError {

@@ -1,11 +1,11 @@
 package shell
 
 import (
-	"github.com/yunionio/jsonutils"
+	"yunion.io/x/jsonutils"
 
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/onecloud/pkg/mcclient/modules"
-	"github.com/yunionio/onecloud/pkg/mcclient/modules/k8s"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 )
 
 type BaseEventListOptions struct {
@@ -30,7 +30,7 @@ type TypeEventListOptions struct {
 }
 
 func doK8sEventList(s *mcclient.ClientSession, args *EventListOptions) error {
-	return doEventList(k8s.Logs, s, args)
+	return doEventList(*k8s.Logs, s, args)
 }
 
 func doComputeEventList(s *mcclient.ClientSession, args *EventListOptions) error {

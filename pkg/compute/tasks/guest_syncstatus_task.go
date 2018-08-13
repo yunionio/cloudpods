@@ -3,12 +3,12 @@ package tasks
 import (
 	"context"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/models"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type GuestSyncstatusTask struct {
@@ -23,6 +23,7 @@ func (self *GuestSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	guest := obj.(*models.SGuest)
 	host := guest.GetHost()
 	if host == nil || host.HostStatus == models.HOST_OFFLINE {
+		log.Errorf("host is not reachable")
 		guest.SetStatus(self.UserCred, models.VM_UNKNOWN, "Host not responding")
 		self.SetStageComplete(ctx, nil)
 		return
@@ -48,7 +49,9 @@ func (self *GuestSyncstatusTask) OnGetStatusSucc(ctx context.Context, guest *mod
 	default:
 		statusStr = models.VM_UNKNOWN
 	}
-	guest.SetStatus(self.UserCred, statusStr, "syncstatus")
+	statusData := jsonutils.NewDict()
+	statusData.Add(jsonutils.NewString(statusStr), "status")
+	guest.PerformStatus(ctx, self.UserCred, nil, statusData)
 	self.SetStageComplete(ctx, nil)
 }
 

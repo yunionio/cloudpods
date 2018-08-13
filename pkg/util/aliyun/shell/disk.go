@@ -1,7 +1,8 @@
 package shell
 
 import (
-	"github.com/yunionio/onecloud/pkg/util/aliyun"
+	"yunion.io/x/onecloud/pkg/util/aliyun"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
@@ -12,7 +13,7 @@ func init() {
 		Offset   int    `help:"List offset"`
 		Limit    int    `help:"List limit"`
 	}
-	R(&DiskListOptions{}, "disk-list", "List disks", func(cli *aliyun.SRegion, args *DiskListOptions) error {
+	shellutils.R(&DiskListOptions{}, "disk-list", "List disks", func(cli *aliyun.SRegion, args *DiskListOptions) error {
 		disks, total, e := cli.GetDisks(args.Instance, args.Zone, args.Category, nil, args.Offset, args.Limit)
 		if e != nil {
 			return e

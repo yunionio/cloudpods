@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/quotas"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SVirtualizedGuestDriver struct {
@@ -41,11 +42,18 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 	if len(netConfig.Wire) > 0 {
 		wirePattern = regexp.MustCompile(netConfig.Wire)
 	}
-	hostwires := host.GetWires()
+	hostwires := host.GetHostwires()
 	netsAvaiable := make([]models.SNetwork, 0)
 	for i := 0; i < len(hostwires); i += 1 {
 		hostwire := hostwires[i]
 		wire := hostwire.GetWire()
+
+		if wire == nil {
+			continue
+		}
+
+		log.Debugf("Wire %#v", wire)
+
 		if wirePattern != nil && !wirePattern.MatchString(wire.Id) && wirePattern.MatchString(wire.Name) {
 			continue
 		}
@@ -89,6 +97,7 @@ func (self *SVirtualizedGuestDriver) StartGuestStopTask(guest *models.SGuest, ct
 
 func (self *SVirtualizedGuestDriver) OnGuestDeployTaskComplete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	if jsonutils.QueryBoolean(task.GetParams(), "restart", false) {
+		task.SetStage("OnDeployStartGuestComplete", nil)
 		return guest.StartGueststartTask(ctx, task.GetUserCred(), nil, task.GetTaskId())
 	} else {
 		guest.SetStatus(task.GetUserCred(), models.VM_READY, "ready")
@@ -148,4 +157,26 @@ func (self *SVirtualizedGuestDriver) CheckDiskTemplateOnStorage(ctx context.Cont
 		return fmt.Errorf("Cache is missing from storage")
 	}
 	return cache.StartImageCacheTask(ctx, userCred, imageId, false, task.GetTaskId())
+}
+
+func (self *SVirtualizedGuestDriver) CanKeepDetachDisk() bool {
+	return true
+}
+
+func (self *SVirtualizedGuestDriver) StartGuestDetachdiskTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestDetachDiskTask", guest, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SVirtualizedGuestDriver) StartSuspendTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestSuspendTask", guest, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }

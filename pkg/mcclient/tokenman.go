@@ -2,7 +2,7 @@ package mcclient
 
 import (
 	"github.com/golang-plus/uuid"
-	"github.com/yunionio/log"
+	"yunion.io/x/log"
 )
 
 type TokenManager interface {

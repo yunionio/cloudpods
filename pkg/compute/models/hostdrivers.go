@@ -3,9 +3,10 @@ package models
 import (
 	"context"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 )
 
 type IHostDriver interface {

@@ -3,7 +3,7 @@ package models
 import (
 	"github.com/jinzhu/gorm"
 
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/pkg/utils"
 )
 
 const (

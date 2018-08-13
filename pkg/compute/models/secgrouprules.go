@@ -6,16 +6,16 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/pkg/util/compare"
-	"github.com/yunionio/pkg/util/secrules"
-	"github.com/yunionio/pkg/util/sets"
-	"github.com/yunionio/pkg/util/stringutils"
-	"github.com/yunionio/sqlchemy"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/pkg/util/stringutils"
+	"yunion.io/x/sqlchemy"
 )
 
 type SSecurityGroupRuleManager struct {
@@ -169,7 +169,11 @@ func (self *SSecurityGroupRule) ValidateUpdateData(ctx context.Context, userCred
 					fields = append(fields, self.CIDR)
 				}
 			case "protocol":
-				fields = append(fields, self.Protocol)
+				protocol := self.Protocol
+				if protocol == "" {
+					protocol = secrules.PROTO_ANY
+				}
+				fields = append(fields, protocol)
 			case "ports":
 				if len(self.Ports) > 0 {
 					fields = append(fields, self.Ports)
@@ -199,7 +203,11 @@ func (self *SSecurityGroupRule) GetRule() string {
 				fields = append(fields, self.CIDR)
 			}
 		case "protocol":
-			fields = append(fields, self.Protocol)
+			protocol := self.Protocol
+			if protocol == "" {
+				protocol = secrules.PROTO_ANY
+			}
+			fields = append(fields, protocol)
 		case "ports":
 			if len(self.Ports) > 0 {
 				fields = append(fields, self.Ports)
@@ -251,43 +259,47 @@ func (manager *SSecurityGroupRuleManager) SyncRules(ctx context.Context, userCre
 		return nil, nil, syncResult
 	} else {
 		dbRules := make([]secrules.SecurityRule, len(_dbRules))
-		for _, _rule := range _dbRules {
-			rule, _ := secrules.ParseSecurityRule(_rule.GetRule())
-			rule.Description = _rule.Description
-			dbRules = append(dbRules, *rule)
-		}
 
+		originRules := make(map[string]*SSecurityGroupRule, len(dbRules))
 		oldRules, oldStrs := make(map[string]secrules.SecurityRule, len(dbRules)), sets.NewString()
-		for _, rule := range dbRules {
-			if str := jsonutils.Marshal(rule).String(); !oldStrs.Has(str) {
-				oldStrs.Insert(str)
-				log.Errorf("old: %s", str)
-				oldRules[str] = rule
+
+		for i := 0; i < len(_dbRules); i += 1 {
+			_rule := _dbRules[i]
+			if rule, err := secrules.ParseSecurityRule(_rule.GetRule()); err != nil {
+				syncResult.AddError(err)
+			} else {
+				rule.Priority = int(_rule.Priority)
+				rule.Description = _rule.Description
+				if str := jsonutils.Marshal(rule).String(); !oldStrs.Has(str) {
+					oldStrs.Insert(str)
+					oldRules[str] = *rule
+					originRules[str] = &_rule
+				} else if err := _rule.Delete(ctx, userCred); err != nil {
+					syncResult.AddError(err)
+				}
 			}
 		}
+
 		newRules, newStrs := make(map[string]secrules.SecurityRule, len(rules)), sets.NewString()
 		for _, rule := range rules {
 			if str := jsonutils.Marshal(rule).String(); !newStrs.Has(str) {
 				newStrs.Insert(str)
-				log.Errorf("new: %s", str)
 				newRules[str] = rule
 			}
 		}
-		for _, rule := range newStrs.Difference(oldStrs).List() {
-			log.Errorf("need add : %s", rule)
-			if _, err := manager.newFromCloudSecurityGroup(newRules[rule], secgroup); err != nil {
+		for _, _rule := range newStrs.Difference(oldStrs).List() {
+			rule := newRules[_rule]
+			if _, err := manager.newFromCloudSecurityGroup(rule, secgroup); err != nil {
 				syncResult.AddError(err)
 			} else {
 				syncResult.Add()
 			}
 		}
-		for _, rule := range oldStrs.Difference(newStrs).List() {
-			log.Errorf("need remove : %s", rule)
-			// if _, err := manager.newFromCloudSecurityGroup(newRules[rule], secgroup); err != nil {
-			// 	syncResult.AddError(err)
-			// } else {
-			// 	syncResult.Add()
-			// }
+		for _, _rule := range oldStrs.Difference(newStrs).List() {
+			syncResult.Delete()
+			if err := originRules[_rule].Delete(ctx, userCred); err != nil {
+				syncResult.AddError(err)
+			}
 		}
 	}
 	return nil, nil, syncResult

@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SVCenterManager struct {
@@ -17,7 +17,7 @@ type SVCenterManager struct {
 var VCenterManager *SVCenterManager
 
 func init() {
-	VCenterManager = &SVCenterManager{SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(SCloudprovider{}, "vcenters_tbl", "vcenter", "vcenters")}
+	VCenterManager = &SVCenterManager{SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(SVCenter{}, "vcenters_tbl", "vcenter", "vcenters")}
 }
 
 type SVCenter struct {

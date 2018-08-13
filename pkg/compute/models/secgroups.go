@@ -3,16 +3,18 @@ package models
 import (
 	"context"
 	"strings"
+	"time"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/pkg/util/compare"
-	"github.com/yunionio/pkg/util/secrules"
-	"github.com/yunionio/sqlchemy"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/sqlchemy"
 )
 
 type SSecurityGroupManager struct {
@@ -234,17 +236,41 @@ func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCr
 	return nil
 }
 
-func (manager *SSecurityGroupManager) newFromCloudVpc(extSecgroup cloudprovider.ICloudSecurityGroup) (*SSecurityGroup, error) {
+func (manager *SSecurityGroupManager) newFromCloudVpc(extSec cloudprovider.ICloudSecurityGroup) (*SSecurityGroup, error) {
 	secgroup := SSecurityGroup{}
 	secgroup.SetModelManager(manager)
-	secgroup.Name = extSecgroup.GetName()
-	secgroup.ExternalId = extSecgroup.GetGlobalId()
-	secgroup.Description = extSecgroup.GetDescription()
+	secgroup.Name = extSec.GetName()
+	secgroup.ExternalId = extSec.GetGlobalId()
+	secgroup.Description = extSec.GetDescription()
 
 	if err := manager.TableSpec().Insert(&secgroup); err != nil {
 		return nil, err
 	}
 	return &secgroup, nil
+}
+
+func (manager *SSecurityGroupManager) DelaySync(ctx context.Context, userCred mcclient.TokenCredential, idStr string) {
+	if secgrp := manager.FetchSecgroupById(idStr); secgrp == nil {
+		log.Errorf("DelaySync secgroup failed")
+	} else {
+		needSync := false
+		lockman.LockObject(ctx, secgrp)
+		defer lockman.ReleaseObject(ctx, secgrp)
+		if secgrp.IsDirty {
+			if _, err := secgrp.GetModelManager().TableSpec().Update(secgrp, func() error {
+				secgrp.IsDirty = false
+				return nil
+			}); err != nil {
+				log.Errorf("Update Security Group error: %s", err.Error())
+			}
+			needSync = true
+		}
+		if needSync {
+			for _, guest := range secgrp.GetGuests() {
+				guest.StartSyncTask(ctx, userCred, true, "")
+			}
+		}
+	}
 }
 
 func (self *SSecurityGroup) DoSync(ctx context.Context, userCred mcclient.TokenCredential) {
@@ -254,7 +280,7 @@ func (self *SSecurityGroup) DoSync(ctx context.Context, userCred mcclient.TokenC
 	}); err != nil {
 		log.Errorf("Update Security Group error: %s", err.Error())
 	}
-	for _, guest := range self.GetGuests() {
-		guest.StartSyncTask(ctx, userCred, true, "")
-	}
+	time.AfterFunc(10*time.Second, func() {
+		SecurityGroupManager.DelaySync(ctx, userCred, self.Id)
+	})
 }

@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/pkg/util/seclib"
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/utils"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SAliyunGuestDriver struct {
@@ -62,6 +62,8 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 type SAliyunVMCreateConfig struct {
 	Name              string
 	ExternalImageId   string
+	OsDistribution    string
+	OsVersion         string
 	Cpu               int
 	Memory            int
 	ExternalNetworkId string
@@ -101,6 +103,11 @@ func (self *SAliyunGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *mo
 			imageId := disk.GetTemplateId()
 			scimg := models.StoragecachedimageManager.GetStoragecachedimage(cache.Id, imageId)
 			config.ExternalImageId = scimg.ExternalId
+
+			img := scimg.GetCachedimage()
+			config.OsDistribution, _ = img.Info.GetString("properties", "os_distribution")
+			config.OsVersion, _ = img.Info.GetString("properties", "os_version")
+
 			config.SysDiskSize = disk.DiskSize / 1024 // MB => GB
 		} else {
 			config.DataDisks[i-1] = disk.DiskSize / 1024 // MB => GB
@@ -143,7 +150,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 	}
 
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		passwd := seclib.RandomPassword(12)
+		passwd := seclib2.RandomPassword2(12)
 
 		iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
 			desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, desc.PublicKey)
@@ -164,7 +171,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		}
 
 		if len(guest.SecgrpId) > 0 {
-			if err := iVM.SyncSecurityGroup(guest.SecgrpId, guest.GetSecRules()); err != nil {
+			if err := iVM.SyncSecurityGroup(guest.SecgrpId, guest.GetSecgroupName(), guest.GetSecRules()); err != nil {
 				return nil, err
 			}
 		}
@@ -185,6 +192,13 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
 		data.Add(jsonutils.NewString("root"), "account")
 		data.Add(jsonutils.NewString(encpasswd), "key")
+
+		if len(desc.OsDistribution) > 0 {
+			data.Add(jsonutils.NewString(desc.OsDistribution), "distro")
+		}
+		if len(desc.OsVersion) > 0 {
+			data.Add(jsonutils.NewString(desc.OsVersion), "version")
+		}
 
 		idisks, err := iVM.GetIDisks()
 
@@ -247,28 +261,6 @@ func (self *SAliyunGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Contex
 	return nil
 }
 
-func (self *SAliyunGuestDriver) GetGuestVncInfo(userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
-	ihost, err := host.GetIHost()
-	if err != nil {
-		return nil, err
-	}
-
-	iVM, err := ihost.GetIVMById(guest.ExternalId)
-	if err != nil {
-		log.Errorf("cannot find vm %s %s", iVM, err)
-		return nil, err
-	}
-
-	data, err := iVM.GetVNCInfo()
-	if err != nil {
-		return nil, err
-	}
-
-	dataDict := data.(*jsonutils.JSONDict)
-
-	return dataDict, nil
-}
-
 func (self *SAliyunGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		if fw_only, _ := task.GetParams().Bool("fw_only"); fw_only {
@@ -276,7 +268,7 @@ func (self *SAliyunGuestDriver) RequestSyncConfigOnHost(ctx context.Context, gue
 				return nil, err
 			} else if iVM, err := ihost.GetIVMById(guest.ExternalId); err != nil {
 				return nil, err
-			} else if err := iVM.SyncSecurityGroup(guest.SecgrpId, guest.GetSecRules()); err != nil {
+			} else if err := iVM.SyncSecurityGroup(guest.SecgrpId, guest.GetSecgroupName(), guest.GetSecRules()); err != nil {
 				return nil, err
 			}
 		}

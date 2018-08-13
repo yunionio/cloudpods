@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/models"
-	"github.com/yunionio/pkg/util/osprofile"
-	"github.com/yunionio/pkg/util/seclib"
-	"github.com/yunionio/pkg/util/secrules"
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/osprofile"
+	"yunion.io/x/pkg/util/seclib"
+	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 const (
@@ -296,6 +297,7 @@ func (self *SInstance) Refresh() error {
 	return jsonutils.Update(self, new)
 }
 
+/*
 func (self *SInstance) GetRemoteStatus() string {
 	// Running：运行中
 	//Starting：启动中
@@ -314,6 +316,7 @@ func (self *SInstance) GetRemoteStatus() string {
 		return cloudprovider.CloudVMStatusOther
 	}
 }
+*/
 
 func (self *SInstance) GetHypervisor() string {
 	return models.HYPERVISOR_ALIYUN
@@ -345,7 +348,11 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	params["InternetMaxBandwidthIn"] = "200"
 	params["InternetMaxBandwidthOut"] = "100"
 	params["HostName"] = name
-	params["Password"] = passwd
+	if len(passwd) > 0 {
+		params["Password"] = passwd
+	} else {
+		params["PasswordInherit"] = "True"
+	}
 	params["IoOptimized"] = "optimized"
 	for i, d := range disks {
 		if i == 0 {
@@ -507,21 +514,28 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 	return ret, nil
 }
 
-func (self *SInstance) SyncSecurityGroup(secgroupId string, rules []*secrules.SecurityRule) error {
+func (self *SInstance) SyncSecurityGroup(secgroupId string, name string, rules []*secrules.SecurityRule) error {
 	if vpc, err := self.getVpc(); err != nil {
 		return err
 	} else if len(secgroupId) == 0 {
-		for _, secgrpId := range self.SecurityGroupIds.SecurityGroupId {
-			if err := vpc.revokeSecurityGroup(secgrpId, self.InstanceId); err != nil {
+		for index, secgrpId := range self.SecurityGroupIds.SecurityGroupId {
+			if err := vpc.revokeSecurityGroup(secgrpId, self.InstanceId, index == 0); err != nil {
 				return err
 			}
 		}
-	} else if secgrpId, err := vpc.syncSecurityGroup(secgroupId, rules); err != nil {
+	} else if secgrpId, err := vpc.syncSecurityGroup(secgroupId, name, rules); err != nil {
 		return err
 	} else if err := vpc.assignSecurityGroup(secgrpId, self.InstanceId); err != nil {
 		return err
 	} else {
-		self.SecurityGroupIds.SecurityGroupId = append(self.SecurityGroupIds.SecurityGroupId, secgrpId)
+		for _, secgroupId := range self.SecurityGroupIds.SecurityGroupId {
+			if secgroupId != secgrpId {
+				if err := vpc.revokeSecurityGroup(secgroupId, self.InstanceId, false); err != nil {
+					return err
+				}
+			}
+		}
+		self.SecurityGroupIds.SecurityGroupId = []string{secgrpId}
 	}
 	return nil
 }

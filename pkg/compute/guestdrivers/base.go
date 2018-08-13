@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/quotas"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/compute/models"
-	"github.com/yunionio/onecloud/pkg/compute/tasks"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/tasks"
 )
 
 type SBaseGuestDriver struct {
@@ -54,16 +54,16 @@ func (self *SBaseGuestDriver) StartGuestCreateTask(guest *models.SGuest, ctx con
 }
 
 func (self *SBaseGuestDriver) OnGuestCreateTaskComplete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	//if jsonutils.QueryBoolean(task.GetParams(), "auto_start", false) {
-	//	task.SetStage("on_auto_start_guest", nil)
-	//	return guest.StartGueststartTask(ctx, task.GetUserCred(), nil, task.GetTaskId())
-	//} else {
-	task.SetStage("on_sync_status_complete", nil)
-	return guest.StartSyncstatus(ctx, task.GetUserCred(), task.GetTaskId())
-	//}
+	if jsonutils.QueryBoolean(task.GetParams(), "auto_start", false) {
+		task.SetStage("on_auto_start_guest", nil)
+		return guest.StartGueststartTask(ctx, task.GetUserCred(), nil, task.GetTaskId())
+	} else {
+		task.SetStage("on_sync_status_complete", nil)
+		return guest.StartSyncstatus(ctx, task.GetUserCred(), task.GetTaskId())
+	}
 }
 
-func (self *SBaseGuestDriver) StartDeleteGuestTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+func (self *SBaseGuestDriver) StartDeleteGuestTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestDeleteTask", guest, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
@@ -79,4 +79,41 @@ func (self *SBaseGuestDriver) RequestDetachDisksFromGuestForDelete(ctx context.C
 
 func (self *SBaseGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context, guest *models.SGuest, userCred mcclient.TokenCredential) error {
 	return guest.DeleteAllDisksInDB(ctx, userCred)
+}
+
+func (self *SBaseGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SBaseGuestDriver) RequestGuestCreateAllDisks(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement")
+}
+
+func (self *SBaseGuestDriver) GetDetachDiskStatus() ([]string, error) {
+	return []string{}, fmt.Errorf("This Guest driver dose not implement GetDetachDiskStatus")
+}
+
+func (self *SBaseGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, disk *models.SDisk, task taskman.ITask, isPurge bool) error {
+	return fmt.Errorf("Not Implement")
+}
+
+func (self *SBaseGuestDriver) RqeuestSuspendOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement")
+}
+
+func (self *SBaseGuestDriver) AllowReconfigGuest() bool {
+	return true
+}
+
+func (self *SBaseGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement")
+}
+
+func (self *SBaseGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, vcpuCount, vmemSize int64) error {
+	return fmt.Errorf("Not Implement")
+}
+
+func (self *SBaseGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement")
 }

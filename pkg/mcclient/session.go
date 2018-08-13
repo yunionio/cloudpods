@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/util/httputils"
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/pkg/utils"
 )
 
 const (
@@ -62,6 +62,10 @@ func SplitVersionedURL(url string) (string, string) {
 	log.Debugf("stripURLVersion %s => %s", url, base)
 	return base
 }*/
+
+func (this *ClientSession) GetClient() *Client {
+	return this.client
+}
 
 func (this *ClientSession) GetServiceURL(service, endpointType string) (string, error) {
 	if len(this.endpointType) > 0 {

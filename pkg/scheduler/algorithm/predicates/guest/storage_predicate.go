@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yunionio/onecloud/pkg/scheduler/algorithm/predicates"
-	"github.com/yunionio/onecloud/pkg/scheduler/core"
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
+	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/pkg/utils"
 )
 
 // StoragePredicate used to filter whether the storage capacity of the

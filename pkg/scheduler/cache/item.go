@@ -3,7 +3,7 @@ package cache
 import (
 	"time"
 
-	expirationcache "github.com/yunionio/pkg/util/cache"
+	expirationcache "yunion.io/x/pkg/util/cache"
 )
 
 type UpdateFunc func([]string) ([]interface{}, error)

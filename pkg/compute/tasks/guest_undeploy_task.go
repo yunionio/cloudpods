@@ -3,11 +3,12 @@ package tasks
 import (
 	"context"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/compute/models"
-	"github.com/yunionio/onecloud/pkg/util/httputils"
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type GuestUndeployTask struct {
@@ -33,8 +34,6 @@ func (self *GuestUndeployTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		err := guest.GetDriver().RequestUndeployGuestOnHost(ctx, guest, host, self)
 		if err != nil {
 			self.OnStartDeleteGuestFail(ctx, err)
-		} else {
-			// do nothing
 		}
 	} else {
 		self.SetStageComplete(ctx, nil)

@@ -7,23 +7,24 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/pkg/tristate"
-	"github.com/yunionio/pkg/util/compare"
-	"github.com/yunionio/pkg/util/netutils"
-	"github.com/yunionio/pkg/util/regutils"
-	"github.com/yunionio/pkg/util/sysutils"
-	"github.com/yunionio/pkg/utils"
-	"github.com/yunionio/sqlchemy"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/util/sysutils"
+	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/options"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/onecloud/pkg/mcclient/auth"
-	"github.com/yunionio/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 const (
@@ -344,8 +345,9 @@ func (self *SHost) RealDelete(ctx context.Context, userCred mcclient.TokenCreden
 	for _, netif := range self.GetNetInterfaces() {
 		netif.Remove(ctx, userCred)
 	}
-	for _, hostwire := range self.GetWires() {
-		hostwire.Delete(ctx, userCred)
+	for _, hostwire := range self.GetHostwires() {
+		hostwire.Detach(ctx, userCred)
+		// hostwire.Delete(ctx, userCred)
 	}
 	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
 }
@@ -572,7 +574,7 @@ func (self *SHost) GetWireCount() int {
 	return self.GetWiresQuery().Count()
 }
 
-func (self *SHost) GetWires() []SHostwire {
+func (self *SHost) GetHostwires() []SHostwire {
 	hw := make([]SHostwire, 0)
 	q := self.GetWiresQuery()
 	err := db.FetchModelObjects(HostwireManager, q, &hw)
@@ -904,7 +906,19 @@ func (manager *SHostManager) newFromCloudHost(extHost cloudprovider.ICloudHost, 
 func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, storages []cloudprovider.ICloudStorage) compare.SyncResult {
 	syncResult := compare.SyncResult{}
 
-	dbStorages := self._getAttachedStorages(tristate.None, tristate.None)
+	dbStorages := make([]SStorage, 0)
+
+	hostStorages := self.GetHoststorages()
+	for i := 0; i < len(hostStorages); i += 1 {
+		storage := hostStorages[i].GetStorage()
+		if storage == nil {
+			hostStorages[i].Delete(ctx, userCred)
+		} else {
+			dbStorages = append(dbStorages, *storage)
+		}
+	}
+
+	// dbStorages := self._getAttachedStorages(tristate.None, tristate.None)
 
 	removed := make([]SStorage, 0)
 	commondb := make([]SStorage, 0)
@@ -987,7 +1001,19 @@ func (self *SHost) newCloudHostStorage(ctx context.Context, userCred mcclient.To
 func (self *SHost) SyncHostWires(ctx context.Context, userCred mcclient.TokenCredential, wires []cloudprovider.ICloudWire) compare.SyncResult {
 	syncResult := compare.SyncResult{}
 
-	dbWires := self.getAttachedWires()
+	dbWires := make([]SWire, 0)
+
+	hostWires := self.GetHostwires()
+	for i := 0; i < len(hostWires); i += 1 {
+		wire := hostWires[i].GetWire()
+		if wire == nil {
+			hostWires[i].Delete(ctx, userCred)
+		} else {
+			dbWires = append(dbWires, *wire)
+		}
+	}
+
+	// dbWires := self.getAttachedWires()
 
 	removed := make([]SWire, 0)
 	commondb := make([]SWire, 0)
@@ -1515,6 +1541,22 @@ func (manager *SHostManager) GetHostsByManagerAndRegion(managerId string, region
 		return nil
 	}
 	return ret
+}
+
+func (self *SHost) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId, parentTaskId string, isForce bool) error {
+	//Todo
+	// HostcachedimagesManager.Register(userCred, self, imageId)
+	data := jsonutils.NewDict()
+	data.Set("image_id", jsonutils.NewString(imageId))
+	if isForce {
+		data.Set("is_force", jsonutils.JSONTrue)
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "StorageCacheImageTask", self, userCred, data, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (self *SHost) Request(userCred mcclient.TokenCredential, method string, url string, headers http.Header, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {

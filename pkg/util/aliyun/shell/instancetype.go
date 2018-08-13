@@ -1,13 +1,14 @@
 package shell
 
 import (
-	"github.com/yunionio/onecloud/pkg/util/aliyun"
+	"yunion.io/x/onecloud/pkg/util/aliyun"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
 	type InstanceTypeListOptions struct {
 	}
-	R(&InstanceTypeListOptions{}, "instance-type-list", "List intance types", func(cli *aliyun.SRegion, args *InstanceTypeListOptions) error {
+	shellutils.R(&InstanceTypeListOptions{}, "instance-type-list", "List intance types", func(cli *aliyun.SRegion, args *InstanceTypeListOptions) error {
 		instanceTypes, e := cli.GetInstanceTypes()
 		if e != nil {
 			return e
@@ -22,7 +23,7 @@ func init() {
 		GPU  int    `help:"GPU size"`
 		Zone string `help:"Test in zone"`
 	}
-	R(&InstanceMatchOptions{}, "instance-type-select", "Select matching instance types", func(cli *aliyun.SRegion, args *InstanceMatchOptions) error {
+	shellutils.R(&InstanceMatchOptions{}, "instance-type-select", "Select matching instance types", func(cli *aliyun.SRegion, args *InstanceMatchOptions) error {
 		instanceTypes, e := cli.GetMatchInstanceTypes(args.CPU, args.MEM, args.GPU, args.Zone)
 		if e != nil {
 			return e

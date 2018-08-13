@@ -4,12 +4,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/models"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type VpcDeleteTask struct {
@@ -60,6 +60,10 @@ func (self *VpcDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 	wires := vpc.GetWires()
 	if wires != nil {
 		for i := 0; i < len(wires); i += 1 {
+			hws, _ := wires[i].GetHostwires()
+			for j := 0; hws != nil && j < len(hws); j += 1 {
+				hws[j].Detach(ctx, self.UserCred)
+			}
 			wires[i].Delete(ctx, self.UserCred)
 		}
 	}

@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/sqlchemy"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/sqlchemy"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SGuestdiskManager struct {
@@ -167,6 +167,25 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	if len(dev) > 0 {
 		desc.Add(jsonutils.NewString(dev), "dev")
 	}
+	return desc
+}
+
+func (self *SGuestdisk) GetDetailedJson() *jsonutils.JSONDict {
+	desc := jsonutils.NewDict()
+	disk := self.GetDisk()
+	storage := disk.GetStorage()
+	if fs := disk.GetFsFormat(); len(fs) > 0 {
+		desc.Add(jsonutils.NewString(fs), "fs")
+	}
+	desc.Add(jsonutils.NewString(disk.DiskType), "disk_type")
+	desc.Add(jsonutils.NewInt(int64(self.Index)), "index")
+	desc.Add(jsonutils.NewInt(int64(disk.DiskSize)), "size")
+	desc.Add(jsonutils.NewString(disk.DiskFormat), "disk_format")
+	desc.Add(jsonutils.NewString(self.Driver), "driver")
+	desc.Add(jsonutils.NewString(self.CacheMode), "cache_mode")
+	desc.Add(jsonutils.NewString(self.AioMode), "aio_mode")
+	desc.Add(jsonutils.NewString(storage.MediumType), "medium_type")
+	desc.Add(jsonutils.NewString(storage.StorageType), "storage_type")
 	return desc
 }
 

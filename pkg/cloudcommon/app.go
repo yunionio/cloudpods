@@ -4,8 +4,8 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/appsrv"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/appsrv"
 )
 
 func InitApp(options *Options) *appsrv.Application {

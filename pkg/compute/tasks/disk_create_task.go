@@ -3,10 +3,11 @@ package tasks
 import (
 	"context"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/compute/models"
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type DiskCreateTask struct {
@@ -26,11 +27,11 @@ func (self *DiskCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		self.SetStage("on_storage_cache_image_complete", nil)
 		storagecache.StartImageCacheTask(ctx, self.UserCred, imageId, false, self.GetTaskId())
 	} else {
-		self.OnStorageCacheImageComplete(ctx, disk)
+		self.OnStorageCacheImageComplete(ctx, disk, nil)
 	}
 }
 
-func (self *DiskCreateTask) OnStorageCacheImageComplete(ctx context.Context, disk *models.SDisk) {
+func (self *DiskCreateTask) OnStorageCacheImageComplete(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	rebuild, _ := self.GetParams().Bool("rebuild")
 	snapshot, _ := self.GetParams().GetString("snapshot")
 	if rebuild {

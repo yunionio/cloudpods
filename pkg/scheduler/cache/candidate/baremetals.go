@@ -7,12 +7,12 @@ import (
 
 	fjson "github.com/json-iterator/go"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/scheduler/api"
-	"github.com/yunionio/onecloud/pkg/scheduler/cache"
-	"github.com/yunionio/onecloud/pkg/scheduler/cache/db"
-	"github.com/yunionio/onecloud/pkg/scheduler/core"
-	"github.com/yunionio/onecloud/pkg/scheduler/db/models"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/scheduler/api"
+	"yunion.io/x/onecloud/pkg/scheduler/cache"
+	"yunion.io/x/onecloud/pkg/scheduler/cache/db"
+	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 )
 
 type BaremetalDesc struct {

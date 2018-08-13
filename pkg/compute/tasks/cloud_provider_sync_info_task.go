@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/models"
-	"github.com/yunionio/pkg/utils"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/pkg/utils"
 )
 
 type CloudProviderSyncInfoTask struct {
@@ -52,7 +52,8 @@ func (self *CloudProviderSyncInfoTask) OnInit(ctx context.Context, obj db.IStand
 	if syncRangeJson != nil {
 		syncRange := models.SSyncRange{}
 		err = syncRangeJson.Unmarshal(&syncRange)
-		if err == nil {
+		if err == nil && syncRange.NeedSyncInfo() {
+			syncRange.Normalize()
 			syncCloudProviderInfo(ctx, provider, self, driver, &syncRange)
 		}
 	}
@@ -80,7 +81,7 @@ func syncCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider,
 
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
 	for i := 0; i < len(localRegions); i += 1 {
-		if len(syncRange.Region) > 0 && !utils.IsInStringArray(remoteRegions[i].GetId(), syncRange.Region) {
+		if len(syncRange.Region) > 0 && !utils.IsInStringArray(localRegions[i].Id, syncRange.Region) {
 			continue
 		}
 
@@ -91,7 +92,7 @@ func syncCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider,
 		if localZones != nil && remoteZones != nil {
 			for j := 0; j < len(localZones); j += 1 {
 
-				if len(syncRange.Zone) > 0 && !utils.IsInStringArray(remoteZones[j].GetId(), syncRange.Zone) {
+				if len(syncRange.Zone) > 0 && !utils.IsInStringArray(localZones[j].Id, syncRange.Zone) {
 					continue
 				}
 				syncZoneStorages(ctx, provider, task, &localZones[j], remoteZones[j])
@@ -146,7 +147,7 @@ func syncRegionVPCs(ctx context.Context, provider *models.SCloudprovider, task *
 
 func syncVpcSecGroup(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localVpc *models.SVpc, remoteVpc cloudprovider.ICloudVpc) {
 	if secgroups, err := remoteVpc.GetISecurityGroups(); err != nil {
-		msg := fmt.Sprintf("GetIWires for vps %s failed %s", remoteVpc.GetId(), err)
+		msg := fmt.Sprintf("GetISecurityGroups for vpc %s failed %s", remoteVpc.GetId(), err)
 		log.Errorf(msg)
 		logSyncFailed(provider, task, msg)
 		return
@@ -183,7 +184,7 @@ func syncSecgroupRules(ctx context.Context, provider *models.SCloudprovider, tas
 func syncVpcWires(ctx context.Context, provider *models.SCloudprovider, task taskman.ITask, localVpc *models.SVpc, remoteVpc cloudprovider.ICloudVpc) {
 	wires, err := remoteVpc.GetIWires()
 	if err != nil {
-		msg := fmt.Sprintf("GetIWires for vps %s failed %s", remoteVpc.GetId(), err)
+		msg := fmt.Sprintf("GetIWires for vpc %s failed %s", remoteVpc.GetId(), err)
 		log.Errorf(msg)
 		logSyncFailed(provider, task, msg)
 		return
@@ -295,7 +296,7 @@ func syncZoneHosts(ctx context.Context, provider *models.SCloudprovider, task *C
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
 
 	for i := 0; i < len(localHosts); i += 1 {
-		if len(syncRange.Host) > 0 && !utils.IsInStringArray(remoteHosts[i].GetGlobalId(), syncRange.Host) {
+		if len(syncRange.Host) > 0 && !utils.IsInStringArray(localHosts[i].Id, syncRange.Host) {
 			continue
 		}
 		syncHostStorages(ctx, provider, task, &localHosts[i], remoteHosts[i])

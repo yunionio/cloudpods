@@ -3,11 +3,11 @@ package models
 import (
 	"context"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/sqlchemy"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/sqlchemy"
 )
 
 type SHostwireManager struct {
@@ -18,8 +18,15 @@ var HostwireManager *SHostwireManager
 
 func init() {
 	db.InitManager(func() {
-		HostwireManager = &SHostwireManager{SHostJointsManager: NewHostJointsManager(SHostwire{},
-			"hostwires_tbl", "hostwire", "hostwires", WireManager)}
+		HostwireManager = &SHostwireManager{
+			SHostJointsManager: NewHostJointsManager(
+				SHostwire{},
+				"hostwires_tbl",
+				"hostwire",
+				"hostwires",
+				WireManager,
+			),
+		}
 	})
 }
 

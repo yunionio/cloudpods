@@ -1,6 +1,9 @@
 package shell
 
-import "github.com/yunionio/onecloud/pkg/util/aliyun"
+import (
+	"yunion.io/x/onecloud/pkg/util/aliyun"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
+)
 
 func init() {
 	type TaskListOptions struct {
@@ -9,7 +12,7 @@ func init() {
 		Limit  int      `help:"page size"`
 		Offset int      `help:"page offset"`
 	}
-	R(&TaskListOptions{}, "task-list", "List tasks", func(cli *aliyun.SRegion, args *TaskListOptions) error {
+	shellutils.R(&TaskListOptions{}, "task-list", "List tasks", func(cli *aliyun.SRegion, args *TaskListOptions) error {
 		tasks, total, err := cli.GetTasks(aliyun.TaskActionType(args.TYPE), args.Task, args.Offset, args.Limit)
 		if err != nil {
 			return err

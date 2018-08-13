@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/cmd/scheduler/app"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/cmd/scheduler/app"
 )
 
 func main() {

@@ -2,8 +2,8 @@ package models
 
 import (
 	"context"
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SInfrastructureManager struct {

@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/scheduler/api"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/scheduler/api"
 )
 
 func TestParseDiskConfig(t *testing.T) {

@@ -1,8 +1,8 @@
 package guest
 
 import (
-	"github.com/yunionio/onecloud/pkg/scheduler/algorithm/priorities"
-	"github.com/yunionio/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/algorithm/priorities"
+	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
 type AvoidSameClusterPriority struct {

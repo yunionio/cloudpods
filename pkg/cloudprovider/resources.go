@@ -3,9 +3,9 @@ package cloudprovider
 import (
 	"time"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/pkg/util/secrules"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/util/secrules"
 )
 
 type ICloudResource interface {
@@ -132,7 +132,7 @@ type ICloudVM interface {
 	GetEIP() ICloudEIP
 
 	// GetStatus() string
-	GetRemoteStatus() string
+	// GetRemoteStatus() string
 
 	GetVcpuCount() int8
 	GetVmemSizeMB() int //MB
@@ -144,7 +144,7 @@ type ICloudVM interface {
 	GetBios() string
 	GetMachine() string
 
-	SyncSecurityGroup(secgroupId string, rules []*secrules.SecurityRule) error
+	SyncSecurityGroup(secgroupId string, name string, rules []*secrules.SecurityRule) error
 	GetHypervisor() string
 
 	// GetSecurityGroup() ICloudSecurityGroup

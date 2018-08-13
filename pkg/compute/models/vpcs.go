@@ -5,16 +5,16 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/pkg/util/compare"
-	"github.com/yunionio/pkg/util/netutils"
-	"github.com/yunionio/sqlchemy"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/sqlchemy"
 )
 
 const (
@@ -25,6 +25,7 @@ const (
 	VPC_STATUS_DELETING      = "deleting"
 	VPC_STATUS_DELETE_FAILED = "delete_failed"
 	VPC_STATUS_DELETED       = "deleted"
+	VPC_STATUS_UNKNOWN       = "unknown"
 
 	MAX_VPC_PER_REGION = 3
 )
@@ -189,25 +190,26 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		err = removed[i].ValidateDeleteCondition(ctx)
-		if err != nil { // cannot delete
-			_, err = removed[i].PerformDisable(ctx, userCred, nil, nil)
-			if err == nil {
-				err = removed[i].SetStatus(userCred, VPC_STATUS_PENDING, "sync to delete")
-			}
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
-		} else {
-			err = removed[i].Delete(ctx, userCred)
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
+		// err = removed[i].ValidateDeleteCondition(ctx)
+		// if err != nil { // cannot delete
+		removed[i].markAllNetworksUnknown(userCred)
+		_, err = removed[i].PerformDisable(ctx, userCred, nil, nil)
+		if err == nil {
+			err = removed[i].SetStatus(userCred, VPC_STATUS_UNKNOWN, "sync to delete")
 		}
+		if err != nil {
+			syncResult.DeleteError(err)
+		} else {
+			syncResult.Delete()
+		}
+		// } else {
+		// 	err = removed[i].Delete(ctx, userCred)
+		// 	if err != nil {
+		//		syncResult.DeleteError(err)
+		//	} else {
+		//		syncResult.Delete()
+		//	}
+		// }
 	}
 	for i := 0; i < len(commondb); i += 1 {
 		err = commondb[i].SyncWithCloudVpc(commonext[i])
@@ -272,6 +274,17 @@ func (manager *SVpcManager) newFromCloudVpc(extVPC cloudprovider.ICloudVpc, regi
 		return nil, err
 	}
 	return &vpc, nil
+}
+
+func (self *SVpc) markAllNetworksUnknown(userCred mcclient.TokenCredential) error {
+	wires := self.GetWires()
+	if wires == nil || len(wires) == 0 {
+		return nil
+	}
+	for i := 0; i < len(wires); i += 1 {
+		wires[i].markNetworkUnknown(userCred)
+	}
+	return nil
 }
 
 func (manager *SVpcManager) InitializeData() error {

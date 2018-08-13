@@ -5,7 +5,8 @@ import (
 
 	osslib "github.com/aliyun/aliyun-oss-go-sdk/oss"
 
-	"github.com/yunionio/onecloud/pkg/util/aliyun"
+	"yunion.io/x/onecloud/pkg/util/aliyun"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 type progressListener struct {
@@ -40,7 +41,7 @@ func str2AclType(aclStr string) osslib.ACLType {
 func init() {
 	type OssListOptions struct {
 	}
-	R(&OssListOptions{}, "oss-list", "List OSS buckets", func(cli *aliyun.SRegion, args *OssListOptions) error {
+	shellutils.R(&OssListOptions{}, "oss-list", "List OSS buckets", func(cli *aliyun.SRegion, args *OssListOptions) error {
 		oss, err := cli.GetOssClient()
 		if err != nil {
 			return err
@@ -57,7 +58,7 @@ func init() {
 		BUCKET string `help:"bucket name"`
 	}
 
-	R(&OssListBucketOptions{}, "oss-list-bucket", "List content of a OSS bucket", func(cli *aliyun.SRegion, args *OssListBucketOptions) error {
+	shellutils.R(&OssListBucketOptions{}, "oss-list-bucket", "List content of a OSS bucket", func(cli *aliyun.SRegion, args *OssListBucketOptions) error {
 		oss, err := cli.GetOssClient()
 		if err != nil {
 			return err
@@ -74,7 +75,7 @@ func init() {
 		return nil
 	})
 
-	R(&OssListBucketOptions{}, "oss-create-bucket", "Create a OSS bucket", func(cli *aliyun.SRegion, args *OssListBucketOptions) error {
+	shellutils.R(&OssListBucketOptions{}, "oss-create-bucket", "Create a OSS bucket", func(cli *aliyun.SRegion, args *OssListBucketOptions) error {
 		oss, err := cli.GetOssClient()
 		if err != nil {
 			return err
@@ -93,7 +94,7 @@ func init() {
 		Progress bool   `help:"show progress"`
 		Acl      string `help:"Object ACL" choices:"private|public-read|public-rw"`
 	}
-	R(&OssUploadOptions{}, "oss-upload", "Upload a file to a OSS bucket", func(cli *aliyun.SRegion, args *OssUploadOptions) error {
+	shellutils.R(&OssUploadOptions{}, "oss-upload", "Upload a file to a OSS bucket", func(cli *aliyun.SRegion, args *OssUploadOptions) error {
 		oss, err := cli.GetOssClient()
 		if err != nil {
 			return err
@@ -120,7 +121,7 @@ func init() {
 		KEY    string `help:"object key"`
 		ACL    string `help:"ACL" choices:"private|public-read|public-rw"`
 	}
-	R(&OssObjectAclOptions{}, "oss-set-acl", "Set acl for a object", func(cli *aliyun.SRegion, args *OssObjectAclOptions) error {
+	shellutils.R(&OssObjectAclOptions{}, "oss-set-acl", "Set acl for a object", func(cli *aliyun.SRegion, args *OssObjectAclOptions) error {
 		oss, err := cli.GetOssClient()
 		if err != nil {
 			return err
@@ -138,7 +139,7 @@ func init() {
 		KEY    string `help:"Object key"`
 	}
 
-	R(&OssDeleteOptions{}, "oss-delete", "Delete a file from a OSS bucket", func(cli *aliyun.SRegion, args *OssDeleteOptions) error {
+	shellutils.R(&OssDeleteOptions{}, "oss-delete", "Delete a file from a OSS bucket", func(cli *aliyun.SRegion, args *OssDeleteOptions) error {
 		oss, err := cli.GetOssClient()
 		if err != nil {
 			return err

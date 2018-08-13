@@ -3,8 +3,8 @@ package aliyun
 import (
 	"fmt"
 
-	"github.com/yunionio/log"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SWire struct {

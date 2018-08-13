@@ -1,7 +1,8 @@
 package shell
 
 import (
-	"github.com/yunionio/onecloud/pkg/util/aliyun"
+	"yunion.io/x/onecloud/pkg/util/aliyun"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
@@ -9,7 +10,7 @@ func init() {
 		Limit  int `help:"page size"`
 		Offset int `help:"page offset"`
 	}
-	R(&VpcListOptions{}, "vpc-list", "List vpcs", func(cli *aliyun.SRegion, args *VpcListOptions) error {
+	shellutils.R(&VpcListOptions{}, "vpc-list", "List vpcs", func(cli *aliyun.SRegion, args *VpcListOptions) error {
 		vpcs, total, e := cli.GetVpcs(nil, args.Offset, args.Limit)
 		if e != nil {
 			return e

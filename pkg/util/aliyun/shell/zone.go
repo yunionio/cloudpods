@@ -1,7 +1,8 @@
 package shell
 
 import (
-	"github.com/yunionio/onecloud/pkg/util/aliyun"
+	"yunion.io/x/onecloud/pkg/util/aliyun"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 func init() {
@@ -10,7 +11,7 @@ func init() {
 		// ChargeType   string `help:"charge type" choices:"PrePaid|PostPaid" default:"PrePaid"`
 		// SpotStrategy string `help:"Spot strategy, NoSpot|SpotWithPriceLimit|SpotAsPriceGo" choices:"NoSpot|SpotWithPriceLimit|SpotAsPriceGo" default:"NoSpot"`
 	}
-	R(&ZoneListOptions{}, "zone-list", "List zones", func(cli *aliyun.SRegion, args *ZoneListOptions) error {
+	shellutils.R(&ZoneListOptions{}, "zone-list", "List zones", func(cli *aliyun.SRegion, args *ZoneListOptions) error {
 		zones, e := cli.GetIZones()
 		if e != nil {
 			return e

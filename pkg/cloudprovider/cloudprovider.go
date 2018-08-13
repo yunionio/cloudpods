@@ -2,7 +2,9 @@ package cloudprovider
 
 import (
 	"fmt"
-	"github.com/yunionio/jsonutils"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 )
 
 type ICloudProviderFactory interface {
@@ -40,6 +42,7 @@ func GetProvider(providerId, providerName, accessUrl, account, secret, provider 
 	if ok {
 		return factory.GetProvider(providerId, providerName, accessUrl, account, secret)
 	}
+	log.Errorf("Provider %s not registerd", provider)
 	return nil, fmt.Errorf("No such provider %s", provider)
 }
 

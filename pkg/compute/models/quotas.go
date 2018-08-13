@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/quotas"
-	"github.com/yunionio/onecloud/pkg/compute/options"
-	"github.com/yunionio/pkg/tristate"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/pkg/tristate"
 )
 
 var QuotaManager *quotas.SQuotaManager

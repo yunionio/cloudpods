@@ -7,20 +7,20 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/pkg/gotypes"
-	"github.com/yunionio/pkg/util/filterclause"
-	"github.com/yunionio/pkg/utils"
-	"github.com/yunionio/sqlchemy"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/util/filterclause"
+	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
-	"github.com/yunionio/onecloud/pkg/appsrv"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/lockman"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/onecloud/pkg/mcclient"
-	"github.com/yunionio/onecloud/pkg/mcclient/auth"
-	"github.com/yunionio/onecloud/pkg/mcclient/modules"
-	"github.com/yunionio/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type DBModelDispatcher struct {
@@ -665,7 +665,7 @@ func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.
 
 	generateName, _ := dataDict.GetString("generate_name")
 	if len(generateName) > 0 {
-		dataDict.Remove("generate_name", true)
+		dataDict.Remove("generate_name")
 		dataDict.Add(jsonutils.NewString(GenerateName(manager, ownerProjId, generateName)), "name")
 	} else {
 		name, _ := data.GetString("name")
@@ -756,7 +756,7 @@ func expandMultiCreateParams(data jsonutils.JSONObject, count int) ([]jsonutils.
 			return nil, httperrors.NewInputParameterError("Missing name or generate_name")
 		}
 		jsonDict.Add(jsonutils.NewString(name), "generate_name")
-		jsonDict.Remove("name", false)
+		jsonDict.RemoveIgnoreCase("name")
 	}
 	ret := make([]jsonutils.JSONObject, count)
 	for i := 0; i < count; i += 1 {
@@ -840,6 +840,9 @@ func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, act
 	defer lockman.ReleaseClass(ctx, dispatcher.modelManager, ownerProjId)
 
 	managerValue := reflect.ValueOf(dispatcher.modelManager)
+	if action == "check-create-data" {
+		return dispatcher.modelManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data.(*jsonutils.JSONDict))
+	}
 	return objectPerformAction(dispatcher, managerValue, ctx, userCred, action, query, data)
 }
 
@@ -1036,13 +1039,13 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 	err := model.ValidateDeleteCondition(ctx)
 	if err != nil {
 		log.Errorf("validate delete condition error: %s", err)
-		return nil, httperrors.NewGeneralError(err)
+		return nil, httperrors.NewNotAcceptableError(err.Error())
 	}
 
 	err = model.CustomizeDelete(ctx, userCred, query, data)
 	if err != nil {
 		log.Errorf("customize delete error: %s", err)
-		return nil, httperrors.NewGeneralError(err)
+		return nil, httperrors.NewNotAcceptableError(err.Error())
 	}
 
 	details, err := getItemDetails(manager, model, ctx, userCred, query)

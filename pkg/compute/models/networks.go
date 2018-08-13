@@ -6,22 +6,22 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yunionio/jsonutils"
-	"github.com/yunionio/log"
-	"github.com/yunionio/pkg/tristate"
-	"github.com/yunionio/pkg/util/compare"
-	"github.com/yunionio/pkg/util/fileutils"
-	"github.com/yunionio/pkg/util/netutils"
-	"github.com/yunionio/pkg/util/regutils"
-	"github.com/yunionio/pkg/utils"
-	"github.com/yunionio/sqlchemy"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/fileutils"
+	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db"
-	"github.com/yunionio/onecloud/pkg/cloudcommon/db/taskman"
-	"github.com/yunionio/onecloud/pkg/cloudprovider"
-	"github.com/yunionio/onecloud/pkg/compute/options"
-	"github.com/yunionio/onecloud/pkg/httperrors"
-	"github.com/yunionio/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 const (
@@ -41,6 +41,7 @@ const (
 	NETWORK_STATUS_PENDING       = "pending"
 	NETWORK_STATUS_AVAILABLE     = "available"
 	NETWORK_STATUS_FAILED        = "failed"
+	NETWORK_STATUS_UNKNOWN       = "unknown"
 	NETWORK_STATUS_START_DELETE  = "start_delete"
 	NETWORK_STATUS_DELETING      = "deleting"
 	NETWORK_STATUS_DELETED       = "deleted"
@@ -413,7 +414,7 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		err = removed[i].ValidateDeleteCondition(ctx)
+		/*err = removed[i].ValidateDeleteCondition(ctx)
 		if err != nil { // cannot delete
 			syncResult.DeleteError(err)
 		} else {
@@ -423,6 +424,12 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 			} else {
 				syncResult.Delete()
 			}
+		}*/
+		err = removed[i].SetStatus(userCred, NETWORK_STATUS_UNKNOWN, "Sync to remove")
+		if err != nil {
+			syncResult.DeleteError(err)
+		} else {
+			syncResult.Delete()
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
@@ -834,7 +841,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		maskLen64 = int64(prefix.MaskLen)
 	} else {
 		ipStartStr, _ := data.GetString("guest_ip_start")
-		ipEndStr, _ := data.GetString("guest_ip_start")
+		ipEndStr, _ := data.GetString("guest_ip_end")
 		startIp, err = netutils.NewIPV4Addr(ipStartStr)
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("Invalid start ip: %s %s", ipStartStr, err)
@@ -971,7 +978,7 @@ func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 	var err error
 
 	ipStartStr, _ := data.GetString("guest_ip_start")
-	ipEndStr, _ := data.GetString("guest_ip_start")
+	ipEndStr, _ := data.GetString("guest_ip_end")
 
 	if len(ipStartStr) > 0 || len(ipEndStr) > 0 {
 		if self.isManaged() {
