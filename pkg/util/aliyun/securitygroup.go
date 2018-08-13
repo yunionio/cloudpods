@@ -451,6 +451,6 @@ func (self *SRegion) assignSecurityGroup(secgroupId, instanceId string) error {
 
 func (self *SRegion) leaveSecurityGroup(secgroupId, instanceId string) error {
 	params := map[string]string{"InstanceId": instanceId, "SecurityGroupId": secgroupId}
-	_, err := self.ecsRequest("JoinSecurityGroup", params)
+	_, err := self.ecsRequest("LeaveSecurityGroup", params)
 	return err
 }

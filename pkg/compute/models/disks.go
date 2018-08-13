@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -843,4 +844,30 @@ func (self *SDisk) PerformCancelDelete(ctx context.Context, userCred mcclient.To
 		return nil, err
 	}
 	return nil, nil
+}
+
+func (manager *SDiskManager) getExpiredPendingDeleteDisks() []SDisk {
+	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds) * time.Second)
+
+	q := manager.Query()
+	q = q.IsTrue("pending_deleted").LT("pending_deleted_at", deadline).Limit(options.Options.PendingDeleteMaxCleanBatchSize)
+
+	disks := make([]SDisk, 0)
+	err := db.FetchModelObjects(DiskManager, q, &disks)
+	if err != nil {
+		log.Errorf("fetch disks error %s", err)
+		return nil
+	}
+
+	return disks
+}
+
+func (manager *SDiskManager) CleanPendingDeleteDisks(ctx context.Context, userCred mcclient.TokenCredential) {
+	disks := manager.getExpiredPendingDeleteDisks()
+	if disks == nil {
+		return
+	}
+	for i := 0; i < len(disks); i += 1 {
+		disks[i].StartDiskDeleteTask(ctx, userCred, "", false)
+	}
 }

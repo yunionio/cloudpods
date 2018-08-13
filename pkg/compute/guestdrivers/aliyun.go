@@ -172,6 +172,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 
 		if len(guest.SecgrpId) > 0 {
 			if err := iVM.SyncSecurityGroup(guest.SecgrpId, guest.GetSecgroupName(), guest.GetSecRules()); err != nil {
+				log.Errorf("SyncSecurityGroup error: %v", err)
 				return nil, err
 			}
 		}
