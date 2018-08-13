@@ -2,6 +2,7 @@ package service
 
 import (
 	"os"
+	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
@@ -14,6 +15,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/util/esxi/provider"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -50,6 +52,13 @@ func StartService() {
 	if db.CheckSync(options.Options.AutoSyncTable) {
 		err := models.InitDB()
 		if err == nil {
+
+			cron := cronman.NewCronJobManager(0)
+			cron.AddJob("CleanPendingDeleteServers", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.GuestManager.CleanPendingDeleteServers)
+			cron.AddJob("CleanPendingDeleteDisks", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.DiskManager.CleanPendingDeleteDisks)
+			cron.Start()
+			defer cron.Stop()
+
 			cloudcommon.ServeForever(app, &options.Options.Options)
 		} else {
 			log.Errorf("InitDB fail: %s", err)
