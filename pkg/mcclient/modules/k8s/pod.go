@@ -14,7 +14,7 @@ func init() {
 	Pods = &PodManager{
 		ResourceManager: *NewManager(
 			"pod", "pods",
-			[]string{"id", "name", "cluster", "roles", "address", "status"},
-			[]string{})}
+			NewNamespaceCols("podIP", "status", "restartCount", "labels"),
+			NewClusterCols("nodeName"))}
 	modules.Register(Pods)
 }
