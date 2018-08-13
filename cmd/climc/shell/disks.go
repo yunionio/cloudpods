@@ -10,11 +10,12 @@ import (
 func init() {
 	type DiskListOptions struct {
 		BaseListOptions
-		Unused  bool   `help:"Show unused disks"`
-		Share   bool   `help:"Show Share storage disks"`
-		Local   bool   `help:"Show Local storage disks"`
-		Guest   string `help:"Guest ID or name"`
-		Storage string `help:"Storage ID or name"`
+		Unused   bool   `help:"Show unused disks"`
+		Share    bool   `help:"Show Share storage disks"`
+		Local    bool   `help:"Show Local storage disks"`
+		Guest    string `help:"Guest ID or name"`
+		Storage  string `help:"Storage ID or name"`
+		Provider string `help:"Provider for disk" choices:"Aliyun|VMware"`
 	}
 	R(&DiskListOptions{}, "disk-list", "List virtual disks", func(s *mcclient.ClientSession, suboptions *DiskListOptions) error {
 		params := FetchPagingParams(suboptions.BaseListOptions)
@@ -32,6 +33,9 @@ func init() {
 		}
 		if len(suboptions.Storage) > 0 {
 			params.Add(jsonutils.NewString(suboptions.Storage), "storage")
+		}
+		if len(suboptions.Provider) > 0 {
+			params.Add(jsonutils.NewString(suboptions.Provider), "provider")
 		}
 		result, err := modules.Disks.List(s, params)
 		if err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -55,12 +56,19 @@ func (self *SAliyunHostDriver) RequestAllocateDiskOnStorage(host *models.SHost, 
 			return err
 		} else {
 			size = size >> 10
-			if disk, err := iCloudStorage.CreateIDisk(disk.GetName(), int(size), ""); err != nil {
+			if iDisk, err := iCloudStorage.CreateIDisk(disk.GetName(), int(size), ""); err != nil {
 				return err
 			} else {
+				if _, err := disk.GetModelManager().TableSpec().Update(disk, func() error {
+					disk.ExternalId = iDisk.GetGlobalId()
+					return nil
+				}); err != nil {
+					log.Errorf("Update disk externalId err: %v", err)
+					return err
+				}
 				data := jsonutils.NewDict()
-				data.Add(jsonutils.NewInt(int64(disk.GetDiskSizeMB())), "disk_size")
-				data.Add(jsonutils.NewString(disk.GetDiskFormat()), "disk_format")
+				data.Add(jsonutils.NewInt(int64(iDisk.GetDiskSizeMB())), "disk_size")
+				data.Add(jsonutils.NewString(iDisk.GetDiskFormat()), "disk_format")
 				task.ScheduleRun(data)
 			}
 		}
@@ -87,7 +95,7 @@ func (self *SAliyunHostDriver) RequestResizeDiskOnHost(host *models.SHost, stora
 		return err
 	} else if iDisk, err := iCloudStorage.GetIDisk(disk.GetExternalId()); err != nil {
 		return err
-	} else if err := iDisk.Resize(size); err != nil {
+	} else if err := iDisk.Resize(size >> 10); err != nil {
 		return err
 	} else {
 		task.ScheduleRun(jsonutils.Marshal(map[string]int64{"disk_size": size}))
