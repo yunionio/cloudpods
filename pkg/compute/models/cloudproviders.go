@@ -47,8 +47,8 @@ type SCloudprovider struct {
 	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 	// Hostname string `width:"64" charset:"ascii" nullable:"true"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
 	// port = Column(Integer, nullable=False)
-	Account string `width:"64" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
-	Secret  string `width:"256" charset:"ascii" nullable:"false" create:"admin_required"`             // Column(VARCHAR(256, charset='ascii'), nullable=False)
+	Account string `width:"64" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`  // Column(VARCHAR(64, charset='ascii'), nullable=False)
+	Secret  string `width:"256" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
 
 	LastSync time.Time `get:"admin" list:"admin"` // = Column(DateTime, nullable=True)
 
@@ -257,7 +257,7 @@ func (self *SCloudprovider) AllowPerformSync(ctx context.Context, userCred mccli
 }
 
 func (self *SCloudprovider) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if ! self.Enabled {
+	if !self.Enabled {
 		return nil, httperrors.NewInvalidStatusError("Cloudprovider disabled")
 	}
 	syncRange := SSyncRange{}
@@ -276,7 +276,7 @@ func (self *SCloudprovider) AllowPerformUpdateCredential(ctx context.Context, us
 }
 
 func (self *SCloudprovider) PerformUpdateCredential(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if ! self.Enabled {
+	if !self.Enabled {
 		return nil, httperrors.NewInvalidStatusError("Cloudprovider disabled")
 	}
 
