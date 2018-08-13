@@ -163,15 +163,20 @@ func (c *MinCounters) Add(counter Counter) {
 }
 
 func (c *MinCounters) GetCount() int64 {
-	n := EmptyCapacity
-	for _, c0 := range c.counters {
+	if len(c.counters) == 0 {
+		return EmptyCapacity
+	}
+	minCount := c.counters[0].GetCount()
+	if len(c.counters) == 1 {
+		return minCount
+	}
+	for _, c0 := range c.counters[1:] {
 		count := c0.GetCount()
-		if count != EmptyCapacity && count < n {
-			n = count
+		if count < minCount {
+			minCount = count
 		}
 	}
-
-	return n
+	return minCount
 }
 
 type Capacity struct {
@@ -448,7 +453,9 @@ func (u *Unit) SetCapacity(id string, name string, capacity Counter) error {
 
 	// Capacity must >= 0
 	if !validateCapacityInput(capacity) {
-		return fmt.Errorf("Capacity invalid: %d", capacity)
+		err := fmt.Errorf("Capacity counter invalid: %#v, count: %d", capacity, capacity.GetCount())
+		log.Errorf("SetCapacity error: %v", err)
+		return err
 	}
 
 	log.V(10).Debugf("%q setCapacity id: %s, capacity: %d", name, id, capacity.GetCount())
