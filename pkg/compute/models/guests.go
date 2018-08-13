@@ -2145,6 +2145,65 @@ func (self *SGuest) PerformPurge(ctx context.Context, userCred mcclient.TokenCre
 	return nil, err
 }
 
+func (self *SGuest) AllowPerformRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	imageId, _ := data.GetString("image_id")
+	if utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING, VM_ADMIN}) {
+		if !data.Contains("image_id") {
+			gdc := self.CategorizeDisks()
+			imageId = gdc.Root.GetTemplateId()
+			if len(imageId) == 0 {
+				return nil, httperrors.NewBadRequestError("No template for root disk")
+			}
+			img, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
+			if err != nil {
+				return nil, httperrors.NewBadRequestError("Template %s not accessible: %s", imageId, err.Error())
+			}
+			osType, _ := img.Properties["os_type"]
+			osName := self.GetMetadata("os_name", userCred)
+			if len(osName) == 0 && len(osType) == 0 && strings.ToLower(osType) != strings.ToLower(osName) {
+				return nil, httperrors.NewBadRequestError("Cannot switch OS between %s-%s", osName, osType)
+			}
+		}
+		autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
+		var needStop = false
+		if self.Status == VM_RUNNING {
+			needStop = true
+		}
+		err := self.StartRebuildRootTask(ctx, userCred, imageId, needStop, autoStart)
+		return nil, err
+	}
+	return nil, httperrors.NewInvalidStatusError("Cannot reset root in status %s", self.Status)
+}
+
+func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool) error {
+	data := jsonutils.NewDict()
+	data.Set("image_id", jsonutils.NewString(imageId))
+	if needStop {
+		data.Set("need_stop", jsonutils.JSONTrue)
+	}
+	if autoStart {
+		data.Set("auto_start", jsonutils.JSONTrue)
+	}
+	if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
+		task, err := taskman.TaskManager.NewTask(ctx, "BaremetalServerRebuildRootTask", self, userCred, data, "", "", nil)
+		if err != nil {
+			return err
+		}
+		task.ScheduleRun(nil)
+	} else {
+		task, err := taskman.TaskManager.NewTask(ctx, "GuestRebuildRootTask", self, userCred, data, "", "", nil)
+		if err != nil {
+			return err
+		}
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
 func (self *SGuest) DetachDisk(ctx context.Context, disk *SDisk, userCred mcclient.TokenCredential) {
 	guestdisk := self.GetGuestDisk(disk.Id)
 	if guestdisk != nil {
