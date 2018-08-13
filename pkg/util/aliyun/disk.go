@@ -100,6 +100,10 @@ func (self *SDisk) Delete() error {
 	return self.storage.zone.region.deleteDisk(self.DiskId)
 }
 
+func (self *SDisk) Resize(size int64) error {
+	return self.storage.zone.region.resizeDisk(self.DiskId, size)
+}
+
 func (self *SDisk) GetName() string {
 	return self.DiskId
 }
@@ -216,5 +220,14 @@ func (self *SRegion) deleteDisk(diskId string) error {
 	params["DiskId"] = diskId
 
 	_, err := self.ecsRequest("DeleteDisk", params)
+	return err
+}
+
+func (self *SRegion) resizeDisk(diskId string, size int64) error {
+	params := make(map[string]string)
+	params["DiskId"] = diskId
+	params["NewSize"] = fmt.Sprintf("%d", size)
+
+	_, err := self.ecsRequest("ResizeDisk", params)
 	return err
 }

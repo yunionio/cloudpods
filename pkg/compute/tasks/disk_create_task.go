@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -54,9 +55,15 @@ func (self *DiskCreateTask) OnStartAllocateFailed(ctx context.Context, disk *mod
 
 func (self *DiskCreateTask) OnDiskReady(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	diskSize, _ := data.Int("disk_size")
-	disk.DiskSize = int(diskSize)
-	disk.DiskFormat, _ = data.GetString("disk_format")
-	disk.AccessPath, _ = data.GetString("disk_path")
+	if _, err := disk.GetModelManager().TableSpec().Update(disk, func() error {
+		disk.DiskSize = int(diskSize)
+		disk.DiskFormat, _ = data.GetString("disk_format")
+		disk.AccessPath, _ = data.GetString("disk_path")
+		return nil
+	}); err != nil {
+		log.Errorf("update disk info error: %v", err)
+	}
+
 	disk.SetStatus(self.UserCred, models.DISK_READY, "")
 	self.CleanHostSchedCache(disk)
 	db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(), self.UserCred)
