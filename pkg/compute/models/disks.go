@@ -115,6 +115,14 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.In(storages.Field("storage_type"), STORAGE_LOCAL_TYPES))
 		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
 	}
+	if provier, _ := queryDict.GetString("provider"); len(provier) > 0 {
+		cloudprovider := CloudproviderManager.Query().SubQuery()
+		sq := storages.Query(storages.Field("id")).Join(cloudprovider,
+			sqlchemy.AND(
+				sqlchemy.Equals(cloudprovider.Field("id"), storages.Field("manager_id")),
+				sqlchemy.Equals(cloudprovider.Field("provider"), provier)))
+		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
+	}
 	guestId, _ := queryDict.GetString("guest")
 	if len(guestId) != 0 {
 		guest := GuestManager.FetchGuestById(guestId)
