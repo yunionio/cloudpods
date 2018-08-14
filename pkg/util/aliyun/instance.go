@@ -514,7 +514,7 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 	return ret, nil
 }
 
-func (self *SInstance) SyncSecurityGroup(secgroupId string, name string, rules []*secrules.SecurityRule) error {
+func (self *SInstance) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) error {
 	if vpc, err := self.getVpc(); err != nil {
 		return err
 	} else if len(secgroupId) == 0 {

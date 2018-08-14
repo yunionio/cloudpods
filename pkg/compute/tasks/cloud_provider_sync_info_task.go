@@ -152,32 +152,13 @@ func syncVpcSecGroup(ctx context.Context, provider *models.SCloudprovider, task 
 		logSyncFailed(provider, task, msg)
 		return
 	} else {
-		localSecgroups, removeSecgroups, result := models.SecurityGroupManager.SyncSecgroups(ctx, task.UserCred, secgroups)
+		_, _, result := models.SecurityGroupManager.SyncSecgroups(ctx, task.UserCred, secgroups)
 		msg := result.Result()
 		log.Infof("SyncSecurityGroup for VPC %s result: %s", localVpc.Name, msg)
 		if result.IsError() {
 			logSyncFailed(provider, task, msg)
 			return
 		}
-		//db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.GetUserCred())
-		for i := 0; i < len(localSecgroups); i += 1 {
-			syncSecgroupRules(ctx, provider, task, &localSecgroups[i], removeSecgroups[i])
-		}
-	}
-}
-
-func syncSecgroupRules(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localSecgroup *models.SSecurityGroup, remoteSecgroup cloudprovider.ICloudSecurityGroup) {
-	rules, err := remoteSecgroup.GetRules()
-	if err != nil {
-		logSyncFailed(provider, task, err.Error())
-		return
-	}
-	_, _, result := models.SecurityGroupRuleManager.SyncRules(ctx, task.UserCred, localSecgroup, rules)
-	msg := result.Result()
-	log.Infof("SyncRules for secgroups %s result: %s", localSecgroup.Name, msg)
-	if result.IsError() {
-		logSyncFailed(provider, task, msg)
-		return
 	}
 }
 

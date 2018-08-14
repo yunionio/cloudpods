@@ -1146,20 +1146,20 @@ func (self *SGuest) getAdminSecgroupName() string {
 	return ""
 }
 
-func (self *SGuest) GetSecRules() []*secrules.SecurityRule {
+func (self *SGuest) GetSecRules() []secrules.SecurityRule {
 	return self.getSecRules()
 }
 
-func (self *SGuest) getSecRules() []*secrules.SecurityRule {
+func (self *SGuest) getSecRules() []secrules.SecurityRule {
 	if secgrp := self.getSecgroup(); secgrp != nil {
 		return secgrp.getSecRules()
 	}
 	if rule, err := secrules.ParseSecurityRule(options.Options.DefaultSecurityRules); err == nil {
-		return []*secrules.SecurityRule{rule}
+		return []secrules.SecurityRule{*rule}
 	} else {
 		log.Errorf("Default SecurityRules error: %v", err)
 	}
-	return []*secrules.SecurityRule{}
+	return []secrules.SecurityRule{}
 }
 
 func (self *SGuest) getSecurityRules() string {
@@ -3193,8 +3193,8 @@ func (manager *SGuestManager) getIpsByExit(ips []string, isExitOnly bool) []stri
 	return extRet
 }
 
-func (manager *SGuestManager) getExpiredPendingDeleteGuests() ([]SGuest) {
-	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds)*time.Second)
+func (manager *SGuestManager) getExpiredPendingDeleteGuests() []SGuest {
+	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds) * time.Second)
 
 	q := manager.Query()
 	q = q.IsTrue("pending_deleted").LT("pending_deleted_at", deadline).In("hypervisor", []string{"aliyun"}).Limit(options.Options.PendingDeleteMaxCleanBatchSize)

@@ -35,7 +35,7 @@ func (self *SVirtualMachine) GetGlobalId() string {
 	return self.getUuid()
 }
 
-func (self *SVirtualMachine) SyncSecurityGroup(secgroupId, name string, rules []*secrules.SecurityRule) error {
+func (self *SVirtualMachine) SyncSecurityGroup(secgroupId, name string, rules []secrules.SecurityRule) error {
 	return nil
 }
 

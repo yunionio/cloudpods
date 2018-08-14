@@ -99,17 +99,19 @@ func (self *SSecurityGroup) getSecurityRules() (rules []SSecurityGroupRule) {
 	sql := secgrouprules.Query().Filter(sqlchemy.Equals(secgrouprules.Field("secgroup_id"), self.Id))
 	if err := db.FetchModelObjects(SecurityGroupRuleManager, sql, &rules); err != nil {
 		log.Errorf("GetGuests fail %s", err)
-		return nil
+		return
 	}
 	return
 }
 
-func (self *SSecurityGroup) getSecRules() []*secrules.SecurityRule {
-	rules := make([]*secrules.SecurityRule, 0)
-	for _, rule := range self.getSecurityRules() {
-		r, _ := secrules.ParseSecurityRule(rule.GetRule())
-		r.Priority = int(rule.Priority)
-		rules = append(rules, r)
+func (self *SSecurityGroup) getSecRules() []secrules.SecurityRule {
+	rules := make([]secrules.SecurityRule, 0)
+	for _, _rule := range self.getSecurityRules() {
+		singleRules, err := _rule.SingleRules()
+		if err != nil {
+			log.Errorf(err.Error())
+		}
+		rules = append(rules, singleRules...)
 	}
 	return rules
 }
@@ -118,7 +120,7 @@ func (self *SSecurityGroup) getSecurityRuleString() string {
 	secgrouprules := self.getSecurityRules()
 	var rules []string
 	for _, rule := range secgrouprules {
-		rules = append(rules, rule.GetRule())
+		rules = append(rules, rule.String())
 	}
 	return strings.Join(rules, SECURITY_GROUP_SEPARATOR)
 }
@@ -202,22 +204,32 @@ func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCre
 		}
 
 		for i := 0; i < len(commondb); i += 1 {
-			if err = commondb[i].SyncWithCloudSecurityGroup(userCred, commonext[i]); err != nil {
-				syncResult.UpdateError(err)
-			} else {
-				localSecgroups = append(localSecgroups, commondb[i])
-				remoteSecgroups = append(remoteSecgroups, commonext[i])
-				syncResult.Update()
+			if rules, err := commonext[i].GetRules(); err != nil {
+				syncResult.Error(err)
+			} else if len(rules) > 0 {
+				if err = commondb[i].SyncWithCloudSecurityGroup(userCred, commonext[i]); err != nil {
+					syncResult.UpdateError(err)
+				} else {
+					localSecgroups = append(localSecgroups, commondb[i])
+					remoteSecgroups = append(remoteSecgroups, commonext[i])
+					SecurityGroupRuleManager.SyncRules(ctx, userCred, &commondb[i], rules)
+					syncResult.Update()
+				}
 			}
 		}
 
 		for i := 0; i < len(added); i += 1 {
-			if new, err := manager.newFromCloudVpc(added[i]); err != nil {
+			if rules, err := added[i].GetRules(); err != nil {
 				syncResult.AddError(err)
-			} else {
-				localSecgroups = append(localSecgroups, *new)
-				remoteSecgroups = append(remoteSecgroups, added[i])
-				syncResult.Add()
+			} else if len(rules) > 0 {
+				if new, err := manager.newFromCloudVpc(added[i]); err != nil {
+					syncResult.AddError(err)
+				} else {
+					localSecgroups = append(localSecgroups, *new)
+					remoteSecgroups = append(remoteSecgroups, added[i])
+					SecurityGroupRuleManager.SyncRules(ctx, userCred, new, rules)
+					syncResult.Add()
+				}
 			}
 		}
 	}

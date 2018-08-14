@@ -187,7 +187,7 @@ func (self *SVpc) Delete() error {
 	return self.region.DeleteVpc(self.VpcId)
 }
 
-func (self *SVpc) syncSecurityGroup(secgroupId string, name string, rules []*secrules.SecurityRule) (string, error) {
+func (self *SVpc) syncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) (string, error) {
 	secgrpId := ""
 	if secgroup, err := self.region.getSecurityGroupByTag(self.VpcId, secgroupId); err != nil {
 		if secgrpId, err = self.region.createSecurityGroup(self.VpcId, name, ""); err != nil {
@@ -198,7 +198,7 @@ func (self *SVpc) syncSecurityGroup(secgroupId string, name string, rules []*sec
 		//addRules
 		log.Debugf("Add Rules for %s", secgrpId)
 		for _, rule := range rules {
-			if err := self.region.addSecurityGroupRule(secgrpId, rule); err != nil {
+			if err := self.region.addSecurityGroupRule(secgrpId, &rule); err != nil {
 				return "", err
 			}
 		}

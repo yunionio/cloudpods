@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -13,7 +14,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/secrules"
-	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
 )
@@ -39,6 +39,25 @@ type SSecurityGroupRule struct {
 	Action      string `width:"5" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
 	Description string `width:"256" charset:"utf8" list:"user" update:"user"`
 	SecgroupID  string `width:"128" charset:"ascii" create:"required"`
+}
+
+type SecurityGroupRuleSet []SSecurityGroupRule
+
+func (v SecurityGroupRuleSet) Len() int {
+	return len(v)
+}
+
+func (v SecurityGroupRuleSet) Swap(i, j int) {
+	v[i], v[j] = v[j], v[i]
+}
+
+func (v SecurityGroupRuleSet) Less(i, j int) bool {
+	if v[i].Priority < v[j].Priority {
+		return true
+	} else if v[i].Priority == v[j].Priority {
+		return strings.Compare(v[i].String(), v[j].String()) <= 0
+	}
+	return false
 }
 
 func (manager *SSecurityGroupRuleManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -133,6 +152,8 @@ func (manager *SSecurityGroupRuleManager) ValidateCreateData(
 				key += ":"
 			}
 			fields = append(fields, key)
+		} else if field == "cidr" {
+			data.Add(jsonutils.NewString("0.0.0.0/0"), "cidr")
 		}
 	}
 	if _, err := secrules.ParseSecurityRule(strings.Join(fields, " ")); err != nil {
@@ -187,7 +208,7 @@ func (self *SSecurityGroupRule) ValidateUpdateData(ctx context.Context, userCred
 	return self.SResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (self *SSecurityGroupRule) GetRule() string {
+func (self *SSecurityGroupRule) String() string {
 	var fields []string
 	for _, field := range []string{"direction", "action", "cidr", "protocol", "ports"} {
 		switch field {
@@ -199,7 +220,7 @@ func (self *SSecurityGroupRule) GetRule() string {
 		case "action":
 			fields = append(fields, self.Action)
 		case "cidr":
-			if len(self.CIDR) > 0 {
+			if len(self.CIDR) > 0 && self.CIDR != "0.0.0.0/0" {
 				fields = append(fields, self.CIDR)
 			}
 		case "protocol":
@@ -215,6 +236,43 @@ func (self *SSecurityGroupRule) GetRule() string {
 		}
 	}
 	return fields[0] + strings.Join(fields[1:], " ")
+}
+
+func (self *SSecurityGroupRule) SingleRules() ([]secrules.SecurityRule, error) {
+	rules := make([]secrules.SecurityRule, 0)
+	ruleStr := self.String()
+	if rule, err := secrules.ParseSecurityRule(ruleStr); err != nil {
+		return nil, err
+	} else if len(rule.Ports) > 0 {
+		for _, port := range rule.Ports {
+			_rule := secrules.SecurityRule{
+				Priority:    int(self.Priority),
+				Action:      rule.Action,
+				IPNet:       rule.IPNet,
+				Protocol:    rule.Protocol,
+				Direction:   rule.Direction,
+				PortStart:   -1,
+				PortEnd:     -1,
+				Ports:       []int{port},
+				Description: self.Description,
+			}
+			rules = append(rules, _rule)
+		}
+	} else {
+		_rule := secrules.SecurityRule{
+			Priority:    int(self.Priority),
+			Action:      rule.Action,
+			IPNet:       rule.IPNet,
+			Protocol:    rule.Protocol,
+			Direction:   rule.Direction,
+			PortStart:   rule.PortStart,
+			PortEnd:     rule.PortEnd,
+			Ports:       []int{},
+			Description: self.Description,
+		}
+		rules = append(rules, _rule)
+	}
+	return rules, nil
 }
 
 func (self *SSecurityGroupRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -255,50 +313,59 @@ func (manager *SSecurityGroupRuleManager) getRulesBySecurityGroup(secgroup *SSec
 func (manager *SSecurityGroupRuleManager) SyncRules(ctx context.Context, userCred mcclient.TokenCredential, secgroup *SSecurityGroup, rules []secrules.SecurityRule) ([]SSecurityGroupRule, []SSecurityGroupRule, compare.SyncResult) {
 	syncResult := compare.SyncResult{}
 
-	if _dbRules, err := manager.getRulesBySecurityGroup(secgroup); err != nil {
+	if dbRules, err := manager.getRulesBySecurityGroup(secgroup); err != nil {
 		return nil, nil, syncResult
 	} else {
-		dbRules := make([]secrules.SecurityRule, len(_dbRules))
 
-		originRules := make(map[string]*SSecurityGroupRule, len(dbRules))
-		oldRules, oldStrs := make(map[string]secrules.SecurityRule, len(dbRules)), sets.NewString()
+		sort.Sort(SecurityGroupRuleSet(dbRules))
+		sort.Sort(secrules.SecurityRuleSet(rules))
 
-		for i := 0; i < len(_dbRules); i += 1 {
-			_rule := _dbRules[i]
-			if rule, err := secrules.ParseSecurityRule(_rule.GetRule()); err != nil {
-				syncResult.AddError(err)
-			} else {
-				rule.Priority = int(_rule.Priority)
-				rule.Description = _rule.Description
-				if str := jsonutils.Marshal(rule).String(); !oldStrs.Has(str) {
-					oldStrs.Insert(str)
-					oldRules[str] = *rule
-					originRules[str] = &_rule
-				} else if err := _rule.Delete(ctx, userCred); err != nil {
-					syncResult.AddError(err)
+		i, j := 0, 0
+		for i < len(rules) || j < len(dbRules) {
+			if i < len(rules) && j < len(dbRules) {
+				dbStr := dbRules[j].String()
+				ruleStr := rules[i].String()
+				cmp := strings.Compare(dbStr, ruleStr)
+				if cmp == 0 {
+					if dbRules[j].Description != rules[i].Description {
+						if _, err := manager.TableSpec().Update(dbRules[j], func() error {
+							dbRules[j].Description = rules[i].Description
+							return nil
+						}); err != nil {
+							log.Errorf("Update SecurityGroupRule failed: %v", err)
+						}
+					}
+					i += 1
+					j += 1
+				} else if cmp > 0 {
+					if err := dbRules[j].Delete(ctx, userCred); err != nil {
+						syncResult.AddError(err)
+					} else {
+						syncResult.Delete()
+					}
+					j += 1
+				} else {
+					if _, err := manager.newFromCloudSecurityGroup(rules[i], secgroup); err != nil {
+						syncResult.AddError(err)
+					} else {
+						syncResult.Add()
+					}
+					i += 1
 				}
-			}
-		}
-
-		newRules, newStrs := make(map[string]secrules.SecurityRule, len(rules)), sets.NewString()
-		for _, rule := range rules {
-			if str := jsonutils.Marshal(rule).String(); !newStrs.Has(str) {
-				newStrs.Insert(str)
-				newRules[str] = rule
-			}
-		}
-		for _, _rule := range newStrs.Difference(oldStrs).List() {
-			rule := newRules[_rule]
-			if _, err := manager.newFromCloudSecurityGroup(rule, secgroup); err != nil {
-				syncResult.AddError(err)
-			} else {
-				syncResult.Add()
-			}
-		}
-		for _, _rule := range oldStrs.Difference(newStrs).List() {
-			syncResult.Delete()
-			if err := originRules[_rule].Delete(ctx, userCred); err != nil {
-				syncResult.AddError(err)
+			} else if i >= len(rules) {
+				if err := dbRules[j].Delete(ctx, userCred); err != nil {
+					syncResult.AddError(err)
+				} else {
+					syncResult.Delete()
+				}
+				j += 1
+			} else if j >= len(dbRules) {
+				if _, err := manager.newFromCloudSecurityGroup(rules[i], secgroup); err != nil {
+					syncResult.AddError(err)
+				} else {
+					syncResult.Add()
+				}
+				i += 1
 			}
 		}
 	}

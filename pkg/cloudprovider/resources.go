@@ -144,7 +144,7 @@ type ICloudVM interface {
 	GetBios() string
 	GetMachine() string
 
-	SyncSecurityGroup(secgroupId string, name string, rules []*secrules.SecurityRule) error
+	SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) error
 	GetHypervisor() string
 
 	// GetSecurityGroup() ICloudSecurityGroup

@@ -59,7 +59,6 @@ func init() {
 	})
 
 	type SecGroupRulesCreateOptions struct {
-		NAME      string `help:"Name of security group rule to create"`
 		SECGROUP  string `help:"Secgroup ID or Name" metavar:"Secgroup"`
 		Direction string `help:"Direction of rule" choices:"in|out"`
 		Action    string `help:"Action of rule" choices:"allow|deny"`
@@ -72,7 +71,6 @@ func init() {
 
 	R(&SecGroupRulesCreateOptions{}, "secgroup-rule-create", "Create all security group rule", func(s *mcclient.ClientSession, args *SecGroupRulesCreateOptions) error {
 		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.NAME), "name")
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
 		}
