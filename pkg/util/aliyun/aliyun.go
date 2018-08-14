@@ -59,6 +59,16 @@ func jsonRequest(client *sdk.Client, apiName string, params map[string]string) (
 	return body, nil
 }
 
+func (self *SAliyunClient) UpdateAccount(accessKey, secret string) error {
+	if self.accessKey != accessKey || self.secret != secret {
+		self.accessKey = accessKey
+		self.secret = secret
+		return self.fetchRegions()
+	} else {
+		return nil
+	}
+}
+
 func (self *SAliyunClient) getDefaultClient() (*sdk.Client, error) {
 	return sdk.NewClientWithAccessKey(ALIYUN_DEFAULT_REGION, self.accessKey, self.secret)
 }

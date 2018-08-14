@@ -18,7 +18,12 @@ func (self *SAliyunProviderFactory) GetId() string {
 func (self *SAliyunProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
 	provider, ok := self.providerTable[providerId]
 	if ok {
-		return provider, nil
+		err := provider.client.UpdateAccount(account, secret)
+		if err != nil {
+			return nil, err
+		} else {
+			return provider, nil
+		}
 	}
 	client, err := aliyun.NewAliyunClient(providerId, providerName, account, secret)
 	if err != nil {
