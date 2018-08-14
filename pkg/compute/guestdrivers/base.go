@@ -117,3 +117,7 @@ func (self *SBaseGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *
 func (self *SBaseGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement")
 }
+
+func (self *SBaseGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement")
+}
