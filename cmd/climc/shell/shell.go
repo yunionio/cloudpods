@@ -2,6 +2,7 @@ package shell
 
 import (
 	"fmt"
+
 	"yunion.io/x/jsonutils"
 )
 
@@ -27,6 +28,7 @@ type BaseListOptions struct {
 	Search        string   `help:"Filter results by a simple keyword search"`
 	Meta          bool     `help:"Piggyback metadata information"`
 	Filter        []string `help:"Filters"`
+	JointFilter   []string `help:"Filters with joint table col; joint_tbl(related_key).filter_col.filter_cond(filters)"`
 	FilterAny     bool     `help:"If true, match if any of the filters matches; otherwise, match if all of the filters match"`
 	Admin         bool     `help:"Is an admin call?"`
 	Tenant        string   `help:"Tenant ID or Name"`
@@ -61,6 +63,13 @@ func FetchPagingParams(options BaseListOptions) *jsonutils.JSONDict {
 	}
 	if options.Meta {
 		params.Add(jsonutils.JSONTrue, "with_meta")
+	}
+	if len(options.JointFilter) > 0 {
+		arr := jsonutils.NewArray()
+		for _, f := range options.JointFilter {
+			arr.Add(jsonutils.NewString(f))
+		}
+		params.Add(arr, "joint_filter")
 	}
 	if len(options.Filter) > 0 {
 		arr := jsonutils.NewArray()
