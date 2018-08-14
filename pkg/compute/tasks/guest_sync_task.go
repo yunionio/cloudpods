@@ -51,17 +51,17 @@ func (self *GuestSyncConfTask) OnDiskSyncComplete(ctx context.Context, guest *mo
 	guest.StartSyncstatus(ctx, self.GetUserCred(), self.GetTaskId())
 }
 
-func (self *GuestSyncConfTask) OnDiskSyncCompleteFailed(ctx context.Context, obj db.IStandaloneModel, resion error) {
+func (self *GuestSyncConfTask) OnDiskSyncCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF_FAIL, resion.Error(), self.UserCred)
-	log.Errorf("Guest sync config failed: %v", resion)
+	db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF_FAIL, data.String(), self.UserCred)
+	log.Errorf("Guest sync config failed: %v", data.String())
 }
 
-func (self *GuestSyncConfTask) OnSyncCompleteFailed(ctx context.Context, obj db.IStandaloneModel, resion error) {
+func (self *GuestSyncConfTask) OnSyncCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.GetUserCred(), models.VM_SYNC_FAIL, resion.Error())
-	log.Errorf("Guest sync config failed: %v", resion)
-	db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF_FAIL, resion.Error(), self.UserCred)
+	guest.SetStatus(self.GetUserCred(), models.VM_SYNC_FAIL, data.String())
+	log.Errorf("Guest sync config failed: %v", data.String())
+	db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF_FAIL, data.String(), self.UserCred)
 }
 
 func (self *GuestSyncConfTask) OnSyncStatusComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {

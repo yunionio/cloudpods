@@ -307,7 +307,7 @@ func execITask(taskValue reflect.Value, task *STask, data jsonutils.JSONObject, 
 
 	var stageName string
 	if taskFailed {
-		stageName = fmt.Sprintf("%s_failed", task.Stage)
+		stageName = fmt.Sprintf("%sFailed", task.Stage)
 	} else {
 		stageName = task.Stage
 	}
@@ -315,6 +315,10 @@ func execITask(taskValue reflect.Value, task *STask, data jsonutils.JSONObject, 
 	funcValue := taskValue.MethodByName(stageName)
 
 	if !funcValue.IsValid() || funcValue.IsNil() {
+		log.Debugf("Stage %s not found, try kebab to camel and find again", stageName)
+		if taskFailed {
+			stageName = fmt.Sprintf("%s_failed", task.Stage)
+		}
 		stageName = utils.Kebab2Camel(stageName, "_")
 		funcValue = taskValue.MethodByName(stageName)
 

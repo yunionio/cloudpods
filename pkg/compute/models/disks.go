@@ -283,7 +283,7 @@ func (disk *SDisk) PostCreate(ctx context.Context, userCred mcclient.TokenCreden
 func (self *SDisk) StartDiskCreateTask(ctx context.Context, userCred mcclient.TokenCredential, rebuild bool, snapshot string, parentTaskId string) error {
 	kwargs := jsonutils.NewDict()
 	if rebuild {
-		kwargs.Add(jsonutils.JSONFalse, "rebuild")
+		kwargs.Add(jsonutils.JSONTrue, "rebuild")
 	}
 	if len(snapshot) > 0 {
 		kwargs.Add(jsonutils.NewString(snapshot), "snapshot")

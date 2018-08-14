@@ -171,7 +171,7 @@ func (manager *SCachedimageManager) cacheImageInfo(ctx context.Context, userCred
 	}
 }
 
-func (manager *SCachedimageManager) getImageById(ctx context.Context, userCred mcclient.TokenCredential, imageId string, refresh bool) (*SImage, error) {
+func (manager *SCachedimageManager) GetImageById(ctx context.Context, userCred mcclient.TokenCredential, imageId string, refresh bool) (*SImage, error) {
 	if !refresh {
 		imgObj, _ := manager.FetchById(imageId)
 		if imgObj != nil {
@@ -208,7 +208,7 @@ func (manager *SCachedimageManager) getImageByName(ctx context.Context, userCred
 }
 
 func (manager *SCachedimageManager) getImageInfo(ctx context.Context, userCred mcclient.TokenCredential, imageId string, refresh bool) (*SImage, error) {
-	img, err := manager.getImageById(ctx, userCred, imageId, refresh)
+	img, err := manager.GetImageById(ctx, userCred, imageId, refresh)
 	if err == nil {
 		return img, nil
 	}
@@ -237,7 +237,7 @@ func (self *SCachedimage) AllowPerformRefresh(ctx context.Context, userCred mccl
 }
 
 func (self *SCachedimage) PerformRefresh(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	img, err := CachedimageManager.getImageById(ctx, userCred, self.Id, true)
+	img, err := CachedimageManager.GetImageById(ctx, userCred, self.Id, true)
 	if err != nil {
 		return nil, err
 	}
