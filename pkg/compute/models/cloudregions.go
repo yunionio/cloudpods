@@ -220,7 +220,7 @@ func (self *SCloudregion) AllowPerformDefaultVpc(ctx context.Context, userCred m
 }
 
 func (self *SCloudregion) PerformDefaultVpc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	vpcs, err := VpcManager.getVpcsByRegion(self)
+	vpcs, err := VpcManager.getVpcsByRegion(self, nil)
 	if err != nil {
 		return nil, err
 	}
