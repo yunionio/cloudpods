@@ -146,9 +146,12 @@ func (self *SVpc) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCr
 	return self.getMoreDetails(extra)
 }
 
-func (manager *SVpcManager) getVpcsByRegion(region *SCloudregion) ([]SVpc, error) {
+func (manager *SVpcManager) getVpcsByRegion(region *SCloudregion, provider *SCloudprovider) ([]SVpc, error) {
 	vpcs := make([]SVpc, 0)
 	q := manager.Query().Equals("cloudregion_id", region.Id)
+	if provider != nil {
+		q = q.Equals("manager_id", provider.Id)
+	}
 	err := db.FetchModelObjects(manager, q, &vpcs)
 	if err != nil {
 		return nil, err
@@ -167,12 +170,12 @@ func (self *SVpc) setDefault(def bool) error {
 	return err
 }
 
-func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, vpcs []cloudprovider.ICloudVpc) ([]SVpc, []cloudprovider.ICloudVpc, compare.SyncResult) {
+func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, vpcs []cloudprovider.ICloudVpc) ([]SVpc, []cloudprovider.ICloudVpc, compare.SyncResult) {
 	localVPCs := make([]SVpc, 0)
 	remoteVPCs := make([]cloudprovider.ICloudVpc, 0)
 	syncResult := compare.SyncResult{}
 
-	dbVPCs, err := manager.getVpcsByRegion(region)
+	dbVPCs, err := manager.getVpcsByRegion(region, provider)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
