@@ -841,7 +841,12 @@ func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, act
 
 	managerValue := reflect.ValueOf(dispatcher.modelManager)
 	if action == "check-create-data" {
-		return dispatcher.modelManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data.(*jsonutils.JSONDict))
+		manager := dispatcher.modelManager
+		if body, err := data.(*jsonutils.JSONDict).Get(manager.Keyword()); err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		} else {
+			return manager.ValidateCreateData(ctx, userCred, ownerProjId, query, body.(*jsonutils.JSONDict))
+		}
 	}
 	return objectPerformAction(dispatcher, managerValue, ctx, userCred, action, query, data)
 }
