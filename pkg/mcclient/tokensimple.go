@@ -104,6 +104,10 @@ func (self *SSimpleToken) GetExternalServices(region string) []ExternalService {
 	return nil
 }
 
+func (this *SSimpleToken) GetEndpoints(region string, endpointType string) []Endpoint {
+	return nil
+}
+
 func SimplifyToken(token TokenCredential) TokenCredential {
 	simToken, ok := token.(*SSimpleToken)
 	if ok {

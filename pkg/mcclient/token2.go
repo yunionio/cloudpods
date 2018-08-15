@@ -144,6 +144,10 @@ func (this *TokenCredentialV2) GetExternalServices(region string) []ExternalServ
 	return nil
 }
 
+func (this *TokenCredentialV2) GetEndpoints(region string, endpointType string) []Endpoint {
+	return nil
+}
+
 func stringArrayContains(arr []string, needle string) bool {
 	for i := 0; i < len(arr); i++ {
 		if arr[i] == needle {
