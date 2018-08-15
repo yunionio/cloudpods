@@ -222,7 +222,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 		return "", fmt.Errorf("vsiwtch's wire's vpc is empty")
 	}
 
-	secgroups, err := net.wire.vpc.GetSecurityGroups()
+	secgroups, err := net.wire.vpc.GetISecurityGroups()
 	if err != nil {
 		return "", fmt.Errorf("get security group error %s", err)
 	}
@@ -236,7 +236,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 			secgroupId = secId
 		}
 	} else {
-		secgroupId = secgroups[0].SecurityGroupId
+		secgroupId = secgroups[0].GetId()
 	}
 
 	keypair := ""

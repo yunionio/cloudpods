@@ -25,14 +25,15 @@ const (
 )
 
 type SecurityRule struct {
-	Priority  int // [1, 100]
-	Action    TSecurityRuleAction
-	IPNet     *net.IPNet
-	Protocol  string
-	Direction TSecurityRuleDirection
-	PortStart int
-	PortEnd   int
-	Ports     []int
+	Priority    int // [1, 100]
+	Action      TSecurityRuleAction
+	IPNet       *net.IPNet
+	Protocol    string
+	Direction   TSecurityRuleDirection
+	PortStart   int
+	PortEnd     int
+	Ports       []int
+	Description string
 }
 
 const (
@@ -61,6 +62,25 @@ var (
 	ErrInvalidPortRange = errors.New("invalid port range")
 	ErrInvalidPort      = errors.New("invalid port")
 )
+
+type SecurityRuleSet []SecurityRule
+
+func (v SecurityRuleSet) Len() int {
+	return len(v)
+}
+
+func (v SecurityRuleSet) Swap(i, j int) {
+	v[i], v[j] = v[j], v[i]
+}
+
+func (v SecurityRuleSet) Less(i, j int) bool {
+	if v[i].Priority > v[j].Priority {
+		return true
+	} else if v[i].Priority == v[j].Priority {
+		return strings.Compare(v[i].String(), v[j].String()) <= 0
+	}
+	return false
+}
 
 func parsePortString(ps string) (int, error) {
 	p, err := strconv.ParseUint(ps, 10, 16)
