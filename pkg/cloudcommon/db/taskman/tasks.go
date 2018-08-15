@@ -246,17 +246,21 @@ func (manager *STaskManager) NewParallelTask(ctx context.Context, taskName strin
 }
 
 func (manager *STaskManager) fetchTask(idStr string) *STask {
-	task, err := db.NewModelObject(manager)
+	iTask, err := db.NewModelObject(manager)
 	if err != nil {
 		log.Errorf("New task object fail: %s", err)
 		return nil
 	}
-	err = manager.Query().Equals("id", idStr).First(task)
+	err = manager.Query().Equals("id", idStr).First(iTask)
 	if err != nil {
 		log.Errorf("GetTask %s fail: %s", idStr, err)
 		return nil
 	}
-	return task.(*STask)
+	task := iTask.(*STask)
+	if task.Params == nil {
+		task.Params = jsonutils.NewDict()
+	}
+	return task
 }
 
 func (manager *STaskManager) execTask(taskId string, data jsonutils.JSONObject) {
@@ -412,9 +416,11 @@ func (self *STask) GetParentTask() *STask {
 
 func (self *STask) GetRequestContext() appctx.AppContextData {
 	ctxData := appctx.AppContextData{}
-	ctxJson, _ := self.Params.Get(REQUEST_CONTEXT_KEY)
-	if ctxJson != nil {
-		ctxJson.Unmarshal(&ctxData)
+	if self.Params != nil {
+		ctxJson, _ := self.Params.Get(REQUEST_CONTEXT_KEY)
+		if ctxJson != nil {
+			ctxJson.Unmarshal(&ctxData)
+		}
 	}
 	return ctxData
 }

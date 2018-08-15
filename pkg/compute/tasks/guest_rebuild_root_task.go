@@ -32,6 +32,10 @@ func (self *GuestRebuildRootTask) OnInit(ctx context.Context, obj db.IStandalone
 	}
 }
 
+func (self *GuestRebuildRootTask) OnStopServerComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.StartRebuildRootDisk(ctx, guest)
+}
+
 func (self *GuestRebuildRootTask) StartRebuildRootDisk(ctx context.Context, guest *models.SGuest) {
 	db.OpsLog.LogEvent(guest, db.ACT_REBUILDING_ROOT, nil, self.UserCred)
 	gds := guest.CategorizeDisks()
