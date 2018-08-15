@@ -3103,6 +3103,23 @@ func (self *SGuest) PerformStart(ctx context.Context, userCred mcclient.TokenCre
 	}
 }
 
+func (self *SGuest) AllowPerformReset(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
+	data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	isHard := jsonutils.QueryBoolean(data, "is_hard", false)
+	if self.Status == VM_RUNNING || self.Status == VM_STOP_FAILED {
+		self.GetDriver().StartGuestResetTask(self, ctx, userCred, isHard, "")
+		return nil, nil
+	}
+	return nil, httperrors.NewInvalidStatusError("Cannot reset VM in status %s", self.Status)
+}
+
 func (self *SGuest) AllowPerformStop(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
