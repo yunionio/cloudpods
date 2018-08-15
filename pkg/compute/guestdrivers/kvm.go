@@ -206,6 +206,11 @@ func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *m
 	return nil
 }
 
+func (self *SKVMGuestDriver) RequestSoftReset(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	_, err := guest.SendMonitorCommand(ctx, task.GetUserCred(), "system_reset")
+	return err
+}
+
 func (self *SKVMGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
