@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/util/sysutils"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
@@ -910,7 +911,7 @@ func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 		extra.Add(jsonutils.NewString(zone.Id), "zone_id")
 		extra.Add(jsonutils.NewString(zone.Name), "zone")
 	}
-	extra.Add(jsonutils.NewString(self.getSecgroupName()), "secgroup")
+	extra.Add(jsonutils.NewString(self.GetSecgroupName()), "secgroup")
 
 	if self.PendingDeleted {
 		pendingDeletedAt := self.PendingDeletedAt.Add(time.Second * time.Duration(options.Options.PendingDeleteExpireSeconds))
@@ -932,7 +933,7 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 	}
 	// extra.Add(jsonutils.NewString(self.getFlavorName()), "flavor")
 	extra.Add(jsonutils.NewString(self.getKeypairName()), "keypair")
-	extra.Add(jsonutils.NewString(self.getSecgroupName()), "secgroup")
+	extra.Add(jsonutils.NewString(self.GetSecgroupName()), "secgroup")
 	extra.Add(jsonutils.NewString(strings.Join(self.getIPs(), ",")), "ips")
 	extra.Add(jsonutils.NewString(self.getSecurityRules()), "security_rules")
 	extra.Add(jsonutils.NewString(self.getIsolatedDeviceDetails()), "isolated_devices")
@@ -1129,7 +1130,7 @@ func (self *SGuest) getAdminSecgroup() *SSecurityGroup {
 	return SecurityGroupManager.FetchSecgroupById(self.AdminSecgrpId)
 }
 
-func (self *SGuest) getSecgroupName() string {
+func (self *SGuest) GetSecgroupName() string {
 	secgrp := self.getSecgroup()
 	if secgrp != nil {
 		return secgrp.GetName()
@@ -1143,6 +1144,22 @@ func (self *SGuest) getAdminSecgroupName() string {
 		return secgrp.GetName()
 	}
 	return ""
+}
+
+func (self *SGuest) GetSecRules() []secrules.SecurityRule {
+	return self.getSecRules()
+}
+
+func (self *SGuest) getSecRules() []secrules.SecurityRule {
+	if secgrp := self.getSecgroup(); secgrp != nil {
+		return secgrp.getSecRules()
+	}
+	if rule, err := secrules.ParseSecurityRule(options.Options.DefaultSecurityRules); err == nil {
+		return []secrules.SecurityRule{*rule}
+	} else {
+		log.Errorf("Default SecurityRules error: %v", err)
+	}
+	return []secrules.SecurityRule{}
 }
 
 func (self *SGuest) getSecurityRules() string {
@@ -2126,6 +2143,54 @@ func (self *SGuest) StartDeleteGuestTask(ctx context.Context, userCred mcclient.
 	}
 	self.SetStatus(userCred, VM_START_DELETE, "")
 	return self.GetDriver().StartDeleteGuestTask(ctx, userCred, self, params, parentTaskId)
+}
+
+func (self *SGuest) AllowPerformAssignSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) AllowPerformRevokeSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformRevokeSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING, VM_SUSPEND}) {
+		return nil, httperrors.NewInputParameterError("Cannot revoke security rules in status %s", self.Status)
+	} else {
+		if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
+			self.SecgrpId = ""
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+		if err := self.StartSyncTask(ctx, userCred, true, ""); err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil
+}
+
+func (self *SGuest) PerformAssignSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING, VM_SUSPEND}) {
+		return nil, httperrors.NewInputParameterError("Cannot assign security rules in status %s", self.Status)
+	} else {
+		if secgrp, err := data.GetString("secgrp"); err != nil {
+			return nil, err
+		} else if sg, err := SecurityGroupManager.FetchByIdOrName(userCred.GetProjectId(), secgrp); err != nil {
+			return nil, httperrors.NewNotFoundError("SecurityGroup %s not found", secgrp)
+		} else {
+			if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
+				self.SecgrpId = sg.GetId()
+				return nil
+			}); err != nil {
+				return nil, err
+			}
+			if err := self.StartSyncTask(ctx, userCred, true, ""); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return nil, nil
 }
 
 func (self *SGuest) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -3187,8 +3252,8 @@ func (manager *SGuestManager) getIpsByExit(ips []string, isExitOnly bool) []stri
 	return extRet
 }
 
-func (manager *SGuestManager) getExpiredPendingDeleteGuests() ([]SGuest) {
-	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds)*time.Second)
+func (manager *SGuestManager) getExpiredPendingDeleteGuests() []SGuest {
+	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds) * time.Second)
 
 	q := manager.Query()
 	q = q.IsTrue("pending_deleted").LT("pending_deleted_at", deadline).In("hypervisor", []string{"aliyun"}).Limit(options.Options.PendingDeleteMaxCleanBatchSize)

@@ -1,18 +1,18 @@
 package esxi
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/secrules"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-
-	"fmt"
-	"github.com/vmware/govmomi/object"
 )
 
 var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "runtime", "summary"}
@@ -33,6 +33,10 @@ func (self *SVirtualMachine) getVirtualMachine() *mo.VirtualMachine {
 
 func (self *SVirtualMachine) GetGlobalId() string {
 	return self.getUuid()
+}
+
+func (self *SVirtualMachine) SyncSecurityGroup(secgroupId, name string, rules []secrules.SecurityRule) error {
+	return nil
 }
 
 func (self *SVirtualMachine) GetStatus() string {

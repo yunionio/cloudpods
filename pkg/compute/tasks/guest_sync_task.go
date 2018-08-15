@@ -38,7 +38,7 @@ func (self *GuestSyncConfTask) OnSyncComplete(ctx context.Context, obj db.IStand
 	guest := obj.(*models.SGuest)
 	if fw_only, _ := self.GetParams().Bool("fw_only"); fw_only {
 		db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF, nil, self.UserCred)
-		self.OnSyncComplete(ctx, obj, guest.GetShortDesc())
+		self.SetStageComplete(ctx, guest.GetShortDesc())
 	} else if data.Contains("task") {
 		self.SetStage("on_disk_sync_complete", nil)
 	} else {
