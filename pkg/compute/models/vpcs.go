@@ -240,6 +240,7 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 
 func (self *SVpc) SyncWithCloudVpc(extVPC cloudprovider.ICloudVpc) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		extVPC.Refresh()
 		self.Name = extVPC.GetName()
 		self.Status = extVPC.GetStatus()
 		self.CidrBlock = extVPC.GetCidrBlock()

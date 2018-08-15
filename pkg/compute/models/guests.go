@@ -1186,7 +1186,7 @@ func (self *SGuest) GetIsolatedDevices() []SIsolatedDevice {
 
 func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, extVM cloudprovider.ICloudVM) error {
 	diff, err := GuestManager.TableSpec().Update(self, func() error {
-
+		extVM.Refresh()
 		self.Name = extVM.GetName()
 		self.Status = extVM.GetStatus()
 		self.VcpuCount = extVM.GetVcpuCount()

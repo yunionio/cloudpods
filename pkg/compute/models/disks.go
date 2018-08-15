@@ -508,6 +508,7 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 
 func (self *SDisk) syncWithCloudDisk(userCred mcclient.TokenCredential, extDisk cloudprovider.ICloudDisk) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		extDisk.Refresh()
 		self.Name = extDisk.GetName()
 		self.Status = extDisk.GetStatus()
 		self.DiskFormat = extDisk.GetDiskFormat()
