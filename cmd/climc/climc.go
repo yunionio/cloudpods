@@ -181,7 +181,7 @@ func main() {
 		fmt.Print(parser.HelpString())
 	} else if options.Version {
 		fmt.Printf("Yunion API client version:\n %s\n", version.GetJsonString())
-	} else if len(options.SUBCOMMAND) == 0 {
+	} else if len(os.Args) <= 1 || (options.ApiVersion == "v2" && len(os.Args) <= 3) {
 		session, e := newClientSession(options)
 		if e != nil {
 			showErrorAndExit(e)

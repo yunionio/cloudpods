@@ -95,6 +95,19 @@ func (self *SVirtualizedGuestDriver) StartGuestStopTask(guest *models.SGuest, ct
 	return nil
 }
 
+func (self *SVirtualizedGuestDriver) StartGuestResetTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isHard bool, parentTaskId string) error {
+	var taskName = "GuestSoftResetTask"
+	if isHard {
+		taskName = "GuestHardResetTask"
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, taskName, guest, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
 func (self *SVirtualizedGuestDriver) OnGuestDeployTaskComplete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	if jsonutils.QueryBoolean(task.GetParams(), "restart", false) {
 		task.SetStage("OnDeployStartGuestComplete", nil)
