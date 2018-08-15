@@ -759,9 +759,12 @@ func (self *SHost) GetHostDriver() IHostDriver {
 	return GetHostDriver(self.HostType)
 }
 
-func (manager *SHostManager) getHostsByZone(zone *SZone) ([]SHost, error) {
+func (manager *SHostManager) getHostsByZone(zone *SZone, provider *SCloudprovider) ([]SHost, error) {
 	hosts := make([]SHost, 0)
 	q := manager.Query().Equals("zone_id", zone.Id)
+	if provider != nil {
+		q = q.Equals("manager_id", provider.Id)
+	}
 	err := db.FetchModelObjects(manager, q, &hosts)
 	if err != nil {
 		log.Errorf("%s", err)
@@ -770,12 +773,12 @@ func (manager *SHostManager) getHostsByZone(zone *SZone) ([]SHost, error) {
 	return hosts, nil
 }
 
-func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.TokenCredential, zone *SZone, hosts []cloudprovider.ICloudHost) ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
+func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, hosts []cloudprovider.ICloudHost) ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
 	localHosts := make([]SHost, 0)
 	remoteHosts := make([]cloudprovider.ICloudHost, 0)
 	syncResult := compare.SyncResult{}
 
-	dbHosts, err := manager.getHostsByZone(zone)
+	dbHosts, err := manager.getHostsByZone(zone, provider)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult

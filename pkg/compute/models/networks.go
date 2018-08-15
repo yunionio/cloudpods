@@ -458,6 +458,7 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 
 func (self *SNetwork) SyncWithCloudNetwork(userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		extNet.Refresh()
 		self.Name = extNet.GetName()
 		self.Status = extNet.GetStatus()
 		self.GuestIpStart = extNet.GetIpStart()

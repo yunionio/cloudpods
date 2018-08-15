@@ -238,6 +238,7 @@ func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCre
 
 func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup) error {
 	if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		extSec.Refresh()
 		self.Name = extSec.GetName()
 		self.Description = extSec.GetDescription()
 		return nil
