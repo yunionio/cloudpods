@@ -16,6 +16,7 @@ import (
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/sysutils"
+	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -384,6 +385,13 @@ func (self *SDisk) GetStorage() *SStorage {
 	return nil
 }
 
+func (self *SDisk) GetCloudprovider() *SCloudprovider {
+	if storage := self.GetStorage(); storage != nil {
+		return storage.GetCloudprovider()
+	}
+	return nil
+}
+
 func (self *SDisk) GetPathAtHost(host *SHost) string {
 	storage := self.GetStorage()
 	if storage.StorageType == STORAGE_RBD {
@@ -743,6 +751,49 @@ func (self *SDisk) PerformPurge(ctx context.Context, userCred mcclient.TokenCred
 
 func (self *SDisk) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	return self.StartDiskDeleteTask(ctx, userCred, "", false)
+}
+
+func (self *SDisk) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
+		extra.Add(jsonutils.NewString(cloudprovider.Provider), "provider")
+	}
+	if storage := self.GetStorage(); storage != nil {
+		extra.Add(jsonutils.NewString(storage.GetName()), "storage")
+		extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
+		extra.Add(jsonutils.NewString(storage.MediumType), "medium_type")
+		extra.Add(jsonutils.NewString(storage.ZoneId), "zone_id")
+		if zone := storage.getZone(); zone != nil {
+			extra.Add(jsonutils.NewString(zone.Name), "zone")
+			extra.Add(jsonutils.NewString(zone.CloudregionId), "region_id")
+			if region := zone.GetRegion(); region != nil {
+				extra.Add(jsonutils.NewString(region.Name), "region")
+			}
+		}
+	}
+	guests, guest_status := []string{}, []string{}
+	for _, guest := range self.GetGuests() {
+		guests = append(guests, guest.Name)
+		guest_status = append(guest_status, guest.Status)
+	}
+	extra.Add(jsonutils.NewString(strings.Join(guests, ",")), "guest")
+	extra.Add(jsonutils.NewInt(int64(len(guests))), "guest_count")
+	extra.Add(jsonutils.NewString(strings.Join(guest_status, ",")), "guest_status")
+
+	if self.PendingDeleted {
+		pendingDeletedAt := self.PendingDeletedAt.Add(time.Second * time.Duration(options.Options.PendingDeleteExpireSeconds))
+		extra.Add(jsonutils.NewString(timeutils.FullIsoTime(pendingDeletedAt)), "auto_delete_at")
+	}
+	return extra
+}
+
+func (self *SDisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	return self.getMoreDetails(extra)
+}
+
+func (self *SDisk) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := self.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	return self.getMoreDetails(extra)
 }
 
 func (self *SDisk) StartDiskResizeTask(ctx context.Context, userCred mcclient.TokenCredential, size int64, parentTaskId string, pendingUsage quotas.IQuota) error {
