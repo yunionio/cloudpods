@@ -515,7 +515,7 @@ func (self *SZone) GetDetailsCapabilities(ctx context.Context, userCred mcclient
 }
 
 func (self *SZone) getHypervisors() []string {
-	q := HostManager.Query("host_type").Equals("zone_id", self.Id)
+	q := HostManager.Query("host_type").Equals("zone_id", self.Id).Distinct()
 	rows, err := q.Rows()
 	if err != nil {
 		return nil
