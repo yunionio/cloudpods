@@ -2581,9 +2581,9 @@ func (self *SGuest) AllowDeleteItem(ctx context.Context, userCred mcclient.Token
 func (self *SGuest) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	overridePendingDelete := false
 	purge := false
-	if data != nil {
-		overridePendingDelete = jsonutils.QueryBoolean(data, "override_pending_delete", false)
-		purge = jsonutils.QueryBoolean(data, "purge", false)
+	if query != nil {
+		overridePendingDelete = jsonutils.QueryBoolean(query, "override_pending_delete", false)
+		purge = jsonutils.QueryBoolean(query, "purge", false)
 	}
 	return self.StartDeleteGuestTask(ctx, userCred, "", purge, overridePendingDelete)
 }

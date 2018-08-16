@@ -1,33 +1,34 @@
 package cronman
 
 import (
-	"time"
-	"runtime/debug"
 	"context"
+	"reflect"
+	"runtime"
+	"runtime/debug"
+	"time"
 
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"reflect"
-	"runtime"
 )
 
 const (
-	DEFAULT_CRON_INTERVAL = 60*time.Second // default resolution is 1 monutes
+	DEFAULT_CRON_INTERVAL = 60 * time.Second // default resolution is 1 monutes
 )
 
 type SCronJobManager struct {
 	checkInterval time.Duration
-	timer *time.Timer
-	jobs []SCronJob
+	timer         *time.Timer
+	jobs          []SCronJob
 }
 
 type SCronJob struct {
-	name string
+	name        string
 	runInterval time.Duration
-	job func(ctx context.Context, userCred mcclient.TokenCredential)
-	lastRun time.Time
+	job         func(ctx context.Context, userCred mcclient.TokenCredential)
+	lastRun     time.Time
 }
 
 func NewCronJobManager(interval time.Duration) *SCronJobManager {
@@ -89,7 +90,7 @@ func runJob(name string, job func(ctx context.Context, userCred mcclient.TokenCr
 	}()
 
 	ctx := context.Background()
+	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, "Region-Corn-Service")
 	userCred := auth.AdminCredential()
 	job(ctx, userCred)
 }
-
