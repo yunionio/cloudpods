@@ -511,7 +511,7 @@ func init() {
 
 	type ServerSecGroupOptions struct {
 		ID     string `help:"ID or Name of server" metavar:"Guest"`
-		SecGrp string `help:"ID of Security Group" metavar:"Security Group" optional:"false"`
+		SecGrp string `help:"ID of Security Group" metavar:"Security Group" positional:"true"`
 	}
 
 	R(&ServerSecGroupOptions{}, "server-assign-secgroup", "Assign security group to a VM", func(s *mcclient.ClientSession, args *ServerSecGroupOptions) error {

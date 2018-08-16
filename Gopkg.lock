@@ -844,7 +844,7 @@
   branch = "master"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
-  revision = "a86e16793be4a6f4c5ea9203e40c2a0a9361efb8"
+  revision = "41e805b221e8fcd9435b706b4dd473df3dd8cff4"
 
 [[projects]]
   branch = "master"
@@ -856,6 +856,7 @@
   revision = "a10b94c5038480920262e0f344656328434955a2"
 
 [[projects]]
+  branch = "master"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -889,23 +890,23 @@
     "util/workqueue",
     "utils"
   ]
-  revision = "07cad0cb1df5155b3bfa15079594d01050931554"
+  revision = "30cdcc2f0c2ca0f3eef573c27eb7350bdd95a7dd"
 
 [[projects]]
   branch = "master"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
-  revision = "f6a47145f9b94ebff1517017e790f068698b5b5a"
+  revision = "8d8043b1fc6f8a9192f1d086520bb167a8423475"
 
 [[projects]]
   branch = "master"
   name = "yunion.io/x/structarg"
   packages = ["."]
-  revision = "5f84a68c40a2d8eb923f0607f809cbda8d5b944a"
+  revision = "adf929ce0f8bd62335ebe57d9b51f023c84e4d7a"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "cff7836c426e8d0c9f6d7220994a2fbcd8b3fa2f4604e1aba3e9a0f50a0da98f"
+  inputs-digest = "8b3cd1b8309273551ebd55dfb0cadeaaad0aecc1b3a94d680a4a1769d2f42512"
   solver-name = "gps-cdcl"
   solver-version = 1

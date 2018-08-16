@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/regutils"
@@ -465,11 +464,11 @@ func (c *SDecimalColumn) IsZero(val interface{}) bool {
 func NewDecimalColumn(name string, tagmap map[string]string) SDecimalColumn {
 	tagmap, v, ok := utils.TagPop(tagmap, TAG_PRECISION)
 	if !ok {
-		log.Fatalf("Field %s of float should have precision tag", name)
+		panic(fmt.Sprintf("Field %q of float misses precision tag", name))
 	}
 	prec, err := strconv.Atoi(v)
 	if err != nil {
-		log.Fatalf("Field %s of float precision %s shoud be integer!", name, v)
+		panic(fmt.Sprintf("Field precision of %q shoud be integer (%q)", name, v))
 	}
 	return SDecimalColumn{SBaseWidthColumn: NewBaseWidthColumn(name, "DECIMAL", tagmap),
 		Precision: prec}
@@ -544,7 +543,7 @@ func NewTextColumn(name string, tagmap map[string]string) STextColumn {
 	if len(charset) == 0 {
 		charset = "utf8"
 	} else if charset != "utf8" && charset != "ascii" {
-		log.Fatalf("Unsupported charset %s for %s", charset, name)
+		panic(fmt.Sprintf("Unsupported charset %s for %s", charset, name))
 	}
 	return STextColumn{SBaseWidthColumn: NewBaseWidthColumn(name, sqltype, tagmap),
 		Charset: charset}

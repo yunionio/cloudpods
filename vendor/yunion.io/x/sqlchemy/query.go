@@ -126,7 +126,6 @@ func (sq *SSubQuery) Field(id string, alias ...string) IQueryField {
 			return &sqf
 		}
 	}
-	log.Errorf("field %s not found for subquery", id)
 	return nil
 }
 

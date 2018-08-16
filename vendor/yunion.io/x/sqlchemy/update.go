@@ -64,9 +64,9 @@ func UpdateDiffString(diff map[string]SUpdateDiff) string {
 }
 
 func (us *SUpdateSession) saveUpdate(dt interface{}) (map[string]SUpdateDiff, error) {
-	beforeInsertFunc := reflect.ValueOf(dt).MethodByName("BeforeUpdate")
-	if beforeInsertFunc.IsValid() && !beforeInsertFunc.IsNil() {
-		beforeInsertFunc.Call([]reflect.Value{})
+	beforeUpdateFunc := reflect.ValueOf(dt).MethodByName("BeforeUpdate")
+	if beforeUpdateFunc.IsValid() && !beforeUpdateFunc.IsNil() {
+		beforeUpdateFunc.Call([]reflect.Value{})
 	}
 
 	// dataType := reflect.TypeOf(dt).Elem()
