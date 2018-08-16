@@ -25,7 +25,7 @@ func getStringValue(dat interface{}) string {
 	case gotypes.IntType, gotypes.Int8Type, gotypes.Int16Type, gotypes.Int32Type, gotypes.Int64Type:
 		return fmt.Sprintf("%d", value.Int())
 	case gotypes.UintType, gotypes.Uint8Type, gotypes.Uint16Type, gotypes.Uint32Type, gotypes.Uint64Type:
-		return fmt.Sprintf("%u", value.Uint())
+		return fmt.Sprintf("%d", value.Uint())
 	case gotypes.Float32Type, gotypes.Float64Type:
 		return fmt.Sprintf("%f", value.Float())
 	case gotypes.StringType:
@@ -53,15 +53,12 @@ func getStringValue(dat interface{}) string {
 			return string(rawBytes)
 		}
 	default:
-		if gotypes.IsSerializable(value.Type()) {
-			is, ok := value.Interface().(gotypes.ISerializable)
-			if !ok {
-				log.Errorf("%s fail to convert to JSONObject", value)
-			} else {
-				return is.String()
-			}
+		serializable, ok := value.Interface().(gotypes.ISerializable)
+		if !ok {
+			log.Errorf("cannot convert %v to string", value)
+			return ""
 		}
-		log.Errorf("Cannot convert to string %s", value)
+		return serializable.String()
 	}
 	return ""
 }
@@ -127,15 +124,15 @@ func setValueBySQLString(value reflect.Value, val string) error {
 		gotypes.Float32SliceType, gotypes.Float64SliceType, gotypes.StringSliceType:
 		reflect.Append(value, reflect.ValueOf(val))
 	default:
-		if gotypes.IsSerializable(value.Type()) {
-			is, err := jsonutils.JSONDeserialize(value.Type(), val)
-			if err != nil {
-				return err
-			}
-			value.Set(reflect.ValueOf(is))
-		} else {
-			return fmt.Errorf("!!!Unsupported type: %s", value.Type)
+		valueType := value.Type()
+		if !valueType.Implements(gotypes.ISerializableType) {
+			return fmt.Errorf("not supported type: %s", valueType)
 		}
+		serializable, err := jsonutils.JSONDeserialize(valueType, val)
+		if err != nil {
+			return err
+		}
+		value.Set(reflect.ValueOf(serializable))
 	}
 	return nil
 }

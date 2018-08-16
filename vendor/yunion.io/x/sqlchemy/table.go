@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"strings"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -29,12 +28,15 @@ type STableField struct {
 func NewTableSpecFromStruct(s interface{}, name string) *STableSpec {
 	st := reflect.TypeOf(s)
 	if st.Kind() != reflect.Struct {
-		log.Fatalf("Invalid table struct, NOT a STRUCT!!!")
-		return nil
+		panic("expect Struct kind")
 	}
-	table := STableSpec{columns: make([]IColumnSpec, 0), name: name, structType: st}
-	struct2TableSpec(st, &table)
-	return &table
+	table := &STableSpec{
+		columns:    []IColumnSpec{},
+		name:       name,
+		structType: st,
+	}
+	struct2TableSpec(st, table)
+	return table
 }
 
 func (ts *STableSpec) Name() string {
@@ -88,12 +90,11 @@ func (ts *STableSpec) ColumnSpec(name string) IColumnSpec {
 func (tbl *STable) Field(name string, alias ...string) IQueryField {
 	// name = reflectutils.StructFieldName(name)
 	name = utils.CamelSplit(name, "_")
-	cSpec := tbl.spec.ColumnSpec(name)
-	if cSpec == nil {
-		log.Fatalf("Column %s not found", name)
-		return nil
+	spec := tbl.spec.ColumnSpec(name)
+	if spec == nil {
+		panic("column not found: " + name)
 	}
-	col := STableField{table: tbl, spec: cSpec}
+	col := STableField{table: tbl, spec: spec}
 	if len(alias) > 0 {
 		col.Label(alias[0])
 	}

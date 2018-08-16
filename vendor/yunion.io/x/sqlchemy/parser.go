@@ -3,14 +3,13 @@ package sqlchemy
 import (
 	"reflect"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/utils"
 )
 
-func fieldToColumnSpec(field *reflect.StructField) IColumnSpec {
+func structField2ColumnSpec(field *reflect.StructField) IColumnSpec {
 	fieldname := reflectutils.GetStructFieldName(field)
 	tagmap := utils.TagMap(field.Tag)
 	if _, ok := tagmap[TAG_IGNORE]; ok {
@@ -85,13 +84,11 @@ func fieldToColumnSpec(field *reflect.StructField) IColumnSpec {
 		col := NewJSONColumn(fieldname, tagmap)
 		return &col*/
 	default:
-		if gotypes.IsSerializable(field.Type) {
+		if field.Type.Implements(gotypes.ISerializableType) {
 			col := NewCompoundColumn(fieldname, tagmap)
 			return &col
-		} else {
-			log.Fatalf("Unsupported type! %s", field.Type)
-			return nil
 		}
+		panic("not supported type %s" + field.Type.Name())
 	}
 }
 
@@ -101,9 +98,9 @@ func struct2TableSpec(st reflect.Type, table *STableSpec) {
 		if f.Type.Kind() == reflect.Struct && f.Type != gotypes.TimeType {
 			struct2TableSpec(f.Type, table)
 		} else {
-			coldef := fieldToColumnSpec(&f)
-			if coldef != nil {
-				table.columns = append(table.columns, coldef)
+			column := structField2ColumnSpec(&f)
+			if column != nil {
+				table.columns = append(table.columns, column)
 			}
 		}
 	}

@@ -212,10 +212,10 @@ func (ts *STableSpec) Sync() error {
 
 func (ts *STableSpec) CheckSync() {
 	sqls := ts.SyncSQL()
-	if sqls != nil && len(sqls) > 0 {
+	if len(sqls) > 0 {
 		for _, sql := range sqls {
 			fmt.Println(sql)
 		}
-		log.Fatalf("DB not in sync!!!")
+		log.Fatalf("DB table %q not in sync", ts.name)
 	}
 }

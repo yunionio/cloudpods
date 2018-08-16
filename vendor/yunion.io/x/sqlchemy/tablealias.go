@@ -6,13 +6,9 @@ import (
 )
 
 var (
-	tableID     = 0
-	tableIDLock *sync.Mutex
+	tableID                 = 0
+	tableIDLock *sync.Mutex = &sync.Mutex{}
 )
-
-func init() {
-	tableIDLock = &sync.Mutex{}
-}
 
 func getTableAliasName() string {
 	tableIDLock.Lock()
