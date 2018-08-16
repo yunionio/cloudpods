@@ -209,3 +209,23 @@ func (self *SVirtualMachine) acquireVmrcUrl() (jsonutils.JSONObject, error) {
 	ret.Add(jsonutils.NewString(url), "url")
 	return ret, nil
 }
+
+func (self *SVirtualMachine) UpdateVM(name string) error {
+	return fmt.Errorf("not implement")
+}
+
+func (self *SVirtualMachine) RebuildRoot(imageId string) error {
+	return fmt.Errorf("not implement")
+}
+
+func (self *SVirtualMachine) DeployVM(resetPassword bool, keypair string, deleteKeypair bool) error {
+	return fmt.Errorf("not implement")
+}
+
+func (self *SVirtualMachine) ChangeConfig(instanceId string,ncpu int, vmem int) error {
+	return fmt.Errorf("not implement")
+}
+
+func (self *SVirtualMachine) AttachDisk(diskId string) error {
+	return fmt.Errorf("not implement")
+}

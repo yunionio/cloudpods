@@ -539,3 +539,23 @@ func (self *SInstance) SyncSecurityGroup(secgroupId string, name string, rules [
 	}
 	return nil
 }
+
+func (self *SInstance) UpdateVM(name string) error {
+	return fmt.Errorf("not implement")
+}
+
+func (self *SInstance) RebuildRoot(imageId string) error {
+	return fmt.Errorf("not implement")
+}
+
+func (self *SInstance) DeployVM(resetPassword bool, keypair string, deleteKeypair bool) error {
+	return fmt.Errorf("not implement")
+}
+
+func (self *SInstance) ChangeConfig(instanceId string,ncpu int, vmem int) error {
+	return fmt.Errorf("not implement")
+}
+
+func (self *SInstance) AttachDisk(diskId string) error {
+	return fmt.Errorf("not implement")
+}
