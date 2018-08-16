@@ -12,8 +12,8 @@ import (
 	"reflect"
 	"time"
 
-	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/timeutils"
@@ -58,6 +58,9 @@ func struct2JSONPairs(val reflect.Value) []JSONPair {
 			objPairs = append(objPairs, newPairs...)
 		} else {
 			key := reflectutils.GetStructFieldName(&fieldType) // utils.CamelSplit(fieldType.Name, "_")
+			if key == "" {
+				continue
+			}
 			val := marshalValue(val.Field(i))
 			if val != JSONNull {
 				objPair := JSONPair{key: key, val: val}
