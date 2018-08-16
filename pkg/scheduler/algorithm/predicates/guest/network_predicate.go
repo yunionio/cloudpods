@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	networks "yunion.io/x/onecloud/pkg/scheduler/db/models"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/yunioncloud/pkg/util/sets"
 )
 
 // NetworkPredicate will filter the current network information with
@@ -51,9 +52,9 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		return len(d.HostID) > 0
 	}
 
-	// ServerType's value is 'guest' or ''(support all type) will return true.
+	// ServerType's value is 'guest', 'container' or ''(support all type) will return true.
 	isMatchServerType := func(network *networks.NetworkSchedResult) bool {
-		return network.ServerType == "guest" || network.ServerType == ""
+		return sets.NewString("guest", "", "container").Has(network.ServerType)
 	}
 
 	counterOfNetwork := func(u *core.Unit, n *networks.NetworkSchedResult, r int) core.Counter {
