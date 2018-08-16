@@ -9,8 +9,8 @@ import (
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	networks "yunion.io/x/onecloud/pkg/scheduler/db/models"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
-	"yunion.io/yunioncloud/pkg/util/sets"
 )
 
 // NetworkPredicate will filter the current network information with
