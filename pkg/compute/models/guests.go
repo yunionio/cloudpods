@@ -2661,8 +2661,8 @@ func (manager *SGuestManager) getIpsByExit(ips []string, isExitOnly bool) []stri
 	return extRet
 }
 
-func (manager *SGuestManager) getExpiredPendingDeleteGuests() ([]SGuest) {
-	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds)*time.Second)
+func (manager *SGuestManager) getExpiredPendingDeleteGuests() []SGuest {
+	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds) * time.Second)
 
 	q := manager.Query()
 	q = q.IsTrue("pending_deleted").LT("pending_deleted_at", deadline).In("hypervisor", []string{"aliyun"}).Limit(options.Options.PendingDeleteMaxCleanBatchSize)

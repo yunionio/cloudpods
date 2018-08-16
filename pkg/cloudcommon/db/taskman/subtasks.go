@@ -1,11 +1,12 @@
 package taskman
 
 import (
+	"database/sql"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"database/sql"
 )
 
 const (

@@ -1,10 +1,13 @@
 package esxi
 
 import (
-	"github.com/vmware/govmomi/vim25/mo"
-	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"reflect"
+
+	"github.com/vmware/govmomi/vim25/mo"
+
+	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SManagedObject struct {

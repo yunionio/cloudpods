@@ -140,12 +140,12 @@ func init() {
 	})
 
 	type CloudproviderSyncOptions struct {
-		ID     string   `help:"ID or Name of cloud provider"`
-		Force  bool     `help:"Force sync no matter what"`
-		FullSync bool   `help:"Synchronize everything"`
-		Region []string `help:"region to sync"`
-		Zone   []string `help:"region to sync"`
-		Host   []string `help:"region to sync"`
+		ID       string   `help:"ID or Name of cloud provider"`
+		Force    bool     `help:"Force sync no matter what"`
+		FullSync bool     `help:"Synchronize everything"`
+		Region   []string `help:"region to sync"`
+		Zone     []string `help:"region to sync"`
+		Host     []string `help:"region to sync"`
 	}
 	R(&CloudproviderSyncOptions{}, "cloud-provider-sync", "Sync of a cloud provider account", func(s *mcclient.ClientSession, args *CloudproviderSyncOptions) error {
 		params := jsonutils.NewDict()
