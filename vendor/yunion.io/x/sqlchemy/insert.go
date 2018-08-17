@@ -42,7 +42,6 @@ func (t *STableSpec) insert(dt interface{}, debug bool) error {
 		dtc, ok := c.(*SDateTimeColumn)
 		ov := fields[k]
 
-		// log.Debugf("field %s value %s %s", k, ov, ov==nil)
 		if ok && (dtc.IsCreatedAt || dtc.IsUpdatedAt) {
 			createdAtFields = append(createdAtFields, k)
 			names = append(names, fmt.Sprintf("`%s`", k))
@@ -54,15 +53,13 @@ func (t *STableSpec) insert(dt interface{}, debug bool) error {
 			format = append(format, "?")
 		} else if c.IsPrimary() {
 			if isAutoInc {
-				if len(autoIncField) == 0 {
-					autoIncField = k
-				} else {
-					log.Fatalf("multiple auto_increment columns???")
+				if len(autoIncField) > 0 {
+					panic(fmt.Sprintf("multiple auto_increment columns: %q, %q", autoIncField, k))
 				}
-			} else {
-				return fmt.Errorf("fail to insert for null primary key `%s`", k)
+				autoIncField = k
 			}
-		} else if ! c.IsSupportDefault() && len(c.Default()) > 0 && ov != nil && c.IsZero(ov) { // empty text value
+			return fmt.Errorf("cannot insert for null primary key %q", k)
+		} else if !c.IsSupportDefault() && len(c.Default()) > 0 && ov != nil && c.IsZero(ov) { // empty text value
 			val := c.ConvertFromString(c.Default())
 			values = append(values, val)
 			names = append(names, fmt.Sprintf("`%s`", k))
@@ -92,15 +89,15 @@ func (t *STableSpec) insert(dt interface{}, debug bool) error {
 	}
 
 	/*
-	if len(autoIncField) > 0 {
-		lastId, err := results.LastInsertId()
-		if err == nil {
-			val, ok := reflectutils.FindStructFieldValue(dataValue, autoIncField)
-			if ok {
-				gotypes.SetValue(val, fmt.Sprint(lastId))
+		if len(autoIncField) > 0 {
+			lastId, err := results.LastInsertId()
+			if err == nil {
+				val, ok := reflectutils.FindStructFieldValue(dataValue, autoIncField)
+				if ok {
+					gotypes.SetValue(val, fmt.Sprint(lastId))
+				}
 			}
 		}
-	}
 	*/
 
 	// query the value, so default value can be feedback into the object
@@ -112,7 +109,7 @@ func (t *STableSpec) insert(dt interface{}, debug bool) error {
 			if ok && nc.IsAutoIncrement {
 				lastId, err := results.LastInsertId()
 				if err != nil {
-					log.Errorf("Fail to fetch lastInsertId %s", err)
+					err := fmt.Errorf("fetching lastInsertId failed: %v", err)
 					return err
 				} else {
 					q = q.Equals(c.Name(), lastId)
@@ -124,9 +121,9 @@ func (t *STableSpec) insert(dt interface{}, debug bool) error {
 	}
 	err = q.First(dt)
 	if err != nil {
-		log.Errorf("query after insert failed %s", err)
+		err := fmt.Errorf("query after insert failed: %v", err)
 		return err
 	}
-	
+
 	return nil
 }

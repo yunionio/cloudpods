@@ -34,7 +34,6 @@
   name = "yunion.io/x/jsonutils"
 
 [[constraint]]
-  #revision = "a14641a90b9e5c72868b7a8358d62ea1d83eab53"
   branch = "master"
   name = "yunion.io/x/sqlchemy"
 
@@ -43,8 +42,7 @@
   name = "yunion.io/x/log"
 
 [[constraint]]
-  revision = "07cad0cb1df5155b3bfa15079594d01050931554"
-  #branch = "master"
+  branch = "master"
   name = "yunion.io/x/pkg"
 
 [[constraint]]

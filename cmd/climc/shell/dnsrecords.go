@@ -10,12 +10,12 @@ import (
 )
 
 type DNSRecordOptions struct {
-	A       []string `help:"DNS A record" metavar:"A_RECORD" optional:"true"`
-	AAAA    []string `help:"DNS AAAA record" metavar:"AAAA_RECORD" optional:"true"`
-	CNAME   string   `help:"DNS CNAME record" metavar:"CNAME_RECORD" optional:"true"`
-	SRVHost string   `help:"DNS SRV record, server of service" metavar:"SRV_RECORD_HOST" optional:"true"`
-	SRVPort int64    `help:"DNS SRV record, port of service" metavar:"SRV_RECORD_PORT" optional:"true"`
-	PTR     string   `help:"DNS PTR record" metavar:"PTR_RECORD" optional:"true"`
+	A       []string `help:"DNS A record" metavar:"A_RECORD" positional:"false"`
+	AAAA    []string `help:"DNS AAAA record" metavar:"AAAA_RECORD" positional:"false"`
+	CNAME   string   `help:"DNS CNAME record" metavar:"CNAME_RECORD" positional:"false"`
+	SRVHost string   `help:"DNS SRV record, server of service" metavar:"SRV_RECORD_HOST" positional:"false"`
+	SRVPort int64    `help:"DNS SRV record, port of service" metavar:"SRV_RECORD_PORT" positional:"false"`
+	PTR     string   `help:"DNS PTR record" metavar:"PTR_RECORD" positional:"false"`
 }
 
 func parseDNSRecords(args *DNSRecordOptions, params *jsonutils.JSONDict) {
@@ -52,7 +52,7 @@ func init() {
 
 	type DNSCreateOptions struct {
 		NAME string `help:"DNS name to create"`
-		TTL  int64  `help:"TTL in seconds" optional:"true"`
+		TTL  int64  `help:"TTL in seconds" positional:"false"`
 		Desc string `help:"Description" metavar:"DESCRIPTION"`
 		DNSRecordOptions
 	}
@@ -92,7 +92,7 @@ func init() {
 	type DNSUpdateOptions struct {
 		ID   string `help:"ID of DNS record to update"`
 		Name string `help:"Domain name"`
-		TTL  int64  `help:"TTL in seconds" optional:"true"`
+		TTL  int64  `help:"TTL in seconds" positional:"false"`
 		Desc string `help:"Description"`
 	}
 	R(&DNSUpdateOptions{}, "dns-update", "Update details of a dns records", func(s *mcclient.ClientSession, args *DNSUpdateOptions) error {

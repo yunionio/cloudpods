@@ -2,6 +2,7 @@ package reflectutils
 
 import (
 	"reflect"
+	"strings"
 
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
@@ -15,12 +16,21 @@ func GetStructFieldName(field *reflect.StructField) string {
 		return nameStr
 	} else {
 		jsonStr, _ := tagMap["json"]
-		if len(jsonStr) > 0 {
-			return jsonStr
-		} else {
-			return utils.CamelSplit(field.Name, "_")
-		}
+		return toJsonKey(field.Name, jsonStr)
 	}
+}
+
+func toJsonKey(fieldName, jsonTag string) string {
+	jsonTag = strings.Replace(jsonTag, "omitempty", "", -1)
+	words := utils.FindWords([]byte(jsonTag), 0)
+	if len(words) == 0 {
+		return utils.CamelSplit(fieldName, "_")
+	}
+	name := words[0]
+	if name == "-" {
+		return ""
+	}
+	return name
 }
 
 func FetchStructFieldNameValueInterfaces(dataValue reflect.Value) map[string]interface{} {
