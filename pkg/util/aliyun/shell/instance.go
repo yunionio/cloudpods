@@ -2,6 +2,7 @@ package shell
 
 import (
 	"fmt"
+
 	"yunion.io/x/onecloud/pkg/util/aliyun"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -82,7 +83,7 @@ func init() {
 	})
 
 	type InstanceUpdatePasswordOptions struct {
-		ID string `help:"Instance ID"`
+		ID     string `help:"Instance ID"`
 		PASSWD string `help:"new password"`
 	}
 	shellutils.R(&InstanceUpdatePasswordOptions{}, "instance-update-password", "Update instance password", func(cli *aliyun.SRegion, args *InstanceUpdatePasswordOptions) error {
