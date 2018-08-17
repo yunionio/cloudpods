@@ -13,15 +13,7 @@ func (t *STableSpec) Insert(dt interface{}) error {
 	return t.insert(dt, false)
 }
 
-func (t *STableSpec) insert(dt interface{}, debug bool) error {
-	beforeInsertFunc := reflect.ValueOf(dt).MethodByName("BeforeInsert")
-	if beforeInsertFunc.IsValid() && !beforeInsertFunc.IsNil() {
-		beforeInsertFunc.Call([]reflect.Value{})
-	}
-
-	// dataType := reflect.TypeOf(dt).Elem()
-	dataValue := reflect.ValueOf(dt).Elem()
-
+func (t *STableSpec) insertSqlPrep(dataFields map[string]interface{}) (string, []interface{}, error) {
 	var autoIncField string
 	createdAtFields := make([]string, 0)
 
@@ -29,7 +21,6 @@ func (t *STableSpec) insert(dt interface{}, debug bool) error {
 	format := make([]string, 0)
 	values := make([]interface{}, 0)
 
-	fields := reflectutils.FetchStructFieldNameValueInterfaces(dataValue)
 	for _, c := range t.columns {
 		isAutoInc := false
 		nc, ok := c.(*SIntegerColumn)
@@ -40,7 +31,7 @@ func (t *STableSpec) insert(dt interface{}, debug bool) error {
 		k := c.Name()
 
 		dtc, ok := c.(*SDateTimeColumn)
-		ov := fields[k]
+		ov := dataFields[k]
 
 		if ok && (dtc.IsCreatedAt || dtc.IsUpdatedAt) {
 			createdAtFields = append(createdAtFields, k)
@@ -57,8 +48,9 @@ func (t *STableSpec) insert(dt interface{}, debug bool) error {
 					panic(fmt.Sprintf("multiple auto_increment columns: %q, %q", autoIncField, k))
 				}
 				autoIncField = k
+			} else {
+				return "", nil, fmt.Errorf("cannot insert for null primary key %q", k)
 			}
-			return fmt.Errorf("cannot insert for null primary key %q", k)
 		} else if !c.IsSupportDefault() && len(c.Default()) > 0 && ov != nil && c.IsZero(ov) { // empty text value
 			val := c.ConvertFromString(c.Default())
 			values = append(values, val)
@@ -71,6 +63,21 @@ func (t *STableSpec) insert(dt interface{}, debug bool) error {
 		t.name,
 		strings.Join(names, ", "),
 		strings.Join(format, ", "))
+	return insertSql, values, nil
+}
+
+func (t *STableSpec) insert(data interface{}, debug bool) error {
+	beforeInsertFunc := reflect.ValueOf(data).MethodByName("BeforeInsert")
+	if beforeInsertFunc.IsValid() && !beforeInsertFunc.IsNil() {
+		beforeInsertFunc.Call([]reflect.Value{})
+	}
+
+	dataValue := reflect.ValueOf(data).Elem()
+	dataFields := reflectutils.FetchStructFieldNameValueInterfaces(dataValue)
+	insertSql, values, err := t.insertSqlPrep(dataFields)
+	if err != nil {
+		return err
+	}
 
 	if DEBUG_SQLCHEMY || debug {
 		log.Debugf("%s values: %s", insertSql, values)
@@ -115,11 +122,11 @@ func (t *STableSpec) insert(dt interface{}, debug bool) error {
 					q = q.Equals(c.Name(), lastId)
 				}
 			} else {
-				q = q.Equals(c.Name(), fields[c.Name()])
+				q = q.Equals(c.Name(), dataFields[c.Name()])
 			}
 		}
 	}
-	err = q.First(dt)
+	err = q.First(data)
 	if err != nil {
 		err := fmt.Errorf("query after insert failed: %v", err)
 		return err
