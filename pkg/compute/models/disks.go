@@ -634,8 +634,8 @@ func (self *SDisk) PerformCancelDelete(ctx context.Context, userCred mcclient.To
 	return nil, nil
 }
 
-func (manager *SDiskManager) getExpiredPendingDeleteDisks() ([]SDisk) {
-	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds)*time.Second)
+func (manager *SDiskManager) getExpiredPendingDeleteDisks() []SDisk {
+	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds) * time.Second)
 
 	q := manager.Query()
 	q = q.IsTrue("pending_deleted").LT("pending_deleted_at", deadline).Limit(options.Options.PendingDeleteMaxCleanBatchSize)
