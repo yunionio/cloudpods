@@ -21,7 +21,7 @@ type BaseOptions struct {
 	Debug      bool   `help:"Show debug information"`
 	Version    bool   `help:"Show version"`
 	Timeout    int    `default:"600" help:"Number of seconds to wait for a response"`
-	Secure     bool   `default:"False" help:"do server cert verification if URL is https"`
+	Insecure   bool   `default:"False" help:"Allow skip server cert verification if URL is https" short-token:"k"`
 	OsUsername string `default:"$OS_USERNAME" help:"Username, defaults to env[OS_USERNAME]"`
 	OsPassword string `default:"$OS_PASSWORD" help:"Password, defaults to env[OS_PASSWORD]"`
 	// OsProjectId string `default:"$OS_PROJECT_ID" help:"Proejct ID, defaults to env[OS_PROJECT_ID]"`
@@ -116,7 +116,7 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 	client := mcclient.NewClient(options.OsAuthURL,
 		options.Timeout,
 		options.Debug,
-		options.Secure)
+		options.Insecure)
 	token, err := client.Authenticate(options.OsUsername,
 		options.OsPassword,
 		options.OsDomainName,
