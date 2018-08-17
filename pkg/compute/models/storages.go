@@ -290,6 +290,7 @@ func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mccli
 	added := make([]cloudprovider.ICloudStorage, 0)
 
 	err = compare.CompareSets(dbStorages, storages, &removed, &commondb, &commonext, &added)
+
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
