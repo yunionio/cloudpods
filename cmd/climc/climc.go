@@ -169,6 +169,40 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 	return session, nil
 }
 
+func enterInteractiveMode(
+	parser *structarg.ArgumentParser,
+	sessionFactory func() *mcclient.ClientSession,
+) {
+	promputils.InitEnv(parser, sessionFactory())
+	defer fmt.Println("Bye!")
+	p := prompt.New(
+		promputils.Executor,
+		promputils.Completer,
+		prompt.OptionPrefix("climc> "),
+		prompt.OptionTitle("Climc, a Command Line Interface to Manage Clouds"),
+		prompt.OptionMaxSuggestion(16),
+	)
+	p.Run()
+}
+
+func executeSubcommand(
+	subcmd *structarg.SubcommandArgument,
+	subparser *structarg.ArgumentParser,
+	options *BaseOptions,
+	sessionFactory func() *mcclient.ClientSession,
+) {
+	var e error
+	suboptions := subparser.Options()
+	if options.SUBCOMMAND == "help" {
+		e = subcmd.Invoke(suboptions)
+	} else {
+		e = subcmd.Invoke(sessionFactory(), suboptions)
+	}
+	if e != nil {
+		showErrorAndExit(e)
+	}
+}
+
 func main() {
 	parser, e := getSubcommandsParser()
 	if e != nil {
@@ -179,47 +213,39 @@ func main() {
 
 	if options.Help {
 		fmt.Print(parser.HelpString())
-	} else if options.Version {
-		fmt.Printf("Yunion API client version:\n %s\n", version.GetJsonString())
-	} else if len(os.Args) <= 1 || (options.ApiVersion == "v2" && len(os.Args) <= 3) {
-		session, e := newClientSession(options)
-		if e != nil {
-			showErrorAndExit(e)
-		}
-		promputils.InitEnv(parser, session)
-		defer fmt.Println("Bye!")
-		p := prompt.New(
-			promputils.Executor,
-			promputils.Completer,
-			prompt.OptionPrefix("climc> "),
-			prompt.OptionTitle("Climc, a Command Line Interface to Manage Clouds"),
-			prompt.OptionMaxSuggestion(16),
-		)
-		p.Run()
-	} else {
-		subcmd := parser.GetSubcommand()
-		subparser := subcmd.GetSubParser()
-		if e != nil {
-			if subparser != nil {
-				fmt.Print(subparser.Usage())
-			} else {
-				fmt.Print(parser.Usage())
-			}
-			showErrorAndExit(e)
-		} else {
-			session, e := newClientSession(options)
-			if e != nil {
-				showErrorAndExit(e)
-			}
-			suboptions := subparser.Options()
-			if options.SUBCOMMAND == "help" {
-				e = subcmd.Invoke(suboptions)
-			} else {
-				e = subcmd.Invoke(session, suboptions)
-			}
-			if e != nil {
-				showErrorAndExit(e)
-			}
-		}
+		return
 	}
+
+	if options.Version {
+		fmt.Printf("Yunion API client version:\n %s\n", version.GetJsonString())
+		return
+	}
+
+	ensureSessionFactory := func() *mcclient.ClientSession {
+		session, err := newClientSession(options)
+		if err != nil {
+			showErrorAndExit(err)
+		}
+		return session
+	}
+
+	// enter interactive mode when not enough argument and SUBCOMMAND is empty
+	if _, ok := e.(*structarg.NotEnoughArgumentsError); ok && options.SUBCOMMAND == "" {
+		enterInteractiveMode(parser, ensureSessionFactory)
+		return
+	}
+
+	subcmd := parser.GetSubcommand()
+	subparser := subcmd.GetSubParser()
+	if e != nil {
+		if subparser != nil {
+			fmt.Print(subparser.Usage())
+		} else {
+			fmt.Print(parser.Usage())
+		}
+		showErrorAndExit(e)
+	}
+
+	// execute subcommand in non-interactive mode
+	executeSubcommand(subcmd, subparser, options, ensureSessionFactory)
 }

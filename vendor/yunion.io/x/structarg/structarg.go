@@ -854,7 +854,7 @@ func (this *ArgumentParser) ParseArgs(args []string, ignore_unknown bool) error 
 		}
 	}
 	if err == nil && pos_idx < len(this.posArgs) {
-		err = fmt.Errorf("Not enough arguments, missing %s", this.posArgs[pos_idx])
+		err = &NotEnoughArgumentsError{argument: this.posArgs[pos_idx]}
 	}
 	if err == nil {
 		err = this.Validate()

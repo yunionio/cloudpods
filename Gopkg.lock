@@ -908,7 +908,7 @@
   branch = "master"
   name = "yunion.io/x/structarg"
   packages = ["."]
-  revision = "adf929ce0f8bd62335ebe57d9b51f023c84e4d7a"
+  revision = "d5e5d87357b9bc2164215117763f6b15b2a3e75d"
 
 [solve-meta]
   analyzer-name = "dep"

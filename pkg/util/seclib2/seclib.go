@@ -1,10 +1,10 @@
 package seclib2
 
 import (
-	"fmt"
-	"strings"
 	"bytes"
+	"fmt"
 	"math/rand"
+	"strings"
 )
 
 const (
@@ -39,7 +39,7 @@ func RandomPassword2(width int) string {
 			}
 			buf.WriteByte(ch)
 		}
-		if digitsCnt > 1 && letterCnt > 1 && upperCnt > 1 && puncCnt >=1 && puncCnt <= 2 {
+		if digitsCnt > 1 && letterCnt > 1 && upperCnt > 1 && puncCnt >= 1 && puncCnt <= 2 {
 			return buf.String()
 		}
 	}
