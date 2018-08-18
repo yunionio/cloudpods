@@ -896,7 +896,7 @@
   branch = "master"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
-  revision = "8d8043b1fc6f8a9192f1d086520bb167a8423475"
+  revision = "a74ef73e555a1ed2e19b1a47e0567814c289eaf9"
 
 [[projects]]
   branch = "master"
