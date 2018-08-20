@@ -149,3 +149,71 @@ func FloatRound(num float64, precision int) float64 {
 	num = temp
 	return num
 }
+
+func getStringInQuote(s string, start, length int, quote byte, backIndex int) (string, int) {
+	var i = start + 1
+	if quote != '\'' && quote != '"' {
+		for i < length {
+			if s[i] == ' ' || s[i] == '\'' || s[i] == '"' {
+				return s[backIndex:i], i
+			}
+			i++
+		}
+		return s[backIndex:], i
+	} else {
+		for i < length {
+			if s[i] == quote {
+				return s[backIndex+1 : i], i + 1
+			}
+			i++
+		}
+		return s[backIndex:], i
+	}
+}
+
+func ArgsStringToArray(s string) []string {
+	var args, i, j = make([]string, 0), 0, 0
+	var length = len(s)
+	for i < length {
+		switch s[i] {
+		case ' ':
+			if i > j {
+				args = append(args, s[j:i])
+				j = i
+			}
+			i++
+			j = i
+		case '"':
+			var s1, s2 string
+			var oldStr = s[j:i]
+			s1, i = getStringInQuote(s, i, length, '"', i)
+			s1 = oldStr + s1
+			for i < length && s[i] != ' ' {
+				s2, i = getStringInQuote(s, i, length, s[i], i)
+				s1 += s2
+				fmt.Println(s2)
+			}
+			args = append(args, s1)
+			i++
+			j = i
+		case '\'':
+			var s1, s2 string
+			var oldStr = s[j:i]
+			s1, i = getStringInQuote(s, i, length, '\'', i)
+			s1 = oldStr + s1
+			for i < length && s[i] != ' ' {
+				s2, i = getStringInQuote(s, i, length, s[i], i)
+				s1 += s2
+			}
+			args = append(args, s1)
+			i++
+			j = i
+		default:
+			i++
+		}
+	}
+	if j < length {
+		args = append(args, s[j:])
+	}
+	return args
+}
