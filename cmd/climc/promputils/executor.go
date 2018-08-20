@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/structarg"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -51,8 +52,8 @@ func Executor(s string) {
 		return
 	}
 	s = escaper(s)
-	args := strings.Split(s, " ")
-	e := parser.ParseArgs(strings.Split(s, " "), false)
+	args := utils.ArgsStringToArray(s)
+	e := parser.ParseArgs(utils.ArgsStringToArray(s), false)
 	subcmd := parser.GetSubcommand()
 	subparser := subcmd.GetSubParser()
 	if e != nil {

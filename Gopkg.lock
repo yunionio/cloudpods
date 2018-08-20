@@ -890,7 +890,7 @@
     "util/workqueue",
     "utils"
   ]
-  revision = "30cdcc2f0c2ca0f3eef573c27eb7350bdd95a7dd"
+  revision = "56b426f0ca15288cc26442f5802c949f137ade60"
 
 [[projects]]
   branch = "master"
