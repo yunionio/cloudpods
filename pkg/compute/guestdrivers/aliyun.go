@@ -342,7 +342,6 @@ func (self *SAliyunGuestDriver) RequestChangeVmConfig(ctx context.Context, guest
 	config.InstanceId = guest.GetExternalId()
 	config.Cpu = int(vcpuCount)
 	config.Memory = int(vmemSize)
-	// taskman localTaskRun
 	ihost, err := guest.GetHost().GetIHost()
 	if err != nil {
 		return err
@@ -353,11 +352,13 @@ func (self *SAliyunGuestDriver) RequestChangeVmConfig(ctx context.Context, guest
 		return err
 	}
 
-	err = iVM.ChangeConfig(config.InstanceId, config.Cpu, config.Memory)
-	// todo: wait status ready & check disk
-	if err != nil {
-		return err
+	if int(guest.VcpuCount) != config.Cpu || guest.VmemSize != config.Memory {
+		err = iVM.ChangeConfig(config.InstanceId, config.Cpu, config.Memory)
+		if err != nil {
+			return err
+		}
 	}
+
 	log.Debugf("VMchangeConfig %s, wait status ready ...", iVM.GetGlobalId())
 	err = cloudprovider.WaitStatus(iVM, models.VM_READY, time.Second*5, time.Second*300)
 	if err != nil {

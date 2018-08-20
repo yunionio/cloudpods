@@ -583,7 +583,6 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 	}
 
 	if len(params) > 0 {
-		log.Debugf("DeployVM with params %s", params)
 		return self.modifyInstanceAttribute(instanceId, params)
 	} else {
 		return nil
