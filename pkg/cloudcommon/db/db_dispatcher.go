@@ -980,7 +980,6 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 		return nil, httperrors.NewGeneralError(err)
 	}
 	item.PreUpdate(ctx, userCred, query, dataDict)
-
 	diff, err := manager.TableSpec().Update(item, func() error {
 		filterData := dataDict.CopyIncludes(updateFields(manager, userCred)...)
 		err = filterData.Unmarshal(item)

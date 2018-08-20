@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"time"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -103,7 +102,6 @@ func (self *SAliyunGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *mo
 			imageId := disk.GetTemplateId()
 			scimg := models.StoragecachedimageManager.GetStoragecachedimage(cache.Id, imageId)
 			config.ExternalImageId = scimg.ExternalId
-
 			img := scimg.GetCachedimage()
 			config.OsDistribution, _ = img.Info.GetString("properties", "os_distribution")
 			config.OsVersion, _ = img.Info.GetString("properties", "os_version")
@@ -134,92 +132,134 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		return err
 	}
 
-	if action != "create" {
-		return fmt.Errorf("Action %s not supported", action)
-	}
-
 	ihost, err := host.GetIHost()
 	if err != nil {
 		return err
 	}
 
-	desc := SAliyunVMCreateConfig{}
-	err = config.Unmarshal(&desc, "desc")
-	if err != nil {
-		return err
-	}
-
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		passwd := seclib2.RandomPassword2(12)
-
-		iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-			desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, desc.PublicKey)
+	if action == "create" {
+		desc := SAliyunVMCreateConfig{}
+		err = config.Unmarshal(&desc, "desc")
 		if err != nil {
-			return nil, err
-		}
-		log.Debugf("VMcreated %s, wait status ready ...", iVM.GetGlobalId())
-		err = cloudprovider.WaitStatus(iVM, models.VM_READY, time.Second*5, time.Second*1800)
-		if err != nil {
-			return nil, err
-		}
-		log.Debugf("VMcreated %s, and status is ready", iVM.GetGlobalId())
-
-		iVM, err = ihost.GetIVMById(iVM.GetGlobalId())
-		if err != nil {
-			log.Errorf("cannot find vm %s", err)
-			return nil, err
+			return err
 		}
 
-		if len(guest.SecgrpId) > 0 {
-			if err := iVM.SyncSecurityGroup(guest.SecgrpId, guest.GetSecgroupName(), guest.GetSecRules()); err != nil {
-				log.Errorf("SyncSecurityGroup error: %v", err)
-				return nil, err
-			}
-		}
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+			passwd := seclib2.RandomPassword2(12)
 
-		if onfinish == "none" {
-			err = iVM.StartVM()
+			iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
+				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, desc.PublicKey)
 			if err != nil {
 				return nil, err
 			}
-		}
-
-		encpasswd, err := utils.EncryptAESBase64(guest.Id, passwd)
-		if err != nil {
-			log.Errorf("encrypt password failed %s", err)
-		}
-
-		data := jsonutils.NewDict()
-		data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
-		data.Add(jsonutils.NewString("root"), "account")
-		data.Add(jsonutils.NewString(encpasswd), "key")
-
-		if len(desc.OsDistribution) > 0 {
-			data.Add(jsonutils.NewString(desc.OsDistribution), "distro")
-		}
-		if len(desc.OsVersion) > 0 {
-			data.Add(jsonutils.NewString(desc.OsVersion), "version")
-		}
-
-		idisks, err := iVM.GetIDisks()
-
-		if err != nil {
-			log.Errorf("GetiDisks error %s", err)
-		} else {
-			diskInfo := make([]SDiskInfo, len(idisks))
-			for i := 0; i < len(idisks); i += 1 {
-				dinfo := SDiskInfo{}
-				dinfo.Uuid = idisks[i].GetGlobalId()
-				dinfo.Size = idisks[i].GetDiskSizeMB()
-				diskInfo[i] = dinfo
+			log.Debugf("VMcreated %s, wait status ready ...", iVM.GetGlobalId())
+			err = cloudprovider.WaitStatus(iVM, models.VM_READY, time.Second*5, time.Second*1800)
+			if err != nil {
+				return nil, err
 			}
-			data.Add(jsonutils.Marshal(&diskInfo), "disks")
+			log.Debugf("VMcreated %s, and status is ready", iVM.GetGlobalId())
+
+			iVM, err = ihost.GetIVMById(iVM.GetGlobalId())
+			if err != nil {
+				log.Errorf("cannot find vm %s", err)
+				return nil, err
+			}
+
+			if len(guest.SecgrpId) > 0 {
+				if err := iVM.SyncSecurityGroup(guest.SecgrpId, guest.GetSecgroupName(), guest.GetSecRules()); err != nil {
+					log.Errorf("SyncSecurityGroup error: %v", err)
+					return nil, err
+				}
+			}
+
+			if onfinish == "none" {
+				err = iVM.StartVM()
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			encpasswd, err := utils.EncryptAESBase64(guest.Id, passwd)
+			if err != nil {
+				log.Errorf("encrypt password failed %s", err)
+			}
+
+			data := jsonutils.NewDict()
+			data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
+			data.Add(jsonutils.NewString("root"), "account")
+			data.Add(jsonutils.NewString(encpasswd), "key")
+
+			if len(desc.OsDistribution) > 0 {
+				data.Add(jsonutils.NewString(desc.OsDistribution), "distro")
+			}
+			if len(desc.OsVersion) > 0 {
+				data.Add(jsonutils.NewString(desc.OsVersion), "version")
+			}
+
+			idisks, err := iVM.GetIDisks()
+
+			if err != nil {
+				log.Errorf("GetiDisks error %s", err)
+			} else {
+				diskInfo := make([]SDiskInfo, len(idisks))
+				for i := 0; i < len(idisks); i += 1 {
+					dinfo := SDiskInfo{}
+					dinfo.Uuid = idisks[i].GetGlobalId()
+					dinfo.Size = idisks[i].GetDiskSizeMB()
+					diskInfo[i] = dinfo
+				}
+				data.Add(jsonutils.Marshal(&diskInfo), "disks")
+			}
+
+			data.Add(jsonutils.NewString(iVM.GetGlobalId()), "uuid")
+
+			return data, nil
+		})
+	} else if action == "deploy" {
+		iVM, err := ihost.GetIVMById(guest.GetExternalId())
+		if err != nil || iVM == nil {
+			log.Errorf("cannot find vm %s", err)
+			return fmt.Errorf("cannot find vm")
 		}
 
-		data.Add(jsonutils.NewString(iVM.GetGlobalId()), "uuid")
+		params := task.GetParams()
+		log.Debugf("Deploy VM params %s", params.String())
+		var name string
+		if v, e := params.GetString("name"); e != nil {
+			name = v
+		}
+		var description string
+		if v, e := params.GetString("description"); e != nil {
+			description = v
+		}
+		resetPassword := jsonutils.QueryBoolean(params, "reset_password", false)
+		deleteKeypair := jsonutils.QueryBoolean(params, "__delete_keypair__", false)
+		password, _ := params.GetString("password")
+		if resetPassword && len(password) == 0{
+			password = seclib2.RandomPassword2(12)
+		}
 
-		return data, nil
-	})
+		publicKey := ""
+		if k, e := config.GetString("public_key"); e != nil {
+			publicKey = k
+		}
+
+		taskman.LocalTaskRun(task, func () (jsonutils.JSONObject, error) {
+			encpasswd, err := utils.EncryptAESBase64(guest.Id, password)
+			if err != nil {
+				log.Errorf("encrypt password failed %s", err)
+			}
+
+			data := jsonutils.NewDict()
+			data.Add(jsonutils.NewString("root"), "account")  // 用户名
+			data.Add(jsonutils.NewString(encpasswd), "key")      // 密码
+			e := iVM.DeployVM(name, password, publicKey, resetPassword, deleteKeypair, description)
+			return data, e
+		})
+	} else {
+		return fmt.Errorf("Action %s not supported", action)
+	}
+
 	return nil
 }
 
@@ -275,5 +315,119 @@ func (self *SAliyunGuestDriver) RequestSyncConfigOnHost(ctx context.Context, gue
 		}
 		return nil, nil
 	})
+	return nil
+}
+
+type SAliyunVMChangeConfig struct {
+	InstanceId        string
+	Cpu               int
+	Memory            int
+}
+
+func (self *SAliyunGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	subtask, err := taskman.TaskManager.NewTask(ctx, "AliyunGuestCreateDiskTask", guest, task.GetUserCred(), task.GetParams(), task.GetTaskId(), "", nil)
+	if err != nil {
+		return err
+	}
+	subtask.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SAliyunGuestDriver) AllowReconfigGuest() bool {
+	return true
+}
+
+func (self *SAliyunGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, vcpuCount, vmemSize int64) error {
+	config := SAliyunVMChangeConfig{}
+	config.InstanceId = guest.GetExternalId()
+	config.Cpu = int(vcpuCount)
+	config.Memory = int(vmemSize)
+	// taskman localTaskRun
+	ihost, err := guest.GetHost().GetIHost()
+	if err != nil {
+		return err
+	}
+
+	iVM, err := ihost.GetIVMById(config.InstanceId)
+	if err != nil {
+		return err
+	}
+
+	err = iVM.ChangeConfig(config.InstanceId, config.Cpu, config.Memory)
+	// todo: wait status ready & check disk
+	if err != nil {
+		return err
+	}
+	log.Debugf("VMchangeConfig %s, wait status ready ...", iVM.GetGlobalId())
+	err = cloudprovider.WaitStatus(iVM, models.VM_READY, time.Second*5, time.Second*300)
+	if err != nil {
+		return err
+	}
+	log.Debugf("VMchangeConfig %s, and status is ready", iVM.GetGlobalId())
+	return nil
+}
+
+func (self *SAliyunGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
+	ihost, e := host.GetIHost()
+	if e != nil {
+		return nil, e
+	}
+
+	ivm, e := ihost.GetIVMById(guest.GetExternalId())
+	if e != nil {
+		return nil, e
+	}
+
+	err := ivm.StartVM()
+	if err != nil {
+		return nil, e
+	}
+
+	result := jsonutils.NewDict()
+	result.Add(jsonutils.NewBool(true), "is_running")
+	return result, e
+}
+
+func (self *SAliyunGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	ihost, e := guest.GetHost().GetIHost()
+	if e != nil {
+		return e
+	}
+
+	externalId := guest.GetExternalId()
+	if len(externalId) <= 0 {
+		return fmt.Errorf("external id not found")
+	}
+
+	disks := guest.GetDisks()
+	if len(disks) <= 0 {
+		return fmt.Errorf("guest has no disk")
+	}
+
+	imageId := guest.CategorizeDisks().Root.TemplateId
+	cacheId := disks[0].GetDisk().GetStorage().GetStoragecache().Id
+	externalImageId := models.StoragecachedimageManager.GetStoragecachedimage(cacheId, imageId).ExternalId
+	if len(externalImageId) <= 0 {
+		return fmt.Errorf("external image (%s) id is not found", imageId)
+	}
+
+	iVM, err := ihost.GetIVMById(externalId)
+	if err != nil {
+		return err
+	}
+
+	err = iVM.RebuildRoot(externalImageId)
+	if err != nil {
+		return err
+	}
+
+	log.Debugf("VMrebuildRoot %s, wait status ready ...", iVM.GetGlobalId())
+	err = cloudprovider.WaitStatus(iVM, models.VM_READY, time.Second*5, time.Second*1800)
+	if err != nil {
+		return err
+	}
+	log.Debugf("VMrebuildRoot %s, and status is ready", iVM.GetGlobalId())
+
+	task.ScheduleRun(nil)
 	return nil
 }

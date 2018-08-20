@@ -65,6 +65,22 @@ func (self *SVirtualMachine) IsEmulated() bool {
 	return false
 }
 
+func (self *SVirtualMachine) DeployVM(name string, password string, publicKey string, resetPassword bool, deleteKeypair bool, description string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SVirtualMachine) RebuildRoot(imageId string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SVirtualMachine) UpdateVM(name string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SVirtualMachine) AttachDisk(diskId string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
 func (self *SVirtualMachine) getUuid() string {
 	return self.getVirtualMachine().Summary.Config.Uuid
 }
@@ -208,4 +224,8 @@ func (self *SVirtualMachine) acquireVmrcUrl() (jsonutils.JSONObject, error) {
 	url := fmt.Sprintf("vmrc://clone:%s@%s:%d/?moid=%s", ticket, self.manager.host, port, self.GetId())
 	ret.Add(jsonutils.NewString(url), "url")
 	return ret, nil
+}
+
+func (dc *SVirtualMachine) ChangeConfig(instanceId string,ncpu int, vmem int) error {
+	return cloudprovider.ErrNotImplemented
 }

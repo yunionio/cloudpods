@@ -82,6 +82,63 @@ func init() {
 		return nil
 	})
 
+	/*
+		server-change-config 更改系统配置
+		server-reset
+	*/
+	type InstanceDeployOptions struct {
+		ID            string `help:"instance ID"`
+		Name          string `help:"new instance name"`
+		Hostname      string `help:"new hostname"`
+		Keypair       string `help:"Keypair Name"`
+		DeleteKeypair bool   `help:"Remove SSH keypair"`
+		Password      string `help:"new password"`
+		ResetPassword bool   `help:"Force reset password"`
+		Description   string `help:"new instances description"`
+	}
+
+	shellutils.R(&InstanceDeployOptions{}, "instance-deploy", "Deploy keypair/password to a stopped virtual server", func(cli *aliyun.SRegion, args *InstanceDeployOptions) error {
+		err := cli.DeployVM(args.ID, args.Name, args.Password, args.Keypair, args.ResetPassword, args.DeleteKeypair, args.Description)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	type InstanceRebuildRootOptions struct {
+		ID    string `help:"instance ID"`
+		Image string `help:"Image ID"`
+	}
+
+	shellutils.R(&InstanceRebuildRootOptions{}, "instance-rebuild-root", "Reinstall virtual server system image", func(cli *aliyun.SRegion, args *InstanceRebuildRootOptions) error {
+		err := cli.ReplaceSystemDisk(args.ID, args.Image)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	type InstanceChangeConfigOptions struct {
+		ID   string `help:"instance ID"`
+		Ncpu int    `help:"number of CPU"`
+		Vmem int    `help:"MiB of memory"`
+		Disk []int  `help:"Data disk sizes int GB"`
+	}
+
+	shellutils.R(&InstanceChangeConfigOptions{}, "instance-change-config", "Deploy keypair/password to a stopped virtual server", func(cli *aliyun.SRegion, args *InstanceChangeConfigOptions) error {
+		instance, e := cli.GetInstance(args.ID)
+		if e != nil {
+			return e
+		}
+
+		// todo : add create disks
+		err := cli.ChangeVMConfig(instance.ZoneId, args.ID, args.Ncpu, args.Vmem, nil)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
 	type InstanceUpdatePasswordOptions struct {
 		ID     string `help:"Instance ID"`
 		PASSWD string `help:"new password"`
