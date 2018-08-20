@@ -53,7 +53,7 @@ func Executor(s string) {
 	}
 	s = escaper(s)
 	args := utils.ArgsStringToArray(s)
-	e := parser.ParseArgs(args, false)
+	e := parser.ParseArgs(utils.ArgsStringToArray(s), false)
 	subcmd := parser.GetSubcommand()
 	subparser := subcmd.GetSubParser()
 	if e != nil {
