@@ -2,6 +2,7 @@ package prettytable
 
 import (
 	"bytes"
+	"strings"
 )
 
 type AlignmentType uint8
@@ -40,6 +41,7 @@ func rowLine(buf *bytes.Buffer, widths []int) {
 		buf.WriteByte('-')
 		buf.WriteByte('+')
 	}
+	buf.WriteByte('\n')
 }
 
 func textCell(buf *bytes.Buffer, col ptColumn, width int) {
@@ -65,13 +67,45 @@ func textCell(buf *bytes.Buffer, col ptColumn, width int) {
 }
 
 func textLine(buf *bytes.Buffer, columns []ptColumn, widths []int) {
-	buf.WriteByte('|')
-	for i, w := range widths {
-		buf.WriteByte(' ')
-		textCell(buf, columns[i], w)
-		buf.WriteByte(' ')
-		buf.WriteByte('|')
+	nlines := 0
+	splitted := make([][]string, len(columns))
+	for i, column := range columns {
+		title := strings.TrimRight(column.Title, "\n")
+		s := strings.Split(title, "\n")
+		splitted[i] = s
+		if nlines < len(s) {
+			nlines = len(s)
+		}
 	}
+	for j := 0; j < nlines; j++ {
+		buf.WriteByte('|')
+		for i, w := range widths {
+			buf.WriteByte(' ')
+			var text string
+			if j < len(splitted[i]) {
+				text = splitted[i][j]
+			}
+			c := ptColumn{
+				Align: columns[i].Align,
+				Title: text,
+			}
+			textCell(buf, c, w)
+			buf.WriteByte(' ')
+			buf.WriteByte('|')
+		}
+		buf.WriteByte('\n')
+	}
+}
+
+func cellWidth(cell string) int {
+	width := 0
+	lines := strings.Split(cell, "\n")
+	for _, line := range lines {
+		if width < len(line) {
+			width = len(line)
+		}
+	}
+	return width
 }
 
 func (this *PrettyTable) GetString(fields [][]string) string {
@@ -80,37 +114,32 @@ func (this *PrettyTable) GetString(fields [][]string) string {
 	}
 	var widths = make([]int, len(this.columns))
 	for i, c := range this.columns {
-		if widths[i] < len(c.Title) {
-			widths[i] = len(c.Title)
-		}
+		widths[i] = cellWidth(c.Title)
 	}
 	for _, line := range fields {
 		for i, cell := range line {
-			if widths[i] < len(cell) {
-				widths[i] = len(cell)
+			cw := cellWidth(cell)
+			if widths[i] < cw {
+				widths[i] = cw
 			}
 		}
 	}
 	var columns = make([]ptColumn, len(this.columns))
 	var buf bytes.Buffer
 	rowLine(&buf, widths)
-	buf.WriteByte('\n')
 	for i := 0; i < len(columns); i++ {
 		columns[i].Title = this.columns[i].Title
 		columns[i].Align = AlignCenter
 	}
 	textLine(&buf, columns, widths)
-	buf.WriteByte('\n')
 	rowLine(&buf, widths)
 	for _, line := range fields {
 		for i := 0; i < len(line); i++ {
 			columns[i].Title = line[i]
 			columns[i].Align = this.columns[i].Align
 		}
-		buf.WriteByte('\n')
 		textLine(&buf, columns, widths)
 	}
-	buf.WriteByte('\n')
 	rowLine(&buf, widths)
 	return buf.String()
 }
