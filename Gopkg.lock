@@ -850,7 +850,7 @@
   branch = "master"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
-  revision = "41e805b221e8fcd9435b706b4dd473df3dd8cff4"
+  revision = "38477c9cceb895816fe21507d73da30376d358b7"
 
 [[projects]]
   branch = "master"
@@ -896,13 +896,13 @@
     "util/workqueue",
     "utils"
   ]
-  revision = "56b426f0ca15288cc26442f5802c949f137ade60"
+  revision = "6c349ecbdb90d5f6ecc9b86596428176c1937b32"
 
 [[projects]]
   branch = "master"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
-  revision = "a74ef73e555a1ed2e19b1a47e0567814c289eaf9"
+  revision = "1d049058c031cdc229b0fb92ed902664186657e3"
 
 [[projects]]
   branch = "master"
