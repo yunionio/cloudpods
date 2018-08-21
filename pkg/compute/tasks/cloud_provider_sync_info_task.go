@@ -130,7 +130,7 @@ func syncRegionVPCs(ctx context.Context, provider *models.SCloudprovider, task *
 		return
 	}
 
-	localVpcs, remoteVpcs, result := models.VpcManager.SyncVPCs(ctx, task.UserCred, localRegion, vpcs)
+	localVpcs, remoteVpcs, result := models.VpcManager.SyncVPCs(ctx, task.UserCred, provider, localRegion, vpcs)
 	msg := result.Result()
 	log.Infof("SyncVPCs for region %s result: %s", localRegion.Name, msg)
 	if result.IsError() {
@@ -141,13 +141,31 @@ func syncRegionVPCs(ctx context.Context, provider *models.SCloudprovider, task *
 
 	for j := 0; j < len(localVpcs); j += 1 {
 		syncVpcWires(ctx, provider, task, &localVpcs[j], remoteVpcs[j])
+		syncVpcSecGroup(ctx, provider, task, &localVpcs[j], remoteVpcs[j])
+	}
+}
+
+func syncVpcSecGroup(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localVpc *models.SVpc, remoteVpc cloudprovider.ICloudVpc) {
+	if secgroups, err := remoteVpc.GetISecurityGroups(); err != nil {
+		msg := fmt.Sprintf("GetISecurityGroups for vpc %s failed %s", remoteVpc.GetId(), err)
+		log.Errorf(msg)
+		logSyncFailed(provider, task, msg)
+		return
+	} else {
+		_, _, result := models.SecurityGroupManager.SyncSecgroups(ctx, task.UserCred, secgroups)
+		msg := result.Result()
+		log.Infof("SyncSecurityGroup for VPC %s result: %s", localVpc.Name, msg)
+		if result.IsError() {
+			logSyncFailed(provider, task, msg)
+			return
+		}
 	}
 }
 
 func syncVpcWires(ctx context.Context, provider *models.SCloudprovider, task taskman.ITask, localVpc *models.SVpc, remoteVpc cloudprovider.ICloudVpc) {
 	wires, err := remoteVpc.GetIWires()
 	if err != nil {
-		msg := fmt.Sprintf("GetIWires for vps %s failed %s", remoteVpc.GetId(), err)
+		msg := fmt.Sprintf("GetIWires for vpc %s failed %s", remoteVpc.GetId(), err)
 		log.Errorf(msg)
 		logSyncFailed(provider, task, msg)
 		return
@@ -191,7 +209,7 @@ func syncZoneStorages(ctx context.Context, provider *models.SCloudprovider, task
 		logSyncFailed(provider, task, msg)
 		return
 	}
-	localStorages, remoteStorages, result := models.StorageManager.SyncStorages(ctx, task.UserCred, localZone, storages)
+	localStorages, remoteStorages, result := models.StorageManager.SyncStorages(ctx, task.UserCred, provider, localZone, storages)
 	msg := result.Result()
 	log.Infof("SyncZones for region %s result: %s", localZone.Name, msg)
 	if result.IsError() {
@@ -249,7 +267,7 @@ func syncZoneHosts(ctx context.Context, provider *models.SCloudprovider, task *C
 		logSyncFailed(provider, task, msg)
 		return
 	}
-	localHosts, remoteHosts, result := models.HostManager.SyncHosts(ctx, task.UserCred, localZone, hosts)
+	localHosts, remoteHosts, result := models.HostManager.SyncHosts(ctx, task.UserCred, provider, localZone, hosts)
 	msg := result.Result()
 	log.Infof("SyncHosts for zone %s result: %s", localZone.Name, msg)
 	if result.IsError() {

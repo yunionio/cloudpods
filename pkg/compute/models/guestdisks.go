@@ -6,9 +6,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SGuestdiskManager struct {
@@ -45,6 +47,23 @@ func (manager *SGuestdiskManager) AllowCreateItem(ctx context.Context, userCred 
 
 func (self *SGuestdisk) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return false
+}
+
+func (self *SGuestdisk) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	if data.Contains("index") {
+		if index, err := data.Int("index"); err != nil {
+			return nil, err
+		} else {
+			guestdisk := GuestdiskManager.Query().SubQuery()
+			count := guestdisk.Query().Filter(sqlchemy.Equals(guestdisk.Field("guest_id"), self.GuestId)).
+				Filter(sqlchemy.NotEquals(guestdisk.Field("disk_id"), self.DiskId)).
+				Filter(sqlchemy.Equals(guestdisk.Field("index"), index)).Count()
+			if count > 0 {
+				return nil, httperrors.NewInputParameterError("DISK Index %d has been occupied", index)
+			}
+		}
+	}
+	return self.SGuestJointsBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
 func (joint *SGuestdisk) Master() db.IStandaloneModel {
@@ -111,9 +130,11 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	templateId := disk.GetTemplateId()
 	if len(templateId) > 0 {
 		desc.Add(jsonutils.NewString(templateId), "template_id")
-		// hostcachedimg = Hostcachedimages.get_host_cachedimage(host, template_id)
-		// if hostcachedimg is not None:
-		//	desc['image_path'] = hostcachedimg.path
+		storage := disk.GetStorage()
+		storagecacheimg := StoragecachedimageManager.GetStoragecachedimage(storage.StoragecacheId, templateId)
+		if storagecacheimg != nil {
+			desc.Add(jsonutils.NewString(storagecacheimg.Path), "image_path")
+		}
 	}
 	if host.HostType == HOST_TYPE_HYPERVISOR && disk.IsLocal() {
 		desc.Add(jsonutils.NewString(disk.StorageId), "storage_id")
@@ -129,6 +150,8 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 		}
 	}
 	desc.Add(jsonutils.NewString(disk.DiskFormat), "format")
+	desc.Add(jsonutils.NewInt(int64(self.Index)), "index")
+
 	tid := disk.GetTemplateId()
 	if len(tid) > 0 {
 		desc.Add(jsonutils.NewString(tid), "template_id")
@@ -144,6 +167,25 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	if len(dev) > 0 {
 		desc.Add(jsonutils.NewString(dev), "dev")
 	}
+	return desc
+}
+
+func (self *SGuestdisk) GetDetailedJson() *jsonutils.JSONDict {
+	desc := jsonutils.NewDict()
+	disk := self.GetDisk()
+	storage := disk.GetStorage()
+	if fs := disk.GetFsFormat(); len(fs) > 0 {
+		desc.Add(jsonutils.NewString(fs), "fs")
+	}
+	desc.Add(jsonutils.NewString(disk.DiskType), "disk_type")
+	desc.Add(jsonutils.NewInt(int64(self.Index)), "index")
+	desc.Add(jsonutils.NewInt(int64(disk.DiskSize)), "size")
+	desc.Add(jsonutils.NewString(disk.DiskFormat), "disk_format")
+	desc.Add(jsonutils.NewString(self.Driver), "driver")
+	desc.Add(jsonutils.NewString(self.CacheMode), "cache_mode")
+	desc.Add(jsonutils.NewString(self.AioMode), "aio_mode")
+	desc.Add(jsonutils.NewString(storage.MediumType), "medium_type")
+	desc.Add(jsonutils.NewString(storage.StorageType), "storage_type")
 	return desc
 }
 

@@ -1,11 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
+	"time"
 
-	"github.com/c-bata/go-prompt"
+	prompt "github.com/c-bata/go-prompt"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/structarg"
@@ -117,18 +120,51 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 		options.Timeout,
 		options.Debug,
 		options.Insecure)
-	token, err := client.Authenticate(options.OsUsername,
-		options.OsPassword,
-		options.OsDomainName,
-		options.OsProjectName)
-	if err != nil {
-		return nil, err
+
+	var cacheToken mcclient.TokenCredential
+	cacheFile, err := os.Open("/tmp/OS_AUTH_CACHE_TOKEN")
+	if err == nil && cacheFile != nil {
+		fileInfo, _ := cacheFile.Stat()
+		dur, err := time.ParseDuration("-24h")
+		if fileInfo != nil && err == nil && fileInfo.ModTime().After(time.Now().Add(dur)) {
+			bytesToken, err := ioutil.ReadAll(cacheFile)
+			if err == nil {
+				token := client.NewAuthTokenCredential()
+				err := json.Unmarshal(bytesToken, token)
+				if err != nil {
+					fmt.Printf("Unmarshal token error:%s", err)
+				} else {
+					cacheToken = token
+				}
+			}
+			cacheFile.Close()
+		}
+	}
+	if cacheToken == nil {
+		token, err := client.Authenticate(options.OsUsername,
+			options.OsPassword,
+			options.OsDomainName,
+			options.OsProjectName)
+		if err != nil {
+			return nil, err
+		}
+		cacheToken = token
+		bytesCacheToken, err := json.Marshal(cacheToken)
+		if err != nil {
+			fmt.Printf("Marshal token error:%s", err)
+		} else {
+			fo, _ := os.Create("/tmp/OS_AUTH_CACHE_TOKEN")
+			fo.Write(bytesCacheToken)
+			fo.Close()
+		}
+	} else {
+		fmt.Println("******** Use Token Cache At /tmp/OS_AUTH_CACHE_TOKEN ********")
 	}
 
 	session := client.NewSession(options.OsRegionName,
 		options.OsZoneName,
 		options.OsEndpointType,
-		token,
+		cacheToken,
 		options.ApiVersion)
 	return session, nil
 }

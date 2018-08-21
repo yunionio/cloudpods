@@ -7,6 +7,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -201,7 +202,14 @@ func createInContextHandler(ctx context.Context, w http.ResponseWriter, r *http.
 
 func performClassActionHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, body := fetchEnv(ctx, w, r)
-	data, _ := body.Get(manager.KeywordPlural())
+	var data jsonutils.JSONObject
+	if body != nil {
+		data, _ = body.Get(manager.KeywordPlural())
+		// about string ??
+		if data == nil {
+			data = body.(*jsonutils.JSONDict)
+		}
+	}
 	if data == nil {
 		data = jsonutils.NewDict()
 	}

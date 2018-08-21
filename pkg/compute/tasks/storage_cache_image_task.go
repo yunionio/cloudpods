@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -20,7 +21,7 @@ func init() {
 
 func (self *StorageCacheImageTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	imageId, _ := self.Params.GetString("image_id")
-	isForce := jsonutils.QueryBoolean(self.Params, "is_force", false)
+	// isForce := jsonutils.QueryBoolean(self.Params, "is_force", false)
 
 	storageCache := obj.(*models.SStoragecache)
 	scimg := models.StoragecachedimageManager.Register(ctx, self.UserCred, storageCache.Id, imageId)
@@ -32,22 +33,13 @@ func (self *StorageCacheImageTask) OnInit(ctx context.Context, obj db.IStandalon
 
 	self.SetStage("on_image_cache_complete", nil)
 
-	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
-		iStorageCache, err := storageCache.GetIStorageCache()
-		if err != nil {
-			return nil, err
-		}
+	host, _ := storageCache.GetHost()
+	err := host.GetHostDriver().CheckAndSetCacheImage(ctx, host, storageCache, scimg, self)
+	if err != nil {
+		errData := taskman.Error2TaskData(err)
+		self.OnImageCacheCompleteFailed(ctx, storageCache, errData)
+	}
 
-		extImgId, err := iStorageCache.UploadImage(self.UserCred, imageId, scimg.ExternalId, isForce)
-
-		if err != nil {
-			return nil, err
-		} else {
-			ret := jsonutils.NewDict()
-			ret.Add(jsonutils.NewString(extImgId), "image_id")
-			return ret, nil
-		}
-	})
 }
 
 func (self *StorageCacheImageTask) OnImageCacheComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -80,7 +72,7 @@ func (self *StorageCacheImageTask) OnCacheFailed(ctx context.Context, cache *mod
 
 func (self *StorageCacheImageTask) OnCacheSucc(ctx context.Context, cache *models.SStoragecache, imageId string, scimg *models.SStoragecachedimage, extImgId string) {
 	scimg.SetStatus(self.UserCred, models.CACHED_IMAGE_STATUS_READY, "cached")
-	if len(extImgId) > 0 && scimg.ExternalId != extImgId {
+	if len(cache.ExternalId) > 0 && len(extImgId) > 0 && scimg.ExternalId != extImgId {
 		scimg.SetExternalId(extImgId)
 	}
 	models.CachedimageManager.ImageAddRefCount(imageId)

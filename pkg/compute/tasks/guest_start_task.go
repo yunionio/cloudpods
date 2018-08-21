@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -42,7 +43,7 @@ func (self *GuestStartTask) startStart(ctx context.Context, guest *models.SGuest
 	self.SetStage("on_start_complete", nil)
 	host := guest.GetHost()
 	guest.SetStatus(self.UserCred, models.VM_STARTING, "")
-	result, err := guest.GetDriver().RequestStartOnHost(guest, host, self.UserCred, self)
+	result, err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self)
 	if err != nil {
 		self.onStartGuestFailed(ctx, guest, err)
 	} else {

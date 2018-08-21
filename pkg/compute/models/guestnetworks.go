@@ -315,9 +315,11 @@ func (manager *SGuestnetworkManager) DeleteGuestNics(ctx context.Context, guest 
 		if regutils.MatchIP4Addr(gn.IpAddr) || regutils.MatchIP6Addr(gn.Ip6Addr) {
 			net.updateDnsRecord(&gn, false)
 			if regutils.MatchIP4Addr(gn.IpAddr) {
+				// ??
 				// netman.get_manager().netmap_remove_node(gn.ip_addr)
 			}
 		}
+		// ??
 		// gn.Delete(ctx, userCred)
 		err = gn.Delete(ctx, userCred)
 		if err != nil {

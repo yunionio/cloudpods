@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -65,7 +66,7 @@ const (
 	HOST_STATUS_CONVERTING     = "converting"
 )
 
-var HOST_TYPES = []string{HOST_TYPE_BAREMETAL, HOST_TYPE_HYPERVISOR, HOST_TYPE_ESXI, HOST_TYPE_KUBELET, HOST_TYPE_XEN}
+var HOST_TYPES = []string{HOST_TYPE_BAREMETAL, HOST_TYPE_HYPERVISOR, HOST_TYPE_ESXI, HOST_TYPE_KUBELET, HOST_TYPE_XEN, HOST_TYPE_ALIYUN}
 var NIC_TYPES = []string{NIC_TYPE_IPMI, NIC_TYPE_ADMIN}
 
 type SHostManager struct {
@@ -751,9 +752,19 @@ func (self *SHost) DeleteBaremetalnetwork(ctx context.Context, userCred mcclient
 	}
 }
 
-func (manager *SHostManager) getHostsByZone(zone *SZone) ([]SHost, error) {
+func (self *SHost) GetHostDriver() IHostDriver {
+	if !utils.IsInStringArray(self.HostType, HOST_TYPES) {
+		log.Fatalf("Unsupported host type %s", self.HostType)
+	}
+	return GetHostDriver(self.HostType)
+}
+
+func (manager *SHostManager) getHostsByZone(zone *SZone, provider *SCloudprovider) ([]SHost, error) {
 	hosts := make([]SHost, 0)
 	q := manager.Query().Equals("zone_id", zone.Id)
+	if provider != nil {
+		q = q.Equals("manager_id", provider.Id)
+	}
 	err := db.FetchModelObjects(manager, q, &hosts)
 	if err != nil {
 		log.Errorf("%s", err)
@@ -762,12 +773,12 @@ func (manager *SHostManager) getHostsByZone(zone *SZone) ([]SHost, error) {
 	return hosts, nil
 }
 
-func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.TokenCredential, zone *SZone, hosts []cloudprovider.ICloudHost) ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
+func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, hosts []cloudprovider.ICloudHost) ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
 	localHosts := make([]SHost, 0)
 	remoteHosts := make([]cloudprovider.ICloudHost, 0)
 	syncResult := compare.SyncResult{}
 
-	dbHosts, err := manager.getHostsByZone(zone)
+	dbHosts, err := manager.getHostsByZone(zone, provider)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
@@ -1457,6 +1468,8 @@ func (self *SHost) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 	if zone != nil {
 		extra.Add(jsonutils.NewString(zone.Id), "zone_id")
 		extra.Add(jsonutils.NewString(zone.Name), "zone")
+		extra.Add(jsonutils.NewString(zone.GetRegion().GetName()), "region")
+		extra.Add(jsonutils.NewString(zone.GetRegion().GetId()), "region_id")
 	}
 	server := self.getBaremetalServer()
 	if server != nil {
@@ -1531,6 +1544,22 @@ func (manager *SHostManager) GetHostsByManagerAndRegion(managerId string, region
 		return nil
 	}
 	return ret
+}
+
+func (self *SHost) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId, parentTaskId string, isForce bool) error {
+	//Todo
+	// HostcachedimagesManager.Register(userCred, self, imageId)
+	data := jsonutils.NewDict()
+	data.Set("image_id", jsonutils.NewString(imageId))
+	if isForce {
+		data.Set("is_force", jsonutils.JSONTrue)
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "StorageCacheImageTask", self, userCred, data, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (self *SHost) Request(userCred mcclient.TokenCredential, method string, url string, headers http.Header, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {

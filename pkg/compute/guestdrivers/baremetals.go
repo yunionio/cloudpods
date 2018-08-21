@@ -2,13 +2,14 @@ package guestdrivers
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/mcclient"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SBaremetalGuestDriver struct {
@@ -73,7 +74,7 @@ func (self *SBaremetalGuestDriver) RequestGuestCreateInsertIso(ctx context.Conte
 	return nil
 }
 
-func (self *SBaremetalGuestDriver) RequestStartOnHost(guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
+func (self *SBaremetalGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
 	data := jsonutils.NewDict()
 	// TODO
 	return data, nil
@@ -153,4 +154,21 @@ func (self *SBaremetalGuestDriver) RequestDeployGuestOnHost(ctx context.Context,
 	// TODO
 
 	return nil
+}
+
+func (self *SBaremetalGuestDriver) CanKeepDetachDisk() bool {
+	return false
+}
+
+func (self *SBaremetalGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SBaremetalGuestDriver) StartGuestDetachdiskTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
+	return fmt.Errorf("Cannot detach disk from a baremetal serer")
+}
+
+func (self *SBaremetalGuestDriver) StartSuspendTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
+	return fmt.Errorf("Cannot suspend a baremetal serer")
 }

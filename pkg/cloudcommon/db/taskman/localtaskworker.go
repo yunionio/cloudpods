@@ -15,7 +15,7 @@ func init() {
 	localTaskWorkerMan = appsrv.NewWorkerManager("LocalTaskWorkerManager", 4, 10)
 }
 
-func error2TaskData(err error) jsonutils.JSONObject {
+func Error2TaskData(err error) jsonutils.JSONObject {
 	errJson := jsonutils.NewDict()
 	errJson.Add(jsonutils.NewString("ERROR"), "__status__")
 	errJson.Add(jsonutils.NewString(err.Error()), "reason")
@@ -32,12 +32,12 @@ func LocalTaskRun(task ITask, proc func() (jsonutils.JSONObject, error)) {
 			if r := recover(); r != nil {
 				log.Errorf("LocalTaskRun error: %s", r)
 				debug.PrintStack()
-				task.ScheduleRun(error2TaskData(fmt.Errorf("LocalTaskRun error: %s", r)))
+				task.ScheduleRun(Error2TaskData(fmt.Errorf("LocalTaskRun error: %s", r)))
 			}
 		}()
 		data, err := proc()
 		if err != nil {
-			task.ScheduleRun(error2TaskData(err))
+			task.ScheduleRun(Error2TaskData(err))
 		} else {
 			task.ScheduleRun(data)
 		}

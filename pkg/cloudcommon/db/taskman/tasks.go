@@ -246,17 +246,21 @@ func (manager *STaskManager) NewParallelTask(ctx context.Context, taskName strin
 }
 
 func (manager *STaskManager) fetchTask(idStr string) *STask {
-	task, err := db.NewModelObject(manager)
+	iTask, err := db.NewModelObject(manager)
 	if err != nil {
 		log.Errorf("New task object fail: %s", err)
 		return nil
 	}
-	err = manager.Query().Equals("id", idStr).First(task)
+	err = manager.Query().Equals("id", idStr).First(iTask)
 	if err != nil {
 		log.Errorf("GetTask %s fail: %s", idStr, err)
 		return nil
 	}
-	return task.(*STask)
+	task := iTask.(*STask)
+	if task.Params == nil {
+		task.Params = jsonutils.NewDict()
+	}
+	return task
 }
 
 func (manager *STaskManager) execTask(taskId string, data jsonutils.JSONObject) {
@@ -307,7 +311,7 @@ func execITask(taskValue reflect.Value, task *STask, data jsonutils.JSONObject, 
 
 	var stageName string
 	if taskFailed {
-		stageName = fmt.Sprintf("%s_failed", task.Stage)
+		stageName = fmt.Sprintf("%sFailed", task.Stage)
 	} else {
 		stageName = task.Stage
 	}
@@ -315,6 +319,10 @@ func execITask(taskValue reflect.Value, task *STask, data jsonutils.JSONObject, 
 	funcValue := taskValue.MethodByName(stageName)
 
 	if !funcValue.IsValid() || funcValue.IsNil() {
+		log.Debugf("Stage %s not found, try kebab to camel and find again", stageName)
+		if taskFailed {
+			stageName = fmt.Sprintf("%s_failed", task.Stage)
+		}
 		stageName = utils.Kebab2Camel(stageName, "_")
 		funcValue = taskValue.MethodByName(stageName)
 
@@ -387,7 +395,7 @@ func execITask(taskValue reflect.Value, task *STask, data jsonutils.JSONObject, 
 
 	params[2] = reflect.ValueOf(data)
 
-	log.Debugf("Call %s with %s", funcValue, params)
+	log.Debugf("Call %s: %s with %s", stageName, funcValue, params)
 
 	funcValue.Call(params)
 
@@ -408,9 +416,11 @@ func (self *STask) GetParentTask() *STask {
 
 func (self *STask) GetRequestContext() appctx.AppContextData {
 	ctxData := appctx.AppContextData{}
-	ctxJson, _ := self.Params.Get(REQUEST_CONTEXT_KEY)
-	if ctxJson != nil {
-		ctxJson.Unmarshal(&ctxData)
+	if self.Params != nil {
+		ctxJson, _ := self.Params.Get(REQUEST_CONTEXT_KEY)
+		if ctxJson != nil {
+			ctxJson.Unmarshal(&ctxData)
+		}
 	}
 	return ctxData
 }

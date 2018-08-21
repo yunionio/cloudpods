@@ -16,19 +16,22 @@ import (
 )
 
 const (
-	STORAGE_LOCAL        = "local"
-	STORAGE_BAREMETAL    = "baremetal"
-	STORAGE_SHEEPDOG     = "sheepdog"
-	STORAGE_RBD          = "rbd"
-	STORAGE_DOCKER       = "docker"
-	STORAGE_NAS          = "nas"
-	STORAGE_VSAN         = "vsan"
-	STORAGE_PUBLIC_CLOUD = "cloud"
+	STORAGE_LOCAL            = "local"
+	STORAGE_BAREMETAL        = "baremetal"
+	STORAGE_SHEEPDOG         = "sheepdog"
+	STORAGE_RBD              = "rbd"
+	STORAGE_DOCKER           = "docker"
+	STORAGE_NAS              = "nas"
+	STORAGE_VSAN             = "vsan"
+	STORAGE_PUBLIC_CLOUD     = "cloud"
+	STORAGE_CLOUD_EFFICIENCY = "cloud_efficiency"
+	STORAGE_CLOUD_SSD        = "cloud_ssd"
+	STORAGE_EPHEMERAL_SSD    = "ephemeral_ssd"
 
 	STORAGE_ENABLED  = "enabled"
 	STORAGE_DISABLED = "disabled"
 	STORAGE_OFFLINE  = "offline"
-	STORAGE_ONLINE   = "offline"
+	STORAGE_ONLINE   = "online"
 
 	DISK_TYPE_ROTATE = "rotate"
 	DISK_TYPE_SSD    = "ssd"
@@ -235,9 +238,12 @@ func (self *SStorage) SyncStatusWithHosts() {
 	}
 }
 
-func (manager *SStorageManager) getStoragesByZoneId(zoneId string) ([]SStorage, error) {
+func (manager *SStorageManager) getStoragesByZoneId(zoneId string, provider *SCloudprovider) ([]SStorage, error) {
 	storages := make([]SStorage, 0)
 	q := manager.Query().Equals("zone_id", zoneId)
+	if provider != nil {
+		q = q.Equals("manager_id", provider.Id)
+	}
 	err := db.FetchModelObjects(manager, q, &storages)
 	if err != nil {
 		log.Errorf("getStoragesByZoneId fail %s", err)
@@ -261,7 +267,7 @@ func (manager *SStorageManager) scanLegacyStorages() error {
 	return nil
 }
 
-func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mcclient.TokenCredential, zone *SZone, storages []cloudprovider.ICloudStorage) ([]SStorage, []cloudprovider.ICloudStorage, compare.SyncResult) {
+func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, storages []cloudprovider.ICloudStorage) ([]SStorage, []cloudprovider.ICloudStorage, compare.SyncResult) {
 	localStorages := make([]SStorage, 0)
 	remoteStorages := make([]cloudprovider.ICloudStorage, 0)
 	syncResult := compare.SyncResult{}
@@ -272,7 +278,7 @@ func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mccli
 		return nil, nil, syncResult
 	}
 
-	dbStorages, err := manager.getStoragesByZoneId(zone.Id)
+	dbStorages, err := manager.getStoragesByZoneId(zone.Id, provider)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult

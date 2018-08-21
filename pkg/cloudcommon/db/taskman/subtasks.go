@@ -40,7 +40,7 @@ func (manager *SSubTaskmanager) GetSubTask(ptaskId string, subtaskId string) *SS
 	err := manager.Query().Equals("task_id", ptaskId).Equals("subtask_id", subtaskId).First(&subtask)
 	if err != nil {
 		if err != sql.ErrNoRows {
-			log.Errorf("GetSubTask fail %s", err)
+			log.Errorf("GetSubTask fail %s %s %s", err, ptaskId, subtaskId)
 		}
 		return nil
 	}

@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/pkg/util/secrules"
 )
 
 const (
@@ -28,7 +30,7 @@ type SVpc struct {
 
 	iwires []cloudprovider.ICloudWire
 
-	secgroups []SSecurityGroup
+	secgroups []cloudprovider.ICloudSecurityGroup
 
 	CidrBlock    string
 	CreationTime time.Time
@@ -159,11 +161,15 @@ func (self *SVpc) fetchSecurityGroups() error {
 			break
 		}
 	}
-	self.secgroups = secgroups
+	self.secgroups = make([]cloudprovider.ICloudSecurityGroup, len(secgroups))
+	for index, secgroup := range secgroups {
+		secgroup.vpc = self
+		self.secgroups[index] = &secgroup
+	}
 	return nil
 }
 
-func (self *SVpc) GetSecurityGroups() ([]SSecurityGroup, error) {
+func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
 	if self.secgroups == nil {
 		err := self.fetchSecurityGroups()
 		if err != nil {
@@ -179,4 +185,40 @@ func (self *SVpc) GetManagerId() string {
 
 func (self *SVpc) Delete() error {
 	return self.region.DeleteVpc(self.VpcId)
+}
+
+func (self *SVpc) syncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) (string, error) {
+	secgrpId := ""
+	if secgroup, err := self.region.getSecurityGroupByTag(self.VpcId, secgroupId); err != nil {
+		if secgrpId, err = self.region.createSecurityGroup(self.VpcId, name, ""); err != nil {
+			return "", err
+		} else if err := self.region.addTagToSecurityGroup(secgrpId, "id", secgroupId, 1); err != nil {
+			return "", err
+		}
+		//addRules
+		log.Debugf("Add Rules for %s", secgrpId)
+		for _, rule := range rules {
+			if err := self.region.addSecurityGroupRule(secgrpId, &rule); err != nil {
+				return "", err
+			}
+		}
+	} else {
+		//syncRules
+		secgrpId = secgroup.SecurityGroupId
+		log.Debugf("Sync Rules for %s", secgroup.GetName())
+		if secgroup.GetName() != name {
+			if err := self.region.modifySecurityGroup(secgrpId, name, ""); err != nil {
+				log.Errorf("Change SecurityGroup name to %s failed: %v", name, err)
+			}
+		}
+		self.region.syncSecgroupRules(secgrpId, rules)
+	}
+	return secgrpId, nil
+}
+func (self *SVpc) assignSecurityGroup(secgroupId string, instanceId string) error {
+	return self.region.assignSecurityGroup(secgroupId, instanceId)
+}
+
+func (self *SVpc) revokeSecurityGroup(secgroupId string, instanceId string, keep bool) error {
+	return self.region.revokeSecurityGroup(secgroupId, instanceId, keep)
 }

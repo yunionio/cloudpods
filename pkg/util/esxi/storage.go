@@ -54,6 +54,10 @@ func (self *SDatastore) GetIZone() cloudprovider.ICloudZone {
 	return nil
 }
 
+func (self *SDatastore) GetIDisk(idStr string) (cloudprovider.ICloudDisk, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
 func (self *SDatastore) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }

@@ -667,6 +667,12 @@
 
 [[projects]]
   digest = "1:d867dfa6751c8d7a435821ad3b736310c2ed68945d05b50fb9d23aee0540c8cc"
+  branch = "master"
+  name = "github.com/serialx/hashring"
+  packages = ["."]
+  revision = "49a4782e9908fe098c907022a1bd7519c79803d6"
+
+[[projects]]
   name = "github.com/sirupsen/logrus"
   packages = ["."]
   pruneopts = "UT"

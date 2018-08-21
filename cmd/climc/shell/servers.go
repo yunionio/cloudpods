@@ -315,7 +315,7 @@ func init() {
 		return nil
 	})
 
-	R(&ServerOpsOptions{}, "server-sync", "Sync servers status", func(s *mcclient.ClientSession, args *ServerOpsOptions) error {
+	R(&ServerOpsOptions{}, "server-sync", "Sync servers configures", func(s *mcclient.ClientSession, args *ServerOpsOptions) error {
 		ret := modules.Servers.BatchPerformAction(s, args.ID, "sync", nil)
 		printBatchResults(ret, modules.Servers.GetColumns(s))
 		return nil
@@ -343,8 +343,16 @@ func init() {
 		return nil
 	})
 
-	R(&ServerOpsOptions{}, "server-reset", "Reset servers", func(s *mcclient.ClientSession, args *ServerOpsOptions) error {
-		ret := modules.Servers.BatchPerformAction(s, args.ID, "reset", nil)
+	type ServerResetOptions struct {
+		ServerOpsOptions
+		Hard bool `help:"Hard reset or not; default soft"`
+	}
+	R(&ServerResetOptions{}, "server-reset", "Reset servers", func(s *mcclient.ClientSession, args *ServerResetOptions) error {
+		params := jsonutils.NewDict()
+		if args.Hard {
+			params.Add(jsonutils.JSONTrue, "is_hard")
+		}
+		ret := modules.Servers.BatchPerformAction(s, args.ID, "reset", params)
 		printBatchResults(ret, modules.Servers.GetColumns(s))
 		return nil
 	})

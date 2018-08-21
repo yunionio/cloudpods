@@ -4,9 +4,15 @@ import (
 	"os"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
-
 	"yunion.io/x/log"
+	"yunion.io/x/sqlchemy"
+
+	_ "github.com/go-sql-driver/mysql"
+	_ "yunion.io/x/onecloud/pkg/compute/guestdrivers"
+	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
+	_ "yunion.io/x/onecloud/pkg/compute/tasks"
+	_ "yunion.io/x/onecloud/pkg/util/aliyun/provider"
+	_ "yunion.io/x/onecloud/pkg/util/esxi/provider"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
@@ -14,15 +20,14 @@ import (
 	"yunion.io/x/onecloud/pkg/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
-
-	_ "yunion.io/x/onecloud/pkg/compute/guestdrivers"
-	_ "yunion.io/x/onecloud/pkg/compute/tasks"
-	_ "yunion.io/x/onecloud/pkg/util/aliyun/provider"
-	_ "yunion.io/x/onecloud/pkg/util/esxi/provider"
 )
 
 func StartService() {
 	cloudcommon.ParseOptions(&options.Options, &options.Options.Options, os.Args, "region.conf")
+
+	if options.Options.DebugSqlchemy {
+		sqlchemy.DEBUG_SQLCHEMY = true
+	}
 
 	if options.Options.PortV2 > 0 {
 		log.Infof("Port V2 %d is specified, use v2 port", options.Options.PortV2)

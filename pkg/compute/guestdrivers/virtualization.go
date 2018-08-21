@@ -95,8 +95,22 @@ func (self *SVirtualizedGuestDriver) StartGuestStopTask(guest *models.SGuest, ct
 	return nil
 }
 
+func (self *SVirtualizedGuestDriver) StartGuestResetTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isHard bool, parentTaskId string) error {
+	var taskName = "GuestSoftResetTask"
+	if isHard {
+		taskName = "GuestHardResetTask"
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, taskName, guest, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
 func (self *SVirtualizedGuestDriver) OnGuestDeployTaskComplete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	if jsonutils.QueryBoolean(task.GetParams(), "restart", false) {
+		task.SetStage("OnDeployStartGuestComplete", nil)
 		return guest.StartGueststartTask(ctx, task.GetUserCred(), nil, task.GetTaskId())
 	} else {
 		guest.SetStatus(task.GetUserCred(), models.VM_READY, "ready")
@@ -156,4 +170,26 @@ func (self *SVirtualizedGuestDriver) CheckDiskTemplateOnStorage(ctx context.Cont
 		return fmt.Errorf("Cache is missing from storage")
 	}
 	return cache.StartImageCacheTask(ctx, userCred, imageId, false, task.GetTaskId())
+}
+
+func (self *SVirtualizedGuestDriver) CanKeepDetachDisk() bool {
+	return true
+}
+
+func (self *SVirtualizedGuestDriver) StartGuestDetachdiskTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestDetachDiskTask", guest, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SVirtualizedGuestDriver) StartSuspendTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestSuspendTask", guest, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }

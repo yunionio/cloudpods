@@ -9,18 +9,18 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/filterclause"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type DBModelDispatcher struct {
@@ -841,7 +841,12 @@ func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, act
 
 	managerValue := reflect.ValueOf(dispatcher.modelManager)
 	if action == "check-create-data" {
-		return dispatcher.modelManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data.(*jsonutils.JSONDict))
+		manager := dispatcher.modelManager
+		if body, err := data.(*jsonutils.JSONDict).Get(manager.Keyword()); err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		} else {
+			return manager.ValidateCreateData(ctx, userCred, ownerProjId, query, body.(*jsonutils.JSONDict))
+		}
 	}
 	return objectPerformAction(dispatcher, managerValue, ctx, userCred, action, query, data)
 }
@@ -1039,13 +1044,13 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 	err := model.ValidateDeleteCondition(ctx)
 	if err != nil {
 		log.Errorf("validate delete condition error: %s", err)
-		return nil, httperrors.NewGeneralError(err)
+		return nil, httperrors.NewNotAcceptableError(err.Error())
 	}
 
 	err = model.CustomizeDelete(ctx, userCred, query, data)
 	if err != nil {
 		log.Errorf("customize delete error: %s", err)
-		return nil, httperrors.NewGeneralError(err)
+		return nil, httperrors.NewNotAcceptableError(err.Error())
 	}
 
 	details, err := getItemDetails(manager, model, ctx, userCred, query)

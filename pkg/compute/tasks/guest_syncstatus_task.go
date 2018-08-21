@@ -49,7 +49,9 @@ func (self *GuestSyncstatusTask) OnGetStatusSucc(ctx context.Context, guest *mod
 	default:
 		statusStr = models.VM_UNKNOWN
 	}
-	guest.SetStatus(self.UserCred, statusStr, "syncstatus")
+	statusData := jsonutils.NewDict()
+	statusData.Add(jsonutils.NewString(statusStr), "status")
+	guest.PerformStatus(ctx, self.UserCred, nil, statusData)
 	self.SetStageComplete(ctx, nil)
 }
 

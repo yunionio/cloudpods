@@ -3,6 +3,8 @@ package tasks
 import (
 	"context"
 
+	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -28,6 +30,19 @@ func (self *SDiskBaseTask) finalReleasePendingUsage(ctx context.Context) {
 		if !pendingUsage.IsEmpty() {
 			disk := self.getDisk()
 			models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, disk.ProjectId, &pendingUsage, &pendingUsage)
+		}
+	}
+}
+
+func (self *SDiskBaseTask) CleanHostSchedCache(disk *models.SDisk) {
+	storage := disk.GetStorage()
+	if hosts := storage.GetAllAttachingHosts(); hosts == nil {
+		log.Errorf("get attaching host error")
+	} else {
+		for _, h := range hosts {
+			if err := h.ClearSchedDescCache(); err != nil {
+				log.Errorf("host CleanHostSchedCache error: %v", err)
+			}
 		}
 	}
 }

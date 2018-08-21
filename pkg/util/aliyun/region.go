@@ -292,6 +292,7 @@ func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
 	if total != 1 {
 		return nil, cloudprovider.ErrNotFound
 	}
+	vpcs[0].region = self
 	return &vpcs[0], nil
 }
 

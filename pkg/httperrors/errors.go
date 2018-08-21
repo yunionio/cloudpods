@@ -39,6 +39,13 @@ func NewResourceNotReadyError(msg string, params ...interface{}) *httputils.JSON
 	return NewJsonClientError(500, "ResourceNotReadyError", msg)
 }
 
+func NewOutOfResourceError(msg string, params ...interface{}) *httputils.JSONClientError {
+	if len(params) > 0 {
+		msg = fmt.Sprintf(msg, params...)
+	}
+	return NewJsonClientError(500, "NewOutOfResourceError", msg)
+}
+
 func NewServerStatusError(msg string, params ...interface{}) *httputils.JSONClientError {
 	if len(params) > 0 {
 		msg = fmt.Sprintf(msg, params...)

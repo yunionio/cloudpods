@@ -39,6 +39,9 @@ type IGuestDriver interface {
 	RequestGuestCreateInsertIso(ctx context.Context, imageId string, guest *SGuest, task taskman.ITask) error
 
 	StartGuestStopTask(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error
+	StartGuestResetTask(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, isHard bool, parentTaskId string) error
+
+	RequestSoftReset(ctx context.Context, guest *SGuest, task taskman.ITask) error
 
 	RequestDeployGuestOnHost(ctx context.Context, guest *SGuest, host *SHost, task taskman.ITask) error
 
@@ -48,13 +51,15 @@ type IGuestDriver interface {
 
 	StartGuestSyncstatusTask(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error
 
+	RequestSyncConfigOnHost(ctx context.Context, guest *SGuest, host *SHost, task taskman.ITask) error
+
 	RequestSyncstatusOnHost(ctx context.Context, guest *SGuest, host *SHost, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error)
 
-	RequestStartOnHost(guest *SGuest, host *SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error)
+	RequestStartOnHost(ctx context.Context, guest *SGuest, host *SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error)
 
 	RequestStopOnHost(ctx context.Context, guest *SGuest, host *SHost, task taskman.ITask) error
 
-	StartDeleteGuestTask(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error
+	StartDeleteGuestTask(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, params *jsonutils.JSONDict, parentTaskId string) error
 
 	RequestStopGuestForDelete(ctx context.Context, guest *SGuest, task taskman.ITask) error
 
@@ -69,6 +74,23 @@ type IGuestDriver interface {
 	CheckDiskTemplateOnStorage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, storageId string, task taskman.ITask) error
 
 	GetGuestVncInfo(userCred mcclient.TokenCredential, guest *SGuest, host *SHost) (*jsonutils.JSONDict, error)
+
+	RequestDetachDisk(ctx context.Context, guest *SGuest, task taskman.ITask) error
+	GetDetachDiskStatus() ([]string, error)
+	CanKeepDetachDisk() bool
+
+	RequestDeleteDetachedDisk(ctx context.Context, disk *SDisk, task taskman.ITask, isPurge bool) error
+	StartGuestDetachdiskTask(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, params *jsonutils.JSONDict, parentTaskId string) error
+
+	StartSuspendTask(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, params *jsonutils.JSONDict, parentTaskId string) error
+	RqeuestSuspendOnHost(ctx context.Context, guest *SGuest, task taskman.ITask) error
+
+	AllowReconfigGuest() bool
+	DoGuestCreateDisksTask(ctx context.Context, guest *SGuest, task taskman.ITask) error
+	RequestChangeVmConfig(ctx context.Context, guest *SGuest, task taskman.ITask, vcpuCount, vmemSize int64) error
+
+	RequestGuestHotAddIso(ctx context.Context, guest *SGuest, path string, task taskman.ITask) error
+	RequestRebuildRootDisk(ctx context.Context, guest *SGuest, task taskman.ITask) error
 }
 
 var guestDrivers map[string]IGuestDriver
