@@ -145,9 +145,9 @@ func (manager *SCloudregionManager) SyncRegions(ctx context.Context, userCred mc
 				_, err = removed[i].PerformDisable(ctx, userCred, nil, nil)
 			}
 			if err != nil {
-				syncResult.Delete()
-			} else {
 				syncResult.DeleteError(err)
+			} else {
+				syncResult.Delete()
 			}
 		}
 	}
