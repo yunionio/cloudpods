@@ -13,10 +13,26 @@ func initPod() {
 	}
 
 	type listOpt struct {
-		k8sBaseListOptions
+		namespaceListOptions
+		baseListOptions
 	}
 	R(&listOpt{}, cmdN("list"), "List k8s pod", func(s *mcclient.ClientSession, args *listOpt) error {
-		ret, err := k8s.Pods.ListInContexts(s, nil, args.ClusterContext())
+		params := fetchNamespaceParams(args.namespaceListOptions)
+		params.Update(fetchPagingParams(args.baseListOptions))
+		ret, err := k8s.Pods.ListInContexts(s, params, args.ClusterContext())
+		if err != nil {
+			return err
+		}
+		printList(ret, k8s.Pods.GetColumns(s))
+		return nil
+	})
+
+	type deleteOpt struct {
+		resourceGetOptions
+	}
+	R(&deleteOpt{}, cmdN("delete"), "Delete pod", func(s *mcclient.ClientSession, args *deleteOpt) error {
+		id := args.NAME
+		ret, err := k8s.Pods.DeleteInContexts(s, id, args.ToJSON(), args.ClusterContext())
 		if err != nil {
 			return err
 		}

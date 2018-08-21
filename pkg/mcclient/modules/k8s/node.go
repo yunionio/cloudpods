@@ -9,6 +9,6 @@ var (
 )
 
 func init() {
-	Nodes = NewManager("node", "nodes", []string{"id", "name", "cluster", "roles", "address", "status"}, []string{})
+	Nodes = NewManager("node", "nodes", NewResourceCols("cluster", "roles", "address", "status"), NewColumns())
 	modules.Register(Nodes)
 }
