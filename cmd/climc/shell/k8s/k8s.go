@@ -17,7 +17,10 @@ func init() {
 	initNode()
 
 	// helm resources
+	initTiller()
 	initRepo()
+	initChart()
+	initRelease()
 
 	// kubernetes original resources
 	initRaw()
