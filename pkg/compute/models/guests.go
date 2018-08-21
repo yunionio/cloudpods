@@ -3502,6 +3502,78 @@ func (self *SGuest) GetDetailsMonitor(ctx context.Context, userCred mcclient.Tok
 	return nil, httperrors.NewInvalidStatusError("Cannot send command in status %s", self.Status)
 }
 
+func (self *SGuest) AllowGetDetailsDesc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) GetDetailsDesc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	host := self.GetHost()
+	if host == nil {
+		return nil, httperrors.NewInvalidStatusError("No host for server")
+	}
+	desc := self.GetDriver().GetJsonDescAtHost(ctx, self, host)
+	return desc, nil
+}
+
+func (self *SGuest) AllowPerformSendkeys(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformSendkeys(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Hypervisor != HYPERVISOR_KVM {
+		return nil, httperrors.NewUnsupportOperationError("Not allow for hypervisor %s", self.Hypervisor)
+	}
+	if self.Status != VM_RUNNING {
+		return nil, httperrors.NewInvalidStatusError("Cannot send keys in status %s", self.Status)
+	}
+	keys, err := data.GetString("keys")
+	if err != nil {
+		return nil, err
+	}
+	err = self.VerifySendKeys(keys)
+	if err != nil {
+		return nil, err
+	}
+	cmd := fmt.Sprintf("sendkey %s", keys)
+	duration, err := data.Int("duration")
+	if err == nil {
+		cmd = fmt.Sprintf("%s %d", cmd, duration)
+	}
+	_, err = self.SendMonitorCommand(ctx, userCred, cmd)
+	return nil, err
+}
+
+func (self *SGuest) VerifySendKeys(keyStr string) error {
+	keys := strings.Split(keyStr, "-")
+	for _, key := range keys {
+		if !self.IsLegalKey(key) {
+			return fmt.Errorf("Unknown key '%s'", key)
+		}
+	}
+	return nil
+}
+
+func (self *SGuest) IsLegalKey(key string) bool {
+	singleKeys := "1234567890abcdefghijklmnopqrstuvwxyz"
+	legalKeys := []string{"ctrl", "ctrl_r", "alt", "alt_r", "shift", "shift_r",
+		"delete", "esc", "insert", "print", "spc",
+		"f1", "f2", "f3", "f4", "f5", "f6",
+		"f7", "f8", "f9", "f10", "f11", "f12",
+		"home", "pgup", "pgdn", "end",
+		"up", "down", "left", "right",
+		"tab", "minus", "equal", "backspace", "backslash",
+		"bracket_left", "bracket_right", "backslash",
+		"semicolon", "apostrophe", "grave_accent", "ret",
+		"comma", "dot", "slash",
+		"caps_lock", "num_lock", "scroll_lock"}
+	if len(key) > 1 && !utils.IsInStringArray(key, legalKeys) {
+		return false
+	} else if len(key) == 1 && !strings.Contains(singleKeys, key) {
+		return false
+	}
+	return true
+}
+
 func (self *SGuest) SendMonitorCommand(ctx context.Context, userCred mcclient.TokenCredential, cmd string) (jsonutils.JSONObject, error) {
 	host := self.GetHost()
 	url := fmt.Sprintf("%s/servers/%s/monitor", host.ManagerUri, self.Id)
