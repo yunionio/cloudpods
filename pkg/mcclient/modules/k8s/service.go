@@ -13,7 +13,7 @@ type ServiceManager struct {
 func init() {
 	Services = &ServiceManager{
 		ResourceManager: *NewManager(
-			"service", "services",
+			"k8s_service", "k8s_services",
 			NewNamespaceCols("clusterIP", "selector", "internalEndpoint", "externalEndpoints"),
 			NewClusterCols())}
 	modules.Register(Services)
