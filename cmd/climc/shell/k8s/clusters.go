@@ -169,4 +169,22 @@ func initCluster() {
 		fmt.Println(url)
 		return nil
 	})
+
+	R(&getOpt{}, cmdN("public"), "Perform cluster public", func(s *mcclient.ClientSession, args *getOpt) error {
+		ret, err := k8s.Clusters.PerformAction(s, args.ID, "public", nil)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
+	R(&getOpt{}, cmdN("private"), "Perform cluster private", func(s *mcclient.ClientSession, args *getOpt) error {
+		ret, err := k8s.Clusters.PerformAction(s, args.ID, "private", nil)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
 }

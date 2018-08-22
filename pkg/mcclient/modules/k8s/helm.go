@@ -5,11 +5,11 @@ import (
 )
 
 var (
-	Repos *modules.ResourceManager
+	Repos *ResourceManager
 )
 
 func init() {
-	Repos = NewManager("repo", "repos",
+	Repos = NewResourceManager("repo", "repos",
 		NewResourceCols("url", "is_public", "source"),
 		NewColumns(),
 	)
