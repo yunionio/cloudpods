@@ -2,10 +2,10 @@ package modules
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -142,6 +142,17 @@ func _getJointKey(mod1 Manager, mod2 Manager) string {
 	return fmt.Sprintf("%s-%s", mod1.KeyString(), mod2.KeyString())
 }
 
+func ensureModuleNotRegistered(mod, newMod BaseManagerInterface) {
+	modSvcType := mod.ServiceType()
+	newModSvcType := newMod.ServiceType()
+	if mod == newMod {
+		log.Fatalf("Module %#v duplicate registered, service type: %q", mod, modSvcType)
+	}
+	if modSvcType != newModSvcType {
+		log.Fatalf("Module %#v already registered, service type is %q.\nSo new module %#v can't be registered, service type is %q", mod, modSvcType, newMod, newModSvcType)
+	}
+}
+
 func _register(version string, mod BaseManagerInterface) {
 	if modules == nil {
 		modules = make(map[string]map[string][]BaseManagerInterface)
@@ -156,9 +167,7 @@ func _register(version string, mod BaseManagerInterface) {
 		mods = make([]BaseManagerInterface, 0)
 	}
 	for _, m := range mods {
-		if m == mod {
-			log.Fatal("Module already registered", mod)
-		}
+		ensureModuleNotRegistered(m, mod)
 	}
 	modtable[mod.KeyString()] = append(mods, mod)
 }
@@ -179,7 +188,7 @@ func _registerJointModule(version string, mod BaseManagerInterface) {
 		}
 		for _, m := range jointMods {
 			if m == jointMod {
-				log.Fatal("Module already registered", jointMod)
+				ensureModuleNotRegistered(m, jointMod)
 			}
 		}
 		modtable[jointKey] = append(jointMods, jointMod)
