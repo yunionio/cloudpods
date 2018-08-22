@@ -10,28 +10,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/log"
 )
-
-/*const (
-	USER_AGENT = "yunioncloud-go/201708"
-)
-
-var (
-	red    = color.New(color.FgRed, color.Bold).PrintlnFunc()
-	green  = color.New(color.FgGreen, color.Bold).PrintlnFunc()
-	yellow = color.New(color.FgYellow, color.Bold).PrintlnFunc()
-	cyan   = color.New(color.FgHiCyan, color.Bold).PrintlnFunc()
-)*/
-
-/*type JSONClientError struct {
-	Code    int
-	Class   string
-	Details string
-}
-
-func (e *JSONClientError) Error() string {
-	return fmt.Sprintf("JSONClientError: %s %d %s", e.Details, e.Code, e.Class)
-}*/
 
 type Client struct {
 	authUrl string
@@ -39,7 +19,7 @@ type Client struct {
 	debug   bool
 
 	httpconn *http.Client
-	// serviceCatalog *KeystoneServiceCatalog
+	serviceCatalog IServiceCatalog
 }
 
 func NewClient(authUrl string, timeout int, debug bool, insecure bool) *Client {
@@ -222,7 +202,7 @@ func (this *Client) _authV3(domainName, uname, passwd, projectId, projectName, t
 	if len(tokenId) == 0 {
 		return nil, fmt.Errorf("No X-Subject-Token in header")
 	}
-	ret, err := UnmarshalV3Token(rbody, tokenId)
+	ret, err := this.unmarshalV3Token(rbody, tokenId)
 	return ret, err
 }
 
@@ -245,7 +225,7 @@ func (this *Client) _authV2(uname, passwd, tenantId, tenantName, token string) (
 	if err != nil {
 		return nil, err
 	}
-	return UnmarshalV2Token(rbody)
+	return this.unmarshalV2Token(rbody)
 }
 
 func (this *Client) Authenticate(uname, passwd, domainName, tenantName string) (TokenCredential, error) {
@@ -255,16 +235,21 @@ func (this *Client) Authenticate(uname, passwd, domainName, tenantName string) (
 	return this._authV2(uname, passwd, "", tenantName, "")
 }
 
-func UnmarshalV3Token(rbody jsonutils.JSONObject, tokenId string) (cred TokenCredential, err error) {
+func (this *Client) unmarshalV3Token(rbody jsonutils.JSONObject, tokenId string) (cred TokenCredential, err error) {
 	cred = &TokenCredentialV3{Id: tokenId}
 	err = rbody.Unmarshal(cred)
 	if err != nil {
 		err = fmt.Errorf("Invalid response when unmarshal V3 Token: %v", err)
 	}
+	cata := cred.GetServiceCatalog()
+	if cata == nil {
+		log.Fatalf("No srvice catalog avaiable")
+	}
+	this.serviceCatalog = cata
 	return
 }
 
-func UnmarshalV2Token(rbody jsonutils.JSONObject) (cred TokenCredential, err error) {
+func (this *Client) unmarshalV2Token(rbody jsonutils.JSONObject) (cred TokenCredential, err error) {
 	access, err := rbody.Get("access")
 	if err == nil {
 		cred = &TokenCredentialV2{}
@@ -272,6 +257,11 @@ func UnmarshalV2Token(rbody jsonutils.JSONObject) (cred TokenCredential, err err
 		if err != nil {
 			err = fmt.Errorf("Invalid response when unmarshal V2 Token: %s", err)
 		}
+		cata := cred.GetServiceCatalog()
+		if cata == nil {
+			log.Fatalf("No srvice catalog avaiable")
+		}
+		this.serviceCatalog = cata
 		return
 	}
 	err = fmt.Errorf("Invalid response: no access object")
@@ -286,7 +276,7 @@ func (this *Client) verifyV3(adminToken, token string) (TokenCredential, error) 
 	if err != nil {
 		return nil, err
 	}
-	return UnmarshalV3Token(rbody, token)
+	return this.unmarshalV3Token(rbody, token)
 }
 
 func (this *Client) verifyV2(adminToken, token string) (TokenCredential, error) {
@@ -297,7 +287,7 @@ func (this *Client) verifyV2(adminToken, token string) (TokenCredential, error) 
 	if err != nil {
 		return nil, err
 	}
-	return UnmarshalV2Token(rbody)
+	return this.unmarshalV2Token(rbody)
 }
 
 func (this *Client) Verify(adminToken, token string) (cred TokenCredential, err error) {
@@ -320,6 +310,11 @@ func (this *Client) SetProject(tenantId, tenantName string, token TokenCredentia
 }
 
 func (this *Client) NewSession(region, zone, endpointType string, token TokenCredential, apiVersion string) *ClientSession {
+	cata := token.GetServiceCatalog()
+	if cata == nil {
+		log.Fatalf("Missing service catalog in token")
+	}
+	this.serviceCatalog = cata
 	return &ClientSession{client: this, region: region, zone: zone,
 		endpointType: endpointType, token: token,
 		apiVersion: apiVersion,

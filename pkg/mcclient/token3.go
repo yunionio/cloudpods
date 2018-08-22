@@ -141,7 +141,11 @@ func (this *TokenCredentialV3) GetRegions() []string {
 }
 
 func (this *TokenCredentialV3) GetServiceURL(service, region, zone, endpointType string) (string, error) {
-	return this.Token.Catalog.getServiceURL(service, region, zone, endpointType)
+	return this.Token.Catalog.GetServiceURL(service, region, zone, endpointType)
+}
+
+func (this *TokenCredentialV3) GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
+	return this.Token.Catalog.GetServiceURLs(service, region, zone, endpointType)
 }
 
 func (this *TokenCredentialV3) GetInternalServices(region string) []string {
@@ -154,6 +158,10 @@ func (this *TokenCredentialV3) GetExternalServices(region string) []ExternalServ
 
 func (this *TokenCredentialV3) GetEndpoints(region string, endpointType string) []Endpoint {
 	return this.Token.Catalog.getEndpoints(region, endpointType)
+}
+
+func (this *TokenCredentialV3) GetServiceCatalog() IServiceCatalog {
+	return this.Token.Catalog
 }
 
 func (catalog KeystoneServiceCatalogV3) getInternalServices(region string) []string {
@@ -242,7 +250,15 @@ func Id2RegionZone(id string) (string, string) {
 	}
 }
 
-func (catalog KeystoneServiceCatalogV3) getServiceURL(service, region, zone, endpointType string) (string, error) {
+func (catalog KeystoneServiceCatalogV3) GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
+	url, err := catalog.GetServiceURL(service, region, zone, endpointType)
+	if err != nil {
+		return nil, err
+	}
+	return []string{url}, nil
+}
+
+func (catalog KeystoneServiceCatalogV3) GetServiceURL(service, region, zone, endpointType string) (string, error) {
 	if endpointType == "" {
 		endpointType = "internalURL"
 	}
