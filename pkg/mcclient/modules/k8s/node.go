@@ -9,6 +9,6 @@ var (
 )
 
 func init() {
-	Nodes = NewManager("node", "nodes", NewResourceCols("cluster", "roles", "address", "status"), NewColumns())
+	Nodes = NewManager("kube_node", "kube_nodes", NewResourceCols("cluster", "roles", "address", "status"), NewColumns())
 	modules.Register(Nodes)
 }
