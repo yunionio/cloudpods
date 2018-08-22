@@ -1,8 +1,6 @@
 package k8s
 
 import (
-	"fmt"
-
 	json "yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -43,21 +41,8 @@ func initChart() {
 		if err != nil {
 			return err
 		}
-		PrintHelmListResult(charts, ChartPrinter{})
+
+		PrintListResultTable(charts, k8s.Charts, s)
 		return nil
 	})
-}
-
-type ChartPrinter struct{}
-
-func (p ChartPrinter) Columns() []interface{} {
-	return []interface{}{"REPO/NAME", "VERSION", "DESCRIPTION"}
-}
-
-func (p ChartPrinter) RowKeys(obj *json.JSONDict) []interface{} {
-	repo, _ := obj.GetString("repo")
-	name, _ := obj.GetString("chart", "metadata", "name")
-	version, _ := obj.GetString("chart", "metadata", "version")
-	desc, _ := obj.GetString("chart", "metadata", "description")
-	return []interface{}{fmt.Sprintf("%s/%s", repo, name), version, desc}
 }

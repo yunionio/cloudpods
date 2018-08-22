@@ -9,15 +9,11 @@ var (
 )
 
 type ReleaseManager struct {
-	modules.ResourceManager
+	*NamespaceResourceManager
 }
 
 func init() {
 	Releases = &ReleaseManager{
-		ResourceManager: *NewManager(
-			"release", "releases",
-			NewNamespaceCols(""),
-			NewColumns(),
-		)}
+		NewNamespaceResourceManager("release", "releases", NewColumns(), NewColumns())}
 	modules.Register(Releases)
 }

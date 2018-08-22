@@ -7,14 +7,13 @@ import (
 var ConfigMaps *ConfigMapManager
 
 type ConfigMapManager struct {
-	modules.ResourceManager
+	*NamespaceResourceManager
 }
 
 func init() {
 	ConfigMaps = &ConfigMapManager{
-		ResourceManager: *NewManager(
+		NamespaceResourceManager: NewNamespaceResourceManager(
 			"configmap", "configmaps",
-			NewNamespaceCols(),
-			NewClusterCols())}
+			NewColumns(), NewColumns())}
 	modules.Register(ConfigMaps)
 }

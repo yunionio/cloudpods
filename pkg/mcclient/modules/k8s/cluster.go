@@ -5,12 +5,12 @@ import (
 )
 
 var (
-	Clusters *modules.ResourceManager
+	Clusters *ResourceManager
 )
 
 func init() {
-	Clusters = NewManager("kube_cluster", "kube_clusters",
+	Clusters = NewResourceManager("kube_cluster", "kube_clusters",
 		NewResourceCols("mode", "k8s_version", "status", "api_endpoint"),
-		NewColumns())
+		NewColumns("is_public"))
 	modules.Register(Clusters)
 }

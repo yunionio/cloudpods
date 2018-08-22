@@ -1,17 +1,59 @@
 package k8s
 
 import (
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/sets"
 
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
-func NewManager(keyword, keywordPlural string, columns, adminColumns *Columns) *modules.ResourceManager {
-	return &modules.ResourceManager{
+type ResourceManager struct {
+	*modules.ResourceManager
+}
+
+func NewResourceManager(keyword, keywordPlural string, columns, adminColumns *Columns) *ResourceManager {
+	man := &modules.ResourceManager{
 		BaseManager:   *modules.NewBaseManager("k8s", "", "", columns.Array(), adminColumns.Array()),
 		Keyword:       keyword,
 		KeywordPlural: keywordPlural,
 	}
+	return &ResourceManager{man}
+}
+
+type ClusterResourceManager struct {
+	*ResourceManager
+}
+
+func NewClusterResourceManager(keyword, keywordPlural string, columns, adminColumns *Columns) *ClusterResourceManager {
+	newAdminCols := NewClusterCols(adminColumns.Array()...)
+	man := NewResourceManager(keyword, keywordPlural, columns, newAdminCols)
+	return &ClusterResourceManager{man}
+}
+
+func (man ClusterResourceManager) GetCluster(obj jsonutils.JSONObject) interface{} {
+	cluster, _ := obj.GetString("cluster")
+	return cluster
+}
+
+type NamespaceResourceManager struct {
+	*ClusterResourceManager
+}
+
+func NewNamespaceResourceManager(kw, kwp string, columns, adminColumns *Columns) *NamespaceResourceManager {
+	newCols := NewNamespaceCols(columns.Array()...)
+	man := NewClusterResourceManager(kw, kwp, newCols, adminColumns)
+	return &NamespaceResourceManager{man}
+}
+
+func (m NamespaceResourceManager) GetName(obj jsonutils.JSONObject) interface{} {
+	name, _ := obj.GetString("name")
+	return name
+}
+
+func (m NamespaceResourceManager) GetNamespace(obj jsonutils.JSONObject) interface{} {
+	ns, _ := obj.GetString("namespace")
+	return ns
 }
 
 type Columns struct {
@@ -44,13 +86,17 @@ func (c Columns) Array() []string {
 }
 
 func NewNamespaceCols(col ...string) *Columns {
-	return NewColumns("name", "namespace").Add(col...)
+	return NewColumns("Name", "Namespace").Add(col...)
 }
 
 func NewClusterCols(col ...string) *Columns {
-	return NewColumns("cluster").Add(col...)
+	return NewColumns("Cluster").Add(col...)
 }
 
 func NewResourceCols(col ...string) *Columns {
-	return NewColumns("name", "id").Add(col...)
+	return NewColumns("Name", "Id").Add(col...)
+}
+
+type ListPrinter interface {
+	GetColumns(*mcclient.ClientSession) []string
 }

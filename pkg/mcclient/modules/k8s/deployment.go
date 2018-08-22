@@ -7,14 +7,12 @@ import (
 var Deployments *DeploymentManager
 
 type DeploymentManager struct {
-	modules.ResourceManager
+	*NamespaceResourceManager
 }
 
 func init() {
 	Deployments = &DeploymentManager{
-		ResourceManager: *NewManager(
-			"deployment", "deployments",
-			NewNamespaceCols("labels"),
-			NewClusterCols())}
+		NewNamespaceResourceManager("deployment", "deployments",
+			NewColumns("labels"), NewColumns())}
 	modules.Register(Deployments)
 }
