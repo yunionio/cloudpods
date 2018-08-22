@@ -3,7 +3,7 @@
 REPO_PREFIX := yunion.io/x/onecloud
 VENDOR_PATH := $(REPO_PREFIX)/vendor
 VERSION_PKG := $(VENDOR_PATH)/yunion.io/x/pkg/util/version
-ROOT_DIR := $(shell readlink -f `pwd`)
+ROOT_DIR := $(CURDIR)
 BUILD_DIR := $(ROOT_DIR)/_output
 BIN_DIR := $(BUILD_DIR)/bin
 BUILD_SCRIPT := $(ROOT_DIR)/build/build.sh
