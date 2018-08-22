@@ -250,15 +250,15 @@ func Id2RegionZone(id string) (string, string) {
 	}
 }
 
-func (catalog KeystoneServiceCatalogV3) GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
-	url, err := catalog.GetServiceURL(service, region, zone, endpointType)
+func (catalog KeystoneServiceCatalogV3) GetServiceURL(service, region, zone, endpointType string) (string, error) {
+	urls, err := catalog.GetServiceURLs(service, region, zone, endpointType)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return []string{url}, nil
+	return urls[rand.Intn(len(urls))], nil
 }
 
-func (catalog KeystoneServiceCatalogV3) GetServiceURL(service, region, zone, endpointType string) (string, error) {
+func (catalog KeystoneServiceCatalogV3) GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
 	if endpointType == "" {
 		endpointType = "internalURL"
 	}
@@ -289,7 +289,7 @@ func (catalog KeystoneServiceCatalogV3) GetServiceURL(service, region, zone, end
 						break
 					}
 				} else {
-					return "", fmt.Errorf("No default region")
+					return nil, fmt.Errorf("No default region")
 				}
 			} else {
 				_, ok := regeps[regionzone]
@@ -298,14 +298,14 @@ func (catalog KeystoneServiceCatalogV3) GetServiceURL(service, region, zone, end
 				} else {
 					selected, ok = regeps[region]
 					if !ok {
-						return "", fmt.Errorf("No valid %s endpoints for %s in region %s", endpointType, service, RegionID(region, zone))
+						return nil, fmt.Errorf("No valid %s endpoints for %s in region %s", endpointType, service, RegionID(region, zone))
 					}
 				}
 			}
-			return selected[rand.Intn(len(selected))], nil
+			return selected, nil
 		}
 	}
-	return "", fmt.Errorf("No such service %s", service)
+	return nil, fmt.Errorf("No such service %s", service)
 }
 
 func (self *TokenCredentialV3) String() string {
