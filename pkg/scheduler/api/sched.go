@@ -551,7 +551,15 @@ func newBaremetalDiskConfigFromSimpleJson(sjson *simplejson.Json) (*BaremetalDis
 	rangeArray := make([]int64, 0)
 	ranges := sjson.Get("range").MustArray()
 	for _, size := range ranges {
-		rangeArray = append(rangeArray, size.(int64))
+		sizeNum, ok := size.(json.Number)
+		if !ok {
+			return nil, fmt.Errorf("Invalid range size, not json.Number: %v", size)
+		}
+		rangeSize, err := sizeNum.Int64()
+		if err != nil {
+			return nil, err
+		}
+		rangeArray = append(rangeArray, rangeSize)
 	}
 	baremetalDiskConfig.Range = rangeArray
 
