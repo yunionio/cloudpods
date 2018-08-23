@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/utils"
 )
@@ -20,7 +21,6 @@ func (ts *STableSpec) prepareUpdate(dt interface{}) (*SUpdateSession, error) {
 	if reflect.ValueOf(dt).Kind() != reflect.Ptr {
 		return nil, fmt.Errorf("Update input must be a Pointer")
 	}
-	dataType := reflect.TypeOf(dt).Elem()
 	dataValue := reflect.ValueOf(dt).Elem()
 	fields := reflectutils.FetchStructFieldNameValueInterfaces(dataValue) //  fetchStructFieldNameValue(dataType, dataValue)
 
@@ -41,8 +41,7 @@ func (ts *STableSpec) prepareUpdate(dt interface{}) (*SUpdateSession, error) {
 			strings.Join(zeroPrimary, ","), strings.Join(zeroKeyIndex, ","))
 	}
 
-	originValue := reflect.Indirect(reflect.New(dataType))
-	originValue.Set(dataValue)
+	originValue := gotypes.DeepCopyRv(dataValue)
 	us := SUpdateSession{oValue: originValue, tableSpec: ts}
 	return &us, nil
 }

@@ -189,7 +189,6 @@ func (self *SRegion) GetInstance(resourceGroup string, VMName string) (*SInstanc
 		return nil, err
 	} else {
 		instance.ResourceGroup = resourceGroup
-		log.Infof("instance: %s", jsonutils.Marshal(instance).PrettyString())
 		return &instance, nil
 	}
 }
@@ -213,7 +212,6 @@ func (self *SRegion) GetInstances() ([]SInstance, error) {
 					return instances, err
 				}
 				instance.ResourceGroup, _, _ = pareResourceGroupWithName(instance.ID)
-				log.Infof("GetInstances: %s", jsonutils.Marshal(&instance).PrettyString())
 				instances = append(instances, instance)
 			}
 		}
@@ -304,7 +302,8 @@ func (self *SInstance) DeleteVM() error {
 func (self *SInstance) getDiskWithStore(resourceGroup string, diskName string) (*SDisk, error) {
 	if disk, err := self.host.zone.region.GetDisk(resourceGroup, diskName); err != nil {
 		return nil, err
-	} else if store, err := self.host.zone.getStorageByTier(disk.Sku.Tier); err != nil {
+	} else if store, err := self.host.zone.getStorageByType(string(disk.Sku.Tier)); err != nil {
+		log.Errorf("fail to find storage for disk(%s) : %v", disk.Name, err)
 		return nil, err
 	} else {
 		disk.storage = store
@@ -338,6 +337,9 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 			return nil, err
 		}
 	}
+	for _, disk := range self.idisks {
+		log.Debugf("find disk %s for instance %s", disk.GetName(), self.GetName())
+	}
 	return self.idisks, nil
 }
 
@@ -356,6 +358,9 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 			nic.instance = self
 			nics = append(nics, nic)
 		}
+	}
+	for _, nic := range nics {
+		log.Debugf("find nic %s for instance %s", nic.GetIP(), self.Name)
 	}
 	return nics, nil
 }

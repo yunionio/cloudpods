@@ -1,9 +1,13 @@
 package azure
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/log"
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-10-01/storage"
+	"yunion.io/x/pkg/utils"
 )
 
 type SZone struct {
@@ -12,8 +16,9 @@ type SZone struct {
 	iwires    []cloudprovider.ICloudWire
 	istorages []cloudprovider.ICloudStorage
 
-	host *SHost
+	storageTypes []string
 	Name string
+	host *SHost
 }
 
 func (self *SZone) GetId() string {
@@ -48,19 +53,38 @@ func (self *SZone) getHost() *SHost {
 	return self.host
 }
 
+func (self *SZone) getStorageTypes() error {
+	storageClinet := storage.NewSkusClientWithBaseURI(self.region.client.baseUrl, self.region.SubscriptionID)
+	storageClinet.Authorizer = self.region.client.authorizer
+
+	if skuList, err := storageClinet.List(context.Background()); err != nil {
+		return err
+	} else {
+		for _, sku := range *skuList.Value {
+			if len(*sku.Locations) > 0 && (*sku.Locations)[0] == self.region.Name {
+				if !utils.IsInStringArray(string(sku.Tier), self.storageTypes) {
+					self.storageTypes = append(self.storageTypes, string(sku.Tier))
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {
 	return self.region
 }
 
 func (self *SZone) fetchStorages() error {
-	if storages, err := self.region.getStorage(); err != nil {
-		return err
-	} else {
-		self.istorages = make([]cloudprovider.ICloudStorage, len(storages))
-		for i := 0; i < len(storages); i++ {
-			storages[i].zone = self
-			self.istorages[i] = &storages[i]
+	if len(self.storageTypes) == 0 {
+		if err := self.getStorageTypes(); err != nil {
+			return err
 		}
+	}
+	self.istorages = make([]cloudprovider.ICloudStorage, len(self.storageTypes))
+	for i, storageType := range self.storageTypes {
+		storage := SStorage{zone: self, storageType: storageType}
+		self.istorages[i] = &storage
 	}
 	return nil
 }
@@ -84,18 +108,19 @@ func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SZone) getStorageByTier(tier string) (*SStorage, error) {
-	storages, err := self.GetIStorages()
-	if err != nil {
+func (self *SZone) getStorageByType(storageType string) (*SStorage, error) {
+	if storages, err := self.GetIStorages(); err != nil {
 		return nil, err
-	}
-	for i := 0; i < len(storages); i += 1 {
-		storage := storages[i].(*SStorage)
-		if storage.Tier == tier {
-			return storage, nil
+	} else {
+		for i := 0; i < len(storages); i += 1 {
+			storage := storages[i].(*SStorage)
+			log.Debugf("find storage %s now is %s", storageType, storage.storageType)
+			if storage.storageType == storageType {
+				return storage, nil
+			}
 		}
 	}
-	return nil, fmt.Errorf("No such storage %s", tier)
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {

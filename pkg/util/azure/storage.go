@@ -4,29 +4,28 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
+
 type SStorage struct {
-	zone        *SZone
-	StorageId   string
+	zone *SZone
+
 	storageType string
-	Name        string
-	Status      string
-	Tier        string
 }
 
 func (self *SStorage) GetId() string {
-	return self.StorageId
+	return fmt.Sprintf("%s/%s", self.zone.GetGlobalId(), self.storageType)
 }
 
 func (self *SStorage) GetName() string {
-	return fmt.Sprintf("%s-%s", self.zone.region.client.providerName, self.Name)
+	return fmt.Sprintf("%s/%s", self.zone.region.GetGlobalId(), self.storageType)
 }
 
 func (self *SStorage) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s/%s", self.zone.region.GetGlobalId(), self.zone.region.client.subscriptionId, self.Name)
+	return fmt.Sprintf("%s/%s/%s", self.zone.region.GetGlobalId(), self.zone.region.client.subscriptionId, self.storageType)
 }
 
 func (self *SStorage) IsEmulated() bool {
@@ -75,10 +74,15 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	if disks, err := self.zone.region.GetDisks(); err != nil {
 		return nil, err
 	} else {
-		idisks := make([]cloudprovider.ICloudDisk, len(disks))
+		idisks := make([]cloudprovider.ICloudDisk, 0)
 		for i := 0; i < len(disks); i += 1 {
-			disks[i].storage = self
-			idisks[i] = &disks[i]
+			if disks[i].Location == self.zone.region.Name && disks[i].Sku.Tier == self.storageType {
+				disks[i].storage = self
+				idisks = append(idisks, &disks[i])
+			}
+		}
+		for _, disk := range idisks {
+			log.Debugf("find disk %s for storage %s", disk.GetName(), self.GetName())
 		}
 		return idisks, nil
 	}
@@ -93,7 +97,7 @@ func (self *SStorage) GetManagerId() string {
 }
 
 func (self *SStorage) GetMediumType() string {
-	if self.Tier == "Premium" {
+	if self.storageType == "Premium" {
 		return models.DISK_TYPE_SSD
 	}
 	return models.DISK_TYPE_ROTATE
@@ -109,7 +113,6 @@ func (self *SStorage) GetStatus() string {
 }
 
 func (self *SStorage) GetStorageType() string {
-	//return models.STORAGE_PUBLIC_CLOUD
 	return self.storageType
 }
 

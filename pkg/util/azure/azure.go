@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/profiles/latest/resources/mgmt/resources"
 	"github.com/Azure/azure-sdk-for-go/services/preview/subscription/mgmt/2018-03-01-preview/subscription"
 
 	"github.com/Azure/go-autorest/autorest"
@@ -36,7 +35,6 @@ type SAzureClient struct {
 	clientScret    string
 	baseUrl        string
 	secret         string
-	resourceGroups map[string][]string
 	authorizer     autorest.Authorizer
 	iregions       []cloudprovider.ICloudRegion
 }
@@ -66,21 +64,6 @@ func (self *SAzureClient) fetchAzureInof() error {
 	} else {
 		self.authorizer = authorizer
 	}
-	resourceClient := resources.NewClientWithBaseURI(self.baseUrl, self.subscriptionId)
-	resourceClient.Authorizer = self.authorizer
-	if resourceList, err := resourceClient.List(context.Background(), "", "", nil); err != nil {
-		return err
-	} else {
-		self.resourceGroups = make(map[string][]string, len(resourceList.Values()))
-		for _, resource := range resourceList.Values() {
-			if _, ok := self.resourceGroups[*resource.Type]; !ok {
-				self.resourceGroups[*resource.Type] = []string{}
-			}
-			self.resourceGroups[*resource.Type] = append(self.resourceGroups[*resource.Type], *resource.Name)
-			log.Errorf("find resource group: %s => %s", *resource.Type, *resource.Name)
-		}
-	}
-
 	return nil
 }
 
@@ -122,7 +105,6 @@ func (self *SAzureClient) fetchRegions() error {
 			}
 			region.client = self
 			self.iregions[i] = &region
-			log.Infof("find region: %s", jsonutils.Marshal(region).PrettyString())
 		}
 	}
 	return nil
@@ -138,6 +120,9 @@ func (self *SAzureClient) GetRegions() []SRegion {
 }
 
 func (self *SAzureClient) GetIRegions() []cloudprovider.ICloudRegion {
+	for _, region := range self.iregions {
+		log.Debugf("find region %s for Azure", region.GetName())
+	}
 	return self.iregions
 }
 

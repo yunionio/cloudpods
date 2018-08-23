@@ -2,18 +2,10 @@ package azure
 
 import (
 	"fmt"
-	"strings"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/pkg/util/netutils"
-)
-
-// {"AvailableIpAddressCount":4091,"CidrBlock":"172.31.32.0/20","CreationTime":"2017-03-19T13:37:44Z","Description":"System created default virtual switch.","IsDefault":true,"Status":"Available","VSwitchId":"vsw-j6c3gig5ub4fmi2veyrus","VSwitchName":"","VpcId":"vpc-j6c86z3sh8ufhgsxwme0q","ZoneId":"cn-hongkong-b"}
-
-const (
-	VSwitchPending   = "Pending"
-	VSwitchAvailable = "Available"
 )
 
 type SNetwork struct {
@@ -24,7 +16,7 @@ type SNetwork struct {
 	Name                    string
 	Properties              SubnetPropertiesFormat
 
-	Status string
+	// Status string
 }
 
 func (self *SNetwork) GetId() string {
@@ -32,10 +24,7 @@ func (self *SNetwork) GetId() string {
 }
 
 func (self *SNetwork) GetName() string {
-	if len(self.Name) > 0 {
-		return self.Name
-	}
-	return self.ID
+	return self.Name
 }
 
 func (self *SNetwork) GetGlobalId() string {
@@ -47,10 +36,11 @@ func (self *SNetwork) IsEmulated() bool {
 }
 
 func (self *SNetwork) GetStatus() string {
-	if strings.ToLower(self.Status) == "succeeded" {
-		return "avaliable"
-	}
-	return "disabled"
+	return "avaliable"
+	// if strings.ToLower(self.Status) == "succeeded" {
+	// 	return "avaliable"
+	// }
+	// return "disabled"
 }
 
 func (self *SNetwork) Delete() error {

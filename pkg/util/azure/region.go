@@ -166,19 +166,8 @@ func (self *SRegion) getStorage() ([]SStorage, error) {
 	storageClient.Authorizer = self.client.authorizer
 	if storageList, err := storageClient.List(context.Background()); err != nil {
 		return nil, err
-	} else {
-		for _, _storage := range *storageList.Value {
-			if *_storage.Location == self.Name {
-				storage := SStorage{
-					StorageId:   *_storage.ID,
-					storageType: string(_storage.Kind),
-					Name:        *_storage.Name,
-					Status:      string(_storage.StatusOfPrimary),
-					Tier:        string(_storage.Sku.Tier),
-				}
-				storages = append(storages, storage)
-			}
-		}
+	} else if err := jsonutils.Update(&storages, storageList.Value); err != nil {
+		return storages, err
 	}
 	return storages, nil
 }
@@ -204,7 +193,6 @@ func (self *SRegion) fetchIVpc() error {
 			if vpcs[i].Location == self.Name {
 				vpcs[i].region = self
 				self.ivpcs = append(self.ivpcs, &vpcs[i])
-				log.Infof("find region %s vpcs: %s", self.Name, jsonutils.Marshal(&vpcs[i]).PrettyString())
 			}
 		}
 	}
@@ -216,6 +204,9 @@ func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 		if err := self.fetchInfrastructure(); err != nil {
 			return nil, err
 		}
+	}
+	for _, vpc := range self.ivpcs {
+		log.Debugf("find vpc %s for region %s", vpc.GetName(), self.GetName())
 	}
 	return self.ivpcs, nil
 }

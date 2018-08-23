@@ -2,6 +2,8 @@ package azure
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -26,25 +28,42 @@ type DiskSku struct {
 	Tier string
 }
 
+type ImageDiskReference struct {
+	ID  string
+	Lun int32
+}
+
+type CreationData struct {
+	CreateOption     string
+	StorageAccountID string
+	ImageReference   ImageDiskReference
+	SourceURI        string
+	SourceResourceID string
+}
+
+type DiskProperties struct {
+	TimeCreated       time.Time
+	OsType            OperatingSystemTypes
+	CreationData      CreationData
+	DiskSizeGB        int32
+	ProvisioningState string
+}
+
 type SDisk struct {
 	storage *SStorage
 
-	DiskName           string
-	DiskId             string
-	Size               int32
 	DeleteWithInstance bool
-	ImageId            string
-	OsType             string
 	Status             string
-	resourceGroup      string
+	ResourceGroup      string
 
-	ManagedBy string
-	Sku       DiskSku
-	Zones     []string
-	ID        string
-	Name      string
-	Type      string
-	Location  string
+	ManagedBy  string
+	Sku        DiskSku
+	Zones      []string
+	ID         string
+	Name       string
+	Type       string
+	Location   string
+	Properties DiskProperties
 
 	Tags map[string]string
 }
@@ -74,7 +93,7 @@ func (self *SRegion) GetDisks() ([]SDisk, error) {
 			if err := jsonutils.Update(&disk, _disk); err != nil {
 				return disks, err
 			}
-			disk.resourceGroup, _, _ = pareResourceGroupWithName(disk.ID)
+			disk.ResourceGroup, _, _ = pareResourceGroupWithName(disk.ID)
 			disks = append(disks, disk)
 		}
 	}
@@ -92,7 +111,7 @@ func (self *SDisk) GetStatus() string {
 }
 
 func (self *SDisk) GetId() string {
-	return self.DiskId
+	return fmt.Sprintf("%s/%s/%s", self.storage.zone.region.GetGlobalId(), self.storage.zone.region.SubscriptionID, self.Name)
 }
 
 func (self *SRegion) getDisk(resourceGroup string, diskName string) (*SDisk, error) {
@@ -100,7 +119,7 @@ func (self *SRegion) getDisk(resourceGroup string, diskName string) (*SDisk, err
 }
 
 func (self *SDisk) Refresh() error {
-	if disk, err := self.storage.zone.region.GetDisk(self.resourceGroup, self.Name); err != nil {
+	if disk, err := self.storage.zone.region.GetDisk(self.ResourceGroup, self.Name); err != nil {
 		return err
 	} else {
 		return jsonutils.Update(self, disk)
@@ -118,14 +137,14 @@ func (self *SDisk) Resize(size int64) error {
 }
 
 func (self *SDisk) GetName() string {
-	if len(self.DiskName) > 0 {
-		return self.DiskName
+	if len(self.Name) > 0 {
+		return self.Name
 	}
-	return self.DiskId
+	return self.ID
 }
 
 func (self *SDisk) GetGlobalId() string {
-	return self.DiskId
+	return self.GetId()
 }
 
 func (self *SDisk) IsEmulated() bool {
@@ -161,7 +180,7 @@ func (self *SDisk) GetDiskFormat() string {
 }
 
 func (self *SDisk) GetDiskSizeMB() int {
-	return int(self.Size) * 1024
+	return int(self.Properties.DiskSizeGB) * 1024
 }
 
 func (self *SDisk) GetIsAutoDelete() bool {
@@ -169,11 +188,11 @@ func (self *SDisk) GetIsAutoDelete() bool {
 }
 
 func (self *SDisk) GetTemplateId() string {
-	return self.ImageId
+	return self.Properties.CreationData.ImageReference.ID
 }
 
 func (self *SDisk) GetDiskType() string {
-	if len(self.OsType) > 0 {
+	if len(self.Properties.OsType) > 0 {
 		return models.DISK_TYPE_SYS
 	}
 	return models.DISK_TYPE_DATA

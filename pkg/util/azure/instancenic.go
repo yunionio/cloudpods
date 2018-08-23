@@ -2,10 +2,12 @@ package azure
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/pkg/util/netutils"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
 )
@@ -59,8 +61,6 @@ func (self *SRegion) getNetworkInterface(resourceGroup string, nicName string) (
 		return nil, err
 	} else if err := jsonutils.Update(&nic, _nic); err != nil {
 		return nil, err
-	} else {
-		log.Infof("get nic: %s", jsonutils.Marshal(_nic).PrettyString())
 	}
 	return &nic, nil
 }
@@ -70,7 +70,12 @@ func (self *SInstanceNic) GetIP() string {
 }
 
 func (self *SInstanceNic) GetMAC() string {
-	return self.Properties.MacAddress
+	mac := self.Properties.MacAddress
+	if len(mac) == 0 {
+		ip, _ := netutils.NewIPV4Addr(self.GetIP())
+		return ip.ToMac("00:16:")
+	}
+	return strings.Replace(strings.ToLower(mac), "-", ":", -1)
 }
 
 func (self *SInstanceNic) GetDriver() string {
