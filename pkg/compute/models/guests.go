@@ -910,6 +910,12 @@ func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 	if zone != nil {
 		extra.Add(jsonutils.NewString(zone.Id), "zone_id")
 		extra.Add(jsonutils.NewString(zone.Name), "zone")
+
+		region := zone.GetRegion()
+		if region != nil {
+			extra.Add(jsonutils.NewString(region.Id), "region_id")
+			extra.Add(jsonutils.NewString(region.Name), "region")
+		}
 	}
 	extra.Add(jsonutils.NewString(self.getSecgroupName()), "secgroup")
 
@@ -951,6 +957,12 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 	if zone != nil {
 		extra.Add(jsonutils.NewString(zone.GetId()), "zone_id")
 		extra.Add(jsonutils.NewString(zone.GetName()), "zone")
+
+		region := zone.GetRegion()
+		if region != nil {
+			extra.Add(jsonutils.NewString(region.Id), "region_id")
+			extra.Add(jsonutils.NewString(region.Name), "region")
+		}
 	}
 	return extra
 }
