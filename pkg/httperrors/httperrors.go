@@ -35,52 +35,52 @@ func GeneralServerError(w http.ResponseWriter, e error) {
 	}
 }
 
-func BadRequestError(w http.ResponseWriter, msg string) {
-	JsonClientError(w, NewBadRequestError(msg))
+func BadRequestError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewBadRequestError(msg, params...))
 }
 
-func PaymentError(w http.ResponseWriter, msg string) {
-	JsonClientError(w, NewPaymentError(msg))
+func PaymentError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewPaymentError(msg, params...))
 }
 
-func UnauthorizedError(w http.ResponseWriter, msg string) {
-	JsonClientError(w, NewUnauthorizedError(msg))
+func UnauthorizedError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewUnauthorizedError(msg, params...))
 }
 
-func InvalidCredentialError(w http.ResponseWriter, msg string) {
-	JsonClientError(w, NewInvalidCredentialError(msg))
+func InvalidCredentialError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewInvalidCredentialError(msg, params...))
 }
 
-func ForbiddenError(w http.ResponseWriter, msg string) {
-	JsonClientError(w, NewForbiddenError(msg))
+func ForbiddenError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewForbiddenError(msg, params...))
 }
 
-func NotFoundError(w http.ResponseWriter, msg string) {
-	JsonClientError(w, NewNotFoundError(msg))
+func NotFoundError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewNotFoundError(msg, params...))
 }
 
-func NotImplementedError(w http.ResponseWriter, msg string) {
-	JsonClientError(w, NewNotImplementedError(msg))
+func NotImplementedError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewNotImplementedError(msg, params...))
 }
 
-func NotAcceptableError(w http.ResponseWriter, msg string) {
-	JsonClientError(w, NewNotAcceptableError(msg))
+func NotAcceptableError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewNotAcceptableError(msg, params...))
 }
 
-func InvalidInputError(w http.ResponseWriter, msg string) {
-	JsonClientError(w, NewInputParameterError(msg))
+func InvalidInputError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewInputParameterError(msg, params...))
 }
 
-func ConflictError(w http.ResponseWriter, msg string) {
-	JsonClientError(w, NewConflictError(msg))
+func ConflictError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewConflictError(msg, params...))
 }
 
-func InternalServerError(w http.ResponseWriter, msg string) {
-	JsonClientError(w, NewInternalServerError(msg))
+func InternalServerError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewInternalServerError(msg, params...))
 }
 
-func BadGatewayError(w http.ResponseWriter, msg string) {
-	JsonClientError(w, NewBadGatewayError(msg))
+func BadGatewayError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewBadGatewayError(msg, params...))
 }
 
 func TenantNotFoundError(w http.ResponseWriter, msg string, params ...interface{}) {
