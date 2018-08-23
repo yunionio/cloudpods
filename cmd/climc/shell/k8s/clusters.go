@@ -2,8 +2,11 @@ package k8s
 
 import (
 	"fmt"
+	"io/ioutil"
+	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
@@ -30,7 +33,7 @@ func initCluster() {
 	type createOpt struct {
 		NAME       string `help:"Name of cluster"`
 		Mode       string `help:"Cluster mode" choices:"internal"`
-		K8sVersion string `help:"Cluster kubernetes components version" choices:"v1.8.10|v1.9.5|v1.10.0" default:"v1.9.5"`
+		K8sVersion string `help:"Cluster kubernetes components version" choices:"v1.8.10|v1.9.5|v1.10.0"`
 		InfraImage string `help:"Cluster kubelet infra container image"`
 		Cidr       string `help:"Cluster service CIDR, e.g. 10.43.0.0/16"`
 		Domain     string `help:"Cluster pod domain, e.g. cluster.local"`
@@ -54,6 +57,29 @@ func initCluster() {
 			params.Add(jsonutils.NewString(args.Domain), "cluster_domain")
 		}
 		cluster, err := k8s.Clusters.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(cluster)
+		return nil
+	})
+
+	type importOpt struct {
+		NAME       string `help:"Name of cluster to import"`
+		Kubeconfig string `help:"Kubernetes auth config"`
+	}
+	R(&importOpt{}, cmdN("import"), "Import exists YKE deployed kubernetes cluster", func(s *mcclient.ClientSession, args *importOpt) error {
+		if args.Kubeconfig == "" {
+			return fmt.Errorf("Kubeconfig file must provide")
+		}
+		kubeconfig, err := ioutil.ReadFile(args.Kubeconfig)
+		if err != nil {
+			return fmt.Errorf("Read kube config %q error: %v", args.Kubeconfig, err)
+		}
+
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(string(kubeconfig)), "kube_config")
+		cluster, err := k8s.Clusters.PerformAction(s, args.NAME, "import", params)
 		if err != nil {
 			return err
 		}
@@ -170,21 +196,63 @@ func initCluster() {
 		return nil
 	})
 
-	R(&getOpt{}, cmdN("public"), "Perform cluster public", func(s *mcclient.ClientSession, args *getOpt) error {
-		ret, err := k8s.Clusters.PerformAction(s, args.ID, "public", nil)
+	type addNodesOpt struct {
+		identOpt
+		NodeConfig []string `help:"Node spec, 'host:[roles]' e.g: --node-config host01:controlplane,etcd,worker --node-config host02:worker"`
+		AutoDeploy bool     `help:"Auto deploy"`
+	}
+	R(&addNodesOpt{}, cmdN("addnodes"), "Add nodes to cluster", func(s *mcclient.ClientSession, args *addNodesOpt) error {
+		params := jsonutils.NewDict()
+		if args.AutoDeploy {
+			params.Add(jsonutils.JSONTrue, "auto_deploy")
+		}
+		nodesArray := jsonutils.NewArray()
+		for _, config := range args.NodeConfig {
+			opt, err := parseNodeAddConfigStr(config)
+			if err != nil {
+				return err
+			}
+			nodesArray.Add(jsonutils.Marshal(opt))
+		}
+		params.Add(nodesArray, "nodes")
+		ret, err := k8s.Clusters.PerformAction(s, args.ID, "add-nodes", params)
 		if err != nil {
 			return err
 		}
 		printObject(ret)
 		return nil
 	})
+}
 
-	R(&getOpt{}, cmdN("private"), "Perform cluster private", func(s *mcclient.ClientSession, args *getOpt) error {
-		ret, err := k8s.Clusters.PerformAction(s, args.ID, "private", nil)
-		if err != nil {
-			return err
+type dockerConfig struct {
+	RegistryMirrors    []string `json:"registry-mirrors"`
+	InsecureRegistries []string `json:"insecure-registries"`
+}
+
+type nodeAddConfig struct {
+	Host             string       `json:"host"`
+	Roles            []string     `json:"roles"`
+	Name             string       `json:"name"`
+	HostnameOverride string       `json:"hostname_override"`
+	DockerdConfig    dockerConfig `json:"dockerd_config"`
+}
+
+func parseNodeAddConfigStr(config string) (nodeAddConfig, error) {
+	ret := nodeAddConfig{}
+	parts := strings.Split(config, ":")
+	if len(parts) != 2 {
+		return ret, fmt.Errorf("Invalid config: %q", config)
+	}
+	host := parts[0]
+	roleStr := parts[1]
+	ret.Host = host
+	roles := []string{}
+	for _, role := range strings.Split(roleStr, ",") {
+		if !sets.NewString("etcd", "controlplane", "worker").Has(role) {
+			return ret, fmt.Errorf("Invalid role: %q", role)
 		}
-		printObject(ret)
-		return nil
-	})
+		roles = append(roles, role)
+	}
+	ret.Roles = roles
+	return ret, nil
 }
