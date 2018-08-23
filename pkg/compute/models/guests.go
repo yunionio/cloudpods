@@ -906,17 +906,7 @@ func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 	// extra.Add(jsonutils.NewString(self.getFlavorName()), "flavor")
 	extra.Add(jsonutils.NewString(self.getKeypairName()), "keypair")
 	extra.Add(jsonutils.NewInt(int64(self.getExtBandwidth())), "ext_bw")
-	zone := self.getZone()
-	if zone != nil {
-		extra.Add(jsonutils.NewString(zone.Id), "zone_id")
-		extra.Add(jsonutils.NewString(zone.Name), "zone")
 
-		region := zone.GetRegion()
-		if region != nil {
-			extra.Add(jsonutils.NewString(region.Id), "region_id")
-			extra.Add(jsonutils.NewString(region.Name), "region")
-		}
-	}
 	extra.Add(jsonutils.NewString(self.getSecgroupName()), "secgroup")
 
 	if self.PendingDeleted {
@@ -924,6 +914,28 @@ func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 		extra.Add(jsonutils.NewString(timeutils.FullIsoTime(pendingDeletedAt)), "auto_delete_at")
 	}
 
+	return self.moreExtraInfo(extra)
+}
+
+func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	zone := self.getZone()
+	if zone != nil {
+		extra.Add(jsonutils.NewString(zone.GetId()), "zone_id")
+		extra.Add(jsonutils.NewString(zone.GetName()), "zone")
+		if len(zone.ExternalId) > 0 {
+			extra.Add(jsonutils.NewString(zone.ExternalId), "zone_external_id")
+		}
+
+		region := zone.GetRegion()
+		if region != nil {
+			extra.Add(jsonutils.NewString(region.Id), "region_id")
+			extra.Add(jsonutils.NewString(region.Name), "region")
+
+			if len(region.ExternalId) > 0 {
+				extra.Add(jsonutils.NewString(region.ExternalId), "region_external_id")
+			}
+		}
+	}
 	return extra
 }
 
@@ -953,18 +965,7 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 		}
 		extra.Add(jsonutils.NewString(self.getAdminSecurityRules()), "admin_security_rules")
 	}
-	zone := self.getZone()
-	if zone != nil {
-		extra.Add(jsonutils.NewString(zone.GetId()), "zone_id")
-		extra.Add(jsonutils.NewString(zone.GetName()), "zone")
-
-		region := zone.GetRegion()
-		if region != nil {
-			extra.Add(jsonutils.NewString(region.Id), "region_id")
-			extra.Add(jsonutils.NewString(region.Name), "region")
-		}
-	}
-	return extra
+	return self.moreExtraInfo(extra)
 }
 
 func (self *SGuest) getNetworksDetails() string {
