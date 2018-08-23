@@ -202,49 +202,60 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 	if len(hypervisor) > 0 {
 		q = q.Equals("hypervisor", hypervisor)
 	}
+
 	hostFilter, _ := queryDict.GetString("host")
-	zoneFilter, _ := queryDict.GetString("zone")
-	wireFilter, _ := queryDict.GetString("wire")
-	networkFilter, _ := queryDict.GetString("network")
-	diskFilter, _ := queryDict.GetString("disk")
-	var sq *sqlchemy.SSubQuery
 	if len(hostFilter) > 0 {
 		host, _ := HostManager.FetchByIdOrName("", hostFilter)
 		if host == nil {
-			return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("host %s not found", hostFilter))
+			return nil, httperrors.NewResourceNotFoundError("host %s not found", hostFilter)
 		}
-		sq = HostManager.Query("id").Equals("id", host.GetId()).SubQuery()
-	} else if len(zoneFilter) > 0 {
+		q = q.Equals("host_id", host.GetId())
+	}
+
+	zoneFilter, _ := queryDict.GetString("zone")
+	if len(zoneFilter) > 0 {
 		zone, _ := ZoneManager.FetchByIdOrName("", zoneFilter)
 		if zone == nil {
-			return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("zone %s not found", zoneFilter))
+			return nil, httperrors.NewResourceNotFoundError("zone %s not found", zoneFilter)
 		}
 		hostTable := HostManager.Query().SubQuery()
 		zoneTable := ZoneManager.Query().SubQuery()
-		sq = hostTable.Query(hostTable.Field("id")).Join(zoneTable,
+		sq := hostTable.Query(hostTable.Field("id")).Join(zoneTable,
 			sqlchemy.Equals(zoneTable.Field("id"), hostTable.Field("zone_id"))).Filter(sqlchemy.Equals(zoneTable.Field("id"), zone.GetId())).SubQuery()
-	} else if len(wireFilter) > 0 {
+		q = q.In("host_id", sq)
+	}
+
+	wireFilter, _ := queryDict.GetString("wire")
+	if len(wireFilter) > 0 {
 		wire, _ := WireManager.FetchByIdOrName("", wireFilter)
 		if wire == nil {
-			return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("wire %s not found", wireFilter))
+			return nil, httperrors.NewResourceNotFoundError("wire %s not found", wireFilter)
 		}
 		hostTable := HostManager.Query().SubQuery()
 		hostWire := HostwireManager.Query().SubQuery()
-		sq = hostTable.Query(hostTable.Field("id")).Join(hostWire, sqlchemy.Equals(hostWire.Field("host_id"), hostTable.Field("id"))).Filter(sqlchemy.Equals(hostWire.Field("wire_id"), wire.GetId())).SubQuery()
-	} else if len(networkFilter) > 0 {
+		sq := hostTable.Query(hostTable.Field("id")).Join(hostWire, sqlchemy.Equals(hostWire.Field("host_id"), hostTable.Field("id"))).Filter(sqlchemy.Equals(hostWire.Field("wire_id"), wire.GetId())).SubQuery()
+		q = q.In("host_id", sq)
+	}
+
+	networkFilter, _ := queryDict.GetString("network")
+	if len(networkFilter) > 0 {
 		netI, _ := NetworkManager.FetchByIdOrName(userCred.GetProjectId(), networkFilter)
 		if netI == nil {
-			return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("network %s not found", networkFilter))
+			return nil, httperrors.NewResourceNotFoundError("network %s not found", networkFilter)
 		}
 		net := netI.(*SNetwork)
 		hostTable := HostManager.Query().SubQuery()
 		hostWire := HostwireManager.Query().SubQuery()
-		sq = hostTable.Query(hostTable.Field("id")).Join(hostWire,
+		sq := hostTable.Query(hostTable.Field("id")).Join(hostWire,
 			sqlchemy.Equals(hostWire.Field("host_id"), hostTable.Field("id"))).Filter(sqlchemy.Equals(hostWire.Field("wire_id"), net.WireId)).SubQuery()
-	} else if len(diskFilter) > 0 {
+		q = q.In("host_id", sq)
+	}
+
+	diskFilter, _ := queryDict.GetString("disk")
+	if len(diskFilter) > 0 {
 		diskI, _ := DiskManager.FetchByIdOrName(userCred.GetProjectId(), diskFilter)
 		if diskI == nil {
-			return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("disk %s not found", diskFilter))
+			return nil, httperrors.NewResourceNotFoundError("disk %s not found", diskFilter)
 		}
 		disk := diskI.(*SDisk)
 		guestdisks := GuestdiskManager.Query().SubQuery()
@@ -261,7 +272,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 			hosts := HostManager.Query().SubQuery()
 			hoststorages := HoststorageManager.Query().SubQuery()
 			storages := StorageManager.Query().SubQuery()
-			sq = hosts.Query(hosts.Field("id")).
+			sq := hosts.Query(hosts.Field("id")).
 				Join(hoststorages, sqlchemy.AND(
 					sqlchemy.Equals(hoststorages.Field("host_id"), hosts.Field("id")),
 					sqlchemy.IsFalse(hoststorages.Field("deleted")))).
@@ -269,11 +280,21 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 					sqlchemy.Equals(storages.Field("id"), hoststorages.Field("storage_id")),
 					sqlchemy.IsFalse(storages.Field("deleted")))).
 				Filter(sqlchemy.Equals(storages.Field("id"), disk.StorageId)).SubQuery()
+			q = q.In("host_id", sq)
 		}
 	}
-	if sq != nil {
+
+	managerFilter, _ := queryDict.GetString("manager")
+	if len(managerFilter) > 0 {
+		managerI, _ := CloudproviderManager.FetchByIdOrName(userCred.GetProjectId(), managerFilter)
+		if managerI == nil {
+			return nil, httperrors.NewResourceNotFoundError("cloud provider %s not found", managerFilter)
+		}
+		hosts := HostManager.Query().SubQuery()
+		sq := hosts.Query(hosts.Field("id")).Equals("manager_id", managerI.GetId()).SubQuery()
 		q = q.In("host_id", sq)
 	}
+
 	gpu, _ := queryDict.GetString("gpu")
 	if len(gpu) != 0 {
 		isodev := IsolatedDeviceManager.Query().SubQuery()
