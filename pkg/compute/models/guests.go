@@ -928,7 +928,7 @@ func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 	extra.Add(jsonutils.NewString(self.getKeypairName()), "keypair")
 	extra.Add(jsonutils.NewInt(int64(self.getExtBandwidth())), "ext_bw")
 
-	extra.Add(jsonutils.NewString(self.getSecgroupName()), "secgroup")
+	extra.Add(jsonutils.NewString(self.GetSecgroupName()), "secgroup")
 
 	if self.PendingDeleted {
 		pendingDeletedAt := self.PendingDeletedAt.Add(time.Second * time.Duration(options.Options.PendingDeleteExpireSeconds))
