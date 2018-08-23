@@ -189,3 +189,15 @@ func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
 	}
 	return secId, nil
 }
+
+func (self *SRegion) deleteSecurityGroup(secGrpId string) error {
+	params := make(map[string]string)
+	params["SecurityGroupId"] = secGrpId
+
+	_, err := self.ecsRequest("DeleteSecurityGroup", params)
+	if err != nil {
+		log.Errorf("Delete security group fail %s", err)
+		return err
+	}
+	return nil
+}
