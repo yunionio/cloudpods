@@ -8,18 +8,22 @@ import (
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
-func HTTPError(w http.ResponseWriter, msg string, statusCode int, class string) {
+func HTTPError(w http.ResponseWriter, msg string, statusCode int, class string, error httputils.Error) {
 	w.WriteHeader(statusCode)
 	w.Header().Set("Content-Type", "application/json")
 	body := jsonutils.NewDict()
 	body.Add(jsonutils.NewInt(int64(statusCode)), "code")
 	body.Add(jsonutils.NewString(msg), "details")
 	body.Add(jsonutils.NewString(class), "class")
+	err := jsonutils.NewDict()
+	err.Add(jsonutils.NewString(error.Id), "id")
+	err.Add(jsonutils.NewStringArray(error.Fields), "fields")
+	body.Add(err, "data")
 	w.Write([]byte(body.String()))
 }
 
 func JsonClientError(w http.ResponseWriter, e *httputils.JSONClientError) {
-	HTTPError(w, e.Details, e.Code, e.Class)
+	HTTPError(w, e.Details, e.Code, e.Class, e.Data)
 }
 
 func GeneralServerError(w http.ResponseWriter, e error) {

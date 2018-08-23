@@ -32,10 +32,16 @@ var (
 	cyan   = color.New(color.FgHiCyan, color.Bold).PrintlnFunc()
 )
 
+type Error struct {
+	Id     string
+	Fields []string
+}
+
 type JSONClientError struct {
 	Code    int
 	Class   string
 	Details string
+	Data    Error
 }
 
 func (e *JSONClientError) Error() string {
