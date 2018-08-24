@@ -2337,7 +2337,7 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 					disk.SetStatus(userCred, DISK_DETACHING, "")
 				}
 				taskData := jsonutils.NewDict()
-				taskData.Add(jsonutils.NewString(diskId), "disk_id")
+				taskData.Add(jsonutils.NewString(disk.Id), "disk_id")
 				taskData.Add(jsonutils.NewBool(keepDisk), "keep_disk")
 				self.GetDriver().StartGuestDetachdiskTask(ctx, userCred, self, taskData, "")
 				return nil, nil
