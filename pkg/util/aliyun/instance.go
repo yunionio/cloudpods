@@ -435,7 +435,7 @@ func (self *SRegion) StartVM(instanceId string) error {
 func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 	status, _ := self.GetInstanceStatus(instanceId)
 	if status != InstanceStatusRunning {
-		log.Errorf("StopVM: vm status is %s expect %s", status, InstanceStatusStopped)
+		log.Errorf("StopVM: vm status is %s expect %s", status, InstanceStatusRunning)
 		return cloudprovider.ErrInvalidStatus
 	}
 	return self.doStopVM(instanceId, isForce)
