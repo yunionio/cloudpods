@@ -36,7 +36,7 @@ func (t *STableSpec) insertSqlPrep(dataFields map[string]interface{}) (string, [
 		if ok && (dtc.IsCreatedAt || dtc.IsUpdatedAt) {
 			createdAtFields = append(createdAtFields, k)
 			names = append(names, fmt.Sprintf("`%s`", k))
-			format = append(format, "NOW()")
+			format = append(format, "UTC_TIMESTAMP()")
 		} else if ov != nil && !c.IsZero(ov) && !isAutoInc {
 			v := c.ConvertFromValue(ov)
 			values = append(values, v)
