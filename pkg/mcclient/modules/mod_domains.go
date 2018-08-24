@@ -240,12 +240,7 @@ func (this *DomainManager) DoDomainConfigDelete(s *mcclient.ClientSession, param
 			return ret, httperrors.NewResourceNotFoundError("找不到该认证域")
 		}
 
-		driver, err := detail.GetString("driver")
-		if err != nil {
-			log.Errorf("got driver from domain detail error: %v", err)
-			return ret, httperrors.NewInternalServerError("服务器错误,获取认证协议失败,不允许删除")
-		}
-
+		driver, _ := detail.GetString("driver")
 		if driver != "ldap" {
 			if result, err := UsersV3.List(s, params); err != nil {
 				log.Errorf("user list got error: %v", err)
