@@ -49,6 +49,9 @@ type ComputeOptions struct {
 
 	BaremetalPreparePackageUrl string `help:"Baremetal online register package"`
 
+	AutoSnapshotDay  int `default:"1" help:"Days auto snapshot disks, default 1 day"`
+	AutoSnapshotHour int `default:"2" help:"What hour take sanpshot, default 02:00"`
+
 	cloudcommon.DBOptions
 }
 

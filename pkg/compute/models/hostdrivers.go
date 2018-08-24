@@ -18,6 +18,7 @@ type IHostDriver interface {
 	RequestDeallocateDiskOnHost(host *SHost, storage *SStorage, disk *SDisk, task taskman.ITask) error
 	RequestResizeDiskOnHostOnline(host *SHost, storage *SStorage, disk *SDisk, size int64, task taskman.ITask) error
 	RequestResizeDiskOnHost(host *SHost, storage *SStorage, disk *SDisk, size int64, task taskman.ITask) error
+	RequestDeleteSnapshotWithStorage(ctx context.Context, host *SHost, snapshot *SSnapshot, task taskman.ITask) error
 }
 
 var hostDrivers map[string]IHostDriver

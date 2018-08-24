@@ -352,6 +352,23 @@ func init() {
 		return nil
 	})
 
+	type ServerDiskSnapshotOptions struct {
+		SERVER       string `help:"server ID or Name"`
+		DISK         string `help:"create snapshot disk id"`
+		SNAPSHOTNAME string `help:"Snapshot name"`
+	}
+	R(&ServerDiskSnapshotOptions{}, "server-disk-create-snapshot", "Task server disk snapshot", func(s *mcclient.ClientSession, args *ServerDiskSnapshotOptions) error {
+		params := jsonutils.NewDict()
+		params.Set("disk_id", jsonutils.NewString(args.DISK))
+		params.Set("name", jsonutils.NewString(args.SNAPSHOTNAME))
+		srv, err := modules.Servers.PerformAction(s, args.SERVER, "disk-snapshot", params)
+		if err != nil {
+			return err
+		}
+		printObject(srv)
+		return nil
+	})
+
 	type ServerInsertISOOptions struct {
 		ID  string `help:"server ID or Name"`
 		ISO string `help:"Glance image ID of the ISO"`

@@ -205,7 +205,6 @@ func performClassActionHandler(ctx context.Context, w http.ResponseWriter, r *ht
 	var data jsonutils.JSONObject
 	if body != nil {
 		data, _ = body.Get(manager.KeywordPlural())
-		// about string ??
 		if data == nil {
 			data = body.(*jsonutils.JSONDict)
 		}
@@ -217,13 +216,21 @@ func performClassActionHandler(ctx context.Context, w http.ResponseWriter, r *ht
 		httperrors.GeneralServerError(w, err)
 		return
 	}
+	if results == nil {
+		results = jsonutils.NewDict()
+	}
 	appsrv.SendJSON(w, wrapBody(results, manager.KeywordPlural()))
 }
 
 func performActionHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, body := fetchEnv(ctx, w, r)
-	data, _ := body.Get(manager.Keyword())
-	if data == nil {
+	var data jsonutils.JSONObject
+	if body != nil {
+		data, _ = body.Get(manager.Keyword())
+		if data == nil {
+			data = body.(*jsonutils.JSONDict)
+		}
+	} else {
 		data = jsonutils.NewDict()
 	}
 	result, err := manager.PerformAction(ctx, params["<resid>"], params["<action>"], query, data)
