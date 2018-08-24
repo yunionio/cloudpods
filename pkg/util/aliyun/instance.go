@@ -422,6 +422,7 @@ func (self *SInstance) waitStatus(target string, interval time.Duration, timeout
 func (self *SRegion) StartVM(instanceId string) error {
 	status, _ := self.GetInstanceStatus(instanceId)
 	if status != InstanceStatusStopped {
+		log.Errorf("StartVM: vm status is %s expect %s", status, InstanceStatusStopped)
 		return cloudprovider.ErrInvalidStatus
 	}
 	return self.doStartVM(instanceId)
@@ -434,6 +435,7 @@ func (self *SRegion) StartVM(instanceId string) error {
 func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 	status, _ := self.GetInstanceStatus(instanceId)
 	if status != InstanceStatusRunning {
+		log.Errorf("StopVM: vm status is %s expect %s", status, InstanceStatusStopped)
 		return cloudprovider.ErrInvalidStatus
 	}
 	return self.doStopVM(instanceId, isForce)
@@ -451,6 +453,7 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 			return err
 		}
 	} else if status != InstanceStatusStopped {
+		log.Errorf("DeleteVM: vm status is %s expect %s", status, InstanceStatusStopped)
 		return cloudprovider.ErrInvalidStatus
 	}
 	return self.doDeleteVM(instanceId)
