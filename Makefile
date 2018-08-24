@@ -83,10 +83,6 @@ bin_dir: output_dir
 output_dir:
 	@mkdir -p $(BUILD_DIR)
 
-
-dep:
-	cd $(ROOT_DIR) && dep ensure -v
-
 dep_clean:
 	rm -fr $(GOPATH)/pkg/dep/sources/*
 
@@ -104,6 +100,9 @@ clean:
 fmt:
 	find . -type f -name "*.go" -not -path "./_output/*" \
 		-not -path "./vendor/*" | xargs gofmt -s -w
+
+dep:
+	cd $(ROOT_DIR) && dep ensure -v -update $(shell for p in $$(ls vendor/yunion.io/x/); do echo "yunion.io/x/$$p"; done | xargs)
 
 %:
 	@:
