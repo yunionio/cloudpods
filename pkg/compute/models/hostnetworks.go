@@ -92,7 +92,7 @@ func (man *SHostnetworkManager) QueryByAddress(addr string) *sqlchemy.SQuery {
 func (man *SHostnetworkManager) GetHostNetworkByAddress(addr string) *SHostnetwork {
 	network := SHostnetwork{}
 	err := man.QueryByAddress(addr).First(&network)
-	if err != nil {
+	if err == nil {
 		return &network
 	}
 	return nil
