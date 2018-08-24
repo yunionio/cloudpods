@@ -107,9 +107,17 @@ func (man *SHostnetworkManager) GetNetworkByAddress(addr string) *SNetwork {
 }
 
 func (man *SHostnetworkManager) GetHostByAddress(addr string) *SHost {
-	net := man.GetHostNetworkByAddress(addr)
-	if net == nil {
-		return nil
+	networks := man.Query().SubQuery()
+	hosts := HostManager.Query()
+	q := hosts.Join(networks, sqlchemy.AND(
+		sqlchemy.Equals(networks.Field("ip_addr"), addr),
+		sqlchemy.Equals(networks.Field("baremetal_id"), hosts.Field("id")),
+	))
+	host := &SHost{}
+	host.SetModelManager(HostManager)
+	err := q.First(host)
+	if err == nil {
+		return host
 	}
-	return net.GetHost()
+	return nil
 }
