@@ -3027,6 +3027,131 @@ func (manager *SGuestManager) FetchGuestById(guestId string) *SGuest {
 	return guest.(*SGuest)
 }
 
+func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
+	if checkStatus {
+		if !utils.IsInStringArray(self.Status, []string{VM_SCHEDULE_FAILED}) {
+			return nil
+		}
+	}
+	spec := jsonutils.NewDict()
+	spec.Set("cpu", jsonutils.NewInt(int64(self.VcpuCount)))
+	spec.Set("mem", jsonutils.NewInt(int64(self.VmemSize)))
+
+	// get disk spec
+	guestdisks := self.GetDisks()
+	diskSpecs := jsonutils.NewArray()
+	for _, guestdisk := range guestdisks {
+		disk := guestdisk.GetDisk()
+		diskSpec := jsonutils.NewDict()
+		diskSpec.Set("size", jsonutils.NewInt(int64(disk.DiskSize)))
+		s := disk.GetStorage()
+		diskSpec.Set("backend", jsonutils.NewString(s.StorageType))
+		diskSpec.Set("medium_type", jsonutils.NewString(s.MediumType))
+		diskSpecs.Add(diskSpec)
+	}
+	spec.Set("disk", diskSpecs)
+
+	// get nic spec
+	guestnics := self.GetNetworks()
+	nicSpecs := jsonutils.NewArray()
+	for _, guestnic := range guestnics {
+		nicSpec := jsonutils.NewDict()
+		nicSpec.Set("bandwidth", jsonutils.NewInt(int64(guestnic.getBandwidth())))
+		t := "int"
+		if guestnic.IsExit() {
+			t = "ext"
+		}
+		nicSpec.Set("type", jsonutils.NewString(t))
+		nicSpecs.Add(nicSpec)
+	}
+	spec.Set("nic", nicSpecs)
+
+	// get isolate device spec
+	guestgpus := self.GetIsolatedDevices()
+	gpuSpecs := jsonutils.NewArray()
+	for _, guestgpu := range guestgpus {
+		if strings.HasPrefix(guestgpu.DevType, "GPU") {
+			gs := guestgpu.GetSpec(false)
+			if gs != nil {
+				gpuSpecs.Add(gs)
+			}
+		}
+	}
+	spec.Set("gpu", gpuSpecs)
+	return spec
+}
+
+func (self *SGuest) GetTemplateId() string {
+	guestdisks := self.GetDisks()
+	for _, guestdisk := range guestdisks {
+		disk := guestdisk.GetDisk()
+		if disk != nil {
+			templateId := disk.GetTemplateId()
+			if len(templateId) > 0 {
+				return templateId
+			}
+		}
+	}
+	return ""
+}
+
+// def get_short_desc(self, user_cred=None):
+//     desc = super(Guests, self).get_short_desc()
+//     desc['mem'] = self.vmem_size
+//     desc['cpu'] = self.vcpu_count
+//     template_id = self.get_template_id()
+//     if template_id is not None:
+//         desc['template_id'] = template_id
+//     ext_bw, int_bw = self.get_bandwidth()
+//     if ext_bw > 0:
+//         desc['ext_bandwidth'] = ext_bw
+//     if int_bw > 0:
+//         desc['int_bandwidth'] = int_bw
+//     hypervisor = self.get_hypervisor()
+//     desc['hypervisor'] = hypervisor
+//     spec = self.get_spec(user_cred, status_check=False)
+//     if hypervisor == self.HYPERVISOR_BAREMETAL:
+//         host = self.get_host()
+//         if host is not None:
+//             host_spec = '/'.join(host.get_spec_ident(
+//                 host.get_spec(user_cred, status_check=False)))
+//             spec['host_spec'] = host_spec
+//     if spec is not None:
+//         desc.update(spec)
+//     return desc
+
+func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
+	desc := self.SStandaloneResourceBase.GetShortDesc()
+	desc.Set("mem", jsonutils.NewInt(int64(self.VmemSize)))
+	desc.Set("cpu", jsonutils.NewInt(int64(self.VcpuCount)))
+	templateId := self.GetTemplateId()
+	if len(templateId) > 0 {
+		desc.Set("cpu", jsonutils.NewString(templateId))
+	}
+	extBw := self.getBandwidth(true)
+	intBw := self.getBandwidth(false)
+	if extBw > 0 {
+		desc.Set("ext_bandwidth", jsonutils.NewInt(int64(extBw)))
+	}
+	if intBw > 0 {
+		desc.Set("int_bandwidth", jsonutils.NewInt(int64(intBw)))
+	}
+	desc.Set("hypervisor", jsonutils.NewString(self.GetHypervisor()))
+	spec := self.GetSpec(false)
+	if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
+		host := self.GetHost()
+		if host != nil {
+			hostSpec := host.GetSpec(false)
+			hostSpecIdent := host.GetSpecIdent(hostSpec)
+			spec.Set("host_spec", jsonutils.NewString(strings.Join(hostSpecIdent, "/")))
+		}
+	}
+	if spec != nil {
+		desc.Update(spec)
+	}
+	return desc
+}
+
 func (self *SGuest) saveOsType(osType string) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.OsType = osType
