@@ -347,6 +347,7 @@ func (self *SWire) getNetworks() ([]SNetwork, error) {
 func (self *SWire) getGatewayNetworkQuery() *sqlchemy.SQuery {
 	q := self.getNetworkQuery()
 	q = q.IsNotNull("guest_gateway").IsNotEmpty("guest_gateway")
+	q = q.Equals("status", NETWORK_STATUS_AVAILABLE)
 	return q
 }
 
