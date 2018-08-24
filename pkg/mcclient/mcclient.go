@@ -311,10 +311,12 @@ func (this *Client) SetProject(tenantId, tenantName string, token TokenCredentia
 
 func (this *Client) NewSession(region, zone, endpointType string, token TokenCredential, apiVersion string) *ClientSession {
 	cata := token.GetServiceCatalog()
-	if cata == nil {
-		log.Fatalf("Missing service catalog in token")
+	if this.serviceCatalog == nil {
+		if cata == nil {
+			log.Fatalf("Missing service catalog in token")
+		}
+		this.serviceCatalog = cata
 	}
-	this.serviceCatalog = cata
 	return &ClientSession{client: this, region: region, zone: zone,
 		endpointType: endpointType, token: token,
 		apiVersion: apiVersion,
