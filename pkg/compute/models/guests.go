@@ -3095,31 +3095,6 @@ func (self *SGuest) GetTemplateId() string {
 	return ""
 }
 
-// def get_short_desc(self, user_cred=None):
-//     desc = super(Guests, self).get_short_desc()
-//     desc['mem'] = self.vmem_size
-//     desc['cpu'] = self.vcpu_count
-//     template_id = self.get_template_id()
-//     if template_id is not None:
-//         desc['template_id'] = template_id
-//     ext_bw, int_bw = self.get_bandwidth()
-//     if ext_bw > 0:
-//         desc['ext_bandwidth'] = ext_bw
-//     if int_bw > 0:
-//         desc['int_bandwidth'] = int_bw
-//     hypervisor = self.get_hypervisor()
-//     desc['hypervisor'] = hypervisor
-//     spec = self.get_spec(user_cred, status_check=False)
-//     if hypervisor == self.HYPERVISOR_BAREMETAL:
-//         host = self.get_host()
-//         if host is not None:
-//             host_spec = '/'.join(host.get_spec_ident(
-//                 host.get_spec(user_cred, status_check=False)))
-//             spec['host_spec'] = host_spec
-//     if spec is not None:
-//         desc.update(spec)
-//     return desc
-
 func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
 	desc := self.SStandaloneResourceBase.GetShortDesc()
 	desc.Set("mem", jsonutils.NewInt(int64(self.VmemSize)))

@@ -506,37 +506,6 @@ func (self *SHost) ClearSchedDescCache() error {
 	return HostManager.ClearSchedDescCache(self.Id)
 }
 
-// def get_spec(self, user_cred, status_check=True, **kwargs):
-//     if status_check:
-//         if self.status in [baremetalstatus.INIT, baremetalstatus.PREPARE_FAIL,
-//                            baremetalstatus.PREPARE] or \
-//             self.get_baremetal_server() is not None:
-//             return None
-//         if self.mem_size is None or self.cpu_count is None:
-//             return None
-//     from clouds.baremetal import nictypes
-//     spec = self.get_hardware_specification()
-//     spec.pop('storage_info', None)
-//     net_info = []
-//     for netif in self.get_netifs():
-//         net_desc = netif.get_baremetal_json_desc()
-//         if net_desc.get('nic_type', None) != nictypes.NIC_TYPE_IPMI:
-//             net_info.append(net_desc)
-//     spec['nic_count'] = len(net_info)
-//     spec['manufacture'] = self.sys_info.get('manufacture', 'Unknown')
-//     spec['model'] = self.sys_info.get('model', 'Unknown')
-//     return spec
-// def get_hardware_specification(self):
-//     spec = {}
-//     spec['cpu'] = self.cpu_count
-//     spec['mem'] = self.mem_size
-//     if self.storage_info:
-//         from clouds.baremetal import diskconfig
-//         spec['disk'] = diskconfig.get_disk_spec_v2(self.storage_info)
-//         spec['driver'] = self.storage_driver
-//         spec['storage_info'] = self.storage_info
-//     return spec
-
 func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 	if statusCheck {
 		if utils.IsInStringArray(self.Status, []string{BAREMETAL_INIT, BAREMETAL_PREPARE_FAIL, BAREMETAL_PREPARE}) ||
