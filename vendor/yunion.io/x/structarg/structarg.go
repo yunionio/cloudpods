@@ -305,9 +305,6 @@ func (this *ArgumentParser) addArgument(f reflect.StructField, v reflect.Value) 
 			return fmt.Errorf("positional %s must not have default value", token)
 		}
 	}
-	if !positional && use_default && required {
-		return fmt.Errorf("non-positional argument with default value should not have required:true set")
-	}
 	subcommand, err := strconv.ParseBool(tagMap[TAG_SUBCOMMAND])
 	if err != nil {
 		subcommand = false

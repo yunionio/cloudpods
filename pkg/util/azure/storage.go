@@ -9,7 +9,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
-
 type SStorage struct {
 	zone *SZone
 
@@ -61,12 +60,16 @@ func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudpr
 }
 
 func (self *SStorage) GetIDisk(idStr string) (cloudprovider.ICloudDisk, error) {
-	// if disk, err := self.zone.region.getDisk(idStr); err != nil {
-	// 	return nil, err
-	// } else {
-	// 	disk.storage = self
-	// 	return disk, nil
-	// }
+	if resourceGroup, diskName, err := pareResourceGroupWithName(idStr); err != nil {
+		return nil, err
+	} else {
+		if disk, err := self.zone.region.GetDisk(resourceGroup, diskName); err != nil {
+			return nil, err
+		} else {
+			disk.storage = self
+			return disk, nil
+		}
+	}
 	return nil, cloudprovider.ErrNotImplemented
 }
 
@@ -79,10 +82,8 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 			if disks[i].Location == self.zone.region.Name && disks[i].Sku.Tier == self.storageType {
 				disks[i].storage = self
 				idisks = append(idisks, &disks[i])
+				log.Debugf("find disk %s for storage %s", disks[i].GetName(), self.GetName())
 			}
-		}
-		for _, disk := range idisks {
-			log.Debugf("find disk %s for storage %s", disk.GetName(), self.GetName())
 		}
 		return idisks, nil
 	}

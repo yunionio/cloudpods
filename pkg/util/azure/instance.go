@@ -67,7 +67,7 @@ const (
 )
 
 type ManagedDiskParameters struct {
-	StorageAccountType StorageAccountTypes
+	StorageAccountType string
 	ID                 string
 }
 
@@ -326,6 +326,7 @@ func (self *SInstance) fetchDisks() error {
 			return err
 		} else {
 			self.idisks[i+1] = disk
+			log.Debugf("find disk %s for instance %s", disk.GetName(), self.GetName())
 		}
 	}
 	return nil
@@ -336,9 +337,6 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		if err := self.fetchDisks(); err != nil {
 			return nil, err
 		}
-	}
-	for _, disk := range self.idisks {
-		log.Debugf("find disk %s for instance %s", disk.GetName(), self.GetName())
 	}
 	return self.idisks, nil
 }
@@ -407,21 +405,7 @@ func (self *SInstance) GetEIP() cloudprovider.ICloudEIP {
 }
 
 func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
-
-	// url, err := self.host.zone.region.GetInstanceVNCUrl(self.InstanceId)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// passwd := seclib.RandomPassword(6)
-	// err = self.host.zone.region.ModifyInstanceVNCUrlPassword(self.InstanceId, passwd)
-	// if err != nil {
-	// 	return nil, err
-	// }
 	ret := jsonutils.NewDict()
-	// ret.Add(jsonutils.NewString(url), "url")
-	// ret.Add(jsonutils.NewString(passwd), "password")
-	// ret.Add(jsonutils.NewString("aliyun"), "protocol")
-	// ret.Add(jsonutils.NewString(self.InstanceId), "instance_id")
 	return ret, nil
 }
 

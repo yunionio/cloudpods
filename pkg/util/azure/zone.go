@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/log"
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-10-01/storage"
 	"yunion.io/x/pkg/utils"
+
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-10-01/storage"
 )
 
 type SZone struct {
@@ -17,8 +17,8 @@ type SZone struct {
 	istorages []cloudprovider.ICloudStorage
 
 	storageTypes []string
-	Name string
-	host *SHost
+	Name         string
+	host         *SHost
 }
 
 func (self *SZone) GetId() string {
@@ -114,7 +114,6 @@ func (self *SZone) getStorageByType(storageType string) (*SStorage, error) {
 	} else {
 		for i := 0; i < len(storages); i += 1 {
 			storage := storages[i].(*SStorage)
-			log.Debugf("find storage %s now is %s", storageType, storage.storageType)
 			if storage.storageType == storageType {
 				return storage, nil
 			}

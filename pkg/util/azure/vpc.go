@@ -1,11 +1,14 @@
 package azure
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network"
 )
 
 type AddressSpace struct {
@@ -13,7 +16,8 @@ type AddressSpace struct {
 }
 
 type SubnetPropertiesFormat struct {
-	AddressPrefix string
+	AddressPrefix     string
+	ProvisioningState string
 }
 
 type Subnet struct {
@@ -23,25 +27,18 @@ type Subnet struct {
 }
 
 type VirtualNetworkPropertiesFormat struct {
-	AddressSpace AddressSpace
-	Subnets      []Subnet
+	AddressSpace      AddressSpace
+	Subnets           []Subnet
+	ProvisioningState string
 }
 
 type SVpc struct {
 	region *SRegion
 
-	iwires []cloudprovider.ICloudWire
-
-	// subnets   []SSubnet
+	iwires    []cloudprovider.ICloudWire
 	secgroups []cloudprovider.ICloudSecurityGroup
 
-	// CidrBlock   string
-	// Description string
 	IsDefault bool
-	// RegionId    string
-	Status string
-	// VpcId       string
-	// VpcName     string
 
 	ID         string
 	Name       string
@@ -83,13 +80,33 @@ func (self *SVpc) Delete() error {
 	//return self.region.DeleteVpc(self.VpcId)
 }
 
+func (self *SVpc) fetchSecurityGroups() error {
+	self.secgroups = make([]cloudprovider.ICloudSecurityGroup, 0)
+	networkClient := network.NewSecurityGroupsClientWithBaseURI(self.region.client.baseUrl, self.region.SubscriptionID)
+	networkClient.Authorizer = self.region.client.authorizer
+	if secgrpList, err := networkClient.ListAll(context.Background()); err != nil {
+		return err
+	} else {
+		for _, secgrp := range secgrpList.Values() {
+			securityGroup := SSecurityGroup{vpc: self}
+			if *secgrp.Location == self.Location {
+				if err := jsonutils.Update(&securityGroup, secgrp); err != nil {
+					return err
+				}
+				self.secgroups = append(self.secgroups, &securityGroup)
+			}
+		}
+	}
+	return nil
+}
+
 func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
-	// if self.secgroups == nil {
-	// 	err := self.fetchSecurityGroups()
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// }
+	if self.secgroups == nil {
+		err := self.fetchSecurityGroups()
+		if err != nil {
+			return nil, err
+		}
+	}
 	return self.secgroups, nil
 }
 
@@ -140,7 +157,7 @@ func (self *SVpc) GetRegion() cloudprovider.ICloudRegion {
 }
 
 func (self *SVpc) GetStatus() string {
-	if strings.ToLower(self.Status) == "succeeded" {
+	if strings.ToLower(self.Properties.ProvisioningState) == "succeeded" {
 		return "avaliable"
 	}
 	return "disabled"

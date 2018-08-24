@@ -250,9 +250,7 @@ func (client *Client) DoActionWithSigner(request requests.AcsRequest, response r
 		var timeout bool
 		// receive error
 		if err != nil {
-			if !client.config.AutoRetry {
-				return
-			} else if timeout = isTimeout(err); !timeout {
+			if timeout = isTimeout(err); !timeout {
 				// if not timeout error, return
 				return
 			} else if retryTimes >= client.config.MaxRetryTime {

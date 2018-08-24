@@ -117,9 +117,7 @@ func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 		for i := 0; i < len(vms); i++ {
 			vms[i].host = self
 			ivms[i] = &vms[i]
-		}
-		for _, vm := range ivms {
-			log.Debugf("find vm %s for host %s", vm.GetName(), self.GetName())
+			log.Debugf("find vm %s for host %s", vms[i].GetName(), self.GetName())
 		}
 		return ivms, nil
 	}

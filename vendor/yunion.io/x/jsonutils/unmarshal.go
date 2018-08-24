@@ -358,12 +358,12 @@ func (this *JSONArray) unmarshalValue(val reflect.Value) error {
 		val.SetString(this.String())
 		return nil
 	case reflect.Ptr:
-		kind := val.Type().Elem().Kind()
-		if kind == reflect.Array || kind == reflect.Slice {
-			if val.IsNil() {
+		if val.IsNil() {
+			kind := val.Type().Elem().Kind()
+			if kind == reflect.Array || kind == reflect.Slice {
 				val.Set(reflect.New(val.Type().Elem()))
+				return this.unmarshalValue(val.Elem())
 			}
-			return this.unmarshalValue(val.Elem())
 		}
 		return fmt.Errorf("JSONArray type mismatch %s", val.Type())
 	case reflect.Slice, reflect.Array:
@@ -373,12 +373,9 @@ func (this *JSONArray) unmarshalValue(val reflect.Value) error {
 					val.Type(), val.Len(), len(this.data))
 			}
 		} else if val.Kind() == reflect.Slice {
-			dataLen := len(this.data)
-			if val.Cap() < dataLen {
-				newVal := reflect.MakeSlice(val.Type(), dataLen, dataLen)
+			if val.Len() < len(this.data) {
+				newVal := reflect.MakeSlice(val.Type(), len(this.data), len(this.data))
 				val.Set(newVal)
-			} else if val.Len() != dataLen {
-				val.SetLen(dataLen)
 			}
 		}
 		for i, json := range this.data {
@@ -415,15 +412,15 @@ func (this *JSONDict) unmarshalValue(val reflect.Value) error {
 	case reflect.Struct:
 		return this.unmarshalStruct(val)
 	case reflect.Ptr:
-		kind := val.Type().Elem().Kind()
-		if kind == reflect.Struct || kind == reflect.Map {
-			if val.IsNil() {
-				newVal := reflect.New(val.Type().Elem())
-				val.Set(newVal)
+		if val.IsNil() {
+			kind := val.Type().Elem().Kind()
+			if kind != reflect.Struct && kind != reflect.Map {
+				return fmt.Errorf("JSONDict type mismatch: %s", val.Type())
 			}
-			return this.unmarshalValue(val.Elem())
+			newVal := reflect.New(val.Type().Elem())
+			val.Set(newVal)
 		}
-		fallthrough
+		return this.unmarshalValue(val.Elem())
 	default:
 		return fmt.Errorf("JSONDict type mismatch: %s", val.Type())
 	}

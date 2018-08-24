@@ -81,3 +81,7 @@
   branch = "master"
   name = "github.com/vmware/govmomi"
 
+
+[[constraint]]
+  name = "github.com/Azure/azure-sdk-for-go"
+  version = "19.1.0"

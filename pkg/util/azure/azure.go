@@ -2,6 +2,7 @@ package azure
 
 import (
 	"context"
+	"reflect"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/preview/subscription/mgmt/2018-03-01-preview/subscription"
@@ -10,7 +11,6 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -20,11 +20,15 @@ const (
 	CLOUD_PROVIDER_AZURE    = models.CLOUD_PROVIDER_AZURE
 	CLOUD_PROVIDER_AZURE_CN = "微软"
 
-	AZURE_DEFAULT_ENVIRONMENT = "AzureChinaCloud"
-	AZURE_DEFAULT_APPLICATION = "Azure-Yunion-API"
-
-	AZURE_API_VERSION = "2014-05-26"
+	AZURE_API_VERSION = "2018-04-01"
 )
+
+var authAddr = map[string]string{
+	"https://management.azure.com":         "https://login.microsoftonline.com",
+	"https://management.usgovcloudapi.net": "https://login.microsoftonline.us",
+	"https://management.chinacloudapi.cn":  "https://login.chinacloudapi.cn",
+	"https://management.microsoftazure.de": "https://login.microsoftonline.de",
+}
 
 type SAzureClient struct {
 	providerId     string
@@ -40,7 +44,9 @@ type SAzureClient struct {
 }
 
 func NewAzureClient(providerId string, providerName string, accessKey string, secret string, url string) (*SAzureClient, error) {
-	url = strings.Replace(url, "login", "management", -1)
+	if _, ok := authAddr[url]; !ok {
+		return nil, httperrors.NewUnauthorizedError("Access url choices: %v", reflect.ValueOf(authAddr).MapKeys())
+	}
 	if clientInfo := strings.Split(secret, "/"); len(clientInfo) == 3 {
 		client := SAzureClient{providerId: providerId, providerName: providerName, tenantId: accessKey, secret: secret, baseUrl: url}
 		client.clientId, client.clientScret, client.subscriptionId = clientInfo[0], clientInfo[1], clientInfo[2]
@@ -58,7 +64,7 @@ func NewAzureClient(providerId string, providerName string, accessKey string, se
 func (self *SAzureClient) fetchAzureInof() error {
 	conf := auth.NewClientCredentialsConfig(self.clientId, self.clientScret, self.tenantId)
 	conf.Resource = self.baseUrl
-	conf.AADEndpoint = strings.Replace(self.baseUrl, "management", "login", -1)
+	conf.AADEndpoint = authAddr[self.baseUrl]
 	if authorizer, err := conf.Authorizer(); err != nil {
 		return err
 	} else {
@@ -120,9 +126,6 @@ func (self *SAzureClient) GetRegions() []SRegion {
 }
 
 func (self *SAzureClient) GetIRegions() []cloudprovider.ICloudRegion {
-	for _, region := range self.iregions {
-		log.Debugf("find region %s for Azure", region.GetName())
-	}
 	return self.iregions
 }
 

@@ -15,7 +15,7 @@ func init() {
 		Local    bool   `help:"Show Local storage disks"`
 		Guest    string `help:"Guest ID or name"`
 		Storage  string `help:"Storage ID or name"`
-		Provider string `help:"Provider for disk" choices:"Aliyun|VMware"`
+		Provider string `help:"Provider for disk" choices:"Aliyun|VMware|Azure"`
 	}
 	R(&DiskListOptions{}, "disk-list", "List virtual disks", func(s *mcclient.ClientSession, suboptions *DiskListOptions) error {
 		params := FetchPagingParams(suboptions.BaseListOptions)

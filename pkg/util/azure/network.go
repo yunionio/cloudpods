@@ -2,6 +2,7 @@ package azure
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -36,11 +37,10 @@ func (self *SNetwork) IsEmulated() bool {
 }
 
 func (self *SNetwork) GetStatus() string {
-	return "avaliable"
-	// if strings.ToLower(self.Status) == "succeeded" {
-	// 	return "avaliable"
-	// }
-	// return "disabled"
+	if strings.ToLower(self.Properties.ProvisioningState) == "succeeded" {
+		return "avaliable"
+	}
+	return "disabled"
 }
 
 func (self *SNetwork) Delete() error {

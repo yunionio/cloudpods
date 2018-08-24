@@ -826,11 +826,7 @@ func isValidMaskLen(maskLen int64) bool {
 	}
 }
 
-func (manager *SNetworkManager) AllowPerformCheckNet(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
-	return userCred.IsSystemAdmin()
-}
-
-func (manager *SNetworkManager) PerformCheckNet(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	prefixStr, _ := data.GetString("guest_ip_prefix")
 	var maskLen64 int64
 	var err error
@@ -966,13 +962,7 @@ func (manager *SNetworkManager) PerformCheckNet(ctx context.Context, userCred mc
 	if !vpcRange.ContainsRange(netRange) {
 		return nil, httperrors.NewInputParameterError("Network not in range of VPC cidrblock %s", vpc.CidrBlock)
 	}
-	return data, nil
-}
 
-func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if _, err := manager.PerformCheckNet(ctx, userCred, query, data); err != nil {
-		return nil, err
-	}
 	serverTypeStr, _ := data.GetString("server_type")
 	if len(serverTypeStr) == 0 {
 		serverTypeStr = SERVER_TYPE_GUEST

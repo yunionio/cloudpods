@@ -12,19 +12,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-04-01/compute"
 )
 
-type StorageAccountTypes string
-
-const (
-	// StorageAccountTypesPremiumLRS ...
-	StorageAccountTypesPremiumLRS StorageAccountTypes = "Premium_LRS"
-	// StorageAccountTypesStandardLRS ...
-	StorageAccountTypesStandardLRS StorageAccountTypes = "Standard_LRS"
-	// StorageAccountTypesStandardSSDLRS ...
-	StorageAccountTypesStandardSSDLRS StorageAccountTypes = "StandardSSD_LRS"
-)
-
 type DiskSku struct {
-	Name StorageAccountTypes
+	Name string
 	Tier string
 }
 
@@ -52,9 +41,7 @@ type DiskProperties struct {
 type SDisk struct {
 	storage *SStorage
 
-	DeleteWithInstance bool
-	Status             string
-	ResourceGroup      string
+	ResourceGroup string
 
 	ManagedBy  string
 	Sku        DiskSku
@@ -102,8 +89,8 @@ func (self *SRegion) GetDisks() ([]SDisk, error) {
 
 func (self *SDisk) GetStatus() string {
 	// In_use Available Attaching Detaching Creating ReIniting All
-	switch self.Status {
-	case "Creating", "ReIniting":
+	switch self.Properties.ProvisioningState {
+	case "Updating":
 		return models.DISK_ALLOCATING
 	default:
 		return models.DISK_READY
@@ -111,7 +98,7 @@ func (self *SDisk) GetStatus() string {
 }
 
 func (self *SDisk) GetId() string {
-	return fmt.Sprintf("%s/%s/%s", self.storage.zone.region.GetGlobalId(), self.storage.zone.region.SubscriptionID, self.Name)
+	return self.ID
 }
 
 func (self *SRegion) getDisk(resourceGroup string, diskName string) (*SDisk, error) {
@@ -144,7 +131,8 @@ func (self *SDisk) GetName() string {
 }
 
 func (self *SDisk) GetGlobalId() string {
-	return self.GetId()
+	resourceGroup, _, _ := pareResourceGroupWithName(self.ID)
+	return fmt.Sprintf("resourceGroups/%s/providers/%s/%s", resourceGroup, self.storage.zone.region.SubscriptionID, self.Name)
 }
 
 func (self *SDisk) IsEmulated() bool {
@@ -184,7 +172,7 @@ func (self *SDisk) GetDiskSizeMB() int {
 }
 
 func (self *SDisk) GetIsAutoDelete() bool {
-	return self.DeleteWithInstance
+	return false
 }
 
 func (self *SDisk) GetTemplateId() string {
