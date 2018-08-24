@@ -271,7 +271,11 @@ func (r *SRegionDNS) getK8sServiceBackends(req *recordRequest) ([]string, error)
 }
 
 func (r *SRegionDNS) getK8sServicePods(namespace, name string) ([]v1.Pod, error) {
-	cli := r.K8sClient
+	cli, err := k8s.NewClientByFile(r.K8sConfigFile, nil)
+	if err != nil {
+		ylog.Errorf("Init kubernetes client error: %v", err)
+		return nil, err
+	}
 	svc, err := cli.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
