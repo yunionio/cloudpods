@@ -49,7 +49,7 @@ func (self *GuestRebuildRootTask) StartRebuildRootDisk(ctx context.Context, gues
 	})
 	if err != nil {
 		self.SetStageFailed(ctx, err.Error())
-		logclient.AddActionLog(ctx, self.UserCred, logclient.ACT_VM_REBUILD, "", guest, err.Error())
+		logclient.AddActionLog(self.UserCred, logclient.ACT_VM_REBUILD, "", guest, err.Error())
 		return
 	} else {
 		db.OpsLog.LogEvent(gds.Root, db.ACT_UPDATE_STATUS,
@@ -66,19 +66,19 @@ func (self *GuestRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Context,
 	imginfo, err := models.CachedimageManager.GetImageById(ctx, self.UserCred, imgId, false)
 	if err != nil {
 		self.SetStageFailed(ctx, err.Error())
-		logclient.AddActionLog(ctx, self.UserCred, logclient.ACT_VM_REBUILD, "", guest, err.Error())
+		logclient.AddActionLog(self.UserCred, logclient.ACT_VM_REBUILD, "", guest, err.Error())
 		return
 	}
 	osprof, err := osprofile.GetOSProfileFromImageProperties(imginfo.Properties, guest.Hypervisor)
 	if err != nil {
 		self.SetStageFailed(ctx, err.Error())
-		logclient.AddActionLog(ctx, self.UserCred, logclient.ACT_VM_REBUILD, "", guest, err.Error())
+		logclient.AddActionLog(self.UserCred, logclient.ACT_VM_REBUILD, "", guest, err.Error())
 		return
 	}
 	err = guest.SetMetadata(ctx, "__os_profile__", osprof, self.UserCred)
 	if err != nil {
 		self.SetStageFailed(ctx, err.Error())
-		logclient.AddActionLog(ctx, self.UserCred, logclient.ACT_VM_REBUILD, "", guest, err.Error())
+		logclient.AddActionLog(self.UserCred, logclient.ACT_VM_REBUILD, "", guest, err.Error())
 		return
 	}
 	if guest.OsType != osprof.OSType {
@@ -88,7 +88,7 @@ func (self *GuestRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Context,
 		})
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
-			logclient.AddActionLog(ctx, self.UserCred, logclient.ACT_VM_REBUILD, "", guest, err.Error())
+			logclient.AddActionLog(self.UserCred, logclient.ACT_VM_REBUILD, "", guest, err.Error())
 			return
 		}
 	}
@@ -101,7 +101,7 @@ func (self *GuestRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Context,
 func (self *GuestRebuildRootTask) OnRebuildRootDiskCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(guest, db.ACT_REBUILD_ROOT_FAIL, data.String(), self.UserCred)
 	guest.SetStatus(self.UserCred, models.VM_REBUILD_ROOT_FAIL, "")
-	logclient.AddActionLog(ctx, self.UserCred, logclient.ACT_VM_REBUILD, "", guest, data.String())
+	logclient.AddActionLog(self.UserCred, logclient.ACT_VM_REBUILD, "", guest, data.String())
 }
 
 func (self *GuestRebuildRootTask) OnSyncStatusComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -111,7 +111,7 @@ func (self *GuestRebuildRootTask) OnSyncStatusComplete(ctx context.Context, gues
 	} else {
 		self.SetStageComplete(ctx, nil)
 	}
-	logclient.AddActionLog(ctx, self.UserCred, logclient.ACT_VM_REBUILD, "", guest, "")
+	logclient.AddActionLog(self.UserCred, logclient.ACT_VM_REBUILD, "", guest, "")
 }
 
 func (self *GuestRebuildRootTask) OnGuestStartComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -143,7 +143,7 @@ func (self *KVMGuestRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Conte
 
 func (self *KVMGuestRebuildRootTask) OnRebuildRootDiskCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStageFailed(ctx, data.String())
-	logclient.AddActionLog(ctx, self.UserCred, logclient.ACT_VM_REBUILD, "", guest, data.String())
+	logclient.AddActionLog(self.UserCred, logclient.ACT_VM_REBUILD, "", guest, data.String())
 }
 
 func (self *KVMGuestRebuildRootTask) OnGuestDeployComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {

@@ -1,16 +1,12 @@
 package logclient
 
 import (
-	"context"
 	"fmt"
-	"log"
-	"net/http"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 const (
@@ -57,7 +53,7 @@ type IObject interface {
 	Keyword() string
 }
 
-func AddActionLog(ctx context.Context, userCred mcclient.TokenCredential, action, notes string, obj IObject, e string) {
+func AddActionLog(userCred mcclient.TokenCredential, action, notes string, obj IObject, e string) {
 
 	token := userCred
 	logentry := jsonutils.NewDict()
@@ -69,8 +65,11 @@ func AddActionLog(ctx context.Context, userCred mcclient.TokenCredential, action
 	logentry.Add(jsonutils.NewString(token.GetUserName()), "user")
 	logentry.Add(jsonutils.NewString(token.GetTenantId()), "tenant_id")
 	logentry.Add(jsonutils.NewString(token.GetTenantName()), "tenant")
-	// todo: 正式版去掉下面这行。
-	notes = "[region2]" + notes
+
+	// TODO delete following line later
+	notes = "[a2]" + notes
+
+	s := auth.GetSession(userCred, "", "")
 
 	if len(e) > 0 {
 		// 失败日志
@@ -83,18 +82,10 @@ func AddActionLog(ctx context.Context, userCred mcclient.TokenCredential, action
 		logentry.Add(jsonutils.NewString(notes), "notes")
 	}
 
-	uri, err := auth.GetServiceURL("log", options.Options.Region, "", "")
+	_, err := modules.Actions.Create(s, logentry)
 	if err != nil {
-		log.Println("log service not ready", err)
-		return
-	}
-
-	uri = fmt.Sprintf("%s/actions", uri)
-	header := http.Header{}
-	header.Add("X-Auth-Token", userCred.GetTokenString())
-	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", uri, header, logentry, false)
-	if err != nil {
-		log.Println("post log error", err)
-		return
+		fmt.Printf("create action log failed %s", err)
+	} else {
+		fmt.Println("create action log success")
 	}
 }

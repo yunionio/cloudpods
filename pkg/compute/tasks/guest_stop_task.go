@@ -58,12 +58,12 @@ func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, obj db.I
 	if guest.Status == models.VM_READY && guest.DisableDelete.IsFalse() && guest.ShutdownBehavior == models.SHUTDOWN_TERMINATE {
 		guest.StartAutoDeleteGuestTask(ctx, self.UserCred, "")
 	}
-	logclient.AddActionLog(ctx, self.UserCred, logclient.ACT_VM_STOP, "", guest, "")
+	logclient.AddActionLog(self.UserCred, logclient.ACT_VM_STOP, "", guest, "")
 }
 
 func (self *GuestStopTask) OnStopGuestFail(ctx context.Context, guest *models.SGuest, err error) {
 	guest.SetStatus(self.UserCred, models.VM_STOP_FAILED, err.Error())
 	db.OpsLog.LogEvent(guest, db.ACT_STOP_FAIL, err.Error(), self.UserCred)
 	self.SetStageFailed(ctx, err.Error())
-	logclient.AddActionLog(ctx, self.UserCred, logclient.ACT_VM_STOP, "", guest, err.Error())
+	logclient.AddActionLog(self.UserCred, logclient.ACT_VM_STOP, "", guest, err.Error())
 }

@@ -58,11 +58,11 @@ func (self *GuestSyncstatusTask) OnGetStatusSucc(ctx context.Context, guest *mod
 	fmt.Println(" \n*\n*\n*\n*\n*\n*\n*\n*\n*\n*\n*\\n*n* * * * * * * * * * * * * ")
 	fmt.Println("* * * * * * * * * * * * * server obj:", guest)
 	fmt.Println(" \n*\n*\n*\n*\n*\n*\n*\n*\n*\n*\n*\\n*n* * * * * * * * * * * * * ")
-	logclient.AddActionLog(ctx, self.UserCred, logclient.ACT_VM_SYNC_STATUS, "", guest, "")
+	logclient.AddActionLog(self.UserCred, logclient.ACT_VM_SYNC_STATUS, "", guest, "")
 }
 
 func (self *GuestSyncstatusTask) OnGetStatusFail(ctx context.Context, guest *models.SGuest, err error) {
 	guest.SetStatus(self.UserCred, models.VM_UNKNOWN, err.Error())
 	self.SetStageComplete(ctx, nil)
-	logclient.AddActionLog(ctx, self.UserCred, logclient.ACT_VM_SYNC_STATUS, "", guest, err.Error())
+	logclient.AddActionLog(self.UserCred, logclient.ACT_VM_SYNC_STATUS, "", guest, err.Error())
 }
