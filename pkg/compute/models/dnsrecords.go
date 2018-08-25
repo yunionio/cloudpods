@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
 
@@ -205,7 +204,6 @@ func (man *SDnsRecordManager) QueryDns(projectId, name string) *SDnsRecord {
 
 	err := q.First(rec)
 	if err != nil {
-		log.Errorf("QueryDns %q fail: %s", name, err)
 		return nil
 	}
 	return rec
