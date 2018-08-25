@@ -300,7 +300,7 @@ func execITask(taskValue reflect.Value, task *STask, data jsonutils.JSONObject, 
 		taskStatus, _ := data.GetString("__status__")
 		if len(taskStatus) > 0 && taskStatus != "OK" {
 			taskFailed = true
-			data, err = data.Get("reason")
+			data, err = data.Get("__reason__")
 			if err != nil {
 				data = jsonutils.NewString("Task failed due to unknown remote errors!")
 			}
