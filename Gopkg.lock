@@ -666,13 +666,15 @@
   version = "v1.2.0"
 
 [[projects]]
-  digest = "1:d867dfa6751c8d7a435821ad3b736310c2ed68945d05b50fb9d23aee0540c8cc"
   branch = "master"
+  digest = "1:c1f242537d2898c84fe9bfd8bd94b177cd5ff98a10c397dbbc494f4e2b173be6"
   name = "github.com/serialx/hashring"
   packages = ["."]
+  pruneopts = "UT"
   revision = "49a4782e9908fe098c907022a1bd7519c79803d6"
 
 [[projects]]
+  digest = "1:d867dfa6751c8d7a435821ad3b736310c2ed68945d05b50fb9d23aee0540c8cc"
   name = "github.com/sirupsen/logrus"
   packages = ["."]
   pruneopts = "UT"
@@ -1040,18 +1042,18 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b707a5d591b21dad9ebdb264281632ed43d34e2b980dce967acb2c7adcc93ad3"
+  digest = "1:636db180d3fc734536a5437d93bb6fe937feb036c1ed062c25872a47c4283163"
   name = "yunion.io/x/log"
   packages = [
     ".",
     "hooks",
   ]
   pruneopts = "UT"
-  revision = "a10b94c5038480920262e0f344656328434955a2"
+  revision = "5185c49f6d361f61e561fbccba1bedcc7c62748b"
 
 [[projects]]
   branch = "master"
-  digest = "1:47670c70d0326f624de21c8f29d0f73850062f0752f27e146308db62fbb540d3"
+  digest = "1:8e2a4d71738e5e3bffc415b23f100b0a5033dbf88154783122f5147d4fc213b5"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1086,7 +1088,7 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "6c349ecbdb90d5f6ecc9b86596428176c1937b32"
+  revision = "7348c84865abac3fcdec618591b7eee7c2e0669b"
 
 [[projects]]
   branch = "master"
@@ -1109,6 +1111,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/aliyun/alibaba-cloud-sdk-go/sdk",
+    "github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors",
     "github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests",
     "github.com/aliyun/aliyun-oss-go-sdk/oss",
     "github.com/aokoli/goutils",
@@ -1147,6 +1150,7 @@
     "github.com/mholt/caddy/startupshutdown",
     "github.com/miekg/dns",
     "github.com/moul/http2curl",
+    "github.com/serialx/hashring",
     "github.com/stretchr/testify/assert",
     "github.com/vmware/govmomi",
     "github.com/vmware/govmomi/object",
@@ -1158,6 +1162,7 @@
     "golang.org/x/crypto/ssh",
     "gopkg.in/gin-gonic/gin.v1",
     "k8s.io/api/core/v1",
+    "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/fields",
     "k8s.io/apimachinery/pkg/labels",
