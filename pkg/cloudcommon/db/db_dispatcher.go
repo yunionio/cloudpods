@@ -524,7 +524,7 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 }
 
 func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	log.Debugf("Get %s", idStr)
+	// log.Debugf("Get %s", idStr)
 	userCred := fetchUserCredential(ctx)
 
 	data, err := dispatcher.tryGetModelProperty(ctx, idStr, query)
@@ -541,7 +541,7 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 	} else if err != nil {
 		return nil, err
 	}
-	log.Debugf("Get found %s", model)
+	// log.Debugf("Get found %s", model)
 	if !model.AllowGetDetails(ctx, userCred, query) {
 		return nil, httperrors.NewForbiddenError("Not allow to get details")
 	}
