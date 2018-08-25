@@ -548,7 +548,7 @@ func (self *STask) NotifyParentTaskFailure(ctx context.Context, reason string) {
 	if len(reason) > 100 {
 		reason = reason[:100] + "..."
 	}
-	body.Add(jsonutils.NewString(fmt.Sprintf("Subtask %s failed: %s", self.TaskName, reason)))
+	body.Add(jsonutils.NewString(fmt.Sprintf("Subtask %s failed: %s", self.TaskName, reason)), "__reason__")
 	self.NotifyParentTaskComplete(ctx, body, true)
 }
 
