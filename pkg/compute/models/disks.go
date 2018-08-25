@@ -832,9 +832,8 @@ func (self *SDisk) GetAttachedGuests() []SGuest {
 	q = q.Filter(sqlchemy.Equals(guestdisks.Field("disk_id"), self.Id))
 
 	ret := make([]SGuest, 0)
-	err := q.All(&ret)
-	if err != nil {
-		log.Errorf("%s", err)
+	if err := db.FetchModelObjects(GuestManager, q, &ret); err != nil {
+		log.Errorf("Fetch Geusts Objects %v", err)
 		return nil
 	}
 	return ret
