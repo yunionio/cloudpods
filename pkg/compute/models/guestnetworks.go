@@ -263,17 +263,17 @@ func (self *SGuestnetwork) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 }
 
 func (manager *SGuestnetworkManager) GetGuestByAddress(address string) *SGuest {
-	gn := SGuestnetwork{}
-	gn.SetModelManager(GuestnetworkManager)
-
-	err := manager.Query().Equals("ip_addr", address).First(&gn)
-	if err != nil {
-		log.Errorf("GetGuestByAddress query fail: %s", err)
-		return nil
-	}
-	guest, _ := GuestManager.FetchById(gn.GuestId)
-	if guest != nil {
-		return guest.(*SGuest)
+	networks := manager.Query().SubQuery()
+	guests := GuestManager.Query()
+	q := guests.Join(networks, sqlchemy.AND(
+		sqlchemy.Equals(networks.Field("ip_addr"), address),
+		sqlchemy.Equals(networks.Field("guest_id"), guests.Field("id")),
+	))
+	guest := &SGuest{}
+	guest.SetModelManager(GuestManager)
+	err := q.First(guest)
+	if err == nil {
+		return guest
 	}
 	return nil
 }
