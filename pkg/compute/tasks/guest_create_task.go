@@ -105,7 +105,7 @@ func (self *GuestCreateTask) OnDeployGuestDescCompleteFailed(ctx context.Context
 	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_DEPLOY_FAILED, data.String())
 }
 
-func (self *GuestCreateTask) OnAutoStartGuest(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+/*func (self *GuestCreateTask) OnAutoStartGuest(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	self.SetStageComplete(ctx, guest.GetShortDesc())
 }
@@ -113,4 +113,4 @@ func (self *GuestCreateTask) OnAutoStartGuest(ctx context.Context, obj db.IStand
 func (self *GuestCreateTask) OnSyncStatusComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	self.SetStageComplete(ctx, guest.GetShortDesc())
-}
+}*/
