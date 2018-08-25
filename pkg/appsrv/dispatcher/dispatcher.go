@@ -203,7 +203,7 @@ func performClassActionHandler(ctx context.Context, w http.ResponseWriter, r *ht
 	manager, params, query, body := fetchEnv(ctx, w, r)
 	data, _ := body.Get(manager.KeywordPlural())
 	if data == nil {
-		data = jsonutils.NewDict()
+		data = body.(*jsonutils.JSONDict)
 	}
 	results, err := manager.PerformClassAction(ctx, params["<action>"], query, data)
 	if err != nil {
