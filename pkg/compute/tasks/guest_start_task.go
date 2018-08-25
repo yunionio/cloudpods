@@ -72,6 +72,7 @@ func (self *GuestStartTask) OnStartCompleteFailed(ctx context.Context, obj db.IS
 }
 
 func (self *GuestStartTask) onStartGuestFailed(ctx context.Context, guest *models.SGuest, err error) {
+	guest.SetStatus(self.UserCred, models.VM_START_FAILED, err.Error())
 	self.SetStageFailed(ctx, err.Error())
 	self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 }

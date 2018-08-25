@@ -54,13 +54,13 @@ func (self *SBaseGuestDriver) StartGuestCreateTask(guest *models.SGuest, ctx con
 }
 
 func (self *SBaseGuestDriver) OnGuestCreateTaskComplete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	//if jsonutils.QueryBoolean(task.GetParams(), "auto_start", false) {
-	//	task.SetStage("on_auto_start_guest", nil)
-	//	return guest.StartGueststartTask(ctx, task.GetUserCred(), nil, task.GetTaskId())
-	//} else {
-	task.SetStage("on_sync_status_complete", nil)
-	return guest.StartSyncstatus(ctx, task.GetUserCred(), task.GetTaskId())
-	//}
+	if jsonutils.QueryBoolean(task.GetParams(), "auto_start", false) {
+		task.SetStage("on_auto_start_guest", nil)
+		return guest.StartGueststartTask(ctx, task.GetUserCred(), nil, task.GetTaskId())
+	} else {
+		task.SetStage("on_sync_status_complete", nil)
+		return guest.StartSyncstatus(ctx, task.GetUserCred(), task.GetTaskId())
+	}
 }
 
 func (self *SBaseGuestDriver) StartDeleteGuestTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {

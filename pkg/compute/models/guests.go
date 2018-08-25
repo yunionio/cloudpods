@@ -1429,7 +1429,20 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 		if add.net == nil {
 			continue // cannot determine which network it attached to
 		}
-		err := self.Attach2Network(ctx, userCred, add.net, nil, add.nic.GetIP(),
+		// check if the IP has been occupied, if yes, release the IP
+		gn, err := GuestnetworkManager.getGuestNicByIP(add.nic.GetIP())
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		if gn != nil {
+			err = gn.Detach(ctx, userCred)
+			if err != nil {
+				result.AddError(err)
+				continue
+			}
+		}
+		err = self.Attach2Network(ctx, userCred, add.net, nil, add.nic.GetIP(),
 			add.nic.GetMAC(), add.nic.GetDriver(), 0, false, -1, add.reserve, IPAllocationDefault, true)
 		if err != nil {
 			result.AddError(err)
@@ -2110,9 +2123,9 @@ func (self *SGuest) AllowDeleteItem(ctx context.Context, userCred mcclient.Token
 func (self *SGuest) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	overridePendingDelete := false
 	purge := false
-	if data != nil {
-		overridePendingDelete = jsonutils.QueryBoolean(data, "override_pending_delete", false)
-		purge = jsonutils.QueryBoolean(data, "purge", false)
+	if query != nil {
+		overridePendingDelete = jsonutils.QueryBoolean(query, "override_pending_delete", false)
+		purge = jsonutils.QueryBoolean(query, "purge", false)
 	}
 	return self.StartDeleteGuestTask(ctx, userCred, "", purge, overridePendingDelete)
 }
