@@ -402,7 +402,10 @@ func (self *SRegion) doStopVM(instanceId string, isForce bool) error {
 }
 
 func (self *SRegion) doDeleteVM(instanceId string) error {
-	return self.instanceOperation(instanceId, "DeleteInstance", nil)
+	params := make(map[string]string)
+	params["TerminateSubscription"] = "false"
+	params["Force"] = "true"
+	return self.instanceOperation(instanceId, "DeleteInstance", params)
 }
 
 /*func (self *SRegion) waitInstanceStatus(instanceId string, target string, interval time.Duration, timeout time.Duration) error {
@@ -425,7 +428,11 @@ func (self *SInstance) waitStatus(target string, interval time.Duration, timeout
 }*/
 
 func (self *SRegion) StartVM(instanceId string) error {
-	status, _ := self.GetInstanceStatus(instanceId)
+	status, err := self.GetInstanceStatus(instanceId)
+	if err != nil {
+		log.Errorf("Fail to get instance status on StartVM: %s", err)
+		return err
+	}
 	if status != InstanceStatusStopped {
 		log.Errorf("StartVM: vm status is %s expect %s", status, InstanceStatusStopped)
 		return cloudprovider.ErrInvalidStatus
@@ -438,7 +445,11 @@ func (self *SRegion) StartVM(instanceId string) error {
 }
 
 func (self *SRegion) StopVM(instanceId string, isForce bool) error {
-	status, _ := self.GetInstanceStatus(instanceId)
+	status, err := self.GetInstanceStatus(instanceId)
+	if err != nil {
+		log.Errorf("Fail to get instance status on StopVM: %s", err)
+		return err
+	}
 	if status != InstanceStatusRunning {
 		log.Errorf("StopVM: vm status is %s expect %s", status, InstanceStatusRunning)
 		return cloudprovider.ErrInvalidStatus
@@ -452,14 +463,13 @@ func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 
 func (self *SRegion) DeleteVM(instanceId string) error {
 	status, err := self.GetInstanceStatus(instanceId)
-	if status == InstanceStatusRunning {
-		err = self.StopVM(instanceId, true)
-		if err != nil {
-			return err
-		}
-	} else if status != InstanceStatusStopped {
-		log.Errorf("DeleteVM: vm status is %s expect %s", status, InstanceStatusStopped)
-		return cloudprovider.ErrInvalidStatus
+	if err != nil {
+		log.Errorf("Fail to get instance status on DeleteVM: %s", err)
+		return err
+	}
+	log.Debugf("Instance status on delete is %s", status)
+	if status != InstanceStatusStopped {
+		log.Warningf("DeleteVM: vm status is %s expect %s", status, InstanceStatusStopped)
 	}
 	return self.doDeleteVM(instanceId)
 	// if err != nil {
@@ -492,9 +502,18 @@ func (self *SInstance) StopVM(isForce bool) error {
 }
 
 func (self *SInstance) DeleteVM() error {
-	err := self.host.zone.region.DeleteVM(self.InstanceId)
-	if err != nil {
-		return err
+	for {
+		err := self.host.zone.region.DeleteVM(self.InstanceId)
+		if err != nil {
+			if isError(err, "IncorrectInstanceStatus.Initializing") {
+				log.Infof("The instance is initializing, try later ...")
+				time.Sleep(10*time.Second)
+			} else {
+				return err
+			}
+		}else {
+			break
+		}
 	}
 	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
 }

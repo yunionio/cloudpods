@@ -161,16 +161,16 @@ func (model *SVirtualResourceBase) AllowPerformMetadata(ctx context.Context, use
 }
 
 func (model *SVirtualResourceBase) GetTenantCache(ctx context.Context) (*STenant, error) {
-	log.Debugf("Get tenant by Id %s", model.ProjectId)
+	// log.Debugf("Get tenant by Id %s", model.ProjectId)
 	return TenantCacheManager.FetchTenantById(ctx, model.ProjectId)
 }
 
 func (model *SVirtualResourceBase) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	if userCred.IsSystemAdmin() {
-		log.Debugf("GetCustomizeColumns")
+		// log.Debugf("GetCustomizeColumns")
 		tobj, err := model.GetTenantCache(ctx)
 		if err == nil {
-			log.Debugf("GetTenantFromCache %s", jsonutils.Marshal(tobj))
+			// log.Debugf("GetTenantFromCache %s", jsonutils.Marshal(tobj))
 			extra.Add(jsonutils.NewString(tobj.GetName()), "tenant")
 		} else {
 			log.Errorf("GetTenantCache fail %s", err)
