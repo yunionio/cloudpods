@@ -9,6 +9,7 @@ import (
 
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
@@ -89,6 +90,7 @@ func runJob(name string, job func(ctx context.Context, userCred mcclient.TokenCr
 	}()
 
 	ctx := context.Background()
+	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, "Region-Corn-Service")
 	userCred := auth.AdminCredential()
 	job(ctx, userCred)
 }

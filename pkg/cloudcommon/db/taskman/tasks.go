@@ -246,17 +246,21 @@ func (manager *STaskManager) NewParallelTask(ctx context.Context, taskName strin
 }
 
 func (manager *STaskManager) fetchTask(idStr string) *STask {
-	task, err := db.NewModelObject(manager)
+	iTask, err := db.NewModelObject(manager)
 	if err != nil {
 		log.Errorf("New task object fail: %s", err)
 		return nil
 	}
-	err = manager.Query().Equals("id", idStr).First(task)
+	err = manager.Query().Equals("id", idStr).First(iTask)
 	if err != nil {
 		log.Errorf("GetTask %s fail: %s", idStr, err)
 		return nil
 	}
-	return task.(*STask)
+	task := iTask.(*STask)
+	if task.Params == nil {
+		task.Params = jsonutils.NewDict()
+	}
+	return task
 }
 
 func (manager *STaskManager) execTask(taskId string, data jsonutils.JSONObject) {
@@ -285,20 +289,21 @@ func (manager *STaskManager) execTask(taskId string, data jsonutils.JSONObject) 
 	}
 }
 
-func execITask(taskValue reflect.Value, task *STask, data jsonutils.JSONObject, isMulti bool) {
+func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject, isMulti bool) {
 	var err error
 	ctxData := task.GetRequestContext()
 	ctx := ctxData.GetContext()
 
 	taskFailed := false
 
+	data := odata
 	if data != nil {
 		taskStatus, _ := data.GetString("__status__")
 		if len(taskStatus) > 0 && taskStatus != "OK" {
 			taskFailed = true
 			data, err = data.Get("reason")
 			if err != nil {
-				data = jsonutils.NewString("Task failed due to unknown remote errors!")
+				data = jsonutils.NewString(fmt.Sprintf("Task failed due to unknown remote errors! %s", odata))
 			}
 		}
 	} else {
@@ -320,7 +325,13 @@ func execITask(taskValue reflect.Value, task *STask, data jsonutils.JSONObject, 
 
 		if !funcValue.IsValid() || funcValue.IsNil() {
 			msg := fmt.Sprintf("Stage %s not found", stageName)
-			log.Errorf(msg)
+			if taskFailed {
+				// failed handler is optional, ignore the error
+				log.Warningf(msg)
+				msg, _ = data.GetString()
+			} else {
+				log.Errorf(msg)
+			}
 			task.SetStageFailed(ctx, msg)
 			task.SaveRequestContext(&ctxData)
 			return
@@ -408,9 +419,11 @@ func (self *STask) GetParentTask() *STask {
 
 func (self *STask) GetRequestContext() appctx.AppContextData {
 	ctxData := appctx.AppContextData{}
-	ctxJson, _ := self.Params.Get(REQUEST_CONTEXT_KEY)
-	if ctxJson != nil {
-		ctxJson.Unmarshal(&ctxData)
+	if self.Params != nil {
+		ctxJson, _ := self.Params.Get(REQUEST_CONTEXT_KEY)
+		if ctxJson != nil {
+			ctxJson.Unmarshal(&ctxData)
+		}
 	}
 	return ctxData
 }
