@@ -263,9 +263,10 @@ func (self *SGuestnetwork) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 }
 
 func (manager *SGuestnetworkManager) GetGuestByAddress(address string) *SGuest {
-	networks := manager.Query().SubQuery()
+	networks := manager.TableSpec().Instance()
 	guests := GuestManager.Query()
 	q := guests.Join(networks, sqlchemy.AND(
+		sqlchemy.IsFalse(networks.Field("deleted")),
 		sqlchemy.Equals(networks.Field("ip_addr"), address),
 		sqlchemy.Equals(networks.Field("guest_id"), guests.Field("id")),
 	))
