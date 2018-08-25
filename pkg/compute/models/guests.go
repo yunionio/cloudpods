@@ -1475,7 +1475,20 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 		if add.net == nil {
 			continue // cannot determine which network it attached to
 		}
-		err := self.Attach2Network(ctx, userCred, add.net, nil, add.nic.GetIP(),
+		// check if the IP has been occupied, if yes, release the IP
+		gn, err := GuestnetworkManager.getGuestNicByIP(add.nic.GetIP())
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		if gn != nil {
+			err = gn.Detach(ctx, userCred)
+			if err != nil {
+				result.AddError(err)
+				continue
+			}
+		}
+		err = self.Attach2Network(ctx, userCred, add.net, nil, add.nic.GetIP(),
 			add.nic.GetMAC(), add.nic.GetDriver(), 0, false, -1, add.reserve, IPAllocationDefault, true)
 		if err != nil {
 			result.AddError(err)

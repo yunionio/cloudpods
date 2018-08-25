@@ -19,6 +19,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"database/sql"
 )
 
 const (
@@ -332,6 +333,22 @@ func (manager *SGuestnetworkManager) DeleteGuestNics(ctx context.Context, guest 
 		}
 	}
 	return nil
+}
+
+func (manager *SGuestnetworkManager) getGuestNicByIP(ip string) (*SGuestnetwork, error) {
+	gn := SGuestnetwork{}
+	q := manager.Query()
+	q = q.Equals("ip_addr", ip)
+	err := q.First(&gn)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			log.Errorf("getGuestNicByIP fail %s", err)
+			return nil, err
+		}
+		return nil, nil
+	}
+	gn.SetModelManager(manager)
+	return &gn, nil
 }
 
 func (self *SGuestnetwork) LogDetachEvent(userCred mcclient.TokenCredential, guest *SGuest, network *SNetwork) {
