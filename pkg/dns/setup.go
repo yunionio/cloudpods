@@ -2,7 +2,6 @@ package dns
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
@@ -20,18 +19,16 @@ func init() {
 }
 
 func setup(c *caddy.Controller) error {
-	os.Stderr = os.Stdout
-
 	rDNS, err := regionDNSParse(c)
 	if err != nil {
 		return plugin.Error(PluginName, err)
 	}
 
-	if rDNS.PrimaryZone == "" {
-		return fmt.Errorf("dns_domain must provided")
+	if len(rDNS.PrimaryZone) == 0 {
+		return fmt.Errorf("dns_domain missing")
 	}
 	if !regutils.MatchDomainName(rDNS.PrimaryZone) {
-		return fmt.Errorf("dns_domain %q not match domain format", rDNS.PrimaryZone)
+		return fmt.Errorf("dns_domain %q invalid", rDNS.PrimaryZone)
 	}
 
 	err = rDNS.initDB(c)
