@@ -664,12 +664,15 @@ func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	}
 
 	if jsonutils.QueryBoolean(query, "usable", false) {
-		hostStorage := HoststorageManager.Query().SubQuery()
-		q = q.Join(hostStorage, sqlchemy.AND(
-			sqlchemy.Equals(hostStorage.Field("storage_id"), q.Field("id")),
-			sqlchemy.In(q.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE}),
-			sqlchemy.IsTrue(q.Field("enabled")),
-		))
+		hostStorageTable := HoststorageManager.Query().SubQuery()
+		hostTable := HostManager.Query().SubQuery()
+		sq := hostStorageTable.Query(hostStorageTable.Field("storage_id")).Join(hostTable,
+			sqlchemy.Equals(hostTable.Field("id"), hostStorageTable.Field("host_id"))).
+			Filter(sqlchemy.Equals(hostTable.Field("host_status"), HOST_ONLINE))
+
+		q = q.Filter(sqlchemy.In(q.Field("id"), sq)).
+			Filter(sqlchemy.In(q.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE})).
+			Filter(sqlchemy.IsTrue(q.Field("enabled")))
 	}
 
 	managerStr := jsonutils.GetAnyString(query, []string{"manager", "provider", "manager_id", "provider_id"})
