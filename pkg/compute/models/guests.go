@@ -205,49 +205,60 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 	if len(hypervisor) > 0 {
 		q = q.Equals("hypervisor", hypervisor)
 	}
+
 	hostFilter, _ := queryDict.GetString("host")
-	zoneFilter, _ := queryDict.GetString("zone")
-	wireFilter, _ := queryDict.GetString("wire")
-	networkFilter, _ := queryDict.GetString("network")
-	diskFilter, _ := queryDict.GetString("disk")
-	var sq *sqlchemy.SSubQuery
 	if len(hostFilter) > 0 {
 		host, _ := HostManager.FetchByIdOrName("", hostFilter)
 		if host == nil {
-			return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("host %s not found", hostFilter))
+			return nil, httperrors.NewResourceNotFoundError("host %s not found", hostFilter)
 		}
-		sq = HostManager.Query("id").Equals("id", host.GetId()).SubQuery()
-	} else if len(zoneFilter) > 0 {
+		q = q.Equals("host_id", host.GetId())
+	}
+
+	zoneFilter, _ := queryDict.GetString("zone")
+	if len(zoneFilter) > 0 {
 		zone, _ := ZoneManager.FetchByIdOrName("", zoneFilter)
 		if zone == nil {
-			return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("zone %s not found", zoneFilter))
+			return nil, httperrors.NewResourceNotFoundError("zone %s not found", zoneFilter)
 		}
 		hostTable := HostManager.Query().SubQuery()
 		zoneTable := ZoneManager.Query().SubQuery()
-		sq = hostTable.Query(hostTable.Field("id")).Join(zoneTable,
+		sq := hostTable.Query(hostTable.Field("id")).Join(zoneTable,
 			sqlchemy.Equals(zoneTable.Field("id"), hostTable.Field("zone_id"))).Filter(sqlchemy.Equals(zoneTable.Field("id"), zone.GetId())).SubQuery()
-	} else if len(wireFilter) > 0 {
+		q = q.In("host_id", sq)
+	}
+
+	wireFilter, _ := queryDict.GetString("wire")
+	if len(wireFilter) > 0 {
 		wire, _ := WireManager.FetchByIdOrName("", wireFilter)
 		if wire == nil {
-			return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("wire %s not found", wireFilter))
+			return nil, httperrors.NewResourceNotFoundError("wire %s not found", wireFilter)
 		}
 		hostTable := HostManager.Query().SubQuery()
 		hostWire := HostwireManager.Query().SubQuery()
-		sq = hostTable.Query(hostTable.Field("id")).Join(hostWire, sqlchemy.Equals(hostWire.Field("host_id"), hostTable.Field("id"))).Filter(sqlchemy.Equals(hostWire.Field("wire_id"), wire.GetId())).SubQuery()
-	} else if len(networkFilter) > 0 {
+		sq := hostTable.Query(hostTable.Field("id")).Join(hostWire, sqlchemy.Equals(hostWire.Field("host_id"), hostTable.Field("id"))).Filter(sqlchemy.Equals(hostWire.Field("wire_id"), wire.GetId())).SubQuery()
+		q = q.In("host_id", sq)
+	}
+
+	networkFilter, _ := queryDict.GetString("network")
+	if len(networkFilter) > 0 {
 		netI, _ := NetworkManager.FetchByIdOrName(userCred.GetProjectId(), networkFilter)
 		if netI == nil {
-			return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("network %s not found", networkFilter))
+			return nil, httperrors.NewResourceNotFoundError("network %s not found", networkFilter)
 		}
 		net := netI.(*SNetwork)
 		hostTable := HostManager.Query().SubQuery()
 		hostWire := HostwireManager.Query().SubQuery()
-		sq = hostTable.Query(hostTable.Field("id")).Join(hostWire,
+		sq := hostTable.Query(hostTable.Field("id")).Join(hostWire,
 			sqlchemy.Equals(hostWire.Field("host_id"), hostTable.Field("id"))).Filter(sqlchemy.Equals(hostWire.Field("wire_id"), net.WireId)).SubQuery()
-	} else if len(diskFilter) > 0 {
+		q = q.In("host_id", sq)
+	}
+
+	diskFilter, _ := queryDict.GetString("disk")
+	if len(diskFilter) > 0 {
 		diskI, _ := DiskManager.FetchByIdOrName(userCred.GetProjectId(), diskFilter)
 		if diskI == nil {
-			return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("disk %s not found", diskFilter))
+			return nil, httperrors.NewResourceNotFoundError("disk %s not found", diskFilter)
 		}
 		disk := diskI.(*SDisk)
 		guestdisks := GuestdiskManager.Query().SubQuery()
@@ -264,7 +275,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 			hosts := HostManager.Query().SubQuery()
 			hoststorages := HoststorageManager.Query().SubQuery()
 			storages := StorageManager.Query().SubQuery()
-			sq = hosts.Query(hosts.Field("id")).
+			sq := hosts.Query(hosts.Field("id")).
 				Join(hoststorages, sqlchemy.AND(
 					sqlchemy.Equals(hoststorages.Field("host_id"), hosts.Field("id")),
 					sqlchemy.IsFalse(hoststorages.Field("deleted")))).
@@ -272,11 +283,21 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 					sqlchemy.Equals(storages.Field("id"), hoststorages.Field("storage_id")),
 					sqlchemy.IsFalse(storages.Field("deleted")))).
 				Filter(sqlchemy.Equals(storages.Field("id"), disk.StorageId)).SubQuery()
+			q = q.In("host_id", sq)
 		}
 	}
-	if sq != nil {
+
+	managerFilter, _ := queryDict.GetString("manager")
+	if len(managerFilter) > 0 {
+		managerI, _ := CloudproviderManager.FetchByIdOrName(userCred.GetProjectId(), managerFilter)
+		if managerI == nil {
+			return nil, httperrors.NewResourceNotFoundError("cloud provider %s not found", managerFilter)
+		}
+		hosts := HostManager.Query().SubQuery()
+		sq := hosts.Query(hosts.Field("id")).Equals("manager_id", managerI.GetId()).SubQuery()
 		q = q.In("host_id", sq)
 	}
+
 	gpu, _ := queryDict.GetString("gpu")
 	if len(gpu) != 0 {
 		isodev := IsolatedDeviceManager.Query().SubQuery()
@@ -908,11 +929,7 @@ func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 	// extra.Add(jsonutils.NewString(self.getFlavorName()), "flavor")
 	extra.Add(jsonutils.NewString(self.getKeypairName()), "keypair")
 	extra.Add(jsonutils.NewInt(int64(self.getExtBandwidth())), "ext_bw")
-	zone := self.getZone()
-	if zone != nil {
-		extra.Add(jsonutils.NewString(zone.Id), "zone_id")
-		extra.Add(jsonutils.NewString(zone.Name), "zone")
-	}
+
 	extra.Add(jsonutils.NewString(self.GetSecgroupName()), "secgroup")
 
 	if self.PendingDeleted {
@@ -920,6 +937,28 @@ func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 		extra.Add(jsonutils.NewString(timeutils.FullIsoTime(pendingDeletedAt)), "auto_delete_at")
 	}
 
+	return self.moreExtraInfo(extra)
+}
+
+func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	zone := self.getZone()
+	if zone != nil {
+		extra.Add(jsonutils.NewString(zone.GetId()), "zone_id")
+		extra.Add(jsonutils.NewString(zone.GetName()), "zone")
+		if len(zone.ExternalId) > 0 {
+			extra.Add(jsonutils.NewString(zone.ExternalId), "zone_external_id")
+		}
+
+		region := zone.GetRegion()
+		if region != nil {
+			extra.Add(jsonutils.NewString(region.Id), "region_id")
+			extra.Add(jsonutils.NewString(region.Name), "region")
+
+			if len(region.ExternalId) > 0 {
+				extra.Add(jsonutils.NewString(region.ExternalId), "region_external_id")
+			}
+		}
+	}
 	return extra
 }
 
@@ -950,14 +989,7 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 		}
 		extra.Add(jsonutils.NewString(self.getAdminSecurityRules()), "admin_security_rules")
 	}
-	zone := self.getZone()
-	if zone != nil {
-		extra.Add(jsonutils.NewString(zone.GetId()), "zone_id")
-		extra.Add(jsonutils.NewString(zone.GetName()), "zone")
-		extra.Add(jsonutils.NewString(zone.GetRegion().GetName()), "region")
-		extra.Add(jsonutils.NewString(zone.GetRegion().GetId()), "region_id")
-	}
-	return extra
+	return self.moreExtraInfo(extra)
 }
 
 func (self *SGuest) getNetworksDetails() string {
@@ -1445,7 +1477,20 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 		if add.net == nil {
 			continue // cannot determine which network it attached to
 		}
-		err := self.Attach2Network(ctx, userCred, add.net, nil, add.nic.GetIP(),
+		// check if the IP has been occupied, if yes, release the IP
+		gn, err := GuestnetworkManager.getGuestNicByIP(add.nic.GetIP())
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		if gn != nil {
+			err = gn.Detach(ctx, userCred)
+			if err != nil {
+				result.AddError(err)
+				continue
+			}
+		}
+		err = self.Attach2Network(ctx, userCred, add.net, nil, add.nic.GetIP(),
 			add.nic.GetMAC(), add.nic.GetDriver(), 0, false, -1, add.reserve, IPAllocationDefault, true)
 		if err != nil {
 			result.AddError(err)
@@ -2310,7 +2355,7 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 					disk.SetStatus(userCred, DISK_DETACHING, "")
 				}
 				taskData := jsonutils.NewDict()
-				taskData.Add(jsonutils.NewString(diskId), "disk_id")
+				taskData.Add(jsonutils.NewString(disk.Id), "disk_id")
 				taskData.Add(jsonutils.NewBool(keepDisk), "keep_disk")
 				self.GetDriver().StartGuestDetachdiskTask(ctx, userCred, self, taskData, "")
 				return nil, nil
@@ -3009,6 +3054,106 @@ func (manager *SGuestManager) FetchGuestById(guestId string) *SGuest {
 		return nil
 	}
 	return guest.(*SGuest)
+}
+
+func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
+	if checkStatus {
+		if !utils.IsInStringArray(self.Status, []string{VM_SCHEDULE_FAILED}) {
+			return nil
+		}
+	}
+	spec := jsonutils.NewDict()
+	spec.Set("cpu", jsonutils.NewInt(int64(self.VcpuCount)))
+	spec.Set("mem", jsonutils.NewInt(int64(self.VmemSize)))
+
+	// get disk spec
+	guestdisks := self.GetDisks()
+	diskSpecs := jsonutils.NewArray()
+	for _, guestdisk := range guestdisks {
+		disk := guestdisk.GetDisk()
+		diskSpec := jsonutils.NewDict()
+		diskSpec.Set("size", jsonutils.NewInt(int64(disk.DiskSize)))
+		s := disk.GetStorage()
+		diskSpec.Set("backend", jsonutils.NewString(s.StorageType))
+		diskSpec.Set("medium_type", jsonutils.NewString(s.MediumType))
+		diskSpecs.Add(diskSpec)
+	}
+	spec.Set("disk", diskSpecs)
+
+	// get nic spec
+	guestnics := self.GetNetworks()
+	nicSpecs := jsonutils.NewArray()
+	for _, guestnic := range guestnics {
+		nicSpec := jsonutils.NewDict()
+		nicSpec.Set("bandwidth", jsonutils.NewInt(int64(guestnic.getBandwidth())))
+		t := "int"
+		if guestnic.IsExit() {
+			t = "ext"
+		}
+		nicSpec.Set("type", jsonutils.NewString(t))
+		nicSpecs.Add(nicSpec)
+	}
+	spec.Set("nic", nicSpecs)
+
+	// get isolate device spec
+	guestgpus := self.GetIsolatedDevices()
+	gpuSpecs := jsonutils.NewArray()
+	for _, guestgpu := range guestgpus {
+		if strings.HasPrefix(guestgpu.DevType, "GPU") {
+			gs := guestgpu.GetSpec(false)
+			if gs != nil {
+				gpuSpecs.Add(gs)
+			}
+		}
+	}
+	spec.Set("gpu", gpuSpecs)
+	return spec
+}
+
+func (self *SGuest) GetTemplateId() string {
+	guestdisks := self.GetDisks()
+	for _, guestdisk := range guestdisks {
+		disk := guestdisk.GetDisk()
+		if disk != nil {
+			templateId := disk.GetTemplateId()
+			if len(templateId) > 0 {
+				return templateId
+			}
+		}
+	}
+	return ""
+}
+
+func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
+	desc := self.SStandaloneResourceBase.GetShortDesc()
+	desc.Set("mem", jsonutils.NewInt(int64(self.VmemSize)))
+	desc.Set("cpu", jsonutils.NewInt(int64(self.VcpuCount)))
+	templateId := self.GetTemplateId()
+	if len(templateId) > 0 {
+		desc.Set("cpu", jsonutils.NewString(templateId))
+	}
+	extBw := self.getBandwidth(true)
+	intBw := self.getBandwidth(false)
+	if extBw > 0 {
+		desc.Set("ext_bandwidth", jsonutils.NewInt(int64(extBw)))
+	}
+	if intBw > 0 {
+		desc.Set("int_bandwidth", jsonutils.NewInt(int64(intBw)))
+	}
+	desc.Set("hypervisor", jsonutils.NewString(self.GetHypervisor()))
+	spec := self.GetSpec(false)
+	if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
+		host := self.GetHost()
+		if host != nil {
+			hostSpec := host.GetSpec(false)
+			hostSpecIdent := host.GetSpecIdent(hostSpec)
+			spec.Set("host_spec", jsonutils.NewString(strings.Join(hostSpecIdent, "/")))
+		}
+	}
+	if spec != nil {
+		desc.Update(spec)
+	}
+	return desc
 }
 
 func (self *SGuest) saveOsType(osType string) error {

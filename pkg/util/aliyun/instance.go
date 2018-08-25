@@ -340,14 +340,6 @@ func (self *SInstance) StopVM(isForce bool) error {
 	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
 }
 
-func (self *SInstance) DeleteVM() error {
-	err := self.host.zone.region.DeleteVM(self.InstanceId)
-	if err != nil {
-		return err
-	}
-	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
-}
-
 func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 	url, err := self.host.zone.region.GetInstanceVNCUrl(self.InstanceId)
 	if err != nil {
@@ -479,7 +471,10 @@ func (self *SRegion) doStopVM(instanceId string, isForce bool) error {
 }
 
 func (self *SRegion) doDeleteVM(instanceId string) error {
-	return self.instanceOperation(instanceId, "DeleteInstance", nil)
+	params := make(map[string]string)
+	params["TerminateSubscription"] = "false"
+	params["Force"] = "true"
+	return self.instanceOperation(instanceId, "DeleteInstance", params)
 }
 
 /*func (self *SRegion) waitInstanceStatus(instanceId string, target string, interval time.Duration, timeout time.Duration) error {
@@ -502,8 +497,13 @@ func (self *SInstance) waitStatus(target string, interval time.Duration, timeout
 }*/
 
 func (self *SRegion) StartVM(instanceId string) error {
-	status, _ := self.GetInstanceStatus(instanceId)
+	status, err := self.GetInstanceStatus(instanceId)
+	if err != nil {
+		log.Errorf("Fail to get instance status on StartVM: %s", err)
+		return err
+	}
 	if status != InstanceStatusStopped {
+		log.Errorf("StartVM: vm status is %s expect %s", status, InstanceStatusStopped)
 		return cloudprovider.ErrInvalidStatus
 	}
 	return self.doStartVM(instanceId)
@@ -514,8 +514,13 @@ func (self *SRegion) StartVM(instanceId string) error {
 }
 
 func (self *SRegion) StopVM(instanceId string, isForce bool) error {
-	status, _ := self.GetInstanceStatus(instanceId)
+	status, err := self.GetInstanceStatus(instanceId)
+	if err != nil {
+		log.Errorf("Fail to get instance status on StopVM: %s", err)
+		return err
+	}
 	if status != InstanceStatusRunning {
+		log.Errorf("StopVM: vm status is %s expect %s", status, InstanceStatusRunning)
 		return cloudprovider.ErrInvalidStatus
 	}
 	return self.doStopVM(instanceId, isForce)
@@ -527,13 +532,13 @@ func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 
 func (self *SRegion) DeleteVM(instanceId string) error {
 	status, err := self.GetInstanceStatus(instanceId)
-	if status == InstanceStatusRunning {
-		err = self.StopVM(instanceId, true)
-		if err != nil {
-			return err
-		}
-	} else if status != InstanceStatusStopped {
-		return cloudprovider.ErrInvalidStatus
+	if err != nil {
+		log.Errorf("Fail to get instance status on DeleteVM: %s", err)
+		return err
+	}
+	log.Debugf("Instance status on delete is %s", status)
+	if status != InstanceStatusStopped {
+		log.Warningf("DeleteVM: vm status is %s expect %s", status, InstanceStatusStopped)
 	}
 	return self.doDeleteVM(instanceId)
 	// if err != nil {
@@ -589,6 +594,23 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 	}
 }
 
+func (self *SInstance) DeleteVM() error {
+	for {
+		err := self.host.zone.region.DeleteVM(self.InstanceId)
+		if err != nil {
+			if isError(err, "IncorrectInstanceStatus.Initializing") {
+				log.Infof("The instance is initializing, try later ...")
+				time.Sleep(10 * time.Second)
+			} else {
+				return err
+			}
+		} else {
+			break
+		}
+	}
+	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
+}
+
 func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
 	/*
 			api: ModifyInstanceAttribute
@@ -610,7 +632,7 @@ func (self *SRegion) ReplaceSystemDisk(instanceId string, image string) error {
 }
 
 func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, vmem int, disks []*SDisk) error {
-    // todo: support change disk config?
+	// todo: support change disk config?
 	params := make(map[string]string)
 	instanceTypes, e := self.GetMatchInstanceTypes(ncpu, vmem, 0, zoneId)
 	if e != nil {
@@ -630,7 +652,7 @@ func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, 
 	return fmt.Errorf("Failed to change vm config, specification not supported")
 }
 
-func (self *SRegion) AttachDisk(instanceId string, diskId string)  error {
+func (self *SRegion) AttachDisk(instanceId string, diskId string) error {
 	params := make(map[string]string)
 	params["InstanceId"] = instanceId
 	params["DiskId"] = diskId

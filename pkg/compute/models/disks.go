@@ -701,6 +701,27 @@ func parseIsoInfo(ctx context.Context, userCred mcclient.TokenCredential, info s
 	return image.Id, nil
 }
 
+// def get_disk_spec_v2(conf):
+//     def _get_spec(storages):
+//         spec = {}
+//         for adapter, ss in group_by_adapter(storages).items():
+//             if len(ss) == 0:
+//                 continue
+//             spec[adapter] = get_disk_spec(ss)
+//         return spec
+
+//     spec = {}
+//     for driver in DISK_DRIVERS:
+//         storages = [s for s in conf if s['driver'] == driver]
+//         if len(storages) != 0:
+//             spec[driver] = _get_spec(storages)
+//     return spec
+
+func GetDiskSpecV2(storageInfo jsonutils.JSONObject) *jsonutils.JSONDict {
+	// ToDo
+	return nil
+}
+
 func (self *SDisk) fetchDiskInfo(diskConfig *SDiskConfig) {
 	if len(diskConfig.ImageId) > 0 {
 		self.TemplateId = diskConfig.ImageId
@@ -832,9 +853,8 @@ func (self *SDisk) GetAttachedGuests() []SGuest {
 	q = q.Filter(sqlchemy.Equals(guestdisks.Field("disk_id"), self.Id))
 
 	ret := make([]SGuest, 0)
-	err := q.All(&ret)
-	if err != nil {
-		log.Errorf("%s", err)
+	if err := db.FetchModelObjects(GuestManager, q, &ret); err != nil {
+		log.Errorf("Fetch Geusts Objects %v", err)
 		return nil
 	}
 	return ret

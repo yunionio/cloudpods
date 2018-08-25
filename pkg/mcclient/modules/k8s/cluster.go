@@ -9,8 +9,8 @@ var (
 )
 
 func init() {
-	Clusters = NewManager("cluster", "clusters",
-		[]string{"id", "name", "mode", "k8s_version", "status", "api_endpoint"},
-		[]string{})
+	Clusters = NewManager("kube_cluster", "kube_clusters",
+		NewResourceCols("mode", "k8s_version", "status", "api_endpoint"),
+		NewColumns())
 	modules.Register(Clusters)
 }

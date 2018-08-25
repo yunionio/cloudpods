@@ -574,3 +574,15 @@ func (self *SRegion) leaveSecurityGroup(secgroupId, instanceId string) error {
 	_, err := self.ecsRequest("LeaveSecurityGroup", params)
 	return err
 }
+
+func (self *SRegion) deleteSecurityGroup(secGrpId string) error {
+	params := make(map[string]string)
+	params["SecurityGroupId"] = secGrpId
+
+	_, err := self.ecsRequest("DeleteSecurityGroup", params)
+	if err != nil {
+		log.Errorf("Delete security group fail %s", err)
+		return err
+	}
+	return nil
+}
