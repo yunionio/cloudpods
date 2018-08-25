@@ -32,7 +32,7 @@ func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	}
 	resion := "Cannot find host for disk"
 	if host == nil || host.HostStatus != models.HOST_ONLINE {
-		disk.SetStatus(self.GetUserCred(), models.DISK_READY, resion)
+		disk.SetDiskReady(ctx, self.GetUserCred(), resion)
 		self.SetStageFailed(ctx, resion)
 		db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, resion, self.GetUserCred())
 	} else {
@@ -65,7 +65,7 @@ func (self *DiskResizeTask) OnStartResizeDiskSucc(ctx context.Context, disk *mod
 }
 
 func (self *DiskResizeTask) OnStartResizeDiskFailed(ctx context.Context, disk *models.SDisk, resion error) {
-	disk.SetStatus(self.GetUserCred(), models.DISK_READY, resion.Error())
+	disk.SetDiskReady(ctx, self.GetUserCred(), resion.Error())
 	self.SetStageFailed(ctx, resion.Error())
 	db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, resion.Error(), self.GetUserCred())
 }
@@ -94,6 +94,7 @@ func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *mode
 		self.OnStartResizeDiskFailed(ctx, disk, err)
 		return
 	}
+	disk.SetDiskReady(ctx, self.GetUserCred(), "")
 	notes := fmt.Sprintf("%s=>%s", oldStatus, disk.Status)
 	db.OpsLog.LogEvent(disk, db.ACT_UPDATE_STATUS, notes, self.UserCred)
 	self.CleanHostSchedCache(disk)
@@ -103,6 +104,6 @@ func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *mode
 }
 
 func (self *DiskResizeTask) OnDiskResizeCompleteFailed(ctx context.Context, disk *models.SDisk, resion error) {
-	disk.SetStatus(self.UserCred, models.DISK_READY, resion.Error())
+	disk.SetDiskReady(ctx, self.GetUserCred(), resion.Error())
 	db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, disk.GetShortDesc(), self.UserCred)
 }
