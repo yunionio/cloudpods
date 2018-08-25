@@ -3027,6 +3027,106 @@ func (manager *SGuestManager) FetchGuestById(guestId string) *SGuest {
 	return guest.(*SGuest)
 }
 
+func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
+	if checkStatus {
+		if !utils.IsInStringArray(self.Status, []string{VM_SCHEDULE_FAILED}) {
+			return nil
+		}
+	}
+	spec := jsonutils.NewDict()
+	spec.Set("cpu", jsonutils.NewInt(int64(self.VcpuCount)))
+	spec.Set("mem", jsonutils.NewInt(int64(self.VmemSize)))
+
+	// get disk spec
+	guestdisks := self.GetDisks()
+	diskSpecs := jsonutils.NewArray()
+	for _, guestdisk := range guestdisks {
+		disk := guestdisk.GetDisk()
+		diskSpec := jsonutils.NewDict()
+		diskSpec.Set("size", jsonutils.NewInt(int64(disk.DiskSize)))
+		s := disk.GetStorage()
+		diskSpec.Set("backend", jsonutils.NewString(s.StorageType))
+		diskSpec.Set("medium_type", jsonutils.NewString(s.MediumType))
+		diskSpecs.Add(diskSpec)
+	}
+	spec.Set("disk", diskSpecs)
+
+	// get nic spec
+	guestnics := self.GetNetworks()
+	nicSpecs := jsonutils.NewArray()
+	for _, guestnic := range guestnics {
+		nicSpec := jsonutils.NewDict()
+		nicSpec.Set("bandwidth", jsonutils.NewInt(int64(guestnic.getBandwidth())))
+		t := "int"
+		if guestnic.IsExit() {
+			t = "ext"
+		}
+		nicSpec.Set("type", jsonutils.NewString(t))
+		nicSpecs.Add(nicSpec)
+	}
+	spec.Set("nic", nicSpecs)
+
+	// get isolate device spec
+	guestgpus := self.GetIsolatedDevices()
+	gpuSpecs := jsonutils.NewArray()
+	for _, guestgpu := range guestgpus {
+		if strings.HasPrefix(guestgpu.DevType, "GPU") {
+			gs := guestgpu.GetSpec(false)
+			if gs != nil {
+				gpuSpecs.Add(gs)
+			}
+		}
+	}
+	spec.Set("gpu", gpuSpecs)
+	return spec
+}
+
+func (self *SGuest) GetTemplateId() string {
+	guestdisks := self.GetDisks()
+	for _, guestdisk := range guestdisks {
+		disk := guestdisk.GetDisk()
+		if disk != nil {
+			templateId := disk.GetTemplateId()
+			if len(templateId) > 0 {
+				return templateId
+			}
+		}
+	}
+	return ""
+}
+
+func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
+	desc := self.SStandaloneResourceBase.GetShortDesc()
+	desc.Set("mem", jsonutils.NewInt(int64(self.VmemSize)))
+	desc.Set("cpu", jsonutils.NewInt(int64(self.VcpuCount)))
+	templateId := self.GetTemplateId()
+	if len(templateId) > 0 {
+		desc.Set("cpu", jsonutils.NewString(templateId))
+	}
+	extBw := self.getBandwidth(true)
+	intBw := self.getBandwidth(false)
+	if extBw > 0 {
+		desc.Set("ext_bandwidth", jsonutils.NewInt(int64(extBw)))
+	}
+	if intBw > 0 {
+		desc.Set("int_bandwidth", jsonutils.NewInt(int64(intBw)))
+	}
+	desc.Set("hypervisor", jsonutils.NewString(self.GetHypervisor()))
+	spec := self.GetSpec(false)
+	if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
+		host := self.GetHost()
+		if host != nil {
+			hostSpec := host.GetSpec(false)
+			hostSpecIdent := host.GetSpecIdent(hostSpec)
+			spec.Set("host_spec", jsonutils.NewString(strings.Join(hostSpecIdent, "/")))
+		}
+	}
+	if spec != nil {
+		desc.Update(spec)
+	}
+	return desc
+}
+
 func (self *SGuest) saveOsType(osType string) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.OsType = osType

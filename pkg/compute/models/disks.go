@@ -701,6 +701,27 @@ func parseIsoInfo(ctx context.Context, userCred mcclient.TokenCredential, info s
 	return image.Id, nil
 }
 
+// def get_disk_spec_v2(conf):
+//     def _get_spec(storages):
+//         spec = {}
+//         for adapter, ss in group_by_adapter(storages).items():
+//             if len(ss) == 0:
+//                 continue
+//             spec[adapter] = get_disk_spec(ss)
+//         return spec
+
+//     spec = {}
+//     for driver in DISK_DRIVERS:
+//         storages = [s for s in conf if s['driver'] == driver]
+//         if len(storages) != 0:
+//             spec[driver] = _get_spec(storages)
+//     return spec
+
+func GetDiskSpecV2(storageInfo jsonutils.JSONObject) *jsonutils.JSONDict {
+	// ToDo
+	return nil
+}
+
 func (self *SDisk) fetchDiskInfo(diskConfig *SDiskConfig) {
 	if len(diskConfig.ImageId) > 0 {
 		self.TemplateId = diskConfig.ImageId
