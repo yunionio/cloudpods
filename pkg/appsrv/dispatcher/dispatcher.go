@@ -209,9 +209,8 @@ func performClassActionHandler(ctx context.Context, w http.ResponseWriter, r *ht
 		if data == nil {
 			data = body.(*jsonutils.JSONDict)
 		}
-	}
-	if data == nil {
-		data = body.(*jsonutils.JSONDict)
+	} else {
+		data = jsonutils.NewDict()
 	}
 	results, err := manager.PerformClassAction(ctx, params["<action>"], query, data)
 	if err != nil {
