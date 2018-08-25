@@ -125,10 +125,11 @@ type SDiskInfo struct {
 func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
 
-	onfinish, err := config.GetString("on_finish")
+	/* onfinish, err := config.GetString("on_finish")
 	if err != nil {
 		return err
-	}
+	} */
+
 	action, err := config.GetString("action")
 	if err != nil {
 		return err
@@ -177,12 +178,12 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			}
 		}
 
-		if onfinish == "none" {
+		/* if onfinish == "none" {
 			err = iVM.StartVM()
 			if err != nil {
 				return nil, err
 			}
-		}
+		} */
 
 		encpasswd, err := utils.EncryptAESBase64(guest.Id, passwd)
 		if err != nil {
