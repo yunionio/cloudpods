@@ -155,7 +155,7 @@ type ICloudVM interface {
 
 	UpdateVM(name string) error
 	RebuildRoot(imageId string) error
-	DeployVM(resetPassword bool, keypair string, deleteKeypair bool) error
+	DeployVM(name string, password string, publicKey string, resetPassword bool, deleteKeypair bool, description string) error
 	ChangeConfig(instanceId string,ncpu int, vmem int) error
 	GetVNCInfo() (jsonutils.JSONObject, error)
 	AttachDisk(diskId string) error

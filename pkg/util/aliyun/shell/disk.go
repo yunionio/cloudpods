@@ -21,4 +21,15 @@ func init() {
 		printList(disks, total, args.Offset, args.Limit, []string{})
 		return nil
 	})
+
+	type DiskDeleteOptions struct {
+		Instance string `help:"Instance ID"`
+	}
+	shellutils.R(&DiskDeleteOptions{}, "disk-delete", "List disks", func(cli *aliyun.SRegion, args *DiskDeleteOptions) error {
+		e := cli.DeleteDisk(args.Instance)
+		if e != nil {
+			return e
+		}
+		return nil
+	})
 }

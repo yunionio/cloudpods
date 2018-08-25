@@ -493,9 +493,11 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		return nil, err
 	}
 
-	// if data.Contains("name") {
-	//	return nil, httperrors.NewInputParameterError("cannot update server name")
-	// }
+	if data.Contains("name") {
+		if name, _ := data.GetString("name"); len(name) < 2 {
+			return nil, httperrors.NewInputParameterError("name is to short")
+		}
+	}
 	/* if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
 		return nil, httperrors.NewInputParameterError("Cannot modify memory for baremetal")
 	}
@@ -1552,7 +1554,11 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 	if !ok {
 		return nil, fmt.Errorf("Parse query body error")
 	}
+
+	// 变更密码/密钥时需要Restart才能生效。更新普通字段不需要Restart
+	doRestart := false
 	if kwargs.Contains("__delete_keypair__") || kwargs.Contains("keypair") {
+		doRestart = true
 		var kpId string
 		if !jsonutils.QueryBoolean(kwargs, "__delete_keypair__", false) {
 			keypair, _ := kwargs.GetString("keypair")
@@ -1574,8 +1580,9 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 			kwargs.Set("reset_password", jsonutils.JSONTrue)
 		}
 	}
+
 	if utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_READY, VM_ADMIN}) {
-		if self.Status == VM_RUNNING {
+		if doRestart && self.Status == VM_RUNNING {
 			kwargs.Set("restart", jsonutils.JSONTrue)
 		}
 		err := self.StartGuestDeployTask(ctx, userCred, kwargs, "deploy", "")
@@ -1919,12 +1926,10 @@ func (self *SGuest) createDiskOnHost(ctx context.Context, userCred mcclient.Toke
 	if storage == nil {
 		return nil, fmt.Errorf("No storage to create disk")
 	}
-
 	disk, err := self.createDiskOnStorage(ctx, userCred, storage, diskConfig, pendingUsage)
 	if err != nil {
 		return nil, err
 	}
-
 	err = self.attach2Disk(disk, userCred, diskConfig.Driver, diskConfig.Cache, diskConfig.Mountpoint)
 	return disk, err
 }
@@ -2457,16 +2462,27 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		diskIdx += 1
 	}
 
-	for storageId, needSize := range diskSizes {
-		iStorage, err := StorageManager.FetchById(storageId)
-		if err != nil {
-			return nil, httperrors.NewBadRequestError("Fetch storage error: %s", err)
-		}
-		storage := iStorage.(*SStorage)
-		if storage.GetFreeCapacity() < needSize {
-			return nil, httperrors.NewInsufficientResourceError("Not enough free space")
-		}
+	provider, e := self.GetHost().GetDriver()
+	if e != nil {
+		log.Errorf("Get Provider Error: %s", e)
+		return nil, httperrors.NewInsufficientResourceError("Provider Not Found")
 	}
+
+	if !provider.IsPublicCloud() {
+		for storageId, needSize := range diskSizes {
+			iStorage, err := StorageManager.FetchById(storageId)
+			if err != nil {
+				return nil, httperrors.NewBadRequestError("Fetch storage error: %s", err)
+			}
+			storage := iStorage.(*SStorage)
+			if storage.GetFreeCapacity() < needSize {
+				return nil, httperrors.NewInsufficientResourceError("Not enough free space")
+			}
+		}
+	} else {
+		log.Debugf("Skip storage free capacity validating for public cloud: %s", provider.GetName())
+	}
+
 	if newDisks.Length() > 0 {
 		confs.Add(newDisks, "create")
 	}
