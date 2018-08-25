@@ -138,6 +138,12 @@ func (self *SDisk) Refresh() error {
 	return jsonutils.Update(self, new)
 }
 
+func (self *SDisk) ResizeDisk(newSize int64) error {
+	// newSize 单位为 GB. 范围在20 ～2000. 只能往大调。不能调小
+	// https://help.aliyun.com/document_detail/25522.html?spm=a2c4g.11174283.6.897.aHwqkS
+	return self.storage.zone.region.resizeDisk(self.DiskId, newSize)
+}
+
 func (self *SDisk) GetDiskFormat() string {
 	return "vhd"
 }
@@ -185,7 +191,7 @@ func (self *SDisk) GetMountpoint() string {
 	return ""
 }
 
-func (self *SRegion) createDisk(zoneId string, category string, name string, sizeGb int, desc string) (string, error) {
+func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, desc string) (string, error) {
 	params := make(map[string]string)
 	params["ZoneId"] = zoneId
 	params["DiskName"] = name
@@ -223,11 +229,24 @@ func (self *SRegion) deleteDisk(diskId string) error {
 	return err
 }
 
+func (self *SRegion) DeleteDisk(diskId string) error {
+	params := make(map[string]string)
+	params["DiskId"] = diskId
+
+	_, err := self.ecsRequest("DeleteDisk", params)
+	return err
+}
+
 func (self *SRegion) resizeDisk(diskId string, size int64) error {
 	params := make(map[string]string)
 	params["DiskId"] = diskId
 	params["NewSize"] = fmt.Sprintf("%d", size)
 
 	_, err := self.ecsRequest("ResizeDisk", params)
-	return err
+	if err != nil {
+		log.Errorf("ResizeDisk %s to %s GiB fail %s", diskId, size, err)
+		return err
+	}
+
+	return nil
 }
