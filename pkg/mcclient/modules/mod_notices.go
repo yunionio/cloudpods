@@ -22,5 +22,5 @@ func init() {
 	NoticeReadMark = NoticeReadMarkManager{NewYunionAgentManager("readmark", "readmarks",
 		[]string{},
 		[]string{})}
-	register(&Notice)
+	register(&NoticeReadMark)
 }
