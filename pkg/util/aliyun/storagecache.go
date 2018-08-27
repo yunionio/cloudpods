@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -17,6 +18,10 @@ type SStoragecache struct {
 	region *SRegion
 
 	iimages []cloudprovider.ICloudImage
+}
+
+func (self *SStoragecache) GetMetadata() *jsonutils.JSONDict {
+	return nil
 }
 
 func (self *SStoragecache) GetId() string {

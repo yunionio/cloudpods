@@ -18,6 +18,10 @@ func NewDatastore(manager *SESXiClient, ds *mo.Datastore, dc *SDatacenter) *SDat
 	return &SDatastore{SManagedObject: newManagedObject(manager, ds, dc)}
 }
 
+func (self *SDatastore) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (self *SDatastore) getDatastore() *mo.Datastore {
 	return self.object.(*mo.Datastore)
 }

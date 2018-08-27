@@ -27,6 +27,10 @@ func NewVirtualMachine(manager *SESXiClient, vm *mo.VirtualMachine, dc *SDatacen
 	return &SVirtualMachine{SManagedObject: newManagedObject(manager, vm, dc), host: host}
 }
 
+func (self *SVirtualMachine) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (self *SVirtualMachine) getVirtualMachine() *mo.VirtualMachine {
 	return self.object.(*mo.VirtualMachine)
 }
@@ -226,6 +230,6 @@ func (self *SVirtualMachine) acquireVmrcUrl() (jsonutils.JSONObject, error) {
 	return ret, nil
 }
 
-func (dc *SVirtualMachine) ChangeConfig(instanceId string,ncpu int, vmem int) error {
+func (dc *SVirtualMachine) ChangeConfig(instanceId string, ncpu int, vmem int) error {
 	return cloudprovider.ErrNotImplemented
 }
