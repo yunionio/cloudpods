@@ -251,6 +251,30 @@ func applyListItemsGeneralFilters(manager IModelManager, q *sqlchemy.SQuery,
 	return q, nil
 }
 
+func applyListItemsGeneralJointFilters(manager IModelManager, q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential, jointFilters []string, filterAny bool) (*sqlchemy.SQuery, error) {
+	for _, f := range jointFilters {
+		jfc := filterclause.ParseJointFilterClause(f)
+		if jfc != nil {
+			jointModelManager := GetModelManager(jfc.GetJointModelName())
+			schFields := searchFields(jointModelManager, userCred)
+			if ok, _ := utils.InStringArray(jfc.GetField(), schFields); ok {
+				sq := jointModelManager.Query(jfc.ReleatedKey)
+				cond := jfc.GetJointFilter(sq)
+				if cond != nil {
+					sq = sq.Filter(cond)
+					if filterAny {
+						q = q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("id"), sq)))
+					} else {
+						q = q.Filter(sqlchemy.AND(sqlchemy.In(q.Field("id"), sq)))
+					}
+				}
+			}
+		}
+	}
+	return q, nil
+}
+
 func listItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 
@@ -272,10 +296,14 @@ func listItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchem
 			return nil, err
 		}
 	}
+	filterAny, _ := query.Bool("filter_any")
 	filters := jsonutils.GetQueryStringArray(query, "filter")
 	if len(filters) > 0 {
-		filterAny, _ := query.Bool("filter_any")
 		q, err = applyListItemsGeneralFilters(manager, q, userCred, filters, filterAny)
+	}
+	jointFilter := jsonutils.GetQueryStringArray(query, "joint_filter")
+	if len(jointFilter) > 0 {
+		q, _ = applyListItemsGeneralJointFilters(manager, q, userCred, jointFilter, filterAny)
 	}
 	return q, nil
 }
