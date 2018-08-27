@@ -50,7 +50,7 @@ func (self *GuestCreateTask) OnDiskPreparedFailed(ctx context.Context, obj db.IS
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.UserCred, models.VM_DISK_FAILED, "allocation failed")
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
-	logclient.AddActionLog(self.UserCred, logclient.ACT_ALLOCATE, "", guest, data.String())
+	logclient.AddActionLog(guest, logclient.ACT_ALLOCATE, data, self.UserCred)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_DISK_FAILED, data.String())
 }
 
@@ -78,7 +78,7 @@ func (self *GuestCreateTask) OnCdromPreparedFailed(ctx context.Context, obj db.I
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.UserCred, models.VM_DISK_FAILED, "")
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
-	logclient.AddActionLog(self.UserCred, logclient.ACT_ALLOCATE, "", guest, data.String())
+	logclient.AddActionLog(guest, logclient.ACT_ALLOCATE, data, self.UserCred)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_DISK_FAILED, fmt.Sprintf("cdrom_failed %s", data))
 }
 
@@ -105,7 +105,7 @@ func (self *GuestCreateTask) OnDeployGuestDescCompleteFailed(ctx context.Context
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.UserCred, models.VM_DEPLOY_FAILED, "deploy_failed")
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
-	logclient.AddActionLog(self.UserCred, logclient.ACT_ALLOCATE, "", guest, data.String())
+	logclient.AddActionLog(guest, logclient.ACT_ALLOCATE, data, self.UserCred)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_DEPLOY_FAILED, data.String())
 }
 

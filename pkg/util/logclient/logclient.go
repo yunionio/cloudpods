@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/pkg/util/stringutils"
 )
 
 const (
@@ -53,34 +54,35 @@ type IObject interface {
 	Keyword() string
 }
 
-func AddActionLog(userCred mcclient.TokenCredential, action, notes string, obj IObject, e string) {
+func AddActionLog(model IObject, action string, iErr interface{}, userCred mcclient.TokenCredential) {
+	// (model IModel, action string, notes interface{}, userCred mcclient.TokenCredential
+	//func AddActionLog(userCred mcclient.TokenCredential, action, notes string, obj IObject, e string) { // originalk
 
 	token := userCred
+	notes := stringutils.Interface2String(iErr)
+
+	s := auth.GetSession(userCred, "", "")
+
 	logentry := jsonutils.NewDict()
-	logentry.Add(jsonutils.NewString(obj.GetName()), "obj_name")
-	logentry.Add(jsonutils.NewString(obj.Keyword()), "obj_type")
-	logentry.Add(jsonutils.NewString(obj.GetId()), "obj_id")
+	logentry.Add(jsonutils.NewString(model.GetName()), "obj_name")
+	logentry.Add(jsonutils.NewString(model.Keyword()), "obj_type")
+	logentry.Add(jsonutils.NewString(model.GetId()), "obj_id")
 	logentry.Add(jsonutils.NewString(action), "action")
 	logentry.Add(jsonutils.NewString(token.GetUserId()), "user_id")
 	logentry.Add(jsonutils.NewString(token.GetUserName()), "user")
 	logentry.Add(jsonutils.NewString(token.GetTenantId()), "tenant_id")
 	logentry.Add(jsonutils.NewString(token.GetTenantName()), "tenant")
 
-	// TODO delete following line later
-	notes = "[a2]" + notes
-
-	s := auth.GetSession(userCred, "", "")
-
-	if len(e) > 0 {
+	if len(notes) > 0 {
 		// 失败日志
 		logentry.Add(jsonutils.JSONFalse, "success")
-		notes = fmt.Sprintf("%s%s", notes, e)
-		logentry.Add(jsonutils.NewString(notes), "notes")
 	} else {
 		// 成功日志
 		logentry.Add(jsonutils.JSONTrue, "success")
-		logentry.Add(jsonutils.NewString(notes), "notes")
 	}
+	// TODO delete tag when done.
+	notes = fmt.Sprintf("[a2]%s", notes)
+	logentry.Add(jsonutils.NewString(notes), "notes")
 
 	_, err := modules.Actions.Create(s, logentry)
 	if err != nil {

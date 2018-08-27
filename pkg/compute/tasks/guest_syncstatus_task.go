@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -55,14 +54,11 @@ func (self *GuestSyncstatusTask) OnGetStatusSucc(ctx context.Context, guest *mod
 	statusData.Add(jsonutils.NewString(statusStr), "status")
 	guest.PerformStatus(ctx, self.UserCred, nil, statusData)
 	self.SetStageComplete(ctx, nil)
-	fmt.Println(" \n*\n*\n*\n*\n*\n*\n*\n*\n*\n*\n*\\n*n* * * * * * * * * * * * * ")
-	fmt.Println("* * * * * * * * * * * * * server obj:", guest)
-	fmt.Println(" \n*\n*\n*\n*\n*\n*\n*\n*\n*\n*\n*\\n*n* * * * * * * * * * * * * ")
-	logclient.AddActionLog(self.UserCred, logclient.ACT_VM_SYNC_STATUS, "", guest, "")
+	logclient.AddActionLog(guest, logclient.ACT_VM_SYNC_STATUS, "", self.UserCred)
 }
 
 func (self *GuestSyncstatusTask) OnGetStatusFail(ctx context.Context, guest *models.SGuest, err error) {
 	guest.SetStatus(self.UserCred, models.VM_UNKNOWN, err.Error())
 	self.SetStageComplete(ctx, nil)
-	logclient.AddActionLog(self.UserCred, logclient.ACT_VM_SYNC_STATUS, "", guest, err.Error())
+	logclient.AddActionLog(guest, logclient.ACT_VM_SYNC_STATUS, err, self.UserCred)
 }

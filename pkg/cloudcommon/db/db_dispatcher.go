@@ -741,7 +741,7 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		return nil, httperrors.NewGeneralError(err)
 	}
 	OpsLog.LogEvent(model, ACT_CREATE, model.GetShortDesc(), userCred)
-	logclient.AddActionLog(userCred, logclient.ACT_CREATE, "", model, "")
+	logclient.AddActionLog(model, logclient.ACT_CREATE, "", userCred)
 	dispatcher.modelManager.OnCreateComplete(ctx, []IModel{model}, userCred, query, data)
 	return getItemDetails(dispatcher.modelManager, model, ctx, userCred, query)
 }
@@ -960,13 +960,13 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 
 	if err != nil {
 		log.Errorf("validate update condition error: %s", err)
-		logclient.AddActionLog(userCred, logclient.ACT_UPDATE, "", item, err.Error())
+		logclient.AddActionLog(item, logclient.ACT_UPDATE, err.Error(), userCred)
 		return nil, httperrors.NewGeneralError(err)
 	}
 
 	dataDict, ok := data.(*jsonutils.JSONDict)
 	if !ok {
-		logclient.AddActionLog(userCred, logclient.ACT_UPDATE, "", item, "Invalid data JSONObject")
+		logclient.AddActionLog(item, logclient.ACT_UPDATE, "Invalid data JSONObject", userCred)
 		return nil, httperrors.NewInternalServerError("Invalid data JSONObject")
 	}
 
@@ -974,7 +974,7 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 	if len(name) > 0 {
 		err = alterNameValidator(item, name)
 		if err != nil {
-			logclient.AddActionLog(userCred, logclient.ACT_UPDATE, "", item, err.Error())
+			logclient.AddActionLog(item, logclient.ACT_UPDATE, err.Error(), userCred)
 			return nil, err
 		}
 	}
@@ -983,7 +983,7 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 	if err != nil {
 		errMsg := fmt.Sprintf("validate update data error: %s", err)
 		log.Errorf(errMsg)
-		logclient.AddActionLog(userCred, logclient.ACT_UPDATE, "", item, errMsg)
+		logclient.AddActionLog(item, logclient.ACT_UPDATE, errMsg, userCred)
 		return nil, httperrors.NewGeneralError(err)
 	}
 	item.PreUpdate(ctx, userCred, query, dataDict)
@@ -993,7 +993,7 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 		err = filterData.Unmarshal(item)
 		if err != nil {
 			errMsg := fmt.Sprintf("unmarshal fail: %s", err)
-			logclient.AddActionLog(userCred, logclient.ACT_UPDATE, "", item, errMsg)
+			logclient.AddActionLog(item, logclient.ACT_UPDATE, errMsg, userCred)
 			log.Errorf(errMsg)
 			return httperrors.NewGeneralError(err)
 		}
@@ -1008,10 +1008,10 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 		diffStr := sqlchemy.UpdateDiffString(diff)
 		if len(diffStr) > 0 {
 			OpsLog.LogEvent(item, ACT_UPDATE, diffStr, userCred)
-			logclient.AddActionLog(userCred, logclient.ACT_UPDATE, "", item, diffStr)
+			logclient.AddActionLog(item, logclient.ACT_UPDATE, diffStr, userCred)
 		}
 	}
-	logclient.AddActionLog(userCred, logclient.ACT_UPDATE, dataDict.String(), item, "")
+	logclient.AddActionLog(item, logclient.ACT_UPDATE, "", userCred)
 	return getItemDetails(manager, item, ctx, userCred, query)
 }
 
@@ -1040,11 +1040,11 @@ func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IM
 	if err != nil {
 		msg := fmt.Sprintf("save update error %s", err)
 		log.Errorf(msg)
-		logclient.AddActionLog(userCred, logclient.ACT_DELETE, "", item, msg)
+		logclient.AddActionLog(item, logclient.ACT_DELETE, msg, userCred)
 		return httperrors.NewGeneralError(err)
 	}
 	OpsLog.LogEvent(item, ACT_DELETE, item.GetShortDesc(), userCred)
-	logclient.AddActionLog(userCred, logclient.ACT_DELETE, "", item, "")
+	logclient.AddActionLog(item, logclient.ACT_DELETE, "", userCred)
 	return nil
 }
 

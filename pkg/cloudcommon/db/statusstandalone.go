@@ -43,7 +43,7 @@ func (model *SStatusStandaloneResourceBase) SetStatus(userCred mcclient.TokenCre
 		}
 		OpsLog.LogEvent(model, ACT_UPDATE_STATUS, notes, userCred)
 		if strings.Contains(notes, "fail") {
-			logclient.AddActionLog(userCred, logclient.ACT_VM_SYNC_STATUS, "", model, notes)
+			logclient.AddActionLog(model, logclient.ACT_VM_SYNC_STATUS, notes, userCred)
 		}
 	}
 	return nil

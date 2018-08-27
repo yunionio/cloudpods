@@ -89,7 +89,7 @@ func (self *GuestDeleteTask) OnGuestDeleteCompleteFailed(ctx context.Context, ob
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.UserCred, models.VM_DELETE_FAIL, err.String())
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE_FAIL, err, self.UserCred)
-	logclient.AddActionLog(self.UserCred, logclient.ACT_DELETE, "", guest, err.String())
+	logclient.AddActionLog(guest, logclient.ACT_DELETE, err, self.UserCred)
 }
 
 func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -105,7 +105,7 @@ func (self *GuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGue
 	guest.RealDelete(ctx, self.UserCred)
 	guest.RemoveAllMetadata(ctx, self.UserCred)
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE, nil, self.UserCred)
-	logclient.AddActionLog(self.UserCred, logclient.ACT_DELETE, "", guest, "")
+	logclient.AddActionLog(guest, logclient.ACT_DELETE, "", self.UserCred)
 	if !guest.IsSystem && !guest.PendingDeleted {
 		self.NotifyServerDeleted(ctx, guest)
 	}
