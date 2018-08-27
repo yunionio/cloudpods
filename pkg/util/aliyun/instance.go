@@ -3,6 +3,7 @@ package aliyun
 import (
 	"fmt"
 	"time"
+
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 
 	"yunion.io/x/jsonutils"
@@ -162,6 +163,20 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 	}
 	total, _ := body.Int("TotalCount")
 	return instances, int(total), nil
+}
+
+func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
+	data := jsonutils.NewDict()
+
+	// The pricingInfo key structure is 'RegionId::InstanceType::NetworkType::OSType::IoOptimized'
+	optimized := "optimized"
+	if !self.IoOptimized {
+		optimized = "none"
+	}
+	priceKey := fmt.Sprintf("%s::%s::%s::%s::%s", self.RegionId, self.InstanceType, self.InstanceNetworkType, self.OSType, optimized)
+	data.Add(jsonutils.NewString(priceKey), "price_key")
+
+	return data
 }
 
 func (self *SInstance) GetCreateTime() time.Time {

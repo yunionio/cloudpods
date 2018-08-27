@@ -15,6 +15,10 @@ type SStorage struct {
 	storageType string
 }
 
+func (self *SStorage) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (self *SStorage) GetId() string {
 	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerId, self.zone.GetId(), self.storageType)
 }

@@ -19,6 +19,10 @@ type SHost struct {
 	zone *SZone
 }
 
+func (self *SHost) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
 	return self.zone.GetIWires()
 }
