@@ -14,7 +14,7 @@ var (
 )
 
 func init() {
-	Version = VersionManager{NewYunionAgentManager("notice", "notices",
+	Notice = NoticeManager{NewYunionAgentManager("notice", "notices",
 		[]string{},
 		[]string{})}
 	register(&Notice)
