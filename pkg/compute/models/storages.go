@@ -97,6 +97,10 @@ func (self *SStorage) IsLocal() bool {
 	return self.StorageType == STORAGE_LOCAL || self.StorageType == STORAGE_BAREMETAL
 }
 
+func (manager *SStorageManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
 func (self *SStorage) GetUsedCapacity(isReady tristate.TriState) int {
 	disks := DiskManager.Query().SubQuery()
 	q := disks.Query(sqlchemy.SUM("sum", disks.Field("disk_size"))).Equals("storage_id", self.Id)
