@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -116,8 +117,9 @@ func (self *SAliyunGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *mo
 }
 
 type SDiskInfo struct {
-	Size int
-	Uuid string
+	Size     int
+	Uuid     string
+	Metadata map[string]string
 }
 
 func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
@@ -207,12 +209,19 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 					dinfo := SDiskInfo{}
 					dinfo.Uuid = idisks[i].GetGlobalId()
 					dinfo.Size = idisks[i].GetDiskSizeMB()
+					if metaData := idisks[i].GetMetadata(); metaData != nil {
+						dinfo.Metadata = make(map[string]string, 0)
+						if err := metaData.Unmarshal(dinfo.Metadata); err != nil {
+							log.Errorf("Get disk %s metadata info error: %v", idisks[i].GetName(), err)
+						}
+					}
 					diskInfo[i] = dinfo
 				}
 				data.Add(jsonutils.Marshal(&diskInfo), "disks")
 			}
 
 			data.Add(jsonutils.NewString(iVM.GetGlobalId()), "uuid")
+			data.Add(iVM.GetMetadata(), "metadata")
 
 			return data, nil
 		})
@@ -236,7 +245,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		resetPassword := jsonutils.QueryBoolean(params, "reset_password", false)
 		deleteKeypair := jsonutils.QueryBoolean(params, "__delete_keypair__", false)
 		password, _ := params.GetString("password")
-		if resetPassword && len(password) == 0{
+		if resetPassword && len(password) == 0 {
 			password = seclib2.RandomPassword2(12)
 		}
 
@@ -245,15 +254,15 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			publicKey = k
 		}
 
-		taskman.LocalTaskRun(task, func () (jsonutils.JSONObject, error) {
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 			encpasswd, err := utils.EncryptAESBase64(guest.Id, password)
 			if err != nil {
 				log.Errorf("encrypt password failed %s", err)
 			}
 
 			data := jsonutils.NewDict()
-			data.Add(jsonutils.NewString("root"), "account")  // 用户名
-			data.Add(jsonutils.NewString(encpasswd), "key")      // 密码
+			data.Add(jsonutils.NewString("root"), "account") // 用户名
+			data.Add(jsonutils.NewString(encpasswd), "key")  // 密码
 			e := iVM.DeployVM(name, password, publicKey, resetPassword, deleteKeypair, description)
 			return data, e
 		})
@@ -284,6 +293,13 @@ func (self *SAliyunGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Contex
 				disk.DiskSize = diskInfo[i].Size
 				disk.ExternalId = diskInfo[i].Uuid
 				disk.Status = models.DISK_READY
+				if len(diskInfo[i].Metadata) > 0 {
+					for key, value := range diskInfo[i].Metadata {
+						if err := disk.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {
+							log.Errorf("set disk %s mata %s => %s error: %v", disk.Name, key, value, err)
+						}
+					}
+				}
 				return nil
 			})
 			if err != nil {
@@ -299,6 +315,20 @@ func (self *SAliyunGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Contex
 	if len(uuid) > 0 {
 		guest.SetExternalId(uuid)
 	}
+
+	if metaData, _ := data.Get("metadata"); metaData != nil {
+		meta := make(map[string]string, 0)
+		if err := metaData.Unmarshal(meta); err != nil {
+			log.Errorf("Get guest %s metadata error: %v", guest.Name, err)
+		} else {
+			for key, value := range meta {
+				if err := guest.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {
+					log.Errorf("set guest %s mata %s => %s error: %v", guest.Name, key, value, err)
+				}
+			}
+		}
+	}
+
 	guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
 	return nil
 }
@@ -320,9 +350,9 @@ func (self *SAliyunGuestDriver) RequestSyncConfigOnHost(ctx context.Context, gue
 }
 
 type SAliyunVMChangeConfig struct {
-	InstanceId        string
-	Cpu               int
-	Memory            int
+	InstanceId string
+	Cpu        int
+	Memory     int
 }
 
 func (self *SAliyunGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {

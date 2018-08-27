@@ -18,6 +18,7 @@ type ICloudResource interface {
 	Refresh() error
 
 	IsEmulated() bool
+	GetMetadata() *jsonutils.JSONDict
 }
 
 type ICloudRegion interface {
@@ -156,7 +157,7 @@ type ICloudVM interface {
 	UpdateVM(name string) error
 	RebuildRoot(imageId string) error
 	DeployVM(name string, password string, publicKey string, resetPassword bool, deleteKeypair bool, description string) error
-	ChangeConfig(instanceId string,ncpu int, vmem int) error
+	ChangeConfig(instanceId string, ncpu int, vmem int) error
 	GetVNCInfo() (jsonutils.JSONObject, error)
 	AttachDisk(diskId string) error
 }

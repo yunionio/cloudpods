@@ -77,6 +77,10 @@ func (v PermissionSet) Less(i, j int) bool {
 	return false
 }
 
+func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (self *SSecurityGroup) GetId() string {
 	return self.SecurityGroupId
 }
