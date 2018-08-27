@@ -1249,6 +1249,18 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			db.OpsLog.LogEvent(self, db.ACT_UPDATE, diffStr, userCred)
 		}
 	}
+	if metaData := extVM.GetMetadata(); metaData != nil {
+		meta := make(map[string]string, 0)
+		if metaData.Unmarshal(meta); err != nil {
+			log.Errorf("Get VM Metadata error: %v", err)
+		} else {
+			for key, value := range meta {
+				if err := self.SetMetadata(ctx, key, value, userCred); err != nil {
+					log.Errorf("set guest %s mata %s => %s error: %v", self.Name, key, value, err)
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -1279,6 +1291,20 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	if err != nil {
 		log.Errorf("Insert fail %s", err)
 	}
+
+	if metaData := extVM.GetMetadata(); metaData != nil {
+		meta := make(map[string]string, 0)
+		if err := metaData.Unmarshal(meta); err != nil {
+			log.Errorf("Get VM Metadata error: %v", err)
+		} else {
+			for key, value := range meta {
+				if err := guest.SetMetadata(ctx, key, value, userCred); err != nil {
+					log.Errorf("set guest %s mata %s => %s error: %v", guest.Name, key, value, err)
+				}
+			}
+		}
+	}
+
 	return &guest, nil
 }
 
@@ -1668,7 +1694,7 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 		if len(vdisks[i].GetGlobalId()) == 0 {
 			continue
 		}
-		disk, err := DiskManager.syncCloudDisk(userCred, vdisks[i])
+		disk, err := DiskManager.syncCloudDisk(ctx, userCred, vdisks[i])
 		if err != nil {
 			result.Error(err)
 			return result
@@ -3140,6 +3166,11 @@ func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
 	if intBw > 0 {
 		desc.Set("int_bandwidth", jsonutils.NewInt(int64(intBw)))
 	}
+
+	if priceKey := self.GetMetadata("price_key", nil); len(priceKey) > 0 {
+		desc.Add(jsonutils.NewString(priceKey), "price_key")
+	}
+
 	desc.Set("hypervisor", jsonutils.NewString(self.GetHypervisor()))
 	spec := self.GetSpec(false)
 	if self.GetHypervisor() == HYPERVISOR_BAREMETAL {

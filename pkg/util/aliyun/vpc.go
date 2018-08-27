@@ -45,6 +45,10 @@ type SVpc struct {
 	VpcName      string
 }
 
+func (self *SVpc) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (self *SVpc) GetId() string {
 	return self.VpcId
 }

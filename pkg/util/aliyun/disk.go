@@ -54,6 +54,16 @@ type SDisk struct {
 	ZoneId                        string
 }
 
+func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
+	data := jsonutils.NewDict()
+
+	// The pricingInfo key structure is 'RegionId::DiskCategory::DiskType
+	priceKey := fmt.Sprintf("%s::%s::%s", self.RegionId, self.Category, self.Type)
+	data.Add(jsonutils.NewString(priceKey), "price_key")
+
+	return data
+}
+
 func (self *SRegion) GetDisks(instanceId string, zoneId string, category string, diskIds []string, offset int, limit int) ([]SDisk, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50
