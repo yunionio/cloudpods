@@ -15,12 +15,12 @@ var (
 
 func init() {
 	Notice = NoticeManager{NewYunionAgentManager("notice", "notices",
-		[]string{},
+		[]string{"id", "title", "content"},
 		[]string{})}
 	register(&Notice)
 
 	NoticeReadMark = NoticeReadMarkManager{NewYunionAgentManager("readmark", "readmarks",
 		[]string{},
-		[]string{})}
+		[]string{"notice_id", "user_id"})}
 	register(&NoticeReadMark)
 }
