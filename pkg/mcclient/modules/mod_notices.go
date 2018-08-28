@@ -15,7 +15,7 @@ var (
 
 func init() {
 	Notice = NoticeManager{NewYunionAgentManager("notice", "notices",
-		[]string{"id", "title", "content"},
+		[]string{"id", "created_at", "updated_at","author_id", "author", "title", "content"},
 		[]string{})}
 	register(&Notice)
 
