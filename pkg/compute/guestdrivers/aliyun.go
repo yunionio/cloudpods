@@ -49,6 +49,10 @@ func (self *SAliyunGuestDriver) ChooseHostStorage(host *models.SHost, backend st
 	return nil
 }
 
+func (self *SAliyunGuestDriver) GetDetachDiskStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
 func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	data, err := self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, data)
 	if err != nil {
