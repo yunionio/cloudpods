@@ -2369,6 +2369,9 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 	disk := iDisk.(*SDisk)
 	if disk != nil {
 		if self.isAttach2Disk(disk) {
+			if disk.DiskType == DISK_TYPE_SYS {
+				return nil, httperrors.NewUnsupportOperationError("Cannot detach sys disk")
+			}
 			detachDiskStatus, err := self.GetDriver().GetDetachDiskStatus()
 			if err != nil {
 				return nil, err
