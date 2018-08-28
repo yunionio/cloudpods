@@ -259,7 +259,7 @@ func applyListItemsGeneralJointFilters(manager IModelManager, q *sqlchemy.SQuery
 			jointModelManager := GetModelManager(jfc.GetJointModelName())
 			schFields := searchFields(jointModelManager, userCred)
 			if ok, _ := utils.InStringArray(jfc.GetField(), schFields); ok {
-				sq := jointModelManager.Query(jfc.ReleatedKey)
+				sq := jointModelManager.Query(jfc.RelatedKey)
 				cond := jfc.GetJointFilter(sq)
 				if cond != nil {
 					sq = sq.Filter(cond)

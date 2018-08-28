@@ -18,8 +18,8 @@ type SFilterClause struct {
 
 type SJointFilterClause struct {
 	SFilterClause
-	JointModel  string
-	ReleatedKey string
+	JointModel string
+	RelatedKey string
 }
 
 func (jfc *SJointFilterClause) GetJointFilter(q *sqlchemy.SQuery) sqlchemy.ICondition {
@@ -108,8 +108,8 @@ func ParseJointFilterClause(jointFilter string) *SJointFilterClause {
 			funcName: matches[4],
 			params:   params,
 		},
-		JointModel:  matches[1],
-		ReleatedKey: matches[2],
+		JointModel: matches[1],
+		RelatedKey: matches[2],
 	}
 	return &jfc
 }
