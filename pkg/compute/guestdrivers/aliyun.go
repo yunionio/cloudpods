@@ -410,13 +410,17 @@ func (self *SAliyunGuestDriver) RequestStartOnHost(ctx context.Context, guest *m
 		return nil, e
 	}
 
-	err := ivm.StartVM()
-	if err != nil {
-		return nil, e
+	result := jsonutils.NewDict()
+	if ivm.GetStatus() != models.VM_RUNNING {
+		if err := ivm.StartVM(); err != nil {
+			return nil, e
+		} else {
+			task.ScheduleRun(result)
+		}
+	} else {
+		result.Add(jsonutils.NewBool(true), "is_running")
 	}
 
-	result := jsonutils.NewDict()
-	result.Add(jsonutils.NewBool(true), "is_running")
 	return result, e
 }
 
