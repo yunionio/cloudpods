@@ -126,6 +126,10 @@ func (self *SSecurityGroup) GetId() string {
 	return self.ID
 }
 
+func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (self *SSecurityGroup) GetGlobalId() string {
 	return fmt.Sprintf("%s/%s", self.vpc.GetGlobalId(), self.Name)
 }
@@ -166,7 +170,7 @@ func (self *SSecurityGroup) IsEmulated() bool {
 }
 
 func (self *SSecurityGroup) Refresh() error {
-	if resourceGroup, _, err := pareResourceGroupWithName(self.ID); err != nil {
+	if resourceGroup, _, err := PareResourceGroupWithName(self.ID); err != nil {
 		log.Errorf("Refresh SecurityGroup error %v", err)
 		return err
 	} else {

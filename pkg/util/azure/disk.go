@@ -12,8 +12,19 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-04-01/compute"
 )
 
+type StorageAccountTypes string
+
+const (
+	// StorageAccountTypesPremiumLRS ...
+	StorageAccountTypesPremiumLRS StorageAccountTypes = "Premium_LRS"
+	// StorageAccountTypesStandardLRS ...
+	StorageAccountTypesStandardLRS StorageAccountTypes = "Standard_LRS"
+	// StorageAccountTypesStandardSSDLRS ...
+	StorageAccountTypesStandardSSDLRS StorageAccountTypes = "StandardSSD_LRS"
+)
+
 type DiskSku struct {
-	Name string
+	Name StorageAccountTypes
 	Tier string
 }
 
@@ -38,6 +49,8 @@ type DiskProperties struct {
 	ProvisioningState string
 }
 
+const DiskResourceGroup = "YunionDiskResource"
+
 type SDisk struct {
 	storage *SStorage
 
@@ -53,6 +66,41 @@ type SDisk struct {
 	Properties DiskProperties
 
 	Tags map[string]string
+}
+
+func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, desc string) error {
+	return self.createDisk(storageType, name, sizeGb, desc)
+}
+
+func (self *SRegion) createDisk(storageType string, name string, sizeGb int32, desc string) error {
+	computeClient := compute.NewDisksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
+	computeClient.Authorizer = self.client.authorizer
+	sku := compute.DiskSku{Name: compute.StorageAccountTypes(storageType)}
+	properties := compute.DiskProperties{DiskSizeGB: &sizeGb, CreationData: &compute.CreationData{CreateOption: "Empty"}}
+	disk := compute.Disk{Name: &name, Location: &self.Name, DiskProperties: &properties, Sku: &sku}
+	if result, err := computeClient.CreateOrUpdate(context.Background(), DefaultResourceGroup["disk"], name, disk); err != nil {
+		return err
+	} else if err := result.WaitForCompletion(context.Background(), computeClient.Client); err != nil {
+		return err
+	} else {
+		return nil
+	}
+}
+
+func (self *SRegion) DeleteDisk(diskId string) error {
+	return self.deleteDisk(diskId)
+}
+
+func (self *SRegion) deleteDisk(diskId string) error {
+	computeClient := compute.NewDisksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
+	computeClient.Authorizer = self.client.authorizer
+	if resourceGroup, name, err := PareResourceGroupWithName(diskId); err != nil {
+		return err
+	} else if _, err := computeClient.Delete(context.Background(), resourceGroup, name); err != nil {
+		return err
+	} else {
+		return nil
+	}
 }
 
 func (self *SRegion) GetDisk(resourceGroup string, diskName string) (*SDisk, error) {
@@ -76,15 +124,21 @@ func (self *SRegion) GetDisks() ([]SDisk, error) {
 		return nil, err
 	} else {
 		for _, _disk := range diskList.Values() {
-			disk := SDisk{}
-			if err := jsonutils.Update(&disk, _disk); err != nil {
-				return disks, err
+			if *_disk.Location == self.Name {
+				disk := SDisk{}
+				if err := jsonutils.Update(&disk, _disk); err != nil {
+					return disks, err
+				}
+				disk.ResourceGroup, _, _ = PareResourceGroupWithName(disk.ID)
+				disks = append(disks, disk)
 			}
-			disk.ResourceGroup, _, _ = pareResourceGroupWithName(disk.ID)
-			disks = append(disks, disk)
 		}
 	}
 	return disks, nil
+}
+
+func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
+	return nil
 }
 
 func (self *SDisk) GetStatus() string {
@@ -114,8 +168,7 @@ func (self *SDisk) Refresh() error {
 }
 
 func (self *SDisk) Delete() error {
-	return nil
-	//return self.storage.zone.region.deleteDisk(self.DiskId)
+	return self.storage.zone.region.deleteDisk(self.ID)
 }
 
 func (self *SDisk) Resize(size int64) error {
@@ -131,7 +184,7 @@ func (self *SDisk) GetName() string {
 }
 
 func (self *SDisk) GetGlobalId() string {
-	resourceGroup, _, _ := pareResourceGroupWithName(self.ID)
+	resourceGroup, _, _ := PareResourceGroupWithName(self.ID)
 	return fmt.Sprintf("resourceGroups/%s/providers/%s/%s", resourceGroup, self.storage.zone.region.SubscriptionID, self.Name)
 }
 

@@ -75,7 +75,26 @@ func (this *ClientSession) GetServiceURL(service, endpointType string) (string, 
 	if len(this.apiVersion) > 0 && this.apiVersion != DEFAULT_API_VERSION {
 		service = fmt.Sprintf("%s_%s", service, this.apiVersion)
 	}
-	return this.token.GetServiceURL(service, this.region, this.zone, endpointType)
+	url, err := this.token.GetServiceURL(service, this.region, this.zone, endpointType)
+	if err != nil {
+		url, err = this.client.serviceCatalog.GetServiceURL(service, this.region, this.zone, endpointType)
+	}
+	return url, err
+}
+
+func (this *ClientSession) GetServiceURLs(service, endpointType string) ([]string, error) {
+	if len(this.endpointType) > 0 {
+		// session specific endpoint type should override the input endpointType, which is supplied by manager
+		endpointType = this.endpointType
+	}
+	if len(this.apiVersion) > 0 && this.apiVersion != DEFAULT_API_VERSION {
+		service = fmt.Sprintf("%s_%s", service, this.apiVersion)
+	}
+	urls, err := this.token.GetServiceURLs(service, this.region, this.zone, endpointType)
+	if err != nil {
+		urls, err = this.client.serviceCatalog.GetServiceURLs(service, this.region, this.zone, endpointType)
+	}
+	return urls, err
 }
 
 func (this *ClientSession) getBaseUrl(service, endpointType string) (string, error) {

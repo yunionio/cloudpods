@@ -2,6 +2,7 @@ package azure
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -13,6 +14,10 @@ type SStorage struct {
 	zone *SZone
 
 	storageType string
+}
+
+func (self *SStorage) GetMetadata() *jsonutils.JSONDict {
+	return nil
 }
 
 func (self *SStorage) GetId() string {
@@ -44,23 +49,18 @@ func (self *SStorage) GetCapacityMB() int {
 }
 
 func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
-	// diskId, err := self.zone.region.createDisk(self.zone.ZoneId, self.storageType, name, sizeGb, desc)
-	// if err != nil {
-	// 	log.Errorf("createDisk fail %s", err)
-	// 	return nil, err
-	// }
-	// disk, err := self.zone.region.getDisk(diskId)
-	// if err != nil {
-	// 	log.Errorf("getDisk fail %s", err)
-	// 	return nil, err
-	// }
-	// disk.storage = self
-	// return disk, nil
-	return nil, cloudprovider.ErrNotImplemented
+	if err := self.zone.region.createDisk(self.storageType, name, int32(sizeGb), desc); err != nil {
+		return nil, err
+	} else if disk, err := self.zone.region.GetDisk(DefaultResourceGroup["disk"], name); err != nil {
+		return nil, err
+	} else {
+		disk.storage = self
+		return disk, nil
+	}
 }
 
 func (self *SStorage) GetIDisk(idStr string) (cloudprovider.ICloudDisk, error) {
-	if resourceGroup, diskName, err := pareResourceGroupWithName(idStr); err != nil {
+	if resourceGroup, diskName, err := PareResourceGroupWithName(idStr); err != nil {
 		return nil, err
 	} else {
 		if disk, err := self.zone.region.GetDisk(resourceGroup, diskName); err != nil {
@@ -79,7 +79,8 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	} else {
 		idisks := make([]cloudprovider.ICloudDisk, 0)
 		for i := 0; i < len(disks); i += 1 {
-			if disks[i].Location == self.zone.region.Name && disks[i].Sku.Tier == self.storageType {
+			storageType := strings.ToLower(string(disks[i].Sku.Name))
+			if disks[i].Location == self.zone.region.Name && storageType == self.storageType {
 				disks[i].storage = self
 				idisks = append(idisks, &disks[i])
 				log.Debugf("find disk %s for storage %s", disks[i].GetName(), self.GetName())
@@ -98,7 +99,7 @@ func (self *SStorage) GetManagerId() string {
 }
 
 func (self *SStorage) GetMediumType() string {
-	if self.storageType == "Premium" {
+	if strings.HasPrefix(self.storageType, "premium") {
 		return models.DISK_TYPE_SSD
 	}
 	return models.DISK_TYPE_ROTATE

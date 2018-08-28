@@ -171,7 +171,7 @@ type SInstance struct {
 	Tags       map[string]string
 }
 
-func pareResourceGroupWithName(s string) (string, string, error) {
+func PareResourceGroupWithName(s string) (string, string, error) {
 	valid := regexp.MustCompile("resourceGroups/(.+)/providers/.+/(.+)$")
 	if resourceGroups := valid.FindStringSubmatch(s); len(resourceGroups) == 3 {
 		return resourceGroups[1], resourceGroups[2], nil
@@ -211,7 +211,7 @@ func (self *SRegion) GetInstances() ([]SInstance, error) {
 				} else if err := jsonutils.Update(&instance.Properties.HardwareProfile, vmSize); err != nil {
 					return instances, err
 				}
-				instance.ResourceGroup, _, _ = pareResourceGroupWithName(instance.ID)
+				instance.ResourceGroup, _, _ = PareResourceGroupWithName(instance.ID)
 				instances = append(instances, instance)
 			}
 		}
@@ -221,6 +221,10 @@ func (self *SRegion) GetInstances() ([]SInstance, error) {
 
 func (self *SRegion) doDeleteVM(instanceId string) error {
 	//return self.instanceOperation(instanceId, "DeleteInstance", nil)
+	return nil
+}
+
+func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
@@ -244,10 +248,6 @@ func (self *SInstance) Refresh() error {
 }
 
 func (self *SInstance) GetStatus() string {
-	// Running：运行中
-	//Starting：启动中
-	//Stopping：停止中
-	//Stopped：已停止
 	if len(self.Properties.InstanceView.Statuses) == 0 {
 		self.Refresh()
 	}
@@ -263,6 +263,26 @@ func (self *SInstance) GetStatus() string {
 
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
 	return self.host
+}
+
+func (self *SInstance) AttachDisk(diskId string) error {
+	return nil
+}
+
+func (self *SInstance) ChangeConfig(instanceId string, ncpu int, vmem int) error {
+	return nil
+}
+
+func (self *SInstance) DeployVM(name string, password string, publicKey string, resetPassword bool, deleteKeypair bool, description string) error {
+	return nil
+}
+
+func (self *SInstance) RebuildRoot(imageId string) error {
+	return nil
+}
+
+func (self *SInstance) UpdateVM(name string) error {
+	return nil
 }
 
 func (self *SInstance) GetId() string {
@@ -302,7 +322,7 @@ func (self *SInstance) DeleteVM() error {
 func (self *SInstance) getDiskWithStore(resourceGroup string, diskName string) (*SDisk, error) {
 	if disk, err := self.host.zone.region.GetDisk(resourceGroup, diskName); err != nil {
 		return nil, err
-	} else if store, err := self.host.zone.getStorageByType(string(disk.Sku.Tier)); err != nil {
+	} else if store, err := self.host.zone.getStorageByType(strings.ToLower(string(disk.Sku.Name))); err != nil {
 		log.Errorf("fail to find storage for disk(%s) : %v", disk.Name, err)
 		return nil, err
 	} else {
@@ -320,7 +340,7 @@ func (self *SInstance) fetchDisks() error {
 		self.idisks[0] = disk
 	}
 	for i, dataDisk := range self.Properties.StorageProfile.DataDisks {
-		if resourceGroup, diskName, err := pareResourceGroupWithName(dataDisk.ManagedDisk.ID); err != nil {
+		if resourceGroup, diskName, err := PareResourceGroupWithName(dataDisk.ManagedDisk.ID); err != nil {
 			return err
 		} else if disk, err := self.getDiskWithStore(resourceGroup, diskName); err != nil {
 			return err
@@ -348,7 +368,7 @@ func (self *SInstance) GetOSType() string {
 func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	nics := make([]cloudprovider.ICloudNic, 0)
 	for _, _nic := range self.Properties.NetworkProfile.NetworkInterfaces {
-		if resourceGroup, nicName, err := pareResourceGroupWithName(_nic.ID); err != nil {
+		if resourceGroup, nicName, err := PareResourceGroupWithName(_nic.ID); err != nil {
 			return nics, err
 		} else if nic, err := self.host.zone.region.getNetworkInterface(resourceGroup, nicName); err != nil {
 			return nics, err

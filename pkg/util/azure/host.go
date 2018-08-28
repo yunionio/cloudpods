@@ -13,6 +13,10 @@ type SHost struct {
 	zone *SZone
 }
 
+func (self *SHost) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (self *SHost) GetId() string {
 	return fmt.Sprintf("%s-%s", self.zone.region.client.providerId, self.zone.GetId())
 }

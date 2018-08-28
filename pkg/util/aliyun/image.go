@@ -55,6 +55,10 @@ type SImage struct {
 	Usage                string
 }
 
+func (self *SImage) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (self *SImage) GetId() string {
 	return self.ImageId
 }

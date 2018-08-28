@@ -27,6 +27,10 @@ func NewVirtualMachine(manager *SESXiClient, vm *mo.VirtualMachine, dc *SDatacen
 	return &SVirtualMachine{SManagedObject: newManagedObject(manager, vm, dc), host: host}
 }
 
+func (self *SVirtualMachine) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (self *SVirtualMachine) getVirtualMachine() *mo.VirtualMachine {
 	return self.object.(*mo.VirtualMachine)
 }
@@ -63,6 +67,22 @@ func (self *SVirtualMachine) Refresh() error {
 
 func (self *SVirtualMachine) IsEmulated() bool {
 	return false
+}
+
+func (self *SVirtualMachine) DeployVM(name string, password string, publicKey string, resetPassword bool, deleteKeypair bool, description string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SVirtualMachine) RebuildRoot(imageId string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SVirtualMachine) UpdateVM(name string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SVirtualMachine) AttachDisk(diskId string) error {
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SVirtualMachine) getUuid() string {
@@ -208,4 +228,8 @@ func (self *SVirtualMachine) acquireVmrcUrl() (jsonutils.JSONObject, error) {
 	url := fmt.Sprintf("vmrc://clone:%s@%s:%d/?moid=%s", ticket, self.manager.host, port, self.GetId())
 	ret.Add(jsonutils.NewString(url), "url")
 	return ret, nil
+}
+
+func (dc *SVirtualMachine) ChangeConfig(instanceId string, ncpu int, vmem int) error {
+	return cloudprovider.ErrNotImplemented
 }

@@ -251,6 +251,30 @@ func applyListItemsGeneralFilters(manager IModelManager, q *sqlchemy.SQuery,
 	return q, nil
 }
 
+func applyListItemsGeneralJointFilters(manager IModelManager, q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential, jointFilters []string, filterAny bool) (*sqlchemy.SQuery, error) {
+	for _, f := range jointFilters {
+		jfc := filterclause.ParseJointFilterClause(f)
+		if jfc != nil {
+			jointModelManager := GetModelManager(jfc.GetJointModelName())
+			schFields := searchFields(jointModelManager, userCred)
+			if ok, _ := utils.InStringArray(jfc.GetField(), schFields); ok {
+				sq := jointModelManager.Query(jfc.ReleatedKey)
+				cond := jfc.GetJointFilter(sq)
+				if cond != nil {
+					sq = sq.Filter(cond)
+					if filterAny {
+						q = q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("id"), sq)))
+					} else {
+						q = q.Filter(sqlchemy.AND(sqlchemy.In(q.Field("id"), sq)))
+					}
+				}
+			}
+		}
+	}
+	return q, nil
+}
+
 func listItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 
@@ -272,10 +296,14 @@ func listItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchem
 			return nil, err
 		}
 	}
+	filterAny, _ := query.Bool("filter_any")
 	filters := jsonutils.GetQueryStringArray(query, "filter")
 	if len(filters) > 0 {
-		filterAny, _ := query.Bool("filter_any")
 		q, err = applyListItemsGeneralFilters(manager, q, userCred, filters, filterAny)
+	}
+	jointFilter := jsonutils.GetQueryStringArray(query, "joint_filter")
+	if len(jointFilter) > 0 {
+		q, _ = applyListItemsGeneralJointFilters(manager, q, userCred, jointFilter, filterAny)
 	}
 	return q, nil
 }
@@ -524,7 +552,7 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 }
 
 func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	log.Debugf("Get %s", idStr)
+	// log.Debugf("Get %s", idStr)
 	userCred := fetchUserCredential(ctx)
 
 	data, err := dispatcher.tryGetModelProperty(ctx, idStr, query)
@@ -541,7 +569,7 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 	} else if err != nil {
 		return nil, err
 	}
-	log.Debugf("Get found %s", model)
+	// log.Debugf("Get found %s", model)
 	if !model.AllowGetDetails(ctx, userCred, query) {
 		return nil, httperrors.NewForbiddenError("Not allow to get details")
 	}
@@ -980,7 +1008,6 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 		return nil, httperrors.NewGeneralError(err)
 	}
 	item.PreUpdate(ctx, userCred, query, dataDict)
-
 	diff, err := manager.TableSpec().Update(item, func() error {
 		filterData := dataDict.CopyIncludes(updateFields(manager, userCred)...)
 		err = filterData.Unmarshal(item)

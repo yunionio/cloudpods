@@ -68,6 +68,10 @@ func NewHost(manager *SESXiClient, host *mo.HostSystem, dc *SDatacenter) *SHost 
 	return &SHost{SManagedObject: newManagedObject(manager, host, dc)}
 }
 
+func (self *SHost) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (self *SHost) getHostSystem() *mo.HostSystem {
 	return self.object.(*mo.HostSystem)
 }

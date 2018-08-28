@@ -3,6 +3,7 @@ package aliyun
 import (
 	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -12,6 +13,10 @@ type SWire struct {
 	vpc  *SVpc
 
 	inetworks []cloudprovider.ICloudNetwork
+}
+
+func (self *SWire) GetMetadata() *jsonutils.JSONDict {
+	return nil
 }
 
 func (self *SWire) GetId() string {

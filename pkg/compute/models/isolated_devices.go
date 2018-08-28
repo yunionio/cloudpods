@@ -380,6 +380,24 @@ func (self *SIsolatedDevice) getDesc() *jsonutils.JSONDict {
 	return desc
 }
 
+func (self *SIsolatedDevice) GetSpec(checkStatus bool) *jsonutils.JSONDict {
+	if checkStatus {
+		if len(self.GuestId) > 0 {
+			return nil
+		}
+		host := self.getHost()
+		if host.Status != BAREMETAL_RUNNING || !host.Enabled {
+			return nil
+		}
+	}
+	spec := jsonutils.NewDict()
+	spec.Set("dev_type", jsonutils.NewString(self.DevType))
+	spec.Set("model", jsonutils.NewString(self.Model))
+	spec.Set("pci_id", jsonutils.NewString(self.VendorDeviceId))
+	spec.Set("vendor", jsonutils.NewString(self.getVendor()))
+	return spec
+}
+
 func (self *SIsolatedDevice) GetShortDesc() *jsonutils.JSONDict {
 	desc := self.getDesc()
 	desc.Add(jsonutils.NewString(self.Keyword()), "res_name")

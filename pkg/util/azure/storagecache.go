@@ -3,6 +3,7 @@ package azure
 import (
 	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -11,6 +12,10 @@ type SStoragecache struct {
 	region *SRegion
 
 	iimages []cloudprovider.ICloudImage
+}
+
+func (self *SStoragecache) GetMetadata() *jsonutils.JSONDict {
+	return nil
 }
 
 func (self *SStoragecache) GetId() string {

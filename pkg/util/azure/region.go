@@ -46,6 +46,10 @@ func (self *SRegion) Refresh() error {
 	return nil
 }
 
+func (self *SRegion) GetClient() *SAzureClient {
+	return self.client
+}
+
 func (self *SRegion) fetchVMSize() error {
 	computeClient := compute.NewVirtualMachineSizesClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
 	computeClient.Authorizer = self.client.authorizer
@@ -75,8 +79,12 @@ func (self *SRegion) getVMSize(size string) (*VMSize, error) {
 	}
 }
 
+func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (self *SRegion) GetId() string {
-	return self.ID
+	return self.Name
 }
 
 func (self *SRegion) GetName() string {

@@ -16,6 +16,20 @@ type SFilterClause struct {
 	params   []string
 }
 
+type SJointFilterClause struct {
+	SFilterClause
+	JointModel  string
+	ReleatedKey string
+}
+
+func (jfc *SJointFilterClause) GetJointFilter(q *sqlchemy.SQuery) sqlchemy.ICondition {
+	return jfc.QueryCondition(q)
+}
+
+func (jfc *SJointFilterClause) GetJointModelName() string {
+	return jfc.JointModel[:len(jfc.JointModel)-1]
+}
+
 func (fc *SFilterClause) QueryCondition(q *sqlchemy.SQuery) sqlchemy.ICondition {
 	field := q.Field(fc.field)
 	if field == nil {
@@ -63,11 +77,13 @@ func (fc *SFilterClause) String() string {
 }
 
 var (
-	filterClausePattern *regexp.Regexp
+	filterClausePattern      *regexp.Regexp
+	jointFilterClausePattern *regexp.Regexp
 )
 
 func init() {
 	filterClausePattern = regexp.MustCompile(`^(\w+)\.(\w+)\((.*)\)`)
+	jointFilterClausePattern = regexp.MustCompile(`^(\w+)\((\w+)\).(\w+)\.(\w+)\((.*)\)`)
 }
 
 func ParseFilterClause(filter string) *SFilterClause {
@@ -78,4 +94,22 @@ func ParseFilterClause(filter string) *SFilterClause {
 	params := utils.FindWords([]byte(matches[3]), 0)
 	fc := SFilterClause{field: matches[1], funcName: matches[2], params: params}
 	return &fc
+}
+
+func ParseJointFilterClause(jointFilter string) *SJointFilterClause {
+	matches := jointFilterClausePattern.FindStringSubmatch(jointFilter)
+	if matches == nil {
+		return nil
+	}
+	params := utils.FindWords([]byte(matches[5]), 0)
+	jfc := SJointFilterClause{
+		SFilterClause: SFilterClause{
+			field:    matches[3],
+			funcName: matches[4],
+			params:   params,
+		},
+		JointModel:  matches[1],
+		ReleatedKey: matches[2],
+	}
+	return &jfc
 }

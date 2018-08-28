@@ -34,6 +34,10 @@ type SVSwitch struct {
 	ZoneId                  string
 }
 
+func (self *SVSwitch) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (self *SVSwitch) GetId() string {
 	return self.VSwitchId
 }

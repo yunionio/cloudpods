@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/pkg/util/netutils"
@@ -18,6 +19,10 @@ type SNetwork struct {
 	Properties              SubnetPropertiesFormat
 
 	// Status string
+}
+
+func (self *SNetwork) GetMetadata() *jsonutils.JSONDict {
+	return nil
 }
 
 func (self *SNetwork) GetId() string {

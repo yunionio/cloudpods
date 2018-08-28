@@ -16,9 +16,14 @@ type SWire struct {
 	inetworks []cloudprovider.ICloudNetwork
 }
 
+func (self *SWire) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (self *SWire) GetId() string {
 	return fmt.Sprintf("%s-%s", self.zone.region.client.providerId, self.zone.region.GetId())
 }
+
 func (self *SWire) GetGlobalId() string {
 	return fmt.Sprintf("%s/%s", self.zone.region.GetGlobalId(), self.zone.region.client.subscriptionId)
 }

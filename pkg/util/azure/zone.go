@@ -3,7 +3,9 @@ package azure
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/utils"
 
@@ -19,6 +21,10 @@ type SZone struct {
 	storageTypes []string
 	Name         string
 	host         *SHost
+}
+
+func (self *SZone) GetMetadata() *jsonutils.JSONDict {
+	return nil
 }
 
 func (self *SZone) GetId() string {
@@ -62,8 +68,9 @@ func (self *SZone) getStorageTypes() error {
 	} else {
 		for _, sku := range *skuList.Value {
 			if len(*sku.Locations) > 0 && (*sku.Locations)[0] == self.region.Name {
-				if !utils.IsInStringArray(string(sku.Tier), self.storageTypes) {
-					self.storageTypes = append(self.storageTypes, string(sku.Tier))
+				storageType := strings.ToLower(string(sku.Name))
+				if !utils.IsInStringArray(storageType, self.storageTypes) {
+					self.storageTypes = append(self.storageTypes, storageType)
 				}
 			}
 		}

@@ -58,7 +58,7 @@ func PrintJSONList(list *modules.ListResult, columns []string) {
 		}
 		rows = append(rows, row)
 	}
-	fmt.Println(pt.GetString(rows))
+	fmt.Print(pt.GetString(rows))
 	title := fmt.Sprintf("Total: %d", list.Total)
 	if list.Limit == 0 && list.Total > len(list.Data) {
 		list.Limit = len(list.Data)
@@ -95,7 +95,7 @@ func PrintJSONObject(obj jsonutils.JSONObject) {
 		}
 		rows = append(rows, row)
 	}
-	fmt.Println(pt.GetString(rows))
+	fmt.Print(pt.GetString(rows))
 }
 
 func PrintJSONBatchResults(results []modules.SubmitResult, columns []string) {

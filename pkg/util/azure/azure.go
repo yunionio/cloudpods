@@ -6,11 +6,13 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/preview/subscription/mgmt/2018-03-01-preview/subscription"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -28,6 +30,11 @@ var authAddr = map[string]string{
 	"https://management.usgovcloudapi.net": "https://login.microsoftonline.us",
 	"https://management.chinacloudapi.cn":  "https://login.chinacloudapi.cn",
 	"https://management.microsoftazure.de": "https://login.microsoftonline.de",
+}
+
+var DefaultResourceGroup = map[string]string{
+	"disk":     "YunionDiskResource",
+	"instance": "YunionInstanceResource",
 }
 
 type SAzureClient struct {
@@ -54,11 +61,50 @@ func NewAzureClient(providerId string, providerName string, accessKey string, se
 			return nil, err
 		} else if err := client.fetchRegions(); err != nil {
 			return nil, err
+		} else if err := client.fetchAzueResourceGroup(); err != nil {
+			return nil, err
 		}
 		return &client, nil
 	} else {
 		return nil, httperrors.NewUnauthorizedError("clientId、clientScret or subscriptId input error")
 	}
+}
+
+func (self *SAzureClient) isResourceGroupExist(resourceGroup string) (bool, error) {
+	groupClient := resources.NewGroupsClientWithBaseURI(self.baseUrl, self.subscriptionId)
+	groupClient.Authorizer = self.authorizer
+	if result, err := groupClient.CheckExistence(context.Background(), resourceGroup); err != nil {
+		return false, err
+	} else if result.StatusCode == 404 {
+		return false, nil
+	} else {
+		return true, nil
+	}
+}
+
+func (self *SAzureClient) createResourceGroup(resourceGruop string) error {
+	groupClient := resources.NewGroupsClientWithBaseURI(self.baseUrl, self.subscriptionId)
+	groupClient.Authorizer = self.authorizer
+	region := self.iregions[0].(*SRegion)
+	location := region.Name
+	group := resources.Group{Location: &location}
+	if _, err := groupClient.CreateOrUpdate(context.Background(), resourceGruop, group); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (self *SAzureClient) fetchAzueResourceGroup() error {
+	for _, value := range DefaultResourceGroup {
+		if exist, err := self.isResourceGroupExist(value); err != nil {
+			log.Errorf("Check ResourceGroup error: %v", err)
+		} else if !exist {
+			if err := self.createResourceGroup(value); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (self *SAzureClient) fetchAzureInof() error {
