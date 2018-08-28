@@ -675,6 +675,7 @@ func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
 	params := make(map[string]string)
 	params["InstanceId"] = instanceId
 	params["DiskId"] = diskId
+	log.Infof("Detach instance %s disk %s", instanceId, diskId)
 	_, err := self.ecsRequest("DetachDisk", params)
 	if err != nil {
 		log.Errorf("DetachDisk %s to %s fail %s", diskId, instanceId, err)
