@@ -64,6 +64,7 @@ func init() {
 		Secgroup      string `help:"Secgroup ID or Name"`
 		AdminSecgroup string `help:"AdminSecgroup ID or Name"`
 		Hypervisor    string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun"`
+		Manager       string `help:"Show servers imported from manager"`
 		BaseListOptions
 	}
 	R(&ServerListOptions{}, "server-list", "List virtual servers", func(s *mcclient.ClientSession, args *ServerListOptions) error {
@@ -97,6 +98,9 @@ func init() {
 		}
 		if len(args.Hypervisor) > 0 {
 			params.Add(jsonutils.NewString(args.Hypervisor), "hypervisor")
+		}
+		if len(args.Manager) > 0 {
+			params.Add(jsonutils.NewString(args.Manager), "manager")
 		}
 		result, err := modules.Servers.List(s, params)
 		if err != nil {
@@ -139,6 +143,7 @@ func init() {
 		Net              []string `help:"Network descriptions" metavar:"NETWORK"`
 		IsolatedDevice   []string `help:"Isolated device model or ID" metavar:"ISOLATED_DEVICE"`
 		Keypair          string   `help:"SSH Keypair"`
+		Password         string   `help:"Default user password"`
 		Iso              string   `help:"ISO image ID" metavar:"IMAGE_ID"`
 		Ncpu             int64    `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>"`
 		Vga              string   `help:"VGA driver" choices:"std|vmware|cirrus|qxl"`
@@ -191,6 +196,9 @@ func init() {
 		}
 		if args.NoAccountInit {
 			params.Add(jsonutils.JSONFalse, "reset_password")
+		}
+		if args.Password != "" {
+			params.Add(jsonutils.NewString(args.Password), "password")
 		}
 		if len(args.Vdi) > 0 {
 			params.Add(jsonutils.NewString(args.Vdi), "vdi")
@@ -339,8 +347,16 @@ func init() {
 		return nil
 	})
 
-	R(&ServerOpsOptions{}, "server-reset", "Reset servers", func(s *mcclient.ClientSession, args *ServerOpsOptions) error {
-		ret := modules.Servers.BatchPerformAction(s, args.ID, "reset", nil)
+	type ServerResetOptions struct {
+		ServerOpsOptions
+		Hard bool `help:"Hard reset or not; default soft"`
+	}
+	R(&ServerResetOptions{}, "server-reset", "Reset servers", func(s *mcclient.ClientSession, args *ServerResetOptions) error {
+		params := jsonutils.NewDict()
+		if args.Hard {
+			params.Add(jsonutils.JSONTrue, "is_hard")
+		}
+		ret := modules.Servers.BatchPerformAction(s, args.ID, "reset", params)
 		printBatchResults(ret, modules.Servers.GetColumns(s))
 		return nil
 	})
@@ -484,6 +500,7 @@ func init() {
 		DeleteKeypair bool     `help:"Remove ssh Keypairs"`
 		Deploy        []string `help:"Specify deploy files in virtual server file system"`
 		ResetPassword bool     `help:"Force reset password"`
+		Password      string   `help:"Default user password"`
 	}
 	R(&ServerDeployOptions{}, "server-deploy", "Deploy hostname and keypair to a stopped virtual server", func(s *mcclient.ClientSession, args *ServerDeployOptions) error {
 		params := jsonutils.NewDict()
@@ -501,6 +518,9 @@ func init() {
 		if args.ResetPassword {
 			params.Add(jsonutils.JSONTrue, "reset_password")
 		}
+		if args.Password != "" {
+			params.Add(jsonutils.NewString(args.Password), "password")
+		}
 		srv, e := modules.Servers.PerformAction(s, args.ID, "deploy", params)
 		if e != nil {
 			return e
@@ -511,7 +531,7 @@ func init() {
 
 	type ServerSecGroupOptions struct {
 		ID     string `help:"ID or Name of server" metavar:"Guest"`
-		SecGrp string `help:"ID of Security Group" metavar:"Security Group" optional:"false"`
+		SecGrp string `help:"ID of Security Group" metavar:"Security Group" positional:"true"`
 	}
 
 	R(&ServerSecGroupOptions{}, "server-assign-secgroup", "Assign security group to a VM", func(s *mcclient.ClientSession, args *ServerSecGroupOptions) error {

@@ -133,7 +133,11 @@ func (this *TokenCredentialV2) IsSystemAdmin() bool {
 }
 
 func (this *TokenCredentialV2) GetServiceURL(service, region, zone, endpointType string) (string, error) {
-	return this.ServiceCatalog.getServiceURL(service, region, zone, endpointType)
+	return this.ServiceCatalog.GetServiceURL(service, region, zone, endpointType)
+}
+
+func (this *TokenCredentialV2) GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
+	return this.ServiceCatalog.GetServiceURLs(service, region, zone, endpointType)
 }
 
 func (this *TokenCredentialV2) GetInternalServices(region string) []string {
@@ -142,6 +146,14 @@ func (this *TokenCredentialV2) GetInternalServices(region string) []string {
 
 func (this *TokenCredentialV2) GetExternalServices(region string) []ExternalService {
 	return nil
+}
+
+func (this *TokenCredentialV2) GetEndpoints(region string, endpointType string) []Endpoint {
+	return nil
+}
+
+func (this *TokenCredentialV2) GetServiceCatalog() IServiceCatalog {
+	return this.ServiceCatalog
 }
 
 func stringArrayContains(arr []string, needle string) bool {
@@ -207,12 +219,20 @@ func (catalog KeystoneServiceCatalogV2) getServiceEndpoint(service, region, zone
 	return selected, fmt.Errorf("No such service %s", service)
 }
 
-func (catalog KeystoneServiceCatalogV2) getServiceURL(service, region, zone, endpointType string) (string, error) {
+func (catalog KeystoneServiceCatalogV2) GetServiceURL(service, region, zone, endpointType string) (string, error) {
 	ep, err := catalog.getServiceEndpoint(service, region, zone)
 	if err != nil {
 		return "", err
 	}
 	return ep.getURL(endpointType), nil
+}
+
+func (catalog KeystoneServiceCatalogV2) GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
+	url, err := catalog.GetServiceURL(service, region, zone, endpointType)
+	if err != nil {
+		return nil, err
+	}
+	return []string{url}, nil
 }
 
 func (ep KeystoneEndpointV2) getURL(epType string) string {

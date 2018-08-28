@@ -9,9 +9,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/pkg/utils"
 )
 
 type SRegion struct {
@@ -33,6 +34,10 @@ type SRegion struct {
 
 func (self *SRegion) GetClient() *SAliyunClient {
 	return self.client
+}
+
+func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
+	return nil
 }
 
 func (self *SRegion) getEcsClient() (*sdk.Client, error) {

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/utils"
 )
@@ -20,7 +21,6 @@ func (ts *STableSpec) prepareUpdate(dt interface{}) (*SUpdateSession, error) {
 	if reflect.ValueOf(dt).Kind() != reflect.Ptr {
 		return nil, fmt.Errorf("Update input must be a Pointer")
 	}
-	dataType := reflect.TypeOf(dt).Elem()
 	dataValue := reflect.ValueOf(dt).Elem()
 	fields := reflectutils.FetchStructFieldNameValueInterfaces(dataValue) //  fetchStructFieldNameValue(dataType, dataValue)
 
@@ -41,8 +41,7 @@ func (ts *STableSpec) prepareUpdate(dt interface{}) (*SUpdateSession, error) {
 			strings.Join(zeroPrimary, ","), strings.Join(zeroKeyIndex, ","))
 	}
 
-	originValue := reflect.Indirect(reflect.New(dataType))
-	originValue.Set(dataValue)
+	originValue := gotypes.DeepCopyRv(dataValue)
 	us := SUpdateSession{oValue: originValue, tableSpec: ts}
 	return &us, nil
 }
@@ -64,9 +63,9 @@ func UpdateDiffString(diff map[string]SUpdateDiff) string {
 }
 
 func (us *SUpdateSession) saveUpdate(dt interface{}) (map[string]SUpdateDiff, error) {
-	beforeInsertFunc := reflect.ValueOf(dt).MethodByName("BeforeUpdate")
-	if beforeInsertFunc.IsValid() && !beforeInsertFunc.IsNil() {
-		beforeInsertFunc.Call([]reflect.Value{})
+	beforeUpdateFunc := reflect.ValueOf(dt).MethodByName("BeforeUpdate")
+	if beforeUpdateFunc.IsValid() && !beforeUpdateFunc.IsNil() {
+		beforeUpdateFunc.Call([]reflect.Value{})
 	}
 
 	// dataType := reflect.TypeOf(dt).Elem()
@@ -127,7 +126,7 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (map[string]SUpdateDiff, er
 		buf.WriteString(fmt.Sprintf(", `%s` = `%s` + 1", versionField, versionField))
 	}
 	for _, updatedField := range updatedFields {
-		buf.WriteString(fmt.Sprintf(", `%s` = NOW()", updatedField))
+		buf.WriteString(fmt.Sprintf(", `%s` = UTC_TIMESTAMP()", updatedField))
 	}
 	buf.WriteString(" WHERE ")
 	first = true

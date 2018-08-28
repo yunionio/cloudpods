@@ -27,8 +27,8 @@ type Argument interface {
 	AliasToken() string
 	ShortToken() string
 	MetaVar() string
-	IsOptional() bool
 	IsPositional() bool
+	IsRequired() bool
 	IsMulti() bool
 	IsSubcommand() bool
 	HelpString(indent string) string
@@ -45,8 +45,8 @@ type SingleArgument struct {
 	aliasToken string
 	shortToken string
 	metavar    string
-	optional   bool
 	positional bool
+	required   bool
 	help       string
 	choices    []string
 	useDefault bool
@@ -136,7 +136,13 @@ const (
 	   A boolean value explicitly declare whether the argument is optional,
 	   the tag is optional
 	*/
-	TAG_OPTIONAL = "optional"
+	TAG_POSITIONAL = "positional"
+	/*
+	   A boolean value explicitly declare whether the argument is required.
+	   The tag is optional.  This is for optional arguments.  Positional
+	   arguments must be "required"
+	*/
+	TAG_REQUIRED = "required"
 	/*
 	   A boolean value explicitly decalre whther the argument is an subcommand
 	   A subcommand argument must be the last positional argument.
@@ -263,51 +269,67 @@ func (this *ArgumentParser) addArgument(f reflect.StructField, v reflect.Value) 
 			}
 		}
 	}
-	var positional, optional bool
+	// heuristic guessing "positional"
+	var positional bool
 	if f.Name == strings.ToUpper(f.Name) {
 		positional = true
-		optional = false
 	} else {
 		positional = false
-		optional = true
 	}
-	opt_val := tagMap[TAG_OPTIONAL]
-	if len(opt_val) > 0 {
-		if opt_val == "true" {
-			optional = true
-			positional = false
-		} else if opt_val == "false" {
-			optional = false
+	if positionalTag := tagMap[TAG_POSITIONAL]; len(positionalTag) > 0 {
+		switch positionalTag {
+		case "true":
 			positional = true
-		} else {
-			return fmt.Errorf("Invalid optional value %s, neither true nor false", opt_val)
+		case "false":
+			positional = false
+		default:
+			return fmt.Errorf("Invalid positional tag %q, neither true nor false", positionalTag)
 		}
-		// fmt.Println(token, "optional", opt_val, optional, positional)
 	}
-	if positional && !optional && use_default {
-		return fmt.Errorf("A positional non-optional argument should not set default value")
+	required := positional
+	if requiredTag := tagMap[TAG_REQUIRED]; len(requiredTag) > 0 {
+		switch requiredTag {
+		case "true":
+			required = true
+		case "false":
+			required = false
+		default:
+			return fmt.Errorf("Invalid required tag %q, neither true nor false", requiredTag)
+		}
 	}
-	subcommand, e := strconv.ParseBool(tagMap[TAG_SUBCOMMAND])
-	if e != nil {
+	if positional {
+		if !required {
+			return fmt.Errorf("positional %s must not have required:false", token)
+		}
+		if use_default {
+			return fmt.Errorf("positional %s must not have default value", token)
+		}
+	}
+	if !positional && use_default && required {
+		return fmt.Errorf("non-positional argument with default value should not have required:true set")
+	}
+	subcommand, err := strconv.ParseBool(tagMap[TAG_SUBCOMMAND])
+	if err != nil {
 		subcommand = false
 	}
 	var defval_t reflect.Value
 	if use_default {
-		defval_t, e = gotypes.ParseValue(defval, f.Type)
-		if e != nil {
-			return e
+		defval_t, err = gotypes.ParseValue(defval, f.Type)
+		if err != nil {
+			return err
 		}
 	}
 	if subcommand {
 		positional = true
-		optional = false
 	}
 	var arg Argument = nil
 	ovalue := reflect.New(v.Type()).Elem()
 	ovalue.Set(v)
 	sarg := SingleArgument{token: token, shortToken: shorttoken,
-		optional: optional, positional: positional,
-		metavar: metavar, help: help,
+		positional: positional,
+		required:   required,
+		metavar:    metavar,
+		help:       help,
 		choices:    choices,
 		useDefault: use_default,
 		aliasToken: alias,
@@ -321,7 +343,7 @@ func (this *ArgumentParser) addArgument(f reflect.StructField, v reflect.Value) 
 			subcommands: make(map[string]SubcommandArgumentData)}
 	} else if f.Type.Kind() == reflect.Array || f.Type.Kind() == reflect.Slice {
 		var min, max int64
-		var e error
+		var err error
 		nargs := tagMap[TAG_NARGS]
 		if nargs == "*" {
 			min = 0
@@ -333,13 +355,13 @@ func (this *ArgumentParser) addArgument(f reflect.StructField, v reflect.Value) 
 			min = 1
 			max = -1
 		} else {
-			min, e = strconv.ParseInt(nargs, 10, 64)
-			if e == nil {
+			min, err = strconv.ParseInt(nargs, 10, 64)
+			if err == nil {
 				max = min
 			} else if positional {
 				min = 1
 				max = -1
-			} else if optional {
+			} else if !required {
 				min = 0
 				max = -1
 			}
@@ -349,7 +371,11 @@ func (this *ArgumentParser) addArgument(f reflect.StructField, v reflect.Value) 
 	} else {
 		arg = &sarg
 	}
-	return this.AddArgument(arg)
+	err = this.AddArgument(arg)
+	if err != nil {
+		return fmt.Errorf("AddArgument %s: %v", arg, err)
+	}
+	return nil
 }
 
 func (this *ArgumentParser) AddArgument(arg Argument) error {
@@ -361,13 +387,25 @@ func (this *ArgumentParser) AddArgument(arg Argument) error {
 				return fmt.Errorf("Cannot append positional argument after an array positional argument")
 			case last_arg.IsSubcommand():
 				return fmt.Errorf("Cannot append positional argument after a subcommand argument")
-			case last_arg.IsOptional() && !arg.IsOptional():
-				return fmt.Errorf("Cannot append positional argument after an optional positional argument")
 			}
 		}
 		this.posArgs = append(this.posArgs, arg)
 	} else {
-		this.optArgs = append(this.optArgs, arg)
+		// Put required at the end and try to be stable
+		if arg.IsRequired() {
+			this.optArgs = append(this.optArgs, arg)
+		} else {
+			var i int
+			var opt Argument
+			for i, opt = range this.optArgs {
+				if opt.IsRequired() {
+					break
+				}
+			}
+			this.optArgs = append(this.optArgs, nil)
+			copy(this.optArgs[i+1:], this.optArgs[i:])
+			this.optArgs[i] = arg
+		}
 	}
 	return nil
 }
@@ -432,12 +470,12 @@ func (this *SingleArgument) ShortToken() string {
 
 func (this *SingleArgument) String() string {
 	var start, end byte
-	if this.IsOptional() {
-		start = '['
-		end = ']'
-	} else {
+	if this.IsRequired() {
 		start = '<'
 		end = '>'
+	} else {
+		start = '['
+		end = ']'
 	}
 	if this.IsPositional() {
 		return fmt.Sprintf("%c%s%c", start, this.MetaVar(), end)
@@ -450,8 +488,8 @@ func (this *SingleArgument) String() string {
 	}
 }
 
-func (this *SingleArgument) IsOptional() bool {
-	return this.optional
+func (this *SingleArgument) IsRequired() bool {
+	return this.required
 }
 
 func (this *SingleArgument) IsPositional() bool {
@@ -519,7 +557,7 @@ func (this *SingleArgument) SetDefault() {
 }
 
 func (this *SingleArgument) Validate() error {
-	if !this.optional && !this.isSet && !this.useDefault {
+	if this.required && !this.isSet && !this.useDefault {
 		return fmt.Errorf("Non-optional argument %s not set", this.token)
 	}
 	return nil
@@ -818,8 +856,8 @@ func (this *ArgumentParser) ParseArgs(args []string, ignore_unknown bool) error 
 			}
 		}
 	}
-	if err == nil && pos_idx < len(this.posArgs) && !this.posArgs[pos_idx].IsOptional() {
-		err = fmt.Errorf("Not enough arguments, missing %s", this.posArgs[pos_idx])
+	if err == nil && pos_idx < len(this.posArgs) {
+		err = &NotEnoughArgumentsError{argument: this.posArgs[pos_idx]}
 	}
 	if err == nil {
 		err = this.Validate()

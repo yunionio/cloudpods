@@ -8,8 +8,6 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/request"
 
-	"yunion.io/x/log"
-
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -21,13 +19,7 @@ func (r *SRegionDNS) Reverse(state request.Request, exact bool, opt plugin.Optio
 		return nil, e
 	}
 	records, err := r.getNameForIp(ip, state)
-	if err != nil {
-		log.Errorf("Reverse get name for ip: %v", err)
-	}
-	if len(records) == 0 {
-		return records, errNoItems
-	}
-	return records, nil
+	return records, err
 }
 
 func (r *SRegionDNS) getNameForIp(ip string, state request.Request) ([]msg.Service, error) {
@@ -53,7 +45,7 @@ func (r *SRegionDNS) getNameForIp(ip string, state request.Request) ([]msg.Servi
 	if guest != nil {
 		return []msg.Service{{Host: r.joinDomain(guest.Name), TTL: defaultTTL}}, nil
 	}
-	return nil, errNoItems
+	return nil, errNotFound
 }
 
 func (r *SRegionDNS) joinDomain(name string) string {

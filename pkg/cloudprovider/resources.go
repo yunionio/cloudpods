@@ -18,6 +18,7 @@ type ICloudResource interface {
 	Refresh() error
 
 	IsEmulated() bool
+	GetMetadata() *jsonutils.JSONDict
 }
 
 type ICloudRegion interface {
@@ -153,7 +154,13 @@ type ICloudVM interface {
 	StopVM(isForce bool) error
 	DeleteVM() error
 
+	UpdateVM(name string) error
+	RebuildRoot(imageId string) error
+	DeployVM(name string, password string, publicKey string, resetPassword bool, deleteKeypair bool, description string) error
+	ChangeConfig(instanceId string, ncpu int, vmem int) error
 	GetVNCInfo() (jsonutils.JSONObject, error)
+	AttachDisk(diskId string) error
+	DetachDisk(diskId string) error
 }
 
 type ICloudNic interface {
@@ -193,7 +200,8 @@ type ICloudDisk interface {
 	GetCacheMode() string
 	GetMountpoint() string
 	Delete() error
-	Resize(int64) error
+
+	Resize(newSize int64) error
 }
 
 type ICloudVpc interface {

@@ -11,8 +11,19 @@ type ExternalService struct {
 	Url  string
 }
 
+type Endpoint struct {
+	Id          string
+	RegionId    string
+	ServiceId   string
+	ServiceName string
+	Url         string
+	Interface   string
+}
+
 type TokenCredential interface {
 	gotypes.ISerializable
+
+	IServiceCatalog
 
 	GetTokenString() string
 	GetDomainId() string
@@ -30,7 +41,10 @@ type TokenCredential interface {
 	IsAdmin() bool
 	IsSystemAdmin() bool
 	GetRegions() []string
-	GetServiceURL(service, region, zone, endpointType string) (string, error)
+
+	GetServiceCatalog() IServiceCatalog
+
 	GetInternalServices(region string) []string
 	GetExternalServices(region string) []ExternalService
+	GetEndpoints(region string, endpointType string) []Endpoint
 }

@@ -77,6 +77,10 @@ func (v PermissionSet) Less(i, j int) bool {
 	return false
 }
 
+func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (self *SSecurityGroup) GetId() string {
 	return self.SecurityGroupId
 }
@@ -573,4 +577,16 @@ func (self *SRegion) leaveSecurityGroup(secgroupId, instanceId string) error {
 	params := map[string]string{"InstanceId": instanceId, "SecurityGroupId": secgroupId}
 	_, err := self.ecsRequest("LeaveSecurityGroup", params)
 	return err
+}
+
+func (self *SRegion) deleteSecurityGroup(secGrpId string) error {
+	params := make(map[string]string)
+	params["SecurityGroupId"] = secGrpId
+
+	_, err := self.ecsRequest("DeleteSecurityGroup", params)
+	if err != nil {
+		log.Errorf("Delete security group fail %s", err)
+		return err
+	}
+	return nil
 }

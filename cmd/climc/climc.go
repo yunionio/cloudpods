@@ -5,28 +5,32 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	prompt "github.com/c-bata/go-prompt"
+
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/structarg"
 
 	"yunion.io/x/onecloud/cmd/climc/promputils"
 	"yunion.io/x/onecloud/cmd/climc/shell"
-	_ "yunion.io/x/onecloud/cmd/climc/shell/k8s"
 	"yunion.io/x/onecloud/pkg/mcclient"
+
+	_ "yunion.io/x/onecloud/cmd/climc/shell/k8s"
 )
 
 type BaseOptions struct {
-	Help       bool   `help:"Show help" short-token:"h"`
-	Debug      bool   `help:"Show debug information"`
-	Version    bool   `help:"Show version"`
-	Timeout    int    `default:"600" help:"Number of seconds to wait for a response"`
-	Secure     bool   `default:"False" help:"do server cert verification if URL is https"`
-	OsUsername string `default:"$OS_USERNAME" help:"Username, defaults to env[OS_USERNAME]"`
-	OsPassword string `default:"$OS_PASSWORD" help:"Password, defaults to env[OS_PASSWORD]"`
+	Help          bool   `help:"Show help" short-token:"h"`
+	Debug         bool   `help:"Show debug information"`
+	Version       bool   `help:"Show version"`
+	Timeout       int    `default:"600" help:"Number of seconds to wait for a response"`
+	Insecure      bool   `default:"false" help:"Allow skip server cert verification if URL is https" short-token:"k"`
+	NoCachedToken bool   `default:"false" help:"Force not use cached token"`
+	OsUsername    string `default:"$OS_USERNAME" help:"Username, defaults to env[OS_USERNAME]"`
+	OsPassword    string `default:"$OS_PASSWORD" help:"Password, defaults to env[OS_PASSWORD]"`
 	// OsProjectId string `default:"$OS_PROJECT_ID" help:"Proejct ID, defaults to env[OS_PROJECT_ID]"`
 	OsProjectName  string `default:"$OS_PROJECT_NAME" help:"Project name, defaults to env[OS_PROJECT_NAME]"`
 	OsDomainName   string `default:"$OS_DOMAIN_NAME" help:"Domain name, defaults to env[OS_DOMAIN_NAME]"`
@@ -119,11 +123,12 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 	client := mcclient.NewClient(options.OsAuthURL,
 		options.Timeout,
 		options.Debug,
-		options.Secure)
+		options.Insecure)
 
 	var cacheToken mcclient.TokenCredential
-	cacheFile, err := os.Open("/tmp/OS_AUTH_CACHE_TOKEN")
-	if err == nil && cacheFile != nil {
+	tokenCachePath := filepath.Join(os.TempDir(), "OS_AUTH_CACHE_TOKEN")
+	cacheFile, err := os.Open(tokenCachePath)
+	if err == nil && cacheFile != nil && !options.NoCachedToken {
 		fileInfo, _ := cacheFile.Stat()
 		dur, err := time.ParseDuration("-24h")
 		if fileInfo != nil && err == nil && fileInfo.ModTime().After(time.Now().Add(dur)) {
@@ -153,12 +158,12 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 		if err != nil {
 			fmt.Printf("Marshal token error:%s", err)
 		} else {
-			fo, _ := os.Create("/tmp/OS_AUTH_CACHE_TOKEN")
+			fo, _ := os.Create(tokenCachePath)
 			fo.Write(bytesCacheToken)
 			fo.Close()
 		}
 	} else {
-		fmt.Println("******** Use Token Cache At /tmp/OS_AUTH_CACHE_TOKEN ********")
+		fmt.Printf("******** Use Token Cache At %s ********\n", tokenCachePath)
 	}
 
 	session := client.NewSession(options.OsRegionName,
@@ -167,6 +172,40 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 		cacheToken,
 		options.ApiVersion)
 	return session, nil
+}
+
+func enterInteractiveMode(
+	parser *structarg.ArgumentParser,
+	sessionFactory func() *mcclient.ClientSession,
+) {
+	promputils.InitEnv(parser, sessionFactory())
+	defer fmt.Println("Bye!")
+	p := prompt.New(
+		promputils.Executor,
+		promputils.Completer,
+		prompt.OptionPrefix("climc> "),
+		prompt.OptionTitle("Climc, a Command Line Interface to Manage Clouds"),
+		prompt.OptionMaxSuggestion(16),
+	)
+	p.Run()
+}
+
+func executeSubcommand(
+	subcmd *structarg.SubcommandArgument,
+	subparser *structarg.ArgumentParser,
+	options *BaseOptions,
+	sessionFactory func() *mcclient.ClientSession,
+) {
+	var e error
+	suboptions := subparser.Options()
+	if options.SUBCOMMAND == "help" {
+		e = subcmd.Invoke(suboptions)
+	} else {
+		e = subcmd.Invoke(sessionFactory(), suboptions)
+	}
+	if e != nil {
+		showErrorAndExit(e)
+	}
 }
 
 func main() {
@@ -179,47 +218,39 @@ func main() {
 
 	if options.Help {
 		fmt.Print(parser.HelpString())
-	} else if options.Version {
-		fmt.Printf("Yunion API client version:\n %s\n", version.GetJsonString())
-	} else if len(options.SUBCOMMAND) == 0 {
-		session, e := newClientSession(options)
-		if e != nil {
-			showErrorAndExit(e)
-		}
-		promputils.InitEnv(parser, session)
-		defer fmt.Println("Bye!")
-		p := prompt.New(
-			promputils.Executor,
-			promputils.Completer,
-			prompt.OptionPrefix("climc> "),
-			prompt.OptionTitle("Climc, a Command Line Interface to Manage Clouds"),
-			prompt.OptionMaxSuggestion(16),
-		)
-		p.Run()
-	} else {
-		subcmd := parser.GetSubcommand()
-		subparser := subcmd.GetSubParser()
-		if e != nil {
-			if subparser != nil {
-				fmt.Print(subparser.Usage())
-			} else {
-				fmt.Print(parser.Usage())
-			}
-			showErrorAndExit(e)
-		} else {
-			session, e := newClientSession(options)
-			if e != nil {
-				showErrorAndExit(e)
-			}
-			suboptions := subparser.Options()
-			if options.SUBCOMMAND == "help" {
-				e = subcmd.Invoke(suboptions)
-			} else {
-				e = subcmd.Invoke(session, suboptions)
-			}
-			if e != nil {
-				showErrorAndExit(e)
-			}
-		}
+		return
 	}
+
+	if options.Version {
+		fmt.Printf("Yunion API client version:\n %s\n", version.GetJsonString())
+		return
+	}
+
+	ensureSessionFactory := func() *mcclient.ClientSession {
+		session, err := newClientSession(options)
+		if err != nil {
+			showErrorAndExit(err)
+		}
+		return session
+	}
+
+	// enter interactive mode when not enough argument and SUBCOMMAND is empty
+	if _, ok := e.(*structarg.NotEnoughArgumentsError); ok && options.SUBCOMMAND == "" {
+		enterInteractiveMode(parser, ensureSessionFactory)
+		return
+	}
+
+	subcmd := parser.GetSubcommand()
+	subparser := subcmd.GetSubParser()
+	if e != nil {
+		if subparser != nil {
+			fmt.Print(subparser.Usage())
+		} else {
+			fmt.Print(parser.Usage())
+		}
+		showErrorAndExit(e)
+	}
+
+	// execute subcommand in non-interactive mode
+	executeSubcommand(subcmd, subparser, options, ensureSessionFactory)
 }

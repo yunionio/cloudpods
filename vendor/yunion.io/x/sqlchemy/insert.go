@@ -13,15 +13,7 @@ func (t *STableSpec) Insert(dt interface{}) error {
 	return t.insert(dt, false)
 }
 
-func (t *STableSpec) insert(dt interface{}, debug bool) error {
-	beforeInsertFunc := reflect.ValueOf(dt).MethodByName("BeforeInsert")
-	if beforeInsertFunc.IsValid() && !beforeInsertFunc.IsNil() {
-		beforeInsertFunc.Call([]reflect.Value{})
-	}
-
-	// dataType := reflect.TypeOf(dt).Elem()
-	dataValue := reflect.ValueOf(dt).Elem()
-
+func (t *STableSpec) insertSqlPrep(dataFields map[string]interface{}) (string, []interface{}, error) {
 	var autoIncField string
 	createdAtFields := make([]string, 0)
 
@@ -29,7 +21,6 @@ func (t *STableSpec) insert(dt interface{}, debug bool) error {
 	format := make([]string, 0)
 	values := make([]interface{}, 0)
 
-	fields := reflectutils.FetchStructFieldNameValueInterfaces(dataValue)
 	for _, c := range t.columns {
 		isAutoInc := false
 		nc, ok := c.(*SIntegerColumn)
@@ -40,13 +31,12 @@ func (t *STableSpec) insert(dt interface{}, debug bool) error {
 		k := c.Name()
 
 		dtc, ok := c.(*SDateTimeColumn)
-		ov := fields[k]
+		ov := dataFields[k]
 
-		// log.Debugf("field %s value %s %s", k, ov, ov==nil)
 		if ok && (dtc.IsCreatedAt || dtc.IsUpdatedAt) {
 			createdAtFields = append(createdAtFields, k)
 			names = append(names, fmt.Sprintf("`%s`", k))
-			format = append(format, "NOW()")
+			format = append(format, "UTC_TIMESTAMP()")
 		} else if ov != nil && !c.IsZero(ov) && !isAutoInc {
 			v := c.ConvertFromValue(ov)
 			values = append(values, v)
@@ -54,15 +44,14 @@ func (t *STableSpec) insert(dt interface{}, debug bool) error {
 			format = append(format, "?")
 		} else if c.IsPrimary() {
 			if isAutoInc {
-				if len(autoIncField) == 0 {
-					autoIncField = k
-				} else {
-					log.Fatalf("multiple auto_increment columns???")
+				if len(autoIncField) > 0 {
+					panic(fmt.Sprintf("multiple auto_increment columns: %q, %q", autoIncField, k))
 				}
+				autoIncField = k
 			} else {
-				return fmt.Errorf("fail to insert for null primary key `%s`", k)
+				return "", nil, fmt.Errorf("cannot insert for null primary key %q", k)
 			}
-		} else if ! c.IsSupportDefault() && len(c.Default()) > 0 && ov != nil && c.IsZero(ov) { // empty text value
+		} else if !c.IsSupportDefault() && len(c.Default()) > 0 && ov != nil && c.IsZero(ov) { // empty text value
 			val := c.ConvertFromString(c.Default())
 			values = append(values, val)
 			names = append(names, fmt.Sprintf("`%s`", k))
@@ -74,6 +63,21 @@ func (t *STableSpec) insert(dt interface{}, debug bool) error {
 		t.name,
 		strings.Join(names, ", "),
 		strings.Join(format, ", "))
+	return insertSql, values, nil
+}
+
+func (t *STableSpec) insert(data interface{}, debug bool) error {
+	beforeInsertFunc := reflect.ValueOf(data).MethodByName("BeforeInsert")
+	if beforeInsertFunc.IsValid() && !beforeInsertFunc.IsNil() {
+		beforeInsertFunc.Call([]reflect.Value{})
+	}
+
+	dataValue := reflect.ValueOf(data).Elem()
+	dataFields := reflectutils.FetchStructFieldNameValueInterfaces(dataValue)
+	insertSql, values, err := t.insertSqlPrep(dataFields)
+	if err != nil {
+		return err
+	}
 
 	if DEBUG_SQLCHEMY || debug {
 		log.Debugf("%s values: %s", insertSql, values)
@@ -92,15 +96,15 @@ func (t *STableSpec) insert(dt interface{}, debug bool) error {
 	}
 
 	/*
-	if len(autoIncField) > 0 {
-		lastId, err := results.LastInsertId()
-		if err == nil {
-			val, ok := reflectutils.FindStructFieldValue(dataValue, autoIncField)
-			if ok {
-				gotypes.SetValue(val, fmt.Sprint(lastId))
+		if len(autoIncField) > 0 {
+			lastId, err := results.LastInsertId()
+			if err == nil {
+				val, ok := reflectutils.FindStructFieldValue(dataValue, autoIncField)
+				if ok {
+					gotypes.SetValue(val, fmt.Sprint(lastId))
+				}
 			}
 		}
-	}
 	*/
 
 	// query the value, so default value can be feedback into the object
@@ -112,21 +116,21 @@ func (t *STableSpec) insert(dt interface{}, debug bool) error {
 			if ok && nc.IsAutoIncrement {
 				lastId, err := results.LastInsertId()
 				if err != nil {
-					log.Errorf("Fail to fetch lastInsertId %s", err)
+					err := fmt.Errorf("fetching lastInsertId failed: %v", err)
 					return err
 				} else {
 					q = q.Equals(c.Name(), lastId)
 				}
 			} else {
-				q = q.Equals(c.Name(), fields[c.Name()])
+				q = q.Equals(c.Name(), dataFields[c.Name()])
 			}
 		}
 	}
-	err = q.First(dt)
+	err = q.First(data)
 	if err != nil {
-		log.Errorf("query after insert failed %s", err)
+		err := fmt.Errorf("query after insert failed: %v", err)
 		return err
 	}
-	
+
 	return nil
 }

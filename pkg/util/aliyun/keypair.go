@@ -1,6 +1,7 @@
 package aliyun
 
 import (
+	"encoding/json"
 	"fmt"
 	"yunion.io/x/log"
 )
@@ -61,4 +62,34 @@ func (self *SRegion) ImportKeypair(name string, pubKey string) (*SKeypair, error
 		return nil, err
 	}
 	return &keypair, nil
+}
+
+func (self *SRegion) AttachKeypair(instanceId string, name string)  error {
+	params := make(map[string]string)
+	params["RegionId"] = self.RegionId
+	params["KeyPairName"] = name
+	instances, _ := json.Marshal(&[...]string{instanceId})
+	params["InstanceIds"] = string(instances)
+	_, err := self.ecsRequest("AttachKeyPair", params)
+	if err != nil {
+		log.Errorf("AttachKeyPair fail %s", err)
+		return err
+	}
+
+	return nil
+}
+
+func (self *SRegion) DetachKeyPair(instanceId string, name string)  error {
+	params := make(map[string]string)
+	params["RegionId"] = self.RegionId
+	params["KeyPairName"] = name
+	instances, _ := json.Marshal(&[...]string{instanceId})
+	params["InstanceIds"] = string(instances)
+	_, err := self.ecsRequest("DetachKeyPair", params)
+	if err != nil {
+		log.Errorf("DetachKeyPair fail %s", err)
+		return err
+	}
+
+	return nil
 }

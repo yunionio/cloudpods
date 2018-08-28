@@ -103,7 +103,7 @@ func (c *TokenCacheVerify) Verify(cli *mcclient.Client, adminToken, token string
 	if err != nil {
 		return nil, fmt.Errorf("Add %s credential to cache: %#v", cred.GetTokenString(), err)
 	}
-	log.Infof("Add token: %s", cred)
+	// log.Debugf("Add token: %s", cred)
 	return cred, nil
 }
 

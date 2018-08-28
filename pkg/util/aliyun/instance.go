@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/util/seclib2"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/osprofile"
@@ -110,6 +112,7 @@ type SInstance struct {
 	InternetMaxBandwidthIn  int
 	InternetMaxBandwidthOut int
 	IoOptimized             bool
+	KeyPairName             string
 	Memory                  int
 	NetworkInterfaces       SNetworkInterfaces
 	OSName                  string
@@ -160,6 +163,20 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 	}
 	total, _ := body.Int("TotalCount")
 	return instances, int(total), nil
+}
+
+func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
+	data := jsonutils.NewDict()
+
+	// The pricingInfo key structure is 'RegionId::InstanceType::NetworkType::OSType::IoOptimized'
+	optimized := "optimized"
+	if !self.IoOptimized {
+		optimized = "none"
+	}
+	priceKey := fmt.Sprintf("%s::%s::%s::%s::%s", self.RegionId, self.InstanceType, self.InstanceNetworkType, self.OSType, optimized)
+	data.Add(jsonutils.NewString(priceKey), "price_key")
+
+	return data
 }
 
 func (self *SInstance) GetCreateTime() time.Time {
@@ -322,6 +339,77 @@ func (self *SInstance) GetHypervisor() string {
 	return models.HYPERVISOR_ALIYUN
 }
 
+func (self *SInstance) StartVM() error {
+	err := self.host.zone.region.StartVM(self.InstanceId)
+	if err != nil {
+		return err
+	}
+	return cloudprovider.WaitStatus(self, models.VM_RUNNING, 5*time.Second, 180*time.Second) // 3minutes
+}
+
+func (self *SInstance) StopVM(isForce bool) error {
+	err := self.host.zone.region.StopVM(self.InstanceId, isForce)
+	if err != nil {
+		return err
+	}
+	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
+}
+
+func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
+	url, err := self.host.zone.region.GetInstanceVNCUrl(self.InstanceId)
+	if err != nil {
+		return nil, err
+	}
+	passwd := seclib.RandomPassword(6)
+	err = self.host.zone.region.ModifyInstanceVNCUrlPassword(self.InstanceId, passwd)
+	if err != nil {
+		return nil, err
+	}
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.NewString(url), "url")
+	ret.Add(jsonutils.NewString(passwd), "password")
+	ret.Add(jsonutils.NewString("aliyun"), "protocol")
+	ret.Add(jsonutils.NewString(self.InstanceId), "instance_id")
+	return ret, nil
+}
+
+func (self *SInstance) UpdateVM(name string) error {
+	return self.host.zone.region.UpdateVM(self.InstanceId, name)
+}
+
+func (self *SInstance) DeployVM(name string, password string, publicKey string, resetPassword bool, deleteKeypair bool, description string) error {
+	var keypairName string
+	if len(publicKey) > 0 {
+		key, e := self.host.lookUpAliyunKeypair(publicKey)
+		if e != nil {
+			key, e = self.host.importAliyunKeypair(publicKey)
+			if e != nil {
+				return e
+			}
+		}
+
+		keypairName = key
+	}
+
+	return self.host.zone.region.DeployVM(self.InstanceId, name, password, keypairName, resetPassword, deleteKeypair, description)
+}
+
+func (self *SInstance) RebuildRoot(imageId string) error {
+	return self.host.zone.region.ReplaceSystemDisk(self.InstanceId, imageId)
+}
+
+func (self *SInstance) ChangeConfig(instanceId string, ncpu int, vmem int) error {
+	return self.host.zone.region.ChangeVMConfig(self.ZoneId, self.InstanceId, ncpu, vmem, nil)
+}
+
+func (self *SInstance) AttachDisk(diskId string) error {
+	return self.host.zone.region.AttachDisk(self.InstanceId, diskId)
+}
+
+func (self *SInstance) DetachDisk(diskId string) error {
+	return self.host.zone.region.DetachDisk(self.InstanceId, diskId)
+}
+
 func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	instances, _, err := self.GetInstances("", []string{instanceId}, 0, 1)
 	if err != nil {
@@ -402,7 +490,10 @@ func (self *SRegion) doStopVM(instanceId string, isForce bool) error {
 }
 
 func (self *SRegion) doDeleteVM(instanceId string) error {
-	return self.instanceOperation(instanceId, "DeleteInstance", nil)
+	params := make(map[string]string)
+	params["TerminateSubscription"] = "false"
+	params["Force"] = "true"
+	return self.instanceOperation(instanceId, "DeleteInstance", params)
 }
 
 /*func (self *SRegion) waitInstanceStatus(instanceId string, target string, interval time.Duration, timeout time.Duration) error {
@@ -425,8 +516,13 @@ func (self *SInstance) waitStatus(target string, interval time.Duration, timeout
 }*/
 
 func (self *SRegion) StartVM(instanceId string) error {
-	status, _ := self.GetInstanceStatus(instanceId)
+	status, err := self.GetInstanceStatus(instanceId)
+	if err != nil {
+		log.Errorf("Fail to get instance status on StartVM: %s", err)
+		return err
+	}
 	if status != InstanceStatusStopped {
+		log.Errorf("StartVM: vm status is %s expect %s", status, InstanceStatusStopped)
 		return cloudprovider.ErrInvalidStatus
 	}
 	return self.doStartVM(instanceId)
@@ -437,8 +533,13 @@ func (self *SRegion) StartVM(instanceId string) error {
 }
 
 func (self *SRegion) StopVM(instanceId string, isForce bool) error {
-	status, _ := self.GetInstanceStatus(instanceId)
+	status, err := self.GetInstanceStatus(instanceId)
+	if err != nil {
+		log.Errorf("Fail to get instance status on StopVM: %s", err)
+		return err
+	}
 	if status != InstanceStatusRunning {
+		log.Errorf("StopVM: vm status is %s expect %s", status, InstanceStatusRunning)
 		return cloudprovider.ErrInvalidStatus
 	}
 	return self.doStopVM(instanceId, isForce)
@@ -450,13 +551,13 @@ func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 
 func (self *SRegion) DeleteVM(instanceId string) error {
 	status, err := self.GetInstanceStatus(instanceId)
-	if status == InstanceStatusRunning {
-		err = self.StopVM(instanceId, true)
-		if err != nil {
-			return err
-		}
-	} else if status != InstanceStatusStopped {
-		return cloudprovider.ErrInvalidStatus
+	if err != nil {
+		log.Errorf("Fail to get instance status on DeleteVM: %s", err)
+		return err
+	}
+	log.Debugf("Instance status on delete is %s", status)
+	if status != InstanceStatusStopped {
+		log.Warningf("DeleteVM: vm status is %s expect %s", status, InstanceStatusStopped)
 	}
 	return self.doDeleteVM(instanceId)
 	// if err != nil {
@@ -472,46 +573,128 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 	// }
 }
 
-func (self *SInstance) StartVM() error {
-	err := self.host.zone.region.StartVM(self.InstanceId)
+func (self *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, resetPassword bool, deleteKeypair bool, description string) error {
+	instance, err := self.GetInstance(instanceId)
 	if err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, models.VM_RUNNING, 5*time.Second, 180*time.Second) // 3minutes
-}
 
-func (self *SInstance) StopVM(isForce bool) error {
-	err := self.host.zone.region.StopVM(self.InstanceId, isForce)
-	if err != nil {
-		return err
+	// 修改密钥时直接返回
+	if deleteKeypair {
+		return self.DetachKeyPair(instanceId, instance.KeyPairName)
 	}
-	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
+
+	if len(keypairName) > 0 {
+		return self.AttachKeypair(instanceId, keypairName)
+	}
+
+	params := make(map[string]string)
+	if resetPassword {
+		params["Password"] = seclib2.RandomPassword2(12)
+	}
+	// 指定密码的情况下，使用指定的密码
+	if len(password) > 0 {
+		params["Password"] = password
+	}
+
+	if len(name) > 0 && instance.InstanceName != name {
+		params["InstanceName"] = name
+		params["HostName"] = name
+	}
+
+	if len(description) > 0 && instance.Description != description {
+		params["Description"] = description
+	}
+
+	if len(params) > 0 {
+		return self.modifyInstanceAttribute(instanceId, params)
+	} else {
+		return nil
+	}
 }
 
 func (self *SInstance) DeleteVM() error {
-	err := self.host.zone.region.DeleteVM(self.InstanceId)
-	if err != nil {
-		return err
+	for {
+		err := self.host.zone.region.DeleteVM(self.InstanceId)
+		if err != nil {
+			if isError(err, "IncorrectInstanceStatus.Initializing") {
+				log.Infof("The instance is initializing, try later ...")
+				time.Sleep(10 * time.Second)
+			} else {
+				return err
+			}
+		} else {
+			break
+		}
 	}
 	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
 }
 
-func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
-	url, err := self.host.zone.region.GetInstanceVNCUrl(self.InstanceId)
-	if err != nil {
-		return nil, err
+func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
+	/*
+			api: ModifyInstanceAttribute
+		    https://help.aliyun.com/document_detail/25503.html?spm=a2c4g.11186623.4.1.DrgpjW
+	*/
+	params := make(map[string]string)
+	params["HostName"] = hostname
+	return self.modifyInstanceAttribute(instanceId, params)
+}
+
+func (self *SRegion) modifyInstanceAttribute(instanceId string, params map[string]string) error {
+	return self.instanceOperation(instanceId, "ModifyInstanceAttribute", params)
+}
+
+func (self *SRegion) ReplaceSystemDisk(instanceId string, image string) error {
+	params := make(map[string]string)
+	params["ImageId"] = image
+	return self.instanceOperation(instanceId, "ReplaceSystemDisk", params)
+}
+
+func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, vmem int, disks []*SDisk) error {
+	// todo: support change disk config?
+	params := make(map[string]string)
+	instanceTypes, e := self.GetMatchInstanceTypes(ncpu, vmem, 0, zoneId)
+	if e != nil {
+		return e
 	}
-	passwd := seclib.RandomPassword(6)
-	err = self.host.zone.region.ModifyInstanceVNCUrlPassword(self.InstanceId, passwd)
-	if err != nil {
-		return nil, err
+
+	for _, instancetype := range instanceTypes {
+		params["InstanceType"] = instancetype.InstanceTypeId
+		params["ClientToken"] = utils.GenRequestId(20)
+		if err := self.instanceOperation(instanceId, "ModifyInstanceSpec", params); err != nil {
+			log.Errorf("Failed for %s: %s", instancetype.InstanceTypeId, err)
+		} else {
+			return nil
+		}
 	}
-	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.NewString(url), "url")
-	ret.Add(jsonutils.NewString(passwd), "password")
-	ret.Add(jsonutils.NewString("aliyun"), "protocol")
-	ret.Add(jsonutils.NewString(self.InstanceId), "instance_id")
-	return ret, nil
+
+	return fmt.Errorf("Failed to change vm config, specification not supported")
+}
+
+func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
+	params := make(map[string]string)
+	params["InstanceId"] = instanceId
+	params["DiskId"] = diskId
+	_, err := self.ecsRequest("DetachDisk", params)
+	if err != nil {
+		log.Errorf("DetachDisk %s to %s fail %s", diskId, instanceId, err)
+		return err
+	}
+
+	return nil
+}
+
+func (self *SRegion) AttachDisk(instanceId string, diskId string) error {
+	params := make(map[string]string)
+	params["InstanceId"] = instanceId
+	params["DiskId"] = diskId
+	_, err := self.ecsRequest("AttachDisk", params)
+	if err != nil {
+		log.Errorf("AttachDisk %s to %s fail %s", diskId, instanceId, err)
+		return err
+	}
+
+	return nil
 }
 
 func (self *SInstance) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) error {

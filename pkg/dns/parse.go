@@ -7,17 +7,16 @@ import (
 	"github.com/coredns/coredns/request"
 	"github.com/miekg/dns"
 
-	"yunion.io/x/pkg/tristate"
-
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/pkg/tristate"
 )
 
 type recordRequest struct {
-	state      request.Request
-	domainSegs []string
-	guest      *models.SGuest
-	host       *models.SHost
-	network    *models.SNetwork
+	state        request.Request
+	domainSegs   []string
+	srcProjectId string
+	srcInCloud   bool
+	network      *models.SNetwork
 }
 
 func parseRequest(state request.Request) (r *recordRequest, err error) {
@@ -28,9 +27,19 @@ func parseRequest(state request.Request) (r *recordRequest, err error) {
 		domainSegs: segs,
 	}
 	srcIP := r.SrcIP4()
-	r.guest = models.GuestnetworkManager.GetGuestByAddress(srcIP)
-	r.host = models.HostnetworkManager.GetHostByAddress(srcIP)
-	r.network, _ = models.NetworkManager.GetNetworkOfIP(srcIP, "", tristate.None)
+	// NOTE the check on networks_tbl is a hack, we should be more specific
+	// by querying only guest networks, host networks, and others like
+	// loadbalancer network the to come.
+	//
+	// Order matters here, we want to find the srcIP project as accurately
+	// as possible
+	if guest := models.GuestnetworkManager.GetGuestByAddress(srcIP); guest != nil {
+		r.srcProjectId = guest.ProjectId
+		r.srcInCloud = true
+	} else if network, _ := models.NetworkManager.GetNetworkOfIP(srcIP, "", tristate.None); network != nil {
+		r.srcProjectId = network.ProjectId
+		r.srcInCloud = true
+	}
 	return
 }
 
@@ -39,6 +48,11 @@ func (r recordRequest) Name() string {
 	name := r.state.Name()
 	name = strings.TrimSuffix(name, ".")
 	return name
+}
+
+func (r recordRequest) IsPlainName() bool {
+	nl := dns.CountLabel(r.Name())
+	return nl == 1
 }
 
 func (r recordRequest) QueryName() string {
@@ -63,20 +77,11 @@ func (r recordRequest) SrcIP4() string {
 }
 
 func (r recordRequest) ProjectId() string {
-	if r.guest != nil {
-		return r.guest.ProjectId
-	}
-	if r.network != nil {
-		return r.network.ProjectId
-	}
-	return ""
+	return r.srcProjectId
 }
 
-func (r recordRequest) IsExitOnly() bool {
-	if r.guest == nil {
-		return false
-	}
-	return r.guest.IsExitOnly()
+func (r recordRequest) SrcInCloud() bool {
+	return r.srcInCloud
 }
 
 type K8sQueryInfo struct {

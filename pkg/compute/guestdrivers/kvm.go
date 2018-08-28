@@ -206,6 +206,11 @@ func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *m
 	return nil
 }
 
+func (self *SKVMGuestDriver) RequestSoftReset(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	_, err := guest.SendMonitorCommand(ctx, task.GetUserCred(), "system_reset")
+	return err
+}
+
 func (self *SKVMGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
@@ -219,18 +224,21 @@ func (self *SKVMGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, disk
 }
 
 func (self *SKVMGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	desc := guest.GetDriver().GetJsonDescAtHost(ctx, guest, host)
-	body := jsonutils.NewDict()
-	body.Add(desc, "desc")
-	if fw_only, _ := task.GetParams().Bool("fw_only"); fw_only {
-		body.Add(jsonutils.JSONTrue, "fw_only")
+	if guest.Status == models.VM_RUNNING {
+		desc := guest.GetDriver().GetJsonDescAtHost(ctx, guest, host)
+		body := jsonutils.NewDict()
+		body.Add(desc, "desc")
+		if fw_only, _ := task.GetParams().Bool("fw_only"); fw_only {
+			body.Add(jsonutils.JSONTrue, "fw_only")
+		}
+		url := fmt.Sprintf("/servers/%s/sync", guest.Id)
+		header := http.Header{}
+		header.Add("X-Task-Id", task.GetTaskId())
+		header.Add("X-Region-Version", "v2")
+		_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+		return err
 	}
-	url := fmt.Sprintf("/servers/%s/sync", guest.Id)
-	header := http.Header{}
-	header.Add("X-Task-Id", task.GetTaskId())
-	header.Add("X-Region-Version", "v2")
-	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
-	return err
+	return nil
 }
 
 func (self *SKVMGuestDriver) RqeuestSuspendOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {

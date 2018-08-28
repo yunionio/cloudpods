@@ -21,10 +21,10 @@ type ComputeOptions struct {
 
 	DefaultDiskSize int `default:"30720" help:"Default disk size in MB if not specified, default to 30GiB"`
 
-	EnablePendingDelete            bool  `default:"true" help:"Turn on/off pending delete VM and disk, default is on"`
-	PendingDeleteCheckSeconds      int `default:"3600" help:"How long to wait to scan pending delete VM or disks, default is 1 hour"`
-	PendingDeleteExpireSeconds     int `default:"259200" help:"How long a pending delete VM/disks cleaned automatically, default 3 days"`
-	PendingDeleteMaxCleanBatchSize int `default:"50" help:"How many pending delete servers can be clean in a batch"`
+	EnablePendingDelete            bool `default:"true" help:"Turn on/off pending delete VM and disk, default is on"`
+	PendingDeleteCheckSeconds      int  `default:"3600" help:"How long to wait to scan pending delete VM or disks, default is 1 hour"`
+	PendingDeleteExpireSeconds     int  `default:"259200" help:"How long a pending delete VM/disks cleaned automatically, default 3 days"`
+	PendingDeleteMaxCleanBatchSize int  `default:"50" help:"How many pending delete servers can be clean in a batch"`
 
 	ImageCacheStoragePolicy string `default:"least_used" choices:"best_fit|least_used" help:"Policy to choose storage for image cache, best_fit or least_used"`
 	MetricsRetentionDays    int32  `default:"30" help:"Retention days for monitoring metrics in influxdb"`
