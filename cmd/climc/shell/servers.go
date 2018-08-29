@@ -652,13 +652,25 @@ func init() {
 	})
 
 	type ServerRebuildRootOptions struct {
-		SERVER string `help:"Server to rebuild root"`
-		Image  string `help:"New root Image template ID"`
+		SERVER    string `help:"Server to rebuild root"`
+		AutoStart bool   `help:"Auto start server after it is created"`
+		Image     string `help:"New root Image template ID"`
+		Keypair   string `help:"ssh Keypair used for login"`
+		Password  string `help:"Default user password"`
 	}
 	R(&ServerRebuildRootOptions{}, "server-rebuild-root", "Rebuild VM root image with new template", func(s *mcclient.ClientSession, args *ServerRebuildRootOptions) error {
 		params := jsonutils.NewDict()
 		if len(args.Image) > 0 {
 			params.Add(jsonutils.NewString(args.Image), "image_id")
+		}
+		if args.AutoStart {
+			params.Add(jsonutils.JSONTrue, "auto_start")
+		}
+		if args.Keypair != "" {
+			params.Add(jsonutils.NewString(args.Keypair), "keypair")
+		}
+		if args.Password != "" {
+			params.Add(jsonutils.NewString(args.Password), "password")
 		}
 		srv, err := modules.Servers.PerformAction(s, args.SERVER, "rebuild-root", params)
 		if err != nil {
