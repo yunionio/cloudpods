@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -46,6 +47,14 @@ func (self *SAliyunGuestDriver) ChooseHostStorage(host *models.SHost, backend st
 		}
 	}
 	return nil
+}
+
+func (self *SAliyunGuestDriver) GetDetachDiskStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SAliyunGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
 func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -335,13 +344,44 @@ func (self *SAliyunGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Contex
 
 func (self *SAliyunGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		if fw_only, _ := task.GetParams().Bool("fw_only"); fw_only {
-			if ihost, err := host.GetIHost(); err != nil {
-				return nil, err
-			} else if iVM, err := ihost.GetIVMById(guest.ExternalId); err != nil {
-				return nil, err
-			} else if err := iVM.SyncSecurityGroup(guest.SecgrpId, guest.GetSecgroupName(), guest.GetSecRules()); err != nil {
-				return nil, err
+		if ihost, err := host.GetIHost(); err != nil {
+			return nil, err
+		} else if iVM, err := ihost.GetIVMById(guest.ExternalId); err != nil {
+			return nil, err
+		} else {
+			if fw_only, _ := task.GetParams().Bool("fw_only"); fw_only {
+				if err := iVM.SyncSecurityGroup(guest.SecgrpId, guest.GetSecgroupName(), guest.GetSecRules()); err != nil {
+					return nil, err
+				}
+			} else {
+				if iDisks, err := iVM.GetIDisks(); err != nil {
+					return nil, err
+				} else {
+					disks := make([]models.SDisk, 0)
+					for _, guestdisk := range guest.GetDisks() {
+						disk := guestdisk.GetDisk()
+						disks = append(disks, *disk)
+					}
+
+					added := make([]models.SDisk, 0)
+					commondb := make([]models.SDisk, 0)
+					commonext := make([]cloudprovider.ICloudDisk, 0)
+					removed := make([]cloudprovider.ICloudDisk, 0)
+
+					if err := compare.CompareSets(disks, iDisks, &added, &commondb, &commonext, &removed); err != nil {
+						return nil, err
+					}
+					for _, disk := range removed {
+						if err := iVM.DetachDisk(disk.GetId()); err != nil {
+							return nil, err
+						}
+					}
+					for _, disk := range added {
+						if err := iVM.AttachDisk(disk.ExternalId); err != nil {
+							return nil, err
+						}
+					}
+				}
 			}
 		}
 		return nil, nil
