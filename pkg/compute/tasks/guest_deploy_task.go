@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type GuestDeployTask struct {
@@ -56,6 +57,7 @@ func (self *GuestDeployTask) StartDeployGuestOnHost(ctx context.Context, guest *
 	} else {
 		self.OnDeployGuestSucc(guest)
 	}
+	logclient.AddActionLog(guest, logclient.ACT_VM_DEPLOY, err, self.UserCred)
 }
 
 func (self *GuestDeployTask) OnDeployGuestSucc(guest *models.SGuest) {
