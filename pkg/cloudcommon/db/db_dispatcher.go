@@ -394,10 +394,6 @@ func fetchContextObjectId(manager IModelManager, ctx context.Context, userCred m
 	}
 }
 
-type Data struct {
-	Name string
-}
-
 func listItems(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, ctxId string) (*modules.ListResult, error) {
 	var maxLimit int64 = 2048
 	limit, _ := query.Int("limit")
@@ -423,13 +419,7 @@ func listItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		return nil, err
 	}
 	totalCnt := int64(q.Count())
-	data := Data{}
-	q.First(&data)
-	log.Debugf("total count %d result: %v", totalCnt, data)
-	{
-		retList, _ := query2List(manager, ctx, userCred, q, queryDict)
-		log.Errorf("result: %s", retList)
-	}
+	log.Debugf("total count %d", totalCnt)
 	if totalCnt == 0 {
 		emptyList := modules.ListResult{Data: []jsonutils.JSONObject{}}
 		return &emptyList, nil
@@ -468,7 +458,6 @@ func listItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		q = q.Offset(int(offset))
 	}
 	retList, err := query2List(manager, ctx, userCred, q, queryDict)
-	log.Errorf("result: %s", retList)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
