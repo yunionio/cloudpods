@@ -160,6 +160,7 @@ type ICloudVM interface {
 	ChangeConfig(instanceId string, ncpu int, vmem int) error
 	GetVNCInfo() (jsonutils.JSONObject, error)
 	AttachDisk(diskId string) error
+	DetachDisk(diskId string) error
 }
 
 type ICloudNic interface {

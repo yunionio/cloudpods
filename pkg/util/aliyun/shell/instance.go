@@ -43,6 +43,27 @@ func init() {
 		return nil
 	})
 
+	type InstanceDiskOperationOptions struct {
+		ID   string `help:"instance ID"`
+		DISK string `help:"disk ID"`
+	}
+
+	shellutils.R(&InstanceDiskOperationOptions{}, "instance-attach-disk", "Attach a disk to instance", func(cli *aliyun.SRegion, args *InstanceDiskOperationOptions) error {
+		err := cli.AttachDisk(args.ID, args.DISK)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	shellutils.R(&InstanceDiskOperationOptions{}, "instance-detach-disk", "Detach a disk to instance", func(cli *aliyun.SRegion, args *InstanceDiskOperationOptions) error {
+		err := cli.DetachDisk(args.ID, args.DISK)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
 	type InstanceOperationOptions struct {
 		ID string `help:"instance ID"`
 	}
