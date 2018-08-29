@@ -40,10 +40,10 @@ func (self *DiskCreateTask) OnStorageCacheImageComplete(ctx context.Context, dis
 	}
 	storage := disk.GetStorage()
 	host := storage.GetMasterHost()
-	db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(), self.GetUserCred())
+	db.OpsLog.LogEvent(disk, db.ACT_ALLOCATING, disk.GetShortDesc(), self.GetUserCred())
 	disk.SetStatus(self.GetUserCred(), models.DISK_STARTALLOC, "")
 	self.SetStage("on_disk_ready", nil)
-	if err := disk.StartAllocate(host, storage, self.GetTaskId(), self.GetUserCred(), rebuild, snapshot, self); err != nil {
+	if err := disk.StartAllocate(ctx, host, storage, self.GetTaskId(), self.GetUserCred(), rebuild, snapshot, self); err != nil {
 		self.OnStartAllocateFailed(ctx, disk, jsonutils.NewString(err.Error()))
 	}
 }

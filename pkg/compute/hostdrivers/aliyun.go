@@ -48,7 +48,7 @@ func (self *SAliyunHostDriver) CheckAndSetCacheImage(ctx context.Context, host *
 	return nil
 }
 
-func (self *SAliyunHostDriver) RequestAllocateDiskOnStorage(host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
+func (self *SAliyunHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
 	if iCloudStorage, err := storage.GetIStorage(); err != nil {
 		return err
 	} else {
@@ -61,6 +61,20 @@ func (self *SAliyunHostDriver) RequestAllocateDiskOnStorage(host *models.SHost, 
 			} else {
 				if _, err := disk.GetModelManager().TableSpec().Update(disk, func() error {
 					disk.ExternalId = iDisk.GetGlobalId()
+
+					if metaData := iDisk.GetMetadata(); metaData != nil {
+						meta := make(map[string]string)
+						if err := metaData.Unmarshal(meta); err != nil {
+							log.Errorf("Get disk %s Metadata error: %v", disk.Name, err)
+						} else {
+							for key, value := range meta {
+								if err := disk.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {
+									log.Errorf("set disk %s mata %s => %s error: %v", disk.Name, key, value, err)
+								}
+							}
+						}
+					}
+
 					return nil
 				}); err != nil {
 					log.Errorf("Update disk externalId err: %v", err)
@@ -81,9 +95,13 @@ func (self *SAliyunHostDriver) RequestDeallocateDiskOnHost(host *models.SHost, s
 		return err
 	} else if iDisk, err := iCloudStorage.GetIDisk(disk.GetExternalId()); err != nil {
 		return err
+	} else if err := iDisk.Delete(); err != nil {
+		return err
 	} else {
-		return iDisk.Delete()
+		data := jsonutils.NewDict()
+		task.ScheduleRun(data)
 	}
+	return nil
 }
 
 func (self *SAliyunHostDriver) RequestResizeDiskOnHostOnline(host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {

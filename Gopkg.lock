@@ -666,13 +666,15 @@
   version = "v1.2.0"
 
 [[projects]]
-  digest = "1:d867dfa6751c8d7a435821ad3b736310c2ed68945d05b50fb9d23aee0540c8cc"
   branch = "master"
+  digest = "1:c1f242537d2898c84fe9bfd8bd94b177cd5ff98a10c397dbbc494f4e2b173be6"
   name = "github.com/serialx/hashring"
   packages = ["."]
+  pruneopts = "UT"
   revision = "49a4782e9908fe098c907022a1bd7519c79803d6"
 
 [[projects]]
+  digest = "1:d867dfa6751c8d7a435821ad3b736310c2ed68945d05b50fb9d23aee0540c8cc"
   name = "github.com/sirupsen/logrus"
   packages = ["."]
   pruneopts = "UT"
@@ -1032,26 +1034,26 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:5ede93047a3e04f6ede8fbc011f13ee94c397b727613fd9712cc99ebc47ff906"
+  digest = "1:d0257638bb52243f9fa293ef07544081259d54edd8e53f084e522b6c22e92637"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "41e805b221e8fcd9435b706b4dd473df3dd8cff4"
+  revision = "38477c9cceb895816fe21507d73da30376d358b7"
 
 [[projects]]
   branch = "master"
-  digest = "1:b707a5d591b21dad9ebdb264281632ed43d34e2b980dce967acb2c7adcc93ad3"
+  digest = "1:636db180d3fc734536a5437d93bb6fe937feb036c1ed062c25872a47c4283163"
   name = "yunion.io/x/log"
   packages = [
     ".",
     "hooks",
   ]
   pruneopts = "UT"
-  revision = "a10b94c5038480920262e0f344656328434955a2"
+  revision = "5185c49f6d361f61e561fbccba1bedcc7c62748b"
 
 [[projects]]
   branch = "master"
-  digest = "1:13da776b435ec7873c6f9309191296d920a110145372d2a9e1a58ab9e8b34b0d"
+  digest = "1:8a2992edca980cb03eb9dc89f62c03c8ab6fe0c5ca4fc1da71eb736aae635f65"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1086,29 +1088,30 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "56b426f0ca15288cc26442f5802c949f137ade60"
+  revision = "1e97a2736e5b90c0274b7d391b8d97aa9107725c"
 
 [[projects]]
   branch = "master"
-  digest = "1:3d3e1ecb41c63448df5d66eeafa5f6da720ca6e32543e89faa82b5bc4b9adebc"
+  digest = "1:e23019db2cda58480528738c86bc7abbff09d10488c2a51dd5d500f8686815f0"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "a74ef73e555a1ed2e19b1a47e0567814c289eaf9"
+  revision = "19a3c90524d3638f8e3580231396dda46088aebc"
 
 [[projects]]
   branch = "master"
-  digest = "1:6baf7b4ee14e156a9dd6c5c850bb8201af47665e3267e3cdee26edf2a90eaf73"
+  digest = "1:71e1b62648868a9083f9e4693145a0154a600591ca548aaf64cae32a10e956e5"
   name = "yunion.io/x/structarg"
   packages = ["."]
   pruneopts = "UT"
-  revision = "d5e5d87357b9bc2164215117763f6b15b2a3e75d"
+  revision = "4a5eb8e2cdfbf7f6511561a3c710c116b171f405"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
     "github.com/aliyun/alibaba-cloud-sdk-go/sdk",
+    "github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors",
     "github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests",
     "github.com/aliyun/aliyun-oss-go-sdk/oss",
     "github.com/aokoli/goutils",
@@ -1147,6 +1150,7 @@
     "github.com/mholt/caddy/startupshutdown",
     "github.com/miekg/dns",
     "github.com/moul/http2curl",
+    "github.com/serialx/hashring",
     "github.com/stretchr/testify/assert",
     "github.com/vmware/govmomi",
     "github.com/vmware/govmomi/object",
@@ -1158,6 +1162,7 @@
     "golang.org/x/crypto/ssh",
     "gopkg.in/gin-gonic/gin.v1",
     "k8s.io/api/core/v1",
+    "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/fields",
     "k8s.io/apimachinery/pkg/labels",

@@ -506,6 +506,58 @@ func (self *SHost) ClearSchedDescCache() error {
 	return HostManager.ClearSchedDescCache(self.Id)
 }
 
+func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
+	if statusCheck {
+		if utils.IsInStringArray(self.Status, []string{BAREMETAL_INIT, BAREMETAL_PREPARE_FAIL, BAREMETAL_PREPARE}) ||
+			self.getBaremetalServer() != nil {
+			return nil
+		}
+		if self.MemSize == 0 || self.CpuCount == 0 {
+			return nil
+		}
+	}
+	spec := self.GetHardwareSpecification()
+	spec.Remove("storage_info")
+	netInfo := jsonutils.NewArray()
+	nifs := self.GetNetInterfaces()
+	for _, nif := range nifs {
+		netDesc := nif.getBaremetalJsonDesc()
+		nicType, err := netDesc.GetString("nic_type")
+		if err != nil && nicType != NIC_TYPE_IPMI {
+			netInfo.Add(netDesc)
+		}
+	}
+	spec.Set("nic_count", jsonutils.NewInt(int64(netInfo.Length())))
+	manufacture, err := self.SysInfo.Get("manufacture")
+	if err != nil {
+		manufacture = jsonutils.NewString("Unknown")
+	}
+	spec.Set("manufacture", manufacture)
+	model, err := self.SysInfo.Get("model")
+	if err != nil {
+		model = jsonutils.NewString("Unknown")
+	}
+	spec.Set("model", model)
+	return nil
+}
+
+func (self *SHost) GetSpecIdent(spec *jsonutils.JSONDict) []string {
+	// Todo
+	return []string{}
+}
+
+func (self *SHost) GetHardwareSpecification() *jsonutils.JSONDict {
+	spec := jsonutils.NewDict()
+	spec.Set("cpu", jsonutils.NewInt(int64(self.CpuCount)))
+	spec.Set("mem", jsonutils.NewInt(int64(self.MemSize)))
+	if self.StorageInfo != nil {
+		spec.Set("disk", GetDiskSpecV2(self.StorageInfo))
+		spec.Set("driver", jsonutils.NewString(self.StorageDriver))
+		spec.Set("storage_info", self.StorageInfo)
+	}
+	return spec
+}
+
 type SStorageCapacity struct {
 	Capacity  int
 	Used      int

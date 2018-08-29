@@ -36,6 +36,10 @@ func (self *SRegion) GetClient() *SAliyunClient {
 	return self.client
 }
 
+func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (self *SRegion) getEcsClient() (*sdk.Client, error) {
 	if self.ecsClient == nil {
 		cli, err := sdk.NewClientWithAccessKey(self.RegionId, self.client.accessKey, self.client.secret)

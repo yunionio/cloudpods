@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/sysutils"
 	"yunion.io/x/sqlchemy"
 )
 
@@ -98,6 +99,10 @@ func (self *SStorage) GetDiskCount() int {
 
 func (self *SStorage) IsLocal() bool {
 	return self.StorageType == STORAGE_LOCAL || self.StorageType == STORAGE_BAREMETAL
+}
+
+func (manager *SStorageManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
 }
 
 func (self *SStorage) GetUsedCapacity(isReady tristate.TriState) int {
@@ -652,6 +657,26 @@ func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		}
 		sq := ZoneManager.Query("id").Equals("cloudregion_id", regionObj.GetId())
 		q = q.Filter(sqlchemy.In(q.Field("zone_id"), sq.SubQuery()))
+	}
+
+	if jsonutils.QueryBoolean(query, "share", false) {
+		q = q.Filter(sqlchemy.NotIn(q.Field("storage_type"), sysutils.LOCAL_STORAGE_TYPES))
+	}
+
+	if jsonutils.QueryBoolean(query, "local", false) {
+		q = q.Filter(sqlchemy.In(q.Field("storage_type"), sysutils.LOCAL_STORAGE_TYPES))
+	}
+
+	if jsonutils.QueryBoolean(query, "usable", false) {
+		hostStorageTable := HoststorageManager.Query().SubQuery()
+		hostTable := HostManager.Query().SubQuery()
+		sq := hostStorageTable.Query(hostStorageTable.Field("storage_id")).Join(hostTable,
+			sqlchemy.Equals(hostTable.Field("id"), hostStorageTable.Field("host_id"))).
+			Filter(sqlchemy.Equals(hostTable.Field("host_status"), HOST_ONLINE))
+
+		q = q.Filter(sqlchemy.In(q.Field("id"), sq)).
+			Filter(sqlchemy.In(q.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE})).
+			Filter(sqlchemy.IsTrue(q.Field("enabled")))
 	}
 
 	managerStr := jsonutils.GetAnyString(query, []string{"manager", "provider", "manager_id", "provider_id"})

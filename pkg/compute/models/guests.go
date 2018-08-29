@@ -493,9 +493,11 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		return nil, err
 	}
 
-	// if data.Contains("name") {
-	//	return nil, httperrors.NewInputParameterError("cannot update server name")
-	// }
+	if data.Contains("name") {
+		if name, _ := data.GetString("name"); len(name) < 2 {
+			return nil, httperrors.NewInputParameterError("name is to short")
+		}
+	}
 	/* if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
 		return nil, httperrors.NewInputParameterError("Cannot modify memory for baremetal")
 	}
@@ -1247,6 +1249,18 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			db.OpsLog.LogEvent(self, db.ACT_UPDATE, diffStr, userCred)
 		}
 	}
+	if metaData := extVM.GetMetadata(); metaData != nil {
+		meta := make(map[string]string, 0)
+		if metaData.Unmarshal(meta); err != nil {
+			log.Errorf("Get VM Metadata error: %v", err)
+		} else {
+			for key, value := range meta {
+				if err := self.SetMetadata(ctx, key, value, userCred); err != nil {
+					log.Errorf("set guest %s mata %s => %s error: %v", self.Name, key, value, err)
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -1277,6 +1291,20 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	if err != nil {
 		log.Errorf("Insert fail %s", err)
 	}
+
+	if metaData := extVM.GetMetadata(); metaData != nil {
+		meta := make(map[string]string, 0)
+		if err := metaData.Unmarshal(meta); err != nil {
+			log.Errorf("Get VM Metadata error: %v", err)
+		} else {
+			for key, value := range meta {
+				if err := guest.SetMetadata(ctx, key, value, userCred); err != nil {
+					log.Errorf("set guest %s mata %s => %s error: %v", guest.Name, key, value, err)
+				}
+			}
+		}
+	}
+
 	return &guest, nil
 }
 
@@ -1475,7 +1503,20 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 		if add.net == nil {
 			continue // cannot determine which network it attached to
 		}
-		err := self.Attach2Network(ctx, userCred, add.net, nil, add.nic.GetIP(),
+		// check if the IP has been occupied, if yes, release the IP
+		gn, err := GuestnetworkManager.getGuestNicByIP(add.nic.GetIP())
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		if gn != nil {
+			err = gn.Detach(ctx, userCred)
+			if err != nil {
+				result.AddError(err)
+				continue
+			}
+		}
+		err = self.Attach2Network(ctx, userCred, add.net, nil, add.nic.GetIP(),
 			add.nic.GetMAC(), add.nic.GetDriver(), 0, false, -1, add.reserve, IPAllocationDefault, true)
 		if err != nil {
 			result.AddError(err)
@@ -1539,7 +1580,11 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 	if !ok {
 		return nil, fmt.Errorf("Parse query body error")
 	}
+
+	// 变更密码/密钥时需要Restart才能生效。更新普通字段不需要Restart
+	doRestart := false
 	if kwargs.Contains("__delete_keypair__") || kwargs.Contains("keypair") {
+		doRestart = true
 		var kpId string
 		if !jsonutils.QueryBoolean(kwargs, "__delete_keypair__", false) {
 			keypair, _ := kwargs.GetString("keypair")
@@ -1561,8 +1606,9 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 			kwargs.Set("reset_password", jsonutils.JSONTrue)
 		}
 	}
+
 	if utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_READY, VM_ADMIN}) {
-		if self.Status == VM_RUNNING {
+		if doRestart && self.Status == VM_RUNNING {
 			kwargs.Set("restart", jsonutils.JSONTrue)
 		}
 		err := self.StartGuestDeployTask(ctx, userCred, kwargs, "deploy", "")
@@ -1648,7 +1694,7 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 		if len(vdisks[i].GetGlobalId()) == 0 {
 			continue
 		}
-		disk, err := DiskManager.syncCloudDisk(userCred, vdisks[i])
+		disk, err := DiskManager.syncCloudDisk(ctx, userCred, vdisks[i])
 		if err != nil {
 			result.Error(err)
 			return result
@@ -1906,12 +1952,10 @@ func (self *SGuest) createDiskOnHost(ctx context.Context, userCred mcclient.Toke
 	if storage == nil {
 		return nil, fmt.Errorf("No storage to create disk")
 	}
-
 	disk, err := self.createDiskOnStorage(ctx, userCred, storage, diskConfig, pendingUsage)
 	if err != nil {
 		return nil, err
 	}
-
 	err = self.attach2Disk(disk, userCred, diskConfig.Driver, diskConfig.Cache, diskConfig.Mountpoint)
 	return disk, err
 }
@@ -2325,6 +2369,9 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 	disk := iDisk.(*SDisk)
 	if disk != nil {
 		if self.isAttach2Disk(disk) {
+			if disk.DiskType == DISK_TYPE_SYS {
+				return nil, httperrors.NewUnsupportOperationError("Cannot detach sys disk")
+			}
 			detachDiskStatus, err := self.GetDriver().GetDetachDiskStatus()
 			if err != nil {
 				return nil, err
@@ -2337,7 +2384,7 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 					disk.SetStatus(userCred, DISK_DETACHING, "")
 				}
 				taskData := jsonutils.NewDict()
-				taskData.Add(jsonutils.NewString(diskId), "disk_id")
+				taskData.Add(jsonutils.NewString(disk.Id), "disk_id")
 				taskData.Add(jsonutils.NewBool(keepDisk), "keep_disk")
 				self.GetDriver().StartGuestDetachdiskTask(ctx, userCred, self, taskData, "")
 				return nil, nil
@@ -2444,16 +2491,27 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		diskIdx += 1
 	}
 
-	for storageId, needSize := range diskSizes {
-		iStorage, err := StorageManager.FetchById(storageId)
-		if err != nil {
-			return nil, httperrors.NewBadRequestError("Fetch storage error: %s", err)
-		}
-		storage := iStorage.(*SStorage)
-		if storage.GetFreeCapacity() < needSize {
-			return nil, httperrors.NewInsufficientResourceError("Not enough free space")
-		}
+	provider, e := self.GetHost().GetDriver()
+	if e != nil {
+		log.Errorf("Get Provider Error: %s", e)
+		return nil, httperrors.NewInsufficientResourceError("Provider Not Found")
 	}
+
+	if !provider.IsPublicCloud() {
+		for storageId, needSize := range diskSizes {
+			iStorage, err := StorageManager.FetchById(storageId)
+			if err != nil {
+				return nil, httperrors.NewBadRequestError("Fetch storage error: %s", err)
+			}
+			storage := iStorage.(*SStorage)
+			if storage.GetFreeCapacity() < needSize {
+				return nil, httperrors.NewInsufficientResourceError("Not enough free space")
+			}
+		}
+	} else {
+		log.Debugf("Skip storage free capacity validating for public cloud: %s", provider.GetName())
+	}
+
 	if newDisks.Length() > 0 {
 		confs.Add(newDisks, "create")
 	}
@@ -3025,6 +3083,111 @@ func (manager *SGuestManager) FetchGuestById(guestId string) *SGuest {
 		return nil
 	}
 	return guest.(*SGuest)
+}
+
+func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
+	if checkStatus {
+		if !utils.IsInStringArray(self.Status, []string{VM_SCHEDULE_FAILED}) {
+			return nil
+		}
+	}
+	spec := jsonutils.NewDict()
+	spec.Set("cpu", jsonutils.NewInt(int64(self.VcpuCount)))
+	spec.Set("mem", jsonutils.NewInt(int64(self.VmemSize)))
+
+	// get disk spec
+	guestdisks := self.GetDisks()
+	diskSpecs := jsonutils.NewArray()
+	for _, guestdisk := range guestdisks {
+		disk := guestdisk.GetDisk()
+		diskSpec := jsonutils.NewDict()
+		diskSpec.Set("size", jsonutils.NewInt(int64(disk.DiskSize)))
+		s := disk.GetStorage()
+		diskSpec.Set("backend", jsonutils.NewString(s.StorageType))
+		diskSpec.Set("medium_type", jsonutils.NewString(s.MediumType))
+		diskSpecs.Add(diskSpec)
+	}
+	spec.Set("disk", diskSpecs)
+
+	// get nic spec
+	guestnics := self.GetNetworks()
+	nicSpecs := jsonutils.NewArray()
+	for _, guestnic := range guestnics {
+		nicSpec := jsonutils.NewDict()
+		nicSpec.Set("bandwidth", jsonutils.NewInt(int64(guestnic.getBandwidth())))
+		t := "int"
+		if guestnic.IsExit() {
+			t = "ext"
+		}
+		nicSpec.Set("type", jsonutils.NewString(t))
+		nicSpecs.Add(nicSpec)
+	}
+	spec.Set("nic", nicSpecs)
+
+	// get isolate device spec
+	guestgpus := self.GetIsolatedDevices()
+	gpuSpecs := jsonutils.NewArray()
+	for _, guestgpu := range guestgpus {
+		if strings.HasPrefix(guestgpu.DevType, "GPU") {
+			gs := guestgpu.GetSpec(false)
+			if gs != nil {
+				gpuSpecs.Add(gs)
+			}
+		}
+	}
+	spec.Set("gpu", gpuSpecs)
+	return spec
+}
+
+func (self *SGuest) GetTemplateId() string {
+	guestdisks := self.GetDisks()
+	for _, guestdisk := range guestdisks {
+		disk := guestdisk.GetDisk()
+		if disk != nil {
+			templateId := disk.GetTemplateId()
+			if len(templateId) > 0 {
+				return templateId
+			}
+		}
+	}
+	return ""
+}
+
+func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
+	desc := self.SStandaloneResourceBase.GetShortDesc()
+	desc.Set("mem", jsonutils.NewInt(int64(self.VmemSize)))
+	desc.Set("cpu", jsonutils.NewInt(int64(self.VcpuCount)))
+	templateId := self.GetTemplateId()
+	if len(templateId) > 0 {
+		desc.Set("cpu", jsonutils.NewString(templateId))
+	}
+	extBw := self.getBandwidth(true)
+	intBw := self.getBandwidth(false)
+	if extBw > 0 {
+		desc.Set("ext_bandwidth", jsonutils.NewInt(int64(extBw)))
+	}
+	if intBw > 0 {
+		desc.Set("int_bandwidth", jsonutils.NewInt(int64(intBw)))
+	}
+
+	if priceKey := self.GetMetadata("price_key", nil); len(priceKey) > 0 {
+		desc.Add(jsonutils.NewString(priceKey), "price_key")
+	}
+
+	desc.Set("hypervisor", jsonutils.NewString(self.GetHypervisor()))
+	spec := self.GetSpec(false)
+	if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
+		host := self.GetHost()
+		if host != nil {
+			hostSpec := host.GetSpec(false)
+			hostSpecIdent := host.GetSpecIdent(hostSpec)
+			spec.Set("host_spec", jsonutils.NewString(strings.Join(hostSpecIdent, "/")))
+		}
+	}
+	if spec != nil {
+		desc.Update(spec)
+	}
+	return desc
 }
 
 func (self *SGuest) saveOsType(osType string) error {

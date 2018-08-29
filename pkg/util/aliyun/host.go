@@ -19,6 +19,10 @@ type SHost struct {
 	zone *SZone
 }
 
+func (self *SHost) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
 	return self.zone.GetIWires()
 }
@@ -157,7 +161,7 @@ func (self *SHost) GetManagerId() string {
 	return self.zone.region.client.providerId
 }
 
-func (self *SHost) getInstanceById(instanceId string) (*SInstance, error) {
+func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 	inst, err := self.zone.region.GetInstance(instanceId)
 	if err != nil {
 		return nil, err
@@ -171,7 +175,7 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 	if err != nil {
 		return nil, err
 	}
-	vm, err := self.getInstanceById(vmId)
+	vm, err := self.GetInstanceById(vmId)
 	if err != nil {
 		return nil, err
 	}

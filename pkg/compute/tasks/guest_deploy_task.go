@@ -55,13 +55,9 @@ func (self *GuestDeployTask) StartDeployGuestOnHost(ctx context.Context, guest *
 		log.Errorf("request_deploy_guest_on_host %s", err)
 		self.OnDeployGuestFail(ctx, guest, err)
 	} else {
-		self.OnDeployGuestSucc(guest)
+		guest.SetStatus(self.UserCred, models.VM_DEPLOYING, "")
 	}
 	logclient.AddActionLog(guest, logclient.ACT_VM_DEPLOY, err, self.UserCred)
-}
-
-func (self *GuestDeployTask) OnDeployGuestSucc(guest *models.SGuest) {
-	guest.SetStatus(self.UserCred, models.VM_DEPLOYING, "")
 }
 
 func (self *GuestDeployTask) OnDeployGuestFail(ctx context.Context, guest *models.SGuest, err error) {

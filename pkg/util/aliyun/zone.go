@@ -3,6 +3,7 @@ package aliyun
 import (
 	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -109,6 +110,10 @@ type SZone struct {
 	/* 支持的磁盘种类集合 */
 	AvailableDiskCategories     SDiskCategories
 	AvailableDedicatedHostTypes SDedicatedHostTypes
+}
+
+func (self *SZone) GetMetadata() *jsonutils.JSONDict {
+	return nil
 }
 
 func (self *SZone) GetId() string {

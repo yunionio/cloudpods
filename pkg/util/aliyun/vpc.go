@@ -45,6 +45,10 @@ type SVpc struct {
 	VpcName      string
 }
 
+func (self *SVpc) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (self *SVpc) GetId() string {
 	return self.VpcId
 }
@@ -184,6 +188,19 @@ func (self *SVpc) GetManagerId() string {
 }
 
 func (self *SVpc) Delete() error {
+	err := self.fetchSecurityGroups()
+	if err != nil {
+		log.Errorf("fetchSecurityGroup for VPC delete fail %s", err)
+		return err
+	}
+	for i := 0; i < len(self.secgroups); i += 1 {
+		secgroup := self.secgroups[i].(*SSecurityGroup)
+		err := self.region.deleteSecurityGroup(secgroup.SecurityGroupId)
+		if err != nil {
+			log.Errorf("deleteSecurityGroup for VPC delete fail %s", err)
+			return err
+		}
+	}
 	return self.region.DeleteVpc(self.VpcId)
 }
 

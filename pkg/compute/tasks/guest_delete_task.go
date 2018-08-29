@@ -4,6 +4,9 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
@@ -29,15 +32,18 @@ func (self *GuestDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 
 func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guestStatus, _ := self.Params.GetString("guest_status")
 	if options.Options.EnablePendingDelete && !guest.PendingDeleted &&
 		!jsonutils.QueryBoolean(self.Params, "purge", false) &&
-		!jsonutils.QueryBoolean(self.Params, "override_pending_delete", false) &&
-		!utils.IsInStringArray(guestStatus, []string{models.VM_SCHEDULE_FAILED, models.VM_NETWORK_FAILED, models.VM_DISK_FAILED,
+		!jsonutils.QueryBoolean(self.Params, "override_pending_delete", false) {
+		log.Debugf("XXXXXXX Do guest pending delete... XXXXXXX")
+		guestStatus, _ := self.Params.GetString("guest_status")
+		if !utils.IsInStringArray(guestStatus, []string{models.VM_SCHEDULE_FAILED, models.VM_NETWORK_FAILED, models.VM_DISK_FAILED,
 			models.VM_CREATE_FAILED, models.VM_DEVICE_FAILED}) {
-		self.StartPendingDeleteGuest(ctx, guest)
-		return
+			self.StartPendingDeleteGuest(ctx, guest)
+			return
+		}
 	}
+	log.Debugf("XXXXXXX Do real delete on guest ... XXXXXXX")
 	self.OnGuestStopCompleteFailed(ctx, guest, data)
 }
 
