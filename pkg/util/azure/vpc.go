@@ -115,7 +115,6 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 }
 
 func (self *SVpc) fetchWires() error {
-	self.iwires = make([]cloudprovider.ICloudWire, 0)
 	networks := make([]cloudprovider.ICloudNetwork, len(self.Properties.Subnets))
 	wire := SWire{zone: self.region.izones[0].(*SZone), vpc: self, inetworks: networks}
 	for i, _network := range self.Properties.Subnets {
@@ -125,7 +124,7 @@ func (self *SVpc) fetchWires() error {
 		}
 		networks[i] = &network
 	}
-	self.iwires = append(self.iwires, &wire)
+	self.iwires = []cloudprovider.ICloudWire{&wire}
 	return nil
 }
 

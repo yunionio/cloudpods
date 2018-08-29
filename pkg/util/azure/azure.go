@@ -54,9 +54,10 @@ func NewAzureClient(providerId string, providerName string, accessKey string, se
 	if _, ok := authAddr[url]; !ok {
 		return nil, httperrors.NewUnauthorizedError("Access url choices: %v", reflect.ValueOf(authAddr).MapKeys())
 	}
-	if clientInfo := strings.Split(secret, "/"); len(clientInfo) == 3 {
-		client := SAzureClient{providerId: providerId, providerName: providerName, tenantId: accessKey, secret: secret, baseUrl: url}
-		client.clientId, client.clientScret, client.subscriptionId = clientInfo[0], clientInfo[1], clientInfo[2]
+	if clientInfo, accountInfo := strings.Split(secret, "/"), strings.Split(accessKey, "/"); len(clientInfo) == 2 && len(accountInfo) == 2 {
+		client := SAzureClient{providerId: providerId, providerName: providerName, secret: secret, baseUrl: url}
+		client.clientId, client.clientScret = clientInfo[0], clientInfo[1]
+		client.tenantId, client.subscriptionId = accountInfo[0], accountInfo[1]
 		if err := client.fetchAzureInof(); err != nil {
 			return nil, err
 		} else if err := client.fetchRegions(); err != nil {

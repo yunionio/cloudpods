@@ -21,15 +21,15 @@ func (self *SWire) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SWire) GetId() string {
-	return fmt.Sprintf("%s-%s", self.zone.region.client.providerId, self.zone.region.GetId())
+	return fmt.Sprintf("%s/%s/%s", self.zone.region.GetGlobalId(), self.zone.region.client.subscriptionId, self.vpc.GetName())
 }
 
 func (self *SWire) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", self.zone.region.GetGlobalId(), self.zone.region.client.subscriptionId)
+	return self.GetId()
 }
 
 func (self *SWire) GetName() string {
-	return fmt.Sprintf("%s-%s", self.zone.region.client.providerName, self.zone.region.Name)
+	return fmt.Sprintf("%s-%s", self.zone.region.client.providerName, self.vpc.GetName())
 }
 
 func (self *SWire) IsEmulated() bool {
@@ -81,7 +81,7 @@ func (self *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
 	if self.inetworks == nil {
 		self.inetworks = make([]cloudprovider.ICloudNetwork, len(self.vpc.Properties.Subnets))
 		for i, _netwrok := range self.vpc.Properties.Subnets {
-			network := SNetwork{wire: self}
+			network := SNetwork{wire: self, Name: _netwrok.Name, ID: _netwrok.ID}
 			if err := jsonutils.Update(&network, _netwrok); err != nil {
 				return nil, err
 			}

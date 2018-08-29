@@ -26,7 +26,8 @@ func (self *SNetwork) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SNetwork) GetId() string {
-	return fmt.Sprintf("%s/%s/%s", self.wire.zone.region.GetGlobalId(), self.wire.zone.region.SubscriptionID, self.Name)
+	vpcName := self.wire.vpc.GetName()
+	return fmt.Sprintf("%s/%s/%s/%s", self.wire.zone.region.GetGlobalId(), self.wire.zone.region.SubscriptionID, vpcName, self.Name)
 }
 
 func (self *SNetwork) GetName() string {
@@ -43,7 +44,7 @@ func (self *SNetwork) IsEmulated() bool {
 
 func (self *SNetwork) GetStatus() string {
 	if strings.ToLower(self.Properties.ProvisioningState) == "succeeded" {
-		return "avaliable"
+		return "available"
 	}
 	return "disabled"
 }
