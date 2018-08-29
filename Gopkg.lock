@@ -384,6 +384,14 @@
   revision = "8e809c8a86450a29b90dcc9efbf062d0fe6d9746"
 
 [[projects]]
+  branch = "master"
+  digest = "1:09970bb8daf100bdf11b48b72c71ef980cd2b50efbd903989b3d182956be0b83"
+  name = "github.com/hako/durafmt"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "7b7ae1e72eade09dbc9c2cfba3e6c4bae7b8bcac"
+
+[[projects]]
   digest = "1:8eb1de8112c9924d59bf1d3e5c26f5eaa2bfc2a5fcbb92dc1c2e4546d695f277"
   name = "github.com/imdario/mergo"
   packages = ["."]
@@ -1103,6 +1111,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/aliyun/alibaba-cloud-sdk-go/sdk",
+    "github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors",
     "github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests",
     "github.com/aliyun/aliyun-oss-go-sdk/oss",
     "github.com/aokoli/goutils",
@@ -1134,6 +1143,7 @@
     "github.com/go-sql-driver/mysql",
     "github.com/golang-plus/uuid",
     "github.com/gosuri/uitable",
+    "github.com/hako/durafmt",
     "github.com/jinzhu/gorm",
     "github.com/jinzhu/gorm/dialects/mysql",
     "github.com/json-iterator/go",
@@ -1152,6 +1162,7 @@
     "golang.org/x/crypto/ssh",
     "gopkg.in/gin-gonic/gin.v1",
     "k8s.io/api/core/v1",
+    "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/fields",
     "k8s.io/apimachinery/pkg/labels",
