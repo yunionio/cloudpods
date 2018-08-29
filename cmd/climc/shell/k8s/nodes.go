@@ -15,10 +15,14 @@ func initNode() {
 	}
 	type listOpt struct {
 		BaseListOptions
+		Cluster string `help:"Filter by cluster"`
 	}
 	R(&listOpt{}, cmdN("list"), "List k8s node", func(s *mcclient.ClientSession, args *listOpt) error {
 		args.Details = true
 		params := FetchPagingParams(args.BaseListOptions)
+		if args.Cluster != "" {
+			params.Add(jsonutils.NewString(args.Cluster), "cluster")
+		}
 		result, err := k8s.Nodes.List(s, params)
 		if err != nil {
 			return err
@@ -26,11 +30,6 @@ func initNode() {
 		printList(result, k8s.Nodes.GetColumns(s))
 		return nil
 	})
-
-	type dockerConfig struct {
-		RegistryMirrors    []string `json:"registry-mirrors"`
-		InsecureRegistries []string `json:"insecure-registries"`
-	}
 
 	type createOpt struct {
 		CLUSTER          string   `help:"Cluster id"`
@@ -112,6 +111,12 @@ func initNode() {
 			return err
 		}
 		printObject(obj)
+		return nil
+	})
+
+	R(&identsOpt{}, cmdN("purge"), "Purge a node record in database, not actually do deletion", func(s *mcclient.ClientSession, args *identsOpt) error {
+		ret := k8s.Nodes.BatchPerformAction(s, args.ID, "purge", nil)
+		printBatchResults(ret, k8s.Nodes.GetColumns(s))
 		return nil
 	})
 

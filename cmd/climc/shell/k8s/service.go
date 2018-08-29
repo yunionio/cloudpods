@@ -21,7 +21,7 @@ func initService() {
 		if err != nil {
 			return err
 		}
-		printList(ret, k8s.Services.GetColumns(s))
+		PrintListResultTable(ret, k8s.Services, s)
 		return nil
 	})
 }
