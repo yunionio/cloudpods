@@ -81,3 +81,7 @@
   branch = "master"
   name = "github.com/vmware/govmomi"
 
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/hako/durafmt"

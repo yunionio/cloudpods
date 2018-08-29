@@ -99,7 +99,7 @@ var (
 	printBatchResults = printutils.PrintJSONBatchResults
 )
 
-func FetchPagingParams(o BaseListOptions) jsonutils.JSONObject {
+func FetchPagingParams(o BaseListOptions) *jsonutils.JSONDict {
 	return shell.FetchPagingParams(shell.BaseListOptions(o))
 }
 

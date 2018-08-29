@@ -5,10 +5,10 @@ import (
 )
 
 var (
-	Nodes *modules.ResourceManager
+	Nodes *ResourceManager
 )
 
 func init() {
-	Nodes = NewManager("kube_node", "kube_nodes", NewResourceCols("cluster", "roles", "address", "status"), NewColumns())
+	Nodes = NewResourceManager("kube_node", "kube_nodes", NewResourceCols("cluster", "roles", "address", "status"), NewColumns())
 	modules.Register(Nodes)
 }
