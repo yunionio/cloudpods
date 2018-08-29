@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -41,6 +42,7 @@ func initDeployment() {
 		Labels          string   `help:"Comma separated labels to apply to the pod(s)"`
 		Env             []string `help:"Environment variables to set in container"`
 		Port            []string `help:"Port for the service that is created, format is <protocol>:<service_port>:<container_port> e.g. tcp:80:3000"`
+		Net             string   `help:"Network config, e.g. net1, net1:10.168.222.171"`
 	}
 	R(&createOpt{}, cmdN("create"), "Create deployment resource", func(s *mcclient.ClientSession, args *createOpt) error {
 		params := jsonutils.NewDict()
@@ -64,6 +66,13 @@ func initDeployment() {
 				return err
 			}
 			params.Add(portMappings, "portMappings")
+		}
+		if args.Net != "" {
+			net, err := parseNetConfig(args.Net)
+			if err != nil {
+				return err
+			}
+			params.Add(net, "networkConfig")
 		}
 		ret, err := k8s.Deployments.CreateInContexts(s, params, args.ClusterContext())
 		if err != nil {
@@ -140,6 +149,18 @@ func parsePortMappings(ports []string) (*jsonutils.JSONArray, error) {
 			return nil, fmt.Errorf("Port %q error: %v", port, err)
 		}
 		ret.Add(jsonutils.Marshal(mapping))
+	}
+	return ret, nil
+}
+
+func parseNetConfig(net string) (*jsonutils.JSONDict, error) {
+	ret := jsonutils.NewDict()
+	for _, p := range strings.Split(net, ":") {
+		if regutils.MatchIP4Addr(p) {
+			ret.Add(jsonutils.NewString(p), "address")
+		} else {
+			ret.Add(jsonutils.NewString(p), "network")
+		}
 	}
 	return ret, nil
 }
