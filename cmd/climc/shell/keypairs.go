@@ -113,9 +113,9 @@ func init() {
 		if len(args.PublicKey) > 0 {
 			content, e := ioutil.ReadFile(args.PublicKey)
 			if e != nil {
-				params.Add(jsonutils.NewString(args.PublicKey), "public_Key")
+				params.Add(jsonutils.NewString(args.PublicKey), "public_key")
 			} else {
-				params.Add(jsonutils.NewString(string(content)), "public_Key")
+				params.Add(jsonutils.NewString(string(content)), "public_key")
 			}
 		} else {
 			return fmt.Errorf("no public key provided")
