@@ -81,6 +81,10 @@ func (self *SVirtualMachine) UpdateVM(name string) error {
 	return cloudprovider.ErrNotImplemented
 }
 
+func (self *SVirtualMachine) DetachDisk(diskId string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
 func (self *SVirtualMachine) AttachDisk(diskId string) error {
 	return cloudprovider.ErrNotImplemented
 }

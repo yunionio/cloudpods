@@ -52,7 +52,7 @@ func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, obj db.I
 	if !self.isSubtask() {
 		guest.SetStatus(self.UserCred, models.VM_READY, "")
 	}
-	db.OpsLog.LogEvent(guest, db.ACT_STOP, nil, self.UserCred)
+	db.OpsLog.LogEvent(guest, db.ACT_STOP, guest.GetShortDesc(), self.UserCred)
 	models.HostManager.ClearSchedDescCache(guest.HostId)
 	self.SetStageComplete(ctx, nil)
 	if guest.Status == models.VM_READY && guest.DisableDelete.IsFalse() && guest.ShutdownBehavior == models.SHUTDOWN_TERMINATE {

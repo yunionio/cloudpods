@@ -9,12 +9,12 @@ var (
 )
 
 type TillerManager struct {
-	modules.ResourceManager
+	*ResourceManager
 }
 
 func init() {
 	Tiller = &TillerManager{
-		ResourceManager: *NewManager(
+		ResourceManager: NewResourceManager(
 			"tiller", "tiller",
 			NewColumns(),
 			NewColumns(),

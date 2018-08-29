@@ -120,6 +120,15 @@ func ParseValue(val string, tp reflect.Type) (reflect.Value, error) {
 		}
 	case reflect.String:
 		return reflect.ValueOf(val), nil
+	case reflect.Ptr:
+		tpElem := tp.Elem()
+		rv, err := ParseValue(val, tpElem)
+		if err != nil {
+			return reflect.ValueOf(val), fmt.Errorf("Cannot parse %s to %s", val, tp)
+		}
+		rvv := reflect.New(tpElem)
+		rvv.Elem().Set(rv)
+		return rvv, nil
 	default:
 		if tp == TimeType {
 			tm, e := timeutils.ParseTimeStr(val)
@@ -173,7 +182,16 @@ func SetValue(value reflect.Value, valStr string) error {
 		Float32SliceType, Float64SliceType, StringSliceType:
 		reflect.Append(value, reflect.ValueOf(valStr))
 	default:
-		return fmt.Errorf("Unsupported type: %v", value.Type())
+		if value.Kind() == reflect.Ptr && value.Elem().Kind() != reflect.Slice {
+			newVal := reflect.New(value.Type().Elem())
+			newValElem := newVal.Elem()
+			if err := SetValue(newValElem, valStr); err != nil {
+				return err
+			}
+			value.Set(newVal)
+		} else {
+			return fmt.Errorf("Unsupported type: %v", value.Type())
+		}
 	}
 	return nil
 }

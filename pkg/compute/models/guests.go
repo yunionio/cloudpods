@@ -1628,6 +1628,17 @@ func (self *SGuest) AllowPerformAttachdisk(ctx context.Context, userCred mcclien
 }
 
 func (self *SGuest) ValidateAttachDisk(ctx context.Context, disk *SDisk) error {
+	storage := disk.GetStorage()
+	if provider := storage.GetCloudprovider(); provider != nil {
+		host := self.GetHost()
+		if provider.Id != host.ManagerId {
+			return httperrors.NewInputParameterError("Disk %s and guest not belong to the same account", disk.Name)
+		} else if storage.ZoneId != host.ZoneId {
+			return httperrors.NewInputParameterError("Disk %s and guest not belong to the same zone", disk.Name)
+		}
+		return nil
+	}
+
 	if disk.isAttached() {
 		return httperrors.NewInputParameterError("Disk %s has been attached", disk.Name)
 	} else if len(disk.GetPathAtHost(self.GetHost())) == 0 {
@@ -2372,6 +2383,9 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 	disk := iDisk.(*SDisk)
 	if disk != nil {
 		if self.isAttach2Disk(disk) {
+			if disk.DiskType == DISK_TYPE_SYS {
+				return nil, httperrors.NewUnsupportOperationError("Cannot detach sys disk")
+			}
 			detachDiskStatus, err := self.GetDriver().GetDetachDiskStatus()
 			if err != nil {
 				return nil, err

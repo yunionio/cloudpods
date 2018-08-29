@@ -384,6 +384,14 @@
   revision = "8e809c8a86450a29b90dcc9efbf062d0fe6d9746"
 
 [[projects]]
+  branch = "master"
+  digest = "1:09970bb8daf100bdf11b48b72c71ef980cd2b50efbd903989b3d182956be0b83"
+  name = "github.com/hako/durafmt"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "7b7ae1e72eade09dbc9c2cfba3e6c4bae7b8bcac"
+
+[[projects]]
   digest = "1:8eb1de8112c9924d59bf1d3e5c26f5eaa2bfc2a5fcbb92dc1c2e4546d695f277"
   name = "github.com/imdario/mergo"
   packages = ["."]
@@ -1053,7 +1061,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:8e2a4d71738e5e3bffc415b23f100b0a5033dbf88154783122f5147d4fc213b5"
+  digest = "1:8a2992edca980cb03eb9dc89f62c03c8ab6fe0c5ca4fc1da71eb736aae635f65"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1088,7 +1096,7 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "7348c84865abac3fcdec618591b7eee7c2e0669b"
+  revision = "1e97a2736e5b90c0274b7d391b8d97aa9107725c"
 
 [[projects]]
   branch = "master"
@@ -1143,6 +1151,7 @@
     "github.com/go-sql-driver/mysql",
     "github.com/golang-plus/uuid",
     "github.com/gosuri/uitable",
+    "github.com/hako/durafmt",
     "github.com/jinzhu/gorm",
     "github.com/jinzhu/gorm/dialects/mysql",
     "github.com/json-iterator/go",

@@ -83,5 +83,9 @@
 
 
 [[constraint]]
+  branch = "master"
+  name = "github.com/hako/durafmt"
+
+[[constraint]]
   name = "github.com/Azure/azure-sdk-for-go"
   version = "19.1.0"
