@@ -23,7 +23,7 @@ func initPod() {
 		if err != nil {
 			return err
 		}
-		printList(ret, k8s.Pods.GetColumns(s))
+		PrintListResultTable(ret, k8s.Pods, s)
 		return nil
 	})
 
