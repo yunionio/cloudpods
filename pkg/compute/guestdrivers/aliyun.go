@@ -244,11 +244,11 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		params := task.GetParams()
 		log.Debugf("Deploy VM params %s", params.String())
 		var name string
-		if v, e := params.GetString("name"); e != nil {
+		if v, e := params.GetString("name"); e == nil {
 			name = v
 		}
 		var description string
-		if v, e := params.GetString("description"); e != nil {
+		if v, e := params.GetString("description"); e == nil {
 			description = v
 		}
 		resetPassword := jsonutils.QueryBoolean(params, "reset_password", false)
@@ -259,7 +259,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		}
 
 		publicKey := ""
-		if k, e := config.GetString("public_key"); e != nil {
+		if k, e := config.GetString("public_key"); e == nil {
 			publicKey = k
 		}
 
