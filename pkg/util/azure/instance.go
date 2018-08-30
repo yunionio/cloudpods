@@ -269,6 +269,10 @@ func (self *SInstance) AttachDisk(diskId string) error {
 	return nil
 }
 
+func (self *SInstance) DetachDisk(diskId string) error {
+	return nil
+}
+
 func (self *SInstance) ChangeConfig(instanceId string, ncpu int, vmem int) error {
 	return nil
 }

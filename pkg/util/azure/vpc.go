@@ -161,7 +161,7 @@ func (self *SVpc) GetRegion() cloudprovider.ICloudRegion {
 
 func (self *SVpc) GetStatus() string {
 	if strings.ToLower(self.Properties.ProvisioningState) == "succeeded" {
-		return "avaliable"
+		return "available"
 	}
 	return "disabled"
 }

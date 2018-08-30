@@ -116,7 +116,24 @@ func (self *SRegion) GetStatus() string {
 }
 
 func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
-	return nil, nil
+	vpcClient := network.NewVirtualNetworksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
+	vpcClient.Authorizer = self.client.authorizer
+	addressPrefixes := []string{cidr}
+	addressSpace := network.AddressSpace{AddressPrefixes: &addressPrefixes}
+	properties := network.VirtualNetworkPropertiesFormat{AddressSpace: &addressSpace}
+	parameters := network.VirtualNetwork{Name: &name, Location: &self.Name, VirtualNetworkPropertiesFormat: &properties}
+	vpcId := fmt.Sprintf("resourceGroups/%s/providers/%s", DefaultResourceGroup["vpc"], name)
+	if result, err := vpcClient.CreateOrUpdate(context.Background(), DefaultResourceGroup["vpc"], name, parameters); err != nil {
+		return nil, err
+	} else if err := result.WaitForCompletion(context.Background(), vpcClient.Client); err != nil {
+		return nil, err
+	} else if err := self.fetchInfrastructure(); err != nil {
+		return nil, err
+	} else if vpc, err := self.GetIVpcById(vpcId); err != nil {
+		return nil, err
+	} else {
+		return vpc, nil
+	}
 }
 
 func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
@@ -132,7 +149,19 @@ func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStorag
 }
 
 func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
-	return nil, nil
+	if ivpcs, err := self.GetIVpcs(); err != nil {
+		return nil, err
+	} else {
+		resourceGroup, vpcName, _ := PareResourceGroupWithName(id)
+		for i := 0; i < len(ivpcs); i++ {
+			vpcId := ivpcs[i].GetId()
+			_resourceGroup, _vpcName, _ := PareResourceGroupWithName(vpcId)
+			if _resourceGroup == resourceGroup && _vpcName == vpcName {
+				return ivpcs[i], nil
+			}
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {

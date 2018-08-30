@@ -35,6 +35,7 @@ var authAddr = map[string]string{
 var DefaultResourceGroup = map[string]string{
 	"disk":     "YunionDiskResource",
 	"instance": "YunionInstanceResource",
+	"vpc":      "YunionVpcResource",
 }
 
 type SAzureClient struct {
