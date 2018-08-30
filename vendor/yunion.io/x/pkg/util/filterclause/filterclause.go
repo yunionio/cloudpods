@@ -16,10 +16,12 @@ type SFilterClause struct {
 	params   []string
 }
 
+// "guestnetworks.guest_id(id).ip_addr.equals(10.168.222.232)"
 type SJointFilterClause struct {
 	SFilterClause
 	JointModel string
 	RelatedKey string
+	OriginKey  string
 }
 
 func (jfc *SJointFilterClause) GetJointFilter(q *sqlchemy.SQuery) sqlchemy.ICondition {
@@ -83,7 +85,7 @@ var (
 
 func init() {
 	filterClausePattern = regexp.MustCompile(`^(\w+)\.(\w+)\((.*)\)`)
-	jointFilterClausePattern = regexp.MustCompile(`^(\w+)\((\w+)\).(\w+)\.(\w+)\((.*)\)`)
+	jointFilterClausePattern = regexp.MustCompile(`^(\w+)\.(\w+)\((\w+)\).(\w+)\.(\w+)\((.*)\)`)
 }
 
 func ParseFilterClause(filter string) *SFilterClause {
@@ -101,15 +103,16 @@ func ParseJointFilterClause(jointFilter string) *SJointFilterClause {
 	if matches == nil {
 		return nil
 	}
-	params := utils.FindWords([]byte(matches[5]), 0)
+	params := utils.FindWords([]byte(matches[6]), 0)
 	jfc := SJointFilterClause{
 		SFilterClause: SFilterClause{
-			field:    matches[3],
-			funcName: matches[4],
+			field:    matches[4],
+			funcName: matches[5],
 			params:   params,
 		},
 		JointModel: matches[1],
 		RelatedKey: matches[2],
+		OriginKey:  matches[3],
 	}
 	return &jfc
 }
