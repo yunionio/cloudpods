@@ -274,5 +274,5 @@ type ServerChangeConfigOptions struct {
 
 type ServerResetOptions struct {
 	ID   []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
-	Hard bool     `help:"Hard reset or not; default soft" json:"is_hard"`
+	Hard *bool    `help:"Hard reset or not; default soft" json:"is_hard"`
 }
