@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
@@ -15,7 +16,7 @@ func init() {
 	 * 列出报警日志
 	 */
 	type AlarmLogListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Host           string   `help:"Name of the host"`
 		Id             int64    `help:"ID of tree node"`
 		Label          []string `help:"Labels to this tree node"`
@@ -26,7 +27,10 @@ func init() {
 		ThisTimeUntil  string   `help:"This time until the alarm event"`
 	}
 	R(&AlarmLogListOptions{}, "alarmlog-list", "List all alarm's event", func(s *mcclient.ClientSession, args *AlarmLogListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		params, err := args.BaseListOptions.Params()
+		if err != nil {
+			return err
+		}
 		if len(args.Host) > 0 {
 			params.Add(jsonutils.NewString(args.Host), "host")
 		}

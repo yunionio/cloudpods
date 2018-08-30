@@ -6,11 +6,12 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type StorageListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Share  bool   `help:"Share storage list"`
 		Local  bool   `help:"Local storage list"`
 		Usable bool   `help:"Usable storage list"`
@@ -20,7 +21,15 @@ func init() {
 		Manager string `help:"Show regions belongs to the cloud provider"`
 	}
 	R(&StorageListOptions{}, "storage-list", "List storages", func(s *mcclient.ClientSession, args *StorageListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		if args.Share {
 			params.Add(jsonutils.JSONTrue, "share")
 		}

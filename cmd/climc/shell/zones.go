@@ -4,18 +4,27 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type ZoneListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Region  string `help:"cloud region ID or Name"`
 		Usable  bool   `help:"List all zones that is usable"`
 		Private bool   `help:"show all zones in private cloud regions only"`
 		Public  bool   `help:"show all zones in public cloud regions only"`
 	}
 	R(&ZoneListOptions{}, "zone-list", "List zones", func(s *mcclient.ClientSession, args *ZoneListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		if args.Usable {
 			params.Add(jsonutils.JSONTrue, "usable")
 		}
