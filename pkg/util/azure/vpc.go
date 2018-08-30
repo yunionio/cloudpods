@@ -64,7 +64,8 @@ func (self *SVpc) GetName() string {
 }
 
 func (self *SVpc) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s/%s", self.region.GetGlobalId(), self.region.SubscriptionID, self.Name)
+	resourceGroup, _, _ := PareResourceGroupWithName(self.ID)
+	return fmt.Sprintf("%s/resourceGroups/%s/%s/%s", self.region.GetGlobalId(), resourceGroup, self.region.SubscriptionID, self.Name)
 }
 
 func (self *SVpc) IsEmulated() bool {
