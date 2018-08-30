@@ -122,7 +122,7 @@ func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudpro
 	addressSpace := network.AddressSpace{AddressPrefixes: &addressPrefixes}
 	properties := network.VirtualNetworkPropertiesFormat{AddressSpace: &addressSpace}
 	parameters := network.VirtualNetwork{Name: &name, Location: &self.Name, VirtualNetworkPropertiesFormat: &properties}
-	vpcId := fmt.Sprintf("resourceGroups/%s/providers/%s", DefaultResourceGroup["vpc"], name)
+	vpcId := fmt.Sprintf("resourceGroups/%s/providers/%s/%s", DefaultResourceGroup["vpc"], self.SubscriptionID, name)
 	if result, err := vpcClient.CreateOrUpdate(context.Background(), DefaultResourceGroup["vpc"], name, parameters); err != nil {
 		return nil, err
 	} else if err := result.WaitForCompletion(context.Background(), vpcClient.Client); err != nil {
@@ -137,7 +137,19 @@ func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudpro
 }
 
 func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	return nil, nil
+	izones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i += 1 {
+		ihost, err := izones[i].GetIHostById(id)
+		if err == nil {
+			return ihost, nil
+		} else if err != cloudprovider.ErrNotFound {
+			return nil, err
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
@@ -152,12 +164,15 @@ func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
 	if ivpcs, err := self.GetIVpcs(); err != nil {
 		return nil, err
 	} else {
-		resourceGroup, vpcName, _ := PareResourceGroupWithName(id)
-		for i := 0; i < len(ivpcs); i++ {
-			vpcId := ivpcs[i].GetId()
-			_resourceGroup, _vpcName, _ := PareResourceGroupWithName(vpcId)
-			if _resourceGroup == resourceGroup && _vpcName == vpcName {
-				return ivpcs[i], nil
+		if resourceGroup, vpcName, err := PareResourceGroupWithName(id); err != nil {
+			return nil, err
+		} else {
+			for i := 0; i < len(ivpcs); i++ {
+				vpcId := ivpcs[i].GetId()
+				_resourceGroup, _vpcName, _ := PareResourceGroupWithName(vpcId)
+				if _resourceGroup == resourceGroup && _vpcName == vpcName {
+					return ivpcs[i], nil
+				}
 			}
 		}
 	}

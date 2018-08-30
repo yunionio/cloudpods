@@ -123,10 +123,9 @@ func (self *SAzureClient) fetchAzureInof() error {
 
 func (self *SAzureClient) UpdateAccount(tenantId, secret string) error {
 	if self.tenantId != tenantId || self.secret != secret {
-		self.tenantId = tenantId
-		self.secret = secret
-		if clientInfo := strings.Split(secret, "/"); len(clientInfo) == 3 {
-			self.clientId, self.clientScret, self.subscriptionId = clientInfo[0], clientInfo[1], clientInfo[2]
+		if clientInfo, accountInfo := strings.Split(secret, "/"), strings.Split(tenantId, "/"); len(clientInfo) == 2 && len(accountInfo) == 2 {
+			self.clientId, self.clientScret = clientInfo[0], clientInfo[1]
+			self.tenantId, self.subscriptionId = accountInfo[0], accountInfo[1]
 			conf := auth.NewClientCredentialsConfig(self.clientId, self.clientScret, self.tenantId)
 			conf.Resource = self.baseUrl
 			conf.AADEndpoint = strings.Replace(self.baseUrl, "management", "login", -1)
@@ -135,13 +134,19 @@ func (self *SAzureClient) UpdateAccount(tenantId, secret string) error {
 			} else {
 				self.authorizer = authorizer
 			}
+			if err := self.fetchAzureInof(); err != nil {
+				return err
+			} else if err := self.fetchRegions(); err != nil {
+				return err
+			} else if err := self.fetchAzueResourceGroup(); err != nil {
+				return err
+			}
+			return nil
 		} else {
 			return httperrors.NewUnauthorizedError("clientId、clientScret or subscriptId input error")
 		}
-		return self.fetchAzureInof()
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (self *SAzureClient) fetchRegions() error {

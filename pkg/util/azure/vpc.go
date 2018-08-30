@@ -81,8 +81,16 @@ func (self *SVpc) GetCidrBlock() string {
 }
 
 func (self *SVpc) Delete() error {
+	vpcClient := network.NewVirtualNetworksClientWithBaseURI(self.region.client.baseUrl, self.region.client.subscriptionId)
+	vpcClient.Authorizer = self.region.client.authorizer
+	if resourceGroup, vpcName, err := PareResourceGroupWithName(self.ID); err != nil {
+		return cloudprovider.ErrNotFound
+	} else if result, err := vpcClient.Delete(context.Background(), resourceGroup, vpcName); err != nil {
+		return err
+	} else if err := result.WaitForCompletion(context.Background(), vpcClient.Client); err != nil {
+		return err
+	}
 	return nil
-	//return self.region.DeleteVpc(self.VpcId)
 }
 
 func (self *SVpc) fetchSecurityGroups() error {

@@ -176,7 +176,7 @@ func PareResourceGroupWithName(s string) (string, string, error) {
 	if resourceGroups := valid.FindStringSubmatch(s); len(resourceGroups) == 3 {
 		return resourceGroups[1], resourceGroups[2], nil
 	}
-	return "", "", cloudprovider.ErrNotFound
+	return s, "", cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetInstance(resourceGroup string, VMName string) (*SInstance, error) {
