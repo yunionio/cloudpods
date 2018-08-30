@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
@@ -70,10 +71,18 @@ func init() {
 	 * 获得所有用户的所有通信地址列表
 	 */
 	type ContactsListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 	}
 	R(&ContactsListOptions{}, "contact-list", "List all contacts for all users", func(s *mcclient.ClientSession, args *ContactsListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 
 		result, err := modules.Contacts.List(s, params)
 		if err != nil {
@@ -88,11 +97,19 @@ func init() {
 	 * 获得一个用户全部通信地址
 	 */
 	type ContactsListForUserOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		UID string `help:"The user you wanna find contact from (Keystone User ID)"`
 	}
 	R(&ContactsListForUserOptions{}, "contact-show", "List all contacts for the users", func(s *mcclient.ClientSession, args *ContactsListForUserOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 
 		result, err := modules.Contacts.Get(s, args.UID, params)
 		if err != nil {

@@ -7,15 +7,24 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type KeypairList struct {
-		BaseListOptions
+		options.BaseListOptions
 	}
 
 	R(&KeypairList{}, "keypair-list", "List keypairs.", func(s *mcclient.ClientSession, args *KeypairList) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 
 		result, err := modules.Keypairs.List(s, params)
 		if err != nil {

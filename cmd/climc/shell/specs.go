@@ -6,17 +6,26 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type ListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Model    string `help:"Specified model specs" choices:"hosts|isolated_devices|guests"`
 		HostType string `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv"`
 		Gpu      bool   `help:"Only show gpu devices"`
 	}
 	R(&ListOptions{}, "spec", "List all kinds of model specs", func(s *mcclient.ClientSession, args *ListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		model := ""
 		if len(args.Model) != 0 {
 			model = args.Model
@@ -36,7 +45,7 @@ func init() {
 	})
 
 	type HostsQueryOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		HostType string   `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv"`
 		Ncpu     int64    `help:"#CPU count of host" metavar:"<CPU_COUNT>"`
 		MemSize  string   `help:"Memory GB size"`
@@ -61,7 +70,15 @@ func init() {
 			}
 			return keys
 		}
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		if len(args.HostType) > 0 {
 			params.Add(jsonutils.NewString(args.HostType), "host_type")
 		}
@@ -80,7 +97,7 @@ func init() {
 	})
 
 	type IsoDevQueryOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Model  string `help:"Device model name"`
 		Vendor string `help:"Device vendor name"`
 	}
@@ -95,7 +112,15 @@ func init() {
 			}
 			return keys
 		}
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		resp, err := modules.Specs.SpecsQueryModelObjects(s, "isolated_devices", newSpecKeys(), params)
 		if err != nil {
 			return err

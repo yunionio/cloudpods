@@ -4,14 +4,23 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type OperationListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 	}
 	R(&OperationListOptions{}, "operation-list", "List operations", func(s *mcclient.ClientSession, suboptions *OperationListOptions) error {
-		params := FetchPagingParams(suboptions.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = suboptions.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		result, err := modules.Operations.List(s, params)
 		if err != nil {
 			return err

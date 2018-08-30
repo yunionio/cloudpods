@@ -7,6 +7,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
@@ -78,12 +79,20 @@ func init() {
 	 * 列出报警模板
 	 */
 	type AlarmTemplateListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		LIST_TYPE string `help:"Type of list: avaliable|applied|created "`
 		LABELS    string `help:"Labels for node(split by comma)"`
 	}
 	R(&AlarmTemplateListOptions{}, "alarmtemplate-list", "List all alarm templates ", func(s *mcclient.ClientSession, args *AlarmTemplateListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		params.Add(jsonutils.NewString(args.LIST_TYPE), "type")
 		params.Add(jsonutils.NewString(args.LABELS), "node_labels")
 
