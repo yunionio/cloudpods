@@ -4,16 +4,25 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type HostWireListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Host string `help:"ID or Name of Host"`
 		Wire string `help:"ID or Name of Wire"`
 	}
 	R(&HostWireListOptions{}, "host-wire-list", "List host wire", func(s *mcclient.ClientSession, args *HostWireListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		var result *modules.ListResult
 		var err error
 		if len(args.Host) > 0 {

@@ -5,6 +5,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
@@ -71,7 +72,7 @@ func init() {
 	 * 查询已发送的通知任务
 	 */
 	type NotificationListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 	}
 	R(&NotificationListOptions{}, "notify-list", "List notification history", func(s *mcclient.ClientSession, args *NotificationListOptions) error {
 		result, err := modules.Notifications.List(s, nil)

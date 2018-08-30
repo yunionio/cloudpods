@@ -2,19 +2,27 @@ package shell
 
 import (
 	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type HostNetworkListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Host    string `help:"ID or Name of Host"`
 		Network string `help:"ID or name of network"`
 	}
 	R(&HostNetworkListOptions{}, "host-network-list", "List baremetal network pairs", func(s *mcclient.ClientSession, args *HostNetworkListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		if len(args.Network) > 0 {
 			params.Add(jsonutils.NewString(args.Network), "network_id")
 		}

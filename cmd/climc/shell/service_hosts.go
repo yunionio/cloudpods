@@ -4,6 +4,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
@@ -72,11 +73,19 @@ func init() {
 	 * 查看指定服务树节点的机器
 	 */
 	type ServiceHostListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Labels string `help:"Labels for tree-node(split by comma)"`
 	}
 	R(&ServiceHostListOptions{}, "servicehost-list", "List all hosts for the tree-node", func(s *mcclient.ClientSession, args *ServiceHostListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		if len(args.Labels) > 0 {
 			params.Add(jsonutils.NewString(args.Labels), "node_labels")
 		}

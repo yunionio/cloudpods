@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
@@ -116,10 +117,18 @@ func init() {
 	 * 列出报警规则
 	 */
 	type AlarmListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 	}
 	R(&AlarmListOptions{}, "alarm-list", "List all alarms", func(s *mcclient.ClientSession, args *AlarmListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		result, err := modules.Alarms.List(s, params)
 		if err != nil {
 			return err
