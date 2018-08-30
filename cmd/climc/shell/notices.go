@@ -4,15 +4,19 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type NoticesListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 	}
 
 	R(&NoticesListOptions{}, "notice-list", "list notices", func(s *mcclient.ClientSession, args *NoticesListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		params, err := options.ListStructToParams(args)
+		if err != nil {
+			return err
+		}
 
 		result, err := modules.Notice.List(s, params)
 		if err != nil {
