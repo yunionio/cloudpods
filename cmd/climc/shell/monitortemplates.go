@@ -6,6 +6,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
@@ -47,10 +48,18 @@ func init() {
 	 * 列出监控模板
 	 */
 	type MonitorTemplateListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 	}
 	R(&MonitorTemplateListOptions{}, "monitortemplate-list", "List all monitor-template", func(s *mcclient.ClientSession, args *MonitorTemplateListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 
 		result, err := modules.MonitorTemplates.List(s, params)
 		if err != nil {
@@ -65,11 +74,19 @@ func init() {
 	 * 查看监控模板详情
 	 */
 	type MonitorTemplateShowOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		ID string `help:"The ID of the monitor-template"`
 	}
 	R(&MonitorTemplateShowOptions{}, "monitortemplate-show", "Show monitor-template", func(s *mcclient.ClientSession, args *MonitorTemplateShowOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 
 		result, err := modules.MonitorTemplates.Get(s, args.ID, params)
 		if err != nil {

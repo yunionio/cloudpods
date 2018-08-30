@@ -1,16 +1,26 @@
 package shell
 
 import (
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type TaskListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 	}
 	R(&TaskListOptions{}, "task-list", "List taskman", func(s *mcclient.ClientSession, suboptions *TaskListOptions) error {
-		params := FetchPagingParams(suboptions.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = suboptions.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		result, err := modules.Tasks.List(s, params)
 		if err != nil {
 			return err
@@ -20,7 +30,15 @@ func init() {
 	})
 
 	R(&TaskListOptions{}, "region-task-list", "List tasks on region server", func(s *mcclient.ClientSession, suboptions *TaskListOptions) error {
-		params := FetchPagingParams(suboptions.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = suboptions.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		result, err := modules.ComputeTasks.List(s, params)
 		if err != nil {
 			return err

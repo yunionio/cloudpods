@@ -6,6 +6,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
@@ -14,11 +15,19 @@ func init() {
 	 * 查看所有的监控节点 | 列出匹配标签的节点列表
 	 */
 	type NodeListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Labels []string `help:"Node labels"`
 	}
 	R(&NodeListOptions{}, "node-list", "List all nodes", func(s *mcclient.ClientSession, args *NodeListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		if len(args.Labels) > 0 {
 			for _, f := range args.Labels {
 				parts := strings.Split(f, "=")

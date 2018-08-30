@@ -7,6 +7,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type DNSRecordOptions struct {
@@ -38,10 +39,18 @@ func parseDNSRecords(args *DNSRecordOptions, params *jsonutils.JSONDict) {
 
 func init() {
 	type DNSListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 	}
 	R(&DNSListOptions{}, "dns-list", "List dns records", func(s *mcclient.ClientSession, suboptions *DNSListOptions) error {
-		params := FetchPagingParams(suboptions.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = suboptions.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		result, err := modules.DNSRecords.List(s, params)
 		if err != nil {
 			return err

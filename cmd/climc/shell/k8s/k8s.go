@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
@@ -29,8 +28,6 @@ func init() {
 	initPod()
 	initService()
 }
-
-type BaseListOptions shell.BaseListOptions
 
 type clusterBaseOptions struct {
 	Cluster string `default:"$K8S_CLUSTER|default" help:"Kubernetes cluster name"`
@@ -98,10 +95,6 @@ var (
 	printObject       = printutils.PrintJSONObject
 	printBatchResults = printutils.PrintJSONBatchResults
 )
-
-func FetchPagingParams(o BaseListOptions) *jsonutils.JSONDict {
-	return shell.FetchPagingParams(shell.BaseListOptions(o))
-}
 
 func resourceCmdN(prefix, suffix string) string {
 	return fmt.Sprintf("k8s-%s-%s", prefix, suffix)

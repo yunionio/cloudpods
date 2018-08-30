@@ -4,6 +4,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
@@ -11,14 +12,22 @@ func init() {
 	 * 列出列表
 	 */
 	type RateListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		RESTYPE    string `"help":"res_type of the rate"`
 		ACTION     string `"help":"action of list :querygroup or queryhistory"`
 		SubResType string `"help":"query the subResType"`
 		Id         string `"help":"ID of rate"`
 	}
 	R(&RateListOptions{}, "rate-list", "List all rates ", func(s *mcclient.ClientSession, args *RateListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 
 		params.Add(jsonutils.NewString(args.RESTYPE), "res_type")
 		params.Add(jsonutils.NewString(args.ACTION), "action")
