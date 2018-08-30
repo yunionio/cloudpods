@@ -28,7 +28,7 @@ type BaseListOptions struct {
 	Search        string   `help:"Filter results by a simple keyword search"`
 	Meta          bool     `help:"Piggyback metadata information"`
 	Filter        []string `help:"Filters"`
-	JointFilter   []string `help:"Filters with joint table col; joint_tbl(related_key).filter_col.filter_cond(filters)"`
+	JointFilter   []string `help:"Filters with joint table col; joint_tbl.related_key(origin_key).filter_col.filter_cond(filters)"`
 	FilterAny     bool     `help:"If true, match if any of the filters matches; otherwise, match if all of the filters match"`
 	Admin         bool     `help:"Is an admin call?"`
 	Tenant        string   `help:"Tenant ID or Name"`
