@@ -14,7 +14,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-10-01/storage"
 )
 
-type VMSize struct {
+type SVMSize struct {
 	MaxDataDiskCount     int32
 	MemoryInMB           int32
 	NumberOfCores        int32
@@ -31,7 +31,7 @@ type SRegion struct {
 
 	storageCache *SStoragecache
 
-	vmSize         map[string]VMSize
+	vmSize         map[string]SVMSize
 	ID             string
 	SubscriptionID string
 	Name           string
@@ -56,9 +56,9 @@ func (self *SRegion) fetchVMSize() error {
 	if vmSizeList, err := computeClient.List(context.Background(), self.Name); err != nil {
 		return err
 	} else {
-		self.vmSize = make(map[string]VMSize, len(*vmSizeList.Value))
+		self.vmSize = make(map[string]SVMSize, len(*vmSizeList.Value))
 		for _, _vmSize := range *vmSizeList.Value {
-			vmSize := VMSize{}
+			vmSize := SVMSize{}
 			jsonutils.Update(&vmSize, _vmSize)
 			self.vmSize[*_vmSize.Name] = vmSize
 		}
@@ -66,7 +66,7 @@ func (self *SRegion) fetchVMSize() error {
 	return nil
 }
 
-func (self *SRegion) getVMSize(size string) (*VMSize, error) {
+func (self *SRegion) getVMSize(size string) (*SVMSize, error) {
 	if self.vmSize == nil || len(self.vmSize) == 0 {
 		if err := self.fetchVMSize(); err != nil {
 			return nil, err
@@ -153,11 +153,27 @@ func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 }
 
 func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	return nil, nil
+	izones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i += 1 {
+		istore, err := izones[i].GetIStorageById(id)
+		if err == nil {
+			return istore, nil
+		} else if err != cloudprovider.ErrNotFound {
+			return nil, err
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
-	return nil, nil
+	storageCache := self.getStoragecache()
+	if storageCache.GetGlobalId() == id {
+		return self.storageCache, nil
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
@@ -180,11 +196,30 @@ func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
 }
 
 func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
-	return nil, nil
+	if izones, err := self.GetIZones(); err != nil {
+		return nil, err
+	} else {
+		for i := 0; i < len(izones); i += 1 {
+			if izones[i].GetGlobalId() == id {
+				return izones[i], nil
+			}
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) getZoneById(id string) (*SZone, error) {
-	return nil, nil
+	if izones, err := self.GetIZones(); err != nil {
+		return nil, err
+	} else {
+		for i := 0; i < len(izones); i += 1 {
+			zone := izones[i].(*SZone)
+			if zone.GetId() == id {
+				return zone, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("no such zone %s", id)
 }
 
 func (self *SRegion) fetchZones() error {

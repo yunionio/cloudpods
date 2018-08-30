@@ -21,15 +21,15 @@ func (self *SStorage) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SStorage) GetId() string {
-	return fmt.Sprintf("%s/%s", self.zone.GetGlobalId(), self.storageType)
+	return fmt.Sprintf("%s/%s", self.zone.GetGlobalId(), strings.ToLower(self.storageType))
 }
 
 func (self *SStorage) GetName() string {
-	return fmt.Sprintf("%s-%s", self.zone.region.client.providerName, self.storageType)
+	return fmt.Sprintf("%s-%s", self.zone.region.client.providerName, strings.ToLower(self.storageType))
 }
 
 func (self *SStorage) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s/%s", self.zone.region.GetGlobalId(), self.zone.region.client.subscriptionId, self.storageType)
+	return fmt.Sprintf("%s/%s/%s", self.zone.region.GetGlobalId(), self.zone.region.client.subscriptionId, strings.ToLower(self.storageType))
 }
 
 func (self *SStorage) IsEmulated() bool {
@@ -115,7 +115,7 @@ func (self *SStorage) GetStatus() string {
 }
 
 func (self *SStorage) GetStorageType() string {
-	return self.storageType
+	return strings.ToLower(self.storageType)
 }
 
 func (self *SStorage) Refresh() error {

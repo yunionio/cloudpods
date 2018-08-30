@@ -92,15 +92,16 @@ func (self *SRegion) DeleteDisk(diskId string) error {
 }
 
 func (self *SRegion) deleteDisk(diskId string) error {
-	computeClient := compute.NewDisksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
-	computeClient.Authorizer = self.client.authorizer
+	diskClient := compute.NewDisksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
+	diskClient.Authorizer = self.client.authorizer
 	if resourceGroup, name, err := PareResourceGroupWithName(diskId); err != nil {
 		return err
-	} else if _, err := computeClient.Delete(context.Background(), resourceGroup, name); err != nil {
+	} else if result, err := diskClient.Delete(context.Background(), resourceGroup, name); err != nil {
 		return err
-	} else {
-		return nil
+	} else if err := result.WaitForCompletion(context.Background(), diskClient.Client); err != nil {
+		return err
 	}
+	return nil
 }
 
 func (self *SRegion) GetDisk(resourceGroup string, diskName string) (*SDisk, error) {
@@ -161,7 +162,7 @@ func (self *SRegion) getDisk(resourceGroup string, diskName string) (*SDisk, err
 
 func (self *SDisk) Refresh() error {
 	if disk, err := self.storage.zone.region.GetDisk(self.ResourceGroup, self.Name); err != nil {
-		return err
+		return cloudprovider.ErrNotFound
 	} else {
 		return jsonutils.Update(self, disk)
 	}
@@ -185,7 +186,7 @@ func (self *SDisk) GetName() string {
 
 func (self *SDisk) GetGlobalId() string {
 	resourceGroup, _, _ := PareResourceGroupWithName(self.ID)
-	return fmt.Sprintf("resourceGroups/%s/providers/%s/%s", resourceGroup, self.storage.zone.region.SubscriptionID, self.Name)
+	return fmt.Sprintf("resourceGroups/%s/providers/disk/%s", resourceGroup, self.Name)
 }
 
 func (self *SDisk) IsEmulated() bool {

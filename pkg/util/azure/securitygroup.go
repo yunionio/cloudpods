@@ -70,7 +70,7 @@ type SSecurityGroup struct {
 }
 
 func (self *SecurityRulePropertiesFormat) String() string {
-	log.Debugf("serize rule: %s", jsonutils.Marshal(self).PrettyString())
+	//log.Debugf("serize rule: %s", jsonutils.Marshal(self).PrettyString())
 	action := secrules.SecurityRuleDeny
 	if self.Access == SecurityRuleAccessAllow {
 		action = secrules.SecurityRuleAllow
@@ -118,7 +118,7 @@ func (self *SecurityRulePropertiesFormat) String() string {
 			result += fmt.Sprintf(" %s", port)
 		}
 	}
-	log.Debugf("result: %s", result)
+	//log.Debugf("result: %s", result)
 	return result
 }
 

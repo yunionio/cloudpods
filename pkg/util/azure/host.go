@@ -98,7 +98,13 @@ func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 }
 
 func (self *SHost) GetIVMById(gid string) (cloudprovider.ICloudVM, error) {
-	return nil, nil
+	resourceGroup, name, _ := PareResourceGroupWithName(gid)
+	if instance, err := self.zone.region.GetInstance(resourceGroup, name); err != nil {
+		return nil, err
+	} else {
+		instance.host = self
+		return instance, nil
+	}
 }
 
 func (self *SHost) GetStorageSizeMB() int {

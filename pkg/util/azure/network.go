@@ -1,9 +1,11 @@
 package azure
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -50,6 +52,31 @@ func (self *SNetwork) GetStatus() string {
 }
 
 func (self *SNetwork) Delete() error {
+	vpc := self.wire.vpc
+	addressSpace := network.AddressSpace{AddressPrefixes: &vpc.Properties.AddressSpace.AddressPrefixes}
+	subnets := []network.Subnet{}
+	for i := 0; i < len(vpc.Properties.Subnets); i++ {
+		subnet := vpc.Properties.Subnets[i]
+		if subnet.Name == self.Name {
+			continue
+		}
+		subnetPropertiesFormat := network.SubnetPropertiesFormat{AddressPrefix: &subnet.Properties.AddressPrefix}
+		subNet := network.Subnet{Name: &subnet.Name, SubnetPropertiesFormat: &subnetPropertiesFormat}
+		subnets = append(subnets, subNet)
+	}
+
+	properties := network.VirtualNetworkPropertiesFormat{AddressSpace: &addressSpace, Subnets: &subnets}
+	params := network.VirtualNetwork{VirtualNetworkPropertiesFormat: &properties, Location: &vpc.Location}
+
+	region := self.wire.vpc.region
+	networkClient := network.NewVirtualNetworksClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
+	networkClient.Authorizer = region.client.authorizer
+	resourceGroup, _, _ := PareResourceGroupWithName(vpc.ID)
+	if result, err := networkClient.CreateOrUpdate(context.Background(), resourceGroup, vpc.Name, params); err != nil {
+		return err
+	} else if err := result.WaitForCompletion(context.Background(), networkClient.Client); err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -1,8 +1,10 @@
 package azure
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -11,8 +13,6 @@ import (
 type SWire struct {
 	zone      *SZone
 	vpc       *SVpc
-	name      string
-	id        string
 	inetworks []cloudprovider.ICloudNetwork
 }
 
@@ -44,20 +44,62 @@ func (self *SWire) Refresh() error {
 	return nil
 }
 
+func (self *SWire) addNetwork(network *SNetwork) {
+	if self.inetworks == nil {
+		self.inetworks = make([]cloudprovider.ICloudNetwork, 0)
+	}
+	find := false
+	for i := 0; i < len(self.inetworks); i += 1 {
+		if self.inetworks[i].GetId() == network.ID {
+			find = true
+			break
+		}
+	}
+	if !find {
+		self.inetworks = append(self.inetworks, network)
+	}
+}
+
+func (self *SRegion) createNetwork(vpc *SVpc, subnetName string, cidr string, desc string) (string, error) {
+	addressSpace := network.AddressSpace{AddressPrefixes: &vpc.Properties.AddressSpace.AddressPrefixes}
+	subnets := []network.Subnet{}
+	for i := 0; i < len(vpc.Properties.Subnets); i++ {
+		subnet := vpc.Properties.Subnets[i]
+		subnetPropertiesFormat := network.SubnetPropertiesFormat{AddressPrefix: &subnet.Properties.AddressPrefix}
+		subNet := network.Subnet{Name: &subnet.Name, SubnetPropertiesFormat: &subnetPropertiesFormat}
+		subnets = append(subnets, subNet)
+	}
+	subnetPropertiesFormat := network.SubnetPropertiesFormat{AddressPrefix: &cidr}
+	subNet := network.Subnet{Name: &subnetName, SubnetPropertiesFormat: &subnetPropertiesFormat}
+	subnets = append(subnets, subNet)
+
+	properties := network.VirtualNetworkPropertiesFormat{AddressSpace: &addressSpace, Subnets: &subnets}
+	params := network.VirtualNetwork{VirtualNetworkPropertiesFormat: &properties, Location: &vpc.Location}
+
+	networkClient := network.NewVirtualNetworksClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
+	networkClient.Authorizer = self.client.authorizer
+	resourceGroup, _, _ := PareResourceGroupWithName(vpc.ID)
+	if result, err := networkClient.CreateOrUpdate(context.Background(), resourceGroup, vpc.Name, params); err != nil {
+		return "", err
+	} else if err := result.WaitForCompletion(context.Background(), networkClient.Client); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets/%s", self.SubscriptionID, resourceGroup, vpc.Name, subnetName), nil
+}
+
 func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	// vswitchId, err := self.zone.region.createVSwitch(self.zone.ZoneId, self.vpc.VpcId, name, cidr, desc)
-	// if err != nil {
-	// 	log.Errorf("createVSwitch error %s", err)
-	// 	return nil, err
-	// }
-	// self.inetworks = nil
-	// vswitch := self.getNetworkById(vswitchId)
-	// if vswitch == nil {
-	// 	log.Errorf("cannot find vswitch after create????")
-	// 	return nil, cloudprovider.ErrNotFound
-	// }
-	// return vswitch, nil
-	return nil, nil
+	if networkId, err := self.zone.region.createNetwork(self.vpc, name, cidr, desc); err != nil {
+		log.Errorf("createNetwork error %s", err)
+		return nil, err
+	} else {
+		self.inetworks = nil
+		if network := self.getNetworkById(networkId); network == nil {
+			log.Errorf("cannot find network after create????")
+			return nil, cloudprovider.ErrNotFound
+		} else {
+			return network, nil
+		}
+	}
 }
 
 func (self *SWire) GetBandwidth() int {
@@ -79,13 +121,8 @@ func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, e
 
 func (self *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
 	if self.inetworks == nil {
-		self.inetworks = make([]cloudprovider.ICloudNetwork, len(self.vpc.Properties.Subnets))
-		for i, _netwrok := range self.vpc.Properties.Subnets {
-			network := SNetwork{wire: self, Name: _netwrok.Name, ID: _netwrok.ID}
-			if err := jsonutils.Update(&network, _netwrok); err != nil {
-				return nil, err
-			}
-			self.inetworks[i] = &network
+		if err := self.vpc.fetchNetworks(); err != nil {
+			return nil, err
 		}
 	}
 	return self.inetworks, nil

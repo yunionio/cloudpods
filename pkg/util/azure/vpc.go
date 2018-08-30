@@ -65,7 +65,7 @@ func (self *SVpc) GetName() string {
 
 func (self *SVpc) GetGlobalId() string {
 	resourceGroup, _, _ := PareResourceGroupWithName(self.ID)
-	return fmt.Sprintf("%s/resourceGroups/%s/%s/%s", self.region.GetGlobalId(), resourceGroup, self.region.SubscriptionID, self.Name)
+	return fmt.Sprintf("resourceGroups/%s/providers/vpc/%s", resourceGroup, self.Name)
 }
 
 func (self *SVpc) IsEmulated() bool {
@@ -113,6 +113,27 @@ func (self *SVpc) fetchSecurityGroups() error {
 	return nil
 }
 
+func (self *SVpc) getWire() *SWire {
+	if self.iwires == nil {
+		self.fetchWires()
+	}
+	return self.iwires[0].(*SWire)
+}
+
+func (self *SVpc) fetchNetworks() error {
+	self.Refresh()
+	for i := 0; i < len(self.Properties.Subnets); i++ {
+		_network := self.Properties.Subnets[i]
+		wire := self.getWire()
+		network := SNetwork{wire: wire, Name: _network.Name, ID: _network.ID}
+		if err := jsonutils.Update(&network, _network); err != nil {
+			return err
+		}
+		wire.addNetwork(&network)
+	}
+	return nil
+}
+
 func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
 	if self.secgroups == nil {
 		err := self.fetchSecurityGroups()
@@ -139,7 +160,7 @@ func (self *SVpc) fetchWires() error {
 
 func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
 	if self.iwires == nil {
-		if err := self.fetchWires(); err != nil {
+		if err := self.fetchNetworks(); err != nil {
 			return nil, err
 		}
 	}
@@ -176,6 +197,14 @@ func (self *SVpc) GetStatus() string {
 }
 
 func (self *SVpc) Refresh() error {
+	resourceGroup, _, _ := PareResourceGroupWithName(self.ID)
+	vpcClient := network.NewVirtualNetworksClientWithBaseURI(self.region.client.baseUrl, self.region.SubscriptionID)
+	vpcClient.Authorizer = self.region.client.authorizer
+	if result, err := vpcClient.Get(context.Background(), resourceGroup, self.Name, ""); err != nil {
+		return cloudprovider.ErrNotFound
+	} else if err := jsonutils.Update(self, result); err != nil {
+		return err
+	}
 	return nil
 }
 

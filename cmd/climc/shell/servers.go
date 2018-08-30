@@ -63,7 +63,7 @@ func init() {
 		Gpu           bool   `help:"Show gpu servers"`
 		Secgroup      string `help:"Secgroup ID or Name"`
 		AdminSecgroup string `help:"AdminSecgroup ID or Name"`
-		Hypervisor    string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun"`
+		Hypervisor    string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun|azure"`
 		Manager       string `help:"Show servers imported from manager"`
 		BaseListOptions
 	}
@@ -163,7 +163,7 @@ func init() {
 		Project          string   `help:"'Owner project ID or Name"`
 		User             string   `help:"Owner user ID or Name"`
 		System           bool     `help:"Create a system VM, sysadmin ONLY option"`
-		Hypervisor       string   `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun"`
+		Hypervisor       string   `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure"`
 		TaskNotify       bool     `help:"Setup task notify"`
 		Count            int      `help:"Create multiple simultaneously" default:"1"`
 		DryRun           bool     `help:"Dry run to test scheduler"`

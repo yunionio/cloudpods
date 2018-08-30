@@ -18,13 +18,7 @@ import (
 )
 
 type HardwareProfile struct {
-	VMSize               string
-	MaxDataDiskCount     int32
-	MemoryInMB           int32
-	NumberOfCores        int32
-	Name                 string
-	OsDiskSizeInMB       int32
-	ResourceDiskSizeInMB int32
+	VMSize string
 }
 
 type ImageReference struct {
@@ -168,6 +162,7 @@ type SInstance struct {
 	Name       string
 	Type       string
 	Location   string
+	vmSize     *SVMSize
 	Tags       map[string]string
 }
 
@@ -176,7 +171,8 @@ func PareResourceGroupWithName(s string) (string, string, error) {
 	if resourceGroups := valid.FindStringSubmatch(s); len(resourceGroups) == 3 {
 		return resourceGroups[1], resourceGroups[2], nil
 	}
-	return s, "", cloudprovider.ErrNotFound
+	log.Errorf("PareResourceGroupWithName[%s] error", s)
+	return "", "", cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetInstance(resourceGroup string, VMName string) (*SInstance, error) {
@@ -206,11 +202,6 @@ func (self *SRegion) GetInstances() ([]SInstance, error) {
 				if err := jsonutils.Update(&instance, _instance); err != nil {
 					return instances, err
 				}
-				if vmSize, err := self.getVMSize(instance.Properties.HardwareProfile.VMSize); err != nil {
-					return instances, err
-				} else if err := jsonutils.Update(&instance.Properties.HardwareProfile, vmSize); err != nil {
-					return instances, err
-				}
 				instance.ResourceGroup, _, _ = PareResourceGroupWithName(instance.ID)
 				instances = append(instances, instance)
 			}
@@ -225,7 +216,17 @@ func (self *SRegion) doDeleteVM(instanceId string) error {
 }
 
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
-	return nil
+	data := jsonutils.NewDict()
+	if osDistribution := self.Properties.StorageProfile.ImageReference.Publisher; len(osDistribution) > 0 {
+		data.Add(jsonutils.NewString(osDistribution), "os_distribution")
+	}
+	if loginAccount := self.Properties.OsProfile.AdminUsername; len(loginAccount) > 0 {
+		data.Add(jsonutils.NewString(loginAccount), "login_account")
+	}
+	if loginKey := self.Properties.OsProfile.AdminPassword; len(loginKey) > 0 {
+		data.Add(jsonutils.NewString(loginKey), "login_key")
+	}
+	return data
 }
 
 func (self *SInstance) GetHypervisor() string {
@@ -239,7 +240,7 @@ func (self *SInstance) IsEmulated() bool {
 func (self *SInstance) Refresh() error {
 	if instance, err := self.host.zone.region.GetInstance(self.ResourceGroup, self.Name); err != nil {
 		log.Errorf("Refresh Instance error: %v", err)
-		return err
+		return cloudprovider.ErrNotFound
 	} else if err := jsonutils.Update(self, instance); err != nil {
 		log.Errorf("Refresh Instance error: %v", err)
 		return err
@@ -254,7 +255,17 @@ func (self *SInstance) GetStatus() string {
 	for _, statuses := range self.Properties.InstanceView.Statuses {
 		if code := strings.Split(statuses.Code, "/"); len(code) == 2 {
 			if code[0] == "PowerState" {
-				return code[1]
+				switch code[1] {
+				case "stopped":
+					return models.VM_READY
+				case "running":
+					return models.VM_RUNNING
+				case "stopping":
+					return models.VM_START_STOP
+				default:
+					return models.VM_UNKNOWN
+				}
+
 			}
 		}
 	}
@@ -298,7 +309,8 @@ func (self *SInstance) GetName() string {
 }
 
 func (self *SInstance) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", self.host.zone.region.GetGlobalId(), self.Properties.VmId)
+	resourceGroup, _, _ := PareResourceGroupWithName(self.ID)
+	return fmt.Sprintf("resourceGroups/%s/providers/server/%s", resourceGroup, self.Name)
 }
 
 func (self *SRegion) DeleteVM(instanceId string) error {
@@ -326,7 +338,7 @@ func (self *SInstance) DeleteVM() error {
 func (self *SInstance) getDiskWithStore(resourceGroup string, diskName string) (*SDisk, error) {
 	if disk, err := self.host.zone.region.GetDisk(resourceGroup, diskName); err != nil {
 		return nil, err
-	} else if store, err := self.host.zone.getStorageByType(strings.ToLower(string(disk.Sku.Name))); err != nil {
+	} else if store, err := self.host.zone.getStorageByType(string(disk.Sku.Name)); err != nil {
 		log.Errorf("fail to find storage for disk(%s) : %v", disk.Name, err)
 		return nil, err
 	} else {
@@ -366,7 +378,7 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 }
 
 func (self *SInstance) GetOSType() string {
-	return osprofile.NormalizeOSType(self.Properties.InstanceView.OsName)
+	return osprofile.NormalizeOSType(string(self.Properties.StorageProfile.OsDisk.OsType))
 }
 
 func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
@@ -411,12 +423,33 @@ func (self *SInstance) GetVdi() string {
 	return "vnc"
 }
 
+func (self *SInstance) fetchVMSize() error {
+	if vmSize, err := self.host.zone.region.getVMSize(self.Properties.HardwareProfile.VMSize); err != nil {
+		return err
+	} else {
+		self.vmSize = vmSize
+	}
+	return nil
+}
+
 func (self *SInstance) GetVcpuCount() int8 {
-	return int8(self.Properties.HardwareProfile.NumberOfCores)
+	if self.vmSize == nil {
+		if err := self.fetchVMSize(); err != nil {
+			log.Errorf("fail to fetch vmSize: %v", err)
+			return 0
+		}
+	}
+	return int8(self.vmSize.NumberOfCores)
 }
 
 func (self *SInstance) GetVmemSizeMB() int {
-	return int(self.Properties.HardwareProfile.MemoryInMB)
+	if self.vmSize == nil {
+		if err := self.fetchVMSize(); err != nil {
+			log.Errorf("fail to fetch vmSize: %v", err)
+			return 0
+		}
+	}
+	return int(self.vmSize.MemoryInMB)
 }
 
 func (self *SInstance) GetCreateTime() time.Time {
@@ -434,27 +467,45 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 }
 
 func (self *SRegion) StartVM(instanceId string) error {
-	// status, _ := self.GetInstanceStatus(instanceId)
-	// if status != InstanceStatusStopped {
-	// 	return cloudprovider.ErrInvalidStatus
-	// }
+	resourceGroup, name, _ := PareResourceGroupWithName(instanceId)
+	computeClient := compute.NewVirtualMachinesClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
+	computeClient.Authorizer = self.client.authorizer
+	if result, err := computeClient.Start(context.Background(), resourceGroup, name); err != nil {
+		return err
+	} else if err := result.WaitForCompletion(context.Background(), computeClient.Client); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (self *SInstance) StartVM() error {
-	// err := self.host.zone.region.StartVM(self.InstanceId)
-	// if err != nil {
-	// 	return err
-	// }
-	return cloudprovider.WaitStatus(self, models.VM_RUNNING, 5*time.Second, 180*time.Second) // 3minutes
+	if err := self.host.zone.region.StartVM(self.ID); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (self *SInstance) StopVM(isForce bool) error {
-	// err := self.host.zone.region.StopVM(self.InstanceId, isForce)
-	// if err != nil {
-	// 	return err
-	// }
-	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
+	if err := self.host.zone.region.StopVM(self.ID, isForce); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (self *SRegion) StopVM(instanceId string, isForce bool) error {
+	return self.doStopVM(instanceId, isForce)
+}
+
+func (self *SRegion) doStopVM(instanceId string, isForce bool) error {
+	resourceGroup, name, _ := PareResourceGroupWithName(instanceId)
+	computeClient := compute.NewVirtualMachinesClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
+	computeClient.Authorizer = self.client.authorizer
+	if result, err := computeClient.PowerOff(context.Background(), resourceGroup, name); err != nil {
+		return err
+	} else if err := result.WaitForCompletion(context.Background(), computeClient.Client); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (self *SInstance) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) error {
