@@ -6,18 +6,27 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type NetworkListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Ip   string `help:"search networks that contain this IP"`
 		Zone string `help:"search networks in a zone"`
 		Wire string `help:"search networks belongs to a wire"`
 		Vpc  string `help:"search networks belongs to a VPC"`
 	}
 	R(&NetworkListOptions{}, "network-list", "List networks", func(s *mcclient.ClientSession, args *NetworkListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		if len(args.Ip) > 0 {
 			params.Add(jsonutils.NewString(args.Ip), "ip")
 		}

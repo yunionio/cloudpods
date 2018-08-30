@@ -6,15 +6,24 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type SecGroupsListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 	}
 
 	R(&SecGroupsListOptions{}, "secgroup-list", "List all security group", func(s *mcclient.ClientSession, args *SecGroupsListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		result, err := modules.SecGroups.List(s, params)
 		if err != nil {
 			return err

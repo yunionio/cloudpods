@@ -4,16 +4,25 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type WireListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Zone string `help:"list wires in zone"`
 		Vpc  string `help:"List wires in vpc"`
 	}
 	R(&WireListOptions{}, "wire-list", "List wires", func(s *mcclient.ClientSession, args *WireListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		if len(args.Vpc) > 0 {
 			params.Add(jsonutils.NewString(args.Vpc), "vpc")
 		}

@@ -4,16 +4,25 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type StorageCachedImageListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Storagecache string `help:"ID or Name of Storage"`
 		Image        string `help:"ID or Name of image"`
 	}
 	R(&StorageCachedImageListOptions{}, "storage-cached-image-list", "List storage cached image pairs", func(s *mcclient.ClientSession, args *StorageCachedImageListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		var result *modules.ListResult
 		var err error
 		if len(args.Storagecache) > 0 {
