@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/util/sets"
-
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/pkg/util/sets"
 )
 
 func initCluster() {
@@ -17,11 +17,19 @@ func initCluster() {
 		return resourceCmdN("cluster", suffix)
 	}
 	type listOpt struct {
-		BaseListOptions
+		options.BaseListOptions
 	}
 	R(&listOpt{}, cmdN("list"), "List k8s clusters", func(s *mcclient.ClientSession, args *listOpt) error {
-		args.Details = true
-		params := FetchPagingParams(args.BaseListOptions)
+		args.Details = options.Bool(true)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		result, err := k8s.Clusters.List(s, params)
 		if err != nil {
 			return err

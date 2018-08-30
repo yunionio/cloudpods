@@ -5,15 +5,24 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type ServerDiskListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Server string `help:"ID or Name of Server"`
 	}
 	R(&ServerDiskListOptions{}, "server-disk-list", "List server disk pairs", func(s *mcclient.ClientSession, args *ServerDiskListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		var result *modules.ListResult
 		var err error
 		if len(args.Server) > 0 {

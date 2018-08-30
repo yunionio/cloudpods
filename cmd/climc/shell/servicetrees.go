@@ -4,6 +4,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
@@ -79,10 +80,18 @@ func init() {
 	 * 列出服务树
 	 */
 	type ServiceTreeListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 	}
 	R(&ServiceTreeListOptions{}, "servicetree-list", "List all service tree", func(s *mcclient.ClientSession, args *ServiceTreeListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		result, err := modules.ServiceTrees.List(s, params)
 		if err != nil {
 			return err

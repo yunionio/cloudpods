@@ -4,6 +4,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
@@ -74,12 +75,20 @@ func init() {
 	 * 查询树节点的报警接收人信息
 	 */
 	type TreeNodeRecipientsListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		LIST_TYPE string `help:"Type of list: junior|senior"`
 		LABELS    string `help:"Labels for tree-node(split by comma)"`
 	}
 	R(&TreeNodeRecipientsListOptions{}, "treenode-recipient-list", "List recipient for the tree-node ", func(s *mcclient.ClientSession, args *TreeNodeRecipientsListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		params.Add(jsonutils.NewString(args.LIST_TYPE), "type")
 		params.Add(jsonutils.NewString(args.LABELS), "node_labels")
 

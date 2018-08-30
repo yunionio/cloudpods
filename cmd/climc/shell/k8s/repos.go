@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func initRepo() {
@@ -12,10 +13,18 @@ func initRepo() {
 		return resourceCmdN("repo", suffix)
 	}
 	type listOpt struct {
-		BaseListOptions
+		options.BaseListOptions
 	}
 	R(&listOpt{}, cmdN("list"), "List k8s global helm repos", func(s *mcclient.ClientSession, args *listOpt) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		result, err := k8s.Repos.List(s, params)
 		if err != nil {
 			return err

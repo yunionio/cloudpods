@@ -4,11 +4,12 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type SecGroupRulesListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Secgroup  string `help:"Secgroup ID or Name"`
 		Direction string `help:"filter Direction of rule" choices:"in|out"`
 		Protocol  string `help:"filter Protocol of rule" choices:"any|tcp|udp|icmp"`
@@ -16,7 +17,15 @@ func init() {
 	}
 
 	R(&SecGroupRulesListOptions{}, "secgroup-rule-list", "List all security group", func(s *mcclient.ClientSession, args *SecGroupRulesListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		if len(args.Secgroup) > 0 {
 			params.Add(jsonutils.NewString(args.Secgroup), "secgroup")
 		}

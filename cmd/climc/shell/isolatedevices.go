@@ -4,17 +4,26 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type DeviceListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Unused bool   `help:"Only show unused devices"`
 		Gpu    bool   `help:"Only show gpu devices"`
 		Host   string `help:"Host ID or Name"`
 	}
 	R(&DeviceListOptions{}, "isolated-device-list", "List isolated devices like GPU", func(s *mcclient.ClientSession, args *DeviceListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		if len(args.Host) > 0 {
 			params.Add(jsonutils.NewString(args.Host), "host")
 		}
