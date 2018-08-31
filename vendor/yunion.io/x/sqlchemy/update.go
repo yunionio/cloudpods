@@ -28,7 +28,10 @@ func (ts *STableSpec) prepareUpdate(dt interface{}) (*SUpdateSession, error) {
 	zeroKeyIndex := make([]string, 0)
 	for _, c := range ts.columns {
 		k := c.Name()
-		ov := fields[k]
+		ov, ok := fields[k]
+		if !ok {
+			continue
+		}
 		if c.IsPrimary() && c.IsZero(ov) {
 			zeroPrimary = append(zeroPrimary, k)
 		} else if c.IsKeyIndex() && c.IsZero(ov) {
@@ -80,7 +83,10 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (map[string]SUpdateDiff, er
 	setters := make(map[string]SUpdateDiff)
 	for _, c := range us.tableSpec.columns {
 		k := c.Name()
-		of := ofields[k]
+		of, ok := ofields[k]
+		if !ok {
+			continue
+		}
 		nf := fields[k]
 		if c.IsPrimary() && !c.IsZero(of) { // skip update primary key
 			primaries[k] = of

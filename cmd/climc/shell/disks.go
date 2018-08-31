@@ -5,11 +5,12 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type DiskListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Unused   bool   `help:"Show unused disks"`
 		Share    bool   `help:"Show Share storage disks"`
 		Local    bool   `help:"Show Local storage disks"`
@@ -18,7 +19,15 @@ func init() {
 		Provider string `help:"Provider for disk" choices:"Aliyun|VMware|Azure"`
 	}
 	R(&DiskListOptions{}, "disk-list", "List virtual disks", func(s *mcclient.ClientSession, suboptions *DiskListOptions) error {
-		params := FetchPagingParams(suboptions.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = suboptions.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		if suboptions.Unused {
 			params.Add(jsonutils.JSONTrue, "unused")
 		}

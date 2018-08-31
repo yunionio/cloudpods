@@ -7,6 +7,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func initNode() {
@@ -14,14 +15,19 @@ func initNode() {
 		return resourceCmdN("node", suffix)
 	}
 	type listOpt struct {
-		BaseListOptions
+		options.BaseListOptions
 		Cluster string `help:"Filter by cluster"`
 	}
 	R(&listOpt{}, cmdN("list"), "List k8s node", func(s *mcclient.ClientSession, args *listOpt) error {
-		args.Details = true
-		params := FetchPagingParams(args.BaseListOptions)
-		if args.Cluster != "" {
-			params.Add(jsonutils.NewString(args.Cluster), "cluster")
+		args.Details = options.Bool(true)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = options.ListStructToParams(args)
+			if err != nil {
+				return err
+
+			}
 		}
 		result, err := k8s.Nodes.List(s, params)
 		if err != nil {

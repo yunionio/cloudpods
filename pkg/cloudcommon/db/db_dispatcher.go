@@ -264,9 +264,9 @@ func applyListItemsGeneralJointFilters(manager IModelManager, q *sqlchemy.SQuery
 				if cond != nil {
 					sq = sq.Filter(cond)
 					if filterAny {
-						q = q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("id"), sq)))
+						q = q.Filter(sqlchemy.OR(sqlchemy.In(q.Field(jfc.OriginKey), sq)))
 					} else {
-						q = q.Filter(sqlchemy.AND(sqlchemy.In(q.Field("id"), sq)))
+						q = q.Filter(sqlchemy.AND(sqlchemy.In(q.Field(jfc.OriginKey), sq)))
 					}
 				}
 			}

@@ -17,6 +17,7 @@ const (
 	SchedTypeKvm         = "kvm"
 	HostHypervisorForKvm = "hypervisor"
 	HostTypeAliyun       = "aliyun"
+	HostTypeAzure        = "azure"
 	HostTypeKubelet      = "kubelet"
 
 	AggregateStrategyRequire = "require"
@@ -73,6 +74,7 @@ var (
 
 	PublicCloudProviders = sets.NewString(
 		HostTypeAliyun,
+		HostTypeAzure,
 	)
 
 	BaremetalDefaultDiskConfig = BaremetalDiskConfig{
