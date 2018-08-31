@@ -3,6 +3,8 @@ package k8s
 import (
 	"fmt"
 
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 )
@@ -25,6 +27,23 @@ func initPod() {
 			return err
 		}
 		PrintListResultTable(ret, k8s.Pods, s)
+		return nil
+	})
+
+	type getOpt struct {
+		resourceGetOptions
+	}
+	R(&getOpt{}, cmdN("show"), "Get pod details", func(s *mcclient.ClientSession, args *getOpt) error {
+		id := args.NAME
+		params := args.ClusterParams()
+		if args.Namespace != "" {
+			params.Add(jsonutils.NewString(args.Namespace), "namespace")
+		}
+		ret, err := k8s.Pods.Get(s, id, params)
+		if err != nil {
+			return err
+		}
+		printObjectYAML(ret)
 		return nil
 	})
 
