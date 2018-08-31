@@ -112,7 +112,6 @@ func (self *SAliyunGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *mo
 			config.DataDisks[i-1] = disk.DiskSize / 1024 // MB => GB
 		}
 	}
-
 	return jsonutils.Marshal(&config)
 }
 
@@ -250,10 +249,9 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		}
 
 		publicKey := ""
-		if k, e := config.GetString("public_key"); e != nil {
+		if k, e := config.GetString("public_key"); e == nil {
 			publicKey = k
 		}
-
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 			encpasswd, err := utils.EncryptAESBase64(guest.Id, password)
 			if err != nil {

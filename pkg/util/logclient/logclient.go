@@ -39,11 +39,12 @@ const (
 	ACT_UPDATE                       = "更新"
 	ACT_VM_ATTACH_DISK               = "挂载磁盘"
 	ACT_VM_CHANGE_FLAVOR             = "调整配置"
-	ACT_VM_DEPLOY                    = "启用"
+	ACT_VM_DEPLOY                    = "部署"
 	ACT_VM_DETACH_DISK               = "卸载磁盘"
 	ACT_VM_PURGE                     = "清除"
 	ACT_VM_REBUILD                   = "重装系统"
 	ACT_VM_RESET_PSWD                = "重置密码"
+	ACT_VM_BIND_KEYPAIR              = "绑定密钥"
 	ACT_VM_START                     = "开机"
 	ACT_VM_STOP                      = "关机"
 	ACT_VM_SYNC_CONF                 = "同步配置"
@@ -56,10 +57,10 @@ type IObject interface {
 	Keyword() string
 }
 
-func AddActionLog(model IObject, action string, iErr interface{}, userCred mcclient.TokenCredential) {
+func AddActionLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
 
 	token := userCred
-	notes := stringutils.Interface2String(iErr)
+	notes := stringutils.Interface2String(iNotes)
 
 	s := auth.GetSession(userCred, "", "")
 
@@ -73,7 +74,7 @@ func AddActionLog(model IObject, action string, iErr interface{}, userCred mccli
 	logentry.Add(jsonutils.NewString(token.GetTenantId()), "tenant_id")
 	logentry.Add(jsonutils.NewString(token.GetTenantName()), "tenant")
 
-	if len(notes) > 0 {
+	if !success {
 		// 失败日志
 		logentry.Add(jsonutils.JSONFalse, "success")
 	} else {

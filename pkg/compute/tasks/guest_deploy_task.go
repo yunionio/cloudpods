@@ -57,12 +57,12 @@ func (self *GuestDeployTask) StartDeployGuestOnHost(ctx context.Context, guest *
 	} else {
 		guest.SetStatus(self.UserCred, models.VM_DEPLOYING, "")
 	}
-	logclient.AddActionLog(guest, logclient.ACT_VM_DEPLOY, err, self.UserCred)
 }
 
 func (self *GuestDeployTask) OnDeployGuestFail(ctx context.Context, guest *models.SGuest, err error) {
 	guest.SetStatus(self.UserCred, models.VM_DEPLOY_FAILED, err.Error())
 	self.SetStageFailed(ctx, err.Error())
+	logclient.AddActionLog(guest, logclient.ACT_VM_DEPLOY, err, self.UserCred, false)
 }
 
 func (self *GuestDeployTask) OnDeployGuestComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -70,6 +70,22 @@ func (self *GuestDeployTask) OnDeployGuestComplete(ctx context.Context, obj db.I
 	guest := obj.(*models.SGuest)
 	guest.GetDriver().OnGuestDeployTaskDataReceived(ctx, guest, self, data)
 	guest.GetDriver().OnGuestDeployTaskComplete(ctx, guest, self)
+	action, _ := self.Params.GetString("deploy_action")
+	keypair, _ := self.Params.GetString("keypair")
+	log.Debugf("KeyPair:", keypair, "lenof key", len(keypair))
+	reset_password := jsonutils.QueryBoolean(self.Params, "reset_password", false)
+
+	if action == "deploy" && reset_password {
+		keypair, _ := self.Params.GetString("keypair")
+		if len(keypair) > 0 {
+			logclient.AddActionLog(guest, logclient.ACT_VM_BIND_KEYPAIR, self.Params, self.UserCred, true)
+		} else {
+			logclient.AddActionLog(guest, logclient.ACT_VM_RESET_PSWD, self.Params, self.UserCred, true)
+		}
+	} else {
+		logclient.AddActionLog(guest, "misc部署", self.Params, self.UserCred, true)
+	}
+
 }
 
 func (self *GuestDeployTask) OnDeployGuestCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

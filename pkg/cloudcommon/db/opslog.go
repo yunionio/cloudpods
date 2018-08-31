@@ -303,7 +303,7 @@ func (manager *SOpsLogManager) SyncOwner(m IModel, former *STenant, userCred mcc
 	notes.Add(jsonutils.NewString(former.GetId()), "former_project_id")
 	notes.Add(jsonutils.NewString(former.GetName()), "form_project")
 	manager.LogEvent(m, ACT_CHANGE_OWNER, notes, userCred)
-	logclient.AddActionLog(m, logclient.ACT_CHANGE_OWNER, nil, userCred)
+	logclient.AddActionLog(m, logclient.ACT_CHANGE_OWNER, nil, userCred, true)
 }
 
 func (manager *SOpsLogManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

@@ -54,11 +54,11 @@ func (self *GuestSyncstatusTask) OnGetStatusSucc(ctx context.Context, guest *mod
 	statusData.Add(jsonutils.NewString(statusStr), "status")
 	guest.PerformStatus(ctx, self.UserCred, nil, statusData)
 	self.SetStageComplete(ctx, nil)
-	logclient.AddActionLog(guest, logclient.ACT_VM_SYNC_STATUS, "", self.UserCred)
+	logclient.AddActionLog(guest, logclient.ACT_VM_SYNC_STATUS, "", self.UserCred, true)
 }
 
 func (self *GuestSyncstatusTask) OnGetStatusFail(ctx context.Context, guest *models.SGuest, err error) {
 	guest.SetStatus(self.UserCred, models.VM_UNKNOWN, err.Error())
 	self.SetStageComplete(ctx, nil)
-	logclient.AddActionLog(guest, logclient.ACT_VM_SYNC_STATUS, err, self.UserCred)
+	logclient.AddActionLog(guest, logclient.ACT_VM_SYNC_STATUS, err, self.UserCred, false)
 }
