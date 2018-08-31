@@ -72,7 +72,6 @@ func (self *GuestDeployTask) OnDeployGuestComplete(ctx context.Context, obj db.I
 	guest.GetDriver().OnGuestDeployTaskComplete(ctx, guest, self)
 	action, _ := self.Params.GetString("deploy_action")
 	keypair, _ := self.Params.GetString("keypair")
-	log.Debugf("KeyPair:", keypair, "lenof key", len(keypair))
 	reset_password := jsonutils.QueryBoolean(self.Params, "reset_password", false)
 
 	if action == "deploy" && reset_password {
