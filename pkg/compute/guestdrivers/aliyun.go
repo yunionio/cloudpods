@@ -243,24 +243,15 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 
 		params := task.GetParams()
 		log.Debugf("Deploy VM params %s", params.String())
-		var name string
-		if v, e := params.GetString("name"); e != nil {
-			name = v
-		}
-		var description string
-		if v, e := params.GetString("description"); e != nil {
-			description = v
-		}
+
+		name, _ := params.GetString("name")
+		description, _ := params.GetString("description")
+		publicKey, _ := config.GetString("public_key")
 		resetPassword := jsonutils.QueryBoolean(params, "reset_password", false)
 		deleteKeypair := jsonutils.QueryBoolean(params, "__delete_keypair__", false)
 		password, _ := params.GetString("password")
 		if resetPassword && len(password) == 0 {
 			password = seclib2.RandomPassword2(12)
-		}
-
-		publicKey := ""
-		if k, e := config.GetString("public_key"); e != nil {
-			publicKey = k
 		}
 
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
