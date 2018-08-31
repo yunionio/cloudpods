@@ -45,6 +45,7 @@ const (
 	ACT_VM_REBUILD                   = "重装系统"
 	ACT_VM_RESET_PSWD                = "重置密码"
 	ACT_VM_BIND_KEYPAIR              = "绑定密钥"
+	ACT_VM_UNBIND_KEYPAIR            = "解绑密钥"
 	ACT_VM_START                     = "开机"
 	ACT_VM_STOP                      = "关机"
 	ACT_VM_SYNC_CONF                 = "同步配置"

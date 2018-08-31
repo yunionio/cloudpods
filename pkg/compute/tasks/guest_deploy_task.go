@@ -73,18 +73,27 @@ func (self *GuestDeployTask) OnDeployGuestComplete(ctx context.Context, obj db.I
 	action, _ := self.Params.GetString("deploy_action")
 	keypair, _ := self.Params.GetString("keypair")
 	reset_password := jsonutils.QueryBoolean(self.Params, "reset_password", false)
+	unbind_kp := jsonutils.QueryBoolean(self.Params, "__delete_keypair__", false)
+	_log := false
+	if action == "deploy" {
+		if len(keypair) >= 32 {
+			if unbind_kp {
+				logclient.AddActionLog(guest, logclient.ACT_VM_UNBIND_KEYPAIR, nil, self.UserCred, true)
+				_log = true
+			} else {
+				logclient.AddActionLog(guest, logclient.ACT_VM_BIND_KEYPAIR, nil, self.UserCred, true)
+				_log = true
+			}
 
-	if action == "deploy" && reset_password {
-		keypair, _ := self.Params.GetString("keypair")
-		if len(keypair) > 0 {
-			logclient.AddActionLog(guest, logclient.ACT_VM_BIND_KEYPAIR, self.Params, self.UserCred, true)
-		} else {
-			logclient.AddActionLog(guest, logclient.ACT_VM_RESET_PSWD, self.Params, self.UserCred, true)
+		} else if reset_password {
+			logclient.AddActionLog(guest, logclient.ACT_VM_RESET_PSWD, "", self.UserCred, true)
+			_log = true
 		}
-	} else {
+	}
+	if !_log {
+		// 如果 deploy 有其他事件，统一记在这里。
 		logclient.AddActionLog(guest, "misc部署", self.Params, self.UserCred, true)
 	}
-
 }
 
 func (self *GuestDeployTask) OnDeployGuestCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
