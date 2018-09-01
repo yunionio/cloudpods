@@ -144,7 +144,7 @@ func ListStructToParams(v interface{}) (*jsonutils.JSONDict, error) {
 type BaseListOptions struct {
 	Limit         *int     `default:"20" help:"Page limit"`
 	Offset        *int     `default:"0" help:"Page offset"`
-	OrderBy       string   `help:"Name of the field to be ordered by"`
+	OrderBy       []string `help:"Name of the field to be ordered by"`
 	Order         string   `help:"List order" choices:"desc|asc"`
 	Details       *bool    `help:"Show more details"`
 	Search        string   `help:"Filter results by a simple keyword search"`

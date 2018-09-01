@@ -13,7 +13,7 @@ type SResourceBase struct {
 	SModelBase
 
 	CreatedAt     time.Time `nullable:"false" created_at:"true" get:"user"`
-	UpdatedAt     time.Time `nullable:"false" updated_at:"true"`
+	UpdatedAt     time.Time `nullable:"false" updated_at:"true" list:"user"`
 	UpdateVersion int       `default:"0" nullable:"false" auto_version:"true"`
 	DeletedAt     time.Time ``
 	Deleted       bool      `nullable:"false" default:"false"`
