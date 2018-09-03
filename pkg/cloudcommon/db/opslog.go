@@ -113,6 +113,9 @@ const (
 	ACT_UNCACHE_IMAGE_FAIL = "uncache_image_fail"
 	ACT_UNCACHED_IMAGE     = "uncached_image"
 
+	ACT_SYNC_CLOUD_DISK   = "sync_cloud_disk"
+	ACT_SYNC_CLOUD_SERVER = "sync_cloud_server"
+
 	ACT_SPLIT = "net_split"
 
 	ACT_PENDING_DELETE = "pending_delete"
