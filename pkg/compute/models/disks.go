@@ -591,6 +591,7 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 		}
 	}
 
+	db.OpsLog.LogEvent(&disk, db.ACT_SYNC_CLOUD_DISK, disk.GetShortDesc(), userCred)
 	return &disk, nil
 }
 
@@ -923,6 +924,14 @@ func (self *SDisk) GetShortDesc() *jsonutils.JSONDict {
 
 	if priceKey := self.GetMetadata("price_key", nil); len(priceKey) > 0 {
 		desc.Add(jsonutils.NewString(priceKey), "price_key")
+	}
+
+	if hypervisor := self.GetMetadata("hypervisor", nil); len(hypervisor) > 0 {
+		desc.Add(jsonutils.NewString(hypervisor), "hypervisor")
+	}
+
+	if len(self.ExternalId) > 0 {
+		desc.Add(jsonutils.NewString(self.ExternalId), "externalId")
 	}
 
 	fs := self.GetFsFormat()
