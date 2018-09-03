@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -30,6 +31,7 @@ const (
 
 	SERVER_TYPE_GUEST     = "guest"
 	SERVER_TYPE_BAREMETAL = "baremetal"
+	SERVER_TYPE_CONTAINER = "container"
 
 	STATIC_ALLOC = "static"
 
@@ -965,7 +967,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 	serverTypeStr, _ := data.GetString("server_type")
 	if len(serverTypeStr) == 0 {
 		serverTypeStr = SERVER_TYPE_GUEST
-	} else if serverTypeStr != SERVER_TYPE_GUEST && serverTypeStr != SERVER_TYPE_BAREMETAL {
+	} else if !sets.NewString(SERVER_TYPE_GUEST, SERVER_TYPE_BAREMETAL, SERVER_TYPE_CONTAINER).Has(serverTypeStr) {
 		return nil, httperrors.NewInputParameterError("Invalid server_type: %s", serverTypeStr)
 	}
 	data.Add(jsonutils.NewString(serverTypeStr), "server_type")
