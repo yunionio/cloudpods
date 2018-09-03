@@ -121,7 +121,6 @@ func (self *SAliyunGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *mo
 			config.DataDisks[i-1] = disk.DiskSize / 1024 // MB => GB
 		}
 	}
-
 	return jsonutils.Marshal(&config)
 }
 
