@@ -37,6 +37,8 @@ var DefaultResourceGroup = map[string]string{
 	"instance": "YunionInstanceResource",
 	"vpc":      "YunionVpcResource",
 	"network":  "YunionNetworkResource",
+	"image":    "YunionImageResource",
+	"storage":  "YunionStorageResource",
 }
 
 type SAzureClient struct {
