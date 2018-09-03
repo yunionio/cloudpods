@@ -109,6 +109,11 @@ func (self *SDisk) GetId() string {
 }
 
 func (self *SDisk) Delete() error {
+	if _, err := self.storage.zone.region.getDisk(self.DiskId); err == cloudprovider.ErrNotFound {
+		// 未找到disk, 说明disk已经被删除了. 避免回收站中disk-delete循环删除失败
+		log.Errorf("Failed to find disk %s when delete", self.DiskId)
+		return nil
+	}
 	return self.storage.zone.region.deleteDisk(self.DiskId)
 }
 
