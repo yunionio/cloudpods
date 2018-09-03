@@ -1305,6 +1305,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		}
 	}
 
+	db.OpsLog.LogEvent(&guest, db.ACT_SYNC_CLOUD_SERVER, guest.GetShortDesc(), userCred)
 	return &guest, nil
 }
 
@@ -3183,6 +3184,10 @@ func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
 
 	if priceKey := self.GetMetadata("price_key", nil); len(priceKey) > 0 {
 		desc.Add(jsonutils.NewString(priceKey), "price_key")
+	}
+
+	if len(self.ExternalId) > 0 {
+		desc.Add(jsonutils.NewString(self.ExternalId), "externalId")
 	}
 
 	desc.Set("hypervisor", jsonutils.NewString(self.GetHypervisor()))

@@ -61,6 +61,8 @@ func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 	priceKey := fmt.Sprintf("%s::%s::%s", self.RegionId, self.Category, self.Type)
 	data.Add(jsonutils.NewString(priceKey), "price_key")
 
+	data.Add(jsonutils.NewString(models.HYPERVISOR_ALIYUN), "hypervisor")
+
 	return data
 }
 
