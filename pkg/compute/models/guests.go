@@ -2733,3 +2733,15 @@ func (manager *SGuestManager) CleanPendingDeleteServers(ctx context.Context, use
 		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, true)
 	}
 }
+
+func (self *SGuest) SetDisableDelete(val bool) error {
+	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		if val {
+			self.DisableDelete = tristate.True
+		} else {
+			self.DisableDelete = tristate.False
+		}
+		return nil
+	})
+	return err
+}
