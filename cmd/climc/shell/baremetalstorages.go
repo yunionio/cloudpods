@@ -1,17 +1,27 @@
 package shell
 
 import (
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type BaremetalStorageListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Host string `help:"ID or Name of Host"`
 	}
 	R(&BaremetalStorageListOptions{}, "baremetal-storage-list", "List baremetal storage pairs", func(s *mcclient.ClientSession, args *BaremetalStorageListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		var result *modules.ListResult
 		var err error
 		if len(args.Host) > 0 {

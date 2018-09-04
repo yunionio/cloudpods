@@ -77,6 +77,9 @@ func (self *GuestBatchCreateTask) onScheduleFail(ctx context.Context, guest *mod
 	if len(msg) > 0 {
 		reason = fmt.Sprintf("%s: %s", reason, msg)
 	}
+	if guest.DisableDelete.IsTrue() {
+		guest.SetDisableDelete(false)
+	}
 	guest.SetStatus(self.UserCred, models.VM_SCHEDULE_FAILED, reason)
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_SCHEDULE_FAILED, reason)

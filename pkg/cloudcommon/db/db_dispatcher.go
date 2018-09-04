@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type DBModelDispatcher struct {
@@ -264,9 +265,9 @@ func applyListItemsGeneralJointFilters(manager IModelManager, q *sqlchemy.SQuery
 				if cond != nil {
 					sq = sq.Filter(cond)
 					if filterAny {
-						q = q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("id"), sq)))
+						q = q.Filter(sqlchemy.OR(sqlchemy.In(q.Field(jfc.OriginKey), sq)))
 					} else {
-						q = q.Filter(sqlchemy.AND(sqlchemy.In(q.Field("id"), sq)))
+						q = q.Filter(sqlchemy.AND(sqlchemy.In(q.Field(jfc.OriginKey), sq)))
 					}
 				}
 			}
@@ -768,6 +769,7 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		return nil, httperrors.NewGeneralError(err)
 	}
 	OpsLog.LogEvent(model, ACT_CREATE, model.GetShortDesc(), userCred)
+	logclient.AddActionLog(model, logclient.ACT_CREATE, "", userCred, true)
 	dispatcher.modelManager.OnCreateComplete(ctx, []IModel{model}, userCred, query, data)
 	return getItemDetails(dispatcher.modelManager, model, ctx, userCred, query)
 }
@@ -986,11 +988,13 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 
 	if err != nil {
 		log.Errorf("validate update condition error: %s", err)
+		logclient.AddActionLog(item, logclient.ACT_UPDATE, err.Error(), userCred, false)
 		return nil, httperrors.NewGeneralError(err)
 	}
 
 	dataDict, ok := data.(*jsonutils.JSONDict)
 	if !ok {
+		logclient.AddActionLog(item, logclient.ACT_UPDATE, "Invalid data JSONObject", userCred, false)
 		return nil, httperrors.NewInternalServerError("Invalid data JSONObject")
 	}
 
@@ -998,13 +1002,16 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 	if len(name) > 0 {
 		err = alterNameValidator(item, name)
 		if err != nil {
+			logclient.AddActionLog(item, logclient.ACT_UPDATE, err.Error(), userCred, false)
 			return nil, err
 		}
 	}
 
 	dataDict, err = item.ValidateUpdateData(ctx, userCred, query, dataDict)
 	if err != nil {
-		log.Errorf("validate update data error: %s", err)
+		errMsg := fmt.Sprintf("validate update data error: %s", err)
+		log.Errorf(errMsg)
+		logclient.AddActionLog(item, logclient.ACT_UPDATE, errMsg, userCred, false)
 		return nil, httperrors.NewGeneralError(err)
 	}
 	item.PreUpdate(ctx, userCred, query, dataDict)
@@ -1012,7 +1019,9 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 		filterData := dataDict.CopyIncludes(updateFields(manager, userCred)...)
 		err = filterData.Unmarshal(item)
 		if err != nil {
-			log.Errorf("unmarshal fail: %s", err)
+			errMsg := fmt.Sprintf("unmarshal fail: %s", err)
+			logclient.AddActionLog(item, logclient.ACT_UPDATE, errMsg, userCred, false)
+			log.Errorf(errMsg)
 			return httperrors.NewGeneralError(err)
 		}
 		return nil
@@ -1026,7 +1035,10 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 		diffStr := sqlchemy.UpdateDiffString(diff)
 		if len(diffStr) > 0 {
 			OpsLog.LogEvent(item, ACT_UPDATE, diffStr, userCred)
+			logclient.AddActionLog(item, logclient.ACT_UPDATE, diffStr, userCred, true)
 		}
+	} else {
+		logclient.AddActionLog(item, logclient.ACT_UPDATE, "", userCred, true)
 	}
 	return getItemDetails(manager, item, ctx, userCred, query)
 }
@@ -1054,10 +1066,13 @@ func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IM
 		return item.MarkDelete()
 	})
 	if err != nil {
-		log.Errorf("save update error %s", err)
+		msg := fmt.Sprintf("save update error %s", err)
+		log.Errorf(msg)
+		logclient.AddActionLog(item, logclient.ACT_DELETE, msg, userCred, false)
 		return httperrors.NewGeneralError(err)
 	}
 	OpsLog.LogEvent(item, ACT_DELETE, item.GetShortDesc(), userCred)
+	logclient.AddActionLog(item, logclient.ACT_DELETE, item.GetShortDesc(), userCred, true)
 	return nil
 }
 

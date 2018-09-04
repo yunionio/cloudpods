@@ -423,8 +423,32 @@ func (this *ArgumentParser) Options() interface{} {
 	return this.target
 }
 
+func (this *SingleArgument) valueIsBool() bool {
+	rv := this.value
+	if rv.Kind() == reflect.Bool {
+		return true
+	}
+
+	if rv.Kind() == reflect.Ptr && rv.Type().Elem().Kind() == reflect.Bool {
+		return true
+	}
+	return false
+}
+
+func (this *SingleArgument) defaultBoolValue() bool {
+	rv := this.defValue
+	if rv.Kind() == reflect.Bool {
+		return rv.Bool()
+	}
+
+	if rv.Kind() == reflect.Ptr && rv.Type().Elem().Kind() == reflect.Bool {
+		return rv.Elem().Bool()
+	}
+	panic("expecting bool or *bool type: got " + rv.Type().String())
+}
+
 func (this *SingleArgument) NeedData() bool {
-	if this.value.Kind() == reflect.Bool {
+	if this.valueIsBool() {
 		return false
 	} else {
 		return true
@@ -539,12 +563,14 @@ func (this *SingleArgument) Reset() {
 }
 
 func (this *SingleArgument) DoAction() error {
-	if this.value.Type() == gotypes.BoolType {
+	if this.valueIsBool() {
+		var v bool
 		if this.useDefault {
-			this.value.SetBool(!this.defValue.Bool())
+			v = !this.defaultBoolValue()
 		} else {
-			this.value.SetBool(true)
+			v = true
 		}
+		gotypes.SetValue(this.value, fmt.Sprintf("%t", v))
 		this.isSet = true
 	}
 	return nil

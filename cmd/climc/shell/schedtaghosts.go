@@ -1,13 +1,15 @@
 package shell
 
 import (
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type SchedtagHostListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Schedtag string `help:"ID or Name of schedtag"`
 	}
 	R(&SchedtagHostListOptions{}, "schedtag-host-list", "List all scheduler tag and host pairs", func(s *mcclient.ClientSession, args *SchedtagHostListOptions) error {
@@ -15,7 +17,15 @@ func init() {
 		if err != nil {
 			return err
 		}
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		var result *modules.ListResult
 		if len(args.Schedtag) > 0 {
 			result, err = mod.ListDescendent(s, args.Schedtag, params)

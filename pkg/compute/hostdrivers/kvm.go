@@ -124,3 +124,26 @@ func (self *SKVMHostDriver) RequestResizeDiskOnHostOnline(host *models.SHost, st
 	}
 	return nil
 }
+
+func (self *SKVMHostDriver) RequestPrepareSaveDiskOnHost(ctx context.Context, host *models.SHost, disk *models.SDisk, imageId string, task taskman.ITask) error {
+	body := jsonutils.NewDict()
+	body.Add(jsonutils.Marshal(map[string]string{"image_id": imageId}), "disk")
+	url := fmt.Sprintf("/disks/%s/save-prepare/%s", disk.StorageId, disk.Id)
+	header := http.Header{"X-Task-Id": []string{task.GetTaskId()}, "X-Region-Version": []string{"v2"}}
+	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+	return err
+}
+
+func (self *SKVMHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, host *models.SHost, disk *models.SDisk, imageId string, task taskman.ITask, data jsonutils.JSONObject) error {
+	body := jsonutils.NewDict()
+	backup, _ := data.GetString("backup")
+	content := map[string]string{"image_path": backup, "image_id": imageId, "storagecached_id": disk.GetStorage().StoragecacheId}
+	if data.Contains("format") {
+		content["format"], _ = data.GetString("format")
+	}
+	body.Add(jsonutils.Marshal(content), "disk")
+	url := fmt.Sprintf("/disks/%s/upload", disk.StorageId)
+	header := http.Header{"X-Task-Id": []string{task.GetTaskId()}, "X-Region-Version": []string{"v2"}}
+	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+	return err
+}

@@ -61,6 +61,8 @@ func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 	priceKey := fmt.Sprintf("%s::%s::%s", self.RegionId, self.Category, self.Type)
 	data.Add(jsonutils.NewString(priceKey), "price_key")
 
+	data.Add(jsonutils.NewString(models.HYPERVISOR_ALIYUN), "hypervisor")
+
 	return data
 }
 
@@ -107,6 +109,11 @@ func (self *SDisk) GetId() string {
 }
 
 func (self *SDisk) Delete() error {
+	if _, err := self.storage.zone.region.getDisk(self.DiskId); err == cloudprovider.ErrNotFound {
+		// 未找到disk, 说明disk已经被删除了. 避免回收站中disk-delete循环删除失败
+		log.Errorf("Failed to find disk %s when delete", self.DiskId)
+		return nil
+	}
 	return self.storage.zone.region.deleteDisk(self.DiskId)
 }
 
@@ -259,4 +266,111 @@ func (self *SRegion) resizeDisk(diskId string, size int64) error {
 	}
 
 	return nil
+}
+
+func (self *SDisk) CreateISnapshot(name, desc string) (cloudprovider.ICloudSnapshot, error) {
+	if snapshotId, err := self.storage.zone.region.CreateSnapshot(self.DiskId, name, desc); err != nil {
+		log.Errorf("createSnapshot fail %s", err)
+		return nil, err
+	} else if snapshot, err := self.getSnapshot(snapshotId); err != nil {
+		return nil, err
+	} else {
+		snapshot.disk = self
+		if err := cloudprovider.WaitStatus(snapshot, string(SnapshotStatusAccoplished), 15*time.Second, 3600*time.Second); err != nil {
+			return nil, err
+		}
+		return snapshot, nil
+	}
+}
+
+func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
+	params := make(map[string]string)
+	params["RegionId"] = self.RegionId
+	params["DiskId"] = diskId
+	params["SnapshotName"] = name
+	params["Description"] = desc
+
+	if body, err := self.ecsRequest("CreateSnapshot", params); err != nil {
+		log.Errorf("CreateSnapshot fail %s", err)
+		return "", err
+	} else {
+		return body.GetString("SnapshotId")
+	}
+}
+
+func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
+	if snapshot, err := self.getSnapshot(snapshotId); err != nil {
+		return nil, err
+	} else {
+		snapshot.disk = self
+		return snapshot, nil
+	}
+}
+
+func (self *SDisk) getSnapshot(snapshotId string) (*SSnapshot, error) {
+	if snapshots, total, err := self.storage.zone.region.GetSnapshots("", "", "", []string{snapshotId}, 0, 1); err != nil {
+		return nil, err
+	} else if total != 1 {
+		return nil, cloudprovider.ErrNotFound
+	} else {
+		return &snapshots[0], nil
+	}
+}
+
+func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
+	snapshots := make([]SSnapshot, 0)
+	for {
+		if parts, total, err := self.storage.zone.region.GetSnapshots("", self.DiskId, "", []string{}, 0, 20); err != nil {
+			log.Errorf("GetDisks fail %s", err)
+			return nil, err
+		} else {
+			snapshots = append(snapshots, parts...)
+			if len(snapshots) >= total {
+				break
+			}
+		}
+	}
+	isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots))
+	for i := 0; i < len(snapshots); i++ {
+		snapshots[i].disk = self
+		isnapshots[i] = &snapshots[i]
+	}
+	return isnapshots, nil
+}
+
+func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName string, snapshotIds []string, offset int, limit int) ([]SSnapshot, int, error) {
+	if limit > 50 || limit <= 0 {
+		limit = 50
+	}
+	params := make(map[string]string)
+	params["RegionId"] = self.RegionId
+	params["PageSize"] = fmt.Sprintf("%d", limit)
+	params["PageNumber"] = fmt.Sprintf("%d", (offset/limit)+1)
+
+	if len(instanceId) > 0 {
+		params["InstanceId"] = instanceId
+	}
+	if len(diskId) > 0 {
+		params["diskId"] = diskId
+	}
+	if len(snapshotName) > 0 {
+		params["SnapshotName"] = snapshotName
+	}
+	if snapshotIds != nil && len(snapshotIds) > 0 {
+		params["SnapshotIds"] = jsonutils.Marshal(snapshotIds).String()
+	}
+
+	if body, err := self.ecsRequest("DescribeSnapshots", params); err != nil {
+		log.Errorf("GetSnapshots fail %s", err)
+		return nil, 0, err
+	} else {
+		snapshots := make([]SSnapshot, 0)
+		if err := body.Unmarshal(&snapshots, "Snapshots", "Snapshot"); err != nil {
+			log.Errorf("Unmarshal snapshot details fail %s", err)
+			return nil, 0, err
+		}
+		total, _ := body.Int("TotalCount")
+		return snapshots, int(total), nil
+	}
+
 }

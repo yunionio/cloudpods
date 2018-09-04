@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
@@ -58,12 +59,20 @@ func init() {
 	})
 
 	type ServiceTreeNodeListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Label string `help:"Label of node"`
 		Pid   int64  `help:"Pid of node" default:"-1"`
 	}
 	R(&ServiceTreeNodeListOptions{}, "servicetree-node-list", "List servicetree nodes", func(s *mcclient.ClientSession, args *ServiceTreeNodeListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		if args.Pid >= 0 {
 			params.Add(jsonutils.NewInt(args.Pid), "pid")
 		}

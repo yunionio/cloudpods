@@ -61,6 +61,7 @@ type ICloudZone interface {
 type ICloudImage interface {
 	ICloudResource
 
+	Delete() error
 	GetIStoragecache() ICloudStoragecache
 }
 
@@ -71,6 +72,9 @@ type ICloudStoragecache interface {
 
 	GetManagerId() string
 
+	CreateIImage(snapshotId, imageName, imageDesc string) (ICloudImage, error)
+
+	DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error)
 	UploadImage(userCred mcclient.TokenCredential, imageId string, extId string, isForce bool) (string, error)
 }
 
@@ -222,7 +226,16 @@ type ICloudDisk interface {
 	GetMountpoint() string
 	Delete() error
 
+	CreateISnapshot(name string, desc string) (ICloudSnapshot, error)
+	GetISnapshot(idStr string) (ICloudSnapshot, error)
+	GetISnapshots() ([]ICloudSnapshot, error)
+
 	Resize(newSize int64) error
+}
+
+type ICloudSnapshot interface {
+	ICloudResource
+	Delete() error
 }
 
 type ICloudVpc interface {

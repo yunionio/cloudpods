@@ -5,13 +5,14 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/pkg/utils"
 )
 
 type GuestDeleteTask struct {
@@ -107,6 +108,7 @@ func (self *GuestDeleteTask) OnGuestDeleteCompleteFailed(ctx context.Context, ob
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.UserCred, models.VM_DELETE_FAIL, err.String())
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE_FAIL, err, self.UserCred)
+	logclient.AddActionLog(guest, logclient.ACT_DELETE, err, self.UserCred, false)
 }
 
 func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -123,6 +125,7 @@ func (self *GuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGue
 	guest.RealDelete(ctx, self.UserCred)
 	guest.RemoveAllMetadata(ctx, self.UserCred)
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE, nil, self.UserCred)
+	logclient.AddActionLog(guest, logclient.ACT_DELETE, nil, self.UserCred, true)
 	if !guest.IsSystem && !guest.PendingDeleted {
 		self.NotifyServerDeleted(ctx, guest)
 	}

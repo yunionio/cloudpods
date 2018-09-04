@@ -4,6 +4,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
@@ -40,11 +41,19 @@ func init() {
 	})
 
 	type ReservedIPListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		Network string `help:"Network filter"`
 	}
 	R(&ReservedIPListOptions{}, "reserved-ip-list", "Show all reserved IPs for any network", func(s *mcclient.ClientSession, args *ReservedIPListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 		if len(args.Network) > 0 {
 			params.Add(jsonutils.NewString(args.Network), "network")
 		}

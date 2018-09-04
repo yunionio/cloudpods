@@ -1,8 +1,10 @@
 package shell
 
 import (
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
@@ -26,10 +28,18 @@ func init() {
 	 * 列出所有监控指标
 	 */
 	type MetricsListOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 	}
 	R(&MetricsListOptions{}, "metric-list", "List all metrics", func(s *mcclient.ClientSession, args *MetricsListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 
 		result, err := modules.Metrics.List(s, params)
 		if err != nil {
@@ -44,11 +54,19 @@ func init() {
 	 * 查看监控指标详情
 	 */
 	type MetricsShowOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		ID string `help:"The ID of the metric"`
 	}
 	R(&MetricsShowOptions{}, "metric-show", "Show metric details", func(s *mcclient.ClientSession, args *MetricsShowOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 
 		result, err := modules.Metrics.Get(s, args.ID, params)
 		if err != nil {
@@ -63,11 +81,19 @@ func init() {
 	 * 根据name查看监控指标详情
 	 */
 	type MetricsShowByNameOptions struct {
-		BaseListOptions
+		options.BaseListOptions
 		NAME string `help:"The NAME of the metric"`
 	}
 	R(&MetricsShowByNameOptions{}, "metric-details", "Show metric details by name", func(s *mcclient.ClientSession, args *MetricsShowByNameOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+
+			}
+		}
 
 		result, err := modules.Metrics.GetSpecific(s, "", args.NAME, params)
 		if err != nil {

@@ -1343,6 +1343,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		}
 	}
 
+	db.OpsLog.LogEvent(&guest, db.ACT_SYNC_CLOUD_SERVER, guest.GetShortDesc(), userCred)
 	return &guest, nil
 }
 
@@ -1596,6 +1597,43 @@ func (self *SGuest) attach2Disk(disk *SDisk, userCred mcclient.TokenCredential, 
 		db.OpsLog.LogAttachEvent(self, disk, userCred, nil)
 	}
 	return err
+}
+
+func (self *SGuest) AllowPerformSaveImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	log.Infof("permission: %s", self.IsOwner(userCred))
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{VM_READY}) {
+		return nil, httperrors.NewInputParameterError("Cannot save image in status %s", self.Status)
+	} else if !data.Contains("name") {
+		return nil, httperrors.NewInputParameterError("Image name is required")
+	} else if disks := self.CategorizeDisks(); disks.Root == nil {
+		return nil, httperrors.NewInputParameterError("No root image")
+	} else {
+		kwargs := data.(*jsonutils.JSONDict)
+		restart := self.Status == VM_RUNNING
+		properties := jsonutils.NewDict()
+		if notes, err := data.GetString("notes"); err != nil && len(notes) > 0 {
+			properties.Add(jsonutils.NewString(notes), "notes")
+		}
+		properties.Add(jsonutils.NewString(self.OsType), "os_type")
+		kwargs.Add(properties, "properties")
+		kwargs.Add(jsonutils.NewBool(restart), "restart")
+		lockman.LockObject(ctx, disks.Root)
+		defer lockman.ReleaseObject(ctx, disks.Root)
+		if imageId, err := disks.Root.PrepareSaveImage(ctx, userCred, kwargs); err != nil {
+			return nil, err
+		} else {
+			kwargs.Add(jsonutils.NewString(imageId), "image_id")
+		}
+		return nil, self.StartGuestSaveImage(ctx, userCred, kwargs, "")
+	}
+}
+
+func (self *SGuest) StartGuestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
+	return self.GetDriver().StartGuestSaveImage(ctx, userCred, self, data, parentTaskId)
 }
 
 func (self *SGuest) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -3223,6 +3261,10 @@ func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
 		desc.Add(jsonutils.NewString(priceKey), "price_key")
 	}
 
+	if len(self.ExternalId) > 0 {
+		desc.Add(jsonutils.NewString(self.ExternalId), "externalId")
+	}
+
 	desc.Set("hypervisor", jsonutils.NewString(self.GetHypervisor()))
 	spec := self.GetSpec(false)
 	if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
@@ -3687,4 +3729,16 @@ func (self *SGuest) DeleteEip(ctx context.Context, userCred mcclient.TokenCreden
 		return err
 	}
 	return nil
+}
+
+func (self *SGuest) SetDisableDelete(val bool) error {
+	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		if val {
+			self.DisableDelete = tristate.True
+		} else {
+			self.DisableDelete = tristate.False
+		}
+		return nil
+	})
+	return err
 }

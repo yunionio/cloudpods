@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
@@ -12,10 +13,17 @@ func init() {
 		Manager string `help:"Show servers imported from manager"`
 		Region  string `help:"Show servers in cloudregion"`
 
-		BaseListOptions
+		options.BaseListOptions
 	}
 	R(&ElasticipListOptions{}, "eip-list", "List elastic IPs", func(s *mcclient.ClientSession, args *ElasticipListOptions) error {
-		params := FetchPagingParams(args.BaseListOptions)
+		var params *jsonutils.JSONDict
+		{
+			var err error
+			params, err = args.BaseListOptions.Params()
+			if err != nil {
+				return err
+			}
+		}
 		if len(args.Manager) > 0 {
 			params.Add(jsonutils.NewString(args.Manager), "manager")
 		}

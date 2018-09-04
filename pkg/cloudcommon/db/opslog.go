@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
 )
@@ -112,6 +113,9 @@ const (
 	ACT_UNCACHING_IMAGE    = "uncaching_image"
 	ACT_UNCACHE_IMAGE_FAIL = "uncache_image_fail"
 	ACT_UNCACHED_IMAGE     = "uncached_image"
+
+	ACT_SYNC_CLOUD_DISK   = "sync_cloud_disk"
+	ACT_SYNC_CLOUD_SERVER = "sync_cloud_server"
 
 	ACT_SPLIT = "net_split"
 
@@ -304,6 +308,7 @@ func (manager *SOpsLogManager) SyncOwner(m IModel, former *STenant, userCred mcc
 	notes.Add(jsonutils.NewString(former.GetId()), "former_project_id")
 	notes.Add(jsonutils.NewString(former.GetName()), "form_project")
 	manager.LogEvent(m, ACT_CHANGE_OWNER, notes, userCred)
+	logclient.AddActionLog(m, logclient.ACT_CHANGE_OWNER, nil, userCred, true)
 }
 
 func (manager *SOpsLogManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

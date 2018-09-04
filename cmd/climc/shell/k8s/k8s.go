@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
@@ -30,14 +29,14 @@ func init() {
 	initService()
 }
 
-type BaseListOptions shell.BaseListOptions
-
 type clusterBaseOptions struct {
 	Cluster string `default:"$K8S_CLUSTER|default" help:"Kubernetes cluster name"`
 }
 
-func (o clusterBaseOptions) ClusterContext() []modules.ManagerContext {
-	return []modules.ManagerContext{clusterContext(o.Cluster)}
+func (o clusterBaseOptions) ClusterParams() *jsonutils.JSONDict {
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.NewString(o.Cluster), "cluster")
+	return ret
 }
 
 type baseListOptions struct {
@@ -73,7 +72,7 @@ type resourceGetOptions struct {
 }
 
 func (o resourceGetOptions) ToJSON() *jsonutils.JSONDict {
-	params := jsonutils.NewDict()
+	params := o.ClusterParams()
 	if o.Namespace != "" {
 		params.Add(jsonutils.NewString(o.Namespace), "namespace")
 	}
@@ -98,10 +97,6 @@ var (
 	printObject       = printutils.PrintJSONObject
 	printBatchResults = printutils.PrintJSONBatchResults
 )
-
-func FetchPagingParams(o BaseListOptions) *jsonutils.JSONDict {
-	return shell.FetchPagingParams(shell.BaseListOptions(o))
-}
 
 func resourceCmdN(prefix, suffix string) string {
 	return fmt.Sprintf("k8s-%s-%s", prefix, suffix)

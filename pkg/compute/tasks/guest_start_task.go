@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type GuestStartTask struct {
@@ -59,6 +59,7 @@ func (self *GuestStartTask) OnStartComplete(ctx context.Context, obj db.IStandal
 	db.OpsLog.LogEvent(guest, db.ACT_START, guest.GetShortDesc(), self.UserCred)
 	self.SetStage("on_guest_syncstatus_after_start", nil)
 	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
+	logclient.AddActionLog(guest, logclient.ACT_VM_START, "", self.UserCred, true)
 	// self.taskComplete(ctx, guest)
 }
 
@@ -76,6 +77,7 @@ func (self *GuestStartTask) onStartGuestFailed(ctx context.Context, guest *model
 	guest.SetStatus(self.UserCred, models.VM_START_FAILED, err.Error())
 	self.SetStageFailed(ctx, err.Error())
 	self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
+	logclient.AddActionLog(guest, logclient.ACT_VM_START, err, self.UserCred, false)
 }
 
 func (self *GuestStartTask) taskComplete(ctx context.Context, guest *models.SGuest) {

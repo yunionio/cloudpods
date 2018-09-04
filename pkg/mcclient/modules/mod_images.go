@@ -428,24 +428,32 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 	if !exists {
 		return nil, fmt.Errorf("Unsupported image format %s", format)
 	}
-	osType, err := params.GetString("properties", "os_type")
-	if err != nil {
-		return nil, fmt.Errorf("Can't get os_type from params: %s", params.String())
-	}
-	exists, _ = utils.InStringArray(osType, []string{"Windows", "Linux", "Freebsd", "Android", "macOS", "VMWare"})
-	if !exists {
-		return nil, fmt.Errorf("OS type must be specified")
-	}
-	name, _ := params.GetString("name")
-	if len(name) == 0 {
-		return nil, fmt.Errorf("Missing name")
-	}
-	dupName, e := this.IsNameDuplicate(s, name)
-	if dupName {
-		return nil, fmt.Errorf("Duplicate name %s", name)
-	}
-	if e != nil {
-		return nil, fmt.Errorf("Check name duplicate error %s", e)
+	imageId, _ := params.GetString("image_id")
+	path := fmt.Sprintf("/%s", this.URLPath())
+	method := "POST"
+	if len(imageId) == 0 {
+		osType, err := params.GetString("properties", "os_type")
+		if err != nil {
+			return nil, fmt.Errorf("Can't get os_type from params: %s", params.String())
+		}
+		exists, _ = utils.InStringArray(osType, []string{"Windows", "Linux", "Freebsd", "Android", "macOS", "VMWare"})
+		if !exists {
+			return nil, fmt.Errorf("OS type must be specified")
+		}
+		name, _ := params.GetString("name")
+		if len(name) == 0 {
+			return nil, fmt.Errorf("Missing name")
+		}
+		dupName, e := this.IsNameDuplicate(s, name)
+		if dupName {
+			return nil, fmt.Errorf("Duplicate name %s", name)
+		}
+		if e != nil {
+			return nil, fmt.Errorf("Check name duplicate error %s", e)
+		}
+	} else {
+		path = fmt.Sprintf("/%s/%s", this.URLPath(), imageId)
+		method = "PUT"
 	}
 	headers, e := setImageMeta(params)
 	if e != nil {
@@ -467,8 +475,7 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 			headers.Add("Content-Length", fmt.Sprintf("%d", size))
 		}
 	}
-	path := fmt.Sprintf("/%s", this.URLPath())
-	resp, err := this.rawRequest(s, "POST", path, headers, body)
+	resp, err := this.rawRequest(s, method, path, headers, body)
 	_, json, err := s.ParseJSONResponse(resp, err)
 	if err != nil {
 		return nil, err
