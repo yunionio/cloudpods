@@ -25,7 +25,8 @@ func initDeployment() {
 	R(&listOpt{}, cmdN("list"), "List k8s deployment", func(s *mcclient.ClientSession, args *listOpt) error {
 		params := fetchNamespaceParams(args.namespaceListOptions)
 		params.Update(fetchPagingParams(args.baseListOptions))
-		ret, err := k8s.Deployments.ListInContexts(s, params, args.ClusterContext())
+		params.Update(args.ClusterParams())
+		ret, err := k8s.Deployments.List(s, params)
 		if err != nil {
 			return err
 		}
@@ -45,7 +46,7 @@ func initDeployment() {
 		Net             string   `help:"Network config, e.g. net1, net1:10.168.222.171"`
 	}
 	R(&createOpt{}, cmdN("create"), "Create deployment resource", func(s *mcclient.ClientSession, args *createOpt) error {
-		params := jsonutils.NewDict()
+		params := args.ClusterParams()
 		if len(args.Image) == 0 {
 			return fmt.Errorf("Image must provided")
 		}
@@ -74,7 +75,7 @@ func initDeployment() {
 			}
 			params.Add(net, "networkConfig")
 		}
-		ret, err := k8s.Deployments.CreateInContexts(s, params, args.ClusterContext())
+		ret, err := k8s.Deployments.Create(s, params)
 		if err != nil {
 			return err
 		}
@@ -87,11 +88,11 @@ func initDeployment() {
 	}
 	R(&getOpt{}, cmdN("show"), "Get deployment details", func(s *mcclient.ClientSession, args *getOpt) error {
 		id := args.NAME
-		params := jsonutils.NewDict()
+		params := args.ClusterParams()
 		if args.Namespace != "" {
 			params.Add(jsonutils.NewString(args.Namespace), "namespace")
 		}
-		ret, err := k8s.Deployments.GetInContexts(s, id, params, args.ClusterContext())
+		ret, err := k8s.Deployments.Get(s, id, params)
 		if err != nil {
 			return err
 		}
