@@ -19,7 +19,8 @@ func initPod() {
 	R(&listOpt{}, cmdN("list"), "List k8s pod", func(s *mcclient.ClientSession, args *listOpt) error {
 		params := fetchNamespaceParams(args.namespaceListOptions)
 		params.Update(fetchPagingParams(args.baseListOptions))
-		ret, err := k8s.Pods.ListInContexts(s, params, args.ClusterContext())
+		params.Update(args.ClusterParams())
+		ret, err := k8s.Pods.List(s, params)
 		if err != nil {
 			return err
 		}
@@ -32,7 +33,7 @@ func initPod() {
 	}
 	R(&deleteOpt{}, cmdN("delete"), "Delete pod", func(s *mcclient.ClientSession, args *deleteOpt) error {
 		id := args.NAME
-		ret, err := k8s.Pods.DeleteInContexts(s, id, args.ToJSON(), args.ClusterContext())
+		ret, err := k8s.Pods.Delete(s, id, args.ToJSON())
 		if err != nil {
 			return err
 		}
