@@ -432,6 +432,13 @@ func (self *SElasticip) CustomizeDelete(ctx context.Context, userCred mcclient.T
 	return self.StartEipDeallocateTask(ctx, userCred, "")
 }
 
+func (self *SElasticip) ValidateDeleteCondition(ctx context.Context) error {
+	if len(self.AssociateId) > 0 {
+		return fmt.Errorf("eip is associated with instance")
+	}
+	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx)
+}
+
 func (self *SElasticip) StartEipDeallocateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "EipDeallocateTask", self, userCred, nil, parentTaskId, "", nil)
 	if err != nil {

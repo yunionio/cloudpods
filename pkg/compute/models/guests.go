@@ -3671,3 +3671,20 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 	}
 	return nil, nil
 }
+
+func (self *SGuest) DeleteEip(ctx context.Context, userCred mcclient.TokenCredential) error {
+	eip, err := self.GetEip()
+	if err != nil {
+		log.Errorf("Delete eip fail for get Eip %s", err)
+		return err
+	}
+	if eip == nil {
+		return nil
+	}
+	err = eip.Delete(ctx, userCred)
+	if err != nil {
+		log.Errorf("Delete eip fail %s", err)
+		return err
+	}
+	return nil
+}

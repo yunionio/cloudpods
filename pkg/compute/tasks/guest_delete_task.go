@@ -33,6 +33,7 @@ func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, obj db.ISt
 
 	eip, _ := guest.GetEip()
 	if eip != nil && eip.Mode != models.EIP_MODE_INSTANCE_PUBLICIP {
+		// detach floating EIP only
 		self.SetStage("on_eip_dissociate_complete", nil)
 		eip.StartEipDissociateTask(ctx, self.UserCred, self.GetTaskId())
 	} else {
@@ -113,6 +114,7 @@ func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.I
 	guest.LeaveAllGroups(self.UserCred)
 	guest.DetachAllNetworks(ctx, self.UserCred)
 	guest.EjectIso(self.UserCred)
+	guest.DeleteEip(ctx, self.UserCred)
 	guest.GetDriver().OnDeleteGuestFinalCleanup(ctx, guest, self.UserCred)
 	self.DeleteGuest(ctx, guest)
 }
