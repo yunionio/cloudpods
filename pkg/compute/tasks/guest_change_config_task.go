@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type GuestChangeConfigTask struct {
@@ -41,37 +42,44 @@ func (self *GuestChangeConfigTask) OnDisksResizeComplete(ctx context.Context, ob
 		iResizeSet, err := resizeDisks.GetAt(i)
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
+			logclient.AddActionLog(obj, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
 			return
 		}
 		resizeSet := iResizeSet.(*jsonutils.JSONArray)
 		diskId, err := resizeSet.GetAt(0)
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
+			logclient.AddActionLog(obj, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
 			return
 		}
 		idStr, err := diskId.GetString()
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
+			logclient.AddActionLog(obj, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
 			return
 		}
 		jSize, err := resizeSet.GetAt(1)
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
+			logclient.AddActionLog(obj, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
 			return
 		}
 		size, err := jSize.Int()
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
+			logclient.AddActionLog(obj, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
 			return
 		}
 		iDisk, err := models.DiskManager.FetchById(idStr)
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
+			logclient.AddActionLog(obj, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
 			return
 		}
 		disk := iDisk.(*models.SDisk)
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
+			logclient.AddActionLog(disk, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
 			return
 		}
 		if disk.DiskSize < int(size) {
@@ -79,6 +87,7 @@ func (self *GuestChangeConfigTask) OnDisksResizeComplete(ctx context.Context, ob
 			err = self.GetPendingUsage(&pendingUsage)
 			if err != nil {
 				self.SetStageFailed(ctx, err.Error())
+				logclient.AddActionLog(disk, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
 				return
 			}
 			disk.StartDiskResizeTask(ctx, self.UserCred, size, self.GetTaskId(), &pendingUsage)
@@ -112,6 +121,7 @@ func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 			vcpuCount, err = iVcpuCount.Int()
 			if err != nil {
 				self.SetStageFailed(ctx, err.Error())
+				logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
 				return
 			}
 		}
@@ -119,12 +129,14 @@ func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 			vmemSize, err = iVmemSize.Int()
 			if err != nil {
 				self.SetStageFailed(ctx, err.Error())
+				logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
 				return
 			}
 		}
 		err = guest.GetDriver().RequestChangeVmConfig(ctx, guest, self, vcpuCount, vmemSize)
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
+			logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
 			return
 		}
 		var addCpu, addMem = 0, 0
@@ -151,12 +163,14 @@ func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 		})
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
+			logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
 			return
 		}
 		var pendingUsage models.SQuota
 		err = self.GetPendingUsage(&pendingUsage)
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
+			logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
 			return
 		}
 		// ownerCred := guest.GetOwnerUserCred()
@@ -172,11 +186,13 @@ func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 		err = models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, guest.ProjectId, &pendingUsage, &cancelUsage)
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
+			logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
 			return
 		}
 		err = self.SetPendingUsage(&pendingUsage)
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
+			logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
 			return
 		}
 	}
@@ -184,6 +200,7 @@ func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 	err = guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
 	if err != nil {
 		self.SetStageFailed(ctx, err.Error())
+		logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
 		return
 	}
 }
@@ -193,10 +210,12 @@ func (self *GuestChangeConfigTask) OnSyncStatusComplete(ctx context.Context, obj
 	if guest.Status == models.VM_READY && jsonutils.QueryBoolean(self.Params, "auto_start", false) {
 		self.SetStage("on_guest_start_complete", nil)
 		guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
+		logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, "", self.UserCred, true)
 	} else {
 		dt := jsonutils.NewDict()
 		dt.Add(jsonutils.NewString(guest.Id), "id")
 		self.SetStageComplete(ctx, dt)
+		logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, "", self.UserCred, true)
 	}
 }
 

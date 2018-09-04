@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type GuestDeployTask struct {
@@ -61,6 +62,7 @@ func (self *GuestDeployTask) StartDeployGuestOnHost(ctx context.Context, guest *
 func (self *GuestDeployTask) OnDeployGuestFail(ctx context.Context, guest *models.SGuest, err error) {
 	guest.SetStatus(self.UserCred, models.VM_DEPLOY_FAILED, err.Error())
 	self.SetStageFailed(ctx, err.Error())
+	logclient.AddActionLog(guest, logclient.ACT_VM_DEPLOY, err, self.UserCred, false)
 }
 
 func (self *GuestDeployTask) OnDeployGuestComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -68,6 +70,30 @@ func (self *GuestDeployTask) OnDeployGuestComplete(ctx context.Context, obj db.I
 	guest := obj.(*models.SGuest)
 	guest.GetDriver().OnGuestDeployTaskDataReceived(ctx, guest, self, data)
 	guest.GetDriver().OnGuestDeployTaskComplete(ctx, guest, self)
+	action, _ := self.Params.GetString("deploy_action")
+	keypair, _ := self.Params.GetString("keypair")
+	reset_password := jsonutils.QueryBoolean(self.Params, "reset_password", false)
+	unbind_kp := jsonutils.QueryBoolean(self.Params, "__delete_keypair__", false)
+	_log := false
+	if action == "deploy" {
+		if len(keypair) >= 32 {
+			if unbind_kp {
+				logclient.AddActionLog(guest, logclient.ACT_VM_UNBIND_KEYPAIR, nil, self.UserCred, true)
+				_log = true
+			} else {
+				logclient.AddActionLog(guest, logclient.ACT_VM_BIND_KEYPAIR, nil, self.UserCred, true)
+				_log = true
+			}
+
+		} else if reset_password {
+			logclient.AddActionLog(guest, logclient.ACT_VM_RESET_PSWD, "", self.UserCred, true)
+			_log = true
+		}
+	}
+	if !_log {
+		// 如果 deploy 有其他事件，统一记在这里。
+		logclient.AddActionLog(guest, "misc部署", self.Params, self.UserCred, true)
+	}
 }
 
 func (self *GuestDeployTask) OnDeployGuestCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
