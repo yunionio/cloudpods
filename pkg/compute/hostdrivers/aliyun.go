@@ -2,11 +2,13 @@ package hostdrivers
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type SAliyunHostDriver struct {
@@ -45,6 +47,53 @@ func (self *SAliyunHostDriver) CheckAndSetCacheImage(ctx context.Context, host *
 			return ret, nil
 		}
 	})
+	return nil
+}
+
+func (self *SAliyunHostDriver) RequestPrepareSaveDiskOnHost(ctx context.Context, host *models.SHost, disk *models.SDisk, imageId string, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SAliyunHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, host *models.SHost, disk *models.SDisk, imageId string, task taskman.ITask, data jsonutils.JSONObject) error {
+	if iDisk, err := disk.GetIDisk(); err != nil {
+		return err
+	} else if iStorage, err := disk.GetIStorage(); err != nil {
+		return err
+	} else if iStoragecache := iStorage.GetIStoragecache(); iStoragecache == nil {
+		return httperrors.NewResourceNotFoundError("fail to find iStoragecache for storage: %s", iStorage.GetName())
+	} else {
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+			if snapshot, err := iDisk.CreateISnapshot(fmt.Sprintf("Snapshot-%s", imageId), "PrepareSaveImage"); err != nil {
+				return nil, err
+			} else {
+				scimg := models.StoragecachedimageManager.Register(ctx, task.GetUserCred(), iStoragecache.GetId(), imageId)
+				if scimg.Status != models.CACHED_IMAGE_STATUS_READY {
+					scimg.SetStatus(task.GetUserCred(), models.CACHED_IMAGE_STATUS_CACHING, "request_prepare_save_disk_on_host")
+				}
+				if iImage, err := iStoragecache.CreateIImage(snapshot.GetId(), fmt.Sprintf("Image-%s", imageId), ""); err != nil {
+					log.Errorf("fail to create iImage: %v", err)
+					scimg.SetStatus(task.GetUserCred(), models.CACHED_IMAGE_STATUS_CACHE_FAILED, err.Error())
+					return nil, err
+				} else {
+					scimg.SetExternalId(iImage.GetId())
+					if result, err := iStoragecache.DownloadImage(task.GetUserCred(), imageId, iImage.GetId()); err != nil {
+						scimg.SetStatus(task.GetUserCred(), models.CACHED_IMAGE_STATUS_CACHE_FAILED, err.Error())
+						return nil, err
+					} else {
+						if err := iImage.Delete(); err != nil {
+							log.Errorf("Delete iImage %s failed: %v", iImage.GetId(), err)
+						}
+						if err := snapshot.Delete(); err != nil {
+							log.Errorf("Delete snapshot %s failed: %v", snapshot.GetId(), err)
+						}
+						scimg.SetStatus(task.GetUserCred(), models.CACHED_IMAGE_STATUS_READY, "")
+						return result, nil
+					}
+				}
+			}
+		})
+	}
 	return nil
 }
 
