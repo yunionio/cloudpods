@@ -1,0 +1,11 @@
+region = 'LzxHQ'
+address = '10.168.222.245'
+port = 8899
+auth_uri = 'http://10.168.222.245:35357/v3'
+admin_user = 'regionadmin'
+admin_password = 'iygPtGX6r7NZ_tW_'
+admin_tenant_name = 'system'
+
+frontend_url = "http://10.168.222.245:8899"
+
+log_level = "debug"

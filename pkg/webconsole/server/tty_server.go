@@ -1,13 +1,9 @@
 package server
 
 import (
-	"os/exec"
-	"strings"
-
 	socketio "github.com/googollee/go-socket.io"
 	"github.com/kr/pty"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/webconsole/session"
@@ -40,24 +36,6 @@ func NewTTYServer(s *session.SSession) (*TTYServer, error) {
 	}
 	server.initEventHandler(s)
 	return server, nil
-}
-
-func fetchCommand(so socketio.Socket) (*exec.Cmd, error) {
-	req := so.Request()
-	query, err := jsonutils.ParseQueryString(req.URL.RawQuery)
-	if err != nil {
-		return nil, err
-	}
-	cmd, err := query.GetString(COMMAND_QUERY)
-	if err != nil {
-		return nil, err
-	}
-	args := []string{}
-	argsStr, _ := query.GetString(ARGS_QUERY)
-	if len(argsStr) != 0 {
-		args = strings.Split(argsStr, ",")
-	}
-	return exec.Command(cmd, args...), nil
 }
 
 func (server *TTYServer) initEventHandler(s *session.SSession) {
