@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 func init() {
@@ -48,6 +49,7 @@ func (self *GuestRebuildRootTask) StartRebuildRootDisk(ctx context.Context, gues
 	})
 	if err != nil {
 		self.SetStageFailed(ctx, err.Error())
+		logclient.AddActionLog(guest, logclient.ACT_VM_REBUILD, err, self.UserCred, false)
 		return
 	} else {
 		db.OpsLog.LogEvent(gds.Root, db.ACT_UPDATE_STATUS,
@@ -64,16 +66,19 @@ func (self *GuestRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Context,
 	imginfo, err := models.CachedimageManager.GetImageById(ctx, self.UserCred, imgId, false)
 	if err != nil {
 		self.SetStageFailed(ctx, err.Error())
+		logclient.AddActionLog(guest, logclient.ACT_VM_REBUILD, err, self.UserCred, false)
 		return
 	}
 	osprof, err := osprofile.GetOSProfileFromImageProperties(imginfo.Properties, guest.Hypervisor)
 	if err != nil {
 		self.SetStageFailed(ctx, err.Error())
+		logclient.AddActionLog(guest, logclient.ACT_VM_REBUILD, err, self.UserCred, false)
 		return
 	}
 	err = guest.SetMetadata(ctx, "__os_profile__", osprof, self.UserCred)
 	if err != nil {
 		self.SetStageFailed(ctx, err.Error())
+		logclient.AddActionLog(guest, logclient.ACT_VM_REBUILD, err, self.UserCred, false)
 		return
 	}
 	if guest.OsType != osprof.OSType {
@@ -83,20 +88,20 @@ func (self *GuestRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Context,
 		})
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
+			logclient.AddActionLog(guest, logclient.ACT_VM_REBUILD, err, self.UserCred, false)
 			return
 		}
 	}
 	db.OpsLog.LogEvent(guest, db.ACT_REBUILD_ROOT, "", self.UserCred)
-	// TODO: logclient
 	guest.NotifyServerEvent(notifyclient.SERVER_REBUILD_ROOT, notifyclient.PRIORITY_IMPORTANT, true)
 	self.SetStage("OnSyncStatusComplete", nil)
 	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
 }
 
 func (self *GuestRebuildRootTask) OnRebuildRootDiskCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	db.OpsLog.LogEvent(guest, db.ACT_REBUILD_ROOT_FAIL, data.String(), self.UserCred)
+	db.OpsLog.LogEvent(guest, db.ACT_REBUILD_ROOT_FAIL, data, self.UserCred)
 	guest.SetStatus(self.UserCred, models.VM_REBUILD_ROOT_FAIL, "")
-	// TODO: logclient
+	logclient.AddActionLog(guest, logclient.ACT_VM_REBUILD, data, self.UserCred, false)
 }
 
 func (self *GuestRebuildRootTask) OnSyncStatusComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -106,6 +111,7 @@ func (self *GuestRebuildRootTask) OnSyncStatusComplete(ctx context.Context, gues
 	} else {
 		self.SetStageComplete(ctx, nil)
 	}
+	logclient.AddActionLog(guest, logclient.ACT_VM_REBUILD, "", self.UserCred, true)
 }
 
 func (self *GuestRebuildRootTask) OnGuestStartComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -137,8 +143,10 @@ func (self *KVMGuestRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Conte
 
 func (self *KVMGuestRebuildRootTask) OnRebuildRootDiskCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStageFailed(ctx, data.String())
+	logclient.AddActionLog(guest, logclient.ACT_VM_REBUILD, data, self.UserCred, false)
 }
 
 func (self *KVMGuestRebuildRootTask) OnGuestDeployComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
+	logclient.AddActionLog(guest, logclient.ACT_VM_REBUILD, nil, self.UserCred, true)
 }
