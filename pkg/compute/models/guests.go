@@ -1561,6 +1561,43 @@ func (self *SGuest) attach2Disk(disk *SDisk, userCred mcclient.TokenCredential, 
 	return err
 }
 
+func (self *SGuest) AllowPerformSaveImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	log.Infof("permission: %s", self.IsOwner(userCred))
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{VM_READY}) {
+		return nil, httperrors.NewInputParameterError("Cannot save image in status %s", self.Status)
+	} else if !data.Contains("name") {
+		return nil, httperrors.NewInputParameterError("Image name is required")
+	} else if disks := self.CategorizeDisks(); disks.Root == nil {
+		return nil, httperrors.NewInputParameterError("No root image")
+	} else {
+		kwargs := data.(*jsonutils.JSONDict)
+		restart := self.Status == VM_RUNNING
+		properties := jsonutils.NewDict()
+		if notes, err := data.GetString("notes"); err != nil && len(notes) > 0 {
+			properties.Add(jsonutils.NewString(notes), "notes")
+		}
+		properties.Add(jsonutils.NewString(self.OsType), "os_type")
+		kwargs.Add(properties, "properties")
+		kwargs.Add(jsonutils.NewBool(restart), "restart")
+		lockman.LockObject(ctx, disks.Root)
+		defer lockman.ReleaseObject(ctx, disks.Root)
+		if imageId, err := disks.Root.PrepareSaveImage(ctx, userCred, kwargs); err != nil {
+			return nil, err
+		} else {
+			kwargs.Add(jsonutils.NewString(imageId), "image_id")
+		}
+		return nil, self.StartGuestSaveImage(ctx, userCred, kwargs, "")
+	}
+}
+
+func (self *SGuest) StartGuestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
+	return self.GetDriver().StartGuestSaveImage(ctx, userCred, self, data, parentTaskId)
+}
+
 func (self *SGuest) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred)
 }

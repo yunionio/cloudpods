@@ -193,3 +193,12 @@ func (self *SVirtualizedGuestDriver) StartSuspendTask(ctx context.Context, userC
 	task.ScheduleRun(nil)
 	return nil
 }
+
+func (self *SVirtualizedGuestDriver) StartGuestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
+	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSaveImageTask", guest, userCred, params, parentTaskId, "", nil); err != nil {
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
