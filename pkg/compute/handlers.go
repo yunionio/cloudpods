@@ -1,7 +1,6 @@
 package compute
 
 import (
-	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
 
@@ -56,6 +55,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.SecurityGroupRuleManager,
 		models.VCenterManager,
 		models.DnsRecordManager,
+		models.ElasticipManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
@@ -74,7 +74,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.StoragecachedimageManager,
 	} {
 		db.RegisterModelManager(manager)
-		log.Infof("Register handler %s", manager.KeywordPlural())
+		// log.Infof("Register handler %s", manager.KeywordPlural())
 		handler := db.NewJointModelHandler(manager)
 		dispatcher.AddJointModelDispatcher("", app, handler)
 	}

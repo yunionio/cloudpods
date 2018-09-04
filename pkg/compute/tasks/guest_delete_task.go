@@ -30,6 +30,19 @@ func (self *GuestDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 
 func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
+
+	eip, _ := guest.GetEip()
+	if eip != nil && eip.Mode != models.EIP_MODE_INSTANCE_PUBLICIP {
+		self.SetStage("on_eip_dissociate_complete", nil)
+		eip.StartEipDissociateTask(ctx, self.UserCred, self.GetTaskId())
+	} else {
+		self.OnEipDissociateComplete(ctx, obj, nil)
+	}
+}
+
+func (self *GuestDeleteTask) OnEipDissociateComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+
 	if options.Options.EnablePendingDelete && !guest.PendingDeleted &&
 		!jsonutils.QueryBoolean(self.Params, "purge", false) &&
 		!jsonutils.QueryBoolean(self.Params, "override_pending_delete", false) {

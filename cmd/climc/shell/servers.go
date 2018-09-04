@@ -65,6 +65,8 @@ func init() {
 		AdminSecgroup string `help:"AdminSecgroup ID or Name"`
 		Hypervisor    string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun"`
 		Manager       string `help:"Show servers imported from manager"`
+		Region        string `help:"Show servers in cloudregion"`
+
 		BaseListOptions
 	}
 	R(&ServerListOptions{}, "server-list", "List virtual servers", func(s *mcclient.ClientSession, args *ServerListOptions) error {
@@ -101,6 +103,9 @@ func init() {
 		}
 		if len(args.Manager) > 0 {
 			params.Add(jsonutils.NewString(args.Manager), "manager")
+		}
+		if len(args.Region) > 0 {
+			params.Add(jsonutils.NewString(args.Region), "region")
 		}
 		result, err := modules.Servers.List(s, params)
 		if err != nil {

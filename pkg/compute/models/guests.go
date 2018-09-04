@@ -298,6 +298,24 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("host_id", sq)
 	}
 
+	regionFilter, _ := queryDict.GetString("region")
+	if len(regionFilter) > 0 {
+		regionObj, err := CloudregionManager.FetchByIdOrName(userCred.GetProjectId(), regionFilter)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError("cloud region %s not found", regionFilter)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		hosts := HostManager.Query().SubQuery()
+		zones := ZoneManager.Query().SubQuery()
+		sq := hosts.Query(hosts.Field("id"))
+		sq = sq.Join(zones, sqlchemy.Equals(hosts.Field("zone_id"), zones.Field("id")))
+		sq = sq.Filter(sqlchemy.Equals(zones.Field("cloudregion_id"), regionObj.GetId()))
+		q = q.In("host_id", sq)
+	}
+
 	gpu, _ := queryDict.GetString("gpu")
 	if len(gpu) != 0 {
 		isodev := IsolatedDeviceManager.Query().SubQuery()
@@ -924,6 +942,10 @@ func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 		}
 	}
 	extra.Add(jsonutils.NewString(strings.Join(self.getRealIPs(), ",")), "ips")
+	eip, _ := self.GetEip()
+	if eip != nil {
+		extra.Add(jsonutils.NewString(eip.IpAddr), "eip")
+	}
 	extra.Add(jsonutils.NewInt(int64(self.getDiskSize())), "disk")
 	// flavor??
 	// extra.Add(jsonutils.NewString(self.getFlavorName()), "flavor")
@@ -988,6 +1010,10 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 			extra.Add(jsonutils.NewString(host.GetName()), "host")
 		}
 		extra.Add(jsonutils.NewString(self.getAdminSecurityRules()), "admin_security_rules")
+	}
+	eip, _ := self.GetEip()
+	if eip != nil {
+		extra.Add(jsonutils.NewString(eip.IpAddr), "eip")
 	}
 	return self.moreExtraInfo(extra)
 }
@@ -1120,6 +1146,10 @@ func (self *SGuest) getIPs() []string {
 	ips := self.getRealIPs()
 	vips := self.getVirtualIPs()
 	ips = append(ips, vips...)
+	eip, _ := self.GetEip()
+	if eip != nil {
+		ips = append(ips, eip.IpAddr)
+	}
 	return ips
 }
 
@@ -1127,6 +1157,14 @@ func (self *SGuest) getZone() *SZone {
 	host := self.GetHost()
 	if host != nil {
 		return host.GetZone()
+	}
+	return nil
+}
+
+func (self *SGuest) getRegion() *SCloudregion {
+	zone := self.getZone()
+	if zone != nil {
+		return zone.GetRegion()
 	}
 	return nil
 }
@@ -3499,4 +3537,137 @@ func (manager *SGuestManager) CleanPendingDeleteServers(ctx context.Context, use
 	for i := 0; i < len(guests); i += 1 {
 		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, true)
 	}
+}
+
+func (self *SGuest) GetEip() (*SElasticip, error) {
+	return ElasticipManager.getEipForInstance("server", self.Id)
+}
+
+func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP) compare.SyncResult {
+	result := compare.SyncResult{}
+
+	eip, err := self.GetEip()
+	if err != nil {
+		result.Error(fmt.Errorf("getEip error %s", err))
+		return result
+	}
+
+	if eip == nil && extEip == nil {
+		// do nothing
+	} else if eip == nil && extEip != nil {
+		// add
+		neip, err := ElasticipManager.getEipByExtEip(userCred, extEip, self.getRegion())
+		if err != nil {
+			result.AddError(err)
+		} else {
+			err = neip.AssociateVM(userCred, self)
+			if err != nil {
+				result.AddError(err)
+			} else {
+				result.Add()
+			}
+		}
+	} else if eip != nil && extEip == nil {
+		// remove
+		err = eip.Dissociate(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+		} else {
+			result.Delete()
+		}
+	} else {
+		// sync
+		if eip.IpAddr != extEip.GetIpAddr() {
+			// remove then add
+			err = eip.Dissociate(ctx, userCred)
+			if err != nil {
+				// fail to remove
+				result.DeleteError(err)
+			} else {
+				result.Delete()
+				neip, err := ElasticipManager.getEipByExtEip(userCred, extEip, self.getRegion())
+				if err != nil {
+					result.AddError(err)
+				} else {
+					err = neip.AssociateVM(userCred, self)
+					if err != nil {
+						result.AddError(err)
+					} else {
+						result.Add()
+					}
+				}
+			}
+		} else {
+			// do nothing
+			err := eip.SyncWithCloudEip(userCred, extEip)
+			if err != nil {
+				result.UpdateError(err)
+			} else {
+				result.Update()
+			}
+		}
+	}
+
+	return result
+}
+
+func (self *SGuest) GetIVM() (cloudprovider.ICloudVM, error) {
+	if len(self.ExternalId) == 0 {
+		msg := fmt.Sprintf("GetIVM: not managed by a provider")
+		log.Errorf(msg)
+		return nil, fmt.Errorf(msg)
+	}
+	host := self.GetHost()
+	if host == nil {
+		msg := fmt.Sprintf("GetIVM: No valid host")
+		log.Errorf(msg)
+		return nil, fmt.Errorf(msg)
+	}
+	ihost, err := host.GetIHost()
+	if err != nil {
+		msg := fmt.Sprintf("GetIVM: getihost fail %s", err)
+		log.Errorf(msg)
+		return nil, fmt.Errorf(msg)
+	}
+	return ihost.GetIVMById(self.ExternalId)
+}
+
+func (self *SGuest) AllowPerformCreateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	bw, err := data.Int("bandwidth")
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("Missing bandwidth")
+	}
+
+	chargeType, _ := data.GetString("charge_type")
+	if len(chargeType) == 0 {
+		chargeType = EIP_CHARGE_TYPE_DEFAULT
+	}
+
+	if len(self.ExternalId) == 0 {
+		return nil, httperrors.NewInvalidStatusError("Not a managed VM")
+	}
+	host := self.GetHost()
+	if host == nil {
+		return nil, httperrors.NewInvalidStatusError("No host???")
+	}
+
+	_, err = host.GetDriver()
+	if err != nil {
+		return nil, httperrors.NewInvalidStatusError("No valid cloud provider")
+	}
+
+	region := host.GetRegion()
+	if region == nil {
+		return nil, httperrors.NewInvalidStatusError("No cloudregion???")
+	}
+
+	err = ElasticipManager.allocateEipAndAssociateVM(ctx, userCred, self, int(bw), chargeType, host.ManagerId, region.Id)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	return nil, nil
 }

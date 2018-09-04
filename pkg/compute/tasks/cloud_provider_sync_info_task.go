@@ -85,6 +85,8 @@ func syncCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider,
 			continue
 		}
 
+		syncRegionEips(ctx, provider, task, &localRegions[i], remoteRegions[i])
+
 		localZones, remoteZones := syncRegionZones(ctx, provider, task, &localRegions[i], remoteRegions[i])
 
 		syncRegionVPCs(ctx, provider, task, &localRegions[i], remoteRegions[i])
@@ -100,6 +102,25 @@ func syncCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider,
 			}
 		}
 	}
+}
+
+func syncRegionEips(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localRegion *models.SCloudregion, remoteRegion cloudprovider.ICloudRegion) {
+	eips, err := remoteRegion.GetIEips()
+	if err != nil {
+		msg := fmt.Sprintf("GetIEips for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		logSyncFailed(provider, task, msg)
+		return
+	}
+
+	result := models.ElasticipManager.SyncEips(ctx, task.UserCred, provider, localRegion, eips)
+	msg := result.Result()
+	log.Infof("SyncEips for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		logSyncFailed(provider, task, msg)
+		return
+	}
+	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
 }
 
 func syncRegionZones(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localRegion *models.SCloudregion, remoteRegion cloudprovider.ICloudRegion) ([]models.SZone, []cloudprovider.ICloudZone) {
@@ -342,6 +363,7 @@ func syncHostVMs(ctx context.Context, provider *models.SCloudprovider, task *Clo
 	for i := 0; i < len(localVMs); i += 1 {
 		syncVMNics(ctx, provider, task, localHost, &localVMs[i], remoteVMs[i])
 		syncVMDisks(ctx, provider, task, localHost, &localVMs[i], remoteVMs[i])
+		syncVMEip(ctx, provider, task,  &localVMs[i], remoteVMs[i])
 	}
 }
 
@@ -374,6 +396,24 @@ func syncVMDisks(ctx context.Context, provider *models.SCloudprovider, task *Clo
 	result := localVM.SyncVMDisks(ctx, task.UserCred, host, disks)
 	msg := result.Result()
 	log.Infof("syncVMNics for VM %s result: %s", localVM.Name, msg)
+	if result.IsError() {
+		logSyncFailed(provider, task, msg)
+		return
+	}
+	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
+}
+
+func syncVMEip(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localVM *models.SGuest, remoteVM cloudprovider.ICloudVM) {
+	eip, err := remoteVM.GetIEIP()
+	if err != nil {
+		msg := fmt.Sprintf("GetIEIP for VM %s failed %s", remoteVM.GetName(), err)
+		log.Errorf(msg)
+		logSyncFailed(provider, task, msg)
+		return
+	}
+	result := localVM.SyncVMEip(ctx, task.UserCred, eip)
+	msg := result.Result()
+	log.Infof("syncVMEip for VM %s result: %s", localVM.Name, msg)
 	if result.IsError() {
 		logSyncFailed(provider, task, msg)
 		return

@@ -29,6 +29,7 @@ type ICloudRegion interface {
 
 	GetIZones() ([]ICloudZone, error)
 	GetIVpcs() ([]ICloudVpc, error)
+	GetIEips() ([]ICloudEIP, error)
 
 	GetIZoneById(id string) (ICloudZone, error)
 	GetIVpcById(id string) (ICloudVpc, error)
@@ -37,6 +38,10 @@ type ICloudRegion interface {
 	GetIStoragecacheById(id string) (ICloudStoragecache, error)
 
 	CreateIVpc(name string, desc string, cidr string) (ICloudVpc, error)
+
+	CreateEIP(bwMbps int) (ICloudEIP, error)
+
+	GetIEipById(id string) (ICloudEIP, error)
 
 	GetProvider() string
 }
@@ -130,7 +135,7 @@ type ICloudVM interface {
 	GetIDisks() ([]ICloudDisk, error)
 	GetINics() ([]ICloudNic, error)
 
-	GetEIP() ICloudEIP
+	GetIEIP() (ICloudEIP, error)
 
 	// GetStatus() string
 	// GetRemoteStatus() string
@@ -171,9 +176,25 @@ type ICloudNic interface {
 }
 
 type ICloudEIP interface {
-	GetIP() string
-	GetAllocationId() string
-	GetChargeType() string
+	ICloudResource
+
+	GetIpAddr() string
+	GetMode() string
+	GetAssociationType() string
+	GetAssociationExternalId() string
+
+	GetBandwidth() int
+
+	GetInternetChargeType() string
+
+	GetManagerId() string
+
+	Delete() error
+
+	Associate(instanceId string) error
+	Dissociate() error
+
+	ChangeBandwidth(bw int) error
 }
 
 type ICloudSecurityGroup interface {
