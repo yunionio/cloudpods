@@ -33,8 +33,10 @@ type clusterBaseOptions struct {
 	Cluster string `default:"$K8S_CLUSTER|default" help:"Kubernetes cluster name"`
 }
 
-func (o clusterBaseOptions) ClusterContext() []modules.ManagerContext {
-	return []modules.ManagerContext{clusterContext(o.Cluster)}
+func (o clusterBaseOptions) ClusterParams() *jsonutils.JSONDict {
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.NewString(o.Cluster), "cluster")
+	return ret
 }
 
 type baseListOptions struct {
@@ -70,7 +72,7 @@ type resourceGetOptions struct {
 }
 
 func (o resourceGetOptions) ToJSON() *jsonutils.JSONDict {
-	params := jsonutils.NewDict()
+	params := o.ClusterParams()
 	if o.Namespace != "" {
 		params.Add(jsonutils.NewString(o.Namespace), "namespace")
 	}
