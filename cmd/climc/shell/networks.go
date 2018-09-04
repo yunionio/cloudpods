@@ -142,6 +142,15 @@ func init() {
 		return nil
 	})
 
+	R(&NetworkShowOptions{}, "network-metadata", "Show metadata of a network", func(s *mcclient.ClientSession, args *NetworkShowOptions) error {
+		result, err := modules.Networks.GetMetadata(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	R(&NetworkShowOptions{}, "network-private", "Make a network private", func(s *mcclient.ClientSession, args *NetworkShowOptions) error {
 		result, err := modules.Networks.PerformAction(s, args.ID, "private", nil)
 		if err != nil {
@@ -285,6 +294,104 @@ func init() {
 			return err
 		}
 		printObject(net)
+		return nil
+	})
+
+	type NetworkStaticRoutesOptions struct {
+		NETWORK string   `help:"ID or name of the network"`
+		Net     []string `help:"destination network of static route"`
+		Gw      []string `help:"gateway address for the static route"`
+	}
+	R(&NetworkStaticRoutesOptions{}, "network-set-static-routes", "Set static routes for a network", func(s *mcclient.ClientSession, args *NetworkStaticRoutesOptions) error {
+		params := jsonutils.NewDict()
+		if len(args.Net) > 0 && len(args.Gw) > 0 {
+			if len(args.Net) != len(args.Gw) {
+				return fmt.Errorf("Inconsistent network and gateway pairs")
+			}
+			routes := jsonutils.NewDict()
+			for i := 0; i < len(args.Net); i += 1 {
+				routes.Add(jsonutils.NewString(args.Gw[i]), args.Net[i])
+			}
+			params.Add(routes, "static_routes")
+		} else {
+			params.Add(jsonutils.JSONNull, "static_routes")
+		}
+		result, err := modules.Networks.PerformAction(s, args.NETWORK, "metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type NetworkAddDnsUpdateTargetOptions struct {
+		ID     string `help:"Network ID or name"`
+		DNS    string `help:"DNS server address" metavar:"DNS_SERVER"`
+		KEY    string `help:"DNS update key name" metavar:"DNS_UPDATE_KEY"`
+		SECRET string `help:"DNS update key secret" metavar:"DNS_UPDATE_SECRET"`
+	}
+	R(&NetworkAddDnsUpdateTargetOptions{}, "network-add-dns-update-target", "Add a dns update target to a network", func(s *mcclient.ClientSession, args *NetworkAddDnsUpdateTargetOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.DNS), "server")
+		params.Add(jsonutils.NewString(args.KEY), "key")
+		params.Add(jsonutils.NewString(args.SECRET), "secret")
+		result, err := modules.Networks.PerformAction(s, args.ID, "add-dns-update-target", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type NetworkRemoveDnsUpdateTargetOptions struct {
+		ID  string `help:"Network ID or name"`
+		DNS string `help:"DNS server address" metavar:"DNS_SERVER"`
+		KEY string `help:"DNS update key name" metavar:"DNS_UPDATE_KEY"`
+	}
+	R(&NetworkRemoveDnsUpdateTargetOptions{}, "network-remove-dns-update-target", "Remove a dns update target from a network", func(s *mcclient.ClientSession, args *NetworkRemoveDnsUpdateTargetOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.DNS), "server")
+		params.Add(jsonutils.NewString(args.KEY), "key")
+		result, err := modules.Networks.PerformAction(s, args.ID, "remove-dns-update-target", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type NetworkSetDnsUpdateKeyOptions struct {
+		ID     string `help:"ID of virtual network to update"`
+		KEY    string `help:"Key name of secret" metavar:"KEYNAME"`
+		SECRET string `help:"Key secret"`
+		SERVER string `help:"Alternate DNS update server"`
+	}
+	R(&NetworkSetDnsUpdateKeyOptions{}, "network-set-dns-update-key", "Set DNS update key info for a virtual network", func(s *mcclient.ClientSession, args *NetworkSetDnsUpdateKeyOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.KEY), "dns_update_key_name")
+		params.Add(jsonutils.NewString(args.SECRET), "dns_update_key_secret")
+		params.Add(jsonutils.NewString(args.SERVER), "dns_update_server")
+		result, err := modules.Networks.PerformAction(s, args.ID, "metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type NetworkRemoveDnsUpdateKeyOptions struct {
+		ID string `help:"ID of virtual network"`
+	}
+	R(&NetworkRemoveDnsUpdateKeyOptions{}, "network-remove-dns-update-key", "Set DNS update key info for a virtual network", func(s *mcclient.ClientSession, args *NetworkRemoveDnsUpdateKeyOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.JSONNull, "dns_update_key_name")
+		params.Add(jsonutils.JSONNull, "dns_update_key_secret")
+		params.Add(jsonutils.JSONNull, "dns_update_server")
+		result, err := modules.Networks.PerformAction(s, args.ID, "metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
 		return nil
 	})
 

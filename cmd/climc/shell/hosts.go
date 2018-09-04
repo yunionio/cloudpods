@@ -474,4 +474,38 @@ func init() {
 		return nil
 	})
 
+	type HostCreateOptions struct {
+		ZONE       string `help:"Zone where the host is located"`
+		NAME       string `help:"Name of baremetal"`
+		MAC        string `help:"Default MAC address of baremetal"`
+		Rack       string `help:"Rack number of baremetal"`
+		Slots      string `help:"Slots number of baremetal"`
+		IpmiPasswd string `help:"IPMI user password"`
+		IpmiAddr   string `help:"IPMI IP address"`
+	}
+	R(&HostCreateOptions{}, "host-create", "Create a baremetal host", func(s *mcclient.ClientSession, args *HostCreateOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.NAME), "name")
+		params.Add(jsonutils.NewString(args.MAC), "access_mac")
+		params.Add(jsonutils.NewString("baremetal"), "host_type")
+		if len(args.Rack) > 0 {
+			params.Add(jsonutils.NewString(args.Rack), "rack")
+		}
+		if len(args.Slots) > 0 {
+			params.Add(jsonutils.NewString(args.Slots), "slots")
+		}
+		if len(args.IpmiPasswd) > 0 {
+			params.Add(jsonutils.NewString(args.IpmiPasswd), "ipmi_password")
+		}
+		if len(args.IpmiAddr) > 0 {
+			params.Add(jsonutils.NewString(args.IpmiAddr), "ipmi_ip_addr")
+		}
+		result, err := modules.Hosts.CreateInContext(s, params, &modules.Zones, args.ZONE)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 }
