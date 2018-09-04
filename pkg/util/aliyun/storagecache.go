@@ -101,7 +101,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		log.Errorf("GetOssClient err %s", err)
 		return "", err
 	}
-	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s", self.region.GetId()))
+	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s-%s", self.region.GetId(), self.region.client.providerId))
 	exist, err := oss.IsBucketExist(bucketName)
 	if err != nil {
 		log.Errorf("IsBucketExist err %s", err)
