@@ -23,7 +23,7 @@ func TestKubectlExec_Command(t *testing.T) {
 		{
 			name: "bash command",
 			fields: fields{
-				Kubectl: NewKubectlCommand("system"),
+				Kubectl: NewKubectlCommand("/tmp/kubeconfig", "system"),
 			},
 			args: args{
 				cmd:  "bash",
