@@ -17,7 +17,7 @@ type rawDeleteOpt struct {
 
 func initRaw() {
 	R(&rawGetOpt{}, "k8s-get", "Get k8s resource instance raw info", func(s *mcclient.ClientSession, args *rawGetOpt) error {
-		obj, err := k8s.RawResource.Get(s, args.KIND, args.Namespace, args.NAME, nil, args.ClusterContext())
+		obj, err := k8s.RawResource.Get(s, args.KIND, args.Namespace, args.NAME, args.ClusterParams())
 		if err != nil {
 			return err
 		}
@@ -26,7 +26,7 @@ func initRaw() {
 	})
 
 	R(&rawDeleteOpt{}, "k8s-delete", "Delete k8s resource instance", func(s *mcclient.ClientSession, args *rawDeleteOpt) error {
-		err := k8s.RawResource.Delete(s, args.KIND, args.Namespace, args.NAME, nil, args.ClusterContext())
+		err := k8s.RawResource.Delete(s, args.KIND, args.Namespace, args.NAME, args.ClusterParams())
 		if err != nil {
 			return err
 		}

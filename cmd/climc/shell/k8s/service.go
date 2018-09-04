@@ -17,7 +17,8 @@ func initService() {
 	R(&listOpt{}, cmdN("list"), "List k8s service", func(s *mcclient.ClientSession, args *listOpt) error {
 		params := fetchNamespaceParams(args.namespaceListOptions)
 		params.Update(fetchPagingParams(args.baseListOptions))
-		ret, err := k8s.Services.ListInContexts(s, params, args.ClusterContext())
+		params.Update(args.ClusterParams())
+		ret, err := k8s.Services.List(s, params)
 		if err != nil {
 			return err
 		}
