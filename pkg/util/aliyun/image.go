@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -71,6 +72,10 @@ func (self *SImage) IsEmulated() bool {
 	return false
 }
 
+func (self *SImage) Delete() error {
+	return self.storageCache.region.DeleteImage(self.ImageId)
+}
+
 func (self *SImage) GetGlobalId() string {
 	return fmt.Sprintf("%s-%s")
 }
@@ -100,6 +105,32 @@ func (self *SImage) Refresh() error {
 		return err
 	}
 	return jsonutils.Update(self, new)
+}
+
+type ImageExportTask struct {
+	ImageId  string
+	RegionId string
+	// RequestId string
+	TaskId string
+}
+
+func (self *SRegion) ExportImage(imageId string, bucket *oss.Bucket) (*ImageExportTask, error) {
+	params := make(map[string]string)
+	params["RegionId"] = self.RegionId
+	params["ImageId"] = imageId
+	params["OssBucket"] = bucket.BucketName
+	params["OssPrefix"] = fmt.Sprintf("%sexport", strings.Replace(imageId, "-", "", -1))
+
+	if body, err := self.ecsRequest("ExportImage", params); err != nil {
+		return nil, err
+	} else {
+		result := ImageExportTask{}
+		if err := body.Unmarshal(&result); err != nil {
+			log.Errorf("unmarshal result error %s", err)
+			return nil, err
+		}
+		return &result, nil
+	}
 }
 
 // {"ImageId":"m-j6c1qlpa7oebbg1n2k60","RegionId":"cn-hongkong","RequestId":"F8B2F6A1-F6AA-4C92-A54C-C4A309CF811F","TaskId":"t-j6c1qlpa7oebbg1rcl9t"}

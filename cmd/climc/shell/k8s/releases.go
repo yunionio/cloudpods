@@ -29,6 +29,7 @@ func initRelease() {
 	R(&listOpt{}, cmdN("list"), "List k8s cluster helm releases", func(s *mcclient.ClientSession, args *listOpt) error {
 		params := fetchNamespaceParams(args.namespaceListOptions)
 		params.Update(fetchPagingParams(args.baseListOptions))
+		params.Update(args.ClusterParams())
 		if args.Filter != "" {
 			params.Add(json.NewString(args.Filter), "filter")
 		}
@@ -57,7 +58,7 @@ func initRelease() {
 		if args.Pending {
 			params.Add(json.JSONTrue, "pending")
 		}
-		ret, err := k8s.Releases.ListInContexts(s, params, args.ClusterContext())
+		ret, err := k8s.Releases.List(s, params)
 		if err != nil {
 			return err
 		}
@@ -70,7 +71,7 @@ func initRelease() {
 		NAME string `help:"Release instance name"`
 	}
 	R(&showOpt{}, cmdN("show"), "Get helm release details", func(s *mcclient.ClientSession, args *showOpt) error {
-		ret, err := k8s.Releases.GetInContexts(s, args.NAME, nil, args.ClusterContext())
+		ret, err := k8s.Releases.Get(s, args.NAME, args.ClusterParams())
 		if err != nil {
 			return err
 		}
@@ -121,6 +122,7 @@ func initRelease() {
 		if err != nil {
 			return err
 		}
+		params.Update(args.ClusterParams())
 		params.Add(json.NewString(args.CHARTNAME), "chart_name")
 		if args.Namespace != "" {
 			params.Add(json.NewString(args.Namespace), "namespace")
@@ -128,7 +130,7 @@ func initRelease() {
 		if args.Name != "" {
 			params.Add(json.NewString(args.Name), "release_name")
 		}
-		ret, err := k8s.Releases.CreateInContexts(s, params, args.ClusterContext())
+		ret, err := k8s.Releases.Create(s, params)
 		if err != nil {
 			return err
 		}
@@ -149,6 +151,7 @@ func initRelease() {
 		if err != nil {
 			return err
 		}
+		params.Update(args.ClusterParams())
 		params.Add(json.NewString(args.CHARTNAME), "chart_name")
 		params.Add(json.NewString(args.NAME), "release_name")
 		if args.ReuseValues {
@@ -158,7 +161,7 @@ func initRelease() {
 			params.Add(json.JSONTrue, "reset_values")
 		}
 
-		res, err := k8s.Releases.PutInContexts(s, args.NAME, params, args.ClusterContext())
+		res, err := k8s.Releases.Put(s, args.NAME, params)
 		if err != nil {
 			return err
 		}
@@ -171,7 +174,7 @@ func initRelease() {
 		NAME string `help:"Release instance name"`
 	}
 	R(&deleteOpt{}, cmdN("delete"), "Delete release", func(s *mcclient.ClientSession, args *deleteOpt) error {
-		_, err := k8s.Releases.DeleteInContexts(s, args.NAME, nil, args.ClusterContext())
+		_, err := k8s.Releases.Delete(s, args.NAME, args.ClusterParams())
 		return err
 	})
 }

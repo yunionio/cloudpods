@@ -239,3 +239,15 @@ func (self *SDisk) GetDiskType() string {
 	}
 	return models.DISK_TYPE_DATA
 }
+
+func (self *SDisk) CreateISnapshot(name, desc string) (cloudprovider.ICloudSnapshot, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}

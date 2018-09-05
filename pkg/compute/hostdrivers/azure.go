@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type SAzureHostDriver struct {
@@ -119,4 +120,13 @@ func (self *SAzureHostDriver) RequestResizeDiskOnHost(host *models.SHost, storag
 		task.ScheduleRun(jsonutils.Marshal(map[string]int64{"disk_size": size}))
 	}
 	return nil
+}
+
+func (self *SAzureHostDriver) RequestPrepareSaveDiskOnHost(ctx context.Context, host *models.SHost, disk *models.SDisk, imageId string, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SAzureHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, host *models.SHost, disk *models.SDisk, imageId string, task taskman.ITask, data jsonutils.JSONObject) error {
+	return httperrors.NewNotImplementedError("not implement")
 }

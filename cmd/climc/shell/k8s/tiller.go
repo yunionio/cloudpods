@@ -28,7 +28,7 @@ func initTiller() {
 		MaxHistory int `json:"history_max"`
 	}
 	R(&createOpt{}, cmdN("create"), "Install helm tiller server to Kubernetes cluster", func(s *mcclient.ClientSession, args *createOpt) error {
-		params := json.NewDict()
+		params := args.ClusterParams()
 		if len(args.KubeContext) > 0 {
 			params.Add(json.NewString(args.KubeContext), "kube_context")
 		}
@@ -46,7 +46,7 @@ func initTiller() {
 		if args.MaxHistory > 0 {
 			params.Add(json.NewInt(int64(args.MaxHistory)), "history_max")
 		}
-		ret, err := k8s.Tiller.CreateInContexts(s, params, args.ClusterContext())
+		ret, err := k8s.Tiller.Create(s, params)
 		if err != nil {
 			return err
 		}

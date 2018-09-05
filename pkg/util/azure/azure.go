@@ -2,13 +2,13 @@ package azure
 
 import (
 	"context"
-	"reflect"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/preview/subscription/mgmt/2018-03-01-preview/subscription"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 
 	"github.com/Azure/go-autorest/autorest"
+	azureenv "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 
 	"yunion.io/x/jsonutils"
@@ -24,13 +24,6 @@ const (
 
 	AZURE_API_VERSION = "2018-04-01"
 )
-
-var authAddr = map[string]string{
-	"https://management.azure.com":         "https://login.microsoftonline.com",
-	"https://management.usgovcloudapi.net": "https://login.microsoftonline.us",
-	"https://management.chinacloudapi.cn":  "https://login.chinacloudapi.cn",
-	"https://management.microsoftazure.de": "https://login.microsoftonline.de",
-}
 
 var DefaultResourceGroup = map[string]string{
 	"disk":     "YunionDiskResource",
@@ -50,18 +43,23 @@ type SAzureClient struct {
 	clientScret    string
 	baseUrl        string
 	secret         string
+	envName        string
+	env            azureenv.Environment
 	authorizer     autorest.Authorizer
 	iregions       []cloudprovider.ICloudRegion
 }
 
-func NewAzureClient(providerId string, providerName string, accessKey string, secret string, url string) (*SAzureClient, error) {
-	if _, ok := authAddr[url]; !ok {
-		return nil, httperrors.NewUnauthorizedError("Access url choices: %v", reflect.ValueOf(authAddr).MapKeys())
-	}
+func NewAzureClient(providerId string, providerName string, accessKey string, secret string, envName string) (*SAzureClient, error) {
 	if clientInfo, accountInfo := strings.Split(secret, "/"), strings.Split(accessKey, "/"); len(clientInfo) == 2 && len(accountInfo) == 2 {
-		client := SAzureClient{providerId: providerId, providerName: providerName, secret: secret, baseUrl: url}
+		client := SAzureClient{providerId: providerId, providerName: providerName, secret: secret, envName: envName}
 		client.clientId, client.clientScret = clientInfo[0], clientInfo[1]
 		client.tenantId, client.subscriptionId = accountInfo[0], accountInfo[1]
+		if env, err := azureenv.EnvironmentFromName(envName); err != nil {
+			return nil, err
+		} else {
+			client.env = env
+			client.baseUrl = env.ResourceManagerEndpoint
+		}
 		if err := client.fetchAzureInof(); err != nil {
 			return nil, err
 		} else if err := client.fetchRegions(); err != nil {
@@ -114,8 +112,8 @@ func (self *SAzureClient) fetchAzueResourceGroup() error {
 
 func (self *SAzureClient) fetchAzureInof() error {
 	conf := auth.NewClientCredentialsConfig(self.clientId, self.clientScret, self.tenantId)
-	conf.Resource = self.baseUrl
-	conf.AADEndpoint = authAddr[self.baseUrl]
+	conf.Resource = self.env.ResourceManagerEndpoint
+	conf.AADEndpoint = self.env.ActiveDirectoryEndpoint
 	if authorizer, err := conf.Authorizer(); err != nil {
 		return err
 	} else {
@@ -124,14 +122,20 @@ func (self *SAzureClient) fetchAzureInof() error {
 	return nil
 }
 
-func (self *SAzureClient) UpdateAccount(tenantId, secret string) error {
-	if self.tenantId != tenantId || self.secret != secret {
+func (self *SAzureClient) UpdateAccount(tenantId, secret, envName string) error {
+	if self.tenantId != tenantId || self.secret != secret || self.envName != envName {
+		if env, err := azureenv.EnvironmentFromName(envName); err != nil {
+			return err
+		} else {
+			self.env = env
+			self.baseUrl = env.ResourceManagerEndpoint
+		}
 		if clientInfo, accountInfo := strings.Split(secret, "/"), strings.Split(tenantId, "/"); len(clientInfo) == 2 && len(accountInfo) == 2 {
 			self.clientId, self.clientScret = clientInfo[0], clientInfo[1]
 			self.tenantId, self.subscriptionId = accountInfo[0], accountInfo[1]
 			conf := auth.NewClientCredentialsConfig(self.clientId, self.clientScret, self.tenantId)
-			conf.Resource = self.baseUrl
-			conf.AADEndpoint = strings.Replace(self.baseUrl, "management", "login", -1)
+			conf.Resource = self.env.ResourceManagerEndpoint
+			conf.AADEndpoint = self.env.ActiveDirectoryEndpoint
 			if authorizer, err := conf.Authorizer(); err != nil {
 				return err
 			} else {

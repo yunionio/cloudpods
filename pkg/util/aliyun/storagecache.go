@@ -2,13 +2,17 @@ package aliyun
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	compute "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -106,7 +110,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		log.Errorf("GetOssClient err %s", err)
 		return "", err
 	}
-	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s", self.region.GetId()))
+	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s-%s", self.region.GetId(), self.region.client.providerId))
 	exist, err := oss.IsBucketExist(bucketName)
 	if err != nil {
 		log.Errorf("IsBucketExist err %s", err)
@@ -172,4 +176,128 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 	}
 
 	return task.ImageId, nil
+}
+
+func (self *SStoragecache) CreateIImage(snapshoutId, imageName, imageDesc string) (cloudprovider.ICloudImage, error) {
+	if imageId, err := self.region.createIImage(snapshoutId, imageName, imageDesc); err != nil {
+		return nil, err
+	} else if image, err := self.region.GetImage(imageId); err != nil {
+		return nil, err
+	} else {
+		image.storageCache = self
+		iimage := make([]cloudprovider.ICloudImage, 1)
+		iimage[0] = image
+		if err := cloudprovider.WaitStatus(iimage[0], compute.IMAGE_STATUS_ACTIVE, 15*time.Second, 3600*time.Second); err != nil {
+			return nil, err
+		}
+		return iimage[0], nil
+	}
+}
+
+func (self *SRegion) CheckBucket(bucketName string) (*oss.Bucket, error) {
+	return self.checkBucket(bucketName)
+}
+
+func (self *SRegion) checkBucket(bucketName string) (*oss.Bucket, error) {
+	oss, err := self.GetOssClient()
+	if err != nil {
+		log.Errorf("GetOssClient err %s", err)
+		return nil, err
+	}
+	if exist, err := oss.IsBucketExist(bucketName); err != nil {
+		log.Errorf("IsBucketExist err %s", err)
+		return nil, err
+	} else if !exist {
+		log.Debugf("Bucket %s not exists, to create ...", bucketName)
+		if err := oss.CreateBucket(bucketName); err != nil {
+			log.Errorf("Create bucket error %s", err)
+			return nil, err
+		}
+	}
+	log.Debugf("Bucket %s exists", bucketName)
+	if bucket, err := oss.Bucket(bucketName); err != nil {
+		log.Errorf("Bucket error %s %s", bucketName, err)
+		return nil, err
+	} else {
+		return bucket, nil
+	}
+}
+
+func (self *SRegion) createIImage(snapshoutId, imageName, imageDesc string) (string, error) {
+	params := make(map[string]string)
+	params["RegionId"] = self.RegionId
+	params["OssBucket"] = strings.ToLower(fmt.Sprintf("imgcache-%s", self.GetId()))
+	params["SnapshotId"] = snapshoutId
+	params["ImageName"] = imageName
+	params["Description"] = imageDesc
+
+	if _, err := self.checkBucket(params["OssBucket"]); err != nil {
+		return "", err
+	}
+
+	if body, err := self.ecsRequest("CreateImage", params); err != nil {
+		log.Errorf("CreateImage fail %s", err)
+		return "", err
+	} else {
+		log.Infof("%s", body)
+		return body.GetString("ImageId")
+	}
+}
+
+func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error) {
+	return self.downloadImage(userCred, imageId, extId)
+}
+
+// 定义进度条监听器。
+type OssProgressListener struct {
+}
+
+// 定义进度变更事件处理函数。
+func (listener *OssProgressListener) ProgressChanged(event *oss.ProgressEvent) {
+	switch event.EventType {
+	case oss.TransferStartedEvent:
+		log.Debugf("Transfer Started, ConsumedBytes: %d, TotalBytes %d.\n",
+			event.ConsumedBytes, event.TotalBytes)
+	case oss.TransferDataEvent:
+		log.Debugf("\rTransfer Data, ConsumedBytes: %d, TotalBytes %d, %d%%.",
+			event.ConsumedBytes, event.TotalBytes, event.ConsumedBytes*100/event.TotalBytes)
+	case oss.TransferCompletedEvent:
+		log.Debugf("\nTransfer Completed, ConsumedBytes: %d, TotalBytes %d.\n",
+			event.ConsumedBytes, event.TotalBytes)
+	case oss.TransferFailedEvent:
+		log.Debugf("\nTransfer Failed, ConsumedBytes: %d, TotalBytes %d.\n",
+			event.ConsumedBytes, event.TotalBytes)
+	default:
+	}
+}
+
+func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error) {
+	tmpImageFile := fmt.Sprintf("/tmp/%s", extId)
+	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s", self.region.GetId()))
+	if bucket, err := self.region.checkBucket(bucketName); err != nil {
+		return nil, err
+	} else if _, err := self.region.GetImage(extId); err != nil {
+		return nil, err
+	} else if task, err := self.region.ExportImage(extId, bucket); err != nil {
+		return nil, err
+	} else if err := self.region.waitTaskStatus(ExportImageTask, task.TaskId, "Finished", 15*time.Second, 3600*time.Second); err != nil {
+		return nil, err
+	} else if imageList, err := bucket.ListObjects(oss.Prefix(fmt.Sprintf("%sexport", strings.Replace(extId, "-", "", -1)))); err != nil {
+		return nil, err
+	} else if len(imageList.Objects) != 1 {
+		return nil, httperrors.NewResourceNotFoundError("exported image not find")
+	} else if err := bucket.DownloadFile(imageList.Objects[0].Key, tmpImageFile, 12*1024*1024, oss.Routines(3), oss.Progress(&OssProgressListener{})); err != nil {
+		return nil, err
+	} else {
+		s := auth.GetAdminSession(options.Options.Region, "")
+		params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
+		if file, err := os.Open(tmpImageFile); err != nil {
+			return nil, err
+		} else if result, err := modules.Images.Upload(s, params, file, imageList.Objects[0].Size); err != nil {
+			return nil, err
+		} else {
+			os.Remove(tmpImageFile)
+			return result, nil
+		}
+	}
 }

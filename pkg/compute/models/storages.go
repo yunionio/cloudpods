@@ -68,7 +68,7 @@ type SStorage struct {
 
 	Capacity    int                  `nullable:"false" list:"admin" update:"admin" create:"admin_required"`                            // Column(Integer, nullable=False) # capacity of disk in MB
 	Reserved    int                  `nullable:"true" default:"0" list:"admin" update:"admin"`                                         // Column(Integer, nullable=True, default=0)
-	StorageType string               `width:"32" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(32, charset='ascii'), nullable=False)
+	StorageType string               `width:"32" charset:"ascii" nullable:"false" list:"user" update:"admin" create:"admin_required"`  // Column(VARCHAR(32, charset='ascii'), nullable=False)
 	MediumType  string               `width:"32" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(32, charset='ascii'), nullable=False)
 	Cmtbound    float32              `nullable:"true" list:"admin" update:"admin"`                                                     // Column(Float, nullable=True)
 	StorageConf jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin"`                                                      // = Column(JSONEncodedDict, nullable=True)
@@ -103,6 +103,30 @@ func (self *SStorage) IsLocal() bool {
 
 func (manager *SStorageManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
+}
+
+func (self *SStorage) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	used := self.GetUsedCapacity(tristate.True)
+	waste := self.GetUsedCapacity(tristate.False)
+	vcapa := float32(self.GetCapacity()) * self.GetOvercommitBound()
+	extra.Add(jsonutils.NewInt(int64(used)), "used_capacity")
+	extra.Add(jsonutils.NewInt(int64(waste)), "waste_capacity")
+	extra.Add(jsonutils.NewFloat(float64(vcapa)), "virtual_capacity")
+	extra.Add(jsonutils.NewFloat(float64(vcapa-float32(used)-float32(waste))), "free_capacity")
+	if self.GetCapacity() > 0 {
+		value := float64(used * 1.0 / self.GetCapacity())
+		value = float64(int(value*100+0.5) / 100.0)
+		extra.Add(jsonutils.NewFloat(value), "commit_rate")
+	} else {
+		extra.Add(jsonutils.NewFloat(0.0), "commit_rate")
+	}
+	extra.Add(jsonutils.NewFloat(float64(self.GetOvercommitBound())), "commit_bound")
+	return extra
+}
+
+func (self *SStorage) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := self.SEnabledStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	return self.getMoreDetails(extra)
 }
 
 func (self *SStorage) GetUsedCapacity(isReady tristate.TriState) int {

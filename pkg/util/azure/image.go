@@ -6,6 +6,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -130,6 +131,27 @@ func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 	return &image, nil
 }
 
+func (self *SRegion) GetImageByName(imageId string) (*SImage, error) {
+	return self.GetImage(imageId)
+}
+
+func (self *SRegion) CreateImageByBlob(imageName, osType, blobURI string) (*SImage, error) {
+	imageClient := compute.NewImagesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
+	imageClient.Authorizer = self.client.authorizer
+	storageProfile := compute.ImageStorageProfile{OsDisk: &compute.ImageOSDisk{OsType: compute.OperatingSystemTypes(osType), OsState: compute.OperatingSystemStateTypes("Generalized"), BlobURI: &blobURI}}
+	params := compute.Image{Name: &imageName, Location: &self.Name, ImageProperties: &compute.ImageProperties{StorageProfile: &storageProfile}}
+	if result, err := imageClient.CreateOrUpdate(context.Background(), DefaultResourceGroup["image"], imageName, params); err != nil {
+		log.Errorf("Create image from blob error: %v", err)
+		return nil, err
+	} else if err := result.WaitForCompletion(context.Background(), imageClient.Client); err != nil {
+		return nil, err
+	} else if image, err := self.GetImageByName(imageName); err != nil {
+		return nil, err
+	} else {
+		return image, nil
+	}
+}
+
 func (self *SRegion) GetImages() ([]SImage, error) {
 	images := make([]SImage, 0)
 	imageClient := compute.NewImagesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
@@ -140,4 +162,8 @@ func (self *SRegion) GetImages() ([]SImage, error) {
 		return nil, err
 	}
 	return images, nil
+}
+
+func (self *SImage) Delete() error {
+	return cloudprovider.ErrNotImplemented
 }

@@ -18,7 +18,7 @@ func (self *SAzureProviderFactory) GetId() string {
 func (self *SAzureProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
 	provider, ok := self.providerTable[providerId]
 	if ok {
-		err := provider.client.UpdateAccount(account, secret)
+		err := provider.client.UpdateAccount(account, secret, url)
 		if err != nil {
 			return nil, err
 		} else {

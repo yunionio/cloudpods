@@ -27,6 +27,8 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 const (
@@ -358,6 +360,94 @@ func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 	}
 }
 
+func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
+	if storage := self.GetStorage(); storage == nil {
+		return nil, httperrors.NewResourceNotFoundError("fail to find storage for disk %s", self.GetName())
+	} else if provider, err := storage.GetDriver(); err != nil {
+		return nil, err
+	} else {
+		return provider.GetIStorageById(storage.GetExternalId())
+	}
+}
+
+func (self *SDisk) GetIDisk() (cloudprovider.ICloudDisk, error) {
+	if iStorage, err := self.GetIStorage(); err != nil {
+		log.Errorf("fail to find iStorage: %v", err)
+		return nil, err
+	} else {
+		return iStorage.GetIDisk(self.GetExternalId())
+	}
+}
+
+func (self *SDisk) GetZone() *SZone {
+	if storage := self.GetStorage(); storage != nil {
+		return storage.getZone()
+	}
+	return nil
+}
+
+func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (string, error) {
+	if zone := self.GetZone(); zone == nil {
+		return "", httperrors.NewResourceNotFoundError("No zone for this disk")
+	}
+	data.Add(jsonutils.NewString(self.DiskFormat), "disk_format")
+	name, _ := data.GetString("name")
+	s := auth.GetAdminSession(options.Options.Region, "")
+	if imageList, err := modules.Images.List(s, jsonutils.Marshal(map[string]string{"name": name, "admin": "true"})); err != nil {
+		return "", err
+	} else if imageList.Total > 0 {
+		return "", httperrors.NewConflictError("Duplicate image name %s", name)
+	}
+	quota := SQuota{Image: 1}
+	if _, err := QuotaManager.CheckQuota(ctx, userCred, userCred.GetProjectId(), &quota); err != nil {
+		return "", err
+	}
+	data.Add(jsonutils.NewInt(int64(self.DiskSize)), "virtual_size")
+	if result, err := modules.Images.Create(s, data); err != nil {
+		return "", err
+	} else if imageId, err := result.GetString("id"); err != nil {
+		return "", err
+	} else {
+		return imageId, nil
+	}
+}
+
+func (self *SDisk) AllowPerformSave(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SDisk) PerformSave(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Status != DISK_READY {
+		return nil, httperrors.NewResourceNotReadyError("Save disk when disk is READY")
+
+	}
+	if self.GetRuningGuestCount() > 0 {
+		return nil, httperrors.NewResourceNotReadyError("Save disk when not being USED")
+	}
+
+	if name, err := data.GetString("name"); err != nil || len(name) == 0 {
+		return nil, httperrors.NewInputParameterError("Image name is required")
+	}
+	kwargs := data.(*jsonutils.JSONDict)
+	if imageId, err := self.PrepareSaveImage(ctx, userCred, kwargs); err != nil {
+		return nil, err
+	} else {
+		kwargs.Add(jsonutils.NewString(imageId), "image_id")
+		return nil, self.StartDiskSaveTask(ctx, userCred, kwargs, "")
+	}
+}
+
+func (self *SDisk) StartDiskSaveTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
+	self.SetStatus(userCred, DISK_START_SAVE, "")
+	if task, err := taskman.TaskManager.NewTask(ctx, "DiskSaveTask", self, userCred, data, parentTaskId, "", nil); err != nil {
+		log.Errorf("Start DiskSaveTask failed:%v", err)
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
 func (self *SDisk) ValidateDeleteCondition(ctx context.Context) error {
 	if self.GetGuestDiskCount() > 0 {
 		return httperrors.NewNotEmptyError("Virtual disk used by virtual servers")
@@ -591,6 +681,7 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 		}
 	}
 
+	db.OpsLog.LogEvent(&disk, db.ACT_SYNC_CLOUD_DISK, disk.GetShortDesc(), userCred)
 	return &disk, nil
 }
 
@@ -923,6 +1014,14 @@ func (self *SDisk) GetShortDesc() *jsonutils.JSONDict {
 
 	if priceKey := self.GetMetadata("price_key", nil); len(priceKey) > 0 {
 		desc.Add(jsonutils.NewString(priceKey), "price_key")
+	}
+
+	if hypervisor := self.GetMetadata("hypervisor", nil); len(hypervisor) > 0 {
+		desc.Add(jsonutils.NewString(hypervisor), "hypervisor")
+	}
+
+	if len(self.ExternalId) > 0 {
+		desc.Add(jsonutils.NewString(self.ExternalId), "externalId")
 	}
 
 	fs := self.GetFsFormat()
