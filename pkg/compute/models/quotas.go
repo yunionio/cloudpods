@@ -71,7 +71,7 @@ func (self *SQuota) FetchUsage(projectId string) error {
 	diskSize := totalDiskSize(projectId, tristate.None, tristate.None, false)
 	net := totalGuestNicCount(projectId, nil, false)
 	guest := totalGuestResourceCount(projectId, nil, nil, "", false, false, "")
-
+	eipUsage := ElasticipManager.TotalCount(projectId)
 	// XXX
 	// keypair belongs to user
 	// keypair := totalKeypairCount(projectId)
@@ -80,7 +80,7 @@ func (self *SQuota) FetchUsage(projectId string) error {
 	self.Memory = guest.TotalMemSize
 	self.Storage = diskSize
 	self.Port = net.InternalNicCount + net.InternalVirtualNicCount
-	self.Eip = 0
+	self.Eip = eipUsage.Total()
 	self.Eport = net.ExternalNicCount + net.ExternalVirtualNicCount
 	self.Bw = net.InternalBandwidth
 	self.Ebw = net.ExternalBandwidth

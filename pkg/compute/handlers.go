@@ -56,6 +56,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.SecurityGroupRuleManager,
 		models.VCenterManager,
 		models.DnsRecordManager,
+		models.ElasticipManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
