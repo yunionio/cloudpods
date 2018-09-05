@@ -87,6 +87,10 @@ func (self *SCloudprovider) getStoragecacheCount() int {
 	return StoragecacheManager.Query().Equals("manager_id", self.Id).Count()
 }
 
+func (self *SCloudprovider) getEipCount() int {
+	return ElasticipManager.Query().Equals("manager_id", self.Id).Count()
+}
+
 func (self *SCloudprovider) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
@@ -384,7 +388,9 @@ func (manager *SCloudproviderManager) FetchCloudproviderById(providerId string) 
 func (manager *SCloudproviderManager) FetchCloudproviderByIdOrName(providerId string) *SCloudprovider {
 	providerObj, err := manager.FetchByIdOrName("", providerId)
 	if err != nil {
-		log.Errorf("%s", err)
+		if err != sql.ErrNoRows {
+			log.Errorf("%s", err)
+		}
 		return nil
 	}
 	return providerObj.(*SCloudprovider)
@@ -395,6 +401,7 @@ type SCloudproviderUsage struct {
 	VpcCount          int
 	StorageCount      int
 	StorageCacheCount int
+	EipCount 		  int
 }
 
 func (usage *SCloudproviderUsage) isEmpty() bool {
@@ -410,6 +417,9 @@ func (usage *SCloudproviderUsage) isEmpty() bool {
 	if usage.StorageCacheCount > 0 {
 		return false
 	}
+	if usage.EipCount > 0 {
+		return false
+	}
 	return true
 }
 
@@ -419,6 +429,7 @@ func (self *SCloudprovider) getUsage() *SCloudproviderUsage {
 	usage.VpcCount = self.getVpcCount()
 	usage.StorageCount = self.getStorageCount()
 	usage.StorageCacheCount = self.getStoragecacheCount()
+	usage.EipCount = self.getEipCount()
 
 	return &usage
 }

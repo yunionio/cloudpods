@@ -31,9 +31,10 @@ func init() {
 	}
 
 	shellutils.R(&DiskCreateOptions{}, "disk-create", "Create disk", func(cli *azure.SRegion, args *DiskCreateOptions) error {
+		resourceGroup, diskName := azure.PareResourceGroupWithName(args.NAME, azure.DISK_RESOURCE)
 		if err := cli.CreateDisk(args.StorageType, args.NAME, args.SizeGb, args.Desc); err != nil {
 			return err
-		} else if disk, err := cli.GetDisk(azure.DefaultResourceGroup["disk"], args.NAME); err != nil {
+		} else if disk, err := cli.GetDisk(resourceGroup, diskName); err != nil {
 			return err
 		} else {
 			printObject(disk)
@@ -49,7 +50,7 @@ func init() {
 	shellutils.R(&DiskDeleteOptions{}, "disk-delete", "Delete disks", func(cli *azure.SRegion, args *DiskDeleteOptions) error {
 		resourceGroup := args.ResourceGroup
 		if len(resourceGroup) == 0 {
-			resourceGroup = azure.DefaultResourceGroup["disk"]
+			resourceGroup, _ = azure.PareResourceGroupWithName(args.NAME, azure.DISK_RESOURCE)
 		}
 		if disk, err := cli.GetDisk(resourceGroup, args.NAME); err != nil {
 			return err

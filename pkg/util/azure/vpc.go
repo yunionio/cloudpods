@@ -64,8 +64,8 @@ func (self *SVpc) GetName() string {
 }
 
 func (self *SVpc) GetGlobalId() string {
-	resourceGroup, _, _ := PareResourceGroupWithName(self.ID)
-	return fmt.Sprintf("resourceGroups/%s/providers/vpc/%s", resourceGroup, self.Name)
+	resourceGroup, vpcName := PareResourceGroupWithName(self.ID, VPC_RESOURCE)
+	return fmt.Sprintf("resourceGroups/%s/providers/vpc/%s", resourceGroup, vpcName)
 }
 
 func (self *SVpc) IsEmulated() bool {
@@ -83,9 +83,8 @@ func (self *SVpc) GetCidrBlock() string {
 func (self *SVpc) Delete() error {
 	vpcClient := network.NewVirtualNetworksClientWithBaseURI(self.region.client.baseUrl, self.region.client.subscriptionId)
 	vpcClient.Authorizer = self.region.client.authorizer
-	if resourceGroup, vpcName, err := PareResourceGroupWithName(self.ID); err != nil {
-		return cloudprovider.ErrNotFound
-	} else if result, err := vpcClient.Delete(context.Background(), resourceGroup, vpcName); err != nil {
+	resourceGroup, vpcName := PareResourceGroupWithName(self.ID, VPC_RESOURCE)
+	if result, err := vpcClient.Delete(context.Background(), resourceGroup, vpcName); err != nil {
 		return err
 	} else if err := result.WaitForCompletion(context.Background(), vpcClient.Client); err != nil {
 		return err
@@ -197,10 +196,10 @@ func (self *SVpc) GetStatus() string {
 }
 
 func (self *SVpc) Refresh() error {
-	resourceGroup, _, _ := PareResourceGroupWithName(self.ID)
+	resourceGroup, vpcName := PareResourceGroupWithName(self.ID, VPC_RESOURCE)
 	vpcClient := network.NewVirtualNetworksClientWithBaseURI(self.region.client.baseUrl, self.region.SubscriptionID)
 	vpcClient.Authorizer = self.region.client.authorizer
-	if result, err := vpcClient.Get(context.Background(), resourceGroup, self.Name, ""); err != nil {
+	if result, err := vpcClient.Get(context.Background(), resourceGroup, vpcName, ""); err != nil {
 		return cloudprovider.ErrNotFound
 	} else if err := jsonutils.Update(self, result); err != nil {
 		return err
@@ -213,4 +212,8 @@ func (self *SVpc) addWire(wire *SWire) {
 		self.iwires = make([]cloudprovider.ICloudWire, 0)
 	}
 	self.iwires = append(self.iwires, wire)
+}
+
+func (self *SVpc) GetNetworks() []Subnet {
+	return self.Properties.Subnets
 }

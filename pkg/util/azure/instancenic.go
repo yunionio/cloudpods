@@ -4,18 +4,11 @@ import (
 	"context"
 	"strings"
 
-	"yunion.io/x/jsonutils"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/netutils"
-
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
 )
-
-type PublicIPAddressPropertiesFormat struct {
-	PublicIPAddressVersion string
-	IPAddress              string
-}
 
 type PublicIPAddress struct {
 	ID         string
@@ -25,11 +18,12 @@ type PublicIPAddress struct {
 }
 
 type InterfaceIPConfigurationPropertiesFormat struct {
-	PrivateIPAddress        string
-	PrivateIPAddressVersion string
-	Subnet                  Subnet
-	Primary                 bool
-	PublicIPAddress         PublicIPAddress
+	PrivateIPAddress          string
+	PrivateIPAddressVersion   string
+	PrivateIPAllocationMethod string
+	Subnet                    Subnet
+	Primary                   bool
+	PublicIPAddress           PublicIPAddress
 }
 
 type InterfaceIPConfiguration struct {
@@ -53,20 +47,24 @@ type SInstanceNic struct {
 	Properties InterfacePropertiesFormat
 }
 
-func (self *SRegion) getNetworkInterface(resourceGroup string, nicName string) (*SInstanceNic, error) {
-	nic := SInstanceNic{}
-	networkClient := network.NewInterfacesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-	networkClient.Authorizer = self.client.authorizer
-	if _nic, err := networkClient.Get(context.Background(), resourceGroup, nicName, ""); err != nil {
-		return nil, err
-	} else if err := jsonutils.Update(&nic, _nic); err != nil {
-		return nil, err
-	}
-	return &nic, nil
-}
-
 func (self *SInstanceNic) GetIP() string {
 	return self.Properties.IPConfigurations[0].Properties.PrivateIPAddress
+}
+
+func (region *SRegion) DeleteNetworkInterface(interfaceId string) error {
+	resourceGroup, nicName := PareResourceGroupWithName(interfaceId, NIC_RESOURCE)
+	networkClient := network.NewInterfacesClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
+	networkClient.Authorizer = region.client.authorizer
+	if result, err := networkClient.Delete(context.Background(), resourceGroup, nicName); err != nil {
+		return err
+	} else if err := result.WaitForCompletion(context.Background(), networkClient.Client); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (self *SInstanceNic) Delete() error {
+	return self.instance.host.zone.region.DeleteNetworkInterface(self.ID)
 }
 
 func (self *SInstanceNic) GetMAC() string {

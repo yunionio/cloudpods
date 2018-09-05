@@ -94,9 +94,7 @@ func (z *Reader) readHeader(first bool) error {
 	if n := 2 * bSize; cap(z.zdata) < n {
 		z.zdata = make([]byte, n, n)
 	}
-	if debugFlag {
-		debug("header block max size id=%d size=%d", bmsID, bSize)
-	}
+	debug("header block max size id=%d size=%d", bmsID, bSize)
 	z.zdata = z.zdata[:bSize]
 	z.data = z.zdata[:cap(z.zdata)][bSize:]
 	z.idx = len(z.data)
@@ -123,9 +121,7 @@ func (z *Reader) readHeader(first bool) error {
 	}
 
 	z.Header.done = true
-	if debugFlag {
-		debug("header read: %v", z.Header)
-	}
+	debug("header read: %v", z.Header)
 
 	return nil
 }
@@ -136,17 +132,13 @@ func (z *Reader) readHeader(first bool) error {
 // change between calls to Read(). If that is the case, no data is actually read from
 // the underlying io.Reader, to allow for potential input buffer resizing.
 func (z *Reader) Read(buf []byte) (int, error) {
-	if debugFlag {
-		debug("Read buf len=%d", len(buf))
-	}
+	debug("Read buf len=%d", len(buf))
 	if !z.Header.done {
 		if err := z.readHeader(true); err != nil {
 			return 0, err
 		}
-		if debugFlag {
-			debug("header read OK compressed buffer %d / %d uncompressed buffer %d : %d index=%d",
-				len(z.zdata), cap(z.zdata), len(z.data), cap(z.data), z.idx)
-		}
+		debug("header read OK compressed buffer %d / %d uncompressed buffer %d : %d index=%d",
+			len(z.zdata), cap(z.zdata), len(z.data), cap(z.data), z.idx)
 	}
 
 	if len(buf) == 0 {
@@ -155,9 +147,7 @@ func (z *Reader) Read(buf []byte) (int, error) {
 
 	if z.idx == len(z.data) {
 		// No data ready for reading, process the next block.
-		if debugFlag {
-			debug("reading block from writer")
-		}
+		debug("reading block from writer")
 		// Block length: 0 = end of frame, highest bit set: uncompressed.
 		bLen, err := z.readUint32()
 		if err != nil {
@@ -173,9 +163,7 @@ func (z *Reader) Read(buf []byte) (int, error) {
 				if err != nil {
 					return 0, err
 				}
-				if debugFlag {
-					debug("frame checksum got=%x / want=%x", z.checksum.Sum32(), checksum)
-				}
+				debug("frame checksum got=%x / want=%x", z.checksum.Sum32(), checksum)
 				z.pos += 4
 				if h := z.checksum.Sum32(); checksum != h {
 					return 0, fmt.Errorf("lz4: invalid frame checksum: got %x; expected %x", h, checksum)
@@ -191,15 +179,11 @@ func (z *Reader) Read(buf []byte) (int, error) {
 			return 0, z.readHeader(false)
 		}
 
-		if debugFlag {
-			debug("raw block size %d", bLen)
-		}
+		debug("raw block size %d", bLen)
 		if bLen&compressedBlockFlag > 0 {
 			// Uncompressed block.
 			bLen &= compressedBlockMask
-			if debugFlag {
-				debug("uncompressed block size %d", bLen)
-			}
+			debug("uncompressed block size %d", bLen)
 			if int(bLen) > cap(z.data) {
 				return 0, fmt.Errorf("lz4: invalid block size: %d", bLen)
 			}
@@ -223,9 +207,7 @@ func (z *Reader) Read(buf []byte) (int, error) {
 
 		} else {
 			// Compressed block.
-			if debugFlag {
-				debug("compressed block size %d", bLen)
-			}
+			debug("compressed block size %d", bLen)
 			if int(bLen) > cap(z.data) {
 				return 0, fmt.Errorf("lz4: invalid block size: %d", bLen)
 			}
@@ -256,18 +238,14 @@ func (z *Reader) Read(buf []byte) (int, error) {
 
 		if !z.NoChecksum {
 			z.checksum.Write(z.data)
-			if debugFlag {
-				debug("current frame checksum %x", z.checksum.Sum32())
-			}
+			debug("current frame checksum %x", z.checksum.Sum32())
 		}
 		z.idx = 0
 	}
 
 	n := copy(buf, z.data[z.idx:])
 	z.idx += n
-	if debugFlag {
-		debug("copied %d bytes to input", n)
-	}
+	debug("copied %d bytes to input", n)
 
 	return n, nil
 }

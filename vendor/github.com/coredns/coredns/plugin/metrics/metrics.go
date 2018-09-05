@@ -2,12 +2,10 @@
 package metrics
 
 import (
-	"context"
 	"net"
 	"net/http"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics/vars"
@@ -24,7 +22,6 @@ type Metrics struct {
 	ln      net.Listener
 	lnSetup bool
 	mux     *http.ServeMux
-	srv     *http.Server
 
 	zoneNames []string
 	zoneMap   map[string]bool
@@ -97,9 +94,9 @@ func (m *Metrics) OnStartup() error {
 
 	m.mux = http.NewServeMux()
 	m.mux.Handle("/metrics", promhttp.HandlerFor(m.Reg, promhttp.HandlerOpts{}))
-	m.srv = &http.Server{Handler: m.mux}
+
 	go func() {
-		m.srv.Serve(m.ln)
+		http.Serve(m.ln, m.mux)
 	}()
 	return nil
 }
@@ -109,28 +106,24 @@ func (m *Metrics) OnRestart() error {
 	if !m.lnSetup {
 		return nil
 	}
-	uniqAddr.Unset(m.Addr)
-	return m.stopServer()
-}
 
-func (m *Metrics) stopServer() error {
-	if !m.lnSetup {
-		return nil
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-	defer cancel()
-	if err := m.srv.Shutdown(ctx); err != nil {
-		log.Infof("Failed to stop prometheus http server: %s", err)
-		return err
-	}
-	m.lnSetup = false
+	uniqAddr.SetTodo(m.Addr)
+
 	m.ln.Close()
+	m.lnSetup = false
 	return nil
 }
 
 // OnFinalShutdown tears down the metrics listener on shutdown and restart.
 func (m *Metrics) OnFinalShutdown() error {
-	return m.stopServer()
+	// We allow prometheus statements in multiple Server Blocks, but only the first
+	// will open the listener, for the rest they are all nil; guard against that.
+	if !m.lnSetup {
+		return nil
+	}
+
+	m.lnSetup = false
+	return m.ln.Close()
 }
 
 func keys(m map[string]bool) []string {
@@ -144,10 +137,6 @@ func keys(m map[string]bool) []string {
 // ListenAddr is assigned the address of the prometheus listener. Its use is mainly in tests where
 // we listen on "localhost:0" and need to retrieve the actual address.
 var ListenAddr string
-
-// shutdownTimeout is the maximum amount of time the metrics plugin will wait
-// before erroring when it tries to close the metrics server
-const shutdownTimeout time.Duration = time.Second * 5
 
 var buildInfo = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 	Namespace: plugin.Namespace,

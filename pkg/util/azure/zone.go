@@ -3,8 +3,10 @@ package azure
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/utils"
 
@@ -118,9 +120,9 @@ func (self *SZone) getStorageByType(storageType string) (*SStorage, error) {
 		return nil, err
 	} else {
 		for i := 0; i < len(storages); i += 1 {
-			storage := storages[i].(*SStorage)
-			if storage.storageType == storageType {
-				return storage, nil
+			_storage := storages[i].(*SStorage)
+			if strings.ToLower(_storage.storageType) == strings.ToLower(storageType) {
+				return _storage, nil
 			}
 		}
 	}
@@ -148,4 +150,17 @@ func (self *SZone) addWire(wire *SWire) {
 
 func (self *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
 	return self.iwires, nil
+}
+
+func (self *SZone) getNetworkById(networId string) *SNetwork {
+	log.Debugf("Search in wires %d", len(self.iwires))
+	for i := 0; i < len(self.iwires); i += 1 {
+		log.Debugf("Search in wire %s", self.iwires[i].GetName())
+		wire := self.iwires[i].(*SWire)
+		net := wire.getNetworkById(networId)
+		if net != nil {
+			return net
+		}
+	}
+	return nil
 }

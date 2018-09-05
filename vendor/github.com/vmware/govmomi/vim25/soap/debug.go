@@ -21,7 +21,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httputil"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -70,14 +69,6 @@ func (d *debugRoundTrip) newFile(suffix string) io.WriteCloser {
 	return debug.NewFile(fmt.Sprintf("%d-%04d.%s", d.cn, d.rn, suffix))
 }
 
-func (d *debugRoundTrip) ext(h http.Header) string {
-	ext := "xml"
-	if strings.Contains(h.Get("Content-Type"), "/json") {
-		ext = "json"
-	}
-	return ext
-}
-
 func (d *debugRoundTrip) debugRequest(req *http.Request) {
 	if d == nil {
 		return
@@ -92,7 +83,7 @@ func (d *debugRoundTrip) debugRequest(req *http.Request) {
 	wc.Close()
 
 	// Capture body
-	wc = d.newFile("req." + d.ext(req.Header))
+	wc = d.newFile("req.xml")
 	req.Body = newTeeReader(req.Body, wc)
 
 	// Delay closing until marked done
@@ -113,7 +104,7 @@ func (d *debugRoundTrip) debugResponse(res *http.Response) {
 	wc.Close()
 
 	// Capture body
-	wc = d.newFile("res." + d.ext(res.Header))
+	wc = d.newFile("res.xml")
 	res.Body = newTeeReader(res.Body, wc)
 
 	// Delay closing until marked done

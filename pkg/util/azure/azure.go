@@ -25,13 +25,28 @@ const (
 	AZURE_API_VERSION = "2018-04-01"
 )
 
-var DefaultResourceGroup = map[string]string{
-	"disk":     "YunionDiskResource",
-	"instance": "YunionInstanceResource",
-	"vpc":      "YunionVpcResource",
-	"network":  "YunionNetworkResource",
-	"image":    "YunionImageResource",
-	"storage":  "YunionStorageResource",
+const (
+	DISK_RESOURCE     = "disk"
+	INSTANCE_RESOURCE = "instance"
+	VPC_RESOURCE      = "vpc"
+	NETWORK_RESOURCE  = "network"
+	NIC_RESOURCE      = "nic"
+	IMAGE_RESOURCE    = "image"
+	STORAGE_RESOURCE  = "storage"
+	SECGRP_RESOURCE   = "secgroup"
+	EIP_RESOURCE      = "eip"
+)
+
+var DefaultResourceGroups = map[string]string{
+	DISK_RESOURCE:     "YunionDiskResource",
+	INSTANCE_RESOURCE: "YunionInstanceResource",
+	VPC_RESOURCE:      "YunionVpcResource",
+	NETWORK_RESOURCE:  "YunionNetworkResource",
+	NIC_RESOURCE:      "YunionNicInterface",
+	IMAGE_RESOURCE:    "YunionImageResource",
+	STORAGE_RESOURCE:  "YunionStorageResource",
+	SECGRP_RESOURCE:   "YunionSecgrpResource",
+	EIP_RESOURCE:      "YunionEipResource",
 }
 
 type SAzureClient struct {
@@ -98,7 +113,7 @@ func (self *SAzureClient) createResourceGroup(resourceGruop string) error {
 }
 
 func (self *SAzureClient) fetchAzueResourceGroup() error {
-	for _, value := range DefaultResourceGroup {
+	for _, value := range DefaultResourceGroups {
 		if exist, err := self.isResourceGroupExist(value); err != nil {
 			log.Errorf("Check ResourceGroup error: %v", err)
 		} else if !exist {

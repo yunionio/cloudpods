@@ -78,8 +78,8 @@ func (self *SRegion) createNetwork(vpc *SVpc, subnetName string, cidr string, de
 
 	networkClient := network.NewVirtualNetworksClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
 	networkClient.Authorizer = self.client.authorizer
-	resourceGroup, _, _ := PareResourceGroupWithName(vpc.ID)
-	if result, err := networkClient.CreateOrUpdate(context.Background(), resourceGroup, vpc.Name, params); err != nil {
+	resourceGroup, vpcName := PareResourceGroupWithName(vpc.ID, VPC_RESOURCE)
+	if result, err := networkClient.CreateOrUpdate(context.Background(), resourceGroup, vpcName, params); err != nil {
 		return "", err
 	} else if err := result.WaitForCompletion(context.Background(), networkClient.Client); err != nil {
 		return "", err
@@ -141,10 +141,12 @@ func (self *SWire) getNetworkById(networkId string) *SNetwork {
 		log.Errorf("getNetworkById error: %v", err)
 		return nil
 	} else {
+		resourceGroup, networkName := PareResourceGroupWithName(networkId, NETWORK_RESOURCE)
 		log.Debugf("search for networks %d", len(networks))
 		for i := 0; i < len(networks); i++ {
 			network := networks[i].(*SNetwork)
-			if network.ID == networkId {
+			_resourceGroup, _networkName := PareResourceGroupWithName(network.ID, NETWORK_RESOURCE)
+			if resourceGroup == _resourceGroup && networkName == _networkName {
 				return network
 			}
 		}

@@ -354,6 +354,53 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:324591cd9122f94cc39a87bd44ec71153672c239e2cff5743bfad96b60be3749"
+  name = "github.com/googollee/go-engine.io"
+  packages = [
+    ".",
+    "message",
+    "parser",
+    "polling",
+    "transport",
+    "websocket",
+  ]
+  pruneopts = "UT"
+  revision = "e2f255711dcb2ea41e42c6d9d98c172d7edf6509"
+
+[[projects]]
+  branch = "master"
+  digest = "1:62db7727ec8e026e51e1b46696e0fdf6a956a701032eca4d63e311816820717c"
+  name = "github.com/googollee/go-socket.io"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "f12da5711bc66c18a0724987fff7f4f3db35c70f"
+
+[[projects]]
+  digest = "1:c79fb010be38a59d657c48c6ba1d003a8aa651fa56b579d959d74573b7dff8e1"
+  name = "github.com/gorilla/context"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "08b5f424b9271eedf6f9f0ce86cb9396ed337a42"
+  version = "v1.1.1"
+
+[[projects]]
+  digest = "1:e73f5b0152105f18bc131fba127d9949305c8693f8a762588a82a48f61756f5f"
+  name = "github.com/gorilla/mux"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "e3702bed27f0d39777b0b37b664b6280e8ef8fbf"
+  version = "v1.6.2"
+
+[[projects]]
+  digest = "1:7b5c6e2eeaa9ae5907c391a91c132abfd5c9e8a784a341b5625e750c67e6825d"
+  name = "github.com/gorilla/websocket"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "66b9c49e59c6c48f0ffce28c2d8b8a5678502c6d"
+  version = "v1.4.0"
+
+[[projects]]
+  branch = "master"
   digest = "1:4e08dc2383a46b3107f0b34ca338c4459e8fc8ee90e46a60e728aa8a2b21d558"
   name = "github.com/gosuri/uitable"
   packages = [
@@ -441,6 +488,14 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "b84e30acd515aadc4b783ad4ff83aff3299bdfe0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:094e04c4742b596bce4455eb535d4e4365016b44016db76f8593211406d77299"
+  name = "github.com/kr/pty"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "fa756f09eeb418bf1cc6268c66ceaad9bb98f598"
 
 [[projects]]
   digest = "1:c658e84ad3916da105a761660dcaeb01e63416c8ec7bc62256a9b411a05fcd67"
@@ -1150,11 +1205,14 @@
     "github.com/fatih/color",
     "github.com/go-sql-driver/mysql",
     "github.com/golang-plus/uuid",
+    "github.com/googollee/go-socket.io",
+    "github.com/gorilla/mux",
     "github.com/gosuri/uitable",
     "github.com/hako/durafmt",
     "github.com/jinzhu/gorm",
     "github.com/jinzhu/gorm/dialects/mysql",
     "github.com/json-iterator/go",
+    "github.com/kr/pty",
     "github.com/mholt/caddy",
     "github.com/mholt/caddy/startupshutdown",
     "github.com/miekg/dns",

@@ -20,17 +20,27 @@ func init() {
 	})
 
 	type ImageCreateOptions struct {
-		Name    string `helo:"Image name"`
-		OsType  string `helo:"Operation system" choices:"Linux|Windows"`
-		BlobURI string `helo:"page blob uri"`
+		NAME       string `helo:"Image name"`
+		OSTYPE     string `helo:"Operation system" choices:"Linux|Windows"`
+		BLOBURI    string `helo:"page blob uri"`
+		DISKSIZEGB int32  `helo:"Image size"`
 	}
 
 	shellutils.R(&ImageCreateOptions{}, "image-create", "Create image", func(cli *azure.SRegion, args *ImageCreateOptions) error {
-		if image, err := cli.CreateImageByBlob(args.Name, args.OsType, args.BlobURI); err != nil {
+		if image, err := cli.CreateImageByBlob(args.NAME, args.OSTYPE, args.BLOBURI, args.DISKSIZEGB); err != nil {
 			return err
 		} else {
 			printObject(image)
 			return nil
 		}
 	})
+
+	type ImageDeleteOptions struct {
+		ID string `helo:"Image ID"`
+	}
+
+	shellutils.R(&ImageDeleteOptions{}, "image-delete", "Delete image", func(cli *azure.SRegion, args *ImageDeleteOptions) error {
+		return cli.DeleteImage(args.ID)
+	})
+
 }

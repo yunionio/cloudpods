@@ -109,8 +109,8 @@ func (self *SVirtualMachine) GetINics() ([]cloudprovider.ICloudNic, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SVirtualMachine) GetEIP() cloudprovider.ICloudEIP {
-	return nil
+func (self *SVirtualMachine) GetIEIP() (cloudprovider.ICloudEIP, error) {
+	return nil, nil
 }
 
 func (self *SVirtualMachine) GetVcpuCount() int8 {

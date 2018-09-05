@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network"
@@ -66,6 +67,21 @@ func (self *SRegion) fetchVMSize() error {
 	return nil
 }
 
+func (self *SRegion) getHardwareProfile(cpu, memMB int) []string {
+	if self.vmSize == nil || len(self.vmSize) == 0 {
+		if err := self.fetchVMSize(); err != nil {
+			return []string{}
+		}
+	}
+	profiles := make([]string, 0)
+	for vmSize, info := range self.vmSize {
+		if info.MemoryInMB == int32(memMB) && info.NumberOfCores == int32(cpu) {
+			profiles = append(profiles, vmSize)
+		}
+	}
+	return profiles
+}
+
 func (self *SRegion) getVMSize(size string) (*SVMSize, error) {
 	if self.vmSize == nil || len(self.vmSize) == 0 {
 		if err := self.fetchVMSize(); err != nil {
@@ -122,8 +138,9 @@ func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudpro
 	addressSpace := network.AddressSpace{AddressPrefixes: &addressPrefixes}
 	properties := network.VirtualNetworkPropertiesFormat{AddressSpace: &addressSpace}
 	parameters := network.VirtualNetwork{Name: &name, Location: &self.Name, VirtualNetworkPropertiesFormat: &properties}
-	vpcId := fmt.Sprintf("resourceGroups/%s/providers/%s/%s", DefaultResourceGroup["vpc"], self.SubscriptionID, name)
-	if result, err := vpcClient.CreateOrUpdate(context.Background(), DefaultResourceGroup["vpc"], name, parameters); err != nil {
+	resourceGroup, vpcName := PareResourceGroupWithName(name, VPC_RESOURCE)
+	vpcId := fmt.Sprintf("resourceGroups/%s/providers/vpc/%s", resourceGroup, vpcName)
+	if result, err := vpcClient.CreateOrUpdate(context.Background(), resourceGroup, vpcName, parameters); err != nil {
 		return nil, err
 	} else if err := result.WaitForCompletion(context.Background(), vpcClient.Client); err != nil {
 		return nil, err
@@ -180,15 +197,12 @@ func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
 	if ivpcs, err := self.GetIVpcs(); err != nil {
 		return nil, err
 	} else {
-		if resourceGroup, vpcName, err := PareResourceGroupWithName(id); err != nil {
-			return nil, err
-		} else {
-			for i := 0; i < len(ivpcs); i++ {
-				vpcId := ivpcs[i].GetId()
-				_resourceGroup, _vpcName, _ := PareResourceGroupWithName(vpcId)
-				if _resourceGroup == resourceGroup && _vpcName == vpcName {
-					return ivpcs[i], nil
-				}
+		resourceGroup, vpcName := PareResourceGroupWithName(id, VPC_RESOURCE)
+		for i := 0; i < len(ivpcs); i++ {
+			vpcId := ivpcs[i].GetId()
+			_resourceGroup, _vpcName := PareResourceGroupWithName(vpcId, VPC_RESOURCE)
+			if _resourceGroup == resourceGroup && _vpcName == vpcName {
+				return ivpcs[i], nil
 			}
 		}
 	}
@@ -315,4 +329,25 @@ func (self *SRegion) fetchInfrastructure() error {
 		}
 	}
 	return nil
+}
+
+func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, memGB int, storageType string, dataDiskSizesGB []int, networkId string, passwd string, publicKey string) (*SInstance, error) {
+	izones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i += 1 {
+		z := izones[i].(*SZone)
+		log.Debugf("Search in zone %s", z.Name)
+		net := z.getNetworkById(networkId)
+		if net != nil {
+			passwd := seclib2.RandomPassword2(12)
+			inst, err := z.getHost().CreateVM(name, imgId, 30, cpu, memGB*1024, networkId, "", "", passwd, storageType, dataDiskSizesGB, publicKey)
+			if err != nil {
+				return nil, err
+			}
+			return inst.(*SInstance), nil
+		}
+	}
+	return nil, fmt.Errorf("cannot find network %s", networkId)
 }

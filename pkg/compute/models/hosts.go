@@ -1436,13 +1436,6 @@ func (self *SHost) GetIHost() (cloudprovider.ICloudHost, error) {
 		return nil, fmt.Errorf("No cloudprovide for host: %s", err)
 	}
 	ihost, err := provider.GetIHostById(self.ExternalId)
-
-	/* izone, err := self.GetIZone()
-	if err != nil {
-		return nil, fmt.Errorf("fail to find izone by id %s", err)
-	}
-	ihost, err := izone.GetIHostById(self.ExternalId)*/
-
 	if err != nil {
 		log.Errorf("fail to find ihost by id %s", err)
 		return nil, fmt.Errorf("fail to find ihost by id %s", err)

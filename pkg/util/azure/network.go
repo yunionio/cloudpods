@@ -28,8 +28,7 @@ func (self *SNetwork) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SNetwork) GetId() string {
-	vpcName := self.wire.vpc.GetName()
-	return fmt.Sprintf("%s/%s/%s/%s", self.wire.zone.region.GetGlobalId(), self.wire.zone.region.SubscriptionID, vpcName, self.Name)
+	return self.ID
 }
 
 func (self *SNetwork) GetName() string {
@@ -37,7 +36,8 @@ func (self *SNetwork) GetName() string {
 }
 
 func (self *SNetwork) GetGlobalId() string {
-	return self.GetId()
+	resourceGroup, networkName := PareResourceGroupWithName(self.ID, NETWORK_RESOURCE)
+	return fmt.Sprintf("resourceGroups/%s/providers/network/%s", resourceGroup, networkName)
 }
 
 func (self *SNetwork) IsEmulated() bool {
@@ -71,8 +71,8 @@ func (self *SNetwork) Delete() error {
 	region := self.wire.vpc.region
 	networkClient := network.NewVirtualNetworksClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
 	networkClient.Authorizer = region.client.authorizer
-	resourceGroup, _, _ := PareResourceGroupWithName(vpc.ID)
-	if result, err := networkClient.CreateOrUpdate(context.Background(), resourceGroup, vpc.Name, params); err != nil {
+	resourceGroup, vpcName := PareResourceGroupWithName(vpc.ID, VPC_RESOURCE)
+	if result, err := networkClient.CreateOrUpdate(context.Background(), resourceGroup, vpcName, params); err != nil {
 		return err
 	} else if err := result.WaitForCompletion(context.Background(), networkClient.Client); err != nil {
 		return err

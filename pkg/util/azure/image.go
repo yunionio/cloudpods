@@ -15,7 +15,7 @@ type ImageStatusType string
 
 const (
 	ImageStatusCreating     ImageStatusType = "Creating"
-	ImageStatusAvailable    ImageStatusType = "Available"
+	ImageStatusAvailable    ImageStatusType = "Succeeded"
 	ImageStatusUnAvailable  ImageStatusType = "UnAvailable"
 	ImageStatusCreateFailed ImageStatusType = "CreateFailed"
 )
@@ -81,7 +81,8 @@ func (self *SImage) IsEmulated() bool {
 }
 
 func (self *SImage) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s", DefaultResourceGroup["image"], self.Name)
+	resourceGroup, imageName := PareResourceGroupWithName(self.ID, IMAGE_RESOURCE)
+	return fmt.Sprintf("resourceGroups/%s/providers/image/%s", resourceGroup, imageName)
 }
 
 func (self *SImage) GetStatus() string {
@@ -123,7 +124,11 @@ func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 	image := SImage{}
 	imageClient := compute.NewImagesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
 	imageClient.Authorizer = self.client.authorizer
-	if result, err := imageClient.Get(context.Background(), DefaultResourceGroup["image"], imageId, ""); err != nil {
+	resourceGroup, imageName := PareResourceGroupWithName(imageId, IMAGE_RESOURCE)
+	if result, err := imageClient.Get(context.Background(), resourceGroup, imageName, ""); err != nil {
+		if result.Response.StatusCode == 404 {
+			return nil, cloudprovider.ErrNotFound
+		}
 		return nil, err
 	} else if jsonutils.Update(&image, result); err != nil {
 		return nil, err
@@ -135,15 +140,33 @@ func (self *SRegion) GetImageByName(imageId string) (*SImage, error) {
 	return self.GetImage(imageId)
 }
 
-func (self *SRegion) CreateImageByBlob(imageName, osType, blobURI string) (*SImage, error) {
+func (self *SRegion) CreateImageByBlob(imageName, osType, blobURI string, diskSizeGB int32) (*SImage, error) {
+	if diskSizeGB < 1 || diskSizeGB > 4095 {
+		diskSizeGB = 30
+	}
 	imageClient := compute.NewImagesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
 	imageClient.Authorizer = self.client.authorizer
-	storageProfile := compute.ImageStorageProfile{OsDisk: &compute.ImageOSDisk{OsType: compute.OperatingSystemTypes(osType), OsState: compute.OperatingSystemStateTypes("Generalized"), BlobURI: &blobURI}}
-	params := compute.Image{Name: &imageName, Location: &self.Name, ImageProperties: &compute.ImageProperties{StorageProfile: &storageProfile}}
-	if result, err := imageClient.CreateOrUpdate(context.Background(), DefaultResourceGroup["image"], imageName, params); err != nil {
+	storageProfile := compute.ImageStorageProfile{
+		OsDisk: &compute.ImageOSDisk{
+			OsType:     compute.OperatingSystemTypes(osType),
+			OsState:    compute.Generalized,
+			BlobURI:    &blobURI,
+			DiskSizeGB: &diskSizeGB,
+		},
+	}
+	params := compute.Image{
+		Name:     &imageName,
+		Location: &self.Name,
+		ImageProperties: &compute.ImageProperties{
+			StorageProfile: &storageProfile,
+		},
+	}
+	resourceGroup, imageName := PareResourceGroupWithName(imageName, IMAGE_RESOURCE)
+	if result, err := imageClient.CreateOrUpdate(context.Background(), resourceGroup, imageName, params); err != nil {
 		log.Errorf("Create image from blob error: %v", err)
 		return nil, err
 	} else if err := result.WaitForCompletion(context.Background(), imageClient.Client); err != nil {
+		log.Errorf("WaitForCreateImageCompletion error: %v", err)
 		return nil, err
 	} else if image, err := self.GetImageByName(imageName); err != nil {
 		return nil, err
@@ -164,6 +187,22 @@ func (self *SRegion) GetImages() ([]SImage, error) {
 	return images, nil
 }
 
+func (self *SRegion) DeleteImage(imageId string) error {
+	imageClient := compute.NewImagesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
+	imageClient.Authorizer = self.client.authorizer
+	resourceGroup, imageName := PareResourceGroupWithName(imageId, IMAGE_RESOURCE)
+	if result, err := imageClient.Delete(context.Background(), resourceGroup, imageName); err != nil {
+		return err
+	} else if err := result.WaitForCompletion(context.Background(), imageClient.Client); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (self *SImage) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return self.storageCache.region.DeleteImage(self.ID)
+}
+
+func (self *SImage) GetOsType() string {
+	return string(self.Properties.StorageProfile.OsDisk.OsType)
 }

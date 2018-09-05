@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/secrules"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network"
@@ -170,17 +169,13 @@ func (self *SSecurityGroup) IsEmulated() bool {
 }
 
 func (self *SSecurityGroup) Refresh() error {
-	if resourceGroup, _, err := PareResourceGroupWithName(self.ID); err != nil {
-		log.Errorf("Refresh SecurityGroup error %v", err)
+	resourceGroup, secgrpName := PareResourceGroupWithName(self.ID, SECGRP_RESOURCE)
+	networkClient := network.NewSecurityGroupsClientWithBaseURI(self.vpc.region.client.baseUrl, self.vpc.region.SubscriptionID)
+	networkClient.Authorizer = self.vpc.region.client.authorizer
+	if secgrp, err := networkClient.Get(context.Background(), resourceGroup, secgrpName, ""); err != nil {
 		return err
-	} else {
-		networkClient := network.NewSecurityGroupsClientWithBaseURI(self.vpc.region.client.baseUrl, self.vpc.region.SubscriptionID)
-		networkClient.Authorizer = self.vpc.region.client.authorizer
-		if secgrp, err := networkClient.Get(context.Background(), resourceGroup, self.Name, ""); err != nil {
-			return err
-		} else if err := jsonutils.Update(self, secgrp); err != nil {
-			return err
-		}
+	} else if err := jsonutils.Update(self, secgrp); err != nil {
+		return err
 	}
 	return nil
 }

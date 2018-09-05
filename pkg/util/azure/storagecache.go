@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -18,13 +19,16 @@ import (
 
 	storageaccount "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-02-01/storage"
 	"github.com/Azure/azure-sdk-for-go/storage"
+
+	"github.com/Microsoft/azure-vhd-utils/vhdcore/common"
+	"github.com/Microsoft/azure-vhd-utils/vhdcore/diskstream"
 )
 
 const (
 	DefaultStorageAccount string = "storage"
 	DefaultBlobContainer  string = "image-cache"
 
-	DefaultReadBlockSize uint64 = 4 * 1024 * 1024
+	DefaultReadBlockSize int64 = 4 * 1024 * 1024
 )
 
 type SStoragecache struct {
@@ -103,7 +107,7 @@ func (self *SRegion) CreateStorageAccount(resourceGroup, storageAccount string) 
 	sku := storageaccount.Sku{Name: storageaccount.SkuName("Standard_GRS")}
 	params := storageaccount.AccountCreateParameters{Sku: &sku, Location: &self.Name, Kind: storageaccount.Kind("Storage")}
 	if len(resourceGroup) == 0 {
-		resourceGroup = DefaultResourceGroup["storage"]
+		resourceGroup = DefaultResourceGroups[STORAGE_RESOURCE]
 	}
 	if len(storageAccount) == 0 {
 		storageAccount = fmt.Sprintf("%s%s", self.Name, DefaultStorageAccount)
@@ -156,7 +160,7 @@ func (self *SRegion) getStorageAccountKey(resourceGroup, storageAccount string) 
 
 func (self *SRegion) CheckBlobContainer(resourceGroup, storageAccount, blobName string) error {
 	if len(resourceGroup) == 0 {
-		resourceGroup = DefaultResourceGroup["storage"]
+		resourceGroup = DefaultResourceGroups[STORAGE_RESOURCE]
 	}
 	if len(storageAccount) == 0 {
 		storageAccount = fmt.Sprintf("%s%s", self.Name, DefaultStorageAccount)
@@ -247,7 +251,7 @@ func (self *SRegion) getContainerFiles(storageAccount, accessKey, containerName 
 
 func (self *SRegion) ListContainerFiles(resourceGroup, storageAccount, blobName string) ([]Blob, error) {
 	if len(resourceGroup) == 0 {
-		resourceGroup = DefaultResourceGroup["storage"]
+		resourceGroup = DefaultResourceGroups[STORAGE_RESOURCE]
 	}
 	if len(storageAccount) == 0 {
 		storageAccount = fmt.Sprintf("%s%s", self.Name, DefaultStorageAccount)
@@ -276,17 +280,17 @@ func (self *SRegion) uploadContainerFileByReader(storageAccount, accessKey, cont
 		if err := blobClient.PutPageBlob(&storage.PutBlobOptions{}); err != nil {
 			return "", err
 		}
-		var readed uint64 = 0
-		for i := 0; i < int(uint64(size)/DefaultReadBlockSize); i++ {
-			if err := blobClient.WriteRange(storage.BlobRange{Start: readed, End: readed + DefaultReadBlockSize - 1}, content, &storage.PutPageOptions{}); err != nil {
+		var readed int64 = 0
+		for i := 0; i < int(size/DefaultReadBlockSize); i++ {
+			if err := blobClient.WriteRange(storage.BlobRange{Start: uint64(readed), End: uint64(readed + DefaultReadBlockSize - 1)}, content, &storage.PutPageOptions{}); err != nil {
 				return "", err
 			}
 			readed += DefaultReadBlockSize
 			log.Debugf("Upload %s %f%% to %s", fileName, float64(readed)/float64(size)*100, storageAccount)
 		}
-		if extraSize := uint64(size) % DefaultReadBlockSize; extraSize > 0 {
+		if extraSize := size % DefaultReadBlockSize; extraSize > 0 {
 			log.Debugf("Upload %s extra size: %d to %s", fileName, extraSize, storageAccount)
-			if err := blobClient.WriteRange(storage.BlobRange{Start: readed, End: readed + extraSize - 1}, content, &storage.PutPageOptions{}); err != nil {
+			if err := blobClient.WriteRange(storage.BlobRange{Start: uint64(readed), End: uint64(readed + extraSize - 1)}, content, &storage.PutPageOptions{}); err != nil {
 				return "", err
 			}
 		}
@@ -295,22 +299,62 @@ func (self *SRegion) uploadContainerFileByReader(storageAccount, accessKey, cont
 	}
 }
 
-func (self *SRegion) uploadContainerFileByPath(storageAccount, accessKey, containerName, filePath string) (string, error) {
-	if f, err := os.Open(filePath); err != nil {
+func (self *SRegion) uploadContainerFileByPath(storageAccount, accessKey, containerName, localVHDPath string) (string, error) {
+	if err := ensureVHDSanity(localVHDPath); err != nil {
+		return "", err
+	}
+	if diskStream, err := diskstream.CreateNewDiskStream(localVHDPath); err != nil {
 		return "", err
 	} else {
-		defer f.Close()
-		if finfo, err := f.Stat(); err != nil {
+		defer diskStream.Close()
+		storageClient, err := storage.NewBasicClientOnSovereignCloud(storageAccount, accessKey, self.client.env)
+		if err != nil {
 			return "", err
-		} else {
-			return self.uploadContainerFileByReader(storageAccount, accessKey, containerName, finfo.Name(), f, finfo.Size())
 		}
+		blobServiceClient := storageClient.GetBlobService()
+		containerClinet := blobServiceClient.GetContainerReference(containerName)
+		blobName := path.Base(localVHDPath)
+		blobClient := containerClinet.GetBlobReference(blobName)
+		if _, err := blobClient.DeleteIfExists(&storage.DeleteBlobOptions{}); err != nil {
+			return "", err
+		}
+		blobClient.Properties.ContentLength = diskStream.GetSize()
+		if err := blobClient.PutPageBlob(&storage.PutBlobOptions{}); err != nil {
+			return "", err
+		}
+
+		var rangesToSkip []*common.IndexRange
+		uploadableRanges, err := LocateUploadableRanges(diskStream, rangesToSkip, DefaultReadBlockSize)
+		if err != nil {
+			return "", err
+		}
+		if uploadableRanges, err = DetectEmptyRanges(diskStream, uploadableRanges); err != nil {
+			return "", err
+		}
+
+		cxt := &DiskUploadContext{
+			VhdStream:             diskStream,
+			UploadableRanges:      uploadableRanges,
+			AlreadyProcessedBytes: common.TotalRangeLength(rangesToSkip),
+			BlobServiceClient:     blobServiceClient,
+			ContainerName:         containerName,
+			BlobName:              blobName,
+			Parallelism:           3,
+			Resume:                false,
+			MD5Hash:               []byte(""), //localMetaData.FileMetaData.MD5Hash,
+		}
+
+		if err := Upload(cxt); err != nil {
+			return "", err
+		}
+
+		return blobClient.GetURL(), nil
 	}
 }
 
 func (self *SRegion) UploadContainerFiles(resourceGroup, storageAccount, containerName, filePath string) (string, error) {
 	if len(resourceGroup) == 0 {
-		resourceGroup = DefaultResourceGroup["storage"]
+		resourceGroup = DefaultResourceGroups[STORAGE_RESOURCE]
 	}
 	if len(storageAccount) == 0 {
 		storageAccount = fmt.Sprintf("%s%s", self.Name, DefaultStorageAccount)
@@ -339,22 +383,34 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		if !strings.HasSuffix(imageNameOnBlob, ".vhd") {
 			imageNameOnBlob = fmt.Sprintf("%s.vhd", imageNameOnBlob)
 		}
+		tmpFile := fmt.Sprintf("/tmp/%s", imageNameOnBlob)
+
+		f, err := os.Create(tmpFile)
+		if err != nil {
+			return "", err
+		}
+		defer f.Close()
+		if _, err := io.Copy(f, reader); err != nil {
+			return "", err
+		}
 
 		storageAccount := fmt.Sprintf("%s%s", self.region.Name, DefaultStorageAccount)
 
-		if err := self.region.CheckBlobContainer(DefaultResourceGroup["storage"], storageAccount, DefaultBlobContainer); err != nil {
+		if err := self.region.CheckBlobContainer(DefaultResourceGroups[STORAGE_RESOURCE], storageAccount, DefaultBlobContainer); err != nil {
 			return "", err
 		}
 
 		size, _ := meta.Int("size")
-		accessKey, err := self.region.getStorageAccountKey(DefaultResourceGroup["storage"], storageAccount)
+		accessKey, err := self.region.getStorageAccountKey(DefaultResourceGroups[STORAGE_RESOURCE], storageAccount)
 		if err != nil {
 			return "", err
 		}
 
-		blobURI, err := self.region.uploadContainerFileByReader(storageAccount, accessKey, DefaultBlobContainer, imageNameOnBlob, reader, size)
+		blobURI, err := self.region.uploadContainerFileByPath(storageAccount, accessKey, DefaultBlobContainer, tmpFile)
+		os.Remove(tmpFile)
+		//blobURI, err := self.region.uploadContainerFileByReader(storageAccount, accessKey, DefaultBlobContainer, imageNameOnBlob, reader, size)
 		if err != nil {
-			log.Errorf("uploadContainerFileByReader error: %v", err)
+			log.Errorf("uploadContainerFileByPath error: %v", err)
 			return "", err
 		}
 
@@ -378,10 +434,10 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 			nameIdx += 1
 		}
 
-		if image, err := self.region.CreateImageByBlob(imageName, osType, blobURI); err != nil {
+		if image, err := self.region.CreateImageByBlob(imageName, osType, blobURI, int32(size>>30)); err != nil {
 			return "", err
 		} else {
-			return image.GetId(), nil
+			return image.GetGlobalId(), nil
 		}
 	}
 }

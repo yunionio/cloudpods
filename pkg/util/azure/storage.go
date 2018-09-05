@@ -49,9 +49,10 @@ func (self *SStorage) GetCapacityMB() int {
 }
 
 func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
-	if err := self.zone.region.createDisk(self.storageType, name, int32(sizeGb), desc); err != nil {
+	resourceGroup, diskName := PareResourceGroupWithName(name, DISK_RESOURCE)
+	if err := self.zone.region.createDisk(self.storageType, diskName, int32(sizeGb), desc); err != nil {
 		return nil, err
-	} else if disk, err := self.zone.region.GetDisk(DefaultResourceGroup["disk"], name); err != nil {
+	} else if disk, err := self.zone.region.GetDisk(resourceGroup, diskName); err != nil {
 		return nil, err
 	} else {
 		disk.storage = self
@@ -60,15 +61,12 @@ func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudpr
 }
 
 func (self *SStorage) GetIDisk(idStr string) (cloudprovider.ICloudDisk, error) {
-	if resourceGroup, diskName, err := PareResourceGroupWithName(idStr); err != nil {
+	resourceGroup, diskName := PareResourceGroupWithName(idStr, DISK_RESOURCE)
+	if disk, err := self.zone.region.GetDisk(resourceGroup, diskName); err != nil {
 		return nil, err
 	} else {
-		if disk, err := self.zone.region.GetDisk(resourceGroup, diskName); err != nil {
-			return nil, err
-		} else {
-			disk.storage = self
-			return disk, nil
-		}
+		disk.storage = self
+		return disk, nil
 	}
 	return nil, cloudprovider.ErrNotImplemented
 }

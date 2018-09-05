@@ -20,6 +20,8 @@ type ServerListOptions struct {
 	AdminSecgroup string `help:"AdminSecgroup ID or Name"`
 	Hypervisor    string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun|azure"`
 	Manager       string `help:"Show servers imported from manager"`
+	Region        string `help:"Show servers in cloudregion"`
+
 	BaseListOptions
 }
 
