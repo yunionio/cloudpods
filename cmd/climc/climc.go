@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	prompt "github.com/c-bata/go-prompt"
+	"github.com/c-bata/go-prompt"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/version"
@@ -28,7 +28,7 @@ type BaseOptions struct {
 	Version       bool   `help:"Show version"`
 	Timeout       int    `default:"600" help:"Number of seconds to wait for a response"`
 	Insecure      bool   `default:"false" help:"Allow skip server cert verification if URL is https" short-token:"k"`
-	NoCachedToken bool   `default:"false" help:"Force not use cached token"`
+	NoCachedToken bool   `default:"$NO_CACHED_TOKEN|false" help:"Force not use cached token"`
 	OsUsername    string `default:"$OS_USERNAME" help:"Username, defaults to env[OS_USERNAME]"`
 	OsPassword    string `default:"$OS_PASSWORD" help:"Password, defaults to env[OS_PASSWORD]"`
 	// OsProjectId string `default:"$OS_PROJECT_ID" help:"Proejct ID, defaults to env[OS_PROJECT_ID]"`
@@ -126,8 +126,11 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 		options.Insecure)
 
 	var cacheToken mcclient.TokenCredential
-	tokenCachePath := filepath.Join(os.TempDir(), "OS_AUTH_CACHE_TOKEN")
+	authUrlAlter := strings.Replace(options.OsAuthURL, "/", "", -1)
+	authUrlAlter = strings.Replace(authUrlAlter, ":", "", -1)
+	tokenCachePath := filepath.Join(os.TempDir(), fmt.Sprintf("OS_AUTH_CACHE_TOKEN-%s-%s-%s-%s", authUrlAlter, options.OsUsername, options.OsDomainName, options.OsProjectName))
 	cacheFile, err := os.Open(tokenCachePath)
+
 	if err == nil && cacheFile != nil && !options.NoCachedToken {
 		fileInfo, _ := cacheFile.Stat()
 		dur, err := time.ParseDuration("-24h")
@@ -138,13 +141,14 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 				err := json.Unmarshal(bytesToken, token)
 				if err != nil {
 					fmt.Printf("Unmarshal token error:%s", err)
-				} else {
+				} else if token.IsValid() {
 					cacheToken = token
 				}
 			}
 			cacheFile.Close()
 		}
 	}
+
 	if cacheToken == nil {
 		token, err := client.Authenticate(options.OsUsername,
 			options.OsPassword,
@@ -158,12 +162,16 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 		if err != nil {
 			fmt.Printf("Marshal token error:%s", err)
 		} else {
-			fo, _ := os.Create(tokenCachePath)
-			fo.Write(bytesCacheToken)
-			fo.Close()
+			fo, err := os.Create(tokenCachePath)
+			if err != nil {
+				fmt.Printf("Save token cache fail: %s", err)
+			} else {
+				fo.Write(bytesCacheToken)
+				fo.Close()
+			}
 		}
 	} else {
-		fmt.Printf("******** Use Token Cache At %s ********\n", tokenCachePath)
+		// fmt.Printf("******** Use Token Cache At %s ********\n", tokenCachePath)
 	}
 
 	session := client.NewSession(options.OsRegionName,

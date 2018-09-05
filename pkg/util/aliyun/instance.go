@@ -34,24 +34,6 @@ type SDedicatedHostAttribute struct {
 	DedicatedHostName string
 }
 
-type SEipAddress struct {
-	AllocationId       string
-	InternetChargeType string
-	IpAddress          string
-}
-
-func (self *SEipAddress) GetIP() string {
-	return self.IpAddress
-}
-
-func (self *SEipAddress) GetAllocationId() string {
-	return self.AllocationId
-}
-
-func (self *SEipAddress) GetChargeType() string {
-	return self.GetChargeType()
-}
-
 type SIpAddress struct {
 	IpAddress []string
 }
@@ -245,10 +227,6 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 		nics = append(nics, &nic)
 	}
 	return nics, nil
-}
-
-func (self *SInstance) GetEIP() cloudprovider.ICloudEIP {
-	return &self.EipAddress
 }
 
 func (self *SInstance) GetVcpuCount() int8 {
@@ -722,4 +700,24 @@ func (self *SInstance) SyncSecurityGroup(secgroupId string, name string, rules [
 		self.SecurityGroupIds.SecurityGroupId = []string{secgrpId}
 	}
 	return nil
+}
+
+func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
+	if len(self.PublicIpAddress.IpAddress) > 0 {
+		eip := SEipAddress{}
+		eip.region = self.host.zone.region
+		eip.IpAddress = self.PublicIpAddress.IpAddress[0]
+		eip.InstanceId = self.InstanceId
+		eip.InstanceType = EIP_INSTANCE_TYPE_ECS
+		eip.Status = EIP_STATUS_INUSE
+		eip.AllocationId = self.InstanceId // fixed
+		eip.AllocationTime = self.CreationTime
+		eip.Bandwidth = self.InternetMaxBandwidthOut
+		eip.InternetChargeType = self.InternetChargeType
+		return &eip, nil
+	} else if len(self.EipAddress.IpAddress) > 0 {
+		return self.host.zone.region.GetEip(self.EipAddress.AllocationId)
+	} else {
+		return nil, nil
+	}
 }
