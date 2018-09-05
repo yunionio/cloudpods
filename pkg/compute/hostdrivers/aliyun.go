@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -140,16 +141,19 @@ func (self *SAliyunHostDriver) RequestAllocateDiskOnStorage(ctx context.Context,
 }
 
 func (self *SAliyunHostDriver) RequestDeallocateDiskOnHost(host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
+	data := jsonutils.NewDict()
 	if iCloudStorage, err := storage.GetIStorage(); err != nil {
 		return err
 	} else if iDisk, err := iCloudStorage.GetIDisk(disk.GetExternalId()); err != nil {
+		if err == cloudprovider.ErrNotFound {
+			task.ScheduleRun(data)
+			return nil
+		}
 		return err
 	} else if err := iDisk.Delete(); err != nil {
 		return err
-	} else {
-		data := jsonutils.NewDict()
-		task.ScheduleRun(data)
 	}
+	task.ScheduleRun(data)
 	return nil
 }
 
