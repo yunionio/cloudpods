@@ -12,13 +12,13 @@ import (
 
 func initNode() {
 	cmdN := func(suffix string) string {
-		return resourceCmdN("node", suffix)
+		return kubeResourceCmdN("node", suffix)
 	}
 	type listOpt struct {
 		options.BaseListOptions
 		Cluster string `help:"Filter by cluster"`
 	}
-	R(&listOpt{}, cmdN("list"), "List k8s node", func(s *mcclient.ClientSession, args *listOpt) error {
+	R(&listOpt{}, cmdN("list"), "List k8s infra nodes", func(s *mcclient.ClientSession, args *listOpt) error {
 		args.Details = options.Bool(true)
 		var params *jsonutils.JSONDict
 		{

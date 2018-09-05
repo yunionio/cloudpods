@@ -25,8 +25,12 @@ func init() {
 	initRaw()
 	initConfigMap()
 	initDeployment()
+	initStatefulset()
 	initPod()
 	initService()
+	initIngress()
+	initNamespace()
+	initK8sNode()
 }
 
 type clusterBaseOptions struct {
@@ -42,6 +46,18 @@ func (o clusterBaseOptions) ClusterParams() *jsonutils.JSONDict {
 type baseListOptions struct {
 	Limit  int `default:"20" help:"Page limit"`
 	Offset int `default:"0" help:"page offset"`
+}
+
+type NamespaceResourceListOptions struct {
+	namespaceListOptions
+	baseListOptions
+}
+
+func (o NamespaceResourceListOptions) Params() *jsonutils.JSONDict {
+	params := fetchNamespaceParams(o.namespaceListOptions)
+	params.Update(fetchPagingParams(o.baseListOptions))
+	params.Update(o.ClusterParams())
+	return params
 }
 
 func fetchPagingParams(opt baseListOptions) *jsonutils.JSONDict {
@@ -100,6 +116,10 @@ var (
 
 func resourceCmdN(prefix, suffix string) string {
 	return fmt.Sprintf("k8s-%s-%s", prefix, suffix)
+}
+
+func kubeResourceCmdN(prefix, suffix string) string {
+	return fmt.Sprintf("kube-%s-%s", prefix, suffix)
 }
 
 func clusterContext(clusterId string) modules.ManagerContext {

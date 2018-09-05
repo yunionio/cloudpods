@@ -3,12 +3,8 @@ package k8s
 import (
 	"fmt"
 	"strings"
-	"time"
-
-	"github.com/hako/durafmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
@@ -22,8 +18,9 @@ type ServiceManager struct {
 func init() {
 	Services = &ServiceManager{NewNamespaceResourceManager(
 		"k8s_service", "k8s_services",
-		NewNamespaceCols("Type", "ClusterIP", "Ports", "Age", "Selector"),
-		NewColumns())}
+		NewNamespaceCols("Type", "ClusterIP", "Ports", "Selector"),
+		NewColumns()),
+	}
 	modules.Register(Services)
 }
 
@@ -35,17 +32,6 @@ func (s ServiceManager) GetType(obj jsonutils.JSONObject) interface{} {
 func (s ServiceManager) GetClusterIP(obj jsonutils.JSONObject) interface{} {
 	clusterIp, _ := obj.GetString("clusterIP")
 	return clusterIp
-}
-
-func (s ServiceManager) GetAge(obj jsonutils.JSONObject) interface{} {
-	creationTimestamp, err := obj.GetString("creationTimestamp")
-	if err != nil {
-		log.Errorf("Get creationTimestamp error: %v", err)
-		return nil
-	}
-	t, _ := time.Parse(time.RFC3339, creationTimestamp)
-	dur := time.Since(t)
-	return durafmt.ParseShort(dur).String()
 }
 
 func (s ServiceManager) GetSelector(obj jsonutils.JSONObject) interface{} {

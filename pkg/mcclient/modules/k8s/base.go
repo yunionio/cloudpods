@@ -36,24 +36,28 @@ func (man ClusterResourceManager) GetCluster(obj jsonutils.JSONObject) interface
 	return cluster
 }
 
-type NamespaceResourceManager struct {
+type MetaResourceManager struct {
 	*ClusterResourceManager
+	nameGetter
+	ageGetter
+	labelGetter
+}
+
+func NewMetaResourceManager(kw, kwp string, columns, adminColumns *Columns) *MetaResourceManager {
+	newCols := NewMetaCols(columns.Array()...)
+	man := NewClusterResourceManager(kw, kwp, newCols, adminColumns)
+	return &MetaResourceManager{man, getName, getAge, getLabel}
+}
+
+type NamespaceResourceManager struct {
+	*MetaResourceManager
+	namespaceGetter
 }
 
 func NewNamespaceResourceManager(kw, kwp string, columns, adminColumns *Columns) *NamespaceResourceManager {
 	newCols := NewNamespaceCols(columns.Array()...)
-	man := NewClusterResourceManager(kw, kwp, newCols, adminColumns)
-	return &NamespaceResourceManager{man}
-}
-
-func (m NamespaceResourceManager) GetName(obj jsonutils.JSONObject) interface{} {
-	name, _ := obj.GetString("name")
-	return name
-}
-
-func (m NamespaceResourceManager) GetNamespace(obj jsonutils.JSONObject) interface{} {
-	ns, _ := obj.GetString("namespace")
-	return ns
+	man := NewMetaResourceManager(kw, kwp, newCols, adminColumns)
+	return &NamespaceResourceManager{man, getNamespace}
 }
 
 type Columns struct {
@@ -85,8 +89,16 @@ func (c Columns) Array() []string {
 	return c.cols
 }
 
+func NewNameCols(col ...string) *Columns {
+	return NewColumns("Name").Add(col...)
+}
+
+func NewMetaCols(col ...string) *Columns {
+	return NewNameCols("Age").Add(col...)
+}
+
 func NewNamespaceCols(col ...string) *Columns {
-	return NewColumns("Name", "Namespace").Add(col...)
+	return NewMetaCols("Namespace", "Labels").Add(col...)
 }
 
 func NewClusterCols(col ...string) *Columns {
@@ -94,7 +106,7 @@ func NewClusterCols(col ...string) *Columns {
 }
 
 func NewResourceCols(col ...string) *Columns {
-	return NewColumns("Name", "Id").Add(col...)
+	return NewNameCols("Id").Add(col...)
 }
 
 type ListPrinter interface {
