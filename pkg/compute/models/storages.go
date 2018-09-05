@@ -73,7 +73,7 @@ type SStorage struct {
 	Cmtbound    float32              `nullable:"true" list:"admin" update:"admin"`                                                    // Column(Float, nullable=True)
 	StorageConf jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin"`                                                     // = Column(JSONEncodedDict, nullable=True)
 
-	ZoneId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
+	ZoneId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
 
 	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin"`
 }
