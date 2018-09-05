@@ -66,16 +66,16 @@ type SStorage struct {
 	SInfrastructure
 	SManagedResourceBase
 
-	Capacity    int                  `nullable:"false" list:"admin" update:"admin" create:"admin_required"`                            // Column(Integer, nullable=False) # capacity of disk in MB
-	Reserved    int                  `nullable:"true" default:"0" list:"admin" update:"admin"`                                         // Column(Integer, nullable=True, default=0)
-	StorageType string               `width:"32" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(32, charset='ascii'), nullable=False)
-	MediumType  string               `width:"32" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(32, charset='ascii'), nullable=False)
-	Cmtbound    float32              `nullable:"true" list:"admin" update:"admin"`                                                     // Column(Float, nullable=True)
-	StorageConf jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin"`                                                      // = Column(JSONEncodedDict, nullable=True)
+	Capacity    int                  `nullable:"false" list:"admin" update:"admin" create:"admin_required"`                           // Column(Integer, nullable=False) # capacity of disk in MB
+	Reserved    int                  `nullable:"true" default:"0" list:"admin" update:"admin"`                                        // Column(Integer, nullable=True, default=0)
+	StorageType string               `width:"32" charset:"ascii" nullable:"false" list:"user" update:"admin" create:"admin_required"` // Column(VARCHAR(32, charset='ascii'), nullable=False)
+	MediumType  string               `width:"32" charset:"ascii" nullable:"false" list:"user" update:"admin" create:"admin_required"` // Column(VARCHAR(32, charset='ascii'), nullable=False)
+	Cmtbound    float32              `nullable:"true" list:"admin" update:"admin"`                                                    // Column(Float, nullable=True)
+	StorageConf jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin"`                                                     // = Column(JSONEncodedDict, nullable=True)
 
 	ZoneId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
 
-	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" get:"admin"`
+	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin"`
 }
 
 func (manager *SStorageManager) GetContextManager() []db.IModelManager {
