@@ -4,7 +4,12 @@ import (
 	"yunion.io/x/jsonutils"
 )
 
+type WebConsoleFrontendOptions struct {
+	WebUrl string `help:"Frontend terminal HTML web url" short-token:"w"`
+}
+
 type PodBaseOptions struct {
+	WebConsoleFrontendOptions
 	NAME      string `help:"Name of k8s pod to connect"`
 	Namespace string `help:"Namespace of this pod"`
 	Container string `help:"Container in this pod"`

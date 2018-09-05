@@ -11,7 +11,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/webconsole/command"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 )
@@ -75,23 +74,13 @@ type SSession struct {
 	AccessToken string
 }
 
-func (s SSession) GetConnectUrl() (string, error) {
-	FrontendUrl := o.Options.FrontendUrl
-	endpointUrl, err := auth.AdminCredential().GetServiceURL("webconsole", o.Options.Region, "", "internalURL")
-	if err != nil {
-		return "", err
-	}
-	if endpointUrl == "" {
-		return "", fmt.Errorf("Not found service URL for webconsole")
-	}
-	u, _ := url.Parse(FrontendUrl)
+func (s SSession) GetConnectParams() (string, error) {
 	params := url.Values{
-		"api_server":   {endpointUrl},
+		"api_server":   {o.Options.ApiServer},
 		"access_token": {s.AccessToken},
+		"protocol":     {s.GetProtocol()},
 	}
-	u.Path = fmt.Sprintf("%s/", s.GetProtocol())
-	u.RawQuery = params.Encode()
-	return u.String(), nil
+	return params.Encode(), nil
 }
 
 func (s *SSession) Close() error {

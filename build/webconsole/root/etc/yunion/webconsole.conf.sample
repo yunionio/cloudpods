@@ -6,6 +6,6 @@ admin_user = 'regionadmin'
 admin_password = 'iygPtGX6r7NZ_tW_'
 admin_tenant_name = 'system'
 
-frontend_url = "http://10.168.222.245:8899"
+api_server = "http://webconsole.yunion.io"
 
 log_level = "debug"

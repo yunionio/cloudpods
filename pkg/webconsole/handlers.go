@@ -124,12 +124,13 @@ func handleK8sCommand(
 		return
 	}
 	data := jsonutils.NewDict()
-	url, err := cmdSession.GetConnectUrl()
+	params, err := cmdSession.GetConnectParams()
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	data.Add(jsonutils.NewString(url), "url")
+	data.Add(jsonutils.NewString(params), "connect_params")
+	data.Add(jsonutils.NewString(cmdSession.Id), "session")
 	sendJSON(w, data)
 }
 
