@@ -71,7 +71,7 @@ type SStorage struct {
 
 	ZoneId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
 
-	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" get:"admin"`
+	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin"`
 }
 
 func (manager *SStorageManager) GetContextManager() []db.IModelManager {
