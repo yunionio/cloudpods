@@ -212,6 +212,7 @@ func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandalo
 		IsolatedDeviceUsage(rangeObj, hostTypes),
 		WireUsage(rangeObj, hostTypes),
 		NetworkUsage(userCred, rangeObj),
+		EipUsage(),
 	)
 
 	return
@@ -334,5 +335,15 @@ func IsolatedDeviceUsage(rangeObj db.IStandaloneModel, hostType []string) Usage 
 	ret := models.IsolatedDeviceManager.TotalCount(hostType, rangeObj)
 	count := make(map[string]interface{})
 	count[prefix] = ret.Devices
+	return count
+}
+
+func EipUsage() Usage {
+	eipUsage := models.ElasticipManager.TotalCount("")
+	count := make(map[string]interface{})
+	count["eip.all"] = eipUsage.Total()
+	count["eip.public_ip"] = eipUsage.PublicIPCount
+	count["eip.floating_ip"] = eipUsage.EIPCount
+	count["eip.floating_ip.used"] = eipUsage.EIPUsedCount
 	return count
 }

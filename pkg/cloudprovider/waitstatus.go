@@ -1,6 +1,10 @@
 package cloudprovider
 
-import "time"
+import (
+	"time"
+
+	"yunion.io/x/log"
+)
 
 func WaitStatus(res ICloudResource, expect string, interval time.Duration, timeout time.Duration) error {
 	startTime := time.Now()
@@ -9,6 +13,7 @@ func WaitStatus(res ICloudResource, expect string, interval time.Duration, timeo
 		if err != nil {
 			return err
 		}
+		log.Debugf("status %s expect %s", res.GetStatus(), expect)
 		if res.GetStatus() == expect {
 			return nil
 		}

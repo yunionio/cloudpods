@@ -11,7 +11,7 @@ func NewJsonClientError(code int, title string, msg string, error httputils.Erro
 	return &err
 }
 
-func errorMessage(msg string, params ...interface{}) (string, httputils.Error) {
+func errorMessage(msg string, params []interface{}) (string, httputils.Error) {
 	fileds := make([]string, len(params))
 	for i, v := range params {
 		fileds[i] = fmt.Sprint(v)

@@ -146,7 +146,7 @@ type BaseListOptions struct {
 	Offset        *int     `default:"0" help:"Page offset"`
 	OrderBy       []string `help:"Name of the field to be ordered by"`
 	Order         string   `help:"List order" choices:"desc|asc"`
-	Details       *bool    `help:"Show more details"`
+	Details       *bool    `help:"Show more details" default:"false"`
 	Search        string   `help:"Filter results by a simple keyword search"`
 	Meta          *bool    `help:"Piggyback metadata information"`
 	Filter        []string `help:"Filters"`
