@@ -25,6 +25,7 @@ func NewPty(session *SSession) (p *Pty, err error) {
 		Session: session,
 		Cmd:     cmd,
 	}
+	log.Debugf("[session %s] Start command: %#v", session.Id, cmd)
 	p.Pty, err = pty.Start(p.Cmd)
 	if err != nil {
 		return
