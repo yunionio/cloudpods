@@ -12,12 +12,12 @@ import (
 )
 
 func init() {
-	handleResult := func(opt o.WebConsoleFrontendOptions, obj jsonutils.JSONObject) error {
-		if opt.WebUrl == "" {
+	handleResult := func(opt o.WebConsoleOptions, obj jsonutils.JSONObject) error {
+		if opt.WebconsoleUrl == "" {
 			printObject(obj)
 			return nil
 		}
-		u, err := url.Parse(opt.WebUrl)
+		u, err := url.Parse(opt.WebconsoleUrl)
 		if err != nil {
 			return err
 		}
@@ -40,7 +40,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		handleResult(args.WebConsoleFrontendOptions, ret)
+		handleResult(args.WebConsoleOptions, ret)
 		return nil
 	})
 
@@ -53,7 +53,16 @@ func init() {
 		if err != nil {
 			return err
 		}
-		handleResult(args.WebConsoleFrontendOptions, ret)
+		handleResult(args.WebConsoleOptions, ret)
+		return nil
+	})
+
+	R(&o.WebConsoleBaremetalOptions{}, "webconsole-baremetal", "Connect baremetal host webconsole", func(s *mcclient.ClientSession, args *o.WebConsoleBaremetalOptions) error {
+		ret, err := modules.WebConsole.DoBaremetalConnect(s, args.ID)
+		if err != nil {
+			return err
+		}
+		handleResult(args.WebConsoleOptions, ret)
 		return nil
 	})
 }
