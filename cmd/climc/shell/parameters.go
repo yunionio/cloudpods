@@ -10,12 +10,18 @@ import (
 func init() {
 	type ParametersListOptions struct {
 		options.BaseListOptions
+		NamespaceId string `help:"Show parameter of specificated namespace id, ADMIN only"`
 	}
 
 	R(&ParametersListOptions{}, "parameter-list", "list parameters", func(s *mcclient.ClientSession, args *ParametersListOptions) error {
 		params, err := options.ListStructToParams(args)
 		if err != nil {
 			return err
+		}
+
+		if len(args.NamespaceId) > 0 {
+			params.Add(jsonutils.JSONTrue, "admin")
+			params.Add(jsonutils.NewString(args.NamespaceId), "namespace_id")
 		}
 
 		result, err := modules.Parameters.List(s, params)
@@ -27,19 +33,27 @@ func init() {
 	})
 
 	type ParametersShowOptions struct {
-		Admin  bool   `help:"Show parameter of all users, ADMIN only"`
-		UserId string `help:"Show parameter of a user, ADMIN only"`
-		NAME   string `help:"The name of parameter"`
+		Namespace   string `help:"Show parameter of specificated namespace, ADMIN only"`
+		NamespaceId string `help:"Show parameter of specificated namespace id, ADMIN only"`
+		UserId      string `help:"Show parameter created by specificated user, ADMIN only"`
+		NAME        string `help:"The name of parameter"`
 	}
 
 	R(&ParametersShowOptions{}, "parameter-show", "show a parameter", func(s *mcclient.ClientSession, args *ParametersShowOptions) error {
 		params := jsonutils.NewDict()
-		if args.Admin {
+		if len(args.Namespace) > 0 {
 			params.Add(jsonutils.JSONTrue, "admin")
+			params.Add(jsonutils.NewString(args.Namespace), "namespace")
+		}
+
+		if len(args.NamespaceId) > 0 {
+			params.Add(jsonutils.JSONTrue, "admin")
+			params.Add(jsonutils.NewString(args.NamespaceId), "namespace_id")
 		}
 
 		if len(args.UserId) > 0 {
-			params.Add(jsonutils.NewString(args.UserId), "user_id")
+			params.Add(jsonutils.JSONTrue, "admin")
+			params.Add(jsonutils.NewString(args.UserId), "created_by")
 		}
 		parameter, err := modules.Parameters.Get(s, args.NAME, params)
 		if err != nil {
@@ -50,14 +64,22 @@ func init() {
 	})
 
 	type ParametersCreateOptions struct {
-		NAME  string `help:"The name of parameter"`
-		VALUE string `help:"The content of parameter"`
+		User    string `help:"Create parameter for specificated user, ADMIN only"`
+		Service string `help:"Create parameter for specificated service, ADMIN only"`
+		NAME    string `help:"The name of parameter"`
+		VALUE   string `help:"The content of parameter"`
 	}
 
 	R(&ParametersCreateOptions{}, "parameter-create", "create a parameter", func(s *mcclient.ClientSession, args *ParametersCreateOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.NAME), "name")
 		params.Add(jsonutils.NewString(args.VALUE), "value")
+
+		if len(args.User) > 0 {
+			params.Add(jsonutils.NewString(args.User), "user_id")
+		} else if len(args.Service) > 0 {
+			params.Add(jsonutils.NewString(args.Service), "service_id")
+		}
 
 		parameter, err := modules.Parameters.Create(s, params)
 		if err != nil {
@@ -68,10 +90,10 @@ func init() {
 	})
 
 	type ParametersUpdateOptions struct {
-		Admin  bool   `help:"Update parameter of all users, ADMIN only"`
-		UserId string `help:"Update parameter of a user, ADMIN only"`
-		NAME   string `help:"The name of parameter"`
-		VALUE  string `help:"The content of parameter"`
+		User    string `help:"Update parameter for specificated user, ADMIN only"`
+		Service string `help:"Update parameter for specificated service, ADMIN only"`
+		NAME    string `help:"The name of parameter"`
+		VALUE   string `help:"The content of parameter"`
 	}
 
 	R(&ParametersUpdateOptions{}, "parameter-update", "update parameter", func(s *mcclient.ClientSession, args *ParametersUpdateOptions) error {
@@ -80,12 +102,12 @@ func init() {
 			params.Add(jsonutils.NewString(args.VALUE), "value")
 		}
 
-		if args.Admin {
+		if len(args.User) > 0 {
 			params.Add(jsonutils.JSONTrue, "admin")
-		}
-
-		if len(args.UserId) > 0 {
-			params.Add(jsonutils.NewString(args.UserId), "user_id")
+			params.Add(jsonutils.NewString(args.User), "user_id")
+		} else if len(args.Service) > 0 {
+			params.Add(jsonutils.JSONTrue, "admin")
+			params.Add(jsonutils.NewString(args.Service), "service_id")
 		}
 
 		parameter, err := modules.Parameters.Update(s, args.NAME, params)
@@ -97,19 +119,19 @@ func init() {
 	})
 
 	type ParametersDeleteOptions struct {
-		Admin  bool   `help:"delete parameter of a user, ADMIN only"`
-		UserId string `help:"delete parameter of a user, ADMIN only"`
-		NAME   string `help:"The name of parameter"`
+		User    string `help:"Delete parameter for specificated user, ADMIN only"`
+		Service string `help:"Delete parameter for specificated service, ADMIN only"`
+		NAME    string `help:"The name of parameter"`
 	}
 
 	R(&ParametersDeleteOptions{}, "parameter-delete", "delete notice", func(s *mcclient.ClientSession, args *ParametersDeleteOptions) error {
 		params := jsonutils.NewDict()
-		if args.Admin {
+		if len(args.User) > 0 {
 			params.Add(jsonutils.JSONTrue, "admin")
-		}
-
-		if len(args.UserId) > 0 {
-			params.Add(jsonutils.NewString(args.UserId), "user_id")
+			params.Add(jsonutils.NewString(args.User), "user_id")
+		} else if len(args.Service) > 0 {
+			params.Add(jsonutils.JSONTrue, "admin")
+			params.Add(jsonutils.NewString(args.Service), "service_id")
 		}
 
 		parameter, err := modules.Notice.Delete(s, args.NAME, params)
