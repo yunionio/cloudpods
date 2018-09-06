@@ -10,14 +10,18 @@ import (
 func init() {
 	type SnapshotsListOptions struct {
 		options.BaseListOptions
-		Disk string `help:"Disk snapshots"`
+		Disk        string `help:"Disk snapshots"`
+		FakeDeleted bool   `help:"Show fake deleted snapshot or not"`
 	}
 	R(&SnapshotsListOptions{}, "snapshot-list", "Show snapshots", func(s *mcclient.ClientSession, args *SnapshotsListOptions) error {
 		params, err := args.BaseListOptions.Params()
 		if err != nil {
 			return err
 		}
-		params.Add(jsonutils.NewString(args.Disk), "disk_id")
+		if len(args.Disk) > 0 {
+			params.Add(jsonutils.NewString(args.Disk), "disk_id")
+		}
+		params.Add(jsonutils.NewBool(args.FakeDeleted), "fake_deleted")
 		result, err := modules.Snapshots.List(s, params)
 		if err != nil {
 			return err
@@ -31,6 +35,19 @@ func init() {
 	}
 	R(&SnapshotDeleteOptions{}, "snapshot-delete", "Delete snapshots", func(s *mcclient.ClientSession, args *SnapshotDeleteOptions) error {
 		result, err := modules.Snapshots.Delete(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+	type DiskDeleteSnapshotsOptions struct {
+		DISK string `help:"ID of disk"`
+	}
+	R(&DiskDeleteSnapshotsOptions{}, "disk-delete-snapshots", "Delete a disk snapshots", func(s *mcclient.ClientSession, args *DiskDeleteSnapshotsOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.DISK), "disk_id")
+		result, err := modules.Snapshots.PerformClassAction(s, "delete-disk-snapshots", params)
 		if err != nil {
 			return err
 		}

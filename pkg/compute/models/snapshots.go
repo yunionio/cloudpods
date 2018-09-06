@@ -32,12 +32,13 @@ type SSnapshotManager struct {
 
 type SSnapshot struct {
 	db.SVirtualResourceBase
-	DiskId     string `width:"36" charset:"ascii" nullable:"false" create:"required" key_index:"true" list:"user"`
-	StorageId  string `width:"36" charset:"ascii" nullable:"true" list:"admin"`
-	CreatedBy  string `width:"36" charset:"ascii" nullable:"false" default:"manual" list:"admin"`
-	Location   string `charset:"ascii" nullable:"false" list:"admin"`
-	Size       int    `nullable:"false" list:"user"` // MB
-	OutOfChain bool   `nullable:"false" default:"false" index:"true" get:"admin"`
+	DiskId      string `width:"36" charset:"ascii" nullable:"false" create:"required" key_index:"true" list:"user"`
+	StorageId   string `width:"36" charset:"ascii" nullable:"true" list:"admin"`
+	CreatedBy   string `width:"36" charset:"ascii" nullable:"false" default:"manual" list:"admin"`
+	Location    string `charset:"ascii" nullable:"false" list:"admin"`
+	Size        int    `nullable:"false" list:"user"` // MB
+	OutOfChain  bool   `nullable:"false" default:"false" index:"true" get:"admin"`
+	FakeDeleted bool   `nullable:"false" default:"false" index:"true"`
 }
 
 var SnapshotManager *SSnapshotManager
@@ -48,6 +49,19 @@ func init() {
 
 func (self *SSnapshot) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred)
+}
+
+func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	if jsonutils.QueryBoolean(query, "fake_deleted", false) {
+		q = q.Equals("fake_deleted", true)
+	} else {
+		q = q.Equals("fake_deleted", false)
+	}
+	return q, nil
 }
 
 func (self *SSnapshot) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -97,7 +111,7 @@ func (self *SSnapshotManager) GetDiskSnapshotsByCreate(diskId, createdBy string)
 	q := self.Query().SubQuery()
 	err := q.Query().Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), diskId),
 		sqlchemy.Equals(q.Field("created_by"), createdBy),
-		sqlchemy.Equals(q.Field("pending_deleted"), false))).All(&dest)
+		sqlchemy.Equals(q.Field("fake_deleted"), false))).All(&dest)
 	if err != nil {
 		log.Errorf("GetDiskSnapshots error: %s", err)
 		return nil
@@ -139,7 +153,7 @@ func (self *SSnapshotManager) GetDiskFirstSnapshot(diskId string) *SSnapshot {
 func (self *SSnapshotManager) GetDiskSnapshotCount(diskId string) int {
 	q := self.Query().SubQuery()
 	return q.Query().Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), diskId),
-		sqlchemy.Equals(q.Field("pending_deleted"), false))).Count()
+		sqlchemy.Equals(q.Field("fake_deleted"), false))).Count()
 }
 
 func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, userCred mcclient.TokenCredential, createdBy, diskId, guestId, location, name string) (*SSnapshot, error) {
@@ -187,8 +201,8 @@ func (self *SSnapshot) ValidateDeleteCondition(ctx context.Context) error {
 
 func (self *SSnapshot) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if self.CreatedBy == MANUAL {
-		if !self.PendingDeleted {
-			return self.SVirtualResourceBase.PendingDelete()
+		if !self.FakeDeleted {
+			return self.FakeDelete()
 		} else {
 			return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
 		}
@@ -233,6 +247,8 @@ func (self *SSnapshotManager) GetConvertSnapshot(deleteSnapshot *SSnapshot) (*SS
 	if len(dest) == 2 && dest[0].Id == deleteSnapshot.Id {
 		dest[1].SetModelManager(self)
 		return &dest[1], nil
+	} else if len(dest) == 1 && dest[0].Id == deleteSnapshot.Id {
+		return nil, nil
 	}
 	return nil, fmt.Errorf("Snapshot %s cannot convert", deleteSnapshot.Id)
 }
@@ -254,6 +270,11 @@ func (self *SSnapshotManager) PerformDeleteDiskSnapshots(ctx context.Context, us
 	if snapshots == nil || len(snapshots) == 0 {
 		return nil, httperrors.NewNotFoundError("Disk %s dose not have snapshot", diskId)
 	}
+	for i := 0; i < len(snapshots); i++ {
+		if snapshots[i].CreatedBy == MANUAL && snapshots[i].FakeDeleted == false {
+			return nil, httperrors.NewBadRequestError("Can not delete disk snapshots, have manual snapshot")
+		}
+	}
 	err = snapshots[0].StartSnapshotsDeleteTask(ctx, userCred, "")
 	return nil, err
 }
@@ -271,6 +292,14 @@ func (self *SSnapshot) StartSnapshotsDeleteTask(ctx context.Context, userCred mc
 
 func (self *SSnapshot) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DeleteModel(ctx, userCred, self)
+}
+
+func (self *SSnapshot) FakeDelete() error {
+	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		self.FakeDeleted = true
+		return nil
+	})
+	return err
 }
 
 func (self *SSnapshot) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

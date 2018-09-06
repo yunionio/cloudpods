@@ -355,14 +355,17 @@ func (self *SDisk) GetDetailsConvertSnapshot(ctx context.Context, userCred mccli
 	if err != nil {
 		return nil, httperrors.NewBadRequestError("Get convert snapshot failed: %s", err.Error())
 	}
-	var pendingDelete bool
-	if deleteSnapshot.CreatedBy == MANUAL && !deleteSnapshot.PendingDeleted {
-		pendingDelete = true
+	if convertSnapshot == nil {
+		return nil, httperrors.NewBadRequestError("Snapshot %s dose not have convert snapshot", deleteSnapshot.Id)
+	}
+	var FakeDelete bool
+	if deleteSnapshot.CreatedBy == MANUAL && !deleteSnapshot.FakeDeleted {
+		FakeDelete = true
 	}
 	ret := jsonutils.NewDict()
 	ret.Set("delete_snapshot", jsonutils.NewString(deleteSnapshot.Id))
 	ret.Set("convert_snapshot", jsonutils.NewString(convertSnapshot.Id))
-	ret.Set("pending_delete", jsonutils.NewBool(pendingDelete))
+	ret.Set("pending_delete", jsonutils.NewBool(FakeDelete))
 	return ret, nil
 }
 

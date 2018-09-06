@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -109,12 +110,13 @@ func (self *SnapshotDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 	snapshot := obj.(*models.SSnapshot)
 	guest, err := snapshot.GetGuest()
 	if err != nil {
-		self.SetStageFailed(ctx, err.Error())
-		return
-	}
-	if guest == nil {
-		self.SetStageFailed(ctx, "Cannot delete without guest")
-		return
+		if err != sql.ErrNoRows {
+			self.SetStageFailed(ctx, err.Error())
+			return
+		} else {
+			self.DeleteStaticSnapshot(ctx, snapshot)
+			return
+		}
 	}
 	if jsonutils.QueryBoolean(self.Params, "reload_disk", false) && snapshot.OutOfChain {
 		self.StartReloadDisk(ctx, snapshot, guest)
@@ -140,16 +142,20 @@ func (self *SnapshotDeleteTask) StartDeleteSnapshot(ctx context.Context, snapsho
 		self.TaskFailed(ctx, snapshot, err.Error())
 		return
 	}
+	if convertSnapshot == nil {
+		self.TaskFailed(ctx, snapshot, "snapshot dose not have convert snapshot")
+		return
+	}
 	params := jsonutils.NewDict()
 	params.Set("delete_snapshot", jsonutils.NewString(snapshot.Id))
 	params.Set("disk_id", jsonutils.NewString(snapshot.DiskId))
 	if !snapshot.OutOfChain {
 		params.Set("convert_snapshot", jsonutils.NewString(convertSnapshot.Id))
-		var pendingDelete = jsonutils.JSONFalse
-		if snapshot.CreatedBy == models.MANUAL && snapshot.PendingDeleted == false {
-			pendingDelete = jsonutils.JSONTrue
+		var FakeDelete = jsonutils.JSONFalse
+		if snapshot.CreatedBy == models.MANUAL && snapshot.FakeDeleted == false {
+			FakeDelete = jsonutils.JSONTrue
 		}
-		params.Set("pending_delete", pendingDelete)
+		params.Set("pending_delete", FakeDelete)
 	} else {
 		params.Set("auto_deleted", jsonutils.JSONTrue)
 	}
@@ -160,6 +166,23 @@ func (self *SnapshotDeleteTask) StartDeleteSnapshot(ctx context.Context, snapsho
 	if err != nil {
 		self.TaskFailed(ctx, snapshot, err.Error())
 	}
+}
+
+func (self *SnapshotDeleteTask) DeleteStaticSnapshot(ctx context.Context, snapshot *models.SSnapshot) {
+	// convertSnapshot, err := models.SnapshotManager.GetConvertSnapshot(snapshot)
+	// if err != nil {
+	// 	self.TaskFailed(ctx, snapshot, err.Error())
+	// 	return
+	// }
+	// if convertSnapshot == nil {
+	// 	self.TaskFailed(ctx, snapshot, "Snapshot dose not have convert snapshot")
+	// }
+	err := snapshot.FakeDelete()
+	if err != nil {
+		self.TaskFailed(ctx, snapshot, err.Error())
+		return
+	}
+	self.SetStageComplete(ctx, nil)
 }
 
 func (self *SnapshotDeleteTask) OnDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
@@ -176,13 +199,12 @@ func (self *SnapshotDeleteTask) OnDeleteSnapshot(ctx context.Context, snapshot *
 			self.SetStageFailed(ctx, err.Error())
 			return
 		}
-		var pendingDelete = false
-		if snapshot.CreatedBy == models.MANUAL && snapshot.PendingDeleted == false &&
-			!jsonutils.QueryBoolean(self.Params, "force_delete", false) {
-			pendingDelete = true
+		var FakeDelete = false
+		if snapshot.CreatedBy == models.MANUAL && snapshot.FakeDeleted == false {
+			FakeDelete = true
 		}
-		if pendingDelete {
-			snapshot.PendingDelete()
+		if FakeDelete {
+			snapshot.FakeDelete()
 		} else {
 			snapshot.RealDelete(ctx, self.UserCred)
 		}
@@ -207,7 +229,7 @@ func (self *SnapshotDeleteTask) OnReloadDiskSnapshot(ctx context.Context, snapsh
 			return
 		}
 	} else {
-		err := snapshot.SVirtualResourceBase.PendingDelete()
+		err := snapshot.FakeDelete()
 		if err != nil {
 			self.TaskFailed(ctx, snapshot, err.Error())
 			return
