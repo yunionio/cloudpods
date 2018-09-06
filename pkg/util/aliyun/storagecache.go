@@ -86,17 +86,17 @@ func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 	return self.iimages, nil
 }
 
-func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageId string, extId string, isForce bool) (string, error) {
+func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, extId string, isForce bool) (string, error) {
 	if len(extId) > 0 {
 		status, _ := self.region.GetImageStatus(extId)
 		if status == ImageStatusAvailable && !isForce {
 			return extId, nil
 		}
 	}
-	return self.uploadImage(userCred, imageId, isForce)
+	return self.uploadImage(userCred, imageId, osArch, osType, osDist, isForce)
 }
 
-func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, isForce bool) (string, error) {
+func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
 	// first upload image to oss
 	s := auth.GetAdminSession(options.Options.Region, "")
 
@@ -161,7 +161,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 
 	log.Debugf("Import image %s", imageName)
 
-	task, err := self.region.ImportImage(imageName, bucketName, imageId)
+	task, err := self.region.ImportImage(imageName, osArch, osType, osDist, bucketName, imageId)
 
 	if err != nil {
 		log.Errorf("ImportImage error %s %s %s", imageId, bucketName, err)

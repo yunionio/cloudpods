@@ -29,6 +29,11 @@ func (self *SAliyunHostDriver) CheckAndSetCacheImage(ctx context.Context, host *
 	if err != nil {
 		return err
 	}
+
+	osArch, _ := params.GetString("os_arch")
+	osType, _ := params.GetString("os_type")
+	osDist, _ := params.GetString("os_distribution")
+
 	isForce := jsonutils.QueryBoolean(params, "is_force", false)
 	userCred := task.GetUserCred()
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
@@ -37,7 +42,7 @@ func (self *SAliyunHostDriver) CheckAndSetCacheImage(ctx context.Context, host *
 			return nil, err
 		}
 
-		extImgId, err := iStorageCache.UploadImage(userCred, imageId, scimg.ExternalId, isForce)
+		extImgId, err := iStorageCache.UploadImage(userCred, imageId, osArch, osType, osDist, scimg.ExternalId, isForce)
 
 		if err != nil {
 			return nil, err

@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"strings"
 )
 
 const (
@@ -403,12 +404,6 @@ func (self *SElasticip) PostCreate(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SElasticip) startEipAllocateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, pendingUsage quotas.IQuota) error {
-	/*params := jsonutils.NewDict()
-	params.Add(jsonutils.NewString(instanceExtId), "instance_external_id")
-	params.Add(jsonutils.NewString(instanceId), "instance_id")
-	params.Add(jsonutils.NewString(instanceType), "instance_type")
-	*/
-
 	task, err := taskman.TaskManager.NewTask(ctx, "EipAllocateTask", self, userCred, params, "", "", pendingUsage)
 	if err != nil {
 		log.Errorf("newtask EipAllocateTask fail %s", err)
@@ -490,6 +485,10 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 	}
 
 	server := vmObj.(*SGuest)
+
+	if server.PendingDeleted {
+		return nil, httperrors.NewInvalidStatusError("cannot associate pending delete server")
+	}
 
 	if ok, _ := utils.InStringArray(server.Status, []string{VM_READY, VM_RUNNING}); !ok {
 		return nil, httperrors.NewInvalidStatusError("cannot associate server in status %s", server.Status)
@@ -597,9 +596,9 @@ func (self *SElasticip) AllowPerformSync(ctx context.Context, userCred mcclient.
 }
 
 func (self *SElasticip) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	/*if self.Status != EIP_STATUS_READY && ! strings.HasSuffix(self.Status, "_fail") {
+	if self.Status != EIP_STATUS_READY && ! strings.HasSuffix(self.Status, "_fail") {
 		return nil, httperrors.NewInvalidStatusError("eip cannot syncstatus in status %s", self.Status)
-	}*/
+	}
 
 	if self.Mode == EIP_MODE_INSTANCE_PUBLICIP {
 		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot be dissociated")
@@ -634,6 +633,11 @@ func (self *SElasticip) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSO
 	vm := self.getVM()
 	if vm != nil {
 		extra.Add(jsonutils.NewString(vm.GetName()), "associate_name")
+	}
+	region := self.GetRegion()
+	if region != nil {
+		extra.Add(jsonutils.NewString(region.GetName()), "cloudregion")
+		extra.Add(jsonutils.NewString(region.GetName()), "region")
 	}
 	return extra
 }

@@ -764,6 +764,8 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			return nil, httperrors.NewResourceNotFoundError("Secgroup %s not found", secGrpId)
 		}
 		data.Add(jsonutils.NewString(secGrpObj.GetId()), "secgrp_id")
+	} else {
+		data.Add(jsonutils.NewString("default"), "secgrp_id")
 	}
 
 	/*
@@ -1146,10 +1148,10 @@ func (self *SGuest) getIPs() []string {
 	ips := self.getRealIPs()
 	vips := self.getVirtualIPs()
 	ips = append(ips, vips...)
-	eip, _ := self.GetEip()
+	/*eip, _ := self.GetEip()
 	if eip != nil {
 		ips = append(ips, eip.IpAddr)
-	}
+	}*/
 	return ips
 }
 
@@ -2321,7 +2323,7 @@ func (self *SGuest) PerformRevokeSecgroup(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewInputParameterError("Cannot revoke security rules in status %s", self.Status)
 	} else {
 		if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
-			self.SecgrpId = ""
+			self.SecgrpId = "default"
 			return nil
 		}); err != nil {
 			return nil, err

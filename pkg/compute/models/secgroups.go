@@ -4,17 +4,20 @@ import (
 	"context"
 	"strings"
 	"time"
+	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/sqlchemy"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/util/secrules"
-	"yunion.io/x/sqlchemy"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 type SSecurityGroupManager struct {
@@ -296,4 +299,57 @@ func (self *SSecurityGroup) DoSync(ctx context.Context, userCred mcclient.TokenC
 	time.AfterFunc(10*time.Second, func() {
 		SecurityGroupManager.DelaySync(ctx, userCred, self.Id)
 	})
+}
+
+func (manager *SSecurityGroupManager) InitializeData() error {
+	_, err := manager.FetchById("default")
+	if err != nil && err != sql.ErrNoRows {
+		log.Errorf("find default secgroup fail %s", err)
+		return err
+	}
+	if err == sql.ErrNoRows {
+		var secGrp *SSecurityGroup
+		secGrp = &SSecurityGroup{}
+		secGrp.SetModelManager(manager)
+		secGrp.Id = "default"
+		secGrp.Name = "Default"
+		secGrp.ProjectId = auth.AdminCredential().GetProjectId()
+		secGrp.IsEmulated = false
+		secGrp.IsPublic = true
+		err = manager.TableSpec().Insert(secGrp)
+		if err != nil {
+			log.Errorf("Insert default secgroup failed!!! %s", err)
+			return err
+		}
+
+		defRule := SSecurityGroupRule{}
+		defRule.SetModelManager(SecurityGroupRuleManager)
+		defRule.Direction = secrules.DIR_IN
+		defRule.Protocol = secrules.PROTO_ANY
+		defRule.Priority = 1
+		defRule.CIDR = "0.0.0.0/0"
+		defRule.Action = string(secrules.SecurityRuleAllow)
+		defRule.SecgroupID = "default"
+		err = SecurityGroupRuleManager.TableSpec().Insert(&defRule)
+		if err != nil {
+			log.Errorf("Insert default secgroup rule fail %s", err)
+			return err
+		}
+	}
+	guests := make([]SGuest, 0)
+	q := GuestManager.Query()
+	q = q.Filter(sqlchemy.OR(sqlchemy.IsEmpty(q.Field("secgrp_id")), sqlchemy.IsNull(q.Field("secgrp_id"))))
+
+	err = db.FetchModelObjects(GuestManager, q, &guests)
+	if err != nil {
+		log.Errorf("fetch guests without secgroup fail %s", err)
+		return err
+	}
+	for i := 0; i < len(guests); i += 1 {
+		GuestManager.TableSpec().Update(&guests[i], func() error {
+			guests[i].SecgrpId = "default"
+			return nil
+		})
+	}
+	return nil
 }

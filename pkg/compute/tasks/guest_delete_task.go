@@ -42,6 +42,11 @@ func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, obj db.ISt
 	}
 }
 
+func (self *GuestDeleteTask) OnEipDissociateCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	self.OnFailed(ctx, guest, err)
+}
+
 func (self *GuestDeleteTask) OnEipDissociateComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 
@@ -104,11 +109,16 @@ func (self *GuestDeleteTask) DoDeleteGuest(ctx context.Context, guest *models.SG
 	}
 }
 
-func (self *GuestDeleteTask) OnGuestDeleteCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
-	guest := obj.(*models.SGuest)
+func (self *GuestDeleteTask) OnFailed(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
 	guest.SetStatus(self.UserCred, models.VM_DELETE_FAIL, err.String())
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLog(guest, logclient.ACT_DELETE, err, self.UserCred, false)
+	self.SetStageFailed(ctx, err.String())
+}
+
+func (self *GuestDeleteTask) OnGuestDeleteCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	self.OnFailed(ctx, guest, err)
 }
 
 func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
