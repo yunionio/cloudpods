@@ -4,12 +4,12 @@ import (
 	"yunion.io/x/jsonutils"
 )
 
-type WebConsoleFrontendOptions struct {
-	WebUrl string `help:"Frontend terminal HTML web url" short-token:"w"`
+type WebConsoleOptions struct {
+	WebconsoleUrl string `help:"Frontend webconsole url" short-token:"w" default:"$WEBCONSOLE_URL"`
 }
 
 type PodBaseOptions struct {
-	WebConsoleFrontendOptions
+	WebConsoleOptions
 	NAME      string `help:"Name of k8s pod to connect"`
 	Namespace string `help:"Namespace of this pod"`
 	Container string `help:"Container in this pod"`
@@ -26,4 +26,13 @@ type PodShellOptions struct {
 
 type PodLogOptoins struct {
 	PodBaseOptions
+}
+
+type WebConsoleBaremetalOptions struct {
+	WebConsoleOptions
+	ID string `help:"Baremetal host id or name"`
+}
+
+func (opt *WebConsoleBaremetalOptions) Params() (*jsonutils.JSONDict, error) {
+	return StructToParams(opt)
 }

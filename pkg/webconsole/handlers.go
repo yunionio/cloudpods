@@ -13,7 +13,9 @@ import (
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 	"yunion.io/x/onecloud/pkg/webconsole/command"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
@@ -28,6 +30,7 @@ const (
 func InitHandlers(app *appsrv.Application) {
 	app.AddHandler("POST", ApiPathPrefix+"k8s/<podName>/shell", auth.Authenticate(handleK8sShell))
 	app.AddHandler("POST", ApiPathPrefix+"k8s/<podName>/log", auth.Authenticate(handleK8sLog))
+	app.AddHandler("POST", ApiPathPrefix+"baremetal/<id>", auth.Authenticate(handleBaremetalShell))
 }
 
 func fetchEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (map[string]string, jsonutils.JSONObject, jsonutils.JSONObject) {
@@ -105,6 +108,30 @@ func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*
 	}, nil
 }
 
+type CloudEnv struct {
+	ClientSessin *mcclient.ClientSession
+	Params       map[string]string
+	Query        jsonutils.JSONObject
+	Body         jsonutils.JSONObject
+	Ctx          context.Context
+}
+
+func fetchCloudEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*CloudEnv, error) {
+	params, query, body := fetchEnv(ctx, w, r)
+	userCred := auth.FetchUserCredential(ctx)
+	if userCred == nil {
+		return nil, httperrors.NewUnauthorizedError("No token founded")
+	}
+	s := auth.Client().NewSession(o.Options.Region, "", "internal", userCred, "")
+	return &CloudEnv{
+		ClientSessin: s,
+		Params:       params,
+		Query:        query,
+		Body:         body,
+		Ctx:          ctx,
+	}, nil
+}
+
 func handleK8sCommand(
 	ctx context.Context,
 	w http.ResponseWriter,
@@ -118,6 +145,44 @@ func handleK8sCommand(
 	}
 
 	cmd := cmdFactory(env.KubeConfig, env.Namespace, env.Pod, env.Container)
+	handleCommandSession(cmd, w)
+}
+
+func handleK8sShell(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	handleK8sCommand(ctx, w, r, command.NewPodBashCommand)
+}
+
+func handleK8sLog(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	handleK8sCommand(ctx, w, r, command.NewPodLogCommand)
+}
+
+func handleBaremetalShell(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	env, err := fetchCloudEnv(ctx, w, r)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	hostId := env.Params["<id>"]
+	ret, err := modules.Hosts.GetSpecific(env.ClientSessin, hostId, "ipmi", nil)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	info := command.IpmiInfo{}
+	err = ret.Unmarshal(&info)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	cmd, err := command.NewIpmitoolSolCommand(&info)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	handleCommandSession(cmd, w)
+}
+
+func handleCommandSession(cmd command.ICommand, w http.ResponseWriter) {
 	cmdSession, err := session.Manager.Save(cmd)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
@@ -132,14 +197,6 @@ func handleK8sCommand(
 	data.Add(jsonutils.NewString(params), "connect_params")
 	data.Add(jsonutils.NewString(cmdSession.Id), "session")
 	sendJSON(w, data)
-}
-
-func handleK8sShell(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	handleK8sCommand(ctx, w, r, command.NewPodBashCommand)
-}
-
-func handleK8sLog(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	handleK8sCommand(ctx, w, r, command.NewPodLogCommand)
 }
 
 func sendJSON(w http.ResponseWriter, body jsonutils.JSONObject) {
