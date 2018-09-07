@@ -18,19 +18,12 @@ func initDeployment() {
 		return resourceCmdN("deployment", suffix)
 	}
 
-	type listOpt struct {
-		namespaceListOptions
-		baseListOptions
-	}
-	R(&listOpt{}, cmdN("list"), "List k8s deployment", func(s *mcclient.ClientSession, args *listOpt) error {
-		params := fetchNamespaceParams(args.namespaceListOptions)
-		params.Update(fetchPagingParams(args.baseListOptions))
-		params.Update(args.ClusterParams())
-		ret, err := k8s.Deployments.List(s, params)
+	R(&NamespaceResourceListOptions{}, cmdN("list"), "List k8s deployment", func(s *mcclient.ClientSession, args *NamespaceResourceListOptions) error {
+		ret, err := k8s.Deployments.List(s, args.Params())
 		if err != nil {
 			return err
 		}
-		printList(ret, k8s.Deployments.GetColumns(s))
+		PrintListResultTable(ret, k8s.Deployments, s)
 		return nil
 	})
 
@@ -68,6 +61,19 @@ func initDeployment() {
 			}
 			params.Add(portMappings, "portMappings")
 		}
+
+		envList := jsonutils.NewArray()
+		for _, env := range args.Env {
+			parts := strings.Split(env, "=")
+			if len(parts) != 2 {
+				return fmt.Errorf("Bad env value: %v", env)
+			}
+			envObj := jsonutils.NewDict()
+			envObj.Add(jsonutils.NewString(parts[0]), "name")
+			envObj.Add(jsonutils.NewString(parts[1]), "value")
+			envList.Add(envObj)
+		}
+		params.Add(envList, "variables")
 		if args.Net != "" {
 			net, err := parseNetConfig(args.Net)
 			if err != nil {
