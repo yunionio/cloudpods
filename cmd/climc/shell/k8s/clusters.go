@@ -14,12 +14,12 @@ import (
 
 func initCluster() {
 	cmdN := func(suffix string) string {
-		return resourceCmdN("cluster", suffix)
+		return kubeResourceCmdN("cluster", suffix)
 	}
 	type listOpt struct {
 		options.BaseListOptions
 	}
-	R(&listOpt{}, cmdN("list"), "List k8s clusters", func(s *mcclient.ClientSession, args *listOpt) error {
+	R(&listOpt{}, cmdN("list"), "List k8s infra clusters", func(s *mcclient.ClientSession, args *listOpt) error {
 		args.Details = options.Bool(true)
 		var params *jsonutils.JSONDict
 		{

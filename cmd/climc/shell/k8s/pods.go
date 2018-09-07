@@ -14,15 +14,8 @@ func initPod() {
 		return resourceCmdN("pod", suffix)
 	}
 
-	type listOpt struct {
-		namespaceListOptions
-		baseListOptions
-	}
-	R(&listOpt{}, cmdN("list"), "List k8s pod", func(s *mcclient.ClientSession, args *listOpt) error {
-		params := fetchNamespaceParams(args.namespaceListOptions)
-		params.Update(fetchPagingParams(args.baseListOptions))
-		params.Update(args.ClusterParams())
-		ret, err := k8s.Pods.List(s, params)
+	R(&NamespaceResourceListOptions{}, cmdN("list"), "List k8s pod", func(s *mcclient.ClientSession, args *NamespaceResourceListOptions) error {
+		ret, err := k8s.Pods.List(s, args.Params())
 		if err != nil {
 			return err
 		}
