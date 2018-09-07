@@ -23,10 +23,10 @@ type rawResource struct {
 	query jsonutils.JSONObject
 }
 
-func newRawResource(kind, namespace, name string, query jsonutils.JSONObject) *rawResource {
+func newRawResource(kind, namespace, name, cluster string) *rawResource {
 	nsQuery := getNamespaceQuery(namespace)
-	if query != nil {
-		nsQuery.Update(query)
+	if cluster != "" {
+		nsQuery.Add(jsonutils.NewString(cluster), "cluster")
 	}
 	ctx := &rawResource{kind: kind, name: name, query: nsQuery}
 	return ctx
@@ -62,22 +62,21 @@ func getNamespaceQuery(namespace string) *jsonutils.JSONDict {
 	return query
 }
 
-func (m *RawResourceManager) Get(s *mcclient.ClientSession, kind string, namespace string, name string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	ctx := newRawResource(kind, namespace, name, query)
+func (m *RawResourceManager) Get(s *mcclient.ClientSession, kind string, namespace string, name string, cluster string) (jsonutils.JSONObject, error) {
+	ctx := newRawResource(kind, namespace, name, cluster)
 	return m.request(s, "GET", ctx.path(), nil)
 }
 
-func (m *RawResourceManager) Put(s *mcclient.ClientSession, kind string, namespace string, name string, body jsonutils.JSONObject) error {
-	rawBytes := body.String()
+func (m *RawResourceManager) Put(s *mcclient.ClientSession, kind string, namespace string, name string, body jsonutils.JSONObject, cluster string) error {
 	newBody := jsonutils.NewDict()
-	newBody.Add(jsonutils.NewString(rawBytes), "raw")
-	ctx := newRawResource(kind, namespace, name, nil)
+	newBody.Add(body, "raw")
+	ctx := newRawResource(kind, namespace, name, cluster)
 	_, err := m.request(s, "PUT", ctx.path(), newBody)
 	return err
 }
 
-func (m *RawResourceManager) Delete(s *mcclient.ClientSession, kind string, namespace string, name string, query jsonutils.JSONObject) error {
-	ctx := newRawResource(kind, namespace, name, query)
+func (m *RawResourceManager) Delete(s *mcclient.ClientSession, kind string, namespace string, name string, cluster string) error {
+	ctx := newRawResource(kind, namespace, name, cluster)
 	_, err := m.request(s, "DELETE", ctx.path(), nil)
 	return err
 }
