@@ -13,6 +13,6 @@ type DeploymentManager struct {
 func init() {
 	Deployments = &DeploymentManager{
 		NewNamespaceResourceManager("deployment", "deployments",
-			NewColumns("labels"), NewColumns())}
+			NewNamespaceCols(), NewColumns())}
 	modules.Register(Deployments)
 }
