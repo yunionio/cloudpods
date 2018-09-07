@@ -5,42 +5,42 @@ import (
 	"database/sql"
 	"fmt"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
-	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/log"
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/mcclient"
+	"strings"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
-	"strings"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 const (
 	EIP_MODE_INSTANCE_PUBLICIP = "public_ip"
-	EIP_MODE_STANDALONE_EIP = "elastic_ip"
+	EIP_MODE_STANDALONE_EIP    = "elastic_ip"
 
 	EIP_ASSOCIATE_TYPE_SERVER = "server"
 
-	EIP_STATUS_READY = "ready"
-	EIP_STATUS_UNKNOWN = "unknown"
-	EIP_STATUS_ALLOCATE = "allocate"
-	EIP_STATUS_ALLOCATE_FAIL = "allocate_fail"
-	EIP_STATUS_DEALLOCATE = "deallocate"
+	EIP_STATUS_READY           = "ready"
+	EIP_STATUS_UNKNOWN         = "unknown"
+	EIP_STATUS_ALLOCATE        = "allocate"
+	EIP_STATUS_ALLOCATE_FAIL   = "allocate_fail"
+	EIP_STATUS_DEALLOCATE      = "deallocate"
 	EIP_STATUS_DEALLOCATE_FAIL = "deallocate_fail"
-	EIP_STATUS_ASSOCIATE = "associate"
-	EIP_STATUS_ASSOCIATE_FAIL = "associate_fail"
-	EIP_STATUS_DISSOCIATE = "dissociate"
+	EIP_STATUS_ASSOCIATE       = "associate"
+	EIP_STATUS_ASSOCIATE_FAIL  = "associate_fail"
+	EIP_STATUS_DISSOCIATE      = "dissociate"
 	EIP_STATUS_DISSOCIATE_FAIL = "dissociate_fail"
 
-	EIP_CHARGE_TYPE_BY_TRAFFIC = "traffic"
+	EIP_CHARGE_TYPE_BY_TRAFFIC   = "traffic"
 	EIP_CHARGE_TYPE_BY_BANDWIDTH = "bandwidth"
-	EIP_CHARGE_TYPE_DEFAULT = EIP_CHARGE_TYPE_BY_TRAFFIC
+	EIP_CHARGE_TYPE_DEFAULT      = EIP_CHARGE_TYPE_BY_TRAFFIC
 )
 
 type SElasticipManager struct {
@@ -63,7 +63,7 @@ type SElasticip struct {
 	IpAddr string `width:"17" charset:"ascii" list:"user"`
 
 	AssociateType string `width:"32" charset:"ascii" list:"user"`
-	AssociateId string `width:"128" charset:"ascii" list:"user"`
+	AssociateId   string `width:"128" charset:"ascii" list:"user"`
 
 	Bandwidth int `list:"user" create:"required"`
 
@@ -73,7 +73,6 @@ type SElasticip struct {
 
 	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
-
 
 func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
@@ -127,7 +126,7 @@ func (self *SElasticip) GetRegion() *SCloudregion {
 	return CloudregionManager.FetchRegionById(self.CloudregionId)
 }
 
-func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, eips []cloudprovider.ICloudEIP) (compare.SyncResult) {
+func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, eips []cloudprovider.ICloudEIP) compare.SyncResult {
 	// localEips := make([]SElasticip, 0)
 	// remoteEips := make([]cloudprovider.ICloudEIP, 0)
 	syncResult := compare.SyncResult{}
@@ -343,7 +342,7 @@ func (manager *SElasticipManager) getEipByExtEip(userCred mcclient.TokenCredenti
 }
 
 func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	regionStr := jsonutils.GetAnyString(data, []string {"region", "region_id"})
+	regionStr := jsonutils.GetAnyString(data, []string{"region", "region_id"})
 	if len(regionStr) == 0 {
 		return nil, httperrors.NewInputParameterError("Missing region/region_id")
 	}
@@ -377,7 +376,7 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 		chargeType = EIP_CHARGE_TYPE_DEFAULT
 	}
 
-	if ! utils.IsInStringArray(chargeType, []string{EIP_CHARGE_TYPE_BY_BANDWIDTH, EIP_CHARGE_TYPE_BY_TRAFFIC}) {
+	if !utils.IsInStringArray(chargeType, []string{EIP_CHARGE_TYPE_BY_BANDWIDTH, EIP_CHARGE_TYPE_BY_TRAFFIC}) {
 		return nil, httperrors.NewInputParameterError("charge type %s not supported", chargeType)
 	}
 
@@ -490,6 +489,11 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 		return nil, httperrors.NewInvalidStatusError("cannot associate pending delete server")
 	}
 
+	seip, _ := server.GetEip()
+	if seip != nil {
+		return nil, httperrors.NewInvalidStatusError("instance is already associated with eip")
+	}
+
 	if ok, _ := utils.InStringArray(server.Status, []string{VM_READY, VM_RUNNING}); !ok {
 		return nil, httperrors.NewInvalidStatusError("cannot associate server in status %s", server.Status)
 	}
@@ -596,7 +600,7 @@ func (self *SElasticip) AllowPerformSync(ctx context.Context, userCred mcclient.
 }
 
 func (self *SElasticip) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status != EIP_STATUS_READY && ! strings.HasSuffix(self.Status, "_fail") {
+	if self.Status != EIP_STATUS_READY && !strings.HasSuffix(self.Status, "_fail") {
 		return nil, httperrors.NewInvalidStatusError("eip cannot syncstatus in status %s", self.Status)
 	}
 
@@ -729,8 +733,8 @@ func (self *SElasticip) DoChangeBandwidth(userCred mcclient.TokenCredential, ban
 
 type EipUsage struct {
 	PublicIPCount int
-	EIPCount int
-	EIPUsedCount int
+	EIPCount      int
+	EIPUsedCount  int
 }
 
 func (u EipUsage) Total() int {
