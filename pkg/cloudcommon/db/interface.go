@@ -41,6 +41,7 @@ type IModelManager interface {
 
 	GetOwnerId(userCred mcclient.TokenCredential) string
 
+	// RawFetchById(idStr string) (IModel, error)
 	FetchById(idStr string) (IModel, error)
 	FetchByName(ownerProjId string, idStr string) (IModel, error)
 	FetchByIdOrName(ownerProjId string, idStr string) (IModel, error)
