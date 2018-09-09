@@ -459,7 +459,12 @@ func (this *SingleArgument) MetaVar() string {
 	if len(this.metavar) > 0 {
 		return this.metavar
 	} else if len(this.choices) > 0 {
-		return fmt.Sprintf("{%s}", strings.Join(this.choices, ","))
+		choices := this.choices
+		if len(choices) > 2 {
+			choices = choices[:2]
+			choices = append(choices, "...")
+		}
+		return fmt.Sprintf("{%s}", strings.Join(choices, ","))
 	} else {
 		return strings.ToUpper(strings.Replace(this.Token(), "-", "_", -1))
 	}
@@ -547,7 +552,18 @@ func (this *SingleArgument) InChoices(val string) bool {
 
 func (this *SingleArgument) SetValue(val string) error {
 	if !this.InChoices(val) {
-		return fmt.Errorf("Unknown argument %s for %s%s", val, this.token, this.MetaVar())
+		cands := FindSimilar(val, this.choices, -1, 0.5)
+		if len(cands) > 3 {
+			cands = cands[:3]
+		}
+		msg := fmt.Sprintf("Unknown argument '%s' for %s", val, this.token) //, this.MetaVar())
+		if len(cands) > 0 {
+			for i := 0; i < len(cands); i += 1 {
+				cands[i] = fmt.Sprintf("'%s'", cands[i])
+			}
+			msg = fmt.Sprintf("%s, do you mean %s?", msg, ChoicesString(cands))
+		}
+		return fmt.Errorf(msg)
 	}
 	e := gotypes.SetValue(this.value, val)
 	if e != nil {
@@ -874,7 +890,7 @@ func (this *ArgumentParser) ParseArgs(args []string, ignore_unknown bool) error 
 					break
 				}
 				if arg.IsSubcommand() {
-					var subarg *SubcommandArgument = arg.(*SubcommandArgument)
+					subarg := arg.(*SubcommandArgument)
 					var subparser = subarg.GetSubParser()
 					err = subparser.ParseArgs(args[i+1:], ignore_unknown)
 					break

@@ -93,3 +93,7 @@
 [[constraint]]
   branch = "master"
   name = "github.com/kr/pty"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/texttheater/golang-levenshtein"
