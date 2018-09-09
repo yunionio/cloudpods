@@ -75,7 +75,8 @@ type ICloudStoragecache interface {
 	CreateIImage(snapshotId, imageName, imageDesc string) (ICloudImage, error)
 
 	DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error)
-	UploadImage(userCred mcclient.TokenCredential, imageId string, extId string, isForce bool) (string, error)
+
+	UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, extId string, isForce bool) (string, error)
 }
 
 type ICloudStorage interface {
