@@ -84,6 +84,7 @@ func AddActionLog(model IObject, action string, iNotes interface{}, userCred mcc
                 // 成功日志
                 logentry.Add(jsonutils.JSONTrue, "success")
         }
+
         logentry.Add(jsonutils.NewString(notes), "notes")
 
         _, err := modules.Actions.Create(s, logentry)
