@@ -459,12 +459,7 @@ func (this *SingleArgument) MetaVar() string {
 	if len(this.metavar) > 0 {
 		return this.metavar
 	} else if len(this.choices) > 0 {
-		choices := this.choices
-		if len(choices) > 2 {
-			choices = choices[:2]
-			choices = append(choices, "...")
-		}
-		return fmt.Sprintf("{%s}", strings.Join(choices, ","))
+		return fmt.Sprintf("{%s}", strings.Join(this.choices, ","))
 	} else {
 		return strings.ToUpper(strings.Replace(this.Token(), "-", "_", -1))
 	}
@@ -561,7 +556,7 @@ func (this *SingleArgument) SetValue(val string) error {
 			for i := 0; i < len(cands); i += 1 {
 				cands[i] = fmt.Sprintf("'%s'", cands[i])
 			}
-			msg = fmt.Sprintf("%s, do you mean %s?", msg, ChoicesString(cands))
+			msg = fmt.Sprintf("%s, did you mean %s?", msg, ChoicesString(cands))
 		}
 		return fmt.Errorf(msg)
 	}
