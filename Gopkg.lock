@@ -761,6 +761,14 @@
   version = "v1.2.2"
 
 [[projects]]
+  branch = "master"
+  digest = "1:a38c75e7edd595bbaa03334c1ac26163a5e990d81f05cd9ec5fd0edc9c786078"
+  name = "github.com/texttheater/golang-levenshtein"
+  packages = ["levenshtein"]
+  pruneopts = "UT"
+  revision = "d188e65d659ef53fcdb0691c12f1bba64928b649"
+
+[[projects]]
   digest = "1:98e5cda86f67cd1ac95389d98670b66dea8cae480fe6292b83bccccfe60b4106"
   name = "github.com/ugorji/go"
   packages = ["codec"]
@@ -1116,7 +1124,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f640bec6e2c558f83117e88f16753d54685c95b8fb83d5660ed6c43e04adde72"
+  digest = "1:47660d9bad5ac13797da13236922903a26206c81aa2df28af44b3e7ddd3e3f06"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1151,7 +1159,7 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "3bcf68100d212545f2f16b91bb3962bc8b228da7"
+  revision = "6a2c5061c44f5e4a813a87553014ef72d1b983ea"
 
 [[projects]]
   branch = "master"
@@ -1163,11 +1171,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:64b263a23f3c35521bb811b2aa9f93f8c7ce1ff06487db12d6aa3fc25705ad2e"
+  digest = "1:c69a05ea10fc186aaf589c10184d00dbfa3a46fbd7866ed1e52d6bd84f8607d5"
   name = "yunion.io/x/structarg"
   packages = ["."]
   pruneopts = "UT"
-  revision = "ec02b19c0bccfc991fc9e850f5a2a543ae43254b"
+  revision = "7dc6c41bf325ce7f2ce2a1cebbd8d396f7f6188e"
 
 [solve-meta]
   analyzer-name = "dep"
