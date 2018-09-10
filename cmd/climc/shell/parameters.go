@@ -9,10 +9,10 @@ import (
 
 func init() {
 	type ParametersListOptions struct {
-		options.BaseListOptions
 		NamespaceId string `help:"List parameter of specificated namespace id, ADMIN only"`
 		User        string `help:"List parameter of specificated user id/ name, ADMIN only"`
 		Service     string `help:"List parameter of specificated service id/ name, ADMIN only"`
+		options.BaseListOptions
 	}
 
 	R(&ParametersListOptions{}, "parameter-list", "list parameters", func(s *mcclient.ClientSession, args *ParametersListOptions) error {
@@ -120,7 +120,7 @@ func init() {
 		} else if len(args.Service) > 0 {
 			parameter, err = modules.Parameters.PutInContext(s, args.NAME, params, &modules.ServicesV3, args.Service)
 		} else {
-			parameter, err = modules.Parameters.PutInContext(s, args.NAME, params, &modules.UsersV3, s.GetUserId())
+			parameter, err = modules.Parameters.Put(s, args.NAME, params)
 		}
 
 		if err != nil {
@@ -146,7 +146,7 @@ func init() {
 		} else if len(args.Service) > 0 {
 			parameter, err = modules.Parameters.DeleteInContext(s, args.NAME, params, &modules.ServicesV3, args.Service)
 		} else {
-			parameter, err = modules.Parameters.DeleteInContext(s, args.NAME, params, &modules.UsersV3, s.GetUserId())
+			parameter, err = modules.Parameters.Delete(s, args.NAME, nil)
 		}
 
 		if err != nil {
