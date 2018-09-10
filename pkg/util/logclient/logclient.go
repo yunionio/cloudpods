@@ -2,7 +2,6 @@ package logclient
 
 import (
 	"fmt"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -84,8 +83,7 @@ func AddActionLog(model IObject, action string, iNotes interface{}, userCred mcc
 		// 成功日志
 		logentry.Add(jsonutils.JSONTrue, "success")
 	}
-	// TODO delete tag when done.
-	notes = fmt.Sprintf("[a2]%s", notes)
+
 	logentry.Add(jsonutils.NewString(notes), "notes")
 
 	_, err := modules.Actions.Create(s, logentry)
