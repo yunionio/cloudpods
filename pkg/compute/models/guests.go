@@ -3676,6 +3676,93 @@ func (self *SGuest) GetIVM() (cloudprovider.ICloudVM, error) {
 	return ihost.GetIVMById(self.ExternalId)
 }
 
+func (self *SGuest) AllowPerformAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING}) {
+		return nil, httperrors.NewInvalidStatusError("cannot associate eip in status %s", self.Status)
+	}
+
+	eip, err := self.GetEip()
+	if err != nil {
+		log.Errorf("Fail to get Eip %s", err)
+		return nil, httperrors.NewGeneralError(err)
+	}
+	if eip != nil {
+		return nil, httperrors.NewInvalidStatusError("already associate with eip")
+	}
+	eipStr := jsonutils.GetAnyString(data, []string{"eip", "eip_id"})
+	if len(eipStr) == 0 {
+		return nil, httperrors.NewInputParameterError("missing eip or eip_id")
+	}
+	eipObj, err := ElasticipManager.FetchByIdOrName(userCred.GetProjectId(), eipStr)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError("eip %s not found", eipStr)
+		} else {
+			return nil, httperrors.NewGeneralError(err)
+		}
+	}
+
+	eip = eipObj.(*SElasticip)
+	eipRegion := eip.GetRegion()
+	instRegion := self.getRegion()
+
+	if eip.Mode == EIP_MODE_INSTANCE_PUBLICIP {
+		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot be associated")
+	}
+
+	eipVm := eip.getVM()
+	if eipVm != nil {
+		return nil, httperrors.NewConflictError("eip has been associated")
+	}
+
+	if eipRegion.Id != instRegion.Id {
+		return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different region")
+	}
+
+	host := self.GetHost()
+	if host == nil {
+		return nil, httperrors.NewInputParameterError("server host is not found???")
+	}
+
+	if host.ManagerId != eip.ManagerId {
+		return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different provider")
+	}
+
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(self.ExternalId), "instance_external_id")
+	params.Add(jsonutils.NewString(self.Id), "instance_id")
+	params.Add(jsonutils.NewString(EIP_ASSOCIATE_TYPE_SERVER), "instance_type")
+
+	err = eip.StartEipAssociateTask(ctx, userCred, params)
+
+	return nil, err
+}
+
+func (self *SGuest) AllowPerformDissociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformDissociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	eip, err := self.GetEip()
+	if err != nil {
+		log.Errorf("Fail to get Eip %s", err)
+		return nil, httperrors.NewGeneralError(err)
+	}
+	if eip == nil {
+		return nil, httperrors.NewInvalidStatusError("No eip to dissociate")
+	}
+	err = eip.StartEipDissociateTask(ctx, userCred, "")
+	if err != nil {
+		log.Errorf("fail to start dissociate task %s", err)
+		return nil, httperrors.NewGeneralError(err)
+	}
+	return nil, nil
+}
+
 func (self *SGuest) AllowPerformCreateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred)
 }
