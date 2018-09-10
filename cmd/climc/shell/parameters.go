@@ -10,8 +10,8 @@ import (
 func init() {
 	type ParametersListOptions struct {
 		NamespaceId string `help:"List parameter of specificated namespace id, ADMIN only"`
-		User        string `help:"List parameter of specificated user id/ name, ADMIN only"`
-		Service     string `help:"List parameter of specificated service id/ name, ADMIN only"`
+		User        string `help:"List parameter of specificated user id, ADMIN only"`
+		Service     string `help:"List parameter of specificated service id, ADMIN only"`
 		options.BaseListOptions
 	}
 
@@ -42,8 +42,8 @@ func init() {
 
 	type ParametersShowOptions struct {
 		NamespaceId string `help:"Show parameter of specificated namespace id, ADMIN only"`
-		User        string `help:"Show parameter of specificated user or user id, ADMIN only"`
-		Service     string `help:"Show parameter of specificated service or service id, ADMIN only"`
+		User        string `help:"Show parameter of specificated user id, ADMIN only"`
+		Service     string `help:"Show parameter of specificated service id, ADMIN only"`
 		NAME        string `help:"The name of parameter"`
 	}
 
@@ -75,8 +75,8 @@ func init() {
 	})
 
 	type ParametersCreateOptions struct {
-		User    string `help:"Create parameter for specificated user or user id, ADMIN only"`
-		Service string `help:"Create parameter for specificated service or service id, ADMIN only"`
+		User    string `help:"Create parameter for specificated user id, ADMIN only"`
+		Service string `help:"Create parameter for specificated service id, ADMIN only"`
 		NAME    string `help:"The name of parameter"`
 		VALUE   string `help:"The content of parameter"`
 	}
@@ -101,8 +101,8 @@ func init() {
 	})
 
 	type ParametersUpdateOptions struct {
-		User    string `help:"Update parameter for specificated user, ADMIN only"`
-		Service string `help:"Update parameter for specificated service, ADMIN only"`
+		User    string `help:"Update parameter of specificated user id, ADMIN only"`
+		Service string `help:"Update parameter of specificated service id, ADMIN only"`
 		NAME    string `help:"The name of parameter"`
 		VALUE   string `help:"The content of parameter"`
 	}
@@ -131,8 +131,8 @@ func init() {
 	})
 
 	type ParametersDeleteOptions struct {
-		User    string `help:"Delete parameter for specificated user, ADMIN only"`
-		Service string `help:"Delete parameter for specificated service, ADMIN only"`
+		User    string `help:"Delete parameter of specificated user id, ADMIN only"`
+		Service string `help:"Delete parameter of specificated service id, ADMIN only"`
 		NAME    string `help:"The name of parameter"`
 	}
 
