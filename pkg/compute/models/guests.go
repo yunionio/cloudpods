@@ -75,7 +75,7 @@ const (
 
 	VM_CHANGE_FLAVOR     = "change_flavor"
 	VM_REBUILD_ROOT      = "rebuild_root"
-	VM_REBUILD_ROOT_FAIL = "rebld_root_fail"
+	VM_REBUILD_ROOT_FAIL = "rebuild_root_fail"
 
 	VM_START_SNAPSHOT  = "snapshot_start"
 	VM_SNAPSHOT        = "snapshot"
@@ -3408,6 +3408,52 @@ func (self *SGuest) PerformReset(ctx context.Context, userCred mcclient.TokenCre
 	return nil, httperrors.NewInvalidStatusError("Cannot reset VM in status %s", self.Status)
 }
 
+func (self *SGuest) AllowPerformDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_READY}) {
+		return nil, httperrors.NewInvalidStatusError("Cannot do snapshot when VM in status %s", self.Status)
+	}
+	diskId, err := data.GetString("disk_id")
+	if err != nil {
+		return nil, err
+	}
+	name, err := data.GetString("name")
+	if err != nil {
+		return nil, err
+	}
+	if self.GetGuestDisk(diskId) == nil {
+		return nil, httperrors.NewNotFoundError("Guest disk %s not found", diskId)
+	}
+	snapshots := SnapshotManager.GetDiskSnapshotsByCreate(diskId, MANUAL)
+	if snapshots != nil {
+		if len(snapshots) >= DISK_MAX_MANUAL_SNAPSHOT {
+			return nil, httperrors.NewBadRequestError("Disk %s snapshot full, cannot take any more", diskId)
+		}
+		for _, snapshot := range snapshots {
+			if snapshot.Name == name {
+				return nil, httperrors.NewBadRequestError("Name Conflict")
+			}
+		}
+	}
+	snapshot, err := SnapshotManager.CreateSnapshot(ctx, userCred, MANUAL, diskId, self.Id, "", name)
+	if err != nil {
+		return nil, err
+	}
+	err = self.StartDiskSnapshot(ctx, userCred, diskId, snapshot.Id)
+	return nil, err
+}
+
+func (self *SGuest) StartDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, diskId, snapshotId string) error {
+	self.SetStatus(userCred, VM_START_SNAPSHOT, "StartDiskSnapshot")
+	params := jsonutils.NewDict()
+	params.Set("disk_id", jsonutils.NewString(diskId))
+	params.Set("snapshot_id", jsonutils.NewString(snapshotId))
+	return self.GetDriver().StartGuestDiskSnapshotTask(ctx, userCred, self, params)
+}
+
 func (self *SGuest) AllowPerformStop(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
@@ -3558,7 +3604,7 @@ func (manager *SGuestManager) getIpsByExit(ips []string, isExitOnly bool) []stri
 }
 
 func (manager *SGuestManager) getExpiredPendingDeleteGuests() []SGuest {
-	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds) * time.Second)
+	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds*-1) * time.Second)
 
 	q := manager.Query()
 	q = q.IsTrue("pending_deleted").LT("pending_deleted_at", deadline).In("hypervisor", []string{"aliyun"}).Limit(options.Options.PendingDeleteMaxCleanBatchSize)

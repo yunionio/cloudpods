@@ -13,6 +13,7 @@ import (
 )
 
 type SKVMHostDriver struct {
+	SBaseHostDriver
 }
 
 func init() {
@@ -144,6 +145,17 @@ func (self *SKVMHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, ho
 	body.Add(jsonutils.Marshal(content), "disk")
 	url := fmt.Sprintf("/disks/%s/upload", disk.StorageId)
 	header := http.Header{"X-Task-Id": []string{task.GetTaskId()}, "X-Region-Version": []string{"v2"}}
+	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+	return err
+}
+
+func (self *SKVMHostDriver) RequestDeleteSnapshotWithStorage(ctx context.Context, host *models.SHost, snapshot *models.SSnapshot, task taskman.ITask) error {
+	url := fmt.Sprintf("/storages/%s/delete-snapshots", snapshot.StorageId)
+	body := jsonutils.NewDict()
+	body.Set("disk_id", jsonutils.NewString(snapshot.DiskId))
+	header := http.Header{}
+	header.Add("X-Task-Id", task.GetTaskId())
+	header.Add("X-Region-Version", "v2")
 	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
 	return err
 }

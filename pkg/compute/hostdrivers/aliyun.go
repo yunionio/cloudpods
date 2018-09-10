@@ -13,6 +13,7 @@ import (
 )
 
 type SAliyunHostDriver struct {
+	SBaseHostDriver
 }
 
 func init() {

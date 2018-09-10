@@ -16,6 +16,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/trace"
 
 	"yunion.io/x/onecloud/pkg/appctx"
@@ -154,7 +155,7 @@ func Request(client *http.Client, ctx context.Context, method string, urlStr str
 
 func JSONRequest(client *http.Client, ctx context.Context, method string, urlStr string, header http.Header, body jsonutils.JSONObject, debug bool) (http.Header, jsonutils.JSONObject, error) {
 	bodystr := ""
-	if body != nil {
+	if !gotypes.IsNil(body) {
 		bodystr = body.String()
 	}
 	jbody := strings.NewReader(bodystr)
