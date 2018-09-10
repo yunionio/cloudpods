@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -92,8 +93,17 @@ func (self *SSnapshot) GetGuest() (*SGuest, error) {
 	} else if len(guests) == 1 {
 		return &guests[0], nil
 	} else {
-		return nil, nil
+		return nil, sql.ErrNoRows
 	}
+}
+
+func (self *SSnapshot) GetDisk() (*SDisk, error) {
+	iDisk, err := DiskManager.FetchById(self.DiskId)
+	if err != nil {
+		return nil, err
+	}
+	disk := iDisk.(*SDisk)
+	return disk, nil
 }
 
 func (self *SSnapshot) GetHost() *SHost {
@@ -204,6 +214,10 @@ func (self *SSnapshot) CustomizeDelete(ctx context.Context, userCred mcclient.To
 		if !self.FakeDeleted {
 			return self.FakeDelete()
 		} else {
+			_, err := SnapshotManager.GetConvertSnapshot(self)
+			if err != nil {
+				httperrors.NewBadRequestError("Snapshot dosen't have convert snapshot, use disk-delete-snapshots")
+			}
 			return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
 		}
 	} else {
@@ -280,7 +294,7 @@ func (self *SSnapshotManager) PerformDeleteDiskSnapshots(ctx context.Context, us
 }
 
 func (self *SSnapshot) StartSnapshotsDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "BatchSnapshostDeleteTask", self, userCred, nil, parentTaskId, "", nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "BatchSnapshotsDeleteTask", self, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
 		log.Errorf(err.Error())
 		return err
