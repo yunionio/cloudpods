@@ -392,4 +392,31 @@ func init() {
 		printObject(results)
 		return nil
 	})
+
+	type ServerAssociateEipOptions struct {
+		ID  string `help:"ID or name of server"`
+		EIP string `help:"ID or name of EIP to associate"`
+	}
+	R(&ServerAssociateEipOptions{}, "server-associate-eip", "Associate a server and an eip", func(s *mcclient.ClientSession, args *ServerAssociateEipOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.EIP), "eip")
+		results, err := modules.Servers.PerformAction(s, args.ID, "associate-eip", params)
+		if err != nil {
+			return err
+		}
+		printObject(results)
+		return nil
+	})
+
+	type ServerDissociateEipOptions struct {
+		ID string `help:"ID or name of server"`
+	}
+	R(&ServerDissociateEipOptions{}, "server-dissociate-eip", "Dissociate an eip from a server", func(s *mcclient.ClientSession, args *ServerDissociateEipOptions) error {
+		result, err := modules.Servers.PerformAction(s, args.ID, "dissociate-eip", nil)
+		if err != nil {
+			return nil
+		}
+		printObject(result)
+		return nil
+	})
 }
