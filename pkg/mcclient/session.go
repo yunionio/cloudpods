@@ -151,6 +151,10 @@ func (this *ClientSession) GetRegion() string {
 	return this.region
 }
 
+func (this *ClientSession) GetUserId() string {
+	return this.token.GetUserId()
+}
+
 func (this *ClientSession) GetTenantId() string {
 	return this.token.GetTenantId()
 }

@@ -102,15 +102,25 @@ func init() {
 			params.Add(jsonutils.NewString(args.VALUE), "value")
 		}
 
+		var ctx modules.Manager
+		var ctxid string
 		if len(args.User) > 0 {
+			ctxid = args.User
+			ctx = &modules.UsersV3
 			params.Add(jsonutils.JSONTrue, "admin")
 			params.Add(jsonutils.NewString(args.User), "user_id")
+
 		} else if len(args.Service) > 0 {
+			ctxid = args.Service
+			ctx = &modules.ServicesV3
 			params.Add(jsonutils.JSONTrue, "admin")
 			params.Add(jsonutils.NewString(args.Service), "service_id")
+		} else {
+			ctxid = s.GetUserId()
+			ctx = &modules.UsersV3
 		}
 
-		parameter, err := modules.Parameters.Update(s, args.NAME, params)
+		parameter, err := modules.Parameters.PutInContext(s, args.NAME, params, ctx, ctxid)
 		if err != nil {
 			return err
 		}
@@ -126,15 +136,25 @@ func init() {
 
 	R(&ParametersDeleteOptions{}, "parameter-delete", "delete notice", func(s *mcclient.ClientSession, args *ParametersDeleteOptions) error {
 		params := jsonutils.NewDict()
+
+		var ctx modules.Manager
+		var ctxid string
 		if len(args.User) > 0 {
+			ctxid = args.User
+			ctx = &modules.UsersV3
 			params.Add(jsonutils.JSONTrue, "admin")
 			params.Add(jsonutils.NewString(args.User), "user_id")
 		} else if len(args.Service) > 0 {
+			ctxid = args.Service
+			ctx = &modules.ServicesV3
 			params.Add(jsonutils.JSONTrue, "admin")
 			params.Add(jsonutils.NewString(args.Service), "service_id")
+		} else {
+			ctxid = s.GetUserId()
+			ctx = &modules.UsersV3
 		}
 
-		parameter, err := modules.Notice.Delete(s, args.NAME, params)
+		parameter, err := modules.Parameters.DeleteInContext(s, args.NAME, params, ctx, ctxid)
 		if err != nil {
 			return err
 		}
