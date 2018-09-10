@@ -115,3 +115,7 @@ func (self *SESXiProvider) GetIStorageById(id string) (cloudprovider.ICloudStora
 func (self *SESXiProvider) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
+
+func (self *SESXiProvider) GetBalance() (float64, error) {
+	return 0.0, nil
+}
