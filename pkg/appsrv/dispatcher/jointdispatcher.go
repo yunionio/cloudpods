@@ -100,8 +100,8 @@ func fetchJointEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 }
 
 func jointListHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	manager, _, query, _ := fetchJointEnv(ctx, w, r)
-	listResult, err := manager.List(ctx, query, "")
+	manager, params, query, _ := fetchJointEnv(ctx, w, r)
+	listResult, err := manager.List(ctx, mergeQueryParams(params, query), "")
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -114,9 +114,9 @@ func jointListDescendentHandler(ctx context.Context, w http.ResponseWriter, r *h
 	var listResult *modules.ListResult
 	var err error
 	if _, ok := params["<master_id>"]; ok {
-		listResult, err = manager.ListMasterDescendent(ctx, params["<master_id>"], query)
+		listResult, err = manager.ListMasterDescendent(ctx, params["<master_id>"], mergeQueryParams(params, query, "<master_id>"))
 	} else if _, ok := params["<slave_id>"]; ok {
-		listResult, err = manager.ListSlaveDescendent(ctx, params["<slave_id>"], query)
+		listResult, err = manager.ListSlaveDescendent(ctx, params["<slave_id>"], mergeQueryParams(params, query, "<slave_id>"))
 	}
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
@@ -127,7 +127,7 @@ func jointListDescendentHandler(ctx context.Context, w http.ResponseWriter, r *h
 
 func jointGetHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, _ := fetchJointEnv(ctx, w, r)
-	result, err := manager.Get(ctx, params["<master_id>"], params["<slave_id>"], query)
+	result, err := manager.Get(ctx, params["<master_id>"], params["<slave_id>"], mergeQueryParams(params, query, "<master_id>", "<slave_id>"))
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -145,7 +145,7 @@ func attachHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	if data == nil {
 		data = jsonutils.NewDict()
 	}
-	result, err := manager.Attach(ctx, params["<master_id>"], params["<slave_id>"], query, data)
+	result, err := manager.Attach(ctx, params["<master_id>"], params["<slave_id>"], mergeQueryParams(params, query, "<master_id>", "<slave_id>"), data)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -160,7 +160,7 @@ func updateJointHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	result, err := manager.Update(ctx, params["<master_id>"], params["<slave_id>"], query, data)
+	result, err := manager.Update(ctx, params["<master_id>"], params["<slave_id>"], mergeQueryParams(params, query, "<master_id>", "<slave_id>"), data)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -174,7 +174,7 @@ func detachHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	if body != nil {
 		data, _ = body.Get(manager.Keyword())
 	}
-	result, err := manager.Detach(ctx, params["<master_id>"], params["<slave_id>"], query, data)
+	result, err := manager.Detach(ctx, params["<master_id>"], params["<slave_id>"], mergeQueryParams(params, query, "<master_id>", "<slave_id>"), data)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return

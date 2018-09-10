@@ -53,33 +53,12 @@ func (dispatcher *DBModelDispatcher) ContextKeywordPlural() []string {
 	return nil
 }
 
-/*
-const (
-	AUTH_TOKEN = appctx.AppContextKey("X_AUTH_TOKEN")
-)
-*/
 
 func (dispatcher *DBModelDispatcher) Filter(f appsrv.FilterHandler) appsrv.FilterHandler {
 	return auth.Authenticate(f)
-	/*return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		tokenStr := r.Header.Get("X-Auth-Token")
-		if len(tokenStr) == 0 {
-			httperrors.UnauthorizedError(w, "Unauthorized")
-			return
-		}
-		token, err := auth.Verify(tokenStr)
-		if err != nil {
-			log.Errorf("Verify token failed: %s", err)
-			httperrors.UnauthorizedError(w, "InvalidToken")
-			return
-		}
-		ctx = context.WithValue(ctx, AUTH_TOKEN, token)
-		f(ctx, w, r)
-	} */
 }
 
 func fetchUserCredential(ctx context.Context) mcclient.TokenCredential {
-	// token, ok := ctx.Value(AUTH_TOKEN).(mcclient.TokenCredential)
 	token := auth.FetchUserCredential(ctx)
 	if token == nil {
 		log.Fatalf("user token credential not found?")
