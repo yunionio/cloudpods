@@ -76,15 +76,16 @@ func getSubcommandsParser() (*structarg.ArgumentParser, error) {
 		cmd := v.Command
 
 		for _, v := range _par.GetOptArgs() {
-			_name := strings.Replace(v.String(), "]", "", -1)
-			_name = strings.Replace(_name, "[", "", -1)
-			promputils.AppendOpt(cmd, _name, v.HelpString(""))
-
+			text := v.String()
+			text = strings.TrimLeft(text, "[<")
+			text = strings.TrimRight(text, "]>")
+			promputils.AppendOpt(cmd, text, v.HelpString(""))
 		}
 		for _, v := range _par.GetPosArgs() {
-			_name := strings.Replace(v.String(), "<", "", -1)
-			_name = strings.Replace(_name, ">", "", -1)
-			promputils.AppendPos(cmd, _name, v.HelpString(""))
+			text := v.String()
+			text = strings.TrimLeft(text, "[<")
+			text = strings.TrimRight(text, "]>")
+			promputils.AppendPos(cmd, text, v.HelpString(""))
 		}
 	}
 	return parse, nil
