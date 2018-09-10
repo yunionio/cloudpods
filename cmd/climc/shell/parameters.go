@@ -10,7 +10,9 @@ import (
 func init() {
 	type ParametersListOptions struct {
 		options.BaseListOptions
-		NamespaceId string `help:"Show parameter of specificated namespace id, ADMIN only"`
+		NamespaceId string `help:"List parameter of specificated namespace id, ADMIN only"`
+		User        string `help:"List parameter of specificated user id/ name, ADMIN only"`
+		Service     string `help:"List parameter of specificated service id/ name, ADMIN only"`
 	}
 
 	R(&ParametersListOptions{}, "parameter-list", "list parameters", func(s *mcclient.ClientSession, args *ParametersListOptions) error {
@@ -19,12 +21,18 @@ func init() {
 			return err
 		}
 
+		var result *modules.ListResult
 		if len(args.NamespaceId) > 0 {
-			params.Add(jsonutils.JSONTrue, "admin")
 			params.Add(jsonutils.NewString(args.NamespaceId), "namespace_id")
+			result, err = modules.Parameters.List(s, params)
+		} else if len(args.User) > 0 {
+			result, err = modules.Parameters.ListInContext(s, params, &modules.UsersV3, args.User)
+		} else if len(args.Service) > 0 {
+			result, err = modules.Parameters.ListInContext(s, params, &modules.ServicesV3, args.Service)
+		} else {
+			result, err = modules.Parameters.List(s, params)
 		}
 
-		result, err := modules.Parameters.List(s, params)
 		if err != nil {
 			return err
 		}
@@ -33,29 +41,32 @@ func init() {
 	})
 
 	type ParametersShowOptions struct {
-		Namespace   string `help:"Show parameter of specificated namespace, ADMIN only"`
 		NamespaceId string `help:"Show parameter of specificated namespace id, ADMIN only"`
-		UserId      string `help:"Show parameter created by specificated user, ADMIN only"`
+		User        string `help:"Show parameter of specificated user or user id, ADMIN only"`
+		Service     string `help:"Show parameter of specificated service or service id, ADMIN only"`
 		NAME        string `help:"The name of parameter"`
 	}
 
 	R(&ParametersShowOptions{}, "parameter-show", "show a parameter", func(s *mcclient.ClientSession, args *ParametersShowOptions) error {
 		params := jsonutils.NewDict()
-		if len(args.Namespace) > 0 {
-			params.Add(jsonutils.JSONTrue, "admin")
-			params.Add(jsonutils.NewString(args.Namespace), "namespace")
-		}
-
 		if len(args.NamespaceId) > 0 {
 			params.Add(jsonutils.JSONTrue, "admin")
 			params.Add(jsonutils.NewString(args.NamespaceId), "namespace_id")
 		}
 
-		if len(args.UserId) > 0 {
-			params.Add(jsonutils.JSONTrue, "admin")
-			params.Add(jsonutils.NewString(args.UserId), "created_by")
+		var parameter jsonutils.JSONObject
+		var err error
+		if len(args.NamespaceId) > 0 {
+			params.Add(jsonutils.NewString(args.NamespaceId), "namespace_id")
+			parameter, err = modules.Parameters.Get(s, args.NAME, params)
+		} else if len(args.User) > 0 {
+			parameter, err = modules.Parameters.GetInContext(s, args.NAME, params, &modules.UsersV3, args.User)
+		} else if len(args.Service) > 0 {
+			parameter, err = modules.Parameters.GetInContext(s, args.NAME, params, &modules.ServicesV3, args.Service)
+		} else {
+			parameter, err = modules.Parameters.Get(s, args.NAME, params)
 		}
-		parameter, err := modules.Parameters.Get(s, args.NAME, params)
+
 		if err != nil {
 			return err
 		}
@@ -64,8 +75,8 @@ func init() {
 	})
 
 	type ParametersCreateOptions struct {
-		User    string `help:"Create parameter for specificated user, ADMIN only"`
-		Service string `help:"Create parameter for specificated service, ADMIN only"`
+		User    string `help:"Create parameter for specificated user or user id, ADMIN only"`
+		Service string `help:"Create parameter for specificated service or service id, ADMIN only"`
 		NAME    string `help:"The name of parameter"`
 		VALUE   string `help:"The content of parameter"`
 	}
@@ -102,25 +113,16 @@ func init() {
 			params.Add(jsonutils.NewString(args.VALUE), "value")
 		}
 
-		var ctx modules.Manager
-		var ctxid string
+		var parameter jsonutils.JSONObject
+		var err error
 		if len(args.User) > 0 {
-			ctxid = args.User
-			ctx = &modules.UsersV3
-			params.Add(jsonutils.JSONTrue, "admin")
-			params.Add(jsonutils.NewString(args.User), "user_id")
-
+			parameter, err = modules.Parameters.PutInContext(s, args.NAME, params, &modules.UsersV3, args.User)
 		} else if len(args.Service) > 0 {
-			ctxid = args.Service
-			ctx = &modules.ServicesV3
-			params.Add(jsonutils.JSONTrue, "admin")
-			params.Add(jsonutils.NewString(args.Service), "service_id")
+			parameter, err = modules.Parameters.PutInContext(s, args.NAME, params, &modules.ServicesV3, args.Service)
 		} else {
-			ctxid = s.GetUserId()
-			ctx = &modules.UsersV3
+			parameter, err = modules.Parameters.PutInContext(s, args.NAME, params, &modules.UsersV3, s.GetUserId())
 		}
 
-		parameter, err := modules.Parameters.PutInContext(s, args.NAME, params, ctx, ctxid)
 		if err != nil {
 			return err
 		}
@@ -137,24 +139,16 @@ func init() {
 	R(&ParametersDeleteOptions{}, "parameter-delete", "delete notice", func(s *mcclient.ClientSession, args *ParametersDeleteOptions) error {
 		params := jsonutils.NewDict()
 
-		var ctx modules.Manager
-		var ctxid string
+		var parameter jsonutils.JSONObject
+		var err error
 		if len(args.User) > 0 {
-			ctxid = args.User
-			ctx = &modules.UsersV3
-			params.Add(jsonutils.JSONTrue, "admin")
-			params.Add(jsonutils.NewString(args.User), "user_id")
+			parameter, err = modules.Parameters.DeleteInContext(s, args.NAME, params, &modules.UsersV3, args.User)
 		} else if len(args.Service) > 0 {
-			ctxid = args.Service
-			ctx = &modules.ServicesV3
-			params.Add(jsonutils.JSONTrue, "admin")
-			params.Add(jsonutils.NewString(args.Service), "service_id")
+			parameter, err = modules.Parameters.DeleteInContext(s, args.NAME, params, &modules.ServicesV3, args.Service)
 		} else {
-			ctxid = s.GetUserId()
-			ctx = &modules.UsersV3
+			parameter, err = modules.Parameters.DeleteInContext(s, args.NAME, params, &modules.UsersV3, s.GetUserId())
 		}
 
-		parameter, err := modules.Parameters.DeleteInContext(s, args.NAME, params, ctx, ctxid)
 		if err != nil {
 			return err
 		}
