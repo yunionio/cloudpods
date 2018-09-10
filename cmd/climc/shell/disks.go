@@ -120,10 +120,11 @@ func init() {
 	})
 
 	type DiskUpdateOptions struct {
-		ID         string `help:"ID or name of disk"`
-		Name       string `help:"New name of disk"`
-		Desc       string `help:"Description" metavar:"DESCRIPTION"`
-		AutoDelete string `help:"enable/disable auto delete of disk" choices:"enable|disable"`
+		ID           string `help:"ID or name of disk"`
+		Name         string `help:"New name of disk"`
+		Desc         string `help:"Description" metavar:"DESCRIPTION"`
+		AutoDelete   string `help:"enable/disable auto delete of disk" choices:"enable|disable"`
+		AutoSnapshot string `help:"enable/disable auto snapshot of disk" choices:"enable|disable"`
 	}
 	R(&DiskUpdateOptions{}, "disk-update", "Update property of a virtual disk", func(s *mcclient.ClientSession, args *DiskUpdateOptions) error {
 		params := jsonutils.NewDict()
@@ -138,6 +139,13 @@ func init() {
 				params.Add(jsonutils.JSONTrue, "auto_delete")
 			} else {
 				params.Add(jsonutils.JSONFalse, "auto_delete")
+			}
+		}
+		if len(args.AutoSnapshot) > 0 {
+			if args.AutoSnapshot == "enable" {
+				params.Add(jsonutils.JSONTrue, "auto_snapshot")
+			} else {
+				params.Add(jsonutils.JSONFalse, "auto_snapshot")
 			}
 		}
 		if params.Size() == 0 {

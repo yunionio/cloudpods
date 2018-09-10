@@ -129,3 +129,19 @@ func (self *SBaseGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *
 func (self *SBaseGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement")
 }
+
+func (self *SBaseGuestDriver) StartGuestDiskSnapshotTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict) error {
+	return fmt.Errorf("Not Implement")
+}
+
+func (self *SBaseGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, snapshotId, diskId string) error {
+	return fmt.Errorf("Not Implement")
+}
+
+func (self *SBaseGuestDriver) RequestDeleteSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, params *jsonutils.JSONDict) error {
+	return fmt.Errorf("Not Implement")
+}
+
+func (self *SBaseGuestDriver) RequestReloadDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, params *jsonutils.JSONDict) error {
+	return fmt.Errorf("Not Implement")
+}
