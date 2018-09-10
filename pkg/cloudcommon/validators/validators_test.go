@@ -143,6 +143,88 @@ func TestStringChoicesValidator(t *testing.T) {
 	}
 }
 
+func TestBoolValidator(t *testing.T) {
+	cases := []*C{
+		{
+			Name:      "missing non-optional",
+			In:        `{}`,
+			Out:       `{}`,
+			Err:       ERR_MISSING_KEY,
+			ValueWant: false,
+		},
+		{
+			Name:      "missing optional",
+			In:        `{}`,
+			Out:       `{}`,
+			Optional:  true,
+			ValueWant: false,
+		},
+		{
+			Name:      "missing with default",
+			In:        `{}`,
+			Out:       `{s: true}`,
+			Default:   true,
+			ValueWant: true,
+		},
+		{
+			Name:      "true",
+			In:        `{s: true}`,
+			Out:       `{s: true}`,
+			ValueWant: true,
+		},
+		{
+			Name:      "false",
+			In:        `{s: false}`,
+			Out:       `{s: false}`,
+			ValueWant: false,
+		},
+		{
+			Name:      `parsed "true"`,
+			In:        `{s: "true"}`,
+			Out:       `{s: true}`,
+			ValueWant: true,
+		},
+		{
+			Name:      `parsed "on"`,
+			In:        `{s: "on"}`,
+			Out:       `{s: true}`,
+			ValueWant: true,
+		},
+		{
+			Name:      `parsed "yes"`,
+			In:        `{s: "yes"}`,
+			Out:       `{s: true}`,
+			ValueWant: true,
+		},
+		{
+			Name:      `parsed "1"`,
+			In:        `{s: "1"}`,
+			Out:       `{s: true}`,
+			ValueWant: true,
+		},
+		{
+			Name:      "parsed invalid",
+			In:        `{s: "abc"}`,
+			Out:       `{s: "abc"}`,
+			Err:       ERR_INVALID_TYPE,
+			ValueWant: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			v := NewBoolValidator("s")
+			if c.Default != nil {
+				i := c.Default.(bool)
+				v.Default(i)
+			}
+			if c.Optional {
+				v.Optional(true)
+			}
+			testS(t, v, c)
+		})
+	}
+}
+
 func TestRangeValidator(t *testing.T) {
 	cases := []*C{
 		{

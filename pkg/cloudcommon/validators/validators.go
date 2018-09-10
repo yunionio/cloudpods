@@ -11,6 +11,7 @@ import (
 	"net"
 	"reflect"
 	"regexp"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -58,6 +59,11 @@ func (v *Validator) setDefault(data *jsonutils.JSONDict) bool {
 	case string:
 		s := v.defaultVal.(string)
 		v.value = jsonutils.NewString(s)
+		data.Set(v.Key, v.value)
+		return true
+	case bool:
+		b := v.defaultVal.(bool)
+		v.value = jsonutils.NewBool(b)
 		data.Set(v.Key, v.value)
 		return true
 	case int, int32, int64, uint, uint32, uint64:
@@ -139,6 +145,125 @@ func (v *ValidatorStringChoices) Validate(data *jsonutils.JSONDict) error {
 	data.Set(v.Key, jsonutils.NewString(s))
 	v.Value = s
 	return nil
+}
+
+type ValidatorStringMultiChoices struct {
+	Validator
+	Choices    Choices
+	defaultVal string
+	Value      string
+	sep        string
+	keepDup    bool
+}
+
+func NewStringMultiChoicesValidator(key string, choices Choices) *ValidatorStringMultiChoices {
+	v := &ValidatorStringMultiChoices{
+		Validator: Validator{Key: key},
+		Choices:   choices,
+	}
+	v.parent = v
+	return v
+}
+
+func (v *ValidatorStringMultiChoices) Sep(s string) *ValidatorStringMultiChoices {
+	v.sep = s
+	return v
+}
+
+func (v *ValidatorStringMultiChoices) KeepDup(b bool) *ValidatorStringMultiChoices {
+	v.keepDup = b
+	return v
+}
+
+func (v *ValidatorStringMultiChoices) validateString(s string) (string, bool) {
+	choices := strings.Split(s, v.sep)
+	j := 0
+	for i, choice := range choices {
+		if !v.Choices.Has(choice) {
+			return "", false
+		}
+		if !v.keepDup {
+			isDup := false
+			for k := 0; k < j; k++ {
+				if choices[k] == choices[i] {
+					isDup = true
+				}
+			}
+			if !isDup {
+				choices[j] = choices[i]
+				j += 1
+			}
+		}
+	}
+	if !v.keepDup {
+		choices = choices[:j]
+	}
+	s = strings.Join(choices, v.sep)
+	return s, true
+}
+
+func (v *ValidatorStringMultiChoices) Default(s string) IValidator {
+	s, ok := v.validateString(s)
+	if !ok {
+		panic("invalid default for " + v.Key)
+	}
+	v.Validator.Default(s)
+	return v
+}
+
+func (v *ValidatorStringMultiChoices) getValue() interface{} {
+	return v.Value
+}
+
+func (v *ValidatorStringMultiChoices) Validate(data *jsonutils.JSONDict) error {
+	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
+		return err
+	}
+	s, err := v.value.GetString()
+	if err != nil {
+		return newGeneralError(v.Key, err)
+	}
+	s, ok := v.validateString(s)
+	if !ok {
+		return newInvalidChoiceError(v.Key, v.Choices, s)
+	}
+	// in case it's stringified from v.value
+	data.Set(v.Key, jsonutils.NewString(s))
+	v.Value = s
+	return nil
+}
+
+type ValidatorBool struct {
+	Validator
+	Value bool
+}
+
+func (v *ValidatorBool) getValue() interface{} {
+	return v.Value
+}
+
+func (v *ValidatorBool) Default(i bool) IValidator {
+	return v.Validator.Default(i)
+}
+func (v *ValidatorBool) Validate(data *jsonutils.JSONDict) error {
+	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
+		return err
+	}
+	i, err := v.value.Bool()
+	if err != nil {
+		return newInvalidTypeError(v.Key, "bool", err)
+	}
+	data.Set(v.Key, jsonutils.NewBool(i))
+	v.Value = i
+	return nil
+}
+
+func NewBoolValidator(key string) *ValidatorBool {
+	v := &ValidatorBool{
+		Validator: Validator{Key: key},
+	}
+	v.parent = v
+	return v
 }
 
 type ValidatorRange struct {
