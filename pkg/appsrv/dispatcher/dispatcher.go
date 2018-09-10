@@ -7,6 +7,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -107,9 +108,22 @@ func _fetchEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (map
 	return params, query, body
 }
 
+func mergeQueryParams(params map[string]string, query jsonutils.JSONObject, excludes ...string) jsonutils.JSONObject {
+	if query == nil {
+		query = jsonutils.NewDict()
+	}
+	queryDict := query.(*jsonutils.JSONDict)
+	for k, v := range params {
+		if !utils.IsInStringArray(k, excludes) {
+			queryDict.Add(jsonutils.NewString(v), k[1:len(k)-1])
+		}
+	}
+	return queryDict
+}
+
 func listHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	manager, _, query, _ := fetchEnv(ctx, w, r)
-	handleList(ctx, w, manager, "", query)
+	manager, params, query, _ := fetchEnv(ctx, w, r)
+	handleList(ctx, w, manager, "", mergeQueryParams(params, query))
 }
 
 func handleList(ctx context.Context, w http.ResponseWriter, manager IModelDispatchHandler, ctxId string, query jsonutils.JSONObject) {
@@ -124,7 +138,7 @@ func handleList(ctx context.Context, w http.ResponseWriter, manager IModelDispat
 func listInContextHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, _ := fetchEnv(ctx, w, r)
 	ctxId := params["<resid>"]
-	handleList(ctx, w, manager, ctxId, query)
+	handleList(ctx, w, manager, ctxId, mergeQueryParams(params, query, "<resid>"))
 }
 
 func wrapBody(body jsonutils.JSONObject, key string) jsonutils.JSONObject {
@@ -139,7 +153,7 @@ func wrapBody(body jsonutils.JSONObject, key string) jsonutils.JSONObject {
 
 func getHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, _ := fetchEnv(ctx, w, r)
-	result, err := manager.Get(ctx, params["<resid>"], query)
+	result, err := manager.Get(ctx, params["<resid>"], mergeQueryParams(params, query, "<resid>"))
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -149,7 +163,7 @@ func getHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 
 func getSpecHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, _ := fetchEnv(ctx, w, r)
-	result, err := manager.GetSpecific(ctx, params["<resid>"], params["<spec>"], query)
+	result, err := manager.GetSpecific(ctx, params["<resid>"], params["<spec>"], mergeQueryParams(params, query, "<resid>", "<spec>"))
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -158,8 +172,8 @@ func getSpecHandler(ctx context.Context, w http.ResponseWriter, r *http.Request)
 }
 
 func createHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	manager, _, query, body := fetchEnv(ctx, w, r)
-	handleCreate(ctx, w, manager, "", query, body)
+	manager, params, query, body := fetchEnv(ctx, w, r)
+	handleCreate(ctx, w, manager, "", mergeQueryParams(params, query), body)
 }
 
 func handleCreate(ctx context.Context, w http.ResponseWriter, manager IModelDispatchHandler, ctxId string, query jsonutils.JSONObject, body jsonutils.JSONObject) {
@@ -197,7 +211,7 @@ func handleCreate(ctx context.Context, w http.ResponseWriter, manager IModelDisp
 func createInContextHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, body := fetchEnv(ctx, w, r)
 	ctxId := params["<resid>"]
-	handleCreate(ctx, w, manager, ctxId, query, body)
+	handleCreate(ctx, w, manager, ctxId, mergeQueryParams(params, query, "<resid>"), body)
 }
 
 func performClassActionHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -212,7 +226,7 @@ func performClassActionHandler(ctx context.Context, w http.ResponseWriter, r *ht
 	} else {
 		data = jsonutils.NewDict()
 	}
-	results, err := manager.PerformClassAction(ctx, params["<action>"], query, data)
+	results, err := manager.PerformClassAction(ctx, params["<action>"], mergeQueryParams(params, query, "<action>"), data)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -226,7 +240,7 @@ func performActionHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 	if data == nil {
 		data = jsonutils.NewDict()
 	}
-	result, err := manager.PerformAction(ctx, params["<resid>"], params["<action>"], query, data)
+	result, err := manager.PerformAction(ctx, params["<resid>"], params["<action>"], mergeQueryParams(params, query, "<resid>", "<action>"), data)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -260,7 +274,7 @@ func updateHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 			fmt.Sprintf("No request key: %s", manager.Keyword()))
 		return
 	}
-	result, err := manager.Update(ctx, params["<resid>"], query, data)
+	result, err := manager.Update(ctx, params["<resid>"], mergeQueryParams(params, query, "<resid>"), data)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -301,7 +315,7 @@ func deleteHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 			return
 		}
 	}
-	result, err := manager.Delete(ctx, params["<resid>"], query, data)
+	result, err := manager.Delete(ctx, params["<resid>"], mergeQueryParams(params, query, "<resid>"), data)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
