@@ -61,6 +61,11 @@ func (v *Validator) setDefault(data *jsonutils.JSONDict) bool {
 		v.value = jsonutils.NewString(s)
 		data.Set(v.Key, v.value)
 		return true
+	case bool:
+		b := v.defaultVal.(bool)
+		v.value = jsonutils.NewBool(b)
+		data.Set(v.Key, v.value)
+		return true
 	case int, int32, int64, uint, uint32, uint64:
 		value := reflect.ValueOf(v.defaultVal)
 		value64 := value.Convert(gotypes.Int64Type)
@@ -226,6 +231,39 @@ func (v *ValidatorStringMultiChoices) Validate(data *jsonutils.JSONDict) error {
 	data.Set(v.Key, jsonutils.NewString(s))
 	v.Value = s
 	return nil
+}
+
+type ValidatorBool struct {
+	Validator
+	Value bool
+}
+
+func (v *ValidatorBool) getValue() interface{} {
+	return v.Value
+}
+
+func (v *ValidatorBool) Default(i bool) IValidator {
+	return v.Validator.Default(i)
+}
+func (v *ValidatorBool) Validate(data *jsonutils.JSONDict) error {
+	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
+		return err
+	}
+	i, err := v.value.Bool()
+	if err != nil {
+		return newInvalidTypeError(v.Key, "bool", err)
+	}
+	data.Set(v.Key, jsonutils.NewBool(i))
+	v.Value = i
+	return nil
+}
+
+func NewBoolValidator(key string) *ValidatorBool {
+	v := &ValidatorBool{
+		Validator: Validator{Key: key},
+	}
+	v.parent = v
+	return v
 }
 
 type ValidatorRange struct {
