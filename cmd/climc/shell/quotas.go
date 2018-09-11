@@ -16,6 +16,7 @@ type QuotaBaseOptions struct {
 	Ebw            int64 `help:"External bandwidth in Mbps"`
 	Image          int64 `help:"Template count"`
 	IsolatedDevice int64 `help:"Isolated device count"`
+	Snapshot       int64 `help:"Snapshot count"`
 }
 
 func quotaArgs2Params(args *QuotaBaseOptions) *jsonutils.JSONDict {
@@ -46,6 +47,9 @@ func quotaArgs2Params(args *QuotaBaseOptions) *jsonutils.JSONDict {
 	}
 	if args.IsolatedDevice > 0 {
 		params.Add(jsonutils.NewInt(args.IsolatedDevice), "isolated_device")
+	}
+	if args.Snapshot > 0 {
+		params.Add(jsonutils.NewInt(args.Snapshot), "snapshot")
 	}
 	return params
 }

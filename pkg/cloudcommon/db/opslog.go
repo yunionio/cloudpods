@@ -60,6 +60,9 @@ const (
 	ACT_SNAPSHOT_DELETE_FAIL = "snapshot_del_fail"
 	ACT_SNAPSHOT_UNLINK      = "snapshot_unlink"
 
+	ACT_DISK_CLEAN_UP_SNAPSHOTS      = "disk_clean_up_snapshots"
+	ACT_DISK_CLEAN_UP_SNAPSHOTS_FAIL = "disk_clean_up_snapshots_fail"
+
 	ACT_ALLOCATING    = "allocating"
 	ACT_ALLOCATE      = "allocate"
 	ACT_ALLOCATE_FAIL = "alloc_fail"
