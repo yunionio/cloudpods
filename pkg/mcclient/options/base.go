@@ -3,6 +3,7 @@ package options
 import (
 	"fmt"
 	"reflect"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
@@ -86,6 +87,11 @@ func optionsStructRvToParams(rv reflect.Value) (*jsonutils.JSONDict, error) {
 			}
 		case reflect.Struct:
 			if ft.Anonymous {
+				continue
+			}
+			if f.Type() == gotypes.TimeType {
+				t := f.Interface().(time.Time)
+				p.Set(name, jsonutils.NewTimeString(t))
 				continue
 			}
 			// TODO
