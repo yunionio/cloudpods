@@ -116,8 +116,8 @@ func totalKeypairCount(userId string) int {
 	return q.Count()
 }
 
-func (manager *SKeypairManager) FilterByOwner(q *sqlchemy.SQuery, ownerId string) *sqlchemy.SQuery {
-	return q.Equals("owner_id", ownerId)
+func (manager *SKeypairManager) FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery {
+	return q.Equals("owner_id", owner)
 }
 
 func (self *SKeypair) GetOwnerProjectId() string {

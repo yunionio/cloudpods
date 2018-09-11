@@ -31,10 +31,10 @@ func fetchById(manager IModelManager, idStr string) (IModel, error) {
 	}
 }
 
-func fetchByName(manager IModelManager, ownerProjId string, idStr string) (IModel, error) {
+func fetchByName(manager IModelManager, owner string, idStr string) (IModel, error) {
 	q := manager.Query()
 	q = manager.FilterByName(q, idStr)
-	q = manager.FilterByOwner(q, ownerProjId)
+	q = manager.FilterByOwner(q, owner)
 	count := q.Count()
 	if count == 1 {
 		obj, err := NewModelObject(manager)
@@ -101,7 +101,7 @@ func fetchItemByName(manager IModelManager, ctx context.Context, userCred mcclie
 		}
 	}
 	q = manager.FilterByName(q, idStr)
-	q = manager.FilterByOwner(q, userCred.GetProjectId())
+	q = manager.FilterByOwner(q, manager.GetOwnerId(userCred))
 	count := q.Count()
 	if count == 1 {
 		item, err := NewModelObject(manager)
