@@ -142,23 +142,24 @@ func ListStructToParams(v interface{}) (*jsonutils.JSONDict, error) {
 }
 
 type BaseListOptions struct {
-	Limit         *int     `default:"20" help:"Page limit"`
-	Offset        *int     `default:"0" help:"Page offset"`
-	OrderBy       []string `help:"Name of the field to be ordered by"`
-	Order         string   `help:"List order" choices:"desc|asc"`
-	Details       *bool    `help:"Show more details" default:"false"`
-	Search        string   `help:"Filter results by a simple keyword search"`
-	Meta          *bool    `help:"Piggyback metadata information"`
-	Filter        []string `help:"Filters"`
-	JointFilter   []string `help:"Filters with joint table col; joint_tbl.related_key(origin_key).filter_col.filter_cond(filters)"`
-	FilterAny     *bool    `help:"If true, match if any of the filters matches; otherwise, match if all of the filters match"`
-	Admin         *bool    `help:"Is an admin call?"`
-	Tenant        string   `help:"Tenant ID or Name"`
-	User          string   `help:"User ID or Name"`
-	System        *bool    `help:"Show system resource"`
-	PendingDelete *bool    `help:"Show pending deleted resource"`
-	Field         []string `help:"Show only specified fields"`
-	ShowEmulated  *bool    `help:"Show all resources including the emulated resources"`
+	Limit            *int     `default:"20" help:"Page limit"`
+	Offset           *int     `default:"0" help:"Page offset"`
+	OrderBy          []string `help:"Name of the field to be ordered by"`
+	Order            string   `help:"List order" choices:"desc|asc"`
+	Details          *bool    `help:"Show more details" default:"false"`
+	Search           string   `help:"Filter results by a simple keyword search"`
+	Meta             *bool    `help:"Piggyback metadata information"`
+	Filter           []string `help:"Filters"`
+	JointFilter      []string `help:"Filters with joint table col; joint_tbl.related_key(origin_key).filter_col.filter_cond(filters)"`
+	FilterAny        *bool    `help:"If true, match if any of the filters matches; otherwise, match if all of the filters match"`
+	Admin            *bool    `help:"Is an admin call?"`
+	Tenant           string   `help:"Tenant ID or Name"`
+	User             string   `help:"User ID or Name"`
+	System           *bool    `help:"Show system resource"`
+	PendingDelete    *bool    `help:"Show only pending deleted resource"`
+	PendingDeleteAll *bool    `help:"Show all resources including pending deleted" json:"-"`
+	Field            []string `help:"Show only specified fields"`
+	ShowEmulated     *bool    `help:"Show all resources including the emulated resources"`
 }
 
 func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
@@ -169,10 +170,16 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 	if len(opts.Filter) == 0 {
 		params.Remove("filter_any")
 	}
+	if BoolV(opts.PendingDeleteAll) {
+		params.Set("pending_delete", jsonutils.NewString("all"))
+	}
 	if opts.Admin == nil {
-		requiresSystem := len(opts.Tenant) > 0 || BoolV(opts.System) || BoolV(opts.PendingDelete)
+		requiresSystem := len(opts.Tenant) > 0 ||
+			BoolV(opts.System) ||
+			BoolV(opts.PendingDelete) ||
+			BoolV(opts.PendingDeleteAll)
 		if requiresSystem {
-			params.Set("admin", jsonutils.NewBool(true))
+			params.Set("admin", jsonutils.JSONTrue)
 		}
 	}
 	return params, nil
