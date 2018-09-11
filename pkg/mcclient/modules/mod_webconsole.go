@@ -13,6 +13,8 @@ var (
 
 func init() {
 	WebConsole = WebConsoleManager{NewWebConsoleManager()}
+
+	register(&WebConsole)
 }
 
 type WebConsoleManager struct {
