@@ -346,6 +346,7 @@ func (manager *SIsolatedDeviceManager) totalCountQ(
 		sqlchemy.IsFalse(hosts.Field("deleted")),
 		sqlchemy.IsTrue(hosts.Field("enabled")),
 	))
+	q = q.Filter(sqlchemy.Equals(hosts.Field("id"), q.Field("host_id")))
 	if len(devType) != 0 {
 		q.In("dev_type", devType)
 	}
