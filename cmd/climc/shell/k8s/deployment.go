@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"fmt"
+	"io/ioutil"
 	"strconv"
 	"strings"
 
@@ -99,6 +100,31 @@ func initDeployment() {
 			params.Add(jsonutils.NewString(args.Namespace), "namespace")
 		}
 		ret, err := k8s.Deployments.Get(s, id, params)
+		if err != nil {
+			return err
+		}
+		printObjectYAML(ret)
+		return nil
+	})
+
+	type createFromFileOpt struct {
+		resourceGetOptions
+		FILE string `help:"K8s resource YAML or JSON file"`
+	}
+	R(&createFromFileOpt{}, "k8s-create", "Create resource by file", func(s *mcclient.ClientSession, args *createFromFileOpt) error {
+		params := args.ClusterParams()
+		params.Add(jsonutils.NewString(args.NAME), "name")
+
+		content, err := ioutil.ReadFile(args.FILE)
+		if err != nil {
+			return err
+		}
+		namespace := args.Namespace
+		if namespace != "" {
+			params.Add(jsonutils.NewString(namespace), "namespace")
+		}
+		params.Add(jsonutils.NewString(string(content)), "content")
+		ret, err := k8s.DeployFromFile.Create(s, params)
 		if err != nil {
 			return err
 		}
