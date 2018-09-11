@@ -80,4 +80,16 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	R(&ResourceUsageOptions{}, "cloud-region-usage", "Show general usage of a cloud region", func(s *mcclient.ClientSession, args *ResourceUsageOptions) error {
+		params := fetchHostTypeOptions(&args.GeneralUsageOptions)
+		params.Add(jsonutils.NewString("cloudregions"), "range_type")
+		params.Add(jsonutils.NewString(args.ID), "range_id")
+		result, err := modules.Usages.GetGeneralUsage(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }
