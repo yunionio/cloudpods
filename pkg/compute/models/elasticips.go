@@ -19,6 +19,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 
 const (
@@ -484,6 +485,9 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 	}
 
 	server := vmObj.(*SGuest)
+
+	lockman.LockObject(ctx, server)
+	defer lockman.ReleaseObject(ctx, server)
 
 	if server.PendingDeleted {
 		return nil, httperrors.NewInvalidStatusError("cannot associate pending delete server")

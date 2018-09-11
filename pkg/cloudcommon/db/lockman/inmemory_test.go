@@ -24,10 +24,10 @@ func (o *FakeObject) Keyword() string {
 func run(t *testing.T, ctx context.Context, obj ILockedObject, id int, sleep time.Duration) {
 	t.Logf("ready to run at %d [%p]", id, ctx)
 	LockObject(ctx, obj)
-	defer LockObject(ctx, obj)
-	t.Logf("Acquire obj at %s [%p]", id, ctx)
+	defer ReleaseObject(ctx, obj)
+	t.Logf("Acquire obj at %d [%p]", id, ctx)
 	time.Sleep(sleep)
-	t.Logf("Release obj at %s [%p]", id, ctx)
+	t.Logf("Release obj at %d [%p]", id, ctx)
 }
 
 func TestInMemoryLockManager(t *testing.T) {

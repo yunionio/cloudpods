@@ -43,7 +43,7 @@ func (self *SAliyunHostDriver) CheckAndSetCacheImage(ctx context.Context, host *
 			return nil, err
 		}
 
-		extImgId, err := iStorageCache.UploadImage(userCred, imageId, osArch, osType, osDist, scimg.ExternalId, isForce)
+		extImgId, err := iStorageCache.UploadImage(ctx, userCred, imageId, osArch, osType, osDist, scimg.ExternalId, isForce)
 
 		if err != nil {
 			return nil, err
