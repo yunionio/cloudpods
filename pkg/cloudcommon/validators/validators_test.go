@@ -47,6 +47,8 @@ type C struct {
 }
 
 func testS(t *testing.T, v IValidator, c *C) {
+	returnHttpError = false
+
 	j, _ := jsonutils.ParseString(c.In)
 	jd := j.(*jsonutils.JSONDict)
 	err := v.Validate(jd)
