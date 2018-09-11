@@ -122,6 +122,9 @@ func (self *SDisk) Resize(size int64) error {
 }
 
 func (self *SDisk) GetName() string {
+	if len(self.DiskName) > 0 {
+		return self.DiskName
+	}
 	return self.DiskId
 }
 
