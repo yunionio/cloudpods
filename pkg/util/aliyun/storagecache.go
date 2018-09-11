@@ -5,8 +5,6 @@ import (
 	"os"
 	"strings"
 	"time"
-	"context"
-
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -17,7 +15,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 
 type SStoragecache struct {
@@ -88,9 +85,7 @@ func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 	return self.iimages, nil
 }
 
-func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, extId string, isForce bool) (string, error) {
-	lockman.LockRawObject(ctx, "image", imageId)
-	defer lockman.ReleaseRawObject(ctx, "image", imageId)
+func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, extId string, isForce bool) (string, error) {
 
 	if len(extId) > 0 {
 		status, _ := self.region.GetImageStatus(extId)
@@ -98,6 +93,7 @@ func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.To
 			return extId, nil
 		}
 	}
+
 	return self.uploadImage(userCred, imageId, osArch, osType, osDist, isForce)
 }
 

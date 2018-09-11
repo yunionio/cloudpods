@@ -24,7 +24,7 @@ func (self *SKVMHostDriver) GetHostType() string {
 	return models.HOST_TYPE_HYPERVISOR
 }
 
-func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, scimg *models.SStoragecachedimage, task taskman.ITask) error {
+func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
 	params := task.GetParams()
 	imageId, err := params.GetString("image_id")
 	if err != nil {
