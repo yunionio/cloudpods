@@ -45,4 +45,23 @@ func initChart() {
 		PrintListResultTable(charts, k8s.Charts, s)
 		return nil
 	})
+
+	type getOpt struct {
+		REPO    string `help:"Repo of the chart"`
+		NAME    string `help:"Chart name"`
+		Version string `help:"Chart version"`
+	}
+	R(&getOpt{}, cmdN("show"), "Show details of a chart", func(s *mcclient.ClientSession, args *getOpt) error {
+		params := json.NewDict()
+		params.Add(json.NewString(args.REPO), "repo")
+		if args.Version != "" {
+			params.Add(json.NewString(args.Version), "version")
+		}
+		chart, err := k8s.Charts.Get(s, args.NAME, params)
+		if err != nil {
+			return err
+		}
+		printObjectYAML(chart)
+		return nil
+	})
 }

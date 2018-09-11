@@ -102,6 +102,27 @@ func (self *SRegion) deleteDisk(diskId string) error {
 	return nil
 }
 
+func (self *SRegion) ResizeDisk(diskId string, sizeGb int32) error {
+	return self.resizeDisk(diskId, sizeGb)
+}
+
+func (self *SRegion) resizeDisk(diskId string, sizeGb int32) error {
+	diskClient := compute.NewDisksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
+	diskClient.Authorizer = self.client.authorizer
+	resourceGroup, diskName := PareResourceGroupWithName(diskId, DISK_RESOURCE)
+	params := compute.DiskUpdate{
+		DiskUpdateProperties: &compute.DiskUpdateProperties{
+			DiskSizeGB: &sizeGb,
+		},
+	}
+	if result, err := diskClient.Update(context.Background(), resourceGroup, diskName, params); err != nil {
+		return err
+	} else if err := result.WaitForCompletion(context.Background(), diskClient.Client); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (self *SRegion) GetDisk(resourceGroup string, diskName string) (*SDisk, error) {
 	disk := SDisk{}
 	computeClient := compute.NewDisksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
@@ -171,8 +192,7 @@ func (self *SDisk) Delete() error {
 }
 
 func (self *SDisk) Resize(size int64) error {
-	//return self.storage.zone.region.resizeDisk(self.DiskId, size)
-	return nil
+	return self.storage.zone.region.resizeDisk(self.ID, int32(size))
 }
 
 func (self *SDisk) GetName() string {

@@ -269,3 +269,27 @@ func (self *SAzureClient) GetIStoragecacheById(id string) (cloudprovider.ICloudS
 	}
 	return nil, cloudprovider.ErrNotFound
 }
+
+type SAccountBalance struct {
+	AvailableAmount     float64
+	AvailableCashAmount float64
+	CreditAmount        float64
+	MybankCreditAmount  float64
+	Currency            string
+}
+
+func (self *SAzureClient) QueryAccountBalance() (*SAccountBalance, error) {
+	return nil, nil
+	// body, err := self.businessRequest("QueryAccountBalance", nil)
+	// if err != nil {
+	// 	log.Errorf("QueryAccountBalance fail %s", err)
+	// 	return nil, err
+	// }
+	// balance := SAccountBalance{}
+	// err = body.Unmarshal(&balance, "Data")
+	// if err != nil {
+	// 	log.Errorf("Unmarshal AccountBalance fail %s", err)
+	// 	return nil, err
+	// }
+	// return &balance, nil
+}

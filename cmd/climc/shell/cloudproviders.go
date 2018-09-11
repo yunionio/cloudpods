@@ -130,6 +130,15 @@ func init() {
 		return nil
 	})
 
+	R(&CloudproviderShowOptions{}, "cloud-provider-balance", "Get balance", func(s *mcclient.ClientSession, args *CloudproviderShowOptions) error {
+		result, err := modules.Cloudproviders.GetSpecific(s, args.ID, "balance", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	type CloudproviderUpdateCredentialOptions struct {
 		ID      string `help:"ID or Name of cloud provider"`
 		ACCOUNT string `help:"new account"`

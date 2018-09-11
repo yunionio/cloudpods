@@ -36,7 +36,7 @@ func initRepo() {
 	type getOpt struct {
 		NAME string `help:"ID or name of the repo"`
 	}
-	R(&getOpt{}, cmdN("show"), "Show details fo a repo", func(s *mcclient.ClientSession, args *getOpt) error {
+	R(&getOpt{}, cmdN("show"), "Show details of a repo", func(s *mcclient.ClientSession, args *getOpt) error {
 		repo, err := k8s.Repos.Get(s, args.NAME, nil)
 		if err != nil {
 			return err

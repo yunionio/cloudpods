@@ -1576,6 +1576,21 @@ func (self *SHost) GetExtraDetails(ctx context.Context, userCred mcclient.TokenC
 	return self.getMoreDetails(extra)
 }
 
+func (self *SHost) AllowGetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SHost) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if utils.IsInStringArray(self.Status, []string{BAREMETAL_READY, BAREMETAL_RUNNING}) {
+		retval := jsonutils.NewDict()
+		retval.Set("host_id", jsonutils.NewString(self.Id))
+		zone := self.GetZone()
+		retval.Set("zone", jsonutils.NewString(zone.GetName()))
+		return retval, nil
+	}
+	return jsonutils.NewDict(), nil
+}
+
 func (manager *SHostManager) GetHostsByManagerAndRegion(managerId string, regionId string) []SHost {
 	hosts := HostManager.Query().SubQuery()
 	zones := ZoneManager.Query().SubQuery()

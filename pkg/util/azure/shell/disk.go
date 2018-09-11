@@ -25,7 +25,7 @@ func init() {
 
 	type DiskCreateOptions struct {
 		NAME        string `help:"Disk name"`
-		StorageType string `help:"Storage type" choices:""`
+		StorageType string `help:"Storage type" choices:"Standard_LRS|Premium_LRS"`
 		SizeGb      int32  `help:"Disk size"`
 		Desc        string `help:"description for disk"`
 	}
@@ -43,21 +43,19 @@ func init() {
 	})
 
 	type DiskDeleteOptions struct {
-		NAME          string `help:"Disk name"`
-		ResourceGroup string `help:"Disk resourceGroup name"`
+		ID string `help:"Disk ID"`
 	}
 
 	shellutils.R(&DiskDeleteOptions{}, "disk-delete", "Delete disks", func(cli *azure.SRegion, args *DiskDeleteOptions) error {
-		resourceGroup := args.ResourceGroup
-		if len(resourceGroup) == 0 {
-			resourceGroup, _ = azure.PareResourceGroupWithName(args.NAME, azure.DISK_RESOURCE)
-		}
-		if disk, err := cli.GetDisk(resourceGroup, args.NAME); err != nil {
-			return err
-		} else if err := cli.DeleteDisk(disk.ID); err != nil {
-			return err
-		} else {
-			return nil
-		}
+		return cli.DeleteDisk(args.ID)
+	})
+
+	type DiskResizeOptions struct {
+		ID   string `help:"Disk ID"`
+		SIZE int32  `help:"Disk SizeGb"`
+	}
+
+	shellutils.R(&DiskResizeOptions{}, "disk-resize", "Delete disks", func(cli *azure.SRegion, args *DiskResizeOptions) error {
+		return cli.ResizeDisk(args.ID, args.SIZE)
 	})
 }

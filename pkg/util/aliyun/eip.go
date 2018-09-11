@@ -1,12 +1,13 @@
 package aliyun
 
 import (
-	"time"
-	"yunion.io/x/log"
 	"fmt"
+	"time"
 
-	"yunion.io/x/pkg/utils"
+	"yunion.io/x/log"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -15,39 +16,38 @@ import (
 type TInternetChargeType string
 
 const (
-	InternetChargeByTraffic = TInternetChargeType("PayByTraffic")
+	InternetChargeByTraffic   = TInternetChargeType("PayByTraffic")
 	InternetChargeByBandwidth = TInternetChargeType("PayByBandwidth")
 )
 
 const (
-	EIP_STATUS_ASSOCIATING = "Associating"
+	EIP_STATUS_ASSOCIATING   = "Associating"
 	EIP_STATUS_UNASSOCIATING = "Unassociating"
-	EIP_STATUS_INUSE = "InUse"
-	EIP_STATUS_AVAILABLE = "Available"
+	EIP_STATUS_INUSE         = "InUse"
+	EIP_STATUS_AVAILABLE     = "Available"
 
 	EIP_OPERATION_LOCK_FINANCIAL = "financial"
 	EIP_OPERATION_LOCK_SECURITY  = "security"
 
-
-	EIP_INSTANCE_TYPE_ECS = "EcsInstance" // （默认值）：VPC类型的ECS实例
-	EIP_INTANNCE_TYPE_SLB = "SlbInstance" // ：VPC类型的SLB实例
-	EIP_INSTANCE_TYPE_NAT = "Nat" // ：NAT网关
-	EIP_INSTANCE_TYPE_HAVIP = "HaVip" // ：HAVIP
+	EIP_INSTANCE_TYPE_ECS   = "EcsInstance" // （默认值）：VPC类型的ECS实例
+	EIP_INTANNCE_TYPE_SLB   = "SlbInstance" // ：VPC类型的SLB实例
+	EIP_INSTANCE_TYPE_NAT   = "Nat"         // ：NAT网关
+	EIP_INSTANCE_TYPE_HAVIP = "HaVip"       // ：HAVIP
 )
 
 type SEipAddress struct {
 	region *SRegion
 
-	AllocationId       string
+	AllocationId string
 
 	InternetChargeType string
 
-	IpAddress          string
-	Status string
+	IpAddress string
+	Status    string
 
 	InstanceType string
-	InstanceId string
-	Bandwidth int /* Mbps */
+	InstanceId   string
+	Bandwidth    int /* Mbps */
 
 	AllocationTime time.Time
 
@@ -243,12 +243,12 @@ func (region *SRegion) AllocateEIP(bwMbps int, chargeType TInternetChargeType) (
 	return region.GetEip(eipId)
 }
 
-func (region *SRegion) CreateEIP(bwMbps int) (cloudprovider.ICloudEIP, error) {
+func (region *SRegion) CreateEIP(eipName string, bwMbps int) (cloudprovider.ICloudEIP, error) {
 	eip, err := region.AllocateEIP(bwMbps, InternetChargeByTraffic)
 	return eip, err
 }
 
-func (region *SRegion) DeallocateEIP(eipId string) (error) {
+func (region *SRegion) DeallocateEIP(eipId string) error {
 	params := make(map[string]string)
 	params["AllocationId"] = eipId
 
@@ -259,7 +259,7 @@ func (region *SRegion) DeallocateEIP(eipId string) (error) {
 	return err
 }
 
-func (region *SRegion) AssociateEip(eipId string, instanceId string) (error) {
+func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
 	params := make(map[string]string)
 	params["AllocationId"] = eipId
 	params["InstanceId"] = instanceId
@@ -271,7 +271,7 @@ func (region *SRegion) AssociateEip(eipId string, instanceId string) (error) {
 	return err
 }
 
-func (region *SRegion) DissociateEip(eipId string, instanceId string) (error) {
+func (region *SRegion) DissociateEip(eipId string, instanceId string) error {
 	params := make(map[string]string)
 	params["AllocationId"] = eipId
 	params["InstanceId"] = instanceId

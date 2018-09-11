@@ -2,14 +2,32 @@ package azure
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
+)
+
+type TInternetChargeType string
+
+const (
+	InternetChargeByTraffic = TInternetChargeType("PayByTraffic")
 )
 
 type PublicIPAddressSku struct {
 	Name string
+}
+
+type IPConfigurationPropertiesFormat struct {
+	PrivateIPAddress string
+}
+
+type IPConfiguration struct {
+	Name string
+	ID   string
 }
 
 type PublicIPAddressPropertiesFormat struct {
@@ -17,6 +35,7 @@ type PublicIPAddressPropertiesFormat struct {
 	IPAddress                string
 	PublicIPAllocationMethod string
 	ProvisioningState        string
+	IPConfiguration          IPConfiguration
 }
 
 type SEipAddress struct {
@@ -29,21 +48,57 @@ type SEipAddress struct {
 	Sku        PublicIPAddressSku
 }
 
-func (region *SRegion) CreateEIP(bwMbps int) (cloudprovider.ICloudEIP, error) {
-	return nil, cloudprovider.ErrNotImplemented
+func (region *SRegion) AllocateEIP(eipName string) (*SEipAddress, error) {
+	eip := SEipAddress{region: region}
+	resourceGroup, eipName := PareResourceGroupWithName(eipName, EIP_RESOURCE)
+	networkClient := network.NewPublicIPAddressesClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
+	networkClient.Authorizer = region.client.authorizer
+	params := network.PublicIPAddress{
+		Location: &region.Name,
+		Name:     &eipName,
+		PublicIPAddressPropertiesFormat: &network.PublicIPAddressPropertiesFormat{
+			PublicIPAllocationMethod: network.Static,
+			PublicIPAddressVersion:   network.IPv4,
+		},
+	}
+	if result, err := networkClient.CreateOrUpdate(context.Background(), resourceGroup, eipName, params); err != nil {
+		return nil, err
+	} else if err := result.WaitForCompletion(context.Background(), networkClient.Client); err != nil {
+		return nil, err
+	} else if value, err := result.Result(networkClient); err != nil {
+		return nil, err
+	} else if err := jsonutils.Update(&eip, value); err != nil {
+		return nil, err
+	}
+	return &eip, nil
+}
+
+func (region *SRegion) CreateEIP(eipName string, bwMbps int) (cloudprovider.ICloudEIP, error) {
+	return region.AllocateEIP(eipName)
 }
 
 func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
+	if eips, err := region.GetEips(); err != nil {
+		return nil, err
+	} else {
+		ieips := make([]cloudprovider.ICloudEIP, len(eips))
+		for i := 0; i < len(eips); i++ {
+			ieips[i] = &eips[i]
+		}
+		return ieips, nil
+	}
+}
+
+func (region *SRegion) GetEips() ([]SEipAddress, error) {
 	networkClient := network.NewPublicIPAddressesClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
 	networkClient.Authorizer = region.client.authorizer
 	if _eips, err := networkClient.ListAll(context.Background()); err != nil {
 		return nil, err
 	} else {
-		eips := make([]cloudprovider.ICloudEIP, len(_eips.Values()))
+		eips := make([]SEipAddress, len(_eips.Values()))
 		for i := 0; i < len(eips); i++ {
-			eip := SEipAddress{region: region}
-			jsonutils.Update(&eip, _eips.Values()[i])
-			eips[i] = &eip
+			jsonutils.Update(&eips[i], _eips.Values()[i])
+			eips[i].region = region
 		}
 		return eips, nil
 	}
@@ -101,6 +156,7 @@ func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
 				},
 			}
 			params := network.Interface{
+				Location: &region.Name,
 				InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
 					IPConfigurations: &InterfaceIPConfiguration,
 				},
@@ -139,15 +195,64 @@ func (self *SEipAddress) ChangeBandwidth(bw int) error {
 }
 
 func (self *SEipAddress) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return self.region.DeallocateEIP(self.ID)
+}
+
+func (region *SRegion) DeallocateEIP(eipId string) error {
+	resourceGroup, eipName := PareResourceGroupWithName(eipId, EIP_RESOURCE)
+	networkClient := network.NewPublicIPAddressesClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
+	networkClient.Authorizer = region.client.authorizer
+	if result, err := networkClient.Delete(context.Background(), resourceGroup, eipName); err != nil {
+		return err
+	} else if err := result.WaitForCompletion(context.Background(), networkClient.Client); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (self *SEipAddress) Dissociate() error {
-	// if err := self.region.DissociateEip(self.AllocationId, self.InstanceId); err != nil {
-	// 	return err
-	// }
-	// return nil
-	return cloudprovider.ErrNotImplemented
+	return self.region.DissociateEip(self.ID)
+}
+
+func (region *SRegion) DissociateEip(eipId string) error {
+	if eip, err := region.GetEip(eipId); err != nil {
+		return err
+	} else if len(eip.Properties.IPConfiguration.ID) == 0 {
+		log.Debugf("eip %s not associate any instance", eip.Name)
+		return nil
+	} else {
+		resourceGroup, nicName := PareResourceGroupWithName(eip.Properties.IPConfiguration.ID, NIC_RESOURCE)
+		if nic, err := region.getNetworkInterface(resourceGroup, nicName); err != nil {
+			return err
+		} else {
+			oldIPConf := nic.Properties.IPConfigurations[0]
+			interfaceClinet := network.NewInterfacesClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
+			interfaceClinet.Authorizer = region.client.authorizer
+			InterfaceIPConfiguration := []network.InterfaceIPConfiguration{
+				network.InterfaceIPConfiguration{
+					Name: &nic.Name,
+					InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
+						Primary:                   &oldIPConf.Properties.Primary,
+						PrivateIPAddress:          &oldIPConf.Properties.PrivateIPAddress,
+						PrivateIPAllocationMethod: network.Static,
+						Subnet: &network.Subnet{ID: &oldIPConf.Properties.Subnet.ID},
+					},
+				},
+			}
+			params := network.Interface{
+				Location: &region.Name,
+				InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
+					IPConfigurations: &InterfaceIPConfiguration,
+				},
+			}
+			if result, err := interfaceClinet.CreateOrUpdate(context.Background(), resourceGroup, nicName, params); err != nil {
+				return err
+			} else if err := result.WaitForCompletion(context.Background(), interfaceClinet.Client); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (self *SEipAddress) GetAssociationExternalId() string {
@@ -155,14 +260,7 @@ func (self *SEipAddress) GetAssociationExternalId() string {
 }
 
 func (self *SEipAddress) GetAssociationType() string {
-	return ""
-	// switch self.InstanceType {
-	// case EIP_INSTANCE_TYPE_ECS:
-	// 	return "server"
-	// default:
-	// 	log.Fatalf("unsupported type: %s", self.InstanceType)
-	// 	return "unsupported"
-	// }
+	return "server"
 }
 
 func (self *SEipAddress) GetBandwidth() int {
@@ -170,7 +268,8 @@ func (self *SEipAddress) GetBandwidth() int {
 }
 
 func (self *SEipAddress) GetGlobalId() string {
-	return self.ID
+	resourceGroup, eipName := PareResourceGroupWithName(self.ID, EIP_RESOURCE)
+	return fmt.Sprintf("resourceGroups/%s/providers/eip/%s", resourceGroup, eipName)
 }
 
 func (self *SEipAddress) GetId() string {
@@ -178,7 +277,7 @@ func (self *SEipAddress) GetId() string {
 }
 
 func (self *SEipAddress) GetInternetChargeType() string {
-	return ""
+	return models.EIP_CHARGE_TYPE_BY_TRAFFIC
 }
 
 func (self *SEipAddress) GetIpAddr() string {
@@ -194,7 +293,7 @@ func (self *SEipAddress) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SEipAddress) GetMode() string {
-	return ""
+	return models.EIP_MODE_INSTANCE_PUBLICIP
 }
 
 func (self *SEipAddress) GetName() string {

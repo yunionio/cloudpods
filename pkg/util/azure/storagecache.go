@@ -91,14 +91,14 @@ func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 	return self.iimages, nil
 }
 
-func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageId string, extId string, isForce bool) (string, error) {
+func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, extId string, isForce bool) (string, error) {
 	if len(extId) > 0 {
 		status, _ := self.region.GetImageStatus(extId)
 		if status == ImageStatusAvailable && !isForce {
 			return extId, nil
 		}
 	}
-	return self.uploadImage(userCred, imageId, isForce)
+	return self.uploadImage(userCred, imageId, osArch, osType, osDist, isForce)
 }
 
 func (self *SRegion) CreateStorageAccount(resourceGroup, storageAccount string) error {
@@ -369,7 +369,7 @@ func (self *SRegion) UploadContainerFiles(resourceGroup, storageAccount, contain
 	}
 }
 
-func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, isForce bool) (string, error) {
+func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
 	s := auth.GetAdminSession(options.Options.Region, "")
 
 	if meta, reader, err := modules.Images.Download(s, imageId); err != nil {
@@ -378,7 +378,6 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		// {"checksum":"d0ab0450979977c6ada8d85066a6e484","container_format":"bare","created_at":"2018-08-10T04:18:07","deleted":"False","disk_format":"vhd","id":"64189033-3ad4-413c-b074-6bf0b6be8508","is_public":"False","min_disk":"0","min_ram":"0","name":"centos-7.3.1611-20180104.vhd","owner":"5124d80475434da8b41fee48d5be94df","properties":{"os_arch":"x86_64","os_distribution":"CentOS","os_type":"Linux","os_version":"7.3.1611-VHD"},"protected":"False","size":"2028505088","status":"active","updated_at":"2018-08-10T04:20:59"}
 		log.Infof("meta data %s", meta)
 
-		osType, _ := meta.GetString("properties", "os_type")
 		imageNameOnBlob, _ := meta.GetString("name")
 		if !strings.HasSuffix(imageNameOnBlob, ".vhd") {
 			imageNameOnBlob = fmt.Sprintf("%s.vhd", imageNameOnBlob)

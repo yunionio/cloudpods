@@ -101,3 +101,7 @@
 [[constraint]]
   branch = "master"
   name = "github.com/Microsoft/azure-vhd-utils"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/texttheater/golang-levenshtein"

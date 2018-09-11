@@ -87,3 +87,11 @@ func (self *SAzureProvider) GetIStorageById(id string) (cloudprovider.ICloudStor
 func (self *SAzureProvider) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
 	return self.client.GetIStoragecacheById(id)
 }
+
+func (self *SAzureProvider) GetBalance() (float64, error) {
+	balance, err := self.client.QueryAccountBalance()
+	if err != nil {
+		return 0.0, err
+	}
+	return balance.AvailableAmount, nil
+}

@@ -47,6 +47,48 @@ func (self *SKVMGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *
 	return nil
 }
 
+func (self *SKVMGuestDriver) StartGuestDiskSnapshotTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestDiskSnapshotTask", guest, userCred, params, "", "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SKVMGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, snapshotId, diskId string) error {
+	url := fmt.Sprintf("/servers/%s/snapshot", guest.Id)
+	body := jsonutils.NewDict()
+	body.Set("disk_id", jsonutils.NewString(diskId))
+	body.Set("snapshot_id", jsonutils.NewString(snapshotId))
+	header := http.Header{}
+	header.Set("X-Task-Id", task.GetTaskId())
+	header.Set("X-Region-Version", "v2")
+	host := guest.GetHost()
+	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+	return err
+}
+
+func (self *SKVMGuestDriver) RequestDeleteSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, params *jsonutils.JSONDict) error {
+	url := fmt.Sprintf("/servers/%s/delete-snapshot", guest.Id)
+	header := http.Header{}
+	header.Set("X-Task-Id", task.GetTaskId())
+	header.Set("X-Region-Version", "v2")
+	host := guest.GetHost()
+	_, err := host.Request(task.GetUserCred(), "POST", url, header, params)
+	return err
+}
+
+func (self *SKVMGuestDriver) RequestReloadDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, params *jsonutils.JSONDict) error {
+	url := fmt.Sprintf("/servers/%s/reload-disk-snapshot", guest.Id)
+	header := http.Header{}
+	header.Set("X-Task-Id", task.GetTaskId())
+	header.Set("X-Region-Version", "v2")
+	host := guest.GetHost()
+	_, err := host.Request(task.GetUserCred(), "POST", url, header, params)
+	return err
+}
+
 func findVNCPort(results string) int {
 	reg := regexp.MustCompile(`(\d+\.\d+\.\d+\.\d+):([\d]+)`)
 	finds := reg.FindStringSubmatch(results)

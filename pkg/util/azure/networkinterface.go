@@ -36,10 +36,10 @@ func (self *SRegion) isNetworkInstanceNameAvaliable(nicName string) bool {
 	networkClinet := network.NewInterfacesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
 	networkClinet.Authorizer = self.client.authorizer
 	resourceGroup, nicName := PareResourceGroupWithName(nicName, NIC_RESOURCE)
-	if _, err := networkClinet.Get(context.Background(), resourceGroup, nicName, ""); err != nil {
-		return false
+	if result, err := networkClinet.Get(context.Background(), resourceGroup, nicName, ""); err != nil || result.Response.StatusCode == 404 {
+		return true
 	}
-	return true
+	return false
 }
 
 func (self *SRegion) CreateNetworkInterface(nicName string, ipAddr string, subnetId string) (*SInstanceNic, error) {
@@ -58,7 +58,7 @@ func (self *SRegion) CreateNetworkInterface(nicName string, ipAddr string, subne
 		}
 	}
 
-	if nicName == fmt.Sprintf("%s-10", _nicName) {
+	if nicName == fmt.Sprintf("%s-9", _nicName) {
 		return nil, fmt.Errorf("Can not find avaliable nic name")
 	}
 

@@ -160,7 +160,7 @@ func init() {
 		ID string `help:"ID or name of EIP"`
 	}
 	R(&EipShowOptions{}, "eip-show", "show details of an EIP", func(s *mcclient.ClientSession, args *EipShowOptions) error {
-		result, err := modules.Servers.Get(s, args.ID, nil)
+		result, err := modules.Elasticips.Get(s, args.ID, nil)
 		if err != nil {
 			return err
 		}
