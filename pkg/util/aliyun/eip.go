@@ -243,8 +243,15 @@ func (region *SRegion) AllocateEIP(bwMbps int, chargeType TInternetChargeType) (
 	return region.GetEip(eipId)
 }
 
-func (region *SRegion) CreateEIP(bwMbps int) (cloudprovider.ICloudEIP, error) {
-	eip, err := region.AllocateEIP(bwMbps, InternetChargeByTraffic)
+func (region *SRegion) CreateEIP(bwMbps int, chargeType string) (cloudprovider.ICloudEIP, error) {
+	var ctype TInternetChargeType
+	switch chargeType {
+	case models.EIP_CHARGE_TYPE_BY_TRAFFIC:
+		ctype = InternetChargeByTraffic
+	case models.EIP_CHARGE_TYPE_BY_BANDWIDTH:
+		ctype = InternetChargeByBandwidth
+	}
+	eip, err := region.AllocateEIP(bwMbps, ctype)
 	return eip, err
 }
 
