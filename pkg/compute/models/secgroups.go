@@ -270,8 +270,10 @@ func (manager *SSecurityGroupManager) DelaySync(ctx context.Context, userCred mc
 		log.Errorf("DelaySync secgroup failed")
 	} else {
 		needSync := false
+
 		lockman.LockObject(ctx, secgrp)
 		defer lockman.ReleaseObject(ctx, secgrp)
+
 		if secgrp.IsDirty {
 			if _, err := secgrp.GetModelManager().TableSpec().Update(secgrp, func() error {
 				secgrp.IsDirty = false

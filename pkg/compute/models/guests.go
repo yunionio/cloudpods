@@ -1637,8 +1637,10 @@ func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.Toke
 		properties.Add(jsonutils.NewString(self.OsType), "os_type")
 		kwargs.Add(properties, "properties")
 		kwargs.Add(jsonutils.NewBool(restart), "restart")
+
 		lockman.LockObject(ctx, disks.Root)
 		defer lockman.ReleaseObject(ctx, disks.Root)
+
 		if imageId, err := disks.Root.PrepareSaveImage(ctx, userCred, kwargs); err != nil {
 			return nil, err
 		} else {
@@ -2031,7 +2033,7 @@ func (self *SGuest) CreateDisksOnHost(ctx context.Context, userCred mcclient.Tok
 
 func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, storage *SStorage, diskConfig *SDiskConfig, pendingUsage quotas.IQuota) (*SDisk, error) {
 	lockman.LockObject(ctx, storage)
-	defer lockman.LockObject(ctx, storage)
+	defer lockman.ReleaseObject(ctx, storage)
 
 	lockman.LockClass(ctx, QuotaManager, self.ProjectId)
 	defer lockman.ReleaseClass(ctx, QuotaManager, self.ProjectId)

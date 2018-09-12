@@ -2,55 +2,93 @@ package lockman
 
 import (
 	"context"
-	"runtime/debug"
 	"sync"
 
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/fifoutils"
+	"runtime/debug"
 )
 
-type SInMemoryLockOwner struct {
+const (
+	debug_log = false
+)
+
+/*type SInMemoryLockOwner struct {
 	owner context.Context
-	ready chan bool
-}
+}*/
 
 type SInMemoryLockRecord struct {
-	lock    *sync.Mutex
-	holder  context.Context
-	counter int
-	queue   *fifoutils.FIFO
+	lock   *sync.Mutex
+	cond   *sync.Cond
+	holder context.Context
+	depth  int
+	waiter *FIFO
 }
 
 func newInMemoryLockRecord(ctx context.Context) *SInMemoryLockRecord {
-	rec := SInMemoryLockRecord{lock: &sync.Mutex{}, queue: fifoutils.NewFIFO(), holder: ctx, counter: 0}
+	lock := &sync.Mutex{}
+	cond := sync.NewCond(lock)
+	rec := SInMemoryLockRecord{lock: lock, cond: cond, holder: ctx, depth: 0, waiter: NewFIFO()}
 	return &rec
 }
 
-func (rec *SInMemoryLockRecord) lockContext(ctx context.Context) *SInMemoryLockOwner {
+func (rec *SInMemoryLockRecord) lockContext(ctx context.Context) {
 	rec.lock.Lock()
 	defer rec.lock.Unlock()
 
+	if rec.holder == nil {
+		rec.holder = ctx
+		rec.depth = 1
+		return
+	}
+
+	if debug_log {
+		log.Debugf("rec.hold=[%p] ctx=[%p] %v", rec.holder, ctx, rec.holder==ctx)
+	}
+
 	if rec.holder == ctx {
-		rec.counter += 1
-		log.Infof("lockContext: same ctx, counter: %d [%p]", rec.counter, rec.holder)
-		if rec.counter > 32 {
-			// MUST BE BUG
+		rec.depth += 1
+		if debug_log {
+			log.Infof("lockContext: same ctx, depth: %d [%p]", rec.depth, rec.holder)
+		}
+		if rec.depth > 32 {
+			// XXX MUST BE BUG ???
 			debug.PrintStack()
 			panic("Too many recursive locks!!!")
 		}
-		return nil
+		return
 	}
-	// check
-	for i := 0; i < rec.queue.Len(); i += 1 {
-		ele := rec.queue.ElementAt(i).(*SInMemoryLockOwner)
-		if ele.owner == ctx {
-			log.Fatalf("try to lock from a wait context????")
-		}
-	}
-	owner := SInMemoryLockOwner{owner: ctx, ready: make(chan bool)}
-	rec.queue.Push(&owner)
 
-	return &owner
+	// check
+	rec.waiter.Enum(func(ele interface{}) {
+		electx := ele.(context.Context)
+		if electx == ctx {
+			log.Fatalf("try to lock from a waiter context????")
+		}
+	})
+
+	rec.waiter.Push(ctx)
+
+	if debug_log {
+		log.Debugf("waiter size %d after push", rec.waiter.Len())
+		log.Debugf("Start to wait ... [%p]", ctx)
+	}
+
+	for rec.holder != nil {
+		rec.cond.Wait()
+	}
+
+	if debug_log {
+		log.Debugf("End of wait ... [%p]", ctx)
+	}
+
+	rec.waiter.Pop(ctx)
+
+	if debug_log {
+		log.Debugf("waiter size %d after pop", rec.waiter.Len())
+	}
+
+	rec.holder = ctx
+	rec.depth = 1
 }
 
 func (rec *SInMemoryLockRecord) unlockContext(ctx context.Context) (needClean bool) {
@@ -61,29 +99,25 @@ func (rec *SInMemoryLockRecord) unlockContext(ctx context.Context) (needClean bo
 		log.Fatalf("try to unlock a wait context???")
 	}
 
-	rec.counter -= 1
+	if debug_log {
+		log.Debugf("unlockContext depth %d [%p]", rec.depth, ctx)
+	}
 
-	if rec.counter <= 0 {
-		if rec.queue.Len() == 0 {
+	rec.depth -= 1
+
+	if rec.depth <= 0 {
+		if debug_log {
+			log.Debugf("depth 0, to release lock for context [%p]", ctx)
+		}
+
+		rec.holder = nil
+		if rec.waiter.Len() == 0 {
 			return true
 		}
-		newHolder := rec.queue.Pop().(*SInMemoryLockOwner)
-		rec.holder = newHolder.owner
-		rec.counter = 1
-		newHolder.notify()
+		rec.cond.Signal()
 	}
 
 	return false
-}
-
-func (owner *SInMemoryLockOwner) wait() {
-	// log.Infof("wait for notify %p", owner.owner)
-	<-owner.ready
-}
-
-func (owner *SInMemoryLockOwner) notify() {
-	// log.Infof("notify %p", owner.owner)
-	owner.ready <- true
 }
 
 type SInMemoryLockManager struct {
@@ -117,10 +151,7 @@ func (lockman *SInMemoryLockManager) getRecord(ctx context.Context, key string, 
 func (lockman *SInMemoryLockManager) LockKey(ctx context.Context, key string) {
 	record := lockman.getRecordWithLock(ctx, key)
 
-	owner := record.lockContext(ctx)
-	if owner != nil {
-		owner.wait()
-	}
+	record.lockContext(ctx)
 }
 
 func (lockman *SInMemoryLockManager) UnlockKey(ctx context.Context, key string) {

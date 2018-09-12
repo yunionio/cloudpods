@@ -181,8 +181,10 @@ func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 		if addMem > 0 {
 			cancelUsage.Memory = addMem
 		}
+
 		lockman.LockClass(ctx, guest.GetModelManager(), guest.ProjectId)
 		defer lockman.ReleaseClass(ctx, guest.GetModelManager(), guest.ProjectId)
+
 		err = models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, guest.ProjectId, &pendingUsage, &cancelUsage)
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
