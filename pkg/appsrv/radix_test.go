@@ -61,10 +61,16 @@ func TestRadixNode(t *testing.T) {
 
 func TestParams(t *testing.T) {
 	r := NewRadix()
-	r.Add([]string{"POST", "clouds", "<action>"}, "classAction")
-	r.Add([]string{"POST", "clouds", "<resid>", "<action>"}, "objectAction")
+	r.Add([]string{"POST", "clouds", "<cls_action>"}, "classAction")
+	r.Add([]string{"POST", "clouds", "<resid>", "sync"}, "objectSyncAction")
+	r.Add([]string{"POST", "clouds", "<resid>", "<obj_action>"}, "objectAction")
 	params := make(map[string]string)
-	ret := r.Match([]string{"POST", "clouds", "id", "sync"}, params)
+	ret := r.Match([]string{"POST", "clouds", "myid", "sync"}, params)
+	t.Logf("match: %s", ret)
+	t.Logf("params: %s", params)
+
+	params = make(map[string]string)
+	ret = r.Match([]string{"POST", "clouds", "myid", "start"}, params)
 	t.Logf("match: %s", ret)
 	t.Logf("params: %s", params)
 

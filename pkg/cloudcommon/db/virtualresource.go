@@ -49,8 +49,8 @@ func (model *SVirtualResourceBase) GetOwnerProjectId() string {
 	return model.ProjectId
 }
 
-func (manager *SVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, ownerProjId string) *sqlchemy.SQuery {
-	q = q.Equals("tenant_id", ownerProjId)
+func (manager *SVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery {
+	q = q.Equals("tenant_id", owner)
 	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("pending_deleted")), sqlchemy.IsFalse(q.Field("pending_deleted"))))
 	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("is_system")), sqlchemy.IsFalse(q.Field("is_system"))))
 	return q

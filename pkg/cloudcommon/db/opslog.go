@@ -349,9 +349,9 @@ func (self *SOpsLogManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlch
 	return q
 }
 
-func (self *SOpsLogManager) FilterByOwner(q *sqlchemy.SQuery, ownerProjId string) *sqlchemy.SQuery {
-	if len(ownerProjId) > 0 {
-		return q.Equals("owner_project_id", ownerProjId)
+func (self *SOpsLogManager) FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery {
+	if len(owner) > 0 {
+		return q.Equals("owner_project_id", owner)
 	} else {
 		return q
 	}
