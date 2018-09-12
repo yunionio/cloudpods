@@ -6,6 +6,8 @@ import (
 	"os/exec"
 
 	"yunion.io/x/log"
+
+	o "yunion.io/x/onecloud/pkg/webconsole/options"
 )
 
 type Kubectl struct {
@@ -14,7 +16,7 @@ type Kubectl struct {
 }
 
 func NewKubectlCommand(kubeconfig, namespace string) *Kubectl {
-	name := "kubectl"
+	name := o.Options.KubectlPath
 	if len(namespace) == 0 {
 		namespace = "default"
 	}
@@ -92,7 +94,7 @@ func NewPodBashCommand(kubeconfig, namespace, pod, container string) ICommand {
 		TTY().
 		Pod(pod).
 		Container(container).
-		Command("bash", "-i", "-l")
+		Command("sh")
 }
 
 type KubectlLog struct {
@@ -120,8 +122,18 @@ func (c *KubectlLog) Pod(name string) *KubectlLog {
 	return c
 }
 
+func (c *KubectlLog) Container(name string) *KubectlLog {
+	if name == "" {
+		return c
+	}
+	// -c, --container='': Print the logs of this container
+	c.AppendArgs("-c", name)
+	return c
+}
+
 func NewPodLogCommand(kubeconfig, namespace, pod, container string) ICommand {
 	return NewKubectlCommand(kubeconfig, namespace).Logs().
 		Follow().
-		Pod(pod)
+		Pod(pod).
+		Container(container)
 }
