@@ -2,6 +2,7 @@ package logclient
 
 import (
 	"fmt"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -65,11 +66,15 @@ func AddActionLog(model IObject, action string, iNotes interface{}, userCred mcc
 	notes := stringutils.Interface2String(iNotes)
 
 	s := auth.GetSession(userCred, "", "")
+	objId := model.GetId()
 
+	if len(objId) == 0 {
+		objId = "-"
+	}
 	logentry := jsonutils.NewDict()
 	logentry.Add(jsonutils.NewString(model.GetName()), "obj_name")
 	logentry.Add(jsonutils.NewString(model.Keyword()), "obj_type")
-	logentry.Add(jsonutils.NewString(model.GetId()), "obj_id")
+	logentry.Add(jsonutils.NewString(objId), "obj_id")
 	logentry.Add(jsonutils.NewString(action), "action")
 	logentry.Add(jsonutils.NewString(token.GetUserId()), "user_id")
 	logentry.Add(jsonutils.NewString(token.GetUserName()), "user")
