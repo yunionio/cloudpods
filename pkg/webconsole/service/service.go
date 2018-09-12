@@ -17,6 +17,12 @@ import (
 	"yunion.io/x/onecloud/pkg/webconsole/server"
 )
 
+func ensureBinExists(binPath string) {
+	if _, err := os.Stat(binPath); os.IsNotExist(err) {
+		log.Fatalf("Binary %s not exists", binPath)
+	}
+}
+
 func StartService() {
 	cloudcommon.ParseOptions(&o.Options, &o.Options.Options, os.Args, "webconsole.conf")
 
@@ -26,6 +32,10 @@ func StartService() {
 	_, err := url.Parse(o.Options.ApiServer)
 	if err != nil {
 		log.Fatalf("invalid --api-server %s", o.Options.ApiServer)
+	}
+
+	for _, binPath := range []string{o.Options.KubectlPath, o.Options.IpmitoolPath} {
+		ensureBinExists(binPath)
 	}
 
 	cloudcommon.InitAuth(&o.Options.Options, func() {
