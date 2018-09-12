@@ -1106,7 +1106,9 @@ func (dispatcher *DBModelDispatcher) Delete(ctx context.Context, idstr string, q
 		return nil, httperrors.NewGeneralError(err)
 	}
 	log.Debugf("Delete %s", model.GetShortDesc())
+
 	lockman.LockObject(ctx, model)
 	defer lockman.ReleaseObject(ctx, model)
+
 	return deleteItem(dispatcher.modelManager, model, ctx, userCred, query, data)
 }
