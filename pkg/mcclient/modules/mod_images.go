@@ -484,7 +484,29 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 }
 
 func (this *ImageManager) Update(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return this._update(s, id, params, nil)
+	img, err := this.Get(s, id, nil)
+	if err != nil {
+		return nil, err
+	}
+	idstr, err := img.GetString("id")
+	if err != nil {
+		return nil, err
+	}
+	properties, _ := img.Get("properties")
+	if properties != nil {
+		propDict := properties.(*jsonutils.JSONDict)
+		propMap, _ := propDict.GetMap()
+		if propMap != nil {
+			paramsDict := params.(*jsonutils.JSONDict)
+			for k, val := range propMap {
+				if !paramsDict.Contains("properties", k) {
+					paramsDict.Add(val, "properties", k)
+				}
+			}
+		}
+	}
+
+	return this._update(s, idstr, params, nil)
 }
 
 func (this *ImageManager) _update(s *mcclient.ClientSession, id string, params jsonutils.JSONObject, body io.Reader) (jsonutils.JSONObject, error) {
