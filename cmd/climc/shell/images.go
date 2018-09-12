@@ -211,29 +211,29 @@ func init() {
 	}
 
 	R(&ImageUpdateOptions{}, "image-update", "Update images meta infomation", func(s *mcclient.ClientSession, args *ImageUpdateOptions) error {
-		img, e := modules.Images.Get(s, args.ID, nil)
+		/* img, e := modules.Images.Get(s, args.ID, nil)
 		if e != nil {
 			return e
 		}
 		idstr, e := img.GetString("id")
 		if e != nil {
 			return e
-		}
+		}*/
 		params := jsonutils.NewDict()
-		properties, _ := img.Get("properties")
+		/* properties, _ := img.Get("properties")
 		if properties != nil {
 			params.Add(properties, "properties")
-		}
+		}*/
 		if len(args.Name) > 0 {
 			params.Add(jsonutils.NewString(args.Name), "name")
 		}
-		e = addImageOptionalOptions(s, params, args.ImageOptionalOptions)
-		if e != nil {
-			return e
+		err := addImageOptionalOptions(s, params, args.ImageOptionalOptions)
+		if err != nil {
+			return err
 		}
-		img, e = modules.Images.Update(s, idstr, params)
-		if e != nil {
-			return e
+		img, err := modules.Images.Update(s, args.ID, params)
+		if err != nil {
+			return err
 		}
 		printObject(img)
 		return nil

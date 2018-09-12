@@ -35,7 +35,7 @@ type ComputeOptions struct {
 	DefaultMemoryQuota         int `default:"51200" help:"Common memory quota per tenant in MB, default 50G"`
 	DefaultStorageQuota        int `default:"3072000" help:"Common storage quota per tenant in MB, default 3000G"`
 	DefaultPortQuota           int `default:"50" help:"Common network port quota per tenant, default 50"`
-	DefaultEipQuota            int `default:"5" help:"Common floating IP quota per tenant, default 0"`
+	DefaultEipQuota            int `default:"10" help:"Common floating IP quota per tenant, default 10"`
 	DefaultEportQuota          int `default:"50" help:"Common exit network port quota per tenant, default 50"`
 	DefaultBwQuota             int `default:"500000" help:"Common network port bandwidth in mbps quota per tenant, default 50*10Gbps"`
 	DefaultEbwQuota            int `default:"1000" help:"Common exit network port bandwidth quota per tenant, default 1Gbps"`
