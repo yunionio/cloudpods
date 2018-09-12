@@ -138,8 +138,7 @@ func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudpro
 	addressSpace := network.AddressSpace{AddressPrefixes: &addressPrefixes}
 	properties := network.VirtualNetworkPropertiesFormat{AddressSpace: &addressSpace}
 	parameters := network.VirtualNetwork{Name: &name, Location: &self.Name, VirtualNetworkPropertiesFormat: &properties}
-	resourceGroup, vpcName := PareResourceGroupWithName(name, VPC_RESOURCE)
-	vpcId := fmt.Sprintf("resourceGroups/%s/providers/vpc/%s", resourceGroup, vpcName)
+	vpcId, resourceGroup, vpcName := pareResourceGroupWithName(name, VPC_RESOURCE)
 	if result, err := vpcClient.CreateOrUpdate(context.Background(), resourceGroup, vpcName, parameters); err != nil {
 		return nil, err
 	} else if err := result.WaitForCompletion(context.Background(), vpcClient.Client); err != nil {
@@ -197,10 +196,10 @@ func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
 	if ivpcs, err := self.GetIVpcs(); err != nil {
 		return nil, err
 	} else {
-		resourceGroup, vpcName := PareResourceGroupWithName(id, VPC_RESOURCE)
+		_, resourceGroup, vpcName := pareResourceGroupWithName(id, VPC_RESOURCE)
 		for i := 0; i < len(ivpcs); i++ {
 			vpcId := ivpcs[i].GetId()
-			_resourceGroup, _vpcName := PareResourceGroupWithName(vpcId, VPC_RESOURCE)
+			_, _resourceGroup, _vpcName := pareResourceGroupWithName(vpcId, VPC_RESOURCE)
 			if _resourceGroup == resourceGroup && _vpcName == vpcName {
 				return ivpcs[i], nil
 			}

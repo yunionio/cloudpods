@@ -169,7 +169,7 @@ func (self *SSecurityGroup) IsEmulated() bool {
 }
 
 func (self *SSecurityGroup) Refresh() error {
-	resourceGroup, secgrpName := PareResourceGroupWithName(self.ID, SECGRP_RESOURCE)
+	_, resourceGroup, secgrpName := pareResourceGroupWithName(self.ID, SECGRP_RESOURCE)
 	networkClient := network.NewSecurityGroupsClientWithBaseURI(self.vpc.region.client.baseUrl, self.vpc.region.SubscriptionID)
 	networkClient.Authorizer = self.vpc.region.client.authorizer
 	if secgrp, err := networkClient.Get(context.Background(), resourceGroup, secgrpName, ""); err != nil {

@@ -8,10 +8,11 @@ import (
 	"yunion.io/x/jsonutils"
 )
 
-func (self *SRegion) getNetworkInterface(resourceGroup string, nicName string) (*SInstanceNic, error) {
+func (self *SRegion) getNetworkInterface(interfaceId string) (*SInstanceNic, error) {
 	nic := SInstanceNic{}
 	networkClient := network.NewInterfacesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
 	networkClient.Authorizer = self.client.authorizer
+	_, resourceGroup, nicName := pareResourceGroupWithName(interfaceId, NIC_RESOURCE)
 	if _nic, err := networkClient.Get(context.Background(), resourceGroup, nicName, ""); err != nil {
 		return nil, err
 	} else if err := jsonutils.Update(&nic, _nic); err != nil {
@@ -35,7 +36,7 @@ func (self *SRegion) GetNetworkInterfaces() ([]SInstanceNic, error) {
 func (self *SRegion) isNetworkInstanceNameAvaliable(nicName string) bool {
 	networkClinet := network.NewInterfacesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
 	networkClinet.Authorizer = self.client.authorizer
-	resourceGroup, nicName := PareResourceGroupWithName(nicName, NIC_RESOURCE)
+	_, resourceGroup, nicName := pareResourceGroupWithName(nicName, NIC_RESOURCE)
 	if result, err := networkClinet.Get(context.Background(), resourceGroup, nicName, ""); err != nil || result.Response.StatusCode == 404 {
 		return true
 	}
@@ -81,7 +82,7 @@ func (self *SRegion) CreateNetworkInterface(nicName string, ipAddr string, subne
 		},
 	}
 	//log.Debugf("create params: %", jsonutils.Marshal(params).PrettyString())
-	resourceGroup, nicName := PareResourceGroupWithName(nicName, NIC_RESOURCE)
+	_, resourceGroup, nicName := pareResourceGroupWithName(nicName, NIC_RESOURCE)
 	if result, err := networkClinet.CreateOrUpdate(context.Background(), resourceGroup, nicName, params); err != nil {
 		return nil, err
 	} else if err := result.WaitForCompletion(context.Background(), networkClinet.Client); err != nil {

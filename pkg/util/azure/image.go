@@ -2,7 +2,6 @@ package azure
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"yunion.io/x/jsonutils"
@@ -81,8 +80,8 @@ func (self *SImage) IsEmulated() bool {
 }
 
 func (self *SImage) GetGlobalId() string {
-	resourceGroup, imageName := PareResourceGroupWithName(self.ID, IMAGE_RESOURCE)
-	return fmt.Sprintf("resourceGroups/%s/providers/image/%s", resourceGroup, imageName)
+	globalId, _, _ := pareResourceGroupWithName(self.ID, IMAGE_RESOURCE)
+	return globalId
 }
 
 func (self *SImage) GetStatus() string {
@@ -124,7 +123,7 @@ func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 	image := SImage{}
 	imageClient := compute.NewImagesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
 	imageClient.Authorizer = self.client.authorizer
-	resourceGroup, imageName := PareResourceGroupWithName(imageId, IMAGE_RESOURCE)
+	_, resourceGroup, imageName := pareResourceGroupWithName(imageId, IMAGE_RESOURCE)
 	if result, err := imageClient.Get(context.Background(), resourceGroup, imageName, ""); err != nil {
 		if result.Response.StatusCode == 404 {
 			return nil, cloudprovider.ErrNotFound
@@ -161,7 +160,7 @@ func (self *SRegion) CreateImageByBlob(imageName, osType, blobURI string, diskSi
 			StorageProfile: &storageProfile,
 		},
 	}
-	resourceGroup, imageName := PareResourceGroupWithName(imageName, IMAGE_RESOURCE)
+	_, resourceGroup, imageName := pareResourceGroupWithName(imageName, IMAGE_RESOURCE)
 	if result, err := imageClient.CreateOrUpdate(context.Background(), resourceGroup, imageName, params); err != nil {
 		log.Errorf("Create image from blob error: %v", err)
 		return nil, err
@@ -190,7 +189,7 @@ func (self *SRegion) GetImages() ([]SImage, error) {
 func (self *SRegion) DeleteImage(imageId string) error {
 	imageClient := compute.NewImagesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
 	imageClient.Authorizer = self.client.authorizer
-	resourceGroup, imageName := PareResourceGroupWithName(imageId, IMAGE_RESOURCE)
+	_, resourceGroup, imageName := pareResourceGroupWithName(imageId, IMAGE_RESOURCE)
 	if result, err := imageClient.Delete(context.Background(), resourceGroup, imageName); err != nil {
 		return err
 	} else if err := result.WaitForCompletion(context.Background(), imageClient.Client); err != nil {

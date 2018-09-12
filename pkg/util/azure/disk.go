@@ -2,7 +2,6 @@ package azure
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -66,23 +65,23 @@ type SDisk struct {
 	Tags map[string]string
 }
 
-func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, desc string) error {
+func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, desc string) (string, error) {
 	return self.createDisk(storageType, name, sizeGb, desc)
 }
 
-func (self *SRegion) createDisk(storageType string, name string, sizeGb int32, desc string) error {
+func (self *SRegion) createDisk(storageType string, name string, sizeGb int32, desc string) (string, error) {
 	computeClient := compute.NewDisksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
 	computeClient.Authorizer = self.client.authorizer
 	sku := compute.DiskSku{Name: compute.StorageAccountTypes(storageType)}
 	properties := compute.DiskProperties{DiskSizeGB: &sizeGb, CreationData: &compute.CreationData{CreateOption: "Empty"}}
 	disk := compute.Disk{Name: &name, Location: &self.Name, DiskProperties: &properties, Sku: &sku}
-	resourceGroup, diskName := PareResourceGroupWithName(name, DISK_RESOURCE)
+	diskId, resourceGroup, diskName := pareResourceGroupWithName(name, DISK_RESOURCE)
 	if result, err := computeClient.CreateOrUpdate(context.Background(), resourceGroup, diskName, disk); err != nil {
-		return err
+		return "", err
 	} else if err := result.WaitForCompletion(context.Background(), computeClient.Client); err != nil {
-		return err
+		return "", err
 	} else {
-		return nil
+		return diskId, nil
 	}
 }
 
@@ -93,7 +92,7 @@ func (self *SRegion) DeleteDisk(diskId string) error {
 func (self *SRegion) deleteDisk(diskId string) error {
 	diskClient := compute.NewDisksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
 	diskClient.Authorizer = self.client.authorizer
-	resourceGroup, name := PareResourceGroupWithName(diskId, DISK_RESOURCE)
+	_, resourceGroup, name := pareResourceGroupWithName(diskId, DISK_RESOURCE)
 	if result, err := diskClient.Delete(context.Background(), resourceGroup, name); err != nil {
 		return err
 	} else if err := result.WaitForCompletion(context.Background(), diskClient.Client); err != nil {
@@ -109,7 +108,7 @@ func (self *SRegion) ResizeDisk(diskId string, sizeGb int32) error {
 func (self *SRegion) resizeDisk(diskId string, sizeGb int32) error {
 	diskClient := compute.NewDisksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
 	diskClient.Authorizer = self.client.authorizer
-	resourceGroup, diskName := PareResourceGroupWithName(diskId, DISK_RESOURCE)
+	_, resourceGroup, diskName := pareResourceGroupWithName(diskId, DISK_RESOURCE)
 	params := compute.DiskUpdate{
 		DiskUpdateProperties: &compute.DiskUpdateProperties{
 			DiskSizeGB: &sizeGb,
@@ -123,10 +122,11 @@ func (self *SRegion) resizeDisk(diskId string, sizeGb int32) error {
 	return nil
 }
 
-func (self *SRegion) GetDisk(resourceGroup string, diskName string) (*SDisk, error) {
+func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	disk := SDisk{}
 	computeClient := compute.NewDisksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
 	computeClient.Authorizer = self.client.authorizer
+	_, resourceGroup, diskName := pareResourceGroupWithName(diskId, DISK_RESOURCE)
 	if _disk, err := computeClient.Get(context.Background(), resourceGroup, diskName); err != nil {
 		return nil, err
 	} else if err := jsonutils.Update(&disk, _disk); err != nil {
@@ -174,13 +174,8 @@ func (self *SDisk) GetId() string {
 	return self.ID
 }
 
-func (self *SRegion) getDisk(resourceGroup string, diskName string) (*SDisk, error) {
-	return self.GetDisk(resourceGroup, diskName)
-}
-
 func (self *SDisk) Refresh() error {
-	resourceGropu, diskName := PareResourceGroupWithName(self.ID, DISK_RESOURCE)
-	if disk, err := self.storage.zone.region.GetDisk(resourceGropu, diskName); err != nil {
+	if disk, err := self.storage.zone.region.GetDisk(self.ID); err != nil {
 		return cloudprovider.ErrNotFound
 	} else {
 		return jsonutils.Update(self, disk)
@@ -203,8 +198,8 @@ func (self *SDisk) GetName() string {
 }
 
 func (self *SDisk) GetGlobalId() string {
-	resourceGroup, _ := PareResourceGroupWithName(self.ID, DISK_RESOURCE)
-	return fmt.Sprintf("resourceGroups/%s/providers/disk/%s", resourceGroup, self.Name)
+	globalId, _, _ := pareResourceGroupWithName(self.ID, DISK_RESOURCE)
+	return globalId
 }
 
 func (self *SDisk) IsEmulated() bool {

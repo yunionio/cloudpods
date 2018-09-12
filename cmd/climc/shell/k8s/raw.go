@@ -57,7 +57,10 @@ func initRaw() {
 		if err != nil {
 			return err
 		}
-		body := jsonutils.Marshal(string(content))
+		body, err := jsonutils.Parse(content)
+		if err != nil {
+			return err
+		}
 		err = k8s.RawResource.Put(s, args.KIND, args.Namespace, args.NAME, body, args.Cluster)
 		if err != nil {
 			return err

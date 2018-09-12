@@ -108,11 +108,16 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	if !ok {
 		return nil, fmt.Errorf("Invalid querystring formst: %v", query)
 	}
-	if jsonutils.QueryBoolean(query, "unused", false) {
+	if query.Contains("unused") {
 		guestdisks := GuestdiskManager.Query().SubQuery()
 		sq := guestdisks.Query(guestdisks.Field("disk_id"))
-		q = q.Filter(sqlchemy.NotIn(q.Field("id"), sq))
+		if jsonutils.QueryBoolean(query, "unused", false) {
+			q = q.Filter(sqlchemy.NotIn(q.Field("id"), sq))
+		} else {
+			q = q.Filter(sqlchemy.In(q.Field("id"), sq))
+		}
 	}
+
 	storages := StorageManager.Query().SubQuery()
 	if jsonutils.QueryBoolean(query, "share", false) {
 		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.NotIn(storages.Field("storage_type"), STORAGE_LOCAL_TYPES))
@@ -521,21 +526,9 @@ func (self *SDisk) GetCloudprovider() *SCloudprovider {
 }
 
 func (self *SDisk) GetPathAtHost(host *SHost) string {
-	storage := self.GetStorage()
-	if storage.StorageType == STORAGE_RBD {
-		pool, _ := storage.StorageConf.GetString("pool")
-		monHost, _ := storage.StorageConf.GetString("mon_host")
-		key, _ := storage.StorageConf.GetString("key")
-		for _, keyword := range []string{"@", ":", "="} {
-			monHost = strings.Replace(monHost, keyword, fmt.Sprintf("\\%s", keyword), -1)
-			key = strings.Replace(key, keyword, fmt.Sprintf("\\%s", keyword), -1)
-		}
-		return fmt.Sprintf("rbd:%s/%s:mon_host=%s:key=%s", pool, self.Id, monHost, key)
-	} else if storage.StorageType == STORAGE_LOCAL || storage.StorageType == STORAGE_NAS {
-		hostStorage := host.GetHoststorageOfId(self.StorageId)
-		if hostStorage != nil {
-			return path.Join(hostStorage.MountPoint, self.Id)
-		}
+	hostStorage := host.GetHoststorageOfId(self.StorageId)
+	if hostStorage != nil {
+		return path.Join(hostStorage.MountPoint, self.Id)
 	}
 	return ""
 }

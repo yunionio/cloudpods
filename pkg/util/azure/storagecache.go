@@ -107,7 +107,7 @@ func (self *SRegion) CreateStorageAccount(resourceGroup, storageAccount string) 
 	sku := storageaccount.Sku{Name: storageaccount.SkuName("Standard_GRS")}
 	params := storageaccount.AccountCreateParameters{Sku: &sku, Location: &self.Name, Kind: storageaccount.Kind("Storage")}
 	if len(resourceGroup) == 0 {
-		resourceGroup = DefaultResourceGroups[STORAGE_RESOURCE]
+		resourceGroup = defaultResourceGroups[STORAGE_RESOURCE]
 	}
 	if len(storageAccount) == 0 {
 		storageAccount = fmt.Sprintf("%s%s", self.Name, DefaultStorageAccount)
@@ -160,7 +160,7 @@ func (self *SRegion) getStorageAccountKey(resourceGroup, storageAccount string) 
 
 func (self *SRegion) CheckBlobContainer(resourceGroup, storageAccount, blobName string) error {
 	if len(resourceGroup) == 0 {
-		resourceGroup = DefaultResourceGroups[STORAGE_RESOURCE]
+		resourceGroup = defaultResourceGroups[STORAGE_RESOURCE]
 	}
 	if len(storageAccount) == 0 {
 		storageAccount = fmt.Sprintf("%s%s", self.Name, DefaultStorageAccount)
@@ -251,7 +251,7 @@ func (self *SRegion) getContainerFiles(storageAccount, accessKey, containerName 
 
 func (self *SRegion) ListContainerFiles(resourceGroup, storageAccount, blobName string) ([]Blob, error) {
 	if len(resourceGroup) == 0 {
-		resourceGroup = DefaultResourceGroups[STORAGE_RESOURCE]
+		resourceGroup = defaultResourceGroups[STORAGE_RESOURCE]
 	}
 	if len(storageAccount) == 0 {
 		storageAccount = fmt.Sprintf("%s%s", self.Name, DefaultStorageAccount)
@@ -354,7 +354,7 @@ func (self *SRegion) uploadContainerFileByPath(storageAccount, accessKey, contai
 
 func (self *SRegion) UploadContainerFiles(resourceGroup, storageAccount, containerName, filePath string) (string, error) {
 	if len(resourceGroup) == 0 {
-		resourceGroup = DefaultResourceGroups[STORAGE_RESOURCE]
+		resourceGroup = defaultResourceGroups[STORAGE_RESOURCE]
 	}
 	if len(storageAccount) == 0 {
 		storageAccount = fmt.Sprintf("%s%s", self.Name, DefaultStorageAccount)
@@ -395,12 +395,12 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 
 		storageAccount := fmt.Sprintf("%s%s", self.region.Name, DefaultStorageAccount)
 
-		if err := self.region.CheckBlobContainer(DefaultResourceGroups[STORAGE_RESOURCE], storageAccount, DefaultBlobContainer); err != nil {
+		if err := self.region.CheckBlobContainer(defaultResourceGroups[STORAGE_RESOURCE], storageAccount, DefaultBlobContainer); err != nil {
 			return "", err
 		}
 
 		size, _ := meta.Int("size")
-		accessKey, err := self.region.getStorageAccountKey(DefaultResourceGroups[STORAGE_RESOURCE], storageAccount)
+		accessKey, err := self.region.getStorageAccountKey(defaultResourceGroups[STORAGE_RESOURCE], storageAccount)
 		if err != nil {
 			return "", err
 		}

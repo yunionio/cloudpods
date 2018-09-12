@@ -49,8 +49,8 @@ func (model *SVirtualResourceBase) GetOwnerProjectId() string {
 	return model.ProjectId
 }
 
-func (manager *SVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, ownerProjId string) *sqlchemy.SQuery {
-	q = q.Equals("tenant_id", ownerProjId)
+func (manager *SVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery {
+	q = q.Equals("tenant_id", owner)
 	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("pending_deleted")), sqlchemy.IsFalse(q.Field("pending_deleted"))))
 	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("is_system")), sqlchemy.IsFalse(q.Field("is_system"))))
 	return q
@@ -282,8 +282,10 @@ func (model *SVirtualResourceBase) VirtualModelManager() IVirtualModelManager {
 
 func (model *SVirtualResourceBase) CancelPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	ownerProjId := model.GetOwnerProjectId()
+
 	lockman.LockClass(ctx, model.GetModelManager(), ownerProjId)
 	defer lockman.ReleaseClass(ctx, model.GetModelManager(), ownerProjId)
+
 	_, err := model.GetModelManager().TableSpec().Update(model, func() error {
 		model.Name = GenerateName(model.GetModelManager(), ownerProjId, model.Name)
 		model.PendingDeleted = false

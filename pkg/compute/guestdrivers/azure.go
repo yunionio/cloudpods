@@ -21,6 +21,10 @@ type SAzureGuestDriver struct {
 	SManagedVirtualizedGuestDriver
 }
 
+const (
+	DEFAULT_USER = "yunion"
+)
+
 func init() {
 	driver := SAzureGuestDriver{}
 	models.RegisterGuestDriver(&driver)
@@ -157,7 +161,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 					log.Errorf("encrypt password failed %s", err)
 				} else {
 					data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
-					data.Add(jsonutils.NewString("root"), "account")
+					data.Add(jsonutils.NewString(DEFAULT_USER), "account")
 					data.Add(jsonutils.NewString(encpasswd), "key")
 
 					if len(desc.OsDistribution) > 0 {
@@ -218,8 +222,8 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 			}
 
 			data := jsonutils.NewDict()
-			data.Add(jsonutils.NewString("root"), "account") // 用户名
-			data.Add(jsonutils.NewString(encpasswd), "key")  // 密码
+			data.Add(jsonutils.NewString(DEFAULT_USER), "account") // 用户名
+			data.Add(jsonutils.NewString(encpasswd), "key")        // 密码
 			e := iVM.DeployVM(name, password, publicKey, resetPassword, deleteKeypair, description)
 			return data, e
 		})

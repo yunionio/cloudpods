@@ -43,8 +43,7 @@ func init() {
 		ID string `help:"Instance ID"`
 	}
 	shellutils.R(&InstanceShowOptions{}, "instance-show", "Show intance detail", func(cli *azure.SRegion, args *InstanceShowOptions) error {
-		resourceGroup, instanceName := azure.PareResourceGroupWithName(args.ID, azure.INSTANCE_RESOURCE)
-		if instance, err := cli.GetInstance(resourceGroup, instanceName); err != nil {
+		if instance, err := cli.GetInstance(args.ID); err != nil {
 			return err
 		} else {
 			printObject(instance)
@@ -52,4 +51,42 @@ func init() {
 		}
 	})
 
+	type InstanceRebuildOptions struct {
+		ID string `help:"Instance ID"`
+	}
+	shellutils.R(&InstanceRebuildOptions{}, "instance-rebuild", "Rebuild intance root", func(cli *azure.SRegion, args *InstanceRebuildOptions) error {
+		return cli.RebuildRoot(args.ID)
+	})
+
+	type InstanceDiskOptions struct {
+		ID   string `help:"Instance ID"`
+		DISK string `help:"Disk ID"`
+	}
+	shellutils.R(&InstanceDiskOptions{}, "instance-attach-disk", "Attach a disk to intance", func(cli *azure.SRegion, args *InstanceDiskOptions) error {
+		return cli.AttachDisk(args.ID, args.DISK)
+	})
+
+	shellutils.R(&InstanceDiskOptions{}, "instance-detach-disk", "Attach a disk to intance", func(cli *azure.SRegion, args *InstanceDiskOptions) error {
+		return cli.DetachDisk(args.ID, args.DISK)
+	})
+
+	type InstanceConfigOptions struct {
+		ID     string `help:"Instance ID"`
+		NCPU   int    `help:"Number of cpu core"`
+		MEMERY int    `helo:"Instance memery in mb"`
+	}
+
+	shellutils.R(&InstanceConfigOptions{}, "instance-change-conf", "Attach a disk to intance", func(cli *azure.SRegion, args *InstanceConfigOptions) error {
+		return cli.ChangeVMConfig(args.ID, args.NCPU, args.MEMERY)
+	})
+
+	type InstanceDeployOptions struct {
+		ID        string `help:"Instance ID"`
+		Password  string `help:"Password for instance"`
+		PublicKey string `helo:"Deploy ssh_key for instance"`
+	}
+
+	shellutils.R(&InstanceDeployOptions{}, "instance-reset-password", "Reset intance password", func(cli *azure.SRegion, args *InstanceDeployOptions) error {
+		return cli.DeployVM(args.ID, "", args.Password, args.PublicKey, true, false, "")
+	})
 }

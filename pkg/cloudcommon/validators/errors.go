@@ -1,8 +1,13 @@
 package validators
 
 import (
+	"database/sql"
 	"fmt"
+
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
+
+var returnHttpError = true
 
 type ErrType uintptr
 
@@ -21,7 +26,7 @@ const (
 var errTypeToString = map[ErrType]string{
 	ERR_SUCCESS:         "No error",
 	ERR_GENERAL:         "General error",
-	ERR_MISSING_KEY:     "Missing_key error",
+	ERR_MISSING_KEY:     "Missing key error",
 	ERR_INVALID_TYPE:    "Invalid type error",
 	ERR_INVALID_CHOICE:  "Invalid choice error",
 	ERR_NOT_IN_RANGE:    "Not in range error",
@@ -85,16 +90,30 @@ func newModelManagerError(modelKeyword string) error {
 }
 
 func newModelNotFoundError(modelKeyword, idOrName string, err error) error {
-	msg := fmt.Sprintf("cannot find %q with id/name %q: %s",
-		modelKeyword, idOrName, err)
+	msg := fmt.Sprintf("cannot find %q with id/name %q",
+		modelKeyword, idOrName)
+	if err != sql.ErrNoRows {
+		msg += ": " + err.Error()
+	}
 	return newError(ERR_MODEL_NOT_FOUND, msg)
 }
 
 func newError(typ ErrType, msg string) error {
-	return &ValidateError{
+	err := &ValidateError{
 		ErrType: typ,
 		Msg:     msg,
 	}
+	if returnHttpError {
+		switch typ {
+		case ERR_SUCCESS:
+			return nil
+		case ERR_GENERAL, ERR_MODEL_MANAGER:
+			return httperrors.NewInternalServerError(msg)
+		default:
+			return httperrors.NewInputParameterError(msg)
+		}
+	}
+	return err
 }
 
 func IsModelNotFoundError(err error) bool {

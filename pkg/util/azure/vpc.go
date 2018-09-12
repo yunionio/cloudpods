@@ -2,7 +2,6 @@ package azure
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -64,8 +63,8 @@ func (self *SVpc) GetName() string {
 }
 
 func (self *SVpc) GetGlobalId() string {
-	resourceGroup, vpcName := PareResourceGroupWithName(self.ID, VPC_RESOURCE)
-	return fmt.Sprintf("resourceGroups/%s/providers/vpc/%s", resourceGroup, vpcName)
+	globalId, _, _ := pareResourceGroupWithName(self.ID, VPC_RESOURCE)
+	return globalId
 }
 
 func (self *SVpc) IsEmulated() bool {
@@ -83,7 +82,7 @@ func (self *SVpc) GetCidrBlock() string {
 func (self *SVpc) Delete() error {
 	vpcClient := network.NewVirtualNetworksClientWithBaseURI(self.region.client.baseUrl, self.region.client.subscriptionId)
 	vpcClient.Authorizer = self.region.client.authorizer
-	resourceGroup, vpcName := PareResourceGroupWithName(self.ID, VPC_RESOURCE)
+	_, resourceGroup, vpcName := pareResourceGroupWithName(self.ID, VPC_RESOURCE)
 	if result, err := vpcClient.Delete(context.Background(), resourceGroup, vpcName); err != nil {
 		return err
 	} else if err := result.WaitForCompletion(context.Background(), vpcClient.Client); err != nil {
@@ -196,7 +195,7 @@ func (self *SVpc) GetStatus() string {
 }
 
 func (self *SVpc) Refresh() error {
-	resourceGroup, vpcName := PareResourceGroupWithName(self.ID, VPC_RESOURCE)
+	_, resourceGroup, vpcName := pareResourceGroupWithName(self.ID, VPC_RESOURCE)
 	vpcClient := network.NewVirtualNetworksClientWithBaseURI(self.region.client.baseUrl, self.region.SubscriptionID)
 	vpcClient.Authorizer = self.region.client.authorizer
 	if result, err := vpcClient.Get(context.Background(), resourceGroup, vpcName, ""); err != nil {

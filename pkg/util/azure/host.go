@@ -3,6 +3,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
@@ -49,8 +50,7 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 	if err != nil {
 		return nil, err
 	}
-	resourceGroup, instanceName := PareResourceGroupWithName(vmId, INSTANCE_RESOURCE)
-	if vm, err := self.zone.region.GetInstance(resourceGroup, instanceName); err != nil {
+	if vm, err := self.zone.region.GetInstance(vmId); err != nil {
 		return nil, err
 	} else {
 		return vm, err
@@ -93,12 +93,12 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 	for i := 0; i < len(diskSizes); i++ {
 		diskName := fmt.Sprintf("vdisk_%s_%d", name, time.Now().UnixNano())
 		size := int32(diskSizes[i] >> 10)
-		index := int32(i)
+		lun := int32(i)
 		DataDisks = append(DataDisks, compute.DataDisk{
 			Name:         &diskName,
 			DiskSizeGB:   &size,
 			CreateOption: compute.Empty,
-			Lun:          &index,
+			Lun:          &lun,
 		})
 	}
 
@@ -150,12 +150,18 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 	for _, profile := range self.zone.region.getHardwareProfile(cpu, memMB) {
 		params.HardwareProfile.VMSize = compute.VirtualMachineSizeTypes(profile)
 		log.Debugf("Try HardwareProfile : %s", profile)
-		resourceGroup, instanceName := PareResourceGroupWithName(name, INSTANCE_RESOURCE)
+		instanceId, resourceGroup, instanceName := pareResourceGroupWithName(name, INSTANCE_RESOURCE)
 		result, err := computeClient.CreateOrUpdate(context.Background(), resourceGroup, instanceName, params)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", profile, err)
 		} else if err := result.WaitForCompletion(context.Background(), computeClient.Client); err != nil {
-			return "", err
+			if strings.Index(err.Error(), "OSProvisioningTimedOut") == -1 {
+				return "", err
+			} else if instance, err := self.zone.region.GetInstance(instanceId); err != nil {
+				return "", err
+			} else {
+				return instance.ID, nil
+			}
 		} else if vm, err := result.Result(computeClient); err != nil {
 			return "", err
 		} else {
@@ -218,9 +224,8 @@ func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	return self.zone.GetIStorages()
 }
 
-func (self *SHost) GetIVMById(gid string) (cloudprovider.ICloudVM, error) {
-	resourceGroup, instanceName := PareResourceGroupWithName(gid, INSTANCE_RESOURCE)
-	if instance, err := self.zone.region.GetInstance(resourceGroup, instanceName); err != nil {
+func (self *SHost) GetIVMById(instanceId string) (cloudprovider.ICloudVM, error) {
+	if instance, err := self.zone.region.GetInstance(instanceId); err != nil {
 		return nil, err
 	} else {
 		instance.host = self

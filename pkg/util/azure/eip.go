@@ -2,7 +2,6 @@ package azure
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network"
 	"yunion.io/x/jsonutils"
@@ -50,7 +49,7 @@ type SEipAddress struct {
 
 func (region *SRegion) AllocateEIP(eipName string) (*SEipAddress, error) {
 	eip := SEipAddress{region: region}
-	resourceGroup, eipName := PareResourceGroupWithName(eipName, EIP_RESOURCE)
+	_, resourceGroup, eipName := pareResourceGroupWithName(eipName, EIP_RESOURCE)
 	networkClient := network.NewPublicIPAddressesClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
 	networkClient.Authorizer = region.client.authorizer
 	params := network.PublicIPAddress{
@@ -106,7 +105,7 @@ func (region *SRegion) GetEips() ([]SEipAddress, error) {
 
 func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 	eip := SEipAddress{region: region}
-	resourceGroup, eipName := PareResourceGroupWithName(eipId, EIP_RESOURCE)
+	_, resourceGroup, eipName := pareResourceGroupWithName(eipId, EIP_RESOURCE)
 	if len(eipName) == 0 {
 		return nil, cloudprovider.ErrNotFound
 	}
@@ -131,13 +130,11 @@ func (self *SEipAddress) Associate(instanceId string) error {
 }
 
 func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
-	resourceGroup, instanceName := PareResourceGroupWithName(instanceId, INSTANCE_RESOURCE)
-	if instance, err := region.GetInstance(resourceGroup, instanceName); err != nil {
+	if instance, err := region.GetInstance(instanceId); err != nil {
 		return err
 	} else {
 		nicId := instance.Properties.NetworkProfile.NetworkInterfaces[0].ID
-		resourceGroup, nicName := PareResourceGroupWithName(nicId, NIC_RESOURCE)
-		if nic, err := region.getNetworkInterface(resourceGroup, nicName); err != nil {
+		if nic, err := region.getNetworkInterface(nicId); err != nil {
 			return err
 		} else {
 			oldIPConf := nic.Properties.IPConfigurations[0]
@@ -161,6 +158,7 @@ func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
 					IPConfigurations: &InterfaceIPConfiguration,
 				},
 			}
+			_, resourceGroup, nicName := pareResourceGroupWithName(nic.ID, NIC_RESOURCE)
 			if result, err := interfaceClinet.CreateOrUpdate(context.Background(), resourceGroup, nicName, params); err != nil {
 				return err
 			} else if err := result.WaitForCompletion(context.Background(), interfaceClinet.Client); err != nil {
@@ -173,7 +171,7 @@ func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
 
 func (region *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) {
 	eip := SEipAddress{region: region}
-	resourceGroup, eipName := PareResourceGroupWithName(eipId, EIP_RESOURCE)
+	_, resourceGroup, eipName := pareResourceGroupWithName(eipId, EIP_RESOURCE)
 	if len(eipName) == 0 {
 		return nil, cloudprovider.ErrNotFound
 	}
@@ -199,7 +197,7 @@ func (self *SEipAddress) Delete() error {
 }
 
 func (region *SRegion) DeallocateEIP(eipId string) error {
-	resourceGroup, eipName := PareResourceGroupWithName(eipId, EIP_RESOURCE)
+	_, resourceGroup, eipName := pareResourceGroupWithName(eipId, EIP_RESOURCE)
 	networkClient := network.NewPublicIPAddressesClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
 	networkClient.Authorizer = region.client.authorizer
 	if result, err := networkClient.Delete(context.Background(), resourceGroup, eipName); err != nil {
@@ -221,8 +219,7 @@ func (region *SRegion) DissociateEip(eipId string) error {
 		log.Debugf("eip %s not associate any instance", eip.Name)
 		return nil
 	} else {
-		resourceGroup, nicName := PareResourceGroupWithName(eip.Properties.IPConfiguration.ID, NIC_RESOURCE)
-		if nic, err := region.getNetworkInterface(resourceGroup, nicName); err != nil {
+		if nic, err := region.getNetworkInterface(eip.Properties.IPConfiguration.ID); err != nil {
 			return err
 		} else {
 			oldIPConf := nic.Properties.IPConfigurations[0]
@@ -245,6 +242,7 @@ func (region *SRegion) DissociateEip(eipId string) error {
 					IPConfigurations: &InterfaceIPConfiguration,
 				},
 			}
+			_, resourceGroup, nicName := pareResourceGroupWithName(nic.ID, NIC_RESOURCE)
 			if result, err := interfaceClinet.CreateOrUpdate(context.Background(), resourceGroup, nicName, params); err != nil {
 				return err
 			} else if err := result.WaitForCompletion(context.Background(), interfaceClinet.Client); err != nil {
@@ -268,8 +266,8 @@ func (self *SEipAddress) GetBandwidth() int {
 }
 
 func (self *SEipAddress) GetGlobalId() string {
-	resourceGroup, eipName := PareResourceGroupWithName(self.ID, EIP_RESOURCE)
-	return fmt.Sprintf("resourceGroups/%s/providers/eip/%s", resourceGroup, eipName)
+	globalId, _, _ := pareResourceGroupWithName(self.ID, EIP_RESOURCE)
+	return globalId
 }
 
 func (self *SEipAddress) GetId() string {

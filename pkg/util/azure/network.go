@@ -2,7 +2,6 @@ package azure
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network"
@@ -36,8 +35,8 @@ func (self *SNetwork) GetName() string {
 }
 
 func (self *SNetwork) GetGlobalId() string {
-	resourceGroup, networkName := PareResourceGroupWithName(self.ID, NETWORK_RESOURCE)
-	return fmt.Sprintf("resourceGroups/%s/providers/network/%s", resourceGroup, networkName)
+	globalId, _, _ := pareResourceGroupWithName(self.ID, NETWORK_RESOURCE)
+	return globalId
 }
 
 func (self *SNetwork) IsEmulated() bool {
@@ -71,7 +70,7 @@ func (self *SNetwork) Delete() error {
 	region := self.wire.vpc.region
 	networkClient := network.NewVirtualNetworksClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
 	networkClient.Authorizer = region.client.authorizer
-	resourceGroup, vpcName := PareResourceGroupWithName(vpc.ID, VPC_RESOURCE)
+	_, resourceGroup, vpcName := pareResourceGroupWithName(vpc.ID, VPC_RESOURCE)
 	if result, err := networkClient.CreateOrUpdate(context.Background(), resourceGroup, vpcName, params); err != nil {
 		return err
 	} else if err := result.WaitForCompletion(context.Background(), networkClient.Client); err != nil {

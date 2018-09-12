@@ -7,9 +7,6 @@ import (
 
 func init() {
 	type DiskListOptions struct {
-		// Instance string `help:"Instance ID"`
-		// Zone     string `help:"Zone ID"`
-		// Category string `help:"Disk category"`
 		Offset int `help:"List offset"`
 		Limit  int `help:"List limit"`
 	}
@@ -31,10 +28,9 @@ func init() {
 	}
 
 	shellutils.R(&DiskCreateOptions{}, "disk-create", "Create disk", func(cli *azure.SRegion, args *DiskCreateOptions) error {
-		resourceGroup, diskName := azure.PareResourceGroupWithName(args.NAME, azure.DISK_RESOURCE)
-		if err := cli.CreateDisk(args.StorageType, args.NAME, args.SizeGb, args.Desc); err != nil {
+		if diskId, err := cli.CreateDisk(args.StorageType, args.NAME, args.SizeGb, args.Desc); err != nil {
 			return err
-		} else if disk, err := cli.GetDisk(resourceGroup, diskName); err != nil {
+		} else if disk, err := cli.GetDisk(diskId); err != nil {
 			return err
 		} else {
 			printObject(disk)
@@ -42,11 +38,20 @@ func init() {
 		return nil
 	})
 
-	type DiskDeleteOptions struct {
+	type DiskOptions struct {
 		ID string `help:"Disk ID"`
 	}
 
-	shellutils.R(&DiskDeleteOptions{}, "disk-delete", "Delete disks", func(cli *azure.SRegion, args *DiskDeleteOptions) error {
+	shellutils.R(&DiskOptions{}, "disk-show", "Show disk", func(cli *azure.SRegion, args *DiskOptions) error {
+		if disk, err := cli.GetDisk(args.ID); err != nil {
+			return err
+		} else {
+			printObject(disk)
+			return nil
+		}
+	})
+
+	shellutils.R(&DiskOptions{}, "disk-delete", "Delete disks", func(cli *azure.SRegion, args *DiskOptions) error {
 		return cli.DeleteDisk(args.ID)
 	})
 

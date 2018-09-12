@@ -5,7 +5,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -87,12 +86,14 @@ func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 }
 
 func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, extId string, isForce bool) (string, error) {
+
 	if len(extId) > 0 {
 		status, _ := self.region.GetImageStatus(extId)
 		if status == ImageStatusAvailable && !isForce {
 			return extId, nil
 		}
 	}
+
 	return self.uploadImage(userCred, imageId, osArch, osType, osDist, isForce)
 }
 

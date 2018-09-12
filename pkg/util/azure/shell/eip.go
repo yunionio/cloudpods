@@ -58,7 +58,12 @@ func init() {
 		err := cli.AssociateEip(args.ID, args.INSTANCE)
 		return err
 	})
-	shellutils.R(&EipAssociateOptions{}, "eip-dissociate", "Dissociate an EIP", func(cli *azure.SRegion, args *EipAssociateOptions) error {
+
+	type EipDissociateOptions struct {
+		ID string `help:"EIP allocation ID"`
+	}
+
+	shellutils.R(&EipDissociateOptions{}, "eip-dissociate", "Dissociate an EIP", func(cli *azure.SRegion, args *EipDissociateOptions) error {
 		err := cli.DissociateEip(args.ID)
 		return err
 	})

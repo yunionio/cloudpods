@@ -2,6 +2,8 @@ package azure
 
 import (
 	"context"
+	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/preview/subscription/mgmt/2018-03-01-preview/subscription"
@@ -37,7 +39,7 @@ const (
 	EIP_RESOURCE      = "eip"
 )
 
-var DefaultResourceGroups = map[string]string{
+var defaultResourceGroups = map[string]string{
 	DISK_RESOURCE:     "YunionDiskResource",
 	INSTANCE_RESOURCE: "YunionInstanceResource",
 	VPC_RESOURCE:      "YunionVpcResource",
@@ -88,6 +90,18 @@ func NewAzureClient(providerId string, providerName string, accessKey string, se
 	}
 }
 
+func pareResourceGroupWithName(s string, resourceType string) (string, string, string) {
+	valid := regexp.MustCompile("resourceGroups/(.+)/providers/.+/(.+)$")
+	if resourceGroups := valid.FindStringSubmatch(s); len(resourceGroups) == 3 {
+		return s, resourceGroups[1], resourceGroups[2]
+	}
+	if len(s) == 0 {
+		log.Errorf("pareResourceGroupWithName[%s] error", resourceType)
+	}
+	globalId := fmt.Sprintf("resourceGroups/%s/providers/%s/%s", defaultResourceGroups[resourceType], resourceType, s)
+	return globalId, defaultResourceGroups[resourceType], s
+}
+
 func (self *SAzureClient) isResourceGroupExist(resourceGroup string) (bool, error) {
 	groupClient := resources.NewGroupsClientWithBaseURI(self.baseUrl, self.subscriptionId)
 	groupClient.Authorizer = self.authorizer
@@ -113,7 +127,7 @@ func (self *SAzureClient) createResourceGroup(resourceGruop string) error {
 }
 
 func (self *SAzureClient) fetchAzueResourceGroup() error {
-	for _, value := range DefaultResourceGroups {
+	for _, value := range defaultResourceGroups {
 		if exist, err := self.isResourceGroupExist(value); err != nil {
 			log.Errorf("Check ResourceGroup error: %v", err)
 		} else if !exist {

@@ -68,10 +68,8 @@ func (m *RawResourceManager) Get(s *mcclient.ClientSession, kind string, namespa
 }
 
 func (m *RawResourceManager) Put(s *mcclient.ClientSession, kind string, namespace string, name string, body jsonutils.JSONObject, cluster string) error {
-	newBody := jsonutils.NewDict()
-	newBody.Add(body, "raw")
 	ctx := newRawResource(kind, namespace, name, cluster)
-	_, err := m.request(s, "PUT", ctx.path(), newBody)
+	_, err := m.request(s, "PUT", ctx.path(), body)
 	return err
 }
 

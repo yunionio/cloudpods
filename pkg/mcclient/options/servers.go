@@ -21,6 +21,8 @@ type ServerListOptions struct {
 	Hypervisor    string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun|azure"`
 	Manager       string `help:"Show servers imported from manager"`
 	Region        string `help:"Show servers in cloudregion"`
+	WithEip       *bool  `help:"Show Servers with EIP"`
+	WithoutEip    *bool  `help:"Show Servers without EIP"`
 
 	BaseListOptions
 }
@@ -210,6 +212,7 @@ type ServerDeployOptions struct {
 	Deploy        []string `help:"Specify deploy files in virtual server file system" json:"-"`
 	ResetPassword *bool    `help:"Force reset password"`
 	Password      string   `help:"Default user password"`
+	AutoStart     *bool    `help:"Auto start server after deployed"`
 }
 
 func (opts *ServerDeployOptions) Params() (*jsonutils.JSONDict, error) {
@@ -252,11 +255,12 @@ type ServerMonitorOptions struct {
 }
 
 type ServerSaveImageOptions struct {
-	ID     string `help:"ID or name of server" json:"-"`
-	IMAGE  string `help:"Image name" json:"name"`
-	Public *bool  `help:"Make the image public available" json:"is_public"`
-	Format string `help:"image format" choices:"vmdk|qcow2"`
-	Notes  string `help:"Notes about the image"`
+	ID        string `help:"ID or name of server" json:"-"`
+	IMAGE     string `help:"Image name" json:"name"`
+	Public    *bool  `help:"Make the image public available" json:"is_public"`
+	Format    string `help:"image format" choices:"vmdk|qcow2"`
+	Notes     string `help:"Notes about the image"`
+	AutoStart *bool  `help:"Auto start server after image saved"`
 }
 
 type ServerRebuildRootOptions struct {

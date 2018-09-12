@@ -52,7 +52,7 @@ func (self *SInstanceNic) GetIP() string {
 }
 
 func (region *SRegion) DeleteNetworkInterface(interfaceId string) error {
-	resourceGroup, nicName := PareResourceGroupWithName(interfaceId, NIC_RESOURCE)
+	_, resourceGroup, nicName := pareResourceGroupWithName(interfaceId, NIC_RESOURCE)
 	networkClient := network.NewInterfacesClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
 	networkClient.Authorizer = region.client.authorizer
 	if result, err := networkClient.Delete(context.Background(), resourceGroup, nicName); err != nil {

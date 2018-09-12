@@ -33,10 +33,10 @@ func init() {
 
 	type CloudproviderCreateOptions struct {
 		NAME      string `help:"Name of cloud provider"`
-		ACCOUNT   string `help:"Account to access the cloud provider"`
-		SECRET    string `help:"Secret to access the cloud provider, clientId/clientScret/subscriptionId for Azure"`
+		ACCOUNT   string `help:"Account to access the cloud provider, tenantId/subscriptionId for Azure"`
+		SECRET    string `help:"Secret to access the cloud provider, clientId/clientScret for Azure"`
 		PROVIDER  string `help:"Driver for cloud provider" choices:"VMware|Aliyun|Azure"`
-		AccessURL string `helo:"hello" metavar:"Azure choices: <https://management.chinacloudapi.cn、https://management.azure.com、https://management.usgovcloudapi.net、https://management.microsoftazure.de>"`
+		AccessURL string `helo:"hello" metavar:"Azure choices: <AzureGermanCloud、AzureChinaCloud、AzureUSGovernmentCloud、AzurePublicCloud>"`
 		Desc      string `help:"Description"`
 		Enabled   bool   `help:"Enabled the provider automatically"`
 	}

@@ -73,6 +73,7 @@ func (self *GuestBatchCreateTask) onSchedulerRequestFail(ctx context.Context, gu
 func (self *GuestBatchCreateTask) onScheduleFail(ctx context.Context, guest *models.SGuest, msg string) {
 	lockman.LockObject(ctx, guest)
 	defer lockman.ReleaseObject(ctx, guest)
+
 	reason := "No matching resources"
 	if len(msg) > 0 {
 		reason = fmt.Sprintf("%s: %s", reason, msg)
