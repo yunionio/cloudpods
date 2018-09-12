@@ -3,6 +3,8 @@ package command
 import (
 	"fmt"
 	"os/exec"
+
+	o "yunion.io/x/onecloud/pkg/webconsole/options"
 )
 
 type IpmiInfo struct {
@@ -27,7 +29,7 @@ func NewIpmitoolSolCommand(info *IpmiInfo) (*IpmitoolSol, error) {
 	if info.Password == "" {
 		return nil, fmt.Errorf("Empty password")
 	}
-	name := "ipmitool"
+	name := o.Options.IpmitoolPath
 	cmd := NewBaseCommand(name, "-I", "lanplus")
 	cmd.AppendArgs("-H", info.IpAddr)
 	cmd.AppendArgs("-U", info.Username)
