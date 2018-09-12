@@ -529,7 +529,8 @@ func (self *SHost) GetAttachedStorageCapacity() SStorageCapacity {
 func _getLeastUsedStorage(storages []SStorage, backends []string) *SStorage {
 	var best *SStorage
 	var bestCap int
-	for _, s := range storages {
+	for i := 0; i < len(storages); i++ {
+		s := storages[i]
 		if len(backends) > 0 {
 			in, _ := utils.InStringArray(s.StorageType, backends)
 			if !in {
