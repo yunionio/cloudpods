@@ -7,11 +7,11 @@ import (
 	"yunion.io/x/pkg/util/stringutils"
 )
 
-func isNameUnique(manager IModelManager, ownerProjId string, name string) bool {
+func isNameUnique(manager IModelManager, owner string, name string) bool {
 	q := manager.Query()
 	q = manager.FilterByName(q, name)
 	if !globalVirtualResourceNamespace {
-		q = manager.FilterByOwner(q, ownerProjId)
+		q = manager.FilterByOwner(q, owner)
 	}
 	return q.Count() == 0
 }

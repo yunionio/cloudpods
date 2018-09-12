@@ -87,7 +87,7 @@ func (manager *STaskManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlc
 	return q
 }
 
-func (manager *STaskManager) FilterByOwner(q *sqlchemy.SQuery, ownerProjId string) *sqlchemy.SQuery {
+func (manager *STaskManager) FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery {
 	return q
 }
 
