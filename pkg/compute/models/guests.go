@@ -316,6 +316,20 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("host_id", sq)
 	}
 
+	withEip, _ := queryDict.GetString("with_eip")
+	withoutEip, _ := queryDict.GetString("without_eip")
+	if len(withEip) > 0 || len(withoutEip) > 0 {
+		eips := ElasticipManager.Query().SubQuery()
+		sq := eips.Query(eips.Field("associate_id")).Equals("associate_type", EIP_ASSOCIATE_TYPE_SERVER)
+		sq = sq.IsNotNull("associate_id").IsNotEmpty("associate_id")
+
+		if utils.ToBool(withEip) {
+			q = q.In("id", sq)
+		} else if utils.ToBool(withoutEip) {
+			q = q.NotIn("id", sq)
+		}
+	}
+
 	gpu, _ := queryDict.GetString("gpu")
 	if len(gpu) != 0 {
 		isodev := IsolatedDeviceManager.Query().SubQuery()
