@@ -64,15 +64,18 @@ func AddActionLog(model IObject, action string, iNotes interface{}, userCred mcc
 
 	token := userCred
 	notes := stringutils.Interface2String(iNotes)
-
 	s := auth.GetSession(userCred, "", "")
-	objId := model.GetId()
 
+	objId := model.GetId()
 	if len(objId) == 0 {
 		objId = "-"
 	}
+	objName := model.GetName()
+	if len(objName) == 0 {
+		objName = "-"
+	}
 	logentry := jsonutils.NewDict()
-	logentry.Add(jsonutils.NewString(model.GetName()), "obj_name")
+	logentry.Add(jsonutils.NewString(objName), "obj_name")
 	logentry.Add(jsonutils.NewString(model.Keyword()), "obj_type")
 	logentry.Add(jsonutils.NewString(objId), "obj_id")
 	logentry.Add(jsonutils.NewString(action), "action")
