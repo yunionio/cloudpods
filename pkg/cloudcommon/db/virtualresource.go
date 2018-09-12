@@ -282,8 +282,10 @@ func (model *SVirtualResourceBase) VirtualModelManager() IVirtualModelManager {
 
 func (model *SVirtualResourceBase) CancelPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	ownerProjId := model.GetOwnerProjectId()
+
 	lockman.LockClass(ctx, model.GetModelManager(), ownerProjId)
 	defer lockman.ReleaseClass(ctx, model.GetModelManager(), ownerProjId)
+
 	_, err := model.GetModelManager().TableSpec().Update(model, func() error {
 		model.Name = GenerateName(model.GetModelManager(), ownerProjId, model.Name)
 		model.PendingDeleted = false

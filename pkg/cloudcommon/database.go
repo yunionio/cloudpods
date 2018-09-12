@@ -20,8 +20,8 @@ func InitDB(options *DBOptions) {
 	}
 	sqlchemy.SetDB(dbConn)
 
-	// lm := lockman.NewInMemoryLockManager()
-	lm := lockman.NewNoopLockManager()
+	lm := lockman.NewInMemoryLockManager()
+	// lm := lockman.NewNoopLockManager()
 	lockman.Init(lm)
 }
 
