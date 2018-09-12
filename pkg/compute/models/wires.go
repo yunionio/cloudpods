@@ -415,7 +415,8 @@ func ChooseCandidateNetworks(nets []SNetwork, isExit bool, serverType string) *S
 	matchingNets := make([]*SNetwork, 0)
 	notMatchingNets := make([]*SNetwork, 0)
 
-	for _, net := range nets {
+	for i := 0; i < len(nets); i++ {
+		net := nets[i]
 		if isExit != net.IsExitNetwork() {
 			continue
 		}
