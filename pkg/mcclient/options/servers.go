@@ -21,6 +21,8 @@ type ServerListOptions struct {
 	Hypervisor    string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun"`
 	Manager       string `help:"Show servers imported from manager"`
 	Region        string `help:"Show servers in cloudregion"`
+	WithEip       *bool  `help:"Show Servers with EIP"`
+	WithoutEip    *bool  `help:"Show Servers without EIP"`
 
 	BaseListOptions
 }
