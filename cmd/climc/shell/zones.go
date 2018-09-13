@@ -101,8 +101,8 @@ func init() {
 		return nil
 	})
 
-	R(&ZoneShowOptions{}, "zone-capabilities", "Show zone's capacibilities", func(s *mcclient.ClientSession, args *ZoneShowOptions) error {
-		result, err := modules.Zones.GetSpecific(s, args.ID, "capabilities", nil)
+	R(&ZoneShowOptions{}, "zone-capability", "Show zone's capacibilities", func(s *mcclient.ClientSession, args *ZoneShowOptions) error {
+		result, err := modules.Zones.GetSpecific(s, args.ID, "capability", nil)
 		if err != nil {
 			return err
 		}
