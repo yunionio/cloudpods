@@ -15,7 +15,9 @@ import (
 
 func StartService() {
 	cloudcommon.ParseOptions(&options.Options, &options.Options.Options, os.Args, "yunionconf.conf")
-	cloudcommon.InitAuth(&options.Options.Options, nil)
+	cloudcommon.InitAuth(&options.Options.Options, func() {
+		log.Infof("Auth complete!!")
+	})
 
 	if options.Options.GlobalVirtualResourceNamespace {
 		db.EnableGlobalVirtualResourceNamespace()
