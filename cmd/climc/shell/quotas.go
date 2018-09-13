@@ -12,6 +12,7 @@ type QuotaBaseOptions struct {
 	Storage        int64 `help:"Storage size in MB"`
 	Port           int64 `help:"Internal NIC count"`
 	Eport          int64 `help:"External NIC count"`
+	Eip            int64 `help:"Elastic IP count"`
 	Bw             int64 `help:"Internal bandwidth in Mbps"`
 	Ebw            int64 `help:"External bandwidth in Mbps"`
 	Image          int64 `help:"Template count"`
@@ -37,6 +38,9 @@ func quotaArgs2Params(args *QuotaBaseOptions) *jsonutils.JSONDict {
 	}
 	if args.Eport > 0 {
 		params.Add(jsonutils.NewInt(args.Eport), "eport")
+	}
+	if args.Eip > 0 {
+		params.Add(jsonutils.NewInt(args.Eip), "eip")
 	}
 	if args.Bw > 0 {
 		params.Add(jsonutils.NewInt(args.Bw), "bw")

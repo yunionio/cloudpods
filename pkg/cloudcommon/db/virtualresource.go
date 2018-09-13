@@ -176,6 +176,14 @@ func (model *SVirtualResourceBase) getMoreDetails(ctx context.Context, userCred 
 			log.Errorf("GetTenantCache fail %s", err)
 		}
 	}
+	admin, _ := query.GetString("admin")
+	if utils.ToBool(admin) { // admin
+		pendingDelete, _ := query.GetString("pending_delete")
+		pendingDeleteLower := strings.ToLower(pendingDelete)
+		if pendingDeleteLower == "all" || pendingDeleteLower == "any" {
+			extra.Set("pending_deleted", jsonutils.NewBool(model.PendingDeleted))
+		}
+	}
 	return extra
 }
 

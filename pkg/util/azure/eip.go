@@ -72,7 +72,7 @@ func (region *SRegion) AllocateEIP(eipName string) (*SEipAddress, error) {
 	return &eip, nil
 }
 
-func (region *SRegion) CreateEIP(eipName string, bwMbps int) (cloudprovider.ICloudEIP, error) {
+func (region *SRegion) CreateEIP(eipName string, bwMbps int, chargeType string) (cloudprovider.ICloudEIP, error) {
 	return region.AllocateEIP(eipName)
 }
 

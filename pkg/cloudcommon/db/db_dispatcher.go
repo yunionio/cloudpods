@@ -292,10 +292,11 @@ func query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return nil, err
 	}
-	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
 	listF := listFields(manager, userCred)
-	if len(fieldFilter) > 0 && userCred.IsSystemAdmin() { // only sysadmin can extend list Fields
-		listF = append(listF, fieldFilter...)
+	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
+	if len(fieldFilter) > 0 && userCred.IsSystemAdmin() {
+		// only sysadmin can specify list Fields
+		listF = fieldFilter
 	}
 	showDetails := false
 	showDetailsJson, _ := query.Get("details")
@@ -333,9 +334,6 @@ func query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 				jsonDict.Update(extraDict)
 			}
 			jsonDict = getModelExtraDetails(item, ctx, jsonDict)
-		}
-		if len(fieldFilter) > 0 {
-			jsonDict = jsonDict.CopyIncludes(fieldFilter...)
 		}
 		results = append(results, jsonDict)
 	}

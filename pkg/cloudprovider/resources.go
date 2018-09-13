@@ -39,7 +39,7 @@ type ICloudRegion interface {
 
 	CreateIVpc(name string, desc string, cidr string) (ICloudVpc, error)
 
-	CreateEIP(eipName string, bwMbps int) (ICloudEIP, error)
+	CreateEIP(name string, bwMbps int, chargeType string) (ICloudEIP, error)
 
 	GetIEipById(id string) (ICloudEIP, error)
 

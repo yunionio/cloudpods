@@ -999,6 +999,11 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 				extra.Add(jsonutils.NewString(region.ExternalId), "region_external_id")
 			}
 		}
+
+		host := self.GetHost()
+		if host != nil && len(host.ManagerId) > 0 {
+			extra.Add(jsonutils.NewString(host.ManagerId), "manager_id")
+		}
 	}
 	return extra
 }
