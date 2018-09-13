@@ -1,10 +1,9 @@
 package k8s
 
 import (
-	json "yunion.io/x/jsonutils"
-
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
+	o "yunion.io/x/onecloud/pkg/mcclient/options/k8s"
 )
 
 func initChart() {
@@ -12,32 +11,8 @@ func initChart() {
 		return resourceCmdN("chart", suffix)
 	}
 
-	type listOpt struct {
-		baseListOptions
-		Name       string `help:"Chart name"`
-		Repo       string `help:"Repository name"`
-		RepoUrl    string `help:"Repository url"`
-		AllVersion bool   `json:"Get Chart all history versions"`
-		Keyword    string `json:"Chart keyword"`
-	}
-	R(&listOpt{}, cmdN("list"), "List k8s helm global charts", func(s *mcclient.ClientSession, args *listOpt) error {
-		params := fetchPagingParams(args.baseListOptions)
-		if len(args.Name) != 0 {
-			params.Add(json.NewString(args.Name), "name")
-		}
-		if len(args.Repo) != 0 {
-			params.Add(json.NewString(args.Repo), "repo")
-		}
-		if len(args.RepoUrl) != 0 {
-			params.Add(json.NewString(args.RepoUrl), "repo_url")
-		}
-		if args.AllVersion {
-			params.Add(json.JSONTrue, "all_version")
-		}
-		if len(args.Keyword) != 0 {
-			params.Add(json.NewString(args.Keyword), "keyword")
-		}
-		charts, err := k8s.Charts.List(s, params)
+	R(&o.ChartListOptions{}, cmdN("list"), "List k8s helm global charts", func(s *mcclient.ClientSession, args *o.ChartListOptions) error {
+		charts, err := k8s.Charts.List(s, args.Params())
 		if err != nil {
 			return err
 		}
@@ -46,18 +21,8 @@ func initChart() {
 		return nil
 	})
 
-	type getOpt struct {
-		REPO    string `help:"Repo of the chart"`
-		NAME    string `help:"Chart name"`
-		Version string `help:"Chart version"`
-	}
-	R(&getOpt{}, cmdN("show"), "Show details of a chart", func(s *mcclient.ClientSession, args *getOpt) error {
-		params := json.NewDict()
-		params.Add(json.NewString(args.REPO), "repo")
-		if args.Version != "" {
-			params.Add(json.NewString(args.Version), "version")
-		}
-		chart, err := k8s.Charts.Get(s, args.NAME, params)
+	R(&o.ChartGetOptions{}, cmdN("show"), "Show details of a chart", func(s *mcclient.ClientSession, args *o.ChartGetOptions) error {
+		chart, err := k8s.Charts.Get(s, args.NAME, args.Params())
 		if err != nil {
 			return err
 		}

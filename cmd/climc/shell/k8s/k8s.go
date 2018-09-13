@@ -5,8 +5,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/cmd/climc/shell"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
+	o "yunion.io/x/onecloud/pkg/mcclient/options/k8s"
 	"yunion.io/x/onecloud/pkg/util/printutils"
 )
 
@@ -31,80 +33,12 @@ func init() {
 	initIngress()
 	initNamespace()
 	initK8sNode()
-}
-
-type clusterBaseOptions struct {
-	Cluster string `default:"$K8S_CLUSTER|default" help:"Kubernetes cluster name"`
-}
-
-func (o clusterBaseOptions) ClusterParams() *jsonutils.JSONDict {
-	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.NewString(o.Cluster), "cluster")
-	return ret
-}
-
-type baseListOptions struct {
-	Limit  int `default:"20" help:"Page limit"`
-	Offset int `default:"0" help:"page offset"`
-}
-
-type NamespaceResourceListOptions struct {
-	namespaceListOptions
-	baseListOptions
-}
-
-func (o NamespaceResourceListOptions) Params() *jsonutils.JSONDict {
-	params := fetchNamespaceParams(o.namespaceListOptions)
-	params.Update(fetchPagingParams(o.baseListOptions))
-	params.Update(o.ClusterParams())
-	return params
-}
-
-func fetchPagingParams(opt baseListOptions) *jsonutils.JSONDict {
-	params := jsonutils.NewDict()
-	if opt.Limit > 0 {
-		params.Add(jsonutils.NewInt(int64(opt.Limit)), "limit")
-	}
-	if opt.Offset > 0 {
-		params.Add(jsonutils.NewInt(int64(opt.Offset)), "offset")
-	}
-	return params
-}
-
-type namespaceListOptions struct {
-	namespaceOptions
-	AllNamespace bool `help:"Show resource in all namespace"`
-}
-
-type namespaceOptions struct {
-	clusterBaseOptions
-	Namespace string `help:"Namespace of this resource"`
-}
-
-type resourceGetOptions struct {
-	clusterBaseOptions
-	Namespace string `help:"Namespace of this resource"`
-	NAME      string `help:"Name ident of the resource"`
-}
-
-func (o resourceGetOptions) ToJSON() *jsonutils.JSONDict {
-	params := o.ClusterParams()
-	if o.Namespace != "" {
-		params.Add(jsonutils.NewString(o.Namespace), "namespace")
-	}
-	return params
-}
-
-func fetchNamespaceParams(opt namespaceListOptions) *jsonutils.JSONDict {
-	params := jsonutils.NewDict()
-	if opt.AllNamespace {
-		params.Add(jsonutils.JSONTrue, "all_namespace")
-		return params
-	}
-	if opt.Namespace != "" {
-		params.Add(jsonutils.NewString(opt.Namespace), "namespace")
-	}
-	return params
+	initSecret()
+	initStorageClass()
+	initPV()
+	initPVC()
+	initJob()
+	initCronJob()
 }
 
 var (
@@ -131,4 +65,119 @@ func clusterContext(clusterId string) modules.ManagerContext {
 
 func printObjectYAML(obj jsonutils.JSONObject) {
 	fmt.Println(obj.YAMLString())
+}
+
+type Cmd struct {
+	Options  interface{}
+	Command  string
+	Desc     string
+	Callback interface{}
+}
+
+func NewCommand(options interface{}, command string, desc string, callback interface{}) *Cmd {
+	return &Cmd{
+		Options:  options,
+		Command:  command,
+		Desc:     desc,
+		Callback: callback,
+	}
+}
+
+func (c Cmd) R() {
+	R(c.Options, c.Command, c.Desc, c.Callback)
+}
+
+type ShellCommands struct {
+	Commands           []*Cmd
+	CommandNameFactory func(suffix string) string
+}
+
+func NewShellCommands(cmdN func(suffix string) string) *ShellCommands {
+	c := &ShellCommands{
+		CommandNameFactory: cmdN,
+	}
+	c.Commands = make([]*Cmd, 0)
+	return c
+}
+
+func (c *ShellCommands) AddR(rs ...*Cmd) *ShellCommands {
+	for _, r := range rs {
+		r.R()
+		c.Commands = append(c.Commands, r)
+	}
+	return c
+}
+
+func initK8sClusterResource(kind string, manager modules.Manager) *ShellCommands {
+	cmdN := func(suffix string) string {
+		return resourceCmdN(kind, suffix)
+	}
+
+	// List resource
+	listCmd := NewCommand(
+		&o.ResourceListOptions{},
+		cmdN("list"),
+		fmt.Sprintf("List k8s %s", kind),
+		func(s *mcclient.ClientSession, args *o.ResourceListOptions) error {
+			ret, err := manager.List(s, args.Params())
+			if err != nil {
+				return err
+			}
+			PrintListResultTable(ret, manager.(k8s.ListPrinter), s)
+			return nil
+		},
+	)
+
+	// Get resource details
+	getCmd := NewCommand(
+		&o.ResourceGetOptions{},
+		cmdN("show"),
+		fmt.Sprintf("Show k8s %s", kind),
+		func(s *mcclient.ClientSession, args *o.ResourceGetOptions) error {
+			ret, err := manager.Get(s, args.NAME, args.Params())
+			if err != nil {
+				return err
+			}
+			printObjectYAML(ret)
+			return nil
+		},
+	)
+	return NewShellCommands(cmdN).AddR(listCmd, getCmd)
+}
+
+func initK8sNamespaceResource(kind string, manager modules.Manager) *ShellCommands {
+	cmdN := func(suffix string) string {
+		return resourceCmdN(kind, suffix)
+	}
+
+	// List resource
+	listCmd := NewCommand(
+		&o.NamespaceResourceListOptions{},
+		cmdN("list"),
+		fmt.Sprintf("List k8s %s", kind),
+		func(s *mcclient.ClientSession, args *o.NamespaceResourceListOptions) error {
+			ret, err := manager.List(s, args.Params())
+			if err != nil {
+				return err
+			}
+			PrintListResultTable(ret, manager.(k8s.ListPrinter), s)
+			return nil
+		},
+	)
+
+	// Get resource details
+	getCmd := NewCommand(
+		&o.NamespaceResourceGetOptions{},
+		cmdN("show"),
+		fmt.Sprintf("Show k8s %s", kind),
+		func(s *mcclient.ClientSession, args *o.NamespaceResourceGetOptions) error {
+			ret, err := manager.Get(s, args.NAME, args.Params())
+			if err != nil {
+				return err
+			}
+			printObjectYAML(ret)
+			return nil
+		},
+	)
+	return NewShellCommands(cmdN).AddR(listCmd, getCmd)
 }
