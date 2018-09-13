@@ -6,7 +6,7 @@ Yunion Conf Service
 */
 
 import (
-	"yunion.io/x/yunionconf/pkg/yunionconf/service"
+	"yunion.io/x/onecloud/pkg/yunionconf/service"
 )
 
 func main() {
