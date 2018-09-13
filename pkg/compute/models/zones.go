@@ -474,11 +474,11 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	return q, nil
 }
 
-func (self *SZone) AllowGetDetailsCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+func (self *SZone) AllowGetDetailsCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
 }
 
-func (self *SZone) GetDetailsCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SZone) GetDetailsCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	capa := GetCapabilities(self)
 	return jsonutils.Marshal(&capa), nil
 }
