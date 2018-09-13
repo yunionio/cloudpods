@@ -47,6 +47,8 @@ type C struct {
 }
 
 func testS(t *testing.T, v IValidator, c *C) {
+	returnHttpError = false
+
 	j, _ := jsonutils.ParseString(c.In)
 	jd := j.(*jsonutils.JSONDict)
 	err := v.Validate(jd)
@@ -134,6 +136,173 @@ func TestStringChoicesValidator(t *testing.T) {
 			if c.Default != nil {
 				s := c.Default.(string)
 				v.Default(s)
+			}
+			if c.Optional {
+				v.Optional(true)
+			}
+			testS(t, v, c)
+		})
+	}
+}
+
+func TestStringMultiChoicesValidator(t *testing.T) {
+	type MultiChoicesC struct {
+		*C
+		KeepDup bool
+	}
+	choices := NewChoices("choice0", "choice1")
+	cases := []*MultiChoicesC{
+		{
+			C: &C{
+				Name:      "missing non-optional",
+				In:        `{}`,
+				Out:       `{}`,
+				Optional:  false,
+				Err:       ERR_MISSING_KEY,
+				ValueWant: "",
+			},
+		},
+		{
+			C: &C{
+				Name:      "missing optional",
+				In:        `{}`,
+				Out:       `{}`,
+				Optional:  true,
+				ValueWant: "",
+			},
+		},
+		{
+			C: &C{
+				Name:      "missing with default",
+				In:        `{}`,
+				Out:       `{s: "choice0,choice1"}`,
+				Default:   "choice0,choice1",
+				ValueWant: "choice0,choice1",
+			},
+		},
+		{
+			C: &C{
+				Name:      "good choices",
+				In:        `{"s": "choice0,choice1"}`,
+				Out:       `{"s": "choice0,choice1"}`,
+				ValueWant: "choice0,choice1",
+			},
+		},
+		{
+			C: &C{
+				Name:      "keep dup",
+				In:        `{"s": "choice0,choice0,choice1,choice0"}`,
+				Out:       `{"s": "choice0,choice0,choice1,choice0"}`,
+				ValueWant: "choice0,choice0,choice1,choice0",
+			},
+			KeepDup: true,
+		},
+		{
+			C: &C{
+				Name:      "strip dup",
+				In:        `{"s": "choice0,choice0,choice1,choice0"}`,
+				Out:       `{"s": "choice0,choice1"}`,
+				ValueWant: "choice0,choice1",
+			},
+		},
+		{
+			C: &C{
+				Name:      "invalid choice",
+				In:        `{"s": "choice0,choicex"}`,
+				Out:       `{"s": "choice0,choicex"}`,
+				Err:       ERR_INVALID_CHOICE,
+				ValueWant: "",
+			},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			v := NewStringMultiChoicesValidator("s", choices).Sep(",").KeepDup(c.KeepDup)
+			if c.Default != nil {
+				s := c.Default.(string)
+				v.Default(s)
+			}
+			if c.Optional {
+				v.Optional(true)
+			}
+			testS(t, v, c.C)
+		})
+	}
+}
+
+func TestBoolValidator(t *testing.T) {
+	cases := []*C{
+		{
+			Name:      "missing non-optional",
+			In:        `{}`,
+			Out:       `{}`,
+			Err:       ERR_MISSING_KEY,
+			ValueWant: false,
+		},
+		{
+			Name:      "missing optional",
+			In:        `{}`,
+			Out:       `{}`,
+			Optional:  true,
+			ValueWant: false,
+		},
+		{
+			Name:      "missing with default",
+			In:        `{}`,
+			Out:       `{s: true}`,
+			Default:   true,
+			ValueWant: true,
+		},
+		{
+			Name:      "true",
+			In:        `{s: true}`,
+			Out:       `{s: true}`,
+			ValueWant: true,
+		},
+		{
+			Name:      "false",
+			In:        `{s: false}`,
+			Out:       `{s: false}`,
+			ValueWant: false,
+		},
+		{
+			Name:      `parsed "true"`,
+			In:        `{s: "true"}`,
+			Out:       `{s: true}`,
+			ValueWant: true,
+		},
+		{
+			Name:      `parsed "on"`,
+			In:        `{s: "on"}`,
+			Out:       `{s: true}`,
+			ValueWant: true,
+		},
+		{
+			Name:      `parsed "yes"`,
+			In:        `{s: "yes"}`,
+			Out:       `{s: true}`,
+			ValueWant: true,
+		},
+		{
+			Name:      `parsed "1"`,
+			In:        `{s: "1"}`,
+			Out:       `{s: true}`,
+			ValueWant: true,
+		},
+		{
+			Name:      "parsed invalid",
+			In:        `{s: "abc"}`,
+			Out:       `{s: "abc"}`,
+			Err:       ERR_INVALID_TYPE,
+			ValueWant: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			v := NewBoolValidator("s")
+			if c.Default != nil {
+				i := c.Default.(bool)
+				v.Default(i)
 			}
 			if c.Optional {
 				v.Optional(true)

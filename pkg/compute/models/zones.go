@@ -3,8 +3,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"fmt"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -181,15 +179,7 @@ func (zone *SZone) getStorageCount() int {
 }
 
 func (zone *SZone) getNetworkCount() int {
-	networks := NetworkManager.Query().SubQuery()
-	wires := WireManager.Query().SubQuery()
-
-	q := networks.Query()
-	q = q.Join(wires, sqlchemy.Equals(networks.Field("wire_id"), wires.Field("id")))
-	q = q.Filter(sqlchemy.Equals(wires.Field("zone_id"), zone.Id))
-	q = q.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
-
-	return q.Count()
+	return getNetworkCount(zone)
 }
 
 /*def host_count(self, status=None, host_status=None, enabled=None, host_type=None, is_baremetal=None):
@@ -484,92 +474,13 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	return q, nil
 }
 
-func (self *SZone) AllowGetDetailsCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+func (self *SZone) AllowGetDetailsCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
 }
 
-type SZoneCapabilities struct {
-	Hypervisors        []string
-	StorageTypes       []string
-	GPUModels          []string
-	MinNicCount        int
-	MaxNicCount        int
-	MinDataDiskCount   int
-	MaxDataDiskCount   int
-	SchedPolicySupport bool
-	Usable             bool
-}
-
-func (self *SZone) GetDetailsCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	capa := SZoneCapabilities{}
-	capa.Hypervisors = self.getHypervisors()
-	capa.StorageTypes = self.getStorageTypes()
-	capa.GPUModels = self.getGPUs()
-	capa.SchedPolicySupport = self.isSchedPolicySupported()
-	capa.MinNicCount = self.getMinNicCount()
-	capa.MaxNicCount = self.getMaxNicCount()
-	capa.MinDataDiskCount = self.getMinDataDiskCount()
-	capa.MaxDataDiskCount = self.getMaxDataDiskCount()
-	capa.Usable = self.isUsable()
+func (self *SZone) GetDetailsCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	capa := GetCapabilities(self)
 	return jsonutils.Marshal(&capa), nil
-}
-
-func (self *SZone) getHypervisors() []string {
-	q := HostManager.Query("host_type").Equals("zone_id", self.Id).Distinct()
-	rows, err := q.Rows()
-	if err != nil {
-		return nil
-	}
-	hypervisors := make([]string, 0)
-	for rows.Next() {
-		var hostType string
-		rows.Scan(&hostType)
-		if len(hostType) > 0 {
-			hypervisors = append(hypervisors, HOSTTYPE_HYPERVISOR[hostType])
-		}
-	}
-	return hypervisors
-}
-
-func (self *SZone) getStorageTypes() []string {
-	q := StorageManager.Query("storage_type", "medium_type").Equals("zone_id", self.Id).Distinct()
-	rows, err := q.Rows()
-	if err != nil {
-		return nil
-	}
-	storageTypes := make([]string, 0)
-	for rows.Next() {
-		var storageType, mediumType string
-		rows.Scan(&storageType, &mediumType)
-		if len(storageType) > 0 && len(mediumType) > 0 {
-			storageTypes = append(storageTypes, fmt.Sprintf("%s/%s", storageType, mediumType))
-		}
-	}
-	return storageTypes
-}
-
-func (self *SZone) getGPUs() []string {
-	devices := IsolatedDeviceManager.Query().SubQuery()
-	hosts := HostManager.Query().SubQuery()
-
-	q := devices.Query(devices.Field("model"))
-	q = q.Join(hosts, sqlchemy.Equals(devices.Field("host_id"), hosts.Field("id")))
-	q = q.Filter(sqlchemy.Equals(hosts.Field("zone_id"), self.Id))
-	q = q.Distinct()
-
-	rows, err := q.Rows()
-	if err != nil {
-		return nil
-	}
-	gpus := make([]string, 0)
-	for rows.Next() {
-		var model string
-		rows.Scan(&model)
-		if len(model) > 0 {
-			gpus = append(gpus, model)
-		}
-	}
-	return gpus
 }
 
 func (self *SZone) isManaged() bool {
@@ -603,14 +514,6 @@ func (self *SZone) getMinDataDiskCount() int {
 
 func (self *SZone) getMaxDataDiskCount() int {
 	return 6
-}
-
-func (self *SZone) isUsable() bool {
-	if self.getNetworkCount() > 0 {
-		return true
-	} else {
-		return false
-	}
 }
 
 func (manager *SZoneManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

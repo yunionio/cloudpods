@@ -51,15 +51,9 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 
 	eip.SetStatus(self.UserCred, models.EIP_STATUS_READY, "dissociate")
 
+	self.SetStageComplete(ctx, nil)
+
 	if eip.AutoDellocate.IsTrue() {
-		self.SetStage("on_auto_dellocate_complete", nil)
-		eip.StartEipDeallocateTask(ctx, self.UserCred, self.Id)
-	} else {
-		self.SetStageComplete(ctx, nil)
+		eip.StartEipDeallocateTask(ctx, self.UserCred, "")
 	}
 }
-
-func (self *EipDissociateTask) OnAutoDellocateComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.SetStageComplete(ctx, nil)
-}
-

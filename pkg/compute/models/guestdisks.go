@@ -136,7 +136,8 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 			desc.Add(jsonutils.NewString(storagecacheimg.Path), "image_path")
 		}
 	}
-	if host.HostType == HOST_TYPE_HYPERVISOR && disk.IsLocal() {
+	storage := disk.GetStorage()
+	if host.HostType == HOST_TYPE_HYPERVISOR && disk.IsLocal() || (storage != nil && storage.StorageType == STORAGE_RBD) {
 		desc.Add(jsonutils.NewString(disk.StorageId), "storage_id")
 		localpath := disk.GetPathAtHost(host)
 		if len(localpath) == 0 {

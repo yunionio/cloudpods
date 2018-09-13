@@ -75,7 +75,7 @@ const (
 
 	VM_CHANGE_FLAVOR     = "change_flavor"
 	VM_REBUILD_ROOT      = "rebuild_root"
-	VM_REBUILD_ROOT_FAIL = "rebld_root_fail"
+	VM_REBUILD_ROOT_FAIL = "rebuild_root_fail"
 
 	VM_START_SNAPSHOT  = "snapshot_start"
 	VM_SNAPSHOT        = "snapshot"
@@ -314,6 +314,20 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		sq = sq.Join(zones, sqlchemy.Equals(hosts.Field("zone_id"), zones.Field("id")))
 		sq = sq.Filter(sqlchemy.Equals(zones.Field("cloudregion_id"), regionObj.GetId()))
 		q = q.In("host_id", sq)
+	}
+
+	withEip, _ := queryDict.GetString("with_eip")
+	withoutEip, _ := queryDict.GetString("without_eip")
+	if len(withEip) > 0 || len(withoutEip) > 0 {
+		eips := ElasticipManager.Query().SubQuery()
+		sq := eips.Query(eips.Field("associate_id")).Equals("associate_type", EIP_ASSOCIATE_TYPE_SERVER)
+		sq = sq.IsNotNull("associate_id").IsNotEmpty("associate_id")
+
+		if utils.ToBool(withEip) {
+			q = q.In("id", sq)
+		} else if utils.ToBool(withoutEip) {
+			q = q.NotIn("id", sq)
+		}
 	}
 
 	gpu, _ := queryDict.GetString("gpu")
@@ -764,6 +778,8 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			return nil, httperrors.NewResourceNotFoundError("Secgroup %s not found", secGrpId)
 		}
 		data.Add(jsonutils.NewString(secGrpObj.GetId()), "secgrp_id")
+	} else {
+		data.Add(jsonutils.NewString("default"), "secgrp_id")
 	}
 
 	/*
@@ -980,6 +996,11 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 				extra.Add(jsonutils.NewString(region.ExternalId), "region_external_id")
 			}
 		}
+
+		host := self.GetHost()
+		if host != nil && len(host.ManagerId) > 0 {
+			extra.Add(jsonutils.NewString(host.ManagerId), "manager_id")
+		}
 	}
 	return extra
 }
@@ -1146,10 +1167,10 @@ func (self *SGuest) getIPs() []string {
 	ips := self.getRealIPs()
 	vips := self.getVirtualIPs()
 	ips = append(ips, vips...)
-	eip, _ := self.GetEip()
+	/*eip, _ := self.GetEip()
 	if eip != nil {
 		ips = append(ips, eip.IpAddr)
-	}
+	}*/
 	return ips
 }
 
@@ -1621,8 +1642,10 @@ func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.Toke
 		properties.Add(jsonutils.NewString(self.OsType), "os_type")
 		kwargs.Add(properties, "properties")
 		kwargs.Add(jsonutils.NewBool(restart), "restart")
+
 		lockman.LockObject(ctx, disks.Root)
 		defer lockman.ReleaseObject(ctx, disks.Root)
+
 		if imageId, err := disks.Root.PrepareSaveImage(ctx, userCred, kwargs); err != nil {
 			return nil, err
 		} else {
@@ -2015,7 +2038,7 @@ func (self *SGuest) CreateDisksOnHost(ctx context.Context, userCred mcclient.Tok
 
 func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, storage *SStorage, diskConfig *SDiskConfig, pendingUsage quotas.IQuota) (*SDisk, error) {
 	lockman.LockObject(ctx, storage)
-	defer lockman.LockObject(ctx, storage)
+	defer lockman.ReleaseObject(ctx, storage)
 
 	lockman.LockClass(ctx, QuotaManager, self.ProjectId)
 	defer lockman.ReleaseClass(ctx, QuotaManager, self.ProjectId)
@@ -2321,7 +2344,7 @@ func (self *SGuest) PerformRevokeSecgroup(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewInputParameterError("Cannot revoke security rules in status %s", self.Status)
 	} else {
 		if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
-			self.SecgrpId = ""
+			self.SecgrpId = "default"
 			return nil
 		}); err != nil {
 			return nil, err
@@ -3406,6 +3429,52 @@ func (self *SGuest) PerformReset(ctx context.Context, userCred mcclient.TokenCre
 	return nil, httperrors.NewInvalidStatusError("Cannot reset VM in status %s", self.Status)
 }
 
+func (self *SGuest) AllowPerformDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_READY}) {
+		return nil, httperrors.NewInvalidStatusError("Cannot do snapshot when VM in status %s", self.Status)
+	}
+	diskId, err := data.GetString("disk_id")
+	if err != nil {
+		return nil, err
+	}
+	name, err := data.GetString("name")
+	if err != nil {
+		return nil, err
+	}
+	if self.GetGuestDisk(diskId) == nil {
+		return nil, httperrors.NewNotFoundError("Guest disk %s not found", diskId)
+	}
+	snapshots := SnapshotManager.GetDiskSnapshotsByCreate(diskId, MANUAL)
+	if snapshots != nil {
+		if len(snapshots) >= DISK_MAX_MANUAL_SNAPSHOT {
+			return nil, httperrors.NewBadRequestError("Disk %s snapshot full, cannot take any more", diskId)
+		}
+		for _, snapshot := range snapshots {
+			if snapshot.Name == name {
+				return nil, httperrors.NewBadRequestError("Name Conflict")
+			}
+		}
+	}
+	snapshot, err := SnapshotManager.CreateSnapshot(ctx, userCred, MANUAL, diskId, self.Id, "", name)
+	if err != nil {
+		return nil, err
+	}
+	err = self.StartDiskSnapshot(ctx, userCred, diskId, snapshot.Id)
+	return nil, err
+}
+
+func (self *SGuest) StartDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, diskId, snapshotId string) error {
+	self.SetStatus(userCred, VM_START_SNAPSHOT, "StartDiskSnapshot")
+	params := jsonutils.NewDict()
+	params.Set("disk_id", jsonutils.NewString(diskId))
+	params.Set("snapshot_id", jsonutils.NewString(snapshotId))
+	return self.GetDriver().StartGuestDiskSnapshotTask(ctx, userCred, self, params)
+}
+
 func (self *SGuest) AllowPerformStop(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
@@ -3556,7 +3625,7 @@ func (manager *SGuestManager) getIpsByExit(ips []string, isExitOnly bool) []stri
 }
 
 func (manager *SGuestManager) getExpiredPendingDeleteGuests() []SGuest {
-	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds) * time.Second)
+	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds*-1) * time.Second)
 
 	q := manager.Query()
 	q = q.IsTrue("pending_deleted").LT("pending_deleted_at", deadline).In("hypervisor", []string{"aliyun"}).Limit(options.Options.PendingDeleteMaxCleanBatchSize)
@@ -3672,6 +3741,93 @@ func (self *SGuest) GetIVM() (cloudprovider.ICloudVM, error) {
 		return nil, fmt.Errorf(msg)
 	}
 	return ihost.GetIVMById(self.ExternalId)
+}
+
+func (self *SGuest) AllowPerformAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING}) {
+		return nil, httperrors.NewInvalidStatusError("cannot associate eip in status %s", self.Status)
+	}
+
+	eip, err := self.GetEip()
+	if err != nil {
+		log.Errorf("Fail to get Eip %s", err)
+		return nil, httperrors.NewGeneralError(err)
+	}
+	if eip != nil {
+		return nil, httperrors.NewInvalidStatusError("already associate with eip")
+	}
+	eipStr := jsonutils.GetAnyString(data, []string{"eip", "eip_id"})
+	if len(eipStr) == 0 {
+		return nil, httperrors.NewInputParameterError("missing eip or eip_id")
+	}
+	eipObj, err := ElasticipManager.FetchByIdOrName(userCred.GetProjectId(), eipStr)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError("eip %s not found", eipStr)
+		} else {
+			return nil, httperrors.NewGeneralError(err)
+		}
+	}
+
+	eip = eipObj.(*SElasticip)
+	eipRegion := eip.GetRegion()
+	instRegion := self.getRegion()
+
+	if eip.Mode == EIP_MODE_INSTANCE_PUBLICIP {
+		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot be associated")
+	}
+
+	eipVm := eip.getVM()
+	if eipVm != nil {
+		return nil, httperrors.NewConflictError("eip has been associated")
+	}
+
+	if eipRegion.Id != instRegion.Id {
+		return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different region")
+	}
+
+	host := self.GetHost()
+	if host == nil {
+		return nil, httperrors.NewInputParameterError("server host is not found???")
+	}
+
+	if host.ManagerId != eip.ManagerId {
+		return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different provider")
+	}
+
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(self.ExternalId), "instance_external_id")
+	params.Add(jsonutils.NewString(self.Id), "instance_id")
+	params.Add(jsonutils.NewString(EIP_ASSOCIATE_TYPE_SERVER), "instance_type")
+
+	err = eip.StartEipAssociateTask(ctx, userCred, params)
+
+	return nil, err
+}
+
+func (self *SGuest) AllowPerformDissociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformDissociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	eip, err := self.GetEip()
+	if err != nil {
+		log.Errorf("Fail to get Eip %s", err)
+		return nil, httperrors.NewGeneralError(err)
+	}
+	if eip == nil {
+		return nil, httperrors.NewInvalidStatusError("No eip to dissociate")
+	}
+	err = eip.StartEipDissociateTask(ctx, userCred, "")
+	if err != nil {
+		log.Errorf("fail to start dissociate task %s", err)
+		return nil, httperrors.NewGeneralError(err)
+	}
+	return nil, nil
 }
 
 func (self *SGuest) AllowPerformCreateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

@@ -53,33 +53,12 @@ func (dispatcher *DBModelDispatcher) ContextKeywordPlural() []string {
 	return nil
 }
 
-/*
-const (
-	AUTH_TOKEN = appctx.AppContextKey("X_AUTH_TOKEN")
-)
-*/
 
 func (dispatcher *DBModelDispatcher) Filter(f appsrv.FilterHandler) appsrv.FilterHandler {
 	return auth.Authenticate(f)
-	/*return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		tokenStr := r.Header.Get("X-Auth-Token")
-		if len(tokenStr) == 0 {
-			httperrors.UnauthorizedError(w, "Unauthorized")
-			return
-		}
-		token, err := auth.Verify(tokenStr)
-		if err != nil {
-			log.Errorf("Verify token failed: %s", err)
-			httperrors.UnauthorizedError(w, "InvalidToken")
-			return
-		}
-		ctx = context.WithValue(ctx, AUTH_TOKEN, token)
-		f(ctx, w, r)
-	} */
 }
 
 func fetchUserCredential(ctx context.Context) mcclient.TokenCredential {
-	// token, ok := ctx.Value(AUTH_TOKEN).(mcclient.TokenCredential)
 	token := auth.FetchUserCredential(ctx)
 	if token == nil {
 		log.Fatalf("user token credential not found?")
@@ -314,10 +293,11 @@ func query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return nil, err
 	}
-	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
 	listF := listFields(manager, userCred)
-	if len(fieldFilter) > 0 && userCred.IsSystemAdmin() { // only sysadmin can extend list Fields
-		listF = append(listF, fieldFilter...)
+	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
+	if len(fieldFilter) > 0 && userCred.IsSystemAdmin() {
+		// only sysadmin can specify list Fields
+		listF = fieldFilter
 	}
 	showDetails := false
 	showDetailsJson, _ := query.Get("details")
@@ -355,9 +335,6 @@ func query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 				jsonDict.Update(extraDict)
 			}
 			jsonDict = getModelExtraDetails(item, ctx, jsonDict)
-		}
-		if len(fieldFilter) > 0 {
-			jsonDict = jsonDict.CopyIncludes(fieldFilter...)
 		}
 		results = append(results, jsonDict)
 	}
@@ -1127,7 +1104,9 @@ func (dispatcher *DBModelDispatcher) Delete(ctx context.Context, idstr string, q
 		return nil, httperrors.NewGeneralError(err)
 	}
 	log.Debugf("Delete %s", model.GetShortDesc())
+
 	lockman.LockObject(ctx, model)
 	defer lockman.ReleaseObject(ctx, model)
+
 	return deleteItem(dispatcher.modelManager, model, ctx, userCred, query, data)
 }

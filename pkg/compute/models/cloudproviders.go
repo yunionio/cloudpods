@@ -499,3 +499,25 @@ func (manager *SCloudproviderManager) migrateVCenterInfo(vc *SVCenter) error {
 
 	return manager.TableSpec().Insert(&cp)
 }
+
+func (self *SCloudprovider) GetBalance() (float64, error) {
+	driver, err := self.GetDriver()
+	if err != nil {
+		return 0.0, err
+	}
+	return driver.GetBalance()
+}
+
+func (self *SCloudprovider) AllowGetDetailsBalance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SCloudprovider) GetDetailsBalance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	balance, err := self.GetBalance()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.NewFloat(balance), "balance")
+	return ret, nil
+}

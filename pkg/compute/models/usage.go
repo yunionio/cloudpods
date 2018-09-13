@@ -42,6 +42,10 @@ func AttachUsageQuery(
 			sqlchemy.Equals(hosts.Field("id"), aggHosts.Field("host_id")),
 			sqlchemy.IsFalse(aggHosts.Field("deleted")))).
 			Filter(sqlchemy.Equals(aggHosts.Field("schedtag_id"), rangeObjId))
+	case "cloudregion":
+		zones := ZoneManager.Query().SubQuery()
+		q = q.Join(zones, sqlchemy.Equals(hosts.Field("zone_id"), zones.Field("id")))
+		q = q.Filter(sqlchemy.Equals(zones.Field("cloudregion_id"), rangeObjId))
 	}
 	return q
 }

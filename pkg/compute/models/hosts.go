@@ -582,7 +582,8 @@ func (self *SHost) GetAttachedStorageCapacity() SStorageCapacity {
 func _getLeastUsedStorage(storages []SStorage, backends []string) *SStorage {
 	var best *SStorage
 	var bestCap int
-	for _, s := range storages {
+	for i := 0; i < len(storages); i++ {
+		s := storages[i]
 		if len(backends) > 0 {
 			in, _ := utils.InStringArray(s.StorageType, backends)
 			if !in {
@@ -1573,6 +1574,21 @@ func (self *SHost) GetCustomizeColumns(ctx context.Context, userCred mcclient.To
 func (self *SHost) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
 	return self.getMoreDetails(extra)
+}
+
+func (self *SHost) AllowGetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SHost) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if utils.IsInStringArray(self.Status, []string{BAREMETAL_READY, BAREMETAL_RUNNING}) {
+		retval := jsonutils.NewDict()
+		retval.Set("host_id", jsonutils.NewString(self.Id))
+		zone := self.GetZone()
+		retval.Set("zone", jsonutils.NewString(zone.GetName()))
+		return retval, nil
+	}
+	return jsonutils.NewDict(), nil
 }
 
 func (manager *SHostManager) GetHostsByManagerAndRegion(managerId string, regionId string) []SHost {

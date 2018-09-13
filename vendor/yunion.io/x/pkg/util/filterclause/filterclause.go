@@ -45,6 +45,14 @@ func (fc *SFilterClause) QueryCondition(q *sqlchemy.SQuery) sqlchemy.ICondition 
 		return sqlchemy.NotIn(field, fc.params)
 	case "between":
 		return sqlchemy.Between(field, fc.params[0], fc.params[1])
+	case "ge":
+		return sqlchemy.GE(field, fc.params[0])
+	case "gt":
+		return sqlchemy.GT(field, fc.params[0])
+	case "le":
+		return sqlchemy.LE(field, fc.params[0])
+	case "lt":
+		return sqlchemy.LT(field, fc.params[0])
 	case "like":
 		return sqlchemy.Like(field, fc.params[0])
 	case "contains":

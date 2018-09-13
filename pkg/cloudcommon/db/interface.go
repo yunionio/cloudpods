@@ -37,10 +37,11 @@ type IModelManager interface {
 	FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery
 	FilterByNotId(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery
 	FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery
-	FilterByOwner(q *sqlchemy.SQuery, ownerProjId string) *sqlchemy.SQuery
+	FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery
 
 	GetOwnerId(userCred mcclient.TokenCredential) string
 
+	// RawFetchById(idStr string) (IModel, error)
 	FetchById(idStr string) (IModel, error)
 	FetchByName(ownerProjId string, idStr string) (IModel, error)
 	FetchByIdOrName(ownerProjId string, idStr string) (IModel, error)

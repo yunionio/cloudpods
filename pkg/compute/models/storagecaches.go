@@ -14,6 +14,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/imagetools"
 )
 
 type SStoragecacheManager struct {
@@ -24,7 +25,11 @@ type SStoragecacheManager struct {
 var StoragecacheManager *SStoragecacheManager
 
 func init() {
-	StoragecacheManager = &SStoragecacheManager{SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(SStoragecache{}, "storagecaches_tbl", "storagecache", "storagecaches")}
+	StoragecacheManager = &SStoragecacheManager{
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(SStoragecache{},
+			"storagecaches_tbl",
+			"storagecache",
+			"storagecaches")}
 }
 
 type SStoragecache struct {
@@ -205,6 +210,17 @@ func (self *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcc
 	StoragecachedimageManager.Register(ctx, userCred, self.Id, imageId)
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewString(imageId), "image_id")
+
+	image, _ := CachedimageManager.GetImageById(ctx, userCred, imageId, false)
+
+	if image != nil {
+		imgInfo := imagetools.NormalizeImageInfo(image.Name, image.Properties["os_arch"], image.Properties["os_type"],
+			image.Properties["os_distribution"])
+		data.Add(jsonutils.NewString(imgInfo.OsType), "os_type")
+		data.Add(jsonutils.NewString(imgInfo.OsArch), "os_arch")
+		data.Add(jsonutils.NewString(imgInfo.OsDistro), "os_distribution")
+	}
+
 	if isForce {
 		data.Add(jsonutils.JSONTrue, "is_force")
 	}

@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"fmt"
+	"io/ioutil"
 	"strconv"
 	"strings"
 
@@ -18,19 +19,12 @@ func initDeployment() {
 		return resourceCmdN("deployment", suffix)
 	}
 
-	type listOpt struct {
-		namespaceListOptions
-		baseListOptions
-	}
-	R(&listOpt{}, cmdN("list"), "List k8s deployment", func(s *mcclient.ClientSession, args *listOpt) error {
-		params := fetchNamespaceParams(args.namespaceListOptions)
-		params.Update(fetchPagingParams(args.baseListOptions))
-		params.Update(args.ClusterParams())
-		ret, err := k8s.Deployments.List(s, params)
+	R(&NamespaceResourceListOptions{}, cmdN("list"), "List k8s deployment", func(s *mcclient.ClientSession, args *NamespaceResourceListOptions) error {
+		ret, err := k8s.Deployments.List(s, args.Params())
 		if err != nil {
 			return err
 		}
-		printList(ret, k8s.Deployments.GetColumns(s))
+		PrintListResultTable(ret, k8s.Deployments, s)
 		return nil
 	})
 
@@ -68,6 +62,19 @@ func initDeployment() {
 			}
 			params.Add(portMappings, "portMappings")
 		}
+
+		envList := jsonutils.NewArray()
+		for _, env := range args.Env {
+			parts := strings.Split(env, "=")
+			if len(parts) != 2 {
+				return fmt.Errorf("Bad env value: %v", env)
+			}
+			envObj := jsonutils.NewDict()
+			envObj.Add(jsonutils.NewString(parts[0]), "name")
+			envObj.Add(jsonutils.NewString(parts[1]), "value")
+			envList.Add(envObj)
+		}
+		params.Add(envList, "variables")
 		if args.Net != "" {
 			net, err := parseNetConfig(args.Net)
 			if err != nil {
@@ -93,6 +100,31 @@ func initDeployment() {
 			params.Add(jsonutils.NewString(args.Namespace), "namespace")
 		}
 		ret, err := k8s.Deployments.Get(s, id, params)
+		if err != nil {
+			return err
+		}
+		printObjectYAML(ret)
+		return nil
+	})
+
+	type createFromFileOpt struct {
+		resourceGetOptions
+		FILE string `help:"K8s resource YAML or JSON file"`
+	}
+	R(&createFromFileOpt{}, "k8s-create", "Create resource by file", func(s *mcclient.ClientSession, args *createFromFileOpt) error {
+		params := args.ClusterParams()
+		params.Add(jsonutils.NewString(args.NAME), "name")
+
+		content, err := ioutil.ReadFile(args.FILE)
+		if err != nil {
+			return err
+		}
+		namespace := args.Namespace
+		if namespace != "" {
+			params.Add(jsonutils.NewString(namespace), "namespace")
+		}
+		params.Add(jsonutils.NewString(string(content)), "content")
+		ret, err := k8s.DeployFromFile.Create(s, params)
 		if err != nil {
 			return err
 		}

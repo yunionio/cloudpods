@@ -36,5 +36,7 @@ func InitAuth(options *Options, authComplete auth.AuthCompletedCallback) {
 
 	// debug := options.LogLevel == "debug"
 
-	auth.AsyncInit(a, false, true, authComplete)
+	auth.Init(a, false, true) // , authComplete)
+
+	authComplete()
 }

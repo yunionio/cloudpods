@@ -17,6 +17,7 @@ func initRelease() {
 	type listOpt struct {
 		namespaceListOptions
 		baseListOptions
+		Name       string `help:"Search by name"`
 		Filter     string `help:"Filter, split by space"`
 		Admin      bool   `help:"Admin to show all namespace releases"`
 		Deployed   bool   `help:"Show deployed status releases"`
@@ -35,6 +36,9 @@ func initRelease() {
 		}
 		if args.Namespace != "" {
 			params.Add(json.NewString(args.Namespace), "namespace")
+		}
+		if args.Name != "" {
+			params.Add(json.NewString(args.Name), "name")
 		}
 		params.Add(json.JSONTrue, "all")
 		if args.Admin {

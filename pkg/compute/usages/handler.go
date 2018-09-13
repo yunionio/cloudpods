@@ -98,14 +98,15 @@ func addHandler(prefix, rangeObjKey string, hf appsrv.FilterHandler, app *appsrv
 func AddUsageHandler(prefix string, app *appsrv.Application) {
 	prefix = fmt.Sprintf("%s/usages", prefix)
 	for key, f := range map[string]appsrv.FilterHandler{
-		"":         rangeObjHandler(nil, ReportGeneralUsage),
-		"zone":     rangeObjHandler(models.ZoneManager, ReportZoneUsage),
-		"wire":     rangeObjHandler(models.WireManager, ReportWireUsage),
-		"schedtag": rangeObjHandler(models.SchedtagManager, ReportSchedtagUsage),
-		"host":     rangeObjHandler(models.HostManager, ReportHostUsage),
-		"vcenter":  rangeObjHandler(models.VCenterManager, ReportVCenterUsage),
+		"":            rangeObjHandler(nil, ReportGeneralUsage),
+		"zone":        rangeObjHandler(models.ZoneManager, ReportZoneUsage),
+		"wire":        rangeObjHandler(models.WireManager, ReportWireUsage),
+		"schedtag":    rangeObjHandler(models.SchedtagManager, ReportSchedtagUsage),
+		"host":        rangeObjHandler(models.HostManager, ReportHostUsage),
+		"vcenter":     rangeObjHandler(models.VCenterManager, ReportVCenterUsage),
+		"cloudregion": rangeObjHandler(models.CloudregionManager, ReportCloudRegionUsage),
 	} {
-		addHandler(prefix, key, f, app)
+		addHandler(prefix, key, auth.Authenticate(f), app)
 	}
 }
 
@@ -150,8 +151,11 @@ func ReportSchedtagUsage(userCred mcclient.TokenCredential, schedtag db.IStandal
 }
 
 func ReportZoneUsage(userCred mcclient.TokenCredential, zone db.IStandaloneModel, hostTypes []string) (Usage, error) {
-	//return
-	return nil, nil
+	return ReportGeneralUsage(userCred, zone, hostTypes)
+}
+
+func ReportCloudRegionUsage(userCred mcclient.TokenCredential, cloudRegion db.IStandaloneModel, hostTypes []string) (Usage, error) {
+	return ReportGeneralUsage(userCred, cloudRegion, hostTypes)
 }
 
 //func ReportGuestUsage()
@@ -212,7 +216,7 @@ func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandalo
 		IsolatedDeviceUsage(rangeObj, hostTypes),
 		WireUsage(rangeObj, hostTypes),
 		NetworkUsage(userCred, rangeObj),
-		EipUsage(),
+		EipUsage(rangeObj, hostTypes),
 	)
 
 	return
@@ -338,8 +342,8 @@ func IsolatedDeviceUsage(rangeObj db.IStandaloneModel, hostType []string) Usage 
 	return count
 }
 
-func EipUsage() Usage {
-	eipUsage := models.ElasticipManager.TotalCount("")
+func EipUsage(rangeObj db.IStandaloneModel, hostTypes []string) Usage {
+	eipUsage := models.ElasticipManager.TotalCount("", rangeObj, hostTypes)
 	count := make(map[string]interface{})
 	count["eip.all"] = eipUsage.Total()
 	count["eip.public_ip"] = eipUsage.PublicIPCount

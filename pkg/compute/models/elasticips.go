@@ -5,41 +5,43 @@ import (
 	"database/sql"
 	"fmt"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
-	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/log"
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/mcclient"
+	"strings"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 
 const (
 	EIP_MODE_INSTANCE_PUBLICIP = "public_ip"
-	EIP_MODE_STANDALONE_EIP = "elastic_ip"
+	EIP_MODE_STANDALONE_EIP    = "elastic_ip"
 
 	EIP_ASSOCIATE_TYPE_SERVER = "server"
 
-	EIP_STATUS_READY = "ready"
-	EIP_STATUS_UNKNOWN = "unknown"
-	EIP_STATUS_ALLOCATE = "allocate"
-	EIP_STATUS_ALLOCATE_FAIL = "allocate_fail"
-	EIP_STATUS_DEALLOCATE = "deallocate"
+	EIP_STATUS_READY           = "ready"
+	EIP_STATUS_UNKNOWN         = "unknown"
+	EIP_STATUS_ALLOCATE        = "allocate"
+	EIP_STATUS_ALLOCATE_FAIL   = "allocate_fail"
+	EIP_STATUS_DEALLOCATE      = "deallocate"
 	EIP_STATUS_DEALLOCATE_FAIL = "deallocate_fail"
-	EIP_STATUS_ASSOCIATE = "associate"
-	EIP_STATUS_ASSOCIATE_FAIL = "associate_fail"
-	EIP_STATUS_DISSOCIATE = "dissociate"
+	EIP_STATUS_ASSOCIATE       = "associate"
+	EIP_STATUS_ASSOCIATE_FAIL  = "associate_fail"
+	EIP_STATUS_DISSOCIATE      = "dissociate"
 	EIP_STATUS_DISSOCIATE_FAIL = "dissociate_fail"
 
-	EIP_CHARGE_TYPE_BY_TRAFFIC = "traffic"
+	EIP_CHARGE_TYPE_BY_TRAFFIC   = "traffic"
 	EIP_CHARGE_TYPE_BY_BANDWIDTH = "bandwidth"
-	EIP_CHARGE_TYPE_DEFAULT = EIP_CHARGE_TYPE_BY_TRAFFIC
+	EIP_CHARGE_TYPE_DEFAULT      = EIP_CHARGE_TYPE_BY_TRAFFIC
 )
 
 type SElasticipManager struct {
@@ -62,7 +64,7 @@ type SElasticip struct {
 	IpAddr string `width:"17" charset:"ascii" list:"user"`
 
 	AssociateType string `width:"32" charset:"ascii" list:"user"`
-	AssociateId string `width:"128" charset:"ascii" list:"user"`
+	AssociateId   string `width:"128" charset:"ascii" list:"user"`
 
 	Bandwidth int `list:"user" create:"required"`
 
@@ -72,7 +74,6 @@ type SElasticip struct {
 
 	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
-
 
 func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
@@ -126,7 +127,7 @@ func (self *SElasticip) GetRegion() *SCloudregion {
 	return CloudregionManager.FetchRegionById(self.CloudregionId)
 }
 
-func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, eips []cloudprovider.ICloudEIP) (compare.SyncResult) {
+func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, eips []cloudprovider.ICloudEIP) compare.SyncResult {
 	// localEips := make([]SElasticip, 0)
 	// remoteEips := make([]cloudprovider.ICloudEIP, 0)
 	syncResult := compare.SyncResult{}
@@ -342,7 +343,7 @@ func (manager *SElasticipManager) getEipByExtEip(userCred mcclient.TokenCredenti
 }
 
 func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	regionStr := jsonutils.GetAnyString(data, []string {"region", "region_id"})
+	regionStr := jsonutils.GetAnyString(data, []string{"region", "region_id"})
 	if len(regionStr) == 0 {
 		return nil, httperrors.NewInputParameterError("Missing region/region_id")
 	}
@@ -376,7 +377,7 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 		chargeType = EIP_CHARGE_TYPE_DEFAULT
 	}
 
-	if ! utils.IsInStringArray(chargeType, []string{EIP_CHARGE_TYPE_BY_BANDWIDTH, EIP_CHARGE_TYPE_BY_TRAFFIC}) {
+	if !utils.IsInStringArray(chargeType, []string{EIP_CHARGE_TYPE_BY_BANDWIDTH, EIP_CHARGE_TYPE_BY_TRAFFIC}) {
 		return nil, httperrors.NewInputParameterError("charge type %s not supported", chargeType)
 	}
 
@@ -403,12 +404,6 @@ func (self *SElasticip) PostCreate(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SElasticip) startEipAllocateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, pendingUsage quotas.IQuota) error {
-	/*params := jsonutils.NewDict()
-	params.Add(jsonutils.NewString(instanceExtId), "instance_external_id")
-	params.Add(jsonutils.NewString(instanceId), "instance_id")
-	params.Add(jsonutils.NewString(instanceType), "instance_type")
-	*/
-
 	task, err := taskman.TaskManager.NewTask(ctx, "EipAllocateTask", self, userCred, params, "", "", pendingUsage)
 	if err != nil {
 		log.Errorf("newtask EipAllocateTask fail %s", err)
@@ -490,6 +485,18 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 	}
 
 	server := vmObj.(*SGuest)
+
+	lockman.LockObject(ctx, server)
+	defer lockman.ReleaseObject(ctx, server)
+
+	if server.PendingDeleted {
+		return nil, httperrors.NewInvalidStatusError("cannot associate pending delete server")
+	}
+
+	seip, _ := server.GetEip()
+	if seip != nil {
+		return nil, httperrors.NewInvalidStatusError("instance is already associated with eip")
+	}
 
 	if ok, _ := utils.InStringArray(server.Status, []string{VM_READY, VM_RUNNING}); !ok {
 		return nil, httperrors.NewInvalidStatusError("cannot associate server in status %s", server.Status)
@@ -597,9 +604,9 @@ func (self *SElasticip) AllowPerformSync(ctx context.Context, userCred mcclient.
 }
 
 func (self *SElasticip) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	/*if self.Status != EIP_STATUS_READY && ! strings.HasSuffix(self.Status, "_fail") {
+	if self.Status != EIP_STATUS_READY && !strings.HasSuffix(self.Status, "_fail") {
 		return nil, httperrors.NewInvalidStatusError("eip cannot syncstatus in status %s", self.Status)
-	}*/
+	}
 
 	if self.Mode == EIP_MODE_INSTANCE_PUBLICIP {
 		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot be dissociated")
@@ -634,6 +641,11 @@ func (self *SElasticip) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSO
 	vm := self.getVM()
 	if vm != nil {
 		extra.Add(jsonutils.NewString(vm.GetName()), "associate_name")
+	}
+	region := self.GetRegion()
+	if region != nil {
+		extra.Add(jsonutils.NewString(region.GetName()), "cloudregion")
+		extra.Add(jsonutils.NewString(region.GetName()), "region")
 	}
 	return extra
 }
@@ -725,19 +737,38 @@ func (self *SElasticip) DoChangeBandwidth(userCred mcclient.TokenCredential, ban
 
 type EipUsage struct {
 	PublicIPCount int
-	EIPCount int
-	EIPUsedCount int
+	EIPCount      int
+	EIPUsedCount  int
 }
 
 func (u EipUsage) Total() int {
 	return u.PublicIPCount + u.EIPCount
 }
 
-func (manager *SElasticipManager) TotalCount(projectId string) EipUsage {
+func (manager *SElasticipManager) usageQ(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, hostTypes []string) *sqlchemy.SQuery {
+	if rangeObj == nil {
+		return q
+	}
+	zones := ZoneManager.Query().SubQuery()
+	hosts := HostManager.Query().SubQuery()
+	sq := zones.Query(zones.Field("cloudregion_id")).
+		Join(hosts, sqlchemy.AND(
+			sqlchemy.IsFalse(hosts.Field("deleted")),
+			sqlchemy.IsTrue(hosts.Field("enabled")),
+			sqlchemy.Equals(hosts.Field("zone_id"), zones.Field("id"))))
+	sq = AttachUsageQuery(sq, hosts, hosts.Field("id"), hostTypes, rangeObj)
+	q = q.Filter(sqlchemy.In(q.Field("cloudregion_id"), sq.Distinct()))
+	return q
+}
+
+func (manager *SElasticipManager) TotalCount(projectId string, rangeObj db.IStandaloneModel, hostTypes []string) EipUsage {
 	usage := EipUsage{}
 	q1 := manager.Query().Equals("mode", EIP_MODE_INSTANCE_PUBLICIP)
+	q1 = manager.usageQ(q1, rangeObj, hostTypes)
 	q2 := manager.Query().Equals("mode", EIP_MODE_STANDALONE_EIP)
+	q2 = manager.usageQ(q2, rangeObj, hostTypes)
 	q3 := manager.Query().Equals("mode", EIP_MODE_STANDALONE_EIP).IsNotEmpty("associate_id")
+	q3 = manager.usageQ(q3, rangeObj, hostTypes)
 	if len(projectId) > 0 {
 		q1 = q1.Equals("tenant_id", projectId)
 		q2 = q2.Equals("tenant_id", projectId)

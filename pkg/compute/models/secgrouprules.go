@@ -374,8 +374,8 @@ func (manager *SSecurityGroupRuleManager) SyncRules(ctx context.Context, userCre
 
 func (manager *SSecurityGroupRuleManager) newFromCloudSecurityGroup(rule secrules.SecurityRule, secgroup *SSecurityGroup) (*SSecurityGroupRule, error) {
 	protocol := rule.Protocol
-	if rule.Protocol == "any" {
-		protocol = ""
+	if len(protocol) == 0 {
+		protocol = secrules.PROTO_ANY
 	}
 	ports, _ports := "", make([]string, len(rule.Ports))
 	if len(rule.Ports) > 0 {

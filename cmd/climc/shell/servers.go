@@ -352,6 +352,23 @@ func init() {
 		return nil
 	})
 
+	type ServerDiskSnapshotOptions struct {
+		SERVER       string `help:"server ID or Name"`
+		DISK         string `help:"create snapshot disk id"`
+		SNAPSHOTNAME string `help:"Snapshot name"`
+	}
+	R(&ServerDiskSnapshotOptions{}, "server-disk-create-snapshot", "Task server disk snapshot", func(s *mcclient.ClientSession, args *ServerDiskSnapshotOptions) error {
+		params := jsonutils.NewDict()
+		params.Set("disk_id", jsonutils.NewString(args.DISK))
+		params.Set("name", jsonutils.NewString(args.SNAPSHOTNAME))
+		srv, err := modules.Servers.PerformAction(s, args.SERVER, "disk-snapshot", params)
+		if err != nil {
+			return err
+		}
+		printObject(srv)
+		return nil
+	})
+
 	type ServerInsertISOOptions struct {
 		ID  string `help:"server ID or Name"`
 		ISO string `help:"Glance image ID of the ISO"`
@@ -390,6 +407,33 @@ func init() {
 			return err
 		}
 		printObject(results)
+		return nil
+	})
+
+	type ServerAssociateEipOptions struct {
+		ID  string `help:"ID or name of server"`
+		EIP string `help:"ID or name of EIP to associate"`
+	}
+	R(&ServerAssociateEipOptions{}, "server-associate-eip", "Associate a server and an eip", func(s *mcclient.ClientSession, args *ServerAssociateEipOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.EIP), "eip")
+		results, err := modules.Servers.PerformAction(s, args.ID, "associate-eip", params)
+		if err != nil {
+			return err
+		}
+		printObject(results)
+		return nil
+	})
+
+	type ServerDissociateEipOptions struct {
+		ID string `help:"ID or name of server"`
+	}
+	R(&ServerDissociateEipOptions{}, "server-dissociate-eip", "Dissociate an eip from a server", func(s *mcclient.ClientSession, args *ServerDissociateEipOptions) error {
+		result, err := modules.Servers.PerformAction(s, args.ID, "dissociate-eip", nil)
+		if err != nil {
+			return nil
+		}
+		printObject(result)
 		return nil
 	})
 }

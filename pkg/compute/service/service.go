@@ -52,10 +52,11 @@ func StartService() {
 	if db.CheckSync(options.Options.AutoSyncTable) {
 		err := models.InitDB()
 		if err == nil {
+			cron := cronman.GetCronJobManager()
+			cron.AddJob1("CleanPendingDeleteServers", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.GuestManager.CleanPendingDeleteServers)
+			cron.AddJob1("CleanPendingDeleteDisks", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.DiskManager.CleanPendingDeleteDisks)
+			cron.AddJob2("AutoDiskSnapshot", options.Options.AutoSnapshotDay, options.Options.AutoSnapshotHour, 0, 0, models.DiskManager.AutoDiskSnapshot)
 
-			cron := cronman.NewCronJobManager(0)
-			cron.AddJob("CleanPendingDeleteServers", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.GuestManager.CleanPendingDeleteServers)
-			cron.AddJob("CleanPendingDeleteDisks", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.DiskManager.CleanPendingDeleteDisks)
 			cron.Start()
 			defer cron.Stop()
 

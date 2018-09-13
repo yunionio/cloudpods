@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/usages"
+	"yunion.io/x/onecloud/pkg/compute/capabilities"
 )
 
 func InitHandlers(app *appsrv.Application) {
@@ -17,6 +18,7 @@ func InitHandlers(app *appsrv.Application) {
 
 	quotas.AddQuotaHandler(models.QuotaManager, "", app)
 	usages.AddUsageHandler("", app)
+	capabilities.AddCapabilityHandler("", app)
 
 	taskman.AddTaskHandler("", app)
 
@@ -57,6 +59,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.VCenterManager,
 		models.DnsRecordManager,
 		models.ElasticipManager,
+		models.SnapshotManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

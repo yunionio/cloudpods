@@ -13,6 +13,7 @@ import (
 )
 
 type SKVMHostDriver struct {
+	SBaseHostDriver
 }
 
 func init() {
@@ -24,7 +25,7 @@ func (self *SKVMHostDriver) GetHostType() string {
 	return models.HOST_TYPE_HYPERVISOR
 }
 
-func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, scimg *models.SStoragecachedimage, task taskman.ITask) error {
+func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
 	params := task.GetParams()
 	imageId, err := params.GetString("image_id")
 	if err != nil {
@@ -144,6 +145,17 @@ func (self *SKVMHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, ho
 	body.Add(jsonutils.Marshal(content), "disk")
 	url := fmt.Sprintf("/disks/%s/upload", disk.StorageId)
 	header := http.Header{"X-Task-Id": []string{task.GetTaskId()}, "X-Region-Version": []string{"v2"}}
+	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+	return err
+}
+
+func (self *SKVMHostDriver) RequestDeleteSnapshotWithStorage(ctx context.Context, host *models.SHost, snapshot *models.SSnapshot, task taskman.ITask) error {
+	url := fmt.Sprintf("/storages/%s/delete-snapshots", snapshot.StorageId)
+	body := jsonutils.NewDict()
+	body.Set("disk_id", jsonutils.NewString(snapshot.DiskId))
+	header := http.Header{}
+	header.Add("X-Task-Id", task.GetTaskId())
+	header.Add("X-Region-Version", "v2")
 	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
 	return err
 }
