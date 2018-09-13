@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -48,10 +49,11 @@ func (self *SAzureHostDriver) CheckAndSetCacheImage(ctx context.Context, host *m
 		}
 
 		extImgId, err := iStorageCache.UploadImage(userCred, imageId, osArch, osType, osDist, scimg.ExternalId, isForce)
-
 		if err != nil {
 			return nil, err
 		} else {
+			scimg.SetExternalId(extImgId)
+
 			ret := jsonutils.NewDict()
 			ret.Add(jsonutils.NewString(extImgId), "image_id")
 			return ret, nil
@@ -103,16 +105,19 @@ func (self *SAzureHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, 
 }
 
 func (self *SAzureHostDriver) RequestDeallocateDiskOnHost(host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
+	data := jsonutils.NewDict()
 	if iCloudStorage, err := storage.GetIStorage(); err != nil {
 		return err
 	} else if iDisk, err := iCloudStorage.GetIDisk(disk.GetExternalId()); err != nil {
+		if err == cloudprovider.ErrNotFound {
+			task.ScheduleRun(data)
+			return nil
+		}
 		return err
 	} else if err := iDisk.Delete(); err != nil {
 		return err
-	} else {
-		data := jsonutils.NewDict()
-		task.ScheduleRun(data)
 	}
+	task.ScheduleRun(data)
 	return nil
 }
 

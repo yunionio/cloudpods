@@ -166,7 +166,8 @@ type SInstance struct {
 }
 
 func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
-	instance := SInstance{}
+	zone := self.izones[0].(*SZone)
+	instance := SInstance{host: zone.getHost()}
 	computeClient := compute.NewVirtualMachinesClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
 	computeClient.Authorizer = self.client.authorizer
 	_, resourceGroup, instanceName := pareResourceGroupWithName(instanceId, INSTANCE_RESOURCE)
@@ -296,10 +297,13 @@ func (self *SInstance) GetStatus() string {
 				case "stopping":
 					return models.VM_START_STOP
 				default:
+					log.Errorf("Unknow instance status %s", code[1])
 					return models.VM_UNKNOWN
 				}
-
 			}
+		}
+		if statuses.Level == "Error" {
+			log.Errorf("Find error code: [%s] message: %s", statuses.Code, statuses.Message)
 		}
 	}
 	return models.VM_UNKNOWN
@@ -314,13 +318,18 @@ func (self *SInstance) AttachDisk(diskId string) error {
 }
 
 func (region *SRegion) UpdateInstance(instanceId string, params compute.VirtualMachineUpdate) error {
-	computeClient := compute.NewVirtualMachinesClientWithBaseURI(region.client.baseUrl, region.client.subscriptionId)
-	computeClient.Authorizer = region.client.authorizer
-	_, resourceGroup, instanceName := pareResourceGroupWithName(instanceId, INSTANCE_RESOURCE)
-	if result, err := computeClient.Update(context.Background(), resourceGroup, instanceName, params); err != nil {
+	if instance, err := region.GetInstance(instanceId); err != nil {
 		return err
-	} else if err := result.WaitForCompletion(context.Background(), computeClient.Client); err != nil {
-		return err
+	} else {
+		computeClient := compute.NewVirtualMachinesClientWithBaseURI(region.client.baseUrl, region.client.subscriptionId)
+		computeClient.Authorizer = region.client.authorizer
+		_, resourceGroup, instanceName := pareResourceGroupWithName(instanceId, INSTANCE_RESOURCE)
+		if _, err := computeClient.Update(context.Background(), resourceGroup, instanceName, params); err != nil {
+			return err
+		}
+		if err := cloudprovider.WaitStatus(instance, instance.GetStatus(), time.Second*5, time.Second*1800); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -508,20 +517,16 @@ func (self *SInstance) RebuildRoot(imageId string) error {
 }
 
 func (region *SRegion) RebuildRoot(instanceId string) error {
-	_, resourceGroup, instanceName := pareResourceGroupWithName(instanceId, INSTANCE_RESOURCE)
-	computeClient := compute.NewVirtualMachinesClientWithBaseURI(region.client.baseUrl, region.client.subscriptionId)
-	computeClient.Authorizer = region.client.authorizer
-	if result, err := computeClient.Redeploy(context.Background(), resourceGroup, instanceName); err != nil {
+	if instance, err := region.GetInstance(instanceId); err != nil {
 		return err
-	} else if err := result.WaitForCompletion(context.Background(), computeClient.Client); err != nil {
-		if strings.Index(err.Error(), "OSProvisioningTimedOut") > 0 {
-			if instance, err := region.GetInstance(instanceId); err != nil {
-				return err
-			} else if status := instance.GetStatus(); status == models.VM_RUNNING {
-				region.StopVM(instanceId, true)
-			}
-			return nil
-		} else {
+	} else {
+		_, resourceGroup, instanceName := pareResourceGroupWithName(instanceId, INSTANCE_RESOURCE)
+		computeClient := compute.NewVirtualMachinesClientWithBaseURI(region.client.baseUrl, region.client.subscriptionId)
+		computeClient.Authorizer = region.client.authorizer
+		if _, err := computeClient.Redeploy(context.Background(), resourceGroup, instanceName); err != nil {
+			return err
+		}
+		if err := cloudprovider.WaitStatus(instance, instance.GetStatus(), time.Second*5, time.Second*1800); err != nil {
 			return err
 		}
 	}
@@ -694,13 +699,20 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 }
 
 func (self *SRegion) StartVM(instanceId string) error {
-	_, resourceGroup, instanceName := pareResourceGroupWithName(instanceId, INSTANCE_RESOURCE)
-	computeClient := compute.NewVirtualMachinesClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
-	computeClient.Authorizer = self.client.authorizer
-	if result, err := computeClient.Start(context.Background(), resourceGroup, instanceName); err != nil {
+	if instance, err := self.GetInstance(instanceId); err != nil {
 		return err
-	} else if err := result.WaitForCompletion(context.Background(), computeClient.Client); err != nil {
-		return err
+	} else if status := instance.GetStatus(); status == models.VM_RUNNING {
+		return nil
+	} else {
+		_, resourceGroup, instanceName := pareResourceGroupWithName(instanceId, INSTANCE_RESOURCE)
+		computeClient := compute.NewVirtualMachinesClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
+		computeClient.Authorizer = self.client.authorizer
+		if _, err := computeClient.Start(context.Background(), resourceGroup, instanceName); err != nil {
+			return err
+		}
+		if err = cloudprovider.WaitStatus(instance, models.VM_RUNNING, time.Second*5, time.Second*1800); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -724,18 +736,42 @@ func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 }
 
 func (self *SRegion) doStopVM(instanceId string, isForce bool) error {
-	_, resourceGroup, instanceName := pareResourceGroupWithName(instanceId, INSTANCE_RESOURCE)
-	computeClient := compute.NewVirtualMachinesClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
-	computeClient.Authorizer = self.client.authorizer
-	if result, err := computeClient.PowerOff(context.Background(), resourceGroup, instanceName); err != nil {
+	if instance, err := self.GetInstance(instanceId); err != nil {
 		return err
-	} else if err := result.WaitForCompletion(context.Background(), computeClient.Client); err != nil {
-		return err
+	} else {
+		_, resourceGroup, instanceName := pareResourceGroupWithName(instanceId, INSTANCE_RESOURCE)
+		computeClient := compute.NewVirtualMachinesClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
+		computeClient.Authorizer = self.client.authorizer
+		if _, err := computeClient.PowerOff(context.Background(), resourceGroup, instanceName); err != nil {
+			return err
+		}
+		if err = cloudprovider.WaitStatus(instance, models.VM_READY, time.Second*5, time.Second*1800); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func (self *SInstance) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) error {
+	nics, err := self.getNics()
+	if err != nil {
+		return err
+	}
+	if len(secgroupId) == 0 {
+		for _, nic := range nics {
+			if err := nic.revokeSecurityGroup(); err != nil {
+				return err
+			}
+		}
+	} else if extId, err := self.host.zone.region.syncSecurityGroup(secgroupId, name, rules); err != nil {
+		return err
+	} else {
+		for _, nic := range nics {
+			if err := nic.assignSecurityGroup(extId); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 

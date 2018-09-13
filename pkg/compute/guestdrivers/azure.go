@@ -101,9 +101,7 @@ func (self *SAzureGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *mod
 	for i := 0; i < len(disks); i += 1 {
 		disk := disks[i].GetDisk()
 		if i == 0 {
-			log.Debugf("disk: %v", disk)
 			storage := disk.GetStorage()
-			log.Debugf("disk storage: %v", storage)
 			config.StorageType = storage.StorageType
 			cache := storage.GetStoragecache()
 			imageId := disk.GetTemplateId()
@@ -141,7 +139,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, desc.PublicKey); err != nil {
 				return nil, err
 			} else {
-				log.Debugf("VMcreated %s, wait status ready ...", iVM.GetGlobalId())
+				log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
 
 				if iVM, err = ihost.GetIVMById(iVM.GetGlobalId()); err != nil {
 					log.Errorf("cannot find vm %s", err)
@@ -247,7 +245,7 @@ func (self *SAzureGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context
 			log.Errorf(msg)
 			return fmt.Errorf(msg)
 		}
-		for i := 0; i < len(diskInfo); i += 1 {
+		for i := 0; i < len(diskInfo); i++ {
 			disk := disks[i].GetDisk()
 			_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
 				disk.DiskSize = diskInfo[i].Size

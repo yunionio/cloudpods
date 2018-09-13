@@ -145,7 +145,6 @@ func (self *SWire) getNetworkById(networkId string) *SNetwork {
 		for i := 0; i < len(networks); i++ {
 			network := networks[i].(*SNetwork)
 			_globalId, _, _ := pareResourceGroupWithName(network.ID, VPC_RESOURCE)
-			log.Errorf("Compaire %s => %s", globalId, _globalId)
 			if globalId == _globalId {
 				return network
 			}

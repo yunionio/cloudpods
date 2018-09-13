@@ -127,7 +127,13 @@ func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	computeClient := compute.NewDisksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
 	computeClient.Authorizer = self.client.authorizer
 	_, resourceGroup, diskName := pareResourceGroupWithName(diskId, DISK_RESOURCE)
+	if len(diskId) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
 	if _disk, err := computeClient.Get(context.Background(), resourceGroup, diskName); err != nil {
+		if _disk.Response.StatusCode == 404 {
+			return nil, cloudprovider.ErrNotFound
+		}
 		return nil, err
 	} else if err := jsonutils.Update(&disk, _disk); err != nil {
 		return nil, err

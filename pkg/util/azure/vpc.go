@@ -91,24 +91,27 @@ func (self *SVpc) Delete() error {
 	return nil
 }
 
+func (self *SVpc) getSecurityGroups() ([]SSecurityGroup, error) {
+	if securityGroups, err := self.region.GetSecurityGroups(); err != nil {
+		return nil, err
+	} else {
+		for i := 0; i < len(securityGroups); i++ {
+			securityGroups[i].vpc = self
+		}
+		return securityGroups, nil
+	}
+}
+
 func (self *SVpc) fetchSecurityGroups() error {
 	self.secgroups = make([]cloudprovider.ICloudSecurityGroup, 0)
-	networkClient := network.NewSecurityGroupsClientWithBaseURI(self.region.client.baseUrl, self.region.SubscriptionID)
-	networkClient.Authorizer = self.region.client.authorizer
-	if secgrpList, err := networkClient.ListAll(context.Background()); err != nil {
+	if secgrps, err := self.getSecurityGroups(); err != nil {
 		return err
 	} else {
-		for _, secgrp := range secgrpList.Values() {
-			securityGroup := SSecurityGroup{vpc: self}
-			if *secgrp.Location == self.Location {
-				if err := jsonutils.Update(&securityGroup, secgrp); err != nil {
-					return err
-				}
-				self.secgroups = append(self.secgroups, &securityGroup)
-			}
+		for i := 0; i < len(secgrps); i++ {
+			self.secgroups = append(self.secgroups, &secgrps[i])
 		}
+		return nil
 	}
-	return nil
 }
 
 func (self *SVpc) getWire() *SWire {

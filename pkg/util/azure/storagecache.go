@@ -101,7 +101,24 @@ func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageI
 	return self.uploadImage(userCred, imageId, osArch, osType, osDist, isForce)
 }
 
-func (self *SRegion) CreateStorageAccount(resourceGroup, storageAccount string) error {
+func (self *SRegion) checkBootDiagnosticStorageAccount() (string, error) {
+	storageAccount := fmt.Sprintf("%s-boot", self.Name)
+	resourceGroup := defaultResourceGroups[STORAGE_RESOURCE]
+	storageClinet := storageaccount.NewAccountsClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
+	storageClinet.Authorizer = self.client.authorizer
+	if result, err := storageClinet.ListByResourceGroup(context.Background(), resourceGroup); err != nil {
+		return "", err
+	} else {
+		for _, _storage := range *result.Value {
+			if *_storage.Name == storageAccount {
+				return *_storage.ID, nil
+			}
+		}
+		return self.CreateStorageAccount(resourceGroup, storageAccount)
+	}
+}
+
+func (self *SRegion) CreateStorageAccount(resourceGroup, storageAccount string) (string, error) {
 	storageClinet := storageaccount.NewAccountsClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
 	storageClinet.Authorizer = self.client.authorizer
 	sku := storageaccount.Sku{Name: storageaccount.SkuName("Standard_GRS")}
@@ -113,11 +130,11 @@ func (self *SRegion) CreateStorageAccount(resourceGroup, storageAccount string) 
 		storageAccount = fmt.Sprintf("%s%s", self.Name, DefaultStorageAccount)
 	}
 	if result, err := storageClinet.Create(context.Background(), resourceGroup, storageAccount, params); err != nil {
-		return err
+		return "", err
 	} else if err := result.WaitForCompletion(context.Background(), storageClinet.Client); err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	return self.getStorageAccountId(resourceGroup, storageAccount)
 }
 
 func (self *SRegion) checkStorageContainer(storageAccount, accessKey, containerName string) error {
@@ -133,10 +150,18 @@ func (self *SRegion) checkStorageContainer(storageAccount, accessKey, containerN
 	return nil
 }
 
-func (self *SRegion) isStorageAccountExist(resourceGroup, storageAccount string) bool {
+func (self *SRegion) getStorageAccountId(resourceGroup, storageAccount string) (string, error) {
 	storageClinet := storageaccount.NewAccountsClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
 	storageClinet.Authorizer = self.client.authorizer
-	if _, err := storageClinet.GetProperties(context.Background(), resourceGroup, storageAccount); err != nil {
+	if _storage, err := storageClinet.GetProperties(context.Background(), resourceGroup, storageAccount); err != nil {
+		return "", err
+	} else {
+		return *_storage.ID, nil
+	}
+}
+
+func (self *SRegion) isStorageAccountExist(resourceGroup, storageAccount string) bool {
+	if _, err := self.getStorageAccountId(resourceGroup, storageAccount); err != nil {
 		return false
 	}
 	return true
@@ -171,7 +196,7 @@ func (self *SRegion) CheckBlobContainer(resourceGroup, storageAccount, blobName 
 	if err := self.client.fetchAzueResourceGroup(); err != nil {
 		return err
 	} else if !self.isStorageAccountExist(resourceGroup, storageAccount) {
-		if err := self.CreateStorageAccount(resourceGroup, storageAccount); err != nil {
+		if _, err := self.CreateStorageAccount(resourceGroup, storageAccount); err != nil {
 			return err
 		}
 	}
@@ -306,7 +331,7 @@ func (self *SRegion) uploadContainerFileByPath(storageAccount, accessKey, contai
 			BlobServiceClient:     blobServiceClient,
 			ContainerName:         containerName,
 			BlobName:              blobName,
-			Parallelism:           4,
+			Parallelism:           3,
 			Resume:                false,
 			MD5Hash:               []byte(""), //localMetaData.FileMetaData.MD5Hash,
 		}

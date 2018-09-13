@@ -123,6 +123,9 @@ func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 	image := SImage{}
 	imageClient := compute.NewImagesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
 	imageClient.Authorizer = self.client.authorizer
+	if len(imageId) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
 	_, resourceGroup, imageName := pareResourceGroupWithName(imageId, IMAGE_RESOURCE)
 	if result, err := imageClient.Get(context.Background(), resourceGroup, imageName, ""); err != nil {
 		if result.Response.StatusCode == 404 {

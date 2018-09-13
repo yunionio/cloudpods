@@ -80,6 +80,46 @@ func (self *SInstanceNic) GetDriver() string {
 	return "virtio"
 }
 
+func (self *SInstanceNic) updateSecurityGroup(secgroupId string) error {
+	region := self.instance.host.zone.region
+	nicClient := network.NewInterfacesClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
+	nicClient.Authorizer = region.client.authorizer
+	_, resourceGroup, nicName := pareResourceGroupWithName(self.ID, NIC_RESOURCE)
+	iPConfigurations := []network.InterfaceIPConfiguration{
+		network.InterfaceIPConfiguration{
+			Name: &nicName,
+			ID:   &self.ID,
+			InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
+				Subnet: &network.Subnet{ID: &self.Properties.IPConfigurations[0].Properties.Subnet.ID},
+			},
+		},
+	}
+	params := network.Interface{
+		Location: &region.Name,
+		InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
+			IPConfigurations:     &iPConfigurations,
+			NetworkSecurityGroup: &network.SecurityGroup{},
+		},
+	}
+	if len(secgroupId) > 0 {
+		params.InterfacePropertiesFormat.NetworkSecurityGroup.ID = &secgroupId
+	}
+	if result, err := nicClient.CreateOrUpdate(context.Background(), resourceGroup, nicName, params); err != nil {
+		return err
+	} else if err := result.WaitForCompletion(context.Background(), nicClient.Client); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (self *SInstanceNic) revokeSecurityGroup() error {
+	return self.updateSecurityGroup("")
+}
+
+func (self *SInstanceNic) assignSecurityGroup(secgroupId string) error {
+	return self.updateSecurityGroup(secgroupId)
+}
+
 func (self *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
 	if wires, err := self.instance.host.GetIWires(); err != nil {
 		log.Errorf("GetINetwork error: %v", err)

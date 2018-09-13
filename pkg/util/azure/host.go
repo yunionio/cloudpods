@@ -3,7 +3,6 @@ package azure
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
@@ -16,6 +15,10 @@ import (
 type SHost struct {
 	zone *SZone
 }
+
+const (
+	DEFAULT_USER = "yunion"
+)
 
 func (self *SHost) GetMetadata() *jsonutils.JSONDict {
 	return nil
@@ -46,8 +49,17 @@ func (self *SHost) Refresh() error {
 }
 
 func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, networkId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string) (cloudprovider.ICloudVM, error) {
-	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, networkId, ipAddr, desc, passwd, storageType, diskSizes, publicKey)
+	nicId := ""
+	if net := self.zone.getNetworkById(networkId); net == nil {
+		return nil, fmt.Errorf("invalid network ID %s", networkId)
+	} else if nic, err := self.zone.region.CreateNetworkInterface(fmt.Sprintf("%s-ipconfig", name), ipAddr, net.GetId()); err != nil {
+		return nil, err
+	} else {
+		nicId = nic.ID
+	}
+	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, nicId, ipAddr, desc, passwd, storageType, diskSizes, publicKey)
 	if err != nil {
+		self.zone.region.DeleteNetworkInterface(nicId)
 		return nil, err
 	}
 	if vm, err := self.zone.region.GetInstance(vmId); err != nil {
@@ -57,15 +69,7 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 	}
 }
 
-func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, networkId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string) (string, error) {
-	nicId := ""
-	if net := self.zone.getNetworkById(networkId); net == nil {
-		return "", fmt.Errorf("invalid network ID %s", networkId)
-	} else if nic, err := self.zone.region.CreateNetworkInterface(fmt.Sprintf("%s-ipconfig", name), ipAddr, net.GetId()); err != nil {
-		return "", err
-	} else {
-		nicId = nic.ID
-	}
+func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, nicId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string) (string, error) {
 	computeClient := compute.NewVirtualMachinesClientWithBaseURI(self.zone.region.client.baseUrl, self.zone.region.client.subscriptionId)
 	computeClient.Authorizer = self.zone.region.client.authorizer
 
@@ -102,7 +106,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 		})
 	}
 
-	AdminUsername := "yunion"
+	AdminUsername := DEFAULT_USER
 
 	NetworkInterfaceReferences := []compute.NetworkInterfaceReference{
 		compute.NetworkInterfaceReference{ID: &nicId},
@@ -110,6 +114,14 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 
 	osType := compute.OperatingSystemTypes(image.GetOsType())
 	DiskSizeGB := int32(sysDiskSize)
+
+	// bootDiagnostics := true
+	// diagnosticsProfile := compute.DiagnosticsProfile{
+	// 	BootDiagnostics: &compute.BootDiagnostics{
+	// 		Enabled: &bootDiagnostics,
+	// 		//StorageURI:
+	// 	},
+	// }
 
 	properties := compute.VirtualMachineProperties{
 		HardwareProfile: &compute.HardwareProfile{},
@@ -127,6 +139,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 			},
 			DataDisks: &DataDisks,
 		},
+
 		OsProfile: &compute.OSProfile{
 			ComputerName:  &name,
 			AdminUsername: &AdminUsername,
@@ -146,7 +159,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 	}
 
 	params := compute.VirtualMachine{Location: &self.zone.region.Name, Name: &name, VirtualMachineProperties: &properties}
-	log.Debugf("Create instance params: %s", jsonutils.Marshal(params).PrettyString())
+	//log.Debugf("Create instance params: %s", jsonutils.Marshal(params).PrettyString())
 	for _, profile := range self.zone.region.getHardwareProfile(cpu, memMB) {
 		params.HardwareProfile.VMSize = compute.VirtualMachineSizeTypes(profile)
 		log.Debugf("Try HardwareProfile : %s", profile)
@@ -154,21 +167,16 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 		result, err := computeClient.CreateOrUpdate(context.Background(), resourceGroup, instanceName, params)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", profile, err)
-		} else if err := result.WaitForCompletion(context.Background(), computeClient.Client); err != nil {
-			if strings.Index(err.Error(), "OSProvisioningTimedOut") == -1 {
-				return "", err
-			} else if instance, err := self.zone.region.GetInstance(instanceId); err != nil {
-				return "", err
-			} else {
-				return instance.ID, nil
-			}
-		} else if vm, err := result.Result(computeClient); err != nil {
+		} else if _, err := result.Done(computeClient.Client); err != nil {
+			return "", err
+		} else if instance, err := self.zone.region.GetInstance(instanceId); err != nil {
+			return "", err
+		} else if err = cloudprovider.WaitStatus(instance, models.VM_RUNNING, time.Second*5, time.Second*1800); err != nil {
 			return "", err
 		} else {
-			return *vm.ID, nil
+			return instance.ID, nil
 		}
 	}
-	self.zone.region.DeleteNetworkInterface(nicId)
 	return "", fmt.Errorf("Failed to create, specification not supported")
 }
 
