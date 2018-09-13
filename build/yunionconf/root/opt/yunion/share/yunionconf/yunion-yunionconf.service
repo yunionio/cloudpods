@@ -1,0 +1,15 @@
+[Unit]
+Description=Yunion Conf Service
+Documentation=http://doc.yunionyun.com
+After=network.target
+
+[Service]
+Type=simple
+User=yunion
+Group=yunion
+ExecStart=/opt/yunion/bin/yunionconf --config /etc/yunion/yunionconf.conf
+WorkingDirectory=/opt/yunion
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

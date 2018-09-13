@@ -1,0 +1,38 @@
+package service
+
+import (
+	"os"
+
+	_ "github.com/go-sql-driver/mysql"
+
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/yunionconf"
+	"yunion.io/x/onecloud/pkg/yunionconf/models"
+	"yunion.io/x/onecloud/pkg/yunionconf/options"
+)
+
+func StartService() {
+	cloudcommon.ParseOptions(&options.Options, &options.Options.Options, os.Args, "yunionconf.conf")
+	cloudcommon.InitAuth(&options.Options.Options, nil)
+
+	if options.Options.GlobalVirtualResourceNamespace {
+		db.EnableGlobalVirtualResourceNamespace()
+	}
+
+	cloudcommon.InitDB(&options.Options.DBOptions)
+	defer cloudcommon.CloseDB()
+
+	app := cloudcommon.InitApp(&options.Options.Options)
+	yunionconf.InitHandlers(app)
+
+	if db.CheckSync(options.Options.AutoSyncTable) {
+		err := models.InitDB()
+		if err == nil {
+			cloudcommon.ServeForever(app, &options.Options.Options)
+		} else {
+			log.Errorf("InitDB fail: %s", err)
+		}
+	}
+}

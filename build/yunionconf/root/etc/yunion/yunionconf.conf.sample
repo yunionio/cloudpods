@@ -1,0 +1,8 @@
+auth_url = http://10.168.222.251:35357/v3
+admin_user = sysadmin
+admin_passwd = MxqhTC2VKe067jtD
+admin_project = system
+port = 9889
+cors_hosts = *
+sql_connection = 'mysql+pymysql://yunionconf:PASSWORD@10.168.222.1:3306/yunionconf?charset=utf8'
+auto_sync_table = True
