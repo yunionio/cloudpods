@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"yunion.io/x/onecloud/pkg/util/seclib2"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/osprofile"
@@ -355,25 +353,35 @@ func (self *SInstance) UpdateVM(name string) error {
 	return self.host.zone.region.UpdateVM(self.InstanceId, name)
 }
 
-func (self *SInstance) DeployVM(name string, password string, publicKey string, resetPassword bool, deleteKeypair bool, description string) error {
+func (self *SInstance) DeployVM(name string, password string, publicKey string, deleteKeypair bool, description string) error {
 	var keypairName string
 	if len(publicKey) > 0 {
-		key, e := self.host.lookUpAliyunKeypair(publicKey)
-		if e != nil {
-			key, e = self.host.importAliyunKeypair(publicKey)
-			if e != nil {
-				return e
-			}
+		var err error
+		keypairName, err = self.host.zone.region.syncKeypair(publicKey)
+		if err != nil {
+			return err
 		}
-
-		keypairName = key
 	}
 
-	return self.host.zone.region.DeployVM(self.InstanceId, name, password, keypairName, resetPassword, deleteKeypair, description)
+	return self.host.zone.region.DeployVM(self.InstanceId, name, password, keypairName, deleteKeypair, description)
 }
 
-func (self *SInstance) RebuildRoot(imageId string) error {
-	return self.host.zone.region.ReplaceSystemDisk(self.InstanceId, imageId)
+func (self *SInstance) RebuildRoot(imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+	keypair := ""
+	if len(publicKey) > 0 {
+		var err error
+		keypair, err = self.host.zone.region.syncKeypair(publicKey)
+		if err != nil {
+			return "", err
+		}
+	}
+	diskId, err := self.host.zone.region.ReplaceSystemDisk(self.InstanceId, imageId, passwd, keypair, sysSizeGB)
+	if err != nil {
+		return "", err
+	}
+	self.idisks = nil
+
+	return diskId, nil
 }
 
 func (self *SInstance) ChangeConfig(instanceId string, ncpu int, vmem int) error {
@@ -551,7 +559,7 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 	// }
 }
 
-func (self *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, resetPassword bool, deleteKeypair bool, description string) error {
+func (self *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, deleteKeypair bool, description string) error {
 	instance, err := self.GetInstance(instanceId)
 	if err != nil {
 		return err
@@ -559,17 +567,24 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 
 	// 修改密钥时直接返回
 	if deleteKeypair {
-		return self.DetachKeyPair(instanceId, instance.KeyPairName)
+		err = self.DetachKeyPair(instanceId, instance.KeyPairName)
+		if err != nil {
+			return err
+		}
 	}
 
 	if len(keypairName) > 0 {
-		return self.AttachKeypair(instanceId, keypairName)
+		err = self.AttachKeypair(instanceId, keypairName)
+		if err != nil {
+			return err
+		}
 	}
 
 	params := make(map[string]string)
-	if resetPassword {
-		params["Password"] = seclib2.RandomPassword2(12)
-	}
+
+	// if resetPassword {
+	//	params["Password"] = seclib2.RandomPassword2(12)
+	// }
 	// 指定密码的情况下，使用指定的密码
 	if len(password) > 0 {
 		params["Password"] = password
@@ -622,10 +637,28 @@ func (self *SRegion) modifyInstanceAttribute(instanceId string, params map[strin
 	return self.instanceOperation(instanceId, "ModifyInstanceAttribute", params)
 }
 
-func (self *SRegion) ReplaceSystemDisk(instanceId string, image string) error {
+func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd string, keypairName string, sysDiskSizeGB int) (string, error) {
 	params := make(map[string]string)
-	params["ImageId"] = image
-	return self.instanceOperation(instanceId, "ReplaceSystemDisk", params)
+	params["RegionId"] = self.RegionId
+	params["InstanceId"] = instanceId
+	params["ImageId"] = imageId
+	if len(passwd) > 0 {
+		params["Password"] = passwd
+	} else {
+		params["PasswordInherit"] = "True"
+	}
+	if len(keypairName) > 0 {
+		params["KeyPairName"] = keypairName
+	}
+	if sysDiskSizeGB > 0 {
+		params["SystemDisk.Size"] = fmt.Sprintf("%d", sysDiskSizeGB)
+	}
+	body, err := self.ecsRequest("ReplaceSystemDisk", params)
+	if err != nil {
+		return "", err
+	}
+	// log.Debugf("%s", body.String())
+	return body.GetString("DiskId")
 }
 
 func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, vmem int, disks []*SDisk) error {
@@ -685,7 +718,7 @@ func (self *SInstance) SyncSecurityGroup(secgroupId string, name string, rules [
 				return err
 			}
 		}
-	} else if secgrpId, err := vpc.syncSecurityGroup(secgroupId, name, rules); err != nil {
+	} else if secgrpId, err := vpc.SyncSecurityGroup(secgroupId, name, rules); err != nil {
 		return err
 	} else if err := vpc.assignSecurityGroup(secgrpId, self.InstanceId); err != nil {
 		return err

@@ -69,12 +69,12 @@ func (self *SVirtualMachine) IsEmulated() bool {
 	return false
 }
 
-func (self *SVirtualMachine) DeployVM(name string, password string, publicKey string, resetPassword bool, deleteKeypair bool, description string) error {
+func (self *SVirtualMachine) DeployVM(name string, password string, publicKey string, deleteKeypair bool, description string) error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SVirtualMachine) RebuildRoot(imageId string) error {
-	return cloudprovider.ErrNotImplemented
+func (self *SVirtualMachine) RebuildRoot(imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+	return "", cloudprovider.ErrNotImplemented
 }
 
 func (self *SVirtualMachine) UpdateVM(name string) error {

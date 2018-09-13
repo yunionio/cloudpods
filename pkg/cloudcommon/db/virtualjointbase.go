@@ -1,16 +1,17 @@
 package db
 
 import (
-	"context"
 	"fmt"
+	"context"
 	"reflect"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/pkg/util/reflectutils"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
+	"yunion.io/x/pkg/util/reflectutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type SVirtualJointResourceBase struct {
@@ -57,6 +58,22 @@ func (manager *SVirtualJointResourceBaseManager) AllowAttach(ctx context.Context
 		}
 	}
 	return false
+}
+
+/*func (joint *SVirtualJointResourceBase) GetJointModelManager() IJointModelManager {
+
+}*/
+
+func (joint *SVirtualJointResourceBase) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return nil
+}
+
+func (joint *SVirtualJointResourceBase) Master() IStandaloneModel {
+	return JointMaster(joint)
+}
+
+func (joint *SVirtualJointResourceBase) Slave() IStandaloneModel {
+	return JointSlave(joint)
 }
 
 func (self *SVirtualJointResourceBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
