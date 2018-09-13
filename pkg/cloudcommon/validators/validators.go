@@ -28,6 +28,7 @@ type IValidatorBase interface {
 
 type IValidator interface {
 	IValidatorBase
+	Optional(bool) IValidator
 	getValue() interface{}
 	setDefault(data *jsonutils.JSONDict) bool
 }

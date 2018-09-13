@@ -1,29 +1,19 @@
 package k8s
 
 import (
-	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
-	"yunion.io/x/onecloud/pkg/mcclient/options"
+	o "yunion.io/x/onecloud/pkg/mcclient/options/k8s"
 )
 
 func initRepo() {
 	cmdN := func(suffix string) string {
 		return resourceCmdN("repo", suffix)
 	}
-	type listOpt struct {
-		options.BaseListOptions
-	}
-	R(&listOpt{}, cmdN("list"), "List k8s global helm repos", func(s *mcclient.ClientSession, args *listOpt) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = args.BaseListOptions.Params()
-			if err != nil {
-				return err
-
-			}
+	R(&o.RepoListOptions{}, cmdN("list"), "List k8s global helm repos", func(s *mcclient.ClientSession, args *o.RepoListOptions) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
 		}
 		result, err := k8s.Repos.List(s, params)
 		if err != nil {
@@ -33,10 +23,7 @@ func initRepo() {
 		return nil
 	})
 
-	type getOpt struct {
-		NAME string `help:"ID or name of the repo"`
-	}
-	R(&getOpt{}, cmdN("show"), "Show details of a repo", func(s *mcclient.ClientSession, args *getOpt) error {
+	R(&o.RepoGetOptions{}, cmdN("show"), "Show details of a repo", func(s *mcclient.ClientSession, args *o.RepoGetOptions) error {
 		repo, err := k8s.Repos.Get(s, args.NAME, nil)
 		if err != nil {
 			return err
@@ -45,19 +32,8 @@ func initRepo() {
 		return nil
 	})
 
-	type createOpt struct {
-		getOpt
-		URL    string `help:"Repository url"`
-		Public bool   `help:"Make repository public"`
-	}
-	R(&createOpt{}, cmdN("create"), "Add repository", func(s *mcclient.ClientSession, args *createOpt) error {
-		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.NAME), "name")
-		params.Add(jsonutils.NewString(args.URL), "url")
-		if args.Public {
-			params.Add(jsonutils.JSONTrue, "is_public")
-		}
-		repo, err := k8s.Repos.Create(s, params)
+	R(&o.RepoCreateOptions{}, cmdN("create"), "Add repository", func(s *mcclient.ClientSession, args *o.RepoCreateOptions) error {
+		repo, err := k8s.Repos.Create(s, args.Params())
 		if err != nil {
 			return err
 		}
@@ -65,20 +41,8 @@ func initRepo() {
 		return nil
 	})
 
-	type updateOpt struct {
-		getOpt
-		Name string `help:"Repository name to change"`
-		Url  string `help:"Repository url to change"`
-	}
-	R(&updateOpt{}, cmdN("update"), "Update helm repository", func(s *mcclient.ClientSession, args *updateOpt) error {
-		params := jsonutils.NewDict()
-		if args.Name != "" {
-			params.Add(jsonutils.NewString(args.Name), "name")
-		}
-		if args.Url != "" {
-			params.Add(jsonutils.NewString(args.Url), "url")
-		}
-		repo, err := k8s.Repos.Update(s, args.NAME, params)
+	R(&o.RepoUpdateOptions{}, cmdN("update"), "Update helm repository", func(s *mcclient.ClientSession, args *o.RepoUpdateOptions) error {
+		repo, err := k8s.Repos.Update(s, args.NAME, args.Params())
 		if err != nil {
 			return err
 		}
@@ -86,25 +50,7 @@ func initRepo() {
 		return nil
 	})
 
-	R(&getOpt{}, cmdN("private"), "Make repository private", func(s *mcclient.ClientSession, args *getOpt) error {
-		repo, err := k8s.Repos.PerformAction(s, args.NAME, "private", nil)
-		if err != nil {
-			return err
-		}
-		printObject(repo)
-		return nil
-	})
-
-	R(&getOpt{}, cmdN("public"), "Make repository public", func(s *mcclient.ClientSession, args *getOpt) error {
-		repo, err := k8s.Repos.PerformAction(s, args.NAME, "public", nil)
-		if err != nil {
-			return err
-		}
-		printObject(repo)
-		return nil
-	})
-
-	R(&getOpt{}, cmdN("delete"), "Delete a repository", func(s *mcclient.ClientSession, args *getOpt) error {
+	R(&o.RepoGetOptions{}, cmdN("delete"), "Delete a repository", func(s *mcclient.ClientSession, args *o.RepoGetOptions) error {
 		repo, err := k8s.Repos.Delete(s, args.NAME, nil)
 		if err != nil {
 			return err
