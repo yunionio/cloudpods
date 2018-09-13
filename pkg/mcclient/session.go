@@ -21,6 +21,10 @@ const (
 	DEFAULT_API_VERSION = "v1"
 )
 
+var (
+	MutilVersionService = []string{"compute"}
+)
+
 type ClientSession struct {
 	client        *Client
 	region        string
@@ -72,7 +76,7 @@ func (this *ClientSession) GetServiceURL(service, endpointType string) (string, 
 		// session specific endpoint type should override the input endpointType, which is supplied by manager
 		endpointType = this.endpointType
 	}
-	if len(this.apiVersion) > 0 && this.apiVersion != DEFAULT_API_VERSION {
+	if utils.IsInStringArray(service, MutilVersionService) && len(this.apiVersion) > 0 && this.apiVersion != DEFAULT_API_VERSION {
 		service = fmt.Sprintf("%s_%s", service, this.apiVersion)
 	}
 	url, err := this.token.GetServiceURL(service, this.region, this.zone, endpointType)
@@ -87,7 +91,7 @@ func (this *ClientSession) GetServiceURLs(service, endpointType string) ([]strin
 		// session specific endpoint type should override the input endpointType, which is supplied by manager
 		endpointType = this.endpointType
 	}
-	if len(this.apiVersion) > 0 && this.apiVersion != DEFAULT_API_VERSION {
+	if utils.IsInStringArray(service, MutilVersionService) && len(this.apiVersion) > 0 && this.apiVersion != DEFAULT_API_VERSION {
 		service = fmt.Sprintf("%s_%s", service, this.apiVersion)
 	}
 	urls, err := this.token.GetServiceURLs(service, this.region, this.zone, endpointType)

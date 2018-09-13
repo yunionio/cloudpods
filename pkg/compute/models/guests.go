@@ -513,6 +513,16 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return nil, err
 	}
+
+	if vmemSize > 0 || vcpuCount > 0 {
+		if !utils.IsInStringArray(self.Status, []string{VM_READY}) {
+			return nil, httperrors.NewInvalidStatusError("Cannot modify Memory and CPU in status %s", self.Status)
+		}
+		if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
+			return nil, httperrors.NewInputParameterError("Cannot modify memory for baremetal")
+		}
+	}
+
 	if vmemSize > 0 {
 		data.Add(jsonutils.NewInt(int64(vmemSize)), "vmem_size")
 	}
@@ -530,14 +540,6 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 			return nil, httperrors.NewInputParameterError("name is to short")
 		}
 	}
-	/* if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
-		return nil, httperrors.NewInputParameterError("Cannot modify memory for baremetal")
-	}
-	if ! utils.IsInStringArray(self.Status, []string {VM_READY}) {
-		return nil, httperrors.NewInvalidStatusError("Cannot modify Memory and CPU in status %s", self.Status)
-	}*/
-	// return nil, httperrors.NewInputParameterError("cannot update guest vmem_size")
-	//}
 	return self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
@@ -2182,6 +2184,9 @@ func (self *SGuest) CategorizeNics() SGuestNicCategory {
 
 func (self *SGuest) StartGuestDeployTask(ctx context.Context, userCred mcclient.TokenCredential, kwargs *jsonutils.JSONDict, action string, parentTaskId string) error {
 	self.SetStatus(userCred, VM_START_DEPLOY, "")
+	if kwargs == nil {
+		kwargs = jsonutils.NewDict()
+	}
 	kwargs.Add(jsonutils.NewString(action), "deploy_action")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestDeployTask", self, userCred, kwargs, parentTaskId, "", nil)
 	if err != nil {
@@ -2506,6 +2511,109 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 		}
 	}
 	return nil, httperrors.NewResourceNotFoundError("Disk %s not found", diskId)
+}
+
+func (self *SGuest) AllowPerformDetachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Status != VM_READY {
+		return nil, httperrors.NewInvalidStatusError("Cannot detach network in status %s", self.Status)
+	}
+	reserve := jsonutils.QueryBoolean(data, "reserve", false)
+	netId, err := data.GetString("net_id")
+	if err != nil {
+		return nil, httperrors.NewBadRequestError(err.Error())
+	}
+	iNetwork, err := NetworkManager.FetchById(netId)
+	if err != nil {
+		return nil, httperrors.NewNotFoundError("Network %s not found", netId)
+	}
+	network := iNetwork.(*SNetwork)
+	err = self.detachNetwork(ctx, userCred, network, reserve, true)
+	return nil, err
+}
+
+func (self *SGuest) AllowPerformAttachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Status == VM_READY {
+		// owner_cred = self.get_owner_user_cred() >.<
+		netDesc, err := data.Get("net_desc")
+		if err != nil {
+			return nil, httperrors.NewBadRequestError(err.Error())
+		}
+		conf, err := parseNetworkInfo(userCred, netDesc)
+		if err != nil {
+			return nil, err
+		}
+		err = isValidNetworkInfo(userCred, conf)
+		if err != nil {
+			return nil, httperrors.NewBadRequestError(err.Error())
+		}
+		var inicCnt, enicCnt, ibw, ebw int
+		if isExitNetworkInfo(conf) {
+			enicCnt = 1
+			ebw = conf.BwLimit
+		} else {
+			inicCnt = 1
+			ibw = conf.BwLimit
+		}
+		pendingUsage := &SQuota{
+			Port:  inicCnt,
+			Eport: enicCnt,
+			Bw:    ibw,
+			Ebw:   ebw,
+		}
+		projectId := self.GetOwnerProjectId()
+		err = QuotaManager.CheckSetPendingQuota(ctx, userCred, projectId, pendingUsage)
+		if err != nil {
+			return nil, httperrors.NewOutOfQuotaError(err.Error())
+		}
+		host := self.GetHost()
+		err = self.attach2NetworkDesc(ctx, userCred, host, conf, pendingUsage)
+		if err != nil {
+			QuotaManager.CancelPendingUsage(ctx, userCred, projectId, nil, pendingUsage)
+			return nil, httperrors.NewBadRequestError(err.Error())
+		}
+		// from clouds.models.hosts import HostsSchedDescCache
+		// HostsSchedDescCache().set_dirty(host.id if host else None)
+		err = self.StartGuestDeployTask(ctx, userCred, nil, "deploy", "")
+		return nil, err
+	}
+	return nil, httperrors.NewBadRequestError("Cannot attach network in status %s", self.Status)
+}
+
+func (self *SGuest) AllowPerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || userCred.IsSystemAdmin()
+}
+
+func (self *SGuest) PerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING}) {
+		guestnics := self.GetNetworks()
+		index, err := data.Int("index")
+		if err != nil || index > int64(len(guestnics)) {
+			return nil, httperrors.NewBadRequestError("Index Not fount or out of NIC index")
+		}
+		bandwidth, err := data.Int("bandwidth")
+		if err != nil || bandwidth <= 0 {
+			return nil, httperrors.NewBadRequestError("Bandwidth must be larger than 0")
+		}
+		guestnic := &guestnics[index]
+		if guestnic.BwLimit != int(bandwidth) {
+			GuestnetworkManager.TableSpec().Update(guestnic, func() error {
+				guestnic.BwLimit = int(bandwidth)
+				return nil
+			})
+			err := self.StartSyncTask(ctx, userCred, false, "")
+			return nil, err
+		}
+		return nil, nil
+	}
+	return nil, httperrors.NewBadRequestError("Cannot change bandwidth in status %s", self.Status)
 }
 
 func (self *SGuest) AllowPerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -3515,7 +3623,7 @@ func (self *SGuest) GetDetailsDesc(ctx context.Context, userCred mcclient.TokenC
 	return desc, nil
 }
 
-func (self *SGuest) AllowPerformSendkeys(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+func (self *SGuest) AllowPerformSendkeys(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred)
 }
 
@@ -3532,7 +3640,7 @@ func (self *SGuest) PerformSendkeys(ctx context.Context, userCred mcclient.Token
 	}
 	err = self.VerifySendKeys(keys)
 	if err != nil {
-		return nil, err
+		return nil, httperrors.NewBadRequestError(err.Error())
 	}
 	cmd := fmt.Sprintf("sendkey %s", keys)
 	duration, err := data.Int("duration")

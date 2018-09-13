@@ -224,21 +224,18 @@ func (self *SKVMGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, disk
 }
 
 func (self *SKVMGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	if guest.Status == models.VM_RUNNING {
-		desc := guest.GetDriver().GetJsonDescAtHost(ctx, guest, host)
-		body := jsonutils.NewDict()
-		body.Add(desc, "desc")
-		if fw_only, _ := task.GetParams().Bool("fw_only"); fw_only {
-			body.Add(jsonutils.JSONTrue, "fw_only")
-		}
-		url := fmt.Sprintf("/servers/%s/sync", guest.Id)
-		header := http.Header{}
-		header.Add("X-Task-Id", task.GetTaskId())
-		header.Add("X-Region-Version", "v2")
-		_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
-		return err
+	desc := guest.GetDriver().GetJsonDescAtHost(ctx, guest, host)
+	body := jsonutils.NewDict()
+	body.Add(desc, "desc")
+	if fw_only, _ := task.GetParams().Bool("fw_only"); fw_only {
+		body.Add(jsonutils.JSONTrue, "fw_only")
 	}
-	return nil
+	url := fmt.Sprintf("/servers/%s/sync", guest.Id)
+	header := http.Header{}
+	header.Add("X-Task-Id", task.GetTaskId())
+	header.Add("X-Region-Version", "v2")
+	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+	return err
 }
 
 func (self *SKVMGuestDriver) RqeuestSuspendOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {

@@ -136,7 +136,7 @@ func (dispatcher *DBJointModelDispatcher) Get(ctx context.Context, id1 string, i
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-	if !item.AllowGetDetails(ctx, userCred, query) {
+	if !item.AllowGetJointDetails(ctx, userCred, query, item) {
 		return nil, httperrors.NewForbiddenError("Not allow to get details")
 	}
 	return getItemDetails(dispatcher.JointModelManager(), item, ctx, userCred, query)
@@ -200,6 +200,11 @@ func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
+
+	if !item.AllowUpdateJointItem(ctx, userCred, item) {
+		return nil, httperrors.NewForbiddenError(fmt.Sprintf("Not allow to update item"))
+	}
+
 	lockman.LockJointObject(ctx, master, slave)
 	defer lockman.ReleaseJointObject(ctx, master, slave)
 	return updateItem(dispatcher.JointModelManager(), item, ctx, userCred, query, data)
