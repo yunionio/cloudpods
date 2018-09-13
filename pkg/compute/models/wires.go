@@ -512,7 +512,6 @@ func (self *SWire) GetIWire() (cloudprovider.ICloudWire, error) {
 	}
 	ivpc, err := vpc.GetIVpc()
 	if err != nil {
-		log.Errorf("can not find ivpc")
 		return nil, err
 	}
 	return ivpc.GetIWireById(self.GetExternalId())
