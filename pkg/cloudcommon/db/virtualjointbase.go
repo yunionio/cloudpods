@@ -60,22 +60,6 @@ func (manager *SVirtualJointResourceBaseManager) AllowAttach(ctx context.Context
 	return false
 }
 
-/*func (joint *SVirtualJointResourceBase) GetJointModelManager() IJointModelManager {
-
-}*/
-
-func (joint *SVirtualJointResourceBase) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return nil
-}
-
-func (joint *SVirtualJointResourceBase) Master() IStandaloneModel {
-	return JointMaster(joint)
-}
-
-func (joint *SVirtualJointResourceBase) Slave() IStandaloneModel {
-	return JointSlave(joint)
-}
-
 func (self *SVirtualJointResourceBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	masterVirtual := self.Master().(IVirtualModel)
 	return masterVirtual.IsOwner(userCred)
