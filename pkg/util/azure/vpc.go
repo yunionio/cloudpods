@@ -119,15 +119,18 @@ func (self *SVpc) getWire() *SWire {
 }
 
 func (self *SVpc) fetchNetworks() error {
-	self.Refresh()
-	for i := 0; i < len(self.Properties.Subnets); i++ {
-		_network := self.Properties.Subnets[i]
-		wire := self.getWire()
-		network := SNetwork{wire: wire, Name: _network.Name, ID: _network.ID}
-		if err := jsonutils.Update(&network, _network); err != nil {
-			return err
+	if vpc, err := self.region.getVpc(self.ID); err != nil {
+		return err
+	} else {
+		for i := 0; i < len(vpc.Properties.Subnets); i++ {
+			_network := vpc.Properties.Subnets[i]
+			wire := self.getWire()
+			network := SNetwork{wire: wire, Name: _network.Name, ID: _network.ID}
+			if err := jsonutils.Update(&network, _network); err != nil {
+				return err
+			}
+			wire.addNetwork(&network)
 		}
-		wire.addNetwork(&network)
 	}
 	return nil
 }
@@ -194,13 +197,23 @@ func (self *SVpc) GetStatus() string {
 	return "disabled"
 }
 
-func (self *SVpc) Refresh() error {
-	_, resourceGroup, vpcName := pareResourceGroupWithName(self.ID, VPC_RESOURCE)
-	vpcClient := network.NewVirtualNetworksClientWithBaseURI(self.region.client.baseUrl, self.region.SubscriptionID)
-	vpcClient.Authorizer = self.region.client.authorizer
+func (region *SRegion) getVpc(vpcId string) (*SVpc, error) {
+	vpc := SVpc{}
+	_, resourceGroup, vpcName := pareResourceGroupWithName(vpcId, VPC_RESOURCE)
+	vpcClient := network.NewVirtualNetworksClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
+	vpcClient.Authorizer = region.client.authorizer
 	if result, err := vpcClient.Get(context.Background(), resourceGroup, vpcName, ""); err != nil {
-		return cloudprovider.ErrNotFound
-	} else if err := jsonutils.Update(self, result); err != nil {
+		return nil, cloudprovider.ErrNotFound
+	} else if err := jsonutils.Update(&vpc, result); err != nil {
+		return nil, err
+	}
+	return &vpc, nil
+}
+
+func (self *SVpc) Refresh() error {
+	if vpc, err := self.region.getVpc(self.ID); err != nil {
+		return err
+	} else if err := jsonutils.Update(self, vpc); err != nil {
 		return err
 	}
 	return nil

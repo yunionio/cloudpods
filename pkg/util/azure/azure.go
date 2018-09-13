@@ -31,7 +31,6 @@ const (
 	DISK_RESOURCE     = "disk"
 	INSTANCE_RESOURCE = "instance"
 	VPC_RESOURCE      = "vpc"
-	NETWORK_RESOURCE  = "network"
 	NIC_RESOURCE      = "nic"
 	IMAGE_RESOURCE    = "image"
 	STORAGE_RESOURCE  = "storage"
@@ -43,7 +42,6 @@ var defaultResourceGroups = map[string]string{
 	DISK_RESOURCE:     "YunionDiskResource",
 	INSTANCE_RESOURCE: "YunionInstanceResource",
 	VPC_RESOURCE:      "YunionVpcResource",
-	NETWORK_RESOURCE:  "YunionNetworkResource",
 	NIC_RESOURCE:      "YunionNicInterface",
 	IMAGE_RESOURCE:    "YunionImageResource",
 	STORAGE_RESOURCE:  "YunionStorageResource",
@@ -93,7 +91,8 @@ func NewAzureClient(providerId string, providerName string, accessKey string, se
 func pareResourceGroupWithName(s string, resourceType string) (string, string, string) {
 	valid := regexp.MustCompile("resourceGroups/(.+)/providers/.+/(.+)$")
 	if resourceGroups := valid.FindStringSubmatch(s); len(resourceGroups) == 3 {
-		return s, resourceGroups[1], resourceGroups[2]
+		globalId := fmt.Sprintf("resourceGroups/%s/providers/%s/%s", resourceGroups[1], resourceType, resourceGroups[2])
+		return globalId, resourceGroups[1], resourceGroups[2]
 	}
 	if len(s) == 0 {
 		log.Errorf("pareResourceGroupWithName[%s] error", resourceType)

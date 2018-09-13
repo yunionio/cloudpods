@@ -266,39 +266,6 @@ func (self *SRegion) ListContainerFiles(resourceGroup, storageAccount, blobName 
 	}
 }
 
-func (self *SRegion) uploadContainerFileByReader(storageAccount, accessKey, containerName, fileName string, content io.Reader, size int64) (string, error) {
-	if client, err := storage.NewBasicClientOnSovereignCloud(storageAccount, accessKey, self.client.env); err != nil {
-		return "", err
-	} else {
-		blob := client.GetBlobService()
-		container := blob.GetContainerReference(containerName)
-		blobClient := container.GetBlobReference(fileName)
-		if _, err := blobClient.DeleteIfExists(&storage.DeleteBlobOptions{}); err != nil {
-			return "", err
-		}
-		blobClient.Properties.ContentLength = size
-		if err := blobClient.PutPageBlob(&storage.PutBlobOptions{}); err != nil {
-			return "", err
-		}
-		var readed int64 = 0
-		for i := 0; i < int(size/DefaultReadBlockSize); i++ {
-			if err := blobClient.WriteRange(storage.BlobRange{Start: uint64(readed), End: uint64(readed + DefaultReadBlockSize - 1)}, content, &storage.PutPageOptions{}); err != nil {
-				return "", err
-			}
-			readed += DefaultReadBlockSize
-			log.Debugf("Upload %s %f%% to %s", fileName, float64(readed)/float64(size)*100, storageAccount)
-		}
-		if extraSize := size % DefaultReadBlockSize; extraSize > 0 {
-			log.Debugf("Upload %s extra size: %d to %s", fileName, extraSize, storageAccount)
-			if err := blobClient.WriteRange(storage.BlobRange{Start: uint64(readed), End: uint64(readed + extraSize - 1)}, content, &storage.PutPageOptions{}); err != nil {
-				return "", err
-			}
-		}
-		log.Debugf("Upload %s complate", fileName)
-		return blobClient.GetURL(), nil
-	}
-}
-
 func (self *SRegion) uploadContainerFileByPath(storageAccount, accessKey, containerName, localVHDPath string) (string, error) {
 	if err := ensureVHDSanity(localVHDPath); err != nil {
 		return "", err
@@ -339,7 +306,7 @@ func (self *SRegion) uploadContainerFileByPath(storageAccount, accessKey, contai
 			BlobServiceClient:     blobServiceClient,
 			ContainerName:         containerName,
 			BlobName:              blobName,
-			Parallelism:           3,
+			Parallelism:           4,
 			Resume:                false,
 			MD5Hash:               []byte(""), //localMetaData.FileMetaData.MD5Hash,
 		}
@@ -407,7 +374,6 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 
 		blobURI, err := self.region.uploadContainerFileByPath(storageAccount, accessKey, DefaultBlobContainer, tmpFile)
 		os.Remove(tmpFile)
-		//blobURI, err := self.region.uploadContainerFileByReader(storageAccount, accessKey, DefaultBlobContainer, imageNameOnBlob, reader, size)
 		if err != nil {
 			log.Errorf("uploadContainerFileByPath error: %v", err)
 			return "", err

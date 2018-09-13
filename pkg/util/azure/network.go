@@ -35,7 +35,7 @@ func (self *SNetwork) GetName() string {
 }
 
 func (self *SNetwork) GetGlobalId() string {
-	globalId, _, _ := pareResourceGroupWithName(self.ID, NETWORK_RESOURCE)
+	globalId, _, _ := pareResourceGroupWithName(self.ID, VPC_RESOURCE)
 	return globalId
 }
 

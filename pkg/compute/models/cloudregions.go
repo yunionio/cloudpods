@@ -309,7 +309,7 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 		wires := WireManager.Query().SubQuery()
 		vpcs := VpcManager.Query().SubQuery()
 
-		sq := vpcs.Query(vpcs.Field("cloudregion_id"))
+		sq := vpcs.Query(sqlchemy.DISTINCT("cloudregion_id", vpcs.Field("cloudregion_id")))
 		sq = sq.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
 		sq = sq.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
 		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))

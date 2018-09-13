@@ -78,7 +78,8 @@ func (self *SRegion) createNetwork(vpc *SVpc, subnetName string, cidr string, de
 
 	networkClient := network.NewVirtualNetworksClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
 	networkClient.Authorizer = self.client.authorizer
-	networkId, resourceGroup, vpcName := pareResourceGroupWithName(vpc.ID, VPC_RESOURCE)
+	_, resourceGroup, vpcName := pareResourceGroupWithName(vpc.ID, VPC_RESOURCE)
+	networkId, _, _ := pareResourceGroupWithName(subnetName, VPC_RESOURCE)
 	if result, err := networkClient.CreateOrUpdate(context.Background(), resourceGroup, vpcName, params); err != nil {
 		return "", err
 	} else if err := result.WaitForCompletion(context.Background(), networkClient.Client); err != nil {
@@ -120,10 +121,8 @@ func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, e
 }
 
 func (self *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
-	if self.inetworks == nil {
-		if err := self.vpc.fetchNetworks(); err != nil {
-			return nil, err
-		}
+	if err := self.vpc.fetchNetworks(); err != nil {
+		return nil, err
 	}
 	return self.inetworks, nil
 }
@@ -141,12 +140,13 @@ func (self *SWire) getNetworkById(networkId string) *SNetwork {
 		log.Errorf("getNetworkById error: %v", err)
 		return nil
 	} else {
-		_, resourceGroup, networkName := pareResourceGroupWithName(networkId, NETWORK_RESOURCE)
+		globalId, _, _ := pareResourceGroupWithName(networkId, VPC_RESOURCE)
 		log.Debugf("search for networks %d", len(networks))
 		for i := 0; i < len(networks); i++ {
 			network := networks[i].(*SNetwork)
-			_, _resourceGroup, _networkName := pareResourceGroupWithName(network.ID, NETWORK_RESOURCE)
-			if resourceGroup == _resourceGroup && networkName == _networkName {
+			_globalId, _, _ := pareResourceGroupWithName(network.ID, VPC_RESOURCE)
+			log.Errorf("Compaire %s => %s", globalId, _globalId)
+			if globalId == _globalId {
 				return network
 			}
 		}
