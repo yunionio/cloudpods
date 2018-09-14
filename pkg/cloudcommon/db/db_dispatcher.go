@@ -955,10 +955,6 @@ func objectPerformAction(dispatcher *DBModelDispatcher, modelValue reflect.Value
 }
 
 func updateItem(manager IModelManager, item IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !item.AllowUpdateItem(ctx, userCred) {
-		return nil, httperrors.NewForbiddenError(fmt.Sprintf("Not allow to update item"))
-	}
-
 	var err error
 
 	err = item.ValidateUpdateCondition(ctx)
@@ -1028,6 +1024,10 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 			dispatcher.modelManager.Keyword(), idStr))
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
+	}
+
+	if !model.AllowUpdateItem(ctx, userCred) {
+		return nil, httperrors.NewForbiddenError(fmt.Sprintf("Not allow to update item"))
 	}
 
 	lockman.LockObject(ctx, model)
