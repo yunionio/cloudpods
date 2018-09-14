@@ -3,12 +3,12 @@ package logclient
 import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/stringutils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/pkg/util/stringutils"
 )
 
 const (
@@ -102,7 +102,6 @@ func AddActionLog(model IObject, action string, iNotes interface{}, userCred mcc
 	}
 
 	logentry.Add(jsonutils.NewString(notes), "notes")
-
 	logclientWorkerMan.Run(func() {
 		s := auth.GetSession(userCred, "", "")
 		_, err := modules.Actions.Create(s, logentry)
