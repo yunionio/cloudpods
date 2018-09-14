@@ -10,38 +10,65 @@ import (
 const (
 	DIGITS  = "23456789"
 	LETTERS = "abcdefghjkmnpqrstuvwxyz"
+	UPPERS  = "ABCDEFGHJKMNPRSTUVWXYZ"
 	PUNC    = "()~@#$%^&*-+={}[]:;<>,.?/"
+
+	ALL_DIGITS = "0123456789"
+	ALL_LETTERS = "abcdefghijklmnopqrstuvwxyz"
+	ALL_UPPERS  = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	ALL_PUNC = PUNC
 )
 
-var CHARS = fmt.Sprintf("%s%s%s%s", DIGITS, LETTERS, strings.ToUpper(LETTERS), PUNC)
+type PasswordStrength struct {
+	Digits int
+	Lowercases int
+	Uppercases int
+	Punctuats int
+}
+
+var CHARS = fmt.Sprintf("%s%s%s%s", DIGITS, LETTERS, UPPERS, PUNC)
 
 func RandomPassword2(width int) string {
 	if width < 6 {
 		width = 6
 	}
 	for {
+		ps := PasswordStrength{}
 		var buf bytes.Buffer
-		digitsCnt := 0
-		letterCnt := 0
-		upperCnt := 0
-		puncCnt := 0
 		for i := 0; i < width; i += 1 {
 			index := rand.Intn(len(CHARS))
 			ch := CHARS[index]
 			if strings.IndexByte(DIGITS, ch) >= 0 {
-				digitsCnt += 1
+				ps.Digits += 1
 			} else if strings.IndexByte(LETTERS, ch) >= 0 {
-				letterCnt += 1
-			} else if strings.IndexByte(LETTERS, ch+32) >= 0 {
-				upperCnt += 1
+				ps.Lowercases += 1
+			} else if strings.IndexByte(UPPERS, ch) >= 0 {
+				ps.Uppercases += 1
 			} else if strings.IndexByte(PUNC, ch) >= 0 {
-				puncCnt += 1
+				ps.Punctuats += 1
 			}
 			buf.WriteByte(ch)
 		}
-		if digitsCnt > 1 && letterCnt > 1 && upperCnt > 1 && puncCnt >= 1 && puncCnt <= 2 {
+		if ps.Digits > 1 && ps.Lowercases > 1 && ps.Uppercases > 1 && ps.Punctuats >= 1 && ps.Punctuats <= 2 {
 			return buf.String()
 		}
 	}
 	return ""
+}
+
+func AnalyzePasswordStrenth(passwd string) PasswordStrength {
+	ps := PasswordStrength{}
+
+	for i := 0; i < len(passwd); i += 1 {
+		if strings.IndexByte(ALL_DIGITS, passwd[i]) >= 0 {
+			ps.Digits += 1
+		} else if strings.IndexByte(ALL_LETTERS, passwd[i]) >= 0 {
+			ps.Lowercases += 1
+		} else if strings.IndexByte(ALL_UPPERS, passwd[i]) >= 0 {
+			ps.Uppercases += 1
+		} else if strings.IndexByte(ALL_PUNC, passwd[i]) >= 0 {
+			ps.Punctuats += 1
+		}
+	}
+	return ps
 }

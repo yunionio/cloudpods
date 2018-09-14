@@ -73,6 +73,8 @@ func init() {
 type SDisk struct {
 	db.SSharableVirtualResourceBase
 
+	SBillingResourceBase
+
 	DiskFormat string `width:"32" charset:"ascii" nullable:"false" default:"qcow2" list:"user"` // Column(VARCHAR(32, charset='ascii'), nullable=False, default='qcow2')
 	DiskSize   int    `nullable:"false" list:"user"`                                            // Column(Integer, nullable=False) # in MB
 	AccessPath string `width:"256" charset:"ascii" nullable:"true" get:"user"`                  // = Column(VARCHAR(256, charset='ascii'), nullable=True)
@@ -612,6 +614,9 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 
 		self.IsEmulated = extDisk.IsEmulated()
 
+		self.BillingType = extDisk.GetBillingType()
+		self.ExpiredAt = extDisk.GetExpiredAt()
+
 		self.ProjectId = userCred.GetProjectId()
 
 		return nil
@@ -654,6 +659,9 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	disk.Nonpersistent = extDisk.GetIsNonPersistent()
 
 	disk.IsEmulated = extDisk.IsEmulated()
+
+	disk.BillingType = extDisk.GetBillingType()
+	disk.ExpiredAt = extDisk.GetExpiredAt()
 
 	err := manager.TableSpec().Insert(&disk)
 	if err != nil {
@@ -1011,6 +1019,8 @@ func (self *SDisk) GetShortDesc() *jsonutils.JSONDict {
 	if priceKey := self.GetMetadata("price_key", nil); len(priceKey) > 0 {
 		desc.Add(jsonutils.NewString(priceKey), "price_key")
 	}
+
+	desc.Add(jsonutils.NewString(self.GetChargeType()), "charge_type")
 
 	if hypervisor := self.GetMetadata("hypervisor", nil); len(hypervisor) > 0 {
 		desc.Add(jsonutils.NewString(hypervisor), "hypervisor")
