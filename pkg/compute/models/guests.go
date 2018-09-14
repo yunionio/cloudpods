@@ -2468,6 +2468,74 @@ func (self *SGuest) DetachDisk(ctx context.Context, disk *SDisk, userCred mcclie
 	}
 }
 
+func (self *SGuest) AllowPerformCreatedisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	var diskIdx, diskSize = 0, 0
+	disksConf := jsonutils.NewDict()
+	diskSizes := make(map[string]int, 0)
+	diskSeq := fmt.Sprintf("disk.%d", diskIdx)
+	for data.Contains(diskSeq) {
+		diskDef, _ := data.Get(diskSeq)
+		diskInfo, err := parseDiskInfo(ctx, userCred, diskDef)
+		if err != nil {
+			logclient.AddActionLog(self, logclient.ACT_CREATE, err.Error(), userCred, false)
+			return nil, httperrors.NewBadRequestError(err.Error())
+		}
+		disksConf.Set(diskSeq, jsonutils.Marshal(diskInfo))
+		if _, ok := diskSizes[diskInfo.Backend]; !ok {
+			diskSizes[diskInfo.Backend] = diskInfo.Size
+		} else {
+			diskSizes[diskInfo.Backend] += diskInfo.Size
+		}
+		diskSize += diskInfo.Size
+		diskIdx += 1
+		diskSeq = fmt.Sprintf("disk.%d", diskIdx)
+	}
+	if diskIdx == 0 {
+		logclient.AddActionLog(self, logclient.ACT_CREATE, "No Disk Info Provided", userCred, false)
+		return nil, httperrors.NewBadRequestError("No Disk Info Provided")
+	}
+	host := self.GetHost()
+	if host == nil {
+		logclient.AddActionLog(self, logclient.ACT_CREATE, "No valid host", userCred, false)
+		return nil, httperrors.NewBadRequestError("No valid host")
+	}
+	for backend, size := range diskSizes {
+		storage := host.GetLeastUsedStorage(backend)
+		if storage == nil {
+			logclient.AddActionLog(self, logclient.ACT_CREATE, "No valid storage on current host", userCred, false)
+			return nil, httperrors.NewBadRequestError("No valid storage on current host")
+		}
+		if storage.GetCapacity() < size {
+			logclient.AddActionLog(self, logclient.ACT_CREATE, "Not eough storage space on current host", userCred, false)
+			return nil, httperrors.NewBadRequestError("Not eough storage space on current host")
+		}
+	}
+	pendingUsage := &SQuota{
+		Storage: diskSize,
+	}
+	err := QuotaManager.CheckSetPendingQuota(ctx, userCred, self.ProjectId, pendingUsage)
+	if err != nil {
+		logclient.AddActionLog(self, logclient.ACT_CREATE, err.Error(), userCred, false)
+		return nil, httperrors.NewBadRequestError(err.Error())
+	}
+
+	lockman.LockObject(ctx, host)
+	defer lockman.ReleaseObject(ctx, host)
+
+	err = self.CreateDisksOnHost(ctx, userCred, host, disksConf, pendingUsage)
+	if err != nil {
+		QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
+		logclient.AddActionLog(self, logclient.ACT_CREATE, err.Error(), userCred, false)
+		return nil, httperrors.NewBadRequestError(err.Error())
+	}
+	err = self.StartGuestCreateDiskTask(ctx, userCred, disksConf, "")
+	return nil, err
+}
+
 func (self *SGuest) AllowPerformDetachdisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred)
 }
