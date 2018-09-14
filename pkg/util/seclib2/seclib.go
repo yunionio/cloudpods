@@ -16,7 +16,7 @@ const (
 	ALL_DIGITS = "0123456789"
 	ALL_LETTERS = "abcdefghijklmnopqrstuvwxyz"
 	ALL_UPPERS  = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	ALL_PUNC = PUNC
+	ALL_PUNC = "~`!@#$%^&*()-_=+[]{}|:':\",./<>?"
 )
 
 type PasswordStrength struct {
@@ -71,4 +71,21 @@ func AnalyzePasswordStrenth(passwd string) PasswordStrength {
 		}
 	}
 	return ps
+}
+
+func (ps PasswordStrength) Len() int {
+	return ps.Punctuats + ps.Uppercases + ps.Lowercases + ps.Digits
+}
+
+func (ps PasswordStrength) MeetComplexity() bool {
+	if ps.Punctuats > 0 && ps.Digits > 0 && ps.Lowercases > 0 && ps.Uppercases > 0 && ps.Len() >= 12 {
+		return true
+	} else {
+		return false
+	}
+}
+
+func MeetComplxity(passwd string) bool {
+	ps := AnalyzePasswordStrenth(passwd)
+	return ps.MeetComplexity()
 }
