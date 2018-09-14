@@ -17,6 +17,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/pkg/util/secrules"
 )
 
 type SAliyunGuestDriver struct {
@@ -33,7 +34,7 @@ func (self *SAliyunGuestDriver) GetHypervisor() string {
 }
 
 func (self *SAliyunGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
-	storages := host.GetAttachedStorages()
+	storages := host.GetAttachedStorages("")
 	for i := 0; i < len(storages); i += 1 {
 		if storages[i].StorageType == backend {
 			return &storages[i]
@@ -82,6 +83,9 @@ type SAliyunVMCreateConfig struct {
 	SysDiskSize       int
 	DataDisks         []int
 	PublicKey         string
+	SecGroupId        string
+	SecGroupName      string
+	SecRules          []secrules.SecurityRule
 }
 
 func (self *SAliyunGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
@@ -99,6 +103,10 @@ func (self *SAliyunGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *mo
 	net := nics[0].GetNetwork()
 	config.ExternalNetworkId = net.ExternalId
 	config.IpAddr = nics[0].IpAddr
+
+	config.SecGroupId = guest.SecgrpId
+	config.SecGroupName = guest.GetSecgroupName()
+	config.SecRules = guest.GetSecRules()
 
 	disks := guest.GetDisks()
 	config.DataDisks = make([]int, len(disks)-1)
@@ -130,6 +138,54 @@ type SDiskInfo struct {
 	Metadata map[string]string
 }
 
+func fetchIVMinfo(desc SAliyunVMCreateConfig, iVM cloudprovider.ICloudVM, guestId string, passwd string) *jsonutils.JSONDict {
+	data := jsonutils.NewDict()
+
+	data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
+
+	if len(passwd) > 0 {
+		encpasswd, err := utils.EncryptAESBase64(guestId, passwd)
+		if err != nil {
+			log.Errorf("encrypt password failed %s", err)
+		}
+		data.Add(jsonutils.NewString("root"), "account")
+		data.Add(jsonutils.NewString(encpasswd), "key")
+	}
+
+	if len(desc.OsDistribution) > 0 {
+		data.Add(jsonutils.NewString(desc.OsDistribution), "distro")
+	}
+	if len(desc.OsVersion) > 0 {
+		data.Add(jsonutils.NewString(desc.OsVersion), "version")
+	}
+
+	idisks, err := iVM.GetIDisks()
+
+	if err != nil {
+		log.Errorf("GetiDisks error %s", err)
+	} else {
+		diskInfo := make([]SDiskInfo, len(idisks))
+		for i := 0; i < len(idisks); i += 1 {
+			dinfo := SDiskInfo{}
+			dinfo.Uuid = idisks[i].GetGlobalId()
+			dinfo.Size = idisks[i].GetDiskSizeMB()
+			if metaData := idisks[i].GetMetadata(); metaData != nil {
+				dinfo.Metadata = make(map[string]string, 0)
+				if err := metaData.Unmarshal(dinfo.Metadata); err != nil {
+					log.Errorf("Get disk %s metadata info error: %v", idisks[i].GetName(), err)
+				}
+			}
+			diskInfo[i] = dinfo
+		}
+		data.Add(jsonutils.Marshal(&diskInfo), "disks")
+	}
+
+	data.Add(jsonutils.NewString(iVM.GetGlobalId()), "uuid")
+	data.Add(iVM.GetMetadata(), "metadata")
+
+	return data
+}
+
 func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
 
@@ -143,23 +199,46 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		return err
 	}
 
+	publicKey, _ := config.GetString("public_key")
+
+	resetPassword := jsonutils.QueryBoolean(config, "reset_password", false)
+	passwd, _ := config.GetString("password")
+	if resetPassword && len(passwd) == 0 {
+		passwd = seclib2.RandomPassword2(12)
+	}
+
 	ihost, err := host.GetIHost()
 	if err != nil {
 		return err
 	}
 
-	if action == "create" {
-		desc := SAliyunVMCreateConfig{}
-		err = config.Unmarshal(&desc, "desc")
-		if err != nil {
-			return err
-		}
+	desc := SAliyunVMCreateConfig{}
+	err = config.Unmarshal(&desc, "desc")
+	if err != nil {
+		return err
+	}
 
+	if action == "create" {
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			passwd := seclib2.RandomPassword2(12)
+
+			nets := guest.GetNetworks()
+			net := nets[0].GetNetwork()
+			vpc := net.GetVpc()
+
+			ivpc, err := vpc.GetIVpc()
+			if err != nil {
+				log.Errorf("getIVPC fail %s", err)
+				return nil, err
+			}
+
+			secgrpId, err := ivpc.SyncSecurityGroup(desc.SecGroupId, desc.SecGroupName, desc.SecRules)
+			if err != nil {
+				log.Errorf("SyncSecurityGroup fail %s", err)
+				return nil, err
+			}
 
 			iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, desc.PublicKey)
+				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId)
 			if err != nil {
 				return nil, err
 			}
@@ -176,12 +255,12 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				return nil, err
 			}
 
-			if len(guest.SecgrpId) > 0 {
+			/*if len(guest.SecgrpId) > 0 {
 				if err := iVM.SyncSecurityGroup(guest.SecgrpId, guest.GetSecgroupName(), guest.GetSecRules()); err != nil {
 					log.Errorf("SyncSecurityGroup error: %v", err)
 					return nil, err
 				}
-			}
+			}*/
 
 			/*if onfinish == "none" {
 				err = iVM.StartVM()
@@ -190,15 +269,18 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				}
 			}*/
 
-			encpasswd, err := utils.EncryptAESBase64(guest.Id, passwd)
-			if err != nil {
-				log.Errorf("encrypt password failed %s", err)
-			}
+			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
 
-			data := jsonutils.NewDict()
-			data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
-			data.Add(jsonutils.NewString("root"), "account")
-			data.Add(jsonutils.NewString(encpasswd), "key")
+			/* data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
+
+			if len(passwd) > 0 {
+				encpasswd, err := utils.EncryptAESBase64(guest.Id, passwd)
+				if err != nil {
+					log.Errorf("encrypt password failed %s", err)
+				}
+				data.Add(jsonutils.NewString("root"), "account")
+				data.Add(jsonutils.NewString(encpasswd), "key")
+			}
 
 			if len(desc.OsDistribution) > 0 {
 				data.Add(jsonutils.NewString(desc.OsDistribution), "distro")
@@ -230,6 +312,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 
 			data.Add(jsonutils.NewString(iVM.GetGlobalId()), "uuid")
 			data.Add(iVM.GetMetadata(), "metadata")
+			*/
 
 			return data, nil
 		})
@@ -250,30 +333,100 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		if v, e := params.GetString("description"); e != nil {
 			description = v
 		}
-		resetPassword := jsonutils.QueryBoolean(params, "reset_password", false)
+		//resetPassword := jsonutils.QueryBoolean(params, "reset_password", false)
 		deleteKeypair := jsonutils.QueryBoolean(params, "__delete_keypair__", false)
-		password, _ := params.GetString("password")
-		if resetPassword && len(password) == 0 {
-			password = seclib2.RandomPassword2(12)
-		}
+		//password, _ := params.GetString("password")
+		//if resetPassword && len(password) == 0 {
+		//	password = seclib2.RandomPassword2(12)
+		//}
 
+		/*
 		publicKey := ""
 		if k, e := config.GetString("public_key"); e == nil {
 			publicKey = k
-		}
+		}*/
+
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			encpasswd, err := utils.EncryptAESBase64(guest.Id, password)
+
+			err := iVM.DeployVM(name, passwd, publicKey, deleteKeypair, description)
 			if err != nil {
-				log.Errorf("encrypt password failed %s", err)
+				return nil, err
 			}
 
+			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+
+			/*
 			data := jsonutils.NewDict()
-			data.Add(jsonutils.NewString("root"), "account") // 用户名
-			data.Add(jsonutils.NewString(encpasswd), "key")  // 密码
-			e := iVM.DeployVM(name, password, publicKey, resetPassword, deleteKeypair, description)
-			return data, e
+
+			if len(passwd) > 0 {
+				encpasswd, err := utils.EncryptAESBase64(guest.Id, passwd)
+				if err != nil {
+					log.Errorf("encrypt password failed %s", err)
+				}
+
+
+				data.Add(jsonutils.NewString("root"), "account") // 用户名
+				data.Add(jsonutils.NewString(encpasswd), "key")  // 密码
+			}*/
+
+			return data, nil
 		})
+	} else if action == "rebuild" {
+		iVM, err := ihost.GetIVMById(guest.GetExternalId())
+		if err != nil || iVM == nil {
+			log.Errorf("cannot find vm %s", err)
+			return fmt.Errorf("cannot find vm")
+		}
+
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+			diskId, err := iVM.RebuildRoot(desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
+			if err != nil {
+				return nil, err
+			}
+
+			log.Debugf("VMrebuildRoot %s new diskID %s, wait status ready ...", iVM.GetGlobalId(), diskId)
+
+			err = cloudprovider.WaitStatus(iVM, models.VM_READY, time.Second*5, time.Second*1800)
+			if err != nil {
+				return nil, err
+			}
+			log.Debugf("VMrebuildRoot %s, and status is ready", iVM.GetGlobalId())
+
+			maxWaitSecs := 300
+			waited := 0
+
+			for {
+				// hack, wait disk number consistent
+				idisks, err := iVM.GetIDisks()
+				if err != nil {
+					log.Errorf("fail to find VM idisks %s", err)
+					return nil, err
+				}
+				if len(idisks) < len(desc.DataDisks) + 1 {
+					if waited > maxWaitSecs {
+						log.Errorf("inconsistent disk number, wait timeout, must be something wrong one remote")
+						return nil, cloudprovider.ErrTimeout
+					}
+					log.Debugf("inconsistent disk number???? %d != %d", len(idisks), len(desc.DataDisks)+1)
+					time.Sleep(time.Second*5)
+					waited += 5
+				} else {
+					if idisks[0].GetGlobalId() != diskId {
+						log.Errorf("system disk id inconsistent %s != %s", idisks[0].GetGlobalId(), diskId)
+						return nil, fmt.Errorf("inconsistent sys disk id after rebuild root")
+					}
+
+					break
+				}
+			}
+
+			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+
+			return data, nil
+		})
+
 	} else {
+		log.Errorf("RequestDeployGuestOnHost: Action %s not supported", action)
 		return fmt.Errorf("Action %s not supported", action)
 	}
 
@@ -462,7 +615,7 @@ func (self *SAliyunGuestDriver) RequestStartOnHost(ctx context.Context, guest *m
 	return result, e
 }
 
-func (self *SAliyunGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+/*func (self *SAliyunGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	ihost, e := guest.GetHost().GetIHost()
 	if e != nil {
 		return e
@@ -504,4 +657,4 @@ func (self *SAliyunGuestDriver) RequestRebuildRootDisk(ctx context.Context, gues
 
 	task.ScheduleRun(nil)
 	return nil
-}
+}*/

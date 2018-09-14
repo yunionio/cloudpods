@@ -261,7 +261,7 @@ func (self *SKVMGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *m
 }
 
 func (self *SKVMGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	subtask, err := taskman.TaskManager.NewTask(ctx, "KVMGuestRebuildRootTask", guest, task.GetUserCred(), nil, task.GetTaskId(), "", nil)
+	subtask, err := taskman.TaskManager.NewTask(ctx, "KVMGuestRebuildRootTask", guest, task.GetUserCred(), task.GetParams(), task.GetTaskId(), "", nil)
 	if err != nil {
 		return err
 	}

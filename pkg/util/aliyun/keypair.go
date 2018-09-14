@@ -4,6 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"yunion.io/x/log"
+	"golang.org/x/crypto/ssh"
+	"strings"
+	"github.com/aokoli/goutils"
+	"strconv"
+	"time"
 )
 
 type SKeypair struct {
@@ -92,4 +97,41 @@ func (self *SRegion) DetachKeyPair(instanceId string, name string)  error {
 	}
 
 	return nil
+}
+
+func (self *SRegion) lookUpAliyunKeypair(publicKey string) (string, error) {
+	pk, _, _, _, err := ssh.ParseAuthorizedKey([]byte(publicKey))
+	if err != nil {
+		return "", fmt.Errorf("publicKey error %s", err)
+	}
+
+	fingerprint := strings.Replace(ssh.FingerprintLegacyMD5(pk), ":", "", -1)
+	ks, total, err := self.GetKeypairs(fingerprint, "*", 0, 1)
+	if total < 1 {
+		return "", fmt.Errorf("keypair not found %s", err)
+	} else {
+		return ks[0].KeyPairName, nil
+	}
+}
+
+func (self *SRegion) importAliyunKeypair(publicKey string) (string, error) {
+	prefix, e := goutils.RandomAlphabetic(6)
+	if e != nil {
+		return "", fmt.Errorf("publicKey error %s", e)
+	}
+
+	name := prefix + strconv.FormatInt(time.Now().Unix(), 10)
+	if k, e := self.ImportKeypair(name, publicKey); e != nil {
+		return "", fmt.Errorf("keypair import error %s", e)
+	} else {
+		return k.KeyPairName, nil
+	}
+}
+
+func (self *SRegion) syncKeypair(publicKey string) (string, error) {
+	name, e := self.lookUpAliyunKeypair(publicKey)
+	if e == nil {
+		return name, nil
+	}
+	return self.importAliyunKeypair(publicKey)
 }

@@ -21,7 +21,7 @@ type IQuota interface {
 	Update(quota IQuota)
 	Add(quota IQuota)
 	Sub(quota IQuota)
-	Exceed(quota IQuota) error
+	Exceed(request IQuota, quota IQuota) error
 	IsEmpty() bool
 	ToJSON(prefix string) jsonutils.JSONObject
 }
@@ -101,14 +101,14 @@ func (manager *SQuotaManager) _setQuota(ctx context.Context, userCred mcclient.T
 	return manager.persistenStore.SetQuota(ctx, userCred, projectId, quota)
 }
 
-func (manager *SQuotaManager) CheckQuota(ctx context.Context, userCred mcclient.TokenCredential, projectId string, quota IQuota) (IQuota, error) {
+func (manager *SQuotaManager) CheckQuota(ctx context.Context, userCred mcclient.TokenCredential, projectId string, request IQuota) (IQuota, error) {
 	lockman.LockClass(ctx, manager, projectId)
 	defer lockman.ReleaseClass(ctx, manager, projectId)
 
-	return manager._checkQuota(ctx, userCred, projectId, quota)
+	return manager._checkQuota(ctx, userCred, projectId, request)
 }
 
-func (manager *SQuotaManager) _checkQuota(ctx context.Context, userCred mcclient.TokenCredential, projectId string, quota IQuota) (IQuota, error) {
+func (manager *SQuotaManager) _checkQuota(ctx context.Context, userCred mcclient.TokenCredential, projectId string, request IQuota) (IQuota, error) {
 	stored := manager.newQuota()
 	err := manager.GetQuota(ctx, projectId, stored)
 	if err != nil {
@@ -130,9 +130,9 @@ func (manager *SQuotaManager) _checkQuota(ctx context.Context, userCred mcclient
 	}
 
 	used.Add(pending)
-	used.Add(quota)
+	used.Add(request)
 
-	err = used.Exceed(stored)
+	err = used.Exceed(request, stored)
 	if err != nil {
 		return nil, err
 	}

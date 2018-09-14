@@ -402,7 +402,7 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 
 	params[2] = reflect.ValueOf(data)
 
-	log.Debugf("Call %s: %s with %s", stageName, funcValue, params)
+	log.Debugf("Call %s %s: %s with %s", task.TaskName, stageName, funcValue, params)
 
 	funcValue.Call(params)
 

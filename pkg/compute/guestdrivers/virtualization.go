@@ -49,6 +49,7 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 		wire := hostwire.GetWire()
 
 		if wire == nil {
+			log.Errorf("host wire is nil?????")
 			continue
 		}
 
