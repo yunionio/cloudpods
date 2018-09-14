@@ -220,7 +220,7 @@ func (self *SSnapshot) CustomizeDelete(ctx context.Context, userCred mcclient.To
 		} else {
 			_, err := SnapshotManager.GetConvertSnapshot(self)
 			if err != nil {
-				return fmt.Errorf("Cannot delete snapshot: %s, need delete in sequence create", err.Error())
+				return fmt.Errorf("Cannot delete snapshot: %s, disk need at least one of snapshot as backing file", err.Error())
 			}
 			return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
 		}
@@ -253,22 +253,17 @@ func (self *SSnapshotManager) GetPropertyMaxCount(ctx context.Context, userCred 
 }
 
 func (self *SSnapshotManager) GetConvertSnapshot(deleteSnapshot *SSnapshot) (*SSnapshot, error) {
-	dest := make([]SSnapshot, 0)
+	dest := &SSnapshot{}
 	q := self.Query().SubQuery()
 	err := q.Query().Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), deleteSnapshot.DiskId),
 		sqlchemy.In(q.Field("status"), []string{SNAPSHOT_READY, SNAPSHOT_DELETING}),
-		sqlchemy.Equals(q.Field("out_of_chain"), false))).
-		Asc("created_at").Limit(2).All(&dest)
+		sqlchemy.Equals(q.Field("out_of_chain"), false),
+		sqlchemy.GT(q.Field("created_at"), deleteSnapshot.CreatedAt))).
+		Asc("created_at").First(dest)
 	if err != nil {
 		return nil, err
 	}
-	if len(dest) == 2 && dest[0].Id == deleteSnapshot.Id {
-		dest[1].SetModelManager(self)
-		return &dest[1], nil
-	} else if len(dest) == 1 && dest[0].Id == deleteSnapshot.Id {
-		return nil, fmt.Errorf("Snapshot dose not have convert snapshot")
-	}
-	return nil, fmt.Errorf("Snapshot %s cannot convert", deleteSnapshot.Id)
+	return dest, nil
 }
 
 func (self *SSnapshotManager) AllowPerformDeleteDiskSnapshots(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
