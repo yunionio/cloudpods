@@ -3197,7 +3197,7 @@ func (manager *SGuestManager) FetchGuestById(guestId string) *SGuest {
 
 func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 	if checkStatus {
-		if !utils.IsInStringArray(self.Status, []string{VM_SCHEDULE_FAILED}) {
+		if utils.IsInStringArray(self.Status, []string{VM_SCHEDULE_FAILED}) {
 			return nil
 		}
 	}
@@ -3209,12 +3209,11 @@ func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 	guestdisks := self.GetDisks()
 	diskSpecs := jsonutils.NewArray()
 	for _, guestdisk := range guestdisks {
-		disk := guestdisk.GetDisk()
+		info := guestdisk.ToDiskInfo()
 		diskSpec := jsonutils.NewDict()
-		diskSpec.Set("size", jsonutils.NewInt(int64(disk.DiskSize)))
-		s := disk.GetStorage()
-		diskSpec.Set("backend", jsonutils.NewString(s.StorageType))
-		diskSpec.Set("medium_type", jsonutils.NewString(s.MediumType))
+		diskSpec.Set("size", jsonutils.NewInt(info.Size))
+		diskSpec.Set("backend", jsonutils.NewString(info.Backend))
+		diskSpec.Set("medium_type", jsonutils.NewString(info.MediumType))
 		diskSpecs.Add(diskSpec)
 	}
 	spec.Set("disk", diskSpecs)
@@ -3247,6 +3246,63 @@ func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 	}
 	spec.Set("gpu", gpuSpecs)
 	return spec
+}
+
+func (manager *SGuestManager) GetSpecIdent(spec *jsonutils.JSONDict) []string {
+	cpuCount, _ := spec.Int("cpu")
+	memSize, _ := spec.Int("mem")
+	memSizeMB, _ := utils.GetSizeMB(fmt.Sprintf("%d", memSize), "M")
+	specKeys := []string{
+		fmt.Sprintf("cpu:%d", cpuCount),
+		fmt.Sprintf("mem:%dM", memSizeMB),
+	}
+
+	countKey := func(kf func(*jsonutils.JSONDict) string, dataArray jsonutils.JSONObject) map[string]int64 {
+		countMap := make(map[string]int64)
+		datas, _ := dataArray.GetArray()
+		for _, data := range datas {
+			key := kf(data.(*jsonutils.JSONDict))
+			if count, ok := countMap[key]; !ok {
+				countMap[key] = 1
+			} else {
+				count++
+				countMap[key] = count
+			}
+		}
+		return countMap
+	}
+
+	kfuncs := map[string]func(*jsonutils.JSONDict) string{
+		"disk": func(data *jsonutils.JSONDict) string {
+			backend, _ := data.GetString("backend")
+			mediumType, _ := data.GetString("medium_type")
+			size, _ := data.Int("size")
+			sizeGB, _ := utils.GetSizeGB(fmt.Sprintf("%d", size), "M")
+			return fmt.Sprintf("disk:%s_%s_%dG", backend, mediumType, sizeGB)
+		},
+		"nic": func(data *jsonutils.JSONDict) string {
+			typ, _ := data.GetString("type")
+			bw, _ := data.Int("bandwidth")
+			return fmt.Sprintf("nic:%s_%dM", typ, bw)
+		},
+		"gpu": func(data *jsonutils.JSONDict) string {
+			vendor, _ := data.GetString("vendor")
+			model, _ := data.GetString("model")
+			return fmt.Sprintf("gpu:%s_%s", vendor, model)
+		},
+	}
+
+	for sKey, kf := range kfuncs {
+		sArrary, err := spec.Get(sKey)
+		if err != nil {
+			log.Errorf("Get key %s array error: %v", sKey, err)
+			continue
+		}
+		for key, count := range countKey(kf, sArrary) {
+			specKeys = append(specKeys, fmt.Sprintf("%sx%d", key, count))
+		}
+	}
+	return specKeys
 }
 
 func (self *SGuest) GetTemplateId() string {
@@ -3294,7 +3350,7 @@ func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
 		host := self.GetHost()
 		if host != nil {
 			hostSpec := host.GetSpec(false)
-			hostSpecIdent := host.GetSpecIdent(hostSpec)
+			hostSpecIdent := HostManager.GetSpecIdent(hostSpec)
 			spec.Set("host_spec", jsonutils.NewString(strings.Join(hostSpecIdent, "/")))
 		}
 	}

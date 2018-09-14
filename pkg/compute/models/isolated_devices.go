@@ -381,8 +381,8 @@ func (self *SIsolatedDevice) getDesc() *jsonutils.JSONDict {
 	return desc
 }
 
-func (self *SIsolatedDevice) GetSpec(checkStatus bool) *jsonutils.JSONDict {
-	if checkStatus {
+func (self *SIsolatedDevice) GetSpec(statusCheck bool) *jsonutils.JSONDict {
+	if statusCheck {
 		if len(self.GuestId) > 0 {
 			return nil
 		}
@@ -397,6 +397,19 @@ func (self *SIsolatedDevice) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 	spec.Set("pci_id", jsonutils.NewString(self.VendorDeviceId))
 	spec.Set("vendor", jsonutils.NewString(self.getVendor()))
 	return spec
+}
+
+func (man *SIsolatedDeviceManager) GetSpecIdent(spec *jsonutils.JSONDict) []string {
+	log.Errorf("gpu get specIdent: %s", spec)
+	devType, _ := spec.GetString("dev_type")
+	vendor, _ := spec.GetString("vendor")
+	model, _ := spec.GetString("model")
+	keys := []string{
+		fmt.Sprintf("type:%s", devType),
+		fmt.Sprintf("vendor:%s", vendor),
+		fmt.Sprintf("model:%s", model),
+	}
+	return keys
 }
 
 func (self *SIsolatedDevice) GetShortDesc() *jsonutils.JSONDict {

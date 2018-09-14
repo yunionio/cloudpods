@@ -162,6 +162,9 @@ func (self *SNetInterface) getServerJsonDesc() *jsonutils.JSONDict {
 
 func (self *SNetInterface) getBaremetalJsonDesc() *jsonutils.JSONDict {
 	bn := self.GetBaremetalNetwork()
+	if bn == nil {
+		return nil
+	}
 	return self.toJson(bn.IpAddr, bn.GetNetwork())
 }
 
