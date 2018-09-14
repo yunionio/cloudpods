@@ -21,6 +21,11 @@ type ICloudResource interface {
 	GetMetadata() *jsonutils.JSONDict
 }
 
+type IBillingResource interface {
+	GetBillingType() string
+	GetExpiredAt() time.Time
+}
+
 type ICloudRegion interface {
 	ICloudResource
 
@@ -133,6 +138,7 @@ type ICloudHost interface {
 
 type ICloudVM interface {
 	ICloudResource
+	IBillingResource
 
 	GetCreateTime() time.Time
 	GetIHost() ICloudHost
@@ -213,6 +219,7 @@ type ICloudSecurityGroup interface {
 
 type ICloudDisk interface {
 	ICloudResource
+	IBillingResource
 
 	GetIStorge() ICloudStorage
 
