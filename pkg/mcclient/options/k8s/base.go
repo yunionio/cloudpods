@@ -15,8 +15,9 @@ func (o ClusterBaseOptions) Params() *jsonutils.JSONDict {
 }
 
 type BaseListOptions struct {
-	Limit  int `default:"20" help:"Page limit"`
-	Offset int `default:"0" help:"page offset"`
+	Limit  int    `default:"20" help:"Page limit"`
+	Offset int    `default:"0" help:"Page offset"`
+	Name   string `help:"Search by name"`
 }
 
 func (o BaseListOptions) Params() *jsonutils.JSONDict {
@@ -26,6 +27,9 @@ func (o BaseListOptions) Params() *jsonutils.JSONDict {
 	}
 	if o.Offset > 0 {
 		params.Add(jsonutils.NewInt(int64(o.Offset)), "offset")
+	}
+	if o.Name != "" {
+		params.Add(jsonutils.NewString(o.Name), "name")
 	}
 	return params
 }
