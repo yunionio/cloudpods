@@ -221,45 +221,46 @@ func (self *SQuota) Update(quota quotas.IQuota) {
 	}
 }
 
-func (self *SQuota) Exceed(quota quotas.IQuota) error {
+func (self *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
+	sreq := request.(*SQuota)
 	squota := quota.(*SQuota)
-	if self.Cpu > squota.Cpu {
+	if sreq.Cpu > 0 && self.Cpu > squota.Cpu {
 		return ErrOutOfCPU
 	}
-	if self.Memory > squota.Memory {
+	if sreq.Memory > 0 && self.Memory > squota.Memory {
 		return ErrOutOfMemory
 	}
-	if self.Storage > squota.Storage {
+	if sreq.Storage > 0 && self.Storage > squota.Storage {
 		return ErrOutOfStorage
 	}
-	if self.Port > squota.Port {
+	if sreq.Port > 0 && self.Port > squota.Port {
 		return ErrOutOfPort
 	}
-	if self.Eip > squota.Eip {
+	if sreq.Eip > 0 && self.Eip > squota.Eip {
 		return ErrOutOfEip
 	}
-	if self.Eport > squota.Eport {
+	if sreq.Eport > 0 && self.Eport > squota.Eport {
 		return ErrOutOfEport
 	}
-	if self.Bw > squota.Bw {
+	if sreq.Bw > 0 && self.Bw > squota.Bw {
 		return ErrOutOfBw
 	}
-	if self.Ebw > squota.Ebw {
+	if sreq.Ebw > 0 && self.Ebw > squota.Ebw {
 		return ErrOutOfEbw
 	}
-	if self.Keypair > squota.Keypair {
+	if sreq.Keypair > 0 && self.Keypair > squota.Keypair {
 		return ErrOutOfKeypair
 	}
-	if self.Image > squota.Image {
+	if sreq.Image > 0 && self.Image > squota.Image {
 		return ErrOutOfImage
 	}
-	if self.Group > squota.Group {
+	if sreq.Group > 0 && self.Group > squota.Group {
 		return ErrOutOfGroup
 	}
-	if self.Secgroup > squota.Secgroup {
+	if sreq.Secgroup > 0 && self.Secgroup > squota.Secgroup {
 		return ErrOutOfSecgroup
 	}
-	if self.IsolatedDevice > squota.IsolatedDevice {
+	if sreq.IsolatedDevice > 0 && self.IsolatedDevice > squota.IsolatedDevice {
 		return ErrOutOfIsolatedDevice
 	}
 	return nil

@@ -789,6 +789,9 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 	}
 	parts := strings.Split(diskStr, ":")
 	for _, p := range parts {
+		if len(p) == 0 {
+			continue
+		}
 		if regutils.MatchSize(p) {
 			diskConfig.Size, _ = fileutils.GetSizeMb(p, 'M', 1024)
 		} else if utils.IsInStringArray(p, osprofile.FS_TYPES) {

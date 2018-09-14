@@ -1,9 +1,10 @@
 package logclient
 
 import (
-	"fmt"
-
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -54,6 +55,12 @@ const (
 	ACT_VM_UNBIND_KEYPAIR            = "解绑密钥"
 )
 
+var logclientWorkerMan *appsrv.WorkerManager
+
+func init() {
+	logclientWorkerMan = appsrv.NewWorkerManager("LogClientWorkerManager", 1, 50)
+}
+
 type IObject interface {
 	GetId() string
 	GetName() string
@@ -64,7 +71,8 @@ func AddActionLog(model IObject, action string, iNotes interface{}, userCred mcc
 
 	token := userCred
 	notes := stringutils.Interface2String(iNotes)
-	s := auth.GetSession(userCred, "", "")
+
+	// s := auth.GetSession(userCred, "", "")
 
 	objId := model.GetId()
 	if len(objId) == 0 {
@@ -74,6 +82,7 @@ func AddActionLog(model IObject, action string, iNotes interface{}, userCred mcc
 	if len(objName) == 0 {
 		objName = "-"
 	}
+
 	logentry := jsonutils.NewDict()
 	logentry.Add(jsonutils.NewString(objName), "obj_name")
 	logentry.Add(jsonutils.NewString(model.Keyword()), "obj_type")
@@ -94,10 +103,11 @@ func AddActionLog(model IObject, action string, iNotes interface{}, userCred mcc
 
 	logentry.Add(jsonutils.NewString(notes), "notes")
 
-	_, err := modules.Actions.Create(s, logentry)
-	if err != nil {
-		fmt.Printf("create action log failed %s", err)
-	} else {
-		fmt.Println("create action log success")
-	}
+	logclientWorkerMan.Run(func() {
+		s := auth.GetSession(userCred, "", "")
+		_, err := modules.Actions.Create(s, logentry)
+		if err != nil {
+			log.Errorf("create action log failed %s", err)
+		}
+	}, nil)
 }
