@@ -1105,11 +1105,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:d0257638bb52243f9fa293ef07544081259d54edd8e53f084e522b6c22e92637"
+  digest = "1:b71bcbb9d425fa8d1d0f1932e275768930808600a24368abd62b5fc4a945c32b"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "38477c9cceb895816fe21507d73da30376d358b7"
+  revision = "6dc5b0d8959336346efaacd9c9ab1defa80d5ee9"
 
 [[projects]]
   branch = "master"
@@ -1124,7 +1124,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:47660d9bad5ac13797da13236922903a26206c81aa2df28af44b3e7ddd3e3f06"
+  digest = "1:253553e4aea4744856900c4015036177f56ddfa4400a4422a2aab8cb1737bd00"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1135,7 +1135,6 @@
     "util/clock",
     "util/compare",
     "util/errors",
-    "util/fifoutils",
     "util/fileutils",
     "util/filterclause",
     "util/goroutine_pool",
@@ -1163,11 +1162,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a8a402e8c9d4a7bf8efbdb81ae2da8fb72ebbe07bbfc1168a124905ace456ed0"
+  digest = "1:e52c4c426ba5bbb92b2d6b2f20f694ff836dde16151adaca39c86d5fb010fea9"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "1e2883d085d6d449d4df7d28b61073dec11c5dbb"
+  revision = "946ed13318f85073e55dbb8105593c710e943a31"
 
 [[projects]]
   branch = "master"
@@ -1253,7 +1252,6 @@
     "yunion.io/x/pkg/util/cache",
     "yunion.io/x/pkg/util/compare",
     "yunion.io/x/pkg/util/errors",
-    "yunion.io/x/pkg/util/fifoutils",
     "yunion.io/x/pkg/util/fileutils",
     "yunion.io/x/pkg/util/filterclause",
     "yunion.io/x/pkg/util/goroutine_pool",
