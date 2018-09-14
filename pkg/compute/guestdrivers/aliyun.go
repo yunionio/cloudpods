@@ -329,7 +329,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		name, _ := params.GetString("name")
 		description, _ := params.GetString("description")
 		publicKey, _ := config.GetString("public_key")
-		resetPassword := jsonutils.QueryBoolean(params, "reset_password", false)
+		// resetPassword := jsonutils.QueryBoolean(params, "reset_password", false)
 		deleteKeypair := jsonutils.QueryBoolean(params, "__delete_keypair__", false)
 		//password, _ := params.GetString("password")
 		//if resetPassword && len(password) == 0 {
