@@ -237,3 +237,11 @@ func (self *SVirtualMachine) acquireVmrcUrl() (jsonutils.JSONObject, error) {
 func (dc *SVirtualMachine) ChangeConfig(instanceId string, ncpu int, vmem int) error {
 	return cloudprovider.ErrNotImplemented
 }
+
+func (self *SVirtualMachine) GetBillingType() string {
+	return models.BILLING_TYPE_POSTPAID
+}
+
+func (self *SVirtualMachine) GetExpiredAt() time.Time {
+	return time.Time{}
+}
