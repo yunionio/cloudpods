@@ -2668,8 +2668,7 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 			QuotaManager.CancelPendingUsage(ctx, userCred, projectId, nil, pendingUsage)
 			return nil, httperrors.NewBadRequestError(err.Error())
 		}
-		// from clouds.models.hosts import HostsSchedDescCache
-		// HostsSchedDescCache().set_dirty(host.id if host else None)
+		host.ClearSchedDescCache()
 		err = self.StartGuestDeployTask(ctx, userCred, nil, "deploy", "")
 		return nil, err
 	}
