@@ -31,14 +31,12 @@ func init() {
 		if len(args.StatMonth) > 0 {
 			params.Add(jsonutils.NewString(args.StatMonth), "stat_month")
 		}
-
-                if len(args.StartDate) > 0 {
-                        params.Add(jsonutils.NewString(args.StartDate), "start_date")
-                }
-
-                if len(args.EndDate) > 0 {
-                        params.Add(jsonutils.NewString(args.EndDate), "end_date")
-                }
+		if len(args.StartDate) > 0 {
+			params.Add(jsonutils.NewString(args.StartDate), "start_date")
+		}
+		if len(args.EndDate) > 0 {
+			params.Add(jsonutils.NewString(args.EndDate), "end_date")
+		}
 		if len(args.ProjectId) > 0 {
 			params.Add(jsonutils.NewString(args.ProjectId), "project_id")
 		}
@@ -72,12 +70,12 @@ func init() {
                 if len(args.StartDate) > 0 {
                         params.Add(jsonutils.NewString(args.StartDate), "start_date")
                 }
-                if len(args.EndDate) > 0 {
-                        params.Add(jsonutils.NewString(args.EndDate), "end_date")
-                }
-                if len(args.ProjectId) > 0 {
-                        params.Add(jsonutils.NewString(args.ProjectId), "project_id")
-                }
+		if len(args.EndDate) > 0 {
+			params.Add(jsonutils.NewString(args.EndDate), "end_date")
+		}
+		if len(args.ProjectId) > 0 {
+			params.Add(jsonutils.NewString(args.ProjectId), "project_id")
+		}
 		if len(args.ItemKey) > 0 {
 			params.Add(jsonutils.NewString(args.ItemKey), "item_key")
 		}
