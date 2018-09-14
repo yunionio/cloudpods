@@ -23,14 +23,14 @@ import (
 )
 
 type BaseOptions struct {
-	Help          bool   `help:"Show help" short-token:"h"`
-	Debug         bool   `help:"Show debug information"`
-	Version       bool   `help:"Show version"`
-	Timeout       int    `default:"600" help:"Number of seconds to wait for a response"`
-	Insecure      bool   `default:"false" help:"Allow skip server cert verification if URL is https" short-token:"k"`
-	NoCachedToken bool   `default:"$NO_CACHED_TOKEN|false" help:"Force not use cached token"`
-	OsUsername    string `default:"$OS_USERNAME" help:"Username, defaults to env[OS_USERNAME]"`
-	OsPassword    string `default:"$OS_PASSWORD" help:"Password, defaults to env[OS_PASSWORD]"`
+	Help           bool   `help:"Show help" short-token:"h"`
+	Debug          bool   `help:"Show debug information"`
+	Version        bool   `help:"Show version"`
+	Timeout        int    `default:"600" help:"Number of seconds to wait for a response"`
+	Insecure       bool   `default:"false" help:"Allow skip server cert verification if URL is https" short-token:"k"`
+	UseCachedToken bool   `default:"$YUNION_USE_CACHED_TOKEN|false" help:"Use cached token"`
+	OsUsername     string `default:"$OS_USERNAME" help:"Username, defaults to env[OS_USERNAME]"`
+	OsPassword     string `default:"$OS_PASSWORD" help:"Password, defaults to env[OS_PASSWORD]"`
 	// OsProjectId string `default:"$OS_PROJECT_ID" help:"Proejct ID, defaults to env[OS_PROJECT_ID]"`
 	OsProjectName  string `default:"$OS_PROJECT_NAME" help:"Project name, defaults to env[OS_PROJECT_NAME]"`
 	OsDomainName   string `default:"$OS_DOMAIN_NAME" help:"Domain name, defaults to env[OS_DOMAIN_NAME]"`
@@ -130,23 +130,24 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 	authUrlAlter := strings.Replace(options.OsAuthURL, "/", "", -1)
 	authUrlAlter = strings.Replace(authUrlAlter, ":", "", -1)
 	tokenCachePath := filepath.Join(os.TempDir(), fmt.Sprintf("OS_AUTH_CACHE_TOKEN-%s-%s-%s-%s", authUrlAlter, options.OsUsername, options.OsDomainName, options.OsProjectName))
-	cacheFile, err := os.Open(tokenCachePath)
-
-	if err == nil && cacheFile != nil && !options.NoCachedToken {
-		fileInfo, _ := cacheFile.Stat()
-		dur, err := time.ParseDuration("-24h")
-		if fileInfo != nil && err == nil && fileInfo.ModTime().After(time.Now().Add(dur)) {
-			bytesToken, err := ioutil.ReadAll(cacheFile)
-			if err == nil {
-				token := client.NewAuthTokenCredential()
-				err := json.Unmarshal(bytesToken, token)
-				if err != nil {
-					fmt.Printf("Unmarshal token error:%s", err)
-				} else if token.IsValid() {
-					cacheToken = token
+	if options.UseCachedToken {
+		cacheFile, err := os.Open(tokenCachePath)
+		if err == nil && cacheFile != nil {
+			fileInfo, _ := cacheFile.Stat()
+			dur, err := time.ParseDuration("-24h")
+			if fileInfo != nil && err == nil && fileInfo.ModTime().After(time.Now().Add(dur)) {
+				bytesToken, err := ioutil.ReadAll(cacheFile)
+				if err == nil {
+					token := client.NewAuthTokenCredential()
+					err := json.Unmarshal(bytesToken, token)
+					if err != nil {
+						fmt.Printf("Unmarshal token error:%s", err)
+					} else if token.IsValid() {
+						cacheToken = token
+					}
 				}
+				cacheFile.Close()
 			}
-			cacheFile.Close()
 		}
 	}
 
