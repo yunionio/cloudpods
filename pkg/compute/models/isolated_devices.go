@@ -452,10 +452,40 @@ func (self *SIsolatedDevice) GetCustomizeColumns(ctx context.Context, userCred m
 	return extra
 }
 
+func (self *SIsolatedDevice) ClearSchedDescCache() error {
+	if len(self.HostId) == 0 {
+		return nil
+	}
+	host := self.getHost()
+	return host.ClearSchedDescCache()
+}
+
+func (self *SIsolatedDevice) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := self.SStandaloneResourceBase.Delete(ctx, userCred)
+	if err != nil {
+		return err
+	}
+	return self.ClearSchedDescCache()
+}
+
 func (self *SIsolatedDevice) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if len(self.GuestId) > 0 {
+		if !jsonutils.QueryBoolean(data, "purge", false) {
+			return httperrors.NewBadRequestError("Isolated device used by server: %s", self.GuestId)
+		}
+		iGuest, err := GuestManager.FetchById(self.GuestId)
+		if err != nil {
+			return err
+		}
+		guest := iGuest.(*SGuest)
+		err = guest.detachIsolateDevice(userCred, self)
+		if err != nil {
+			return err
+		}
+	}
 	host := self.getHost()
 	if host != nil {
 		db.OpsLog.LogEvent(host, db.ACT_HOST_DETACH_ISOLATED_DEVICE, self.GetShortDesc(), userCred)
 	}
-	return nil
+	return self.RealDelete(ctx, userCred)
 }

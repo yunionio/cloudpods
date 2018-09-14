@@ -131,6 +131,8 @@ type IJointModel interface {
 	Slave() IStandaloneModel
 
 	Detach(ctx context.Context, userCred mcclient.TokenCredential) error
+	AllowGetJointDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, item IJointModel) bool
+	AllowUpdateJointItem(ctx context.Context, userCred mcclient.TokenCredential, item IJointModel) bool
 }
 
 type IStandaloneModelManager interface {

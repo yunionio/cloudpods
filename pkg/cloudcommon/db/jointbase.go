@@ -179,6 +179,16 @@ func (joint *SJointResourceBase) Slave() IStandaloneModel {
 	return nil
 }
 
+func (self *SJointResourceBase) AllowGetJointDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, item IJointModel) bool {
+	masterVirtual := item.Master().(IVirtualModel)
+	return masterVirtual.IsOwner(userCred)
+}
+
+func (self *SJointResourceBase) AllowUpdateJointItem(ctx context.Context, userCred mcclient.TokenCredential, item IJointModel) bool {
+	masterVirtual := item.Master().(IVirtualModel)
+	return masterVirtual.IsOwner(userCred)
+}
+
 /*
 func (joint *SJointResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := joint.SResourceBase.GetCustomizeColumns(ctx, userCred, query)
