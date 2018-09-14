@@ -152,6 +152,8 @@ func init() {
 type SGuest struct {
 	db.SVirtualResourceBase
 
+	SBillingResourceBase
+
 	VcpuCount int8 `nullable:"false" default:"1" list:"user" create:"optional"` // Column(TINYINT, nullable=False, default=1)
 	VmemSize  int  `nullable:"false" list:"user" create:"required"`             // Column(Integer, nullable=False)
 
@@ -1296,6 +1298,9 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 
 		self.IsEmulated = extVM.IsEmulated()
 
+		self.BillingType = extVM.GetBillingType()
+		self.ExpiredAt = extVM.GetExpiredAt()
+
 		return nil
 	})
 	if err != nil {
@@ -1342,6 +1347,9 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.Hypervisor = extVM.GetHypervisor()
 
 	guest.IsEmulated = extVM.IsEmulated()
+
+	guest.BillingType = extVM.GetBillingType()
+	guest.ExpiredAt = extVM.GetExpiredAt()
 
 	guest.HostId = host.Id
 	guest.ProjectId = userCred.GetProjectId()
@@ -3283,6 +3291,8 @@ func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
 	if priceKey := self.GetMetadata("price_key", nil); len(priceKey) > 0 {
 		desc.Add(jsonutils.NewString(priceKey), "price_key")
 	}
+
+	desc.Add(jsonutils.NewString(self.GetChargeType()), "charge_type")
 
 	if len(self.ExternalId) > 0 {
 		desc.Add(jsonutils.NewString(self.ExternalId), "externalId")
