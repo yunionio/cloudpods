@@ -113,6 +113,16 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(ctx context.Context, q *sq
 	if jsonutils.QueryBoolean(query, "unused", false) {
 		q = q.IsEmpty("guest_id")
 	}
+	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
+	if len(zoneStr) > 0 {
+		zone, _ := ZoneManager.FetchByIdOrName("", zoneStr)
+		if zone == nil {
+			return nil, httperrors.NewResourceNotFoundError("Zone %s not found", zoneStr)
+		}
+		hosts := HostManager.Query().SubQuery()
+		sq := hosts.Query(hosts.Field("id")).Filter(sqlchemy.Equals(hosts.Field("zone_id"), zone.GetId()))
+		q = q.Filter(sqlchemy.In(q.Field("host_id"), sq))
+	}
 	return q, nil
 }
 
@@ -305,6 +315,36 @@ func (manager *SIsolatedDeviceManager) findUnusedQuery() *sqlchemy.SQuery {
 	q := isolateddevs.Query().Filter(sqlchemy.OR(sqlchemy.IsNull(isolateddevs.Field("guest_id")),
 		sqlchemy.IsEmpty(isolateddevs.Field("guest_id"))))
 	return q
+}
+
+func (manager *SIsolatedDeviceManager) UnusedGpuQuery() *sqlchemy.SQuery {
+	q := manager.findUnusedQuery()
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.Equals(q.Field("dev_type"), GPU_HPC_TYPE),
+		sqlchemy.Equals(q.Field("dev_type"), GPU_VGA_TYPE)))
+	return q
+}
+
+func (manager *SIsolatedDeviceManager) FindUnusedByModels(models []string) ([]SIsolatedDevice, error) {
+	devs := make([]SIsolatedDevice, 0)
+	q := manager.findUnusedQuery()
+	q = q.In("model", models)
+	err := q.All(&devs)
+	if err != nil {
+		return nil, err
+	}
+	return devs, nil
+}
+
+func (manager *SIsolatedDeviceManager) FindUnusedGpusOnHost(hostId string) ([]SIsolatedDevice, error) {
+	devs := make([]SIsolatedDevice, 0)
+	q := manager.UnusedGpuQuery()
+	q = q.Equals("host_id", hostId)
+	err := q.All(&devs)
+	if err != nil {
+		return nil, err
+	}
+	return devs, nil
 }
 
 func (manager *SIsolatedDeviceManager) findHostUnusedByModel(model string, hostId string) ([]SIsolatedDevice, error) {

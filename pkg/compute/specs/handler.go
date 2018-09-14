@@ -4,57 +4,39 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"reflect"
-	"sort"
+	"net/url"
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/sets"
 
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
-type sModelManagersMap map[string]ISpecModelManager
-
-func (m sModelManagersMap) Add(mans ...ISpecModelManager) sModelManagersMap {
-	for _, man := range mans {
-		m[man.KeywordPlural()] = man
-	}
-	return m
-}
-
-var modelManagerMap sModelManagersMap
-
-func init() {
-	modelManagerMap = make(map[string]ISpecModelManager)
-	modelManagerMap.Add(models.HostManager, models.IsolatedDeviceManager, models.GuestManager)
-}
-
-type ISpecModelManager interface {
-	db.IStandaloneModelManager
-	GetSpecIdent(spec *jsonutils.JSONDict) []string
-}
-
-type ISpecModel interface {
-	db.IStandaloneModel
-	GetSpec(statusCheck bool) *jsonutils.JSONDict
-}
-
-type specHandleFunc func(context context.Context, userCred mcclient.TokenCredential, query *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
+type specHandleFunc func(context context.Context, userCred mcclient.TokenCredential, query *jsonutils.JSONDict) (jsonutils.JSONObject, error)
 
 func AddSpecHandler(prefix string, app *appsrv.Application) {
+	// get models specs
 	for key, handleF := range map[string]specHandleFunc{
-		"":                 AllModelSpecsHandler,
-		"hosts":            GetHostSpecs,
-		"isolated_devices": GetIsolatedDeviceSpecs,
-		"servers":          GetServerSpecs,
+		"":                 models.GetAllModelSpecs,
+		"hosts":            models.GetHostSpecs,
+		"isolated_devices": models.GetIsolatedDeviceSpecs,
+		"servers":          models.GetServerSpecs,
 	} {
-		addHandler(prefix, key, handleF, app)
+		addModelSpecHandler(prefix, key, handleF, app)
+	}
+
+	// get model objects by spec key
+	for key, handleF := range map[string]specQueryHandleFunc{
+		"hosts":            queryHosts,
+		"isolated_devices": queryIsolatedDevices,
+	} {
+		AddQuerySpecModelHandler(prefix, key, handleF, app)
 	}
 }
 
@@ -65,6 +47,10 @@ func processFilter(handleFunc specHandleFunc) appsrv.FilterHandler {
 		if err != nil {
 			httperrors.GeneralServerError(w, err)
 			return
+		}
+		params := appctx.AppContextParams(ctx)
+		for key, v := range params {
+			query.(*jsonutils.JSONDict).Add(jsonutils.NewString(v), key)
 		}
 		spec, err := handleFunc(ctx, userCred, query.(*jsonutils.JSONDict))
 		if err != nil {
@@ -77,7 +63,7 @@ func processFilter(handleFunc specHandleFunc) appsrv.FilterHandler {
 	}
 }
 
-func addHandler(prefix, managerPluralKey string, handleFunc specHandleFunc, app *appsrv.Application) {
+func addModelSpecHandler(prefix, managerPluralKey string, handleFunc specHandleFunc, app *appsrv.Application) {
 	af := auth.Authenticate(processFilter(handleFunc))
 	name := "get_spec"
 	prefix = fmt.Sprintf("%s/specs", prefix)
@@ -88,91 +74,150 @@ func addHandler(prefix, managerPluralKey string, handleFunc specHandleFunc, app 
 	app.AddHandler2("GET", prefix, af, nil, name, nil)
 }
 
-func AllModelSpecsHandler(ctx context.Context, userCred mcclient.TokenCredential, query *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	ret := jsonutils.NewDict()
-	for keyword, man := range modelManagerMap {
-		spec, err := getModelSpecs(man, ctx, userCred, query)
-		if err != nil {
-			return nil, err
-		}
-		ret.Add(spec, keyword)
-	}
-	return ret, nil
+func AddQuerySpecModelHandler(prefix, managerPluralKey string, handleFunc specQueryHandleFunc, app *appsrv.Application) {
+	af := auth.Authenticate(processFilter(queryModelHandle(handleFunc)))
+	prefix = fmt.Sprintf("%s/specs/%s", prefix, managerPluralKey)
+	name := fmt.Sprintf("get_%s_spec_query", managerPluralKey)
+	app.AddHandler2("GET", fmt.Sprintf("%s/<spec_key>/resource", prefix), af, nil, name, nil)
 }
 
-func listItems(manager db.IModelManager, ctx context.Context, userCred mcclient.TokenCredential, queryDict *jsonutils.JSONDict) ([]db.IModel, error) {
-	q := manager.Query()
-	queryDict, err := manager.ValidateListConditions(ctx, userCred, queryDict)
+func parseSpecKey(key string) ([]string, error) {
+	unEscapeStr, err := url.PathUnescape(key)
 	if err != nil {
 		return nil, err
 	}
-	q, err = db.ListItemQueryFilters(manager, ctx, q, userCred, queryDict)
-	if err != nil {
-		return nil, err
+	return strings.Split(unEscapeStr, "/"), nil
+}
+
+type specQueryHandleFunc func(context.Context, mcclient.TokenCredential, *jsonutils.JSONDict, []string) (jsonutils.JSONObject, error)
+
+func queryModelHandle(queryF specQueryHandleFunc) specHandleFunc {
+	return func(ctx context.Context, userCred mcclient.TokenCredential, query *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+		specKey, _ := query.GetString("<spec_key>")
+		if specKey == "" {
+			return nil, httperrors.NewInputParameterError("Empty spec query key")
+		}
+		specKeys, err := parseSpecKey(specKey)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("Parse spec key %s error: %v", specKey, err)
+		}
+		return queryF(ctx, userCred, query, specKeys)
 	}
-	rows, err := q.Rows()
-	if err != nil {
-		return nil, err
+}
+
+func queryHosts(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query *jsonutils.JSONDict,
+	specKeys []string,
+) (jsonutils.JSONObject, error) {
+	gpuModels := []string{}
+	newSpecs := []string{}
+	gpuHostIds := []string{}
+	for _, specKey := range specKeys {
+		if specKey == "gpu_model" {
+			gpuModels = append(gpuModels, strings.Split(specKey, ":")[1])
+		} else {
+			newSpecs = append(newSpecs, specKey)
+		}
 	}
-	items := make([]db.IModel, 0)
-	for rows.Next() {
-		item, err := db.NewModelObject(manager)
+
+	if len(gpuModels) != 0 {
+		devs, err := models.IsolatedDeviceManager.FindUnusedByModels(gpuModels)
 		if err != nil {
 			return nil, err
 		}
-		itemInitValue := reflect.Indirect(reflect.ValueOf(item))
-		item, err = db.NewModelObject(manager)
-		if err != nil {
-			return nil, err
+		for _, dev := range devs {
+			gpuHostIds = append(gpuHostIds, dev.HostId)
 		}
-		itemValue := reflect.Indirect(reflect.ValueOf(item))
-		itemValue.Set(itemInitValue)
-		err = q.Row2Struct(rows, item)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, item)
 	}
-	return items, err
+
+	isOk := func(obj models.ISpecModel) bool {
+		if len(gpuHostIds) > 0 {
+			if !sets.NewString(gpuHostIds...).Has(obj.GetId()) {
+				return false
+			}
+			gpus, _ := models.IsolatedDeviceManager.FindUnusedGpusOnHost(obj.GetId())
+			if len(gpus) == 0 {
+				return false
+			}
+			hostGpuModels := []string{}
+			for _, gpu := range gpus {
+				hostGpuModels = append(hostGpuModels, gpu.Model)
+			}
+			if !sets.NewString(hostGpuModels...).IsSuperset(sets.NewString(gpuModels...)) {
+				return false
+			}
+		}
+		return true
+	}
+	return handleQueryModel(models.HostManager, ctx, userCred, query, specKeys, isOk)
 }
 
-func GetHostSpecs(ctx context.Context, userCred mcclient.TokenCredential, query *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return getModelSpecs(models.HostManager, ctx, userCred, query)
+func queryIsolatedDevices(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query *jsonutils.JSONDict,
+	specKeys []string,
+) (jsonutils.JSONObject, error) {
+	return handleQueryModel(models.IsolatedDeviceManager, ctx, userCred, query, specKeys, nil)
 }
 
-func GetIsolatedDeviceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return getModelSpecs(models.IsolatedDeviceManager, ctx, userCred, query)
-}
-
-func GetServerSpecs(ctx context.Context, userCred mcclient.TokenCredential, query *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return getModelSpecs(models.GuestManager, ctx, userCred, query)
-}
-
-func getModelSpecs(manager ISpecModelManager, ctx context.Context, userCred mcclient.TokenCredential, query *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	items, err := listItems(manager, ctx, userCred, query)
+func handleQueryModel(
+	manager models.ISpecModelManager,
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query *jsonutils.JSONDict,
+	specKeys []string,
+	isOkF func(models.ISpecModel) bool,
+) (jsonutils.JSONObject, error) {
+	objects, err := models.ListItems(manager, ctx, userCred, query)
 	if err != nil {
-		return nil, err
+		return nil, httperrors.NewInternalServerError("Get object error: %v", err)
 	}
-	retDict := jsonutils.NewDict()
-	for _, obj := range items {
-		specObj := obj.(ISpecModel)
-		spec := specObj.GetSpec(true)
-		if spec == nil {
+	if len(objects) == 0 {
+		ret := jsonutils.NewArray()
+		return ret, nil
+	}
+	objs := QueryObjects(manager, objects, specKeys, isOkF)
+	return QueryObjectsToJson(objs, ctx, userCred, query)
+}
+
+func QueryObjects(manager models.ISpecModelManager, objs []models.ISpecModel, specKeys []string, isOkF func(models.ISpecModel) bool) []models.ISpecModel {
+	selectedObjs := make([]models.ISpecModel, 0)
+	for _, obj := range objs {
+		specs := obj.GetSpec(true)
+		if specs == nil {
 			continue
 		}
-		log.Errorf("=========get %s spec: %s", specObj.GetShortDesc(), spec)
-		specKeys := manager.GetSpecIdent(spec)
-		sort.Strings(specKeys)
-		specKey := strings.Join(specKeys, "/")
-		if oldSpec, _ := retDict.Get(specKey); oldSpec == nil {
-			spec.Add(jsonutils.NewInt(1), "count")
-			retDict.Add(spec, specKey)
-		} else {
-			count, _ := oldSpec.Int("count")
-			oldSpec.(*jsonutils.JSONDict).Set("count", jsonutils.NewInt(count+1))
-			retDict.Set(specKey, oldSpec)
+		if isOkF != nil && !isOkF(obj) {
+			continue
 		}
+		specIdents := manager.GetSpecIdent(specs)
+		if len(specIdents) == 0 {
+			continue
+		}
+		if !sets.NewString(specIdents...).IsSuperset(sets.NewString(specKeys...)) {
+			continue
+		}
+		selectedObjs = append(selectedObjs, obj)
 	}
-	log.Errorf("========ret specdict: %s", retDict)
-	return retDict, nil
+	return selectedObjs
+}
+
+func QueryObjectsToJson(objs []models.ISpecModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	ret := jsonutils.NewArray()
+	for _, obj := range objs {
+		jsonData := jsonutils.Marshal(obj)
+		jsonDict, ok := jsonData.(*jsonutils.JSONDict)
+		if !ok {
+			return nil, fmt.Errorf("Invalid model data structure, not a dict")
+		}
+		extraDict := obj.GetCustomizeColumns(ctx, userCred, query)
+		if extraDict != nil {
+			jsonDict.Update(extraDict)
+		}
+		ret.Add(jsonDict)
+	}
+	return ret, nil
 }

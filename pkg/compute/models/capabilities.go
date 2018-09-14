@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/sqlchemy"
+	"yunion.io/x/jsonutils"
 )
 
 
@@ -17,6 +18,7 @@ type SCapabilities struct {
 	MaxDataDiskCount   int
 	SchedPolicySupport bool
 	Usable             bool
+	Specs jsonutils.JSONObject
 }
 
 func GetCapabilities(zone *SZone) SCapabilities {
@@ -30,6 +32,7 @@ func GetCapabilities(zone *SZone) SCapabilities {
 	capa.MinDataDiskCount = getMinDataDiskCount(zone)
 	capa.MaxDataDiskCount = getMaxDataDiskCount(zone)
 	capa.Usable = isUsable(zone)
+	capa.Specs = 
 	return capa
 }
 
