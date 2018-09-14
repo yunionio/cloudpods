@@ -20,7 +20,7 @@ type SStandaloneResourceBase struct {
 
 	Id         string `width:"128" charset:"ascii" primary:"true" list:"user"`
 	Name       string `width:"128" charset:"utf8" nullable:"false" index:"true" list:"user" update:"user" create:"required"`
-	ExternalId string `width:"128" charset:"ascii" index:"true" get:"admin" create:"admin_optional"`
+	ExternalId string `width:"128" charset:"ascii" index:"true" list:"admin" create:"admin_optional"`
 
 	Description string `width:"256" charset:"utf8" get:"user" update:"user" create:"optional"`
 

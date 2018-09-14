@@ -230,6 +230,7 @@ func (self *SNetwork) getFreeIP(addrTable map[string]bool, candidate string, all
 			if _, ok := addrTable[ip.String()]; !ok {
 				return ip.String(), nil
 			}
+			ip = ip.StepUp()
 		}
 	}
 	return "", httperrors.NewInsufficientResourceError("Out of IP address")
@@ -630,6 +631,9 @@ func parseNetworkInfo(userCred mcclient.TokenCredential, info jsonutils.JSONObje
 	}
 	parts := strings.Split(netStr, ":")
 	for _, p := range parts {
+		if len(p) == 0 {
+			continue
+		}
 		if regutils.MatchIP4Addr(p) {
 			netConfig.Address = p
 		} else if regutils.MatchIP6Addr(p) {

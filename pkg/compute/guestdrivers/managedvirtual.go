@@ -152,3 +152,12 @@ func (self *SManagedVirtualizedGuestDriver) GetGuestVncInfo(userCred mcclient.To
 
 	return dataDict, nil
 }
+
+func (self *SManagedVirtualizedGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	subtask, err := taskman.TaskManager.NewTask(ctx, "ManagedGuestRebuildRootTask", guest, task.GetUserCred(), nil, task.GetTaskId(), "", nil)
+	if err != nil {
+		return err
+	}
+	subtask.ScheduleRun(nil)
+	return nil
+}

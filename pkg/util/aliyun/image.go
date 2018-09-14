@@ -227,7 +227,7 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 		params["ImageName"] = name
 	}
 
-	log.Debugf("%s", params)
+	// log.Debugf("%s", params)
 
 	body, err := self.ecsRequest("DescribeImages", params)
 	if err != nil {

@@ -501,7 +501,6 @@ func (q *SQuery) First(dest interface{}) error {
 
 func (q *SQuery) All(dest interface{}) error {
 	arrayType := reflect.TypeOf(dest).Elem()
-	fmt.Println(arrayType, arrayType.Kind())
 
 	if arrayType.Kind() != reflect.Array && arrayType.Kind() != reflect.Slice {
 		return fmt.Errorf("dest is not an array or slice")
