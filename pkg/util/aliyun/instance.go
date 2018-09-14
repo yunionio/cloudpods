@@ -66,7 +66,7 @@ type SVpcAttributes struct {
 type SInstance struct {
 	host *SHost
 
-	idisks []cloudprovider.ICloudDisk
+	// idisks []cloudprovider.ICloudDisk
 
 	AutoReleaseTime         string
 	ClusterId               string
@@ -187,35 +187,25 @@ func (self *SInstance) getVpc() (*SVpc, error) {
 	return self.host.zone.region.getVpc(self.VpcAttributes.VpcId)
 }
 
-func (self *SInstance) fetchDisks() error {
+func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	disks, total, err := self.host.zone.region.GetDisks(self.InstanceId, "", "", nil, 0, 50)
 	if err != nil {
 		log.Errorf("fetchDisks fail %s", err)
-		return err
+		return nil, err
 	}
 	if total > len(disks) {
 		disks, _, err = self.host.zone.region.GetDisks(self.InstanceId, "", "", nil, 0, total)
 	}
-	self.idisks = make([]cloudprovider.ICloudDisk, len(disks))
+	idisks := make([]cloudprovider.ICloudDisk, len(disks))
 	for i := 0; i < len(disks); i += 1 {
 		store, err := self.host.zone.getStorageByCategory(disks[i].Category)
 		if err != nil {
-			return err
-		}
-		disks[i].storage = store
-		self.idisks[i] = &disks[i]
-	}
-	return nil
-}
-
-func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	if self.idisks == nil {
-		err := self.fetchDisks()
-		if err != nil {
 			return nil, err
 		}
+		disks[i].storage = store
+		idisks[i] = &disks[i]
 	}
-	return self.idisks, nil
+	return idisks, nil
 }
 
 func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
@@ -379,7 +369,6 @@ func (self *SInstance) RebuildRoot(imageId string, passwd string, publicKey stri
 	if err != nil {
 		return "", err
 	}
-	self.idisks = nil
 
 	return diskId, nil
 }

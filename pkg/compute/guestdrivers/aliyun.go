@@ -379,17 +379,46 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		}
 
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			_, err := iVM.RebuildRoot(desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
+			diskId, err := iVM.RebuildRoot(desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
 			if err != nil {
 				return nil, err
 			}
 
-			log.Debugf("VMrebuildRoot %s, wait status ready ...", iVM.GetGlobalId())
+			log.Debugf("VMrebuildRoot %s new diskID %s, wait status ready ...", iVM.GetGlobalId(), diskId)
+
 			err = cloudprovider.WaitStatus(iVM, models.VM_READY, time.Second*5, time.Second*1800)
 			if err != nil {
 				return nil, err
 			}
 			log.Debugf("VMrebuildRoot %s, and status is ready", iVM.GetGlobalId())
+
+			maxWaitSecs := 300
+			waited := 0
+
+			for {
+				// hack, wait disk number consistent
+				idisks, err := iVM.GetIDisks()
+				if err != nil {
+					log.Errorf("fail to find VM idisks %s", err)
+					return nil, err
+				}
+				if len(idisks) < len(desc.DataDisks) + 1 {
+					if waited > maxWaitSecs {
+						log.Errorf("inconsistent disk number, wait timeout, must be something wrong one remote")
+						return nil, cloudprovider.ErrTimeout
+					}
+					log.Debugf("inconsistent disk number???? %d != %d", len(idisks), len(desc.DataDisks)+1)
+					time.Sleep(time.Second*5)
+					waited += 5
+				} else {
+					if idisks[0].GetGlobalId() != diskId {
+						log.Errorf("system disk id inconsistent %s != %s", idisks[0].GetGlobalId(), diskId)
+						return nil, fmt.Errorf("inconsistent sys disk id after rebuild root")
+					}
+
+					break
+				}
+			}
 
 			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
 
