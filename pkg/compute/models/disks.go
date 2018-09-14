@@ -423,9 +423,13 @@ func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.Token
 			return nil, httperrors.NewServerStatusError("Disk attached guest status must be ready")
 		}
 	}
-	_, err = SnapshotManager.FetchById(snapshotId)
+	iSnapshot, err := SnapshotManager.FetchById(snapshotId)
 	if err != nil {
 		return nil, httperrors.NewNotFoundError("Snapshot %s not found", snapshotId)
+	}
+	snapshot := iSnapshot.(*SSnapshot)
+	if snapshot.Status != SNAPSHOT_READY {
+		return nil, httperrors.NewBadRequestError("Cannot reset disk with snapshot in status %s", snapshot.Status)
 	}
 	self.StartResetDisk(ctx, userCred, snapshotId)
 	return nil, nil
@@ -1222,10 +1226,10 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 			log.Errorln("Disk %s not attach or attached more than one guest", disk.Id)
 			continue
 		}
-		// if !utils.IsInStringArray(guests[0].Status, []string{VM_RUNNING, VM_READY}) {
-		// 	log.Errorln("Guest(%s) in status(%s) cannot do snapshot action", guests[0].Id, guests[0].Status)
-		// 	continue
-		// }
+		if !utils.IsInStringArray(guests[0].Status, []string{VM_RUNNING, VM_READY}) {
+			log.Errorln("Guest(%s) in status(%s) cannot do snapshot action", guests[0].Id, guests[0].Status)
+			continue
+		}
 		// name
 		name := disk.Name + time.Now().Format("2006-01-02#15:04:05")
 		snap, err := SnapshotManager.CreateSnapshot(ctx, userCred, AUTO, disk.Id, guests[0].Id, "", name)

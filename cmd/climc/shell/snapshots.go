@@ -54,4 +54,15 @@ func init() {
 		printObject(result)
 		return nil
 	})
+	type SnapshotShowOptions struct {
+		ID string `help:"ID or Name of snapshot"`
+	}
+	R(&SnapshotShowOptions{}, "snapshot-show", "Show snapshot details", func(s *mcclient.ClientSession, args *SnapshotShowOptions) error {
+		result, err := modules.Snapshots.Get(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

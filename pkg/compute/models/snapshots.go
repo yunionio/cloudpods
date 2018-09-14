@@ -69,7 +69,7 @@ func (self *SSnapshot) AllowCreateItem(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SSnapshot) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return false
+	return true
 }
 
 func (self *SSnapshot) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
@@ -266,7 +266,7 @@ func (self *SSnapshotManager) GetConvertSnapshot(deleteSnapshot *SSnapshot) (*SS
 		dest[1].SetModelManager(self)
 		return &dest[1], nil
 	} else if len(dest) == 1 && dest[0].Id == deleteSnapshot.Id {
-		return nil, nil
+		return nil, fmt.Errorf("Snapshot dose not have convert snapshot")
 	}
 	return nil, fmt.Errorf("Snapshot %s cannot convert", deleteSnapshot.Id)
 }

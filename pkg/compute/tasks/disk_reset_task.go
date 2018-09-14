@@ -62,7 +62,15 @@ func (self *DiskResetTask) OnRequestResetDisk(ctx context.Context, disk *models.
 	snapshotId, _ := self.Params.GetString("snapshot_id")
 	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
 	snapshot := iSnapshot.(*models.SSnapshot)
-	// self.SetStage("OnCleanUpSnapshots", nil)
+	if disk.DiskSize != snapshot.Size {
+		_, err := models.DiskManager.TableSpec().Update(disk, func() error {
+			disk.DiskSize = snapshot.Size
+			return nil
+		})
+		if err != nil {
+			log.Errorln(err)
+		}
+	}
 	err := disk.CleanUpDiskSnapshots(ctx, self.UserCred, snapshot)
 	if err != nil {
 		log.Errorln(err)
@@ -71,10 +79,6 @@ func (self *DiskResetTask) OnRequestResetDisk(ctx context.Context, disk *models.
 	}
 	self.SetStageComplete(ctx, nil)
 }
-
-// func (self *DiskResetTask) OnRequestResetDisk(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-// 	self.SetStageComplete(ctx, data)
-// }
 
 type DiskCleanUpSnapshotsTask struct {
 	SDiskBaseTask
