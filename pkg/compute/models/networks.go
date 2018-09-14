@@ -1211,6 +1211,24 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		sq := WireManager.Query("id").Equals("vpc_id", vpcObj.GetId())
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
 	}
+	regionStr := jsonutils.GetAnyString(query, []string{"region_id", "region", "cloudregion_id", "cloudregion"})
+	if len(regionStr) > 0 {
+		region, err := CloudregionManager.FetchByIdOrName(userCred.GetProjectId(), regionStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError("cloud region %s not found", regionStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		sq := wires.Query(wires.Field("id")).
+			Join(vpcs, sqlchemy.AND(
+				sqlchemy.Equals(vpcs.Field("cloudregion_id"), region.GetId()),
+				sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))))
+		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
+	}
 	return q, nil
 }
 
