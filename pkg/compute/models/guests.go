@@ -74,9 +74,10 @@ const (
 	VM_MIGRATING      = "migrating"
 	VM_MIGRATE_FAILED = "migrate_failed"
 
-	VM_CHANGE_FLAVOR     = "change_flavor"
-	VM_REBUILD_ROOT      = "rebuild_root"
-	VM_REBUILD_ROOT_FAIL = "rebld_root_fail"
+	VM_CHANGE_FLAVOR      = "change_flavor"
+	VM_CHANGE_FLAVOR_FAIL = "change_flavor_fail"
+	VM_REBUILD_ROOT       = "rebuild_root"
+	VM_REBUILD_ROOT_FAIL  = "rebld_root_fail"
 
 	VM_START_SNAPSHOT  = "snapshot_start"
 	VM_SNAPSHOT        = "snapshot"
