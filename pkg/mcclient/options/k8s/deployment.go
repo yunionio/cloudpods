@@ -17,7 +17,7 @@ type DeploymentCreateOptions struct {
 	Image           string   `help:"The image for the container to run"`
 	Replicas        int64    `help:"Number of replicas for pods in this deployment"`
 	RunAsPrivileged bool     `help:"Whether to run the container as privileged user"`
-	Labels          string   `help:"Comma separated labels to apply to the pod(s)"`
+	Labels          string   `help:"Comma separated labels to apply to the pod(s), e.g. --labels='app=hazelcast,env=prod'"`
 	Env             []string `help:"Environment variables to set in container"`
 	Port            []string `help:"Port for the service that is created, format is <protocol>:<service_port>:<container_port> e.g. tcp:80:3000"`
 	Net             string   `help:"Network config, e.g. net1, net1:10.168.222.171"`
@@ -61,6 +61,13 @@ func (o DeploymentCreateOptions) Params() (*jsonutils.JSONDict, error) {
 			return nil, err
 		}
 		params.Add(net, "networkConfig")
+	}
+	if o.Labels != "" {
+		labels, err := parseLabels(o.Labels)
+		if err != nil {
+			return nil, err
+		}
+		params.Add(labels, "labels")
 	}
 	return params, nil
 }
@@ -144,4 +151,31 @@ func (o DeploymentCreateFromFileOptions) Params() (*jsonutils.JSONDict, error) {
 	}
 	params.Add(jsonutils.NewString(string(content)), "content")
 	return params, nil
+}
+
+func parseLabels(labelStr string) (*jsonutils.JSONArray, error) {
+	labelsStrs := strings.Split(labelStr, ",")
+	ret := jsonutils.NewArray()
+	if len(labelsStrs) == 0 {
+		return ret, nil
+	}
+	for _, str := range labelsStrs {
+		label, err := parseLabel(str)
+		if err != nil {
+			return nil, err
+		}
+		ret.Add(label)
+	}
+	return ret, nil
+}
+
+func parseLabel(str string) (jsonutils.JSONObject, error) {
+	parts := strings.Split(str, "=")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("Invalid label string: %s", str)
+	}
+	label := jsonutils.NewDict()
+	label.Add(jsonutils.NewString(parts[0]), "key")
+	label.Add(jsonutils.NewString(parts[1]), "value")
+	return label, nil
 }
