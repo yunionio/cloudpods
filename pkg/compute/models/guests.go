@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 const (
@@ -2111,7 +2112,7 @@ func (self *SGuest) attachIsolatedDevice(userCred mcclient.TokenCredential, dev 
 	if dev.HostId != self.HostId {
 		return fmt.Errorf("Isolated device and guest are not located in the same host")
 	}
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := IsolatedDeviceManager.TableSpec().Update(dev, func() error {
 		dev.GuestId = self.Id
 		return nil
 	})
@@ -2511,6 +2512,94 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 		}
 	}
 	return nil, httperrors.NewResourceNotFoundError("Disk %s not found", diskId)
+}
+
+func (self *SGuest) AllowPerformDetachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Hypervisor != HYPERVISOR_KVM {
+		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.Hypervisor)
+	}
+	if self.Status != VM_READY {
+		msg := "Only allowed to attach isolated device when guest is ready"
+		logclient.AddActionLog(self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
+		return nil, httperrors.NewInvalidStatusError(msg)
+	}
+	device, err := data.GetString("device")
+	if err != nil {
+		msg := "Missing isolated device"
+		logclient.AddActionLog(self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
+		return nil, httperrors.NewBadRequestError(msg)
+	}
+	iDev, err := IsolatedDeviceManager.FetchByIdOrName(userCred.GetProjectId(), device)
+	if err != nil {
+		msg := fmt.Sprintf("Isolated device %s not found", device)
+		logclient.AddActionLog(self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
+		return nil, httperrors.NewBadRequestError(msg)
+	}
+	dev := iDev.(*SIsolatedDevice)
+	host := self.GetHost()
+	lockman.LockObject(ctx, host)
+	defer lockman.ReleaseObject(ctx, host)
+	err = self.detachIsolateDevice(userCred, dev)
+	return nil, err
+}
+
+func (self *SGuest) detachIsolateDevice(userCred mcclient.TokenCredential, dev *SIsolatedDevice) error {
+	if dev.GuestId != self.Id {
+		msg := "Isolated device is not attached to this guest"
+		logclient.AddActionLog(self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
+		return httperrors.NewBadRequestError(msg)
+	}
+	_, err := self.GetModelManager().TableSpec().Update(dev, func() error {
+		dev.GuestId = ""
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogEvent(self, db.ACT_GUEST_DETACH_ISOLATED_DEVICE, dev.GetShortDesc(), userCred)
+	return nil
+}
+
+func (self *SGuest) AllowPerformAttachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Hypervisor != HYPERVISOR_KVM {
+		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.Hypervisor)
+	}
+	if self.Status != VM_READY {
+		msg := "Only allowed to attach isolated device when guest is ready"
+		logclient.AddActionLog(self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, false)
+		return nil, httperrors.NewInvalidStatusError(msg)
+	}
+	device, err := data.GetString("device")
+	if err != nil {
+		msg := "Missing isolated device"
+		logclient.AddActionLog(self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, false)
+		return nil, httperrors.NewBadRequestError(msg)
+	}
+	iDev, err := IsolatedDeviceManager.FetchByIdOrName(userCred.GetProjectId(), device)
+	if err != nil {
+		msg := fmt.Sprintf("Isolated device %s not found", device)
+		logclient.AddActionLog(self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, false)
+		return nil, httperrors.NewBadRequestError(msg)
+	}
+	dev := iDev.(*SIsolatedDevice)
+	host := self.GetHost()
+	lockman.LockObject(ctx, host)
+	defer lockman.ReleaseObject(ctx, host)
+	err = self.attachIsolatedDevice(userCred, dev)
+	var msg string
+	if err != nil {
+		msg = err.Error()
+	}
+	logclient.AddActionLog(self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, err == nil)
+	return nil, err
 }
 
 func (self *SGuest) AllowPerformDetachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
