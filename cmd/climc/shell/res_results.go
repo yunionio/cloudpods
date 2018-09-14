@@ -11,10 +11,10 @@ func init() {
 
 	type ResResultsListOptions struct {
 		options.BaseListOptions
-		StatMonth string `"help":"stat_month of the query"`
-		StartDate string `"help":"start_date of the query"`
-		EndDate   string `"help":"end_date of the query"`
-		ProjectId string `"help":"project_id of the query"`
+		StatMonth string `help:"stat_month of the query"`
+		StartDate string `help:"start_date of the query"`
+		EndDate   string `help:"end_date of the query"`
+		ProjectId string `help:"project_id of the query"`
 	}
 	R(&ResResultsListOptions{}, "resresult-list", "List all res results ", func(s *mcclient.ClientSession, args *ResResultsListOptions) error {
 		var params *jsonutils.JSONDict
@@ -51,13 +51,13 @@ func init() {
 
 	type ResResultUpdateOptions struct {
 		ID        string `help:"ID of the query"`
-		StatMonth string `"help":"stat_month of the query"`
-		StartDate string `"help":"start_date of the query"`
-		EndDate   string `"help":"end_date of the query"`
-		ProjectId string `"help":"project_id of the query"`
+		StatMonth string `help:"stat_month of the query"`
+		StartDate string `help:"start_date of the query"`
+		EndDate   string `help:"end_date of the query"`
+		ProjectId string `help:"project_id of the query"`
 
-		ItemKey  string `"help":"item_key of the query"`
-		ItemText string `"help":"item_text of the query"`
+		ItemKey  string `help:"item_key of the query"`
+		ItemText string `help:"item_text of the query"`
 	}
 	R(&ResResultUpdateOptions{}, "resresult-export", "Update a resresult export", func(s *mcclient.ClientSession, args *ResResultUpdateOptions) error {
 		params := jsonutils.NewDict()
