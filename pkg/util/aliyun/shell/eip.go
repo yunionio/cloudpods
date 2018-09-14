@@ -7,8 +7,8 @@ import (
 
 func init() {
 	type EipListOptions struct {
-		Offset   int    `help:"List offset"`
-		Limit    int    `help:"List limit"`
+		Offset int `help:"List offset"`
+		Limit  int `help:"List limit"`
 	}
 	shellutils.R(&EipListOptions{}, "eip-list", "List eips", func(cli *aliyun.SRegion, args *EipListOptions) error {
 		eips, total, e := cli.GetEips("", args.Offset, args.Limit)
@@ -40,7 +40,7 @@ func init() {
 	})
 
 	type EipAssociateOptions struct {
-		ID string `help:"EIP allocation ID"`
+		ID       string `help:"EIP allocation ID"`
 		INSTANCE string `help:"Instance ID"`
 	}
 	shellutils.R(&EipAssociateOptions{}, "eip-associate", "Associate an EIP", func(cli *aliyun.SRegion, args *EipAssociateOptions) error {

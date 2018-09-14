@@ -230,6 +230,7 @@ func (self *SNetwork) getFreeIP(addrTable map[string]bool, candidate string, all
 			if _, ok := addrTable[ip.String()]; !ok {
 				return ip.String(), nil
 			}
+			ip = ip.StepUp()
 		}
 	}
 	return "", httperrors.NewInsufficientResourceError("Out of IP address")
@@ -630,6 +631,9 @@ func parseNetworkInfo(userCred mcclient.TokenCredential, info jsonutils.JSONObje
 	}
 	parts := strings.Split(netStr, ":")
 	for _, p := range parts {
+		if len(p) == 0 {
+			continue
+		}
 		if regutils.MatchIP4Addr(p) {
 			netConfig.Address = p
 		} else if regutils.MatchIP6Addr(p) {
@@ -1205,6 +1209,24 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 			return nil, httperrors.NewNotFoundError("VPC %s not found", vpcStr)
 		}
 		sq := WireManager.Query("id").Equals("vpc_id", vpcObj.GetId())
+		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
+	}
+	regionStr := jsonutils.GetAnyString(query, []string{"region_id", "region", "cloudregion_id", "cloudregion"})
+	if len(regionStr) > 0 {
+		region, err := CloudregionManager.FetchByIdOrName(userCred.GetProjectId(), regionStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError("cloud region %s not found", regionStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		sq := wires.Query(wires.Field("id")).
+			Join(vpcs, sqlchemy.AND(
+				sqlchemy.Equals(vpcs.Field("cloudregion_id"), region.GetId()),
+				sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))))
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
 	}
 	return q, nil

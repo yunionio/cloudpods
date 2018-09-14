@@ -42,13 +42,14 @@ func init() {
 	})
 
 	type NetworkInterfaceCreateOptions struct {
-		NAME   string `help:"Nic interface name"`
-		IP     string `help:"Nic private ip address"`
-		SUBNET string `help:"Subnet ID"`
+		NAME          string `help:"Nic interface name"`
+		IP            string `help:"Nic private ip address"`
+		NETWORK       string `help:"Netowrk ID"`
+		SecurityGroup string `helo:"SecurityGroup ID"`
 	}
 
 	shellutils.R(&NetworkInterfaceCreateOptions{}, "network-interface-create", "Create network interface", func(cli *azure.SRegion, args *NetworkInterfaceCreateOptions) error {
-		if nic, err := cli.CreateNetworkInterface(args.NAME, args.IP, args.SUBNET); err != nil {
+		if nic, err := cli.CreateNetworkInterface(args.NAME, args.IP, args.NETWORK, args.SecurityGroup); err != nil {
 			return err
 		} else {
 			printObject(nic)

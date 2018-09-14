@@ -405,7 +405,7 @@ func syncHostVMs(ctx context.Context, provider *models.SCloudprovider, task *Clo
 	for i := 0; i < len(localVMs); i += 1 {
 		syncVMNics(ctx, provider, task, localHost, &localVMs[i], remoteVMs[i])
 		syncVMDisks(ctx, provider, task, localHost, &localVMs[i], remoteVMs[i])
-		syncVMEip(ctx, provider, task,  &localVMs[i], remoteVMs[i])
+		syncVMEip(ctx, provider, task, &localVMs[i], remoteVMs[i])
 	}
 }
 

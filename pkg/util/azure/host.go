@@ -48,11 +48,11 @@ func (self *SHost) Refresh() error {
 	return nil
 }
 
-func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, networkId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string) (cloudprovider.ICloudVM, error) {
+func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, networkId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, secgroupId string) (cloudprovider.ICloudVM, error) {
 	nicId := ""
 	if net := self.zone.getNetworkById(networkId); net == nil {
 		return nil, fmt.Errorf("invalid network ID %s", networkId)
-	} else if nic, err := self.zone.region.CreateNetworkInterface(fmt.Sprintf("%s-ipconfig", name), ipAddr, net.GetId()); err != nil {
+	} else if nic, err := self.zone.region.CreateNetworkInterface(fmt.Sprintf("%s-ipconfig", name), ipAddr, net.GetId(), secgroupId); err != nil {
 		return nil, err
 	} else {
 		nicId = nic.ID
@@ -109,7 +109,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 	AdminUsername := DEFAULT_USER
 
 	NetworkInterfaceReferences := []compute.NetworkInterfaceReference{
-		compute.NetworkInterfaceReference{ID: &nicId},
+		{ID: &nicId},
 	}
 
 	osType := compute.OperatingSystemTypes(image.GetOsType())
@@ -151,7 +151,10 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 	ProvisionVMAgent := false
 
 	if osType == compute.Linux {
-		LinuxConfiguration.ProvisionVMAgent = &ProvisionVMAgent
+		if len(publicKey) > 0 {
+			sshKeys := []compute.SSHPublicKey{compute.SSHPublicKey{KeyData: &publicKey}}
+			LinuxConfiguration.SSH = &compute.SSHConfiguration{PublicKeys: &sshKeys}
+		}
 		properties.OsProfile.LinuxConfiguration = &LinuxConfiguration
 	} else if osType == compute.Windows {
 		WindowsConfiguration.ProvisionVMAgent = &ProvisionVMAgent

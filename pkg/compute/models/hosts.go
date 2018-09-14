@@ -18,7 +18,6 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -438,11 +437,11 @@ func (self *SHost) GetFetchUrl() string {
 	return fmt.Sprintf("%s://%s:%d", managerUrl.Scheme, managerUrl.Host, port+40000)
 }
 
-func (self *SHost) GetAttachedStorages() []SStorage {
-	return self._getAttachedStorages(tristate.False, tristate.True)
+func (self *SHost) GetAttachedStorages(storageType string) []SStorage {
+	return self._getAttachedStorages(tristate.False, tristate.True, storageType)
 }
 
-func (self *SHost) _getAttachedStorages(isBaremetal tristate.TriState, enabled tristate.TriState) []SStorage {
+func (self *SHost) _getAttachedStorages(isBaremetal tristate.TriState, enabled tristate.TriState, storageType string) []SStorage {
 	storages := StorageManager.Query().SubQuery()
 	hoststorages := HoststorageManager.Query().SubQuery()
 	q := storages.Query()
@@ -457,6 +456,9 @@ func (self *SHost) _getAttachedStorages(isBaremetal tristate.TriState, enabled t
 	} else if isBaremetal.IsFalse() {
 		q = q.NotEquals("storage_type", STORAGE_BAREMETAL)
 	}
+	if len(storageType) > 0 {
+		q = q.Equals("storage_type", storageType)
+	}
 	q = q.Filter(sqlchemy.Equals(hoststorages.Field("host_id"), self.Id))
 	ret := make([]SStorage, 0)
 	err := db.FetchModelObjects(StorageManager, q, &ret)
@@ -468,7 +470,7 @@ func (self *SHost) _getAttachedStorages(isBaremetal tristate.TriState, enabled t
 }
 
 func (self *SHost) SyncAttachedStorageStatus() {
-	storages := self.GetAttachedStorages()
+	storages := self.GetAttachedStorages("")
 	if storages != nil {
 		for _, storage := range storages {
 			storage.SyncStatusWithHosts()
@@ -568,7 +570,7 @@ type SStorageCapacity struct {
 
 func (self *SHost) GetAttachedStorageCapacity() SStorageCapacity {
 	ret := SStorageCapacity{}
-	storages := self.GetAttachedStorages()
+	storages := self.GetAttachedStorages("")
 	if storages != nil {
 		for _, s := range storages {
 			ret.Capacity += s.GetCapacity()
@@ -613,7 +615,7 @@ func getLeastUsedStorage(storages []SStorage, backend string) *SStorage {
 }
 
 func (self *SHost) GetLeastUsedStorage(backend string) *SStorage {
-	storages := self.GetAttachedStorages()
+	storages := self.GetAttachedStorages("")
 	if storages != nil {
 		return getLeastUsedStorage(storages, backend)
 	}
@@ -1608,7 +1610,7 @@ func (manager *SHostManager) GetHostsByManagerAndRegion(managerId string, region
 	return ret
 }
 
-func (self *SHost) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId, parentTaskId string, isForce bool) error {
+/*func (self *SHost) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId, parentTaskId string, isForce bool) error {
 	//Todo
 	// HostcachedimagesManager.Register(userCred, self, imageId)
 	data := jsonutils.NewDict()
@@ -1622,10 +1624,21 @@ func (self *SHost) StartImageCacheTask(ctx context.Context, userCred mcclient.To
 	}
 	task.ScheduleRun(nil)
 	return nil
-}
+}*/
 
 func (self *SHost) Request(userCred mcclient.TokenCredential, method string, url string, headers http.Header, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	s := auth.GetSession(userCred, "", "")
 	_, ret, err := s.JSONRequest(self.ManagerUri, "", method, url, headers, body)
 	return ret, err
+}
+
+func (self *SHost) GetLocalStoragecache() *SStoragecache {
+	localStorages := self.GetAttachedStorages(STORAGE_LOCAL)
+	for i := 0; i < len(localStorages); i += 1 {
+		sc := localStorages[i].GetStoragecache()
+		if sc != nil {
+			return sc
+		}
+	}
+	return nil
 }

@@ -1,15 +1,15 @@
 package capabilities
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 	"net/http"
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 func AddCapabilityHandler(prefix string, app *appsrv.Application) {

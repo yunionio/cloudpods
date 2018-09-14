@@ -16,10 +16,10 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
 
+	"database/sql"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/compute/options"
-	"database/sql"
 )
 
 const (

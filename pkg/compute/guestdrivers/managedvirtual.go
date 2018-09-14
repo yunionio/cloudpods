@@ -3,6 +3,7 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -47,19 +48,28 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 }
 
 func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(_ context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		ihost, err := host.GetIHost()
-		if err != nil {
-			return nil, err
+	ihost, e := host.GetIHost()
+	if e != nil {
+		return nil, e
+	}
+
+	ivm, e := ihost.GetIVMById(guest.GetExternalId())
+	if e != nil {
+		return nil, e
+	}
+
+	result := jsonutils.NewDict()
+	if ivm.GetStatus() != models.VM_RUNNING {
+		if err := ivm.StartVM(); err != nil {
+			return nil, e
+		} else {
+			task.ScheduleRun(result)
 		}
-		ivm, err := ihost.GetIVMById(guest.ExternalId)
-		if err != nil {
-			return nil, err
-		}
-		err = ivm.StartVM()
-		return nil, err
-	})
-	return nil, nil
+	} else {
+		result.Add(jsonutils.NewBool(true), "is_running")
+	}
+
+	return result, e
 }
 
 func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
@@ -151,4 +161,63 @@ func (self *SManagedVirtualizedGuestDriver) GetGuestVncInfo(userCred mcclient.To
 	dataDict := data.(*jsonutils.JSONDict)
 
 	return dataDict, nil
+}
+
+func (self *SManagedVirtualizedGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	subtask, err := taskman.TaskManager.NewTask(ctx, "ManagedGuestRebuildRootTask", guest, task.GetUserCred(), nil, task.GetTaskId(), "", nil)
+	if err != nil {
+		return err
+	}
+	subtask.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SManagedVirtualizedGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	subtask, err := taskman.TaskManager.NewTask(ctx, "ManagedGuestCreateDiskTask", guest, task.GetUserCred(), task.GetParams(), task.GetTaskId(), "", nil)
+	if err != nil {
+		return err
+	}
+	subtask.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SManagedVirtualizedGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, disk *models.SDisk, task taskman.ITask, isPurge bool) error {
+	return disk.StartDiskDeleteTask(ctx, task.GetUserCred(), task.GetTaskId(), isPurge)
+}
+
+type SManagedVMChangeConfig struct {
+	InstanceId string
+	Cpu        int
+	Memory     int
+}
+
+func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, vcpuCount, vmemSize int64) error {
+	config := SAliyunVMChangeConfig{}
+	config.InstanceId = guest.GetExternalId()
+	config.Cpu = int(vcpuCount)
+	config.Memory = int(vmemSize)
+	ihost, err := guest.GetHost().GetIHost()
+	if err != nil {
+		return err
+	}
+
+	iVM, err := ihost.GetIVMById(config.InstanceId)
+	if err != nil {
+		return err
+	}
+
+	if int(guest.VcpuCount) != config.Cpu || guest.VmemSize != config.Memory {
+		err = iVM.ChangeConfig(config.InstanceId, config.Cpu, config.Memory)
+		if err != nil {
+			return err
+		}
+	}
+
+	log.Debugf("VMchangeConfig %s, wait status ready ...", iVM.GetGlobalId())
+	err = cloudprovider.WaitStatus(iVM, models.VM_READY, time.Second*5, time.Second*300)
+	if err != nil {
+		return err
+	}
+	log.Debugf("VMchangeConfig %s, and status is ready", iVM.GetGlobalId())
+	return nil
 }

@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/services/consumption/mgmt/2018-03-31/consumption"
 	"github.com/Azure/azure-sdk-for-go/services/preview/subscription/mgmt/2018-03-01-preview/subscription"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 
@@ -292,17 +293,15 @@ type SAccountBalance struct {
 }
 
 func (self *SAzureClient) QueryAccountBalance() (*SAccountBalance, error) {
+	consumption.NewWithBaseURI(self.baseUrl, self.subscriptionId)
+	costClient := consumption.NewWithBaseURI(self.baseUrl, self.subscriptionId)
+	//costClient := costmanagement.NewBillingAccountDimensionsClientWithBaseURI(self.baseUrl, self.subscriptionId)
+	costClient.Authorizer = self.authorizer
+	if result, err := costClient.GetBalancesByBillingAccount(context.Background(), "quxuan@ioito.partner.onmschina.cn"); err != nil {
+		//if result, err := costClient.Get(context.Background(), ""); err != nil {
+		return nil, err
+	} else {
+		log.Errorf(jsonutils.Marshal(result).PrettyString())
+	}
 	return nil, nil
-	// body, err := self.businessRequest("QueryAccountBalance", nil)
-	// if err != nil {
-	// 	log.Errorf("QueryAccountBalance fail %s", err)
-	// 	return nil, err
-	// }
-	// balance := SAccountBalance{}
-	// err = body.Unmarshal(&balance, "Data")
-	// if err != nil {
-	// 	log.Errorf("Unmarshal AccountBalance fail %s", err)
-	// 	return nil, err
-	// }
-	// return &balance, nil
 }

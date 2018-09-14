@@ -43,7 +43,7 @@ func (self *SRegion) isNetworkInstanceNameAvaliable(nicName string) bool {
 	return false
 }
 
-func (self *SRegion) CreateNetworkInterface(nicName string, ipAddr string, subnetId string) (*SInstanceNic, error) {
+func (self *SRegion) CreateNetworkInterface(nicName string, ipAddr string, subnetId string, secgrpId string) (*SInstanceNic, error) {
 	networkClinet := network.NewInterfacesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
 	networkClinet.Authorizer = self.client.authorizer
 	nic := SInstanceNic{}
@@ -64,7 +64,7 @@ func (self *SRegion) CreateNetworkInterface(nicName string, ipAddr string, subne
 	}
 
 	IPConfigurations := []network.InterfaceIPConfiguration{
-		network.InterfaceIPConfiguration{
+		{
 			Name: &nicName,
 			InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
 				PrivateIPAddress:          &ipAddr,
@@ -74,6 +74,7 @@ func (self *SRegion) CreateNetworkInterface(nicName string, ipAddr string, subne
 			},
 		},
 	}
+
 	params := network.Interface{
 		Name:     &nicName,
 		Location: &self.Name,
@@ -81,6 +82,11 @@ func (self *SRegion) CreateNetworkInterface(nicName string, ipAddr string, subne
 			IPConfigurations: &IPConfigurations,
 		},
 	}
+	if len(secgrpId) > 0 {
+		networkSecurityGroup := network.SecurityGroup{ID: &secgrpId, Location: &self.Name}
+		params.InterfacePropertiesFormat.NetworkSecurityGroup = &networkSecurityGroup
+	}
+
 	//log.Debugf("create params: %", jsonutils.Marshal(params).PrettyString())
 	_, resourceGroup, nicName := pareResourceGroupWithName(nicName, NIC_RESOURCE)
 	if result, err := networkClinet.CreateOrUpdate(context.Background(), resourceGroup, nicName, params); err != nil {

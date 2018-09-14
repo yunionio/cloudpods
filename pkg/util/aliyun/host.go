@@ -2,13 +2,6 @@ package aliyun
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
-	"time"
-
-	"github.com/aokoli/goutils"
-	"golang.org/x/crypto/ssh"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -170,8 +163,10 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 	return inst, nil
 }
 
-func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, vswitchId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string) (cloudprovider.ICloudVM, error) {
-	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, vswitchId, ipAddr, desc, passwd, storageType, diskSizes, publicKey)
+func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int,
+	vswitchId string, ipAddr string, desc string, passwd string,
+	storageType string, diskSizes []int, publicKey string, secgroupId string) (cloudprovider.ICloudVM, error) {
+	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, vswitchId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId)
 	if err != nil {
 		return nil, err
 	}
@@ -183,36 +178,9 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 	return vm, err
 }
 
-func (self *SHost) lookUpAliyunKeypair(publicKey string) (string, error) {
-	pk, _, _, _, err := ssh.ParseAuthorizedKey([]byte(publicKey))
-	if err != nil {
-		return "", fmt.Errorf("publicKey error %s", err)
-	}
-
-	fingerprint := strings.Replace(ssh.FingerprintLegacyMD5(pk), ":", "", -1)
-	ks, total, err := self.zone.region.GetKeypairs(fingerprint, "*", 0, 1)
-	if total < 1 {
-		return "", fmt.Errorf("keypair not found %s", err)
-	} else {
-		return ks[0].KeyPairName, nil
-	}
-}
-
-func (self *SHost) importAliyunKeypair(publicKey string) (string, error) {
-	prefix, e := goutils.RandomAlphabetic(6)
-	if e != nil {
-		return "", fmt.Errorf("publicKey error %s", e)
-	}
-
-	name := prefix + strconv.FormatInt(time.Now().Unix(), 10)
-	if k, e := self.zone.region.ImportKeypair(name, publicKey); e != nil {
-		return "", fmt.Errorf("keypair import error %s", e)
-	} else {
-		return k.KeyPairName, nil
-	}
-}
-
-func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, vswitchId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string) (string, error) {
+func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int, memMB int,
+	vswitchId string, ipAddr string, desc string, passwd string,
+	storageType string, diskSizes []int, publicKey string, secgroupId string) (string, error) {
 	net := self.zone.getNetworkById(vswitchId)
 	if net == nil {
 		return "", fmt.Errorf("invalid switch ID %s", vswitchId)
@@ -226,33 +194,31 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 		return "", fmt.Errorf("vsiwtch's wire's vpc is empty")
 	}
 
-	secgroups, err := net.wire.vpc.GetISecurityGroups()
-	if err != nil {
-		return "", fmt.Errorf("get security group error %s", err)
-	}
+	var err error
 
-	var secgroupId string
-	if len(secgroups) == 0 {
-		secId, err := self.zone.region.createDefaultSecurityGroup(net.wire.vpc.VpcId)
+	if len(secgroupId) == 0 {
+		secgroups, err := net.wire.vpc.GetISecurityGroups()
 		if err != nil {
-			return "", fmt.Errorf("no secgroup for vpc and failed to create a default One!!")
-		} else {
-			secgroupId = secId
+			return "", fmt.Errorf("get security group error %s", err)
 		}
-	} else {
-		secgroupId = secgroups[0].GetId()
+
+		if len(secgroups) == 0 {
+			secId, err := self.zone.region.createDefaultSecurityGroup(net.wire.vpc.VpcId)
+			if err != nil {
+				return "", fmt.Errorf("no secgroup for vpc and failed to create a default One!!")
+			} else {
+				secgroupId = secId
+			}
+		} else {
+			secgroupId = secgroups[0].GetId()
+		}
 	}
 
 	keypair := ""
 	if len(publicKey) > 0 {
-		if name, e := self.lookUpAliyunKeypair(publicKey); e != nil {
-			if newName, err := self.importAliyunKeypair(publicKey); e != nil {
-				keypair = newName
-			} else {
-				return "", err
-			}
-		} else {
-			keypair = name
+		keypair, err = self.zone.region.syncKeypair(publicKey)
+		if err != nil {
+			return "", err
 		}
 	}
 

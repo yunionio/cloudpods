@@ -1,6 +1,8 @@
 package shell
 
 import (
+	"fmt"
+
 	"yunion.io/x/onecloud/pkg/util/azure"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -52,10 +54,19 @@ func init() {
 	})
 
 	type InstanceRebuildOptions struct {
-		ID string `help:"Instance ID"`
+		ID        string `help:"Instance ID"`
+		Image     string `help:"Image ID"`
+		Password  string `help:"pasword"`
+		PublicKey string `help:"Public Key"`
+		Size      int32  `help:"system disk size in GB"`
 	}
-	shellutils.R(&InstanceRebuildOptions{}, "instance-rebuild", "Rebuild intance root", func(cli *azure.SRegion, args *InstanceRebuildOptions) error {
-		return cli.RebuildRoot(args.ID)
+	shellutils.R(&InstanceRebuildOptions{}, "instance-rebuild-root", "Reinstall virtual server system image", func(cli *azure.SRegion, args *InstanceRebuildOptions) error {
+		if diskID, err := cli.ReplaceSystemDisk(args.ID, args.Image, args.Password, args.PublicKey, args.Size); err != nil {
+			return err
+		} else {
+			fmt.Printf("New diskID is %s", diskID)
+			return nil
+		}
 	})
 
 	type InstanceDiskOptions struct {
@@ -87,6 +98,6 @@ func init() {
 	}
 
 	shellutils.R(&InstanceDeployOptions{}, "instance-reset-password", "Reset intance password", func(cli *azure.SRegion, args *InstanceDeployOptions) error {
-		return cli.DeployVM(args.ID, "", args.Password, args.PublicKey, true, false, "")
+		return cli.DeployVM(args.ID, "", args.Password, args.PublicKey, false, "")
 	})
 }

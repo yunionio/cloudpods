@@ -23,6 +23,7 @@ func (self *GuestInsertIsoTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 }
 
 func (self *GuestInsertIsoTask) prepareIsoImage(ctx context.Context, obj db.IStandaloneModel) {
+	guest := obj.(*models.SGuest)
 	imageId, _ := self.Params.GetString("image_id")
 	db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARING, imageId, self.UserCred)
 	var host *models.SHost
@@ -31,11 +32,17 @@ func (self *GuestInsertIsoTask) prepareIsoImage(ctx context.Context, obj db.ISta
 		iHost, _ := models.HostManager.FetchById(hostId)
 		host = iHost.(*models.SHost)
 	} else {
-		guest := obj.(*models.SGuest)
 		host = guest.GetHost()
 	}
-	self.SetStage("OnIsoPrepareComplete", nil)
-	host.StartImageCacheTask(ctx, self.UserCred, imageId, self.GetTaskId(), false)
+	storageCache := host.GetLocalStoragecache()
+	if storageCache != nil {
+		self.SetStage("OnIsoPrepareComplete", nil)
+		storageCache.StartImageCacheTask(ctx, self.UserCred, imageId, false, self.GetTaskId())
+	} else {
+		guest.EjectIso(self.UserCred)
+		db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARE_FAIL, imageId, self.UserCred)
+		self.SetStageFailed(ctx, "host no local storage cache")
+	}
 }
 
 func (self *GuestInsertIsoTask) OnIsoPrepareCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

@@ -401,7 +401,7 @@ type SCloudproviderUsage struct {
 	VpcCount          int
 	StorageCount      int
 	StorageCacheCount int
-	EipCount 		  int
+	EipCount          int
 }
 
 func (usage *SCloudproviderUsage) isEmpty() bool {

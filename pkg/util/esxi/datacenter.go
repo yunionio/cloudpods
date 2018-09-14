@@ -76,4 +76,3 @@ func (dc *SDatacenter) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	}
 	return dc.istorages, nil
 }
-

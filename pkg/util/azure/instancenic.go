@@ -36,6 +36,7 @@ type InterfacePropertiesFormat struct {
 	IPConfigurations []InterfaceIPConfiguration
 	MacAddress       string
 	Primary          bool
+	VirtualMachine   SubResource
 }
 
 type SInstanceNic struct {
@@ -86,7 +87,7 @@ func (self *SInstanceNic) updateSecurityGroup(secgroupId string) error {
 	nicClient.Authorizer = region.client.authorizer
 	_, resourceGroup, nicName := pareResourceGroupWithName(self.ID, NIC_RESOURCE)
 	iPConfigurations := []network.InterfaceIPConfiguration{
-		network.InterfaceIPConfiguration{
+		{
 			Name: &nicName,
 			ID:   &self.ID,
 			InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{

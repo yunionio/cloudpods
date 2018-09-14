@@ -6,7 +6,6 @@ import (
 	"yunion.io/x/sqlchemy"
 )
 
-
 type SCapabilities struct {
 	Hypervisors        []string
 	StorageTypes       []string

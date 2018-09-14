@@ -3,17 +3,16 @@ package appsrv
 import (
 	"fmt"
 	"strings"
-
 )
 
 type RadixNode struct {
-	data       interface{}
-	fullPath   []string
-	next       []*RadixNode
-	parent     *RadixNode
-	matchNext  *RadixNode
+	data      interface{}
+	fullPath  []string
+	next      []*RadixNode
+	parent    *RadixNode
+	matchNext *RadixNode
 	// matchTable []string
-	segment    string
+	segment string
 }
 
 func NewRadix() *RadixNode {
@@ -159,7 +158,7 @@ func (r *RadixNode) Walk(f func(path string, data interface{})) {
 func (r *RadixNode) getAllFullPaths() [][]string {
 	if r.fullPath != nil {
 		return [][]string{r.fullPath}
-	}else {
+	} else {
 		ret := make([][]string, 0)
 		for _, node := range r.next {
 			fp := node.getAllFullPaths()

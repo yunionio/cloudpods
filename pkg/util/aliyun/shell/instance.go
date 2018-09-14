@@ -114,12 +114,12 @@ func init() {
 		Keypair       string `help:"Keypair Name"`
 		DeleteKeypair bool   `help:"Remove SSH keypair"`
 		Password      string `help:"new password"`
-		ResetPassword bool   `help:"Force reset password"`
-		Description   string `help:"new instances description"`
+		// ResetPassword bool   `help:"Force reset password"`
+		Description string `help:"new instances description"`
 	}
 
 	shellutils.R(&InstanceDeployOptions{}, "instance-deploy", "Deploy keypair/password to a stopped virtual server", func(cli *aliyun.SRegion, args *InstanceDeployOptions) error {
-		err := cli.DeployVM(args.ID, args.Name, args.Password, args.Keypair, args.ResetPassword, args.DeleteKeypair, args.Description)
+		err := cli.DeployVM(args.ID, args.Name, args.Password, args.Keypair, args.DeleteKeypair, args.Description)
 		if err != nil {
 			return err
 		}
@@ -127,15 +127,19 @@ func init() {
 	})
 
 	type InstanceRebuildRootOptions struct {
-		ID    string `help:"instance ID"`
-		Image string `help:"Image ID"`
+		ID       string `help:"instance ID"`
+		Image    string `help:"Image ID"`
+		Password string `help:"pasword"`
+		Keypair  string `help:"keypair name"`
+		Size     int    `help:"system disk size in GB"`
 	}
 
 	shellutils.R(&InstanceRebuildRootOptions{}, "instance-rebuild-root", "Reinstall virtual server system image", func(cli *aliyun.SRegion, args *InstanceRebuildRootOptions) error {
-		err := cli.ReplaceSystemDisk(args.ID, args.Image)
+		diskID, err := cli.ReplaceSystemDisk(args.ID, args.Image, args.Password, args.Keypair, args.Size)
 		if err != nil {
 			return err
 		}
+		fmt.Printf("New diskID is %s", diskID)
 		return nil
 	})
 

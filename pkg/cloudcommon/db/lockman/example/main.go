@@ -1,17 +1,16 @@
 package main
 
 import (
-	"time"
-	"sync"
 	"context"
+	"sync"
+	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/stringutils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"math/rand"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
-
 
 type FakeObject struct {
 	Id string

@@ -3,13 +3,13 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -35,7 +35,7 @@ func (self *SAzureGuestDriver) GetHypervisor() string {
 }
 
 func (self *SAzureGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
-	storages := host.GetAttachedStorages()
+	storages := host.GetAttachedStorages("")
 	for i := 0; i < len(storages); i += 1 {
 		if storages[i].StorageType == backend {
 			return &storages[i]
@@ -64,23 +64,11 @@ func (self *SAzureGuestDriver) ValidateCreateData(ctx context.Context, userCred 
 }
 
 type SAzureVMCreateConfig struct {
-	Name              string
-	ExternalImageId   string
-	OsDistribution    string
-	OsVersion         string
-	Cpu               int
-	Memory            int
-	ExternalNetworkId string
-	IpAddr            string
-	Description       string
-	StorageType       string
-	SysDiskSize       int
-	DataDisks         []int
-	PublicKey         string
+	SAliyunVMCreateConfig
 }
 
 func (self *SAzureGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
-	config := SAzureVMCreateConfig{}
+	config := SAliyunVMCreateConfig{}
 	config.Name = guest.Name
 	config.Cpu = int(guest.VcpuCount)
 	config.Memory = guest.VmemSize
@@ -94,6 +82,10 @@ func (self *SAzureGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *mod
 	net := nics[0].GetNetwork()
 	config.ExternalNetworkId = net.ExternalId
 	config.IpAddr = nics[0].IpAddr
+
+	config.SecGroupId = guest.SecgrpId
+	config.SecGroupName = guest.GetSecgroupName()
+	config.SecRules = guest.GetSecRules()
 
 	disks := guest.GetDisks()
 	config.DataDisks = make([]int, len(disks)-1)
@@ -121,76 +113,53 @@ func (self *SAzureGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *mod
 
 func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
-
+	publicKey, _ := config.GetString("public_key")
+	resetPassword := jsonutils.QueryBoolean(config, "reset_password", false)
+	passwd, _ := config.GetString("password")
+	if resetPassword && len(passwd) == 0 {
+		passwd = seclib2.RandomPassword2(12)
+	}
+	desc := SAliyunVMCreateConfig{}
+	if err := config.Unmarshal(&desc, "desc"); err != nil {
+		return err
+	}
 	if action, err := config.GetString("action"); err != nil {
 		return err
 	} else if ihost, err := host.GetIHost(); err != nil {
 		return err
 	} else if action == "create" {
-		desc := SAzureVMCreateConfig{}
-		if err := config.Unmarshal(&desc, "desc"); err != nil {
-			return err
-		}
 
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			passwd := seclib2.RandomPassword2(12)
+			nets := guest.GetNetworks()
+			net := nets[0].GetNetwork()
+			vpc := net.GetVpc()
+
+			ivpc, err := vpc.GetIVpc()
+			if err != nil {
+				log.Errorf("getIVPC fail %s", err)
+				return nil, err
+			}
+
+			secgrpId, err := ivpc.SyncSecurityGroup(desc.SecGroupId, desc.SecGroupName, desc.SecRules)
+			if err != nil {
+				log.Errorf("SyncSecurityGroup fail %s", err)
+				return nil, err
+			}
 
 			if iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, desc.PublicKey); err != nil {
+				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId); err != nil {
 				return nil, err
 			} else {
 				log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
-
+				if err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800); err != nil {
+					return nil, err
+				}
 				if iVM, err = ihost.GetIVMById(iVM.GetGlobalId()); err != nil {
 					log.Errorf("cannot find vm %s", err)
 					return nil, err
 				}
 
-				if len(guest.SecgrpId) > 0 {
-					if err := iVM.SyncSecurityGroup(guest.SecgrpId, guest.GetSecgroupName(), guest.GetSecRules()); err != nil {
-						log.Errorf("SyncSecurityGroup error: %v", err)
-						return nil, err
-					}
-				}
-
-				data := jsonutils.NewDict()
-
-				if encpasswd, err := utils.EncryptAESBase64(guest.Id, passwd); err != nil {
-					log.Errorf("encrypt password failed %s", err)
-				} else {
-					data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
-					data.Add(jsonutils.NewString(DEFAULT_USER), "account")
-					data.Add(jsonutils.NewString(encpasswd), "key")
-
-					if len(desc.OsDistribution) > 0 {
-						data.Add(jsonutils.NewString(desc.OsDistribution), "distro")
-					}
-					if len(desc.OsVersion) > 0 {
-						data.Add(jsonutils.NewString(desc.OsVersion), "version")
-					}
-				}
-
-				if idisks, err := iVM.GetIDisks(); err != nil {
-					log.Errorf("GetiDisks error %s", err)
-				} else {
-					diskInfo := make([]SDiskInfo, len(idisks))
-					for i := 0; i < len(idisks); i++ {
-						dinfo := SDiskInfo{}
-						dinfo.Uuid = idisks[i].GetGlobalId()
-						dinfo.Size = idisks[i].GetDiskSizeMB()
-						if metaData := idisks[i].GetMetadata(); metaData != nil {
-							dinfo.Metadata = make(map[string]string, 0)
-							if err := metaData.Unmarshal(dinfo.Metadata); err != nil {
-								log.Errorf("Get disk %s metadata info error: %v", idisks[i].GetName(), err)
-							}
-						}
-						diskInfo[i] = dinfo
-					}
-					data.Add(jsonutils.Marshal(&diskInfo), "disks")
-				}
-
-				data.Add(jsonutils.NewString(iVM.GetGlobalId()), "uuid")
-				data.Add(iVM.GetMetadata(), "metadata")
+				data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
 				return data, nil
 			}
 		})
@@ -206,25 +175,35 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 		name, _ := params.GetString("name")
 		description, _ := params.GetString("description")
 		publicKey, _ := config.GetString("public_key")
-		resetPassword := jsonutils.QueryBoolean(params, "reset_password", false)
 		deleteKeypair := jsonutils.QueryBoolean(params, "__delete_keypair__", false)
-		password, _ := params.GetString("password")
-		if resetPassword && len(password) == 0 {
-			password = seclib2.RandomPassword2(12)
+
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+			err := iVM.DeployVM(name, passwd, publicKey, deleteKeypair, description)
+			if err != nil {
+				return nil, err
+			}
+			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+			return data, nil
+		})
+	} else if action == "rebuild" {
+		iVM, err := ihost.GetIVMById(guest.GetExternalId())
+		if err != nil || iVM == nil {
+			log.Errorf("cannot find vm %s", err)
+			return fmt.Errorf("cannot find vm")
 		}
 
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			encpasswd, err := utils.EncryptAESBase64(guest.Id, password)
+			_, err := iVM.RebuildRoot(desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
 			if err != nil {
-				log.Errorf("encrypt password failed %s", err)
+				return nil, err
 			}
 
-			data := jsonutils.NewDict()
-			data.Add(jsonutils.NewString(DEFAULT_USER), "account") // 用户名
-			data.Add(jsonutils.NewString(encpasswd), "key")        // 密码
-			e := iVM.DeployVM(name, password, publicKey, resetPassword, deleteKeypair, description)
-			return data, e
+			log.Debugf("VMrebuildRoot %s, and status is ready", iVM.GetGlobalId())
+			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+
+			return data, nil
 		})
+
 	} else {
 		return fmt.Errorf("Action %s not supported", action)
 	}
@@ -338,41 +317,27 @@ func (self *SAzureGuestDriver) RequestSyncConfigOnHost(ctx context.Context, gues
 	return nil
 }
 
-func (self *SAzureGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	ihost, e := guest.GetHost().GetIHost()
-	if e != nil {
-		return e
-	}
+// func (self *SAzureGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
+// 	ihost, e := host.GetIHost()
+// 	if e != nil {
+// 		return nil, e
+// 	}
 
-	externalId := guest.GetExternalId()
-	if len(externalId) <= 0 {
-		return fmt.Errorf("external id not found")
-	}
+// 	ivm, e := ihost.GetIVMById(guest.GetExternalId())
+// 	if e != nil {
+// 		return nil, e
+// 	}
 
-	disks := guest.GetDisks()
-	if len(disks) <= 0 {
-		return fmt.Errorf("guest has no disk")
-	}
+// 	result := jsonutils.NewDict()
+// 	if ivm.GetStatus() != models.VM_RUNNING {
+// 		if err := ivm.StartVM(); err != nil {
+// 			return nil, e
+// 		} else {
+// 			task.ScheduleRun(result)
+// 		}
+// 	} else {
+// 		result.Add(jsonutils.NewBool(true), "is_running")
+// 	}
 
-	imageId := guest.CategorizeDisks().Root.TemplateId
-	cacheId := disks[0].GetDisk().GetStorage().GetStoragecache().Id
-	externalImageId := models.StoragecachedimageManager.GetStoragecachedimage(cacheId, imageId).ExternalId
-	if len(externalImageId) <= 0 {
-		return fmt.Errorf("external image (%s) id is not found", imageId)
-	}
-
-	iVM, err := ihost.GetIVMById(externalId)
-	if err != nil {
-		return err
-	}
-
-	err = iVM.RebuildRoot(externalImageId)
-	if err != nil {
-		return err
-	}
-
-	log.Debugf("VMrebuildRoot %s, and status is ready", iVM.GetGlobalId())
-
-	task.ScheduleRun(nil)
-	return nil
-}
+// 	return result, e
+// }

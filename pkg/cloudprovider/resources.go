@@ -128,7 +128,7 @@ type ICloudHost interface {
 	GetManagerId() string
 
 	CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, vswitchId string, ipAddr string, desc string,
-		passwd string, storageType string, diskSizes []int, publicKey string) (ICloudVM, error)
+		passwd string, storageType string, diskSizes []int, publicKey string, extSecGrpId string) (ICloudVM, error)
 }
 
 type ICloudVM interface {
@@ -165,8 +165,11 @@ type ICloudVM interface {
 	DeleteVM() error
 
 	UpdateVM(name string) error
-	RebuildRoot(imageId string) error
-	DeployVM(name string, password string, publicKey string, resetPassword bool, deleteKeypair bool, description string) error
+
+	RebuildRoot(imageId string, passwd string, publicKey string, sysSizeGB int) (string, error)
+
+	DeployVM(name string, password string, publicKey string, deleteKeypair bool, description string) error
+
 	ChangeConfig(instanceId string, ncpu int, vmem int) error
 	GetVNCInfo() (jsonutils.JSONObject, error)
 	AttachDisk(diskId string) error
@@ -254,6 +257,8 @@ type ICloudVpc interface {
 	Delete() error
 
 	GetIWireById(wireId string) (ICloudWire, error)
+
+	SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) (string, error)
 }
 
 type ICloudWire interface {

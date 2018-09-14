@@ -135,6 +135,7 @@ func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 		}
 		err = guest.GetDriver().RequestChangeVmConfig(ctx, guest, self, vcpuCount, vmemSize)
 		if err != nil {
+			//设置guest状态
 			self.SetStageFailed(ctx, err.Error())
 			logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
 			return

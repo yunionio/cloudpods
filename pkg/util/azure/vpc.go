@@ -6,6 +6,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/pkg/util/secrules"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network"
 )
@@ -111,6 +112,14 @@ func (self *SVpc) fetchSecurityGroups() error {
 			self.secgroups = append(self.secgroups, &secgrps[i])
 		}
 		return nil
+	}
+}
+
+func (self *SVpc) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) (string, error) {
+	if secgrp, err := self.region.checkSecurityGroup(name, secgroupId); err != nil {
+		return "", err
+	} else {
+		return self.region.syncSecgroupRules(secgrp.ID, rules)
 	}
 }
 

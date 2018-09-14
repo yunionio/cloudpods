@@ -2,10 +2,10 @@ package aliyun
 
 import (
 	"fmt"
+	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"os"
 	"strings"
 	"time"
-	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
