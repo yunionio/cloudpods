@@ -314,11 +314,27 @@ func (self *SInstance) GetHypervisor() string {
 }
 
 func (self *SInstance) StartVM() error {
-	err := self.host.zone.region.StartVM(self.InstanceId)
-	if err != nil {
-		return err
+	timeout := 300*time.Second
+	interval := 15*time.Second
+
+	startTime := time.Now()
+	for time.Now().Sub(startTime) < timeout {
+		err := self.Refresh()
+		if err != nil {
+			return err
+		}
+		log.Debugf("status %s expect %s", self.GetStatus(), models.VM_RUNNING)
+		if self.GetStatus() == models.VM_RUNNING {
+			return nil
+		} else if self.GetStatus() == models.VM_READY {
+			err := self.host.zone.region.StartVM(self.InstanceId)
+			if err != nil {
+				return err
+			}
+		}
+		time.Sleep(interval)
 	}
-	return cloudprovider.WaitStatus(self, models.VM_RUNNING, 5*time.Second, 180*time.Second) // 3minutes
+	return cloudprovider.ErrTimeout
 }
 
 func (self *SInstance) StopVM(isForce bool) error {

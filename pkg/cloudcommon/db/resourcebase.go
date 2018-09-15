@@ -31,6 +31,10 @@ func (manager *SResourceBaseManager) Query(fields ...string) *sqlchemy.SQuery {
 	return manager.SModelBaseManager.Query(fields...).IsFalse("deleted")
 }
 
+func (manager *SResourceBaseManager) RawQuery(fields ...string) *sqlchemy.SQuery {
+	return manager.SModelBaseManager.Query(fields...)
+}
+
 func CanDelete(model IModel, ctx context.Context) bool {
 	err := model.ValidateDeleteCondition(ctx)
 	if err == nil {
