@@ -8,7 +8,7 @@ const (
 )
 
 type SBillingResourceBase struct {
-	BillingType string `width:"36" charset:"ascii" nullable:"true" default:"postpaid" list:"user" create:"required"`
+	BillingType string `width:"36" charset:"ascii" nullable:"true" default:"postpaid" list:"user" create:"optional"`
 	ExpiredAt time.Time `nullable:"true" list:"user" create:"optional"`
 }
 

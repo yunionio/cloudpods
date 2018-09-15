@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 const (
@@ -98,6 +99,9 @@ const (
 	VM_RESTORE_DISK       = "restore_disk"
 	VM_RESTORE_STATE      = "restore_state"
 	VM_RESTORE_FAILED     = "restore_failed"
+
+	VM_ASSOCIATE_EIP = "associate_eip"
+	VM_DISSOCIATE_EIP = "dissociate_eip"
 
 	VM_REMOVE_STATEFILE = "remove_state"
 
@@ -272,8 +276,8 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		if count > 0 {
 			sgq := guestdisks.Query(guestdisks.Field("guest_id")).
 				Filter(sqlchemy.AND(
-					sqlchemy.Equals(guestdisks.Field("disk_id"), disk.Id),
-					sqlchemy.IsFalse(guestdisks.Field("deleted"))))
+				sqlchemy.Equals(guestdisks.Field("disk_id"), disk.Id),
+				sqlchemy.IsFalse(guestdisks.Field("deleted"))))
 			q = q.Filter(sqlchemy.In(q.Field("id"), sgq))
 		} else {
 			hosts := HostManager.Query().SubQuery()
@@ -281,11 +285,11 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 			storages := StorageManager.Query().SubQuery()
 			sq := hosts.Query(hosts.Field("id")).
 				Join(hoststorages, sqlchemy.AND(
-					sqlchemy.Equals(hoststorages.Field("host_id"), hosts.Field("id")),
-					sqlchemy.IsFalse(hoststorages.Field("deleted")))).
+				sqlchemy.Equals(hoststorages.Field("host_id"), hosts.Field("id")),
+				sqlchemy.IsFalse(hoststorages.Field("deleted")))).
 				Join(storages, sqlchemy.AND(
-					sqlchemy.Equals(storages.Field("id"), hoststorages.Field("storage_id")),
-					sqlchemy.IsFalse(storages.Field("deleted")))).
+				sqlchemy.Equals(storages.Field("id"), hoststorages.Field("storage_id")),
+				sqlchemy.IsFalse(storages.Field("deleted")))).
 				Filter(sqlchemy.Equals(storages.Field("id"), disk.StorageId)).SubQuery()
 			q = q.In("host_id", sq)
 		}
@@ -339,8 +343,8 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		isodev := IsolatedDeviceManager.Query().SubQuery()
 		sgq := isodev.Query(isodev.Field("guest_id")).
 			Filter(sqlchemy.AND(
-				sqlchemy.IsNotNull(isodev.Field("guest_id")),
-				sqlchemy.Startswith(isodev.Field("dev_type"), "GPU")))
+			sqlchemy.IsNotNull(isodev.Field("guest_id")),
+			sqlchemy.Startswith(isodev.Field("dev_type"), "GPU")))
 		showGpu := utils.ToBool(gpu)
 		cond := sqlchemy.NotIn
 		if showGpu {
@@ -560,6 +564,14 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	}
 	data.Add(jsonutils.NewInt(int64(vmemSize)), "vmem_size")
 	data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
+
+	resetPassword := jsonutils.QueryBoolean(data, "reset_password", true)
+	passwd, _ := data.GetString("password")
+	if resetPassword && len(passwd) > 0 {
+		if ! seclib2.MeetComplxity(passwd) {
+			return nil, httperrors.NewWeakPasswordError()
+		}
+	}
 
 	disk0Json, _ := data.Get("disk.0")
 	if disk0Json == nil {
@@ -2411,41 +2423,81 @@ func (self *SGuest) PerformPurge(ctx context.Context, userCred mcclient.TokenCre
 	return nil, err
 }
 
+func (self *SGuest) setKeypairId(userCred mcclient.TokenCredential, keypairId string) error {
+	diff, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		self.KeypairId = keypairId
+		return nil
+	})
+	if err != nil {
+		db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
+	}
+	return err
+}
+
 func (self *SGuest) AllowPerformRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred)
 }
 
 func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	imageId, _ := data.GetString("image_id")
-	if utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING, VM_ADMIN}) {
-		if !data.Contains("image_id") {
-			gdc := self.CategorizeDisks()
-			imageId = gdc.Root.GetTemplateId()
-			if len(imageId) == 0 {
-				return nil, httperrors.NewBadRequestError("No template for root disk")
-			}
-			img, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
-			if err != nil {
-				return nil, httperrors.NewBadRequestError("Template %s not accessible: %s", imageId, err.Error())
-			}
-			osType, _ := img.Properties["os_type"]
-			osName := self.GetMetadata("os_name", userCred)
-			if len(osName) == 0 && len(osType) == 0 && strings.ToLower(osType) != strings.ToLower(osName) {
-				return nil, httperrors.NewBadRequestError("Cannot switch OS between %s-%s", osName, osType)
-			}
-		}
-		autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
-		var needStop = false
-		if self.Status == VM_RUNNING {
-			needStop = true
-		}
-		err := self.StartRebuildRootTask(ctx, userCred, imageId, needStop, autoStart)
-		return nil, err
+	if ! utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING, VM_ADMIN}) {
+		return nil, httperrors.NewInvalidStatusError("Cannot reset root in status %s", self.Status)
 	}
-	return nil, httperrors.NewInvalidStatusError("Cannot reset root in status %s", self.Status)
+
+	if !data.Contains("image_id") {
+		gdc := self.CategorizeDisks()
+		imageId = gdc.Root.GetTemplateId()
+		if len(imageId) == 0 {
+			return nil, httperrors.NewBadRequestError("No template for root disk")
+		}
+		img, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
+		if err != nil {
+			return nil, httperrors.NewBadRequestError("Template %s not accessible: %s", imageId, err.Error())
+		}
+		osType, _ := img.Properties["os_type"]
+		osName := self.GetMetadata("os_name", userCred)
+		if len(osName) == 0 && len(osType) == 0 && strings.ToLower(osType) != strings.ToLower(osName) {
+			return nil, httperrors.NewBadRequestError("Cannot switch OS between %s-%s", osName, osType)
+		}
+	}
+
+	autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
+	var needStop = false
+	if self.Status == VM_RUNNING {
+		needStop = true
+	}
+	resetPasswd := jsonutils.QueryBoolean(data, "reset_password", true)
+	passwd, _ := data.GetString("password")
+	if len(passwd) > 0 {
+		if ! seclib2.MeetComplxity(passwd) {
+			return nil, httperrors.NewWeakPasswordError()
+		}
+	}
+
+	keypairStr := jsonutils.GetAnyString(data, []string{"keypair", "keypair_id"})
+	if len(keypairStr) > 0 {
+		keypairObj, err := KeypairManager.FetchByIdOrName(userCred.GetUserId(), keypairStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError("keypair %s not found", keypairStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		if self.KeypairId != keypairObj.GetId() {
+			err = self.setKeypairId(userCred, keypairObj.GetId())
+			if err != nil {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+	}
+
+	err := self.StartRebuildRootTask(ctx, userCred, imageId, needStop, autoStart, passwd, resetPasswd)
+	return nil, err
+
 }
 
-func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool) error {
+func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool, passwd string, resetPasswd bool) error {
 	data := jsonutils.NewDict()
 	data.Set("image_id", jsonutils.NewString(imageId))
 	if needStop {
@@ -2453,6 +2505,14 @@ func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.
 	}
 	if autoStart {
 		data.Set("auto_start", jsonutils.JSONTrue)
+	}
+	if resetPasswd {
+		data.Set("reset_password", jsonutils.JSONTrue)
+	} else {
+		data.Set("reset_password", jsonutils.JSONFalse)
+	}
+	if len(passwd) > 0 {
+		data.Set("password", jsonutils.NewString(passwd))
 	}
 	if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
 		task, err := taskman.TaskManager.NewTask(ctx, "BaremetalServerRebuildRootTask", self, userCred, data, "", "", nil)
@@ -2875,12 +2935,12 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	}
 
 	provider, e := self.GetHost().GetDriver()
-	if e != nil {
+	/*if e != nil {
 		log.Errorf("Get Provider Error: %s", e)
 		return nil, httperrors.NewInsufficientResourceError("Provider Not Found")
-	}
+	}*/
 
-	if !provider.IsPublicCloud() {
+	if e != nil || !provider.IsPublicCloud() {
 		for storageId, needSize := range diskSizes {
 			iStorage, err := StorageManager.FetchById(storageId)
 			if err != nil {
@@ -2904,6 +2964,9 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	if jsonutils.QueryBoolean(data, "auto_start", false) {
 		confs.Add(jsonutils.NewBool(true), "auto_start")
 	}
+
+	log.Debugf("%s", confs.String())
+
 	pendingUsage := &SQuota{}
 	if addCpu > 0 {
 		pendingUsage.Cpu = addCpu
@@ -3140,17 +3203,23 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, host *SHost, para
 		deployAction = "deploy"
 	}
 
-	resetPasswd := true
-	if deployAction == "deploy" {
-		resetPasswd = jsonutils.QueryBoolean(params, "reset_password", false)
-	}
+	// resetPasswd := true
+	// if deployAction == "deploy" {
+	resetPasswd := jsonutils.QueryBoolean(params, "reset_password", true)
+	//}
 
 	if resetPasswd {
 		config.Add(jsonutils.JSONTrue, "reset_password")
+		passwd, _ := params.GetString("password")
+		if len(passwd) > 0 {
+			config.Add(jsonutils.NewString(passwd), "password")
+		}
 		keypair := self.getKeypair()
 		if keypair != nil {
 			config.Add(jsonutils.NewString(keypair.PublicKey), "public_key")
 		}
+	} else {
+		config.Add(jsonutils.JSONFalse, "reset_password")
 	}
 
 	config.Add(jsonutils.NewString(deployAction), "action")
@@ -3985,7 +4054,7 @@ func (manager *SGuestManager) GetIpInProjectWithName(projectId, name string, isE
 				sqlchemy.IsFalse(guests.Field("pending_deleted"))),
 			sqlchemy.IsFalse(guests.Field("deleted")))).
 		Join(networks, sqlchemy.AND(sqlchemy.Equals(networks.Field("id"), guestnics.Field("network_id")),
-			sqlchemy.IsFalse(networks.Field("deleted")))).
+		sqlchemy.IsFalse(networks.Field("deleted")))).
 		Filter(sqlchemy.Equals(guests.Field("name"), name)).
 		Filter(sqlchemy.NotEquals(guestnics.Field("ip_addr"), "")).
 		Filter(sqlchemy.IsNotNull(guestnics.Field("ip_addr"))).
@@ -4184,7 +4253,7 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot be associated")
 	}
 
-	eipVm := eip.getVM()
+	eipVm := eip.GetAssociateVM()
 	if eipVm != nil {
 		return nil, httperrors.NewConflictError("eip has been associated")
 	}
@@ -4201,6 +4270,8 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 	if host.ManagerId != eip.ManagerId {
 		return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different provider")
 	}
+
+	self.SetStatus(userCred, VM_ASSOCIATE_EIP, "associate eip")
 
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(self.ExternalId), "instance_external_id")
@@ -4225,6 +4296,9 @@ func (self *SGuest) PerformDissociateEip(ctx context.Context, userCred mcclient.
 	if eip == nil {
 		return nil, httperrors.NewInvalidStatusError("No eip to dissociate")
 	}
+
+	self.SetStatus(userCred, VM_DISSOCIATE_EIP, "associate eip")
+
 	err = eip.StartEipDissociateTask(ctx, userCred, "")
 	if err != nil {
 		log.Errorf("fail to start dissociate task %s", err)
