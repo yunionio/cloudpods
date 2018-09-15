@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -24,17 +23,18 @@ type ISpecModel interface {
 }
 
 func GetAllModelSpecs(ctx context.Context, userCred mcclient.TokenCredential, query *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+	mans := []ISpecModelManager{HostManager, IsolatedDeviceManager, GuestManager}
+	return GetModelsSpecs(ctx, userCred, query, mans...)
+}
+
+func GetModelsSpecs(ctx context.Context, userCred mcclient.TokenCredential, query *jsonutils.JSONDict, managers ...ISpecModelManager) (jsonutils.JSONObject, error) {
 	ret := jsonutils.NewDict()
-	for keyword, man := range map[string]ISpecModelManager{
-		HostManager.KeywordPlural():           HostManager,
-		IsolatedDeviceManager.KeywordPlural(): IsolatedDeviceManager,
-		GuestManager.KeywordPlural():          GuestManager,
-	} {
+	for _, man := range managers {
 		spec, err := getModelSpecs(man, ctx, userCred, query)
 		if err != nil {
 			return nil, err
 		}
-		ret.Add(spec, keyword)
+		ret.Add(spec, man.KeywordPlural())
 	}
 	return ret, nil
 }
@@ -63,7 +63,6 @@ func getModelSpecs(manager ISpecModelManager, ctx context.Context, userCred mccl
 		if spec == nil {
 			continue
 		}
-		log.Errorf("=========get %s spec: %s", specObj.GetShortDesc(), spec)
 		specKeys := manager.GetSpecIdent(spec)
 		sort.Strings(specKeys)
 		specKey := strings.Join(specKeys, "/")
@@ -76,7 +75,6 @@ func getModelSpecs(manager ISpecModelManager, ctx context.Context, userCred mccl
 			retDict.Set(specKey, oldSpec)
 		}
 	}
-	log.Errorf("========ret specdict: %s", retDict)
 	return retDict, nil
 }
 

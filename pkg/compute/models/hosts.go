@@ -520,7 +520,6 @@ func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 			return nil
 		}
 	}
-	log.Errorf("===***start getspec: %s", self.Id)
 	spec := self.GetHardwareSpecification()
 	spec.Remove("storage_info")
 	nifs := self.GetNetInterfaces()
