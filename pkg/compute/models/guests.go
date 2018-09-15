@@ -100,6 +100,9 @@ const (
 	VM_RESTORE_STATE      = "restore_state"
 	VM_RESTORE_FAILED     = "restore_failed"
 
+	VM_ASSOCIATE_EIP = "associate_eip"
+	VM_DISSOCIATE_EIP = "dissociate_eip"
+
 	VM_REMOVE_STATEFILE = "remove_state"
 
 	VM_ADMIN = "admin"
@@ -4148,7 +4151,7 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot be associated")
 	}
 
-	eipVm := eip.getVM()
+	eipVm := eip.GetAssociateVM()
 	if eipVm != nil {
 		return nil, httperrors.NewConflictError("eip has been associated")
 	}
@@ -4165,6 +4168,8 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 	if host.ManagerId != eip.ManagerId {
 		return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different provider")
 	}
+
+	self.SetStatus(userCred, VM_ASSOCIATE_EIP, "associate eip")
 
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(self.ExternalId), "instance_external_id")
@@ -4189,6 +4194,9 @@ func (self *SGuest) PerformDissociateEip(ctx context.Context, userCred mcclient.
 	if eip == nil {
 		return nil, httperrors.NewInvalidStatusError("No eip to dissociate")
 	}
+
+	self.SetStatus(userCred, VM_DISSOCIATE_EIP, "associate eip")
+
 	err = eip.StartEipDissociateTask(ctx, userCred, "")
 	if err != nil {
 		log.Errorf("fail to start dissociate task %s", err)
