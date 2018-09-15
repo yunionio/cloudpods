@@ -33,10 +33,11 @@ type InterfaceIPConfiguration struct {
 }
 
 type InterfacePropertiesFormat struct {
-	IPConfigurations []InterfaceIPConfiguration
-	MacAddress       string
-	Primary          bool
-	VirtualMachine   SubResource
+	NetworkSecurityGroup SSecurityGroup
+	IPConfigurations     []InterfaceIPConfiguration
+	MacAddress           string
+	Primary              bool
+	VirtualMachine       SubResource
 }
 
 type SInstanceNic struct {

@@ -92,13 +92,19 @@ func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 func (region *SRegion) GetEips() ([]SEipAddress, error) {
 	networkClient := network.NewPublicIPAddressesClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
 	networkClient.Authorizer = region.client.authorizer
-	if _eips, err := networkClient.ListAll(context.Background()); err != nil {
+	if result, err := networkClient.ListAll(context.Background()); err != nil {
 		return nil, err
 	} else {
-		eips := make([]SEipAddress, len(_eips.Values()))
-		for i := 0; i < len(eips); i++ {
-			jsonutils.Update(&eips[i], _eips.Values()[i])
-			eips[i].region = region
+		eips := make([]SEipAddress, 0)
+		for i := 0; i < len(result.Values()); i++ {
+			eip := SEipAddress{region: region}
+			if _eip := result.Values()[i]; *_eip.Location == region.Name {
+				if err := jsonutils.Update(&eip, _eip); err != nil {
+					return nil, err
+				} else {
+					eips = append(eips, eip)
+				}
+			}
 		}
 		return eips, nil
 	}
@@ -135,7 +141,7 @@ func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
 		return err
 	} else {
 		nicId := instance.Properties.NetworkProfile.NetworkInterfaces[0].ID
-		if nic, err := region.getNetworkInterface(nicId); err != nil {
+		if nic, err := region.GetNetworkInterfaceDetail(nicId); err != nil {
 			return err
 		} else {
 			oldIPConf := nic.Properties.IPConfigurations[0]
@@ -156,8 +162,12 @@ func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
 			params := network.Interface{
 				Location: &region.Name,
 				InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
-					IPConfigurations: &InterfaceIPConfiguration,
+					IPConfigurations:     &InterfaceIPConfiguration,
+					NetworkSecurityGroup: &network.SecurityGroup{},
 				},
+			}
+			if len(nic.Properties.NetworkSecurityGroup.ID) > 0 {
+				params.InterfacePropertiesFormat.NetworkSecurityGroup.ID = &nic.Properties.NetworkSecurityGroup.ID
 			}
 			_, resourceGroup, nicName := pareResourceGroupWithName(nic.ID, NIC_RESOURCE)
 			if result, err := interfaceClinet.CreateOrUpdate(context.Background(), resourceGroup, nicName, params); err != nil {
@@ -210,7 +220,7 @@ func (region *SRegion) DissociateEip(eipId string) error {
 		log.Debugf("eip %s not associate any instance", eip.Name)
 		return nil
 	} else {
-		if nic, err := region.getNetworkInterface(eip.Properties.IPConfiguration.ID); err != nil {
+		if nic, err := region.GetNetworkInterfaceDetail(eip.Properties.IPConfiguration.ID); err != nil {
 			return err
 		} else {
 			oldIPConf := nic.Properties.IPConfigurations[0]
@@ -230,8 +240,12 @@ func (region *SRegion) DissociateEip(eipId string) error {
 			params := network.Interface{
 				Location: &region.Name,
 				InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
-					IPConfigurations: &InterfaceIPConfiguration,
+					IPConfigurations:     &InterfaceIPConfiguration,
+					NetworkSecurityGroup: &network.SecurityGroup{},
 				},
+			}
+			if len(nic.Properties.NetworkSecurityGroup.ID) > 0 {
+				params.InterfacePropertiesFormat.NetworkSecurityGroup.ID = &nic.Properties.NetworkSecurityGroup.ID
 			}
 			_, resourceGroup, nicName := pareResourceGroupWithName(nic.ID, NIC_RESOURCE)
 			if result, err := interfaceClinet.CreateOrUpdate(context.Background(), resourceGroup, nicName, params); err != nil {
@@ -245,7 +259,7 @@ func (region *SRegion) DissociateEip(eipId string) error {
 }
 
 func (self *SEipAddress) GetAssociationExternalId() string {
-	if nic, err := self.region.getNetworkInterface(self.Properties.IPConfiguration.ID); err != nil {
+	if nic, err := self.region.GetNetworkInterfaceDetail(self.Properties.IPConfiguration.ID); err != nil {
 		log.Errorf("Failt to find NetworkInterface for eip %s", self.Name)
 	} else if len(nic.Properties.VirtualMachine.ID) > 0 {
 		globalId, _, _ := pareResourceGroupWithName(nic.Properties.VirtualMachine.ID, INSTANCE_RESOURCE)
@@ -288,7 +302,7 @@ func (self *SEipAddress) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SEipAddress) GetMode() string {
-	if nic, err := self.region.getNetworkInterface(self.Properties.IPConfiguration.ID); err != nil {
+	if nic, err := self.region.GetNetworkInterfaceDetail(self.Properties.IPConfiguration.ID); err != nil {
 		log.Errorf("Failt to find NetworkInterface for eip %s", self.Name)
 	} else if len(nic.Properties.VirtualMachine.ID) > 0 {
 		return models.EIP_MODE_INSTANCE_PUBLICIP

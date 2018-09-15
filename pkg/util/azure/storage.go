@@ -49,7 +49,7 @@ func (self *SStorage) GetCapacityMB() int {
 }
 
 func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
-	if diskId, err := self.zone.region.createDisk(self.storageType, name, int32(sizeGb), desc); err != nil {
+	if diskId, err := self.zone.region.createDisk(self.storageType, name, int32(sizeGb), desc, ""); err != nil {
 		return nil, err
 	} else if disk, err := self.zone.region.GetDisk(diskId); err != nil {
 		return nil, err

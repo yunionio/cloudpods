@@ -87,7 +87,7 @@ func (self *SAliyunHostDriver) RequestSaveUploadImageOnHost(ctx context.Context,
 				if scimg.Status != models.CACHED_IMAGE_STATUS_READY {
 					scimg.SetStatus(task.GetUserCred(), models.CACHED_IMAGE_STATUS_CACHING, "request_prepare_save_disk_on_host")
 				}
-				if iImage, err := iStoragecache.CreateIImage(snapshot.GetId(), fmt.Sprintf("Image-%s", imageId), ""); err != nil {
+				if iImage, err := iStoragecache.CreateIImage(snapshot.GetId(), fmt.Sprintf("Image-%s", imageId), "", ""); err != nil {
 					log.Errorf("fail to create iImage: %v", err)
 					scimg.SetStatus(task.GetUserCred(), models.CACHED_IMAGE_STATUS_CACHE_FAILED, err.Error())
 					return nil, err

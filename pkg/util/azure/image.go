@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/pkg/utils"
 )
 
 type ImageStatusType string
@@ -64,6 +65,11 @@ type SImage struct {
 }
 
 func (self *SImage) GetMetadata() *jsonutils.JSONDict {
+	data := jsonutils.NewDict()
+	osType := string(self.Properties.StorageProfile.OsDisk.OsType)
+	if len(osType) > 0 {
+		data.Add(jsonutils.NewString(osType), "os_name")
+	}
 	return nil
 }
 
@@ -177,6 +183,37 @@ func (self *SRegion) CreateImageByBlob(imageName, osType, blobURI string, diskSi
 	}
 }
 
+func (self *SRegion) CreateImage(snapshotId, imageName, osType, imageDesc string) (*SImage, error) {
+	globalId, resourceGroup, imageName := pareResourceGroupWithName(imageName, IMAGE_RESOURCE)
+	imageClient := compute.NewImagesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
+	imageClient.Authorizer = self.client.authorizer
+	if utils.IsInStringArray(osType, []string{string(compute.Linux), string(compute.Windows)}) {
+		osType = string(compute.Linux)
+	}
+	storageProfile := compute.ImageStorageProfile{
+		OsDisk: &compute.ImageOSDisk{
+			OsType:  compute.OperatingSystemTypes(osType),
+			OsState: compute.Generalized,
+			Snapshot: &compute.SubResource{
+				ID: &snapshotId,
+			},
+		},
+	}
+	params := compute.Image{
+		Name:     &imageName,
+		Location: &self.Name,
+		ImageProperties: &compute.ImageProperties{
+			StorageProfile: &storageProfile,
+		},
+	}
+	if resutl, err := imageClient.CreateOrUpdate(context.Background(), resourceGroup, imageName, params); err != nil {
+		return nil, err
+	} else if err := resutl.WaitForCompletion(context.Background(), imageClient.Client); err != nil {
+		return nil, err
+	}
+	return self.GetImage(globalId)
+}
+
 func (self *SRegion) GetImages() ([]SImage, error) {
 	images := make([]SImage, 0)
 	imageClient := compute.NewImagesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
@@ -199,6 +236,10 @@ func (self *SRegion) DeleteImage(imageId string) error {
 		return err
 	}
 	return nil
+}
+
+func (self *SImage) GetBlobUri() string {
+	return self.Properties.StorageProfile.OsDisk.BlobURI
 }
 
 func (self *SImage) Delete() error {

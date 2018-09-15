@@ -20,18 +20,29 @@ func init() {
 	})
 
 	type ImageCreateOptions struct {
-		NAME       string `helo:"Image name"`
-		OSTYPE     string `helo:"Operation system" choices:"Linux|Windows"`
-		BLOBURI    string `helo:"page blob uri"`
-		DISKSIZEGB int32  `helo:"Image size"`
+		NAME     string `helo:"Image name"`
+		OSTYPE   string `helo:"Operation system" choices:"Linux|Windows"`
+		Snapshot string `help:"Snapshot ID"`
+		BlobUri  string `helo:"page blob uri"`
+		DiskSize int32  `helo:"Image size"`
+		Desc     string `help:"Image desc"`
 	}
 
 	shellutils.R(&ImageCreateOptions{}, "image-create", "Create image", func(cli *azure.SRegion, args *ImageCreateOptions) error {
-		if image, err := cli.CreateImageByBlob(args.NAME, args.OSTYPE, args.BLOBURI, args.DISKSIZEGB); err != nil {
-			return err
+		if len(args.Snapshot) > 0 {
+			if image, err := cli.CreateImage(args.Snapshot, args.NAME, args.OSTYPE, args.Desc); err != nil {
+				return err
+			} else {
+				printObject(image)
+				return nil
+			}
 		} else {
-			printObject(image)
-			return nil
+			if image, err := cli.CreateImageByBlob(args.NAME, args.OSTYPE, args.BlobUri, args.DiskSize); err != nil {
+				return err
+			} else {
+				printObject(image)
+				return nil
+			}
 		}
 	})
 

@@ -48,7 +48,7 @@ type SCloudprovider struct {
 	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 	// Hostname string `width:"64" charset:"ascii" nullable:"true"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
 	// port = Column(Integer, nullable=False)
-	Account string `width:"64" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`  // Column(VARCHAR(64, charset='ascii'), nullable=False)
+	Account string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
 	Secret  string `width:"256" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
 
 	LastSync time.Time `get:"admin" list:"admin"` // = Column(DateTime, nullable=True)

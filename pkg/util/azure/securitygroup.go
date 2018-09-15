@@ -376,6 +376,7 @@ func (region *SRegion) updateSecurityGroupRules(secgroupId string, rules []secru
 			SecurityRules: &securityRules,
 		},
 	}
+	log.Debugf("Update SecurityGroup rules: %s", jsonutils.Marshal(params).PrettyString())
 	if result, err := secClient.CreateOrUpdate(context.Background(), resourceGroup, secName, params); err != nil {
 		return "", err
 	} else if err := result.WaitForCompletion(context.Background(), secClient.Client); err != nil {
@@ -400,6 +401,8 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Secur
 				destRule := rules[i].String()
 				cmp := strings.Compare(srcRule, destRule)
 				if cmp == 0 {
+					// keep secRule
+					newRules = append(newRules, rules[i])
 					i++
 					j++
 				} else if cmp > 0 {

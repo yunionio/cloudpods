@@ -9,7 +9,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
-	"yunion.io/x/pkg/util/compare"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -269,75 +268,3 @@ func (self *SAzureGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context
 	guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
 	return nil
 }
-
-func (self *SAzureGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		if ihost, err := host.GetIHost(); err != nil {
-			return nil, err
-		} else if iVM, err := ihost.GetIVMById(guest.ExternalId); err != nil {
-			return nil, err
-		} else {
-			if fw_only, _ := task.GetParams().Bool("fw_only"); fw_only {
-				if err := iVM.SyncSecurityGroup(guest.SecgrpId, guest.GetSecgroupName(), guest.GetSecRules()); err != nil {
-					return nil, err
-				}
-			} else {
-				if iDisks, err := iVM.GetIDisks(); err != nil {
-					return nil, err
-				} else {
-					disks := make([]models.SDisk, 0)
-					for _, guestdisk := range guest.GetDisks() {
-						disk := guestdisk.GetDisk()
-						disks = append(disks, *disk)
-					}
-
-					added := make([]models.SDisk, 0)
-					commondb := make([]models.SDisk, 0)
-					commonext := make([]cloudprovider.ICloudDisk, 0)
-					removed := make([]cloudprovider.ICloudDisk, 0)
-
-					if err := compare.CompareSets(disks, iDisks, &added, &commondb, &commonext, &removed); err != nil {
-						return nil, err
-					}
-					for _, disk := range removed {
-						if err := iVM.DetachDisk(disk.GetId()); err != nil {
-							return nil, err
-						}
-					}
-					for _, disk := range added {
-						if err := iVM.AttachDisk(disk.ExternalId); err != nil {
-							return nil, err
-						}
-					}
-				}
-			}
-		}
-		return nil, nil
-	})
-	return nil
-}
-
-// func (self *SAzureGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
-// 	ihost, e := host.GetIHost()
-// 	if e != nil {
-// 		return nil, e
-// 	}
-
-// 	ivm, e := ihost.GetIVMById(guest.GetExternalId())
-// 	if e != nil {
-// 		return nil, e
-// 	}
-
-// 	result := jsonutils.NewDict()
-// 	if ivm.GetStatus() != models.VM_RUNNING {
-// 		if err := ivm.StartVM(); err != nil {
-// 			return nil, e
-// 		} else {
-// 			task.ScheduleRun(result)
-// 		}
-// 	} else {
-// 		result.Add(jsonutils.NewBool(true), "is_running")
-// 	}
-
-// 	return result, e
-// }

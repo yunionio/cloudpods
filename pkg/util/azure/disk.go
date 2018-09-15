@@ -2,9 +2,11 @@ package azure
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 
@@ -48,8 +50,6 @@ type DiskProperties struct {
 	ProvisioningState string
 }
 
-const DiskResourceGroup = "YunionDiskResource"
-
 type SDisk struct {
 	storage *SStorage
 
@@ -65,17 +65,32 @@ type SDisk struct {
 	Tags map[string]string
 }
 
-func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, desc string) (string, error) {
-	return self.createDisk(storageType, name, sizeGb, desc)
+func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, desc string, imageId string) (string, error) {
+	return self.createDisk(storageType, name, sizeGb, desc, imageId)
 }
 
-func (self *SRegion) createDisk(storageType string, name string, sizeGb int32, desc string) (string, error) {
+func (self *SRegion) createDisk(storageType string, name string, sizeGb int32, desc string, imageId string) (string, error) {
 	computeClient := compute.NewDisksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
 	computeClient.Authorizer = self.client.authorizer
 	sku := compute.DiskSku{Name: compute.StorageAccountTypes(storageType)}
-	properties := compute.DiskProperties{DiskSizeGB: &sizeGb, CreationData: &compute.CreationData{CreateOption: "Empty"}}
+	properties := compute.DiskProperties{DiskSizeGB: &sizeGb, CreationData: &compute.CreationData{CreateOption: compute.Empty}}
+	if len(imageId) > 0 {
+		globalId, _, _ := pareResourceGroupWithName(imageId, IMAGE_RESOURCE)
+		if image, err := self.GetImage(globalId); err != nil {
+			return "", err
+		} else if blobUri := image.GetBlobUri(); len(blobUri) == 0 {
+			return "", fmt.Errorf("failed to find blobUri for image %s", image.Name)
+		} else {
+			properties.CreationData = &compute.CreationData{
+				CreateOption: compute.Import,
+				SourceURI:    &blobUri,
+			}
+			properties.OsType = compute.OperatingSystemTypes(image.GetOsType())
+		}
+	}
 	disk := compute.Disk{Name: &name, Location: &self.Name, DiskProperties: &properties, Sku: &sku}
 	diskId, resourceGroup, diskName := pareResourceGroupWithName(name, DISK_RESOURCE)
+	//log.Debugf("Create disk: %s", jsonutils.Marshal(disk).PrettyString())
 	if result, err := computeClient.CreateOrUpdate(context.Background(), resourceGroup, diskName, disk); err != nil {
 		return "", err
 	} else if err := result.WaitForCompletion(context.Background(), computeClient.Client); err != nil {
@@ -167,12 +182,15 @@ func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SDisk) GetStatus() string {
-	// In_use Available Attaching Detaching Creating ReIniting All
-	switch self.Properties.ProvisioningState {
+	status := self.Properties.ProvisioningState
+	switch status {
 	case "Updating":
 		return models.DISK_ALLOCATING
-	default:
+	case "Succeeded":
 		return models.DISK_READY
+	default:
+		log.Errorf("Unknow azure disk status: %s", status)
+		return models.DISK_UNKNOWN
 	}
 }
 
@@ -249,7 +267,8 @@ func (self *SDisk) GetIsAutoDelete() bool {
 }
 
 func (self *SDisk) GetTemplateId() string {
-	return self.Properties.CreationData.ImageReference.ID
+	globalId, _, _ := pareResourceGroupWithName(self.Properties.CreationData.ImageReference.ID, IMAGE_RESOURCE)
+	return globalId
 }
 
 func (self *SDisk) GetDiskType() string {
@@ -260,15 +279,30 @@ func (self *SDisk) GetDiskType() string {
 }
 
 func (self *SDisk) CreateISnapshot(name, desc string) (cloudprovider.ICloudSnapshot, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	if snapshot, err := self.storage.zone.region.CreateSnapshot(self.ID, name, desc); err != nil {
+		log.Errorf("createSnapshot fail %s", err)
+		return nil, err
+	} else {
+		snapshot.disk = self
+		return snapshot, nil
+	}
 }
 
 func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return self.GetSnapshotDetail(snapshotId)
 }
 
 func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	if snapshots, err := self.storage.zone.region.GetSnapShots(self.ID); err != nil {
+		return nil, err
+	} else {
+		isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots))
+		for i := 0; i < len(snapshots); i++ {
+			snapshots[i].disk = self
+			isnapshots[i] = &snapshots[i]
+		}
+		return isnapshots, nil
+	}
 }
 
 func (self *SDisk) GetBillingType() string {
@@ -277,4 +311,56 @@ func (self *SDisk) GetBillingType() string {
 
 func (self *SDisk) GetExpiredAt() time.Time {
 	return time.Now()
+}
+
+func (self *SDisk) GetSnapshotDetail(snapshotId string) (*SSnapshot, error) {
+	if snapshot, err := self.storage.zone.region.GetSnapshotDetail(snapshotId); err != nil {
+		return nil, err
+	} else if snapshot.Properties.CreationData.SourceResourceID != self.ID {
+		return nil, cloudprovider.ErrNotFound
+	} else {
+		snapshot.disk = self
+		return snapshot, nil
+	}
+}
+
+func (region *SRegion) GetSnapshotDetail(snapshotId string) (*SSnapshot, error) {
+	snapshot := SSnapshot{}
+	_, resourceGroup, snapshotName := pareResourceGroupWithName(snapshotId, SNAPSHOT_RESOURCE)
+	snapClient := compute.NewSnapshotsClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
+	snapClient.Authorizer = region.client.authorizer
+	if result, err := snapClient.Get(context.Background(), resourceGroup, snapshotName); err != nil {
+		if result.Response.StatusCode == 404 {
+			return nil, cloudprovider.ErrNotFound
+		}
+		return nil, err
+	} else if err := jsonutils.Update(&snapshot, result); err != nil {
+		return nil, err
+	}
+	return &snapshot, nil
+}
+
+func (region *SRegion) GetSnapShots(diskId string) ([]SSnapshot, error) {
+	snapshots := []SSnapshot{}
+	globalId, _, _ := pareResourceGroupWithName(diskId, DISK_RESOURCE)
+	snapClient := compute.NewSnapshotsClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
+	snapClient.Authorizer = region.client.authorizer
+	if result, err := snapClient.List(context.Background()); err != nil {
+		return nil, err
+	} else if len(diskId) > 0 {
+		data := result.Values()
+		for i := 0; i < len(data); i++ {
+			snap := SSnapshot{}
+			_globalId, _, _ := pareResourceGroupWithName(*data[i].CreationData.SourceResourceID, DISK_RESOURCE)
+			if globalId == _globalId {
+				if err := jsonutils.Update(&snap, data[i]); err != nil {
+					return nil, err
+				}
+				snapshots = append(snapshots, snap)
+			}
+		}
+	} else if err := jsonutils.Update(&snapshots, result.Values()); err != nil {
+		return snapshots, nil
+	}
+	return snapshots, nil
 }

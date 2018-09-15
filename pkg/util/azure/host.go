@@ -65,6 +65,7 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 	if vm, err := self.zone.region.GetInstance(vmId); err != nil {
 		return nil, err
 	} else {
+		vm.host = self
 		return vm, err
 	}
 }
@@ -83,10 +84,6 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 		log.Errorf("image %s status %s", imgId, image.Properties.ProvisioningState)
 		return "", fmt.Errorf("image not ready")
 	}
-
-	WindowsConfiguration := compute.WindowsConfiguration{}
-	LinuxConfiguration := compute.LinuxConfiguration{}
-
 	storage, err := self.zone.getStorageByType(storageType)
 	if err != nil {
 		return "", fmt.Errorf("Storage %s not avaiable: %s", storageType, err)
@@ -96,7 +93,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 	DataDisks := make([]compute.DataDisk, 0)
 	for i := 0; i < len(diskSizes); i++ {
 		diskName := fmt.Sprintf("vdisk_%s_%d", name, time.Now().UnixNano())
-		size := int32(diskSizes[i] >> 10)
+		size := int32(diskSizes[i])
 		lun := int32(i)
 		DataDisks = append(DataDisks, compute.DataDisk{
 			Name:         &diskName,
@@ -122,7 +119,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 	// 		//StorageURI:
 	// 	},
 	// }
-
+	sshKeys := []compute.SSHPublicKey{compute.SSHPublicKey{KeyData: &publicKey}}
 	properties := compute.VirtualMachineProperties{
 		HardwareProfile: &compute.HardwareProfile{},
 		StorageProfile: &compute.StorageProfile{
@@ -141,28 +138,20 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 		},
 
 		OsProfile: &compute.OSProfile{
-			ComputerName:  &name,
-			AdminUsername: &AdminUsername,
-			AdminPassword: &passwd,
+			ComputerName:       &name,
+			AdminUsername:      &AdminUsername,
+			AdminPassword:      &passwd,
+			LinuxConfiguration: &compute.LinuxConfiguration{},
 		},
 		NetworkProfile: &compute.NetworkProfile{NetworkInterfaces: &NetworkInterfaceReferences},
 	}
 
-	ProvisionVMAgent := false
-
-	if osType == compute.Linux {
-		if len(publicKey) > 0 {
-			sshKeys := []compute.SSHPublicKey{compute.SSHPublicKey{KeyData: &publicKey}}
-			LinuxConfiguration.SSH = &compute.SSHConfiguration{PublicKeys: &sshKeys}
-		}
-		properties.OsProfile.LinuxConfiguration = &LinuxConfiguration
-	} else if osType == compute.Windows {
-		WindowsConfiguration.ProvisionVMAgent = &ProvisionVMAgent
-		properties.OsProfile.WindowsConfiguration = &WindowsConfiguration
+	if len(publicKey) > 0 {
+		properties.OsProfile.LinuxConfiguration.SSH = &compute.SSHConfiguration{PublicKeys: &sshKeys}
 	}
 
 	params := compute.VirtualMachine{Location: &self.zone.region.Name, Name: &name, VirtualMachineProperties: &properties}
-	//log.Debugf("Create instance params: %s", jsonutils.Marshal(params).PrettyString())
+	log.Debugf("Create instance params: %s", jsonutils.Marshal(params).PrettyString())
 	for _, profile := range self.zone.region.getHardwareProfile(cpu, memMB) {
 		params.HardwareProfile.VMSize = compute.VirtualMachineSizeTypes(profile)
 		log.Debugf("Try HardwareProfile : %s", profile)
@@ -172,12 +161,8 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 			log.Errorf("Failed for %s: %s", profile, err)
 		} else if _, err := result.Done(computeClient.Client); err != nil {
 			return "", err
-		} else if instance, err := self.zone.region.GetInstance(instanceId); err != nil {
-			return "", err
-		} else if err = cloudprovider.WaitStatus(instance, models.VM_RUNNING, time.Second*5, time.Second*1800); err != nil {
-			return "", err
 		} else {
-			return instance.ID, nil
+			return instanceId, nil
 		}
 	}
 	return "", fmt.Errorf("Failed to create, specification not supported")

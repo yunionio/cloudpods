@@ -41,6 +41,20 @@ func init() {
 		return nil
 	})
 
+	type NetworkInterfaceOptions struct {
+		ID string `help:"Network ineterface ID"`
+	}
+
+	shellutils.R(&NetworkInterfaceOptions{}, "network-interface-show", "Show network interface", func(cli *azure.SRegion, args *NetworkInterfaceOptions) error {
+		if networkInterface, err := cli.GetNetworkInterfaceDetail(args.ID); err != nil {
+			return err
+		} else {
+			printObject(networkInterface)
+			return nil
+		}
+		return nil
+	})
+
 	type NetworkInterfaceCreateOptions struct {
 		NAME          string `help:"Nic interface name"`
 		IP            string `help:"Nic private ip address"`

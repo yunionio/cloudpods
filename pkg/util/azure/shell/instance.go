@@ -41,16 +41,24 @@ func init() {
 		return nil
 	})
 
-	type InstanceShowOptions struct {
+	type InstanceOptions struct {
 		ID string `help:"Instance ID"`
 	}
-	shellutils.R(&InstanceShowOptions{}, "instance-show", "Show intance detail", func(cli *azure.SRegion, args *InstanceShowOptions) error {
+	shellutils.R(&InstanceOptions{}, "instance-show", "Show intance detail", func(cli *azure.SRegion, args *InstanceOptions) error {
 		if instance, err := cli.GetInstance(args.ID); err != nil {
 			return err
 		} else {
 			printObject(instance)
 			return nil
 		}
+	})
+
+	shellutils.R(&InstanceOptions{}, "instance-delete", "Delete intance", func(cli *azure.SRegion, args *InstanceOptions) error {
+		return cli.DeleteVM(args.ID)
+	})
+
+	shellutils.R(&InstanceOptions{}, "instance-deallocate", "Deallocate intance", func(cli *azure.SRegion, args *InstanceOptions) error {
+		return cli.DeallocateVM(args.ID)
 	})
 
 	type InstanceRebuildOptions struct {

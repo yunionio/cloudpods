@@ -77,7 +77,7 @@ type ICloudStoragecache interface {
 
 	GetManagerId() string
 
-	CreateIImage(snapshotId, imageName, imageDesc string) (ICloudImage, error)
+	CreateIImage(snapshotId, imageName, osType, imageDesc string) (ICloudImage, error)
 
 	DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error)
 

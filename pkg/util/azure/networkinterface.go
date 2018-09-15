@@ -8,7 +8,7 @@ import (
 	"yunion.io/x/jsonutils"
 )
 
-func (self *SRegion) getNetworkInterface(interfaceId string) (*SInstanceNic, error) {
+func (self *SRegion) GetNetworkInterfaceDetail(interfaceId string) (*SInstanceNic, error) {
 	nic := SInstanceNic{}
 	networkClient := network.NewInterfacesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
 	networkClient.Authorizer = self.client.authorizer

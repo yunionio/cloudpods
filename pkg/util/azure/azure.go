@@ -2,13 +2,10 @@ package azure
 
 import (
 	"context"
-	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/consumption/mgmt/2018-03-31/consumption"
 	"github.com/Azure/azure-sdk-for-go/services/preview/subscription/mgmt/2018-03-01-preview/subscription"
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
 
 	"github.com/Azure/go-autorest/autorest"
 	azureenv "github.com/Azure/go-autorest/autorest/azure"
@@ -27,28 +24,6 @@ const (
 
 	AZURE_API_VERSION = "2018-04-01"
 )
-
-const (
-	DISK_RESOURCE     = "disk"
-	INSTANCE_RESOURCE = "instance"
-	VPC_RESOURCE      = "vpc"
-	NIC_RESOURCE      = "nic"
-	IMAGE_RESOURCE    = "image"
-	STORAGE_RESOURCE  = "storage"
-	SECGRP_RESOURCE   = "secgroup"
-	EIP_RESOURCE      = "eip"
-)
-
-var defaultResourceGroups = map[string]string{
-	DISK_RESOURCE:     "YunionDiskResource",
-	INSTANCE_RESOURCE: "YunionInstanceResource",
-	VPC_RESOURCE:      "YunionVpcResource",
-	NIC_RESOURCE:      "YunionNicInterface",
-	IMAGE_RESOURCE:    "YunionImageResource",
-	STORAGE_RESOURCE:  "YunionStorageResource",
-	SECGRP_RESOURCE:   "YunionSecgrpResource",
-	EIP_RESOURCE:      "YunionEipResource",
-}
 
 type SAzureClient struct {
 	providerId     string
@@ -89,49 +64,13 @@ func NewAzureClient(providerId string, providerName string, accessKey string, se
 	}
 }
 
-func pareResourceGroupWithName(s string, resourceType string) (string, string, string) {
-	valid := regexp.MustCompile("resourceGroups/(.+)/providers/.+/(.+)$")
-	if resourceGroups := valid.FindStringSubmatch(s); len(resourceGroups) == 3 {
-		globalId := fmt.Sprintf("resourceGroups/%s/providers/%s/%s", resourceGroups[1], resourceType, resourceGroups[2])
-		return globalId, resourceGroups[1], resourceGroups[2]
-	}
-	if len(s) == 0 {
-		log.Errorf("pareResourceGroupWithName[%s] error", resourceType)
-	}
-	globalId := fmt.Sprintf("resourceGroups/%s/providers/%s/%s", defaultResourceGroups[resourceType], resourceType, s)
-	return globalId, defaultResourceGroups[resourceType], s
-}
-
-func (self *SAzureClient) isResourceGroupExist(resourceGroup string) (bool, error) {
-	groupClient := resources.NewGroupsClientWithBaseURI(self.baseUrl, self.subscriptionId)
-	groupClient.Authorizer = self.authorizer
-	if result, err := groupClient.CheckExistence(context.Background(), resourceGroup); err != nil {
-		return false, err
-	} else if result.StatusCode == 404 {
-		return false, nil
-	} else {
-		return true, nil
-	}
-}
-
-func (self *SAzureClient) createResourceGroup(resourceGruop string) error {
-	groupClient := resources.NewGroupsClientWithBaseURI(self.baseUrl, self.subscriptionId)
-	groupClient.Authorizer = self.authorizer
-	region := self.iregions[0].(*SRegion)
-	location := region.Name
-	group := resources.Group{Location: &location}
-	if _, err := groupClient.CreateOrUpdate(context.Background(), resourceGruop, group); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (self *SAzureClient) fetchAzueResourceGroup() error {
-	for _, value := range defaultResourceGroups {
-		if exist, err := self.isResourceGroupExist(value); err != nil {
-			log.Errorf("Check ResourceGroup error: %v", err)
-		} else if !exist {
-			if err := self.createResourceGroup(value); err != nil {
+	if _region, err := self.getDefaultRegion(); err != nil {
+		return err
+	} else {
+		region := _region.(*SRegion)
+		for _, value := range defaultResourceGroups {
+			if _, err := region.CreateResourceGroup(value); err != nil {
 				return err
 			}
 		}
@@ -216,6 +155,13 @@ func (self *SAzureClient) GetRegions() []SRegion {
 
 func (self *SAzureClient) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.iregions
+}
+
+func (self *SAzureClient) getDefaultRegion() (cloudprovider.ICloudRegion, error) {
+	if len(self.iregions) > 0 {
+		return self.iregions[0], nil
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SAzureClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
