@@ -35,6 +35,8 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 const (
@@ -73,9 +75,10 @@ const (
 	VM_MIGRATING      = "migrating"
 	VM_MIGRATE_FAILED = "migrate_failed"
 
-	VM_CHANGE_FLAVOR     = "change_flavor"
-	VM_REBUILD_ROOT      = "rebuild_root"
-	VM_REBUILD_ROOT_FAIL = "rebuild_root_fail"
+	VM_CHANGE_FLAVOR      = "change_flavor"
+	VM_CHANGE_FLAVOR_FAIL = "change_flavor_fail"
+	VM_REBUILD_ROOT       = "rebuild_root"
+	VM_REBUILD_ROOT_FAIL  = "rebuild_root_fail"
 
 	VM_START_SNAPSHOT  = "snapshot_start"
 	VM_SNAPSHOT        = "snapshot"
@@ -96,6 +99,9 @@ const (
 	VM_RESTORE_DISK       = "restore_disk"
 	VM_RESTORE_STATE      = "restore_state"
 	VM_RESTORE_FAILED     = "restore_failed"
+
+	VM_ASSOCIATE_EIP = "associate_eip"
+	VM_DISSOCIATE_EIP = "dissociate_eip"
 
 	VM_REMOVE_STATEFILE = "remove_state"
 
@@ -154,6 +160,8 @@ func init() {
 
 type SGuest struct {
 	db.SVirtualResourceBase
+
+	SBillingResourceBase
 
 	VcpuCount int8 `nullable:"false" default:"1" list:"user" create:"optional"` // Column(TINYINT, nullable=False, default=1)
 	VmemSize  int  `nullable:"false" list:"user" create:"required"`             // Column(Integer, nullable=False)
@@ -271,8 +279,8 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		if count > 0 {
 			sgq := guestdisks.Query(guestdisks.Field("guest_id")).
 				Filter(sqlchemy.AND(
-					sqlchemy.Equals(guestdisks.Field("disk_id"), disk.Id),
-					sqlchemy.IsFalse(guestdisks.Field("deleted"))))
+				sqlchemy.Equals(guestdisks.Field("disk_id"), disk.Id),
+				sqlchemy.IsFalse(guestdisks.Field("deleted"))))
 			q = q.Filter(sqlchemy.In(q.Field("id"), sgq))
 		} else {
 			hosts := HostManager.Query().SubQuery()
@@ -280,11 +288,11 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 			storages := StorageManager.Query().SubQuery()
 			sq := hosts.Query(hosts.Field("id")).
 				Join(hoststorages, sqlchemy.AND(
-					sqlchemy.Equals(hoststorages.Field("host_id"), hosts.Field("id")),
-					sqlchemy.IsFalse(hoststorages.Field("deleted")))).
+				sqlchemy.Equals(hoststorages.Field("host_id"), hosts.Field("id")),
+				sqlchemy.IsFalse(hoststorages.Field("deleted")))).
 				Join(storages, sqlchemy.AND(
-					sqlchemy.Equals(storages.Field("id"), hoststorages.Field("storage_id")),
-					sqlchemy.IsFalse(storages.Field("deleted")))).
+				sqlchemy.Equals(storages.Field("id"), hoststorages.Field("storage_id")),
+				sqlchemy.IsFalse(storages.Field("deleted")))).
 				Filter(sqlchemy.Equals(storages.Field("id"), disk.StorageId)).SubQuery()
 			q = q.In("host_id", sq)
 		}
@@ -338,8 +346,8 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		isodev := IsolatedDeviceManager.Query().SubQuery()
 		sgq := isodev.Query(isodev.Field("guest_id")).
 			Filter(sqlchemy.AND(
-				sqlchemy.IsNotNull(isodev.Field("guest_id")),
-				sqlchemy.Startswith(isodev.Field("dev_type"), "GPU")))
+			sqlchemy.IsNotNull(isodev.Field("guest_id")),
+			sqlchemy.Startswith(isodev.Field("dev_type"), "GPU")))
 		showGpu := utils.ToBool(gpu)
 		cond := sqlchemy.NotIn
 		if showGpu {
@@ -516,6 +524,16 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return nil, err
 	}
+
+	if vmemSize > 0 || vcpuCount > 0 {
+		if !utils.IsInStringArray(self.Status, []string{VM_READY}) {
+			return nil, httperrors.NewInvalidStatusError("Cannot modify Memory and CPU in status %s", self.Status)
+		}
+		if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
+			return nil, httperrors.NewInputParameterError("Cannot modify memory for baremetal")
+		}
+	}
+
 	if vmemSize > 0 {
 		data.Add(jsonutils.NewInt(int64(vmemSize)), "vmem_size")
 	}
@@ -533,14 +551,6 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 			return nil, httperrors.NewInputParameterError("name is to short")
 		}
 	}
-	/* if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
-		return nil, httperrors.NewInputParameterError("Cannot modify memory for baremetal")
-	}
-	if ! utils.IsInStringArray(self.Status, []string {VM_READY}) {
-		return nil, httperrors.NewInvalidStatusError("Cannot modify Memory and CPU in status %s", self.Status)
-	}*/
-	// return nil, httperrors.NewInputParameterError("cannot update guest vmem_size")
-	//}
 	return self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
@@ -557,6 +567,14 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	}
 	data.Add(jsonutils.NewInt(int64(vmemSize)), "vmem_size")
 	data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
+
+	resetPassword := jsonutils.QueryBoolean(data, "reset_password", true)
+	passwd, _ := data.GetString("password")
+	if resetPassword && len(passwd) > 0 {
+		if ! seclib2.MeetComplxity(passwd) {
+			return nil, httperrors.NewWeakPasswordError()
+		}
+	}
 
 	disk0Json, _ := data.Get("disk.0")
 	if disk0Json == nil {
@@ -1302,6 +1320,9 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 
 		self.IsEmulated = extVM.IsEmulated()
 
+		self.BillingType = extVM.GetBillingType()
+		self.ExpiredAt = extVM.GetExpiredAt()
+
 		return nil
 	})
 	if err != nil {
@@ -1348,6 +1369,9 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.Hypervisor = extVM.GetHypervisor()
 
 	guest.IsEmulated = extVM.IsEmulated()
+
+	guest.BillingType = extVM.GetBillingType()
+	guest.ExpiredAt = extVM.GetExpiredAt()
 
 	guest.HostId = host.Id
 	guest.ProjectId = userCred.GetProjectId()
@@ -2115,7 +2139,7 @@ func (self *SGuest) attachIsolatedDevice(userCred mcclient.TokenCredential, dev 
 	if dev.HostId != self.HostId {
 		return fmt.Errorf("Isolated device and guest are not located in the same host")
 	}
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := IsolatedDeviceManager.TableSpec().Update(dev, func() error {
 		dev.GuestId = self.Id
 		return nil
 	})
@@ -2188,6 +2212,9 @@ func (self *SGuest) CategorizeNics() SGuestNicCategory {
 
 func (self *SGuest) StartGuestDeployTask(ctx context.Context, userCred mcclient.TokenCredential, kwargs *jsonutils.JSONDict, action string, parentTaskId string) error {
 	self.SetStatus(userCred, VM_START_DEPLOY, "")
+	if kwargs == nil {
+		kwargs = jsonutils.NewDict()
+	}
 	kwargs.Add(jsonutils.NewString(action), "deploy_action")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestDeployTask", self, userCred, kwargs, parentTaskId, "", nil)
 	if err != nil {
@@ -2402,41 +2429,81 @@ func (self *SGuest) PerformPurge(ctx context.Context, userCred mcclient.TokenCre
 	return nil, err
 }
 
+func (self *SGuest) setKeypairId(userCred mcclient.TokenCredential, keypairId string) error {
+	diff, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		self.KeypairId = keypairId
+		return nil
+	})
+	if err != nil {
+		db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
+	}
+	return err
+}
+
 func (self *SGuest) AllowPerformRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred)
 }
 
 func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	imageId, _ := data.GetString("image_id")
-	if utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING, VM_ADMIN}) {
-		if !data.Contains("image_id") {
-			gdc := self.CategorizeDisks()
-			imageId = gdc.Root.GetTemplateId()
-			if len(imageId) == 0 {
-				return nil, httperrors.NewBadRequestError("No template for root disk")
-			}
-			img, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
-			if err != nil {
-				return nil, httperrors.NewBadRequestError("Template %s not accessible: %s", imageId, err.Error())
-			}
-			osType, _ := img.Properties["os_type"]
-			osName := self.GetMetadata("os_name", userCred)
-			if len(osName) == 0 && len(osType) == 0 && strings.ToLower(osType) != strings.ToLower(osName) {
-				return nil, httperrors.NewBadRequestError("Cannot switch OS between %s-%s", osName, osType)
-			}
-		}
-		autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
-		var needStop = false
-		if self.Status == VM_RUNNING {
-			needStop = true
-		}
-		err := self.StartRebuildRootTask(ctx, userCred, imageId, needStop, autoStart)
-		return nil, err
+	if ! utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING, VM_ADMIN}) {
+		return nil, httperrors.NewInvalidStatusError("Cannot reset root in status %s", self.Status)
 	}
-	return nil, httperrors.NewInvalidStatusError("Cannot reset root in status %s", self.Status)
+
+	if !data.Contains("image_id") {
+		gdc := self.CategorizeDisks()
+		imageId = gdc.Root.GetTemplateId()
+		if len(imageId) == 0 {
+			return nil, httperrors.NewBadRequestError("No template for root disk")
+		}
+		img, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
+		if err != nil {
+			return nil, httperrors.NewBadRequestError("Template %s not accessible: %s", imageId, err.Error())
+		}
+		osType, _ := img.Properties["os_type"]
+		osName := self.GetMetadata("os_name", userCred)
+		if len(osName) == 0 && len(osType) == 0 && strings.ToLower(osType) != strings.ToLower(osName) {
+			return nil, httperrors.NewBadRequestError("Cannot switch OS between %s-%s", osName, osType)
+		}
+	}
+
+	autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
+	var needStop = false
+	if self.Status == VM_RUNNING {
+		needStop = true
+	}
+	resetPasswd := jsonutils.QueryBoolean(data, "reset_password", true)
+	passwd, _ := data.GetString("password")
+	if len(passwd) > 0 {
+		if ! seclib2.MeetComplxity(passwd) {
+			return nil, httperrors.NewWeakPasswordError()
+		}
+	}
+
+	keypairStr := jsonutils.GetAnyString(data, []string{"keypair", "keypair_id"})
+	if len(keypairStr) > 0 {
+		keypairObj, err := KeypairManager.FetchByIdOrName(userCred.GetUserId(), keypairStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError("keypair %s not found", keypairStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		if self.KeypairId != keypairObj.GetId() {
+			err = self.setKeypairId(userCred, keypairObj.GetId())
+			if err != nil {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+	}
+
+	err := self.StartRebuildRootTask(ctx, userCred, imageId, needStop, autoStart, passwd, resetPasswd)
+	return nil, err
+
 }
 
-func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool) error {
+func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool, passwd string, resetPasswd bool) error {
 	data := jsonutils.NewDict()
 	data.Set("image_id", jsonutils.NewString(imageId))
 	if needStop {
@@ -2444,6 +2511,14 @@ func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.
 	}
 	if autoStart {
 		data.Set("auto_start", jsonutils.JSONTrue)
+	}
+	if resetPasswd {
+		data.Set("reset_password", jsonutils.JSONTrue)
+	} else {
+		data.Set("reset_password", jsonutils.JSONFalse)
+	}
+	if len(passwd) > 0 {
+		data.Set("password", jsonutils.NewString(passwd))
 	}
 	if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
 		task, err := taskman.TaskManager.NewTask(ctx, "BaremetalServerRebuildRootTask", self, userCred, data, "", "", nil)
@@ -2466,6 +2541,74 @@ func (self *SGuest) DetachDisk(ctx context.Context, disk *SDisk, userCred mcclie
 	if guestdisk != nil {
 		guestdisk.Detach(ctx, userCred)
 	}
+}
+
+func (self *SGuest) AllowPerformCreatedisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	var diskIdx, diskSize = 0, 0
+	disksConf := jsonutils.NewDict()
+	diskSizes := make(map[string]int, 0)
+	diskSeq := fmt.Sprintf("disk.%d", diskIdx)
+	for data.Contains(diskSeq) {
+		diskDef, _ := data.Get(diskSeq)
+		diskInfo, err := parseDiskInfo(ctx, userCred, diskDef)
+		if err != nil {
+			logclient.AddActionLog(self, logclient.ACT_CREATE, err.Error(), userCred, false)
+			return nil, httperrors.NewBadRequestError(err.Error())
+		}
+		disksConf.Set(diskSeq, jsonutils.Marshal(diskInfo))
+		if _, ok := diskSizes[diskInfo.Backend]; !ok {
+			diskSizes[diskInfo.Backend] = diskInfo.Size
+		} else {
+			diskSizes[diskInfo.Backend] += diskInfo.Size
+		}
+		diskSize += diskInfo.Size
+		diskIdx += 1
+		diskSeq = fmt.Sprintf("disk.%d", diskIdx)
+	}
+	if diskIdx == 0 {
+		logclient.AddActionLog(self, logclient.ACT_CREATE, "No Disk Info Provided", userCred, false)
+		return nil, httperrors.NewBadRequestError("No Disk Info Provided")
+	}
+	host := self.GetHost()
+	if host == nil {
+		logclient.AddActionLog(self, logclient.ACT_CREATE, "No valid host", userCred, false)
+		return nil, httperrors.NewBadRequestError("No valid host")
+	}
+	for backend, size := range diskSizes {
+		storage := host.GetLeastUsedStorage(backend)
+		if storage == nil {
+			logclient.AddActionLog(self, logclient.ACT_CREATE, "No valid storage on current host", userCred, false)
+			return nil, httperrors.NewBadRequestError("No valid storage on current host")
+		}
+		if storage.GetCapacity() < size {
+			logclient.AddActionLog(self, logclient.ACT_CREATE, "Not eough storage space on current host", userCred, false)
+			return nil, httperrors.NewBadRequestError("Not eough storage space on current host")
+		}
+	}
+	pendingUsage := &SQuota{
+		Storage: diskSize,
+	}
+	err := QuotaManager.CheckSetPendingQuota(ctx, userCred, self.ProjectId, pendingUsage)
+	if err != nil {
+		logclient.AddActionLog(self, logclient.ACT_CREATE, err.Error(), userCred, false)
+		return nil, httperrors.NewBadRequestError(err.Error())
+	}
+
+	lockman.LockObject(ctx, host)
+	defer lockman.ReleaseObject(ctx, host)
+
+	err = self.CreateDisksOnHost(ctx, userCred, host, disksConf, pendingUsage)
+	if err != nil {
+		QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
+		logclient.AddActionLog(self, logclient.ACT_CREATE, err.Error(), userCred, false)
+		return nil, httperrors.NewBadRequestError(err.Error())
+	}
+	err = self.StartGuestCreateDiskTask(ctx, userCred, disksConf, "")
+	return nil, err
 }
 
 func (self *SGuest) AllowPerformDetachdisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -2512,6 +2655,196 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 		}
 	}
 	return nil, httperrors.NewResourceNotFoundError("Disk %s not found", diskId)
+}
+
+func (self *SGuest) AllowPerformDetachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Hypervisor != HYPERVISOR_KVM {
+		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.Hypervisor)
+	}
+	if self.Status != VM_READY {
+		msg := "Only allowed to attach isolated device when guest is ready"
+		logclient.AddActionLog(self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
+		return nil, httperrors.NewInvalidStatusError(msg)
+	}
+	device, err := data.GetString("device")
+	if err != nil {
+		msg := "Missing isolated device"
+		logclient.AddActionLog(self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
+		return nil, httperrors.NewBadRequestError(msg)
+	}
+	iDev, err := IsolatedDeviceManager.FetchByIdOrName(userCred.GetProjectId(), device)
+	if err != nil {
+		msg := fmt.Sprintf("Isolated device %s not found", device)
+		logclient.AddActionLog(self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
+		return nil, httperrors.NewBadRequestError(msg)
+	}
+	dev := iDev.(*SIsolatedDevice)
+	host := self.GetHost()
+	lockman.LockObject(ctx, host)
+	defer lockman.ReleaseObject(ctx, host)
+	err = self.detachIsolateDevice(userCred, dev)
+	return nil, err
+}
+
+func (self *SGuest) detachIsolateDevice(userCred mcclient.TokenCredential, dev *SIsolatedDevice) error {
+	if dev.GuestId != self.Id {
+		msg := "Isolated device is not attached to this guest"
+		logclient.AddActionLog(self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
+		return httperrors.NewBadRequestError(msg)
+	}
+	_, err := self.GetModelManager().TableSpec().Update(dev, func() error {
+		dev.GuestId = ""
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogEvent(self, db.ACT_GUEST_DETACH_ISOLATED_DEVICE, dev.GetShortDesc(), userCred)
+	return nil
+}
+
+func (self *SGuest) AllowPerformAttachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Hypervisor != HYPERVISOR_KVM {
+		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.Hypervisor)
+	}
+	if self.Status != VM_READY {
+		msg := "Only allowed to attach isolated device when guest is ready"
+		logclient.AddActionLog(self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, false)
+		return nil, httperrors.NewInvalidStatusError(msg)
+	}
+	device, err := data.GetString("device")
+	if err != nil {
+		msg := "Missing isolated device"
+		logclient.AddActionLog(self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, false)
+		return nil, httperrors.NewBadRequestError(msg)
+	}
+	iDev, err := IsolatedDeviceManager.FetchByIdOrName(userCred.GetProjectId(), device)
+	if err != nil {
+		msg := fmt.Sprintf("Isolated device %s not found", device)
+		logclient.AddActionLog(self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, false)
+		return nil, httperrors.NewBadRequestError(msg)
+	}
+	dev := iDev.(*SIsolatedDevice)
+	host := self.GetHost()
+	lockman.LockObject(ctx, host)
+	defer lockman.ReleaseObject(ctx, host)
+	err = self.attachIsolatedDevice(userCred, dev)
+	var msg string
+	if err != nil {
+		msg = err.Error()
+	}
+	logclient.AddActionLog(self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, err == nil)
+	return nil, err
+}
+
+func (self *SGuest) AllowPerformDetachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Status != VM_READY {
+		return nil, httperrors.NewInvalidStatusError("Cannot detach network in status %s", self.Status)
+	}
+	reserve := jsonutils.QueryBoolean(data, "reserve", false)
+	netId, err := data.GetString("net_id")
+	if err != nil {
+		return nil, httperrors.NewBadRequestError(err.Error())
+	}
+	iNetwork, err := NetworkManager.FetchById(netId)
+	if err != nil {
+		return nil, httperrors.NewNotFoundError("Network %s not found", netId)
+	}
+	network := iNetwork.(*SNetwork)
+	err = self.detachNetwork(ctx, userCred, network, reserve, true)
+	return nil, err
+}
+
+func (self *SGuest) AllowPerformAttachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Status == VM_READY {
+		// owner_cred = self.get_owner_user_cred() >.<
+		netDesc, err := data.Get("net_desc")
+		if err != nil {
+			return nil, httperrors.NewBadRequestError(err.Error())
+		}
+		conf, err := parseNetworkInfo(userCred, netDesc)
+		if err != nil {
+			return nil, err
+		}
+		err = isValidNetworkInfo(userCred, conf)
+		if err != nil {
+			return nil, httperrors.NewBadRequestError(err.Error())
+		}
+		var inicCnt, enicCnt, ibw, ebw int
+		if isExitNetworkInfo(conf) {
+			enicCnt = 1
+			ebw = conf.BwLimit
+		} else {
+			inicCnt = 1
+			ibw = conf.BwLimit
+		}
+		pendingUsage := &SQuota{
+			Port:  inicCnt,
+			Eport: enicCnt,
+			Bw:    ibw,
+			Ebw:   ebw,
+		}
+		projectId := self.GetOwnerProjectId()
+		err = QuotaManager.CheckSetPendingQuota(ctx, userCred, projectId, pendingUsage)
+		if err != nil {
+			return nil, httperrors.NewOutOfQuotaError(err.Error())
+		}
+		host := self.GetHost()
+		err = self.attach2NetworkDesc(ctx, userCred, host, conf, pendingUsage)
+		if err != nil {
+			QuotaManager.CancelPendingUsage(ctx, userCred, projectId, nil, pendingUsage)
+			return nil, httperrors.NewBadRequestError(err.Error())
+		}
+		host.ClearSchedDescCache()
+		err = self.StartGuestDeployTask(ctx, userCred, nil, "deploy", "")
+		return nil, err
+	}
+	return nil, httperrors.NewBadRequestError("Cannot attach network in status %s", self.Status)
+}
+
+func (self *SGuest) AllowPerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || userCred.IsSystemAdmin()
+}
+
+func (self *SGuest) PerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING}) {
+		guestnics := self.GetNetworks()
+		index, err := data.Int("index")
+		if err != nil || index > int64(len(guestnics)) {
+			return nil, httperrors.NewBadRequestError("Index Not fount or out of NIC index")
+		}
+		bandwidth, err := data.Int("bandwidth")
+		if err != nil || bandwidth <= 0 {
+			return nil, httperrors.NewBadRequestError("Bandwidth must be larger than 0")
+		}
+		guestnic := &guestnics[index]
+		if guestnic.BwLimit != int(bandwidth) {
+			GuestnetworkManager.TableSpec().Update(guestnic, func() error {
+				guestnic.BwLimit = int(bandwidth)
+				return nil
+			})
+			err := self.StartSyncTask(ctx, userCred, false, "")
+			return nil, err
+		}
+		return nil, nil
+	}
+	return nil, httperrors.NewBadRequestError("Cannot change bandwidth in status %s", self.Status)
 }
 
 func (self *SGuest) AllowPerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -2608,12 +2941,12 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	}
 
 	provider, e := self.GetHost().GetDriver()
-	if e != nil {
+	/*if e != nil {
 		log.Errorf("Get Provider Error: %s", e)
 		return nil, httperrors.NewInsufficientResourceError("Provider Not Found")
-	}
+	}*/
 
-	if !provider.IsPublicCloud() {
+	if e != nil || !provider.IsPublicCloud() {
 		for storageId, needSize := range diskSizes {
 			iStorage, err := StorageManager.FetchById(storageId)
 			if err != nil {
@@ -2637,6 +2970,9 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	if jsonutils.QueryBoolean(data, "auto_start", false) {
 		confs.Add(jsonutils.NewBool(true), "auto_start")
 	}
+
+	log.Debugf("%s", confs.String())
+
 	pendingUsage := &SQuota{}
 	if addCpu > 0 {
 		pendingUsage.Cpu = addCpu
@@ -2873,17 +3209,23 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, host *SHost, para
 		deployAction = "deploy"
 	}
 
-	resetPasswd := true
-	if deployAction == "deploy" {
-		resetPasswd = jsonutils.QueryBoolean(params, "reset_password", false)
-	}
+	// resetPasswd := true
+	// if deployAction == "deploy" {
+	resetPasswd := jsonutils.QueryBoolean(params, "reset_password", true)
+	//}
 
 	if resetPasswd {
 		config.Add(jsonutils.JSONTrue, "reset_password")
+		passwd, _ := params.GetString("password")
+		if len(passwd) > 0 {
+			config.Add(jsonutils.NewString(passwd), "password")
+		}
 		keypair := self.getKeypair()
 		if keypair != nil {
 			config.Add(jsonutils.NewString(keypair.PublicKey), "public_key")
 		}
+	} else {
+		config.Add(jsonutils.JSONFalse, "reset_password")
 	}
 
 	config.Add(jsonutils.NewString(deployAction), "action")
@@ -3203,7 +3545,7 @@ func (manager *SGuestManager) FetchGuestById(guestId string) *SGuest {
 
 func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 	if checkStatus {
-		if !utils.IsInStringArray(self.Status, []string{VM_SCHEDULE_FAILED}) {
+		if utils.IsInStringArray(self.Status, []string{VM_SCHEDULE_FAILED}) {
 			return nil
 		}
 	}
@@ -3215,12 +3557,11 @@ func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 	guestdisks := self.GetDisks()
 	diskSpecs := jsonutils.NewArray()
 	for _, guestdisk := range guestdisks {
-		disk := guestdisk.GetDisk()
+		info := guestdisk.ToDiskInfo()
 		diskSpec := jsonutils.NewDict()
-		diskSpec.Set("size", jsonutils.NewInt(int64(disk.DiskSize)))
-		s := disk.GetStorage()
-		diskSpec.Set("backend", jsonutils.NewString(s.StorageType))
-		diskSpec.Set("medium_type", jsonutils.NewString(s.MediumType))
+		diskSpec.Set("size", jsonutils.NewInt(info.Size))
+		diskSpec.Set("backend", jsonutils.NewString(info.Backend))
+		diskSpec.Set("medium_type", jsonutils.NewString(info.MediumType))
 		diskSpecs.Add(diskSpec)
 	}
 	spec.Set("disk", diskSpecs)
@@ -3253,6 +3594,63 @@ func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 	}
 	spec.Set("gpu", gpuSpecs)
 	return spec
+}
+
+func (manager *SGuestManager) GetSpecIdent(spec *jsonutils.JSONDict) []string {
+	cpuCount, _ := spec.Int("cpu")
+	memSize, _ := spec.Int("mem")
+	memSizeMB, _ := utils.GetSizeMB(fmt.Sprintf("%d", memSize), "M")
+	specKeys := []string{
+		fmt.Sprintf("cpu:%d", cpuCount),
+		fmt.Sprintf("mem:%dM", memSizeMB),
+	}
+
+	countKey := func(kf func(*jsonutils.JSONDict) string, dataArray jsonutils.JSONObject) map[string]int64 {
+		countMap := make(map[string]int64)
+		datas, _ := dataArray.GetArray()
+		for _, data := range datas {
+			key := kf(data.(*jsonutils.JSONDict))
+			if count, ok := countMap[key]; !ok {
+				countMap[key] = 1
+			} else {
+				count++
+				countMap[key] = count
+			}
+		}
+		return countMap
+	}
+
+	kfuncs := map[string]func(*jsonutils.JSONDict) string{
+		"disk": func(data *jsonutils.JSONDict) string {
+			backend, _ := data.GetString("backend")
+			mediumType, _ := data.GetString("medium_type")
+			size, _ := data.Int("size")
+			sizeGB, _ := utils.GetSizeGB(fmt.Sprintf("%d", size), "M")
+			return fmt.Sprintf("disk:%s_%s_%dG", backend, mediumType, sizeGB)
+		},
+		"nic": func(data *jsonutils.JSONDict) string {
+			typ, _ := data.GetString("type")
+			bw, _ := data.Int("bandwidth")
+			return fmt.Sprintf("nic:%s_%dM", typ, bw)
+		},
+		"gpu": func(data *jsonutils.JSONDict) string {
+			vendor, _ := data.GetString("vendor")
+			model, _ := data.GetString("model")
+			return fmt.Sprintf("gpu:%s_%s", vendor, model)
+		},
+	}
+
+	for sKey, kf := range kfuncs {
+		sArrary, err := spec.Get(sKey)
+		if err != nil {
+			log.Errorf("Get key %s array error: %v", sKey, err)
+			continue
+		}
+		for key, count := range countKey(kf, sArrary) {
+			specKeys = append(specKeys, fmt.Sprintf("%sx%d", key, count))
+		}
+	}
+	return specKeys
 }
 
 func (self *SGuest) GetTemplateId() string {
@@ -3290,6 +3688,8 @@ func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
 		desc.Add(jsonutils.NewString(priceKey), "price_key")
 	}
 
+	desc.Add(jsonutils.NewString(self.GetChargeType()), "charge_type")
+
 	if len(self.ExternalId) > 0 {
 		desc.Add(jsonutils.NewString(self.ExternalId), "externalId")
 	}
@@ -3300,7 +3700,7 @@ func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
 		host := self.GetHost()
 		if host != nil {
 			hostSpec := host.GetSpec(false)
-			hostSpecIdent := host.GetSpecIdent(hostSpec)
+			hostSpecIdent := HostManager.GetSpecIdent(hostSpec)
 			spec.Set("host_spec", jsonutils.NewString(strings.Join(hostSpecIdent, "/")))
 		}
 	}
@@ -3554,6 +3954,78 @@ func (self *SGuest) GetDetailsMonitor(ctx context.Context, userCred mcclient.Tok
 	return nil, httperrors.NewInvalidStatusError("Cannot send command in status %s", self.Status)
 }
 
+func (self *SGuest) AllowGetDetailsDesc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) GetDetailsDesc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	host := self.GetHost()
+	if host == nil {
+		return nil, httperrors.NewInvalidStatusError("No host for server")
+	}
+	desc := self.GetDriver().GetJsonDescAtHost(ctx, self, host)
+	return desc, nil
+}
+
+func (self *SGuest) AllowPerformSendkeys(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformSendkeys(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Hypervisor != HYPERVISOR_KVM {
+		return nil, httperrors.NewUnsupportOperationError("Not allow for hypervisor %s", self.Hypervisor)
+	}
+	if self.Status != VM_RUNNING {
+		return nil, httperrors.NewInvalidStatusError("Cannot send keys in status %s", self.Status)
+	}
+	keys, err := data.GetString("keys")
+	if err != nil {
+		return nil, err
+	}
+	err = self.VerifySendKeys(keys)
+	if err != nil {
+		return nil, httperrors.NewBadRequestError(err.Error())
+	}
+	cmd := fmt.Sprintf("sendkey %s", keys)
+	duration, err := data.Int("duration")
+	if err == nil {
+		cmd = fmt.Sprintf("%s %d", cmd, duration)
+	}
+	_, err = self.SendMonitorCommand(ctx, userCred, cmd)
+	return nil, err
+}
+
+func (self *SGuest) VerifySendKeys(keyStr string) error {
+	keys := strings.Split(keyStr, "-")
+	for _, key := range keys {
+		if !self.IsLegalKey(key) {
+			return fmt.Errorf("Unknown key '%s'", key)
+		}
+	}
+	return nil
+}
+
+func (self *SGuest) IsLegalKey(key string) bool {
+	singleKeys := "1234567890abcdefghijklmnopqrstuvwxyz"
+	legalKeys := []string{"ctrl", "ctrl_r", "alt", "alt_r", "shift", "shift_r",
+		"delete", "esc", "insert", "print", "spc",
+		"f1", "f2", "f3", "f4", "f5", "f6",
+		"f7", "f8", "f9", "f10", "f11", "f12",
+		"home", "pgup", "pgdn", "end",
+		"up", "down", "left", "right",
+		"tab", "minus", "equal", "backspace", "backslash",
+		"bracket_left", "bracket_right", "backslash",
+		"semicolon", "apostrophe", "grave_accent", "ret",
+		"comma", "dot", "slash",
+		"caps_lock", "num_lock", "scroll_lock"}
+	if len(key) > 1 && !utils.IsInStringArray(key, legalKeys) {
+		return false
+	} else if len(key) == 1 && !strings.Contains(singleKeys, key) {
+		return false
+	}
+	return true
+}
+
 func (self *SGuest) SendMonitorCommand(ctx context.Context, userCred mcclient.TokenCredential, cmd string) (jsonutils.JSONObject, error) {
 	host := self.GetHost()
 	url := fmt.Sprintf("%s/servers/%s/monitor", host.ManagerUri, self.Id)
@@ -3588,7 +4060,7 @@ func (manager *SGuestManager) GetIpInProjectWithName(projectId, name string, isE
 				sqlchemy.IsFalse(guests.Field("pending_deleted"))),
 			sqlchemy.IsFalse(guests.Field("deleted")))).
 		Join(networks, sqlchemy.AND(sqlchemy.Equals(networks.Field("id"), guestnics.Field("network_id")),
-			sqlchemy.IsFalse(networks.Field("deleted")))).
+		sqlchemy.IsFalse(networks.Field("deleted")))).
 		Filter(sqlchemy.Equals(guests.Field("name"), name)).
 		Filter(sqlchemy.NotEquals(guestnics.Field("ip_addr"), "")).
 		Filter(sqlchemy.IsNotNull(guestnics.Field("ip_addr"))).
@@ -3787,7 +4259,7 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot be associated")
 	}
 
-	eipVm := eip.getVM()
+	eipVm := eip.GetAssociateVM()
 	if eipVm != nil {
 		return nil, httperrors.NewConflictError("eip has been associated")
 	}
@@ -3804,6 +4276,8 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 	if host.ManagerId != eip.ManagerId {
 		return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different provider")
 	}
+
+	self.SetStatus(userCred, VM_ASSOCIATE_EIP, "associate eip")
 
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(self.ExternalId), "instance_external_id")
@@ -3828,6 +4302,9 @@ func (self *SGuest) PerformDissociateEip(ctx context.Context, userCred mcclient.
 	if eip == nil {
 		return nil, httperrors.NewInvalidStatusError("No eip to dissociate")
 	}
+
+	self.SetStatus(userCred, VM_DISSOCIATE_EIP, "associate eip")
+
 	err = eip.StartEipDissociateTask(ctx, userCred, "")
 	if err != nil {
 		log.Errorf("fail to start dissociate task %s", err)

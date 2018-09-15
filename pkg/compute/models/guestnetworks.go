@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"crypto/rand"
+	"database/sql"
 	"fmt"
 	"io"
 	"regexp"
@@ -16,7 +17,6 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
 
-	"database/sql"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -292,9 +292,11 @@ func (self *SGuestnetwork) ValidateUpdateData(ctx context.Context, userCred mccl
 		if err != nil {
 			return nil, fmt.Errorf("fail to fetch index %s", err)
 		}
-		q := GuestnetworkManager.Query().Equals("guest_id", self.GuestId)
-		q = q.NotEquals("network_id", self.NetworkId).Equals("idnex", index)
-		if q.Count() > 0 {
+		q := GuestnetworkManager.Query().SubQuery()
+		count := q.Query().Filter(sqlchemy.Equals(q.Field("guest_id"), self.GuestId)).
+			Filter(sqlchemy.NotEquals(q.Field("network_id"), self.NetworkId)).
+			Filter(sqlchemy.Equals(q.Field("index"), index)).Count()
+		if count > 0 {
 			return nil, fmt.Errorf("NIC Index %d has been occupied", index)
 		}
 	}

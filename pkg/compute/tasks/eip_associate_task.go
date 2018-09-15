@@ -32,6 +32,11 @@ func (self *EipAssociateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 
 	instanceId, _ := self.Params.GetString("instance_id")
 	server := models.GuestManager.FetchGuestById(instanceId)
+
+	if server.Status != models.VM_ASSOCIATE_EIP {
+		server.SetStatus(self.UserCred, models.VM_ASSOCIATE_EIP, "associate eip")
+	}
+
 	if server == nil {
 		msg := fmt.Sprintf("fail to find server for instanceId %s", instanceId)
 		eip.SetStatus(self.UserCred, models.EIP_STATUS_ASSOCIATE_FAIL, msg)
@@ -56,6 +61,8 @@ func (self *EipAssociateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 	}
 
 	eip.SetStatus(self.UserCred, models.EIP_STATUS_READY, "associate")
+
+	server.StartSyncstatus(ctx, self.UserCred, "")
 
 	self.SetStageComplete(ctx, nil)
 }

@@ -100,6 +100,11 @@ func NewInputParameterError(msg string, params ...interface{}) *httputils.JSONCl
 	return NewJsonClientError(400, "InputParameterError", msg, err)
 }
 
+func NewWeakPasswordError() *httputils.JSONClientError {
+	msg, err := errorMessage("password must be 12 chars of at least one digit, letter, uppercase letter and punctuate", nil)
+	return NewJsonClientError(400, "WeakPasswordError", msg, err)
+}
+
 func NewInsufficientResourceError(msg string, params ...interface{}) *httputils.JSONClientError {
 	msg, err := errorMessage(msg, params)
 	return NewJsonClientError(400, "InsufficientResourceError", msg, err)

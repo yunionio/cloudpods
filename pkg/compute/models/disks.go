@@ -76,6 +76,8 @@ func init() {
 type SDisk struct {
 	db.SSharableVirtualResourceBase
 
+	SBillingResourceBase
+
 	DiskFormat string `width:"32" charset:"ascii" nullable:"false" default:"qcow2" list:"user"` // Column(VARCHAR(32, charset='ascii'), nullable=False, default='qcow2')
 	DiskSize   int    `nullable:"false" list:"user"`                                            // Column(Integer, nullable=False) # in MB
 	AccessPath string `width:"256" charset:"ascii" nullable:"true" get:"user"`                  // = Column(VARCHAR(256, charset='ascii'), nullable=True)
@@ -650,6 +652,9 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 
 		self.IsEmulated = extDisk.IsEmulated()
 
+		self.BillingType = extDisk.GetBillingType()
+		self.ExpiredAt = extDisk.GetExpiredAt()
+
 		self.ProjectId = userCred.GetProjectId()
 
 		return nil
@@ -692,6 +697,9 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	disk.Nonpersistent = extDisk.GetIsNonPersistent()
 
 	disk.IsEmulated = extDisk.IsEmulated()
+
+	disk.BillingType = extDisk.GetBillingType()
+	disk.ExpiredAt = extDisk.GetExpiredAt()
 
 	err := manager.TableSpec().Insert(&disk)
 	if err != nil {
@@ -855,27 +863,6 @@ func parseIsoInfo(ctx context.Context, userCred mcclient.TokenCredential, info s
 	return image.Id, nil
 }
 
-// def get_disk_spec_v2(conf):
-//     def _get_spec(storages):
-//         spec = {}
-//         for adapter, ss in group_by_adapter(storages).items():
-//             if len(ss) == 0:
-//                 continue
-//             spec[adapter] = get_disk_spec(ss)
-//         return spec
-
-//     spec = {}
-//     for driver in DISK_DRIVERS:
-//         storages = [s for s in conf if s['driver'] == driver]
-//         if len(storages) != 0:
-//             spec[driver] = _get_spec(storages)
-//     return spec
-
-func GetDiskSpecV2(storageInfo jsonutils.JSONObject) *jsonutils.JSONDict {
-	// ToDo
-	return nil
-}
-
 func (self *SDisk) fetchDiskInfo(diskConfig *SDiskConfig) {
 	if len(diskConfig.ImageId) > 0 {
 		self.TemplateId = diskConfig.ImageId
@@ -895,6 +882,37 @@ func (self *SDisk) fetchDiskInfo(diskConfig *SDiskConfig) {
 	}
 	self.DiskFormat = diskConfig.Format
 	self.DiskSize = diskConfig.Size
+}
+
+type DiskInfo struct {
+	ImageId    string
+	Fs         string
+	MountPoint string
+	Format     string
+	Size       int64
+	StorageId  string
+	Backend    string
+	MediumType string
+	Driver     string
+	Cache      string
+}
+
+func (self *SDisk) ToDiskInfo() DiskInfo {
+	ret := DiskInfo{
+		ImageId:    self.GetTemplateId(),
+		Fs:         self.GetFsFormat(),
+		MountPoint: self.GetMountPoint(),
+		Format:     self.DiskFormat,
+		Size:       int64(self.DiskSize),
+	}
+	storage := self.GetStorage()
+	if storage == nil {
+		return ret
+	}
+	ret.StorageId = storage.Id
+	ret.Backend = storage.StorageType
+	ret.MediumType = storage.MediumType
+	return ret
 }
 
 func (self *SDisk) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -1050,6 +1068,8 @@ func (self *SDisk) GetShortDesc() *jsonutils.JSONDict {
 		desc.Add(jsonutils.NewString(priceKey), "price_key")
 	}
 
+	desc.Add(jsonutils.NewString(self.GetChargeType()), "charge_type")
+
 	if hypervisor := self.GetMetadata("hypervisor", nil); len(hypervisor) > 0 {
 		desc.Add(jsonutils.NewString(hypervisor), "hypervisor")
 	}
@@ -1071,6 +1091,10 @@ func (self *SDisk) GetShortDesc() *jsonutils.JSONDict {
 
 func (self *SDisk) getDev() string {
 	return self.GetMetadata("dev", nil)
+}
+
+func (self *SDisk) GetMountPoint() string {
+	return self.GetMetadata("mountpoint", nil)
 }
 
 func (self *SDisk) isReady() bool {

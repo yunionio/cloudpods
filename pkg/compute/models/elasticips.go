@@ -39,6 +39,8 @@ const (
 	EIP_STATUS_DISSOCIATE      = "dissociate"
 	EIP_STATUS_DISSOCIATE_FAIL = "dissociate_fail"
 
+	EIP_STATUS_CHANGE_BANDWIDTH = "change_bandwidth"
+
 	EIP_CHARGE_TYPE_BY_TRAFFIC   = "traffic"
 	EIP_CHARGE_TYPE_BY_BANDWIDTH = "bandwidth"
 	EIP_CHARGE_TYPE_DEFAULT      = EIP_CHARGE_TYPE_BY_TRAFFIC
@@ -178,7 +180,7 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 }
 
 func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudEIP) error {
-	vm := self.getVM()
+	vm := self.GetAssociateVM()
 	vmExtId := ext.GetAssociationExternalId()
 
 	if vm == nil && len(vmExtId) == 0 {
@@ -281,7 +283,7 @@ func (manager *SElasticipManager) getEipForInstance(instanceType string, instanc
 	return &eip, nil
 }
 
-func (self *SElasticip) getVM() *SGuest {
+func (self *SElasticip) GetAssociateVM() *SGuest {
 	if self.AssociateType == "server" && len(self.AssociateId) > 0 {
 		return GuestManager.FetchGuestById(self.AssociateId)
 	}
@@ -292,7 +294,7 @@ func (self *SElasticip) Dissociate(ctx context.Context, userCred mcclient.TokenC
 	if len(self.AssociateType) == 0 {
 		return nil
 	}
-	vm := self.getVM()
+	vm := self.GetAssociateVM()
 	if vm == nil {
 		log.Errorf("dissociate VM not exists???")
 	}
@@ -305,7 +307,9 @@ func (self *SElasticip) Dissociate(ctx context.Context, userCred mcclient.TokenC
 		return err
 	}
 	if vm != nil {
+		db.OpsLog.LogDetachEvent(vm, self, userCred, self.GetShortDesc())
 		db.OpsLog.LogEvent(self, db.ACT_EIP_DETACH, vm.GetShortDesc(), userCred)
+		db.OpsLog.LogEvent(vm, db.ACT_EIP_DETACH, self.GetShortDesc(), userCred)
 	}
 	if self.Mode == EIP_MODE_INSTANCE_PUBLICIP {
 		self.Delete(ctx, userCred)
@@ -325,7 +329,11 @@ func (self *SElasticip) AssociateVM(userCred mcclient.TokenCredential, vm *SGues
 	if err != nil {
 		return err
 	}
+
+	db.OpsLog.LogAttachEvent(vm, self, userCred, self.GetShortDesc())
 	db.OpsLog.LogEvent(self, db.ACT_EIP_ATTACH, vm.GetShortDesc(), userCred)
+	db.OpsLog.LogEvent(vm, db.ACT_EIP_ATTACH, self.GetShortDesc(), userCred)
+
 	return nil
 }
 
@@ -638,7 +646,7 @@ func (self *SElasticip) GetCustomizeColumns(ctx context.Context, userCred mcclie
 }
 
 func (self *SElasticip) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	vm := self.getVM()
+	vm := self.GetAssociateVM()
 	if vm != nil {
 		extra.Add(jsonutils.NewString(vm.GetName()), "associate_name")
 	}
@@ -704,6 +712,9 @@ func (self *SElasticip) PerformChangeBandwidth(ctx context.Context, userCred mcc
 }
 
 func (self *SElasticip) StartEipChangeBandwidthTask(ctx context.Context, userCred mcclient.TokenCredential, bandwidth int64) error {
+
+	self.SetStatus(userCred, EIP_STATUS_CHANGE_BANDWIDTH, "change bandwidth")
+
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewInt(bandwidth), "bandwidth")
 
@@ -721,6 +732,8 @@ func (self *SElasticip) DoChangeBandwidth(userCred mcclient.TokenCredential, ban
 		self.Bandwidth = bandwidth
 		return nil
 	})
+
+	self.SetStatus(userCred, EIP_STATUS_READY, "finish change bandwidth")
 
 	if err != nil {
 		log.Errorf("DoChangeBandwidth update fail %s", err)

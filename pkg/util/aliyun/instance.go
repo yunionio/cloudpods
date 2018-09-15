@@ -156,6 +156,14 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	priceKey := fmt.Sprintf("%s::%s::%s::%s::%s", self.RegionId, self.InstanceType, self.InstanceNetworkType, self.OSType, optimized)
 	data.Add(jsonutils.NewString(priceKey), "price_key")
 
+	if len(self.ImageId) > 0 {
+		if image, err := self.host.zone.region.GetImage(self.ImageId); err != nil {
+			log.Errorf("Failed to find image %s for instance %s", self.ImageId, self.GetName())
+		} else if meta := image.GetMetadata(); meta != nil {
+			data.Update(meta)
+		}
+	}
+
 	return data
 }
 
@@ -742,4 +750,19 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	} else {
 		return nil, nil
 	}
+}
+
+func (self *SInstance) GetBillingType() string {
+	switch self.InstanceChargeType {
+	case PrePaidInstanceChargeType:
+		return models.BILLING_TYPE_PREPAID
+	case PostPaidInstanceChargeType:
+		return models.BILLING_TYPE_POSTPAID
+	default:
+		return models.BILLING_TYPE_PREPAID
+	}
+}
+
+func (self *SInstance) GetExpiredAt() time.Time {
+	return self.ExpiredTime
 }

@@ -98,7 +98,7 @@ type ServerCreateOptions struct {
 	Bios             string   `help:"BIOS" choices:"BIOS|UEFI"`
 	Desc             string   `help:"Description" metavar:"<DESCRIPTION>" json:"description"`
 	Boot             string   `help:"Boot device" metavar:"<BOOT_DEVICE>" choices:"disk|cdrom" json:"-"`
-	NoAccountInit    *bool    `help:"Not reset account password" json:"reset_password"`
+	NoAccountInit    *bool    `help:"Not reset account password"`
 	AllowDelete      *bool    `help:"Unlock server to allow deleting" json:"-"`
 	ShutdownBehavior string   `help:"Behavior after VM server shutdown, stop or terminate server" metavar:"<SHUTDOWN_BEHAVIOR>" choices:"stop|terminate"`
 	AutoStart        *bool    `help:"Auto start server after it is created"`
@@ -264,11 +264,12 @@ type ServerSaveImageOptions struct {
 }
 
 type ServerRebuildRootOptions struct {
-	ID        string `help:"Server to rebuild root" json:"-"`
-	Image     string `help:"New root Image template ID" json:"image_id"`
-	Keypair   string `help:"ssh Keypair used for login"`
-	Password  string `help:"Default user password"`
-	AutoStart *bool  `help:"Auto start server after it is created"`
+	ID            string `help:"Server to rebuild root" json:"-"`
+	Image         string `help:"New root Image template ID" json:"image_id"`
+	Keypair       string `help:"ssh Keypair used for login"`
+	Password      string `help:"Default user password"`
+	NoAccountInit *bool  `help:"Not reset account password"`
+	AutoStart     *bool  `help:"Auto start server after it is created"`
 }
 
 type ServerChangeConfigOptions struct {

@@ -254,6 +254,11 @@ func applyListItemsGeneralJointFilters(manager IModelManager, q *sqlchemy.SQuery
 	return q, nil
 }
 
+func ListItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	return listItemQueryFilters(manager, ctx, q, userCred, query)
+}
+
 func listItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 
@@ -954,10 +959,6 @@ func objectPerformAction(dispatcher *DBModelDispatcher, modelValue reflect.Value
 }
 
 func updateItem(manager IModelManager, item IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !item.AllowUpdateItem(ctx, userCred) {
-		return nil, httperrors.NewForbiddenError(fmt.Sprintf("Not allow to update item"))
-	}
-
 	var err error
 
 	err = item.ValidateUpdateCondition(ctx)
@@ -1027,6 +1028,10 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 			dispatcher.modelManager.Keyword(), idStr))
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
+	}
+
+	if !model.AllowUpdateItem(ctx, userCred) {
+		return nil, httperrors.NewForbiddenError(fmt.Sprintf("Not allow to update item"))
 	}
 
 	lockman.LockObject(ctx, model)

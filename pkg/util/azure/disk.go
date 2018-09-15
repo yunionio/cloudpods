@@ -270,3 +270,11 @@ func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot
 func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
+
+func (self *SDisk) GetBillingType() string {
+	return models.BILLING_TYPE_POSTPAID
+}
+
+func (self *SDisk) GetExpiredAt() time.Time {
+	return time.Now()
+}

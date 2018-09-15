@@ -816,3 +816,11 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	}
 	return nil, nil
 }
+
+func (self *SInstance) GetBillingType() string {
+	return models.BILLING_TYPE_POSTPAID
+}
+
+func (self *SInstance) GetExpiredAt() time.Time {
+	return time.Now()
+}
