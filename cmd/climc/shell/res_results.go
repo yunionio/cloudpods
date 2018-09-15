@@ -40,8 +40,8 @@ func init() {
 			params.Add(jsonutils.NewString(args.EndDate), "end_date")
 		}
 		if len(args.Export) > 0 {
-                        params.Add(jsonutils.NewString(args.Export), "export")
-                }
+			 params.Add(jsonutils.NewString(args.Export), "export")
+		}
 		if len(args.ExportKeys) > 0 {
 			params.Add(jsonutils.NewString(args.ExportKeys), "export_keys")
 		}
