@@ -14,7 +14,7 @@ func init() {
 		StatMonth string `help:"stat_month of the query"`
 		StartDate string `help:"start_date of the query"`
 		EndDate   string `help:"end_date of the query"`
-                Keys      string `help:"keys of the query"`
+		Keys      string `help:"keys of the query"`
 		Texts     string `help:"texts of the query"`
 		ProjectId string `help:"project_id of the query"`
 	}
@@ -39,11 +39,11 @@ func init() {
 			params.Add(jsonutils.NewString(args.EndDate), "end_date")
 		}
 		if len(args.Keys) > 0 {
-                        params.Add(jsonutils.NewString(args.Keys), "keys")
-                }
+			params.Add(jsonutils.NewString(args.Keys), "keys")
+		}
 		if len(args.Texts) > 0 {
-                        params.Add(jsonutils.NewString(args.Texts), "texts")
-                }
+			params.Add(jsonutils.NewString(args.Texts), "texts")
+		}
 		if len(args.ProjectId) > 0 {
 			params.Add(jsonutils.NewString(args.ProjectId), "project_id")
 		}
