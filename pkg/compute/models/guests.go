@@ -2924,7 +2924,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 				addDisk += diskConf.Size
 				storage := host.GetLeastUsedStorage(diskConf.Backend)
 				if storage == nil {
-
+					return nil, httperrors.NewResourceNotReadyError("host not connect storage %s", diskConf.Backend)
 				}
 				_, ok := diskSizes[storage.Id]
 				if !ok {
