@@ -586,30 +586,30 @@ func (self *SAliyunGuestDriver) RequestChangeVmConfig(ctx context.Context, guest
 	return nil
 }
 
-// func (self *SAliyunGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
-// 	ihost, e := host.GetIHost()
-// 	if e != nil {
-// 		return nil, e
-// 	}
+/*func (self *SAliyunGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
+	ihost, e := host.GetIHost()
+	if e != nil {
+		return nil, e
+	}
 
-// 	ivm, e := ihost.GetIVMById(guest.GetExternalId())
-// 	if e != nil {
-// 		return nil, e
-// 	}
+	ivm, e := ihost.GetIVMById(guest.GetExternalId())
+	if e != nil {
+		return nil, e
+	}
 
-// 	result := jsonutils.NewDict()
-// 	if ivm.GetStatus() != models.VM_RUNNING {
-// 		if err := ivm.StartVM(); err != nil {
-// 			return nil, e
-// 		} else {
-// 			task.ScheduleRun(result)
-// 		}
-// 	} else {
-// 		result.Add(jsonutils.NewBool(true), "is_running")
-// 	}
+	result := jsonutils.NewDict()
+	if ivm.GetStatus() != models.VM_RUNNING {
+		if err := ivm.StartVM(); err != nil {
+			return nil, e
+		} else {
+			task.ScheduleRun(result)
+		}
+	} else {
+		result.Add(jsonutils.NewBool(true), "is_running")
+	}
 
-// 	return result, e
-// }
+	return result, e
+}*/
 
 /*func (self *SAliyunGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	ihost, e := guest.GetHost().GetIHost()
