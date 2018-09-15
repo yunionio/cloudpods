@@ -59,6 +59,14 @@ func (self *GuestRebuildRootTask) StartRebuildRootDisk(ctx context.Context, gues
 
 	self.SetStage("OnRebuildRootDiskComplete", nil)
 	guest.SetStatus(self.UserCred, models.VM_REBUILD_ROOT, "")
+
+	// clear logininfo
+	loginParams := make(map[string]interface{})
+	loginParams["login_account"] = "none"
+	loginParams["login_key"] = "none"
+	loginParams["login_key_timestamp"] = "none"
+	guest.SetAllMetadata(ctx, loginParams, self.UserCred)
+
 	guest.GetDriver().RequestRebuildRootDisk(ctx, guest, self)
 }
 
@@ -141,14 +149,6 @@ func (self *KVMGuestRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Conte
 	guest.SetStatus(self.UserCred, models.VM_DEPLOYING, "")
 	// params := jsonutils.NewDict()
 	// params.Set("reset_password", jsonutils.JSONTrue)
-
-	// clear logininfo
-	loginParams := make(map[string]interface{})
-	loginParams["login_account"] = "none"
-	loginParams["login_key"] = "none"
-	loginParams["login_key_timestamp"] = "none"
-	guest.SetAllMetadata(ctx, loginParams, self.UserCred)
-
 	guest.StartGuestDeployTask(ctx, self.UserCred, self.GetParams(), "deploy", self.GetTaskId())
 }
 

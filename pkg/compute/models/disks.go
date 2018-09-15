@@ -245,6 +245,9 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 				if !utils.IsInStringArray(storage.Status, []string{STORAGE_ENABLED, STORAGE_ONLINE}) {
 					return nil, httperrors.NewInputParameterError("Cannot create disk with offline storage[%s]", storage.Name)
 				}
+				if len(diskConfig.Backend) == 0 {
+					diskConfig.Backend = storage.StorageType
+				}
 				if storage.StorageType != diskConfig.Backend {
 					return nil, httperrors.NewInputParameterError("Storage type[%s] not match backend %s", storage.StorageType, diskConfig.Backend)
 				}
@@ -749,7 +752,7 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 	}
 
 	// default backend and medium type
-	diskConfig.Backend = STORAGE_LOCAL
+	diskConfig.Backend = "" // STORAGE_LOCAL
 	diskConfig.Medium = DISK_TYPE_HYBRID
 
 	diskStr, err := info.GetString()

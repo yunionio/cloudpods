@@ -137,7 +137,8 @@ func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCr
 	gn.MacAddr = macAddr
 	if !virtual {
 		addrTable := network.GetUsedAddresses()
-		ipAddr, err := network.GetFreeIP(ctx, userCred, addrTable, address, allocDir, reserved)
+		recentAddrTable := manager.getRecentlyReleasedIPAddresses(network.Id, time.Duration(network.AllocTimoutSeconds)*time.Second)
+		ipAddr, err := network.GetFreeIP(ctx, userCred, addrTable, recentAddrTable, address, allocDir, reserved)
 		if err != nil {
 			return nil, err
 		}
@@ -551,4 +552,30 @@ func (self *SGuestnetwork) getJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	}
 
 	return desc
+}
+
+func (manager *SGuestnetworkManager) getRecentlyReleasedIPAddresses(networkId string, recentDuration time.Duration) map[string]bool {
+	if recentDuration == 0 {
+		return nil
+	}
+	since := time.Now().UTC().Add(-recentDuration)
+	q := manager.RawQuery("ip_addr")
+	q = q.Equals("network_id", networkId).IsTrue("deleted")
+	q = q.GT("deleted_at", since).Distinct()
+	rows, err := q.Rows()
+	if err != nil {
+		log.Errorf("GetRecentlyReleasedIPAddresses fail %s", err)
+		return nil
+	}
+	ret := make(map[string]bool)
+	for rows.Next() {
+		var ip string
+		err = rows.Scan(&ip)
+		if err != nil {
+			log.Errorf("scan error %s", err)
+		} else {
+			ret[ip] = true
+		}
+	}
+	return ret
 }
