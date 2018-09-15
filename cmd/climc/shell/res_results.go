@@ -14,8 +14,9 @@ func init() {
 		StatMonth string `help:"stat_month of the query"`
 		StartDate string `help:"start_date of the query"`
 		EndDate   string `help:"end_date of the query"`
-		Keys      string `help:"keys of the query"`
-		Texts     string `help:"texts of the query"`
+		Export    string `help:"export of the query"`
+		ExportKeys     string `help:"export_keys of the query"`
+		ExportTexts     string `help:"export_texts of the query"`
 		ProjectId string `help:"project_id of the query"`
 	}
 	R(&ResResultsListOptions{}, "resresult-list", "List all res results ", func(s *mcclient.ClientSession, args *ResResultsListOptions) error {
@@ -38,11 +39,14 @@ func init() {
 		if len(args.EndDate) > 0 {
 			params.Add(jsonutils.NewString(args.EndDate), "end_date")
 		}
-		if len(args.Keys) > 0 {
-			params.Add(jsonutils.NewString(args.Keys), "keys")
+		if len(args.Export) > 0 {
+                        params.Add(jsonutils.NewString(args.Export), "export")
+                }
+		if len(args.ExportKeys) > 0 {
+			params.Add(jsonutils.NewString(args.ExportKeys), "export_keys")
 		}
-		if len(args.Texts) > 0 {
-			params.Add(jsonutils.NewString(args.Texts), "texts")
+		if len(args.ExportTexts) > 0 {
+			params.Add(jsonutils.NewString(args.ExportTexts), "export_texts")
 		}
 		if len(args.ProjectId) > 0 {
 			params.Add(jsonutils.NewString(args.ProjectId), "project_id")
