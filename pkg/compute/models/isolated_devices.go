@@ -113,6 +113,16 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(ctx context.Context, q *sq
 	if jsonutils.QueryBoolean(query, "unused", false) {
 		q = q.IsEmpty("guest_id")
 	}
+	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
+	if len(zoneStr) > 0 {
+		zone, _ := ZoneManager.FetchByIdOrName("", zoneStr)
+		if zone == nil {
+			return nil, httperrors.NewResourceNotFoundError("Zone %s not found", zoneStr)
+		}
+		hosts := HostManager.Query().SubQuery()
+		sq := hosts.Query(hosts.Field("id")).Filter(sqlchemy.Equals(hosts.Field("zone_id"), zone.GetId()))
+		q = q.Filter(sqlchemy.In(q.Field("host_id"), sq))
+	}
 	return q, nil
 }
 
@@ -307,6 +317,36 @@ func (manager *SIsolatedDeviceManager) findUnusedQuery() *sqlchemy.SQuery {
 	return q
 }
 
+func (manager *SIsolatedDeviceManager) UnusedGpuQuery() *sqlchemy.SQuery {
+	q := manager.findUnusedQuery()
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.Equals(q.Field("dev_type"), GPU_HPC_TYPE),
+		sqlchemy.Equals(q.Field("dev_type"), GPU_VGA_TYPE)))
+	return q
+}
+
+func (manager *SIsolatedDeviceManager) FindUnusedByModels(models []string) ([]SIsolatedDevice, error) {
+	devs := make([]SIsolatedDevice, 0)
+	q := manager.findUnusedQuery()
+	q = q.In("model", models)
+	err := q.All(&devs)
+	if err != nil {
+		return nil, err
+	}
+	return devs, nil
+}
+
+func (manager *SIsolatedDeviceManager) FindUnusedGpusOnHost(hostId string) ([]SIsolatedDevice, error) {
+	devs := make([]SIsolatedDevice, 0)
+	q := manager.UnusedGpuQuery()
+	q = q.Equals("host_id", hostId)
+	err := q.All(&devs)
+	if err != nil {
+		return nil, err
+	}
+	return devs, nil
+}
+
 func (manager *SIsolatedDeviceManager) findHostUnusedByModel(model string, hostId string) ([]SIsolatedDevice, error) {
 	devs := make([]SIsolatedDevice, 0)
 	q := manager.findUnusedQuery()
@@ -381,8 +421,8 @@ func (self *SIsolatedDevice) getDesc() *jsonutils.JSONDict {
 	return desc
 }
 
-func (self *SIsolatedDevice) GetSpec(checkStatus bool) *jsonutils.JSONDict {
-	if checkStatus {
+func (self *SIsolatedDevice) GetSpec(statusCheck bool) *jsonutils.JSONDict {
+	if statusCheck {
 		if len(self.GuestId) > 0 {
 			return nil
 		}
@@ -397,6 +437,19 @@ func (self *SIsolatedDevice) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 	spec.Set("pci_id", jsonutils.NewString(self.VendorDeviceId))
 	spec.Set("vendor", jsonutils.NewString(self.getVendor()))
 	return spec
+}
+
+func (man *SIsolatedDeviceManager) GetSpecIdent(spec *jsonutils.JSONDict) []string {
+	log.Errorf("gpu get specIdent: %s", spec)
+	devType, _ := spec.GetString("dev_type")
+	vendor, _ := spec.GetString("vendor")
+	model, _ := spec.GetString("model")
+	keys := []string{
+		fmt.Sprintf("type:%s", devType),
+		fmt.Sprintf("vendor:%s", vendor),
+		fmt.Sprintf("model:%s", model),
+	}
+	return keys
 }
 
 func (self *SIsolatedDevice) GetShortDesc() *jsonutils.JSONDict {

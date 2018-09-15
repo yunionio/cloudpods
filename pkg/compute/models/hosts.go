@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 
 	"yunion.io/x/jsonutils"
@@ -19,6 +20,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -520,16 +522,14 @@ func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 	}
 	spec := self.GetHardwareSpecification()
 	spec.Remove("storage_info")
-	netInfo := jsonutils.NewArray()
 	nifs := self.GetNetInterfaces()
+	var nicCount int64
 	for _, nif := range nifs {
-		netDesc := nif.getBaremetalJsonDesc()
-		nicType, err := netDesc.GetString("nic_type")
-		if err != nil && nicType != NIC_TYPE_IPMI {
-			netInfo.Add(netDesc)
+		if nif.NicType != NIC_TYPE_IPMI {
+			nicCount++
 		}
 	}
-	spec.Set("nic_count", jsonutils.NewInt(int64(netInfo.Length())))
+	spec.Set("nic_count", jsonutils.NewInt(nicCount))
 	manufacture, err := self.SysInfo.Get("manufacture")
 	if err != nil {
 		manufacture = jsonutils.NewString("Unknown")
@@ -540,12 +540,73 @@ func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 		model = jsonutils.NewString("Unknown")
 	}
 	spec.Set("model", model)
-	return nil
+	return spec
 }
 
-func (self *SHost) GetSpecIdent(spec *jsonutils.JSONDict) []string {
-	// Todo
-	return []string{}
+func (manager *SHostManager) GetSpecIdent(spec *jsonutils.JSONDict) []string {
+	nCpu, _ := spec.Int("cpu")
+	memSize, _ := spec.Int("mem")
+	memGB, err := utils.GetSizeGB(fmt.Sprintf("%d", memSize), "M")
+	if err != nil {
+		log.Errorf("Get mem size %d GB error: %v", memSize, err)
+	}
+	nicCount, _ := spec.Int("nic_count")
+	manufacture, _ := spec.GetString("manufacture")
+	model, _ := spec.GetString("model")
+
+	specKeys := []string{
+		fmt.Sprintf("cpu:%d", nCpu),
+		fmt.Sprintf("mem:%dG", memGB),
+		fmt.Sprintf("nic:%d", nicCount),
+		fmt.Sprintf("manufacture:%s", manufacture),
+		fmt.Sprintf("model:%s", model),
+	}
+	diskSpec, _ := spec.Get("disk")
+	if diskSpec != nil {
+		driverSpecs, _ := diskSpec.GetMap()
+		for driver, driverSpec := range driverSpecs {
+			specKeys = append(specKeys, parseDiskDriverSpec(driver, driverSpec)...)
+		}
+	}
+	sort.Strings(specKeys)
+	return specKeys
+}
+
+func parseDiskDriverSpec(driver string, spec jsonutils.JSONObject) []string {
+	ret := make([]string, 0)
+	adapterSpecs, _ := spec.GetMap()
+	for adapterKey, adapterSpec := range adapterSpecs {
+		for _, diskType := range []string{baremetal.HDD_DISK_SPEC_TYPE, baremetal.SSD_DISK_SPEC_TYPE} {
+			sizeCountMap, _ := adapterSpec.GetMap(diskType)
+			if sizeCountMap == nil {
+				continue
+			}
+			for size, count := range sizeCountMap {
+				sizeGB, _ := utils.GetSizeGB(size, "M")
+				diskKey := fmt.Sprintf("disk:%s_%s_%s_%dGx%s", driver, adapterKey, diskType, sizeGB, count)
+				ret = append(ret, diskKey)
+			}
+		}
+	}
+	return ret
+}
+
+func GetDiskSpecV2(storageInfo jsonutils.JSONObject) jsonutils.JSONObject {
+	storages := []baremetal.BaremetalStorage{}
+	err := storageInfo.Unmarshal(&storages)
+	if err != nil {
+		log.Errorf("Unmarshal to baremetal storage error: %v", err)
+		return nil
+	}
+	refStorages := func() []*baremetal.BaremetalStorage {
+		ret := make([]*baremetal.BaremetalStorage, len(storages))
+		for i, s := range storages {
+			ret[i] = &s
+		}
+		return ret
+	}()
+	diskSpec := baremetal.GetDiskSpecV2(refStorages)
+	return jsonutils.Marshal(diskSpec)
 }
 
 func (self *SHost) GetHardwareSpecification() *jsonutils.JSONDict {

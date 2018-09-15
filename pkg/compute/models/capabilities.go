@@ -1,11 +1,14 @@
 package models
 
 import (
+	"context"
 	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
-)
 
+	"yunion.io/x/onecloud/pkg/mcclient"
+)
 
 type SCapabilities struct {
 	Hypervisors        []string
@@ -17,9 +20,10 @@ type SCapabilities struct {
 	MaxDataDiskCount   int
 	SchedPolicySupport bool
 	Usable             bool
+	Specs              jsonutils.JSONObject
 }
 
-func GetCapabilities(zone *SZone) SCapabilities {
+func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, zone *SZone) (SCapabilities, error) {
 	capa := SCapabilities{}
 	capa.Hypervisors = getHypervisors(zone)
 	capa.StorageTypes = getStorageTypes(zone)
@@ -30,7 +34,13 @@ func GetCapabilities(zone *SZone) SCapabilities {
 	capa.MinDataDiskCount = getMinDataDiskCount(zone)
 	capa.MaxDataDiskCount = getMaxDataDiskCount(zone)
 	capa.Usable = isUsable(zone)
-	return capa
+	if query == nil {
+		query = jsonutils.NewDict()
+	}
+	var err error
+	mans := []ISpecModelManager{HostManager, IsolatedDeviceManager}
+	capa.Specs, err = GetModelsSpecs(ctx, userCred, query.(*jsonutils.JSONDict), mans...)
+	return capa, err
 }
 
 func getHypervisors(zone *SZone) []string {

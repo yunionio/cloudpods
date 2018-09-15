@@ -8,7 +8,7 @@ import (
 	fjson "github.com/json-iterator/go"
 
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/scheduler/api"
+	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/scheduler/cache"
 	"yunion.io/x/onecloud/pkg/scheduler/cache/db"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
@@ -18,12 +18,12 @@ import (
 type BaremetalDesc struct {
 	baseHostDesc
 
-	Storages      []*api.BaremetalStorage `json:"storages"`
-	StorageType   string                  `json:"storage_type"`
-	StorageSize   int64                   `json:"storage_size"`
-	StorageInfo   string                  `json:"storage_info"`
-	StorageDriver string                  `json:"storage_driver"`
-	ServerID      string                  `json:"server_id"`
+	Storages      []*baremetal.BaremetalStorage `json:"storages"`
+	StorageType   string                        `json:"storage_type"`
+	StorageSize   int64                         `json:"storage_size"`
+	StorageInfo   string                        `json:"storage_info"`
+	StorageDriver string                        `json:"storage_driver"`
+	ServerID      string                        `json:"server_id"`
 }
 
 type BaremetalBuilder struct {
@@ -234,7 +234,7 @@ func (bb *BaremetalBuilder) buildOne(bm *models.Host) (interface{}, error) {
 	desc.HostType = bm.HostType
 	desc.IsBaremetal = bm.IsBaremetal
 
-	var baremetalStorages []*api.BaremetalStorage
+	var baremetalStorages []*baremetal.BaremetalStorage
 	err := fjson.Unmarshal([]byte(bm.StorageInfo), &baremetalStorages)
 	if err != nil {
 		// StorageInfo maybe is NULL
