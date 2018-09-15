@@ -561,3 +561,48 @@ func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 
 	return q, err
 }
+
+func (self *SWire) getRegion() *SCloudregion {
+	zone := self.GetZone()
+	if zone != nil {
+		return zone.GetRegion()
+	}
+	return nil
+}
+
+func (self *SWire) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	return self.getMoreDetails(extra)
+}
+
+func (self *SWire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	return self.getMoreDetails(extra)
+}
+
+func (self *SWire) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	extra.Add(jsonutils.NewInt(int64(self.NetworkCount())), "networks")
+	zone := self.GetZone()
+	if zone != nil {
+		extra.Add(jsonutils.NewString(zone.GetName()), "zone")
+		if len(zone.GetExternalId()) > 0 {
+			extra.Add(jsonutils.NewString(zone.GetExternalId()), "zone_external_id")
+		}
+	}
+	region := self.getRegion()
+	if region != nil {
+		extra.Add(jsonutils.NewString(region.GetId()), "region_id")
+		extra.Add(jsonutils.NewString(region.GetName()), "region")
+		if len(region.GetExternalId()) > 0 {
+			extra.Add(jsonutils.NewString(region.GetExternalId()), "region_external_id")
+		}
+	}
+	vpc := self.getVpc()
+	if vpc != nil {
+		extra.Add(jsonutils.NewString(vpc.GetName()), "vpc")
+		if len(vpc.GetExternalId()) > 0 {
+			extra.Add(jsonutils.NewString(vpc.GetExternalId()), "vpc_external_id")
+		}
+	}
+	return extra
+}
