@@ -38,7 +38,7 @@ type SWire struct {
 	VpcId        string `wdith:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
 }
 
-func (manager *SWireManager) GetGContextManager() []db.IModelManager {
+func (manager *SWireManager) GetContextManager() []db.IModelManager {
 	return []db.IModelManager{ZoneManager, VpcManager}
 }
 
