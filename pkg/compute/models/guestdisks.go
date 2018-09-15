@@ -78,6 +78,7 @@ func (self *SGuestdisk) getExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSOND
 	disk := self.GetDisk()
 	extra.Add(jsonutils.NewInt(int64(disk.DiskSize)), "disk_size")
 	extra.Add(jsonutils.NewString(disk.Status), "status")
+	extra.Add(jsonutils.NewString(disk.DiskType), "disk_type")
 	return extra
 }
 
