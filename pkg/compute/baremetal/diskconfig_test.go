@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/scheduler/api"
 )
 
 func TestParseDiskConfig(t *testing.T) {
@@ -23,13 +22,13 @@ func TestParseDiskConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		wantBdc api.BaremetalDiskConfig
+		wantBdc BaremetalDiskConfig
 		wantErr bool
 	}{
 		{
 			name: "rotate:[1-2,4-5]:MegaRaid",
 			args: args{"rotate:[1-2,4-5]:MegaRaid"},
-			wantBdc: api.BaremetalDiskConfig{
+			wantBdc: BaremetalDiskConfig{
 				Type:   DISK_TYPE_ROTATE,
 				Conf:   DISK_CONF_NONE,
 				Driver: DISK_DRIVER_MEGARAID,
@@ -41,7 +40,7 @@ func TestParseDiskConfig(t *testing.T) {
 		{
 			name: "rotate:[1-2,4,6]:raid10:marvelraid",
 			args: args{"rotate:[1-2,4,6]:raid10:marvelraid"},
-			wantBdc: api.BaremetalDiskConfig{
+			wantBdc: BaremetalDiskConfig{
 				Type:   DISK_TYPE_ROTATE,
 				Conf:   DISK_CONF_RAID10,
 				Driver: DISK_DRIVER_MARVELRAID,
@@ -53,7 +52,7 @@ func TestParseDiskConfig(t *testing.T) {
 		{
 			name: "rotate:[4,6]:raid10",
 			args: args{"rotate:[4,6]:raid10"},
-			wantBdc: api.BaremetalDiskConfig{
+			wantBdc: BaremetalDiskConfig{
 				Type:  DISK_TYPE_ROTATE,
 				Conf:  DISK_CONF_RAID10,
 				Count: 0,
@@ -64,7 +63,7 @@ func TestParseDiskConfig(t *testing.T) {
 		{
 			name: "rotate:[4]:raid10:(40%, )",
 			args: args{"rotate:[4]:raid10:(40%, )"},
-			wantBdc: api.BaremetalDiskConfig{
+			wantBdc: BaremetalDiskConfig{
 				Type:   DISK_TYPE_ROTATE,
 				Conf:   DISK_CONF_RAID10,
 				Count:  0,
@@ -76,7 +75,7 @@ func TestParseDiskConfig(t *testing.T) {
 		{
 			name: "[12-13]:raid1:(100g,32g,):adapter0:strip64k",
 			args: args{"[12-13]:raid1:(100g,32g,):adapter0:strip64k"},
-			wantBdc: api.BaremetalDiskConfig{
+			wantBdc: BaremetalDiskConfig{
 				Type:    DISK_TYPE_HYBRID,
 				Conf:    DISK_CONF_RAID1,
 				Count:   0,
@@ -90,7 +89,7 @@ func TestParseDiskConfig(t *testing.T) {
 		{
 			name: "6:raid5:adapter2",
 			args: args{"6:raid5:adapter2"},
-			wantBdc: api.BaremetalDiskConfig{
+			wantBdc: BaremetalDiskConfig{
 				Type:    DISK_TYPE_HYBRID,
 				Conf:    DISK_CONF_RAID5,
 				Count:   6,
@@ -163,7 +162,7 @@ func TestParseRange(t *testing.T) {
 }
 
 var (
-	testStorages = []*api.BaremetalStorage{
+	testStorages = []*BaremetalStorage{
 		// 0-11 disk on adapter2
 		{
 			Driver:  DISK_DRIVER_MEGARAID,
@@ -252,7 +251,7 @@ var (
 			Adapter: 0,
 		},
 	}
-	bitmainStorage = []*api.BaremetalStorage{
+	bitmainStorage = []*BaremetalStorage{
 		{
 			Driver:       DISK_DRIVER_MARVELRAID,
 			Rotate:       true,
@@ -580,7 +579,7 @@ func TestCheckDisksAllocable(t *testing.T) {
 	}
 
 	layout, err := CalculateLayout(confs, testStorages)
-	defaultLayout, err := CalculateLayout([]*api.BaremetalDiskConfig{&api.BaremetalDefaultDiskConfig}, testStorages[12:])
+	defaultLayout, err := CalculateLayout([]*BaremetalDiskConfig{&BaremetalDefaultDiskConfig}, testStorages[12:])
 	if err != nil {
 		t.Fatalf("CalculateLayout err: %v", err)
 	}
@@ -593,48 +592,48 @@ func TestCheckDisksAllocable(t *testing.T) {
 	log.Debugf("layout: %s", layout)
 	log.Debugf("Bitmain layout: %s", bitmainLayout)
 
-	tdiskDefault := []*api.Disk{
+	tdiskDefault := []*Disk{
 		{Size: -1},
 		{Size: -1},
 	}
 
-	tdisk1 := []*api.Disk{
+	tdisk1 := []*Disk{
 		{Size: 960000},
 		{Size: -1},
 		{Size: -1},
 		{Size: -1},
 	}
 
-	tdisk2 := []*api.Disk{
+	tdisk2 := []*Disk{
 		{Size: -1},
 		{Size: -1},
 		{Size: -1},
 		{Size: -1},
 	}
 
-	tdisk3 := []*api.Disk{
+	tdisk3 := []*Disk{
 		{Size: 102398},
 		{Size: -1},
 		{Size: -1},
 		{Size: -1},
 	}
 
-	btdisk1 := []*api.Disk{
+	btdisk1 := []*Disk{
 		{Size: 61438},
 		{Size: -1},
 	}
 
-	btdisk2 := []*api.Disk{
+	btdisk2 := []*Disk{
 		{Size: 61440},
 		{Size: -1},
 	}
 
-	btdisk3 := []*api.Disk{
+	btdisk3 := []*Disk{
 		{Size: -1},
 		{Size: -1},
 	}
 
-	btPcieDisk := []*api.Disk{
+	btPcieDisk := []*Disk{
 		{Size: 44440},
 		{Size: -1},
 		{Size: -1},
@@ -644,7 +643,7 @@ func TestCheckDisksAllocable(t *testing.T) {
 
 	type args struct {
 		layouts []Layout
-		disks   []*api.Disk
+		disks   []*Disk
 	}
 	tests := []struct {
 		name string
@@ -727,7 +726,7 @@ func TestCheckDisksAllocable(t *testing.T) {
 
 func TestGetDiskSpec(t *testing.T) {
 	type args struct {
-		storages []*api.BaremetalStorage
+		storages []*BaremetalStorage
 	}
 	tests := []struct {
 		name string
@@ -1068,7 +1067,7 @@ var testStorages2 string = `
 `
 
 func TestStorageLoad(t *testing.T) {
-	ss := make([]*api.BaremetalStorage, 0)
+	ss := make([]*BaremetalStorage, 0)
 	confs, err := NewBaremetalDiskConfigs(
 		"2:raid1:MarvelRaid",
 		"4:raid10:MegaRaid",

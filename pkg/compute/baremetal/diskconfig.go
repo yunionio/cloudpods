@@ -8,66 +8,8 @@ import (
 	"strings"
 
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
-)
-
-const (
-	DISK_CONF_RAID0  = api.DISK_CONF_RAID0
-	DISK_CONF_RAID1  = api.DISK_CONF_RAID1
-	DISK_CONF_RAID5  = api.DISK_CONF_RAID5
-	DISK_CONF_RAID10 = api.DISK_CONF_RAID10
-	DISK_CONF_NONE   = api.DISK_CONF_NONE
-
-	DEFAULT_DISK_CONF = DISK_CONF_NONE
-
-	DISK_TYPE_ROTATE = api.DISK_TYPE_ROTATE
-	DISK_TYPE_SSD    = api.DISK_TYPE_SSD
-	DISK_TYPE_HYBRID = api.DISK_TYPE_HYBRID
-
-	DEFAULT_DISK_TYPE = DISK_TYPE_ROTATE
-
-	DISK_DRIVER_MEGARAID   = api.DISK_DRIVER_MEGARAID
-	DISK_DRIVER_LINUX      = api.DISK_DRIVER_LINUX
-	DISK_DRIVER_HPSARAID   = api.DISK_DRIVER_HPSARAID
-	DISK_DRIVER_MPT2SAS    = api.DISK_DRIVER_MPT2SAS
-	DISK_DRIVER_MARVELRAID = api.DISK_DRIVER_MARVELRAID
-	DISK_DRIVER_PCIE       = api.DISK_DRIVER_PCIE
-
-	HDD_DISK_SPEC_TYPE = api.HDD_DISK_SPEC_TYPE
-	SSD_DISK_SPEC_TYPE = api.SSD_DISK_SPEC_TYPE
-
-	ErrMoreThanOneSizeUnspecificSplit = `more than 1 size unspecific split`
-	ErrNoMoreSpaceForUnspecificSplit  = `no more space for an unspecific split`
-	ErrSubtotalOfSplitExceedsDiskSize = `subtotal of split exceeds disk size`
-)
-
-var (
-	DISK_CONFS = sets.NewString(
-		DISK_CONF_RAID0,
-		DISK_CONF_RAID1,
-		DISK_CONF_RAID5,
-		DISK_CONF_RAID10,
-		DISK_CONF_NONE,
-	)
-
-	DISK_TYPES = sets.NewString(
-		DISK_TYPE_ROTATE,
-		DISK_TYPE_SSD,
-		DISK_TYPE_HYBRID,
-	)
-
-	DISK_DRIVERS_RAID = sets.NewString(
-		DISK_DRIVER_MEGARAID,
-		DISK_DRIVER_HPSARAID,
-		DISK_DRIVER_MPT2SAS,
-		DISK_DRIVER_MARVELRAID,
-	)
-
-	DISK_DRIVERS = sets.NewString(
-		DISK_DRIVER_LINUX,
-		DISK_DRIVER_PCIE).Union(DISK_DRIVERS_RAID)
 )
 
 // return bytes
@@ -149,7 +91,7 @@ func ParseRange(rangeStr string) (ret []int64, err error) {
 	return
 }
 
-func ParseDiskConfig(desc string) (bdc api.BaremetalDiskConfig, err error) {
+func ParseDiskConfig(desc string) (bdc BaremetalDiskConfig, err error) {
 	bdc.Type = DISK_TYPE_HYBRID
 	bdc.Conf = DISK_CONF_NONE
 	bdc.Count = 0
@@ -216,11 +158,11 @@ func ParseDiskConfig(desc string) (bdc api.BaremetalDiskConfig, err error) {
 }
 
 func isDiskConfigStorageMatch(
-	config *api.BaremetalDiskConfig,
+	config *BaremetalDiskConfig,
 	confDriver *string,
 	confAdapter *int,
-	storage *api.BaremetalStorage,
-	selected []*api.BaremetalStorage,
+	storage *BaremetalStorage,
+	selected []*BaremetalStorage,
 ) bool {
 	isRotate := storage.Rotate
 	adapter := storage.Adapter
@@ -252,7 +194,7 @@ func isDiskConfigStorageMatch(
 	return false
 }
 
-func RetrieveStorages(diskConfig *api.BaremetalDiskConfig, storages []*api.BaremetalStorage) (selected, rest []*api.BaremetalStorage) {
+func RetrieveStorages(diskConfig *BaremetalDiskConfig, storages []*BaremetalStorage) (selected, rest []*BaremetalStorage) {
 	var confDriver *string = nil
 	var confAdapter *int = nil
 
@@ -263,8 +205,8 @@ func RetrieveStorages(diskConfig *api.BaremetalDiskConfig, storages []*api.Barem
 		confDriver = &diskConfig.Driver
 	}
 
-	selected = make([]*api.BaremetalStorage, 0)
-	rest = make([]*api.BaremetalStorage, 0)
+	selected = make([]*BaremetalStorage, 0)
+	rest = make([]*BaremetalStorage, 0)
 	idx := 0
 
 	for _, storage := range storages {
@@ -307,9 +249,9 @@ func RequireEvenDisks(diskConfig string) bool {
 }
 
 type Layout struct {
-	Disks []*api.BaremetalStorage  `json:"disks"`
-	Conf  *api.BaremetalDiskConfig `json:"conf"`
-	Size  int64                    `json:"size"`
+	Disks []*BaremetalStorage  `json:"disks"`
+	Conf  *BaremetalDiskConfig `json:"conf"`
+	Size  int64                `json:"size"`
 }
 
 func (l Layout) String() string {
@@ -317,7 +259,7 @@ func (l Layout) String() string {
 	return string(bytes)
 }
 
-func RetrieveStorageDrivers(storages []*api.BaremetalStorage) sets.String {
+func RetrieveStorageDrivers(storages []*BaremetalStorage) sets.String {
 	ret := sets.NewString()
 	for _, s := range storages {
 		ret = ret.Union(sets.NewString(s.Driver))
@@ -326,8 +268,8 @@ func RetrieveStorageDrivers(storages []*api.BaremetalStorage) sets.String {
 }
 
 func MeetConfig(
-	conf *api.BaremetalDiskConfig,
-	storages []*api.BaremetalStorage,
+	conf *BaremetalDiskConfig,
+	storages []*BaremetalStorage,
 ) error {
 	storageDrvs := RetrieveStorageDrivers(storages)
 	if len(storageDrvs.List()) > 1 {
@@ -380,7 +322,7 @@ func MeetConfig(
 	return nil
 }
 
-func GetStoragesMinSize(ss []*api.BaremetalStorage) int64 {
+func GetStoragesMinSize(ss []*BaremetalStorage) int64 {
 	minSize := int64(-1)
 	for _, s := range ss {
 		if minSize < 0 || minSize > s.Size {
@@ -390,7 +332,7 @@ func GetStoragesMinSize(ss []*api.BaremetalStorage) int64 {
 	return minSize
 }
 
-func CalculateSize(conf string, storages []*api.BaremetalStorage) int64 {
+func CalculateSize(conf string, storages []*BaremetalStorage) int64 {
 	if conf == "" {
 		conf = DEFAULT_DISK_CONF
 	}
@@ -427,7 +369,7 @@ func GetSplitSizes(size int64, splitConf string) []int64 {
 			subtotal += isizes[index]
 		} else {
 			if leftoverIdx >= 0 {
-				log.Errorln(ErrMoreThanOneSizeUnspecificSplit)
+				log.Errorf("%v", ErrMoreThanOneSizeUnspecificSplit)
 				return []int64{}
 			}
 			leftoverIdx = index
@@ -436,12 +378,12 @@ func GetSplitSizes(size int64, splitConf string) []int64 {
 	if leftoverIdx >= 0 {
 		isizes[leftoverIdx] = size - subtotal
 		if isizes[leftoverIdx] <= 0 {
-			log.Errorln(ErrNoMoreSpaceForUnspecificSplit)
+			log.Errorf("%v", ErrNoMoreSpaceForUnspecificSplit)
 			return []int64{}
 		}
 	} else {
 		if subtotal > size {
-			log.Errorln(ErrSubtotalOfSplitExceedsDiskSize)
+			log.Errorf("%v", ErrSubtotalOfSplitExceedsDiskSize)
 			return []int64{}
 		}
 	}
@@ -454,7 +396,7 @@ func ExpandNoneConf(layouts []Layout) (ret []Layout) {
 			conf := layout.Conf
 			conf.Count = 1
 			for _, disk := range layout.Disks {
-				ret = append(ret, Layout{Disks: []*api.BaremetalStorage{disk}, Conf: conf, Size: disk.Size})
+				ret = append(ret, Layout{Disks: []*BaremetalStorage{disk}, Conf: conf, Size: disk.Size})
 			}
 		} else {
 			ret = append(ret, layout)
@@ -464,20 +406,20 @@ func ExpandNoneConf(layouts []Layout) (ret []Layout) {
 }
 
 func CalculateLayout(
-	confs []*api.BaremetalDiskConfig,
-	storages []*api.BaremetalStorage,
+	confs []*BaremetalDiskConfig,
+	storages []*BaremetalStorage,
 ) (layouts []Layout, err error) {
 
 	if len(confs) == 0 {
-		err = fmt.Errorf("[]*api.BaremetalDiskConfig must be provided.")
+		err = fmt.Errorf("[]*BaremetalDiskConfig must be provided.")
 		return
 	}
 
 	layouts = make([]Layout, 0)
 	var (
-		plainDisks = make([]*api.BaremetalStorage, 0)
-		pcieDisks  = make([]*api.BaremetalStorage, 0)
-		raidDisks  = make([]*api.BaremetalStorage, 0)
+		plainDisks = make([]*BaremetalStorage, 0)
+		pcieDisks  = make([]*BaremetalStorage, 0)
+		raidDisks  = make([]*BaremetalStorage, 0)
 	)
 
 	for _, storage := range storages {
@@ -493,7 +435,7 @@ func CalculateLayout(
 	if len(plainDisks) > 0 {
 		layouts = append(layouts, Layout{
 			Disks: plainDisks,
-			Conf:  &api.BaremetalDiskConfig{Conf: DISK_CONF_NONE},
+			Conf:  &BaremetalDiskConfig{Conf: DISK_CONF_NONE},
 			Size:  0,
 		})
 	}
@@ -557,7 +499,7 @@ func CalculateLayout(
 	if len(pcieDisks) > 0 {
 		layouts = append(layouts, Layout{
 			Disks: pcieDisks,
-			Conf:  &api.BaremetalDiskConfig{Conf: DISK_CONF_NONE},
+			Conf:  &BaremetalDiskConfig{Conf: DISK_CONF_NONE},
 			Size:  0,
 		})
 	}
@@ -582,7 +524,7 @@ func expandLayoutSplits(layouts []Layout) []Layout {
 	return ret
 }
 
-func CheckDisksAllocable(layouts []Layout, disks []*api.Disk) bool {
+func CheckDisksAllocable(layouts []Layout, disks []*Disk) bool {
 	layouts = expandLayoutSplits(layouts)
 	storeIndex := 0
 	storeFreeSize := int64(-1)
@@ -619,8 +561,8 @@ func CheckDisksAllocable(layouts []Layout, disks []*api.Disk) bool {
 	return true
 }
 
-func NewBaremetalDiskConfigs(dss ...string) ([]*api.BaremetalDiskConfig, error) {
-	ret := make([]*api.BaremetalDiskConfig, 0)
+func NewBaremetalDiskConfigs(dss ...string) ([]*BaremetalDiskConfig, error) {
+	ret := make([]*BaremetalDiskConfig, 0)
 	for _, ds := range dss {
 		r, err := ParseDiskConfig(ds)
 		if err != nil {
@@ -634,7 +576,7 @@ func NewBaremetalDiskConfigs(dss ...string) ([]*api.BaremetalDiskConfig, error) 
 type SpecSizeCount map[string]int
 type DiskSpec map[string]SpecSizeCount
 
-func GetDiskSpec(storages []*api.BaremetalStorage) DiskSpec {
+func GetDiskSpec(storages []*BaremetalStorage) DiskSpec {
 	diskSpec := make(map[string]SpecSizeCount)
 
 	for _, s := range storages {
@@ -657,4 +599,57 @@ func GetDiskSpec(storages []*api.BaremetalStorage) DiskSpec {
 		diskSpec[dtype][sizeStr] += 1
 	}
 	return diskSpec
+}
+
+func getStoragesByDriver(driver string, storages []*BaremetalStorage) []*BaremetalStorage {
+	ret := make([]*BaremetalStorage, 0)
+	for _, s := range storages {
+		if s.Driver == driver {
+			ret = append(ret, s)
+		}
+	}
+	return ret
+}
+
+func groupByAdapter(storages []*BaremetalStorage) map[string][]*BaremetalStorage {
+	ret := make(map[string][]*BaremetalStorage)
+	for _, storage := range storages {
+		adapter := storage.Adapter
+		adapterKey := fmt.Sprintf("adapter%d", adapter)
+		oldStorages := ret[adapterKey]
+		if len(oldStorages) == 0 {
+			ret[adapterKey] = []*BaremetalStorage{storage}
+		} else {
+			oldStorages = append(oldStorages, storage)
+			ret[adapterKey] = oldStorages
+		}
+	}
+	return ret
+}
+
+type DiskAdapterSpecs map[string]DiskSpec
+
+func getSpec(storages []*BaremetalStorage) DiskAdapterSpecs {
+	ret := make(map[string]DiskSpec)
+	for adapterKey, newStorages := range groupByAdapter(storages) {
+		if len(newStorages) == 0 {
+			continue
+		}
+		ret[adapterKey] = GetDiskSpec(newStorages)
+	}
+	return ret
+}
+
+type DiskDriverSpecs map[string]DiskAdapterSpecs
+
+func GetDiskSpecV2(storages []*BaremetalStorage) DiskDriverSpecs {
+	spec := make(map[string]DiskAdapterSpecs)
+	for _, driver := range DISK_DRIVERS.List() {
+		driverStorages := getStoragesByDriver(driver, storages)
+		if len(driverStorages) == 0 {
+			continue
+		}
+		spec[driver] = getSpec(storages)
+	}
+	return spec
 }

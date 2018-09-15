@@ -486,6 +486,14 @@ func GetBytes(sizeStr string) (int64, error) {
 	return GetSize(sizeStr, "", 1024)
 }
 
+func GetSizeGB(sizeStr, defaultSize string) (int64, error) {
+	bytes, err := GetSizeBytes(sizeStr, defaultSize)
+	if err != nil {
+		return 0, err
+	}
+	return bytes / 1024 / 1024 / 1024, nil
+}
+
 func GetSizeMB(sizeStr, defaultSize string) (int64, error) {
 	bytes, err := GetSizeBytes(sizeStr, defaultSize)
 	if err != nil {
