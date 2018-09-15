@@ -38,6 +38,9 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 		query = jsonutils.NewDict()
 	}
 	var err error
+	if zone != nil {
+		query.(*jsonutils.JSONDict).Add(jsonutils.NewString(zone.GetId()), "zone")
+	}
 	mans := []ISpecModelManager{HostManager, IsolatedDeviceManager}
 	capa.Specs, err = GetModelsSpecs(ctx, userCred, query.(*jsonutils.JSONDict), mans...)
 	return capa, err
