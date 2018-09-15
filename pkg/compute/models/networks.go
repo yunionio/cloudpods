@@ -734,6 +734,30 @@ func isExitNetworkInfo(netConfig *SNetworkConfig) bool {
 	return false
 }
 
+func (self *SNetwork) getZone() *SZone {
+	wire := self.GetWire()
+	if wire != nil {
+		return wire.GetZone()
+	}
+	return nil
+}
+
+func (self *SNetwork) getVpc() *SVpc {
+	wire := self.GetWire()
+	if wire != nil {
+		return wire.getVpc()
+	}
+	return nil
+}
+
+func (self *SNetwork) getRegion() *SCloudregion {
+	wire := self.GetWire()
+	if wire != nil {
+		return wire.getRegion()
+	}
+	return nil
+}
+
 func (self *SNetwork) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	wire := self.GetWire()
 	extra.Add(jsonutils.NewString(wire.Name), "wire")
@@ -747,6 +771,34 @@ func (self *SNetwork) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSOND
 	extra.Add(jsonutils.NewInt(int64(self.GetBaremetalNicsCount())), "bm_vnics")
 	extra.Add(jsonutils.NewInt(int64(self.GetGroupNicsCount())), "group_vnics")
 	extra.Add(jsonutils.NewInt(int64(self.GetReservedNicsCount())), "reserve_vnics")
+
+	zone := self.getZone()
+	if zone != nil {
+		extra.Add(jsonutils.NewString(zone.GetId()), "zone_id")
+		extra.Add(jsonutils.NewString(zone.GetName()), "zone")
+		if len(zone.GetExternalId()) > 0 {
+			extra.Add(jsonutils.NewString(zone.GetExternalId()), "zone_external_id")
+		}
+	}
+
+	region := self.getRegion()
+	if region != nil {
+		extra.Add(jsonutils.NewString(region.GetId()), "region_id")
+		extra.Add(jsonutils.NewString(region.GetName()), "region")
+		if len(region.GetExternalId()) > 0 {
+			extra.Add(jsonutils.NewString(region.GetExternalId()), "region_external_id")
+		}
+	}
+
+	vpc := self.getVpc()
+	if vpc != nil {
+		extra.Add(jsonutils.NewString(vpc.GetId()), "vpc_id")
+		extra.Add(jsonutils.NewString(vpc.GetName()), "vpc")
+		if len(vpc.GetExternalId()) > 0 {
+			extra.Add(jsonutils.NewString(vpc.GetExternalId()), "vpc_external_id")
+		}
+	}
+
 	return extra
 }
 

@@ -150,9 +150,6 @@ func fetchIVMinfo(desc SAliyunVMCreateConfig, iVM cloudprovider.ICloudVM, guestI
 		}
 		data.Add(jsonutils.NewString("root"), "account")
 		data.Add(jsonutils.NewString(encpasswd), "key")
-	} else {
-		data.Add(jsonutils.NewString(""), "account")
-		data.Add(jsonutils.NewString(""), "key")
 	}
 
 	if len(desc.OsDistribution) > 0 {
