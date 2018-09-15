@@ -2,6 +2,7 @@ package tasks
 
 
 import (
+	"fmt"
 	"context"
 
 	"yunion.io/x/jsonutils"
@@ -9,7 +10,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"fmt"
 )
 
 type EipDissociateTask struct {
