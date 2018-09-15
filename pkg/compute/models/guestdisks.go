@@ -211,3 +211,14 @@ func (self *SGuestdisk) Delete(ctx context.Context, userCred mcclient.TokenCrede
 func (self *SGuestdisk) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DetachJoint(ctx, userCred, self)
 }
+
+func (self *SGuestdisk) ToDiskInfo() DiskInfo {
+	disk := self.GetDisk()
+	if disk == nil {
+		return DiskInfo{}
+	}
+	info := disk.ToDiskInfo()
+	info.Driver = self.Driver
+	info.Cache = self.CacheMode
+	return info
+}

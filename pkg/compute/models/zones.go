@@ -479,7 +479,10 @@ func (self *SZone) AllowGetDetailsCapability(ctx context.Context, userCred mccli
 }
 
 func (self *SZone) GetDetailsCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	capa := GetCapabilities(self)
+	capa, err := GetCapabilities(ctx, userCred, query, self)
+	if err != nil {
+		return nil, err
+	}
 	return jsonutils.Marshal(&capa), nil
 }
 

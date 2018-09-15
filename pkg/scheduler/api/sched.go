@@ -9,8 +9,10 @@ import (
 	"github.com/bitly/go-simplejson"
 
 	"yunion.io/x/log"
-	o "yunion.io/x/onecloud/cmd/scheduler/options"
 	"yunion.io/x/pkg/utils"
+
+	o "yunion.io/x/onecloud/cmd/scheduler/options"
+	"yunion.io/x/onecloud/pkg/compute/baremetal"
 )
 
 type Meta map[string]string
@@ -98,7 +100,7 @@ type SchedData struct {
 	GroupRelations []GroupRelation `json:"group_relations"`
 
 	// baremental
-	BaremetalDiskConfigs []*BaremetalDiskConfig `json:"baremetal_disk_config"`
+	BaremetalDiskConfigs []*baremetal.BaremetalDiskConfig `json:"baremetal_disk_config"`
 }
 
 func NewSchedData(sjson *simplejson.Json, count int64, byTest bool) (*SchedData, error) {
@@ -543,8 +545,8 @@ func newDiskFromSimpleJson(sjson *simplejson.Json, byTest bool) (*Disk, error) {
 	return disk, nil
 }
 
-func newBaremetalDiskConfigFromSimpleJson(sjson *simplejson.Json) (*BaremetalDiskConfig, error) {
-	baremetalDiskConfig := new(BaremetalDiskConfig)
+func newBaremetalDiskConfigFromSimpleJson(sjson *simplejson.Json) (*baremetal.BaremetalDiskConfig, error) {
+	baremetalDiskConfig := new(baremetal.BaremetalDiskConfig)
 	baremetalDiskConfig.Count = sjson.Get("count").MustInt64()
 	baremetalDiskConfig.Conf = sjson.Get("conf").MustString()
 
@@ -597,13 +599,13 @@ func (d *SchedData) fillDisksInfo(sjson *simplejson.Json, byTest bool) error {
 }
 
 func (d *SchedData) fillBaremetalDiskConfig(sjson *simplejson.Json) error {
-	baremetalDiskConfigs := []*BaremetalDiskConfig{}
+	baremetalDiskConfigs := []*baremetal.BaremetalDiskConfig{}
 	if d.Hypervisor != HostTypeBaremetal {
 		return nil
 	}
 	config, ok := sjson.CheckGet("baremetal_disk_config")
 	if !ok {
-		defaultConfs := []*BaremetalDiskConfig{&BaremetalDefaultDiskConfig}
+		defaultConfs := []*baremetal.BaremetalDiskConfig{&baremetal.BaremetalDefaultDiskConfig}
 		d.BaremetalDiskConfigs = defaultConfs
 		log.V(4).Warningf("No baremetal_disk_config info found in json, use default baremetal disk config: %#v", defaultConfs)
 		return nil

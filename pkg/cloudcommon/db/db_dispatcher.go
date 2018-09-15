@@ -276,6 +276,11 @@ func applyListItemsGeneralJointFilters(manager IModelManager, q *sqlchemy.SQuery
 	return q, nil
 }
 
+func ListItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	return listItemQueryFilters(manager, ctx, q, userCred, query)
+}
+
 func listItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 
