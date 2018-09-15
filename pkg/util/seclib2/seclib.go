@@ -16,7 +16,7 @@ const (
 	ALL_DIGITS = "0123456789"
 	ALL_LETTERS = "abcdefghijklmnopqrstuvwxyz"
 	ALL_UPPERS  = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	ALL_PUNC = "~`!@#$%^&*()-_=+[]{}|:':\",./<>?"
+	ALL_PUNC = "~`!@#$%^&*()-_=+[]{}|:';\",./<>?"
 )
 
 type PasswordStrength struct {

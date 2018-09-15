@@ -582,6 +582,11 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
 	}
 
+	if len(diskConfig.Backend) == 0 {
+		diskConfig.Backend = STORAGE_LOCAL
+	}
+	rootStorageType := diskConfig.Backend
+
 	data.Add(jsonutils.Marshal(diskConfig), "disk.0")
 
 	imgProperties := diskConfig.ImageProperties
@@ -713,6 +718,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	}
 
 	data.Add(jsonutils.NewString(hypervisor), "hypervisor")
+	// start from data disk
 	for idx := 1; data.Contains(fmt.Sprintf("disk.%d", idx)); idx += 1 {
 		diskJson, err := data.Get(fmt.Sprintf("disk.%d", idx))
 		if err != nil {
@@ -721,6 +727,9 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		diskConfig, err := parseDiskInfo(ctx, userCred, diskJson)
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("parse disk description error %s", err)
+		}
+		if len(diskConfig.Backend) == 0 {
+			diskConfig.Backend = rootStorageType
 		}
 		if len(diskConfig.Driver) == 0 {
 			diskConfig.Driver = osProf.DiskDriver
@@ -2560,6 +2569,9 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 			logclient.AddActionLog(self, logclient.ACT_CREATE, err.Error(), userCred, false)
 			return nil, httperrors.NewBadRequestError(err.Error())
 		}
+		if len(diskInfo.Backend) == 0 {
+			diskInfo.Backend = self.getDefaultStorageType()
+		}
 		disksConf.Set(diskSeq, jsonutils.Marshal(diskInfo))
 		if _, ok := diskSizes[diskInfo.Backend]; !ok {
 			diskSizes[diskInfo.Backend] = diskInfo.Size
@@ -2909,12 +2921,18 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		if err != nil {
 			return nil, httperrors.NewBadRequestError("Parse disk info error: %s", err)
 		}
+		if len(diskConf.Backend) == 0 {
+			diskConf.Backend = self.getDefaultStorageType()
+		}
 		if diskConf.Size > 0 {
 			if diskIdx >= len(disks) {
 				newDisks.Add(jsonutils.Marshal(diskConf), fmt.Sprintf("disk.%d", newDiskIdx))
 				newDiskIdx += 1
 				addDisk += diskConf.Size
 				storage := host.GetLeastUsedStorage(diskConf.Backend)
+				if storage == nil {
+					return nil, httperrors.NewResourceNotReadyError("host not connect storage %s", diskConf.Backend)
+				}
 				_, ok := diskSizes[storage.Id]
 				if !ok {
 					diskSizes[storage.Id] = 0
@@ -4381,4 +4399,15 @@ func (self *SGuest) SetDisableDelete(val bool) error {
 		return nil
 	})
 	return err
+}
+
+func (self *SGuest) getDefaultStorageType() string {
+	diskCat := self.CategorizeDisks()
+	if diskCat.Root != nil {
+		rootStorage := diskCat.Root.GetStorage()
+		if rootStorage != nil {
+			return rootStorage.StorageType
+		}
+	}
+	return STORAGE_LOCAL
 }
