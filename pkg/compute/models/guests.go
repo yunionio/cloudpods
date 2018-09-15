@@ -100,7 +100,7 @@ const (
 	VM_RESTORE_STATE      = "restore_state"
 	VM_RESTORE_FAILED     = "restore_failed"
 
-	VM_ASSOCIATE_EIP = "associate_eip"
+	VM_ASSOCIATE_EIP  = "associate_eip"
 	VM_DISSOCIATE_EIP = "dissociate_eip"
 
 	VM_REMOVE_STATEFILE = "remove_state"
@@ -276,8 +276,8 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		if count > 0 {
 			sgq := guestdisks.Query(guestdisks.Field("guest_id")).
 				Filter(sqlchemy.AND(
-				sqlchemy.Equals(guestdisks.Field("disk_id"), disk.Id),
-				sqlchemy.IsFalse(guestdisks.Field("deleted"))))
+					sqlchemy.Equals(guestdisks.Field("disk_id"), disk.Id),
+					sqlchemy.IsFalse(guestdisks.Field("deleted"))))
 			q = q.Filter(sqlchemy.In(q.Field("id"), sgq))
 		} else {
 			hosts := HostManager.Query().SubQuery()
@@ -285,11 +285,11 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 			storages := StorageManager.Query().SubQuery()
 			sq := hosts.Query(hosts.Field("id")).
 				Join(hoststorages, sqlchemy.AND(
-				sqlchemy.Equals(hoststorages.Field("host_id"), hosts.Field("id")),
-				sqlchemy.IsFalse(hoststorages.Field("deleted")))).
+					sqlchemy.Equals(hoststorages.Field("host_id"), hosts.Field("id")),
+					sqlchemy.IsFalse(hoststorages.Field("deleted")))).
 				Join(storages, sqlchemy.AND(
-				sqlchemy.Equals(storages.Field("id"), hoststorages.Field("storage_id")),
-				sqlchemy.IsFalse(storages.Field("deleted")))).
+					sqlchemy.Equals(storages.Field("id"), hoststorages.Field("storage_id")),
+					sqlchemy.IsFalse(storages.Field("deleted")))).
 				Filter(sqlchemy.Equals(storages.Field("id"), disk.StorageId)).SubQuery()
 			q = q.In("host_id", sq)
 		}
@@ -343,8 +343,8 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		isodev := IsolatedDeviceManager.Query().SubQuery()
 		sgq := isodev.Query(isodev.Field("guest_id")).
 			Filter(sqlchemy.AND(
-			sqlchemy.IsNotNull(isodev.Field("guest_id")),
-			sqlchemy.Startswith(isodev.Field("dev_type"), "GPU")))
+				sqlchemy.IsNotNull(isodev.Field("guest_id")),
+				sqlchemy.Startswith(isodev.Field("dev_type"), "GPU")))
 		showGpu := utils.ToBool(gpu)
 		cond := sqlchemy.NotIn
 		if showGpu {
@@ -568,7 +568,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	resetPassword := jsonutils.QueryBoolean(data, "reset_password", true)
 	passwd, _ := data.GetString("password")
 	if resetPassword && len(passwd) > 0 {
-		if ! seclib2.MeetComplxity(passwd) {
+		if !seclib2.MeetComplxity(passwd) {
 			return nil, httperrors.NewWeakPasswordError()
 		}
 	}
@@ -1394,10 +1394,10 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 func (manager *SGuestManager) TotalCount(
 	projectId string, rangeObj db.IStandaloneModel,
-	status []string, hypervisor string,
+	status []string, hypervisors []string,
 	includeSystem bool, pendingDelete bool, hostType string,
 ) SGuestCountStat {
-	return totalGuestResourceCount(projectId, rangeObj, status, hypervisor, includeSystem, pendingDelete, hostType)
+	return totalGuestResourceCount(projectId, rangeObj, status, hypervisors, includeSystem, pendingDelete, hostType)
 }
 
 func (self *SGuest) detachNetwork(ctx context.Context, userCred mcclient.TokenCredential, network *SNetwork, reserve bool, deploy bool) error {
@@ -1910,8 +1910,15 @@ type SGuestCountStat struct {
 	TotalIsolatedCount int
 }
 
-func totalGuestResourceCount(projectId string, rangeObj db.IStandaloneModel, status []string, hypervisor string,
-	includeSystem bool, pendingDelete bool, hostType string) SGuestCountStat {
+func totalGuestResourceCount(
+	projectId string,
+	rangeObj db.IStandaloneModel,
+	status []string,
+	hypervisors []string,
+	includeSystem bool,
+	pendingDelete bool,
+	hostType string,
+) SGuestCountStat {
 
 	guestdisks := GuestdiskManager.Query().SubQuery()
 	disks := DiskManager.Query().SubQuery()
@@ -1951,8 +1958,8 @@ func totalGuestResourceCount(projectId string, rangeObj db.IStandaloneModel, sta
 	if len(status) > 0 {
 		q = q.Filter(sqlchemy.In(guests.Field("status"), status))
 	}
-	if len(hypervisor) > 0 {
-		q = q.Filter(sqlchemy.Equals(guests.Field("hypervisor"), hypervisor))
+	if len(hypervisors) > 0 {
+		q = q.Filter(sqlchemy.In(guests.Field("hypervisor"), hypervisors))
 	}
 	if !includeSystem {
 		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(guests.Field("is_system")), sqlchemy.IsFalse(guests.Field("is_system"))))
@@ -2440,7 +2447,7 @@ func (self *SGuest) AllowPerformRebuildRoot(ctx context.Context, userCred mcclie
 
 func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	imageId, _ := data.GetString("image_id")
-	if ! utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING, VM_ADMIN}) {
+	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING, VM_ADMIN}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot reset root in status %s", self.Status)
 	}
 
@@ -2469,7 +2476,7 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 	resetPasswd := jsonutils.QueryBoolean(data, "reset_password", true)
 	passwd, _ := data.GetString("password")
 	if len(passwd) > 0 {
-		if ! seclib2.MeetComplxity(passwd) {
+		if !seclib2.MeetComplxity(passwd) {
 			return nil, httperrors.NewWeakPasswordError()
 		}
 	}
@@ -4054,7 +4061,7 @@ func (manager *SGuestManager) GetIpInProjectWithName(projectId, name string, isE
 				sqlchemy.IsFalse(guests.Field("pending_deleted"))),
 			sqlchemy.IsFalse(guests.Field("deleted")))).
 		Join(networks, sqlchemy.AND(sqlchemy.Equals(networks.Field("id"), guestnics.Field("network_id")),
-		sqlchemy.IsFalse(networks.Field("deleted")))).
+			sqlchemy.IsFalse(networks.Field("deleted")))).
 		Filter(sqlchemy.Equals(guests.Field("name"), name)).
 		Filter(sqlchemy.NotEquals(guestnics.Field("ip_addr"), "")).
 		Filter(sqlchemy.IsNotNull(guestnics.Field("ip_addr"))).
