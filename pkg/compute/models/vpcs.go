@@ -124,7 +124,12 @@ func (self *SVpc) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict 
 	extra.Add(jsonutils.NewInt(int64(self.GetWireCount())), "wire_count")
 	extra.Add(jsonutils.NewInt(int64(self.GetNetworkCount())), "network_count")
 	region := self.GetRegion()
-	extra.Add(jsonutils.NewString(region.GetName()), "region")
+	if region != nil {
+		extra.Add(jsonutils.NewString(region.GetName()), "region")
+		if len(region.GetExternalId()) > 0 {
+			extra.Add(jsonutils.NewString(region.GetExternalId()), "region_external_id")
+		}
+	}
 	return extra
 }
 

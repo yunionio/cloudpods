@@ -50,6 +50,11 @@ func init() {
 		if err != nil {
 			return err
 		}
+
+		if opts.NoAccountInit != nil && *opts.NoAccountInit {
+			params.Add(jsonutils.JSONFalse, "reset_password")
+		}
+
 		count := options.IntV(opts.Count)
 		if options.BoolV(opts.DryRun) {
 			results, err := modules.SchedManager.DoScheduleListResult(s, params, count)
@@ -328,6 +333,11 @@ func init() {
 		if err != nil {
 			return err
 		}
+
+		if opts.NoAccountInit != nil && *opts.NoAccountInit {
+			params.Add(jsonutils.JSONFalse, "reset_password")
+		}
+
 		srv, err := modules.Servers.PerformAction(s, opts.ID, "rebuild-root", params)
 		if err != nil {
 			return err
@@ -338,6 +348,13 @@ func init() {
 
 	R(&options.ServerChangeConfigOptions{}, "server-change-config", "Change configuration of VM", func(s *mcclient.ClientSession, opts *options.ServerChangeConfigOptions) error {
 		params, err := options.StructToParams(opts)
+		if len(opts.Disk) > 0 {
+			params.Remove("disk.0")
+			for i, d := range opts.Disk {
+				params.Set(fmt.Sprintf("disk.%d", i+1), jsonutils.NewString(d))
+			}
+		}
+
 		if err != nil {
 			return err
 		}
