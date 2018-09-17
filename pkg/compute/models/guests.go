@@ -3877,7 +3877,7 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 	}
 	snapshots := SnapshotManager.GetDiskSnapshotsByCreate(diskId, MANUAL)
 	if snapshots != nil {
-		if len(snapshots) >= DISK_MAX_MANUAL_SNAPSHOT {
+		if len(snapshots) >= options.Options.DefaultMaxManualSnapshotCount {
 			return nil, httperrors.NewBadRequestError("Disk %s snapshot full, cannot take any more", diskId)
 		}
 		for _, snapshot := range snapshots {
@@ -3886,10 +3886,17 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 			}
 		}
 	}
+	pendingUsage := &SQuota{Snapshot: 1}
+	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, self.ProjectId, pendingUsage)
+	if err != nil {
+		return nil, httperrors.NewBadRequestError("Check set pending quota error %s", err)
+	}
 	snapshot, err := SnapshotManager.CreateSnapshot(ctx, userCred, MANUAL, diskId, self.Id, "", name)
+	QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
 	if err != nil {
 		return nil, err
 	}
+
 	err = self.StartDiskSnapshot(ctx, userCred, diskId, snapshot.Id)
 	return nil, err
 }

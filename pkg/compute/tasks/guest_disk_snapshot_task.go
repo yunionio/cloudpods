@@ -19,7 +19,7 @@ type GuestDiskSnapshotTask struct {
 func init() {
 	taskman.RegisterTask(GuestDiskSnapshotTask{})
 	taskman.RegisterTask(SnapshotDeleteTask{})
-	taskman.RegisterTask(BatchSnapshostDeleteTask{})
+	taskman.RegisterTask(BatchSnapshotsDeleteTask{})
 }
 
 func (self *GuestDiskSnapshotTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -114,6 +114,7 @@ func (self *SnapshotDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 			self.SetStageFailed(ctx, err.Error())
 			return
 		} else {
+			// if snapshot is not used
 			self.DeleteStaticSnapshot(ctx, snapshot)
 			return
 		}
@@ -137,6 +138,7 @@ func (self *SnapshotDeleteTask) StartReloadDisk(ctx context.Context, snapshot *m
 }
 
 func (self *SnapshotDeleteTask) StartDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot, guest *models.SGuest) {
+	snapshot.SetStatus(self.UserCred, models.SNAPSHOT_DELETING, "On SnapshotDeleteTask StartDeleteSnapshot")
 	convertSnapshot, err := models.SnapshotManager.GetConvertSnapshot(snapshot)
 	if err != nil {
 		self.TaskFailed(ctx, snapshot, err.Error())
@@ -169,14 +171,6 @@ func (self *SnapshotDeleteTask) StartDeleteSnapshot(ctx context.Context, snapsho
 }
 
 func (self *SnapshotDeleteTask) DeleteStaticSnapshot(ctx context.Context, snapshot *models.SSnapshot) {
-	// convertSnapshot, err := models.SnapshotManager.GetConvertSnapshot(snapshot)
-	// if err != nil {
-	// 	self.TaskFailed(ctx, snapshot, err.Error())
-	// 	return
-	// }
-	// if convertSnapshot == nil {
-	// 	self.TaskFailed(ctx, snapshot, "Snapshot dose not have convert snapshot")
-	// }
 	err := snapshot.FakeDelete()
 	if err != nil {
 		self.TaskFailed(ctx, snapshot, err.Error())
@@ -190,21 +184,21 @@ func (self *SnapshotDeleteTask) OnDeleteSnapshot(ctx context.Context, snapshot *
 		log.Infof("OnDeleteSnapshot with no deleted")
 		return
 	}
+	snapshot.SetStatus(self.UserCred, models.SNAPSHOT_READY, "OnDeleteSnapshot")
 	if snapshot.OutOfChain {
 		snapshot.RealDelete(ctx, self.UserCred)
 		self.TaskComplete(ctx, snapshot, nil)
 	} else {
-		guest, err := snapshot.GetGuest()
-		if err != nil {
-			self.SetStageFailed(ctx, err.Error())
-			return
-		}
+		guest, _ := snapshot.GetGuest()
 		var FakeDelete = false
 		if snapshot.CreatedBy == models.MANUAL && snapshot.FakeDeleted == false {
 			FakeDelete = true
 		}
 		if FakeDelete {
-			snapshot.FakeDelete()
+			models.SnapshotManager.TableSpec().Update(snapshot, func() error {
+				snapshot.OutOfChain = true
+				return nil
+			})
 		} else {
 			snapshot.RealDelete(ctx, self.UserCred)
 		}
@@ -214,7 +208,7 @@ func (self *SnapshotDeleteTask) OnDeleteSnapshot(ctx context.Context, snapshot *
 }
 
 func (self *SnapshotDeleteTask) OnDeleteSnapshotFailed(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, data.String())
+	self.TaskFailed(ctx, snapshot, data.String())
 }
 
 func (self *SnapshotDeleteTask) OnReloadDiskSnapshot(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
@@ -249,6 +243,9 @@ func (self *SnapshotDeleteTask) TaskComplete(ctx context.Context, snapshot *mode
 }
 
 func (self *SnapshotDeleteTask) TaskFailed(ctx context.Context, snapshot *models.SSnapshot, reason string) {
+	if snapshot.Status == models.SNAPSHOT_DELETING {
+		snapshot.SetStatus(self.UserCred, models.SNAPSHOT_READY, "On SnapshotDeleteTask TaskFailed")
+	}
 	self.SetStageFailed(ctx, reason)
 	guest, err := snapshot.GetGuest()
 	if err != nil {
@@ -258,29 +255,31 @@ func (self *SnapshotDeleteTask) TaskFailed(ctx context.Context, snapshot *models
 	guest.StartSyncstatus(ctx, self.UserCred, "")
 }
 
-type BatchSnapshostDeleteTask struct {
+/***************************** Batch Snapshots Delete Task *****************************/
+
+type BatchSnapshotsDeleteTask struct {
 	taskman.STask
 }
 
-func (self *BatchSnapshostDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (self *BatchSnapshotsDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	snapshot := obj.(*models.SSnapshot)
 	self.StartStorageDeleteSnapshot(ctx, snapshot)
 }
 
-func (self *BatchSnapshostDeleteTask) StartStorageDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot) {
+func (self *BatchSnapshotsDeleteTask) StartStorageDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot) {
 	host := snapshot.GetHost()
 	if host == nil {
 		self.SetStageFailed(ctx, "Cannot found snapshot host")
 		return
 	}
 	self.SetStage("OnStorageDeleteSnapshot", nil)
-	err := host.GetHostDriver().RequestDeleteSnapshotWithStorage(ctx, host, snapshot, self)
+	err := host.GetHostDriver().RequestDeleteSnapshotsWithStorage(ctx, host, snapshot, self)
 	if err != nil {
 		self.SetStageFailed(ctx, err.Error())
 	}
 }
 
-func (self *BatchSnapshostDeleteTask) OnStorageDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
+func (self *BatchSnapshotsDeleteTask) OnStorageDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
 	snapshots := models.SnapshotManager.GetDiskSnapshots(snapshot.DiskId)
 	for i := 0; i < len(snapshots); i++ {
 		snapshots[i].RealDelete(ctx, self.UserCred)

@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -10,20 +11,19 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 const (
-	DISK_MAX_SNAPSHOT        = 9
-	DISK_MAX_MANUAL_SNAPSHOT = 2
-
 	// create by
 	MANUAL = "manual"
 	AUTO   = "auto"
 
-	SNAPSHOT_FAILED = "create_failed"
-	SNAPSHOT_READY  = "ready"
+	SNAPSHOT_FAILED   = "create_failed"
+	SNAPSHOT_READY    = "ready"
+	SNAPSHOT_DELETING = "deleting"
 )
 
 type SSnapshotManager struct {
@@ -37,7 +37,7 @@ type SSnapshot struct {
 	CreatedBy   string `width:"36" charset:"ascii" nullable:"false" default:"manual" list:"admin"`
 	Location    string `charset:"ascii" nullable:"false" list:"admin"`
 	Size        int    `nullable:"false" list:"user"` // MB
-	OutOfChain  bool   `nullable:"false" default:"false" index:"true" get:"admin"`
+	OutOfChain  bool   `nullable:"false" default:"false" index:"true" list:"admin"`
 	FakeDeleted bool   `nullable:"false" default:"false" index:"true"`
 }
 
@@ -69,7 +69,7 @@ func (self *SSnapshot) AllowCreateItem(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SSnapshot) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return false
+	return true
 }
 
 func (self *SSnapshot) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
@@ -92,8 +92,17 @@ func (self *SSnapshot) GetGuest() (*SGuest, error) {
 	} else if len(guests) == 1 {
 		return &guests[0], nil
 	} else {
-		return nil, nil
+		return nil, sql.ErrNoRows
 	}
+}
+
+func (self *SSnapshot) GetDisk() (*SDisk, error) {
+	iDisk, err := DiskManager.FetchById(self.DiskId)
+	if err != nil {
+		return nil, err
+	}
+	disk := iDisk.(*SDisk)
+	return disk, nil
 }
 
 func (self *SSnapshot) GetHost() *SHost {
@@ -140,7 +149,7 @@ func (self *SSnapshotManager) GetDiskFirstSnapshot(diskId string) *SSnapshot {
 	dest := &SSnapshot{}
 	q := self.Query().SubQuery()
 	err := q.Query().Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), diskId),
-		sqlchemy.Equals(q.Field("status"), SNAPSHOT_READY),
+		sqlchemy.In(q.Field("status"), []string{SNAPSHOT_READY, SNAPSHOT_DELETING}),
 		sqlchemy.Equals(q.Field("out_of_chain"), false))).Asc("created_at").First(dest)
 	if err != nil {
 		log.Errorf("Get Disk First snapshot error: %s", err.Error())
@@ -200,14 +209,23 @@ func (self *SSnapshot) ValidateDeleteCondition(ctx context.Context) error {
 }
 
 func (self *SSnapshot) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if self.Status == SNAPSHOT_DELETING {
+		return fmt.Errorf("Cannot delete snapshot in status %s", self.Status)
+	} else if self.Status == VM_SNAPSHOT_FAILED {
+		return self.RealDelete(ctx, userCred)
+	}
 	if self.CreatedBy == MANUAL {
 		if !self.FakeDeleted {
 			return self.FakeDelete()
 		} else {
+			_, err := SnapshotManager.GetConvertSnapshot(self)
+			if err != nil {
+				return fmt.Errorf("Cannot delete snapshot: %s, disk need at least one of snapshot as backing file", err.Error())
+			}
 			return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
 		}
 	} else {
-		return httperrors.NewBadRequestError("Cannot delete snapshot created by %s", self.CreatedBy)
+		return fmt.Errorf("Cannot delete snapshot created by %s", self.CreatedBy)
 	}
 }
 
@@ -230,27 +248,22 @@ func (self *SSnapshotManager) AllowGetPropertyMaxCount(ctx context.Context, user
 
 func (self *SSnapshotManager) GetPropertyMaxCount(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	ret := jsonutils.NewDict()
-	ret.Set("max_count", jsonutils.NewInt(int64(DISK_MAX_SNAPSHOT)))
+	ret.Set("max_count", jsonutils.NewInt(int64(options.Options.DefaultMaxSnapshotCount)))
 	return ret, nil
 }
 
 func (self *SSnapshotManager) GetConvertSnapshot(deleteSnapshot *SSnapshot) (*SSnapshot, error) {
-	dest := make([]SSnapshot, 0)
+	dest := &SSnapshot{}
 	q := self.Query().SubQuery()
 	err := q.Query().Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), deleteSnapshot.DiskId),
-		sqlchemy.Equals(q.Field("status"), SNAPSHOT_READY),
-		sqlchemy.Equals(q.Field("out_of_chain"), false))).
-		Asc("created_at").Limit(2).All(&dest)
+		sqlchemy.In(q.Field("status"), []string{SNAPSHOT_READY, SNAPSHOT_DELETING}),
+		sqlchemy.Equals(q.Field("out_of_chain"), false),
+		sqlchemy.GT(q.Field("created_at"), deleteSnapshot.CreatedAt))).
+		Asc("created_at").First(dest)
 	if err != nil {
 		return nil, err
 	}
-	if len(dest) == 2 && dest[0].Id == deleteSnapshot.Id {
-		dest[1].SetModelManager(self)
-		return &dest[1], nil
-	} else if len(dest) == 1 && dest[0].Id == deleteSnapshot.Id {
-		return nil, nil
-	}
-	return nil, fmt.Errorf("Snapshot %s cannot convert", deleteSnapshot.Id)
+	return dest, nil
 }
 
 func (self *SSnapshotManager) AllowPerformDeleteDiskSnapshots(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -280,7 +293,7 @@ func (self *SSnapshotManager) PerformDeleteDiskSnapshots(ctx context.Context, us
 }
 
 func (self *SSnapshot) StartSnapshotsDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "BatchSnapshostDeleteTask", self, userCred, nil, parentTaskId, "", nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "BatchSnapshotsDeleteTask", self, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
 		log.Errorf(err.Error())
 		return err
@@ -304,4 +317,10 @@ func (self *SSnapshot) FakeDelete() error {
 
 func (self *SSnapshot) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
+}
+
+func totalSnapshotCount(projectId string) int {
+	q := SnapshotManager.Query()
+	count := q.Equals("tenant_id", projectId).Equals("fake_deleted", false).Count()
+	return count
 }
