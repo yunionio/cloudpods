@@ -82,6 +82,7 @@ const (
 
 	VM_START_SNAPSHOT  = "snapshot_start"
 	VM_SNAPSHOT        = "snapshot"
+	VM_SNAPSHOT_DELETE = "snapshot_delete"
 	VM_SNAPSHOT_STREAM = "block_stream"
 	VM_SNAPSHOT_SUCC   = "snapshot_succ"
 	VM_SNAPSHOT_FAILED = "snapshot_failed"
@@ -3866,39 +3867,50 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 	}
 	diskId, err := data.GetString("disk_id")
 	if err != nil {
-		return nil, err
+		return nil, httperrors.NewBadRequestError(err.Error())
 	}
 	name, err := data.GetString("name")
 	if err != nil {
-		return nil, err
+		return nil, httperrors.NewBadRequestError(err.Error())
 	}
+	// if self.GetHypervisor() == HYPERVISOR_ALIYUN && strings.HasPrefix(name, "auto") {
+	// }
 	if self.GetGuestDisk(diskId) == nil {
 		return nil, httperrors.NewNotFoundError("Guest disk %s not found", diskId)
 	}
-	snapshots := SnapshotManager.GetDiskSnapshotsByCreate(diskId, MANUAL)
-	if snapshots != nil {
-		if len(snapshots) >= options.Options.DefaultMaxManualSnapshotCount {
-			return nil, httperrors.NewBadRequestError("Disk %s snapshot full, cannot take any more", diskId)
-		}
-		for _, snapshot := range snapshots {
-			if snapshot.Name == name {
-				return nil, httperrors.NewBadRequestError("Name Conflict")
+	if self.GetHypervisor() == HYPERVISOR_KVM {
+		snapshots := SnapshotManager.GetDiskSnapshotsByCreate(diskId, MANUAL)
+		if snapshots != nil {
+			if len(snapshots) >= options.Options.DefaultMaxManualSnapshotCount {
+				return nil, httperrors.NewBadRequestError("Disk %s snapshot full, cannot take any more", diskId)
+			}
+			for _, snapshot := range snapshots {
+				if snapshot.Name == name {
+					return nil, httperrors.NewBadRequestError("Name Conflict")
+				}
 			}
 		}
-	}
-	pendingUsage := &SQuota{Snapshot: 1}
-	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, self.ProjectId, pendingUsage)
-	if err != nil {
-		return nil, httperrors.NewBadRequestError("Check set pending quota error %s", err)
-	}
-	snapshot, err := SnapshotManager.CreateSnapshot(ctx, userCred, MANUAL, diskId, self.Id, "", name)
-	QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
-	if err != nil {
+		pendingUsage := &SQuota{Snapshot: 1}
+		err = QuotaManager.CheckSetPendingQuota(ctx, userCred, self.ProjectId, pendingUsage)
+		if err != nil {
+			return nil, httperrors.NewBadRequestError("Check set pending quota error %s", err)
+		}
+		snapshot, err := SnapshotManager.CreateSnapshot(ctx, userCred, MANUAL, diskId, self.Id, "", name)
+		QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
+		if err != nil {
+			return nil, err
+		}
+		err = self.StartDiskSnapshot(ctx, userCred, diskId, snapshot.Id)
+		return nil, err
+	} else {
+		snapshot, err := SnapshotManager.CreateSnapshot(ctx, userCred, MANUAL, diskId, self.Id, "", name)
+		if err != nil {
+			return nil, err
+		}
+		err = self.StartDiskSnapshot(ctx, userCred, diskId, snapshot.Id)
 		return nil, err
 	}
 
-	err = self.StartDiskSnapshot(ctx, userCred, diskId, snapshot.Id)
-	return nil, err
 }
 
 func (self *SGuest) StartDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, diskId, snapshotId string) error {

@@ -45,11 +45,15 @@ func (self *DiskResetTask) RequestResetDisk(ctx context.Context, disk *models.SD
 	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
 	snapshot := iSnapshot.(*models.SSnapshot)
 	params := jsonutils.NewDict()
-	params.Set("snapshot_id", jsonutils.NewString(snapshot.Id))
-	if snapshot.OutOfChain {
-		params.Set("out_of_chain", jsonutils.JSONTrue)
+	if len(snapshot.ExternalId) == 0 {
+		params.Set("snapshot_id", jsonutils.NewString(snapshot.Id))
+		if snapshot.OutOfChain {
+			params.Set("out_of_chain", jsonutils.JSONTrue)
+		} else {
+			params.Set("out_of_chain", jsonutils.JSONFalse)
+		}
 	} else {
-		params.Set("out_of_chain", jsonutils.JSONFalse)
+		params.Set("snapshot_id", jsonutils.NewString(snapshot.ExternalId))
 	}
 	self.SetStage("OnRequestResetDisk", nil)
 	err = host.GetHostDriver().RequestResetDisk(ctx, host, disk, params, self)
@@ -71,11 +75,13 @@ func (self *DiskResetTask) OnRequestResetDisk(ctx context.Context, disk *models.
 			log.Errorln(err)
 		}
 	}
-	err := disk.CleanUpDiskSnapshots(ctx, self.UserCred, snapshot)
-	if err != nil {
-		log.Errorln(err)
-		self.SetStageFailed(ctx, fmt.Sprintf("OnRequestResetDisk %s", err.Error()))
-		return
+	if len(snapshot.ExternalId) == 0 {
+		err := disk.CleanUpDiskSnapshots(ctx, self.UserCred, snapshot)
+		if err != nil {
+			log.Errorln(err)
+			self.SetStageFailed(ctx, fmt.Sprintf("OnRequestResetDisk %s", err.Error()))
+			return
+		}
 	}
 	self.SetStageComplete(ctx, nil)
 }

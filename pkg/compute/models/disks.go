@@ -1245,11 +1245,11 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 			continue
 		}
 		if !utils.IsInStringArray(guests[0].Status, []string{VM_RUNNING, VM_READY}) {
-			log.Errorln("Guest(%s) in status(%s) cannot do snapshot action", guests[0].Id, guests[0].Status)
+			log.Errorf("Guest(%s) in status(%s) cannot do snapshot action", guests[0].Id, guests[0].Status)
 			continue
 		}
 		// name
-		name := disk.Name + time.Now().Format("2006-01-02#15:04:05")
+		name := guests[0].Name + time.Now().Format("2006-01-02#15:04:05")
 		snap, err := SnapshotManager.CreateSnapshot(ctx, userCred, AUTO, disk.Id, guests[0].Id, "", name)
 		if err != nil {
 			log.Errorln(err)
