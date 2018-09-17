@@ -101,7 +101,7 @@ func (this *ResourceManager) GetByNameInContexts(session *mcclient.ClientSession
 	} else if len(results.Data) == 1 {
 		return results.Data[0], nil
 	} else {
-		return nil, httperrors.NewDuplicateNameError("Name %s duplicate", name)
+		return nil, httperrors.NewDuplicateNameError("name", name)
 	}
 }
 

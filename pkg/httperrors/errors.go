@@ -11,13 +11,13 @@ func NewJsonClientError(code int, title string, msg string, error httputils.Erro
 	return &err
 }
 
-func errorMessage(msg string, params []interface{}) (string, httputils.Error) {
-	fileds := make([]string, len(params))
+func errorMessage(msg string, params ...interface{}) (string, httputils.Error) {
+	fields := make([]string, len(params))
 	for i, v := range params {
-		fileds[i] = fmt.Sprint(v)
+		fields[i] = fmt.Sprint(v)
 	}
 
-	error := httputils.Error{Id: msg, Fields: fileds}
+	error := httputils.Error{Id: msg, Fields: fields}
 	if len(params) > 0 {
 		msg = fmt.Sprintf(msg, params...)
 	}
@@ -60,8 +60,8 @@ func NewPaymentError(msg string, params ...interface{}) *httputils.JSONClientErr
 	return NewJsonClientError(402, "PaymentError", msg, err)
 }
 
-func NewImageNotFoundError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params)
+func NewImageNotFoundError(imageId string) *httputils.JSONClientError {
+	msg, err := errorMessage("Image %s not found", imageId)
 	return NewJsonClientError(404, "ImageNotFoundError", msg, err)
 }
 
@@ -103,6 +103,11 @@ func NewInputParameterError(msg string, params ...interface{}) *httputils.JSONCl
 func NewWeakPasswordError() *httputils.JSONClientError {
 	msg, err := errorMessage("password must be 12 chars of at least one digit, letter, uppercase letter and punctuate", nil)
 	return NewJsonClientError(400, "WeakPasswordError", msg, err)
+}
+
+func NewMissingParameterError(paramName string) *httputils.JSONClientError {
+	msg, err := errorMessage("Missing parameter %s", paramName)
+	return NewJsonClientError(400, "MissingParameterError", msg, err)
 }
 
 func NewInsufficientResourceError(msg string, params ...interface{}) *httputils.JSONClientError {
@@ -160,8 +165,8 @@ func NewNotAcceptableError(msg string, params ...interface{}) *httputils.JSONCli
 	return NewJsonClientError(406, "NotAcceptableError", msg, err)
 }
 
-func NewDuplicateNameError(msg string, params ...interface{}) *httputils.JSONClientError {
-	msg, err := errorMessage(msg, params)
+func NewDuplicateNameError(resName string, resId string) *httputils.JSONClientError {
+	msg, err := errorMessage("Duplicate %s %s", resName, resId)
 	return NewJsonClientError(409, "DuplicateNameError", msg, err)
 }
 

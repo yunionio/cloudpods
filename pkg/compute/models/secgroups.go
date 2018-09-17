@@ -144,7 +144,7 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 		sql := SecurityGroupManager.Query()
 		sql = SecurityGroupManager.FilterByName(sql, name)
 		if sql.Count() != 0 {
-			return nil, httperrors.NewDuplicateNameError("Dumplicate name %s", name)
+			return nil, httperrors.NewDuplicateNameError("name", name)
 		}
 	}
 

@@ -76,11 +76,11 @@ func (this *ImageManager) GetByName(session *mcclient.ClientSession, id string, 
 		return nil, e
 	}
 	if len(listresults.Data) == 0 {
-		return nil, httperrors.NewImageNotFoundError("Image not found")
+		return nil, httperrors.NewImageNotFoundError(id)
 	} else if len(listresults.Data) == 1 {
 		return listresults.Data[0], nil
 	} else {
-		return nil, httperrors.NewDuplicateNameError("More than 1 images matching the name")
+		return nil, httperrors.NewDuplicateNameError("image name", id)
 	}
 }
 
@@ -436,7 +436,7 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 	if len(format) == 0 {
 		format, _ = params.GetString("disk_format")
 		if len(format) == 0 {
-			return nil, fmt.Errorf("Missing format")
+			return nil, httperrors.NewMissingParameterError("disk_format")
 		}
 	}
 	exists, _ := utils.InStringArray(format, []string{"qcow2", "raw", "vhd", "vmdk", "iso", "docker"})
@@ -449,7 +449,7 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 	if len(imageId) == 0 {
 		osType, err := params.GetString("properties", "os_type")
 		if err != nil {
-			return nil, fmt.Errorf("Can't get os_type from params: %s", params.String())
+			return nil, httperrors.NewMissingParameterError("os_type")
 		}
 		exists, _ = utils.InStringArray(osType, []string{"Windows", "Linux", "Freebsd", "Android", "macOS", "VMWare"})
 		if !exists {
@@ -457,11 +457,11 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 		}
 		name, _ := params.GetString("name")
 		if len(name) == 0 {
-			return nil, fmt.Errorf("Missing name")
+			return nil, httperrors.NewMissingParameterError("name")
 		}
 		dupName, e := this.IsNameDuplicate(s, name)
 		if dupName {
-			return nil, fmt.Errorf("Duplicate name %s", name)
+			return nil, httperrors.NewDuplicateNameError("name", name)
 		}
 		if e != nil {
 			return nil, fmt.Errorf("Check name duplicate error %s", e)
