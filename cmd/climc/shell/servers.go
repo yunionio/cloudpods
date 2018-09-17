@@ -19,7 +19,11 @@ func init() {
 		if err != nil {
 			return err
 		}
-		printList(result, modules.Servers.GetColumns(s))
+		if len(opts.ExportFile) > 0 {
+			exportList(result, opts.ExportFile, opts.ExportKeys, opts.ExportTexts, modules.Servers.GetColumns(s))
+		} else {
+			printList(result, modules.Servers.GetColumns(s))
+		}
 		return nil
 	})
 
