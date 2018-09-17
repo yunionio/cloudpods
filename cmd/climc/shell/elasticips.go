@@ -12,6 +12,7 @@ func init() {
 	type ElasticipListOptions struct {
 		Manager string `help:"Show servers imported from manager"`
 		Region  string `help:"Show servers in cloudregion"`
+		Usable  bool   `help:"List all zones that is usable"`
 
 		options.BaseListOptions
 	}
@@ -29,6 +30,9 @@ func init() {
 		}
 		if len(args.Region) > 0 {
 			params.Add(jsonutils.NewString(args.Region), "region")
+		}
+		if args.Usable {
+			params.Add(jsonutils.JSONTrue, "usable")
 		}
 		results, err := modules.Elasticips.List(s, params)
 		if err != nil {
