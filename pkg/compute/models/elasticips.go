@@ -12,7 +12,6 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"strings"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -107,6 +106,14 @@ func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchem
 			}
 		}
 		q = q.Equals("cloudregion_id", regionObj.GetId())
+	}
+
+	if query.Contains("usable") {
+		usable := jsonutils.QueryBoolean(query, "usable", false)
+		if usable {
+			q = q.Equals("status", EIP_STATUS_READY)
+			q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("associate_id")), sqlchemy.IsEmpty(q.Field("associate_id"))))
+		}
 	}
 
 	return q, nil
@@ -612,12 +619,12 @@ func (self *SElasticip) AllowPerformSync(ctx context.Context, userCred mcclient.
 }
 
 func (self *SElasticip) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status != EIP_STATUS_READY && !strings.HasSuffix(self.Status, "_fail") {
+	/*if self.Status != EIP_STATUS_READY && !strings.HasSuffix(self.Status, "_fail") {
 		return nil, httperrors.NewInvalidStatusError("eip cannot syncstatus in status %s", self.Status)
-	}
+	}*/
 
 	if self.Mode == EIP_MODE_INSTANCE_PUBLICIP {
-		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot be dissociated")
+		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot sync status")
 	}
 
 	err := self.StartEipSyncstatusTask(ctx, userCred, "")
