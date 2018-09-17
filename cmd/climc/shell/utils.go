@@ -15,6 +15,14 @@ func printObject(obj jsonutils.JSONObject) {
 	printutils.PrintJSONObject(obj)
 }
 
+func printObjectRecursive(obj jsonutils.JSONObject) {
+	printutils.PrintJSONObjectRecursive(obj)
+}
+
+func printObjectRecursiveEx(obj jsonutils.JSONObject, cb printutils.PrintJSONObjectRecursiveExFunc) {
+	printutils.PrintJSONObjectRecursiveEx(obj, cb)
+}
+
 func printBatchResults(results []modules.SubmitResult, columns []string) {
 	printutils.PrintJSONBatchResults(results, columns)
 }
