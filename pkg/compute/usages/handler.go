@@ -219,6 +219,7 @@ func getAdminGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStanda
 		containerRunningUsage,
 		IsolatedDeviceUsage(rangeObj, hostTypes),
 		WireUsage(rangeObj, hostTypes),
+		NetworkUsage(userCred, rangeObj),
 		EipUsage(rangeObj, hostTypes),
 	)
 
