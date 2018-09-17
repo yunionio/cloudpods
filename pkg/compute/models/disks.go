@@ -316,7 +316,7 @@ func (self *SDisk) StartDiskCreateTask(ctx context.Context, userCred mcclient.To
 func (self *SDisk) GetSnapshotCount() int {
 	q := SnapshotManager.Query()
 	count := q.Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), self.Id),
-		sqlchemy.Equals(q.Field("out_of_chain"), false))).Count()
+		sqlchemy.Equals(q.Field("fake_deleted"), false))).Count()
 	return count
 }
 
@@ -377,6 +377,79 @@ func (self *SDisk) GetDetailsConvertSnapshot(ctx context.Context, userCred mccli
 	ret.Set("convert_snapshot", jsonutils.NewString(convertSnapshot.Id))
 	ret.Set("pending_delete", jsonutils.NewBool(FakeDelete))
 	return ret, nil
+}
+
+// On disk reset, auto delete snapshots after the reset snapshot(reserve manualed snapshot)
+func (self *SDisk) CleanUpDiskSnapshots(ctx context.Context, userCred mcclient.TokenCredential, snapshot *SSnapshot) error {
+	dest := make([]SSnapshot, 0)
+	query := SnapshotManager.TableSpec().Query()
+	query.Filter(sqlchemy.Equals(query.Field("disk_id"), self.Id)).
+		GT("created_at", snapshot.CreatedAt).Asc("created_at").All(&dest)
+	if len(dest) == 0 {
+		return nil
+	}
+	convertSnapshots := jsonutils.NewArray()
+	deleteSnapshots := jsonutils.NewArray()
+	for i := 0; i < len(dest); i++ {
+		if dest[i].CreatedBy == MANUAL && !dest[i].FakeDeleted {
+			if !dest[i].OutOfChain {
+				convertSnapshots.Add(jsonutils.NewString(dest[i].Id))
+			}
+		} else {
+			deleteSnapshots.Add(jsonutils.NewString(dest[i].Id))
+		}
+	}
+	params := jsonutils.NewDict()
+	params.Set("convert_snapshots", convertSnapshots)
+	params.Set("delete_snapshots", deleteSnapshots)
+	task, err := taskman.TaskManager.NewTask(ctx, "DiskCleanUpSnapshotsTask", self, userCred, params, "", "", nil)
+	if err != nil {
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
+func (self *SDisk) AllowPerformDiskReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	snapshotId, err := data.GetString("snapshot_id")
+	if err != nil {
+		return nil, err
+	}
+	guests := self.GetGuests()
+	if len(guests) > 1 {
+		return nil, httperrors.NewBadRequestError("Disk attach muti guests")
+	} else if len(guests) == 1 {
+		if guests[0].Status != VM_READY {
+			return nil, httperrors.NewServerStatusError("Disk attached guest status must be ready")
+		}
+	}
+	iSnapshot, err := SnapshotManager.FetchById(snapshotId)
+	if err != nil {
+		return nil, httperrors.NewNotFoundError("Snapshot %s not found", snapshotId)
+	}
+	snapshot := iSnapshot.(*SSnapshot)
+	if snapshot.Status != SNAPSHOT_READY {
+		return nil, httperrors.NewBadRequestError("Cannot reset disk with snapshot in status %s", snapshot.Status)
+	}
+	self.StartResetDisk(ctx, userCred, snapshotId)
+	return nil, nil
+}
+
+func (self *SDisk) StartResetDisk(ctx context.Context, userCred mcclient.TokenCredential, snapshotId string) error {
+	params := jsonutils.NewDict()
+	params.Set("snapshot_id", jsonutils.NewString(snapshotId))
+	task, err := taskman.TaskManager.NewTask(ctx, "DiskResetTask", self, userCred, params, "", "", nil)
+	if err != nil {
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
 }
 
 func (self *SDisk) AllowPerformResize(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -1163,7 +1236,7 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 	}
 	for _, disk := range disks {
 		snapCount := disk.GetSnapshotCount()
-		if snapCount >= DISK_MAX_SNAPSHOT {
+		if snapCount >= options.Options.DefaultMaxSnapshotCount {
 			continue
 		}
 		guests := disk.GetGuests()
@@ -1171,10 +1244,10 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 			log.Errorln("Disk %s not attach or attached more than one guest", disk.Id)
 			continue
 		}
-		// if !utils.IsInStringArray(guests[0].Status, []string{VM_RUNNING, VM_READY}) {
-		// 	log.Errorln("Guest(%s) in status(%s) cannot do snapshot action", guests[0].Id, guests[0].Status)
-		// 	continue
-		// }
+		if !utils.IsInStringArray(guests[0].Status, []string{VM_RUNNING, VM_READY}) {
+			log.Errorln("Guest(%s) in status(%s) cannot do snapshot action", guests[0].Id, guests[0].Status)
+			continue
+		}
 		// name
 		name := disk.Name + time.Now().Format("2006-01-02#15:04:05")
 		snap, err := SnapshotManager.CreateSnapshot(ctx, userCred, AUTO, disk.Id, guests[0].Id, "", name)

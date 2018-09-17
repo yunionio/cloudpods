@@ -149,7 +149,7 @@ func (self *SKVMHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, ho
 	return err
 }
 
-func (self *SKVMHostDriver) RequestDeleteSnapshotWithStorage(ctx context.Context, host *models.SHost, snapshot *models.SSnapshot, task taskman.ITask) error {
+func (self *SKVMHostDriver) RequestDeleteSnapshotsWithStorage(ctx context.Context, host *models.SHost, snapshot *models.SSnapshot, task taskman.ITask) error {
 	url := fmt.Sprintf("/storages/%s/delete-snapshots", snapshot.StorageId)
 	body := jsonutils.NewDict()
 	body.Set("disk_id", jsonutils.NewString(snapshot.DiskId))
@@ -157,5 +157,23 @@ func (self *SKVMHostDriver) RequestDeleteSnapshotWithStorage(ctx context.Context
 	header.Add("X-Task-Id", task.GetTaskId())
 	header.Add("X-Region-Version", "v2")
 	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+	return err
+}
+
+func (self *SKVMHostDriver) RequestResetDisk(ctx context.Context, host *models.SHost, disk *models.SDisk, params *jsonutils.JSONDict, task taskman.ITask) error {
+	url := fmt.Sprintf("/disks/%s/reset/%s", disk.StorageId, disk.Id)
+	header := http.Header{}
+	header.Add("X-Task-Id", task.GetTaskId())
+	header.Add("X-Region-Version", "v2")
+	_, err := host.Request(task.GetUserCred(), "POST", url, header, params)
+	return err
+}
+
+func (self *SKVMHostDriver) RequestCleanUpDiskSnapshots(ctx context.Context, host *models.SHost, disk *models.SDisk, params *jsonutils.JSONDict, task taskman.ITask) error {
+	url := fmt.Sprintf("/disks/%s/cleanup-snapshots/%s", disk.StorageId, disk.Id)
+	header := http.Header{}
+	header.Add("X-Task-Id", task.GetTaskId())
+	header.Add("X-Region-Version", "v2")
+	_, err := host.Request(task.GetUserCred(), "POST", url, header, params)
 	return err
 }
