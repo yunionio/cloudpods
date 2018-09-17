@@ -13,7 +13,7 @@ import (
 type SStatusStandaloneResourceBase struct {
 	SStandaloneResourceBase
 
-	Status string `width:"36" charset:"ascii" nullable:"false" default:"init" list:"user"`
+	Status string `width:"36" charset:"ascii" nullable:"false" default:"init" list:"user" create:"optional"`
 }
 
 type SStatusStandaloneResourceBaseManager struct {
