@@ -42,11 +42,11 @@ func init() {
 			params.Add(jsonutils.NewString(args.EndDate), "end_date")
 		}
 		if len(args.ResType) > 0 {
-                        params.Add(jsonutils.NewString(args.ResType), "res_type")
-                }
+			params.Add(jsonutils.NewString(args.ResType), "res_type")
+		}
 		if len(args.Platform) > 0 {
-                        params.Add(jsonutils.NewString(args.Platform), "platform")
-                }
+			params.Add(jsonutils.NewString(args.Platform), "platform")
+		}
 		if len(args.Export) > 0 {
 			 params.Add(jsonutils.NewString(args.Export), "export")
 		}
