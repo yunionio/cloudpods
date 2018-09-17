@@ -988,6 +988,7 @@ func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 	eip, _ := self.GetEip()
 	if eip != nil {
 		extra.Add(jsonutils.NewString(eip.IpAddr), "eip")
+		extra.Add(jsonutils.NewString(eip.Mode), "eip_mode")
 	}
 	extra.Add(jsonutils.NewInt(int64(self.getDiskSize())), "disk")
 	// flavor??
@@ -1062,6 +1063,7 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 	eip, _ := self.GetEip()
 	if eip != nil {
 		extra.Add(jsonutils.NewString(eip.IpAddr), "eip")
+		extra.Add(jsonutils.NewString(eip.Mode), "eip_mode")
 	}
 	return self.moreExtraInfo(extra)
 }
@@ -4369,6 +4371,9 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
+
+	self.SetStatus(userCred, VM_ASSOCIATE_EIP, "allocate and associate EIP")
+
 	return nil, nil
 }
 
