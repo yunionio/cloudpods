@@ -37,3 +37,38 @@ func (this *JSONArray) Copy() *JSONArray {
 	}
 	return arr
 }
+
+func DeepCopy(obj JSONObject) JSONObject {
+	switch v := obj.(type) {
+	case *JSONString:
+		vc := *v
+		return &vc
+	case *JSONInt:
+		vc := *v
+		return &vc
+	case *JSONFloat:
+		vc := *v
+		return &vc
+	case *JSONBool:
+		vc := *v
+		return &vc
+	case *JSONArray:
+		elemsC := make([]JSONObject, v.Length())
+		for i := 0; i < v.Length(); i++ {
+			elem, _ := v.GetAt(i)
+			elemC := DeepCopy(elem)
+			elemsC[i] = elemC
+		}
+		vc := NewArray(elemsC...)
+		return vc
+	case *JSONDict:
+		vc := NewDict()
+		m, _ := v.GetMap()
+		for mk, mv := range m {
+			mvc := DeepCopy(mv)
+			vc.Set(mk, mvc)
+		}
+		return vc
+	}
+	return nil
+}
