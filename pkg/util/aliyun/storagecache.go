@@ -281,7 +281,8 @@ func (listener *OssProgressListener) ProgressChanged(event *oss.ProgressEvent) {
 }
 
 func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error) {
-	tmpImageFile := fmt.Sprintf("/tmp/%s", extId)
+	tmpImageFile := fmt.Sprintf("/opt/cloud/workspace/data/glance/image-cache/%s", extId)
+	defer os.Remove(tmpImageFile)
 	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s", self.region.GetId()))
 	if bucket, err := self.region.checkBucket(bucketName); err != nil {
 		return nil, err
@@ -305,7 +306,6 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 		} else if result, err := modules.Images.Upload(s, params, file, imageList.Objects[0].Size); err != nil {
 			return nil, err
 		} else {
-			os.Remove(tmpImageFile)
 			return result, nil
 		}
 	}

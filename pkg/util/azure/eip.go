@@ -262,8 +262,7 @@ func (self *SEipAddress) GetAssociationExternalId() string {
 	if nic, err := self.region.GetNetworkInterfaceDetail(self.Properties.IPConfiguration.ID); err != nil {
 		log.Errorf("Failt to find NetworkInterface for eip %s", self.Name)
 	} else if len(nic.Properties.VirtualMachine.ID) > 0 {
-		globalId, _, _ := pareResourceGroupWithName(nic.Properties.VirtualMachine.ID, INSTANCE_RESOURCE)
-		return globalId
+		return nic.Properties.VirtualMachine.ID
 	}
 	return ""
 }
@@ -277,8 +276,7 @@ func (self *SEipAddress) GetBandwidth() int {
 }
 
 func (self *SEipAddress) GetGlobalId() string {
-	globalId, _, _ := pareResourceGroupWithName(self.ID, EIP_RESOURCE)
-	return globalId
+	return self.ID
 }
 
 func (self *SEipAddress) GetId() string {

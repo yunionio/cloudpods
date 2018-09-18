@@ -110,6 +110,11 @@ func (self *GuestChangeConfigTask) DoCreateDisksTask(ctx context.Context, guest 
 
 }
 
+func (self *GuestChangeConfigTask) OnCreateDisksCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
+	self.markStageFailed(obj, ctx, err.String())
+	logclient.AddActionLog(obj, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
+}
+
 func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	iVcpuCount, errCpu := self.Params.Get("vcpu_count")
 	iVmemSize, errMem := self.Params.Get("vmem_size")

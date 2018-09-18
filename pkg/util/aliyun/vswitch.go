@@ -152,3 +152,7 @@ func (self *SRegion) deleteVSwitch(vswitchId string) error {
 func (self *SVSwitch) Delete() error {
 	return self.wire.zone.region.deleteVSwitch(self.VSwitchId)
 }
+
+func (self *SVSwitch) GetAllocTimeoutSeconds() int {
+	return 120 // 2 minutes
+}

@@ -2,6 +2,7 @@ package azure
 
 import (
 	"context"
+	"regexp"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -64,8 +65,7 @@ func (self *SVpc) GetName() string {
 }
 
 func (self *SVpc) GetGlobalId() string {
-	globalId, _, _ := pareResourceGroupWithName(self.ID, VPC_RESOURCE)
-	return globalId
+	return self.ID
 }
 
 func (self *SVpc) IsEmulated() bool {
@@ -240,4 +240,19 @@ func (self *SVpc) addWire(wire *SWire) {
 
 func (self *SVpc) GetNetworks() []Subnet {
 	return self.Properties.Subnets
+}
+
+func (self *SRegion) GetNetworkDetail(networkId string) (*Subnet, error) {
+	valid := regexp.MustCompile("resourceGroups/(.+)/providers/Microsoft.Network/virtualNetworks/(.+)/subnets/(.+)$")
+	if data := valid.FindStringSubmatch(networkId); len(data) == 4 {
+		sunet := Subnet{}
+		networkClient := network.NewSubnetsClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
+		if result, err := networkClient.Get(context.Background(), data[1], data[2], data[3], ""); err != nil {
+			return nil, err
+		} else if err := jsonutils.Update(&sunet, result); err != nil {
+			return nil, err
+		}
+		return &sunet, nil
+	}
+	return nil, cloudprovider.ErrNotFound
 }

@@ -31,7 +31,7 @@ type SVirtualResourceBase struct {
 
 	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"false" index:"true" list:"admin"`
 
-	IsSystem bool `nullable:"true" default:"false" list:"admin"`
+	IsSystem bool `nullable:"true" default:"false" list:"admin" create:"optional"`
 
 	PendingDeletedAt time.Time ``
 	PendingDeleted   bool      `nullable:"false" default:"false" index:"true" get:"admin"`

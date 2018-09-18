@@ -187,7 +187,7 @@ func fetchIVMinfo(desc SAliyunVMCreateConfig, iVM cloudprovider.ICloudVM, guestI
 
 func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
-
+	log.Debugf("RequestDeployGuestOnHost: %s", config)
 	/* onfinish, err := config.GetString("on_finish")
 	if err != nil {
 		return err
@@ -399,7 +399,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				}
 				if len(idisks) < len(desc.DataDisks)+1 {
 					if waited > maxWaitSecs {
-						log.Errorf("inconsistent disk number, wait timeout, must be something wrong one remote")
+						log.Errorf("inconsistent disk number, wait timeout, must be something wrong on remote")
 						return nil, cloudprovider.ErrTimeout
 					}
 					log.Debugf("inconsistent disk number???? %d != %d", len(idisks), len(desc.DataDisks)+1)

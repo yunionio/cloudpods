@@ -35,8 +35,7 @@ func (self *SNetwork) GetName() string {
 }
 
 func (self *SNetwork) GetGlobalId() string {
-	globalId, _, _ := pareResourceGroupWithName(self.ID, VPC_RESOURCE)
-	return globalId
+	return self.ID
 }
 
 func (self *SNetwork) IsEmulated() bool {
@@ -121,11 +120,14 @@ func (self *SNetwork) GetServerType() string {
 }
 
 func (self *SNetwork) Refresh() error {
-	// log.Debugf("vsiwtch refresh %s", self.VSwitchId)
-	// new, err := self.wire.zone.region.getVSwitch(self.VSwitchId)
-	// if err != nil {
-	// 	return err
-	// }
-	// return jsonutils.Update(self, new)
+	if new, err := self.wire.zone.region.GetNetworkDetail(self.ID); err != nil {
+		return err
+	} else {
+		return jsonutils.Update(self, new)
+	}
 	return nil
+}
+
+func (self *SNetwork) GetAllocTimeoutSeconds() int {
+	return 120 // 2 minutes
 }

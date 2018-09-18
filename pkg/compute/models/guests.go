@@ -587,6 +587,11 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
 	}
 
+	if len(diskConfig.Backend) == 0 {
+		diskConfig.Backend = STORAGE_LOCAL
+	}
+	rootStorageType := diskConfig.Backend
+
 	data.Add(jsonutils.Marshal(diskConfig), "disk.0")
 
 	imgProperties := diskConfig.ImageProperties
@@ -718,6 +723,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	}
 
 	data.Add(jsonutils.NewString(hypervisor), "hypervisor")
+	// start from data disk
 	for idx := 1; data.Contains(fmt.Sprintf("disk.%d", idx)); idx += 1 {
 		diskJson, err := data.Get(fmt.Sprintf("disk.%d", idx))
 		if err != nil {
@@ -726,6 +732,9 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		diskConfig, err := parseDiskInfo(ctx, userCred, diskJson)
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("parse disk description error %s", err)
+		}
+		if len(diskConfig.Backend) == 0 {
+			diskConfig.Backend = rootStorageType
 		}
 		if len(diskConfig.Driver) == 0 {
 			diskConfig.Driver = osProf.DiskDriver
@@ -984,6 +993,7 @@ func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 	eip, _ := self.GetEip()
 	if eip != nil {
 		extra.Add(jsonutils.NewString(eip.IpAddr), "eip")
+		extra.Add(jsonutils.NewString(eip.Mode), "eip_mode")
 	}
 	extra.Add(jsonutils.NewInt(int64(self.getDiskSize())), "disk")
 	// flavor??
@@ -1061,6 +1071,7 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 	eip, _ := self.GetEip()
 	if eip != nil {
 		extra.Add(jsonutils.NewString(eip.IpAddr), "eip")
+		extra.Add(jsonutils.NewString(eip.Mode), "eip_mode")
 	}
 	return self.moreExtraInfo(extra)
 }
@@ -1402,10 +1413,10 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 func (manager *SGuestManager) TotalCount(
 	projectId string, rangeObj db.IStandaloneModel,
-	status []string, hypervisor string,
+	status []string, hypervisors []string,
 	includeSystem bool, pendingDelete bool, hostType string,
 ) SGuestCountStat {
-	return totalGuestResourceCount(projectId, rangeObj, status, hypervisor, includeSystem, pendingDelete, hostType)
+	return totalGuestResourceCount(projectId, rangeObj, status, hypervisors, includeSystem, pendingDelete, hostType)
 }
 
 func (self *SGuest) detachNetwork(ctx context.Context, userCred mcclient.TokenCredential, network *SNetwork, reserve bool, deploy bool) error {
@@ -1918,8 +1929,15 @@ type SGuestCountStat struct {
 	TotalIsolatedCount int
 }
 
-func totalGuestResourceCount(projectId string, rangeObj db.IStandaloneModel, status []string, hypervisor string,
-	includeSystem bool, pendingDelete bool, hostType string) SGuestCountStat {
+func totalGuestResourceCount(
+	projectId string,
+	rangeObj db.IStandaloneModel,
+	status []string,
+	hypervisors []string,
+	includeSystem bool,
+	pendingDelete bool,
+	hostType string,
+) SGuestCountStat {
 
 	guestdisks := GuestdiskManager.Query().SubQuery()
 	disks := DiskManager.Query().SubQuery()
@@ -1959,8 +1977,8 @@ func totalGuestResourceCount(projectId string, rangeObj db.IStandaloneModel, sta
 	if len(status) > 0 {
 		q = q.Filter(sqlchemy.In(guests.Field("status"), status))
 	}
-	if len(hypervisor) > 0 {
-		q = q.Filter(sqlchemy.Equals(guests.Field("hypervisor"), hypervisor))
+	if len(hypervisors) > 0 {
+		q = q.Filter(sqlchemy.In(guests.Field("hypervisor"), hypervisors))
 	}
 	if !includeSystem {
 		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(guests.Field("is_system")), sqlchemy.IsFalse(guests.Field("is_system"))))
@@ -2561,6 +2579,9 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 			logclient.AddActionLog(self, logclient.ACT_CREATE, err.Error(), userCred, false)
 			return nil, httperrors.NewBadRequestError(err.Error())
 		}
+		if len(diskInfo.Backend) == 0 {
+			diskInfo.Backend = self.getDefaultStorageType()
+		}
 		disksConf.Set(diskSeq, jsonutils.Marshal(diskInfo))
 		if _, ok := diskSizes[diskInfo.Backend]; !ok {
 			diskSizes[diskInfo.Backend] = diskInfo.Size
@@ -2910,12 +2931,18 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		if err != nil {
 			return nil, httperrors.NewBadRequestError("Parse disk info error: %s", err)
 		}
+		if len(diskConf.Backend) == 0 {
+			diskConf.Backend = self.getDefaultStorageType()
+		}
 		if diskConf.Size > 0 {
 			if diskIdx >= len(disks) {
 				newDisks.Add(jsonutils.Marshal(diskConf), fmt.Sprintf("disk.%d", newDiskIdx))
 				newDiskIdx += 1
 				addDisk += diskConf.Size
 				storage := host.GetLeastUsedStorage(diskConf.Backend)
+				if storage == nil {
+					return nil, httperrors.NewResourceNotReadyError("host not connect storage %s", diskConf.Backend)
+				}
 				_, ok := diskSizes[storage.Id]
 				if !ok {
 					diskSizes[storage.Id] = 0
@@ -3858,7 +3885,7 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 	}
 	snapshots := SnapshotManager.GetDiskSnapshotsByCreate(diskId, MANUAL)
 	if snapshots != nil {
-		if len(snapshots) >= DISK_MAX_MANUAL_SNAPSHOT {
+		if len(snapshots) >= options.Options.DefaultMaxManualSnapshotCount {
 			return nil, httperrors.NewBadRequestError("Disk %s snapshot full, cannot take any more", diskId)
 		}
 		for _, snapshot := range snapshots {
@@ -3867,10 +3894,17 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 			}
 		}
 	}
+	pendingUsage := &SQuota{Snapshot: 1}
+	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, self.ProjectId, pendingUsage)
+	if err != nil {
+		return nil, httperrors.NewBadRequestError("Check set pending quota error %s", err)
+	}
 	snapshot, err := SnapshotManager.CreateSnapshot(ctx, userCred, MANUAL, diskId, self.Id, "", name)
+	QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
 	if err != nil {
 		return nil, err
 	}
+
 	err = self.StartDiskSnapshot(ctx, userCred, diskId, snapshot.Id)
 	return nil, err
 }
@@ -4352,6 +4386,9 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
+
+	self.SetStatus(userCred, VM_ASSOCIATE_EIP, "allocate and associate EIP")
+
 	return nil, nil
 }
 
@@ -4382,4 +4419,15 @@ func (self *SGuest) SetDisableDelete(val bool) error {
 		return nil
 	})
 	return err
+}
+
+func (self *SGuest) getDefaultStorageType() string {
+	diskCat := self.CategorizeDisks()
+	if diskCat.Root != nil {
+		rootStorage := diskCat.Root.GetStorage()
+		if rootStorage != nil {
+			return rootStorage.StorageType
+		}
+	}
+	return STORAGE_LOCAL
 }

@@ -12,6 +12,8 @@ func init() {
 	type ServerDiskListOptions struct {
 		options.BaseListOptions
 		Server string `help:"ID or Name of Server"`
+		Disk   string `help:"ID or name of disk"`
+		Index  int64  `help:"disk index" default:"-1"`
 	}
 	R(&ServerDiskListOptions{}, "server-disk-list", "List server disk pairs", func(s *mcclient.ClientSession, args *ServerDiskListOptions) error {
 		var params *jsonutils.JSONDict
@@ -23,10 +25,15 @@ func init() {
 
 			}
 		}
+		if args.Index >= 0 {
+			params.Add(jsonutils.NewInt(args.Index), "index")
+		}
 		var result *modules.ListResult
 		var err error
 		if len(args.Server) > 0 {
 			result, err = modules.Serverdisks.ListDescendent(s, args.Server, params)
+		} else if len(args.Disk) > 0 {
+			result, err = modules.Serverdisks.ListDescendent2(s, args.Disk, params)
 		} else {
 			result, err = modules.Serverdisks.List(s, params)
 		}

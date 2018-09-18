@@ -196,12 +196,12 @@ func (self *SRegion) GetInstances() ([]SInstance, error) {
 		return instances, err
 	} else {
 		for _, _instance := range instanceList.Values() {
-			instance := SInstance{}
 			if *_instance.Location == self.Name {
-				if err := jsonutils.Update(&instance, _instance); err != nil {
-					return instances, err
+				if instance, err := self.GetInstance(*_instance.ID); err != nil {
+					return nil, err
+				} else {
+					instances = append(instances, *instance)
 				}
-				instances = append(instances, instance)
 			}
 		}
 	}
@@ -618,8 +618,7 @@ func (self *SInstance) GetName() string {
 }
 
 func (self *SInstance) GetGlobalId() string {
-	globalId, _, _ := pareResourceGroupWithName(self.ID, INSTANCE_RESOURCE)
-	return globalId
+	return self.ID
 }
 
 func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {

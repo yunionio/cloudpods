@@ -31,8 +31,7 @@ func (self *SSnapshot) GetId() string {
 }
 
 func (self *SSnapshot) GetGlobalId() string {
-	globalId, _, _ := pareResourceGroupWithName(self.ID, SNAPSHOT_RESOURCE)
-	return globalId
+	return self.ID
 }
 
 func (self *SSnapshot) GetMetadata() *jsonutils.JSONDict {

@@ -2,6 +2,14 @@
 
 
 [[projects]]
+  digest = "1:4b94878e125f31ec67c892ecfe38c13211da40653281588598218f807ae72bf7"
+  name = "github.com/360EntSecGroup-Skylar/excelize"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "eb62256d165607c6877ce88efbba10c119137b3d"
+  version = "v1.3.0"
+
+[[projects]]
   digest = "1:f7a3877d7116adfcdcd641f9f6ad18fc2126bd5c080d8854cc3b395a01e0b7f3"
   name = "github.com/DataDog/dd-trace-go"
   packages = [
@@ -1105,11 +1113,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b71bcbb9d425fa8d1d0f1932e275768930808600a24368abd62b5fc4a945c32b"
+  digest = "1:49ffc35ec8d3f7789393cd132acd359e8ac1f5d38c7a2b91c484b041840c62c0"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "6dc5b0d8959336346efaacd9c9ab1defa80d5ee9"
+  revision = "d1290e94d4753c1748fc7c89f472a523cc0a5c08"
 
 [[projects]]
   branch = "master"
@@ -1124,7 +1132,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:e5dd1b8806ddb16ddd31b64c2208d0cc566cd184d12f63844c33581c28d7fa50"
+  digest = "1:211ecaed7d1d87e5d216b598c3cd5b7c47977b73a06308e1b39c08fd03c9c417"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1158,7 +1166,7 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "98dfb17dd78a596fbe5542e8276f4c717dc752fe"
+  revision = "9d246215b0a167b153bcdbc7d75031ced7138cf8"
 
 [[projects]]
   branch = "master"
@@ -1170,16 +1178,17 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b62e87e9e21e5d6933164761e3f1861c580d0612fcde43cc8c6b2e4db34ce9f8"
+  digest = "1:f07a1ef9758f56186dd9039a8608bc9d537070a7c04479dbab6aeb42501001b7"
   name = "yunion.io/x/structarg"
   packages = ["."]
   pruneopts = "UT"
-  revision = "5a0eff15d64f686ee66801ac42284a797115e55f"
+  revision = "ba8620a6258308b3faa4174d4c2d81a6f70b57ea"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/360EntSecGroup-Skylar/excelize",
     "github.com/aliyun/alibaba-cloud-sdk-go/sdk",
     "github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors",
     "github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests",

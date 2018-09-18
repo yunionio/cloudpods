@@ -19,6 +19,14 @@ func init() {
 	taskman.RegisterTask(EipDissociateTask{})
 }
 
+func (self *EipDissociateTask) TaskFail(ctx context.Context, eip *models.SElasticip, msg string, vm *models.SGuest) {
+	eip.SetStatus(self.UserCred, models.EIP_STATUS_DISSOCIATE_FAIL, msg)
+	self.SetStageFailed(ctx, msg)
+	if vm != nil {
+		vm.StartSyncstatus(ctx, self.UserCred, "")
+	}
+}
+
 func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	eip := obj.(*models.SElasticip)
 
@@ -32,8 +40,7 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		extEip, err := eip.GetIEip()
 		if err != nil {
 			msg := fmt.Sprintf("fail to find iEIP for eip %s", err)
-			eip.SetStatus(self.UserCred, models.EIP_STATUS_DISSOCIATE_FAIL, msg)
-			self.SetStageFailed(ctx, msg)
+			self.TaskFail(ctx, eip, msg, server)
 			return
 		}
 
@@ -41,8 +48,7 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 			err = extEip.Dissociate()
 			if err != nil {
 				msg := fmt.Sprintf("fail to remote dissociate eip %s", err)
-				eip.SetStatus(self.UserCred, models.EIP_STATUS_DISSOCIATE_FAIL, msg)
-				self.SetStageFailed(ctx, msg)
+				self.TaskFail(ctx, eip, msg, server)
 				return
 			}
 		}
@@ -50,8 +56,7 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		err = eip.Dissociate(ctx, self.UserCred)
 		if err != nil {
 			msg := fmt.Sprintf("fail to local dissociate eip %s", err)
-			eip.SetStatus(self.UserCred, models.EIP_STATUS_DISSOCIATE_FAIL, msg)
-			self.SetStageFailed(ctx, msg)
+			self.TaskFail(ctx, eip, msg, server)
 			return
 		}
 

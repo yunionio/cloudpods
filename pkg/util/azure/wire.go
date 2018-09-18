@@ -60,7 +60,7 @@ func (self *SWire) addNetwork(network *SNetwork) {
 	}
 }
 
-func (self *SRegion) createNetwork(vpc *SVpc, subnetName string, cidr string, desc string) (string, error) {
+func (self *SRegion) createNetwork(vpc *SVpc, subnetName string, cidr string, desc string) (*SNetwork, error) {
 	addressSpace := network.AddressSpace{AddressPrefixes: &vpc.Properties.AddressSpace.AddressPrefixes}
 	subnets := []network.Subnet{}
 	for i := 0; i < len(vpc.Properties.Subnets); i++ {
@@ -79,27 +79,25 @@ func (self *SRegion) createNetwork(vpc *SVpc, subnetName string, cidr string, de
 	networkClient := network.NewVirtualNetworksClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
 	networkClient.Authorizer = self.client.authorizer
 	_, resourceGroup, vpcName := pareResourceGroupWithName(vpc.ID, VPC_RESOURCE)
-	networkId, _, _ := pareResourceGroupWithName(subnetName, VPC_RESOURCE)
-	if result, err := networkClient.CreateOrUpdate(context.Background(), resourceGroup, vpcName, params); err != nil {
-		return "", err
-	} else if err := result.WaitForCompletion(context.Background(), networkClient.Client); err != nil {
-		return "", err
+	result := SNetwork{}
+	if resp, err := networkClient.CreateOrUpdate(context.Background(), resourceGroup, vpcName, params); err != nil {
+		return nil, err
+	} else if err := resp.WaitForCompletion(context.Background(), networkClient.Client); err != nil {
+		return nil, err
+	} else if net, err := resp.Result(networkClient); err != nil {
+		return nil, err
+	} else if err := jsonutils.Update(&result, net); err != nil {
+		return nil, err
 	}
-	return networkId, nil
+	return &result, nil
 }
 
 func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	if networkId, err := self.zone.region.createNetwork(self.vpc, name, cidr, desc); err != nil {
-		log.Errorf("createNetwork error %s", err)
+	if network, err := self.zone.region.createNetwork(self.vpc, name, cidr, desc); err != nil {
 		return nil, err
 	} else {
-		self.inetworks = nil
-		if network := self.getNetworkById(networkId); network == nil {
-			log.Errorf("cannot find network after create????")
-			return nil, cloudprovider.ErrNotFound
-		} else {
-			return network, nil
-		}
+		network.wire = self
+		return network, nil
 	}
 }
 
@@ -140,12 +138,10 @@ func (self *SWire) getNetworkById(networkId string) *SNetwork {
 		log.Errorf("getNetworkById error: %v", err)
 		return nil
 	} else {
-		globalId, _, _ := pareResourceGroupWithName(networkId, VPC_RESOURCE)
 		log.Debugf("search for networks %d", len(networks))
 		for i := 0; i < len(networks); i++ {
 			network := networks[i].(*SNetwork)
-			_globalId, _, _ := pareResourceGroupWithName(network.ID, VPC_RESOURCE)
-			if globalId == _globalId {
+			if networkId == network.ID {
 				return network
 			}
 		}

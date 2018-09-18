@@ -44,13 +44,17 @@ type ComputeOptions struct {
 	DefaultGroupQuota          int `default:"50" help:"Common group quota per tenant, default 50"`
 	DefaultSecgroupQuota       int `default:"50" help:"Common security group quota per tenant, default 50"`
 	DefaultIsolatedDeviceQuota int `default:"50" help:"Common isolated device quota per tenant, default 50"`
+	DefaultSnapshotQuota       int `default:"10" help:"Common snapshot quota per tenant, default 10"`
 
 	SystemAdminQuotaCheck bool `help:"Enable quota check for system admin, default False" default:"false"`
 
 	BaremetalPreparePackageUrl string `help:"Baremetal online register package"`
 
-	AutoSnapshotDay  int `default:"1" help:"Days auto snapshot disks, default 1 day"`
-	AutoSnapshotHour int `default:"2" help:"What hour take sanpshot, default 02:00"`
+	// snapshot options
+	AutoSnapshotDay               int `default:"1" help:"Days auto snapshot disks, default 1 day"`
+	AutoSnapshotHour              int `default:"2" help:"What hour take sanpshot, default 02:00"`
+	DefaultMaxSnapshotCount       int `default:"9" help:"Per Disk max snapshot count, default 9"`
+	DefaultMaxManualSnapshotCount int `default:"2" help:"Per Disk max manual snapshot count, default 2"`
 
 	cloudcommon.DBOptions
 }

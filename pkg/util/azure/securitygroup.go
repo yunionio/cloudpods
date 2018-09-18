@@ -153,8 +153,7 @@ func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SSecurityGroup) GetGlobalId() string {
-	globalId, _, _ := pareResourceGroupWithName(self.ID, SECGRP_RESOURCE)
-	return globalId
+	return self.ID
 }
 
 func (self *SSecurityGroup) GetDescription() string {

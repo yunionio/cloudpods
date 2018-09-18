@@ -86,8 +86,7 @@ func (self *SImage) IsEmulated() bool {
 }
 
 func (self *SImage) GetGlobalId() string {
-	globalId, _, _ := pareResourceGroupWithName(self.ID, IMAGE_RESOURCE)
-	return globalId
+	return self.ID
 }
 
 func (self *SImage) GetStatus() string {

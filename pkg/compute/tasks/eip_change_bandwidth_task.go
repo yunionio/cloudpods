@@ -24,6 +24,7 @@ func (self *EipChangeBandwidthTask) OnInit(ctx context.Context, obj db.IStandalo
 
 	extEip, err := eip.GetIEip()
 	if err != nil {
+		eip.SetStatus(self.UserCred, models.EIP_STATUS_READY, "fail to change bandwidth")
 		msg := fmt.Sprintf("fail to find iEip %s", err)
 		self.SetStageFailed(ctx, msg)
 		return
@@ -31,6 +32,7 @@ func (self *EipChangeBandwidthTask) OnInit(ctx context.Context, obj db.IStandalo
 
 	bandwidth, _ := self.Params.Int("bandwidth")
 	if bandwidth <= 0 {
+		eip.SetStatus(self.UserCred, models.EIP_STATUS_READY, "fail to change bandwidth")
 		msg := fmt.Sprintf("invalid bandwidth %d", bandwidth)
 		self.SetStageFailed(ctx, msg)
 		return
@@ -39,6 +41,7 @@ func (self *EipChangeBandwidthTask) OnInit(ctx context.Context, obj db.IStandalo
 	err = extEip.ChangeBandwidth(int(bandwidth))
 
 	if err != nil {
+		eip.SetStatus(self.UserCred, models.EIP_STATUS_READY, "fail to change bandwidth")
 		msg := fmt.Sprintf("fail to find iEip %s", err)
 		self.SetStageFailed(ctx, msg)
 		return

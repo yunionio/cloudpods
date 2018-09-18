@@ -14,6 +14,7 @@ import (
 )
 
 type SAzureHostDriver struct {
+	SBaseHostDriver
 }
 
 func init() {

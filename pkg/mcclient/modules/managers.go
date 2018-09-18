@@ -115,3 +115,11 @@ func NewYunionAgentManager(keyword, keywordPlural string, columns, adminColumns 
 			serviceType:  "yunionagent"},
 		Keyword: keyword, KeywordPlural: keywordPlural}
 }
+
+func NewYunionConfManager(keyword, keywordPlural string, columns, adminColumns []string) ResourceManager {
+	return ResourceManager{
+		BaseManager: BaseManager{columns: columns,
+			adminColumns: adminColumns,
+			serviceType:  "yunionconf"},
+		Keyword: keyword, KeywordPlural: keywordPlural}
+}

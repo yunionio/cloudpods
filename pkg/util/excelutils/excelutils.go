@@ -1,0 +1,101 @@
+package excelutils
+
+import (
+	"io"
+	"bytes"
+	"fmt"
+	"os"
+
+	"github.com/360EntSecGroup-Skylar/excelize"
+
+	"yunion.io/x/jsonutils"
+)
+
+const (
+	DEFAULT_SHEET = "Sheet1"
+)
+
+func decimalBaseMaxWidth(decNum int, base int) int {
+	if decNum == 0 {
+		return 1
+	}
+	width := 0
+	for decNum > 0 {
+		decNum = decNum/base
+		width += 1
+	}
+	return width
+}
+
+func decimalBaseN(decNum int, base int, width int) (int, int) {
+	b := 1
+	for i := 0; i < width - 1; i += 1 {
+		decNum = decNum/base
+		b = b*base
+	}
+	return decNum, b
+}
+
+func decimal2Base(decNum int, base int) []int {
+	width := decimalBaseMaxWidth(decNum, base)
+	ret := make([]int, width)
+	for i := width; i > 0; i -= 1 {
+		ith, divider := decimalBaseN(decNum, base, i)
+		decNum -= ith*divider
+		ret[width - i] = ith
+	}
+	return ret
+}
+
+func decimal2Alphabet(decNum int) string {
+	var buf bytes.Buffer
+	b26 := decimal2Base(decNum, 26)
+	for i := 0; i < len(b26); i += 1 {
+		if i == 0 && len(b26) > 1 {
+			buf.WriteByte(byte('A' + b26[i] - 1))
+		} else {
+			buf.WriteByte(byte('A' + b26[i]))
+		}
+	}
+	return buf.String()
+}
+
+func exportHeader(xlsx *excelize.File, texts []string, rowIndex int) {
+	for i := 0; i < len(texts); i += 1 {
+		cell := fmt.Sprintf("%s%d", decimal2Alphabet(i), rowIndex)
+		xlsx.SetCellValue(DEFAULT_SHEET, cell, texts[i])
+	}
+}
+
+func exportRow(xlsx *excelize.File, data jsonutils.JSONObject, keys []string, rowIndex int) {
+	for i := 0; i < len(keys); i += 1 {
+		var valStr string
+		val, _ := data.GetIgnoreCases(keys[i])
+		if val != nil {
+			valStr, _ = val.GetString()
+		}
+		cell := fmt.Sprintf("%s%d", decimal2Alphabet(i), rowIndex)
+		xlsx.SetCellValue(DEFAULT_SHEET, cell, valStr)
+	}
+}
+
+func Export(data []jsonutils.JSONObject, keys []string, texts []string, writer io.Writer) error {
+	xlsx := excelize.NewFile()
+
+	exportHeader(xlsx, texts, 1)
+	for i := 0; i < len(data); i += 1 {
+		exportRow(xlsx, data[i], keys, i + 2)
+	}
+
+	return xlsx.Write(writer)
+}
+
+func ExportFile(data []jsonutils.JSONObject, keys []string, texts []string, filename string) error {
+	writer, err:= os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer writer.Close()
+
+	return Export(data, keys, texts, writer)
+}

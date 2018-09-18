@@ -293,4 +293,6 @@ type ICloudNetwork interface {
 	GetIsPublic() bool
 
 	Delete() error
+
+	GetAllocTimeoutSeconds() int
 }

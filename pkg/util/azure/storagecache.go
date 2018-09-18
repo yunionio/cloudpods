@@ -187,8 +187,8 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 		return nil, err
 	} else {
 		_, _, snapshot := pareResourceGroupWithName(snapshotId, SNAPSHOT_RESOURCE)
-		tmpImageFile := fmt.Sprintf("/tmp/%s", snapshot)
-		//resp.ContentLength =
+		tmpImageFile := fmt.Sprintf("/opt/cloud/workspace/data/glance/image-cache/%s", snapshot)
+		defer os.Remove(tmpImageFile)
 		if f, err := os.Create(tmpImageFile); err != nil {
 			return nil, err
 		} else {
@@ -221,7 +221,6 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 		} else if result, err := modules.Images.Upload(s, params, file, resp.ContentLength); err != nil {
 			return nil, err
 		} else {
-			os.Remove(tmpImageFile)
 			return result, nil
 		}
 

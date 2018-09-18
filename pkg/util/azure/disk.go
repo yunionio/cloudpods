@@ -222,8 +222,7 @@ func (self *SDisk) GetName() string {
 }
 
 func (self *SDisk) GetGlobalId() string {
-	globalId, _, _ := pareResourceGroupWithName(self.ID, DISK_RESOURCE)
-	return globalId
+	return self.ID
 }
 
 func (self *SDisk) IsEmulated() bool {
@@ -267,8 +266,7 @@ func (self *SDisk) GetIsAutoDelete() bool {
 }
 
 func (self *SDisk) GetTemplateId() string {
-	globalId, _, _ := pareResourceGroupWithName(self.Properties.CreationData.ImageReference.ID, IMAGE_RESOURCE)
-	return globalId
+	return self.Properties.CreationData.ImageReference.ID
 }
 
 func (self *SDisk) GetDiskType() string {

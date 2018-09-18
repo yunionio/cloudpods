@@ -194,4 +194,18 @@ func init() {
 		printObject(disk)
 		return nil
 	})
+	type DiskResetOptions struct {
+		DISK     string `help:"ID or name of disk"`
+		SNAPSHOT string `help:"snapshots ID of disk`
+	}
+	R(&DiskResetOptions{}, "disk-reset", "Resize a disk", func(s *mcclient.ClientSession, args *DiskResetOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.SNAPSHOT), "snapshot_id")
+		disk, err := modules.Disks.PerformAction(s, args.DISK, "disk-reset", params)
+		if err != nil {
+			return err
+		}
+		printObject(disk)
+		return nil
+	})
 }
