@@ -2,13 +2,13 @@ package provider
 
 import (
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	// "yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/util/aliyun"
 )
 
 type SAliyunProviderFactory struct {
-	providerTable map[string]*SAliyunProvider
+	// providerTable map[string]*SAliyunProvider
 }
 
 func (self *SAliyunProviderFactory) GetId() string {
@@ -16,26 +16,33 @@ func (self *SAliyunProviderFactory) GetId() string {
 }
 
 func (self *SAliyunProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	provider, ok := self.providerTable[providerId]
-	if ok {
-		err := provider.client.UpdateAccount(account, secret)
+	/*	provider, ok := self.providerTable[providerId]
+		if ok {
+			err := provider.client.UpdateAccount(account, secret)
+			if err != nil {
+				return nil, err
+			} else {
+				return provider, nil
+			}
+		}
+		client, err := aliyun.NewAliyunClient(providerId, providerName, account, secret)
 		if err != nil {
 			return nil, err
-		} else {
-			return provider, nil
 		}
-	}
+		self.providerTable[providerId] = &SAliyunProvider{client: client}
+		return self.providerTable[providerId], nil
+	*/
+
 	client, err := aliyun.NewAliyunClient(providerId, providerName, account, secret)
 	if err != nil {
 		return nil, err
 	}
-	self.providerTable[providerId] = &SAliyunProvider{client: client}
-	return self.providerTable[providerId], nil
+	return &SAliyunProvider{client: client}, nil
 }
 
 func init() {
 	factory := SAliyunProviderFactory{
-		providerTable: make(map[string]*SAliyunProvider),
+		// providerTable: make(map[string]*SAliyunProvider),
 	}
 	cloudprovider.RegisterFactory(&factory)
 }
