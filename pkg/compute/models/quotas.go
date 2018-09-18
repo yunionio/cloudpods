@@ -8,6 +8,8 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 var QuotaManager *quotas.SQuotaManager
@@ -85,7 +87,8 @@ func (self *SQuota) FetchUsage(projectId string) error {
 	self.Bw = net.InternalBandwidth
 	self.Ebw = net.ExternalBandwidth
 	self.Keypair = 0 // keypair
-	self.Image = 0
+	s := auth.GetAdminSession("", "")
+	self.Image, _ = modules.Images.GetPrivateImageCount(s, projectId, true)
 	self.Group = 0
 	self.Secgroup = totalSecurityGroupCount(projectId)
 	self.IsolatedDevice = guest.TotalIsolatedCount

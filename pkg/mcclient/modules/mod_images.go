@@ -128,6 +128,21 @@ func (this *ImageManager) List(session *mcclient.ClientSession, params jsonutils
 	return this._list(session, path, this.KeywordPlural)
 }
 
+func (this *ImageManager) GetPrivateImageCount(s *mcclient.ClientSession, ownerId string, isAdmin bool) (int, error) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString("none"), "is_public")
+	params.Add(jsonutils.NewString(ownerId), "owner")
+	if isAdmin {
+		params.Add(jsonutils.JSONTrue, "admin")
+	}
+
+	result, err := this.List(s, params)
+	if err != nil {
+		return 0, err
+	}
+	return len(result.Data), nil
+}
+
 type ImageUsageCount struct {
 	Count int64
 	Size  int64
