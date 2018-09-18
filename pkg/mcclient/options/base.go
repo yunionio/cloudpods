@@ -166,6 +166,9 @@ type BaseListOptions struct {
 	PendingDeleteAll *bool    `help:"Show all resources including pending deleted" json:"-"`
 	Field            []string `help:"Show only specified fields"`
 	ShowEmulated     *bool    `help:"Show all resources including the emulated resources"`
+	ExportFile       string   `help:"Export to file" metavar:"<EXPORT_FILE_PATH>" json:"-"`
+	ExportKeys       string   `help:"Export field keys"`
+	ExportTexts      string   `help:"Export field displayname texts" json:"-"`
 }
 
 func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
