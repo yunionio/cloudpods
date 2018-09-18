@@ -75,12 +75,7 @@ func PrintJSONList(list *modules.ListResult, columns []string) {
 	fmt.Println("*** ", title, " ***")
 }
 
-func PrintJSONObject(obj jsonutils.JSONObject) {
-	dict, ok := obj.(*jsonutils.JSONDict)
-	if !ok {
-		fmt.Println("Not a valid JSON object:", obj.String())
-		return
-	}
+func printJSONObject(dict *jsonutils.JSONDict, cb PrintJSONObjectFunc) {
 	keys := dict.SortedKeys()
 	pt := prettytable.NewPrettyTable([]string{"Field", "Value"})
 	rows := make([][]string, 0)
@@ -95,7 +90,68 @@ func PrintJSONObject(obj jsonutils.JSONObject) {
 		}
 		rows = append(rows, row)
 	}
-	fmt.Print(pt.GetString(rows))
+	cb(pt.GetString(rows))
+}
+
+func PrintJSONObject(obj jsonutils.JSONObject) {
+	dict, ok := obj.(*jsonutils.JSONDict)
+	if !ok {
+		fmt.Println("Not a valid JSON object:", obj.String())
+		return
+	}
+	printJSONObject(dict, func(s string) {
+		fmt.Print(s)
+	})
+}
+
+func flattenJSONObjectRecursive(v jsonutils.JSONObject, k string, rootDict *jsonutils.JSONDict) {
+	switch vv := v.(type) {
+	case *jsonutils.JSONString, *jsonutils.JSONInt, *jsonutils.JSONBool, *jsonutils.JSONFloat:
+		rootDict.Set(k, vv)
+	case *jsonutils.JSONArray:
+		arr, _ := vv.GetArray()
+		for i, arrElem := range arr {
+			nextK := fmt.Sprintf("%s.%d", k, i)
+			flattenJSONObjectRecursive(arrElem, nextK, rootDict)
+		}
+		if k != "" {
+			rootDict.Remove(k)
+		}
+	case *jsonutils.JSONDict:
+		m, _ := vv.GetMap()
+		for kk, w := range m {
+			nextK := kk
+			if k != "" {
+				nextK = k + "." + nextK
+			}
+			flattenJSONObjectRecursive(w, nextK, rootDict)
+		}
+		if k != "" {
+			rootDict.Remove(k)
+		}
+	}
+}
+
+type PrintJSONObjectRecursiveExFunc func(jsonutils.JSONObject)
+type PrintJSONObjectFunc func(string)
+
+func printJSONObjectRecursive_(obj jsonutils.JSONObject, cb PrintJSONObjectRecursiveExFunc) {
+	dict, ok := obj.(*jsonutils.JSONDict)
+	if !ok {
+		fmt.Println("Not a valid JSON object:", obj.String())
+		return
+	}
+	dictCopy := jsonutils.DeepCopy(dict).(*jsonutils.JSONDict)
+	flattenJSONObjectRecursive(dictCopy, "", dictCopy)
+	cb(dictCopy)
+}
+
+func PrintJSONObjectRecursive(obj jsonutils.JSONObject) {
+	printJSONObjectRecursive_(obj, PrintJSONObject)
+}
+
+func PrintJSONObjectRecursiveEx(obj jsonutils.JSONObject, cb PrintJSONObjectRecursiveExFunc) {
+	printJSONObjectRecursive_(obj, cb)
 }
 
 func PrintJSONBatchResults(results []modules.SubmitResult, columns []string) {
