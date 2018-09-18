@@ -142,7 +142,19 @@ func initK8sClusterResource(kind string, manager modules.Manager) *ShellCommands
 			return nil
 		},
 	)
-	return NewShellCommands(cmdN).AddR(listCmd, getCmd)
+
+	// Delete resource
+	deleteCmd := NewCommand(
+		&o.ResourceDeleteOptions{},
+		cmdN("delete"),
+		fmt.Sprintf("Delete k8s %s", kind),
+		func(s *mcclient.ClientSession, args *o.ResourceDeleteOptions) error {
+			ret := manager.BatchDelete(s, args.NAME, args.Params())
+			printBatchResults(ret, manager.GetColumns(s))
+			return nil
+		},
+	)
+	return NewShellCommands(cmdN).AddR(listCmd, getCmd, deleteCmd)
 }
 
 func initK8sNamespaceResource(kind string, manager modules.Manager) *ShellCommands {
@@ -179,5 +191,17 @@ func initK8sNamespaceResource(kind string, manager modules.Manager) *ShellComman
 			return nil
 		},
 	)
-	return NewShellCommands(cmdN).AddR(listCmd, getCmd)
+
+	// Delete resource
+	deleteCmd := NewCommand(
+		&o.NamespaceResourceDeleteOptions{},
+		cmdN("delete"),
+		fmt.Sprintf("Delete k8s %s", kind),
+		func(s *mcclient.ClientSession, args *o.NamespaceResourceDeleteOptions) error {
+			ret := manager.BatchDelete(s, args.NAME, args.Params())
+			printBatchResults(ret, manager.GetColumns(s))
+			return nil
+		},
+	)
+	return NewShellCommands(cmdN).AddR(listCmd, getCmd, deleteCmd)
 }
