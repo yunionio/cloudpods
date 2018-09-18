@@ -55,6 +55,16 @@ func (o ResourceGetOptions) Params() *jsonutils.JSONDict {
 	return params
 }
 
+type ResourceDeleteOptions struct {
+	ClusterBaseOptions
+	NAME []string `help:"Name ident of the resources"`
+}
+
+func (o ResourceDeleteOptions) Params() *jsonutils.JSONDict {
+	params := o.ClusterBaseOptions.Params()
+	return params
+}
+
 type NamespaceResourceListOptions struct {
 	ResourceListOptions
 	Namespace    string `help:"Namespace of this resource"`
@@ -92,6 +102,17 @@ type NamespaceResourceGetOptions struct {
 
 func (o NamespaceResourceGetOptions) Params() *jsonutils.JSONDict {
 	params := o.ResourceGetOptions.Params()
+	params.Update(o.NamespaceOptions.Params())
+	return params
+}
+
+type NamespaceResourceDeleteOptions struct {
+	ResourceDeleteOptions
+	NamespaceOptions
+}
+
+func (o NamespaceResourceDeleteOptions) Params() *jsonutils.JSONDict {
+	params := o.ResourceDeleteOptions.Params()
 	params.Update(o.NamespaceOptions.Params())
 	return params
 }
