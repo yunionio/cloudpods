@@ -13,6 +13,8 @@ const (
 	AlignRight
 )
 
+const TabWidth = 8
+
 type ptColumn struct {
 	Title string
 	Align AlignmentType
@@ -44,18 +46,19 @@ func rowLine(buf *bytes.Buffer, widths []int) {
 	buf.WriteByte('\n')
 }
 
-func textCell(buf *bytes.Buffer, col ptColumn, width int) {
+func textCell(buf *bytes.Buffer, col ptColumn, width int, nthCol int, prevWidth int) {
 	var padLeft, padRight int
+	celWidth := cellDisplayWidth(col.Title, nthCol, prevWidth)
 	switch col.Align {
 	case AlignLeft:
 		padLeft = 0
-		padRight = width - len(col.Title)
+		padRight = width - celWidth
 	case AlignRight:
-		padLeft = width - len(col.Title)
+		padLeft = width - celWidth
 		padRight = 0
 	default: //case AlignCenter:
-		padLeft = (width - len(col.Title)) / 2
-		padRight = width - padLeft - len(col.Title)
+		padLeft = (width - celWidth) / 2
+		padRight = width - padLeft - celWidth
 	}
 	for i := 0; i < padLeft; i++ {
 		buf.WriteByte(' ')
@@ -79,6 +82,7 @@ func textLine(buf *bytes.Buffer, columns []ptColumn, widths []int) {
 	}
 	for j := 0; j < nlines; j++ {
 		buf.WriteByte('|')
+		widthAcc := 0
 		for i, w := range widths {
 			buf.WriteByte(' ')
 			var text string
@@ -86,10 +90,11 @@ func textLine(buf *bytes.Buffer, columns []ptColumn, widths []int) {
 				text = splitted[i][j]
 			}
 			c := ptColumn{
-				Align: columns[i].Align,
 				Title: text,
+				Align: columns[i].Align,
 			}
-			textCell(buf, c, w)
+			textCell(buf, c, w, i, widthAcc)
+			widthAcc += w
 			buf.WriteByte(' ')
 			buf.WriteByte('|')
 		}
@@ -97,12 +102,30 @@ func textLine(buf *bytes.Buffer, columns []ptColumn, widths []int) {
 	}
 }
 
-func cellWidth(cell string) int {
+// cellDisplayWidth returns display width of the cell when printed as the
+// nthCol.  prevWidth is the total display width (as return by this same func)
+// of previous cells in the same line
+func cellDisplayWidth(cell string, nthCol int, prevWidth int) int {
+	// `| ` at the front and ` | ` in the middle
+	sX := prevWidth + nthCol*3 + 2
 	width := 0
 	lines := strings.Split(cell, "\n")
 	for _, line := range lines {
-		if width < len(line) {
-			width = len(line)
+		displayWidth := 0
+		x := sX
+		for _, c := range line {
+			incr := 0
+			if c != '\t' {
+				incr = 1
+			} else {
+				// terminal with have the char TabWidth aligned
+				incr = TabWidth - (x & (TabWidth - 1))
+			}
+			displayWidth += incr
+			x += incr
+		}
+		if width < displayWidth {
+			width = displayWidth
 		}
 	}
 	return width
@@ -113,14 +136,36 @@ func (this *PrettyTable) GetString(fields [][]string) string {
 		return ""
 	}
 	var widths = make([]int, len(this.columns))
-	for i, c := range this.columns {
-		widths[i] = cellWidth(c.Title)
+	{
+		// width of title columns
+		widthAcc := 0
+		for i, c := range this.columns {
+			widths[i] = cellDisplayWidth(c.Title, i, widthAcc)
+			widthAcc += widths[i]
+		}
 	}
-	for _, line := range fields {
-		for i, cell := range line {
-			cw := cellWidth(cell)
-			if widths[i] < cw {
-				widths[i] = cw
+	{
+		// width of content columns
+		widthAcc := 0
+		for col := 0; ; col++ {
+			cont := false
+			colWidth := 0
+			for _, line := range fields {
+				if col < len(line) {
+					cont = true
+					cw := cellDisplayWidth(line[col], col, widthAcc)
+					if colWidth < cw {
+						colWidth = cw
+					}
+				}
+			}
+			if cont {
+				if widths[col] < colWidth {
+					widths[col] = colWidth
+				}
+				widthAcc += widths[col]
+			} else {
+				break
 			}
 		}
 	}
