@@ -167,8 +167,11 @@ const (
 
 func (this *ArgumentParser) addStructArgument(tp reflect.Type, val reflect.Value) error {
 	for i := 0; i < tp.NumField(); i++ {
-		f := tp.Field(i)
 		v := val.Field(i)
+		if !v.CanSet() {
+			continue
+		}
+		f := tp.Field(i)
 		if f.Type.Kind() == reflect.Struct {
 			e := this.addStructArgument(f.Type, v)
 			if e != nil {
@@ -824,10 +827,6 @@ func (this *ArgumentParser) reset() {
 	}
 }
 
-func unquote(str string) string {
-	return utils.Unquote(str)
-}
-
 func (this *ArgumentParser) ParseArgs(args []string, ignore_unknown bool) error {
 	var pos_idx int = 0
 	var arg Argument = nil
@@ -837,14 +836,13 @@ func (this *ArgumentParser) ParseArgs(args []string, ignore_unknown bool) error 
 	this.reset()
 
 	for i := 0; i < len(args) && err == nil; i++ {
-		argStr = unquote(args[i])
-		// log.Debugf("%s => %s", args[i], argStr)
+		argStr = args[i]
 		if strings.HasPrefix(argStr, "-") {
 			arg = this.findOptionalArgument(strings.TrimLeft(argStr, "-"))
 			if arg != nil {
 				if arg.NeedData() {
 					if i+1 < len(args) {
-						err = arg.SetValue(unquote(args[i+1]))
+						err = arg.SetValue(args[i+1])
 						if err != nil {
 							break
 						}

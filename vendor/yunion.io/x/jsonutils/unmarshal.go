@@ -23,7 +23,7 @@ import (
 )
 
 func (this *JSONValue) Unmarshal(obj interface{}, keys ...string) error {
-	return fmt.Errorf("unsupported operation Unmarshall")
+	return fmt.Errorf("unsupported operation Unmarshal")
 }
 
 func (this *JSONArray) Unmarshal(obj interface{}, keys ...string) error {
