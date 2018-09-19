@@ -166,9 +166,9 @@ func (self *SVpc) fetchSecurityGroups() error {
 		}
 	}
 	self.secgroups = make([]cloudprovider.ICloudSecurityGroup, len(secgroups))
-	for index, secgroup := range secgroups {
-		secgroup.vpc = self
-		self.secgroups[index] = &secgroup
+	for i := 0; i < len(secgroups); i++ {
+		secgroups[i].vpc = self
+		self.secgroups[i] = &secgroups[i]
 	}
 	return nil
 }
