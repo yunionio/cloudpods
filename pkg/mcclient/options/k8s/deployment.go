@@ -21,6 +21,8 @@ type DeploymentCreateOptions struct {
 	Env             []string `help:"Environment variables to set in container"`
 	Port            []string `help:"Port for the service that is created, format is <protocol>:<service_port>:<container_port> e.g. tcp:80:3000"`
 	Net             string   `help:"Network config, e.g. net1, net1:10.168.222.171"`
+	Mem             int      `help:"Memory request MB size"`
+	Cpu             float64  `help:"Cpu request cores"`
 }
 
 func (o DeploymentCreateOptions) Params() (*jsonutils.JSONDict, error) {
@@ -71,6 +73,13 @@ func (o DeploymentCreateOptions) Params() (*jsonutils.JSONDict, error) {
 		labels.Add(label)
 	}
 	params.Add(labels, "labels")
+
+	if o.Cpu > 0 {
+		params.Add(jsonutils.NewString(fmt.Sprintf("%dm", int64(o.Cpu*1000))), "cpuRequirement")
+	}
+	if o.Mem > 0 {
+		params.Add(jsonutils.NewString(fmt.Sprintf("%dMi", o.Mem)), "memoryRequirement")
+	}
 	return params, nil
 }
 
