@@ -22,7 +22,7 @@ func newNameValidator(manager IModelManager, ownerProjId string, name string) er
 		return err
 	}
 	if !isNameUnique(manager, ownerProjId, name) {
-		return httperrors.NewConflictError(fmt.Sprintf("duplicate name %s", name))
+		return httperrors.NewDuplicateNameError("name", name)
 	}
 	return nil
 }
@@ -44,7 +44,7 @@ func alterNameValidator(model IModel, name string) error {
 		return err
 	}
 	if !isAlterNameUnique(model, name) {
-		return httperrors.NewConflictError(fmt.Sprintf("duplicate name %s", name))
+		return httperrors.NewDuplicateNameError("name", name)
 	}
 	return nil
 }

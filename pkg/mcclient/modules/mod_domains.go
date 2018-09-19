@@ -37,10 +37,10 @@ func (this *DomainManager) UpdateConfig(s *mcclient.ClientSession, domain string
 func (this *DomainManager) _updateConfig(s *mcclient.ClientSession, domain string, config jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	driver, e := config.GetString("config", "identity", "driver")
 	if e != nil {
-		return nil, fmt.Errorf("Malformed domain configuration %s", driver)
+		return nil, httperrors.NewInputParameterError("Malformed domain configuration %s", driver)
 	}
 	if driver != "ldap" {
-		return nil, fmt.Errorf("Invalid driver: %s, ONLY ldap is supported", driver)
+		return nil, httperrors.NewInputParameterError("Invalid driver: %s, ONLY ldap is supported", driver)
 	}
 	url := fmt.Sprintf("/domains/%s/config", domain)
 	ret, e := this._patch(s, url, config, "config")
@@ -58,10 +58,7 @@ func (this *DomainManager) _updateConfig(s *mcclient.ClientSession, domain strin
 
 func (this *DomainManager) DeleteConfig(s *mcclient.ClientSession, domain string) (jsonutils.JSONObject, error) {
 	if domain == "default" {
-		err := httputils.JSONClientError{}
-		err.Code = 403
-		err.Details = fmt.Sprintf("domain %s did not allowed deleted", domain)
-		return nil, &err
+		return nil, httperrors.NewForbiddenError("domain %s did not allowed deleted", domain)
 	}
 
 	result, e := this._deleteConfig(s, domain)
@@ -143,14 +140,11 @@ func (this *DomainManager) DoDomainConfigUpdate(s *mcclient.ClientSession, domai
 
 	_domain, err := params.Get("domain")
 	if err != nil {
-		return ret, err
+		return ret, httperrors.NewMissingParameterError("domain")
 	}
 	name, _ := _domain.GetString("name")
 	if domain == "default" && name != "Default" {
-		err := httputils.JSONClientError{}
-		err.Code = 403
-		err.Details = fmt.Sprintf("domain %s did not allowed update Name", domain)
-		return nil, &err
+		return nil, httperrors.NewUnsupportOperationError("domain %s did not allowed update Name", domain)
 	}
 
 	_domain, err = this.Patch(s, domain, _domain)
@@ -182,7 +176,7 @@ func (this *DomainManager) DoDomainConfigCreate(s *mcclient.ClientSession, param
 	_domain, err := params.Get("domain")
 
 	if err != nil {
-		return ret, err
+		return ret, httperrors.NewMissingParameterError("domain")
 	}
 
 	_domain, err = this.Create(s, _domain)
@@ -237,16 +231,16 @@ func (this *DomainManager) DoDomainConfigDelete(s *mcclient.ClientSession, param
 		detail, err := this.GetById(s, domain, nil)
 		if err != nil {
 			log.Errorf("got domain detail error: %v", err)
-			return ret, httperrors.NewResourceNotFoundError("找不到该认证域")
+			return ret, httperrors.NewResourceNotFoundError("%s %s not find", "Domain", domain)
 		}
 
 		driver, _ := detail.GetString("driver")
 		if driver != "ldap" {
 			if result, err := UsersV3.List(s, params); err != nil {
 				log.Errorf("user list got error: %v", err)
-				return ret, httperrors.NewInternalServerError("服务器错误,获取认证域用户列表失败,不允许删除")
+				return ret, httperrors.NewInternalServerError("Not allow delete: failed to fetch related user list.")
 			} else if len(result.Data) > 0 {
-				return ret, httperrors.NewForbiddenError(fmt.Sprintf("域名%s下存在%d名用户,不允许删除.", objId, len(result.Data)))
+				return ret, httperrors.NewForbiddenError(fmt.Sprintf("Not allow delete: there still exists %s user related with domain %s.", objId, len(result.Data)))
 			}
 		}
 

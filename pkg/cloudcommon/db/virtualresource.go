@@ -214,7 +214,7 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 	q = q.Equals("tenant_id", tobj.GetId())
 	q = q.NotEquals("id", model.GetId())
 	if q.Count() > 0 {
-		return nil, httperrors.NewConflictError(fmt.Sprintf("duplicate name %s", model.GetName()))
+		return nil, httperrors.NewDuplicateNameError("name", model.GetName())
 	}
 	former, _ := TenantCacheManager.FetchTenantById(ctx, model.ProjectId)
 	if former == nil {

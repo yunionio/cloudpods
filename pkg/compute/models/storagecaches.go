@@ -301,7 +301,8 @@ func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcc
 
 	image, err := CachedimageManager.getImageInfo(ctx, userCred, imageStr, isForce)
 	if err != nil {
-		return nil, httperrors.NewImageNotFoundError("image %s not found: %s", imageStr, err)
+		log.Infof("image %s not found %s", imageStr, err)
+		return nil, httperrors.NewImageNotFoundError(imageStr)
 	}
 
 	scimg := StoragecachedimageManager.GetStoragecachedimage(self.Id, image.Id)
@@ -337,7 +338,8 @@ func (self *SStoragecache) PerformCacheImage(ctx context.Context, userCred mccli
 
 	image, err := CachedimageManager.getImageInfo(ctx, userCred, imageStr, isForce)
 	if err != nil {
-		return nil, httperrors.NewImageNotFoundError("image %s not found: %s", imageStr, err)
+		log.Infof("image %s not found %s", imageStr, err)
+		return nil, httperrors.NewImageNotFoundError(imageStr)
 	}
 
 	if len(image.Checksum) == 0 {

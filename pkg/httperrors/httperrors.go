@@ -71,6 +71,10 @@ func InvalidInputError(w http.ResponseWriter, msg string, params ...interface{})
 	JsonClientError(w, NewInputParameterError(msg, params...))
 }
 
+func MissingParameterError(w http.ResponseWriter, param string) {
+	JsonClientError(w, NewMissingParameterError(param))
+}
+
 func ConflictError(w http.ResponseWriter, msg string, params ...interface{}) {
 	JsonClientError(w, NewConflictError(msg, params...))
 }
