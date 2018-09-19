@@ -92,6 +92,14 @@ type SSecurityGroup struct {
 	Tags       map[string]string
 }
 
+func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
+	if len(self.Tags) == 0 {
+		return nil
+	}
+	data := jsonutils.Marshal(self.Tags).(*jsonutils.JSONDict)
+	return data
+}
+
 func (self *SecurityRulePropertiesFormat) String() string {
 	//log.Debugf("serize rule: %s", jsonutils.Marshal(self).PrettyString())
 	action := secrules.SecurityRuleDeny
@@ -146,10 +154,6 @@ func (self *SecurityRulePropertiesFormat) String() string {
 
 func (self *SSecurityGroup) GetId() string {
 	return self.ID
-}
-
-func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
-	return nil
 }
 
 func (self *SSecurityGroup) GetGlobalId() string {

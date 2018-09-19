@@ -8,7 +8,6 @@ import (
 )
 
 type SAzureProviderFactory struct {
-	providerTable map[string]*SAzureProvider
 }
 
 func (self *SAzureProviderFactory) GetId() string {
@@ -16,27 +15,15 @@ func (self *SAzureProviderFactory) GetId() string {
 }
 
 func (self *SAzureProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	provider, ok := self.providerTable[providerId]
-	if ok {
-		err := provider.client.UpdateAccount(account, secret, url)
-		if err != nil {
-			return nil, err
-		} else {
-			return provider, nil
-		}
-	}
-	client, err := azure.NewAzureClient(providerId, providerName, account, secret, url)
-	if err != nil {
+	if client, err := azure.NewAzureClient(providerId, providerName, account, secret, url); err != nil {
 		return nil, err
+	} else {
+		return &SAzureProvider{client: client}, nil
 	}
-	self.providerTable[providerId] = &SAzureProvider{client: client}
-	return self.providerTable[providerId], nil
 }
 
 func init() {
-	factory := SAzureProviderFactory{
-		providerTable: make(map[string]*SAzureProvider),
-	}
+	factory := SAzureProviderFactory{}
 	cloudprovider.RegisterFactory(&factory)
 }
 

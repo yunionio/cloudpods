@@ -144,7 +144,7 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 		sql := SecurityGroupManager.Query()
 		sql = SecurityGroupManager.FilterByName(sql, name)
 		if sql.Count() != 0 {
-			return nil, httperrors.NewDuplicateNameError("Dumplicate name %s", name)
+			return nil, httperrors.NewDuplicateNameError("name", name)
 		}
 	}
 
@@ -222,16 +222,18 @@ func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCre
 		}
 
 		for i := 0; i < len(added); i += 1 {
-			if rules, err := added[i].GetRules(); err != nil {
-				syncResult.AddError(err)
-			} else if len(rules) > 0 {
-				if new, err := manager.newFromCloudVpc(added[i]); err != nil {
+			if metadata := added[i].GetMetadata(); metadata == nil || !metadata.Contains("id") {
+				if rules, err := added[i].GetRules(); err != nil {
 					syncResult.AddError(err)
-				} else {
-					localSecgroups = append(localSecgroups, *new)
-					remoteSecgroups = append(remoteSecgroups, added[i])
-					SecurityGroupRuleManager.SyncRules(ctx, userCred, new, rules)
-					syncResult.Add()
+				} else if len(rules) > 0 {
+					if new, err := manager.newFromCloudVpc(added[i]); err != nil {
+						syncResult.AddError(err)
+					} else {
+						localSecgroups = append(localSecgroups, *new)
+						remoteSecgroups = append(remoteSecgroups, added[i])
+						SecurityGroupRuleManager.SyncRules(ctx, userCred, new, rules)
+						syncResult.Add()
+					}
 				}
 			}
 		}

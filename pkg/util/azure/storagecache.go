@@ -162,7 +162,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 	}
 }
 
-func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
+func (self *SStoragecache) CreateIImage(snapshotId, imageName, osArch, osType, osDist, imageDesc string) (cloudprovider.ICloudImage, error) {
 	if image, err := self.region.CreateImage(snapshotId, imageName, osType, imageDesc); err != nil {
 		return nil, err
 	} else {
@@ -191,16 +191,30 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 		if f, err := os.Create(tmpImageFile); err != nil {
 			return nil, err
 		} else {
-			readed := 0
+			readed, writed, skiped := 0, 0, 0
 			data := make([]byte, DefaultReadBlockSize)
 			for i := 0; i < int(resp.ContentLength/DefaultReadBlockSize); i++ {
 				if _, err := resp.Body.Read(data); err != nil {
 					return nil, err
-				} else if _, err := f.Write(data); err != nil {
+				} else if isEmpty := func(array []byte) bool {
+					for i := 0; i < len(array); i++ {
+						if array[i] != 0 {
+							return false
+						}
+					}
+					return true
+				}(data); !isEmpty {
+					if _, err := f.Write(data); err != nil {
+						return nil, err
+					}
+					writed += int(DefaultReadBlockSize)
+				} else if _, err := f.Seek(DefaultReadBlockSize, os.SEEK_CUR); err != nil {
 					return nil, err
+				} else {
+					skiped += int(DefaultReadBlockSize)
 				}
 				readed = readed + int(DefaultReadBlockSize)
-				log.Debugf("has write %dMb total %dMb", readed>>20, resp.ContentLength>>20)
+				log.Debugf("has write %dMb skip %dMb total %dMb", writed>>20, skiped>>20, resp.ContentLength>>20)
 			}
 			rest := make([]byte, resp.ContentLength%DefaultReadBlockSize)
 			if len(rest) > 0 {

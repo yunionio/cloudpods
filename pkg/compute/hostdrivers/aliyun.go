@@ -83,11 +83,16 @@ func (self *SAliyunHostDriver) RequestSaveUploadImageOnHost(ctx context.Context,
 			if snapshot, err := iDisk.CreateISnapshot(fmt.Sprintf("Snapshot-%s", imageId), "PrepareSaveImage"); err != nil {
 				return nil, err
 			} else {
+				params := task.GetParams()
+				osArch, _ := params.GetString("properties", "os_arch")
+				osType, _ := params.GetString("properties", "os_type")
+				osDist, _ := params.GetString("properties", "os_distribution")
+
 				scimg := models.StoragecachedimageManager.Register(ctx, task.GetUserCred(), iStoragecache.GetId(), imageId)
 				if scimg.Status != models.CACHED_IMAGE_STATUS_READY {
 					scimg.SetStatus(task.GetUserCred(), models.CACHED_IMAGE_STATUS_CACHING, "request_prepare_save_disk_on_host")
 				}
-				if iImage, err := iStoragecache.CreateIImage(snapshot.GetId(), fmt.Sprintf("Image-%s", imageId), "", ""); err != nil {
+				if iImage, err := iStoragecache.CreateIImage(snapshot.GetId(), fmt.Sprintf("Image-%s", imageId), osArch, osType, osDist, ""); err != nil {
 					log.Errorf("fail to create iImage: %v", err)
 					scimg.SetStatus(task.GetUserCred(), models.CACHED_IMAGE_STATUS_CACHE_FAILED, err.Error())
 					return nil, err

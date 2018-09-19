@@ -62,54 +62,6 @@ func (self *SAzureGuestDriver) ValidateCreateData(ctx context.Context, userCred 
 	return self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, data)
 }
 
-type SAzureVMCreateConfig struct {
-	SAliyunVMCreateConfig
-}
-
-func (self *SAzureGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
-	config := SAliyunVMCreateConfig{}
-	config.Name = guest.Name
-	config.Cpu = int(guest.VcpuCount)
-	config.Memory = guest.VmemSize
-	config.Description = guest.Description
-
-	if len(guest.KeypairId) > 0 {
-		config.PublicKey = guest.GetKeypairPublicKey()
-	}
-
-	nics := guest.GetNetworks()
-	net := nics[0].GetNetwork()
-	config.ExternalNetworkId = net.ExternalId
-	config.IpAddr = nics[0].IpAddr
-
-	config.SecGroupId = guest.SecgrpId
-	config.SecGroupName = guest.GetSecgroupName()
-	config.SecRules = guest.GetSecRules()
-
-	disks := guest.GetDisks()
-	config.DataDisks = make([]int, len(disks)-1)
-
-	for i := 0; i < len(disks); i += 1 {
-		disk := disks[i].GetDisk()
-		if i == 0 {
-			storage := disk.GetStorage()
-			config.StorageType = storage.StorageType
-			cache := storage.GetStoragecache()
-			imageId := disk.GetTemplateId()
-			scimg := models.StoragecachedimageManager.GetStoragecachedimage(cache.Id, imageId)
-			config.ExternalImageId = scimg.ExternalId
-			img := scimg.GetCachedimage()
-			config.OsDistribution, _ = img.Info.GetString("properties", "os_distribution")
-			config.OsVersion, _ = img.Info.GetString("properties", "os_version")
-
-			config.SysDiskSize = disk.DiskSize / 1024 // MB => GB
-		} else {
-			config.DataDisks[i-1] = disk.DiskSize / 1024 // MB => GB
-		}
-	}
-	return jsonutils.Marshal(&config)
-}
-
 func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
 	publicKey, _ := config.GetString("public_key")
@@ -118,7 +70,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 	if resetPassword && len(passwd) == 0 {
 		passwd = seclib2.RandomPassword2(12)
 	}
-	desc := SAliyunVMCreateConfig{}
+	desc := SManagedVMCreateConfig{}
 	if err := config.Unmarshal(&desc, "desc"); err != nil {
 		return err
 	}

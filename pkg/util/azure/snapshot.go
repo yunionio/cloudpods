@@ -107,8 +107,6 @@ type AccessURI struct {
 func (self *SRegion) GrantAccessSnapshot(snapshotId string) (string, error) {
 	_, resourceGroup, snapshotName := pareResourceGroupWithName(snapshotId, SNAPSHOT_RESOURCE)
 	snapClient := compute.NewSnapshotsClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-	snapClient.RequestInspector = LogRequest()
-	snapClient.ResponseInspector = LogResponse()
 	snapClient.Authorizer = self.client.authorizer
 	durationInSeconds := int32(3600 * 24)
 	params := compute.GrantAccessData{
