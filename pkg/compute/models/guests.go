@@ -523,7 +523,7 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	}
 
 	if vmemSize > 0 || vcpuCount > 0 {
-		if !utils.IsInStringArray(self.Status, []string{VM_READY}) {
+		if !utils.IsInStringArray(self.Status, []string{VM_READY}) && self.GetHypervisor() != HYPERVISOR_CONTAINER {
 			return nil, httperrors.NewInvalidStatusError("Cannot modify Memory and CPU in status %s", self.Status)
 		}
 		if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
