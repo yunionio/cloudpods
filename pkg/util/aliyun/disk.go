@@ -271,6 +271,19 @@ func (self *SRegion) resizeDisk(diskId string, size int64) error {
 	return nil
 }
 
+func (self *SRegion) resetDisk(diskId, snapshotId string) error {
+	params := make(map[string]string)
+	params["DiskId"] = diskId
+	params["SnapshotId"] = snapshotId
+	_, err := self.ecsRequest("ResetDisk", params)
+	if err != nil {
+		log.Errorf("ResetDisk %s to snapshot %s fail %s", diskId, snapshotId, err)
+		return err
+	}
+
+	return nil
+}
+
 func (self *SDisk) CreateISnapshot(name, desc string) (cloudprovider.ICloudSnapshot, error) {
 	if snapshotId, err := self.storage.zone.region.CreateSnapshot(self.DiskId, name, desc); err != nil {
 		log.Errorf("createSnapshot fail %s", err)
@@ -278,8 +291,8 @@ func (self *SDisk) CreateISnapshot(name, desc string) (cloudprovider.ICloudSnaps
 	} else if snapshot, err := self.getSnapshot(snapshotId); err != nil {
 		return nil, err
 	} else {
-		snapshot.disk = self
-		if err := cloudprovider.WaitStatus(snapshot, string(SnapshotStatusAccoplished), 15*time.Second, 3600*time.Second); err != nil {
+		snapshot.region = self.storage.zone.region
+		if err := cloudprovider.WaitStatus(snapshot, models.SNAPSHOT_READY, 15*time.Second, 3600*time.Second); err != nil {
 			return nil, err
 		}
 		return snapshot, nil
@@ -305,7 +318,7 @@ func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot
 	if snapshot, err := self.getSnapshot(snapshotId); err != nil {
 		return nil, err
 	} else {
-		snapshot.disk = self
+		snapshot.region = self.storage.zone.region
 		return snapshot, nil
 	}
 }
@@ -335,47 +348,14 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	}
 	isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots))
 	for i := 0; i < len(snapshots); i++ {
-		snapshots[i].disk = self
+		snapshots[i].region = self.storage.zone.region
 		isnapshots[i] = &snapshots[i]
 	}
 	return isnapshots, nil
 }
 
-func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName string, snapshotIds []string, offset int, limit int) ([]SSnapshot, int, error) {
-	if limit > 50 || limit <= 0 {
-		limit = 50
-	}
-	params := make(map[string]string)
-	params["RegionId"] = self.RegionId
-	params["PageSize"] = fmt.Sprintf("%d", limit)
-	params["PageNumber"] = fmt.Sprintf("%d", (offset/limit)+1)
-
-	if len(instanceId) > 0 {
-		params["InstanceId"] = instanceId
-	}
-	if len(diskId) > 0 {
-		params["diskId"] = diskId
-	}
-	if len(snapshotName) > 0 {
-		params["SnapshotName"] = snapshotName
-	}
-	if snapshotIds != nil && len(snapshotIds) > 0 {
-		params["SnapshotIds"] = jsonutils.Marshal(snapshotIds).String()
-	}
-
-	if body, err := self.ecsRequest("DescribeSnapshots", params); err != nil {
-		log.Errorf("GetSnapshots fail %s", err)
-		return nil, 0, err
-	} else {
-		snapshots := make([]SSnapshot, 0)
-		if err := body.Unmarshal(&snapshots, "Snapshots", "Snapshot"); err != nil {
-			log.Errorf("Unmarshal snapshot details fail %s", err)
-			return nil, 0, err
-		}
-		total, _ := body.Int("TotalCount")
-		return snapshots, int(total), nil
-	}
-
+func (self *SDisk) Reset(snapshotId string) error {
+	return self.storage.zone.region.resetDisk(self.DiskId, snapshotId)
 }
 
 

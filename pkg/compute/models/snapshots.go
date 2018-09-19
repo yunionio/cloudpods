@@ -4,13 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -21,9 +25,11 @@ const (
 	MANUAL = "manual"
 	AUTO   = "auto"
 
+	SNAPSHOT_CREATING = "creating"
 	SNAPSHOT_FAILED   = "create_failed"
 	SNAPSHOT_READY    = "ready"
 	SNAPSHOT_DELETING = "deleting"
+	SNAPSHOT_UNKNOWN  = "unknown"
 )
 
 type SSnapshotManager struct {
@@ -32,19 +38,38 @@ type SSnapshotManager struct {
 
 type SSnapshot struct {
 	db.SVirtualResourceBase
-	DiskId      string `width:"36" charset:"ascii" nullable:"false" create:"required" key_index:"true" list:"user"`
+	SManagedResourceBase
+
+	DiskId      string `width:"36" charset:"ascii" nullable:"true" create:"required" key_index:"true" list:"user"`
 	StorageId   string `width:"36" charset:"ascii" nullable:"true" list:"admin"`
 	CreatedBy   string `width:"36" charset:"ascii" nullable:"false" default:"manual" list:"admin"`
-	Location    string `charset:"ascii" nullable:"false" list:"admin"`
+	Location    string `charset:"ascii" nullable:"true" list:"admin"`
 	Size        int    `nullable:"false" list:"user"` // MB
 	OutOfChain  bool   `nullable:"false" default:"false" index:"true" list:"admin"`
 	FakeDeleted bool   `nullable:"false" default:"false" index:"true"`
+
+	CloudregionId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 }
 
 var SnapshotManager *SSnapshotManager
 
 func init() {
 	SnapshotManager = &SSnapshotManager{SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(SSnapshot{}, "snapshots_tbl", "snapshot", "snapshots")}
+}
+
+func ValidateSnapshotName(hypervisor, name string) error {
+	if !('A' <= name[0] && name[0] <= 'Z' || 'a' <= name[0] && name[0] <= 'z') {
+		return fmt.Errorf("Name must start with letter")
+	}
+	if len(name) < 2 || len(name) > 128 {
+		return fmt.Errorf("Snapshot name length must within 2~128")
+	}
+	if hypervisor == HYPERVISOR_ALIYUN {
+		if strings.HasPrefix(name, "auto") || strings.HasPrefix(name, "http://") || strings.HasPrefix(name, "https://") {
+			return fmt.Errorf("Snapshot name can't start with auto, http:// or https://")
+		}
+	}
+	return nil
 }
 
 func (self *SSnapshot) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -180,6 +205,7 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, userCred mccli
 	snapshot.Location = location
 	snapshot.CreatedBy = createdBy
 	snapshot.Name = name
+	snapshot.Status = SNAPSHOT_CREATING
 	err = SnapshotManager.TableSpec().Insert(snapshot)
 	if err != nil {
 		return nil, err
@@ -211,21 +237,29 @@ func (self *SSnapshot) ValidateDeleteCondition(ctx context.Context) error {
 func (self *SSnapshot) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if self.Status == SNAPSHOT_DELETING {
 		return fmt.Errorf("Cannot delete snapshot in status %s", self.Status)
-	} else if self.Status == VM_SNAPSHOT_FAILED {
+	}
+	if self.Status == SNAPSHOT_UNKNOWN {
 		return self.RealDelete(ctx, userCred)
 	}
-	if self.CreatedBy == MANUAL {
-		if !self.FakeDeleted {
-			return self.FakeDelete()
-		} else {
-			_, err := SnapshotManager.GetConvertSnapshot(self)
-			if err != nil {
-				return fmt.Errorf("Cannot delete snapshot: %s, disk need at least one of snapshot as backing file", err.Error())
+	if len(self.ExternalId) == 0 {
+		if utils.IsInStringArray(self.Status, []string{SNAPSHOT_FAILED}) {
+			return self.RealDelete(ctx, userCred)
+		}
+		if self.CreatedBy == MANUAL {
+			if !self.FakeDeleted {
+				return self.FakeDelete()
+			} else {
+				_, err := SnapshotManager.GetConvertSnapshot(self)
+				if err != nil {
+					return fmt.Errorf("Cannot delete snapshot: %s, disk need at least one of snapshot as backing file", err.Error())
+				}
+				return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
 			}
-			return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
+		} else {
+			return fmt.Errorf("Cannot delete snapshot created by %s", self.CreatedBy)
 		}
 	} else {
-		return fmt.Errorf("Cannot delete snapshot created by %s", self.CreatedBy)
+		return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
 	}
 }
 
@@ -323,4 +357,119 @@ func totalSnapshotCount(projectId string) int {
 	q := SnapshotManager.Query()
 	count := q.Equals("tenant_id", projectId).Equals("fake_deleted", false).Count()
 	return count
+}
+
+// Only sync snapshot status
+func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshot) error {
+	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		self.Status = ext.GetStatus()
+		return nil
+	})
+	if err != nil {
+		log.Errorf("SyncWithCloudSnapshot fail %s", err)
+	}
+	return err
+}
+
+func (manager *SSnapshotManager) newFromCloudSnapshot(userCred mcclient.TokenCredential, extSnapshot cloudprovider.ICloudSnapshot, region *SCloudregion) (*SSnapshot, error) {
+	snapshot := SSnapshot{}
+	snapshot.SetModelManager(manager)
+
+	snapshot.Name = extSnapshot.GetName()
+	snapshot.Status = extSnapshot.GetStatus()
+	snapshot.ExternalId = extSnapshot.GetGlobalId()
+	if len(extSnapshot.GetDiskId()) > 0 {
+		disk, err := DiskManager.FetchByExternalId(extSnapshot.GetDiskId())
+		if err != nil {
+			log.Errorf("snapshot %s missing disk?", snapshot.Name)
+		} else {
+			snapshot.DiskId = disk.GetId()
+		}
+	}
+
+	snapshot.Size = int(extSnapshot.GetSize()) * 1024
+	snapshot.ManagerId = extSnapshot.GetManagerId()
+	snapshot.CloudregionId = region.Id
+
+	snapshot.ProjectId = userCred.GetProjectId()
+	err := manager.TableSpec().Insert(&snapshot)
+	if err != nil {
+		log.Errorf("newFromCloudEip fail %s", err)
+		return nil, err
+	}
+	return &snapshot, nil
+}
+
+func (manager *SSnapshotManager) getProviderSnapshotsByRegion(region *SCloudregion, provider *SCloudprovider) ([]SSnapshot, error) {
+	if region == nil || provider == nil {
+		return nil, fmt.Errorf("Region is nil or provider is nil")
+	}
+	snapshots := make([]SSnapshot, 0)
+	q := manager.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id).NotEquals("status", SNAPSHOT_UNKNOWN)
+	err := db.FetchModelObjects(manager, q, &snapshots)
+	if err != nil {
+		return nil, err
+	}
+	return snapshots, nil
+}
+
+func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, snapshots []cloudprovider.ICloudSnapshot) compare.SyncResult {
+	syncResult := compare.SyncResult{}
+	dbSnapshots, err := manager.getProviderSnapshotsByRegion(region, provider)
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+	removed := make([]SSnapshot, 0)
+	commondb := make([]SSnapshot, 0)
+	commonext := make([]cloudprovider.ICloudSnapshot, 0)
+	added := make([]cloudprovider.ICloudSnapshot, 0)
+
+	err = compare.CompareSets(dbSnapshots, snapshots, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+	for i := 0; i < len(removed); i += 1 {
+		err = removed[i].SetStatus(userCred, SNAPSHOT_UNKNOWN, "sync to delete")
+		if err != nil {
+			syncResult.DeleteError(err)
+		} else {
+			syncResult.Delete()
+		}
+	}
+	for i := 0; i < len(commondb); i += 1 {
+		err = commondb[i].SyncWithCloudSnapshot(userCred, commonext[i])
+		if err != nil {
+			syncResult.UpdateError(err)
+		} else {
+			syncResult.Update()
+		}
+	}
+	for i := 0; i < len(added); i += 1 {
+		_, err := manager.newFromCloudSnapshot(userCred, added[i], region)
+		if err != nil {
+			syncResult.AddError(err)
+		} else {
+			syncResult.Add()
+		}
+	}
+	return syncResult
+}
+
+func (self *SSnapshot) GetRegion() *SCloudregion {
+	return CloudregionManager.FetchRegionById(self.CloudregionId)
+}
+
+func (self *SSnapshot) GetISnapshotRegion() (cloudprovider.ICloudRegion, error) {
+	provider, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+
+	region := self.GetRegion()
+	if region == nil {
+		return nil, fmt.Errorf("fail to find region for snapshot")
+	}
+	return provider.GetIRegionById(region.GetExternalId())
 }
