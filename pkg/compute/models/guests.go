@@ -3873,8 +3873,10 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 	if err != nil {
 		return nil, httperrors.NewBadRequestError(err.Error())
 	}
-	// if self.GetHypervisor() == HYPERVISOR_ALIYUN && strings.HasPrefix(name, "auto") {
-	// }
+	err = ValidateSnapshotName(self.Hypervisor, name)
+	if err != nil {
+		return nil, httperrors.NewBadRequestError(err.Error())
+	}
 	if self.GetGuestDisk(diskId) == nil {
 		return nil, httperrors.NewNotFoundError("Guest disk %s not found", diskId)
 	}

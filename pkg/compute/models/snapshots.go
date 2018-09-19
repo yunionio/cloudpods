@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -54,6 +55,21 @@ var SnapshotManager *SSnapshotManager
 
 func init() {
 	SnapshotManager = &SSnapshotManager{SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(SSnapshot{}, "snapshots_tbl", "snapshot", "snapshots")}
+}
+
+func ValidateSnapshotName(hypervisor, name string) error {
+	if !('A' <= name[0] && name[0] <= 'Z' || 'a' <= name[0] && name[0] <= 'z') {
+		return fmt.Errorf("Name must start with letter")
+	}
+	if len(name) < 2 || len(name) > 128 {
+		return fmt.Errorf("Snapshot name length must within 2~128")
+	}
+	if hypervisor == HYPERVISOR_ALIYUN {
+		if strings.HasPrefix(name, "auto") || strings.HasPrefix(name, "http://") || strings.HasPrefix(name, "https://") {
+			return fmt.Errorf("Snapshot name can't start with auto, http:// or https://")
+		}
+	}
+	return nil
 }
 
 func (self *SSnapshot) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
