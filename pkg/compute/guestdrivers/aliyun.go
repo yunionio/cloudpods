@@ -17,7 +17,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
-	"yunion.io/x/pkg/util/secrules"
 )
 
 type SAliyunGuestDriver struct {
@@ -69,76 +68,15 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 	return data, nil
 }
 
-type SAliyunVMCreateConfig struct {
-	Name              string
-	ExternalImageId   string
-	OsDistribution    string
-	OsVersion         string
-	Cpu               int
-	Memory            int
-	ExternalNetworkId string
-	IpAddr            string
-	Description       string
-	StorageType       string
-	SysDiskSize       int
-	DataDisks         []int
-	PublicKey         string
-	SecGroupId        string
-	SecGroupName      string
-	SecRules          []secrules.SecurityRule
-}
-
-func (self *SAliyunGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
-	config := SAliyunVMCreateConfig{}
-	config.Name = guest.Name
-	config.Cpu = int(guest.VcpuCount)
-	config.Memory = guest.VmemSize
-	config.Description = guest.Description
-
-	if len(guest.KeypairId) > 0 {
-		config.PublicKey = guest.GetKeypairPublicKey()
-	}
-
-	nics := guest.GetNetworks()
-	net := nics[0].GetNetwork()
-	config.ExternalNetworkId = net.ExternalId
-	config.IpAddr = nics[0].IpAddr
-
-	config.SecGroupId = guest.SecgrpId
-	config.SecGroupName = guest.GetSecgroupName()
-	config.SecRules = guest.GetSecRules()
-
-	disks := guest.GetDisks()
-	config.DataDisks = make([]int, len(disks)-1)
-
-	for i := 0; i < len(disks); i += 1 {
-		disk := disks[i].GetDisk()
-		if i == 0 {
-			storage := disk.GetStorage()
-			config.StorageType = storage.StorageType
-			cache := storage.GetStoragecache()
-			imageId := disk.GetTemplateId()
-			scimg := models.StoragecachedimageManager.GetStoragecachedimage(cache.Id, imageId)
-			config.ExternalImageId = scimg.ExternalId
-			img := scimg.GetCachedimage()
-			config.OsDistribution, _ = img.Info.GetString("properties", "os_distribution")
-			config.OsVersion, _ = img.Info.GetString("properties", "os_version")
-
-			config.SysDiskSize = disk.DiskSize / 1024 // MB => GB
-		} else {
-			config.DataDisks[i-1] = disk.DiskSize / 1024 // MB => GB
-		}
-	}
-	return jsonutils.Marshal(&config)
-}
-
 type SDiskInfo struct {
+	DiskType string
 	Size     int
 	Uuid     string
+
 	Metadata map[string]string
 }
 
-func fetchIVMinfo(desc SAliyunVMCreateConfig, iVM cloudprovider.ICloudVM, guestId string, passwd string) *jsonutils.JSONDict {
+func fetchIVMinfo(desc SManagedVMCreateConfig, iVM cloudprovider.ICloudVM, guestId string, passwd string) *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 
 	data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
@@ -169,6 +107,7 @@ func fetchIVMinfo(desc SAliyunVMCreateConfig, iVM cloudprovider.ICloudVM, guestI
 			dinfo := SDiskInfo{}
 			dinfo.Uuid = idisks[i].GetGlobalId()
 			dinfo.Size = idisks[i].GetDiskSizeMB()
+			dinfo.DiskType = idisks[i].GetDiskType()
 			if metaData := idisks[i].GetMetadata(); metaData != nil {
 				dinfo.Metadata = make(map[string]string, 0)
 				if err := metaData.Unmarshal(dinfo.Metadata); err != nil {
@@ -212,7 +151,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		return err
 	}
 
-	desc := SAliyunVMCreateConfig{}
+	desc := SManagedVMCreateConfig{}
 	err = config.Unmarshal(&desc, "desc")
 	if err != nil {
 		return err
@@ -341,10 +280,10 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		//}
 
 		/*
-		publicKey := ""
-		if k, e := config.GetString("public_key"); e == nil {
-			publicKey = k
-		}*/
+			publicKey := ""
+			if k, e := config.GetString("public_key"); e == nil {
+				publicKey = k
+			}*/
 
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 
@@ -356,18 +295,18 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
 
 			/*
-			data := jsonutils.NewDict()
+				data := jsonutils.NewDict()
 
-			if len(passwd) > 0 {
-				encpasswd, err := utils.EncryptAESBase64(guest.Id, passwd)
-				if err != nil {
-					log.Errorf("encrypt password failed %s", err)
-				}
+				if len(passwd) > 0 {
+					encpasswd, err := utils.EncryptAESBase64(guest.Id, passwd)
+					if err != nil {
+						log.Errorf("encrypt password failed %s", err)
+					}
 
 
-				data.Add(jsonutils.NewString("root"), "account") // 用户名
-				data.Add(jsonutils.NewString(encpasswd), "key")  // 密码
-			}*/
+					data.Add(jsonutils.NewString("root"), "account") // 用户名
+					data.Add(jsonutils.NewString(encpasswd), "key")  // 密码
+				}*/
 
 			return data, nil
 		})
@@ -402,13 +341,13 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 					log.Errorf("fail to find VM idisks %s", err)
 					return nil, err
 				}
-				if len(idisks) < len(desc.DataDisks) + 1 {
+				if len(idisks) < len(desc.DataDisks)+1 {
 					if waited > maxWaitSecs {
 						log.Errorf("inconsistent disk number, wait timeout, must be something wrong on remote")
 						return nil, cloudprovider.ErrTimeout
 					}
 					log.Debugf("inconsistent disk number???? %d != %d", len(idisks), len(desc.DataDisks)+1)
-					time.Sleep(time.Second*5)
+					time.Sleep(time.Second * 5)
 					waited += 5
 				} else {
 					if idisks[0].GetGlobalId() != diskId {
@@ -452,6 +391,7 @@ func (self *SAliyunGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Contex
 			_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
 				disk.DiskSize = diskInfo[i].Size
 				disk.ExternalId = diskInfo[i].Uuid
+				disk.DiskType = diskInfo[i].DiskType
 				disk.Status = models.DISK_READY
 				if len(diskInfo[i].Metadata) > 0 {
 					for key, value := range diskInfo[i].Metadata {
