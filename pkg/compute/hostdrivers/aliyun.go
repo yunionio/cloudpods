@@ -6,11 +6,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 
 type SAliyunHostDriver struct {
@@ -36,7 +36,6 @@ func (self *SAliyunHostDriver) CheckAndSetCacheImage(ctx context.Context, host *
 	osArch, _ := params.GetString("os_arch")
 	osType, _ := params.GetString("os_type")
 	osDist, _ := params.GetString("os_distribution")
-
 
 	isForce := jsonutils.QueryBoolean(params, "is_force", false)
 	userCred := task.GetUserCred()
@@ -187,5 +186,21 @@ func (self *SAliyunHostDriver) RequestResizeDiskOnHost(host *models.SHost, stora
 	} else {
 		task.ScheduleRun(jsonutils.Marshal(map[string]int64{"disk_size": size}))
 	}
+	return nil
+}
+
+func (self *SAliyunHostDriver) RequestResetDisk(ctx context.Context, host *models.SHost, disk *models.SDisk, params *jsonutils.JSONDict, task taskman.ITask) error {
+	iDisk, err := disk.GetIDisk()
+	if err != nil {
+		return err
+	}
+	snapshotId, err := params.GetString("snapshot_id")
+	if err != nil {
+		return err
+	}
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		err := iDisk.Reset(snapshotId)
+		return nil, err
+	})
 	return nil
 }
