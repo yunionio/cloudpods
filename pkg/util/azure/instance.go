@@ -637,13 +637,6 @@ func (self *SInstance) DeleteVM() error {
 	if err := self.host.zone.region.DeleteVM(self.ID); err != nil {
 		return err
 	}
-	// if osDisk, err := self.getOsDisk(); err != nil {
-	// 	return err
-	// } else if err := osDisk.Delete(); err != nil {
-	// 	if err != cloudprovider.ErrNotFound {
-	// 		return err
-	// 	}
-	// }
 	if nics, err := self.getNics(); err != nil {
 		return err
 	} else {

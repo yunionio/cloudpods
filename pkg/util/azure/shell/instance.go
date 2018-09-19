@@ -21,6 +21,20 @@ func init() {
 		}
 	})
 
+	type InstanceSizeListOptions struct {
+		Limit  int `help:"page size"`
+		Offset int `help:"page offset"`
+	}
+
+	shellutils.R(&InstanceSizeListOptions{}, "instance-size-list", "List intances", func(cli *azure.SRegion, args *InstanceSizeListOptions) error {
+		if vmSize, err := cli.GetVMSize(); err != nil {
+			return err
+		} else {
+			printObject(vmSize)
+			return nil
+		}
+	})
+
 	type InstanceCrateOptions struct {
 		NAME      string `help:"name of instance"`
 		IMAGE     string `help:"image ID"`
@@ -107,5 +121,14 @@ func init() {
 
 	shellutils.R(&InstanceDeployOptions{}, "instance-reset-password", "Reset intance password", func(cli *azure.SRegion, args *InstanceDeployOptions) error {
 		return cli.DeployVM(args.ID, "", args.Password, args.PublicKey, false, "")
+	})
+
+	type InstanceSecurityGroupOptions struct {
+		ID            string `help:"Instance ID"`
+		SecurityGroup string `help:"Security Group ID or Name"`
+	}
+
+	shellutils.R(&InstanceSecurityGroupOptions{}, "instance-assign-secgrp", "Attach a disk to intance", func(cli *azure.SRegion, args *InstanceSecurityGroupOptions) error {
+		return cli.AssiginSecurityGroup(args.ID, args.SecurityGroup)
 	})
 }

@@ -32,13 +32,12 @@ type SRegion struct {
 
 	storageCache *SStoragecache
 
-	vmSize         map[string]SVMSize
 	ID             string
 	SubscriptionID string
 	Name           string
 	DisplayName    string
-	Latitude       string
-	Longitude      string
+	Latitude       float32
+	Longitude      float32
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -51,44 +50,43 @@ func (self *SRegion) GetClient() *SAzureClient {
 	return self.client
 }
 
-func (self *SRegion) fetchVMSize() error {
+func (self *SRegion) GetVMSize() (map[string]SVMSize, error) {
 	computeClient := compute.NewVirtualMachineSizesClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
 	computeClient.Authorizer = self.client.authorizer
 	if vmSizeList, err := computeClient.List(context.Background(), self.Name); err != nil {
-		return err
+		return nil, err
 	} else {
-		self.vmSize = make(map[string]SVMSize, len(*vmSizeList.Value))
+		vmSizes := make(map[string]SVMSize, len(*vmSizeList.Value))
 		for _, _vmSize := range *vmSizeList.Value {
 			vmSize := SVMSize{}
-			jsonutils.Update(&vmSize, _vmSize)
-			self.vmSize[*_vmSize.Name] = vmSize
+			if err := jsonutils.Update(&vmSize, _vmSize); err != nil {
+				return nil, err
+			} else {
+				vmSizes[*_vmSize.Name] = vmSize
+			}
 		}
+		return vmSizes, nil
 	}
-	return nil
 }
 
 func (self *SRegion) getHardwareProfile(cpu, memMB int) []string {
-	if self.vmSize == nil || len(self.vmSize) == 0 {
-		if err := self.fetchVMSize(); err != nil {
-			return []string{}
+	if vmSizes, err := self.GetVMSize(); err != nil {
+		return []string{}
+	} else {
+		profiles := make([]string, 0)
+		for vmSize, info := range vmSizes {
+			if info.MemoryInMB == int32(memMB) && info.NumberOfCores == int32(cpu) {
+				profiles = append(profiles, vmSize)
+			}
 		}
+		return profiles
 	}
-	profiles := make([]string, 0)
-	for vmSize, info := range self.vmSize {
-		if info.MemoryInMB == int32(memMB) && info.NumberOfCores == int32(cpu) {
-			profiles = append(profiles, vmSize)
-		}
-	}
-	return profiles
 }
 
 func (self *SRegion) getVMSize(size string) (*SVMSize, error) {
-	if self.vmSize == nil || len(self.vmSize) == 0 {
-		if err := self.fetchVMSize(); err != nil {
-			return nil, err
-		}
-	}
-	if vmSize, ok := self.vmSize[size]; !ok {
+	if vmSizes, err := self.GetVMSize(); err != nil {
+		return nil, err
+	} else if vmSize, ok := vmSizes[size]; !ok {
 		return nil, cloudprovider.ErrNotFound
 	} else {
 		return &vmSize, nil
@@ -120,11 +118,11 @@ func (self *SRegion) GetProvider() string {
 }
 
 func (self *SRegion) GetLatitude() float32 {
-	return 0.0
+	return self.Latitude
 }
 
 func (self *SRegion) GetLongitude() float32 {
-	return 0.0
+	return self.Longitude
 }
 
 func (self *SRegion) GetStatus() string {

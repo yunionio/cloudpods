@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
@@ -74,6 +73,7 @@ func (v SecurityRulesSet) Less(i, j int) bool {
 }
 
 type Interface struct {
+	ID string
 }
 
 type SecurityGroupPropertiesFormat struct {
@@ -375,13 +375,64 @@ func (region *SRegion) updateSecurityGroupRules(secgroupId string, rules []secru
 			SecurityRules: &securityRules,
 		},
 	}
-	log.Debugf("Update SecurityGroup rules: %s", jsonutils.Marshal(params).PrettyString())
+	//log.Debugf("Update SecurityGroup rules: %s", jsonutils.Marshal(params).PrettyString())
 	if result, err := secClient.CreateOrUpdate(context.Background(), resourceGroup, secName, params); err != nil {
 		return "", err
 	} else if err := result.WaitForCompletion(context.Background(), secClient.Client); err != nil {
 		return "", err
 	}
 	return secgroupId, nil
+}
+
+func (region *SRegion) AttachSecurityToInterfaces(secgroupId string, nicIds []string) error {
+	_, resourceGroup, secName := pareResourceGroupWithName(secgroupId, SECGRP_RESOURCE)
+	if secgroup, err := region.GetSecurityGroupDetails(secgroupId); err != nil {
+		return err
+	} else {
+		networkInterfaces := []network.Interface{}
+		interfaceIds := []string{}
+		for i := 0; i < len(secgroup.Properties.NetworkInterfaces); i++ {
+			networkInterfaces = append(networkInterfaces, network.Interface{
+				ID: &secgroup.Properties.NetworkInterfaces[i].ID,
+			})
+			interfaceIds = append(interfaceIds, secgroup.Properties.NetworkInterfaces[i].ID)
+		}
+		for _, nicId := range nicIds {
+			if nic, err := region.GetNetworkInterfaceDetail(nicId); err != nil {
+				return err
+			} else if !utils.IsInStringArray(nic.ID, interfaceIds) {
+				networkInterfaces = append(networkInterfaces, network.Interface{
+					ID: &nic.ID,
+				})
+			}
+		}
+		secClient := network.NewSecurityGroupsClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
+		secClient.Authorizer = region.client.authorizer
+		params := network.SecurityGroup{
+			Location: &secgroup.Location,
+			SecurityGroupPropertiesFormat: &network.SecurityGroupPropertiesFormat{
+				NetworkInterfaces: &networkInterfaces,
+			},
+		}
+		if result, err := secClient.CreateOrUpdate(context.Background(), resourceGroup, secName, params); err != nil {
+			return err
+		} else if err := result.WaitForCompletion(context.Background(), secClient.Client); err != nil {
+			return err
+		}
+		return nil
+	}
+}
+
+func (region *SRegion) AssiginSecurityGroup(instanceId, secgroupId string) error {
+	if instance, err := region.GetInstance(instanceId); err != nil {
+		return err
+	} else {
+		nicIds := []string{}
+		for _, nic := range instance.Properties.NetworkProfile.NetworkInterfaces {
+			nicIds = append(nicIds, nic.ID)
+		}
+		return region.AttachSecurityToInterfaces(secgroupId, nicIds)
+	}
 }
 
 func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.SecurityRule) (string, error) {
@@ -427,10 +478,8 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Secur
 
 func (self *SRegion) syncSecurityGroup(secgroupId, name string, rules []secrules.SecurityRule) (string, error) {
 	if secgroup, err := self.checkSecurityGroup(name, secgroupId); err != nil {
-		log.Errorf("check err: %v", err)
 		return "", err
 	} else {
-
 		return self.syncSecgroupRules(secgroup.ID, rules)
 	}
 }

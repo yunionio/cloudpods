@@ -111,7 +111,6 @@ func (self *SNetwork) GetIpStart() string {
 }
 
 func (self *SNetwork) GetIsPublic() bool {
-	// return self.IsDefault
 	return true
 }
 

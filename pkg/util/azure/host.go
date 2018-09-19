@@ -151,7 +151,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 	}
 
 	params := compute.VirtualMachine{Location: &self.zone.region.Name, Name: &name, VirtualMachineProperties: &properties}
-	log.Debugf("Create instance params: %s", jsonutils.Marshal(params).PrettyString())
+	//log.Debugf("Create instance params: %s", jsonutils.Marshal(params).PrettyString())
 	for _, profile := range self.zone.region.getHardwareProfile(cpu, memMB) {
 		params.HardwareProfile.VMSize = compute.VirtualMachineSizeTypes(profile)
 		log.Debugf("Try HardwareProfile : %s", profile)

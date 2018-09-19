@@ -93,13 +93,10 @@ func (self *SImage) GetStatus() string {
 	switch self.Properties.ProvisioningState {
 	case "created":
 		return models.IMAGE_STATUS_QUEUED
-	// case ImageStatusAvailable:
-	// 	return models.IMAGE_STATUS_ACTIVE
-	// case ImageStatusUnAvailable:
-	// 	return models.IMAGE_STATUS_DELETED
-	// case ImageStatusCreateFailed:
-	// 	return models.IMAGE_STATUS_KILLED
+	case "Succeeded":
+		return models.IMAGE_STATUS_ACTIVE
 	default:
+		log.Errorf("Unknow image status: %s", self.Properties.ProvisioningState)
 		return models.IMAGE_STATUS_KILLED
 	}
 }

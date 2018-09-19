@@ -106,8 +106,8 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		if !strings.HasSuffix(imageNameOnBlob, ".vhd") {
 			imageNameOnBlob = fmt.Sprintf("%s.vhd", imageNameOnBlob)
 		}
-		tmpFile := fmt.Sprintf("/tmp/%s", imageNameOnBlob)
-
+		tmpFile := fmt.Sprintf("/opt/cloud/workspace/data/glance/image-cache/%s", imageNameOnBlob)
+		defer os.Remove(tmpFile)
 		f, err := os.Create(tmpFile)
 		if err != nil {
 			return "", err
@@ -129,7 +129,6 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		size, _ := meta.Int("size")
 
 		blobURI, err := self.region.UploadVHD(storageAccount, DefaultContainer, tmpFile)
-		os.Remove(tmpFile)
 		if err != nil {
 			log.Errorf("uploadContainerFileByPath error: %v", err)
 			return "", err

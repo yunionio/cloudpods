@@ -178,7 +178,9 @@ func (self *SRegion) GetDisks() ([]SDisk, error) {
 }
 
 func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
-	return nil
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewString(models.HYPERVISOR_AZURE), "hypervisor")
+	return data
 }
 
 func (self *SDisk) GetStatus() string {

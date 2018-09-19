@@ -130,10 +130,7 @@ func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 }
 
 func (self *SEipAddress) Associate(instanceId string) error {
-	if err := self.region.AssociateEip(self.ID, instanceId); err != nil {
-		return err
-	}
-	return nil
+	return self.region.AssociateEip(self.ID, instanceId)
 }
 
 func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
@@ -162,12 +159,12 @@ func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
 			params := network.Interface{
 				Location: &region.Name,
 				InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
-					IPConfigurations:     &InterfaceIPConfiguration,
-					NetworkSecurityGroup: &network.SecurityGroup{},
+					IPConfigurations: &InterfaceIPConfiguration,
 				},
 			}
 			if len(nic.Properties.NetworkSecurityGroup.ID) > 0 {
-				params.InterfacePropertiesFormat.NetworkSecurityGroup.ID = &nic.Properties.NetworkSecurityGroup.ID
+				networkSecurityGroup := network.SecurityGroup{ID: &nic.Properties.NetworkSecurityGroup.ID}
+				params.InterfacePropertiesFormat.NetworkSecurityGroup = &networkSecurityGroup
 			}
 			_, resourceGroup, nicName := pareResourceGroupWithName(nic.ID, NIC_RESOURCE)
 			if result, err := interfaceClinet.CreateOrUpdate(context.Background(), resourceGroup, nicName, params); err != nil {
@@ -190,7 +187,7 @@ func (region *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error
 }
 
 func (self *SEipAddress) ChangeBandwidth(bw int) error {
-	return cloudprovider.ErrNotImplemented
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SEipAddress) Delete() error {
