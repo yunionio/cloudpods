@@ -228,8 +228,10 @@ func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCre
 					continue
 				}
 			}
-			if metadata := added[i].GetMetadata(); metadata == nil || !metadata.Contains("id") {
-				if rules, err := added[i].GetRules(); err != nil {
+			if rules, err := added[i].GetRules(); err != nil {
+				syncResult.AddError(err)
+			} else if len(rules) > 0 {
+				if new, err := manager.newFromCloudVpc(added[i]); err != nil {
 					syncResult.AddError(err)
 				} else if len(rules) > 0 {
 					if new, err := manager.newFromCloudVpc(added[i]); err != nil {

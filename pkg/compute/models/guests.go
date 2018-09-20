@@ -229,6 +229,15 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.Equals("host_id", host.GetId())
 	}
 
+	secgrpFilter, _ := queryDict.GetString("secgroup")
+	if len(secgrpFilter) > 0 {
+		secgrp, _ := SecurityGroupManager.FetchByIdOrName("", secgrpFilter)
+		if secgrp == nil {
+			return nil, httperrors.NewResourceNotFoundError("secgroup %s not found", secgrpFilter)
+		}
+		q = q.Equals("secgrp_id", secgrp.GetId())
+	}
+
 	zoneFilter, _ := queryDict.GetString("zone")
 	if len(zoneFilter) > 0 {
 		zone, _ := ZoneManager.FetchByIdOrName("", zoneFilter)
