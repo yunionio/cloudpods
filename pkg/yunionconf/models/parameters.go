@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -24,13 +25,13 @@ type SParameterManager struct {
 type SParameter struct {
 	db.SResourceBase
 
-	Id          int64  `primary:"true" auto_increment:"true" list:"user"`                                          // = Column(BigInteger, primary_key=True)
-	CreatedBy   string `width:"128" charset:"ascii" nullable:"false" create:"required" list:"user"`                // Column(VARCHAR(length=128, charset='ascii'), nullable=False)
-	UpdatedBy   string `width:"128" charset:"ascii" nullable:"false" create:"required" update:"user" list:"user"`  // Column(VARCHAR(length=128, charset='ascii'), nullable=False)  "user"/ serviceName/ "admin"
-	Namespace   string `width:"64" charset:"ascii" default:"user" nullable:"false" create:"required" list:"admin"` // Column(VARCHAR(length=128, charset='ascii'), nullable=False)  user_id / serviceid
-	NamespaceId string `width:"128" charset:"ascii" nullable:"false" index:"true" create:"required" list:"admin"`  // Column(VARCHAR(length=128, charset='ascii'), nullable=False)
-	Name        string `width:"128" charset:"ascii" nullable:"false" index:"true" create:"required" list:"user"`   // Column(VARCHAR(length=128, charset='ascii'), nullable=false)
-	Value       string `charset:"utf8" create:"required" update:"user" update:"user" list:"user"`                  // Column(VARCHAR(charset='utf-8'))
+	Id          int64                `primary:"true" auto_increment:"true" list:"user"`                                          // = Column(BigInteger, primary_key=True)
+	CreatedBy   string               `width:"128" charset:"ascii" nullable:"false" create:"required" list:"user"`                // Column(VARCHAR(length=128, charset='ascii'), nullable=False)
+	UpdatedBy   string               `width:"128" charset:"ascii" nullable:"false" create:"required" update:"user" list:"user"`  // Column(VARCHAR(length=128, charset='ascii'), nullable=False)  "user"/ serviceName/ "admin"
+	Namespace   string               `width:"64" charset:"ascii" default:"user" nullable:"false" create:"required" list:"admin"` // Column(VARCHAR(length=128, charset='ascii'), nullable=False)  user_id / serviceid
+	NamespaceId string               `width:"128" charset:"ascii" nullable:"false" index:"true" create:"required" list:"admin"`  // Column(VARCHAR(length=128, charset='ascii'), nullable=False)
+	Name        string               `width:"128" charset:"ascii" nullable:"false" index:"true" create:"required" list:"user"`   // Column(VARCHAR(length=128, charset='ascii'), nullable=false)
+	Value       jsonutils.JSONObject `charset:"utf8" create:"required" update:"user" update:"user" list:"user"`                  // Column(VARCHAR(charset='utf-8'))
 }
 
 var ParameterManager *SParameterManager
