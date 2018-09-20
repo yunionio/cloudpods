@@ -1587,12 +1587,17 @@ func (self *SHost) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 	}
 	netifs := self.GetNetInterfaces()
 	if netifs != nil && len(netifs) > 0 {
-		info := make([]jsonutils.JSONObject, len(netifs))
+		nicInfos := []jsonutils.JSONObject{}
 		for i := 0; i < len(netifs); i += 1 {
-			info[i] = netifs[i].getBaremetalJsonDesc()
+			nicInfo := netifs[i].getBaremetalJsonDesc()
+			if nicInfo == nil {
+				log.Errorf("netif %s get baremetal desc failed", netifs[i].GetId())
+				continue
+			}
+			nicInfos = append(nicInfos, nicInfo)
 		}
-		extra.Add(jsonutils.NewInt(int64(len(netifs))), "nic_count")
-		extra.Add(jsonutils.NewArray(info...), "nic_info")
+		extra.Add(jsonutils.NewInt(int64(len(nicInfos))), "nic_count")
+		extra.Add(jsonutils.NewArray(nicInfos...), "nic_info")
 	}
 	schedtags := self.getSchedtags()
 	if schedtags != nil && len(schedtags) > 0 {
