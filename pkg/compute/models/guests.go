@@ -1026,8 +1026,12 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 		}
 
 		host := self.GetHost()
-		if host != nil && len(host.ManagerId) > 0 {
-			extra.Add(jsonutils.NewString(host.ManagerId), "manager_id")
+		if host != nil {
+			provider := host.GetCloudprovider()
+			if provider != nil {
+				extra.Add(jsonutils.NewString(host.ManagerId), "manager_id")
+				extra.Add(jsonutils.NewString(provider.GetName()), "manager")
+			}
 		}
 	}
 	return extra
