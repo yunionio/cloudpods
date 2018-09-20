@@ -46,6 +46,15 @@ type SPermissions struct {
 	Permission []SPermission
 }
 
+type Tags struct {
+	Tag []Tag
+}
+
+type Tag struct {
+	TagKey   string
+	TagValue string
+}
+
 type SSecurityGroup struct {
 	vpc               *SVpc
 	CreationTime      time.Time
@@ -56,6 +65,7 @@ type SSecurityGroup struct {
 	InnerAccessPolicy string
 	Permissions       SPermissions
 	RegionId          string
+	Tags              Tags
 }
 
 type PermissionSet []SPermission
@@ -78,7 +88,14 @@ func (v PermissionSet) Less(i, j int) bool {
 }
 
 func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
-	return nil
+	if len(self.Tags.Tag) == 0 {
+		return nil
+	}
+	data := jsonutils.NewDict()
+	for _, value := range self.Tags.Tag {
+		data.Add(jsonutils.NewString(value.TagValue), value.TagKey)
+	}
+	return data
 }
 
 func (self *SSecurityGroup) GetId() string {
