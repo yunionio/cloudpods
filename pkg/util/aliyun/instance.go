@@ -163,6 +163,12 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 			data.Update(meta)
 		}
 	}
+	for _, secgroupId := range self.SecurityGroupIds.SecurityGroupId {
+		if len(secgroupId) > 0 {
+			data.Add(jsonutils.NewString(secgroupId), "secgroupId")
+			break
+		}
+	}
 
 	return data
 }
@@ -314,8 +320,8 @@ func (self *SInstance) GetHypervisor() string {
 }
 
 func (self *SInstance) StartVM() error {
-	timeout := 300*time.Second
-	interval := 15*time.Second
+	timeout := 300 * time.Second
+	interval := 15 * time.Second
 
 	startTime := time.Now()
 	for time.Now().Sub(startTime) < timeout {

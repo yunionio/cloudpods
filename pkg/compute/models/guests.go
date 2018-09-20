@@ -223,6 +223,15 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.Equals("host_id", host.GetId())
 	}
 
+	secgrpFilter, _ := queryDict.GetString("secgroup")
+	if len(secgrpFilter) > 0 {
+		secgrp, _ := SecurityGroupManager.FetchByIdOrName("", secgrpFilter)
+		if secgrp == nil {
+			return nil, httperrors.NewResourceNotFoundError("secgroup %s not found", secgrpFilter)
+		}
+		q = q.Equals("secgrp_id", secgrp.GetId())
+	}
+
 	zoneFilter, _ := queryDict.GetString("zone")
 	if len(zoneFilter) > 0 {
 		zone, _ := ZoneManager.FetchByIdOrName("", zoneFilter)
@@ -1307,6 +1316,7 @@ func (self *SGuest) GetIsolatedDevices() []SIsolatedDevice {
 }
 
 func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, extVM cloudprovider.ICloudVM) error {
+	metaData := extVM.GetMetadata()
 	diff, err := GuestManager.TableSpec().Update(self, func() error {
 		extVM.Refresh()
 		self.Name = extVM.GetName()
@@ -1328,6 +1338,16 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		self.BillingType = extVM.GetBillingType()
 		self.ExpiredAt = extVM.GetExpiredAt()
 
+		if metaData != nil && metaData.Contains("secgroupId") {
+			if secgroupId, err := metaData.GetString("secgroupId"); err == nil && len(secgroupId) > 0 {
+				if secgrp, err := SecurityGroupManager.FetchByExternalId(secgroupId); err == nil && secgrp != nil {
+					self.SecgrpId = secgrp.GetId()
+				} else {
+					log.Errorf("Failed find secgroup %s for guest %s error: %v", secgroupId, self.Name, err)
+				}
+			}
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -1340,9 +1360,9 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			db.OpsLog.LogEvent(self, db.ACT_UPDATE, diffStr, userCred)
 		}
 	}
-	if metaData := extVM.GetMetadata(); metaData != nil {
+	if metaData != nil {
 		meta := make(map[string]string, 0)
-		if metaData.Unmarshal(meta); err != nil {
+		if err := metaData.Unmarshal(meta); err != nil {
 			log.Errorf("Get VM Metadata error: %v", err)
 		} else {
 			for key, value := range meta {
@@ -1381,12 +1401,24 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.HostId = host.Id
 	guest.ProjectId = userCred.GetProjectId()
 
+	metaData := extVM.GetMetadata()
+
+	if metaData != nil && metaData.Contains("secgroupId") {
+		if secgroupId, err := metaData.GetString("secgroupId"); err == nil && len(secgroupId) > 0 {
+			if secgrp, err := SecurityGroupManager.FetchByExternalId(secgroupId); err == nil && secgrp != nil {
+				guest.SecgrpId = secgrp.GetId()
+			} else {
+				log.Errorf("Failed find secgroup %s for guest %s error: %v", secgroupId, guest.Name, err)
+			}
+		}
+	}
+
 	err := manager.TableSpec().Insert(&guest)
 	if err != nil {
 		log.Errorf("Insert fail %s", err)
 	}
 
-	if metaData := extVM.GetMetadata(); metaData != nil {
+	if metaData != nil {
 		meta := make(map[string]string, 0)
 		if err := metaData.Unmarshal(meta); err != nil {
 			log.Errorf("Get VM Metadata error: %v", err)

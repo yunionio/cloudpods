@@ -2,9 +2,9 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"strings"
 	"time"
-	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -222,6 +222,12 @@ func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCre
 		}
 
 		for i := 0; i < len(added); i += 1 {
+			if metadata := added[i].GetMetadata(); metadata != nil && metadata.Contains("id") {
+				secgroupId, _ := metadata.GetString("id")
+				if secgrp, _ := manager.FetchById(secgroupId); secgrp != nil {
+					continue
+				}
+			}
 			if rules, err := added[i].GetRules(); err != nil {
 				syncResult.AddError(err)
 			} else if len(rules) > 0 {
