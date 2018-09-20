@@ -57,7 +57,7 @@ type SStoragecachedimage struct {
 	StoragecacheId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required" key_index:"true"`
 	CachedimageId  string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required" key_index:"true"`
 
-	ExternalId string `width:"64" charset:"ascii" nullable:"false" get:"admin"`
+	ExternalId string `width:"256" charset:"ascii" nullable:"false" get:"admin"`
 
 	Status         string    `width:"32" charset:"ascii" nullable:"false" default:"init" list:"admin" update:"admin" create:"admin_required"` // = Column(VARCHAR(32, charset='ascii'), nullable=False,
 	Path           string    `width:"256" charset:"utf8" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`                 // = Column(VARCHAR(256, charset='utf8'), nullable=True)

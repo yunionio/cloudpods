@@ -1,17 +1,17 @@
 package db
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 	"reflect"
 
-	"yunion.io/x/log"
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/sqlchemy"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/reflectutils"
+	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SVirtualJointResourceBase struct {

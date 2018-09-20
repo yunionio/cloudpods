@@ -11,7 +11,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
-
 type EipSyncstatusTask struct {
 	taskman.STask
 }

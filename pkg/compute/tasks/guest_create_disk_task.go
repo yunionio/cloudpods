@@ -6,10 +6,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/log"
 )
 
 type GuestCreateDiskTask struct {
@@ -119,16 +119,16 @@ func (self *KVMGuestCreateDiskTask) OnConfigSyncComplete(ctx context.Context, ob
 	self.SetStageComplete(ctx, nil)
 }
 
-type AliyunGuestCreateDiskTask struct {
+type ManagedGuestCreateDiskTask struct {
 	SGuestBaseTask
 }
 
-func (self *AliyunGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	self.SetStage("on_aliyun_disk_prepared", nil)
-	self.OnAliyunDiskPrepared(ctx, obj, data)
+func (self *ManagedGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.SetStage("on_managed_disk_prepared", nil)
+	self.OnManagedDiskPrepared(ctx, obj, data)
 }
 
-func (self *AliyunGuestCreateDiskTask) OnAliyunDiskPrepared(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	var diskIndex = 0
 	var diskReady = true
 	for {
@@ -218,16 +218,16 @@ func (self *AliyunGuestCreateDiskTask) OnAliyunDiskPrepared(ctx context.Context,
 	}
 }
 
-func (self *AliyunGuestCreateDiskTask) OnConfigSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (self *ManagedGuestCreateDiskTask) OnConfigSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *AliyunGuestCreateDiskTask) AttachAliyunDisks(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (self *ManagedGuestCreateDiskTask) AttachManagedDisks(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
 }
 
 func init() {
 	taskman.RegisterTask(GuestCreateDiskTask{})
 	taskman.RegisterTask(KVMGuestCreateDiskTask{})
-	taskman.RegisterTask(AliyunGuestCreateDiskTask{})
+	taskman.RegisterTask(ManagedGuestCreateDiskTask{})
 }

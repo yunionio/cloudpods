@@ -155,13 +155,12 @@ type ImageImportTask struct {
 	TaskId string
 }
 
-
 func (self *SRegion) ImportImage(name string, osArch string, osType string, osDist string, bucket string, key string) (*ImageImportTask, error) {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["ImageName"] = name
-	params["Platform"] =  osDist // "Others Linux"
-	params["OSType"] = osType // "linux"
+	params["Platform"] = osDist     // "Others Linux"
+	params["OSType"] = osType       // "linux"
 	params["Architecture"] = osArch // "x86_64"
 	params["DiskDeviceMapping.1.OSSBucket"] = bucket
 	params["DiskDeviceMapping.1.OSSObject"] = key

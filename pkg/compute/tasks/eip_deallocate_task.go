@@ -1,8 +1,8 @@
 package tasks
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -33,7 +33,7 @@ func (self *EipDeallocateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 				self.SetStageFailed(ctx, msg)
 				return
 			}
-		}else {
+		} else {
 			err = expEip.Delete()
 			if err != nil {
 				msg := fmt.Sprintf("fail to delete iEIP %s", err)

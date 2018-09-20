@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"yunion.io/x/log"
 	"runtime/debug"
+	"yunion.io/x/log"
 )
 
 const (
@@ -42,7 +42,7 @@ func (rec *SInMemoryLockRecord) lockContext(ctx context.Context) {
 	}
 
 	if debug_log {
-		log.Debugf("rec.hold=[%p] ctx=[%p] %v", rec.holder, ctx, rec.holder==ctx)
+		log.Debugf("rec.hold=[%p] ctx=[%p] %v", rec.holder, ctx, rec.holder == ctx)
 	}
 
 	if rec.holder == ctx {

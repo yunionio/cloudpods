@@ -46,7 +46,7 @@ type ICloudRegion interface {
 
 	CreateIVpc(name string, desc string, cidr string) (ICloudVpc, error)
 
-	CreateEIP(bwMbps int, chargeType string) (ICloudEIP, error)
+	CreateEIP(name string, bwMbps int, chargeType string) (ICloudEIP, error)
 
 	GetIEipById(id string) (ICloudEIP, error)
 
@@ -79,7 +79,7 @@ type ICloudStoragecache interface {
 
 	GetManagerId() string
 
-	CreateIImage(snapshotId, imageName, imageDesc string) (ICloudImage, error)
+	CreateIImage(snapshotId, imageName, osType, imageDesc string) (ICloudImage, error)
 
 	DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error)
 

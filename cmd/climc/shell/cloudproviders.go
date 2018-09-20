@@ -33,10 +33,10 @@ func init() {
 
 	type CloudproviderCreateOptions struct {
 		NAME      string `help:"Name of cloud provider"`
-		ACCOUNT   string `help:"Account to access the cloud provider"`
-		SECRET    string `help:"Secret to access the cloud provider"`
-		PROVIDER  string `help:"Driver for cloud provider" choices:"VMware|Aliyun"`
-		AccessUrl string `help:"Access url"`
+		ACCOUNT   string `help:"Account to access the cloud provider, tenantId/subscriptionId for Azure"`
+		SECRET    string `help:"Secret to access the cloud provider, clientId/clientScret for Azure"`
+		PROVIDER  string `help:"Driver for cloud provider" choices:"VMware|Aliyun|Azure"`
+		AccessURL string `helo:"hello" metavar:"Azure choices: <AzureGermanCloud、AzureChinaCloud、AzureUSGovernmentCloud、AzurePublicCloud>"`
 		Desc      string `help:"Description"`
 		Enabled   bool   `help:"Enabled the provider automatically"`
 	}
@@ -49,8 +49,8 @@ func init() {
 		if args.Enabled {
 			params.Add(jsonutils.JSONTrue, "enabled")
 		}
-		if len(args.AccessUrl) > 0 {
-			params.Add(jsonutils.NewString(args.AccessUrl), "access_url")
+		if len(args.AccessURL) > 0 {
+			params.Add(jsonutils.NewString(args.AccessURL), "access_url")
 		}
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")

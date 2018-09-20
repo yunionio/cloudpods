@@ -18,7 +18,7 @@ type ServerListOptions struct {
 	Gpu           *bool  `help:"Show gpu servers"`
 	Secgroup      string `help:"Secgroup ID or Name"`
 	AdminSecgroup string `help:"AdminSecgroup ID or Name"`
-	Hypervisor    string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun"`
+	Hypervisor    string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun|azure"`
 	Manager       string `help:"Show servers imported from manager"`
 	Region        string `help:"Show servers in cloudregion"`
 	WithEip       *bool  `help:"Show Servers with EIP"`
@@ -110,7 +110,7 @@ type ServerCreateOptions struct {
 	Project          string   `help:"'Owner project ID or Name" json:"tenant"`
 	User             string   `help:"Owner user ID or Name"`
 	System           *bool    `help:"Create a system VM, sysadmin ONLY option" json:"is_system"`
-	Hypervisor       string   `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun"`
+	Hypervisor       string   `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure"`
 	TaskNotify       *bool    `help:"Setup task notify" json:"-"`
 	Count            *int     `help:"Create multiple simultaneously" default:"1" json:"-"`
 	DryRun           *bool    `help:"Dry run to test scheduler" json:"-"`

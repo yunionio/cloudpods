@@ -85,6 +85,10 @@
 [[constraint]]
   branch = "master"
   name = "github.com/hako/durafmt"
+  
+[[constraint]]
+  name = "github.com/Azure/azure-sdk-for-go"
+  version = "19.1.0"
 
 [[constraint]]
   branch = "master"
@@ -93,6 +97,10 @@
 [[constraint]]
   branch = "master"
   name = "github.com/kr/pty"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/Microsoft/azure-vhd-utils"
 
 [[constraint]]
   branch = "master"

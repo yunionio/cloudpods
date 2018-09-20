@@ -65,7 +65,7 @@ type SElasticip struct {
 	IpAddr string `width:"17" charset:"ascii" list:"user"`
 
 	AssociateType string `width:"32" charset:"ascii" list:"user"`
-	AssociateId   string `width:"128" charset:"ascii" list:"user"`
+	AssociateId   string `width:"256" charset:"ascii" list:"user"`
 
 	Bandwidth int `list:"user" create:"required"`
 
