@@ -363,6 +363,14 @@ type UncompletedUpload struct {
 	Initiated time.Time `xml:"Initiated"` // Initialization time in the format such as 2012-02-23T04:18:23.000Z
 }
 
+// ProcessObjectResult defines result object of ProcessObject
+type ProcessObjectResult struct {
+	Bucket   string `json:"bucket"`
+	FileSize int    `json:"fileSize"`
+	Object   string `json:"object"`
+	Status   string `json:"status"`
+}
+
 // decodeDeleteObjectsResult decodes deleting objects result in URL encoding
 func decodeDeleteObjectsResult(result *DeleteObjectsResult) error {
 	var err error
@@ -405,6 +413,16 @@ func decodeListObjectsResult(result *ListObjectsResult) error {
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// decodeListUploadedPartsResult decodes
+func decodeListUploadedPartsResult(result *ListUploadedPartsResult) error {
+	var err error
+	result.Key, err = url.QueryUnescape(result.Key)
+	if err != nil {
+		return err
 	}
 	return nil
 }

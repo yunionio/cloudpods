@@ -164,8 +164,8 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 }
 
 func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int,
-		vswitchId string, ipAddr string, desc string, passwd string,
-		storageType string, diskSizes []int, publicKey string, secgroupId string) (cloudprovider.ICloudVM, error) {
+	vswitchId string, ipAddr string, desc string, passwd string,
+	storageType string, diskSizes []int, publicKey string, secgroupId string) (cloudprovider.ICloudVM, error) {
 	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, vswitchId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId)
 	if err != nil {
 		return nil, err
@@ -179,8 +179,8 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 }
 
 func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int, memMB int,
-		vswitchId string, ipAddr string, desc string, passwd string,
-		storageType string, diskSizes []int, publicKey string, secgroupId string) (string, error) {
+	vswitchId string, ipAddr string, desc string, passwd string,
+	storageType string, diskSizes []int, publicKey string, secgroupId string) (string, error) {
 	net := self.zone.getNetworkById(vswitchId)
 	if net == nil {
 		return "", fmt.Errorf("invalid switch ID %s", vswitchId)

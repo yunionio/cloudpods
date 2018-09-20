@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type Client struct {
@@ -18,7 +18,7 @@ type Client struct {
 	timeout int
 	debug   bool
 
-	httpconn *http.Client
+	httpconn       *http.Client
 	serviceCatalog IServiceCatalog
 }
 

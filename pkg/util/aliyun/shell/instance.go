@@ -115,7 +115,7 @@ func init() {
 		DeleteKeypair bool   `help:"Remove SSH keypair"`
 		Password      string `help:"new password"`
 		// ResetPassword bool   `help:"Force reset password"`
-		Description   string `help:"new instances description"`
+		Description string `help:"new instances description"`
 	}
 
 	shellutils.R(&InstanceDeployOptions{}, "instance-deploy", "Deploy keypair/password to a stopped virtual server", func(cli *aliyun.SRegion, args *InstanceDeployOptions) error {
@@ -127,11 +127,11 @@ func init() {
 	})
 
 	type InstanceRebuildRootOptions struct {
-		ID    string `help:"instance ID"`
-		Image string `help:"Image ID"`
+		ID       string `help:"instance ID"`
+		Image    string `help:"Image ID"`
 		Password string `help:"pasword"`
-		Keypair string `help:"keypair name"`
-		Size int `help:"system disk size in GB"`
+		Keypair  string `help:"keypair name"`
+		Size     int    `help:"system disk size in GB"`
 	}
 
 	shellutils.R(&InstanceRebuildRootOptions{}, "instance-rebuild-root", "Reinstall virtual server system image", func(cli *aliyun.SRegion, args *InstanceRebuildRootOptions) error {

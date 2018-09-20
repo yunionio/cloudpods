@@ -166,7 +166,6 @@ func (self *KVMGuestRebuildRootTask) OnGuestDeployComplete(ctx context.Context, 
 	logclient.AddActionLog(guest, logclient.ACT_VM_REBUILD, nil, self.UserCred, true)
 }
 
-
 type ManagedGuestRebuildRootTask struct {
 	SGuestBaseTask
 }

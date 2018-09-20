@@ -53,7 +53,6 @@ func (dispatcher *DBModelDispatcher) ContextKeywordPlural() []string {
 	return nil
 }
 
-
 func (dispatcher *DBModelDispatcher) Filter(f appsrv.FilterHandler) appsrv.FilterHandler {
 	return auth.Authenticate(f)
 }

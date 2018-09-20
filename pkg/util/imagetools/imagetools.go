@@ -70,9 +70,9 @@ func normalizeOsDistribution(osDist string, imageName string) string {
 }
 
 type ImageInfo struct {
-	Name string
-	OsArch string
-	OsType string
+	Name     string
+	OsArch   string
+	OsType   string
 	OsDistro string
 }
 
@@ -84,4 +84,3 @@ func NormalizeImageInfo(imageName, osArch, osType, osDist string) ImageInfo {
 	info.OsArch = normalizeOsArch(osArch, info.OsType, info.OsDistro)
 	return info
 }
-

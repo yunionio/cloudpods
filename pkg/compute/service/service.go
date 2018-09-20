@@ -12,6 +12,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks"
 	_ "yunion.io/x/onecloud/pkg/util/aliyun/provider"
+	_ "yunion.io/x/onecloud/pkg/util/azure/provider"
 	_ "yunion.io/x/onecloud/pkg/util/esxi/provider"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"

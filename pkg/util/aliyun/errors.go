@@ -6,7 +6,7 @@ import (
 
 func isError(err error, code string) bool {
 	aliyunErr, ok := err.(aliyunerrors.Error)
-	if ! ok {
+	if !ok {
 		return false
 	}
 	return aliyunErr.ErrorCode() == code

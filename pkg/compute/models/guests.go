@@ -71,6 +71,8 @@ const (
 	VM_DELETE_FAIL  = "delete_fail"
 	VM_DELETING     = "deleting"
 
+	VM_DEALLOCATED = "deallocated"
+
 	VM_START_MIGRATE  = "start_migrate"
 	VM_MIGRATING      = "migrating"
 	VM_MIGRATE_FAILED = "migrate_failed"
@@ -117,6 +119,7 @@ const (
 	HYPERVISOR_ESXI      = "esxi"
 	HYPERVISOR_HYPERV    = "hyperv"
 	HYPERVISOR_ALIYUN    = "aliyun"
+	HYPERVISOR_AZURE     = "azure"
 
 	//	HYPERVISOR_DEFAULT = HYPERVISOR_KVM
 	HYPERVISOR_DEFAULT = HYPERVISOR_ALIYUN
@@ -125,7 +128,7 @@ const (
 var VM_RUNNING_STATUS = []string{VM_START_START, VM_STARTING, VM_RUNNING, VM_SNAPSHOT_STREAM}
 var VM_CREATING_STATUS = []string{VM_CREATE_NETWORK, VM_CREATE_DISK, VM_START_DEPLOY, VM_DEPLOYING}
 
-var HYPERVISORS = []string{HYPERVISOR_KVM, HYPERVISOR_BAREMETAL, HYPERVISOR_ESXI, HYPERVISOR_CONTAINER, HYPERVISOR_ALIYUN}
+var HYPERVISORS = []string{HYPERVISOR_KVM, HYPERVISOR_BAREMETAL, HYPERVISOR_ESXI, HYPERVISOR_CONTAINER, HYPERVISOR_ALIYUN, HYPERVISOR_AZURE}
 
 // var HYPERVISORS = []string{HYPERVISOR_ALIYUN}
 
@@ -135,6 +138,7 @@ var HYPERVISOR_HOSTTYPE = map[string]string{
 	HYPERVISOR_ESXI:      HOST_TYPE_ESXI,
 	HYPERVISOR_CONTAINER: HOST_TYPE_KUBELET,
 	HYPERVISOR_ALIYUN:    HOST_TYPE_ALIYUN,
+	HYPERVISOR_AZURE:     HOST_TYPE_AZURE,
 }
 
 var HOSTTYPE_HYPERVISOR = map[string]string{
@@ -143,6 +147,7 @@ var HOSTTYPE_HYPERVISOR = map[string]string{
 	HOST_TYPE_ESXI:       HYPERVISOR_ESXI,
 	HOST_TYPE_KUBELET:    HYPERVISOR_CONTAINER,
 	HOST_TYPE_ALIYUN:     HYPERVISOR_ALIYUN,
+	HOST_TYPE_AZURE:      HYPERVISOR_AZURE,
 }
 
 type SGuestManager struct {
@@ -1067,6 +1072,9 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 	if len(osName) > 0 {
 		extra.Add(jsonutils.NewString(osName), "os_name")
 	}
+	if metaData, err := self.GetAllMetadata(userCred); err == nil {
+		extra.Add(jsonutils.Marshal(metaData), "metadata")
+	}
 	if userCred.IsSystemAdmin() {
 		host := self.GetHost()
 		if host != nil {
@@ -1352,7 +1360,6 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 				}
 			}
 		}
-
 		return nil
 	})
 	if err != nil {

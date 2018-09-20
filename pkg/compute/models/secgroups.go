@@ -233,11 +233,15 @@ func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCre
 			} else if len(rules) > 0 {
 				if new, err := manager.newFromCloudVpc(added[i]); err != nil {
 					syncResult.AddError(err)
-				} else {
-					localSecgroups = append(localSecgroups, *new)
-					remoteSecgroups = append(remoteSecgroups, added[i])
-					SecurityGroupRuleManager.SyncRules(ctx, userCred, new, rules)
-					syncResult.Add()
+				} else if len(rules) > 0 {
+					if new, err := manager.newFromCloudVpc(added[i]); err != nil {
+						syncResult.AddError(err)
+					} else {
+						localSecgroups = append(localSecgroups, *new)
+						remoteSecgroups = append(remoteSecgroups, added[i])
+						SecurityGroupRuleManager.SyncRules(ctx, userCred, new, rules)
+						syncResult.Add()
+					}
 				}
 			}
 		}

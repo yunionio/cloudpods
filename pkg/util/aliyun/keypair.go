@@ -3,12 +3,12 @@ package aliyun
 import (
 	"encoding/json"
 	"fmt"
-	"yunion.io/x/log"
-	"golang.org/x/crypto/ssh"
-	"strings"
 	"github.com/aokoli/goutils"
+	"golang.org/x/crypto/ssh"
 	"strconv"
+	"strings"
 	"time"
+	"yunion.io/x/log"
 )
 
 type SKeypair struct {
@@ -69,7 +69,7 @@ func (self *SRegion) ImportKeypair(name string, pubKey string) (*SKeypair, error
 	return &keypair, nil
 }
 
-func (self *SRegion) AttachKeypair(instanceId string, name string)  error {
+func (self *SRegion) AttachKeypair(instanceId string, name string) error {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["KeyPairName"] = name
@@ -84,7 +84,7 @@ func (self *SRegion) AttachKeypair(instanceId string, name string)  error {
 	return nil
 }
 
-func (self *SRegion) DetachKeyPair(instanceId string, name string)  error {
+func (self *SRegion) DetachKeyPair(instanceId string, name string) error {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["KeyPairName"] = name
