@@ -3,14 +3,16 @@ package hostdrivers
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 
 type SAliyunHostDriver struct {
@@ -35,7 +37,6 @@ func (self *SAliyunHostDriver) CheckAndSetCacheImage(ctx context.Context, host *
 	osArch, _ := params.GetString("os_arch")
 	osType, _ := params.GetString("os_type")
 	osDist, _ := params.GetString("os_distribution")
-
 
 	isForce := jsonutils.QueryBoolean(params, "is_force", false)
 	userCred := task.GetUserCred()
@@ -93,7 +94,12 @@ func (self *SAliyunHostDriver) RequestSaveUploadImageOnHost(ctx context.Context,
 					return nil, err
 				} else {
 					scimg.SetExternalId(iImage.GetId())
-					if result, err := iStoragecache.DownloadImage(task.GetUserCred(), imageId, iImage.GetId()); err != nil {
+					if _, err := os.Stat(options.Options.TempPath); os.IsNotExist(err) {
+						if err = os.MkdirAll(options.Options.TempPath, 0755); err != nil {
+							return nil, err
+						}
+					}
+					if result, err := iStoragecache.DownloadImage(task.GetUserCred(), imageId, iImage.GetId(), options.Options.TempPath); err != nil {
 						scimg.SetStatus(task.GetUserCred(), models.CACHED_IMAGE_STATUS_CACHE_FAILED, err.Error())
 						return nil, err
 					} else {
