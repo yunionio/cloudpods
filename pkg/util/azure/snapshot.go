@@ -3,11 +3,11 @@ package azure
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-04-01/compute"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SnapshotSku struct {
@@ -16,7 +16,7 @@ type SnapshotSku struct {
 }
 
 type SSnapshot struct {
-	disk *SDisk
+	region *SRegion
 
 	ID         string
 	Name       string
@@ -73,10 +73,11 @@ func (self *SRegion) CreateSnapshot(diskId, snapName, desc string) (*SSnapshot, 
 }
 
 func (self *SSnapshot) Delete() error {
-	if self.disk == nil {
-		return fmt.Errorf("not init disk for snapshot %s", self.Name)
-	}
-	return self.disk.storage.zone.region.DeleteSnapshot(self.ID)
+	return self.region.DeleteSnapshot(self.ID)
+}
+
+func (self *SSnapshot) GetSize() int32 {
+	return self.Properties.DiskSizeGB
 }
 
 func (self *SRegion) DeleteSnapshot(snapshotId string) error {
@@ -127,10 +128,38 @@ func (self *SRegion) GrantAccessSnapshot(snapshotId string) (string, error) {
 }
 
 func (self *SSnapshot) Refresh() error {
-	if snapshot, err := self.disk.GetSnapshotDetail(self.ID); err != nil {
+	if snapshot, err := self.region.GetSnapshotDetail(self.ID); err != nil {
 		return err
 	} else if err := jsonutils.Update(self, snapshot); err != nil {
 		return err
 	}
 	return nil
+}
+
+func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
+	return self.GetSnapshotDetail(snapshotId)
+}
+
+func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
+	if snapshots, err := self.GetSnapShots(""); err != nil {
+		return nil, err
+	} else {
+		isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots))
+		for i := 0; i < len(snapshots); i++ {
+			isnapshots[i] = &snapshots[i]
+		}
+		return isnapshots, nil
+	}
+}
+
+func (self *SSnapshot) GetDiskId() string {
+	return self.Properties.CreationData.SourceResourceID
+}
+
+func (self *SSnapshot) GetManagerId() string {
+	return self.region.client.providerId
+}
+
+func (self *SSnapshot) GetRegionId() string {
+	return self.region.GetId()
 }

@@ -19,14 +19,25 @@ func init() {
 		}
 	})
 
-	type SecurityGroupShowOptions struct {
+	type SecurityGroupOptions struct {
 		ID string `help:"ID or name of security group"`
 	}
-	shellutils.R(&SecurityGroupShowOptions{}, "security-group-show", "Show details of a security group", func(cli *azure.SRegion, args *SecurityGroupShowOptions) error {
+	shellutils.R(&SecurityGroupOptions{}, "security-group-show", "Show details of a security group", func(cli *azure.SRegion, args *SecurityGroupOptions) error {
 		if secgrp, err := cli.GetSecurityGroupDetails(args.ID); err != nil {
 			return err
 		} else {
 			printObject(secgrp)
+			return nil
+		}
+	})
+
+	shellutils.R(&SecurityGroupOptions{}, "security-group-rule-list", "List security group rules", func(cli *azure.SRegion, args *SecurityGroupOptions) error {
+		if secgroup, err := cli.GetSecurityGroupDetails(args.ID); err != nil {
+			return err
+		} else if rules, err := secgroup.GetRules(); err != nil {
+			return err
+		} else {
+			printList(rules, len(rules), 0, 30, []string{})
 			return nil
 		}
 	})
@@ -43,5 +54,4 @@ func init() {
 			return nil
 		}
 	})
-
 }

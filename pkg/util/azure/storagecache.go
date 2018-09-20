@@ -162,7 +162,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 	}
 }
 
-func (self *SStoragecache) CreateIImage(snapshotId, imageName, osArch, osType, osDist, imageDesc string) (cloudprovider.ICloudImage, error) {
+func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
 	if image, err := self.region.CreateImage(snapshotId, imageName, osType, imageDesc); err != nil {
 		return nil, err
 	} else {

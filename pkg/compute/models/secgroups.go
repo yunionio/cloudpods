@@ -222,6 +222,12 @@ func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCre
 		}
 
 		for i := 0; i < len(added); i += 1 {
+			if metadata := added[i].GetMetadata(); metadata != nil && metadata.Contains("id") {
+				secgroupId, _ := metadata.GetString("id")
+				if secgrp, _ := manager.FetchById(secgroupId); secgrp != nil {
+					continue
+				}
+			}
 			if metadata := added[i].GetMetadata(); metadata == nil || !metadata.Contains("id") {
 				if rules, err := added[i].GetRules(); err != nil {
 					syncResult.AddError(err)

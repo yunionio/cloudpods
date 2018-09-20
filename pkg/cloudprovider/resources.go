@@ -35,7 +35,9 @@ type ICloudRegion interface {
 	GetIZones() ([]ICloudZone, error)
 	GetIVpcs() ([]ICloudVpc, error)
 	GetIEips() ([]ICloudEIP, error)
+	GetISnapshots() ([]ICloudSnapshot, error)
 
+	GetISnapshotById(snapshotId string) (ICloudSnapshot, error)
 	GetIZoneById(id string) (ICloudZone, error)
 	GetIVpcById(id string) (ICloudVpc, error)
 	GetIHostById(id string) (ICloudHost, error)
@@ -77,7 +79,7 @@ type ICloudStoragecache interface {
 
 	GetManagerId() string
 
-	CreateIImage(snapshotId, imageName, osArch, osType, osDist, imageDesc string) (ICloudImage, error)
+	CreateIImage(snapshotId, imageName, osType, imageDesc string) (ICloudImage, error)
 
 	DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error)
 
@@ -242,11 +244,16 @@ type ICloudDisk interface {
 	GetISnapshots() ([]ICloudSnapshot, error)
 
 	Resize(newSize int64) error
+	Reset(snapshotId string) error
 }
 
 type ICloudSnapshot interface {
 	ICloudResource
+	GetManagerId() string
+	GetSize() int32
+	GetDiskId() string
 	Delete() error
+	GetRegionId() string
 }
 
 type ICloudVpc interface {

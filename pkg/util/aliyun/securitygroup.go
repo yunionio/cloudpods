@@ -174,7 +174,6 @@ func (self *SRegion) GetSecurityGroups(vpcId string, offset int, limit int) ([]S
 	}
 
 	secgrps := make([]SSecurityGroup, 0)
-	log.Errorf("secgroup: %s", body.PrettyString())
 	err = body.Unmarshal(&secgrps, "SecurityGroups", "SecurityGroup")
 	if err != nil {
 		log.Errorf("Unmarshal security groups fail %s", err)

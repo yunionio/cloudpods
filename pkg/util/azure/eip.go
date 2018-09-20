@@ -123,6 +123,8 @@ func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 			return nil, cloudprovider.ErrNotFound
 		}
 		return nil, err
+	} else if *result.Location != region.Name {
+		return nil, cloudprovider.ErrNotFound
 	} else if err := jsonutils.Update(&eip, result); err != nil {
 		return nil, err
 	}

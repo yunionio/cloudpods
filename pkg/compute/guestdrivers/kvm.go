@@ -47,15 +47,6 @@ func (self *SKVMGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *
 	return nil
 }
 
-func (self *SKVMGuestDriver) StartGuestDiskSnapshotTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestDiskSnapshotTask", guest, userCred, params, "", "", nil)
-	if err != nil {
-		return err
-	}
-	task.ScheduleRun(nil)
-	return nil
-}
-
 func (self *SKVMGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, snapshotId, diskId string) error {
 	url := fmt.Sprintf("/servers/%s/snapshot", guest.Id)
 	body := jsonutils.NewDict()

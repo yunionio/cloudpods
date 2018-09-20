@@ -233,6 +233,15 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	}
 
 	data.Add(jsonutils.NewString(self.Properties.HardwareProfile.VMSize), "price_key")
+	if nics, err := self.getNics(); err == nil {
+		for _, nic := range nics {
+			if len(nic.Properties.NetworkSecurityGroup.ID) > 0 {
+				data.Add(jsonutils.NewString(nic.Properties.NetworkSecurityGroup.ID), "secgroupId")
+				break
+			}
+		}
+	}
+
 	return data
 }
 

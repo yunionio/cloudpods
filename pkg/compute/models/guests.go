@@ -84,6 +84,7 @@ const (
 
 	VM_START_SNAPSHOT  = "snapshot_start"
 	VM_SNAPSHOT        = "snapshot"
+	VM_SNAPSHOT_DELETE = "snapshot_delete"
 	VM_SNAPSHOT_STREAM = "block_stream"
 	VM_SNAPSHOT_SUCC   = "snapshot_succ"
 	VM_SNAPSHOT_FAILED = "snapshot_failed"
@@ -1315,6 +1316,7 @@ func (self *SGuest) GetIsolatedDevices() []SIsolatedDevice {
 }
 
 func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, extVM cloudprovider.ICloudVM) error {
+	metaData := extVM.GetMetadata()
 	diff, err := GuestManager.TableSpec().Update(self, func() error {
 		extVM.Refresh()
 		self.Name = extVM.GetName()
@@ -1336,6 +1338,15 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		self.BillingType = extVM.GetBillingType()
 		self.ExpiredAt = extVM.GetExpiredAt()
 
+		if metaData != nil && metaData.Contains("secgroupId") {
+			if secgroupId, err := metaData.GetString("secgroupId"); err == nil && len(secgroupId) > 0 {
+				if secgrp, err := SecurityGroupManager.FetchByExternalId(secgroupId); err == nil && secgrp != nil {
+					self.SecgrpId = secgrp.GetId()
+				} else {
+					log.Errorf("Failed find secgroup %s for guest %s error: %v", secgroupId, self.Name, err)
+				}
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -1348,9 +1359,9 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			db.OpsLog.LogEvent(self, db.ACT_UPDATE, diffStr, userCred)
 		}
 	}
-	if metaData := extVM.GetMetadata(); metaData != nil {
+	if metaData != nil {
 		meta := make(map[string]string, 0)
-		if metaData.Unmarshal(meta); err != nil {
+		if err := metaData.Unmarshal(meta); err != nil {
 			log.Errorf("Get VM Metadata error: %v", err)
 		} else {
 			for key, value := range meta {
@@ -1389,12 +1400,24 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.HostId = host.Id
 	guest.ProjectId = userCred.GetProjectId()
 
+	metaData := extVM.GetMetadata()
+
+	if metaData != nil && metaData.Contains("secgroupId") {
+		if secgroupId, err := metaData.GetString("secgroupId"); err == nil && len(secgroupId) > 0 {
+			if secgrp, err := SecurityGroupManager.FetchByExternalId(secgroupId); err == nil && secgrp != nil {
+				guest.SecgrpId = secgrp.GetId()
+			} else {
+				log.Errorf("Failed find secgroup %s for guest %s error: %v", secgroupId, guest.Name, err)
+			}
+		}
+	}
+
 	err := manager.TableSpec().Insert(&guest)
 	if err != nil {
 		log.Errorf("Insert fail %s", err)
 	}
 
-	if metaData := extVM.GetMetadata(); metaData != nil {
+	if metaData != nil {
 		meta := make(map[string]string, 0)
 		if err := metaData.Unmarshal(meta); err != nil {
 			log.Errorf("Get VM Metadata error: %v", err)
@@ -3874,39 +3897,52 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 	}
 	diskId, err := data.GetString("disk_id")
 	if err != nil {
-		return nil, err
+		return nil, httperrors.NewBadRequestError(err.Error())
 	}
 	name, err := data.GetString("name")
 	if err != nil {
-		return nil, err
+		return nil, httperrors.NewBadRequestError(err.Error())
+	}
+	err = ValidateSnapshotName(self.Hypervisor, name)
+	if err != nil {
+		return nil, httperrors.NewBadRequestError(err.Error())
 	}
 	if self.GetGuestDisk(diskId) == nil {
 		return nil, httperrors.NewNotFoundError("Guest disk %s not found", diskId)
 	}
-	snapshots := SnapshotManager.GetDiskSnapshotsByCreate(diskId, MANUAL)
-	if snapshots != nil {
-		if len(snapshots) >= options.Options.DefaultMaxManualSnapshotCount {
-			return nil, httperrors.NewBadRequestError("Disk %s snapshot full, cannot take any more", diskId)
-		}
-		for _, snapshot := range snapshots {
-			if snapshot.Name == name {
-				return nil, httperrors.NewBadRequestError("Name Conflict")
+	if self.GetHypervisor() == HYPERVISOR_KVM {
+		snapshots := SnapshotManager.GetDiskSnapshotsByCreate(diskId, MANUAL)
+		if snapshots != nil {
+			if len(snapshots) >= options.Options.DefaultMaxManualSnapshotCount {
+				return nil, httperrors.NewBadRequestError("Disk %s snapshot full, cannot take any more", diskId)
+			}
+			for _, snapshot := range snapshots {
+				if snapshot.Name == name {
+					return nil, httperrors.NewBadRequestError("Name Conflict")
+				}
 			}
 		}
-	}
-	pendingUsage := &SQuota{Snapshot: 1}
-	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, self.ProjectId, pendingUsage)
-	if err != nil {
-		return nil, httperrors.NewBadRequestError("Check set pending quota error %s", err)
-	}
-	snapshot, err := SnapshotManager.CreateSnapshot(ctx, userCred, MANUAL, diskId, self.Id, "", name)
-	QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
-	if err != nil {
+		pendingUsage := &SQuota{Snapshot: 1}
+		err = QuotaManager.CheckSetPendingQuota(ctx, userCred, self.ProjectId, pendingUsage)
+		if err != nil {
+			return nil, httperrors.NewBadRequestError("Check set pending quota error %s", err)
+		}
+		snapshot, err := SnapshotManager.CreateSnapshot(ctx, userCred, MANUAL, diskId, self.Id, "", name)
+		QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
+		if err != nil {
+			return nil, err
+		}
+		err = self.StartDiskSnapshot(ctx, userCred, diskId, snapshot.Id)
+		return nil, err
+	} else {
+		snapshot, err := SnapshotManager.CreateSnapshot(ctx, userCred, MANUAL, diskId, self.Id, "", name)
+		if err != nil {
+			return nil, err
+		}
+		err = self.StartDiskSnapshot(ctx, userCred, diskId, snapshot.Id)
 		return nil, err
 	}
 
-	err = self.StartDiskSnapshot(ctx, userCred, diskId, snapshot.Id)
-	return nil, err
 }
 
 func (self *SGuest) StartDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, diskId, snapshotId string) error {

@@ -283,7 +283,6 @@ func (self *SDisk) CreateISnapshot(name, desc string) (cloudprovider.ICloudSnaps
 		log.Errorf("createSnapshot fail %s", err)
 		return nil, err
 	} else {
-		snapshot.disk = self
 		return snapshot, nil
 	}
 }
@@ -298,7 +297,6 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	} else {
 		isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots))
 		for i := 0; i < len(snapshots); i++ {
-			snapshots[i].disk = self
 			isnapshots[i] = &snapshots[i]
 		}
 		return isnapshots, nil
@@ -319,7 +317,6 @@ func (self *SDisk) GetSnapshotDetail(snapshotId string) (*SSnapshot, error) {
 	} else if snapshot.Properties.CreationData.SourceResourceID != self.ID {
 		return nil, cloudprovider.ErrNotFound
 	} else {
-		snapshot.disk = self
 		return snapshot, nil
 	}
 }
@@ -337,30 +334,45 @@ func (region *SRegion) GetSnapshotDetail(snapshotId string) (*SSnapshot, error) 
 	} else if err := jsonutils.Update(&snapshot, result); err != nil {
 		return nil, err
 	}
+	snapshot.region = region
 	return &snapshot, nil
 }
 
 func (region *SRegion) GetSnapShots(diskId string) ([]SSnapshot, error) {
 	snapshots := []SSnapshot{}
-	globalId, _, _ := pareResourceGroupWithName(diskId, DISK_RESOURCE)
 	snapClient := compute.NewSnapshotsClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
 	snapClient.Authorizer = region.client.authorizer
 	if result, err := snapClient.List(context.Background()); err != nil {
 		return nil, err
 	} else if len(diskId) > 0 {
+		globalId, _, _ := pareResourceGroupWithName(diskId, DISK_RESOURCE)
 		data := result.Values()
 		for i := 0; i < len(data); i++ {
-			snap := SSnapshot{}
-			_globalId, _, _ := pareResourceGroupWithName(*data[i].CreationData.SourceResourceID, DISK_RESOURCE)
-			if globalId == _globalId {
-				if err := jsonutils.Update(&snap, data[i]); err != nil {
-					return nil, err
+			sourceId := *data[i].CreationData.SourceResourceID
+			if len(sourceId) > 0 {
+				snap := SSnapshot{}
+				_globalId, _, _ := pareResourceGroupWithName(sourceId, DISK_RESOURCE)
+				if globalId == _globalId {
+					if err := jsonutils.Update(&snap, data[i]); err != nil {
+						return nil, err
+					}
+					snapshots = append(snapshots, snap)
 				}
-				snapshots = append(snapshots, snap)
 			}
 		}
 	} else if err := jsonutils.Update(&snapshots, result.Values()); err != nil {
 		return snapshots, nil
 	}
+	for i := 0; i < len(snapshots); i++ {
+		snapshots[i].region = region
+	}
 	return snapshots, nil
+}
+
+func (self *SDisk) Reset(snapshotId string) error {
+	return self.storage.zone.region.resetDisk(self.ID, snapshotId)
+}
+
+func (self *SRegion) resetDisk(diskId, snapshotId string) error {
+	return cloudprovider.ErrNotSupported
 }

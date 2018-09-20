@@ -108,7 +108,6 @@ func syncCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider,
 		if len(syncRange.Region) > 0 && !utils.IsInStringArray(localRegions[i].Id, syncRange.Region) {
 			continue
 		}
-
 		syncRegionEips(ctx, provider, task, &localRegions[i], remoteRegions[i])
 
 		localZones, remoteZones := syncRegionZones(ctx, provider, task, &localRegions[i], remoteRegions[i])
@@ -125,7 +124,27 @@ func syncCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider,
 				syncZoneHosts(ctx, provider, task, &localZones[j], remoteZones[j], syncRange)
 			}
 		}
+		syncRegionSnapshots(ctx, provider, task, &localRegions[i], remoteRegions[i])
 	}
+}
+
+func syncRegionSnapshots(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localRegion *models.SCloudregion, remoteRegion cloudprovider.ICloudRegion) {
+	snapshots, err := remoteRegion.GetISnapshots()
+	if err != nil {
+		msg := fmt.Sprintf("GetISnapshots for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		logSyncFailed(provider, task, msg)
+		return
+	}
+
+	result := models.SnapshotManager.SyncSnapshots(ctx, task.GetUserCred(), provider, localRegion, snapshots)
+	msg := result.Result()
+	log.Infof("SyncSnapshots for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		logSyncFailed(provider, task, msg)
+		return
+	}
+	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.GetUserCred())
 }
 
 func syncRegionEips(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localRegion *models.SCloudregion, remoteRegion cloudprovider.ICloudRegion) {

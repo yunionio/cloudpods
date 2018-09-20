@@ -3,12 +3,14 @@ package tasks
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -49,19 +51,35 @@ func (self *GuestDiskSnapshotTask) DoDiskSnapshot(ctx context.Context, guest *mo
 
 func (self *GuestDiskSnapshotTask) OnDiskSnapshotComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	res := data.(*jsonutils.JSONDict)
-	location, err := res.GetString("location")
-	if err != nil {
-		log.Infof("OnDiskSnapshotComplete called with data no location")
-		return
+	if guest.Hypervisor == models.HYPERVISOR_KVM {
+		location, err := res.GetString("location")
+		if err != nil {
+			log.Infof("OnDiskSnapshotComplete called with data no location")
+			return
+		}
+		snapshotId, _ := self.Params.GetString("snapshot_id")
+		iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
+		snapshot := iSnapshot.(*models.SSnapshot)
+		models.SnapshotManager.TableSpec().Update(snapshot, func() error {
+			snapshot.Location = location
+			snapshot.Status = models.SNAPSHOT_READY
+			return nil
+		})
+	} else {
+		snapshotId, _ := self.Params.GetString("snapshot_id")
+		iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
+		snapshot := iSnapshot.(*models.SSnapshot)
+		extSnapshotId, _ := data.GetString("snapshot_id")
+		cloudregionId, _ := data.GetString("cloudregion_id")
+		managerId, _ := data.GetString("manager_id")
+		models.SnapshotManager.TableSpec().Update(snapshot, func() error {
+			snapshot.CloudregionId = cloudregionId
+			snapshot.ExternalId = extSnapshotId
+			snapshot.Status = models.SNAPSHOT_READY
+			snapshot.ManagerId = managerId
+			return nil
+		})
 	}
-	snapshotId, _ := self.Params.GetString("snapshot_id")
-	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
-	snapshot := iSnapshot.(*models.SSnapshot)
-	models.SnapshotManager.TableSpec().Update(snapshot, func() error {
-		snapshot.Location = location
-		snapshot.Status = models.SNAPSHOT_READY
-		return nil
-	})
 	guest.SetStatus(self.UserCred, models.VM_SNAPSHOT_SUCC, "")
 	self.TaskComplete(ctx, guest, nil)
 }
@@ -108,6 +126,16 @@ type SnapshotDeleteTask struct {
 
 func (self *SnapshotDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	snapshot := obj.(*models.SSnapshot)
+	if len(snapshot.ExternalId) > 0 {
+		err := self.deleteExternalSnapshot(ctx, snapshot)
+		if err != nil {
+			self.SetStageFailed(ctx, err.Error())
+		} else {
+			snapshot.RealDelete(ctx, self.GetUserCred())
+			self.SetStageComplete(ctx, nil)
+		}
+		return
+	}
 	guest, err := snapshot.GetGuest()
 	if err != nil {
 		if err != sql.ErrNoRows {
@@ -126,6 +154,22 @@ func (self *SnapshotDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 	}
 }
 
+func (self *SnapshotDeleteTask) deleteExternalSnapshot(ctx context.Context, snapshot *models.SSnapshot) error {
+	cloudRegion, err := snapshot.GetISnapshotRegion()
+	if err != nil {
+		log.Errorln(err, cloudRegion, snapshot.CloudregionId)
+		return err
+	}
+	cloudSnapshot, err := cloudRegion.GetISnapshotById(snapshot.ExternalId)
+	if err != nil {
+		log.Errorln(err, cloudSnapshot)
+		return err
+	}
+	cloudSnapshot.Delete()
+	err = cloudprovider.WaitDeleted(cloudSnapshot, 10*time.Second, 300*time.Second)
+	return err
+}
+
 func (self *SnapshotDeleteTask) StartReloadDisk(ctx context.Context, snapshot *models.SSnapshot, guest *models.SGuest) {
 	self.SetStage("OnReloadDiskSnapshot", nil)
 	guest.SetStatus(self.UserCred, models.VM_SNAPSHOT, "Start Reload Snapshot")
@@ -139,6 +183,7 @@ func (self *SnapshotDeleteTask) StartReloadDisk(ctx context.Context, snapshot *m
 
 func (self *SnapshotDeleteTask) StartDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot, guest *models.SGuest) {
 	snapshot.SetStatus(self.UserCred, models.SNAPSHOT_DELETING, "On SnapshotDeleteTask StartDeleteSnapshot")
+	params := jsonutils.NewDict()
 	convertSnapshot, err := models.SnapshotManager.GetConvertSnapshot(snapshot)
 	if err != nil {
 		self.TaskFailed(ctx, snapshot, err.Error())
@@ -148,7 +193,6 @@ func (self *SnapshotDeleteTask) StartDeleteSnapshot(ctx context.Context, snapsho
 		self.TaskFailed(ctx, snapshot, "snapshot dose not have convert snapshot")
 		return
 	}
-	params := jsonutils.NewDict()
 	params.Set("delete_snapshot", jsonutils.NewString(snapshot.Id))
 	params.Set("disk_id", jsonutils.NewString(snapshot.DiskId))
 	if !snapshot.OutOfChain {
@@ -161,9 +205,9 @@ func (self *SnapshotDeleteTask) StartDeleteSnapshot(ctx context.Context, snapsho
 	} else {
 		params.Set("auto_deleted", jsonutils.JSONTrue)
 	}
+	guest.SetStatus(self.UserCred, models.VM_SNAPSHOT_DELETE, "Start Delete Snapshot")
 
 	self.SetStage("OnDeleteSnapshot", nil)
-	guest.SetStatus(self.UserCred, models.VM_SNAPSHOT, "Start Delete Snapshot")
 	err = guest.GetDriver().RequestDeleteSnapshot(ctx, guest, self, params)
 	if err != nil {
 		self.TaskFailed(ctx, snapshot, err.Error())
@@ -180,30 +224,36 @@ func (self *SnapshotDeleteTask) DeleteStaticSnapshot(ctx context.Context, snapsh
 }
 
 func (self *SnapshotDeleteTask) OnDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
-	if !jsonutils.QueryBoolean(data, "deleted", false) {
-		log.Infof("OnDeleteSnapshot with no deleted")
-		return
-	}
-	snapshot.SetStatus(self.UserCred, models.SNAPSHOT_READY, "OnDeleteSnapshot")
-	if snapshot.OutOfChain {
+	if len(snapshot.ExternalId) == 0 {
+		if !jsonutils.QueryBoolean(data, "deleted", false) {
+			log.Infof("OnDeleteSnapshot with no deleted")
+			return
+		}
+		snapshot.SetStatus(self.UserCred, models.SNAPSHOT_READY, "OnDeleteSnapshot")
+		if snapshot.OutOfChain {
+			snapshot.RealDelete(ctx, self.UserCred)
+			self.TaskComplete(ctx, snapshot, nil)
+		} else {
+			guest, _ := snapshot.GetGuest()
+			var FakeDelete = false
+			if snapshot.CreatedBy == models.MANUAL && snapshot.FakeDeleted == false {
+				FakeDelete = true
+			}
+			if FakeDelete {
+				models.SnapshotManager.TableSpec().Update(snapshot, func() error {
+					snapshot.OutOfChain = true
+					return nil
+				})
+			} else {
+				snapshot.RealDelete(ctx, self.UserCred)
+			}
+			self.SetStage("TaskComplete", nil)
+			guest.StartSyncstatus(ctx, self.UserCred, "")
+		}
+	} else {
+		snapshot.SetStatus(self.UserCred, models.SNAPSHOT_READY, "OnDeleteSnapshot")
 		snapshot.RealDelete(ctx, self.UserCred)
 		self.TaskComplete(ctx, snapshot, nil)
-	} else {
-		guest, _ := snapshot.GetGuest()
-		var FakeDelete = false
-		if snapshot.CreatedBy == models.MANUAL && snapshot.FakeDeleted == false {
-			FakeDelete = true
-		}
-		if FakeDelete {
-			models.SnapshotManager.TableSpec().Update(snapshot, func() error {
-				snapshot.OutOfChain = true
-				return nil
-			})
-		} else {
-			snapshot.RealDelete(ctx, self.UserCred)
-		}
-		self.SetStage("TaskComplete", nil)
-		guest.StartSyncstatus(ctx, self.UserCred, "")
 	}
 }
 

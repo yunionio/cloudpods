@@ -84,15 +84,13 @@ func (self *SAliyunHostDriver) RequestSaveUploadImageOnHost(ctx context.Context,
 				return nil, err
 			} else {
 				params := task.GetParams()
-				osArch, _ := params.GetString("properties", "os_arch")
 				osType, _ := params.GetString("properties", "os_type")
-				osDist, _ := params.GetString("properties", "os_distribution")
 
 				scimg := models.StoragecachedimageManager.Register(ctx, task.GetUserCred(), iStoragecache.GetId(), imageId)
 				if scimg.Status != models.CACHED_IMAGE_STATUS_READY {
 					scimg.SetStatus(task.GetUserCred(), models.CACHED_IMAGE_STATUS_CACHING, "request_prepare_save_disk_on_host")
 				}
-				if iImage, err := iStoragecache.CreateIImage(snapshot.GetId(), fmt.Sprintf("Image-%s", imageId), osArch, osType, osDist, ""); err != nil {
+				if iImage, err := iStoragecache.CreateIImage(snapshot.GetId(), fmt.Sprintf("Image-%s", imageId), osType, ""); err != nil {
 					log.Errorf("fail to create iImage: %v", err)
 					scimg.SetStatus(task.GetUserCred(), models.CACHED_IMAGE_STATUS_CACHE_FAILED, err.Error())
 					return nil, err
@@ -191,5 +189,21 @@ func (self *SAliyunHostDriver) RequestResizeDiskOnHost(host *models.SHost, stora
 	} else {
 		task.ScheduleRun(jsonutils.Marshal(map[string]int64{"disk_size": size}))
 	}
+	return nil
+}
+
+func (self *SAliyunHostDriver) RequestResetDisk(ctx context.Context, host *models.SHost, disk *models.SDisk, params *jsonutils.JSONDict, task taskman.ITask) error {
+	iDisk, err := disk.GetIDisk()
+	if err != nil {
+		return err
+	}
+	snapshotId, err := params.GetString("snapshot_id")
+	if err != nil {
+		return err
+	}
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		err := iDisk.Reset(snapshotId)
+		return nil, err
+	})
 	return nil
 }

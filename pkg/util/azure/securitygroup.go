@@ -165,7 +165,7 @@ func (self *SSecurityGroup) GetDescription() string {
 }
 
 func (self *SSecurityGroup) GetName() string {
-	return strings.TrimPrefix(self.Name, self.vpc.region.Name+"-")
+	return self.Name
 }
 
 func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
@@ -255,6 +255,8 @@ func (region *SRegion) GetSecurityGroupDetails(secgroupId string) (*SSecurityGro
 			return nil, cloudprovider.ErrNotFound
 		}
 		return nil, err
+	} else if *result.Location != region.Name {
+		return nil, cloudprovider.ErrNotFound
 	} else if err := jsonutils.Update(&sec, result); err != nil {
 		return nil, err
 	}
@@ -294,8 +296,6 @@ func (region *SRegion) checkSecurityGroup(name, secgroupId string) (*SSecurityGr
 				return nil, err
 			}
 		}
-	} else if err := region.addTagToSecurityGroup(globalId, secgroupId); err != nil {
-		return nil, err
 	}
 	return region.GetSecurityGroupDetails(globalId)
 }
@@ -315,6 +315,7 @@ func convertSecurityGroupRule(rule secrules.SecurityRule) *network.SecurityRule 
 	name := strings.Replace(rule.String(), ":", "_", -1)
 	name = strings.Replace(name, " ", "_", -1)
 	name = strings.Replace(name, "-", "_", -1)
+	name = fmt.Sprintf("%s_%d", name, rule.Priority)
 	destRule := network.SecurityRule{
 		Name: &name,
 		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{},
@@ -483,7 +484,11 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Secur
 func (self *SRegion) syncSecurityGroup(secgroupId, name string, rules []secrules.SecurityRule) (string, error) {
 	if secgroup, err := self.checkSecurityGroup(name, secgroupId); err != nil {
 		return "", err
+	} else if result, err := self.syncSecgroupRules(secgroup.ID, rules); err != nil {
+		return "", err
+	} else if err := self.addTagToSecurityGroup(secgroup.ID, secgroupId); err != nil {
+		return "", err
 	} else {
-		return self.syncSecgroupRules(secgroup.ID, rules)
+		return result, nil
 	}
 }
