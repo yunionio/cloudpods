@@ -498,8 +498,8 @@ func validateMemCpuData(data jsonutils.JSONObject) (int, int, error) {
 			return 0, 0, err
 		}
 		maxVmemGb := driver.GetMaxVMemSizeGB()
-		if vmemSize < 64 || vmemSize > maxVmemGb*1024 {
-			return 0, 0, httperrors.NewInputParameterError("Memory size must be 64MB ~ %d GB", maxVmemGb)
+		if vmemSize < 8 || vmemSize > maxVmemGb*1024 {
+			return 0, 0, httperrors.NewInputParameterError("Memory size must be 8MB ~ %d GB", maxVmemGb)
 		}
 	}
 	vcpuStr, _ := data.GetString("vcpu_count")
