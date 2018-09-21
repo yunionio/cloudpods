@@ -247,6 +247,7 @@ func (self *SRegion) GetNetworkDetail(networkId string) (*Subnet, error) {
 	if data := valid.FindStringSubmatch(networkId); len(data) == 4 {
 		sunet := Subnet{}
 		networkClient := network.NewSubnetsClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
+		networkClient.Authorizer = self.client.authorizer
 		if result, err := networkClient.Get(context.Background(), data[1], data[2], data[3], ""); err != nil {
 			return nil, err
 		} else if err := jsonutils.Update(&sunet, result); err != nil {
