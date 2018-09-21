@@ -86,10 +86,19 @@ func (self *SRegion) createNetwork(vpc *SVpc, subnetName string, cidr string, de
 		return nil, err
 	} else if net, err := resp.Result(networkClient); err != nil {
 		return nil, err
-	} else if err := jsonutils.Update(&result, net); err != nil {
-		return nil, err
+	} else {
+		for _, subnet := range *net.Subnets {
+			_, _, _subnetName := pareResourceGroupWithName(*subnet.ID, VPC_RESOURCE)
+			if _subnetName == subnetName {
+				if err := jsonutils.Update(&result, subnet); err != nil {
+					return nil, err
+				} else {
+					return &result, nil
+				}
+			}
+		}
 	}
-	return &result, nil
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
