@@ -164,7 +164,7 @@ func handleServerShell(ctx context.Context, w http.ResponseWriter, r *http.Reque
 		return
 	}
 	serverId := env.Params["<id>"]
-	ret, err := modules.Servers.Get(env.ClientSessin, serverId, jsonutils.Marshal(map[string]bool{"with_meta": true}))
+	ret, err := modules.Servers.Get(env.ClientSessin, serverId, jsonutils.Marshal(map[string]bool{"with_meta": true, "admin": true}))
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
