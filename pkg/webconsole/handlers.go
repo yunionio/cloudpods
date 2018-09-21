@@ -31,7 +31,7 @@ func InitHandlers(app *appsrv.Application) {
 	app.AddHandler("POST", ApiPathPrefix+"k8s/<podName>/shell", auth.Authenticate(handleK8sShell))
 	app.AddHandler("POST", ApiPathPrefix+"k8s/<podName>/log", auth.Authenticate(handleK8sLog))
 	app.AddHandler("POST", ApiPathPrefix+"baremetal/<id>", auth.Authenticate(handleBaremetalShell))
-	app.AddHandler("POST", ApiPathPrefix+"server/<id>", auth.Authenticate(handleServerShell))
+	app.AddHandler("POST", ApiPathPrefix+"ssh/<ip>", auth.Authenticate(handleSshShell))
 }
 
 func fetchEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (map[string]string, jsonutils.JSONObject, jsonutils.JSONObject) {
@@ -157,25 +157,13 @@ func handleK8sLog(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	handleK8sCommand(ctx, w, r, command.NewPodLogCommand)
 }
 
-func handleServerShell(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	env, err := fetchCloudEnv(ctx, w, r)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	serverId := env.Params["<id>"]
-	ret, err := modules.Servers.Get(env.ClientSessin, serverId, jsonutils.Marshal(map[string]bool{"with_meta": true, "admin": true}))
-	if err != nil {
-		httperrors.GeneralServerError(w, err)
-		return
-	}
-	info := command.SSHInfo{}
-	err = ret.Unmarshal(&info)
-	if err != nil {
-		httperrors.GeneralServerError(w, err)
-		return
-	}
-	cmd, err := command.NewSSHtoolSolCommand(&info)
+	cmd, err := command.NewSSHtoolSolCommand(env.Params["<ip>"])
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return

@@ -37,7 +37,7 @@ func (opt *WebConsoleBaremetalOptions) Params() (*jsonutils.JSONDict, error) {
 	return StructToParams(opt)
 }
 
-type WebConsoleServerOptions struct {
+type WebConsoleSshOptions struct {
 	WebConsoleOptions
-	ID string `help:"Server id or name"`
+	IP string `help:"IP to connect"`
 }

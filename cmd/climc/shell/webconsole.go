@@ -66,8 +66,8 @@ func init() {
 		return nil
 	})
 
-	R(&o.WebConsoleServerOptions{}, "webconsole-server", "Connect server webconsole", func(s *mcclient.ClientSession, args *o.WebConsoleServerOptions) error {
-		ret, err := modules.WebConsole.DoServerConnect(s, args.ID)
+	R(&o.WebConsoleSshOptions{}, "webconsole-ssh", "Connect ssh webconsole", func(s *mcclient.ClientSession, args *o.WebConsoleSshOptions) error {
+		ret, err := modules.WebConsole.DoSshConnect(s, args.IP)
 		if err != nil {
 			return err
 		}

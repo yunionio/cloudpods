@@ -4,81 +4,69 @@ import (
 	"fmt"
 	"net"
 	"os/exec"
-	"strings"
+	"time"
 
+	"yunion.io/x/log"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
-	"yunion.io/x/pkg/utils"
 )
-
-type Metadata struct {
-	LoginAccount string `json:"login_account"`
-	LoginKey     string `json:"login_key"`
-}
-
-type SSHInfo struct {
-	ID       string   `json:"id"`
-	Metadata Metadata `json:"metadata"`
-	Eip      string   `json:"eip"`
-	IPs      string   `json:"ips"`
-	Keypaire string   `json:"keypair"`
-	OsType   string   `json:"os_type"`
-}
 
 type SSHtoolSol struct {
 	*BaseCommand
-	Info *SSHInfo
+	IP       string
+	Username string
+	reTry    int
+	showInfo string
 }
 
-func NewSSHtoolSolCommand(info *SSHInfo) (*SSHtoolSol, error) {
-	if info.IPs == "" {
-		return nil, fmt.Errorf("Empty server ip address")
-	}
-	if info.Metadata.LoginAccount == "" {
-		return nil, fmt.Errorf("Empty username")
-	}
-	if len(info.Keypaire) != 0 {
-		return nil, fmt.Errorf("Not support private_key login")
-	}
-	if info.OsType != "Linux" {
-		return nil, fmt.Errorf("Not support login for %s", info.OsType)
-	}
-	args := ""
-	if info.Eip != "" {
-		args = fmt.Sprintf("%s@%s", info.Metadata.LoginAccount, info.Eip)
+func NewSSHtoolSolCommand(ip string) (*SSHtoolSol, error) {
+	if conn, err := net.DialTimeout("tcp", ip+":22", time.Second*2); err != nil {
+		return nil, fmt.Errorf("IPAddress %s not accessable", ip)
 	} else {
-		for _, ip := range strings.Split(info.IPs, ",") {
-			conn, err := net.Dial("tcp", fmt.Sprintf("%s:22", ip))
-			if err == nil {
-				args = fmt.Sprintf("%s@%s", info.Metadata.LoginAccount, ip)
-				break
-			}
-			defer conn.Close()
-		}
+		conn.Close()
+		return &SSHtoolSol{
+			BaseCommand: nil,
+			IP:          ip,
+			Username:    "",
+			reTry:       0,
+			showInfo:    fmt.Sprintf("%s login:", ip),
+		}, nil
 	}
-	if len(args) == 0 {
-		return nil, fmt.Errorf("failed find usable connection ip address")
-	}
-	cmd := NewBaseCommand(o.Options.SSHtoolPath)
-	if info.Metadata.LoginKey != "" {
-		cmd := NewBaseCommand(o.Options.SSHtoolPath)
-		if passwd, err := utils.DescryptAESBase64(info.ID, info.Metadata.LoginKey); err != nil {
-			return nil, err
-		} else {
-			cmd.AppendArgs("-p", passwd)
-		}
-	}
-	cmd.AppendArgs(args)
-	tool := &SSHtoolSol{
-		BaseCommand: cmd,
-		Info:        info,
-	}
-	return tool, nil
 }
 
 func (c *SSHtoolSol) GetCommand() *exec.Cmd {
-	return c.BaseCommand.GetCommand()
+	return nil
 }
 
-func (c SSHtoolSol) GetProtocol() string {
+func (c *SSHtoolSol) Cleanup() error {
+	log.Infof("SSHtoolSol Cleanup do nothing")
+	return nil
+}
+
+func (c *SSHtoolSol) GetProtocol() string {
 	return PROTOCOL_TTY
+}
+
+func (c *SSHtoolSol) GetData(data string) (isShow bool, ouput string, command string) {
+	if len(c.Username) == 0 {
+		if len(data) == 0 {
+			//用户名不能为空
+			return true, c.showInfo, ""
+		}
+		c.Username = data
+		return false, "Password:", ""
+	} else {
+		return true, "", fmt.Sprintf("%s -p %s %s %s@%s", o.Options.SshpassToolPath, data, o.Options.SshToolPath, c.Username, c.IP)
+	}
+}
+
+func (c *SSHtoolSol) ShowInfo() string {
+	c.Username = ""
+	c.reTry++
+	if c.reTry == 3 {
+		c.reTry = 0
+		//清屏
+		time.Sleep(1 * time.Second)
+		return "\033c " + c.showInfo
+	}
+	return c.showInfo
 }
