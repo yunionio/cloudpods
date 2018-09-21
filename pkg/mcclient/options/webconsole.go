@@ -36,3 +36,8 @@ type WebConsoleBaremetalOptions struct {
 func (opt *WebConsoleBaremetalOptions) Params() (*jsonutils.JSONDict, error) {
 	return StructToParams(opt)
 }
+
+type WebConsoleServerOptions struct {
+	WebConsoleOptions
+	ID string `help:"Server id or name"`
+}

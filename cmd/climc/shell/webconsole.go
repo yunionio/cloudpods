@@ -65,4 +65,13 @@ func init() {
 		handleResult(args.WebConsoleOptions, ret)
 		return nil
 	})
+
+	R(&o.WebConsoleServerOptions{}, "webconsole-server", "Connect server webconsole", func(s *mcclient.ClientSession, args *o.WebConsoleServerOptions) error {
+		ret, err := modules.WebConsole.DoServerConnect(s, args.ID)
+		if err != nil {
+			return err
+		}
+		handleResult(args.WebConsoleOptions, ret)
+		return nil
+	})
 }
