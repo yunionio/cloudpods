@@ -1292,11 +1292,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a22a70d0156f2b836993f4d07b38c4b1c2058d61ced4e55bb7fb77b297424a04"
+  digest = "1:d8daebdff1c94f0acac6952014812ac02fc10e1894004dd2efd8377a2517ba06"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "3342ff524267b69938600968f3f193fc794b309c"
+  revision = "95a4726da196a27611ca7df4e08f16ece628f708"
 
 [[projects]]
   branch = "master"

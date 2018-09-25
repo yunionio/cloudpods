@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/cache"
 
@@ -190,6 +191,10 @@ func (a *authManager) init() error {
 	time.AfterFunc(time.Duration(duration.Nanoseconds()/2), a.reAuth)
 	initCh <- true
 	return nil
+}
+
+func GetCatalogData(serviceTypes []string, region string) jsonutils.JSONObject {
+	return manager.adminCredential.GetCatalogData(serviceTypes, region)
 }
 
 func Verify(tokenId string) (mcclient.TokenCredential, error) {

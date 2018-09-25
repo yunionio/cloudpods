@@ -133,6 +133,10 @@ func SimplifyToken(token TokenCredential) TokenCredential {
 	}
 }
 
+func (self *SSimpleToken) GetCatalogData(serviceTypes []string, region string) jsonutils.JSONObject {
+	return nil
+}
+
 func (self *SSimpleToken) String() string {
 	return jsonutils.Marshal(self).String()
 }

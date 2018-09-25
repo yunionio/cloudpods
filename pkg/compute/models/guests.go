@@ -578,19 +578,6 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 }
 
 func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	vmemSize, vcpuCount, err := validateMemCpuData(data)
-	if err != nil {
-		return nil, err
-	}
-	if vmemSize == 0 {
-		return nil, httperrors.NewInputParameterError("Missing memory size")
-	}
-	if vcpuCount == 0 {
-		vcpuCount = 1
-	}
-	data.Add(jsonutils.NewInt(int64(vmemSize)), "vmem_size")
-	data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
-
 	resetPassword := jsonutils.QueryBoolean(data, "reset_password", true)
 	passwd, _ := data.GetString("password")
 	if resetPassword && len(passwd) > 0 {
@@ -676,7 +663,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			hypervisor = HYPERVISOR_DEFAULT
 		}
 
-		data, err = GetDriver(hypervisor).ValidateCreateHostData(ctx, userCred, bmName, baremetal, data)
+		_, err = GetDriver(hypervisor).ValidateCreateHostData(ctx, userCred, bmName, baremetal, data)
 		if err != nil {
 			return nil, err
 		}
@@ -843,11 +830,28 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		}*/
 
 	data, err = GetDriver(hypervisor).ValidateCreateData(ctx, userCred, data)
+	if err != nil {
+		return nil, err
+	}
 
 	data, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 	if err != nil {
 		return nil, err
 	}
+
+	vmemSize, vcpuCount, err := validateMemCpuData(data)
+	if err != nil {
+		return nil, err
+	}
+
+	if vmemSize == 0 {
+		return nil, httperrors.NewInputParameterError("Missing memory size")
+	}
+	if vcpuCount == 0 {
+		vcpuCount = 1
+	}
+	data.Add(jsonutils.NewInt(int64(vmemSize)), "vmem_size")
+	data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
 
 	if !jsonutils.QueryBoolean(data, "is_system", false) {
 		err = manager.checkCreateQuota(ctx, userCred, ownerProjId, data)
@@ -4324,6 +4328,10 @@ func (manager *SGuestManager) CleanPendingDeleteServers(ctx context.Context, use
 
 func (self *SGuest) GetEip() (*SElasticip, error) {
 	return ElasticipManager.getEipForInstance("server", self.Id)
+}
+
+func (self *SGuest) GetRealIps() []string {
+	return self.getRealIPs()
 }
 
 func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, projectId string) compare.SyncResult {

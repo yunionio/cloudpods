@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
@@ -33,6 +34,14 @@ func (manager *SResourceBaseManager) Query(fields ...string) *sqlchemy.SQuery {
 
 func (manager *SResourceBaseManager) RawQuery(fields ...string) *sqlchemy.SQuery {
 	return manager.SModelBaseManager.Query(fields...)
+}
+
+func (manager *SResourceBaseManager) DoCreate(ctx context.Context, userCred mcclient.TokenCredential, kwargs jsonutils.JSONObject, data jsonutils.JSONObject, realManager IModelManager) (IModel, error) {
+	ownerProjId, err := fetchOwnerProjectId(ctx, userCred, kwargs)
+	if err != nil {
+		return nil, err
+	}
+	return doCreateItem(realManager, ctx, userCred, ownerProjId, nil, data)
 }
 
 func CanDelete(model IModel, ctx context.Context) bool {

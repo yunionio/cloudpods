@@ -11,7 +11,9 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
 )
 
@@ -396,9 +398,35 @@ func (self *SWire) GetCandidatePublicNetwork(isExit bool, serverType string) (*S
 	return ChooseCandidateNetworks(nets, isExit, serverType), nil
 }
 
+func (self *SWire) GetCandidateNetworkForIp(userCred mcclient.TokenCredential, ipAddr string) (*SNetwork, error) {
+	ip, err := netutils.NewIPV4Addr(ipAddr)
+	if err != nil {
+		return nil, err
+	}
+	netPrivates, err := self.getPrivateNetworks(userCred)
+	if err != nil {
+		return nil, err
+	}
+	for _, net := range netPrivates {
+		if net.isAddressInRange(ip) {
+			return &net, nil
+		}
+	}
+	netPublics, err := self.getPublicNetworks()
+	if err != nil {
+		return nil, err
+	}
+	for _, net := range netPublics {
+		if net.isAddressInRange(ip) {
+			return &net, nil
+		}
+	}
+	return nil, nil
+}
+
 func chooseNetworkByAddressCount(nets []*SNetwork) (*SNetwork, *SNetwork) {
-	minCnt := -1
-	maxCnt := -1
+	minCnt := 65535
+	maxCnt := 0
 	var minSel *SNetwork
 	var maxSel *SNetwork
 	for _, net := range nets {
@@ -531,6 +559,19 @@ func (manager *SWireManager) FetchWireById(wireId string) *SWire {
 		return nil
 	}
 	return wireObj.(*SWire)
+}
+
+func (manager *SWireManager) GetWireOfIp(ipAddr string) (*SWire, error) {
+	net, err := NetworkManager.GetNetworkOfIP(ipAddr, "", tristate.None)
+	if err != nil {
+		return nil, err
+	}
+	wire := net.GetWire()
+	if wire != nil {
+		return wire, nil
+	} else {
+		return nil, fmt.Errorf("Wire not found")
+	}
 }
 
 func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {

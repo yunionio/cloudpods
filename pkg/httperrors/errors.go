@@ -170,6 +170,11 @@ func NewDuplicateNameError(resName string, resId string) *httputils.JSONClientEr
 	return NewJsonClientError(409, "DuplicateNameError", msg, err)
 }
 
+func NewDuplicateResourceError(msg string, params ...interface{}) *httputils.JSONClientError {
+	msg, err := errorMessage(msg, params)
+	return NewJsonClientError(409, "DuplicateResourceError", msg, err)
+}
+
 func NewConflictError(msg string, params ...interface{}) *httputils.JSONClientError {
 	msg, err := errorMessage(msg, params...)
 	return NewJsonClientError(409, "ConflictError", msg, err)

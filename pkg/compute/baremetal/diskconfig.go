@@ -183,12 +183,6 @@ func isDiskConfigStorageMatch(
 	if (typeIsHybrid || typeIsRotate || typeIsSSD) &&
 		(rangeIsNoneAndCountZero || rangeIsNotNoneAndIndexInRange || rangeIsNoneAndSmallThanCount) &&
 		adapterIsEqual {
-		if confDriver == nil {
-			confDriver = &driver
-		}
-		if confAdapter == nil {
-			confAdapter = &adapter
-		}
 		return true
 	}
 	return false
@@ -215,6 +209,12 @@ func RetrieveStorages(diskConfig *BaremetalDiskConfig, storages []*BaremetalStor
 		}
 
 		if isDiskConfigStorageMatch(diskConfig, confDriver, confAdapter, storage, selected) {
+			if confDriver == nil {
+				confDriver = &storage.Driver
+			}
+			if confAdapter == nil {
+				confAdapter = &storage.Adapter
+			}
 			selected = append(selected, storage)
 		} else {
 			rest = append(rest, storage)
@@ -262,7 +262,9 @@ func (l Layout) String() string {
 func RetrieveStorageDrivers(storages []*BaremetalStorage) sets.String {
 	ret := sets.NewString()
 	for _, s := range storages {
-		ret = ret.Union(sets.NewString(s.Driver))
+		if !ret.Has(s.Driver) {
+			ret.Insert(s.Driver)
+		}
 	}
 	return ret
 }
@@ -405,58 +407,19 @@ func ExpandNoneConf(layouts []Layout) (ret []Layout) {
 	return ret
 }
 
-func CalculateLayout(
-	confs []*BaremetalDiskConfig,
-	storages []*BaremetalStorage,
-) (layouts []Layout, err error) {
-
-	if len(confs) == 0 {
-		err = fmt.Errorf("[]*BaremetalDiskConfig must be provided.")
-		return
-	}
-
-	layouts = make([]Layout, 0)
-	var (
-		plainDisks = make([]*BaremetalStorage, 0)
-		pcieDisks  = make([]*BaremetalStorage, 0)
-		raidDisks  = make([]*BaremetalStorage, 0)
-	)
-
-	for _, storage := range storages {
-		if storage.Driver != "" && storage.Driver == DISK_DRIVER_LINUX {
-			plainDisks = append(plainDisks, storage)
-		} else if storage.Driver != "" && storage.Driver == DISK_DRIVER_PCIE {
-			pcieDisks = append(pcieDisks, storage)
+func CalculateLayout(confs []*BaremetalDiskConfig, storages []*BaremetalStorage) (layouts []Layout, err error) {
+	var confIdx = 0
+	for len(storages) > 0 {
+		var conf *BaremetalDiskConfig
+		if confIdx < len(confs) {
+			conf = confs[confIdx]
+			confIdx += 1
 		} else {
-			raidDisks = append(raidDisks, storage)
+			noneConf, _ := ParseDiskConfig("none")
+			conf = &noneConf
 		}
-	}
-
-	if len(plainDisks) > 0 {
-		layouts = append(layouts, Layout{
-			Disks: plainDisks,
-			Conf:  &BaremetalDiskConfig{Conf: DISK_CONF_NONE},
-			Size:  0,
-		})
-	}
-
-	storages = raidDisks
-	//totalStorageRequest := 0
-	//for _, conf := range confs {
-	//totalStorageRequest += conf.Count
-	//}
-	//if totalStorageRequest > len(storages) {
-	//err = fmt.Errorf("requested number of disks is more than storages")
-	//return layouts, err
-	//}
-
-	for _, conf := range confs {
-		if len(storages) == 0 {
-			continue
-		}
-		selected, storages1 := RetrieveStorages(conf, storages)
-		//selected, _ := RetrieveStorages(conf, storages)
-		storages = storages1
+		selected, storage1 := RetrieveStorages(conf, storages)
+		storages = storage1
 		if len(selected) == 0 {
 			err = fmt.Errorf("Not found matched storages by config: %#v", conf)
 			return
@@ -467,7 +430,6 @@ func CalculateLayout(
 			return
 		}
 		sz := CalculateSize(conf.Conf, selected)
-
 		if len(conf.Splits) == 0 {
 			layouts = append(layouts, Layout{
 				Disks: selected,
@@ -475,35 +437,18 @@ func CalculateLayout(
 				Size:  sz,
 			})
 		} else {
+			splitSizes := GetSplitSizes(sz, conf.Splits)
+			conf.Size = splitSizes
 			layouts = append(layouts, Layout{
 				Disks: selected,
 				Conf:  conf,
 				Size:  sz,
 			})
-			/* splitSizes := GetSplitSizes(sz, conf.Splits)
-			if len(splitSizes) <= 0 {
-				break
-			}
-
-			for _, ssz := range splitSizes {
-				subConfig := conf
-				layouts = append(layouts, Layout{
-					Disks: selected,
-					Conf:  subConfig,
-					Size:  ssz,
-				})
-			}*/
 		}
 	}
-
-	if len(pcieDisks) > 0 {
-		layouts = append(layouts, Layout{
-			Disks: pcieDisks,
-			Conf:  &BaremetalDiskConfig{Conf: DISK_CONF_NONE},
-			Size:  0,
-		})
+	if confIdx < len(confs) {
+		err = fmt.Errorf("Not enough disks to meet configuration")
 	}
-	layouts = ExpandNoneConf(layouts)
 	return
 }
 
@@ -525,6 +470,7 @@ func expandLayoutSplits(layouts []Layout) []Layout {
 }
 
 func CheckDisksAllocable(layouts []Layout, disks []*Disk) bool {
+	layouts = ExpandNoneConf(layouts)
 	layouts = expandLayoutSplits(layouts)
 	storeIndex := 0
 	storeFreeSize := int64(-1)

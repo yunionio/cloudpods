@@ -29,6 +29,7 @@ type IModelManager interface {
 	AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool
 	ValidateListConditions(ctx context.Context, userCred mcclient.TokenCredential, query *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
 	ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error)
+	CustomizeFilterList(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, retList []jsonutils.JSONObject) ([]jsonutils.JSONObject, error)
 	ExtraSearchConditions(ctx context.Context, q *sqlchemy.SQuery, like string) []sqlchemy.ICondition
 
 	// fetch hook
@@ -54,6 +55,8 @@ type IModelManager interface {
 	// allow perform action
 	AllowPerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
 	PerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error)
+
+	DoCreate(ctx context.Context, userCred mcclient.TokenCredential, kwargs jsonutils.JSONObject, data jsonutils.JSONObject, realManager IModelManager) (IModel, error)
 
 	InitializeData() error
 }
