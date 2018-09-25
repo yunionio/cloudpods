@@ -236,7 +236,7 @@ func (opts *ServerDeployOptions) Params() (*jsonutils.JSONDict, error) {
 
 type ServerSecGroupOptions struct {
 	ID     string `help:"ID or Name of server" metavar:"Guest" json:"-"`
-	SecGrp string `help:"ID of Security Group" metavar:"Security Group" positional:"true"`
+	Secgrp string `help:"ID of Security Group" metavar:"Security Group" positional:"true"`
 }
 
 type ServerSendKeyOptions struct {
