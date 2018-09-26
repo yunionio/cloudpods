@@ -205,6 +205,7 @@ func (region *SRegion) CreateSecurityGroup(secName string) (*SSecurityGroup, err
 		Location: &region.Name,
 		Name:     &securityName,
 	}
+	region.CreateResourceGroup(resourceGroup)
 	if result, err := secClient.CreateOrUpdate(context.Background(), resourceGroup, securityName, params); err != nil {
 		return nil, err
 	} else if result.WaitForCompletion(context.Background(), secClient.Client); err != nil {
@@ -381,6 +382,7 @@ func (region *SRegion) updateSecurityGroupRules(secgroupId string, rules []secru
 		},
 	}
 	//log.Debugf("Update SecurityGroup rules: %s", jsonutils.Marshal(params).PrettyString())
+	region.CreateResourceGroup(resourceGroup)
 	if result, err := secClient.CreateOrUpdate(context.Background(), resourceGroup, secName, params); err != nil {
 		return "", err
 	} else if err := result.WaitForCompletion(context.Background(), secClient.Client); err != nil {
@@ -419,6 +421,7 @@ func (region *SRegion) AttachSecurityToInterfaces(secgroupId string, nicIds []st
 				NetworkInterfaces: &networkInterfaces,
 			},
 		}
+		region.CreateResourceGroup(resourceGroup)
 		if result, err := secClient.CreateOrUpdate(context.Background(), resourceGroup, secName, params); err != nil {
 			return err
 		} else if err := result.WaitForCompletion(context.Background(), secClient.Client); err != nil {

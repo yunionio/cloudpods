@@ -166,6 +166,7 @@ func (self *SRegion) CreateImageByBlob(imageName, osType, blobURI string, diskSi
 		},
 	}
 	_, resourceGroup, imageName := pareResourceGroupWithName(imageName, IMAGE_RESOURCE)
+	self.CreateResourceGroup(resourceGroup)
 	if result, err := imageClient.CreateOrUpdate(context.Background(), resourceGroup, imageName, params); err != nil {
 		log.Errorf("Create image from blob error: %v", err)
 		return nil, err
@@ -202,6 +203,7 @@ func (self *SRegion) CreateImage(snapshotId, imageName, osType, imageDesc string
 			StorageProfile: &storageProfile,
 		},
 	}
+	self.CreateResourceGroup(resourceGroup)
 	if resutl, err := imageClient.CreateOrUpdate(context.Background(), resourceGroup, imageName, params); err != nil {
 		return nil, err
 	} else if err := resutl.WaitForCompletion(context.Background(), imageClient.Client); err != nil {

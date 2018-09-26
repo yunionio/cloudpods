@@ -137,6 +137,7 @@ func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudpro
 	properties := network.VirtualNetworkPropertiesFormat{AddressSpace: &addressSpace}
 	parameters := network.VirtualNetwork{Name: &name, Location: &self.Name, VirtualNetworkPropertiesFormat: &properties}
 	vpcId, resourceGroup, vpcName := pareResourceGroupWithName(name, VPC_RESOURCE)
+	self.CreateResourceGroup(resourceGroup)
 	if result, err := vpcClient.CreateOrUpdate(context.Background(), resourceGroup, vpcName, parameters); err != nil {
 		return nil, err
 	} else if err := result.WaitForCompletion(context.Background(), vpcClient.Client); err != nil {

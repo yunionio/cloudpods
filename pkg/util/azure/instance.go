@@ -495,7 +495,7 @@ func (region *SRegion) resetLoginInfo(instanceId string, setting map[string]stri
 			ProtectedSettings:  setting,
 		},
 	}
-
+	region.CreateResourceGroup(resourceGroup)
 	if result, err := extensionClient.CreateOrUpdate(context.Background(), resourceGroup, instanceName, DEFAULT_EXTENSION_NAME, params); err != nil {
 		return err
 	} else if err := result.WaitForCompletion(context.Background(), extensionClient.Client); err != nil {

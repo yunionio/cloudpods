@@ -70,6 +70,7 @@ func (self *SNetwork) Delete() error {
 	networkClient := network.NewVirtualNetworksClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
 	networkClient.Authorizer = region.client.authorizer
 	_, resourceGroup, vpcName := pareResourceGroupWithName(vpc.ID, VPC_RESOURCE)
+	region.CreateResourceGroup(resourceGroup)
 	if result, err := networkClient.CreateOrUpdate(context.Background(), resourceGroup, vpcName, params); err != nil {
 		return err
 	} else if err := result.WaitForCompletion(context.Background(), networkClient.Client); err != nil {

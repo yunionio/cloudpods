@@ -29,7 +29,7 @@ func (self *SHost) GetId() string {
 }
 
 func (self *SHost) GetName() string {
-	return fmt.Sprintf("%s-%s", self.zone.region.client.providerName, self.zone.region.Name)
+	return fmt.Sprintf("%s(%s)", self.zone.region.client.subscriptionId, self.zone.region.client.subscriptionName)
 }
 
 func (self *SHost) GetGlobalId() string {
@@ -156,6 +156,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 		params.HardwareProfile.VMSize = compute.VirtualMachineSizeTypes(profile)
 		log.Debugf("Try HardwareProfile : %s", profile)
 		instanceId, resourceGroup, instanceName := pareResourceGroupWithName(name, INSTANCE_RESOURCE)
+		self.zone.region.CreateResourceGroup(resourceGroup)
 		result, err := computeClient.CreateOrUpdate(context.Background(), resourceGroup, instanceName, params)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", profile, err)
