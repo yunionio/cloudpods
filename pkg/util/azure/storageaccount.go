@@ -3,6 +3,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -43,6 +44,7 @@ type SStorageAccount struct {
 	ID         string
 	Name       string
 	Type       string
+	Tags       map[string]string
 }
 
 func (self *SRegion) GetStorageAccounts() ([]SStorageAccount, error) {
@@ -57,26 +59,85 @@ func (self *SRegion) GetStorageAccounts() ([]SStorageAccount, error) {
 	return accounts, nil
 }
 
+func randomString(prefix string, length int) string {
+	bytes := []byte("0123456789abcdefghijklmnopqrstuvwxyz")
+	result := []byte{}
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := 0; i < length; i++ {
+		result = append(result, bytes[r.Intn(len(bytes))])
+	}
+	return prefix + string(result)
+}
+
+func (self *SRegion) GetUniqStorageAccountName() string {
+	Type := "Microsoft.Storage/storageAccounts"
+	for {
+		uniqString := randomString("storage", 8)
+		storageClinet := storage.NewAccountsClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
+		storageClinet.Authorizer = self.client.authorizer
+		params := storage.AccountCheckNameAvailabilityParameters{
+			Name: &uniqString,
+			Type: &Type,
+		}
+		if result, err := storageClinet.CheckNameAvailability(context.Background(), params); err != nil {
+			continue
+		} else if *result.NameAvailable {
+			return uniqString
+		}
+	}
+}
+
 func (self *SRegion) CreateStorageAccount(storageAccount string) (*SStorageAccount, error) {
-	storageClinet := storage.NewAccountsClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-	storageClinet.Authorizer = self.client.authorizer
-	sku := storage.Sku{Name: storage.StandardLRS}
-	params := storage.AccountCreateParameters{
-		Sku:      &sku,
-		Location: &self.Name,
-		Kind:     storage.StorageV2,
-		AccountPropertiesCreateParameters: &storage.AccountPropertiesCreateParameters{
-			AccessTier: storage.Hot,
-		},
-	}
-	globalId, resourceGroup, accountName := pareResourceGroupWithName(storageAccount, STORAGE_RESOURCE)
-	//log.Debugf("Create Storage Account: %s", jsonutils.Marshal(params).PrettyString())
-	if result, err := storageClinet.Create(context.Background(), resourceGroup, accountName, params); err != nil {
+	if accountId, err := self.getStorageAccountID(storageAccount); err != nil {
+		if err == cloudprovider.ErrNotFound {
+			result := SStorageAccount{}
+			storageClinet := storage.NewAccountsClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
+			storageClinet.Authorizer = self.client.authorizer
+			sku := storage.Sku{Name: storage.StandardLRS}
+			params := storage.AccountCreateParameters{
+				Sku:      &sku,
+				Location: &self.Name,
+				Kind:     storage.StorageV2,
+				AccountPropertiesCreateParameters: &storage.AccountPropertiesCreateParameters{
+					AccessTier: storage.Hot,
+				},
+				Tags: map[string]*string{"id": &storageAccount},
+			}
+			_, resourceGroup, _ := pareResourceGroupWithName(storageAccount, STORAGE_RESOURCE)
+			storageName := self.GetUniqStorageAccountName()
+			if resp, err := storageClinet.Create(context.Background(), resourceGroup, storageName, params); err != nil {
+				return nil, err
+			} else if err := resp.WaitForCompletion(context.Background(), storageClinet.Client); err != nil {
+				return nil, err
+			} else if account, err := resp.Result(storageClinet); err != nil {
+				return nil, err
+			} else if err := jsonutils.Update(&result, account); err != nil {
+				return nil, err
+			}
+			return &result, nil
+		}
 		return nil, err
-	} else if err := result.WaitForCompletion(context.Background(), storageClinet.Client); err != nil {
-		return nil, err
+	} else {
+		return self.GetStorageAccountDetail(accountId)
 	}
-	return self.GetStorageAccountDetail(globalId)
+}
+
+func (self *SRegion) getStorageAccountID(storageAccount string) (string, error) {
+	if accounts, err := self.GetStorageAccounts(); err != nil {
+		return "", err
+	} else {
+		for i := 0; i < len(accounts); i++ {
+			if accounts[i].Location != self.Name {
+				continue
+			}
+			for k, v := range accounts[i].Tags {
+				if k == "id" && v == storageAccount {
+					return accounts[i].ID, nil
+				}
+			}
+		}
+	}
+	return "", cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetStorageAccountDetail(accountId string) (*SStorageAccount, error) {
