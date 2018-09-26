@@ -3429,16 +3429,16 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 		TODO
 		srs := self.getSecurityRuleSet()
 		if srs.estimatedSinglePortRuleCount() <= options.FirewallFlowCountLimit {
-			rules := self.getSecurityRules()
-			if len(rules) > 0 {
-				desc.Add(jsonutils.NewString(rules), "security_rules")
-			}
-			rules = self.getAdminSecurityRules()
-			if len(rules) > 0 {
-				desc.Add(jsonutils.NewString(rules), "admin_security_rules")
-			}
-		}
 	*/
+	
+	rules := self.getSecurityRules()
+	if len(rules) > 0 {
+		desc.Add(jsonutils.NewString(rules), "security_rules")
+	}
+	rules = self.getAdminSecurityRules()
+	if len(rules) > 0 {
+		desc.Add(jsonutils.NewString(rules), "admin_security_rules")
+	}
 
 	extraOptions := self.getExtraOptions()
 	if extraOptions != nil {
