@@ -71,6 +71,11 @@ func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
+func (self *SCloudprovider) GetGuestCount() int {
+	sq := HostManager.Query("id").Equals("manager_id", self.Id)
+	return GuestManager.Query().In("host_id", sq).Count()
+}
+
 func (self *SCloudprovider) GetHostCount() int {
 	return HostManager.Query().Equals("manager_id", self.Id).Count()
 }
@@ -414,6 +419,7 @@ func (manager *SCloudproviderManager) FetchCloudproviderByIdOrName(providerId st
 }
 
 type SCloudproviderUsage struct {
+	GuestCount        int
 	HostCount         int
 	VpcCount          int
 	StorageCount      int
@@ -442,6 +448,7 @@ func (usage *SCloudproviderUsage) isEmpty() bool {
 
 func (self *SCloudprovider) getUsage() *SCloudproviderUsage {
 	usage := SCloudproviderUsage{}
+	usage.GuestCount = self.GetGuestCount()
 	usage.HostCount = self.GetHostCount()
 	usage.VpcCount = self.getVpcCount()
 	usage.StorageCount = self.getStorageCount()
