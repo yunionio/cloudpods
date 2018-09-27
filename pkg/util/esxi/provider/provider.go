@@ -87,6 +87,10 @@ func (self *SESXiProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	return self.client.About(), nil
 }
 
+func (self *SESXiProvider) GetSubAccounts() (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
 func (self *SESXiProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return nil
 }

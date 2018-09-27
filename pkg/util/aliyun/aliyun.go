@@ -5,6 +5,7 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 
 	"time"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -129,6 +130,10 @@ func (self *SAliyunClient) GetRegions() []SRegion {
 		regions[i] = *region
 	}
 	return regions
+}
+
+func (self *SAliyunClient) GetSubAccounts() (jsonutils.JSONObject, error) {
+	return nil, nil
 }
 
 func (self *SAliyunClient) GetIRegions() []cloudprovider.ICloudRegion {

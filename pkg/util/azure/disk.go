@@ -91,6 +91,7 @@ func (self *SRegion) createDisk(storageType string, name string, sizeGb int32, d
 	disk := compute.Disk{Name: &name, Location: &self.Name, DiskProperties: &properties, Sku: &sku}
 	diskId, resourceGroup, diskName := pareResourceGroupWithName(name, DISK_RESOURCE)
 	//log.Debugf("Create disk: %s", jsonutils.Marshal(disk).PrettyString())
+	self.CreateResourceGroup(resourceGroup)
 	if result, err := computeClient.CreateOrUpdate(context.Background(), resourceGroup, diskName, disk); err != nil {
 		return "", err
 	} else if err := result.WaitForCompletion(context.Background(), computeClient.Client); err != nil {

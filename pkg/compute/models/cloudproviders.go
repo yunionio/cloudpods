@@ -369,6 +369,23 @@ func (self *SCloudprovider) GetDriver() (cloudprovider.ICloudProvider, error) {
 	return cloudprovider.GetProvider(self.Id, self.Name, self.AccessUrl, self.Account, secret, self.Provider)
 }
 
+func (manager *SCloudproviderManager) AllowPerformGetSubAccounts(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (manager *SCloudproviderManager) PerformGetSubAccounts(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	name, _ := data.GetString("name")
+	accessUrl, _ := data.GetString("access_url")
+	account, _ := data.GetString("account")
+	secret, _ := data.GetString("secret")
+	_provider, _ := data.GetString("provider")
+	if provider, err := cloudprovider.GetProvider("", name, accessUrl, account, secret, _provider); err != nil {
+		return nil, err
+	} else {
+		return provider.GetSubAccounts()
+	}
+}
+
 func (self *SCloudprovider) SaveSysInfo(info jsonutils.JSONObject) {
 	self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Sysinfo = info
