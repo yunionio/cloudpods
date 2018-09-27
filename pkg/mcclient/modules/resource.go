@@ -351,6 +351,15 @@ func (this *ResourceManager) PerformActionInContexts(session *mcclient.ClientSes
 	return this._post(session, path, this.params2Body(params), this.Keyword)
 }
 
+func (this *ResourceManager) PerformClassAction(session *mcclient.ClientSession, action string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return this.PerformClassActionInContexts(session, action, params, nil)
+}
+
+func (this *ResourceManager) PerformClassActionInContexts(session *mcclient.ClientSession, action string, params jsonutils.JSONObject, ctxs []ManagerContext) (jsonutils.JSONObject, error) {
+	path := fmt.Sprintf("/%s/%s", this.ContextPath(ctxs), url.PathEscape(action))
+	return this._post(session, path, params, this.Keyword)
+}
+
 func (this *ResourceManager) BatchPerformAction(session *mcclient.ClientSession, idlist []string, action string, params jsonutils.JSONObject) []SubmitResult {
 	return this.BatchPerformActionInContexts(session, idlist, action, params, nil)
 }
