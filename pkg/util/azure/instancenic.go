@@ -106,6 +106,7 @@ func (self *SInstanceNic) updateSecurityGroup(secgroupId string) error {
 	if len(secgroupId) > 0 {
 		params.InterfacePropertiesFormat.NetworkSecurityGroup.ID = &secgroupId
 	}
+	region.CreateResourceGroup(resourceGroup)
 	if result, err := nicClient.CreateOrUpdate(context.Background(), resourceGroup, nicName, params); err != nil {
 		return err
 	} else if err := result.WaitForCompletion(context.Background(), nicClient.Client); err != nil {

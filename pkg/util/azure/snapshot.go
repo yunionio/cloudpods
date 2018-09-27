@@ -64,6 +64,7 @@ func (self *SRegion) CreateSnapshot(diskId, snapName, desc string) (*SSnapshot, 
 			},
 		},
 	}
+	self.CreateResourceGroup(resourceGroup)
 	if result, err := snapClient.CreateOrUpdate(context.Background(), resourceGroup, snapshotName, params); err != nil {
 		return nil, err
 	} else if err := result.WaitForCompletion(context.Background(), snapClient.Client); err != nil {

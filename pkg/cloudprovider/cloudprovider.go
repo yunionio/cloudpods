@@ -13,6 +13,7 @@ type ICloudProviderFactory interface {
 }
 
 type ICloudProvider interface {
+	GetSubAccounts() (jsonutils.JSONObject, error)
 	GetId() string
 	GetName() string
 	GetIRegions() []ICloudRegion
