@@ -51,6 +51,10 @@ func (self *SAzureProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	return info, nil
 }
 
+func (self *SAzureProvider) GetSubAccounts() (jsonutils.JSONObject, error) {
+	return self.client.GetSubAccounts()
+}
+
 func (self *SAzureProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }

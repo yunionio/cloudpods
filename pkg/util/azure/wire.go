@@ -80,6 +80,7 @@ func (self *SRegion) createNetwork(vpc *SVpc, subnetName string, cidr string, de
 	networkClient.Authorizer = self.client.authorizer
 	_, resourceGroup, vpcName := pareResourceGroupWithName(vpc.ID, VPC_RESOURCE)
 	result := SNetwork{}
+	self.CreateResourceGroup(resourceGroup)
 	if resp, err := networkClient.CreateOrUpdate(context.Background(), resourceGroup, vpcName, params); err != nil {
 		return nil, err
 	} else if err := resp.WaitForCompletion(context.Background(), networkClient.Client); err != nil {

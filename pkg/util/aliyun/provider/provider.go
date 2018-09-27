@@ -71,6 +71,10 @@ func (self *SAliyunProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	return info, nil
 }
 
+func (self *SAliyunProvider) GetSubAccounts() (jsonutils.JSONObject, error) {
+	return self.client.GetSubAccounts()
+}
+
 func (self *SAliyunProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }

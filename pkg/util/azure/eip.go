@@ -60,6 +60,7 @@ func (region *SRegion) AllocateEIP(eipName string) (*SEipAddress, error) {
 			PublicIPAddressVersion:   network.IPv4,
 		},
 	}
+	region.CreateResourceGroup(resourceGroup)
 	if result, err := networkClient.CreateOrUpdate(context.Background(), resourceGroup, eipName, params); err != nil {
 		return nil, err
 	} else if err := result.WaitForCompletion(context.Background(), networkClient.Client); err != nil {
