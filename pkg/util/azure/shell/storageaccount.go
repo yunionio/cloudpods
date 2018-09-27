@@ -60,4 +60,13 @@ func init() {
 		}
 	})
 
+	type StorageAccountCheckeOptions struct {
+	}
+
+	shellutils.R(&StorageAccountCheckeOptions{}, "storage-uniq-name", "Get a uniqel storage account name", func(cli *azure.SRegion, args *StorageAccountCheckeOptions) error {
+		uniqName := cli.GetUniqStorageAccountName()
+		fmt.Println(uniqName)
+		return nil
+	})
+
 }
