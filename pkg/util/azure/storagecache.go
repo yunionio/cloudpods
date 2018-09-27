@@ -118,17 +118,18 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		}
 		storageAccount := fmt.Sprintf("%s%s", self.region.Name, DefaultStorageAccount)
 
-		if _, err := self.region.CreateStorageAccount(storageAccount); err != nil {
+		storage, err := self.region.CreateStorageAccount(storageAccount)
+		if err != nil {
 			return "", err
 		}
 
-		if _, err := self.region.CreateContainer(storageAccount, DefaultContainer); err != nil {
+		if _, err := self.region.CreateContainer(storage.ID, DefaultContainer); err != nil {
 			return "", err
 		}
 
 		size, _ := meta.Int("size")
 
-		blobURI, err := self.region.UploadVHD(storageAccount, DefaultContainer, tmpFile)
+		blobURI, err := self.region.UploadVHD(storage.ID, DefaultContainer, tmpFile)
 		if err != nil {
 			log.Errorf("uploadContainerFileByPath error: %v", err)
 			return "", err
