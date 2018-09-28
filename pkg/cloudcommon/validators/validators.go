@@ -493,6 +493,7 @@ func (v *ValidatorStruct) Validate(data *jsonutils.JSONDict) error {
 			return err
 		}
 	}
+	data.Set(v.Key, jsonutils.Marshal(v.Value))
 	return nil
 }
 
