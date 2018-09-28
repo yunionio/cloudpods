@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -42,12 +43,19 @@ func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, obj db.ISt
 		}
 	}
 	log.Debugf("XXXXXXX Do real delete on guest ... XXXXXXX")
-	self.OnGuestStopCompleteFailed(ctx, guest, data)
+	self.doStartDeleteGuest(ctx, guest)
 }
 
-func (self *GuestDeleteTask) OnGuestStopCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (self *GuestDeleteTask) OnGuestStopCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, models.VM_DELETING, "delete anyway")
+	guest.SetStatus(self.UserCred, models.VM_DELETE_FAIL, err.String())
+	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE_FAIL, err, self.UserCred)
+	self.SetStageFailed(ctx, fmt.Sprintf("stop failed %s", err.String()))
+}
+
+func (self *GuestDeleteTask) doStartDeleteGuest(ctx context.Context, obj db.IStandaloneModel) {
+	guest := obj.(*models.SGuest)
+	guest.SetStatus(self.UserCred, models.VM_DELETING, "delete server after stop")
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATING, nil, self.UserCred)
 	self.StartDeleteGuest(ctx, guest)
 }
@@ -92,6 +100,7 @@ func (self *GuestDeleteTask) OnGuestDeleteCompleteFailed(ctx context.Context, ob
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.UserCred, models.VM_DELETE_FAIL, err.String())
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE_FAIL, err, self.UserCred)
+	self.SetStageFailed(ctx, fmt.Sprintf("delete failed %s", err.String()))
 }
 
 func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
