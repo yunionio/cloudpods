@@ -546,19 +546,22 @@ func TestIPv4Validator(t *testing.T) {
 }
 
 type TestStruct struct {
-	F0 string
-	F1 int
-	F2 bool
+	Name string
+	F0   string
+	F1   int
+	F2   bool
 }
 
 type TestVStruct TestStruct
 
 func (v *TestVStruct) Validate(data *jsonutils.JSONDict) error {
-	if v.F2 {
-		return nil
-	} else {
-		return newInvalidValueError("F2", v.F0)
+	switch v.Name {
+	case "bad":
+		return newInvalidValueError("Name", v.Name)
+	case "setDefault":
+		v.Name = "defaultVal"
 	}
+	return nil
 }
 
 func TestStructValidator(t *testing.T) {
@@ -566,29 +569,7 @@ func TestStructValidator(t *testing.T) {
 		*C
 		Value interface{}
 	}
-	defaultVal := &TestStruct{
-		F0: "holy",
-		F1: 100,
-		F2: true,
-	}
-	var defaultValMiss *TestStruct
-	{
-		defaultValMissCopy := *defaultVal
-		defaultValMissCopy.F2 = false
-		defaultValMiss = &defaultValMissCopy
-	}
-	defaultValJsonStr := `{s: {"F0": "holy", "F1": 100, "F2": true}}`
-	defaultValJsonStrMiss := `{s: {"F0": "holy", "F1": 100}}`
-	defaultValJsonStrMore := `{s: {"F0": "holy", "F1": 100, "F2": true, "Foo": "bar"}}`
 
-	defaultVVal := (*TestVStruct)(defaultVal)
-	var defaultVValBad *TestVStruct
-	{
-		defaultVValBadCopy := *defaultVVal
-		defaultVValBadCopy.F2 = false
-		defaultVValBad = &defaultVValBadCopy
-	}
-	defaultVValJsonStrBad := `{s: {"F0": "holy", "F1": 100, "F2": false}}`
 	cases := []*StructC{
 		{
 			C: &C{
@@ -612,47 +593,82 @@ func TestStructValidator(t *testing.T) {
 		},
 		{
 			C: &C{
-				Name:      "valid",
-				In:        defaultValJsonStr,
-				Out:       defaultValJsonStr,
-				ValueWant: defaultVal,
+				Name: "valid",
+				In:   `{s: {"F0": "holy", "F1": 100, "F2": true}}`,
+				Out:  `{s: {"f0": "holy", "f1": 100, "f2": true}}`,
+				ValueWant: &TestStruct{
+					F0: "holy",
+					F1: 100,
+					F2: true,
+				},
 			},
 			Value: &TestStruct{},
 		},
 		{
 			C: &C{
-				Name:      "valid (missing fields)",
-				In:        defaultValJsonStrMiss,
-				Out:       defaultValJsonStrMiss,
-				ValueWant: defaultValMiss,
+				Name: "valid (missing fields)",
+				In:   `{s: {"F0": "holy", "F1": 100}}`,
+				Out:  `{s: {"f0": "holy", "f1": 100, "f2": false}}`,
+				ValueWant: &TestStruct{
+					F0: "holy",
+					F1: 100,
+					F2: false,
+				},
 			},
 			Value: &TestStruct{},
 		},
 		{
 			C: &C{
-				Name:      "valid (more fields)",
-				In:        defaultValJsonStrMore,
-				Out:       defaultValJsonStrMore,
-				ValueWant: defaultVal,
+				Name: "valid (more fields)",
+				In:   `{s: {"F0": "holy", "F1": 100, "F2": true, "Foo": "bar"}}`,
+				Out:  `{s: {"f0": "holy", "f1": 100, "f2": true}}`,
+				ValueWant: &TestStruct{
+					F0: "holy",
+					F1: 100,
+					F2: true,
+				},
 			},
 			Value: &TestStruct{},
 		},
 		{
 			C: &C{
-				Name:      "valid (struct says valid)",
-				In:        defaultValJsonStr,
-				Out:       defaultValJsonStr,
-				ValueWant: defaultVVal,
+				Name: "valid (struct says valid)",
+				In:   `{s: {"F0": "holy", "F1": 100, "F2": true}}`,
+				Out:  `{s: {"f0": "holy", "f1": 100, "f2": true}}`,
+				ValueWant: &TestVStruct{
+					F0: "holy",
+					F1: 100,
+					F2: true,
+				},
 			},
 			Value: &TestVStruct{},
 		},
 		{
 			C: &C{
-				Name:      "invalid (struct says invalid)",
-				In:        defaultVValJsonStrBad,
-				Out:       defaultVValJsonStrBad,
-				ValueWant: defaultVValBad,
-				Err:       ERR_INVALID_VALUE,
+				Name: "valid (with default initialized)",
+				In:   `{s: {Name: "setDefault", "F0": "holy", "F1": 100, "F2": false}}`,
+				Out:  `{s: {name: "defaultVal", "f0": "holy", "f1": 100, "f2": false}}`,
+				ValueWant: &TestVStruct{
+					Name: "defaultVal",
+					F0:   "holy",
+					F1:   100,
+					F2:   false,
+				},
+			},
+			Value: &TestVStruct{},
+		},
+		{
+			C: &C{
+				Name: "invalid (struct says invalid)",
+				In:   `{s: {Name: "bad", "F0": "holy", "F1": 100, "F2": false}}`,
+				Out:  `{s: {Name: "bad", "F0": "holy", "F1": 100, "F2": false}}`,
+				ValueWant: &TestVStruct{
+					Name: "bad",
+					F0:   "holy",
+					F1:   100,
+					F2:   false,
+				},
+				Err: ERR_INVALID_VALUE,
 			},
 			Value: &TestVStruct{},
 		},
