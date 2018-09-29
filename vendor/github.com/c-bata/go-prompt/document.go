@@ -1,39 +1,22 @@
 package prompt
 
 import (
-	"sort"
 	"strings"
 	"unicode/utf8"
-
-	"github.com/mattn/go-runewidth"
 )
 
 // Document has text displayed in terminal and cursor position.
 type Document struct {
-	Text string
-	// This represents a index in a rune array of Document.Text.
-	// So if Document is "日本(cursor)語", cursorPosition is 2.
-	// But DisplayedCursorPosition returns 4 because '日' and '本' are double width characters.
-	cursorPosition int
+	Text           string
+	CursorPosition int
 }
 
 // NewDocument return the new empty document.
 func NewDocument() *Document {
 	return &Document{
 		Text:           "",
-		cursorPosition: 0,
+		CursorPosition: 0,
 	}
-}
-
-// DisplayCursorPosition returns the cursor position on rendered text on terminal emulators.
-// So if Document is "日本(cursor)語", DisplayedCursorPosition returns 4 because '日' and '本' are double width characters.
-func (d *Document) DisplayCursorPosition() int {
-	var position int
-	runes := []rune(d.Text)[:d.cursorPosition]
-	for i := range runes {
-		position += runewidth.RuneWidth(runes[i])
-	}
-	return position
 }
 
 // GetCharRelativeToCursor return character relative to cursor position, or empty string
@@ -44,7 +27,7 @@ func (d *Document) GetCharRelativeToCursor(offset int) (r rune) {
 	for len(s) > 0 {
 		cnt++
 		r, size := utf8.DecodeRuneInString(s)
-		if cnt == d.cursorPosition+offset {
+		if cnt == d.CursorPosition+offset {
 			return r
 		}
 		s = s[size:]
@@ -55,13 +38,13 @@ func (d *Document) GetCharRelativeToCursor(offset int) (r rune) {
 // TextBeforeCursor returns the text before the cursor.
 func (d *Document) TextBeforeCursor() string {
 	r := []rune(d.Text)
-	return string(r[:d.cursorPosition])
+	return string(r[:d.CursorPosition])
 }
 
 // TextAfterCursor returns the text after the cursor.
 func (d *Document) TextAfterCursor() string {
 	r := []rune(d.Text)
-	return string(r[d.cursorPosition:])
+	return string(r[d.CursorPosition:])
 }
 
 // GetWordBeforeCursor returns the word before the cursor.
@@ -71,13 +54,6 @@ func (d *Document) GetWordBeforeCursor() string {
 	return x[d.FindStartOfPreviousWord():]
 }
 
-// GetWordAfterCursor returns the word after the cursor.
-// If we have whitespace after the cursor this returns an empty string.
-func (d *Document) GetWordAfterCursor() string {
-	x := d.TextAfterCursor()
-	return x[:d.FindEndOfCurrentWord()]
-}
-
 // GetWordBeforeCursorWithSpace returns the word before the cursor.
 // Unlike GetWordBeforeCursor, it returns string containing space
 func (d *Document) GetWordBeforeCursorWithSpace() string {
@@ -85,46 +61,16 @@ func (d *Document) GetWordBeforeCursorWithSpace() string {
 	return x[d.FindStartOfPreviousWordWithSpace():]
 }
 
-// GetWordAfterCursorWithSpace returns the word after the cursor.
-// Unlike GetWordAfterCursor, it returns string containing space
-func (d *Document) GetWordAfterCursorWithSpace() string {
-	x := d.TextAfterCursor()
-	return x[:d.FindEndOfCurrentWordWithSpace()]
-}
-
-// GetWordBeforeCursorUntilSeparator returns the text before the cursor until next separator.
-func (d *Document) GetWordBeforeCursorUntilSeparator(sep string) string {
-	x := d.TextBeforeCursor()
-	return x[d.FindStartOfPreviousWordUntilSeparator(sep):]
-}
-
-// GetWordAfterCursorUntilSeparator returns the text after the cursor until next separator.
-func (d *Document) GetWordAfterCursorUntilSeparator(sep string) string {
-	x := d.TextAfterCursor()
-	return x[:d.FindEndOfCurrentWordUntilSeparator(sep)]
-}
-
-// GetWordBeforeCursorUntilSeparatorIgnoreNextToCursor returns the word before the cursor.
-// Unlike GetWordBeforeCursor, it returns string containing space
-func (d *Document) GetWordBeforeCursorUntilSeparatorIgnoreNextToCursor(sep string) string {
-	x := d.TextBeforeCursor()
-	return x[d.FindStartOfPreviousWordUntilSeparatorIgnoreNextToCursor(sep):]
-}
-
-// GetWordAfterCursorUntilSeparatorIgnoreNextToCursor returns the word after the cursor.
-// Unlike GetWordAfterCursor, it returns string containing space
-func (d *Document) GetWordAfterCursorUntilSeparatorIgnoreNextToCursor(sep string) string {
-	x := d.TextAfterCursor()
-	return x[:d.FindEndOfCurrentWordUntilSeparatorIgnoreNextToCursor(sep)]
-}
-
 // FindStartOfPreviousWord returns an index relative to the cursor position
-// pointing to the start of the previous word. Return 0 if nothing was found.
+// pointing to the start of the previous word. Return `None` if nothing was found.
 func (d *Document) FindStartOfPreviousWord() int {
+	// Reverse the text before the cursor, in order to do an efficient backwards search.
 	x := d.TextBeforeCursor()
-	i := strings.LastIndexByte(x, ' ')
-	if i != -1 {
-		return i + 1
+	l := len(x)
+	for i := l; i > 0; i-- {
+		if x[i-1:i] == " " {
+			return i
+		}
 	}
 	return 0
 }
@@ -132,117 +78,19 @@ func (d *Document) FindStartOfPreviousWord() int {
 // FindStartOfPreviousWordWithSpace is almost the same as FindStartOfPreviousWord.
 // The only difference is to ignore contiguous spaces.
 func (d *Document) FindStartOfPreviousWordWithSpace() int {
+	// Reverse the text before the cursor, in order to do an efficient backwards search.
 	x := d.TextBeforeCursor()
-	end := lastIndexByteNot(x, ' ')
-	if end == -1 {
-		return 0
-	}
-
-	start := strings.LastIndexByte(x[:end], ' ')
-	if start == -1 {
-		return 0
-	}
-	return start + 1
-}
-
-// FindStartOfPreviousWordUntilSeparator is almost the same as FindStartOfPreviousWord.
-// But this can specify Separator. Return 0 if nothing was found.
-func (d *Document) FindStartOfPreviousWordUntilSeparator(sep string) int {
-	if sep == "" {
-		return d.FindStartOfPreviousWord()
-	}
-
-	x := d.TextBeforeCursor()
-	i := strings.LastIndexAny(x, sep)
-	if i != -1 {
-		return i + 1
+	l := len(x)
+	appear := false
+	for i := l; i > 0; i-- {
+		if x[i-1:i] != " " {
+			appear = true
+		}
+		if x[i-1:i] == " " && appear {
+			return i
+		}
 	}
 	return 0
-}
-
-// FindStartOfPreviousWordUntilSeparatorIgnoreNextToCursor is almost the same as FindStartOfPreviousWordWithSpace.
-// But this can specify Separator. Return 0 if nothing was found.
-func (d *Document) FindStartOfPreviousWordUntilSeparatorIgnoreNextToCursor(sep string) int {
-	if sep == "" {
-		return d.FindStartOfPreviousWordWithSpace()
-	}
-
-	x := d.TextBeforeCursor()
-	end := lastIndexAnyNot(x, sep)
-	if end == -1 {
-		return 0
-	}
-	start := strings.LastIndexAny(x[:end], sep)
-	if start == -1 {
-		return 0
-	}
-	return start + 1
-}
-
-// FindEndOfCurrentWord returns an index relative to the cursor position.
-// pointing to the end of the current word. Return 0 if nothing was found.
-func (d *Document) FindEndOfCurrentWord() int {
-	x := d.TextAfterCursor()
-	i := strings.IndexByte(x, ' ')
-	if i != -1 {
-		return i
-	}
-	return len(x)
-}
-
-// FindEndOfCurrentWordWithSpace is almost the same as FindEndOfCurrentWord.
-// The only difference is to ignore contiguous spaces.
-func (d *Document) FindEndOfCurrentWordWithSpace() int {
-	x := d.TextAfterCursor()
-
-	start := indexByteNot(x, ' ')
-	if start == -1 {
-		return len(x)
-	}
-
-	end := strings.IndexByte(x[start:], ' ')
-	if end == -1 {
-		return len(x)
-	}
-
-	return start + end
-}
-
-// FindEndOfCurrentWordUntilSeparator is almost the same as FindEndOfCurrentWord.
-// But this can specify Separator. Return 0 if nothing was found.
-func (d *Document) FindEndOfCurrentWordUntilSeparator(sep string) int {
-	if sep == "" {
-		return d.FindEndOfCurrentWord()
-	}
-
-	x := d.TextAfterCursor()
-	i := strings.IndexAny(x, sep)
-	if i != -1 {
-		return i
-	}
-	return len(x)
-}
-
-// FindEndOfCurrentWordUntilSeparatorIgnoreNextToCursor is almost the same as FindEndOfCurrentWordWithSpace.
-// But this can specify Separator. Return 0 if nothing was found.
-func (d *Document) FindEndOfCurrentWordUntilSeparatorIgnoreNextToCursor(sep string) int {
-	if sep == "" {
-		return d.FindEndOfCurrentWordWithSpace()
-	}
-
-	x := d.TextAfterCursor()
-
-	start := indexAnyNot(x, sep)
-	if start == -1 {
-		return len(x)
-	}
-
-	end := strings.IndexAny(x[start:], sep)
-	if end == -1 {
-		return len(x)
-	}
-
-	return start + end
 }
 
 // CurrentLineBeforeCursor returns the text from the start of the line until the cursor.
@@ -292,14 +140,14 @@ func (d *Document) lineStartIndexes() []int {
 // the first character on that line.
 func (d *Document) findLineStartIndex(index int) (pos int, lineStartIndex int) {
 	indexes := d.lineStartIndexes()
-	pos = bisectRight(indexes, index) - 1
+	pos = BisectRight(indexes, index) - 1
 	lineStartIndex = indexes[pos]
 	return
 }
 
 // CursorPositionRow returns the current row. (0-based.)
 func (d *Document) CursorPositionRow() (row int) {
-	row, _ = d.findLineStartIndex(d.cursorPosition)
+	row, _ = d.findLineStartIndex(d.CursorPosition)
 	return
 }
 
@@ -307,8 +155,8 @@ func (d *Document) CursorPositionRow() (row int) {
 func (d *Document) CursorPositionCol() (col int) {
 	// Don't use self.text_before_cursor to calculate this. Creating substrings
 	// and splitting is too expensive for getting the cursor position.
-	_, index := d.findLineStartIndex(d.cursorPosition)
-	col = d.cursorPosition - index
+	_, index := d.findLineStartIndex(d.CursorPosition)
+	col = d.CursorPosition - index
 	return
 }
 
@@ -348,7 +196,7 @@ func (d *Document) GetCursorUpPosition(count int, preferredColumn int) int {
 	if row < 0 {
 		row = 0
 	}
-	return d.TranslateRowColToIndex(row, col) - d.cursorPosition
+	return d.TranslateRowColToIndex(row, col) - d.CursorPosition
 }
 
 // GetCursorDownPosition return the relative cursor position (character index) where we would be if the
@@ -361,7 +209,7 @@ func (d *Document) GetCursorDownPosition(count int, preferredColumn int) int {
 		col = preferredColumn
 	}
 	row := d.CursorPositionRow() + count
-	return d.TranslateRowColToIndex(row, col) - d.cursorPosition
+	return d.TranslateRowColToIndex(row, col) - d.CursorPosition
 }
 
 // Lines returns the array of all the lines.
@@ -431,103 +279,4 @@ func (d *Document) leadingWhitespaceInCurrentLine() (margin string) {
 	trimmed := strings.TrimSpace(d.CurrentLine())
 	margin = d.CurrentLine()[:len(d.CurrentLine())-len(trimmed)]
 	return
-}
-
-// bisectRight to Locate the insertion point for v in a to maintain sorted order.
-func bisectRight(a []int, v int) int {
-	return bisectRightRange(a, v, 0, len(a))
-}
-
-func bisectRightRange(a []int, v int, lo, hi int) int {
-	s := a[lo:hi]
-	return sort.Search(len(s), func(i int) bool {
-		return s[i] > v
-	})
-}
-
-func indexByteNot(s string, c byte) int {
-	n := len(s)
-	for i := 0; i < n; i++ {
-		if s[i] != c {
-			return i
-		}
-	}
-	return -1
-}
-
-func lastIndexByteNot(s string, c byte) int {
-	for i := len(s) - 1; i >= 0; i-- {
-		if s[i] != c {
-			return i
-		}
-	}
-	return -1
-}
-
-type asciiSet [8]uint32
-
-func (as *asciiSet) notContains(c byte) bool {
-	return (as[c>>5] & (1 << uint(c&31))) == 0
-}
-
-func makeASCIISet(chars string) (as asciiSet, ok bool) {
-	for i := 0; i < len(chars); i++ {
-		c := chars[i]
-		if c >= utf8.RuneSelf {
-			return as, false
-		}
-		as[c>>5] |= 1 << uint(c&31)
-	}
-	return as, true
-}
-
-func indexAnyNot(s, chars string) int {
-	if len(chars) > 0 {
-		if len(s) > 8 {
-			if as, isASCII := makeASCIISet(chars); isASCII {
-				for i := 0; i < len(s); i++ {
-					if as.notContains(s[i]) {
-						return i
-					}
-				}
-				return -1
-			}
-		}
-		for i := 0; i < len(s); {
-			// I don't know why strings.IndexAny doesn't add rune count here.
-			r, size := utf8.DecodeRuneInString(s[i:])
-			i += size
-			for _, c := range chars {
-				if r != c {
-					return i
-				}
-			}
-		}
-	}
-	return -1
-}
-
-func lastIndexAnyNot(s, chars string) int {
-	if len(chars) > 0 {
-		if len(s) > 8 {
-			if as, isASCII := makeASCIISet(chars); isASCII {
-				for i := len(s) - 1; i >= 0; i-- {
-					if as.notContains(s[i]) {
-						return i
-					}
-				}
-				return -1
-			}
-		}
-		for i := len(s); i > 0; {
-			r, size := utf8.DecodeLastRuneInString(s[:i])
-			i -= size
-			for _, c := range chars {
-				if r != c {
-					return i
-				}
-			}
-		}
-	}
-	return -1
 }

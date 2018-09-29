@@ -1,11 +1,5 @@
 package prompt
 
-import (
-	"runtime"
-
-	"github.com/mattn/go-runewidth"
-)
-
 // Render to render prompt information from state of Buffer.
 type Render struct {
 	out                ConsoleWriter
@@ -88,6 +82,7 @@ func (r *Render) renderWindowTooSmall() {
 	r.out.EraseScreen()
 	r.out.SetColor(DarkRed, White, false)
 	r.out.WriteStr("Your console window is too small...")
+	r.out.Flush()
 	return
 }
 
@@ -99,7 +94,7 @@ func (r *Render) renderCompletion(buf *Buffer, completions *CompletionManager) {
 	prefix := r.getCurrentPrefix()
 	formatted, width := formatSuggestions(
 		suggestions,
-		int(r.col)-runewidth.StringWidth(prefix)-1, // -1 means a width of scrollbar
+		int(r.col)-len(prefix)-1, // -1 means a width of scrollbar
 	)
 	// +1 means a width of scrollbar.
 	width++
@@ -111,10 +106,10 @@ func (r *Render) renderCompletion(buf *Buffer, completions *CompletionManager) {
 	formatted = formatted[completions.verticalScroll : completions.verticalScroll+windowHeight]
 	r.prepareArea(windowHeight)
 
-	cursor := runewidth.StringWidth(prefix) + runewidth.StringWidth(buf.Document().TextBeforeCursor())
+	cursor := len(prefix) + len(buf.Document().TextBeforeCursor())
 	x, _ := r.toPos(cursor)
 	if x+width >= int(r.col) {
-		cursor = r.backward(cursor, x+width-int(r.col))
+		r.out.CursorBackward(x + width - int(r.col))
 	}
 
 	contentHeight := len(completions.tmp)
@@ -153,10 +148,7 @@ func (r *Render) renderCompletion(buf *Buffer, completions *CompletionManager) {
 			r.out.SetColor(DefaultColor, r.scrollbarBGColor, false)
 		}
 		r.out.WriteStr(" ")
-		r.out.SetColor(DefaultColor, DefaultColor, false)
-
-		r.lineWrap(cursor + width)
-		r.backward(cursor+width, width)
+		r.out.CursorBackward(width)
 	}
 
 	if x+width >= int(r.col) {
@@ -170,64 +162,53 @@ func (r *Render) renderCompletion(buf *Buffer, completions *CompletionManager) {
 
 // Render renders to the console.
 func (r *Render) Render(buffer *Buffer, completion *CompletionManager) {
-	// In situations where a pseudo tty is allocated (e.g. within a docker container),
-	// window size via TIOCGWINSZ is not immediately available and will result in 0,0 dimensions.
-	if r.col == 0 {
-		return
-	}
-	defer r.out.Flush()
-	r.move(r.previousCursor, 0)
-
 	line := buffer.Text()
 	prefix := r.getCurrentPrefix()
-	cursor := runewidth.StringWidth(prefix) + runewidth.StringWidth(line)
+	cursor := len(prefix) + len(line)
 
-	// prepare area
-	_, y := r.toPos(cursor)
+	// In situations where a psuedo tty is allocated (e.g. within a docker container),
+	// window size via TIOCGWINSZ is not immediately available and will result in 0,0 dimensions.
+	if r.col > 0 {
+		// Erasing
+		r.clear(r.previousCursor)
 
-	h := y + 1 + int(completion.max)
-	if h > int(r.row) || completionMargin > int(r.col) {
-		r.renderWindowTooSmall()
-		return
+		// prepare area
+		_, y := r.toPos(cursor)
+
+		h := y + 1 + int(completion.max)
+		if h > int(r.row) || completionMargin > int(r.col) {
+			r.renderWindowTooSmall()
+			return
+		}
 	}
 
 	// Rendering
-	r.out.HideCursor()
-	defer r.out.ShowCursor()
-
 	r.renderPrefix()
 	r.out.SetColor(r.inputTextColor, r.inputBGColor, false)
 	r.out.WriteStr(line)
 	r.out.SetColor(DefaultColor, DefaultColor, false)
-	r.lineWrap(cursor)
 
-	r.out.EraseDown()
-
-	cursor = r.backward(cursor, runewidth.StringWidth(line)-buffer.DisplayCursorPosition())
+	cursor = r.backward(cursor, len(line)-buffer.CursorPosition)
 
 	r.renderCompletion(buffer, completion)
 	if suggest, ok := completion.GetSelectedSuggestion(); ok {
-		cursor = r.backward(cursor, runewidth.StringWidth(buffer.Document().GetWordBeforeCursorUntilSeparator(completion.wordSeparator)))
+		cursor = r.backward(cursor, len(buffer.Document().GetWordBeforeCursor()))
 
 		r.out.SetColor(r.previewSuggestionTextColor, r.previewSuggestionBGColor, false)
 		r.out.WriteStr(suggest.Text)
 		r.out.SetColor(DefaultColor, DefaultColor, false)
-		cursor += runewidth.StringWidth(suggest.Text)
 
-		rest := buffer.Document().TextAfterCursor()
-		r.out.WriteStr(rest)
-		cursor += runewidth.StringWidth(rest)
-		r.lineWrap(cursor)
-
-		cursor = r.backward(cursor, runewidth.StringWidth(rest))
+		cursor += len(suggest.Text)
 	}
+	r.out.Flush()
+
 	r.previousCursor = cursor
 }
 
 // BreakLine to break line.
 func (r *Render) BreakLine(buffer *Buffer) {
 	// Erasing and Render
-	cursor := runewidth.StringWidth(buffer.Document().TextBeforeCursor()) + runewidth.StringWidth(r.getCurrentPrefix())
+	cursor := len(buffer.Document().TextBeforeCursor()) + len(r.getCurrentPrefix())
 	r.clear(cursor)
 	r.renderPrefix()
 	r.out.SetColor(r.inputTextColor, r.inputBGColor, false)
@@ -238,40 +219,37 @@ func (r *Render) BreakLine(buffer *Buffer) {
 	r.previousCursor = 0
 }
 
-// clear erases the screen from a beginning of input
-// even if there is line break which means input length exceeds a window's width.
 func (r *Render) clear(cursor int) {
-	r.move(cursor, 0)
+	r.backward(cursor, cursor)
 	r.out.EraseDown()
 }
 
-// backward moves cursor to backward from a current cursor position
-// regardless there is a line break.
 func (r *Render) backward(from, n int) int {
 	return r.move(from, from-n)
 }
 
-// move moves cursor to specified position from the beginning of input
-// even if there is a line break.
 func (r *Render) move(from, to int) int {
-	fromX, fromY := r.toPos(from)
+	_, fromY := r.toPos(from)
 	toX, toY := r.toPos(to)
 
 	r.out.CursorUp(fromY - toY)
-	r.out.CursorBackward(fromX - toX)
+	r.out.WriteRaw([]byte{'\r'})
+	r.out.CursorForward(toX)
 	return to
 }
 
 // toPos returns the relative position from the beginning of the string.
+// the coordinate system with the beginning of the string as (0,0) and the width as r.col.
+// the cursor points to the next character, but it points to that character only at the right end (x == r.col - 1).
+// x will not return 0 except for the first row.
 func (r *Render) toPos(cursor int) (x, y int) {
 	col := int(r.col)
-	return cursor % col, cursor / col
-}
 
-func (r *Render) lineWrap(cursor int) {
-	if runtime.GOOS != "windows" && cursor > 0 && cursor%int(r.col) == 0 {
-		r.out.WriteRaw([]byte{'\n'})
+	if cursor > 0 && cursor%col == 0 {
+		return col - 1, cursor/col - 1
 	}
+
+	return cursor % col, cursor / col
 }
 
 func clamp(high, low, x float64) float64 {
