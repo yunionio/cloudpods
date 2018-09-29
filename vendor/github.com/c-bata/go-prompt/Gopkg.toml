@@ -32,7 +32,3 @@
 [[constraint]]
   branch = "master"
   name = "github.com/pkg/term"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/mattn/go-runewidth"
