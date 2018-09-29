@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -70,6 +71,23 @@ func (self *SCloudregion) GetZoneCount() int {
 	}
 }
 
+func (self *SCloudregion) GetGuestCount(increment bool) int {
+	zoneTable := ZoneManager.Query("id").Equals("cloudregion_id", self.Id)
+	if self.Id == "default" {
+		zoneTable = ZoneManager.Query("id").Filter(sqlchemy.OR(sqlchemy.IsNull(zoneTable.Field("cloudregion_id")),
+			sqlchemy.IsEmpty(zoneTable.Field("cloudregion_id")),
+			sqlchemy.Equals(zoneTable.Field("cloudregion_id"), self.Id)))
+	}
+	sq := HostManager.Query("id").In("zone_id", zoneTable)
+	query := GuestManager.Query().In("host_id", sq)
+	if increment {
+		year, month, _ := time.Now().UTC().Date()
+		startOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+		query.GE("created_at", startOfMonth)
+	}
+	return query.Count()
+}
+
 func (self *SCloudregion) GetVpcCount() int {
 	vpcs := VpcManager.Query()
 	if self.Id == "default" {
@@ -84,6 +102,8 @@ func (self *SCloudregion) GetVpcCount() int {
 func (self *SCloudregion) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	extra.Add(jsonutils.NewInt(int64(self.GetVpcCount())), "vpc_count")
 	extra.Add(jsonutils.NewInt(int64(self.GetZoneCount())), "zone_count")
+	extra.Add(jsonutils.NewInt(int64(self.GetGuestCount(false))), "guest_count")
+	extra.Add(jsonutils.NewInt(int64(self.GetGuestCount(true))), "guest_increment_count")
 	return extra
 }
 
