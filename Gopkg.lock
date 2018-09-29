@@ -79,12 +79,12 @@
   version = "v0.5.0"
 
 [[projects]]
-  digest = "1:a2486f94bda33b301614ff5cfce102b7eed4c923fa650c2b83dba1fcf2117466"
+  digest = "1:1659cb76cbd08a29826688d006e7a3d9279d6ca8a12155acb7b20164958987d3"
   name = "github.com/c-bata/go-prompt"
   packages = ["."]
   pruneopts = "UT"
-  revision = "c52492ff1b386e5c0ba5271b5eaad165fab09eca"
-  version = "v0.2.2"
+  revision = "e99fbc797b795e0a7a94affc8d44f6a0350d85f0"
+  version = "v0.2.1"
 
 [[projects]]
   digest = "1:40098afbdd06a76dee4b6bcb85a22fed81ac9d2ebaf775c91e558c80f57aaff1"
