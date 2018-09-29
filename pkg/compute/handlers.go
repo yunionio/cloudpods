@@ -62,6 +62,14 @@ func InitHandlers(app *appsrv.Application) {
 		models.DnsRecordManager,
 		models.ElasticipManager,
 		models.SnapshotManager,
+		models.LoadbalancerManager,
+		models.LoadbalancerListenerManager,
+		models.LoadbalancerListenerRuleManager,
+		models.LoadbalancerBackendGroupManager,
+		models.LoadbalancerBackendManager,
+		models.LoadbalancerCertificateManager,
+		models.LoadbalancerAclManager,
+		models.LoadbalancerAgentManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

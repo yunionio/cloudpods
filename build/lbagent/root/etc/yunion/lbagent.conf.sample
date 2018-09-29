@@ -1,0 +1,15 @@
+region = 'Yunion'
+auth_uri = 'http://10.168.222.136:35357/v3'
+admin_user = 'regionadmin'
+admin_password = 'GkZOr6poQgcmMszU'
+admin_tenant_name = 'system'
+
+data_preserve_n = 2
+base_data_dir = "/opt/cloud/workspace/lbagent"
+
+api_lbagent_id = 'lbagent id'
+api_lbagent_hb_interval = 60
+api_lbagent_hb_timeout_relaxation = 120
+
+api_sync_interval = 5
+api_list_batch_size = 2048
