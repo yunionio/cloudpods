@@ -283,3 +283,8 @@ type ServerResetOptions struct {
 	ID   []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
 	Hard *bool    `help:"Hard reset or not; default soft" json:"is_hard"`
 }
+
+type ServerRestartOptions struct {
+	ID      []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
+	IsForce *bool    `help:"Force reset or not; default false" json:"is_force"`
+}
