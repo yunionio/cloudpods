@@ -26,6 +26,8 @@ type ComputeOptions struct {
 	PendingDeleteExpireSeconds     int  `default:"259200" help:"How long a pending delete VM/disks cleaned automatically, default 3 days"`
 	PendingDeleteMaxCleanBatchSize int  `default:"50" help:"How many pending delete servers can be clean in a batch"`
 
+	LoadbalancerPendingDeleteCheckInterval int `default:"3600" help:"Interval between checks of pending deleted loadbalancer objects, defaults to 1h"`
+
 	ImageCacheStoragePolicy string `default:"least_used" choices:"best_fit|least_used" help:"Policy to choose storage for image cache, best_fit or least_used"`
 	MetricsRetentionDays    int32  `default:"30" help:"Retention days for monitoring metrics in influxdb"`
 
