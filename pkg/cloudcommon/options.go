@@ -26,6 +26,7 @@ type Options struct {
 	AdminProject       string   `help:"Admin project" default:"system" alias:"admin-tenant-name"`
 	CorsHosts          []string `help:"List of hostname that allow CORS"`
 	AuthTokenCacheSize uint32   `help:"Auth token Cache Size" default:"2048"`
+	TempPath           string   `help:"Path for store temp file, at least 40G space" default:"/opt/yunion/tmp"`
 
 	ApplicationID      string `help:"Application ID"`
 	RequestWorkerCount int    `default:"4" help:"Request worker thread count, default is 4"`
