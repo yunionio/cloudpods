@@ -13,6 +13,7 @@ import (
 func init() {
 	taskman.RegisterTask(GuestSoftResetTask{})
 	taskman.RegisterTask(GuestHardResetTask{})
+	taskman.RegisterTask(GuestRestartTask{})
 }
 
 type GuestSoftResetTask struct {
@@ -55,4 +56,15 @@ func (self *GuestHardResetTask) StartServer(ctx context.Context, guest *models.S
 
 func (self *GuestHardResetTask) OnServerStartComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
+}
+
+type GuestRestartTask struct {
+	GuestHardResetTask
+}
+
+func (self *GuestRestartTask) StopServer(ctx context.Context, guest *models.SGuest) {
+	guest.SetStatus(self.UserCred, models.VM_STOPPING, "")
+	self.SetStage("OnServerStopComplete", nil)
+	isForce := jsonutils.QueryBoolean(self.Params, "is_force", false)
+	guest.StartGuestStopTask(ctx, self.UserCred, isForce, self.GetTaskId())
 }
