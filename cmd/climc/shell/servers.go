@@ -145,6 +145,16 @@ func init() {
 		return nil
 	})
 
+	R(&options.ServerRestartOptions{}, "server-restart", "Restart servers", func(s *mcclient.ClientSession, opts *options.ServerRestartOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		ret := modules.Servers.BatchPerformAction(s, opts.ID, "restart", params)
+		printBatchResults(ret, modules.Servers.GetColumns(s))
+		return nil
+	})
+
 	R(&options.ServerIdsOptions{}, "server-purge", "Purge obsolete servers", func(s *mcclient.ClientSession, opts *options.ServerIdsOptions) error {
 		ret := modules.Servers.BatchPerformAction(s, opts.ID, "purge", nil)
 		printBatchResults(ret, modules.Servers.GetColumns(s))
