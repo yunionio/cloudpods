@@ -1151,7 +1151,7 @@ func (self *SGuest) getAdminSecgroupName() string {
 func (self *SGuest) getSecurityRules() string {
 	secgrp := self.getSecgroup()
 	if secgrp != nil {
-		return secgrp.getSecurityRuleString()
+		return secgrp.getSecurityRuleString("")
 	} else {
 		return options.Options.DefaultSecurityRules
 	}
@@ -1160,7 +1160,7 @@ func (self *SGuest) getSecurityRules() string {
 func (self *SGuest) getAdminSecurityRules() string {
 	secgrp := self.getAdminSecgroup()
 	if secgrp != nil {
-		return secgrp.getSecurityRuleString()
+		return secgrp.getSecurityRuleString("")
 	} else {
 		return options.Options.DefaultAdminSecurityRules
 	}
