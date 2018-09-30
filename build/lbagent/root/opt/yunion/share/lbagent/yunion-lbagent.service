@@ -1,0 +1,17 @@
+[Unit]
+Description=Yunion Loadbalancer Agent
+Documentation=http://doc.yunionyun.com
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/opt/yunion/bin/lbagent --config /etc/yunion/lbagent.conf
+WorkingDirectory=/opt/yunion
+KillMode=process
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

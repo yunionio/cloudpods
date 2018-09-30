@@ -164,6 +164,7 @@ func (self *SNetwork) GetUsedAddresses() map[string]bool {
 		GroupnetworkManager.Query().SubQuery(),
 		HostnetworkManager.Query().SubQuery(),
 		ReservedipManager.Query().SubQuery(),
+		LoadbalancernetworkManager.Query().SubQuery(),
 	} {
 		q := tbl.Query(tbl.Field("ip_addr")).Equals("network_id", self.Id)
 		rows, err := q.Rows()
@@ -207,6 +208,7 @@ func isIpUsed(ipstr string, addrTable map[string]bool, recentUsedAddrTable map[s
 
 func (self *SNetwork) getFreeIP(addrTable map[string]bool, recentUsedAddrTable map[string]bool, candidate string, allocDir IPAddlocationDirection) (string, error) {
 	iprange := self.getIPRange()
+	// Try candidate first
 	if len(candidate) > 0 {
 		candIP, err := netutils.NewIPV4Addr(candidate)
 		if err != nil {
@@ -531,8 +533,15 @@ func (self *SNetwork) isAddressInRange(address netutils.IPV4Addr) bool {
 }
 
 func (self *SNetwork) isAddressUsed(address string) bool {
-	for _, model := range []db.IModelManager{GuestnetworkManager, GroupnetworkManager, HostnetworkManager, ReservedipManager} {
-		q := model.Query().Equals("ip_addr", address).Equals("network_id", self.Id)
+	managers := []db.IModelManager{
+		GuestnetworkManager,
+		GroupnetworkManager,
+		HostnetworkManager,
+		ReservedipManager,
+		LoadbalancernetworkManager,
+	}
+	for _, manager := range managers {
+		q := manager.Query().Equals("ip_addr", address).Equals("network_id", self.Id)
 		if q.Count() > 0 {
 			return true
 		}

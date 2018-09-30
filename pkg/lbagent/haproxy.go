@@ -1,0 +1,352 @@
+package lbagent
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
+	"syscall"
+
+	"yunion.io/x/log"
+	aggrerrors "yunion.io/x/pkg/util/errors"
+
+	agentmodels "yunion.io/x/onecloud/pkg/lbagent/models"
+	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
+)
+
+type HaproxyHelper struct {
+	opts *Options
+
+	configDirMan *agentutils.ConfigDirManager
+}
+
+func NewHaproxyHelper(opts *Options) (*HaproxyHelper, error) {
+	helper := &HaproxyHelper{
+		opts:         opts,
+		configDirMan: agentutils.NewConfigDirManager(opts.haproxyConfigDir),
+	}
+	{
+		// sysctl
+		args := []string{
+			"sysctl", "-w",
+			"net.ipv4.ip_nonlocal_bind=1",
+			"net.ipv4.ip_forward=1",
+		}
+		if err := helper.runCmd(args); err != nil {
+			return nil, fmt.Errorf("sysctl: %s", err)
+		}
+	}
+	if false {
+		// ipvs modules
+		mods := []string{
+			"ip_vs",
+			"ip_vs_rr",
+			"ip_vs_wrr",
+			"ip_vs_lc",
+			"ip_vs_wlc",
+			"ip_vs_sh",
+		}
+		args := []string{"modprobe", ""}
+		for _, mod := range mods {
+			args[1] = mod
+			if err := helper.runCmd(args); err != nil {
+				return nil, fmt.Errorf("modprobe %s: %s", mod, err)
+			}
+		}
+	}
+	return helper, nil
+}
+
+func (h *HaproxyHelper) Run(ctx context.Context) {
+	defer func() {
+		wg := ctx.Value("wg").(*sync.WaitGroup)
+		wg.Done()
+	}()
+	cmdChan := ctx.Value("cmdChan").(chan *LbagentCmd)
+	for {
+		for {
+			select {
+			case <-ctx.Done():
+				log.Infof("haproxy helper bye")
+				return
+			case cmd := <-cmdChan:
+				h.handleCmd(ctx, cmd)
+			}
+		}
+	}
+}
+
+func (h *HaproxyHelper) handleCmd(ctx context.Context, cmd *LbagentCmd) {
+	switch cmd.Type {
+	case LbagentCmdUseCorpus:
+		cmdData := cmd.Data.(*LbagentCmdUseCorpusData)
+		defer cmdData.Wg.Done()
+		h.handleUseCorpusCmd(ctx, cmd)
+	default:
+		log.Warningf("command type ignored: %v", cmd.Type)
+	}
+}
+
+func (h *HaproxyHelper) handleUseCorpusCmd(ctx context.Context, cmd *LbagentCmd) {
+	// haproxy config dir
+	dir, err := h.configDirMan.NewDir(func(dir string) error {
+		cmdData := cmd.Data.(*LbagentCmdUseCorpusData)
+		corpus := cmdData.Corpus
+		agentParams := cmdData.AgentParams
+		{
+			opt := fmt.Sprintf("stats socket %s expose-fd listeners", h.haproxyStatsSocketFile())
+			agentParams.SetHaproxyParams("global_stats_socket", opt)
+		}
+		var genHaproxyConfigsResult *agentmodels.GenHaproxyConfigsResult
+		var err error
+		{
+			// haproxy toplevel global/defaults config
+			err = corpus.GenHaproxyToplevelConfig(dir, agentParams)
+			if err != nil {
+				err = fmt.Errorf("generating haproxy toplevel config failed: %s", err)
+				return err
+			}
+		}
+		{
+			// haproxy configs
+			genHaproxyConfigsResult, err = corpus.GenHaproxyConfigs(dir, agentParams)
+			if err != nil {
+				err = fmt.Errorf("generating haproxy config failed: %s", err)
+				return err
+			}
+		}
+		{
+			// gobetween config
+			opts := &agentmodels.GenGobetweenConfigOptions{
+				LoadbalancersEnabled: genHaproxyConfigsResult.LoadbalancersEnabled,
+				AgentParams:          agentParams,
+			}
+			err := corpus.GenGobetweenConfigs(dir, opts)
+			if err != nil {
+				err = fmt.Errorf("generating gobetween config failed: %s", err)
+				return err
+			}
+		}
+		{
+			// keepalived config
+			opts := &agentmodels.GenKeepalivedConfigOptions{
+				LoadbalancersEnabled: genHaproxyConfigsResult.LoadbalancersEnabled,
+				AgentParams:          agentParams,
+			}
+			err := corpus.GenKeepalivedConfigs(dir, opts)
+			if err != nil {
+				err = fmt.Errorf("generating keepalived config failed: %s", err)
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		log.Errorf("making configs: %s", err)
+		return
+	}
+	if err := h.configDirMan.Prune(h.opts.DataPreserveN); err != nil {
+		log.Errorf("prune configs dir failed: %s", err)
+		// continue
+	}
+	if err := h.useConfigs(ctx, dir); err != nil {
+		log.Errorf("useConfigs: %s", err)
+	}
+}
+
+func (h *HaproxyHelper) useConfigs(ctx context.Context, d string) error {
+	lnF := func(old, new string) error {
+		err := os.RemoveAll(new)
+		if err != nil {
+			return err
+		}
+		err = os.Symlink(old, new)
+		return err
+	}
+	keepalivedConf := filepath.Join(h.opts.haproxyConfigDir, "keepalived.conf")
+	gobetweenJson := filepath.Join(h.opts.haproxyConfigDir, "gobetween.json")
+	haproxyConfD := h.haproxyConfD()
+	dirMap := map[string]string{
+		keepalivedConf: filepath.Join(d, "keepalived.conf"),
+		haproxyConfD:   d,
+		gobetweenJson:  filepath.Join(d, "gobetween.json"),
+	}
+	for new, old := range dirMap {
+		err := lnF(old, new)
+		if err != nil {
+			return err
+		}
+	}
+	{
+		var errs []error
+		var err error
+		{
+			// reload haproxy
+			err = h.reloadHaproxy(ctx)
+			if err != nil {
+				errs = append(errs, err)
+			}
+		}
+		{
+			// reload gobetween
+			err = h.reloadGobetween(ctx)
+			if err != nil {
+				errs = append(errs, err)
+			}
+		}
+		{
+			// reload keepalived
+			err = h.reloadKeepalived(ctx)
+			if err != nil {
+				errs = append(errs, err)
+			}
+		}
+		if len(errs) == 0 {
+			return nil
+		}
+		return aggrerrors.NewAggregate(errs)
+	}
+}
+
+func (h *HaproxyHelper) haproxyConfD() string {
+	return filepath.Join(h.opts.haproxyConfigDir, "haproxy.conf.d")
+}
+
+func (h *HaproxyHelper) haproxyPidFile() string {
+	return filepath.Join(h.opts.haproxyRunDir, "haproxy.pid")
+}
+
+func (h *HaproxyHelper) haproxyStatsSocketFile() string {
+	return filepath.Join(h.opts.haproxyRunDir, "haproxy.sock")
+}
+
+func (h *HaproxyHelper) reloadHaproxy(ctx context.Context) error {
+	// NOTE we may sometimes need to specify a custom the executable path
+	pidFile := h.haproxyPidFile()
+	args := []string{
+		h.opts.HaproxyBin,
+		"-D", // goes daemon
+		"-p", pidFile,
+		"-C", h.haproxyConfD(),
+		"-f", h.haproxyConfD(),
+	}
+	proc := agentutils.ReadPidFile(pidFile)
+	if proc != nil {
+		args = append(args, "-sf", fmt.Sprintf("%d", proc.Pid))
+		{
+			statsSocket := h.haproxyStatsSocketFile()
+			if fi, err := os.Stat(statsSocket); err == nil && fi.Mode()&os.ModeSocket != 0 {
+				args = append(args, "-x", statsSocket)
+			} else {
+				log.Warningf("stats socket %s not found", statsSocket)
+			}
+		}
+		log.Infof("reloading haproxy")
+	} else {
+		log.Infof("starting haproxy")
+	}
+	return h.runCmd(args)
+}
+
+func (h *HaproxyHelper) gobetweenConf() string {
+	return filepath.Join(h.opts.haproxyConfigDir, "gobetween.json")
+}
+
+func (h *HaproxyHelper) gobetweenPidFile() string {
+	return filepath.Join(h.opts.haproxyRunDir, "gobetween.pid")
+}
+
+func (h *HaproxyHelper) reloadGobetween(ctx context.Context) error {
+	pidFile := h.gobetweenPidFile()
+	args := []string{
+		h.opts.GobetweenBin,
+		"--config", h.gobetweenConf(),
+		"--format", "json",
+	}
+	proc := agentutils.ReadPidFile(pidFile)
+	if proc != nil {
+		log.Infof("stopping gobetween(%d)", proc.Pid)
+		proc.Kill()
+		proc.Wait()
+	}
+	log.Infof("starting gobetween")
+	cmd, err := h.startCmd(args)
+	if err != nil {
+		return err
+	}
+	err = agentutils.WritePidFile(cmd.Process.Pid, h.gobetweenPidFile())
+	if err != nil {
+		return fmt.Errorf("writing gobetween pid file: %s", err)
+	}
+	return nil
+}
+
+func (h *HaproxyHelper) keepalivedConf() string {
+	return filepath.Join(h.opts.haproxyConfigDir, "keepalived.conf")
+}
+
+func (h *HaproxyHelper) keepalivedPidFile() string {
+	return filepath.Join(h.opts.haproxyRunDir, "keepalived.pid")
+}
+
+func (h *HaproxyHelper) keepalivedVrrpPidFile() string {
+	return filepath.Join(h.opts.haproxyRunDir, "keepalived_vrrp.pid")
+}
+
+func (h *HaproxyHelper) keepalivedCheckersPidFile() string {
+	return filepath.Join(h.opts.haproxyRunDir, "keepalived_checkers.pid")
+}
+
+func (h *HaproxyHelper) reloadKeepalived(ctx context.Context) error {
+	pidFile := h.keepalivedPidFile()
+	proc := agentutils.ReadPidFile(pidFile)
+	if proc != nil {
+		// send SIGHUP to reload
+		err := proc.Signal(syscall.SIGHUP)
+		if err != nil {
+			return fmt.Errorf("keepalived: send HUP failed: %s", err)
+		}
+		return nil
+	}
+	args := []string{
+		h.opts.KeepalivedBin,
+		"--pid", pidFile,
+		"--vrrp_pid", h.keepalivedVrrpPidFile(),
+		"--checkers_pid", h.keepalivedCheckersPidFile(),
+		"--use-file", h.keepalivedConf(),
+	}
+	return h.runCmd(args)
+}
+
+func (h *HaproxyHelper) runCmd(args []string) error {
+	name := args[0]
+	args = args[1:]
+	cmd := exec.Command(name, args...)
+
+	output, err := cmd.Output()
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			stdout := string(output)
+			stderr := string(ee.Stderr)
+			return fmt.Errorf("%s: %s\nargs: %s\nstdout: %s\nstderr: %s",
+				name, err, strings.Join(args, " "), stdout, stderr)
+		}
+		return fmt.Errorf("%s: %s", name, err)
+	}
+	return nil
+}
+
+func (h *HaproxyHelper) startCmd(args []string) (*exec.Cmd, error) {
+	name := args[0]
+	args = args[1:]
+	cmd := exec.Command(name, args...)
+
+	err := cmd.Start()
+	if err != nil {
+		return nil, err
+	}
+	return cmd, nil
+}

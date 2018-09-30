@@ -76,6 +76,7 @@ Summary: %{pkgname}
 Group: Unspecified
 License: GPL
 URL: https://www.yunion.io/doc
+$(for req in "${REQUIRES[@]}"; do echo Requires: "$req"; done)
 %if %{use_systemd}
 Requires: systemd
 BuildRequires: systemd
