@@ -4,11 +4,12 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 
+	"time"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"time"
 )
 
 const (
@@ -205,11 +206,11 @@ func (self *SAliyunClient) GetIStoragecacheById(id string) (cloudprovider.ICloud
 }
 
 type SAccountBalance struct {
-	AvailableAmount float64
+	AvailableAmount     float64
 	AvailableCashAmount float64
-	CreditAmount float64
-	MybankCreditAmount float64
-	Currency string
+	CreditAmount        float64
+	MybankCreditAmount  float64
+	Currency            string
 }
 
 type SCashCoupon struct {
@@ -226,15 +227,15 @@ type SCashCoupon struct {
 }
 
 type SPrepaidCard struct {
-	PrepaidCardId string
-	PrepaidCardNo string
-	GrantedTime	time.Time
-	EffectiveTime time.Time
-	ExpiryTime	time.Time
-	NominalValue float64
-	Balance	float64
-	ApplicableProducts	string
-	ApplicableScenarios	string
+	PrepaidCardId       string
+	PrepaidCardNo       string
+	GrantedTime         time.Time
+	EffectiveTime       time.Time
+	ExpiryTime          time.Time
+	NominalValue        float64
+	Balance             float64
+	ApplicableProducts  string
+	ApplicableScenarios string
 }
 
 func (self *SAliyunClient) QueryAccountBalance() (*SAccountBalance, error) {
@@ -272,7 +273,7 @@ func (self *SAliyunClient) QueryCashCoupons() ([]SCashCoupon, error) {
 func (self *SAliyunClient) QueryPrepaidCards() ([]SPrepaidCard, error) {
 	params := make(map[string]string)
 	params["EffectiveOrNot"] = "True"
-	body, err :=  self.businessRequest("QueryPrepaidCards", params)
+	body, err := self.businessRequest("QueryPrepaidCards", params)
 	if err != nil {
 		log.Errorf("QueryPrepaidCards fail %s", err)
 		return nil, err
