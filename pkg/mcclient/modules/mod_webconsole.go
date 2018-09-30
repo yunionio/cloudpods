@@ -69,3 +69,7 @@ func (m WebConsoleManager) DoK8sLogConnect(
 func (m WebConsoleManager) DoBaremetalConnect(s *mcclient.ClientSession, id string) (jsonutils.JSONObject, error) {
 	return m.DoConnect(s, "baremetal", id, "", nil)
 }
+
+func (m WebConsoleManager) DoSshConnect(s *mcclient.ClientSession, id string) (jsonutils.JSONObject, error) {
+	return m.DoConnect(s, "ssh", id, "", nil)
+}

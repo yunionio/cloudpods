@@ -31,6 +31,7 @@ func InitHandlers(app *appsrv.Application) {
 	app.AddHandler("POST", ApiPathPrefix+"k8s/<podName>/shell", auth.Authenticate(handleK8sShell))
 	app.AddHandler("POST", ApiPathPrefix+"k8s/<podName>/log", auth.Authenticate(handleK8sLog))
 	app.AddHandler("POST", ApiPathPrefix+"baremetal/<id>", auth.Authenticate(handleBaremetalShell))
+	app.AddHandler("POST", ApiPathPrefix+"ssh/<ip>", auth.Authenticate(handleSshShell))
 }
 
 func fetchEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (map[string]string, jsonutils.JSONObject, jsonutils.JSONObject) {
@@ -122,7 +123,7 @@ func fetchCloudEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	if userCred == nil {
 		return nil, httperrors.NewUnauthorizedError("No token founded")
 	}
-	s := auth.Client().NewSession(o.Options.Region, "", "internal", userCred, "")
+	s := auth.Client().NewSession(o.Options.Region, "", "internal", userCred, "v2")
 	return &CloudEnv{
 		ClientSessin: s,
 		Params:       params,
@@ -154,6 +155,20 @@ func handleK8sShell(ctx context.Context, w http.ResponseWriter, r *http.Request)
 
 func handleK8sLog(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	handleK8sCommand(ctx, w, r, command.NewPodLogCommand)
+}
+
+func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	env, err := fetchCloudEnv(ctx, w, r)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	cmd, err := command.NewSSHtoolSolCommand(env.Params["<ip>"])
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	handleCommandSession(cmd, w)
 }
 
 func handleBaremetalShell(ctx context.Context, w http.ResponseWriter, r *http.Request) {
