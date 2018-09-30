@@ -1296,7 +1296,7 @@ func (self *SGuest) GetSecRules() []secrules.SecurityRule {
 
 func (self *SGuest) getSecRules() []secrules.SecurityRule {
 	if secgrp := self.getSecgroup(); secgrp != nil {
-		return secgrp.getSecRules()
+		return secgrp.getSecRules("")
 	}
 	if rule, err := secrules.ParseSecurityRule(options.Options.DefaultSecurityRules); err == nil {
 		return []secrules.SecurityRule{*rule}
@@ -1309,7 +1309,7 @@ func (self *SGuest) getSecRules() []secrules.SecurityRule {
 func (self *SGuest) getSecurityRules() string {
 	secgrp := self.getSecgroup()
 	if secgrp != nil {
-		return secgrp.getSecurityRuleString()
+		return secgrp.getSecurityRuleString("")
 	} else {
 		return options.Options.DefaultSecurityRules
 	}
@@ -1318,7 +1318,7 @@ func (self *SGuest) getSecurityRules() string {
 func (self *SGuest) getAdminSecurityRules() string {
 	secgrp := self.getAdminSecgroup()
 	if secgrp != nil {
-		return secgrp.getSecurityRuleString()
+		return secgrp.getSecurityRuleString("")
 	} else {
 		return options.Options.DefaultAdminSecurityRules
 	}
@@ -3438,7 +3438,7 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 		srs := self.getSecurityRuleSet()
 		if srs.estimatedSinglePortRuleCount() <= options.FirewallFlowCountLimit {
 	*/
-	
+
 	rules := self.getSecurityRules()
 	if len(rules) > 0 {
 		desc.Add(jsonutils.NewString(rules), "security_rules")
