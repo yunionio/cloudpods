@@ -2,6 +2,7 @@ package aliyun
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -253,8 +254,8 @@ func (self *SRegion) createIImage(snapshoutId, imageName, imageDesc string) (str
 	}
 }
 
-func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error) {
-	return self.downloadImage(userCred, imageId, extId)
+func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
+	return self.downloadImage(userCred, imageId, extId, path)
 }
 
 // 定义进度条监听器。
@@ -280,9 +281,12 @@ func (listener *OssProgressListener) ProgressChanged(event *oss.ProgressEvent) {
 	}
 }
 
-func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error) {
-	tmpImageFile := fmt.Sprintf("/opt/cloud/workspace/data/glance/image-cache/%s", extId)
-	defer os.Remove(tmpImageFile)
+func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
+	tmpImageFile, err := ioutil.TempFile(path, extId)
+	if err != nil {
+		return nil, err
+	}
+	defer os.Remove(tmpImageFile.Name())
 	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s", self.region.GetId()))
 	if bucket, err := self.region.checkBucket(bucketName); err != nil {
 		return nil, err
@@ -296,12 +300,12 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 		return nil, err
 	} else if len(imageList.Objects) != 1 {
 		return nil, httperrors.NewResourceNotFoundError("exported image not find")
-	} else if err := bucket.DownloadFile(imageList.Objects[0].Key, tmpImageFile, 12*1024*1024, oss.Routines(3), oss.Progress(&OssProgressListener{})); err != nil {
+	} else if err := bucket.DownloadFile(imageList.Objects[0].Key, tmpImageFile.Name(), 12*1024*1024, oss.Routines(3), oss.Progress(&OssProgressListener{})); err != nil {
 		return nil, err
 	} else {
 		s := auth.GetAdminSession(options.Options.Region, "")
 		params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
-		if file, err := os.Open(tmpImageFile); err != nil {
+		if file, err := os.Open(tmpImageFile.Name()); err != nil {
 			return nil, err
 		} else if result, err := modules.Images.Upload(s, params, file, imageList.Objects[0].Size); err != nil {
 			return nil, err
