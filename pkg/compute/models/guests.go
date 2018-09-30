@@ -3983,6 +3983,22 @@ func (self *SGuest) PerformStop(ctx context.Context, userCred mcclient.TokenCred
 	}
 }
 
+func (self *SGuest) AllowPerformRestart(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformRestart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	isForce := jsonutils.QueryBoolean(data, "is_force", false)
+	if utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_STOP_FAILED}) || (isForce && self.Status == VM_STOPPING) {
+		return nil, self.GetDriver().StartGuestRestartTask(self, ctx, userCred, isForce, "")
+	} else {
+		return nil, httperrors.NewInvalidStatusError("Cannot do restart server in status %s", self.Status)
+	}
+}
+
 /*
 
 TODO

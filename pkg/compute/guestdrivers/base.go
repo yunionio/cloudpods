@@ -106,6 +106,10 @@ func (self *SBaseGuestDriver) StartGuestResetTask(guest *models.SGuest, ctx cont
 	return fmt.Errorf("Not Implement")
 }
 
+func (self *SBaseGuestDriver) StartGuestRestartTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
+	return fmt.Errorf("Not Implement")
+}
+
 func (self *SBaseGuestDriver) RequestSoftReset(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement")
 }
