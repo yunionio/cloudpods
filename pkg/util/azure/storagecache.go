@@ -3,6 +3,7 @@ package azure
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -171,11 +172,11 @@ func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc
 	}
 }
 
-func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error) {
-	return self.downloadImage(userCred, imageId, extId)
+func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
+	return self.downloadImage(userCred, imageId, extId, path)
 }
 
-func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error) {
+func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
 	if image, err := self.region.GetImage(extId); err != nil {
 		return nil, err
 	} else if snapshotId := image.Properties.StorageProfile.OsDisk.Snapshot.ID; len(snapshotId) == 0 {
@@ -186,9 +187,12 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 		return nil, err
 	} else {
 		_, _, snapshot := pareResourceGroupWithName(snapshotId, SNAPSHOT_RESOURCE)
-		tmpImageFile := fmt.Sprintf("/opt/cloud/workspace/data/glance/image-cache/%s", snapshot)
-		defer os.Remove(tmpImageFile)
-		if f, err := os.Create(tmpImageFile); err != nil {
+		tmpImageFile, err := ioutil.TempFile(path, snapshot)
+		if err != nil {
+			return nil, err
+		}
+		defer os.Remove(tmpImageFile.Name())
+		if f, err := os.Open(tmpImageFile.Name()); err != nil {
 			return nil, err
 		} else {
 			readed, writed, skiped := 0, 0, 0
@@ -229,7 +233,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 
 		s := auth.GetAdminSession(options.Options.Region, "")
 		params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
-		if file, err := os.Open(tmpImageFile); err != nil {
+		if file, err := os.Open(tmpImageFile.Name()); err != nil {
 			return nil, err
 		} else if result, err := modules.Images.Upload(s, params, file, resp.ContentLength); err != nil {
 			return nil, err

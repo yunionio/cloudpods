@@ -15,6 +15,8 @@ type ICommand interface {
 	GetProtocol() string
 	GetCommand() *exec.Cmd
 	Cleanup() error
+	GetData(string) (isShow bool, ouput string, command string)
+	ShowInfo() string
 }
 
 type BaseCommand struct {
@@ -38,6 +40,14 @@ func (c *BaseCommand) AppendArgs(args ...string) *BaseCommand {
 
 func (c BaseCommand) GetCommand() *exec.Cmd {
 	return exec.Command(c.name, c.args...)
+}
+
+func (c BaseCommand) GetData(comand string) (isShow bool, ouput string, command string) {
+	return true, "", ""
+}
+
+func (c BaseCommand) ShowInfo() string {
+	return ""
 }
 
 func (c BaseCommand) Cleanup() error {

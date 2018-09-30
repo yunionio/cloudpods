@@ -1,7 +1,6 @@
 package prompt
 
 import (
-	"bytes"
 	"io/ioutil"
 	"log"
 	"os"
@@ -20,15 +19,14 @@ type Completer func(Document) []Suggest
 
 // Prompt is core struct of go-prompt.
 type Prompt struct {
-	in                ConsoleParser
-	buf               *Buffer
-	renderer          *Render
-	executor          Executor
-	history           *History
-	completion        *CompletionManager
-	keyBindings       []KeyBind
-	ASCIICodeBindings []ASCIICodeBind
-	keyBindMode       KeyBindMode
+	in          ConsoleParser
+	buf         *Buffer
+	renderer    *Render
+	executor    Executor
+	history     *History
+	completion  *CompletionManager
+	keyBindings []KeyBind
+	keyBindMode KeyBindMode
 }
 
 // Exec is the struct contains user input context.
@@ -67,8 +65,6 @@ func (p *Prompt) Run() {
 		case b := <-bufCh:
 			if shouldExit, e := p.feed(b); shouldExit {
 				p.renderer.BreakLine(p.buf)
-				stopReadBufCh <- struct{}{}
-				stopHandleSignalCh <- struct{}{}
 				return
 			} else if e != nil {
 				// Stop goroutine to run readBuffer function
@@ -109,7 +105,31 @@ func (p *Prompt) feed(b []byte) (shouldExit bool, exec *Exec) {
 
 	// completion
 	completing := p.completion.Completing()
-	p.handleCompletionKeyBinding(key, completing)
+	switch key {
+	case Down:
+		if completing {
+			p.completion.Next()
+		}
+	case Tab, ControlI:
+		p.completion.Next()
+	case Up:
+		if completing {
+			p.completion.Previous()
+		}
+	case BackTab:
+		p.completion.Previous()
+	case ControlSpace:
+		return
+	default:
+		if s, ok := p.completion.GetSelectedSuggestion(); ok {
+			w := p.buf.Document().GetWordBeforeCursor()
+			if w != "" {
+				p.buf.DeleteBeforeCursor(len([]rune(w)))
+			}
+			p.buf.InsertText(s.Text, false, true)
+		}
+		p.completion.Reset()
+	}
 
 	switch key {
 	case Enter, ControlJ, ControlM:
@@ -144,43 +164,10 @@ func (p *Prompt) feed(b []byte) (shouldExit bool, exec *Exec) {
 			return
 		}
 	case NotDefined:
-		if p.handleASCIICodeBinding(b) {
-			return
-		}
 		p.buf.InsertText(string(b), false, true)
 	}
 
-	p.handleKeyBinding(key)
-	return
-}
-
-func (p *Prompt) handleCompletionKeyBinding(key Key, completing bool) {
-	switch key {
-	case Down:
-		if completing {
-			p.completion.Next()
-		}
-	case Tab, ControlI:
-		p.completion.Next()
-	case Up:
-		if completing {
-			p.completion.Previous()
-		}
-	case BackTab:
-		p.completion.Previous()
-	default:
-		if s, ok := p.completion.GetSelectedSuggestion(); ok {
-			w := p.buf.Document().GetWordBeforeCursorUntilSeparator(p.completion.wordSeparator)
-			if w != "" {
-				p.buf.DeleteBeforeCursor(len([]rune(w)))
-			}
-			p.buf.InsertText(s.Text, false, true)
-		}
-		p.completion.Reset()
-	}
-}
-
-func (p *Prompt) handleKeyBinding(key Key) {
+	// Key bindings
 	for i := range commonKeyBindings {
 		kb := commonKeyBindings[i]
 		if kb.Key == key {
@@ -204,17 +191,7 @@ func (p *Prompt) handleKeyBinding(key Key) {
 			kb.Fn(p.buf)
 		}
 	}
-}
-
-func (p *Prompt) handleASCIICodeBinding(b []byte) bool {
-	checked := false
-	for _, kb := range p.ASCIICodeBindings {
-		if bytes.Compare(kb.ASCIICode, b) == 0 {
-			kb.Fn(p.buf)
-			checked = true
-		}
-	}
-	return checked
+	return
 }
 
 // Input just returns user input text.
@@ -242,7 +219,6 @@ func (p *Prompt) Input() string {
 		case b := <-bufCh:
 			if shouldExit, e := p.feed(b); shouldExit {
 				p.renderer.BreakLine(p.buf)
-				stopReadBufCh <- struct{}{}
 				return ""
 			} else if e != nil {
 				// Stop goroutine to run readBuffer function
@@ -261,16 +237,16 @@ func (p *Prompt) Input() string {
 func (p *Prompt) readBuffer(bufCh chan []byte, stopCh chan struct{}) {
 	log.Printf("[INFO] readBuffer start")
 	for {
+		time.Sleep(10 * time.Millisecond)
 		select {
 		case <-stopCh:
 			log.Print("[INFO] stop readBuffer")
 			return
 		default:
-			if b, err := p.in.Read(); err == nil && !(len(b) == 1 && b[0] == 0) {
+			if b, err := p.in.Read(); err == nil {
 				bufCh <- b
 			}
 		}
-		time.Sleep(10 * time.Millisecond)
 	}
 }
 
