@@ -1,0 +1,32 @@
+#!/bin/bash
+
+PORT=22
+USER=yunion
+PRIVATE_KEY=$HOME/.ssh/id_rsa_qiujian02
+USER_BECOME=root
+
+PARAM=
+
+if [ -n "$PORT" ]; then
+    PARAM="$PARAM --port $PORT"
+fi
+
+if [ -n "$USER" ]; then
+    PARAM="$PARAM --user $USER"
+fi
+
+if [ -n "$PRIVATE_KEY" ]; then
+    PARAM="$PARAM --private-key $PRIVATE_KEY"
+fi
+
+if [ -n "$USER_BECOME" ]; then
+    PARAM="$PARAM --user-become $USER_BECOME"
+fi
+
+OS_USERNAME=qiujian \
+OS_PASSWORD=<password> \
+OS_PROJECT_NAME=qiujian \
+OS_DOMAIN_NAME=LDAP \
+OS_AUTH_URL=http://10.168.200.246:5000/v3 \
+OS_REGION_NAME=YunionHQ \
+$HOME/onecloud/_output/bin/climc ansible-hosts $PARAM $@
