@@ -175,3 +175,18 @@ func parseNodeAddConfigStr(config string) (nodeAddConfig, error) {
 	ret.Roles = roles
 	return ret, nil
 }
+
+type ClusterDeleteNodesOptions struct {
+	IdentOptions
+	Node []string `help:"Node id or name"`
+}
+
+func (o ClusterDeleteNodesOptions) Params() (*jsonutils.JSONDict, error) {
+	params := jsonutils.NewDict()
+	nodesArray := jsonutils.NewArray()
+	for _, node := range o.Node {
+		nodesArray.Add(jsonutils.NewString(node))
+	}
+	params.Add(nodesArray, "nodes")
+	return params, nil
+}
