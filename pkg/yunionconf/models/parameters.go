@@ -138,7 +138,7 @@ func (manager *SParameterManager) FilterByOwner(q *sqlchemy.SQuery, owner string
 }
 
 func (manager *SParameterManager) FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
-	return q.Equals("name", idStr)
+	return q.Equals("id", idStr)
 }
 
 func (manager *SParameterManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery {
