@@ -1,8 +1,11 @@
 package aliyun
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 	"strings"
+	"time"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
@@ -13,7 +16,10 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
+
+const LOCATION_KEY = "AIzaSyDzERKiHXz3c3W0GFbzcINuJEk-gM47wjg"
 
 type SRegion struct {
 	client    *SAliyunClient
@@ -30,6 +36,10 @@ type SRegion struct {
 	storageCache *SStoragecache
 
 	instanceTypes []SInstanceType
+
+	latitude      float64
+	longitude     float64
+	fetchLocation bool
 }
 
 func (self *SRegion) GetClient() *SAliyunClient {
@@ -103,12 +113,55 @@ func (self *SRegion) GetProvider() string {
 	return CLOUD_PROVIDER_ALIYUN
 }
 
+func (self *SRegion) fetchLatitudeLongtitude() {
+	city := self.LocalName
+	for key, value := range map[string]string{"（": "）", "(": ")"} {
+		if strings.Index(self.LocalName, key) > 0 {
+			_city := strings.Split(self.LocalName, key)[1]
+			city = strings.Replace(_city, value, "", -1)
+		}
+	}
+	if _, res, err := httputils.JSONRequest(
+		httputils.GetDefaultClient(),
+		context.Background(),
+		"GET", "https://maps.google.cn/maps/api/geocode/json?address="+city+"&key="+LOCATION_KEY,
+		http.Header{}, nil, false); err != nil {
+		log.Errorf("fetchLatitudeLongtitude %s error: %v", city, err)
+	} else if status, err := res.GetString("status"); err != nil || status != "OK" {
+		log.Errorf("fetchLatitudeLongtitude %s error: %v res: %s", city, err, res.PrettyString())
+	} else if results, err := res.GetArray("results"); err != nil {
+		log.Errorf("fetchLatitudeLongtitude %s error: %v res: %s", city, err, res.PrettyString())
+	} else if len(results) < 1 {
+		log.Errorf("fetchLatitudeLongtitude %s error: %v res: %s", city, err, res.PrettyString())
+	} else {
+		self.latitude, _ = results[0].Float("geometry", "location", "lat")
+		self.longitude, _ = results[0].Float("geometry", "location", "lng")
+		self.fetchLocation = true
+		return
+	}
+	time.Sleep(time.Second * 2)
+}
+
 func (self *SRegion) GetLatitude() float32 {
-	return 0.0
+	for i := 0; i < 3; i++ {
+		if !self.fetchLocation {
+			self.fetchLatitudeLongtitude()
+		} else {
+			break
+		}
+	}
+	return float32(self.latitude)
 }
 
 func (self *SRegion) GetLongitude() float32 {
-	return 0.0
+	for i := 0; i < 3; i++ {
+		if !self.fetchLocation {
+			self.fetchLatitudeLongtitude()
+		} else {
+			break
+		}
+	}
+	return float32(self.longitude)
 }
 
 func (self *SRegion) GetStatus() string {
