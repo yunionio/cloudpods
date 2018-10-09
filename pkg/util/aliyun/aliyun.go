@@ -103,7 +103,7 @@ func (self *SAliyunClient) businessRequest(apiName string, params map[string]str
 }
 
 func (self *SAliyunClient) fetchRegions() error {
-	body, err := self.jsonRequest("DescribeRegions", nil)
+	body, err := self.jsonRequest("DescribeRegions", map[string]string{"AcceptLanguage": "zh-CN"})
 	if err != nil {
 		log.Errorf("fetchRegions fail %s", err)
 		return err
