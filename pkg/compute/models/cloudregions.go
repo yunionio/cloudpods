@@ -72,11 +72,13 @@ func (self *SCloudregion) GetZoneCount() int {
 }
 
 func (self *SCloudregion) GetGuestCount(increment bool) int {
-	zoneTable := ZoneManager.Query("id").Equals("cloudregion_id", self.Id)
+	zoneTable := ZoneManager.Query("id")
 	if self.Id == "default" {
-		zoneTable = ZoneManager.Query("id").Filter(sqlchemy.OR(sqlchemy.IsNull(zoneTable.Field("cloudregion_id")),
+		zoneTable = zoneTable.Filter(sqlchemy.OR(sqlchemy.IsNull(zoneTable.Field("cloudregion_id")),
 			sqlchemy.IsEmpty(zoneTable.Field("cloudregion_id")),
 			sqlchemy.Equals(zoneTable.Field("cloudregion_id"), self.Id)))
+	} else {
+		zoneTable = zoneTable.Equals("cloudregion_id", self.Id)
 	}
 	sq := HostManager.Query("id").In("zone_id", zoneTable)
 	query := GuestManager.Query().In("host_id", sq)
