@@ -12,11 +12,12 @@ import (
 func init() {
 	type NetworkListOptions struct {
 		options.BaseListOptions
-		Ip     string `help:"search networks that contain this IP"`
-		Zone   string `help:"search networks in a zone"`
-		Wire   string `help:"search networks belongs to a wire"`
-		Vpc    string `help:"search networks belongs to a VPC"`
-		Region string `help:"search networks belongs to a CloudRegion"`
+		Ip         string `help:"search networks that contain this IP"`
+		Zone       string `help:"search networks in a zone"`
+		Wire       string `help:"search networks belongs to a wire"`
+		Vpc        string `help:"search networks belongs to a VPC"`
+		Region     string `help:"search networks belongs to a CloudRegion"`
+		ServerType string `help:"search networks belongs to a ServerType"`
 	}
 	R(&NetworkListOptions{}, "network-list", "List networks", func(s *mcclient.ClientSession, args *NetworkListOptions) error {
 		var params *jsonutils.JSONDict
@@ -39,6 +40,9 @@ func init() {
 		}
 		if len(args.Region) > 0 {
 			params.Add(jsonutils.NewString(args.Region), "cloudregion")
+		}
+		if len(args.ServerType) > 0 {
+			params.Add(jsonutils.NewString(args.ServerType), "server_type")
 		}
 		var result *modules.ListResult
 		var err error
