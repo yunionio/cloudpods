@@ -109,6 +109,9 @@ func compressionLenHelperType(c map[string]int, r RR, initLen int) int {
 
 func compressionLenSearchType(c map[string]int, r RR) (int, bool, int) {
 	switch x := r.(type) {
+	case *AFSDB:
+		k1, ok1, sz1 := compressionLenSearch(c, x.Hostname)
+		return k1, ok1, sz1
 	case *CNAME:
 		k1, ok1, sz1 := compressionLenSearch(c, x.Target)
 		return k1, ok1, sz1

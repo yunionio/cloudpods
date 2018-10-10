@@ -9,11 +9,11 @@ import (
 	"hash"
 	"hash/crc64"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -128,8 +128,7 @@ func (bucket Bucket) GetObject(objectKey string, options ...Option) (io.ReadClos
 	if err != nil {
 		return nil, err
 	}
-
-	return result.Response, nil
+	return result.Response.Body, nil
 }
 
 // GetObjectToFile downloads the data to a local file.
@@ -148,7 +147,7 @@ func (bucket Bucket) GetObjectToFile(objectKey, filePath string, options ...Opti
 	if err != nil {
 		return err
 	}
-	defer result.Response.Close()
+	defer result.Response.Body.Close()
 
 	// If the local file does not exist, create a new one. If it exists, overwrite it.
 	fd, err := os.OpenFile(tempFilePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, FilePermMode)
@@ -165,12 +164,7 @@ func (bucket Bucket) GetObjectToFile(objectKey, filePath string, options ...Opti
 
 	// Compares the CRC value
 	hasRange, _, _ := isOptionSet(options, HTTPHeaderRange)
-	encodeOpt, _ := findOption(options, HTTPHeaderAcceptEncoding, nil)
-	acceptEncoding := ""
-	if encodeOpt != nil {
-		acceptEncoding = encodeOpt.(string)
-	}
-	if bucket.getConfig().IsEnableCRC && !hasRange && acceptEncoding != "gzip" {
+	if bucket.getConfig().IsEnableCRC && !hasRange {
 		result.Response.ClientCRC = result.ClientCRC.Sum64()
 		err = checkCRC(result.Response, "GetObjectToFile")
 		if err != nil {
@@ -191,7 +185,7 @@ func (bucket Bucket) GetObjectToFile(objectKey, filePath string, options ...Opti
 // error    it's nil if no error, otherwise it's an error object.
 //
 func (bucket Bucket) DoGetObject(request *GetObjectRequest, options []Option) (*GetObjectResult, error) {
-	params, _ := getRawParams(options)
+	params := map[string]interface{}{}
 	resp, err := bucket.do("GET", request.ObjectKey, params, options, nil, nil)
 	if err != nil {
 		return nil, err
@@ -214,7 +208,7 @@ func (bucket Bucket) DoGetObject(request *GetObjectRequest, options []Option) (*
 	listener := getProgressListener(options)
 
 	contentLen, _ := strconv.ParseInt(resp.Headers.Get(HTTPHeaderContentLength), 10, 64)
-	resp.Body = TeeReader(resp.Body, crcCalc, contentLen, listener, nil)
+	resp.Body = ioutil.NopCloser(TeeReader(resp.Body, crcCalc, contentLen, listener, nil))
 
 	return result, nil
 }
@@ -225,7 +219,7 @@ func (bucket Bucket) DoGetObject(request *GetObjectRequest, options []Option) (*
 // destObjectKey    the target object to copy.
 // options    options for copying an object. You can specify the conditions of copy. The valid conditions are CopySourceIfMatch,
 //            CopySourceIfNoneMatch, CopySourceIfModifiedSince, CopySourceIfUnmodifiedSince, MetadataDirective.
-//            Also you can specify the target object's attributes, such as CacheControl, ContentDisposition, ContentEncoding, Expires,
+//            Also you can specify the target object's attributes, such as CacheControl, ContentDisposition, ContentEncoding, Expires, 
 //            ServerSideEncryption, ObjectACL, Meta. Refer to the link below for more details :
 //            https://help.aliyun.com/document_detail/oss/api-reference/object/CopyObject.html
 //
@@ -309,7 +303,7 @@ func (bucket Bucket) copy(srcObjectKey, destBucketName, destObjectKey string, op
 // reader    io.Reader. The read instance for reading the data to append.
 // appendPosition    the start position to append.
 // destObjectProperties    the options for the first appending, such as CacheControl, ContentDisposition, ContentEncoding,
-//                         Expires, ServerSideEncryption, ObjectACL.
+//                         Expires, ServerSideEncryption, ObjectACL. 
 //
 // int64    the next append position, it's valid when error is nil.
 // error    it's nil if no error, otherwise it's an error object.
@@ -470,7 +464,7 @@ func (bucket Bucket) IsObjectExist(objectKey string) (bool, error) {
 // options    it contains all the filters for listing objects.
 //            It could specify a prefix filter on object keys,  the max keys count to return and the object key marker and the delimiter for grouping object names.
 //            The key marker means the returned objects' key must be greater than it in lexicographic order.
-//
+// 
 //            For example, if the bucket has 8 objects, my-object-1, my-object-11, my-object-2, my-object-21,
 //            my-object-22, my-object-3, my-object-31, my-object-32. If the prefix is my-object-2 (no other filters), then it returns
 //            my-object-2, my-object-21, my-object-22 three objects. If the marker is my-object-22 (no other filters), then it returns
@@ -480,9 +474,9 @@ func (bucket Bucket) IsObjectExist(objectKey string) (bool, error) {
 //            But if the delimiter is specified with '/', then it only returns that folder's files (no subfolder's files). The direct subfolders are in the commonPrefixes properties.
 //            For example, if the bucket has three objects fun/test.jpg, fun/movie/001.avi, fun/movie/007.avi. And if the prefix is "fun/", then it returns all three objects.
 //            But if the delimiter is '/', then only "fun/test.jpg" is returned as files and fun/movie/ is returned as common prefix.
-//
+// 
 //            For common usage scenario, check out sample/list_object.go.
-//
+// 
 // ListObjectsResponse    the return value after operation succeeds (only valid when error is nil).
 //
 func (bucket Bucket) ListObjects(options ...Option) (ListObjectsResult, error) {
@@ -808,7 +802,7 @@ func (bucket Bucket) GetObjectWithURL(signedURL string, options ...Option) (io.R
 	if err != nil {
 		return nil, err
 	}
-	return result.Response, nil
+	return result.Response.Body, nil
 }
 
 // GetObjectToFileWithURL downloads the object into a local file with the signed URL.
@@ -827,7 +821,7 @@ func (bucket Bucket) GetObjectToFileWithURL(signedURL, filePath string, options 
 	if err != nil {
 		return err
 	}
-	defer result.Response.Close()
+	defer result.Response.Body.Close()
 
 	// If the file does not exist, create one. If exists, then overwrite it.
 	fd, err := os.OpenFile(tempFilePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, FilePermMode)
@@ -844,13 +838,7 @@ func (bucket Bucket) GetObjectToFileWithURL(signedURL, filePath string, options 
 
 	// Compare the CRC value. If CRC values do not match, return error.
 	hasRange, _, _ := isOptionSet(options, HTTPHeaderRange)
-	encodeOpt, _ := findOption(options, HTTPHeaderAcceptEncoding, nil)
-	acceptEncoding := ""
-	if encodeOpt != nil {
-		acceptEncoding = encodeOpt.(string)
-	}
-
-	if bucket.getConfig().IsEnableCRC && !hasRange && acceptEncoding != "gzip" {
+	if bucket.getConfig().IsEnableCRC && !hasRange {
 		result.Response.ClientCRC = result.ClientCRC.Sum64()
 		err = checkCRC(result.Response, "GetObjectToFileWithURL")
 		if err != nil {
@@ -871,7 +859,7 @@ func (bucket Bucket) GetObjectToFileWithURL(signedURL, filePath string, options 
 // error    it's nil if no error, otherwise it's an error object.
 //
 func (bucket Bucket) DoGetObjectWithURL(signedURL string, options []Option) (*GetObjectResult, error) {
-	params, _ := getRawParams(options)
+	params := map[string]interface{}{}
 	resp, err := bucket.doURL("GET", signedURL, params, options, nil, nil)
 	if err != nil {
 		return nil, err
@@ -894,37 +882,9 @@ func (bucket Bucket) DoGetObjectWithURL(signedURL string, options []Option) (*Ge
 	listener := getProgressListener(options)
 
 	contentLen, _ := strconv.ParseInt(resp.Headers.Get(HTTPHeaderContentLength), 10, 64)
-	resp.Body = TeeReader(resp.Body, crcCalc, contentLen, listener, nil)
+	resp.Body = ioutil.NopCloser(TeeReader(resp.Body, crcCalc, contentLen, listener, nil))
 
 	return result, nil
-}
-
-//
-// ProcessObject apply process on the specified image file.
-//
-// The supported process includes resize, rotate, crop, watermark, format,
-// udf, customized style, etc.
-//
-//
-// objectKey	object key to process.
-// process	process string, such as "image/resize,w_100|sys/saveas,o_dGVzdC5qcGc,b_dGVzdA"
-//
-// error    it's nil if no error, otherwise it's an error object.
-//
-func (bucket Bucket) ProcessObject(objectKey string, process string) (ProcessObjectResult, error) {
-	var out ProcessObjectResult
-	params := map[string]interface{}{}
-	params["x-oss-process"] = nil
-	processData := fmt.Sprintf("%v=%v", "x-oss-process", process)
-	data := strings.NewReader(processData)
-	resp, err := bucket.do("POST", objectKey, params, nil, data, nil)
-	if err != nil {
-		return out, err
-	}
-	defer resp.Body.Close()
-
-	err = jsonUnmarshal(resp.Body, &out)
-	return out, err
 }
 
 // Private

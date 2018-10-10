@@ -5,7 +5,6 @@ import (
 	"encoding/xml"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"sort"
 	"strconv"
@@ -14,7 +13,7 @@ import (
 // InitiateMultipartUpload initializes multipart upload
 //
 // objectKey    object name
-// options    the object constricts for upload. The valid options are CacheControl, ContentDisposition, ContentEncoding, Expires,
+// options    the object constricts for upload. The valid options are CacheControl, ContentDisposition, ContentEncoding, Expires, 
 //            ServerSideEncryption, Meta, check out the following link:
 //            https://help.aliyun.com/document_detail/oss/api-reference/multipart-upload/InitiateMultipartUpload.html
 //
@@ -152,7 +151,7 @@ func (bucket Bucket) UploadPartCopy(imur InitiateMultipartUploadResult, srcBucke
 	var out UploadPartCopyResult
 	var part UploadPart
 
-	opts := []Option{CopySource(srcBucketName, url.QueryEscape(srcObjectKey)),
+	opts := []Option{CopySource(srcBucketName, srcObjectKey),
 		CopySourceRange(startPosition, partSize)}
 	opts = append(opts, options...)
 	params := map[string]interface{}{}
@@ -232,16 +231,9 @@ func (bucket Bucket) AbortMultipartUpload(imur InitiateMultipartUploadResult) er
 // ListUploadedPartsResponse    the return value if it succeeds, only valid when error is nil.
 // error    it's nil if the operation succeeds, otherwise it's an error object.
 //
-func (bucket Bucket) ListUploadedParts(imur InitiateMultipartUploadResult, options ...Option) (ListUploadedPartsResult, error) {
+func (bucket Bucket) ListUploadedParts(imur InitiateMultipartUploadResult) (ListUploadedPartsResult, error) {
 	var out ListUploadedPartsResult
-	options = append(options, EncodingType("url"))
-
 	params := map[string]interface{}{}
-	params, err := getRawParams(options)
-	if err != nil {
-		return out, err
-	}
-
 	params["uploadId"] = imur.UploadID
 	resp, err := bucket.do("GET", imur.Key, params, nil, nil, nil)
 	if err != nil {
@@ -250,10 +242,6 @@ func (bucket Bucket) ListUploadedParts(imur InitiateMultipartUploadResult, optio
 	defer resp.Body.Close()
 
 	err = xmlUnmarshal(resp.Body, &out)
-	if err != nil {
-		return out, err
-	}
-	err = decodeListUploadedPartsResult(&out)
 	return out, err
 }
 

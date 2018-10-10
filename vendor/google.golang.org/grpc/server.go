@@ -30,12 +30,12 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"io/ioutil"
 
 	"golang.org/x/net/context"
+	"golang.org/x/net/http2"
 	"golang.org/x/net/trace"
 
 	"google.golang.org/grpc/codes"
@@ -43,6 +43,7 @@ import (
 	"google.golang.org/grpc/encoding"
 	"google.golang.org/grpc/encoding/proto"
 	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/internal"
 	"google.golang.org/grpc/internal/channelz"
 	"google.golang.org/grpc/internal/transport"
 	"google.golang.org/grpc/keepalive"
@@ -105,8 +106,12 @@ type Server struct {
 	channelzRemoveOnce sync.Once
 	serveWG            sync.WaitGroup // counts active Serve goroutines for GracefulStop
 
-	channelzID int64 // channelz unique identification number
-	czData     *channelzData
+	channelzID          int64 // channelz unique identification number
+	czmu                sync.RWMutex
+	callsStarted        int64
+	callsFailed         int64
+	callsSucceeded      int64
+	lastCallStartedTime time.Time
 }
 
 type options struct {
@@ -121,6 +126,7 @@ type options struct {
 	maxConcurrentStreams  uint32
 	maxReceiveMessageSize int
 	maxSendMessageSize    int
+	useHandlerImpl        bool // use http.Handler-based server
 	unknownStreamDesc     *StreamDesc
 	keepaliveParams       keepalive.ServerParameters
 	keepalivePolicy       keepalive.EnforcementPolicy
@@ -354,13 +360,12 @@ func NewServer(opt ...ServerOption) *Server {
 		o(&opts)
 	}
 	s := &Server{
-		lis:    make(map[net.Listener]bool),
-		opts:   opts,
-		conns:  make(map[io.Closer]bool),
-		m:      make(map[string]*service),
-		quit:   make(chan struct{}),
-		done:   make(chan struct{}),
-		czData: new(channelzData),
+		lis:   make(map[net.Listener]bool),
+		opts:  opts,
+		conns: make(map[io.Closer]bool),
+		m:     make(map[string]*service),
+		quit:  make(chan struct{}),
+		done:  make(chan struct{}),
 	}
 	s.cv = sync.NewCond(&s.mu)
 	if EnableTracing {
@@ -369,7 +374,7 @@ func NewServer(opt ...ServerOption) *Server {
 	}
 
 	if channelz.IsOn() {
-		s.channelzID = channelz.RegisterServer(&channelzServer{s}, "")
+		s.channelzID = channelz.RegisterServer(s, "")
 	}
 	return s
 }
@@ -630,19 +635,27 @@ func (s *Server) handleRawConn(rawConn net.Conn) {
 	}
 	s.mu.Unlock()
 
-	// Finish handshaking (HTTP2)
-	st := s.newHTTP2Transport(conn, authInfo)
-	if st == nil {
-		return
+	var serve func()
+	c := conn.(io.Closer)
+	if s.opts.useHandlerImpl {
+		serve = func() { s.serveUsingHandler(conn) }
+	} else {
+		// Finish handshaking (HTTP2)
+		st := s.newHTTP2Transport(conn, authInfo)
+		if st == nil {
+			return
+		}
+		c = st
+		serve = func() { s.serveStreams(st) }
 	}
 
 	rawConn.SetDeadline(time.Time{})
-	if !s.addConn(st) {
+	if !s.addConn(c) {
 		return
 	}
 	go func() {
-		s.serveStreams(st)
-		s.removeConn(st)
+		serve()
+		s.removeConn(c)
 	}()
 }
 
@@ -696,6 +709,27 @@ func (s *Server) serveStreams(st transport.ServerTransport) {
 }
 
 var _ http.Handler = (*Server)(nil)
+
+// serveUsingHandler is called from handleRawConn when s is configured
+// to handle requests via the http.Handler interface. It sets up a
+// net/http.Server to handle the just-accepted conn. The http.Server
+// is configured to route all incoming requests (all HTTP/2 streams)
+// to ServeHTTP, which creates a new ServerTransport for each stream.
+// serveUsingHandler blocks until conn closes.
+//
+// This codepath is only used when Server.TestingUseHandlerImpl has
+// been configured. This lets the end2end tests exercise the ServeHTTP
+// method as one of the environment types.
+//
+// conn is the *tls.Conn that's already been authenticated.
+func (s *Server) serveUsingHandler(conn net.Conn) {
+	h2s := &http2.Server{
+		MaxConcurrentStreams: s.opts.maxConcurrentStreams,
+	}
+	h2s.ServeConn(conn, &http2.ServeConnOpts{
+		Handler: s,
+	})
+}
 
 // ServeHTTP implements the Go standard library's http.Handler
 // interface by responding to the gRPC request r, by looking up
@@ -779,26 +813,36 @@ func (s *Server) removeConn(c io.Closer) {
 	}
 }
 
-func (s *Server) channelzMetric() *channelz.ServerInternalMetric {
+// ChannelzMetric returns ServerInternalMetric of current server.
+// This is an EXPERIMENTAL API.
+func (s *Server) ChannelzMetric() *channelz.ServerInternalMetric {
+	s.czmu.RLock()
+	defer s.czmu.RUnlock()
 	return &channelz.ServerInternalMetric{
-		CallsStarted:             atomic.LoadInt64(&s.czData.callsStarted),
-		CallsSucceeded:           atomic.LoadInt64(&s.czData.callsSucceeded),
-		CallsFailed:              atomic.LoadInt64(&s.czData.callsFailed),
-		LastCallStartedTimestamp: time.Unix(0, atomic.LoadInt64(&s.czData.lastCallStartedTime)),
+		CallsStarted:             s.callsStarted,
+		CallsSucceeded:           s.callsSucceeded,
+		CallsFailed:              s.callsFailed,
+		LastCallStartedTimestamp: s.lastCallStartedTime,
 	}
 }
 
 func (s *Server) incrCallsStarted() {
-	atomic.AddInt64(&s.czData.callsStarted, 1)
-	atomic.StoreInt64(&s.czData.lastCallStartedTime, time.Now().UnixNano())
+	s.czmu.Lock()
+	s.callsStarted++
+	s.lastCallStartedTime = time.Now()
+	s.czmu.Unlock()
 }
 
 func (s *Server) incrCallsSucceeded() {
-	atomic.AddInt64(&s.czData.callsSucceeded, 1)
+	s.czmu.Lock()
+	s.callsSucceeded++
+	s.czmu.Unlock()
 }
 
 func (s *Server) incrCallsFailed() {
-	atomic.AddInt64(&s.czData.callsFailed, 1)
+	s.czmu.Lock()
+	s.callsFailed++
+	s.czmu.Unlock()
 }
 
 func (s *Server) sendResponse(t transport.ServerTransport, stream *transport.Stream, msg interface{}, cp Compressor, opts *transport.Options, comp encoding.Compressor) error {
@@ -1063,11 +1107,11 @@ func (s *Server) processStreamingRPC(t transport.ServerTransport, stream *transp
 	}
 	ctx := NewContextWithServerTransportStream(stream.Context(), stream)
 	ss := &serverStream{
-		ctx:                   ctx,
-		t:                     t,
-		s:                     stream,
-		p:                     &parser{r: stream},
-		codec:                 s.getCodec(stream.ContentSubtype()),
+		ctx:   ctx,
+		t:     t,
+		s:     stream,
+		p:     &parser{r: stream},
+		codec: s.getCodec(stream.ContentSubtype()),
 		maxReceiveMessageSize: s.opts.maxReceiveMessageSize,
 		maxSendMessageSize:    s.opts.maxSendMessageSize,
 		trInfo:                trInfo,
@@ -1369,6 +1413,12 @@ func (s *Server) GracefulStop() {
 	s.mu.Unlock()
 }
 
+func init() {
+	internal.TestingUseHandlerImpl = func(arg interface{}) {
+		arg.(*Server).opts.useHandlerImpl = true
+	}
+}
+
 // contentSubtype must be lowercase
 // cannot return nil
 func (s *Server) getCodec(contentSubtype string) baseCodec {
@@ -1436,12 +1486,4 @@ func Method(ctx context.Context) (string, bool) {
 		return "", false
 	}
 	return s.Method(), true
-}
-
-type channelzServer struct {
-	s *Server
-}
-
-func (c *channelzServer) ChannelzMetric() *channelz.ServerInternalMetric {
-	return c.s.channelzMetric()
 }

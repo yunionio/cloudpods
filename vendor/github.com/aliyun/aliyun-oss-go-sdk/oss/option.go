@@ -172,21 +172,6 @@ func Origin(value string) Option {
 	return setHeader(HTTPHeaderOrigin, value)
 }
 
-// ObjectStorageClass is an option to set the storage class of object
-func ObjectStorageClass(storageClass StorageClassType) Option {
-	return setHeader(HTTPHeaderOssStorageClass, string(storageClass))
-}
-
-// Callback is an option to set callback values
-func Callback(callback string) Option {
-	return setHeader(HTTPHeaderOssCallback, callback)
-}
-
-// CallbackVar is an option to set callback user defined values
-func CallbackVar(callbackVar string) Option {
-	return setHeader(HTTPHeaderOssCallbackVar, callbackVar)
-}
-
 // Delimiter is an option to set delimiler parameter
 func Delimiter(value string) Option {
 	return addParam("delimiter", value)
@@ -225,16 +210,6 @@ func KeyMarker(value string) Option {
 // UploadIDMarker is an option to set upload-id-marker parameter
 func UploadIDMarker(value string) Option {
 	return addParam("upload-id-marker", value)
-}
-
-// MaxParts is an option to set max-parts parameter
-func MaxParts(value int) Option {
-	return addParam("max-parts", strconv.Itoa(value))
-}
-
-// PartNumberMarker is an option to set part-number-marker parameter
-func PartNumberMarker(value int) Option {
-	return addParam("part-number-marker", strconv.Itoa(value))
 }
 
 // DeleteObjectsQuiet false:DeleteObjects in verbose mode; true:DeleteObjects in quite mode. Default is false.
@@ -303,11 +278,10 @@ func ResponseContentEncoding(value string) Option {
 	return addParam("response-content-encoding", value)
 }
 
-// Process is an option to set x-oss-process param
+// Process is an option to set X-Oss-Process param
 func Process(value string) Option {
-	return addParam("x-oss-process", value)
+	return addParam("X-Oss-Process", value)
 }
-
 func setHeader(key string, value interface{}) Option {
 	return func(params map[string]optionValue) error {
 		if value == nil {

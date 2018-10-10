@@ -1,6 +1,7 @@
 package dns
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/dsa"
 	"crypto/ecdsa"
@@ -180,10 +181,22 @@ func readPrivateKeyED25519(m map[string]string) (ed25519.PrivateKey, error) {
 			if err != nil {
 				return nil, err
 			}
-			if len(p1) != ed25519.SeedSize {
+			if len(p1) != 32 {
 				return nil, ErrPrivKey
 			}
-			p = ed25519.NewKeyFromSeed(p1)
+			// RFC 8080 and Golang's x/crypto/ed25519 differ as to how the
+			// private keys are represented. RFC 8080 specifies that private
+			// keys be stored solely as the seed value (p1 above) while the
+			// ed25519 package represents them as the seed value concatenated
+			// to the public key, which is derived from the seed value.
+			//
+			// ed25519.GenerateKey reads exactly 32 bytes from the passed in
+			// io.Reader and uses them as the seed. It also derives the
+			// public key and produces a compatible private key.
+			_, p, err = ed25519.GenerateKey(bytes.NewReader(p1))
+			if err != nil {
+				return nil, err
+			}
 		case "created", "publish", "activate":
 			/* not used in Go (yet) */
 		}

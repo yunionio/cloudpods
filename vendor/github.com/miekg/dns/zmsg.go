@@ -42,7 +42,7 @@ func (rr *AFSDB) pack(msg []byte, off int, compression map[string]int, compress 
 	if err != nil {
 		return off, err
 	}
-	off, err = PackDomainName(rr.Hostname, msg, off, compression, false)
+	off, err = PackDomainName(rr.Hostname, msg, off, compression, compress)
 	if err != nil {
 		return off, err
 	}

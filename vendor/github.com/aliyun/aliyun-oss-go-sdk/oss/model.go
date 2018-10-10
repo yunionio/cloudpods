@@ -15,14 +15,6 @@ type Response struct {
 	ServerCRC  uint64
 }
 
-func (r *Response) Read(p []byte) (n int, err error) {
-	return r.Body.Read(p)
-}
-
-func (r *Response) Close() error {
-	return r.Body.Close()
-}
-
 // PutObjectRequest is the request of DoPutObject
 type PutObjectRequest struct {
 	ObjectKey string

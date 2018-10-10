@@ -10,6 +10,43 @@
   version = "v1.3.0"
 
 [[projects]]
+  digest = "1:402c5ecf012012f4a6ff2bcc6ee903f5280e8c27f4abaebb2319716065397304"
+  name = "github.com/Azure/azure-sdk-for-go"
+  packages = [
+    "services/compute/mgmt/2018-04-01/compute",
+    "services/compute/mgmt/2018-06-01/compute",
+    "services/consumption/mgmt/2018-03-31/consumption",
+    "services/network/mgmt/2018-06-01/network",
+    "services/preview/subscription/mgmt/2018-03-01-preview/subscription",
+    "services/resources/mgmt/2018-05-01/resources",
+    "services/storage/mgmt/2017-10-01/storage",
+    "services/storage/mgmt/2018-02-01/storage",
+    "storage",
+    "version",
+  ]
+  pruneopts = "UT"
+  revision = "4e8cbbfb1aeab140cd0fa97fd16b64ee18c3ca6a"
+  version = "v19.1.0"
+
+[[projects]]
+  digest = "1:b8a61bb5402d1b01ada88ccb213da33a5d29683cba5ce93813aa67d5826afe56"
+  name = "github.com/Azure/go-autorest"
+  packages = [
+    "autorest",
+    "autorest/adal",
+    "autorest/azure",
+    "autorest/azure/auth",
+    "autorest/date",
+    "autorest/to",
+    "autorest/validation",
+    "logger",
+    "version",
+  ]
+  pruneopts = "UT"
+  revision = "9bc4033dd347c7f416fca46b2f42a043dc1fbdf6"
+  version = "v10.15.5"
+
+[[projects]]
   digest = "1:f7a3877d7116adfcdcd641f9f6ad18fc2126bd5c080d8854cc3b395a01e0b7f3"
   name = "github.com/DataDog/dd-trace-go"
   packages = [
@@ -22,6 +59,28 @@
   version = "v0.6.1"
 
 [[projects]]
+  branch = "master"
+  digest = "1:13cce9b5c224cb93ecbfce7495a7d8ac291a3a1cb17827fbeb593f5905902164"
+  name = "github.com/Microsoft/azure-vhd-utils"
+  packages = [
+    "vhdcore",
+    "vhdcore/bat",
+    "vhdcore/block",
+    "vhdcore/block/bitmap",
+    "vhdcore/common",
+    "vhdcore/diskstream",
+    "vhdcore/footer",
+    "vhdcore/header",
+    "vhdcore/header/parentlocator",
+    "vhdcore/reader",
+    "vhdcore/validator",
+    "vhdcore/vhdfile",
+    "vhdcore/writer",
+  ]
+  pruneopts = "UT"
+  revision = "2dd43d88c85c06c55828c86159d4583db9d41fbb"
+
+[[projects]]
   digest = "1:66b8ed452b31eb9075bc53295952487c333a9cb555de57ed61f5664c058d9050"
   name = "github.com/Shopify/sarama"
   packages = ["."]
@@ -30,7 +89,7 @@
   version = "v1.17.0"
 
 [[projects]]
-  digest = "1:37a8ee6652ff3c42043fa26c0930858d1a72f26928ae26e5261fe81c5f0c2e8d"
+  digest = "1:5e9ea5618cb3451ce312505a48a563e95ce26c9ef498cd0a8833255e5e7f5c61"
   name = "github.com/aliyun/alibaba-cloud-sdk-go"
   packages = [
     "sdk",
@@ -44,8 +103,8 @@
     "sdk/utils",
   ]
   pruneopts = "UT"
-  revision = "f53c66e9cf53d68bcf063643c09cc667efa0e613"
-  version = "1.23.3"
+  revision = "cad214d7d71fba7883fcf3b7e550ba782c15b400"
+  version = "1.27.7"
 
 [[projects]]
   digest = "1:fff66556e25e676b296f9f2c78853831911e6ae41d84303a9be7a534bd1c0901"
@@ -69,6 +128,44 @@
   packages = ["lib/go/thrift"]
   pruneopts = "UT"
   revision = "e59b73d3c2bf1c328ccb78e683c0462fa1a473c7"
+
+[[projects]]
+  digest = "1:5a79e64c2a81cc6ab6e49a87e12d6d1ec86aab93edf6ff643b5b052c0142f12b"
+  name = "github.com/aws/aws-sdk-go"
+  packages = [
+    "aws",
+    "aws/awserr",
+    "aws/awsutil",
+    "aws/client",
+    "aws/client/metadata",
+    "aws/corehandlers",
+    "aws/credentials",
+    "aws/credentials/ec2rolecreds",
+    "aws/credentials/endpointcreds",
+    "aws/credentials/stscreds",
+    "aws/csm",
+    "aws/defaults",
+    "aws/ec2metadata",
+    "aws/endpoints",
+    "aws/request",
+    "aws/session",
+    "aws/signer/v4",
+    "internal/sdkio",
+    "internal/sdkrand",
+    "internal/sdkuri",
+    "internal/shareddefaults",
+    "private/protocol",
+    "private/protocol/ec2query",
+    "private/protocol/query",
+    "private/protocol/query/queryutil",
+    "private/protocol/rest",
+    "private/protocol/xml/xmlutil",
+    "service/ec2",
+    "service/sts",
+  ]
+  pruneopts = "UT"
+  revision = "85d9dfd77e6d694e83c3ac054141cb5e81eecc7f"
+  version = "v1.15.43"
 
 [[projects]]
   branch = "master"
@@ -160,6 +257,22 @@
   version = "v1.1.0"
 
 [[projects]]
+  digest = "1:76dc72490af7174349349838f2fe118996381b31ea83243812a97e5a0fd5ed55"
+  name = "github.com/dgrijalva/jwt-go"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "06ea1031745cb8b3dab3f6a236daf2b0aa468b7e"
+  version = "v3.2.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:e608bc2d867c3ded40ccea5417715393a50704ac24004afa87431a0e1976e50d"
+  name = "github.com/dimchansky/utfbom"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "5448fe645cb1964ba70ac8f9f2ffe975e61a536c"
+
+[[projects]]
   branch = "master"
   digest = "1:737260890e4b00d73a76993eac1a772cf6a57292f723c47e26f005821efcabcf"
   name = "github.com/dnstap/golang-dnstap"
@@ -241,6 +354,14 @@
   pruneopts = "UT"
   revision = "d459835d2b077e44f7c9b453505ee29881d5d12d"
   version = "v1.2"
+
+[[projects]]
+  digest = "1:5abd6a22805b1919f6a6bca0ae58b13cef1f3412812f38569978f43ef02743d4"
+  name = "github.com/go-ini/ini"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "5cf292cae48347c2490ac1a58fe36735fb78df7e"
+  version = "v1.38.2"
 
 [[projects]]
   digest = "1:31a18dae27a29aa074515e43a443abfd2ba6deb6d69309d8d7ce789c45f34659"
@@ -474,12 +595,11 @@
   revision = "04140366298a54a039076d798123ffa108fff46c"
 
 [[projects]]
-  digest = "1:b87714e57a511d88f307aba7d5b63522da12bed0a050889c81272fc50f71100e"
+  digest = "1:e22af8c7518e1eab6f2eab2b7d7558927f816262586cd6ed9f349c97a6c285c4"
   name = "github.com/jmespath/go-jmespath"
   packages = ["."]
   pruneopts = "UT"
-  revision = "3433f3ea46d9f8019119e7dd41274e112a2359a9"
-  version = "0.2.2"
+  revision = "0b12d6b5"
 
 [[projects]]
   digest = "1:eaefc85d32c03e5f0c2b88ea2f79fce3d993e2c78316d21319575dd4ea9153ca"
@@ -504,6 +624,14 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "fa756f09eeb418bf1cc6268c66ceaad9bb98f598"
+
+[[projects]]
+  digest = "1:4e878df5f4e9fd625bf9c9aac77ef7cbfa4a74c01265505527c23470c0e40300"
+  name = "github.com/marstr/guid"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "8bd9a64bf37eb297b492a4101fb28e80ac0b290f"
+  version = "v1.1.0"
 
 [[projects]]
   digest = "1:c658e84ad3916da105a761660dcaeb01e63416c8ec7bc62256a9b411a05fcd67"
@@ -745,6 +873,14 @@
   revision = "49a4782e9908fe098c907022a1bd7519c79803d6"
 
 [[projects]]
+  digest = "1:81e02c4edb639c80559c0650f9401d3e2dcc3256d1fa215382bb7c83c1db9126"
+  name = "github.com/shopspring/decimal"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "cd690d0c9e2447b1ef2a129a6b7b49077da89b8e"
+  version = "1.1.0"
+
+[[projects]]
   digest = "1:d867dfa6751c8d7a435821ad3b736310c2ed68945d05b50fb9d23aee0540c8cc"
   name = "github.com/sirupsen/logrus"
   packages = ["."]
@@ -809,7 +945,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:014ee502e4880ffba2a0103cefa6af78cf8767ce08bc29376e6b86cdcaa2ec06"
+  digest = "1:2d12661fb1e092a12b9675f9cd59fb3119f03d696bd6febcb5fe2324d2639965"
   name = "golang.org/x/crypto"
   packages = [
     "curve25519",
@@ -817,6 +953,8 @@
     "ed25519/internal/edwards25519",
     "internal/chacha20",
     "internal/subtle",
+    "pkcs12",
+    "pkcs12/internal/rc2",
     "poly1305",
     "ssh",
     "ssh/terminal",
@@ -1189,11 +1327,32 @@
   analyzer-version = 1
   input-imports = [
     "github.com/360EntSecGroup-Skylar/excelize",
+    "github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-04-01/compute",
+    "github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute",
+    "github.com/Azure/azure-sdk-for-go/services/consumption/mgmt/2018-03-31/consumption",
+    "github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network",
+    "github.com/Azure/azure-sdk-for-go/services/preview/subscription/mgmt/2018-03-01-preview/subscription",
+    "github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources",
+    "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-10-01/storage",
+    "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-02-01/storage",
+    "github.com/Azure/azure-sdk-for-go/storage",
+    "github.com/Azure/go-autorest/autorest",
+    "github.com/Azure/go-autorest/autorest/azure",
+    "github.com/Azure/go-autorest/autorest/azure/auth",
+    "github.com/Microsoft/azure-vhd-utils/vhdcore/block/bitmap",
+    "github.com/Microsoft/azure-vhd-utils/vhdcore/common",
+    "github.com/Microsoft/azure-vhd-utils/vhdcore/diskstream",
+    "github.com/Microsoft/azure-vhd-utils/vhdcore/footer",
+    "github.com/Microsoft/azure-vhd-utils/vhdcore/validator",
     "github.com/aliyun/alibaba-cloud-sdk-go/sdk",
     "github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors",
     "github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests",
     "github.com/aliyun/aliyun-oss-go-sdk/oss",
     "github.com/aokoli/goutils",
+    "github.com/aws/aws-sdk-go/aws",
+    "github.com/aws/aws-sdk-go/aws/credentials",
+    "github.com/aws/aws-sdk-go/aws/session",
+    "github.com/aws/aws-sdk-go/service/ec2",
     "github.com/bitly/go-simplejson",
     "github.com/c-bata/go-prompt",
     "github.com/coredns/coredns/core/dnsserver",

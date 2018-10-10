@@ -27,45 +27,53 @@ type SAwsProvider struct {
 }
 
 func (self *SAwsProvider) GetId() string {
-	panic("implement me")
+	return aws.CLOUD_PROVIDER_AWS
 }
 
 func (self *SAwsProvider) GetName() string {
-	panic("implement me")
+	return aws.CLOUD_PROVIDER_AWS_CN
 }
 
 func (self *SAwsProvider) GetIRegions() []cloudprovider.ICloudRegion {
-	panic("implement me")
+	return self.client.GetIRegions()
 }
 
 func (self *SAwsProvider) GetSysInfo() (jsonutils.JSONObject, error) {
-	panic("implement me")
+	regions := self.client.GetIRegions()
+	info := jsonutils.NewDict()
+	info.Add(jsonutils.NewInt(int64(len(regions))), "region_count")
+	info.Add(jsonutils.NewString(aws.AWS_API_VERSION), "api_version")
+	return info, nil
 }
 
 func (self *SAwsProvider) IsPublicCloud() bool {
-	panic("implement me")
+	return true
 }
 
 func (self *SAwsProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
-	panic("implement me")
+	return self.client.GetIRegionById(id)
 }
 
 func (self *SAwsProvider) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	panic("implement me")
+	return self.client.GetIHostById(id)
 }
 
 func (self *SAwsProvider) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
-	panic("implement me")
+	return self.client.GetIVpcById(id)
 }
 
 func (self *SAwsProvider) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	panic("implement me")
+	return self.client.GetIStorageById(id)
 }
 
 func (self *SAwsProvider) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
-	panic("implement me")
+	return self.client.GetIStoragecacheById(id)
 }
 
 func (self *SAwsProvider) GetBalance() (float64, error) {
-	panic("implement me")
+	balance, err := self.client.QueryAccountBalance()
+	if err != nil {
+		return 0.0, err
+	}
+	return balance.AvailableAmount, nil
 }

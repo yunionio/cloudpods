@@ -111,7 +111,19 @@ type http2Client struct {
 
 	// Fields below are for channelz metric collection.
 	channelzID int64 // channelz unique identification number
-	czData     *channelzData
+	czmu       sync.RWMutex
+	kpCount    int64
+	// The number of streams that have started, including already finished ones.
+	streamsStarted int64
+	// The number of streams that have ended successfully by receiving EoS bit set
+	// frame from server.
+	streamsSucceeded  int64
+	streamsFailed     int64
+	lastStreamCreated time.Time
+	msgSent           int64
+	msgRecv           int64
+	lastMsgSent       time.Time
+	lastMsgRecv       time.Time
 }
 
 func dial(ctx context.Context, fn func(context.Context, string) (net.Conn, error), addr string) (net.Conn, error) {
@@ -222,7 +234,6 @@ func newHTTP2Client(connectCtx, ctx context.Context, addr TargetInfo, opts Conne
 		maxConcurrentStreams:  defaultMaxStreamsClient,
 		streamQuota:           defaultMaxStreamsClient,
 		streamsQuotaAvailable: make(chan struct{}, 1),
-		czData:                new(channelzData),
 	}
 	t.controlBuf = newControlBuffer(t.ctxDone)
 	if opts.InitialWindowSize >= defaultWindowSize {
@@ -539,8 +550,10 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 			}
 			t.activeStreams[id] = s
 			if channelz.IsOn() {
-				atomic.AddInt64(&t.czData.streamsStarted, 1)
-				atomic.StoreInt64(&t.czData.lastStreamCreatedTime, time.Now().UnixNano())
+				t.czmu.Lock()
+				t.streamsStarted++
+				t.lastStreamCreated = time.Now()
+				t.czmu.Unlock()
 			}
 			var sendPing bool
 			// If the number of active streams change from 0 to 1, then check if keepalive
@@ -694,11 +707,13 @@ func (t *http2Client) closeStream(s *Stream, err error, rst bool, rstCode http2.
 			}
 			t.mu.Unlock()
 			if channelz.IsOn() {
+				t.czmu.Lock()
 				if eosReceived {
-					atomic.AddInt64(&t.czData.streamsSucceeded, 1)
+					t.streamsSucceeded++
 				} else {
-					atomic.AddInt64(&t.czData.streamsFailed, 1)
+					t.streamsFailed++
 				}
+				t.czmu.Unlock()
 			}
 		},
 		rst:     rst,
@@ -1248,7 +1263,9 @@ func (t *http2Client) keepalive() {
 			} else {
 				t.mu.Unlock()
 				if channelz.IsOn() {
-					atomic.AddInt64(&t.czData.kpCount, 1)
+					t.czmu.Lock()
+					t.kpCount++
+					t.czmu.Unlock()
 				}
 				// Send ping.
 				t.controlBuf.put(p)
@@ -1288,16 +1305,17 @@ func (t *http2Client) GoAway() <-chan struct{} {
 }
 
 func (t *http2Client) ChannelzMetric() *channelz.SocketInternalMetric {
+	t.czmu.RLock()
 	s := channelz.SocketInternalMetric{
-		StreamsStarted:                  atomic.LoadInt64(&t.czData.streamsStarted),
-		StreamsSucceeded:                atomic.LoadInt64(&t.czData.streamsSucceeded),
-		StreamsFailed:                   atomic.LoadInt64(&t.czData.streamsFailed),
-		MessagesSent:                    atomic.LoadInt64(&t.czData.msgSent),
-		MessagesReceived:                atomic.LoadInt64(&t.czData.msgRecv),
-		KeepAlivesSent:                  atomic.LoadInt64(&t.czData.kpCount),
-		LastLocalStreamCreatedTimestamp: time.Unix(0, atomic.LoadInt64(&t.czData.lastStreamCreatedTime)),
-		LastMessageSentTimestamp:        time.Unix(0, atomic.LoadInt64(&t.czData.lastMsgSentTime)),
-		LastMessageReceivedTimestamp:    time.Unix(0, atomic.LoadInt64(&t.czData.lastMsgRecvTime)),
+		StreamsStarted:                  t.streamsStarted,
+		StreamsSucceeded:                t.streamsSucceeded,
+		StreamsFailed:                   t.streamsFailed,
+		MessagesSent:                    t.msgSent,
+		MessagesReceived:                t.msgRecv,
+		KeepAlivesSent:                  t.kpCount,
+		LastLocalStreamCreatedTimestamp: t.lastStreamCreated,
+		LastMessageSentTimestamp:        t.lastMsgSent,
+		LastMessageReceivedTimestamp:    t.lastMsgRecv,
 		LocalFlowControlWindow:          int64(t.fc.getSize()),
 		SocketOptions:                   channelz.GetSocketOption(t.conn),
 		LocalAddr:                       t.localAddr,
@@ -1307,18 +1325,23 @@ func (t *http2Client) ChannelzMetric() *channelz.SocketInternalMetric {
 	if au, ok := t.authInfo.(credentials.ChannelzSecurityInfo); ok {
 		s.Security = au.GetSecurityValue()
 	}
+	t.czmu.RUnlock()
 	s.RemoteFlowControlWindow = t.getOutFlowWindow()
 	return &s
 }
 
 func (t *http2Client) IncrMsgSent() {
-	atomic.AddInt64(&t.czData.msgSent, 1)
-	atomic.StoreInt64(&t.czData.lastMsgSentTime, time.Now().UnixNano())
+	t.czmu.Lock()
+	t.msgSent++
+	t.lastMsgSent = time.Now()
+	t.czmu.Unlock()
 }
 
 func (t *http2Client) IncrMsgRecv() {
-	atomic.AddInt64(&t.czData.msgRecv, 1)
-	atomic.StoreInt64(&t.czData.lastMsgRecvTime, time.Now().UnixNano())
+	t.czmu.Lock()
+	t.msgRecv++
+	t.lastMsgRecv = time.Now()
+	t.czmu.Unlock()
 }
 
 func (t *http2Client) getOutFlowWindow() int64 {
