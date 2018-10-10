@@ -156,7 +156,8 @@ func (self *SAzureClient) GetRegions() []SRegion {
 func (self *SAzureClient) GetSubAccounts() (jsonutils.JSONObject, error) {
 	subClient := subscription.NewSubscriptionsClientWithBaseURI(self.baseUrl)
 	subClient.Authorizer = self.authorizer
-	result := jsonutils.NewArray()
+	result := jsonutils.NewDict()
+	accounts := jsonutils.NewArray()
 	if resp, err := subClient.List(context.Background()); err != nil {
 		return nil, err
 	} else {
@@ -165,8 +166,10 @@ func (self *SAzureClient) GetSubAccounts() (jsonutils.JSONObject, error) {
 			data.Add(jsonutils.NewString(*value.SubscriptionID), "subscriptionId")
 			data.Add(jsonutils.NewString(string(value.State)), "state")
 			data.Add(jsonutils.NewString(*value.DisplayName), "displayName")
-			result.Add(data)
+			accounts.Add(data)
 		}
+		result.Add(accounts, "data")
+		result.Add(jsonutils.NewInt(int64(accounts.Length())), "total")
 	}
 	return result, nil
 }
