@@ -69,12 +69,13 @@ type ManagedDiskParameters struct {
 }
 
 type DataDisk struct {
-	Lun         int32
-	Name        string
-	Vhd         VirtualHardDisk
-	Caching     CachingTypes
-	DiskSizeGB  int32
-	ManagedDisk ManagedDiskParameters
+	Lun          int32
+	Name         string
+	Vhd          VirtualHardDisk
+	Caching      CachingTypes
+	DiskSizeGB   int32
+	CreateOption string
+	ManagedDisk  ManagedDiskParameters
 }
 
 type StorageProfile struct {
@@ -375,7 +376,7 @@ func (region *SRegion) AttachDisk(instanceId, diskId string) error {
 				}
 				dataDisks = append(dataDisks, compute.DataDisk{
 					Lun:          &_disk.Lun,
-					CreateOption: compute.DiskCreateOptionTypesAttach,
+					CreateOption: compute.DiskCreateOptionTypes(_disk.CreateOption),
 					ManagedDisk: &compute.ManagedDiskParameters{
 						ID: &_disk.ManagedDisk.ID,
 					},
