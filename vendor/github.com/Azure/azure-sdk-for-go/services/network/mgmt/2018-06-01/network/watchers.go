@@ -494,6 +494,87 @@ func (client WatchersClient) GetFlowLogStatusResponder(resp *http.Response) (res
 	return
 }
 
+// GetNetworkConfigurationDiagnostic get network configuration diagnostic.
+// Parameters:
+// resourceGroupName - the name of the resource group.
+// networkWatcherName - the name of the network watcher.
+// parameters - parameters to get network configuration diagnostic.
+func (client WatchersClient) GetNetworkConfigurationDiagnostic(ctx context.Context, resourceGroupName string, networkWatcherName string, parameters ConfigurationDiagnosticParameters) (result WatchersGetNetworkConfigurationDiagnosticFuture, err error) {
+	if err := validation.Validate([]validation.Validation{
+		{TargetValue: parameters,
+			Constraints: []validation.Constraint{{Target: "parameters.TargetResourceID", Name: validation.Null, Rule: true, Chain: nil},
+				{Target: "parameters.Queries", Name: validation.Null, Rule: true, Chain: nil}}}}); err != nil {
+		return result, validation.NewError("network.WatchersClient", "GetNetworkConfigurationDiagnostic", err.Error())
+	}
+
+	req, err := client.GetNetworkConfigurationDiagnosticPreparer(ctx, resourceGroupName, networkWatcherName, parameters)
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "network.WatchersClient", "GetNetworkConfigurationDiagnostic", nil, "Failure preparing request")
+		return
+	}
+
+	result, err = client.GetNetworkConfigurationDiagnosticSender(req)
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "network.WatchersClient", "GetNetworkConfigurationDiagnostic", result.Response(), "Failure sending request")
+		return
+	}
+
+	return
+}
+
+// GetNetworkConfigurationDiagnosticPreparer prepares the GetNetworkConfigurationDiagnostic request.
+func (client WatchersClient) GetNetworkConfigurationDiagnosticPreparer(ctx context.Context, resourceGroupName string, networkWatcherName string, parameters ConfigurationDiagnosticParameters) (*http.Request, error) {
+	pathParameters := map[string]interface{}{
+		"networkWatcherName": autorest.Encode("path", networkWatcherName),
+		"resourceGroupName":  autorest.Encode("path", resourceGroupName),
+		"subscriptionId":     autorest.Encode("path", client.SubscriptionID),
+	}
+
+	const APIVersion = "2018-06-01"
+	queryParameters := map[string]interface{}{
+		"api-version": APIVersion,
+	}
+
+	preparer := autorest.CreatePreparer(
+		autorest.AsContentType("application/json; charset=utf-8"),
+		autorest.AsPost(),
+		autorest.WithBaseURL(client.BaseURI),
+		autorest.WithPathParameters("/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/networkWatchers/{networkWatcherName}/networkConfigurationDiagnostic", pathParameters),
+		autorest.WithJSON(parameters),
+		autorest.WithQueryParameters(queryParameters))
+	return preparer.Prepare((&http.Request{}).WithContext(ctx))
+}
+
+// GetNetworkConfigurationDiagnosticSender sends the GetNetworkConfigurationDiagnostic request. The method will close the
+// http.Response Body if it receives an error.
+func (client WatchersClient) GetNetworkConfigurationDiagnosticSender(req *http.Request) (future WatchersGetNetworkConfigurationDiagnosticFuture, err error) {
+	var resp *http.Response
+	resp, err = autorest.SendWithSender(client, req,
+		azure.DoRetryWithRegistration(client.Client))
+	if err != nil {
+		return
+	}
+	err = autorest.Respond(resp, azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted))
+	if err != nil {
+		return
+	}
+	future.Future, err = azure.NewFutureFromResponse(resp)
+	return
+}
+
+// GetNetworkConfigurationDiagnosticResponder handles the response to the GetNetworkConfigurationDiagnostic request. The method always
+// closes the http.Response Body.
+func (client WatchersClient) GetNetworkConfigurationDiagnosticResponder(resp *http.Response) (result ConfigurationDiagnosticResponse, err error) {
+	err = autorest.Respond(
+		resp,
+		client.ByInspecting(),
+		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
+		autorest.ByUnmarshallingJSON(&result),
+		autorest.ByClosing())
+	result.Response = autorest.Response{Response: resp}
+	return
+}
+
 // GetNextHop gets the next hop from the specified VM.
 // Parameters:
 // resourceGroupName - the name of the resource group.

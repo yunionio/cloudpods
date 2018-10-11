@@ -54,6 +54,10 @@ func (ts *STableSpec) updateFields(dt interface{}, fields map[string]interface{}
 	cv := make(map[string]interface{}, 0)
 	dataType := dataValue.Type()
 	ts.GetUpdateColumnValue(dataType, dataValue, cv, fields)
+	if len(cv) == 0 {
+		log.Infof("Nothing update")
+		return nil
+	}
 
 	fullFields := reflectutils.FetchStructFieldNameValueInterfaces(dataValue)
 	versionFields := make([]string, 0)
@@ -62,7 +66,10 @@ func (ts *STableSpec) updateFields(dt interface{}, fields map[string]interface{}
 	indexCols := make(map[string]interface{}, 0)
 	for _, col := range ts.Columns() {
 		name := col.Name()
-		colValue := fullFields[name]
+		colValue, ok := fullFields[name]
+		if !ok {
+			continue
+		}
 		if col.IsPrimary() && !col.IsZero(colValue) {
 			primaryCols[name] = colValue
 			continue

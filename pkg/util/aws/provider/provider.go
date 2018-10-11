@@ -14,7 +14,11 @@ func (self *SAwsProviderFactory) GetId() string {
 }
 
 func (self *SAwsProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	panic("implement me")
+	client, err := aws.NewAwsClient(providerId, providerName, account, secret)
+	if err != nil {
+		return nil, err
+	}
+	return &SAwsProvider{client: client}, nil
 }
 
 func init() {

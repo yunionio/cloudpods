@@ -107,6 +107,8 @@ BuildRR:
 					mod, offset, err = modToPrintf(s[j+2 : j+2+sep])
 					if err != nil {
 						return err.Error()
+					} else if start + offset < 0 || end + offset > 1<<31-1 {
+						return "bad offset in $GENERATE"
 					}
 					j += 2 + sep // Jump to it
 				}
@@ -133,16 +135,26 @@ BuildRR:
 
 // Convert a $GENERATE modifier 0,0,d to something Printf can deal with.
 func modToPrintf(s string) (string, int, error) {
-	xs := strings.SplitN(s, ",", 3)
-	if len(xs) != 3 {
+	xs := strings.Split(s, ",")
+
+	// Modifier is { offset [ ,width [ ,base ] ] } - provide default
+	// values for optional width and type, if necessary.
+	switch len(xs) {
+	case 1:
+		xs = append(xs, "0", "d")
+	case 2:
+		xs = append(xs, "d")
+	case 3:
+	default:
 		return "", 0, errors.New("bad modifier in $GENERATE")
 	}
+
 	// xs[0] is offset, xs[1] is width, xs[2] is base
 	if xs[2] != "o" && xs[2] != "d" && xs[2] != "x" && xs[2] != "X" {
 		return "", 0, errors.New("bad base in $GENERATE")
 	}
 	offset, err := strconv.Atoi(xs[0])
-	if err != nil || offset > 255 {
+	if err != nil {
 		return "", 0, errors.New("bad offset in $GENERATE")
 	}
 	width, err := strconv.Atoi(xs[1])

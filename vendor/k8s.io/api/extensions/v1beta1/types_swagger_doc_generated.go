@@ -114,7 +114,7 @@ func (DaemonSetSpec) SwaggerDoc() map[string]string {
 }
 
 var map_DaemonSetStatus = map[string]string{
-	"": "DaemonSetStatus represents the current status of a daemon set.",
+	"":                       "DaemonSetStatus represents the current status of a daemon set.",
 	"currentNumberScheduled": "The number of nodes that are running at least 1 daemon pod and are supposed to run the daemon pod. More info: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/",
 	"numberMisscheduled":     "The number of nodes that are running the daemon pod, but are not supposed to run the daemon pod. More info: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/",
 	"desiredNumberScheduled": "The total number of nodes that should be running the daemon pod (including nodes correctly running the daemon pod). More info: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/",
@@ -193,10 +193,10 @@ var map_DeploymentSpec = map[string]string{
 	"template":                "Template describes the pods that will be created.",
 	"strategy":                "The deployment strategy to use to replace existing pods with new ones.",
 	"minReadySeconds":         "Minimum number of seconds for which a newly created pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready)",
-	"revisionHistoryLimit":    "The number of old ReplicaSets to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified.",
+	"revisionHistoryLimit":    "The number of old ReplicaSets to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified. This is set to the max value of int32 (i.e. 2147483647) by default, which means \"retaining all old RelicaSets\".",
 	"paused":                  "Indicates that the deployment is paused and will not be processed by the deployment controller.",
 	"rollbackTo":              "DEPRECATED. The config this deployment is rolling back to. Will be cleared after rollback is done.",
-	"progressDeadlineSeconds": "The maximum time in seconds for a deployment to make progress before it is considered to be failed. The deployment controller will continue to process failed deployments and a condition with a ProgressDeadlineExceeded reason will be surfaced in the deployment status. Note that progress will not be estimated during the time a deployment is paused. This is not set by default.",
+	"progressDeadlineSeconds": "The maximum time in seconds for a deployment to make progress before it is considered to be failed. The deployment controller will continue to process failed deployments and a condition with a ProgressDeadlineExceeded reason will be surfaced in the deployment status. Note that progress will not be estimated during the time a deployment is paused. This is set to the max value of int32 (i.e. 2147483647) by default, which means \"no deadline\".",
 }
 
 func (DeploymentSpec) SwaggerDoc() map[string]string {
@@ -419,7 +419,7 @@ func (NetworkPolicyPeer) SwaggerDoc() map[string]string {
 
 var map_NetworkPolicyPort = map[string]string{
 	"":         "DEPRECATED 1.9 - This group version of NetworkPolicyPort is deprecated by networking/v1/NetworkPolicyPort.",
-	"protocol": "Optional.  The protocol (TCP or UDP) which traffic must match. If not specified, this field defaults to TCP.",
+	"protocol": "Optional.  The protocol (TCP, UDP, or SCTP) which traffic must match. If not specified, this field defaults to TCP.",
 	"port":     "If specified, the port on the given protocol.  This can either be a numerical or named port on a pod.  If this field is not provided, this matches all port names and numbers. If present, only traffic on the specified protocol AND port will be matched.",
 }
 
@@ -481,6 +481,7 @@ var map_PodSecurityPolicySpec = map[string]string{
 	"allowedFlexVolumes":              "allowedFlexVolumes is a whitelist of allowed Flexvolumes.  Empty or nil indicates that all Flexvolumes may be used.  This parameter is effective only when the usage of the Flexvolumes is allowed in the \"volumes\" field.",
 	"allowedUnsafeSysctls":            "allowedUnsafeSysctls is a list of explicitly allowed unsafe sysctls, defaults to none. Each entry is either a plain sysctl name or ends in \"*\" in which case it is considered as a prefix of allowed sysctls. Single * means all unsafe sysctls are allowed. Kubelet has to whitelist all allowed unsafe sysctls explicitly to avoid rejection.\n\nExamples: e.g. \"foo/*\" allows \"foo/bar\", \"foo/baz\", etc. e.g. \"foo.*\" allows \"foo.bar\", \"foo.baz\", etc.",
 	"forbiddenSysctls":                "forbiddenSysctls is a list of explicitly forbidden sysctls, defaults to none. Each entry is either a plain sysctl name or ends in \"*\" in which case it is considered as a prefix of forbidden sysctls. Single * means all sysctls are forbidden.\n\nExamples: e.g. \"foo/*\" forbids \"foo/bar\", \"foo/baz\", etc. e.g. \"foo.*\" forbids \"foo.bar\", \"foo.baz\", etc.",
+	"allowedProcMountTypes":           "AllowedProcMountTypes is a whitelist of allowed ProcMountTypes. Empty or nil indicates that only the DefaultProcMountType may be used. This requires the ProcMountType feature flag to be enabled.",
 }
 
 func (PodSecurityPolicySpec) SwaggerDoc() map[string]string {

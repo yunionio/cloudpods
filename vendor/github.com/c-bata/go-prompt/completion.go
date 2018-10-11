@@ -3,21 +3,16 @@ package prompt
 import (
 	"log"
 	"strings"
-
-	"github.com/mattn/go-runewidth"
 )
 
 const (
-	shortenSuffix = "..."
-	leftPrefix    = " "
-	leftSuffix    = " "
-	rightPrefix   = " "
-	rightSuffix   = " "
-)
-
-var (
-	leftMargin       = runewidth.StringWidth(leftPrefix + leftSuffix)
-	rightMargin      = runewidth.StringWidth(rightPrefix + rightSuffix)
+	shortenSuffix    = "..."
+	leftPrefix       = " "
+	leftSuffix       = " "
+	rightPrefix      = " "
+	rightSuffix      = " "
+	leftMargin       = len(leftPrefix + leftSuffix)
+	rightMargin      = len(rightPrefix + rightSuffix)
 	completionMargin = leftMargin + rightMargin
 )
 
@@ -35,7 +30,6 @@ type CompletionManager struct {
 	completer Completer
 
 	verticalScroll int
-	wordSeparator  string
 }
 
 // GetSelectedSuggestion returns the selected item.
@@ -108,26 +102,17 @@ func (c *CompletionManager) update() {
 	}
 }
 
-func deleteBreakLineCharacters(s string) string {
-	s = strings.Replace(s, "\n", "", -1)
-	s = strings.Replace(s, "\r", "", -1)
-	return s
-}
-
 func formatTexts(o []string, max int, prefix, suffix string) (new []string, width int) {
 	l := len(o)
 	n := make([]string, l)
 
-	lenPrefix := runewidth.StringWidth(prefix)
-	lenSuffix := runewidth.StringWidth(suffix)
-	lenShorten := runewidth.StringWidth(shortenSuffix)
+	lenPrefix := len([]rune(prefix))
+	lenSuffix := len([]rune(suffix))
+	lenShorten := len(shortenSuffix)
 	min := lenPrefix + lenSuffix + lenShorten
 	for i := 0; i < l; i++ {
-		o[i] = deleteBreakLineCharacters(o[i])
-
-		w := runewidth.StringWidth(o[i])
-		if width < w {
-			width = w
+		if width < len([]rune(o[i])) {
+			width = len([]rune(o[i]))
 		}
 	}
 
@@ -143,15 +128,13 @@ func formatTexts(o []string, max int, prefix, suffix string) (new []string, widt
 	}
 
 	for i := 0; i < l; i++ {
-		x := runewidth.StringWidth(o[i])
+		r := []rune(o[i])
+		x := len(r)
 		if x <= width {
 			spaces := strings.Repeat(" ", width-x)
 			n[i] = prefix + o[i] + spaces + suffix
 		} else if x > width {
-			x := runewidth.Truncate(o[i], width, shortenSuffix)
-			// When calling runewidth.Truncate("您好xxx您好xxx", 11, "...") returns "您好xxx..."
-			// But the length of this result is 10. So we need fill right using runewidth.FillRight.
-			n[i] = prefix + runewidth.FillRight(x, width) + suffix
+			n[i] = prefix + string(r[:width-lenShorten]) + shortenSuffix + suffix
 		}
 	}
 	return n, lenPrefix + width + lenSuffix
