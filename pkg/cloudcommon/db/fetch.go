@@ -9,7 +9,7 @@ import (
 	"yunion.io/x/sqlchemy"
 )
 
-func fetchById(manager IModelManager, idStr string) (IModel, error) {
+func FetchById(manager IModelManager, idStr string) (IModel, error) {
 	q := manager.Query()
 	q = manager.FilterById(q, idStr)
 	count := q.Count()
@@ -31,7 +31,11 @@ func fetchById(manager IModelManager, idStr string) (IModel, error) {
 	}
 }
 
-func fetchByName(manager IModelManager, owner string, idStr string) (IModel, error) {
+func FetchByName(manager IModelManager, userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
+	var owner string
+	if userCred != nil {
+		owner = manager.GetOwnerId(userCred)
+	}
 	q := manager.Query()
 	q = manager.FilterByName(q, idStr)
 	q = manager.FilterByOwner(q, owner)
@@ -54,10 +58,10 @@ func fetchByName(manager IModelManager, owner string, idStr string) (IModel, err
 	}
 }
 
-func fetchByIdOrName(manager IModelManager, ownerProjId string, idStr string) (IModel, error) {
-	obj, err := fetchById(manager, idStr)
+func FetchByIdOrName(manager IModelManager, userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
+	obj, err := FetchById(manager, idStr)
 	if err == sql.ErrNoRows {
-		return fetchByName(manager, ownerProjId, idStr)
+		return FetchByName(manager, userCred, idStr)
 	} else {
 		return obj, err
 	}

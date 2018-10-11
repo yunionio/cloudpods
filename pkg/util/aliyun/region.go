@@ -422,7 +422,7 @@ func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, me
 		log.Debugf("Search in zone %s", z.LocalName)
 		net := z.getNetworkById(vswitchId)
 		if net != nil {
-			inst, err := z.getHost().CreateVM(name, imgId, 0, cpu, memGB*1024, vswitchId, "", "", passwd, storageType, dataDiskSizesGB, publicKey, "")
+			inst, err := z.getHost().CreateVM(name, imgId, 0, cpu, memGB*1024, vswitchId, "", "", passwd, storageType, dataDiskSizesGB, publicKey, "", "")
 			if err != nil {
 				return nil, err
 			}

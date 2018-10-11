@@ -16,6 +16,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/onecloud/pkg/util/cloudinit"
 )
 
 type SAliyunGuestDriver struct {
@@ -139,6 +140,34 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 
 	publicKey, _ := config.GetString("public_key")
 
+	adminPublicKey, _ := config.GetString("admin_public_key")
+	projectPublicKey, _ := config.GetString("project_public_key")
+
+	var oCloudConfig *cloudinit.SCloudConfig
+
+	oUserData, _ := config.GetString("user_data")
+	if len(oUserData) > 0 {
+		oCloudConfig, _ = cloudinit.ParseUserDataBase64(oUserData)
+	}
+
+	cloudConfig := cloudinit.SCloudConfig{
+		Users: []cloudinit.SUser {
+			{
+				Name: "root",
+				SshAuthorizedKeys: []string {
+					adminPublicKey,
+					projectPublicKey,
+				},
+			},
+		},
+	}
+
+	if oCloudConfig != nil {
+		cloudConfig.Merge(oCloudConfig)
+	}
+
+	userData := cloudConfig.UserDataBase64()
+
 	resetPassword := jsonutils.QueryBoolean(config, "reset_password", false)
 	passwd, _ := config.GetString("password")
 	if resetPassword && len(passwd) == 0 {
@@ -176,7 +205,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			}
 
 			iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId)
+				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId, userData)
 			if err != nil {
 				return nil, err
 			}

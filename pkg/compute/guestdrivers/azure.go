@@ -14,6 +14,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/cloudinit"
 )
 
 type SAzureGuestDriver struct {
@@ -70,6 +71,35 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 	if resetPassword && len(passwd) == 0 {
 		passwd = seclib2.RandomPassword2(12)
 	}
+
+	adminPublicKey, _ := config.GetString("admin_public_key")
+	projectPublicKey, _ := config.GetString("project_public_key")
+
+	var oCloudConfig *cloudinit.SCloudConfig
+
+	oUserData, _ := config.GetString("user_data")
+	if len(oUserData) > 0 {
+		oCloudConfig, _ = cloudinit.ParseUserDataBase64(oUserData)
+	}
+
+	cloudConfig := cloudinit.SCloudConfig{
+		Users: []cloudinit.SUser {
+			{
+				Name: "root",
+				SshAuthorizedKeys: []string {
+					adminPublicKey,
+					projectPublicKey,
+				},
+			},
+		},
+	}
+
+	if oCloudConfig != nil {
+		cloudConfig.Merge(oCloudConfig)
+	}
+
+	userData := cloudConfig.UserDataBase64()
+
 	desc := SManagedVMCreateConfig{}
 	if err := config.Unmarshal(&desc, "desc"); err != nil {
 		return err
@@ -98,7 +128,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 			}
 
 			if iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId); err != nil {
+				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId, userData); err != nil {
 				return nil, err
 			} else {
 				log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())

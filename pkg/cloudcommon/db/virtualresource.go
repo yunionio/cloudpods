@@ -56,15 +56,15 @@ func (manager *SVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, ow
 	return q
 }
 
-func (manager *SVirtualResourceBaseManager) FetchByName(ownerProjId string, idStr string) (IModel, error) {
-	return fetchByName(manager, ownerProjId, idStr)
+func (manager *SVirtualResourceBaseManager) FetchByName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
+	return FetchByName(manager, userCred, idStr)
 }
 
-func (manager *SVirtualResourceBaseManager) FetchByIdOrName(ownerProjId string, idStr string) (IModel, error) {
-	return fetchByIdOrName(manager, ownerProjId, idStr)
+func (manager *SVirtualResourceBaseManager) FetchByIdOrName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
+	return FetchByIdOrName(manager, userCred, idStr)
 }
 
-func (manager *SVirtualResourceBaseManager) GetOwnerId(userCred mcclient.TokenCredential) string {
+func (manager *SVirtualResourceBaseManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
 	return userCred.GetProjectId()
 }
 

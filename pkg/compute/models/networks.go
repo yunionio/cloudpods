@@ -691,7 +691,7 @@ func parseNetworkInfo(userCred mcclient.TokenCredential, info jsonutils.JSONObje
 		} else if p == "[vip]" {
 			netConfig.Vip = true
 		} else {
-			netObj, err := NetworkManager.FetchByIdOrName(userCred.GetProjectId(), p)
+			netObj, err := NetworkManager.FetchByIdOrName(userCred, p)
 			if err != nil {
 				return nil, err
 			}
@@ -710,7 +710,7 @@ func (self *SNetwork) getFreeAddressCount() int {
 
 func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *SNetworkConfig) error {
 	if len(netConfig.Network) > 0 {
-		netObj, err := NetworkManager.FetchByIdOrName(userCred.GetProjectId(), netConfig.Network)
+		netObj, err := NetworkManager.FetchByIdOrName(userCred, netConfig.Network)
 		if err != nil {
 			return httperrors.NewResourceNotFoundError("Network %s not found %s", err)
 		}
@@ -971,7 +971,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 
 	wireStr := jsonutils.GetAnyString(data, []string{"wire", "wire_id"})
 	if len(wireStr) > 0 {
-		wireObj, err := WireManager.FetchByIdOrName(userCred.GetProjectId(), wireStr)
+		wireObj, err := WireManager.FetchByIdOrName(userCred, wireStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewNotFoundError("wire %s not found", wireStr)
@@ -985,7 +985,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		if len(zoneStr) > 0 {
 			vpcStr := jsonutils.GetAnyString(data, []string{"vpc", "vpc_id"})
 			if len(vpcStr) > 0 {
-				zoneObj, err := ZoneManager.FetchByIdOrName(userCred.GetProjectId(), zoneStr)
+				zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zoneStr)
 				if err != nil {
 					if err == sql.ErrNoRows {
 						return nil, httperrors.NewNotFoundError("zone %s not found", zoneStr)
@@ -993,7 +993,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 						return nil, httperrors.NewInternalServerError("query zone %s error %s", zoneStr, err)
 					}
 				}
-				vpcObj, err := VpcManager.FetchByIdOrName(userCred.GetProjectId(), vpcStr)
+				vpcObj, err := VpcManager.FetchByIdOrName(userCred, vpcStr)
 				if err != nil {
 					if err == sql.ErrNoRows {
 						return nil, httperrors.NewNotFoundError("vpc %s not found", vpcStr)
@@ -1277,7 +1277,7 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	}
 	zoneStr, _ := query.GetString("zone")
 	if len(zoneStr) > 0 {
-		zoneObj, err := ZoneManager.FetchByIdOrName(userCred.GetProjectId(), zoneStr)
+		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zoneStr)
 		if err != nil {
 			return nil, httperrors.NewNotFoundError("Zone %s not found", zoneStr)
 		}
@@ -1286,7 +1286,7 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	}
 	vpcStr, _ := query.GetString("vpc")
 	if len(vpcStr) > 0 {
-		vpcObj, err := VpcManager.FetchByIdOrName(userCred.GetProjectId(), vpcStr)
+		vpcObj, err := VpcManager.FetchByIdOrName(userCred, vpcStr)
 		if err != nil {
 			return nil, httperrors.NewNotFoundError("VPC %s not found", vpcStr)
 		}
@@ -1295,7 +1295,7 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	}
 	regionStr := jsonutils.GetAnyString(query, []string{"region_id", "region", "cloudregion_id", "cloudregion"})
 	if len(regionStr) > 0 {
-		region, err := CloudregionManager.FetchByIdOrName(userCred.GetProjectId(), regionStr)
+		region, err := CloudregionManager.FetchByIdOrName(userCred, regionStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError("cloud region %s not found", regionStr)

@@ -48,7 +48,7 @@ func (self *SHost) Refresh() error {
 	return nil
 }
 
-func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, networkId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, secgroupId string) (cloudprovider.ICloudVM, error) {
+func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, networkId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (cloudprovider.ICloudVM, error) {
 	nicId := ""
 	if net := self.zone.getNetworkById(networkId); net == nil {
 		return nil, fmt.Errorf("invalid network ID %s", networkId)
@@ -57,7 +57,7 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 	} else {
 		nicId = nic.ID
 	}
-	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, nicId, ipAddr, desc, passwd, storageType, diskSizes, publicKey)
+	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, nicId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, userData)
 	if err != nil {
 		self.zone.region.DeleteNetworkInterface(nicId)
 		return nil, err
@@ -70,7 +70,7 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 	}
 }
 
-func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, nicId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string) (string, error) {
+func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, nicId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, userData string) (string, error) {
 	computeClient := compute.NewVirtualMachinesClientWithBaseURI(self.zone.region.client.baseUrl, self.zone.region.client.subscriptionId)
 	computeClient.Authorizer = self.zone.region.client.authorizer
 
@@ -148,6 +148,10 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 
 	if len(publicKey) > 0 {
 		properties.OsProfile.LinuxConfiguration.SSH = &compute.SSHConfiguration{PublicKeys: &sshKeys}
+	}
+
+	if len(userData) > 0 {
+		properties.OsProfile.CustomData = &userData
 	}
 
 	params := compute.VirtualMachine{Location: &self.zone.region.Name, Name: &name, VirtualMachineProperties: &properties}

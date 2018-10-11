@@ -153,7 +153,7 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 
 	schedTagStr := jsonutils.GetAnyString(query, []string{"schedtag", "schedtag_id"})
 	if len(schedTagStr) > 0 {
-		schedTag, _ := SchedtagManager.FetchByIdOrName("", schedTagStr)
+		schedTag, _ := SchedtagManager.FetchByIdOrName(nil, schedTagStr)
 		if schedTag == nil {
 			return nil, httperrors.NewResourceNotFoundError("Schedtag %s not found", schedTagStr)
 		}
@@ -163,7 +163,7 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 
 	wireStr := jsonutils.GetAnyString(query, []string{"wire", "wire_id"})
 	if len(wireStr) > 0 {
-		wire, _ := WireManager.FetchByIdOrName("", wireStr)
+		wire, _ := WireManager.FetchByIdOrName(nil, wireStr)
 		if wire == nil {
 			return nil, httperrors.NewResourceNotFoundError("Wire %s not found", wireStr)
 		}
@@ -173,7 +173,7 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 
 	storageStr := jsonutils.GetAnyString(query, []string{"storage", "storage_id"})
 	if len(storageStr) > 0 {
-		storage, _ := StorageManager.FetchByIdOrName("", storageStr)
+		storage, _ := StorageManager.FetchByIdOrName(nil, storageStr)
 		if storage == nil {
 			return nil, httperrors.NewResourceNotFoundError("Storage %s not found", storageStr)
 		}
@@ -183,7 +183,7 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 
 	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
 	if len(zoneStr) > 0 {
-		zone, _ := ZoneManager.FetchByIdOrName("", zoneStr)
+		zone, _ := ZoneManager.FetchByIdOrName(nil, zoneStr)
 		if zone == nil {
 			return nil, httperrors.NewResourceNotFoundError("Zone %s not found", zoneStr)
 		}

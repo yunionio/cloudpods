@@ -70,15 +70,15 @@ func (manager *SStandaloneResourceBaseManager) ValidateName(name string) error {
 }
 
 func (manager *SStandaloneResourceBaseManager) FetchById(idStr string) (IModel, error) {
-	return fetchById(manager, idStr)
+	return FetchById(manager, idStr)
 }
 
-func (manager *SStandaloneResourceBaseManager) FetchByName(ownerProjId string, idStr string) (IModel, error) {
-	return fetchByName(manager, ownerProjId, idStr)
+func (manager *SStandaloneResourceBaseManager) FetchByName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
+	return FetchByName(manager, userCred, idStr)
 }
 
-func (manager *SStandaloneResourceBaseManager) FetchByIdOrName(ownerProjId string, idStr string) (IModel, error) {
-	return fetchByIdOrName(manager, ownerProjId, idStr)
+func (manager *SStandaloneResourceBaseManager) FetchByIdOrName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
+	return FetchByIdOrName(manager, userCred, idStr)
 }
 
 func (manager *SStandaloneResourceBaseManager) FetchByExternalId(idStr string) (IStandaloneModel, error) {

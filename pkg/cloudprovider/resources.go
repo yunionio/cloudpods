@@ -135,7 +135,7 @@ type ICloudHost interface {
 	GetManagerId() string
 
 	CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, vswitchId string, ipAddr string, desc string,
-		passwd string, storageType string, diskSizes []int, publicKey string, extSecGrpId string) (ICloudVM, error)
+		passwd string, storageType string, diskSizes []int, publicKey string, extSecGrpId string, userData string) (ICloudVM, error)
 }
 
 type ICloudVM interface {
