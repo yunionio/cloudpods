@@ -69,7 +69,10 @@ func (self *SAwsClient) fetchRegions() error {
 
 	regions := make([]SRegion, 0)
 	// empty iregions
-	self.iregions = self.iregions[:0]
+	if self.iregions != nil {
+		self.iregions = self.iregions[:0]
+	}
+
 	for _, region := range result.Regions {
 		name := *region.RegionName
 		endpoint := *region.Endpoint

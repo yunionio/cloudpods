@@ -3,6 +3,8 @@ package aws
 import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
+	"fmt"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SRegion struct {
@@ -18,44 +20,61 @@ type SRegion struct {
 	RegionId     string    // 这里为保持一致沿用阿里云RegionId的叫法, 与AWS RegionName字段对应
 }
 
+/////////////////////////////////////////////////////////////////////////////
+/* todo: 请不要使用这个client(AWS_DEFAULT_REGION)跨region查信息.有可能导致查询返回的信息为空。比如DescribeAvailabilityZones*/
+func (self *SRegion) GetClient() (*SAwsClient) {
+	return self.client
+}
+
+/////////////////////////////////////////////////////////////////////////////
+func (self *SRegion) fetchInfrastructure() error {
+	// todo: implement me
+	return nil
+}
+
 func (self *SRegion) GetId() string {
-	panic("implement me")
+	return self.RegionId
 }
 
 func (self *SRegion) GetName() string {
-	panic("implement me")
+	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_AWS_CN, self.RegionId)
 }
 
 func (self *SRegion) GetGlobalId() string {
-	panic("implement me")
+	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_AWS, self.RegionId)
 }
 
 func (self *SRegion) GetStatus() string {
-	panic("implement me")
+	return models.CLOUD_REGION_STATUS_INSERVER
 }
 
 func (self *SRegion) Refresh() error {
-	panic("implement me")
+	return nil
 }
 
 func (self *SRegion) IsEmulated() bool {
-	panic("implement me")
+	return false
 }
 
 func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
-	panic("implement me")
+	return nil
 }
 
 func (self *SRegion) GetLatitude() float32 {
-	panic("implement me")
+	return 0.0
 }
 
 func (self *SRegion) GetLongitude() float32 {
-	panic("implement me")
+	return 0.0
 }
 
 func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
-	panic("implement me")
+	if self.izones == nil {
+		if err := self.fetchInfrastructure(); err != nil {
+			return nil, err
+		}
+	}
+	return self.izones, nil
 }
 
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
