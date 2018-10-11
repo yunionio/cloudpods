@@ -160,10 +160,11 @@ func init() {
 	})
 
 	type DiskCreateOptions struct {
-		STORAGE  string `help:"ID or name of storage where the disk is created"`
-		NAME     string `help:"Name of the disk"`
-		DISKDESC string `help:"Image size or size of virtual disk"`
-		Desc     string `help:"Description" metavar:"Description"`
+		STORAGE    string `help:"ID or name of storage where the disk is created"`
+		NAME       string `help:"Name of the disk"`
+		DISKDESC   string `help:"Image size or size of virtual disk"`
+		Desc       string `help:"Description" metavar:"Description"`
+		TaskNotify bool   `help:"Setup task notify"`
 	}
 	R(&DiskCreateOptions{}, "disk-create", "Create a virtual disk", func(s *mcclient.ClientSession, args *DiskCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -172,11 +173,17 @@ func init() {
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
 		}
+		if args.TaskNotify {
+			s.PrepareTask()
+		}
 		disk, err := modules.Disks.CreateInContext(s, params, &modules.Storages, args.STORAGE)
 		if err != nil {
 			return err
 		}
 		printObject(disk)
+		if args.TaskNotify {
+			s.WaitTaskNotify()
+		}
 		return nil
 	})
 

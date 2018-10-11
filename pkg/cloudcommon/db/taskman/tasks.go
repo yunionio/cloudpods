@@ -156,7 +156,7 @@ func fetchTaskParams(ctx context.Context, taskName string, taskData *jsonutils.J
 		}
 	} else {
 		if !reqContext.IsZero() {
-			if len(reqContext.TaskId) > 0 {
+			if len(reqContext.TaskId) > 0 && len(reqContext.TaskNotifyUrl) == 0 {
 				data.Add(jsonutils.NewString(reqContext.TaskId), PARENT_TASK_ID_KEY)
 			}
 			if len(reqContext.TaskNotifyUrl) > 0 {
