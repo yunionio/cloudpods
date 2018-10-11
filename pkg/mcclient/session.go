@@ -16,7 +16,9 @@ import (
 )
 
 const (
+	TASK_ID         = "X-Task-Id"
 	TASK_NOTIFY_URL = "X-Task-Notify-Url"
+	AUTH_TOKEN      = "X-Auth-Token"
 
 	DEFAULT_API_VERSION = "v1"
 )

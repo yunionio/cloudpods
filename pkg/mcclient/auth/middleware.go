@@ -18,7 +18,7 @@ const (
 
 func Authenticate(f appsrv.FilterHandler) appsrv.FilterHandler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		tokenStr := r.Header.Get("X-Auth-Token")
+		tokenStr := r.Header.Get(mcclient.AUTH_TOKEN)
 		if len(tokenStr) == 0 {
 			httperrors.UnauthorizedError(w, "Unauthorized")
 			return
@@ -30,6 +30,12 @@ func Authenticate(f appsrv.FilterHandler) appsrv.FilterHandler {
 			return
 		}
 		ctx = context.WithValue(ctx, AUTH_TOKEN, token)
+		if taskId := r.Header.Get(mcclient.TASK_ID); taskId != "" {
+			ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_TASK_ID, taskId)
+		}
+		if taskNotifyUrl := r.Header.Get(mcclient.TASK_NOTIFY_URL); taskNotifyUrl != "" {
+			ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_TASK_NOTIFY_URL, taskNotifyUrl)
+		}
 		f(ctx, w, r)
 	}
 }
