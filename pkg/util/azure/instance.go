@@ -583,15 +583,14 @@ func (region *SRegion) ReplaceSystemDisk(instanceId, imageId, passwd, publicKey 
 						},
 					},
 					OsProfile: &compute.OSProfile{
-						AdminUsername: &instance.Properties.OsProfile.AdminUsername,
-						AdminPassword: &passwd,
-						LinuxConfiguration: &compute.LinuxConfiguration{
-							SSH: &compute.SSHConfiguration{
-								PublicKeys: &sshKeys,
-							},
-						},
+						AdminUsername:      &instance.Properties.OsProfile.AdminUsername,
+						AdminPassword:      &passwd,
+						LinuxConfiguration: &compute.LinuxConfiguration{},
 					},
 				},
+			}
+			if len(publicKey) > 0 {
+				params.OsProfile.LinuxConfiguration.SSH = &compute.SSHConfiguration{PublicKeys: &sshKeys}
 			}
 			if err := region.UpdateInstance(instanceId, params); err != nil {
 				region.deleteDisk(diskId)
