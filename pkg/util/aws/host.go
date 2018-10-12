@@ -3,6 +3,9 @@ package aws
 import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"fmt"
+	"yunion.io/x/onecloud/pkg/compute/models"
+	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
 type SHost struct {
@@ -10,71 +13,95 @@ type SHost struct {
 }
 
 func (self *SHost) GetId() string {
-	panic("implement me")
+	return fmt.Sprintf("%s-%s", self.zone.region.client.providerId, self.zone.GetId())
 }
 
 func (self *SHost) GetName() string {
-	panic("implement me")
+	return fmt.Sprintf("%s-%s", self.zone.region.client.providerName, self.zone.GetId())
 }
 
 func (self *SHost) GetGlobalId() string {
-	panic("implement me")
+	return fmt.Sprintf("%s-%s", self.zone.region.client.providerId, self.zone.GetId())
 }
 
 func (self *SHost) GetStatus() string {
-	panic("implement me")
+	return models.HOST_STATUS_RUNNING
 }
 
 func (self *SHost) Refresh() error {
-	panic("implement me")
+	return nil
 }
 
 func (self *SHost) IsEmulated() bool {
-	panic("implement me")
+	return true
 }
 
 func (self *SHost) GetMetadata() *jsonutils.JSONDict {
-	panic("implement me")
+	return nil
 }
 
 func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	panic("implement me")
+	vms := make([]SInstance, 0)
+	vms, _, err := self.zone.region.GetInstances(self.zone.ZoneId, nil, len(vms), 50)
+	if err != nil {
+		return nil, err
+	}
+
+	ivms := make([]cloudprovider.ICloudVM, len(vms))
+	for i := 0; i < len(vms); i += 1 {
+		vms[i].host = self
+		ivms[i] = &vms[i]
+	}
+	return ivms, nil
 }
 
-func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
-	panic("implement me")
+func (self *SHost) GetIVMById(gid string) (cloudprovider.ICloudVM, error) {
+	ivms, _, err := self.zone.region.GetInstances(self.zone.ZoneId, []string{gid}, 0, 1)
+	if err != nil {
+		return nil, err
+	}
+	if len(ivms) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	if len(ivms) > 1 {
+		return nil, cloudprovider.ErrDuplicateId
+	}
+	ivms[0].host = self
+	return &ivms[0], nil
 }
 
 func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	panic("implement me")
+	return self.zone.GetIWires()
 }
 
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	panic("implement me")
+	return self.zone.GetIStorages()
 }
 
 func (self *SHost) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	panic("implement me")
+	return self.zone.GetIStorageById(id)
 }
 
 func (self *SHost) GetEnabled() bool {
-	panic("implement me")
+	return true
 }
 
 func (self *SHost) GetHostStatus() string {
-	panic("implement me")
+	return models.HOST_ONLINE
 }
 
 func (self *SHost) GetAccessIp() string {
-	panic("implement me")
+	return ""
 }
 
 func (self *SHost) GetAccessMac() string {
-	panic("implement me")
+	return ""
 }
 
 func (self *SHost) GetSysInfo() jsonutils.JSONObject {
-	panic("implement me")
+	info := jsonutils.NewDict()
+	info.Add(jsonutils.NewString(CLOUD_PROVIDER_AWS), "manufacture")
+	return info
 }
 
 func (self *SHost) GetSN() string {
@@ -82,42 +109,75 @@ func (self *SHost) GetSN() string {
 }
 
 func (self *SHost) GetCpuCount() int8 {
-	panic("implement me")
+	return 0
 }
 
 func (self *SHost) GetNodeCount() int8 {
-	panic("implement me")
+	return 0
 }
 
 func (self *SHost) GetCpuDesc() string {
-	panic("implement me")
+	return ""
 }
 
 func (self *SHost) GetCpuMhz() int {
-	panic("implement me")
+	return 0
 }
 
 func (self *SHost) GetMemSizeMB() int {
-	panic("implement me")
+	return 0
 }
 
 func (self *SHost) GetStorageSizeMB() int {
-	panic("implement me")
+	return 0
 }
 
 func (self *SHost) GetStorageType() string {
-	panic("implement me")
+	return models.DISK_TYPE_HYBRID
 }
 
 func (self *SHost) GetHostType() string {
-	panic("implement me")
+	return models.HOST_TYPE_AWS
 }
 
 func (self *SHost) GetManagerId() string {
-	panic("implement me")
+	return self.zone.region.client.providerId
+}
+
+func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
+	inst, err := self.zone.region.GetInstance(instanceId)
+	if err != nil {
+		return nil, err
+	}
+	inst.host = self
+	return inst, nil
 }
 
 func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, vswitchId string, ipAddr string, desc string,
 	passwd string, storageType string, diskSizes []int, publicKey string, extSecGrpId string) (cloudprovider.ICloudVM, error) {
-	panic("implement me")
+	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, vswitchId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId)
+	if err != nil {
+		return nil, err
+	}
+	vm, err := self.GetInstanceById(vmId)
+	if err != nil {
+		return nil, err
+	}
+
+	return vm, err
+}
+
+func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int, memMB int,
+	vswitchId string, ipAddr string, desc string, passwd string,
+	storageType string, diskSizes []int, publicKey string, secgroupId string) (string, error) {
+	// 网络配置及安全组绑定
+
+	// 同步keypair
+
+	// 镜像及硬盘配置
+
+	// 匹配实例类型
+
+	// 创建实例
+	return "", fmt.Errorf("Failed to create, specification not supported")
 }

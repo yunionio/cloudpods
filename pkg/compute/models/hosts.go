@@ -36,6 +36,7 @@ const (
 	HOST_TYPE_HYPERV     = "hyperv"     // # Microsoft Hyper-V
 	HOST_TYPE_XEN        = "xen"        // # XenServer
 	HOST_TYPE_ALIYUN     = "aliyun"
+	HOST_TYPE_AWS        = "aws"
 	HOST_TYPE_AZURE      = "azure"
 
 	HOST_TYPE_DEFAULT = HOST_TYPE_HYPERVISOR

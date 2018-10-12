@@ -38,6 +38,10 @@ func (self *SZone) fetchStorages() error {
 	return nil
 }
 
+func (self *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
+	return self.iwires, nil
+}
+
 func (self *SZone) GetId() string {
 	return self.ZoneId
 }
