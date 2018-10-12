@@ -15,8 +15,8 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/cloudinit"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SAliyunGuestDriver struct {
@@ -151,10 +151,10 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 	}
 
 	cloudConfig := cloudinit.SCloudConfig{
-		Users: []cloudinit.SUser {
+		Users: []cloudinit.SUser{
 			{
 				Name: "root",
-				SshAuthorizedKeys: []string {
+				SshAuthorizedKeys: []string{
 					adminPublicKey,
 					projectPublicKey,
 				},

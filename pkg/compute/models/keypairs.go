@@ -3,15 +3,15 @@ package models
 import (
 	"context"
 
-	"yunion.io/x/log"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
+	"golang.org/x/crypto/ssh"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
-	"golang.org/x/crypto/ssh"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -29,10 +29,10 @@ type SKeypair struct {
 	db.SStandaloneResourceBase
 
 	Scheme      string `width:"12" charset:"ascii" nullable:"true" default:"RSA" list:"user" create:"required"` // Column(VARCHAR(length=12, charset='ascii'), nullable=True, default='RSA')
-	Fingerprint string `width:"48" charset:"ascii" nullable:"false" list:"user" create:"required"`                                // Column(VARCHAR(length=48, charset='ascii'), nullable=False)
-	PrivateKey  string `width:"2048" charset:"ascii" nullable:"false" create:"optional"`                                          // Column(VARCHAR(length=2048, charset='ascii'), nullable=False)
-	PublicKey   string `width:"1024" charset:"ascii" nullable:"false" list:"user" create:"required"`                              // Column(VARCHAR(length=1024, charset='ascii'), nullable=False)
-	OwnerId     string `width:"128" charset:"ascii" index:"true" nullable:"false" create:"required"`                              // Column(VARCHAR(length=36, charset='ascii'), index=True, nullable=False)
+	Fingerprint string `width:"48" charset:"ascii" nullable:"false" list:"user" create:"required"`              // Column(VARCHAR(length=48, charset='ascii'), nullable=False)
+	PrivateKey  string `width:"2048" charset:"ascii" nullable:"false" create:"optional"`                        // Column(VARCHAR(length=2048, charset='ascii'), nullable=False)
+	PublicKey   string `width:"1024" charset:"ascii" nullable:"false" list:"user" create:"required"`            // Column(VARCHAR(length=1024, charset='ascii'), nullable=False)
+	OwnerId     string `width:"128" charset:"ascii" index:"true" nullable:"false" create:"required"`            // Column(VARCHAR(length=36, charset='ascii'), index=True, nullable=False)
 }
 
 func (manager *SKeypairManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
@@ -109,7 +109,7 @@ func (manager *SKeypairManager) ValidateCreateData(ctx context.Context, userCred
 	if len(publicKey) == 0 {
 		scheme, _ := data.GetString("scheme")
 		if len(scheme) > 0 {
-			if ! utils.IsInStringArray(scheme, []string{"RSA", "DSA"}) {
+			if !utils.IsInStringArray(scheme, []string{"RSA", "DSA"}) {
 				return nil, httperrors.NewInputParameterError("Unsupported scheme %s", scheme)
 			}
 		} else {

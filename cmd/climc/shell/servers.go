@@ -3,11 +3,11 @@ package shell
 import (
 	"fmt"
 
+	"io/ioutil"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
-	"io/ioutil"
 )
 
 func init() {
@@ -488,7 +488,7 @@ func init() {
 	})
 
 	type ServerUserDataOptions struct {
-		ID string `help:"ID or name of server"`
+		ID   string `help:"ID or name of server"`
 		FILE string `help:"Path to user data file"`
 	}
 	R(&ServerUserDataOptions{}, "server-set-user-data", "Update server user_data", func(s *mcclient.ClientSession, args *ServerUserDataOptions) error {

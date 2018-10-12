@@ -119,7 +119,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 	// 		//StorageURI:
 	// 	},
 	// }
-	sshKeys := []compute.SSHPublicKey{compute.SSHPublicKey{KeyData: &publicKey}}
+	sshKeys := []compute.SSHPublicKey{{KeyData: &publicKey}}
 	properties := compute.VirtualMachineProperties{
 		HardwareProfile: &compute.HardwareProfile{},
 		StorageProfile: &compute.StorageProfile{

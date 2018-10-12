@@ -1,17 +1,17 @@
 package seclib2
 
 import (
-	"crypto/rsa"
 	"crypto/rand"
-	"encoding/pem"
+	"crypto/rsa"
 	"crypto/x509"
+	"encoding/pem"
 
-	"golang.org/x/crypto/ssh"
 	"crypto/dsa"
+	"golang.org/x/crypto/ssh"
 
-	"yunion.io/x/log"
 	"encoding/asn1"
 	"math/big"
+	"yunion.io/x/log"
 )
 
 func GenerateRSASSHKeypair() (string, string, error) {
@@ -90,8 +90,8 @@ func GetPublicKeyScheme(pubkey ssh.PublicKey) string {
 		return "DSA"
 	case ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521:
 		return "ECDSA"
-	// case ssh.KeyAlgoED25519:
-	//	return "ED"
+		// case ssh.KeyAlgoED25519:
+		//	return "ED"
 	}
 	return "UNKNOWN"
 }

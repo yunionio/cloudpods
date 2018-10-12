@@ -1,22 +1,22 @@
 package seclib2
 
 import (
-	"crypto/rsa"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha1"
 
 	"golang.org/x/crypto/ssh"
 
-	"yunion.io/x/log"
-	"fmt"
+	"crypto"
 	"crypto/dsa"
 	"crypto/ecdsa"
 	"encoding/base64"
-	"crypto"
+	"fmt"
+	"yunion.io/x/log"
 )
 
 func exportSshPublicKey(pubkey interface{}) ([]byte, error) {
-	pub, err:= ssh.NewPublicKey(pubkey)
+	pub, err := ssh.NewPublicKey(pubkey)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,6 @@ func ssh2ecdsaPublicKey(key ssh.PublicKey) *ecdsa.PublicKey {
 	cryptoKey := ssh2CryptoPublicKey(key)
 	return cryptoKey.(*ecdsa.PublicKey)
 }
-
 
 func Encrypt(publicKey, origData []byte) ([]byte, error) {
 	pub, _, _, _, err := ssh.ParseAuthorizedKey(publicKey)

@@ -1,22 +1,21 @@
 package seclib2
 
 import (
-	"testing"
-	"encoding/pem"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"golang.org/x/crypto/ssh"
+	"testing"
 )
 
 func TestGenerateRSASSHKeypair(t *testing.T) {
-	priv, pub , _ := GenerateRSASSHKeypair()
+	priv, pub, _ := GenerateRSASSHKeypair()
 	t.Logf("%s", priv)
 	t.Logf("%s", pub)
 }
 
-
 func TestGenerateDSASSHKeypair(t *testing.T) {
-	priv, pub , _ := GenerateDSASSHKeypair()
+	priv, pub, _ := GenerateDSASSHKeypair()
 	t.Logf("%s", priv)
 	t.Logf("%s", pub)
 }

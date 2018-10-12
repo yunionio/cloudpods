@@ -32,7 +32,7 @@ type ServerIdOptions struct {
 }
 
 type ServerLoginInfoOptions struct {
-	ID string `help:"ID or name of the server" json:"-"`
+	ID  string `help:"ID or name of the server" json:"-"`
 	Key string `help:"File name of private key, if password is encrypted by key"`
 }
 

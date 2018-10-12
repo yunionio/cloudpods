@@ -3,9 +3,9 @@ package models
 import (
 	"context"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/pkg/utils"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 const (
@@ -16,7 +16,7 @@ const (
 	sshPublicKey  = "project-ssh-public-key"
 )
 
-func  _getKeys(ctx context.Context, tenantId string, privateKey, publicKey string) (string, string, error) {
+func _getKeys(ctx context.Context, tenantId string, privateKey, publicKey string) (string, string, error) {
 	tenant, err := db.TenantCacheManager.FetchTenantById(ctx, tenantId)
 	if err != nil {
 		return "", "", err

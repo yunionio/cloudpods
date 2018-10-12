@@ -83,10 +83,10 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 	}
 
 	cloudConfig := cloudinit.SCloudConfig{
-		Users: []cloudinit.SUser {
+		Users: []cloudinit.SUser{
 			{
 				Name: "root",
-				SshAuthorizedKeys: []string {
+				SshAuthorizedKeys: []string{
 					adminPublicKey,
 					projectPublicKey,
 				},

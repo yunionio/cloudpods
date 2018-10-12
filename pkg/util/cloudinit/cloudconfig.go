@@ -6,10 +6,10 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"yunion.io/x/log"
-	"yunion.io/x/jsonutils"
-	"strings"
 	"fmt"
+	"strings"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -42,12 +42,12 @@ type SPhoneHome struct {
 }
 
 type SCloudConfig struct {
-	Users     []SUser
+	Users      []SUser
 	WriteFiles []SWriteFile
-	Runcmd    []string
-	Bootcmd   []string
-	Packages  []string
-	PhoneHome *SPhoneHome
+	Runcmd     []string
+	Bootcmd    []string
+	Packages   []string
+	PhoneHome  *SPhoneHome
 }
 
 func NewWriteFile(path string, content string, perm string, owner string, isBase64 bool) SWriteFile {
@@ -109,7 +109,7 @@ func ParseUserDataBase64(b64data string) (*SCloudConfig, error) {
 }
 
 func ParseUserData(data string) (*SCloudConfig, error) {
-	if ! strings.HasPrefix(data, CLOUD_CONFIG_HEADER) {
+	if !strings.HasPrefix(data, CLOUD_CONFIG_HEADER) {
 		msg := "invalid userdata, not starting with #cloud-config"
 		log.Errorf(msg)
 		return nil, fmt.Errorf(msg)
@@ -162,19 +162,19 @@ func (conf *SCloudConfig) MergeWriteFile(f SWriteFile, replace bool) {
 }
 
 func (conf *SCloudConfig) MergeRuncmd(cmd string) {
-	if ! utils.IsInStringArray(cmd, conf.Runcmd) {
+	if !utils.IsInStringArray(cmd, conf.Runcmd) {
 		conf.Runcmd = append(conf.Runcmd, cmd)
 	}
 }
 
 func (conf *SCloudConfig) MergeBootcmd(cmd string) {
-	if ! utils.IsInStringArray(cmd, conf.Bootcmd) {
+	if !utils.IsInStringArray(cmd, conf.Bootcmd) {
 		conf.Bootcmd = append(conf.Bootcmd, cmd)
 	}
 }
 
 func (conf *SCloudConfig) MergePackage(pkg string) {
-	if ! utils.IsInStringArray(pkg, conf.Packages) {
+	if !utils.IsInStringArray(pkg, conf.Packages) {
 		conf.Packages = append(conf.Packages, pkg)
 	}
 }

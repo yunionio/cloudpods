@@ -565,7 +565,7 @@ func (region *SRegion) ReplaceSystemDisk(instanceId, imageId, passwd, publicKey 
 		} else {
 			osType := compute.OperatingSystemTypes(image.GetOsType())
 			disk, _ := region.GetDisk(diskId)
-			sshKeys := []compute.SSHPublicKey{compute.SSHPublicKey{KeyData: &publicKey}}
+			sshKeys := []compute.SSHPublicKey{{KeyData: &publicKey}}
 			params := compute.VirtualMachineUpdate{
 				VirtualMachineProperties: &compute.VirtualMachineProperties{
 					StorageProfile: &compute.StorageProfile{

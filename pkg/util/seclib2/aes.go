@@ -1,11 +1,11 @@
 package seclib2
 
 import (
-	"crypto/cipher"
 	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"fmt"
 	"io"
-	"crypto/rand"
 )
 
 // https://stackoverflow.com/questions/23897809/different-results-in-go-and-pycrypto-when-using-aes-cfb
