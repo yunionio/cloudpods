@@ -42,6 +42,11 @@ func (self *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
 	return self.iwires, nil
 }
 
+func (self *SZone) getNetworkById(vswitchId string) error {
+	// todo: implement me
+	return nil
+}
+
 func (self *SZone) GetId() string {
 	return self.ZoneId
 }

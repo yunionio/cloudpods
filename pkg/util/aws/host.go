@@ -171,7 +171,8 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 	vswitchId string, ipAddr string, desc string, passwd string,
 	storageType string, diskSizes []int, publicKey string, secgroupId string) (string, error) {
 	// 网络配置及安全组绑定
-
+	// todo:// https://www.guru99.com/creating-amazon-ec2-instance.html
+	self.zone.getNetworkById(vswitchId)
 	// 同步keypair
 
 	// 镜像及硬盘配置
