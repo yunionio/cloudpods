@@ -917,9 +917,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:71c5989353531072eeb9547066e05bdeaaf9ef0512673bca3b4b824092d70de3"
+  digest = "1:e132baa383407b5cb612c2a2ab6980566b5e11d98815db34a5a048f5f74835f4"
   name = "golang.org/x/crypto"
   packages = [
+    "bcrypt",
+    "blowfish",
     "curve25519",
     "ed25519",
     "ed25519/internal/edwards25519",
@@ -1223,11 +1225,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:49ffc35ec8d3f7789393cd132acd359e8ac1f5d38c7a2b91c484b041840c62c0"
+  digest = "1:09c49bf51d8da39e73f117d2448cea5a1bd287210378a4e14339a73ea27c0b5c"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "d1290e94d4753c1748fc7c89f472a523cc0a5c08"
+  revision = "7b18aa76d7f1a25d0f77fdd579d86e9452ea9322"
 
 [[projects]]
   branch = "master"
@@ -1369,6 +1371,7 @@
     "github.com/vmware/govmomi/view",
     "github.com/vmware/govmomi/vim25/mo",
     "github.com/vmware/govmomi/vim25/types",
+    "golang.org/x/crypto/bcrypt",
     "golang.org/x/crypto/ssh",
     "gopkg.in/gin-gonic/gin.v1",
     "k8s.io/api/core/v1",
