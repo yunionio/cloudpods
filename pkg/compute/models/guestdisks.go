@@ -188,6 +188,17 @@ func (self *SGuestdisk) GetDetailedJson() *jsonutils.JSONDict {
 	desc.Add(jsonutils.NewString(self.AioMode), "aio_mode")
 	desc.Add(jsonutils.NewString(storage.MediumType), "medium_type")
 	desc.Add(jsonutils.NewString(storage.StorageType), "storage_type")
+
+	imageId := disk.GetTemplateId()
+	if len(imageId) > 0 {
+		desc.Add(jsonutils.NewString(imageId), "image_id")
+		cachedImageObj, _ := CachedimageManager.FetchById(imageId)
+		if cachedImageObj != nil {
+			cachedImage := cachedImageObj.(*SCachedimage)
+			desc.Add(jsonutils.NewString(cachedImage.getName()), "image")
+		}
+	}
+
 	return desc
 }
 
