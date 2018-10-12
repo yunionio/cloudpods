@@ -102,13 +102,13 @@ func init() {
 		if e != nil {
 			return e
 		}
-		var params *jsonutils.JSONDict
+
+		params := jsonutils.NewDict()
 		if len(opts.Key) > 0 {
 			privateKey, e := ioutil.ReadFile(opts.Key)
 			if e != nil {
 				return e
 			}
-			params = jsonutils.NewDict()
 			params.Add(jsonutils.NewString(string(privateKey)), "private_key")
 		}
 

@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/pkg/gotypes"
 )
 
 type ServerManager struct {
@@ -25,7 +26,7 @@ func (this *ServerManager) GetLoginInfo(s *mcclient.ClientSession, id string, pa
 	}
 
 	var privateKey string
-	if params != nil {
+	if params != nil && ! gotypes.IsNil(params) {
 		privateKey, _ = params.GetString("private_key")
 	}
 

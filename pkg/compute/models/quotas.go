@@ -278,7 +278,7 @@ func (self *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
 	if sreq.IsolatedDevice > 0 && self.IsolatedDevice > squota.IsolatedDevice {
 		return ErrOutOfIsolatedDevice
 	}
-	if self.Snapshot > squota.Snapshot {
+	if sreq.Snapshot > 0 && self.Snapshot > squota.Snapshot {
 		return ErrOutOfSnapshot
 	}
 	return nil

@@ -17,7 +17,7 @@ func TestSCloudConfig_UserData(t *testing.T) {
 			usr1,
 			usr2,
 		},
-		WireFiles: []SWriteFile{
+		WriteFiles: []SWriteFile{
 			file1,
 			file2,
 		},
