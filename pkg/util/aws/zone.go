@@ -3,6 +3,8 @@ package aws
 import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
+	"fmt"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SZone struct {
@@ -24,50 +26,81 @@ func (self *SZone) addWire(wire *SWire) {
 	self.iwires = append(self.iwires, wire)
 }
 
+func (self *SZone) getHost() *SHost {
+	if self.host == nil {
+		self.host = &SHost{zone: self}
+	}
+	return self.host
+}
+
+func (self *SZone) fetchStorages() error {
+	// todo: implement me
+	return nil
+}
+
 func (self *SZone) GetId() string {
-	panic("implement me")
+	return self.ZoneId
 }
 
 func (self *SZone) GetName() string {
-	panic("implement me")
+	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_AWS_CN, self.LocalName)
 }
 
 func (self *SZone) GetGlobalId() string {
-	panic("implement me")
+	return fmt.Sprintf("%s/%s", self.region.GetGlobalId(), self.ZoneId)
 }
 
 func (self *SZone) GetStatus() string {
-	panic("implement me")
+	if self.State == "unavailable" {
+		return models.ZONE_SOLDOUT
+	} else {
+		return models.ZONE_ENABLE
+	}
 }
 
 func (self *SZone) Refresh() error {
-	panic("implement me")
+	return nil
 }
 
 func (self *SZone) IsEmulated() bool {
-	panic("implement me")
+	return false
 }
 
 func (self *SZone) GetMetadata() *jsonutils.JSONDict {
-	panic("implement me")
+	return nil
 }
 
 func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {
-	panic("implement me")
+	return self.region
 }
 
 func (self *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
-	panic("implement me")
+	return []cloudprovider.ICloudHost{self.getHost()}, nil
 }
 
 func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	panic("implement me")
+	host := self.getHost()
+	if host.GetGlobalId() == id {
+		return host, nil
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	panic("implement me")
+	if self.istorages == nil {
+		self.fetchStorages()
+	}
+	return self.istorages, nil
 }
 
 func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	panic("implement me")
+	if self.istorages == nil {
+		self.fetchStorages()
+	}
+	for i := 0; i < len(self.istorages); i += 1 {
+		if self.istorages[i].GetGlobalId() == id {
+			return self.istorages[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
