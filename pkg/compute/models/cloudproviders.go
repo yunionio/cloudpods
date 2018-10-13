@@ -51,6 +51,8 @@ type SCloudprovider struct {
 	Account string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
 	Secret  string `width:"256" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
 
+	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" key_index:"true""`
+
 	LastSync time.Time `get:"admin" list:"admin"` // = Column(DateTime, nullable=True)
 
 	Version string `width:"32" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
@@ -101,58 +103,7 @@ func (self *SCloudprovider) ValidateUpdateData(ctx context.Context, userCred mcc
 }
 
 func (self *SCloudproviderManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	// check provider
-	provider, _ := data.GetString("provider")
-	if !cloudprovider.IsSupported(provider) {
-		return nil, httperrors.NewInputParameterError("Unsupported provider %s", provider)
-	}
-	// check duplication
-	// url, account, provider must be unique
-	account, _ := data.GetString("account")
-	url, _ := data.GetString("access_url")
-	q := self.Query().Equals("provider", provider)
-	if len(account) > 0 {
-		q = q.Equals("account", account)
-	}
-	if len(url) > 0 {
-		q = q.Equals("access_url", url)
-	}
-	if q.Count() > 0 {
-		return nil, httperrors.NewConflictError("The account has been registered")
-	}
-	return self.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
-}
-
-func (self *SCloudprovider) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
-	self.savePassword(self.Secret)
-
-	if self.Enabled {
-		self.startSyncCloudProviderInfoTask(ctx, userCred, nil, "")
-	}
-}
-
-func (self *SCloudprovider) savePassword(secret string) error {
-	sec, err := utils.EncryptAESBase64(self.Id, secret)
-	if err != nil {
-		return err
-	}
-
-	/*log.Debugf("savePassword %s => %s", secret, sec)
-	newsec, err := utils.DescryptAESBase64(self.Id, sec)
-	if err != nil {
-		return err
-	}
-	if newsec != secret {
-		log.Errorf("Encrypt/Descrypt mismatch!!")
-		return fmt.Errorf("Encrypt/Descrypt mismatch!!")
-	}*/
-
-	_, err = self.GetModelManager().TableSpec().Update(self, func() error {
-		self.Secret = sec
-		return nil
-	})
-	return err
+	return nil, httperrors.NewUnsupportOperationError("Not support create cloudprovider, please considir create cloudaccount")
 }
 
 func (self *SCloudprovider) getPassword() (string, error) {
@@ -281,59 +232,6 @@ func (self *SCloudprovider) PerformSync(ctx context.Context, userCred mcclient.T
 	return nil, err
 }
 
-func (self *SCloudprovider) AllowPerformUpdateCredential(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
-}
-
-func (self *SCloudprovider) PerformUpdateCredential(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !self.Enabled {
-		return nil, httperrors.NewInvalidStatusError("Cloudprovider disabled")
-	}
-
-	var err error
-	changed := false
-	secret, _ := data.GetString("secret")
-	account, _ := data.GetString("account")
-	accessUrl, _ := data.GetString("access_url")
-	if len(secret) > 0 || len(account) > 0 || len(accessUrl) > 0 {
-		// check duplication
-		q := self.GetModelManager().Query()
-		q = q.Equals("access_url", accessUrl)
-		q = q.Equals("account", account)
-		q = q.NotEquals("id", self.Id)
-		if q.Count() > 0 {
-			return nil, httperrors.NewConflictError("Access url and account conflict")
-		}
-	}
-	if len(secret) > 0 {
-		err = self.savePassword(secret)
-		if err != nil {
-			return nil, err
-		}
-		changed = true
-	}
-	if (len(account) > 0 && account != self.Account) || (len(accessUrl) > 0 && accessUrl != self.AccessUrl) {
-		_, err = self.GetModelManager().TableSpec().Update(self, func() error {
-			if len(account) > 0 {
-				self.Account = account
-			}
-			if len(accessUrl) > 0 {
-				self.AccessUrl = accessUrl
-			}
-			return nil
-		})
-		if err != nil {
-			return nil, err
-		}
-		changed = true
-	}
-	if changed {
-		self.SetStatus(userCred, CLOUD_PROVIDER_INIT, "Change credential")
-		self.startSyncCloudProviderInfoTask(ctx, userCred, nil, "")
-	}
-	return nil, nil
-}
-
 func (self *SCloudprovider) startSyncCloudProviderInfoTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange, parentTaskId string) error {
 	params := jsonutils.NewDict()
 	if syncRange != nil {
@@ -360,35 +258,49 @@ func (self *SCloudprovider) MarkStartSync(userCred mcclient.TokenCredential) {
 	self.SetStatus(userCred, CLOUD_PROVIDER_START_SYNC, "")
 }
 
+type SAccount struct {
+	AccessUrl string
+	Account   string
+	Secret    string
+}
+
+func (self *SCloudprovider) getCloudaccount() (*SCloudaccount, error) {
+	cloudaccount := &SCloudaccount{}
+	q := CloudaccountManager.Query().Equals("id", self.CloudaccountId)
+	if err := db.FetchModelObjects(CloudaccountManager, q, cloudaccount); err != nil {
+		return nil, err
+	}
+	return cloudaccount, nil
+}
+
+func (self *SCloudprovider) getAccount() (*SAccount, error) {
+	if cloudaccount, err := self.getCloudaccount(); err != nil {
+		return nil, err
+	} else {
+		account := SAccount{AccessUrl: cloudaccount.AccessUrl, Account: cloudaccount.Account}
+		if passwd, err := cloudaccount.getPassword(); err != nil {
+			return nil, err
+		} else {
+			account.Secret = passwd
+		}
+		if account.Account != self.Account {
+			account.Account = fmt.Sprintf("%s/%s", account.Account, self.Account)
+		}
+		return &account, nil
+	}
+
+}
+
 func (self *SCloudprovider) GetDriver() (cloudprovider.ICloudProvider, error) {
 	if !self.Enabled {
 		return nil, fmt.Errorf("Cloud provider is not enabled")
 	}
 
-	secret, err := self.getPassword()
+	account, err := self.getAccount()
 	if err != nil {
-		return nil, fmt.Errorf("Invalid password %s", err)
-	}
-	// log.Debugf("XXXXX secret: %s", secret)
-
-	return cloudprovider.GetProvider(self.Id, self.Name, self.AccessUrl, self.Account, secret, self.Provider)
-}
-
-func (manager *SCloudproviderManager) AllowPerformGetSubAccounts(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
-}
-
-func (manager *SCloudproviderManager) PerformGetSubAccounts(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	name, _ := data.GetString("name")
-	accessUrl, _ := data.GetString("access_url")
-	account, _ := data.GetString("account")
-	secret, _ := data.GetString("secret")
-	_provider, _ := data.GetString("provider")
-	if provider, err := cloudprovider.GetProvider("", name, accessUrl, account, secret, _provider); err != nil {
 		return nil, err
-	} else {
-		return provider.GetSubAccounts()
 	}
+	return cloudprovider.GetProvider(self.Id, self.Name, account.AccessUrl, account.Account, account.Secret, self.Provider)
 }
 
 func (self *SCloudprovider) SaveSysInfo(info jsonutils.JSONObject) {

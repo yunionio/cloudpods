@@ -133,7 +133,17 @@ func (self *SAliyunClient) GetRegions() []SRegion {
 }
 
 func (self *SAliyunClient) GetSubAccounts() (jsonutils.JSONObject, error) {
-	return nil, nil
+	if err := self.fetchRegions(); err != nil {
+		return nil, err
+	} else {
+		result := jsonutils.NewDict()
+		data := jsonutils.NewArray()
+		account := jsonutils.Marshal(map[string]string{"account": self.accessKey, "name": self.providerName})
+		data.Add(account)
+		result.Add(data, "data")
+		result.Add(jsonutils.NewInt(1), "total")
+		return result, nil
+	}
 }
 
 func (self *SAliyunClient) GetIRegions() []cloudprovider.ICloudRegion {

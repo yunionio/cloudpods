@@ -39,6 +39,7 @@ func InitHandlers(app *appsrv.Application) {
 
 	for _, manager := range []db.IModelManager{
 		db.OpsLog,
+		models.CloudaccountManager,
 		models.CloudproviderManager,
 		models.CloudregionManager,
 		models.ZoneManager,

@@ -163,9 +163,9 @@ func (self *SAzureClient) GetSubAccounts() (jsonutils.JSONObject, error) {
 	} else {
 		for _, value := range resp.Values() {
 			data := jsonutils.NewDict()
-			data.Add(jsonutils.NewString(*value.SubscriptionID), "subscriptionId")
+			data.Add(jsonutils.NewString(*value.SubscriptionID), "account")
 			data.Add(jsonutils.NewString(string(value.State)), "state")
-			data.Add(jsonutils.NewString(*value.DisplayName), "displayName")
+			data.Add(jsonutils.NewString(*value.DisplayName), "name")
 			accounts.Add(data)
 		}
 		result.Add(accounts, "data")
