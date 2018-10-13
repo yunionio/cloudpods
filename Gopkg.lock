@@ -885,6 +885,18 @@
   revision = "d188e65d659ef53fcdb0691c12f1bba64928b649"
 
 [[projects]]
+  branch = "master"
+  digest = "1:119cf7d2c3bc4a3c675e8c30cadf00c8c2ab34a20ba373211dd3a7d66f3e5f32"
+  name = "github.com/tredoe/osutil"
+  packages = [
+    "user/crypt",
+    "user/crypt/common",
+    "user/crypt/sha512_crypt",
+  ]
+  pruneopts = "UT"
+  revision = "7d3ee1afa71c90fd1514c8f557ae6c5f414208eb"
+
+[[projects]]
   digest = "1:98e5cda86f67cd1ac95389d98670b66dea8cae480fe6292b83bccccfe60b4106"
   name = "github.com/ugorji/go"
   packages = ["codec"]
@@ -917,11 +929,9 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:e132baa383407b5cb612c2a2ab6980566b5e11d98815db34a5a048f5f74835f4"
+  digest = "1:71c5989353531072eeb9547066e05bdeaaf9ef0512673bca3b4b824092d70de3"
   name = "golang.org/x/crypto"
   packages = [
-    "bcrypt",
-    "blowfish",
     "curve25519",
     "ed25519",
     "ed25519/internal/edwards25519",
@@ -1225,11 +1235,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:09c49bf51d8da39e73f117d2448cea5a1bd287210378a4e14339a73ea27c0b5c"
+  digest = "1:36db56d9ed25cc9cbd34d5553c14d5e1d4ef6501feaddb752c66aeb294e481e6"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "7b18aa76d7f1a25d0f77fdd579d86e9452ea9322"
+  revision = "191bb9c0726440a0b239c344c70b9df567536302"
 
 [[projects]]
   branch = "master"
@@ -1364,6 +1374,7 @@
     "github.com/moul/http2curl",
     "github.com/serialx/hashring",
     "github.com/stretchr/testify/assert",
+    "github.com/tredoe/osutil/user/crypt/sha512_crypt",
     "github.com/vmware/govmomi",
     "github.com/vmware/govmomi/object",
     "github.com/vmware/govmomi/property",
@@ -1371,7 +1382,6 @@
     "github.com/vmware/govmomi/view",
     "github.com/vmware/govmomi/vim25/mo",
     "github.com/vmware/govmomi/vim25/types",
-    "golang.org/x/crypto/bcrypt",
     "golang.org/x/crypto/ssh",
     "gopkg.in/gin-gonic/gin.v1",
     "k8s.io/api/core/v1",

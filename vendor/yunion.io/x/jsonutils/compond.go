@@ -1,6 +1,5 @@
 package jsonutils
 
-
 func (val *JSONValue) isCompond() bool {
 	return false
 }

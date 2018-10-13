@@ -61,7 +61,7 @@ func parseYAMLDict(lines []string) (map[string]JSONObject, error) {
 		} else {
 			key := lines[i][0:keypos]
 			val := strings.Trim(lines[i][keypos+1:], " ")
-			
+
 			if len(val) > 0 && val != "|" {
 				dict[key] = NewString(val)
 				i++
@@ -199,10 +199,13 @@ func (this *JSONDict) yamlLines() []string {
 	for _, key := range this.SortedKeys() {
 		val := this.data[key]
 		if val.IsZero() {
-			continue
+			switch val.(type) {
+			case *JSONString, *JSONDict, *JSONArray, *JSONValue:
+				continue
+			}
 		}
 		lines := val.yamlLines()
-		if ! val.isCompond() && len(lines) == 1 {
+		if !val.isCompond() && len(lines) == 1 {
 			ret = append(ret, fmt.Sprintf("%s: %s", key, lines[0]))
 		} else {
 			switch val.(type) {

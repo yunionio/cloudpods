@@ -1,6 +1,5 @@
 package jsonutils
 
-
 func (self *JSONValue) Interface() interface{} {
 	return nil
 }
