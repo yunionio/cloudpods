@@ -174,6 +174,8 @@ type ICloudVM interface {
 
 	UpdateVM(name string) error
 
+	UpdateUserData(userData string) error
+
 	RebuildRoot(imageId string, passwd string, publicKey string, sysSizeGB int) (string, error)
 
 	DeployVM(name string, password string, publicKey string, deleteKeypair bool, description string) error

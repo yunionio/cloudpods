@@ -14,7 +14,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/cloudinit"
 )
 
 type SAzureGuestDriver struct {
@@ -74,31 +73,9 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 
 	adminPublicKey, _ := config.GetString("admin_public_key")
 	projectPublicKey, _ := config.GetString("project_public_key")
-
-	var oCloudConfig *cloudinit.SCloudConfig
-
 	oUserData, _ := config.GetString("user_data")
-	if len(oUserData) > 0 {
-		oCloudConfig, _ = cloudinit.ParseUserDataBase64(oUserData)
-	}
 
-	cloudConfig := cloudinit.SCloudConfig{
-		Users: []cloudinit.SUser{
-			{
-				Name: "root",
-				SshAuthorizedKeys: []string{
-					adminPublicKey,
-					projectPublicKey,
-				},
-			},
-		},
-	}
-
-	if oCloudConfig != nil {
-		cloudConfig.Merge(oCloudConfig)
-	}
-
-	userData := cloudConfig.UserDataBase64()
+	userData := generateUserData(adminPublicKey, projectPublicKey, oUserData)
 
 	desc := SManagedVMCreateConfig{}
 	if err := config.Unmarshal(&desc, "desc"); err != nil {

@@ -793,3 +793,7 @@ func (self *SInstance) GetBillingType() string {
 func (self *SInstance) GetExpiredAt() time.Time {
 	return self.ExpiredTime
 }
+
+func (self *SInstance) UpdateUserData(userData string) error {
+	return self.host.zone.region.updateInstance(self.InstanceId, "", "", "", "", userData)
+}

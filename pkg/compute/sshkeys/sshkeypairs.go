@@ -1,11 +1,13 @@
-package models
+package sshkeys
 
 import (
 	"context"
+
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
-	"yunion.io/x/pkg/utils"
 )
 
 const (
@@ -34,11 +36,11 @@ func _getKeys(ctx context.Context, tenantId string, privateKey, publicKey string
 	return private, public, nil
 }
 
-func getSshProjectKeypair(ctx context.Context, tenantId string) (string, string, error) {
+func GetSshProjectKeypair(ctx context.Context, tenantId string) (string, string, error) {
 	return _getKeys(ctx, tenantId, sshPrivateKey, sshPublicKey)
 }
 
-func getSshAdminKeypair(ctx context.Context) (string, string, error) {
+func GetSshAdminKeypair(ctx context.Context) (string, string, error) {
 	userCred := auth.AdminCredential()
 	return _getKeys(ctx, userCred.GetProjectId(), sshAdminPrivateKey, sshAdminPublicKey)
 }

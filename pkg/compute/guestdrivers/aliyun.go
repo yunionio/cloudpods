@@ -15,7 +15,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/cloudinit"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -142,31 +141,9 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 
 	adminPublicKey, _ := config.GetString("admin_public_key")
 	projectPublicKey, _ := config.GetString("project_public_key")
-
-	var oCloudConfig *cloudinit.SCloudConfig
-
 	oUserData, _ := config.GetString("user_data")
-	if len(oUserData) > 0 {
-		oCloudConfig, _ = cloudinit.ParseUserDataBase64(oUserData)
-	}
 
-	cloudConfig := cloudinit.SCloudConfig{
-		Users: []cloudinit.SUser{
-			{
-				Name: "root",
-				SshAuthorizedKeys: []string{
-					adminPublicKey,
-					projectPublicKey,
-				},
-			},
-		},
-	}
-
-	if oCloudConfig != nil {
-		cloudConfig.Merge(oCloudConfig)
-	}
-
-	userData := cloudConfig.UserDataBase64()
+	userData := generateUserData(adminPublicKey, projectPublicKey, oUserData)
 
 	resetPassword := jsonutils.QueryBoolean(config, "reset_password", false)
 	passwd, _ := config.GetString("password")
@@ -311,6 +288,13 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 
+			if len(userData) > 0 {
+				err := iVM.UpdateUserData(userData)
+				if err != nil {
+					log.Errorf("update userdata fail %s", err)
+				}
+			}
+
 			err := iVM.DeployVM(name, passwd, publicKey, deleteKeypair, description)
 			if err != nil {
 				return nil, err
@@ -335,6 +319,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			return data, nil
 		})
 	} else if action == "rebuild" {
+
 		iVM, err := ihost.GetIVMById(guest.GetExternalId())
 		if err != nil || iVM == nil {
 			log.Errorf("cannot find vm %s", err)
@@ -342,6 +327,13 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		}
 
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+			if len(userData) > 0 {
+				err := iVM.UpdateUserData(userData)
+				if err != nil {
+					log.Errorf("update userdata fail %s", err)
+				}
+			}
+
 			diskId, err := iVM.RebuildRoot(desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
 			if err != nil {
 				return nil, err

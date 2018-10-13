@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -24,20 +25,22 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"encoding/base64"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+
+	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/compute/sshkeys"
 )
 
 const (
@@ -3313,12 +3316,12 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, host *SHost, para
 	}
 
 	// add default public keys
-	_, adminPubKey, err := getSshAdminKeypair(ctx)
+	_, adminPubKey, err := sshkeys.GetSshAdminKeypair(ctx)
 	if err != nil {
 		log.Errorf("fail to get ssh admin public key %s", err)
 	}
 
-	_, projPubKey, err := getSshProjectKeypair(ctx, self.ProjectId)
+	_, projPubKey, err := sshkeys.GetSshProjectKeypair(ctx, self.ProjectId)
 
 	if err != nil {
 		log.Errorf("fail to get ssh project public key %s", err)

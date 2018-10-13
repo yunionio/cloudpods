@@ -1,7 +1,15 @@
 package modules
 
 func registerCompute(mod BaseManagerInterface) {
+	registerComputeV1(mod)
+	registerComputeV2(mod)
+}
+
+func registerComputeV1(mod BaseManagerInterface) {
 	_register("v1", mod)
+}
+
+func registerComputeV2(mod BaseManagerInterface) {
 	_register("v2", mod)
 }
 

@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"encoding/base64"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"fmt"
 	"strings"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -19,8 +18,15 @@ import (
  *
  */
 
+type TSudoPolicy string
+
 const (
 	CLOUD_CONFIG_HEADER = "#cloud-config\n"
+
+	USER_SUDO_NOPASSWD = TSudoPolicy("sudo_nopasswd")
+	USER_SUDO          = TSudoPolicy("sudo")
+	USER_SUDO_DENY     = TSudoPolicy("sudo_deny")
+	USER_SUDO_NONE     = TSudoPolicy("")
 )
 
 type SWriteFile struct {
@@ -34,7 +40,9 @@ type SWriteFile struct {
 type SUser struct {
 	Name              string
 	Passwd            string
+	LockPassword      string
 	SshAuthorizedKeys []string
+	Sudo              string
 }
 
 type SPhoneHome struct {
@@ -42,12 +50,14 @@ type SPhoneHome struct {
 }
 
 type SCloudConfig struct {
-	Users      []SUser
-	WriteFiles []SWriteFile
-	Runcmd     []string
-	Bootcmd    []string
-	Packages   []string
-	PhoneHome  *SPhoneHome
+	Users       []SUser
+	WriteFiles  []SWriteFile
+	Runcmd      []string
+	Bootcmd     []string
+	Packages    []string
+	PhoneHome   *SPhoneHome
+	DisableRoot int
+	SshPwauth   int
 }
 
 func NewWriteFile(path string, content string, perm string, owner string, isBase64 bool) SWriteFile {
@@ -66,24 +76,43 @@ func NewWriteFile(path string, content string, perm string, owner string, isBase
 	return f
 }
 
-func NewUser(name string, passwd string, pubkeys []string, nohash bool) SUser {
-	u := SUser{}
+func NewUser(name string) SUser {
+	u := SUser{Name: name}
+	return u
+}
 
-	u.Name = name
-	if len(passwd) > 0 {
-		if nohash {
-			u.Passwd = passwd
-		} else {
-			hash, err := bcrypt.GenerateFromPassword([]byte(passwd), bcrypt.DefaultCost)
-			if err != nil {
-				log.Errorf("GenerateFromPassword error %s", err)
-			} else {
-				u.Passwd = string(hash)
-			}
-		}
+func (u *SUser) SudoPolicy(policy TSudoPolicy) *SUser {
+	switch policy {
+	case USER_SUDO_NOPASSWD:
+		u.Sudo = "ALL=(ALL) NOPASSWD:ALL"
+	case USER_SUDO:
+		u.Sudo = "ALL=(ALL) ALL"
+	case USER_SUDO_DENY:
+		u.Sudo = "False"
+	default:
+		u.Sudo = ""
 	}
-	u.SshAuthorizedKeys = pubkeys
+	return u
+}
 
+func (u *SUser) SshKey(key string) *SUser {
+	if u.SshAuthorizedKeys == nil {
+		u.SshAuthorizedKeys = make([]string, 0)
+	}
+	u.SshAuthorizedKeys = append(u.SshAuthorizedKeys, key)
+	return u
+}
+
+func (u *SUser) Password(passwd string) *SUser {
+	if len(passwd) > 0 {
+		hash, err := seclib2.GeneratePassword(passwd)
+		if err != nil {
+			log.Errorf("GeneratePassword error %s", err)
+		} else {
+			u.Passwd = hash
+		}
+		u.LockPassword = "false"
+	}
 	return u
 }
 

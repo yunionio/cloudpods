@@ -859,3 +859,11 @@ func (self *SInstance) GetBillingType() string {
 func (self *SInstance) GetExpiredAt() time.Time {
 	return time.Now()
 }
+
+func (self *SInstance) UpdateUserData(userData string) error {
+	params := compute.VirtualMachineUpdate{}
+	params.OsProfile = &compute.OSProfile{
+		CustomData: &userData,
+	}
+	return self.host.zone.region.UpdateInstance(self.ID, params)
+}

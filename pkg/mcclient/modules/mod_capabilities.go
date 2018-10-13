@@ -26,5 +26,5 @@ func init() {
 	Capabilities = SCapabilityManager{
 		ResourceManager: NewComputeManager("capability", "capabilities", []string{}, []string{}),
 	}
-	registerCompute(&Capabilities)
+	registerComputeV2(&Capabilities)
 }
