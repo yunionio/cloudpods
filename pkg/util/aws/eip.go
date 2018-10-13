@@ -1,23 +1,23 @@
 package aws
 
 import (
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
 type SEipAddress struct {
 	region *SRegion
 
-	AllocationId string
-	Tags []*ec2.Tag
-	InstanceId   string
-	AssociationId string
-	Domain string
-	NetworkInterfaceId string
+	AllocationId            string
+	Tags                    STags
+	InstanceId              string
+	AssociationId           string
+	Domain                  string
+	NetworkInterfaceId      string
 	NetworkInterfaceOwnerId string
-	PrivateIpAddress string
-	IpAddress string
+	PrivateIpAddress        string
+	IpAddress               string
 }
 
 func (self *SEipAddress) GetId() string {
@@ -107,16 +107,16 @@ func (region *SRegion) GetEips(eipId string) ([]SEipAddress, int, error) {
 	eips := make([]SEipAddress, 0)
 	for _, ip := range res.Addresses {
 		eips = append(eips, SEipAddress{region: region, AllocationId: *ip.AllocationId,
-		Tags: ip.Tags,
-		InstanceId: *ip.InstanceId,
-		AssociationId: *ip.AssociationId,
-		Domain: *ip.Domain,
-		NetworkInterfaceId: *ip.NetworkInterfaceId,
-		NetworkInterfaceOwnerId:*ip.NetworkInterfaceOwnerId,
-		PrivateIpAddress:*ip.PrivateIpAddress,
-		IpAddress:*ip.PublicIp,
+			Tags:                    STags{},
+			InstanceId:              *ip.InstanceId,
+			AssociationId:           *ip.AssociationId,
+			Domain:                  *ip.Domain,
+			NetworkInterfaceId:      *ip.NetworkInterfaceId,
+			NetworkInterfaceOwnerId: *ip.NetworkInterfaceOwnerId,
+			PrivateIpAddress:        *ip.PrivateIpAddress,
+			IpAddress:               *ip.PublicIp,
 		})
 	}
-	
+
 	return eips, len(eips), nil
 }
