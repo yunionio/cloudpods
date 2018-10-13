@@ -69,7 +69,8 @@ func init() {
 			"Secgroup", "Secgrp_id",
 			"vrouter", "vrouter_id",
 			"Created_at", "Group_name",
-			"Group_id", "Hypervisor", "os_type"},
+			"Group_id", "Hypervisor", "os_type",
+			"expired_at"},
 		[]string{"Host", "Tenant", "is_system", "auto_delete_at"})}
 
 	registerCompute(&Servers)
