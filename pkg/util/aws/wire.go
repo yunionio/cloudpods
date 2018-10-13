@@ -3,6 +3,7 @@ package aws
 import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
+	"fmt"
 )
 
 type SWire struct {
@@ -13,43 +14,50 @@ type SWire struct {
 }
 
 func (self *SWire) GetId() string {
-	panic("implement me")
+	return fmt.Sprintf("%s-%s", self.vpc.GetId(), self.zone.GetId())
 }
 
 func (self *SWire) GetName() string {
-	panic("implement me")
+	return self.GetId()
 }
 
 func (self *SWire) GetGlobalId() string {
-	panic("implement me")
+	return fmt.Sprintf("%s-%s", self.vpc.GetGlobalId(), self.zone.GetGlobalId())
 }
 
 func (self *SWire) GetStatus() string {
-	panic("implement me")
+	return "available"
 }
 
 func (self *SWire) Refresh() error {
-	panic("implement me")
+	return nil
 }
 
 func (self *SWire) IsEmulated() bool {
-	panic("implement me")
+	return true
 }
 
 func (self *SWire) GetMetadata() *jsonutils.JSONDict {
-	panic("implement me")
+	return nil
 }
 
 func (self *SWire) GetIVpc() cloudprovider.ICloudVpc {
-	panic("implement me")
+	return self.vpc
 }
 
 func (self *SWire) GetIZone() cloudprovider.ICloudZone {
-	panic("implement me")
+	return self.zone
 }
 
 func (self *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
-	panic("implement me")
+	if self.inetworks == nil {
+		// todo: vpc.fetchVSwitches()
+		// err := self.vpc.fetchVSwitches()
+		// if err != nil {
+			return nil, nil
+		// }
+	}
+	return self.inetworks, nil
 }
 
 func (self *SWire) GetBandwidth() int {
