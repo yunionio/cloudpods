@@ -4,7 +4,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/secrules"
-	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
 type SUserCIDRs struct {
@@ -19,15 +18,14 @@ type SVpc struct {
 	region *SRegion
 
 	iwires []cloudprovider.ICloudWire
-
 	secgroups []cloudprovider.ICloudSecurityGroup
 
-	CidrBlock    string
-	Tags         []*ec2.Tag
-	IsDefault    bool
 	RegionId     string
-	Status       string
 	VpcId        string
+	CidrBlock    string
+	IsDefault    bool
+	Status       string
+	Tags         map[string]string  // 名称、描述等
 }
 
 func (self *SVpc) addWire(wire *SWire) {
