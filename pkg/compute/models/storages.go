@@ -675,7 +675,7 @@ func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 
 	regionStr, _ := query.GetString("region")
 	if len(regionStr) > 0 {
-		regionObj, err := CloudregionManager.FetchByIdOrName(userCred.GetProjectId(), regionStr)
+		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionStr)
 		if err != nil {
 			return nil, httperrors.NewNotFoundError("Region %s not found: %s", regionStr, err)
 		}

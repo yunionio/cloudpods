@@ -54,7 +54,7 @@ func (manager *SWireManager) ValidateCreateData(ctx context.Context, userCred mc
 	}
 
 	if len(vpcStr) > 0 {
-		vpcObj, err := VpcManager.FetchByIdOrName(userCred.GetProjectId(), vpcStr)
+		vpcObj, err := VpcManager.FetchByIdOrName(userCred, vpcStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewNotFoundError("Vpc %s not found", vpcStr)
@@ -534,7 +534,7 @@ func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 
 	vpcStr := jsonutils.GetAnyString(query, []string{"vpc_id", "vpc"})
 	if len(vpcStr) > 0 {
-		vpc, err := VpcManager.FetchByIdOrName(userCred.GetProjectId(), vpcStr)
+		vpc, err := VpcManager.FetchByIdOrName(userCred, vpcStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewNotFoundError("vpc %s not found", vpcStr)
@@ -547,7 +547,7 @@ func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 
 	regionStr := jsonutils.GetAnyString(query, []string{"region_id", "region", "cloudregion_id", "cloudregion"})
 	if len(regionStr) > 0 {
-		region, err := CloudregionManager.FetchByIdOrName(userCred.GetProjectId(), regionStr)
+		region, err := CloudregionManager.FetchByIdOrName(userCred, regionStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewNotFoundError("region %s not found", regionStr)

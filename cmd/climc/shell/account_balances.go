@@ -14,7 +14,7 @@ func init() {
 		StatMonth string `help:"stat_month of the query"`
 		StartDate string `help:"start_date of the query"`
 		EndDate   string `help:"end_date of the query"`
-		QueryType   string `help:"query_type of the query"`
+		QueryType string `help:"query_type of the query"`
 		Platform  string `help:"platform of the query"`
 		ProjectId string `help:"project_id of the query"`
 	}

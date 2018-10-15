@@ -70,6 +70,13 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 	if resetPassword && len(passwd) == 0 {
 		passwd = seclib2.RandomPassword2(12)
 	}
+
+	adminPublicKey, _ := config.GetString("admin_public_key")
+	projectPublicKey, _ := config.GetString("project_public_key")
+	oUserData, _ := config.GetString("user_data")
+
+	userData := generateUserData(adminPublicKey, projectPublicKey, oUserData)
+
 	desc := SManagedVMCreateConfig{}
 	if err := config.Unmarshal(&desc, "desc"); err != nil {
 		return err
@@ -98,7 +105,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 			}
 
 			if iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId); err != nil {
+				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId, userData); err != nil {
 				return nil, err
 			} else {
 				log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())

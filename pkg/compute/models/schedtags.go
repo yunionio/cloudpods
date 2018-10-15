@@ -59,7 +59,7 @@ func (manager *SSchedtagManager) AllowCreateItem(ctx context.Context, userCred m
 func (manager *SSchedtagManager) ValidateSchedtags(userCred mcclient.TokenCredential, schedtags map[string]string) (map[string]string, error) {
 	ret := make(map[string]string)
 	for tag, act := range schedtags {
-		schedtagObj, err := manager.FetchByIdOrName("", tag)
+		schedtagObj, err := manager.FetchByIdOrName(nil, tag)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError("Invalid schedtag %s", tag)

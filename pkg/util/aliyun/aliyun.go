@@ -4,8 +4,6 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 
-	"time"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -21,6 +19,8 @@ const (
 	ALIYUN_API_VERSION = "2014-05-26"
 
 	ALIYUN_BSS_API_VERSION = "2017-12-14"
+
+	ALIYUN_RAM_API_VERSION = "2015-05-01"
 )
 
 type SAliyunClient struct {
@@ -44,10 +44,6 @@ func jsonRequest(client *sdk.Client, apiName string, params map[string]string) (
 	return _jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params)
 }
 
-func businessRequest(client *sdk.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	return _jsonRequest(client, "business.aliyuncs.com", ALIYUN_BSS_API_VERSION, apiName, params)
-}
-
 func _jsonRequest(client *sdk.Client, domain string, version string, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	req := requests.NewCommonRequest()
 	req.Domain = domain
@@ -58,6 +54,7 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 			req.QueryParams[k] = v
 		}
 	}
+	req.Scheme = "https"
 
 	resp, err := client.ProcessCommonRequest(req)
 	if err != nil {
@@ -92,14 +89,6 @@ func (self *SAliyunClient) jsonRequest(apiName string, params map[string]string)
 		return nil, err
 	}
 	return jsonRequest(cli, apiName, params)
-}
-
-func (self *SAliyunClient) businessRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := self.getDefaultClient()
-	if err != nil {
-		return nil, err
-	}
-	return businessRequest(cli, apiName, params)
 }
 
 func (self *SAliyunClient) fetchRegions() error {
@@ -217,86 +206,4 @@ func (self *SAliyunClient) GetIStoragecacheById(id string) (cloudprovider.ICloud
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
-}
-
-type SAccountBalance struct {
-	AvailableAmount     float64
-	AvailableCashAmount float64
-	CreditAmount        float64
-	MybankCreditAmount  float64
-	Currency            string
-}
-
-type SCashCoupon struct {
-	ApplicableProducts  string
-	ApplicableScenarios string
-	Balance             float64
-	CashCouponId        string
-	CashCouponNo        string
-	EffectiveTime       time.Time
-	ExpiryTime          time.Time
-	GrantedTime         time.Time
-	NominalValue        float64
-	Status              string
-}
-
-type SPrepaidCard struct {
-	PrepaidCardId       string
-	PrepaidCardNo       string
-	GrantedTime         time.Time
-	EffectiveTime       time.Time
-	ExpiryTime          time.Time
-	NominalValue        float64
-	Balance             float64
-	ApplicableProducts  string
-	ApplicableScenarios string
-}
-
-func (self *SAliyunClient) QueryAccountBalance() (*SAccountBalance, error) {
-	body, err := self.businessRequest("QueryAccountBalance", nil)
-	if err != nil {
-		log.Errorf("QueryAccountBalance fail %s", err)
-		return nil, err
-	}
-	balance := SAccountBalance{}
-	err = body.Unmarshal(&balance, "Data")
-	if err != nil {
-		log.Errorf("Unmarshal AccountBalance fail %s", err)
-		return nil, err
-	}
-	return &balance, nil
-}
-
-func (self *SAliyunClient) QueryCashCoupons() ([]SCashCoupon, error) {
-	params := make(map[string]string)
-	params["EffectiveOrNot"] = "True"
-	body, err := self.businessRequest("QueryCashCoupons", params)
-	if err != nil {
-		log.Errorf("QueryCashCoupons fail %s", err)
-		return nil, err
-	}
-	coupons := make([]SCashCoupon, 0)
-	err = body.Unmarshal(&coupons, "Data", "CashCoupon")
-	if err != nil {
-		log.Errorf("Unmarshal fail %s", err)
-		return nil, err
-	}
-	return coupons, nil
-}
-
-func (self *SAliyunClient) QueryPrepaidCards() ([]SPrepaidCard, error) {
-	params := make(map[string]string)
-	params["EffectiveOrNot"] = "True"
-	body, err := self.businessRequest("QueryPrepaidCards", params)
-	if err != nil {
-		log.Errorf("QueryPrepaidCards fail %s", err)
-		return nil, err
-	}
-	cards := make([]SPrepaidCard, 0)
-	err = body.Unmarshal(&cards, "Data", "PrepaidCard")
-	if err != nil {
-		log.Errorf("Unmarshal fail %s", err)
-		return nil, err
-	}
-	return cards, nil
 }

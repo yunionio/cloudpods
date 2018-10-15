@@ -16,7 +16,7 @@ type TillerCreateOptions struct {
 	Canary bool `json:"canary_image"`
 
 	// Override Tiller image
-	Image string `json:"tiller_image" default:"yunion/tiller:v2.9.0"`
+	Image string `json:"tiller_image" default:"yunion/tiller:v2.9.1"`
 	// Limit the maximum number of revisions saved per release. Use 0 for no limit.
 	MaxHistory int `json:"history_max"`
 }

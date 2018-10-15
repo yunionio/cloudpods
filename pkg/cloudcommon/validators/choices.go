@@ -23,7 +23,7 @@ func (cs Choices) Has(choice string) bool {
 func (cs Choices) String() string {
 	choices := make([]string, len(cs))
 	i := 0
-	for choice, _ := range cs {
+	for choice := range cs {
 		choices[i] = choice
 		i++
 	}

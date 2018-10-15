@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/capabilities"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/specs"
+	"yunion.io/x/onecloud/pkg/compute/sshkeys"
 	"yunion.io/x/onecloud/pkg/compute/usages"
 )
 
@@ -21,6 +22,7 @@ func InitHandlers(app *appsrv.Application) {
 	usages.AddUsageHandler("", app)
 	capabilities.AddCapabilityHandler("", app)
 	specs.AddSpecHandler("", app)
+	sshkeys.AddSshKeysHandler("", app)
 
 	taskman.AddTaskHandler("", app)
 

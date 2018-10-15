@@ -38,6 +38,7 @@ func init() {
 		AccessURL string `helo:"hello" metavar:"Azure choices: <AzureGermanCloud、AzureChinaCloud、AzureUSGovernmentCloud、AzurePublicCloud>"`
 		Desc      string `help:"Description"`
 		Enabled   bool   `help:"Enabled the account automatically"`
+		Import    bool   `help:"Import all sub account automatically"`
 	}
 	R(&CloudaccountCreateOptions{}, "cloud-account-create", "Create a cloud account", func(s *mcclient.ClientSession, args *CloudaccountCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -47,6 +48,9 @@ func init() {
 		params.Add(jsonutils.NewString(args.PROVIDER), "provider")
 		if args.Enabled {
 			params.Add(jsonutils.JSONTrue, "enabled")
+		}
+		if args.Import {
+			params.Add(jsonutils.JSONTrue, "import")
 		}
 		if len(args.AccessURL) > 0 {
 			params.Add(jsonutils.NewString(args.AccessURL), "access_url")
@@ -140,6 +144,19 @@ func init() {
 
 	R(&CloudaccountShowOptions{}, "cloud-account-balance", "Get balance", func(s *mcclient.ClientSession, args *CloudaccountShowOptions) error {
 		result, err := modules.Cloudaccounts.GetSpecific(s, args.ID, "balance", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type CloudaccountImportOptions struct {
+		ID      string `help:"ID or Name of cloud account"`
+		Enabled bool   `help:"Import sub accounts with enabled status"`
+	}
+	R(&CloudaccountImportOptions{}, "cloud-account-import", "Import sub cloud account", func(s *mcclient.ClientSession, args *CloudaccountImportOptions) error {
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "import", jsonutils.Marshal(map[string]bool{"enabled": args.Enabled}))
 		if err != nil {
 			return err
 		}

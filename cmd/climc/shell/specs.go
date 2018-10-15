@@ -15,7 +15,7 @@ func init() {
 		Model    string `help:"Specified model specs" choices:"hosts|isolated_devices|guests"`
 		HostType string `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv"`
 		Gpu      bool   `help:"Only show gpu devices"`
-		Zone string `help:"Filter by zone id or name"`
+		Zone     string `help:"Filter by zone id or name"`
 	}
 	R(&ListOptions{}, "spec", "List all kinds of model specs", func(s *mcclient.ClientSession, args *ListOptions) error {
 		var params *jsonutils.JSONDict

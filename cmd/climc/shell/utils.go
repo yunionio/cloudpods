@@ -5,8 +5,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/util/printutils"
 	"yunion.io/x/onecloud/pkg/util/excelutils"
+	"yunion.io/x/onecloud/pkg/util/printutils"
 )
 
 func printList(list *modules.ListResult, columns []string) {
@@ -35,7 +35,7 @@ func exportList(list *modules.ListResult, file string, exportKeys string, export
 	if len(exportKeys) > 0 {
 		keys = strings.Split(exportKeys, ",")
 		texts = strings.Split(exportTexts, ",")
-	}else  {
+	} else {
 		keys = columns
 		texts = columns
 	}

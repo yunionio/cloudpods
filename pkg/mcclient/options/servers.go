@@ -31,6 +31,11 @@ type ServerIdOptions struct {
 	ID string `help:"ID or name of the server" json:"-"`
 }
 
+type ServerLoginInfoOptions struct {
+	ID  string `help:"ID or name of the server" json:"-"`
+	Key string `help:"File name of private key, if password is encrypted by key"`
+}
+
 type ServerIdsOptions struct {
 	ID []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
 }
@@ -115,6 +120,7 @@ type ServerCreateOptions struct {
 	Count            *int     `help:"Create multiple simultaneously" default:"1" json:"-"`
 	DryRun           *bool    `help:"Dry run to test scheduler" json:"-"`
 	RaidConfig       []string `help:"Baremetal raid config" json:"-"`
+	UserDataFile     string   `help:"user_data file path" json:"-"`
 }
 
 func (opts *ServerCreateOptions) Params() (*jsonutils.JSONDict, error) {

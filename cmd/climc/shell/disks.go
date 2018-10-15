@@ -74,12 +74,18 @@ func init() {
 		return nil
 	})
 
-	R(&DiskDetailOptions{}, "disk-delete", "Delete a disk", func(s *mcclient.ClientSession, args *DiskDetailOptions) error {
-		disk, e := modules.Disks.Delete(s, args.ID, nil)
-		if e != nil {
-			return e
+	type DiskDeleteOptions struct {
+		ID                    []string `help:"ID of disks to delete" metavar:"DISK"`
+		OverridePendingDelete bool     `help:"Delete disk directly instead of pending delete"`
+	}
+
+	R(&DiskDeleteOptions{}, "disk-delete", "Delete a disk", func(s *mcclient.ClientSession, args *DiskDeleteOptions) error {
+		params := jsonutils.NewDict()
+		if args.OverridePendingDelete {
+			params.Add(jsonutils.JSONTrue, "override_pending_delete")
 		}
-		printObject(disk)
+		ret := modules.Disks.BatchDeleteWithParam(s, args.ID, params, nil)
+		printBatchResults(ret, modules.Disks.GetColumns(s))
 		return nil
 	})
 
@@ -202,12 +208,16 @@ func init() {
 		return nil
 	})
 	type DiskResetOptions struct {
-		DISK     string `help:"ID or name of disk"`
-		SNAPSHOT string `help:"snapshots ID of disk`
+		DISK      string `help:"ID or name of disk"`
+		SNAPSHOT  string `help:"snapshots ID of disk`
+		AutoStart bool   `help:"Autostart guest"`
 	}
 	R(&DiskResetOptions{}, "disk-reset", "Resize a disk", func(s *mcclient.ClientSession, args *DiskResetOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.SNAPSHOT), "snapshot_id")
+		if args.AutoStart {
+			params.Add(jsonutils.JSONTrue, "auto_start")
+		}
 		disk, err := modules.Disks.PerformAction(s, args.DISK, "disk-reset", params)
 		if err != nil {
 			return err

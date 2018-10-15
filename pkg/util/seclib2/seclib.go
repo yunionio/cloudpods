@@ -13,17 +13,17 @@ const (
 	UPPERS  = "ABCDEFGHJKMNPRSTUVWXYZ"
 	PUNC    = "()~@#$%^&*-+={}[]:;<>,.?/"
 
-	ALL_DIGITS = "0123456789"
+	ALL_DIGITS  = "0123456789"
 	ALL_LETTERS = "abcdefghijklmnopqrstuvwxyz"
 	ALL_UPPERS  = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	ALL_PUNC = "~`!@#$%^&*()-_=+[]{}|:';\",./<>?"
+	ALL_PUNC    = "~`!@#$%^&*()-_=+[]{}|:';\",./<>?"
 )
 
 type PasswordStrength struct {
-	Digits int
+	Digits     int
 	Lowercases int
 	Uppercases int
-	Punctuats int
+	Punctuats  int
 }
 
 var CHARS = fmt.Sprintf("%s%s%s%s", DIGITS, LETTERS, UPPERS, PUNC)

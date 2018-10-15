@@ -14,6 +14,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -49,7 +50,7 @@ type SCloudaccount struct {
 	Provider string `width:"64" charset:"ascii" list:"admin" create:"admin_required"`
 }
 
-func (self *SCloudaccount) getCloudproviders() []SCloudprovider {
+func (self *SCloudaccount) GetCloudproviders() []SCloudprovider {
 	cloudproviders := []SCloudprovider{}
 	q := CloudproviderManager.Query().Equals("cloudaccount_id", self.Id)
 	if err := db.FetchModelObjects(CloudproviderManager, q, &cloudproviders); err != nil {
@@ -62,7 +63,7 @@ func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context) error {
 	if self.Enabled {
 		return httperrors.NewInvalidStatusError("account is enabled")
 	}
-	if len(self.getCloudproviders()) > 0 {
+	if len(self.GetCloudproviders()) > 0 {
 		return httperrors.NewNotEmptyError("Not an empty cloud account")
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -95,7 +96,7 @@ func (self *SCloudaccountManager) ValidateCreateData(ctx context.Context, userCr
 		return nil, httperrors.NewConflictError("The account has been registered")
 	}
 
-	if subAccount, err := getSubAccounts(name, url, account, secret, provider); err != nil {
+	if subAccount, err := GetSubAccounts(name, url, account, secret, provider); err != nil {
 		return nil, err
 	} else if accounts, err := subAccount.GetArray("data"); err != nil {
 		return nil, err
@@ -108,8 +109,8 @@ func (self *SCloudaccountManager) ValidateCreateData(ctx context.Context, userCr
 func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 	self.savePassword(self.Secret)
-
-	if subAccounts, err := data.GetArray("accounts"); err == nil && len(subAccounts) > 0 {
+	_import, _ := data.Bool("import")
+	if subAccounts, err := data.GetArray("accounts"); err == nil && _import && len(subAccounts) > 0 {
 		for _, subAccount := range subAccounts {
 			name, _ := subAccount.GetString("name")
 			account, _ := subAccount.GetString("account")
@@ -183,7 +184,7 @@ func (self *SCloudaccount) PerformSync(ctx context.Context, userCred mcclient.To
 		return nil, httperrors.NewInputParameterError("invalid input %s", err)
 	}
 	if self.CanSync() || syncRange.Force {
-		err = self.startSyncCloudProviderInfoTask(ctx, userCred, nil, "")
+		err = self.startSyncCloudProviderInfoTask(ctx, userCred, &syncRange, "")
 	}
 	return nil, err
 }
@@ -220,6 +221,18 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		changed = true
 	}
 	if (len(account) > 0 && account != self.Account) || (len(accessUrl) > 0 && accessUrl != self.AccessUrl) {
+		for _, cloudprovider := range self.GetCloudproviders() {
+			if cloudprovider.Account == self.Account {
+				if len(account) > 0 {
+					if _, err = cloudprovider.GetModelManager().TableSpec().Update(&cloudprovider, func() error {
+						cloudprovider.Account = account
+						return nil
+					}); err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
 		_, err = self.GetModelManager().TableSpec().Update(self, func() error {
 			if len(account) > 0 {
 				self.Account = account
@@ -242,15 +255,16 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 }
 
 func (self *SCloudaccount) startSyncCloudProviderInfoTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange, parentTaskId string) error {
-	for _, cloudprovider := range self.getCloudproviders() {
-		params := jsonutils.NewDict()
-		if syncRange != nil {
-			params.Add(jsonutils.Marshal(syncRange), "sync_range")
-		}
-		if cloudprovider.Enabled {
-			cloudprovider.startSyncCloudProviderInfoTask(ctx, userCred, nil, "")
-		}
+	params := jsonutils.NewDict()
+	if syncRange != nil {
+		params.Add(jsonutils.Marshal(syncRange), "sync_range")
 	}
+	task, err := taskman.TaskManager.NewTask(ctx, "CloudAccountSyncInfoTask", self, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		log.Errorf("startSyncCloudAccountInfoTask newTask error %s", err)
+		return err
+	}
+	task.ScheduleRun(nil)
 	return nil
 }
 
@@ -288,10 +302,16 @@ func (self *SCloudaccount) AllowPerformImport(ctx context.Context, userCred mccl
 	return userCred.IsSystemAdmin()
 }
 
-func (self *SCloudaccount) PerformImport(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SCloudaccount) GetSubAccounts() (jsonutils.JSONObject, error) {
 	if secret, err := self.getPassword(); err != nil {
 		return nil, err
-	} else if subAccounts, err := getSubAccounts(self.Name, self.AccessUrl, self.Account, secret, self.Provider); err != nil {
+	} else {
+		return GetSubAccounts(self.Name, self.AccessUrl, self.Account, secret, self.Provider)
+	}
+}
+
+func (self *SCloudaccount) PerformImport(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if subAccounts, err := self.GetSubAccounts(); err != nil {
 		return nil, err
 	} else if accounts, err := subAccounts.GetArray("data"); err != nil {
 		return nil, err
@@ -321,74 +341,16 @@ func (self *SCloudaccount) PerformImport(ctx context.Context, userCred mcclient.
 						return nil, err
 					}
 					if enabled {
-						newCloudprovider.startSyncCloudProviderInfoTask(ctx, userCred, &SSyncRange{FullSync: true}, "")
+						newCloudprovider.StartSyncCloudProviderInfoTask(ctx, userCred, &SSyncRange{FullSync: true}, "")
 					}
 				}
 			}
 		}
 	}
-	return jsonutils.NewDict(), nil
+	return nil, nil
 }
 
-// func (self *SCloudaccount) PerformGetSubAccounts(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-// 	if !self.Enabled {
-// 		return nil, httperrors.NewInvalidStatusError("Account disabled")
-// 	}
-// 	if provider, err := self.GetDriver(); err != nil {
-// 		return nil, err
-// 	} else if _subAccounts, err := provider.GetSubAccounts(); err != nil {
-// 		return nil, err
-// 	} else {
-// 		result := jsonutils.NewDict()
-// 		data := jsonutils.NewArray()
-// 		accounts := []string{}
-// 		for _, account := range self.getCloudproviders() {
-// 			accounts = append(accounts, account.Account)
-// 			_account := jsonutils.NewDict()
-// 			_account.Add(jsonutils.NewString(account.Account), "account")
-// 			_account.Add(jsonutils.NewString(account.Name), "name")
-// 			_account.Add(jsonutils.JSONTrue, "exist")
-// 			data.Add(_account)
-// 		}
-// 		if _subAccounts != nil {
-// 			if subAccounts, err := _subAccounts.GetArray("data"); err != nil {
-// 				return nil, err
-// 			} else {
-// 				for _, subAccount := range subAccounts {
-// 					if account, err := subAccount.GetString("account"); err != nil {
-// 						log.Errorf("Get subAccount error %v", err)
-// 					} else if !utils.IsInStringArray(account, accounts) {
-// 						_account := subAccount.(*jsonutils.JSONDict)
-// 						_account.Add(jsonutils.JSONFalse, "exist")
-// 						data.Add(_account)
-// 					}
-// 				}
-// 			}
-// 		}
-// 		result.Add(data, "data")
-// 		result.Add(jsonutils.NewInt(int64(data.Length())), "total")
-// 		return result, nil
-// 	}
-// }
-
-// func (manager *SCloudaccountManager) AllowPerformGetSubAccounts(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-// 	return userCred.IsSystemAdmin()
-// }
-
-// func (manager *SCloudaccountManager) PerformGetSubAccounts(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-// 	name, _ := data.GetString("name")
-// 	accessUrl, _ := data.GetString("access_url")
-// 	account, _ := data.GetString("account")
-// 	secret, _ := data.GetString("secret")
-// 	_provider, _ := data.GetString("provider")
-// 	if provider, err := cloudprovider.GetProvider("", name, accessUrl, account, secret, _provider); err != nil {
-// 		return nil, err
-// 	} else {
-// 		return provider.GetSubAccounts()
-// 	}
-// }
-
-func getSubAccounts(name, accessUrl, account, secret, provider string) (jsonutils.JSONObject, error) {
+func GetSubAccounts(name, accessUrl, account, secret, provider string) (jsonutils.JSONObject, error) {
 	if provider, err := cloudprovider.GetProvider("", name, accessUrl, account, secret, provider); err != nil {
 		return nil, err
 	} else {
@@ -403,27 +365,28 @@ func (self *SCloudaccount) SaveSysInfo(info jsonutils.JSONObject) {
 	})
 }
 
-func (manager *SCloudaccountManager) FetchCloudproviderById(providerId string) *SCloudprovider {
-	providerObj, err := manager.FetchById(providerId)
+func (manager *SCloudaccountManager) FetchCloudaccountById(accountId string) *SCloudaccount {
+	providerObj, err := manager.FetchById(accountId)
 	if err != nil {
 		log.Errorf("%s", err)
 		return nil
 	}
-	return providerObj.(*SCloudprovider)
+	return providerObj.(*SCloudaccount)
 }
 
-func (manager *SCloudaccountManager) FetchCloudproviderByIdOrName(providerId string) *SCloudprovider {
-	providerObj, err := manager.FetchByIdOrName("", providerId)
+func (manager *SCloudaccountManager) FetchCloudaccountByIdOrName(accountId string) *SCloudaccount {
+	providerObj, err := manager.FetchByIdOrName(nil, accountId)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			log.Errorf("%s", err)
 		}
 		return nil
 	}
-	return providerObj.(*SCloudprovider)
+	return providerObj.(*SCloudaccount)
 }
 
 func (self *SCloudaccount) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	extra.Add(jsonutils.Marshal(self.GetCloudproviders()), "accounts")
 	return extra
 }
 
@@ -446,7 +409,7 @@ func (manager *SCloudaccountManager) InitializeData() error {
 	}
 	newAccounts := map[string]string{}
 	for _, cloudprovider := range cloudproviders {
-		Account, providerAccount, providerName := cloudprovider.Account, cloudprovider.Account, cloudprovider.Name
+		Account, providerAccount, providerName := cloudprovider.Account, "", cloudprovider.Name
 		if cloudprovider.Provider == CLOUD_PROVIDER_AZURE {
 			if accountInfo := strings.Split(cloudprovider.Account, "/"); len(accountInfo) == 2 {
 				if _, ok := newAccounts[accountInfo[0]]; ok {

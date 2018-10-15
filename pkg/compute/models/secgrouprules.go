@@ -98,7 +98,7 @@ func (manager *SSecurityGroupRuleManager) ListItemFilter(ctx context.Context, q 
 		return nil, err
 	}
 	if defsecgroup, _ := query.GetString("secgroup"); len(defsecgroup) > 0 {
-		if secgroup, _ := SecurityGroupManager.FetchByIdOrName(userCred.GetProjectId(), defsecgroup); secgroup != nil {
+		if secgroup, _ := SecurityGroupManager.FetchByIdOrName(userCred, defsecgroup); secgroup != nil {
 			sql = sql.Equals("secgroup_id", secgroup.GetId())
 		} else {
 			return nil, httperrors.NewNotFoundError(fmt.Sprintf("Security Group %s not found", defsecgroup))
@@ -130,7 +130,7 @@ func (manager *SSecurityGroupRuleManager) ValidateCreateData(
 	data *jsonutils.JSONDict,
 ) (*jsonutils.JSONDict, error) {
 	if defsecgroup, _ := data.GetString("secgroup"); len(defsecgroup) > 0 {
-		if secgroup, _ := SecurityGroupManager.FetchByIdOrName(userCred.GetProjectId(), defsecgroup); secgroup != nil {
+		if secgroup, _ := SecurityGroupManager.FetchByIdOrName(userCred, defsecgroup); secgroup != nil {
 			data.Set("secgroup_id", jsonutils.NewString(secgroup.GetId()))
 		} else {
 			return nil, httperrors.NewNotFoundError(fmt.Sprintf("Security Group %s not found", defsecgroup))

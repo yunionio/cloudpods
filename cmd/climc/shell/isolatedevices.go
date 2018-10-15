@@ -13,7 +13,7 @@ func init() {
 		Unused bool   `help:"Only show unused devices"`
 		Gpu    bool   `help:"Only show gpu devices"`
 		Host   string `help:"Host ID or Name"`
-		Zone string `help:"Zone ID or Name"`
+		Zone   string `help:"Zone ID or Name"`
 	}
 	R(&DeviceListOptions{}, "isolated-device-list", "List isolated devices like GPU", func(s *mcclient.ClientSession, args *DeviceListOptions) error {
 		var params *jsonutils.JSONDict

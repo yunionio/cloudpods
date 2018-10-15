@@ -2,7 +2,6 @@ package excelutils
 
 import "testing"
 
-
 func arrayEqual(a1, a2 []int) bool {
 	if len(a1) != len(a2) {
 		return false
@@ -17,10 +16,10 @@ func arrayEqual(a1, a2 []int) bool {
 
 func TestDecimalBaseMaxWidth(t *testing.T) {
 	cases := []struct {
-		decIn int
+		decIn  int
 		baseIn int
-		want int
-	} {
+		want   int
+	}{
 		{100, 10, 3},
 		{16, 16, 2},
 		{15, 16, 1},
@@ -33,12 +32,12 @@ func TestDecimalBaseMaxWidth(t *testing.T) {
 	}
 
 	cases2 := []struct {
-		decIn int
+		decIn  int
 		baseIn int
-		width int
-		want int
-		want2 int
-	} {
+		width  int
+		want   int
+		want2  int
+	}{
 		{100, 10, 3, 1, 100},
 		{16, 16, 2, 1, 16},
 		{15, 16, 1, 15, 1},
@@ -52,10 +51,10 @@ func TestDecimalBaseMaxWidth(t *testing.T) {
 	}
 
 	cases3 := []struct {
-		decIn int
+		decIn  int
 		baseIn int
-		want []int
-	} {
+		want   []int
+	}{
 		{100, 10, []int{1, 0, 0}},
 		{16, 16, []int{1, 0}},
 		{0, 16, []int{0}},
@@ -76,8 +75,8 @@ func TestDecimalBaseMaxWidth(t *testing.T) {
 
 	cases4 := []struct {
 		decIn int
-		want string
-	} {
+		want  string
+	}{
 		{0, "A"},
 		{1, "B"},
 		{25, "Z"},
