@@ -74,12 +74,18 @@ func init() {
 		return nil
 	})
 
-	R(&DiskDetailOptions{}, "disk-delete", "Delete a disk", func(s *mcclient.ClientSession, args *DiskDetailOptions) error {
-		disk, e := modules.Disks.Delete(s, args.ID, nil)
-		if e != nil {
-			return e
+	type DiskDeleteOptions struct {
+		ID                    []string `help:"ID of disks to delete" metavar:"DISK"`
+		OverridePendingDelete bool     `help:"Delete disk directly instead of pending delete"`
+	}
+
+	R(&DiskDeleteOptions{}, "disk-delete", "Delete a disk", func(s *mcclient.ClientSession, args *DiskDeleteOptions) error {
+		params := jsonutils.NewDict()
+		if args.OverridePendingDelete {
+			params.Add(jsonutils.JSONTrue, "override_pending_delete")
 		}
-		printObject(disk)
+		ret := modules.Disks.BatchDeleteWithParam(s, args.ID, params, nil)
+		printBatchResults(ret, modules.Disks.GetColumns(s))
 		return nil
 	})
 
