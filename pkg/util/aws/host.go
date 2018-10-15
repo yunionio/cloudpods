@@ -5,7 +5,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"fmt"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"yunion.io/x/log"
 )
 
 type SHost struct {
@@ -153,12 +153,21 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 	return inst, nil
 }
 
-func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, vswitchId string, ipAddr string, desc string,
-	passwd string, storageType string, diskSizes []int, publicKey string, extSecGrpId string) (cloudprovider.ICloudVM, error) {
-	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, vswitchId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId)
+func (self *SHost) CreateVM(name, imgId string, sysDiskSize, cpu, memMB int, networkId, ipAddr, desc,
+	passwd, storageType string, diskSizes []int, publicKey string, secgroupId string) (cloudprovider.ICloudVM, error) {
+	if len(publicKey) < 0 {
+		return nil, fmt.Errorf("AWS instance create error: keypair required")
+	}
+
+	if len(passwd) > 0 {
+		log.Debugf("Ignored: AWS not support password.Use keypair instand")
+	}
+
+	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, networkId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId)
 	if err != nil {
 		return nil, err
 	}
+
 	vm, err := self.GetInstanceById(vmId)
 	if err != nil {
 		return nil, err
@@ -167,12 +176,12 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 	return vm, err
 }
 
-func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int, memMB int,
-	vswitchId string, ipAddr string, desc string, passwd string,
+func (self *SHost) _createVM(name, imgId string, sysDiskSize, cpu, memMB int,
+	networkId, ipAddr, desc, passwd,
 	storageType string, diskSizes []int, publicKey string, secgroupId string) (string, error) {
 	// 网络配置及安全组绑定
 	// todo:// https://www.guru99.com/creating-amazon-ec2-instance.html
-	self.zone.getNetworkById(vswitchId)
+	self.zone.getNetworkById(networkId)
 	// 同步keypair
 
 	// 镜像及硬盘配置

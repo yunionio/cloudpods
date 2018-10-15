@@ -4,6 +4,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"fmt"
+	"yunion.io/x/log"
 )
 
 type SWire struct {
@@ -72,3 +73,18 @@ func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudp
 	panic("implement me")
 }
 
+func (self *SWire) getNetworkById(networkId string) *SNetwork {
+	networks, err := self.GetINetworks()
+	if err != nil {
+		return nil
+	}
+	log.Debugf("search for networks %d", len(networks))
+	for i := 0; i < len(networks); i += 1 {
+		log.Debugf("search %s", networks[i].GetName())
+		network := networks[i]
+		if network.GetId() == networkId {
+			return network.(*SNetwork)
+		}
+	}
+	return nil
+}

@@ -5,6 +5,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"fmt"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/log"
 )
 
 type SZone struct {
@@ -42,8 +43,16 @@ func (self *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
 	return self.iwires, nil
 }
 
-func (self *SZone) getNetworkById(vswitchId string) error {
-	// todo: implement me
+func (self *SZone) getNetworkById(networkId string) error {
+	log.Debugf("Search in wires %d", len(self.iwires))
+	for i := 0; i < len(self.iwires); i += 1 {
+		log.Debugf("Search in wire %s", self.iwires[i].GetName())
+		wire := self.iwires[i].(*SWire)
+		net := wire.getNetworkById(networkId)
+		if net != nil {
+			return net
+		}
+	}
 	return nil
 }
 
