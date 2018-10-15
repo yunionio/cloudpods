@@ -3,7 +3,6 @@ package aws
 import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"fmt"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	sdk "github.com/aws/aws-sdk-go/aws"
@@ -180,10 +179,6 @@ func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return nil, httperrors.NewNotImplementedError("not implement")
 }
 
-func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
-	return nil, httperrors.NewNotImplementedError("not implement")
-}
-
 func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
 	izones, err := self.GetIZones()
 	if err != nil {
@@ -269,20 +264,6 @@ func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudpro
 		return nil, err
 	}
 	return self.GetIVpcById(*vpc.Vpc.VpcId)
-}
-
-func (self *SRegion) CreateEIP(name string, bwMbps int, chargeType string) (cloudprovider.ICloudEIP, error) {
-	eip, err := self.ec2Client.AllocateAddress(&ec2.AllocateAddressInput{})
-	if err != nil {
-		log.Errorf("AllocateEipAddress fail %s", err)
-		return nil, err
-	}
-
-	err = self.fetchInfrastructure()
-	if err != nil {
-		return nil, err
-	}
-	return self.GetIEipById(*eip.AllocationId)
 }
 
 func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) {

@@ -16,3 +16,7 @@ type SInstanceType struct {
 	InstancePpsRx        int
 	InstancePpsTx        int
 }
+
+func (self *SRegion) GetInstanceTypes() ([]SInstanceType, error) {
+	return nil, nil
+}

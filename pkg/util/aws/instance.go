@@ -111,56 +111,6 @@ type SInstance struct {
 	ZoneId                  string
 }
 
-func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit int) ([]SInstance, int, error) {
-	params := &ec2.DescribeInstancesInput{}
-	filters := make([]*ec2.Filter, 0)
-	if len(zoneId) > 0 {
-		name := "availability-zone"
-		filters = append(filters, &ec2.Filter{Name: &name, Values: []*string{&zoneId}})
-	}
-
-	if len(ids) > 0 {
-		_ids := make([]*string, len(ids))
-		for _, id := range ids {
-			_ids = append(_ids, &id)
-		}
-		params = params.SetInstanceIds(_ids)
-	}
-
-	params = params.SetFilters(filters)
-	res, err := self.ec2Client.DescribeInstances(params)
-	if err != nil {
-		log.Errorf("GetInstances fail %s", err)
-		return nil, 0, err
-	}
-
-	instances := make([]SInstance, 0)
-	for _, reservation := range res.Reservations {
-		for _, instance := range reservation.Instances {
-			// todo :implement me later
-			instances = append(instances, SInstance{
-				InstanceId: *instance.InstanceId,
-				ImageId: *instance.ImageId,
-				InnerIpAddress: SIpAddress{[]string{*instance.PrivateIpAddress}},
-				PublicIpAddress: SIpAddress{[]string{*instance.PublicIpAddress}},
-			})
-		}
-	}
-
-	return instances, len(instances), nil
-}
-
-func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
-	instances, _, err := self.GetInstances("", []string{instanceId}, 0, 1)
-	if err != nil {
-		return nil, err
-	}
-	if len(instances) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	return &instances[0], nil
-}
-
 func (self *SInstance) GetId() string {
 	panic("implement me")
 }
@@ -299,4 +249,96 @@ func (self *SInstance) AttachDisk(diskId string) error {
 
 func (self *SInstance) DetachDisk(diskId string) error {
 	panic("implement me")
+}
+
+func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit int) ([]SInstance, int, error) {
+	params := &ec2.DescribeInstancesInput{}
+	filters := make([]*ec2.Filter, 0)
+	if len(zoneId) > 0 {
+		name := "availability-zone"
+		filters = append(filters, &ec2.Filter{Name: &name, Values: []*string{&zoneId}})
+	}
+
+	if len(ids) > 0 {
+		_ids := make([]*string, len(ids))
+		for _, id := range ids {
+			_ids = append(_ids, &id)
+		}
+		params = params.SetInstanceIds(_ids)
+	}
+
+	params = params.SetFilters(filters)
+	res, err := self.ec2Client.DescribeInstances(params)
+	if err != nil {
+		log.Errorf("GetInstances fail %s", err)
+		return nil, 0, err
+	}
+
+	instances := make([]SInstance, 0)
+	for _, reservation := range res.Reservations {
+		for _, instance := range reservation.Instances {
+			// todo :implement me later
+			instances = append(instances, SInstance{
+				InstanceId: *instance.InstanceId,
+				ImageId: *instance.ImageId,
+				InnerIpAddress: SIpAddress{[]string{*instance.PrivateIpAddress}},
+				PublicIpAddress: SIpAddress{[]string{*instance.PublicIpAddress}},
+			})
+		}
+	}
+
+	return instances, len(instances), nil
+}
+
+func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
+	instances, _, err := self.GetInstances("", []string{instanceId}, 0, 1)
+	if err != nil {
+		return nil, err
+	}
+	if len(instances) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return &instances[0], nil
+}
+
+func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
+	zoneId string, desc string, passwd string, disks []SDisk, vSwitchId string, ipAddr string,
+	keypair string) (string, error) {
+		return "", nil
+}
+
+func (self *SRegion) StartVM(instanceId string) error {
+	return nil
+}
+
+func (self *SRegion) StopVM(instanceId string, isForce bool) error {
+	return nil
+}
+
+func (self *SRegion) DeleteVM(instanceId string) error {
+	return nil
+}
+
+func (self *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, deleteKeypair bool, description string) error {
+	return nil
+}
+
+func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
+	return nil
+}
+
+func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd string, keypairName string, sysDiskSizeGB int) (string, error) {
+	return "", nil
+}
+
+func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, vmem int, disks []*SDisk) error {
+	return nil
+}
+
+func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
+	return nil
+}
+
+func (self *SRegion) AttachDisk(instanceId string, diskId string) error {
+	return nil
 }

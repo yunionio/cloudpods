@@ -158,3 +158,27 @@ func (self *SDisk) Resize(newSize int64) error {
 func (self *SDisk) Reset(snapshotId string) error {
 	panic("implement me")
 }
+
+func (self *SRegion) GetDisks(instanceId string, zoneId string, category string, diskIds []string, offset int, limit int) ([]SDisk, int, error) {
+	return nil, 0, nil
+}
+
+func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
+	return nil, nil
+}
+
+func (self *SRegion) DeleteDisk(diskId string) error {
+	return nil
+}
+
+func (self *SRegion) resizeDisk(diskId string, size int64) error {
+	return nil
+}
+
+func (self *SRegion) resetDisk(diskId, snapshotId string) error {
+	return nil
+}
+
+func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
+	return "", nil
+}

@@ -4,6 +4,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 )
 
 type SStoragecache struct {
@@ -60,3 +61,14 @@ func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageI
 	panic("implement me")
 }
 
+func (self *SRegion) CheckBucket(bucketName string) (*oss.Bucket, error) {
+	return self.checkBucket(bucketName)
+}
+
+func (self *SRegion) checkBucket(bucketName string) (*oss.Bucket, error) {
+	return nil, nil
+}
+
+func (self *SRegion) createIImage(snapshoutId, imageName, imageDesc string) (string, error) {
+	return "", nil
+}

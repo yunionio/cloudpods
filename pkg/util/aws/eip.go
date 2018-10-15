@@ -4,6 +4,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SEipAddress struct {
@@ -119,4 +120,42 @@ func (region *SRegion) GetEips(eipId string) ([]SEipAddress, int, error) {
 	}
 
 	return eips, len(eips), nil
+}
+
+func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
+	return nil, nil
+}
+
+func (region *SRegion) AllocateEIP(bwMbps int) (*SEipAddress, error) {
+	return nil, nil
+}
+
+func (self *SRegion) CreateEIP(name string, bwMbps int) (cloudprovider.ICloudEIP, error) {
+	eip, err := self.ec2Client.AllocateAddress(&ec2.AllocateAddressInput{})
+	if err != nil {
+		log.Errorf("AllocateEipAddress fail %s", err)
+		return nil, err
+	}
+
+	err = self.fetchInfrastructure()
+	if err != nil {
+		return nil, err
+	}
+	return self.GetIEipById(*eip.AllocationId)
+}
+
+func (region *SRegion) DeallocateEIP(eipId string) error {
+	return nil
+}
+
+func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
+	return nil
+}
+
+func (region *SRegion) DissociateEip(eipId string, instanceId string) error {
+	return nil
+}
+
+func (region *SRegion) UpdateEipBandwidth(eipId string, bw int) error {
+	return nil
 }

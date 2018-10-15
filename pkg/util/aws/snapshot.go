@@ -1,6 +1,10 @@
 package aws
 
-import "yunion.io/x/jsonutils"
+import (
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
+)
 
 type SnapshotStatusType string
 
@@ -71,3 +75,10 @@ func (self *SSnapshot) GetRegionId() string {
 	panic("implement me")
 }
 
+func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName string, snapshotIds []string, offset int, limit int) ([]SSnapshot, int, error) {
+	return nil, 0 , nil
+}
+
+func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
+	return nil, httperrors.NewNotImplementedError("not implement")
+}
