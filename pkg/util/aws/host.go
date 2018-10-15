@@ -180,8 +180,38 @@ func (self *SHost) _createVM(name, imgId string, sysDiskSize, cpu, memMB int,
 	networkId, ipAddr, desc, passwd,
 	storageType string, diskSizes []int, publicKey string, secgroupId string) (string, error) {
 	// 网络配置及安全组绑定
-	// todo:// https://www.guru99.com/creating-amazon-ec2-instance.html
-	self.zone.getNetworkById(networkId)
+	net := self.zone.getNetworkById(networkId)
+	if net == nil {
+		return "", fmt.Errorf("invalid network ID %s", networkId)
+	}
+
+	if net.wire == nil {
+		log.Errorf("network's wire is empty")
+		return "", fmt.Errorf("network's wire is empty")
+	}
+
+	if net.wire.vpc == nil {
+		log.Errorf("wire's vpc is empty")
+		return "", fmt.Errorf("wire's vpc is empty")
+	}
+
+	if len(secgroupId) == 0 {
+		secgroups, err := net.wire.vpc.GetISecurityGroups()
+		if err != nil {
+			return "", fmt.Errorf("get security group error %s", err)
+		}
+
+		if len(secgroups) == 0 {
+			secId, err := self.zone.region.createDefaultSecurityGroup(net.wire.vpc.VpcId)
+			if err != nil {
+				return "", fmt.Errorf("no secgroup for vpc and failed to create a default One!!")
+			} else {
+				secgroupId = secId
+			}
+		} else {
+			secgroupId = secgroups[0].GetId()
+		}
+	}
 	// 同步keypair
 
 	// 镜像及硬盘配置
