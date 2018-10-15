@@ -4,6 +4,7 @@ import (
 	"time"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
 type SNetwork struct {
@@ -15,8 +16,8 @@ type SNetwork struct {
 	Description             string
 	IsDefault               bool
 	Status                  string
-	VSwitchId               string
-	VSwitchName             string
+	NetworkId               string
+	NetworkName             string
 	VpcId                   string
 	ZoneId                  string
 }
@@ -97,3 +98,42 @@ func (self *SRegion) deleteNetwork(vswitchId string) error {
 	return nil
 }
 
+func (self *SRegion) GetNetwroks(ids []string, vpcId string) ([]SNetwork, int, error) {
+	params := &ec2.DescribeSubnetsInput{}
+	if len(ids) > 0 {
+		_ids := make([]*string, len(ids))
+		for _, id := range ids{
+			_ids = append(_ids, &id)
+		}
+		params.SetSubnetIds(_ids)
+	}
+
+	if len(vpcId) > 0 {
+		filters := make([]*ec2.Filter, 1)
+		vpcFilter := &ec2.Filter{}
+		vpcFilter.SetName("vpc-id")
+		vpcFilter.SetValues([]*string{&vpcId})
+		filters = append(filters, vpcFilter)
+		params.SetFilters(filters)
+	}
+
+	items, err := self.ec2Client.DescribeSubnets(params)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	subnets := make([]SNetwork, len(items.Subnets))
+	for _, item := range items.Subnets {
+		subnet := SNetwork{}
+		subnet.CidrBlock = *item.CidrBlock
+		subnet.VpcId = *item.VpcId
+		subnet.Status = *item.State
+		subnet.ZoneId = *item.AvailabilityZone
+		subnet.IsDefault = *item.DefaultForAz
+		subnet.NetworkId = *item.SubnetId
+		subnet.NetworkName = *item.SubnetId
+		subnets = append(subnets, subnet)
+	}
+
+	return subnets, len(subnets), nil
+}

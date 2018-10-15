@@ -52,11 +52,10 @@ func (self *SWire) GetIZone() cloudprovider.ICloudZone {
 
 func (self *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
 	if self.inetworks == nil {
-		// todo: vpc.fetchVSwitches()
-		// err := self.vpc.fetchVSwitches()
-		// if err != nil {
-			return nil, nil
-		// }
+		err := self.vpc.fetchNetworks()
+		if err != nil {
+			return nil, err
+		}
 	}
 	return self.inetworks, nil
 }
@@ -87,4 +86,20 @@ func (self *SWire) getNetworkById(networkId string) *SNetwork {
 		}
 	}
 	return nil
+}
+
+func (self *SWire) addNetwork(network *SNetwork) {
+	if self.inetworks == nil {
+		self.inetworks = make([]cloudprovider.ICloudNetwork, 0)
+	}
+	find := false
+	for i := 0; i < len(self.inetworks); i += 1 {
+		if self.inetworks[i].GetId() == network.NetworkId {
+			find = true
+			break
+		}
+	}
+	if !find {
+		self.inetworks = append(self.inetworks, network)
+	}
 }

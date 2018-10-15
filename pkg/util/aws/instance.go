@@ -313,7 +313,6 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 					VolumeType: &disk.Type,
 				}
 
-
 				// todo: 这里是镜像绑定的deviceName
 				divceName := fmt.Sprintf("/dev/sda1")
 				blockDevice := &ec2.BlockDeviceMapping{

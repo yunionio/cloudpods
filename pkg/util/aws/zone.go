@@ -43,7 +43,7 @@ func (self *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
 	return self.iwires, nil
 }
 
-func (self *SZone) getNetworkById(networkId string) error {
+func (self *SZone) getNetworkById(networkId string) *SNetwork {
 	log.Debugf("Search in wires %d", len(self.iwires))
 	for i := 0; i < len(self.iwires); i += 1 {
 		log.Debugf("Search in wire %s", self.iwires[i].GetName())

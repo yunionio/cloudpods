@@ -10,10 +10,6 @@ type SUserCIDRs struct {
 	UserCidr []string
 }
 
-type SVSwitchIds struct {
-	VSwitchId []string
-}
-
 type SVpc struct {
 	region *SRegion
 
@@ -97,4 +93,28 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 
 func (self *SVpc) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) (string, error) {
 	panic("implement me")
+}
+
+func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
+	for i := 0; i <= len(self.iwires); i += 1 {
+		wire := self.iwires[i].(*SWire)
+		if wire.zone.ZoneId == zoneId {
+			return wire
+		}
+	}
+	return nil
+}
+
+func (self *SVpc) fetchNetworks() error {
+	networks, _, err := self.region.GetNetwroks(nil, self.VpcId)
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < len(networks); i += 1 {
+		wire := self.getWireByZoneId(networks[i].ZoneId)
+		networks[i].wire = wire
+		wire.addNetwork(&networks[i])
+	}
+	return nil
 }
