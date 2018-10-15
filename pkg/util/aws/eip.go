@@ -130,7 +130,7 @@ func (region *SRegion) AllocateEIP(bwMbps int) (*SEipAddress, error) {
 	return nil, nil
 }
 
-func (self *SRegion) CreateEIP(name string, bwMbps int) (cloudprovider.ICloudEIP, error) {
+func (self *SRegion) CreateEIP(name string, bwMbps int, chargeType string) (cloudprovider.ICloudEIP, error) {
 	eip, err := self.ec2Client.AllocateAddress(&ec2.AllocateAddressInput{})
 	if err != nil {
 		log.Errorf("AllocateEipAddress fail %s", err)

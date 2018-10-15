@@ -73,9 +73,14 @@ func (self *SRegion) fetchIVpcs() error {
 
 	self.ivpcs = make([]cloudprovider.ICloudVpc, 0)
 	for _, vpc := range vpcs.Vpcs {
+		tags := make(map[string]string, 0)
+		for _, tag := range vpc.Tags {
+			tags[*tag.Key] = *tag.Value
+		}
+
 		self.ivpcs = append(self.ivpcs, &SVpc{region: self,
 		CidrBlock: *vpc.CidrBlock,
-		Tags: vpc.Tags,
+		Tags: tags,
 		IsDefault: *vpc.IsDefault,
 		RegionId: self.RegionId,
 		Status: *vpc.State,
