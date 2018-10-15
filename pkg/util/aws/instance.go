@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/pkg/util/secrules"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/coredns/coredns/plugin/pkg/log"
+	"fmt"
 )
 
 const (
@@ -50,8 +51,6 @@ type SSecurityGroupIds struct {
 	SecurityGroupId []string
 }
 
-// {"NatIpAddress":"","PrivateIpAddress":{"IpAddress":["192.168.220.214"]},"VSwitchId":"vsw-2ze9cqwza4upoyujq1thd","VpcId":"vpc-2zer4jy8ix3i8f0coc5uw"}
-
 type SVpcAttributes struct {
 	NatIpAddress     string
 	PrivateIpAddress SIpAddress
@@ -62,10 +61,13 @@ type SVpcAttributes struct {
 type SInstance struct {
 	host *SHost
 
-	// idisks []cloudprovider.ICloudDisk
+	RegionId                string
+	ZoneId                  string
+	InstanceId              string
+	ImageId                 string
+	SecurityGroupIds        SSecurityGroupIds
 
 	AutoReleaseTime         string
-	ClusterId               string
 	Cpu                     int8
 	CreationTime            time.Time
 	DedicatedHostAttribute  SDedicatedHostAttribute
@@ -76,10 +78,8 @@ type SInstance struct {
 	GPUAmount               int
 	GPUSpec                 string
 	HostName                string
-	ImageId                 string
 	InnerIpAddress          SIpAddress
 	InstanceChargeType      InstanceChargeType
-	InstanceId              string
 	InstanceName            string
 	InstanceNetworkType     string
 	InstanceType            string
@@ -96,10 +96,6 @@ type SInstance struct {
 	OperationLocks          SOperationLocks
 	PublicIpAddress         SIpAddress
 	Recyclable              bool
-	RegionId                string
-	ResourceGroupId         string
-	SaleCycle               string
-	SecurityGroupIds        SSecurityGroupIds
 	SerialNumber            string
 	SpotPriceLimit          string
 	SpotStrategy            string
@@ -107,8 +103,6 @@ type SInstance struct {
 	Status                  string
 	StoppedMode             string
 	VlanId                  string
-	VpcAttributes           SVpcAttributes
-	ZoneId                  string
 }
 
 func (self *SInstance) GetId() string {
@@ -301,10 +295,90 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	return &instances[0], nil
 }
 
-func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
-	zoneId string, desc string, passwd string, disks []SDisk, vSwitchId string, ipAddr string,
+func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, SubnetId string, securityGroupId string,
+	zoneId string, desc string, passwd string, disks []SDisk, ipAddr string,
 	keypair string) (string, error) {
-		return "", nil
+		var count int64 = 1
+		// disk
+		blockDevices := make([]*ec2.BlockDeviceMapping, len(disks))
+		for i, disk := range disks{
+			if i == 0 {
+				var size int64
+				size = int64(disk.Size)
+				ebs := &ec2.EbsBlockDevice{
+					DeleteOnTermination: &disk.DeleteWithInstance,
+					SnapshotId: &imageId, // todo: 这里是snapshotid
+					Encrypted: &disk.Encrypted,
+					VolumeSize: &size,
+					VolumeType: &disk.Type,
+				}
+
+
+				// todo: 这里是镜像绑定的deviceName
+				divceName := fmt.Sprintf("/dev/sda1")
+				blockDevice := &ec2.BlockDeviceMapping{
+					DeviceName: &divceName,
+					Ebs: ebs,
+				}
+
+				blockDevices = append(blockDevices, blockDevice)
+			} else {
+				var size int64
+				size = int64(disk.Size)
+				ebs := &ec2.EbsBlockDevice{
+					DeleteOnTermination: &disk.DeleteWithInstance,
+					Encrypted: &disk.Encrypted,
+					VolumeSize: &size,
+					VolumeType: &disk.Type,
+				}
+				// todo: generator device name
+				divceName := fmt.Sprintf("/dev/sd%s", string(98+i))
+				blockDevice := &ec2.BlockDeviceMapping{
+					DeviceName: &divceName,
+					Ebs: ebs,
+				}
+
+				blockDevices = append(blockDevices, blockDevice)
+			}
+		}
+		// tags
+		tags := make([]*ec2.TagSpecification, 2)
+		instanceTag := &ec2.TagSpecification{}
+		resourceType := "instance"
+		instanceName := "Name"
+		instanceDesc := "Description"
+		instanceTag.ResourceType = &resourceType
+		instanceTag.Tags = []*ec2.Tag{
+			&ec2.Tag{Key:&instanceName, Value: &name},
+			&ec2.Tag{Key:&instanceDesc, Value: &desc},
+		}
+
+		params := ec2.RunInstancesInput{
+			ImageId: &imageId,
+			InstanceType: &instanceType,
+			MaxCount: &count,
+			MinCount: &count,
+			SubnetId: &SubnetId,
+			PrivateIpAddress: &ipAddr,
+			BlockDeviceMappings: blockDevices,
+			KeyName: &keypair,
+			Placement: &ec2.Placement{AvailabilityZone: &zoneId},
+			SecurityGroupIds: []*string{&securityGroupId},
+			TagSpecifications: tags,
+		}
+		res, err := self.ec2Client.RunInstances(&params)
+		if err != nil {
+			log.Errorf("CreateInstance fail %s", err)
+			return "", err
+		}
+
+		if len(res.Instances) == 1 {
+			return *res.Instances[0].InstanceId, nil
+		} else {
+			msg := fmt.Sprintf("CreateInstance fail: %s instance created. ", len(res.Instances))
+			log.Errorf(msg)
+			return "", fmt.Errorf(msg)
+		}
 }
 
 func (self *SRegion) StartVM(instanceId string) error {
