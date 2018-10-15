@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -29,14 +30,17 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+
+	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/compute/sshkeys"
 )
 
 const (
@@ -222,7 +226,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 
 	hostFilter, _ := queryDict.GetString("host")
 	if len(hostFilter) > 0 {
-		host, _ := HostManager.FetchByIdOrName("", hostFilter)
+		host, _ := HostManager.FetchByIdOrName(nil, hostFilter)
 		if host == nil {
 			return nil, httperrors.NewResourceNotFoundError("host %s not found", hostFilter)
 		}
@@ -231,7 +235,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 
 	secgrpFilter, _ := queryDict.GetString("secgroup")
 	if len(secgrpFilter) > 0 {
-		secgrp, _ := SecurityGroupManager.FetchByIdOrName("", secgrpFilter)
+		secgrp, _ := SecurityGroupManager.FetchByIdOrName(nil, secgrpFilter)
 		if secgrp == nil {
 			return nil, httperrors.NewResourceNotFoundError("secgroup %s not found", secgrpFilter)
 		}
@@ -240,7 +244,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 
 	zoneFilter, _ := queryDict.GetString("zone")
 	if len(zoneFilter) > 0 {
-		zone, _ := ZoneManager.FetchByIdOrName("", zoneFilter)
+		zone, _ := ZoneManager.FetchByIdOrName(nil, zoneFilter)
 		if zone == nil {
 			return nil, httperrors.NewResourceNotFoundError("zone %s not found", zoneFilter)
 		}
@@ -253,7 +257,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 
 	wireFilter, _ := queryDict.GetString("wire")
 	if len(wireFilter) > 0 {
-		wire, _ := WireManager.FetchByIdOrName("", wireFilter)
+		wire, _ := WireManager.FetchByIdOrName(nil, wireFilter)
 		if wire == nil {
 			return nil, httperrors.NewResourceNotFoundError("wire %s not found", wireFilter)
 		}
@@ -265,7 +269,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 
 	networkFilter, _ := queryDict.GetString("network")
 	if len(networkFilter) > 0 {
-		netI, _ := NetworkManager.FetchByIdOrName(userCred.GetProjectId(), networkFilter)
+		netI, _ := NetworkManager.FetchByIdOrName(userCred, networkFilter)
 		if netI == nil {
 			return nil, httperrors.NewResourceNotFoundError("network %s not found", networkFilter)
 		}
@@ -279,7 +283,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 
 	diskFilter, _ := queryDict.GetString("disk")
 	if len(diskFilter) > 0 {
-		diskI, _ := DiskManager.FetchByIdOrName(userCred.GetProjectId(), diskFilter)
+		diskI, _ := DiskManager.FetchByIdOrName(userCred, diskFilter)
 		if diskI == nil {
 			return nil, httperrors.NewResourceNotFoundError("disk %s not found", diskFilter)
 		}
@@ -312,7 +316,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 
 	managerFilter, _ := queryDict.GetString("manager")
 	if len(managerFilter) > 0 {
-		managerI, _ := CloudproviderManager.FetchByIdOrName(userCred.GetProjectId(), managerFilter)
+		managerI, _ := CloudproviderManager.FetchByIdOrName(userCred, managerFilter)
 		if managerI == nil {
 			return nil, httperrors.NewResourceNotFoundError("cloud provider %s not found", managerFilter)
 		}
@@ -323,7 +327,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 
 	regionFilter, _ := queryDict.GetString("region")
 	if len(regionFilter) > 0 {
-		regionObj, err := CloudregionManager.FetchByIdOrName(userCred.GetProjectId(), regionFilter)
+		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionFilter)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError("cloud region %s not found", regionFilter)
@@ -640,7 +644,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		if len(bmName) == 0 {
 			bmName, _ = data.GetString("prefer_baremetal")
 		}
-		bmObj, err := HostManager.FetchByIdOrName("", bmName)
+		bmObj, err := HostManager.FetchByIdOrName(nil, bmName)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError("Host %s not found", bmName)
@@ -804,7 +808,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		keypairId, _ = data.GetString("keypair_id")
 	}
 	if len(keypairId) > 0 {
-		keypairObj, err := KeypairManager.FetchByIdOrName(userCred.GetUserId(), keypairId)
+		keypairObj, err := KeypairManager.FetchByIdOrName(userCred, keypairId)
 		if err != nil {
 			return nil, httperrors.NewResourceNotFoundError("Keypair %s not found", keypairId)
 		}
@@ -815,7 +819,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 
 	if data.Contains("secgroup") {
 		secGrpId, _ := data.GetString("secgroup")
-		secGrpObj, err := SecurityGroupManager.FetchByIdOrName(userCred.GetProjectId(), secGrpId)
+		secGrpObj, err := SecurityGroupManager.FetchByIdOrName(userCred, secGrpId)
 		if err != nil {
 			return nil, httperrors.NewResourceNotFoundError("Secgroup %s not found", secGrpId)
 		}
@@ -936,6 +940,11 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 	osProfileJson, _ := data.Get("__os_profile__")
 	if osProfileJson != nil {
 		guest.setOSProfile(ctx, userCred, osProfileJson)
+	}
+
+	userData, _ := data.GetString("user_data")
+	if len(userData) > 0 {
+		guest.setUserData(ctx, userCred, userData)
 	}
 }
 
@@ -1764,9 +1773,10 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 	if kwargs.Contains("__delete_keypair__") || kwargs.Contains("keypair") {
 		doRestart = true
 		var kpId string
-		if !jsonutils.QueryBoolean(kwargs, "__delete_keypair__", false) {
+
+		if kwargs.Contains("keypair") {
 			keypair, _ := kwargs.GetString("keypair")
-			iKp, err := KeypairManager.FetchByIdOrName(userCred.GetProjectId(), keypair)
+			iKp, err := KeypairManager.FetchByIdOrName(userCred, keypair)
 			if err != nil {
 				return nil, err
 			}
@@ -1776,11 +1786,18 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 			kp := iKp.(*SKeypair)
 			kpId = kp.Id
 		}
+
 		if self.KeypairId != kpId {
+			okey := self.getKeypair()
+			if okey != nil {
+				kwargs.Set("delete_public_key", jsonutils.NewString(okey.PublicKey))
+			}
+
 			self.GetModelManager().TableSpec().Update(self, func() error {
 				self.KeypairId = kpId
 				return nil
 			})
+
 			kwargs.Set("reset_password", jsonutils.JSONTrue)
 		}
 	}
@@ -1795,6 +1812,7 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 		}
 		return nil, nil
 	}
+
 	return nil, httperrors.NewServerStatusError("Cannot deploy in status %s", self.Status)
 }
 
@@ -1830,7 +1848,7 @@ func (self *SGuest) PerformAttachdisk(ctx context.Context, userCred mcclient.Tok
 	if diskId, err := data.GetString("disk_id"); err != nil {
 		return nil, err
 	} else {
-		if disk, err := DiskManager.FetchByIdOrName(userCred.GetProjectId(), diskId); err != nil {
+		if disk, err := DiskManager.FetchByIdOrName(userCred, diskId); err != nil {
 			return nil, err
 		} else if disk == nil {
 			return nil, httperrors.NewResourceNotFoundError("Disk %s not found", diskId)
@@ -2451,7 +2469,7 @@ func (self *SGuest) PerformAssignSecgroup(ctx context.Context, userCred mcclient
 	} else {
 		if secgrp, err := data.GetString("secgrp"); err != nil {
 			return nil, err
-		} else if sg, err := SecurityGroupManager.FetchByIdOrName(userCred.GetProjectId(), secgrp); err != nil {
+		} else if sg, err := SecurityGroupManager.FetchByIdOrName(userCred, secgrp); err != nil {
 			return nil, httperrors.NewNotFoundError("SecurityGroup %s not found", secgrp)
 		} else {
 			if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
@@ -2538,7 +2556,7 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 
 	keypairStr := jsonutils.GetAnyString(data, []string{"keypair", "keypair_id"})
 	if len(keypairStr) > 0 {
-		keypairObj, err := KeypairManager.FetchByIdOrName(userCred.GetUserId(), keypairStr)
+		keypairObj, err := KeypairManager.FetchByIdOrName(userCred, keypairStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError("keypair %s not found", keypairStr)
@@ -2680,7 +2698,7 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 		return nil, err
 	}
 	keepDisk := jsonutils.QueryBoolean(data, "keep_disk", false)
-	iDisk, err := DiskManager.FetchByIdOrName(userCred.GetProjectId(), diskId)
+	iDisk, err := DiskManager.FetchByIdOrName(userCred, diskId)
 	if err != nil {
 		return nil, err
 	}
@@ -2735,7 +2753,7 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 		logclient.AddActionLog(self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
 		return nil, httperrors.NewBadRequestError(msg)
 	}
-	iDev, err := IsolatedDeviceManager.FetchByIdOrName(userCred.GetProjectId(), device)
+	iDev, err := IsolatedDeviceManager.FetchByIdOrName(userCred, device)
 	if err != nil {
 		msg := fmt.Sprintf("Isolated device %s not found", device)
 		logclient.AddActionLog(self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
@@ -2785,7 +2803,7 @@ func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mc
 		logclient.AddActionLog(self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, false)
 		return nil, httperrors.NewBadRequestError(msg)
 	}
-	iDev, err := IsolatedDeviceManager.FetchByIdOrName(userCred.GetProjectId(), device)
+	iDev, err := IsolatedDeviceManager.FetchByIdOrName(userCred, device)
 	if err != nil {
 		msg := fmt.Sprintf("Isolated device %s not found", device)
 		logclient.AddActionLog(self, logclient.ACT_GUEST_ATTACH_ISOLATED_DEVICE, msg, userCred, false)
@@ -3289,9 +3307,28 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, host *SHost, para
 		if keypair != nil {
 			config.Add(jsonutils.NewString(keypair.PublicKey), "public_key")
 		}
+		deletePubKey, _ := params.GetString("delete_public_key")
+		if len(deletePubKey) > 0 {
+			config.Add(jsonutils.NewString(deletePubKey), "delete_public_key")
+		}
 	} else {
 		config.Add(jsonutils.JSONFalse, "reset_password")
 	}
+
+	// add default public keys
+	_, adminPubKey, err := sshkeys.GetSshAdminKeypair(ctx)
+	if err != nil {
+		log.Errorf("fail to get ssh admin public key %s", err)
+	}
+
+	_, projPubKey, err := sshkeys.GetSshProjectKeypair(ctx, self.ProjectId)
+
+	if err != nil {
+		log.Errorf("fail to get ssh project public key %s", err)
+	}
+
+	config.Add(jsonutils.NewString(adminPubKey), "admin_public_key")
+	config.Add(jsonutils.NewString(projPubKey), "project_public_key")
 
 	config.Add(jsonutils.NewString(deployAction), "action")
 
@@ -4343,7 +4380,7 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 	if len(eipStr) == 0 {
 		return nil, httperrors.NewInputParameterError("missing eip or eip_id")
 	}
-	eipObj, err := ElasticipManager.FetchByIdOrName(userCred.GetProjectId(), eipStr)
+	eipObj, err := ElasticipManager.FetchByIdOrName(userCred, eipStr)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, httperrors.NewResourceNotFoundError("eip %s not found", eipStr)
@@ -4495,4 +4532,38 @@ func (self *SGuest) getDefaultStorageType() string {
 		}
 	}
 	return STORAGE_LOCAL
+}
+
+func (self *SGuest) setUserData(ctx context.Context, userCred mcclient.TokenCredential, data string) error {
+	data = base64.StdEncoding.EncodeToString([]byte(data))
+	if len(data) > 16*1024 {
+		return fmt.Errorf("User data is limited to 16 KB.")
+	}
+	err := self.SetMetadata(ctx, "user_data", data, userCred)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (self *SGuest) AllowPerformUserData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformUserData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	userData, err := data.GetString("user_data")
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("missing user_data %s", err)
+	}
+	err = self.setUserData(ctx, userCred, userData)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	if len(self.HostId) > 0 {
+		err = self.StartSyncTask(ctx, userCred, false, "")
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+	}
+	return nil, nil
 }

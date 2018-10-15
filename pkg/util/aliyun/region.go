@@ -475,7 +475,7 @@ func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, me
 		log.Debugf("Search in zone %s", z.LocalName)
 		net := z.getNetworkById(vswitchId)
 		if net != nil {
-			inst, err := z.getHost().CreateVM(name, imgId, 0, cpu, memGB*1024, vswitchId, "", "", passwd, storageType, dataDiskSizesGB, publicKey, "")
+			inst, err := z.getHost().CreateVM(name, imgId, 0, cpu, memGB*1024, vswitchId, "", "", passwd, storageType, dataDiskSizesGB, publicKey, "", "")
 			if err != nil {
 				return nil, err
 			}
@@ -601,7 +601,7 @@ func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStorag
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SRegion) updateInstance(instId string, name, desc, passwd, hostname string) error {
+func (self *SRegion) updateInstance(instId string, name, desc, passwd, hostname, userData string) error {
 	params := make(map[string]string)
 	params["InstanceId"] = instId
 	if len(name) > 0 {
@@ -616,12 +616,15 @@ func (self *SRegion) updateInstance(instId string, name, desc, passwd, hostname 
 	if len(hostname) > 0 {
 		params["HostName"] = hostname
 	}
+	if len(userData) > 0 {
+		params["UserData"] = userData
+	}
 	_, err := self.ecsRequest("ModifyInstanceAttribute", params)
 	return err
 }
 
 func (self *SRegion) UpdateInstancePassword(instId string, passwd string) error {
-	return self.updateInstance(instId, "", "", passwd, "")
+	return self.updateInstance(instId, "", "", passwd, "", "")
 }
 
 // func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {

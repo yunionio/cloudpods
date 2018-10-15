@@ -39,12 +39,12 @@ type IModelManager interface {
 	FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery
 	FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery
 
-	GetOwnerId(userCred mcclient.TokenCredential) string
+	GetOwnerId(userCred mcclient.IIdentityProvider) string
 
 	// RawFetchById(idStr string) (IModel, error)
 	FetchById(idStr string) (IModel, error)
-	FetchByName(ownerProjId string, idStr string) (IModel, error)
-	FetchByIdOrName(ownerProjId string, idStr string) (IModel, error)
+	FetchByName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error)
+	FetchByIdOrName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error)
 
 	// create hooks
 	AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool

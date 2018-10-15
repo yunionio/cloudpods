@@ -120,7 +120,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		log.Errorf("GetOssClient err %s", err)
 		return "", err
 	}
-	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s-%s", self.region.GetId(), self.region.client.providerId))
+	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s-%s", self.region.GetId(), imageId))
 	exist, err := oss.IsBucketExist(bucketName)
 	if err != nil {
 		log.Errorf("IsBucketExist err %s", err)
@@ -136,6 +136,9 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 	} else {
 		log.Debugf("Bucket %s exists", bucketName)
 	}
+
+	defer oss.DeleteBucket(bucketName) // remove bucket
+
 	bucket, err := oss.Bucket(bucketName)
 	if err != nil {
 		log.Errorf("Bucket error %s %s", bucketName, err)
@@ -147,6 +150,8 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		log.Errorf("PutObject error %s %s", imageId, err)
 		return "", err
 	}
+
+	defer bucket.DeleteObject(imageId) // remove object
 
 	imageBaseName := imageId
 	if imageBaseName[0] >= '0' && imageBaseName[0] <= '9' {
@@ -170,6 +175,13 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 	}
 
 	log.Debugf("Import image %s", imageName)
+
+	// ensure privileges
+	err = self.region.GetClient().EnableImageImport()
+	if err != nil {
+		log.Errorf("fail to enable import privileges: %s", err)
+		return "", err
+	}
 
 	task, err := self.region.ImportImage(imageName, osArch, osType, osDist, bucketName, imageId)
 
@@ -282,6 +294,12 @@ func (listener *OssProgressListener) ProgressChanged(event *oss.ProgressEvent) {
 }
 
 func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
+	err := self.region.GetClient().EnableImageExport()
+	if err != nil {
+		log.Errorf("fail to enable export privileges: %s", err)
+		return nil, err
+	}
+
 	tmpImageFile, err := ioutil.TempFile(path, extId)
 	if err != nil {
 		return nil, err

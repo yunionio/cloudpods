@@ -165,8 +165,8 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 
 func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int,
 	vswitchId string, ipAddr string, desc string, passwd string,
-	storageType string, diskSizes []int, publicKey string, secgroupId string) (cloudprovider.ICloudVM, error) {
-	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, vswitchId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId)
+	storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (cloudprovider.ICloudVM, error) {
+	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, vswitchId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId, userData)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,8 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 
 func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int, memMB int,
 	vswitchId string, ipAddr string, desc string, passwd string,
-	storageType string, diskSizes []int, publicKey string, secgroupId string) (string, error) {
+	storageType string, diskSizes []int, publicKey string, secgroupId string,
+	userData string) (string, error) {
 	net := self.zone.getNetworkById(vswitchId)
 	if net == nil {
 		return "", fmt.Errorf("invalid switch ID %s", vswitchId)
@@ -260,7 +261,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 	for _, instType := range instanceTypes {
 		instanceTypeId := instType.InstanceTypeId
 		log.Debugf("Try instancetype : %s", instanceTypeId)
-		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceTypeId, secgroupId, self.zone.ZoneId, desc, passwd, disks, vswitchId, ipAddr, keypair)
+		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceTypeId, secgroupId, self.zone.ZoneId, desc, passwd, disks, vswitchId, ipAddr, keypair, userData)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceTypeId, err)
 		} else {

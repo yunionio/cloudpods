@@ -20,19 +20,24 @@ type Endpoint struct {
 	Interface   string
 }
 
+type IIdentityProvider interface {
+	GetProjectId() string
+	GetUserId() string
+	GetTenantId() string
+}
+
 type TokenCredential interface {
 	gotypes.ISerializable
 
 	IServiceCatalog
 
+	IIdentityProvider
+
 	GetTokenString() string
 	GetDomainId() string
 	GetDomainName() string
-	GetTenantId() string
 	GetTenantName() string
-	GetProjectId() string
 	GetProjectName() string
-	GetUserId() string
 	GetUserName() string
 	GetRoles() []string
 	GetExpires() time.Time

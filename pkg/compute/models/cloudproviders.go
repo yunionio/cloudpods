@@ -197,7 +197,7 @@ func (sr *SSyncRange) NeedSyncInfo() bool {
 
 func (sr *SSyncRange) normalizeRegionIds() error {
 	for i := 0; i < len(sr.Region); i += 1 {
-		obj, err := CloudregionManager.FetchByIdOrName("", sr.Region[i])
+		obj, err := CloudregionManager.FetchByIdOrName(nil, sr.Region[i])
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return httperrors.NewResourceNotFoundError("Region %s not found", sr.Region[i])
@@ -212,7 +212,7 @@ func (sr *SSyncRange) normalizeRegionIds() error {
 
 func (sr *SSyncRange) normalizeZoneIds() error {
 	for i := 0; i < len(sr.Zone); i += 1 {
-		obj, err := ZoneManager.FetchByIdOrName("", sr.Zone[i])
+		obj, err := ZoneManager.FetchByIdOrName(nil, sr.Zone[i])
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return httperrors.NewResourceNotFoundError("Zone %s not found", sr.Zone[i])
@@ -227,7 +227,7 @@ func (sr *SSyncRange) normalizeZoneIds() error {
 
 func (sr *SSyncRange) normalizeHostIds() error {
 	for i := 0; i < len(sr.Host); i += 1 {
-		obj, err := HostManager.FetchByIdOrName("", sr.Host[i])
+		obj, err := HostManager.FetchByIdOrName(nil, sr.Host[i])
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return httperrors.NewResourceNotFoundError("Host %s not found", sr.Host[i])
@@ -408,7 +408,7 @@ func (manager *SCloudproviderManager) FetchCloudproviderById(providerId string) 
 }
 
 func (manager *SCloudproviderManager) FetchCloudproviderByIdOrName(providerId string) *SCloudprovider {
-	providerObj, err := manager.FetchByIdOrName("", providerId)
+	providerObj, err := manager.FetchByIdOrName(nil, providerId)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			log.Errorf("%s", err)

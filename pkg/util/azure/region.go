@@ -340,7 +340,7 @@ func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, me
 		net := z.getNetworkById(networkId)
 		if net != nil {
 			passwd := seclib2.RandomPassword2(12)
-			inst, err := z.getHost().CreateVM(name, imgId, 30, cpu, memGB*1024, networkId, "", "", passwd, storageType, dataDiskSizesGB, publicKey, "")
+			inst, err := z.getHost().CreateVM(name, imgId, 30, cpu, memGB*1024, networkId, "", "", passwd, storageType, dataDiskSizesGB, publicKey, "", "")
 			if err != nil {
 				return nil, err
 			}

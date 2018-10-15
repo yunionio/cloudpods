@@ -84,7 +84,7 @@ func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchem
 
 	managerFilter, _ := query.GetString("manager")
 	if len(managerFilter) > 0 {
-		managerI, err := CloudproviderManager.FetchByIdOrName(userCred.GetProjectId(), managerFilter)
+		managerI, err := CloudproviderManager.FetchByIdOrName(userCred, managerFilter)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError("cloud provider %s not found", managerFilter)
@@ -97,7 +97,7 @@ func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchem
 
 	regionFilter, _ := query.GetString("region")
 	if len(regionFilter) > 0 {
-		regionObj, err := CloudregionManager.FetchByIdOrName(userCred.GetProjectId(), regionFilter)
+		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionFilter)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError("cloud region %s not found", regionFilter)
@@ -362,7 +362,7 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 	if len(regionStr) == 0 {
 		return nil, httperrors.NewInputParameterError("Missing region/region_id")
 	}
-	region, err := CloudregionManager.FetchByIdOrName("", regionStr)
+	region, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return nil, httperrors.NewGeneralError(err)
@@ -377,7 +377,7 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 		return nil, httperrors.NewInputParameterError("Missing manager/manager_id")
 	}
 
-	provider, err := CloudproviderManager.FetchByIdOrName("", managerStr)
+	provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return nil, httperrors.NewGeneralError(err)
@@ -490,7 +490,7 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 		return nil, httperrors.NewInputParameterError("Unsupported %s", instanceType)
 	}
 
-	vmObj, err := GuestManager.FetchByIdOrName(userCred.GetProjectId(), instanceId)
+	vmObj, err := GuestManager.FetchByIdOrName(userCred, instanceId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, httperrors.NewResourceNotFoundError("server %s not found", instanceId)

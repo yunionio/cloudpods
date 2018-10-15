@@ -245,3 +245,7 @@ func (self *SVirtualMachine) GetBillingType() string {
 func (self *SVirtualMachine) GetExpiredAt() time.Time {
 	return time.Time{}
 }
+
+func (self *SVirtualMachine) UpdateUserData(userData string) error {
+	return nil
+}

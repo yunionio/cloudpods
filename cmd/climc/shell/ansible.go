@@ -11,11 +11,11 @@ import (
 )
 
 type AnsibleHostsOptions struct {
-	List bool `help:"List all ansible inventory"`
-	Host string `help:"List of a host"`
+	List       bool   `help:"List all ansible inventory"`
+	Host       string `help:"List of a host"`
 	PrivateKey string `help:"path to private key to use for ansible"`
-	Port int `help:"optional port, if port is not 22"`
-	User string `help:"username to try"`
+	Port       int    `help:"optional port, if port is not 22"`
+	User       string `help:"username to try"`
 	UserBecome string `help:"username to sudo"`
 }
 
@@ -34,7 +34,6 @@ func serverGetNameIP(srv jsonutils.JSONObject) (string, string, error) {
 	}
 	return host, ipList[0], nil
 }
-
 
 func doList(s *mcclient.ClientSession, args *AnsibleHostsOptions) error {
 	hostVars := jsonutils.NewDict()
@@ -85,7 +84,6 @@ func doList(s *mcclient.ClientSession, args *AnsibleHostsOptions) error {
 
 	return nil
 }
-
 
 func doHost(s *mcclient.ClientSession, host string, args *AnsibleHostsOptions) error {
 	srv, err := modules.Servers.Get(s, host, nil)

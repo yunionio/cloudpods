@@ -110,7 +110,7 @@ func (manager *SVirtualJointResourceBaseManager) ListItemFilter(ctx context.Cont
 		}
 		tenant, _ := query.GetString("tenant")
 		if len(tenant) > 0 {
-			tc, _ := TenantCacheManager.FetchByIdOrName("", tenant)
+			tc, _ := TenantCacheManager.FetchTenantByIdOrName(ctx, tenant)
 			if tc == nil {
 				return nil, httperrors.NewTenantNotFoundError(fmt.Sprintf("tenant %s not found", tenant))
 			}
