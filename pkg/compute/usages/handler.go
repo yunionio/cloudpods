@@ -64,7 +64,7 @@ func getRangeObj(ctx context.Context, man db.IStandaloneModelManager, userCred m
 	if err != nil {
 		return nil, err
 	}
-	return man.FetchByIdOrName(userCred.GetProjectId(), id)
+	return man.FetchByIdOrName(userCred, id)
 }
 
 func rangeObjHandler(

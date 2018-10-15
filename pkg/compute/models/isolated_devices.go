@@ -115,7 +115,7 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(ctx context.Context, q *sq
 	}
 	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
 	if len(zoneStr) > 0 {
-		zone, _ := ZoneManager.FetchByIdOrName("", zoneStr)
+		zone, _ := ZoneManager.FetchByIdOrName(nil, zoneStr)
 		if zone == nil {
 			return nil, httperrors.NewResourceNotFoundError("Zone %s not found", zoneStr)
 		}

@@ -29,7 +29,7 @@ func init() {
 }
 
 func (manager *SUserCacheManager) FetchUserByIdOrName(idStr string) (*SUser, error) {
-	obj, err := manager.SKeystoneCacheObjectManager.FetchByIdOrName("", idStr)
+	obj, err := manager.SKeystoneCacheObjectManager.FetchByIdOrName(nil, idStr)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func (manager *SUserCacheManager) FetchUserById(idStr string) (*SUser, error) {
 }
 
 func (manager *SUserCacheManager) FetchUserByName(idStr string) (*SUser, error) {
-	obj, err := manager.SKeystoneCacheObjectManager.FetchByName("", idStr)
+	obj, err := manager.SKeystoneCacheObjectManager.FetchByName(nil, idStr)
 	if err != nil {
 		return nil, err
 	}

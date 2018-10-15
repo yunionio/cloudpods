@@ -1,8 +1,8 @@
 package seclib2
 
 import (
-	"testing"
 	"math/rand"
+	"testing"
 	"time"
 )
 
@@ -12,10 +12,10 @@ func TestRandomPassword2(t *testing.T) {
 }
 
 func TestMeetComplxity(t *testing.T) {
-	cases := [] struct {
-		in string
+	cases := []struct {
+		in   string
 		want bool
-	} {
+	}{
 		{"123456", false},
 		{"123abcABC!@#", true},
 	}

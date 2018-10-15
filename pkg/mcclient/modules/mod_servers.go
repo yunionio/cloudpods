@@ -5,6 +5,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -18,24 +20,35 @@ func (this *ServerManager) GetLoginInfo(s *mcclient.ClientSession, id string, pa
 		return nil, e
 	}
 	ret := jsonutils.NewDict()
-	login_key, e := data.GetString("login_key")
+	loginKey, e := data.GetString("login_key")
 	if e != nil {
 		return nil, fmt.Errorf("No login key: %s", e)
-	} else {
-		passwd, e := utils.DescryptAESBase64(id, login_key)
-		if e != nil {
-			return nil, e
-		}
-		ret.Add(jsonutils.NewString(passwd), "password")
-		v, e := data.Get("login_account")
-		if e == nil {
-			ret.Add(v, "username")
-		}
-		v, e = data.Get("login_key_timestamp")
-		if e == nil {
-			ret.Add(v, "updated")
-		}
 	}
+
+	var privateKey string
+	if params != nil && !gotypes.IsNil(params) {
+		privateKey, _ = params.GetString("private_key")
+	}
+
+	var passwd string
+	if len(privateKey) > 0 {
+		passwd, e = seclib2.DecryptBase64(privateKey, loginKey)
+	} else {
+		passwd, e = utils.DescryptAESBase64(id, loginKey)
+	}
+	if e != nil {
+		return nil, e
+	}
+	ret.Add(jsonutils.NewString(passwd), "password")
+	v, e := data.Get("login_account")
+	if e == nil {
+		ret.Add(v, "username")
+	}
+	v, e = data.Get("login_key_timestamp")
+	if e == nil {
+		ret.Add(v, "updated")
+	}
+
 	return ret, nil
 }
 
@@ -56,7 +69,8 @@ func init() {
 			"Secgroup", "Secgrp_id",
 			"vrouter", "vrouter_id",
 			"Created_at", "Group_name",
-			"Group_id", "Hypervisor", "os_type"},
+			"Group_id", "Hypervisor", "os_type",
+			"expired_at"},
 		[]string{"Host", "Tenant", "is_system", "auto_delete_at"})}
 
 	registerCompute(&Servers)

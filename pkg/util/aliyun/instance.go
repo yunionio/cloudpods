@@ -428,7 +428,7 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
 	zoneId string, desc string, passwd string, disks []SDisk, vSwitchId string, ipAddr string,
-	keypair string) (string, error) {
+	keypair string, userData string) (string, error) {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["ImageId"] = imageId
@@ -468,6 +468,11 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	if len(keypair) > 0 {
 		params["KeyPairName"] = keypair
 	}
+
+	if len(userData) > 0 {
+		params["UserData"] = userData
+	}
+
 	params["ClientToken"] = utils.GenRequestId(20)
 
 	body, err := self.ecsRequest("CreateInstance", params)
@@ -787,4 +792,8 @@ func (self *SInstance) GetBillingType() string {
 
 func (self *SInstance) GetExpiredAt() time.Time {
 	return self.ExpiredTime
+}
+
+func (self *SInstance) UpdateUserData(userData string) error {
+	return self.host.zone.region.updateInstance(self.InstanceId, "", "", "", "", userData)
 }

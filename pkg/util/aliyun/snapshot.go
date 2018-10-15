@@ -107,10 +107,7 @@ func (self *SSnapshot) Delete() error {
 	if self.region == nil {
 		return fmt.Errorf("not init region for snapshot %s", self.SnapshotId)
 	}
-	params := make(map[string]string)
-	params["SnapshotId"] = self.SnapshotId
-	_, err := self.region.ecsRequest("DeleteSnapshot", params)
-	return err
+	return self.region.DeleteSnapshot(self.SnapshotId)
 }
 
 func (self *SSnapshot) GetMetadata() *jsonutils.JSONDict {
@@ -165,4 +162,11 @@ func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSn
 	} else {
 		return &snapshots[0], nil
 	}
+}
+
+func (self *SRegion) DeleteSnapshot(snapshotId string) error {
+	params := make(map[string]string)
+	params["SnapshotId"] = snapshotId
+	_, err := self.ecsRequest("DeleteSnapshot", params)
+	return err
 }

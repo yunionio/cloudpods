@@ -885,6 +885,18 @@
   revision = "d188e65d659ef53fcdb0691c12f1bba64928b649"
 
 [[projects]]
+  branch = "master"
+  digest = "1:119cf7d2c3bc4a3c675e8c30cadf00c8c2ab34a20ba373211dd3a7d66f3e5f32"
+  name = "github.com/tredoe/osutil"
+  packages = [
+    "user/crypt",
+    "user/crypt/common",
+    "user/crypt/sha512_crypt",
+  ]
+  pruneopts = "UT"
+  revision = "7d3ee1afa71c90fd1514c8f557ae6c5f414208eb"
+
+[[projects]]
   digest = "1:98e5cda86f67cd1ac95389d98670b66dea8cae480fe6292b83bccccfe60b4106"
   name = "github.com/ugorji/go"
   packages = ["codec"]
@@ -1223,11 +1235,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:49ffc35ec8d3f7789393cd132acd359e8ac1f5d38c7a2b91c484b041840c62c0"
+  digest = "1:36db56d9ed25cc9cbd34d5553c14d5e1d4ef6501feaddb752c66aeb294e481e6"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "d1290e94d4753c1748fc7c89f472a523cc0a5c08"
+  revision = "191bb9c0726440a0b239c344c70b9df567536302"
 
 [[projects]]
   branch = "master"
@@ -1362,6 +1374,7 @@
     "github.com/moul/http2curl",
     "github.com/serialx/hashring",
     "github.com/stretchr/testify/assert",
+    "github.com/tredoe/osutil/user/crypt/sha512_crypt",
     "github.com/vmware/govmomi",
     "github.com/vmware/govmomi/object",
     "github.com/vmware/govmomi/property",

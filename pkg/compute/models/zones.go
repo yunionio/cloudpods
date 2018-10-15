@@ -523,7 +523,7 @@ func (manager *SZoneManager) ValidateCreateData(ctx context.Context, userCred mc
 	regionStr := jsonutils.GetAnyString(query, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
 	var regionId string
 	if len(regionStr) > 0 {
-		regionObj, err := CloudregionManager.FetchByIdOrName("", regionStr)
+		regionObj, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError("Region %s not found", regionStr)

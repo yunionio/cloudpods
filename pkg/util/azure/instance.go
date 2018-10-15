@@ -566,7 +566,7 @@ func (region *SRegion) ReplaceSystemDisk(instanceId, imageId, passwd, publicKey 
 		} else {
 			osType := compute.OperatingSystemTypes(image.GetOsType())
 			disk, _ := region.GetDisk(diskId)
-			sshKeys := []compute.SSHPublicKey{compute.SSHPublicKey{KeyData: &publicKey}}
+			sshKeys := []compute.SSHPublicKey{{KeyData: &publicKey}}
 			params := compute.VirtualMachineUpdate{
 				VirtualMachineProperties: &compute.VirtualMachineProperties{
 					StorageProfile: &compute.StorageProfile{
@@ -858,4 +858,12 @@ func (self *SInstance) GetBillingType() string {
 
 func (self *SInstance) GetExpiredAt() time.Time {
 	return time.Now()
+}
+
+func (self *SInstance) UpdateUserData(userData string) error {
+	params := compute.VirtualMachineUpdate{}
+	params.OsProfile = &compute.OSProfile{
+		CustomData: &userData,
+	}
+	return self.host.zone.region.UpdateInstance(self.ID, params)
 }

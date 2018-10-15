@@ -1,9 +1,9 @@
 package excelutils
 
 import (
-	"io"
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/360EntSecGroup-Skylar/excelize"
@@ -21,7 +21,7 @@ func decimalBaseMaxWidth(decNum int, base int) int {
 	}
 	width := 0
 	for decNum > 0 {
-		decNum = decNum/base
+		decNum = decNum / base
 		width += 1
 	}
 	return width
@@ -29,9 +29,9 @@ func decimalBaseMaxWidth(decNum int, base int) int {
 
 func decimalBaseN(decNum int, base int, width int) (int, int) {
 	b := 1
-	for i := 0; i < width - 1; i += 1 {
-		decNum = decNum/base
-		b = b*base
+	for i := 0; i < width-1; i += 1 {
+		decNum = decNum / base
+		b = b * base
 	}
 	return decNum, b
 }
@@ -41,8 +41,8 @@ func decimal2Base(decNum int, base int) []int {
 	ret := make([]int, width)
 	for i := width; i > 0; i -= 1 {
 		ith, divider := decimalBaseN(decNum, base, i)
-		decNum -= ith*divider
-		ret[width - i] = ith
+		decNum -= ith * divider
+		ret[width-i] = ith
 	}
 	return ret
 }
@@ -84,14 +84,14 @@ func Export(data []jsonutils.JSONObject, keys []string, texts []string, writer i
 
 	exportHeader(xlsx, texts, 1)
 	for i := 0; i < len(data); i += 1 {
-		exportRow(xlsx, data[i], keys, i + 2)
+		exportRow(xlsx, data[i], keys, i+2)
 	}
 
 	return xlsx.Write(writer)
 }
 
 func ExportFile(data []jsonutils.JSONObject, keys []string, texts []string, filename string) error {
-	writer, err:= os.Create(filename)
+	writer, err := os.Create(filename)
 	if err != nil {
 		return err
 	}

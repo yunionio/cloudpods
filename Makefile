@@ -44,7 +44,7 @@ install: prepare_dir
 	done
 
 
-build: prepare_dir
+build: prepare_dir fmt
 	@for PKG in $(CMDS); do \
 		echo build $$PKG; \
 		$(GO_BUILD) -o $(BIN_DIR)/`basename $${PKG}` $$PKG; \
@@ -58,11 +58,11 @@ test: prepare_dir
 	done
 
 
-cmd/%: prepare_dir
+cmd/%: prepare_dir fmt
 	$(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
 
 
-pkg/%: prepare_dir
+pkg/%: prepare_dir fmt
 	$(GO_INSTALL) $(REPO_PREFIX)/$@
 
 

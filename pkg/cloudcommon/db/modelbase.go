@@ -108,7 +108,7 @@ func (manager *SModelBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner string
 	return q
 }
 
-func (manager *SModelBaseManager) GetOwnerId(userCred mcclient.TokenCredential) string {
+func (manager *SModelBaseManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
 	return ""
 }
 
@@ -116,11 +116,11 @@ func (manager *SModelBaseManager) FetchById(idStr string) (IModel, error) {
 	return nil, sql.ErrNoRows
 }
 
-func (manager *SModelBaseManager) FetchByName(ownerProjId string, idStr string) (IModel, error) {
+func (manager *SModelBaseManager) FetchByName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
 	return nil, sql.ErrNoRows
 }
 
-func (manager *SModelBaseManager) FetchByIdOrName(ownerProjId string, idStr string) (IModel, error) {
+func (manager *SModelBaseManager) FetchByIdOrName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
 	return nil, sql.ErrNoRows
 }
 

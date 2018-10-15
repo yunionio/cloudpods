@@ -156,7 +156,7 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 
 	storageStr := jsonutils.GetAnyString(queryDict, []string{"storage", "storage_id"})
 	if len(storageStr) > 0 {
-		storageObj, err := StorageManager.FetchByIdOrName(userCred.GetProjectId(), storageStr)
+		storageObj, err := StorageManager.FetchByIdOrName(userCred, storageStr)
 		if err != nil {
 			return nil, httperrors.NewResourceNotFoundError("storage %s not found: %s", storageStr, err)
 		}
