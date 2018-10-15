@@ -25,11 +25,13 @@ func (self *DiskResetTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 	disk := obj.(*models.SDisk)
 	storage := disk.GetStorage()
 	if storage == nil {
+		disk.SetStatus(self.UserCred, models.DISK_READY, "")
 		self.SetStageFailed(ctx, "Disk storage not found")
 		return
 	}
 	host := storage.GetMasterHost()
 	if host == nil {
+		disk.SetStatus(self.UserCred, models.DISK_READY, "")
 		self.SetStageFailed(ctx, "Storage master host not found")
 		return
 	}
@@ -39,6 +41,7 @@ func (self *DiskResetTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 func (self *DiskResetTask) RequestResetDisk(ctx context.Context, disk *models.SDisk, host *models.SHost) {
 	snapshotId, err := self.Params.GetString("snapshot_id")
 	if err != nil {
+		disk.SetStatus(self.UserCred, models.DISK_READY, "")
 		self.SetStageFailed(ctx, fmt.Sprintf("Get snapshotId error %s", err.Error()))
 		return
 	}
@@ -58,6 +61,7 @@ func (self *DiskResetTask) RequestResetDisk(ctx context.Context, disk *models.SD
 	self.SetStage("OnRequestResetDisk", nil)
 	err = host.GetHostDriver().RequestResetDisk(ctx, host, disk, params, self)
 	if err != nil {
+		disk.SetStatus(self.UserCred, models.DISK_READY, "")
 		self.SetStageFailed(ctx, err.Error())
 	}
 }
@@ -83,6 +87,18 @@ func (self *DiskResetTask) OnRequestResetDisk(ctx context.Context, disk *models.
 			return
 		}
 	}
+	if jsonutils.QueryBoolean(self.Params, "auto_start", false) {
+		guest := disk.GetGuests()[0]
+		self.SetStage("OnStartGuest", nil)
+		guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
+	} else {
+		disk.SetStatus(self.UserCred, models.DISK_READY, "")
+		self.SetStageComplete(ctx, nil)
+	}
+}
+
+func (self *DiskResetTask) OnStartGuest(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
+	disk.SetStatus(self.UserCred, models.DISK_READY, "")
 	self.SetStageComplete(ctx, nil)
 }
 
