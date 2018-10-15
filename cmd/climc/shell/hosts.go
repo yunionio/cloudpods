@@ -26,6 +26,7 @@ func init() {
 		AnyMac    string `help:"Mac matches one of the host's interface"`
 
 		Manager string `help:"Show regions belongs to the cloud provider"`
+		Usable  bool   `help:"List all zones that is usable"`
 
 		options.BaseListOptions
 	}
@@ -66,6 +67,10 @@ func init() {
 
 		if len(args.Manager) > 0 {
 			params.Add(jsonutils.NewString(args.Manager), "manager")
+		}
+
+		if args.Usable {
+			params.Add(jsonutils.JSONTrue, "usable")
 		}
 
 		if args.Empty {
