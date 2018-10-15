@@ -7,9 +7,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/pkg/tristate"
 )
 
 var QuotaManager *quotas.SQuotaManager
@@ -278,7 +278,7 @@ func (self *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
 	if sreq.IsolatedDevice > 0 && self.IsolatedDevice > squota.IsolatedDevice {
 		return ErrOutOfIsolatedDevice
 	}
-	if self.Snapshot > squota.Snapshot {
+	if sreq.Snapshot > 0 && self.Snapshot > squota.Snapshot {
 		return ErrOutOfSnapshot
 	}
 	return nil

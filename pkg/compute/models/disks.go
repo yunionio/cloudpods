@@ -38,6 +38,7 @@ const (
 	DISK_STARTALLOC     = "start_alloc"
 	DISK_ALLOCATING     = "allocating"
 	DISK_READY          = "ready"
+	DISK_RESET          = "reset"
 	DISK_DEALLOC        = "deallocating"
 	DISK_DEALLOC_FAILED = "dealloc_failed"
 	DISK_UNKNOWN        = "unknown"
@@ -391,10 +392,8 @@ func (self *SDisk) CleanUpDiskSnapshots(ctx context.Context, userCred mcclient.T
 	convertSnapshots := jsonutils.NewArray()
 	deleteSnapshots := jsonutils.NewArray()
 	for i := 0; i < len(dest); i++ {
-		if dest[i].CreatedBy == MANUAL && !dest[i].FakeDeleted {
-			if !dest[i].OutOfChain {
-				convertSnapshots.Add(jsonutils.NewString(dest[i].Id))
-			}
+		if !dest[i].FakeDeleted && !dest[i].OutOfChain {
+			convertSnapshots.Add(jsonutils.NewString(dest[i].Id))
 		} else {
 			deleteSnapshots.Add(jsonutils.NewString(dest[i].Id))
 		}
@@ -416,6 +415,9 @@ func (self *SDisk) AllowPerformDiskReset(ctx context.Context, userCred mcclient.
 }
 
 func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Status != DISK_READY {
+		return nil, httperrors.NewInvalidStatusError("Cannot reset disk in status %s", self.Status)
+	}
 	snapshotId, err := data.GetString("snapshot_id")
 	if err != nil {
 		return nil, err
@@ -436,13 +438,16 @@ func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.Token
 	if snapshot.Status != SNAPSHOT_READY {
 		return nil, httperrors.NewBadRequestError("Cannot reset disk with snapshot in status %s", snapshot.Status)
 	}
-	self.StartResetDisk(ctx, userCred, snapshotId)
+	autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
+	self.StartResetDisk(ctx, userCred, snapshotId, autoStart)
 	return nil, nil
 }
 
-func (self *SDisk) StartResetDisk(ctx context.Context, userCred mcclient.TokenCredential, snapshotId string) error {
+func (self *SDisk) StartResetDisk(ctx context.Context, userCred mcclient.TokenCredential, snapshotId string, autoStart bool) error {
+	self.SetStatus(userCred, DISK_RESET, "")
 	params := jsonutils.NewDict()
 	params.Set("snapshot_id", jsonutils.NewString(snapshotId))
+	params.Set("auto_start", jsonutils.NewBool(autoStart))
 	task, err := taskman.TaskManager.NewTask(ctx, "DiskResetTask", self, userCred, params, "", "", nil)
 	if err != nil {
 		return err
@@ -1249,7 +1254,7 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 			continue
 		}
 		// name
-		name := guests[0].Name + time.Now().Format("2006-01-02#15:04:05")
+		name := "Auto-" + guests[0].Name + time.Now().Format("2006-01-02#15:04:05")
 		snap, err := SnapshotManager.CreateSnapshot(ctx, userCred, AUTO, disk.Id, guests[0].Id, "", name)
 		if err != nil {
 			log.Errorln(err)
