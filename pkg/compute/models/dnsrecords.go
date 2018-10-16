@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
 
@@ -30,7 +31,8 @@ const (
 
 type SDnsRecord struct {
 	db.SAdminSharableVirtualResourceBase
-	Ttl int `nullable:"true" default:"0" create:"optional" list:"user" update:"user"`
+	Ttl     int  `nullable:"true" default:"0" create:"optional" list:"user" update:"user"`
+	Enabled bool `nullable:"false" default:"true" create:"optional" list:"user"`
 }
 
 // GetRecordsSeparator implements IAdminSharableVirtualModelManager
@@ -192,7 +194,7 @@ func (man *SDnsRecordManager) ValidateCreateData(
 
 func (man *SDnsRecordManager) QueryDns(projectId, name string) *SDnsRecord {
 	q := man.Query()
-	q = man.FilterByName(q, name)
+	q = man.FilterByName(q, name).Filter(sqlchemy.IsTrue(q.Field("enabled")))
 	if len(projectId) == 0 {
 		q = q.Filter(sqlchemy.IsTrue(q.Field("is_public")))
 	} else {
@@ -286,4 +288,40 @@ func (rec *SDnsRecord) PerformRemoveRecords(ctx context.Context, userCred mcclie
 
 func (rec *SDnsRecord) GetTtl() int {
 	return rec.Ttl
+}
+
+func (rec *SDnsRecord) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return rec.IsOwner(userCred) || userCred.IsSystemAdmin()
+}
+
+func (rec *SDnsRecord) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !rec.Enabled {
+		_, err := rec.GetModelManager().TableSpec().Update(rec, func() error {
+			rec.Enabled = true
+			return nil
+		})
+		if err != nil {
+			log.Errorf("enabling dnsrecords for %s failed: %s", rec.Name, err)
+			return nil, err
+		}
+	}
+	return nil, nil
+}
+
+func (rec *SDnsRecord) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return rec.IsOwner(userCred) || userCred.IsSystemAdmin()
+}
+
+func (rec *SDnsRecord) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if rec.Enabled {
+		_, err := rec.GetModelManager().TableSpec().Update(rec, func() error {
+			rec.Enabled = false
+			return nil
+		})
+		if err != nil {
+			log.Errorf("disabling dnsrecords for %s failed: %s", rec.Name, err)
+			return nil, err
+		}
+	}
+	return nil, nil
 }
