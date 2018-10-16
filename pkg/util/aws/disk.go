@@ -320,3 +320,7 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) error {
 func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
 	return "", nil
 }
+
+func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, desc string) (string, error) {
+	return "", nil
+}

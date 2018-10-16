@@ -72,3 +72,10 @@ func (self *SRegion) checkBucket(bucketName string) (*oss.Bucket, error) {
 func (self *SRegion) createIImage(snapshoutId, imageName, imageDesc string) (string, error) {
 	return "", nil
 }
+
+func (self *SRegion) getStoragecache() *SStoragecache {
+	if self.storageCache == nil {
+		self.storageCache = &SStoragecache{region: self}
+	}
+	return self.storageCache
+}
