@@ -165,3 +165,18 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 	return nil, nil
 }
 
+func (self *SRegion) getSecurityGroupByTag(vpcId, secgroupId string) (*SSecurityGroup, error) {
+	return nil, nil
+}
+
+func (self *SRegion) addTagToSecurityGroup(secgroupId, key, value string, index int) error {
+	return nil
+}
+
+func (self *SRegion) modifySecurityGroup(secGrpId string, name string, desc string) error {
+	return nil
+}
+
+func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.SecurityRule) error {
+	return nil
+}
