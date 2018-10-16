@@ -234,7 +234,7 @@ func (r *SRegionDNS) Records(state request.Request, exact bool) ([]msg.Service, 
 
 func (r *SRegionDNS) getHostIpWithName(req *recordRequest) string {
 	name := req.QueryName()
-	host, _ := models.HostManager.FetchByName("", name)
+	host, _ := models.HostManager.FetchByName(nil, name)
 	if host == nil {
 		return ""
 	}
