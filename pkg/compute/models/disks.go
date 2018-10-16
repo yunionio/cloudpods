@@ -410,6 +410,20 @@ func (self *SDisk) CleanUpDiskSnapshots(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
+func (self *SDisk) AllowPerformCreateSnapshot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SDisk) PerformCreateSnapshot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	guests := self.GetGuests()
+	if len(guests) != 1 {
+		return nil, httperrors.NewBadRequestError("Disk dosen't attach guest??")
+	}
+	dataDict := data.(*jsonutils.JSONDict)
+	dataDict.Set("disk_id", jsonutils.NewString(self.Id))
+	return guests[0].PerformDiskSnapshot(ctx, userCred, query, dataDict)
+}
+
 func (self *SDisk) AllowPerformDiskReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred)
 }
