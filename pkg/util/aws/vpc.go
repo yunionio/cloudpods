@@ -118,3 +118,23 @@ func (self *SVpc) fetchNetworks() error {
 	}
 	return nil
 }
+
+func (self *SVpc) revokeSecurityGroup(secgroupId string, instanceId string, keep bool) error {
+	return self.region.revokeSecurityGroup(secgroupId, instanceId, keep)
+}
+
+func (self *SVpc) assignSecurityGroup(secgroupId string, instanceId string) error {
+	return self.region.assignSecurityGroup(secgroupId, instanceId)
+}
+
+func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
+	return nil, nil
+}
+
+func (self *SRegion) revokeSecurityGroup(secgroupId, instanceId string, keep bool) error {
+	return nil
+}
+
+func (self *SRegion) assignSecurityGroup(secgroupId, instanceId string) error {
+	return nil
+}

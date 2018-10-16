@@ -8,6 +8,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/coredns/coredns/plugin/pkg/log"
 	"fmt"
+	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/pkg/util/osprofile"
 )
 
 const (
@@ -104,34 +106,76 @@ type SInstance struct {
 	Status                  string
 	StoppedMode             string
 	VlanId                  string
+	VpcAttributes           SVpcAttributes
 }
 
 func (self *SInstance) GetId() string {
-	panic("implement me")
+	return self.InstanceId
 }
 
 func (self *SInstance) GetName() string {
-	panic("implement me")
+	return self.HostName
 }
 
 func (self *SInstance) GetGlobalId() string {
-	panic("implement me")
+	return self.InstanceId
 }
 
 func (self *SInstance) GetStatus() string {
-	panic("implement me")
+	// todo : implement me
+	switch self.Status {
+	case InstanceStatusRunning:
+		return models.VM_RUNNING
+	case InstanceStatusStarting:
+		return models.VM_STARTING
+	case InstanceStatusStopping:
+		return models.VM_STOPPING
+	case InstanceStatusStopped:
+		return models.VM_READY
+	default:
+		return models.VM_UNKNOWN
+	}
 }
 
 func (self *SInstance) Refresh() error {
-	panic("implement me")
+	new, err := self.host.zone.region.GetInstance(self.InstanceId)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(self, new)
 }
 
 func (self *SInstance) IsEmulated() bool {
-	panic("implement me")
+	return false
 }
 
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
-	panic("implement me")
+	// todo: implement me
+	data := jsonutils.NewDict()
+
+	// The pricingInfo key structure is 'RegionId::InstanceType::NetworkType::OSType::IoOptimized'
+	optimized := "optimized"
+	if !self.IoOptimized {
+		optimized = "none"
+	}
+	priceKey := fmt.Sprintf("%s::%s::%s::%s::%s", self.RegionId, self.InstanceType, self.InstanceNetworkType, self.OSType, optimized)
+	data.Add(jsonutils.NewString(priceKey), "price_key")
+
+	if len(self.ImageId) > 0 {
+		if image, err := self.host.zone.region.GetImage(self.ImageId); err != nil {
+			log.Errorf("Failed to find image %s for instance %s", self.ImageId, self.GetName())
+		} else if meta := image.GetMetadata(); meta != nil {
+			data.Update(meta)
+		}
+	}
+	for _, secgroupId := range self.SecurityGroupIds.SecurityGroupId {
+		if len(secgroupId) > 0 {
+			data.Add(jsonutils.NewString(secgroupId), "secgroupId")
+			break
+		}
+	}
+
+	return data
 }
 
 func (self *SInstance) GetBillingType() string {
@@ -139,87 +183,162 @@ func (self *SInstance) GetBillingType() string {
 }
 
 func (self *SInstance) GetExpiredAt() time.Time {
-	panic("implement me")
+	return self.ExpiredTime
 }
 
 func (self *SInstance) GetCreateTime() time.Time {
-	panic("implement me")
+	return self.CreationTime
 }
 
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
-	panic("implement me")
+	return self.host
 }
 
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	panic("implement me")
+	// todo: implement me
+	return nil, nil
 }
 
 func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
-	panic("implement me")
+	nics := make([]cloudprovider.ICloudNic, 0)
+	for _, ip := range self.VpcAttributes.PrivateIpAddress.IpAddress {
+		nic := SInstanceNic{instance: self, ipAddr: ip}
+		nics = append(nics, &nic)
+	}
+	return nics, nil
 }
 
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
-	panic("implement me")
+	// todo: implement me
+	if len(self.PublicIpAddress.IpAddress) > 0 {
+		eip := SEipAddress{}
+		eip.region = self.host.zone.region
+		eip.IpAddress = self.PublicIpAddress.IpAddress[0]
+		eip.InstanceId = self.InstanceId
+		eip.AllocationId = self.InstanceId // fixed
+		eip.Bandwidth = self.InternetMaxBandwidthOut
+		return &eip, nil
+	} else if len(self.EipAddress.IpAddress) > 0 {
+		return self.host.zone.region.GetEip(self.EipAddress.AllocationId)
+	} else {
+		return nil, nil
+	}
 }
 
 func (self *SInstance) GetVcpuCount() int8 {
-	panic("implement me")
+	return self.Cpu
 }
 
 func (self *SInstance) GetVmemSizeMB() int {
-	panic("implement me")
+	return self.Memory
 }
 
 func (self *SInstance) GetBootOrder() string {
-	panic("implement me")
+	return "dcn"
 }
 
 func (self *SInstance) GetVga() string {
-	panic("implement me")
+	return "std"
 }
 
 func (self *SInstance) GetVdi() string {
-	panic("implement me")
+	return "vnc"
 }
 
 func (self *SInstance) GetOSType() string {
-	panic("implement me")
+	return osprofile.NormalizeOSType(self.OSType)
 }
 
 func (self *SInstance) GetOSName() string {
-	panic("implement me")
+	return self.OSName
 }
 
 func (self *SInstance) GetBios() string {
-	panic("implement me")
+	return "BIOS"
 }
 
 func (self *SInstance) GetMachine() string {
-	panic("implement me")
+	return "pc"
 }
 
 func (self *SInstance) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) error {
-	panic("implement me")
+	if vpc, err := self.getVpc(); err != nil {
+		return err
+	} else if len(secgroupId) == 0 {
+		for index, secgrpId := range self.SecurityGroupIds.SecurityGroupId {
+			if err := vpc.revokeSecurityGroup(secgrpId, self.InstanceId, index == 0); err != nil {
+				return err
+			}
+		}
+	} else if secgrpId, err := vpc.SyncSecurityGroup(secgroupId, name, rules); err != nil {
+		return err
+	} else if err := vpc.assignSecurityGroup(secgrpId, self.InstanceId); err != nil {
+		return err
+	} else {
+		for _, secgroupId := range self.SecurityGroupIds.SecurityGroupId {
+			if secgroupId != secgrpId {
+				if err := vpc.revokeSecurityGroup(secgroupId, self.InstanceId, false); err != nil {
+					return err
+				}
+			}
+		}
+		self.SecurityGroupIds.SecurityGroupId = []string{secgrpId}
+	}
+	return nil
 }
 
 func (self *SInstance) GetHypervisor() string {
-	panic("implement me")
+	return models.HYPERVISOR_AWS
 }
 
 func (self *SInstance) StartVM() error {
-	panic("implement me")
+	timeout := 300 * time.Second
+	interval := 15 * time.Second
+
+	startTime := time.Now()
+	for time.Now().Sub(startTime) < timeout {
+		err := self.Refresh()
+		if err != nil {
+			return err
+		}
+		log.Debugf("status %s expect %s", self.GetStatus(), models.VM_RUNNING)
+		if self.GetStatus() == models.VM_RUNNING {
+			return nil
+		} else if self.GetStatus() == models.VM_READY {
+			err := self.host.zone.region.StartVM(self.InstanceId)
+			if err != nil {
+				return err
+			}
+		}
+		time.Sleep(interval)
+	}
+	return cloudprovider.ErrTimeout
 }
 
 func (self *SInstance) StopVM(isForce bool) error {
-	panic("implement me")
+	err := self.host.zone.region.StopVM(self.InstanceId, isForce)
+	if err != nil {
+		return err
+	}
+	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
 }
 
 func (self *SInstance) DeleteVM() error {
-	panic("implement me")
+	for {
+		err := self.host.zone.region.DeleteVM(self.InstanceId)
+		if err != nil {
+			// todo: implement me
+		} else {
+			break
+		}
+	}
+	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
+
 }
 
 func (self *SInstance) UpdateVM(name string) error {
-	panic("implement me")
+	// todo :implement me
+	return nil
 }
 
 func (self *SInstance) RebuildRoot(imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
@@ -239,11 +358,15 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 }
 
 func (self *SInstance) AttachDisk(diskId string) error {
-	panic("implement me")
+	return self.host.zone.region.AttachDisk(self.InstanceId, diskId)
 }
 
 func (self *SInstance) DetachDisk(diskId string) error {
-	panic("implement me")
+	return self.host.zone.region.DetachDisk(self.InstanceId, diskId)
+}
+
+func (self *SInstance) getVpc() (*SVpc, error) {
+	return self.host.zone.region.getVpc(self.VpcAttributes.VpcId)
 }
 
 func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit int) ([]SInstance, int, error) {

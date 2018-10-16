@@ -105,7 +105,7 @@ func (self *SImage) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SImage) Delete() error {
-	// todo: implement meßß
+	// todo: implement me
 	return self.storageCache.region.DeleteImage(self.ImageId)
 }
 
