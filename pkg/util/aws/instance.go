@@ -96,6 +96,7 @@ type SInstance struct {
 	OperationLocks          SOperationLocks
 	PublicIpAddress         SIpAddress
 	Recyclable              bool
+	RootDeviceName          string
 	SerialNumber            string
 	SpotPriceLimit          string
 	SpotStrategy            string
