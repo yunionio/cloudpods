@@ -5,6 +5,10 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"strings"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SNetwork struct {
@@ -23,74 +27,91 @@ type SNetwork struct {
 }
 
 func (self *SNetwork) GetId() string {
-	panic("implement me")
+	return self.NetworkId
 }
 
 func (self *SNetwork) GetName() string {
-	panic("implement me")
+	return self.NetworkName
 }
 
 func (self *SNetwork) GetGlobalId() string {
-	panic("implement me")
+	return self.NetworkId
 }
 
 func (self *SNetwork) GetStatus() string {
-	panic("implement me")
+	return strings.ToLower(self.Status)
 }
 
 func (self *SNetwork) Refresh() error {
-	panic("implement me")
+	log.Debugf("network refresh %s", self.NetworkId)
+	new, err := self.wire.zone.region.getNetwork(self.NetworkId)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(self, new)
 }
 
 func (self *SNetwork) IsEmulated() bool {
-	panic("implement me")
+	return false
 }
 
 func (self *SNetwork) GetMetadata() *jsonutils.JSONDict {
-	panic("implement me")
+	return nil
 }
 
 func (self *SNetwork) GetIWire() cloudprovider.ICloudWire {
-	panic("implement me")
+	return self.wire
 }
 
 func (self *SNetwork) GetIpStart() string {
-	panic("implement me")
+	pref, _ := netutils.NewIPV4Prefix(self.CidrBlock)
+	startIp := pref.Address.NetAddr(pref.MaskLen) // 0
+	startIp = startIp.StepUp()                    // 1
+	return startIp.String()
 }
 
 func (self *SNetwork) GetIpEnd() string {
-	panic("implement me")
+	pref, _ := netutils.NewIPV4Prefix(self.CidrBlock)
+	endIp := pref.Address.BroadcastAddr(pref.MaskLen) // 255
+	endIp = endIp.StepDown()                          // 254
+	endIp = endIp.StepDown()                          // 253
+	endIp = endIp.StepDown()                          // 252
+	return endIp.String()
 }
 
 func (self *SNetwork) GetIpMask() int8 {
-	panic("implement me")
+	pref, _ := netutils.NewIPV4Prefix(self.CidrBlock)
+	return pref.MaskLen
 }
 
 func (self *SNetwork) GetGateway() string {
-	panic("implement me")
+	pref, _ := netutils.NewIPV4Prefix(self.CidrBlock)
+	endIp := pref.Address.BroadcastAddr(pref.MaskLen) // 255
+	endIp = endIp.StepDown()                          // 254
+	return endIp.String()
 }
 
 func (self *SNetwork) GetServerType() string {
-	panic("implement me")
+	return models.SERVER_TYPE_GUEST
 }
 
 func (self *SNetwork) GetIsPublic() bool {
-	panic("implement me")
+	return true
 }
 
 func (self *SNetwork) Delete() error {
-	panic("implement me")
+	return self.wire.zone.region.deleteNetwork(self.NetworkId)
 }
 
 func (self *SNetwork) GetAllocTimeoutSeconds() int {
-	panic("implement me")
+	return 120 // 2 minutes
 }
 
 func (self *SRegion) createNetwork(zoneId string, vpcId string, name string, cidr string, desc string) (string, error)  {
 	return "", nil
 }
 
-func (self *SRegion) getNetwork(vswitchId string) (*SNetwork, error) {
+func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
 	return nil, nil
 }
 
