@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io/ioutil"
+	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-04-01/compute"
 	"yunion.io/x/jsonutils"
@@ -31,7 +32,7 @@ func (self *SSnapshot) GetId() string {
 }
 
 func (self *SSnapshot) GetGlobalId() string {
-	return self.ID
+	return strings.ToLower(self.ID)
 }
 
 func (self *SSnapshot) GetMetadata() *jsonutils.JSONDict {

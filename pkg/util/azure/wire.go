@@ -3,6 +3,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network"
 	"yunion.io/x/jsonutils"
@@ -25,7 +26,7 @@ func (self *SWire) GetId() string {
 }
 
 func (self *SWire) GetGlobalId() string {
-	return self.GetId()
+	return strings.ToLower(self.GetId())
 }
 
 func (self *SWire) GetName() string {
