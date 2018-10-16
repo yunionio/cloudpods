@@ -39,7 +39,7 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 		return
 	}
 
-	err = eip.SyncWithCloudEip(self.UserCred, extEip)
+	err = eip.SyncWithCloudEip(self.UserCred, extEip, "", false)
 
 	if err != nil {
 		msg := fmt.Sprintf("sync eip fail %s", err)

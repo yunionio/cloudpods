@@ -637,7 +637,7 @@ func (manager *SDiskManager) getDisksByStorage(storage *SStorage) ([]SDisk, erro
 	return disks, nil
 }
 
-func (manager *SDiskManager) syncCloudDisk(ctx context.Context, userCred mcclient.TokenCredential, vdisk cloudprovider.ICloudDisk) (*SDisk, error) {
+func (manager *SDiskManager) syncCloudDisk(ctx context.Context, userCred mcclient.TokenCredential, vdisk cloudprovider.ICloudDisk, projectId string, projectSync bool) (*SDisk, error) {
 	diskObj, err := manager.FetchByExternalId(vdisk.GetGlobalId())
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -648,13 +648,13 @@ func (manager *SDiskManager) syncCloudDisk(ctx context.Context, userCred mcclien
 				return nil, err
 			}
 			storage := storageObj.(*SStorage)
-			return manager.newFromCloudDisk(ctx, userCred, vdisk, storage)
+			return manager.newFromCloudDisk(ctx, userCred, vdisk, storage, projectId)
 		} else {
 			return nil, err
 		}
 	} else {
 		disk := diskObj.(*SDisk)
-		err = disk.syncWithCloudDisk(ctx, userCred, vdisk)
+		err = disk.syncWithCloudDisk(ctx, userCred, vdisk, projectId, projectSync)
 		if err != nil {
 			return nil, err
 		}
@@ -662,7 +662,7 @@ func (manager *SDiskManager) syncCloudDisk(ctx context.Context, userCred mcclien
 	}
 }
 
-func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.TokenCredential, storage *SStorage, disks []cloudprovider.ICloudDisk) ([]SDisk, []cloudprovider.ICloudDisk, compare.SyncResult) {
+func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.TokenCredential, storage *SStorage, disks []cloudprovider.ICloudDisk, projectId string, projectSync bool) ([]SDisk, []cloudprovider.ICloudDisk, compare.SyncResult) {
 	localDisks := make([]SDisk, 0)
 	remoteDisks := make([]cloudprovider.ICloudDisk, 0)
 	syncResult := compare.SyncResult{}
@@ -694,7 +694,7 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudDisk(ctx, userCred, commonext[i])
+		err = commondb[i].syncWithCloudDisk(ctx, userCred, commonext[i], projectId, projectSync)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -705,7 +705,7 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 	}
 
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudDisk(ctx, userCred, added[i], storage)
+		new, err := manager.newFromCloudDisk(ctx, userCred, added[i], storage, projectId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -718,7 +718,7 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 	return localDisks, remoteDisks, syncResult
 }
 
-func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.TokenCredential, extDisk cloudprovider.ICloudDisk) error {
+func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.TokenCredential, extDisk cloudprovider.ICloudDisk, projectId string, projectSync bool) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		extDisk.Refresh()
 		self.Name = extDisk.GetName()
@@ -737,10 +737,8 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		self.ExpiredAt = extDisk.GetExpiredAt()
 
 		self.ProjectId = userCred.GetProjectId()
-		if manageId := extDisk.GetIStorge().GetManagerId(); len(manageId) > 0 {
-			if provider := CloudproviderManager.FetchCloudproviderById(manageId); provider != nil {
-				self.ProjectId = provider.ProjectId
-			}
+		if projectSync && len(projectId) > 0 {
+			self.ProjectId = projectId
 		}
 		return nil
 	})
@@ -765,7 +763,7 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 	return nil
 }
 
-func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mcclient.TokenCredential, extDisk cloudprovider.ICloudDisk, storage *SStorage) (*SDisk, error) {
+func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mcclient.TokenCredential, extDisk cloudprovider.ICloudDisk, storage *SStorage, projectId string) (*SDisk, error) {
 	disk := SDisk{}
 	disk.SetModelManager(manager)
 
@@ -774,10 +772,8 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	disk.ExternalId = extDisk.GetGlobalId()
 	disk.StorageId = storage.Id
 	disk.ProjectId = userCred.GetProjectId()
-	if manageId := extDisk.GetIStorge().GetManagerId(); len(manageId) > 0 {
-		if provider := CloudproviderManager.FetchCloudproviderById(manageId); provider != nil {
-			disk.ProjectId = provider.ProjectId
-		}
+	if len(projectId) > 0 {
+		disk.ProjectId = projectId
 	}
 	disk.DiskFormat = extDisk.GetDiskFormat()
 	disk.DiskSize = extDisk.GetDiskSizeMB()

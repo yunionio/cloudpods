@@ -136,7 +136,7 @@ func (self *SElasticip) GetRegion() *SCloudregion {
 	return CloudregionManager.FetchRegionById(self.CloudregionId)
 }
 
-func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, eips []cloudprovider.ICloudEIP) compare.SyncResult {
+func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, eips []cloudprovider.ICloudEIP, projectId string, projectSync bool) compare.SyncResult {
 	// localEips := make([]SElasticip, 0)
 	// remoteEips := make([]cloudprovider.ICloudEIP, 0)
 	syncResult := compare.SyncResult{}
@@ -167,7 +167,7 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudEip(userCred, commonext[i])
+		err = commondb[i].SyncWithCloudEip(userCred, commonext[i], projectId, projectSync)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -175,7 +175,7 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		_, err := manager.newFromCloudEip(userCred, added[i], region)
+		_, err := manager.newFromCloudEip(userCred, added[i], region, projectId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -221,7 +221,7 @@ func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred m
 	return nil
 }
 
-func (self *SElasticip) SyncWithCloudEip(userCred mcclient.TokenCredential, ext cloudprovider.ICloudEIP) error {
+func (self *SElasticip) SyncWithCloudEip(userCred mcclient.TokenCredential, ext cloudprovider.ICloudEIP, projectId string, projectSync bool) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 
 		// self.Name = ext.GetName()
@@ -233,10 +233,8 @@ func (self *SElasticip) SyncWithCloudEip(userCred mcclient.TokenCredential, ext 
 		// self.ManagerId = ext.GetManagerId()
 		self.IsEmulated = ext.IsEmulated()
 		self.ProjectId = userCred.GetProjectId()
-		if manageId := ext.GetManagerId(); len(manageId) > 0 {
-			if provider := CloudproviderManager.FetchCloudproviderById(manageId); provider != nil {
-				self.ProjectId = provider.ProjectId
-			}
+		if projectSync && len(projectId) > 0 {
+			self.ProjectId = projectId
 		}
 		self.ChargeType = ext.GetInternetChargeType()
 
@@ -248,7 +246,7 @@ func (self *SElasticip) SyncWithCloudEip(userCred mcclient.TokenCredential, ext 
 	return err
 }
 
-func (manager *SElasticipManager) newFromCloudEip(userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, region *SCloudregion) (*SElasticip, error) {
+func (manager *SElasticipManager) newFromCloudEip(userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, region *SCloudregion, projectId string) (*SElasticip, error) {
 	eip := SElasticip{}
 	eip.SetModelManager(manager)
 
@@ -263,11 +261,10 @@ func (manager *SElasticipManager) newFromCloudEip(userCred mcclient.TokenCredent
 	eip.ChargeType = extEip.GetInternetChargeType()
 
 	eip.ProjectId = userCred.GetProjectId()
-	if manageId := extEip.GetManagerId(); len(manageId) > 0 {
-		if provider := CloudproviderManager.FetchCloudproviderById(manageId); provider != nil {
-			eip.ProjectId = provider.ProjectId
-		}
+	if len(projectId) > 0 {
+		eip.ProjectId = projectId
 	}
+
 	err := manager.TableSpec().Insert(&eip)
 	if err != nil {
 		log.Errorf("newFromCloudEip fail %s", err)
@@ -353,7 +350,7 @@ func (self *SElasticip) AssociateVM(userCred mcclient.TokenCredential, vm *SGues
 	return nil
 }
 
-func (manager *SElasticipManager) getEipByExtEip(userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, region *SCloudregion) (*SElasticip, error) {
+func (manager *SElasticipManager) getEipByExtEip(userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, region *SCloudregion, projectId string) (*SElasticip, error) {
 	eipObj, err := manager.FetchByExternalId(extEip.GetGlobalId())
 	if err == nil {
 		return eipObj.(*SElasticip), nil
@@ -363,7 +360,7 @@ func (manager *SElasticipManager) getEipByExtEip(userCred mcclient.TokenCredenti
 		return nil, err
 	}
 
-	return manager.newFromCloudEip(userCred, extEip, region)
+	return manager.newFromCloudEip(userCred, extEip, region, projectId)
 }
 
 func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

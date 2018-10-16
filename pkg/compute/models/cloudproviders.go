@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -130,39 +129,35 @@ func (self *SCloudprovider) CanSync() bool {
 
 func (self *SCloudprovider) SyncProject() (err error) {
 	projectId := ""
-	if len(self.ProjectId) == 0 && len(self.Name) > 0 && self.Provider == CLOUD_PROVIDER_AZURE {
-		s := auth.GetAdminSession(options.Options.Region, "")
-		if project, err := modules.Projects.GetByName(s, self.Name, nil); err == nil {
-			if projectId, err = project.GetString("id"); err != nil {
-				return err
-			}
-		} else if strings.Index(err.Error(), "404 NotFoundError") > 0 {
+	if len(self.ProjectId) == 0 && len(self.Name) > 0 {
+		if tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(context.Background(), self.Name); err != nil {
+			s := auth.GetAdminSession(options.Options.Region, "")
 			if project, err := modules.Projects.Create(s, jsonutils.Marshal(map[string]string{"name": self.Name})); err != nil {
 				return err
 			} else if projectId, err = project.GetString("id"); err != nil {
 				return err
 			}
 		} else {
-			return err
+			projectId = tenant.Id
 		}
-		if len(projectId) > 0 {
-			if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
-				self.ProjectId = projectId
-				return nil
-			}); err != nil {
-				return err
-			}
-		}
+	}
+	if len(projectId) > 0 {
+		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+			self.ProjectId = projectId
+			return nil
+		})
+		return err
 	}
 	return nil
 }
 
 type SSyncRange struct {
-	Force    bool
-	FullSync bool
-	Region   []string
-	Zone     []string
-	Host     []string
+	Force       bool
+	FullSync    bool
+	ProjectSync bool
+	Region      []string
+	Zone        []string
+	Host        []string
 }
 
 func (sr *SSyncRange) NeedSyncInfo() bool {
@@ -268,9 +263,6 @@ func (self *SCloudprovider) PerformSync(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SCloudprovider) StartSyncCloudProviderInfoTask(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange, parentTaskId string) error {
-	if err := self.SyncProject(); err != nil {
-		log.Errorf("Sync cloudprovider project error: %v", err)
-	}
 	params := jsonutils.NewDict()
 	if syncRange != nil {
 		params.Add(jsonutils.Marshal(syncRange), "sync_range")
@@ -284,6 +276,26 @@ func (self *SCloudprovider) StartSyncCloudProviderInfoTask(ctx context.Context, 
 	return nil
 }
 
+func (self *SCloudprovider) AllowPerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if project, err := data.GetString("project"); err != nil {
+		return nil, httperrors.NewInputParameterError("Missing project parameter")
+	} else if tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, project); err != nil {
+		return nil, httperrors.NewNotFoundError("project %s not found", project)
+	} else if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		self.ProjectId = tenant.Id
+		return nil
+	}); err != nil {
+		log.Errorf("Update cloudprovider error: %v", err)
+		return nil, err
+	} else {
+		return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &SSyncRange{FullSync: true, ProjectSync: true}, "")
+	}
+}
+
 func (self *SCloudprovider) MarkStartSync(userCred mcclient.TokenCredential) {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.LastSync = timeutils.UtcNow()
@@ -294,6 +306,18 @@ func (self *SCloudprovider) MarkStartSync(userCred mcclient.TokenCredential) {
 		return
 	}
 	self.SetStatus(userCred, CLOUD_PROVIDER_START_SYNC, "")
+}
+
+func (self *SCloudprovider) GetDriver() (cloudprovider.ICloudProvider, error) {
+	if !self.Enabled {
+		return nil, fmt.Errorf("Cloud provider is not enabled")
+	}
+
+	account, err := self.getAccount()
+	if err != nil {
+		return nil, err
+	}
+	return cloudprovider.GetProvider(self.Id, self.Name, account.AccessUrl, account.Account, account.Secret, self.Provider)
 }
 
 type SAccount struct {
@@ -325,18 +349,6 @@ func (self *SCloudprovider) getAccount() (*SAccount, error) {
 		return &account, nil
 	}
 
-}
-
-func (self *SCloudprovider) GetDriver() (cloudprovider.ICloudProvider, error) {
-	if !self.Enabled {
-		return nil, fmt.Errorf("Cloud provider is not enabled")
-	}
-
-	account, err := self.getAccount()
-	if err != nil {
-		return nil, err
-	}
-	return cloudprovider.GetProvider(self.Id, self.Name, account.AccessUrl, account.Account, account.Secret, self.Provider)
 }
 
 func (self *SCloudprovider) SaveSysInfo(info jsonutils.JSONObject) {

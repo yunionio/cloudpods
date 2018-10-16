@@ -31,14 +31,15 @@ func init() {
 	})
 
 	type CloudaccountCreateOptions struct {
-		NAME      string `help:"Name of cloud account"`
-		ACCOUNT   string `help:"Account to access the cloud account"`
-		SECRET    string `help:"Secret to access the cloud account, clientId/clientScret for Azure"`
-		PROVIDER  string `help:"Driver for cloud account" choices:"VMware|Aliyun|Azure|Qcloud"`
-		AccessURL string `helo:"hello" metavar:"Azure choices: <AzureGermanCloud、AzureChinaCloud、AzureUSGovernmentCloud、AzurePublicCloud>"`
-		Desc      string `help:"Description"`
-		Enabled   bool   `help:"Enabled the account automatically"`
-		Import    bool   `help:"Import all sub account automatically"`
+		NAME          string `help:"Name of cloud account"`
+		ACCOUNT       string `help:"Account to access the cloud account"`
+		SECRET        string `help:"Secret to access the cloud account, clientId/clientScret for Azure"`
+		PROVIDER      string `help:"Driver for cloud account" choices:"VMware|Aliyun|Azure|Qcloud"`
+		AccessURL     string `helo:"hello" metavar:"Azure choices: <AzureGermanCloud、AzureChinaCloud、AzureUSGovernmentCloud、AzurePublicCloud>"`
+		Desc          string `help:"Description"`
+		Enabled       bool   `help:"Enabled the account automatically"`
+		EnableProject bool   `help:"Enable the account with same name project"`
+		Import        bool   `help:"Import all sub account automatically"`
 	}
 	R(&CloudaccountCreateOptions{}, "cloud-account-create", "Create a cloud account", func(s *mcclient.ClientSession, args *CloudaccountCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -48,6 +49,9 @@ func init() {
 		params.Add(jsonutils.NewString(args.PROVIDER), "provider")
 		if args.Enabled {
 			params.Add(jsonutils.JSONTrue, "enabled")
+		}
+		if args.EnableProject {
+			params.Add(jsonutils.JSONTrue, "enable_project")
 		}
 		if args.Import {
 			params.Add(jsonutils.JSONTrue, "import")
@@ -106,15 +110,6 @@ func init() {
 		return nil
 	})
 
-	R(&CloudaccountShowOptions{}, "cloud-account-sub-accounts", "Get sub accounts of a cloud account", func(s *mcclient.ClientSession, args *CloudaccountShowOptions) error {
-		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "get-sub-accounts", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
 	R(&CloudaccountShowOptions{}, "cloud-account-delete", "Delete a cloud account", func(s *mcclient.ClientSession, args *CloudaccountShowOptions) error {
 		result, err := modules.Cloudaccounts.Delete(s, args.ID, nil)
 		if err != nil {
@@ -152,11 +147,12 @@ func init() {
 	})
 
 	type CloudaccountImportOptions struct {
-		ID      string `help:"ID or Name of cloud account"`
-		Enabled bool   `help:"Import sub accounts with enabled status"`
+		ID            string `help:"ID or Name of cloud account"`
+		Enabled       bool   `help:"Import sub accounts with enabled status"`
+		EnableProject bool   `help:"Import sub account with project"`
 	}
 	R(&CloudaccountImportOptions{}, "cloud-account-import", "Import sub cloud account", func(s *mcclient.ClientSession, args *CloudaccountImportOptions) error {
-		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "import", jsonutils.Marshal(map[string]bool{"enabled": args.Enabled}))
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "import", jsonutils.Marshal(map[string]bool{"enabled": args.Enabled, "enable_project": args.EnableProject}))
 		if err != nil {
 			return err
 		}

@@ -1337,7 +1337,7 @@ func (self *SGuest) GetIsolatedDevices() []SIsolatedDevice {
 	return IsolatedDeviceManager.findAttachedDevicesOfGuest(self)
 }
 
-func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, extVM cloudprovider.ICloudVM) error {
+func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, extVM cloudprovider.ICloudVM, projectId string, projectSync bool) error {
 	metaData := extVM.GetMetadata()
 	diff, err := GuestManager.TableSpec().Update(self, func() error {
 		extVM.Refresh()
@@ -1353,10 +1353,9 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		self.Machine = extVM.GetMachine()
 		self.HostId = host.Id
 		self.ProjectId = userCred.GetProjectId()
-		if manageId := extVM.GetIHost().GetManagerId(); len(manageId) > 0 {
-			if provider := CloudproviderManager.FetchCloudproviderById(manageId); provider != nil {
-				self.ProjectId = provider.ProjectId
-			}
+
+		if projectSync && len(projectId) > 0 {
+			self.ProjectId = projectId
 		}
 
 		self.Hypervisor = extVM.GetHypervisor()
@@ -1402,7 +1401,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 	return nil
 }
 
-func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, extVM cloudprovider.ICloudVM) (*SGuest, error) {
+func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, extVM cloudprovider.ICloudVM, projectId string) (*SGuest, error) {
 
 	guest := SGuest{}
 	guest.SetModelManager(manager)
@@ -1428,10 +1427,8 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.HostId = host.Id
 
 	guest.ProjectId = userCred.GetProjectId()
-	if manageId := extVM.GetIHost().GetManagerId(); len(manageId) > 0 {
-		if provider := CloudproviderManager.FetchCloudproviderById(manageId); provider != nil {
-			guest.ProjectId = provider.ProjectId
-		}
+	if len(projectId) > 0 {
+		guest.ProjectId = projectId
 	}
 
 	metaData := extVM.GetMetadata()
@@ -1905,7 +1902,7 @@ type sSyncDiskPair struct {
 	vdisk cloudprovider.ICloudDisk
 }
 
-func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, vdisks []cloudprovider.ICloudDisk) compare.SyncResult {
+func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, vdisks []cloudprovider.ICloudDisk, projectId string, projectSync bool) compare.SyncResult {
 	result := compare.SyncResult{}
 
 	newdisks := make([]sSyncDiskPair, 0)
@@ -1913,7 +1910,7 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 		if len(vdisks[i].GetGlobalId()) == 0 {
 			continue
 		}
-		disk, err := DiskManager.syncCloudDisk(ctx, userCred, vdisks[i])
+		disk, err := DiskManager.syncCloudDisk(ctx, userCred, vdisks[i], projectId, projectSync)
 		if err != nil {
 			result.Error(err)
 			return result
@@ -4282,7 +4279,7 @@ func (self *SGuest) GetEip() (*SElasticip, error) {
 	return ElasticipManager.getEipForInstance("server", self.Id)
 }
 
-func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP) compare.SyncResult {
+func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, projectId string) compare.SyncResult {
 	result := compare.SyncResult{}
 
 	eip, err := self.GetEip()
@@ -4295,7 +4292,7 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 		// do nothing
 	} else if eip == nil && extEip != nil {
 		// add
-		neip, err := ElasticipManager.getEipByExtEip(userCred, extEip, self.getRegion())
+		neip, err := ElasticipManager.getEipByExtEip(userCred, extEip, self.getRegion(), projectId)
 		if err != nil {
 			result.AddError(err)
 		} else {
@@ -4324,7 +4321,7 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 				result.DeleteError(err)
 			} else {
 				result.Delete()
-				neip, err := ElasticipManager.getEipByExtEip(userCred, extEip, self.getRegion())
+				neip, err := ElasticipManager.getEipByExtEip(userCred, extEip, self.getRegion(), projectId)
 				if err != nil {
 					result.AddError(err)
 				} else {
@@ -4338,7 +4335,7 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 			}
 		} else {
 			// do nothing
-			err := eip.SyncWithCloudEip(userCred, extEip)
+			err := eip.SyncWithCloudEip(userCred, extEip, projectId, false)
 			if err != nil {
 				result.UpdateError(err)
 			} else {
