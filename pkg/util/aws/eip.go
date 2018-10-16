@@ -5,13 +5,17 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
+	"time"
 )
 
 type SEipAddress struct {
 	region *SRegion
 
 	AllocationId            string
+	Bandwidth            int
 	Tags                    STags
+	Status    string
 	InstanceId              string
 	AssociationId           string
 	Domain                  string
@@ -22,51 +26,70 @@ type SEipAddress struct {
 }
 
 func (self *SEipAddress) GetId() string {
-	panic("implement me")
+	return self.AllocationId
 }
 
 func (self *SEipAddress) GetName() string {
-	panic("implement me")
+	return self.IpAddress
 }
 
 func (self *SEipAddress) GetGlobalId() string {
-	panic("implement me")
+	return self.AllocationId
 }
 
 func (self *SEipAddress) GetStatus() string {
-	panic("implement me")
+	switch self.Status {
+	default:
+		return models.EIP_STATUS_UNKNOWN
+	}
 }
 
 func (self *SEipAddress) Refresh() error {
-	panic("implement me")
+	if self.IsEmulated() {
+		return nil
+	}
+	new, err := self.region.GetEip(self.AllocationId)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(self, new)
 }
 
 func (self *SEipAddress) IsEmulated() bool {
-	panic("implement me")
+	if self.AllocationId == self.InstanceId {
+		return true
+	}
+
+	return false
 }
 
 func (self *SEipAddress) GetMetadata() *jsonutils.JSONDict {
-	panic("implement me")
+	return nil
 }
 
 func (self *SEipAddress) GetIpAddr() string {
-	panic("implement me")
+	return self.IpAddress
 }
 
 func (self *SEipAddress) GetMode() string {
-	panic("implement me")
+	if self.InstanceId == self.AllocationId {
+		return models.EIP_MODE_INSTANCE_PUBLICIP
+	} else {
+		return models.EIP_MODE_STANDALONE_EIP
+	}
 }
 
 func (self *SEipAddress) GetAssociationType() string {
-	panic("implement me")
+	// todo : ?
+	return "server"
 }
 
 func (self *SEipAddress) GetAssociationExternalId() string {
-	panic("implement me")
+	return self.InstanceId
 }
 
 func (self *SEipAddress) GetBandwidth() int {
-	panic("implement me")
+	return self.Bandwidth
 }
 
 func (self *SEipAddress) GetInternetChargeType() string {
@@ -74,23 +97,33 @@ func (self *SEipAddress) GetInternetChargeType() string {
 }
 
 func (self *SEipAddress) GetManagerId() string {
-	panic("implement me")
+	return self.region.client.providerId
 }
 
 func (self *SEipAddress) Delete() error {
-	panic("implement me")
+	return self.region.DeallocateEIP(self.AllocationId)
 }
 
 func (self *SEipAddress) Associate(instanceId string) error {
-	panic("implement me")
+	err := self.region.AssociateEip(self.AllocationId, instanceId)
+	if err != nil {
+		return err
+	}
+	err = cloudprovider.WaitStatus(self, models.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
+	return err
 }
 
 func (self *SEipAddress) Dissociate() error {
-	panic("implement me")
+	err := self.region.DissociateEip(self.AllocationId, self.InstanceId)
+	if err != nil {
+		return err
+	}
+	err = cloudprovider.WaitStatus(self, models.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
+	return err
 }
 
 func (self *SEipAddress) ChangeBandwidth(bw int) error {
-	panic("implement me")
+	return self.region.UpdateEipBandwidth(self.AllocationId, bw)
 }
 
 func (region *SRegion) GetEips(eipId string) ([]SEipAddress, int, error) {
