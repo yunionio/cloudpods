@@ -50,6 +50,7 @@ const (
 	ACT_VM_RESET_PSWD                = "重置密码"
 	ACT_VM_START                     = "开机"
 	ACT_VM_STOP                      = "关机"
+	ACT_VM_RESTART                   = "重启"
 	ACT_VM_SYNC_CONF                 = "同步配置"
 	ACT_VM_SYNC_STATUS               = "同步状态"
 	ACT_VM_UNBIND_KEYPAIR            = "解绑密钥"
