@@ -4,6 +4,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"fmt"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SnapshotStatusType string
@@ -28,43 +30,57 @@ type SSnapshot struct {
 }
 
 func (self *SSnapshot) GetId() string {
-	panic("implement me")
+	return self.SnapshotId
 }
 
 func (self *SSnapshot) GetName() string {
-	panic("implement me")
+	return self.SnapshotName
 }
 
 func (self *SSnapshot) GetGlobalId() string {
-	panic("implement me")
+	return fmt.Sprintf("%s", self.SnapshotId)
 }
 
 func (self *SSnapshot) GetStatus() string {
-	panic("implement me")
+	// todo: implement me
+	if self.Status == SnapshotStatusAccomplished {
+		return models.SNAPSHOT_READY
+	} else if self.Status == SnapshotStatusProgress {
+		return models.SNAPSHOT_CREATING
+	} else { // if self.Status == SnapshotStatusFailed
+		return models.SNAPSHOT_FAILED
+	}
 }
 
 func (self *SSnapshot) Refresh() error {
-	panic("implement me")
+	if snapshots, total, err := self.region.GetSnapshots("", "", "", []string{self.SnapshotId}, 0, 1); err != nil {
+		return err
+	} else if total != 1 {
+		return cloudprovider.ErrNotFound
+	} else if err := jsonutils.Update(self, snapshots[0]); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (self *SSnapshot) IsEmulated() bool {
-	panic("implement me")
+	return false
 }
 
 func (self *SSnapshot) GetMetadata() *jsonutils.JSONDict {
-	panic("implement me")
+	return nil
 }
 
 func (self *SSnapshot) GetManagerId() string {
-	panic("implement me")
+	return self.region.client.providerId
 }
 
 func (self *SSnapshot) GetSize() int32 {
-	panic("implement me")
+	return self.SourceDiskSize
 }
 
 func (self *SSnapshot) GetDiskId() string {
-	panic("implement me")
+	return self.SourceDiskId
 }
 
 func (self *SSnapshot) Delete() error {
@@ -72,7 +88,7 @@ func (self *SSnapshot) Delete() error {
 }
 
 func (self *SSnapshot) GetRegionId() string {
-	panic("implement me")
+	return self.region.GetId()
 }
 
 func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName string, snapshotIds []string, offset int, limit int) ([]SSnapshot, int, error) {
