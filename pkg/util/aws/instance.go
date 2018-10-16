@@ -13,23 +13,15 @@ import (
 )
 
 const (
-	// Running：运行中
-	//Starting：启动中
-	//Stopping：停止中
-	//Stopped：已停止
-
-	InstanceStatusStopped  = "Stopped"
-	InstanceStatusRunning  = "Running"
-	InstanceStatusStopping = "Stopping"
-	InstanceStatusStarting = "Starting"
+	InstanceStatusPending = "pending"
+	InstanceStatusRunning = "running"
+	InstanceStatusShutting = "shutting-down"
+	InstanceStatusTerminated = "terminated"
+	InstanceStatusStopping = "stopping"
+	InstanceStatusStopped = "stopped"
 )
 
 type InstanceChargeType string
-
-type SDedicatedHostAttribute struct {
-	DedicatedHostId   string
-	DedicatedHostName string
-}
 
 type SIpAddress struct {
 	IpAddress []string
@@ -42,11 +34,7 @@ type SNetworkInterfaces struct {
 type SNetworkInterface struct {
 	MacAddress         string
 	NetworkInterfaceId string
-	PrimaryIpAddress   string
-}
-
-type SOperationLocks struct {
-	LockReason []string
+	PrimaryIpAddress   string // PrivateIpAddress
 }
 
 type SSecurityGroupIds struct {
@@ -54,59 +42,61 @@ type SSecurityGroupIds struct {
 }
 
 type SVpcAttributes struct {
-	NatIpAddress     string
 	PrivateIpAddress SIpAddress
-	VSwitchId        string
+	NetworkId        string // subnet id
 	VpcId            string
 }
 
 type SInstance struct {
 	host *SHost
-
 	RegionId                string
 	ZoneId                  string
 	InstanceId              string
 	ImageId                 string
-	SecurityGroupIds        SSecurityGroupIds
 
-	AutoReleaseTime         string
-	Cpu                     int8
-	CreationTime            time.Time
-	DedicatedHostAttribute  SDedicatedHostAttribute
-	Description             string
-	DeviceAvailable         bool
-	EipAddress              SEipAddress
-	ExpiredTime             time.Time
-	GPUAmount               int
-	GPUSpec                 string
 	HostName                string
-	InnerIpAddress          SIpAddress
-	InstanceChargeType      InstanceChargeType
 	InstanceName            string
-	InstanceNetworkType     string
 	InstanceType            string
-	InstanceTypeFamily      string
-	InternetChargeType      string
-	InternetMaxBandwidthIn  int
-	InternetMaxBandwidthOut int
+	Cpu                     int8
+	Memory                  int
 	IoOptimized             bool
 	KeyPairName             string
-	Memory                  int
+	CreationTime            time.Time // LaunchTime
+	ExpiredTime             time.Time
+	ProductCodes            []string
+	PublicDNSName           string
+	InnerIpAddress          SIpAddress
+	PublicIpAddress         SIpAddress
+	RootDeviceName          string
+	Status                  string // state
+	VlanId                  string // subnet ID ?
+	VpcAttributes           SVpcAttributes
+	SecurityGroupIds        SSecurityGroupIds
 	NetworkInterfaces       SNetworkInterfaces
+	EipAddress              SEipAddress
+	Disks                   []string
 	OSName                  string
 	OSType                  string
-	OperationLocks          SOperationLocks
-	PublicIpAddress         SIpAddress
-	Recyclable              bool
-	RootDeviceName          string
-	SerialNumber            string
-	SpotPriceLimit          string
-	SpotStrategy            string
-	StartTime               time.Time
-	Status                  string
-	StoppedMode             string
-	VlanId                  string
-	VpcAttributes           SVpcAttributes
+	Description             string
+
+	// 这些貌似都没啥用
+	// AutoReleaseTime         string
+	// DeviceAvailable         bool
+	// GPUAmount               int
+	// GPUSpec                 string
+	// InstanceChargeType      InstanceChargeType
+	// InstanceNetworkType     string
+	// InstanceTypeFamily      string
+	// InternetChargeType      string
+	// InternetMaxBandwidthIn  int
+	// InternetMaxBandwidthOut int
+	// OperationLocks          SOperationLocks
+	// Recyclable              bool
+	// SerialNumber            string
+	// SpotPriceLimit          string
+	// SpotStrategy            string
+	// StartTime               time.Time
+	// StoppedMode             string
 }
 
 func (self *SInstance) GetId() string {
@@ -126,7 +116,7 @@ func (self *SInstance) GetStatus() string {
 	switch self.Status {
 	case InstanceStatusRunning:
 		return models.VM_RUNNING
-	case InstanceStatusStarting:
+	case InstanceStatusPending:   // todo: pending ?
 		return models.VM_STARTING
 	case InstanceStatusStopping:
 		return models.VM_STOPPING
@@ -150,16 +140,8 @@ func (self *SInstance) IsEmulated() bool {
 }
 
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
-	// todo: implement me
 	data := jsonutils.NewDict()
-
-	// The pricingInfo key structure is 'RegionId::InstanceType::NetworkType::OSType::IoOptimized'
-	optimized := "optimized"
-	if !self.IoOptimized {
-		optimized = "none"
-	}
-	priceKey := fmt.Sprintf("%s::%s::%s::%s::%s", self.RegionId, self.InstanceType, self.InstanceNetworkType, self.OSType, optimized)
-	data.Add(jsonutils.NewString(priceKey), "price_key")
+	// todo: add price_key here
 
 	if len(self.ImageId) > 0 {
 		if image, err := self.host.zone.region.GetImage(self.ImageId); err != nil {
@@ -216,7 +198,7 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 		eip.IpAddress = self.PublicIpAddress.IpAddress[0]
 		eip.InstanceId = self.InstanceId
 		eip.AllocationId = self.InstanceId // fixed
-		eip.Bandwidth = self.InternetMaxBandwidthOut
+		eip.Bandwidth = 10000
 		return &eip, nil
 	} else if len(self.EipAddress.IpAddress) > 0 {
 		return self.host.zone.region.GetEip(self.EipAddress.AllocationId)
