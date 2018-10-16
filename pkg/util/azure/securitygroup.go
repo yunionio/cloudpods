@@ -157,7 +157,7 @@ func (self *SSecurityGroup) GetId() string {
 }
 
 func (self *SSecurityGroup) GetGlobalId() string {
-	return self.ID
+	return strings.ToLower(self.ID)
 }
 
 func (self *SSecurityGroup) GetDescription() string {

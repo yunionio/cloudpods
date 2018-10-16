@@ -35,7 +35,7 @@ func (self *SNetwork) GetName() string {
 }
 
 func (self *SNetwork) GetGlobalId() string {
-	return self.ID
+	return strings.ToLower(self.ID)
 }
 
 func (self *SNetwork) IsEmulated() bool {

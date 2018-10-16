@@ -2,6 +2,7 @@ package azure
 
 import (
 	"context"
+	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network"
 	"yunion.io/x/jsonutils"
@@ -276,7 +277,7 @@ func (self *SEipAddress) GetBandwidth() int {
 }
 
 func (self *SEipAddress) GetGlobalId() string {
-	return self.ID
+	return strings.ToLower(self.ID)
 }
 
 func (self *SEipAddress) GetId() string {

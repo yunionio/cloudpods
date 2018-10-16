@@ -627,7 +627,7 @@ func (self *SInstance) GetName() string {
 }
 
 func (self *SInstance) GetGlobalId() string {
-	return self.ID
+	return strings.ToLower(self.ID)
 }
 
 func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
