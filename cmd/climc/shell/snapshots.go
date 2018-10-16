@@ -12,6 +12,8 @@ func init() {
 		options.BaseListOptions
 		Disk        string `help:"Disk snapshots"`
 		FakeDeleted bool   `help:"Show fake deleted snapshot or not"`
+		Local       bool   `help:"Show local snapshots"`
+		Share       bool   `help:"Show shared snapshots"`
 		DiskType    string `help: "Filter by disk type" choices:"sys|data"`
 		Provider    string `help: "Cloud provider" choices:"Aliyun|VMware|Azure"`
 	}
@@ -24,6 +26,12 @@ func init() {
 			params.Add(jsonutils.NewString(args.Disk), "disk_id")
 		}
 		params.Add(jsonutils.NewBool(args.FakeDeleted), "fake_deleted")
+		if args.Local {
+			params.Add(jsonutils.NewBool(args.Local), "local")
+		}
+		if args.Share {
+			params.Add(jsonutils.NewBool(args.Share), "share")
+		}
 		if len(args.Disk) > 0 {
 			params.Add(jsonutils.NewString(args.Disk), "disk_id")
 		}

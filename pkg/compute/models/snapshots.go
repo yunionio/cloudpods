@@ -87,6 +87,20 @@ func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		q = q.Equals("fake_deleted", false)
 	}
 
+	if jsonutils.QueryBoolean(query, "local", false) {
+		storages := StorageManager.Query().SubQuery()
+		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.Equals(storages.Field("storage_type"), STORAGE_LOCAL))
+		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
+	}
+
+	// Public cloud snapshot doesn't have storage id
+	if jsonutils.QueryBoolean(query, "share", false) {
+		storages := StorageManager.Query().SubQuery()
+		sq := storages.Query(storages.Field("id")).NotEquals("storage_type", "local")
+		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("storage_id")),
+			sqlchemy.In(q.Field("storage_id"), sq)))
+	}
+
 	if diskType, err := query.GetString("disk_type"); err == nil {
 		diskTbl := DiskManager.Query().SubQuery()
 		sq := diskTbl.Query(diskTbl.Field("id")).Equals("disk_type", diskType).SubQuery()
@@ -112,12 +126,14 @@ func (self *SSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	if IStorage, _ := StorageManager.FetchById(self.StorageId); IStorage != nil {
+		storage := IStorage.(*SStorage)
+		extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
+	}
 	disk, _ := self.GetDisk()
 	if disk != nil {
 		extra.Add(jsonutils.NewString(disk.DiskType), "disk_type")
-		if storage := disk.GetStorage(); storage != nil {
-			extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
-		}
+
 		guests := disk.GetGuests()
 		if len(guests) == 1 {
 			extra.Add(jsonutils.NewString(guests[0].Name), "guest")
