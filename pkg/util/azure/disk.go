@@ -3,6 +3,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -225,7 +226,7 @@ func (self *SDisk) GetName() string {
 }
 
 func (self *SDisk) GetGlobalId() string {
-	return self.ID
+	return strings.ToLower(self.ID)
 }
 
 func (self *SDisk) IsEmulated() bool {

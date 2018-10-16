@@ -65,7 +65,7 @@ func (self *SVpc) GetName() string {
 }
 
 func (self *SVpc) GetGlobalId() string {
-	return self.ID
+	return strings.ToLower(self.ID)
 }
 
 func (self *SVpc) IsEmulated() bool {
