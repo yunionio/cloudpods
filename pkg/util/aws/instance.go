@@ -355,16 +355,11 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 	params := &ec2.DescribeInstancesInput{}
 	filters := make([]*ec2.Filter, 0)
 	if len(zoneId) > 0 {
-		name := "availability-zone"
-		filters = append(filters, &ec2.Filter{Name: &name, Values: []*string{&zoneId}})
+		filters = AppendSingleValueFilter(filters, "availability-zone", zoneId)
 	}
 
 	if len(ids) > 0 {
-		_ids := make([]*string, len(ids))
-		for _, id := range ids {
-			_ids = append(_ids, &id)
-		}
-		params = params.SetInstanceIds(_ids)
+		params = params.SetInstanceIds(ConvertedList(ids))
 	}
 
 	params = params.SetFilters(filters)
