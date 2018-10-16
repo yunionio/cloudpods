@@ -61,15 +61,35 @@ func (self *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
 }
 
 func (self *SWire) GetBandwidth() int {
-	panic("implement me")
+	return 10000
 }
 
 func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, error) {
-	panic("implement me")
+	networks, err := self.GetINetworks()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(networks); i += 1 {
+		if networks[i].GetGlobalId() == netid {
+			return networks[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	panic("implement me")
+	networkId, err := self.zone.region.createNetwork(self.zone.ZoneId, self.vpc.VpcId, name, cidr, desc)
+	if err != nil {
+		log.Errorf("createNetwork error %s", err)
+		return nil, err
+	}
+	self.inetworks = nil
+	network := self.getNetworkById(networkId)
+	if network == nil {
+		log.Errorf("cannot find network after create????")
+		return nil, cloudprovider.ErrNotFound
+	}
+	return network, nil
 }
 
 func (self *SWire) getNetworkById(networkId string) *SNetwork {
