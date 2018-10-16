@@ -86,6 +86,18 @@ func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	} else {
 		q = q.Equals("fake_deleted", false)
 	}
+
+	if diskType, err := query.GetString("disk_type"); err == nil {
+		diskTbl := DiskManager.Query().SubQuery()
+		sq := diskTbl.Query(diskTbl.Field("id")).Equals("disk_type", diskType).SubQuery()
+		q = q.In("disk_id", sq)
+	}
+
+	if provider, err := query.GetString("provider"); err == nil {
+		cloudproviderTbl := CloudproviderManager.Query().SubQuery()
+		sq := cloudproviderTbl.Query(cloudproviderTbl.Field("id")).Equals("provider", provider)
+		q = q.In("manager_id", sq)
+	}
 	return q, nil
 }
 
@@ -103,9 +115,12 @@ func (self *SSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSON
 	disk, _ := self.GetDisk()
 	if disk != nil {
 		extra.Add(jsonutils.NewString(disk.DiskType), "disk_type")
+		if storage := disk.GetStorage(); storage != nil {
+			extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
+		}
 		guests := disk.GetGuests()
 		if len(guests) == 1 {
-			extra.Add(jsonutils.NewString(guests[0].Id), "guest")
+			extra.Add(jsonutils.NewString(guests[0].Name), "guest")
 			extra.Add(jsonutils.NewString(guests[0].Status), "guest_status")
 		}
 	}
