@@ -144,6 +144,24 @@ func init() {
 		return nil
 	})
 
+	R(&DNSShowOptions{}, "dns-enable", "Enable dns record", func(s *mcclient.ClientSession, args *DNSShowOptions) error {
+		dns, e := modules.DNSRecords.PerformAction(s, args.ID, "enable", nil)
+		if e != nil {
+			return e
+		}
+		printObject(dns)
+		return nil
+	})
+
+	R(&DNSShowOptions{}, "dns-disable", "Disable dns record", func(s *mcclient.ClientSession, args *DNSShowOptions) error {
+		dns, e := modules.DNSRecords.PerformAction(s, args.ID, "disable", nil)
+		if e != nil {
+			return e
+		}
+		printObject(dns)
+		return nil
+	})
+
 	R(&DNSShowOptions{}, "dns-private", "Make a dns record private", func(s *mcclient.ClientSession, args *DNSShowOptions) error {
 		dns, e := modules.DNSRecords.PerformAction(s, args.ID, "private", nil)
 		if e != nil {
