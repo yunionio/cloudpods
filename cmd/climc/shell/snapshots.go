@@ -12,6 +12,8 @@ func init() {
 		options.BaseListOptions
 		Disk        string `help:"Disk snapshots"`
 		FakeDeleted bool   `help:"Show fake deleted snapshot or not"`
+		DiskType    string `help: "Filter by disk type" choices:"sys|data"`
+		Provider    string `help: "Cloud provider" choices:"Aliyun|VMware|Azure"`
 	}
 	R(&SnapshotsListOptions{}, "snapshot-list", "Show snapshots", func(s *mcclient.ClientSession, args *SnapshotsListOptions) error {
 		params, err := args.BaseListOptions.Params()
@@ -22,6 +24,15 @@ func init() {
 			params.Add(jsonutils.NewString(args.Disk), "disk_id")
 		}
 		params.Add(jsonutils.NewBool(args.FakeDeleted), "fake_deleted")
+		if len(args.Disk) > 0 {
+			params.Add(jsonutils.NewString(args.Disk), "disk_id")
+		}
+		if len(args.DiskType) > 0 {
+			params.Add(jsonutils.NewString(args.DiskType), "disk_type")
+		}
+		if len(args.Provider) > 0 {
+			params.Add(jsonutils.NewString(args.Provider), "provider")
+		}
 		result, err := modules.Snapshots.List(s, params)
 		if err != nil {
 			return err
