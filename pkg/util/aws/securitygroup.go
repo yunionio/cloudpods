@@ -60,39 +60,72 @@ type SSecurityGroup struct {
 }
 
 func (self *SSecurityGroup) GetId() string {
-	panic("implement me")
+	return self.SecurityGroupId
 }
 
 func (self *SSecurityGroup) GetName() string {
-	panic("implement me")
+	if len(self.SecurityGroupName) > 0 {
+		return self.SecurityGroupName
+	}
+	return self.SecurityGroupId
 }
 
 func (self *SSecurityGroup) GetGlobalId() string {
-	panic("implement me")
+	return self.SecurityGroupId
 }
 
 func (self *SSecurityGroup) GetStatus() string {
-	panic("implement me")
+	return ""
 }
 
 func (self *SSecurityGroup) Refresh() error {
-	panic("implement me")
+	if new, err := self.vpc.region.GetSecurityGroupDetails(self.SecurityGroupId); err != nil {
+		return err
+	} else {
+		return jsonutils.Update(self, new)
+	}
 }
 
 func (self *SSecurityGroup) IsEmulated() bool {
-	panic("implement me")
+	return false
 }
 
 func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
-	panic("implement me")
+	if len(self.Tags.Tag) == 0 {
+		return nil
+	}
+	data := jsonutils.NewDict()
+	for _, value := range self.Tags.Tag {
+		data.Add(jsonutils.NewString(value.TagValue), value.TagKey)
+	}
+	return data
 }
 
 func (self *SSecurityGroup) GetDescription() string {
-	panic("implement me")
+	return self.Description
 }
 
 func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
-	panic("implement me")
+	// todo: implement me
+	rules := make([]secrules.SecurityRule, 0)
+	if secgrp, err := self.vpc.region.GetSecurityGroupDetails(self.SecurityGroupId); err != nil {
+		return rules, err
+	} else {
+		for _, permission := range secgrp.Permissions.Permission {
+			if rule, err := secrules.ParseSecurityRule(""); err != nil {
+				return rules, err
+			} else {
+				priority := permission.Priority
+				if priority > 100 {
+					priority = 100
+				}
+				rule.Priority = 101 - priority
+				rule.Description = permission.Description
+				rules = append(rules, *rule)
+			}
+		}
+	}
+	return rules, nil
 }
 
 func (self *SRegion) addSecurityGroupRules(secGrpId string, rule *secrules.SecurityRule) error {
@@ -128,4 +161,7 @@ func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
 	return secId, nil
 }
 
+func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup, error) {
+	return nil, nil
+}
 
