@@ -117,7 +117,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 					return nil, err
 				}
 
-				data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+				data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd)
 				return data, nil
 			}
 		})
@@ -140,7 +140,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 			if err != nil {
 				return nil, err
 			}
-			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd)
 			return data, nil
 		})
 	} else if action == "rebuild" {
@@ -157,7 +157,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 			}
 
 			log.Debugf("VMrebuildRoot %s, and status is ready", iVM.GetGlobalId())
-			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd)
 
 			return data, nil
 		})
@@ -187,7 +187,14 @@ func (self *SAzureGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context
 			_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
 				disk.DiskSize = diskInfo[i].Size
 				disk.ExternalId = diskInfo[i].Uuid
+				disk.DiskType = diskInfo[i].DiskType
 				disk.Status = models.DISK_READY
+				disk.BillingType = diskInfo[i].BillingType
+				disk.FsFormat = diskInfo[i].FsFromat
+				disk.AutoDelete = diskInfo[i].AutoDelete
+				disk.TemplateId = diskInfo[i].TemplateId
+				disk.DiskFormat = diskInfo[i].DiskFormat
+				disk.ExpiredAt = diskInfo[i].ExpiredAt
 				if len(diskInfo[i].Metadata) > 0 {
 					for key, value := range diskInfo[i].Metadata {
 						if err := disk.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {
