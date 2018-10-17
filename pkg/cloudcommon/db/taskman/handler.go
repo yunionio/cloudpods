@@ -11,7 +11,7 @@ import (
 var taskWorkMan *appsrv.WorkerManager
 
 func init() {
-	taskWorkMan = appsrv.NewWorkerManager("TaskWorkerManager", 4, 10)
+	taskWorkMan = appsrv.NewWorkerManager("TaskWorkerManager", 4, 100)
 }
 
 func AddTaskHandler(prefix string, app *appsrv.Application) {
