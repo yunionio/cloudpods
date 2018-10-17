@@ -196,6 +196,15 @@ func (manager *STaskManager) NewTask(ctx context.Context, taskName string, obj d
 		log.Errorf("Task insert error %s", err)
 		return nil, err
 	}
+	parentTask := task.GetParentTask()
+	if parentTask != nil {
+		st := SSubTask{TaskId: parentTask.Id, Stage: parentTask.Stage, SubtaskId: task.Id}
+		err := SubTaskManager.TableSpec().Insert(&st)
+		if err != nil {
+			log.Errorf("Subtask insert error %s", err)
+			return nil, err
+		}
+	}
 	return &task, nil
 }
 
@@ -512,14 +521,19 @@ func (self *STask) NotifyParentTaskComplete(ctx context.Context, body *jsonutils
 		if subTask != nil {
 			subTask.SaveResults(failed, body)
 		}
-		pTask := TaskManager.fetchTask(parentTaskId)
-		if pTask == nil {
-			log.Errorf("Parent task %s not found", parentTaskId)
-			return
-		}
-		if pTask.IsCurrentStageComplete() {
-			pTask.ScheduleRun(body)
-		}
+		func() {
+			lockman.LockRawObject(ctx, "tasks", parentTaskId)
+			defer lockman.ReleaseRawObject(ctx, "tasks", parentTaskId)
+
+			pTask := TaskManager.fetchTask(parentTaskId)
+			if pTask == nil {
+				log.Errorf("Parent task %s not found", parentTaskId)
+				return
+			}
+			if pTask.IsCurrentStageComplete() {
+				pTask.ScheduleRun(body)
+			}
+		}()
 	}
 	if len(parentTaskNotify) > 0 {
 		notifyRemoteTask(ctx, parentTaskNotify, parentTaskId, body, 0)
@@ -556,8 +570,9 @@ func (self *STask) NotifyParentTaskFailure(ctx context.Context, reason string) {
 }
 
 func (self *STask) IsCurrentStageComplete() bool {
-	subtasks := SubTaskManager.GetInitSubtasks(self.Id, self.Stage)
-	if len(subtasks) == 0 {
+	totalSubtasks := SubTaskManager.GetTotalSubtasks(self.Id, self.Stage, "")
+	initSubtasks := SubTaskManager.GetInitSubtasks(self.Id, self.Stage)
+	if len(totalSubtasks) > 0 && len(initSubtasks) == 0 {
 		return true
 	} else {
 		return false
