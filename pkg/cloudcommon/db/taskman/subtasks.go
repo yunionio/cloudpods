@@ -37,25 +37,33 @@ type SSubTask struct {
 
 func (manager *SSubTaskmanager) GetSubTask(ptaskId string, subtaskId string) *SSubTask {
 	subtask := SSubTask{}
+	subtask.SetModelManager(manager)
 	err := manager.Query().Equals("task_id", ptaskId).Equals("subtask_id", subtaskId).First(&subtask)
 	if err != nil {
 		if err != sql.ErrNoRows {
-			log.Errorf("GetSubTask fail %s", err)
+			log.Errorf("GetSubTask fail %s %s %s", err, ptaskId, subtaskId)
 		}
 		return nil
 	}
 	return &subtask
 }
 
-func (manager *SSubTaskmanager) GetInitSubtasks(taskId string, stage string) []SSubTask {
+func (manager *SSubTaskmanager) GetTotalSubtasks(taskId string, stage string, status string) []SSubTask {
 	subtasks := make([]SSubTask, 0)
-	q := manager.Query().Equals("task_id", taskId).Equals("stage", stage).Equals("status", SUBTASK_INIT)
+	q := manager.Query().Equals("task_id", taskId).Equals("stage", stage)
+	if len(status) > 0 {
+		q = q.Equals("status", status)
+	}
 	err := db.FetchModelObjects(manager, q, &subtasks)
 	if err != nil {
 		log.Errorf("GetInitSubtasks fail %s", err)
 		return nil
 	}
 	return subtasks
+}
+
+func (manager *SSubTaskmanager) GetInitSubtasks(taskId string, stage string) []SSubTask {
+	return manager.GetTotalSubtasks(taskId, stage, SUBTASK_INIT)
 }
 
 func (self *SSubTask) SaveResults(failed bool, result jsonutils.JSONObject) error {
