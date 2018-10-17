@@ -88,6 +88,20 @@ func (cli *SESXiClient) disconnect() error {
 	return nil
 }
 
+func (cli *SESXiClient) GetSubAccounts() (jsonutils.JSONObject, error) {
+	if err := cli.connect(); err != nil {
+		return nil, err
+	} else {
+		result := jsonutils.NewDict()
+		data := jsonutils.NewArray()
+		account := jsonutils.Marshal(map[string]string{"account": cli.account, "name": cli.providerName})
+		data.Add(account)
+		result.Add(data, "data")
+		result.Add(jsonutils.NewInt(1), "total")
+		return result, nil
+	}
+}
+
 func (cli *SESXiClient) About() jsonutils.JSONObject {
 	return jsonutils.Marshal(&cli.client.ServiceContent.About)
 }

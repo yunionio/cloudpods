@@ -57,7 +57,7 @@ func (self *VpcCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 	}
 
 	provider := models.CloudproviderManager.FetchCloudproviderById(vpc.ManagerId)
-	syncVpcWires(ctx, provider, self, vpc, ivpc)
+	syncVpcWires(ctx, provider, self, vpc, ivpc, &models.SSyncRange{})
 
 	hosts := models.HostManager.GetHostsByManagerAndRegion(provider.Id, vpc.CloudregionId)
 	if hosts != nil {
