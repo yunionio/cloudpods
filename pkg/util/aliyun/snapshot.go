@@ -107,9 +107,13 @@ func (self *SSnapshot) Delete() error {
 	if self.region == nil {
 		return fmt.Errorf("not init region for snapshot %s", self.SnapshotId)
 	}
+	return self.region.DeleteSnapshot(self.SnapshotId)
+}
+
+func (self *SRegion) DeleteSnapshot(snapshotId string) error {
 	params := make(map[string]string)
-	params["SnapshotId"] = self.SnapshotId
-	_, err := self.region.ecsRequest("DeleteSnapshot", params)
+	params["SnapshotId"] = snapshotId
+	_, err := self.ecsRequest("DeleteSnapshot", params)
 	return err
 }
 
