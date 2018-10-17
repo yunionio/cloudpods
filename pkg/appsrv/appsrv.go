@@ -309,7 +309,7 @@ func timeoutHandle(h http.Handler) http.HandlerFunc {
 	}
 }
 
-func (app *Application) ListenAndServe(addr string) {
+func (app *Application) initServer(addr string) *http.Server {
 	db := AppContextDB(app.context)
 	if db != nil {
 		db.SetMaxIdleConns(app.connMax + 1)
@@ -325,8 +325,21 @@ func (app *Application) ListenAndServe(addr string) {
 		WriteTimeout:      app.writeTimeout,
 		MaxHeaderBytes:    1 << 20,
 	}
+	return s
+}
+
+func (app *Application) ListenAndServe(addr string) {
+	s := app.initServer(addr)
 	err := s.ListenAndServe()
 	if err != nil {
+		log.Fatalf("ListAndServer fail: %s", err)
+	}
+}
+
+func (app *Application) ListenAndServeTLS(addr string, certFile, keyFile string) {
+	s := app.initServer(addr)
+	err := s.ListenAndServeTLS(certFile, keyFile)
+	if err != nil && err != http.ErrServerClosed {
 		log.Fatalf("ListAndServer fail: %s", err)
 	}
 }

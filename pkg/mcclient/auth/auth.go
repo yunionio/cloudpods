@@ -239,8 +239,8 @@ func (callback *AuthCompletedCallback) Run() {
 	}
 }
 
-func AsyncInit(info *AuthInfo, debug, insecure bool, callback AuthCompletedCallback) {
-	cli := mcclient.NewClient(info.AuthUrl, defaultTimeout, debug, insecure)
+func AsyncInit(info *AuthInfo, debug, insecure bool, certFile, keyFile string, callback AuthCompletedCallback) {
+	cli := mcclient.NewClient(info.AuthUrl, defaultTimeout, debug, insecure, certFile, keyFile)
 	manager = newAuthManager(cli, info)
 	go manager.init()
 	if callback != nil {
@@ -248,12 +248,12 @@ func AsyncInit(info *AuthInfo, debug, insecure bool, callback AuthCompletedCallb
 	}
 }
 
-func Init(info *AuthInfo, debug, insecure bool) {
+func Init(info *AuthInfo, debug, insecure bool, certFile, keyFile string) {
 	done := make(chan bool, 1)
 	f := func() {
 		done <- true
 	}
-	AsyncInit(info, debug, insecure, f)
+	AsyncInit(info, debug, insecure, certFile, keyFile, f)
 	<-done
 }
 
