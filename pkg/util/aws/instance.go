@@ -372,12 +372,34 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 	instances := make([]SInstance, 0)
 	for _, reservation := range res.Reservations {
 		for _, instance := range reservation.Instances {
-			// todo :implement me later
 			instances = append(instances, SInstance{
+				RegionId: self.RegionId,
+				ZoneId: *instance.Placement.AvailabilityZone,
 				InstanceId: *instance.InstanceId,
 				ImageId: *instance.ImageId,
+				InstanceName: "// todo:xx",
+				InstanceType: *instance.InstanceType,
+				Cpu: int8(*instance.CpuOptions.CoreCount), // CoreCount?
+				Memory: 0, // todo:? get from instance type
+				IoOptimized: *instance.EbsOptimized,
+				KeyPairName: *instance.KeyName,
+				CreationTime: *instance.LaunchTime,
+				// ExpiredTime:
+				// ProductCodes: *instance.ProductCodes
+				PublicDNSName: *instance.PublicDnsName,
 				InnerIpAddress: SIpAddress{[]string{*instance.PrivateIpAddress}},
 				PublicIpAddress: SIpAddress{[]string{*instance.PublicIpAddress}},
+				RootDeviceName: *instance.RootDeviceName,
+				Status: *instance.State.Name,
+				// VlanId:
+				// VpcAttributes:
+				// SecurityGroupIds:
+				// NetworkInterfaces:
+				// EipAddress:
+				// Disks:
+				// OSName:
+				// OSType:
+				// Description:
 			})
 		}
 	}
