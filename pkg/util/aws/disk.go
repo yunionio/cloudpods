@@ -53,7 +53,6 @@ type SDisk struct {
 	ExpiredTime          time.Time
 	ImageId              string
 	MountInstances       SMountInstances
-	OperationLocks       SOperationLocks
 	Portable             bool
 	ProductCode          string
 	ResourceGroupId      string
