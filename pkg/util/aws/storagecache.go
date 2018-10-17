@@ -7,7 +7,6 @@ import (
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"fmt"
 	"time"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/log"
 )
 
