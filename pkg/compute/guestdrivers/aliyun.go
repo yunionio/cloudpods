@@ -81,7 +81,7 @@ type SDiskInfo struct {
 	Metadata map[string]string
 }
 
-func fetchIVMinfo(desc SManagedVMCreateConfig, iVM cloudprovider.ICloudVM, guestId string, passwd string) *jsonutils.JSONDict {
+func fetchIVMinfo(desc SManagedVMCreateConfig, iVM cloudprovider.ICloudVM, guestId string, account, passwd string) *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 
 	data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
@@ -91,7 +91,7 @@ func fetchIVMinfo(desc SManagedVMCreateConfig, iVM cloudprovider.ICloudVM, guest
 		if err != nil {
 			log.Errorf("encrypt password failed %s", err)
 		}
-		data.Add(jsonutils.NewString("root"), "account")
+		data.Add(jsonutils.NewString(account), "account")
 		data.Add(jsonutils.NewString(encpasswd), "key")
 	}
 
@@ -219,7 +219,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				}
 			}*/
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd)
 
 			/* data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
 
@@ -299,7 +299,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd)
 
 			/*
 				data := jsonutils.NewDict()
@@ -366,7 +366,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				}
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd)
 
 			return data, nil
 		})
