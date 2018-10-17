@@ -48,6 +48,7 @@ const (
 	ACT_VM_PURGE                     = "清除"
 	ACT_VM_REBUILD                   = "重装系统"
 	ACT_VM_RESET_PSWD                = "重置密码"
+	ACT_VM_CHANGE_BANDWIDTH          = "调整带宽"
 	ACT_VM_START                     = "开机"
 	ACT_VM_STOP                      = "关机"
 	ACT_VM_RESTART                   = "重启"
