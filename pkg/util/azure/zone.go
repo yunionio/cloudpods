@@ -2,7 +2,6 @@ package azure
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -37,7 +36,7 @@ func (self *SZone) GetName() string {
 }
 
 func (self *SZone) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", self.region.GetGlobalId(), self.region.client.subscriptionId)
+	return self.region.GetGlobalId()
 }
 
 func (self *SZone) IsEmulated() bool {
