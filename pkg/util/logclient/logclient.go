@@ -56,6 +56,9 @@ const (
 	ACT_VM_UNBIND_KEYPAIR            = "解绑密钥"
 )
 
+// golang 不支持 const 的string array, http://t.cn/EzAvbw8
+var BLACK_LIST_OBJ_TYPE = []string{"parameter"}
+
 var logclientWorkerMan *appsrv.WorkerManager
 
 func init() {
@@ -73,7 +76,13 @@ func AddActionLog(model IObject, action string, iNotes interface{}, userCred mcc
 	token := userCred
 	notes := stringutils.Interface2String(iNotes)
 
-	// s := auth.GetSession(userCred, "", "")
+	// 忽略不黑名单里的资源类型
+	for _, v := range BLACK_LIST_OBJ_TYPE {
+		if v == model.Keyword() {
+			log.Errorf("不支持的 actionlog 类型")
+			return
+		}
+	}
 
 	objId := model.GetId()
 	if len(objId) == 0 {
