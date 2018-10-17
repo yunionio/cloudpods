@@ -2886,10 +2886,12 @@ func (self *SGuest) PerformChangeBandwidth(ctx context.Context, userCred mcclien
 		guestnics := self.GetNetworks()
 		index, err := data.Int("index")
 		if err != nil || index > int64(len(guestnics)) {
+			logclient.AddActionLog(self, logclient.ACT_VM_CHANGE_BANDWIDTH, "Index Not fount or out of NIC index", userCred, false)
 			return nil, httperrors.NewBadRequestError("Index Not fount or out of NIC index")
 		}
 		bandwidth, err := data.Int("bandwidth")
 		if err != nil || bandwidth <= 0 {
+			logclient.AddActionLog(self, logclient.ACT_VM_CHANGE_BANDWIDTH, "Bandwidth must be larger than 0", userCred, false)
 			return nil, httperrors.NewBadRequestError("Bandwidth must be larger than 0")
 		}
 		guestnic := &guestnics[index]
@@ -2899,11 +2901,14 @@ func (self *SGuest) PerformChangeBandwidth(ctx context.Context, userCred mcclien
 				return nil
 			})
 			err := self.StartSyncTask(ctx, userCred, false, "")
+			logclient.AddActionLog(self, logclient.ACT_VM_CHANGE_BANDWIDTH, err, userCred, err == nil)
 			return nil, err
 		}
 		return nil, nil
 	}
-	return nil, httperrors.NewBadRequestError("Cannot change bandwidth in status %s", self.Status)
+	msg := fmt.Sprintf("Cannot change bandwidth in status %s", self.Status)
+	logclient.AddActionLog(self, logclient.ACT_VM_CHANGE_BANDWIDTH, msg, userCred, false)
+	return nil, httperrors.NewBadRequestError(msg)
 }
 
 func (self *SGuest) AllowPerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
