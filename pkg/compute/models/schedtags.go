@@ -30,6 +30,7 @@ var STRATEGY_LIST = []string{STRATEGY_REQUIRE, STRATEGY_EXCLUDE, STRATEGY_PREFER
 
 type SSchedtagManager struct {
 	db.SStandaloneResourceBaseManager
+	SInfrastructureManager
 }
 
 var SchedtagManager *SSchedtagManager
@@ -40,6 +41,7 @@ func init() {
 
 type SSchedtag struct {
 	db.SStandaloneResourceBase
+	SInfrastructure
 
 	DefaultStrategy string `width:"16" charset:"ascii" nullable:"true" default:"" list:"user" update:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True, default='')
 }
@@ -49,11 +51,7 @@ func (manager *SSchedtagManager) AllowListItems(ctx context.Context, userCred mc
 }
 
 func (self *SSchedtag) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
-}
-
-func (manager *SSchedtagManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return true
 }
 
 func (manager *SSchedtagManager) ValidateSchedtags(userCred mcclient.TokenCredential, schedtags map[string]string) (map[string]string, error) {
@@ -113,6 +111,12 @@ func (self *SSchedtag) ValidateDeleteCondition(ctx context.Context) error {
 	if self.GetHostCount() > 0 {
 		return httperrors.NewNotEmptyError("Tag is associated with hosts")
 	}
+	if self.getDynamicSchedtagCount() > 0 {
+		return httperrors.NewNotEmptyError("tag has dynamic rules")
+	}
+	if self.getSchedPoliciesCount() > 0 {
+		return httperrors.NewNotEmptyError("tag is associate with sched policies")
+	}
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
@@ -151,8 +155,18 @@ func (self *SSchedtag) GetHostCount() int {
 	return HostschedtagManager.Query().Equals("schedtag_id", self.Id).Count()
 }
 
+func (self *SSchedtag) getSchedPoliciesCount() int {
+	return SchedpolicyManager.Query().Equals("schedtag_id", self.Id).Count()
+}
+
+func (self *SSchedtag) getDynamicSchedtagCount() int {
+	return DynamicschedtagManager.Query().Equals("schedtag_id", self.Id).Count()
+}
+
 func (self *SSchedtag) getMoreColumns(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	extra.Add(jsonutils.NewInt(int64(self.GetHostCount())), "host_count")
+	extra.Add(jsonutils.NewInt(int64(self.getDynamicSchedtagCount())), "dynamic_schedtag_count")
+	extra.Add(jsonutils.NewInt(int64(self.getSchedPoliciesCount())), "schedpolicy_count")
 	return extra
 }
 

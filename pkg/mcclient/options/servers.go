@@ -109,7 +109,7 @@ type ServerCreateOptions struct {
 	AutoStart        *bool    `help:"Auto start server after it is created"`
 	Zone             string   `help:"Preferred zone where virtual server should be created" json:"prefer_zone"`
 	Host             string   `help:"Preferred host where virtual server should be created" json:"prefer_host"`
-	SchedTag         []string `help:"Schedule policy, key = aggregate name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
+	Schedtag         []string `help:"Schedule policy, key = aggregate name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
 	Deploy           []string `help:"Specify deploy files in virtual server file system" json:"-"`
 	Group            []string `help:"Group of virtual server"`
 	Project          string   `help:"'Owner project ID or Name" json:"tenant"`
