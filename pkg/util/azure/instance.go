@@ -351,7 +351,7 @@ func (region *SRegion) UpdateInstance(instanceId string, params compute.VirtualM
 	computeClient := compute.NewVirtualMachinesClientWithBaseURI(region.client.baseUrl, region.client.subscriptionId)
 	computeClient.Authorizer = region.client.authorizer
 	_, resourceGroup, instanceName := pareResourceGroupWithName(instanceId, INSTANCE_RESOURCE)
-	log.Errorf("update VM: %s", jsonutils.Marshal(params).PrettyString())
+	log.Debugf("update VM: %s", jsonutils.Marshal(params).String())
 	if _, err := computeClient.Update(context.Background(), resourceGroup, instanceName, params); err != nil {
 		return err
 	}
@@ -560,7 +560,7 @@ func (region *SRegion) ReplaceSystemDisk(instanceId, imageId, passwd, publicKey 
 		}
 		diskName := fmt.Sprintf("vdisk_%s_%d", instance.Name, time.Now().UnixNano())
 		storageType := string(instance.Properties.StorageProfile.OsDisk.ManagedDisk.StorageAccountType)
-		//oldDiskId := instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID
+		oldDiskId := instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID
 		if diskId, err := region.createDisk(storageType, diskName, sysSizeGB, "", imageId); err != nil {
 			return "", err
 		} else {
@@ -570,7 +570,7 @@ func (region *SRegion) ReplaceSystemDisk(instanceId, imageId, passwd, publicKey 
 			params := compute.VirtualMachineUpdate{
 				VirtualMachineProperties: &compute.VirtualMachineProperties{
 					StorageProfile: &compute.StorageProfile{
-						ImageReference: &compute.ImageReference{ID: &image.ID},
+						//ImageReference: &compute.ImageReference{ID: &image.ID},
 						OsDisk: &compute.OSDisk{
 							Name: &disk.Name,
 							ManagedDisk: &compute.ManagedDiskParameters{
@@ -579,7 +579,7 @@ func (region *SRegion) ReplaceSystemDisk(instanceId, imageId, passwd, publicKey 
 							},
 							CreateOption: compute.DiskCreateOptionTypesFromImage,
 							OsType:       osType,
-							DiskSizeGB:   &sysSizeGB,
+							//DiskSizeGB:   &sysSizeGB,
 						},
 					},
 					OsProfile: &compute.OSProfile{
@@ -596,9 +596,14 @@ func (region *SRegion) ReplaceSystemDisk(instanceId, imageId, passwd, publicKey 
 				region.deleteDisk(diskId)
 				return "", err
 			}
-			// if err := region.deleteDisk(oldDiskId); err != nil {
-			// 	return "", err
-			// }
+			for i := 0; i < 3; i++ {
+				log.Debugf("try delete old disk: %s", oldDiskId)
+				if err := region.deleteDisk(oldDiskId); err == nil {
+					break
+				}
+				time.Sleep(time.Second * time.Duration(i*10))
+			}
+
 			return disk.ID, nil
 		}
 	}
