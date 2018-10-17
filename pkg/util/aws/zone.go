@@ -122,3 +122,17 @@ func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 	}
 	return nil, cloudprovider.ErrNotFound
 }
+
+func (self *SRegion) getZoneById(id string) (*SZone, error) {
+	izones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i += 1 {
+		zone := izones[i].(*SZone)
+		if zone.ZoneId == id {
+			return zone, nil
+		}
+	}
+	return nil, fmt.Errorf("no such zone %s", id)
+}

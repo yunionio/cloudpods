@@ -93,7 +93,8 @@ func (self *SEipAddress) GetBandwidth() int {
 }
 
 func (self *SEipAddress) GetInternetChargeType() string {
-	panic("implement me")
+	// todo : implement me
+	return models.EIP_CHARGE_TYPE_BY_TRAFFIC
 }
 
 func (self *SEipAddress) GetManagerId() string {
@@ -126,13 +127,13 @@ func (self *SEipAddress) ChangeBandwidth(bw int) error {
 	return self.region.UpdateEipBandwidth(self.AllocationId, bw)
 }
 
-func (region *SRegion) GetEips(eipId string) ([]SEipAddress, int, error) {
+func (self *SRegion) GetEips(eipId string) ([]SEipAddress, int, error) {
 	params := ec2.DescribeAddressesInput{}
 	if len(eipId) > 0 {
-		params.AllocationIds = []*string{&eipId}
+		params.SetAllocationIds([]*string{&eipId})
 	}
 
-	res, err := region.ec2Client.DescribeAddresses(&params)
+	res, err := self.ec2Client.DescribeAddresses(&params)
 	if err != nil {
 		log.Errorf("DescribeEipAddresses fail %s", err)
 		return nil, 0, err
@@ -140,7 +141,7 @@ func (region *SRegion) GetEips(eipId string) ([]SEipAddress, int, error) {
 
 	eips := make([]SEipAddress, 0)
 	for _, ip := range res.Addresses {
-		eips = append(eips, SEipAddress{region: region, AllocationId: *ip.AllocationId,
+		eips = append(eips, SEipAddress{region: self, AllocationId: *ip.AllocationId,
 			Tags:                    STags{},
 			InstanceId:              *ip.InstanceId,
 			AssociationId:           *ip.AssociationId,
@@ -151,7 +152,6 @@ func (region *SRegion) GetEips(eipId string) ([]SEipAddress, int, error) {
 			IpAddress:               *ip.PublicIp,
 		})
 	}
-
 	return eips, len(eips), nil
 }
 

@@ -5,6 +5,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"fmt"
+	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
 type ImageStatusType string
@@ -18,10 +20,10 @@ const (
 type ImageOwnerType string
 
 const (
-	ImageOwnerSystem      ImageOwnerType = "system"
+	ImageOwnerSystem      ImageOwnerType = "amazon"
 	ImageOwnerSelf        ImageOwnerType = "self"
-	ImageOwnerOthers      ImageOwnerType = "others"
-	ImageOwnerMarketplace ImageOwnerType = "marketplace"
+	ImageOwnerOthers      ImageOwnerType = "microsoft"
+	ImageOwnerMarketplace ImageOwnerType = "aws-marketplace"
 )
 
 type ImageImportTask struct {
@@ -118,7 +120,14 @@ func (self *SRegion) ImportImage(name string, osArch string, osType string, osDi
 }
 
 func (self *SRegion) GetImage(imageId string) (*SImage, error) {
-	return nil, nil
+	images, _, err := self.GetImages("", ImageOwnerSelf, []string{imageId}, "", 0, 1)
+	if err != nil {
+		return nil, err
+	}
+	if len(images) == 0 {
+		return nil, fmt.Errorf("image %s not found", imageId)
+	}
+	return &images[0], nil
 }
 
 func (self *SRegion) GetImageByName(name string) (*SImage, error) {
@@ -130,7 +139,50 @@ func (self *SRegion) GetImageStatus(imageId string) (ImageStatusType, error) {
 }
 
 func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, imageId []string, name string, offset int, limit int) ([]SImage, int, error) {
-	return nil,0, nil
+	params := &ec2.DescribeImagesInput{}
+	filters := make([]*ec2.Filter, 0)
+	if len(status) > 0 {
+		filters = AppendSingleValueFilter(filters, "state", string(status))
+	}
+
+	if len(name) > 0 {
+		filters = AppendSingleValueFilter(filters, "name", name)
+	}
+
+	if len(owner) > 0 {
+		own := string(owner)
+		params.SetOwners([]*string{&own})
+	}
+
+	if len(imageId) > 0 {
+		params.SetImageIds(ConvertedList(imageId))
+	}
+
+	ret, err := self.ec2Client.DescribeImages(params)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	images := make([]SImage, len(ret.Images))
+	for _, image := range ret.Images {
+		images = append(images, SImage{
+			storageCache:         self.getStoragecache(),
+			Architecture:         *image.Architecture,
+			Description:          *image.Description,
+			ImageId:              *image.ImageId,
+			ImageName:            *image.ImageId,
+			// OSName:               *image.Platform,
+			OSType:               *image.ImageType,
+			IsSupportIoOptimized: *image.EnaSupport,
+			// Platform:             *image.Platform,
+			Status:               ImageStatusCreating, // *image.State,
+			// Usage:                "",
+			// Size:                 .,
+			// CreationTime:         *image.CreationDate,
+		})
+	}
+
+	return images, len(images), nil
 }
 
 func (self *SRegion) DeleteImage(imageId string) error {

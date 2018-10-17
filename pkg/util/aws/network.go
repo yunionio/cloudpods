@@ -112,7 +112,14 @@ func (self *SRegion) createNetwork(zoneId string, vpcId string, name string, cid
 }
 
 func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
-	return nil, nil
+	networks, total, err := self.GetNetwroks([]string{networkId}, "")
+	if err != nil {
+		return nil, err
+	}
+	if total != 1 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return &networks[0], nil
 }
 
 func (self *SRegion) deleteNetwork(vswitchId string) error {
@@ -138,13 +145,13 @@ func (self *SRegion) GetNetwroks(ids []string, vpcId string) ([]SNetwork, int, e
 		params.SetFilters(filters)
 	}
 
-	items, err := self.ec2Client.DescribeSubnets(params)
+	ret, err := self.ec2Client.DescribeSubnets(params)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	subnets := make([]SNetwork, len(items.Subnets))
-	for _, item := range items.Subnets {
+	subnets := []SNetwork{}
+	for _, item := range ret.Subnets {
 		subnet := SNetwork{}
 		subnet.CidrBlock = *item.CidrBlock
 		subnet.VpcId = *item.VpcId
@@ -155,6 +162,5 @@ func (self *SRegion) GetNetwroks(ids []string, vpcId string) ([]SNetwork, int, e
 		subnet.NetworkName = *item.SubnetId
 		subnets = append(subnets, subnet)
 	}
-
 	return subnets, len(subnets), nil
 }

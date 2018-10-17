@@ -6,6 +6,7 @@ import (
 	"yunion.io/x/pkg/util/secrules"
 	"strings"
 	"yunion.io/x/log"
+	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
 type SUserCIDRs struct {
@@ -167,13 +168,21 @@ func (self *SVpc) SyncSecurityGroup(secgroupId string, name string, rules []secr
 }
 
 func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
-	for i := 0; i <= len(self.iwires); i += 1 {
+	for i := 0; i < len(self.iwires); i += 1 {
 		wire := self.iwires[i].(*SWire)
 		if wire.zone.ZoneId == zoneId {
 			return wire
 		}
 	}
-	return nil
+
+	zone, err := self.region.getZoneById(zoneId)
+	if err != nil {
+		return nil
+	}
+	return &SWire{
+		zone: zone,
+		vpc: self,
+	}
 }
 
 func (self *SVpc) fetchNetworks() error {
@@ -203,7 +212,15 @@ func (self *SVpc) fetchSecurityGroups() error {
 }
 
 func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
-	return nil, nil
+	vpcs, total, err := self.GetVpcs([]string{vpcId}, 0, 1)
+	if err != nil {
+		return nil, err
+	}
+	if total != 1 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	vpcs[0].region = self
+	return &vpcs[0], nil
 }
 
 func (self *SRegion) revokeSecurityGroup(secgroupId, instanceId string, keep bool) error {
@@ -220,4 +237,33 @@ func (self *SRegion) deleteSecurityGroup(secGrpId string) error {
 
 func (self *SRegion) DeleteVpc(vpcId string) error {
 	return nil
+}
+
+func (self *SRegion) GetVpcs(vpcId []string, offset int, limit int) ([]SVpc, int, error) {
+	params := &ec2.DescribeVpcsInput{}
+	if len(vpcId) > 0 {
+		params.SetVpcIds(ConvertedList(vpcId))
+	}
+
+	ret, err := self.ec2Client.DescribeVpcs(params)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	vpcs := make([]SVpc, len(ret.Vpcs))
+	for _, item := range ret.Vpcs {
+		vpcs = append(vpcs, SVpc{
+			region:    self,
+			// secgroups: nil,
+			RegionId:  self.RegionId,
+			VpcId:     *item.VpcId,
+			VpcName:   *item.VpcId,
+			CidrBlock: *item.CidrBlock,
+			IsDefault: *item.IsDefault,
+			Status:    *item.State,
+			// Tags:      *item.Tags,
+		})
+	}
+
+	return vpcs, len(vpcs), nil
 }

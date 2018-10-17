@@ -92,6 +92,10 @@ func (self *SRegion) fetchIVpcs() error {
 }
 
 func (self *SRegion) fetchInfrastructure() error {
+	if _, err := self.getEc2Client();err != nil {
+		return err
+	}
+
 	if err := self.fetchZones(); err != nil {
 		return err
 	}
@@ -168,6 +172,11 @@ func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 }
 
 func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
+	_, err := self.getEc2Client()
+	if err != nil {
+		return nil, err
+	}
+
 	eips, total, err := self.GetEips("")
 	if err != nil {
 		return nil, err

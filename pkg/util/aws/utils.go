@@ -29,3 +29,14 @@ func ConvertedList(list []string) ([]*string) {
 
 	return result
 }
+
+func ConvertedPointList(list []*string) ([]string) {
+	result := make([]string, len(list))
+	for _, item := range list {
+		if item != nil {
+			result = append(result, *item)
+		}
+	}
+
+	return result
+}

@@ -161,7 +161,8 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SInstance) GetBillingType() string {
-	panic("implement me")
+	// todo: implement me
+	return models.BILLING_TYPE_POSTPAID
 }
 
 func (self *SInstance) GetExpiredAt() time.Time {
@@ -372,7 +373,7 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 	instances := make([]SInstance, 0)
 	for _, reservation := range res.Reservations {
 		for _, instance := range reservation.Instances {
-			instances = append(instances, SInstance{
+			sinstance := SInstance{
 				RegionId: self.RegionId,
 				ZoneId: *instance.Placement.AvailabilityZone,
 				InstanceId: *instance.InstanceId,
@@ -387,8 +388,6 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				// ExpiredTime:
 				// ProductCodes: *instance.ProductCodes
 				PublicDNSName: *instance.PublicDnsName,
-				InnerIpAddress: SIpAddress{[]string{*instance.PrivateIpAddress}},
-				PublicIpAddress: SIpAddress{[]string{*instance.PublicIpAddress}},
 				RootDeviceName: *instance.RootDeviceName,
 				Status: *instance.State.Name,
 				// VlanId:
@@ -400,7 +399,17 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				// OSName:
 				// OSType:
 				// Description:
-			})
+			}
+
+			if instance.PrivateIpAddress != nil {
+				sinstance.InnerIpAddress = SIpAddress{[]string{*instance.PrivateIpAddress}}
+			}
+
+			if instance.PublicIpAddress != nil {
+				sinstance.PublicIpAddress = SIpAddress{[]string{*instance.PublicIpAddress}}
+			}
+
+			instances = append(instances, sinstance)
 		}
 	}
 

@@ -105,7 +105,7 @@ func (self *SHost) GetSysInfo() jsonutils.JSONObject {
 }
 
 func (self *SHost) GetSN() string {
-	panic("implement me")
+	return ""
 }
 
 func (self *SHost) GetCpuCount() int8 {

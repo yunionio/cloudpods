@@ -77,6 +77,8 @@ func (self *SAwsClient) fetchRegions() error {
 		name := *region.RegionName
 		endpoint := *region.Endpoint
 		sregion := SRegion{client: self, RegionId: name, RegionEndpoint: endpoint}
+		// 初始化region client
+		sregion.getEc2Client()
 		regions = append(regions, sregion)
 		self.iregions = append(self.iregions, &sregion)
 	}
