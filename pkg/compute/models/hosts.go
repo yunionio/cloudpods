@@ -149,7 +149,7 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 			q = q.Equals("access_mac", anyMac)
 		}
 	}
-	var scopeQuery *sqlchemy.SSubQuery
+	// var scopeQuery *sqlchemy.SSubQuery
 
 	schedTagStr := jsonutils.GetAnyString(query, []string{"schedtag", "schedtag_id"})
 	if len(schedTagStr) > 0 {
@@ -158,7 +158,8 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 			return nil, httperrors.NewResourceNotFoundError("Schedtag %s not found", schedTagStr)
 		}
 		hostschedtags := HostschedtagManager.Query().SubQuery()
-		scopeQuery = hostschedtags.Query(hostschedtags.Field("host_id")).Equals("schedtag_id", schedTag.GetId()).SubQuery()
+		scopeQuery := hostschedtags.Query(hostschedtags.Field("host_id")).Equals("schedtag_id", schedTag.GetId()).SubQuery()
+		q = q.In("id", scopeQuery)
 	}
 
 	wireStr := jsonutils.GetAnyString(query, []string{"wire", "wire_id"})
@@ -168,7 +169,8 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 			return nil, httperrors.NewResourceNotFoundError("Wire %s not found", wireStr)
 		}
 		hostwires := HostwireManager.Query().SubQuery()
-		scopeQuery = hostwires.Query(hostwires.Field("host_id")).Equals("wire_id", wire.GetId()).SubQuery()
+		scopeQuery := hostwires.Query(hostwires.Field("host_id")).Equals("wire_id", wire.GetId()).SubQuery()
+		q = q.In("id", scopeQuery)
 	}
 
 	storageStr := jsonutils.GetAnyString(query, []string{"storage", "storage_id"})
@@ -178,7 +180,8 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 			return nil, httperrors.NewResourceNotFoundError("Storage %s not found", storageStr)
 		}
 		hoststorages := HoststorageManager.Query().SubQuery()
-		scopeQuery = hoststorages.Query(hoststorages.Field("host_id")).Equals("storage_id", storage.GetId()).SubQuery()
+		scopeQuery := hoststorages.Query(hoststorages.Field("host_id")).Equals("storage_id", storage.GetId()).SubQuery()
+		q = q.In("id", scopeQuery)
 	}
 
 	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
@@ -202,9 +205,18 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), provider.GetId()))
 	}
 
-	if scopeQuery != nil {
-		q = q.In("id", scopeQuery)
+	usable := jsonutils.QueryBoolean(query, "usable", false)
+	if usable {
+		hostwires := HostwireManager.Query().SubQuery()
+		networks := NetworkManager.Query().SubQuery()
+
+		hostQ := hostwires.Query(sqlchemy.DISTINCT("host_id", hostwires.Field("host_id")))
+		hostQ = hostQ.Join(networks, sqlchemy.Equals(hostwires.Field("wire_id"), networks.Field("wire_id")))
+		hostQ = hostQ.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+
+		q = q.In("id", hostQ.SubQuery())
 	}
+
 	return q, nil
 }
 
@@ -1210,7 +1222,7 @@ func (self *SHost) newCloudHostWire(ctx context.Context, userCred mcclient.Token
 	return err
 }
 
-func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, vms []cloudprovider.ICloudVM) ([]SGuest, []cloudprovider.ICloudVM, compare.SyncResult) {
+func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, vms []cloudprovider.ICloudVM, projectId string, projectSync bool) ([]SGuest, []cloudprovider.ICloudVM, compare.SyncResult) {
 	localVMs := make([]SGuest, 0)
 	remoteVMs := make([]cloudprovider.ICloudVM, 0)
 	syncResult := compare.SyncResult{}
@@ -1238,7 +1250,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
-		err := commondb[i].syncWithCloudVM(ctx, userCred, self, commonext[i])
+		err := commondb[i].syncWithCloudVM(ctx, userCred, self, commonext[i], projectId, projectSync)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -1249,7 +1261,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for i := 0; i < len(added); i += 1 {
-		new, err := GuestManager.newCloudVM(ctx, userCred, self, added[i])
+		new, err := GuestManager.newCloudVM(ctx, userCred, self, added[i], projectId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -1632,6 +1644,7 @@ func (self *SHost) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 		memCommitRate = float64(usage.GuestVmemSize) * 1.0 / float64(totalMem)
 	}
 	extra.Add(jsonutils.NewFloat(memCommitRate), "mem_commit_rate")
+	extra = self.SManagedResourceBase.getExtraDetails(extra)
 	return extra
 }
 

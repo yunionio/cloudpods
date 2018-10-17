@@ -413,7 +413,7 @@ func (manager *SNetworkManager) getNetworksByWire(wire *SWire) ([]SNetwork, erro
 	return nets, nil
 }
 
-func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mcclient.TokenCredential, wire *SWire, nets []cloudprovider.ICloudNetwork) ([]SNetwork, []cloudprovider.ICloudNetwork, compare.SyncResult) {
+func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mcclient.TokenCredential, wire *SWire, nets []cloudprovider.ICloudNetwork, projectId string, projectSync bool) ([]SNetwork, []cloudprovider.ICloudNetwork, compare.SyncResult) {
 	localNets := make([]SNetwork, 0)
 	remoteNets := make([]cloudprovider.ICloudNetwork, 0)
 	syncResult := compare.SyncResult{}
@@ -455,7 +455,7 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudNetwork(userCred, commonext[i])
+		err = commondb[i].SyncWithCloudNetwork(userCred, commonext[i], projectId, projectSync)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -465,7 +465,7 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudNetwork(userCred, added[i], wire)
+		new, err := manager.newFromCloudNetwork(userCred, added[i], wire, projectId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -478,7 +478,7 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 	return localNets, remoteNets, syncResult
 }
 
-func (self *SNetwork) SyncWithCloudNetwork(userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork) error {
+func (self *SNetwork) SyncWithCloudNetwork(userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, projectId string, projectSync bool) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		extNet.Refresh()
 		self.Name = extNet.GetName()
@@ -493,6 +493,9 @@ func (self *SNetwork) SyncWithCloudNetwork(userCred mcclient.TokenCredential, ex
 		self.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
 		self.ProjectId = userCred.GetProjectId()
+		if projectSync && len(projectId) > 0 {
+			self.ProjectId = projectId
+		}
 		return nil
 	})
 	if err != nil {
@@ -501,7 +504,7 @@ func (self *SNetwork) SyncWithCloudNetwork(userCred mcclient.TokenCredential, ex
 	return err
 }
 
-func (manager *SNetworkManager) newFromCloudNetwork(userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, wire *SWire) (*SNetwork, error) {
+func (manager *SNetworkManager) newFromCloudNetwork(userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, wire *SWire, projectId string) (*SNetwork, error) {
 	net := SNetwork{}
 	net.SetModelManager(manager)
 
@@ -519,7 +522,9 @@ func (manager *SNetworkManager) newFromCloudNetwork(userCred mcclient.TokenCrede
 	net.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
 	net.ProjectId = userCred.GetProjectId()
-
+	if len(projectId) > 0 {
+		net.ProjectId = projectId
+	}
 	err := manager.TableSpec().Insert(&net)
 	if err != nil {
 		log.Errorf("newFromCloudZone fail %s", err)

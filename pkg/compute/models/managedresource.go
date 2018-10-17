@@ -3,6 +3,7 @@ package models
 import (
 	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -27,4 +28,12 @@ func (self *SManagedResourceBase) GetDriver() (cloudprovider.ICloudProvider, err
 
 func (self *SManagedResourceBase) IsManaged() bool {
 	return len(self.ManagerId) > 0
+}
+
+func (self *SManagedResourceBase) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	manager := self.GetCloudprovider()
+	if manager != nil {
+		extra.Add(jsonutils.NewString(manager.Name), "manager")
+	}
+	return extra
 }

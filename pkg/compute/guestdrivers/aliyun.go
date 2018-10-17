@@ -68,14 +68,20 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 }
 
 type SDiskInfo struct {
-	DiskType string
-	Size     int
-	Uuid     string
+	DiskType    string
+	Size        int
+	Uuid        string
+	BillingType string
+	FsFromat    string
+	AutoDelete  bool
+	TemplateId  string
+	DiskFormat  string
+	ExpiredAt   time.Time
 
 	Metadata map[string]string
 }
 
-func fetchIVMinfo(desc SManagedVMCreateConfig, iVM cloudprovider.ICloudVM, guestId string, passwd string) *jsonutils.JSONDict {
+func fetchIVMinfo(desc SManagedVMCreateConfig, iVM cloudprovider.ICloudVM, guestId string, account, passwd string) *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 
 	data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
@@ -85,7 +91,7 @@ func fetchIVMinfo(desc SManagedVMCreateConfig, iVM cloudprovider.ICloudVM, guest
 		if err != nil {
 			log.Errorf("encrypt password failed %s", err)
 		}
-		data.Add(jsonutils.NewString("root"), "account")
+		data.Add(jsonutils.NewString(account), "account")
 		data.Add(jsonutils.NewString(encpasswd), "key")
 	}
 
@@ -107,6 +113,12 @@ func fetchIVMinfo(desc SManagedVMCreateConfig, iVM cloudprovider.ICloudVM, guest
 			dinfo.Uuid = idisks[i].GetGlobalId()
 			dinfo.Size = idisks[i].GetDiskSizeMB()
 			dinfo.DiskType = idisks[i].GetDiskType()
+			dinfo.BillingType = idisks[i].GetBillingType()
+			dinfo.DiskFormat = idisks[i].GetDiskFormat()
+			dinfo.AutoDelete = idisks[i].GetIsAutoDelete()
+			dinfo.TemplateId = idisks[i].GetTemplateId()
+			dinfo.FsFromat = idisks[i].GetFsFormat()
+			dinfo.ExpiredAt = idisks[i].GetExpiredAt()
 			if metaData := idisks[i].GetMetadata(); metaData != nil {
 				dinfo.Metadata = make(map[string]string, 0)
 				if err := metaData.Unmarshal(dinfo.Metadata); err != nil {
@@ -213,7 +225,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				}
 			}*/
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd)
 
 			/* data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
 
@@ -300,7 +312,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd)
 
 			/*
 				data := jsonutils.NewDict()
@@ -375,7 +387,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				}
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd)
 
 			return data, nil
 		})
@@ -409,6 +421,12 @@ func (self *SAliyunGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Contex
 				disk.ExternalId = diskInfo[i].Uuid
 				disk.DiskType = diskInfo[i].DiskType
 				disk.Status = models.DISK_READY
+				disk.BillingType = diskInfo[i].BillingType
+				disk.FsFormat = diskInfo[i].FsFromat
+				disk.AutoDelete = diskInfo[i].AutoDelete
+				disk.TemplateId = diskInfo[i].TemplateId
+				disk.DiskFormat = diskInfo[i].DiskFormat
+				disk.ExpiredAt = diskInfo[i].ExpiredAt
 				if len(diskInfo[i].Metadata) > 0 {
 					for key, value := range diskInfo[i].Metadata {
 						if err := disk.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {

@@ -86,6 +86,32 @@ func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	} else {
 		q = q.Equals("fake_deleted", false)
 	}
+
+	if jsonutils.QueryBoolean(query, "local", false) {
+		storages := StorageManager.Query().SubQuery()
+		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.Equals(storages.Field("storage_type"), STORAGE_LOCAL))
+		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
+	}
+
+	// Public cloud snapshot doesn't have storage id
+	if jsonutils.QueryBoolean(query, "share", false) {
+		storages := StorageManager.Query().SubQuery()
+		sq := storages.Query(storages.Field("id")).NotEquals("storage_type", "local")
+		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("storage_id")),
+			sqlchemy.In(q.Field("storage_id"), sq)))
+	}
+
+	if diskType, err := query.GetString("disk_type"); err == nil {
+		diskTbl := DiskManager.Query().SubQuery()
+		sq := diskTbl.Query(diskTbl.Field("id")).Equals("disk_type", diskType).SubQuery()
+		q = q.In("disk_id", sq)
+	}
+
+	if provider, err := query.GetString("provider"); err == nil {
+		cloudproviderTbl := CloudproviderManager.Query().SubQuery()
+		sq := cloudproviderTbl.Query(cloudproviderTbl.Field("id")).Equals("provider", provider)
+		q = q.In("manager_id", sq)
+	}
 	return q, nil
 }
 
@@ -100,12 +126,17 @@ func (self *SSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	if IStorage, _ := StorageManager.FetchById(self.StorageId); IStorage != nil {
+		storage := IStorage.(*SStorage)
+		extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
+	}
 	disk, _ := self.GetDisk()
 	if disk != nil {
 		extra.Add(jsonutils.NewString(disk.DiskType), "disk_type")
+
 		guests := disk.GetGuests()
 		if len(guests) == 1 {
-			extra.Add(jsonutils.NewString(guests[0].Id), "guest")
+			extra.Add(jsonutils.NewString(guests[0].Name), "guest")
 			extra.Add(jsonutils.NewString(guests[0].Status), "guest_status")
 		}
 	}
@@ -386,9 +417,12 @@ func totalSnapshotCount(projectId string) int {
 }
 
 // Only sync snapshot status
-func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshot) error {
+func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshot, projectId string, projectSync bool) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Status = ext.GetStatus()
+		if projectSync && len(projectId) > 0 {
+			self.ProjectId = projectId
+		}
 		return nil
 	})
 	if err != nil {
@@ -397,7 +431,7 @@ func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, 
 	return err
 }
 
-func (manager *SSnapshotManager) newFromCloudSnapshot(userCred mcclient.TokenCredential, extSnapshot cloudprovider.ICloudSnapshot, region *SCloudregion) (*SSnapshot, error) {
+func (manager *SSnapshotManager) newFromCloudSnapshot(userCred mcclient.TokenCredential, extSnapshot cloudprovider.ICloudSnapshot, region *SCloudregion, projectId string) (*SSnapshot, error) {
 	snapshot := SSnapshot{}
 	snapshot.SetModelManager(manager)
 
@@ -418,6 +452,9 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(userCred mcclient.TokenCre
 	snapshot.CloudregionId = region.Id
 
 	snapshot.ProjectId = userCred.GetProjectId()
+	if len(projectId) > 0 {
+		snapshot.ProjectId = projectId
+	}
 	err := manager.TableSpec().Insert(&snapshot)
 	if err != nil {
 		log.Errorf("newFromCloudEip fail %s", err)
@@ -439,7 +476,7 @@ func (manager *SSnapshotManager) getProviderSnapshotsByRegion(region *SCloudregi
 	return snapshots, nil
 }
 
-func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, snapshots []cloudprovider.ICloudSnapshot) compare.SyncResult {
+func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, snapshots []cloudprovider.ICloudSnapshot, projectId string, projectSync bool) compare.SyncResult {
 	syncResult := compare.SyncResult{}
 	dbSnapshots, err := manager.getProviderSnapshotsByRegion(region, provider)
 	if err != nil {
@@ -465,7 +502,7 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudSnapshot(userCred, commonext[i])
+		err = commondb[i].SyncWithCloudSnapshot(userCred, commonext[i], projectId, projectSync)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -473,7 +510,7 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		_, err := manager.newFromCloudSnapshot(userCred, added[i], region)
+		_, err := manager.newFromCloudSnapshot(userCred, added[i], region, projectId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {

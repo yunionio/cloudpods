@@ -2,6 +2,7 @@ package azure
 
 import (
 	"context"
+	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"yunion.io/x/jsonutils"
@@ -86,7 +87,7 @@ func (self *SImage) IsEmulated() bool {
 }
 
 func (self *SImage) GetGlobalId() string {
-	return self.ID
+	return strings.ToLower(self.ID)
 }
 
 func (self *SImage) GetStatus() string {
