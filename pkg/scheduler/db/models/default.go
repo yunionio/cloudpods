@@ -7,6 +7,7 @@ import (
 const (
 	hostsTable    = "hosts_tbl"
 	clustersTable = "clusters_tbl"
+	zonesTable    = "zones_tbl"
 	guestsTable   = "guests_tbl"
 
 	baremetalsTable        = "baremetals_tbl"
@@ -38,14 +39,19 @@ const (
 	hostWiresTable = "hostwires_tbl"
 
 	reserveDipsTable = "reservedips_tbl"
+
+	dynamicschedtagTable = "dynamicschedtags_tbl"
+	cloudproviderTable   = "cloudproviders_tbl"
 )
 
 var (
 	Hosts     Resourcer
 	HostWires Resourcer
 
-	Clusters Resourcer
-	Guests   Resourcer
+	Clusters       Resourcer
+	Zones          Resourcer
+	Guests         Resourcer
+	CloudProviders Resourcer
 
 	Baremetals        Resourcer
 	BaremetalAgents   Resourcer
@@ -66,8 +72,9 @@ var (
 	GuestDisks    Resourcer
 	GuestNetworks Resourcer
 
-	Aggregates     Resourcer
-	AggregateHosts Resourcer
+	Aggregates       Resourcer
+	AggregateHosts   Resourcer
+	Dynamicschedtags Resourcer
 
 	Networks      Resourcer
 	NetInterfaces Resourcer
@@ -84,7 +91,9 @@ func Init(dialect string, args ...interface{}) error {
 	}
 	Hosts, _ = NewHostResource(db.DB)
 	Clusters, _ = NewClusterResource(db.DB)
+	Zones, _ = NewZoneResource(db.DB)
 	Guests, _ = NewGuestResource(db.DB)
+	CloudProviders, _ = NewCloudproviderResource(db.DB)
 
 	Baremetals, _ = NewBaremetalResource(db.DB)
 	BaremetalAgents, _ = NewBaremetalAgentResource(db.DB)
@@ -104,6 +113,7 @@ func Init(dialect string, args ...interface{}) error {
 
 	Aggregates, _ = NewAggregateResource(db.DB)
 	AggregateHosts, _ = NewAggregateHostResource(db.DB)
+	Dynamicschedtags, _ = NewDynaimcschedtagResource(db.DB)
 
 	Networks, _ = NewNetworksResource(db.DB)
 	NetInterfaces, _ = NewNetInterfacesResource(db.DB)
