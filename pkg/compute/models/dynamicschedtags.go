@@ -173,4 +173,3 @@ func (self *SDynamicschedtag) PerformEvaluate(ctx context.Context, userCred mccl
 	}
 	return result, nil
 }
-

@@ -95,7 +95,7 @@ func (cli *SESXiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	}
 	subAccount := cloudprovider.SSubAccount{
 		Account: cli.account,
-		Name: cli.providerName,
+		Name:    cli.providerName,
 	}
 	return []cloudprovider.SSubAccount{subAccount}, nil
 }

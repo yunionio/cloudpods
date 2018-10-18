@@ -166,8 +166,8 @@ func (self *SAzureClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) 
 	for i, value := range resp.Values() {
 		subAccounts[i] = cloudprovider.SSubAccount{
 			Account: *value.SubscriptionID,
-			State: string(value.State),
-			Name: *value.DisplayName,
+			State:   string(value.State),
+			Name:    *value.DisplayName,
 		}
 	}
 

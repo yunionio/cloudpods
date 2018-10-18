@@ -8,18 +8,18 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/sqlchemy"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 const (
@@ -374,7 +374,7 @@ type SAccount struct {
 	Secret    string
 }
 
-func (self *SCloudprovider) GetCloudaccount() (*SCloudaccount) {
+func (self *SCloudprovider) GetCloudaccount() *SCloudaccount {
 	return CloudaccountManager.FetchCloudaccountById(self.CloudaccountId)
 }
 

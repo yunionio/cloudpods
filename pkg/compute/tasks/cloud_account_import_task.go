@@ -1,6 +1,5 @@
 package tasks
 
-
 import (
 	"context"
 
@@ -9,7 +8,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
-
 
 type CloudAccountImportTask struct {
 	taskman.STask

@@ -28,10 +28,9 @@ func (self *CloudAccountSyncInfoTask) OnInit(ctx context.Context, objs []db.ISta
 
 	var account *models.SCloudaccount
 	if len(cloudproviders) > 0 {
-		account = models.CloudaccountManager.FetchCloudaccountById(cloudproviders[0].CloudaccountId)
-		if account == nil { // ???
-			account.SetStatus(self.UserCred, models.CLOUD_PROVIDER_CONNECTED, "")
-			self.SetStageComplete(ctx, nil)
+		account = cloudproviders[0].GetCloudaccount()
+		if account == nil {
+			self.SetStageFailed(ctx, "cloudprovide fail to get valid cloudaccount")
 			return
 		}
 		account.MarkStartSync(self.UserCred)

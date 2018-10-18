@@ -86,7 +86,7 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 	// check duplication
 	// url, account, provider must be unique
 	account, _ := data.GetString("account")
-	// secret, _ := data.GetString("secret")
+	secret, _ := data.GetString("secret")
 	url, _ := data.GetString("access_url")
 
 	q := manager.Query().Equals("provider", provider)
@@ -101,6 +101,14 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		return nil, httperrors.NewConflictError("The account has been registered")
 	}
 
+	err := cloudprovider.IsValidCloudAccount(url, account, secret, provider)
+	if err != nil {
+		if err == cloudprovider.ErrNoSuchProvder {
+			return nil, httperrors.NewResourceNotFoundError("no such provider %s", provider)
+		}
+		return nil, httperrors.NewInvalidCredentialError("invalid cloud account info")
+	}
+
 	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
 
@@ -108,12 +116,9 @@ func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.Tok
 	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 	self.savePassword(self.Secret)
 
-	doImport := jsonutils.QueryBoolean(data, "import", false)
-	if doImport {
-		autoCreateProject := jsonutils.QueryBoolean(data, "auto_create_project", false)
-		autoSync := jsonutils.QueryBoolean(data, "auto_sync", false)
-		self.startImportSubAccountTask(ctx, userCred, autoCreateProject, autoSync, "")
-	}
+	autoCreateProject := jsonutils.QueryBoolean(data, "auto_create_project", false)
+	autoSync := jsonutils.QueryBoolean(data, "auto_sync", false)
+	self.startImportSubAccountTask(ctx, userCred, autoCreateProject, autoSync, "")
 }
 
 func (self *SCloudaccount) savePassword(secret string) error {
@@ -189,13 +194,6 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		}
 	}
 
-	if len(secret) > 0 {
-		err = self.savePassword(secret)
-		if err != nil {
-			return nil, err
-		}
-		changed = true
-	}
 	if (len(account) > 0 && account != self.Account) || (len(accessUrl) > 0 && accessUrl != self.AccessUrl) {
 		if len(account) > 0 && account != self.Account {
 			for _, cloudprovider := range self.GetCloudproviders() {
@@ -224,6 +222,15 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		}
 		changed = true
 	}
+
+	if len(secret) > 0 {
+		err = self.savePassword(secret)
+		if err != nil {
+			return nil, err
+		}
+		changed = true
+	}
+
 	if changed {
 		self.SetStatus(userCred, CLOUD_PROVIDER_INIT, "Change credential")
 		self.StartSyncCloudProviderInfoTask(ctx, userCred, nil, nil, "")
@@ -329,10 +336,10 @@ func (self *SCloudaccount) ImportSubAccount(ctx context.Context, userCred mcclie
 	newCloudprovider := SCloudprovider{}
 	newCloudprovider.Account = subAccount.Account
 	newCloudprovider.CloudaccountId = self.Id
-	newCloudprovider.Provider =     self.Provider
+	newCloudprovider.Provider = self.Provider
 	newCloudprovider.Enabled = true
 	newCloudprovider.Name = subAccount.Name
-	if ! autoCreateProject {
+	if !autoCreateProject {
 		newCloudprovider.ProjectId = auth.AdminCredential().GetProjectId()
 	}
 
@@ -439,7 +446,7 @@ func migrateCloudprovider(cloudprovider *SCloudprovider) error {
 	mainAccount, providerAccount, providerName := cloudprovider.Account, cloudprovider.Account, cloudprovider.Name
 
 	if cloudprovider.Provider == CLOUD_PROVIDER_AZURE {
-		accountInfo := strings.Split(cloudprovider.Account, "/");
+		accountInfo := strings.Split(cloudprovider.Account, "/")
 		if len(accountInfo) == 2 {
 			mainAccount, providerAccount = accountInfo[0], accountInfo[1]
 			if len(cloudprovider.Description) > 0 {
