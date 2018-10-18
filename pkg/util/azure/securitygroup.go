@@ -318,7 +318,7 @@ func convertSecurityGroupRule(rule secrules.SecurityRule) *network.SecurityRule 
 	name = strings.Replace(name, "-", "_", -1)
 	name = fmt.Sprintf("%s_%d", name, rule.Priority)
 	destRule := network.SecurityRule{
-		Name: &name,
+		Name:                         &name,
 		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{},
 	}
 	protocol := network.SecurityRuleProtocolAsterisk

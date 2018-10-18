@@ -11,7 +11,7 @@ type Cloudprovider struct {
 	AccessUrl      string `json:"access_url" gorm:"column:access_url"`
 	Provider       string `json:"provider" gorm:"column:provider"`
 	CloudaccountId string `json:"cloudaccount_id" gorm:"column:cloudaccount_id"`
-	ProjectId      string `json:"tenant_id" gorm:"column:provider_id"`
+	ProjectId      string `json:"tenant_id" gorm:"column:tenant_id"`
 }
 
 func (c Cloudprovider) TableName() string {
