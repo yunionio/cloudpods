@@ -286,11 +286,6 @@ func (manager *STaskManager) execTask(taskId string, data jsonutils.JSONObject) 
 	}
 	log.Debugf("Do task %s(%s) with data %s at stage %s", taskType, taskId, data, baseTask.Stage)
 	taskValue := reflect.New(taskType)
-	filled := reflectutils.FillEmbededStructValue(taskValue.Elem(), reflect.Indirect(reflect.ValueOf(baseTask)))
-	if !filled {
-		log.Errorf("Cannot locate baseTask embedded struct, give up...")
-		return
-	}
 	if taskValue.Type().Implements(ITaskType) {
 		execITask(taskValue, baseTask, data, false)
 	} else if taskValue.Type().Implements(IBatchTaskType) {
@@ -413,11 +408,18 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 
 	params[2] = reflect.ValueOf(data)
 
-	log.Debugf("Call %s %s: %s with %s", task.TaskName, stageName, funcValue, params)
+	filled := reflectutils.FillEmbededStructValue(taskValue.Elem(), reflect.Indirect(reflect.ValueOf(task)))
+	if !filled {
+		log.Errorf("Cannot locate baseTask embedded struct, give up...")
+		return
+	}
 
+	log.Debugf("Call %s %s: %s with %s", task.TaskName, stageName, funcValue, params)
 	funcValue.Call(params)
 
-	task.SaveRequestContext(&ctxData)
+	// call save request context
+	saveRequestContextFuncValue := taskValue.MethodByName("SaveRequestContext")
+	saveRequestContextFuncValue.Call([]reflect.Value{reflect.ValueOf(&ctxData)})
 }
 
 func (task *STask) ScheduleRun(data jsonutils.JSONObject) {

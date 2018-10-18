@@ -1002,7 +1002,7 @@ type DiskInfo struct {
 	MountPoint string
 	Format     string
 	Size       int64
-	StorageId  string
+	Storage    string
 	Backend    string
 	MediumType string
 	Driver     string
@@ -1021,7 +1021,7 @@ func (self *SDisk) ToDiskInfo() DiskInfo {
 	if storage == nil {
 		return ret
 	}
-	ret.StorageId = storage.Id
+	ret.Storage = storage.Id
 	ret.Backend = storage.StorageType
 	ret.MediumType = storage.MediumType
 	return ret
