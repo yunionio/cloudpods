@@ -36,7 +36,7 @@ func InitAuth(options *Options, authComplete auth.AuthCompletedCallback) {
 
 	// debug := options.LogLevel == "debug"
 
-	auth.Init(a, false, true) // , authComplete)
+	auth.Init(a, false, true, options.SslCertfile, options.SslKeyfile) // , authComplete)
 
 	authComplete()
 }
