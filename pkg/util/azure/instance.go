@@ -543,7 +543,7 @@ func (self *SInstance) RebuildRoot(imageId string, passwd string, publicKey stri
 
 func (region *SRegion) ReplaceSystemDisk(instanceId, imageId, passwd, publicKey string, sysSizeGB int32) (string, error) {
 	log.Debugf("ReplaceSystemDisk %s image: %s", instanceId, imageId)
-	if err := region.DeallocateVM(instanceId); err != nil {
+	if err := region.deallocateVM(instanceId); err != nil {
 		return "", err
 	}
 	if instance, err := region.GetInstance(instanceId); err != nil {
@@ -792,16 +792,18 @@ func (self *SInstance) StopVM(isForce bool) error {
 }
 
 func (self *SRegion) StopVM(instanceId string, isForce bool) error {
-	return self.doStopVM(instanceId, isForce)
+	return self.deallocateVM(instanceId)
 }
 
-func (self *SRegion) DeallocateVM(instanceId string) error {
+func (self *SRegion) deallocateVM(instanceId string) error {
 	_, resourceGroup, instanceName := pareResourceGroupWithName(instanceId, INSTANCE_RESOURCE)
 	computeClient := compute.NewVirtualMachinesClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
 	computeClient.Authorizer = self.client.authorizer
-	if result, err := computeClient.PowerOff(context.Background(), resourceGroup, instanceName); err != nil {
+	result, err := computeClient.Deallocate(context.Background(), resourceGroup, instanceName)
+	if err != nil {
 		return err
-	} else if err := result.WaitForCompletion(context.Background(), computeClient.Client); err != nil {
+	}
+	if err := result.WaitForCompletion(context.Background(), computeClient.Client); err != nil {
 		return err
 	}
 	return nil
