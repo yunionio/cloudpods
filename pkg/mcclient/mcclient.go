@@ -12,7 +12,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
-	"yunion.io/yunioncloud/pkg/gotypes"
+	"yunion.io/x/pkg/gotypes"
 )
 
 type Client struct {
