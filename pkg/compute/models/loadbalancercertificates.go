@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
 	"strings"
 	"time"
@@ -74,10 +75,21 @@ func (man *SLoadbalancerCertificateManager) validateCertKey(ctx context.Context,
 		}
 	}
 	cert := certV.Certificates[0]
-	certPubKeyAlgo := cert.PublicKeyAlgorithm.String()
-	if !LB_TLS_CERT_PUBKEY_ALGOS.Has(certPubKeyAlgo) {
-		return nil, httperrors.NewInputParameterError("invalid cert pubkey algorithm: %s, want %s",
-			certPubKeyAlgo, LB_TLS_CERT_PUBKEY_ALGOS.String())
+	var certPubKeyAlgo string
+	{
+		// x509.PublicKeyAlgorithm.String() is only available since go1.10
+		switch cert.PublicKeyAlgorithm {
+		case x509.RSA:
+			certPubKeyAlgo = LB_TLS_CERT_PUBKEY_ALGO_RSA
+		case x509.ECDSA:
+			certPubKeyAlgo = LB_TLS_CERT_PUBKEY_ALGO_ECDSA
+		default:
+			certPubKeyAlgo = fmt.Sprintf("algo %#v", cert.PublicKeyAlgorithm)
+		}
+		if !LB_TLS_CERT_PUBKEY_ALGOS.Has(certPubKeyAlgo) {
+			return nil, httperrors.NewInputParameterError("invalid cert pubkey algorithm: %s, want %s",
+				certPubKeyAlgo, LB_TLS_CERT_PUBKEY_ALGOS.String())
+		}
 	}
 	err := pkeyV.MatchCertificate(cert)
 	if err != nil {
