@@ -42,8 +42,14 @@ type SAzureClient struct {
 }
 
 func NewAzureClient(providerId string, providerName string, accessKey string, secret string, envName string) (*SAzureClient, error) {
-	if clientInfo, accountInfo := strings.Split(secret, "/"), strings.Split(accessKey, "/"); len(clientInfo) >= 2 && len(accountInfo) >= 1 {
-		client := SAzureClient{providerId: providerId, providerName: providerName, secret: secret, envName: envName}
+	clientInfo := strings.Split(secret, "/")
+	accountInfo := strings.Split(accessKey, "/")
+	if len(clientInfo) >= 2 && len(accountInfo) >= 1 {
+		client := SAzureClient{providerId: providerId,
+			providerName: providerName,
+			secret:       secret,
+			envName:      envName,
+		}
 		client.clientId, client.clientScret = clientInfo[0], strings.Join(clientInfo[1:], "/")
 		client.tenantId = accountInfo[0]
 		if len(accountInfo) == 2 {
