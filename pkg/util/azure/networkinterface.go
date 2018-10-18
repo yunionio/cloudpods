@@ -70,7 +70,7 @@ func (self *SRegion) CreateNetworkInterface(nicName string, ipAddr string, subne
 				PrivateIPAddress:          &ipAddr,
 				PrivateIPAddressVersion:   network.IPv4,
 				PrivateIPAllocationMethod: PrivateIPAllocationMethod,
-				Subnet:                    &network.Subnet{ID: &subnetId},
+				Subnet: &network.Subnet{ID: &subnetId},
 			},
 		},
 	}

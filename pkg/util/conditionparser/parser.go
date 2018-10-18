@@ -17,10 +17,10 @@ import (
 )
 
 var (
-	ErrInvalidOp     = errors.New("invalid operation")
-	ErrFieldNotFound = errors.New("field not found")
-	ErrOutOfIndex    = errors.New("out of index")
-	ErrFuncArgument  = errors.New("invalid function arguments")
+	ErrInvalidOp      = errors.New("invalid operation")
+	ErrFieldNotFound  = errors.New("field not found")
+	ErrOutOfIndex     = errors.New("out of index")
+	ErrFuncArgument   = errors.New("invalid function arguments")
 	ErrMethodNotFound = errors.New("method not found")
 )
 
