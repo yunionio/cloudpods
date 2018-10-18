@@ -36,6 +36,10 @@ type Options struct {
 	GlobalVirtualResourceNamespace bool `help:"Per project namespace or global namespace for virtual resources"`
 	DebugSqlchemy                  bool `default:"False" help:"Print SQL executed by sqlchemy"`
 
+	EnableSsl   bool   `help:"Enable https"`
+	SslCertfile string `help:"ssl certification file"`
+	SslKeyfile  string `help:"ssl certification key file"`
+
 	structarg.BaseOptions
 }
 
