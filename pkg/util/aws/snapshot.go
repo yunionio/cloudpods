@@ -3,9 +3,9 @@ package aws
 import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"fmt"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
 type SnapshotStatusType string
@@ -92,9 +92,57 @@ func (self *SSnapshot) GetRegionId() string {
 }
 
 func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName string, snapshotIds []string, offset int, limit int) ([]SSnapshot, int, error) {
-	return nil, 0 , nil
+	params := &ec2.DescribeSnapshotsInput{}
+	filters := make([]*ec2.Filter, 0)
+	// todo: not support search by instancesId. use Tag?
+	// if len(instanceId) > o {
+	// 	filters = AppendSingleValueFilter(filters, )
+	// }
+
+	if len(diskId) > 0 {
+		filters = AppendSingleValueFilter(filters, "volume-id", diskId)
+	}
+
+	// not supported. use Tag?
+	// if len(snapshotName) > 0 {
+	// 	filters = AppendSingleValueFilter(filters, "volume-id", diskId)
+	// }
+	if len(filters) > 0 {
+		params.SetFilters(filters)
+	}
+
+	if len(snapshotIds) > 0 {
+		params.SetSnapshotIds(ConvertedList(snapshotIds))
+	}
+
+	ret, err := self.ec2Client.DescribeSnapshots(params)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	snapshots := []SSnapshot{}
+	for _, item := range ret.Snapshots{
+		snapshot := SSnapshot{}
+		snapshot.SnapshotId = *item.SnapshotId
+		snapshot.Status = SnapshotStatusType(*item.State)
+		snapshot.region = self
+		snapshot.Progress = *item.Progress
+		snapshot.SnapshotName = *item.SnapshotId
+		snapshot.SourceDiskId = *item.VolumeId
+		snapshot.SourceDiskSize = int32(*item.VolumeSize)
+		// snapshot.SourceDiskType
+		snapshots = append(snapshots, snapshot)
+	}
+
+	return snapshots, len(snapshots), nil
 }
 
 func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
-	return nil, httperrors.NewNotImplementedError("not implement")
+	if snapshots, total, err := self.GetSnapshots("", "", "", []string{snapshotId}, 0, 1); err != nil {
+		return nil, err
+	} else if total != 1 {
+		return nil, cloudprovider.ErrNotFound
+	} else {
+		return &snapshots[0], nil
+	}
 }

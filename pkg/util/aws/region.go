@@ -9,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type SRegion struct {
@@ -190,7 +189,16 @@ func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 }
 
 func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	return nil, httperrors.NewNotImplementedError("not implement")
+	snapshots, _, err := self.GetSnapshots("", "", "", []string{}, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]cloudprovider.ICloudSnapshot, len(snapshots))
+	for i := 0; i < len(snapshots); i += 1 {
+		ret[i] = &snapshots[i]
+	}
+	return ret, nil
 }
 
 func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {

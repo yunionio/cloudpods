@@ -8,6 +8,14 @@ import (
 	"yunion.io/x/log"
 )
 
+var StorageTypes = []string{
+	models.STORAGE_GP2_SSD,
+	models.STORAGE_IO1_SSD,
+	models.STORAGE_ST1_HDD,
+	models.STORAGE_SC1_SSD,
+	models.STORAGE_STANDARD_SSD,
+}
+
 type SZone struct {
 	region *SRegion
 	host   *SHost
@@ -18,6 +26,9 @@ type SZone struct {
 	ZoneId    string // 沿用阿里云ZoneId,对应Aws ZoneName
 	LocalName string
 	State     string
+
+	/* 支持的磁盘种类集合 */
+	storageTypes     []string
 }
 
 func (self *SZone) addWire(wire *SWire) {
@@ -34,8 +45,20 @@ func (self *SZone) getHost() *SHost {
 	return self.host
 }
 
+func (self *SZone) getStorageType() {
+	if len(self.storageTypes) == 0 {
+		self.storageTypes = StorageTypes
+	}
+}
+
 func (self *SZone) fetchStorages() error {
-	// todo: implement me
+	self.getStorageType()
+	self.istorages = make([]cloudprovider.ICloudStorage, len(self.storageTypes))
+
+	for i, sc := range self.storageTypes {
+		storage := SStorage{zone: self, storageType: sc}
+		self.istorages[i] = &storage
+	}
 	return nil
 }
 
