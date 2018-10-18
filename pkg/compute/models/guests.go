@@ -1677,6 +1677,10 @@ func (self *SGuest) getMaxDiskIndex() int8 {
 	return int8(len(guestdisks))
 }
 
+func (self *SGuest) AttachDisk(disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string) error {
+	return self.attach2Disk(disk, userCred, driver, cache, mountpoint)
+}
+
 func (self *SGuest) attach2Disk(disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string) error {
 	if self.isAttach2Disk(disk) {
 		return fmt.Errorf("Guest has been attached to disk")
@@ -2890,9 +2894,9 @@ func (self *SGuest) PerformChangeBandwidth(ctx context.Context, userCred mcclien
 			return nil, httperrors.NewBadRequestError("Index Not fount or out of NIC index")
 		}
 		bandwidth, err := data.Int("bandwidth")
-		if err != nil || bandwidth <= 0 {
-			logclient.AddActionLog(self, logclient.ACT_VM_CHANGE_BANDWIDTH, "Bandwidth must be larger than 0", userCred, false)
-			return nil, httperrors.NewBadRequestError("Bandwidth must be larger than 0")
+		if err != nil || bandwidth < 0 {
+			logclient.AddActionLog(self, logclient.ACT_VM_CHANGE_BANDWIDTH, "Bandwidth must non-negative", userCred, false)
+			return nil, httperrors.NewBadRequestError("Bandwidth must be non-negative")
 		}
 		guestnic := &guestnics[index]
 		if guestnic.BwLimit != int(bandwidth) {
