@@ -3754,6 +3754,10 @@ func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
 		desc.Set("int_bandwidth", jsonutils.NewInt(int64(intBw)))
 	}
 
+	if len(self.OsType) > 0 {
+		desc.Add(jsonutils.NewString(self.OsType), "os_type")
+	}
+
 	if priceKey := self.GetMetadata("price_key", nil); len(priceKey) > 0 {
 		desc.Add(jsonutils.NewString(priceKey), "price_key")
 	}
