@@ -25,6 +25,10 @@ func TestAst(t *testing.T) {
 		{`server.disks[0].medium_type == "ssd"`, true},
 		{`server.disks[0].medium_type == "hdd"`, false},
 		{`server.os_type == "windows" && server.disks[0].medium_type == "ssd"`, true},
+		{`server.contains("os_type")`, true},
+		{`server.disks[0].contains("medium_type")`, true},
+		{`server.disk[0].contains("medium_type")`, true},
+		{`server.disks[0].contains("backend")`, false},
 	}
 
 	for _, c := range cases {
@@ -76,6 +80,7 @@ func TestEval2(t *testing.T) {
 		want bool
 	}{
 		{`server.os_type == "Linux"`, true},
+		{`server["os_type"] == "Linux"`, true},
 		{`server.vmem_size > 2048`, false},
 		{`server.hypervisor.in("kvm", "aliyun")`, true},
 		{`server.disable_delete`, false},
@@ -130,6 +135,8 @@ func TestEval3(t *testing.T) {
 		{`server.disk.medium == "hdd"`, true},
 		{`server.disk.medium == "hybrid"`, false},
 		{`server.disk.medium.contains("ssd")`, true},
+		{`server.disk[0]["medium"] == "hdd"`, true},
+		{`server["disk"][0]["medium"] == "hdd"`, true},
 	}
 
 	for _, c := range cases {

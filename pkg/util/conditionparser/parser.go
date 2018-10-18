@@ -20,6 +20,8 @@ var (
 	ErrInvalidOp     = errors.New("invalid operation")
 	ErrFieldNotFound = errors.New("field not found")
 	ErrOutOfIndex    = errors.New("out of index")
+	ErrFuncArgument  = errors.New("invalid function arguments")
+	ErrMethodNotFound = errors.New("method not found")
 )
 
 func IsValid(exprStr string) bool {
@@ -110,23 +112,22 @@ func evalIndex(expr *ast.IndexExpr, input interface{}) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	var indexI int64
-	switch indexV.(type) {
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
-		indexI = reflect.ValueOf(indexV).Int()
-	default:
-		return nil, ErrInvalidOp
-	}
 	switch X.(type) {
 	case []interface{}, *jsonutils.JSONArray:
 		arrX := getArray(X)
+		indexI := getInt(indexV)
 		if indexI >= 0 && indexI < int64(len(arrX)) {
 			return arrX[indexI], nil
 		} else {
 			return nil, ErrOutOfIndex
 		}
+	case *jsonutils.JSONDict:
+		jsonX := X.(*jsonutils.JSONDict)
+		field := getString(indexV)
+		return getJSONProperty(jsonX, field)
 	case string:
 		strX := X.(string)
+		indexI := getInt(indexV)
 		if indexI >= 0 && indexI < int64(len(strX)) {
 			return strX[indexI], nil
 		} else {
@@ -189,6 +190,18 @@ func evalCallInternal(funcV interface{}, args []interface{}) (interface{}, error
 				return strings.Contains(strX, strArgs[0]), nil
 			case "in":
 				return utils.IsInStringArray(strX, strArgs), nil
+			default:
+				return nil, ErrInvalidOp
+			}
+		case *jsonutils.JSONDict:
+			jsonX := caller.caller.(*jsonutils.JSONDict)
+			switch caller.method {
+			case "contains":
+				strArgs, err := args2Strings(args)
+				if err != nil {
+					return nil, err
+				}
+				return jsonX.Contains(strArgs...), nil
 			default:
 				return nil, ErrInvalidOp
 			}
@@ -277,7 +290,12 @@ func evalSelectorInternal(X interface{}, identStr string) (interface{}, error) {
 	switch X.(type) {
 	case *jsonutils.JSONDict:
 		json := X.(*jsonutils.JSONDict)
-		return getJSONProperty(json, identStr)
+		ret, err := getJSONProperty(json, identStr)
+		if err == ErrFieldNotFound {
+			return &funcCaller{caller: X, method: identStr}, nil
+		} else {
+			return ret, err
+		}
 	case []interface{}, *jsonutils.JSONArray:
 		arrX := getArray(X)
 		ret := make([]interface{}, len(arrX))
