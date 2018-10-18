@@ -138,16 +138,20 @@ func evalIndex(expr *ast.IndexExpr, input interface{}) (interface{}, error) {
 	}
 }
 
-func args2Strings(args []interface{}) ([]string, error) {
+func args2Strings(args []interface{}) []string {
 	strs := make([]string, len(args))
 	for i := 0; i < len(args); i += 1 {
-		var ok bool
-		strs[i], ok = args[i].(string)
-		if !ok {
-			return nil, ErrInvalidOp
-		}
+		strs[i] = getString(args[i])
 	}
-	return strs, nil
+	return strs
+}
+
+func args2Ints(args []interface{}) []int {
+	ints := make([]int, len(args))
+	for i := 0; i < len(args); i += 1 {
+		ints[i] = int(getInt(args[i]))
+	}
+	return ints
 }
 
 func evalCallInternal(funcV interface{}, args []interface{}) (interface{}, error) {
@@ -168,28 +172,72 @@ func evalCallInternal(funcV interface{}, args []interface{}) (interface{}, error
 		switch caller.caller.(type) {
 		case string:
 			strX := caller.caller.(string)
-			strArgs, err := args2Strings(args)
-			if err != nil {
-				return nil, err
-			}
 			switch caller.method {
 			case "startswith":
+				strArgs := args2Strings(args)
 				if len(strArgs) != 1 {
-					return nil, ErrInvalidOp
+					return nil, ErrFuncArgument
 				}
 				return strings.HasPrefix(strX, strArgs[0]), nil
 			case "endswith":
+				strArgs := args2Strings(args)
 				if len(strArgs) != 1 {
-					return nil, ErrInvalidOp
+					return nil, ErrFuncArgument
 				}
 				return strings.HasSuffix(strX, strArgs[0]), nil
 			case "contains":
+				strArgs := args2Strings(args)
 				if len(strArgs) != 1 {
-					return nil, ErrInvalidOp
+					return nil, ErrFuncArgument
 				}
 				return strings.Contains(strX, strArgs[0]), nil
 			case "in":
+				var strArgs []string
+				if len(args) == 0 {
+					return nil, ErrFuncArgument
+				} else if len(args) == 1 {
+					switch args[0].(type) {
+					case string, *jsonutils.JSONString:
+						strArgs = []string{args[0].(string)}
+					case []interface{}, *jsonutils.JSONArray:
+						strArgs = args2Strings(getArray(args[0]))
+					default:
+						return nil, ErrFuncArgument
+					}
+				} else {
+					strArgs = args2Strings(args)
+				}
 				return utils.IsInStringArray(strX, strArgs), nil
+			case "len":
+				if len(args) > 0 {
+					return nil, ErrFuncArgument
+				}
+				return len(strX), nil
+			case "substr":
+				intArgs := args2Ints(args)
+				var o1, o2 int
+				if len(intArgs) == 1 {
+					o1 = 0
+					o2 = intArgs[0]
+				} else if len(intArgs) == 2 {
+					o1 = intArgs[0]
+					o2 = intArgs[1]
+				} else {
+					return nil, ErrFuncArgument
+				}
+				if o1 < 0 {
+					o1 = len(strX) + o1
+				}
+				if o2 < 0 {
+					o2 = len(strX) + o2
+				}
+				if o1 < 0 || o1 >= len(strX) {
+					return nil, ErrFuncArgument
+				}
+				if o2 <= o1 || o2 > len(strX) {
+					return nil, ErrFuncArgument
+				}
+				return strX[o1:o2], nil
 			default:
 				return nil, ErrInvalidOp
 			}
@@ -197,13 +245,26 @@ func evalCallInternal(funcV interface{}, args []interface{}) (interface{}, error
 			jsonX := caller.caller.(*jsonutils.JSONDict)
 			switch caller.method {
 			case "contains":
-				strArgs, err := args2Strings(args)
-				if err != nil {
-					return nil, err
-				}
+				strArgs := args2Strings(args)
 				return jsonX.Contains(strArgs...), nil
+			case "len":
+				if len(args) > 0 {
+					return nil, ErrFuncArgument
+				}
+				return jsonX.Size(), nil
 			default:
-				return nil, ErrInvalidOp
+				return nil, ErrMethodNotFound
+			}
+		case []interface{}, *jsonutils.JSONArray:
+			array := getArray(caller.caller)
+			switch caller.method {
+			case "len":
+				if len(args) > 0 {
+					return nil, ErrFuncArgument
+				}
+				return len(array), nil
+			default:
+				return nil, ErrMethodNotFound
 			}
 		default:
 			return nil, ErrInvalidOp
@@ -297,6 +358,9 @@ func evalSelectorInternal(X interface{}, identStr string) (interface{}, error) {
 			return ret, err
 		}
 	case []interface{}, *jsonutils.JSONArray:
+		if identStr == "len" {
+			return &funcCaller{caller: X, method: identStr}, nil
+		}
 		arrX := getArray(X)
 		ret := make([]interface{}, len(arrX))
 		for i := 0; i < len(arrX); i += 1 {

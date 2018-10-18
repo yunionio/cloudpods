@@ -137,6 +137,14 @@ func TestEval3(t *testing.T) {
 		{`server.disk.medium.contains("ssd")`, true},
 		{`server.disk[0]["medium"] == "hdd"`, true},
 		{`server["disk"][0]["medium"] == "hdd"`, true},
+		{`server.disk[0].medium.in(server.disk.medium)`, true},
+		{`server.disk.len() == 4`, true},
+		{`server.disk[0].len() == 2`, true},
+		{`server.disk[0].backend.len() == 5`, true},
+		{`server.disk[0].backend.substr(1) == "l"`, true},
+		{`server.disk[0].backend.substr(0, 1) == "l"`, true},
+		{`server.disk[0].backend.substr(1, 2) == "o"`, true},
+		{`server.disk[0].backend.substr(1, -2) == "oc"`, true},
 	}
 
 	for _, c := range cases {
@@ -147,7 +155,7 @@ func TestEval3(t *testing.T) {
 		}
 
 		if result != c.want {
-			t.Errorf("expect %v got %v", c.want, result)
+			t.Errorf("%s expect %v got %v", c.in, c.want, result)
 			return
 		}
 	}
