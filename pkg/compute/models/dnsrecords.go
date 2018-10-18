@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -25,13 +26,11 @@ func init() {
 	DnsRecordManager = &SDnsRecordManager{SAdminSharableVirtualResourceBaseManager: db.NewAdminSharableVirtualResourceBaseManager(SDnsRecord{}, "dnsrecord_tbl", "dnsrecord", "dnsrecords")}
 }
 
-const (
-	DNS_RECORDS_SEPARATOR = ","
-)
+const DNS_RECORDS_SEPARATOR = ","
 
 type SDnsRecord struct {
 	db.SAdminSharableVirtualResourceBase
-	Ttl     int  `nullable:"true" default:"0" create:"optional" list:"user" update:"user"`
+	Ttl     int  `nullable:"true" default:"1" create:"optional" list:"user" update:"user"`
 	Enabled bool `nullable:"false" default:"true" create:"optional" list:"user"`
 }
 
@@ -46,89 +45,135 @@ func (man *SDnsRecordManager) GetRecordsLimit() int {
 }
 
 // ParseInputInfo implements IAdminSharableVirtualModelManager
-func (man *SDnsRecordManager) ParseInputInfo(data *jsonutils.JSONDict) (rec []string, err error) {
+func (man *SDnsRecordManager) ParseInputInfo(data *jsonutils.JSONDict) ([]string, error) {
+	records := []string{}
 	for _, typ := range []string{"A", "AAAA"} {
-		idx := 0
-		var addr string
-		for {
-			key := fmt.Sprintf("%s.%d", typ, idx)
-			if data.Contains(key) {
-				addr, err = data.GetString(key)
-				if err != nil {
-					return
-				}
-				if (typ == "A" && !regutils.MatchIP4Addr(addr)) || (typ == "AAAA" && !regutils.MatchIP6Addr(addr)) {
-					err = httperrors.NewNotAcceptableError("Invalid address %s", addr)
-					return
-				}
-				rec = append(rec, fmt.Sprintf("%s:%s", typ, addr))
-			} else {
+		for i := 0; ; i++ {
+			key := fmt.Sprintf("%s.%d", typ, i)
+			if !data.Contains(key) {
 				break
 			}
-			idx += 1
+			addr, err := data.GetString(key)
+			if err != nil {
+				return nil, err
+			}
+			if (typ == "A" && !regutils.MatchIP4Addr(addr)) || (typ == "AAAA" && !regutils.MatchIP6Addr(addr)) {
+				return nil, httperrors.NewNotAcceptableError("Invalid type %s address: %s", typ, addr)
+			}
+			records = append(records, fmt.Sprintf("%s:%s", typ, addr))
+		}
+	}
+	{
+		// - SRV.i
+		// - (deprecated) SRV_host and SRV_port
+		parseSrvParam := func(s string) (string, error) {
+			chunks := strings.SplitN(s, ":", 4)
+			if len(chunks) < 2 {
+				return "", httperrors.NewNotAcceptableError("SRV: insufficient param: %s", s)
+			}
+			host := chunks[0]
+			if !regutils.MatchDomainName(host) &&
+				!regutils.MatchIPAddr(host) {
+				return "", httperrors.NewNotAcceptableError("SRV: invalid host part: %s", host)
+			}
+			port, err := strconv.Atoi(chunks[1])
+			if err != nil || port <= 0 || port >= 65536 {
+				return "", httperrors.NewNotAcceptableError("SRV: invalid port number: %s", chunks[1])
+			}
+			weight := 100
+			priority := 0
+			if len(chunks) >= 3 {
+				var err error
+				weight, err = strconv.Atoi(chunks[2])
+				if err != nil {
+					return "", httperrors.NewNotAcceptableError("SRV: invalid weight number: %s", chunks[2])
+				}
+				if len(chunks) >= 4 {
+					priority, err = strconv.Atoi(chunks[3])
+					if err != nil {
+						return "", httperrors.NewNotAcceptableError("SRV: invalid priority number: %s", chunks[3])
+					}
+				}
+			}
+			rec := fmt.Sprintf("SRV:%s:%d:%d:%d", host, port, weight, priority)
+			return rec, nil
+		}
+		recSrv := []string{}
+		for i := 0; ; i++ {
+			k := fmt.Sprintf("SRV.%d", i)
+			if !data.Contains(k) {
+				break
+			}
+			s, err := data.GetString(k)
+			if err != nil {
+				return nil, err
+			}
+			rec, err := parseSrvParam(s)
+			if err != nil {
+				return nil, err
+			}
+			recSrv = append(recSrv, rec)
+		}
+		if data.Contains("SRV_host") && data.Contains("SRV_port") {
+			host, err := data.GetString("SRV_host")
+			if err != nil {
+				return nil, err
+			}
+			port, err := data.GetString("SRV_port")
+			if err != nil {
+				return nil, err
+			}
+			s := fmt.Sprintf("%s:%s", host, port)
+			rec, err := parseSrvParam(s)
+			if err != nil {
+				return nil, err
+			}
+			recSrv = append(recSrv, rec)
+		}
+		if len(recSrv) > 0 {
+			if len(records) > 0 {
+				return nil, httperrors.NewNotAcceptableError("SRV cannot mix with other types")
+			}
+			records = recSrv
 		}
 	}
 	if data.Contains("CNAME") {
-		if len(rec) > 0 {
-			err = httperrors.NewNotAcceptableError("CNAME cannot mix with other types")
-			return
+		if len(records) > 0 {
+			return nil, httperrors.NewNotAcceptableError("CNAME cannot mix with other types")
 		}
-		var cname string
-		cname, err = data.GetString("CNAME")
-		if err != nil {
-			return
+		if cname, err := data.GetString("CNAME"); err != nil {
+			return nil, err
+		} else if !regutils.MatchDomainName(cname) {
+			return nil, httperrors.NewNotAcceptableError(fmt.Sprintf("Invalid type CNAME domain %s", cname))
+		} else {
+			records = []string{fmt.Sprintf("%s:%s", "CNAME", cname)}
 		}
-		if !regutils.MatchDomainName(cname) {
-			err = httperrors.NewNotAcceptableError(fmt.Sprintf("Invalid domain %s", cname))
-			return
-		}
-		rec = append(rec, fmt.Sprintf("%s:%s", "CNAME", cname))
-	} else if data.Contains("SRV_host") && data.Contains("SRV_port") {
-		if len(rec) > 0 {
-			err = httperrors.NewNotAcceptableError("SRV cannot mix with other types")
-			return
-		}
-		var port string
-		port, err = data.GetString("SRV_port")
-		if err != nil {
-			return
-		}
-		if !regutils.MatchInteger(port) {
-			err = httperrors.NewNotAcceptableError("Invalid port %s", port)
-			return
-		}
-		var host string
-		host, err = data.GetString("SRV_host")
-		if err != nil {
-			return
-		}
-		rec = append(rec, fmt.Sprintf("%s:%s:%s", "SRV", host, port))
-	} else if data.Contains("PTR") {
-		if len(rec) > 0 {
-			err = httperrors.NewNotAcceptableError("PTR cannot mix with other types")
-			return
-		}
-		var name string
-		name, err = data.GetString("name")
-		if err != nil {
-			return
-		}
-		if !regutils.MatchPtr(name) {
-			err = httperrors.NewNotAcceptableError(fmt.Sprintf("Invalid ptr %s", name))
-			return
-		}
-		var domainName string
-		domainName, err = data.GetString("PTR")
-		if err != nil {
-			return
-		}
-		if !regutils.MatchDomainName(domainName) {
-			err = httperrors.NewNotAcceptableError(fmt.Sprintf("Invalid domain %s", domainName))
-			return
-		}
-		rec = append(rec, fmt.Sprintf("%s:%s", "PTR", domainName))
 	}
-	return
+	if data.Contains("PTR") {
+		if len(records) > 0 {
+			return nil, httperrors.NewNotAcceptableError("PTR cannot mix with other types")
+		}
+		name, err := data.GetString("name")
+		{
+			if err != nil {
+				return nil, err
+			}
+			if !regutils.MatchPtr(name) {
+				return nil, httperrors.NewNotAcceptableError(fmt.Sprintf("Invalid ptr %s", name))
+			}
+		}
+		domainName, err := data.GetString("PTR")
+		{
+			if err != nil {
+				return nil, err
+			}
+			if !regutils.MatchDomainName(domainName) {
+				return nil, httperrors.NewNotAcceptableError(fmt.Sprintf("Invalid domain %s", domainName))
+			}
+		}
+		records = []string{fmt.Sprintf("%s:%s", "PTR", domainName)}
+	}
+	return records, nil
 }
 
 func (man *SDnsRecordManager) GetRecordsType(recs []string) string {
@@ -165,7 +210,7 @@ func (man *SDnsRecordManager) CheckNameForDnsType(name, recType string) (err err
 	return
 }
 
-func (man *SDnsRecordManager) ValidateCreateData(
+func (man *SDnsRecordManager) validateModelData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	ownerProjId string,
@@ -177,7 +222,7 @@ func (man *SDnsRecordManager) ValidateCreateData(
 		return nil, err
 	}
 	if len(records) == 0 {
-		return nil, fmt.Errorf("Empty record")
+		return nil, httperrors.NewInputParameterError("Empty record")
 	}
 	recType := man.GetRecordsType(records)
 	name, err := data.GetString("name")
@@ -188,50 +233,83 @@ func (man *SDnsRecordManager) ValidateCreateData(
 	if err != nil {
 		return nil, err
 	}
+	if data.Contains("ttl") {
+		jo, err := data.Get("ttl")
+		if err != nil {
+			return nil, err
+		}
+		ttl, err := jo.Int()
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("invalid ttl: %s", err)
+		}
+		if ttl == 0 {
+			// - Create: use the database default
+			// - Update: unchanged
+			data.Remove("ttl")
+		} else if ttl < 0 || ttl > 0x7fffffff {
+			// positive values of a signed 32 bit number.
+			return nil, httperrors.NewInputParameterError("invalid ttl: %d", ttl)
+		}
+	}
+	return data, err
+}
 
+func (man *SDnsRecordManager) ValidateCreateData(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	ownerProjId string,
+	query jsonutils.JSONObject,
+	data *jsonutils.JSONDict,
+) (*jsonutils.JSONDict, error) {
+	data, err := man.validateModelData(ctx, userCred, ownerProjId, query, data)
+	if err != nil {
+		return nil, err
+	}
 	return man.SAdminSharableVirtualResourceBaseManager.ValidateCreateData(man, data)
 }
 
 func (man *SDnsRecordManager) QueryDns(projectId, name string) *SDnsRecord {
-	q := man.Query()
-	q = man.FilterByName(q, name).Filter(sqlchemy.IsTrue(q.Field("enabled")))
+	q := man.Query().
+		Equals("name", name).
+		IsTrue("enabled")
 	if len(projectId) == 0 {
-		q = q.Filter(sqlchemy.IsTrue(q.Field("is_public")))
+		q = q.IsTrue("is_public")
 	} else {
-		q = q.Filter(sqlchemy.OR(sqlchemy.IsTrue(q.Field("is_public")), sqlchemy.Equals(q.Field("tenant_id"), projectId)))
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.IsTrue(q.Field("is_public")),
+			sqlchemy.Equals(q.Field("tenant_id"), projectId),
+		))
 	}
-
 	rec := &SDnsRecord{}
 	rec.SetModelManager(DnsRecordManager)
-
-	err := q.First(rec)
-	if err != nil {
+	if err := q.First(rec); err != nil {
 		return nil
 	}
 	return rec
 }
 
 type DnsIp struct {
-	Ttl  int
 	Addr string
+	Ttl  int
 }
 
-func (man *SDnsRecordManager) QueryDnsIps(projectId, name, kind string) []DnsIp {
+func (man *SDnsRecordManager) QueryDnsIps(projectId, name, kind string) []*DnsIp {
 	rec := man.QueryDns(projectId, name)
-	result := make([]DnsIp, 0)
 	if rec == nil {
-		return result
+		return nil
 	}
-	records := rec.GetInfo()
-	for _, r := range records {
-		if strings.HasPrefix(r, fmt.Sprintf("%s:", kind)) {
-			result = append(result, DnsIp{
-				Ttl:  rec.GetTtl(),
-				Addr: r[len(kind)+1:],
+	pref := kind + ":"
+	prefLen := len(pref)
+	dnsIps := []*DnsIp{}
+	for _, r := range rec.GetInfo() {
+		if strings.HasPrefix(r, pref) {
+			dnsIps = append(dnsIps, &DnsIp{
+				Addr: r[prefLen:],
+				Ttl:  rec.Ttl,
 			})
 		}
 	}
-	return result
+	return dnsIps
 }
 
 func (rec *SDnsRecord) GetInfo() []string {
@@ -239,17 +317,17 @@ func (rec *SDnsRecord) GetInfo() []string {
 }
 
 func (rec *SDnsRecord) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("name") {
-		records := rec.GetInfo()
-		recType := DnsRecordManager.GetRecordsType(records)
-		name, err := data.GetString("name")
+	data.UpdateDefault(jsonutils.Marshal(rec))
+	data, err := DnsRecordManager.validateModelData(ctx, userCred, rec.GetOwnerProjectId(), query, data)
+	if err != nil {
+		return nil, err
+	}
+	{
+		records, err := DnsRecordManager.ParseInputInfo(data)
 		if err != nil {
 			return nil, err
 		}
-		err = DnsRecordManager.CheckNameForDnsType(name, recType)
-		if err != nil {
-			return nil, err
-		}
+		data.Set("records", jsonutils.NewString(strings.Join(records, DNS_RECORDS_SEPARATOR)))
 	}
 	return rec.SAdminSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
@@ -284,10 +362,6 @@ func (rec *SDnsRecord) AllowPerformRemoveRecords(ctx context.Context, userCred m
 func (rec *SDnsRecord) PerformRemoveRecords(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	err := rec.SAdminSharableVirtualResourceBase.RemoveInfo(userCred, DnsRecordManager, rec, data, false)
 	return nil, err
-}
-
-func (rec *SDnsRecord) GetTtl() int {
-	return rec.Ttl
 }
 
 func (rec *SDnsRecord) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
