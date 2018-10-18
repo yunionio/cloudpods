@@ -1669,6 +1669,10 @@ func (self *SGuest) getMaxDiskIndex() int8 {
 	return int8(len(guestdisks))
 }
 
+func (self *SGuest) AttachDisk(disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string) error {
+	return self.attach2Disk(disk, userCred, driver, cache, mountpoint)
+}
+
 func (self *SGuest) attach2Disk(disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string) error {
 	if self.isAttach2Disk(disk) {
 		return fmt.Errorf("Guest has been attached to disk")
