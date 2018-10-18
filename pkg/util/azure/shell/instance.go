@@ -71,8 +71,8 @@ func init() {
 		return cli.DeleteVM(args.ID)
 	})
 
-	shellutils.R(&InstanceOptions{}, "instance-deallocate", "Deallocate intance", func(cli *azure.SRegion, args *InstanceOptions) error {
-		return cli.DeallocateVM(args.ID)
+	shellutils.R(&InstanceOptions{}, "instance-stop", "Stop intance", func(cli *azure.SRegion, args *InstanceOptions) error {
+		return cli.StopVM(args.ID, true)
 	})
 
 	type InstanceRebuildOptions struct {
