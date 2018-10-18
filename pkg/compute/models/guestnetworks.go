@@ -122,7 +122,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCr
 		driver = "virtio"
 	}
 	gn.Driver = driver
-	if bwLimit > 0 {
+	if bwLimit >= 0 {
 		gn.BwLimit = bwLimit
 	}
 
