@@ -2881,8 +2881,8 @@ func (self *SGuest) PerformChangeBandwidth(ctx context.Context, userCred mcclien
 			return nil, httperrors.NewBadRequestError("Index Not fount or out of NIC index")
 		}
 		bandwidth, err := data.Int("bandwidth")
-		if err != nil || bandwidth <= 0 {
-			return nil, httperrors.NewBadRequestError("Bandwidth must be larger than 0")
+		if err != nil || bandwidth < 0 {
+			return nil, httperrors.NewBadRequestError("Bandwidth must be non-negative")
 		}
 		guestnic := &guestnics[index]
 		if guestnic.BwLimit != int(bandwidth) {
