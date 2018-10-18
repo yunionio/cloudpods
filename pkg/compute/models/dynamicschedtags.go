@@ -15,6 +15,7 @@ import (
 
 type SDynamicschedtagManager struct {
 	db.SStandaloneResourceBaseManager
+	SInfrastructureManager
 }
 
 var DynamicschedtagManager *SDynamicschedtagManager
@@ -29,6 +30,7 @@ func init() {
 //
 type SDynamicschedtag struct {
 	db.SStandaloneResourceBase
+	SInfrastructure
 
 	Condition  string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	SchedtagId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`

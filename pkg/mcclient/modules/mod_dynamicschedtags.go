@@ -5,7 +5,7 @@ var (
 )
 
 func init() {
-	Dynamicschedtags = NewComputeManager("dynamicschedtag", "dynamicschedtag",
+	Dynamicschedtags = NewComputeManager("dynamicschedtag", "dynamicschedtags",
 		[]string{"ID", "Name", "Description",
 			"Condition", "Schedtag", "Schedtag_Id", "Enabled"},
 		[]string{})
