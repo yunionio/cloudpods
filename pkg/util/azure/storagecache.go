@@ -86,10 +86,16 @@ func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 
 func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, extId string, isForce bool) (string, error) {
 	if len(extId) > 0 {
-		status, _ := self.region.GetImageStatus(extId)
+		log.Debugf("UploadImage: Image external ID exists %s", extId)
+		status, err := self.region.GetImageStatus(extId)
+		if err != nil {
+			log.Errorf("GetImageStatus error %s", err)
+		}
 		if status == ImageStatusAvailable && !isForce {
 			return extId, nil
 		}
+	} else {
+		log.Debugf("UploadImage: no external ID")
 	}
 	return self.uploadImage(userCred, imageId, osArch, osType, osDist, isForce)
 }
@@ -119,18 +125,20 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		}
 		storageAccount := fmt.Sprintf("%s%s", self.region.Name, DefaultStorageAccount)
 
+		log.Debugf("Create storageAccount: %s", storageAccount)
 		storage, err := self.region.CreateStorageAccount(storageAccount)
 		if err != nil {
 			return "", err
 		}
 
-		if _, err := self.region.CreateContainer(storage.ID, DefaultContainer); err != nil {
+		log.Debugf("Create Container: %s", DefaultContainer)
+		if _, err := self.region.CreateContainer(storage, DefaultContainer); err != nil {
 			return "", err
 		}
 
 		size, _ := meta.Int("size")
 
-		blobURI, err := self.region.UploadVHD(storage.ID, DefaultContainer, tmpFile)
+		blobURI, err := self.region.UploadVHD(storage, DefaultContainer, tmpFile)
 		if err != nil {
 			log.Errorf("uploadContainerFileByPath error: %v", err)
 			return "", err
@@ -187,8 +195,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 	} else if resp, err := http.Get(uri); err != nil {
 		return nil, err
 	} else {
-		_, _, snapshot := pareResourceGroupWithName(snapshotId, SNAPSHOT_RESOURCE)
-		tmpImageFile, err := ioutil.TempFile(path, snapshot)
+		tmpImageFile, err := ioutil.TempFile(path, "temp")
 		if err != nil {
 			return nil, err
 		}

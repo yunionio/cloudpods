@@ -1,102 +1,85 @@
 package azure
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network"
 	"yunion.io/x/jsonutils"
 )
 
 func (self *SRegion) GetNetworkInterfaceDetail(interfaceId string) (*SInstanceNic, error) {
-	nic := SInstanceNic{}
-	networkClient := network.NewInterfacesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-	networkClient.Authorizer = self.client.authorizer
-	_, resourceGroup, nicName := pareResourceGroupWithName(interfaceId, NIC_RESOURCE)
-	if _nic, err := networkClient.Get(context.Background(), resourceGroup, nicName, ""); err != nil {
-		return nil, err
-	} else if err := jsonutils.Update(&nic, _nic); err != nil {
-		return nil, err
-	}
-	return &nic, nil
+	instancenic := SInstanceNic{}
+	return &instancenic, self.client.Get(interfaceId, &instancenic)
 }
 
 func (self *SRegion) GetNetworkInterfaces() ([]SInstanceNic, error) {
-	networkClinet := network.NewInterfacesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-	networkClinet.Authorizer = self.client.authorizer
-	nics := make([]SInstanceNic, 0)
-	if _nics, err := networkClinet.ListAll(context.Background()); err != nil {
-		return nil, err
-	} else if err := jsonutils.Update(&nics, _nics.Values()); err != nil {
+	interfaces := []SInstanceNic{}
+	err := self.client.ListAll("Microsoft.Network/networkInterfaces", &interfaces)
+	if err != nil {
 		return nil, err
 	}
-	return nics, nil
+	result := []SInstanceNic{}
+	for i := 0; i < len(interfaces); i++ {
+		if interfaces[i].Location == self.Name {
+			result = append(result, interfaces[i])
+		}
+	}
+	return result, nil
 }
 
-func (self *SRegion) isNetworkInstanceNameAvaliable(nicName string) bool {
-	networkClinet := network.NewInterfacesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-	networkClinet.Authorizer = self.client.authorizer
-	_, resourceGroup, nicName := pareResourceGroupWithName(nicName, NIC_RESOURCE)
-	if result, err := networkClinet.Get(context.Background(), resourceGroup, nicName, ""); err != nil || result.Response.StatusCode == 404 {
-		return true
+func (self *SRegion) isNetworkInstanceNameAvaliable(nicName string) (bool, error) {
+	nics := []SInstanceNic{}
+	err := self.client.ListByType("Microsoft.Network/networkInterfaces", &nics)
+	if err != nil {
+		return false, err
 	}
-	return false
+	for i := 0; i < len(nics); i++ {
+		if nics[i].Name == nicName {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func (self *SRegion) CreateNetworkInterface(nicName string, ipAddr string, subnetId string, secgrpId string) (*SInstanceNic, error) {
-	networkClinet := network.NewInterfacesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-	networkClinet.Authorizer = self.client.authorizer
-	nic := SInstanceNic{}
-	PrivateIPAllocationMethod := network.Static
-	if len(ipAddr) == 0 {
-		PrivateIPAllocationMethod = network.Dynamic
+	secgroup, err := self.GetSecurityGroupDetails(secgrpId)
+	if err != nil {
+		return nil, err
 	}
-	_nicName := nicName
-	for i := 0; i < 10; i++ {
-		nicName = fmt.Sprintf("%s-%d", _nicName, i)
-		if self.isNetworkInstanceNameAvaliable(nicName) {
+	secgroup.Properties.ProvisioningState = ""
+
+	nicNameBase := nicName
+	for i := 0; i < 5; i++ {
+		ok, err := self.isNetworkInstanceNameAvaliable(nicName)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
 			break
 		}
+		nicName = fmt.Sprintf("%s-%d", nicNameBase, i)
 	}
 
-	if nicName == fmt.Sprintf("%s-9", _nicName) {
-		return nil, fmt.Errorf("Can not find avaliable nic name")
-	}
-
-	IPConfigurations := []network.InterfaceIPConfiguration{
-		{
-			Name: &nicName,
-			InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
-				PrivateIPAddress:          &ipAddr,
-				PrivateIPAddressVersion:   network.IPv4,
-				PrivateIPAllocationMethod: PrivateIPAllocationMethod,
-				Subnet: &network.Subnet{ID: &subnetId},
+	instancenic := SInstanceNic{
+		Name:     nicName,
+		Location: self.Name,
+		Properties: InterfacePropertiesFormat{
+			IPConfigurations: []InterfaceIPConfiguration{
+				InterfaceIPConfiguration{
+					Name: nicName,
+					Properties: InterfaceIPConfigurationPropertiesFormat{
+						PrivateIPAddress:          ipAddr,
+						PrivateIPAddressVersion:   "IPv4",
+						PrivateIPAllocationMethod: "Static",
+						Subnet: Subnet{
+							ID: subnetId,
+						},
+					},
+				},
 			},
+			NetworkSecurityGroup: secgroup,
 		},
+		Type: "Microsoft.Network/networkInterfaces",
 	}
 
-	params := network.Interface{
-		Name:     &nicName,
-		Location: &self.Name,
-		InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
-			IPConfigurations: &IPConfigurations,
-		},
-	}
-	if len(secgrpId) > 0 {
-		networkSecurityGroup := network.SecurityGroup{ID: &secgrpId, Location: &self.Name}
-		params.InterfacePropertiesFormat.NetworkSecurityGroup = &networkSecurityGroup
-	}
-
-	//log.Debugf("create params: %", jsonutils.Marshal(params).PrettyString())
-	_, resourceGroup, nicName := pareResourceGroupWithName(nicName, NIC_RESOURCE)
-	if result, err := networkClinet.CreateOrUpdate(context.Background(), resourceGroup, nicName, params); err != nil {
-		return nil, err
-	} else if err := result.WaitForCompletion(context.Background(), networkClinet.Client); err != nil {
-		return nil, err
-	} else if _nic, err := result.Result(networkClinet); err != nil {
-		return nil, err
-	} else if err := jsonutils.Update(&nic, _nic); err != nil {
-		return nil, err
-	}
-	return &nic, nil
+	return &instancenic, self.client.Create(jsonutils.Marshal(&instancenic), &instancenic)
 }

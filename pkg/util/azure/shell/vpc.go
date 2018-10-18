@@ -7,15 +7,29 @@ import (
 
 func init() {
 	type VpcListOptions struct {
-		Limit  int `help:"page size"`
-		Offset int `help:"page offset"`
+		Classic bool `help:"List classic vpcs"`
+		Limit   int  `help:"page size"`
+		Offset  int  `help:"page offset"`
 	}
 	shellutils.R(&VpcListOptions{}, "vpc-list", "List vpcs", func(cli *azure.SRegion, args *VpcListOptions) error {
-		if vpcs, err := cli.GetIVpcs(); err != nil {
+		vpcs, err := cli.GetIVpcs()
+		if err != nil {
 			return err
-		} else {
-			printList(vpcs, len(vpcs), args.Offset, args.Limit, []string{})
-			return nil
 		}
+		printList(vpcs, len(vpcs), args.Offset, args.Limit, []string{})
+		return nil
+	})
+
+	type VpcOptions struct {
+		ID string `help:"vpc ID"`
+	}
+
+	shellutils.R(&VpcOptions{}, "vpc-show", "Show vpc details", func(cli *azure.SRegion, args *VpcOptions) error {
+		vpc, err := cli.GetVpc(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(vpc)
+		return nil
 	})
 }

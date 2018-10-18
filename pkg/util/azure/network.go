@@ -1,10 +1,8 @@
 package azure
 
 import (
-	"context"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -18,7 +16,7 @@ type SNetwork struct {
 	ID                      string
 	Name                    string
 	Properties              SubnetPropertiesFormat
-
+	AddressPrefix           string `json:"addressPrefix,omitempty"`
 	// Status string
 }
 
@@ -43,7 +41,7 @@ func (self *SNetwork) IsEmulated() bool {
 }
 
 func (self *SNetwork) GetStatus() string {
-	if strings.ToLower(self.Properties.ProvisioningState) == "succeeded" {
+	if strings.ToLower(self.Properties.ProvisioningState) == "succeeded" || len(self.AddressPrefix) > 0 {
 		return "available"
 	}
 	return "disabled"
@@ -51,29 +49,16 @@ func (self *SNetwork) GetStatus() string {
 
 func (self *SNetwork) Delete() error {
 	vpc := self.wire.vpc
-	addressSpace := network.AddressSpace{AddressPrefixes: &vpc.Properties.AddressSpace.AddressPrefixes}
-	subnets := []network.Subnet{}
-	for i := 0; i < len(vpc.Properties.Subnets); i++ {
-		subnet := vpc.Properties.Subnets[i]
-		if subnet.Name == self.Name {
-			continue
+	subnets := []SNetwork{}
+	if vpc.Properties.Subnets != nil {
+		for i := 0; i < len(*vpc.Properties.Subnets); i++ {
+			if (*vpc.Properties.Subnets)[i].Name == self.Name {
+				continue
+			}
+			subnets = append(subnets, (*vpc.Properties.Subnets)[i])
 		}
-		subnetPropertiesFormat := network.SubnetPropertiesFormat{AddressPrefix: &subnet.Properties.AddressPrefix}
-		subNet := network.Subnet{Name: &subnet.Name, SubnetPropertiesFormat: &subnetPropertiesFormat}
-		subnets = append(subnets, subNet)
-	}
-
-	properties := network.VirtualNetworkPropertiesFormat{AddressSpace: &addressSpace, Subnets: &subnets}
-	params := network.VirtualNetwork{VirtualNetworkPropertiesFormat: &properties, Location: &vpc.Location}
-
-	region := self.wire.vpc.region
-	networkClient := network.NewVirtualNetworksClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
-	networkClient.Authorizer = region.client.authorizer
-	_, resourceGroup, vpcName := pareResourceGroupWithName(vpc.ID, VPC_RESOURCE)
-	region.CreateResourceGroup(resourceGroup)
-	if result, err := networkClient.CreateOrUpdate(context.Background(), resourceGroup, vpcName, params); err != nil {
-		return err
-	} else if err := result.WaitForCompletion(context.Background(), networkClient.Client); err != nil {
+		vpc.Properties.Subnets = &subnets
+		_, err := self.wire.vpc.region.client.Update(jsonutils.Marshal(vpc))
 		return err
 	}
 	return nil

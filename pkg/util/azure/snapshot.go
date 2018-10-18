@@ -52,26 +52,8 @@ func (self *SSnapshot) IsEmulated() bool {
 }
 
 func (self *SRegion) CreateSnapshot(diskId, snapName, desc string) (*SSnapshot, error) {
-	globalId, resourceGroup, snapshotName := pareResourceGroupWithName(snapName, SNAPSHOT_RESOURCE)
-	snapClient := compute.NewSnapshotsClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-	snapClient.Authorizer = self.client.authorizer
-	params := compute.Snapshot{
-		Name:     &snapshotName,
-		Location: &self.Name,
-		DiskProperties: &compute.DiskProperties{
-			CreationData: &compute.CreationData{
-				CreateOption:     compute.Copy,
-				SourceResourceID: &diskId,
-			},
-		},
-	}
-	self.CreateResourceGroup(resourceGroup)
-	if result, err := snapClient.CreateOrUpdate(context.Background(), resourceGroup, snapshotName, params); err != nil {
-		return nil, err
-	} else if err := result.WaitForCompletion(context.Background(), snapClient.Client); err != nil {
-		return nil, err
-	}
-	return self.GetSnapshotDetail(globalId)
+	snapshot := SSnapshot{}
+	return &snapshot, self.client.Create(jsonutils.Marshal(snapshot), &snapshot)
 }
 
 func (self *SSnapshot) Delete() error {
@@ -83,15 +65,7 @@ func (self *SSnapshot) GetSize() int32 {
 }
 
 func (self *SRegion) DeleteSnapshot(snapshotId string) error {
-	_, resourceGroup, snapshotName := pareResourceGroupWithName(snapshotId, SNAPSHOT_RESOURCE)
-	snapClient := compute.NewSnapshotsClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-	snapClient.Authorizer = self.client.authorizer
-	if result, err := snapClient.Delete(context.Background(), resourceGroup, snapshotName); err != nil {
-		return err
-	} else if err := result.WaitForCompletion(context.Background(), snapClient.Client); err != nil {
-		return err
-	}
-	return nil
+	return self.client.Delete(snapshotId)
 }
 
 type AccessURIOutput struct {

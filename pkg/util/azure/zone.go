@@ -1,26 +1,25 @@
 package azure
 
 import (
-	"context"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/utils"
-
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-10-01/storage"
 )
 
 type SZone struct {
 	region *SRegion
 
-	iwires    []cloudprovider.ICloudWire
-	istorages []cloudprovider.ICloudStorage
+	iwires        []cloudprovider.ICloudWire
+	iclassicWires []cloudprovider.ICloudWire
+	istorages     []cloudprovider.ICloudStorage
 
 	storageTypes []string
 	Name         string
 	host         *SHost
+	classicHost  *SClassicHost
 }
 
 func (self *SZone) GetMetadata() *jsonutils.JSONDict {
@@ -59,22 +58,43 @@ func (self *SZone) getHost() *SHost {
 	return self.host
 }
 
-func (self *SZone) getStorageTypes() error {
-	storageClinet := storage.NewSkusClientWithBaseURI(self.region.client.baseUrl, self.region.SubscriptionID)
-	storageClinet.Authorizer = self.region.client.authorizer
+func (self *SZone) getClassicHost() *SClassicHost {
+	if self.classicHost == nil {
+		self.classicHost = &SClassicHost{zone: self}
+	}
+	return self.classicHost
+}
 
-	if skuList, err := storageClinet.List(context.Background()); err != nil {
+func (self *SZone) getStorageTypes() (err error) {
+	if len(self.storageTypes) > 0 {
+		return nil
+	}
+	storages, err := self.region.GetStorageTypes()
+	if err != nil {
 		return err
-	} else {
-		for _, sku := range *skuList.Value {
-			if len(*sku.Locations) > 0 && (*sku.Locations)[0] == self.region.Name {
-				if !utils.IsInStringArray(string(sku.Name), self.storageTypes) {
-					self.storageTypes = append(self.storageTypes, string(sku.Name))
-				}
-			}
+	}
+	self.storageTypes = []string{}
+	for i := 0; i < len(storages); i++ {
+		if !utils.IsInStringArray(storages[i].Name, self.storageTypes) {
+			self.storageTypes = append(self.storageTypes, storages[i].Name)
 		}
 	}
 	return nil
+}
+
+func (self *SRegion) GetStorageTypes() ([]SStorage, error) {
+	storages := []SStorage{}
+	err := self.client.ListAll("Microsoft.Storage/skus", &storages)
+	if err != nil {
+		return nil, err
+	}
+	result := []SStorage{}
+	for i := 0; i < len(storages); i++ {
+		if utils.IsInStringArray(self.Name, storages[i].Locations) {
+			result = append(result, storages[i])
+		}
+	}
+	return result, nil
 }
 
 func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {
@@ -91,6 +111,21 @@ func (self *SZone) fetchStorages() error {
 	for i, storageType := range self.storageTypes {
 		storage := SStorage{zone: self, storageType: storageType}
 		self.istorages[i] = &storage
+	}
+	storageaccounts, err := self.region.GetClassicStorageAccounts()
+	if err != nil {
+		return err
+	}
+	for i := 0; i < len(storageaccounts); i++ {
+		storage := SClassicStorage{
+			zone:       self,
+			ID:         storageaccounts[i].ID,
+			Name:       storageaccounts[i].Name,
+			Type:       storageaccounts[i].Type,
+			Location:   storageaccounts[i].Location,
+			Properties: storageaccounts[i].Properties.ClassicStorageProperties,
+		}
+		self.istorages = append(self.istorages, &storage)
 	}
 	return nil
 }
@@ -133,11 +168,15 @@ func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 	if host.GetGlobalId() == id {
 		return host, nil
 	}
+	classicHost := self.getClassicHost()
+	if classicHost.GetGlobalId() == id {
+		return classicHost, nil
+	}
 	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
-	return []cloudprovider.ICloudHost{self.getHost()}, nil
+	return []cloudprovider.ICloudHost{self.getHost(), self.getClassicHost()}, nil
 }
 
 func (self *SZone) addWire(wire *SWire) {
@@ -147,8 +186,19 @@ func (self *SZone) addWire(wire *SWire) {
 	self.iwires = append(self.iwires, wire)
 }
 
+func (self *SZone) addClassicWire(wire *SClassicWire) {
+	if self.iclassicWires == nil {
+		self.iclassicWires = make([]cloudprovider.ICloudWire, 0)
+	}
+	self.iclassicWires = append(self.iclassicWires, wire)
+}
+
 func (self *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
 	return self.iwires, nil
+}
+
+func (self *SZone) GetIClassicWires() ([]cloudprovider.ICloudWire, error) {
+	return self.iclassicWires, nil
 }
 
 func (self *SZone) getNetworkById(networId string) *SNetwork {
@@ -156,6 +206,19 @@ func (self *SZone) getNetworkById(networId string) *SNetwork {
 	for i := 0; i < len(self.iwires); i += 1 {
 		log.Debugf("Search in wire %s", self.iwires[i].GetName())
 		wire := self.iwires[i].(*SWire)
+		net := wire.getNetworkById(networId)
+		if net != nil {
+			return net
+		}
+	}
+	return nil
+}
+
+func (self *SZone) getClassicNetworkById(networId string) *SClassicNetwork {
+	log.Debugf("Search in wires %d", len(self.iclassicWires))
+	for i := 0; i < len(self.iclassicWires); i += 1 {
+		log.Debugf("Search in wire %s", self.iclassicWires[i].GetName())
+		wire := self.iclassicWires[i].(*SClassicWire)
 		net := wire.getNetworkById(networId)
 		if net != nil {
 			return net
