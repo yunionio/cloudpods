@@ -26,12 +26,12 @@ func (self *GuestDetachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	diskId, _ := self.Params.GetString("disk_id")
 	objDisk, err := models.DiskManager.FetchById(diskId)
 	if err != nil {
-		self.OnTaskFail(ctx, guest, err)
+		self.OnTaskFail(ctx, guest, nil, err)
 		return
 	}
 	disk := objDisk.(*models.SDisk)
 	if disk == nil {
-		self.OnTaskFail(ctx, guest, fmt.Errorf("Connot find disk %s", diskId))
+		self.OnTaskFail(ctx, guest, nil, fmt.Errorf("Connot find disk %s", diskId))
 		return
 	}
 
@@ -48,6 +48,8 @@ func (self *GuestDetachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		self.OnSyncConfigComplete(ctx, guest, nil)
 		return
 	}
+	disk.SetStatus(self.UserCred, models.DISK_DETACHING, "Disk detach")
+
 	host := guest.GetHost()
 	purge := false
 	if host != nil && host.Status == models.HOST_DISABLED && jsonutils.QueryBoolean(self.Params, "purge", false) {
@@ -55,13 +57,12 @@ func (self *GuestDetachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	}
 	detachStatus, err := guest.GetDriver().GetDetachDiskStatus()
 	if err != nil {
-		self.OnTaskFail(ctx, guest, err)
+		self.OnTaskFail(ctx, guest, disk, err)
 		return
 	}
 	if utils.IsInStringArray(guest.Status, detachStatus) && !purge {
 		self.SetStage("on_sync_config_complete", nil)
 		guest.GetDriver().RequestDetachDisk(ctx, guest, self)
-		disk.SetStatus(self.UserCred, models.DISK_READY, "Disk detach")
 	} else {
 		self.OnSyncConfigComplete(ctx, guest, nil)
 	}
@@ -71,14 +72,15 @@ func (self *GuestDetachDiskTask) OnSyncConfigComplete(ctx context.Context, guest
 	diskId, _ := self.Params.GetString("disk_id")
 	objDisk, err := models.DiskManager.FetchById(diskId)
 	if err != nil {
-		self.OnTaskFail(ctx, guest, err)
+		self.OnTaskFail(ctx, guest, nil, err)
 		return
 	}
 	disk := objDisk.(*models.SDisk)
 	if disk == nil {
-		self.OnTaskFail(ctx, guest, fmt.Errorf("Connot find disk %s", diskId))
+		self.OnTaskFail(ctx, guest, nil, fmt.Errorf("Connot find disk %s", diskId))
 		return
 	}
+	disk.SetDiskReady(ctx, self.UserCred, "")
 	keepDisk := jsonutils.QueryBoolean(self.Params, "keep_disk", true)
 	host := guest.GetHost()
 	purge := false
@@ -89,12 +91,14 @@ func (self *GuestDetachDiskTask) OnSyncConfigComplete(ctx context.Context, guest
 		db.OpsLog.LogEvent(disk, db.ACT_DELETE, "", self.UserCred)
 		disk.RealDelete(ctx, self.UserCred)
 		self.SetStageComplete(ctx, nil)
-	} else if (disk.Status == models.DISK_READY || !keepDisk) && disk.GetGuestDiskCount() == 0 && disk.AutoDelete {
+		return
+	}
+	if !keepDisk && disk.GetGuestDiskCount() == 0 && disk.AutoDelete {
 		self.SetStage("on_disk_delete_complete", nil)
 		db.OpsLog.LogEvent(disk, db.ACT_DELETE, "", self.UserCred)
 		err := guest.GetDriver().RequestDeleteDetachedDisk(ctx, disk, self, purge)
 		if err != nil {
-			self.OnTaskFail(ctx, guest, err)
+			self.OnTaskFail(ctx, guest, disk, err)
 			return
 		}
 	} else {
@@ -110,28 +114,25 @@ func (self *GuestDetachDiskTask) OnSyncConfigCompleteFailed(ctx context.Context,
 	diskId, _ := self.Params.GetString("disk_id")
 	objDisk, err := models.DiskManager.FetchById(diskId)
 	if err != nil {
-		self.OnTaskFail(ctx, guest, err)
+		self.OnTaskFail(ctx, guest, nil, err)
 		return
 	}
 	disk := objDisk.(*models.SDisk)
 	db.OpsLog.LogEvent(disk, db.ACT_DETACH, resion.String(), self.UserCred)
+	disk.SetDiskReady(ctx, self.UserCred, "")
 	err = guest.AttachDisk(disk, self.UserCred, driver, cache, mountpoint)
 	if err != nil {
-		self.OnTaskFail(ctx, guest, err)
+		self.OnTaskFail(ctx, guest, disk, err)
 		return
 	}
 }
 
-func (self *GuestDetachDiskTask) OnTaskFail(ctx context.Context, guest *models.SGuest, err error) {
-	diskId, _ := self.Params.GetString("disk_id")
-	objDisk, err := models.DiskManager.FetchById(diskId)
-	if err != nil {
-		return
+func (self *GuestDetachDiskTask) OnTaskFail(ctx context.Context, guest *models.SGuest, disk *models.SDisk, err error) {
+	if disk != nil {
+		disk.SetDiskReady(ctx, self.UserCred, "")
 	}
-	disk := objDisk.(*models.SDisk)
-	disk.SetStatus(self.UserCred, models.DISK_READY, err.Error())
 	self.SetStageFailed(ctx, err.Error())
-	log.Errorf("Guest %s disk %s GuestDetachDiskTask failed %s ", guest.Id, disk.Name, err.Error())
+	log.Errorf("Guest %s GuestDetachDiskTask failed %s", guest.Id, err.Error())
 }
 
 func (self *GuestDetachDiskTask) OnDiskDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
