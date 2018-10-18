@@ -16,7 +16,7 @@ import (
 )
 
 type BaremetalDesc struct {
-	baseHostDesc
+	*baseHostDesc
 
 	Storages      []*baremetal.BaremetalStorage `json:"storages"`
 	StorageType   string                        `json:"storage_type"`
@@ -212,30 +212,21 @@ func (bb *BaremetalBuilder) build() ([]interface{}, error) {
 }
 
 func (bb *BaremetalBuilder) buildOne(bm *models.Host) (interface{}, error) {
-	desc := new(BaremetalDesc)
-	desc.ID = bm.ID
-	desc.Name = bm.Name
-	desc.UpdatedAt = bm.UpdatedAt
-	desc.Status = bm.Status
-	desc.CPUCount = bm.CPUCount
-	desc.NodeCount = bm.NodeCount
-	desc.MemSize = int64(bm.MemSize)
+	baseDesc, err := newBaseHostDesc(bm)
+	if err != nil {
+		return nil, err
+	}
+	desc := &BaremetalDesc{
+		baseHostDesc: baseDesc,
+	}
+
 	desc.StorageDriver = bm.StorageDriver
 	desc.StorageType = bm.StorageType
 	desc.StorageSize = int64(bm.StorageSize)
 	desc.StorageInfo = bm.StorageInfo
-	desc.PoolID = bm.PoolID
-	desc.ZoneID = bb.getZoneID(bm)
-	desc.Enabled = bm.Enabled
-	desc.ClusterID = bm.ClusterID
-
-	desc.HostStatus = bm.HostStatus
-	desc.Enabled = bm.Enabled
-	desc.HostType = bm.HostType
-	desc.IsBaremetal = bm.IsBaremetal
 
 	var baremetalStorages []*baremetal.BaremetalStorage
-	err := fjson.Unmarshal([]byte(bm.StorageInfo), &baremetalStorages)
+	err = fjson.Unmarshal([]byte(bm.StorageInfo), &baremetalStorages)
 	if err != nil {
 		// StorageInfo maybe is NULL
 		if bm.StorageInfo != "" {
@@ -246,22 +237,6 @@ func (bb *BaremetalBuilder) buildOne(bm *models.Host) (interface{}, error) {
 	desc.Tenants = make(map[string]int64, 0)
 
 	err = bb.fillServerID(desc, bm)
-	if err != nil {
-		return nil, err
-	}
-
-	err = bb.fillResidentTenants(desc, bm)
-	if err != nil {
-		return nil, err
-	}
-
-	// data from db
-	err = bb.fillNetworks(desc, bm)
-	if err != nil {
-		return nil, err
-	}
-
-	err = desc.fillAggregates()
 	if err != nil {
 		return nil, err
 	}
@@ -291,17 +266,6 @@ func (bb *BaremetalBuilder) fillServerID(desc *BaremetalDesc, b *models.Host) er
 
 func (bb *BaremetalBuilder) fillNetworks(desc *BaremetalDesc, b *models.Host) error {
 	return desc.fillNetworks(b.ID)
-}
-
-func (b *BaremetalBuilder) fillResidentTenants(desc *BaremetalDesc, host *models.Host) error {
-	rets, err := HostResidentTenantCount(host.ID)
-	if err != nil {
-		return err
-	}
-
-	desc.Tenants = rets
-
-	return nil
 }
 
 func (b *BaremetalBuilder) getZoneID(bm *models.Host) string {

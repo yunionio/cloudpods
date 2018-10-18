@@ -234,7 +234,7 @@ func (region *SRegion) DissociateEip(eipId string) error {
 						Primary:                   &oldIPConf.Properties.Primary,
 						PrivateIPAddress:          &oldIPConf.Properties.PrivateIPAddress,
 						PrivateIPAllocationMethod: network.Static,
-						Subnet: &network.Subnet{ID: &oldIPConf.Properties.Subnet.ID},
+						Subnet:                    &network.Subnet{ID: &oldIPConf.Properties.Subnet.ID},
 					},
 				},
 			}

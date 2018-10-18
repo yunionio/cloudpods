@@ -22,7 +22,7 @@ import (
 )
 
 type HostDesc struct {
-	baseHostDesc
+	*baseHostDesc
 
 	// cpu
 	CPUMHZ              int64    `json:"cpu_mhz"`
@@ -65,7 +65,6 @@ type HostDesc struct {
 	Groups                    *GroupCounts          `json:"groups"`
 	Metadata                  map[string]string     `json:"metadata"`
 	IsolatedDevices           []*IsolatedDeviceDesc `json:"isolated_devices"`
-	ManagerID                 *string               `json:"manager_id"`
 	IsMaintenance             bool                  `json:"is_maintenance"`
 	GuestReservedResource     *ReservedResource     `json:"guest_reserved_resource"`
 	GuestReservedResourceUsed *ReservedResource     `json:"guest_reserved_used"`
@@ -551,7 +550,6 @@ func (b *HostBuilder) init(ids []string, dbCache DBGroupCacher, syncCache SyncGr
 			b.setStorages(ids, errMessageChannel)
 			b.setDiskStats(errMessageChannel)
 		},
-		func() { b.setResidentTenantStats(ids, errMessageChannel) },
 		func() { b.setMetadataInfo(ids, errMessageChannel) },
 		func() { b.setIsolatedDevs(ids, errMessageChannel) },
 		func() { b.setCPUIOLoadInfo(errMessageChannel) },
@@ -698,16 +696,6 @@ func (b *HostBuilder) setGuests(ids []string, errMessageChannel chan error) {
 	b.guests = guests
 	b.hostGuests = hostGuests
 	b.guestDict = guestDict
-	return
-}
-
-func (b *HostBuilder) setResidentTenantStats(hostIDs []string, errMessageChannel chan error) {
-	residentTenantDict, err := HostsResidentTenantStats(hostIDs)
-	if err != nil {
-		errMessageChannel <- err
-		return
-	}
-	b.residentTenantDict = residentTenantDict
 	return
 }
 
@@ -957,24 +945,17 @@ func (b *HostBuilder) build() ([]interface{}, error) {
 }
 
 func (b *HostBuilder) buildOne(host *models.Host) (interface{}, error) {
-	desc := new(HostDesc)
-	desc.ID = host.ID
-	desc.UpdatedAt = host.UpdatedAt
-	desc.Name = host.Name
-	desc.Status = host.Status
+	baseDesc, err := newBaseHostDesc(host)
+	if err != nil {
+		return nil, err
+	}
+	desc := &HostDesc{
+		baseHostDesc: baseDesc,
+	}
+
 	desc.Metadata = make(map[string]string)
-	desc.HostStatus = host.HostStatus
-	desc.Enabled = host.Enabled
-	desc.HostType = host.HostType
-	desc.IsBaremetal = host.IsBaremetal
 	desc.ManagerID = host.ManagerID
-	desc.IsMaintenance = host.IsMaintenance
 
-	// TODO: purge PoolID & ClusterID not used
-	desc.PoolID = host.PoolID
-	desc.ClusterID = host.ClusterID
-
-	desc.CPUCount = host.CPUCount
 	desc.CPUCmtbound = host.CPUOverCommitBound()
 	desc.CPUDesc = host.CPUDesc
 	desc.CPUCache = host.CPUCache
@@ -982,7 +963,6 @@ func (b *HostBuilder) buildOne(host *models.Host) (interface{}, error) {
 	desc.NodeCount = host.NodeCount
 	desc.CPUMHZ = host.CPUMHZ
 
-	desc.MemSize = host.MemSize
 	desc.MemCmtbound = host.MemOverCommitBound()
 	desc.MemReserved = host.MemReserved
 
@@ -995,14 +975,11 @@ func (b *HostBuilder) buildOne(host *models.Host) (interface{}, error) {
 
 	fillFuncs := []func(*HostDesc, *models.Host) error{
 		b.fillGuestsResourceInfo,
-		b.fillZoneID,
 		b.fillStorages,
-		b.fillResidentTenants,
 		b.fillResidentGroups,
 		b.fillMetadata,
 		b.fillIsolatedDevices,
 		b.fillCPUIOLoads,
-		b.fillNetworks,
 	}
 
 	for _, f := range fillFuncs {
@@ -1012,16 +989,7 @@ func (b *HostBuilder) buildOne(host *models.Host) (interface{}, error) {
 		}
 	}
 
-	err = desc.fillAggregates()
-	if err != nil {
-		return nil, err
-	}
-
 	return desc, nil
-}
-
-func (b *HostBuilder) fillNetworks(desc *HostDesc, host *models.Host) error {
-	return desc.fillNetworks(host.ID)
 }
 
 func _in(s string, ss []string) bool {
@@ -1155,33 +1123,6 @@ func (b *HostBuilder) guestAppTags(guest *models.Guest) []string {
 	return []string{}
 }
 
-func (b *HostBuilder) fillZoneID(desc *HostDesc, host *models.Host) error {
-	if host.ZoneID != "" {
-		desc.ZoneID = host.ZoneID
-		return nil
-	}
-
-	zoneID, err := b.zoneID(host.ClusterID)
-	if err != nil {
-		panic(fmt.Errorf("host: %v, fillZoneID error: %v", host.ID, err))
-		return err
-	}
-	desc.ZoneID = zoneID
-	return nil
-}
-
-func (b *HostBuilder) zoneID(clusterID string) (string, error) {
-	obj, err := b.clusters.Get(clusterID)
-	if err != nil {
-		return "", err
-	}
-	cluster, ok := obj.(*models.Cluster)
-	if !ok {
-		return "", utils.ConvertError(obj, "*models.Cluster")
-	}
-	return cluster.ZoneID, nil
-}
-
 func (b *HostBuilder) fillStorages(desc *HostDesc, host *models.Host) error {
 	objs, ok := b.hostStoragesDict[host.ID]
 	if !ok {
@@ -1247,23 +1188,6 @@ func (b *HostBuilder) storageUsedCapacity(storage *models.Storage, ready bool) i
 		}
 	}
 	return total
-}
-
-func (b *HostBuilder) fillResidentTenants(desc *HostDesc, host *models.Host) error {
-
-	tenantMap, ok := b.residentTenantDict[host.ID]
-	if !ok {
-		log.V(10).Infof("Not found host ID: %s when fill resident tenants, may be no guests on it.", host.ID)
-		return nil
-	}
-
-	rets := make(map[string]int64, len(tenantMap))
-	for tenantID, countObj := range tenantMap {
-		rets[tenantID] = countObj.(int64)
-	}
-	desc.Tenants = rets
-
-	return nil
 }
 
 func (b *HostBuilder) fillResidentGroups(desc *HostDesc, host *models.Host) error {
