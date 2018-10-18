@@ -64,7 +64,7 @@ func Run(s *SchedulerServer) error {
 
 	debug := o.GetOptions().LogLevel == "debug"
 
-	auth.AsyncInit(s.AuthInfo, debug, true, startSched)
+	auth.AsyncInit(s.AuthInfo, debug, true, "", "", startSched)
 
 	return startHTTP(s)
 }
