@@ -71,7 +71,7 @@ func (self *SAliyunProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	return info, nil
 }
 
-func (self *SAliyunProvider) GetSubAccounts() (jsonutils.JSONObject, error) {
+func (self *SAliyunProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return self.client.GetSubAccounts()
 }
 

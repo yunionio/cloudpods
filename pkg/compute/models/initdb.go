@@ -20,7 +20,7 @@ func InitDB() error {
 		err := manager.InitializeData()
 		if err != nil {
 			log.Errorf("Manager %s initializeData fail %s", manager.Keyword(), err)
-			return err
+			// return err skip error table
 		}
 	}
 	return nil
