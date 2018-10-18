@@ -1,10 +1,10 @@
 package aws
 
 import (
-	"time"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/secrules"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"yunion.io/x/log"
 )
 
 type SecurityGroupPermissionNicType string
@@ -15,8 +15,7 @@ const (
 )
 
 type SPermission struct {
-	CreateTime              time.Time
-	Description             string
+	Description       		string
 	DestCidrIp              string
 	DestGroupId             string
 	DestGroupName           string
@@ -48,15 +47,17 @@ type Tag struct {
 
 type SSecurityGroup struct {
 	vpc               *SVpc
-	CreationTime      time.Time
-	Description       string
-	SecurityGroupId   string
-	SecurityGroupName string
-	VpcId             string
-	InnerAccessPolicy string
-	Permissions       SPermissions
+
 	RegionId          string
+	VpcId             string
+	SecurityGroupId   string
+	Description       string
+	SecurityGroupName string
+	Permissions       SPermissions
 	Tags              Tags
+
+	// CreationTime      time.Time
+	// InnerAccessPolicy string
 }
 
 func (self *SSecurityGroup) GetId() string {
@@ -179,4 +180,51 @@ func (self *SRegion) modifySecurityGroup(secGrpId string, name string, desc stri
 
 func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.SecurityRule) error {
 	return nil
+}
+
+func (self *SRegion) getSecurityGroupsPermissions(ingress []*ec2.IpPermission, egress []*ec2.IpPermission) SPermissions {
+	return SPermissions{}
+}
+
+func (self *SRegion) GetSecurityGroups(vpcId string, offset int, limit int) ([]SSecurityGroup, int, error) {
+	params := &ec2.DescribeSecurityGroupsInput{}
+	filters := make([]*ec2.Filter, 0)
+	if len(vpcId) > 0 {
+		filters = AppendSingleValueFilter(filters, "vpc-id", vpcId)
+	}
+
+	if len(filters) > 0 {
+		params.SetFilters(filters)
+	}
+
+	ret, err := self.ec2Client.DescribeSecurityGroups(params)
+	if err != nil {
+		return nil, 0 , err
+	}
+
+	securityGroups := []SSecurityGroup{}
+	for _,item := range ret.SecurityGroups {
+		vpc, err := self.getVpc(*item.VpcId)
+		if err != nil {
+			log.Errorf("vpc %s not found", *item.VpcId)
+		}
+
+		permissions := self.getSecurityGroupsPermissions(item.IpPermissions, item.IpPermissionsEgress)
+
+
+		group := SSecurityGroup{
+			vpc:               vpc,
+			Description:       *item.Description,
+			SecurityGroupId:   *item.GroupId,
+			SecurityGroupName: *item.GroupName,
+			VpcId:             *item.VpcId,
+			Permissions:       permissions,
+			RegionId:          self.RegionId,
+			// Tags:              *item.Tags,
+		}
+
+		securityGroups = append(securityGroups, group)
+	}
+
+	return securityGroups, len(securityGroups), nil
 }

@@ -252,7 +252,7 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 		return nil, 0 , err
 	}
 
-	disks := make([]SDisk, len(ret.Volumes))
+	disks := []SDisk{}
 	for _, item := range ret.Volumes {
 		disk := SDisk{}
 		disk.ZoneId = *item.AvailabilityZone

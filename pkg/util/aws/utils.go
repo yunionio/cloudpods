@@ -1,6 +1,9 @@
 package aws
 
-import "github.com/aws/aws-sdk-go/service/ec2"
+import (
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"yunion.io/x/pkg/util/secrules"
+)
 
 func AppendFilter(filters []*ec2.Filter, name string, values []string) ([]*ec2.Filter) {
 	f := &ec2.Filter{}
@@ -39,4 +42,17 @@ func ConvertedPointList(list []*string) ([]string) {
 	}
 
 	return result
+}
+
+// Security Rule Transform
+func AwsIpPermissionToYunion(permission ec2.IpPermission) secrules.SecurityRule {
+	return secrules.SecurityRule{}
+}
+
+func YunionIpPermissionToAws(rule secrules.SecurityRule) ec2.IpPermission {
+	return ec2.IpPermission{}
+}
+
+func DiffIpPermission(permission ec2.IpPermission, rule secrules.SecurityRule) {
+	
 }

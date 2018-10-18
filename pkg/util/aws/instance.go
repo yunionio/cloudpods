@@ -370,7 +370,7 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 		return nil, 0, err
 	}
 
-	instances := make([]SInstance, 0)
+	instances := []SInstance{}
 	for _, reservation := range res.Reservations {
 		for _, instance := range reservation.Instances {
 			sinstance := SInstance{
