@@ -162,7 +162,7 @@ func (self *SGuestnetwork) getVirtualRand(width int, randomized bool) string {
 	io.WriteString(hash, self.GuestId)
 	io.WriteString(hash, self.NetworkId)
 	if randomized {
-		io.WriteString(hash, fmt.Sprintf("%d", time.Now().String()))
+		io.WriteString(hash, fmt.Sprintf("%d", time.Now().Unix()))
 	}
 	hex := fmt.Sprintf("%x", hash.Sum(nil))
 	return hex[:width]
