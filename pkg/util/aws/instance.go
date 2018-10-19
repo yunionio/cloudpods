@@ -363,7 +363,9 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 		params = params.SetInstanceIds(ConvertedList(ids))
 	}
 
-	params = params.SetFilters(filters)
+	if len(filters) > 0 {
+		params = params.SetFilters(filters)
+	}
 	res, err := self.ec2Client.DescribeInstances(params)
 	if err != nil {
 		log.Errorf("GetInstances fail %s", err)

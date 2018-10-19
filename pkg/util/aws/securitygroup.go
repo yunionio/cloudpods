@@ -144,7 +144,7 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Secur
 func (self *SRegion) getSecRules(ingress []*ec2.IpPermission, egress []*ec2.IpPermission) ([]secrules.SecurityRule) {
 	rules := []secrules.SecurityRule{}
 	for _, p := range ingress {
-		ret, err := AwsIpPermissionToYunion(secrules.SecurityRuleIngress, p)
+		ret, err := AwsIpPermissionToYunion(secrules.SecurityRuleIngress, *p)
 		if err != nil {
 			log.Debugf(err.Error())
 		}
@@ -155,7 +155,7 @@ func (self *SRegion) getSecRules(ingress []*ec2.IpPermission, egress []*ec2.IpPe
 	}
 
 	for _, p := range egress {
-		ret, err := AwsIpPermissionToYunion(secrules.SecurityRuleEgress, p)
+		ret, err := AwsIpPermissionToYunion(secrules.SecurityRuleEgress, *p)
 		if err != nil {
 			log.Debugf(err.Error())
 		}
@@ -193,7 +193,6 @@ func (self *SRegion) GetSecurityGroups(vpcId string, offset int, limit int) ([]S
 		}
 
 		permissions := self.getSecRules(item.IpPermissions, item.IpPermissionsEgress)
-
 		group := SSecurityGroup{
 			vpc:               vpc,
 			Description:       *item.Description,

@@ -100,15 +100,19 @@ func (self *SDisk) IsEmulated() bool {
 }
 
 func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
-	panic("implement me")
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewString(models.HYPERVISOR_AWS), "hypervisor")
+
+	return data
 }
 
 func (self *SDisk) GetBillingType() string {
-	panic("implement me")
+	// todo: implement me
+	return models.BILLING_TYPE_PREPAID
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {
-	panic("implement me")
+	return self.ExpiredTime
 }
 
 func (self *SDisk) GetIStorge() cloudprovider.ICloudStorage {
@@ -269,8 +273,8 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 			disk.DeleteWithInstance = *item.Attachments[0].DeleteOnTermination
 			disk.AttachedTime = *item.Attachments[0].AttachTime
 			disk.AttachmentStatus = *item.Attachments[0].State
-			disk.Device = *item.Attachments[0].Device
-			disk.InstanceId = *item.Attachments[0].InstanceId
+			disk.Device = StrVal(item.Attachments[0].Device)
+			disk.InstanceId = StrVal(item.Attachments[0].InstanceId)
 			// todo: 需要通过describe-instances 的root device 判断是否是系统盘
 			if len(disk.InstanceId) > 0 {
 				instance, err := self.GetInstance(disk.InstanceId)

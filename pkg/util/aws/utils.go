@@ -34,9 +34,11 @@ func AppendSingleValueFilter(filters []*ec2.Filter, name string, value string) (
 }
 
 func ConvertedList(list []string) ([]*string) {
-	result := make([]*string, len(list))
+	result := make([]*string, 0)
 	for _, item := range list {
-		result = append(result, &item)
+		if len(item) > 0 {
+			result = append(result, &item)
+		}
 	}
 
 	return result
@@ -61,7 +63,19 @@ func StrVal(s *string) string {
 	return ""
 }
 
+func IntVal(s *int64) int64 {
+	if s != nil {
+		return *s
+	}
+
+	return 0
+}
+
 func isAwsPermissionAllPorts(p ec2.IpPermission) bool {
+	if p.FromPort == nil || p.ToPort == nil {
+		return false
+	}
+
 	//  全部端口范围： TCP/UDP （0，65535）    其他：（-1，-1）
 	if (*p.IpProtocol == "tcp" || *p.IpProtocol == "udp") && *p.FromPort == 0 && *p.ToPort == 65535 {
 		return true
@@ -73,7 +87,7 @@ func isAwsPermissionAllPorts(p ec2.IpPermission) bool {
 }
 
 func awsProtocolToYunion(p ec2.IpPermission) string {
-	if *p.IpProtocol == "-1" {
+	if p.IpProtocol != nil && *p.IpProtocol == "-1" {
 		return secrules.PROTO_ANY
 	} else {
 		return *p.IpProtocol
@@ -173,10 +187,16 @@ func AwsIpPermissionToYunion(direction secrules.TSecurityRuleDirection,p ec2.IpP
 				IPNet:       &net.IPNet{net.IP(ipNet[0]), net.IPMask(ipNet[1])},
 				Protocol:    protocol,
 				Direction:   direction,
-				PortStart:   int(*p.FromPort),
-				PortEnd:     int(*p.ToPort),
 				Priority:    1,
 				Description: StrVal(ip.Description),
+			}
+
+			if p.FromPort != nil {
+				rule.PortStart = int(*p.FromPort)
+			}
+
+			if p.ToPort != nil {
+				rule.PortStart = int(*p.ToPort)
 			}
 		}
 

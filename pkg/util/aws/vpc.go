@@ -208,6 +208,16 @@ func (self *SVpc) assignSecurityGroup(secgroupId string, instanceId string) erro
 }
 
 func (self *SVpc) fetchSecurityGroups() error {
+	secgroups, _, err := self.region.GetSecurityGroups(self.VpcId,0,0)
+	if err != nil {
+		return err
+	}
+
+	self.secgroups = make([]cloudprovider.ICloudSecurityGroup, len(secgroups))
+	for i := 0; i < len(secgroups); i++ {
+		secgroups[i].vpc = self
+		self.secgroups[i] = &secgroups[i]
+	}
 	return nil
 }
 
@@ -244,13 +254,12 @@ func (self *SRegion) GetVpcs(vpcId []string, offset int, limit int) ([]SVpc, int
 	if len(vpcId) > 0 {
 		params.SetVpcIds(ConvertedList(vpcId))
 	}
-
 	ret, err := self.ec2Client.DescribeVpcs(params)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	vpcs := make([]SVpc, len(ret.Vpcs))
+	vpcs := []SVpc{}
 	for _, item := range ret.Vpcs {
 		vpcs = append(vpcs, SVpc{
 			region:    self,
