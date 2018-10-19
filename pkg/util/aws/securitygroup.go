@@ -5,6 +5,7 @@ import (
 	"yunion.io/x/pkg/util/secrules"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/log"
+	"fmt"
 )
 
 type Tags struct {
@@ -122,7 +123,34 @@ func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
 }
 
 func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup, error) {
-	return nil, nil
+	params := &ec2.DescribeSecurityGroupsInput{}
+	params.SetGroupIds([]*string{&secGroupId})
+
+	ret, err := self.ec2Client.DescribeSecurityGroups(params)
+	if err != nil {
+		return nil, err
+	}
+	if len(ret.SecurityGroups) == 1 {
+		s := ret.SecurityGroups[0]
+		vpc, err := self.getVpc(*s.VpcId)
+		if err != nil {
+			fmt.Errorf("vpc %s not found", *s.VpcId)
+		}
+
+		permissions := self.getSecRules(s.IpPermissions, s.IpPermissionsEgress)
+
+		return &SSecurityGroup{
+			vpc:               vpc,
+			Description:       *s.Description,
+			SecurityGroupId:   *s.GroupId,
+			SecurityGroupName: *s.GroupName,
+			VpcId:             *s.VpcId,
+			Permissions:       permissions,
+			RegionId:          self.RegionId,
+		}, nil
+	} else {
+		return nil, fmt.Errorf("required one security group. but found: %d", len(ret.SecurityGroups))
+	}
 }
 
 func (self *SRegion) getSecurityGroupByTag(vpcId, secgroupId string) (*SSecurityGroup, error) {
