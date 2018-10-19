@@ -7,35 +7,6 @@ import (
 	"yunion.io/x/log"
 )
 
-type SecurityGroupPermissionNicType string
-
-const (
-	IntranetNicType SecurityGroupPermissionNicType = "intranet"
-	InternetNicType SecurityGroupPermissionNicType = "internet"
-)
-
-type SPermission struct {
-	Description       		string
-	DestCidrIp              string
-	DestGroupId             string
-	DestGroupName           string
-	DestGroupOwnerAccount   string
-	Direction               string
-	IpProtocol              string
-	NicType                 SecurityGroupPermissionNicType
-	Policy                  string
-	PortRange               string
-	Priority                int
-	SourceCidrIp            string
-	SourceGroupId           string
-	SourceGroupName         string
-	SourceGroupOwnerAccount string
-}
-
-type SPermissions struct {
-	Permission []SPermission
-}
-
 type Tags struct {
 	Tag []Tag
 }
@@ -53,7 +24,7 @@ type SSecurityGroup struct {
 	SecurityGroupId   string
 	Description       string
 	SecurityGroupName string
-	Permissions       SPermissions
+	Permissions       []secrules.SecurityRule
 	Tags              Tags
 
 	// CreationTime      time.Time
@@ -107,25 +78,13 @@ func (self *SSecurityGroup) GetDescription() string {
 }
 
 func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
-	// todo: implement me
 	rules := make([]secrules.SecurityRule, 0)
 	if secgrp, err := self.vpc.region.GetSecurityGroupDetails(self.SecurityGroupId); err != nil {
 		return rules, err
 	} else {
-		for _, permission := range secgrp.Permissions.Permission {
-			if rule, err := secrules.ParseSecurityRule(""); err != nil {
-				return rules, err
-			} else {
-				priority := permission.Priority
-				if priority > 100 {
-					priority = 100
-				}
-				rule.Priority = 101 - priority
-				rule.Description = permission.Description
-				rules = append(rules, *rule)
-			}
-		}
+		rules = secgrp.Permissions
 	}
+
 	return rules, nil
 }
 
@@ -182,8 +141,31 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Secur
 	return nil
 }
 
-func (self *SRegion) getSecurityGroupsPermissions(ingress []*ec2.IpPermission, egress []*ec2.IpPermission) SPermissions {
-	return SPermissions{}
+func (self *SRegion) getSecRules(ingress []*ec2.IpPermission, egress []*ec2.IpPermission) ([]secrules.SecurityRule) {
+	rules := []secrules.SecurityRule{}
+	for _, p := range ingress {
+		ret, err := AwsIpPermissionToYunion(secrules.SecurityRuleIngress, p)
+		if err != nil {
+			log.Debugf(err.Error())
+		}
+
+		for _, rule := range ret {
+			rules = append(rules, rule)
+		}
+	}
+
+	for _, p := range egress {
+		ret, err := AwsIpPermissionToYunion(secrules.SecurityRuleEgress, p)
+		if err != nil {
+			log.Debugf(err.Error())
+		}
+
+		for _, rule := range ret {
+			rules = append(rules, rule)
+		}
+	}
+
+	return rules
 }
 
 func (self *SRegion) GetSecurityGroups(vpcId string, offset int, limit int) ([]SSecurityGroup, int, error) {
@@ -207,10 +189,10 @@ func (self *SRegion) GetSecurityGroups(vpcId string, offset int, limit int) ([]S
 		vpc, err := self.getVpc(*item.VpcId)
 		if err != nil {
 			log.Errorf("vpc %s not found", *item.VpcId)
+			continue
 		}
 
-		permissions := self.getSecurityGroupsPermissions(item.IpPermissions, item.IpPermissionsEgress)
-
+		permissions := self.getSecRules(item.IpPermissions, item.IpPermissionsEgress)
 
 		group := SSecurityGroup{
 			vpc:               vpc,
