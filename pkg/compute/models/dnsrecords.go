@@ -66,32 +66,41 @@ func (man *SDnsRecordManager) ParseInputInfo(data *jsonutils.JSONDict) ([]string
 	{
 		// - SRV.i
 		// - (deprecated) SRV_host and SRV_port
+		//
+		// - rfc2782, A DNS RR for specifying the location of services (DNS SRV),
+		//   https://tools.ietf.org/html/rfc2782
 		parseSrvParam := func(s string) (string, error) {
-			chunks := strings.SplitN(s, ":", 4)
-			if len(chunks) < 2 {
+			parts := strings.SplitN(s, ":", 4)
+			if len(parts) < 2 {
 				return "", httperrors.NewNotAcceptableError("SRV: insufficient param: %s", s)
 			}
-			host := chunks[0]
+			host := parts[0]
 			if !regutils.MatchDomainName(host) &&
 				!regutils.MatchIPAddr(host) {
 				return "", httperrors.NewNotAcceptableError("SRV: invalid host part: %s", host)
 			}
-			port, err := strconv.Atoi(chunks[1])
+			port, err := strconv.Atoi(parts[1])
 			if err != nil || port <= 0 || port >= 65536 {
-				return "", httperrors.NewNotAcceptableError("SRV: invalid port number: %s", chunks[1])
+				return "", httperrors.NewNotAcceptableError("SRV: invalid port number: %s", parts[1])
 			}
 			weight := 100
 			priority := 0
-			if len(chunks) >= 3 {
+			if len(parts) >= 3 {
 				var err error
-				weight, err = strconv.Atoi(chunks[2])
+				weight, err = strconv.Atoi(parts[2])
 				if err != nil {
-					return "", httperrors.NewNotAcceptableError("SRV: invalid weight number: %s", chunks[2])
+					return "", httperrors.NewNotAcceptableError("SRV: invalid weight number: %s", parts[2])
 				}
-				if len(chunks) >= 4 {
-					priority, err = strconv.Atoi(chunks[3])
+				if weight < 0 || weight > 65535 {
+					return "", httperrors.NewNotAcceptableError("SRV: weight number %d not in range [0,65535]", weight)
+				}
+				if len(parts) >= 4 {
+					priority, err = strconv.Atoi(parts[3])
 					if err != nil {
-						return "", httperrors.NewNotAcceptableError("SRV: invalid priority number: %s", chunks[3])
+						return "", httperrors.NewNotAcceptableError("SRV: invalid priority number: %s", parts[3])
+					}
+					if priority < 0 || priority > 65535 {
+						return "", httperrors.NewNotAcceptableError("SRV: priority number %d not in range [0,65535]", priority)
 					}
 				}
 			}
