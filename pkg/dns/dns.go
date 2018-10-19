@@ -308,17 +308,35 @@ func (r *SRegionDNS) queryLocalDnsRecords(req *recordRequest) (recs []msg.Servic
 			ttl = defaultTTL
 		}
 		if req.IsSRV() {
-			parts := strings.SplitN(ip.Addr, ":", 2)
-			if len(parts) != 2 {
+			parts := strings.SplitN(ip.Addr, ":", 4)
+			if len(parts) < 2 {
 				ylog.Errorf("Invalid SRV records: %q", ip.Addr)
-				return
+				continue
 			}
-			port, e := strconv.Atoi(parts[1])
-			if e != nil {
-				ylog.Errorf("Invalid SRV records: %q", ip.Addr)
-				return
+			host := parts[0]
+			port, err := strconv.Atoi(parts[1])
+			if err != nil {
+				ylog.Errorf("SRV: invalid port: %s", ip.Addr)
+				continue
 			}
-			s = msg.Service{Host: parts[0], Port: port, TTL: ttl}
+			priority := 0
+			weight := 100
+			if len(parts) >= 3 {
+				var err error
+				weight, err = strconv.Atoi(parts[2])
+				if err != nil {
+					ylog.Errorf("SRV: invalid weight: %s", ip.Addr)
+					continue
+				}
+				if len(parts) >= 4 {
+					priority, err = strconv.Atoi(parts[3])
+					if err != nil {
+						ylog.Errorf("SRV: invalid priority: %s", ip.Addr)
+						continue
+					}
+				}
+			}
+			s = msg.Service{Host: host, Port: port, Weight: weight, Priority: priority, TTL: ttl}
 		} else {
 			s = msg.Service{Host: ip.Addr, TTL: ttl}
 		}
