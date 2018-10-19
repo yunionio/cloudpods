@@ -158,7 +158,7 @@ func (self *SCloudprovider) syncProject(ctx context.Context) error {
 		s := auth.GetAdminSession(options.Options.Region, "")
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(self.Name), "name")
-		params.Add(jsonutils.NewString(fmt.Sprintf("auto create from cloud provider %s", self.Name, self.Id)), "description")
+		params.Add(jsonutils.NewString(fmt.Sprintf("auto create from cloud provider %s (%s)", self.Name, self.Id)), "description")
 
 		project, err := modules.Projects.Create(s, params)
 

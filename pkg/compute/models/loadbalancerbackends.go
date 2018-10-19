@@ -111,7 +111,7 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 				return nil, fmt.Errorf("error loadbalancer of backend group %s", backendGroup.GetId())
 			}
 			if host.ZoneId != lb.ZoneId {
-				return nil, fmt.Errorf("host zone (%s) != loadbalancer %q zone (%s)",
+				return nil, fmt.Errorf("zone of host %q (%s) != zone of loadbalancer %q (%s)",
 					host.Name, host.ZoneId, lb.Name, lb.ZoneId)
 			}
 		}
