@@ -36,7 +36,10 @@ func (self *GuestBatchCreateTask) OnInit(ctx context.Context, objs []db.IStandal
 }
 
 func (self *GuestBatchCreateTask) startScheduleGuests(ctx context.Context, guests []*models.SGuest) {
-	self.SetStage("on_guest_schedule_complete", nil)
+	// log.Infof("%s", self.Params)
+	schedtags := models.ApplySchedPolicies(self.Params)
+
+	self.SetStage("on_guest_schedule_complete", schedtags)
 
 	s := auth.GetAdminSession(options.Options.Region, "")
 	results, err := modules.SchedManager.DoSchedule(s, self.Params, len(guests))

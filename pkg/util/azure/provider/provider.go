@@ -51,7 +51,7 @@ func (self *SAzureProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	return info, nil
 }
 
-func (self *SAzureProvider) GetSubAccounts() (jsonutils.JSONObject, error) {
+func (self *SAzureProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return self.client.GetSubAccounts()
 }
 

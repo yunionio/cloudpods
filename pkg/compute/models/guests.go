@@ -681,11 +681,11 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 				return nil, httperrors.NewInputParameterError("invalid aggregate_strategy")
 			}
 		}
-		for idx := 0; data.Contains(fmt.Sprintf("srvtag.%d", idx)); idx += 1 {
-			aggStr, _ := data.GetString(fmt.Sprintf("srvtag.%d", idx))
+		for idx := 0; data.Contains(fmt.Sprintf("schedtag.%d", idx)); idx += 1 {
+			aggStr, _ := data.GetString(fmt.Sprintf("schedtag.%d", idx))
 			if len(aggStr) > 0 {
 				parts := strings.Split(aggStr, ":")
-				if len(parts) >= 2 && len(parts) > 0 && len(parts[1]) > 0 {
+				if len(parts) >= 2 && len(parts[0]) > 0 && len(parts[1]) > 0 {
 					schedtags[parts[0]] = parts[1]
 				}
 			}
@@ -4588,4 +4588,36 @@ func (self *SGuest) PerformUserData(ctx context.Context, userCred mcclient.Token
 		}
 	}
 	return nil, nil
+}
+
+func (self *SGuest) getSchedDesc() jsonutils.JSONObject {
+	desc := jsonutils.NewDict()
+
+	desc.Add(jsonutils.NewString(self.Id), "id")
+	desc.Add(jsonutils.NewString(self.Name), "name")
+	desc.Add(jsonutils.NewInt(int64(self.VmemSize)), "vmem_size")
+	desc.Add(jsonutils.NewInt(int64(self.VcpuCount)), "vcpu_count")
+
+	gds := self.GetDisks()
+	if gds != nil {
+		for i := 0; i < len(gds); i += 1 {
+			desc.Add(jsonutils.Marshal(gds[i].ToDiskInfo()), fmt.Sprintf("disk.%d", i))
+		}
+	}
+
+	gns := self.GetNetworks()
+	if gns != nil {
+		for i := 0; i < len(gns); i += 1 {
+			desc.Add(jsonutils.NewString(fmt.Sprintf("%s:%s", gns[i].NetworkId, gns[i].IpAddr)), fmt.Sprintf("net.%d", i))
+		}
+	}
+
+	if len(self.HostId) > 0 && regutils.MatchUUID(self.HostId) {
+		desc.Add(jsonutils.NewString(self.HostId), "host_id")
+	}
+
+	desc.Add(jsonutils.NewString(self.ProjectId), "owner_tenant_id")
+	desc.Add(jsonutils.NewString(self.GetHypervisor()), "hypervisor")
+
+	return desc
 }

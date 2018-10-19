@@ -98,7 +98,7 @@ clean:
 
 
 fmt:
-	find . -type f -name "*.go" -not -path "./_output/*" \
+	@find . -type f -name "*.go" -not -path "./_output/*" \
 		-not -path "./vendor/*" | xargs gofmt -s -w
 
 dep:
