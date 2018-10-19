@@ -87,7 +87,7 @@ func (self *SESXiProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	return self.client.About(), nil
 }
 
-func (self *SESXiProvider) GetSubAccounts() (jsonutils.JSONObject, error) {
+func (self *SESXiProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return self.client.GetSubAccounts()
 }
 

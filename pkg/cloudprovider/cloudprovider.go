@@ -3,8 +3,13 @@ package cloudprovider
 import (
 	"fmt"
 
+	"errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+)
+
+var (
+	ErrNoSuchProvder = errors.New("no such provider")
 )
 
 type ICloudProviderFactory interface {
@@ -13,7 +18,6 @@ type ICloudProviderFactory interface {
 }
 
 type ICloudProvider interface {
-	GetSubAccounts() (jsonutils.JSONObject, error)
 	GetId() string
 	GetName() string
 	GetIRegions() []ICloudRegion
@@ -28,6 +32,8 @@ type ICloudProvider interface {
 	GetIStoragecacheById(id string) (ICloudStoragecache, error)
 
 	GetBalance() (float64, error)
+
+	GetSubAccounts() ([]SSubAccount, error)
 }
 
 var providerTable map[string]ICloudProviderFactory
@@ -52,4 +58,14 @@ func GetProvider(providerId, providerName, accessUrl, account, secret, provider 
 func IsSupported(provider string) bool {
 	_, ok := providerTable[provider]
 	return ok
+}
+
+func IsValidCloudAccount(accessUrl, account, secret, provider string) error {
+	factory, ok := providerTable[provider]
+	if ok {
+		_, err := factory.GetProvider("", "", accessUrl, account, secret)
+		return err
+	} else {
+		return ErrNoSuchProvder
+	}
 }

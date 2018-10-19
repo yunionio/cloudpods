@@ -129,7 +129,7 @@ func (manager *SParameterManager) ValidateCreateData(ctx context.Context, userCr
 	return data, nil
 }
 
-func (manager *SParameterManager) GetOwnerId(userCred mcclient.TokenCredential) string {
+func (manager *SParameterManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
 	return userCred.GetUserId()
 }
 

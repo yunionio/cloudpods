@@ -8,17 +8,18 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/pkg/util/timeutils"
-	"yunion.io/x/pkg/utils"
-
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 const (
@@ -103,6 +104,10 @@ func (self *SCloudprovider) getEipCount() int {
 	return ElasticipManager.Query().Equals("manager_id", self.Id).Count()
 }
 
+func (self *SCloudprovider) getSnapshotCount() int {
+	return SnapshotManager.Query().Equals("manager_id", self.Id).Count()
+}
+
 func (self *SCloudprovider) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
@@ -127,27 +132,58 @@ func (self *SCloudprovider) CanSync() bool {
 	}
 }
 
-func (self *SCloudprovider) SyncProject() (err error) {
-	projectId := ""
-	if len(self.ProjectId) == 0 && len(self.Name) > 0 {
-		if tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(context.Background(), self.Name); err != nil {
-			s := auth.GetAdminSession(options.Options.Region, "")
-			if project, err := modules.Projects.Create(s, jsonutils.Marshal(map[string]string{"name": self.Name})); err != nil {
-				return err
-			} else if projectId, err = project.GetString("id"); err != nil {
-				return err
-			}
-		} else {
-			projectId = tenant.Id
+func (self *SCloudprovider) syncProject(ctx context.Context) error {
+	if len(self.ProjectId) > 0 {
+		_, err := db.TenantCacheManager.FetchTenantById(ctx, self.ProjectId)
+		if err != nil && err != sql.ErrNoRows {
+			log.Errorf("fetch existing tenant by id fail %s", err)
+		} else if err == nil {
+			return nil // find the project, skip sync
 		}
 	}
-	if len(projectId) > 0 {
-		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
-			self.ProjectId = projectId
-			return nil
-		})
+
+	if len(self.Name) == 0 {
+		log.Errorf("syncProject: provider name is empty???")
+		return fmt.Errorf("cannot syncProject for empty name")
+	}
+
+	tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, self.Name)
+	if err != nil && err != sql.ErrNoRows {
+		log.Errorf("fetchTenantByIdorName error %s: %s", self.Name, err)
 		return err
 	}
+
+	var projectId string
+	if err == sql.ErrNoRows { // create one
+		s := auth.GetAdminSession(options.Options.Region, "")
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(self.Name), "name")
+		params.Add(jsonutils.NewString(fmt.Sprintf("auto create from cloud provider %s", self.Name, self.Id)), "description")
+
+		project, err := modules.Projects.Create(s, params)
+
+		if err != nil {
+			log.Errorf("create project fail %s", err)
+			return err
+		}
+		projectId, err = project.GetString("id")
+		if err != nil {
+			return err
+		}
+	} else {
+		projectId = tenant.Id
+	}
+
+	_, err = self.GetModelManager().TableSpec().Update(self, func() error {
+		self.ProjectId = projectId
+		return nil
+	})
+
+	if err != nil {
+		log.Errorf("update projectId fail: %s", err)
+		return err
+	}
+
 	return nil
 }
 
@@ -281,19 +317,31 @@ func (self *SCloudprovider) AllowPerformChangeProject(ctx context.Context, userC
 }
 
 func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if project, err := data.GetString("project"); err != nil {
+	project, err := data.GetString("project")
+	if err != nil {
 		return nil, httperrors.NewInputParameterError("Missing project parameter")
-	} else if tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, project); err != nil {
+	}
+
+	tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, project)
+	if err != nil {
 		return nil, httperrors.NewNotFoundError("project %s not found", project)
-	} else if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	}
+
+	if self.ProjectId == tenant.Id {
+		return nil, nil
+	}
+
+	_, err = self.GetModelManager().TableSpec().Update(self, func() error {
 		self.ProjectId = tenant.Id
 		return nil
-	}); err != nil {
+	})
+
+	if err != nil {
 		log.Errorf("Update cloudprovider error: %v", err)
-		return nil, err
-	} else {
-		return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &SSyncRange{FullSync: true, ProjectSync: true}, "")
+		return nil, httperrors.NewGeneralError(err)
 	}
+
+	return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &SSyncRange{FullSync: true, ProjectSync: true}, "")
 }
 
 func (self *SCloudprovider) MarkStartSync(userCred mcclient.TokenCredential) {
@@ -326,29 +374,32 @@ type SAccount struct {
 	Secret    string
 }
 
-func (self *SCloudprovider) getCloudaccount() (*SCloudaccount, error) {
-	if cloudaccount := CloudaccountManager.FetchCloudaccountById(self.CloudaccountId); cloudaccount != nil {
-		return cloudaccount, nil
-	}
-	return nil, fmt.Errorf("Failed to find cloud account for cloud provider %s", self.Name)
+func (self *SCloudprovider) GetCloudaccount() *SCloudaccount {
+	return CloudaccountManager.FetchCloudaccountById(self.CloudaccountId)
 }
 
-func (self *SCloudprovider) getAccount() (*SAccount, error) {
-	if cloudaccount, err := self.getCloudaccount(); err != nil {
-		return nil, err
-	} else {
-		account := SAccount{AccessUrl: cloudaccount.AccessUrl, Account: cloudaccount.Account}
-		if passwd, err := cloudaccount.getPassword(); err != nil {
-			return nil, err
-		} else {
-			account.Secret = passwd
-		}
-		if len(self.Account) > 0 && self.Account != cloudaccount.Account {
-			account.Account = fmt.Sprintf("%s/%s", account.Account, self.Account)
-		}
-		return &account, nil
+func (self *SCloudprovider) getAccount() (SAccount, error) {
+	account := SAccount{}
+
+	cloudaccount := self.GetCloudaccount()
+	if cloudaccount == nil {
+		return account, fmt.Errorf("fail to find cloudaccount???")
 	}
 
+	passwd, err := cloudaccount.getPassword()
+	if err != nil {
+		return account, err
+	}
+
+	account.Account = cloudaccount.Account
+	account.AccessUrl = cloudaccount.AccessUrl
+	account.Secret = passwd
+
+	if len(self.Account) > 0 && self.Account != account.Account {
+		account.Account = fmt.Sprintf("%s/%s", account.Account, self.Account)
+	}
+
+	return account, nil
 }
 
 func (self *SCloudprovider) SaveSysInfo(info jsonutils.JSONObject) {
@@ -385,6 +436,7 @@ type SCloudproviderUsage struct {
 	StorageCount      int
 	StorageCacheCount int
 	EipCount          int
+	SnapshotCount     int
 }
 
 func (usage *SCloudproviderUsage) isEmpty() bool {
@@ -403,34 +455,48 @@ func (usage *SCloudproviderUsage) isEmpty() bool {
 	if usage.EipCount > 0 {
 		return false
 	}
+	if usage.SnapshotCount > 0 {
+		return false
+	}
 	return true
 }
 
 func (self *SCloudprovider) getUsage() *SCloudproviderUsage {
 	usage := SCloudproviderUsage{}
+
 	usage.GuestCount = self.GetGuestCount()
 	usage.HostCount = self.GetHostCount()
 	usage.VpcCount = self.getVpcCount()
 	usage.StorageCount = self.getStorageCount()
 	usage.StorageCacheCount = self.getStoragecacheCount()
 	usage.EipCount = self.getEipCount()
+	usage.SnapshotCount = self.getSnapshotCount()
 
 	return &usage
 }
 
-func (self *SCloudprovider) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SCloudprovider) getProject(ctx context.Context) *db.STenant {
+	proj, _ := db.TenantCacheManager.FetchTenantById(ctx, self.ProjectId)
+	return proj
+}
+
+func (self *SCloudprovider) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	extra.Update(jsonutils.Marshal(self.getUsage()))
+	project := self.getProject(ctx)
+	if project != nil {
+		extra.Add(jsonutils.NewString(project.Name), "tenant")
+	}
 	return extra
 }
 
 func (self *SCloudprovider) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SEnabledStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(extra)
+	return self.getMoreDetails(ctx, extra)
 }
 
 func (self *SCloudprovider) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	return self.getMoreDetails(extra)
+	return self.getMoreDetails(ctx, extra)
 }
 
 func (manager *SCloudproviderManager) InitializeData() error {
@@ -465,6 +531,27 @@ func (manager *SCloudproviderManager) InitializeData() error {
 			log.Debugf("vcenter info has been migrate into cloudprovider")
 		}
 	}
+
+	// fill empty projectId with system project ID
+	providers := make([]SCloudprovider, 0)
+	q = CloudproviderManager.Query()
+	q = q.Filter(sqlchemy.OR(sqlchemy.IsEmpty(q.Field("tenant_id")), sqlchemy.IsNull(q.Field("tenant_id"))))
+	err = db.FetchModelObjects(CloudproviderManager, q, &providers)
+	if err != nil {
+		log.Errorf("query cloudproviders with empty tenant_id fail %s", err)
+		return err
+	}
+	for i := 0; i < len(providers); i += 1 {
+		_, err := CloudproviderManager.TableSpec().Update(&providers[i], func() error {
+			providers[i].ProjectId = auth.AdminCredential().GetProjectId()
+			return nil
+		})
+		if err != nil {
+			log.Errorf("update cloudprovider project fail %s", err)
+			return err
+		}
+	}
+
 	return nil
 }
 

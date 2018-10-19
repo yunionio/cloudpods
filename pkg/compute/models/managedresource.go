@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -30,10 +31,17 @@ func (self *SManagedResourceBase) IsManaged() bool {
 	return len(self.ManagerId) > 0
 }
 
-func (self *SManagedResourceBase) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SManagedResourceBase) getExtraDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	manager := self.GetCloudprovider()
 	if manager != nil {
 		extra.Add(jsonutils.NewString(manager.Name), "manager")
+		extra.Add(jsonutils.NewString(manager.ProjectId), "manager_tenant_id")
+		extra.Add(jsonutils.NewString(manager.ProjectId), "manager_project_id")
+		project := manager.getProject(ctx)
+		if project != nil {
+			extra.Add(jsonutils.NewString(project.Name), "manager_tenant")
+			extra.Add(jsonutils.NewString(project.Name), "manager_project")
+		}
 	}
 	return extra
 }

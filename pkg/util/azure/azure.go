@@ -42,8 +42,14 @@ type SAzureClient struct {
 }
 
 func NewAzureClient(providerId string, providerName string, accessKey string, secret string, envName string) (*SAzureClient, error) {
-	if clientInfo, accountInfo := strings.Split(secret, "/"), strings.Split(accessKey, "/"); len(clientInfo) >= 2 && len(accountInfo) >= 1 {
-		client := SAzureClient{providerId: providerId, providerName: providerName, secret: secret, envName: envName}
+	clientInfo := strings.Split(secret, "/")
+	accountInfo := strings.Split(accessKey, "/")
+	if len(clientInfo) >= 2 && len(accountInfo) >= 1 {
+		client := SAzureClient{providerId: providerId,
+			providerName: providerName,
+			secret:       secret,
+			envName:      envName,
+		}
 		client.clientId, client.clientScret = clientInfo[0], strings.Join(clientInfo[1:], "/")
 		client.tenantId = accountInfo[0]
 		if len(accountInfo) == 2 {
@@ -153,25 +159,25 @@ func (self *SAzureClient) GetRegions() []SRegion {
 	return regions
 }
 
-func (self *SAzureClient) GetSubAccounts() (jsonutils.JSONObject, error) {
+func (self *SAzureClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subClient := subscription.NewSubscriptionsClientWithBaseURI(self.baseUrl)
 	subClient.Authorizer = self.authorizer
-	result := jsonutils.NewDict()
-	accounts := jsonutils.NewArray()
-	if resp, err := subClient.List(context.Background()); err != nil {
+	resp, err := subClient.List(context.Background())
+	if err != nil {
 		return nil, err
-	} else {
-		for _, value := range resp.Values() {
-			data := jsonutils.NewDict()
-			data.Add(jsonutils.NewString(*value.SubscriptionID), "account")
-			data.Add(jsonutils.NewString(string(value.State)), "state")
-			data.Add(jsonutils.NewString(*value.DisplayName), "name")
-			accounts.Add(data)
-		}
-		result.Add(accounts, "data")
-		result.Add(jsonutils.NewInt(int64(accounts.Length())), "total")
 	}
-	return result, nil
+
+	subAccounts := make([]cloudprovider.SSubAccount, len(resp.Values()))
+
+	for i, value := range resp.Values() {
+		subAccounts[i] = cloudprovider.SSubAccount{
+			Account: *value.SubscriptionID,
+			State:   string(value.State),
+			Name:    *value.DisplayName,
+		}
+	}
+
+	return subAccounts, nil
 }
 
 func (self *SAzureClient) GetIRegions() []cloudprovider.ICloudRegion {

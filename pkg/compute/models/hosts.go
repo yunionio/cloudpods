@@ -1585,7 +1585,7 @@ func (self *SHost) getGuestsResource(status string) *SHostGuestResourceUsage {
 	return &stat
 }
 
-func (self *SHost) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	zone := self.GetZone()
 	if zone != nil {
 		extra.Add(jsonutils.NewString(zone.Id), "zone_id")
@@ -1644,18 +1644,18 @@ func (self *SHost) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 		memCommitRate = float64(usage.GuestVmemSize) * 1.0 / float64(totalMem)
 	}
 	extra.Add(jsonutils.NewFloat(memCommitRate), "mem_commit_rate")
-	extra = self.SManagedResourceBase.getExtraDetails(extra)
+	extra = self.SManagedResourceBase.getExtraDetails(ctx, extra)
 	return extra
 }
 
 func (self *SHost) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SEnabledStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(extra)
+	return self.getMoreDetails(ctx, extra)
 }
 
 func (self *SHost) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	return self.getMoreDetails(extra)
+	return self.getMoreDetails(ctx, extra)
 }
 
 func (self *SHost) AllowGetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

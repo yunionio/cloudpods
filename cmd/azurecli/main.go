@@ -5,20 +5,24 @@ import (
 	"os"
 
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/util/azure"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
 	"yunion.io/x/structarg"
+
+	"yunion.io/x/onecloud/pkg/util/azure"
+	"yunion.io/x/onecloud/pkg/util/printutils"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 
 	_ "yunion.io/x/onecloud/pkg/util/azure/shell"
 )
 
 type BaseOptions struct {
-	Help       bool   `help:"Show help"`
-	AccessKey  string `help:"Access key" default:"$AZURE_ACCESS_KEY"`
-	Secret     string `help:"Secret" default:"$AZURE_SECRET"`
-	RegionId   string `help:"RegionId" default:"$AZURE_REGION"`
-	AccessURL  string `help:"Access URL" default:"$AZURE_ACCESS_URL"`
-	SUBCOMMAND string `help:"azurecli subcommand" subcommand:"true"`
+	Help           bool   `help:"Show help"`
+	DirectoryID    string `help:"Azure account Directory ID/Tenant ID" default:"$AZURE_DIRECTORY_ID"`
+	SubscriptionID string `help:"Azure account subscription ID" default:"$AZURE_SUBSCRIPTION_ID"`
+	ApplicationID  string `help:"Azure application ID" default:"$AZURE_APPLICATION_ID"`
+	ApplicationKey string `help:"Azure application key" default:"$AZURE_APPLICATION_KEY"`
+	RegionId       string `help:"RegionId" default:"$AZURE_REGION_ID"`
+	CloudEnv       string `help:"Cloud Environment" default:"$AZURE_CLOUD_ENV" choices:"AzureGermanCloud|AzureChinaCloud|AzureUSGovernmentCloud|AzurePublicCloud"`
+	SUBCOMMAND     string `help:"azurecli subcommand" subcommand:"true"`
 }
 
 func getSubcommandParser() (*structarg.ArgumentParser, error) {
@@ -62,25 +66,41 @@ func showErrorAndExit(e error) {
 }
 
 func newClient(options *BaseOptions) (*azure.SRegion, error) {
-	if len(options.AccessKey) == 0 {
-		return nil, fmt.Errorf("Missing accessKey")
+	if len(options.DirectoryID) == 0 {
+		return nil, fmt.Errorf("Missing Directory ID")
 	}
 
-	if len(options.Secret) == 0 {
-		return nil, fmt.Errorf("Missing secret")
+	if len(options.SubscriptionID) == 0 {
+		return nil, fmt.Errorf("Missing subscription ID")
 	}
 
-	if len(options.AccessURL) == 0 {
-		return nil, fmt.Errorf("Missing AccessURL")
+	if len(options.ApplicationID) == 0 {
+		return nil, fmt.Errorf("Missing Application ID")
 	}
 
-	if cli, err := azure.NewAzureClient("", "", options.AccessKey, options.Secret, options.AccessURL); err != nil {
+	if len(options.ApplicationKey) == 0 {
+		return nil, fmt.Errorf("Missing Application Key")
+	}
+
+	if len(options.CloudEnv) == 0 {
+		return nil, fmt.Errorf("Missing Cloud Environment")
+	}
+
+	account := fmt.Sprintf("%s/%s", options.DirectoryID, options.SubscriptionID)
+	secret := fmt.Sprintf("%s/%s", options.ApplicationID, options.ApplicationKey)
+	cli, err := azure.NewAzureClient("", "", account, secret, options.CloudEnv)
+	if err != nil {
 		return nil, err
-	} else if region := cli.GetRegion(options.RegionId); region == nil {
-		return nil, fmt.Errorf("No such region %s", options.RegionId)
-	} else {
-		return region, nil
 	}
+	region := cli.GetRegion(options.RegionId)
+	if region == nil {
+		fmt.Println("Please chooce which region you are going to use:")
+		regions := cli.GetRegions()
+		printutils.PrintInterfaceList(regions, 0, 0, 0, nil)
+		return nil, fmt.Errorf("No such region %s", options.RegionId)
+	}
+
+	return region, nil
 }
 
 func main() {

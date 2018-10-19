@@ -3,6 +3,8 @@ package core
 import (
 	//"sync"
 	//"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 )
 
@@ -45,6 +47,8 @@ type Candidater interface {
 
 	GetAggregates() []*models.Aggregate
 	GetHostAggregates() []*models.Aggregate
+
+	GetSchedDesc() *jsonutils.JSONDict
 }
 
 // HostPriority represents the priority of scheduling to particular host, higher priority is better.
