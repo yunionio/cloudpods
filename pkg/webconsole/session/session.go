@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/golang-plus/uuid"
 
@@ -16,8 +17,9 @@ import (
 )
 
 var (
-	Manager *SSessionManager
-	AES_KEY string
+	Manager        *SSessionManager
+	AES_KEY        string
+	AccessInterval time.Duration = 5 * time.Minute
 )
 
 func init() {
@@ -36,7 +38,7 @@ func NewSessionManager() *SSessionManager {
 	return s
 }
 
-func (man *SSessionManager) Save(Command command.ICommand) (session *SSession, err error) {
+func (man *SSessionManager) Save(data ISessionData) (session *SSession, err error) {
 	key, err := uuid.NewV4()
 	if err != nil {
 		return
@@ -47,9 +49,9 @@ func (man *SSessionManager) Save(Command command.ICommand) (session *SSession, e
 		return
 	}
 	session = &SSession{
-		Id:          idStr,
-		ICommand:    Command,
-		AccessToken: token,
+		Id:           idStr,
+		ISessionData: data,
+		AccessToken:  token,
 	}
 	man.Store(idStr, session)
 	return
@@ -65,13 +67,24 @@ func (man *SSessionManager) Get(accessToken string) (*SSession, bool) {
 	if !ok {
 		return nil, false
 	}
-	return obj.(*SSession), true
+	s := obj.(*SSession)
+	if time.Since(s.AccessedAt) < AccessInterval {
+		log.Warningf("Token: %s, Session: %s can't be accessed during %s, last accessed at: %s", accessToken, s.Id, AccessInterval, s.AccessedAt)
+		return nil, false
+	}
+	s.AccessedAt = time.Now()
+	return s, true
+}
+
+type ISessionData interface {
+	command.ICommand
 }
 
 type SSession struct {
-	command.ICommand
+	ISessionData
 	Id          string
 	AccessToken string
+	AccessedAt  time.Time
 }
 
 func (s SSession) GetConnectParams() (string, error) {
@@ -84,7 +97,7 @@ func (s SSession) GetConnectParams() (string, error) {
 }
 
 func (s *SSession) Close() error {
-	if err := s.ICommand.Cleanup(); err != nil {
+	if err := s.ISessionData.Cleanup(); err != nil {
 		log.Errorf("Clean up command error: %v", err)
 	}
 	Manager.Delete(s.Id)

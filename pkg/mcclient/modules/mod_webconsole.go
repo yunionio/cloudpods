@@ -73,3 +73,7 @@ func (m WebConsoleManager) DoBaremetalConnect(s *mcclient.ClientSession, id stri
 func (m WebConsoleManager) DoSshConnect(s *mcclient.ClientSession, id string) (jsonutils.JSONObject, error) {
 	return m.DoConnect(s, "ssh", id, "", nil)
 }
+
+func (m WebConsoleManager) DoServerConnect(s *mcclient.ClientSession, id string) (jsonutils.JSONObject, error) {
+	return m.DoConnect(s, "server", id, "", nil)
+}
