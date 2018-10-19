@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strconv"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -48,10 +48,9 @@ func (self *SKVMGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *
 }
 
 func findVNCPort(results string) int {
-	reg := regexp.MustCompile(`(\d+\.\d+\.\d+\.\d+):([\d]+)`)
-	finds := reg.FindStringSubmatch(results)
-	log.Debugf("finds=%s", finds)
-	port, _ := strconv.Atoi(finds[2])
+	vncInfo := strings.Split(results, "\n")
+	addrParts := strings.Split(vncInfo[1], ":")
+	port, _ := strconv.Atoi(addrParts[len(addrParts)-1])
 	return port
 }
 
