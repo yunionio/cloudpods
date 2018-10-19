@@ -311,10 +311,8 @@ func (self *SInstance) GetStatus() string {
 		if code := strings.Split(statuses.Code, "/"); len(code) == 2 {
 			if code[0] == "PowerState" {
 				switch code[1] {
-				case "stopped":
+				case "stopped", "deallocated":
 					return models.VM_READY
-				case "deallocated":
-					return models.VM_DEALLOCATED
 				case "running":
 					return models.VM_RUNNING
 				case "stopping":
