@@ -1,10 +1,10 @@
 package seclib2
 
 import (
-	"io/ioutil"
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
-	"bytes"
+	"io/ioutil"
 
 	"yunion.io/x/log"
 )
