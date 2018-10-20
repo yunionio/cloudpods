@@ -29,7 +29,6 @@ const (
 type ImageImportTask struct {
 	ImageId  string
 	RegionId string
-	// RequestId string
 	TaskId string
 }
 
@@ -116,7 +115,26 @@ func (self *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 }
 
 func (self *SRegion) ImportImage(name string, osArch string, osType string, osDist string, bucket string, key string) (*ImageImportTask, error) {
-	return nil, nil
+	params := &ec2.ImportImageInput{}
+	params.SetArchitecture(osArch)
+	params.SetHypervisor(osType) // todo: osType?
+	params.SetPlatform(osDist)
+	// https://docs.aws.amazon.com/zh_cn/vm-import/latest/userguide/vmimport-image-import.html#import-vm-image
+	params.SetRoleName("vmimport")
+	container := &ec2.ImageDiskContainer{}
+	container.SetDescription(fmt.Sprintf("vmimport %s", name))
+	container.SetFormat(osType)
+	container.SetDeviceName("/dev/sda") // default /dev/sda
+	bkt := &ec2.UserBucket{S3Bucket: &bucket, S3Key: &key}
+	container.SetUserBucket(bkt)
+	params.SetDiskContainers([]*ec2.ImageDiskContainer{container})
+	params.SetLicenseType("AWS")  // todo: AWS?
+	ret, err := self.ec2Client.ImportImage(params)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ImageImportTask{ImageId: *ret.ImageId, RegionId: self.RegionId, TaskId: *ret.ImportTaskId}, nil
 }
 
 func (self *SRegion) GetImage(imageId string) (*SImage, error) {
@@ -131,11 +149,22 @@ func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 }
 
 func (self *SRegion) GetImageByName(name string) (*SImage, error) {
-	return nil, nil
+	images, _, err := self.GetImages("", ImageOwnerSelf, nil, name, 0, 1)
+	if err != nil {
+		return nil, err
+	}
+	if len(images) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return &images[0], nil
 }
 
 func (self *SRegion) GetImageStatus(imageId string) (ImageStatusType, error) {
-	return "",nil
+	image, err := self.GetImage(imageId)
+	if err != nil {
+		return "", err
+	}
+	return image.Status, nil
 }
 
 func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, imageId []string, name string, offset int, limit int) ([]SImage, int, error) {
@@ -186,5 +215,8 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 }
 
 func (self *SRegion) DeleteImage(imageId string) error {
-	return nil
+	params := &ec2.DeregisterImageInput{}
+	params.SetImageId(imageId)
+	_, err := self.ec2Client.DeregisterImage(params)
+	return err
 }
