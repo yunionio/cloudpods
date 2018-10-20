@@ -146,6 +146,20 @@ func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 	return nil, cloudprovider.ErrNotFound
 }
 
+func (self *SZone) getStorageByCategory(category string) (*SStorage, error) {
+	storages, err := self.GetIStorages()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(storages); i += 1 {
+		storage := storages[i].(*SStorage)
+		if storage.storageType == category {
+			return storage, nil
+		}
+	}
+	return nil, fmt.Errorf("No such storage %s", category)
+}
+
 func (self *SRegion) getZoneById(id string) (*SZone, error) {
 	izones, err := self.GetIZones()
 	if err != nil {

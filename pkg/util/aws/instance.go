@@ -178,8 +178,22 @@ func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
 }
 
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	// todo: implement me
-	return nil, nil
+	disks, _, err := self.host.zone.region.GetDisks(self.InstanceId, "", "", nil, 0, 0)
+	if err != nil {
+		log.Errorf("fetchDisks fail %s", err)
+		return nil, err
+	}
+
+	idisks := make([]cloudprovider.ICloudDisk, len(disks))
+	for i := 0; i < len(disks); i += 1 {
+		store, err := self.host.zone.getStorageByCategory(disks[i].Category)
+		if err != nil {
+			return nil, err
+		}
+		disks[i].storage = store
+		idisks[i] = &disks[i]
+	}
+	return idisks, nil
 }
 
 func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
@@ -311,6 +325,7 @@ func (self *SInstance) DeleteVM() error {
 		err := self.host.zone.region.DeleteVM(self.InstanceId)
 		if err != nil {
 			// todo: implement me
+			return err
 		} else {
 			break
 		}
@@ -514,28 +529,74 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		}
 }
 
-func (self *SRegion) StartVM(instanceId string) error {
+func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
+	instance, err := self.GetInstance(instanceId)
+	if err != nil {
+		return "", err
+	}
+	return instance.Status, nil
+}
+
+func (self *SRegion)  instanceStatusChecking(instanceId, status string) error {
+	status, err := self.GetInstanceStatus(instanceId)
+	if err != nil {
+		log.Errorf("Fail to get instance status on StartVM: %s", err)
+		return err
+	}
+	if status != status {
+		log.Errorf("StartVM: vm status is %s expect %s", status, status)
+		return cloudprovider.ErrInvalidStatus
+	}
+
 	return nil
+}
+
+func (self *SRegion) StartVM(instanceId string) error {
+	if err := self.instanceStatusChecking(instanceId, InstanceStatusStopped);err != nil {
+		return err
+	}
+
+	params := &ec2.StartInstancesInput{}
+	params.SetInstanceIds([]*string{&instanceId})
+	_, err := self.ec2Client.StartInstances(params)
+	return err
 }
 
 func (self *SRegion) StopVM(instanceId string, isForce bool) error {
-	return nil
+	if err := self.instanceStatusChecking(instanceId, InstanceStatusRunning);err != nil {
+		return err
+	}
+
+	params := &ec2.StopInstancesInput{}
+	params.SetInstanceIds([]*string{&instanceId})
+	_, err := self.ec2Client.StopInstances(params)
+	return err
 }
 
 func (self *SRegion) DeleteVM(instanceId string) error {
-	return nil
+	if err := self.instanceStatusChecking(instanceId, InstanceStatusStopped);err != nil {
+		return err
+	}
+
+	params := &ec2.TerminateInstancesInput{}
+	params.SetInstanceIds([]*string{&instanceId})
+	_, err := self.ec2Client.TerminateInstances(params)
+	return err
 }
 
 func (self *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, deleteKeypair bool, description string) error {
+	// todo : implement me
 	return nil
 }
 
 func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
+	// todo : implement me
 	return nil
 }
 
 func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd string, keypairName string, sysDiskSizeGB int) (string, error) {
-	return "", nil
+
+	return "", cloudprovider.ErrNotSupported
 }
 
 func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, vmem int, disks []*SDisk) error {
@@ -543,9 +604,19 @@ func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, 
 }
 
 func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
-	return nil
+	params := &ec2.DetachVolumeInput{}
+	params.SetInstanceId(instanceId)
+	params.SetVolumeId(diskId)
+
+	_, err := self.ec2Client.DetachVolume(params)
+	return err
 }
 
 func (self *SRegion) AttachDisk(instanceId string, diskId string) error {
-	return nil
+	params := &ec2.AttachVolumeInput{}
+	params.SetInstanceId(instanceId)
+	params.SetVolumeId(diskId)
+
+	_, err := self.ec2Client.AttachVolume(params)
+	return err
 }
