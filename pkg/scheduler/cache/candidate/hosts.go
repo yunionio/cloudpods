@@ -51,7 +51,7 @@ type HostDesc struct {
 
 	// storage
 	Storages     []*Storage `json:"storages"`
-	storageTypes []string   `json:"storage_types"`
+	StorageTypes []string   `json:"storage_types"`
 
 	// IO
 	IOBoundCount int64    `json:"io_bound_count"`
@@ -280,7 +280,7 @@ func (h *HostDesc) Get(key string) interface{} {
 		return h.freeStorageSize(true, false)
 
 	case "StorageTypes":
-		return h.storageTypes
+		return h.StorageTypes
 
 	case "HostStatus":
 		return h.HostStatus
@@ -1163,7 +1163,7 @@ func (b *HostBuilder) fillStorages(desc *HostDesc, host *models.Host) error {
 	desc.Storages = rets
 
 	for storageType := range storageTypeMap {
-		desc.storageTypes = append(desc.storageTypes, storageType)
+		desc.StorageTypes = append(desc.StorageTypes, storageType)
 	}
 
 	return nil
