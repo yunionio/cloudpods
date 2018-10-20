@@ -14,7 +14,14 @@ type SGroupManager struct {
 var GroupManager *SGroupManager
 
 func init() {
-	GroupManager = &SGroupManager{SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(SGroup{}, "groups_tbl", "group", "groups")}
+	GroupManager = &SGroupManager{
+		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
+			SGroup{},
+			"groups_tbl",
+			"group",
+			"groups",
+		),
+	}
 }
 
 type SGroup struct {

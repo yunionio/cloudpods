@@ -1,8 +1,6 @@
 package compute
 
 import (
-	"yunion.io/x/log"
-
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -23,7 +21,6 @@ func InitHandlers(app *appsrv.Application) {
 	capabilities.AddCapabilityHandler("", app)
 	specs.AddSpecHandler("", app)
 	sshkeys.AddSshKeysHandler("", app)
-
 	taskman.AddTaskHandler("", app)
 
 	for _, manager := range []db.IModelManager{
@@ -61,10 +58,11 @@ func InitHandlers(app *appsrv.Application) {
 		models.IsolatedDeviceManager,
 		models.SecurityGroupManager,
 		models.SecurityGroupRuleManager,
-		models.VCenterManager,
+		// models.VCenterManager,
 		models.DnsRecordManager,
 		models.ElasticipManager,
 		models.SnapshotManager,
+
 		models.LoadbalancerManager,
 		models.LoadbalancerListenerManager,
 		models.LoadbalancerListenerRuleManager,
@@ -95,7 +93,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.StoragecachedimageManager,
 	} {
 		db.RegisterModelManager(manager)
-		log.Infof("Register handler %s", manager.KeywordPlural())
+		// log.Infof("Register handler %s", manager.KeywordPlural())
 		handler := db.NewJointModelHandler(manager)
 		dispatcher.AddJointModelDispatcher("", app, handler)
 	}

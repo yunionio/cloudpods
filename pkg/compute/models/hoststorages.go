@@ -20,8 +20,15 @@ var HoststorageManager *SHoststorageManager
 
 func init() {
 	db.InitManager(func() {
-		HoststorageManager = &SHoststorageManager{SHostJointsManager: NewHostJointsManager(SHoststorage{},
-			"hoststorages_tbl", "hoststorage", "hoststorages", StorageManager)}
+		HoststorageManager = &SHoststorageManager{
+			SHostJointsManager: NewHostJointsManager(
+				SHoststorage{},
+				"hoststorages_tbl",
+				"hoststorage",
+				"hoststorages",
+				StorageManager,
+			),
+		}
 	})
 }
 

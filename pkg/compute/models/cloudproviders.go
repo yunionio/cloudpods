@@ -42,7 +42,14 @@ type SCloudproviderManager struct {
 var CloudproviderManager *SCloudproviderManager
 
 func init() {
-	CloudproviderManager = &SCloudproviderManager{SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(SCloudprovider{}, "cloudproviders_tbl", "cloudprovider", "cloudproviders")}
+	CloudproviderManager = &SCloudproviderManager{
+		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
+			SCloudprovider{},
+			"cloudproviders_tbl",
+			"cloudprovider",
+			"cloudproviders",
+		),
+	}
 }
 
 type SCloudprovider struct {

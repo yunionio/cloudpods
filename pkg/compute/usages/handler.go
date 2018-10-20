@@ -108,7 +108,7 @@ func AddUsageHandler(prefix string, app *appsrv.Application) {
 		"vcenter":     rangeObjHandler(models.VCenterManager, ReportVCenterUsage),
 		"cloudregion": rangeObjHandler(models.CloudregionManager, ReportCloudRegionUsage),
 	} {
-		addHandler(prefix, key, auth.Authenticate(f), app)
+		addHandler(prefix, key, f, app)
 	}
 }
 

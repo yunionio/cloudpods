@@ -34,8 +34,15 @@ var GuestnetworkManager *SGuestnetworkManager
 
 func init() {
 	db.InitManager(func() {
-		GuestnetworkManager = &SGuestnetworkManager{SGuestJointsManager: NewGuestJointsManager(SGuestnetwork{},
-			"guestnetworks_tbl", "guestnetwork", "guestnetworks", NetworkManager)}
+		GuestnetworkManager = &SGuestnetworkManager{
+			SGuestJointsManager: NewGuestJointsManager(
+				SGuestnetwork{},
+				"guestnetworks_tbl",
+				"guestnetwork",
+				"guestnetworks",
+				NetworkManager,
+			),
+		}
 	})
 }
 

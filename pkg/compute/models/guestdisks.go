@@ -21,7 +21,15 @@ var GuestdiskManager *SGuestdiskManager
 
 func init() {
 	db.InitManager(func() {
-		GuestdiskManager = &SGuestdiskManager{SGuestJointsManager: NewGuestJointsManager(SGuestdisk{}, "guestdisks_tbl", "guestdisk", "guestdisks", DiskManager)}
+		GuestdiskManager = &SGuestdiskManager{
+			SGuestJointsManager: NewGuestJointsManager(
+				SGuestdisk{},
+				"guestdisks_tbl",
+				"guestdisk",
+				"guestdisks",
+				DiskManager,
+			),
+		}
 	})
 }
 

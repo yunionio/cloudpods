@@ -34,7 +34,14 @@ type SCachedimageManager struct {
 var CachedimageManager *SCachedimageManager
 
 func init() {
-	CachedimageManager = &SCachedimageManager{SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(SCachedimage{}, "cachedimages_tbl", "cachedimage", "cachedimages")}
+	CachedimageManager = &SCachedimageManager{
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+			SCachedimage{},
+			"cachedimages_tbl",
+			"cachedimage",
+			"cachedimages",
+		),
+	}
 }
 
 type SCachedimage struct {

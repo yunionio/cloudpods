@@ -36,7 +36,14 @@ type SSchedtagManager struct {
 var SchedtagManager *SSchedtagManager
 
 func init() {
-	SchedtagManager = &SSchedtagManager{SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(SSchedtag{}, "aggregates_tbl", "schedtag", "schedtags")}
+	SchedtagManager = &SSchedtagManager{
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+			SSchedtag{},
+			"aggregates_tbl",
+			"schedtag",
+			"schedtags",
+		),
+	}
 }
 
 type SSchedtag struct {

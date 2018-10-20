@@ -161,7 +161,14 @@ type SGuestManager struct {
 var GuestManager *SGuestManager
 
 func init() {
-	GuestManager = &SGuestManager{SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(SGuest{}, "guests_tbl", "server", "servers")}
+	GuestManager = &SGuestManager{
+		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
+			SGuest{},
+			"guests_tbl",
+			"server",
+			"servers",
+		),
+	}
 	GuestManager.SetAlias("guest", "guests")
 }
 

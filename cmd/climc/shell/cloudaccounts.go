@@ -77,7 +77,11 @@ func init() {
 		ID        string `help:"ID or Name of cloud account"`
 		Name      string `help:"New name to update"`
 		AccessUrl string `help:"New access url"`
-		Desc      string `help:"Description"`
+
+		BalanceKey       string `help:"update cloud balance account key, such as Azure EA key"`
+		RemoveBalanceKey bool   `help:"remove cloud blance account key"`
+
+		Desc string `help:"Description"`
 	}
 	R(&CloudaccountUpdateOptions{}, "cloud-account-update", "Update a cloud account", func(s *mcclient.ClientSession, args *CloudaccountUpdateOptions) error {
 		params := jsonutils.NewDict()
@@ -86,6 +90,11 @@ func init() {
 		}
 		if len(args.AccessUrl) > 0 {
 			params.Add(jsonutils.NewString(args.AccessUrl), "access_url")
+		}
+		if len(args.BalanceKey) > 0 {
+			params.Add(jsonutils.NewString(args.BalanceKey), "balance_key")
+		} else if args.RemoveBalanceKey {
+			params.Add(jsonutils.NewString(""), "balance_key")
 		}
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")

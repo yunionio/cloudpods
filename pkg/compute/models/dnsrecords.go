@@ -23,7 +23,14 @@ type SDnsRecordManager struct {
 var DnsRecordManager *SDnsRecordManager
 
 func init() {
-	DnsRecordManager = &SDnsRecordManager{SAdminSharableVirtualResourceBaseManager: db.NewAdminSharableVirtualResourceBaseManager(SDnsRecord{}, "dnsrecord_tbl", "dnsrecord", "dnsrecords")}
+	DnsRecordManager = &SDnsRecordManager{
+		SAdminSharableVirtualResourceBaseManager: db.NewAdminSharableVirtualResourceBaseManager(
+			SDnsRecord{},
+			"dnsrecord_tbl",
+			"dnsrecord",
+			"dnsrecords",
+		),
+	}
 }
 
 const DNS_RECORDS_SEPARATOR = ","

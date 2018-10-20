@@ -79,7 +79,14 @@ type SHostManager struct {
 var HostManager *SHostManager
 
 func init() {
-	HostManager = &SHostManager{SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(SHost{}, "hosts_tbl", "host", "hosts")}
+	HostManager = &SHostManager{
+		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
+			SHost{},
+			"hosts_tbl",
+			"host",
+			"hosts",
+		),
+	}
 	HostManager.SetAlias("baremetal", "baremetals")
 }
 
