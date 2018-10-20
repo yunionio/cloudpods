@@ -1235,11 +1235,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:36db56d9ed25cc9cbd34d5553c14d5e1d4ef6501feaddb752c66aeb294e481e6"
+  digest = "1:54554b3c72f4fcbd3c27c5137f9acd9d153d7e7150d77cd509af50c75fcb41b9"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "191bb9c0726440a0b239c344c70b9df567536302"
+  revision = "7079aada4c7e9a37e4c3b183bddb0ef684e038f2"
 
 [[projects]]
   branch = "master"
@@ -1254,7 +1254,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:211ecaed7d1d87e5d216b598c3cd5b7c47977b73a06308e1b39c08fd03c9c417"
+  digest = "1:201bff9d99a538dd71fd8e55bbbfda8a301fd89676d0668a2cedc574e1aeaa03"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1288,7 +1288,7 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "9d246215b0a167b153bcdbc7d75031ced7138cf8"
+  revision = "122c7d4ce76b4611b63d86af8e9bb2610ab55c20"
 
 [[projects]]
   branch = "master"
