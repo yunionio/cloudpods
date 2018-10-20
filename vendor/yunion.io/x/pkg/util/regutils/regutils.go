@@ -32,6 +32,8 @@ var RFC2882_TIME_REG *regexp.Regexp
 var EMAIL_REG *regexp.Regexp
 var CHINA_MOBILE_REG *regexp.Regexp
 var FS_FORMAT_REG *regexp.Regexp
+var US_CURRENCY_REG *regexp.Regexp
+var EU_CURRENCY_REG *regexp.Regexp
 
 func init() {
 	FUNCTION_REG = regexp.MustCompile(`^\w+\(.*\)$`)
@@ -62,6 +64,8 @@ func init() {
 	EMAIL_REG = regexp.MustCompile(`^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}$`)
 	CHINA_MOBILE_REG = regexp.MustCompile(`^1[0-9-]{10}$`)
 	FS_FORMAT_REG = regexp.MustCompile(`^(ext|fat|hfs|xfs|swap|ntfs|reiserfs|ufs|btrfs)`)
+	US_CURRENCY_REG = regexp.MustCompile(`^(\d{0,3}|((\d{1,3},)+\d{3}))(\.\d*)?$`)
+	EU_CURRENCY_REG = regexp.MustCompile(`^(\d{0,3}|((\d{1,3}\.)+\d{3}))(,\d*)?$`)
 }
 
 func MatchFunction(str string) bool {
@@ -178,4 +182,12 @@ func MatchMobile(str string) bool {
 
 func MatchFS(str string) bool {
 	return FS_FORMAT_REG.MatchString(str)
+}
+
+func MatchUSCurrency(str string) bool {
+	return US_CURRENCY_REG.MatchString(str)
+}
+
+func MatchEUCurrency(str string) bool {
+	return EU_CURRENCY_REG.MatchString(str)
 }
