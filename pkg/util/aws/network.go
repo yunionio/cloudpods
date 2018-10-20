@@ -108,7 +108,17 @@ func (self *SNetwork) GetAllocTimeoutSeconds() int {
 }
 
 func (self *SRegion) createNetwork(zoneId string, vpcId string, name string, cidr string, desc string) (string, error)  {
-	return "", nil
+	params := &ec2.CreateSubnetInput{}
+	params.SetAvailabilityZone(zoneId)
+	params.SetVpcId(vpcId)
+	params.SetCidrBlock(cidr)
+
+	ret, err := self.ec2Client.CreateSubnet(params)
+	if err != nil {
+		return "", err
+	} else {
+		return *ret.Subnet.SubnetId, nil
+	}
 }
 
 func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
@@ -122,8 +132,11 @@ func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
 	return &networks[0], nil
 }
 
-func (self *SRegion) deleteNetwork(vswitchId string) error {
-	return nil
+func (self *SRegion) deleteNetwork(networkId string) error {
+	params := &ec2.DeleteSubnetInput{}
+	params.SetSubnetId(networkId)
+	_, err := self.ec2Client.DeleteSubnet(params)
+	return err
 }
 
 func (self *SRegion) GetNetwroks(ids []string, vpcId string) ([]SNetwork, int, error) {
