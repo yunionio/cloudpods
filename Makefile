@@ -66,9 +66,10 @@ pkg/%: prepare_dir fmt
 	$(GO_INSTALL) $(REPO_PREFIX)/$@
 
 
+# a hack
 rpm:
-	make cmd/$(filter-out $@,$(MAKECMDGOALS))
-	$(BUILD_SCRIPT) $(filter-out $@,$(MAKECMDGOALS))
+	$(MAKE) $(patsubst %,cmd/%,$(filter-out $@,$(MAKECMDGOALS)))
+	$(foreach cmd,$(filter-out $@,$(MAKECMDGOALS)),$(BUILD_SCRIPT) $(cmd);)
 
 rpmclean:
 	rm -fr $(BUILD_DIR)/rpms
