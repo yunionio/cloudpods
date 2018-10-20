@@ -26,7 +26,11 @@ func init() {
 func (self *GuestDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	self.SetStage("on_guest_stop_complete", nil)
-	guest.GetDriver().RequestStopGuestForDelete(ctx, guest, self)
+	err := guest.GetDriver().RequestStopGuestForDelete(ctx, guest, self)
+	if err != nil {
+		errMsg := jsonutils.NewString(err.Error())
+		self.OnGuestStopCompleteFailed(ctx, obj, errMsg)
+	}
 }
 
 func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
