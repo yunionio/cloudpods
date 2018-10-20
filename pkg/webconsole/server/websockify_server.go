@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net"
 	"net/http"
@@ -12,13 +13,18 @@ import (
 	"yunion.io/x/onecloud/pkg/webconsole/session"
 )
 
+const (
+	BINARY_PROTOL = "binary"
+	BASE64_PROTOL = "base64"
+)
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
-	Subprotocols: []string{"binary"},
+	Subprotocols: []string{BINARY_PROTOL, BASE64_PROTOL},
 }
 
 type WebsockifyServer struct {
@@ -44,15 +50,18 @@ func NewWebsockifyServer(s *session.SSession) (*WebsockifyServer, error) {
 	return server, nil
 }
 
+func (s *WebsockifyServer) isBase64Subprotocol(wsConn *websocket.Conn) bool {
+	return wsConn.Subprotocol() == BASE64_PROTOL
+}
+
 func (s *WebsockifyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	targetAddr := fmt.Sprintf("%s:%d", s.TargetHost, s.TargetPort)
-	subs := websocket.Subprotocols(r)
-	log.Debugf("Get subprotocols: %v", subs)
 	wsConn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Errorf("New websocket connection error: %v", err)
 		return
 	}
+	log.Debugf("Get coordinate subprotocol: %s", wsConn.Subprotocol())
 
 	log.Debugf("Handle websocket connect, target: %s", targetAddr)
 	targetConn, err := net.Dial("tcp", targetAddr)
@@ -70,11 +79,26 @@ func (s *WebsockifyServer) doProxy(wsConn *websocket.Conn, tcpConn net.Conn) {
 	s.tcpToWs(wsConn, tcpConn)
 }
 
+func (s *WebsockifyServer) ReadFromWs(wsConn *websocket.Conn) ([]byte, error) {
+	_, data, err := wsConn.ReadMessage()
+	if err != nil {
+		return nil, err
+	}
+	if s.isBase64Subprotocol(wsConn) {
+		data, err = base64.StdEncoding.DecodeString(string(data))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return data, nil
+}
+
 func (s *WebsockifyServer) wsToTcp(wsConn *websocket.Conn, tcpConn net.Conn) {
 	defer s.onExit(wsConn, tcpConn)
 
 	for {
-		_, data, err := wsConn.ReadMessage()
+		data, err := s.ReadFromWs(wsConn)
 		if err != nil {
 			log.Errorf("Read from websocket error: %v", err)
 			return
@@ -88,6 +112,16 @@ func (s *WebsockifyServer) wsToTcp(wsConn *websocket.Conn, tcpConn net.Conn) {
 	}
 }
 
+func (s *WebsockifyServer) WriteToWs(wsConn *websocket.Conn, data []byte) error {
+	msg := string(data)
+	msgType := websocket.BinaryMessage
+	if s.isBase64Subprotocol(wsConn) {
+		msg = base64.StdEncoding.EncodeToString(data)
+		msgType = websocket.TextMessage
+	}
+	return wsConn.WriteMessage(msgType, []byte(msg))
+}
+
 func (s *WebsockifyServer) tcpToWs(wsConn *websocket.Conn, tcpConn net.Conn) {
 	defer s.onExit(wsConn, tcpConn)
 
@@ -99,7 +133,7 @@ func (s *WebsockifyServer) tcpToWs(wsConn *websocket.Conn, tcpConn net.Conn) {
 			return
 		}
 
-		err = wsConn.WriteMessage(websocket.BinaryMessage, buffer[0:n])
+		err = s.WriteToWs(wsConn, buffer[0:n])
 		if err != nil {
 			log.Errorf("Write to websocket error: %v", err)
 			return
