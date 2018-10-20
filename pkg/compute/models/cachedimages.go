@@ -158,7 +158,7 @@ func (manager *SCachedimageManager) cacheImageInfo(ctx context.Context, userCred
 
 			return &imageCache, nil
 		} else {
-			log.Errorf("fail to query image cahe %d", imgId)
+			log.Errorf("fetching image cache (%s) failed: %s", imgId, err)
 			return nil, err
 		}
 	} else { // update

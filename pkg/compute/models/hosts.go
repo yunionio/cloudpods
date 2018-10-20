@@ -1131,8 +1131,6 @@ func (self *SHost) newCloudHostStorage(ctx context.Context, userCred mcclient.To
 		return nil
 	}
 	storage := storageObj.(*SStorage)
-	log.Debugf("Storage: %s", storage)
-	log.Debugf("Host: %s", self)
 	err = self.Attach2Storage(ctx, userCred, storage, "")
 	return err
 }

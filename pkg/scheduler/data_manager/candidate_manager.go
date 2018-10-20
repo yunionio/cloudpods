@@ -350,7 +350,7 @@ func (cm *CandidateManager) CleanDirtyCandidatesOnce(keys []string) {
 func ToHostCandidate(c interface{}) (*candidatecache.HostDesc, error) {
 	h, ok := c.(*candidatecache.HostDesc)
 	if !ok {
-		return nil, fmt.Errorf("%#v can't convert to *candidatecache.HostDesc")
+		return nil, fmt.Errorf("can't convert %#v to *candidatecache.HostDesc", c)
 	}
 	return h, nil
 }
