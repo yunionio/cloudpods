@@ -156,39 +156,60 @@ func (self *SRegion) GetEips(eipId string) ([]SEipAddress, int, error) {
 }
 
 func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
-	return nil, nil
+	eips, total, err := region.GetEips(eipId)
+	if err != nil {
+		return nil, err
+	}
+	if total != 1 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return &eips[0], nil
 }
 
-func (region *SRegion) AllocateEIP(bwMbps int) (*SEipAddress, error) {
-	return nil, nil
-}
-
-func (self *SRegion) CreateEIP(name string, bwMbps int, chargeType string) (cloudprovider.ICloudEIP, error) {
-	eip, err := self.ec2Client.AllocateAddress(&ec2.AllocateAddressInput{})
+func (region *SRegion) AllocateEIP(domainType string) (*SEipAddress, error) {
+	params := &ec2.AllocateAddressInput{}
+	params.SetDomain(domainType)
+	eip, err := region.ec2Client.AllocateAddress(params)
 	if err != nil {
 		log.Errorf("AllocateEipAddress fail %s", err)
 		return nil, err
 	}
 
-	err = self.fetchInfrastructure()
+	err = region.fetchInfrastructure()
 	if err != nil {
 		return nil, err
 	}
-	return self.GetIEipById(*eip.AllocationId)
+	return region.GetEip(*eip.AllocationId)
+}
+
+func (region *SRegion) CreateEIP(name string, bwMbps int, chargeType string) (cloudprovider.ICloudEIP, error) {
+	// todo: aws 不支持指定bwMbps, chargeType ？
+	log.Debugf("CreateEip: aws not support specific params name/bwMbps/chargeType.")
+	return region.AllocateEIP("vpc")
 }
 
 func (region *SRegion) DeallocateEIP(eipId string) error {
-	return nil
+	params := &ec2.ReleaseAddressInput{}
+	params.SetAllocationId(eipId)
+	_, err := region.ec2Client.ReleaseAddress(params)
+	return err
 }
 
 func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
-	return nil
+	params := &ec2.AssociateAddressInput{}
+	params.SetAllocationId(eipId)
+	params.SetInstanceId(instanceId)
+	_, err := region.ec2Client.AssociateAddress(params)
+	return err
 }
 
 func (region *SRegion) DissociateEip(eipId string, instanceId string) error {
-	return nil
+	params := &ec2.DisassociateAddressInput{}
+	params.SetAssociationId(eipId)
+	_, err := region.ec2Client.DisassociateAddress(params)
+	return err
 }
 
 func (region *SRegion) UpdateEipBandwidth(eipId string, bw int) error {
-	return nil
+	return cloudprovider.ErrNotSupported
 }
