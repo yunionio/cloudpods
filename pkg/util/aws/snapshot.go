@@ -147,3 +147,20 @@ func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSn
 		return &snapshots[0], nil
 	}
 }
+
+func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
+	params := &ec2.CreateSnapshotInput{}
+	if len(diskId) <= 0 {
+		return "", fmt.Errorf("disk id should not be empty")
+	} else {
+		params.SetVolumeId(diskId)
+	}
+
+	if len(name) <= 0 {
+		return "", fmt.Errorf("name length should great than 0")
+	}
+
+	params.SetDescription(desc)
+	_, err := self.ec2Client.CreateSnapshot(params)
+	return "", err
+}

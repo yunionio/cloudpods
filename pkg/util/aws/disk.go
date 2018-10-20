@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"fmt"
 	"time"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -217,7 +218,7 @@ func (self *SDisk) Resize(newSize int64) error {
 }
 
 func (self *SDisk) Reset(snapshotId string) error {
-	panic("implement me")
+	return self.storage.zone.region.resetDisk(self.DiskId, snapshotId)
 }
 
 func (self *SDisk) getSnapshot(snapshotId string) (*SSnapshot, error) {
@@ -309,21 +310,71 @@ func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 }
 
 func (self *SRegion) DeleteDisk(diskId string) error {
-	return nil
+	disk, err := self.GetDisk(diskId)
+	if err != nil {
+		return err
+	}
+
+	if disk.Status != ec2.VolumeStateAvailable {
+		return fmt.Errorf("disk status not in %s", ec2.VolumeStateAvailable)
+	}
+	params := &ec2.DeleteVolumeInput{}
+	if len(diskId) <= 0 {
+		return fmt.Errorf("disk id should not be empty")
+	}
+
+	params.SetVolumeId(diskId)
+	_, err = self.ec2Client.DeleteVolume(params)
+	return err
 }
 
 func (self *SRegion) resizeDisk(diskId string, size int64) error {
-	return nil
+	// https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/volume_constraints.html
+	// MBR -> 2 TiB
+	// GPT -> 16 TiB
+	// size unit GiB
+	params := &ec2.ModifyVolumeInput{}
+	if size > 0 {
+		params.SetSize(size)
+	} else {
+		return fmt.Errorf("size should great than 0")
+	}
+
+	if len(diskId) <= 0 {
+		return fmt.Errorf("disk id should not be empty")
+	} else {
+		params.SetVolumeId(diskId)
+	}
+
+	_,err := self.ec2Client.ModifyVolume(params)
+	return err
 }
 
 func (self *SRegion) resetDisk(diskId, snapshotId string) error {
-	return nil
-}
-
-func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
-	return "", nil
+	// aws貌似不支持直接重置
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, desc string) (string, error) {
-	return "", nil
+	params := &ec2.CreateVolumeInput{}
+	params.SetAvailabilityZone(zoneId)
+	params.SetVolumeType(category)
+	params.SetSize(int64(sizeGb))
+	// todo: less code here
+	tagSpec := &ec2.TagSpecification{}
+	tagSpec.SetResourceType(ec2.ResourceTypeVolume)
+	nameTag := &ec2.Tag{}
+	nameTag.SetKey("Name")
+	nameTag.SetValue(name)
+	descTag := &ec2.Tag{}
+	descTag.SetKey("Description")
+	descTag.SetValue(desc)
+	tagSpec.SetTags([]*ec2.Tag{nameTag, descTag})
+	params.SetTagSpecifications([]*ec2.TagSpecification{tagSpec})
+	ret, err := self.ec2Client.CreateVolume(params)
+	if err != nil {
+		return "", err
+	}
+
+	return StrVal(ret.VolumeId), nil
 }

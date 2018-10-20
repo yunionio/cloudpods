@@ -234,3 +234,7 @@ func YunionSecRuleToAws(rule secrules.SecurityRule) ([]ec2.IpPermission, error) 
 
 	return permissions, nil
 }
+
+func awsTagSpecification(resourceType string,) {
+
+}
