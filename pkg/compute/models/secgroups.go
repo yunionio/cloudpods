@@ -28,7 +28,14 @@ type SSecurityGroupManager struct {
 var SecurityGroupManager *SSecurityGroupManager
 
 func init() {
-	SecurityGroupManager = &SSecurityGroupManager{SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(SSecurityGroup{}, "secgroups_tbl", "secgroup", "secgroups")}
+	SecurityGroupManager = &SSecurityGroupManager{
+		SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(
+			SSecurityGroup{},
+			"secgroups_tbl",
+			"secgroup",
+			"secgroups",
+		),
+	}
 	SecurityGroupManager.NameRequireAscii = false
 }
 

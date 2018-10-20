@@ -19,7 +19,14 @@ type SReservedipManager struct {
 var ReservedipManager *SReservedipManager
 
 func init() {
-	ReservedipManager = &SReservedipManager{SResourceBaseManager: db.NewResourceBaseManager(SReservedip{}, "reservedips_tbl", "reservedip", "reservedips")}
+	ReservedipManager = &SReservedipManager{
+		SResourceBaseManager: db.NewResourceBaseManager(
+			SReservedip{},
+			"reservedips_tbl",
+			"reservedip",
+			"reservedips",
+		),
+	}
 }
 
 type SReservedip struct {

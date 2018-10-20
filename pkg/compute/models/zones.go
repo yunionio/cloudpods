@@ -29,7 +29,14 @@ type SZoneManager struct {
 var ZoneManager *SZoneManager
 
 func init() {
-	ZoneManager = &SZoneManager{SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(SZone{}, "zones_tbl", "zone", "zones")}
+	ZoneManager = &SZoneManager{
+		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
+			SZone{},
+			"zones_tbl",
+			"zone",
+			"zones",
+		),
+	}
 	ZoneManager.NameRequireAscii = false
 }
 

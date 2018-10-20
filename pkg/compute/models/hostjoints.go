@@ -14,7 +14,16 @@ type SHostJointsManager struct {
 }
 
 func NewHostJointsManager(dt interface{}, tableName string, keyword string, keywordPlural string, slave db.IStandaloneModelManager) SHostJointsManager {
-	return SHostJointsManager{SJointResourceBaseManager: db.NewJointResourceBaseManager(dt, tableName, keyword, keywordPlural, HostManager, slave)}
+	return SHostJointsManager{
+		SJointResourceBaseManager: db.NewJointResourceBaseManager(
+			dt,
+			tableName,
+			keyword,
+			keywordPlural,
+			HostManager,
+			slave,
+		),
+	}
 }
 
 type SHostJointsBase struct {

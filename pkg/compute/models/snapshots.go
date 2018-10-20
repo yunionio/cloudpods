@@ -54,7 +54,14 @@ type SSnapshot struct {
 var SnapshotManager *SSnapshotManager
 
 func init() {
-	SnapshotManager = &SSnapshotManager{SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(SSnapshot{}, "snapshots_tbl", "snapshot", "snapshots")}
+	SnapshotManager = &SSnapshotManager{
+		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
+			SSnapshot{},
+			"snapshots_tbl",
+			"snapshot",
+			"snapshots",
+		),
+	}
 }
 
 func ValidateSnapshotName(hypervisor, name string) error {

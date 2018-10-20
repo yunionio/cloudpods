@@ -26,10 +26,13 @@ var StoragecacheManager *SStoragecacheManager
 
 func init() {
 	StoragecacheManager = &SStoragecacheManager{
-		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(SStoragecache{},
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+			SStoragecache{},
 			"storagecaches_tbl",
 			"storagecache",
-			"storagecaches")}
+			"storagecaches",
+		),
+	}
 }
 
 type SStoragecache struct {

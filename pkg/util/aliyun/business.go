@@ -60,6 +60,7 @@ func (self *SAliyunClient) QueryAccountBalance() (*SAccountBalance, error) {
 		log.Errorf("QueryAccountBalance fail %s", err)
 		return nil, err
 	}
+	log.Debugf("%s", body.String())
 	balance := SAccountBalance{}
 	err = body.Unmarshal(&balance, "Data")
 	if err != nil {

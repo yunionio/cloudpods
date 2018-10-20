@@ -22,7 +22,14 @@ type SKeypairManager struct {
 var KeypairManager *SKeypairManager
 
 func init() {
-	KeypairManager = &SKeypairManager{SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(SKeypair{}, "keypairs_tbl", "keypair", "keypairs")}
+	KeypairManager = &SKeypairManager{
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+			SKeypair{},
+			"keypairs_tbl",
+			"keypair",
+			"keypairs",
+		),
+	}
 }
 
 type SKeypair struct {

@@ -17,7 +17,15 @@ var HostschedtagManager *SHostschedtagManager
 
 func init() {
 	db.InitManager(func() {
-		HostschedtagManager = &SHostschedtagManager{SHostJointsManager: NewHostJointsManager(SHostschedtag{}, "aggregate_hosts_tbl", "schedtaghost", "schedtaghosts", SchedtagManager)}
+		HostschedtagManager = &SHostschedtagManager{
+			SHostJointsManager: NewHostJointsManager(
+				SHostschedtag{},
+				"aggregate_hosts_tbl",
+				"schedtaghost",
+				"schedtaghosts",
+				SchedtagManager,
+			),
+		}
 	})
 }
 

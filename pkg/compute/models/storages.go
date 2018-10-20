@@ -57,8 +57,14 @@ type SStorageManager struct {
 var StorageManager *SStorageManager
 
 func init() {
-	StorageManager = &SStorageManager{SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(SStorage{},
-		"storages_tbl", "storage", "storages")}
+	StorageManager = &SStorageManager{
+		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
+			SStorage{},
+			"storages_tbl",
+			"storage",
+			"storages",
+		),
+	}
 }
 
 type SStorage struct {

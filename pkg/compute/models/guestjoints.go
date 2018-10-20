@@ -7,7 +7,16 @@ type SGuestJointsManager struct {
 }
 
 func NewGuestJointsManager(dt interface{}, tableName string, keyword string, keywordPlural string, slave db.IVirtualModelManager) SGuestJointsManager {
-	return SGuestJointsManager{SVirtualJointResourceBaseManager: db.NewVirtualJointResourceBaseManager(dt, tableName, keyword, keywordPlural, GuestManager, slave)}
+	return SGuestJointsManager{
+		SVirtualJointResourceBaseManager: db.NewVirtualJointResourceBaseManager(
+			dt,
+			tableName,
+			keyword,
+			keywordPlural,
+			GuestManager,
+			slave,
+		),
+	}
 }
 
 type SGuestJointsBase struct {

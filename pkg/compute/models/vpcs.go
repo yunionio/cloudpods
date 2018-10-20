@@ -39,7 +39,14 @@ type SVpcManager struct {
 var VpcManager *SVpcManager
 
 func init() {
-	VpcManager = &SVpcManager{SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(SVpc{}, "vpcs_tbl", "vpc", "vpcs")}
+	VpcManager = &SVpcManager{
+		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
+			SVpc{},
+			"vpcs_tbl",
+			"vpc",
+			"vpcs",
+		),
+	}
 }
 
 type SVpc struct {

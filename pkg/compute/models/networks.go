@@ -67,7 +67,14 @@ type SNetworkManager struct {
 var NetworkManager *SNetworkManager
 
 func init() {
-	NetworkManager = &SNetworkManager{SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(SNetwork{}, "networks_tbl", "network", "networks")}
+	NetworkManager = &SNetworkManager{
+		SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(
+			SNetwork{},
+			"networks_tbl",
+			"network",
+			"networks",
+		),
+	}
 	NetworkManager.NameLength = 9
 	NetworkManager.NameRequireAscii = true
 }

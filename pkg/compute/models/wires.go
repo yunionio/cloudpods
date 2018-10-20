@@ -23,7 +23,14 @@ type SWireManager struct {
 var WireManager *SWireManager
 
 func init() {
-	WireManager = &SWireManager{SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(SWire{}, "wires_tbl", "wire", "wires")}
+	WireManager = &SWireManager{
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+			SWire{},
+			"wires_tbl",
+			"wire",
+			"wires",
+		),
+	}
 	WireManager.NameLength = 9
 	WireManager.NameRequireAscii = true
 }

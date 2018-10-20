@@ -71,7 +71,14 @@ type SDiskManager struct {
 var DiskManager *SDiskManager
 
 func init() {
-	DiskManager = &SDiskManager{SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(SDisk{}, "disks_tbl", "disk", "disks")}
+	DiskManager = &SDiskManager{
+		SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(
+			SDisk{},
+			"disks_tbl",
+			"disk",
+			"disks",
+		),
+	}
 }
 
 type SDisk struct {
