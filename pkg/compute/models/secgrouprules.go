@@ -25,7 +25,14 @@ type SSecurityGroupRuleManager struct {
 var SecurityGroupRuleManager *SSecurityGroupRuleManager
 
 func init() {
-	SecurityGroupRuleManager = &SSecurityGroupRuleManager{SResourceBaseManager: db.NewResourceBaseManager(SSecurityGroupRule{}, "secgrouprules_tbl", "secgrouprule", "secgrouprules")}
+	SecurityGroupRuleManager = &SSecurityGroupRuleManager{
+		SResourceBaseManager: db.NewResourceBaseManager(
+			SSecurityGroupRule{},
+			"secgrouprules_tbl",
+			"secgrouprule",
+			"secgrouprules",
+		),
+	}
 }
 
 type SSecurityGroupRule struct {

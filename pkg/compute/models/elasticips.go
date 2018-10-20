@@ -52,7 +52,14 @@ type SElasticipManager struct {
 var ElasticipManager *SElasticipManager
 
 func init() {
-	ElasticipManager = &SElasticipManager{SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(SElasticip{}, "elasticips_tbl", "eip", "eips")}
+	ElasticipManager = &SElasticipManager{
+		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
+			SElasticip{},
+			"elasticips_tbl",
+			"eip",
+			"eips",
+		),
+	}
 }
 
 type SElasticip struct {

@@ -47,7 +47,14 @@ type SIsolatedDeviceManager struct {
 var IsolatedDeviceManager *SIsolatedDeviceManager
 
 func init() {
-	IsolatedDeviceManager = &SIsolatedDeviceManager{SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(SIsolatedDevice{}, "isolated_devices_tbl", "isolated_device", "isolated_devices")}
+	IsolatedDeviceManager = &SIsolatedDeviceManager{
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+			SIsolatedDevice{},
+			"isolated_devices_tbl",
+			"isolated_device",
+			"isolated_devices",
+		),
+	}
 }
 
 type SIsolatedDevice struct {

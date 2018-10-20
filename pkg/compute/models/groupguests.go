@@ -17,7 +17,15 @@ var GroupguestManager *SGroupguestManager
 
 func init() {
 	db.InitManager(func() {
-		GroupguestManager = &SGroupguestManager{SGroupJointsManager: NewGroupJointsManager(SGroupguest{}, "guestgroups_tbl", "groupguest", "groupguests", GuestManager)}
+		GroupguestManager = &SGroupguestManager{
+			SGroupJointsManager: NewGroupJointsManager(
+				SGroupguest{},
+				"guestgroups_tbl",
+				"groupguest",
+				"groupguests",
+				GuestManager,
+			),
+		}
 	})
 }
 

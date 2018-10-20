@@ -29,7 +29,14 @@ type SCloudaccountManager struct {
 var CloudaccountManager *SCloudaccountManager
 
 func init() {
-	CloudaccountManager = &SCloudaccountManager{SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(SCloudaccount{}, "cloudaccounts_tbl", "cloudaccount", "cloudaccounts")}
+	CloudaccountManager = &SCloudaccountManager{
+		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
+			SCloudaccount{},
+			"cloudaccounts_tbl",
+			"cloudaccount",
+			"cloudaccounts",
+		),
+	}
 }
 
 type SCloudaccount struct {
@@ -41,7 +48,7 @@ type SCloudaccount struct {
 	Account string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
 	Secret  string `width:"256" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
 
-	BalanceKey string    `width:"256" charset:"ascii" nullable:"true" list:"admin" create:"admin_optional"`
+	BalanceKey string    `width:"256" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 	LastSync   time.Time `get:"admin" list:"admin"` // = Column(DateTime, nullable=True)
 
 	Version string `width:"32" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=True)

@@ -31,7 +31,14 @@ type SNetInterfaceManager struct {
 var NetInterfaceManager *SNetInterfaceManager
 
 func init() {
-	NetInterfaceManager = &SNetInterfaceManager{SModelBaseManager: db.NewModelBaseManager(SNetInterface{}, "netinterfaces_tbl", "netinterface", "netinterfaces")}
+	NetInterfaceManager = &SNetInterfaceManager{
+		SModelBaseManager: db.NewModelBaseManager(
+			SNetInterface{},
+			"netinterfaces_tbl",
+			"netinterface",
+			"netinterfaces",
+		),
+	}
 }
 
 func (netif *SNetInterface) GetId() string {

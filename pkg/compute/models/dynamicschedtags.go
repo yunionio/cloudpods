@@ -21,7 +21,14 @@ type SDynamicschedtagManager struct {
 var DynamicschedtagManager *SDynamicschedtagManager
 
 func init() {
-	DynamicschedtagManager = &SDynamicschedtagManager{SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(SDynamicschedtag{}, "dynamicschedtags_tbl", "dynamicschedtag", "dynamicschedtags")}
+	DynamicschedtagManager = &SDynamicschedtagManager{
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+			SDynamicschedtag{},
+			"dynamicschedtags_tbl",
+			"dynamicschedtag",
+			"dynamicschedtags",
+		),
+	}
 }
 
 // dynamic schedtag is called before scan host candidates, dynamically adding additional schedtag to hosts

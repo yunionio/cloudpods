@@ -29,7 +29,14 @@ type SCloudregionManager struct {
 var CloudregionManager *SCloudregionManager
 
 func init() {
-	CloudregionManager = &SCloudregionManager{SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(SCloudregion{}, "cloudregions_tbl", "cloudregion", "cloudregions")}
+	CloudregionManager = &SCloudregionManager{
+		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
+			SCloudregion{},
+			"cloudregions_tbl",
+			"cloudregion",
+			"cloudregions",
+		),
+	}
 }
 
 type SCloudregion struct {

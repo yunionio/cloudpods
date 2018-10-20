@@ -22,7 +22,14 @@ type SSchedpolicyManager struct {
 var SchedpolicyManager *SSchedpolicyManager
 
 func init() {
-	SchedpolicyManager = &SSchedpolicyManager{SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(SSchedpolicy{}, "schedpolicies_tbl", "schedpolicy", "schedpolicies")}
+	SchedpolicyManager = &SSchedpolicyManager{
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+			SSchedpolicy{},
+			"schedpolicies_tbl",
+			"schedpolicy",
+			"schedpolicies",
+		),
+	}
 }
 
 // sched policy is called before calling scheduler, add additional preferences for schedtags
