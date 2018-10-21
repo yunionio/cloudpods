@@ -4,61 +4,164 @@ import (
 	"runtime/debug"
 	"sync"
 
+	"container/list"
+	"fmt"
 	"yunion.io/x/log"
 )
 
-type WorkerManager struct {
-	name         string
-	queue        *Ring
-	workerCount  int
-	backlog      int
-	activeWorker int
-	workerLock   *sync.Mutex
-	workerId     uint64
+const (
+	WORKER_STATE_ACTIVE = 0
+	WORKER_STATE_DETACH = 1
+)
+
+var isDebug = false
+
+func enableDebug() {
+	isDebug = true
 }
 
-func NewWorkerManager(name string, workerCount int, backlog int) *WorkerManager {
-	manager := WorkerManager{name: name,
-		queue:        NewRing(workerCount * backlog),
-		workerCount:  workerCount,
-		backlog:      backlog,
-		activeWorker: 0,
-		workerLock:   &sync.Mutex{},
-		workerId:     0}
+type SWorker struct {
+	id        uint64
+	state     int
+	container *list.Element
+	manager   *SWorkerManager
+}
+
+func newWorker(id uint64, manager *SWorkerManager) *SWorker {
+	return &SWorker{
+		id:        id,
+		state:     WORKER_STATE_ACTIVE,
+		container: nil,
+		manager:   manager,
+	}
+}
+
+func (worker *SWorker) isDetached() bool {
+	worker.manager.workerLock.Lock()
+	defer worker.manager.workerLock.Unlock()
+
+	return worker.state == WORKER_STATE_DETACH
+}
+
+func (worker *SWorker) run() {
+	for {
+		if worker.isDetached() {
+			if isDebug {
+				log.Debugf("deteched worker %s, no need to pick up new job", worker)
+			}
+			break
+		}
+		req := worker.manager.queue.Pop()
+		if req != nil {
+			task := req.(*sWorkerTask)
+			if task.worker != nil {
+				task.worker <- worker
+			}
+			if isDebug {
+				log.Debugf("start exec task on worker %s", worker)
+			}
+			execCallback(task)
+			if isDebug {
+				log.Debugf("end exec task on worker %s", worker)
+			}
+		} else {
+			if isDebug {
+				log.Debugf("no more job, exit worker %s", worker)
+			}
+			break
+		}
+	}
+	worker.manager.removeWorker(worker)
+}
+
+func (worker *SWorker) Detach(reason string) {
+	worker.manager.workerLock.Lock()
+	defer worker.manager.workerLock.Unlock()
+
+	worker.state = WORKER_STATE_DETACH
+	worker.manager.activeWorker.removeWithLock(worker)
+	worker.manager.detachedWorker.addWithLock(worker)
+
+	log.Warningf("detach worker %s due to reason %s", worker, reason)
+}
+
+func (worker *SWorker) String() string {
+	return fmt.Sprintf("#%d(%d)", worker.id, worker.state)
+}
+
+type SWorkerList struct {
+	list *list.List
+}
+
+func newWorkerList() SWorkerList {
+	return SWorkerList{
+		list: list.New(),
+	}
+}
+
+func (wl *SWorkerList) addWithLock(worker *SWorker) {
+	ele := wl.list.PushBack(worker)
+	worker.container = ele
+}
+
+func (wl *SWorkerList) removeWithLock(worker *SWorker) {
+	wl.list.Remove(worker.container)
+	worker.container = nil
+}
+
+func (wl *SWorkerList) size() int {
+	return wl.list.Len()
+}
+
+type SWorkerManager struct {
+	name           string
+	queue          *Ring
+	workerCount    int
+	backlog        int
+	activeWorker   SWorkerList
+	detachedWorker SWorkerList
+	workerLock     *sync.Mutex
+	workerId       uint64
+}
+
+func NewWorkerManager(name string, workerCount int, backlog int) *SWorkerManager {
+	manager := SWorkerManager{name: name,
+		queue:          NewRing(workerCount * backlog),
+		workerCount:    workerCount,
+		backlog:        backlog,
+		activeWorker:   newWorkerList(),
+		detachedWorker: newWorkerList(),
+		workerLock:     &sync.Mutex{},
+		workerId:       0}
 	return &manager
 }
 
-type workerTask struct {
-	task func()
-	err  chan interface{}
+type sWorkerTask struct {
+	task   func()
+	worker chan *SWorker
+	err    chan interface{}
 }
 
-func (wm *WorkerManager) Run(task func(), err chan interface{}) bool {
-	ret := wm.queue.Push(&workerTask{task: task, err: err})
+func (wm *SWorkerManager) Run(task func(), worker chan *SWorker, err chan interface{}) bool {
+	ret := wm.queue.Push(&sWorkerTask{task: task, worker: worker, err: err})
 	if ret {
 		wm.schedule()
 	}
 	return ret
 }
 
-func (wm *WorkerManager) workerRun(id uint64) {
-	//log.Println("Start worker", id)
-	defer wm.decActiveWorker()
-	req := wm.queue.Pop()
-	for req != nil {
-		wm.execCallback(req.(*workerTask))
-		req = wm.queue.Pop()
-	}
-	//log.Println("End worker", id)
-}
-
-func (wm *WorkerManager) decActiveWorker() {
+func (wm *SWorkerManager) removeWorker(worker *SWorker) {
 	wm.workerLock.Lock()
 	defer wm.workerLock.Unlock()
-	wm.activeWorker -= 1
+
+	if worker.state == WORKER_STATE_ACTIVE {
+		wm.activeWorker.removeWithLock(worker)
+	} else {
+		wm.detachedWorker.removeWithLock(worker)
+	}
 }
 
-func (wm *WorkerManager) execCallback(task *workerTask) {
+func execCallback(task *sWorkerTask) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Errorf("WorkerManager exec callback error: %s", r)
@@ -75,14 +178,27 @@ func (wm *WorkerManager) execCallback(task *workerTask) {
 	}
 }
 
-func (wm *WorkerManager) schedule() {
+func (wm *SWorkerManager) schedule() {
 	wm.workerLock.Lock()
 	defer wm.workerLock.Unlock()
-	if wm.activeWorker < wm.workerCount && wm.queue.Size() > 0 {
-		wm.activeWorker += 1
+
+	if wm.activeWorker.size() < wm.workerCount && wm.queue.Size() > 0 {
 		wm.workerId += 1
-		go wm.workerRun(wm.workerId)
+		worker := newWorker(wm.workerId, wm)
+		wm.activeWorker.addWithLock(worker)
+		if isDebug {
+			log.Debugf("no enough worker, add new worker %s", worker)
+		}
+		go worker.run()
 	}
+}
+
+func (wm *SWorkerManager) ActiveWorkerCount() int {
+	return wm.activeWorker.size()
+}
+
+func (wm *SWorkerManager) DetachedWorkerCount() int {
+	return wm.detachedWorker.size()
 }
 
 func WaitChannel(ch chan interface{}) interface{} {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 
+	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
@@ -43,13 +45,19 @@ func (w *responseWriterChannel) WriteHeader(status int) {
 	<-w.statusResp
 }
 
-func (w *responseWriterChannel) wait(ctx context.Context, errChan chan interface{}) interface{} {
+func (w *responseWriterChannel) wait(ctx context.Context, workerChan chan *SWorker, errChan chan interface{}) interface{} {
 	var err interface{}
+	var worker *SWorker
 	stop := false
 	for !stop {
 		select {
+		case worker = <-workerChan:
+			log.Infof("request is being handled by worker %s", worker)
 		case <-ctx.Done():
 			// ctx deadline reached, timeout
+			if worker != nil {
+				worker.Detach("timeout")
+			}
 			err = httperrors.NewTimeoutError("request process timeout")
 			stop = true
 		case e, more := <-errChan:

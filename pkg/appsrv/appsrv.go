@@ -22,7 +22,7 @@ import (
 type Application struct {
 	name              string
 	context           context.Context
-	session           *WorkerManager
+	session           *SWorkerManager
 	roots             map[string]*RadixNode
 	rootLock          *sync.Mutex
 	connMax           int
@@ -42,7 +42,7 @@ const (
 	DEFAULT_READ_TIMEOUT        = 0
 	DEFAULT_READ_HEADER_TIMEOUT = 10 * time.Second
 	DEFAULT_WRITE_TIMEOUT       = 0
-	DEFAULT_PROCESS_TIMEOUT     = 15 * time.Second
+	DEFAULT_PROCESS_TIMEOUT     = 15 * time.Millisecond
 )
 
 func NewApplication(name string, connMax int) *Application {
@@ -189,6 +189,7 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 		hand, ok := handler.(*handlerInfo)
 		if ok {
 			fw := newResponseWriterChannel(w)
+			worker := make(chan *SWorker)
 			errChan := make(chan interface{})
 			ctx, cancel := context.WithTimeout(app.context, app.processTimeout)
 			defer cancel()
@@ -209,8 +210,8 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 						hand.handler(ctx, &fw, r)
 					}()
 				} // otherwise, the task has been timeout
-			}, errChan)
-			runErr := fw.wait(ctx, errChan)
+			}, worker, errChan)
+			runErr := fw.wait(ctx, worker, errChan)
 			if runErr != nil {
 				switch runErr.(type) {
 				case *httputils.JSONClientError:
