@@ -42,7 +42,7 @@ const (
 	DEFAULT_READ_TIMEOUT        = 0
 	DEFAULT_READ_HEADER_TIMEOUT = 10 * time.Second
 	DEFAULT_WRITE_TIMEOUT       = 0
-	DEFAULT_PROCESS_TIMEOUT     = 15 * time.Millisecond
+	DEFAULT_PROCESS_TIMEOUT     = 15 * time.Second
 )
 
 func NewApplication(name string, connMax int) *Application {
