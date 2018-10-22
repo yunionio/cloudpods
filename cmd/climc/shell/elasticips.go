@@ -187,4 +187,16 @@ func init() {
 		return nil
 	})
 
+	type EipPurgeOptions struct {
+		ID string `help:"ID or name of EIP"`
+	}
+	R(&EipPurgeOptions{}, "eip-purge", "Purge EIP db records", func(s *mcclient.ClientSession, args *EipPurgeOptions) error {
+		result, err := modules.Elasticips.PerformAction(s, args.ID, "purge", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 }

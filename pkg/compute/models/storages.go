@@ -89,7 +89,7 @@ func (manager *SStorageManager) GetContextManager() []db.IModelManager {
 }
 
 func (self *SStorage) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetHostCount() > 0 || self.GetDiskCount() > 0 {
+	if self.GetHostCount() > 0 || self.GetDiskCount() > 0 || self.GetSnapshotCount() > 0 {
 		return httperrors.NewNotEmptyError("Not an empty storage provider")
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -101,6 +101,10 @@ func (self *SStorage) GetHostCount() int {
 
 func (self *SStorage) GetDiskCount() int {
 	return DiskManager.Query().Equals("storage_id", self.Id).Count()
+}
+
+func (self *SStorage) GetSnapshotCount() int {
+	return SnapshotManager.Query().Equals("storage_id", self.Id).Count()
 }
 
 func (self *SStorage) IsLocal() bool {
