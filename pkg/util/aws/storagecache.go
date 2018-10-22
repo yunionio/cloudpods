@@ -144,7 +144,7 @@ func (self *SRegion) createIImage(snapshotId, imageName, imageDesc string) (stri
 	if err != nil {
 		return "", err
 	}
-	return &ret.ImageId, nil
+	return *ret.ImageId, nil
 }
 
 func (self *SRegion) getStoragecache() *SStoragecache {
