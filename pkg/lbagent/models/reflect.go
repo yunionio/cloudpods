@@ -65,7 +65,7 @@ func GetModels(opts *GetModelsOptions) error {
 		}
 		// error if we do not have valid date
 		if max.IsZero() {
-			return time.Time{}, fmt.Errorf("cannot find next updated_at after '%q'",
+			return time.Time{}, fmt.Errorf("%s: cannot find next updated_at after '%q'",
 				manKeyPlural, lastUpdatedAt)
 		}
 

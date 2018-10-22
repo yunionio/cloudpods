@@ -2,7 +2,7 @@ package options
 
 type LoadbalancerListenerRuleCreateOptions struct {
 	NAME         string
-	Listener     string `required:true`
+	Listener     string `required:"true"`
 	BackendGroup string
 	Domain       string
 	Path         string

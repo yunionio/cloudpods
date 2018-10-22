@@ -20,7 +20,7 @@ func init() {
 	})
 
 	type EipAllocateOptions struct {
-		NAME string `help: "Eip Name"`
+		NAME string `help:"Eip Name"`
 	}
 	shellutils.R(&EipAllocateOptions{}, "eip-create", "Allocate an EIP", func(cli *azure.SRegion, args *EipAllocateOptions) error {
 		if eip, err := cli.AllocateEIP(args.NAME); err != nil {

@@ -36,8 +36,8 @@ func loadbalancerCertificateLoadFiles(cert, pkey string, allowEmpty bool) (*json
 type LoadbalancerCertificateCreateOptions struct {
 	NAME string
 
-	Cert string `required:true json:- help:"path to certificate file"`
-	Pkey string `required:true json:- help:"path to private key file"`
+	Cert string `required:"true" json:"-" help:"path to certificate file"`
+	Pkey string `required:"true" json:"-" help:"path to private key file"`
 }
 
 func (opts *LoadbalancerCertificateCreateOptions) Params() (*jsonutils.JSONDict, error) {
@@ -72,8 +72,8 @@ type LoadbalancerCertificateListOptions struct {
 type LoadbalancerCertificateUpdateOptions struct {
 	ID string
 
-	Cert string `json:- help:"path to certificate file"`
-	Pkey string `json:- help:"path to private key file"`
+	Cert string `json:"-" help:"path to certificate file"`
+	Pkey string `json:"-" help:"path to private key file"`
 }
 
 func (opts *LoadbalancerCertificateUpdateOptions) Params() (*jsonutils.JSONDict, error) {

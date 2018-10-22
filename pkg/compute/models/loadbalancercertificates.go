@@ -44,14 +44,14 @@ type SLoadbalancerCertificate struct {
 	PrivateKey  string `create:"required" list:"admin" update:"user"`
 
 	// derived attributes
-	PublicKeyAlgorithm      string    `create:"optional" list:user update:"user"`
-	PublicKeyBitLen         int       `create:"optional" list:user update:"user"`
-	SignatureAlgorithm      string    `create:"optional" list:user update:"user"`
-	FingerprintSha256       string    `create:"optional" list:user update:"user"`
-	NotBefore               time.Time `create:"optional" list:user update:"user"`
-	NotAfter                time.Time `create:"optional" list:user update:"user"`
-	CommonName              string    `create:"optional" list:user update:"user"`
-	SubjectAlternativeNames string    `create:"optional" list:user update:"user"`
+	PublicKeyAlgorithm      string    `create:"optional" list:"user" update:"user"`
+	PublicKeyBitLen         int       `create:"optional" list:"user" update:"user"`
+	SignatureAlgorithm      string    `create:"optional" list:"user" update:"user"`
+	FingerprintSha256       string    `create:"optional" list:"user" update:"user"`
+	NotBefore               time.Time `create:"optional" list:"user" update:"user"`
+	NotAfter                time.Time `create:"optional" list:"user" update:"user"`
+	CommonName              string    `create:"optional" list:"user" update:"user"`
+	SubjectAlternativeNames string    `create:"optional" list:"user" update:"user"`
 }
 
 func (man *SLoadbalancerCertificateManager) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {

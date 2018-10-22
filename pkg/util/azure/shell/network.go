@@ -52,7 +52,6 @@ func init() {
 			printObject(networkInterface)
 			return nil
 		}
-		return nil
 	})
 
 	type NetworkInterfaceCreateOptions struct {

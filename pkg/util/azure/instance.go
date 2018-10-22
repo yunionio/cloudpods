@@ -533,7 +533,6 @@ func (region *SRegion) DeployVM(instanceId, name, password, publicKey string, de
 		} else {
 			return region.resetPassword(instanceId, instance.Properties.OsProfile.AdminUsername, password)
 		}
-		return nil
 	}
 }
 

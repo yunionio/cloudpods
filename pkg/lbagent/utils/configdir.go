@@ -130,8 +130,6 @@ func (m *ConfigDirManager) stagingDir() string {
 		}
 		time.Sleep(time.Millisecond)
 	}
-	// TODO panic retries
-	return ""
 }
 
 func DirStagingToFinal(s string) string {

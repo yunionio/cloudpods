@@ -66,7 +66,6 @@ func (self *SStorage) GetIDisk(diskId string) (cloudprovider.ICloudDisk, error) 
 		disk.storage = self
 		return disk, nil
 	}
-	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {

@@ -13,11 +13,11 @@ func init() {
 	 */
 	type ResourceFeeListOptions struct {
 		options.BaseListOptions
-		STATTYPE  string `"help":"stat type of the resource_fee"`
-		STATMONTH string `"help":"stat month of the resource_fee"`
-		ProjectId string `"help":"project id of the resource_fee"`
-		StartDay  string `"help":"start day of the resource_fee"`
-		EndDay    string `"help":"end day of the resource_fee"`
+		STATTYPE  string `help:"stat type of the resource_fee"`
+		STATMONTH string `help:"stat month of the resource_fee"`
+		ProjectId string `help:"project id of the resource_fee"`
+		StartDay  string `help:"start day of the resource_fee"`
+		EndDay    string `help:"end day of the resource_fee"`
 	}
 	R(&ResourceFeeListOptions{}, "resourcefee-list", "List all resource fees", func(s *mcclient.ClientSession, args *ResourceFeeListOptions) error {
 		var params *jsonutils.JSONDict

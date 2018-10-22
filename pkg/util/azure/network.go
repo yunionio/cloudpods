@@ -125,7 +125,6 @@ func (self *SNetwork) Refresh() error {
 	} else {
 		return jsonutils.Update(self, new)
 	}
-	return nil
 }
 
 func (self *SNetwork) GetAllocTimeoutSeconds() int {

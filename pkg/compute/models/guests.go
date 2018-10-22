@@ -1746,7 +1746,6 @@ func (self *SGuest) attach2Disk(disk *SDisk, userCred mcclient.TokenCredential, 
 }
 
 func (self *SGuest) AllowPerformSaveImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	log.Infof("permission: %s", self.IsOwner(userCred))
 	return self.IsOwner(userCred)
 }
 

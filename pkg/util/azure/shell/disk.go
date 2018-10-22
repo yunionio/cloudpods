@@ -17,7 +17,6 @@ func init() {
 			printList(disks, len(disks), args.Offset, args.Limit, []string{})
 			return nil
 		}
-		return nil
 	})
 
 	type DiskCreateOptions struct {
@@ -35,8 +34,8 @@ func init() {
 			return err
 		} else {
 			printObject(disk)
+			return nil
 		}
-		return nil
 	})
 
 	type DiskOptions struct {

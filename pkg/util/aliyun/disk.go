@@ -264,7 +264,7 @@ func (self *SRegion) resizeDisk(diskId string, size int64) error {
 
 	_, err := self.ecsRequest("ResizeDisk", params)
 	if err != nil {
-		log.Errorf("ResizeDisk %s to %s GiB fail %s", diskId, size, err)
+		log.Errorf("resizing disk (%s) to %d GiB failed: %s", diskId, size, err)
 		return err
 	}
 

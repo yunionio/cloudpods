@@ -1,11 +1,11 @@
 package options
 
 type LoadbalancerBackendCreateOptions struct {
-	BackendGroup string `required:true`
-	Backend      string `required:true`
-	BackendType  string `default:guest`
-	Port         *int   `required:true`
-	Weight       *int   `default:1`
+	BackendGroup string `required:"true"`
+	Backend      string `required:"true"`
+	BackendType  string `default:"guest"`
+	Port         *int   `required:"true"`
+	Weight       *int   `default:"1"`
 }
 
 type LoadbalancerBackendListOptions struct {
