@@ -9,7 +9,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 )
 
-var localTaskWorkerMan *appsrv.WorkerManager
+var localTaskWorkerMan *appsrv.SWorkerManager
 
 func init() {
 	localTaskWorkerMan = appsrv.NewWorkerManager("LocalTaskWorkerManager", 4, 10)
@@ -42,5 +42,5 @@ func LocalTaskRun(task ITask, proc func() (jsonutils.JSONObject, error)) {
 			task.ScheduleRun(data)
 		}
 
-	}, nil)
+	}, nil, nil)
 }
