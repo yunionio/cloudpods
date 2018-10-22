@@ -14,8 +14,8 @@ func init() {
 		FakeDeleted bool   `help:"Show fake deleted snapshot or not"`
 		Local       bool   `help:"Show local snapshots"`
 		Share       bool   `help:"Show shared snapshots"`
-		DiskType    string `help: "Filter by disk type" choices:"sys|data"`
-		Provider    string `help: "Cloud provider" choices:"Aliyun|VMware|Azure"`
+		DiskType    string `help:"Filter by disk type" choices:"sys|data"`
+		Provider    string `help:"Cloud provider" choices:"Aliyun|VMware|Azure"`
 
 		Manager string `help:"Show snapshots belongs to a specific cloud provider"`
 	}

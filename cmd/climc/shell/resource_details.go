@@ -13,8 +13,8 @@ func init() {
 	 */
 	type ResourceDetailListOptions struct {
 		options.BaseListOptions
-		QUERYTYPE string `"help":"query type of the resource_detail"`
-		ProjectId string `"help":"project id of the resource_detail"`
+		QUERYTYPE string `help:"query type of the resource_detail"`
+		ProjectId string `help:"project id of the resource_detail"`
 	}
 	R(&ResourceDetailListOptions{}, "resourcedetail-list", "List all resource details", func(s *mcclient.ClientSession, args *ResourceDetailListOptions) error {
 		var params *jsonutils.JSONDict

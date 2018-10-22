@@ -10,23 +10,23 @@ import (
 )
 
 type LbagentOptions struct {
-	ApiLbagentId                  string `require:true`
-	ApiLbagentHbInterval          int    `default:10`
-	ApiLbagentHbTimeoutRelaxation int    `default:120 help:"If agent is to stale out in specified seconds in the future, consider it staled to avoid race condition when doing incremental api data fetch"`
+	ApiLbagentId                  string `require:"true"`
+	ApiLbagentHbInterval          int    `default:"10"`
+	ApiLbagentHbTimeoutRelaxation int    `default:"120" help:"If agent is to stale out in specified seconds in the future, consider it staled to avoid race condition when doing incremental api data fetch"`
 
 	ApiSyncInterval  int
-	ApiListBatchSize int `default:1024`
+	ApiListBatchSize int `default:"1024"`
 
-	DataPreserveN int `default:8 help:"number of recent data to preserve on disk"`
+	DataPreserveN int `default:"8" help:"number of recent data to preserve on disk"`
 
-	BaseDataDir      string // `required:true`
+	BaseDataDir      string // `required:"true"`
 	apiDataStoreDir  string
 	haproxyConfigDir string
 	haproxyRunDir    string
 
-	KeepalivedBin string `default:keepalived`
-	HaproxyBin    string `default:haproxy`
-	GobetweenBin  string `default:gobetween`
+	KeepalivedBin string `default:"keepalived"`
+	HaproxyBin    string `default:"haproxy"`
+	GobetweenBin  string `default:"gobetween"`
 }
 
 type Options struct {
