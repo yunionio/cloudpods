@@ -530,3 +530,22 @@ func (self *SSnapshot) GetISnapshotRegion() (cloudprovider.ICloudRegion, error) 
 	}
 	return provider.GetIRegionById(region.GetExternalId())
 }
+
+func (self *SSnapshot) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SSnapshot) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	err := self.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	provider := self.GetCloudprovider()
+	if provider != nil {
+		if provider.Enabled {
+			return nil, httperrors.NewInvalidStatusError("Cannot purge snapshot on enabled cloud provider")
+		}
+	}
+	err = self.RealDelete(ctx, userCred)
+	return nil, err
+}

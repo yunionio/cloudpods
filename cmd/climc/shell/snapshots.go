@@ -84,4 +84,17 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type SnapshotPurgeOptions struct {
+		ID string `help:"ID or name of Snapshot"`
+	}
+	R(&SnapshotPurgeOptions{}, "snapshot-purge", "Purge Snapshot db records", func(s *mcclient.ClientSession, args *SnapshotPurgeOptions) error {
+		result, err := modules.Snapshots.PerformAction(s, args.ID, "purge", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 }

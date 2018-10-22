@@ -96,6 +96,10 @@ func (self *SCloudprovider) getEipCount() int {
 	return ElasticipManager.Query().Equals("manager_id", self.Id).Count()
 }
 
+func (self *SCloudprovider) getSnapshotCount() int {
+	return SnapshotManager.Query().Equals("manager_id", self.Id).Count()
+}
+
 func (self *SCloudprovider) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
@@ -425,6 +429,7 @@ type SCloudproviderUsage struct {
 	StorageCount      int
 	StorageCacheCount int
 	EipCount          int
+	SnapshotCount     int
 }
 
 func (usage *SCloudproviderUsage) isEmpty() bool {
@@ -443,6 +448,9 @@ func (usage *SCloudproviderUsage) isEmpty() bool {
 	if usage.EipCount > 0 {
 		return false
 	}
+	if usage.SnapshotCount > 0 {
+		return false
+	}
 	return true
 }
 
@@ -454,6 +462,7 @@ func (self *SCloudprovider) getUsage() *SCloudproviderUsage {
 	usage.StorageCount = self.getStorageCount()
 	usage.StorageCacheCount = self.getStoragecacheCount()
 	usage.EipCount = self.getEipCount()
+	usage.SnapshotCount = self.getSnapshotCount()
 
 	return &usage
 }
