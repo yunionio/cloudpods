@@ -1254,7 +1254,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:201bff9d99a538dd71fd8e55bbbfda8a301fd89676d0668a2cedc574e1aeaa03"
+  digest = "1:2dd5cfa0e15bc1351229c0be3b09b0b7fe47d23e99d19edfba5b2402ddb1cf7b"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1288,7 +1288,7 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "122c7d4ce76b4611b63d86af8e9bb2610ab55c20"
+  revision = "194153d51e1c1bd8a3b9545ee0bc1504ddcdcb4d"
 
 [[projects]]
   branch = "master"
