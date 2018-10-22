@@ -121,7 +121,7 @@ func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	}
 
 	if managerStr := jsonutils.GetAnyString(query, []string{"manager", "manager_id"}); len(managerStr) > 0 {
-		managerObj, err := CloudproviderManager.FetchByIdOrName("", managerStr)
+		managerObj, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewNotFoundError("manager %s not found", managerStr)
