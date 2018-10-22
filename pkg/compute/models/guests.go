@@ -914,6 +914,12 @@ func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 		extra.Add(jsonutils.NewString(timeutils.FullIsoTime(pendingDeletedAt)), "auto_delete_at")
 	}
 
+	isGpu := jsonutils.JSONFalse
+	if self.isGpu() {
+		isGpu = jsonutils.JSONTrue
+	}
+	extra.Add(isGpu, "is_gpu")
+
 	return self.moreExtraInfo(extra)
 }
 
@@ -965,6 +971,13 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 		}
 		extra.Add(jsonutils.NewString(self.getAdminSecurityRules()), "admin_security_rules")
 	}
+
+	isGpu := jsonutils.JSONFalse
+	if self.isGpu() {
+		isGpu = jsonutils.JSONTrue
+	}
+	extra.Add(isGpu, "is_gpu")
+
 	return self.moreExtraInfo(extra)
 }
 
@@ -1164,6 +1177,10 @@ func (self *SGuest) getAdminSecurityRules() string {
 	} else {
 		return options.Options.DefaultAdminSecurityRules
 	}
+}
+
+func (self *SGuest) isGpu() bool {
+	return len(self.GetIsolatedDevices()) != 0
 }
 
 func (self *SGuest) GetIsolatedDevices() []SIsolatedDevice {
