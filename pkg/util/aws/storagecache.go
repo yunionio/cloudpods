@@ -122,6 +122,12 @@ func (self *SStoragecache) fetchImages() error {
 
 func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
 	// todo: implement me
+	err := self.region.initVmimport()
+	if err != nil {
+		return "", err
+	}
+
+
 	return "", nil
 }
 
@@ -293,7 +299,7 @@ func (self *SRegion) initVmimport() error {
 	if err := self.initVmimportBucket(); err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
