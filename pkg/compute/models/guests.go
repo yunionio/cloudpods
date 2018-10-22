@@ -2485,24 +2485,31 @@ func (self *SGuest) PerformRevokeSecgroup(ctx context.Context, userCred mcclient
 
 func (self *SGuest) PerformAssignSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING, VM_SUSPEND}) {
+		logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, "Cannot assign security rules in status "+self.Status, userCred, false)
 		return nil, httperrors.NewInputParameterError("Cannot assign security rules in status %s", self.Status)
 	} else {
 		if secgrp, err := data.GetString("secgrp"); err != nil {
+			logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, err, userCred, false)
 			return nil, err
 		} else if sg, err := SecurityGroupManager.FetchByIdOrName(userCred, secgrp); err != nil {
+			msg := fmt.Sprintf("SecurityGroup %s not found", secgrp)
+			logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, msg, userCred, false)
 			return nil, httperrors.NewNotFoundError("SecurityGroup %s not found", secgrp)
 		} else {
 			if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
 				self.SecgrpId = sg.GetId()
 				return nil
 			}); err != nil {
+				logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, err, userCred, false)
 				return nil, err
 			}
 			if err := self.StartSyncTask(ctx, userCred, true, ""); err != nil {
+				logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, err, userCred, false)
 				return nil, err
 			}
 		}
 	}
+	logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, nil, userCred, true)
 	return nil, nil
 }
 
