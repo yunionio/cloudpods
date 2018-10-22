@@ -23,8 +23,9 @@ import (
 )
 
 const (
-	ApiPathPrefix     = "/webconsole/"
-	ConnectPathPrefix = "/connect/"
+	ApiPathPrefix        = "/webconsole/"
+	ConnectPathPrefix    = "/connect/"
+	WebsockifyPathPrefix = "/websockify/"
 )
 
 func InitHandlers(app *appsrv.Application) {
@@ -32,6 +33,7 @@ func InitHandlers(app *appsrv.Application) {
 	app.AddHandler("POST", ApiPathPrefix+"k8s/<podName>/log", auth.Authenticate(handleK8sLog))
 	app.AddHandler("POST", ApiPathPrefix+"baremetal/<id>", auth.Authenticate(handleBaremetalShell))
 	app.AddHandler("POST", ApiPathPrefix+"ssh/<ip>", auth.Authenticate(handleSshShell))
+	app.AddHandler("POST", ApiPathPrefix+"server/<id>", auth.Authenticate(handleServerRemoteConsole))
 }
 
 func fetchEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (map[string]string, jsonutils.JSONObject, jsonutils.JSONObject) {
@@ -197,21 +199,58 @@ func handleBaremetalShell(ctx context.Context, w http.ResponseWriter, r *http.Re
 	handleCommandSession(cmd, w)
 }
 
-func handleCommandSession(cmd command.ICommand, w http.ResponseWriter) {
-	cmdSession, err := session.Manager.Save(cmd)
+func handleServerRemoteConsole(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	env, err := fetchCloudEnv(ctx, w, r)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
+	srvId := env.Params["<id>"]
+	info, err := session.NewRemoteConsoleInfoByCloud(env.ClientSessin, srvId)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	switch info.Protocol {
+	case session.ALIYUN:
+		responsePublicCloudConsole(info, w)
+	case session.VNC, session.SPICE, session.WMKS:
+		handleDataSession(info, w)
+	default:
+		httperrors.NotAcceptableError(w, "Unspported remote console protocol: %s", info.Protocol)
+	}
+}
+
+func responsePublicCloudConsole(info *session.RemoteConsoleInfo, w http.ResponseWriter) {
 	data := jsonutils.NewDict()
-	params, err := cmdSession.GetConnectParams()
+	params, err := info.GetConnectParams()
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
 	data.Add(jsonutils.NewString(params), "connect_params")
-	data.Add(jsonutils.NewString(cmdSession.Id), "session")
 	sendJSON(w, data)
+}
+
+func handleDataSession(sData session.ISessionData, w http.ResponseWriter) {
+	s, err := session.Manager.Save(sData)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	data := jsonutils.NewDict()
+	params, err := s.GetConnectParams()
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	data.Add(jsonutils.NewString(params), "connect_params")
+	data.Add(jsonutils.NewString(s.Id), "session")
+	sendJSON(w, data)
+}
+
+func handleCommandSession(cmd command.ICommand, w http.ResponseWriter) {
+	handleDataSession(cmd, w)
 }
 
 func sendJSON(w http.ResponseWriter, body jsonutils.JSONObject) {

@@ -1362,6 +1362,7 @@
     "github.com/golang-plus/uuid",
     "github.com/googollee/go-socket.io",
     "github.com/gorilla/mux",
+    "github.com/gorilla/websocket",
     "github.com/gosuri/uitable",
     "github.com/hako/durafmt",
     "github.com/jinzhu/gorm",

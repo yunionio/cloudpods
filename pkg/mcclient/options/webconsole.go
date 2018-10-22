@@ -41,3 +41,8 @@ type WebConsoleSshOptions struct {
 	WebConsoleOptions
 	IP string `help:"IP to connect"`
 }
+
+type WebConsoleServerOptions struct {
+	WebConsoleOptions
+	ID string `help:"Server id or name"`
+}
