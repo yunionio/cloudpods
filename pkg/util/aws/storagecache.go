@@ -1,13 +1,14 @@
 package aws
 
 import (
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"fmt"
+	"github.com/aliyun/aliyun-oss-go-sdk/oss"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"time"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SStoragecache struct {
@@ -127,7 +128,23 @@ func (self *SRegion) checkBucket(bucketName string) (*oss.Bucket, error) {
 }
 
 func (self *SRegion) createIImage(snapshotId, imageName, imageDesc string) (string, error) {
-	return "", nil
+	params := &ec2.CreateImageInput{}
+	params.SetDescription(imageDesc)
+	params.SetName(imageName)
+	block := &ec2.BlockDeviceMapping{}
+	block.SetDeviceName("/dev/sda1")
+	ebs := &ec2.EbsBlockDevice{}
+	ebs.SetSnapshotId(snapshotId)
+	ebs.SetDeleteOnTermination(true)
+	block.SetEbs(ebs)
+	blockList := []*ec2.BlockDeviceMapping{block}
+	params.SetBlockDeviceMappings(blockList)
+
+	ret, err := self.ec2Client.CreateImage(params)
+	if err != nil {
+		return "", err
+	}
+	return &ret.ImageId, nil
 }
 
 func (self *SRegion) getStoragecache() *SStoragecache {
