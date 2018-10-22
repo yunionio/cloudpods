@@ -1,11 +1,14 @@
 package appsrv
 
 import (
+	"container/list"
+	"context"
+	"fmt"
+	"net/http"
 	"runtime/debug"
 	"sync"
 
-	"container/list"
-	"fmt"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 )
 
@@ -18,6 +21,12 @@ var isDebug = false
 
 func enableDebug() {
 	isDebug = true
+}
+
+var workerManagers []*SWorkerManager
+
+func init() {
+	workerManagers = make([]*SWorkerManager, 0)
 }
 
 type SWorker struct {
@@ -133,6 +142,8 @@ func NewWorkerManager(name string, workerCount int, backlog int) *SWorkerManager
 		detachedWorker: newWorkerList(),
 		workerLock:     &sync.Mutex{},
 		workerId:       0}
+
+	workerManagers = append(workerManagers, &manager)
 	return &manager
 }
 
@@ -199,6 +210,34 @@ func (wm *SWorkerManager) ActiveWorkerCount() int {
 
 func (wm *SWorkerManager) DetachedWorkerCount() int {
 	return wm.detachedWorker.size()
+}
+
+type SWorkerManagerStates struct {
+	Name            string
+	Backlog         int
+	ActiveWorkerCnt int
+	DetachWorkerCnt int
+}
+
+func (wm *SWorkerManager) getState() SWorkerManagerStates {
+	state := SWorkerManagerStates{}
+
+	state.Name = wm.name
+	state.Backlog = wm.queue.Size()
+	state.ActiveWorkerCnt = wm.activeWorker.size()
+	state.DetachWorkerCnt = wm.detachedWorker.size()
+
+	return state
+}
+
+func WorkerStatsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	stats := make([]SWorkerManagerStates, 0)
+	for i := 0; i < len(workerManagers); i += 1 {
+		stats = append(stats, workerManagers[i].getState())
+	}
+	result := jsonutils.NewDict()
+	result.Add(jsonutils.Marshal(&stats), "workers")
+	fmt.Fprintf(w, result.String())
 }
 
 func WaitChannel(ch chan interface{}) interface{} {

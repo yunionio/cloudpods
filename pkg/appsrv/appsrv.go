@@ -49,7 +49,7 @@ func NewApplication(name string, connMax int) *Application {
 	app := Application{name: name,
 		context:           context.Background(),
 		connMax:           connMax,
-		session:           NewWorkerManager("sessionMan", connMax, DEFAULT_BACKLOG),
+		session:           NewWorkerManager("HttpRequestWorkerManager", connMax, DEFAULT_BACKLOG),
 		roots:             make(map[string]*RadixNode),
 		rootLock:          &sync.Mutex{},
 		idleTimeout:       DEFAULT_IDLE_TIMEOUT,
@@ -239,6 +239,7 @@ func (app *Application) addDefaultHandler() {
 	app.AddHandler("POST", "/ping", PingHandler)
 	app.AddHandler("GET", "/ping", PingHandler)
 	// app.AddHandler("OPTIONS", "/", CORSHandler)
+	app.AddHandler("GET", "/worker_stats", WorkerStatsHandler)
 }
 
 func timeoutHandle(h http.Handler) http.HandlerFunc {
