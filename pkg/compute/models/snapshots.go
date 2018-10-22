@@ -112,6 +112,18 @@ func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		sq := cloudproviderTbl.Query(cloudproviderTbl.Field("id")).Equals("provider", provider)
 		q = q.In("manager_id", sq)
 	}
+
+	if managerStr := jsonutils.GetAnyString(query, []string{"manager", "manager_id"}); len(managerStr) > 0 {
+		managerObj, err := CloudproviderManager.FetchByIdOrName("", managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewNotFoundError("manager %s not found", managerStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		q = q.Equals("manager_id", managerObj.GetId())
+	}
+
 	return q, nil
 }
 
