@@ -818,3 +818,11 @@ func (self *SElasticip) PerformPurge(ctx context.Context, userCred mcclient.Toke
 	err = self.RealDelete(ctx, userCred)
 	return nil, err
 }
+
+func (self *SElasticip) DoPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	if self.Mode == EIP_MODE_INSTANCE_PUBLICIP {
+		self.SVirtualResourceBase.DoPendingDelete(ctx, userCred)
+		return
+	}
+	self.Dissociate(ctx, userCred)
+}
