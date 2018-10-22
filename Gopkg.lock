@@ -131,7 +131,7 @@
   version = "0.11.0"
 
 [[projects]]
-  digest = "1:69c83bbce91c8bbe26c02018aee83bb761b68678d33699e342171cae4108598b"
+  digest = "1:1dca2dd08ed401070dfef14b4e181f17cced4f93cbf069901133eb19e0293816"
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -162,6 +162,7 @@
     "private/protocol/rest",
     "private/protocol/xml/xmlutil",
     "service/ec2",
+    "service/iam",
     "service/sts",
   ]
   pruneopts = "UT"
@@ -1366,6 +1367,7 @@
     "github.com/aws/aws-sdk-go/aws/credentials",
     "github.com/aws/aws-sdk-go/aws/session",
     "github.com/aws/aws-sdk-go/service/ec2",
+    "github.com/aws/aws-sdk-go/service/iam",
     "github.com/bitly/go-simplejson",
     "github.com/c-bata/go-prompt",
     "github.com/coredns/coredns/core/dnsserver",
@@ -1385,6 +1387,7 @@
     "github.com/coredns/coredns/plugin/nsid",
     "github.com/coredns/coredns/plugin/pkg/dnsutil",
     "github.com/coredns/coredns/plugin/pkg/fall",
+    "github.com/coredns/coredns/plugin/pkg/log",
     "github.com/coredns/coredns/plugin/pkg/upstream",
     "github.com/coredns/coredns/plugin/proxy",
     "github.com/coredns/coredns/plugin/reload",

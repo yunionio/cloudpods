@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/iam"
 	"time"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -119,12 +120,112 @@ func (self *SStoragecache) fetchImages() error {
 	return nil
 }
 
+func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
+	// todo: implement me
+	return "", nil
+}
+
+func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error) {
+   //  todo: implement me
+   return nil, nil
+}
+
 func (self *SRegion) CheckBucket(bucketName string) (*oss.Bucket, error) {
 	return self.checkBucket(bucketName)
 }
 
 func (self *SRegion) checkBucket(bucketName string) (*oss.Bucket, error) {
 	return nil, nil
+}
+
+func (self *SRegion) checkVmimportRole() error {
+	/*需要api access token 具备iam Full access权限*/
+	session, err := self.client.getDefaultSession()
+	if err != nil {
+		return err
+	}
+	iamClient := iam.New(session)
+	// search role vmimport
+	rolename := "vmimport"
+	ret, _ := iamClient.GetRole(&iam.GetRoleInput{RoleName: &rolename})
+	// todo: 这里得区分是not found.还是其他错误
+	if ret.Role != nil && ret.Role.RoleId != nil {
+		return nil
+	} else {
+		// create it
+		roleDoc := `{
+   "Version": "2012-10-17",
+   "Statement": [
+      {
+         "Effect": "Allow",
+         "Principal": { "Service": "vmie.amazonaws.com" },
+         "Action": "sts:AssumeRole",
+         "Condition": {
+            "StringEquals":{
+               "sts:Externalid": "vmimport"
+            }
+         }
+      }
+   ]
+}`
+		params := &iam.CreateRoleInput{}
+		params.SetDescription("vmimport role for image import")
+		params.SetRoleName(rolename)
+		params.SetAssumeRolePolicyDocument(roleDoc)
+
+		_, err = iamClient.CreateRole(params)
+		return err
+	}
+}
+
+func (self *SRegion) checkVmimportRolePolicy() error {
+	/*需要api access token 具备iam Full access权限*/
+	session, err := self.client.getDefaultSession()
+	if err != nil {
+		return err
+	}
+	iamClient := iam.New(session)
+	roleName := "vmimport"
+	policyName := "vmimport"
+	ret, err := iamClient.GetRolePolicy(&iam.GetRolePolicyInput{RoleName: &roleName, PolicyName: &policyName})
+	// todo: 这里得区分是not found.还是其他错误.
+	if ret.PolicyName != nil {
+		return nil
+	} else {
+		rolePolicy := `{
+   "Version":"2012-10-17",
+   "Statement":[
+      {
+         "Effect":"Allow",
+         "Action":[
+            "s3:GetBucketLocation",
+            "s3:GetObject",
+            "s3:ListBucket" 
+         ],
+         "Resource":[
+            "arn:aws:s3:::%[1]s",
+            "arn:aws:s3:::%[1]s/*"
+         ]
+      },
+      {
+         "Effect":"Allow",
+         "Action":[
+            "ec2:ModifySnapshotAttribute",
+            "ec2:CopySnapshot",
+            "ec2:RegisterImage",
+            "ec2:Describe*"
+         ],
+         "Resource":"*"
+      }
+   ]
+}`
+		params := &iam.CreatePolicyInput{}
+		params.SetDescription("vmimport policy for image import")
+		params.SetPolicyDocument(fmt.Sprintf(rolePolicy, "imgcache-onecloud"))
+		params.SetPolicyName(policyName)
+		_, err = iamClient.CreatePolicy(params)
+		return err
+	}
 }
 
 func (self *SRegion) createIImage(snapshotId, imageName, imageDesc string) (string, error) {
@@ -152,14 +253,4 @@ func (self *SRegion) getStoragecache() *SStoragecache {
 		self.storageCache = &SStoragecache{region: self}
 	}
 	return self.storageCache
-}
-
-func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
-	// todo: implement me
-	return "", nil
-}
-
-func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error) {
-   //  todo: implement me
-   return nil, nil
 }
