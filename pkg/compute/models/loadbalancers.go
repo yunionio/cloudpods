@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -142,10 +143,15 @@ func (lb *SLoadbalancer) PostCreate(ctx context.Context, userCred mcclient.Token
 }
 
 func (lb *SLoadbalancer) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", lb.GetOwnerProjectId()).Optional(true)
+	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", lb.GetOwnerProjectId())
+	backendGroupV.Optional(true)
 	err := backendGroupV.Validate(data)
 	if err != nil {
 		return nil, err
+	}
+	if backendGroup := backendGroupV.Model.(*SLoadbalancerBackendGroup); backendGroup.LoadbalancerId != lb.Id {
+		return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s, not %s",
+			backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, lb.Id)
 	}
 	return lb.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
