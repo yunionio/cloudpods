@@ -60,7 +60,7 @@ const (
 // golang 不支持 const 的string array, http://t.cn/EzAvbw8
 var BLACK_LIST_OBJ_TYPE = []string{"parameter"}
 
-var logclientWorkerMan *appsrv.WorkerManager
+var logclientWorkerMan *appsrv.SWorkerManager
 
 func init() {
 	logclientWorkerMan = appsrv.NewWorkerManager("LogClientWorkerManager", 1, 50)
@@ -119,5 +119,5 @@ func AddActionLog(model IObject, action string, iNotes interface{}, userCred mcc
 		if err != nil {
 			log.Errorf("create action log failed %s", err)
 		}
-	}, nil)
+	}, nil, nil)
 }
