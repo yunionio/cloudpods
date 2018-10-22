@@ -1061,7 +1061,7 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 	log.Debugf("deleteItem %s", jsonutils.Marshal(model))
 	if !model.AllowDeleteItem(ctx, userCred, query, data) {
 		log.Errorf("not allow to delete")
-		return nil, httperrors.NewForbiddenError(fmt.Sprintf("%s not allow to delete", manager.KeywordPlural(), model.GetId()))
+		return nil, httperrors.NewForbiddenError(fmt.Sprintf("%s(%s) not allow to delete", manager.KeywordPlural(), model.GetId()))
 	}
 
 	err := model.ValidateDeleteCondition(ctx)

@@ -209,7 +209,7 @@ func init() {
 	})
 	type DiskResetOptions struct {
 		DISK      string `help:"ID or name of disk"`
-		SNAPSHOT  string `help:"snapshots ID of disk`
+		SNAPSHOT  string `help:"snapshots ID of disk"`
 		AutoStart bool   `help:"Autostart guest"`
 	}
 	R(&DiskResetOptions{}, "disk-reset", "Resize a disk", func(s *mcclient.ClientSession, args *DiskResetOptions) error {
@@ -227,7 +227,7 @@ func init() {
 	})
 	type DiskCreateSnapshotOptions struct {
 		DISK          string `help:"ID or name of disk"`
-		SNAPSHOT_NAME string `help:"Snapshots name`
+		SNAPSHOT_NAME string `help:"Snapshot name"`
 	}
 	R(&DiskCreateSnapshotOptions{}, "disk-create-snapshot", "Disk create snapshot", func(s *mcclient.ClientSession, args *DiskCreateSnapshotOptions) error {
 		params := jsonutils.NewDict()

@@ -14,16 +14,16 @@ type LoadbalancerAgentParamsOptions struct {
 	VrrpPriority          *int // required
 	VrrpVirtualRouterId   *int // required
 	VrrpGarpMasterRefresh *int
-	VrrpPreempt           string `choices:true|false`
+	VrrpPreempt           string `choices:"true|false"`
 	VrrpInterface         string // required
 	VrrpAdvertInt         *int
 	VrrpPass              string
 
 	HaproxyGlobalLog      string
-	HaproxyGlobalNbthread *int   `default:1 help:"enable experimental multi-threading support available since haproxy 1.8"`
-	HaproxyLogHttp        string `choices:true|false`
-	HaproxyLogTcp         string `choices:true|false`
-	HaproxyLogNormal      string `choices:true|false`
+	HaproxyGlobalNbthread *int   `default:"1" help:"enable experimental multi-threading support available since haproxy 1.8"`
+	HaproxyLogHttp        string `choices:"true|false"`
+	HaproxyLogTcp         string `choices:"true|false"`
+	HaproxyLogNormal      string `choices:"true|false"`
 }
 
 func (opts *LoadbalancerAgentParamsOptions) setPrefixedParams(params *jsonutils.JSONDict, pref string) {

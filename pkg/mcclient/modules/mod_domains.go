@@ -238,9 +238,9 @@ func (this *DomainManager) DoDomainConfigDelete(s *mcclient.ClientSession, param
 		if driver != "ldap" {
 			if result, err := UsersV3.List(s, params); err != nil {
 				log.Errorf("user list got error: %v", err)
-				return ret, httperrors.NewInternalServerError("Not allow delete: failed to fetch related user list.")
+				return ret, httperrors.NewInternalServerError("fetching user list failed: %s", err)
 			} else if len(result.Data) > 0 {
-				return ret, httperrors.NewForbiddenError(fmt.Sprintf("Not allow delete: there still exists %s user related with domain %s.", objId, len(result.Data)))
+				return ret, httperrors.NewForbiddenError(fmt.Sprintf("cannot delete: there still exists %d user related with domain %s.", len(result.Data), objId))
 			}
 		}
 

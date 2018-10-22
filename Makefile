@@ -51,12 +51,14 @@ build: prepare_dir fmt
 	done
 
 
-test: prepare_dir
+test:
 	@for PKG in $$( $(PKGS) | grep "$(filter-out $@,$(MAKECMDGOALS))" ); do \
 		echo $$PKG; \
 		$(GO_TEST) $$PKG; \
 	done
 
+vet:
+	go vet ./...
 
 cmd/%: prepare_dir fmt
 	$(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@

@@ -3,12 +3,12 @@ package options
 type LoadbalancerListenerCreateOptions struct {
 	NAME string
 
-	Loadbalancer string `required:true`
-	ListenerType string `required:true choices:tcp|udp|http|https`
-	ListenerPort *int   `required:true`
+	Loadbalancer string `required:"true"`
+	ListenerType string `required:"true" choices:"tcp|udp|http|https"`
+	ListenerPort *int   `required:"true"`
 	BackendGroup string
 
-	Scheduler string `required:true choices:"rr|wrr|wlc|sch|tch"`
+	Scheduler string `required:"true" choices:"rr|wrr|wlc|sch|tch"`
 	Bandwidth *int
 
 	ClientRequestTimeout  *int
@@ -40,19 +40,19 @@ type LoadbalancerListenerCreateOptions struct {
 	StickySessionCookie        string
 	StickySessionCookieTimeout *int
 
-	XForwardedFor string `choices:true|false`
-	Gzip          string `choices:true|false`
+	XForwardedFor string `choices:"true|false"`
+	Gzip          string `choices:"true|false"`
 
 	Certificate     string
 	TLSCipherPolicy string
-	EnableHttp2     string `choices:true|false`
+	EnableHttp2     string `choices:"true|false"`
 }
 
 type LoadbalancerListenerListOptions struct {
 	BaseListOptions
 
 	Loadbalancer string
-	ListenerType string `choices:tcp|udp|http|https`
+	ListenerType string `choices:"tcp|udp|http|https"`
 	ListenerPort *int
 	BackendGroup string
 
@@ -88,12 +88,12 @@ type LoadbalancerListenerListOptions struct {
 	StickySessionCookie        string
 	StickySessionCookieTimeout *int
 
-	XForwardedFor string `choices:true|false`
-	Gzip          string `choices:true|false`
+	XForwardedFor string `choices:"true|false"`
+	Gzip          string `choices:"true|false"`
 
 	Certificate     string
 	TLSCipherPolicy string
-	EnableHttp2     string `choices:true|false`
+	EnableHttp2     string `choices:"true|false"`
 }
 
 type LoadbalancerListenerUpdateOptions struct {
@@ -133,12 +133,12 @@ type LoadbalancerListenerUpdateOptions struct {
 	StickySessionCookie        string
 	StickySessionCookieTimeout *int
 
-	XForwardedFor string `choices:true|false`
-	Gzip          string `choices:true|false`
+	XForwardedFor string `choices:"true|false"`
+	Gzip          string `choices:"true|false"`
 
 	Certificate     string
 	TLSCipherPolicy string
-	EnableHttp2     string `choices:true|false`
+	EnableHttp2     string `choices:"true|false"`
 }
 
 type LoadbalancerListenerGetOptions struct {

@@ -41,12 +41,9 @@ func init() {
 			for i := 0; i < len(args.Label); i += 1 {
 				sublabel := args.Label[:i+1]
 				pid, _ := modules.TreeNodes.GetNodeIDByLabels(s, sublabel)
-
 				if pid < 0 {
-					fmt.Errorf("Invalid node data")
-					return nil
+					return fmt.Errorf("Invalid node data")
 				}
-
 				segs[i] = fmt.Sprintf("%s=%d", names[i], pid)
 			}
 

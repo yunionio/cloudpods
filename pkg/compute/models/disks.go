@@ -1270,8 +1270,8 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 			continue
 		}
 		guests := disk.GetGuests()
-		if guests == nil || len(guests) > 1 {
-			log.Errorln("Disk %s not attach or attached more than one guest", disk.Id)
+		if len(guests) != 1 {
+			log.Errorf("Disk %s(%s) is attached to %d guest(s)", disk.Name, disk.Id, len(guests))
 			continue
 		}
 		if !utils.IsInStringArray(guests[0].Status, []string{VM_RUNNING, VM_READY}) {

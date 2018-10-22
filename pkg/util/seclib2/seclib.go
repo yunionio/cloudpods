@@ -53,7 +53,6 @@ func RandomPassword2(width int) string {
 			return buf.String()
 		}
 	}
-	return ""
 }
 
 func AnalyzePasswordStrenth(passwd string) PasswordStrength {
