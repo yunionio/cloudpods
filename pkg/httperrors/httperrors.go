@@ -106,3 +106,7 @@ func NotSufficientPrivilegeError(w http.ResponseWriter, msg string, params ...in
 func ResourceNotFoundError(w http.ResponseWriter, msg string, params ...interface{}) {
 	JsonClientError(w, NewResourceNotFoundError(msg, params...))
 }
+
+func TimeoutError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewTimeoutError(msg, params...))
+}
