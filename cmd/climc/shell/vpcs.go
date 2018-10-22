@@ -11,7 +11,7 @@ func init() {
 	type VpcListOptions struct {
 		options.BaseListOptions
 		Region  string `help:"ID or Name of region"`
-		Manager string `help:"Show regions belongs to the cloud provider"`
+		Manager string `help:"Show vpcs belongs to the cloud provider"`
 	}
 	R(&VpcListOptions{}, "vpc-list", "List VPCs", func(s *mcclient.ClientSession, args *VpcListOptions) error {
 		var params *jsonutils.JSONDict

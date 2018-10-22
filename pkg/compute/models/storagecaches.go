@@ -318,7 +318,7 @@ func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcc
 		return nil, err
 	}
 
-	err = scimg.markDeleting(ctx, userCred)
+	err = scimg.markDeleting(ctx, userCred, isForce)
 	if err != nil {
 		return nil, httperrors.NewInvalidStatusError("Fail to mark cache status: %s", err)
 	}
