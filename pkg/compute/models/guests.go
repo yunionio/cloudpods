@@ -3093,6 +3093,10 @@ func (self *SGuest) StartChangeConfigTask(ctx context.Context, userCred mcclient
 }
 
 func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	eip, _ := self.GetEip()
+	if eip != nil {
+		eip.DoPendingDelete(ctx, userCred)
+	}
 	for _, guestdisk := range self.GetDisks() {
 		disk := guestdisk.GetDisk()
 		storage := disk.GetStorage()
@@ -4486,10 +4490,18 @@ func (self *SGuest) DeleteEip(ctx context.Context, userCred mcclient.TokenCreden
 	if eip == nil {
 		return nil
 	}
-	err = eip.Delete(ctx, userCred)
-	if err != nil {
-		log.Errorf("Delete eip fail %s", err)
-		return err
+	if eip.Mode == EIP_MODE_INSTANCE_PUBLICIP {
+		err = eip.RealDelete(ctx, userCred)
+		if err != nil {
+			log.Errorf("Delete eip on delete server fail %s", err)
+			return err
+		}
+	} else {
+		err = eip.Dissociate(ctx, userCred)
+		if err != nil {
+			log.Errorf("Dissociate eip on delete server fail %s", err)
+			return err
+		}
 	}
 	return nil
 }

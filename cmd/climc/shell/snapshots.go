@@ -16,6 +16,8 @@ func init() {
 		Share       bool   `help:"Show shared snapshots"`
 		DiskType    string `help: "Filter by disk type" choices:"sys|data"`
 		Provider    string `help: "Cloud provider" choices:"Aliyun|VMware|Azure"`
+
+		Manager string `help:"Show snapshots belongs to a specific cloud provider"`
 	}
 	R(&SnapshotsListOptions{}, "snapshot-list", "Show snapshots", func(s *mcclient.ClientSession, args *SnapshotsListOptions) error {
 		params, err := args.BaseListOptions.Params()
@@ -40,6 +42,9 @@ func init() {
 		}
 		if len(args.Provider) > 0 {
 			params.Add(jsonutils.NewString(args.Provider), "provider")
+		}
+		if len(args.Manager) > 0 {
+			params.Add(jsonutils.NewString(args.Manager), "manager")
 		}
 		result, err := modules.Snapshots.List(s, params)
 		if err != nil {
@@ -84,4 +89,17 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type SnapshotPurgeOptions struct {
+		ID string `help:"ID or name of Snapshot"`
+	}
+	R(&SnapshotPurgeOptions{}, "snapshot-purge", "Purge Snapshot db records", func(s *mcclient.ClientSession, args *SnapshotPurgeOptions) error {
+		result, err := modules.Snapshots.PerformAction(s, args.ID, "purge", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 }
