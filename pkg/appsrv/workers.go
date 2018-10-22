@@ -215,6 +215,7 @@ func (wm *SWorkerManager) DetachedWorkerCount() int {
 type SWorkerManagerStates struct {
 	Name            string
 	Backlog         int
+	MaxWorkerCnt    int
 	ActiveWorkerCnt int
 	DetachWorkerCnt int
 }
@@ -224,6 +225,7 @@ func (wm *SWorkerManager) getState() SWorkerManagerStates {
 
 	state.Name = wm.name
 	state.Backlog = wm.queue.Size()
+	state.MaxWorkerCnt = wm.workerCount
 	state.ActiveWorkerCnt = wm.activeWorker.size()
 	state.DetachWorkerCnt = wm.detachedWorker.size()
 
