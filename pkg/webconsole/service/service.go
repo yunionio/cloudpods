@@ -54,8 +54,11 @@ func start() {
 	// api handler
 	root.PathPrefix(webconsole.ApiPathPrefix).Handler(app)
 
-	// websocket related console handler
+	// websocket command text console handler
 	root.Handle(webconsole.ConnectPathPrefix, server.NewConnectionServer())
+
+	// websockify graphic console handler
+	root.Handle(webconsole.WebsockifyPathPrefix, server.NewConnectionServer())
 
 	addr := net.JoinHostPort(o.Options.Address, strconv.Itoa(o.Options.Port))
 	log.Infof("Start listen on %s", addr)
