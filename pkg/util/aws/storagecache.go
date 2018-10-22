@@ -2,9 +2,9 @@ package aws
 
 import (
 	"fmt"
-	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"time"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -130,15 +130,46 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
    return nil, nil
 }
 
-func (self *SRegion) CheckBucket(bucketName string) (*oss.Bucket, error) {
+func (self *SRegion) CheckBucket(bucketName string) error {
 	return self.checkBucket(bucketName)
 }
 
-func (self *SRegion) checkBucket(bucketName string) (*oss.Bucket, error) {
-	return nil, nil
+func (self *SRegion) checkBucket(bucketName string) error {
+	exists, err := self.IsBucketExist(bucketName)
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		return fmt.Errorf("bucket %s not found", bucketName)
+	} else {
+		return nil
+	}
+
 }
 
-func (self *SRegion) checkVmimportRole() error {
+func (self *SRegion) IsBucketExist(bucketName string) (bool, error) {
+	session, err := self.client.getDefaultSession()
+	if err != nil {
+		return false, err
+	}
+	s3Client := s3.New(session)
+	params := &s3.ListBucketsInput{}
+	ret, err := s3Client.ListBuckets(params)
+	if err != nil {
+		return false, err
+	}
+
+	for _, bucket := range ret.Buckets {
+		if bucket.Name != nil && *bucket.Name == bucketName {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (self *SRegion) initVmimportRole() error {
 	/*需要api access token 具备iam Full access权限*/
 	session, err := self.client.getDefaultSession()
 	if err != nil {
@@ -178,7 +209,7 @@ func (self *SRegion) checkVmimportRole() error {
 	}
 }
 
-func (self *SRegion) checkVmimportRolePolicy() error {
+func (self *SRegion) initVmimportRolePolicy() error {
 	/*需要api access token 具备iam Full access权限*/
 	session, err := self.client.getDefaultSession()
 	if err != nil {
@@ -226,6 +257,44 @@ func (self *SRegion) checkVmimportRolePolicy() error {
 		_, err = iamClient.CreatePolicy(params)
 		return err
 	}
+}
+
+func (self *SRegion) initVmimportBucket() error {
+	bucketName := "imgcache-onecloud"
+	// todo: "imgcache-onecloud" 使用常量
+	exists, err := self.IsBucketExist("imgcache-onecloud")
+	if err != nil {
+		return err
+	}
+
+	if exists  {
+		return nil
+	}
+
+	// todo: 这里提取出get s3 session.
+	session, err := self.client.getDefaultSession()
+	if err != nil {
+		return err
+	}
+	s3Client := s3.New(session)
+	_, err = s3Client.CreateBucket(&s3.CreateBucketInput{Bucket: &bucketName})
+	return err
+}
+
+func (self *SRegion) initVmimport() error {
+	if err := self.initVmimportRole(); err != nil {
+		return err
+	}
+
+	if err := self.initVmimportRolePolicy(); err != nil {
+		return err
+	}
+
+	if err := self.initVmimportBucket(); err != nil {
+		return err
+	}
+	
+	return nil
 }
 
 func (self *SRegion) createIImage(snapshotId, imageName, imageDesc string) (string, error) {
