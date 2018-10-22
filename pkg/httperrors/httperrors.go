@@ -94,3 +94,7 @@ func TenantNotFoundError(w http.ResponseWriter, msg string, params ...interface{
 func OutOfQuotaError(w http.ResponseWriter, msg string, params ...interface{}) {
 	JsonClientError(w, NewOutOfQuotaError(msg, params...))
 }
+
+func TimeoutError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewTimeoutError(msg, params...))
+}
