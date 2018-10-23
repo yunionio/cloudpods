@@ -127,7 +127,7 @@ func (self *SEipAddress) ChangeBandwidth(bw int) error {
 	return self.region.UpdateEipBandwidth(self.AllocationId, bw)
 }
 
-func (self *SRegion) GetEips(eipId string) ([]SEipAddress, int, error) {
+func (self *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddress, int, error) {
 	params := ec2.DescribeAddressesInput{}
 	if len(eipId) > 0 {
 		params.SetAllocationIds([]*string{&eipId})
@@ -156,7 +156,7 @@ func (self *SRegion) GetEips(eipId string) ([]SEipAddress, int, error) {
 }
 
 func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
-	eips, total, err := region.GetEips(eipId)
+	eips, total, err := region.GetEips(eipId, 0, 0)
 	if err != nil {
 		return nil, err
 	}

@@ -122,7 +122,7 @@ func (self *SRegion) createNetwork(zoneId string, vpcId string, name string, cid
 }
 
 func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
-	networks, total, err := self.GetNetwroks([]string{networkId}, "")
+	networks, total, err := self.GetNetwroks([]string{networkId}, "",0 ,0)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func (self *SRegion) deleteNetwork(networkId string) error {
 	return err
 }
 
-func (self *SRegion) GetNetwroks(ids []string, vpcId string) ([]SNetwork, int, error) {
+func (self *SRegion) GetNetwroks(ids []string, vpcId string, limit int, offset int) ([]SNetwork, int, error) {
 	params := &ec2.DescribeSubnetsInput{}
 	if len(ids) > 0 {
 		_ids := make([]*string, len(ids))

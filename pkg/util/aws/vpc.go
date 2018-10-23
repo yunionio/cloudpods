@@ -186,7 +186,7 @@ func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
 }
 
 func (self *SVpc) fetchNetworks() error {
-	networks, _, err := self.region.GetNetwroks(nil, self.VpcId)
+	networks, _, err := self.region.GetNetwroks(nil, self.VpcId, 0, 0)
 	if err != nil {
 		return err
 	}
