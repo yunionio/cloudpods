@@ -444,6 +444,24 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	return &instances[0], nil
 }
 
+func (self *SRegion) GetInstanceIdByImageId(imageId string) (string, error) {
+	params := &ec2.DescribeInstancesInput{}
+	filters := []*ec2.Filter{}
+	filters = AppendSingleValueFilter(filters, "image-id", imageId)
+	params.SetFilters(filters)
+	ret, err := self.ec2Client.DescribeInstances(params)
+	if err != nil {
+		return "", err
+	}
+
+	for _, item := range ret.Reservations {
+		for _, instance := range item.Instances {
+			return *instance.InstanceId, nil
+		}
+	}
+	return "", fmt.Errorf("instance launch with image %s not found", imageId)
+}
+
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, SubnetId string, securityGroupId string,
 	zoneId string, desc string, passwd string, disks []SDisk, ipAddr string,
 	keypair string) (string, error) {

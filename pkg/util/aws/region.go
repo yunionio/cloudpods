@@ -1,19 +1,23 @@
 package aws
 
 import (
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/jsonutils"
 	"fmt"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	sdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SRegion struct {
 	client *SAwsClient
 	ec2Client *ec2.EC2
+	iamClient *iam.IAM
+	s3Client  *s3.S3
 
 	izones []cloudprovider.ICloudZone
 	ivpcs  []cloudprovider.ICloudVpc
@@ -47,6 +51,40 @@ func (self *SRegion) getEc2Client() (*ec2.EC2, error) {
 	}
 
 	return self.ec2Client, nil
+}
+
+func (self *SRegion) getIamClient() (*iam.IAM, error) {
+	if self.iamClient == nil {
+		s, err := session.NewSession(&sdk.Config{
+			Region: sdk.String(self.RegionId),
+			Credentials: credentials.NewStaticCredentials(self.client.accessKey, self.client.secret, ""),
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		self.iamClient = iam.New(s)
+	}
+
+	return self.iamClient, nil
+}
+
+func (self *SRegion) getS3Client() (*s3.S3, error) {
+	if self.s3Client == nil {
+		s, err := session.NewSession(&sdk.Config{
+			Region: sdk.String(self.RegionId),
+			Credentials: credentials.NewStaticCredentials(self.client.accessKey, self.client.secret, ""),
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		self.s3Client = s3.New(s)
+	}
+
+	return self.s3Client, nil
 }
 /////////////////////////////////////////////////////////////////////////////
 func (self *SRegion) fetchZones() error {

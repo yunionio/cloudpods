@@ -1,15 +1,20 @@
 package aws
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"io/ioutil"
 	"time"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 type SStoragecache struct {
@@ -122,18 +127,114 @@ func (self *SStoragecache) fetchImages() error {
 
 func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
 	// todo: implement me
+	bucketName := "imgcache-onecloud"
 	err := self.region.initVmimport()
 	if err != nil {
 		return "", err
 	}
 
+	// first upload image to oss
+	s := auth.GetAdminSession(options.Options.Region, "")
 
-	return "", nil
+	meta, reader, err := modules.Images.Download(s, imageId)
+	if err != nil {
+		return "", err
+	}
+	log.Infof("meta data %s", meta)
+
+	s3Client, err := self.region.getS3Client()
+	if err != nil {
+		return "", nil
+	}
+	// 内存？
+	f, err := ioutil.ReadAll(reader)
+	params := &s3.PutObjectInput{}
+	params.SetBucket(bucketName)
+	params.SetKey(imageId)
+	params.SetBody(bytes.NewReader(f))
+	_, err = s3Client.PutObject(params)
+	if err != nil {
+		return "", nil
+	}
+
+	imageBaseName := imageId
+	if imageBaseName[0] >= '0' && imageBaseName[0] <= '9' {
+		imageBaseName = fmt.Sprintf("img%s", imageId)
+	}
+	imageName := imageBaseName
+	nameIdx := 1
+
+	// check image name, avoid name conflict
+	for {
+		_, err = self.region.GetImageByName(imageName)
+		if err != nil {
+			if err == cloudprovider.ErrNotFound {
+				break
+			} else {
+				return "", err
+			}
+		}
+
+		imageName = fmt.Sprintf("%s-%d", imageBaseName, nameIdx)
+		nameIdx += 1
+	}
+
+	task, err := self.region.ImportImage(imageName, osArch, osType, osDist, bucketName, imageId)
+
+	if err != nil {
+		log.Errorf("ImportImage error %s %s %s", imageId, bucketName, err)
+		return "", err
+	}
+
+	// todo:// 等待镜像导入完成
+	err = self.region.ec2Client.WaitUntilImageExists(&ec2.DescribeImagesInput{ImageIds:[]*string{&task.ImageId}})
+	return task.ImageId, err
+
 }
 
 func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error) {
-   //  todo: implement me
-   return nil, nil
+	// aws 导出镜像限制比较多。https://docs.aws.amazon.com/zh_cn/vm-import/latest/userguide/vmexport.html
+	bucketName := "imgcache-onecloud"
+	if err := self.region.checkBucket(bucketName); err != nil {
+		return nil, err
+	}
+
+	instanceId, err := self.region.GetInstanceIdByImageId(extId)
+	if err != nil {
+		return nil, err
+	}
+
+	task, err := self.region.ExportImage(instanceId, imageId)
+	if err != nil {
+		return nil, err
+	}
+
+	taskParams := &ec2.DescribeExportTasksInput{}
+	taskParams.SetExportTaskIds([]*string{&task.TaskId})
+	if err := self.region.ec2Client.WaitUntilExportTaskCompleted(taskParams); err != nil {
+		return nil, err
+	}
+
+	s3Client, err := self.region.getS3Client()
+	if err != nil {
+		return nil, err
+	}
+
+	i := &s3.GetObjectInput{}
+	i.SetBucket(bucketName)
+	i.SetKey(fmt.Sprintf("%s.%s", task.TaskId, "ova"))
+	ret, err := s3Client.GetObject(i)
+	if err != nil {
+		return nil, err
+	}
+
+	s := auth.GetAdminSession(options.Options.Region, "")
+	params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
+    if result, err := modules.Images.Upload(s, params, ret.Body, IntVal(ret.ContentLength)); err != nil {
+		return nil, err
+	} else {
+		return result, nil
+	}
 }
 
 func (self *SRegion) CheckBucket(bucketName string) error {
@@ -155,11 +256,11 @@ func (self *SRegion) checkBucket(bucketName string) error {
 }
 
 func (self *SRegion) IsBucketExist(bucketName string) (bool, error) {
-	session, err := self.client.getDefaultSession()
+	s3Client, err := self.getS3Client()
 	if err != nil {
 		return false, err
 	}
-	s3Client := s3.New(session)
+
 	params := &s3.ListBucketsInput{}
 	ret, err := s3Client.ListBuckets(params)
 	if err != nil {
@@ -177,11 +278,11 @@ func (self *SRegion) IsBucketExist(bucketName string) (bool, error) {
 
 func (self *SRegion) initVmimportRole() error {
 	/*需要api access token 具备iam Full access权限*/
-	session, err := self.client.getDefaultSession()
+	iamClient, err := self.getIamClient()
 	if err != nil {
 		return err
 	}
-	iamClient := iam.New(session)
+
 	// search role vmimport
 	rolename := "vmimport"
 	ret, _ := iamClient.GetRole(&iam.GetRoleInput{RoleName: &rolename})
@@ -217,11 +318,11 @@ func (self *SRegion) initVmimportRole() error {
 
 func (self *SRegion) initVmimportRolePolicy() error {
 	/*需要api access token 具备iam Full access权限*/
-	session, err := self.client.getDefaultSession()
+	iamClient, err := self.getIamClient()
 	if err != nil {
 		return err
 	}
-	iamClient := iam.New(session)
+
 	roleName := "vmimport"
 	policyName := "vmimport"
 	ret, err := iamClient.GetRolePolicy(&iam.GetRolePolicyInput{RoleName: &roleName, PolicyName: &policyName})
@@ -277,12 +378,11 @@ func (self *SRegion) initVmimportBucket() error {
 		return nil
 	}
 
-	// todo: 这里提取出get s3 session.
-	session, err := self.client.getDefaultSession()
+	s3Client, err := self.getS3Client()
 	if err != nil {
 		return err
 	}
-	s3Client := s3.New(session)
+
 	_, err = s3Client.CreateBucket(&s3.CreateBucketInput{Bucket: &bucketName})
 	return err
 }

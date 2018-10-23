@@ -1,12 +1,12 @@
 package aws
 
 import (
+	"fmt"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"time"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"fmt"
-	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
 type ImageStatusType string
@@ -135,6 +135,30 @@ func (self *SRegion) ImportImage(name string, osArch string, osType string, osDi
 	}
 
 	return &ImageImportTask{ImageId: *ret.ImageId, RegionId: self.RegionId, TaskId: *ret.ImportTaskId}, nil
+}
+
+type ImageExportTask struct {
+	ImageId  string
+	RegionId string
+	TaskId string
+}
+
+func (self *SRegion) ExportImage(instanceId string,imageId string) (*ImageExportTask, error) {
+	params := &ec2.CreateInstanceExportTaskInput{}
+	params.SetInstanceId(instanceId)
+	params.SetDescription(fmt.Sprintf("image %s export from aws", imageId))
+	params.SetTargetEnvironment("vmware")
+	spec := &ec2.ExportToS3TaskSpecification{}
+	spec.SetContainerFormat("ova")
+	spec.SetDiskImageFormat("RAW")
+	spec.SetS3Bucket("imgcache-onecloud")
+	params.SetExportToS3Task(spec)
+	ret, err := self.ec2Client.CreateInstanceExportTask(params)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ImageExportTask{ImageId: imageId, RegionId: self.RegionId, TaskId: *ret.ExportTask.ExportTaskId}, nil
 }
 
 func (self *SRegion) GetImage(imageId string) (*SImage, error) {
