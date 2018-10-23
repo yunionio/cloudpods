@@ -1660,7 +1660,7 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 			continue // cannot determine which network it attached to
 		}
 		// check if the IP has been occupied, if yes, release the IP
-		gn, err := GuestnetworkManager.getGuestNicByIP(add.nic.GetIP())
+		gn, err := GuestnetworkManager.getGuestNicByIP(add.nic.GetIP(), add.net.Id)
 		if err != nil {
 			result.AddError(err)
 			continue

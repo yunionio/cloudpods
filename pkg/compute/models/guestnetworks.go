@@ -338,10 +338,10 @@ func (manager *SGuestnetworkManager) DeleteGuestNics(ctx context.Context, guest 
 	return nil
 }
 
-func (manager *SGuestnetworkManager) getGuestNicByIP(ip string) (*SGuestnetwork, error) {
+func (manager *SGuestnetworkManager) getGuestNicByIP(ip string, networkId string) (*SGuestnetwork, error) {
 	gn := SGuestnetwork{}
 	q := manager.Query()
-	q = q.Equals("ip_addr", ip)
+	q = q.Equals("ip_addr", ip).Equals("network_id", networkId)
 	err := q.First(&gn)
 	if err != nil {
 		if err != sql.ErrNoRows {
