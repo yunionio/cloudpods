@@ -1,1 +1,6 @@
 DESCRIPTION="Yunion Cloud Webconsole Service"
+
+REQUIRES=(
+	sshpass
+	ipmitool
+)
