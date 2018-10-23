@@ -165,3 +165,7 @@ func (self *SSnapshot) GetManagerId() string {
 func (self *SSnapshot) GetRegionId() string {
 	return self.region.GetId()
 }
+
+func (self *SSnapshot) GetDiskType() string {
+	return ""
+}

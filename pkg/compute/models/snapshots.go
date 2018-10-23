@@ -47,6 +47,7 @@ type SSnapshot struct {
 	Size        int    `nullable:"false" list:"user"` // MB
 	OutOfChain  bool   `nullable:"false" default:"false" index:"true" list:"admin"`
 	FakeDeleted bool   `nullable:"false" default:"false" index:"true"`
+	DiskType    string `width:"32" charset:"ascii" nullable:"true" list:"user"`
 
 	CloudregionId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 }
@@ -144,8 +145,7 @@ func (self *SSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSON
 	}
 	disk, _ := self.GetDisk()
 	if disk != nil {
-		extra.Add(jsonutils.NewString(disk.DiskType), "disk_type")
-
+		// extra.Add(jsonutils.NewString(disk.DiskType), "disk_type")
 		guests := disk.GetGuests()
 		if len(guests) == 1 {
 			extra.Add(jsonutils.NewString(guests[0].Name), "guest")
@@ -271,6 +271,7 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, userCred mccli
 	snapshot.DiskId = disk.Id
 	snapshot.StorageId = disk.StorageId
 	snapshot.Size = disk.DiskSize
+	snapshot.DiskType = disk.DiskType
 	snapshot.Location = location
 	snapshot.CreatedBy = createdBy
 	snapshot.Name = name
@@ -428,10 +429,10 @@ func totalSnapshotCount(projectId string) int {
 	return count
 }
 
-// Only sync snapshot status
 func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshot) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Status = ext.GetStatus()
+		self.DiskType = ext.GetDiskType()
 		return nil
 	})
 	if err != nil {
@@ -456,6 +457,7 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(userCred mcclient.TokenCre
 		}
 	}
 
+	snapshot.DiskType = extSnapshot.GetDiskType()
 	snapshot.Size = int(extSnapshot.GetSize()) * 1024
 	snapshot.ManagerId = extSnapshot.GetManagerId()
 	snapshot.CloudregionId = region.Id
