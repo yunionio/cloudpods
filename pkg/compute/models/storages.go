@@ -441,6 +441,31 @@ func (manager *SStorageManager) disksReadyQ() *sqlchemy.SSubQuery {
 	return q
 }
 
+func (manager *SStorageManager) diskIsAttachedQ(isAttached bool) *sqlchemy.SSubQuery {
+	sumKey := "attached_used_capacity"
+	cond := sqlchemy.In
+	if !isAttached {
+		sumKey = "detached_used_capacity"
+		cond = sqlchemy.NotIn
+	}
+	sq := GuestdiskManager.Query("disk_id").SubQuery()
+	disks := DiskManager.Query().SubQuery()
+	disks = disks.Query().Filter(cond(disks.Field("id"), sq)).SubQuery()
+	q := disks.Query(
+		disks.Field("storage_id"),
+		sqlchemy.SUM(sumKey, disks.Field("disk_size")),
+	).Equals("status", DISK_READY).GroupBy(disks.Field("storage_id"))
+	return q.SubQuery()
+}
+
+func (manager *SStorageManager) diskAttachedQ() *sqlchemy.SSubQuery {
+	return manager.diskIsAttachedQ(true)
+}
+
+func (manager *SStorageManager) diskDetachedQ() *sqlchemy.SSubQuery {
+	return manager.diskIsAttachedQ(false)
+}
+
 func (manager *SStorageManager) disksFailedQ() *sqlchemy.SSubQuery {
 	disks := DiskManager.Query().SubQuery()
 	q := disks.Query(
@@ -455,15 +480,22 @@ func (manager *SStorageManager) totalCapacityQ(
 ) *sqlchemy.SQuery {
 	stmt := manager.disksReadyQ()
 	stmt2 := manager.disksFailedQ()
+	attachedDisks := manager.diskAttachedQ()
+	detachedDisks := manager.diskDetachedQ()
 	storages := manager.Query().SubQuery()
 	q := storages.Query(
 		storages.Field("capacity"),
 		storages.Field("reserved"),
 		storages.Field("cmtbound"),
 		stmt.Field("used_capacity"),
-		stmt2.Field("failed_capacity")).
+		stmt2.Field("failed_capacity"),
+		attachedDisks.Field("attached_used_capacity"),
+		detachedDisks.Field("detached_used_capacity"),
+	).
 		LeftJoin(stmt, sqlchemy.Equals(stmt.Field("storage_id"), storages.Field("id"))).
-		LeftJoin(stmt2, sqlchemy.Equals(stmt2.Field("storage_id"), storages.Field("id")))
+		LeftJoin(stmt2, sqlchemy.Equals(stmt2.Field("storage_id"), storages.Field("id"))).
+		LeftJoin(attachedDisks, sqlchemy.Equals(attachedDisks.Field("storage_id"), storages.Field("id"))).
+		LeftJoin(detachedDisks, sqlchemy.Equals(detachedDisks.Field("storage_id"), storages.Field("id")))
 
 	hosts := HostManager.Query().SubQuery()
 	hostStorages := HoststorageManager.Query().SubQuery()
@@ -482,18 +514,22 @@ func (manager *SStorageManager) totalCapacityQ(
 }
 
 type StorageStat struct {
-	Capacity       int
-	Reserved       int
-	Cmtbound       float32
-	UsedCapacity   int
-	FailedCapacity int
+	Capacity             int
+	Reserved             int
+	Cmtbound             float32
+	UsedCapacity         int
+	FailedCapacity       int
+	AttachedUsedCapacity int
+	DetachedUsedCapacity int
 }
 
 type StoragesCapacityStat struct {
-	Capacity        int64
-	CapacityVirtual float64
-	CapacityUsed    int64
-	CapacityUnread  int64
+	Capacity         int64
+	CapacityVirtual  float64
+	CapacityUsed     int64
+	CapacityUnread   int64
+	AttachedCapacity int64
+	DetachedCapacity int64
 }
 
 func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCapacityStat {
@@ -507,6 +543,8 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 		tVCapa  float64 = 0
 		tUsed   int64   = 0
 		tFailed int64   = 0
+		atCapa  int64   = 0
+		dtCapa  int64   = 0
 	)
 	for _, stat := range stats {
 		tCapa += int64(stat.Capacity - stat.Reserved)
@@ -516,12 +554,16 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 		tVCapa += float64(stat.Capacity-stat.Reserved) * float64(stat.Cmtbound)
 		tUsed += int64(stat.UsedCapacity)
 		tFailed += int64(stat.FailedCapacity)
+		atCapa += int64(stat.AttachedUsedCapacity)
+		dtCapa += int64(stat.DetachedUsedCapacity)
 	}
 	return StoragesCapacityStat{
-		Capacity:        tCapa,
-		CapacityVirtual: tVCapa,
-		CapacityUsed:    tUsed,
-		CapacityUnread:  tFailed,
+		Capacity:         tCapa,
+		CapacityVirtual:  tVCapa,
+		CapacityUsed:     tUsed,
+		CapacityUnread:   tFailed,
+		AttachedCapacity: atCapa,
+		DetachedCapacity: dtCapa,
 	}
 }
 

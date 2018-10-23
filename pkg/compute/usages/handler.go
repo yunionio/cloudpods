@@ -272,6 +272,8 @@ func StorageUsage(rangeObj db.IStandaloneModel, hostTypes []string) Usage {
 	count[fmt.Sprintf("%s.virtual", sPrefix)] = result.CapacityVirtual
 	count[dPrefix] = result.CapacityUsed
 	count[fmt.Sprintf("%s.unready", dPrefix)] = result.CapacityUnread
+	count[fmt.Sprintf("%s.attached", dPrefix)] = result.AttachedCapacity
+	count[fmt.Sprintf("%s.detached", dPrefix)] = result.DetachedCapacity
 	return count
 }
 
