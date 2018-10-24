@@ -443,6 +443,14 @@ func listItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
+	retConut := len(retList)
+	retList, err = manager.CustomizeFilterList(ctx, userCred, queryDict, retList)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	if len(retList) != retConut {
+		totalCnt = int64(len(retList))
+	}
 	retResult := modules.ListResult{Data: retList, Total: int(totalCnt), Limit: int(limit), Offset: int(offset)}
 	return &retResult, nil
 }
@@ -864,7 +872,7 @@ func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, act
 
 func (dispatcher *DBModelDispatcher) PerformAction(ctx context.Context, idStr string, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, query)
+	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, nil)
 	if err == sql.ErrNoRows {
 		return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("%s %s not found",
 			dispatcher.modelManager.Keyword(), idStr))
@@ -1022,7 +1030,7 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 
 func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, query)
+	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, nil)
 	if err == sql.ErrNoRows {
 		return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("%s %s not found",
 			dispatcher.modelManager.Keyword(), idStr))
@@ -1100,7 +1108,7 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 
 func (dispatcher *DBModelDispatcher) Delete(ctx context.Context, idstr string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
-	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idstr, query)
+	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idstr, nil)
 	if err == sql.ErrNoRows {
 		return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("%s %s not found",
 			dispatcher.modelManager.Keyword(), idstr))

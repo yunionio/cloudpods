@@ -93,6 +93,7 @@ type BaremetalDiskConfig struct {
 	Count        int64   `json:"count"`
 	Range        []int64 `json:"range"`
 	Splits       string  `json:"splits"`
+	Size         []int64 `json:"size"`
 	Adapter      *int    `json:"adapter"`
 	Driver       string  `json:"driver"`
 	Cachedbadbbu bool    `json:"cachedbadbbu"`

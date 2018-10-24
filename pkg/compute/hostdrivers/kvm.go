@@ -4,11 +4,15 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -176,4 +180,113 @@ func (self *SKVMHostDriver) RequestCleanUpDiskSnapshots(ctx context.Context, hos
 	header.Add("X-Region-Version", "v2")
 	_, err := host.Request(task.GetUserCred(), "POST", url, header, params)
 	return err
+}
+
+func (self *SKVMHostDriver) PrepareConvert(host *models.SHost, image, raid string, data jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	params, err := self.SBaseHostDriver.PrepareConvert(host, image, raid, data)
+	if err != nil {
+		return nil, err
+	}
+	var sysSize = "60g"
+	log.Infof("%v", data)
+	if data.Contains("baremetal_disk_config.0") {
+		for i := 0; data.Contains(fmt.Sprintf("baremetal_disk_config.%d", i)); i++ {
+			v, _ := data.Get(fmt.Sprintf("baremetal_disk_config.%d", i))
+			params.Set(fmt.Sprintf("baremetal_disk_config.%d", i), v)
+		}
+	} else {
+		raid, err = self.GetRaidScheme(host, raid)
+		if err != nil {
+			return nil, err
+		}
+		if raid != baremetal.DISK_CONF_NONE {
+			params.Set("baremetal_disk_config.0", jsonutils.NewString(fmt.Sprintf("%s:(%s,)", raid, sysSize)))
+		}
+	}
+	if data.Contains("disk.0") {
+		for i := 0; data.Contains(fmt.Sprintf("disk.%d", i)); i++ {
+			v, _ := data.Get(fmt.Sprintf("disk.%d", i))
+			params.Set(fmt.Sprintf("disk.%d", i), v)
+		}
+	} else {
+		if len(image) == 0 {
+			image = options.Options.ConvertHypervisorDefaultTemplate
+		}
+		if len(image) == 0 {
+			return nil, fmt.Errorf("Not default image specified for converting %s", self.GetHostType())
+		}
+		if raid != baremetal.DISK_CONF_NONE {
+			params.Set("disk.0", jsonutils.NewString(fmt.Sprintf("%s:autoextend", image)))
+		} else if host.StorageInfo.(*jsonutils.JSONArray).Length() > 1 {
+			params.Set("disk.0", jsonutils.NewString(fmt.Sprintf("%s:autoextend", image)))
+		} else {
+			params.Set("disk.0", jsonutils.NewString(fmt.Sprintf("%s:%s", image, sysSize)))
+		}
+		params.Set("disk.1", jsonutils.NewString("ext4:autoextend:/opt/cloud/workspace"))
+	}
+	if data.Contains("net.0") {
+		for i := 0; data.Contains(fmt.Sprintf("net.%d", i)); i++ {
+			v, _ := data.Get(fmt.Sprintf("net.%d", i))
+			params.Set(fmt.Sprintf("net.%d", i), v)
+		}
+	} else {
+		wire := host.GetMasterWire()
+		if wire == nil {
+			return nil, fmt.Errorf("No master wire?")
+		}
+		params.Set("net.0", jsonutils.NewString(fmt.Sprintf("wire=%s:[private]", wire.GetName())))
+	}
+	params.Set("deploy.0.path", jsonutils.NewString("/etc/sysconfig/yunionauth"))
+	params.Set("deploy.0.action", jsonutils.NewString("create"))
+	log.Infof("%v", params)
+	authLoc, err := url.Parse(options.Options.AuthURL)
+	if err != nil {
+		return nil, err
+	}
+	authInfo := fmt.Sprintf("YUNION_REGION=%s\n", options.Options.Region)
+	authInfo += fmt.Sprintf("YUNION_KEYSTONE=%s\n", options.Options.AuthURL)
+	authInfo += fmt.Sprintf("YUNION_KEYSTONE_HOST=%s\n", authLoc.Hostname())
+	authInfo += fmt.Sprintf("YUNION_HOST_NAME=%s\n", host.GetName())
+	authInfo += fmt.Sprintf("YUNION_HOST_ADMIN=%s\n", options.Options.AdminUser)
+	authInfo += fmt.Sprintf("YUNION_HOST_PASSWORD=%s\n", options.Options.AdminPassword)
+	authInfo += fmt.Sprintf("YUNION_HOST_PROJECT=%s\n", options.Options.AdminProject)
+	authInfo += fmt.Sprintf("YUNION_START=yes\n")
+	params.Set("deploy.0.content", jsonutils.NewString(authInfo))
+	return params, nil
+}
+
+func (self *SKVMHostDriver) PrepareUnconvert(host *models.SHost) error {
+	hoststorages := host.GetHoststorages()
+	if hoststorages == nil {
+		return self.SBaseHostDriver.PrepareUnconvert(host)
+	}
+	for i := 0; i < len(hoststorages); i++ {
+		storage := hoststorages[i].GetStorage()
+		if storage.IsLocal() && storage.StorageType != models.STORAGE_BAREMETAL && storage.GetDiskCount() > 0 {
+			return fmt.Errorf("Local host storage is not empty??? %s", storage.GetName())
+		}
+	}
+	return self.SBaseHostDriver.PrepareUnconvert(host)
+}
+
+func (self *SKVMHostDriver) FinishUnconvert(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost) error {
+	for _, hs := range host.GetHoststorages() {
+		storage := hs.GetStorage()
+		if storage == nil {
+			continue
+		}
+		if storage.StorageType != models.STORAGE_BAREMETAL {
+			hs.Delete(ctx, userCred)
+			if storage.IsLocal() {
+				storage.Delete(ctx, userCred)
+			}
+		}
+	}
+	kwargs := make(map[string]interface{}, 0)
+	for _, k := range []string{"kernel_version", "nest", "os_distribution", "os_version",
+		"ovs_version", "qemu_version", "storage_type"} {
+		kwargs[k] = "None"
+	}
+	host.SetAllMetadata(ctx, kwargs, userCred)
+	return self.SBaseHostDriver.FinishUnconvert(ctx, userCred, host)
 }

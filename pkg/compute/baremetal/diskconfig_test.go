@@ -373,6 +373,11 @@ func TestCalculateLayout(t *testing.T) {
         13
       ],
       "splits": "100g,32g,",
+      "size": [
+        102400,
+        32768,
+        818176
+      ],
       "adapter": 0,
       "cachedbadbbu": false,
       "strip": 0,
@@ -457,6 +462,7 @@ func TestCalculateLayout(t *testing.T) {
       "count": 6,
       "range": null,
       "splits": "",
+      "size": null,
       "adapter": 2,
       "cachedbadbbu": false,
       "strip": 0,
@@ -541,6 +547,7 @@ func TestCalculateLayout(t *testing.T) {
       "count": 6,
       "range": null,
       "splits": "",
+      "size": null,
       "adapter": 2,
       "cachedbadbbu": false,
       "strip": 0,

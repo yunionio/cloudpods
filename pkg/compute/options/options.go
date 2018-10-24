@@ -58,6 +58,10 @@ type ComputeOptions struct {
 	DefaultMaxSnapshotCount       int `default:"9" help:"Per Disk max snapshot count, default 9"`
 	DefaultMaxManualSnapshotCount int `default:"2" help:"Per Disk max manual snapshot count, default 2"`
 
+	ConvertHypervisorDefaultTemplate string `default:"Default template" help:"Kvm baremetal convert option"`
+	ConvertEsxiDefaultTemplate       string `default:"Default template" help:"ESXI baremetal convert option"`
+	ConvertKubeletDockerVolumeSize   string `default:"256g" help:"Docker volume size"`
+
 	cloudcommon.DBOptions
 }
 

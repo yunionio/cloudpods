@@ -37,6 +37,8 @@ const (
 	MULTI_OBJECTS_ID = "[--MULTI_OBJECTS--]"
 
 	TASK_INIT_STAGE = "on_init"
+
+	CONVERT_TASK = "convert_task"
 )
 
 type STaskManager struct {

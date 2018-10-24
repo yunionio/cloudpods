@@ -6,12 +6,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/mcclient"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/compute/tasks"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SBaseGuestDriver struct {
@@ -20,9 +19,10 @@ type SBaseGuestDriver struct {
 func (self *SBaseGuestDriver) StartGuestCreateTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, pendingUsage quotas.IQuota, parentTaskId string) error {
 	taskName, _ := data.GetString("__task__")
 	if len(taskName) > 0 {
+		data.Remove("__task__")
 		log.Infof("Start embedded guest start task")
 		switch taskName {
-		case tasks.CONVERT_TASK:
+		case taskman.CONVERT_TASK:
 			hostId, _ := data.GetString("prefer_host_id")
 			if len(hostId) == 0 {
 				hostId, _ = data.GetString("prefer_baremetal_id")

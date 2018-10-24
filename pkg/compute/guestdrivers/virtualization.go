@@ -55,7 +55,8 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 
 		log.Debugf("Wire %#v", wire)
 
-		if wirePattern != nil && !wirePattern.MatchString(wire.Id) && wirePattern.MatchString(wire.Name) {
+		// !!
+		if wirePattern != nil && !wirePattern.MatchString(wire.Id) && !wirePattern.MatchString(wire.Name) {
 			continue
 		}
 		var net *models.SNetwork

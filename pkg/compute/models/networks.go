@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 const (
@@ -379,6 +380,14 @@ func (self *SNetwork) _updateDnsRecord(name string, ipAddr string, isAdd bool) {
 func (self *SNetwork) updateGuestNetmap(nic *SGuestnetwork) {
 	// TODO
 
+}
+
+func (self *SNetwork) UpdateBaremetalNetmap(nic *SHostnetwork, name string) {
+	self.UpdateNetmap(nic.IpAddr, auth.AdminCredential().GetTenantId(), name)
+}
+
+func (self *SNetwork) UpdateNetmap(ip, project, name string) {
+	// TODO ??
 }
 
 type DNSUpdateKeySecret struct {
@@ -1279,6 +1288,30 @@ func (self *SNetwork) isManaged() bool {
 		return true
 	} else {
 		return false
+	}
+}
+
+func (manager *SNetworkManager) CustomizeFilterList(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, retList []jsonutils.JSONObject) ([]jsonutils.JSONObject, error) {
+	if query.Contains("ip") {
+		ip, _ := query.GetString("ip")
+		ipInt, err := netutils.NewIPV4Addr(ip)
+		if err != nil {
+			return nil, err
+		}
+		ret := make([]jsonutils.JSONObject, 0)
+		for i := 0; i < len(retList); i++ {
+			guestIpStart, _ := retList[i].GetString("guest_ip_start")
+			guestIpEnd, _ := retList[i].GetString("guest_ip_end")
+			guestIpStartInt, _ := netutils.NewIPV4Addr(guestIpStart)
+			guestIpEndInt, _ := netutils.NewIPV4Addr(guestIpEnd)
+			ipRange := netutils.NewIPV4AddrRange(guestIpStartInt, guestIpEndInt)
+			if ipRange.Contains(ipInt) {
+				ret = append(ret, retList[i])
+			}
+		}
+		return ret, nil
+	} else {
+		return manager.SStatusStandaloneResourceBaseManager.CustomizeFilterList(ctx, userCred, query, retList)
 	}
 }
 

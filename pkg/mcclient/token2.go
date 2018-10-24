@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"strings"
 	"time"
+
+	"yunion.io/x/jsonutils"
 )
 
 type KeystoneEndpointV2 struct {
@@ -244,6 +246,10 @@ func (ep KeystoneEndpointV2) getURL(epType string) string {
 	default:
 		return ep.InternalURL
 	}
+}
+
+func (self *TokenCredentialV2) GetCatalogData(serviceTypes []string, region string) jsonutils.JSONObject {
+	return jsonutils.Marshal(self.GetServiceCatalog())
 }
 
 func (self *TokenCredentialV2) String() string {

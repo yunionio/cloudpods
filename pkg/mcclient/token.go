@@ -3,6 +3,7 @@ package mcclient
 import (
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
 )
 
@@ -48,6 +49,7 @@ type TokenCredential interface {
 	GetRegions() []string
 
 	GetServiceCatalog() IServiceCatalog
+	GetCatalogData(serviceTypes []string, region string) jsonutils.JSONObject
 
 	GetInternalServices(region string) []string
 	GetExternalServices(region string) []ExternalService

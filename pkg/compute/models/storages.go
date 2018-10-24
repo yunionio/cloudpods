@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/sysutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 )
 
@@ -86,6 +87,40 @@ type SStorage struct {
 
 func (manager *SStorageManager) GetContextManager() []db.IModelManager {
 	return []db.IModelManager{ZoneManager, StoragecacheManager}
+}
+
+func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	storageType, _ := data.GetString("storage_type")
+	mediumType, _ := data.GetString("medium_type")
+	if !utils.IsInStringArray(storageType, STORAGE_ALL_TYPES) {
+		return nil, httperrors.NewInputParameterError("Invalid storage type %s", storageType)
+	}
+	if !utils.IsInStringArray(mediumType, DISK_TYPES) {
+		return nil, httperrors.NewInputParameterError("Invalid medium type %s", mediumType)
+	}
+	zoneId, err := data.GetString("zone")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("zone")
+	}
+	zone, _ := ZoneManager.FetchByIdOrName(userCred.GetProjectId(), zoneId)
+	if zone == nil {
+		return nil, httperrors.NewResourceNotFoundError("zone %s", zoneId)
+	}
+	data.Set("zone_id", jsonutils.NewString(zone.GetId()))
+	// TODO: ValidateRdbConfData
+	// if storageType == STORAGE_RBD {
+	// 	conf := jsonutils.NewDict()
+	// 	for k, v := range data.Value() {
+	// 		if strings.HasPrefix(k, fmt.Sprintf("%s_", storageType)) {
+	// 			k = k[len(storageType)+1:]
+	// 			if len(k) > 0 {
+	// 				conf.Set(k, v)
+	// 			}
+	// 		}
+	// 	}
+	// 	data.Set("capacity", manager.ValidateRdbConfData(conf))
+	// }
+	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
 
 func (self *SStorage) ValidateDeleteCondition(ctx context.Context) error {

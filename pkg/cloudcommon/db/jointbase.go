@@ -108,16 +108,20 @@ func (manager *SJointResourceBaseManager) AllowAttach(ctx context.Context, userC
 
 func JointModelExtra(jointModel IJointModel, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	master := jointModel.Master()
-	extra.Add(jsonutils.NewString(master.GetName()), master.GetModelManager().Keyword())
-	alias := master.GetModelManager().Alias()
-	if len(alias) > 0 {
-		extra.Add(jsonutils.NewString(master.GetName()), alias)
+	if master != nil {
+		extra.Add(jsonutils.NewString(master.GetName()), master.GetModelManager().Keyword())
+		alias := master.GetModelManager().Alias()
+		if len(alias) > 0 {
+			extra.Add(jsonutils.NewString(master.GetName()), alias)
+		}
 	}
 	slave := jointModel.Slave()
-	extra.Add(jsonutils.NewString(slave.GetName()), slave.GetModelManager().Keyword())
-	alias = slave.GetModelManager().Alias()
-	if len(alias) > 0 {
-		extra.Add(jsonutils.NewString(slave.GetName()), alias)
+	if slave != nil {
+		extra.Add(jsonutils.NewString(slave.GetName()), slave.GetModelManager().Keyword())
+		alias := slave.GetModelManager().Alias()
+		if len(alias) > 0 {
+			extra.Add(jsonutils.NewString(slave.GetName()), alias)
+		}
 	}
 	return extra
 }
@@ -180,13 +184,23 @@ func (joint *SJointResourceBase) Slave() IStandaloneModel {
 }
 
 func (self *SJointResourceBase) AllowGetJointDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, item IJointModel) bool {
-	masterVirtual := item.Master().(IVirtualModel)
-	return masterVirtual.IsOwner(userCred)
+	master := item.Master()
+	switch master.(type) {
+	case IVirtualModel:
+		return master.(IVirtualModel).IsOwner(userCred)
+	default: // case item implemented customized AllowGetDetails, eg hostjoints
+		return item.AllowGetDetails(ctx, userCred, query)
+	}
 }
 
 func (self *SJointResourceBase) AllowUpdateJointItem(ctx context.Context, userCred mcclient.TokenCredential, item IJointModel) bool {
-	masterVirtual := item.Master().(IVirtualModel)
-	return masterVirtual.IsOwner(userCred)
+	master := item.Master()
+	switch master.(type) {
+	case IVirtualModel:
+		return master.(IVirtualModel).IsOwner(userCred)
+	default: // case item implemented customized AllowGetDetails, eg hostjoints
+		return item.AllowUpdateItem(ctx, userCred)
+	}
 }
 
 /*
