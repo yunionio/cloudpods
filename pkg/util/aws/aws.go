@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"github.com/coredns/coredns/plugin/pkg/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 
@@ -8,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"fmt"
 )
 
 const (
@@ -62,7 +62,7 @@ func (self *SAwsClient) fetchRegions() error {
 	svc := ec2.New(s)
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.DescribeRegions
 	result, err := svc.DescribeRegions(&ec2.DescribeRegionsInput{})
-	fmt.Println(result)
+	log.Debugf("remote regions: %s", result)
 	if err != nil {
 		return err
 	}
