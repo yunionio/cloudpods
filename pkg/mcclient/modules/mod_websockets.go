@@ -13,12 +13,6 @@ var (
 	Websockets SWebsocketManager
 )
 
-func (this *SWebsocketManager) DoNotify(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	ret := jsonutils.NewDict()
-	this.PerformAction(s, "", "notify", params)
-	return ret, nil
-}
-
 func init() {
 
 	Websockets = SWebsocketManager{NewWebsocketManager("websocket", "websockets",
