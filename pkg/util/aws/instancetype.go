@@ -2,6 +2,7 @@ package aws
 
 import (
 	"encoding/json"
+	"fmt"
 	"yunion.io/x/log"
 )
 
@@ -62,6 +63,17 @@ func (self *SRegion) GetInstanceTypes() ([]SInstanceType, error) {
 	} else {
 		return self.instanceTypes, nil
 	}
+}
+
+func (self *SRegion) GetInstanceType(instanceTypeId string) (*SInstanceType, error) {
+	ret, _ := self.GetInstanceTypes()
+	for _, item := range ret {
+		if item.InstanceTypeId == instanceTypeId {
+			return &item, nil
+		}
+	}
+
+	return nil, fmt.Errorf("instancetype %s not found", instanceTypeId)
 }
 
 func (self *SRegion) GetMatchInstanceTypes(cpu int, memMB int, gpu int, zoneId string) ([]SInstanceType, error) {

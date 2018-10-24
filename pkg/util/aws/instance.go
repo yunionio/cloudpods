@@ -390,15 +390,40 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 	instances := []SInstance{}
 	for _, reservation := range res.Reservations {
 		for _, instance := range reservation.Instances {
+			instanceType, err := self.GetInstanceType(StrVal(instance.InstanceType))
+			if err != nil {
+				return nil, 0 , err
+			}
+
+			tagspec := TagSpec{}
+			tagspec.LoadingEc2Tags(instance.Tags)
+
+			disks := []string{}
+			for _, d := range instance.BlockDeviceMappings {
+				if d.Ebs != nil && d.Ebs.VolumeId != nil {
+					disks = append(disks, *d.Ebs.VolumeId)
+				}
+			}
+
+			var secgroups SSecurityGroupIds
+			for _, s := range instance.SecurityGroups {
+				if s.GroupId != nil {
+					if secgroups.SecurityGroupId == nil {
+						secgroups.SecurityGroupId = []string{}
+					}
+					secgroups.SecurityGroupId = append(secgroups.SecurityGroupId, *s.GroupId)
+				}
+			}
+
 			sinstance := SInstance{
 				RegionId: self.RegionId,
 				ZoneId: *instance.Placement.AvailabilityZone,
 				InstanceId: *instance.InstanceId,
 				ImageId: *instance.ImageId,
-				InstanceName: "// todo:xx",
+				InstanceName: tagspec.GetNameTag(),
 				InstanceType: *instance.InstanceType,
-				Cpu: int8(*instance.CpuOptions.CoreCount), // CoreCount?
-				Memory: 0, // todo:? get from instance type
+				Cpu: int8(*instance.CpuOptions.CoreCount),
+				Memory: instanceType.memoryMB(),
 				IoOptimized: *instance.EbsOptimized,
 				KeyPairName: *instance.KeyName,
 				CreationTime: *instance.LaunchTime,
@@ -407,12 +432,12 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				PublicDNSName: *instance.PublicDnsName,
 				RootDeviceName: *instance.RootDeviceName,
 				Status: *instance.State.Name,
+				Disks: disks,
+				SecurityGroupIds: secgroups,
+				// EipAddress:
 				// VlanId:
 				// VpcAttributes:
-				// SecurityGroupIds:
 				// NetworkInterfaces:
-				// EipAddress:
-				// Disks:
 				// OSName:
 				// OSType:
 				// Description:

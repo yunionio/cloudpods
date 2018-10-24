@@ -3,11 +3,12 @@ package aws
 import (
 	"fmt"
 	"time"
+
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/coredns/coredns/plugin/pkg/log"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"github.com/coredns/coredns/plugin/pkg/log"
 )
 
 type SMountInstances struct {
@@ -30,13 +31,13 @@ type SDisk struct {
 	Category         string // VolumeType
 	Type             string // system | data
 	Status           string // State
-	AttachmentStatus           string // attachment.status
+	AttachmentStatus string // attachment.status
 	Device           string // Device
 	InstanceId       string // InstanceId
 	Encrypted        bool   // Encrypted
 	SourceSnapshotId string // SnapshotId
 	Iops             int    // Iops
-	Tags             STags
+	Tags             TagSpec
 
 	CreationTime time.Time // CreateTime
 	AttachedTime time.Time // AttachTime
@@ -246,7 +247,9 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 		filters = AppendSingleValueFilter(filters, "volume-type", storageType)
 	}
 
-	params.SetFilters(filters)
+	if len(filters) > 0 {
+		params.SetFilters(filters)
+	}
 
 	if len(diskIds) > 0 {
 		params.SetVolumeIds(ConvertedList(diskIds))
@@ -254,22 +257,27 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 
 	ret, err := self.ec2Client.DescribeVolumes(params)
 	if err != nil {
-		return nil, 0 , err
+		return nil, 0, err
 	}
 
 	disks := []SDisk{}
 	for _, item := range ret.Volumes {
+		tagspec := TagSpec{}
+		tagspec.LoadingEc2Tags(item.Tags)
+
 		disk := SDisk{}
 		disk.ZoneId = *item.AvailabilityZone
 		disk.Status = *item.State
-		disk.Size = int(*item.Size)
+		disk.DiskName = tagspec.GetNameTag()
+		disk.Size = int(IntVal(item.Size))
 		disk.Category = *item.VolumeType
 		disk.RegionId = self.RegionId
 		disk.SourceSnapshotId = *item.SnapshotId
 		disk.Encrypted = *item.Encrypted
 		disk.DiskId = *item.VolumeId
-		disk.Iops = int(*item.Iops)
+		disk.Iops = int(IntVal(item.Iops))
 		disk.CreationTime = *item.CreateTime
+		disk.Tags = tagspec
 		if len(item.Attachments) > 0 {
 			disk.DeleteWithInstance = *item.Attachments[0].DeleteOnTermination
 			disk.AttachedTime = *item.Attachments[0].AttachTime
@@ -346,7 +354,7 @@ func (self *SRegion) resizeDisk(diskId string, size int64) error {
 		params.SetVolumeId(diskId)
 	}
 
-	_,err := self.ec2Client.ModifyVolume(params)
+	_, err := self.ec2Client.ModifyVolume(params)
 	return err
 }
 
