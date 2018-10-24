@@ -415,6 +415,16 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				}
 			}
 
+			var networkInterfaces SNetworkInterfaces
+			for _, n := range instance.NetworkInterfaces {
+				i := SNetworkInterface{
+					MacAddress:         StrVal(n.MacAddress),
+					NetworkInterfaceId: StrVal(n.NetworkInterfaceId),
+					PrimaryIpAddress:   StrVal(n.PrivateIpAddress),
+				}
+				networkInterfaces.NetworkInterface = append(networkInterfaces.NetworkInterface, i)
+			}
+
 			sinstance := SInstance{
 				RegionId: self.RegionId,
 				ZoneId: *instance.Placement.AvailabilityZone,
@@ -434,13 +444,13 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				Status: *instance.State.Name,
 				Disks: disks,
 				SecurityGroupIds: secgroups,
+				NetworkInterfaces: networkInterfaces,
 				// EipAddress:
 				// VlanId:
 				// VpcAttributes:
-				// NetworkInterfaces:
 				// OSName:
 				// OSType:
-				// Description:
+				Description: tagspec.GetDescTag(),
 			}
 
 			if instance.PrivateIpAddress != nil {
