@@ -188,3 +188,8 @@ func NewGeneralError(err error) *httputils.JSONClientError {
 		return NewInternalServerError(err.Error())
 	}
 }
+
+func NewProtectedResourceError(msg string, params ...interface{}) *httputils.JSONClientError {
+	msg, err := errorMessage(msg, params)
+	return NewJsonClientError(403, "ProtectedResourceError(", msg, err)
+}
