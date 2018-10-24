@@ -98,3 +98,7 @@ func OutOfQuotaError(w http.ResponseWriter, msg string, params ...interface{}) {
 func TimeoutError(w http.ResponseWriter, msg string, params ...interface{}) {
 	JsonClientError(w, NewTimeoutError(msg, params...))
 }
+
+func ProtectedResourceError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewProtectedResourceError(msg, params...))
+}

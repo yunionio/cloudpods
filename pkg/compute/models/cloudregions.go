@@ -57,6 +57,9 @@ func (self *SCloudregion) ValidateDeleteCondition(ctx context.Context) error {
 	if self.GetZoneCount() > 0 || self.GetVpcCount() > 0 {
 		return httperrors.NewNotEmptyError("not empty cloud region")
 	}
+	if self.Id == "default" {
+		return httperrors.NewProtectedResourceError("not allow to delete default cloud region")
+	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
