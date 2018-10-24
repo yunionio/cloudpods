@@ -374,3 +374,14 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 	}
 	return nil
 }
+
+func (self *SSecurityGroup) ValidateDeleteCondition(ctx context.Context) error {
+	cnt := self.GetGuestsCount()
+	if cnt > 0 {
+		return httperrors.NewNotEmptyError("the security group is in use")
+	}
+	if self.Id == "default" {
+		return httperrors.NewProtectedResourceError("not allow to delete default security group")
+	}
+	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
+}
