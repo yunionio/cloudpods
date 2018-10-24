@@ -85,6 +85,9 @@ func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
 	if self.GetNetworkCount() > 0 {
 		return httperrors.NewNotEmptyError("VPC not empty")
 	}
+	if self.Id == "default" {
+		return httperrors.NewProtectedResourceError("not allow to delete default vpc")
+	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
