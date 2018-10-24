@@ -84,8 +84,7 @@ func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
 		return err
 	}
 	nic.Properties.IPConfigurations[0].Properties.PublicIPAddress.ID = eipId
-	_, err = region.client.Update(jsonutils.Marshal(nic))
-	return err
+	return region.client.Update(jsonutils.Marshal(nic), nil)
 }
 
 func (region *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) {
@@ -123,8 +122,7 @@ func (region *SRegion) DissociateEip(eipId string) error {
 		return err
 	}
 	nic.Properties.IPConfigurations[0].Properties.PublicIPAddress.ID = ""
-	_, err = region.client.Update(jsonutils.Marshal(nic))
-	return err
+	return region.client.Update(jsonutils.Marshal(nic), nil)
 }
 
 func (self *SEipAddress) GetAssociationExternalId() string {

@@ -100,9 +100,40 @@ func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageI
 	return self.uploadImage(userCred, imageId, osArch, osType, osDist, isForce)
 }
 
+func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
+	storageaccount := &SStorageAccount{}
+	storageaccounts, err := self.region.GetStorageAccounts()
+	if err != nil {
+		return nil, err
+	}
+	if len(storageaccounts) == 0 {
+		storageaccount, err = self.region.CreateStorageAccount(self.region.Name)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		for i := 0; i < len(storageaccounts); i++ {
+			if id, ok := storageaccounts[i].Tags["id"]; ok && id == self.region.Name {
+				storageaccount = &storageaccounts[i]
+				break
+			}
+		}
+		if id, ok := storageaccount.Tags["id"]; !ok || id == self.region.Name {
+			if storageaccount.Tags == nil {
+				storageaccount.Tags = map[string]string{}
+			}
+			storageaccount.Tags["id"] = self.region.Name
+			err = self.region.client.Update(jsonutils.Marshal(storageaccount), nil)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return storageaccount, nil
+}
+
 func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
 	s := auth.GetAdminSession(options.Options.Region, "")
-
 	if meta, reader, err := modules.Images.Download(s, imageId); err != nil {
 		return "", err
 	} else {
@@ -123,26 +154,18 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		if _, err := io.Copy(f, reader); err != nil {
 			return "", err
 		}
-		storageAccount := fmt.Sprintf("%s%s", self.region.Name, DefaultStorageAccount)
 
-		log.Debugf("Create storageAccount: %s", storageAccount)
-		storage, err := self.region.CreateStorageAccount(storageAccount)
+		storageaccount, err := self.checkStorageAccount()
 		if err != nil {
 			return "", err
 		}
 
-		log.Debugf("Create Container: %s", DefaultContainer)
-		if _, err := self.region.CreateContainer(storage, DefaultContainer); err != nil {
+		blobURI, err := storageaccount.UploadFile("image-cache", tmpFile)
+		if err != nil {
 			return "", err
 		}
 
 		size, _ := meta.Int("size")
-
-		blobURI, err := self.region.UploadVHD(storage, DefaultContainer, tmpFile)
-		if err != nil {
-			log.Errorf("uploadContainerFileByPath error: %v", err)
-			return "", err
-		}
 
 		imageBaseName := imageId
 		if imageBaseName[0] >= '0' && imageBaseName[0] <= '9' {

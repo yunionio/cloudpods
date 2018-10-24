@@ -82,8 +82,7 @@ func (self *SInstanceNic) updateSecurityGroup(secgroupId string) error {
 	if len(secgroupId) > 0 {
 		self.Properties.NetworkSecurityGroup = &SSecurityGroup{ID: secgroupId}
 	}
-	_, err := region.client.Update(jsonutils.Marshal(self))
-	return err
+	return region.client.Update(jsonutils.Marshal(self), nil)
 }
 
 func (self *SInstanceNic) revokeSecurityGroup() error {

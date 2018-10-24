@@ -9,12 +9,12 @@ import (
 )
 
 type AddressSpace struct {
-	AddressPrefixes []string
+	AddressPrefixes []string `json:"addressPrefixes,omitempty"`
 }
 
 type SubnetPropertiesFormat struct {
-	AddressPrefix     string
-	ProvisioningState string
+	AddressPrefix string `json:"addressPrefix,omitempty"`
+	//ProvisioningState string
 }
 
 type Subnet struct {
@@ -27,9 +27,8 @@ type VirtualNetworkPropertiesFormat struct {
 	ProvisioningState      string
 	Status                 string
 	VirtualNetworkSiteName string
-	InUse                  bool
-	AddressSpace           AddressSpace
-	Subnets                *[]SNetwork
+	AddressSpace           AddressSpace `json:"addressSpace,omitempty"`
+	Subnets                *[]SNetwork  `json:"subnets,omitempty"`
 }
 
 type SVpc struct {
@@ -38,7 +37,7 @@ type SVpc struct {
 	iwires    []cloudprovider.ICloudWire
 	secgroups []cloudprovider.ICloudSecurityGroup
 
-	IsDefault bool
+	isDefault bool
 
 	ID         string
 	Name       string
@@ -46,7 +45,7 @@ type SVpc struct {
 	Type       string
 	Location   string
 	Tags       map[string]string
-	Properties VirtualNetworkPropertiesFormat
+	Properties VirtualNetworkPropertiesFormat `json:"properties,omitempty"`
 }
 
 func (self *SVpc) GetMetadata() *jsonutils.JSONDict {
@@ -58,10 +57,7 @@ func (self *SVpc) GetId() string {
 }
 
 func (self *SVpc) GetName() string {
-	if len(self.Name) > 0 {
-		return self.Name
-	}
-	return self.ID
+	return self.Name
 }
 
 func (self *SVpc) GetGlobalId() string {
@@ -73,7 +69,7 @@ func (self *SVpc) IsEmulated() bool {
 }
 
 func (self *SVpc) GetIsDefault() bool {
-	return self.IsDefault
+	return self.isDefault
 }
 
 func (self *SVpc) GetCidrBlock() string {
@@ -150,6 +146,9 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 
 func (self *SVpc) fetchWires() error {
 	networks := make([]cloudprovider.ICloudNetwork, len(*self.Properties.Subnets))
+	if len(self.region.izones) == 0 {
+		self.region.fetchZones()
+	}
 	wire := SWire{zone: self.region.izones[0].(*SZone), vpc: self, inetworks: networks}
 	for i, _network := range *self.Properties.Subnets {
 		network := SNetwork{wire: &wire}

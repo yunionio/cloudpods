@@ -9,13 +9,21 @@ import (
 
 func init() {
 	type InstanceListOptions struct {
-		Classic bool `help:"List classic instance"`
-		Limit   int  `help:"page size"`
-		Offset  int  `help:"page offset"`
+		Classic   bool `help:"List classic instance"`
+		ScaleSets bool `help:"List Scale Sets instance"`
+		Limit     int  `help:"page size"`
+		Offset    int  `help:"page offset"`
 	}
 	shellutils.R(&InstanceListOptions{}, "instance-list", "List intances", func(cli *azure.SRegion, args *InstanceListOptions) error {
 		if args.Classic {
 			instances, err := cli.GetClassicInstances()
+			if err != nil {
+				return err
+			}
+			printList(instances, len(instances), args.Offset, args.Limit, []string{})
+			return nil
+		} else if args.ScaleSets {
+			instances, err := cli.GetInstanceScaleSets()
 			if err != nil {
 				return err
 			}

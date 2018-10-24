@@ -12,14 +12,16 @@ import (
 type SZone struct {
 	region *SRegion
 
-	iwires        []cloudprovider.ICloudWire
-	iclassicWires []cloudprovider.ICloudWire
-	istorages     []cloudprovider.ICloudStorage
+	iwires           []cloudprovider.ICloudWire
+	iclassicWires    []cloudprovider.ICloudWire
+	istorages        []cloudprovider.ICloudStorage
+	iclassicStorages []cloudprovider.ICloudStorage
 
-	storageTypes []string
-	Name         string
-	host         *SHost
-	classicHost  *SClassicHost
+	storageTypes        []string
+	classicStorageTypes []string
+	Name                string
+	host                *SHost
+	classicHost         *SClassicHost
 }
 
 func (self *SZone) GetMetadata() *jsonutils.JSONDict {
@@ -101,21 +103,12 @@ func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {
 	return self.region
 }
 
-func (self *SZone) fetchStorages() error {
-	if len(self.storageTypes) == 0 {
-		if err := self.getStorageTypes(); err != nil {
-			return err
-		}
-	}
-	self.istorages = make([]cloudprovider.ICloudStorage, len(self.storageTypes))
-	for i, storageType := range self.storageTypes {
-		storage := SStorage{zone: self, storageType: storageType}
-		self.istorages[i] = &storage
-	}
+func (self *SZone) fetchClassicStorages() error {
 	storageaccounts, err := self.region.GetClassicStorageAccounts()
 	if err != nil {
 		return err
 	}
+	self.iclassicStorages = make([]cloudprovider.ICloudStorage, len(storageaccounts))
 	for i := 0; i < len(storageaccounts); i++ {
 		storage := SClassicStorage{
 			zone:       self,
@@ -125,16 +118,34 @@ func (self *SZone) fetchStorages() error {
 			Location:   storageaccounts[i].Location,
 			Properties: storageaccounts[i].Properties.ClassicStorageProperties,
 		}
-		self.istorages = append(self.istorages, &storage)
+		self.iclassicStorages[i] = &storage
+	}
+	return nil
+}
+
+func (self *SZone) fetchStorages() error {
+	if len(self.storageTypes) == 0 {
+		err := self.getStorageTypes()
+		if err != nil {
+			return err
+		}
+	}
+	self.istorages = make([]cloudprovider.ICloudStorage, len(self.storageTypes))
+	for i, storageType := range self.storageTypes {
+		storage := SStorage{zone: self, storageType: storageType}
+		self.istorages[i] = &storage
 	}
 	return nil
 }
 
 func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	if err := self.fetchStorages(); err != nil {
+	err := self.fetchStorages()
+	if err != nil {
 		return nil, err
 	}
-	return self.istorages, nil
+	self.fetchClassicStorages()
+	istorages := append(self.istorages, self.iclassicStorages...)
+	return istorages, nil
 }
 
 func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
@@ -150,14 +161,28 @@ func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 }
 
 func (self *SZone) getStorageByType(storageType string) (*SStorage, error) {
-	if storages, err := self.GetIStorages(); err != nil {
+	_, err := self.GetIStorages()
+	if err != nil {
 		return nil, err
-	} else {
-		for i := 0; i < len(storages); i += 1 {
-			_storage := storages[i].(*SStorage)
-			if strings.ToLower(_storage.storageType) == strings.ToLower(storageType) {
-				return _storage, nil
-			}
+	}
+	for i := 0; i < len(self.istorages); i += 1 {
+		storage := self.istorages[i].(*SStorage)
+		if strings.ToLower(storage.storageType) == strings.ToLower(storageType) {
+			return storage, nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SZone) getClassicStorageByType(storageType string) (*SClassicStorage, error) {
+	_, err := self.GetIStorages()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(self.iclassicStorages); i += 1 {
+		storage := self.iclassicStorages[i].(*SClassicStorage)
+		if strings.ToLower(storage.Properties.AccountType) == strings.ToLower(storageType) {
+			return storage, nil
 		}
 	}
 	return nil, cloudprovider.ErrNotFound

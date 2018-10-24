@@ -1,7 +1,6 @@
 package azure
 
 import (
-	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -9,9 +8,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
-
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network"
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-10-01/storage"
 )
 
 type SVMSize struct {
@@ -130,25 +126,18 @@ func (self *SRegion) GetStatus() string {
 }
 
 func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
-	vpcClient := network.NewVirtualNetworksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
-	vpcClient.Authorizer = self.client.authorizer
-	addressPrefixes := []string{cidr}
-	addressSpace := network.AddressSpace{AddressPrefixes: &addressPrefixes}
-	properties := network.VirtualNetworkPropertiesFormat{AddressSpace: &addressSpace}
-	parameters := network.VirtualNetwork{Name: &name, Location: &self.Name, VirtualNetworkPropertiesFormat: &properties}
-	vpcId, resourceGroup, vpcName := pareResourceGroupWithName(name, VPC_RESOURCE)
-	self.CreateResourceGroup(resourceGroup)
-	if result, err := vpcClient.CreateOrUpdate(context.Background(), resourceGroup, vpcName, parameters); err != nil {
-		return nil, err
-	} else if err := result.WaitForCompletion(context.Background(), vpcClient.Client); err != nil {
-		return nil, err
-	} else if err := self.fetchInfrastructure(); err != nil {
-		return nil, err
-	} else if vpc, err := self.GetIVpcById(vpcId); err != nil {
-		return nil, err
-	} else {
-		return vpc, nil
+	vpc := SVpc{
+		region:   self,
+		Name:     name,
+		Location: self.Name,
+		Properties: VirtualNetworkPropertiesFormat{
+			AddressSpace: AddressSpace{
+				AddressPrefixes: []string{cidr},
+			},
+		},
+		Type: "Microsoft.Network/virtualNetworks",
 	}
+	return &vpc, self.client.Create(jsonutils.Marshal(vpc), &vpc)
 }
 
 func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
@@ -232,7 +221,7 @@ func (self *SRegion) getZoneById(id string) (*SZone, error) {
 }
 
 func (self *SRegion) fetchZones() error {
-	if self.izones == nil {
+	if self.izones == nil || len(self.izones) == 0 {
 		self.izones = make([]cloudprovider.ICloudZone, 1)
 		zone := SZone{region: self, Name: self.Name}
 		self.izones[0] = &zone
@@ -254,18 +243,6 @@ func (self *SRegion) getStoragecache() *SStoragecache {
 		self.storageCache = &SStoragecache{region: self}
 	}
 	return self.storageCache
-}
-
-func (self *SRegion) getStorage() ([]SStorage, error) {
-	storages := make([]SStorage, 0)
-	storageClient := storage.NewAccountsClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
-	storageClient.Authorizer = self.client.authorizer
-	if storageList, err := storageClient.List(context.Background()); err != nil {
-		return nil, err
-	} else if err := jsonutils.Update(&storages, storageList.Value); err != nil {
-		return storages, err
-	}
-	return storages, nil
 }
 
 func (self *SRegion) getVpcs() ([]SVpc, error) {

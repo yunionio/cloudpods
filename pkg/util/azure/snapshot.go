@@ -8,7 +8,9 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-04-01/compute"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SnapshotSku struct {
@@ -44,7 +46,13 @@ func (self *SSnapshot) GetName() string {
 }
 
 func (self *SSnapshot) GetStatus() string {
-	return ""
+	switch self.Properties.ProvisioningState {
+	case "Succeeded":
+		return models.SNAPSHOT_READY
+	default:
+		log.Errorf("Unknow azure snapshot %s status: %s", self.ID, self.Properties.ProvisioningState)
+		return models.SNAPSHOT_UNKNOWN
+	}
 }
 
 func (self *SSnapshot) IsEmulated() bool {
@@ -104,28 +112,53 @@ func (self *SRegion) GrantAccessSnapshot(snapshotId string) (string, error) {
 }
 
 func (self *SSnapshot) Refresh() error {
-	if snapshot, err := self.region.GetSnapshotDetail(self.ID); err != nil {
-		return err
-	} else if err := jsonutils.Update(self, snapshot); err != nil {
+	snapshot, err := self.region.GetSnapshotDetail(self.ID)
+	if err != nil {
 		return err
 	}
-	return nil
+	return jsonutils.Update(self, snapshot)
 }
 
 func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
+	if strings.HasPrefix(snapshotId, "https://") {
+		//TODO
+		return nil, cloudprovider.ErrNotImplemented
+	}
 	return self.GetSnapshotDetail(snapshotId)
 }
 
 func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	if snapshots, err := self.GetSnapShots(""); err != nil {
+	snapshots, err := self.GetSnapShots("")
+	if err != nil {
 		return nil, err
-	} else {
-		isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots))
-		for i := 0; i < len(snapshots); i++ {
-			isnapshots[i] = &snapshots[i]
-		}
-		return isnapshots, nil
 	}
+	classicSnapshots := []SClassicSnapshot{}
+	storages, err := self.GetStorageAccounts()
+	if err != nil {
+		return nil, err
+	}
+	_, _classicSnapshots, err := self.GetStorageAccountsDisksWithSnapshots(storages...)
+	if err != nil {
+		return nil, err
+	}
+	classicSnapshots = append(classicSnapshots, _classicSnapshots...)
+	classicStorages, err := self.GetClassicStorageAccounts()
+	if err != nil {
+		return nil, err
+	}
+	_, _classicSnapshots, err = self.GetStorageAccountsDisksWithSnapshots(classicStorages...)
+	if err != nil {
+		return nil, err
+	}
+	classicSnapshots = append(classicSnapshots, _classicSnapshots...)
+	isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots)+len(classicSnapshots))
+	for i := 0; i < len(snapshots); i++ {
+		isnapshots[i] = &snapshots[i]
+	}
+	for i := 0; i < len(classicSnapshots); i++ {
+		isnapshots[len(snapshots)+i] = &classicSnapshots[i]
+	}
+	return isnapshots, nil
 }
 
 func (self *SSnapshot) GetDiskId() string {

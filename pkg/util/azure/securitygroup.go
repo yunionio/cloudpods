@@ -308,8 +308,7 @@ func (region *SRegion) updateSecurityGroupRules(secgroupId string, rules []secru
 	}
 	secgroup.Properties.SecurityRules = &securityRules
 	secgroup.Properties.ProvisioningState = ""
-	_, err = region.client.Update(jsonutils.Marshal(secgroup))
-	return secgroup.ID, err
+	return secgroup.ID, region.client.Update(jsonutils.Marshal(secgroup), nil)
 }
 
 func (region *SRegion) AttachSecurityToInterfaces(secgroupId string, nicIds []string) error {
@@ -323,8 +322,7 @@ func (region *SRegion) AttachSecurityToInterfaces(secgroupId string, nicIds []st
 	}
 	secgroup.Properties.NetworkInterfaces = &interfaces
 	secgroup.Properties.ProvisioningState = ""
-	_, err = region.client.Update(jsonutils.Marshal(secgroup))
-	return err
+	return region.client.Update(jsonutils.Marshal(secgroup), nil)
 }
 
 func (region *SRegion) AssiginSecurityGroup(instanceId, secgroupId string) error {

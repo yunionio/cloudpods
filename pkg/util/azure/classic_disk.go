@@ -1,11 +1,11 @@
 package azure
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -18,10 +18,74 @@ type SClassicDisk struct {
 	OperatingSystem string
 	IoType          string
 	DiskSizeGB      int32
+	DiskSize        int32
+	diskSizeMB      int32
 	CreatedTime     string
 	SourceImageName string
 	VhdUri          string
+	diskType        string
 	StorageAccount  SubResource
+}
+
+func (self *SRegion) GetStorageAccountsDisksWithSnapshots(storageaccounts ...SStorageAccount) ([]SClassicDisk, []SClassicSnapshot, error) {
+	disks, snapshots := []SClassicDisk{}, []SClassicSnapshot{}
+	for i := 0; i < len(storageaccounts); i++ {
+		_disks, _snapshots, err := self.GetStorageAccountDisksWithSnapshots(storageaccounts[i])
+		if err != nil {
+			return nil, nil, err
+		}
+		disks = append(disks, _disks...)
+		snapshots = append(snapshots, _snapshots...)
+	}
+	return disks, snapshots, nil
+}
+
+func (self *SRegion) GetStorageAccountDisksWithSnapshots(storageaccount SStorageAccount) ([]SClassicDisk, []SClassicSnapshot, error) {
+	disks, snapshots := []SClassicDisk{}, []SClassicSnapshot{}
+	containers, err := storageaccount.GetContainers()
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, container := range containers {
+		if container.Name == "vhds" {
+			files, err := container.ListFiles()
+			if err != nil {
+				log.Errorf("List storage %s container %s files error: %v", storageaccount.Name, container.Name, err)
+				return nil, nil, err
+			}
+
+			for _, file := range files {
+				if strings.HasSuffix(file.Name, ".vhd") {
+					diskType := models.DISK_TYPE_DATA
+					if _diskType, ok := file.Metadata["microsoftazurecompute_disktype"]; ok && _diskType == "OSDisk" {
+						diskType = models.DISK_TYPE_SYS
+					}
+					diskName := file.Name
+					if _diskName, ok := file.Metadata["microsoftazurecompute_diskname"]; ok {
+						diskName = _diskName
+					}
+					if file.Snapshot.IsZero() {
+						disks = append(disks, SClassicDisk{
+							DiskName:   diskName,
+							diskType:   diskType,
+							DiskSizeGB: int32(file.Properties.ContentLength / 1024 / 1024 / 1024),
+							diskSizeMB: int32(file.Properties.ContentLength / 1024 / 1024),
+							VhdUri:     file.GetURL(),
+						})
+					} else {
+						snapshots = append(snapshots, SClassicSnapshot{
+							region:   self,
+							Name:     file.Snapshot.String(),
+							sizeMB:   int32(file.Properties.ContentLength / 1024 / 1024),
+							diskID:   file.GetURL(),
+							diskName: diskName,
+						})
+					}
+				}
+			}
+		}
+	}
+	return disks, snapshots, nil
 }
 
 func (self *SRegion) GetClassicDisks() ([]SClassicDisk, error) {
@@ -29,40 +93,9 @@ func (self *SRegion) GetClassicDisks() ([]SClassicDisk, error) {
 	if err != nil {
 		return nil, err
 	}
-	disks := []SClassicDisk{}
-	for _, storageaccount := range storageaccounts {
-		containers, err := storageaccount.GetContainers()
-		if err != nil {
-			return nil, err
-		}
-		baseUrl := storageaccount.GetBlobBaseUrl()
-		if len(baseUrl) == 0 {
-			return nil, fmt.Errorf("failed to find storageaccount %s blob endpoint", storageaccount.Name)
-		}
-		storage := SClassicStorage{
-			Name:     storageaccount.Name,
-			ID:       storageaccount.ID,
-			Location: storageaccount.Location,
-			Type:     storageaccount.Type,
-		}
-		for _, container := range containers {
-			if container.Name == "vhds" {
-				files, err := container.ListFiles()
-				if err != nil {
-					return nil, err
-				}
-				for _, file := range files {
-					if strings.HasSuffix(file.Name, ".vhd") {
-						disks = append(disks, SClassicDisk{
-							storage:    &storage,
-							DiskName:   file.Name,
-							DiskSizeGB: int32(file.Properties.ContentLength / 1024 / 1024 / 1024),
-							VhdUri:     baseUrl + file.Name,
-						})
-					}
-				}
-			}
-		}
+	disks, _, err := self.GetStorageAccountsDisksWithSnapshots(storageaccounts...)
+	if err != nil {
+		return nil, err
 	}
 	return disks, nil
 }
@@ -108,7 +141,10 @@ func (self *SClassicDisk) GetDiskFormat() string {
 }
 
 func (self *SClassicDisk) GetDiskSizeMB() int {
-	return int(self.DiskSizeGB * 1024)
+	if self.DiskSizeGB > 0 {
+		return int(self.DiskSizeGB * 1024)
+	}
+	return int(self.diskSizeMB)
 }
 
 func (self *SClassicDisk) GetIsAutoDelete() bool {
@@ -120,10 +156,7 @@ func (self *SClassicDisk) GetTemplateId() string {
 }
 
 func (self *SClassicDisk) GetDiskType() string {
-	if len(self.OperatingSystem) > 0 {
-		return models.DISK_TYPE_SYS
-	}
-	return models.DISK_TYPE_DATA
+	return self.diskType
 }
 
 func (self *SClassicDisk) GetExpiredAt() time.Time {
@@ -140,6 +173,11 @@ func (self *SClassicDisk) GetId() string {
 
 func (self *SClassicDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
 	return nil, cloudprovider.ErrNotSupported
+}
+
+func (region *SRegion) GetClassicSnapShots(diskId string) ([]SClassicSnapshot, error) {
+	result := []SClassicSnapshot{}
+	return result, nil
 }
 
 func (self *SClassicDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {

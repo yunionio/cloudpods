@@ -197,6 +197,11 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	return &instance, self.client.Get(fmt.Sprintf("%s?$expand=instanceView", instanceId), &instance)
 }
 
+func (self *SRegion) GetInstanceScaleSets() ([]SInstance, error) {
+	instance := []SInstance{}
+	return instance, self.client.ListAll("Microsoft.Compute/virtualMachineScaleSets", &instance)
+}
+
 func (self *SRegion) GetInstances() ([]SInstance, error) {
 	result := []SInstance{}
 	instances := []SInstance{}
@@ -261,18 +266,18 @@ func (self *SInstance) getOsDisk() (*SDisk, error) {
 	}
 }
 
-func (self *SInstance) getClassicStorageInfoByUri(uri string) (*SClassicStorage, error) {
+func (self *SInstance) getStorageInfoByUri(uri string) (*SStorage, *SClassicStorage, error) {
 	_storageName := strings.Split(strings.Replace(uri, "https://", "", -1), ".")
 	storageName := ""
 	if len(_storageName) > 0 {
 		storageName = _storageName[0]
 	}
 	if len(storageName) == 0 {
-		return nil, fmt.Errorf("bad uri %s for search storageaccount", uri)
+		return nil, nil, fmt.Errorf("bad uri %s for search storageaccount", uri)
 	}
 	storageaccounts, err := self.host.zone.region.GetClassicStorageAccounts()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for i := 0; i < len(storageaccounts); i++ {
 		if storageaccounts[i].Name == storageName {
@@ -283,27 +288,57 @@ func (self *SInstance) getClassicStorageInfoByUri(uri string) (*SClassicStorage,
 				Type:     storageaccounts[i].Type,
 				Location: storageaccounts[i].Type,
 			}
-			return &storage, nil
+			return nil, &storage, nil
 		}
 	}
-	return nil, fmt.Errorf("failed to found classic storageaccount for %s", uri)
+	storageaccounts, err = self.host.zone.region.GetStorageAccounts()
+	if err != nil {
+		return nil, nil, err
+	}
+	for i := 0; i < len(storageaccounts); i++ {
+		if storageaccounts[i].Name == storageName {
+			storage := SStorage{
+				zone:        self.host.zone,
+				Name:        storageName,
+				storageType: storageaccounts[i].Sku.Name,
+			}
+			return &storage, nil, nil
+		}
+	}
+	return nil, nil, fmt.Errorf("failed to found classic storageaccount for %s", uri)
 }
 
 func (self *SInstance) getDisks() ([]SDisk, []SClassicDisk, error) {
 	disks, classicDisk := []SDisk{}, []SClassicDisk{}
 	if self.Properties.StorageProfile.OsDisk.Vhd != nil {
 		disk := self.Properties.StorageProfile.OsDisk
-		storage, err := self.getClassicStorageInfoByUri(disk.Vhd.Uri)
+		storage, classicStorage, err := self.getStorageInfoByUri(disk.Vhd.Uri)
 		if err != nil {
 			return nil, nil, err
 		}
-		classicDisk = append(classicDisk, SClassicDisk{
-			storage:    storage,
-			DiskName:   disk.Name,
-			DiskSizeGB: disk.DiskSizeGB,
-			Caching:    disk.Caching,
-			VhdUri:     disk.Vhd.Uri,
-		})
+		if classicStorage != nil {
+			classicDisk = append(classicDisk, SClassicDisk{
+				storage:    classicStorage,
+				DiskName:   disk.Name,
+				DiskSizeGB: disk.DiskSizeGB,
+				Caching:    disk.Caching,
+				VhdUri:     disk.Vhd.Uri,
+			})
+		}
+		if storage != nil {
+			disks = append(disks, SDisk{
+				storage: storage,
+				ID:      disk.Vhd.Uri,
+				Name:    disk.Name,
+				Properties: DiskProperties{
+					OsType: disk.OsType,
+					CreationData: CreationData{
+						CreateOption: disk.CreateOption,
+					},
+					DiskSizeGB: disk.DiskSizeGB,
+				},
+			})
+		}
 	} else if self.Properties.StorageProfile.OsDisk.ManagedDisk != nil {
 		disk, err := self.getDiskWithStore(self.Properties.StorageProfile.OsDisk.ManagedDisk.ID)
 		if err != nil {
@@ -314,21 +349,36 @@ func (self *SInstance) getDisks() ([]SDisk, []SClassicDisk, error) {
 	}
 	for _, _disk := range *self.Properties.StorageProfile.DataDisks {
 		if _disk.Vhd != nil {
-			storage, err := self.getClassicStorageInfoByUri(_disk.Vhd.Uri)
+			storage, classicStorage, err := self.getStorageInfoByUri(_disk.Vhd.Uri)
 			if err != nil {
 				return nil, nil, err
 			}
-			classicDisk = append(classicDisk, SClassicDisk{
-				storage:    storage,
-				DiskName:   _disk.Name,
-				DiskSizeGB: _disk.DiskSizeGB,
-				Caching:    _disk.Caching,
-				VhdUri:     _disk.Vhd.Uri,
-			})
-		} else if self.Properties.StorageProfile.OsDisk.ManagedDisk != nil {
-			disk, err := self.getDiskWithStore(self.Properties.StorageProfile.OsDisk.ManagedDisk.ID)
+			if classicStorage != nil {
+				classicDisk = append(classicDisk, SClassicDisk{
+					storage:    classicStorage,
+					DiskName:   _disk.Name,
+					DiskSizeGB: _disk.DiskSizeGB,
+					Caching:    _disk.Caching,
+					VhdUri:     _disk.Vhd.Uri,
+				})
+			}
+			if storage != nil {
+				disks = append(disks, SDisk{
+					storage: storage,
+					ID:      _disk.Vhd.Uri,
+					Name:    _disk.Name,
+					Properties: DiskProperties{
+						CreationData: CreationData{
+							CreateOption: _disk.CreateOption,
+						},
+						DiskSizeGB: _disk.DiskSizeGB,
+					},
+				})
+			}
+		} else if _disk.ManagedDisk != nil {
+			disk, err := self.getDiskWithStore(_disk.ManagedDisk.ID)
 			if err != nil {
-				log.Errorf("Failed to find instance %s os disk: %s", self.Name, self.Properties.StorageProfile.OsDisk.ManagedDisk.ID)
+				log.Errorf("Failed to find instance %s os disk: %s", self.Name, _disk.ManagedDisk.ID)
 				return nil, nil, err
 			}
 			disks = append(disks, *disk)
@@ -352,40 +402,43 @@ func (self *SInstance) getNics() ([]SInstanceNic, error) {
 }
 
 func (self *SInstance) Refresh() error {
-	if instance, err := self.host.zone.region.GetInstance(self.ID); err != nil {
+	instance, err := self.host.zone.region.GetInstance(self.ID)
+	if err != nil {
 		return err
-	} else {
-		return jsonutils.Update(self, instance)
 	}
+	return jsonutils.Update(self, instance)
 }
 
 func (self *SInstance) GetStatus() string {
-	if self.Properties.InstanceView != nil {
-		for _, statuses := range self.Properties.InstanceView.Statuses {
-			if code := strings.Split(statuses.Code, "/"); len(code) == 2 {
-				if code[0] == "PowerState" {
-					switch code[1] {
-					case "stopped":
-						return models.VM_READY
-					case "deallocated":
-						return models.VM_DEALLOCATED
-					case "running":
-						return models.VM_RUNNING
-					case "stopping":
-						return models.VM_START_STOP
-					case "starting":
-						return models.VM_STARTING
-					case "deleting":
-						return models.VM_DELETING
-					default:
-						log.Errorf("Unknow instance status %s", code[1])
-						return models.VM_UNKNOWN
-					}
+	if self.Properties.InstanceView == nil {
+		err := self.Refresh()
+		if err != nil {
+			log.Errorf("failed to get status for instance %s", self.Name)
+			return models.VM_UNKNOWN
+		}
+	}
+	for _, statuses := range self.Properties.InstanceView.Statuses {
+		if code := strings.Split(statuses.Code, "/"); len(code) == 2 {
+			if code[0] == "PowerState" {
+				switch code[1] {
+				case "stopped", "deallocated":
+					return models.VM_READY
+				case "running":
+					return models.VM_RUNNING
+				case "stopping":
+					return models.VM_START_STOP
+				case "starting":
+					return models.VM_STARTING
+				case "deleting":
+					return models.VM_DELETING
+				default:
+					log.Errorf("Unknow instance status %s", code[1])
+					return models.VM_UNKNOWN
 				}
 			}
-			if statuses.Level == "Error" {
-				log.Errorf("Find error code: [%s] message: %s", statuses.Code, statuses.Message)
-			}
+		}
+		if statuses.Level == "Error" {
+			log.Errorf("Find error code: [%s] message: %s", statuses.Code, statuses.Message)
 		}
 	}
 	return models.VM_UNKNOWN
@@ -428,8 +481,7 @@ func (region *SRegion) AttachDisk(instanceId, diskId string) error {
 		},
 	})
 	instance.Properties.ProvisioningState = ""
-	_, err = region.client.Update(jsonutils.Marshal(instance))
-	return err
+	return region.client.Update(jsonutils.Marshal(instance), nil)
 }
 
 func (self *SInstance) DetachDisk(diskId string) error {
@@ -460,8 +512,7 @@ func (region *SRegion) DetachDisk(instanceId, diskId string) error {
 		}
 	}
 	instance.Properties.ProvisioningState = ""
-	_, err = region.client.Update(jsonutils.Marshal(instance))
-	return err
+	return region.client.Update(jsonutils.Marshal(instance), nil)
 }
 
 func (self *SInstance) ChangeConfig(instanceId string, ncpu int, vmem int) error {
@@ -469,7 +520,7 @@ func (self *SInstance) ChangeConfig(instanceId string, ncpu int, vmem int) error
 		self.Properties.HardwareProfile.VMSize = vmSize
 		self.Properties.ProvisioningState = ""
 		log.Debugf("Try HardwareProfile : %s", vmSize)
-		_, err := self.host.zone.region.client.Update(jsonutils.Marshal(self))
+		err := self.host.zone.region.client.Update(jsonutils.Marshal(self), nil)
 		if err == nil {
 			return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
 		}
@@ -535,19 +586,17 @@ func (region *SRegion) resetPassword(instanceId, username, password string) erro
 }
 
 func (region *SRegion) DeployVM(instanceId, name, password, publicKey string, deleteKeypair bool, description string) error {
-	if instance, err := region.GetInstance(instanceId); err != nil {
+	instance, err := region.GetInstance(instanceId)
+	if err != nil {
 		return err
-	} else {
-		if deleteKeypair {
-			return nil
-		}
-		if len(publicKey) > 0 {
-			return region.resetPublicKey(instanceId, instance.Properties.OsProfile.AdminUsername, publicKey)
-		} else {
-			return region.resetPassword(instanceId, instance.Properties.OsProfile.AdminUsername, password)
-		}
+	}
+	if deleteKeypair {
 		return nil
 	}
+	if len(publicKey) > 0 {
+		return region.resetPublicKey(instanceId, instance.Properties.OsProfile.AdminUsername, publicKey)
+	}
+	return region.resetPassword(instanceId, instance.Properties.OsProfile.AdminUsername, password)
 }
 
 func (self *SInstance) RebuildRoot(imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
@@ -564,7 +613,7 @@ func (region *SRegion) ReplaceSystemDisk(instanceId, imageId, passwd, publicKey 
 	if err != nil {
 		return "", err
 	}
-	err = region.stopVM(instanceId)
+	err = region.StopVM(instanceId, true)
 	if err != nil {
 		return "", err
 	}
@@ -597,7 +646,7 @@ func (region *SRegion) ReplaceSystemDisk(instanceId, imageId, passwd, publicKey 
 		}
 	}
 	instance.Properties.ProvisioningState = ""
-	_, err = region.client.Update(jsonutils.Marshal(instance))
+	err = region.client.Update(jsonutils.Marshal(instance), nil)
 	if err != nil {
 		return "", err
 	}
@@ -625,14 +674,6 @@ func (self *SInstance) GetName() string {
 
 func (self *SInstance) GetGlobalId() string {
 	return strings.ToLower(self.ID)
-}
-
-func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
-	instance, err := self.GetInstance(instanceId)
-	if err != nil {
-		return "", err
-	}
-	return instance.GetStatus(), nil
 }
 
 func (self *SRegion) DeleteVM(instanceId string) error {
@@ -679,8 +720,9 @@ func (self *SInstance) fetchDisks() error {
 		self.idisks[i] = &disks[i]
 	}
 	for i := 0; i < len(classicDisks); i++ {
-		self.idisks[i] = &classicDisks[i]
+		self.idisks[len(disks)+i] = &classicDisks[i]
 	}
+
 	return nil
 }
 
@@ -707,7 +749,6 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 		_nics[i].instance = self
 		nics = append(nics, &_nics[i])
 	}
-	log.Errorf("get nic count %d for %s", len(nics), self.Name)
 	return nics, nil
 }
 
@@ -748,7 +789,7 @@ func (self *SInstance) GetVcpuCount() int8 {
 	err := self.fetchVMSize()
 	if err != nil {
 		log.Errorf("fetchVMSize error: %v", err)
-		return 1
+		return 0
 	}
 	return int8(self.vmSize.NumberOfCores)
 }
@@ -757,7 +798,7 @@ func (self *SInstance) GetVmemSizeMB() int {
 	err := self.fetchVMSize()
 	if err != nil {
 		log.Errorf("fetchVMSize error: %v", err)
-		return 2048
+		return 0
 	}
 	return int(self.vmSize.MemoryInMB)
 }
@@ -784,18 +825,15 @@ func (self *SInstance) StartVM() error {
 }
 
 func (self *SInstance) StopVM(isForce bool) error {
-	if err := self.host.zone.region.StopVM(self.ID, isForce); err != nil {
+	err := self.host.zone.region.StopVM(self.ID, isForce)
+	if err != nil {
 		return err
 	}
 	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second)
 }
 
 func (self *SRegion) StopVM(instanceId string, isForce bool) error {
-	return self.stopVM(instanceId)
-}
-
-func (self *SRegion) stopVM(instanceId string) error {
-	_, err := self.client.PerformAction(instanceId, "shutdown")
+	_, err := self.client.PerformAction(instanceId, "deallocate")
 	return err
 }
 
@@ -810,13 +848,15 @@ func (self *SInstance) SyncSecurityGroup(secgroupId string, name string, rules [
 				return err
 			}
 		}
-	} else if extId, err := self.host.zone.region.syncSecurityGroup(secgroupId, name, rules); err != nil {
+		return nil
+	}
+	extId, err := self.host.zone.region.syncSecurityGroup(secgroupId, name, rules)
+	if err != nil {
 		return err
-	} else {
-		for _, nic := range nics {
-			if err := nic.assignSecurityGroup(extId); err != nil {
-				return err
-			}
+	}
+	for _, nic := range nics {
+		if err := nic.assignSecurityGroup(extId); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -829,12 +869,14 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	}
 	for _, nic := range nics {
 		for _, ip := range nic.Properties.IPConfigurations {
-			if len(ip.Properties.PublicIPAddress.ID) > 0 {
-				eip, err := self.host.zone.region.GetEip(ip.Properties.PublicIPAddress.ID)
-				if err == nil {
-					return eip, nil
+			if ip.Properties.PublicIPAddress != nil {
+				if len(ip.Properties.PublicIPAddress.ID) > 0 {
+					eip, err := self.host.zone.region.GetEip(ip.Properties.PublicIPAddress.ID)
+					if err == nil {
+						return eip, nil
+					}
+					log.Errorf("find eip for instance %s failed: %v", self.Name, err)
 				}
-				log.Errorf("find eip for instance %s failed: %v", self.Name, err)
 			}
 		}
 	}

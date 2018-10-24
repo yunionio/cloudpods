@@ -34,7 +34,8 @@ type SubResource struct {
 	Type string
 }
 
-type OperatingSystemDisk struct {
+type ClassicDisk struct {
+	Lun             int32
 	DiskName        string
 	Caching         string
 	OperatingSystem string
@@ -42,24 +43,13 @@ type OperatingSystemDisk struct {
 	CreatedTime     string
 	SourceImageName string
 	VhdUri          string
-	StorageAccount  SubResource
-}
-
-type ClassicDataDisk struct {
-	Lun             int32
-	DiskName        string
-	Caching         string
-	OperatingSystem string
-	IoType          string
-	CreatedTime     string
-	VhdUri          string
 	DiskSize        int32 `json:"diskSize,omitempty"`
 	StorageAccount  SubResource
 }
 
 type ClassicStorageProfile struct {
-	OperatingSystemDisk OperatingSystemDisk `json:"operatingSystemDisk,omitempty"`
-	DataDisks           *[]ClassicDataDisk  `json:"aataDisks,omitempty"`
+	OperatingSystemDisk ClassicDisk    `json:"operatingSystemDisk,omitempty"`
+	DataDisks           *[]ClassicDisk `json:"aataDisks,omitempty"`
 }
 
 type ClassicHardwareProfile struct {
@@ -158,46 +148,44 @@ func (self *SRegion) GetClassicInstance(instanceId string) (*SClassicInstance, e
 	return &instance, self.client.Get(fmt.Sprintf("%s?$expand=instanceView", instanceId), &instance)
 }
 
+type ClassicInstanceDiskProperties struct {
+	DiskName        string
+	Caching         string
+	OperatingSystem string
+	IoType          string
+	DiskSize        int32
+	SourceImageName string
+	VhdUri          string
+}
+
+type ClassicInstanceDisk struct {
+	Properties ClassicInstanceDiskProperties
+	ID         string
+	Name       string
+	Type       string
+}
+
 func (self *SClassicInstance) getDisks() ([]SClassicDisk, error) {
 	disks := []SClassicDisk{}
-	osDisk := self.Properties.StorageProfile.OperatingSystemDisk
-	store, err := self.host.zone.region.GetStorageAccountDetail(osDisk.StorageAccount.ID)
+	body, err := self.host.zone.region.client.jsonRequest("GET", fmt.Sprintf("%s/disks", self.ID), "")
 	if err != nil {
 		return nil, err
 	}
-	storage := SClassicStorage{zone: self.host.zone, Name: store.Name, Location: store.Location, ID: store.ID, Type: store.Type}
-	disks = append(disks, SClassicDisk{
-		storage:         &storage,
-		DiskName:        osDisk.DiskName,
-		Caching:         osDisk.Caching,
-		OperatingSystem: osDisk.OperatingSystem,
-		IoType:          osDisk.IoType,
-		CreatedTime:     osDisk.CreatedTime,
-		SourceImageName: osDisk.SourceImageName,
-		VhdUri:          osDisk.VhdUri,
-		StorageAccount:  osDisk.StorageAccount,
-	})
-	if self.Properties.StorageProfile.DataDisks != nil {
-		for _, disk := range *self.Properties.StorageProfile.DataDisks {
-			store, err := self.host.zone.region.GetStorageAccountDetail(disk.StorageAccount.ID)
-			if err != nil {
-				return nil, err
-			}
-			storage := SClassicStorage{zone: self.host.zone, Name: store.Name, Location: store.Location, ID: store.ID, Type: store.Type}
-			disks = append(disks, SClassicDisk{
-				storage:         &storage,
-				DiskName:        disk.DiskName,
-				DiskSizeGB:      disk.DiskSize,
-				Caching:         disk.Caching,
-				OperatingSystem: disk.OperatingSystem,
-				IoType:          disk.IoType,
-				CreatedTime:     disk.CreatedTime,
-				VhdUri:          disk.VhdUri,
-				StorageAccount:  osDisk.StorageAccount,
-			})
-		}
+	_disks, err := body.GetArray("value")
+	if err != nil {
+		return nil, err
 	}
-
+	for i := 0; i < len(_disks); i++ {
+		disk := SClassicDisk{}
+		err = _disks[i].Unmarshal(&disk, "properties")
+		if err != nil {
+			return nil, err
+		}
+		storage := SClassicStorage{zone: self.host.zone, Name: disk.StorageAccount.Name, ID: disk.StorageAccount.ID}
+		disk.DiskSizeGB = disk.DiskSize
+		disk.storage = &storage
+		disks = append(disks, disk)
+	}
 	return disks, nil
 }
 
@@ -232,28 +220,34 @@ func (self *SClassicInstance) getNics() ([]SClassicInstanceNic, error) {
 }
 
 func (self *SClassicInstance) Refresh() error {
-	if instance, err := self.host.zone.region.GetClassicInstance(self.ID); err != nil {
+	instance, err := self.host.zone.region.GetClassicInstance(self.ID)
+	if err != nil {
 		return err
-	} else {
-		return jsonutils.Update(self, instance)
 	}
+	return jsonutils.Update(self, instance)
 }
 
 func (self *SClassicInstance) GetStatus() string {
-	if self.Properties.InstanceView != nil {
-		switch self.Properties.InstanceView.Status {
-		case "StoppedDeallocated":
-			return models.VM_READY
-		case "ReadyRole":
-			return models.VM_RUNNING
-		case "Stopped":
-			return models.VM_READY
-		default:
-			log.Errorf("Unknow instance %s status %s", self.Name, self.Properties.InstanceView.Status)
+	if self.Properties.InstanceView == nil {
+		err := self.Refresh()
+		if err != nil {
+			log.Errorf("failed to get status for classic instance %s", self.Name)
 			return models.VM_UNKNOWN
 		}
 	}
-	return models.VM_UNKNOWN
+	switch self.Properties.InstanceView.Status {
+	case "StoppedDeallocated":
+		return models.VM_READY
+	case "ReadyRole":
+		return models.VM_RUNNING
+	case "Stopped":
+		return models.VM_READY
+	case "RoleStateUnknown":
+		return models.VM_UNKNOWN
+	default:
+		log.Errorf("Unknow classic instance %s status %s", self.Name, self.Properties.InstanceView.Status)
+		return models.VM_UNKNOWN
+	}
 }
 
 func (self *SClassicInstance) GetIHost() cloudprovider.ICloudHost {
@@ -407,10 +401,16 @@ func (self *SClassicInstance) StartVM() error {
 }
 
 func (self *SClassicInstance) StopVM(isForce bool) error {
-	if err := self.host.zone.region.StopVM(self.ID, isForce); err != nil {
+	err := self.host.zone.region.StopClassicVM(self.ID, isForce)
+	if err != nil {
 		return err
 	}
 	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second)
+}
+
+func (self *SRegion) StopClassicVM(instanceId string, isForce bool) error {
+	_, err := self.client.PerformAction(instanceId, "shutdown")
+	return err
 }
 
 func (self *SClassicInstance) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) error {
@@ -423,6 +423,10 @@ func (self *SClassicInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 			eip, err := self.host.zone.region.GetClassicEip(reserveIp.ID)
 			if err == nil {
 				eip.instanceId = self.ID
+				if eip.Properties.AttachedTo != nil && eip.Properties.AttachedTo.ID != self.ID {
+					//一般是此实例deallocate, eip被绑到其他机器上了.
+					return nil, nil
+				}
 				return eip, nil
 			}
 			log.Errorf("failed find eip %s for classic instance %s", reserveIp.Name, self.Name)

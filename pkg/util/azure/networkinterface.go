@@ -2,6 +2,7 @@ package azure
 
 import (
 	"fmt"
+	"regexp"
 
 	"yunion.io/x/jsonutils"
 )
@@ -26,9 +27,9 @@ func (self *SRegion) GetNetworkInterfaces() ([]SInstanceNic, error) {
 	return result, nil
 }
 
-func (self *SRegion) isNetworkInstanceNameAvaliable(nicName string) (bool, error) {
+func (self *SRegion) isNetworkInstanceNameAvaliable(resourceGroupName, nicName string) (bool, error) {
 	nics := []SInstanceNic{}
-	err := self.client.ListByType("Microsoft.Network/networkInterfaces", &nics)
+	err := self.client.ListByTypeWithResourceGroup(resourceGroupName, "Microsoft.Network/networkInterfaces", &nics)
 	if err != nil {
 		return false, err
 	}
@@ -40,6 +41,15 @@ func (self *SRegion) isNetworkInstanceNameAvaliable(nicName string) (bool, error
 	return true, nil
 }
 
+func getResourceGroupNameByID(id string) string {
+	reg := regexp.MustCompile("/resourceGroups/(.+)/providers/")
+	_resourceGroup := reg.FindStringSubmatch(id)
+	if len(_resourceGroup) == 2 {
+		return _resourceGroup[1]
+	}
+	return ""
+}
+
 func (self *SRegion) CreateNetworkInterface(nicName string, ipAddr string, subnetId string, secgrpId string) (*SInstanceNic, error) {
 	secgroup, err := self.GetSecurityGroupDetails(secgrpId)
 	if err != nil {
@@ -47,9 +57,10 @@ func (self *SRegion) CreateNetworkInterface(nicName string, ipAddr string, subne
 	}
 	secgroup.Properties.ProvisioningState = ""
 
+	resourceGroupName := getResourceGroupNameByID(subnetId)
 	nicNameBase := nicName
 	for i := 0; i < 5; i++ {
-		ok, err := self.isNetworkInstanceNameAvaliable(nicName)
+		ok, err := self.isNetworkInstanceNameAvaliable(resourceGroupName, nicName)
 		if err != nil {
 			return nil, err
 		}

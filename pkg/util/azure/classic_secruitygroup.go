@@ -228,8 +228,7 @@ func (region *SRegion) updateClassicSecurityGroupRules(secgroupId string, rules 
 	}
 	secgroup.Properties.SecurityRules = &securityRules
 	secgroup.Properties.ProvisioningState = ""
-	_, err = region.client.Update(jsonutils.Marshal(secgroup))
-	return secgroup.ID, err
+	return secgroup.ID, region.client.Update(jsonutils.Marshal(secgroup), nil)
 }
 
 func (region *SRegion) AssiginClassicSecurityGroup(instanceId, secgroupId string) error {
@@ -246,8 +245,7 @@ func (region *SRegion) AssiginClassicSecurityGroup(instanceId, secgroupId string
 		Name: secgroup.Name,
 		Type: secgroup.Type,
 	}
-	_, err = region.client.Update(jsonutils.Marshal(instance))
-	return err
+	return region.client.Update(jsonutils.Marshal(instance), nil)
 }
 
 func (self *SRegion) syncClassicSecgroupRules(secgroupId string, rules []secrules.SecurityRule) (string, error) {

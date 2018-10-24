@@ -146,7 +146,6 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 
 	for _, profile := range self.zone.region.getHardwareProfile(cpu, memMB) {
 		instance.Properties.HardwareProfile.VMSize = profile
-		log.Errorf("instance: %s", jsonutils.Marshal(instance).PrettyString())
 		log.Debugf("Try HardwareProfile : %s", profile)
 		err := self.zone.region.client.Create(jsonutils.Marshal(instance), &instance)
 		if err != nil {
@@ -207,16 +206,16 @@ func (self *SHost) GetSysInfo() jsonutils.JSONObject {
 }
 
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	return self.zone.GetIStorages()
+	return self.zone.istorages, nil
 }
 
 func (self *SHost) GetIVMById(instanceId string) (cloudprovider.ICloudVM, error) {
-	if instance, err := self.zone.region.GetInstance(instanceId); err != nil {
+	instance, err := self.zone.region.GetInstance(instanceId)
+	if err != nil {
 		return nil, err
-	} else {
-		instance.host = self
-		return instance, nil
 	}
+	instance.host = self
+	return instance, nil
 }
 
 func (self *SHost) GetStorageSizeMB() int {
@@ -232,17 +231,17 @@ func (self *SHost) GetSN() string {
 }
 
 func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	if vms, err := self.zone.region.GetInstances(); err != nil {
+	vms, err := self.zone.region.GetInstances()
+	if err != nil {
 		return nil, err
-	} else {
-		ivms := make([]cloudprovider.ICloudVM, len(vms))
-		for i := 0; i < len(vms); i++ {
-			vms[i].host = self
-			ivms[i] = &vms[i]
-			log.Debugf("find vm %s for host %s", vms[i].GetName(), self.GetName())
-		}
-		return ivms, nil
 	}
+	ivms := make([]cloudprovider.ICloudVM, len(vms))
+	for i := 0; i < len(vms); i++ {
+		vms[i].host = self
+		ivms[i] = &vms[i]
+		log.Debugf("find vm %s for host %s", vms[i].GetName(), self.GetName())
+	}
+	return ivms, nil
 }
 
 func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {

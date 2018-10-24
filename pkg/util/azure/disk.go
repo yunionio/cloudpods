@@ -101,22 +101,24 @@ func (self *SRegion) DeleteDisk(diskId string) error {
 }
 
 func (self *SRegion) deleteDisk(diskId string) error {
-	return self.client.Delete(diskId)
+	if !strings.HasPrefix(diskId, "https://") {
+		return self.client.Delete(diskId)
+	}
+	//TODO
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SRegion) ResizeDisk(diskId string, sizeGb int32) error {
-	return self.resizeDisk(diskId, sizeGb)
-}
-
-func (self *SRegion) resizeDisk(diskId string, sizeGb int32) error {
-	disk, err := self.GetDisk(diskId)
-	if err != nil {
-		return err
+	if !strings.HasPrefix(diskId, "https://") {
+		disk, err := self.GetDisk(diskId)
+		if err != nil {
+			return err
+		}
+		disk.Properties.DiskSizeGB = sizeGb
+		disk.Properties.ProvisioningState = ""
+		return self.client.Update(jsonutils.Marshal(disk), nil)
 	}
-	disk.Properties.DiskSizeGB = sizeGb
-	disk.Properties.ProvisioningState = ""
-	_, err = self.client.Update(jsonutils.Marshal(disk))
-	return err
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
@@ -126,7 +128,6 @@ func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 
 func (self *SRegion) GetDisks() ([]SDisk, error) {
 	result := []SDisk{}
-	//self.client.ListClassicDisks()
 	disks := []SDisk{}
 	err := self.client.ListAll("Microsoft.Compute/disks", &disks)
 	if err != nil {
@@ -147,16 +148,19 @@ func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SDisk) GetStatus() string {
-	status := self.Properties.ProvisioningState
-	switch status {
-	case "Updating":
-		return models.DISK_ALLOCATING
-	case "Succeeded":
-		return models.DISK_READY
-	default:
-		log.Errorf("Unknow azure disk status: %s", status)
-		return models.DISK_UNKNOWN
+	if !strings.HasPrefix(self.ID, "https://") {
+		status := self.Properties.ProvisioningState
+		switch status {
+		case "Updating":
+			return models.DISK_ALLOCATING
+		case "Succeeded":
+			return models.DISK_READY
+		default:
+			log.Errorf("Unknow azure disk %s status: %s", self.ID, status)
+			return models.DISK_UNKNOWN
+		}
 	}
+	return models.DISK_READY
 }
 
 func (self *SDisk) GetId() string {
@@ -164,11 +168,14 @@ func (self *SDisk) GetId() string {
 }
 
 func (self *SDisk) Refresh() error {
-	if disk, err := self.storage.zone.region.GetDisk(self.ID); err != nil {
-		return cloudprovider.ErrNotFound
-	} else {
+	if !strings.HasPrefix(self.ID, "https://") {
+		disk, err := self.storage.zone.region.GetDisk(self.ID)
+		if err != nil {
+			return cloudprovider.ErrNotFound
+		}
 		return jsonutils.Update(self, disk)
 	}
+	return nil
 }
 
 func (self *SDisk) Delete() error {
@@ -176,7 +183,7 @@ func (self *SDisk) Delete() error {
 }
 
 func (self *SDisk) Resize(size int64) error {
-	return self.storage.zone.region.resizeDisk(self.ID, int32(size))
+	return self.storage.zone.region.ResizeDisk(self.ID, int32(size))
 }
 
 func (self *SDisk) GetName() string {
@@ -255,15 +262,18 @@ func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot
 }
 
 func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	if snapshots, err := self.storage.zone.region.GetSnapShots(self.ID); err != nil {
-		return nil, err
-	} else {
-		isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots))
-		for i := 0; i < len(snapshots); i++ {
-			isnapshots[i] = &snapshots[i]
+	isnapshots := make([]cloudprovider.ICloudSnapshot, 0)
+	if !strings.HasPrefix(self.ID, "https://") {
+		snapshots, err := self.storage.zone.region.GetSnapShots(self.ID)
+		if err != nil {
+			return nil, err
 		}
-		return isnapshots, nil
+
+		for i := 0; i < len(snapshots); i++ {
+			isnapshots = append(isnapshots, &snapshots[i])
+		}
 	}
+	return isnapshots, nil
 }
 
 func (self *SDisk) GetBillingType() string {
@@ -275,13 +285,14 @@ func (self *SDisk) GetExpiredAt() time.Time {
 }
 
 func (self *SDisk) GetSnapshotDetail(snapshotId string) (*SSnapshot, error) {
-	if snapshot, err := self.storage.zone.region.GetSnapshotDetail(snapshotId); err != nil {
+	snapshot, err := self.storage.zone.region.GetSnapshotDetail(snapshotId)
+	if err != nil {
 		return nil, err
-	} else if snapshot.Properties.CreationData.SourceResourceID != self.ID {
-		return nil, cloudprovider.ErrNotFound
-	} else {
-		return snapshot, nil
 	}
+	if snapshot.Properties.CreationData.SourceResourceID != self.ID {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return snapshot, nil
 }
 
 func (region *SRegion) GetSnapshotDetail(snapshotId string) (*SSnapshot, error) {
@@ -291,16 +302,18 @@ func (region *SRegion) GetSnapshotDetail(snapshotId string) (*SSnapshot, error) 
 
 func (region *SRegion) GetSnapShots(diskId string) ([]SSnapshot, error) {
 	result := []SSnapshot{}
-	snapshots := []SSnapshot{}
-	err := region.client.ListAll("Microsoft.Compute/snapshots", &snapshots)
-	if err != nil {
-		return nil, err
-	}
-	for i := 0; i < len(snapshots); i++ {
-		if snapshots[i].Location == region.Name {
-			if len(diskId) == 0 || diskId == snapshots[i].Properties.CreationData.SourceResourceID {
-				snapshots[i].region = region
-				result = append(result, snapshots[i])
+	if !strings.HasPrefix(diskId, "https://") {
+		snapshots := []SSnapshot{}
+		err := region.client.ListAll("Microsoft.Compute/snapshots", &snapshots)
+		if err != nil {
+			return nil, err
+		}
+		for i := 0; i < len(snapshots); i++ {
+			if snapshots[i].Location == region.Name {
+				if len(diskId) == 0 || diskId == snapshots[i].Properties.CreationData.SourceResourceID {
+					snapshots[i].region = region
+					result = append(result, snapshots[i])
+				}
 			}
 		}
 	}

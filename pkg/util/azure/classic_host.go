@@ -130,12 +130,12 @@ func (self *SClassicHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) 
 }
 
 func (self *SClassicHost) GetIVMById(instanceId string) (cloudprovider.ICloudVM, error) {
-	if instance, err := self.zone.region.GetClassicInstance(instanceId); err != nil {
+	instance, err := self.zone.region.GetClassicInstance(instanceId)
+	if err != nil {
 		return nil, err
-	} else {
-		instance.host = self
-		return instance, nil
 	}
+	instance.host = self
+	return instance, nil
 }
 
 func (self *SClassicHost) GetStorageSizeMB() int {

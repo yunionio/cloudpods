@@ -12,12 +12,11 @@ import (
 type SNetwork struct {
 	wire *SWire
 
-	AvailableIpAddressCount int
+	AvailableIpAddressCount *int `json:"availableIpAddressCount,omitempty"`
 	ID                      string
 	Name                    string
 	Properties              SubnetPropertiesFormat
 	AddressPrefix           string `json:"addressPrefix,omitempty"`
-	// Status string
 }
 
 func (self *SNetwork) GetMetadata() *jsonutils.JSONDict {
@@ -41,10 +40,7 @@ func (self *SNetwork) IsEmulated() bool {
 }
 
 func (self *SNetwork) GetStatus() string {
-	if strings.ToLower(self.Properties.ProvisioningState) == "succeeded" || len(self.AddressPrefix) > 0 {
-		return "available"
-	}
-	return "disabled"
+	return "available"
 }
 
 func (self *SNetwork) Delete() error {
@@ -58,8 +54,8 @@ func (self *SNetwork) Delete() error {
 			subnets = append(subnets, (*vpc.Properties.Subnets)[i])
 		}
 		vpc.Properties.Subnets = &subnets
-		_, err := self.wire.vpc.region.client.Update(jsonutils.Marshal(vpc))
-		return err
+		vpc.Properties.ProvisioningState = ""
+		return self.wire.vpc.region.client.Update(jsonutils.Marshal(vpc), nil)
 	}
 	return nil
 }

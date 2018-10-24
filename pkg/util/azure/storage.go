@@ -86,24 +86,43 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	idisks := make([]cloudprovider.ICloudDisk, 0)
 	for i := 0; i < len(disks); i++ {
 		storageType := strings.ToLower(string(disks[i].Sku.Name))
-		if storageType == self.storageType {
+		if storageType == strings.ToLower(self.storageType) {
 			disks[i].storage = self
 			idisks = append(idisks, &disks[i])
 			log.Debugf("find disk %s for storage %s", disks[i].GetName(), self.GetName())
 		}
 	}
-	// classicDisks, err := self.zone.region.GetClassicDisks()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// for i := 0; i < len(classicDisks); i++ {
-	// 	storageType := strings.ToLower(string(classicDisks[i].storage.storageType))
-	// 	if storageType == self.storageType {
-	// 		disks[i].storage = self
-	// 		idisks = append(idisks, &disks[i])
-	// 		log.Debugf("find disk %s for storage %s", disks[i].GetName(), self.GetName())
-	// 	}
-	// }
+	storageaccounts, err := self.zone.region.GetStorageAccounts()
+	if err != nil {
+		log.Errorf("List storage account for get idisks error: %v", err)
+		return nil, err
+	}
+	for i := 0; i < len(storageaccounts); i++ {
+		storageType := strings.ToLower(storageaccounts[i].Sku.Name)
+		if strings.ToLower(self.storageType) != storageType {
+			continue
+		}
+		disks, _, err := self.zone.region.GetStorageAccountDisksWithSnapshots(storageaccounts[i])
+		if err != nil {
+			return nil, err
+		}
+		for i := 0; i < len(disks); i++ {
+			disk := SDisk{
+				storage: self,
+				Sku: DiskSku{
+					Name: storageaccounts[i].Sku.Name,
+					Tier: storageaccounts[i].Sku.Tier,
+				},
+				Properties: DiskProperties{
+					DiskSizeGB: disks[i].DiskSizeGB,
+					OsType:     disks[i].diskType,
+				},
+				ID:   disks[i].VhdUri,
+				Name: disks[i].DiskName,
+			}
+			idisks = append(idisks, &disk)
+		}
+	}
 	return idisks, nil
 }
 

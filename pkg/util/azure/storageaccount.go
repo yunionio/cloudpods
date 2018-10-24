@@ -3,10 +3,13 @@ package azure
 import (
 	"fmt"
 	"math/rand"
+	"path"
 	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/storage"
+	"github.com/Microsoft/azure-vhd-utils/vhdcore/common"
+	"github.com/Microsoft/azure-vhd-utils/vhdcore/diskstream"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -24,19 +27,19 @@ type Identity struct {
 	Type        string
 }
 
+type PrimaryEndpoints struct {
+	Blob  string
+	Queue string
+	Table string
+	File  string
+}
+
 type AccountProperties struct {
 	//classic
 	ClassicStorageProperties
-	// Status                  string
-	// Endpoints               []string
-	// AccountType             string
-	// GeoPrimaryRegion        string
-	// StatusOfPrimaryRegion   string
-	// GeoSecondaryRegion      string
-	// StatusOfSecondaryRegion string
-	// CreationTime            time.Time
 
 	//normal
+	PrimaryEndpoints  PrimaryEndpoints `json:"primaryEndpoints,omitempty"`
 	ProvisioningState string
 	PrimaryLocation   string
 	SecondaryLocation string
@@ -63,17 +66,15 @@ type SStorageAccount struct {
 
 func (self *SRegion) GetStorageAccounts() ([]SStorageAccount, error) {
 	result := []SStorageAccount{}
-	for _, resourceType := range []string{"Microsoft.ClassicStorage/storageAccounts", "Microsoft.Storage/storageAccounts"} {
-		accounts := []SStorageAccount{}
-		err := self.client.ListAll(resourceType, &accounts)
-		if err != nil {
-			return nil, err
-		}
-		for i := 0; i < len(accounts); i++ {
-			if accounts[i].Location == self.Name {
-				accounts[i].region = self
-				result = append(result, accounts[i])
-			}
+	accounts := []SStorageAccount{}
+	err := self.client.ListAll("Microsoft.Storage/storageAccounts", &accounts)
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(accounts); i++ {
+		if accounts[i].Location == self.Name {
+			accounts[i].region = self
+			result = append(result, accounts[i])
 		}
 	}
 	return result, nil
@@ -207,12 +208,34 @@ func (self *SStorageAccount) GetAccountKey() (accountKey string, err error) {
 }
 
 func (self *SStorageAccount) GetBlobBaseUrl() string {
+	if self.Type == "Microsoft.Storage/storageAccounts" {
+		return self.Properties.PrimaryEndpoints.Blob
+	}
 	for _, url := range self.Properties.Endpoints {
 		if strings.Contains(url, ".blob.") {
 			return url
 		}
 	}
 	return ""
+}
+
+func (self *SStorageAccount) CreateContainer(containerName string) (*SContainer, error) {
+	accessKey, err := self.GetAccountKey()
+	if err != nil {
+		return nil, err
+	}
+	client, err := storage.NewBasicClientOnSovereignCloud(self.Name, accessKey, self.region.client.env)
+	if err != nil {
+		return nil, err
+	}
+	container := SContainer{storageaccount: self}
+	blobService := client.GetBlobService()
+	containerRef := blobService.GetContainerReference(containerName)
+	err = containerRef.Create(&storage.CreateContainerOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return &container, jsonutils.Update(&container, containerRef)
 }
 
 func (self *SStorageAccount) GetContainers() ([]SContainer, error) {
@@ -270,17 +293,92 @@ type SContainerFile struct {
 	Metadata   map[string]string
 }
 
-func (self *SContainer) ListFiles() ([]SContainerFile, error) {
-	files := []SContainerFile{}
+func (self *SContainer) ListFiles() ([]storage.Blob, error) {
 	storageaccount := self.storageaccount
 	client, err := storage.NewBasicClientOnSovereignCloud(storageaccount.Name, storageaccount.accountKey, storageaccount.region.client.env)
 	if err != nil {
 		return nil, err
 	}
 	blobService := client.GetBlobService()
-	result, err := blobService.GetContainerReference(self.Name).ListBlobs(storage.ListBlobsParameters{})
+	result, err := blobService.GetContainerReference(self.Name).ListBlobs(storage.ListBlobsParameters{Include: &storage.IncludeBlobDataset{Snapshots: true, Metadata: true}})
 	if err != nil {
 		return nil, err
 	}
-	return files, jsonutils.Update(&files, result.Blobs)
+	return result.Blobs, nil
+}
+
+func (self *SContainer) UploadFile(filePath string) (string, error) {
+	storageaccount := self.storageaccount
+	client, err := storage.NewBasicClientOnSovereignCloud(storageaccount.Name, storageaccount.accountKey, storageaccount.region.client.env)
+	if err != nil {
+		return "", err
+	}
+	blobService := client.GetBlobService()
+	containerRef := blobService.GetContainerReference(self.Name)
+
+	err = ensureVHDSanity(filePath)
+	if err != nil {
+		return "", err
+	}
+	diskStream, err := diskstream.CreateNewDiskStream(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer diskStream.Close()
+	blobName := path.Base(filePath)
+	blobRef := containerRef.GetBlobReference(blobName)
+	blobRef.Properties.ContentLength = diskStream.GetSize()
+	err = blobRef.PutPageBlob(&storage.PutBlobOptions{})
+	if err != nil {
+		return "", err
+	}
+	var rangesToSkip []*common.IndexRange
+	uploadableRanges, err := LocateUploadableRanges(diskStream, rangesToSkip, DefaultReadBlockSize)
+	if err != nil {
+		return "", err
+	}
+	uploadableRanges, err = DetectEmptyRanges(diskStream, uploadableRanges)
+	if err != nil {
+		return "", err
+	}
+
+	cxt := &DiskUploadContext{
+		VhdStream:             diskStream,
+		UploadableRanges:      uploadableRanges,
+		AlreadyProcessedBytes: common.TotalRangeLength(rangesToSkip),
+		BlobServiceClient:     blobService,
+		ContainerName:         self.Name,
+		BlobName:              blobName,
+		Parallelism:           3,
+		Resume:                false,
+		MD5Hash:               []byte(""), //localMetaData.FileMetaData.MD5Hash,
+	}
+
+	if err := Upload(cxt); err != nil {
+		return "", err
+	}
+	return blobRef.GetURL(), nil
+}
+
+func (self *SStorageAccount) UploadFile(containerName string, filePath string) (string, error) {
+	containers, err := self.GetContainers()
+	if err != nil {
+		return "", err
+	}
+	container := &SContainer{}
+	find := false
+	for i := 0; i < len(containers); i++ {
+		if containers[i].Name == containerName {
+			container = &containers[i]
+			find = true
+			break
+		}
+	}
+	if !find {
+		container, err = self.CreateContainer(containerName)
+		if err != nil {
+			return "", err
+		}
+	}
+	return container.UploadFile(filePath)
 }

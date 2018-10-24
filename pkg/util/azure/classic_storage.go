@@ -1,9 +1,7 @@
 package azure
 
 import (
-	"fmt"
 	"strings"
-	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -19,7 +17,7 @@ type ClassicStorageProperties struct {
 	StatusOfPrimaryRegion   string
 	GeoSecondaryRegion      string
 	StatusOfSecondaryRegion string
-	CreationTime            time.Time
+	//CreationTime            time.Time
 }
 
 type SClassicStorage struct {
@@ -83,34 +81,14 @@ func (self *SClassicStorage) GetIDisk(diskId string) (cloudprovider.ICloudDisk, 
 
 func (self *SClassicStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	storageaccount, err := self.zone.region.GetStorageAccountDetail(self.ID)
+	disks, _, err := self.zone.region.GetStorageAccountDisksWithSnapshots(*storageaccount)
 	if err != nil {
 		return nil, err
 	}
-	containers, err := storageaccount.GetContainers()
-	if err != nil {
-		return nil, err
-	}
-	baseUrl := storageaccount.GetBlobBaseUrl()
-	if len(baseUrl) == 0 {
-		return nil, fmt.Errorf("failed to find storageaccount %s blob endpoint", storageaccount.Name)
-	}
-	idisks := make([]cloudprovider.ICloudDisk, 0)
-	for _, container := range containers {
-		if container.Name == "vhds" {
-			files, err := container.ListFiles()
-			if err != nil {
-				return nil, err
-			}
-			for _, file := range files {
-				if strings.HasSuffix(file.Name, ".vhd") {
-					idisks = append(idisks, &SClassicDisk{
-						storage:  self,
-						DiskName: file.Name,
-						VhdUri:   baseUrl + file.Name,
-					})
-				}
-			}
-		}
+	idisks := make([]cloudprovider.ICloudDisk, len(disks))
+	for i := 0; i < len(disks); i++ {
+		disks[i].storage = self
+		idisks[i] = &disks[i]
 	}
 	return idisks, nil
 }

@@ -72,17 +72,26 @@ func (self *SRegion) createNetwork(vpc *SVpc, subnetName string, cidr string, de
 	} else {
 		*vpc.Properties.Subnets = append(*vpc.Properties.Subnets, subnet)
 	}
-	_, err := self.client.Update(jsonutils.Marshal(vpc))
-	return &subnet, err
+	vpc.Properties.ProvisioningState = ""
+	err := self.client.Update(jsonutils.Marshal(vpc), vpc)
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(*vpc.Properties.Subnets); i++ {
+		if (*vpc.Properties.Subnets)[i].Name == subnetName {
+			subnet.ID = (*vpc.Properties.Subnets)[i].ID
+		}
+	}
+	return &subnet, nil
 }
 
 func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	if network, err := self.zone.region.createNetwork(self.vpc, name, cidr, desc); err != nil {
+	network, err := self.zone.region.createNetwork(self.vpc, name, cidr, desc)
+	if err != nil {
 		return nil, err
-	} else {
-		network.wire = self
-		return network, nil
 	}
+	network.wire = self
+	return network, nil
 }
 
 func (self *SWire) GetBandwidth() int {
