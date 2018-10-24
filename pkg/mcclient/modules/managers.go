@@ -131,3 +131,11 @@ func NewAutoUpdateManager(keyword, keywordPlural string, columns, adminColumns [
 			serviceType:  "autoupdate"},
 		Keyword: keyword, KeywordPlural: keywordPlural}
 }
+
+func NewWebsocketManager(keyword, keywordPlural string, columns, adminColumns []string) ResourceManager {
+	return ResourceManager{
+		BaseManager: BaseManager{columns: columns,
+			adminColumns: adminColumns,
+			serviceType:  "websocket"},
+		Keyword: keyword, KeywordPlural: keywordPlural}
+}
