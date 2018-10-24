@@ -17,7 +17,7 @@ func init() {
 	EndpointsV3 = NewIdentityV3Manager("endpoint", "endpoints",
 		[]string{},
 		[]string{"ID", "Region_ID",
-			"Service_ID",
+			"Service_ID", "name",
 			"URL", "Interface", "Enabled"})
 
 	register(&EndpointsV3)

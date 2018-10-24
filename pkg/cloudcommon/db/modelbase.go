@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -72,6 +73,10 @@ func (manager *SModelBaseManager) ValidateListConditions(ctx context.Context, us
 
 func (manager *SModelBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	return q, nil
+}
+
+func (manager *SModelBaseManager) CustomizeFilterList(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, retList []jsonutils.JSONObject) ([]jsonutils.JSONObject, error) {
+	return retList, nil
 }
 
 func (manager *SModelBaseManager) ExtraSearchConditions(ctx context.Context, q *sqlchemy.SQuery, like string) []sqlchemy.ICondition {
@@ -147,6 +152,10 @@ func (manager *SModelBaseManager) PerformAction(ctx context.Context, userCred mc
 
 func (manager *SModelBaseManager) InitializeData() error {
 	return nil
+}
+
+func (manager *SModelBaseManager) DoCreate(ctx context.Context, userCred mcclient.TokenCredential, kwargs jsonutils.JSONObject, data jsonutils.JSONObject, realManager IModelManager) (IModel, error) {
+	return nil, fmt.Errorf("Do create not implement?")
 }
 
 func (model *SModelBase) GetId() string {
