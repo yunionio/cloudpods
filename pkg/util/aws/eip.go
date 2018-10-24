@@ -14,7 +14,7 @@ type SEipAddress struct {
 
 	AllocationId            string
 	Bandwidth            int
-	Tags                    STags
+	Tags                    TagSpec
 	Status    string
 	InstanceId              string
 	AssociationId           string
@@ -141,14 +141,17 @@ func (self *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddress
 
 	eips := make([]SEipAddress, 0)
 	for _, ip := range res.Addresses {
+		tagspec := TagSpec{ResourceType: "eip"}
+		tagspec.LoadingEc2Tags(ip.Tags)
+
 		eips = append(eips, SEipAddress{region: self, AllocationId: *ip.AllocationId,
-			Tags:                    STags{},
-			InstanceId:              *ip.InstanceId,
+			Tags:                    tagspec,
+			InstanceId:              StrVal(ip.InstanceId),
 			AssociationId:           *ip.AssociationId,
 			Domain:                  *ip.Domain,
-			NetworkInterfaceId:      *ip.NetworkInterfaceId,
-			NetworkInterfaceOwnerId: *ip.NetworkInterfaceOwnerId,
-			PrivateIpAddress:        *ip.PrivateIpAddress,
+			NetworkInterfaceId:      StrVal(ip.NetworkInterfaceId),
+			NetworkInterfaceOwnerId: StrVal(ip.NetworkInterfaceOwnerId),
+			PrivateIpAddress:        StrVal(ip.PrivateIpAddress),
 			IpAddress:               *ip.PublicIp,
 		})
 	}
