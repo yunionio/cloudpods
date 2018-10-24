@@ -408,9 +408,6 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 			var secgroups SSecurityGroupIds
 			for _, s := range instance.SecurityGroups {
 				if s.GroupId != nil {
-					if secgroups.SecurityGroupId == nil {
-						secgroups.SecurityGroupId = []string{}
-					}
 					secgroups.SecurityGroupId = append(secgroups.SecurityGroupId, *s.GroupId)
 				}
 			}
