@@ -72,3 +72,7 @@ func (self *SClassicSnapshot) GetManagerId() string {
 func (self *SClassicSnapshot) GetRegionId() string {
 	return self.region.GetId()
 }
+
+func (self *SClassicSnapshot) GetDiskType() string {
+	return ""
+}
