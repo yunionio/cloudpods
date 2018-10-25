@@ -99,7 +99,8 @@ func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName
 	// 	filters = AppendSingleValueFilter(filters, )
 	// }
 	// owner by self
-	// filters = AppendSingleValueFilter(filters, "owner-id", self)
+	owner := "self"
+	params.SetOwnerIds([]*string{&owner})
 	if len(diskId) > 0 {
 		filters = AppendSingleValueFilter(filters, "volume-id", diskId)
 	}
