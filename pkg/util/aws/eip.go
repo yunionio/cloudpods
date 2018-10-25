@@ -162,8 +162,8 @@ func (self *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddress
 	return eips, len(eips), nil
 }
 
-func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
-	eips, total, err := region.GetEips(eipId, 0, 0)
+func (self *SRegion) GetEip(eipId string) (*SEipAddress, error) {
+	eips, total, err := self.GetEips(eipId, 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -173,50 +173,60 @@ func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 	return &eips[0], nil
 }
 
-func (region *SRegion) AllocateEIP(domainType string) (*SEipAddress, error) {
+func (self *SRegion) AllocateEIP(domainType string) (*SEipAddress, error) {
 	params := &ec2.AllocateAddressInput{}
 	params.SetDomain(domainType)
-	eip, err := region.ec2Client.AllocateAddress(params)
+	eip, err := self.ec2Client.AllocateAddress(params)
 	if err != nil {
 		log.Errorf("AllocateEipAddress fail %s", err)
 		return nil, err
 	}
 
-	err = region.fetchInfrastructure()
+	err = self.fetchInfrastructure()
 	if err != nil {
 		return nil, err
 	}
-	return region.GetEip(*eip.AllocationId)
+	return self.GetEip(*eip.AllocationId)
 }
 
-func (region *SRegion) CreateEIP(name string, bwMbps int, chargeType string) (cloudprovider.ICloudEIP, error) {
+func (self *SRegion) CreateEIP(name string, bwMbps int, chargeType string) (cloudprovider.ICloudEIP, error) {
 	// todo: aws 不支持指定bwMbps, chargeType ？
 	log.Debugf("CreateEip: aws not support specific params name/bwMbps/chargeType.")
-	return region.AllocateEIP("vpc")
+	return self.AllocateEIP("vpc")
 }
 
-func (region *SRegion) DeallocateEIP(eipId string) error {
+func (self *SRegion) DeallocateEIP(eipId string) error {
 	params := &ec2.ReleaseAddressInput{}
 	params.SetAllocationId(eipId)
-	_, err := region.ec2Client.ReleaseAddress(params)
+	_, err := self.ec2Client.ReleaseAddress(params)
 	return err
 }
 
-func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
+func (self *SRegion) AssociateEip(eipId string, instanceId string) error {
 	params := &ec2.AssociateAddressInput{}
 	params.SetAllocationId(eipId)
 	params.SetInstanceId(instanceId)
-	_, err := region.ec2Client.AssociateAddress(params)
+	_, err := self.ec2Client.AssociateAddress(params)
 	return err
 }
 
-func (region *SRegion) DissociateEip(eipId string, instanceId string) error {
+func (self *SRegion) DissociateEip(eipId string, instanceId string) error {
+	eip, err := self.GetEip(eipId)
+	if err != nil {
+		return err
+	}
+
+	if len(eip.AssociationId) == 0 {
+		// 已经是解绑状态
+		return nil
+	}
+
 	params := &ec2.DisassociateAddressInput{}
-	params.SetAssociationId(eipId)
-	_, err := region.ec2Client.DisassociateAddress(params)
+	params.SetAssociationId(eip.AssociationId)
+	_, err = self.ec2Client.DisassociateAddress(params)
 	return err
 }
 
-func (region *SRegion) UpdateEipBandwidth(eipId string, bw int) error {
+func (self *SRegion) UpdateEipBandwidth(eipId string, bw int) error {
 	return cloudprovider.ErrNotSupported
 }
