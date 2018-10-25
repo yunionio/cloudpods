@@ -2,21 +2,22 @@ package aws
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"time"
 )
 
 type SEipAddress struct {
 	region *SRegion
 
 	AllocationId            string
-	Bandwidth            int
+	Bandwidth               int
 	Tags                    TagSpec
-	Status    string
+	Status                  string
 	InstanceId              string
 	AssociationId           string
 	Domain                  string
@@ -149,7 +150,9 @@ func (self *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddress
 		tagspec := TagSpec{ResourceType: "eip"}
 		tagspec.LoadingEc2Tags(ip.Tags)
 
-		eips = append(eips, SEipAddress{region: self, AllocationId: *ip.AllocationId,
+		eips = append(eips, SEipAddress{
+			region:                  self,
+			AllocationId:            *ip.AllocationId,
 			Tags:                    tagspec,
 			InstanceId:              *ip.InstanceId,
 			AssociationId:           *ip.AssociationId,
