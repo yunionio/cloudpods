@@ -84,7 +84,10 @@ func (man *SDnsRecordManager) ParseInputInfo(data *jsonutils.JSONDict) ([]string
 			host := parts[0]
 			if !regutils.MatchDomainName(host) &&
 				!regutils.MatchIPAddr(host) {
-				return "", httperrors.NewNotAcceptableError("SRV: invalid host part: %s", host)
+				return "", httperrors.NewNotAcceptableError("SRV: target is not valid domain: %s", host)
+			}
+			if regutils.MatchIPAddr(host) {
+				return "", httperrors.NewNotAcceptableError("SRV: target cannot be an IP address: %s", host)
 			}
 			port, err := strconv.Atoi(parts[1])
 			if err != nil || port <= 0 || port >= 65536 {
