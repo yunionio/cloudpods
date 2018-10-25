@@ -41,6 +41,7 @@ type SImage struct {
 	ImageName            string
 	OSName               string
 	OSType               string
+	ImageType            string
 	IsSupportCloudinit   bool
 	IsSupportIoOptimized bool
 	Platform             string
@@ -214,7 +215,7 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 		return nil, 0, err
 	}
 
-	images := make([]SImage, len(ret.Images))
+	images := []SImage{}
 	for _, image := range ret.Images {
 		if err := FillZero(image); err != nil {
 			return nil, 0, err
@@ -229,14 +230,14 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 			Description:          *image.Description,
 			ImageId:              *image.ImageId,
 			ImageName:            tagspec.GetNameTag(),
-			// OSName:               *image.Platform,
-			OSType:               *image.ImageType,
+			ImageType:               *image.ImageType,
 			IsSupportIoOptimized: *image.EnaSupport,
 			Platform:             *image.Platform,
 			Status:               ImageStatusCreating, // *image.State,
 			CreationTime:         *image.CreationDate,
 			// Usage:                "",
 			//Size:                 image.,
+			// OSName:               *image.Platform,
 		})
 	}
 
