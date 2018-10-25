@@ -51,7 +51,7 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 	} else {
 		nicId = nic.ID
 	}
-	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, nicId, ipAddr, desc, passwd, storageType, diskSizes, publicKey)
+	vmId, err := self._createVM(name, imgId, int32(sysDiskSize), cpu, memMB, nicId, ipAddr, desc, passwd, storageType, diskSizes, publicKey)
 	if err != nil {
 		self.zone.region.DeleteNetworkInterface(nicId)
 		return nil, err
@@ -64,7 +64,7 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 	}
 }
 
-func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, nicId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string) (string, error) {
+func (self *SHost) _createVM(name string, imgId string, sysDiskSize int32, cpu int, memMB int, nicId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string) (string, error) {
 	image, err := self.zone.region.GetImage(imgId)
 	if err != nil {
 		log.Errorf("Get Image %s fail %s", imgId, err)
@@ -110,7 +110,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 						StorageAccountType: storage.Name,
 					},
 					CreateOption: "FromImage",
-					DiskSizeGB:   int32(sysDiskSize),
+					DiskSizeGB:   &sysDiskSize,
 					OsType:       image.GetOsType(),
 				},
 			},
@@ -120,7 +120,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 	if len(publicKey) > 0 {
 		instance.Properties.OsProfile.LinuxConfiguration = &LinuxConfiguration{
 			DisablePasswordAuthentication: false,
-			SSH: SSHConfiguration{
+			SSH: &SSHConfiguration{
 				PublicKeys: []SSHPublicKey{
 					SSHPublicKey{KeyData: publicKey},
 				},
@@ -135,13 +135,13 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 		lun := int32(i)
 		dataDisks = append(dataDisks, DataDisk{
 			Name:         diskName,
-			DiskSizeGB:   size,
+			DiskSizeGB:   &size,
 			CreateOption: "Empty",
 			Lun:          lun,
 		})
 	}
 	if len(dataDisks) > 0 {
-		instance.Properties.StorageProfile.DataDisks = &dataDisks
+		instance.Properties.StorageProfile.DataDisks = dataDisks
 	}
 
 	for _, profile := range self.zone.region.getHardwareProfile(cpu, memMB) {

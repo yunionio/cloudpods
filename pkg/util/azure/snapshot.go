@@ -1,12 +1,9 @@
 package azure
 
 import (
-	"context"
-	"encoding/json"
-	"io/ioutil"
+	"fmt"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-04-01/compute"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -90,25 +87,12 @@ type AccessURI struct {
 }
 
 func (self *SRegion) GrantAccessSnapshot(snapshotId string) (string, error) {
-	_, resourceGroup, snapshotName := pareResourceGroupWithName(snapshotId, SNAPSHOT_RESOURCE)
-	snapClient := compute.NewSnapshotsClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-	snapClient.Authorizer = self.client.authorizer
-	durationInSeconds := int32(3600 * 24)
-	params := compute.GrantAccessData{
-		Access:            compute.Read,
-		DurationInSeconds: &durationInSeconds,
+	body, err := self.client.PerformAction(snapshotId, "beginGetAccess", fmt.Sprintf(`{"access": "Read", "durationInSeconds": %d}`, 3600*24))
+	if err != nil {
+		return "", err
 	}
 	accessURI := AccessURI{}
-	if result, err := snapClient.GrantAccess(context.Background(), resourceGroup, snapshotName, params); err != nil {
-		return "", err
-	} else if err := result.WaitForCompletion(context.Background(), snapClient.Client); err != nil {
-		return "", err
-	} else if body, err := ioutil.ReadAll(result.Response().Body); err != nil {
-		return "", err
-	} else if err := json.Unmarshal(body, &accessURI); err != nil {
-		return "", err
-	}
-	return accessURI.Properties.Output.AccessSas, nil
+	return accessURI.Properties.Output.AccessSas, body.Unmarshal(&accessURI)
 }
 
 func (self *SSnapshot) Refresh() error {

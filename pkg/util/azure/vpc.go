@@ -201,7 +201,7 @@ func (self *SVpc) GetStatus() string {
 
 func (region *SRegion) GetVpc(vpcId string) (*SVpc, error) {
 	vpc := SVpc{region: region}
-	return &vpc, region.client.Get(vpcId, &vpc)
+	return &vpc, region.client.Get(vpcId, []string{}, &vpc)
 }
 
 func (self *SVpc) Refresh() error {
@@ -226,5 +226,5 @@ func (self *SVpc) GetNetworks() []SNetwork {
 
 func (self *SRegion) GetNetworkDetail(networkId string) (*Subnet, error) {
 	subnet := Subnet{}
-	return &subnet, self.client.Get(networkId, &subnet)
+	return &subnet, self.client.Get(networkId, []string{}, &subnet)
 }

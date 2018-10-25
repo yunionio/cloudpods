@@ -233,7 +233,7 @@ func (manager *SWireManager) newFromCloudWire(extWire cloudprovider.ICloudWire, 
 	wire.VpcId = vpc.Id
 	zoneObj, err := ZoneManager.FetchByExternalId(extWire.GetIZone().GetGlobalId())
 	if err != nil {
-		log.Errorf("cannot find zone %s for wire %s", extWire.GetIZone().GetGlobalId(), err)
+		log.Errorf("cannot find zone for wire %s", err)
 		return nil, err
 	}
 	wire.ZoneId = zoneObj.(*SZone).Id

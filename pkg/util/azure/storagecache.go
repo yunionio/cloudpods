@@ -97,7 +97,7 @@ func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageI
 	} else {
 		log.Debugf("UploadImage: no external ID")
 	}
-	return self.uploadImage(userCred, imageId, osArch, osType, osDist, isForce)
+	return self.uploadImage(userCred, imageId, osArch, osType, osDist, isForce, options.Options.TempPath)
 }
 
 func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
@@ -132,7 +132,7 @@ func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
 	return storageaccount, nil
 }
 
-func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
+func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool, tmpPath string) (string, error) {
 	s := auth.GetAdminSession(options.Options.Region, "")
 	if meta, reader, err := modules.Images.Download(s, imageId); err != nil {
 		return "", err
@@ -144,7 +144,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		if !strings.HasSuffix(imageNameOnBlob, ".vhd") {
 			imageNameOnBlob = fmt.Sprintf("%s.vhd", imageNameOnBlob)
 		}
-		tmpFile := fmt.Sprintf("/opt/cloud/workspace/data/glance/image-cache/%s", imageNameOnBlob)
+		tmpFile := fmt.Sprintf("%s/%s", tmpPath, imageNameOnBlob)
 		defer os.Remove(tmpFile)
 		f, err := os.Create(tmpFile)
 		if err != nil {

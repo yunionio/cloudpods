@@ -11,20 +11,9 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
-type StorageAccountTypes string
-
-const (
-	// StorageAccountTypesPremiumLRS ...
-	StorageAccountTypesPremiumLRS StorageAccountTypes = "Premium_LRS"
-	// StorageAccountTypesStandardLRS ...
-	StorageAccountTypesStandardLRS StorageAccountTypes = "Standard_LRS"
-	// StorageAccountTypesStandardSSDLRS ...
-	StorageAccountTypesStandardSSDLRS StorageAccountTypes = "StandardSSD_LRS"
-)
-
 type DiskSku struct {
-	Name string `json:"name"`
-	Tier string
+	Name string `json:"name,omitempty"`
+	Tier string `json:"tier,omitempty"`
 }
 
 type ImageDiskReference struct {
@@ -33,34 +22,35 @@ type ImageDiskReference struct {
 }
 
 type CreationData struct {
-	CreateOption     string `json:"createOption"`
+	CreateOption     string `json:"createOption,omitempty"`
 	StorageAccountID string
 	ImageReference   *ImageDiskReference `json:"imageReference,omitempty"`
-	SourceURI        string
-	SourceResourceID string `json:"sourceResourceId"`
+	SourceURI        string              `json:"sourceUri,omitempty"`
+	SourceResourceID string              `json:"sourceResourceId,omitempty"`
 }
 
 type DiskProperties struct {
 	//TimeCreated       time.Time //??? 序列化出错？
-	OsType            string       `json:"osType"`
-	CreationData      CreationData `json:"creationData"`
-	DiskSizeGB        int32        `json:"diskSizeGB"`
+	OsType            string       `json:"osType,omitempty"`
+	CreationData      CreationData `json:"creationData,omitempty"`
+	DiskSizeGB        int32        `json:"diskSizeGB,omitempty"`
 	ProvisioningState string       `json:"provisioningState,omitempty"`
+	DiskState         string       `json:"diskState,omitempty"`
 }
 
 type SDisk struct {
 	storage *SStorage
 
-	ManagedBy  string
-	Sku        DiskSku `json:"sku"`
-	Zones      []string
-	ID         string
-	Name       string `json:"name"`
-	Type       string
-	Location   string         `json:"location"`
-	Properties DiskProperties `json:"properties"`
+	ManagedBy  string         `json:"managedBy,omitempty"`
+	Sku        DiskSku        `json:"sku,omitempty"`
+	Zones      []string       `json:"zones,omitempty"`
+	ID         string         `json:"id,omitempty"`
+	Name       string         `json:"name,omitempty"`
+	Type       string         `json:"type,omitempty"`
+	Location   string         `json:"location,omitempty"`
+	Properties DiskProperties `json:"properties,omitempty"`
 
-	Tags map[string]string
+	Tags map[string]string `json:"tags,omitempty"`
 }
 
 func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, desc string, imageId string) (*SDisk, error) {
@@ -123,7 +113,7 @@ func (self *SRegion) ResizeDisk(diskId string, sizeGb int32) error {
 
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	disk := SDisk{}
-	return &disk, self.client.Get(diskId, &disk)
+	return &disk, self.client.Get(diskId, []string{}, &disk)
 }
 
 func (self *SRegion) GetDisks() ([]SDisk, error) {
@@ -238,7 +228,10 @@ func (self *SDisk) GetIsAutoDelete() bool {
 }
 
 func (self *SDisk) GetTemplateId() string {
-	return self.Properties.CreationData.ImageReference.ID
+	if self.Properties.CreationData.ImageReference != nil {
+		return self.Properties.CreationData.ImageReference.ID
+	}
+	return ""
 }
 
 func (self *SDisk) GetDiskType() string {
@@ -297,7 +290,7 @@ func (self *SDisk) GetSnapshotDetail(snapshotId string) (*SSnapshot, error) {
 
 func (region *SRegion) GetSnapshotDetail(snapshotId string) (*SSnapshot, error) {
 	snapshot := SSnapshot{region: region}
-	return &snapshot, region.client.Get(snapshotId, &snapshot)
+	return &snapshot, region.client.Get(snapshotId, []string{}, &snapshot)
 }
 
 func (region *SRegion) GetSnapShots(diskId string) ([]SSnapshot, error) {

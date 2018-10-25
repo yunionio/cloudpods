@@ -115,7 +115,7 @@ func (self *SClassicEipAddress) IsEmulated() bool {
 
 func (region *SRegion) GetClassicEip(eipId string) (*SClassicEipAddress, error) {
 	eip := SClassicEipAddress{region: region}
-	return &eip, region.client.Get(eipId, &eip)
+	return &eip, region.client.Get(eipId, []string{}, &eip)
 }
 
 func (self *SClassicEipAddress) Refresh() error {

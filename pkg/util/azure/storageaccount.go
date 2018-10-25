@@ -14,6 +14,11 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
+type SContainer struct {
+	storageaccount *SStorageAccount
+	Name           string
+}
+
 type Sku struct {
 	Name         string
 	Tier         string
@@ -149,7 +154,7 @@ func (self *SRegion) getStorageAccountID(storageAccount string) (*SStorageAccoun
 
 func (self *SRegion) GetStorageAccountDetail(accountId string) (*SStorageAccount, error) {
 	account := SStorageAccount{region: self}
-	return &account, self.client.Get(accountId, &account)
+	return &account, self.client.Get(accountId, []string{}, &account)
 }
 
 type AccountKeys struct {
@@ -159,7 +164,7 @@ type AccountKeys struct {
 }
 
 func (self *SRegion) GetStorageAccountKey(accountId string) (string, error) {
-	body, err := self.client.PerformAction(accountId, "listKeys")
+	body, err := self.client.PerformAction(accountId, "listKeys", "")
 	if err != nil {
 		return "", err
 	}
@@ -262,37 +267,6 @@ func (self *SStorageAccount) GetContainers() ([]SContainer, error) {
 	return containers, nil
 }
 
-type FileProperties struct {
-	LastModified          time.Time
-	ContentMD5            string
-	ContentLength         int64
-	ContentType           string
-	ContentEncoding       string
-	CacheControl          string
-	ContentLanguage       string
-	ContentDisposition    string
-	BlobType              string
-	SequenceNumber        int64
-	CopyID                string
-	CopyStatus            string
-	CopySource            string
-	CopyProgress          string
-	CopyCompletionTime    time.Time
-	CopyStatusDescription string
-	LeaseStatus           string
-	LeaseState            string
-	LeaseDuration         string
-	ServerEncrypted       bool
-	IncrementalCopy       bool
-}
-
-type SContainerFile struct {
-	Name       string
-	Snapshot   time.Time
-	Properties FileProperties
-	Metadata   map[string]string
-}
-
 func (self *SContainer) ListFiles() ([]storage.Blob, error) {
 	storageaccount := self.storageaccount
 	client, err := storage.NewBasicClientOnSovereignCloud(storageaccount.Name, storageaccount.accountKey, storageaccount.region.client.env)
@@ -305,6 +279,47 @@ func (self *SContainer) ListFiles() ([]storage.Blob, error) {
 		return nil, err
 	}
 	return result.Blobs, nil
+}
+
+func (self *SContainer) getClient() (storage.Client, error) {
+	storageaccount := self.storageaccount
+	return storage.NewBasicClientOnSovereignCloud(storageaccount.Name, storageaccount.accountKey, storageaccount.region.client.env)
+}
+
+func (self *SContainer) getContainerRef() (*storage.Container, error) {
+	client, err := self.getClient()
+	if err != nil {
+		return nil, err
+	}
+	blobService := client.GetBlobService()
+	return blobService.GetContainerReference(self.Name), nil
+}
+
+func (self *SContainer) Delete(fileName string) error {
+	containerRef, err := self.getContainerRef()
+	if err != nil {
+		return err
+	}
+	blobRef := containerRef.GetBlobReference(fileName)
+	_, err = blobRef.DeleteIfExists(&storage.DeleteBlobOptions{})
+	return err
+}
+
+func (self *SContainer) CopySnapshot(snapshotId, fileName string) (*storage.Blob, error) {
+	containerRef, err := self.getContainerRef()
+	if err != nil {
+		return nil, err
+	}
+	blobRef := containerRef.GetBlobReference(fileName)
+	uri, err := self.storageaccount.region.GrantAccessSnapshot(snapshotId)
+	if err != nil {
+		return nil, err
+	}
+	err = blobRef.Copy(uri, &storage.CopyOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return blobRef, blobRef.GetProperties(&storage.GetBlobPropertiesOptions{})
 }
 
 func (self *SContainer) UploadFile(filePath string) (string, error) {

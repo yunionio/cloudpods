@@ -145,7 +145,7 @@ func (self *SRegion) GetClassicInstances() ([]SClassicInstance, error) {
 
 func (self *SRegion) GetClassicInstance(instanceId string) (*SClassicInstance, error) {
 	instance := SClassicInstance{}
-	return &instance, self.client.Get(fmt.Sprintf("%s?$expand=instanceView", instanceId), &instance)
+	return &instance, self.client.Get(instanceId, []string{"$expand=instanceView"}, &instance)
 }
 
 type ClassicInstanceDiskProperties struct {
@@ -276,11 +276,13 @@ func (self *SClassicInstance) ChangeConfig(instanceId string, ncpu int, vmem int
 }
 
 func (self *SClassicInstance) DeployVM(name string, password string, publicKey string, deleteKeypair bool, description string) error {
-	return self.host.zone.region.DeployVM(self.ID, name, password, publicKey, deleteKeypair, description)
+	return cloudprovider.ErrNotImplemented
+	//return self.host.zone.region.DeployVM(self.ID, name, password, publicKey, deleteKeypair, description)
 }
 
 func (self *SClassicInstance) RebuildRoot(imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
-	return self.host.zone.region.ReplaceSystemDisk(self.ID, imageId, passwd, publicKey, int32(sysSizeGB))
+	return "", cloudprovider.ErrNotImplemented
+	//return self.host.zone.region.ReplaceSystemDisk(self.ID, imageId, passwd, publicKey, int32(sysSizeGB))
 }
 
 func (self *SClassicInstance) UpdateVM(name string) error {
@@ -409,7 +411,7 @@ func (self *SClassicInstance) StopVM(isForce bool) error {
 }
 
 func (self *SRegion) StopClassicVM(instanceId string, isForce bool) error {
-	_, err := self.client.PerformAction(instanceId, "shutdown")
+	_, err := self.client.PerformAction(instanceId, "shutdown", "")
 	return err
 }
 

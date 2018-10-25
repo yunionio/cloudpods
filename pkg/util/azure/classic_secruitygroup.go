@@ -186,7 +186,7 @@ func (region *SRegion) GetClassicSecurityGroups() ([]SClassicSecurityGroup, erro
 
 func (region *SRegion) GetClassicSecurityGroupDetails(secgroupId string) (*SClassicSecurityGroup, error) {
 	secgroup := SClassicSecurityGroup{}
-	return &secgroup, region.client.Get(secgroupId, &secgroup)
+	return &secgroup, region.client.Get(secgroupId, []string{}, &secgroup)
 }
 
 func (self *SClassicSecurityGroup) Refresh() error {

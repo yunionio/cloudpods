@@ -1,14 +1,11 @@
 package azure
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/Azure/azure-sdk-for-go/services/consumption/mgmt/2018-03-31/consumption"
 
 	"github.com/Azure/go-autorest/autorest"
 	azureenv "github.com/Azure/go-autorest/autorest/azure"
@@ -84,13 +81,12 @@ func NewAzureClient(providerId string, providerName string, accessKey string, se
 			return nil, err
 		}
 		return &client, nil
-	} else {
-		return nil, httperrors.NewUnauthorizedError("clientId、clientScret or subscriptId input error")
 	}
+	return nil, httperrors.NewUnauthorizedError("clientId、clientScret or subscriptId input error")
 }
 
 func (self *SAzureClient) getDefaultClient() (*autorest.Client, error) {
-	client := autorest.NewClientWithUserAgent("hello")
+	client := autorest.NewClientWithUserAgent("Yunion API")
 	conf := auth.NewClientCredentialsConfig(self.clientId, self.clientScret, self.tenantId)
 	env, err := azureenv.EnvironmentFromName(self.envName)
 	if err != nil {
@@ -118,12 +114,19 @@ func (self *SAzureClient) jsonRequest(method, url string, body string) (jsonutil
 	return jsonRequest(cli, method, self.domain, url, body)
 }
 
-func (self *SAzureClient) Get(resourceId string, retVal interface{}) error {
+func (self *SAzureClient) Get(resourceId string, params []string, retVal interface{}) error {
+	if len(resourceId) == 0 {
+		return cloudprovider.ErrNotFound
+	}
+	path := resourceId
+	if len(params) > 0 {
+		path += fmt.Sprintf("?%s", strings.Join(params, "&"))
+	}
 	cli, err := self.getDefaultClient()
 	if err != nil {
 		return err
 	}
-	body, err := jsonRequest(cli, "GET", self.domain, resourceId, "")
+	body, err := jsonRequest(cli, "GET", self.domain, path, "")
 	if err != nil {
 		return err
 	}
@@ -232,13 +235,13 @@ func (self *SAzureClient) Delete(resourceId string) error {
 	return err
 }
 
-func (self *SAzureClient) PerformAction(resourceId string, action string) (jsonutils.JSONObject, error) {
+func (self *SAzureClient) PerformAction(resourceId string, action string, body string) (jsonutils.JSONObject, error) {
 	cli, err := self.getDefaultClient()
 	if err != nil {
 		return nil, err
 	}
 	url := fmt.Sprintf("%s/%s", resourceId, action)
-	return jsonRequest(cli, "POST", self.domain, url, "")
+	return jsonRequest(cli, "POST", self.domain, url, body)
 }
 
 func (self *SAzureClient) fetchResourceGroup(cli *autorest.Client, location string) error {
@@ -257,7 +260,12 @@ func (self *SAzureClient) fetchResourceGroup(cli *autorest.Client, location stri
 		if err != nil {
 			return err
 		}
-		return body.Unmarshal(&self.ressourceGroups, "value")
+		resourceGroup := SResourceGroup{}
+		err = body.Unmarshal(&resourceGroup)
+		if err != nil {
+			return err
+		}
+		self.ressourceGroups = []SResourceGroup{resourceGroup}
 	}
 	return nil
 }
@@ -336,7 +344,7 @@ func jsonRequest(client *autorest.Client, method, domain, baseUrl string, body s
 func waitForComplatetion(client *autorest.Client, req *http.Request, resp *http.Response) (jsonutils.JSONObject, error) {
 	location := resp.Header.Get("Location")
 	asyncoperation := resp.Header.Get("Azure-Asyncoperation")
-	if len(location) > 0 || (len(asyncoperation) > 0 && resp.StatusCode != 200) {
+	if len(location) > 0 || (len(asyncoperation) > 0 && resp.StatusCode != 200 || strings.Index(req.URL.String(), "enablevmaccess") > 0) {
 		if len(asyncoperation) > 0 {
 			location = asyncoperation
 		}
@@ -366,14 +374,27 @@ func waitForComplatetion(client *autorest.Client, req *http.Request, resp *http.
 			}
 			if len(asyncoperation) > 0 && asyncData.Contains("status") {
 				status, _ := asyncData.GetString("status")
-				if status == "InProgress" {
+				switch status {
+				case "InProgress":
 					log.Debugf("process %s %s InProgress", req.Method, req.URL.String())
 					time.Sleep(time.Second * 5)
 					continue
-				}
-				if status == "Succeeded" {
+				case "Succeeded":
 					log.Debugf("process %s %s Succeeded", req.Method, req.URL.String())
+					output, err := asyncData.Get("properties", "output")
+					if err == nil {
+						return output, nil
+					}
 					return nil, nil
+				case "Failed":
+					if asyncData.Contains("error") {
+						msg, _ := asyncData.Get("error")
+						log.Errorf("process %s %s error: %s", req.Method, req.URL.String(), msg.String())
+						return nil, fmt.Errorf(msg.String())
+					}
+				default:
+					log.Errorf("Unknow status %s when process %s %s", status, req.Method, req.URL.String())
+					return nil, fmt.Errorf("Unknow status %s", status)
 				}
 				return nil, fmt.Errorf("Create failed: %s", data)
 			}
@@ -613,15 +634,5 @@ type SAccountBalance struct {
 }
 
 func (self *SAzureClient) QueryAccountBalance() (*SAccountBalance, error) {
-	consumption.NewWithBaseURI(self.baseUrl, self.subscriptionId)
-	costClient := consumption.NewWithBaseURI(self.baseUrl, self.subscriptionId)
-	//costClient := costmanagement.NewBillingAccountDimensionsClientWithBaseURI(self.baseUrl, self.subscriptionId)
-	costClient.Authorizer = self.authorizer
-	if result, err := costClient.GetBalancesByBillingAccount(context.Background(), "quxuan@ioito.partner.onmschina.cn"); err != nil {
-		//if result, err := costClient.Get(context.Background(), ""); err != nil {
-		return nil, err
-	} else {
-		log.Errorf(jsonutils.Marshal(result).PrettyString())
-	}
-	return nil, nil
+	return nil, cloudprovider.ErrNotImplemented
 }

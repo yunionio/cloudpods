@@ -25,10 +25,10 @@ type ImageOSDisk struct {
 	OsState            string       `json:"osState,omitempty"`
 	Snapshot           *SubResource `json:"snapshot,omitempty"`
 	ManagedDisk        *SubResource
-	BlobURI            string              `json:"blobURI,omitempty"`
-	Caching            string              `json:"caching,omitempty"`
-	DiskSizeGB         int32               `json:"diskSizeGB,omitempty"`
-	StorageAccountType StorageAccountTypes `json:"storageAccountType,omitempty"`
+	BlobURI            string `json:"blobUri,omitempty"`
+	Caching            string `json:"caching,omitempty"`
+	DiskSizeGB         int32  `json:"diskSizeGB,omitempty"`
+	StorageAccountType string `json:"storageAccountType,omitempty"`
 }
 
 type ImageDataDisk struct {
@@ -38,7 +38,7 @@ type ImageDataDisk struct {
 	BlobURI            string
 	Caching            string
 	DiskSizeGB         int32
-	StorageAccountType StorageAccountTypes
+	StorageAccountType string
 }
 
 type DataDisks []ImageDataDisk
@@ -124,7 +124,7 @@ func (self *SRegion) GetImageStatus(imageId string) (ImageStatusType, error) {
 
 func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 	image := SImage{}
-	return &image, self.client.Get(imageId, &image)
+	return &image, self.client.Get(imageId, []string{}, &image)
 }
 
 func (self *SRegion) GetImageByName(name string) (*SImage, error) {
@@ -203,6 +203,7 @@ func (self *SRegion) DeleteImage(imageId string) error {
 }
 
 func (self *SImage) GetBlobUri() string {
+
 	return self.Properties.StorageProfile.OsDisk.BlobURI
 }
 

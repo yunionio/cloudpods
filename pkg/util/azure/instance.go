@@ -22,22 +22,22 @@ type HardwareProfile struct {
 }
 
 type ImageReference struct {
-	Publisher string
-	Offer     string
-	Sku       string
-	Version   string
-	ID        string
+	Publisher string `json:"publisher,omitempty"`
+	Offer     string `json:"offer,omitempty"`
+	Sku       string `json:"sku,omitempty"`
+	Version   string `json:"version,omitempty"`
+	ID        string `json:"id,omitempty"`
 }
 
 type VirtualHardDisk struct {
-	Uri string
+	Uri string `json:"uri,omitempty"`
 }
 
 type OSDisk struct {
 	OsType       string `json:"osType,omitempty"`
 	Caching      string `json:"caching,omitempty"`
 	Name         string
-	DiskSizeGB   int32                  `json:"diskSizeGB,omitempty"`
+	DiskSizeGB   *int32                 `json:"diskSizeGB,omitempty"`
 	ManagedDisk  *ManagedDiskParameters `json:"managedDisk,omitempty"`
 	CreateOption string                 `json:"createOption,omitempty"`
 	Vhd          *VirtualHardDisk       `json:"vhd,omitempty"`
@@ -50,29 +50,22 @@ type ManagedDiskParameters struct {
 
 type DataDisk struct {
 	Lun            int32
-	Name           string
-	DiskName       string
-	Vhd            *VirtualHardDisk `json:"vhd,omitempty"`
-	Caching        string
-	DiskSizeGB     int32
-	DiskSize       *int32
-	IoType         string
-	CreateOption   string
-	ManagedDisk    *ManagedDiskParameters
-	VhdUri         string
-	StorageAccount *StorageAccount
-}
-
-type StorageAccount struct {
-	Id   string
-	Name string
-	Type string
+	Name           string                 `json:"name,omitempty"`
+	DiskName       string                 `json:"diskName,omitempty"`
+	Vhd            *VirtualHardDisk       `json:"vhd,omitempty"`
+	Caching        string                 `json:"caching,omitempty"`
+	DiskSizeGB     *int32                 `json:"diskSizeGB,omitempty"`
+	IoType         string                 `json:"ioType,omitempty"`
+	CreateOption   string                 `json:"createOption,omitempty"`
+	ManagedDisk    *ManagedDiskParameters `json:"managedDisk,omitempty"`
+	VhdUri         string                 `json:"vhdUri,omitempty"`
+	StorageAccount *SubResource           `json:"storageAccount,omitempty"`
 }
 
 type StorageProfile struct {
 	ImageReference ImageReference `json:"imageReference,omitempty"`
 	OsDisk         OSDisk         `json:"osDisk,omitempty"`
-	DataDisks      *[]DataDisk
+	DataDisks      []DataDisk     `json:"dataDisks,omitempty"`
 }
 
 type SSHPublicKey struct {
@@ -85,18 +78,18 @@ type SSHConfiguration struct {
 }
 
 type LinuxConfiguration struct {
-	DisablePasswordAuthentication bool             `json:"linuxConfiguration,omitempty"`
-	SSH                           SSHConfiguration `json:"ssh,omitempty"`
+	DisablePasswordAuthentication bool              `json:"disablePasswordAuthentication,omitempty"`
+	SSH                           *SSHConfiguration `json:"ssh,omitempty"`
 }
 
 type VaultCertificate struct {
-	CertificateURL   string
-	CertificateStore string
+	CertificateURL   string `json:"certificateURL,omitempty"`
+	CertificateStore string `json:"certificateStore,omitempty"`
 }
 
 type VaultSecretGroup struct {
-	SourceVault       SubResource
-	VaultCertificates []VaultCertificate
+	SourceVault       SubResource        `json:"sourceVault,omitempty"`
+	VaultCertificates []VaultCertificate `json:"vaultCertificates,omitempty"`
 }
 
 type OsProfile struct {
@@ -105,7 +98,7 @@ type OsProfile struct {
 	AdminPassword      string              `json:"adminPassword,omitempty"`
 	CustomData         string              `json:"customData,omitempty"`
 	LinuxConfiguration *LinuxConfiguration `json:"linuxConfiguration,omitempty"`
-	Secrets            []VaultSecretGroup
+	Secrets            []VaultSecretGroup  `json:"secrets,omitempty"`
 }
 
 type NetworkInterfaceReference struct {
@@ -161,21 +154,21 @@ type DomainName struct {
 }
 
 type DebugProfile struct {
-	BootDiagnosticsEnabled   bool
-	ConsoleScreenshotBlobUri string
-	SerialOutputBlobUri      string
+	BootDiagnosticsEnabled   *bool  `json:"bootDiagnosticsEnabled,omitempty"`
+	ConsoleScreenshotBlobUri string `json:"consoleScreenshotBlobUri,omitempty"`
+	SerialOutputBlobUri      string `json:"serialOutputBlobUri,omitempty"`
 }
 
 type VirtualMachineProperties struct {
-	ProvisioningState string
+	ProvisioningState string                      `json:"provisioningState,omitempty"`
 	InstanceView      *VirtualMachineInstanceView `json:"instanceView,omitempty"`
-	DomainName        *DomainName
-	HardwareProfile   HardwareProfile `json:"hardwareProfile,omitempty"`
-	NetworkProfile    NetworkProfile  `json:"networkProfile,omitempty"`
-	StorageProfile    StorageProfile  `json:"storageProfile,omitempty"`
-	DebugProfile      *DebugProfile   `json:"debugProfile,omitempty"`
-	OsProfile         OsProfile       `json:"osProfile,omitempty"`
-	VmId              string
+	DomainName        *DomainName                 `json:"domainName,omitempty"`
+	HardwareProfile   HardwareProfile             `json:"hardwareProfile,omitempty"`
+	NetworkProfile    NetworkProfile              `json:"networkProfile,omitempty"`
+	StorageProfile    StorageProfile              `json:"storageProfile,omitempty"`
+	DebugProfile      *DebugProfile               `json:"debugProfile,omitempty"`
+	OsProfile         OsProfile                   `json:"osProfile,omitempty"`
+	VmId              string                      `json:"vmId,omitempty"`
 }
 
 type SInstance struct {
@@ -194,7 +187,7 @@ type SInstance struct {
 
 func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	instance := SInstance{}
-	return &instance, self.client.Get(fmt.Sprintf("%s?$expand=instanceView", instanceId), &instance)
+	return &instance, self.client.Get(instanceId, []string{"$expand=instanceView"}, &instance)
 }
 
 func (self *SRegion) GetInstanceScaleSets() ([]SInstance, error) {
@@ -308,37 +301,67 @@ func (self *SInstance) getStorageInfoByUri(uri string) (*SStorage, *SClassicStor
 	return nil, nil, fmt.Errorf("failed to found classic storageaccount for %s", uri)
 }
 
+type BasicDisk struct {
+	Name         string
+	DiskSizeGB   int32
+	Caching      string
+	CreateOption string
+	OsType       string
+}
+
+func (self *SInstance) getDisksByUri(uri string, disk *BasicDisk) ([]SDisk, []SClassicDisk, error) {
+	storage, classicStorage, err := self.getStorageInfoByUri(uri)
+	if err != nil {
+		return nil, nil, err
+	}
+	disks, classicDisks := []SDisk{}, []SClassicDisk{}
+	if classicStorage != nil {
+		classicDisks = append(classicDisks, SClassicDisk{
+			storage:    classicStorage,
+			DiskName:   disk.Name,
+			DiskSizeGB: disk.DiskSizeGB,
+			Caching:    disk.Caching,
+			VhdUri:     uri,
+		})
+	}
+	if storage != nil {
+		disks = append(disks, SDisk{
+			storage: storage,
+			ID:      uri,
+			Name:    disk.Name,
+			Properties: DiskProperties{
+				OsType: disk.OsType,
+				CreationData: CreationData{
+					CreateOption: disk.CreateOption,
+				},
+				DiskSizeGB: disk.DiskSizeGB,
+			},
+		})
+	}
+	return disks, classicDisks, nil
+}
+
 func (self *SInstance) getDisks() ([]SDisk, []SClassicDisk, error) {
-	disks, classicDisk := []SDisk{}, []SClassicDisk{}
+	disks, classicDisks := []SDisk{}, []SClassicDisk{}
 	if self.Properties.StorageProfile.OsDisk.Vhd != nil {
 		disk := self.Properties.StorageProfile.OsDisk
-		storage, classicStorage, err := self.getStorageInfoByUri(disk.Vhd.Uri)
+		diskSizeGB := int32(0)
+		if disk.DiskSizeGB != nil {
+			diskSizeGB = *disk.DiskSizeGB
+		}
+		basicDisk := &BasicDisk{
+			Name:         disk.Name,
+			DiskSizeGB:   diskSizeGB,
+			Caching:      disk.Caching,
+			CreateOption: disk.CreateOption,
+			OsType:       disk.OsType,
+		}
+		_disks, _classicDisks, err := self.getDisksByUri(disk.Vhd.Uri, basicDisk)
 		if err != nil {
 			return nil, nil, err
 		}
-		if classicStorage != nil {
-			classicDisk = append(classicDisk, SClassicDisk{
-				storage:    classicStorage,
-				DiskName:   disk.Name,
-				DiskSizeGB: disk.DiskSizeGB,
-				Caching:    disk.Caching,
-				VhdUri:     disk.Vhd.Uri,
-			})
-		}
-		if storage != nil {
-			disks = append(disks, SDisk{
-				storage: storage,
-				ID:      disk.Vhd.Uri,
-				Name:    disk.Name,
-				Properties: DiskProperties{
-					OsType: disk.OsType,
-					CreationData: CreationData{
-						CreateOption: disk.CreateOption,
-					},
-					DiskSizeGB: disk.DiskSizeGB,
-				},
-			})
-		}
+		disks = append(disks, _disks...)
+		classicDisks = append(classicDisks, _classicDisks...)
 	} else if self.Properties.StorageProfile.OsDisk.ManagedDisk != nil {
 		disk, err := self.getDiskWithStore(self.Properties.StorageProfile.OsDisk.ManagedDisk.ID)
 		if err != nil {
@@ -347,34 +370,31 @@ func (self *SInstance) getDisks() ([]SDisk, []SClassicDisk, error) {
 		}
 		disks = append(disks, *disk)
 	}
-	for _, _disk := range *self.Properties.StorageProfile.DataDisks {
+	for _, _disk := range self.Properties.StorageProfile.DataDisks {
+		diskSizeGB := int32(0)
+		if _disk.DiskSizeGB != nil {
+			diskSizeGB = *_disk.DiskSizeGB
+		} else {
+			if _disk.ManagedDisk != nil {
+				disk, err := self.host.zone.region.GetDisk(_disk.ManagedDisk.ID)
+				if err != nil {
+					diskSizeGB = disk.Properties.DiskSizeGB
+				}
+			}
+		}
 		if _disk.Vhd != nil {
-			storage, classicStorage, err := self.getStorageInfoByUri(_disk.Vhd.Uri)
+			basicDisk := &BasicDisk{
+				Name:         _disk.Name,
+				DiskSizeGB:   diskSizeGB,
+				Caching:      _disk.Caching,
+				CreateOption: _disk.CreateOption,
+			}
+			_disks, _classicDisks, err := self.getDisksByUri(_disk.Vhd.Uri, basicDisk)
 			if err != nil {
 				return nil, nil, err
 			}
-			if classicStorage != nil {
-				classicDisk = append(classicDisk, SClassicDisk{
-					storage:    classicStorage,
-					DiskName:   _disk.Name,
-					DiskSizeGB: _disk.DiskSizeGB,
-					Caching:    _disk.Caching,
-					VhdUri:     _disk.Vhd.Uri,
-				})
-			}
-			if storage != nil {
-				disks = append(disks, SDisk{
-					storage: storage,
-					ID:      _disk.Vhd.Uri,
-					Name:    _disk.Name,
-					Properties: DiskProperties{
-						CreationData: CreationData{
-							CreateOption: _disk.CreateOption,
-						},
-						DiskSizeGB: _disk.DiskSizeGB,
-					},
-				})
-			}
+			disks = append(disks, _disks...)
+			classicDisks = append(classicDisks, _classicDisks...)
 		} else if _disk.ManagedDisk != nil {
 			disk, err := self.getDiskWithStore(_disk.ManagedDisk.ID)
 			if err != nil {
@@ -384,7 +404,8 @@ func (self *SInstance) getDisks() ([]SDisk, []SClassicDisk, error) {
 			disks = append(disks, *disk)
 		}
 	}
-	return disks, classicDisk, nil
+
+	return disks, classicDisks, nil
 }
 
 func (self *SInstance) getNics() ([]SInstanceNic, error) {
@@ -456,31 +477,30 @@ func (self *SInstance) AttachDisk(diskId string) error {
 }
 
 func (region *SRegion) AttachDisk(instanceId, diskId string) error {
-	instance, err := region.GetInstance(instanceId)
-	if err != nil {
-		return err
-	}
 	disk, err := region.GetDisk(diskId)
 	if err != nil {
 		return err
 	}
+	instance, err := region.GetInstance(instanceId)
+	if err != nil {
+		return err
+	}
 	dataDisks := []DataDisk{}
-	index := int32(0)
-	if instance.Properties.StorageProfile.DataDisks != nil {
-		for _, originDisk := range *instance.Properties.StorageProfile.DataDisks {
-			originDisk.Lun = index
-			dataDisks = append(dataDisks, originDisk)
-			index++
-		}
+	lun := int32(0)
+	for i := 0; i < len(instance.Properties.StorageProfile.DataDisks); i++ {
+		instance.Properties.StorageProfile.DataDisks[i].Lun = lun
+		dataDisks = append(dataDisks, instance.Properties.StorageProfile.DataDisks[i])
 	}
 	dataDisks = append(dataDisks, DataDisk{
-		Lun:          int32(len(*instance.Properties.StorageProfile.DataDisks)),
-		CreateOption: disk.Properties.CreationData.CreateOption,
+		Lun:          lun,
+		CreateOption: "Attach",
 		ManagedDisk: &ManagedDiskParameters{
 			ID: disk.ID,
 		},
 	})
+	instance.Properties.StorageProfile.DataDisks = dataDisks
 	instance.Properties.ProvisioningState = ""
+	instance.Properties.InstanceView = nil
 	return region.client.Update(jsonutils.Marshal(instance), nil)
 }
 
@@ -502,16 +522,16 @@ func (region *SRegion) DetachDisk(instanceId, diskId string) error {
 	}
 	dataDisks := []DataDisk{}
 	index := int32(0)
-	if instance.Properties.StorageProfile.DataDisks != nil {
-		for _, origDisk := range *instance.Properties.StorageProfile.DataDisks {
-			if origDisk.ManagedDisk.ID != disk.ID {
-				origDisk.Lun = index
-				dataDisks = append(dataDisks, origDisk)
-				index++
-			}
+	for _, origDisk := range instance.Properties.StorageProfile.DataDisks {
+		if origDisk.ManagedDisk.ID != disk.ID {
+			origDisk.Lun = index
+			dataDisks = append(dataDisks, origDisk)
+			index++
 		}
 	}
+	instance.Properties.StorageProfile.DataDisks = dataDisks
 	instance.Properties.ProvisioningState = ""
+	instance.Properties.InstanceView = nil
 	return region.client.Update(jsonutils.Marshal(instance), nil)
 }
 
@@ -519,6 +539,7 @@ func (self *SInstance) ChangeConfig(instanceId string, ncpu int, vmem int) error
 	for _, vmSize := range self.host.zone.region.getHardwareProfile(ncpu, vmem) {
 		self.Properties.HardwareProfile.VMSize = vmSize
 		self.Properties.ProvisioningState = ""
+		self.Properties.InstanceView = nil
 		log.Debugf("Try HardwareProfile : %s", vmSize)
 		err := self.host.zone.region.client.Update(jsonutils.Marshal(self), nil)
 		if err == nil {
@@ -541,32 +562,89 @@ func (self *SInstance) DeployVM(name string, password string, publicKey string, 
 }
 
 type VirtualMachineExtensionProperties struct {
-	Publisher          string
-	Type               string
-	TypeHandlerVersion string
-	ProtectedSettings  interface{}
+	Publisher          string      `json:"publisher,omitempty"`
+	Type               string      `json:"type,omitempty"`
+	TypeHandlerVersion string      `json:"typeHandlerVersion,omitempty"`
+	ProtectedSettings  interface{} `json:"protectedSettings,omitempty"`
+	Settings           interface{} `json:"settings,omitempty"`
 }
 
 type SVirtualMachineExtension struct {
-	Location   string
-	Properties VirtualMachineExtensionProperties
-	Type       string
+	Location   string                            `json:"location,omitempty"`
+	Properties VirtualMachineExtensionProperties `json:"properties,omitempty"`
 }
 
+func (region *SRegion) restartWaagent(instanceId string) error {
+	extension := SVirtualMachineExtension{
+		Location: region.Name,
+		Properties: VirtualMachineExtensionProperties{
+			Publisher:          "Microsoft.Azure.Extensions",
+			Type:               "CustomScript",
+			TypeHandlerVersion: "2.0",
+			Settings:           map[string]string{"commandToExecute": "systemctl restart waagent"},
+		},
+	}
+	url := fmt.Sprintf("%s/extensions/CustomScript", instanceId)
+	_, err := region.client.jsonRequest("PUT", url, jsonutils.Marshal(extension).String())
+	return err
+}
+
+func (region *SRegion) execOnLinux(instanceId string, command string) error {
+	extension := SVirtualMachineExtension{
+		Location: region.Name,
+		Properties: VirtualMachineExtensionProperties{
+			Publisher:          "Microsoft.Azure.Extensions",
+			Type:               "CustomScript",
+			TypeHandlerVersion: "2.0",
+			Settings:           map[string]string{"commandToExecute": command},
+		},
+	}
+	url := fmt.Sprintf("%s/extensions/CustomScript", instanceId)
+	_, err := region.client.jsonRequest("PUT", url, jsonutils.Marshal(extension).String())
+	return err
+}
+
+func (region *SRegion) resetOvsEnv(instanceId string) error {
+	ovsEnv, err := region.getOvsEnv(instanceId)
+	if err != nil {
+		return err
+	}
+	err = region.execOnLinux(instanceId, fmt.Sprintf(`echo '%s' > /var/lib/waagent/ovf-env.xml`, ovsEnv))
+	if err != nil {
+		return err
+	}
+	return region.execOnLinux(instanceId, "systemctl restart wagent")
+}
+
+func (region *SRegion) deleteExtension(instanceId, extensionName string) error {
+	return region.client.Delete(fmt.Sprintf("%s/extensions/%s", instanceId, extensionName))
+}
 func (region *SRegion) resetLoginInfo(instanceId string, setting map[string]string) error {
 	extension := SVirtualMachineExtension{
 		Location: region.Name,
-		Type:     "",
 		Properties: VirtualMachineExtensionProperties{
 			Publisher:          "Microsoft.OSTCExtensions",
 			Type:               "VMAccessForLinux",
 			TypeHandlerVersion: "1.4",
+			ProtectedSettings:  setting,
 		},
 	}
-
 	url := fmt.Sprintf("%s/extensions/enablevmaccess", instanceId)
 	_, err := region.client.jsonRequest("PUT", url, jsonutils.Marshal(extension).String())
-	return err
+	if err != nil {
+		err = region.deleteExtension(instanceId, "enablevmaccess")
+		if err != nil {
+			return err
+		}
+		err = region.resetOvsEnv(instanceId)
+		if err != nil {
+			return err
+		}
+		url := fmt.Sprintf("%s/extensions/enablevmaccess", instanceId)
+		_, err = region.client.jsonRequest("PUT", url, jsonutils.Marshal(extension).String())
+		return err
+	}
+	return nil
 }
 
 func (region *SRegion) resetPublicKey(instanceId string, username, publicKey string) error {
@@ -594,7 +672,7 @@ func (region *SRegion) DeployVM(instanceId, name, password, publicKey string, de
 		return nil
 	}
 	if len(publicKey) > 0 {
-		return region.resetPublicKey(instanceId, instance.Properties.OsProfile.AdminUsername, publicKey)
+		err = region.resetPublicKey(instanceId, instance.Properties.OsProfile.AdminUsername, publicKey)
 	}
 	return region.resetPassword(instanceId, instance.Properties.OsProfile.AdminUsername, password)
 }
@@ -623,10 +701,18 @@ func (region *SRegion) ReplaceSystemDisk(instanceId, imageId, passwd, publicKey 
 		return "", fmt.Errorf("Cannot replease osType %s => %s", orgOsType, destOsType)
 	}
 	diskName := fmt.Sprintf("vdisk_%s_%d", instance.Name, time.Now().UnixNano())
-	storageType := string(instance.Properties.StorageProfile.OsDisk.ManagedDisk.StorageAccountType)
+	storageType := instance.Properties.StorageProfile.OsDisk.ManagedDisk.StorageAccountType
+	if len(storageType) == 0 {
+		_disk, err := region.GetDisk(instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID)
+		if err != nil {
+			return "", err
+		}
+		storageType = _disk.Sku.Name
+	}
 	oldDiskId := instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID
 	disk, err := region.CreateDisk(storageType, diskName, sysSizeGB, "", imageId)
 	if err != nil {
+		log.Errorf("Create system disk error: %v", err)
 		return "", err
 	}
 	instance.Properties.StorageProfile.OsDisk.Name = disk.Name
@@ -636,7 +722,7 @@ func (region *SRegion) ReplaceSystemDisk(instanceId, imageId, passwd, publicKey 
 	instance.Properties.OsProfile.AdminPassword = passwd
 	if len(publicKey) > 0 {
 		instance.Properties.OsProfile.LinuxConfiguration = &LinuxConfiguration{
-			SSH: SSHConfiguration{
+			SSH: &SSHConfiguration{
 				PublicKeys: []SSHPublicKey{
 					SSHPublicKey{
 						KeyData: publicKey,
@@ -645,7 +731,13 @@ func (region *SRegion) ReplaceSystemDisk(instanceId, imageId, passwd, publicKey 
 			},
 		}
 	}
+	for i := 0; i < len(instance.Properties.StorageProfile.DataDisks); i++ {
+		//避免因size更新不及时导致更换系统盘失败
+		instance.Properties.StorageProfile.DataDisks[i].DiskSizeGB = nil
+	}
+
 	instance.Properties.ProvisioningState = ""
+	instance.Properties.InstanceView = nil
 	err = region.client.Update(jsonutils.Marshal(instance), nil)
 	if err != nil {
 		return "", err
@@ -739,6 +831,48 @@ func (self *SInstance) GetOSType() string {
 	return osprofile.NormalizeOSType(string(self.Properties.StorageProfile.OsDisk.OsType))
 }
 
+func (self *SRegion) getOvsEnv(instanceId string) (string, error) {
+	instance, err := self.GetInstance(instanceId)
+	if err != nil {
+		return "", err
+	}
+	kms := map[string]string{
+		"AzureGermanCloud":       "kms.core.cloudapi.de",
+		"AzureChinaCloud":        "kms.core.chinacloudapi.cn",
+		"AzureUSGovernmentCloud": "kms.core.usgovcloudapi.net",
+		"AzurePublicCloud":       "kms.core.windows.net",
+	}
+	kmsServer := "kms.core.chinacloudapi.cn"
+	if _kmsServer, ok := kms[self.client.envName]; ok {
+		kmsServer = _kmsServer
+	}
+	return fmt.Sprintf(`
+	<ns0:Environment xmlns:ns0="http://schemas.dmtf.org/ovf/environment/1" xmlns:ns1="http://schemas.microsoft.com/windowsazure" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+		<ns1:ProvisioningSection>
+		<ns1:Version>1.0</ns1:Version>
+		<ns1:LinuxProvisioningConfigurationSet>
+			<ns1:ConfigurationSetType>LinuxProvisioningConfiguration</ns1:ConfigurationSetType>
+			<ns1:UserName>%s</ns1:UserName>
+			<ns1:DisableSshPasswordAuthentication>false</ns1:DisableSshPasswordAuthentication>
+			<ns1:HostName>%s</ns1:HostName>
+			<ns1:UserPassword>REDACTED</ns1:UserPassword>
+		</ns1:LinuxProvisioningConfigurationSet>
+		</ns1:ProvisioningSection>
+			<ns1:PlatformSettingsSection>
+				<ns1:Version>1.0</ns1:Version>
+			<ns1:PlatformSettings>
+				<ns1:KmsServerHostname>%s</ns1:KmsServerHostname>
+				<ns1:ProvisionGuestAgent>true</ns1:ProvisionGuestAgent>
+				<ns1:GuestAgentPackageName xsi:nil="true" />
+				<ns1:RetainWindowsPEPassInUnattend>true</ns1:RetainWindowsPEPassInUnattend>
+				<ns1:RetainOfflineServicingPassInUnattend>true</ns1:RetainOfflineServicingPassInUnattend>
+				<ns1:PreprovisionedVm>false</ns1:PreprovisionedVm>
+				<ns1:EnableTrustedImageIdentifier>false</ns1:EnableTrustedImageIdentifier>
+			</ns1:PlatformSettings>
+		</ns1:PlatformSettingsSection>
+	</ns0:Environment>`, instance.Properties.OsProfile.AdminUsername, instance.Properties.OsProfile.ComputerName, kmsServer), nil
+}
+
 func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	nics := make([]cloudprovider.ICloudNic, 0)
 	_nics, err := self.getNics()
@@ -813,7 +947,7 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 }
 
 func (self *SRegion) StartVM(instanceId string) error {
-	_, err := self.client.PerformAction(instanceId, "start")
+	_, err := self.client.PerformAction(instanceId, "start", "")
 	return err
 }
 
@@ -821,6 +955,7 @@ func (self *SInstance) StartVM() error {
 	if err := self.host.zone.region.StartVM(self.ID); err != nil {
 		return err
 	}
+	self.host.zone.region.client.jsonRequest("PATCH", self.ID, "")
 	return cloudprovider.WaitStatus(self, models.VM_RUNNING, 10*time.Second, 300*time.Second)
 }
 
@@ -829,11 +964,12 @@ func (self *SInstance) StopVM(isForce bool) error {
 	if err != nil {
 		return err
 	}
+	self.host.zone.region.client.jsonRequest("PATCH", self.ID, "")
 	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second)
 }
 
 func (self *SRegion) StopVM(instanceId string, isForce bool) error {
-	_, err := self.client.PerformAction(instanceId, "deallocate")
+	_, err := self.client.PerformAction(instanceId, "deallocate", "")
 	return err
 }
 

@@ -89,7 +89,7 @@ func (self *SClassicVpc) getWire() *SClassicWire {
 
 func (region *SRegion) GetClassicVpc(vpcId string) (*SClassicVpc, error) {
 	vpc := SClassicVpc{region: region}
-	return &vpc, region.client.Get(vpcId, &vpc)
+	return &vpc, region.client.Get(vpcId, []string{}, &vpc)
 }
 
 func (self *SClassicVpc) fetchNetworks() error {
