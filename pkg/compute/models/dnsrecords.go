@@ -163,7 +163,9 @@ func (man *SDnsRecordManager) ParseInputInfo(data *jsonutils.JSONDict) ([]string
 		if cname, err := data.GetString("CNAME"); err != nil {
 			return nil, err
 		} else if !regutils.MatchDomainName(cname) {
-			return nil, httperrors.NewNotAcceptableError(fmt.Sprintf("Invalid type CNAME domain %s", cname))
+			return nil, httperrors.NewNotAcceptableError("CNAME: record value must be valid domain name: %s", cname)
+		} else if regutils.MatchIPAddr(cname) {
+			return nil, httperrors.NewNotAcceptableError("CNAME: record value cannot be ip address: %s", cname)
 		} else {
 			records = []string{fmt.Sprintf("%s:%s", "CNAME", cname)}
 		}
@@ -187,7 +189,10 @@ func (man *SDnsRecordManager) ParseInputInfo(data *jsonutils.JSONDict) ([]string
 				return nil, err
 			}
 			if !regutils.MatchDomainName(domainName) {
-				return nil, httperrors.NewNotAcceptableError(fmt.Sprintf("Invalid domain %s", domainName))
+				return nil, httperrors.NewNotAcceptableError("ptr: record value must be valid domain name: %s", domainName)
+			}
+			if regutils.MatchIPAddr(domainName) {
+				return nil, httperrors.NewNotAcceptableError("ptr: record value cannot be ip address: %s", domainName)
 			}
 		}
 		records = []string{fmt.Sprintf("%s:%s", "PTR", domainName)}
