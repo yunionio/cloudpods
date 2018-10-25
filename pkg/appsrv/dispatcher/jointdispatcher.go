@@ -90,7 +90,7 @@ func AddJointModelDispatcher(prefix string, app *appsrv.Application, manager IJo
 }
 
 func fetchJointEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (IJointModelDispatchHandler, map[string]string, jsonutils.JSONObject, jsonutils.JSONObject) {
-	params, query, body := _fetchEnv(ctx, w, r)
+	params, query, body := appsrv.FetchEnv(ctx, w, r)
 	metadata := appctx.AppContextMetadata(ctx)
 	manager, ok := metadata["manager"].(IJointModelDispatchHandler)
 	if !ok {

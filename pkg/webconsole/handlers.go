@@ -7,10 +7,7 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/sets"
 
-	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -36,22 +33,6 @@ func InitHandlers(app *appsrv.Application) {
 	app.AddHandler("POST", ApiPathPrefix+"server/<id>", auth.Authenticate(handleServerRemoteConsole))
 }
 
-func fetchEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (map[string]string, jsonutils.JSONObject, jsonutils.JSONObject) {
-	params := appctx.AppContextParams(ctx)
-	query, e := jsonutils.ParseQueryString(r.URL.RawQuery)
-	if e != nil {
-		log.Errorf("Parse query string %q failed: %v", r.URL.RawQuery, e)
-	}
-	var body jsonutils.JSONObject = nil
-	if sets.NewString("PUT", "POST", "DELETE", "PATCH").Has(r.Method) {
-		body, e = appsrv.FetchJSON(r)
-		if e != nil {
-			log.Errorf("Failed to decode JSON request body: %v", e)
-		}
-	}
-	return params, query, body
-}
-
 type K8sEnv struct {
 	Cluster    string
 	Namespace  string
@@ -61,7 +42,7 @@ type K8sEnv struct {
 }
 
 func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*K8sEnv, error) {
-	params, _, body := fetchEnv(ctx, w, r)
+	params, _, body := appsrv.FetchEnv(ctx, w, r)
 	cluster, _ := body.GetString("cluster")
 	if cluster == "" {
 		cluster = "default"
@@ -120,7 +101,7 @@ type CloudEnv struct {
 }
 
 func fetchCloudEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*CloudEnv, error) {
-	params, query, body := fetchEnv(ctx, w, r)
+	params, query, body := appsrv.FetchEnv(ctx, w, r)
 	userCred := auth.FetchUserCredential(ctx)
 	if userCred == nil {
 		return nil, httperrors.NewUnauthorizedError("No token founded")
