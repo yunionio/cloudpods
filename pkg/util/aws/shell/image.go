@@ -8,7 +8,7 @@ import (
 func init() {
 	type ImageListOptions struct {
 		Status string   `help:"image status type" choices:"Creating|Available|UnAvailable|CreateFailed"`
-		Owner  string   `help:"Owner type" choices:"system|self|others|marketplace"`
+		Owner  string   `help:"Owner type" choices:"amazon|self|microsoft|aws-marketplace"`
 		Id     []string `help:"Image ID"`
 		Name   string   `help:"image name"`
 		Limit  int      `help:"page size"`

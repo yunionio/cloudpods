@@ -204,17 +204,12 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 
 	if len(owner) > 0 {
 		own := string(owner)
-		if own == "self" {
-			filters = AppendSingleValueFilter(filters, "owner-id", own)
-		} else {
-			params.SetOwners([]*string{&own})
-		}
+		params.SetOwners([]*string{&own})
 	}
 
 	if len(imageId) > 0 {
 		params.SetImageIds(ConvertedList(imageId))
 	}
-
 	ret, err := self.ec2Client.DescribeImages(params)
 	if err != nil {
 		return nil, 0, err
