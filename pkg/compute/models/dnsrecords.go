@@ -64,8 +64,8 @@ func (man *SDnsRecordManager) ParseInputInfo(data *jsonutils.JSONDict) ([]string
 			if err != nil {
 				return nil, err
 			}
-			if (typ == "A" && !regutils.MatchIP4Addr(addr)) || (typ == "AAAA" && !regutils.MatchIP6Addr(addr)) {
-				return nil, httperrors.NewNotAcceptableError("Invalid type %s address: %s", typ, addr)
+			if err := man.checkRecordValue(typ, addr); err != nil {
+				return nil, err
 			}
 			records = append(records, fmt.Sprintf("%s:%s", typ, addr))
 		}
@@ -82,9 +82,8 @@ func (man *SDnsRecordManager) ParseInputInfo(data *jsonutils.JSONDict) ([]string
 				return "", httperrors.NewNotAcceptableError("SRV: insufficient param: %s", s)
 			}
 			host := parts[0]
-			if !regutils.MatchDomainName(host) &&
-				!regutils.MatchIPAddr(host) {
-				return "", httperrors.NewNotAcceptableError("SRV: invalid host part: %s", host)
+			if err := man.checkRecordValue("SRV", host); err != nil {
+				return "", err
 			}
 			port, err := strconv.Atoi(parts[1])
 			if err != nil || port <= 0 || port >= 65536 {
@@ -159,8 +158,8 @@ func (man *SDnsRecordManager) ParseInputInfo(data *jsonutils.JSONDict) ([]string
 		}
 		if cname, err := data.GetString("CNAME"); err != nil {
 			return nil, err
-		} else if !regutils.MatchDomainName(cname) {
-			return nil, httperrors.NewNotAcceptableError(fmt.Sprintf("Invalid type CNAME domain %s", cname))
+		} else if err := man.checkRecordValue("CNAME", cname); err != nil {
+			return nil, err
 		} else {
 			records = []string{fmt.Sprintf("%s:%s", "CNAME", cname)}
 		}
@@ -174,8 +173,8 @@ func (man *SDnsRecordManager) ParseInputInfo(data *jsonutils.JSONDict) ([]string
 			if err != nil {
 				return nil, err
 			}
-			if !regutils.MatchPtr(name) {
-				return nil, httperrors.NewNotAcceptableError(fmt.Sprintf("Invalid ptr %s", name))
+			if err := man.checkRecordName("PTR", name); err != nil {
+				return nil, err
 			}
 		}
 		domainName, err := data.GetString("PTR")
@@ -183,8 +182,8 @@ func (man *SDnsRecordManager) ParseInputInfo(data *jsonutils.JSONDict) ([]string
 			if err != nil {
 				return nil, err
 			}
-			if !regutils.MatchDomainName(domainName) {
-				return nil, httperrors.NewNotAcceptableError(fmt.Sprintf("Invalid domain %s", domainName))
+			if err := man.checkRecordValue("PTR", domainName); err != nil {
+				return nil, err
 			}
 		}
 		records = []string{fmt.Sprintf("%s:%s", "PTR", domainName)}
@@ -192,7 +191,7 @@ func (man *SDnsRecordManager) ParseInputInfo(data *jsonutils.JSONDict) ([]string
 	return records, nil
 }
 
-func (man *SDnsRecordManager) GetRecordsType(recs []string) string {
+func (man *SDnsRecordManager) getRecordsType(recs []string) string {
 	for _, rec := range recs {
 		switch typ := rec[:strings.Index(rec, ":")]; typ {
 		case "A", "AAAA":
@@ -208,22 +207,53 @@ func (man *SDnsRecordManager) GetRecordsType(recs []string) string {
 	return ""
 }
 
-func (man *SDnsRecordManager) CheckNameForDnsType(name, recType string) (err error) {
-	switch recType {
+func (man *SDnsRecordManager) checkRecordName(typ, name string) error {
+	switch typ {
 	case "A", "CNAME":
 		if !regutils.MatchDomainName(name) {
-			err = httperrors.NewNotAcceptableError(fmt.Sprintf("Invalid domain name %s for type %s", name, recType))
+			return httperrors.NewNotAcceptableError("%s: invalid domain name: %s", typ, name)
 		}
 	case "SRV":
 		if !regutils.MatchDomainSRV(name) {
-			err = httperrors.NewNotAcceptableError(fmt.Sprintf("Invalid SRV name %s for type %s", name, recType))
+			return httperrors.NewNotAcceptableError("SRV: invalid srv record name: %s", typ, name)
 		}
 	case "PTR":
 		if !regutils.MatchPtr(name) {
-			err = httperrors.NewNotAcceptableError(fmt.Sprintf("Invalid ptr name %s", name))
+			return httperrors.NewNotAcceptableError("PTR: invalid ptr record name: %s", typ, name)
 		}
 	}
-	return
+	if regutils.MatchIPAddr(name) {
+		return httperrors.NewNotAcceptableError("%s: name cannot be ip address: %s", typ, name)
+	}
+	return nil
+}
+
+func (man *SDnsRecordManager) checkRecordValue(typ, val string) error {
+	switch typ {
+	case "A":
+		if !regutils.MatchIP4Addr(val) {
+			return httperrors.NewNotAcceptableError("A: record value must be ipv4 address: %s", val)
+		}
+	case "AAAA":
+		if !regutils.MatchIP6Addr(val) {
+			return httperrors.NewNotAcceptableError("AAAA: record value must be ipv6 address: %s", val)
+		}
+	case "CNAME", "PTR", "SRV":
+		fieldMsg := "record value"
+		if typ == "SRV" {
+			fieldMsg = "target"
+		}
+		if !regutils.MatchDomainName(val) {
+			return httperrors.NewNotAcceptableError("%s: %s must be domain name: %s", typ, fieldMsg, val)
+		}
+		if regutils.MatchIPAddr(val) {
+			return httperrors.NewNotAcceptableError("%s: %s cannot be ip address: %s", typ, fieldMsg, val)
+		}
+	default:
+		// internal error
+		return httperrors.NewNotAcceptableError("%s: unknown record type", typ)
+	}
+	return nil
 }
 
 func (man *SDnsRecordManager) validateModelData(
@@ -240,12 +270,12 @@ func (man *SDnsRecordManager) validateModelData(
 	if len(records) == 0 {
 		return nil, httperrors.NewInputParameterError("Empty record")
 	}
-	recType := man.GetRecordsType(records)
+	recType := man.getRecordsType(records)
 	name, err := data.GetString("name")
 	if err != nil {
 		return nil, err
 	}
-	err = man.CheckNameForDnsType(name, recType)
+	err = man.checkRecordName(recType, name)
 	if err != nil {
 		return nil, err
 	}
@@ -362,8 +392,8 @@ func (rec *SDnsRecord) PerformAddRecords(ctx context.Context, userCred mcclient.
 		return nil, err
 	}
 	oldRecs := rec.GetInfo()
-	oldType := DnsRecordManager.GetRecordsType(oldRecs)
-	newType := DnsRecordManager.GetRecordsType(records)
+	oldType := DnsRecordManager.getRecordsType(oldRecs)
+	newType := DnsRecordManager.getRecordsType(records)
 	if oldType != "" && oldType != newType {
 		return nil, httperrors.NewNotAcceptableError("Cannot mix different types of records, %s != %s", oldType, newType)
 	}
