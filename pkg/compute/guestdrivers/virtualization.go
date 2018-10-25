@@ -141,12 +141,12 @@ func (self *SVirtualizedGuestDriver) StartGuestSyncstatusTask(guest *models.SGue
 }
 
 func (self *SVirtualizedGuestDriver) RequestStopGuestForDelete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	guestStatus, _ := task.GetParams().GetString("guest_status")
-	if guestStatus == models.VM_RUNNING {
-		host := guest.GetHost()
-		if host != nil && host.Enabled && host.HostStatus == models.HOST_ONLINE && !jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
-			return guest.StartGuestStopTask(ctx, task.GetUserCred(), true, task.GetTaskId())
-		}
+	host := guest.GetHost()
+	if host != nil && host.Enabled && host.HostStatus == models.HOST_ONLINE {
+		return guest.StartGuestStopTask(ctx, task.GetUserCred(), true, task.GetTaskId())
+	}
+	if host != nil && !jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
+		return fmt.Errorf("fail to contact host")
 	}
 	task.ScheduleRun(nil)
 	return nil

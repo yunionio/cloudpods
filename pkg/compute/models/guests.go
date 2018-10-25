@@ -1018,6 +1018,12 @@ func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 		extra.Add(jsonutils.NewString(timeutils.FullIsoTime(pendingDeletedAt)), "auto_delete_at")
 	}
 
+	isGpu := jsonutils.JSONFalse
+	if self.isGpu() {
+		isGpu = jsonutils.JSONTrue
+	}
+	extra.Add(isGpu, "is_gpu")
+
 	return self.moreExtraInfo(extra)
 }
 
@@ -1087,6 +1093,13 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 		extra.Add(jsonutils.NewString(eip.IpAddr), "eip")
 		extra.Add(jsonutils.NewString(eip.Mode), "eip_mode")
 	}
+
+	isGpu := jsonutils.JSONFalse
+	if self.isGpu() {
+		isGpu = jsonutils.JSONTrue
+	}
+	extra.Add(isGpu, "is_gpu")
+
 	return self.moreExtraInfo(extra)
 }
 
@@ -1322,6 +1335,10 @@ func (self *SGuest) getAdminSecurityRules() string {
 	} else {
 		return options.Options.DefaultAdminSecurityRules
 	}
+}
+
+func (self *SGuest) isGpu() bool {
+	return len(self.GetIsolatedDevices()) != 0
 }
 
 func (self *SGuest) GetIsolatedDevices() []SIsolatedDevice {
@@ -1675,6 +1692,10 @@ func (self *SGuest) isAttach2Disk(disk *SDisk) bool {
 func (self *SGuest) getMaxDiskIndex() int8 {
 	guestdisks := self.GetDisks()
 	return int8(len(guestdisks))
+}
+
+func (self *SGuest) AttachDisk(disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string) error {
+	return self.attach2Disk(disk, userCred, driver, cache, mountpoint)
 }
 
 func (self *SGuest) attach2Disk(disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string) error {
@@ -2449,24 +2470,31 @@ func (self *SGuest) PerformRevokeSecgroup(ctx context.Context, userCred mcclient
 
 func (self *SGuest) PerformAssignSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING, VM_SUSPEND}) {
+		logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, "Cannot assign security rules in status "+self.Status, userCred, false)
 		return nil, httperrors.NewInputParameterError("Cannot assign security rules in status %s", self.Status)
 	} else {
 		if secgrp, err := data.GetString("secgrp"); err != nil {
+			logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, err, userCred, false)
 			return nil, err
 		} else if sg, err := SecurityGroupManager.FetchByIdOrName(userCred.GetProjectId(), secgrp); err != nil {
+			msg := fmt.Sprintf("SecurityGroup %s not found", secgrp)
+			logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, msg, userCred, false)
 			return nil, httperrors.NewNotFoundError("SecurityGroup %s not found", secgrp)
 		} else {
 			if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
 				self.SecgrpId = sg.GetId()
 				return nil
 			}); err != nil {
+				logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, err, userCred, false)
 				return nil, err
 			}
 			if err := self.StartSyncTask(ctx, userCred, true, ""); err != nil {
+				logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, err, userCred, false)
 				return nil, err
 			}
 		}
 	}
+	logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, nil, userCred, true)
 	return nil, nil
 }
 
@@ -2892,9 +2920,9 @@ func (self *SGuest) PerformChangeBandwidth(ctx context.Context, userCred mcclien
 			return nil, httperrors.NewBadRequestError("Index Not fount or out of NIC index")
 		}
 		bandwidth, err := data.Int("bandwidth")
-		if err != nil || bandwidth <= 0 {
-			logclient.AddActionLog(self, logclient.ACT_VM_CHANGE_BANDWIDTH, "Bandwidth must be larger than 0", userCred, false)
-			return nil, httperrors.NewBadRequestError("Bandwidth must be larger than 0")
+		if err != nil || bandwidth < 0 {
+			logclient.AddActionLog(self, logclient.ACT_VM_CHANGE_BANDWIDTH, "Bandwidth must non-negative", userCred, false)
+			return nil, httperrors.NewBadRequestError("Bandwidth must be non-negative")
 		}
 		guestnic := &guestnics[index]
 		if guestnic.BwLimit != int(bandwidth) {
@@ -3084,6 +3112,10 @@ func (self *SGuest) StartChangeConfigTask(ctx context.Context, userCred mcclient
 }
 
 func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	eip, _ := self.GetEip()
+	if eip != nil {
+		eip.DoPendingDelete(ctx, userCred)
+	}
 	for _, guestdisk := range self.GetDisks() {
 		disk := guestdisk.GetDisk()
 		storage := disk.GetStorage()
@@ -4479,10 +4511,18 @@ func (self *SGuest) DeleteEip(ctx context.Context, userCred mcclient.TokenCreden
 	if eip == nil {
 		return nil
 	}
-	err = eip.Delete(ctx, userCred)
-	if err != nil {
-		log.Errorf("Delete eip fail %s", err)
-		return err
+	if eip.Mode == EIP_MODE_INSTANCE_PUBLICIP {
+		err = eip.RealDelete(ctx, userCred)
+		if err != nil {
+			log.Errorf("Delete eip on delete server fail %s", err)
+			return err
+		}
+	} else {
+		err = eip.Dissociate(ctx, userCred)
+		if err != nil {
+			log.Errorf("Dissociate eip on delete server fail %s", err)
+			return err
+		}
 	}
 	return nil
 }

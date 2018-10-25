@@ -799,3 +799,30 @@ func (manager *SElasticipManager) TotalCount(projectId string, rangeObj db.IStan
 	usage.EIPUsedCount = q3.Count()
 	return usage
 }
+
+func (self *SElasticip) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SElasticip) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	err := self.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	provider := self.GetCloudprovider()
+	if provider != nil {
+		if provider.Enabled {
+			return nil, httperrors.NewInvalidStatusError("Cannot purge elastic_ip on enabled cloud provider")
+		}
+	}
+	err = self.RealDelete(ctx, userCred)
+	return nil, err
+}
+
+func (self *SElasticip) DoPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	if self.Mode == EIP_MODE_INSTANCE_PUBLICIP {
+		self.SVirtualResourceBase.DoPendingDelete(ctx, userCred)
+		return
+	}
+	self.Dissociate(ctx, userCred)
+}

@@ -225,7 +225,7 @@ func (self *SStoragecachedimage) isDownloadSessionExpire() bool {
 	}
 }
 
-func (self *SStoragecachedimage) markDeleting(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (self *SStoragecachedimage) markDeleting(ctx context.Context, userCred mcclient.TokenCredential, isForce bool) error {
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil {
 		return err
@@ -237,7 +237,7 @@ func (self *SStoragecachedimage) markDeleting(ctx context.Context, userCred mccl
 	lockman.LockJointObject(ctx, cache, image)
 	defer lockman.ReleaseJointObject(ctx, cache, image)
 
-	if utils.IsInStringArray(self.Status, []string{CACHED_IMAGE_STATUS_READY, CACHED_IMAGE_STATUS_DELETING}) {
+	if !isForce && ! utils.IsInStringArray(self.Status, []string{CACHED_IMAGE_STATUS_READY, CACHED_IMAGE_STATUS_DELETING}) {
 		return httperrors.NewInvalidStatusError("Cannot uncache in status %s", self.Status)
 	}
 	_, err = self.GetModelManager().TableSpec().Update(self, func() error {

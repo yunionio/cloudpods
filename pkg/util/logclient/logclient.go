@@ -55,12 +55,13 @@ const (
 	ACT_VM_SYNC_CONF                 = "同步配置"
 	ACT_VM_SYNC_STATUS               = "同步状态"
 	ACT_VM_UNBIND_KEYPAIR            = "解绑密钥"
+	ACT_VM_ASSIGNSECGROUP            = "关联安全组"
 )
 
 // golang 不支持 const 的string array, http://t.cn/EzAvbw8
 var BLACK_LIST_OBJ_TYPE = []string{"parameter"}
 
-var logclientWorkerMan *appsrv.WorkerManager
+var logclientWorkerMan *appsrv.SWorkerManager
 
 func init() {
 	logclientWorkerMan = appsrv.NewWorkerManager("LogClientWorkerManager", 1, 50)
@@ -119,5 +120,5 @@ func AddActionLog(model IObject, action string, iNotes interface{}, userCred mcc
 		if err != nil {
 			log.Errorf("create action log failed %s", err)
 		}
-	}, nil)
+	}, nil, nil)
 }

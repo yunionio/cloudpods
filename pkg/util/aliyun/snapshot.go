@@ -64,6 +64,10 @@ func (self *SSnapshot) GetDiskId() string {
 	return self.SourceDiskId
 }
 
+func (self *SSnapshot) GetDiskType() string {
+	return self.SourceDiskType
+}
+
 func (self *SSnapshot) Refresh() error {
 	if snapshots, total, err := self.region.GetSnapshots("", "", "", []string{self.SnapshotId}, 0, 1); err != nil {
 		return err
