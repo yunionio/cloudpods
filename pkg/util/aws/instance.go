@@ -390,7 +390,8 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 	instances := []SInstance{}
 	for _, reservation := range res.Reservations {
 		for _, instance := range reservation.Instances {
-			instanceType, err := self.GetInstanceType(StrVal(instance.InstanceType))
+			FillZero(instance)
+			instanceType, err := self.GetInstanceType(*instance.InstanceType)
 			if err != nil {
 				return nil, 0 , err
 			}
@@ -415,9 +416,9 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 			var networkInterfaces SNetworkInterfaces
 			for _, n := range instance.NetworkInterfaces {
 				i := SNetworkInterface{
-					MacAddress:         StrVal(n.MacAddress),
-					NetworkInterfaceId: StrVal(n.NetworkInterfaceId),
-					PrimaryIpAddress:   StrVal(n.PrivateIpAddress),
+					MacAddress:         *n.MacAddress,
+					NetworkInterfaceId: *n.NetworkInterfaceId,
+					PrimaryIpAddress:   *n.PrivateIpAddress,
 				}
 				networkInterfaces.NetworkInterface = append(networkInterfaces.NetworkInterface, i)
 			}

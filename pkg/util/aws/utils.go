@@ -3,6 +3,7 @@ package aws
 import (
 	"fmt"
 	"net"
+	"reflect"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -311,4 +312,41 @@ func YunionSecRuleToAws(rule secrules.SecurityRule) ([]ec2.IpPermission, error) 
 	}
 
 	return permissions, nil
+}
+
+
+// fill a pointer struct with zero value.
+func FillZero(i interface{}) error {
+	V := reflect.Indirect(reflect.ValueOf(i))
+
+	if !V.CanSet() {
+		return fmt.Errorf("input is not addressable: %#v", i)
+	}
+
+	if V.Kind() != reflect.Struct {
+		return fmt.Errorf("only accept struct type")
+	}
+
+	for i := 0; i < V.NumField(); i++ {
+		field := V.Field(i)
+
+		if field.Kind() == reflect.Ptr && field.IsNil() {
+			if field.CanSet() {
+				field.Set(reflect.New(field.Type().Elem()))
+			}
+		}
+
+		vField := reflect.Indirect(field)
+		switch vField.Kind() {
+		case reflect.Map:
+			vField.Set(reflect.MakeMap(vField.Type()))
+		case reflect.Struct:
+			err := FillZero(field.Interface())
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
