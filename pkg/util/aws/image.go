@@ -218,6 +218,10 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 
 	images := make([]SImage, len(ret.Images))
 	for _, image := range ret.Images {
+		if err := FillZero(image); err != nil {
+			return nil, 0, err
+		}
+
 		images = append(images, SImage{
 			storageCache:         self.getStoragecache(),
 			Architecture:         *image.Architecture,

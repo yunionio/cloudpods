@@ -141,17 +141,21 @@ func (self *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddress
 
 	eips := make([]SEipAddress, 0)
 	for _, ip := range res.Addresses {
+		if err := FillZero(ip); err != nil {
+			return nil, 0, err
+		}
+
 		tagspec := TagSpec{ResourceType: "eip"}
 		tagspec.LoadingEc2Tags(ip.Tags)
 
 		eips = append(eips, SEipAddress{region: self, AllocationId: *ip.AllocationId,
 			Tags:                    tagspec,
-			InstanceId:              StrVal(ip.InstanceId),
-			AssociationId:           StrVal(ip.AssociationId),
-			Domain:                  StrVal(ip.Domain),
-			NetworkInterfaceId:      StrVal(ip.NetworkInterfaceId),
-			NetworkInterfaceOwnerId: StrVal(ip.NetworkInterfaceOwnerId),
-			PrivateIpAddress:        StrVal(ip.PrivateIpAddress),
+			InstanceId:              *ip.InstanceId,
+			AssociationId:           *ip.AssociationId,
+			Domain:                  *ip.Domain,
+			NetworkInterfaceId:      *ip.NetworkInterfaceId,
+			NetworkInterfaceOwnerId: *ip.NetworkInterfaceOwnerId,
+			PrivateIpAddress:        *ip.PrivateIpAddress,
 			IpAddress:               *ip.PublicIp,
 		})
 	}

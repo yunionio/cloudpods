@@ -123,6 +123,10 @@ func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName
 
 	snapshots := []SSnapshot{}
 	for _, item := range ret.Snapshots{
+		if err := FillZero(item); err != nil {
+			return nil, 0, err
+		}
+
 		snapshot := SSnapshot{}
 		snapshot.SnapshotId = *item.SnapshotId
 		snapshot.Status = SnapshotStatusType(*item.State)

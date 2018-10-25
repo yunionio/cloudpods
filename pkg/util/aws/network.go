@@ -165,6 +165,10 @@ func (self *SRegion) GetNetwroks(ids []string, vpcId string, limit int, offset i
 
 	subnets := []SNetwork{}
 	for _, item := range ret.Subnets {
+		if err := FillZero(item); err != nil {
+			return nil, 0, err
+		}
+
 		subnet := SNetwork{}
 		subnet.CidrBlock = *item.CidrBlock
 		subnet.VpcId = *item.VpcId

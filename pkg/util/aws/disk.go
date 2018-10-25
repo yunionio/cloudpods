@@ -262,6 +262,10 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 
 	disks := []SDisk{}
 	for _, item := range ret.Volumes {
+		if err := FillZero(item); err != nil {
+			return nil, 0, err
+		}
+
 		tagspec := TagSpec{}
 		tagspec.LoadingEc2Tags(item.Tags)
 
@@ -269,13 +273,13 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 		disk.ZoneId = *item.AvailabilityZone
 		disk.Status = *item.State
 		disk.DiskName = tagspec.GetNameTag()
-		disk.Size = int(IntVal(item.Size))
+		disk.Size = int(*item.Size)
 		disk.Category = *item.VolumeType
 		disk.RegionId = self.RegionId
 		disk.SourceSnapshotId = *item.SnapshotId
 		disk.Encrypted = *item.Encrypted
 		disk.DiskId = *item.VolumeId
-		disk.Iops = int(IntVal(item.Iops))
+		disk.Iops = int(*item.Iops)
 		disk.CreationTime = *item.CreateTime
 		disk.Tags = tagspec
 		if len(item.Attachments) > 0 {

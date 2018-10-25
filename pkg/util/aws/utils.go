@@ -341,9 +341,11 @@ func FillZero(i interface{}) error {
 		case reflect.Map:
 			vField.Set(reflect.MakeMap(vField.Type()))
 		case reflect.Struct:
-			err := FillZero(field.Interface())
-			if err != nil {
-				return err
+			if field.CanInterface() {
+				err := FillZero(field.Interface())
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}

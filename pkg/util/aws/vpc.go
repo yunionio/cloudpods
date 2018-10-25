@@ -261,6 +261,10 @@ func (self *SRegion) GetVpcs(vpcId []string, offset int, limit int) ([]SVpc, int
 
 	vpcs := []SVpc{}
 	for _, item := range ret.Vpcs {
+		if err := FillZero(item); err != nil {
+			return nil, 0, err
+		}
+
 		vpcs = append(vpcs, SVpc{
 			region:    self,
 			// secgroups: nil,

@@ -23,7 +23,11 @@ func (self *SRegion) GetKeypairs(finger string, name string, offset int, limit i
 
 	keypairs := []SKeypair{}
 	for _, item := range ret.KeyPairs {
-		keypairs = append(keypairs, SKeypair{StrVal(item.KeyFingerprint), StrVal(item.KeyName)})
+		if err := FillZero(item); err != nil {
+			return nil, 0, err
+		}
+
+		keypairs = append(keypairs, SKeypair{*item.KeyFingerprint, *item.KeyName})
 	}
 
 	return keypairs, len(keypairs), nil

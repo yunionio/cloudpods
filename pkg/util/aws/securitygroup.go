@@ -214,6 +214,10 @@ func (self *SRegion) GetSecurityGroups(vpcId string, offset int, limit int) ([]S
 
 	securityGroups := []SSecurityGroup{}
 	for _,item := range ret.SecurityGroups {
+		if err := FillZero(item); err != nil {
+			return nil, 0, err
+		}
+
 		vpc, err := self.getVpc(*item.VpcId)
 		if err != nil {
 			log.Errorf("vpc %s not found", *item.VpcId)
