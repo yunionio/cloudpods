@@ -218,6 +218,11 @@ func (self *SRegion) GetSecurityGroups(vpcId string, offset int, limit int) ([]S
 			return nil, 0, err
 		}
 
+		if len(*item.VpcId) == 0 {
+			log.Debugf("ingored: security group with no vpc binded")
+			continue
+		}
+
 		vpc, err := self.getVpc(*item.VpcId)
 		if err != nil {
 			log.Errorf("vpc %s not found", *item.VpcId)

@@ -426,40 +426,44 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				networkInterfaces.NetworkInterface = append(networkInterfaces.NetworkInterface, i)
 			}
 
+			var vpcattr SVpcAttributes
+			vpcattr.VpcId = *instance.VpcId
+			vpcattr.PrivateIpAddress = SIpAddress{[]string{*instance.PrivateIpAddress}}
+			vpcattr.NetworkId = *instance.SubnetId
+
+			var productCodes []string
+			for _, p := range instance.ProductCodes {
+				productCodes = append(productCodes, *p.ProductCodeId)
+			}
+
 			sinstance := SInstance{
 				RegionId: self.RegionId,
 				ZoneId: *instance.Placement.AvailabilityZone,
 				InstanceId: *instance.InstanceId,
 				ImageId: *instance.ImageId,
-				InstanceName: tagspec.GetNameTag(),
 				InstanceType: *instance.InstanceType,
 				Cpu: int8(*instance.CpuOptions.CoreCount),
 				Memory: instanceType.memoryMB(),
 				IoOptimized: *instance.EbsOptimized,
 				KeyPairName: *instance.KeyName,
 				CreationTime: *instance.LaunchTime,
-				// ExpiredTime:
-				// ProductCodes: *instance.ProductCodes
 				PublicDNSName: *instance.PublicDnsName,
 				RootDeviceName: *instance.RootDeviceName,
 				Status: *instance.State.Name,
+				InnerIpAddress: SIpAddress{[]string{*instance.PrivateIpAddress}},
+				PublicIpAddress: SIpAddress{[]string{*instance.PublicIpAddress}},
+				InstanceName: tagspec.GetNameTag(),
+				Description: tagspec.GetDescTag(),
 				Disks: disks,
 				SecurityGroupIds: secgroups,
 				NetworkInterfaces: networkInterfaces,
+				VpcAttributes: vpcattr,
+				ProductCodes: productCodes,
+				// ExpiredTime:
 				// EipAddress:
 				// VlanId:
-				// VpcAttributes:
 				// OSName:
 				// OSType:
-				Description: tagspec.GetDescTag(),
-			}
-
-			if instance.PrivateIpAddress != nil {
-				sinstance.InnerIpAddress = SIpAddress{[]string{*instance.PrivateIpAddress}}
-			}
-
-			if instance.PublicIpAddress != nil {
-				sinstance.PublicIpAddress = SIpAddress{[]string{*instance.PublicIpAddress}}
 			}
 
 			instances = append(instances, sinstance)
