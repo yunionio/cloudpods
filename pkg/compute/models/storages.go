@@ -102,7 +102,7 @@ func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("zone")
 	}
-	zone, _ := ZoneManager.FetchByIdOrName(userCred.GetProjectId(), zoneId)
+	zone, _ := ZoneManager.FetchByIdOrName(userCred, zoneId)
 	if zone == nil {
 		return nil, httperrors.NewResourceNotFoundError("zone %s", zoneId)
 	}

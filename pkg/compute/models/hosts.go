@@ -2041,7 +2041,7 @@ func (self *SHost) FetchIpmiInfo(data *jsonutils.JSONDict) (*jsonutils.JSONDict,
 	IPMI_KEY_PERFIX := "ipmi_"
 	ipmiInfo := jsonutils.NewDict()
 	kv, _ := data.GetMap()
-	for key, _ := range kv {
+	for key := range kv {
 		value, err := ipmiInfo.GetString(key)
 		if strings.HasPrefix(value, IPMI_KEY_PERFIX) {
 			subkey := key[len(IPMI_KEY_PERFIX):]
@@ -2375,7 +2375,7 @@ func (self *SHost) PerformAddNetif(ctx context.Context, userCred mcclient.TokenC
 	ipAddr, _ := data.GetString("ip_addr")
 	var sw *SWire
 	if len(wire) > 0 && len(ipAddr) == 0 {
-		iWire, err := WireManager.FetchByIdOrName(userCred.GetProjectId(), wire)
+		iWire, err := WireManager.FetchByIdOrName(userCred, wire)
 		if err != nil {
 			return nil, httperrors.NewBadRequestError("Wire %s not found", wire)
 		}
@@ -2565,7 +2565,7 @@ func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCrede
 	}
 	if net == nil {
 		if len(network) > 0 {
-			iNet, err := NetworkManager.FetchByIdOrName(userCred.GetProjectId(), network)
+			iNet, err := NetworkManager.FetchByIdOrName(userCred, network)
 			if err != nil {
 				return fmt.Errorf("Network %s not found: %s", network, err)
 			}
