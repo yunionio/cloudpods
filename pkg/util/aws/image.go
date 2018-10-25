@@ -3,7 +3,6 @@ package aws
 import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"time"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -36,7 +35,7 @@ type SImage struct {
 	storageCache *SStoragecache
 
 	Architecture         string
-	CreationTime         time.Time
+	CreationTime         string
 	Description          string
 	ImageId              string
 	ImageName            string
@@ -221,20 +220,23 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 			return nil, 0, err
 		}
 
+		tagspec := TagSpec{}
+		tagspec.LoadingEc2Tags(image.Tags)
+
 		images = append(images, SImage{
 			storageCache:         self.getStoragecache(),
 			Architecture:         *image.Architecture,
 			Description:          *image.Description,
 			ImageId:              *image.ImageId,
-			ImageName:            *image.ImageId,
+			ImageName:            tagspec.GetNameTag(),
 			// OSName:               *image.Platform,
 			OSType:               *image.ImageType,
 			IsSupportIoOptimized: *image.EnaSupport,
-			// Platform:             *image.Platform,
+			Platform:             *image.Platform,
 			Status:               ImageStatusCreating, // *image.State,
+			CreationTime:         *image.CreationDate,
 			// Usage:                "",
-			// Size:                 .,
-			// CreationTime:         *image.CreationDate,
+			//Size:                 image.,
 		})
 	}
 
