@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"fmt"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -219,6 +220,10 @@ func (self *SRegion) DissociateEip(eipId string, instanceId string) error {
 	if len(eip.AssociationId) == 0 {
 		// 已经是解绑状态
 		return nil
+	}
+
+	if eip.InstanceId != instanceId {
+		return fmt.Errorf("eip %s associate with another instance %s", eipId, eip.InstanceId)
 	}
 
 	params := &ec2.DisassociateAddressInput{}
