@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -155,12 +156,20 @@ func (self *SBaremetalGuestDriver) RequestStartOnHost(ctx context.Context, guest
 }
 
 func (self *SBaremetalGuestDriver) RequestStopGuestForDelete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	host := guest.GetHost()
 	guestStatus, _ := task.GetParams().GetString("guest_status")
-	if guestStatus == models.VM_RUNNING && options.Options.EnablePendingDelete && !guest.PendingDeleted && jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
-		host := guest.GetHost()
-		if host != nil && host.Enabled {
-			return guest.StartGuestStopTask(ctx, task.GetUserCred(), true, task.GetTaskId())
-		}
+	overridePendingDelete := jsonutils.QueryBoolean(task.GetParams(), "override_pending_delete", false)
+	purge := jsonutils.QueryBoolean(task.GetParams(), "purge", false)
+	if host != nil && host.Enabled &&
+		(guestStatus == models.VM_RUNNING || strings.Index(guestStatus, "stop") >= 0) &&
+		options.Options.EnablePendingDelete &&
+		!guest.PendingDeleted &&
+		!overridePendingDelete &&
+		!purge {
+		return guest.StartGuestStopTask(ctx, task.GetUserCred(), true, task.GetTaskId())
+	}
+	if host != nil && !host.Enabled && !purge {
+		return fmt.Errorf("fail to contact baremetal")
 	}
 	task.ScheduleRun(nil)
 	return nil
