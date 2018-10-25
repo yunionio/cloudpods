@@ -191,7 +191,7 @@ func (man *SDnsRecordManager) ParseInputInfo(data *jsonutils.JSONDict) ([]string
 	return records, nil
 }
 
-func (man *SDnsRecordManager) GetRecordsType(recs []string) string {
+func (man *SDnsRecordManager) getRecordsType(recs []string) string {
 	for _, rec := range recs {
 		switch typ := rec[:strings.Index(rec, ":")]; typ {
 		case "A", "AAAA":
@@ -270,7 +270,7 @@ func (man *SDnsRecordManager) validateModelData(
 	if len(records) == 0 {
 		return nil, httperrors.NewInputParameterError("Empty record")
 	}
-	recType := man.GetRecordsType(records)
+	recType := man.getRecordsType(records)
 	name, err := data.GetString("name")
 	if err != nil {
 		return nil, err
@@ -392,8 +392,8 @@ func (rec *SDnsRecord) PerformAddRecords(ctx context.Context, userCred mcclient.
 		return nil, err
 	}
 	oldRecs := rec.GetInfo()
-	oldType := DnsRecordManager.GetRecordsType(oldRecs)
-	newType := DnsRecordManager.GetRecordsType(records)
+	oldType := DnsRecordManager.getRecordsType(oldRecs)
+	newType := DnsRecordManager.getRecordsType(records)
 	if oldType != "" && oldType != newType {
 		return nil, httperrors.NewNotAcceptableError("Cannot mix different types of records, %s != %s", oldType, newType)
 	}
