@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/trace"
 	"yunion.io/x/pkg/utils"
@@ -287,4 +288,20 @@ func (app *Application) ListenAndServeTLS(addr string, certFile, keyFile string)
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatalf("ListAndServer fail: %s", err)
 	}
+}
+
+func FetchEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (map[string]string, jsonutils.JSONObject, jsonutils.JSONObject) {
+	params := appctx.AppContextParams(ctx)
+	query, e := jsonutils.ParseQueryString(r.URL.RawQuery)
+	if e != nil {
+		log.Errorf("Parse query string %s failed: %s", r.URL.RawQuery, e)
+	}
+	var body jsonutils.JSONObject = nil
+	if r.Method == "PUT" || r.Method == "POST" || r.Method == "DELETE" || r.Method == "PATCH" {
+		body, e = FetchJSON(r)
+		if e != nil {
+			log.Errorf("Fail to decode JSON request body: %s", e)
+		}
+	}
+	return params, query, body
 }

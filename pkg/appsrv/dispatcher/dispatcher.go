@@ -82,30 +82,13 @@ func AddModelDispatcher(prefix string, app *appsrv.Application, manager IModelDi
 }
 
 func fetchEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (IModelDispatchHandler, map[string]string, jsonutils.JSONObject, jsonutils.JSONObject) {
-	params, query, body := _fetchEnv(ctx, w, r)
+	params, query, body := appsrv.FetchEnv(ctx, w, r)
 	metadata := appctx.AppContextMetadata(ctx)
 	manager, ok := metadata["manager"].(IModelDispatchHandler)
 	if !ok {
 		log.Fatalf("No manager found for URL: %s", r.URL)
 	}
 	return manager, params, query, body
-}
-
-func _fetchEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (map[string]string, jsonutils.JSONObject, jsonutils.JSONObject) {
-	// trace := appsrv.AppContextTrace(ctx)
-	params := appctx.AppContextParams(ctx)
-	query, e := jsonutils.ParseQueryString(r.URL.RawQuery)
-	if e != nil {
-		log.Errorf("Parse query string %s failed: %s", r.URL.RawQuery, e)
-	}
-	var body jsonutils.JSONObject = nil
-	if r.Method == "PUT" || r.Method == "POST" || r.Method == "DELETE" || r.Method == "PATCH" {
-		body, e = appsrv.FetchJSON(r)
-		if e != nil {
-			log.Errorf("Fail to decode JSON request body: %s", e)
-		}
-	}
-	return params, query, body
 }
 
 func mergeQueryParams(params map[string]string, query jsonutils.JSONObject, excludes ...string) jsonutils.JSONObject {
