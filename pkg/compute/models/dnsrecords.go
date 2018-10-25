@@ -211,22 +211,25 @@ func (man *SDnsRecordManager) GetRecordsType(recs []string) string {
 	return ""
 }
 
-func (man *SDnsRecordManager) CheckNameForDnsType(name, recType string) (err error) {
+func (man *SDnsRecordManager) CheckNameForDnsType(name, recType string) error {
+	if regutils.MatchIPAddr(name) {
+		return httperrors.NewNotAcceptableError("domain name cannot be ip address: %s", name)
+	}
 	switch recType {
 	case "A", "CNAME":
 		if !regutils.MatchDomainName(name) {
-			err = httperrors.NewNotAcceptableError(fmt.Sprintf("Invalid domain name %s for type %s", name, recType))
+			return httperrors.NewNotAcceptableError("Invalid domain name %s for type %s", name, recType)
 		}
 	case "SRV":
 		if !regutils.MatchDomainSRV(name) {
-			err = httperrors.NewNotAcceptableError(fmt.Sprintf("Invalid SRV name %s for type %s", name, recType))
+			return httperrors.NewNotAcceptableError("Invalid SRV name %s for type %s", name, recType)
 		}
 	case "PTR":
 		if !regutils.MatchPtr(name) {
-			err = httperrors.NewNotAcceptableError(fmt.Sprintf("Invalid ptr name %s", name))
+			return httperrors.NewNotAcceptableError("Invalid ptr name %s", name)
 		}
 	}
-	return
+	return nil
 }
 
 func (man *SDnsRecordManager) validateModelData(
