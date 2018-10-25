@@ -204,7 +204,11 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 
 	if len(owner) > 0 {
 		own := string(owner)
-		params.SetOwners([]*string{&own})
+		if own == "self" {
+			filters = AppendSingleValueFilter(filters, "owner-id", own)
+		} else {
+			params.SetOwners([]*string{&own})
+		}
 	}
 
 	if len(imageId) > 0 {
