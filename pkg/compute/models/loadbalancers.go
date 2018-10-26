@@ -121,7 +121,7 @@ func (lb *SLoadbalancer) PostCreate(ctx context.Context, userCred mcclient.Token
 	// NOTE lb.Id will only be available after BeforeInsert happens
 	// NOTE this means lb.UpdateVersion will be 0, then 1 after creation
 	// NOTE need ways to notify error
-	lb.GetModelManager().TableSpec().Update(lb, func() error {
+	LoadbalancerManager.TableSpec().Update(lb, func() error {
 		if lb.AddressType == LB_ADDR_TYPE_INTRANET {
 			// TODO support use reserved ip address
 			// TODO prefer ip address from server_type loadbalancer?
@@ -163,8 +163,7 @@ func (lb *SLoadbalancer) CustomizeDelete(ctx context.Context, userCred mcclient.
 		req := &SLoadbalancerNetworkDeleteData{
 			loadbalancer: lb,
 		}
-		lnMan := db.GetModelManager("loadbalancernetwork").(*SLoadbalancernetworkManager)
-		err := lnMan.DeleteLoadbalancerNetwork(ctx, userCred, req)
+		err := LoadbalancernetworkManager.DeleteLoadbalancerNetwork(ctx, userCred, req)
 		if err != nil {
 			return err
 		}
