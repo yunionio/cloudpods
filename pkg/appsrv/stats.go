@@ -8,7 +8,7 @@ import (
 	"yunion.io/x/jsonutils"
 )
 
-func doStatsHandler(stats *jsonutils.JSONArray, method, path string, hi, total *handlerInfo) {
+func doStatsHandler(stats *jsonutils.JSONArray, method, path string, hi, total *SHandlerInfo) {
 	s := jsonutils.NewDict()
 	s.Add(jsonutils.NewString(method), "method")
 	s.Add(jsonutils.NewString("/"+path), "path")
@@ -35,7 +35,7 @@ func StatisticHandler(ctx context.Context, w http.ResponseWriter, r *http.Reques
 	doStatsHandler(stats, "*", "*", &app.defHandlerInfo, total)
 	for method, root := range app.roots {
 		root.Walk(func(path string, data interface{}) {
-			hi := data.(*handlerInfo)
+			hi := data.(*SHandlerInfo)
 			doStatsHandler(stats, method, path, hi, total)
 		})
 	}
