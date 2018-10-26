@@ -197,5 +197,8 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 			params.Set("admin", jsonutils.JSONTrue)
 		}
 	}
+	if opts.Details == nil {
+		params.Set("details", jsonutils.JSONFalse)
+	}
 	return params, nil
 }
