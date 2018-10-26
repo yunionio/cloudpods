@@ -38,6 +38,8 @@ func init() {
 		var err error
 		if len(args.Server) > 0 {
 			result, err = modules.Servernetworks.ListDescendent(s, args.Server, params)
+		} else if len(args.Network) > 0 {
+			result, err = modules.Servernetworks.ListDescendent2(s, args.Network, params)
 		} else {
 			result, err = modules.Servernetworks.List(s, params)
 		}
