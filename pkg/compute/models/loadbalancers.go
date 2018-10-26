@@ -133,7 +133,7 @@ func (lb *SLoadbalancer) PostCreate(ctx context.Context, userCred mcclient.Token
 			lnMan := db.GetModelManager("loadbalancernetwork").(*SLoadbalancernetworkManager)
 			ln, err := lnMan.NewLoadbalancerNetwork(ctx, userCred, req)
 			if err != nil {
-				log.Errorf("allocating loadbalancer network failed: %#v", req)
+				log.Errorf("allocating loadbalancer network failed: %v, req: %#v", err, req)
 				return err
 			}
 			lb.Address = ln.IpAddr
