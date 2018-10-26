@@ -130,13 +130,14 @@ func (lb *SLoadbalancer) PostCreate(ctx context.Context, userCred mcclient.Token
 				networkId:    lb.NetworkId,
 				address:      lb.Address,
 			}
-			lnMan := db.GetModelManager("loadbalancernetwork").(*SLoadbalancernetworkManager)
-			ln, err := lnMan.NewLoadbalancerNetwork(ctx, userCred, req)
+			// NOTE the small window when agents can see the ephemeral address
+			ln, err := LoadbalancernetworkManager.NewLoadbalancerNetwork(ctx, userCred, req)
 			if err != nil {
 				log.Errorf("allocating loadbalancer network failed: %v, req: %#v", err, req)
-				return err
+				lb.Address = ""
+			} else {
+				lb.Address = ln.IpAddr
 			}
-			lb.Address = ln.IpAddr
 		}
 		return nil
 	})
