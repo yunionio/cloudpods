@@ -73,7 +73,21 @@ type IObject interface {
 	Keyword() string
 }
 
+type IModule interface {
+	Create(session *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
+}
+
+// save log to db.
 func AddActionLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
+	addLog(model, action, iNotes, userCred, success, &modules.Actions)
+}
+
+// add websocket log to notify active browser users
+func PostWebsocketNotify(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
+	addLog(model, action, iNotes, userCred, success, &modules.Websockets)
+}
+
+func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool, api IModule) {
 
 	token := userCred
 	notes := stringutils.Interface2String(iNotes)
@@ -116,7 +130,7 @@ func AddActionLog(model IObject, action string, iNotes interface{}, userCred mcc
 	logentry.Add(jsonutils.NewString(notes), "notes")
 	logclientWorkerMan.Run(func() {
 		s := auth.GetSession(userCred, "", "")
-		_, err := modules.Actions.Create(s, logentry)
+		_, err := api.Create(s, logentry)
 		if err != nil {
 			log.Errorf("create action log failed %s", err)
 		}
