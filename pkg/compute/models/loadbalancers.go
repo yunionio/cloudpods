@@ -6,6 +6,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -82,12 +83,12 @@ func (man *SLoadbalancerManager) ListItemFilter(ctx context.Context, q *sqlchemy
 
 func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerProjId)
-	addressV := validators.NewIPv4AddrValidator("address").Optional(true)
+	addressV := validators.NewIPv4AddrValidator("address")
 	{
 		keyV := map[string]validators.IValidator{
 			"status": validators.NewStringChoicesValidator("status", LB_STATUS_SPEC).Default(LB_STATUS_ENABLED),
 
-			"address": addressV,
+			"address": addressV.Optional(true),
 			"network": networkV,
 		}
 		for _, v := range keyV {
@@ -98,6 +99,24 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 	}
 	{
 		network := networkV.Model.(*SNetwork)
+		if ipAddr := addressV.IP; ipAddr != nil {
+			ipS := ipAddr.String()
+			ip, err := netutils.NewIPV4Addr(ipS)
+			if err != nil {
+				return nil, err
+			}
+			if !network.isAddressInRange(ip) {
+				return nil, httperrors.NewInputParameterError("address %s is not in the range of network %s(%s)",
+					ipS, network.Name, network.Id)
+			}
+			if network.isAddressUsed(ipS) {
+				return nil, httperrors.NewInputParameterError("address %s is already occupied", ipS)
+			}
+		}
+		if network.getFreeAddressCount() <= 0 {
+			return nil, httperrors.NewNotAcceptableError("network %s(%s) has no free addresses",
+				network.Name, network.Id)
+		}
 		if wire := network.GetWire(); wire == nil {
 			return nil, fmt.Errorf("getting wire failed")
 		} else if zone := wire.GetZone(); zone == nil {
