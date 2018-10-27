@@ -44,7 +44,7 @@ func (rule *SRbacRule) contains(rule2 *SRbacRule) bool {
 	if !isWildMatch(rule.Action) && rule.Action != rule2.Action {
 		return false
 	}
-	if rule.Extra != nil && len(rule.Extra) > 0 {
+	if len(rule.Extra) > 0 {
 		for i := 0; i < len(rule.Extra); i += 1 {
 			if !isWildMatch(rule.Extra[i]) && (rule2.Extra == nil || len(rule2.Extra) < i || rule.Extra[i] != rule2.Extra[i]) {
 				return false
@@ -81,17 +81,13 @@ func (rule *SRbacRule) match(service string, resource string, action string, ext
 		matched += 1
 		weight += 100
 	}
-	if len(extra) > 0 {
-		if rule.Extra != nil {
-			for i := 0; i < len(rule.Extra) && i < len(extra); i += 1 {
-				if !isWildMatch(rule.Extra[i]) {
-					if rule.Extra[i] != extra[i] {
-						return false, 0, 0
-					}
-					matched += 1
-					weight += 1000 * (i + 1)
-				}
+	for i := 0; i < len(rule.Extra) && i < len(extra); i += 1 {
+		if !isWildMatch(rule.Extra[i]) {
+			if rule.Extra[i] != extra[i] {
+				return false, 0, 0
 			}
+			matched += 1
+			weight += 1000 * (i + 1)
 		}
 	}
 	return true, matched, weight
