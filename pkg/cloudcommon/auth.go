@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
@@ -39,4 +40,12 @@ func InitAuth(options *Options, authComplete auth.AuthCompletedCallback) {
 	auth.Init(a, false, true, options.SslCertfile, options.SslKeyfile) // , authComplete)
 
 	authComplete()
+
+	if options.GlobalVirtualResourceNamespace {
+		db.EnableGlobalVirtualResourceNamespace()
+	}
+
+	if options.EnableRbac {
+		db.EnableGlobalRbac()
+	}
 }

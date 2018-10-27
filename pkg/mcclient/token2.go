@@ -260,3 +260,7 @@ func (self *TokenCredentialV2) String() string {
 func (self *TokenCredentialV2) IsZero() bool {
 	return len(self.GetUserId()) == 0 && len(self.GetProjectId()) == 0
 }
+
+func (self *TokenCredentialV2) ToJson() jsonutils.JSONObject {
+	return SimplifyToken(self).ToJson()
+}

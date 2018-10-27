@@ -91,7 +91,7 @@ func (self *SQuota) FetchUsage(projectId string) error {
 	self.Bw = net.InternalBandwidth
 	self.Ebw = net.ExternalBandwidth
 	self.Keypair = 0 // keypair
-	s := auth.GetAdminSession("", "")
+	s := auth.GetAdminSession(options.Options.Region, "")
 	self.Image, _ = modules.Images.GetPrivateImageCount(s, projectId, true)
 	self.Group = 0
 	self.Secgroup = totalSecurityGroupCount(projectId)

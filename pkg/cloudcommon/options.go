@@ -40,6 +40,8 @@ type Options struct {
 	SslCertfile string `help:"ssl certification file"`
 	SslKeyfile  string `help:"ssl certification key file"`
 
+	EnableRbac bool `help:"Switch on Role-based Access Control" default:"false"`
+
 	structarg.BaseOptions
 }
 
