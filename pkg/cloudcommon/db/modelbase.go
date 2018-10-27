@@ -75,8 +75,8 @@ func (manager *SModelBaseManager) ListItemFilter(ctx context.Context, q *sqlchem
 	return q, nil
 }
 
-func (manager *SModelBaseManager) CustomizeFilterList(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, retList []jsonutils.JSONObject) ([]jsonutils.JSONObject, error) {
-	return retList, nil
+func (manager *SModelBaseManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*CustomizeListFilters, error) {
+	return NewCustomizeListFilters(), nil
 }
 
 func (manager *SModelBaseManager) ExtraSearchConditions(ctx context.Context, q *sqlchemy.SQuery, like string) []sqlchemy.ICondition {

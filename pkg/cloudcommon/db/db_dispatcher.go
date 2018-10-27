@@ -433,26 +433,57 @@ func listItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 			q = q.Desc(orderByField)
 		}
 	}
-	if limit > 0 {
-		q = q.Limit(int(limit))
+	customizeFilters, err := manager.CustomizeFilterList(ctx, q, userCred, queryDict)
+	if err != nil {
+		return nil, err
 	}
-	if offset > 0 {
-		q = q.Offset(int(offset))
+	if customizeFilters.IsEmpty() {
+		if limit > 0 {
+			q = q.Limit(int(limit))
+		}
+		if offset > 0 {
+			q = q.Offset(int(offset))
+		}
 	}
 	retList, err := query2List(manager, ctx, userCred, q, queryDict)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
 	retConut := len(retList)
-	retList, err = manager.CustomizeFilterList(ctx, userCred, queryDict, retList)
+
+	// apply customizeFilters
+	retList, err = customizeFilters.DoApply(retList)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
 	if len(retList) != retConut {
 		totalCnt = int64(len(retList))
 	}
-	retResult := modules.ListResult{Data: retList, Total: int(totalCnt), Limit: int(limit), Offset: int(offset)}
-	return &retResult, nil
+	paginate := false
+	if !customizeFilters.IsEmpty() {
+		// query not use Limit and Offset, do manual pagination
+		paginate = true
+	}
+	return calculateListResult(retList, totalCnt, limit, offset, paginate), nil
+}
+
+func calculateListResult(data []jsonutils.JSONObject, total, limit, offset int64, paginate bool) *modules.ListResult {
+	if paginate {
+		// do offset first
+		if offset != 0 {
+			if total > offset {
+				data = data[offset:]
+			} else {
+				data = []jsonutils.JSONObject{}
+			}
+		}
+		// do limit
+		if total > limit {
+			data = data[:limit]
+		}
+	}
+	retResult := modules.ListResult{Data: data, Total: int(total), Limit: int(limit), Offset: int(offset)}
+	return &retResult
 }
 
 func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.JSONObject, ctxId string) (*modules.ListResult, error) {
