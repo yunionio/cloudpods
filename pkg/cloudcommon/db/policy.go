@@ -116,6 +116,7 @@ func (manager *SPolicyManager) start(refreshInterval time.Duration, retryInterva
 }
 
 func (manager *SPolicyManager) sync() {
+	log.Debugf("start synchronize RBAC policies ...")
 	policies, adminPolicies, err := fetchPolicies()
 	if err != nil {
 		log.Errorf("sync policy fail %s", err)
