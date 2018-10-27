@@ -28,8 +28,7 @@ func init() {
 	}
 
 	shellutils.R(&SnapshotDeleteOptions{}, "snapshot-delete", "Delete snapshot", func(cli *aws.SRegion, args *SnapshotDeleteOptions) error {
-		// todo://
-		return nil
+		return cli.DeleteSnapshot(args.ID)
 	})
 
 	type SnapshotCreateOptions struct {

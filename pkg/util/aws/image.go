@@ -202,6 +202,7 @@ func getRootDiskSize(image *ec2.Image) (int, error) {
 
 	return 0, fmt.Errorf("image size not found: %s", image.String())
 }
+
 func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, imageId []string, name string, offset int, limit int) ([]SImage, int, error) {
 	params := &ec2.DescribeImagesInput{}
 	filters := make([]*ec2.Filter, 0)
@@ -253,7 +254,6 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 			CreationTime:         *image.CreationDate,
 			Size: 				  size,
 			// Usage:                "",
-			//Size:                 image.,
 			// OSName:               *image.Platform,
 		})
 	}

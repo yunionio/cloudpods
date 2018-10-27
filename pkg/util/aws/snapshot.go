@@ -169,3 +169,10 @@ func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
 	_, err := self.ec2Client.CreateSnapshot(params)
 	return "", err
 }
+
+func (self *SRegion) DeleteSnapshot(snapshotId string) error {
+	params := &ec2.DeleteSnapshotInput{}
+	params.SetSnapshotId(snapshotId)
+	_, err := self.ec2Client.DeleteSnapshot(params)
+	return err
+}

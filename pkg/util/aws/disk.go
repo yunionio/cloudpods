@@ -368,21 +368,17 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) error {
 }
 
 func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, desc string) (string, error) {
+	tagspec := TagSpec{ResourceType: "volume"}
+	tagspec.SetNameTag(name)
+	tagspec.SetDescTag(desc)
+	ec2Tags, _ := tagspec.GetTagSpecifications()
+
 	params := &ec2.CreateVolumeInput{}
 	params.SetAvailabilityZone(zoneId)
 	params.SetVolumeType(category)
 	params.SetSize(int64(sizeGb))
-	// todo: less code here
-	tagSpec := &ec2.TagSpecification{}
-	tagSpec.SetResourceType(ec2.ResourceTypeVolume)
-	nameTag := &ec2.Tag{}
-	nameTag.SetKey("Name")
-	nameTag.SetValue(name)
-	descTag := &ec2.Tag{}
-	descTag.SetKey("Description")
-	descTag.SetValue(desc)
-	tagSpec.SetTags([]*ec2.Tag{nameTag, descTag})
-	params.SetTagSpecifications([]*ec2.TagSpecification{tagSpec})
+	params.SetTagSpecifications([]*ec2.TagSpecification{ec2Tags})
+
 	ret, err := self.ec2Client.CreateVolume(params)
 	if err != nil {
 		return "", err
