@@ -7,6 +7,11 @@ import (
 
 	"github.com/pin/tftp"
 	"go.universe.tf/netboot/dhcp4"
+
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/baremetal/types"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 const (
@@ -64,13 +69,30 @@ const (
 	FirmwareUnknown
 )
 
+type IBaremetalManager interface {
+	GetZoneId() string
+	GetBaremetalByMac(mac net.HardwareAddr) IBaremetalInstance
+	AddBaremetal(desc jsonutils.JSONObject) (IBaremetalInstance, error)
+	GetClientSession() *mcclient.ClientSession
+}
+
+type IBaremetalInstance interface {
+	NeedPXEBoot() bool
+	GetIPMINic(cliMac net.HardwareAddr) *types.Nic
+	GetPXEDHCPConfig(arch uint16) (*ResponseConfig, error)
+	GetDHCPConfig(cliMac net.HardwareAddr) (*ResponseConfig, error)
+	InitAdminNetif(cliMac net.HardwareAddr, netConf *types.NetworkConfig, nicType string) error
+	RegisterNetif(cliMac net.HardwareAddr, netConf *types.NetworkConfig) error
+}
+
 type Server struct {
 	// Address to listen on, or empty for all interfaces
-	Address     string
-	DHCPPort    int
-	TFTPPort    int
-	TFTPRootDir string
-	errs        chan error
+	Address          string
+	DHCPPort         int
+	TFTPPort         int
+	TFTPRootDir      string
+	errs             chan error
+	BaremetalManager IBaremetalManager
 }
 
 func (s *Server) Serve() error {

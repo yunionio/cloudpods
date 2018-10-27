@@ -20,10 +20,8 @@ func StartService() {
 }
 
 func startAgent() {
-	go func() {
-		err := baremetal.Start()
-		if err != nil {
-			log.Fatalf("Start agent error: %v", err)
-		}
-	}()
+	err := baremetal.Start()
+	if err != nil {
+		log.Fatalf("Start agent error: %v", err)
+	}
 }
