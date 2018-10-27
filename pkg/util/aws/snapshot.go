@@ -163,6 +163,11 @@ func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
 
 	if len(name) <= 0 {
 		return "", fmt.Errorf("name length should great than 0")
+	} else {
+		tagspec := TagSpec{ResourceType:"snapshot"}
+		tagspec.SetNameTag(name)
+		ec2Tag, _ := tagspec.GetTagSpecifications()
+		params.SetTagSpecifications([]*ec2.TagSpecification{ec2Tag})
 	}
 
 	params.SetDescription(desc)
