@@ -83,7 +83,7 @@ func (self *BaremetalConvertHypervisorTask) OnGuestDeleteComplete(ctx context.Co
 	}
 	err := driver.ConvertFailed(baremetal)
 	if err != nil {
-		logclient.AddActionLog(baremetal, logclient.ACT_BM_CONVERT_HYPER, fmt.Sprintf("convert failed", err.Error()), self.UserCred, false)
+		logclient.AddActionLog(baremetal, logclient.ACT_BM_CONVERT_HYPER, fmt.Sprintf("convert failed: %s", err), self.UserCred, false)
 	}
 	self.SetStage("OnFailedSyncstatusComplete", nil)
 	baremetal.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
