@@ -8,10 +8,11 @@ import (
 
 	dhcp "go.universe.tf/netboot/dhcp4"
 
-	//"yunion.io/x/jsonutils"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	//o "yunion.io/x/onecloud/pkg/baremetal/options"
-	//"yunion.io/x/onecloud/pkg/mcclient/modules"
+	o "yunion.io/x/onecloud/pkg/baremetal/options"
+	"yunion.io/x/onecloud/pkg/baremetal/types"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 const (
@@ -32,7 +33,7 @@ func (s *Server) serveDHCP(conn *dhcp.Conn) error {
 			return fmt.Errorf("Received DHCP packet with no interface information (this is a violation of dhcp4.Conn's contract)")
 		}
 		go func() {
-			h := &DHCPHandler{}
+			h := &DHCPHandler{baremetalManager: s.BaremetalManager}
 			resp, err := h.ServeDHCP(pkt)
 			if err != nil {
 				log.Warningf("[DHCP] handler serve error: %v", err)
@@ -67,6 +68,13 @@ type DHCPHandler struct {
 	NetworkInterfaceIdent NetworkInterfaceIdent
 	ClientGuid            string
 	packet                *dhcp.Packet
+
+	// baremetal manager
+	baremetalManager IBaremetalManager
+	// baremetal instance
+	baremetalInstance IBaremetalInstance
+	// cloud network config
+	netConfig *types.NetworkConfig
 }
 
 func (h *DHCPHandler) ServeDHCP(pkt *dhcp.Packet) (*dhcp.Packet, error) {
@@ -159,19 +167,55 @@ func (h *DHCPHandler) parsePacket(pkt *dhcp.Packet) error {
 }
 
 func (h *DHCPHandler) fetchConfig() (*ResponseConfig, error) {
-	conf := &ResponseConfig{
-		ServerIP:   net.IP{10, 168, 0, 1},
-		ClientIP:   net.IP{10, 168, 0, 2},
-		Gateway:    net.IP{10, 168, 0, 1},
-		SubnetMask: net.IP{255, 255, 255, 0},
-		DNSServer:  net.IP{8, 8, 8, 8},
-		Hostname:   "test12345",
+	// 1. find_network_conf
+	netConf, err := h.findNetworkConf(false)
+	if err != nil {
+		return nil, err
 	}
+	h.netConfig = netConf
+
+	// TODO: set cache for netConf
+	//
 	if h.isPXERequest() {
-		conf.BootServer = "10.168.0.1"
-		conf.BootFile = "pxelinux.0"
+		// handle PXE DHCP request
+		log.Infof("DHCP relay from %s(%s) for %s, find matched networks: %s", h.RelayAddr, h.ClientAddr, h.ClientMac, netConf)
+		bmDesc, err := h.createOrUpdateBaremetal()
+		if err != nil {
+			return nil, err
+		}
+		err = h.doInitBaremetalAdminNetif(bmDesc)
+		if err != nil {
+			return nil, err
+		}
+		if h.baremetalInstance.NeedPXEBoot() {
+			return h.baremetalInstance.GetPXEDHCPConfig(h.ClientArch)
+		}
+		// ignore
+		log.Warningf("No need to pxeboot, ignore the request ...(mac:%s guid:%d)", h.ClientMac, h.ClientGuid)
+		return nil, nil
+	} else {
+		// handle normal DHCP request
+		bmInstance := h.baremetalManager.GetBaremetalByMac(h.ClientMac)
+		if bmInstance == nil {
+			// options.EnableGeneralGuestDhcp
+			// cloud be an instance not served by a host-server
+			// from guestdhcp import GuestDHCPHelperTask
+			// task = GuestDHCPHelperTask(self)
+			// task.start()
+			return nil, nil
+		}
+		h.baremetalInstance = bmInstance
+		ipmiNic := h.baremetalInstance.GetIPMINic(h.ClientMac)
+		if ipmiNic != nil && ipmiNic.Mac == h.ClientMac.String() {
+			err = h.baremetalInstance.InitAdminNetif(h.ClientMac, h.netConfig, types.NIC_TYPE_ADMIN)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			h.baremetalInstance.RegisterNetif(h.ClientMac, h.netConfig)
+		}
+		return h.baremetalInstance.GetDHCPConfig(h.ClientMac)
 	}
-	return conf, nil
 }
 
 type ResponseConfig struct {
@@ -251,73 +295,104 @@ func makeDHCPReplyPacket(pkt *dhcp.Packet, conf *ResponseConfig, msgType dhcp.Me
 	return resp
 }
 
-//func (h *DHCPHandler) findNetworkConf(filterUseIp bool) error {
-//params := jsonutils.NewDict()
-//if filterUseIp {
-//params.Add(jsonutils.NewString(h.RelayAddr.String()), "ip")
-//} else {
-//params.Add(jsonutils.NewString(
-//fmt.Sprintf("guest_gateway.equals(%s)", h.RelayAddr),
-//"filter.0"))
-//params.Add(jsonutils.NewString(
-//fmt.Sprintf("guest_dhcp.equals(%s)", h.RelayAddr),
-//"filter.1"))
-//params.Add(jsonutils.JSONTrue, "filter_any")
-//}
-//ret, err := modules.Networks.List(session)
-//if err != nil {
-//return err
-//}
-//if len(ret.Data) == 0 {
-//if !filterUseIp {
-//// use ip filter try again
-//return h.findNetworkConf(true)
-//}
-//return fmt.Errorf("DHCP relay from %s(%s) for %s, find no match network", h.RelayAddr, h.ClientAddr, h.ClientMac)
-//}
+func (h *DHCPHandler) findNetworkConf(filterUseIp bool) (*types.NetworkConfig, error) {
+	params := jsonutils.NewDict()
+	if filterUseIp {
+		params.Add(jsonutils.NewString(h.RelayAddr.String()), "ip")
+	} else {
+		params.Add(jsonutils.NewString(
+			fmt.Sprintf("guest_gateway.equals(%s)", h.RelayAddr)),
+			"filter.0")
+		params.Add(jsonutils.NewString(
+			fmt.Sprintf("guest_dhcp.equals(%s)", h.RelayAddr)),
+			"filter.1")
+		params.Add(jsonutils.JSONTrue, "filter_any")
+	}
+	session := h.baremetalManager.GetClientSession()
+	ret, err := modules.Networks.List(session, params)
+	if err != nil {
+		return nil, err
+	}
+	if len(ret.Data) == 0 {
+		if !filterUseIp {
+			// use ip filter try again
+			return h.findNetworkConf(true)
+		}
+		return nil, fmt.Errorf("DHCP relay from %s(%s) for %s, find no match network", h.RelayAddr, h.ClientAddr, h.ClientMac)
+	}
 
-//network := ret.Data[0]
-//if h.isPXERequest() {
-//log.Infof("DHCP relay from %s(%s) for %s, find matched networks: %s", h.RelayAddr, h.ClientAddr, h.ClientMac, network)
-//}
+	network := types.NetworkConfig{}
+	err = ret.Data[0].Unmarshal(&network)
+	return &network, err
+}
 
-//if h.isPXERequest() {
-//h.findBaremetalConf()
-//}
-//}
+// createOrUpdateBaremetal create or update baremetal by client MAC
+func (h *DHCPHandler) createOrUpdateBaremetal() (jsonutils.JSONObject, error) {
+	session := h.baremetalManager.GetClientSession()
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(h.ClientMac.String()), "any_mac")
+	ret, err := modules.Hosts.List(session, params)
+	if err != nil {
+		return nil, err
+	}
+	switch len(ret.Data) {
+	case 0:
+		// found new baremetal, create it if auto register
+		if o.Options.AutoRegisterBaremetal {
+			return h.createBaremetal()
+		}
+	case 1:
+		// already exists, do update
+		bmId, err := ret.Data[0].GetString("id")
+		if err != nil {
+			return nil, err
+		}
+		return h.updateBaremetal(bmId)
+	}
+	return nil, fmt.Errorf("Found %d records match %s", len(ret.Data), h.ClientMac)
+}
 
-//// findBaremetalConf update or create host
-//func (h *DHCPHandler) findBaremetalConf() error {
-//params := jsonutils.NewDict()
-//params.Add(jsonutils.NewString(h.ClientMac.String()), "any_mac")
-//ret, err := modules.Hosts.List(session, params)
-//if err != nil {
-//return err
-//}
-//switch len(ret.Data) {
-//case 0:
-//// found new baremetal, create it if auto register
-//if o.Options.AutoRegisterBaremetal {
-//h.createBaremetal()
-//}
-//case 1:
-//// already exists, do update
-//bmId := ret.Data[0].GetString("id")
-//h.updateBaremetal(bmId)
-//default:
-//return fmt.Errorf("Found %d records match %s", len(ret.Data), h.ClientMac)
-//}
-//}
+func (h *DHCPHandler) createBaremetal() (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	mac := h.ClientMac.String()
+	zoneId := h.baremetalManager.GetZoneId()
+	name := fmt.Sprintf("BM%s", strings.Replace(mac, ":", "", -1))
+	params.Add(jsonutils.NewString(name), "name")
+	params.Add(jsonutils.NewString(mac), "access_mac")
+	params.Add(jsonutils.NewString("baremetal"), "host_type")
+	params.Add(jsonutils.JSONTrue, "is_baremetal")
+	params.Add(jsonutils.NewString(zoneId), "zone_id")
+	session := h.baremetalManager.GetClientSession()
+	desc, err := modules.Hosts.Create(session, params)
+	if err != nil {
+		return nil, err
+	}
+	return desc, nil
+}
 
-//func (h *DHCPHandler) updateBaremetal(id string) error {
-//params := jsonutils.NewDict()
-//params.Add(jsonutils.NewString(h.ClientMac.String()), "access_mac")
-//ret, err := modules.Hosts.Update(session, id, params)
-//if err != nil {
-//return err
-//}
-//return nil
-//}
+func (h *DHCPHandler) updateBaremetal(id string) (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(h.ClientMac.String()), "access_mac")
+	params.Add(jsonutils.NewString(h.baremetalManager.GetZoneId()), "zone_id")
+	params.Add(jsonutils.NewString("baremetal"), "host_type")
+	params.Add(jsonutils.JSONTrue, "is_baremetal")
+	session := h.baremetalManager.GetClientSession()
+	desc, err := modules.Hosts.Update(session, id, params)
+	if err != nil {
+		return nil, err
+	}
+	return desc, nil
+}
+
+func (h *DHCPHandler) doInitBaremetalAdminNetif(desc jsonutils.JSONObject) error {
+	var err error
+	h.baremetalInstance, err = h.baremetalManager.AddBaremetal(desc)
+	if err != nil {
+		return err
+	}
+	err = h.baremetalInstance.InitAdminNetif(h.ClientMac, h.netConfig, types.NIC_TYPE_ADMIN)
+	return err
+}
 
 func (h *DHCPHandler) isPXERequest() bool {
 	pkt := h.packet

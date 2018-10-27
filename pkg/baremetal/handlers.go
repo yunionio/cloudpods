@@ -37,7 +37,7 @@ func NewContext(ctx context.Context, w http.ResponseWriter, r *http.Request) *Co
 	params, query, body := appsrv.FetchEnv(ctx, w, r)
 	return &Context{
 		Context:  ctx,
-		userCred: auth.FetchUserCredential(ctx),
+		userCred: auth.FetchUserCredential(ctx, nil),
 		params:   params,
 		query:    query,
 		data:     body,
