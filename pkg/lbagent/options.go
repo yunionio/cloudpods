@@ -27,6 +27,7 @@ type LbagentOptions struct {
 	KeepalivedBin string `default:"keepalived"`
 	HaproxyBin    string `default:"haproxy"`
 	GobetweenBin  string `default:"gobetween"`
+	TelegrafBin   string `default:"telegraf"`
 }
 
 type Options struct {
