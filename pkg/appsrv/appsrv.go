@@ -32,7 +32,7 @@ type Application struct {
 	readHeaderTimeout time.Duration
 	writeTimeout      time.Duration
 	processTimeout    time.Duration
-	defHandlerInfo    handlerInfo
+	defHandlerInfo    SHandlerInfo
 	cors              *Cors
 	middlewares       []MiddlewareFunc
 }
@@ -114,9 +114,14 @@ func (app *Application) AddHandler(method string, prefix string, handler func(co
 func (app *Application) AddHandler2(method string, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request), metadata map[string]interface{}, name string, tags map[string]string) {
 	log.Debugf("%s - %s", method, prefix)
 	segs := SplitPath(prefix)
-	e := app.getRoot(method).Add(segs, newHandlerInfo(method, segs, handler, metadata, name, tags))
+	hi := newHandlerInfo(method, segs, handler, metadata, name, tags)
+	app.AddHandler3(hi)
+}
+
+func (app *Application) AddHandler3(hi *SHandlerInfo) {
+	e := app.getRoot(hi.method).Add(hi.path, hi)
 	if e != nil {
-		log.Fatalf("Fail to register %s %s: %s", method, prefix, e)
+		log.Fatalf("Fail to register %s %s: %s", hi.method, hi.path, e)
 	}
 }
 
@@ -178,7 +183,7 @@ func (app *Application) handleCORS(w http.ResponseWriter, r *http.Request) bool 
 	}
 }
 
-func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, rid string) *handlerInfo {
+func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, rid string) *SHandlerInfo {
 	segs := SplitPath(r.URL.Path)
 	params := make(map[string]string)
 	w.Header().Set("Server", "Yunion AppServer/Go/2018.4")
@@ -187,14 +192,22 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 	handler := app.getRoot(r.Method).Match(segs, params)
 	if handler != nil {
 		// log.Print("Found handler", params)
-		hand, ok := handler.(*handlerInfo)
+		hand, ok := handler.(*SHandlerInfo)
 		if ok {
 			fw := newResponseWriterChannel(w)
 			worker := make(chan *SWorker)
 			errChan := make(chan interface{})
-			ctx, cancel := context.WithTimeout(app.context, app.processTimeout)
+			to := hand.processTimeout
+			if to == 0 {
+				to = app.processTimeout
+			}
+			ctx, cancel := context.WithTimeout(app.context, to)
 			defer cancel()
-			app.session.Run(func() {
+			session := hand.workerMan
+			if session == nil {
+				session = app.session
+			}
+			session.Run(func() {
 				defer fw.closeChannels()
 				if ctx.Err() == nil {
 					ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_REQUEST_ID, rid)
