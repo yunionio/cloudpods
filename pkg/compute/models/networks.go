@@ -1291,28 +1291,28 @@ func (self *SNetwork) isManaged() bool {
 	}
 }
 
-func (manager *SNetworkManager) CustomizeFilterList(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, retList []jsonutils.JSONObject) ([]jsonutils.JSONObject, error) {
+func (manager *SNetworkManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*db.CustomizeListFilters, error) {
+	filters := db.NewCustomizeListFilters()
+
 	if query.Contains("ip") {
 		ip, _ := query.GetString("ip")
 		ipInt, err := netutils.NewIPV4Addr(ip)
 		if err != nil {
 			return nil, err
 		}
-		ret := make([]jsonutils.JSONObject, 0)
-		for i := 0; i < len(retList); i++ {
-			guestIpStart, _ := retList[i].GetString("guest_ip_start")
-			guestIpEnd, _ := retList[i].GetString("guest_ip_end")
+
+		ipFilter := func(obj jsonutils.JSONObject) (bool, error) {
+			guestIpStart, _ := obj.GetString("guest_ip_start")
+			guestIpEnd, _ := obj.GetString("guest_ip_end")
 			guestIpStartInt, _ := netutils.NewIPV4Addr(guestIpStart)
 			guestIpEndInt, _ := netutils.NewIPV4Addr(guestIpEnd)
 			ipRange := netutils.NewIPV4AddrRange(guestIpStartInt, guestIpEndInt)
-			if ipRange.Contains(ipInt) {
-				ret = append(ret, retList[i])
-			}
+			return ipRange.Contains(ipInt), nil
 		}
-		return ret, nil
-	} else {
-		return manager.SStatusStandaloneResourceBaseManager.CustomizeFilterList(ctx, userCred, query, retList)
+
+		filters.Append(ipFilter)
 	}
+	return filters, nil
 }
 
 func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
