@@ -44,7 +44,7 @@ func (dispatcher *DBJointModelDispatcher) SlaveKeywordPlural() string {
 }
 
 func (dispatcher *DBJointModelDispatcher) ListMasterDescendent(ctx context.Context, idStr string, query jsonutils.JSONObject) (*modules.ListResult, error) {
-	log.Debugf("ListMasterDescendent %s %s", dispatcher.JointModelManager().GetMasterManager().Keyword(), idStr)
+	//log.Debugf("ListMasterDescendent %s %s", dispatcher.JointModelManager().GetMasterManager().Keyword(), idStr)
 	userCred := fetchUserCredential(ctx)
 
 	var queryDict *jsonutils.JSONDict
@@ -71,8 +71,7 @@ func (dispatcher *DBJointModelDispatcher) ListMasterDescendent(ctx context.Conte
 }
 
 func (dispatcher *DBJointModelDispatcher) ListSlaveDescendent(ctx context.Context, idStr string, query jsonutils.JSONObject) (*modules.ListResult, error) {
-	log.Debugf("ListSlaveDescendent %s %s", dispatcher.JointModelManager().GetMasterManager().Keyword(), idStr)
-
+	//log.Debugf("ListSlaveDescendent %s %s", dispatcher.JointModelManager().GetMasterManager().Keyword(), idStr)
 	userCred := fetchUserCredential(ctx)
 
 	var queryDict *jsonutils.JSONDict
@@ -99,7 +98,15 @@ func (dispatcher *DBJointModelDispatcher) ListSlaveDescendent(ctx context.Contex
 }
 
 func (dispatcher *DBJointModelDispatcher) _listJoint(ctx context.Context, userCred mcclient.TokenCredential, ctxModel IModel, queryDict jsonutils.JSONObject) (*modules.ListResult, error) {
-	if !dispatcher.JointModelManager().AllowListDescendent(ctx, userCred, ctxModel, queryDict) {
+	var isAllow bool
+	if IsGlobalRbacEnabled() {
+		isAdmin := jsonutils.QueryBoolean(queryDict, "admin", false)
+		isAllow = PolicyManager.Allow(isAdmin, userCred, GetGlobalServiceType(),
+			dispatcher.JointModelManager().KeywordPlural(), PolicyActionList)
+	} else {
+		isAllow = dispatcher.JointModelManager().AllowListDescendent(ctx, userCred, ctxModel, queryDict)
+	}
+	if !isAllow {
 		return nil, httperrors.NewForbiddenError("Not allow to list")
 	}
 
@@ -136,7 +143,13 @@ func (dispatcher *DBJointModelDispatcher) Get(ctx context.Context, id1 string, i
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-	if !item.AllowGetJointDetails(ctx, userCred, query, item) {
+	var isAllow bool
+	if IsGlobalRbacEnabled() {
+		isAllow = isJointRbacAllowed(dispatcher.JointModelManager(), item, userCred, PolicyActionGet)
+	} else {
+		isAllow = item.AllowGetJointDetails(ctx, userCred, query, item)
+	}
+	if !isAllow {
 		return nil, httperrors.NewForbiddenError("Not allow to get details")
 	}
 	return getItemDetails(dispatcher.JointModelManager(), item, ctx, userCred, query)
@@ -201,7 +214,13 @@ func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	if !item.AllowUpdateJointItem(ctx, userCred, item) {
+	var isAllow bool
+	if IsGlobalRbacEnabled() {
+		isAllow = isJointRbacAllowed(dispatcher.JointModelManager(), item, userCred, PolicyActionUpdate)
+	} else {
+		isAllow = item.AllowUpdateJointItem(ctx, userCred, item)
+	}
+	if !isAllow {
 		return nil, httperrors.NewForbiddenError(fmt.Sprintf("Not allow to update item"))
 	}
 

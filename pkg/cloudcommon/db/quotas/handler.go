@@ -77,7 +77,7 @@ func getQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 		projectId = userCred.GetProjectId()
 	} else {
 		if !userCred.IsSystemAdmin() {
-			httperrors.ForbiddenError(w, "not allow to query quota")
+			httperrors.ForbiddenError(w, "not allow to delegate query quota")
 			return
 		}
 		tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, projectId)
@@ -107,7 +107,15 @@ func getQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 
 func setQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	userCred := auth.FetchUserCredential(ctx)
-	if !userCred.IsSystemAdmin() {
+
+	var isAllow bool
+	if db.IsGlobalRbacEnabled() {
+		isAllow = db.PolicyManager.Allow(true, userCred, db.GetGlobalServiceType(),
+			"quotas", db.PolicyActionUpdate)
+	} else {
+		isAllow = userCred.IsSystemAdmin()
+	}
+	if !isAllow {
 		httperrors.ForbiddenError(w, "not allow to set quota")
 		return
 	}
@@ -163,7 +171,7 @@ func setQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 func checkQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	userCred := auth.FetchUserCredential(ctx)
 	if !userCred.IsSystemAdmin() {
-		httperrors.ForbiddenError(w, "not allow to set quota")
+		httperrors.ForbiddenError(w, "not allow to check quota")
 		return
 	}
 	params := appctx.AppContextParams(ctx)

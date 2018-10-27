@@ -551,37 +551,6 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 	}
 }
 
-func isRbacAllowed(manager IModelManager, model IModel, userCred mcclient.TokenCredential, action string, extra ...string) bool {
-	var isAllow bool
-	var isAdmin bool
-	if model == nil {
-		_, ok := manager.(IVirtualModelManager)
-		if ok {
-			isAdmin = false
-		}
-	} else {
-		virtModel, ok := model.(IVirtualModel)
-		if ok {
-			if virtModel.IsOwner(userCred) {
-				isAdmin = false
-			} else {
-				isAdmin = true
-			}
-		} else {
-			isAdmin = true
-		}
-	}
-	if !isAdmin {
-		isAllow = PolicyManager.Allow(false, userCred, GetGlobalServiceType(),
-			manager.KeywordPlural(), action, extra...)
-	}
-	if !isAllow {
-		isAllow = PolicyManager.Allow(true, userCred, GetGlobalServiceType(),
-			manager.KeywordPlural(), action, extra...)
-	}
-	return isAllow
-}
-
 func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	// log.Debugf("Get %s", idStr)
 	userCred := fetchUserCredential(ctx)

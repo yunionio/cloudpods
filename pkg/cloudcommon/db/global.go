@@ -36,3 +36,7 @@ func EnableGlobalRbac() {
 	globalsRbacEnabled = true
 	PolicyManager.start()
 }
+
+func IsGlobalRbacEnabled() bool {
+	return globalsRbacEnabled
+}
