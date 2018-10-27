@@ -574,21 +574,6 @@ type SVirtualMachineExtension struct {
 	Properties VirtualMachineExtensionProperties `json:"properties,omitempty"`
 }
 
-func (region *SRegion) restartWaagent(instanceId string) error {
-	extension := SVirtualMachineExtension{
-		Location: region.Name,
-		Properties: VirtualMachineExtensionProperties{
-			Publisher:          "Microsoft.Azure.Extensions",
-			Type:               "CustomScript",
-			TypeHandlerVersion: "2.0",
-			Settings:           map[string]string{"commandToExecute": "systemctl restart waagent"},
-		},
-	}
-	url := fmt.Sprintf("%s/extensions/CustomScript", instanceId)
-	_, err := region.client.jsonRequest("PUT", url, jsonutils.Marshal(extension).String())
-	return err
-}
-
 func (region *SRegion) execOnLinux(instanceId string, command string) error {
 	extension := SVirtualMachineExtension{
 		Location: region.Name,

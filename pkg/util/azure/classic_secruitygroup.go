@@ -62,7 +62,8 @@ func (v ClassicSecurityRulesSet) Less(i, j int) bool {
 	return false
 }
 
-func (self *ClassicSecurityGroupRuleProperties) toRules() secrules.SecurityRule {
+func (self *ClassicSecurityGroupRuleProperties) toRules() []secrules.SecurityRule {
+	rules := []secrules.SecurityRule{}
 	rule := secrules.SecurityRule{}
 	rule.Action = secrules.TSecurityRuleAction(strings.ToLower(self.Action))
 	rule.Direction = secrules.TSecurityRuleDirection(strings.Replace(strings.ToLower(self.Type), "bound", "", -1))
@@ -76,7 +77,12 @@ func (self *ClassicSecurityGroupRuleProperties) toRules() secrules.SecurityRule 
 		port = self.SourcePortRange
 		ip = self.SourceAddressPrefix
 	}
-	if ip == "*" || utils.IsInStringArray(ip, []string{"INTERNET", "VIRTUAL_NETWORK", "AZURE_LOADBALANCER"}) { // not good
+
+	if utils.IsInStringArray(ip, []string{"INTERNET", "VIRTUAL_NETWORK", "AZURE_LOADBALANCER"}) {
+		return rules
+	}
+
+	if ip == "*" {
 		ip = "0.0.0.0/24"
 	}
 	if idx := strings.Index(ip, "/"); idx > -1 {
@@ -98,12 +104,21 @@ func (self *ClassicSecurityGroupRuleProperties) toRules() secrules.SecurityRule 
 		rule.PortStart, _ = strconv.Atoi(ports[0])
 		rule.PortEnd, _ = strconv.Atoi(ports[0])
 	}
-	return rule
+	if rule.PortStart > 0 && rule.Protocol == "any" {
+		rule.Protocol = "tcp"
+		rules = append(rules, rule)
+		rule.Protocol = "udp"
+		rules = append(rules, rule)
+	}
+	return rules
 }
 
 func (self *ClassicSecurityGroupRuleProperties) String() string {
-	rule := self.toRules()
-	return rule.String()
+	result := []string{}
+	for _, rule := range self.toRules() {
+		result = append(result, rule.String())
+	}
+	return strings.Join(result, ";")
 }
 
 func (self *SClassicSecurityGroup) GetMetadata() *jsonutils.JSONDict {
@@ -148,11 +163,16 @@ func (self *SClassicSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 		if secgrouprules[i].Properties.Priority >= 65000 {
 			continue
 		}
-		rule := secgrouprules[i].Properties.toRules()
-		rule.Priority = priority
-		priority--
-		rule.Description = secgrouprules[i].Name
-		rules = append(rules, rule)
+		_rules := secgrouprules[i].Properties.toRules()
+		for i := 0; i < len(_rules); i++ {
+			rule := _rules[i]
+			rule.Priority = priority
+			rule.Description = secgrouprules[i].Name
+			rules = append(rules, rule)
+		}
+		if len(_rules) > 0 {
+			priority--
+		}
 	}
 	return rules, nil
 }

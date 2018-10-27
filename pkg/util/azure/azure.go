@@ -341,9 +341,10 @@ func jsonRequest(client *autorest.Client, method, domain, baseUrl string, body s
 	return _jsonRequest(client, method, domain, baseUrl, body)
 }
 
-func waitForComplatetion(client *autorest.Client, req *http.Request, resp *http.Response) (jsonutils.JSONObject, error) {
+func waitForComplatetion(client *autorest.Client, req *http.Request, resp *http.Response, timeout time.Duration) (jsonutils.JSONObject, error) {
 	location := resp.Header.Get("Location")
 	asyncoperation := resp.Header.Get("Azure-Asyncoperation")
+	startTime := time.Now()
 	if len(location) > 0 || (len(asyncoperation) > 0 && resp.StatusCode != 200 || strings.Index(req.URL.String(), "enablevmaccess") > 0) {
 		if len(asyncoperation) > 0 {
 			location = asyncoperation
@@ -358,6 +359,9 @@ func waitForComplatetion(client *autorest.Client, req *http.Request, resp *http.
 				return nil, err
 			}
 			if asyncResp.StatusCode == 202 {
+				if time.Now().Sub(startTime) > timeout {
+					return nil, fmt.Errorf("Process request %s %s timeout", req.Method, req.URL.String())
+				}
 				time.Sleep(time.Second * 5)
 				continue
 			}
@@ -445,8 +449,8 @@ func _jsonRequest(client *autorest.Client, method, domain, baseURL, body string)
 		log.Errorf("failed find %s error: %s", url, string(data))
 		return nil, cloudprovider.ErrNotFound
 	}
-
-	asyncData, err := waitForComplatetion(client, req, resp)
+	// 异步任务最多耗时半小时，否则以失败处理
+	asyncData, err := waitForComplatetion(client, req, resp, time.Minute*30)
 	if err != nil {
 		return nil, err
 	}
