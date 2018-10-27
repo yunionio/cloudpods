@@ -6,11 +6,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -81,12 +83,12 @@ func (man *SLoadbalancerManager) ListItemFilter(ctx context.Context, q *sqlchemy
 
 func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerProjId)
-	addressV := validators.NewIPv4AddrValidator("address").Optional(true)
+	addressV := validators.NewIPv4AddrValidator("address")
 	{
 		keyV := map[string]validators.IValidator{
 			"status": validators.NewStringChoicesValidator("status", LB_STATUS_SPEC).Default(LB_STATUS_ENABLED),
 
-			"address": addressV,
+			"address": addressV.Optional(true),
 			"network": networkV,
 		}
 		for _, v := range keyV {
@@ -97,6 +99,24 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 	}
 	{
 		network := networkV.Model.(*SNetwork)
+		if ipAddr := addressV.IP; ipAddr != nil {
+			ipS := ipAddr.String()
+			ip, err := netutils.NewIPV4Addr(ipS)
+			if err != nil {
+				return nil, err
+			}
+			if !network.isAddressInRange(ip) {
+				return nil, httperrors.NewInputParameterError("address %s is not in the range of network %s(%s)",
+					ipS, network.Name, network.Id)
+			}
+			if network.isAddressUsed(ipS) {
+				return nil, httperrors.NewInputParameterError("address %s is already occupied", ipS)
+			}
+		}
+		if network.getFreeAddressCount() <= 0 {
+			return nil, httperrors.NewNotAcceptableError("network %s(%s) has no free addresses",
+				network.Name, network.Id)
+		}
 		if wire := network.GetWire(); wire == nil {
 			return nil, fmt.Errorf("getting wire failed")
 		} else if zone := wire.GetZone(); zone == nil {
@@ -120,7 +140,7 @@ func (lb *SLoadbalancer) PostCreate(ctx context.Context, userCred mcclient.Token
 	// NOTE lb.Id will only be available after BeforeInsert happens
 	// NOTE this means lb.UpdateVersion will be 0, then 1 after creation
 	// NOTE need ways to notify error
-	lb.GetModelManager().TableSpec().Update(lb, func() error {
+	LoadbalancerManager.TableSpec().Update(lb, func() error {
 		if lb.AddressType == LB_ADDR_TYPE_INTRANET {
 			// TODO support use reserved ip address
 			// TODO prefer ip address from server_type loadbalancer?
@@ -129,23 +149,29 @@ func (lb *SLoadbalancer) PostCreate(ctx context.Context, userCred mcclient.Token
 				networkId:    lb.NetworkId,
 				address:      lb.Address,
 			}
-			lnMan := db.GetModelManager("loadbalancernetwork").(*SLoadbalancernetworkManager)
-			ln, err := lnMan.NewLoadbalancerNetwork(ctx, userCred, req)
+			// NOTE the small window when agents can see the ephemeral address
+			ln, err := LoadbalancernetworkManager.NewLoadbalancerNetwork(ctx, userCred, req)
 			if err != nil {
-				log.Errorf("allocating loadbalancer network failed: %#v", req)
-				return err
+				log.Errorf("allocating loadbalancer network failed: %v, req: %#v", err, req)
+				lb.Address = ""
+			} else {
+				lb.Address = ln.IpAddr
 			}
-			lb.Address = ln.IpAddr
 		}
 		return nil
 	})
 }
 
 func (lb *SLoadbalancer) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", lb.GetOwnerProjectId()).Optional(true)
+	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", lb.GetOwnerProjectId())
+	backendGroupV.Optional(true)
 	err := backendGroupV.Validate(data)
 	if err != nil {
 		return nil, err
+	}
+	if backendGroup := backendGroupV.Model.(*SLoadbalancerBackendGroup); backendGroup.LoadbalancerId != lb.Id {
+		return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s, not %s",
+			backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, lb.Id)
 	}
 	return lb.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
@@ -156,8 +182,7 @@ func (lb *SLoadbalancer) CustomizeDelete(ctx context.Context, userCred mcclient.
 		req := &SLoadbalancerNetworkDeleteData{
 			loadbalancer: lb,
 		}
-		lnMan := db.GetModelManager("loadbalancernetwork").(*SLoadbalancernetworkManager)
-		err := lnMan.DeleteLoadbalancerNetwork(ctx, userCred, req)
+		err := LoadbalancernetworkManager.DeleteLoadbalancerNetwork(ctx, userCred, req)
 		if err != nil {
 			return err
 		}

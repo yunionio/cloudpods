@@ -117,7 +117,7 @@ func (b *LoadbalancerCorpus) GenHaproxyConfigs(dir string, opts *AgentParams) (*
 			case "tcp":
 				err = b.genHaproxyConfigTcp(buf, listener, opts)
 			case "udp":
-				// we record it for use in keepalived conf gen
+				// we record it for use in keepalived, gobetween conf gen
 				r.LoadbalancersEnabled = append(r.LoadbalancersEnabled, lb)
 				continue
 			default:

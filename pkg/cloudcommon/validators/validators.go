@@ -314,6 +314,14 @@ func NewPortValidator(key string) *ValidatorRange {
 	return NewRangeValidator(key, 1, 65535)
 }
 
+func NewVlanIdValidator(key string) *ValidatorRange {
+	// The convention is vendor specific
+	//
+	// 0, 4095: reserved
+	// 1: no vlan tagging
+	return NewRangeValidator(key, 1, 4094)
+}
+
 func NewNonNegativeValidator(key string) *ValidatorRange {
 	return NewRangeValidator(key, 0, math.MaxInt64)
 }

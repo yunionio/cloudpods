@@ -21,7 +21,7 @@ func init() {
 				"not_before",
 				"not_after",
 				"common_name",
-				"subject_alternative_Names",
+				"subject_alternative_names",
 			},
 			[]string{"tenant"},
 		),

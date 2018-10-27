@@ -196,7 +196,7 @@ func (p *SLoadbalancerAgentParams) IsZero() bool {
 func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	{
 		keyV := map[string]validators.IValidator{
-			"hb_timeout": validators.NewNonNegativeValidator("nb_timeout").Default(3600),
+			"hb_timeout": validators.NewNonNegativeValidator("hb_timeout").Default(3600),
 			"params":     validators.NewStructValidator("params", &SLoadbalancerAgentParams{}),
 		}
 		for _, v := range keyV {
@@ -314,6 +314,16 @@ func (man *SLoadbalancerAgentManager) AllowCreateItem(ctx context.Context, userC
 }
 
 func (lbagent *SLoadbalancerAgent) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	{
+		keyV := map[string]validators.IValidator{
+			"hb_timeout": validators.NewNonNegativeValidator("hb_timeout").Optional(true),
+		}
+		for _, v := range keyV {
+			if err := v.Validate(data); err != nil {
+				return nil, err
+			}
+		}
+	}
 	keys := map[string]time.Time{
 		"loadbalancers":               lbagent.Loadbalancers,
 		"loadbalancer_listeners":      lbagent.LoadbalancerListeners,
