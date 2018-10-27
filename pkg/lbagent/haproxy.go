@@ -190,13 +190,15 @@ func (h *HaproxyHelper) useConfigs(ctx context.Context, d string) error {
 		err = os.Symlink(old, new)
 		return err
 	}
-	keepalivedConf := filepath.Join(h.opts.haproxyConfigDir, "keepalived.conf")
-	gobetweenJson := filepath.Join(h.opts.haproxyConfigDir, "gobetween.json")
 	haproxyConfD := h.haproxyConfD()
+	gobetweenJson := filepath.Join(h.opts.haproxyConfigDir, "gobetween.json")
+	keepalivedConf := filepath.Join(h.opts.haproxyConfigDir, "keepalived.conf")
+	telegrafConf := filepath.Join(h.opts.haproxyConfigDir, "telegraf.conf")
 	dirMap := map[string]string{
-		keepalivedConf: filepath.Join(d, "keepalived.conf"),
 		haproxyConfD:   d,
 		gobetweenJson:  filepath.Join(d, "gobetween.json"),
+		keepalivedConf: filepath.Join(d, "keepalived.conf"),
+		telegrafConf:   filepath.Join(d, "telegraf.conf"),
 	}
 	for new, old := range dirMap {
 		err := lnF(old, new)
