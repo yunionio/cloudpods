@@ -6,6 +6,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"time"
 )
 
 func InitAuth(options *Options, authComplete auth.AuthCompletedCallback) {
@@ -46,6 +47,7 @@ func InitAuth(options *Options, authComplete auth.AuthCompletedCallback) {
 	}
 
 	if options.EnableRbac {
-		db.EnableGlobalRbac()
+		db.EnableGlobalRbac(time.Duration(options.RbacPolicySyncPeriodSeconds)*time.Second,
+			time.Duration(options.RbacPolicySyncFailedRetrySeconds)*time.Second)
 	}
 }

@@ -12,9 +12,6 @@ import (
 )
 
 const (
-	PolicyFailedRetryInterval = 15 * time.Second
-	PolicyRefreshInterval     = 15 * time.Minute
-
 	PolicyDelegation = "delegate"
 
 	PolicyActionList    = "list"
@@ -26,7 +23,12 @@ const (
 	PolicyActionPerform = "perform"
 )
 
-var PolicyManager *SPolicyManager
+var (
+	PolicyManager *SPolicyManager
+
+	PolicyFailedRetryInterval = 15 * time.Second
+	PolicyRefreshInterval     = 15 * time.Minute
+)
 
 func init() {
 	PolicyManager = &SPolicyManager{}
@@ -106,8 +108,10 @@ func fetchPolicies() (map[string]rbacutils.SRbacPolicy, map[string]rbacutils.SRb
 	return policies, adminPolicies, nil
 }
 
-func (manager *SPolicyManager) start() {
+func (manager *SPolicyManager) start(refreshInterval time.Duration, retryInterval time.Duration) {
 	log.Infof("PolicyManager start to fetch policies ...")
+	PolicyRefreshInterval = refreshInterval
+	PolicyFailedRetryInterval = retryInterval
 	manager.sync()
 }
 

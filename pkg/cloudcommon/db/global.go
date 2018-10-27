@@ -1,5 +1,7 @@
 package db
 
+import "time"
+
 /// Global virtual resource namespace
 
 var (
@@ -32,9 +34,9 @@ func GetGlobalServiceType() string {
 	return globalServiceType
 }
 
-func EnableGlobalRbac() {
+func EnableGlobalRbac(refreshInterval time.Duration, retryInterval time.Duration) {
 	globalsRbacEnabled = true
-	PolicyManager.start()
+	PolicyManager.start(refreshInterval, retryInterval)
 }
 
 func IsGlobalRbacEnabled() bool {

@@ -40,7 +40,9 @@ type Options struct {
 	SslCertfile string `help:"ssl certification file"`
 	SslKeyfile  string `help:"ssl certification key file"`
 
-	EnableRbac bool `help:"Switch on Role-based Access Control" default:"false"`
+	EnableRbac                       bool `help:"Switch on Role-based Access Control" default:"false"`
+	RbacPolicySyncPeriodSeconds      int  `help:"policy sync interval in seconds, default 15 minutes" default:"900"`
+	RbacPolicySyncFailedRetrySeconds int  `help:"seconds to wait after a failed sync, default 30 seconds" default:"30"`
 
 	structarg.BaseOptions
 }
