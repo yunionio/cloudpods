@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"encoding/base64"
+	"net/url"
 	"reflect"
 	"text/template"
 	"time"
@@ -78,11 +79,19 @@ type SLoadbalancerAgentParamsHaproxy struct {
 	LogNormal      bool
 }
 
+type SLoadbalancerAgentParamsTelegraf struct {
+	InfluxDbOutputUrl    string
+	InfluxDbOutputName   string
+	HaproxyInputInterval int
+}
+
 type SLoadbalancerAgentParams struct {
 	KeepalivedConfTmpl string
 	HaproxyConfTmpl    string
+	TelegrafConfTmpl   string
 	Vrrp               SLoadbalancerAgentParamsVrrp
 	Haproxy            SLoadbalancerAgentParamsHaproxy
+	Telegraf           SLoadbalancerAgentParamsTelegraf
 }
 
 func (p *SLoadbalancerAgentParamsVrrp) Validate(data *jsonutils.JSONDict) error {
@@ -141,6 +150,31 @@ func (p *SLoadbalancerAgentParamsHaproxy) initDefault(data *jsonutils.JSONDict) 
 	}
 }
 
+func (p *SLoadbalancerAgentParamsTelegraf) Validate(data *jsonutils.JSONDict) error {
+	if p.InfluxDbOutputUrl != "" {
+		_, err := url.Parse(p.InfluxDbOutputUrl)
+		if err != nil {
+			return err
+		}
+	}
+	if p.HaproxyInputInterval <= 0 {
+		p.HaproxyInputInterval = 5
+	}
+	if p.InfluxDbOutputName == "" {
+		p.InfluxDbOutputName = "telegraf"
+	}
+	return nil
+}
+
+func (p *SLoadbalancerAgentParamsTelegraf) initDefault(data *jsonutils.JSONDict) {
+	if p.HaproxyInputInterval == 0 {
+		p.HaproxyInputInterval = 5
+	}
+	if p.InfluxDbOutputName == "" {
+		p.InfluxDbOutputName = "telegraf"
+	}
+}
+
 func (p *SLoadbalancerAgentParams) validateTmpl(k, s string) error {
 	d, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
@@ -161,8 +195,12 @@ func (p *SLoadbalancerAgentParams) initDefault(data *jsonutils.JSONDict) {
 	if p.HaproxyConfTmpl == "" {
 		p.HaproxyConfTmpl = loadbalancerHaproxyConfTmplDefaultEncoded
 	}
+	if p.TelegrafConfTmpl == "" {
+		p.TelegrafConfTmpl = loadbalancerTelegrafConfTmplDefaultEncoded
+	}
 	p.Vrrp.initDefault(data)
 	p.Haproxy.initDefault(data)
+	p.Telegraf.initDefault(data)
 }
 
 func (p *SLoadbalancerAgentParams) Validate(data *jsonutils.JSONDict) error {
@@ -173,10 +211,16 @@ func (p *SLoadbalancerAgentParams) Validate(data *jsonutils.JSONDict) error {
 	if err := p.validateTmpl("haproxy_conf_tmpl", p.HaproxyConfTmpl); err != nil {
 		return err
 	}
+	if err := p.validateTmpl("telegraf_conf_tmpl", p.TelegrafConfTmpl); err != nil {
+		return err
+	}
 	if err := p.Vrrp.Validate(data); err != nil {
 		return err
 	}
 	if err := p.Haproxy.Validate(data); err != nil {
+		return err
+	}
+	if err := p.Telegraf.Validate(data); err != nil {
 		return err
 	}
 	return nil
@@ -459,9 +503,21 @@ listen stats
 	stats auth Yunion:LBStats
 	stats uri /
 `
+
+	loadbalancerTelegrafConfTmplDefault = `
+[[outputs.influxdb]]
+	urls = ["{{ .telegraf.influx_db_output_url }}"]
+	database = "{{ .telegraf.influx_db_output_name }}"
+
+[[inputs.haproxy]]
+	interval = "{{ .telegraf.haproxy_input_interval }}s"
+	servers = ["{{ .telegraf.haproxy_input_stats_socket }}"]
+	keep_field_names = true
+`
 )
 
 var (
 	loadbalancerKeepalivedConfTmplDefaultEncoded = base64.StdEncoding.EncodeToString([]byte(loadbalancerKeepalivedConfTmplDefault))
 	loadbalancerHaproxyConfTmplDefaultEncoded    = base64.StdEncoding.EncodeToString([]byte(loadbalancerHaproxyConfTmplDefault))
+	loadbalancerTelegrafConfTmplDefaultEncoded   = base64.StdEncoding.EncodeToString([]byte(loadbalancerTelegrafConfTmplDefault))
 )

@@ -20,10 +20,14 @@ type LoadbalancerAgentParamsOptions struct {
 	VrrpPass              string
 
 	HaproxyGlobalLog      string
-	HaproxyGlobalNbthread *int   `default:"1" help:"enable experimental multi-threading support available since haproxy 1.8"`
+	HaproxyGlobalNbthread *int   `help:"enable experimental multi-threading support available since haproxy 1.8"`
 	HaproxyLogHttp        string `choices:"true|false"`
 	HaproxyLogTcp         string `choices:"true|false"`
 	HaproxyLogNormal      string `choices:"true|false"`
+
+	TelegrafInfluxDbOutputUrl    string
+	TelegrafInfluxDbOutputName   string
+	TelegrafHaproxyInputInterval int
 }
 
 func (opts *LoadbalancerAgentParamsOptions) setPrefixedParams(params *jsonutils.JSONDict, pref string) {
@@ -49,6 +53,7 @@ func (opts *LoadbalancerAgentParamsOptions) Params() (*jsonutils.JSONDict, error
 	}
 	opts.setPrefixedParams(params, "vrrp")
 	opts.setPrefixedParams(params, "haproxy")
+	opts.setPrefixedParams(params, "telegraf")
 	return params, nil
 }
 

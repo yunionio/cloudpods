@@ -171,9 +171,17 @@ type LoadbalancerAgentParamsHaproxy struct {
 	LogNormal      bool
 }
 
+type LoadbalancerAgentParamsTelegraf struct {
+	InfluxDbOutputUrl    string
+	InfluxDbOutputName   string
+	HaproxyInputInterval int
+}
+
 type LoadbalancerAgentParams struct {
 	KeepalivedConfTmpl string
 	HaproxyConfTmpl    string
+	TelegrafConfTmpl   string
 	Vrrp               LoadbalancerAgentParamsVrrp
 	Haproxy            LoadbalancerAgentParamsHaproxy
+	Telegraf           LoadbalancerAgentParamsTelegraf
 }

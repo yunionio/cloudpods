@@ -18,6 +18,7 @@ func init() {
 			keys := []string{
 				"params.keepalived_conf_tmpl",
 				"params.haproxy_conf_tmpl",
+				"params.telegraf_conf_tmpl",
 			}
 			d := data.(*jsonutils.JSONDict)
 			for _, key := range keys {

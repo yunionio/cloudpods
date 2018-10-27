@@ -1,8 +1,10 @@
 package lbagent
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -140,6 +142,28 @@ func (h *HaproxyHelper) handleUseCorpusCmd(ctx context.Context, cmd *LbagentCmd)
 			if err != nil {
 				err = fmt.Errorf("generating keepalived config failed: %s", err)
 				return err
+			}
+		}
+		if agentParams.AgentModel.Params.Telegraf.InfluxDbOutputUrl != "" {
+			agentParams.SetTelegrafParams("haproxy_input_stats_socket", h.haproxyStatsSocketFile())
+			// telegraf config
+			buf := bytes.NewBufferString("# yunion lb auto-generated telegraf.conf\n")
+			tmpl := agentParams.TelegrafConfigTmpl
+			err := tmpl.Execute(buf, agentParams.Data)
+			if err == nil {
+				d := buf.Bytes()
+				p := filepath.Join(dir, "telegraf.conf")
+				err := ioutil.WriteFile(p, d, agentutils.FileModeFile)
+				if err == nil {
+					err := h.reloadTelegraf(ctx)
+					if err != nil {
+						log.Errorf("reloading telegraf.conf failed: %s", err)
+					}
+				} else {
+					log.Errorf("writing %s failed: %s", p, err)
+				}
+			} else {
+				log.Errorf("making telegraf.conf failed: %s, tmpl:\n%s", err, tmpl)
 			}
 		}
 		return nil
@@ -280,6 +304,38 @@ func (h *HaproxyHelper) reloadGobetween(ctx context.Context) error {
 	err = agentutils.WritePidFile(cmd.Process.Pid, h.gobetweenPidFile())
 	if err != nil {
 		return fmt.Errorf("writing gobetween pid file: %s", err)
+	}
+	return nil
+}
+
+func (h *HaproxyHelper) telegrafConf() string {
+	return filepath.Join(h.haproxyConfD(), "telegraf.conf")
+}
+
+func (h *HaproxyHelper) telegrafPidFile() string {
+	return filepath.Join(h.opts.haproxyRunDir, "telegraf.pid")
+}
+
+func (h *HaproxyHelper) reloadTelegraf(ctx context.Context) error {
+	pidFile := h.telegrafPidFile()
+	args := []string{
+		h.opts.TelegrafBin,
+		"--config", h.telegrafConf(),
+	}
+	proc := agentutils.ReadPidFile(pidFile)
+	if proc != nil {
+		log.Infof("stopping telegraf(%d)", proc.Pid)
+		proc.Kill()
+		proc.Wait()
+	}
+	log.Infof("starting telegraf")
+	cmd, err := h.startCmd(args)
+	if err != nil {
+		return err
+	}
+	err = agentutils.WritePidFile(cmd.Process.Pid, h.telegrafPidFile())
+	if err != nil {
+		return fmt.Errorf("writing telegraf pid file: %s", err)
 	}
 	return nil
 }

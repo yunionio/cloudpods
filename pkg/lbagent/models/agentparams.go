@@ -12,13 +12,15 @@ type AgentParams struct {
 	AgentModel           *models.LoadbalancerAgent
 	KeepalivedConfigTmpl *template.Template
 	HaproxyConfigTmpl    *template.Template
-	Data                 map[string]interface{}
+	TelegrafConfigTmpl   *template.Template
+	Data                 map[string]map[string]interface{}
 }
 
 func NewAgentParams(agent *models.LoadbalancerAgent) (*AgentParams, error) {
 	b64s := map[string]string{
 		"keepalived_conf_tmpl": agent.Params.KeepalivedConfTmpl,
 		"haproxy_conf_tmpl":    agent.Params.HaproxyConfTmpl,
+		"telegraf_conf_tmpl":   agent.Params.TelegrafConfTmpl,
 	}
 	tmpls := map[string]*template.Template{}
 	for name, b64 := range b64s {
@@ -52,15 +54,22 @@ func NewAgentParams(agent *models.LoadbalancerAgent) (*AgentParams, error) {
 		"log_tcp":         agent.Params.Haproxy.LogTcp,
 		"log_normal":      agent.Params.Haproxy.LogNormal,
 	}
-	data := map[string]interface{}{
-		"agent":   dataAgent,
-		"vrrp":    dataVrrp,
-		"haproxy": dataHaproxy,
+	dataTelegraf := map[string]interface{}{
+		"influx_db_output_url":   agent.Params.Telegraf.InfluxDbOutputUrl,
+		"influx_db_output_name":  agent.Params.Telegraf.InfluxDbOutputName,
+		"haproxy_input_interval": agent.Params.Telegraf.HaproxyInputInterval,
+	}
+	data := map[string]map[string]interface{}{
+		"agent":    dataAgent,
+		"vrrp":     dataVrrp,
+		"haproxy":  dataHaproxy,
+		"telegraf": dataTelegraf,
 	}
 	agentParams := &AgentParams{
 		AgentModel:           agent,
 		KeepalivedConfigTmpl: tmpls["keepalived_conf_tmpl"],
 		HaproxyConfigTmpl:    tmpls["haproxy_conf_tmpl"],
+		TelegrafConfigTmpl:   tmpls["telegraf_conf_tmpl"],
 		Data:                 data,
 	}
 	return agentParams, nil
@@ -88,7 +97,7 @@ func (p *AgentParams) setXxParams(xx, k string, v interface{}) map[string]interf
 		dt = map[string]interface{}{}
 		p.Data[xx] = dt
 	} else {
-		dt = d.(map[string]interface{})
+		dt = d
 	}
 	dt[k] = v
 	return dt
@@ -100,6 +109,10 @@ func (p *AgentParams) SetVrrpParams(k string, v interface{}) map[string]interfac
 
 func (p *AgentParams) SetHaproxyParams(k string, v interface{}) map[string]interface{} {
 	return p.setXxParams("haproxy", k, v)
+}
+
+func (p *AgentParams) SetTelegrafParams(k string, v interface{}) map[string]interface{} {
+	return p.setXxParams("telegraf", k, v)
 }
 
 func (p *AgentParams) KeepalivedConfig() {
