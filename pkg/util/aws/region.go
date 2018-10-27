@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -344,3 +345,22 @@ func (self *SRegion) GetProvider() string {
 	return CLOUD_PROVIDER_AWS
 }
 
+func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, memGB int, storageType string, dataDiskSizesGB []int, networkId string, publicKey string) (*SInstance, error) {
+	izones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i += 1 {
+		z := izones[i].(*SZone)
+		log.Debugf("Search in zone %s", z.LocalName)
+		net := z.getNetworkById(networkId)
+		if net != nil {
+			inst, err := z.getHost().CreateVM(name, imgId, 0, cpu, memGB*1024, networkId, "", "", "", storageType, dataDiskSizesGB, publicKey, "")
+			if err != nil {
+				return nil, err
+			}
+			return inst.(*SInstance), nil
+		}
+	}
+	return nil, fmt.Errorf("cannot find vswitch %s", networkId)
+}

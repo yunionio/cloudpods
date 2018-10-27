@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -191,6 +192,16 @@ func (self *SRegion) GetImageStatus(imageId string) (ImageStatusType, error) {
 	return image.Status, nil
 }
 
+func getRootDiskSize(image *ec2.Image) (int, error) {
+	rootDeivce := image.RootDeviceName
+	for _,volume := range image.BlockDeviceMappings {
+		if volume.DeviceName == rootDeivce {
+			return int(*volume.Ebs.VolumeSize), nil
+		}
+	}
+
+	return 0, fmt.Errorf("image size not found: %s", image.String())
+}
 func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, imageId []string, name string, offset int, limit int) ([]SImage, int, error) {
 	params := &ec2.DescribeImagesInput{}
 	filters := make([]*ec2.Filter, 0)
@@ -224,6 +235,11 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 		tagspec := TagSpec{}
 		tagspec.LoadingEc2Tags(image.Tags)
 
+		size, err := getRootDiskSize(image)
+		if err != nil {
+			log.Debugf(err.Error())
+		}
+
 		images = append(images, SImage{
 			storageCache:         self.getStoragecache(),
 			Architecture:         *image.Architecture,
@@ -233,8 +249,9 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 			ImageType:               *image.ImageType,
 			IsSupportIoOptimized: *image.EnaSupport,
 			Platform:             *image.Platform,
-			Status:               ImageStatusCreating, // *image.State,
+			Status:               ImageStatusType(*image.State),
 			CreationTime:         *image.CreationDate,
+			Size: 				  size,
 			// Usage:                "",
 			//Size:                 image.,
 			// OSName:               *image.Platform,

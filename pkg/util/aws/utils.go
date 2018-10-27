@@ -286,7 +286,7 @@ func AwsIpPermissionToYunion(direction secrules.TSecurityRuleDirection, p ec2.Ip
 	return rules, nil
 }
 
-func YunionSecRuleToAws(rule secrules.SecurityRule) ([]ec2.IpPermission, error) {
+func YunionSecRuleToAws(rule secrules.SecurityRule) ([]*ec2.IpPermission, error) {
 	if rule.Action == secrules.SecurityRuleDeny {
 		return nil, fmt.Errorf("YunionSecRuleToAws ignored  aws not supported deny rule")
 	}
@@ -299,7 +299,7 @@ func YunionSecRuleToAws(rule secrules.SecurityRule) ([]ec2.IpPermission, error) 
 	ipranges = append(ipranges, &ec2.IpRange{CidrIp: &iprange, Description: &rule.Description})
 
 	portranges := yunionPortRangeToAws(rule)
-	permissions := []ec2.IpPermission{}
+	permissions := []*ec2.IpPermission{}
 	for _, port := range portranges {
 		permission := ec2.IpPermission{
 			FromPort:   &port.Start,
@@ -308,7 +308,7 @@ func YunionSecRuleToAws(rule secrules.SecurityRule) ([]ec2.IpPermission, error) 
 			ToPort:     &port.End,
 		}
 
-		permissions = append(permissions, permission)
+		permissions = append(permissions, &permission)
 	}
 
 	return permissions, nil

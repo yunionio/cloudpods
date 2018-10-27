@@ -503,21 +503,20 @@ func (self *SRegion) GetInstanceIdByImageId(imageId string) (string, error) {
 }
 
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, SubnetId string, securityGroupId string,
-	zoneId string, desc string, passwd string, disks []SDisk, ipAddr string,
+	zoneId string, desc string, disks []SDisk, ipAddr string,
 	keypair string) (string, error) {
 		var count int64 = 1
 		// disk
-		blockDevices := make([]*ec2.BlockDeviceMapping, len(disks))
+		blockDevices := []*ec2.BlockDeviceMapping{}
 		for i, disk := range disks{
 			if i == 0 {
 				var size int64
 				size = int64(disk.Size)
 				ebs := &ec2.EbsBlockDevice{
 					DeleteOnTermination: &disk.DeleteWithInstance,
-					SnapshotId: &imageId, // todo: 这里是snapshotid
 					Encrypted: &disk.Encrypted,
 					VolumeSize: &size,
-					VolumeType: &disk.Type,
+					VolumeType: &disk.Category,
 				}
 
 				// todo: 这里是镜像绑定的deviceName
@@ -535,7 +534,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 					DeleteOnTermination: &disk.DeleteWithInstance,
 					Encrypted: &disk.Encrypted,
 					VolumeSize: &size,
-					VolumeType: &disk.Type,
+					VolumeType: &disk.Category,
 				}
 				// todo: generator device name
 				divceName := fmt.Sprintf("/dev/sd%s", string(98+i))
@@ -548,17 +547,15 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 			}
 		}
 		// tags
-		tags := make([]*ec2.TagSpecification, 2)
-		instanceTag := &ec2.TagSpecification{}
-		resourceType := "instance"
-		instanceName := "Name"
-		instanceDesc := "Description"
-		instanceTag.ResourceType = &resourceType
-		instanceTag.Tags = []*ec2.Tag{
-			&ec2.Tag{Key:&instanceName, Value: &name},
-			&ec2.Tag{Key:&instanceDesc, Value: &desc},
+		tags := TagSpec{ResourceType: "instance"}
+		tags.SetNameTag(name)
+		tags.SetDescTag(desc)
+		ec2TagSpec, err := tags.GetTagSpecifications()
+		if err != nil {
+			return "", err
 		}
 
+		dryrun := true
 		params := ec2.RunInstancesInput{
 			ImageId: &imageId,
 			InstanceType: &instanceType,
@@ -570,7 +567,8 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 			KeyName: &keypair,
 			Placement: &ec2.Placement{AvailabilityZone: &zoneId},
 			SecurityGroupIds: []*string{&securityGroupId},
-			TagSpecifications: tags,
+			TagSpecifications: []*ec2.TagSpecification{ec2TagSpec},
+			DryRun: &dryrun, // todo: 测试
 		}
 		res, err := self.ec2Client.RunInstances(&params)
 		if err != nil {

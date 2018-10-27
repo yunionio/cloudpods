@@ -2,6 +2,7 @@ package shell
 
 import (
 	"fmt"
+	"io/ioutil"
 
 	"yunion.io/x/onecloud/pkg/util/aws"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -29,17 +30,20 @@ func init() {
 		CPU       int    `help:"CPU count"`
 		MEMORYGB  int    `help:"MemoryGB"`
 		Disk      []int  `help:"Data disk sizes int GB"`
-		STORAGE   string `help:"Storage type"`
-		VSWITCH   string `help:"Vswitch ID"`
-		PASSWD    string `help:"password"`
-		PublicKey string `help:"PublicKey"`
+		STORAGE   string `help:"Storage type" choices:"gp2|io1|st1|sc1|standard"`
+		NETWORK   string `help:"Network ID"`
+		PUBLICKEY string `help:"PublicKey file path"`
 	}
 	shellutils.R(&InstanceCrateOptions{}, "instance-create", "Create a instance", func(cli *aws.SRegion, args *InstanceCrateOptions) error {
-		// instance, e := cli.CreateInstanceSimple(args.NAME, args.IMAGE, args.CPU, args.MEMORYGB, args.STORAGE, args.Disk, args.VSWITCH, args.PASSWD, args.PublicKey)
-		// if e != nil {
-		// 	return e
-		// }
-		// printObject(instance)
+		content, err := ioutil.ReadFile(args.PUBLICKEY)
+		if err != nil {
+			return err
+		}
+		instance, e := cli.CreateInstanceSimple(args.NAME, args.IMAGE, args.CPU, args.MEMORYGB, args.STORAGE, args.Disk, args.NETWORK, string(content))
+		if e != nil {
+			return e
+		}
+		printObject(instance)
 		return nil
 	})
 

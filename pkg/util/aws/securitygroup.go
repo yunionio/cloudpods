@@ -90,12 +90,44 @@ func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 }
 
 func (self *SRegion) addSecurityGroupRules(secGrpId string, rule *secrules.SecurityRule) error {
-	// todo: add sercurity rules
+	if len(rule.Ports) != 0 {
+		for _, port := range rule.Ports {
+			rule.PortStart, rule.PortEnd = port, port
+			if err := self.addSecurityGroupRule(secGrpId, rule); err != nil {
+				return err
+			}
+		}
+	} else {
+		return self.addSecurityGroupRule(secGrpId, rule)
+	}
 	return nil
 }
 
 func (self *SRegion) addSecurityGroupRule(secGrpId string, rule *secrules.SecurityRule) error {
-	// todo: add sercurity rules
+	ipPermissions, err := YunionSecRuleToAws(*rule)
+	if err != nil {
+		return err
+	}
+
+	if rule.Direction == secrules.SecurityRuleIngress {
+		params := &ec2.AuthorizeSecurityGroupIngressInput{}
+		params.SetGroupId(secGrpId)
+		params.SetIpPermissions(ipPermissions)
+		_, err := self.ec2Client.AuthorizeSecurityGroupIngress(params)
+		if err != nil {
+			return err
+		}
+	}
+
+	if rule.Direction == secrules.SecurityRuleEgress {
+		params := &ec2.AuthorizeSecurityGroupEgressInput{}
+		params.SetGroupId(secGrpId)
+		params.SetIpPermissions(ipPermissions)
+		_, err := self.ec2Client.AuthorizeSecurityGroupEgress(params)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -118,7 +150,20 @@ func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// todo : add sercurity rules
+
+	rule := &secrules.SecurityRule{
+		Priority:  1,
+		Action:    secrules.SecurityRuleAllow,
+		Protocol:  "",
+		Direction: secrules.SecurityRuleIngress,
+		PortStart: -1,
+		PortEnd:   -1,
+	}
+
+	err = self.addSecurityGroupRule(secId, rule)
+	if err != nil {
+		return "", err
+	}
 	return secId, nil
 }
 

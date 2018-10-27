@@ -202,6 +202,7 @@ func (self *SHost) _createVM(name, imgId string, sysDiskSize, cpu, memMB int,
 		}
 
 		if len(secgroups) == 0 {
+			// aws 默认就已经创建好了一个默认安全组。正常情况下并不需要手动创建
 			secId, err := self.zone.region.createDefaultSecurityGroup(net.wire.vpc.VpcId)
 			if err != nil {
 				return "", fmt.Errorf("no secgroup for vpc and failed to create a default One!!")
@@ -213,11 +214,56 @@ func (self *SHost) _createVM(name, imgId string, sysDiskSize, cpu, memMB int,
 		}
 	}
 	// 同步keypair
+	keypair := ""
+	if len(publicKey) <= 0 {
+		return "", fmt.Errorf("publickey should not be empty")
+	}
 
+	keypair, err := self.zone.region.syncKeypair(publicKey)
+	if err != nil {
+		return "", err
+	}
 	// 镜像及硬盘配置
+	img, err := self.zone.region.GetImage(imgId)
+	if err != nil {
+		log.Errorf("getiamge fail %s", err)
+		return "", err
+	}
+	if img.Status != ImageStatusAvailable {
+		log.Errorf("image %s status %s", imgId, img.Status)
+		return "", fmt.Errorf("image not ready")
+	}
 
+	disks := make([]SDisk, len(diskSizes)+1)
+	disks[0].Size = img.Size
+	if sysDiskSize > 0 && sysDiskSize > img.Size {
+		disks[0].Size = sysDiskSize
+	}
+	disks[0].Category = storageType
+
+	for i, sz := range diskSizes {
+		disks[i+1].Size = sz
+		disks[i+1].Category = storageType
+	}
+
+	instanceTypes, err := self.zone.region.GetMatchInstanceTypes(cpu, memMB, 0, self.zone.ZoneId)
+	if err != nil {
+		return "", err
+	}
+	if len(instanceTypes) == 0 {
+		return "", fmt.Errorf("instance type %dC%dMB not avaiable", cpu, memMB)
+	}
 	// 匹配实例类型
-
+	for _, instType := range instanceTypes {
+		instanceTypeId := instType.InstanceTypeId
+		log.Debugf("Try instancetype : %s", instanceTypeId)
+		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceTypeId, networkId, secgroupId, self.zone.ZoneId, desc, disks, ipAddr, keypair)
+		if err != nil {
+			log.Errorf("Failed for %s: %s", instanceTypeId, err)
+		} else {
+			return vmId, nil
+		}
+	}
 	// 创建实例
 	return "", fmt.Errorf("Failed to create, specification not supported")
 }
