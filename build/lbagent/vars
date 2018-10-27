@@ -1,7 +1,6 @@
 DESCRIPTION="Yunion Loadbalancer Agent"
 
 REQUIRES=(
-	nmap-ncat
 	"keepalived >= 2.0.0"
 	"haproxy >= 1.8.0"
 	"gobetween >= 0.7.0"
