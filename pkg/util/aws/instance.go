@@ -75,6 +75,7 @@ type SInstance struct {
 	NetworkInterfaces       SNetworkInterfaces
 	EipAddress              SEipAddress
 	Disks                   []string
+	DeviceNames             []string
 	OSName                  string
 	OSType                  string
 	Description             string
@@ -360,7 +361,11 @@ func (self *SInstance) AttachDisk(diskId string) error {
 }
 
 func (self *SInstance) DetachDisk(diskId string) error {
-	return self.host.zone.region.DetachDisk(self.InstanceId, diskId)
+	name, err := NextDeviceName(self.DeviceNames)
+	if err != nil {
+		return err
+	}
+	return self.host.zone.region.DetachDisk(self.InstanceId, diskId, name)
 }
 
 func (self *SInstance) getVpc() (*SVpc, error) {
@@ -403,9 +408,11 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 			tagspec.LoadingEc2Tags(instance.Tags)
 
 			disks := []string{}
+			devicenames := []string{}
 			for _, d := range instance.BlockDeviceMappings {
 				if d.Ebs != nil && d.Ebs.VolumeId != nil {
 					disks = append(disks, *d.Ebs.VolumeId)
+					devicenames = append(devicenames, *d.DeviceName)
 				}
 			}
 
@@ -455,6 +462,7 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				InstanceName: tagspec.GetNameTag(),
 				Description: tagspec.GetDescTag(),
 				Disks: disks,
+				DeviceNames: devicenames,
 				SecurityGroupIds: secgroups,
 				NetworkInterfaces: networkInterfaces,
 				VpcAttributes: vpcattr,
@@ -659,10 +667,11 @@ func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, 
 	return nil
 }
 
-func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
+func (self *SRegion) DetachDisk(instanceId string, diskId string, deviceName string) error {
 	params := &ec2.DetachVolumeInput{}
 	params.SetInstanceId(instanceId)
 	params.SetVolumeId(diskId)
+	params.SetDevice(deviceName)
 
 	_, err := self.ec2Client.DetachVolume(params)
 	return err

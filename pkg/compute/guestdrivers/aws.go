@@ -3,6 +3,7 @@ package guestdrivers
 import (
 	"context"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -47,6 +48,8 @@ func (self *SAwsGuestDriver) ValidateCreateData(ctx context.Context, userCred mc
 }
 
 func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
+	log.Debugf("RequestDeployGuestOnHost: %s", config)
 	return nil
 }
 

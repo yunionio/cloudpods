@@ -352,3 +352,40 @@ func FillZero(i interface{}) error {
 
 	return nil
 }
+
+func NextDeviceName(curDeviceNames []string) (string, error) {
+	currents := []string{}
+	for _, item := range curDeviceNames{
+		currents = append(currents, strings.ToLower(item))
+	}
+
+	for i := 0; i < 25; i++ {
+		device := fmt.Sprintf("/dev/sd%s", string(98+i))
+		found := false
+		for _, item := range currents{
+			if strings.HasPrefix(item, device) {
+				found = true
+			}
+		}
+
+		if !found{
+			return device, nil
+		}
+	}
+
+	for i := 0; i < 25; i++ {
+		device := fmt.Sprintf("/dev/vxd%s", string(98+i))
+		found := false
+		for _, item := range currents {
+			if !strings.HasPrefix(item, device){
+				return device, nil
+			}
+		}
+
+		if !found{
+			return device, nil
+		}
+	}
+
+	return "", fmt.Errorf("disk devicename out of index, current deivces: %s", currents)
+}
