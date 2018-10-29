@@ -58,7 +58,13 @@ func init() {
 	SnapshotManager = &SSnapshotManager{SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(SSnapshot{}, "snapshots_tbl", "snapshot", "snapshots")}
 }
 
-func ValidateSnapshotName(hypervisor, name string) error {
+func ValidateSnapshotName(hypervisor, name, owner string) error {
+	q := SnapshotManager.Query()
+	q = SnapshotManager.FilterByName(q, name)
+	q = SnapshotManager.FilterByOwner(q, owner)
+	if q.Count() != 0 {
+		return fmt.Errorf("Name conflict?")
+	}
 	if !('A' <= name[0] && name[0] <= 'Z' || 'a' <= name[0] && name[0] <= 'z') {
 		return fmt.Errorf("Name must start with letter")
 	}

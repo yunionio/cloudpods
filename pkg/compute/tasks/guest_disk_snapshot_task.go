@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type GuestDiskSnapshotTask struct {
@@ -103,6 +104,10 @@ func (self *GuestDiskSnapshotTask) TaskComplete(ctx context.Context, guest *mode
 }
 
 func (self *GuestDiskSnapshotTask) OnSyncStatus(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	snapshotId, _ := self.Params.GetString("snapshot_id")
+	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
+	db.OpsLog.LogEvent(iSnapshot, db.ACT_SNAPSHOT_DONE, nil, self.UserCred)
+	logclient.AddActionLog(iSnapshot, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
@@ -116,6 +121,8 @@ func (self *GuestDiskSnapshotTask) TaskFailed(ctx context.Context, guest *models
 	})
 	self.SetStageFailed(ctx, reason)
 	guest.SetStatus(self.UserCred, models.VM_SNAPSHOT_FAILED, reason)
+	db.OpsLog.LogEvent(iSnapshot, db.ACT_SNAPSHOT_FAIL, reason, self.UserCred)
+	logclient.AddActionLog(iSnapshot, logclient.ACT_CREATE, reason, self.UserCred, false)
 }
 
 /***************************** Snapshot Delete Task *****************************/
@@ -289,6 +296,8 @@ func (self *SnapshotDeleteTask) OnReloadDiskSnapshot(ctx context.Context, snapsh
 }
 
 func (self *SnapshotDeleteTask) TaskComplete(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
+	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_DELETE, nil, self.UserCred)
+	logclient.AddActionLog(snapshot, logclient.ACT_DELETE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
