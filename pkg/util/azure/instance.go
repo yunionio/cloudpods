@@ -174,8 +174,6 @@ type VirtualMachineProperties struct {
 type SInstance struct {
 	host *SHost
 
-	idisks []cloudprovider.ICloudDisk
-
 	Properties VirtualMachineProperties
 	ID         string
 	Name       string
@@ -342,8 +340,12 @@ func (self *SInstance) getDisksByUri(uri string, disk *BasicDisk) ([]SDisk, []SC
 }
 
 func (self *SInstance) getDisks() ([]SDisk, []SClassicDisk, error) {
+	instance, err := self.host.zone.region.GetInstance(self.ID)
+	if err != nil {
+		return nil, nil, err
+	}
 	disks, classicDisks := []SDisk{}, []SClassicDisk{}
-	if self.Properties.StorageProfile.OsDisk.Vhd != nil {
+	if instance.Properties.StorageProfile.OsDisk.Vhd != nil {
 		disk := self.Properties.StorageProfile.OsDisk
 		diskSizeGB := int32(0)
 		if disk.DiskSizeGB != nil {
@@ -362,7 +364,7 @@ func (self *SInstance) getDisks() ([]SDisk, []SClassicDisk, error) {
 		}
 		disks = append(disks, _disks...)
 		classicDisks = append(classicDisks, _classicDisks...)
-	} else if self.Properties.StorageProfile.OsDisk.ManagedDisk != nil {
+	} else if instance.Properties.StorageProfile.OsDisk.ManagedDisk != nil {
 		disk, err := self.getDiskWithStore(self.Properties.StorageProfile.OsDisk.ManagedDisk.ID)
 		if err != nil {
 			log.Errorf("Failed to find instance %s os disk: %s", self.Name, self.Properties.StorageProfile.OsDisk.ManagedDisk.ID)
@@ -370,7 +372,7 @@ func (self *SInstance) getDisks() ([]SDisk, []SClassicDisk, error) {
 		}
 		disks = append(disks, *disk)
 	}
-	for _, _disk := range self.Properties.StorageProfile.DataDisks {
+	for _, _disk := range instance.Properties.StorageProfile.DataDisks {
 		diskSizeGB := int32(0)
 		if _disk.DiskSizeGB != nil {
 			diskSizeGB = *_disk.DiskSizeGB
@@ -734,6 +736,17 @@ func (region *SRegion) ReplaceSystemDisk(instanceId, imageId, passwd, publicKey 
 		}
 		time.Sleep(time.Second * time.Duration(i*10))
 	}
+	// Azure 数据刷新不及时，需要稍作等待
+	for i := 0; i < 3; i++ {
+		instance, err := region.GetInstance(instanceId)
+		if err != nil {
+			return "", err
+		}
+		if instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID == disk.ID {
+			break
+		}
+		time.Sleep(time.Second * time.Duration(i*10))
+	}
 	return disk.ID, nil
 }
 
@@ -787,29 +800,19 @@ func (self *SInstance) getDiskWithStore(diskId string) (*SDisk, error) {
 	}
 }
 
-func (self *SInstance) fetchDisks() error {
+func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	disks, classicDisks, err := self.getDisks()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	self.idisks = make([]cloudprovider.ICloudDisk, len(disks)+len(classicDisks))
+	idisks := make([]cloudprovider.ICloudDisk, len(disks)+len(classicDisks))
 	for i := 0; i < len(disks); i++ {
-		self.idisks[i] = &disks[i]
+		idisks[i] = &disks[i]
 	}
 	for i := 0; i < len(classicDisks); i++ {
-		self.idisks[len(disks)+i] = &classicDisks[i]
+		idisks[len(disks)+i] = &classicDisks[i]
 	}
-
-	return nil
-}
-
-func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	if self.idisks == nil {
-		if err := self.fetchDisks(); err != nil {
-			return nil, err
-		}
-	}
-	return self.idisks, nil
+	return idisks, nil
 }
 
 func (self *SInstance) GetOSType() string {
