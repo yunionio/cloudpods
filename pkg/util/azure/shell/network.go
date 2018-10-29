@@ -14,7 +14,7 @@ func init() {
 		if vpcs, err := cli.GetIVpcs(); err != nil {
 			return nil
 		} else {
-			networks := make([]azure.Subnet, 0)
+			networks := make([]azure.SNetwork, 0)
 			for _, _vpc := range vpcs {
 				vpc := _vpc.(*azure.SVpc)
 				if _networks := vpc.GetNetworks(); len(_networks) > 0 {

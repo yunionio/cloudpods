@@ -358,7 +358,6 @@ func (self *SDisk) Reset(snapshotId string) error {
 	return self.storage.zone.region.resetDisk(self.DiskId, snapshotId)
 }
 
-
 func (self *SDisk) GetBillingType() string {
 	switch self.DiskChargeType {
 	case PrePaidInstanceChargeType:

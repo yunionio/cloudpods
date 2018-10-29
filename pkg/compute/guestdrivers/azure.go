@@ -79,7 +79,6 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 	} else if ihost, err := host.GetIHost(); err != nil {
 		return err
 	} else if action == "create" {
-
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 			nets := guest.GetNetworks()
 			net := nets[0].GetNetwork()
@@ -89,6 +88,10 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 			if err != nil {
 				log.Errorf("getIVPC fail %s", err)
 				return nil, err
+			}
+
+			if len(passwd) == 0 {
+				passwd = seclib2.RandomPassword2(12)
 			}
 
 			secgrpId, err := ivpc.SyncSecurityGroup(desc.SecGroupId, desc.SecGroupName, desc.SecRules)

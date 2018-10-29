@@ -1585,7 +1585,7 @@ func getCloudNicNetwork(vnic cloudprovider.ICloudNic, host *SHost) (*SNetwork, e
 	}
 	localNetObj, err := NetworkManager.FetchByExternalId(vnet.GetGlobalId())
 	if err != nil {
-		return nil, fmt.Errorf("Cannot find network of external_id %s", vnet.GetGlobalId())
+		return nil, fmt.Errorf("Cannot find network of external_id %s: %v", vnet.GetGlobalId(), err)
 	}
 	localNet := localNetObj.(*SNetwork)
 	return localNet, nil
@@ -1904,8 +1904,9 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 		if len(vdisks[i].GetGlobalId()) == 0 {
 			continue
 		}
-		disk, err := DiskManager.syncCloudDisk(ctx, userCred, vdisks[i])
+		disk, err := DiskManager.syncCloudDisk(ctx, userCred, vdisks[i], i)
 		if err != nil {
+			log.Errorf("syncCloudDisk error: %v", err)
 			result.Error(err)
 			return result
 		}
@@ -1955,6 +1956,7 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 		vdisk := needAdds[i].vdisk
 		err := self.attach2Disk(needAdds[i].disk, userCred, vdisk.GetDriver(), vdisk.GetCacheMode(), vdisk.GetMountpoint())
 		if err != nil {
+			log.Errorf("attach2Disk error: %v", err)
 			result.AddError(err)
 		} else {
 			result.Add()
@@ -4289,10 +4291,12 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 		// add
 		neip, err := ElasticipManager.getEipByExtEip(userCred, extEip, self.getRegion())
 		if err != nil {
+			log.Errorf("getEipByExtEip error %v", err)
 			result.AddError(err)
 		} else {
 			err = neip.AssociateVM(userCred, self)
 			if err != nil {
+				log.Errorf("AssociateVM error %v", err)
 				result.AddError(err)
 			} else {
 				result.Add()
