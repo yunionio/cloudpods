@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type DiskResizeTask struct {
@@ -30,11 +31,12 @@ func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 			host = guest.GetHost()
 		}
 	}
-	resion := "Cannot find host for disk"
+	reason := "Cannot find host for disk"
 	if host == nil || host.HostStatus != models.HOST_ONLINE {
-		disk.SetDiskReady(ctx, self.GetUserCred(), resion)
-		self.SetStageFailed(ctx, resion)
-		db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, resion, self.GetUserCred())
+		disk.SetDiskReady(ctx, self.GetUserCred(), reason)
+		self.SetStageFailed(ctx, reason)
+		db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, reason, self.GetUserCred())
+		logclient.AddActionLog(disk, logclient.ACT_RESIZE, reason, self.UserCred, false)
 	} else {
 		disk.SetStatus(self.GetUserCred(), models.DISK_START_RESIZE, "")
 		for _, guest := range disk.GetGuests() {
@@ -64,10 +66,11 @@ func (self *DiskResizeTask) OnStartResizeDiskSucc(ctx context.Context, disk *mod
 	disk.SetStatus(self.GetUserCred(), models.DISK_RESIZING, "")
 }
 
-func (self *DiskResizeTask) OnStartResizeDiskFailed(ctx context.Context, disk *models.SDisk, resion error) {
-	disk.SetDiskReady(ctx, self.GetUserCred(), resion.Error())
-	self.SetStageFailed(ctx, resion.Error())
-	db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, resion.Error(), self.GetUserCred())
+func (self *DiskResizeTask) OnStartResizeDiskFailed(ctx context.Context, disk *models.SDisk, reason error) {
+	disk.SetDiskReady(ctx, self.GetUserCred(), reason.Error())
+	self.SetStageFailed(ctx, reason.Error())
+	db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, reason.Error(), self.GetUserCred())
+	logclient.AddActionLog(disk, logclient.ACT_RESIZE, reason.Error(), self.UserCred, false)
 }
 
 func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
@@ -99,11 +102,13 @@ func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *mode
 	db.OpsLog.LogEvent(disk, db.ACT_UPDATE_STATUS, notes, self.UserCred)
 	self.CleanHostSchedCache(disk)
 	db.OpsLog.LogEvent(disk, db.ACT_RESIZE, disk.GetShortDesc(), self.UserCred)
+	logclient.AddActionLog(disk, logclient.ACT_RESIZE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, disk.GetShortDesc())
 	self.finalReleasePendingUsage(ctx)
 }
 
-func (self *DiskResizeTask) OnDiskResizeCompleteFailed(ctx context.Context, disk *models.SDisk, resion error) {
-	disk.SetDiskReady(ctx, self.GetUserCred(), resion.Error())
+func (self *DiskResizeTask) OnDiskResizeCompleteFailed(ctx context.Context, disk *models.SDisk, reason error) {
+	disk.SetDiskReady(ctx, self.GetUserCred(), reason.Error())
 	db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, disk.GetShortDesc(), self.UserCred)
+	logclient.AddActionLog(disk, logclient.ACT_RESIZE, reason.Error(), self.UserCred, false)
 }
