@@ -3959,7 +3959,7 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 	if err != nil {
 		return nil, httperrors.NewBadRequestError(err.Error())
 	}
-	err = ValidateSnapshotName(self.Hypervisor, name)
+	err = ValidateSnapshotName(self.Hypervisor, name, userCred.GetProjectId())
 	if err != nil {
 		return nil, httperrors.NewBadRequestError(err.Error())
 	}
@@ -3967,16 +3967,12 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewNotFoundError("Guest disk %s not found", diskId)
 	}
 	if self.GetHypervisor() == HYPERVISOR_KVM {
-		snapshots := SnapshotManager.GetDiskSnapshotsByCreate(diskId, MANUAL)
-		if snapshots != nil {
-			if len(snapshots) >= options.Options.DefaultMaxManualSnapshotCount {
-				return nil, httperrors.NewBadRequestError("Disk %s snapshot full, cannot take any more", diskId)
-			}
-			for _, snapshot := range snapshots {
-				if snapshot.Name == name {
-					return nil, httperrors.NewBadRequestError("Name Conflict")
-				}
-			}
+		q := SnapshotManager.Query()
+		cnt := q.Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), diskId),
+			sqlchemy.Equals(q.Field("created_by"), MANUAL),
+			sqlchemy.Equals(q.Field("fake_deleted"), false))).Count()
+		if cnt >= options.Options.DefaultMaxManualSnapshotCount {
+			return nil, httperrors.NewBadRequestError("Disk %s snapshot full, cannot take any more", diskId)
 		}
 		pendingUsage := &SQuota{Snapshot: 1}
 		err = QuotaManager.CheckSetPendingQuota(ctx, userCred, self.ProjectId, pendingUsage)

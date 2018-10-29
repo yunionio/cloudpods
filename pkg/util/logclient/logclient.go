@@ -56,6 +56,7 @@ const (
 	ACT_VM_SYNC_STATUS               = "同步状态"
 	ACT_VM_UNBIND_KEYPAIR            = "解绑密钥"
 	ACT_VM_ASSIGNSECGROUP            = "关联安全组"
+	ACT_RESET_DISK                   = "回滚磁盘"
 )
 
 // golang 不支持 const 的string array, http://t.cn/EzAvbw8
