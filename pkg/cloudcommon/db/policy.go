@@ -5,6 +5,7 @@ import (
 	"yunion.io/x/log"
 
 	"time"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -78,7 +79,7 @@ func fetchPolicies() (map[string]rbacutils.SRbacPolicy, map[string]rbacutils.SRb
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewInt(2048), "limit")
 		params.Add(jsonutils.NewInt(int64(offset)), "offset")
-		result, err := modules.Policies.List(s, params)
+		result, err := modules.Policies.ResourceManager.List(s, params)
 
 		if err != nil {
 			log.Errorf("fetch policy failed")
@@ -148,4 +149,59 @@ func (manager *SPolicyManager) Allow(isAdmin bool, userCred mcclient.TokenCreden
 		}
 	}
 	return false
+}
+
+func (manager *SPolicyManager) explainPolicy(userCred mcclient.TokenCredential, policyReq jsonutils.JSONObject) (bool, error) {
+	policySeq, err := policyReq.GetArray()
+	if err != nil {
+		return false, httperrors.NewInputParameterError("invalid format")
+	}
+	isAdmin, _ := policySeq[0].Bool()
+	if !IsGlobalRbacEnabled() {
+		if !isAdmin || (isAdmin && userCred.IsSystemAdmin()) {
+			return true, nil
+		} else {
+			return false, httperrors.NewForbiddenError("operation not allowed")
+		}
+	}
+	service := rbacutils.WILD_MATCH
+	resource := rbacutils.WILD_MATCH
+	action := rbacutils.WILD_MATCH
+	extra := make([]string, 0)
+	if len(policySeq) > 1 {
+		service, _ = policySeq[1].GetString()
+	}
+	if len(policySeq) > 2 {
+		resource, _ = policySeq[2].GetString()
+	}
+	if len(policySeq) > 3 {
+		action, _ = policySeq[3].GetString()
+	}
+	if len(policySeq) > 4 {
+		for i := 4; i < len(policySeq); i += 1 {
+			extra[i-4], _ = policySeq[i].GetString()
+		}
+	}
+
+	return manager.Allow(isAdmin, userCred, service, resource, action, extra...), nil
+}
+
+func (manager *SPolicyManager) ExplainRpc(userCred mcclient.TokenCredential, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	paramDict, err := params.GetMap()
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("invalid input format")
+	}
+	ret := jsonutils.NewDict()
+	for key, policyReq := range paramDict {
+		allow, err := manager.explainPolicy(userCred, policyReq)
+		if err != nil {
+			return nil, err
+		}
+		if allow {
+			ret.Add(jsonutils.JSONTrue, key)
+		} else {
+			ret.Add(jsonutils.JSONFalse, key)
+		}
+	}
+	return ret, nil
 }

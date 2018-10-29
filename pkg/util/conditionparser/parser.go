@@ -33,6 +33,9 @@ func IsValid(exprStr string) bool {
 }
 
 func Eval(exprStr string, input interface{}) (bool, error) {
+	if len(exprStr) == 0 {
+		return true, nil
+	}
 	expr, err := parser.ParseExpr(exprStr)
 	if err != nil {
 		log.Errorf("parse expr %s error %s", exprStr, err)

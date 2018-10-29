@@ -241,3 +241,7 @@ func (this *ClientSession) ToJson() jsonutils.JSONObject {
 	}
 	return params
 }
+
+func (cs *ClientSession) GetToken() TokenCredential {
+	return cs.token
+}

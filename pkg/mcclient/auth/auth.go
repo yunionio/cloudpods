@@ -269,3 +269,15 @@ func GetAdminSession(region string, apiVersion string) *mcclient.ClientSession {
 func GetSession(token mcclient.TokenCredential, region string, apiVersion string) *mcclient.ClientSession {
 	return manager.client.NewSession(region, "", "internal", token, apiVersion)
 }
+
+// use for climc test only
+func InitFromClientSession(session *mcclient.ClientSession) {
+	cli := session.GetClient()
+	token := session.GetToken()
+	info := &AuthInfo{}
+	manager = &authManager{
+		client:          cli,
+		info:            info,
+		adminCredential: token,
+	}
+}

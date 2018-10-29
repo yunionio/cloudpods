@@ -5,83 +5,14 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"strings"
+	"time"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
-
-func getPolicy(s *mcclient.ClientSession, id string) (jsonutils.JSONObject, error) {
-	result, err := modules.Policies.GetById(s, id, nil)
-	if err == nil {
-		return result, nil
-	}
-	jsonErr := err.(*httputils.JSONClientError)
-	if jsonErr.Code != 404 {
-		return nil, err
-	}
-	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewString(id), "type")
-	listResult, err := modules.Policies.List(s, params)
-	if err != nil {
-		return nil, err
-	}
-	if listResult.Total == 1 {
-		return listResult.Data[0], nil
-	} else if listResult.Total == 0 {
-		return nil, &httputils.JSONClientError{Code: 404, Class: "NotFound",
-			Details: fmt.Sprintf("%d not found", id)}
-	} else {
-		return nil, &httputils.JSONClientError{Code: 409, Class: "Conflict",
-			Details: fmt.Sprintf("multiple %d found", id)}
-	}
-}
-
-func getPolicyId(s *mcclient.ClientSession, name string) (string, error) {
-	policyJson, err := getPolicy(s, name)
-	if err != nil {
-		return "", err
-	}
-	return policyJson.GetString("id")
-}
-
-func getPolicyYaml(s *mcclient.ClientSession, id string) (string, error) {
-	result, err := modules.Policies.GetById(s, id, nil)
-	if err != nil {
-		return "", err
-	}
-	blobStr, err := result.GetString("blob")
-	if err != nil {
-		return "", err
-	}
-	blobJson, err := jsonutils.ParseString(blobStr)
-	if err != nil {
-		return "", err
-	}
-	return blobJson.YAMLString(), nil
-}
-
-func patchPolicyYaml(s *mcclient.ClientSession, policyId string, typeStr string, fileName string) (jsonutils.JSONObject, error) {
-	params := jsonutils.NewDict()
-	if len(typeStr) > 0 {
-		params.Add(jsonutils.NewString(typeStr), "type")
-	}
-	if len(fileName) > 0 {
-		blob, err := ioutil.ReadFile(fileName)
-		if err != nil {
-			return nil, err
-		}
-		jsonBlob, err := jsonutils.ParseYAML(string(blob))
-		if err != nil {
-			return nil, err
-		}
-		params.Add(jsonutils.NewString(jsonBlob.String()), "blob")
-	}
-	if params.Size() == 0 {
-		return nil, InvalidUpdateError()
-	}
-	return modules.Policies.Patch(s, policyId, params)
-}
 
 func init() {
 	type PolicyListOptions struct {
@@ -117,17 +48,14 @@ func init() {
 		FILE string `help:"path to policy file"`
 	}
 	R(&PolicyCreateOptions{}, "policy-create", "Create a new policy", func(s *mcclient.ClientSession, args *PolicyCreateOptions) error {
-		blob, err := ioutil.ReadFile(args.FILE)
+		policyBytes, err := ioutil.ReadFile(args.FILE)
 		if err != nil {
 			return err
 		}
-		jsonBlob, err := jsonutils.ParseYAML(string(blob))
-		if err != nil {
-			return err
-		}
+
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.TYPE), "type")
-		params.Add(jsonutils.NewString(jsonBlob.String()), "blob")
+		params.Add(jsonutils.NewString(string(policyBytes)), "policy")
 
 		result, err := modules.Policies.Create(s, params)
 		if err != nil {
@@ -145,11 +73,22 @@ func init() {
 		Type string `help:"policy type"`
 	}
 	R(&PolicyPatchOptions{}, "policy-patch", "Patch policy", func(s *mcclient.ClientSession, args *PolicyPatchOptions) error {
-		policyId, err := getPolicyId(s, args.ID)
+		policyId, err := modules.Policies.GetId(s, args.ID, nil)
 		if err != nil {
 			return err
 		}
-		result, err := patchPolicyYaml(s, policyId, args.Type, args.File)
+		params := jsonutils.NewDict()
+		if len(args.Type) > 0 {
+			params.Add(jsonutils.NewString(args.Type), "type")
+		}
+		if len(args.File) > 0 {
+			policyBytes, err := ioutil.ReadFile(args.File)
+			if err != nil {
+				return err
+			}
+			params.Add(jsonutils.NewString(string(policyBytes)), "policy")
+		}
+		result, err := modules.Policies.Patch(s, policyId, params)
 		if err != nil {
 			return err
 		}
@@ -163,7 +102,7 @@ func init() {
 		ID string `help:"ID of policy"`
 	}
 	R(&PolicyDeleteOptions{}, "policy-delete", "Delete policy", func(s *mcclient.ClientSession, args *PolicyDeleteOptions) error {
-		policyId, err := getPolicyId(s, args.ID)
+		policyId, err := modules.Policies.GetId(s, args.ID, nil)
 		if err != nil {
 			return err
 		}
@@ -179,11 +118,11 @@ func init() {
 		ID string `help:"ID of policy"`
 	}
 	R(&PolicyShowOptions{}, "policy-show", "Show policy", func(s *mcclient.ClientSession, args *PolicyShowOptions) error {
-		policyId, err := getPolicyId(s, args.ID)
+		result, err := modules.Policies.Get(s, args.ID, nil)
 		if err != nil {
 			return err
 		}
-		yaml, err := getPolicyYaml(s, policyId)
+		yaml, err := result.GetString("policy")
 		if err != nil {
 			return err
 		}
@@ -195,11 +134,15 @@ func init() {
 		ID string `help:"ID of policy"`
 	}
 	R(&PolicyEditOptions{}, "policy-edit", "Edit and update policy", func(s *mcclient.ClientSession, args *PolicyEditOptions) error {
-		policyId, err := getPolicyId(s, args.ID)
+		result, err := modules.Policies.Get(s, args.ID, nil)
 		if err != nil {
 			return err
 		}
-		yaml, err := getPolicyYaml(s, policyId)
+		policyId, err := result.GetString("id")
+		if err != nil {
+			return err
+		}
+		yaml, err := result.GetString("policy")
 		if err != nil {
 			return err
 		}
@@ -225,7 +168,14 @@ func init() {
 			return err
 		}
 
-		result, err := patchPolicyYaml(s, policyId, "", tmpfile.Name())
+		params := jsonutils.NewDict()
+		policyBytes, err := ioutil.ReadFile(tmpfile.Name())
+		if err != nil {
+			return err
+		}
+		params.Add(jsonutils.NewString(string(policyBytes)), "policy")
+
+		result, err = modules.Policies.Patch(s, policyId, params)
 		if err != nil {
 			return err
 		}
@@ -234,4 +184,39 @@ func init() {
 		return nil
 	})
 
+	type PolicyExplainOptions struct {
+		Request []string `help:"explain request, in format of key:is_admin:service:resource:action:extra"`
+	}
+	R(&PolicyExplainOptions{}, "policy-explain", "Explain policy result", func(s *mcclient.ClientSession, args *PolicyExplainOptions) error {
+		auth.InitFromClientSession(s)
+		db.EnableGlobalRbac(15*time.Second, 15*time.Second)
+
+		req := jsonutils.NewDict()
+		for i := 0; i < len(args.Request); i += 1 {
+			parts := strings.Split(args.Request[i], ":")
+			if len(parts) < 3 {
+				return fmt.Errorf("invalid request, should be in the form of key:is_admin:service[:resource:action:extra]")
+			}
+			key := parts[0]
+			data := make([]jsonutils.JSONObject, 1)
+			if parts[1] == "true" {
+				data[0] = jsonutils.JSONTrue
+			} else if parts[1] == "false" {
+				data[0] = jsonutils.JSONFalse
+			} else {
+				return fmt.Errorf("invalid request, is_admin should be true|false")
+			}
+			for i := 2; i < len(parts); i += 1 {
+				data = append(data, jsonutils.NewString(parts[i]))
+			}
+			req.Add(jsonutils.NewArray(data...), key)
+		}
+		fmt.Println(req.String())
+		result, err := db.PolicyManager.ExplainRpc(s.GetToken(), req)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }
