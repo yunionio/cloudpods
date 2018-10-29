@@ -346,7 +346,7 @@ func (self *SInstance) RebuildRoot(imageId string, passwd string, publicKey stri
 }
 
 func (self *SInstance) DeployVM(name string, password string, publicKey string, deleteKeypair bool, description string) error {
-	panic("implement me")
+	return self.host.zone.region.DeployVM(self.InstanceId, name, password, publicKey, deleteKeypair, description)
 }
 
 func (self *SInstance) ChangeConfig(instanceId string, ncpu int, vmem int) error {
@@ -651,7 +651,41 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 }
 
 func (self *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, deleteKeypair bool, description string) error {
-	// todo : implement me
+	params := &ec2.CreateTagsInput{}
+	params.SetResources([]*string{&instanceId})
+	tagspec := TagSpec{ResourceType: "instance"}
+
+	if len(keypairName) > 0 {
+		return fmt.Errorf("aws not support reset publickey")
+	}
+
+	if len(password) > 0 {
+		return fmt.Errorf("aws not support set password, use publickey instead")
+	}
+
+	if deleteKeypair {
+		return fmt.Errorf("aws not support delete publickey")
+	}
+
+	if len(name) > 0 {
+		tagspec.SetNameTag(name)
+	}
+
+	if len(description) > 0 {
+		tagspec.SetDescTag(description)
+	}
+
+	ec2Tag, _ := tagspec.GetTagSpecifications()
+	if len(ec2Tag.Tags) > 0 {
+		params.SetTags(ec2Tag.Tags)
+		_, err := self.ec2Client.CreateTags(params)
+		if err != nil {
+			return err
+		}
+	} else {
+		log.Debugf("no changes")
+	}
+
 	return nil
 }
 
