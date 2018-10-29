@@ -1,15 +1,12 @@
 package azure
 
 import (
-	"context"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/pkg/utils"
 )
 
 type ImageStatusType string
@@ -24,14 +21,14 @@ const (
 type OperatingSystemStateTypes string
 
 type ImageOSDisk struct {
-	OsType             OperatingSystemTypes
-	OsState            OperatingSystemStateTypes
-	Snapshot           SubResource
-	ManagedDisk        SubResource
-	BlobURI            string
-	Caching            string
-	DiskSizeGB         int32
-	StorageAccountType StorageAccountTypes
+	OsType             string       `json:"osType,omitempty"`
+	OsState            string       `json:"osState,omitempty"`
+	Snapshot           *SubResource `json:"snapshot,omitempty"`
+	ManagedDisk        *SubResource
+	BlobURI            string `json:"blobUri,omitempty"`
+	Caching            string `json:"caching,omitempty"`
+	DiskSizeGB         int32  `json:"diskSizeGB,omitempty"`
+	StorageAccountType string `json:"storageAccountType,omitempty"`
 }
 
 type ImageDataDisk struct {
@@ -41,27 +38,30 @@ type ImageDataDisk struct {
 	BlobURI            string
 	Caching            string
 	DiskSizeGB         int32
-	StorageAccountType StorageAccountTypes
+	StorageAccountType string
 }
 
+type DataDisks []ImageDataDisk
+
 type ImageStorageProfile struct {
-	OsDisk        ImageOSDisk
-	DataDisks     []ImageDataDisk
-	ZoneResilient bool
+	OsDisk        ImageOSDisk `json:"osDisk,omitempty"`
+	DataDisks     *DataDisks
+	ZoneResilient *bool
 }
 
 type ImageProperties struct {
-	SourceVirtualMachine SubResource
-	StorageProfile       ImageStorageProfile
+	SourceVirtualMachine *SubResource
+	StorageProfile       ImageStorageProfile `json:"storageProfile,omitempty"`
 	ProvisioningState    ImageStatusType
 }
 
 type SImage struct {
 	storageCache *SStoragecache
 
-	Properties ImageProperties
+	Properties ImageProperties `json:"properties,omitempty"`
 	ID         string
 	Name       string
+	Type       string ``
 	Location   string
 }
 
@@ -124,120 +124,86 @@ func (self *SRegion) GetImageStatus(imageId string) (ImageStatusType, error) {
 
 func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 	image := SImage{}
-	imageClient := compute.NewImagesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-	imageClient.Authorizer = self.client.authorizer
-	if len(imageId) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	_, resourceGroup, imageName := pareResourceGroupWithName(imageId, IMAGE_RESOURCE)
-	if result, err := imageClient.Get(context.Background(), resourceGroup, imageName, ""); err != nil {
-		if result.Response.StatusCode == 404 {
-			return nil, cloudprovider.ErrNotFound
-		}
-		return nil, err
-	} else if jsonutils.Update(&image, result); err != nil {
-		return nil, err
-	}
-	return &image, nil
+	return &image, self.client.Get(imageId, []string{}, &image)
 }
 
-func (self *SRegion) GetImageByName(imageId string) (*SImage, error) {
-	return self.GetImage(imageId)
+func (self *SRegion) GetImageByName(name string) (*SImage, error) {
+	images := []SImage{}
+	err := self.client.ListAll("Microsoft.Compute/images", &images)
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(images); i++ {
+		if images[i].Name == name {
+			return &images[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) CreateImageByBlob(imageName, osType, blobURI string, diskSizeGB int32) (*SImage, error) {
 	if diskSizeGB < 1 || diskSizeGB > 4095 {
 		diskSizeGB = 30
 	}
-	imageClient := compute.NewImagesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-	imageClient.Authorizer = self.client.authorizer
-	storageProfile := compute.ImageStorageProfile{
-		OsDisk: &compute.ImageOSDisk{
-			OsType:     compute.OperatingSystemTypes(osType),
-			OsState:    compute.Generalized,
-			BlobURI:    &blobURI,
-			DiskSizeGB: &diskSizeGB,
+	image := SImage{
+		Name:     imageName,
+		Location: self.Name,
+		Properties: ImageProperties{
+			StorageProfile: ImageStorageProfile{
+				OsDisk: ImageOSDisk{
+					OsType:     osType,
+					OsState:    "Generalized",
+					BlobURI:    blobURI,
+					DiskSizeGB: diskSizeGB,
+				},
+			},
 		},
+		Type: "Microsoft.Compute/images",
 	}
-	params := compute.Image{
-		Name:     &imageName,
-		Location: &self.Name,
-		ImageProperties: &compute.ImageProperties{
-			StorageProfile: &storageProfile,
-		},
-	}
-	_, resourceGroup, imageName := pareResourceGroupWithName(imageName, IMAGE_RESOURCE)
-	self.CreateResourceGroup(resourceGroup)
-	if result, err := imageClient.CreateOrUpdate(context.Background(), resourceGroup, imageName, params); err != nil {
-		log.Errorf("Create image from blob error: %v", err)
-		return nil, err
-	} else if err := result.WaitForCompletion(context.Background(), imageClient.Client); err != nil {
-		log.Errorf("WaitForCreateImageCompletion error: %v", err)
-		return nil, err
-	} else if image, err := self.GetImageByName(imageName); err != nil {
-		return nil, err
-	} else {
-		return image, nil
-	}
+	return &image, self.client.Create(jsonutils.Marshal(image), &image)
 }
 
 func (self *SRegion) CreateImage(snapshotId, imageName, osType, imageDesc string) (*SImage, error) {
-	globalId, resourceGroup, imageName := pareResourceGroupWithName(imageName, IMAGE_RESOURCE)
-	imageClient := compute.NewImagesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-	imageClient.Authorizer = self.client.authorizer
-	if utils.IsInStringArray(osType, []string{string(compute.Linux), string(compute.Windows)}) {
-		osType = string(compute.Linux)
-	}
-	storageProfile := compute.ImageStorageProfile{
-		OsDisk: &compute.ImageOSDisk{
-			OsType:  compute.OperatingSystemTypes(osType),
-			OsState: compute.Generalized,
-			Snapshot: &compute.SubResource{
-				ID: &snapshotId,
+	image := SImage{
+		Name:     imageName,
+		Location: self.Name,
+		Properties: ImageProperties{
+			StorageProfile: ImageStorageProfile{
+				OsDisk: ImageOSDisk{
+					OsType:  osType,
+					OsState: "Generalized",
+					Snapshot: &SubResource{
+						ID: snapshotId,
+					},
+				},
 			},
 		},
+		Type: "Microsoft.Compute/images",
 	}
-	params := compute.Image{
-		Name:     &imageName,
-		Location: &self.Name,
-		ImageProperties: &compute.ImageProperties{
-			StorageProfile: &storageProfile,
-		},
-	}
-	self.CreateResourceGroup(resourceGroup)
-	if resutl, err := imageClient.CreateOrUpdate(context.Background(), resourceGroup, imageName, params); err != nil {
-		return nil, err
-	} else if err := resutl.WaitForCompletion(context.Background(), imageClient.Client); err != nil {
-		return nil, err
-	}
-	return self.GetImage(globalId)
+	return &image, self.client.Create(jsonutils.Marshal(image), &image)
 }
 
 func (self *SRegion) GetImages() ([]SImage, error) {
-	images := make([]SImage, 0)
-	imageClient := compute.NewImagesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-	imageClient.Authorizer = self.client.authorizer
-	if result, err := imageClient.List(context.Background()); err != nil {
-		return nil, err
-	} else if err := jsonutils.Update(&images, result.Values()); err != nil {
+	result := []SImage{}
+	images := []SImage{}
+	err := self.client.ListAll("Microsoft.Compute/images", &images)
+	if err != nil {
 		return nil, err
 	}
-	return images, nil
+	for i := 0; i < len(images); i++ {
+		if images[i].Location == self.Name {
+			result = append(result, images[i])
+		}
+	}
+	return result, nil
 }
 
 func (self *SRegion) DeleteImage(imageId string) error {
-	imageClient := compute.NewImagesClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-	imageClient.Authorizer = self.client.authorizer
-	_, resourceGroup, imageName := pareResourceGroupWithName(imageId, IMAGE_RESOURCE)
-	if result, err := imageClient.Delete(context.Background(), resourceGroup, imageName); err != nil {
-		return err
-	} else if err := result.WaitForCompletion(context.Background(), imageClient.Client); err != nil {
-		return err
-	}
-	return nil
+	return self.client.Delete(imageId)
 }
 
 func (self *SImage) GetBlobUri() string {
+
 	return self.Properties.StorageProfile.OsDisk.BlobURI
 }
 

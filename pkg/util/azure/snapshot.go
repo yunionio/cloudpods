@@ -1,14 +1,13 @@
 package azure
 
 import (
-	"context"
-	"encoding/json"
-	"io/ioutil"
+	"fmt"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-04-01/compute"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SnapshotSku struct {
@@ -44,7 +43,13 @@ func (self *SSnapshot) GetName() string {
 }
 
 func (self *SSnapshot) GetStatus() string {
-	return ""
+	switch self.Properties.ProvisioningState {
+	case "Succeeded":
+		return models.SNAPSHOT_READY
+	default:
+		log.Errorf("Unknow azure snapshot %s status: %s", self.ID, self.Properties.ProvisioningState)
+		return models.SNAPSHOT_UNKNOWN
+	}
 }
 
 func (self *SSnapshot) IsEmulated() bool {
@@ -52,26 +57,8 @@ func (self *SSnapshot) IsEmulated() bool {
 }
 
 func (self *SRegion) CreateSnapshot(diskId, snapName, desc string) (*SSnapshot, error) {
-	globalId, resourceGroup, snapshotName := pareResourceGroupWithName(snapName, SNAPSHOT_RESOURCE)
-	snapClient := compute.NewSnapshotsClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-	snapClient.Authorizer = self.client.authorizer
-	params := compute.Snapshot{
-		Name:     &snapshotName,
-		Location: &self.Name,
-		DiskProperties: &compute.DiskProperties{
-			CreationData: &compute.CreationData{
-				CreateOption:     compute.Copy,
-				SourceResourceID: &diskId,
-			},
-		},
-	}
-	self.CreateResourceGroup(resourceGroup)
-	if result, err := snapClient.CreateOrUpdate(context.Background(), resourceGroup, snapshotName, params); err != nil {
-		return nil, err
-	} else if err := result.WaitForCompletion(context.Background(), snapClient.Client); err != nil {
-		return nil, err
-	}
-	return self.GetSnapshotDetail(globalId)
+	snapshot := SSnapshot{}
+	return &snapshot, self.client.Create(jsonutils.Marshal(snapshot), &snapshot)
 }
 
 func (self *SSnapshot) Delete() error {
@@ -83,15 +70,7 @@ func (self *SSnapshot) GetSize() int32 {
 }
 
 func (self *SRegion) DeleteSnapshot(snapshotId string) error {
-	_, resourceGroup, snapshotName := pareResourceGroupWithName(snapshotId, SNAPSHOT_RESOURCE)
-	snapClient := compute.NewSnapshotsClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-	snapClient.Authorizer = self.client.authorizer
-	if result, err := snapClient.Delete(context.Background(), resourceGroup, snapshotName); err != nil {
-		return err
-	} else if err := result.WaitForCompletion(context.Background(), snapClient.Client); err != nil {
-		return err
-	}
-	return nil
+	return self.client.Delete(snapshotId)
 }
 
 type AccessURIOutput struct {
@@ -108,50 +87,62 @@ type AccessURI struct {
 }
 
 func (self *SRegion) GrantAccessSnapshot(snapshotId string) (string, error) {
-	_, resourceGroup, snapshotName := pareResourceGroupWithName(snapshotId, SNAPSHOT_RESOURCE)
-	snapClient := compute.NewSnapshotsClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-	snapClient.Authorizer = self.client.authorizer
-	durationInSeconds := int32(3600 * 24)
-	params := compute.GrantAccessData{
-		Access:            compute.Read,
-		DurationInSeconds: &durationInSeconds,
+	body, err := self.client.PerformAction(snapshotId, "beginGetAccess", fmt.Sprintf(`{"access": "Read", "durationInSeconds": %d}`, 3600*24))
+	if err != nil {
+		return "", err
 	}
 	accessURI := AccessURI{}
-	if result, err := snapClient.GrantAccess(context.Background(), resourceGroup, snapshotName, params); err != nil {
-		return "", err
-	} else if err := result.WaitForCompletion(context.Background(), snapClient.Client); err != nil {
-		return "", err
-	} else if body, err := ioutil.ReadAll(result.Response().Body); err != nil {
-		return "", err
-	} else if err := json.Unmarshal(body, &accessURI); err != nil {
-		return "", err
-	}
-	return accessURI.Properties.Output.AccessSas, nil
+	return accessURI.Properties.Output.AccessSas, body.Unmarshal(&accessURI)
 }
 
 func (self *SSnapshot) Refresh() error {
-	if snapshot, err := self.region.GetSnapshotDetail(self.ID); err != nil {
-		return err
-	} else if err := jsonutils.Update(self, snapshot); err != nil {
+	snapshot, err := self.region.GetSnapshotDetail(self.ID)
+	if err != nil {
 		return err
 	}
-	return nil
+	return jsonutils.Update(self, snapshot)
 }
 
 func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
+	if strings.HasPrefix(snapshotId, "https://") {
+		//TODO
+		return nil, cloudprovider.ErrNotImplemented
+	}
 	return self.GetSnapshotDetail(snapshotId)
 }
 
 func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	if snapshots, err := self.GetSnapShots(""); err != nil {
+	snapshots, err := self.GetSnapShots("")
+	if err != nil {
 		return nil, err
-	} else {
-		isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots))
-		for i := 0; i < len(snapshots); i++ {
-			isnapshots[i] = &snapshots[i]
-		}
-		return isnapshots, nil
 	}
+	classicSnapshots := []SClassicSnapshot{}
+	storages, err := self.GetStorageAccounts()
+	if err != nil {
+		return nil, err
+	}
+	_, _classicSnapshots, err := self.GetStorageAccountsDisksWithSnapshots(storages...)
+	if err != nil {
+		return nil, err
+	}
+	classicSnapshots = append(classicSnapshots, _classicSnapshots...)
+	classicStorages, err := self.GetClassicStorageAccounts()
+	if err != nil {
+		return nil, err
+	}
+	_, _classicSnapshots, err = self.GetStorageAccountsDisksWithSnapshots(classicStorages...)
+	if err != nil {
+		return nil, err
+	}
+	classicSnapshots = append(classicSnapshots, _classicSnapshots...)
+	isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots)+len(classicSnapshots))
+	for i := 0; i < len(snapshots); i++ {
+		isnapshots[i] = &snapshots[i]
+	}
+	for i := 0; i < len(classicSnapshots); i++ {
+		isnapshots[len(snapshots)+i] = &classicSnapshots[i]
+	}
+	return isnapshots, nil
 }
 
 func (self *SSnapshot) GetDiskId() string {
