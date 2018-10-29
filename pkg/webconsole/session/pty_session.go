@@ -12,17 +12,18 @@ import (
 )
 
 type Pty struct {
-	Session *SSession
-	Cmd     *exec.Cmd
-	Pty     *os.File
-	sizeCh  chan os.Signal
-	size    *pty.Winsize
-	Show    bool
-	IsOk    bool
-	Buffer  string
-	Output  string
-	Command string
-	Exit    bool
+	Session    *SSession
+	Cmd        *exec.Cmd
+	Pty        *os.File
+	sizeCh     chan os.Signal
+	size       *pty.Winsize
+	OriginSize *pty.Winsize
+	Show       bool
+	IsOk       bool
+	Buffer     string
+	Output     string
+	Command    string
+	Exit       bool
 }
 
 func NewPty(session *SSession) (p *Pty, err error) {
@@ -59,6 +60,7 @@ func (p *Pty) startResizeMonitor() {
 					log.Debugf("Resize pty to %#v, cmd: %#v", p.size, p.Cmd)
 				}
 			}
+			p.OriginSize = p.size
 		}
 	}()
 }
