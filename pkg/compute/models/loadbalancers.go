@@ -176,6 +176,26 @@ func (lb *SLoadbalancer) ValidateUpdateData(ctx context.Context, userCred mcclie
 	return lb.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
+func (lb *SLoadbalancer) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := lb.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if lb.BackendGroupId == "" {
+		return extra
+	}
+	lbbg, err := LoadbalancerBackendGroupManager.FetchById(lb.BackendGroupId)
+	if err != nil {
+		log.Errorf("loadbalancer %s(%s): fetch backend group (%s) error: %s",
+			lb.Name, lb.Id, lb.BackendGroupId, err)
+		return extra
+	}
+	extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
+	return extra
+}
+
+func (lb *SLoadbalancer) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := lb.GetCustomizeColumns(ctx, userCred, query)
+	return extra
+}
+
 func (lb *SLoadbalancer) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if len(lb.Address) > 0 {
 		// TODO reserve support

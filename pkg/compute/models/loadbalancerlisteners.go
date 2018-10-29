@@ -6,6 +6,7 @@ import (
 	"regexp"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -337,6 +338,26 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 		}
 	}
 	return lblis.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+}
+
+func (lblis *SLoadbalancerListener) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := lblis.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if lblis.BackendGroupId == "" {
+		return extra
+	}
+	lbbg, err := LoadbalancerBackendGroupManager.FetchById(lblis.BackendGroupId)
+	if err != nil {
+		log.Errorf("loadbalancer listener %s(%s): fetch backend group (%s) error: %s",
+			lblis.Name, lblis.Id, lblis.BackendGroupId, err)
+		return extra
+	}
+	extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
+	return extra
+}
+
+func (lblis *SLoadbalancerListener) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := lblis.GetCustomizeColumns(ctx, userCred, query)
+	return extra
 }
 
 func (lblis *SLoadbalancerListener) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
