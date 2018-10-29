@@ -138,11 +138,15 @@ func (self *SSimpleToken) GetCatalogData(serviceTypes []string, region string) j
 }
 
 func (self *SSimpleToken) String() string {
-	return jsonutils.Marshal(self).String()
+	return self.ToJson().String()
 }
 
 func (self *SSimpleToken) IsZero() bool {
 	return len(self.UserId) == 0 && len(self.ProjectId) == 0
+}
+
+func (self *SSimpleToken) ToJson() jsonutils.JSONObject {
+	return jsonutils.Marshal(self)
 }
 
 var TokenCredentialType reflect.Type

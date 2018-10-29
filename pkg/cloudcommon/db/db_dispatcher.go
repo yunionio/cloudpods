@@ -401,7 +401,7 @@ func listItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		return nil, err
 	}
 	totalCnt := int64(q.Count())
-	log.Debugf("total count %d", totalCnt)
+	// log.Debugf("total count %d", totalCnt)
 	if totalCnt == 0 {
 		emptyList := modules.ListResult{Data: []jsonutils.JSONObject{}}
 		return &emptyList, nil
@@ -488,9 +488,19 @@ func calculateListResult(data []jsonutils.JSONObject, total, limit, offset int64
 
 func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.JSONObject, ctxId string) (*modules.ListResult, error) {
 	userCred := fetchUserCredential(ctx)
-	if !dispatcher.modelManager.AllowListItems(ctx, userCred, query) {
+
+	var isAllow bool
+	if globalsRbacEnabled {
+		isAdmin := jsonutils.QueryBoolean(query, "admin", false)
+		isAllow = PolicyManager.Allow(isAdmin, userCred, GetGlobalServiceType(),
+			dispatcher.modelManager.KeywordPlural(), PolicyActionList)
+	} else {
+		isAllow = dispatcher.modelManager.AllowListItems(ctx, userCred, query)
+	}
+	if !isAllow {
 		return nil, httperrors.NewForbiddenError("Not allow to list")
 	}
+
 	items, err := listItems(dispatcher.modelManager, ctx, userCred, query, ctxId)
 	if err != nil {
 		log.Errorf("Fail to list items: %s", err)
@@ -591,7 +601,13 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 		return nil, err
 	}
 	// log.Debugf("Get found %s", model)
-	if !model.AllowGetDetails(ctx, userCred, query) {
+	var isAllow bool
+	if globalsRbacEnabled {
+		isAllow = isRbacAllowed(dispatcher.modelManager, model, userCred, PolicyActionGet)
+	} else {
+		isAllow = model.AllowGetDetails(ctx, userCred, query)
+	}
+	if !isAllow {
 		return nil, httperrors.NewForbiddenError("Not allow to get details")
 	}
 	return getItemDetails(dispatcher.modelManager, model, ctx, userCred, query)
@@ -607,35 +623,44 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 		return nil, err
 	}
 
-	specCamel := utils.Kebab2Camel(spec, "-")
-	funcName := fmt.Sprintf("AllowGetDetails%s", specCamel)
-	modelValue := reflect.ValueOf(model)
-	funcValue := modelValue.MethodByName(funcName)
-	if !funcValue.IsValid() || funcValue.IsNil() {
-		return nil, httperrors.NewSpecNotFoundError(fmt.Sprintf("%s %s %s not found", dispatcher.Keyword(), idStr, spec))
-	}
-
 	params := []reflect.Value{
 		reflect.ValueOf(ctx),
 		reflect.ValueOf(userCred),
 		reflect.ValueOf(query),
 	}
 
-	outs := funcValue.Call(params)
-	if len(outs) != 1 {
-		return nil, httperrors.NewInternalServerError("Invald %s return value", funcName)
+	specCamel := utils.Kebab2Camel(spec, "-")
+	modelValue := reflect.ValueOf(model)
+
+	var isAllow bool
+	if globalsRbacEnabled {
+		isAllow = isRbacAllowed(dispatcher.modelManager, model, userCred, PolicyActionGet, spec)
+	} else {
+		funcName := fmt.Sprintf("AllowGetDetails%s", specCamel)
+
+		funcValue := modelValue.MethodByName(funcName)
+		if !funcValue.IsValid() || funcValue.IsNil() {
+			return nil, httperrors.NewSpecNotFoundError(fmt.Sprintf("%s %s %s not found", dispatcher.Keyword(), idStr, spec))
+		}
+
+		outs := funcValue.Call(params)
+		if len(outs) != 1 {
+			return nil, httperrors.NewInternalServerError("Invald %s return value", funcName)
+		}
+		isAllow = outs[0].Bool()
 	}
-	if !outs[0].Bool() {
+
+	if !isAllow {
 		return nil, httperrors.NewForbiddenError(fmt.Sprintf("%s not allow to get spec %s", dispatcher.Keyword(), spec))
 	}
 
-	funcName = fmt.Sprintf("GetDetails%s", specCamel)
-	funcValue = modelValue.MethodByName(funcName)
+	funcName := fmt.Sprintf("GetDetails%s", specCamel)
+	funcValue := modelValue.MethodByName(funcName)
 	if !funcValue.IsValid() || funcValue.IsNil() {
 		return nil, httperrors.NewSpecNotFoundError(fmt.Sprintf("%s %s %s not found", dispatcher.Keyword(), idStr, spec))
 	}
 
-	outs = funcValue.Call(params)
+	outs := funcValue.Call(params)
 	if len(outs) != 2 {
 		return nil, httperrors.NewInternalServerError("Invald %s return value", funcName)
 	}
@@ -664,7 +689,13 @@ func fetchOwnerProjectId(ctx context.Context, userCred mcclient.TokenCredential,
 	if len(projId) == 0 {
 		return userCred.GetProjectId(), nil
 	}
-	if !userCred.IsSystemAdmin() {
+	var isAllow bool
+	if globalsRbacEnabled {
+		isAllow = PolicyManager.Allow(true, userCred, GetGlobalServiceType(), PolicyDelegation, "")
+	} else {
+		isAllow = userCred.IsSystemAdmin()
+	}
+	if !isAllow {
 		return "", httperrors.NewForbiddenError("Delegation not allowed")
 	}
 	t, _ := TenantCacheManager.FetchTenantByIdOrName(ctx, projId)
@@ -779,7 +810,13 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 	lockman.LockClass(ctx, dispatcher.modelManager, ownerProjId)
 	defer lockman.ReleaseClass(ctx, dispatcher.modelManager, ownerProjId)
 
-	if !dispatcher.modelManager.AllowCreateItem(ctx, userCred, query, data) {
+	var isAllow bool
+	if globalsRbacEnabled {
+		isAllow = isRbacAllowed(dispatcher.modelManager, nil, userCred, PolicyActionCreate)
+	} else {
+		isAllow = dispatcher.modelManager.AllowCreateItem(ctx, userCred, query, data)
+	}
+	if !isAllow {
 		return nil, httperrors.NewForbiddenError("Not allow to create item")
 	}
 
@@ -837,7 +874,13 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 	lockman.LockClass(ctx, dispatcher.modelManager, ownerProjId)
 	defer lockman.ReleaseClass(ctx, dispatcher.modelManager, ownerProjId)
 
-	if !dispatcher.modelManager.AllowCreateItem(ctx, userCred, query, data) {
+	var isAllow bool
+	if globalsRbacEnabled {
+		isAllow = isRbacAllowed(dispatcher.modelManager, nil, userCred, PolicyActionCreate)
+	} else {
+		isAllow = dispatcher.modelManager.AllowCreateItem(ctx, userCred, query, data)
+	}
+	if !isAllow {
 		return nil, httperrors.NewForbiddenError("Not allow to create item")
 	}
 
@@ -889,16 +932,30 @@ func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, act
 	lockman.LockClass(ctx, dispatcher.modelManager, ownerProjId)
 	defer lockman.ReleaseClass(ctx, dispatcher.modelManager, ownerProjId)
 
-	managerValue := reflect.ValueOf(dispatcher.modelManager)
 	if action == "check-create-data" {
 		manager := dispatcher.modelManager
-		if body, err := data.(*jsonutils.JSONDict).Get(manager.Keyword()); err != nil {
+
+		body, err := data.(*jsonutils.JSONDict).Get(manager.Keyword())
+		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
-		} else {
-			return manager.ValidateCreateData(ctx, userCred, ownerProjId, query, body.(*jsonutils.JSONDict))
 		}
+		data := body.(*jsonutils.JSONDict)
+
+		var isAllow bool
+		if globalsRbacEnabled {
+			isAllow = isRbacAllowed(manager, nil, userCred, PolicyActionPerform, action)
+		} else {
+			isAllow = manager.AllowPerformCheckCreateData(ctx, userCred, query, data)
+		}
+		if !isAllow {
+			return nil, httperrors.NewForbiddenError("not allow to perform %s", action)
+		}
+
+		return manager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 	}
-	return objectPerformAction(dispatcher, managerValue, ctx, userCred, action, query, data)
+
+	managerValue := reflect.ValueOf(dispatcher.modelManager)
+	return objectPerformAction(dispatcher, nil, managerValue, ctx, userCred, action, query, data)
 }
 
 func (dispatcher *DBModelDispatcher) PerformAction(ctx context.Context, idStr string, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -915,7 +972,7 @@ func (dispatcher *DBModelDispatcher) PerformAction(ctx context.Context, idStr st
 	defer lockman.ReleaseObject(ctx, model)
 
 	modelValue := reflect.ValueOf(model)
-	result, err := objectPerformAction(dispatcher, modelValue, ctx, userCred, action, query, data)
+	result, err := objectPerformAction(dispatcher, model, modelValue, ctx, userCred, action, query, data)
 	if err == nil && result == nil {
 		return getItemDetails(dispatcher.modelManager, model, ctx, userCred, query)
 	} else {
@@ -923,23 +980,23 @@ func (dispatcher *DBModelDispatcher) PerformAction(ctx context.Context, idStr st
 	}
 }
 
-func objectPerformAction(dispatcher *DBModelDispatcher, modelValue reflect.Value, ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	isGeneral := false
-
+func objectPerformAction(dispatcher *DBModelDispatcher, model IModel, modelValue reflect.Value, ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	const generalFuncName = "PerformAction"
-	const generalAllowFuncName = "AllowPerformAction"
+	// const generalAllowFuncName = "AllowPerformAction"
 
+	isGeneral := false
 	funcName := fmt.Sprintf("Perform%s", utils.Kebab2Camel(action, "-"))
-	allowFuncName := "Allow" + funcName
-	funcValue := modelValue.MethodByName(allowFuncName)
+
+	funcValue := modelValue.MethodByName(funcName)
 	if !funcValue.IsValid() || funcValue.IsNil() {
-		funcValue = modelValue.MethodByName(generalAllowFuncName)
+		funcValue = modelValue.MethodByName(generalFuncName)
 		if !funcValue.IsValid() || funcValue.IsNil() {
-			msg := fmt.Sprintf("%s allow perform action %s not found", dispatcher.Keyword(), action)
+			msg := fmt.Sprintf("%s perform action %s not found", dispatcher.Keyword(), action)
 			log.Errorf(msg)
 			return nil, httperrors.NewActionNotFoundError(msg)
 		} else {
 			isGeneral = true
+			funcName = generalFuncName
 		}
 	}
 
@@ -962,25 +1019,30 @@ func objectPerformAction(dispatcher *DBModelDispatcher, modelValue reflect.Value
 		}
 	}
 
-	outs := funcValue.Call(params)
-	if len(outs) != 1 {
-		return nil, httperrors.NewInternalServerError("Invald %s return value", allowFuncName)
+	var isAllow bool
+	if globalsRbacEnabled {
+		isAllow = isRbacAllowed(dispatcher.modelManager, model, userCred, PolicyActionPerform, action)
+	} else {
+		allowFuncName := "Allow" + funcName
+		allowFuncValue := modelValue.MethodByName(allowFuncName)
+		if !allowFuncValue.IsValid() || allowFuncValue.IsNil() {
+			msg := fmt.Sprintf("%s allow perform action %s not found", dispatcher.Keyword(), action)
+			log.Errorf(msg)
+			return nil, httperrors.NewActionNotFoundError(msg)
+		}
+
+		outs := funcValue.Call(params)
+		if len(outs) != 1 {
+			return nil, httperrors.NewInternalServerError("Invald %s return value", allowFuncName)
+		}
+
+		isAllow = outs[0].Bool()
 	}
-	if !outs[0].Bool() {
+	if !isAllow {
 		return nil, httperrors.NewForbiddenError(fmt.Sprintf("%s not allow to perform action %s", dispatcher.Keyword(), action))
 	}
 
-	if isGeneral {
-		funcValue = modelValue.MethodByName(generalFuncName)
-	} else {
-		funcName = fmt.Sprintf("Perform%s", utils.Kebab2Camel(action, "-"))
-		funcValue = modelValue.MethodByName(funcName)
-	}
-	if !funcValue.IsValid() || funcValue.IsNil() {
-		return nil, httperrors.NewActionNotFoundError(fmt.Sprintf("%s perform action %s not found", dispatcher.Keyword(), action))
-	}
-
-	outs = funcValue.Call(params)
+	outs := funcValue.Call(params)
 	if len(outs) != 2 {
 		return nil, httperrors.NewInternalServerError("Invald %s return value", funcName)
 	}
@@ -1069,7 +1131,13 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	if !model.AllowUpdateItem(ctx, userCred) {
+	var isAllow bool
+	if globalsRbacEnabled {
+		isAllow = isRbacAllowed(dispatcher.modelManager, model, userCred, PolicyActionUpdate)
+	} else {
+		isAllow = model.AllowUpdateItem(ctx, userCred)
+	}
+	if !isAllow {
 		return nil, httperrors.NewForbiddenError(fmt.Sprintf("Not allow to update item"))
 	}
 
@@ -1098,7 +1166,14 @@ func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IM
 
 func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	log.Debugf("deleteItem %s", jsonutils.Marshal(model))
-	if !model.AllowDeleteItem(ctx, userCred, query, data) {
+
+	var isAllow bool
+	if globalsRbacEnabled {
+		isAllow = isRbacAllowed(manager, model, userCred, PolicyActionDelete)
+	} else {
+		isAllow = model.AllowDeleteItem(ctx, userCred, query, data)
+	}
+	if !isAllow {
 		log.Errorf("not allow to delete")
 		return nil, httperrors.NewForbiddenError(fmt.Sprintf("%s(%s) not allow to delete", manager.KeywordPlural(), model.GetId()))
 	}

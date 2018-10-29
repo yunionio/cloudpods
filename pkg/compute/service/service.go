@@ -24,6 +24,8 @@ import (
 )
 
 func StartService() {
+	db.SetGlobalServiceType("compute")
+
 	cloudcommon.ParseOptions(&options.Options, &options.Options.Options, os.Args, "region.conf")
 
 	if options.Options.DebugSqlchemy {
@@ -38,10 +40,6 @@ func StartService() {
 	cloudcommon.InitAuth(&options.Options.Options, func() {
 		log.Infof("Auth complete!!")
 	})
-
-	if options.Options.GlobalVirtualResourceNamespace {
-		db.EnableGlobalVirtualResourceNamespace()
-	}
 
 	cloudcommon.InitDB(&options.Options.DBOptions)
 	defer cloudcommon.CloseDB()

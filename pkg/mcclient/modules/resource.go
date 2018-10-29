@@ -136,7 +136,7 @@ func (this *ResourceManager) GetIdInContext(session *mcclient.ClientSession, id 
 }
 
 func (this *ResourceManager) GetIdInContexts(session *mcclient.ClientSession, id string, params jsonutils.JSONObject, ctxs []ManagerContext) (string, error) {
-	obj, e := this.Get(session, id, params)
+	obj, e := this.GetInContexts(session, id, params, ctxs)
 	if e != nil {
 		return "", e
 	}

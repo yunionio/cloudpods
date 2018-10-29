@@ -29,6 +29,9 @@ func TestAst(t *testing.T) {
 		{`server.disks[0].contains("medium_type")`, true},
 		{`server.disk[0].contains("medium_type")`, true},
 		{`server.disks[0].contains("backend")`, false},
+		{`server.keys().contains("os_type", "disks")`, true},
+		{`server.keys() == "os_type"`, true},
+		{`server.keys() == "os_type1"`, false},
 	}
 
 	for _, c := range cases {

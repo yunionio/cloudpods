@@ -150,6 +150,10 @@ func (manager *SModelBaseManager) PerformAction(ctx context.Context, userCred mc
 	return nil, nil
 }
 
+func (manager *SModelBaseManager) AllowPerformCheckCreateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
 func (manager *SModelBaseManager) InitializeData() error {
 	return nil
 }
