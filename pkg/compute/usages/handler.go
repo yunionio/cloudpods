@@ -13,7 +13,9 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -246,9 +248,9 @@ func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandalo
 
 	isAdmin := false
 
-	if db.IsGlobalRbacEnabled() {
-		if db.PolicyManager.Allow(true, userCred, db.GetGlobalServiceType(),
-			"usages", db.PolicyActionGet) {
+	if consts.IsRbacEnabled() {
+		if policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
+			"usages", policy.PolicyActionGet) {
 			isAdmin = true
 		}
 	} else {
@@ -262,9 +264,9 @@ func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandalo
 		}
 	}
 
-	if db.IsGlobalRbacEnabled() {
-		if !db.PolicyManager.Allow(false, userCred, db.GetGlobalServiceType(),
-			"usages", db.PolicyActionGet) {
+	if consts.IsRbacEnabled() {
+		if !policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
+			"usages", policy.PolicyActionGet) {
 			err = httperrors.NewForbiddenError("not allow to get usages")
 			return
 		}

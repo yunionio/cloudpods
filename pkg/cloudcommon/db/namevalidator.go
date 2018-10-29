@@ -3,6 +3,7 @@ package db
 import (
 	"fmt"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/pkg/util/stringutils"
 )
@@ -10,7 +11,7 @@ import (
 func isNameUnique(manager IModelManager, owner string, name string) bool {
 	q := manager.Query()
 	q = manager.FilterByName(q, name)
-	if !globalVirtualResourceNamespace {
+	if !consts.IsGlobalVirtualResourceNamespace() {
 		q = manager.FilterByOwner(q, owner)
 	}
 	return q.Count() == 0
@@ -31,7 +32,7 @@ func isAlterNameUnique(model IModel, name string) bool {
 	manager := model.GetModelManager()
 	q := manager.Query()
 	q = manager.FilterByName(q, name)
-	if !globalVirtualResourceNamespace {
+	if !consts.IsGlobalVirtualResourceNamespace() {
 		q = manager.FilterByOwner(q, model.GetOwnerProjectId())
 	}
 	q = manager.FilterByNotId(q, model.GetId())
