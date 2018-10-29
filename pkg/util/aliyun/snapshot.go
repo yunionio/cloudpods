@@ -15,6 +15,9 @@ const (
 	SnapshotStatusAccomplished SnapshotStatusType = "accomplished"
 	SnapshotStatusProgress     SnapshotStatusType = "progressing"
 	SnapshotStatusFailed       SnapshotStatusType = "failed"
+
+	SnapshotTypeSystem string = "System"
+	SnapshotTypeData   string = "Data"
 )
 
 type SSnapshot struct {
@@ -65,7 +68,13 @@ func (self *SSnapshot) GetDiskId() string {
 }
 
 func (self *SSnapshot) GetDiskType() string {
-	return self.SourceDiskType
+	if self.SourceDiskType == SnapshotTypeSystem {
+		return models.DISK_TYPE_SYS
+	} else if self.SourceDiskType == SnapshotTypeData {
+		return models.DISK_TYPE_DATA
+	} else {
+		return ""
+	}
 }
 
 func (self *SSnapshot) Refresh() error {
