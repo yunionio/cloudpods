@@ -263,7 +263,7 @@ func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandalo
 	}
 
 	if db.IsGlobalRbacEnabled() {
-		if ! db.PolicyManager.Allow(false, userCred, db.GetGlobalServiceType(),
+		if !db.PolicyManager.Allow(false, userCred, db.GetGlobalServiceType(),
 			"usages", db.PolicyActionGet) {
 			err = httperrors.NewForbiddenError("not allow to get usages")
 			return
