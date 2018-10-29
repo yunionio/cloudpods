@@ -1,25 +1,25 @@
 package aws
 
 import (
+	"fmt"
 	"time"
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/pkg/util/secrules"
+
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/coredns/coredns/plugin/pkg/log"
-	"fmt"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/pkg/util/osprofile"
-	"yunion.io/x/pkg/utils"
+	"yunion.io/x/pkg/util/secrules"
 )
 
 const (
-	InstanceStatusPending = "pending"
-	InstanceStatusRunning = "running"
-	InstanceStatusShutting = "shutting-down"
+	InstanceStatusPending    = "pending"
+	InstanceStatusRunning    = "running"
+	InstanceStatusShutting   = "shutting-down"
 	InstanceStatusTerminated = "terminated"
-	InstanceStatusStopping = "stopping"
-	InstanceStatusStopped = "stopped"
+	InstanceStatusStopping   = "stopping"
+	InstanceStatusStopped    = "stopped"
 )
 
 type InstanceChargeType string
@@ -49,37 +49,37 @@ type SVpcAttributes struct {
 }
 
 type SInstance struct {
-	host *SHost
-	RegionId                string
-	ZoneId                  string
-	InstanceId              string
-	ImageId                 string
+	host       *SHost
+	RegionId   string
+	ZoneId     string
+	InstanceId string
+	ImageId    string
 
-	HostName                string
-	InstanceName            string
-	InstanceType            string
-	Cpu                     int8
-	Memory                  int
-	IoOptimized             bool
-	KeyPairName             string
-	CreationTime            time.Time // LaunchTime
-	ExpiredTime             time.Time
-	ProductCodes            []string
-	PublicDNSName           string
-	InnerIpAddress          SIpAddress
-	PublicIpAddress         SIpAddress
-	RootDeviceName          string
-	Status                  string // state
-	VlanId                  string // subnet ID ?
-	VpcAttributes           SVpcAttributes
-	SecurityGroupIds        SSecurityGroupIds
-	NetworkInterfaces       SNetworkInterfaces
-	EipAddress              SEipAddress
-	Disks                   []string
-	DeviceNames             []string
-	OSName                  string
-	OSType                  string
-	Description             string
+	HostName          string
+	InstanceName      string
+	InstanceType      string
+	Cpu               int8
+	Memory            int
+	IoOptimized       bool
+	KeyPairName       string
+	CreationTime      time.Time // LaunchTime
+	ExpiredTime       time.Time
+	ProductCodes      []string
+	PublicDNSName     string
+	InnerIpAddress    SIpAddress
+	PublicIpAddress   SIpAddress
+	RootDeviceName    string
+	Status            string // state
+	VlanId            string // subnet ID ?
+	VpcAttributes     SVpcAttributes
+	SecurityGroupIds  SSecurityGroupIds
+	NetworkInterfaces SNetworkInterfaces
+	EipAddress        SEipAddress
+	Disks             []string
+	DeviceNames       []string
+	OSName            string
+	OSType            string
+	Description       string
 
 	// 这些貌似都没啥用
 	// AutoReleaseTime         string
@@ -118,7 +118,7 @@ func (self *SInstance) GetStatus() string {
 	switch self.Status {
 	case InstanceStatusRunning:
 		return models.VM_RUNNING
-	case InstanceStatusPending:   // todo: pending ?
+	case InstanceStatusPending: // todo: pending ?
 		return models.VM_STARTING
 	case InstanceStatusStopping:
 		return models.VM_STOPPING
@@ -403,7 +403,7 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 
 			instanceType, err := self.GetInstanceType(*instance.InstanceType)
 			if err != nil {
-				return nil, 0 , err
+				return nil, 0, err
 			}
 
 			tagspec := TagSpec{}
@@ -446,29 +446,29 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 			}
 
 			sinstance := SInstance{
-				RegionId: self.RegionId,
-				ZoneId: *instance.Placement.AvailabilityZone,
-				InstanceId: *instance.InstanceId,
-				ImageId: *instance.ImageId,
-				InstanceType: *instance.InstanceType,
-				Cpu: int8(*instance.CpuOptions.CoreCount),
-				Memory: instanceType.memoryMB(),
-				IoOptimized: *instance.EbsOptimized,
-				KeyPairName: *instance.KeyName,
-				CreationTime: *instance.LaunchTime,
-				PublicDNSName: *instance.PublicDnsName,
-				RootDeviceName: *instance.RootDeviceName,
-				Status: *instance.State.Name,
-				InnerIpAddress: SIpAddress{[]string{*instance.PrivateIpAddress}},
-				PublicIpAddress: SIpAddress{[]string{*instance.PublicIpAddress}},
-				InstanceName: tagspec.GetNameTag(),
-				Description: tagspec.GetDescTag(),
-				Disks: disks,
-				DeviceNames: devicenames,
-				SecurityGroupIds: secgroups,
+				RegionId:          self.RegionId,
+				ZoneId:            *instance.Placement.AvailabilityZone,
+				InstanceId:        *instance.InstanceId,
+				ImageId:           *instance.ImageId,
+				InstanceType:      *instance.InstanceType,
+				Cpu:               int8(*instance.CpuOptions.CoreCount),
+				Memory:            instanceType.memoryMB(),
+				IoOptimized:       *instance.EbsOptimized,
+				KeyPairName:       *instance.KeyName,
+				CreationTime:      *instance.LaunchTime,
+				PublicDNSName:     *instance.PublicDnsName,
+				RootDeviceName:    *instance.RootDeviceName,
+				Status:            *instance.State.Name,
+				InnerIpAddress:    SIpAddress{[]string{*instance.PrivateIpAddress}},
+				PublicIpAddress:   SIpAddress{[]string{*instance.PublicIpAddress}},
+				InstanceName:      tagspec.GetNameTag(),
+				Description:       tagspec.GetDescTag(),
+				Disks:             disks,
+				DeviceNames:       devicenames,
+				SecurityGroupIds:  secgroups,
 				NetworkInterfaces: networkInterfaces,
-				VpcAttributes: vpcattr,
-				ProductCodes: productCodes,
+				VpcAttributes:     vpcattr,
+				ProductCodes:      productCodes,
 				// ExpiredTime:
 				// EipAddress:
 				// VlanId:
@@ -515,84 +515,84 @@ func (self *SRegion) GetInstanceIdByImageId(imageId string) (string, error) {
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, SubnetId string, securityGroupId string,
 	zoneId string, desc string, disks []SDisk, ipAddr string,
 	keypair string) (string, error) {
-		var count int64 = 1
-		// disk
-		blockDevices := []*ec2.BlockDeviceMapping{}
-		for i, disk := range disks{
-			if i == 0 {
-				var size int64
-				size = int64(disk.Size)
-				ebs := &ec2.EbsBlockDevice{
-					DeleteOnTermination: &disk.DeleteWithInstance,
-					Encrypted: &disk.Encrypted,
-					VolumeSize: &size,
-					VolumeType: &disk.Category,
-				}
-
-				// todo: 这里是镜像绑定的deviceName
-				divceName := fmt.Sprintf("/dev/sda1")
-				blockDevice := &ec2.BlockDeviceMapping{
-					DeviceName: &divceName,
-					Ebs: ebs,
-				}
-
-				blockDevices = append(blockDevices, blockDevice)
-			} else {
-				var size int64
-				size = int64(disk.Size)
-				ebs := &ec2.EbsBlockDevice{
-					DeleteOnTermination: &disk.DeleteWithInstance,
-					Encrypted: &disk.Encrypted,
-					VolumeSize: &size,
-					VolumeType: &disk.Category,
-				}
-				// todo: generator device name
-				divceName := fmt.Sprintf("/dev/sd%s", string(98+i))
-				blockDevice := &ec2.BlockDeviceMapping{
-					DeviceName: &divceName,
-					Ebs: ebs,
-				}
-
-				blockDevices = append(blockDevices, blockDevice)
+	var count int64 = 1
+	// disk
+	blockDevices := []*ec2.BlockDeviceMapping{}
+	for i, disk := range disks {
+		if i == 0 {
+			var size int64
+			size = int64(disk.Size)
+			ebs := &ec2.EbsBlockDevice{
+				DeleteOnTermination: &disk.DeleteWithInstance,
+				Encrypted:           &disk.Encrypted,
+				VolumeSize:          &size,
+				VolumeType:          &disk.Category,
 			}
-		}
-		// tags
-		tags := TagSpec{ResourceType: "instance"}
-		tags.SetNameTag(name)
-		tags.SetDescTag(desc)
-		ec2TagSpec, err := tags.GetTagSpecifications()
-		if err != nil {
-			return "", err
-		}
 
-		dryrun := true
-		params := ec2.RunInstancesInput{
-			ImageId: &imageId,
-			InstanceType: &instanceType,
-			MaxCount: &count,
-			MinCount: &count,
-			SubnetId: &SubnetId,
-			PrivateIpAddress: &ipAddr,
-			BlockDeviceMappings: blockDevices,
-			KeyName: &keypair,
-			Placement: &ec2.Placement{AvailabilityZone: &zoneId},
-			SecurityGroupIds: []*string{&securityGroupId},
-			TagSpecifications: []*ec2.TagSpecification{ec2TagSpec},
-			DryRun: &dryrun, // todo: 测试
-		}
-		res, err := self.ec2Client.RunInstances(&params)
-		if err != nil {
-			log.Errorf("CreateInstance fail %s", err)
-			return "", err
-		}
+			// todo: 这里是镜像绑定的deviceName
+			divceName := fmt.Sprintf("/dev/sda1")
+			blockDevice := &ec2.BlockDeviceMapping{
+				DeviceName: &divceName,
+				Ebs:        ebs,
+			}
 
-		if len(res.Instances) == 1 {
-			return *res.Instances[0].InstanceId, nil
+			blockDevices = append(blockDevices, blockDevice)
 		} else {
-			msg := fmt.Sprintf("CreateInstance fail: %s instance created. ", len(res.Instances))
-			log.Errorf(msg)
-			return "", fmt.Errorf(msg)
+			var size int64
+			size = int64(disk.Size)
+			ebs := &ec2.EbsBlockDevice{
+				DeleteOnTermination: &disk.DeleteWithInstance,
+				Encrypted:           &disk.Encrypted,
+				VolumeSize:          &size,
+				VolumeType:          &disk.Category,
+			}
+			// todo: generator device name
+			divceName := fmt.Sprintf("/dev/sd%s", string(98+i))
+			blockDevice := &ec2.BlockDeviceMapping{
+				DeviceName: &divceName,
+				Ebs:        ebs,
+			}
+
+			blockDevices = append(blockDevices, blockDevice)
 		}
+	}
+	// tags
+	tags := TagSpec{ResourceType: "instance"}
+	tags.SetNameTag(name)
+	tags.SetDescTag(desc)
+	ec2TagSpec, err := tags.GetTagSpecifications()
+	if err != nil {
+		return "", err
+	}
+
+	dryrun := true
+	params := ec2.RunInstancesInput{
+		ImageId:             &imageId,
+		InstanceType:        &instanceType,
+		MaxCount:            &count,
+		MinCount:            &count,
+		SubnetId:            &SubnetId,
+		PrivateIpAddress:    &ipAddr,
+		BlockDeviceMappings: blockDevices,
+		KeyName:             &keypair,
+		Placement:           &ec2.Placement{AvailabilityZone: &zoneId},
+		SecurityGroupIds:    []*string{&securityGroupId},
+		TagSpecifications:   []*ec2.TagSpecification{ec2TagSpec},
+		DryRun:              &dryrun, // todo: 测试
+	}
+	res, err := self.ec2Client.RunInstances(&params)
+	if err != nil {
+		log.Errorf("CreateInstance fail %s", err)
+		return "", err
+	}
+
+	if len(res.Instances) == 1 {
+		return *res.Instances[0].InstanceId, nil
+	} else {
+		msg := fmt.Sprintf("CreateInstance fail: %s instance created. ", len(res.Instances))
+		log.Errorf(msg)
+		return "", fmt.Errorf(msg)
+	}
 }
 
 func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
@@ -603,7 +603,7 @@ func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
 	return instance.Status, nil
 }
 
-func (self *SRegion)  instanceStatusChecking(instanceId, status string) error {
+func (self *SRegion) instanceStatusChecking(instanceId, status string) error {
 	status, err := self.GetInstanceStatus(instanceId)
 	if err != nil {
 		log.Errorf("Fail to get instance status on StartVM: %s", err)
@@ -618,7 +618,7 @@ func (self *SRegion)  instanceStatusChecking(instanceId, status string) error {
 }
 
 func (self *SRegion) StartVM(instanceId string) error {
-	if err := self.instanceStatusChecking(instanceId, InstanceStatusStopped);err != nil {
+	if err := self.instanceStatusChecking(instanceId, InstanceStatusStopped); err != nil {
 		return err
 	}
 
@@ -629,7 +629,7 @@ func (self *SRegion) StartVM(instanceId string) error {
 }
 
 func (self *SRegion) StopVM(instanceId string, isForce bool) error {
-	if err := self.instanceStatusChecking(instanceId, InstanceStatusRunning);err != nil {
+	if err := self.instanceStatusChecking(instanceId, InstanceStatusRunning); err != nil {
 		return err
 	}
 
@@ -640,7 +640,7 @@ func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 }
 
 func (self *SRegion) DeleteVM(instanceId string) error {
-	if err := self.instanceStatusChecking(instanceId, InstanceStatusStopped);err != nil {
+	if err := self.instanceStatusChecking(instanceId, InstanceStatusStopped); err != nil {
 		return err
 	}
 
