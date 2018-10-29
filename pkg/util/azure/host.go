@@ -23,7 +23,7 @@ func (self *SHost) GetId() string {
 }
 
 func (self *SHost) GetName() string {
-	return fmt.Sprintf("%s(%s)", self.zone.region.client.subscriptionId, self.zone.region.client.subscriptionName)
+	return fmt.Sprintf("%s", self.zone.region.client.subscriptionId)
 }
 
 func (self *SHost) GetGlobalId() string {

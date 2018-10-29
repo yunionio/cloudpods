@@ -39,7 +39,6 @@ type SAzureClient struct {
 	envName             string
 	ressourceGroups     []SResourceGroup
 	fetchResourceGroups bool
-	subscriptionName    string
 	env                 azureenv.Environment
 	authorizer          autorest.Authorizer
 	iregions            []cloudprovider.ICloudRegion
@@ -510,22 +509,8 @@ func (self *SAzureClient) fetchRegions() error {
 			self.iregions[i] = &regions[i]
 		}
 	}
-	body, err := self.ListSubscriptions()
-	if err != nil {
-		return err
-	}
-	subscriptions, err := body.GetArray("value")
-	if err != nil {
-		return err
-	}
-	for _, subscription := range subscriptions {
-		subscriptionId, _ := subscription.GetString("subscriptionId")
-		if subscriptionId == self.subscriptionId {
-			self.subscriptionName, _ = subscription.GetString("displayName")
-			break
-		}
-	}
-	return nil
+	_, err := self.ListSubscriptions()
+	return err
 }
 
 func (self *SAzureClient) GetRegions() []SRegion {
