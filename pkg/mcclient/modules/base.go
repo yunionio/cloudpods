@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -53,7 +52,7 @@ func (this *BaseManager) versionedURL(path string) string {
 	} else {
 		ret = fmt.Sprintf("/%s", path[offset:])
 	}
-	log.Debugf("versionedURL %s %s => %s", this.version, path, ret)
+	// log.Debugf("versionedURL %s %s => %s", this.version, path, ret)
 	return ret
 }
 

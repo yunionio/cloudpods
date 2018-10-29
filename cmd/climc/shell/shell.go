@@ -1,7 +1,7 @@
 package shell
 
 import (
-	"fmt"
+	"errors"
 )
 
 type CMD struct {
@@ -13,10 +13,12 @@ type CMD struct {
 
 var CommandTable []CMD = make([]CMD, 0)
 
+var ErrEmtptyUpdate = errors.New("No valid update data")
+
 func R(options interface{}, command string, desc string, callback interface{}) {
 	CommandTable = append(CommandTable, CMD{options, command, desc, callback})
 }
 
 func InvalidUpdateError() error {
-	return fmt.Errorf("No valid update data")
+	return ErrEmtptyUpdate
 }

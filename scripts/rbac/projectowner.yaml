@@ -1,0 +1,7 @@
+# rbac for project owner, not allow for delete
+condition: roles.contains("project_owner")
+is_admin: false
+policy:
+  *:
+    *:
+      *: allow

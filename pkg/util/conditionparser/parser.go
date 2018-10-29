@@ -33,6 +33,9 @@ func IsValid(exprStr string) bool {
 }
 
 func Eval(exprStr string, input interface{}) (bool, error) {
+	if len(exprStr) == 0 {
+		return true, nil
+	}
 	expr, err := parser.ParseExpr(exprStr)
 	if err != nil {
 		log.Errorf("parse expr %s error %s", exprStr, err)
@@ -252,6 +255,11 @@ func evalCallInternal(funcV interface{}, args []interface{}) (interface{}, error
 					return nil, ErrFuncArgument
 				}
 				return jsonX.Size(), nil
+			case "keys":
+				if len(args) > 0 {
+					return nil, ErrFuncArgument
+				}
+				return jsonutils.NewStringArray(jsonX.SortedKeys()), nil
 			default:
 				return nil, ErrMethodNotFound
 			}
@@ -263,6 +271,31 @@ func evalCallInternal(funcV interface{}, args []interface{}) (interface{}, error
 					return nil, ErrFuncArgument
 				}
 				return len(array), nil
+			case "contains":
+				if len(args) < 1 {
+					return nil, ErrFuncArgument
+				}
+				for j := 0; j < len(args); j += 1 {
+					find := false
+					for i := 0; i < len(array); i += 1 {
+						findInf, err := evalBinaryInternal(array[i], args[j], token.EQL)
+						if err != nil {
+							return nil, err
+						}
+						switch findInf.(type) {
+						case bool:
+							if findInf.(bool) {
+								find = true
+							}
+						default:
+							return nil, ErrInvalidOp
+						}
+					}
+					if !find {
+						return false, nil
+					}
+				}
+				return true, nil
 			default:
 				return nil, ErrMethodNotFound
 			}
@@ -358,7 +391,7 @@ func evalSelectorInternal(X interface{}, identStr string) (interface{}, error) {
 			return ret, err
 		}
 	case []interface{}, *jsonutils.JSONArray:
-		if identStr == "len" {
+		if identStr == "len" || identStr == "contains" {
 			return &funcCaller{caller: X, method: identStr}, nil
 		}
 		arrX := getArray(X)

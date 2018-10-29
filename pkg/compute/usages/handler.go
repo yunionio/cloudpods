@@ -243,12 +243,33 @@ func getCommonGeneralUsage(cred mcclient.TokenCredential, rangeObj db.IStandalon
 
 func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) (count Usage, err error) {
 	count = make(map[string]interface{})
-	if userCred.IsSystemAdmin() {
+
+	isAdmin := false
+
+	if db.IsGlobalRbacEnabled() {
+		if db.PolicyManager.Allow(true, userCred, db.GetGlobalServiceType(),
+			"usages", db.PolicyActionGet) {
+			isAdmin = true
+		}
+	} else {
+		isAdmin = userCred.IsSystemAdmin()
+	}
+
+	if isAdmin {
 		count, err = getAdminGeneralUsage(userCred, rangeObj, hostTypes)
 		if err != nil {
 			return
 		}
 	}
+
+	if db.IsGlobalRbacEnabled() {
+		if !db.PolicyManager.Allow(false, userCred, db.GetGlobalServiceType(),
+			"usages", db.PolicyActionGet) {
+			err = httperrors.NewForbiddenError("not allow to get usages")
+			return
+		}
+	}
+
 	commonUsage, err := getCommonGeneralUsage(userCred, rangeObj, hostTypes)
 	if err != nil {
 		return

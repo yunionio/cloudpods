@@ -344,3 +344,7 @@ func (self *TokenCredentialV3) String() string {
 func (self *TokenCredentialV3) IsZero() bool {
 	return len(self.GetUserId()) == 0 && len(self.GetProjectId()) == 0
 }
+
+func (self *TokenCredentialV3) ToJson() jsonutils.JSONObject {
+	return SimplifyToken(self).ToJson()
+}
