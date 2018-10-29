@@ -7,13 +7,23 @@ import (
 
 func init() {
 	type EipListOptions struct {
-		Offset int `help:"List offset"`
-		Limit  int `help:"List limit"`
+		Classic bool `help:"List classic eips"`
+		Offset  int  `help:"List offset"`
+		Limit   int  `help:"List limit"`
 	}
 	shellutils.R(&EipListOptions{}, "eip-list", "List eips", func(cli *azure.SRegion, args *EipListOptions) error {
-		if eips, err := cli.GetEips(); err != nil {
-			return err
+		if args.Classic {
+			eips, err := cli.GetClassicEips()
+			if err != nil {
+				return err
+			}
+			printList(eips, len(eips), args.Offset, args.Limit, []string{})
+			return nil
 		} else {
+			eips, err := cli.GetEips()
+			if err != nil {
+				return err
+			}
 			printList(eips, len(eips), args.Offset, args.Limit, []string{})
 			return nil
 		}

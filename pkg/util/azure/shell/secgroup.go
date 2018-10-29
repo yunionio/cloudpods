@@ -7,16 +7,25 @@ import (
 
 func init() {
 	type SecurityGroupListOptions struct {
-		Limit  int `help:"page size"`
-		Offset int `help:"page offset"`
+		Classic bool `help:"List classic secgroups"`
+		Limit   int  `help:"page size"`
+		Offset  int  `help:"page offset"`
 	}
 	shellutils.R(&SecurityGroupListOptions{}, "security-group-list", "List security group", func(cli *azure.SRegion, args *SecurityGroupListOptions) error {
-		if secgrps, err := cli.GetSecurityGroups(); err != nil {
-			return err
-		} else {
+		if args.Classic {
+			secgrps, err := cli.GetClassicSecurityGroups()
+			if err != nil {
+				return err
+			}
 			printList(secgrps, len(secgrps), args.Offset, args.Limit, []string{})
 			return nil
 		}
+		secgrps, err := cli.GetSecurityGroups()
+		if err != nil {
+			return err
+		}
+		printList(secgrps, len(secgrps), args.Offset, args.Limit, []string{})
+		return nil
 	})
 
 	type SecurityGroupOptions struct {
@@ -43,11 +52,12 @@ func init() {
 	})
 
 	type SecurityGroupCreateOptions struct {
-		NAME string `help:"Security Group name"`
+		NAME  string `help:"Security Group name"`
+		TagId string `help:"Add a id tag to secgroup"`
 	}
 
 	shellutils.R(&SecurityGroupCreateOptions{}, "security-group-create", "Create security group", func(cli *azure.SRegion, args *SecurityGroupCreateOptions) error {
-		if secgrp, err := cli.CreateSecurityGroup(args.NAME); err != nil {
+		if secgrp, err := cli.CreateSecurityGroup(args.NAME, args.TagId); err != nil {
 			return err
 		} else {
 			printObject(secgrp)

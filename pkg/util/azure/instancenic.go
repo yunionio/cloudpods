@@ -1,10 +1,11 @@
 package azure
 
 import (
-	"context"
+	"fmt"
+	"regexp"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/netutils"
@@ -18,26 +19,26 @@ type PublicIPAddress struct {
 }
 
 type InterfaceIPConfigurationPropertiesFormat struct {
-	PrivateIPAddress          string
-	PrivateIPAddressVersion   string
-	PrivateIPAllocationMethod string
-	Subnet                    Subnet
-	Primary                   bool
-	PublicIPAddress           PublicIPAddress
+	PrivateIPAddress          string           `json:"privateIPAddress,omitempty"`
+	PrivateIPAddressVersion   string           `json:"privateIPAddressVersion,omitempty"`
+	PrivateIPAllocationMethod string           `json:"privateIPAllocationMethod,omitempty"`
+	Subnet                    Subnet           `json:"subnet,omitempty"`
+	Primary                   *bool            `json:"primary,omitempty"`
+	PublicIPAddress           *PublicIPAddress `json:"publicIPAddress,omitempty"`
 }
 
 type InterfaceIPConfiguration struct {
-	Properties InterfaceIPConfigurationPropertiesFormat
+	Properties InterfaceIPConfigurationPropertiesFormat `json:"properties,omitempty"`
 	Name       string
 	ID         string
 }
 
 type InterfacePropertiesFormat struct {
-	NetworkSecurityGroup SSecurityGroup
-	IPConfigurations     []InterfaceIPConfiguration
-	MacAddress           string
-	Primary              bool
-	VirtualMachine       SubResource
+	NetworkSecurityGroup *SSecurityGroup            `json:"networkSecurityGroup,omitempty"`
+	IPConfigurations     []InterfaceIPConfiguration `json:"ipConfigurations,omitempty"`
+	MacAddress           string                     `json:"aacAddress,omitempty"`
+	Primary              *bool                      `json:"primary,omitempty"`
+	VirtualMachine       *SubResource               `json:"virtualMachine,omitempty"`
 }
 
 type SInstanceNic struct {
@@ -46,23 +47,18 @@ type SInstanceNic struct {
 	Name       string
 	Type       string
 	Location   string
-	Properties InterfacePropertiesFormat
+	Properties InterfacePropertiesFormat `json:"properties,omitempty"`
 }
 
 func (self *SInstanceNic) GetIP() string {
-	return self.Properties.IPConfigurations[0].Properties.PrivateIPAddress
+	if len(self.Properties.IPConfigurations) > 0 {
+		return self.Properties.IPConfigurations[0].Properties.PrivateIPAddress
+	}
+	return ""
 }
 
 func (region *SRegion) DeleteNetworkInterface(interfaceId string) error {
-	_, resourceGroup, nicName := pareResourceGroupWithName(interfaceId, NIC_RESOURCE)
-	networkClient := network.NewInterfacesClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
-	networkClient.Authorizer = region.client.authorizer
-	if result, err := networkClient.Delete(context.Background(), resourceGroup, nicName); err != nil {
-		return err
-	} else if err := result.WaitForCompletion(context.Background(), networkClient.Client); err != nil {
-		return err
-	}
-	return nil
+	return region.client.Delete(interfaceId)
 }
 
 func (self *SInstanceNic) Delete() error {
@@ -84,35 +80,11 @@ func (self *SInstanceNic) GetDriver() string {
 
 func (self *SInstanceNic) updateSecurityGroup(secgroupId string) error {
 	region := self.instance.host.zone.region
-	nicClient := network.NewInterfacesClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
-	nicClient.Authorizer = region.client.authorizer
-	_, resourceGroup, nicName := pareResourceGroupWithName(self.ID, NIC_RESOURCE)
-	iPConfigurations := []network.InterfaceIPConfiguration{
-		{
-			Name: &nicName,
-			ID:   &self.ID,
-			InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
-				Subnet: &network.Subnet{ID: &self.Properties.IPConfigurations[0].Properties.Subnet.ID},
-			},
-		},
-	}
-	params := network.Interface{
-		Location: &region.Name,
-		InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
-			IPConfigurations:     &iPConfigurations,
-			NetworkSecurityGroup: &network.SecurityGroup{},
-		},
-	}
+	self.Properties.NetworkSecurityGroup = nil
 	if len(secgroupId) > 0 {
-		params.InterfacePropertiesFormat.NetworkSecurityGroup.ID = &secgroupId
+		self.Properties.NetworkSecurityGroup = &SSecurityGroup{ID: secgroupId}
 	}
-	region.CreateResourceGroup(resourceGroup)
-	if result, err := nicClient.CreateOrUpdate(context.Background(), resourceGroup, nicName, params); err != nil {
-		return err
-	} else if err := result.WaitForCompletion(context.Background(), nicClient.Client); err != nil {
-		return err
-	}
-	return nil
+	return region.client.Update(jsonutils.Marshal(self), nil)
 }
 
 func (self *SInstanceNic) revokeSecurityGroup() error {
@@ -124,16 +96,107 @@ func (self *SInstanceNic) assignSecurityGroup(secgroupId string) error {
 }
 
 func (self *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
-	if wires, err := self.instance.host.GetIWires(); err != nil {
+	wires, err := self.instance.host.GetIWires()
+	if err != nil {
 		log.Errorf("GetINetwork error: %v", err)
 		return nil
-	} else {
-		for i := 0; i < len(wires); i++ {
-			wire := wires[i].(*SWire)
-			if net := wire.getNetworkById(self.Properties.IPConfigurations[0].Properties.Subnet.ID); net != nil {
-				return net
+	}
+	for i := 0; i < len(wires); i++ {
+		wire := wires[i].(*SWire)
+		if len(self.Properties.IPConfigurations) > 0 {
+			network := wire.getNetworkById(self.Properties.IPConfigurations[0].Properties.Subnet.ID)
+			if network != nil {
+				return network
 			}
 		}
 	}
 	return nil
+}
+
+func (self *SRegion) GetNetworkInterfaceDetail(interfaceId string) (*SInstanceNic, error) {
+	instancenic := SInstanceNic{}
+	return &instancenic, self.client.Get(interfaceId, []string{}, &instancenic)
+}
+
+func (self *SRegion) GetNetworkInterfaces() ([]SInstanceNic, error) {
+	interfaces := []SInstanceNic{}
+	err := self.client.ListAll("Microsoft.Network/networkInterfaces", &interfaces)
+	if err != nil {
+		return nil, err
+	}
+	result := []SInstanceNic{}
+	for i := 0; i < len(interfaces); i++ {
+		if interfaces[i].Location == self.Name {
+			result = append(result, interfaces[i])
+		}
+	}
+	return result, nil
+}
+
+func (self *SRegion) isNetworkInstanceNameAvaliable(resourceGroupName, nicName string) (bool, error) {
+	nics := []SInstanceNic{}
+	err := self.client.ListByTypeWithResourceGroup(resourceGroupName, "Microsoft.Network/networkInterfaces", &nics)
+	if err != nil {
+		return false, err
+	}
+	for i := 0; i < len(nics); i++ {
+		if nics[i].Name == nicName {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func getResourceGroupNameByID(id string) string {
+	reg := regexp.MustCompile("/resourceGroups/(.+)/providers/")
+	_resourceGroup := reg.FindStringSubmatch(id)
+	if len(_resourceGroup) == 2 {
+		return _resourceGroup[1]
+	}
+	return ""
+}
+
+func (self *SRegion) CreateNetworkInterface(nicName string, ipAddr string, subnetId string, secgrpId string) (*SInstanceNic, error) {
+	secgroup, err := self.GetSecurityGroupDetails(secgrpId)
+	if err != nil {
+		return nil, err
+	}
+	secgroup.Properties.ProvisioningState = ""
+
+	resourceGroupName := getResourceGroupNameByID(subnetId)
+	nicNameBase := nicName
+	for i := 0; i < 5; i++ {
+		ok, err := self.isNetworkInstanceNameAvaliable(resourceGroupName, nicName)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			break
+		}
+		nicName = fmt.Sprintf("%s-%d", nicNameBase, i)
+	}
+
+	instancenic := SInstanceNic{
+		Name:     nicName,
+		Location: self.Name,
+		Properties: InterfacePropertiesFormat{
+			IPConfigurations: []InterfaceIPConfiguration{
+				{
+					Name: nicName,
+					Properties: InterfaceIPConfigurationPropertiesFormat{
+						PrivateIPAddress:          ipAddr,
+						PrivateIPAddressVersion:   "IPv4",
+						PrivateIPAllocationMethod: "Static",
+						Subnet: Subnet{
+							ID: subnetId,
+						},
+					},
+				},
+			},
+			NetworkSecurityGroup: secgroup,
+		},
+		Type: "Microsoft.Network/networkInterfaces",
+	}
+
+	return &instancenic, self.client.Create(jsonutils.Marshal(&instancenic), &instancenic)
 }

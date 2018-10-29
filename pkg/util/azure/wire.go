@@ -1,11 +1,9 @@
 package azure
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -51,7 +49,7 @@ func (self *SWire) addNetwork(network *SNetwork) {
 	}
 	find := false
 	for i := 0; i < len(self.inetworks); i += 1 {
-		if self.inetworks[i].GetId() == network.ID {
+		if self.inetworks[i].GetGlobalId() == strings.ToLower(network.ID) {
 			find = true
 			break
 		}
@@ -62,54 +60,38 @@ func (self *SWire) addNetwork(network *SNetwork) {
 }
 
 func (self *SRegion) createNetwork(vpc *SVpc, subnetName string, cidr string, desc string) (*SNetwork, error) {
-	addressSpace := network.AddressSpace{AddressPrefixes: &vpc.Properties.AddressSpace.AddressPrefixes}
-	subnets := []network.Subnet{}
-	for i := 0; i < len(vpc.Properties.Subnets); i++ {
-		subnet := vpc.Properties.Subnets[i]
-		subnetPropertiesFormat := network.SubnetPropertiesFormat{AddressPrefix: &subnet.Properties.AddressPrefix}
-		subNet := network.Subnet{Name: &subnet.Name, SubnetPropertiesFormat: &subnetPropertiesFormat}
-		subnets = append(subnets, subNet)
+	subnet := SNetwork{
+		Name: subnetName,
+		Properties: SubnetPropertiesFormat{
+			AddressPrefix: cidr,
+		},
 	}
-	subnetPropertiesFormat := network.SubnetPropertiesFormat{AddressPrefix: &cidr}
-	subNet := network.Subnet{Name: &subnetName, SubnetPropertiesFormat: &subnetPropertiesFormat}
-	subnets = append(subnets, subNet)
-
-	properties := network.VirtualNetworkPropertiesFormat{AddressSpace: &addressSpace, Subnets: &subnets}
-	params := network.VirtualNetwork{VirtualNetworkPropertiesFormat: &properties, Location: &vpc.Location}
-
-	networkClient := network.NewVirtualNetworksClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-	networkClient.Authorizer = self.client.authorizer
-	_, resourceGroup, vpcName := pareResourceGroupWithName(vpc.ID, VPC_RESOURCE)
-	result := SNetwork{}
-	self.CreateResourceGroup(resourceGroup)
-	if resp, err := networkClient.CreateOrUpdate(context.Background(), resourceGroup, vpcName, params); err != nil {
-		return nil, err
-	} else if err := resp.WaitForCompletion(context.Background(), networkClient.Client); err != nil {
-		return nil, err
-	} else if net, err := resp.Result(networkClient); err != nil {
-		return nil, err
+	if vpc.Properties.Subnets == nil {
+		subnets := []SNetwork{subnet}
+		vpc.Properties.Subnets = &subnets
 	} else {
-		for _, subnet := range *net.Subnets {
-			_, _, _subnetName := pareResourceGroupWithName(*subnet.ID, VPC_RESOURCE)
-			if _subnetName == subnetName {
-				if err := jsonutils.Update(&result, subnet); err != nil {
-					return nil, err
-				} else {
-					return &result, nil
-				}
-			}
+		*vpc.Properties.Subnets = append(*vpc.Properties.Subnets, subnet)
+	}
+	vpc.Properties.ProvisioningState = ""
+	err := self.client.Update(jsonutils.Marshal(vpc), vpc)
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(*vpc.Properties.Subnets); i++ {
+		if (*vpc.Properties.Subnets)[i].Name == subnetName {
+			subnet.ID = (*vpc.Properties.Subnets)[i].ID
 		}
 	}
-	return nil, cloudprovider.ErrNotFound
+	return &subnet, nil
 }
 
 func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	if network, err := self.zone.region.createNetwork(self.vpc, name, cidr, desc); err != nil {
+	network, err := self.zone.region.createNetwork(self.vpc, name, cidr, desc)
+	if err != nil {
 		return nil, err
-	} else {
-		network.wire = self
-		return network, nil
 	}
+	network.wire = self
+	return network, nil
 }
 
 func (self *SWire) GetBandwidth() int {
@@ -122,7 +104,7 @@ func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, e
 		return nil, err
 	}
 	for i := 0; i < len(networks); i += 1 {
-		if networks[i].GetGlobalId() == netid {
+		if networks[i].GetGlobalId() == strings.ToLower(netid) {
 			return networks[i], nil
 		}
 	}
@@ -152,7 +134,7 @@ func (self *SWire) getNetworkById(networkId string) *SNetwork {
 		log.Debugf("search for networks %d", len(networks))
 		for i := 0; i < len(networks); i++ {
 			network := networks[i].(*SNetwork)
-			if networkId == network.ID {
+			if strings.ToLower(networkId) == strings.ToLower(network.ID) {
 				return network
 			}
 		}

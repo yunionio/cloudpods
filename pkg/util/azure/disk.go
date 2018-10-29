@@ -1,7 +1,6 @@
 package azure
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -10,96 +9,81 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-04-01/compute"
-)
-
-type StorageAccountTypes string
-
-const (
-	// StorageAccountTypesPremiumLRS ...
-	StorageAccountTypesPremiumLRS StorageAccountTypes = "Premium_LRS"
-	// StorageAccountTypesStandardLRS ...
-	StorageAccountTypesStandardLRS StorageAccountTypes = "Standard_LRS"
-	// StorageAccountTypesStandardSSDLRS ...
-	StorageAccountTypesStandardSSDLRS StorageAccountTypes = "StandardSSD_LRS"
 )
 
 type DiskSku struct {
-	Name StorageAccountTypes
-	Tier string
+	Name string `json:"name,omitempty"`
+	Tier string `json:"tier,omitempty"`
 }
 
 type ImageDiskReference struct {
 	ID  string
-	Lun int32
+	Lun int32 `json:"lun,omitempty"`
 }
 
 type CreationData struct {
-	CreateOption     string
+	CreateOption     string `json:"createOption,omitempty"`
 	StorageAccountID string
-	ImageReference   ImageDiskReference
-	SourceURI        string
-	SourceResourceID string
+	ImageReference   *ImageDiskReference `json:"imageReference,omitempty"`
+	SourceURI        string              `json:"sourceUri,omitempty"`
+	SourceResourceID string              `json:"sourceResourceId,omitempty"`
 }
 
 type DiskProperties struct {
-	TimeCreated       time.Time
-	OsType            OperatingSystemTypes
-	CreationData      CreationData
-	DiskSizeGB        int32
-	ProvisioningState string
+	//TimeCreated       time.Time //??? 序列化出错？
+	OsType            string       `json:"osType,omitempty"`
+	CreationData      CreationData `json:"creationData,omitempty"`
+	DiskSizeGB        int32        `json:"diskSizeGB,omitempty"`
+	ProvisioningState string       `json:"provisioningState,omitempty"`
+	DiskState         string       `json:"diskState,omitempty"`
 }
 
 type SDisk struct {
 	storage *SStorage
 
-	ManagedBy  string
-	Sku        DiskSku
-	Zones      []string
-	ID         string
-	Name       string
-	Type       string
-	Location   string
-	Properties DiskProperties
+	ManagedBy  string         `json:"managedBy,omitempty"`
+	Sku        DiskSku        `json:"sku,omitempty"`
+	Zones      []string       `json:"zones,omitempty"`
+	ID         string         `json:"id,omitempty"`
+	Name       string         `json:"name,omitempty"`
+	Type       string         `json:"type,omitempty"`
+	Location   string         `json:"location,omitempty"`
+	Properties DiskProperties `json:"properties,omitempty"`
 
-	Tags map[string]string
+	Tags map[string]string `json:"tags,omitempty"`
 }
 
-func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, desc string, imageId string) (string, error) {
-	return self.createDisk(storageType, name, sizeGb, desc, imageId)
-}
-
-func (self *SRegion) createDisk(storageType string, name string, sizeGb int32, desc string, imageId string) (string, error) {
-	computeClient := compute.NewDisksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
-	computeClient.Authorizer = self.client.authorizer
-	sku := compute.DiskSku{Name: compute.StorageAccountTypes(storageType)}
-	properties := compute.DiskProperties{DiskSizeGB: &sizeGb, CreationData: &compute.CreationData{CreateOption: compute.Empty}}
+func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, desc string, imageId string) (*SDisk, error) {
+	disk := SDisk{
+		Name:     name,
+		Location: self.Name,
+		Sku: DiskSku{
+			Name: storageType,
+		},
+		Properties: DiskProperties{
+			CreationData: CreationData{
+				CreateOption: "Empty",
+			},
+			DiskSizeGB: sizeGb,
+		},
+		Type: "Microsoft.Compute/disks",
+	}
 	if len(imageId) > 0 {
-		globalId, _, _ := pareResourceGroupWithName(imageId, IMAGE_RESOURCE)
-		if image, err := self.GetImage(globalId); err != nil {
-			return "", err
-		} else if blobUri := image.GetBlobUri(); len(blobUri) == 0 {
-			return "", fmt.Errorf("failed to find blobUri for image %s", image.Name)
-		} else {
-			properties.CreationData = &compute.CreationData{
-				CreateOption: compute.Import,
-				SourceURI:    &blobUri,
-			}
-			properties.OsType = compute.OperatingSystemTypes(image.GetOsType())
+		image, err := self.GetImage(imageId)
+		if err != nil {
+			return nil, err
 		}
+		blobUrl := image.GetBlobUri()
+		if len(blobUrl) == 0 {
+			return nil, fmt.Errorf("failed to find blobUri for image %s", image.Name)
+		}
+		disk.Properties.CreationData = CreationData{
+			CreateOption: "Import",
+			SourceURI:    blobUrl,
+		}
+		disk.Properties.OsType = image.GetOsType()
 	}
-	disk := compute.Disk{Name: &name, Location: &self.Name, DiskProperties: &properties, Sku: &sku}
-	diskId, resourceGroup, diskName := pareResourceGroupWithName(name, DISK_RESOURCE)
-	//log.Debugf("Create disk: %s", jsonutils.Marshal(disk).PrettyString())
-	self.CreateResourceGroup(resourceGroup)
-	if result, err := computeClient.CreateOrUpdate(context.Background(), resourceGroup, diskName, disk); err != nil {
-		return "", err
-	} else if err := result.WaitForCompletion(context.Background(), computeClient.Client); err != nil {
-		return "", err
-	} else {
-		return diskId, nil
-	}
+	return &disk, self.client.Create(jsonutils.Marshal(disk), &disk)
 }
 
 func (self *SRegion) DeleteDisk(diskId string) error {
@@ -107,76 +91,44 @@ func (self *SRegion) DeleteDisk(diskId string) error {
 }
 
 func (self *SRegion) deleteDisk(diskId string) error {
-	diskClient := compute.NewDisksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
-	diskClient.Authorizer = self.client.authorizer
-	_, resourceGroup, name := pareResourceGroupWithName(diskId, DISK_RESOURCE)
-	if result, err := diskClient.Delete(context.Background(), resourceGroup, name); err != nil {
-		return err
-	} else if err := result.WaitForCompletion(context.Background(), diskClient.Client); err != nil {
-		return err
+	if !strings.HasPrefix(diskId, "https://") {
+		return self.client.Delete(diskId)
 	}
-	return nil
+	//TODO
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SRegion) ResizeDisk(diskId string, sizeGb int32) error {
-	return self.resizeDisk(diskId, sizeGb)
-}
-
-func (self *SRegion) resizeDisk(diskId string, sizeGb int32) error {
-	diskClient := compute.NewDisksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
-	diskClient.Authorizer = self.client.authorizer
-	_, resourceGroup, diskName := pareResourceGroupWithName(diskId, DISK_RESOURCE)
-	params := compute.DiskUpdate{
-		DiskUpdateProperties: &compute.DiskUpdateProperties{
-			DiskSizeGB: &sizeGb,
-		},
+	if !strings.HasPrefix(diskId, "https://") {
+		disk, err := self.GetDisk(diskId)
+		if err != nil {
+			return err
+		}
+		disk.Properties.DiskSizeGB = sizeGb
+		disk.Properties.ProvisioningState = ""
+		return self.client.Update(jsonutils.Marshal(disk), nil)
 	}
-	if result, err := diskClient.Update(context.Background(), resourceGroup, diskName, params); err != nil {
-		return err
-	} else if err := result.WaitForCompletion(context.Background(), diskClient.Client); err != nil {
-		return err
-	}
-	return nil
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	disk := SDisk{}
-	computeClient := compute.NewDisksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
-	computeClient.Authorizer = self.client.authorizer
-	_, resourceGroup, diskName := pareResourceGroupWithName(diskId, DISK_RESOURCE)
-	if len(diskId) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	if _disk, err := computeClient.Get(context.Background(), resourceGroup, diskName); err != nil {
-		if _disk.Response.StatusCode == 404 {
-			return nil, cloudprovider.ErrNotFound
-		}
-		return nil, err
-	} else if err := jsonutils.Update(&disk, _disk); err != nil {
-		return nil, err
-	} else {
-		return &disk, nil
-	}
+	return &disk, self.client.Get(diskId, []string{}, &disk)
 }
 
 func (self *SRegion) GetDisks() ([]SDisk, error) {
-	disks := make([]SDisk, 0)
-	computeClient := compute.NewDisksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
-	computeClient.Authorizer = self.client.authorizer
-	if diskList, err := computeClient.List(context.Background()); err != nil {
+	result := []SDisk{}
+	disks := []SDisk{}
+	err := self.client.ListAll("Microsoft.Compute/disks", &disks)
+	if err != nil {
 		return nil, err
-	} else {
-		for _, _disk := range diskList.Values() {
-			if *_disk.Location == self.Name {
-				disk := SDisk{}
-				if err := jsonutils.Update(&disk, _disk); err != nil {
-					return disks, err
-				}
-				disks = append(disks, disk)
-			}
+	}
+	for i := 0; i < len(disks); i++ {
+		if disks[i].Location == self.Name {
+			result = append(result, disks[i])
 		}
 	}
-	return disks, nil
+	return result, nil
 }
 
 func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
@@ -186,16 +138,19 @@ func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SDisk) GetStatus() string {
-	status := self.Properties.ProvisioningState
-	switch status {
-	case "Updating":
-		return models.DISK_ALLOCATING
-	case "Succeeded":
-		return models.DISK_READY
-	default:
-		log.Errorf("Unknow azure disk status: %s", status)
-		return models.DISK_UNKNOWN
+	if !strings.HasPrefix(self.ID, "https://") {
+		status := self.Properties.ProvisioningState
+		switch status {
+		case "Updating":
+			return models.DISK_ALLOCATING
+		case "Succeeded":
+			return models.DISK_READY
+		default:
+			log.Errorf("Unknow azure disk %s status: %s", self.ID, status)
+			return models.DISK_UNKNOWN
+		}
 	}
+	return models.DISK_READY
 }
 
 func (self *SDisk) GetId() string {
@@ -203,11 +158,14 @@ func (self *SDisk) GetId() string {
 }
 
 func (self *SDisk) Refresh() error {
-	if disk, err := self.storage.zone.region.GetDisk(self.ID); err != nil {
-		return cloudprovider.ErrNotFound
-	} else {
+	if !strings.HasPrefix(self.ID, "https://") {
+		disk, err := self.storage.zone.region.GetDisk(self.ID)
+		if err != nil {
+			return cloudprovider.ErrNotFound
+		}
 		return jsonutils.Update(self, disk)
 	}
+	return nil
 }
 
 func (self *SDisk) Delete() error {
@@ -215,7 +173,7 @@ func (self *SDisk) Delete() error {
 }
 
 func (self *SDisk) Resize(size int64) error {
-	return self.storage.zone.region.resizeDisk(self.ID, int32(size))
+	return self.storage.zone.region.ResizeDisk(self.ID, int32(size))
 }
 
 func (self *SDisk) GetName() string {
@@ -270,7 +228,10 @@ func (self *SDisk) GetIsAutoDelete() bool {
 }
 
 func (self *SDisk) GetTemplateId() string {
-	return self.Properties.CreationData.ImageReference.ID
+	if self.Properties.CreationData.ImageReference != nil {
+		return self.Properties.CreationData.ImageReference.ID
+	}
+	return ""
 }
 
 func (self *SDisk) GetDiskType() string {
@@ -294,15 +255,18 @@ func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot
 }
 
 func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	if snapshots, err := self.storage.zone.region.GetSnapShots(self.ID); err != nil {
-		return nil, err
-	} else {
-		isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots))
-		for i := 0; i < len(snapshots); i++ {
-			isnapshots[i] = &snapshots[i]
+	isnapshots := make([]cloudprovider.ICloudSnapshot, 0)
+	if !strings.HasPrefix(self.ID, "https://") {
+		snapshots, err := self.storage.zone.region.GetSnapShots(self.ID)
+		if err != nil {
+			return nil, err
 		}
-		return isnapshots, nil
+
+		for i := 0; i < len(snapshots); i++ {
+			isnapshots = append(isnapshots, &snapshots[i])
+		}
 	}
+	return isnapshots, nil
 }
 
 func (self *SDisk) GetBillingType() string {
@@ -314,61 +278,39 @@ func (self *SDisk) GetExpiredAt() time.Time {
 }
 
 func (self *SDisk) GetSnapshotDetail(snapshotId string) (*SSnapshot, error) {
-	if snapshot, err := self.storage.zone.region.GetSnapshotDetail(snapshotId); err != nil {
+	snapshot, err := self.storage.zone.region.GetSnapshotDetail(snapshotId)
+	if err != nil {
 		return nil, err
-	} else if snapshot.Properties.CreationData.SourceResourceID != self.ID {
-		return nil, cloudprovider.ErrNotFound
-	} else {
-		return snapshot, nil
 	}
+	if snapshot.Properties.CreationData.SourceResourceID != self.ID {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return snapshot, nil
 }
 
 func (region *SRegion) GetSnapshotDetail(snapshotId string) (*SSnapshot, error) {
-	snapshot := SSnapshot{}
-	_, resourceGroup, snapshotName := pareResourceGroupWithName(snapshotId, SNAPSHOT_RESOURCE)
-	snapClient := compute.NewSnapshotsClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
-	snapClient.Authorizer = region.client.authorizer
-	if result, err := snapClient.Get(context.Background(), resourceGroup, snapshotName); err != nil {
-		if result.Response.StatusCode == 404 {
-			return nil, cloudprovider.ErrNotFound
-		}
-		return nil, err
-	} else if err := jsonutils.Update(&snapshot, result); err != nil {
-		return nil, err
-	}
-	snapshot.region = region
-	return &snapshot, nil
+	snapshot := SSnapshot{region: region}
+	return &snapshot, region.client.Get(snapshotId, []string{}, &snapshot)
 }
 
 func (region *SRegion) GetSnapShots(diskId string) ([]SSnapshot, error) {
-	snapshots := []SSnapshot{}
-	snapClient := compute.NewSnapshotsClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
-	snapClient.Authorizer = region.client.authorizer
-	if result, err := snapClient.List(context.Background()); err != nil {
-		return nil, err
-	} else if len(diskId) > 0 {
-		globalId, _, _ := pareResourceGroupWithName(diskId, DISK_RESOURCE)
-		data := result.Values()
-		for i := 0; i < len(data); i++ {
-			sourceId := *data[i].CreationData.SourceResourceID
-			if len(sourceId) > 0 {
-				snap := SSnapshot{}
-				_globalId, _, _ := pareResourceGroupWithName(sourceId, DISK_RESOURCE)
-				if globalId == _globalId {
-					if err := jsonutils.Update(&snap, data[i]); err != nil {
-						return nil, err
-					}
-					snapshots = append(snapshots, snap)
+	result := []SSnapshot{}
+	if !strings.HasPrefix(diskId, "https://") {
+		snapshots := []SSnapshot{}
+		err := region.client.ListAll("Microsoft.Compute/snapshots", &snapshots)
+		if err != nil {
+			return nil, err
+		}
+		for i := 0; i < len(snapshots); i++ {
+			if snapshots[i].Location == region.Name {
+				if len(diskId) == 0 || diskId == snapshots[i].Properties.CreationData.SourceResourceID {
+					snapshots[i].region = region
+					result = append(result, snapshots[i])
 				}
 			}
 		}
-	} else if err := jsonutils.Update(&snapshots, result.Values()); err != nil {
-		return snapshots, nil
 	}
-	for i := 0; i < len(snapshots); i++ {
-		snapshots[i].region = region
-	}
-	return snapshots, nil
+	return result, nil
 }
 
 func (self *SDisk) Reset(snapshotId string) error {
