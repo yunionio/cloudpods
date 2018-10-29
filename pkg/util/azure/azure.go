@@ -470,7 +470,7 @@ func _jsonRequest(client *autorest.Client, method, domain, baseURL, body string)
 		return nil, err
 	}
 	if result.Contains("error") {
-		log.Errorf("Azure %s request: %s \nbody: %s error: %v", req.Method, req.URL.String(), body, err)
+		log.Errorf("Azure %s request: %s \nbody: %s error: %v", req.Method, req.URL.String(), body, result.String())
 		return nil, fmt.Errorf(result.String())
 	}
 	return result, nil
