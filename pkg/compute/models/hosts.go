@@ -1611,7 +1611,7 @@ func (self *SHost) GetIHost() (cloudprovider.ICloudHost, error) {
 	}
 	ihost, err := provider.GetIHostById(self.ExternalId)
 	if err != nil {
-		log.Errorf("fail to find ihost by id %s", err)
+		log.Errorf("fail to find ihost by id %s %s", self.ExternalId, err)
 		return nil, fmt.Errorf("fail to find ihost by id %s", err)
 	}
 	return ihost, nil

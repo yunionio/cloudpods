@@ -1,11 +1,9 @@
 package azure
 
 import (
-	"context"
 	"fmt"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -15,10 +13,6 @@ import (
 type SHost struct {
 	zone *SZone
 }
-
-const (
-	DEFAULT_USER = "yunion"
-)
 
 func (self *SHost) GetMetadata() *jsonutils.JSONDict {
 	return nil
@@ -57,7 +51,7 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 	} else {
 		nicId = nic.ID
 	}
-	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, nicId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, userData)
+	vmId, err := self._createVM(name, imgId, int32(sysDiskSize), cpu, memMB, nicId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, userData)
 	if err != nil {
 		self.zone.region.DeleteNetworkInterface(nicId)
 		return nil, err
@@ -70,10 +64,7 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 	}
 }
 
-func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, nicId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, userData string) (string, error) {
-	computeClient := compute.NewVirtualMachinesClientWithBaseURI(self.zone.region.client.baseUrl, self.zone.region.client.subscriptionId)
-	computeClient.Authorizer = self.zone.region.client.authorizer
-
+func (self *SHost) _createVM(name string, imgId string, sysDiskSize int32, cpu int, memMB int, nicId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, userData string) (string, error) {
 	image, err := self.zone.region.GetImage(imgId)
 	if err != nil {
 		log.Errorf("Get Image %s fail %s", imgId, err)
@@ -89,86 +80,80 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 		return "", fmt.Errorf("Storage %s not avaiable: %s", storageType, err)
 	}
 
-	osDiskName := fmt.Sprintf("vdisk_%s_%d", name, time.Now().UnixNano())
-	DataDisks := make([]compute.DataDisk, 0)
+	instance := SInstance{
+		Name:     name,
+		Location: self.zone.region.Name,
+		Properties: VirtualMachineProperties{
+			HardwareProfile: HardwareProfile{
+				VMSize: "",
+			},
+			OsProfile: OsProfile{
+				ComputerName:  name,
+				AdminUsername: DEFAULT_USER,
+				AdminPassword: passwd,
+				CustomData:    userData,
+			},
+			NetworkProfile: NetworkProfile{
+				NetworkInterfaces: []NetworkInterfaceReference{
+					{
+						ID: nicId,
+					},
+				},
+			},
+			StorageProfile: StorageProfile{
+				ImageReference: ImageReference{
+					ID: image.ID,
+				},
+				OsDisk: OSDisk{
+					Name:    fmt.Sprintf("vdisk_%s_%d", name, time.Now().UnixNano()),
+					Caching: "ReadWrite",
+					ManagedDisk: &ManagedDiskParameters{
+						StorageAccountType: storage.Name,
+					},
+					CreateOption: "FromImage",
+					DiskSizeGB:   &sysDiskSize,
+					OsType:       image.GetOsType(),
+				},
+			},
+		},
+		Type: "Microsoft.Compute/virtualMachines",
+	}
+	if len(publicKey) > 0 {
+		instance.Properties.OsProfile.LinuxConfiguration = &LinuxConfiguration{
+			DisablePasswordAuthentication: false,
+			SSH: &SSHConfiguration{
+				PublicKeys: []SSHPublicKey{
+					{KeyData: publicKey},
+				},
+			},
+		}
+	}
+
+	dataDisks := []DataDisk{}
 	for i := 0; i < len(diskSizes); i++ {
 		diskName := fmt.Sprintf("vdisk_%s_%d", name, time.Now().UnixNano())
 		size := int32(diskSizes[i])
 		lun := int32(i)
-		DataDisks = append(DataDisks, compute.DataDisk{
-			Name:         &diskName,
+		dataDisks = append(dataDisks, DataDisk{
+			Name:         diskName,
 			DiskSizeGB:   &size,
-			CreateOption: compute.Empty,
-			Lun:          &lun,
+			CreateOption: "Empty",
+			Lun:          lun,
 		})
 	}
-
-	AdminUsername := DEFAULT_USER
-
-	NetworkInterfaceReferences := []compute.NetworkInterfaceReference{
-		{ID: &nicId},
+	if len(dataDisks) > 0 {
+		instance.Properties.StorageProfile.DataDisks = dataDisks
 	}
 
-	osType := compute.OperatingSystemTypes(image.GetOsType())
-	DiskSizeGB := int32(sysDiskSize)
-
-	// bootDiagnostics := true
-	// diagnosticsProfile := compute.DiagnosticsProfile{
-	// 	BootDiagnostics: &compute.BootDiagnostics{
-	// 		Enabled: &bootDiagnostics,
-	// 		//StorageURI:
-	// 	},
-	// }
-	sshKeys := []compute.SSHPublicKey{{KeyData: &publicKey}}
-	properties := compute.VirtualMachineProperties{
-		HardwareProfile: &compute.HardwareProfile{},
-		StorageProfile: &compute.StorageProfile{
-			ImageReference: &compute.ImageReference{ID: &image.ID},
-			OsDisk: &compute.OSDisk{
-				Caching: compute.ReadWrite,
-				ManagedDisk: &compute.ManagedDiskParameters{
-					StorageAccountType: compute.StorageAccountTypes(storage.storageType),
-				},
-				Name:         &osDiskName,
-				CreateOption: compute.FromImage,
-				OsType:       osType,
-				DiskSizeGB:   &DiskSizeGB,
-			},
-			DataDisks: &DataDisks,
-		},
-
-		OsProfile: &compute.OSProfile{
-			ComputerName:       &name,
-			AdminUsername:      &AdminUsername,
-			AdminPassword:      &passwd,
-			LinuxConfiguration: &compute.LinuxConfiguration{},
-		},
-		NetworkProfile: &compute.NetworkProfile{NetworkInterfaces: &NetworkInterfaceReferences},
-	}
-
-	if len(publicKey) > 0 {
-		properties.OsProfile.LinuxConfiguration.SSH = &compute.SSHConfiguration{PublicKeys: &sshKeys}
-	}
-
-	if len(userData) > 0 {
-		properties.OsProfile.CustomData = &userData
-	}
-
-	params := compute.VirtualMachine{Location: &self.zone.region.Name, Name: &name, VirtualMachineProperties: &properties}
-	//log.Debugf("Create instance params: %s", jsonutils.Marshal(params).PrettyString())
 	for _, profile := range self.zone.region.getHardwareProfile(cpu, memMB) {
-		params.HardwareProfile.VMSize = compute.VirtualMachineSizeTypes(profile)
+		instance.Properties.HardwareProfile.VMSize = profile
 		log.Debugf("Try HardwareProfile : %s", profile)
-		instanceId, resourceGroup, instanceName := pareResourceGroupWithName(name, INSTANCE_RESOURCE)
-		self.zone.region.CreateResourceGroup(resourceGroup)
-		result, err := computeClient.CreateOrUpdate(context.Background(), resourceGroup, instanceName, params)
+		err := self.zone.region.client.Create(jsonutils.Marshal(instance), &instance)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", profile, err)
-		} else if _, err := result.Done(computeClient.Client); err != nil {
-			return "", err
-		} else {
-			return instanceId, nil
+			continue
 		}
+		return instance.ID, nil
 	}
 	return "", fmt.Errorf("Failed to create, specification not supported")
 }
@@ -222,16 +207,16 @@ func (self *SHost) GetSysInfo() jsonutils.JSONObject {
 }
 
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	return self.zone.GetIStorages()
+	return self.zone.istorages, nil
 }
 
 func (self *SHost) GetIVMById(instanceId string) (cloudprovider.ICloudVM, error) {
-	if instance, err := self.zone.region.GetInstance(instanceId); err != nil {
+	instance, err := self.zone.region.GetInstance(instanceId)
+	if err != nil {
 		return nil, err
-	} else {
-		instance.host = self
-		return instance, nil
 	}
+	instance.host = self
+	return instance, nil
 }
 
 func (self *SHost) GetStorageSizeMB() int {
@@ -247,17 +232,17 @@ func (self *SHost) GetSN() string {
 }
 
 func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	if vms, err := self.zone.region.GetInstances(); err != nil {
+	vms, err := self.zone.region.GetInstances()
+	if err != nil {
 		return nil, err
-	} else {
-		ivms := make([]cloudprovider.ICloudVM, len(vms))
-		for i := 0; i < len(vms); i++ {
-			vms[i].host = self
-			ivms[i] = &vms[i]
-			log.Debugf("find vm %s for host %s", vms[i].GetName(), self.GetName())
-		}
-		return ivms, nil
 	}
+	ivms := make([]cloudprovider.ICloudVM, len(vms))
+	for i := 0; i < len(vms); i++ {
+		vms[i].host = self
+		ivms[i] = &vms[i]
+		log.Debugf("find vm %s for host %s", vms[i].GetName(), self.GetName())
+	}
+	return ivms, nil
 }
 
 func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {

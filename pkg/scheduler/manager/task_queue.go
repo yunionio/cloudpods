@@ -200,8 +200,8 @@ type TaskManager struct {
 func NewTaskManager(stopCh <-chan struct{}) *TaskManager {
 	return &TaskManager{
 		taskExecutorQueueManager: NewTaskExecutorQueueManager(stopCh),
-		stopCh:                   stopCh,
-		lock:                     sync.Mutex{},
+		stopCh: stopCh,
+		lock:   sync.Mutex{},
 	}
 }
 

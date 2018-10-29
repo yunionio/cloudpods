@@ -1,7 +1,6 @@
 package azure
 
 import (
-	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -9,26 +8,23 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
-
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network"
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-10-01/storage"
 )
 
 type SVMSize struct {
-	MaxDataDiskCount     int32
-	MemoryInMB           int32
-	NumberOfCores        int32
+	//MaxDataDiskCount     int32 `json:"maxDataDiskCount,omitempty"` //Unmarshal会出错
+	MemoryInMB           int32 `json:"memoryInMB,omitempty"`
+	NumberOfCores        int32 `json:"numberOfCores,omitempty"`
 	Name                 string
-	OsDiskSizeInMB       int32
-	ResourceDiskSizeInMB int32
+	OsDiskSizeInMB       int32 `json:"osDiskSizeInMB,omitempty"`
+	ResourceDiskSizeInMB int32 `json:"resourceDiskSizeInMB,omitempty"`
 }
 
 type SRegion struct {
 	client *SAzureClient
 
-	izones []cloudprovider.ICloudZone
-	ivpcs  []cloudprovider.ICloudVpc
+	izones       []cloudprovider.ICloudZone
+	ivpcs        []cloudprovider.ICloudVpc
+	iclassicVpcs []cloudprovider.ICloudVpc
 
 	storageCache *SStoragecache
 
@@ -51,22 +47,20 @@ func (self *SRegion) GetClient() *SAzureClient {
 }
 
 func (self *SRegion) GetVMSize() (map[string]SVMSize, error) {
-	computeClient := compute.NewVirtualMachineSizesClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
-	computeClient.Authorizer = self.client.authorizer
-	if vmSizeList, err := computeClient.List(context.Background(), self.Name); err != nil {
+	body, err := self.client.ListVmSizes(self.Name)
+	if err != nil {
 		return nil, err
-	} else {
-		vmSizes := make(map[string]SVMSize, len(*vmSizeList.Value))
-		for _, _vmSize := range *vmSizeList.Value {
-			vmSize := SVMSize{}
-			if err := jsonutils.Update(&vmSize, _vmSize); err != nil {
-				return nil, err
-			} else {
-				vmSizes[*_vmSize.Name] = vmSize
-			}
-		}
-		return vmSizes, nil
 	}
+	vmSizes := []SVMSize{}
+	err = body.Unmarshal(&vmSizes, "value")
+	if err != nil {
+		return nil, err
+	}
+	result := map[string]SVMSize{}
+	for i := 0; i < len(vmSizes); i++ {
+		result[vmSizes[i].Name] = vmSizes[i]
+	}
+	return result, nil
 }
 
 func (self *SRegion) getHardwareProfile(cpu, memMB int) []string {
@@ -84,13 +78,15 @@ func (self *SRegion) getHardwareProfile(cpu, memMB int) []string {
 }
 
 func (self *SRegion) getVMSize(size string) (*SVMSize, error) {
-	if vmSizes, err := self.GetVMSize(); err != nil {
+	vmSizes, err := self.GetVMSize()
+	if err != nil {
 		return nil, err
-	} else if vmSize, ok := vmSizes[size]; !ok {
-		return nil, cloudprovider.ErrNotFound
-	} else {
-		return &vmSize, nil
 	}
+	vmSize, ok := vmSizes[size]
+	if !ok {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return &vmSize, nil
 }
 
 func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
@@ -130,25 +126,18 @@ func (self *SRegion) GetStatus() string {
 }
 
 func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
-	vpcClient := network.NewVirtualNetworksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
-	vpcClient.Authorizer = self.client.authorizer
-	addressPrefixes := []string{cidr}
-	addressSpace := network.AddressSpace{AddressPrefixes: &addressPrefixes}
-	properties := network.VirtualNetworkPropertiesFormat{AddressSpace: &addressSpace}
-	parameters := network.VirtualNetwork{Name: &name, Location: &self.Name, VirtualNetworkPropertiesFormat: &properties}
-	vpcId, resourceGroup, vpcName := pareResourceGroupWithName(name, VPC_RESOURCE)
-	self.CreateResourceGroup(resourceGroup)
-	if result, err := vpcClient.CreateOrUpdate(context.Background(), resourceGroup, vpcName, parameters); err != nil {
-		return nil, err
-	} else if err := result.WaitForCompletion(context.Background(), vpcClient.Client); err != nil {
-		return nil, err
-	} else if err := self.fetchInfrastructure(); err != nil {
-		return nil, err
-	} else if vpc, err := self.GetIVpcById(vpcId); err != nil {
-		return nil, err
-	} else {
-		return vpc, nil
+	vpc := SVpc{
+		region:   self,
+		Name:     name,
+		Location: self.Name,
+		Properties: VirtualNetworkPropertiesFormat{
+			AddressSpace: AddressSpace{
+				AddressPrefixes: []string{cidr},
+			},
+		},
+		Type: "Microsoft.Network/virtualNetworks",
 	}
+	return &vpc, self.client.Create(jsonutils.Marshal(vpc), &vpc)
 }
 
 func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
@@ -192,16 +181,13 @@ func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStorag
 }
 
 func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
-	if ivpcs, err := self.GetIVpcs(); err != nil {
+	ivpcs, err := self.GetIVpcs()
+	if err != nil {
 		return nil, err
-	} else {
-		_, resourceGroup, vpcName := pareResourceGroupWithName(id, VPC_RESOURCE)
-		for i := 0; i < len(ivpcs); i++ {
-			vpcId := ivpcs[i].GetId()
-			_, _resourceGroup, _vpcName := pareResourceGroupWithName(vpcId, VPC_RESOURCE)
-			if _resourceGroup == resourceGroup && _vpcName == vpcName {
-				return ivpcs[i], nil
-			}
+	}
+	for i := 0; i < len(ivpcs); i++ {
+		if ivpcs[i].GetGlobalId() == id {
+			return ivpcs[i], nil
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
@@ -235,7 +221,7 @@ func (self *SRegion) getZoneById(id string) (*SZone, error) {
 }
 
 func (self *SRegion) fetchZones() error {
-	if self.izones == nil {
+	if self.izones == nil || len(self.izones) == 0 {
 		self.izones = make([]cloudprovider.ICloudZone, 1)
 		zone := SZone{region: self, Name: self.Name}
 		self.izones[0] = &zone
@@ -259,47 +245,68 @@ func (self *SRegion) getStoragecache() *SStoragecache {
 	return self.storageCache
 }
 
-func (self *SRegion) getStorage() ([]SStorage, error) {
-	storages := make([]SStorage, 0)
-	storageClient := storage.NewAccountsClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
-	storageClient.Authorizer = self.client.authorizer
-	if storageList, err := storageClient.List(context.Background()); err != nil {
+func (self *SRegion) getVpcs() ([]SVpc, error) {
+	result := []SVpc{}
+	vpcs := []SVpc{}
+	err := self.client.ListAll("Microsoft.Network/virtualNetworks", &vpcs)
+	if err != nil {
 		return nil, err
-	} else if err := jsonutils.Update(&storages, storageList.Value); err != nil {
-		return storages, err
 	}
-	return storages, nil
+	for i := 0; i < len(vpcs); i++ {
+		if vpcs[i].Location == self.Name {
+			result = append(result, vpcs[i])
+		}
+	}
+	return result, nil
 }
 
-func (self *SRegion) getVpcs() ([]SVpc, error) {
-	vpcs := make([]SVpc, 0)
-	networkClient := network.NewVirtualNetworksClientWithBaseURI(self.client.baseUrl, self.client.subscriptionId)
-	networkClient.Authorizer = self.client.authorizer
-	if vpcList, err := networkClient.ListAll(context.Background()); err != nil {
-		return nil, err
-	} else if err := jsonutils.Update(&vpcs, vpcList.Values()); err != nil {
-		return nil, err
+func (self *SRegion) getClassicVpcs() ([]SClassicVpc, error) {
+	result := []SClassicVpc{}
+	for _, resourceType := range []string{"Microsoft.ClassicNetwork/virtualNetworks"} {
+		vpcs := []SClassicVpc{}
+		err := self.client.ListAll(resourceType, &vpcs)
+		if err != nil {
+			return nil, err
+		}
+		for i := 0; i < len(vpcs); i++ {
+			if vpcs[i].Location == self.Name {
+				result = append(result, vpcs[i])
+			}
+		}
 	}
-	return vpcs, nil
+	return result, nil
+}
+
+func (self *SRegion) fetchIClassicVpc() error {
+	classicVpcs, err := self.getClassicVpcs()
+	if err != nil {
+		return err
+	}
+	self.iclassicVpcs = make([]cloudprovider.ICloudVpc, 0)
+	for i := 0; i < len(classicVpcs); i++ {
+		classicVpcs[i].region = self
+		self.iclassicVpcs = append(self.iclassicVpcs, &classicVpcs[i])
+	}
+	return nil
 }
 
 func (self *SRegion) fetchIVpc() error {
-	if vpcs, err := self.getVpcs(); err != nil {
+	vpcs, err := self.getVpcs()
+	if err != nil {
 		return err
-	} else {
-		self.ivpcs = make([]cloudprovider.ICloudVpc, 0)
-		for i := 0; i < len(vpcs); i++ {
-			if vpcs[i].Location == self.Name {
-				vpcs[i].region = self
-				self.ivpcs = append(self.ivpcs, &vpcs[i])
-			}
+	}
+	self.ivpcs = make([]cloudprovider.ICloudVpc, 0)
+	for i := 0; i < len(vpcs); i++ {
+		if vpcs[i].Location == self.Name {
+			vpcs[i].region = self
+			self.ivpcs = append(self.ivpcs, &vpcs[i])
 		}
 	}
 	return nil
 }
 
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
-	if self.ivpcs == nil {
+	if self.ivpcs == nil || self.iclassicVpcs == nil {
 		if err := self.fetchInfrastructure(); err != nil {
 			return nil, err
 		}
@@ -307,14 +314,23 @@ func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 	for _, vpc := range self.ivpcs {
 		log.Debugf("find vpc %s for region %s", vpc.GetName(), self.GetName())
 	}
-	return self.ivpcs, nil
+	for _, vpc := range self.iclassicVpcs {
+		log.Debugf("find classic vpc %s for region %s", vpc.GetName(), self.GetName())
+	}
+	ivpcs := self.ivpcs
+	if len(self.iclassicVpcs) > 0 {
+		ivpcs = append(ivpcs, self.iclassicVpcs...)
+	}
+	return ivpcs, nil
 }
 
 func (self *SRegion) fetchInfrastructure() error {
-	if err := self.fetchZones(); err != nil {
+	err := self.fetchZones()
+	if err != nil {
 		return err
 	}
-	if err := self.fetchIVpc(); err != nil {
+	err = self.fetchIVpc()
+	if err != nil {
 		return err
 	}
 	for i := 0; i < len(self.ivpcs); i++ {
@@ -323,6 +339,20 @@ func (self *SRegion) fetchInfrastructure() error {
 			vpc := self.ivpcs[i].(*SVpc)
 			wire := SWire{zone: zone, vpc: vpc}
 			zone.addWire(&wire)
+			vpc.addWire(&wire)
+		}
+	}
+
+	err = self.fetchIClassicVpc()
+	if err != nil {
+		return err
+	}
+	for i := 0; i < len(self.iclassicVpcs); i++ {
+		for j := 0; j < len(self.izones); j++ {
+			zone := self.izones[j].(*SZone)
+			vpc := self.iclassicVpcs[i].(*SClassicVpc)
+			wire := SClassicWire{zone: zone, vpc: vpc}
+			zone.addClassicWire(&wire)
 			vpc.addWire(&wire)
 		}
 	}
@@ -348,4 +378,41 @@ func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, me
 		}
 	}
 	return nil, fmt.Errorf("cannot find network %s", networkId)
+}
+
+func (region *SRegion) GetEips() ([]SEipAddress, error) {
+	eips := []SEipAddress{}
+	err := region.client.ListAll("Microsoft.Network/publicIPAddresses", &eips)
+	if err != nil {
+		return nil, err
+	}
+	result := []SEipAddress{}
+	for i := 0; i < len(eips); i++ {
+		if eips[i].Location == region.Name {
+			eips[i].region = region
+			result = append(result, eips[i])
+		}
+	}
+	return result, nil
+}
+
+func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
+	eips, err := region.GetEips()
+	if err != nil {
+		return nil, err
+	}
+	classicEips, err := region.GetClassicEips()
+	if err != nil {
+		return nil, err
+	}
+	ieips := make([]cloudprovider.ICloudEIP, len(eips)+len(classicEips))
+	for i := 0; i < len(eips); i++ {
+		eips[i].region = region
+		ieips[i] = &eips[i]
+	}
+	for i := 0; i < len(classicEips); i++ {
+		classicEips[i].region = region
+		ieips[len(eips)+i] = &classicEips[i]
+	}
+	return ieips, nil
 }
