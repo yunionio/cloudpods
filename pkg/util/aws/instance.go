@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/pkg/util/osprofile"
+	"yunion.io/x/pkg/utils"
 )
 
 const (
@@ -349,7 +350,7 @@ func (self *SInstance) DeployVM(name string, password string, publicKey string, 
 }
 
 func (self *SInstance) ChangeConfig(instanceId string, ncpu int, vmem int) error {
-	panic("implement me")
+	return self.host.zone.region.ChangeVMConfig(self.ZoneId, self.InstanceId, ncpu, vmem, nil)
 }
 
 func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
@@ -357,15 +358,16 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 }
 
 func (self *SInstance) AttachDisk(diskId string) error {
-	return self.host.zone.region.AttachDisk(self.InstanceId, diskId)
-}
-
-func (self *SInstance) DetachDisk(diskId string) error {
+	// todo：bugfix . self.DeviceNames => self.GetDeviceNames()
 	name, err := NextDeviceName(self.DeviceNames)
 	if err != nil {
 		return err
 	}
-	return self.host.zone.region.DetachDisk(self.InstanceId, diskId, name)
+	return self.host.zone.region.AttachDisk(self.InstanceId, diskId, name)
+}
+
+func (self *SInstance) DetachDisk(diskId string) error {
+	return self.host.zone.region.DetachDisk(self.InstanceId, diskId)
 }
 
 func (self *SInstance) getVpc() (*SVpc, error) {
@@ -664,7 +666,26 @@ func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd
 }
 
 func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, vmem int, disks []*SDisk) error {
-	return nil
+	params := &ec2.ModifyInstanceAttributeInput{}
+	params.SetInstanceId(instanceId)
+	instanceTypes, err := self.GetMatchInstanceTypes(ncpu, vmem, 0, zoneId)
+	if err != nil {
+		return err
+	}
+
+	for _, instancetype := range instanceTypes {
+		t := &ec2.AttributeValue{Value: &instancetype.InstanceTypeId}
+		params.SetInstanceType(t)
+
+		_, err := self.ec2Client.ModifyInstanceAttribute(params)
+		if err != nil {
+			log.Errorf("Failed for %s: %s", instancetype.InstanceTypeId, err)
+		} else {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("Failed to change vm config, specification not supported")
 }
 
 func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
