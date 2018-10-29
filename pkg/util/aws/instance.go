@@ -326,7 +326,6 @@ func (self *SInstance) DeleteVM() error {
 	for {
 		err := self.host.zone.region.DeleteVM(self.InstanceId)
 		if err != nil {
-			// todo: implement me
 			return err
 		} else {
 			break
@@ -337,8 +336,7 @@ func (self *SInstance) DeleteVM() error {
 }
 
 func (self *SInstance) UpdateVM(name string) error {
-	// todo :implement me
-	return nil
+	return self.host.zone.region.UpdateVM(self.InstanceId, name)
 }
 
 func (self *SInstance) RebuildRoot(imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
@@ -690,12 +688,11 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 }
 
 func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
-	// todo : implement me
-	return nil
+	// https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/set-hostname.html
+	return fmt.Errorf("aws not support change hostname.")
 }
 
 func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd string, keypairName string, sysDiskSizeGB int) (string, error) {
-
 	return "", cloudprovider.ErrNotSupported
 }
 

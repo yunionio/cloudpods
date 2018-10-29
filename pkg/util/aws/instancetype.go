@@ -83,6 +83,8 @@ func (self *SRegion) GetMatchInstanceTypes(cpu int, memMB int, gpu int, zoneId s
 	}
 
 	// 实例类型顺序: 微型实例 -> 通用型 -> 计算优化型 ...
+	// todo：部分实例类型 需要启用ena才能正常启动。需要过滤掉。
+	// https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/enhanced-networking-ena.html
 	ret := []SInstanceType{}
 	for _, t := range types {
 		// cpu & mem & disk & ena 都匹配才行
