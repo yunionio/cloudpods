@@ -58,7 +58,7 @@ func init() {
 		DEVICE string `help:"disk device name. eg. /dev/sdb"`
 	}
 
-	shellutils.R(&InstanceDiskAttachOptions{}, "instance-attach-disk", "Attach a disk to instance", func(cli *aws.SRegion, args *InstanceDiskOperationOptions) error {
+	shellutils.R(&InstanceDiskAttachOptions{}, "instance-attach-disk", "Attach a disk to instance", func(cli *aws.SRegion, args *InstanceDiskAttachOptions) error {
 		err := cli.AttachDisk(args.ID, args.DISK, args.DEVICE)
 		if err != nil {
 			return err
