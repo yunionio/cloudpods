@@ -667,20 +667,20 @@ func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, 
 	return nil
 }
 
-func (self *SRegion) DetachDisk(instanceId string, diskId string, deviceName string) error {
+func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
 	params := &ec2.DetachVolumeInput{}
 	params.SetInstanceId(instanceId)
 	params.SetVolumeId(diskId)
-	params.SetDevice(deviceName)
 
 	_, err := self.ec2Client.DetachVolume(params)
 	return err
 }
 
-func (self *SRegion) AttachDisk(instanceId string, diskId string) error {
+func (self *SRegion) AttachDisk(instanceId string, diskId string, deviceName string) error {
 	params := &ec2.AttachVolumeInput{}
 	params.SetInstanceId(instanceId)
 	params.SetVolumeId(diskId)
+	params.SetDevice(deviceName)
 
 	_, err := self.ec2Client.AttachVolume(params)
 	return err
