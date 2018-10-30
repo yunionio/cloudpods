@@ -2,6 +2,7 @@ package aws
 
 import (
 	"fmt"
+
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -29,13 +30,13 @@ const (
 type ImageImportTask struct {
 	ImageId  string
 	RegionId string
-	TaskId string
+	TaskId   string
 }
 
 type RootDevice struct {
-	SnapshotId  string
-	Size		int  // GB
-	Category    string  // VolumeType
+	SnapshotId string
+	Size       int    // GB
+	Category   string // VolumeType
 }
 
 type SImage struct {
@@ -136,7 +137,7 @@ func (self *SRegion) ImportImage(name string, osArch string, osType string, osDi
 	bkt := &ec2.UserBucket{S3Bucket: &bucket, S3Key: &key}
 	container.SetUserBucket(bkt)
 	params.SetDiskContainers([]*ec2.ImageDiskContainer{container})
-	params.SetLicenseType("AWS")  // todo: AWS?
+	params.SetLicenseType("AWS") // todo: AWS?
 	ret, err := self.ec2Client.ImportImage(params)
 	if err != nil {
 		return nil, err
@@ -148,10 +149,10 @@ func (self *SRegion) ImportImage(name string, osArch string, osType string, osDi
 type ImageExportTask struct {
 	ImageId  string
 	RegionId string
-	TaskId string
+	TaskId   string
 }
 
-func (self *SRegion) ExportImage(instanceId string,imageId string) (*ImageExportTask, error) {
+func (self *SRegion) ExportImage(instanceId string, imageId string) (*ImageExportTask, error) {
 	params := &ec2.CreateInstanceExportTaskInput{}
 	params.SetInstanceId(instanceId)
 	params.SetDescription(fmt.Sprintf("image %s export from aws", imageId))
@@ -201,7 +202,7 @@ func (self *SRegion) GetImageStatus(imageId string) (ImageStatusType, error) {
 
 func getRootDiskSize(image *ec2.Image) (int, error) {
 	rootDeivce := *image.RootDeviceName
-	for _,volume := range image.BlockDeviceMappings {
+	for _, volume := range image.BlockDeviceMappings {
 		if *volume.DeviceName == rootDeivce {
 			return int(*volume.Ebs.VolumeSize), nil
 		}
@@ -263,12 +264,12 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 			Description:          *image.Description,
 			ImageId:              *image.ImageId,
 			ImageName:            tagspec.GetNameTag(),
-			ImageType:               *image.ImageType,
+			ImageType:            *image.ImageType,
 			IsSupportIoOptimized: *image.EnaSupport,
 			Platform:             *image.Platform,
 			Status:               ImageStatusType(*image.State),
 			CreationTime:         *image.CreationDate,
-			Size: 				  size,
+			Size:                 size,
 			RootDevice:           rootDevice,
 			// Usage:                "",
 			// OSName:               *image.Platform,
