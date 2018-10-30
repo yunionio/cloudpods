@@ -5,7 +5,8 @@ import (
 	"os"
 
 	"time"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
@@ -43,11 +44,11 @@ func InitAuth(options *Options, authComplete auth.AuthCompletedCallback) {
 	authComplete()
 
 	if options.GlobalVirtualResourceNamespace {
-		db.EnableGlobalVirtualResourceNamespace()
+		consts.EnableGlobalVirtualResourceNamespace()
 	}
 
 	if options.EnableRbac {
-		db.EnableGlobalRbac(time.Duration(options.RbacPolicySyncPeriodSeconds)*time.Second,
+		policy.EnableGlobalRbac(time.Duration(options.RbacPolicySyncPeriodSeconds)*time.Second,
 			time.Duration(options.RbacPolicySyncFailedRetrySeconds)*time.Second)
 	}
 }

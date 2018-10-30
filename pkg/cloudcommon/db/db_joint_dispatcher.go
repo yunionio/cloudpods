@@ -11,7 +11,9 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 )
 
 type DBJointModelDispatcher struct {
@@ -99,10 +101,10 @@ func (dispatcher *DBJointModelDispatcher) ListSlaveDescendent(ctx context.Contex
 
 func (dispatcher *DBJointModelDispatcher) _listJoint(ctx context.Context, userCred mcclient.TokenCredential, ctxModel IModel, queryDict jsonutils.JSONObject) (*modules.ListResult, error) {
 	var isAllow bool
-	if IsGlobalRbacEnabled() {
+	if consts.IsRbacEnabled() {
 		isAdmin := jsonutils.QueryBoolean(queryDict, "admin", false)
-		isAllow = PolicyManager.Allow(isAdmin, userCred, GetGlobalServiceType(),
-			dispatcher.JointModelManager().KeywordPlural(), PolicyActionList)
+		isAllow = policy.PolicyManager.Allow(isAdmin, userCred, consts.GetServiceType(),
+			dispatcher.JointModelManager().KeywordPlural(), policy.PolicyActionList)
 	} else {
 		isAllow = dispatcher.JointModelManager().AllowListDescendent(ctx, userCred, ctxModel, queryDict)
 	}
@@ -144,8 +146,8 @@ func (dispatcher *DBJointModelDispatcher) Get(ctx context.Context, id1 string, i
 		return nil, httperrors.NewGeneralError(err)
 	}
 	var isAllow bool
-	if IsGlobalRbacEnabled() {
-		isAllow = isJointRbacAllowed(dispatcher.JointModelManager(), item, userCred, PolicyActionGet)
+	if consts.IsRbacEnabled() {
+		isAllow = isJointRbacAllowed(dispatcher.JointModelManager(), item, userCred, policy.PolicyActionGet)
 	} else {
 		isAllow = item.AllowGetJointDetails(ctx, userCred, query, item)
 	}
@@ -215,8 +217,8 @@ func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string
 	}
 
 	var isAllow bool
-	if IsGlobalRbacEnabled() {
-		isAllow = isJointRbacAllowed(dispatcher.JointModelManager(), item, userCred, PolicyActionUpdate)
+	if consts.IsRbacEnabled() {
+		isAllow = isJointRbacAllowed(dispatcher.JointModelManager(), item, userCred, policy.PolicyActionUpdate)
 	} else {
 		isAllow = item.AllowUpdateJointItem(ctx, userCred, item)
 	}

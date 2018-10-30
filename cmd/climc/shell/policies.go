@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -189,7 +189,7 @@ func init() {
 	}
 	R(&PolicyExplainOptions{}, "policy-explain", "Explain policy result", func(s *mcclient.ClientSession, args *PolicyExplainOptions) error {
 		auth.InitFromClientSession(s)
-		db.EnableGlobalRbac(15*time.Second, 15*time.Second)
+		policy.EnableGlobalRbac(15*time.Second, 15*time.Second)
 
 		req := jsonutils.NewDict()
 		for i := 0; i < len(args.Request); i += 1 {
@@ -212,7 +212,7 @@ func init() {
 			req.Add(jsonutils.NewArray(data...), key)
 		}
 		fmt.Println(req.String())
-		result, err := db.PolicyManager.ExplainRpc(s.GetToken(), req)
+		result, err := policy.PolicyManager.ExplainRpc(s.GetToken(), req)
 		if err != nil {
 			return err
 		}
