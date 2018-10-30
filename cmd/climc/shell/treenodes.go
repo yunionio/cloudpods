@@ -158,6 +158,23 @@ func init() {
 		printObject(result)
 		return nil
 	})
+	
+	/**
+	 * 修改服务树节点的项目类型
+	 */
+	type ServiceTreeNodeChangeProjectTypeOptions struct {
+		PROJECTID     string `help:"ID of project"`
+		PROJECTTYPE   string `help:"TYPE of project : CreateNewProject RelatedExisting"`
+	}
+	R(&ServiceTreeNodeChangeProjectTypeOptions{}, "servicetree-node-change-project-type", "servicetree-node-change-project-type", func(s *mcclient.ClientSession, args *ServiceTreeNodeChangeProjectTypeOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.PROJECTTYPE), "project_type")
+		_, err := modules.TreeNodes.PerformAction(s, args.PROJECTID, "change-project-type", params)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 
 	/**
 	 * 删除一个服务树节点
