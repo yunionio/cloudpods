@@ -15,5 +15,5 @@ type WebConsoleOptions struct {
 	KubectlPath     string `help:"kubectl binary path used to connect k8s cluster" default:"/usr/bin/kubectl"`
 	IpmitoolPath    string `help:"ipmitool binary path used to connect baremetal sol" default:"/usr/bin/ipmitool"`
 	SshToolPath     string `help:"sshtool binary path used to connect server sol" default:"/usr/bin/ssh"`
-	SshpassToolPath string `help:"sshpass tool binary path used to connect server sol" default:"/usr/local/bin/sshpass"`
+	SshpassToolPath string `help:"sshpass tool binary path used to connect server sol" default:"/usr/bin/sshpass"`
 }
