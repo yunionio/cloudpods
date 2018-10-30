@@ -1253,10 +1253,10 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 func (manager *SGuestManager) TotalCount(
 	projectId string, rangeObj db.IStandaloneModel,
-	status []string, hypervisor string,
+	status []string, hypervisors []string,
 	includeSystem bool, pendingDelete bool, hostType string,
 ) SGuestCountStat {
-	return totalGuestResourceCount(projectId, rangeObj, status, hypervisor, includeSystem, pendingDelete, hostType)
+	return totalGuestResourceCount(projectId, rangeObj, status, hypervisors, includeSystem, pendingDelete, hostType)
 }
 
 func (self *SGuest) detachNetwork(ctx context.Context, userCred mcclient.TokenCredential, network *SNetwork, reserve bool, deploy bool) error {
@@ -1598,8 +1598,15 @@ type SGuestCountStat struct {
 	TotalIsolatedCount int
 }
 
-func totalGuestResourceCount(projectId string, rangeObj db.IStandaloneModel, status []string, hypervisor string,
-	includeSystem bool, pendingDelete bool, hostType string) SGuestCountStat {
+func totalGuestResourceCount(
+	projectId string,
+	rangeObj db.IStandaloneModel,
+	status []string,
+	hypervisors []string,
+	includeSystem bool,
+	pendingDelete bool,
+	hostType string,
+) SGuestCountStat {
 
 	guestdisks := GuestdiskManager.Query().SubQuery()
 	disks := DiskManager.Query().SubQuery()
@@ -1639,8 +1646,8 @@ func totalGuestResourceCount(projectId string, rangeObj db.IStandaloneModel, sta
 	if len(status) > 0 {
 		q = q.Filter(sqlchemy.In(guests.Field("status"), status))
 	}
-	if len(hypervisor) > 0 {
-		q = q.Filter(sqlchemy.Equals(guests.Field("hypervisor"), hypervisor))
+	if len(hypervisors) > 0 {
+		q = q.Filter(sqlchemy.In(guests.Field("hypervisor"), hypervisors))
 	}
 	if !includeSystem {
 		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(guests.Field("is_system")), sqlchemy.IsFalse(guests.Field("is_system"))))

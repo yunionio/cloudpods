@@ -70,7 +70,7 @@ func (self *SQuota) FetchSystemQuota() {
 func (self *SQuota) FetchUsage(projectId string) error {
 	diskSize := totalDiskSize(projectId, tristate.None, tristate.None, false)
 	net := totalGuestNicCount(projectId, nil, false)
-	guest := totalGuestResourceCount(projectId, nil, nil, "", false, false, "")
+	guest := totalGuestResourceCount(projectId, nil, nil, nil, false, false, "")
 
 	// XXX
 	// keypair belongs to user
