@@ -12,7 +12,7 @@ func init() {
 		Offset int    `help:"page offset"`
 	}
 	shellutils.R(&SecurityGroupListOptions{}, "security-group-list", "List security group", func(cli *aws.SRegion, args *SecurityGroupListOptions) error {
-		secgrps, total, e := cli.GetSecurityGroups(args.VpcId, args.Offset, args.Limit)
+		secgrps, total, e := cli.GetSecurityGroups(args.VpcId, "",args.Offset, args.Limit)
 		if e != nil {
 			return e
 		}
