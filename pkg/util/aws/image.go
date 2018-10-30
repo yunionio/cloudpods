@@ -32,6 +32,12 @@ type ImageImportTask struct {
 	TaskId string
 }
 
+type RootDevice struct {
+	SnapshotId  string
+	Size		int  // GB
+	Category    string  // VolumeType
+}
+
 type SImage struct {
 	storageCache *SStoragecache
 
@@ -49,6 +55,7 @@ type SImage struct {
 	Size                 int
 	Status               ImageStatusType
 	Usage                string
+	RootDevice           RootDevice
 }
 
 func (self *SImage) GetId() string {
@@ -241,6 +248,15 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 			log.Debugf(err.Error())
 		}
 
+		var rootDevice RootDevice
+		for _, block := range image.BlockDeviceMappings {
+			if len(*image.RootDeviceName) > 0 && *block.DeviceName == *image.RootDeviceName {
+				rootDevice.SnapshotId = *block.Ebs.SnapshotId
+				rootDevice.Category = *block.Ebs.VolumeType
+				rootDevice.Size = int(*block.Ebs.VolumeSize)
+			}
+		}
+
 		images = append(images, SImage{
 			storageCache:         self.getStoragecache(),
 			Architecture:         *image.Architecture,
@@ -253,6 +269,7 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 			Status:               ImageStatusType(*image.State),
 			CreationTime:         *image.CreationDate,
 			Size: 				  size,
+			RootDevice:           rootDevice,
 			// Usage:                "",
 			// OSName:               *image.Platform,
 		})

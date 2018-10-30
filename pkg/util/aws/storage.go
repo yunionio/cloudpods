@@ -100,7 +100,7 @@ func (self *SStorage) GetManagerId() string {
 }
 
 func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
-	diskId, err := self.zone.region.CreateDisk(self.zone.ZoneId, self.storageType, name, sizeGb, desc)
+	diskId, err := self.zone.region.CreateDisk(self.zone.ZoneId, self.storageType, name, sizeGb, "", desc)
 	if err != nil {
 		log.Errorf("createDisk fail %s", err)
 		return nil, err

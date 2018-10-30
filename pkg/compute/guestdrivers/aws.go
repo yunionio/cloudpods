@@ -3,10 +3,12 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"time"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -49,6 +51,43 @@ func (self *SAwsGuestDriver) ValidateCreateData(ctx context.Context, userCred mc
 	return self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, data)
 }
 
+func fetchAwsIVMinfo(desc SManagedVMCreateConfig, iVM cloudprovider.ICloudVM, guestId string) *jsonutils.JSONDict {
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
+	if len(desc.OsDistribution) > 0 {
+		data.Add(jsonutils.NewString(desc.OsDistribution), "distro")
+	}
+	if len(desc.OsVersion) > 0 {
+		data.Add(jsonutils.NewString(desc.OsVersion), "version")
+	}
+
+	idisks, err := iVM.GetIDisks()
+
+	if err != nil {
+		log.Errorf("GetiDisks error %s", err)
+	} else {
+		diskInfo := make([]SDiskInfo, len(idisks))
+		for i := 0; i < len(idisks); i += 1 {
+			dinfo := SDiskInfo{}
+			dinfo.Uuid = idisks[i].GetGlobalId()
+			dinfo.Size = idisks[i].GetDiskSizeMB()
+			dinfo.DiskType = idisks[i].GetDiskType()
+			if metaData := idisks[i].GetMetadata(); metaData != nil {
+				dinfo.Metadata = make(map[string]string, 0)
+				if err := metaData.Unmarshal(dinfo.Metadata); err != nil {
+					log.Errorf("Get disk %s metadata info error: %v", idisks[i].GetName(), err)
+				}
+			}
+			diskInfo[i] = dinfo
+		}
+		data.Add(jsonutils.Marshal(&diskInfo), "disks")
+	}
+
+	data.Add(jsonutils.NewString(iVM.GetGlobalId()), "uuid")
+	data.Add(iVM.GetMetadata(), "metadata")
+	return data
+}
+
 func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
@@ -58,16 +97,141 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 		return err
 	}
 
+	ihost, err := host.GetIHost()
+	if err != nil {
+		return err
+	}
+
+	desc := SManagedVMCreateConfig{}
+	err = config.Unmarshal(&desc, "desc")
+	if err != nil {
+		return err
+	}
+	publicKey, _ := config.GetString("public_key")
+	passwd, _ := config.GetString("password")
+
 	switch action {
 	case "create":
-		return nil
+		taskman.LocalTaskRun(task, func()  (jsonutils.JSONObject, error){
+			nets := guest.GetNetworks()
+			net := nets[0].GetNetwork()
+			vpc := net.GetVpc()
+
+			ivpc, err := vpc.GetIVpc()
+			if err != nil {
+				log.Errorf("getIVPC fail %s", err)
+				return nil, err
+			}
+
+			secgrpId, err := ivpc.SyncSecurityGroup(desc.SecGroupId, desc.SecGroupName, desc.SecRules)
+			if err != nil {
+				log.Errorf("SyncSecurityGroup fail %s", err)
+				return nil, err
+			}
+
+			iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
+				desc.IpAddr, desc.Description, "", desc.StorageType, desc.DataDisks, publicKey, secgrpId)
+			if err != nil {
+				return nil, err
+			}
+			log.Debugf("VMcreated %s, wait status ready ...", iVM.GetGlobalId())
+			err = cloudprovider.WaitStatus(iVM, models.VM_READY, time.Second*5, time.Second*1800)
+			if err != nil {
+				return nil, err
+			}
+			log.Debugf("VMcreated %s, and status is ready", iVM.GetGlobalId())
+
+			iVM, err = ihost.GetIVMById(iVM.GetGlobalId())
+			if err != nil {
+				log.Errorf("cannot find vm %s", err)
+				return nil, err
+			}
+
+			data := fetchAwsIVMinfo(desc, iVM, guest.Id)
+			return data, nil
+		})
 	case "deploy":
-		return nil
+		iVM, err := ihost.GetIVMById(guest.GetExternalId())
+		if err != nil || iVM == nil {
+			log.Errorf("cannot find vm %s", err)
+			return fmt.Errorf("cannot find vm")
+		}
+
+		params := task.GetParams()
+		log.Debugf("Deploy VM params %s", params.String())
+
+		name, _ := params.GetString("name")
+		description, _ := params.GetString("description")
+		publicKey, _ := config.GetString("public_key")
+		deleteKeypair := jsonutils.QueryBoolean(params, "__delete_keypair__", false)
+
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error){
+			err := iVM.DeployVM(name, passwd, publicKey, deleteKeypair, description)
+			if err != nil {
+				return nil, err
+			}
+
+			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+			return data, nil
+		})
 	case "rebuild":
-		return nil
+		iVM, err := ihost.GetIVMById(guest.GetExternalId())
+		if err != nil || iVM == nil {
+			log.Errorf("cannot find vm %s", err)
+			return fmt.Errorf("cannot find vm")
+		}
+
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error){
+			diskId, err := iVM.RebuildRoot(desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
+			if err != nil {
+				return nil, err
+			}
+
+			log.Debugf("VMrebuildRoot %s new diskID %s, wait status ready ...", iVM.GetGlobalId(), diskId)
+
+			err = cloudprovider.WaitStatus(iVM, models.VM_READY, time.Second*5, time.Second*1800)
+			if err != nil {
+				return nil, err
+			}
+			log.Debugf("VMrebuildRoot %s, and status is ready", iVM.GetGlobalId())
+
+			maxWaitSecs := 300
+			waited := 0
+
+			for {
+				// hack, wait disk number consistent
+				idisks, err := iVM.GetIDisks()
+				if err != nil {
+					log.Errorf("fail to find VM idisks %s", err)
+					return nil, err
+				}
+				if len(idisks) < len(desc.DataDisks)+1 {
+					if waited > maxWaitSecs {
+						log.Errorf("inconsistent disk number, wait timeout, must be something wrong on remote")
+						return nil, cloudprovider.ErrTimeout
+					}
+					log.Debugf("inconsistent disk number???? %d != %d", len(idisks), len(desc.DataDisks)+1)
+					time.Sleep(time.Second * 5)
+					waited += 5
+				} else {
+					if idisks[0].GetGlobalId() != diskId {
+						log.Errorf("system disk id inconsistent %s != %s", idisks[0].GetGlobalId(), diskId)
+						return nil, fmt.Errorf("inconsistent sys disk id after rebuild root")
+					}
+
+					break
+				}
+			}
+
+			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+
+			return data, nil
+		})
 	default:
-		return nil
+		log.Errorf("RequestDeployGuestOnHost: Action %s not supported", action)
+		return fmt.Errorf("Action %s not supported", action)
 	}
+
 	return nil
 }
 

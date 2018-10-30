@@ -367,7 +367,7 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, desc string) (string, error) {
+func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, snapshotId string, desc string) (string, error) {
 	tagspec := TagSpec{ResourceType: "volume"}
 	tagspec.SetNameTag(name)
 	tagspec.SetDescTag(desc)
@@ -377,6 +377,9 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 	params.SetAvailabilityZone(zoneId)
 	params.SetVolumeType(category)
 	params.SetSize(int64(sizeGb))
+	if len(snapshotId) > 0 {
+		params.SetSnapshotId(snapshotId)
+	}
 	params.SetTagSpecifications([]*ec2.TagSpecification{ec2Tags})
 
 	ret, err := self.ec2Client.CreateVolume(params)

@@ -340,7 +340,16 @@ func (self *SInstance) UpdateVM(name string) error {
 }
 
 func (self *SInstance) RebuildRoot(imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
-	panic("implement me")
+	if len(publicKey) > 0 || len(passwd) > 0{
+		return "", fmt.Errorf("aws rebuild root not support specific publickey/password")
+	}
+
+	diskId, err := self.host.zone.region.ReplaceSystemDisk(self.InstanceId, imageId, sysSizeGB)
+	if err != nil {
+		return "", err
+	}
+
+	return diskId, nil
 }
 
 func (self *SInstance) DeployVM(name string, password string, publicKey string, deleteKeypair bool, description string) error {
@@ -692,8 +701,53 @@ func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
 	return fmt.Errorf("aws not support change hostname.")
 }
 
-func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd string, keypairName string, sysDiskSizeGB int) (string, error) {
-	return "", cloudprovider.ErrNotSupported
+func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, sysDiskSizeGB int) (string, error) {
+	instance, err := self.GetInstance(instanceId)
+	if err != nil {
+		return "", err
+	}
+
+	disks, _, err := self.GetDisks(instanceId, instance.ZoneId, "", nil, 0, 0)
+	if err != nil {
+		return "", err
+	}
+
+	var rootDisk *SDisk
+	for _,disk := range disks {
+		if disk.Type == models.DISK_TYPE_SYS {
+			rootDisk = &disk
+		}
+	}
+
+	if rootDisk == nil {
+		return "", fmt.Errorf("can not find root disk of instance %s", instanceId)
+	}
+
+	image,err := self.GetImage(imageId)
+	if err != nil {
+		return "", err
+	}
+
+	diskId, err := self.CreateDisk(instance.ZoneId, rootDisk.Category, rootDisk.GetName(), sysDiskSizeGB, image.RootDevice.SnapshotId, "")
+	if err != nil {
+		return "", err
+	}
+
+	self.ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds:  []*string{&diskId}})
+	// todo: 检查instance状态
+	err = instance.DetachDisk(rootDisk.DiskId)
+	if err != nil {
+		return "", err
+	}
+
+	self.ec2Client.WaitUntilInstanceStopped(&ec2.DescribeInstancesInput{InstanceIds: []*string{&instanceId}})
+	err = instance.AttachDisk(diskId)
+	if err != nil {
+		return "", err
+	}
+
+	self.ec2Client.WaitUntilInstanceStopped(&ec2.DescribeInstancesInput{InstanceIds: []*string{&instanceId}})
+	return diskId, nil
 }
 
 func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, vmem int, disks []*SDisk) error {

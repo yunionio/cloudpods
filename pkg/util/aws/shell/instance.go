@@ -130,13 +130,11 @@ func init() {
 	type InstanceRebuildRootOptions struct {
 		ID       string `help:"instance ID"`
 		Image    string `help:"Image ID"`
-		Password string `help:"pasword"`
-		Keypair  string `help:"keypair name"`
 		Size     int    `help:"system disk size in GB"`
 	}
 
 	shellutils.R(&InstanceRebuildRootOptions{}, "instance-rebuild-root", "Reinstall virtual server system image", func(cli *aws.SRegion, args *InstanceRebuildRootOptions) error {
-		diskID, err := cli.ReplaceSystemDisk(args.ID, args.Image, args.Password, args.Keypair, args.Size)
+		diskID, err := cli.ReplaceSystemDisk(args.ID, args.Image, args.Size)
 		if err != nil {
 			return err
 		}
