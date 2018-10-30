@@ -203,7 +203,7 @@ func (self *SRegion) GetImageStatus(imageId string) (ImageStatusType, error) {
 func getRootDiskSize(image *ec2.Image) (int, error) {
 	rootDeivce := *image.RootDeviceName
 	for _, volume := range image.BlockDeviceMappings {
-		if *volume.DeviceName == rootDeivce {
+		if len(rootDeivce) > 0 && *volume.DeviceName == rootDeivce {
 			return int(*volume.Ebs.VolumeSize), nil
 		}
 	}
