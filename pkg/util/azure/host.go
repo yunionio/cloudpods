@@ -98,7 +98,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 		DataDisks = append(DataDisks, compute.DataDisk{
 			Name:         &diskName,
 			DiskSizeGB:   &size,
-			CreateOption: compute.Empty,
+			CreateOption: compute.DiskCreateOptionTypesEmpty,
 			Lun:          &lun,
 		})
 	}
@@ -125,12 +125,12 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 		StorageProfile: &compute.StorageProfile{
 			ImageReference: &compute.ImageReference{ID: &image.ID},
 			OsDisk: &compute.OSDisk{
-				Caching: compute.ReadWrite,
+				Caching: compute.CachingTypesReadWrite,
 				ManagedDisk: &compute.ManagedDiskParameters{
 					StorageAccountType: compute.StorageAccountTypes(storage.storageType),
 				},
 				Name:         &osDiskName,
-				CreateOption: compute.FromImage,
+				CreateOption: compute.DiskCreateOptionTypesEmpty,
 				OsType:       osType,
 				DiskSizeGB:   &DiskSizeGB,
 			},

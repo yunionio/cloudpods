@@ -106,7 +106,7 @@ func (self *SInstance) GetId() string {
 }
 
 func (self *SInstance) GetName() string {
-	return self.HostName
+	return self.InstanceName
 }
 
 func (self *SInstance) GetGlobalId() string {
@@ -147,7 +147,7 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 
 	if len(self.ImageId) > 0 {
 		if image, err := self.host.zone.region.GetImage(self.ImageId); err != nil {
-			log.Errorf("Failed to find image %s for instance %s", self.ImageId, self.GetName())
+			log.Errorf("Failed to find image %s for instance %s zone %s", self.ImageId, self.GetId(), self.ZoneId)
 		} else if meta := image.GetMetadata(); meta != nil {
 			data.Update(meta)
 		}
