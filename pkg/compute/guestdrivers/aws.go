@@ -59,9 +59,9 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 	}
 
 	switch action {
-	case "deploy":
-		return nil
 	case "create":
+		return nil
+	case "deploy":
 		return nil
 	case "rebuild":
 		return nil
