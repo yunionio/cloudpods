@@ -111,7 +111,7 @@ func parseHosts(data string) ([]jsonutils.JSONObject, string) {
 		}
 
 		if len(fields[3]) > 0 {
-			params.Add(jsonutils.NewString(fields[2]), "ipmi_password")
+			params.Add(jsonutils.NewString(fields[3]), "ipmi_password")
 		}
 
 		ret = append(ret, params)
