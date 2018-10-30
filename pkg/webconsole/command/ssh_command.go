@@ -1,13 +1,22 @@
 package command
 
 import (
+	"context"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"os"
 	"os/exec"
 	"time"
 
-	"yunion.io/x/log"
+	"github.com/coredns/coredns/plugin/pkg/log"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/ansible"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
+
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 type SSHtoolSol struct {
@@ -16,29 +25,77 @@ type SSHtoolSol struct {
 	Username string
 	reTry    int
 	showInfo string
+	keyFile  string
 }
 
-func NewSSHtoolSolCommand(ip string) (*SSHtoolSol, error) {
+func getCommand(ctx context.Context, userCred mcclient.TokenCredential, ip string) (string, *BaseCommand, error) {
+	cmd := NewBaseCommand(o.Options.SshToolPath)
+	s := auth.GetAdminSession(o.Options.Region, "v2")
+	key, err := modules.Sshkeypairs.GetById(s, userCred.GetProjectId(), jsonutils.NewDict())
+	if err != nil {
+		return "", nil, err
+	}
+	file, err := ioutil.TempFile("", fmt.Sprintf("id_rsa.%s.", ip))
+	if err != nil {
+		return "", nil, err
+	}
+	privKey, err := key.GetString("private_key")
+	if err != nil {
+		return "", nil, err
+	}
+	_, err = file.Write([]byte(privKey))
+	if err != nil {
+		return "", nil, err
+	}
+	file.Close()
+	err = os.Chmod(file.Name(), 0700)
+	if err != nil {
+		return "", nil, err
+	}
+	cmd.AppendArgs("-i", file.Name())
+	cmd.AppendArgs("-q")
+	cmd.AppendArgs("-o", "StrictHostKeyChecking=no")
+	cmd.AppendArgs("-o", "PasswordAuthentication=no")
+	cmd.AppendArgs(fmt.Sprintf("%s@%s", ansible.PUBLIC_CLOUD_ANSIBLE_USER, ip))
+	return file.Name(), cmd, nil
+}
+
+func NewSSHtoolSolCommand(ctx context.Context, userCred mcclient.TokenCredential, ip string) (*SSHtoolSol, error) {
 	if conn, err := net.DialTimeout("tcp", ip+":22", time.Second*2); err != nil {
 		return nil, fmt.Errorf("IPAddress %s not accessable", ip)
 	} else {
 		conn.Close()
+
+		keyFile, cmd, err := getCommand(ctx, userCred, ip)
+		if err != nil {
+			log.Errorf("getCommand error: %v", err)
+		}
+
 		return &SSHtoolSol{
-			BaseCommand: nil,
+			BaseCommand: cmd,
 			IP:          ip,
 			Username:    "",
 			reTry:       0,
 			showInfo:    fmt.Sprintf("%s login: ", ip),
+			keyFile:     keyFile,
 		}, nil
 	}
 }
 
 func (c *SSHtoolSol) GetCommand() *exec.Cmd {
+	if c.BaseCommand != nil {
+		cmd := c.BaseCommand.GetCommand()
+		cmd.Env = append(cmd.Env, "TERM=screen-256color")
+		return cmd
+	}
 	return nil
 }
 
 func (c *SSHtoolSol) Cleanup() error {
-	log.Infof("SSHtoolSol Cleanup do nothing")
+	if len(c.keyFile) > 0 {
+		os.Remove(c.keyFile)
+		c.keyFile = ""
+	}
 	return nil
 }
 

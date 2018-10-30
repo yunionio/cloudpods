@@ -141,12 +141,13 @@ func handleK8sLog(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 }
 
 func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	userCred := auth.FetchUserCredential(ctx)
 	env, err := fetchCloudEnv(ctx, w, r)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	cmd, err := command.NewSSHtoolSolCommand(env.Params["<ip>"])
+	cmd, err := command.NewSSHtoolSolCommand(ctx, userCred, env.Params["<ip>"])
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
