@@ -16,6 +16,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/util/esxi/provider"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute"
@@ -24,7 +25,7 @@ import (
 )
 
 func StartService() {
-	db.SetGlobalServiceType("compute")
+	consts.SetServiceType("compute")
 
 	cloudcommon.ParseOptions(&options.Options, &options.Options.Options, os.Args, "region.conf")
 

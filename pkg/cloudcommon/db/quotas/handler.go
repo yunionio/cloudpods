@@ -11,7 +11,9 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
@@ -75,18 +77,18 @@ func getQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 	projectId := params["<tenantid>"]
 	if len(projectId) == 0 {
 		projectId = userCred.GetProjectId()
-		if db.IsGlobalRbacEnabled() {
-			if !db.PolicyManager.Allow(false, userCred, db.GetGlobalServiceType(),
-				"quotas", db.PolicyActionGet) {
+		if consts.IsRbacEnabled() {
+			if !policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
+				"quotas", policy.PolicyActionGet) {
 				httperrors.ForbiddenError(w, "not allow to get quota")
 				return
 			}
 		}
 	} else {
 		isAllow := false
-		if db.IsGlobalRbacEnabled() {
-			isAllow = db.PolicyManager.Allow(true, userCred, db.GetGlobalServiceType(),
-				db.PolicyDelegation, db.PolicyActionGet)
+		if consts.IsRbacEnabled() {
+			isAllow = policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
+				policy.PolicyDelegation, policy.PolicyActionGet)
 		} else {
 			isAllow = userCred.IsSystemAdmin()
 		}
@@ -94,9 +96,9 @@ func getQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 			httperrors.ForbiddenError(w, "not allow to delegate query quota")
 			return
 		}
-		if db.IsGlobalRbacEnabled() {
-			if !db.PolicyManager.Allow(true, userCred, db.GetGlobalServiceType(),
-				"quotas", db.PolicyActionGet) {
+		if consts.IsRbacEnabled() {
+			if !policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
+				"quotas", policy.PolicyActionGet) {
 				httperrors.ForbiddenError(w, "not allow to query quota")
 				return
 			}
@@ -131,9 +133,9 @@ func setQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 	userCred := auth.FetchUserCredential(ctx)
 
 	var isAllow bool
-	if db.IsGlobalRbacEnabled() {
-		isAllow = db.PolicyManager.Allow(true, userCred, db.GetGlobalServiceType(),
-			"quotas", db.PolicyActionUpdate)
+	if consts.IsRbacEnabled() {
+		isAllow = policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
+			"quotas", policy.PolicyActionUpdate)
 	} else {
 		isAllow = userCred.IsSystemAdmin()
 	}
@@ -194,9 +196,9 @@ func checkQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Reque
 	userCred := auth.FetchUserCredential(ctx)
 
 	isAllow := false
-	if db.IsGlobalRbacEnabled() {
-		isAllow = db.PolicyManager.Allow(true, userCred, db.GetGlobalServiceType(),
-			db.PolicyDelegation, db.PolicyActionGet)
+	if consts.IsRbacEnabled() {
+		isAllow = policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
+			policy.PolicyDelegation, policy.PolicyActionGet)
 	} else {
 		isAllow = userCred.IsSystemAdmin()
 	}
@@ -204,9 +206,9 @@ func checkQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Reque
 		httperrors.ForbiddenError(w, "not allow to delegate check quota")
 		return
 	}
-	if db.IsGlobalRbacEnabled() {
-		if !db.PolicyManager.Allow(true, userCred, db.GetGlobalServiceType(),
-			"quotas", db.PolicyActionGet) {
+	if consts.IsRbacEnabled() {
+		if !policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
+			"quotas", policy.PolicyActionGet) {
 			httperrors.ForbiddenError(w, "not allow to query quota")
 			return
 		}

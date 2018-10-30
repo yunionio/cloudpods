@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 
@@ -77,7 +78,7 @@ func (manager *STenantCacheManager) FetchTenantByName(ctx context.Context, idStr
 }
 
 func (manager *STenantCacheManager) fetchTenantFromKeystone(ctx context.Context, idStr string) (*STenant, error) {
-	s := auth.GetAdminSession(GetGlobalRegion(), "v1")
+	s := auth.GetAdminSession(consts.GetRegion(), "v1")
 	tenant, err := modules.Projects.Get(s, idStr, nil)
 	if err != nil {
 		log.Errorf("fetch project fail %s", err)

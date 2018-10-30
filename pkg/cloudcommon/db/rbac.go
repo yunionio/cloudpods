@@ -1,6 +1,8 @@
 package db
 
 import (
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -25,11 +27,11 @@ func isRbacAllowed(manager IModelManager, model IModel, userCred mcclient.TokenC
 		}
 	}
 	if !isAdmin {
-		isAllow = PolicyManager.Allow(false, userCred, GetGlobalServiceType(),
+		isAllow = policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
 			manager.KeywordPlural(), action, extra...)
 	}
 	if !isAllow {
-		isAllow = PolicyManager.Allow(true, userCred, GetGlobalServiceType(),
+		isAllow = policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
 			manager.KeywordPlural(), action, extra...)
 	}
 	return isAllow
@@ -44,11 +46,11 @@ func isJointRbacAllowed(manager IJointModelManager, item IJointModel, userCred m
 		isAdmin = false
 	}
 	if !isAdmin {
-		isAllow = PolicyManager.Allow(false, userCred, GetGlobalServiceType(),
+		isAllow = policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
 			manager.KeywordPlural(), action, extra...)
 	}
 	if !isAllow {
-		isAllow = PolicyManager.Allow(true, userCred, GetGlobalServiceType(),
+		isAllow = policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
 			manager.KeywordPlural(), action, extra...)
 	}
 	return isAllow

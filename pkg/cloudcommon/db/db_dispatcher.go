@@ -15,7 +15,9 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -490,10 +492,10 @@ func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.J
 	userCred := fetchUserCredential(ctx)
 
 	var isAllow bool
-	if globalsRbacEnabled {
+	if consts.IsRbacEnabled() {
 		isAdmin := jsonutils.QueryBoolean(query, "admin", false)
-		isAllow = PolicyManager.Allow(isAdmin, userCred, GetGlobalServiceType(),
-			dispatcher.modelManager.KeywordPlural(), PolicyActionList)
+		isAllow = policy.PolicyManager.Allow(isAdmin, userCred, consts.GetServiceType(),
+			dispatcher.modelManager.KeywordPlural(), policy.PolicyActionList)
 	} else {
 		isAllow = dispatcher.modelManager.AllowListItems(ctx, userCred, query)
 	}
@@ -602,8 +604,8 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 	}
 	// log.Debugf("Get found %s", model)
 	var isAllow bool
-	if globalsRbacEnabled {
-		isAllow = isRbacAllowed(dispatcher.modelManager, model, userCred, PolicyActionGet)
+	if consts.IsRbacEnabled() {
+		isAllow = isRbacAllowed(dispatcher.modelManager, model, userCred, policy.PolicyActionGet)
 	} else {
 		isAllow = model.AllowGetDetails(ctx, userCred, query)
 	}
@@ -633,8 +635,8 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 	modelValue := reflect.ValueOf(model)
 
 	var isAllow bool
-	if globalsRbacEnabled {
-		isAllow = isRbacAllowed(dispatcher.modelManager, model, userCred, PolicyActionGet, spec)
+	if consts.IsRbacEnabled() {
+		isAllow = isRbacAllowed(dispatcher.modelManager, model, userCred, policy.PolicyActionGet, spec)
 	} else {
 		funcName := fmt.Sprintf("AllowGetDetails%s", specCamel)
 
@@ -690,8 +692,9 @@ func fetchOwnerProjectId(ctx context.Context, userCred mcclient.TokenCredential,
 		return userCred.GetProjectId(), nil
 	}
 	var isAllow bool
-	if globalsRbacEnabled {
-		isAllow = PolicyManager.Allow(true, userCred, GetGlobalServiceType(), PolicyDelegation, "")
+	if consts.IsRbacEnabled() {
+		isAllow = policy.PolicyManager.Allow(true, userCred,
+			consts.GetServiceType(), policy.PolicyDelegation, "")
 	} else {
 		isAllow = userCred.IsSystemAdmin()
 	}
@@ -811,8 +814,8 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 	defer lockman.ReleaseClass(ctx, dispatcher.modelManager, ownerProjId)
 
 	var isAllow bool
-	if globalsRbacEnabled {
-		isAllow = isRbacAllowed(dispatcher.modelManager, nil, userCred, PolicyActionCreate)
+	if consts.IsRbacEnabled() {
+		isAllow = isRbacAllowed(dispatcher.modelManager, nil, userCred, policy.PolicyActionCreate)
 	} else {
 		isAllow = dispatcher.modelManager.AllowCreateItem(ctx, userCred, query, data)
 	}
@@ -875,8 +878,8 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 	defer lockman.ReleaseClass(ctx, dispatcher.modelManager, ownerProjId)
 
 	var isAllow bool
-	if globalsRbacEnabled {
-		isAllow = isRbacAllowed(dispatcher.modelManager, nil, userCred, PolicyActionCreate)
+	if consts.IsRbacEnabled() {
+		isAllow = isRbacAllowed(dispatcher.modelManager, nil, userCred, policy.PolicyActionCreate)
 	} else {
 		isAllow = dispatcher.modelManager.AllowCreateItem(ctx, userCred, query, data)
 	}
@@ -942,8 +945,8 @@ func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, act
 		data := body.(*jsonutils.JSONDict)
 
 		var isAllow bool
-		if globalsRbacEnabled {
-			isAllow = isRbacAllowed(manager, nil, userCred, PolicyActionPerform, action)
+		if consts.IsRbacEnabled() {
+			isAllow = isRbacAllowed(manager, nil, userCred, policy.PolicyActionPerform, action)
 		} else {
 			isAllow = manager.AllowPerformCheckCreateData(ctx, userCred, query, data)
 		}
@@ -1020,8 +1023,8 @@ func objectPerformAction(dispatcher *DBModelDispatcher, model IModel, modelValue
 	}
 
 	var isAllow bool
-	if globalsRbacEnabled {
-		isAllow = isRbacAllowed(dispatcher.modelManager, model, userCred, PolicyActionPerform, action)
+	if consts.IsRbacEnabled() {
+		isAllow = isRbacAllowed(dispatcher.modelManager, model, userCred, policy.PolicyActionPerform, action)
 	} else {
 		allowFuncName := "Allow" + funcName
 		allowFuncValue := modelValue.MethodByName(allowFuncName)
@@ -1132,8 +1135,8 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 	}
 
 	var isAllow bool
-	if globalsRbacEnabled {
-		isAllow = isRbacAllowed(dispatcher.modelManager, model, userCred, PolicyActionUpdate)
+	if consts.IsRbacEnabled() {
+		isAllow = isRbacAllowed(dispatcher.modelManager, model, userCred, policy.PolicyActionUpdate)
 	} else {
 		isAllow = model.AllowUpdateItem(ctx, userCred)
 	}
@@ -1168,8 +1171,8 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 	log.Debugf("deleteItem %s", jsonutils.Marshal(model))
 
 	var isAllow bool
-	if globalsRbacEnabled {
-		isAllow = isRbacAllowed(manager, model, userCred, PolicyActionDelete)
+	if consts.IsRbacEnabled() {
+		isAllow = isRbacAllowed(manager, model, userCred, policy.PolicyActionDelete)
 	} else {
 		isAllow = model.AllowDeleteItem(ctx, userCred, query, data)
 	}

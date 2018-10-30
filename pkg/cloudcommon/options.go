@@ -6,6 +6,7 @@ import (
 	"path"
 
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/structarg"
@@ -114,4 +115,6 @@ func ParseOptions(optStruct interface{}, optionsRef *Options, args []string, con
 	}
 
 	log.V(10).Debugf("Parsed options: %#v", optStruct)
+
+	consts.SetRegion(optionsRef.Region)
 }
