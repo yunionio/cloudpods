@@ -158,7 +158,7 @@ func (self *SSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSON
 	}
 	disk, _ := self.GetDisk()
 	if disk != nil {
-		// extra.Add(jsonutils.NewString(disk.DiskType), "disk_type")
+		extra.Add(jsonutils.NewString(disk.Status), "disk_status")
 		guests := disk.GetGuests()
 		if len(guests) == 1 {
 			extra.Add(jsonutils.NewString(guests[0].Name), "guest")
