@@ -7,9 +7,14 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 )
 
 func InitDB(options *DBOptions) {
+	if options.GlobalVirtualResourceNamespace {
+		consts.EnableGlobalVirtualResourceNamespace()
+	}
+
 	dialect, sqlStr, err := options.GetDBConnection()
 	if err != nil {
 		log.Fatalf("Invalid SqlConnection string: %s", options.SqlConnection)
