@@ -1034,7 +1034,7 @@ func objectPerformAction(dispatcher *DBModelDispatcher, model IModel, modelValue
 			return nil, httperrors.NewActionNotFoundError(msg)
 		}
 
-		outs := funcValue.Call(params)
+		outs := allowFuncValue.Call(params)
 		if len(outs) != 1 {
 			return nil, httperrors.NewInternalServerError("Invald %s return value", allowFuncName)
 		}
