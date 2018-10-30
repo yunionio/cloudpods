@@ -87,6 +87,14 @@ func findVNCPort(results string) int {
 	return port
 }
 
+func findVNCPort2(results string) int {
+	vncInfo := strings.Split(results, "\n")
+	addrParts := strings.Split(vncInfo[3], ":")
+	v := addrParts[len(addrParts)-1]
+	port, _ := strconv.Atoi(v[0 : len(v)-7])
+	return port
+}
+
 func (self *SKVMGuestDriver) GetGuestVncInfo(userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
 	url := fmt.Sprintf("/servers/%s/monitor", guest.Id)
 	body := jsonutils.NewDict()
@@ -119,7 +127,23 @@ func (self *SKVMGuestDriver) GetGuestVncInfo(userCred mcclient.TokenCredential, 
 	// info_vnc = result['results'].split('\n')
 	// port = int(info_vnc[1].split(':')[-1].split()[0])
 
-	port := findVNCPort(results)
+	/*
+		QEMU 2.12.1 monitor - type 'help' for more information
+		(qemu) info vnc
+		info vnc
+		default:
+		  Server: :::5902 (ipv6)
+		    Auth: none (Sub: none)
+		  Server: 0.0.0.0:5902 (ipv4)
+		    Auth: none (Sub: none)
+	*/
+	var port int
+	if guest.CheckQemuVersion(guest.GetMetadata("__qemu_version", userCred), "2.12.1") {
+		port = findVNCPort2(results)
+	} else {
+		port = findVNCPort(results)
+	}
+
 	retval := jsonutils.NewDict()
 	retval.Add(jsonutils.NewString(host.AccessIp), "host")
 	retval.Add(jsonutils.NewString(guest.GetVdi()), "protocol")
