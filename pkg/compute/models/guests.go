@@ -1770,6 +1770,37 @@ func (self *SGuest) PerformSync(ctx context.Context, userCred mcclient.TokenCred
 	return nil, nil
 }
 
+func (self *SGuest) GetQemuVersion(userCred mcclient.TokenCredential) string {
+	return self.GetMetadata("__qemu_version", userCred)
+}
+
+// if qemuVer >= compareVer return true
+func (self *SGuest) CheckQemuVersion(qemuVer, compareVer string) bool {
+	if len(qemuVer) == 0 {
+		return false
+	}
+
+	compareVersion := strings.Split(compareVer, ".")
+	guestVersion := strings.Split(qemuVer, ".")
+	var i = 0
+	for ; i < len(guestVersion); i++ {
+		if i >= len(compareVersion) {
+			return true
+		}
+		v, _ := strconv.ParseInt(guestVersion[i], 10, 0)
+		compareV, _ := strconv.ParseInt(compareVersion[i], 10, 0)
+		if v < compareV {
+			return false
+		} else if v > compareV {
+			return true
+		}
+	}
+	if i < len(compareVersion)-1 {
+		return false
+	}
+	return true
+}
+
 func (self *SGuest) AllowPerformDeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred)
 }
