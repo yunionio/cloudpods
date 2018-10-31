@@ -7,6 +7,10 @@ import (
 
 	json "yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -14,8 +18,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/utils"
 )
 
 type Usage map[string]interface{}
@@ -76,6 +78,14 @@ func rangeObjHandler(
 			httperrors.NotFoundError(w, err.Error())
 			return
 		}
+		projectName, _ := getQuery(r).GetString("project")
+		if projectName != "" {
+			userCred, err = generateProjectUserCred(ctx, userCred, projectName)
+			if err != nil {
+				httperrors.GeneralServerError(w, err)
+				return
+			}
+		}
 		usage, err := reporter(userCred, obj, getHostTypes(r))
 		if err != nil {
 			httperrors.GeneralServerError(w, err)
@@ -83,6 +93,19 @@ func rangeObjHandler(
 		}
 		response(w, usage)
 	}
+}
+
+func generateProjectUserCred(ctx context.Context, userCred mcclient.TokenCredential, projectName string) (mcclient.TokenCredential, error) {
+	project, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, projectName)
+	if err != nil {
+		return nil, err
+	}
+	return &mcclient.SSimpleToken{
+		Domain:    project.Domain,
+		DomainId:  project.DomainId,
+		Project:   project.Name,
+		ProjectId: project.Id,
+	}, nil
 }
 
 func addHandler(prefix, rangeObjKey string, hf appsrv.FilterHandler, app *appsrv.Application) {
@@ -156,12 +179,8 @@ func ReportZoneUsage(userCred mcclient.TokenCredential, zone db.IStandaloneModel
 
 //func ReportGuestUsage()
 
-func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) (count Usage, err error) {
+func getAdminGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) (count Usage, err error) {
 	count = ZoneUsage()
-	if !userCred.IsSystemAdmin() {
-		return
-	}
-
 	var pmemTotal float64
 	var pcpuTotal float64
 
@@ -177,9 +196,14 @@ func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandalo
 		count.Add("memory.virtual", host.GetVirtualMemorySize())
 		count.Add("cpu.virtual", host.GetVirtualCPUCount())
 	}
-	guestRunningUsage := GuestRunningUsage(userCred, rangeObj, hostTypes)
+	guestRunningUsage := GuestRunningUsage("all.running_servers", nil, rangeObj, hostTypes)
 	runningMem := guestRunningUsage.Get("all.running_servers.memory").(int)
 	runningCpu := guestRunningUsage.Get("all.running_servers.cpu").(int)
+	containerRunningUsage := containerUsage("all.containers", nil, rangeObj)
+	containerRunningMem := containerRunningUsage.Get("all.containers.memory").(int)
+	containerRunningCpu := containerRunningUsage.Get("all.containers.cpu").(int)
+	runningMem += containerRunningMem
+	runningCpu += containerRunningCpu
 	runningCpuCmtRate := 0.0
 	runningMemCmtRate := 0.0
 	if pmemTotal > 0 {
@@ -205,15 +229,51 @@ func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandalo
 		hostEnabledUsage,
 		BaremetalUsage(userCred, rangeObj, hostTypes),
 		storageUsage,
-		GuestNormalUsage(userCred, rangeObj, hostTypes),
-		GuestPendingDeleteUsage(userCred, rangeObj, hostTypes),
-		GuestReadyUsage(userCred, rangeObj, hostTypes),
+		GuestNormalUsage("all.servers", nil, rangeObj, hostTypes),
+		GuestPendingDeleteUsage("all.pending_delete_servers", nil, rangeObj, hostTypes),
+		GuestReadyUsage("all.ready_servers", nil, rangeObj, hostTypes),
 		guestRunningUsage,
+		containerRunningUsage,
 		IsolatedDeviceUsage(rangeObj, hostTypes),
 		WireUsage(rangeObj, hostTypes),
-		NetworkUsage(userCred, rangeObj),
 	)
 
+	return
+}
+
+func getCommonGeneralUsage(cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) (count Usage, err error) {
+	guestNormalUsage := GuestNormalUsage("servers", cred, rangeObj, hostTypes)
+	guestRunningUsage := GuestRunningUsage("running_servers", cred, rangeObj, hostTypes)
+	guestPendingDeleteUsage := GuestPendingDeleteUsage("pending_delete_servers", cred, rangeObj, hostTypes)
+	guestReadyUsage := GuestReadyUsage("ready_servers", cred, rangeObj, hostTypes)
+	containerUsage := containerUsage("containers", cred, rangeObj)
+	count = guestNormalUsage.Include(
+		guestRunningUsage,
+		guestPendingDeleteUsage,
+		guestReadyUsage,
+		containerUsage,
+		NetworkUsage(cred, rangeObj),
+	)
+	return
+}
+
+func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) (count Usage, err error) {
+	count = ZoneUsage()
+
+	isAdmin := userCred.IsSystemAdmin()
+
+	if isAdmin {
+		count, err = getAdminGeneralUsage(userCred, rangeObj, hostTypes)
+		if err != nil {
+			return
+		}
+	}
+
+	commonUsage, err := getCommonGeneralUsage(userCred, rangeObj, hostTypes)
+	if err != nil {
+		return
+	}
+	count.Include(commonUsage)
 	return
 }
 
@@ -289,27 +349,29 @@ func hostUsage(
 	return count
 }
 
-func GuestNormalUsage(cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) Usage {
-	prefix := "all.servers"
+func GuestNormalUsage(prefix string, cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) Usage {
 	return guestUsage(prefix, cred, rangeObj, hostTypes, nil, false)
 }
 
-func GuestPendingDeleteUsage(cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) Usage {
-	prefix := "all.pending_delete_servers"
+func GuestPendingDeleteUsage(prefix string, cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) Usage {
 	return guestUsage(prefix, cred, rangeObj, hostTypes, nil, true)
 }
 
-func GuestRunningUsage(cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) Usage {
-	prefix := "all.running_servers"
+func GuestRunningUsage(prefix string, cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) Usage {
 	return guestUsage(prefix, cred, rangeObj, hostTypes, []string{models.VM_RUNNING}, false)
 }
 
-func GuestReadyUsage(cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) Usage {
-	prefix := "all.ready_servers"
+func GuestReadyUsage(prefix string, cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) Usage {
 	return guestUsage(prefix, cred, rangeObj, hostTypes, []string{models.VM_READY}, false)
 }
 
-func guestUsage(prefix string, userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes, status []string, pendingDelete bool) Usage {
+func guestHypervisorsUsage(
+	prefix string,
+	userCred mcclient.TokenCredential,
+	rangeObj db.IStandaloneModel,
+	hostTypes, status, hypervisors []string,
+	pendingDelete bool,
+) Usage {
 	hostType := ""
 	if len(hostTypes) != 0 {
 		hostType = hostTypes[0]
@@ -318,15 +380,31 @@ func guestUsage(prefix string, userCred mcclient.TokenCredential, rangeObj db.IS
 	if userCred != nil {
 		projectId = userCred.GetProjectId()
 	}
-	guest := models.GuestManager.TotalCount(projectId, rangeObj, status, "", true, pendingDelete, hostType)
+	guest := models.GuestManager.TotalCount(projectId, rangeObj, status, hypervisors, true, pendingDelete, hostType)
 	count := make(map[string]interface{})
 	count[prefix] = guest.TotalGuestCount
 	count[fmt.Sprintf("%s.cpu", prefix)] = guest.TotalCpuCount
 	count[fmt.Sprintf("%s.memory", prefix)] = guest.TotalMemSize
+
+	if len(hypervisors) == 1 && hypervisors[0] == models.HYPERVISOR_CONTAINER {
+		return count
+	}
+
 	count[fmt.Sprintf("%s.disk", prefix)] = guest.TotalDiskSize
 	count[fmt.Sprintf("%s.isolated_devices", prefix)] = guest.TotalIsolatedCount
 
 	return count
+}
+
+func guestUsage(prefix string, userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes, status []string, pendingDelete bool) Usage {
+	hypervisors := sets.NewString(models.HYPERVISORS...)
+	hypervisors.Delete(models.HYPERVISOR_CONTAINER)
+	return guestHypervisorsUsage(prefix, userCred, rangeObj, hostTypes, status, hypervisors.List(), pendingDelete)
+}
+
+func containerUsage(prefix string, userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel) Usage {
+	hypervisors := []string{models.HYPERVISOR_CONTAINER}
+	return guestHypervisorsUsage(prefix, userCred, rangeObj, nil, nil, hypervisors, false)
 }
 
 func IsolatedDeviceUsage(rangeObj db.IStandaloneModel, hostType []string) Usage {
