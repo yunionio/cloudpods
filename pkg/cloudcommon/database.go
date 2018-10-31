@@ -6,8 +6,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 
 func InitDB(options *DBOptions) {

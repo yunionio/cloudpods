@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/conditionparser"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -143,7 +144,7 @@ func (manager *SPolicyManager) Allow(isAdmin bool, userCred mcclient.TokenCreden
 		return false
 	}
 	userCredJson := userCred.ToJson()
-	log.Debugf("%s", userCredJson)
+	// log.Debugf("%s", userCredJson)
 	for _, p := range policies {
 		if p.Allow(userCredJson, service, resource, action, extra...) {
 			return true
@@ -205,4 +206,15 @@ func (manager *SPolicyManager) ExplainRpc(userCred mcclient.TokenCredential, par
 		}
 	}
 	return ret, nil
+}
+
+func (manager *SPolicyManager) IsAdminCapable(userCred mcclient.TokenCredential) bool {
+	userCredJson := userCred.ToJson()
+	for _, p := range manager.adminPolicies {
+		match, _ := conditionparser.Eval(p.Condition, userCredJson)
+		if match {
+			return true
+		}
+	}
+	return false
 }
