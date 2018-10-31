@@ -94,10 +94,14 @@ func (self *SRegion) fetchZones() error {
 	if err != nil {
 		return err
 	}
+	err = FillZero(zones)
+	if err != nil {
+		return err
+	}
 
 	self.izones = make([]cloudprovider.ICloudZone, 0)
 	for _, zone := range zones.AvailabilityZones {
-		self.izones = append(self.izones, &SZone{ZoneId: *zone.ZoneName, State: *zone.State, LocalName: "", region: self})
+		self.izones = append(self.izones, &SZone{ZoneId: *zone.ZoneName, State: *zone.State, LocalName: *zone.ZoneName, region: self})
 	}
 
 	return nil
