@@ -29,7 +29,7 @@ type Options struct {
 	AuthTokenCacheSize uint32   `help:"Auth token Cache Size" default:"2048"`
 	TempPath           string   `help:"Path for store temp file, at least 40G space" default:"/opt/yunion/tmp"`
 
-	DebugClient  bool     `help:"Switch on/off mcclient debugs" default:"false"`
+	DebugClient bool `help:"Switch on/off mcclient debugs" default:"false"`
 
 	ApplicationID      string `help:"Application ID"`
 	RequestWorkerCount int    `default:"4" help:"Request worker thread count, default is 4"`
