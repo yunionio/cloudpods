@@ -73,7 +73,7 @@ func (man *SLoadbalancerListenerRuleManager) ListItemFilter(ctx context.Context,
 	userProjId := userCred.GetProjectId()
 	data := query.(*jsonutils.JSONDict)
 	{
-		listenerV := validators.NewModelIdOrNameValidator("listener", "listener", userProjId)
+		listenerV := validators.NewModelIdOrNameValidator("listener", "loadbalancerlistener", userProjId)
 		listenerV.Optional(true)
 		q, err = listenerV.QueryFilter(q, data)
 		if err != nil {
