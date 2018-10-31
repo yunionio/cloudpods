@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -131,6 +132,27 @@ func (lbr *SLoadbalancerListenerRule) ValidateUpdateData(ctx context.Context, us
 		return nil, err
 	}
 	return lbr.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+}
+
+func (lbr *SLoadbalancerListenerRule) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := lbr.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if lbr.BackendGroupId == "" {
+		log.Errorf("loadbalancer listener rule %s(%s): empty backend group field", lbr.Name, lbr.Id)
+		return extra
+	}
+	lbbg, err := LoadbalancerBackendGroupManager.FetchById(lbr.BackendGroupId)
+	if err != nil {
+		log.Errorf("loadbalancer listener rule %s(%s): fetch backend group (%s) error: %s",
+			lbr.Name, lbr.Id, lbr.BackendGroupId, err)
+		return extra
+	}
+	extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
+	return extra
+}
+
+func (lbr *SLoadbalancerListenerRule) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := lbr.GetCustomizeColumns(ctx, userCred, query)
+	return extra
 }
 
 func (lbr *SLoadbalancerListenerRule) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
