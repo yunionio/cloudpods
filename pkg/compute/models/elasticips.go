@@ -748,6 +748,9 @@ func (self *SElasticip) StartEipChangeBandwidthTask(ctx context.Context, userCre
 }
 
 func (self *SElasticip) DoChangeBandwidth(userCred mcclient.TokenCredential, bandwidth int) error {
+	changes := jsonutils.NewDict()
+	changes.Add(jsonutils.NewInt(int64(self.Bandwidth)), "obw")
+
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Bandwidth = bandwidth
 		return nil
@@ -760,8 +763,6 @@ func (self *SElasticip) DoChangeBandwidth(userCred mcclient.TokenCredential, ban
 		return err
 	}
 
-	changes := jsonutils.NewDict()
-	changes.Add(jsonutils.NewInt(int64(self.Bandwidth)), "obw")
 	changes.Add(jsonutils.NewInt(int64(bandwidth)), "nbw")
 	db.OpsLog.LogEvent(self, db.ACT_CHANGE_BANDWIDTH, changes, userCred)
 
