@@ -171,6 +171,21 @@ func (self *SSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSON
 	return extra
 }
 
+func (self *SSnapshot) GetShortDesc() *jsonutils.JSONDict {
+	res := self.SVirtualResourceBase.GetShortDesc()
+	res.Add(jsonutils.NewInt(int64(self.Size)), "size")
+	if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
+		res.Add(jsonutils.NewString(cloudprovider.Provider), "hypervisor")
+	}
+	if len(self.CloudregionId) > 0 {
+		cloudRegion := CloudregionManager.FetchRegionById(self.CloudregionId)
+		if cloudRegion != nil {
+			res.Add(jsonutils.NewString(cloudRegion.ExternalId), "region")
+		}
+	}
+	return res
+}
+
 func (self *SSnapshot) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return false
 }
@@ -282,7 +297,9 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, userCred mccli
 	snapshot.SetModelManager(self)
 	snapshot.ProjectId = userCred.GetProjectId()
 	snapshot.DiskId = disk.Id
-	snapshot.StorageId = disk.StorageId
+	if len(disk.ExternalId) == 0 {
+		snapshot.StorageId = disk.StorageId
+	}
 	snapshot.Size = disk.DiskSize
 	snapshot.DiskType = disk.DiskType
 	snapshot.Location = location
@@ -488,6 +505,7 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(userCred mcclient.TokenCre
 		log.Errorf("newFromCloudEip fail %s", err)
 		return nil, err
 	}
+	db.OpsLog.LogEvent(&snapshot, db.ACT_SNAPSHOT_DONE, snapshot.GetShortDesc(), userCred)
 	return &snapshot, nil
 }
 
