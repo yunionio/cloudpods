@@ -289,6 +289,7 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 			disk.Device = StrVal(item.Attachments[0].Device)
 			disk.InstanceId = StrVal(item.Attachments[0].InstanceId)
 			// todo: 需要通过describe-instances 的root device 判断是否是系统盘
+			// todo: 系统盘需要放在返回disks列表的首位
 			if len(disk.InstanceId) > 0 {
 				instance, err := self.GetInstance(disk.InstanceId)
 				if err != nil {
