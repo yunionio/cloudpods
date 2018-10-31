@@ -384,30 +384,33 @@ func (manager *SSecurityGroupRuleManager) newFromCloudSecurityGroup(rule secrule
 	if len(protocol) == 0 {
 		protocol = secrules.PROTO_ANY
 	}
-	ports, _ports := "", make([]string, len(rule.Ports))
-	if len(rule.Ports) > 0 {
-		for _, port := range rule.Ports {
-			_ports = append(_ports, fmt.Sprintf("%d", port))
-		}
-		ports = strings.Join(_ports, ",")
-	} else if rule.PortStart != 0 || rule.PortEnd != 0 {
-		if rule.PortStart == rule.PortEnd {
-			ports = fmt.Sprintf("%d", rule.PortStart)
-		} else {
-			ports = fmt.Sprintf("%d-%d", rule.PortStart, rule.PortEnd)
-		}
-	}
+
 	secrule := &SSecurityGroupRule{
 		Priority:    int64(rule.Priority),
 		Protocol:    protocol,
-		Ports:       ports,
+		Ports:       "",
 		Direction:   string(rule.Direction),
 		CIDR:        rule.IPNet.String(),
 		Action:      string(rule.Action),
 		Description: rule.Description,
 		SecgroupID:  secgroup.Id,
 	}
-	if err := manager.TableSpec().Insert(secrule); err != nil {
+
+	if len(rule.Ports) > 0 {
+		_ports := []string{}
+		for _, port := range rule.Ports {
+			_ports = append(_ports, fmt.Sprintf("%d", port))
+		}
+		secrule.Ports = strings.Join(_ports, ",")
+	} else if rule.PortStart > 0 && rule.PortEnd > 0 {
+		secrule.Ports = fmt.Sprintf("%d-%d", rule.PortStart, rule.PortEnd)
+		if rule.PortStart == rule.PortEnd {
+			secrule.Ports = fmt.Sprintf("%d", rule.PortStart)
+		}
+	}
+
+	err := manager.TableSpec().Insert(secrule)
+	if err != nil {
 		return nil, err
 	}
 	return secrule, nil
