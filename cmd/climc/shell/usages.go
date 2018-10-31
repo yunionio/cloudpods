@@ -8,6 +8,7 @@ import (
 
 type GeneralUsageOptions struct {
 	HostType []string `help:"Host types" choices:"hypervisor|baremetal|esxi|xen|kubelet|hyperv"`
+	Project  string
 }
 
 func fetchHostTypeOptions(args *GeneralUsageOptions) *jsonutils.JSONDict {
@@ -21,6 +22,9 @@ func fetchHostTypeOptions(args *GeneralUsageOptions) *jsonutils.JSONDict {
 func init() {
 	R(&GeneralUsageOptions{}, "usage", "Show general usage", func(s *mcclient.ClientSession, args *GeneralUsageOptions) error {
 		params := fetchHostTypeOptions(args)
+		if args.Project != "" {
+			params.Add(jsonutils.NewString(args.Project), "project")
+		}
 		result, err := modules.Usages.GetGeneralUsage(s, params)
 		if err != nil {
 			return err
