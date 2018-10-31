@@ -488,7 +488,11 @@ func (self *SAliyunGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *
 		res := jsonutils.NewDict()
 		res.Set("snapshot_id", jsonutils.NewString(cloudSnapshot.GetId()))
 		res.Set("manager_id", jsonutils.NewString(cloudSnapshot.GetManagerId()))
-		res.Set("cloudregion_id", jsonutils.NewString(cloudSnapshot.GetRegionId()))
+		cloudRegion, err := models.CloudregionManager.FetchByExternalId("Aliyun/" + cloudSnapshot.GetRegionId())
+		if err != nil {
+			return nil, fmt.Errorf("Cloud region not found? %s", err)
+		}
+		res.Set("cloudregion_id", jsonutils.NewString(cloudRegion.GetId()))
 		return res, nil
 	})
 	return nil
