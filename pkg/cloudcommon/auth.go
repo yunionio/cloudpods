@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"time"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
@@ -39,13 +38,9 @@ func InitAuth(options *Options, authComplete auth.AuthCompletedCallback) {
 
 	// debug := options.LogLevel == "debug"
 
-	auth.Init(a, false, true, options.SslCertfile, options.SslKeyfile) // , authComplete)
+	auth.Init(a, options.DebugClient, true, options.SslCertfile, options.SslKeyfile) // , authComplete)
 
 	authComplete()
-
-	if options.GlobalVirtualResourceNamespace {
-		consts.EnableGlobalVirtualResourceNamespace()
-	}
 
 	if options.EnableRbac {
 		policy.EnableGlobalRbac(time.Duration(options.RbacPolicySyncPeriodSeconds)*time.Second,
