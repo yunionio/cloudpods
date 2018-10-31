@@ -99,15 +99,15 @@ func (self *GuestDiskSnapshotTask) OnAutoDeleteSnapshotFailed(ctx context.Contex
 }
 
 func (self *GuestDiskSnapshotTask) TaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	snapshotId, _ := self.Params.GetString("snapshot_id")
+	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
+	db.OpsLog.LogEvent(iSnapshot, db.ACT_SNAPSHOT_DONE, iSnapshot.GetShortDesc(), self.UserCred)
+	logclient.AddActionLog(iSnapshot, logclient.ACT_CREATE, nil, self.UserCred, true)
 	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
 	self.SetStage("OnSyncStatus", nil)
 }
 
 func (self *GuestDiskSnapshotTask) OnSyncStatus(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	snapshotId, _ := self.Params.GetString("snapshot_id")
-	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
-	db.OpsLog.LogEvent(iSnapshot, db.ACT_SNAPSHOT_DONE, nil, self.UserCred)
-	logclient.AddActionLog(iSnapshot, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
@@ -139,7 +139,7 @@ func (self *SnapshotDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 			self.SetStageFailed(ctx, err.Error())
 		} else {
 			snapshot.RealDelete(ctx, self.GetUserCred())
-			self.SetStageComplete(ctx, nil)
+			self.TaskComplete(ctx, snapshot, nil)
 		}
 		return
 	}
@@ -227,7 +227,7 @@ func (self *SnapshotDeleteTask) DeleteStaticSnapshot(ctx context.Context, snapsh
 		self.TaskFailed(ctx, snapshot, err.Error())
 		return
 	}
-	self.SetStageComplete(ctx, nil)
+	self.TaskComplete(ctx, snapshot, nil)
 }
 
 func (self *SnapshotDeleteTask) OnDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
@@ -296,7 +296,7 @@ func (self *SnapshotDeleteTask) OnReloadDiskSnapshot(ctx context.Context, snapsh
 }
 
 func (self *SnapshotDeleteTask) TaskComplete(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
-	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_DELETE, nil, self.UserCred)
+	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_DELETE, snapshot.GetShortDesc(), self.UserCred)
 	logclient.AddActionLog(snapshot, logclient.ACT_DELETE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
