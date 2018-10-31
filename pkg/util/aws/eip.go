@@ -46,6 +46,7 @@ func (self *SEipAddress) GetGlobalId() string {
 
 func (self *SEipAddress) GetStatus() string {
 	switch self.Status {
+	// todo: EIP_STATUS_INUSE 对应READY？
 	case EIP_STATUS_AVAILABLE, EIP_STATUS_INUSE:
 		return models.EIP_STATUS_READY
 	default:
