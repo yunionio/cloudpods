@@ -275,7 +275,7 @@ func AwsIpPermissionToYunion(direction secrules.TSecurityRuleDirection, p ec2.Ip
 			}
 
 			if p.ToPort != nil {
-				rule.PortStart = int(*p.ToPort)
+				rule.PortEnd = int(*p.ToPort)
 			}
 		}
 
