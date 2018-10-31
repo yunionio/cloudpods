@@ -29,13 +29,12 @@ type Options struct {
 	AuthTokenCacheSize uint32   `help:"Auth token Cache Size" default:"2048"`
 	TempPath           string   `help:"Path for store temp file, at least 40G space" default:"/opt/yunion/tmp"`
 
+	DebugClient  bool     `help:"Switch on/off mcclient debugs" default:"false"`
+
 	ApplicationID      string `help:"Application ID"`
 	RequestWorkerCount int    `default:"4" help:"Request worker thread count, default is 4"`
 
 	NotifyAdminUser string `default:"sysadmin" help:"System administrator user ID or name to notify"`
-
-	GlobalVirtualResourceNamespace bool `help:"Per project namespace or global namespace for virtual resources"`
-	DebugSqlchemy                  bool `default:"False" help:"Print SQL executed by sqlchemy"`
 
 	EnableSsl   bool   `help:"Enable https"`
 	SslCertfile string `help:"ssl certification file"`
@@ -51,6 +50,9 @@ type Options struct {
 type DBOptions struct {
 	SqlConnection string `help:"SQL connection string"`
 	AutoSyncTable bool   `help:"Automatically synchronize table changes if differences are detected"`
+
+	GlobalVirtualResourceNamespace bool `help:"Per project namespace or global namespace for virtual resources"`
+	DebugSqlchemy                  bool `default:"False" help:"Print SQL executed by sqlchemy"`
 
 	Options
 }
