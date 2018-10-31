@@ -476,10 +476,10 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				NetworkInterfaces: networkInterfaces,
 				VpcAttributes:     vpcattr,
 				ProductCodes:      productCodes,
+				// OSName   todo: 通过关联的image获取 OS Name
 				// ExpiredTime:
 				// EipAddress:
 				// VlanId:
-				// OSName:
 				// OSType:
 			}
 
