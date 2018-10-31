@@ -10,6 +10,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -41,18 +42,14 @@ type SLoadbalancerListenerRule struct {
 }
 
 func loadbalancerListenerRuleCheckUniqueness(ctx context.Context, lbls *SLoadbalancerListener, domain, path string) error {
-	man := db.GetModelManager("loadbalancerlistenerrule")
-	if man == nil {
-		return fmt.Errorf("getting loadbalancer rule manager failed")
-	}
-	q := man.Query().
+	q := LoadbalancerListenerRuleManager.Query().
 		Equals("listener_id", lbls.Id).
 		Equals("domain", domain).
 		Equals("path", path)
 	var lblsr SLoadbalancerListenerRule
 	q.First(&lblsr)
 	if len(lblsr.Id) > 0 {
-		return fmt.Errorf("rule %s/%s already occupied by rule %s(%s)", domain, path, lblsr.Name, lblsr.Id)
+		return httperrors.NewConflictError("rule %s/%s already occupied by rule %s(%s)", domain, path, lblsr.Name, lblsr.Id)
 	}
 	return nil
 }
