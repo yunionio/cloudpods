@@ -11,6 +11,11 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
+const (
+	EIP_STATUS_INUSE         = "InUse"
+	EIP_STATUS_AVAILABLE     = "Available"
+)
+
 type SEipAddress struct {
 	region *SRegion
 
@@ -41,6 +46,8 @@ func (self *SEipAddress) GetGlobalId() string {
 
 func (self *SEipAddress) GetStatus() string {
 	switch self.Status {
+	case EIP_STATUS_AVAILABLE, EIP_STATUS_INUSE:
+		return models.EIP_STATUS_READY
 	default:
 		return models.EIP_STATUS_UNKNOWN
 	}
@@ -150,10 +157,18 @@ func (self *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddress
 		tagspec := TagSpec{ResourceType: "eip"}
 		tagspec.LoadingEc2Tags(ip.Tags)
 
+		var status string
+		if len(*ip.AssociationId) > 0 {
+			status = EIP_STATUS_INUSE
+		} else {
+			status = EIP_STATUS_AVAILABLE
+		}
+
 		eips = append(eips, SEipAddress{
 			region:                  self,
 			AllocationId:            *ip.AllocationId,
 			Tags:                    tagspec,
+			Status:                  status,
 			InstanceId:              *ip.InstanceId,
 			AssociationId:           *ip.AssociationId,
 			Domain:                  *ip.Domain,
