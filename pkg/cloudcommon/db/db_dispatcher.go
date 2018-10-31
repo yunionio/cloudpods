@@ -342,6 +342,12 @@ func query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 			}
 			jsonDict = getModelExtraDetails(item, ctx, jsonDict)
 		}
+		if query.Contains("export_keys") {
+			exportDict := item.GetExportItems(ctx, userCred, query)
+			if exportDict != nil {
+				jsonDict.Update(exportDict)
+			}
+		}
 		results = append(results, jsonDict)
 	}
 	return results, nil

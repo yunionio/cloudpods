@@ -193,6 +193,10 @@ func (model *SModelBase) GetCustomizeColumns(ctx context.Context, userCred mccli
 	return jsonutils.NewDict()
 }
 
+func (model *SModelBase) GetExportItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	return jsonutils.NewDict()
+}
+
 // get hooks
 func (model *SModelBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return false
