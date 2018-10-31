@@ -1103,6 +1103,20 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 	return self.moreExtraInfo(extra)
 }
 
+func (self *SGuest) GetExportItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	exportKeys, _ := query.GetString("export_keys")
+	keys := strings.Split(exportKeys, ",")
+	res := jsonutils.NewDict()
+	if utils.IsInStringArray("os_distribution", keys) {
+		osType := self.GetMetadata("os_distribution", userCred)
+		if len(osType) == 0 {
+			osType = self.OsType
+		}
+		res.Set("os_distribution", jsonutils.NewString(osType))
+	}
+	return res
+}
+
 func (self *SGuest) getNetworksDetails() string {
 	var buf bytes.Buffer
 	for _, nic := range self.GetNetworks() {
