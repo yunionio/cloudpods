@@ -78,6 +78,14 @@ func rangeObjHandler(
 			httperrors.NotFoundError(w, err.Error())
 			return
 		}
+		projectName, _ := getQuery(r).GetString("project")
+		if projectName != "" {
+			userCred, err = generateProjectUserCred(ctx, userCred, projectName)
+			if err != nil {
+				httperrors.GeneralServerError(w, err)
+				return
+			}
+		}
 		usage, err := reporter(userCred, obj, getHostTypes(r))
 		if err != nil {
 			httperrors.GeneralServerError(w, err)
@@ -85,6 +93,19 @@ func rangeObjHandler(
 		}
 		response(w, usage)
 	}
+}
+
+func generateProjectUserCred(ctx context.Context, userCred mcclient.TokenCredential, projectName string) (mcclient.TokenCredential, error) {
+	project, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, projectName)
+	if err != nil {
+		return nil, err
+	}
+	return &mcclient.SSimpleToken{
+		Domain:    project.Domain,
+		DomainId:  project.DomainId,
+		Project:   project.Name,
+		ProjectId: project.Id,
+	}, nil
 }
 
 func addHandler(prefix, rangeObjKey string, hf appsrv.FilterHandler, app *appsrv.Application) {
@@ -219,7 +240,6 @@ func getAdminGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStanda
 		containerRunningUsage,
 		IsolatedDeviceUsage(rangeObj, hostTypes),
 		WireUsage(rangeObj, hostTypes),
-		NetworkUsage(userCred, rangeObj),
 		EipUsage(rangeObj, hostTypes),
 	)
 
@@ -237,6 +257,7 @@ func getCommonGeneralUsage(cred mcclient.TokenCredential, rangeObj db.IStandalon
 		guestPendingDeleteUsage,
 		guestReadyUsage,
 		containerUsage,
+		NetworkUsage(cred, rangeObj),
 	)
 	return
 }
