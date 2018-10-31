@@ -244,9 +244,9 @@ func AwsIpPermissionToYunion(direction secrules.TSecurityRuleDirection, p ec2.Ip
 	isAllPorts := isAwsPermissionAllPorts(p)
 	protocol := awsProtocolToYunion(p)
 	for _, ip := range p.IpRanges {
-		ipNet := strings.Split(*ip.CidrIp, "/")
-		if len(ipNet) != 2 {
-			log.Debugf("AwsIpPermissionToYunion ignored IPV4 rule: %s", *ip.CidrIp)
+		_, ipNet, err := net.ParseCIDR(*ip.CidrIp)
+		if err != nil {
+			log.Errorf("ParseCIDR failed, ignored IPV4 rule: %s", *ip.CidrIp)
 			continue
 		}
 
@@ -254,7 +254,7 @@ func AwsIpPermissionToYunion(direction secrules.TSecurityRuleDirection, p ec2.Ip
 		if isAllPorts {
 			rule = secrules.SecurityRule{
 				Action:      secrules.SecurityRuleAllow,
-				IPNet:       &net.IPNet{net.IP(ipNet[0]), net.IPMask(ipNet[1])},
+				IPNet:       ipNet,
 				Protocol:    protocol,
 				Direction:   direction,
 				Priority:    1,
@@ -263,7 +263,7 @@ func AwsIpPermissionToYunion(direction secrules.TSecurityRuleDirection, p ec2.Ip
 		} else {
 			rule = secrules.SecurityRule{
 				Action:      secrules.SecurityRuleAllow,
-				IPNet:       &net.IPNet{net.IP(ipNet[0]), net.IPMask(ipNet[1])},
+				IPNet:       ipNet,
 				Protocol:    protocol,
 				Direction:   direction,
 				Priority:    1,
