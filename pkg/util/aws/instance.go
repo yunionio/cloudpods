@@ -144,7 +144,12 @@ func (self *SInstance) IsEmulated() bool {
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 	// todo: add price_key here
-
+	tags, err := FetchTags(self.host.zone.region.ec2Client, self.InstanceId)
+	if err != nil {
+		log.Errorf(err.Error())
+	}
+	data.Update(tags)
+	
 	if len(self.ImageId) > 0 {
 		if image, err := self.host.zone.region.GetImage(self.ImageId); err != nil {
 			log.Errorf("Failed to find image %s for instance %s zone %s", self.ImageId, self.GetId(), self.ZoneId)

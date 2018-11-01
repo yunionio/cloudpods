@@ -5,6 +5,7 @@ import (
 	"net"
 	"reflect"
 	"strings"
+	"yunion.io/x/jsonutils"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/log"
@@ -388,4 +389,30 @@ func NextDeviceName(curDeviceNames []string) (string, error) {
 	}
 
 	return "", fmt.Errorf("disk devicename out of index, current deivces: %s", currents)
+}
+
+// fetch tags
+func FetchTags(client *ec2.EC2, resourceId string) (*jsonutils.JSONDict, error) {
+	result := jsonutils.NewDict()
+	params := &ec2.DescribeTagsInput{}
+	filters := []*ec2.Filter{}
+	if len(resourceId) == 0 {
+		return result,fmt.Errorf("resource id should not be empty")
+	}
+	// todo: add resource type filter
+	filters = AppendSingleValueFilter(filters, "resource-id", resourceId)
+	params.SetFilters(filters)
+
+	ret, err := client.DescribeTags(params)
+	if err != nil {
+		return result, err
+	}
+
+	for _, tag := range ret.Tags {
+		if tag.Key != nil && tag.Value != nil {
+			result.Set(*tag.Key, jsonutils.NewString(*tag.Value))
+		}
+	}
+
+	return result, nil
 }
