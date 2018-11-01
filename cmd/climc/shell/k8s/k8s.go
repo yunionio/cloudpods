@@ -22,6 +22,7 @@ func init() {
 	initRepo()
 	initChart()
 	initRelease()
+	initReleaseApps()
 
 	// kubernetes original resources
 	initRaw()
