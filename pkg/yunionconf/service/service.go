@@ -3,6 +3,8 @@ package service
 import (
 	"os"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+
 	_ "github.com/go-sql-driver/mysql"
 
 	"yunion.io/x/log"
@@ -20,7 +22,7 @@ func StartService() {
 	})
 
 	if options.Options.GlobalVirtualResourceNamespace {
-		db.EnableGlobalVirtualResourceNamespace()
+		consts.EnableGlobalVirtualResourceNamespace()
 	}
 
 	cloudcommon.InitDB(&options.Options.DBOptions)
