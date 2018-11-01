@@ -56,6 +56,8 @@ type ComputeOptions struct {
 	DefaultMaxSnapshotCount       int `default:"9" help:"Per Disk max snapshot count, default 9"`
 	DefaultMaxManualSnapshotCount int `default:"2" help:"Per Disk max manual snapshot count, default 2"`
 
+	// aws instance type file
+	DefaultAwsInstanceTypeFile    string `default:"/etc/yunion/aws_instance_types.json" help:"aws instance type json file"`
 	cloudcommon.DBOptions
 }
 
