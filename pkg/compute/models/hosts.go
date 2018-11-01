@@ -599,13 +599,10 @@ func GetDiskSpecV2(storageInfo jsonutils.JSONObject) jsonutils.JSONObject {
 		log.Errorf("Unmarshal to baremetal storage error: %v", err)
 		return nil
 	}
-	refStorages := func() []*baremetal.BaremetalStorage {
-		ret := make([]*baremetal.BaremetalStorage, len(storages))
-		for i, s := range storages {
-			ret[i] = &s
-		}
-		return ret
-	}()
+	refStorages := make([]*baremetal.BaremetalStorage, len(storages))
+	for i := range storages {
+		refStorages[i] = &storages[i]
+	}
 	diskSpec := baremetal.GetDiskSpecV2(refStorages)
 	return jsonutils.Marshal(diskSpec)
 }
