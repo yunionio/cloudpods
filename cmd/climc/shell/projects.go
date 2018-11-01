@@ -2,6 +2,7 @@ package shell
 
 import (
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
@@ -348,6 +349,18 @@ func init() {
 			return err
 		}
 		printList(imgs, modules.Images.GetColumns(s))
+		return nil
+	})
+
+	type ProjectAddTagsOptions struct {
+		ID   string   `help:"ID or name of project"`
+		Tags []string `help:"tags added to project"`
+	}
+	R(&ProjectAddTagsOptions{}, "project-add-tags", "Add project with tags", func(s *mcclient.ClientSession, args *ProjectAddTagsOptions) error {
+		err := modules.Projects.AddTags(s, args.ID, args.Tags)
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 }
