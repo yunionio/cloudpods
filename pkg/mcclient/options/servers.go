@@ -294,3 +294,16 @@ type ServerRestartOptions struct {
 	ID      []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
 	IsForce *bool    `help:"Force reset or not; default false" json:"is_force"`
 }
+
+type ServerMigrateOptions struct {
+	ID         string `help:"ID of server" json:"-"`
+	PreferHost string `help:"Server migration prefer host id or name" json:"prefer_host"`
+	RescueMode *bool  `help:"Migrate server in rescue mode,
+					  all disk must store in shared storage;
+					  default false" json:"rescue_mode"`
+}
+
+type ServerLiveMigrateOptions struct {
+	ID         string `help:"ID of server" json:"-"`
+	PreferHost string `help:"Server migration prefer host id or name" json:"prefer_host"`
+}

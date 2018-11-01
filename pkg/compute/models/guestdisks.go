@@ -150,8 +150,7 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 		desc.Add(jsonutils.NewString(disk.StorageId), "storage_id")
 		localpath := disk.GetPathAtHost(host)
 		if len(localpath) == 0 {
-			desc.Add(jsonutils.NewString(disk.GetFetchUrl()), "url")
-			storage := disk.GetStorage()
+			desc.Add(jsonutils.JSONTrue, "migrating")
 			target := host.GetLeastUsedStorage(storage.StorageType)
 			desc.Add(jsonutils.NewString(target.Id), "target_storage_id")
 			disk.SetStatus(nil, DISK_START_MIGRATE, "migration")

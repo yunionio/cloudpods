@@ -168,24 +168,6 @@ func init() {
 		return nil
 	})
 
-	R(&StorageShowOptions{}, "storage-enable", "Enable a storage", func(s *mcclient.ClientSession, args *StorageShowOptions) error {
-		result, err := modules.Storages.PerformAction(s, args.ID, "enable", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&StorageShowOptions{}, "storage-disable", "Disable a storage", func(s *mcclient.ClientSession, args *StorageShowOptions) error {
-		result, err := modules.Storages.PerformAction(s, args.ID, "disable", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
 	type StorageCacheImageActionOptions struct {
 		ID    string `help:"ID or name of storage"`
 		IMAGE string `help:"ID or name of image"`

@@ -1843,6 +1843,129 @@ func (self *SGuest) CheckQemuVersion(qemuVer, compareVer string) bool {
 	return true
 }
 
+func (self *SGuest) AllowPerformMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.GetHypervisor() != HYPERVISOR_KVM {
+		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.GetHypervisor())
+	}
+	isRescueMode := jsonutils.QueryBoolean(data, "rescue_mode", false)
+	if !isRescueMode && self.Status != VM_READY {
+		return nil, httperrors.NewServerStatusError("Cannot normal migrate guest in status %s, try rescue mode or server-live-migrate?", self.Status)
+	}
+	if isRescueMode {
+		guestDisks := self.GetDisks()
+		for _, guestDisk := range guestDisks {
+			if utils.IsInStringArray(
+				guestDisk.GetDisk().GetStorage().StorageType, STORAGE_LOCAL_TYPES) {
+				return nil, httperrors.NewBadRequestError("Rescue mode requires all disk store in shared storages")
+			}
+		}
+	}
+	devices := self.GetIsolatedDevices()
+	if devices != nil && len(devices) > 0 {
+		return nil, httperrors.NewBadRequestError("Cannot migrate with isolated devices")
+	}
+	var preferHostId string
+	preferHost, _ := data.GetString("prefer_host")
+	if len(preferHost) > 0 {
+		if !userCred.IsSystemAdmin() {
+			return nil, httperrors.NewBadRequestError("Only system admin can assign host")
+		}
+		iHost, _ := HostManager.FetchByIdOrName(userCred, preferHost)
+		if iHost == nil {
+			return nil, httperrors.NewBadRequestError("Host %s not found", preferHost)
+		}
+		host := iHost.(*SHost)
+		preferHostId = host.Id
+	}
+	err := self.StartMigrateTask(ctx, userCred, isRescueMode, self.Status, preferHostId, "")
+	return nil, err
+}
+
+func (self *SGuest) StartMigrateTask(ctx context.Context, userCred mcclient.TokenCredential, isRescueMode bool, guestStatus, preferHostId, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	if isRescueMode {
+		data.Set("is_rescue_mode", jsonutils.JSONTrue)
+	}
+	if len(preferHostId) > 0 {
+		data.Set("prefer_host_id", jsonutils.NewString(preferHostId))
+	}
+	data.Set("guest_status", jsonutils.NewString(guestStatus))
+	if task, err := taskman.TaskManager.NewTask(ctx, "GuestMigrateTask", self, userCred, data, parentTaskId, "", nil); err != nil {
+		log.Errorf(err.Error())
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
+func (self *SGuest) AllowPerformLiveMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformLiveMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.GetHypervisor() != HYPERVISOR_KVM {
+		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.GetHypervisor())
+	}
+	imageId := self.GetDisks()[0].GetDisk().TemplateId
+	image, err := CachedimageManager.GetImageById(ctx, userCred, imageId, false)
+	if err != nil {
+		return nil, err
+	}
+	if image.DiskFormat != "qcow2" {
+		return nil, httperrors.NewBadRequestError("Live migrate only support image fromat qocw2")
+	}
+	if utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_SUSPEND}) {
+		cdrom := self.getCdrom()
+		if cdrom != nil && len(cdrom.ImageId) > 0 {
+			return nil, httperrors.NewBadRequestError("Cannot migrate with cdrom")
+		}
+		devices := self.GetIsolatedDevices()
+		if devices != nil && len(devices) > 0 {
+			return nil, httperrors.NewBadRequestError("Cannot migrate with isolated devices")
+		}
+		if !self.CheckQemuVersion(self.GetQemuVersion(userCred), "1.1.2") {
+			return nil, httperrors.NewBadRequestError("Cannot do live migrate, too low qemu version")
+		}
+		var preferHostId string
+		preferHost, _ := data.GetString("prefer_host")
+		if len(preferHost) > 0 {
+			if !userCred.IsSystemAdmin() {
+				return nil, httperrors.NewBadRequestError("Only system admin can assign host")
+			}
+			iHost, _ := HostManager.FetchByIdOrName(userCred, preferHost)
+			if iHost == nil {
+				return nil, httperrors.NewBadRequestError("Host %s not found", preferHost)
+			}
+			host := iHost.(*SHost)
+			preferHostId = host.Id
+		}
+		err := self.StartGuestLiveMigrateTask(ctx, userCred, self.Status, preferHostId, "")
+		return nil, err
+	}
+	return nil, httperrors.NewBadRequestError("Cannot live migrate in status %s", self.Status)
+}
+
+func (self *SGuest) StartGuestLiveMigrateTask(ctx context.Context, userCred mcclient.TokenCredential, guestStatus, preferHostId, parentTaskId string) error {
+	self.SetStatus(userCred, VM_START_MIGRATE, "")
+	data := jsonutils.NewDict()
+	if len(preferHostId) > 0 {
+		data.Set("prefer_host_id", jsonutils.NewString(preferHostId))
+	}
+	data.Set("guest_status", jsonutils.NewString(guestStatus))
+	if task, err := taskman.TaskManager.NewTask(ctx, "GuestLiveMigrateTask", self, userCred, data, parentTaskId, "", nil); err != nil {
+		log.Errorf(err.Error())
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
 func (self *SGuest) AllowPerformDeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred)
 }
@@ -3988,18 +4111,18 @@ func (self *SGuest) AllowPerformSuspend(ctx context.Context, userCred mcclient.T
 
 func (self *SGuest) PerformSuspend(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Status == VM_RUNNING {
-		err := self.StartSuspendTask(ctx, userCred)
+		err := self.StartSuspendTask(ctx, userCred, "")
 		return nil, err
 	}
 	return nil, httperrors.NewInvalidStatusError("Cannot suspend VM in status %s", self.Status)
 }
 
-func (self *SGuest) StartSuspendTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (self *SGuest) StartSuspendTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	err := self.SetStatus(userCred, VM_SUSPEND, "do suspend")
 	if err != nil {
 		return err
 	}
-	return self.GetDriver().StartSuspendTask(ctx, userCred, self, nil, "")
+	return self.GetDriver().StartSuspendTask(ctx, userCred, self, nil, parentTaskId)
 }
 
 func (self *SGuest) AllowPerformStart(ctx context.Context,
@@ -4715,4 +4838,72 @@ func (self *SGuest) getSchedDesc() jsonutils.JSONObject {
 	desc.Add(jsonutils.NewString(self.GetHypervisor()), "hypervisor")
 
 	return desc
+}
+
+func (self *SGuest) GetApptags() []string {
+	tagsStr := self.GetMetadata("app_tags", nil)
+	if len(tagsStr) > 0 {
+		return strings.Split(tagsStr, ",")
+	}
+	return nil
+}
+
+func (self *SGuest) ToSchedDesc() *jsonutils.JSONDict {
+	desc := jsonutils.NewDict()
+	desc.Set("id", jsonutils.NewString(self.Id))
+	desc.Set("name", jsonutils.NewString(self.Name))
+	desc.Set("vmem_size", jsonutils.NewInt(int64(self.VmemSize)))
+	desc.Set("vcpu_count", jsonutils.NewInt(int64(self.VcpuCount)))
+	self.FillGroupSchedDesc(desc)
+	self.FillDiskSchedDesc(desc)
+	self.FillNetSchedDesc(desc)
+	if len(self.HostId) > 0 && regutils.MatchUUID(self.HostId) {
+		desc.Set("host_id", jsonutils.NewString(self.HostId))
+	}
+	desc.Set("owner_tenant_id", jsonutils.NewString(self.ProjectId))
+	tags := self.GetApptags()
+	for i := 0; i < len(tags); i++ {
+		desc.Set(tags[i], jsonutils.JSONTrue)
+	}
+	desc.Set("hypervisor", jsonutils.NewString(self.GetHypervisor()))
+	return desc
+}
+
+func (self *SGuest) FillGroupSchedDesc(desc *jsonutils.JSONDict) {
+	groups := make([]SGroupguest, 0)
+	err := GroupguestManager.Query().Equals("guest_id", self.Id).All(&groups)
+	if err != nil {
+		log.Errorln(err)
+		return
+	}
+	for i := 0; i < len(groups); i++ {
+		desc.Set(fmt.Sprintf("srvtag.%d", i),
+			jsonutils.NewString(fmt.Sprintf("%s:%s", groups[i].SrvtagId, groups[i].Tag)))
+	}
+}
+
+func (self *SGuest) FillDiskSchedDesc(desc *jsonutils.JSONDict) {
+	guestDisks := make([]SGuestdisk, 0)
+	err := GuestdiskManager.Query().Equals("guest_id", self.Id).All(&guestDisks)
+	if err != nil {
+		log.Errorln(err)
+		return
+	}
+	for i := 0; i < len(guestDisks); i++ {
+		desc.Set(fmt.Sprintf("disk.%d", i), jsonutils.Marshal(guestDisks[i].ToDiskInfo()))
+	}
+}
+
+func (self *SGuest) FillNetSchedDesc(desc *jsonutils.JSONDict) {
+	guestNetworks := make([]SGuestnetwork, 0)
+	err := GuestnetworkManager.Query().Equals("guest_id", self.Id).All(&guestNetworks)
+	if err != nil {
+		log.Errorln(err)
+		return
+	}
+	for i := 0; i < len(guestNetworks); i++ {
+		desc.Set(fmt.Sprintf("net.%d", i),
+			jsonutils.NewString(fmt.Sprintf("%s:%s",
+				guestNetworks[i].NetworkId, guestNetworks[i].IpAddr)))
+	}
 }
