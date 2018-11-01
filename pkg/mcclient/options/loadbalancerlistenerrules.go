@@ -10,9 +10,11 @@ type LoadbalancerListenerRuleCreateOptions struct {
 
 type LoadbalancerListenerRuleListOptions struct {
 	BaseListOptions
-	Listener string
-	Domain   string
-	Path     string
+
+	BackendGroup string
+	Listener     string
+	Domain       string
+	Path         string
 }
 
 type LoadbalancerListenerRuleUpdateOptions struct {
