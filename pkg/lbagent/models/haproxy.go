@@ -320,13 +320,7 @@ func (b *LoadbalancerCorpus) genHaproxyConfigBackend(data map[string]interface{}
 
 func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *LoadbalancerListener, opts *AgentParams) error {
 	lb := listener.loadbalancer
-	rules := LoadbalancerListenerRules{}
-	for id, rule := range listener.rules {
-		if rule.Status != "enabled" {
-			continue
-		}
-		rules[id] = rule
-	}
+	rules := listener.rules.OrderedEnabledList()
 	data := b.genHaproxyConfigCommon(lb, listener, opts)
 	ruleBackendIdGen := func(id string) string {
 		return fmt.Sprintf("backends_rule-%s", id)

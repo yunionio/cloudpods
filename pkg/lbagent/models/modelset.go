@@ -1,6 +1,8 @@
 package models
 
 import (
+	"sort"
+
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/mcclient/models"
@@ -159,6 +161,43 @@ func (set LoadbalancerListenerRules) addModelCallback(i models.IVirtualResource)
 		LoadbalancerListenerRule: m,
 	}
 	return nil
+}
+
+type OrderedLoadbalancerListenerRuleList []*LoadbalancerListenerRule
+
+func (lst OrderedLoadbalancerListenerRuleList) Len() int {
+	return len(lst)
+}
+
+func (lst OrderedLoadbalancerListenerRuleList) Less(i, j int) bool {
+	ldi := len(lst[i].Domain)
+	ldj := len(lst[j].Domain)
+	if ldi < ldj {
+		return true
+	} else if ldi == ldj {
+		lpi := len(lst[i].Path)
+		lpj := len(lst[j].Path)
+		if lpi < lpj {
+			return true
+		}
+	}
+	return false
+}
+
+func (lst OrderedLoadbalancerListenerRuleList) Swap(i, j int) {
+	lst[i], lst[j] = lst[j], lst[i]
+}
+
+func (set LoadbalancerListenerRules) OrderedEnabledList() OrderedLoadbalancerListenerRuleList {
+	rules := OrderedLoadbalancerListenerRuleList{}
+	for _, rule := range set {
+		if rule.Status == "enabled" {
+			rules = append(rules, rule)
+		}
+	}
+	// more specific rules come first
+	sort.Sort(sort.Reverse(rules))
+	return rules
 }
 
 func (set LoadbalancerBackendGroups) ModelManager() modules.Manager {
