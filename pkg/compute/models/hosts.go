@@ -660,8 +660,8 @@ func ConvertStorageInfo2BaremetalStorages(storageInfo jsonutils.JSONObject) []*b
 		return nil
 	}
 	ret := make([]*baremetal.BaremetalStorage, len(storages))
-	for i, s := range storages {
-		ret[i] = &s
+	for i := range storages {
+		ret[i] = &storages[i]
 	}
 	return ret
 }
