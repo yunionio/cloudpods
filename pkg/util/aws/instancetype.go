@@ -70,7 +70,11 @@ func (self *SRegion) GetInstanceTypes() ([]SInstanceType, error) {
 }
 
 func (self *SRegion) GetInstanceType(instanceTypeId string) (*SInstanceType, error) {
-	ret, _ := self.GetInstanceTypes()
+	ret, err := self.GetInstanceTypes()
+	if err != nil {
+		return nil, err
+	}
+
 	for _, item := range ret {
 		if item.InstanceTypeId == instanceTypeId {
 			return &item, nil
