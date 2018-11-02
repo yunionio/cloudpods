@@ -58,4 +58,13 @@ func initRepo() {
 		printObject(repo)
 		return nil
 	})
+
+	R(&o.RepoGetOptions{}, cmdN("sync"), "Sync a repository", func(s *mcclient.ClientSession, args *o.RepoGetOptions) error {
+		repo, err := k8s.Repos.PerformAction(s, args.NAME, "sync", nil)
+		if err != nil {
+			return err
+		}
+		printObject(repo)
+		return nil
+	})
 }
