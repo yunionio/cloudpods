@@ -304,6 +304,17 @@ type SLikeCondition struct {
 	STupleCondition
 }
 
+func likeEscape(s string) string {
+	var res bytes.Buffer
+	for i := 0; i < len(s); i++ {
+		if s[i] == '_' || s[i] == '%' {
+			res.WriteByte('\\')
+		}
+		res.WriteByte(s[i])
+	}
+	return res.String()
+}
+
 func (t *SLikeCondition) WhereClause() string {
 	return tupleConditionWhereClause(&t.STupleCondition, SQL_OP_LIKE)
 }
@@ -314,16 +325,19 @@ func Like(f IQueryField, v interface{}) ICondition {
 }
 
 func Contains(f IQueryField, v string) ICondition {
+	v = likeEscape(v)
 	nv := fmt.Sprintf("%%%s%%", v)
 	return Like(f, nv)
 }
 
 func Startswith(f IQueryField, v string) ICondition {
+	v = likeEscape(v)
 	nv := fmt.Sprintf("%s%%", v)
 	return Like(f, nv)
 }
 
 func Endswith(f IQueryField, v string) ICondition {
+	v = likeEscape(v)
 	nv := fmt.Sprintf("%%%s", v)
 	return Like(f, nv)
 }

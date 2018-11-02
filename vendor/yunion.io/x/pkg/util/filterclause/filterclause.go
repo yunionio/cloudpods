@@ -56,11 +56,11 @@ func (fc *SFilterClause) QueryCondition(q *sqlchemy.SQuery) sqlchemy.ICondition 
 	case "like":
 		return sqlchemy.Like(field, fc.params[0])
 	case "contains":
-		return sqlchemy.Like(field, fmt.Sprintf("%%%s%%", fc.params[0]))
+		return sqlchemy.Contains(field, fc.params[0])
 	case "startswith":
-		return sqlchemy.Like(field, fmt.Sprint("%s%%", fc.params[0]))
+		return sqlchemy.Startswith(field, fc.params[0])
 	case "endswith":
-		return sqlchemy.Like(field, fmt.Sprintf("%%%s", fc.params[0]))
+		return sqlchemy.Endswith(field, fc.params[0])
 	case "equals":
 		return sqlchemy.Equals(field, fc.params[0])
 	case "notequals":
