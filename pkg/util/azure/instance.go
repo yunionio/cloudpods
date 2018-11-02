@@ -222,6 +222,11 @@ func (self *SRegion) doDeleteVM(instanceId string) error {
 
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
+	tags := jsonutils.NewDict()
+	for k,v := range self.Tags {
+		tags.Set(k, jsonutils.NewString(v))
+	}
+	data.Update(tags)
 	if osDistribution := self.Properties.StorageProfile.ImageReference.Publisher; len(osDistribution) > 0 {
 		data.Add(jsonutils.NewString(osDistribution), "os_distribution")
 	}
