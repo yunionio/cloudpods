@@ -269,6 +269,12 @@ func listItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchem
 	if err != nil {
 		return nil, err
 	}
+	if query.Contains("export_keys") {
+		q, err = manager.ListItemExportKeys(ctx, q, userCred, query)
+		if err != nil {
+			return nil, err
+		}
+	}
 	q, err = listItemsQueryByColumn(manager, q, userCred, query)
 	if err != nil {
 		return nil, err
@@ -323,28 +329,40 @@ func query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 	for rows.Next() {
 		itemValue := reflect.Indirect(reflect.ValueOf(item))
 		itemValue.Set(itemInitValue)
-		err = q.Row2Struct(rows, item)
-		if err != nil {
-			return nil, err
+		extraData := jsonutils.NewDict()
+		if query.Contains("export_keys") {
+			RowMap, err := q.Row2Map(rows)
+			if err != nil {
+				return nil, err
+			}
+			extraKeys := manager.GetExportExtraKeys(ctx, query, RowMap)
+			if extraKeys != nil {
+				extraData.Update(extraKeys)
+			}
+			err = q.RowMap2Struct(RowMap, item)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			err = q.Row2Struct(rows, item)
+			if err != nil {
+				return nil, err
+			}
 		}
+
 		jsonData := jsonutils.Marshal(item)
 		jsonDict, ok := jsonData.(*jsonutils.JSONDict)
 		if !ok {
 			return nil, fmt.Errorf("invalid model data structure, not a dict")
 		}
 		jsonDict = jsonDict.CopyIncludes(listF...)
-		if showDetails {
+		jsonDict.Update(extraData)
+		if showDetails && !query.Contains("export_keys") {
 			extraDict := item.GetCustomizeColumns(ctx, userCred, query)
 			if extraDict != nil {
 				jsonDict.Update(extraDict)
 			}
 			jsonDict = getModelExtraDetails(item, ctx, jsonDict)
-		}
-		if query.Contains("export_keys") {
-			exportDict := item.GetExportItems(ctx, userCred, query)
-			if exportDict != nil {
-				jsonDict.Update(exportDict)
-			}
 		}
 		results = append(results, jsonDict)
 	}
