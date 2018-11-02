@@ -24,7 +24,7 @@ func (o AppBaseCreateOptions) Params() (*jsonutils.JSONDict, error) {
 
 type AppCreateOptions struct {
 	AppBaseCreateOptions
-	ChartName string `help:"Meter helm chart name, e.g infra/meter" default:"infra/meter"`
+	CHARTNAME string `help:"Helm release app chart name, e.g yunion/meter"`
 }
 
 func (o AppCreateOptions) Params() (*jsonutils.JSONDict, error) {
@@ -32,8 +32,6 @@ func (o AppCreateOptions) Params() (*jsonutils.JSONDict, error) {
 	if err != nil {
 		return nil, err
 	}
-	if o.ChartName != "" {
-		params.Add(jsonutils.NewString(o.ChartName), "chart_name")
-	}
+	params.Add(jsonutils.NewString(o.CHARTNAME), "chart_name")
 	return params, nil
 }
