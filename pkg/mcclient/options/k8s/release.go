@@ -85,22 +85,16 @@ func (o ReleaseCreateUpdateOptions) Params() (*jsonutils.JSONDict, error) {
 }
 
 type ReleaseCreateOptions struct {
-	NamespaceWithClusterOptions
-	ReleaseCreateUpdateOptions
-	Name      string `help:"Release name, If unspecified, it will autogenerate one for you"`
+	AppBaseCreateOptions
 	CHARTNAME string `help:"Helm chart name, e.g stable/etcd"`
 }
 
 func (o ReleaseCreateOptions) Params() (*jsonutils.JSONDict, error) {
-	params, err := o.ReleaseCreateUpdateOptions.Params()
+	params, err := o.AppBaseCreateOptions.Params()
 	if err != nil {
 		return nil, err
 	}
-	params.Update(o.NamespaceWithClusterOptions.Params())
 	params.Add(jsonutils.NewString(o.CHARTNAME), "chart_name")
-	if o.Name != "" {
-		params.Add(jsonutils.NewString(o.Name), "release_name")
-	}
 	return params, nil
 }
 
