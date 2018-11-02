@@ -116,6 +116,7 @@ const (
 
 	ACT_SYNC_CLOUD_DISK   = "sync_cloud_disk"
 	ACT_SYNC_CLOUD_SERVER = "sync_cloud_server"
+	ACT_SYNC_CLOUD_EIP    = "sync_cloud_eip"
 
 	ACT_SPLIT = "net_split"
 
