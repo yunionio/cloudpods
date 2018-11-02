@@ -111,6 +111,14 @@
   version = "v1.3.0"
 
 [[constraint]]
+  name = "github.com/tencentcloud/tencentcloud-sdk-go"
+  version = "=v3.0.0"
+
+[[constraint]]
+  name = "github.com/nelsonken/cos-go-sdk-v5"
+  version = "=v1.2.0"
+
+[[constraint]]
   branch = "master"
   name = "github.com/tredoe/osutil"
 

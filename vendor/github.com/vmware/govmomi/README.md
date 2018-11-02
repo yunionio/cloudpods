@@ -75,6 +75,8 @@ Refer to the [CHANGELOG](CHANGELOG.md) for version to version changes.
 
 * [Libretto](https://github.com/apcera/libretto/tree/master/virtualmachine/vsphere)
 
+* [Telegraf](https://github.com/influxdata/telegraf/tree/master/plugins/inputs/vsphere)
+
 ## Related projects
 
 * [rbvmomi](https://github.com/vmware/rbvmomi)
