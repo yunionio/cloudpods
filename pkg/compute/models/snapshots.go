@@ -162,8 +162,10 @@ func (self *SSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSON
 		guests := disk.GetGuests()
 		if len(guests) == 1 {
 			extra.Add(jsonutils.NewString(guests[0].Name), "guest")
+			extra.Add(jsonutils.NewString(guests[0].Id), "guest_id")
 			extra.Add(jsonutils.NewString(guests[0].Status), "guest_status")
 		}
+		extra.Add(jsonutils.NewString(disk.Name), "disk_name")
 	}
 	if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
 		extra.Add(jsonutils.NewString(cloudprovider.Provider), "provider")
