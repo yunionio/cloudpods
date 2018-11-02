@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -136,6 +137,22 @@ func (self *SElasticip) GetRegion() *SCloudregion {
 	return CloudregionManager.FetchRegionById(self.CloudregionId)
 }
 
+func (self *SElasticip) GetShortDesc() *jsonutils.JSONDict {
+	desc := self.SVirtualResourceBase.GetShortDesc()
+	desc.Add(jsonutils.NewString(self.ChargeType), "charge_type")
+	desc.Add(jsonutils.NewInt(int64(self.Bandwidth)), "bandwidth")
+	desc.Add(jsonutils.NewString(self.Mode), "mode")
+	region := self.GetRegion()
+	if len(region.ExternalId) > 0 {
+		regionInfo := strings.Split(region.ExternalId, "/")
+		if len(regionInfo) == 2 {
+			desc.Add(jsonutils.NewString(strings.ToLower(regionInfo[0])), "hypervisor")
+			desc.Add(jsonutils.NewString(regionInfo[1]), "region")
+		}
+	}
+	return desc
+}
+
 func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, eips []cloudprovider.ICloudEIP) compare.SyncResult {
 	// localEips := make([]SElasticip, 0)
 	// remoteEips := make([]cloudprovider.ICloudEIP, 0)
@@ -264,6 +281,8 @@ func (manager *SElasticipManager) newFromCloudEip(userCred mcclient.TokenCredent
 		log.Errorf("newFromCloudEip fail %s", err)
 		return nil, err
 	}
+
+	db.OpsLog.LogEvent(&eip, db.ACT_SYNC_CLOUD_EIP, eip.GetShortDesc(), userCred)
 	return &eip, nil
 }
 
