@@ -111,6 +111,13 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 	if listenerType != LB_LISTENER_TYPE_HTTP && listenerType != LB_LISTENER_TYPE_HTTPS {
 		return nil, fmt.Errorf("listener type must be http/https, got %s", listenerType)
 	}
+	{
+		backendGroup := backendGroupV.Model.(*SLoadbalancerBackendGroup)
+		if backendGroup.LoadbalancerId != listener.LoadbalancerId {
+			return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
+				backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, listener.LoadbalancerId)
+		}
+	}
 	err := loadbalancerListenerRuleCheckUniqueness(ctx, listener, domainV.Value, pathV.Value)
 	if err != nil {
 		return nil, err
@@ -123,10 +130,24 @@ func (lbr *SLoadbalancerListenerRule) AllowPerformStatus(ctx context.Context, us
 }
 
 func (lbr *SLoadbalancerListenerRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", lbr.GetOwnerProjectId()).Optional(true)
+	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", lbr.GetOwnerProjectId())
+	backendGroupV.Optional(true)
 	err := backendGroupV.Validate(data)
 	if err != nil {
 		return nil, err
+	}
+	if backendGroupV.Model != nil {
+		listenerM, err := LoadbalancerListenerManager.FetchById(lbr.ListenerId)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("loadbalancerlistenerrule %s(%s): fetching listener %s failed",
+				lbr.Name, lbr.Id, lbr.ListenerId)
+		}
+		listener := listenerM.(*SLoadbalancerListener)
+		backendGroup := backendGroupV.Model.(*SLoadbalancerBackendGroup)
+		if backendGroup.LoadbalancerId != listener.LoadbalancerId {
+			return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
+				backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, listener.LoadbalancerId)
+		}
 	}
 	return lbr.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }

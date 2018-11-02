@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -205,10 +206,10 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 			return nil, err
 		}
 	}
+	lb := lbV.Model.(*SLoadbalancer)
+	listenerPort := listenerPortV.Value
+	listenerType := listenerTypeV.Value
 	{
-		lb := lbV.Model.(*SLoadbalancer)
-		listenerPort := listenerPortV.Value
-		listenerType := listenerTypeV.Value
 		err := man.checkListenerUniqueness(ctx, lb, listenerType, listenerPort)
 		if err != nil {
 			// duplicate?
@@ -216,7 +217,16 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 		}
 	}
 	{
-		if listenerTypeV.Value == LB_LISTENER_TYPE_HTTPS {
+		if backendGroupV.Model != nil {
+			backendGroup := backendGroupV.Model.(*SLoadbalancerBackendGroup)
+			if backendGroup.LoadbalancerId != lb.Id {
+				return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
+					backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, lb.Id)
+			}
+		}
+	}
+	{
+		if listenerType == LB_LISTENER_TYPE_HTTPS {
 			certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerProjId)
 			tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", LB_TLS_CIPHER_POLICIES).Default(LB_TLS_CIPHER_POLICY_1_2)
 			httpsV := map[string]validators.IValidator{
@@ -233,7 +243,7 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 	}
 	{
 		// health check default depends on input parameters
-		checkTypeV := man.checkTypeV(listenerTypeV.Value)
+		checkTypeV := man.checkTypeV(listenerType)
 		keyVHealth := map[string]validators.IValidator{
 			"health_check":      validators.NewStringChoicesValidator("health_check", LB_BOOL_VALUES).Default(LB_BOOL_ON),
 			"health_check_type": checkTypeV,
@@ -335,6 +345,15 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 		v.Optional(true)
 		if err := v.Validate(data); err != nil {
 			return nil, err
+		}
+	}
+	{
+		if backendGroupV.Model != nil {
+			backendGroup := backendGroupV.Model.(*SLoadbalancerBackendGroup)
+			if backendGroup.LoadbalancerId != lblis.LoadbalancerId {
+				return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
+					backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, lblis.LoadbalancerId)
+			}
 		}
 	}
 	return lblis.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
