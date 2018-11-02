@@ -10,17 +10,9 @@
   version = "v1.4.0"
 
 [[projects]]
-  digest = "1:402c5ecf012012f4a6ff2bcc6ee903f5280e8c27f4abaebb2319716065397304"
+  digest = "1:46ea9487304f4b3c787f54483ecb13a338d686dcd670db0ab1a112ed0ae2128e"
   name = "github.com/Azure/azure-sdk-for-go"
   packages = [
-    "services/compute/mgmt/2018-04-01/compute",
-    "services/compute/mgmt/2018-06-01/compute",
-    "services/consumption/mgmt/2018-03-31/consumption",
-    "services/network/mgmt/2018-06-01/network",
-    "services/preview/subscription/mgmt/2018-03-01-preview/subscription",
-    "services/resources/mgmt/2018-05-01/resources",
-    "services/storage/mgmt/2017-10-01/storage",
-    "services/storage/mgmt/2018-02-01/storage",
     "storage",
     "version",
   ]
@@ -29,7 +21,7 @@
   version = "v19.1.0"
 
 [[projects]]
-  digest = "1:b8a61bb5402d1b01ada88ccb213da33a5d29683cba5ce93813aa67d5826afe56"
+  digest = "1:0465e4de4eb60d6bebf5d7caedc632858346001bd8803a25a78d8214f4fb4968"
   name = "github.com/Azure/go-autorest"
   packages = [
     "autorest",
@@ -37,8 +29,6 @@
     "autorest/azure",
     "autorest/azure/auth",
     "autorest/date",
-    "autorest/to",
-    "autorest/validation",
     "logger",
     "version",
   ]
@@ -845,14 +835,6 @@
   revision = "49a4782e9908fe098c907022a1bd7519c79803d6"
 
 [[projects]]
-  digest = "1:81e02c4edb639c80559c0650f9401d3e2dcc3256d1fa215382bb7c83c1db9126"
-  name = "github.com/shopspring/decimal"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "cd690d0c9e2447b1ef2a129a6b7b49077da89b8e"
-  version = "1.1.0"
-
-[[projects]]
   digest = "1:dc2d85c13ac22c22a1f3170a41a8e1b897fa05134aaf533f16df44f66a25b4a1"
   name = "github.com/sirupsen/logrus"
   packages = ["."]
@@ -1242,7 +1224,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:201bff9d99a538dd71fd8e55bbbfda8a301fd89676d0668a2cedc574e1aeaa03"
+  digest = "1:71658437b1f5aca7d253eca0d622301d06ed943f32ca2f5da7b5dd1dac8bfcb4"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1276,15 +1258,15 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "122c7d4ce76b4611b63d86af8e9bb2610ab55c20"
+  revision = "526a04d2eb834022e20100d991d1c84b78d87c07"
 
 [[projects]]
   branch = "master"
-  digest = "1:a22a70d0156f2b836993f4d07b38c4b1c2058d61ced4e55bb7fb77b297424a04"
+  digest = "1:141fd68bff3a443a9e5ba7aa2bcde1da32d10e8cd9d84c34a58cbd3a09d13364"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "3342ff524267b69938600968f3f193fc794b309c"
+  revision = "a3f19609eaa576cde3dff0e9099891f95f9aeec8"
 
 [[projects]]
   branch = "master"
@@ -1299,14 +1281,6 @@
   analyzer-version = 1
   input-imports = [
     "github.com/360EntSecGroup-Skylar/excelize",
-    "github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-04-01/compute",
-    "github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute",
-    "github.com/Azure/azure-sdk-for-go/services/consumption/mgmt/2018-03-31/consumption",
-    "github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network",
-    "github.com/Azure/azure-sdk-for-go/services/preview/subscription/mgmt/2018-03-01-preview/subscription",
-    "github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources",
-    "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-10-01/storage",
-    "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-02-01/storage",
     "github.com/Azure/azure-sdk-for-go/storage",
     "github.com/Azure/go-autorest/autorest",
     "github.com/Azure/go-autorest/autorest/azure",

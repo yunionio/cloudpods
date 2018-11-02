@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/reflectutils"
 )
 
@@ -213,7 +214,9 @@ func tupleConditionWhereClause(t *STupleCondition, op string) string {
 }
 
 func questionMark(count int) string {
-	if count == 1 {
+	if count == 0 {
+		return ""
+	} else if count == 1 {
 		return "( ? )"
 	} else {
 		var buf bytes.Buffer
@@ -273,8 +276,19 @@ type SInCondition struct {
 	STupleCondition
 }
 
+func inConditionWhereClause(t *STupleCondition, op string) string {
+	v := varConditionWhereClause(t.right)
+	if len(v) == 0 {
+		log.Warningf("The In condition on %s was invoked with an empty sequence, "+
+			"consider alternative strategies for improved performance !!!", t.left.Name())
+		return NotEquals(t.left, t.left).WhereClause()
+	} else {
+		return tupleConditionWhereClause(t, op)
+	}
+}
+
 func (t *SInCondition) WhereClause() string {
-	return tupleConditionWhereClause(&t.STupleCondition, SQL_OP_IN)
+	return inConditionWhereClause(&t.STupleCondition, SQL_OP_IN)
 }
 
 func In(f IQueryField, v interface{}) ICondition {
@@ -290,6 +304,17 @@ type SLikeCondition struct {
 	STupleCondition
 }
 
+func likeEscape(s string) string {
+	var res bytes.Buffer
+	for i := 0; i < len(s); i++ {
+		if s[i] == '_' || s[i] == '%' {
+			res.WriteByte('\\')
+		}
+		res.WriteByte(s[i])
+	}
+	return res.String()
+}
+
 func (t *SLikeCondition) WhereClause() string {
 	return tupleConditionWhereClause(&t.STupleCondition, SQL_OP_LIKE)
 }
@@ -300,16 +325,19 @@ func Like(f IQueryField, v interface{}) ICondition {
 }
 
 func Contains(f IQueryField, v string) ICondition {
+	v = likeEscape(v)
 	nv := fmt.Sprintf("%%%s%%", v)
 	return Like(f, nv)
 }
 
 func Startswith(f IQueryField, v string) ICondition {
+	v = likeEscape(v)
 	nv := fmt.Sprintf("%s%%", v)
 	return Like(f, nv)
 }
 
 func Endswith(f IQueryField, v string) ICondition {
+	v = likeEscape(v)
 	nv := fmt.Sprintf("%%%s", v)
 	return Like(f, nv)
 }
