@@ -1,7 +1,9 @@
 package regutils
 
 import (
+	"net"
 	"regexp"
+	"strings"
 )
 
 var FUNCTION_REG *regexp.Regexp
@@ -11,9 +13,6 @@ var INTEGER_REG *regexp.Regexp
 var FLOAT_REG *regexp.Regexp
 var MACADDR_REG *regexp.Regexp
 var COMPACT_MACADDR_REG *regexp.Regexp
-var IPADDR_REG_PATTERN *regexp.Regexp
-var IP6ADDR_REG *regexp.Regexp
-var CIDR_REG_PATTERN *regexp.Regexp
 var NSPTR_REG *regexp.Regexp
 var NAME_REG *regexp.Regexp
 var DOMAINNAME_REG *regexp.Regexp
@@ -32,6 +31,8 @@ var RFC2882_TIME_REG *regexp.Regexp
 var EMAIL_REG *regexp.Regexp
 var CHINA_MOBILE_REG *regexp.Regexp
 var FS_FORMAT_REG *regexp.Regexp
+var US_CURRENCY_REG *regexp.Regexp
+var EU_CURRENCY_REG *regexp.Regexp
 
 func init() {
 	FUNCTION_REG = regexp.MustCompile(`^\w+\(.*\)$`)
@@ -41,9 +42,6 @@ func init() {
 	FLOAT_REG = regexp.MustCompile(`^\d+(\.\d*)?$`)
 	MACADDR_REG = regexp.MustCompile(`^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$`)
 	COMPACT_MACADDR_REG = regexp.MustCompile(`^[0-9a-fA-F]{12}$`)
-	IPADDR_REG_PATTERN = regexp.MustCompile(`^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$`)
-	CIDR_REG_PATTERN = regexp.MustCompile(`^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(\/\d{1,2})?$`)
-	IP6ADDR_REG = regexp.MustCompile(`^\s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])){3}))|:)))(%.+)?\s*$`)
 	NSPTR_REG = regexp.MustCompile(`^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\.in-addr\.arpa$`)
 	NAME_REG = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._@-]*$`)
 	DOMAINNAME_REG = regexp.MustCompile(`^[a-zA-Z0-9-.]+$`)
@@ -62,6 +60,8 @@ func init() {
 	EMAIL_REG = regexp.MustCompile(`^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}$`)
 	CHINA_MOBILE_REG = regexp.MustCompile(`^1[0-9-]{10}$`)
 	FS_FORMAT_REG = regexp.MustCompile(`^(ext|fat|hfs|xfs|swap|ntfs|reiserfs|ufs|btrfs)`)
+	US_CURRENCY_REG = regexp.MustCompile(`^(\d{0,3}|((\d{1,3},)+\d{3}))(\.\d*)?$`)
+	EU_CURRENCY_REG = regexp.MustCompile(`^(\d{0,3}|((\d{1,3}\.)+\d{3}))(,\d*)?$`)
 }
 
 func MatchFunction(str string) bool {
@@ -93,19 +93,26 @@ func MatchCompactMacAddr(str string) bool {
 }
 
 func MatchIP4Addr(str string) bool {
-	return IPADDR_REG_PATTERN.MatchString(str)
+	ip := net.ParseIP(str)
+	return ip != nil && !strings.Contains(str, ":")
 }
 
 func MatchCIDR(str string) bool {
-	return CIDR_REG_PATTERN.MatchString(str)
+	ip, _, err := net.ParseCIDR(str)
+	if err != nil {
+		return false
+	}
+	return ip != nil && !strings.Contains(str, ":")
 }
 
 func MatchIP6Addr(str string) bool {
-	return IP6ADDR_REG.MatchString(str)
+	ip := net.ParseIP(str)
+	return ip != nil && strings.Contains(str, ":")
 }
 
 func MatchIPAddr(str string) bool {
-	return MatchIP4Addr(str) || MatchIP6Addr(str)
+	ip := net.ParseIP(str)
+	return ip != nil
 }
 
 func MatchPtr(str string) bool {
@@ -178,4 +185,12 @@ func MatchMobile(str string) bool {
 
 func MatchFS(str string) bool {
 	return FS_FORMAT_REG.MatchString(str)
+}
+
+func MatchUSCurrency(str string) bool {
+	return US_CURRENCY_REG.MatchString(str)
+}
+
+func MatchEUCurrency(str string) bool {
+	return EU_CURRENCY_REG.MatchString(str)
 }
