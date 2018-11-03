@@ -81,6 +81,7 @@ func fetchPolicies() (map[string]rbacutils.SRbacPolicy, map[string]rbacutils.SRb
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewInt(2048), "limit")
 		params.Add(jsonutils.NewInt(int64(offset)), "offset")
+		modules.Policies.SetEnableFilter(false)
 		result, err := modules.Policies.ResourceManager.List(s, params)
 
 		if err != nil {
