@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -48,6 +49,9 @@ func (p *SReverseProxy) ServeHTTP(ctx context.Context, w http.ResponseWriter, r 
 	}
 	log.Debugf("Forwarding to servie: %q, url: %q", p.serviceName, remoteUrl.String())
 	proxy := httputil.NewSingleHostReverseProxy(remoteUrl)
+	proxy.Transport = &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
 	r.Header.Del("Cookie")
 	r.Header.Del("X-Auth-Token")
 	proxy.ServeHTTP(w, r)
