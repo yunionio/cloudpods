@@ -104,6 +104,10 @@ type Options struct {
 	AdminPasswd string `help:"Admin password" default:"eBVVSNaMeyzDnD8F" alias:"admin-password"`
 	AdminTenant string `help:"Admin tenant" default:"system" alias:"admin-tenant-name"`
 
+	EnableSsl   bool   `help:"Enable https"`
+	SslCertfile string `help:"ssl certification file"`
+	SslKeyfile  string `help:"ssl certification key file"`
+
 	// scheduler options
 	SchedulerOptions
 }
