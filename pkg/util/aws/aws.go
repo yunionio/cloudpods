@@ -111,7 +111,13 @@ func (self *SAwsClient) GetIRegions() []cloudprovider.ICloudRegion {
 
 func (self *SAwsClient) GetRegion(regionId string) *SRegion {
 	if len(regionId) == 0 {
-		regionId = AWS_DEFAULT_REGION
+		regionId = AWS_INTERNATIONAL_DEFAULT_REGION
+		switch self.accessUrl {
+		case "InternationalCloud":
+			regionId = AWS_INTERNATIONAL_DEFAULT_REGION
+		case "ChinaCloud":
+			regionId = AWS_CHINA_DEFAULT_REGION
+		}
 	}
 	for i := 0; i < len(self.iregions); i += 1 {
 		if self.iregions[i].GetId() == regionId {
