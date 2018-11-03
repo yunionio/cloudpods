@@ -36,7 +36,7 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error(PluginName, err)
 	}
 
-	rDNS.initK8s(c)
+	go rDNS.startRefreshKubeConfig()
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		rDNS.Next = next
@@ -77,11 +77,31 @@ func parseConfig(c *caddy.Controller) (*SRegionDNS, error) {
 						return nil, c.ArgErr()
 					}
 					rDNS.SqlConnection = c.Val()
-				case "kube_config":
+				case "auth_url":
 					if !c.NextArg() {
 						return nil, c.ArgErr()
 					}
-					rDNS.K8sConfigFile = c.Val()
+					rDNS.AuthUrl = c.Val()
+				case "admin_project":
+					if !c.NextArg() {
+						return nil, c.ArgErr()
+					}
+					rDNS.AdminProject = c.Val()
+				case "admin_user":
+					if !c.NextArg() {
+						return nil, c.ArgErr()
+					}
+					rDNS.AdminUser = c.Val()
+				case "admin_password":
+					if !c.NextArg() {
+						return nil, c.ArgErr()
+					}
+					rDNS.AdminPassword = c.Val()
+				case "region":
+					if !c.NextArg() {
+						return nil, c.ArgErr()
+					}
+					rDNS.Region = c.Val()
 				case "upstream":
 					args := c.RemainingArgs()
 					u, err := upstream.New(args)
