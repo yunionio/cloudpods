@@ -14,6 +14,7 @@ import (
 
 type BaseOptions struct {
 	Help       bool   `help:"Show help"`
+	AccessUrl  string `help:"Access key" default:"$AWS_ACCESS_URL" choices:"ChinaCloud|InternationalCloud"`
 	AccessKey  string `help:"Access key" default:"$AWS_ACCESS_KEY"`
 	Secret     string `help:"Secret" default:"$AWS_SECRET"`
 	RegionId   string `help:"RegionId" default:"$AWS_REGION"`
@@ -69,7 +70,7 @@ func newClient(options *BaseOptions) (*aws.SRegion, error) {
 		return nil, fmt.Errorf("Missing secret")
 	}
 
-	cli, err := aws.NewAwsClient("", "", options.AccessKey, options.Secret)
+	cli, err := aws.NewAwsClient("", "", options.AccessUrl,options.AccessKey, options.Secret)
 	if err != nil {
 		return nil, err
 	}

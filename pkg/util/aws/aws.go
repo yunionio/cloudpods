@@ -15,20 +15,22 @@ const (
 	CLOUD_PROVIDER_AWS    = models.CLOUD_PROVIDER_AWS
 	CLOUD_PROVIDER_AWS_CN = "AWS"
 
-	AWS_DEFAULT_REGION = "us-west-1"
+	AWS_INTERNATIONAL_DEFAULT_REGION = "us-west-1"
+	AWS_CHINA_DEFAULT_REGION = "cn-north-1"
 	AWS_API_VERSION = "2018-10-10"
 )
 
 type SAwsClient struct {
 	providerId   string
 	providerName string
+	accessUrl    string     // 服务区域 ChinaCloud | InternationalCloud
 	accessKey    string
 	secret       string
 	iregions     []cloudprovider.ICloudRegion
 }
 
-func NewAwsClient(providerId string, providerName string, accessKey string, secret string) (*SAwsClient, error) {
-	client := SAwsClient{providerId: providerId, providerName: providerName, accessKey: accessKey, secret: secret}
+func NewAwsClient(providerId string, providerName string, accessUrl string, accessKey string, secret string) (*SAwsClient, error) {
+	client := SAwsClient{providerId: providerId, providerName: providerName, accessUrl: accessUrl, accessKey: accessKey, secret: secret}
 	err := client.fetchRegions()
 	if err != nil {
 		return nil, err
@@ -37,8 +39,15 @@ func NewAwsClient(providerId string, providerName string, accessKey string, secr
 }
 
 func (self *SAwsClient) getDefaultSession() (*session.Session, error) {
+	defaultRegion := AWS_INTERNATIONAL_DEFAULT_REGION
+	switch self.accessKey {
+	case "InternationalCloud":
+		defaultRegion = AWS_INTERNATIONAL_DEFAULT_REGION
+	case "ChinaCloud":
+		defaultRegion = AWS_CHINA_DEFAULT_REGION
+	}
 	return session.NewSession(&sdk.Config{
-		Region: sdk.String(AWS_DEFAULT_REGION),
+		Region: sdk.String(defaultRegion),
 		Credentials: credentials.NewStaticCredentials(self.accessKey, self.secret, ""),
 	})
 }
