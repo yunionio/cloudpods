@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -9,7 +10,6 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"crypto/tls"
 )
 
 type EndpointGenerator func(context.Context, http.ResponseWriter, *http.Request) (string, error)
