@@ -458,7 +458,7 @@ func syncVMDisks(ctx context.Context, provider *models.SCloudprovider, task *Clo
 	}
 	result := localVM.SyncVMDisks(ctx, task.UserCred, host, disks, provider.ProjectId, syncRange.ProjectSync)
 	msg := result.Result()
-	notes := fmt.Sprintf("syncVMNics for VM %s result: %s", localVM.Name, msg)
+	notes := fmt.Sprintf("syncVMDisks for VM %s result: %s", localVM.Name, msg)
 	log.Infof(notes)
 	if result.IsError() {
 		logSyncFailed(provider, task, msg)
