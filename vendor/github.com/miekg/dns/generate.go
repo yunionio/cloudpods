@@ -107,8 +107,6 @@ BuildRR:
 					mod, offset, err = modToPrintf(s[j+2 : j+2+sep])
 					if err != nil {
 						return err.Error()
-					} else if start + offset < 0 || end + offset > 1<<31-1 {
-						return "bad offset in $GENERATE"
 					}
 					j += 2 + sep // Jump to it
 				}
@@ -154,7 +152,7 @@ func modToPrintf(s string) (string, int, error) {
 		return "", 0, errors.New("bad base in $GENERATE")
 	}
 	offset, err := strconv.Atoi(xs[0])
-	if err != nil {
+	if err != nil || offset > 255 {
 		return "", 0, errors.New("bad offset in $GENERATE")
 	}
 	width, err := strconv.Atoi(xs[1])

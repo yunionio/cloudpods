@@ -1,6 +1,7 @@
 package qcloud
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
@@ -53,9 +54,9 @@ func jsonRequest(client *common.Client, apiName string, params map[string]string
 
 func vpcRequest(client *common.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	domain := "vpc.tencentcloudapi.com"
-	if region, ok := params["Region"]; ok && strings.HasSuffix(region, "-fsi") {
-		domain = "vpc." + region + ".tencentcloudapi.com"
-	}
+	// if region, ok := params["Region"]; ok && strings.HasSuffix(region, "-fsi") {
+	// 	domain = "vpc." + region + ".tencentcloudapi.com"
+	// }
 	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params)
 }
 
@@ -90,12 +91,9 @@ func _jsonRequest(client *common.Client, domain string, version string, apiName 
 	}
 	err := client.Send(req, resp)
 	if err != nil {
-		log.Errorf("request error %s", err)
+		log.Errorf("request url: %s\nparams: %s\nerror: %v", req.GetDomain(), jsonutils.Marshal(req.GetParams()).PrettyString(), err)
 		return nil, err
 	}
-
-	//log.Debugf(jsonutils.Marshal(resp.Response).PrettyString())
-
 	return jsonutils.Marshal(resp.Response), nil
 }
 
@@ -164,7 +162,10 @@ func (client *SQcloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 	}
 	subAccount := cloudprovider.SSubAccount{}
 	subAccount.Name = client.providerName
-	subAccount.Account = client.SecretKey
+	subAccount.Account = client.SecretID
+	if len(client.AppID) > 0 {
+		subAccount.Account = fmt.Sprintf("%s/%s", client.SecretID, client.AppID)
+	}
 	return []cloudprovider.SSubAccount{subAccount}, nil
 }
 

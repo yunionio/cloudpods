@@ -3,6 +3,7 @@ package qcloud
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -107,13 +108,17 @@ func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudpr
 		log.Errorf("createDisk fail %s", err)
 		return nil, err
 	}
-	disk, err := self.zone.region.GetDisk(diskId)
-	if err != nil {
-		log.Errorf("getDisk fail %s", err)
-		return nil, err
+	//腾讯刚创建完成的磁盘，需要稍微等待才能查询
+	for i := 0; i < 3; i++ {
+		disk, err := self.zone.region.GetDisk(diskId)
+		if err == nil {
+			disk.storage = self
+			return disk, nil
+		}
+		time.Sleep(time.Second * 3)
 	}
-	disk.storage = self
-	return disk, nil
+	log.Errorf("getDisk fail %s id %s", err, diskId)
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SStorage) GetIDisk(idStr string) (cloudprovider.ICloudDisk, error) {

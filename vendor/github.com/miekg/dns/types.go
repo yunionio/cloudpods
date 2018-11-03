@@ -419,130 +419,128 @@ type TXT struct {
 func (rr *TXT) String() string { return rr.Hdr.String() + sprintTxt(rr.Txt) }
 
 func sprintName(s string) string {
-	var dst strings.Builder
-	dst.Grow(len(s))
-	for i := 0; i < len(s); {
-		if i+1 < len(s) && s[i] == '\\' && s[i+1] == '.' {
-			dst.WriteString(s[i : i+2])
+	src := []byte(s)
+	dst := make([]byte, 0, len(src))
+	for i := 0; i < len(src); {
+		if i+1 < len(src) && src[i] == '\\' && src[i+1] == '.' {
+			dst = append(dst, src[i:i+2]...)
 			i += 2
-			continue
+		} else {
+			b, n := nextByte(src, i)
+			if n == 0 {
+				i++ // dangling back slash
+			} else if b == '.' {
+				dst = append(dst, b)
+			} else {
+				dst = appendDomainNameByte(dst, b)
+			}
+			i += n
 		}
-
-		b, n := nextByte(s, i)
-		switch {
-		case n == 0:
-			i++ // dangling back slash
-		case b == '.':
-			dst.WriteByte('.')
-		default:
-			writeDomainNameByte(&dst, b)
-		}
-		i += n
 	}
-	return dst.String()
+	return string(dst)
 }
 
 func sprintTxtOctet(s string) string {
-	var dst strings.Builder
-	dst.Grow(2 + len(s))
-	dst.WriteByte('"')
-	for i := 0; i < len(s); {
-		if i+1 < len(s) && s[i] == '\\' && s[i+1] == '.' {
-			dst.WriteString(s[i : i+2])
+	src := []byte(s)
+	dst := make([]byte, 0, len(src))
+	dst = append(dst, '"')
+	for i := 0; i < len(src); {
+		if i+1 < len(src) && src[i] == '\\' && src[i+1] == '.' {
+			dst = append(dst, src[i:i+2]...)
 			i += 2
-			continue
+		} else {
+			b, n := nextByte(src, i)
+			if n == 0 {
+				i++ // dangling back slash
+			} else if b == '.' {
+				dst = append(dst, b)
+			} else {
+				if b < ' ' || b > '~' {
+					dst = appendByte(dst, b)
+				} else {
+					dst = append(dst, b)
+				}
+			}
+			i += n
 		}
-
-		b, n := nextByte(s, i)
-		switch {
-		case n == 0:
-			i++ // dangling back slash
-		case b == '.':
-			dst.WriteByte('.')
-		case b < ' ' || b > '~':
-			writeEscapedByte(&dst, b)
-		default:
-			dst.WriteByte(b)
-		}
-		i += n
 	}
-	dst.WriteByte('"')
-	return dst.String()
+	dst = append(dst, '"')
+	return string(dst)
 }
 
 func sprintTxt(txt []string) string {
-	var out strings.Builder
+	var out []byte
 	for i, s := range txt {
-		out.Grow(3 + len(s))
 		if i > 0 {
-			out.WriteString(` "`)
+			out = append(out, ` "`...)
 		} else {
-			out.WriteByte('"')
+			out = append(out, '"')
 		}
-		for j := 0; j < len(s); {
-			b, n := nextByte(s, j)
+		bs := []byte(s)
+		for j := 0; j < len(bs); {
+			b, n := nextByte(bs, j)
 			if n == 0 {
 				break
 			}
-			writeTXTStringByte(&out, b)
+			out = appendTXTStringByte(out, b)
 			j += n
 		}
-		out.WriteByte('"')
+		out = append(out, '"')
 	}
-	return out.String()
+	return string(out)
 }
 
-func writeDomainNameByte(s *strings.Builder, b byte) {
+func appendDomainNameByte(s []byte, b byte) []byte {
 	switch b {
 	case '.', ' ', '\'', '@', ';', '(', ')': // additional chars to escape
-		s.WriteByte('\\')
-		s.WriteByte(b)
-	default:
-		writeTXTStringByte(s, b)
+		return append(s, '\\', b)
 	}
+	return appendTXTStringByte(s, b)
 }
 
-func writeTXTStringByte(s *strings.Builder, b byte) {
-	switch {
-	case b == '"' || b == '\\':
-		s.WriteByte('\\')
-		s.WriteByte(b)
-	case b < ' ' || b > '~':
-		writeEscapedByte(s, b)
-	default:
-		s.WriteByte(b)
+func appendTXTStringByte(s []byte, b byte) []byte {
+	switch b {
+	case '"', '\\':
+		return append(s, '\\', b)
 	}
+	if b < ' ' || b > '~' {
+		return appendByte(s, b)
+	}
+	return append(s, b)
 }
 
-func writeEscapedByte(s *strings.Builder, b byte) {
+func appendByte(s []byte, b byte) []byte {
 	var buf [3]byte
 	bufs := strconv.AppendInt(buf[:0], int64(b), 10)
-	s.WriteByte('\\')
-	for i := len(bufs); i < 3; i++ {
-		s.WriteByte('0')
+	s = append(s, '\\')
+	for i := 0; i < 3-len(bufs); i++ {
+		s = append(s, '0')
 	}
-	s.Write(bufs)
+	for _, r := range bufs {
+		s = append(s, r)
+	}
+	return s
 }
 
-func nextByte(s string, offset int) (byte, int) {
-	if offset >= len(s) {
+func nextByte(b []byte, offset int) (byte, int) {
+	if offset >= len(b) {
 		return 0, 0
 	}
-	if s[offset] != '\\' {
+	if b[offset] != '\\' {
 		// not an escape sequence
-		return s[offset], 1
+		return b[offset], 1
 	}
-	switch len(s) - offset {
+	switch len(b) - offset {
 	case 1: // dangling escape
 		return 0, 0
 	case 2, 3: // too short to be \ddd
 	default: // maybe \ddd
-		if isDigit(s[offset+1]) && isDigit(s[offset+2]) && isDigit(s[offset+3]) {
-			return dddStringToByte(s[offset+1:]), 4
+		if isDigit(b[offset+1]) && isDigit(b[offset+2]) && isDigit(b[offset+3]) {
+			return dddToByte(b[offset+1:]), 4
 		}
 	}
 	// not \ddd, just an RFC 1035 "quoted" character
-	return s[offset+1], 2
+	return b[offset+1], 2
 }
 
 // SPF RR. See RFC 4408, Section 3.1.1.

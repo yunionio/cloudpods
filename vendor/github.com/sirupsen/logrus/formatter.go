@@ -2,14 +2,7 @@ package logrus
 
 import "time"
 
-// Default key names for the default fields
-const (
-	defaultTimestampFormat = time.RFC3339
-	FieldKeyMsg            = "msg"
-	FieldKeyLevel          = "level"
-	FieldKeyTime           = "time"
-	FieldKeyLogrusError    = "logrus_error"
-)
+const defaultTimestampFormat = time.RFC3339
 
 // The Formatter interface is used to implement a custom Formatter. It takes an
 // `Entry`. It exposes all the fields, including the default ones:
@@ -54,11 +47,5 @@ func prefixFieldClashes(data Fields, fieldMap FieldMap) {
 	if l, ok := data[levelKey]; ok {
 		data["fields."+levelKey] = l
 		delete(data, levelKey)
-	}
-
-	logrusErrKey := fieldMap.resolve(FieldKeyLogrusError)
-	if l, ok := data[logrusErrKey]; ok {
-		data["fields."+logrusErrKey] = l
-		delete(data, logrusErrKey)
 	}
 }

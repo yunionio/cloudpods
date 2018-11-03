@@ -2,6 +2,7 @@ package qcloud
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -69,7 +70,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 		return "", fmt.Errorf("network's wire's vpc is empty")
 	}
 
-	// var err error
+	var err error
 
 	// if len(secgroupId) == 0 {
 	// 	secgroups, err := net.wire.vpc.GetISecurityGroups()
@@ -90,12 +91,12 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 	// }
 
 	keypair := ""
-	// if len(publicKey) > 0 {
-	// 	keypair, err = self.zone.region.syncKeypair(publicKey)
-	// 	if err != nil {
-	// 		return "", err
-	// 	}
-	// }
+	if len(publicKey) > 0 {
+		keypair, err = self.zone.region.syncKeypair(publicKey)
+		if err != nil {
+			return "", err
+		}
+	}
 
 	img, err := self.zone.region.GetImage(imgId)
 	if err != nil {
@@ -107,7 +108,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 		return "", fmt.Errorf("image not ready")
 	}
 
-	_, err = self.zone.getStorageByCategory(storageType)
+	err = self.zone.validateStorageType(storageType)
 	if err != nil {
 		return "", fmt.Errorf("Storage %s not avaiable: %s", storageType, err)
 	}
@@ -117,11 +118,14 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 	if sysDiskSize > 0 && sysDiskSize > img.ImageSize {
 		disks[0].DiskSize = sysDiskSize
 	}
-	disks[0].DiskType = storageType
+	if disks[0].DiskSize < 50 {
+		disks[0].DiskSize = 50
+	}
+	disks[0].DiskType = strings.ToUpper(storageType)
 
 	for i, sz := range diskSizes {
 		disks[i+1].DiskSize = sz
-		disks[i+1].DiskType = storageType
+		disks[i+1].DiskType = strings.ToUpper(storageType)
 	}
 
 	instanceTypes, err := self.zone.region.GetMatchInstanceTypes(cpu, memMB, 0, self.zone.Zone)
@@ -135,7 +139,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 	for _, instType := range instanceTypes {
 		instanceTypeId := instType.InstanceType
 		log.Debugf("Try instancetype : %s", instanceTypeId)
-		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceTypeId, secgroupId, self.zone.Zone, desc, passwd, disks, networkId, ipAddr, keypair)
+		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceTypeId, secgroupId, self.zone.Zone, desc, passwd, disks, networkId, ipAddr, keypair, userData)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceTypeId, err)
 		} else {

@@ -127,7 +127,8 @@ func (rr *SIG) Verify(k *KEY, buf []byte) error {
 		if offset+1 >= buflen {
 			continue
 		}
-		rdlen := binary.BigEndian.Uint16(buf[offset:])
+		var rdlen uint16
+		rdlen = binary.BigEndian.Uint16(buf[offset:])
 		offset += 2
 		offset += int(rdlen)
 	}

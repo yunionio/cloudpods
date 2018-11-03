@@ -3,6 +3,7 @@ package qcloud
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -157,13 +158,21 @@ func (self *SRegion) ResizeDisk(diskId string, sizeGb int64) error {
 	params := make(map[string]string)
 	params["DiskId"] = diskId
 	params["DiskSize"] = fmt.Sprintf("%d", sizeGb)
-
-	_, err := self.cbsRequest("ResizeDisk", params)
-	if err != nil {
-		log.Errorf("ResizeDisk %s to %s GiB fail %s", diskId, sizeGb, err)
+	startTime := time.Now()
+	for {
+		_, err := self.cbsRequest("ResizeDisk", params)
+		if err != nil {
+			if strings.Index(err.Error(), "Code=InvalidDisk.Busy") > 0 {
+				log.Infof("The disk is busy, try later ...")
+				time.Sleep(10 * time.Second)
+				if time.Now().Sub(startTime) > time.Minute*20 {
+					return cloudprovider.ErrTimeout
+				}
+				continue
+			}
+		}
 		return err
 	}
-	return nil
 }
 
 func (self *SDisk) Resize(size int64) error {
@@ -354,12 +363,13 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 	if err != nil {
 		return "", err
 	}
-	diskIdSet, err := body.GetArray("DiskIdSet")
+	diskIDSet := []string{}
+	err = body.Unmarshal(&diskIDSet, "DiskIdSet")
 	if err != nil {
 		return "", err
 	}
-	if len(diskIdSet) < 1 {
+	if len(diskIDSet) < 1 {
 		return "", fmt.Errorf("Create Disk error")
 	}
-	return diskIdSet[0].String(), nil
+	return diskIDSet[0], nil
 }

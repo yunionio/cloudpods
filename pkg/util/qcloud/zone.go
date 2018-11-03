@@ -2,6 +2,7 @@ package qcloud
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -114,7 +115,17 @@ func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 }
 
 func (self *SZone) getLocalStorageByCategory(category string) (*SLocalStorage, error) {
-	return &SLocalStorage{zone: self, storageType: category}, nil
+	if utils.IsInStringArray(strings.ToLower(category), []string{"local_basic", "local_ssd"}) {
+		return &SLocalStorage{zone: self, storageType: strings.ToUpper(category)}, nil
+	}
+	return nil, fmt.Errorf("No such storage %s", category)
+}
+
+func (self *SZone) validateStorageType(category string) error {
+	if utils.IsInStringArray(strings.ToLower(category), []string{"local_basic", "local_ssd", "cloud_basic", "cloud_ssd", "cloud_permium"}) {
+		return nil
+	}
+	return fmt.Errorf("No such storage %s", category)
 }
 
 func (self *SZone) getStorageByCategory(category string) (*SStorage, error) {
@@ -125,6 +136,7 @@ func (self *SZone) getStorageByCategory(category string) (*SStorage, error) {
 	for i := 0; i < len(storages); i++ {
 		if utils.IsInStringArray(storages[i].GetStorageType(), []string{"local_basic", "local_ssd"}) {
 			continue
+			//return &SStorage{zone: self, storageType: strings.ToUpper(storages[i].GetStorageType())}, nil
 		}
 		storage := storages[i].(*SStorage)
 		if storage.storageType == category {

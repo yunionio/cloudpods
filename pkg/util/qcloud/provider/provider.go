@@ -6,44 +6,44 @@ import (
 	"yunion.io/x/onecloud/pkg/util/qcloud"
 )
 
-type STencentProviderFactory struct {
-	// providerTable map[string]*SAliyunProvider
+type SQcloudProviderFactory struct {
+	// providerTable map[string]*SQcloudProvider
 }
 
-func (self *STencentProviderFactory) GetId() string {
+func (self *SQcloudProviderFactory) GetId() string {
 	return qcloud.CLOUD_PROVIDER_QCLOUD
 }
 
-func (self *STencentProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
+func (self *SQcloudProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
 	client, err := qcloud.NewQcloudClient(providerId, providerName, account, secret)
 	if err != nil {
 		return nil, err
 	}
-	return &STencentProvider{client: client}, nil
+	return &SQcloudProvider{client: client}, nil
 }
 
 func init() {
-	factory := STencentProviderFactory{}
+	factory := SQcloudProviderFactory{}
 	cloudprovider.RegisterFactory(&factory)
 }
 
-type STencentProvider struct {
+type SQcloudProvider struct {
 	client *qcloud.SQcloudClient
 }
 
-func (self *STencentProvider) IsPublicCloud() bool {
+func (self *SQcloudProvider) IsPublicCloud() bool {
 	return true
 }
 
-func (self *STencentProvider) GetId() string {
+func (self *SQcloudProvider) GetId() string {
 	return qcloud.CLOUD_PROVIDER_QCLOUD
 }
 
-func (self *STencentProvider) GetName() string {
+func (self *SQcloudProvider) GetName() string {
 	return qcloud.CLOUD_PROVIDER_QCLOUD_CN
 }
 
-func (self *STencentProvider) GetSysInfo() (jsonutils.JSONObject, error) {
+func (self *SQcloudProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	regions := self.client.GetIRegions()
 	info := jsonutils.NewDict()
 	info.Add(jsonutils.NewInt(int64(len(regions))), "region_count")
@@ -51,34 +51,34 @@ func (self *STencentProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	return info, nil
 }
 
-func (self *STencentProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
+func (self *SQcloudProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return self.client.GetSubAccounts()
 }
 
-func (self *STencentProvider) GetIRegions() []cloudprovider.ICloudRegion {
+func (self *SQcloudProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }
 
-func (self *STencentProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
+func (self *SQcloudProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegionById(id)
 }
 
-func (self *STencentProvider) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
+func (self *SQcloudProvider) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 	return self.client.GetIHostById(id)
 }
 
-func (self *STencentProvider) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
+func (self *SQcloudProvider) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
 	return self.client.GetIVpcById(id)
 }
 
-func (self *STencentProvider) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
+func (self *SQcloudProvider) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
 	return self.client.GetIStorageById(id)
 }
 
-func (self *STencentProvider) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
+func (self *SQcloudProvider) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
 	return self.client.GetIStoragecacheById(id)
 }
 
-func (self *STencentProvider) GetBalance() (float64, error) {
+func (self *SQcloudProvider) GetBalance() (float64, error) {
 	return 0.0, nil
 }

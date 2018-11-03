@@ -17,7 +17,7 @@ type BaseOptions struct {
 	AppID      string `help:"AppID" default:"$QCLOUD_APPID"`
 	SecretID   string `help:"Secret" default:"$QCLOUD_SECRET_ID"`
 	SecretKey  string `help:"Access key" default:"$QCLOUD_SECRET_KEY"`
-	RegionId   string `help:"RegionId" default:"$QCLOUD_REGION_ID"`
+	RegionId   string `help:"RegionId" default:"$QCLOUD_REGION"`
 	SUBCOMMAND string `help:"azurecli subcommand" subcommand:"true"`
 }
 

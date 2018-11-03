@@ -134,7 +134,7 @@ func PrivateHandle(rtypestr string, rtype uint16, generator func() PrivateRdata)
 	typeToparserFunc[rtype] = parserFunc{setPrivateRR, true}
 }
 
-// PrivateHandleRemove removes definitions required to support private RR type.
+// PrivateHandleRemove removes defenitions required to support private RR type.
 func PrivateHandleRemove(rtype uint16) {
 	rtypestr, ok := TypeToString[rtype]
 	if ok {
@@ -144,4 +144,5 @@ func PrivateHandleRemove(rtype uint16) {
 		delete(StringToType, rtypestr)
 		delete(typeToUnpack, rtype)
 	}
+	return
 }

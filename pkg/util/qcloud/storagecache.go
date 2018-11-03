@@ -3,6 +3,8 @@ package qcloud
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 	"time"
 
@@ -125,7 +127,8 @@ func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageI
 }
 
 func (self *SRegion) getCosUrl(bucket, object string) string {
-	return fmt.Sprintf("http://%s-%s.cosd.myqcloud.com/%s", bucket, self.client.AppID, object)
+	//signature := cosauth.NewSignature(self.client.AppID, bucket, self.client.SecretID, time.Now().Add(time.Minute*30).String(), time.Now().String(), "yunion", object).SignOnce(self.client.SecretKey)
+	return fmt.Sprintf("http://%s-%s.cos.%s.myqcloud.com/%s", bucket, self.client.AppID, self.Region, object)
 }
 
 func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
@@ -136,16 +139,30 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 	if err != nil {
 		return "", err
 	}
+
+	tmpFile := fmt.Sprintf("%s/%s", options.Options.TempPath, imageId)
+	defer os.Remove(tmpFile)
+	f, err := os.Create(tmpFile)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	if _, err := io.Copy(f, reader); err != nil {
+		return "", err
+	}
+
 	log.Infof("meta data %s", meta)
 	cos, err := self.region.GetCosClient()
 	if err != nil {
 		log.Errorf("GetOssClient err %s", err)
 		return "", err
 	}
-	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s-%s", self.region.GetId(), self.region.client.providerId))
-	if err := cos.BucketExists(context.Background(), bucketName); err != nil {
+	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s", self.region.GetId()))
+	err = cos.BucketExists(context.Background(), bucketName)
+	if err != nil {
 		log.Debugf("Bucket %s not exists, to create ...", bucketName)
-		if err := cos.CreateBucket(context.Background(), bucketName, &coslib.AccessControl{ACL: "public-read"}); err != nil {
+		err := cos.CreateBucket(context.Background(), bucketName, &coslib.AccessControl{ACL: "public-read"})
+		if err != nil {
 			log.Errorf("Create bucket error %s", err)
 			return "", err
 		}
@@ -153,13 +170,15 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		log.Debugf("Bucket %s exists", bucketName)
 	}
 	log.Debugf("To upload image to bucket %s ...", bucketName)
-	if err := cos.Bucket(bucketName).UploadObject(context.Background(), imageId, reader, &coslib.AccessControl{}); err != nil {
+	err = cos.Bucket(bucketName).UploadObjectBySlice(context.Background(), imageId, tmpFile, 3, map[string]string{})
+	if err != nil {
 		log.Errorf("UploadObject error %s %s", imageId, err)
 		return "", err
 	}
-	imageBaseName := imageId
+	// 腾讯云镜像名称需要小于20个字符
+	imageBaseName := imageId[:10]
 	if imageBaseName[0] >= '0' && imageBaseName[0] <= '9' {
-		imageBaseName = fmt.Sprintf("img%s", imageId)
+		imageBaseName = fmt.Sprintf("img%s", imageId[:10])
 	}
 	imageName := imageBaseName
 	nameIdx := 1

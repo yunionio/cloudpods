@@ -245,6 +245,10 @@ func (self *SRegion) checkBucket(bucketName string) (*oss.Bucket, error) {
 	}
 }
 
+func (self *SRegion) CreateImage(snapshoutId, imageName, imageDesc string) (string, error) {
+	return self.createIImage(snapshoutId, imageName, imageDesc)
+}
+
 func (self *SRegion) createIImage(snapshoutId, imageName, imageDesc string) (string, error) {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId

@@ -41,17 +41,6 @@ type Handler interface {
 	ServeDNS(w ResponseWriter, r *Msg)
 }
 
-// The HandlerFunc type is an adapter to allow the use of
-// ordinary functions as DNS handlers.  If f is a function
-// with the appropriate signature, HandlerFunc(f) is a
-// Handler object that calls f.
-type HandlerFunc func(ResponseWriter, *Msg)
-
-// ServeDNS calls f(w, r).
-func (f HandlerFunc) ServeDNS(w ResponseWriter, r *Msg) {
-	f(w, r)
-}
-
 // A ResponseWriter interface is used by an DNS handler to
 // construct an DNS response.
 type ResponseWriter interface {
@@ -83,8 +72,8 @@ type ConnectionStater interface {
 type response struct {
 	msg            []byte
 	hijacked       bool // connection has been hijacked by handler
-	tsigTimersOnly bool
 	tsigStatus     error
+	tsigTimersOnly bool
 	tsigRequestMAC string
 	tsigSecret     map[string]string // the tsig secrets
 	udp            *net.UDPConn      // i/o connection if UDP was used
@@ -94,6 +83,35 @@ type response struct {
 	wg             *sync.WaitGroup   // for gracefull shutdown
 }
 
+// ServeMux is an DNS request multiplexer. It matches the
+// zone name of each incoming request against a list of
+// registered patterns add calls the handler for the pattern
+// that most closely matches the zone name. ServeMux is DNSSEC aware, meaning
+// that queries for the DS record are redirected to the parent zone (if that
+// is also registered), otherwise the child gets the query.
+// ServeMux is also safe for concurrent access from multiple goroutines.
+type ServeMux struct {
+	z map[string]Handler
+	m *sync.RWMutex
+}
+
+// NewServeMux allocates and returns a new ServeMux.
+func NewServeMux() *ServeMux { return &ServeMux{z: make(map[string]Handler), m: new(sync.RWMutex)} }
+
+// DefaultServeMux is the default ServeMux used by Serve.
+var DefaultServeMux = NewServeMux()
+
+// The HandlerFunc type is an adapter to allow the use of
+// ordinary functions as DNS handlers.  If f is a function
+// with the appropriate signature, HandlerFunc(f) is a
+// Handler object that calls f.
+type HandlerFunc func(ResponseWriter, *Msg)
+
+// ServeDNS calls f(w, r).
+func (f HandlerFunc) ServeDNS(w ResponseWriter, r *Msg) {
+	f(w, r)
+}
+
 // HandleFailed returns a HandlerFunc that returns SERVFAIL for every request it gets.
 func HandleFailed(w ResponseWriter, r *Msg) {
 	m := new(Msg)
@@ -101,6 +119,8 @@ func HandleFailed(w ResponseWriter, r *Msg) {
 	// does not matter if this write fails
 	w.WriteMsg(m)
 }
+
+func failedHandler() Handler { return HandlerFunc(HandleFailed) }
 
 // ListenAndServe Starts a server on address and network specified Invoke handler
 // for incoming queries.
@@ -138,6 +158,99 @@ func ListenAndServeTLS(addr, certFile, keyFile string, handler Handler) error {
 func ActivateAndServe(l net.Listener, p net.PacketConn, handler Handler) error {
 	server := &Server{Listener: l, PacketConn: p, Handler: handler}
 	return server.ActivateAndServe()
+}
+
+func (mux *ServeMux) match(q string, t uint16) Handler {
+	mux.m.RLock()
+	defer mux.m.RUnlock()
+	var handler Handler
+	b := make([]byte, len(q)) // worst case, one label of length q
+	off := 0
+	end := false
+	for {
+		l := len(q[off:])
+		for i := 0; i < l; i++ {
+			b[i] = q[off+i]
+			if b[i] >= 'A' && b[i] <= 'Z' {
+				b[i] |= 'a' - 'A'
+			}
+		}
+		if h, ok := mux.z[string(b[:l])]; ok { // causes garbage, might want to change the map key
+			if t != TypeDS {
+				return h
+			}
+			// Continue for DS to see if we have a parent too, if so delegeate to the parent
+			handler = h
+		}
+		off, end = NextLabel(q, off)
+		if end {
+			break
+		}
+	}
+	// Wildcard match, if we have found nothing try the root zone as a last resort.
+	if h, ok := mux.z["."]; ok {
+		return h
+	}
+	return handler
+}
+
+// Handle adds a handler to the ServeMux for pattern.
+func (mux *ServeMux) Handle(pattern string, handler Handler) {
+	if pattern == "" {
+		panic("dns: invalid pattern " + pattern)
+	}
+	mux.m.Lock()
+	mux.z[Fqdn(pattern)] = handler
+	mux.m.Unlock()
+}
+
+// HandleFunc adds a handler function to the ServeMux for pattern.
+func (mux *ServeMux) HandleFunc(pattern string, handler func(ResponseWriter, *Msg)) {
+	mux.Handle(pattern, HandlerFunc(handler))
+}
+
+// HandleRemove deregistrars the handler specific for pattern from the ServeMux.
+func (mux *ServeMux) HandleRemove(pattern string) {
+	if pattern == "" {
+		panic("dns: invalid pattern " + pattern)
+	}
+	mux.m.Lock()
+	delete(mux.z, Fqdn(pattern))
+	mux.m.Unlock()
+}
+
+// ServeDNS dispatches the request to the handler whose
+// pattern most closely matches the request message. If DefaultServeMux
+// is used the correct thing for DS queries is done: a possible parent
+// is sought.
+// If no handler is found a standard SERVFAIL message is returned
+// If the request message does not have exactly one question in the
+// question section a SERVFAIL is returned, unlesss Unsafe is true.
+func (mux *ServeMux) ServeDNS(w ResponseWriter, request *Msg) {
+	var h Handler
+	if len(request.Question) < 1 { // allow more than one question
+		h = failedHandler()
+	} else {
+		if h = mux.match(request.Question[0].Name, request.Question[0].Qtype); h == nil {
+			h = failedHandler()
+		}
+	}
+	h.ServeDNS(w, request)
+}
+
+// Handle registers the handler with the given pattern
+// in the DefaultServeMux. The documentation for
+// ServeMux explains how patterns are matched.
+func Handle(pattern string, handler Handler) { DefaultServeMux.Handle(pattern, handler) }
+
+// HandleRemove deregisters the handle with the given pattern
+// in the DefaultServeMux.
+func HandleRemove(pattern string) { DefaultServeMux.HandleRemove(pattern) }
+
+// HandleFunc registers the handler function with the given pattern
+// in the DefaultServeMux.
+func HandleFunc(pattern string, handler func(ResponseWriter, *Msg)) {
+	DefaultServeMux.HandleFunc(pattern, handler)
 }
 
 // Writer writes raw DNS messages; each call to Write should send an entire message.
@@ -416,12 +529,13 @@ func (srv *Server) Shutdown() error {
 // to terminate.
 func (srv *Server) ShutdownContext(ctx context.Context) error {
 	srv.lock.Lock()
-	if !srv.started {
-		srv.lock.Unlock()
+	started := srv.started
+	srv.started = false
+	srv.lock.Unlock()
+
+	if !started {
 		return &Error{err: "server not started"}
 	}
-
-	srv.started = false
 
 	if srv.PacketConn != nil {
 		srv.PacketConn.SetReadDeadline(aLongTimeAgo) // Unblock reads
@@ -431,10 +545,10 @@ func (srv *Server) ShutdownContext(ctx context.Context) error {
 		srv.Listener.Close()
 	}
 
+	srv.lock.Lock()
 	for rw := range srv.conns {
 		rw.SetReadDeadline(aLongTimeAgo) // Unblock reads
 	}
-
 	srv.lock.Unlock()
 
 	if testShutdownNotify != nil {
@@ -621,23 +735,20 @@ func (srv *Server) serve(w *response) {
 	}
 }
 
-func (srv *Server) disposeBuffer(w *response) {
+func (srv *Server) serveDNS(w *response) {
+	req := new(Msg)
+	err := req.Unpack(w.msg)
 	if w.udp != nil && cap(w.msg) == srv.UDPSize {
 		srv.udpPool.Put(w.msg[:srv.UDPSize])
 	}
 	w.msg = nil
-}
-
-func (srv *Server) serveDNS(w *response) {
-	req := new(Msg)
-	err := req.Unpack(w.msg)
 	if err != nil { // Send a FormatError back
 		x := new(Msg)
 		x.SetRcodeFormatError(req)
 		w.WriteMsg(x)
+		return
 	}
-	if err != nil || !srv.Unsafe && req.Response {
-		srv.disposeBuffer(w)
+	if !srv.Unsafe && req.Response {
 		return
 	}
 
@@ -654,8 +765,6 @@ func (srv *Server) serveDNS(w *response) {
 		}
 	}
 
-	srv.disposeBuffer(w)
-
 	handler := srv.Handler
 	if handler == nil {
 		handler = DefaultServeMux
@@ -665,16 +774,7 @@ func (srv *Server) serveDNS(w *response) {
 }
 
 func (srv *Server) readTCP(conn net.Conn, timeout time.Duration) ([]byte, error) {
-	// If we race with ShutdownContext, the read deadline may
-	// have been set in the distant past to unblock the read
-	// below. We must not override it, otherwise we may block
-	// ShutdownContext.
-	srv.lock.RLock()
-	if srv.started {
-		conn.SetReadDeadline(time.Now().Add(timeout))
-	}
-	srv.lock.RUnlock()
-
+	conn.SetReadDeadline(time.Now().Add(timeout))
 	l := make([]byte, 2)
 	n, err := conn.Read(l)
 	if err != nil || n != 2 {
@@ -709,13 +809,7 @@ func (srv *Server) readTCP(conn net.Conn, timeout time.Duration) ([]byte, error)
 }
 
 func (srv *Server) readUDP(conn *net.UDPConn, timeout time.Duration) ([]byte, *SessionUDP, error) {
-	srv.lock.RLock()
-	if srv.started {
-		// See the comment in readTCP above.
-		conn.SetReadDeadline(time.Now().Add(timeout))
-	}
-	srv.lock.RUnlock()
-
+	conn.SetReadDeadline(time.Now().Add(timeout))
 	m := srv.udpPool.Get().([]byte)
 	n, s, err := ReadFromSessionUDP(conn, m)
 	if err != nil {
@@ -767,33 +861,24 @@ func (w *response) Write(m []byte) (int, error) {
 
 		n, err := io.Copy(w.tcp, bytes.NewReader(m))
 		return int(n), err
-	default:
-		panic("dns: Write called after Close")
 	}
+	panic("not reached")
 }
 
 // LocalAddr implements the ResponseWriter.LocalAddr method.
 func (w *response) LocalAddr() net.Addr {
-	switch {
-	case w.udp != nil:
-		return w.udp.LocalAddr()
-	case w.tcp != nil:
+	if w.tcp != nil {
 		return w.tcp.LocalAddr()
-	default:
-		panic("dns: LocalAddr called after Close")
 	}
+	return w.udp.LocalAddr()
 }
 
 // RemoteAddr implements the ResponseWriter.RemoteAddr method.
 func (w *response) RemoteAddr() net.Addr {
-	switch {
-	case w.udpSession != nil:
-		return w.udpSession.RemoteAddr()
-	case w.tcp != nil:
+	if w.tcp != nil {
 		return w.tcp.RemoteAddr()
-	default:
-		panic("dns: RemoteAddr called after Close")
 	}
+	return w.udpSession.RemoteAddr()
 }
 
 // TsigStatus implements the ResponseWriter.TsigStatus method.

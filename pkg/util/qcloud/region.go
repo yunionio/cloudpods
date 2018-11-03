@@ -225,7 +225,16 @@ func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 }
 
 func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
-	return nil, nil
+	izones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i += 1 {
+		if izones[i].GetGlobalId() == id {
+			return izones[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
@@ -241,9 +250,8 @@ func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
 
 func (self *SRegion) _fetchZones() error {
 	params := make(map[string]string)
-	params["Region"] = self.Region
 	zones := make([]SZone, 0)
-	body, err := self.client.jsonRequest("DescribeZones", params)
+	body, err := self.cvmRequest("DescribeZones", params)
 	if err != nil {
 		return err
 	}
@@ -293,7 +301,10 @@ func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
 	if err != nil {
 		return nil, err
 	}
-	if total != 1 {
+	if total > 1 {
+		return nil, cloudprovider.ErrDuplicateId
+	}
+	if total == 0 {
 		return nil, cloudprovider.ErrNotFound
 	}
 	vpcs[0].region = self
@@ -498,7 +509,6 @@ func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, me
 
 func (self *SRegion) instanceOperation(instanceId string, opname string, extra map[string]string) error {
 	params := make(map[string]string)
-	params["Region"] = self.Region
 	params["InstanceIds.0"] = instanceId
 	if extra != nil && len(extra) > 0 {
 		for k, v := range extra {

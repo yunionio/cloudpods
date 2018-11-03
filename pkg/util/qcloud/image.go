@@ -70,14 +70,19 @@ func (self *SRegion) GetImages(status string, owner string, imageIds []string, n
 	}
 
 	images := make([]SImage, 0)
-	if body, err := self.cvmRequest("DescribeImages", params); err != nil {
+	body, err := self.cvmRequest("DescribeImages", params)
+	if err != nil {
 		return nil, 0, err
-	} else if err := body.Unmarshal(&images, "ImageSet"); err != nil {
-		return nil, 0, err
-	} else {
-		total, _ := body.Int("TotalCount")
-		return images, int(total), nil
 	}
+	err = body.Unmarshal(&images, "ImageSet")
+	if err != nil {
+		return nil, 0, err
+	}
+	for i := 0; i < len(images); i++ {
+		images[i].storageCache = self.getStoragecache()
+	}
+	total, _ := body.Int("TotalCount")
+	return images, int(total), nil
 }
 func (self *SImage) GetMetadata() *jsonutils.JSONDict {
 	return nil
@@ -164,7 +169,13 @@ func (self *SRegion) ImportImage(name string, osArch string, osType string, osVe
 		osVersion = "-"
 	}
 	params["OsVersion"] = osVersion // "6|7|8|-"
-	params["OsType"] = osType       // "CentOS|Ubuntu|Debian|OpenSUSE|SUSE|CoreOS|FreeBSD|Other Linux|Windows Server 2008|Windows Server 2012|Windows Server 2016"
+	if len(osType) == 0 || osType == "linux" {
+		osType = "Other Linux"
+	}
+	params["OsType"] = osType // "CentOS|Ubuntu|Debian|OpenSUSE|SUSE|CoreOS|FreeBSD|Other Linux|Windows Server 2008|Windows Server 2012|Windows Server 2016"
+	if len(osArch) == 0 {
+		osArch = "x86_64"
+	}
 	params["Architecture"] = osArch // "x86_64|i386"
 	params["ImageUrl"] = imageUrl
 	params["Force"] = "true"
@@ -173,14 +184,13 @@ func (self *SRegion) ImportImage(name string, osArch string, osType string, osVe
 
 	if _, err := self.cvmRequest("ImportImage", params); err != nil {
 		return nil, err
-	} else {
-		for i := 0; i < 3; i++ {
-			image, err := self.GetImageByName(name)
-			if err == nil {
-				return image, nil
-			}
-			time.Sleep(time.Minute * time.Duration(i))
-		}
-		return nil, cloudprovider.ErrNotFound
 	}
+	for i := 0; i < 8; i++ {
+		image, err := self.GetImageByName(name)
+		if err == nil {
+			return image, nil
+		}
+		time.Sleep(time.Minute * time.Duration(i))
+	}
+	return nil, cloudprovider.ErrNotFound
 }

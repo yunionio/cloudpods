@@ -37,7 +37,7 @@ func (self *SQcloudGuestDriver) ChooseHostStorage(host *models.SHost, backend st
 			return &storages[i]
 		}
 	}
-	for _, stype := range []string{"local_basic", "local_ssd", "cloud_basic", "cloud_ssd", "cloud_premium"} {
+	for _, stype := range []string{"cloud_basic", "cloud_premium", "cloud_ssd", "local_basic", "local_ssd"} {
 		for i := 0; i < len(storages); i++ {
 			if storages[i].StorageType == stype {
 				return &storages[i]
@@ -128,8 +128,8 @@ func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			if err != nil {
 				return nil, err
 			}
-			log.Debugf("VMcreated %s, wait status ready ...", iVM.GetGlobalId())
-			err = cloudprovider.WaitStatus(iVM, models.VM_READY, time.Second*5, time.Second*1800)
+			log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
+			err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800)
 			if err != nil {
 				return nil, err
 			}
@@ -159,12 +159,13 @@ func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		deleteKeypair := jsonutils.QueryBoolean(params, "__delete_keypair__", false)
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 
-			if len(userData) > 0 {
-				err := iVM.UpdateUserData(userData)
-				if err != nil {
-					log.Errorf("update userdata fail %s", err)
-				}
-			}
+			//腾讯云暂不支持更新自定义用户数据
+			// if len(userData) > 0 {
+			// 	err := iVM.UpdateUserData(userData)
+			// 	if err != nil {
+			// 		log.Errorf("update userdata fail %s", err)
+			// 	}
+			// }
 
 			err := iVM.DeployVM(name, passwd, publicKey, deleteKeypair, description)
 			if err != nil {
@@ -183,12 +184,13 @@ func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		}
 
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			if len(userData) > 0 {
-				err := iVM.UpdateUserData(userData)
-				if err != nil {
-					log.Errorf("update userdata fail %s", err)
-				}
-			}
+			//腾讯云暂不支持更新自定义用户数据
+			// if len(userData) > 0 {
+			// 	err := iVM.UpdateUserData(userData)
+			// 	if err != nil {
+			// 		log.Errorf("update userdata fail %s", err)
+			// 	}
+			// }
 
 			diskId, err := iVM.RebuildRoot(desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
 			if err != nil {
@@ -267,7 +269,7 @@ func (self *SQcloudGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Contex
 				disk.Status = models.DISK_READY
 				disk.BillingType = diskInfo[i].BillingType
 				disk.FsFormat = diskInfo[i].FsFromat
-				disk.AutoDelete = diskInfo[i].AutoDelete
+				disk.AutoDelete = true
 				disk.TemplateId = diskInfo[i].TemplateId
 				disk.DiskFormat = diskInfo[i].DiskFormat
 				disk.ExpiredAt = diskInfo[i].ExpiredAt

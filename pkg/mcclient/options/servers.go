@@ -115,7 +115,7 @@ type ServerCreateOptions struct {
 	Project          string   `help:"'Owner project ID or Name" json:"tenant"`
 	User             string   `help:"Owner user ID or Name"`
 	System           *bool    `help:"Create a system VM, sysadmin ONLY option" json:"is_system"`
-	Hypervisor       string   `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure"`
+	Hypervisor       string   `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure|qcloud"`
 	TaskNotify       *bool    `help:"Setup task notify" json:"-"`
 	Count            *int     `help:"Create multiple simultaneously" default:"1" json:"-"`
 	DryRun           *bool    `help:"Dry run to test scheduler" json:"-"`

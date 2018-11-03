@@ -1,12 +1,6 @@
 # changelog
 
-### 0.19.0 (2018-09-30)
-
-* New vapi/rest and and vapi/tags packages
-
-* Allowing the use of STS for exchanging tokens
-
-* Add object.VirtualMachine.UUID method
+### unreleased
 
 * SetRootCAs on the soap.Client returns an error for invalid certificates
 

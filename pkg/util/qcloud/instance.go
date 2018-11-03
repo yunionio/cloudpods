@@ -99,6 +99,10 @@ type SInstance struct {
 
 func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit int) ([]SInstance, int, error) {
 	params := make(map[string]string)
+	if limit < 1 || limit > 50 {
+		limit = 50
+	}
+
 	params["Limit"] = fmt.Sprintf("%d", limit)
 	params["Offset"] = fmt.Sprintf("%d", offset)
 	instances := make([]SInstance, 0)
@@ -363,32 +367,40 @@ func (self *SInstance) UpdateVM(name string) error {
 
 func (self *SInstance) DeployVM(name string, password string, publicKey string, deleteKeypair bool, description string) error {
 	var keypairName string
-	// if len(publicKey) > 0 {
-	// 	var err error
-	// 	keypairName, err = self.host.zone.region.syncKeypair(publicKey)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
+	if len(publicKey) > 0 {
+		var err error
+		keypairName, err = self.host.zone.region.syncKeypair(publicKey)
+		if err != nil {
+			return err
+		}
+	}
 
 	return self.host.zone.region.DeployVM(self.InstanceId, name, password, keypairName, deleteKeypair, description)
 }
 
 func (self *SInstance) RebuildRoot(imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
 	keypair := ""
-	// if len(publicKey) > 0 {
-	// 	var err error
-	// 	keypair, err = self.host.zone.region.syncKeypair(publicKey)
-	// 	if err != nil {
-	// 		return "", err
-	// 	}
-	// }
-	return self.host.zone.region.ReplaceSystemDisk(self.InstanceId, imageId, passwd, keypair, sysSizeGB)
+	if len(publicKey) > 0 {
+		var err error
+		keypair, err = self.host.zone.region.syncKeypair(publicKey)
+		if err != nil {
+			return "", err
+		}
+	}
+	err := self.host.zone.region.ReplaceSystemDisk(self.InstanceId, imageId, passwd, keypair, sysSizeGB)
+	if err != nil {
+		return "", err
+	}
+	self.StopVM(true)
+	instance, err := self.host.zone.region.GetInstance(self.InstanceId)
+	if err != nil {
+		return "", err
+	}
+	return instance.SystemDisk.DiskId, nil
 }
 
 func (self *SInstance) ChangeConfig(instanceId string, ncpu int, vmem int) error {
-	return nil
-	//return self.host.zone.region.ChangeVMConfig(self.ZoneId, self.InstanceId, ncpu, vmem, nil)
+	return self.host.zone.region.ChangeVMConfig(self.Placement.Zone, self.InstanceId, ncpu, vmem, nil)
 }
 
 func (self *SInstance) AttachDisk(diskId string) error {
@@ -412,7 +424,7 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
 	zoneId string, desc string, passwd string, disks []SDisk, networkId string, ipAddr string,
-	keypair string) (string, error) {
+	keypair string, userData string) (string, error) {
 	params := make(map[string]string)
 	params["Region"] = self.Region
 	params["ImageId"] = imageId
@@ -423,12 +435,18 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	params["Description"] = desc
 	params["InstanceChargeType"] = "POSTPAID_BY_HOUR"
 	params["InternetAccessible.InternetMaxBandwidthOut"] = "100"
+	params["InternetAccessible.PublicIpAssigned"] = "FALSE"
 	params["HostName"] = name
 	if len(passwd) > 0 {
 		params["LoginSettings.Password"] = passwd
 	} else {
-		params["PasswordInherit"] = "True"
+		params["LoginSettings.KeepImageLogin"] = "TRUE"
 	}
+
+	if len(userData) > 0 {
+		params["UserData"] = userData
+	}
+
 	//params["IoOptimized"] = "optimized"
 	for i, d := range disks {
 		if i == 0 {
@@ -504,9 +522,8 @@ func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 		log.Errorf("Fail to get instance status on StopVM: %s", err)
 		return err
 	}
-	if status != InstanceStatusRunning {
-		log.Errorf("StopVM: vm status is %s expect %s", status, InstanceStatusRunning)
-		return cloudprovider.ErrInvalidStatus
+	if status == InstanceStatusStopped {
+		return nil
 	}
 	return self.doStopVM(instanceId, isForce)
 }
@@ -530,45 +547,39 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 		return err
 	}
 
-	// // 修改密钥时直接返回
-	// if deleteKeypair {
-	// 	err = self.DetachKeyPair(instanceId, instance.KeyPairName)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
+	// 修改密钥时直接返回
+	if deleteKeypair {
+		for i := 0; i < len(instance.LoginSettings.KeyIds); i++ {
+			err = self.DetachKeyPair(instanceId, instance.LoginSettings.KeyIds[i])
+			if err != nil {
+				return err
+			}
+		}
+	}
 
-	// if len(keypairName) > 0 {
-	// 	err = self.AttachKeypair(instanceId, keypairName)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
+	if len(keypairName) > 0 {
+		err = self.AttachKeypair(instanceId, keypairName)
+		if err != nil {
+			return err
+		}
+	}
 
 	params := make(map[string]string)
 
-	// if resetPassword {
-	//	params["Password"] = seclib2.RandomPassword2(12)
-	// }
-	// 指定密码的情况下，使用指定的密码
-	if len(password) > 0 {
-		params["Password"] = password
-	}
-
 	if len(name) > 0 && instance.InstanceName != name {
 		params["InstanceName"] = name
-		params["HostName"] = name
 	}
-
-	// if len(description) > 0 && instance.Description != description {
-	// 	params["Description"] = description
-	// }
 
 	if len(params) > 0 {
-		return self.modifyInstanceAttribute(instanceId, params)
-	} else {
-		return nil
+		err := self.modifyInstanceAttribute(instanceId, params)
+		if err != nil {
+			return err
+		}
 	}
+	if len(password) > 0 {
+		return self.instanceOperation(instanceId, "ResetInstancesPassword", map[string]string{"Password": password})
+	}
+	return nil
 }
 
 func (self *SInstance) DeleteVM() error {
@@ -595,50 +606,46 @@ func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
 }
 
 func (self *SRegion) modifyInstanceAttribute(instanceId string, params map[string]string) error {
-	return self.instanceOperation(instanceId, "ModifyInstanceAttribute", params)
+	return self.instanceOperation(instanceId, "ModifyInstancesAttribute", params)
 }
 
-func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd string, keypairName string, sysDiskSizeGB int) (string, error) {
+func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd string, keypairName string, sysDiskSizeGB int) error {
 	params := make(map[string]string)
-	params["RegionId"] = self.Region
 	params["InstanceId"] = instanceId
 	params["ImageId"] = imageId
+	params["EnhancedService.SecurityService.Enabled"] = "TRUE"
+	params["EnhancedService.MonitorService.Enabled"] = "TRUE"
 	if len(passwd) > 0 {
-		params["Password"] = passwd
+		params["LoginSettings.Password"] = passwd
 	} else {
-		params["PasswordInherit"] = "True"
+		params["LoginSettings.KeepImageLogin"] = "TRUE"
 	}
 	if len(keypairName) > 0 {
-		params["KeyPairName"] = keypairName
+		params["LoginSettings.KeyIds.0"] = keypairName
 	}
 	if sysDiskSizeGB > 0 {
-		params["SystemDisk.Size"] = fmt.Sprintf("%d", sysDiskSizeGB)
+		params["SystemDisk.DiskSize"] = fmt.Sprintf("%d", sysDiskSizeGB)
 	}
-	body, err := self.cvmRequest("ReplaceSystemDisk", params)
-	if err != nil {
-		return "", err
-	}
-	// log.Debugf("%s", body.String())
-	return body.GetString("DiskId")
+	_, err := self.cvmRequest("ResetInstance", params)
+	return err
 }
 
 func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, vmem int, disks []*SDisk) error {
 	// todo: support change disk config?
-	// params := make(map[string]string)
-	// instanceTypes, e := self.GetMatchInstanceTypes(ncpu, vmem, 0, zoneId)
-	// if e != nil {
-	// 	return e
-	// }
+	params := make(map[string]string)
+	instanceTypes, e := self.GetMatchInstanceTypes(ncpu, vmem, 0, zoneId)
+	if e != nil {
+		return e
+	}
 
-	// for _, instancetype := range instanceTypes {
-	// 	params["InstanceType"] = instancetype.InstanceTypeId
-	// 	params["ClientToken"] = utils.GenRequestId(20)
-	// 	if err := self.instanceOperation(instanceId, "ModifyInstanceSpec", params); err != nil {
-	// 		log.Errorf("Failed for %s: %s", instancetype.InstanceTypeId, err)
-	// 	} else {
-	// 		return nil
-	// 	}
-	// }
+	for _, instancetype := range instanceTypes {
+		params["InstanceType"] = instancetype.InstanceType
+		err := self.instanceOperation(instanceId, "ResetInstancesType", params)
+		if err != nil {
+			log.Errorf("Failed for %s: %s", instancetype.InstanceType, err)
+		}
+		return nil
+	}
 
 	return fmt.Errorf("Failed to change vm config, specification not supported")
 }
@@ -660,13 +667,12 @@ func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
 func (self *SRegion) AttachDisk(instanceId string, diskId string) error {
 	params := make(map[string]string)
 	params["InstanceId"] = instanceId
-	params["DiskId"] = diskId
-	_, err := self.cvmRequest("AttachDisk", params)
+	params["DiskIds.0"] = diskId
+	_, err := self.cbsRequest("AttachDisks", params)
 	if err != nil {
-		log.Errorf("AttachDisk %s to %s fail %s", diskId, instanceId, err)
+		log.Errorf("AttachDisks %s to %s fail %s", diskId, instanceId, err)
 		return err
 	}
-
 	return nil
 }
 
@@ -726,5 +732,5 @@ func (self *SInstance) GetExpiredAt() time.Time {
 }
 
 func (self *SInstance) UpdateUserData(userData string) error {
-	return cloudprovider.ErrNotImplemented
+	return cloudprovider.ErrNotSupported
 }

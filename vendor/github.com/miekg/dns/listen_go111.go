@@ -1,5 +1,4 @@
-// +build go1.11
-// +build aix darwin dragonfly freebsd linux netbsd openbsd
+// +build go1.11,!windows
 
 package dns
 
