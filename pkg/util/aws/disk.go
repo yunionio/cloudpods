@@ -294,6 +294,7 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 				instance, err := self.GetInstance(disk.InstanceId)
 				if err != nil {
 					log.Debug(err)
+					return nil, 0, err
 				}
 
 				if disk.Device == instance.RootDeviceName {
