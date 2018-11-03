@@ -40,7 +40,7 @@ func NewAwsClient(providerId string, providerName string, accessUrl string, acce
 
 func (self *SAwsClient) getDefaultSession() (*session.Session, error) {
 	defaultRegion := AWS_INTERNATIONAL_DEFAULT_REGION
-	switch self.accessKey {
+	switch self.accessUrl {
 	case "InternationalCloud":
 		defaultRegion = AWS_INTERNATIONAL_DEFAULT_REGION
 	case "ChinaCloud":
