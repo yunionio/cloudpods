@@ -405,7 +405,7 @@ func syncHostVMs(ctx context.Context, provider *models.SCloudprovider, task *Clo
 	for i := 0; i < len(localVMs); i += 1 {
 		syncVMNics(ctx, provider, task, localHost, &localVMs[i], remoteVMs[i])
 		syncVMDisks(ctx, provider, task, localHost, &localVMs[i], remoteVMs[i])
-		syncVMEip(ctx, provider, task,  &localVMs[i], remoteVMs[i])
+		syncVMEip(ctx, provider, task, &localVMs[i], remoteVMs[i])
 	}
 }
 
@@ -439,7 +439,7 @@ func syncVMDisks(ctx context.Context, provider *models.SCloudprovider, task *Clo
 	}
 	result := localVM.SyncVMDisks(ctx, task.UserCred, host, disks)
 	msg := result.Result()
-	notes := fmt.Sprintf("syncVMNics for VM %s result: %s", localVM.Name, msg)
+	notes := fmt.Sprintf("syncVMDisks for VM %s result: %s", localVM.Name, msg)
 	log.Infof(notes)
 	if result.IsError() {
 		logSyncFailed(provider, task, msg)
