@@ -1,10 +1,11 @@
 package policy
 
 import (
+	"time"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	"time"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -75,6 +76,8 @@ func fetchPolicies() (map[string]rbacutils.SRbacPolicy, map[string]rbacutils.SRb
 
 	policies := make(map[string]rbacutils.SRbacPolicy)
 	adminPolicies := make(map[string]rbacutils.SRbacPolicy)
+
+	modules.Policies.SetEnableFilter(false)
 
 	offset := 0
 	for {

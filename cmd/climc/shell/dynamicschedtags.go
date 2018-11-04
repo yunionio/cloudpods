@@ -104,6 +104,15 @@ func init() {
 		return nil
 	})
 
+	R(&DynamicschedtagDeleteOptions{}, "dynamic-schedtag-show", "Show details of a dyanmic schedtag policy", func(s *mcclient.ClientSession, args *DynamicschedtagDeleteOptions) error {
+		result, err := modules.Dynamicschedtags.Get(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	type DynamicSchedtagEvaluateOptions struct {
 		ID     string `help:"ID or name of the sched policy"`
 		HOST   string `help:"ID or name of the host"`
