@@ -8,9 +8,11 @@ import (
 )
 
 var (
-	Releases         *ReleaseManager
-	MeterReleaseApps *ReleaseAppManager
-	dummyReleaseApps *ReleaseAppManager
+	Releases               *ReleaseManager
+	MeterReleaseApps       *ReleaseAppManager
+	ServicetreeReleaseApps *ReleaseAppManager
+	NotifyReleaseApps      *ReleaseAppManager
+	dummyReleaseApps       *ReleaseAppManager
 )
 
 type ReleaseManager struct {
@@ -36,6 +38,10 @@ func init() {
 		NewNamespaceResourceManager("release", "releases", NewColumns(), NewColumns())}
 	dummyReleaseApps = NewReleaseAppManager("releaseapp", "releaseapps")
 	MeterReleaseApps = NewReleaseAppManager("app_meter", "app_meters")
+	ServicetreeReleaseApps = NewReleaseAppManager("app_servicetree", "app_servicetrees")
+	NotifyReleaseApps = NewReleaseAppManager("app_notify", "app_notifies")
 	modules.Register(Releases)
 	modules.Register(MeterReleaseApps)
+	modules.Register(ServicetreeReleaseApps)
+	modules.Register(NotifyReleaseApps)
 }
