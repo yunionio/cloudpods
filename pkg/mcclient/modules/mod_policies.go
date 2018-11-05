@@ -14,15 +14,14 @@ var Policies SPolicyManager
 func policyReadFilter(session *mcclient.ClientSession, s jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	ss := s.(*jsonutils.JSONDict)
 	ret := ss.CopyIncludes("id", "type")
-	blobStr, err := ss.GetString("blob")
-	if err != nil {
-		return nil, err
+	blobStr, _ := ss.GetString("blob")
+	if len(blobStr) > 0 {
+		blobJson, err := jsonutils.ParseString(blobStr)
+		if err != nil {
+			return nil, err
+		}
+		ret.Add(jsonutils.NewString(blobJson.YAMLString()), "policy")
 	}
-	blobJson, err := jsonutils.ParseString(blobStr)
-	if err != nil {
-		return nil, err
-	}
-	ret.Add(jsonutils.NewString(blobJson.YAMLString()), "policy")
 	return ret, nil
 }
 
