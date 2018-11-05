@@ -99,6 +99,7 @@ func init() {
 	type RoleCreateOptions struct {
 		NAME   string `help:"Role name"`
 		Domain string `help:"Domain"`
+		Desc   string `help:"Description"`
 	}
 	R(&RoleCreateOptions{}, "role-create", "Create a new role", func(s *mcclient.ClientSession, args *RoleCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -109,6 +110,9 @@ func init() {
 				return err
 			}
 			params.Add(jsonutils.NewString(domainId), "domain_id")
+		}
+		if len(args.Desc) > 0 {
+			params.Add(jsonutils.NewString(args.Desc), "description")
 		}
 		mod, err := modules.GetModule(s, "roles")
 		if err != nil {
@@ -126,6 +130,7 @@ func init() {
 		ID     string `help:"Role ID or Name"`
 		Domain string `help:"Domain"`
 		Name   string `help:"Name to alter"`
+		Desc   string `help:"Description"`
 	}
 	R(&RoleUpdateOptions{}, "role-update", "Update role", func(s *mcclient.ClientSession, args *RoleUpdateOptions) error {
 		query := jsonutils.NewDict()
@@ -147,6 +152,9 @@ func init() {
 		params := jsonutils.NewDict()
 		if len(args.Name) > 0 {
 			params.Add(jsonutils.NewString(args.Name), "name")
+		}
+		if len(args.Desc) > 0 {
+			params.Add(jsonutils.NewString(args.Desc), "description")
 		}
 		role, err := mod.Patch(s, rid, params)
 		if err != nil {
