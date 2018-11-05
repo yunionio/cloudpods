@@ -144,7 +144,7 @@ func NewSchedData(sjson *simplejson.Json, count int64, byTest bool) (*SchedData,
 		if str, err := baremetalID.String(); err == nil {
 			candidates = append(candidates, str)
 		}
-	} else if baremetalID, ok := sjson.CheckGet("prefer_baremetal_id"); ok {
+	} else if baremetalID, ok := sjson.CheckGet("prefer_baremetal"); ok {
 		if str, err := baremetalID.String(); err == nil {
 			candidates = append(candidates, str)
 		}
