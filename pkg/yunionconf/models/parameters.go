@@ -107,7 +107,7 @@ func (manager *SParameterManager) ValidateCreateData(ctx context.Context, userCr
 	// check duplication
 	name, _ := data.GetString("name")
 	uid := userCred.GetUserId()
-	if len(uid) < 0 {
+	if len(uid) == 0 {
 		return nil, httperrors.NewUserNotFoundError("user not found")
 	}
 
@@ -176,7 +176,7 @@ func (model *SParameter) AllowUpdateItem(ctx context.Context, userCred mcclient.
 
 func (model *SParameter) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	uid := userCred.GetUserId()
-	if len(uid) < 0 {
+	if len(uid) == 0 {
 		return nil, httperrors.NewUserNotFoundError("user not found")
 	}
 
