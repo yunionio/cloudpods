@@ -76,7 +76,7 @@ func init() {
 		if args.Pid >= 0 {
 			params.Add(jsonutils.NewInt(args.Pid), "pid")
 		}
-		if len(args.Label) >= 0 {
+		if len(args.Label) > 0 {
 			params.Add(jsonutils.NewString(args.Label), "name")
 		}
 		result, err := modules.TreeNodes.List(s, params)
