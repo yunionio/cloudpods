@@ -117,8 +117,8 @@ func (man *SLoadbalancerListenerManager) checkListenerUniqueness(ctx context.Con
 	var listener SLoadbalancerListener
 	q.First(&listener)
 	if len(listener.Id) > 0 {
-		return fmt.Errorf("%s listener port %d is already taken by listener %s",
-			listenerType, listenerPort, listener.Id)
+		return httperrors.NewConflictError("%s listener port %d is already taken by listener %s(%s)",
+			listenerType, listenerPort, listener.Name, listener.Id)
 	}
 	return nil
 }
