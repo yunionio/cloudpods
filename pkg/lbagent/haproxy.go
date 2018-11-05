@@ -41,24 +41,6 @@ func NewHaproxyHelper(opts *Options) (*HaproxyHelper, error) {
 			return nil, fmt.Errorf("sysctl: %s", err)
 		}
 	}
-	if false {
-		// ipvs modules
-		mods := []string{
-			"ip_vs",
-			"ip_vs_rr",
-			"ip_vs_wrr",
-			"ip_vs_lc",
-			"ip_vs_wlc",
-			"ip_vs_sh",
-		}
-		args := []string{"modprobe", ""}
-		for _, mod := range mods {
-			args[1] = mod
-			if err := helper.runCmd(args); err != nil {
-				return nil, fmt.Errorf("modprobe %s: %s", mod, err)
-			}
-		}
-	}
 	return helper, nil
 }
 
