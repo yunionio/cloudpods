@@ -52,9 +52,7 @@ func (self *SKVMGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *mod
 	body := jsonutils.NewDict()
 	body.Set("disk_id", jsonutils.NewString(diskId))
 	body.Set("snapshot_id", jsonutils.NewString(snapshotId))
-	header := http.Header{}
-	header.Set("X-Task-Id", task.GetTaskId())
-	header.Set("X-Region-Version", "v2")
+	header := self.getTaskRequestHeader(task)
 	host := guest.GetHost()
 	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
 	return err
@@ -62,9 +60,7 @@ func (self *SKVMGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *mod
 
 func (self *SKVMGuestDriver) RequestDeleteSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, params *jsonutils.JSONDict) error {
 	url := fmt.Sprintf("/servers/%s/delete-snapshot", guest.Id)
-	header := http.Header{}
-	header.Set("X-Task-Id", task.GetTaskId())
-	header.Set("X-Region-Version", "v2")
+	header := self.getTaskRequestHeader(task)
 	host := guest.GetHost()
 	_, err := host.Request(task.GetUserCred(), "POST", url, header, params)
 	return err
@@ -72,9 +68,7 @@ func (self *SKVMGuestDriver) RequestDeleteSnapshot(ctx context.Context, guest *m
 
 func (self *SKVMGuestDriver) RequestReloadDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, params *jsonutils.JSONDict) error {
 	url := fmt.Sprintf("/servers/%s/reload-disk-snapshot", guest.Id)
-	header := http.Header{}
-	header.Set("X-Task-Id", task.GetTaskId())
-	header.Set("X-Region-Version", "v2")
+	header := self.getTaskRequestHeader(task)
 	host := guest.GetHost()
 	_, err := host.Request(task.GetUserCred(), "POST", url, header, params)
 	return err
@@ -164,10 +158,7 @@ func (self *SKVMGuestDriver) RequestStopOnHost(ctx context.Context, guest *model
 	}
 	body.Add(jsonutils.NewInt(timeout), "timeout")
 
-	header := http.Header{}
-	header.Set("X-Auth-Token", task.GetUserCred().GetTokenString())
-	header.Set("X-Task-Id", task.GetTaskId())
-	header.Set("X-Region-Version", "v2")
+	header := self.getTaskRequestHeader(task)
 
 	url := fmt.Sprintf("%s/servers/%s/stop", host.ManagerUri, guest.Id)
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
@@ -176,10 +167,7 @@ func (self *SKVMGuestDriver) RequestStopOnHost(ctx context.Context, guest *model
 
 func (self *SKVMGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	url := fmt.Sprintf("%s/servers/%s", host.ManagerUri, guest.Id)
-	header := http.Header{}
-	header.Set("X-Auth-Token", task.GetUserCred().GetTokenString())
-	header.Set("X-Task-Id", task.GetTaskId())
-	header.Set("X-Region-Version", "v2")
+	header := self.getTaskRequestHeader(task)
 	body := jsonutils.NewDict()
 
 	// XXXXXXXX
@@ -209,10 +197,7 @@ func (self *SKVMGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 		return err
 	}
 	url := fmt.Sprintf("%s/servers/%s/%s", host.ManagerUri, guest.Id, action)
-	header := http.Header{}
-	header.Set("X-Auth-Token", task.GetUserCred().GetTokenString())
-	header.Set("X-Task-Id", task.GetTaskId())
-	header.Set("X-Region-Version", "v2")
+	header := self.getTaskRequestHeader(task)
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, config, false)
 	if err != nil {
 		return err
@@ -226,10 +211,7 @@ func (self *SKVMGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, 
 }
 
 func (self *SKVMGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
-	header := http.Header{}
-	header.Set("X-Auth-Token", task.GetUserCred().GetTokenString())
-	header.Set("X-Task-Id", task.GetTaskId())
-	header.Set("X-Region-Version", "v2")
+	header := self.getTaskRequestHeader(task)
 
 	config := jsonutils.NewDict()
 	desc := self.GetJsonDescAtHost(ctx, guest, host)
@@ -248,8 +230,8 @@ func (self *SKVMGuestDriver) RequestStartOnHost(ctx context.Context, guest *mode
 
 func (self *SKVMGuestDriver) RequestSyncstatusOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error) {
 	header := http.Header{}
-	header.Set("X-Auth-Token", userCred.GetTokenString())
-	header.Set("X-Region-Version", "v2")
+	header.Set(mcclient.AUTH_TOKEN, userCred.GetTokenString())
+	header.Set(mcclient.REGION_VERSION, "v2")
 
 	url := fmt.Sprintf("%s/servers/%s/status", host.ManagerUri, guest.Id)
 	_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", url, header, nil, false)
@@ -293,9 +275,7 @@ func (self *SKVMGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest 
 		body.Add(jsonutils.JSONTrue, "fw_only")
 	}
 	url := fmt.Sprintf("/servers/%s/sync", guest.Id)
-	header := http.Header{}
-	header.Add("X-Task-Id", task.GetTaskId())
-	header.Add("X-Region-Version", "v2")
+	header := self.getTaskRequestHeader(task)
 	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
 	return err
 }
@@ -303,10 +283,7 @@ func (self *SKVMGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest 
 func (self *SKVMGuestDriver) RqeuestSuspendOnHost(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	host := guest.GetHost()
 	url := fmt.Sprintf("%s/servers/%s/suspend", host.ManagerUri, guest.Id)
-	header := http.Header{}
-	header.Add("X-Auth-Token", task.GetUserCred().GetTokenString())
-	header.Add("X-Task-Id", task.GetTaskId())
-	header.Add("X-Region-Version", "v2")
+	header := self.getTaskRequestHeader(task)
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, nil, false)
 	return err
 }
