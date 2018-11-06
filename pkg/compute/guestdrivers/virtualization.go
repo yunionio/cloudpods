@@ -37,6 +37,10 @@ func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.
 	return net, netConfig.Mac, -1, models.IPAllocationStepdown
 }
 
+func (self *SVirtualizedGuestDriver) GetRandomNetworkTypes() []string {
+	return []string{models.SERVER_TYPE_GUEST}
+}
+
 func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig, pendingUsage quotas.IQuota) error {
 	var wirePattern *regexp.Regexp
 	if len(netConfig.Wire) > 0 {
@@ -44,6 +48,7 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 	}
 	hostwires := host.GetHostwires()
 	netsAvaiable := make([]models.SNetwork, 0)
+	netTypes := guest.GetDriver().GetRandomNetworkTypes()
 	for i := 0; i < len(hostwires); i += 1 {
 		hostwire := hostwires[i]
 		wire := hostwire.GetWire()
@@ -59,11 +64,22 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 		if wirePattern != nil && !wirePattern.MatchString(wire.Id) && !wirePattern.MatchString(wire.Name) {
 			continue
 		}
+
 		var net *models.SNetwork
 		if netConfig.Private {
-			net, _ = wire.GetCandidatePrivateNetwork(userCred, netConfig.Exit, models.SERVER_TYPE_GUEST)
+			for _, netType := range netTypes {
+				net, _ = wire.GetCandidatePrivateNetwork(userCred, netConfig.Exit, netType)
+				if net != nil {
+					break
+				}
+			}
 		} else {
-			net, _ = wire.GetCandidatePublicNetwork(netConfig.Exit, models.SERVER_TYPE_GUEST)
+			for _, netType := range netTypes {
+				net, _ = wire.GetCandidatePublicNetwork(netConfig.Exit, netType)
+				if net != nil {
+					break
+				}
+			}
 		}
 		if net != nil {
 			netsAvaiable = append(netsAvaiable, *net)
@@ -72,7 +88,13 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 	if len(netsAvaiable) == 0 {
 		return fmt.Errorf("No appropriate host virtual network...")
 	}
-	selNet := models.ChooseCandidateNetworks(netsAvaiable, netConfig.Exit, models.SERVER_TYPE_GUEST)
+	var selNet *models.SNetwork
+	for _, netType := range netTypes {
+		selNet = models.ChooseCandidateNetworks(netsAvaiable, netConfig.Exit, netType)
+		if selNet != nil {
+			break
+		}
+	}
 	if selNet == nil {
 		return fmt.Errorf("Not enough address in virtual network")
 	}

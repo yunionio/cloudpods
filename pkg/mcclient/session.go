@@ -19,6 +19,7 @@ const (
 	TASK_ID         = "X-Task-Id"
 	TASK_NOTIFY_URL = "X-Task-Notify-Url"
 	AUTH_TOKEN      = "X-Auth-Token"
+	REGION_VERSION  = "X-Region-Version"
 
 	DEFAULT_API_VERSION = "v1"
 )

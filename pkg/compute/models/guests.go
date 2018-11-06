@@ -630,7 +630,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	}
 
 	// base validate_create_data
-	if data.Contains("prefer_baremetal") || data.Contains("prefer_host") {
+	if (data.Contains("prefer_baremetal") || data.Contains("prefer_host")) && hypervisor != HYPERVISOR_CONTAINER {
 		if !userCred.IsSystemAdmin() {
 			return nil, httperrors.NewNotSufficientPrivilegeError("Only system admin can specify preferred host")
 		}
