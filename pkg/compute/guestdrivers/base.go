@@ -3,6 +3,7 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -148,4 +149,12 @@ func (self *SBaseGuestDriver) RequestDeleteSnapshot(ctx context.Context, guest *
 
 func (self *SBaseGuestDriver) RequestReloadDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, params *jsonutils.JSONDict) error {
 	return fmt.Errorf("Not Implement")
+}
+
+func (self *SBaseGuestDriver) getTaskRequestHeader(task taskman.ITask) http.Header {
+	header := http.Header{}
+	header.Set(mcclient.AUTH_TOKEN, task.GetUserCred().GetTokenString())
+	header.Set(mcclient.TASK_ID, task.GetTaskId())
+	header.Set(mcclient.REGION_VERSION, "v2")
+	return header
 }

@@ -84,6 +84,10 @@ func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SG
 	return net, "", -1, ""
 }
 
+func (self *SBaremetalGuestDriver) GetRandomNetworkTypes() []string {
+	return []string{models.SERVER_TYPE_BAREMETAL}
+}
+
 func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig, pendingUsage quotas.IQuota) error {
 	netifs := host.GetNetInterfaces()
 	netsAvaiable := make([]models.SNetwork, 0)
