@@ -46,8 +46,11 @@ func (self *SRegion) GetClient() *SAzureClient {
 	return self.client
 }
 
-func (self *SRegion) GetVMSize() (map[string]SVMSize, error) {
-	body, err := self.client.ListVmSizes(self.Name)
+func (self *SRegion) GetVMSize(location string) (map[string]SVMSize, error) {
+	if len(location) == 0 {
+		location = self.Name
+	}
+	body, err := self.client.ListVmSizes(location)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +67,7 @@ func (self *SRegion) GetVMSize() (map[string]SVMSize, error) {
 }
 
 func (self *SRegion) getHardwareProfile(cpu, memMB int) []string {
-	if vmSizes, err := self.GetVMSize(); err != nil {
+	if vmSizes, err := self.GetVMSize(""); err != nil {
 		return []string{}
 	} else {
 		profiles := make([]string, 0)
@@ -78,7 +81,7 @@ func (self *SRegion) getHardwareProfile(cpu, memMB int) []string {
 }
 
 func (self *SRegion) getVMSize(size string) (*SVMSize, error) {
-	vmSizes, err := self.GetVMSize()
+	vmSizes, err := self.GetVMSize("")
 	if err != nil {
 		return nil, err
 	}
