@@ -24,10 +24,14 @@ func (o ClusterListOptions) Params() *jsonutils.JSONDict {
 	return params
 }
 
+type K8sSupportVersion struct {
+	K8sVersion string `help:"Cluster kubernetes components version" choices:"v1.10.5|v1.11.3|v1.12.0"`
+}
+
 type ClusterCreateOptions struct {
+	K8sSupportVersion
 	NAME       string `help:"Name of cluster"`
 	Mode       string `help:"Cluster mode" choices:"internal"`
-	K8sVersion string `help:"Cluster kubernetes components version" choices:"v1.8.10|v1.9.5|v1.10.0"`
 	InfraImage string `help:"Cluster kubelet infra container image"`
 	Cidr       string `help:"Cluster service CIDR, e.g. 10.43.0.0/16"`
 	Domain     string `help:"Cluster pod domain, e.g. cluster.local"`
@@ -70,8 +74,8 @@ func (o ClusterImportOptions) Params() (*jsonutils.JSONDict, error) {
 }
 
 type ClusterUpdateOptions struct {
-	NAME       string `help:"Name of cluster"`
-	K8sVersion string `help:"Cluster kubernetes components version" choices:"v1.8.10|v1.9.5|v1.10.0"`
+	NAME string `help:"Name of cluster"`
+	K8sSupportVersion
 }
 
 func (o ClusterUpdateOptions) Params() *jsonutils.JSONDict {
@@ -174,4 +178,19 @@ func parseNodeAddConfigStr(config string) (nodeAddConfig, error) {
 	}
 	ret.Roles = roles
 	return ret, nil
+}
+
+type ClusterDeleteNodesOptions struct {
+	IdentOptions
+	Node []string `help:"Node id or name"`
+}
+
+func (o ClusterDeleteNodesOptions) Params() (*jsonutils.JSONDict, error) {
+	params := jsonutils.NewDict()
+	nodesArray := jsonutils.NewArray()
+	for _, node := range o.Node {
+		nodesArray.Add(jsonutils.NewString(node))
+	}
+	params.Add(nodesArray, "nodes")
+	return params, nil
 }

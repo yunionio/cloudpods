@@ -88,6 +88,18 @@ func (cli *SESXiClient) disconnect() error {
 	return nil
 }
 
+func (cli *SESXiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
+	err := cli.connect()
+	if err != nil {
+		return nil, err
+	}
+	subAccount := cloudprovider.SSubAccount{
+		Account: cli.account,
+		Name:    cli.providerName,
+	}
+	return []cloudprovider.SSubAccount{subAccount}, nil
+}
+
 func (cli *SESXiClient) About() jsonutils.JSONObject {
 	return jsonutils.Marshal(&cli.client.ServiceContent.About)
 }

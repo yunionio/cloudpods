@@ -107,7 +107,7 @@ func (manager *SParameterManager) ValidateCreateData(ctx context.Context, userCr
 	// check duplication
 	name, _ := data.GetString("name")
 	uid := userCred.GetUserId()
-	if len(uid) < 0 {
+	if len(uid) == 0 {
 		return nil, httperrors.NewUserNotFoundError("user not found")
 	}
 
@@ -129,7 +129,7 @@ func (manager *SParameterManager) ValidateCreateData(ctx context.Context, userCr
 	return data, nil
 }
 
-func (manager *SParameterManager) GetOwnerId(userCred mcclient.TokenCredential) string {
+func (manager *SParameterManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
 	return userCred.GetUserId()
 }
 
@@ -138,7 +138,7 @@ func (manager *SParameterManager) FilterByOwner(q *sqlchemy.SQuery, owner string
 }
 
 func (manager *SParameterManager) FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
-	return q.Equals("name", idStr)
+	return q.Equals("id", idStr)
 }
 
 func (manager *SParameterManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery {
@@ -176,7 +176,7 @@ func (model *SParameter) AllowUpdateItem(ctx context.Context, userCred mcclient.
 
 func (model *SParameter) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	uid := userCred.GetUserId()
-	if len(uid) < 0 {
+	if len(uid) == 0 {
 		return nil, httperrors.NewUserNotFoundError("user not found")
 	}
 

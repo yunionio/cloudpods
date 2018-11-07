@@ -2,15 +2,15 @@ package forward
 
 import (
 	"fmt"
-	"net"
 	"strconv"
 	"time"
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics"
-	"github.com/coredns/coredns/plugin/pkg/dnsutil"
+	"github.com/coredns/coredns/plugin/pkg/parse"
 	pkgtls "github.com/coredns/coredns/plugin/pkg/tls"
+	"github.com/coredns/coredns/plugin/pkg/transport"
 
 	"github.com/mholt/caddy"
 	"github.com/mholt/caddy/caddyfile"
@@ -38,9 +38,7 @@ func setup(c *caddy.Controller) error {
 	})
 
 	c.OnStartup(func() error {
-		once.Do(func() {
-			metrics.MustRegister(c, RequestCount, RcodeCount, RequestDuration, HealthcheckFailureCount, SocketGauge)
-		})
+		metrics.MustRegister(c, RequestCount, RcodeCount, RequestDuration, HealthcheckFailureCount, SocketGauge)
 		return f.OnStartup()
 	})
 
@@ -93,8 +91,6 @@ func parseForward(c *caddy.Controller) (*Forward, error) {
 func ParseForwardStanza(c *caddyfile.Dispenser) (*Forward, error) {
 	f := New()
 
-	protocols := map[int]int{}
-
 	if !c.Args(&f.from) {
 		return f, c.ArgErr()
 	}
@@ -105,41 +101,17 @@ func ParseForwardStanza(c *caddyfile.Dispenser) (*Forward, error) {
 		return f, c.ArgErr()
 	}
 
-	// A bit fiddly, but first check if we've got protocols and if so add them back in when we create the proxies.
-	protocols = make(map[int]int)
-	for i := range to {
-		protocols[i], to[i] = protocol(to[i])
-	}
-
-	// If parseHostPortOrFile expands a file with a lot of nameserver our accounting in protocols doesn't make
-	// any sense anymore... For now: lets don't care.
-	toHosts, err := dnsutil.ParseHostPortOrFile(to...)
+	toHosts, err := parse.HostPortOrFile(to...)
 	if err != nil {
 		return f, err
 	}
 
-	for i, h := range toHosts {
-		// Double check the port, if e.g. is 53 and the transport is TLS make it 853.
-		// This can be somewhat annoying because you *can't* have TLS on port 53 then.
-		switch protocols[i] {
-		case TLS:
-			h1, p, err := net.SplitHostPort(h)
-			if err != nil {
-				break
-			}
-
-			// This is more of a bug in dnsutil.ParseHostPortOrFile that defaults to
-			// 53 because it doesn't know about the tls:// // and friends (that should be fixed). Hence
-			// Fix the port number here, back to what the user intended.
-			if p == "53" {
-				h = net.JoinHostPort(h1, "853")
-			}
-		}
-
-		// We can't set tlsConfig here, because we haven't parsed it yet.
-		// We set it below at the end of parseBlock, use nil now.
-		p := NewProxy(h, protocols[i])
+	transports := make([]string, len(toHosts))
+	for i, host := range toHosts {
+		trans, h := parse.Transport(host)
+		p := NewProxy(h, trans)
 		f.proxies = append(f.proxies, p)
+		transports[i] = trans
 	}
 
 	for c.NextBlock() {
@@ -153,7 +125,7 @@ func ParseForwardStanza(c *caddyfile.Dispenser) (*Forward, error) {
 	}
 	for i := range f.proxies {
 		// Only set this for proxies that need it.
-		if protocols[i] == TLS {
+		if transports[i] == transport.TLS {
 			f.proxies[i].SetTLSConfig(f.tlsConfig)
 		}
 		f.proxies[i].SetExpire(f.expire)

@@ -65,4 +65,22 @@ func init() {
 		handleResult(args.WebConsoleOptions, ret)
 		return nil
 	})
+
+	R(&o.WebConsoleSshOptions{}, "webconsole-ssh", "Connect ssh webconsole", func(s *mcclient.ClientSession, args *o.WebConsoleSshOptions) error {
+		ret, err := modules.WebConsole.DoSshConnect(s, args.IP)
+		if err != nil {
+			return err
+		}
+		handleResult(args.WebConsoleOptions, ret)
+		return nil
+	})
+
+	R(&o.WebConsoleServerOptions{}, "webconsole-server", "Connect server remote graphic console", func(s *mcclient.ClientSession, args *o.WebConsoleServerOptions) error {
+		ret, err := modules.WebConsole.DoServerConnect(s, args.ID)
+		if err != nil {
+			return err
+		}
+		handleResult(args.WebConsoleOptions, ret)
+		return nil
+	})
 }

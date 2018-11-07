@@ -8,10 +8,10 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
-var taskWorkMan *appsrv.WorkerManager
+var taskWorkMan *appsrv.SWorkerManager
 
 func init() {
-	taskWorkMan = appsrv.NewWorkerManager("TaskWorkerManager", 4, 10)
+	taskWorkMan = appsrv.NewWorkerManager("TaskWorkerManager", 4, 100)
 }
 
 func AddTaskHandler(prefix string, app *appsrv.Application) {
@@ -22,5 +22,5 @@ func AddTaskHandler(prefix string, app *appsrv.Application) {
 func runTask(taskId string, data jsonutils.JSONObject) {
 	taskWorkMan.Run(func() {
 		TaskManager.execTask(taskId, data)
-	}, nil)
+	}, nil, nil)
 }

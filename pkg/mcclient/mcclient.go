@@ -11,6 +11,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/pkg/gotypes"
 )
 
 type Client struct {
@@ -22,10 +24,26 @@ type Client struct {
 	serviceCatalog IServiceCatalog
 }
 
-func NewClient(authUrl string, timeout int, debug bool, insecure bool) *Client {
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: insecure},
+func NewClient(authUrl string, timeout int, debug bool, insecure bool, certFile, keyFile string) *Client {
+	var tlsConf *tls.Config
+
+	if len(certFile) > 0 && len(keyFile) > 0 {
+		var err error
+		tlsConf, err = seclib2.InitTLSConfig(certFile, keyFile)
+		if err != nil {
+			log.Errorf("load TLS failed %s", err)
+		}
 	}
+
+	if tlsConf == nil || gotypes.IsNil(tlsConf) {
+		tlsConf = &tls.Config{}
+	}
+	tlsConf.InsecureSkipVerify = insecure
+
+	tr := &http.Transport{
+		TLSClientConfig: tlsConf,
+	}
+
 	client := Client{authUrl: authUrl,
 		timeout:  timeout,
 		debug:    debug,

@@ -64,7 +64,7 @@ func Run(s *SchedulerServer) error {
 
 	debug := o.GetOptions().LogLevel == "debug"
 
-	auth.AsyncInit(s.AuthInfo, debug, true, startSched)
+	auth.AsyncInit(s.AuthInfo, debug, true, "", "", startSched)
 
 	return startHTTP(s)
 }
@@ -86,7 +86,13 @@ func startHTTP(s *SchedulerServer) error {
 	}
 
 	log.Infof("Start server on: %s:%d", s.Address, s.Port)
-	return server.ListenAndServe()
+
+	if o.GetOptions().EnableSsl {
+		return server.ListenAndServeTLS(o.GetOptions().SslCertfile,
+			o.GetOptions().SslKeyfile)
+	} else {
+		return server.ListenAndServe()
+	}
 }
 
 func Execute() error {

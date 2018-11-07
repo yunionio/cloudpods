@@ -90,7 +90,7 @@ func (self *SImage) Delete() error {
 }
 
 func (self *SImage) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s")
+	panic("not implemented")
 }
 
 func (self *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {

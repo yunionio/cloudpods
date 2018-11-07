@@ -3,15 +3,15 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/mcclient"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/compute/tasks"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SBaseGuestDriver struct {
@@ -20,9 +20,10 @@ type SBaseGuestDriver struct {
 func (self *SBaseGuestDriver) StartGuestCreateTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, pendingUsage quotas.IQuota, parentTaskId string) error {
 	taskName, _ := data.GetString("__task__")
 	if len(taskName) > 0 {
+		data.Remove("__task__")
 		log.Infof("Start embedded guest start task")
 		switch taskName {
-		case tasks.CONVERT_TASK:
+		case taskman.CONVERT_TASK:
 			hostId, _ := data.GetString("prefer_host_id")
 			if len(hostId) == 0 {
 				hostId, _ = data.GetString("prefer_baremetal_id")
@@ -106,6 +107,10 @@ func (self *SBaseGuestDriver) StartGuestResetTask(guest *models.SGuest, ctx cont
 	return fmt.Errorf("Not Implement")
 }
 
+func (self *SBaseGuestDriver) StartGuestRestartTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
+	return fmt.Errorf("Not Implement")
+}
+
 func (self *SBaseGuestDriver) RequestSoftReset(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement")
 }
@@ -144,4 +149,12 @@ func (self *SBaseGuestDriver) RequestDeleteSnapshot(ctx context.Context, guest *
 
 func (self *SBaseGuestDriver) RequestReloadDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, params *jsonutils.JSONDict) error {
 	return fmt.Errorf("Not Implement")
+}
+
+func (self *SBaseGuestDriver) getTaskRequestHeader(task taskman.ITask) http.Header {
+	header := http.Header{}
+	header.Set(mcclient.AUTH_TOKEN, task.GetUserCred().GetTokenString())
+	header.Set(mcclient.TASK_ID, task.GetTaskId())
+	header.Set(mcclient.REGION_VERSION, "v2")
+	return header
 }

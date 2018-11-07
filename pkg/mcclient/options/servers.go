@@ -31,6 +31,11 @@ type ServerIdOptions struct {
 	ID string `help:"ID or name of the server" json:"-"`
 }
 
+type ServerLoginInfoOptions struct {
+	ID  string `help:"ID or name of the server" json:"-"`
+	Key string `help:"File name of private key, if password is encrypted by key"`
+}
+
 type ServerIdsOptions struct {
 	ID []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
 }
@@ -104,7 +109,7 @@ type ServerCreateOptions struct {
 	AutoStart        *bool    `help:"Auto start server after it is created"`
 	Zone             string   `help:"Preferred zone where virtual server should be created" json:"prefer_zone"`
 	Host             string   `help:"Preferred host where virtual server should be created" json:"prefer_host"`
-	SchedTag         []string `help:"Schedule policy, key = aggregate name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
+	Schedtag         []string `help:"Schedule policy, key = aggregate name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
 	Deploy           []string `help:"Specify deploy files in virtual server file system" json:"-"`
 	Group            []string `help:"Group of virtual server"`
 	Project          string   `help:"'Owner project ID or Name" json:"tenant"`
@@ -115,6 +120,7 @@ type ServerCreateOptions struct {
 	Count            *int     `help:"Create multiple simultaneously" default:"1" json:"-"`
 	DryRun           *bool    `help:"Dry run to test scheduler" json:"-"`
 	RaidConfig       []string `help:"Baremetal raid config" json:"-"`
+	UserDataFile     string   `help:"user_data file path" json:"-"`
 }
 
 func (opts *ServerCreateOptions) Params() (*jsonutils.JSONDict, error) {
@@ -240,7 +246,7 @@ func (opts *ServerDeployOptions) Params() (*jsonutils.JSONDict, error) {
 
 type ServerSecGroupOptions struct {
 	ID     string `help:"ID or Name of server" metavar:"Guest" json:"-"`
-	SecGrp string `help:"ID of Security Group" metavar:"Security Group" positional:"true"`
+	Secgrp string `help:"ID of Security Group" metavar:"Security Group" positional:"true"`
 }
 
 type ServerSendKeyOptions struct {
@@ -250,8 +256,8 @@ type ServerSendKeyOptions struct {
 }
 
 type ServerMonitorOptions struct {
-	ID  string `help:"ID or Name of server" json:"-"`
-	CMD string `help:"Qemu Monitor command to send"`
+	ID      string `help:"ID or Name of server" json:"-"`
+	COMMAND string `help:"Qemu Monitor command to send"`
 }
 
 type ServerSaveImageOptions struct {
@@ -282,4 +288,22 @@ type ServerChangeConfigOptions struct {
 type ServerResetOptions struct {
 	ID   []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
 	Hard *bool    `help:"Hard reset or not; default soft" json:"is_hard"`
+}
+
+type ServerRestartOptions struct {
+	ID      []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
+	IsForce *bool    `help:"Force reset or not; default false" json:"is_force"`
+}
+
+type ServerMigrateOptions struct {
+	ID         string `help:"ID of server" json:"-"`
+	PreferHost string `help:"Server migration prefer host id or name" json:"prefer_host"`
+	RescueMode *bool  `help:"Migrate server in rescue mode,
+					  all disk must store in shared storage;
+					  default false" json:"rescue_mode"`
+}
+
+type ServerLiveMigrateOptions struct {
+	ID         string `help:"ID of server" json:"-"`
+	PreferHost string `help:"Server migration prefer host id or name" json:"prefer_host"`
 }

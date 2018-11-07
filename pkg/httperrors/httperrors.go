@@ -71,6 +71,10 @@ func InvalidInputError(w http.ResponseWriter, msg string, params ...interface{})
 	JsonClientError(w, NewInputParameterError(msg, params...))
 }
 
+func InputParameterError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewInputParameterError(msg, params...))
+}
+
 func MissingParameterError(w http.ResponseWriter, param string) {
 	JsonClientError(w, NewMissingParameterError(param))
 }
@@ -93,4 +97,20 @@ func TenantNotFoundError(w http.ResponseWriter, msg string, params ...interface{
 
 func OutOfQuotaError(w http.ResponseWriter, msg string, params ...interface{}) {
 	JsonClientError(w, NewOutOfQuotaError(msg, params...))
+}
+
+func NotSufficientPrivilegeError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewNotSufficientPrivilegeError(msg, params...))
+}
+
+func ResourceNotFoundError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewResourceNotFoundError(msg, params...))
+}
+
+func TimeoutError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewTimeoutError(msg, params...))
+}
+
+func ProtectedResourceError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewProtectedResourceError(msg, params...))
 }

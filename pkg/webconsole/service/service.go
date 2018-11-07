@@ -2,7 +2,6 @@ package service
 
 import (
 	"net"
-	"net/http"
 	"net/url"
 	"os"
 	"strconv"
@@ -11,6 +10,7 @@ import (
 
 	"yunion.io/x/log"
 
+	"net/http"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/webconsole"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
@@ -34,7 +34,7 @@ func StartService() {
 		log.Fatalf("invalid --api-server %s", o.Options.ApiServer)
 	}
 
-	for _, binPath := range []string{o.Options.KubectlPath, o.Options.IpmitoolPath} {
+	for _, binPath := range []string{o.Options.KubectlPath, o.Options.IpmitoolPath, o.Options.SshToolPath, o.Options.SshpassToolPath} {
 		ensureBinExists(binPath)
 	}
 
@@ -54,13 +54,26 @@ func start() {
 	// api handler
 	root.PathPrefix(webconsole.ApiPathPrefix).Handler(app)
 
-	// websocket related console handler
+	// websocket command text console handler
 	root.Handle(webconsole.ConnectPathPrefix, server.NewConnectionServer())
+
+	// websockify graphic console handler
+	root.Handle(webconsole.WebsockifyPathPrefix, server.NewConnectionServer())
 
 	addr := net.JoinHostPort(o.Options.Address, strconv.Itoa(o.Options.Port))
 	log.Infof("Start listen on %s", addr)
-	err := http.ListenAndServe(addr, root)
-	if err != nil {
-		log.Fatalf("%v", err)
+	if o.Options.EnableSsl {
+		err := http.ListenAndServeTLS(addr,
+			o.Options.SslCertfile,
+			o.Options.SslKeyfile,
+			root)
+		if err != nil && err != http.ErrServerClosed {
+			log.Fatalf("%v", err)
+		}
+	} else {
+		err := http.ListenAndServe(addr, root)
+		if err != nil {
+			log.Fatalf("%v", err)
+		}
 	}
 }

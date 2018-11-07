@@ -15,6 +15,9 @@ const (
 	SnapshotStatusAccomplished SnapshotStatusType = "accomplished"
 	SnapshotStatusProgress     SnapshotStatusType = "progressing"
 	SnapshotStatusFailed       SnapshotStatusType = "failed"
+
+	SnapshotTypeSystem string = "System"
+	SnapshotTypeData   string = "Data"
 )
 
 type SSnapshot struct {
@@ -64,6 +67,16 @@ func (self *SSnapshot) GetDiskId() string {
 	return self.SourceDiskId
 }
 
+func (self *SSnapshot) GetDiskType() string {
+	if self.SourceDiskType == SnapshotTypeSystem {
+		return models.DISK_TYPE_SYS
+	} else if self.SourceDiskType == SnapshotTypeData {
+		return models.DISK_TYPE_DATA
+	} else {
+		return ""
+	}
+}
+
 func (self *SSnapshot) Refresh() error {
 	if snapshots, total, err := self.region.GetSnapshots("", "", "", []string{self.SnapshotId}, 0, 1); err != nil {
 		return err
@@ -107,10 +120,7 @@ func (self *SSnapshot) Delete() error {
 	if self.region == nil {
 		return fmt.Errorf("not init region for snapshot %s", self.SnapshotId)
 	}
-	params := make(map[string]string)
-	params["SnapshotId"] = self.SnapshotId
-	_, err := self.region.ecsRequest("DeleteSnapshot", params)
-	return err
+	return self.region.DeleteSnapshot(self.SnapshotId)
 }
 
 func (self *SSnapshot) GetMetadata() *jsonutils.JSONDict {
@@ -165,4 +175,11 @@ func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSn
 	} else {
 		return &snapshots[0], nil
 	}
+}
+
+func (self *SRegion) DeleteSnapshot(snapshotId string) error {
+	params := make(map[string]string)
+	params["SnapshotId"] = snapshotId
+	_, err := self.ecsRequest("DeleteSnapshot", params)
+	return err
 }

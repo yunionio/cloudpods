@@ -30,6 +30,10 @@ type SAwsProvider struct {
 	client *aws.SAwsClient
 }
 
+func (self *SAwsProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
+	return self.client.GetSubAccounts()
+}
+
 func (self *SAwsProvider) GetId() string {
 	return aws.CLOUD_PROVIDER_AWS
 }

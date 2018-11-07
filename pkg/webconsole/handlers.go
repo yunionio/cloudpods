@@ -7,10 +7,7 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/sets"
 
-	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -23,30 +20,17 @@ import (
 )
 
 const (
-	ApiPathPrefix     = "/webconsole/"
-	ConnectPathPrefix = "/connect/"
+	ApiPathPrefix        = "/webconsole/"
+	ConnectPathPrefix    = "/connect/"
+	WebsockifyPathPrefix = "/websockify/"
 )
 
 func InitHandlers(app *appsrv.Application) {
 	app.AddHandler("POST", ApiPathPrefix+"k8s/<podName>/shell", auth.Authenticate(handleK8sShell))
 	app.AddHandler("POST", ApiPathPrefix+"k8s/<podName>/log", auth.Authenticate(handleK8sLog))
 	app.AddHandler("POST", ApiPathPrefix+"baremetal/<id>", auth.Authenticate(handleBaremetalShell))
-}
-
-func fetchEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (map[string]string, jsonutils.JSONObject, jsonutils.JSONObject) {
-	params := appctx.AppContextParams(ctx)
-	query, e := jsonutils.ParseQueryString(r.URL.RawQuery)
-	if e != nil {
-		log.Errorf("Parse query string %q failed: %v", r.URL.RawQuery, e)
-	}
-	var body jsonutils.JSONObject = nil
-	if sets.NewString("PUT", "POST", "DELETE", "PATCH").Has(r.Method) {
-		body, e = appsrv.FetchJSON(r)
-		if e != nil {
-			log.Errorf("Failed to decode JSON request body: %v", e)
-		}
-	}
-	return params, query, body
+	app.AddHandler("POST", ApiPathPrefix+"ssh/<ip>", auth.Authenticate(handleSshShell))
+	app.AddHandler("POST", ApiPathPrefix+"server/<id>", auth.Authenticate(handleServerRemoteConsole))
 }
 
 type K8sEnv struct {
@@ -58,7 +42,7 @@ type K8sEnv struct {
 }
 
 func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*K8sEnv, error) {
-	params, _, body := fetchEnv(ctx, w, r)
+	params, _, body := appsrv.FetchEnv(ctx, w, r)
 	cluster, _ := body.GetString("cluster")
 	if cluster == "" {
 		cluster = "default"
@@ -117,12 +101,12 @@ type CloudEnv struct {
 }
 
 func fetchCloudEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*CloudEnv, error) {
-	params, query, body := fetchEnv(ctx, w, r)
+	params, query, body := appsrv.FetchEnv(ctx, w, r)
 	userCred := auth.FetchUserCredential(ctx)
 	if userCred == nil {
 		return nil, httperrors.NewUnauthorizedError("No token founded")
 	}
-	s := auth.Client().NewSession(o.Options.Region, "", "internal", userCred, "")
+	s := auth.Client().NewSession(o.Options.Region, "", "internal", userCred, "v2")
 	return &CloudEnv{
 		ClientSessin: s,
 		Params:       params,
@@ -156,6 +140,21 @@ func handleK8sLog(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	handleK8sCommand(ctx, w, r, command.NewPodLogCommand)
 }
 
+func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	userCred := auth.FetchUserCredential(ctx)
+	env, err := fetchCloudEnv(ctx, w, r)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	cmd, err := command.NewSSHtoolSolCommand(ctx, userCred, env.Params["<ip>"])
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	handleCommandSession(cmd, w)
+}
+
 func handleBaremetalShell(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	env, err := fetchCloudEnv(ctx, w, r)
 	if err != nil {
@@ -182,21 +181,58 @@ func handleBaremetalShell(ctx context.Context, w http.ResponseWriter, r *http.Re
 	handleCommandSession(cmd, w)
 }
 
-func handleCommandSession(cmd command.ICommand, w http.ResponseWriter) {
-	cmdSession, err := session.Manager.Save(cmd)
+func handleServerRemoteConsole(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	env, err := fetchCloudEnv(ctx, w, r)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
+	srvId := env.Params["<id>"]
+	info, err := session.NewRemoteConsoleInfoByCloud(env.ClientSessin, srvId)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	switch info.Protocol {
+	case session.ALIYUN:
+		responsePublicCloudConsole(info, w)
+	case session.VNC, session.SPICE, session.WMKS:
+		handleDataSession(info, w)
+	default:
+		httperrors.NotAcceptableError(w, "Unspported remote console protocol: %s", info.Protocol)
+	}
+}
+
+func responsePublicCloudConsole(info *session.RemoteConsoleInfo, w http.ResponseWriter) {
 	data := jsonutils.NewDict()
-	params, err := cmdSession.GetConnectParams()
+	params, err := info.GetConnectParams()
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
 	data.Add(jsonutils.NewString(params), "connect_params")
-	data.Add(jsonutils.NewString(cmdSession.Id), "session")
 	sendJSON(w, data)
+}
+
+func handleDataSession(sData session.ISessionData, w http.ResponseWriter) {
+	s, err := session.Manager.Save(sData)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	data := jsonutils.NewDict()
+	params, err := s.GetConnectParams()
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	data.Add(jsonutils.NewString(params), "connect_params")
+	data.Add(jsonutils.NewString(s.Id), "session")
+	sendJSON(w, data)
+}
+
+func handleCommandSession(cmd command.ICommand, w http.ResponseWriter) {
+	handleDataSession(cmd, w)
 }
 
 func sendJSON(w http.ResponseWriter, body jsonutils.JSONObject) {

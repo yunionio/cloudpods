@@ -26,10 +26,13 @@ var StoragecacheManager *SStoragecacheManager
 
 func init() {
 	StoragecacheManager = &SStoragecacheManager{
-		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(SStoragecache{},
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+			SStoragecache{},
 			"storagecaches_tbl",
 			"storagecache",
-			"storagecaches")}
+			"storagecaches",
+		),
+	}
 }
 
 type SStoragecache struct {
@@ -315,7 +318,7 @@ func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcc
 		return nil, err
 	}
 
-	err = scimg.markDeleting(ctx, userCred)
+	err = scimg.markDeleting(ctx, userCred, isForce)
 	if err != nil {
 		return nil, httperrors.NewInvalidStatusError("Fail to mark cache status: %s", err)
 	}

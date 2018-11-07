@@ -9,84 +9,21 @@ import (
 	"sync"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/appctx"
-	"yunion.io/x/onecloud/pkg/proxy"
 	"yunion.io/x/pkg/trace"
 	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/proxy"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
-
-type responseWriterResponse struct {
-	count int
-	err   error
-}
-
-type responseWriterChannel struct {
-	backend    http.ResponseWriter
-	bodyChan   chan []byte
-	bodyResp   chan responseWriterResponse
-	statusChan chan int
-	statusResp chan bool
-}
-
-func newResponseWriterChannel(backend http.ResponseWriter) responseWriterChannel {
-	return responseWriterChannel{backend: backend,
-		bodyChan:   make(chan []byte),
-		bodyResp:   make(chan responseWriterResponse),
-		statusChan: make(chan int),
-		statusResp: make(chan bool)}
-}
-
-func (w *responseWriterChannel) Header() http.Header {
-	return w.backend.Header()
-}
-
-func (w *responseWriterChannel) Write(bytes []byte) (int, error) {
-	w.bodyChan <- bytes
-	v := <-w.bodyResp
-	return v.count, v.err
-}
-
-func (w *responseWriterChannel) WriteHeader(status int) {
-	w.statusChan <- status
-	<-w.statusResp
-}
-
-func (w *responseWriterChannel) wait() {
-	stop := false
-	for !stop {
-		select {
-		case bytes, more := <-w.bodyChan:
-			// log.Print("Recive body ", len(bytes), " more ", more)
-			if more {
-				c, e := w.backend.Write(bytes)
-				w.bodyResp <- responseWriterResponse{count: c, err: e}
-			} else {
-				stop = true
-			}
-		case status, more := <-w.statusChan:
-			// log.Print("Recive status ", status, " more ", more)
-			if more {
-				w.backend.WriteHeader(status)
-				w.statusResp <- true
-			} else {
-				stop = true
-			}
-		}
-	}
-}
-
-func (w *responseWriterChannel) closeChannels() {
-	close(w.bodyChan)
-	close(w.bodyResp)
-	close(w.statusChan)
-	close(w.statusResp)
-}
 
 type Application struct {
 	name              string
 	context           context.Context
-	session           *WorkerManager
+	session           *SWorkerManager
 	roots             map[string]*RadixNode
 	rootLock          *sync.Mutex
 	connMax           int
@@ -95,7 +32,7 @@ type Application struct {
 	readHeaderTimeout time.Duration
 	writeTimeout      time.Duration
 	processTimeout    time.Duration
-	defHandlerInfo    handlerInfo
+	defHandlerInfo    SHandlerInfo
 	cors              *Cors
 	middlewares       []MiddlewareFunc
 }
@@ -106,19 +43,22 @@ const (
 	DEFAULT_READ_TIMEOUT        = 0
 	DEFAULT_READ_HEADER_TIMEOUT = 10 * time.Second
 	DEFAULT_WRITE_TIMEOUT       = 0
+	DEFAULT_PROCESS_TIMEOUT     = 15 * time.Second
 )
 
 func NewApplication(name string, connMax int) *Application {
 	app := Application{name: name,
 		context:           context.Background(),
 		connMax:           connMax,
-		session:           NewWorkerManager("sessionMan", connMax, DEFAULT_BACKLOG),
+		session:           NewWorkerManager("HttpRequestWorkerManager", connMax, DEFAULT_BACKLOG),
 		roots:             make(map[string]*RadixNode),
 		rootLock:          &sync.Mutex{},
 		idleTimeout:       DEFAULT_IDLE_TIMEOUT,
 		readTimeout:       DEFAULT_READ_TIMEOUT,
 		readHeaderTimeout: DEFAULT_READ_HEADER_TIMEOUT,
-		writeTimeout:      DEFAULT_WRITE_TIMEOUT}
+		writeTimeout:      DEFAULT_WRITE_TIMEOUT,
+		processTimeout:    DEFAULT_PROCESS_TIMEOUT,
+	}
 	app.SetContext(appctx.APP_CONTEXT_KEY_APP, &app)
 	app.SetContext(appctx.APP_CONTEXT_KEY_APPNAME, app.name)
 
@@ -174,12 +114,14 @@ func (app *Application) AddHandler(method string, prefix string, handler func(co
 func (app *Application) AddHandler2(method string, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request), metadata map[string]interface{}, name string, tags map[string]string) {
 	log.Debugf("%s - %s", method, prefix)
 	segs := SplitPath(prefix)
-	// for i := len(this.middlewares) - 1; i >= 0; i -= 1 {
-	// 	handler = this.middlewares[i](handler)
-	// }
-	e := app.getRoot(method).Add(segs, newHandlerInfo(method, segs, handler, metadata, name, tags))
+	hi := newHandlerInfo(method, segs, handler, metadata, name, tags)
+	app.AddHandler3(hi)
+}
+
+func (app *Application) AddHandler3(hi *SHandlerInfo) {
+	e := app.getRoot(hi.method).Add(hi.path, hi)
 	if e != nil {
-		log.Fatalf("Fail to register %s %s: %s", method, prefix, e)
+		log.Fatalf("Fail to register %s %s: %s", hi.method, hi.path, e)
 	}
 }
 
@@ -241,7 +183,7 @@ func (app *Application) handleCORS(w http.ResponseWriter, r *http.Request) bool 
 	}
 }
 
-func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, rid string) *handlerInfo {
+func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, rid string) *SHandlerInfo {
 	segs := SplitPath(r.URL.Path)
 	params := make(map[string]string)
 	w.Header().Set("Server", "Yunion AppServer/Go/2018.4")
@@ -250,13 +192,22 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 	handler := app.getRoot(r.Method).Match(segs, params)
 	if handler != nil {
 		// log.Print("Found handler", params)
-		hand, ok := handler.(*handlerInfo)
+		hand, ok := handler.(*SHandlerInfo)
 		if ok {
 			fw := newResponseWriterChannel(w)
+			worker := make(chan *SWorker)
 			errChan := make(chan interface{})
-			app.session.Run(func() {
-				ctx, cancel := context.WithCancel(app.context)
-				defer cancel()
+			to := hand.processTimeout
+			if to == 0 {
+				to = app.processTimeout
+			}
+			ctx, cancel := context.WithTimeout(app.context, to)
+			defer cancel()
+			session := hand.workerMan
+			if session == nil {
+				session = app.session
+			}
+			session.Run(func() {
 				defer fw.closeChannels()
 				if ctx.Err() == nil {
 					ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_REQUEST_ID, rid)
@@ -266,25 +217,32 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 					if hand.metadata != nil {
 						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_METADATA, hand.metadata)
 					}
-					span := trace.StartServerTrace(w, r, hand.GetName(params), app.GetName(), hand.GetTags())
-					ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_TRACE, span)
-					hand.handler(ctx, &fw, r)
-					span.EndTrace()
+					func() {
+						span := trace.StartServerTrace(w, r, hand.GetName(params), app.GetName(), hand.GetTags())
+						defer span.EndTrace()
+						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_TRACE, span)
+						hand.handler(ctx, &fw, r)
+					}()
 				} // otherwise, the task has been timeout
-			}, errChan)
-			fw.wait()
-			runerr := WaitChannel(errChan)
-			if runerr != nil {
-				http.Error(w, fmt.Sprintf("Internal error: %s", runerr), http.StatusInternalServerError)
+			}, worker, errChan)
+			runErr := fw.wait(ctx, worker, errChan)
+			if runErr != nil {
+				switch runErr.(type) {
+				case *httputils.JSONClientError:
+					je := runErr.(*httputils.JSONClientError)
+					httperrors.GeneralServerError(w, je)
+				default:
+					httperrors.InternalServerError(w, "Internal server error")
+				}
 			}
 			return hand
 		} else {
-			log.Printf("Invalid handler for %s", r.URL)
-			http.Error(w, "Invalid handler", 500)
+			log.Errorf("Invalid handler for %s", r.URL)
+			httperrors.InternalServerError(w, "Invalid handler %s", r.URL)
 		}
 	} else if !isCors {
-		log.Printf("Handler not found")
-		http.NotFound(w, r)
+		log.Errorf("Handler not found")
+		httperrors.NotFoundError(w, "Handler not found")
 	}
 	return nil
 }
@@ -295,6 +253,7 @@ func (app *Application) addDefaultHandler() {
 	app.AddHandler("POST", "/ping", PingHandler)
 	app.AddHandler("GET", "/ping", PingHandler)
 	// app.AddHandler("OPTIONS", "/", CORSHandler)
+	app.AddHandler("GET", "/worker_stats", WorkerStatsHandler)
 }
 
 func timeoutHandle(h http.Handler) http.HandlerFunc {
@@ -309,7 +268,7 @@ func timeoutHandle(h http.Handler) http.HandlerFunc {
 	}
 }
 
-func (app *Application) ListenAndServe(addr string) {
+func (app *Application) initServer(addr string) *http.Server {
 	db := AppContextDB(app.context)
 	if db != nil {
 		db.SetMaxIdleConns(app.connMax + 1)
@@ -325,8 +284,37 @@ func (app *Application) ListenAndServe(addr string) {
 		WriteTimeout:      app.writeTimeout,
 		MaxHeaderBytes:    1 << 20,
 	}
+	return s
+}
+
+func (app *Application) ListenAndServe(addr string) {
+	s := app.initServer(addr)
 	err := s.ListenAndServe()
 	if err != nil {
 		log.Fatalf("ListAndServer fail: %s", err)
 	}
+}
+
+func (app *Application) ListenAndServeTLS(addr string, certFile, keyFile string) {
+	s := app.initServer(addr)
+	err := s.ListenAndServeTLS(certFile, keyFile)
+	if err != nil && err != http.ErrServerClosed {
+		log.Fatalf("ListAndServer fail: %s", err)
+	}
+}
+
+func FetchEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (map[string]string, jsonutils.JSONObject, jsonutils.JSONObject) {
+	params := appctx.AppContextParams(ctx)
+	query, e := jsonutils.ParseQueryString(r.URL.RawQuery)
+	if e != nil {
+		log.Errorf("Parse query string %s failed: %s", r.URL.RawQuery, e)
+	}
+	var body jsonutils.JSONObject = nil
+	if r.Method == "PUT" || r.Method == "POST" || r.Method == "DELETE" || r.Method == "PATCH" {
+		body, e = FetchJSON(r)
+		if e != nil {
+			log.Errorf("Fail to decode JSON request body: %s", e)
+		}
+	}
+	return params, query, body
 }

@@ -37,6 +37,8 @@ const (
 	MULTI_OBJECTS_ID = "[--MULTI_OBJECTS--]"
 
 	TASK_INIT_STAGE = "on_init"
+
+	CONVERT_TASK = "convert_task"
 )
 
 type STaskManager struct {
@@ -156,7 +158,7 @@ func fetchTaskParams(ctx context.Context, taskName string, taskData *jsonutils.J
 		}
 	} else {
 		if !reqContext.IsZero() {
-			if len(reqContext.TaskId) > 0 {
+			if len(reqContext.TaskId) > 0 && len(reqContext.TaskNotifyUrl) == 0 {
 				data.Add(jsonutils.NewString(reqContext.TaskId), PARENT_TASK_ID_KEY)
 			}
 			if len(reqContext.TaskNotifyUrl) > 0 {
@@ -195,6 +197,15 @@ func (manager *STaskManager) NewTask(ctx context.Context, taskName string, obj d
 	if err != nil {
 		log.Errorf("Task insert error %s", err)
 		return nil, err
+	}
+	parentTask := task.GetParentTask()
+	if parentTask != nil {
+		st := SSubTask{TaskId: parentTask.Id, Stage: parentTask.Stage, SubtaskId: task.Id}
+		err := SubTaskManager.TableSpec().Insert(&st)
+		if err != nil {
+			log.Errorf("Subtask insert error %s", err)
+			return nil, err
+		}
 	}
 	return &task, nil
 }
@@ -275,11 +286,6 @@ func (manager *STaskManager) execTask(taskId string, data jsonutils.JSONObject) 
 	}
 	log.Debugf("Do task %s(%s) with data %s at stage %s", taskType, taskId, data, baseTask.Stage)
 	taskValue := reflect.New(taskType)
-	filled := reflectutils.FillEmbededStructValue(taskValue.Elem(), reflect.Indirect(reflect.ValueOf(baseTask)))
-	if !filled {
-		log.Errorf("Cannot locate baseTask embedded struct, give up...")
-		return
-	}
 	if taskValue.Type().Implements(ITaskType) {
 		execITask(taskValue, baseTask, data, false)
 	} else if taskValue.Type().Implements(IBatchTaskType) {
@@ -402,11 +408,18 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 
 	params[2] = reflect.ValueOf(data)
 
-	log.Debugf("Call %s %s: %s with %s", task.TaskName, stageName, funcValue, params)
+	filled := reflectutils.FillEmbededStructValue(taskValue.Elem(), reflect.Indirect(reflect.ValueOf(task)))
+	if !filled {
+		log.Errorf("Cannot locate baseTask embedded struct, give up...")
+		return
+	}
 
+	log.Debugf("Call %s %s: %s with %s", task.TaskName, stageName, funcValue, params)
 	funcValue.Call(params)
 
-	task.SaveRequestContext(&ctxData)
+	// call save request context
+	saveRequestContextFuncValue := taskValue.MethodByName("SaveRequestContext")
+	saveRequestContextFuncValue.Call([]reflect.Value{reflect.ValueOf(&ctxData)})
 }
 
 func (task *STask) ScheduleRun(data jsonutils.JSONObject) {
@@ -516,14 +529,19 @@ func (self *STask) NotifyParentTaskComplete(ctx context.Context, body *jsonutils
 		if subTask != nil {
 			subTask.SaveResults(failed, body)
 		}
-		pTask := TaskManager.fetchTask(parentTaskId)
-		if pTask == nil {
-			log.Errorf("Parent task %s not found", parentTaskId)
-			return
-		}
-		if pTask.IsCurrentStageComplete() {
-			pTask.ScheduleRun(body)
-		}
+		func() {
+			lockman.LockRawObject(ctx, "tasks", parentTaskId)
+			defer lockman.ReleaseRawObject(ctx, "tasks", parentTaskId)
+
+			pTask := TaskManager.fetchTask(parentTaskId)
+			if pTask == nil {
+				log.Errorf("Parent task %s not found", parentTaskId)
+				return
+			}
+			if pTask.IsCurrentStageComplete() {
+				pTask.ScheduleRun(body)
+			}
+		}()
 	}
 	if len(parentTaskNotify) > 0 {
 		notifyRemoteTask(ctx, parentTaskNotify, parentTaskId, body, 0)
@@ -560,8 +578,9 @@ func (self *STask) NotifyParentTaskFailure(ctx context.Context, reason string) {
 }
 
 func (self *STask) IsCurrentStageComplete() bool {
-	subtasks := SubTaskManager.GetInitSubtasks(self.Id, self.Stage)
-	if len(subtasks) == 0 {
+	totalSubtasks := SubTaskManager.GetTotalSubtasks(self.Id, self.Stage, "")
+	initSubtasks := SubTaskManager.GetInitSubtasks(self.Id, self.Stage)
+	if len(totalSubtasks) > 0 && len(initSubtasks) == 0 {
 		return true
 	} else {
 		return false

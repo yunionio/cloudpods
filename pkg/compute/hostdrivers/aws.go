@@ -6,6 +6,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 
 	"yunion.io/x/jsonutils"
@@ -91,7 +92,7 @@ func (self *SAwsHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, ho
 					return nil, err
 				} else {
 					scimg.SetExternalId(iImage.GetId())
-					if result, err := iStoragecache.DownloadImage(task.GetUserCred(), imageId, iImage.GetId()); err != nil {
+					if result, err := iStoragecache.DownloadImage(task.GetUserCred(), imageId, iImage.GetId(), options.Options.TempPath); err != nil {
 						scimg.SetStatus(task.GetUserCred(), models.CACHED_IMAGE_STATUS_CACHE_FAILED, err.Error())
 						return nil, err
 					} else {

@@ -1,0 +1,8 @@
+DESCRIPTION="Yunion Loadbalancer Agent"
+
+REQUIRES=(
+	"keepalived >= 2.0.0"
+	"haproxy >= 1.8.0"
+	"gobetween >= 0.7.0"
+	"telegraf >= 1.5"
+)

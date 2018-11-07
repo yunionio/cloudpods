@@ -110,9 +110,15 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 	publicKey, _ := config.GetString("public_key")
 	passwd, _ := config.GetString("password")
 
+	adminPublicKey, _ := config.GetString("admin_public_key")
+	projectPublicKey, _ := config.GetString("project_public_key")
+	oUserData, _ := config.GetString("user_data")
+
+	userData := generateUserData(adminPublicKey, projectPublicKey, oUserData)
+
 	switch action {
 	case "create":
-		taskman.LocalTaskRun(task, func()  (jsonutils.JSONObject, error){
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 			nets := guest.GetNetworks()
 			net := nets[0].GetNetwork()
 			vpc := net.GetVpc()
@@ -130,7 +136,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 			}
 
 			iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-				desc.IpAddr, desc.Description, "", desc.StorageType, desc.DataDisks, publicKey, secgrpId)
+				desc.IpAddr, desc.Description, "", desc.StorageType, desc.DataDisks, publicKey, secgrpId, userData)
 			if err != nil {
 				return nil, err
 			}
@@ -165,13 +171,13 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 		publicKey, _ := config.GetString("public_key")
 		deleteKeypair := jsonutils.QueryBoolean(params, "__delete_keypair__", false)
 
-		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error){
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 			err := iVM.DeployVM(name, passwd, publicKey, deleteKeypair, description)
 			if err != nil {
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd)
 			return data, nil
 		})
 	case "rebuild":
@@ -181,7 +187,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 			return fmt.Errorf("cannot find vm")
 		}
 
-		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error){
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 			diskId, err := iVM.RebuildRoot(desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
 			if err != nil {
 				return nil, err
@@ -223,7 +229,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 				}
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd)
 
 			return data, nil
 		})

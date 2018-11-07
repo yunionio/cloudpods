@@ -70,7 +70,7 @@ func newClient(options *BaseOptions) (*aws.SRegion, error) {
 		return nil, fmt.Errorf("Missing secret")
 	}
 
-	cli, err := aws.NewAwsClient("", "", options.AccessUrl,options.AccessKey, options.Secret)
+	cli, err := aws.NewAwsClient("", "", options.AccessUrl, options.AccessKey, options.Secret)
 	if err != nil {
 		return nil, err
 	}

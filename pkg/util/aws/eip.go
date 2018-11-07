@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	EIP_STATUS_INUSE         = "InUse"
-	EIP_STATUS_AVAILABLE     = "Available"
+	EIP_STATUS_INUSE     = "InUse"
+	EIP_STATUS_AVAILABLE = "Available"
 )
 
 type SEipAddress struct {

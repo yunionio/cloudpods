@@ -170,6 +170,11 @@ func NewDuplicateNameError(resName string, resId string) *httputils.JSONClientEr
 	return NewJsonClientError(409, "DuplicateNameError", msg, err)
 }
 
+func NewDuplicateResourceError(msg string, params ...interface{}) *httputils.JSONClientError {
+	msg, err := errorMessage(msg, params)
+	return NewJsonClientError(409, "DuplicateResourceError", msg, err)
+}
+
 func NewConflictError(msg string, params ...interface{}) *httputils.JSONClientError {
 	msg, err := errorMessage(msg, params...)
 	return NewJsonClientError(409, "ConflictError", msg, err)
@@ -185,6 +190,11 @@ func NewRequireLicenseError(msg string, params ...interface{}) *httputils.JSONCl
 	return NewJsonClientError(402, "RequireLicenseError", msg, err)
 }
 
+func NewTimeoutError(msg string, params ...interface{}) *httputils.JSONClientError {
+	msg, err := errorMessage(msg, params...)
+	return NewJsonClientError(504, "TimeoutError", msg, err)
+}
+
 func NewGeneralError(err error) *httputils.JSONClientError {
 	switch err.(type) {
 	case *httputils.JSONClientError:
@@ -192,4 +202,9 @@ func NewGeneralError(err error) *httputils.JSONClientError {
 	default:
 		return NewInternalServerError(err.Error())
 	}
+}
+
+func NewProtectedResourceError(msg string, params ...interface{}) *httputils.JSONClientError {
+	msg, err := errorMessage(msg, params...)
+	return NewJsonClientError(403, "ProtectedResourceError(", msg, err)
 }

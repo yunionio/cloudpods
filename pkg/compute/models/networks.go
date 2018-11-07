@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 const (
@@ -67,7 +68,14 @@ type SNetworkManager struct {
 var NetworkManager *SNetworkManager
 
 func init() {
-	NetworkManager = &SNetworkManager{SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(SNetwork{}, "networks_tbl", "network", "networks")}
+	NetworkManager = &SNetworkManager{
+		SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(
+			SNetwork{},
+			"networks_tbl",
+			"network",
+			"networks",
+		),
+	}
 	NetworkManager.NameLength = 9
 	NetworkManager.NameRequireAscii = true
 }
@@ -164,6 +172,7 @@ func (self *SNetwork) GetUsedAddresses() map[string]bool {
 		GroupnetworkManager.Query().SubQuery(),
 		HostnetworkManager.Query().SubQuery(),
 		ReservedipManager.Query().SubQuery(),
+		LoadbalancernetworkManager.Query().SubQuery(),
 	} {
 		q := tbl.Query(tbl.Field("ip_addr")).Equals("network_id", self.Id)
 		rows, err := q.Rows()
@@ -207,6 +216,7 @@ func isIpUsed(ipstr string, addrTable map[string]bool, recentUsedAddrTable map[s
 
 func (self *SNetwork) getFreeIP(addrTable map[string]bool, recentUsedAddrTable map[string]bool, candidate string, allocDir IPAddlocationDirection) (string, error) {
 	iprange := self.getIPRange()
+	// Try candidate first
 	if len(candidate) > 0 {
 		candIP, err := netutils.NewIPV4Addr(candidate)
 		if err != nil {
@@ -372,6 +382,14 @@ func (self *SNetwork) updateGuestNetmap(nic *SGuestnetwork) {
 
 }
 
+func (self *SNetwork) UpdateBaremetalNetmap(nic *SHostnetwork, name string) {
+	self.UpdateNetmap(nic.IpAddr, auth.AdminCredential().GetTenantId(), name)
+}
+
+func (self *SNetwork) UpdateNetmap(ip, project, name string) {
+	// TODO ??
+}
+
 type DNSUpdateKeySecret struct {
 	Key    string
 	Secret string
@@ -411,7 +429,7 @@ func (manager *SNetworkManager) getNetworksByWire(wire *SWire) ([]SNetwork, erro
 	return nets, nil
 }
 
-func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mcclient.TokenCredential, wire *SWire, nets []cloudprovider.ICloudNetwork) ([]SNetwork, []cloudprovider.ICloudNetwork, compare.SyncResult) {
+func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mcclient.TokenCredential, wire *SWire, nets []cloudprovider.ICloudNetwork, projectId string, projectSync bool) ([]SNetwork, []cloudprovider.ICloudNetwork, compare.SyncResult) {
 	localNets := make([]SNetwork, 0)
 	remoteNets := make([]cloudprovider.ICloudNetwork, 0)
 	syncResult := compare.SyncResult{}
@@ -453,7 +471,7 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudNetwork(userCred, commonext[i])
+		err = commondb[i].SyncWithCloudNetwork(userCred, commonext[i], projectId, projectSync)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -463,7 +481,7 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudNetwork(userCred, added[i], wire)
+		new, err := manager.newFromCloudNetwork(userCred, added[i], wire, projectId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -476,7 +494,7 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 	return localNets, remoteNets, syncResult
 }
 
-func (self *SNetwork) SyncWithCloudNetwork(userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork) error {
+func (self *SNetwork) SyncWithCloudNetwork(userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, projectId string, projectSync bool) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		extNet.Refresh()
 		self.Name = extNet.GetName()
@@ -491,6 +509,9 @@ func (self *SNetwork) SyncWithCloudNetwork(userCred mcclient.TokenCredential, ex
 		self.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
 		self.ProjectId = userCred.GetProjectId()
+		if projectSync && len(projectId) > 0 {
+			self.ProjectId = projectId
+		}
 		return nil
 	})
 	if err != nil {
@@ -499,7 +520,7 @@ func (self *SNetwork) SyncWithCloudNetwork(userCred mcclient.TokenCredential, ex
 	return err
 }
 
-func (manager *SNetworkManager) newFromCloudNetwork(userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, wire *SWire) (*SNetwork, error) {
+func (manager *SNetworkManager) newFromCloudNetwork(userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, wire *SWire, projectId string) (*SNetwork, error) {
 	net := SNetwork{}
 	net.SetModelManager(manager)
 
@@ -517,7 +538,9 @@ func (manager *SNetworkManager) newFromCloudNetwork(userCred mcclient.TokenCrede
 	net.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
 	net.ProjectId = userCred.GetProjectId()
-
+	if len(projectId) > 0 {
+		net.ProjectId = projectId
+	}
 	err := manager.TableSpec().Insert(&net)
 	if err != nil {
 		log.Errorf("newFromCloudZone fail %s", err)
@@ -531,8 +554,15 @@ func (self *SNetwork) isAddressInRange(address netutils.IPV4Addr) bool {
 }
 
 func (self *SNetwork) isAddressUsed(address string) bool {
-	for _, model := range []db.IModelManager{GuestnetworkManager, GroupnetworkManager, HostnetworkManager, ReservedipManager} {
-		q := model.Query().Equals("ip_addr", address).Equals("network_id", self.Id)
+	managers := []db.IModelManager{
+		GuestnetworkManager,
+		GroupnetworkManager,
+		HostnetworkManager,
+		ReservedipManager,
+		LoadbalancernetworkManager,
+	}
+	for _, manager := range managers {
+		q := manager.Query().Equals("ip_addr", address).Equals("network_id", self.Id)
 		if q.Count() > 0 {
 			return true
 		}
@@ -682,7 +712,7 @@ func parseNetworkInfo(userCred mcclient.TokenCredential, info jsonutils.JSONObje
 		} else if p == "[vip]" {
 			netConfig.Vip = true
 		} else {
-			netObj, err := NetworkManager.FetchByIdOrName(userCred.GetProjectId(), p)
+			netObj, err := NetworkManager.FetchByIdOrName(userCred, p)
 			if err != nil {
 				return nil, err
 			}
@@ -701,7 +731,7 @@ func (self *SNetwork) getFreeAddressCount() int {
 
 func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *SNetworkConfig) error {
 	if len(netConfig.Network) > 0 {
-		netObj, err := NetworkManager.FetchByIdOrName(userCred.GetProjectId(), netConfig.Network)
+		netObj, err := NetworkManager.FetchByIdOrName(userCred, netConfig.Network)
 		if err != nil {
 			return httperrors.NewResourceNotFoundError("Network %s not found %s", err)
 		}
@@ -962,7 +992,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 
 	wireStr := jsonutils.GetAnyString(data, []string{"wire", "wire_id"})
 	if len(wireStr) > 0 {
-		wireObj, err := WireManager.FetchByIdOrName(userCred.GetProjectId(), wireStr)
+		wireObj, err := WireManager.FetchByIdOrName(userCred, wireStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewNotFoundError("wire %s not found", wireStr)
@@ -976,7 +1006,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		if len(zoneStr) > 0 {
 			vpcStr := jsonutils.GetAnyString(data, []string{"vpc", "vpc_id"})
 			if len(vpcStr) > 0 {
-				zoneObj, err := ZoneManager.FetchByIdOrName(userCred.GetProjectId(), zoneStr)
+				zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zoneStr)
 				if err != nil {
 					if err == sql.ErrNoRows {
 						return nil, httperrors.NewNotFoundError("zone %s not found", zoneStr)
@@ -984,7 +1014,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 						return nil, httperrors.NewInternalServerError("query zone %s error %s", zoneStr, err)
 					}
 				}
-				vpcObj, err := VpcManager.FetchByIdOrName(userCred.GetProjectId(), vpcStr)
+				vpcObj, err := VpcManager.FetchByIdOrName(userCred, vpcStr)
 				if err != nil {
 					if err == sql.ErrNoRows {
 						return nil, httperrors.NewNotFoundError("vpc %s not found", vpcStr)
@@ -1261,6 +1291,30 @@ func (self *SNetwork) isManaged() bool {
 	}
 }
 
+func (manager *SNetworkManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*db.CustomizeListFilters, error) {
+	filters := db.NewCustomizeListFilters()
+
+	if query.Contains("ip") {
+		ip, _ := query.GetString("ip")
+		ipInt, err := netutils.NewIPV4Addr(ip)
+		if err != nil {
+			return nil, err
+		}
+
+		ipFilter := func(obj jsonutils.JSONObject) (bool, error) {
+			guestIpStart, _ := obj.GetString("guest_ip_start")
+			guestIpEnd, _ := obj.GetString("guest_ip_end")
+			guestIpStartInt, _ := netutils.NewIPV4Addr(guestIpStart)
+			guestIpEndInt, _ := netutils.NewIPV4Addr(guestIpEnd)
+			ipRange := netutils.NewIPV4AddrRange(guestIpStartInt, guestIpEndInt)
+			return ipRange.Contains(ipInt), nil
+		}
+
+		filters.Append(ipFilter)
+	}
+	return filters, nil
+}
+
 func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
@@ -1268,7 +1322,7 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	}
 	zoneStr, _ := query.GetString("zone")
 	if len(zoneStr) > 0 {
-		zoneObj, err := ZoneManager.FetchByIdOrName(userCred.GetProjectId(), zoneStr)
+		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zoneStr)
 		if err != nil {
 			return nil, httperrors.NewNotFoundError("Zone %s not found", zoneStr)
 		}
@@ -1277,7 +1331,7 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	}
 	vpcStr, _ := query.GetString("vpc")
 	if len(vpcStr) > 0 {
-		vpcObj, err := VpcManager.FetchByIdOrName(userCred.GetProjectId(), vpcStr)
+		vpcObj, err := VpcManager.FetchByIdOrName(userCred, vpcStr)
 		if err != nil {
 			return nil, httperrors.NewNotFoundError("VPC %s not found", vpcStr)
 		}
@@ -1286,7 +1340,7 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	}
 	regionStr := jsonutils.GetAnyString(query, []string{"region_id", "region", "cloudregion_id", "cloudregion"})
 	if len(regionStr) > 0 {
-		region, err := CloudregionManager.FetchByIdOrName(userCred.GetProjectId(), regionStr)
+		region, err := CloudregionManager.FetchByIdOrName(userCred, regionStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError("cloud region %s not found", regionStr)

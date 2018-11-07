@@ -1,11 +1,11 @@
 package aws
 
 import (
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"fmt"
-	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SHost struct {
@@ -154,7 +154,7 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 }
 
 func (self *SHost) CreateVM(name, imgId string, sysDiskSize, cpu, memMB int, networkId, ipAddr, desc,
-	passwd, storageType string, diskSizes []int, publicKey string, secgroupId string) (cloudprovider.ICloudVM, error) {
+	passwd, storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (cloudprovider.ICloudVM, error) {
 	if len(publicKey) < 0 {
 		return nil, fmt.Errorf("AWS instance create error: keypair required")
 	}

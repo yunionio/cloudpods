@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type handlerRequestCounter struct {
@@ -11,19 +12,21 @@ type handlerRequestCounter struct {
 	duration float64
 }
 
-type handlerInfo struct {
-	method     string
-	path       []string
-	name       string
-	handler    func(context.Context, http.ResponseWriter, *http.Request)
-	metadata   map[string]interface{}
-	tags       map[string]string
-	counter2XX handlerRequestCounter
-	counter4XX handlerRequestCounter
-	counter5XX handlerRequestCounter
+type SHandlerInfo struct {
+	method         string
+	path           []string
+	name           string
+	handler        func(context.Context, http.ResponseWriter, *http.Request)
+	metadata       map[string]interface{}
+	tags           map[string]string
+	counter2XX     handlerRequestCounter
+	counter4XX     handlerRequestCounter
+	counter5XX     handlerRequestCounter
+	processTimeout time.Duration
+	workerMan      *SWorkerManager
 }
 
-func (this *handlerInfo) GetName(params map[string]string) string {
+func (this *SHandlerInfo) GetName(params map[string]string) string {
 	if len(this.name) > 0 {
 		return this.name
 	}
@@ -41,15 +44,55 @@ func (this *handlerInfo) GetName(params map[string]string) string {
 	return strings.Join(path, "_")
 }
 
-func (this *handlerInfo) GetTags() map[string]string {
+func (this *SHandlerInfo) GetTags() map[string]string {
 	return this.tags
 }
 
-func newHandlerInfo(method string, path []string, handler func(context.Context, http.ResponseWriter, *http.Request), metadata map[string]interface{}, name string, tags map[string]string) *handlerInfo {
-	hand := handlerInfo{method: method, path: path,
+func newHandlerInfo(method string, path []string, handler func(context.Context, http.ResponseWriter, *http.Request), metadata map[string]interface{}, name string, tags map[string]string) *SHandlerInfo {
+	hand := SHandlerInfo{method: method, path: path,
 		handler:  handler,
 		metadata: metadata,
 		name:     name,
 		tags:     tags}
 	return &hand
+}
+
+func (hi *SHandlerInfo) SetMethod(method string) *SHandlerInfo {
+	hi.method = method
+	return hi
+}
+
+func (hi *SHandlerInfo) SetPath(path string) *SHandlerInfo {
+	hi.path = SplitPath(path)
+	return hi
+}
+
+func (hi *SHandlerInfo) SetHandler(hand func(context.Context, http.ResponseWriter, *http.Request)) *SHandlerInfo {
+	hi.handler = hand
+	return hi
+}
+
+func (hi *SHandlerInfo) SetMetadata(meta map[string]interface{}) *SHandlerInfo {
+	hi.metadata = meta
+	return hi
+}
+
+func (hi *SHandlerInfo) SetName(name string) *SHandlerInfo {
+	hi.name = name
+	return hi
+}
+
+func (hi *SHandlerInfo) SetTags(tags map[string]string) *SHandlerInfo {
+	hi.tags = tags
+	return hi
+}
+
+func (hi *SHandlerInfo) SetProcessTimeout(to time.Duration) *SHandlerInfo {
+	hi.processTimeout = to
+	return hi
+}
+
+func (hi *SHandlerInfo) SetWorkerManager(workerMan *SWorkerManager) *SHandlerInfo {
+	hi.workerMan = workerMan
+	return hi
 }

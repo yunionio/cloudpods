@@ -13,10 +13,10 @@ func init() {
 	 */
 	type RateListOptions struct {
 		options.BaseListOptions
-		RESTYPE    string `"help":"res_type of the rate"`
-		ACTION     string `"help":"action of list :querygroup or queryhistory"`
-		SubResType string `"help":"query the subResType"`
-		Id         string `"help":"ID of rate"`
+		RESTYPE    string `help:"res_type of the rate"`
+		ACTION     string `help:"action of list :querygroup or queryhistory"`
+		SubResType string `help:"query the subResType"`
+		Id         string `help:"ID of rate"`
 	}
 	R(&RateListOptions{}, "rate-list", "List all rates ", func(s *mcclient.ClientSession, args *RateListOptions) error {
 		var params *jsonutils.JSONDict

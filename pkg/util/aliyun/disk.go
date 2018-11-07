@@ -264,7 +264,7 @@ func (self *SRegion) resizeDisk(diskId string, size int64) error {
 
 	_, err := self.ecsRequest("ResizeDisk", params)
 	if err != nil {
-		log.Errorf("ResizeDisk %s to %s GiB fail %s", diskId, size, err)
+		log.Errorf("resizing disk (%s) to %d GiB failed: %s", diskId, size, err)
 		return err
 	}
 
@@ -357,7 +357,6 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 func (self *SDisk) Reset(snapshotId string) error {
 	return self.storage.zone.region.resetDisk(self.DiskId, snapshotId)
 }
-
 
 func (self *SDisk) GetBillingType() string {
 	switch self.DiskChargeType {

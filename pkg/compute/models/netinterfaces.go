@@ -31,7 +31,14 @@ type SNetInterfaceManager struct {
 var NetInterfaceManager *SNetInterfaceManager
 
 func init() {
-	NetInterfaceManager = &SNetInterfaceManager{SModelBaseManager: db.NewModelBaseManager(SNetInterface{}, "netinterfaces_tbl", "netinterface", "netinterfaces")}
+	NetInterfaceManager = &SNetInterfaceManager{
+		SModelBaseManager: db.NewModelBaseManager(
+			SNetInterface{},
+			"netinterfaces_tbl",
+			"netinterface",
+			"netinterfaces",
+		),
+	}
 }
 
 func (netif *SNetInterface) GetId() string {
@@ -43,7 +50,7 @@ func (manager *SNetInterfaceManager) FetchByMac(mac string) (*SNetInterface, err
 	if err != nil {
 		return nil, err
 	}
-	err = manager.TableSpec().Query().Equals("mac", mac).First(&netif)
+	err = manager.TableSpec().Query().Equals("mac", mac).First(netif)
 	if err != nil {
 		return nil, err
 	}
@@ -86,10 +93,29 @@ func (netif *SNetInterface) GetBaremetalNetwork() *SHostnetwork {
 	return &bn
 }
 
-func (self *SNetInterface) toJson(ipAddr string, network *SNetwork) *jsonutils.JSONDict {
+func (self *SNetInterface) guestNetworkToJson(bn *SGuestnetwork) *jsonutils.JSONDict {
 	jsonDesc := jsonutils.Marshal(self)
 	desc := jsonDesc.(*jsonutils.JSONDict)
 
+	if bn == nil {
+		return desc
+	} else {
+		return self.networkToJson(bn.IpAddr, bn.GetNetwork(), desc)
+	}
+}
+
+func (self *SNetInterface) hostNetworkToJson(bn *SHostnetwork) *jsonutils.JSONDict {
+	jsonDesc := jsonutils.Marshal(self)
+	desc := jsonDesc.(*jsonutils.JSONDict)
+
+	if bn == nil {
+		return desc
+	} else {
+		return self.networkToJson(bn.IpAddr, bn.GetNetwork(), desc)
+	}
+}
+
+func (self *SNetInterface) networkToJson(ipAddr string, network *SNetwork, desc *jsonutils.JSONDict) *jsonutils.JSONDict {
 	if len(ipAddr) > 0 {
 		desc.Add(jsonutils.NewString(ipAddr), "ip_addr")
 	}
@@ -119,11 +145,11 @@ func (self *SNetInterface) toJson(ipAddr string, network *SNetwork) *jsonutils.J
 
 func (self *SNetInterface) getServernetwork() *SGuestnetwork {
 	host := self.GetBaremetal()
-	if host != nil {
+	if host == nil {
 		return nil
 	}
-	server := host.getBaremetalServer()
-	if server != nil {
+	server := host.GetBaremetalServer()
+	if server == nil {
 		return nil
 	}
 	obj, err := db.NewModelObject(GuestnetworkManager)
@@ -145,7 +171,8 @@ func (self *SNetInterface) getServernetwork() *SGuestnetwork {
 
 func (self *SNetInterface) getServerJsonDesc() *jsonutils.JSONDict {
 	bn := self.getServernetwork()
-	desc := self.toJson(bn.IpAddr, bn.GetNetwork())
+	var desc = jsonutils.NewDict()
+	desc = self.guestNetworkToJson(bn)
 	if bn != nil {
 		desc.Add(jsonutils.JSONFalse, "virtual")
 		desc.Add(jsonutils.NewString(bn.IpAddr), "ip")
@@ -165,7 +192,7 @@ func (self *SNetInterface) getBaremetalJsonDesc() *jsonutils.JSONDict {
 	if bn == nil {
 		return nil
 	}
-	return self.toJson(bn.IpAddr, bn.GetNetwork())
+	return self.hostNetworkToJson(bn)
 }
 
 /*
@@ -218,4 +245,28 @@ func (self *SNetInterface) Remove(ctx context.Context, userCred mcclient.TokenCr
 		log.Errorf("Save Updates: %s", err)
 	}
 	return nil
+}
+
+func (self *SNetInterface) GetCandidateNetworkForIp(userCred mcclient.TokenCredential, ipAddr string) (*SNetwork, error) {
+	wire := self.GetWire()
+	if wire == nil {
+		return nil, nil
+	}
+	return wire.GetCandidateNetworkForIp(userCred, ipAddr)
+}
+
+func (self *SNetInterface) IsUsableServernic() bool {
+	if self.NicType == NIC_TYPE_IPMI {
+		return false
+	}
+	if len(self.WireId) == 0 {
+		return false
+	}
+	if !self.LinkUp {
+		return false
+	}
+	if self.getServernetwork() != nil {
+		return false
+	}
+	return true
 }

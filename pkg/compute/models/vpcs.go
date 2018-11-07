@@ -39,7 +39,14 @@ type SVpcManager struct {
 var VpcManager *SVpcManager
 
 func init() {
-	VpcManager = &SVpcManager{SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(SVpc{}, "vpcs_tbl", "vpc", "vpcs")}
+	VpcManager = &SVpcManager{
+		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
+			SVpc{},
+			"vpcs_tbl",
+			"vpc",
+			"vpcs",
+		),
+	}
 }
 
 type SVpc struct {
@@ -77,6 +84,9 @@ func (self *SVpc) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCr
 func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
 	if self.GetNetworkCount() > 0 {
 		return httperrors.NewNotEmptyError("VPC not empty")
+	}
+	if self.Id == "default" {
+		return httperrors.NewProtectedResourceError("not allow to delete default vpc")
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }

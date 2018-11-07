@@ -18,8 +18,15 @@ var HostnetworkManager *SHostnetworkManager
 
 func init() {
 	db.InitManager(func() {
-		HostnetworkManager = &SHostnetworkManager{SHostJointsManager: NewHostJointsManager(SHostnetwork{},
-			"baremetalnetworks_tbl", "baremetalnetwork", "baremetalnetworks", NetworkManager)}
+		HostnetworkManager = &SHostnetworkManager{
+			SHostJointsManager: NewHostJointsManager(
+				SHostnetwork{},
+				"baremetalnetworks_tbl",
+				"baremetalnetwork",
+				"baremetalnetworks",
+				NetworkManager,
+			),
+		}
 	})
 }
 

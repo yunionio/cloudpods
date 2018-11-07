@@ -142,7 +142,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 }
 
 func (p *NetworkPredicate) OnSelect(u *core.Unit, c core.Candidater) bool {
-	u.SetFiltedData(c.IndexKey(), "networks", p.SelectedNetworks)
+	u.SetFiltedData(c.IndexKey(), "networks", &p.SelectedNetworks)
 	return true
 }
 

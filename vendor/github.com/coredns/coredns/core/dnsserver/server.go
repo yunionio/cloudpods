@@ -15,6 +15,7 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/rcode"
 	"github.com/coredns/coredns/plugin/pkg/trace"
+	"github.com/coredns/coredns/plugin/pkg/transport"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -134,7 +135,7 @@ func (s *Server) ServePacket(p net.PacketConn) error {
 
 // Listen implements caddy.TCPServer interface.
 func (s *Server) Listen() (net.Listener, error) {
-	l, err := net.Listen("tcp", s.Addr[len(TransportDNS+"://"):])
+	l, err := listen("tcp", s.Addr[len(transport.DNS+"://"):])
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +144,7 @@ func (s *Server) Listen() (net.Listener, error) {
 
 // ListenPacket implements caddy.UDPServer interface.
 func (s *Server) ListenPacket() (net.PacketConn, error) {
-	p, err := net.ListenPacket("udp", s.Addr[len(TransportDNS+"://"):])
+	p, err := listenPacket("udp", s.Addr[len(transport.DNS+"://"):])
 	if err != nil {
 		return nil, err
 	}
@@ -236,6 +237,9 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 	var end bool
 
 	var dshandler *Config
+
+	// Wrap the response writer in a ScrubWriter so we automatically make the reply fit in the client's buffer.
+	w = request.NewScrubWriter(r, w)
 
 	for {
 		l := len(q[off:])

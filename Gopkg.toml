@@ -31,11 +31,11 @@
 
 [[constraint]]
   name = "github.com/Azure/azure-sdk-for-go"
-  version = "21.1.0"
+  version = "22.1.1"
 
 [[constraint]]
   name = "github.com/Azure/go-autorest"
-  version = "10.15.4"
+  version = "11.2.6"
 
 [[constraint]]
   branch = "master"
@@ -55,7 +55,7 @@
 
 [[constraint]]
   name = "github.com/aws/aws-sdk-go"
-  version = "1.15.52"
+  version = "1.15.70"
 
 [[constraint]]
   name = "github.com/bitly/go-simplejson"
@@ -67,7 +67,7 @@
 
 [[constraint]]
   name = "github.com/coredns/coredns"
-  version = "1.2.2"
+  version = "1.2.5"
 
 [[constraint]]
   name = "github.com/fatih/color"
@@ -88,6 +88,10 @@
 [[constraint]]
   name = "github.com/gorilla/mux"
   version = "1.6.2"
+
+[[constraint]]
+  name = "github.com/gorilla/websocket"
+  version = "1.4.0"
 
 [[constraint]]
   branch = "master"
@@ -115,7 +119,7 @@
 
 [[constraint]]
   name = "github.com/miekg/dns"
-  version = "1.0.13"
+  version = "1.0.15"
 
 [[constraint]]
   branch = "master"
@@ -128,6 +132,10 @@
 [[constraint]]
   name = "github.com/stretchr/testify"
   version = "1.2.2"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/tredoe/osutil"
 
 [[constraint]]
   name = "github.com/vmware/govmomi"
@@ -151,7 +159,7 @@
 
 [[constraint]]
   name = "k8s.io/client-go"
-  version = "8.0.0"
+  version = "9.0.0"
 
 [[constraint]]
   branch = "master"

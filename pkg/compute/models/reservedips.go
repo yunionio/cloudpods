@@ -19,7 +19,14 @@ type SReservedipManager struct {
 var ReservedipManager *SReservedipManager
 
 func init() {
-	ReservedipManager = &SReservedipManager{SResourceBaseManager: db.NewResourceBaseManager(SReservedip{}, "reservedips_tbl", "reservedip", "reservedips")}
+	ReservedipManager = &SReservedipManager{
+		SResourceBaseManager: db.NewResourceBaseManager(
+			SReservedip{},
+			"reservedips_tbl",
+			"reservedip",
+			"reservedips",
+		),
+	}
 }
 
 type SReservedip struct {
@@ -122,7 +129,7 @@ func (manager *SReservedipManager) ListItemFilter(ctx context.Context, q *sqlche
 	}
 	network, _ := query.GetString("network")
 	if len(network) > 0 {
-		netObj, _ := NetworkManager.FetchByIdOrName(userCred.GetProjectId(), network)
+		netObj, _ := NetworkManager.FetchByIdOrName(userCred, network)
 		if netObj == nil {
 			return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("network %s not found", network))
 		}

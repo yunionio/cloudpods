@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
@@ -25,7 +26,14 @@ type SSecurityGroupRuleManager struct {
 var SecurityGroupRuleManager *SSecurityGroupRuleManager
 
 func init() {
-	SecurityGroupRuleManager = &SSecurityGroupRuleManager{SResourceBaseManager: db.NewResourceBaseManager(SSecurityGroupRule{}, "secgrouprules_tbl", "secgrouprule", "secgrouprules")}
+	SecurityGroupRuleManager = &SSecurityGroupRuleManager{
+		SResourceBaseManager: db.NewResourceBaseManager(
+			SSecurityGroupRule{},
+			"secgrouprules_tbl",
+			"secgrouprule",
+			"secgrouprules",
+		),
+	}
 }
 
 type SSecurityGroupRule struct {
@@ -98,7 +106,7 @@ func (manager *SSecurityGroupRuleManager) ListItemFilter(ctx context.Context, q 
 		return nil, err
 	}
 	if defsecgroup, _ := query.GetString("secgroup"); len(defsecgroup) > 0 {
-		if secgroup, _ := SecurityGroupManager.FetchByIdOrName(userCred.GetProjectId(), defsecgroup); secgroup != nil {
+		if secgroup, _ := SecurityGroupManager.FetchByIdOrName(userCred, defsecgroup); secgroup != nil {
 			sql = sql.Equals("secgroup_id", secgroup.GetId())
 		} else {
 			return nil, httperrors.NewNotFoundError(fmt.Sprintf("Security Group %s not found", defsecgroup))
@@ -122,42 +130,76 @@ func (self *SSecurityGroupRule) BeforeInsert() {
 	}
 }
 
-func (manager *SSecurityGroupRuleManager) ValidateCreateData(
-	ctx context.Context,
-	userCred mcclient.TokenCredential,
-	ownerProjId string,
-	query jsonutils.JSONObject,
-	data *jsonutils.JSONDict,
-) (*jsonutils.JSONDict, error) {
-	if defsecgroup, _ := data.GetString("secgroup"); len(defsecgroup) > 0 {
-		if secgroup, _ := SecurityGroupManager.FetchByIdOrName(userCred.GetProjectId(), defsecgroup); secgroup != nil {
-			data.Set("secgroup_id", jsonutils.NewString(secgroup.GetId()))
-		} else {
-			return nil, httperrors.NewNotFoundError(fmt.Sprintf("Security Group %s not found", defsecgroup))
+func (manager *SSecurityGroupRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	defsecgroup, _ := data.GetString("secgroup")
+	if len(defsecgroup) == 0 {
+		return nil, httperrors.NewInputParameterError("Missing Security Group info")
+	}
+	secgroup, _ := SecurityGroupManager.FetchByIdOrName(userCred, defsecgroup)
+	if secgroup == nil {
+		return nil, httperrors.NewInputParameterError("Security Group %s not found", defsecgroup)
+	}
+	data.Add(jsonutils.NewString(secgroup.GetId()), "secgroup_id")
+
+	priority, _ := data.Int("priority")
+	direction, _ := data.GetString("direction")
+	action, _ := data.GetString("action")
+	cidr, _ := data.GetString("cidr")
+	protocol, _ := data.GetString("protocol")
+
+	if len(cidr) > 0 {
+		if !regutils.MatchCIDR(cidr) && !regutils.MatchIPAddr(cidr) {
+			return nil, httperrors.NewInputParameterError("invalid ip address: %s", cidr)
 		}
 	} else {
-		return nil, httperrors.NewInputParameterError("missing Security Group info")
+		data.Add(jsonutils.NewString("0.0.0.0/0"), "cidr")
 	}
-	if _priority, _ := data.GetString("priority"); len(_priority) > 0 {
-		if priority, err := strconv.Atoi(_priority); err != nil {
-			return nil, httperrors.NewInputParameterError("UnSupport priority %s, only support 1-100", err.Error())
-		} else if priority < 1 || priority > 100 {
-			return nil, httperrors.NewInputParameterError("UnSupport priority range, only support 1-100")
-		}
+
+	rule := secrules.SecurityRule{
+		Priority:  int(priority),
+		Direction: secrules.TSecurityRuleDirection(direction),
+		Action:    secrules.TSecurityRuleAction(action),
+		Protocol:  protocol,
+		Ports:     []int{},
+		PortStart: -1,
+		PortEnd:   -1,
 	}
-	var fields []string
-	for _, field := range []string{"direction", "action", "cidr", "protocol", "ports"} {
-		if key, _ := data.GetString(field); len(key) > 0 {
-			if field == "direction" {
-				key += ":"
+	ports, _ := data.GetString("ports")
+	var err error
+	if len(ports) > 0 {
+		if strings.Index(ports, "-") > 0 {
+			portsInfo := strings.Split(ports, "-")
+			if len(portsInfo) != 2 {
+				return nil, httperrors.NewInputParameterError("invalid ports: %s", ports)
 			}
-			fields = append(fields, key)
-		} else if field == "cidr" {
-			data.Add(jsonutils.NewString("0.0.0.0/0"), "cidr")
+			rule.PortStart, err = strconv.Atoi(portsInfo[0])
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("invalid port start: %s", portsInfo[0])
+			}
+			rule.PortEnd, err = strconv.Atoi(portsInfo[1])
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("invalid port end: %s", portsInfo[1])
+			}
+		} else if strings.Index(ports, ",") > 0 {
+			for _, port := range strings.Split(ports, ",") {
+				_port, err := strconv.Atoi(port)
+				if err != nil {
+					return nil, httperrors.NewInputParameterError("invalid port : %d", port)
+				}
+				rule.Ports = append(rule.Ports, _port)
+			}
+		} else {
+			port, err := strconv.Atoi(ports)
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("invalid ports: %s", ports)
+			}
+			rule.Ports = append(rule.Ports, port)
 		}
 	}
-	if _, err := secrules.ParseSecurityRule(strings.Join(fields, " ")); err != nil {
-		return nil, err
+
+	err = rule.ValidateRule()
+	if err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
 	}
 	return manager.SModelBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
@@ -377,30 +419,33 @@ func (manager *SSecurityGroupRuleManager) newFromCloudSecurityGroup(rule secrule
 	if len(protocol) == 0 {
 		protocol = secrules.PROTO_ANY
 	}
-	ports, _ports := "", make([]string, len(rule.Ports))
-	if len(rule.Ports) > 0 {
-		for _, port := range rule.Ports {
-			_ports = append(_ports, fmt.Sprintf("%d", port))
-		}
-		ports = strings.Join(_ports, ",")
-	} else if rule.PortStart != 0 || rule.PortEnd != 0 {
-		if rule.PortStart == rule.PortEnd {
-			ports = fmt.Sprintf("%d", rule.PortStart)
-		} else {
-			ports = fmt.Sprintf("%d-%d", rule.PortStart, rule.PortEnd)
-		}
-	}
+
 	secrule := &SSecurityGroupRule{
 		Priority:    int64(rule.Priority),
 		Protocol:    protocol,
-		Ports:       ports,
+		Ports:       "",
 		Direction:   string(rule.Direction),
 		CIDR:        rule.IPNet.String(),
 		Action:      string(rule.Action),
 		Description: rule.Description,
 		SecgroupID:  secgroup.Id,
 	}
-	if err := manager.TableSpec().Insert(secrule); err != nil {
+
+	if len(rule.Ports) > 0 {
+		_ports := []string{}
+		for _, port := range rule.Ports {
+			_ports = append(_ports, fmt.Sprintf("%d", port))
+		}
+		secrule.Ports = strings.Join(_ports, ",")
+	} else if rule.PortStart > 0 && rule.PortEnd > 0 {
+		secrule.Ports = fmt.Sprintf("%d-%d", rule.PortStart, rule.PortEnd)
+		if rule.PortStart == rule.PortEnd {
+			secrule.Ports = fmt.Sprintf("%d", rule.PortStart)
+		}
+	}
+
+	err := manager.TableSpec().Insert(secrule)
+	if err != nil {
 		return nil, err
 	}
 	return secrule, nil

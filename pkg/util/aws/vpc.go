@@ -1,12 +1,12 @@
 package aws
 
 import (
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/util/secrules"
-	"strings"
-	"yunion.io/x/log"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"strings"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/pkg/util/secrules"
 )
 
 type SUserCIDRs struct {
@@ -16,16 +16,16 @@ type SUserCIDRs struct {
 type SVpc struct {
 	region *SRegion
 
-	iwires []cloudprovider.ICloudWire
+	iwires    []cloudprovider.ICloudWire
 	secgroups []cloudprovider.ICloudSecurityGroup
 
-	RegionId     string
-	VpcId        string
-	VpcName        string
-	CidrBlock    string
-	IsDefault    bool
-	Status       string
-	Tags         map[string]string  // 名称、描述等
+	RegionId  string
+	VpcId     string
+	VpcName   string
+	CidrBlock string
+	IsDefault bool
+	Status    string
+	Tags      map[string]string // 名称、描述等
 }
 
 func (self *SVpc) addWire(wire *SWire) {
@@ -146,7 +146,7 @@ func (self *SVpc) SyncSecurityGroup(secgroupId string, name string, rules []secr
 		}
 
 		//addRules
-		log.Debugf("Add Rules for %s" , secgrpId)
+		log.Debugf("Add Rules for %s", secgrpId)
 		for _, rule := range rules {
 			if err := self.region.addSecurityGroupRule(secgrpId, &rule); err != nil {
 				return "", err
@@ -180,7 +180,7 @@ func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
 	}
 	return &SWire{
 		zone: zone,
-		vpc: self,
+		vpc:  self,
 	}
 }
 
@@ -207,7 +207,7 @@ func (self *SVpc) assignSecurityGroup(secgroupId string, instanceId string) erro
 }
 
 func (self *SVpc) fetchSecurityGroups() error {
-	secgroups, _, err := self.region.GetSecurityGroups(self.VpcId,"",0,0)
+	secgroups, _, err := self.region.GetSecurityGroups(self.VpcId, "", 0, 0)
 	if err != nil {
 		return err
 	}
@@ -265,7 +265,7 @@ func (self *SRegion) GetVpcs(vpcId []string, offset int, limit int) ([]SVpc, int
 		}
 
 		vpcs = append(vpcs, SVpc{
-			region:    self,
+			region: self,
 			// secgroups: nil,
 			RegionId:  self.RegionId,
 			VpcId:     *item.VpcId,

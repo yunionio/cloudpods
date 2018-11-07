@@ -16,7 +16,10 @@ import (
 )
 
 const (
+	TASK_ID         = "X-Task-Id"
 	TASK_NOTIFY_URL = "X-Task-Notify-Url"
+	AUTH_TOKEN      = "X-Auth-Token"
+	REGION_VERSION  = "X-Region-Version"
 
 	DEFAULT_API_VERSION = "v1"
 )
@@ -238,4 +241,8 @@ func (this *ClientSession) ToJson() jsonutils.JSONObject {
 		params.Add(jsonutils.NewString(this.zone), "zone")
 	}
 	return params
+}
+
+func (cs *ClientSession) GetToken() TokenCredential {
+	return cs.token
 }

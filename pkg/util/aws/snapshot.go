@@ -1,11 +1,11 @@
 package aws
 
 import (
+	"fmt"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"fmt"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
 type SnapshotStatusType string
@@ -27,6 +27,11 @@ type SSnapshot struct {
 	SourceDiskType string
 	Status         SnapshotStatusType
 	Usage          string
+}
+
+func (self *SSnapshot) GetDiskType() string {
+	// todo: self.SourceDiskType
+	return ""
 }
 
 func (self *SSnapshot) GetId() string {
@@ -123,7 +128,7 @@ func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName
 	}
 
 	snapshots := []SSnapshot{}
-	for _, item := range ret.Snapshots{
+	for _, item := range ret.Snapshots {
 		if err := FillZero(item); err != nil {
 			return nil, 0, err
 		}
@@ -164,7 +169,7 @@ func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
 	if len(name) <= 0 {
 		return "", fmt.Errorf("name length should great than 0")
 	} else {
-		tagspec := TagSpec{ResourceType:"snapshot"}
+		tagspec := TagSpec{ResourceType: "snapshot"}
 		tagspec.SetNameTag(name)
 		ec2Tag, _ := tagspec.GetTagSpecifications()
 		params.SetTagSpecifications([]*ec2.TagSpecification{ec2Tag})

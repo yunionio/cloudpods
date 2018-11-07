@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -27,7 +28,14 @@ type SSecurityGroupManager struct {
 var SecurityGroupManager *SSecurityGroupManager
 
 func init() {
-	SecurityGroupManager = &SSecurityGroupManager{SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(SSecurityGroup{}, "secgroups_tbl", "secgroup", "secgroups")}
+	SecurityGroupManager = &SSecurityGroupManager{
+		SSharableVirtualResourceBaseManager: db.NewSharableVirtualResourceBaseManager(
+			SSecurityGroup{},
+			"secgroups_tbl",
+			"secgroup",
+			"secgroups",
+		),
+	}
 	SecurityGroupManager.NameRequireAscii = false
 }
 
@@ -64,7 +72,7 @@ func (self *SSecurityGroup) GetGuests() []SGuest {
 func (self *SSecurityGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
 	extra.Add(jsonutils.NewInt(int64(len(self.GetGuests()))), "guest_cnt")
-	extra.Add(jsonutils.NewString(self.getSecurityRuleString()), "rules")
+	extra.Add(jsonutils.NewString(self.getSecurityRuleString("")), "rules")
 	return extra
 }
 
@@ -73,6 +81,8 @@ func (self *SSecurityGroup) GetCustomizeColumns(ctx context.Context, userCred mc
 	extra.Add(jsonutils.NewInt(int64(len(self.GetGuests()))), "guest_cnt")
 	extra.Add(jsonutils.NewTimeString(self.CreatedAt), "created_at")
 	extra.Add(jsonutils.NewString(self.Description), "description")
+	extra.Add(jsonutils.NewString(self.getSecurityRuleString("in")), "in_rules")
+	extra.Add(jsonutils.NewString(self.getSecurityRuleString("out")), "out_rules")
 	return extra
 }
 
@@ -97,9 +107,12 @@ func (manager *SSecurityGroupManager) FetchSecgroupById(secId string) *SSecurity
 	return nil
 }
 
-func (self *SSecurityGroup) getSecurityRules() (rules []SSecurityGroupRule) {
+func (self *SSecurityGroup) getSecurityRules(direction string) (rules []SSecurityGroupRule) {
 	secgrouprules := SecurityGroupRuleManager.Query().SubQuery()
-	sql := secgrouprules.Query().Filter(sqlchemy.Equals(secgrouprules.Field("secgroup_id"), self.Id))
+	sql := secgrouprules.Query().Filter(sqlchemy.Equals(secgrouprules.Field("secgroup_id"), self.Id)).Desc("priority")
+	if len(direction) > 0 && utils.IsInStringArray(direction, []string{"in", "out"}) {
+		sql = sql.Equals("direction", direction)
+	}
 	if err := db.FetchModelObjects(SecurityGroupRuleManager, sql, &rules); err != nil {
 		log.Errorf("GetGuests fail %s", err)
 		return
@@ -107,9 +120,9 @@ func (self *SSecurityGroup) getSecurityRules() (rules []SSecurityGroupRule) {
 	return
 }
 
-func (self *SSecurityGroup) getSecRules() []secrules.SecurityRule {
+func (self *SSecurityGroup) getSecRules(direction string) []secrules.SecurityRule {
 	rules := make([]secrules.SecurityRule, 0)
-	for _, _rule := range self.getSecurityRules() {
+	for _, _rule := range self.getSecurityRules(direction) {
 		singleRules, err := _rule.SingleRules()
 		if err != nil {
 			log.Errorf(err.Error())
@@ -119,8 +132,8 @@ func (self *SSecurityGroup) getSecRules() []secrules.SecurityRule {
 	return rules
 }
 
-func (self *SSecurityGroup) getSecurityRuleString() string {
-	secgrouprules := self.getSecurityRules()
+func (self *SSecurityGroup) getSecurityRuleString(direction string) string {
+	secgrouprules := self.getSecurityRules(direction)
 	var rules []string
 	for _, rule := range secgrouprules {
 		rules = append(rules, rule.String())
@@ -158,7 +171,7 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 		return nil, err
 		//db.OpsLog.LogCloneEvent(self, secgroup, userCred, nil)
 	}
-	secgrouprules := self.getSecurityRules()
+	secgrouprules := self.getSecurityRules("")
 	for _, rule := range secgrouprules {
 		secgrouprule := &SSecurityGroupRule{}
 		secgrouprule.SetModelManager(SecurityGroupRuleManager)
@@ -360,4 +373,15 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 		})
 	}
 	return nil
+}
+
+func (self *SSecurityGroup) ValidateDeleteCondition(ctx context.Context) error {
+	cnt := self.GetGuestsCount()
+	if cnt > 0 {
+		return httperrors.NewNotEmptyError("the security group is in use")
+	}
+	if self.Id == "default" {
+		return httperrors.NewProtectedResourceError("not allow to delete default security group")
+	}
+	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
 }

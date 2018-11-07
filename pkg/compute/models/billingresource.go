@@ -4,12 +4,12 @@ import "time"
 
 const (
 	BILLING_TYPE_POSTPAID = "postpaid"
-	BILLING_TYPE_PREPAID = "prepaid"
+	BILLING_TYPE_PREPAID  = "prepaid"
 )
 
 type SBillingResourceBase struct {
-	BillingType string `width:"36" charset:"ascii" nullable:"true" default:"postpaid" list:"user" create:"optional"`
-	ExpiredAt time.Time `nullable:"true" list:"user" create:"optional"`
+	BillingType string    `width:"36" charset:"ascii" nullable:"true" default:"postpaid" list:"user" create:"optional"`
+	ExpiredAt   time.Time `nullable:"true" list:"user" create:"optional"`
 }
 
 func (self *SBillingResourceBase) GetChargeType() string {

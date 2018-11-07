@@ -10,7 +10,7 @@ type SInstanceNic struct {
 	ipAddr   string
 }
 
-func (self *SInstanceNic) GetIP() string  {
+func (self *SInstanceNic) GetIP() string {
 	return self.ipAddr
 }
 
@@ -23,7 +23,7 @@ func (self *SInstanceNic) GetDriver() string {
 	return "virtio"
 }
 
-func (self *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork  {
+func (self *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
 	networkId := self.instance.VpcAttributes.NetworkId
 	wires, err := self.instance.host.GetIWires()
 	if err != nil {

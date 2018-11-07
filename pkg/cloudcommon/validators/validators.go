@@ -314,6 +314,14 @@ func NewPortValidator(key string) *ValidatorRange {
 	return NewRangeValidator(key, 1, 65535)
 }
 
+func NewVlanIdValidator(key string) *ValidatorRange {
+	// The convention is vendor specific
+	//
+	// 0, 4095: reserved
+	// 1: no vlan tagging
+	return NewRangeValidator(key, 1, 4094)
+}
+
 func NewNonNegativeValidator(key string) *ValidatorRange {
 	return NewRangeValidator(key, 0, math.MaxInt64)
 }
@@ -322,9 +330,22 @@ type ValidatorModelIdOrName struct {
 	Validator
 	ModelKeyword string
 	ProjectId    string
+	UserId       string
 	ModelManager db.IModelManager
 	Model        db.IModel
 	modelIdKey   string
+}
+
+func (v *ValidatorModelIdOrName) GetProjectId() string {
+	return v.ProjectId
+}
+
+func (v *ValidatorModelIdOrName) GetUserId() string {
+	return v.UserId
+}
+
+func (v *ValidatorModelIdOrName) GetTenantId() string {
+	return v.ProjectId
 }
 
 func (v *ValidatorModelIdOrName) getValue() interface{} {
@@ -361,7 +382,7 @@ func (v *ValidatorModelIdOrName) validate(data *jsonutils.JSONDict) error {
 		return newModelManagerError(v.ModelKeyword)
 	}
 	v.ModelManager = modelManager
-	model, err := modelManager.FetchByIdOrName(v.ProjectId, modelIdOrName)
+	model, err := modelManager.FetchByIdOrName(v, modelIdOrName)
 	if err != nil {
 		return newModelNotFoundError(v.ModelKeyword, modelIdOrName, err)
 	}
@@ -493,6 +514,7 @@ func (v *ValidatorStruct) Validate(data *jsonutils.JSONDict) error {
 			return err
 		}
 	}
+	data.Set(v.Key, jsonutils.Marshal(v.Value))
 	return nil
 }
 

@@ -1,11 +1,11 @@
 package aws
 
 import (
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/jsonutils"
 	"fmt"
-	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 var StorageTypes = []string{
@@ -28,7 +28,7 @@ type SZone struct {
 	State     string
 
 	/* 支持的磁盘种类集合 */
-	storageTypes     []string
+	storageTypes []string
 }
 
 func (self *SZone) addWire(wire *SWire) {

@@ -53,8 +53,8 @@ func init() {
 	}
 
 	type InstanceDiskAttachOptions struct {
-		ID   string `help:"instance ID"`
-		DISK string `help:"disk ID"`
+		ID     string `help:"instance ID"`
+		DISK   string `help:"disk ID"`
 		DEVICE string `help:"disk device name. eg. /dev/sdb"`
 	}
 
@@ -128,9 +128,9 @@ func init() {
 	})
 
 	type InstanceRebuildRootOptions struct {
-		ID       string `help:"instance ID"`
-		Image    string `help:"Image ID"`
-		Size     int    `help:"system disk size in GB"`
+		ID    string `help:"instance ID"`
+		Image string `help:"Image ID"`
+		Size  int    `help:"system disk size in GB"`
 	}
 
 	shellutils.R(&InstanceRebuildRootOptions{}, "instance-rebuild-root", "Reinstall virtual server system image", func(cli *aws.SRegion, args *InstanceRebuildRootOptions) error {

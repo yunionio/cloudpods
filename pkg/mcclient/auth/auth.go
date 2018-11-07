@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/cache"
 
@@ -192,6 +193,10 @@ func (a *authManager) init() error {
 	return nil
 }
 
+func GetCatalogData(serviceTypes []string, region string) jsonutils.JSONObject {
+	return manager.adminCredential.GetCatalogData(serviceTypes, region)
+}
+
 func Verify(tokenId string) (mcclient.TokenCredential, error) {
 	return manager.verify(tokenId)
 }
@@ -239,8 +244,8 @@ func (callback *AuthCompletedCallback) Run() {
 	}
 }
 
-func AsyncInit(info *AuthInfo, debug, insecure bool, callback AuthCompletedCallback) {
-	cli := mcclient.NewClient(info.AuthUrl, defaultTimeout, debug, insecure)
+func AsyncInit(info *AuthInfo, debug, insecure bool, certFile, keyFile string, callback AuthCompletedCallback) {
+	cli := mcclient.NewClient(info.AuthUrl, defaultTimeout, debug, insecure, certFile, keyFile)
 	manager = newAuthManager(cli, info)
 	go manager.init()
 	if callback != nil {
@@ -248,12 +253,12 @@ func AsyncInit(info *AuthInfo, debug, insecure bool, callback AuthCompletedCallb
 	}
 }
 
-func Init(info *AuthInfo, debug, insecure bool) {
+func Init(info *AuthInfo, debug, insecure bool, certFile, keyFile string) {
 	done := make(chan bool, 1)
 	f := func() {
 		done <- true
 	}
-	AsyncInit(info, debug, insecure, f)
+	AsyncInit(info, debug, insecure, certFile, keyFile, f)
 	<-done
 }
 
@@ -263,4 +268,16 @@ func GetAdminSession(region string, apiVersion string) *mcclient.ClientSession {
 
 func GetSession(token mcclient.TokenCredential, region string, apiVersion string) *mcclient.ClientSession {
 	return manager.client.NewSession(region, "", "internal", token, apiVersion)
+}
+
+// use for climc test only
+func InitFromClientSession(session *mcclient.ClientSession) {
+	cli := session.GetClient()
+	token := session.GetToken()
+	info := &AuthInfo{}
+	manager = &authManager{
+		client:          cli,
+		info:            info,
+		adminCredential: token,
+	}
 }

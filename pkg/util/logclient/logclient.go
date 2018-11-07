@@ -48,14 +48,21 @@ const (
 	ACT_VM_PURGE                     = "清除"
 	ACT_VM_REBUILD                   = "重装系统"
 	ACT_VM_RESET_PSWD                = "重置密码"
+	ACT_VM_CHANGE_BANDWIDTH          = "调整带宽"
 	ACT_VM_START                     = "开机"
 	ACT_VM_STOP                      = "关机"
+	ACT_VM_RESTART                   = "重启"
 	ACT_VM_SYNC_CONF                 = "同步配置"
 	ACT_VM_SYNC_STATUS               = "同步状态"
 	ACT_VM_UNBIND_KEYPAIR            = "解绑密钥"
+	ACT_VM_ASSIGNSECGROUP            = "关联安全组"
+	ACT_RESET_DISK                   = "回滚磁盘"
 )
 
-var logclientWorkerMan *appsrv.WorkerManager
+// golang 不支持 const 的string array, http://t.cn/EzAvbw8
+var BLACK_LIST_OBJ_TYPE = []string{"parameter"}
+
+var logclientWorkerMan *appsrv.SWorkerManager
 
 func init() {
 	logclientWorkerMan = appsrv.NewWorkerManager("LogClientWorkerManager", 1, 50)
@@ -67,12 +74,32 @@ type IObject interface {
 	Keyword() string
 }
 
+type IModule interface {
+	Create(session *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
+}
+
+// save log to db.
 func AddActionLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
+	addLog(model, action, iNotes, userCred, success, &modules.Actions)
+}
+
+// add websocket log to notify active browser users
+func PostWebsocketNotify(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
+	addLog(model, action, iNotes, userCred, success, &modules.Websockets)
+}
+
+func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool, api IModule) {
 
 	token := userCred
 	notes := stringutils.Interface2String(iNotes)
 
-	// s := auth.GetSession(userCred, "", "")
+	// 忽略不黑名单里的资源类型
+	for _, v := range BLACK_LIST_OBJ_TYPE {
+		if v == model.Keyword() {
+			log.Errorf("不支持的 actionlog 类型")
+			return
+		}
+	}
 
 	objId := model.GetId()
 	if len(objId) == 0 {
@@ -104,9 +131,9 @@ func AddActionLog(model IObject, action string, iNotes interface{}, userCred mcc
 	logentry.Add(jsonutils.NewString(notes), "notes")
 	logclientWorkerMan.Run(func() {
 		s := auth.GetSession(userCred, "", "")
-		_, err := modules.Actions.Create(s, logentry)
+		_, err := api.Create(s, logentry)
 		if err != nil {
 			log.Errorf("create action log failed %s", err)
 		}
-	}, nil)
+	}, nil, nil)
 }

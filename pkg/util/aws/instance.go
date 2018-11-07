@@ -101,6 +101,10 @@ type SInstance struct {
 	// StoppedMode             string
 }
 
+func (self *SInstance) UpdateUserData(userData string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
 func (self *SInstance) GetId() string {
 	return self.InstanceId
 }
@@ -149,7 +153,7 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 		log.Errorf(err.Error())
 	}
 	data.Update(tags)
-	
+
 	if len(self.ImageId) > 0 {
 		if image, err := self.host.zone.region.GetImage(self.ImageId); err != nil {
 			log.Errorf("Failed to find image %s for instance %s zone %s", self.ImageId, self.GetId(), self.ZoneId)
@@ -345,7 +349,7 @@ func (self *SInstance) UpdateVM(name string) error {
 }
 
 func (self *SInstance) RebuildRoot(imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
-	if len(publicKey) > 0 || len(passwd) > 0{
+	if len(publicKey) > 0 || len(passwd) > 0 {
 		return "", fmt.Errorf("aws rebuild root not support specific publickey/password")
 	}
 
@@ -718,7 +722,7 @@ func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, sysDis
 	}
 
 	var rootDisk *SDisk
-	for _,disk := range disks {
+	for _, disk := range disks {
 		if disk.Type == models.DISK_TYPE_SYS {
 			rootDisk = &disk
 		}
@@ -728,7 +732,7 @@ func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, sysDis
 		return "", fmt.Errorf("can not find root disk of instance %s", instanceId)
 	}
 
-	image,err := self.GetImage(imageId)
+	image, err := self.GetImage(imageId)
 	if err != nil {
 		return "", err
 	}
@@ -738,7 +742,7 @@ func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, sysDis
 		return "", err
 	}
 
-	self.ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds:  []*string{&diskId}})
+	self.ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&diskId}})
 	// todo: 检查instance状态
 	err = instance.DetachDisk(rootDisk.DiskId)
 	if err != nil {

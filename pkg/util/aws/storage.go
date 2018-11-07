@@ -1,11 +1,11 @@
 package aws
 
 import (
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"fmt"
-	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SStorage struct {
@@ -75,7 +75,7 @@ func (self *SStorage) GetStorageType() string {
 }
 
 func (self *SStorage) GetMediumType() string {
-	if self.storageType == models.STORAGE_GP2_SSD ||  self.storageType == models.STORAGE_IO1_SSD {
+	if self.storageType == models.STORAGE_GP2_SSD || self.storageType == models.STORAGE_IO1_SSD {
 		return models.DISK_TYPE_SSD
 	} else {
 		return models.DISK_TYPE_ROTATE

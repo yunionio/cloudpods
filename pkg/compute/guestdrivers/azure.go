@@ -70,6 +70,13 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 	if resetPassword && len(passwd) == 0 {
 		passwd = seclib2.RandomPassword2(12)
 	}
+
+	adminPublicKey, _ := config.GetString("admin_public_key")
+	projectPublicKey, _ := config.GetString("project_public_key")
+	oUserData, _ := config.GetString("user_data")
+
+	userData := generateUserData(adminPublicKey, projectPublicKey, oUserData)
+
 	desc := SManagedVMCreateConfig{}
 	if err := config.Unmarshal(&desc, "desc"); err != nil {
 		return err
@@ -79,7 +86,6 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 	} else if ihost, err := host.GetIHost(); err != nil {
 		return err
 	} else if action == "create" {
-
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 			nets := guest.GetNetworks()
 			net := nets[0].GetNetwork()
@@ -91,6 +97,10 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 				return nil, err
 			}
 
+			if len(passwd) == 0 {
+				passwd = seclib2.RandomPassword2(12)
+			}
+
 			secgrpId, err := ivpc.SyncSecurityGroup(desc.SecGroupId, desc.SecGroupName, desc.SecRules)
 			if err != nil {
 				log.Errorf("SyncSecurityGroup fail %s", err)
@@ -98,7 +108,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 			}
 
 			if iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId); err != nil {
+				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId, userData); err != nil {
 				return nil, err
 			} else {
 				log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
@@ -110,7 +120,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 					return nil, err
 				}
 
-				data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+				data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd)
 				return data, nil
 			}
 		})
@@ -133,7 +143,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 			if err != nil {
 				return nil, err
 			}
-			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd)
 			return data, nil
 		})
 	} else if action == "rebuild" {
@@ -150,7 +160,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 			}
 
 			log.Debugf("VMrebuildRoot %s, and status is ready", iVM.GetGlobalId())
-			data := fetchIVMinfo(desc, iVM, guest.Id, passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd)
 
 			return data, nil
 		})
@@ -180,7 +190,14 @@ func (self *SAzureGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context
 			_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
 				disk.DiskSize = diskInfo[i].Size
 				disk.ExternalId = diskInfo[i].Uuid
+				disk.DiskType = diskInfo[i].DiskType
 				disk.Status = models.DISK_READY
+				disk.BillingType = diskInfo[i].BillingType
+				disk.FsFormat = diskInfo[i].FsFromat
+				disk.AutoDelete = diskInfo[i].AutoDelete
+				disk.TemplateId = diskInfo[i].TemplateId
+				disk.DiskFormat = diskInfo[i].DiskFormat
+				disk.ExpiredAt = diskInfo[i].ExpiredAt
 				if len(diskInfo[i].Metadata) > 0 {
 					for key, value := range diskInfo[i].Metadata {
 						if err := disk.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {

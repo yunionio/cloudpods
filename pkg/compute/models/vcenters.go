@@ -17,7 +17,14 @@ type SVCenterManager struct {
 var VCenterManager *SVCenterManager
 
 func init() {
-	VCenterManager = &SVCenterManager{SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(SVCenter{}, "vcenters_tbl", "vcenter", "vcenters")}
+	VCenterManager = &SVCenterManager{
+		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
+			SVCenter{},
+			"vcenters_tbl",
+			"vcenter",
+			"vcenters",
+		),
+	}
 }
 
 type SVCenter struct {

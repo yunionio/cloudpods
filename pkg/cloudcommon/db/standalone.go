@@ -20,9 +20,9 @@ type SStandaloneResourceBase struct {
 
 	Id         string `width:"128" charset:"ascii" primary:"true" list:"user"`
 	Name       string `width:"128" charset:"utf8" nullable:"false" index:"true" list:"user" update:"user" create:"required"`
-	ExternalId string `width:"256" charset:"ascii" index:"true" list:"admin" create:"admin_optional"`
+	ExternalId string `width:"256" charset:"utf8" index:"true" list:"admin" create:"admin_optional"`
 
-	Description string `width:"256" charset:"utf8" get:"user" update:"user" create:"optional"`
+	Description string `width:"256" charset:"utf8" get:"user" list:"user" update:"user" create:"optional"`
 
 	IsEmulated bool `nullable:"false" default:"false" list:"admin" update:"true" create:"admin_optional"`
 }
@@ -70,15 +70,15 @@ func (manager *SStandaloneResourceBaseManager) ValidateName(name string) error {
 }
 
 func (manager *SStandaloneResourceBaseManager) FetchById(idStr string) (IModel, error) {
-	return fetchById(manager, idStr)
+	return FetchById(manager, idStr)
 }
 
-func (manager *SStandaloneResourceBaseManager) FetchByName(ownerProjId string, idStr string) (IModel, error) {
-	return fetchByName(manager, ownerProjId, idStr)
+func (manager *SStandaloneResourceBaseManager) FetchByName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
+	return FetchByName(manager, userCred, idStr)
 }
 
-func (manager *SStandaloneResourceBaseManager) FetchByIdOrName(ownerProjId string, idStr string) (IModel, error) {
-	return fetchByIdOrName(manager, ownerProjId, idStr)
+func (manager *SStandaloneResourceBaseManager) FetchByIdOrName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
+	return FetchByIdOrName(manager, userCred, idStr)
 }
 
 func (manager *SStandaloneResourceBaseManager) FetchByExternalId(idStr string) (IStandaloneModel, error) {

@@ -23,11 +23,15 @@ import (
 )
 
 type BaseOptions struct {
-	Help           bool   `help:"Show help" short-token:"h"`
-	Debug          bool   `help:"Show debug information"`
-	Version        bool   `help:"Show version"`
-	Timeout        int    `default:"600" help:"Number of seconds to wait for a response"`
-	Insecure       bool   `default:"false" help:"Allow skip server cert verification if URL is https" short-token:"k"`
+	Help     bool `help:"Show help" short-token:"h"`
+	Debug    bool `help:"Show debug information"`
+	Version  bool `help:"Show version"`
+	Timeout  int  `default:"600" help:"Number of seconds to wait for a response"`
+	Insecure bool `default:"false" help:"Allow skip server cert verification if URL is https" short-token:"k"`
+
+	CertFile string `default:"$YUNION_CERT_FILE" help:"certificate file"`
+	KeyFile  string `default:"$YUNION_KEY_FILE" help:"private key file"`
+
 	UseCachedToken bool   `default:"$YUNION_USE_CACHED_TOKEN|false" help:"Use cached token"`
 	OsUsername     string `default:"$OS_USERNAME" help:"Username, defaults to env[OS_USERNAME]"`
 	OsPassword     string `default:"$OS_PASSWORD" help:"Password, defaults to env[OS_PASSWORD]"`
@@ -124,7 +128,9 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 	client := mcclient.NewClient(options.OsAuthURL,
 		options.Timeout,
 		options.Debug,
-		options.Insecure)
+		options.Insecure,
+		options.CertFile,
+		options.KeyFile)
 
 	var cacheToken mcclient.TokenCredential
 	authUrlAlter := strings.Replace(options.OsAuthURL, "/", "", -1)

@@ -21,7 +21,15 @@ var GuestdiskManager *SGuestdiskManager
 
 func init() {
 	db.InitManager(func() {
-		GuestdiskManager = &SGuestdiskManager{SGuestJointsManager: NewGuestJointsManager(SGuestdisk{}, "guestdisks_tbl", "guestdisk", "guestdisks", DiskManager)}
+		GuestdiskManager = &SGuestdiskManager{
+			SGuestJointsManager: NewGuestJointsManager(
+				SGuestdisk{},
+				"guestdisks_tbl",
+				"guestdisk",
+				"guestdisks",
+				DiskManager,
+			),
+		}
 	})
 }
 
@@ -142,8 +150,7 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 		desc.Add(jsonutils.NewString(disk.StorageId), "storage_id")
 		localpath := disk.GetPathAtHost(host)
 		if len(localpath) == 0 {
-			desc.Add(jsonutils.NewString(disk.GetFetchUrl()), "url")
-			storage := disk.GetStorage()
+			desc.Add(jsonutils.JSONTrue, "migrating")
 			target := host.GetLeastUsedStorage(storage.StorageType)
 			desc.Add(jsonutils.NewString(target.Id), "target_storage_id")
 			disk.SetStatus(nil, DISK_START_MIGRATE, "migration")
@@ -188,6 +195,17 @@ func (self *SGuestdisk) GetDetailedJson() *jsonutils.JSONDict {
 	desc.Add(jsonutils.NewString(self.AioMode), "aio_mode")
 	desc.Add(jsonutils.NewString(storage.MediumType), "medium_type")
 	desc.Add(jsonutils.NewString(storage.StorageType), "storage_type")
+
+	imageId := disk.GetTemplateId()
+	if len(imageId) > 0 {
+		desc.Add(jsonutils.NewString(imageId), "image_id")
+		cachedImageObj, _ := CachedimageManager.FetchById(imageId)
+		if cachedImageObj != nil {
+			cachedImage := cachedImageObj.(*SCachedimage)
+			desc.Add(jsonutils.NewString(cachedImage.getName()), "image")
+		}
+	}
+
 	return desc
 }
 

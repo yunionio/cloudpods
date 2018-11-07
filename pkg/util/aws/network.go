@@ -1,14 +1,14 @@
 package aws
 
 import (
-	"time"
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"strings"
+	"time"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/pkg/util/netutils"
 )
 
 type SNetwork struct {
@@ -107,7 +107,7 @@ func (self *SNetwork) GetAllocTimeoutSeconds() int {
 	return 120 // 2 minutes
 }
 
-func (self *SRegion) createNetwork(zoneId string, vpcId string, name string, cidr string, desc string) (string, error)  {
+func (self *SRegion) createNetwork(zoneId string, vpcId string, name string, cidr string, desc string) (string, error) {
 	params := &ec2.CreateSubnetInput{}
 	params.SetAvailabilityZone(zoneId)
 	params.SetVpcId(vpcId)
@@ -122,7 +122,7 @@ func (self *SRegion) createNetwork(zoneId string, vpcId string, name string, cid
 }
 
 func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
-	networks, total, err := self.GetNetwroks([]string{networkId}, "",0 ,0)
+	networks, total, err := self.GetNetwroks([]string{networkId}, "", 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +143,7 @@ func (self *SRegion) GetNetwroks(ids []string, vpcId string, limit int, offset i
 	params := &ec2.DescribeSubnetsInput{}
 	if len(ids) > 0 {
 		_ids := make([]*string, len(ids))
-		for _, id := range ids{
+		for _, id := range ids {
 			_ids = append(_ids, &id)
 		}
 		params.SetSubnetIds(_ids)

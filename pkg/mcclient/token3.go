@@ -5,6 +5,9 @@ import (
 	"math/rand"
 	"strings"
 	"time"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
 )
 
 const REGION_ZONE_SEP = '-'
@@ -308,6 +311,31 @@ func (catalog KeystoneServiceCatalogV3) GetServiceURLs(service, region, zone, en
 	return nil, fmt.Errorf("No such service %s", service)
 }
 
+func (self *TokenCredentialV3) GetCatalogData(serviceTypes []string, region string) jsonutils.JSONObject {
+	catalog := self.Token.Catalog
+	ret := make([]map[string]interface{}, 0)
+	for i := 0; i < len(catalog); i++ {
+		if !utils.IsInStringArray(catalog[i].Type, serviceTypes) {
+			continue
+		}
+		neps := make([]KeystoneEndpointV3, 0)
+		for j := 0; j < len(catalog[i].Endpoints); j++ {
+			if catalog[i].Endpoints[j].Region != region {
+				continue
+			}
+			neps = append(neps, catalog[i].Endpoints[j])
+		}
+		if len(neps) > 0 {
+			data := map[string]interface{}{
+				"type":      catalog[i].Type,
+				"endpoints": neps,
+			}
+			ret = append(ret, data)
+		}
+	}
+	return jsonutils.Marshal(ret)
+}
+
 func (self *TokenCredentialV3) String() string {
 	token := SimplifyToken(self)
 	return token.String()
@@ -315,4 +343,8 @@ func (self *TokenCredentialV3) String() string {
 
 func (self *TokenCredentialV3) IsZero() bool {
 	return len(self.GetUserId()) == 0 && len(self.GetProjectId()) == 0
+}
+
+func (self *TokenCredentialV3) ToJson() jsonutils.JSONObject {
+	return SimplifyToken(self).ToJson()
 }

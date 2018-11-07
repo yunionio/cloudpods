@@ -74,12 +74,18 @@ func init() {
 		return nil
 	})
 
-	R(&DiskDetailOptions{}, "disk-delete", "Delete a disk", func(s *mcclient.ClientSession, args *DiskDetailOptions) error {
-		disk, e := modules.Disks.Delete(s, args.ID, nil)
-		if e != nil {
-			return e
+	type DiskDeleteOptions struct {
+		ID                    []string `help:"ID of disks to delete" metavar:"DISK"`
+		OverridePendingDelete bool     `help:"Delete disk directly instead of pending delete"`
+	}
+
+	R(&DiskDeleteOptions{}, "disk-delete", "Delete a disk", func(s *mcclient.ClientSession, args *DiskDeleteOptions) error {
+		params := jsonutils.NewDict()
+		if args.OverridePendingDelete {
+			params.Add(jsonutils.JSONTrue, "override_pending_delete")
 		}
-		printObject(disk)
+		ret := modules.Disks.BatchDeleteWithParam(s, args.ID, params, nil)
+		printBatchResults(ret, modules.Disks.GetColumns(s))
 		return nil
 	})
 
@@ -160,10 +166,11 @@ func init() {
 	})
 
 	type DiskCreateOptions struct {
-		STORAGE  string `help:"ID or name of storage where the disk is created"`
-		NAME     string `help:"Name of the disk"`
-		DISKDESC string `help:"Image size or size of virtual disk"`
-		Desc     string `help:"Description" metavar:"Description"`
+		STORAGE    string `help:"ID or name of storage where the disk is created"`
+		NAME       string `help:"Name of the disk"`
+		DISKDESC   string `help:"Image size or size of virtual disk"`
+		Desc       string `help:"Description" metavar:"Description"`
+		TaskNotify bool   `help:"Setup task notify"`
 	}
 	R(&DiskCreateOptions{}, "disk-create", "Create a virtual disk", func(s *mcclient.ClientSession, args *DiskCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -172,11 +179,17 @@ func init() {
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
 		}
+		if args.TaskNotify {
+			s.PrepareTask()
+		}
 		disk, err := modules.Disks.CreateInContext(s, params, &modules.Storages, args.STORAGE)
 		if err != nil {
 			return err
 		}
 		printObject(disk)
+		if args.TaskNotify {
+			s.WaitTaskNotify()
+		}
 		return nil
 	})
 
@@ -195,13 +208,31 @@ func init() {
 		return nil
 	})
 	type DiskResetOptions struct {
-		DISK     string `help:"ID or name of disk"`
-		SNAPSHOT string `help:"snapshots ID of disk`
+		DISK      string `help:"ID or name of disk"`
+		SNAPSHOT  string `help:"snapshots ID of disk"`
+		AutoStart bool   `help:"Autostart guest"`
 	}
 	R(&DiskResetOptions{}, "disk-reset", "Resize a disk", func(s *mcclient.ClientSession, args *DiskResetOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.SNAPSHOT), "snapshot_id")
+		if args.AutoStart {
+			params.Add(jsonutils.JSONTrue, "auto_start")
+		}
 		disk, err := modules.Disks.PerformAction(s, args.DISK, "disk-reset", params)
+		if err != nil {
+			return err
+		}
+		printObject(disk)
+		return nil
+	})
+	type DiskCreateSnapshotOptions struct {
+		DISK          string `help:"ID or name of disk"`
+		SNAPSHOT_NAME string `help:"Snapshot name"`
+	}
+	R(&DiskCreateSnapshotOptions{}, "disk-create-snapshot", "Disk create snapshot", func(s *mcclient.ClientSession, args *DiskCreateSnapshotOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.SNAPSHOT_NAME), "name")
+		disk, err := modules.Disks.PerformAction(s, args.DISK, "create-snapshot", params)
 		if err != nil {
 			return err
 		}

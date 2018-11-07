@@ -16,14 +16,14 @@ const (
 	CLOUD_PROVIDER_AWS_CN = "AWS"
 
 	AWS_INTERNATIONAL_DEFAULT_REGION = "us-west-1"
-	AWS_CHINA_DEFAULT_REGION = "cn-north-1"
-	AWS_API_VERSION = "2018-10-10"
+	AWS_CHINA_DEFAULT_REGION         = "cn-north-1"
+	AWS_API_VERSION                  = "2018-10-10"
 )
 
 type SAwsClient struct {
 	providerId   string
 	providerName string
-	accessUrl    string     // 服务区域 ChinaCloud | InternationalCloud
+	accessUrl    string // 服务区域 ChinaCloud | InternationalCloud
 	accessKey    string
 	secret       string
 	iregions     []cloudprovider.ICloudRegion
@@ -47,9 +47,21 @@ func (self *SAwsClient) getDefaultSession() (*session.Session, error) {
 		defaultRegion = AWS_CHINA_DEFAULT_REGION
 	}
 	return session.NewSession(&sdk.Config{
-		Region: sdk.String(defaultRegion),
+		Region:      sdk.String(defaultRegion),
 		Credentials: credentials.NewStaticCredentials(self.accessKey, self.secret, ""),
 	})
+}
+
+func (self *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
+	// todo: implement me
+	err := self.fetchRegions()
+	if err != nil {
+		return nil, err
+	}
+	subAccount := cloudprovider.SSubAccount{}
+	subAccount.Name = self.providerName
+	subAccount.Account = self.accessKey
+	return []cloudprovider.SSubAccount{subAccount}, nil
 }
 
 func (self *SAwsClient) UpdateAccount(accessKey, secret string) error {

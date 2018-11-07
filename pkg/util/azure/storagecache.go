@@ -3,6 +3,7 @@ package azure
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -85,17 +86,54 @@ func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 
 func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, extId string, isForce bool) (string, error) {
 	if len(extId) > 0 {
-		status, _ := self.region.GetImageStatus(extId)
+		log.Debugf("UploadImage: Image external ID exists %s", extId)
+		status, err := self.region.GetImageStatus(extId)
+		if err != nil {
+			log.Errorf("GetImageStatus error %s", err)
+		}
 		if status == ImageStatusAvailable && !isForce {
 			return extId, nil
 		}
+	} else {
+		log.Debugf("UploadImage: no external ID")
 	}
-	return self.uploadImage(userCred, imageId, osArch, osType, osDist, isForce)
+	return self.uploadImage(userCred, imageId, osArch, osType, osDist, isForce, options.Options.TempPath)
 }
 
-func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
-	s := auth.GetAdminSession(options.Options.Region, "")
+func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
+	storageaccount := &SStorageAccount{}
+	storageaccounts, err := self.region.GetStorageAccounts()
+	if err != nil {
+		return nil, err
+	}
+	if len(storageaccounts) == 0 {
+		storageaccount, err = self.region.CreateStorageAccount(self.region.Name)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		for i := 0; i < len(storageaccounts); i++ {
+			if id, ok := storageaccounts[i].Tags["id"]; ok && id == self.region.Name {
+				storageaccount = &storageaccounts[i]
+				break
+			}
+		}
+		if id, ok := storageaccount.Tags["id"]; !ok || id == self.region.Name {
+			if storageaccount.Tags == nil {
+				storageaccount.Tags = map[string]string{}
+			}
+			storageaccount.Tags["id"] = self.region.Name
+			err = self.region.client.Update(jsonutils.Marshal(storageaccount), nil)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return storageaccount, nil
+}
 
+func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool, tmpPath string) (string, error) {
+	s := auth.GetAdminSession(options.Options.Region, "")
 	if meta, reader, err := modules.Images.Download(s, imageId); err != nil {
 		return "", err
 	} else {
@@ -106,7 +144,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		if !strings.HasSuffix(imageNameOnBlob, ".vhd") {
 			imageNameOnBlob = fmt.Sprintf("%s.vhd", imageNameOnBlob)
 		}
-		tmpFile := fmt.Sprintf("/opt/cloud/workspace/data/glance/image-cache/%s", imageNameOnBlob)
+		tmpFile := fmt.Sprintf("%s/%s", tmpPath, imageNameOnBlob)
 		defer os.Remove(tmpFile)
 		f, err := os.Create(tmpFile)
 		if err != nil {
@@ -116,23 +154,18 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		if _, err := io.Copy(f, reader); err != nil {
 			return "", err
 		}
-		storageAccount := fmt.Sprintf("%s%s", self.region.Name, DefaultStorageAccount)
 
-		if _, err := self.region.CreateStorageAccount(storageAccount); err != nil {
+		storageaccount, err := self.checkStorageAccount()
+		if err != nil {
 			return "", err
 		}
 
-		if _, err := self.region.CreateContainer(storageAccount, DefaultContainer); err != nil {
+		blobURI, err := storageaccount.UploadFile("image-cache", tmpFile)
+		if err != nil {
 			return "", err
 		}
 
 		size, _ := meta.Int("size")
-
-		blobURI, err := self.region.UploadVHD(storageAccount, DefaultContainer, tmpFile)
-		if err != nil {
-			log.Errorf("uploadContainerFileByPath error: %v", err)
-			return "", err
-		}
 
 		imageBaseName := imageId
 		if imageBaseName[0] >= '0' && imageBaseName[0] <= '9' {
@@ -171,11 +204,11 @@ func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc
 	}
 }
 
-func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error) {
-	return self.downloadImage(userCred, imageId, extId)
+func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
+	return self.downloadImage(userCred, imageId, extId, path)
 }
 
-func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error) {
+func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
 	if image, err := self.region.GetImage(extId); err != nil {
 		return nil, err
 	} else if snapshotId := image.Properties.StorageProfile.OsDisk.Snapshot.ID; len(snapshotId) == 0 {
@@ -185,10 +218,12 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 	} else if resp, err := http.Get(uri); err != nil {
 		return nil, err
 	} else {
-		_, _, snapshot := pareResourceGroupWithName(snapshotId, SNAPSHOT_RESOURCE)
-		tmpImageFile := fmt.Sprintf("/opt/cloud/workspace/data/glance/image-cache/%s", snapshot)
-		defer os.Remove(tmpImageFile)
-		if f, err := os.Create(tmpImageFile); err != nil {
+		tmpImageFile, err := ioutil.TempFile(path, "temp")
+		if err != nil {
+			return nil, err
+		}
+		defer os.Remove(tmpImageFile.Name())
+		if f, err := os.Open(tmpImageFile.Name()); err != nil {
 			return nil, err
 		} else {
 			readed, writed, skiped := 0, 0, 0
@@ -229,7 +264,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 
 		s := auth.GetAdminSession(options.Options.Region, "")
 		params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
-		if file, err := os.Open(tmpImageFile); err != nil {
+		if file, err := os.Open(tmpImageFile.Name()); err != nil {
 			return nil, err
 		} else if result, err := modules.Images.Upload(s, params, file, resp.ContentLength); err != nil {
 			return nil, err

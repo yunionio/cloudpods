@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -74,6 +75,10 @@ func (manager *SModelBaseManager) ListItemFilter(ctx context.Context, q *sqlchem
 	return q, nil
 }
 
+func (manager *SModelBaseManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*CustomizeListFilters, error) {
+	return NewCustomizeListFilters(), nil
+}
+
 func (manager *SModelBaseManager) ExtraSearchConditions(ctx context.Context, q *sqlchemy.SQuery, like string) []sqlchemy.ICondition {
 	return nil
 }
@@ -108,7 +113,7 @@ func (manager *SModelBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner string
 	return q
 }
 
-func (manager *SModelBaseManager) GetOwnerId(userCred mcclient.TokenCredential) string {
+func (manager *SModelBaseManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
 	return ""
 }
 
@@ -116,11 +121,11 @@ func (manager *SModelBaseManager) FetchById(idStr string) (IModel, error) {
 	return nil, sql.ErrNoRows
 }
 
-func (manager *SModelBaseManager) FetchByName(ownerProjId string, idStr string) (IModel, error) {
+func (manager *SModelBaseManager) FetchByName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
 	return nil, sql.ErrNoRows
 }
 
-func (manager *SModelBaseManager) FetchByIdOrName(ownerProjId string, idStr string) (IModel, error) {
+func (manager *SModelBaseManager) FetchByIdOrName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
 	return nil, sql.ErrNoRows
 }
 
@@ -145,8 +150,16 @@ func (manager *SModelBaseManager) PerformAction(ctx context.Context, userCred mc
 	return nil, nil
 }
 
+func (manager *SModelBaseManager) AllowPerformCheckCreateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
 func (manager *SModelBaseManager) InitializeData() error {
 	return nil
+}
+
+func (manager *SModelBaseManager) DoCreate(ctx context.Context, userCred mcclient.TokenCredential, kwargs jsonutils.JSONObject, data jsonutils.JSONObject, realManager IModelManager) (IModel, error) {
+	return nil, fmt.Errorf("Do create not implement?")
 }
 
 func (model *SModelBase) GetId() string {
@@ -177,6 +190,10 @@ func (model *SModelBase) GetShortDesc() *jsonutils.JSONDict {
 
 // list hooks
 func (model *SModelBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	return jsonutils.NewDict()
+}
+
+func (model *SModelBase) GetExportItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	return jsonutils.NewDict()
 }
 

@@ -268,6 +268,17 @@ func (this *ProjectManagerV3) BatchDeleteInContexts(session *mcclient.ClientSess
 	})
 }
 
+func (this *ProjectManagerV3) AddTags(session *mcclient.ClientSession, id string, tags []string) error {
+	path := fmt.Sprintf("/projects/%s/tags", id)
+	body := jsonutils.NewDict()
+	body.Add(jsonutils.NewStringArray(tags), "tags")
+	_, err := this._put(session, path, body, "")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func init() {
 	Projects = ProjectManagerV3{NewIdentityV3Manager("project", "projects",
 		[]string{},

@@ -147,6 +147,11 @@ func ListStructToParams(v interface{}) (*jsonutils.JSONDict, error) {
 	return params, nil
 }
 
+const (
+	ListOrderAsc  = "asc"
+	ListOrderDesc = "desc"
+)
+
 type BaseListOptions struct {
 	Limit            *int     `default:"20" help:"Page limit"`
 	Offset           *int     `default:"0" help:"Page offset"`
@@ -191,6 +196,9 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 		if requiresSystem {
 			params.Set("admin", jsonutils.JSONTrue)
 		}
+	}
+	if opts.Details == nil {
+		params.Set("details", jsonutils.JSONFalse)
 	}
 	return params, nil
 }

@@ -82,7 +82,7 @@ func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc
 	}
 }
 
-func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error) {
+func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
 	return self.downloadImage(userCred, imageId, extId)
 }
 
@@ -187,7 +187,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 	}
 
 	// todo:// 等待镜像导入完成
-	err = self.region.ec2Client.WaitUntilImageExists(&ec2.DescribeImagesInput{ImageIds:[]*string{&task.ImageId}})
+	err = self.region.ec2Client.WaitUntilImageExists(&ec2.DescribeImagesInput{ImageIds: []*string{&task.ImageId}})
 	return task.ImageId, err
 
 }
@@ -230,7 +230,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 
 	s := auth.GetAdminSession(options.Options.Region, "")
 	params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
-    if result, err := modules.Images.Upload(s, params, ret.Body, IntVal(ret.ContentLength)); err != nil {
+	if result, err := modules.Images.Upload(s, params, ret.Body, IntVal(ret.ContentLength)); err != nil {
 		return nil, err
 	} else {
 		return result, nil
@@ -374,7 +374,7 @@ func (self *SRegion) initVmimportBucket() error {
 		return err
 	}
 
-	if exists  {
+	if exists {
 		return nil
 	}
 

@@ -40,7 +40,7 @@ type SInstanceType struct {
 	ProcessorSpeed         float32           `json:"processorSpeed"`
 	SpotSupported          bool              `json:"spotSupported"`
 	InstanceTypeId         string            `json:"typeName"`
-	VirtualizationTypes    []string           `json:"virtualizationTypes"`
+	VirtualizationTypes    []string          `json:"virtualizationTypes"`
 	Vpc                    bool              `json:"vpc"`
 	VpcOnly                bool              `json:"vpcOnly"`
 	Windows                bool              `json:"windows"`

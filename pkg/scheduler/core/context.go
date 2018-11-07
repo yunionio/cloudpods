@@ -190,7 +190,7 @@ type Score struct {
 }
 
 type SchedContextDataItem struct {
-	Networks sync.Map
+	Networks *sync.Map
 	Data     map[string]interface{}
 }
 
@@ -576,7 +576,7 @@ func (u *Unit) SetFiltedData(id string, name string, data interface{}) error {
 	}
 
 	if name == "network" {
-		dataItem.Networks = data.(sync.Map)
+		dataItem.Networks = data.(*sync.Map)
 	} else {
 		if m, ok := data.(map[string]interface{}); ok {
 			for key, value := range m {

@@ -1,24 +1,20 @@
 package azure
 
 import (
-	"context"
-	"regexp"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/secrules"
-
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-06-01/network"
 )
 
 type AddressSpace struct {
-	AddressPrefixes []string
+	AddressPrefixes []string `json:"addressPrefixes,omitempty"`
 }
 
 type SubnetPropertiesFormat struct {
-	AddressPrefix     string
-	ProvisioningState string
+	AddressPrefix string `json:"addressPrefix,omitempty"`
+	//ProvisioningState string
 }
 
 type Subnet struct {
@@ -28,9 +24,11 @@ type Subnet struct {
 }
 
 type VirtualNetworkPropertiesFormat struct {
-	AddressSpace      AddressSpace
-	Subnets           []Subnet
-	ProvisioningState string
+	ProvisioningState      string
+	Status                 string
+	VirtualNetworkSiteName string
+	AddressSpace           AddressSpace `json:"addressSpace,omitempty"`
+	Subnets                *[]SNetwork  `json:"subnets,omitempty"`
 }
 
 type SVpc struct {
@@ -39,14 +37,15 @@ type SVpc struct {
 	iwires    []cloudprovider.ICloudWire
 	secgroups []cloudprovider.ICloudSecurityGroup
 
-	IsDefault bool
+	isDefault bool
 
 	ID         string
 	Name       string
+	Etag       string
 	Type       string
 	Location   string
 	Tags       map[string]string
-	Properties VirtualNetworkPropertiesFormat
+	Properties VirtualNetworkPropertiesFormat `json:"properties,omitempty"`
 }
 
 func (self *SVpc) GetMetadata() *jsonutils.JSONDict {
@@ -58,14 +57,11 @@ func (self *SVpc) GetId() string {
 }
 
 func (self *SVpc) GetName() string {
-	if len(self.Name) > 0 {
-		return self.Name
-	}
-	return self.ID
+	return self.Name
 }
 
 func (self *SVpc) GetGlobalId() string {
-	return self.ID
+	return strings.ToLower(self.ID)
 }
 
 func (self *SVpc) IsEmulated() bool {
@@ -73,7 +69,7 @@ func (self *SVpc) IsEmulated() bool {
 }
 
 func (self *SVpc) GetIsDefault() bool {
-	return self.IsDefault
+	return self.isDefault
 }
 
 func (self *SVpc) GetCidrBlock() string {
@@ -81,15 +77,7 @@ func (self *SVpc) GetCidrBlock() string {
 }
 
 func (self *SVpc) Delete() error {
-	vpcClient := network.NewVirtualNetworksClientWithBaseURI(self.region.client.baseUrl, self.region.client.subscriptionId)
-	vpcClient.Authorizer = self.region.client.authorizer
-	_, resourceGroup, vpcName := pareResourceGroupWithName(self.ID, VPC_RESOURCE)
-	if result, err := vpcClient.Delete(context.Background(), resourceGroup, vpcName); err != nil {
-		return err
-	} else if err := result.WaitForCompletion(context.Background(), vpcClient.Client); err != nil {
-		return err
-	}
-	return nil
+	return self.region.client.Delete(self.ID)
 }
 
 func (self *SVpc) getSecurityGroups() ([]SSecurityGroup, error) {
@@ -115,12 +103,12 @@ func (self *SVpc) fetchSecurityGroups() error {
 	}
 }
 
-func (self *SVpc) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) (string, error) {
-	if secgrp, err := self.region.checkSecurityGroup(name, secgroupId); err != nil {
+func (self *SVpc) SyncSecurityGroup(tag string, name string, rules []secrules.SecurityRule) (string, error) {
+	secgrp, err := self.region.checkSecurityGroup(tag, name)
+	if err != nil {
 		return "", err
-	} else {
-		return self.region.syncSecgroupRules(secgrp.ID, rules)
 	}
+	return self.region.syncSecgroupRules(secgrp.ID, rules)
 }
 
 func (self *SVpc) getWire() *SWire {
@@ -131,17 +119,16 @@ func (self *SVpc) getWire() *SWire {
 }
 
 func (self *SVpc) fetchNetworks() error {
-	if vpc, err := self.region.getVpc(self.ID); err != nil {
+	vpc, err := self.region.GetVpc(self.ID)
+	if err != nil {
 		return err
-	} else {
-		for i := 0; i < len(vpc.Properties.Subnets); i++ {
-			_network := vpc.Properties.Subnets[i]
-			wire := self.getWire()
-			network := SNetwork{wire: wire, Name: _network.Name, ID: _network.ID}
-			if err := jsonutils.Update(&network, _network); err != nil {
-				return err
-			}
-			wire.addNetwork(&network)
+	}
+	if vpc.Properties.Subnets != nil {
+		networks := *vpc.Properties.Subnets
+		wire := self.getWire()
+		for i := 0; i < len(networks); i++ {
+			networks[i].wire = wire
+			wire.addNetwork(&networks[i])
 		}
 	}
 	return nil
@@ -158,9 +145,12 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 }
 
 func (self *SVpc) fetchWires() error {
-	networks := make([]cloudprovider.ICloudNetwork, len(self.Properties.Subnets))
+	networks := make([]cloudprovider.ICloudNetwork, len(*self.Properties.Subnets))
+	if len(self.region.izones) == 0 {
+		self.region.fetchZones()
+	}
 	wire := SWire{zone: self.region.izones[0].(*SZone), vpc: self, inetworks: networks}
-	for i, _network := range self.Properties.Subnets {
+	for i, _network := range *self.Properties.Subnets {
 		network := SNetwork{wire: &wire}
 		if err := jsonutils.Update(&network, _network); err != nil {
 			return err
@@ -209,21 +199,13 @@ func (self *SVpc) GetStatus() string {
 	return "disabled"
 }
 
-func (region *SRegion) getVpc(vpcId string) (*SVpc, error) {
-	vpc := SVpc{}
-	_, resourceGroup, vpcName := pareResourceGroupWithName(vpcId, VPC_RESOURCE)
-	vpcClient := network.NewVirtualNetworksClientWithBaseURI(region.client.baseUrl, region.SubscriptionID)
-	vpcClient.Authorizer = region.client.authorizer
-	if result, err := vpcClient.Get(context.Background(), resourceGroup, vpcName, ""); err != nil {
-		return nil, cloudprovider.ErrNotFound
-	} else if err := jsonutils.Update(&vpc, result); err != nil {
-		return nil, err
-	}
-	return &vpc, nil
+func (region *SRegion) GetVpc(vpcId string) (*SVpc, error) {
+	vpc := SVpc{region: region}
+	return &vpc, region.client.Get(vpcId, []string{}, &vpc)
 }
 
 func (self *SVpc) Refresh() error {
-	if vpc, err := self.region.getVpc(self.ID); err != nil {
+	if vpc, err := self.region.GetVpc(self.ID); err != nil {
 		return err
 	} else if err := jsonutils.Update(self, vpc); err != nil {
 		return err
@@ -238,22 +220,11 @@ func (self *SVpc) addWire(wire *SWire) {
 	self.iwires = append(self.iwires, wire)
 }
 
-func (self *SVpc) GetNetworks() []Subnet {
-	return self.Properties.Subnets
+func (self *SVpc) GetNetworks() []SNetwork {
+	return *self.Properties.Subnets
 }
 
 func (self *SRegion) GetNetworkDetail(networkId string) (*Subnet, error) {
-	valid := regexp.MustCompile("resourceGroups/(.+)/providers/Microsoft.Network/virtualNetworks/(.+)/subnets/(.+)$")
-	if data := valid.FindStringSubmatch(networkId); len(data) == 4 {
-		sunet := Subnet{}
-		networkClient := network.NewSubnetsClientWithBaseURI(self.client.baseUrl, self.SubscriptionID)
-		networkClient.Authorizer = self.client.authorizer
-		if result, err := networkClient.Get(context.Background(), data[1], data[2], data[3], ""); err != nil {
-			return nil, err
-		} else if err := jsonutils.Update(&sunet, result); err != nil {
-			return nil, err
-		}
-		return &sunet, nil
-	}
-	return nil, cloudprovider.ErrNotFound
+	subnet := Subnet{}
+	return &subnet, self.client.Get(networkId, []string{}, &subnet)
 }

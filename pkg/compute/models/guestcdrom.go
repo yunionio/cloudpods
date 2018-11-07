@@ -17,7 +17,14 @@ type SGuestcdromManager struct {
 var GuestcdromManager *SGuestcdromManager
 
 func init() {
-	GuestcdromManager = &SGuestcdromManager{SModelBaseManager: db.NewModelBaseManager(SGuestcdrom{}, "guestcdrom_tbl", "guestcdrom", "guestcdroms")}
+	GuestcdromManager = &SGuestcdromManager{
+		SModelBaseManager: db.NewModelBaseManager(
+			SGuestcdrom{},
+			"guestcdrom_tbl",
+			"guestcdrom",
+			"guestcdroms",
+		),
+	}
 }
 
 type SGuestcdrom struct {

@@ -37,6 +37,10 @@ func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.
 	return net, netConfig.Mac, -1, models.IPAllocationStepdown
 }
 
+func (self *SVirtualizedGuestDriver) GetRandomNetworkTypes() []string {
+	return []string{models.SERVER_TYPE_GUEST}
+}
+
 func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig, pendingUsage quotas.IQuota) error {
 	var wirePattern *regexp.Regexp
 	if len(netConfig.Wire) > 0 {
@@ -44,6 +48,7 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 	}
 	hostwires := host.GetHostwires()
 	netsAvaiable := make([]models.SNetwork, 0)
+	netTypes := guest.GetDriver().GetRandomNetworkTypes()
 	for i := 0; i < len(hostwires); i += 1 {
 		hostwire := hostwires[i]
 		wire := hostwire.GetWire()
@@ -55,14 +60,26 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 
 		log.Debugf("Wire %#v", wire)
 
-		if wirePattern != nil && !wirePattern.MatchString(wire.Id) && wirePattern.MatchString(wire.Name) {
+		// !!
+		if wirePattern != nil && !wirePattern.MatchString(wire.Id) && !wirePattern.MatchString(wire.Name) {
 			continue
 		}
+
 		var net *models.SNetwork
 		if netConfig.Private {
-			net, _ = wire.GetCandidatePrivateNetwork(userCred, netConfig.Exit, models.SERVER_TYPE_GUEST)
+			for _, netType := range netTypes {
+				net, _ = wire.GetCandidatePrivateNetwork(userCred, netConfig.Exit, netType)
+				if net != nil {
+					break
+				}
+			}
 		} else {
-			net, _ = wire.GetCandidatePublicNetwork(netConfig.Exit, models.SERVER_TYPE_GUEST)
+			for _, netType := range netTypes {
+				net, _ = wire.GetCandidatePublicNetwork(netConfig.Exit, netType)
+				if net != nil {
+					break
+				}
+			}
 		}
 		if net != nil {
 			netsAvaiable = append(netsAvaiable, *net)
@@ -71,7 +88,13 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 	if len(netsAvaiable) == 0 {
 		return fmt.Errorf("No appropriate host virtual network...")
 	}
-	selNet := models.ChooseCandidateNetworks(netsAvaiable, netConfig.Exit, models.SERVER_TYPE_GUEST)
+	var selNet *models.SNetwork
+	for _, netType := range netTypes {
+		selNet = models.ChooseCandidateNetworks(netsAvaiable, netConfig.Exit, netType)
+		if selNet != nil {
+			break
+		}
+	}
 	if selNet == nil {
 		return fmt.Errorf("Not enough address in virtual network")
 	}
@@ -109,6 +132,17 @@ func (self *SVirtualizedGuestDriver) StartGuestResetTask(guest *models.SGuest, c
 	return nil
 }
 
+func (self *SVirtualizedGuestDriver) StartGuestRestartTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	data.Set("is_force", jsonutils.NewBool(isForce))
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestRestartTask", guest, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
 func (self *SVirtualizedGuestDriver) OnGuestDeployTaskComplete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	if jsonutils.QueryBoolean(task.GetParams(), "restart", false) {
 		task.SetStage("OnDeployStartGuestComplete", nil)
@@ -130,12 +164,12 @@ func (self *SVirtualizedGuestDriver) StartGuestSyncstatusTask(guest *models.SGue
 }
 
 func (self *SVirtualizedGuestDriver) RequestStopGuestForDelete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	guestStatus, _ := task.GetParams().GetString("guest_status")
-	if guestStatus == models.VM_RUNNING {
-		host := guest.GetHost()
-		if host != nil && host.Enabled && host.HostStatus == models.HOST_ONLINE && !jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
-			return guest.StartGuestStopTask(ctx, task.GetUserCred(), true, task.GetTaskId())
-		}
+	host := guest.GetHost()
+	if host != nil && host.Enabled && host.HostStatus == models.HOST_ONLINE {
+		return guest.StartGuestStopTask(ctx, task.GetUserCred(), true, task.GetTaskId())
+	}
+	if host != nil && !jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
+		return fmt.Errorf("fail to contact host")
 	}
 	task.ScheduleRun(nil)
 	return nil

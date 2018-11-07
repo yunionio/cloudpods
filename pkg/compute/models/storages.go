@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/sysutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 )
 
@@ -62,8 +63,14 @@ type SStorageManager struct {
 var StorageManager *SStorageManager
 
 func init() {
-	StorageManager = &SStorageManager{SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(SStorage{},
-		"storages_tbl", "storage", "storages")}
+	StorageManager = &SStorageManager{
+		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
+			SStorage{},
+			"storages_tbl",
+			"storage",
+			"storages",
+		),
+	}
 }
 
 type SStorage struct {
@@ -87,8 +94,42 @@ func (manager *SStorageManager) GetContextManager() []db.IModelManager {
 	return []db.IModelManager{ZoneManager, StoragecacheManager}
 }
 
+func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	storageType, _ := data.GetString("storage_type")
+	mediumType, _ := data.GetString("medium_type")
+	if !utils.IsInStringArray(storageType, STORAGE_ALL_TYPES) {
+		return nil, httperrors.NewInputParameterError("Invalid storage type %s", storageType)
+	}
+	if !utils.IsInStringArray(mediumType, DISK_TYPES) {
+		return nil, httperrors.NewInputParameterError("Invalid medium type %s", mediumType)
+	}
+	zoneId, err := data.GetString("zone")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("zone")
+	}
+	zone, _ := ZoneManager.FetchByIdOrName(userCred, zoneId)
+	if zone == nil {
+		return nil, httperrors.NewResourceNotFoundError("zone %s", zoneId)
+	}
+	data.Set("zone_id", jsonutils.NewString(zone.GetId()))
+	// TODO: ValidateRdbConfData
+	// if storageType == STORAGE_RBD {
+	// 	conf := jsonutils.NewDict()
+	// 	for k, v := range data.Value() {
+	// 		if strings.HasPrefix(k, fmt.Sprintf("%s_", storageType)) {
+	// 			k = k[len(storageType)+1:]
+	// 			if len(k) > 0 {
+	// 				conf.Set(k, v)
+	// 			}
+	// 		}
+	// 	}
+	// 	data.Set("capacity", manager.ValidateRdbConfData(conf))
+	// }
+	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+}
+
 func (self *SStorage) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetHostCount() > 0 || self.GetDiskCount() > 0 {
+	if self.GetHostCount() > 0 || self.GetDiskCount() > 0 || self.GetSnapshotCount() > 0 {
 		return httperrors.NewNotEmptyError("Not an empty storage provider")
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -100,6 +141,10 @@ func (self *SStorage) GetHostCount() int {
 
 func (self *SStorage) GetDiskCount() int {
 	return DiskManager.Query().Equals("storage_id", self.Id).Count()
+}
+
+func (self *SStorage) GetSnapshotCount() int {
+	return SnapshotManager.Query().Equals("storage_id", self.Id).Count()
 }
 
 func (self *SStorage) IsLocal() bool {
@@ -436,6 +481,31 @@ func (manager *SStorageManager) disksReadyQ() *sqlchemy.SSubQuery {
 	return q
 }
 
+func (manager *SStorageManager) diskIsAttachedQ(isAttached bool) *sqlchemy.SSubQuery {
+	sumKey := "attached_used_capacity"
+	cond := sqlchemy.In
+	if !isAttached {
+		sumKey = "detached_used_capacity"
+		cond = sqlchemy.NotIn
+	}
+	sq := GuestdiskManager.Query("disk_id").SubQuery()
+	disks := DiskManager.Query().SubQuery()
+	disks = disks.Query().Filter(cond(disks.Field("id"), sq)).SubQuery()
+	q := disks.Query(
+		disks.Field("storage_id"),
+		sqlchemy.SUM(sumKey, disks.Field("disk_size")),
+	).Equals("status", DISK_READY).GroupBy(disks.Field("storage_id"))
+	return q.SubQuery()
+}
+
+func (manager *SStorageManager) diskAttachedQ() *sqlchemy.SSubQuery {
+	return manager.diskIsAttachedQ(true)
+}
+
+func (manager *SStorageManager) diskDetachedQ() *sqlchemy.SSubQuery {
+	return manager.diskIsAttachedQ(false)
+}
+
 func (manager *SStorageManager) disksFailedQ() *sqlchemy.SSubQuery {
 	disks := DiskManager.Query().SubQuery()
 	q := disks.Query(
@@ -450,15 +520,22 @@ func (manager *SStorageManager) totalCapacityQ(
 ) *sqlchemy.SQuery {
 	stmt := manager.disksReadyQ()
 	stmt2 := manager.disksFailedQ()
+	attachedDisks := manager.diskAttachedQ()
+	detachedDisks := manager.diskDetachedQ()
 	storages := manager.Query().SubQuery()
 	q := storages.Query(
 		storages.Field("capacity"),
 		storages.Field("reserved"),
 		storages.Field("cmtbound"),
 		stmt.Field("used_capacity"),
-		stmt2.Field("failed_capacity")).
+		stmt2.Field("failed_capacity"),
+		attachedDisks.Field("attached_used_capacity"),
+		detachedDisks.Field("detached_used_capacity"),
+	).
 		LeftJoin(stmt, sqlchemy.Equals(stmt.Field("storage_id"), storages.Field("id"))).
-		LeftJoin(stmt2, sqlchemy.Equals(stmt2.Field("storage_id"), storages.Field("id")))
+		LeftJoin(stmt2, sqlchemy.Equals(stmt2.Field("storage_id"), storages.Field("id"))).
+		LeftJoin(attachedDisks, sqlchemy.Equals(attachedDisks.Field("storage_id"), storages.Field("id"))).
+		LeftJoin(detachedDisks, sqlchemy.Equals(detachedDisks.Field("storage_id"), storages.Field("id")))
 
 	hosts := HostManager.Query().SubQuery()
 	hostStorages := HoststorageManager.Query().SubQuery()
@@ -477,18 +554,22 @@ func (manager *SStorageManager) totalCapacityQ(
 }
 
 type StorageStat struct {
-	Capacity       int
-	Reserved       int
-	Cmtbound       float32
-	UsedCapacity   int
-	FailedCapacity int
+	Capacity             int
+	Reserved             int
+	Cmtbound             float32
+	UsedCapacity         int
+	FailedCapacity       int
+	AttachedUsedCapacity int
+	DetachedUsedCapacity int
 }
 
 type StoragesCapacityStat struct {
-	Capacity        int64
-	CapacityVirtual float64
-	CapacityUsed    int64
-	CapacityUnread  int64
+	Capacity         int64
+	CapacityVirtual  float64
+	CapacityUsed     int64
+	CapacityUnread   int64
+	AttachedCapacity int64
+	DetachedCapacity int64
 }
 
 func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCapacityStat {
@@ -502,6 +583,8 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 		tVCapa  float64 = 0
 		tUsed   int64   = 0
 		tFailed int64   = 0
+		atCapa  int64   = 0
+		dtCapa  int64   = 0
 	)
 	for _, stat := range stats {
 		tCapa += int64(stat.Capacity - stat.Reserved)
@@ -511,12 +594,16 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 		tVCapa += float64(stat.Capacity-stat.Reserved) * float64(stat.Cmtbound)
 		tUsed += int64(stat.UsedCapacity)
 		tFailed += int64(stat.FailedCapacity)
+		atCapa += int64(stat.AttachedUsedCapacity)
+		dtCapa += int64(stat.DetachedUsedCapacity)
 	}
 	return StoragesCapacityStat{
-		Capacity:        tCapa,
-		CapacityVirtual: tVCapa,
-		CapacityUsed:    tUsed,
-		CapacityUnread:  tFailed,
+		Capacity:         tCapa,
+		CapacityVirtual:  tVCapa,
+		CapacityUsed:     tUsed,
+		CapacityUnread:   tFailed,
+		AttachedCapacity: atCapa,
+		DetachedCapacity: dtCapa,
 	}
 }
 
@@ -680,7 +767,7 @@ func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 
 	regionStr, _ := query.GetString("region")
 	if len(regionStr) > 0 {
-		regionObj, err := CloudregionManager.FetchByIdOrName(userCred.GetProjectId(), regionStr)
+		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionStr)
 		if err != nil {
 			return nil, httperrors.NewNotFoundError("Region %s not found: %s", regionStr, err)
 		}

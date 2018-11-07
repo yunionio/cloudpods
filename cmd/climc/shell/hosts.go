@@ -26,6 +26,7 @@ func init() {
 		AnyMac    string `help:"Mac matches one of the host's interface"`
 
 		Manager string `help:"Show regions belongs to the cloud provider"`
+		Usable  bool   `help:"List all zones that is usable"`
 
 		options.BaseListOptions
 	}
@@ -66,6 +67,10 @@ func init() {
 
 		if len(args.Manager) > 0 {
 			params.Add(jsonutils.NewString(args.Manager), "manager")
+		}
+
+		if args.Usable {
+			params.Add(jsonutils.JSONTrue, "usable")
 		}
 
 		if args.Empty {
@@ -475,7 +480,6 @@ func init() {
 	})
 
 	type HostCreateOptions struct {
-		ZONE       string `help:"Zone where the host is located"`
 		NAME       string `help:"Name of baremetal"`
 		MAC        string `help:"Default MAC address of baremetal"`
 		Rack       string `help:"Rack number of baremetal"`
@@ -500,7 +504,7 @@ func init() {
 		if len(args.IpmiAddr) > 0 {
 			params.Add(jsonutils.NewString(args.IpmiAddr), "ipmi_ip_addr")
 		}
-		result, err := modules.Hosts.CreateInContext(s, params, &modules.Zones, args.ZONE)
+		result, err := modules.Hosts.Create(s, params)
 		if err != nil {
 			return err
 		}

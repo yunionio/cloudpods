@@ -91,6 +91,19 @@ func init() {
 		return nil
 	})
 
+	type CloudproviderChangeProjectOptions struct {
+		ID     string `help:"ID or Name of cloud provider"`
+		TENANT string `help:"ID or Name of tenant"`
+	}
+	R(&CloudproviderChangeProjectOptions{}, "cloud-provider-change-project", "Change project for provider", func(s *mcclient.ClientSession, args *CloudproviderChangeProjectOptions) error {
+		result, err := modules.Cloudproviders.PerformAction(s, args.ID, "change-project", jsonutils.Marshal(map[string]string{"project": args.TENANT}))
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	type CloudproviderShowOptions struct {
 		ID string `help:"ID or Name of cloud provider"`
 	}

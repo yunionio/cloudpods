@@ -6,6 +6,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/sets"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/webconsole/session"
@@ -36,10 +37,16 @@ func (s *ConnectionServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		httperrors.NotFoundError(w, fmt.Sprintf("Not found session"))
 		return
 	}
-	ttyServer, err := NewTTYServer(sessionObj)
+	var srv http.Handler
+	protocol := sessionObj.GetProtocol()
+	if sets.NewString(session.VNC, session.SPICE, session.WMKS).Has(protocol) {
+		srv, err = NewWebsockifyServer(sessionObj)
+	} else {
+		srv, err = NewTTYServer(sessionObj)
+	}
 	if err != nil {
-		httperrors.GeneralServerError(w, fmt.Errorf("New TTY error: %v", err))
+		httperrors.GeneralServerError(w, fmt.Errorf("New server error: %v", err))
 		return
 	}
-	ttyServer.ServeHTTP(w, req)
+	srv.ServeHTTP(w, req)
 }

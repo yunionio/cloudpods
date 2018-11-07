@@ -13,7 +13,9 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -64,7 +66,7 @@ func getRangeObj(ctx context.Context, man db.IStandaloneModelManager, userCred m
 	if err != nil {
 		return nil, err
 	}
-	return man.FetchByIdOrName(userCred.GetProjectId(), id)
+	return man.FetchByIdOrName(userCred, id)
 }
 
 func rangeObjHandler(
@@ -78,6 +80,14 @@ func rangeObjHandler(
 			httperrors.NotFoundError(w, err.Error())
 			return
 		}
+		projectName, _ := getQuery(r).GetString("project")
+		if projectName != "" {
+			userCred, err = generateProjectUserCred(ctx, userCred, projectName)
+			if err != nil {
+				httperrors.GeneralServerError(w, err)
+				return
+			}
+		}
 		usage, err := reporter(userCred, obj, getHostTypes(r))
 		if err != nil {
 			httperrors.GeneralServerError(w, err)
@@ -85,6 +95,19 @@ func rangeObjHandler(
 		}
 		response(w, usage)
 	}
+}
+
+func generateProjectUserCred(ctx context.Context, userCred mcclient.TokenCredential, projectName string) (mcclient.TokenCredential, error) {
+	project, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, projectName)
+	if err != nil {
+		return nil, err
+	}
+	return &mcclient.SSimpleToken{
+		Domain:    project.Domain,
+		DomainId:  project.DomainId,
+		Project:   project.Name,
+		ProjectId: project.Id,
+	}, nil
 }
 
 func addHandler(prefix, rangeObjKey string, hf appsrv.FilterHandler, app *appsrv.Application) {
@@ -108,7 +131,7 @@ func AddUsageHandler(prefix string, app *appsrv.Application) {
 		"vcenter":     rangeObjHandler(models.VCenterManager, ReportVCenterUsage),
 		"cloudregion": rangeObjHandler(models.CloudregionManager, ReportCloudRegionUsage),
 	} {
-		addHandler(prefix, key, auth.Authenticate(f), app)
+		addHandler(prefix, key, f, app)
 	}
 }
 
@@ -219,7 +242,6 @@ func getAdminGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStanda
 		containerRunningUsage,
 		IsolatedDeviceUsage(rangeObj, hostTypes),
 		WireUsage(rangeObj, hostTypes),
-		NetworkUsage(userCred, rangeObj),
 		EipUsage(rangeObj, hostTypes),
 	)
 
@@ -237,18 +259,40 @@ func getCommonGeneralUsage(cred mcclient.TokenCredential, rangeObj db.IStandalon
 		guestPendingDeleteUsage,
 		guestReadyUsage,
 		containerUsage,
+		NetworkUsage(cred, rangeObj),
 	)
 	return
 }
 
 func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) (count Usage, err error) {
 	count = make(map[string]interface{})
-	if userCred.IsSystemAdmin() {
+
+	isAdmin := false
+
+	if consts.IsRbacEnabled() {
+		if policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
+			"usages", policy.PolicyActionGet) {
+			isAdmin = true
+		}
+	} else {
+		isAdmin = userCred.IsSystemAdmin()
+	}
+
+	if isAdmin {
 		count, err = getAdminGeneralUsage(userCred, rangeObj, hostTypes)
 		if err != nil {
 			return
 		}
 	}
+
+	if consts.IsRbacEnabled() {
+		if !policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
+			"usages", policy.PolicyActionGet) {
+			err = httperrors.NewForbiddenError("not allow to get usages")
+			return
+		}
+	}
+
 	commonUsage, err := getCommonGeneralUsage(userCred, rangeObj, hostTypes)
 	if err != nil {
 		return
@@ -272,6 +316,8 @@ func StorageUsage(rangeObj db.IStandaloneModel, hostTypes []string) Usage {
 	count[fmt.Sprintf("%s.virtual", sPrefix)] = result.CapacityVirtual
 	count[dPrefix] = result.CapacityUsed
 	count[fmt.Sprintf("%s.unready", dPrefix)] = result.CapacityUnread
+	count[fmt.Sprintf("%s.attached", dPrefix)] = result.AttachedCapacity
+	count[fmt.Sprintf("%s.detached", dPrefix)] = result.DetachedCapacity
 	return count
 }
 

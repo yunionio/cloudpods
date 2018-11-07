@@ -3,6 +3,8 @@ package shell
 import (
 	"fmt"
 
+	"io/ioutil"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -59,6 +61,14 @@ func init() {
 			params.Add(jsonutils.JSONFalse, "reset_password")
 		}
 
+		if len(opts.UserDataFile) > 0 {
+			userdata, err := ioutil.ReadFile(opts.UserDataFile)
+			if err != nil {
+				return err
+			}
+			params.Add(jsonutils.NewString(string(userdata)), "user_data")
+		}
+
 		count := options.IntV(opts.Count)
 		if options.BoolV(opts.DryRun) {
 			results, err := modules.SchedManager.DoScheduleListResult(s, params, count)
@@ -88,12 +98,22 @@ func init() {
 		return nil
 	})
 
-	R(&options.ServerIdOptions{}, "server-logininfo", "Get login info of a server", func(s *mcclient.ClientSession, opts *options.ServerIdOptions) error {
+	R(&options.ServerLoginInfoOptions{}, "server-logininfo", "Get login info of a server", func(s *mcclient.ClientSession, opts *options.ServerLoginInfoOptions) error {
 		srvid, e := modules.Servers.GetId(s, opts.ID, nil)
 		if e != nil {
 			return e
 		}
-		i, e := modules.Servers.GetLoginInfo(s, srvid, nil)
+
+		params := jsonutils.NewDict()
+		if len(opts.Key) > 0 {
+			privateKey, e := ioutil.ReadFile(opts.Key)
+			if e != nil {
+				return e
+			}
+			params.Add(jsonutils.NewString(string(privateKey)), "private_key")
+		}
+
+		i, e := modules.Servers.GetLoginInfo(s, srvid, params)
 		if e != nil {
 			return e
 		}
@@ -135,12 +155,48 @@ func init() {
 		return nil
 	})
 
+	R(&options.ServerMigrateOptions{}, "server-migrate", "Migrate server", func(s *mcclient.ClientSession, opts *options.ServerMigrateOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		ret, err := modules.Servers.PerformAction(s, opts.ID, "migrate", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
+	R(&options.ServerLiveMigrateOptions{}, "server-live-migrate", "Migrate server", func(s *mcclient.ClientSession, opts *options.ServerLiveMigrateOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		ret, err := modules.Servers.PerformAction(s, opts.ID, "live-migrate", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
 	R(&options.ServerResetOptions{}, "server-reset", "Reset servers", func(s *mcclient.ClientSession, opts *options.ServerResetOptions) error {
 		params, err := options.StructToParams(opts)
 		if err != nil {
 			return err
 		}
 		ret := modules.Servers.BatchPerformAction(s, opts.ID, "reset", params)
+		printBatchResults(ret, modules.Servers.GetColumns(s))
+		return nil
+	})
+
+	R(&options.ServerRestartOptions{}, "server-restart", "Restart servers", func(s *mcclient.ClientSession, opts *options.ServerRestartOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		ret := modules.Servers.BatchPerformAction(s, opts.ID, "restart", params)
 		printBatchResults(ret, modules.Servers.GetColumns(s))
 		return nil
 	})
@@ -453,6 +509,25 @@ func init() {
 		result, err := modules.Servers.PerformAction(s, args.ID, "dissociate-eip", nil)
 		if err != nil {
 			return nil
+		}
+		printObject(result)
+		return nil
+	})
+
+	type ServerUserDataOptions struct {
+		ID   string `help:"ID or name of server"`
+		FILE string `help:"Path to user data file"`
+	}
+	R(&ServerUserDataOptions{}, "server-set-user-data", "Update server user_data", func(s *mcclient.ClientSession, args *ServerUserDataOptions) error {
+		params := jsonutils.NewDict()
+		content, err := ioutil.ReadFile(args.FILE)
+		if err != nil {
+			return err
+		}
+		params.Add(jsonutils.NewString(string(content)), "user_data")
+		result, err := modules.Servers.PerformAction(s, args.ID, "user-data", params)
+		if err != nil {
+			return err
 		}
 		printObject(result)
 		return nil

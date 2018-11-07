@@ -21,7 +21,7 @@ type Tag struct {
 }
 
 type SSecurityGroup struct {
-	vpc               *SVpc
+	vpc *SVpc
 
 	RegionId          string
 	VpcId             string
@@ -349,7 +349,7 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Secur
 	return nil
 }
 
-func (self *SRegion) getSecRules(ingress []*ec2.IpPermission, egress []*ec2.IpPermission) ([]secrules.SecurityRule) {
+func (self *SRegion) getSecRules(ingress []*ec2.IpPermission, egress []*ec2.IpPermission) []secrules.SecurityRule {
 	rules := []secrules.SecurityRule{}
 	for _, p := range ingress {
 		ret, err := AwsIpPermissionToYunion(secrules.SecurityRuleIngress, *p)
@@ -393,11 +393,11 @@ func (self *SRegion) GetSecurityGroups(vpcId string, secgroupId string, offset i
 
 	ret, err := self.ec2Client.DescribeSecurityGroups(params)
 	if err != nil {
-		return nil, 0 , err
+		return nil, 0, err
 	}
 
 	securityGroups := []SSecurityGroup{}
-	for _,item := range ret.SecurityGroups {
+	for _, item := range ret.SecurityGroups {
 		if err := FillZero(item); err != nil {
 			return nil, 0, err
 		}

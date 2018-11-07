@@ -1,0 +1,5 @@
+# rbac for sysadmin
+condition: tenant=="system" && roles.contains("admin")
+is_admin: true
+policy:
+  *: allow

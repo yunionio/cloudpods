@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 
@@ -35,7 +36,7 @@ func init() {
 }
 
 func (manager *STenantCacheManager) FetchTenantByIdOrName(ctx context.Context, idStr string) (*STenant, error) {
-	tenant, err := manager.FetchByIdOrName("", idStr)
+	tenant, err := manager.FetchByIdOrName(nil, idStr)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return manager.fetchTenantFromKeystone(ctx, idStr)
@@ -63,7 +64,7 @@ func (manager *STenantCacheManager) FetchTenantById(ctx context.Context, idStr s
 }
 
 func (manager *STenantCacheManager) FetchTenantByName(ctx context.Context, idStr string) (*STenant, error) {
-	tenant, err := manager.FetchByName("", idStr)
+	tenant, err := manager.FetchByName(nil, idStr)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return manager.fetchTenantFromKeystone(ctx, idStr)
@@ -77,7 +78,7 @@ func (manager *STenantCacheManager) FetchTenantByName(ctx context.Context, idStr
 }
 
 func (manager *STenantCacheManager) fetchTenantFromKeystone(ctx context.Context, idStr string) (*STenant, error) {
-	s := auth.GetAdminSession("", "v1")
+	s := auth.GetAdminSession(consts.GetRegion(), "v1")
 	tenant, err := modules.Projects.Get(s, idStr, nil)
 	if err != nil {
 		log.Errorf("fetch project fail %s", err)

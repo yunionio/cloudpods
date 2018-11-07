@@ -47,6 +47,7 @@ type SSnapshot struct {
 	Size        int    `nullable:"false" list:"user"` // MB
 	OutOfChain  bool   `nullable:"false" default:"false" index:"true" list:"admin"`
 	FakeDeleted bool   `nullable:"false" default:"false" index:"true"`
+	DiskType    string `width:"32" charset:"ascii" nullable:"true" list:"user"`
 
 	CloudregionId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 }
@@ -54,10 +55,23 @@ type SSnapshot struct {
 var SnapshotManager *SSnapshotManager
 
 func init() {
-	SnapshotManager = &SSnapshotManager{SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(SSnapshot{}, "snapshots_tbl", "snapshot", "snapshots")}
+	SnapshotManager = &SSnapshotManager{
+		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
+			SSnapshot{},
+			"snapshots_tbl",
+			"snapshot",
+			"snapshots",
+		),
+	}
 }
 
-func ValidateSnapshotName(hypervisor, name string) error {
+func ValidateSnapshotName(hypervisor, name, owner string) error {
+	q := SnapshotManager.Query()
+	q = SnapshotManager.FilterByName(q, name)
+	q = SnapshotManager.FilterByOwner(q, owner)
+	if q.Count() != 0 {
+		return fmt.Errorf("Name conflict?")
+	}
 	if !('A' <= name[0] && name[0] <= 'Z' || 'a' <= name[0] && name[0] <= 'z') {
 		return fmt.Errorf("Name must start with letter")
 	}
@@ -86,7 +100,92 @@ func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	} else {
 		q = q.Equals("fake_deleted", false)
 	}
+
+	if jsonutils.QueryBoolean(query, "local", false) {
+		storages := StorageManager.Query().SubQuery()
+		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.Equals(storages.Field("storage_type"), STORAGE_LOCAL))
+		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
+	}
+
+	// Public cloud snapshot doesn't have storage id
+	if jsonutils.QueryBoolean(query, "share", false) {
+		storages := StorageManager.Query().SubQuery()
+		sq := storages.Query(storages.Field("id")).NotEquals("storage_type", "local")
+		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("storage_id")),
+			sqlchemy.In(q.Field("storage_id"), sq)))
+	}
+
+	if diskType, err := query.GetString("disk_type"); err == nil {
+		diskTbl := DiskManager.Query().SubQuery()
+		sq := diskTbl.Query(diskTbl.Field("id")).Equals("disk_type", diskType).SubQuery()
+		q = q.In("disk_id", sq)
+	}
+
+	if provider, err := query.GetString("provider"); err == nil {
+		cloudproviderTbl := CloudproviderManager.Query().SubQuery()
+		sq := cloudproviderTbl.Query(cloudproviderTbl.Field("id")).Equals("provider", provider)
+		q = q.In("manager_id", sq)
+	}
+
+	if managerStr := jsonutils.GetAnyString(query, []string{"manager", "manager_id"}); len(managerStr) > 0 {
+		managerObj, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewNotFoundError("manager %s not found", managerStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		q = q.Equals("manager_id", managerObj.GetId())
+	}
+
 	return q, nil
+}
+
+func (self *SSnapshot) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	return self.getMoreDetails(extra)
+}
+
+func (self *SSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	return self.getMoreDetails(extra)
+}
+
+func (self *SSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	if IStorage, _ := StorageManager.FetchById(self.StorageId); IStorage != nil {
+		storage := IStorage.(*SStorage)
+		extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
+	}
+	disk, _ := self.GetDisk()
+	if disk != nil {
+		extra.Add(jsonutils.NewString(disk.Status), "disk_status")
+		guests := disk.GetGuests()
+		if len(guests) == 1 {
+			extra.Add(jsonutils.NewString(guests[0].Name), "guest")
+			extra.Add(jsonutils.NewString(guests[0].Id), "guest_id")
+			extra.Add(jsonutils.NewString(guests[0].Status), "guest_status")
+		}
+		extra.Add(jsonutils.NewString(disk.Name), "disk_name")
+	}
+	if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
+		extra.Add(jsonutils.NewString(cloudprovider.Provider), "provider")
+	}
+	return extra
+}
+
+func (self *SSnapshot) GetShortDesc() *jsonutils.JSONDict {
+	res := self.SVirtualResourceBase.GetShortDesc()
+	res.Add(jsonutils.NewInt(int64(self.Size)), "size")
+	if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
+		res.Add(jsonutils.NewString(cloudprovider.Provider), "hypervisor")
+	}
+	if len(self.CloudregionId) > 0 {
+		cloudRegion := CloudregionManager.FetchRegionById(self.CloudregionId)
+		if cloudRegion != nil {
+			res.Add(jsonutils.NewString(cloudRegion.ExternalId), "region")
+		}
+	}
+	return res
 }
 
 func (self *SSnapshot) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -200,8 +299,11 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, userCred mccli
 	snapshot.SetModelManager(self)
 	snapshot.ProjectId = userCred.GetProjectId()
 	snapshot.DiskId = disk.Id
-	snapshot.StorageId = disk.StorageId
+	if len(disk.ExternalId) == 0 {
+		snapshot.StorageId = disk.StorageId
+	}
 	snapshot.Size = disk.DiskSize
+	snapshot.DiskType = disk.DiskType
 	snapshot.Location = location
 	snapshot.CreatedBy = createdBy
 	snapshot.Name = name
@@ -360,9 +462,13 @@ func totalSnapshotCount(projectId string) int {
 }
 
 // Only sync snapshot status
-func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshot) error {
+func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshot, projectId string, projectSync bool) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Status = ext.GetStatus()
+		self.DiskType = ext.GetDiskType()
+		if projectSync && len(projectId) > 0 {
+			self.ProjectId = projectId
+		}
 		return nil
 	})
 	if err != nil {
@@ -371,7 +477,7 @@ func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, 
 	return err
 }
 
-func (manager *SSnapshotManager) newFromCloudSnapshot(userCred mcclient.TokenCredential, extSnapshot cloudprovider.ICloudSnapshot, region *SCloudregion) (*SSnapshot, error) {
+func (manager *SSnapshotManager) newFromCloudSnapshot(userCred mcclient.TokenCredential, extSnapshot cloudprovider.ICloudSnapshot, region *SCloudregion, projectId string) (*SSnapshot, error) {
 	snapshot := SSnapshot{}
 	snapshot.SetModelManager(manager)
 
@@ -387,16 +493,21 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(userCred mcclient.TokenCre
 		}
 	}
 
+	snapshot.DiskType = extSnapshot.GetDiskType()
 	snapshot.Size = int(extSnapshot.GetSize()) * 1024
 	snapshot.ManagerId = extSnapshot.GetManagerId()
 	snapshot.CloudregionId = region.Id
 
 	snapshot.ProjectId = userCred.GetProjectId()
+	if len(projectId) > 0 {
+		snapshot.ProjectId = projectId
+	}
 	err := manager.TableSpec().Insert(&snapshot)
 	if err != nil {
 		log.Errorf("newFromCloudEip fail %s", err)
 		return nil, err
 	}
+	db.OpsLog.LogEvent(&snapshot, db.ACT_SNAPSHOT_DONE, snapshot.GetShortDesc(), userCred)
 	return &snapshot, nil
 }
 
@@ -413,7 +524,7 @@ func (manager *SSnapshotManager) getProviderSnapshotsByRegion(region *SCloudregi
 	return snapshots, nil
 }
 
-func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, snapshots []cloudprovider.ICloudSnapshot) compare.SyncResult {
+func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, snapshots []cloudprovider.ICloudSnapshot, projectId string, projectSync bool) compare.SyncResult {
 	syncResult := compare.SyncResult{}
 	dbSnapshots, err := manager.getProviderSnapshotsByRegion(region, provider)
 	if err != nil {
@@ -439,7 +550,7 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudSnapshot(userCred, commonext[i])
+		err = commondb[i].SyncWithCloudSnapshot(userCred, commonext[i], projectId, projectSync)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -447,7 +558,7 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		_, err := manager.newFromCloudSnapshot(userCred, added[i], region)
+		_, err := manager.newFromCloudSnapshot(userCred, added[i], region, projectId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -472,4 +583,23 @@ func (self *SSnapshot) GetISnapshotRegion() (cloudprovider.ICloudRegion, error) 
 		return nil, fmt.Errorf("fail to find region for snapshot")
 	}
 	return provider.GetIRegionById(region.GetExternalId())
+}
+
+func (self *SSnapshot) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SSnapshot) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	err := self.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	provider := self.GetCloudprovider()
+	if provider != nil {
+		if provider.Enabled {
+			return nil, httperrors.NewInvalidStatusError("Cannot purge snapshot on enabled cloud provider")
+		}
+	}
+	err = self.RealDelete(ctx, userCred)
+	return nil, err
 }

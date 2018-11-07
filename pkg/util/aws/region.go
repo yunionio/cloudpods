@@ -15,7 +15,7 @@ import (
 )
 
 type SRegion struct {
-	client *SAwsClient
+	client    *SAwsClient
 	ec2Client *ec2.EC2
 	iamClient *iam.IAM
 	s3Client  *s3.S3
@@ -27,19 +27,19 @@ type SRegion struct {
 	instanceTypes []SInstanceType
 
 	RegionEndpoint string
-	RegionId     string    // 这里为保持一致沿用阿里云RegionId的叫法, 与AWS RegionName字段对应
+	RegionId       string // 这里为保持一致沿用阿里云RegionId的叫法, 与AWS RegionName字段对应
 }
 
 /////////////////////////////////////////////////////////////////////////////
 /* 请不要使用这个client(AWS_DEFAULT_REGION)跨region查信息.有可能导致查询返回的信息为空。比如DescribeAvailabilityZones*/
-func (self *SRegion) GetClient() (*SAwsClient) {
+func (self *SRegion) GetClient() *SAwsClient {
 	return self.client
 }
 
 func (self *SRegion) getEc2Client() (*ec2.EC2, error) {
 	if self.ec2Client == nil {
 		s, err := session.NewSession(&sdk.Config{
-			Region: sdk.String(self.RegionId),
+			Region:      sdk.String(self.RegionId),
 			Credentials: credentials.NewStaticCredentials(self.client.accessKey, self.client.secret, ""),
 		})
 
@@ -57,7 +57,7 @@ func (self *SRegion) getEc2Client() (*ec2.EC2, error) {
 func (self *SRegion) getIamClient() (*iam.IAM, error) {
 	if self.iamClient == nil {
 		s, err := session.NewSession(&sdk.Config{
-			Region: sdk.String(self.RegionId),
+			Region:      sdk.String(self.RegionId),
 			Credentials: credentials.NewStaticCredentials(self.client.accessKey, self.client.secret, ""),
 		})
 
@@ -74,7 +74,7 @@ func (self *SRegion) getIamClient() (*iam.IAM, error) {
 func (self *SRegion) getS3Client() (*s3.S3, error) {
 	if self.s3Client == nil {
 		s, err := session.NewSession(&sdk.Config{
-			Region: sdk.String(self.RegionId),
+			Region:      sdk.String(self.RegionId),
 			Credentials: credentials.NewStaticCredentials(self.client.accessKey, self.client.secret, ""),
 		})
 
@@ -87,6 +87,7 @@ func (self *SRegion) getS3Client() (*s3.S3, error) {
 
 	return self.s3Client, nil
 }
+
 /////////////////////////////////////////////////////////////////////////////
 func (self *SRegion) fetchZones() error {
 	// todo: 这里将过滤出指定region下全部的zones。是否只过滤出可用的zone即可？ The state of the Availability Zone (available | information | impaired | unavailable)
@@ -121,12 +122,12 @@ func (self *SRegion) fetchIVpcs() error {
 		}
 
 		self.ivpcs = append(self.ivpcs, &SVpc{region: self,
-		CidrBlock: *vpc.CidrBlock,
-		Tags: tags,
-		IsDefault: *vpc.IsDefault,
-		RegionId: self.RegionId,
-		Status: *vpc.State,
-		VpcId: *vpc.VpcId,
+			CidrBlock: *vpc.CidrBlock,
+			Tags:      tags,
+			IsDefault: *vpc.IsDefault,
+			RegionId:  self.RegionId,
+			Status:    *vpc.State,
+			VpcId:     *vpc.VpcId,
 		})
 	}
 
@@ -134,7 +135,7 @@ func (self *SRegion) fetchIVpcs() error {
 }
 
 func (self *SRegion) fetchInfrastructure() error {
-	if _, err := self.getEc2Client();err != nil {
+	if _, err := self.getEc2Client(); err != nil {
 		return err
 	}
 
@@ -219,7 +220,7 @@ func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 		return nil, err
 	}
 
-	eips, total, err := self.GetEips("", 0,0)
+	eips, total, err := self.GetEips("", 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -359,7 +360,7 @@ func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, me
 		log.Debugf("Search in zone %s", z.LocalName)
 		net := z.getNetworkById(networkId)
 		if net != nil {
-			inst, err := z.getHost().CreateVM(name, imgId, 0, cpu, memGB*1024, networkId, "", "", "", storageType, dataDiskSizesGB, publicKey, "")
+			inst, err := z.getHost().CreateVM(name, imgId, 0, cpu, memGB*1024, networkId, "", "", "", storageType, dataDiskSizesGB, publicKey, "", "")
 			if err != nil {
 				return nil, err
 			}

@@ -35,9 +35,12 @@ func initNode() {
 		return nil
 	})
 
-	R(&o.IdentsOptions{}, cmdN("delete"), "Delete node", func(s *mcclient.ClientSession, args *o.IdentsOptions) error {
-		ret := k8s.Nodes.BatchDeleteWithParam(s, args.ID, nil, nil)
-		printBatchResults(ret, k8s.Nodes.GetColumns(s))
+	R(&o.IdentOptions{}, cmdN("delete"), "Delete node", func(s *mcclient.ClientSession, args *o.IdentOptions) error {
+		ret, err := k8s.Nodes.Delete(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
 		return nil
 	})
 

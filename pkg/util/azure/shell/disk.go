@@ -7,35 +7,41 @@ import (
 
 func init() {
 	type DiskListOptions struct {
-		Offset int `help:"List offset"`
-		Limit  int `help:"List limit"`
+		Classic bool `help:"List classic disks"`
+		Offset  int  `help:"List offset"`
+		Limit   int  `help:"List limit"`
 	}
 	shellutils.R(&DiskListOptions{}, "disk-list", "List disks", func(cli *azure.SRegion, args *DiskListOptions) error {
-		if disks, err := cli.GetDisks(); err != nil {
-			return err
-		} else {
+		if args.Classic {
+			disks, err := cli.GetClassicDisks()
+			if err != nil {
+				return err
+			}
 			printList(disks, len(disks), args.Offset, args.Limit, []string{})
 			return nil
 		}
+		disks, err := cli.GetDisks()
+		if err != nil {
+			return err
+		}
+		printList(disks, len(disks), args.Offset, args.Limit, []string{})
 		return nil
 	})
 
 	type DiskCreateOptions struct {
 		NAME        string `help:"Disk name"`
-		StorageType string `help:"Storage type" choices:"Standard_LRS|Premium_LRS"`
+		STORAGETYPE string `help:"Storage type" choices:"Standard_LRS|Premium_LRS"`
 		SizeGb      int32  `help:"Disk size"`
 		Image       string `help:"Image id"`
 		Desc        string `help:"description for disk"`
 	}
 
 	shellutils.R(&DiskCreateOptions{}, "disk-create", "Create disk", func(cli *azure.SRegion, args *DiskCreateOptions) error {
-		if diskId, err := cli.CreateDisk(args.StorageType, args.NAME, args.SizeGb, args.Desc, args.Image); err != nil {
+		disk, err := cli.CreateDisk(args.STORAGETYPE, args.NAME, args.SizeGb, args.Desc, args.Image)
+		if err != nil {
 			return err
-		} else if disk, err := cli.GetDisk(diskId); err != nil {
-			return err
-		} else {
-			printObject(disk)
 		}
+		printObject(disk)
 		return nil
 	})
 

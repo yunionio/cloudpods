@@ -27,6 +27,7 @@ type IGuestDriver interface {
 	GetNamedNetworkConfiguration(guest *SGuest, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig) (*SNetwork, string, int8, IPAddlocationDirection)
 
 	Attach2RandomNetwork(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig, pendingUsage quotas.IQuota) error
+	GetRandomNetworkTypes() []string
 
 	ChooseHostStorage(host *SHost, backend string) *SStorage
 
@@ -40,6 +41,7 @@ type IGuestDriver interface {
 
 	StartGuestStopTask(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error
 	StartGuestResetTask(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, isHard bool, parentTaskId string) error
+	StartGuestRestartTask(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error
 
 	RequestSoftReset(ctx context.Context, guest *SGuest, task taskman.ITask) error
 

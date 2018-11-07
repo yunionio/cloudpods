@@ -7,7 +7,6 @@ import (
 
 func init() {
 	type CapabilitiesOptions struct {
-
 	}
 	R(&CapabilitiesOptions{}, "capabilities", "Show backend capabilities", func(s *mcclient.ClientSession, args *CapabilitiesOptions) error {
 		result, err := modules.Capabilities.List(s, nil)

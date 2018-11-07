@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -28,7 +29,14 @@ type SCloudregionManager struct {
 var CloudregionManager *SCloudregionManager
 
 func init() {
-	CloudregionManager = &SCloudregionManager{SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(SCloudregion{}, "cloudregions_tbl", "cloudregion", "cloudregions")}
+	CloudregionManager = &SCloudregionManager{
+		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
+			SCloudregion{},
+			"cloudregions_tbl",
+			"cloudregion",
+			"cloudregions",
+		),
+	}
 }
 
 type SCloudregion struct {
@@ -56,6 +64,9 @@ func (self *SCloudregion) ValidateDeleteCondition(ctx context.Context) error {
 	if self.GetZoneCount() > 0 || self.GetVpcCount() > 0 {
 		return httperrors.NewNotEmptyError("not empty cloud region")
 	}
+	if self.Id == "default" {
+		return httperrors.NewProtectedResourceError("not allow to delete default cloud region")
+	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
@@ -68,6 +79,25 @@ func (self *SCloudregion) GetZoneCount() int {
 	} else {
 		return zones.Equals("cloudregion_id", self.Id).Count()
 	}
+}
+
+func (self *SCloudregion) GetGuestCount(increment bool) int {
+	zoneTable := ZoneManager.Query("id")
+	if self.Id == "default" {
+		zoneTable = zoneTable.Filter(sqlchemy.OR(sqlchemy.IsNull(zoneTable.Field("cloudregion_id")),
+			sqlchemy.IsEmpty(zoneTable.Field("cloudregion_id")),
+			sqlchemy.Equals(zoneTable.Field("cloudregion_id"), self.Id)))
+	} else {
+		zoneTable = zoneTable.Equals("cloudregion_id", self.Id)
+	}
+	sq := HostManager.Query("id").In("zone_id", zoneTable)
+	query := GuestManager.Query().In("host_id", sq)
+	if increment {
+		year, month, _ := time.Now().UTC().Date()
+		startOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+		query.GE("created_at", startOfMonth)
+	}
+	return query.Count()
 }
 
 func (self *SCloudregion) GetVpcCount() int {
@@ -84,6 +114,8 @@ func (self *SCloudregion) GetVpcCount() int {
 func (self *SCloudregion) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	extra.Add(jsonutils.NewInt(int64(self.GetVpcCount())), "vpc_count")
 	extra.Add(jsonutils.NewInt(int64(self.GetZoneCount())), "zone_count")
+	extra.Add(jsonutils.NewInt(int64(self.GetGuestCount(false))), "guest_count")
+	extra.Add(jsonutils.NewInt(int64(self.GetGuestCount(true))), "guest_increment_count")
 	return extra
 }
 

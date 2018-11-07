@@ -34,8 +34,15 @@ var GuestnetworkManager *SGuestnetworkManager
 
 func init() {
 	db.InitManager(func() {
-		GuestnetworkManager = &SGuestnetworkManager{SGuestJointsManager: NewGuestJointsManager(SGuestnetwork{},
-			"guestnetworks_tbl", "guestnetwork", "guestnetworks", NetworkManager)}
+		GuestnetworkManager = &SGuestnetworkManager{
+			SGuestJointsManager: NewGuestJointsManager(
+				SGuestnetwork{},
+				"guestnetworks_tbl",
+				"guestnetwork",
+				"guestnetworks",
+				NetworkManager,
+			),
+		}
 	})
 }
 
@@ -122,7 +129,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCr
 		driver = "virtio"
 	}
 	gn.Driver = driver
-	if bwLimit > 0 {
+	if bwLimit >= 0 {
 		gn.BwLimit = bwLimit
 	}
 
@@ -162,7 +169,7 @@ func (self *SGuestnetwork) getVirtualRand(width int, randomized bool) string {
 	io.WriteString(hash, self.GuestId)
 	io.WriteString(hash, self.NetworkId)
 	if randomized {
-		io.WriteString(hash, fmt.Sprintf("%d", time.Now().String()))
+		io.WriteString(hash, fmt.Sprintf("%d", time.Now().Unix()))
 	}
 	hex := fmt.Sprintf("%x", hash.Sum(nil))
 	return hex[:width]
@@ -338,10 +345,10 @@ func (manager *SGuestnetworkManager) DeleteGuestNics(ctx context.Context, guest 
 	return nil
 }
 
-func (manager *SGuestnetworkManager) getGuestNicByIP(ip string) (*SGuestnetwork, error) {
+func (manager *SGuestnetworkManager) getGuestNicByIP(ip string, networkId string) (*SGuestnetwork, error) {
 	gn := SGuestnetwork{}
 	q := manager.Query()
-	q = q.Equals("ip_addr", ip)
+	q = q.Equals("ip_addr", ip).Equals("network_id", networkId)
 	err := q.First(&gn)
 	if err != nil {
 		if err != sql.ErrNoRows {

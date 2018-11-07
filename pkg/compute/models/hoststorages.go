@@ -20,18 +20,25 @@ var HoststorageManager *SHoststorageManager
 
 func init() {
 	db.InitManager(func() {
-		HoststorageManager = &SHoststorageManager{SHostJointsManager: NewHostJointsManager(SHoststorage{},
-			"hoststorages_tbl", "hoststorage", "hoststorages", StorageManager)}
+		HoststorageManager = &SHoststorageManager{
+			SHostJointsManager: NewHostJointsManager(
+				SHoststorage{},
+				"hoststorages_tbl",
+				"hoststorage",
+				"hoststorages",
+				StorageManager,
+			),
+		}
 	})
 }
 
 type SHoststorage struct {
 	SHostJointsBase
 
-	MountPoint string `width:"256" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
+	MountPoint string `width:"256" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
 
-	HostId    string `width:"36" charset:"ascii" nullable:"false" list:"admin" key_index:"true"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
-	StorageId string `width:"36" charset:"ascii" nullable:"false" list:"admin" key_index:"true"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	HostId    string `width:"36" charset:"ascii" nullable:"false" list:"admin" key_index:"true" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	StorageId string `width:"36" charset:"ascii" nullable:"false" list:"admin" key_index:"true" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 
 	Config       *jsonutils.JSONArray `nullable:"true" get:"admin"`  // Column(JSONEncodedDict, nullable=True)
 	RealCapacity int                  `nullable:"true" list:"admin"` // Column(Integer, nullable=True)

@@ -30,9 +30,14 @@ func (this *JointResourceManager) Get(s *mcclient.ClientSession, mid, sid string
 			path = fmt.Sprintf("%s?%s", path, qs)
 		}
 	}
-	return this._get(s, path, this.Keyword)
+	result, err := this._get(s, path, this.Keyword)
+	if err != nil {
+		return nil, err
+	}
+	return this.filterSingleResult(s, result)
 }
 
+/*
 func (this *JointResourceManager) List(s *mcclient.ClientSession, params jsonutils.JSONObject) (*ListResult, error) {
 	path := fmt.Sprintf("/%s", this.KeyString())
 	if params != nil {
@@ -43,6 +48,7 @@ func (this *JointResourceManager) List(s *mcclient.ClientSession, params jsonuti
 	}
 	return this._list(s, path, this.KeywordPlural)
 }
+*/
 
 func (this *JointResourceManager) ListDescendent(s *mcclient.ClientSession, mid string, params jsonutils.JSONObject) (*ListResult, error) {
 	path := fmt.Sprintf("/%s/%s/%s", this.Master.KeyString(), url.PathEscape(mid), this.Slave.KeyString())
@@ -52,7 +58,11 @@ func (this *JointResourceManager) ListDescendent(s *mcclient.ClientSession, mid 
 			path = fmt.Sprintf("%s?%s", path, qs)
 		}
 	}
-	return this._list(s, path, this.KeywordPlural)
+	results, err := this._list(s, path, this.KeywordPlural)
+	if err != nil {
+		return nil, err
+	}
+	return this.filterListResults(s, results)
 }
 
 func (this *JointResourceManager) ListDescendent2(s *mcclient.ClientSession, sid string, params jsonutils.JSONObject) (*ListResult, error) {
@@ -67,7 +77,11 @@ func (this *JointResourceManager) ListAscendent(s *mcclient.ClientSession, mid s
 			path = fmt.Sprintf("%s?%s", path, qs)
 		}
 	}
-	return this._list(s, path, this.KeywordPlural)
+	results, err := this._list(s, path, this.KeywordPlural)
+	if err != nil {
+		return nil, err
+	}
+	return this.filterListResults(s, results)
 }
 
 /* func (this *JointResourceManager) Exists(s *mcclient.ClientSession, mid, sid string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -83,7 +97,11 @@ func (this *JointResourceManager) ListAscendent(s *mcclient.ClientSession, mid s
 
 func (this *JointResourceManager) Attach(s *mcclient.ClientSession, mid, sid string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s/%s/%s/%s", this.Master.KeyString(), url.PathEscape(mid), this.Slave.KeyString(), url.PathEscape(sid))
-	return this._post(s, path, this.params2Body(params), this.Keyword)
+	result, err := this._post(s, path, this.params2Body(s, params), this.Keyword)
+	if err != nil {
+		return nil, err
+	}
+	return this.filterSingleResult(s, result)
 }
 
 func (this *JointResourceManager) BatchAttach(s *mcclient.ClientSession, mid string, sids []string, params jsonutils.JSONObject) []SubmitResult {
@@ -100,7 +118,11 @@ func (this *JointResourceManager) BatchAttach2(s *mcclient.ClientSession, mid st
 
 func (this *JointResourceManager) Detach(s *mcclient.ClientSession, mid, sid string) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s/%s/%s/%s", this.Master.KeyString(), url.PathEscape(mid), this.Slave.KeyString(), url.PathEscape(sid))
-	return this._delete(s, path, nil, this.Keyword)
+	result, err := this._delete(s, path, nil, this.Keyword)
+	if err != nil {
+		return nil, err
+	}
+	return this.filterSingleResult(s, result)
 }
 
 func (this *JointResourceManager) BatchDetach(s *mcclient.ClientSession, mid string, sids []string) []SubmitResult {
@@ -117,10 +139,18 @@ func (this *JointResourceManager) BatchDetach2(s *mcclient.ClientSession, mid st
 
 func (this *JointResourceManager) Update(s *mcclient.ClientSession, mid, sid string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s/%s/%s/%s", this.Master.KeyString(), url.PathEscape(mid), this.Slave.KeyString(), url.PathEscape(sid))
-	return this._put(s, path, this.params2Body(params), this.Keyword)
+	result, err := this._put(s, path, this.params2Body(s, params), this.Keyword)
+	if err != nil {
+		return nil, err
+	}
+	return this.filterSingleResult(s, result)
 }
 
 func (this *JointResourceManager) Patch(s *mcclient.ClientSession, mid, sid string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s/%s/%s/%s", this.Master.KeyString(), url.PathEscape(mid), this.Slave.KeyString(), url.PathEscape(sid))
-	return this._patch(s, path, this.params2Body(params), this.Keyword)
+	result, err := this._patch(s, path, this.params2Body(s, params), this.Keyword)
+	if err != nil {
+		return nil, err
+	}
+	return this.filterSingleResult(s, result)
 }

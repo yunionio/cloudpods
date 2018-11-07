@@ -86,11 +86,11 @@ func (self *TagSpec) GetTagWithDefault(k, Default string) string {
 	return v
 }
 
-func (self *TagSpec) GetNameTag() (string) {
+func (self *TagSpec) GetNameTag() string {
 	return self.GetTagWithDefault("Name", "")
 }
 
-func (self *TagSpec) GetDescTag() (string){
+func (self *TagSpec) GetDescTag() string {
 	return self.GetTagWithDefault("Description", "")
 }
 
@@ -315,7 +315,6 @@ func YunionSecRuleToAws(rule secrules.SecurityRule) ([]*ec2.IpPermission, error)
 	return permissions, nil
 }
 
-
 // fill a pointer struct with zero value.
 func FillZero(i interface{}) error {
 	V := reflect.Indirect(reflect.ValueOf(i))
@@ -356,20 +355,20 @@ func FillZero(i interface{}) error {
 
 func NextDeviceName(curDeviceNames []string) (string, error) {
 	currents := []string{}
-	for _, item := range curDeviceNames{
+	for _, item := range curDeviceNames {
 		currents = append(currents, strings.ToLower(item))
 	}
 
 	for i := 0; i < 25; i++ {
 		device := fmt.Sprintf("/dev/sd%s", string(98+i))
 		found := false
-		for _, item := range currents{
+		for _, item := range currents {
 			if strings.HasPrefix(item, device) {
 				found = true
 			}
 		}
 
-		if !found{
+		if !found {
 			return device, nil
 		}
 	}
@@ -378,12 +377,12 @@ func NextDeviceName(curDeviceNames []string) (string, error) {
 		device := fmt.Sprintf("/dev/vxd%s", string(98+i))
 		found := false
 		for _, item := range currents {
-			if !strings.HasPrefix(item, device){
+			if !strings.HasPrefix(item, device) {
 				return device, nil
 			}
 		}
 
-		if !found{
+		if !found {
 			return device, nil
 		}
 	}
@@ -397,7 +396,7 @@ func FetchTags(client *ec2.EC2, resourceId string) (*jsonutils.JSONDict, error) 
 	params := &ec2.DescribeTagsInput{}
 	filters := []*ec2.Filter{}
 	if len(resourceId) == 0 {
-		return result,fmt.Errorf("resource id should not be empty")
+		return result, fmt.Errorf("resource id should not be empty")
 	}
 	// todo: add resource type filter
 	filters = AppendSingleValueFilter(filters, "resource-id", resourceId)

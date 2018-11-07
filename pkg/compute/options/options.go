@@ -26,24 +26,26 @@ type ComputeOptions struct {
 	PendingDeleteExpireSeconds     int  `default:"259200" help:"How long a pending delete VM/disks cleaned automatically, default 3 days"`
 	PendingDeleteMaxCleanBatchSize int  `default:"50" help:"How many pending delete servers can be clean in a batch"`
 
+	LoadbalancerPendingDeleteCheckInterval int `default:"3600" help:"Interval between checks of pending deleted loadbalancer objects, defaults to 1h"`
+
 	ImageCacheStoragePolicy string `default:"least_used" choices:"best_fit|least_used" help:"Policy to choose storage for image cache, best_fit or least_used"`
 	MetricsRetentionDays    int32  `default:"30" help:"Retention days for monitoring metrics in influxdb"`
 
 	DefaultBandwidth int `default:"1000" help:"Default bandwidth"`
 
-	DefaultCpuQuota            int `help:"Common CPU quota per tenant, default 50" default:"50"`
-	DefaultMemoryQuota         int `default:"51200" help:"Common memory quota per tenant in MB, default 50G"`
-	DefaultStorageQuota        int `default:"3072000" help:"Common storage quota per tenant in MB, default 3000G"`
-	DefaultPortQuota           int `default:"50" help:"Common network port quota per tenant, default 50"`
+	DefaultCpuQuota            int `help:"Common CPU quota per tenant, default 200" default:"200"`
+	DefaultMemoryQuota         int `default:"204800" help:"Common memory quota per tenant in MB, default 200G"`
+	DefaultStorageQuota        int `default:"12288000" help:"Common storage quota per tenant in MB, default 12T"`
+	DefaultPortQuota           int `default:"200" help:"Common network port quota per tenant, default 200"`
 	DefaultEipQuota            int `default:"10" help:"Common floating IP quota per tenant, default 10"`
-	DefaultEportQuota          int `default:"50" help:"Common exit network port quota per tenant, default 50"`
-	DefaultBwQuota             int `default:"500000" help:"Common network port bandwidth in mbps quota per tenant, default 50*10Gbps"`
-	DefaultEbwQuota            int `default:"1000" help:"Common exit network port bandwidth quota per tenant, default 1Gbps"`
+	DefaultEportQuota          int `default:"200" help:"Common exit network port quota per tenant, default 200"`
+	DefaultBwQuota             int `default:"2000000" help:"Common network port bandwidth in mbps quota per tenant, default 200*10Gbps"`
+	DefaultEbwQuota            int `default:"4000" help:"Common exit network port bandwidth quota per tenant, default 4Gbps"`
 	DefaultKeypairQuota        int `default:"50" help:"Common keypair quota per tenant, default 50"`
 	DefaultImageQuota          int `default:"5" help:"Common image quota per tenant, default 5"`
 	DefaultGroupQuota          int `default:"50" help:"Common group quota per tenant, default 50"`
 	DefaultSecgroupQuota       int `default:"50" help:"Common security group quota per tenant, default 50"`
-	DefaultIsolatedDeviceQuota int `default:"50" help:"Common isolated device quota per tenant, default 50"`
+	DefaultIsolatedDeviceQuota int `default:"200" help:"Common isolated device quota per tenant, default 200"`
 	DefaultSnapshotQuota       int `default:"10" help:"Common snapshot quota per tenant, default 10"`
 
 	SystemAdminQuotaCheck bool `help:"Enable quota check for system admin, default False" default:"false"`
@@ -57,7 +59,12 @@ type ComputeOptions struct {
 	DefaultMaxManualSnapshotCount int `default:"2" help:"Per Disk max manual snapshot count, default 2"`
 
 	// aws instance type file
-	DefaultAwsInstanceTypeFile    string `default:"/etc/yunion/aws_instance_types.json" help:"aws instance type json file"`
+	DefaultAwsInstanceTypeFile string `default:"/etc/yunion/aws_instance_types.json" help:"aws instance type json file"`
+
+	ConvertHypervisorDefaultTemplate string `default:"Default template" help:"Kvm baremetal convert option"`
+	ConvertEsxiDefaultTemplate       string `default:"Default template" help:"ESXI baremetal convert option"`
+	ConvertKubeletDockerVolumeSize   string `default:"256g" help:"Docker volume size"`
+
 	cloudcommon.DBOptions
 }
 

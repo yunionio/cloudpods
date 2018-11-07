@@ -6,6 +6,7 @@ import (
 	"path"
 
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/structarg"
@@ -26,14 +27,22 @@ type Options struct {
 	AdminProject       string   `help:"Admin project" default:"system" alias:"admin-tenant-name"`
 	CorsHosts          []string `help:"List of hostname that allow CORS"`
 	AuthTokenCacheSize uint32   `help:"Auth token Cache Size" default:"2048"`
+	TempPath           string   `help:"Path for store temp file, at least 40G space" default:"/opt/yunion/tmp"`
+
+	DebugClient bool `help:"Switch on/off mcclient debugs" default:"false"`
 
 	ApplicationID      string `help:"Application ID"`
 	RequestWorkerCount int    `default:"4" help:"Request worker thread count, default is 4"`
 
 	NotifyAdminUser string `default:"sysadmin" help:"System administrator user ID or name to notify"`
 
-	GlobalVirtualResourceNamespace bool `help:"Per project namespace or global namespace for virtual resources"`
-	DebugSqlchemy                  bool `default:"False" help:"Print SQL executed by sqlchemy"`
+	EnableSsl   bool   `help:"Enable https"`
+	SslCertfile string `help:"ssl certification file"`
+	SslKeyfile  string `help:"ssl certification key file"`
+
+	EnableRbac                       bool `help:"Switch on Role-based Access Control" default:"false"`
+	RbacPolicySyncPeriodSeconds      int  `help:"policy sync interval in seconds, default 15 minutes" default:"900"`
+	RbacPolicySyncFailedRetrySeconds int  `help:"seconds to wait after a failed sync, default 30 seconds" default:"30"`
 
 	structarg.BaseOptions
 }
@@ -41,6 +50,9 @@ type Options struct {
 type DBOptions struct {
 	SqlConnection string `help:"SQL connection string"`
 	AutoSyncTable bool   `help:"Automatically synchronize table changes if differences are detected"`
+
+	GlobalVirtualResourceNamespace bool `help:"Per project namespace or global namespace for virtual resources"`
+	DebugSqlchemy                  bool `default:"False" help:"Print SQL executed by sqlchemy"`
 
 	Options
 }
@@ -105,4 +117,6 @@ func ParseOptions(optStruct interface{}, optionsRef *Options, args []string, con
 	}
 
 	log.V(10).Debugf("Parsed options: %#v", optStruct)
+
+	consts.SetRegion(optionsRef.Region)
 }

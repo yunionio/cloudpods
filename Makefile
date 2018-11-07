@@ -44,31 +44,34 @@ install: prepare_dir
 	done
 
 
-build: prepare_dir
+build: prepare_dir fmt
 	@for PKG in $(CMDS); do \
 		echo build $$PKG; \
 		$(GO_BUILD) -o $(BIN_DIR)/`basename $${PKG}` $$PKG; \
 	done
 
 
-test: prepare_dir
+test:
 	@for PKG in $$( $(PKGS) | grep "$(filter-out $@,$(MAKECMDGOALS))" ); do \
 		echo $$PKG; \
 		$(GO_TEST) $$PKG; \
 	done
 
+vet:
+	go vet ./...
 
-cmd/%: prepare_dir
+cmd/%: prepare_dir fmt
 	$(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
 
 
-pkg/%: prepare_dir
+pkg/%: prepare_dir fmt
 	$(GO_INSTALL) $(REPO_PREFIX)/$@
 
 
+# a hack
 rpm:
-	make cmd/$(filter-out $@,$(MAKECMDGOALS))
-	$(BUILD_SCRIPT) $(filter-out $@,$(MAKECMDGOALS))
+	$(MAKE) $(patsubst %,cmd/%,$(filter-out $@,$(MAKECMDGOALS)))
+	$(foreach cmd,$(filter-out $@,$(MAKECMDGOALS)),$(BUILD_SCRIPT) $(cmd);)
 
 rpmclean:
 	rm -fr $(BUILD_DIR)/rpms
@@ -98,7 +101,7 @@ clean:
 
 
 fmt:
-	find . -type f -name "*.go" -not -path "./_output/*" \
+	@find . -type f -name "*.go" -not -path "./_output/*" \
 		-not -path "./vendor/*" | xargs gofmt -s -w
 
 dep:

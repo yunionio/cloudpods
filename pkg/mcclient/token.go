@@ -3,6 +3,7 @@ package mcclient
 import (
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
 )
 
@@ -20,19 +21,24 @@ type Endpoint struct {
 	Interface   string
 }
 
+type IIdentityProvider interface {
+	GetProjectId() string
+	GetUserId() string
+	GetTenantId() string
+}
+
 type TokenCredential interface {
 	gotypes.ISerializable
 
 	IServiceCatalog
 
+	IIdentityProvider
+
 	GetTokenString() string
 	GetDomainId() string
 	GetDomainName() string
-	GetTenantId() string
 	GetTenantName() string
-	GetProjectId() string
 	GetProjectName() string
-	GetUserId() string
 	GetUserName() string
 	GetRoles() []string
 	GetExpires() time.Time
@@ -43,8 +49,11 @@ type TokenCredential interface {
 	GetRegions() []string
 
 	GetServiceCatalog() IServiceCatalog
+	GetCatalogData(serviceTypes []string, region string) jsonutils.JSONObject
 
 	GetInternalServices(region string) []string
 	GetExternalServices(region string) []ExternalService
 	GetEndpoints(region string, endpointType string) []Endpoint
+
+	ToJson() jsonutils.JSONObject
 }

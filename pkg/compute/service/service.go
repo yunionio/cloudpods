@@ -12,11 +12,12 @@ import (
 	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks"
 	_ "yunion.io/x/onecloud/pkg/util/aliyun/provider"
+	_ "yunion.io/x/onecloud/pkg/util/aws/provider"
 	_ "yunion.io/x/onecloud/pkg/util/azure/provider"
 	_ "yunion.io/x/onecloud/pkg/util/esxi/provider"
-	_ "yunion.io/x/onecloud/pkg/util/aws/provider"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute"
@@ -25,6 +26,8 @@ import (
 )
 
 func StartService() {
+	consts.SetServiceType("compute")
+
 	cloudcommon.ParseOptions(&options.Options, &options.Options.Options, os.Args, "region.conf")
 
 	if options.Options.DebugSqlchemy {
@@ -40,10 +43,6 @@ func StartService() {
 		log.Infof("Auth complete!!")
 	})
 
-	if options.Options.GlobalVirtualResourceNamespace {
-		db.EnableGlobalVirtualResourceNamespace()
-	}
-
 	cloudcommon.InitDB(&options.Options.DBOptions)
 	defer cloudcommon.CloseDB()
 
@@ -57,6 +56,7 @@ func StartService() {
 			cron := cronman.GetCronJobManager()
 			cron.AddJob1("CleanPendingDeleteServers", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.GuestManager.CleanPendingDeleteServers)
 			cron.AddJob1("CleanPendingDeleteDisks", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.DiskManager.CleanPendingDeleteDisks)
+			cron.AddJob1("CleanPendingDeleteLoadbalancers", time.Duration(options.Options.LoadbalancerPendingDeleteCheckInterval)*time.Second, models.LoadbalancerAgentManager.CleanPendingDeleteLoadbalancers)
 			cron.AddJob2("AutoDiskSnapshot", options.Options.AutoSnapshotDay, options.Options.AutoSnapshotHour, 0, 0, models.DiskManager.AutoDiskSnapshot)
 
 			cron.Start()

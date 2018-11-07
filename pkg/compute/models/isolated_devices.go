@@ -47,7 +47,14 @@ type SIsolatedDeviceManager struct {
 var IsolatedDeviceManager *SIsolatedDeviceManager
 
 func init() {
-	IsolatedDeviceManager = &SIsolatedDeviceManager{SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(SIsolatedDevice{}, "isolated_devices_tbl", "isolated_device", "isolated_devices")}
+	IsolatedDeviceManager = &SIsolatedDeviceManager{
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+			SIsolatedDevice{},
+			"isolated_devices_tbl",
+			"isolated_device",
+			"isolated_devices",
+		),
+	}
 }
 
 type SIsolatedDevice struct {
@@ -115,7 +122,7 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(ctx context.Context, q *sq
 	}
 	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
 	if len(zoneStr) > 0 {
-		zone, _ := ZoneManager.FetchByIdOrName("", zoneStr)
+		zone, _ := ZoneManager.FetchByIdOrName(nil, zoneStr)
 		if zone == nil {
 			return nil, httperrors.NewResourceNotFoundError("Zone %s not found", zoneStr)
 		}
@@ -541,4 +548,24 @@ func (self *SIsolatedDevice) CustomizeDelete(ctx context.Context, userCred mccli
 		db.OpsLog.LogEvent(host, db.ACT_HOST_DETACH_ISOLATED_DEVICE, self.GetShortDesc(), userCred)
 	}
 	return self.RealDelete(ctx, userCred)
+}
+
+func (manager *SIsolatedDeviceManager) FindByHost(id string) []SIsolatedDevice {
+	return manager.FindByHosts([]string{id})
+}
+
+func (manager *SIsolatedDeviceManager) FindByHosts(ids []string) []SIsolatedDevice {
+	dest := make([]SIsolatedDevice, 0)
+	err := manager.TableSpec().Query().In("host_id", ids).All(&dest)
+	if err != nil {
+		log.Errorln(err)
+		return nil
+	}
+	return dest
+}
+
+func (manager *SIsolatedDeviceManager) DeleteDevicesByHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost) {
+	for _, dev := range manager.FindByHost(host.Id) {
+		dev.Delete(ctx, userCred)
+	}
 }

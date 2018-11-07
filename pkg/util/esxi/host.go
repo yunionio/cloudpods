@@ -358,7 +358,7 @@ func (self *SHost) GetManagerId() string {
 }
 
 func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, vswitchId string, ipAddr string, desc string,
-	passwd string, storageType string, diskSizes []int, publicKey string, secGrpId string) (cloudprovider.ICloudVM, error) {
+	passwd string, storageType string, diskSizes []int, publicKey string, secGrpId string, userData string) (cloudprovider.ICloudVM, error) {
 	log.Debugf("CreateVM")
 	return nil, cloudprovider.ErrNotImplemented
 }

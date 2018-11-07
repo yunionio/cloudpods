@@ -129,4 +129,17 @@ func initCluster() {
 		printObject(ret)
 		return nil
 	})
+
+	R(&o.ClusterDeleteNodesOptions{}, cmdN("delete-nodes"), "Delete nodes in cluster", func(s *mcclient.ClientSession, args *o.ClusterDeleteNodesOptions) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := k8s.Clusters.PerformAction(s, args.ID, "delete-nodes", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
 }

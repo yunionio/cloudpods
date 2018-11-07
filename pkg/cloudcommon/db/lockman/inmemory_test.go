@@ -46,7 +46,7 @@ func TestInMemoryLockManager(t *testing.T) {
 			ctx := context.WithValue(context.Background(), "ID", localId)
 			for i := 0; i < cycle; i += 1 {
 				obj := &FakeObject{Id: objId}
-				run(t, ctx, obj, localId, time.Duration(id)*time.Second)
+				run(t, ctx, obj, localId, time.Duration(localId)*time.Second)
 			}
 			wg.Done()
 		}(id)

@@ -66,6 +66,7 @@ type JSONObject interface {
 	unmarshalValue(val reflect.Value) error
 	// IsZero() bool
 	Interface() interface{}
+	isCompond() bool
 }
 
 type JSONValue struct {

@@ -9,16 +9,33 @@ import (
 
 func init() {
 	type InstanceListOptions struct {
-		Limit  int `help:"page size"`
-		Offset int `help:"page offset"`
+		Classic   bool `help:"List classic instance"`
+		ScaleSets bool `help:"List Scale Sets instance"`
+		Limit     int  `help:"page size"`
+		Offset    int  `help:"page offset"`
 	}
 	shellutils.R(&InstanceListOptions{}, "instance-list", "List intances", func(cli *azure.SRegion, args *InstanceListOptions) error {
-		if instances, err := cli.GetInstances(); err != nil {
-			return err
-		} else {
+		if args.Classic {
+			instances, err := cli.GetClassicInstances()
+			if err != nil {
+				return err
+			}
+			printList(instances, len(instances), args.Offset, args.Limit, []string{})
+			return nil
+		} else if args.ScaleSets {
+			instances, err := cli.GetInstanceScaleSets()
+			if err != nil {
+				return err
+			}
 			printList(instances, len(instances), args.Offset, args.Limit, []string{})
 			return nil
 		}
+		instances, err := cli.GetInstances()
+		if err != nil {
+			return err
+		}
+		printList(instances, len(instances), args.Offset, args.Limit, []string{})
+		return nil
 	})
 
 	type InstanceSizeListOptions struct {
@@ -67,12 +84,16 @@ func init() {
 		}
 	})
 
+	shellutils.R(&InstanceOptions{}, "instance-start", "Start intance", func(cli *azure.SRegion, args *InstanceOptions) error {
+		return cli.StartVM(args.ID)
+	})
+
 	shellutils.R(&InstanceOptions{}, "instance-delete", "Delete intance", func(cli *azure.SRegion, args *InstanceOptions) error {
 		return cli.DeleteVM(args.ID)
 	})
 
-	shellutils.R(&InstanceOptions{}, "instance-deallocate", "Deallocate intance", func(cli *azure.SRegion, args *InstanceOptions) error {
-		return cli.DeallocateVM(args.ID)
+	shellutils.R(&InstanceOptions{}, "instance-stop", "Stop intance", func(cli *azure.SRegion, args *InstanceOptions) error {
+		return cli.StopVM(args.ID, true)
 	})
 
 	type InstanceRebuildOptions struct {

@@ -29,6 +29,7 @@ type IModelManager interface {
 	AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool
 	ValidateListConditions(ctx context.Context, userCred mcclient.TokenCredential, query *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
 	ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error)
+	CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*CustomizeListFilters, error)
 	ExtraSearchConditions(ctx context.Context, q *sqlchemy.SQuery, like string) []sqlchemy.ICondition
 
 	// fetch hook
@@ -39,12 +40,12 @@ type IModelManager interface {
 	FilterByName(q *sqlchemy.SQuery, name string) *sqlchemy.SQuery
 	FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery
 
-	GetOwnerId(userCred mcclient.TokenCredential) string
+	GetOwnerId(userCred mcclient.IIdentityProvider) string
 
 	// RawFetchById(idStr string) (IModel, error)
 	FetchById(idStr string) (IModel, error)
-	FetchByName(ownerProjId string, idStr string) (IModel, error)
-	FetchByIdOrName(ownerProjId string, idStr string) (IModel, error)
+	FetchByName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error)
+	FetchByIdOrName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error)
 
 	// create hooks
 	AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
@@ -53,7 +54,10 @@ type IModelManager interface {
 
 	// allow perform action
 	AllowPerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
+	AllowPerformCheckCreateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
 	PerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error)
+
+	DoCreate(ctx context.Context, userCred mcclient.TokenCredential, kwargs jsonutils.JSONObject, data jsonutils.JSONObject, realManager IModelManager) (IModel, error)
 
 	InitializeData() error
 }
@@ -74,6 +78,7 @@ type IModel interface {
 	// get hooks
 	AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool
 	GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict
+	GetExportItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict
 
 	// create hooks
 	CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error

@@ -57,7 +57,7 @@ type SStoragecachedimage struct {
 	StoragecacheId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required" key_index:"true"`
 	CachedimageId  string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required" key_index:"true"`
 
-	ExternalId string `width:"256" charset:"ascii" nullable:"false" get:"admin"`
+	ExternalId string `width:"256" charset:"utf8" nullable:"false" get:"admin"`
 
 	Status         string    `width:"32" charset:"ascii" nullable:"false" default:"init" list:"admin" update:"admin" create:"admin_required"` // = Column(VARCHAR(32, charset='ascii'), nullable=False,
 	Path           string    `width:"256" charset:"utf8" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`                 // = Column(VARCHAR(256, charset='utf8'), nullable=True)
@@ -225,7 +225,7 @@ func (self *SStoragecachedimage) isDownloadSessionExpire() bool {
 	}
 }
 
-func (self *SStoragecachedimage) markDeleting(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (self *SStoragecachedimage) markDeleting(ctx context.Context, userCred mcclient.TokenCredential, isForce bool) error {
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil {
 		return err
@@ -237,7 +237,7 @@ func (self *SStoragecachedimage) markDeleting(ctx context.Context, userCred mccl
 	lockman.LockJointObject(ctx, cache, image)
 	defer lockman.ReleaseJointObject(ctx, cache, image)
 
-	if utils.IsInStringArray(self.Status, []string{CACHED_IMAGE_STATUS_READY, CACHED_IMAGE_STATUS_DELETING}) {
+	if !isForce && !utils.IsInStringArray(self.Status, []string{CACHED_IMAGE_STATUS_READY, CACHED_IMAGE_STATUS_DELETING}) {
 		return httperrors.NewInvalidStatusError("Cannot uncache in status %s", self.Status)
 	}
 	_, err = self.GetModelManager().TableSpec().Update(self, func() error {

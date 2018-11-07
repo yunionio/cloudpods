@@ -7,9 +7,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/pkg/tristate"
 )
 
 var QuotaManager *quotas.SQuotaManager
@@ -91,7 +91,7 @@ func (self *SQuota) FetchUsage(projectId string) error {
 	self.Bw = net.InternalBandwidth
 	self.Ebw = net.ExternalBandwidth
 	self.Keypair = 0 // keypair
-	s := auth.GetAdminSession("", "")
+	s := auth.GetAdminSession(options.Options.Region, "")
 	self.Image, _ = modules.Images.GetPrivateImageCount(s, projectId, true)
 	self.Group = 0
 	self.Secgroup = totalSecurityGroupCount(projectId)
@@ -278,7 +278,7 @@ func (self *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
 	if sreq.IsolatedDevice > 0 && self.IsolatedDevice > squota.IsolatedDevice {
 		return ErrOutOfIsolatedDevice
 	}
-	if self.Snapshot > squota.Snapshot {
+	if sreq.Snapshot > 0 && self.Snapshot > squota.Snapshot {
 		return ErrOutOfSnapshot
 	}
 	return nil

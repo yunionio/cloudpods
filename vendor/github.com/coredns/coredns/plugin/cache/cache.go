@@ -22,13 +22,15 @@ type Cache struct {
 	Next  plugin.Handler
 	Zones []string
 
-	ncache *cache.Cache
-	ncap   int
-	nttl   time.Duration
+	ncache  *cache.Cache
+	ncap    int
+	nttl    time.Duration
+	minnttl time.Duration
 
-	pcache *cache.Cache
-	pcap   int
-	pttl   time.Duration
+	pcache  *cache.Cache
+	pcap    int
+	pttl    time.Duration
+	minpttl time.Duration
 
 	// Prefetch.
 	prefetch   int
@@ -47,9 +49,11 @@ func New() *Cache {
 		pcap:       defaultCap,
 		pcache:     cache.New(defaultCap),
 		pttl:       maxTTL,
+		minpttl:    minTTL,
 		ncap:       defaultCap,
 		ncache:     cache.New(defaultCap),
 		nttl:       maxNTTL,
+		minnttl:    minNTTL,
 		prefetch:   0,
 		duration:   1 * time.Minute,
 		percentage: 10,
@@ -60,24 +64,24 @@ func New() *Cache {
 // Return key under which we store the item, -1 will be returned if we don't store the
 // message.
 // Currently we do not cache Truncated, errors zone transfers or dynamic update messages.
-func key(m *dns.Msg, t response.Type, do bool) int {
+func key(m *dns.Msg, t response.Type, do bool) (bool, uint64) {
 	// We don't store truncated responses.
 	if m.Truncated {
-		return -1
+		return false, 0
 	}
 	// Nor errors or Meta or Update
 	if t == response.OtherError || t == response.Meta || t == response.Update {
-		return -1
+		return false, 0
 	}
 
-	return int(hash(m.Question[0].Name, m.Question[0].Qtype, do))
+	return true, hash(m.Question[0].Name, m.Question[0].Qtype, do)
 }
 
 var one = []byte("1")
 var zero = []byte("0")
 
-func hash(qname string, qtype uint16, do bool) uint32 {
-	h := fnv.New32()
+func hash(qname string, qtype uint16, do bool) uint64 {
+	h := fnv.New64()
 
 	if do {
 		h.Write(one)
@@ -97,7 +101,18 @@ func hash(qname string, qtype uint16, do bool) uint32 {
 		h.Write([]byte{c})
 	}
 
-	return h.Sum32()
+	return h.Sum64()
+}
+
+func computeTTL(msgTTL, minTTL, maxTTL time.Duration) time.Duration {
+	ttl := msgTTL
+	if ttl < minTTL {
+		ttl = minTTL
+	}
+	if ttl > maxTTL {
+		ttl = maxTTL
+	}
+	return ttl
 }
 
 // ResponseWriter is a response writer that caches the reply message.
@@ -152,19 +167,17 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	}
 
 	// key returns empty string for anything we don't want to cache.
-	key := key(res, mt, do)
-
-	duration := w.pttl
-	if mt == response.NameError || mt == response.NoData {
-		duration = w.nttl
-	}
+	hasKey, key := key(res, mt, do)
 
 	msgTTL := dnsutil.MinimalTTL(res, mt)
-	if msgTTL < duration {
-		duration = msgTTL
+	var duration time.Duration
+	if mt == response.NameError || mt == response.NoData {
+		duration = computeTTL(msgTTL, w.minnttl, w.nttl)
+	} else {
+		duration = computeTTL(msgTTL, w.minpttl, w.pttl)
 	}
 
-	if key != -1 && duration > 0 {
+	if hasKey && duration > 0 {
 		if w.state.Match(res) {
 			w.set(res, key, mt, duration)
 			cacheSize.WithLabelValues(w.server, Success).Set(float64(w.pcache.Len()))
@@ -195,19 +208,17 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	return w.ResponseWriter.WriteMsg(res)
 }
 
-func (w *ResponseWriter) set(m *dns.Msg, key int, mt response.Type, duration time.Duration) {
-	if key == -1 || duration == 0 {
-		return
-	}
-
+func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration time.Duration) {
+	// duration is expected > 0
+	// and key is valid
 	switch mt {
 	case response.NoError, response.Delegation:
 		i := newItem(m, w.now(), duration)
-		w.pcache.Add(uint32(key), i)
+		w.pcache.Add(key, i)
 
 	case response.NameError, response.NoData:
 		i := newItem(m, w.now(), duration)
-		w.ncache.Add(uint32(key), i)
+		w.ncache.Add(key, i)
 
 	case response.OtherError:
 		// don't cache these
@@ -228,7 +239,9 @@ func (w *ResponseWriter) Write(buf []byte) (int, error) {
 
 const (
 	maxTTL  = dnsutil.MaximumDefaulTTL
+	minTTL  = dnsutil.MinimalDefaultTTL
 	maxNTTL = dnsutil.MaximumDefaulTTL / 2
+	minNTTL = dnsutil.MinimalDefaultTTL
 
 	defaultCap = 10000 // default capacity of the cache.
 

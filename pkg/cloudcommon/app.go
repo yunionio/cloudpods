@@ -22,6 +22,14 @@ func InitApp(options *Options) *appsrv.Application {
 
 func ServeForever(app *appsrv.Application, options *Options) {
 	addr := net.JoinHostPort(options.Address, strconv.Itoa(options.Port))
-	log.Infof("Start listen on %s", addr)
-	app.ListenAndServe(addr)
+	proto := "http"
+	if options.EnableSsl {
+		proto = "https"
+	}
+	log.Infof("Start listen on %s://%s", proto, addr)
+	if options.EnableSsl {
+		app.ListenAndServeTLS(addr, options.SslCertfile, options.SslKeyfile)
+	} else {
+		app.ListenAndServe(addr)
+	}
 }
