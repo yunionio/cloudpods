@@ -9,12 +9,14 @@ import (
 // InstanceBandwidthRx":26214400,"InstanceBandwidthTx":26214400,"InstancePpsRx":4500000,"InstancePpsTx":4500000
 
 type SInstanceType struct {
+	BaselineCredit       int
 	CpuCoreCount         int
 	MemorySize           float32
 	EniQuantity          int // 实例规格支持网卡数量
 	GPUAmount            int
 	GPUSpec              string
 	InstanceTypeFamily   string
+	InstanceFamilyLevel  string
 	InstanceTypeId       string
 	LocalStorageCategory string
 	LocalStorageAmount   int
