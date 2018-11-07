@@ -560,7 +560,7 @@ func init() {
 			"OS_Distribution", "OS_version",
 			"Min_disk", "Min_ram", "Status",
 			"Notes", "OS_arch", "Preference",
-			"OS_Codename", "Parent_id"},
+			"OS_Codename", "Parent_id", "Description"},
 		[]string{"Owner", "Owner_name"})}
 	register(&Images)
 }
