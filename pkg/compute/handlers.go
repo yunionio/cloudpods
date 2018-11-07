@@ -74,6 +74,8 @@ func InitHandlers(app *appsrv.Application) {
 
 		models.SchedpolicyManager,
 		models.DynamicschedtagManager,
+
+		models.ServerSkuManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

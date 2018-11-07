@@ -39,17 +39,24 @@ func init() {
 	})
 
 	type InstanceSizeListOptions struct {
-		Limit  int `help:"page size"`
-		Offset int `help:"page offset"`
+		Location string
 	}
 
 	shellutils.R(&InstanceSizeListOptions{}, "instance-size-list", "List intances", func(cli *azure.SRegion, args *InstanceSizeListOptions) error {
-		if vmSize, err := cli.GetVMSize(); err != nil {
+		if vmSize, err := cli.GetVMSize(args.Location); err != nil {
 			return err
 		} else {
 			printObject(vmSize)
 			return nil
 		}
+	})
+	shellutils.R(&InstanceSizeListOptions{}, "resource-sku-list", "List resource sku", func(cli *azure.SRegion, args *InstanceSizeListOptions) error {
+		skus, err := cli.GetResourceSkus(args.Location)
+		if err != nil {
+			return err
+		}
+		printList(skus, len(skus), 0, 0, []string{})
+		return nil
 	})
 
 	type InstanceCrateOptions struct {
