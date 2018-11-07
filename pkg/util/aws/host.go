@@ -155,7 +155,7 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 
 func (self *SHost) CreateVM(name, imgId string, sysDiskSize, cpu, memMB int, networkId, ipAddr, desc,
 	passwd, storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (cloudprovider.ICloudVM, error) {
-	if len(publicKey) < 0 {
+	if len(publicKey) == 0 {
 		return nil, fmt.Errorf("AWS instance create error: keypair required")
 	}
 

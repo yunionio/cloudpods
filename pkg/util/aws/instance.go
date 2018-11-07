@@ -620,13 +620,13 @@ func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
 }
 
 func (self *SRegion) instanceStatusChecking(instanceId, status string) error {
-	status, err := self.GetInstanceStatus(instanceId)
+	remoteStatus, err := self.GetInstanceStatus(instanceId)
 	if err != nil {
 		log.Errorf("Fail to get instance status on StartVM: %s", err)
 		return err
 	}
-	if status != status {
-		log.Errorf("StartVM: vm status is %s expect %s", status, status)
+	if status != remoteStatus {
+		log.Errorf("StartVM: vm status is %s expect %s", remoteStatus, status)
 		return cloudprovider.ErrInvalidStatus
 	}
 
