@@ -37,7 +37,7 @@ func (manager *SResourceBaseManager) RawQuery(fields ...string) *sqlchemy.SQuery
 }
 
 func (manager *SResourceBaseManager) DoCreate(ctx context.Context, userCred mcclient.TokenCredential, kwargs jsonutils.JSONObject, data jsonutils.JSONObject, realManager IModelManager) (IModel, error) {
-	ownerProjId, err := fetchOwnerProjectId(ctx, userCred, kwargs)
+	ownerProjId, err := fetchOwnerProjectId(ctx, manager, userCred, kwargs)
 	if err != nil {
 		return nil, err
 	}

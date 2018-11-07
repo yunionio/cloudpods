@@ -103,8 +103,7 @@ func (dispatcher *DBJointModelDispatcher) _listJoint(ctx context.Context, userCr
 	var isAllow bool
 	if consts.IsRbacEnabled() {
 		isAdmin := jsonutils.QueryBoolean(queryDict, "admin", false)
-		isAllow = policy.PolicyManager.Allow(isAdmin, userCred, consts.GetServiceType(),
-			dispatcher.JointModelManager().KeywordPlural(), policy.PolicyActionList)
+		isAllow = isJointListRbacAllowed(dispatcher.JointModelManager(), userCred, isAdmin)
 	} else {
 		isAllow = dispatcher.JointModelManager().AllowListDescendent(ctx, userCred, ctxModel, queryDict)
 	}
@@ -147,7 +146,7 @@ func (dispatcher *DBJointModelDispatcher) Get(ctx context.Context, id1 string, i
 	}
 	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isJointRbacAllowed(dispatcher.JointModelManager(), item, userCred, policy.PolicyActionGet)
+		isAllow = isJointObjectRbacAllowed(dispatcher.JointModelManager(), item, userCred, policy.PolicyActionGet)
 	} else {
 		isAllow = item.AllowGetJointDetails(ctx, userCred, query, item)
 	}
@@ -161,7 +160,7 @@ func attachItems(dispatcher *DBJointModelDispatcher, master IStandaloneModel, sl
 	if !dispatcher.JointModelManager().AllowAttach(ctx, userCred, master, slave) {
 		return nil, httperrors.NewForbiddenError("Not allow to attach")
 	}
-	ownerProjId, err := fetchOwnerProjectId(ctx, userCred, data)
+	ownerProjId, err := fetchOwnerProjectId(ctx, dispatcher.JointModelManager(), userCred, data)
 	dataDict, ok := data.(*jsonutils.JSONDict)
 	if !ok {
 		return nil, fmt.Errorf("body not a json dict")
@@ -218,7 +217,7 @@ func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string
 
 	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isJointRbacAllowed(dispatcher.JointModelManager(), item, userCred, policy.PolicyActionUpdate)
+		isAllow = isJointObjectRbacAllowed(dispatcher.JointModelManager(), item, userCred, policy.PolicyActionUpdate)
 	} else {
 		isAllow = item.AllowUpdateJointItem(ctx, userCred, item)
 	}

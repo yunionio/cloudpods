@@ -75,6 +75,14 @@ type SCloudprovider struct {
 	Provider string `width:"64" charset:"ascii" list:"admin" create:"admin_required"`
 }
 
+func (manager *SCloudproviderManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
+	return userCred.GetProjectId()
+}
+
+func (self *SCloudprovider) GetOwnerProjectId() string {
+	return self.ProjectId
+}
+
 func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
 	if self.Enabled {
 		return httperrors.NewInvalidStatusError("provider is enabled")

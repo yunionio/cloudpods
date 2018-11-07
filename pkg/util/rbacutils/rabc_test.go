@@ -191,7 +191,7 @@ func TestSRbacPolicy_Allow(t *testing.T) {
 	cases := []struct {
 		policy string
 		ops    []string
-		want   bool
+		want   TRbacResult
 	}{
 		{
 			`{
@@ -202,12 +202,12 @@ func TestSRbacPolicy_Allow(t *testing.T) {
     }
 }`,
 			[]string{"compute", "servers", "list"},
-			true,
+			Allow,
 		},
 		{
 			`{"is_admin":"false","policy":{"*":{"*":{"*":"allow","delete":"deny"}}}}`,
 			[]string{"compute", "servers", "delete"},
-			false,
+			Deny,
 		},
 	}
 
@@ -279,4 +279,26 @@ func TestSRabcPolicy_Explain(t *testing.T) {
 	output := policy.Explain(request)
 
 	t.Logf("%#v", output)
+}
+
+func TestTRbacResult_IsHigherPrivilege(t *testing.T) {
+	cases := []struct {
+		t1 TRbacResult
+		t2 TRbacResult
+		want bool
+	} {
+		{Allow, Allow, false},
+		{Allow, OwnerAllow, true},
+		{Deny, Deny, false},
+		{Deny, OwnerAllow, false},
+		{Deny, Allow, false},
+		{OwnerAllow, Allow, false},
+	}
+
+	for _, c := range cases {
+		got := c.t1.IsHigherPrivilege(c.t2)
+		if got != c.want {
+			t.Errorf("%s IsHigherPrivilege %s want %v got %v", c.t1, c.t2, c.want, got)
+		}
+	}
 }
