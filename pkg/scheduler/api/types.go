@@ -18,6 +18,7 @@ const (
 	HostHypervisorForKvm = "hypervisor"
 	HostTypeAliyun       = "aliyun"
 	HostTypeAzure        = "azure"
+	HostTypeAws          = "aws"
 	HostTypeKubelet      = "kubelet"
 
 	AggregateStrategyRequire = "require"
@@ -50,6 +51,7 @@ var (
 	PublicCloudProviders = sets.NewString(
 		HostTypeAliyun,
 		HostTypeAzure,
+		HostTypeAws,
 	)
 
 	ValidGpuTypes = sets.NewString(
