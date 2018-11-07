@@ -205,8 +205,9 @@ func init() {
 	})
 
 	type ImageUpdateOptions struct {
-		ID   string `help:"ID or Name of Image"`
-		Name string `help:"New name of the image"`
+		ID          string `help:"ID or Name of Image"`
+		Name        string `help:"New name of the image"`
+		Description string `help:"Description of image"`
 		ImageOptionalOptions
 	}
 
@@ -226,6 +227,9 @@ func init() {
 		}*/
 		if len(args.Name) > 0 {
 			params.Add(jsonutils.NewString(args.Name), "name")
+		}
+		if len(args.Description) > 0 {
+			params.Add(jsonutils.NewString(args.Description), "description")
 		}
 		err := addImageOptionalOptions(s, params, args.ImageOptionalOptions)
 		if err != nil {
