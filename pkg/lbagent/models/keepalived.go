@@ -2,12 +2,9 @@ package models
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"text/template"
-
-	"yunion.io/x/log"
 
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
 )
