@@ -12,9 +12,31 @@ type TRbacResult string
 
 const (
 	WILD_MATCH = "*"
+
 	Allow      = TRbacResult("allow")
+	OwnerAllow = TRbacResult("owner")
 	Deny       = TRbacResult("deny")
 )
+
+func (result TRbacResult) IsHigherPrivilege(r2 TRbacResult) bool {
+	switch result {
+	case Allow:
+		if r2 == Allow {
+			return false
+		} else {
+			return true
+		}
+	case OwnerAllow:
+		if r2 == Deny {
+			return true
+		} else {
+			return false
+		}
+	case Deny:
+		return false
+	}
+	return false
+}
 
 type SRbacPolicy struct {
 	Condition string
@@ -185,11 +207,14 @@ func decode(rules jsonutils.JSONObject, decodeRule SRbacRule, level int) ([]SRba
 	case *jsonutils.JSONString:
 		ruleJsonStr := rules.(*jsonutils.JSONString)
 		ruleStr, _ := ruleJsonStr.GetString()
-		if ruleStr == string(Allow) {
+		switch ruleStr {
+		case string(Allow):
 			decodeRule.Result = Allow
-		} else if ruleStr == string(Deny) {
+		case string(OwnerAllow):
+			decodeRule.Result = OwnerAllow
+		case string(Deny):
 			decodeRule.Result = Deny
-		} else {
+		default:
 			return nil, fmt.Errorf("unsupported rule string %s", ruleStr)
 		}
 		return []SRbacRule{decodeRule}, nil
@@ -318,23 +343,20 @@ func (policy *SRbacPolicy) Explain(request [][]string) [][]string {
 	return output
 }
 
-func (policy *SRbacPolicy) Allow(userCred jsonutils.JSONObject, service, resource, action string, extra ...string) bool {
+func (policy *SRbacPolicy) Allow(userCred jsonutils.JSONObject, service, resource, action string, extra ...string) TRbacResult {
 	if len(policy.Condition) > 0 {
 		match, err := conditionparser.Eval(policy.Condition, userCred)
 		if err != nil {
 			log.Errorf("eval condition %s fail %s", policy.Condition, err)
-			return false
+			return Deny
 		}
 		if !match {
-			return false
+			return Deny
 		}
 	}
 	rule := policy.GetMatchRule(service, resource, action, extra...)
 	if rule == nil {
-		return false
+		return Deny
 	}
-	if rule.Result == Deny {
-		return false
-	}
-	return true
+	return rule.Result
 }
