@@ -1053,6 +1053,11 @@ func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 	}
 	extra.Add(isGpu, "is_gpu")
 
+	extra.Add(jsonutils.JSONNull, "cdrom")
+	if cdrom := self.getCdrom(); cdrom != nil {
+		extra.Set("cdrom", jsonutils.NewString(cdrom.GetDetails()))
+	}
+
 	return self.moreExtraInfo(extra)
 }
 
