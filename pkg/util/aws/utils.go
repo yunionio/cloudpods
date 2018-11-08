@@ -174,6 +174,14 @@ func awsProtocolToYunion(p ec2.IpPermission) string {
 	}
 }
 
+func yunionProtocolToAws(r secrules.SecurityRule) string {
+	if r.Protocol == secrules.PROTO_ANY {
+		return "-1"
+	} else {
+		return r.Protocol
+	}
+}
+
 func isYunionRuleAllPorts(r secrules.SecurityRule) bool {
 	//  全部端口范围： TCP/UDP （0，65535）    其他：（-1，-1）
 	if (r.Protocol == "tcp" || r.Protocol == "udp") && r.PortStart == 0 && r.PortEnd == 65535 {
@@ -300,11 +308,12 @@ func YunionSecRuleToAws(rule secrules.SecurityRule) ([]*ec2.IpPermission, error)
 	ipranges = append(ipranges, &ec2.IpRange{CidrIp: &iprange, Description: &rule.Description})
 
 	portranges := yunionPortRangeToAws(rule)
+	protocol := yunionProtocolToAws(rule)
 	permissions := []*ec2.IpPermission{}
 	for _, port := range portranges {
 		permission := ec2.IpPermission{
 			FromPort:   &port.Start,
-			IpProtocol: &rule.Protocol,
+			IpProtocol: &protocol,
 			IpRanges:   ipranges,
 			ToPort:     &port.End,
 		}

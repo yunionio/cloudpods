@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"fmt"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"strings"
 	"yunion.io/x/jsonutils"
@@ -141,12 +142,18 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 func (self *SVpc) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) (string, error) {
 	secgrpId := ""
 	if secgroup, err := self.region.getSecurityGroupByTag(self.VpcId, secgroupId); err != nil {
-		if secgrpId, err = self.region.createSecurityGroup(self.VpcId, name, ""); err != nil {
+		// 名称为default的安全组与aws默认安全组名冲突
+		if strings.ToLower(name) == "default" {
+			name = fmt.Sprintf("%s-%s", self.VpcId, name)
+		}
+
+		desc := fmt.Sprintf("security group %s for vpc %s", name, self.VpcId)
+		if secgrpId, err = self.region.createSecurityGroup(self.VpcId, name, desc); err != nil {
 			return "", err
 		}
 
 		//addRules
-		log.Debugf("Add Rules for %s", secgrpId)
+		log.Debugf("Add Rules for %s : %s", secgrpId, rules)
 		for _, rule := range rules {
 			if err := self.region.addSecurityGroupRule(secgrpId, &rule); err != nil {
 				return "", err

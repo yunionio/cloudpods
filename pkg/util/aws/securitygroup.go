@@ -108,6 +108,7 @@ func (self *SRegion) addSecurityGroupRules(secGrpId string, rule *secrules.Secur
 
 func (self *SRegion) addSecurityGroupRule(secGrpId string, rule *secrules.SecurityRule) error {
 	ipPermissions, err := YunionSecRuleToAws(*rule)
+	log.Debugf("Aws security group rule: %s", ipPermissions)
 	if err != nil {
 		return err
 	}
