@@ -135,7 +135,7 @@ func (manager *SPolicyManager) sync() {
 	time.AfterFunc(PolicyRefreshInterval, manager.sync)
 }
 
-func (manager *SPolicyManager) Allow(isAdmin bool, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) bool {
+func (manager *SPolicyManager) Allow(isAdmin bool, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) rbacutils.TRbacResult {
 	var policies map[string]rbacutils.SRbacPolicy
 	if isAdmin {
 		policies = manager.adminPolicies
@@ -144,29 +144,30 @@ func (manager *SPolicyManager) Allow(isAdmin bool, userCred mcclient.TokenCreden
 	}
 	if policies == nil {
 		log.Warningf("no policies fetched")
-		return false
+		return rbacutils.Deny
 	}
 	userCredJson := userCred.ToJson()
-	// log.Debugf("%s", userCredJson)
+	currentPriv := rbacutils.Deny
 	for _, p := range policies {
-		if p.Allow(userCredJson, service, resource, action, extra...) {
-			return true
+		result := p.Allow(userCredJson, service, resource, action, extra...)
+		if result.IsHigherPrivilege(currentPriv) {
+			currentPriv = result
 		}
 	}
-	return false
+	return currentPriv
 }
 
-func (manager *SPolicyManager) explainPolicy(userCred mcclient.TokenCredential, policyReq jsonutils.JSONObject) (bool, error) {
+func (manager *SPolicyManager) explainPolicy(userCred mcclient.TokenCredential, policyReq jsonutils.JSONObject) (rbacutils.TRbacResult, error) {
 	policySeq, err := policyReq.GetArray()
 	if err != nil {
-		return false, httperrors.NewInputParameterError("invalid format")
+		return rbacutils.Deny, httperrors.NewInputParameterError("invalid format")
 	}
 	isAdmin, _ := policySeq[0].Bool()
 	if !consts.IsRbacEnabled() {
 		if !isAdmin || (isAdmin && userCred.IsSystemAdmin()) {
-			return true, nil
+			return rbacutils.Allow, nil
 		} else {
-			return false, httperrors.NewForbiddenError("operation not allowed")
+			return rbacutils.Deny, httperrors.NewForbiddenError("operation not allowed")
 		}
 	}
 	service := rbacutils.WILD_MATCH
@@ -198,15 +199,11 @@ func (manager *SPolicyManager) ExplainRpc(userCred mcclient.TokenCredential, par
 	}
 	ret := jsonutils.NewDict()
 	for key, policyReq := range paramDict {
-		allow, err := manager.explainPolicy(userCred, policyReq)
+		result, err := manager.explainPolicy(userCred, policyReq)
 		if err != nil {
 			return nil, err
 		}
-		if allow {
-			ret.Add(jsonutils.JSONTrue, key)
-		} else {
-			ret.Add(jsonutils.JSONFalse, key)
-		}
+		ret.Add(jsonutils.NewString(string(result)), key)
 	}
 	return ret, nil
 }

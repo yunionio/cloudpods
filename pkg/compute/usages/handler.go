@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type Usage map[string]interface{}
@@ -271,7 +272,7 @@ func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandalo
 
 	if consts.IsRbacEnabled() {
 		if policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
-			"usages", policy.PolicyActionGet) {
+			"usages", policy.PolicyActionGet) == rbacutils.Allow {
 			isAdmin = true
 		}
 	} else {
@@ -286,8 +287,8 @@ func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandalo
 	}
 
 	if consts.IsRbacEnabled() {
-		if !policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
-			"usages", policy.PolicyActionGet) {
+		if policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
+			"usages", policy.PolicyActionGet) == rbacutils.Deny {
 			err = httperrors.NewForbiddenError("not allow to get usages")
 			return
 		}
