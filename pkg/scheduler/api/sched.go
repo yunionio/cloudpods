@@ -591,7 +591,7 @@ func (d *SchedData) fillDisksInfo(sjson *simplejson.Json, byTest bool) error {
 		}
 		disks = append(disks, disk)
 	}
-	if index == 0 {
+	if index == 0 && d.Hypervisor != SchedTypeContainer {
 		return fmt.Errorf("No disk info found in json")
 	}
 	d.Disks = disks

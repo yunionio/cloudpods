@@ -586,44 +586,69 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		}
 	}
 
-	disk0Json, _ := data.Get("disk.0")
-	if disk0Json == nil {
-		return nil, httperrors.NewInputParameterError("No disk information provided")
-	}
-	diskConfig, err := parseDiskInfo(ctx, userCred, disk0Json)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
-	}
+	var err error
+	var hypervisor string
+	var rootStorageType string
+	var osProf osprofile.SOSProfile
+	hypervisor, _ = data.GetString("hypervisor")
+	if hypervisor != HYPERVISOR_CONTAINER {
+		disk0Json, _ := data.Get("disk.0")
+		if disk0Json == nil {
+			return nil, httperrors.NewInputParameterError("No disk information provided")
+		}
+		diskConfig, err := parseDiskInfo(ctx, userCred, disk0Json)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
+		}
 
-	if len(diskConfig.Backend) == 0 {
-		diskConfig.Backend = STORAGE_LOCAL
-	}
-	rootStorageType := diskConfig.Backend
+		if len(diskConfig.Backend) == 0 {
+			diskConfig.Backend = STORAGE_LOCAL
+		}
+		rootStorageType = diskConfig.Backend
 
-	data.Add(jsonutils.Marshal(diskConfig), "disk.0")
+		data.Add(jsonutils.Marshal(diskConfig), "disk.0")
 
-	imgProperties := diskConfig.ImageProperties
-	if imgProperties == nil || len(imgProperties) == 0 {
-		imgProperties = map[string]string{"os_type": "Linux"}
-	}
+		imgProperties := diskConfig.ImageProperties
+		if imgProperties == nil || len(imgProperties) == 0 {
+			imgProperties = map[string]string{"os_type": "Linux"}
+		}
 
-	hypervisor, _ := data.GetString("hypervisor")
-	osType, _ := data.GetString("os_type")
+		osType, _ := data.GetString("os_type")
 
-	osProf, err := osprofile.GetOSProfileFromImageProperties(imgProperties, hypervisor)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
-	}
+		osProf, err = osprofile.GetOSProfileFromImageProperties(imgProperties, hypervisor)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
+		}
 
-	if len(osProf.Hypervisor) > 0 && len(hypervisor) == 0 {
-		hypervisor = osProf.Hypervisor
-		data.Add(jsonutils.NewString(osProf.Hypervisor), "hypervisor")
+		if len(osProf.Hypervisor) > 0 && len(hypervisor) == 0 {
+			hypervisor = osProf.Hypervisor
+			data.Add(jsonutils.NewString(osProf.Hypervisor), "hypervisor")
+		}
+		if len(osProf.OSType) > 0 && len(osType) == 0 {
+			osType = osProf.OSType
+			data.Add(jsonutils.NewString(osProf.OSType), "os_type")
+		}
+		data.Add(jsonutils.Marshal(osProf), "__os_profile__")
+
+		// start from data disk
+		for idx := 1; data.Contains(fmt.Sprintf("disk.%d", idx)); idx += 1 {
+			diskJson, err := data.Get(fmt.Sprintf("disk.%d", idx))
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("invalid disk description %s", err)
+			}
+			diskConfig, err := parseDiskInfo(ctx, userCred, diskJson)
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("parse disk description error %s", err)
+			}
+			if len(diskConfig.Backend) == 0 {
+				diskConfig.Backend = rootStorageType
+			}
+			if len(diskConfig.Driver) == 0 {
+				diskConfig.Driver = osProf.DiskDriver
+			}
+			data.Add(jsonutils.Marshal(diskConfig), fmt.Sprintf("disk.%d", idx))
+		}
 	}
-	if len(osProf.OSType) > 0 && len(osType) == 0 {
-		osType = osProf.OSType
-		data.Add(jsonutils.NewString(osProf.OSType), "os_type")
-	}
-	data.Add(jsonutils.Marshal(osProf), "__os_profile__")
 
 	if jsonutils.QueryBoolean(data, "baremetal", false) {
 		hypervisor = HYPERVISOR_BAREMETAL
@@ -731,24 +756,6 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	}
 
 	data.Add(jsonutils.NewString(hypervisor), "hypervisor")
-	// start from data disk
-	for idx := 1; data.Contains(fmt.Sprintf("disk.%d", idx)); idx += 1 {
-		diskJson, err := data.Get(fmt.Sprintf("disk.%d", idx))
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid disk description %s", err)
-		}
-		diskConfig, err := parseDiskInfo(ctx, userCred, diskJson)
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("parse disk description error %s", err)
-		}
-		if len(diskConfig.Backend) == 0 {
-			diskConfig.Backend = rootStorageType
-		}
-		if len(diskConfig.Driver) == 0 {
-			diskConfig.Driver = osProf.DiskDriver
-		}
-		data.Add(jsonutils.Marshal(diskConfig), fmt.Sprintf("disk.%d", idx))
-	}
 
 	for idx := 0; data.Contains(fmt.Sprintf("net.%d", idx)); idx += 1 {
 		netJson, err := data.Get(fmt.Sprintf("net.%d", idx))
