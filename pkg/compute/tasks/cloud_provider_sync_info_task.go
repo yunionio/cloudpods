@@ -208,18 +208,18 @@ func syncRegionVPCs(ctx context.Context, provider *models.SCloudprovider, task *
 	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
 	for j := 0; j < len(localVpcs); j += 1 {
 		syncVpcWires(ctx, provider, task, &localVpcs[j], remoteVpcs[j], syncRange)
-		syncVpcSecGroup(ctx, provider, task, &localVpcs[j], remoteVpcs[j])
+		syncVpcSecGroup(ctx, provider, task, &localVpcs[j], remoteVpcs[j], syncRange)
 	}
 }
 
-func syncVpcSecGroup(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localVpc *models.SVpc, remoteVpc cloudprovider.ICloudVpc) {
+func syncVpcSecGroup(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localVpc *models.SVpc, remoteVpc cloudprovider.ICloudVpc, syncRange *models.SSyncRange) {
 	if secgroups, err := remoteVpc.GetISecurityGroups(); err != nil {
 		msg := fmt.Sprintf("GetISecurityGroups for vpc %s failed %s", remoteVpc.GetId(), err)
 		log.Errorf(msg)
 		logSyncFailed(provider, task, msg)
 		return
 	} else {
-		_, _, result := models.SecurityGroupManager.SyncSecgroups(ctx, task.UserCred, secgroups)
+		_, _, result := models.SecurityGroupManager.SyncSecgroups(ctx, task.UserCred, secgroups, provider.ProjectId, syncRange.ProjectSync)
 		msg := result.Result()
 		notes := fmt.Sprintf("SyncSecurityGroup for VPC %s result: %s", localVpc.Name, msg)
 		log.Infof(notes)
