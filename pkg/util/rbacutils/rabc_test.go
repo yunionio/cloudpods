@@ -283,10 +283,10 @@ func TestSRabcPolicy_Explain(t *testing.T) {
 
 func TestTRbacResult_IsHigherPrivilege(t *testing.T) {
 	cases := []struct {
-		t1 TRbacResult
-		t2 TRbacResult
+		t1   TRbacResult
+		t2   TRbacResult
 		want bool
-	} {
+	}{
 		{Allow, Allow, false},
 		{Allow, OwnerAllow, true},
 		{Deny, Deny, false},

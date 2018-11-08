@@ -42,7 +42,7 @@ func isJointListRbacAllowed(manager IJointModelManager, userCred mcclient.TokenC
 	return isListRbacAllowedInternal(manager.GetMasterManager(), manager.KeywordPlural(), userCred, isAdminMode)
 }
 
-func isClassActionRbacAllowed(manager IModelManager, userCred mcclient.TokenCredential, ownerProjId string, action string, extra...string) bool {
+func isClassActionRbacAllowed(manager IModelManager, userCred mcclient.TokenCredential, ownerProjId string, action string, extra ...string) bool {
 	var requireAdmin bool
 	ownerId := manager.GetOwnerId(userCred)
 	if len(ownerId) > 0 {
