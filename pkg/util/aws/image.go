@@ -123,27 +123,27 @@ func (self *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 	return self.storageCache
 }
 
-func (self *SRegion) ImportImage(name string, osArch string, osType string, osDist string, bucket string, key string) (*ImageImportTask, error) {
+func (self *SRegion) ImportImage(name string, osArch string, osType string, osDist string, diskFormat string, bucket string, key string) (*ImageImportTask, error) {
 	params := &ec2.ImportImageInput{}
 	params.SetArchitecture(osArch)
-	params.SetHypervisor(osType) // todo: osType?
-	params.SetPlatform(osDist)
+	params.SetHypervisor("xen") // todo: osType?
+	params.SetPlatform(osType)
 	// https://docs.aws.amazon.com/zh_cn/vm-import/latest/userguide/vmimport-image-import.html#import-vm-image
 	params.SetRoleName("vmimport")
 	container := &ec2.ImageDiskContainer{}
 	container.SetDescription(fmt.Sprintf("vmimport %s", name))
-	container.SetFormat(osType)
+	container.SetFormat(diskFormat)
 	container.SetDeviceName("/dev/sda") // default /dev/sda
 	bkt := &ec2.UserBucket{S3Bucket: &bucket, S3Key: &key}
 	container.SetUserBucket(bkt)
 	params.SetDiskContainers([]*ec2.ImageDiskContainer{container})
-	params.SetLicenseType("AWS") // todo: AWS?
+	params.SetLicenseType("BYOL") // todo: AWS?
 	ret, err := self.ec2Client.ImportImage(params)
 	if err != nil {
 		return nil, err
 	}
-
-	return &ImageImportTask{ImageId: *ret.ImageId, RegionId: self.RegionId, TaskId: *ret.ImportTaskId}, nil
+	log.Debugf("ImportImage task: %s", ret.String())
+	return &ImageImportTask{ImageId: StrVal(ret.ImageId), RegionId: self.RegionId, TaskId: *ret.ImportTaskId}, nil
 }
 
 type ImageExportTask struct {

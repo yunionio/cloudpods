@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"io/ioutil"
+	"strings"
 	"time"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -142,6 +143,11 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 	}
 	log.Infof("meta data %s", meta)
 
+	diskFormat, err := meta.GetString("disk_format")
+	if err != nil {
+		return "", err
+	}
+
 	s3Client, err := self.region.getS3Client()
 	if err != nil {
 		return "", nil
@@ -166,7 +172,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 
 	// check image name, avoid name conflict
 	for {
-		_, err = self.region.GetImageByName(imageName)
+		 _, err = self.region.GetImageByName(imageName)
 		if err != nil {
 			if err == cloudprovider.ErrNotFound {
 				break
@@ -179,7 +185,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		nameIdx += 1
 	}
 
-	task, err := self.region.ImportImage(imageName, osArch, osType, osDist, bucketName, imageId)
+	task, err := self.region.ImportImage(imageName, osArch, osType, osDist, diskFormat, bucketName, imageId)
 
 	if err != nil {
 		log.Errorf("ImportImage error %s %s %s", imageId, bucketName, err)
@@ -187,8 +193,27 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 	}
 
 	// todo:// 等待镜像导入完成
-	err = self.region.ec2Client.WaitUntilImageExists(&ec2.DescribeImagesInput{ImageIds: []*string{&task.ImageId}})
-	return task.ImageId, err
+	for i:=1 ;i< 120 ;i++  {
+		ret, err := self.region.ec2Client.DescribeImportImageTasks(&ec2.DescribeImportImageTasksInput{ImportTaskIds:[]*string{&task.TaskId}})
+		if err != nil {
+			return "", err
+		}
+
+		err = FillZero(ret)
+		if err != nil {
+			return "", err
+		}
+
+		log.Debugf("DescribeImportImage Task %s", ret.String())
+		for _, item := range ret.ImportImageTasks{
+			if *item.Status == "completed" {
+				return *item.ImageId, nil
+			}
+		}
+		time.Sleep(1*time.Minute)
+	}
+
+	return task.ImageId, fmt.Errorf("uploadImage uncompleted: %s", task)
 
 }
 
@@ -276,6 +301,23 @@ func (self *SRegion) IsBucketExist(bucketName string) (bool, error) {
 	return false, nil
 }
 
+func (self *SRegion) GetARNPartition() string {
+	// https://docs.amazonaws.cn/general/latest/gr/aws-arns-and-namespaces.html?id=docs_gateway
+	// https://github.com/aws/chalice/issues/777
+	// https://github.com/aws/chalice/issues/792
+	/*
+	I assume this is because the ARN format is slightly different for China.
+	In general, ARNs follow the pattern arn:partition:service:region:account-id:resource,
+	where partition is aws for most of the world and aws-cn for China.
+	It looks like the more common "arn:aws" is currently hardcoded in quite a few places.
+	*/
+	if strings.HasPrefix(self.RegionId, "cn-") {
+		return "aws-cn"
+	} else {
+		return "aws"
+	}
+}
+
 func (self *SRegion) initVmimportRole() error {
 	/*需要api access token 具备iam Full access权限*/
 	iamClient, err := self.getIamClient()
@@ -323,6 +365,7 @@ func (self *SRegion) initVmimportRolePolicy() error {
 		return err
 	}
 
+	partition := self.GetARNPartition()
 	roleName := "vmimport"
 	policyName := "vmimport"
 	ret, err := iamClient.GetRolePolicy(&iam.GetRolePolicyInput{RoleName: &roleName, PolicyName: &policyName})
@@ -341,8 +384,8 @@ func (self *SRegion) initVmimportRolePolicy() error {
             "s3:ListBucket" 
          ],
          "Resource":[
-            "arn:aws:s3:::%[1]s",
-            "arn:aws:s3:::%[1]s/*"
+            "arn:%[1]s:s3:::%[2]s",
+            "arn:%[1]s:s3:::%[2]s/*"
          ]
       },
       {
@@ -357,11 +400,11 @@ func (self *SRegion) initVmimportRolePolicy() error {
       }
    ]
 }`
-		params := &iam.CreatePolicyInput{}
-		params.SetDescription("vmimport policy for image import")
-		params.SetPolicyDocument(fmt.Sprintf(rolePolicy, "imgcache-onecloud"))
+		params := &iam.PutRolePolicyInput{}
+		params.SetPolicyDocument(fmt.Sprintf(rolePolicy, partition, "imgcache-onecloud"))
 		params.SetPolicyName(policyName)
-		_, err = iamClient.CreatePolicy(params)
+		params.SetRoleName(roleName)
+		_, err = iamClient.PutRolePolicy(params)
 		return err
 	}
 }
