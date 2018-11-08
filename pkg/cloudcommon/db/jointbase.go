@@ -38,7 +38,11 @@ func NewJointResourceBaseManager(dt interface{}, tableName string, keyword strin
 		log.Errorf(msg)
 		panic(msg)
 	}
-	return SJointResourceBaseManager{SResourceBaseManager: NewResourceBaseManager(dt, tableName, keyword, keywordPlural), _master: master, _slave: slave}
+	return SJointResourceBaseManager{
+		SResourceBaseManager: NewResourceBaseManager(dt, tableName, keyword, keywordPlural),
+		_master:              master,
+		_slave:               slave,
+	}
 }
 
 func (manager *SJointResourceBaseManager) GetMasterManager() IStandaloneModelManager {
