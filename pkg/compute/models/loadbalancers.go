@@ -169,7 +169,7 @@ func (lb *SLoadbalancer) ValidateUpdateData(ctx context.Context, userCred mcclie
 	if err != nil {
 		return nil, err
 	}
-	if backendGroup := backendGroupV.Model.(*SLoadbalancerBackendGroup); backendGroup.LoadbalancerId != lb.Id {
+	if backendGroup, ok := backendGroupV.Model.(*SLoadbalancerBackendGroup); ok && backendGroup.LoadbalancerId != lb.Id {
 		return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s, not %s",
 			backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, lb.Id)
 	}

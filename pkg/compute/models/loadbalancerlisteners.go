@@ -217,12 +217,9 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 		}
 	}
 	{
-		if backendGroupV.Model != nil {
-			backendGroup := backendGroupV.Model.(*SLoadbalancerBackendGroup)
-			if backendGroup.LoadbalancerId != lb.Id {
-				return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
-					backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, lb.Id)
-			}
+		if backendGroup, ok := backendGroupV.Model.(*SLoadbalancerBackendGroup); ok && backendGroup.LoadbalancerId != lb.Id {
+			return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
+				backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, lb.Id)
 		}
 	}
 	{
@@ -348,12 +345,9 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 		}
 	}
 	{
-		if backendGroupV.Model != nil {
-			backendGroup := backendGroupV.Model.(*SLoadbalancerBackendGroup)
-			if backendGroup.LoadbalancerId != lblis.LoadbalancerId {
-				return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
-					backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, lblis.LoadbalancerId)
-			}
+		if backendGroup, ok := backendGroupV.Model.(*SLoadbalancerBackendGroup); ok && backendGroup.LoadbalancerId != lblis.LoadbalancerId {
+			return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
+				backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, lblis.LoadbalancerId)
 		}
 	}
 	return lblis.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
