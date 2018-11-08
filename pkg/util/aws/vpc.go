@@ -148,7 +148,7 @@ func (self *SVpc) SyncSecurityGroup(secgroupId string, name string, rules []secr
 		}
 
 		desc := fmt.Sprintf("security group %s for vpc %s", name, self.VpcId)
-		if secgrpId, err = self.region.createSecurityGroup(self.VpcId, name, desc); err != nil {
+		if secgrpId, err = self.region.createSecurityGroup(self.VpcId, name, secgroupId, desc); err != nil {
 			return "", err
 		}
 

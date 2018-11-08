@@ -195,7 +195,7 @@ func (self *SRegion) updateSecurityGroupRuleDescription(secGrpId string, rule *s
 	return nil
 }
 
-func (self *SRegion) createSecurityGroup(vpcId string, name string, desc string) (string, error) {
+func (self *SRegion) createSecurityGroup(vpcId string, name string, secgroupIdTag string, desc string) (string, error) {
 	params := &ec2.CreateSecurityGroupInput{}
 	params.SetVpcId(vpcId)
 	params.SetDescription(desc)
@@ -206,11 +206,22 @@ func (self *SRegion) createSecurityGroup(vpcId string, name string, desc string)
 		return "", err
 	}
 
+	tagspec := TagSpec{ResourceType:"security-group"}
+	tagspec.SetTag("id", secgroupIdTag)
+	tags, _ := tagspec.GetTagSpecifications()
+	tagParams := &ec2.CreateTagsInput{}
+	tagParams.SetResources([]*string{group.GroupId})
+	tagParams.SetTags(tags.Tags)
+	_, err = self.ec2Client.CreateTags(tagParams)
+	if err != nil {
+		return "", err
+	}
+
 	return *group.GroupId, nil
 }
 
 func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
-	secId, err := self.createSecurityGroup(vpcId, "vpc default", "vpc default group")
+	secId, err := self.createSecurityGroup(vpcId, "vpc default", fmt.Sprintf("%s-default", vpcId), "vpc default group")
 	if err != nil {
 		return "", err
 	}
@@ -377,15 +388,15 @@ func (self *SRegion) getSecRules(ingress []*ec2.IpPermission, egress []*ec2.IpPe
 	return rules
 }
 
-func (self *SRegion) GetSecurityGroups(vpcId string, secgroupId string, offset int, limit int) ([]SSecurityGroup, int, error) {
+func (self *SRegion) GetSecurityGroups(vpcId string, secgroupIdTag string, offset int, limit int) ([]SSecurityGroup, int, error) {
 	params := &ec2.DescribeSecurityGroupsInput{}
 	filters := make([]*ec2.Filter, 0)
 	if len(vpcId) > 0 {
 		filters = AppendSingleValueFilter(filters, "vpc-id", vpcId)
 	}
 
-	if len(secgroupId) > 0 {
-		filters = AppendSingleValueFilter(filters, "group-id", secgroupId)
+	if len(secgroupIdTag) > 0 {
+		filters = AppendSingleValueFilter(filters, "tag:id", secgroupIdTag)
 	}
 
 	if len(filters) > 0 {
