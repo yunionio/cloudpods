@@ -201,7 +201,7 @@ func (manager *SSecurityGroupManager) getSecurityGroups() ([]SSecurityGroup, err
 	}
 }
 
-func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCred mcclient.TokenCredential, secgroups []cloudprovider.ICloudSecurityGroup) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
+func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCred mcclient.TokenCredential, secgroups []cloudprovider.ICloudSecurityGroup, projectId string, projectSync bool) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
 	localSecgroups := make([]SSecurityGroup, 0)
 	remoteSecgroups := make([]cloudprovider.ICloudSecurityGroup, 0)
 	syncResult := compare.SyncResult{}
@@ -223,7 +223,7 @@ func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCre
 			if rules, err := commonext[i].GetRules(); err != nil {
 				syncResult.Error(err)
 			} else if len(rules) > 0 {
-				if err = commondb[i].SyncWithCloudSecurityGroup(userCred, commonext[i]); err != nil {
+				if err = commondb[i].SyncWithCloudSecurityGroup(userCred, commonext[i], projectId, projectSync); err != nil {
 					syncResult.UpdateError(err)
 				} else {
 					localSecgroups = append(localSecgroups, commondb[i])
