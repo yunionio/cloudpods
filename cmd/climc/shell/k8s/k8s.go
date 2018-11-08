@@ -155,6 +155,7 @@ func initK8sClusterResource(kind string, manager modules.Manager) *ShellCommands
 			return nil
 		},
 	)
+
 	return NewShellCommands(cmdN).AddR(listCmd, getCmd, deleteCmd)
 }
 
