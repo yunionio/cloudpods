@@ -355,16 +355,27 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 
 func (lblis *SLoadbalancerListener) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := lblis.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if lblis.BackendGroupId == "" {
-		return extra
+	{
+		lb, err := LoadbalancerManager.FetchById(lblis.LoadbalancerId)
+		if err != nil {
+			log.Errorf("loadbalancer listener %s(%s): fetch loadbalancer (%s) error: %s",
+				lblis.Name, lblis.Id, lblis.LoadbalancerId, err)
+			return extra
+		}
+		extra.Set("loadbalancer", jsonutils.NewString(lb.GetName()))
 	}
-	lbbg, err := LoadbalancerBackendGroupManager.FetchById(lblis.BackendGroupId)
-	if err != nil {
-		log.Errorf("loadbalancer listener %s(%s): fetch backend group (%s) error: %s",
-			lblis.Name, lblis.Id, lblis.BackendGroupId, err)
-		return extra
+	{
+		if lblis.BackendGroupId == "" {
+			return extra
+		}
+		lbbg, err := LoadbalancerBackendGroupManager.FetchById(lblis.BackendGroupId)
+		if err != nil {
+			log.Errorf("loadbalancer listener %s(%s): fetch backend group (%s) error: %s",
+				lblis.Name, lblis.Id, lblis.BackendGroupId, err)
+			return extra
+		}
+		extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
 	}
-	extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
 	return extra
 }
 
