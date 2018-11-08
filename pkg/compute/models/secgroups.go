@@ -244,7 +244,7 @@ func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCre
 			if rules, err := added[i].GetRules(); err != nil {
 				syncResult.AddError(err)
 			} else if len(rules) > 0 {
-				if new, err := manager.newFromCloudVpc(added[i]); err != nil {
+				if new, err := manager.newFromCloudVpc(userCred, added[i], projectId); err != nil {
 					syncResult.AddError(err)
 				} else if len(rules) > 0 {
 					localSecgroups = append(localSecgroups, *new)
@@ -258,11 +258,15 @@ func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCre
 	return localSecgroups, remoteSecgroups, syncResult
 }
 
-func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup) error {
+func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup, projectId string, projectSync bool) error {
 	if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		extSec.Refresh()
 		self.Name = extSec.GetName()
 		self.Description = extSec.GetDescription()
+		self.ProjectId = userCred.GetProjectId()
+		if projectSync && len(projectId) > 0 {
+			self.ProjectId = projectId
+		}
 		return nil
 	}); err != nil {
 		log.Errorf("syncWithCloudSecurityGroup error %s", err)
@@ -271,12 +275,16 @@ func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCr
 	return nil
 }
 
-func (manager *SSecurityGroupManager) newFromCloudVpc(extSec cloudprovider.ICloudSecurityGroup) (*SSecurityGroup, error) {
+func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup, projectId string) (*SSecurityGroup, error) {
 	secgroup := SSecurityGroup{}
 	secgroup.SetModelManager(manager)
 	secgroup.Name = extSec.GetName()
 	secgroup.ExternalId = extSec.GetGlobalId()
 	secgroup.Description = extSec.GetDescription()
+	secgroup.ProjectId = userCred.GetProjectId()
+	if len(projectId) > 0 {
+		secgroup.ProjectId = projectId
+	}
 
 	if err := manager.TableSpec().Insert(&secgroup); err != nil {
 		return nil, err
