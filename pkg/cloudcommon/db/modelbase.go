@@ -162,6 +162,14 @@ func (manager *SModelBaseManager) DoCreate(ctx context.Context, userCred mcclien
 	return nil, fmt.Errorf("Do create not implement?")
 }
 
+func (manager *SModelBaseManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	return q, nil
+}
+
+func (manager *SModelBaseManager) GetExportExtraKeys(ctx context.Context, query jsonutils.JSONObject, rowMap map[string]string) *jsonutils.JSONDict {
+	return jsonutils.NewDict()
+}
+
 func (model *SModelBase) GetId() string {
 	return ""
 }
@@ -190,10 +198,6 @@ func (model *SModelBase) GetShortDesc() *jsonutils.JSONDict {
 
 // list hooks
 func (model *SModelBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	return jsonutils.NewDict()
-}
-
-func (model *SModelBase) GetExportItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	return jsonutils.NewDict()
 }
 
