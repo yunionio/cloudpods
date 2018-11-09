@@ -184,6 +184,18 @@ func init() {
 		return nil
 	})
 
+	type PolicyAdminCapableOptions struct {
+	}
+	R(&PolicyAdminCapableOptions{}, "policy-admin-capable", "Check admin capable", func(s *mcclient.ClientSession, args *PolicyAdminCapableOptions) error {
+		auth.InitFromClientSession(s)
+		policy.EnableGlobalRbac(15*time.Second, 15*time.Second)
+
+		capable := policy.PolicyManager.IsAdminCapable(s.GetToken())
+		fmt.Printf("%v\n", capable)
+
+		return nil
+	})
+
 	type PolicyExplainOptions struct {
 		Request []string `help:"explain request, in format of key:is_admin:service:resource:action:extra"`
 	}
