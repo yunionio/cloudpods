@@ -24,6 +24,7 @@ type Application struct {
 	name              string
 	context           context.Context
 	session           *SWorkerManager
+	systemSession     *SWorkerManager
 	roots             map[string]*RadixNode
 	rootLock          *sync.Mutex
 	connMax           int
@@ -51,6 +52,7 @@ func NewApplication(name string, connMax int) *Application {
 		context:           context.Background(),
 		connMax:           connMax,
 		session:           NewWorkerManager("HttpRequestWorkerManager", connMax, DEFAULT_BACKLOG),
+		systemSession:     NewWorkerManager("InternalHttpRequestWorkerManager", 1, DEFAULT_BACKLOG),
 		roots:             make(map[string]*RadixNode),
 		rootLock:          &sync.Mutex{},
 		idleTimeout:       DEFAULT_IDLE_TIMEOUT,
@@ -170,10 +172,15 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	duration := float64(time.Since(start).Nanoseconds()) / 1000000
 	counter.hit += 1
 	counter.duration += duration
-	log.Infof("%d %s %s %s (%s) %.2fms", lrw.status, rid, r.Method, r.URL, r.RemoteAddr, duration)
+	if !hi.skipLog {
+		log.Infof("%d %s %s %s (%s) %.2fms", lrw.status, rid, r.Method, r.URL, r.RemoteAddr, duration)
+	}
 }
 
 func (app *Application) handleCORS(w http.ResponseWriter, r *http.Request) bool {
+	if app.cors == nil {
+		return false
+	}
 	if r.Method == "OPTIONS" && r.Header.Get("Access-Control-Request-Method") != "" {
 		app.cors.handlePreflight(w, r)
 		return true
@@ -196,7 +203,6 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 		if ok {
 			fw := newResponseWriterChannel(w)
 			worker := make(chan *SWorker)
-			errChan := make(chan interface{})
 			to := hand.processTimeout
 			if to == 0 {
 				to = app.processTimeout
@@ -207,25 +213,32 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 			if session == nil {
 				session = app.session
 			}
-			session.Run(func() {
-				defer fw.closeChannels()
-				if ctx.Err() == nil {
-					ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_REQUEST_ID, rid)
-					ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_CUR_ROOT, hand.path)
-					ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_CUR_PATH, segs[len(hand.path):])
-					ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_PARAMS, params)
-					if hand.metadata != nil {
-						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_METADATA, hand.metadata)
-					}
-					func() {
-						span := trace.StartServerTrace(w, r, hand.GetName(params), app.GetName(), hand.GetTags())
-						defer span.EndTrace()
-						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_TRACE, span)
-						hand.handler(ctx, &fw, r)
-					}()
-				} // otherwise, the task has been timeout
-			}, worker, errChan)
-			runErr := fw.wait(ctx, worker, errChan)
+			session.Run(
+				func() {
+					if ctx.Err() == nil {
+						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_REQUEST_ID, rid)
+						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_CUR_ROOT, hand.path)
+						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_CUR_PATH, segs[len(hand.path):])
+						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_PARAMS, params)
+						if hand.metadata != nil {
+							ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_METADATA, hand.metadata)
+						}
+						func() {
+							span := trace.StartServerTrace(&fw, r, hand.GetName(params), app.GetName(), hand.GetTags())
+							defer span.EndTrace()
+							ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_TRACE, span)
+							hand.handler(ctx, &fw, r)
+						}()
+					} // otherwise, the task has been timeout
+					fw.closeChannels()
+				},
+				worker,
+				func(err error) {
+					httperrors.InternalServerError(&fw, "Internal server error: %s", err)
+					fw.closeChannels()
+				},
+			)
+			runErr := fw.wait(ctx, worker)
 			if runErr != nil {
 				switch runErr.(type) {
 				case *httputils.JSONClientError:
@@ -235,6 +248,7 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 					httperrors.InternalServerError(w, "Internal server error")
 				}
 			}
+			fw.closeChannels()
 			return hand
 		} else {
 			log.Errorf("Invalid handler for %s", r.URL)
@@ -247,13 +261,19 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 	return nil
 }
 
-func (app *Application) addDefaultHandler() {
-	app.AddHandler("GET", "/version", VersionHandler)
-	app.AddHandler("GET", "/stats", StatisticHandler)
-	app.AddHandler("POST", "/ping", PingHandler)
-	app.AddHandler("GET", "/ping", PingHandler)
-	// app.AddHandler("OPTIONS", "/", CORSHandler)
-	app.AddHandler("GET", "/worker_stats", WorkerStatsHandler)
+func (app *Application) addDefaultHandler(method string, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request), name string) {
+	segs := SplitPath(prefix)
+	hi := newHandlerInfo(method, segs, handler, nil, name, nil)
+	hi.SetSkipLog(true).SetWorkerManager(app.systemSession)
+	app.AddHandler3(hi)
+}
+
+func (app *Application) addDefaultHandlers() {
+	app.addDefaultHandler("GET", "/version", VersionHandler, "version")
+	app.addDefaultHandler("GET", "/stats", StatisticHandler, "stats")
+	app.addDefaultHandler("POST", "/ping", PingHandler, "ping")
+	app.addDefaultHandler("GET", "/ping", PingHandler, "ping")
+	app.addDefaultHandler("GET", "/worker_stats", WorkerStatsHandler, "worker_stats")
 }
 
 func timeoutHandle(h http.Handler) http.HandlerFunc {
@@ -274,10 +294,10 @@ func (app *Application) initServer(addr string) *http.Server {
 		db.SetMaxIdleConns(app.connMax + 1)
 		db.SetMaxOpenConns(app.connMax + 1)
 	}
-	app.addDefaultHandler()
+	app.addDefaultHandlers()
 	s := &http.Server{
 		Addr:              addr,
-		Handler:           timeoutHandle(app),
+		Handler:           app,
 		IdleTimeout:       app.idleTimeout,
 		ReadTimeout:       app.readTimeout,
 		ReadHeaderTimeout: app.readHeaderTimeout,
