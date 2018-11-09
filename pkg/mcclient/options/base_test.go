@@ -201,3 +201,24 @@ func TestOptionsStructToParams(t *testing.T) {
 		testSs(t, cases)
 	})
 }
+
+func TestBaseListOptions(t *testing.T) {
+	t.Run("pending-delete-all", func(t *testing.T) {
+		opts := &BaseListOptions{
+			PendingDeleteAll: Bool(true),
+		}
+		params, err := opts.Params()
+		if err != nil {
+			t.Fatalf("unexpected error: %s", err)
+		}
+		for _, f := range []string{"details", "admin"} {
+			got, err := params.Bool(f)
+			if err != nil {
+				t.Fatalf("getting %s field failed: %s", f, err)
+			}
+			if !got {
+				t.Errorf("expecting %s=true, got false", f)
+			}
+		}
+	})
+}

@@ -19,7 +19,8 @@ type LoadbalancerBackendListOptions struct {
 }
 
 type LoadbalancerBackendUpdateOptions struct {
-	ID string
+	ID   string
+	Name string
 
 	Weight *int
 	Port   *int

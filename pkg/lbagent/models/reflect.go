@@ -87,6 +87,7 @@ func GetModels(opts *GetModelsOptions) error {
 
 	listOptions := options.BaseListOptions{
 		Admin:   options.Bool(true),
+		Details: options.Bool(true),
 		Filter:  []string{minUpdatedAtFilter(minUpdatedAt)},
 		OrderBy: []string{"updated_at", "id"},
 		Order:   "asc",

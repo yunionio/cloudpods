@@ -70,7 +70,8 @@ type LoadbalancerCertificateListOptions struct {
 }
 
 type LoadbalancerCertificateUpdateOptions struct {
-	ID string
+	ID   string
+	Name string
 
 	Cert string `json:"-" help:"path to certificate file"`
 	Pkey string `json:"-" help:"path to private key file"`

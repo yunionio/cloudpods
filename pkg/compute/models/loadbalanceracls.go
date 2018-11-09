@@ -101,9 +101,12 @@ type SLoadbalancerAcl struct {
 	AclEntries *SLoadbalancerAclEntries `list:"user" update:"user" create:"required"`
 }
 
-func loadbalancerAclsValidateAclEntries(data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func loadbalancerAclsValidateAclEntries(data *jsonutils.JSONDict, update bool) (*jsonutils.JSONDict, error) {
 	aclEntries := SLoadbalancerAclEntries{}
 	aclEntriesV := validators.NewStructValidator("acl_entries", &aclEntries)
+	if update {
+		aclEntriesV.Optional(true)
+	}
 	err := aclEntriesV.Validate(data)
 	if err != nil {
 		return nil, err
@@ -112,7 +115,7 @@ func loadbalancerAclsValidateAclEntries(data *jsonutils.JSONDict) (*jsonutils.JS
 }
 
 func (man *SLoadbalancerAclManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	data, err := loadbalancerAclsValidateAclEntries(data)
+	data, err := loadbalancerAclsValidateAclEntries(data, false)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +127,7 @@ func (lbacl *SLoadbalancerAcl) AllowPerformStatus(ctx context.Context, userCred 
 }
 
 func (lbacl *SLoadbalancerAcl) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	data, err := loadbalancerAclsValidateAclEntries(data)
+	data, err := loadbalancerAclsValidateAclEntries(data, true)
 	if err != nil {
 		return nil, err
 	}

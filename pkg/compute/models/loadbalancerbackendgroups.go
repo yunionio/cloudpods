@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -100,6 +101,25 @@ func (lbbg *SLoadbalancerBackendGroup) ValidateDeleteCondition(ctx context.Conte
 		}
 	}
 	return nil
+}
+
+func (lbbg *SLoadbalancerBackendGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := lbbg.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	{
+		lb, err := LoadbalancerManager.FetchById(lbbg.LoadbalancerId)
+		if err != nil {
+			log.Errorf("loadbalancer backend group %s(%s): fetch loadbalancer (%s) error: %s",
+				lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, err)
+			return extra
+		}
+		extra.Set("loadbalancer", jsonutils.NewString(lb.GetName()))
+	}
+	return extra
+}
+
+func (lbbg *SLoadbalancerBackendGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := lbbg.GetCustomizeColumns(ctx, userCred, query)
+	return extra
 }
 
 func (lbbg *SLoadbalancerBackendGroup) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
