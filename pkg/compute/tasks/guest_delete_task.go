@@ -93,7 +93,17 @@ func (self *GuestDeleteTask) OnPendingDeleteComplete(ctx context.Context, obj db
 	if !guest.IsSystem {
 		self.NotifyServerDeleted(ctx, guest)
 	}
+	self.SetStage("on_sync_guest_conf_complete", nil)
+	guest.StartSyncTask(ctx, self.UserCred, false, self.GetTaskId())
+}
+
+func (self *GuestDeleteTask) OnSyncGuestConfComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *GuestDeleteTask) OnSyncGuestConfCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	self.OnFailed(ctx, guest, err)
 }
 
 func (self *GuestDeleteTask) StartDeleteGuest(ctx context.Context, guest *models.SGuest) {
