@@ -18,7 +18,9 @@ type LoadbalancerListenerRuleListOptions struct {
 }
 
 type LoadbalancerListenerRuleUpdateOptions struct {
-	ID           string
+	ID   string
+	Name string
+
 	BackendGroup string
 }
 

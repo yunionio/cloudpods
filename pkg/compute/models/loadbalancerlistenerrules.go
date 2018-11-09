@@ -112,8 +112,7 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 		return nil, fmt.Errorf("listener type must be http/https, got %s", listenerType)
 	}
 	{
-		backendGroup := backendGroupV.Model.(*SLoadbalancerBackendGroup)
-		if backendGroup.LoadbalancerId != listener.LoadbalancerId {
+		if backendGroup, ok := backendGroupV.Model.(*SLoadbalancerBackendGroup); ok && backendGroup.LoadbalancerId != listener.LoadbalancerId {
 			return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
 				backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, listener.LoadbalancerId)
 		}
@@ -136,14 +135,13 @@ func (lbr *SLoadbalancerListenerRule) ValidateUpdateData(ctx context.Context, us
 	if err != nil {
 		return nil, err
 	}
-	if backendGroupV.Model != nil {
+	if backendGroup, ok := backendGroupV.Model.(*SLoadbalancerBackendGroup); ok && backendGroup.Id != lbr.BackendGroupId {
 		listenerM, err := LoadbalancerListenerManager.FetchById(lbr.ListenerId)
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("loadbalancerlistenerrule %s(%s): fetching listener %s failed",
 				lbr.Name, lbr.Id, lbr.ListenerId)
 		}
 		listener := listenerM.(*SLoadbalancerListener)
-		backendGroup := backendGroupV.Model.(*SLoadbalancerBackendGroup)
 		if backendGroup.LoadbalancerId != listener.LoadbalancerId {
 			return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
 				backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, listener.LoadbalancerId)
