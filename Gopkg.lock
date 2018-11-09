@@ -1236,11 +1236,7 @@
 
 [[projects]]
   branch = "master"
-<<<<<<< HEAD
-  digest = "1:2dd5cfa0e15bc1351229c0be3b09b0b7fe47d23e99d19edfba5b2402ddb1cf7b"
-=======
-  digest = "1:71658437b1f5aca7d253eca0d622301d06ed943f32ca2f5da7b5dd1dac8bfcb4"
->>>>>>> c845dda83df2ddff6d7d384354ed3d214b64b27a
+  digest = "1:bf987f904fd821c6395fefdab956d070596eb401657fff40420014a3a8e3f45c"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1274,27 +1270,15 @@
     "utils",
   ]
   pruneopts = "UT"
-<<<<<<< HEAD
-  revision = "194153d51e1c1bd8a3b9545ee0bc1504ddcdcb4d"
+  revision = "7614d751299a6703a05f757a13e6dc900332e31b"
 
 [[projects]]
   branch = "master"
-  digest = "1:d8daebdff1c94f0acac6952014812ac02fc10e1894004dd2efd8377a2517ba06"
+  digest = "1:66b13d3803b8ff8f26c3ca0422fb18ca0362dff62240e436b0aa0a921f833bb9"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "95a4726da196a27611ca7df4e08f16ece628f708"
-=======
-  revision = "526a04d2eb834022e20100d991d1c84b78d87c07"
-
-[[projects]]
-  branch = "master"
-  digest = "1:141fd68bff3a443a9e5ba7aa2bcde1da32d10e8cd9d84c34a58cbd3a09d13364"
-  name = "yunion.io/x/sqlchemy"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "a3f19609eaa576cde3dff0e9099891f95f9aeec8"
->>>>>>> c845dda83df2ddff6d7d384354ed3d214b64b27a
+  revision = "7de55aae3ef9b019c47d21ff8fa4add1a9c80eb7"
 
 [[projects]]
   branch = "master"
@@ -1302,7 +1286,7 @@
   name = "yunion.io/x/structarg"
   packages = ["."]
   pruneopts = "UT"
-  revision = "ba8620a6258308b3faa4174d4c2d81a6f70b57ea"
+  revision = "e0cc2c73375327d401b100bd8988fa340c2687ee"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1342,6 +1326,7 @@
     "github.com/coredns/coredns/plugin/nsid",
     "github.com/coredns/coredns/plugin/pkg/dnsutil",
     "github.com/coredns/coredns/plugin/pkg/fall",
+    "github.com/coredns/coredns/plugin/pkg/log",
     "github.com/coredns/coredns/plugin/pkg/upstream",
     "github.com/coredns/coredns/plugin/proxy",
     "github.com/coredns/coredns/plugin/reload",

@@ -1135,16 +1135,95 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 	return self.moreExtraInfo(extra)
 }
 
-func (self *SGuest) GetExportItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	exportKeys, _ := query.GetString("export_keys")
 	keys := strings.Split(exportKeys, ",")
-	res := jsonutils.NewDict()
-	if utils.IsInStringArray("os_distribution", keys) {
-		osType := self.GetMetadata("os_distribution", userCred)
-		if len(osType) == 0 {
-			osType = self.OsType
+
+	// guest_id as filter key
+	if utils.IsInStringArray("ips", keys) {
+		guestIpsQuery := GuestnetworkManager.Query("guest_id").GroupBy("guest_id")
+		guestIpsQuery.AppendField(sqlchemy.GROUP_CONCAT("concat_ip_addr", guestIpsQuery.Field("ip_addr")))
+		ipsSubQuery := guestIpsQuery.SubQuery()
+		guestIpsQuery.DebugQuery()
+		q.LeftJoin(ipsSubQuery, sqlchemy.Equals(q.Field("id"), ipsSubQuery.Field("guest_id")))
+		q.AppendField(ipsSubQuery.Field("concat_ip_addr"))
+	}
+	if utils.IsInStringArray("disk", keys) {
+		guestDisksQuery := GuestdiskManager.Query("guest_id", "disk_id").GroupBy("guest_id")
+		diskQuery := DiskManager.Query("id", "disk_size").SubQuery()
+		guestDisksQuery.Join(diskQuery, sqlchemy.Equals(diskQuery.Field("id"), guestDisksQuery.Field("disk_id")))
+		guestDisksQuery.AppendField(sqlchemy.SUM("disk_size", diskQuery.Field("disk_size")))
+		guestDisksSubQuery := guestDisksQuery.SubQuery()
+		guestDisksSubQuery.DebugQuery()
+		q.LeftJoin(guestDisksSubQuery, sqlchemy.Equals(q.Field("id"), guestDisksSubQuery.
+			Field("guest_id")))
+		q.AppendField(guestDisksSubQuery.Field("disk_size"))
+	}
+	if utils.IsInStringArray("eip", keys) {
+		eipsQuery := ElasticipManager.Query("associate_id", "ip_addr").Equals("associate_type", "server").GroupBy("associate_id")
+		eipsSubQuery := eipsQuery.SubQuery()
+		eipsSubQuery.DebugQuery()
+		q.LeftJoin(eipsSubQuery, sqlchemy.Equals(q.Field("id"), eipsSubQuery.Field("associate_id")))
+		q.AppendField(eipsSubQuery.Field("ip_addr", "eip"))
+	}
+
+	// host_id as filter key
+	if utils.IsInStringArray("region", keys) {
+		zoneQuery := ZoneManager.Query("id", "cloudregion_id").SubQuery()
+		hostQuery := HostManager.Query("id", "zone_id").GroupBy("id")
+		cloudregionQuery := CloudregionManager.Query("id", "name").SubQuery()
+		hostQuery.LeftJoin(zoneQuery, sqlchemy.Equals(hostQuery.Field("zone_id"), zoneQuery.Field("id"))).
+			LeftJoin(cloudregionQuery, sqlchemy.OR(sqlchemy.Equals(cloudregionQuery.Field("id"),
+				zoneQuery.Field("cloudregion_id")), sqlchemy.Equals(cloudregionQuery.Field("id"), "default")))
+		hostQuery.AppendField(cloudregionQuery.Field("name", "region"))
+		hostSubQuery := hostQuery.SubQuery()
+		q.LeftJoin(hostSubQuery, sqlchemy.Equals(q.Field("host_id"), hostSubQuery.Field("id")))
+		q.AppendField(hostSubQuery.Field("region"))
+	}
+	if utils.IsInStringArray("manager", keys) {
+		hostQuery := HostManager.Query("id", "manager_id").GroupBy("id")
+		cloudProviderQuery := CloudproviderManager.Query("id", "name").SubQuery()
+		hostQuery.LeftJoin(cloudProviderQuery, sqlchemy.Equals(hostQuery.Field("manager_id"),
+			cloudProviderQuery.Field("id")))
+		hostQuery.AppendField(cloudProviderQuery.Field("name", "manager"))
+		hostSubQuery := hostQuery.SubQuery()
+		q.LeftJoin(hostSubQuery, sqlchemy.Equals(q.Field("host_id"), hostSubQuery.Field("id")))
+		q.AppendField(hostSubQuery.Field("manager"))
+	}
+	return q, nil
+}
+
+func (manager *SGuestManager) GetExportExtraKeys(ctx context.Context, query jsonutils.JSONObject, rowMap map[string]string) *jsonutils.JSONDict {
+	res := manager.SStatusStandaloneResourceBaseManager.GetExportExtraKeys(ctx, query, rowMap)
+	exportKeys, _ := query.GetString("export_keys")
+	keys := strings.Split(exportKeys, ",")
+	if ips, ok := rowMap["concat_ip_addr"]; ok && len(ips) > 0 {
+		res.Set("ips", jsonutils.NewString(ips))
+	}
+	if eip, ok := rowMap["eip"]; ok && len(eip) > 0 {
+		res.Set("eip", jsonutils.NewString(eip))
+	}
+	if disk, ok := rowMap["disk_size"]; ok {
+		res.Set("disk", jsonutils.NewString(disk))
+	}
+	if region, ok := rowMap["region"]; ok && len(region) > 0 {
+		res.Set("region", jsonutils.NewString(region))
+	}
+	if manager, ok := rowMap["manager"]; ok && len(manager) > 0 {
+		res.Set("manager", jsonutils.NewString(manager))
+	}
+	if utils.IsInStringArray("tenant", keys) {
+		if projectId, ok := rowMap["tenant_id"]; ok {
+			tenant, err := db.TenantCacheManager.FetchTenantById(ctx, projectId)
+			if err == nil {
+				res.Set("tenant", jsonutils.NewString(tenant.GetName()))
+			}
 		}
-		res.Set("os_distribution", jsonutils.NewString(osType))
+	}
+	if utils.IsInStringArray("os_distribution", keys) {
+		if osType, ok := rowMap["os_type"]; ok {
+			res.Set("os_distribution", jsonutils.NewString(osType))
+		}
 	}
 	return res
 }

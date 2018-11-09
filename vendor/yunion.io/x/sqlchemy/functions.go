@@ -57,3 +57,8 @@ func DISTINCT(name string, field IQueryField) IQueryField {
 	ff := NewFunctionField(name, "DISTINCT(%s)", field)
 	return &ff
 }
+
+func GROUP_CONCAT(name string, field IQueryField) IQueryField {
+	ff := NewFunctionField(name, "GROUP_CONCAT(%s)", field)
+	return &ff
+}
