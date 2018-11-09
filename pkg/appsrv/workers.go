@@ -53,6 +53,8 @@ func (worker *SWorker) isDetached() bool {
 }
 
 func (worker *SWorker) run() {
+	defer log.Debugf("no more job, exit worker %s", worker)
+	defer worker.manager.removeWorker(worker)
 	for {
 		if worker.isDetached() {
 			if isDebug {
@@ -80,7 +82,6 @@ func (worker *SWorker) run() {
 			break
 		}
 	}
-	worker.manager.removeWorker(worker)
 }
 
 func (worker *SWorker) Detach(reason string) {
@@ -92,18 +93,28 @@ func (worker *SWorker) Detach(reason string) {
 	worker.manager.detachedWorker.addWithLock(worker)
 
 	log.Warningf("detach worker %s due to reason %s", worker, reason)
+
+	worker.manager.scheduleWithLock()
+}
+
+func (worker *SWorker) StateStr() string {
+	if worker.state == WORKER_STATE_ACTIVE {
+		return "active"
+	} else {
+		return "detach"
+	}
 }
 
 func (worker *SWorker) String() string {
-	return fmt.Sprintf("#%d(%d)", worker.id, worker.state)
+	return fmt.Sprintf("#%d(%p, %s)", worker.id, worker, worker.StateStr())
 }
 
 type SWorkerList struct {
 	list *list.List
 }
 
-func newWorkerList() SWorkerList {
-	return SWorkerList{
+func newWorkerList() *SWorkerList {
+	return &SWorkerList{
 		list: list.New(),
 	}
 }
@@ -127,8 +138,8 @@ type SWorkerManager struct {
 	queue          *Ring
 	workerCount    int
 	backlog        int
-	activeWorker   SWorkerList
-	detachedWorker SWorkerList
+	activeWorker   *SWorkerList
+	detachedWorker *SWorkerList
 	workerLock     *sync.Mutex
 	workerId       uint64
 }
@@ -148,15 +159,21 @@ func NewWorkerManager(name string, workerCount int, backlog int) *SWorkerManager
 }
 
 type sWorkerTask struct {
-	task   func()
-	worker chan *SWorker
-	err    chan interface{}
+	task    func()
+	worker  chan *SWorker
+	onError func(error)
 }
 
-func (wm *SWorkerManager) Run(task func(), worker chan *SWorker, err chan interface{}) bool {
-	ret := wm.queue.Push(&sWorkerTask{task: task, worker: worker, err: err})
+func (wm *SWorkerManager) String() string {
+	return wm.name
+}
+
+func (wm *SWorkerManager) Run(task func(), worker chan *SWorker, onErr func(error)) bool {
+	ret := wm.queue.Push(&sWorkerTask{task: task, worker: worker, onError: onErr})
 	if ret {
 		wm.schedule()
+	} else {
+		log.Warningf("[%] BUSY fail to push task, queue is FULL")
 	}
 	return ret
 }
@@ -176,23 +193,23 @@ func execCallback(task *sWorkerTask) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Errorf("WorkerManager exec callback error: %s", r)
-			debug.PrintStack()
-			if task.err != nil {
-				task.err <- r
-				close(task.err)
+			if task.onError != nil {
+				task.onError(fmt.Errorf("%s", r))
 			}
+			debug.PrintStack()
 		}
 	}()
 	task.task()
-	if task.err != nil {
-		close(task.err)
-	}
 }
 
 func (wm *SWorkerManager) schedule() {
 	wm.workerLock.Lock()
 	defer wm.workerLock.Unlock()
 
+	wm.scheduleWithLock()
+}
+
+func (wm *SWorkerManager) scheduleWithLock() {
 	if wm.activeWorker.size() < wm.workerCount && wm.queue.Size() > 0 {
 		wm.workerId += 1
 		worker := newWorker(wm.workerId, wm)
@@ -201,6 +218,8 @@ func (wm *SWorkerManager) schedule() {
 			log.Debugf("no enough worker, add new worker %s", worker)
 		}
 		go worker.run()
+	} else {
+		log.Warningf("[%s] BUSY activeWork %d max %d queue: %d", wm, wm.activeWorker.size(), wm.workerCount, wm.queue.Size())
 	}
 }
 
