@@ -6,6 +6,7 @@ import (
 
 	"github.com/jinzhu/gorm"
 
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -122,6 +123,8 @@ type NetworkSchedResult struct {
 	IsExit     bool   `json:"is_exit"`
 	Wire       string `json:"wire_name"`
 	WireID     string `json:"wire_id"`
+	StartIp    string `json:"start_ip"`
+	EndIp      string `json:"end_ip"`
 }
 
 func HostNetworkSchedResults(hostID string) ([]*NetworkSchedResult, error) {
@@ -173,6 +176,8 @@ func NewNetworkSchedResult(net *Network) (*NetworkSchedResult, error) {
 		TenantID:   net.TenantID,
 		ServerType: net.ServerType,
 		IsExit:     utils.IsExitAddress(net.GuestIpStart),
+		StartIp:    net.GuestIpStart,
+		EndIp:      net.GuestIpEnd,
 	}
 	res.IsPublic = net.IsPublic == 1
 	ports, err := NetworkAvaliableAddress(net)
@@ -253,4 +258,20 @@ func NicCount(nicName string) (map[string]int, error) {
 	}
 
 	return countsMap, nil
+}
+
+func (net *NetworkSchedResult) ContainsIp(ip string) (bool, error) {
+	address, err := netutils.NewIPV4Addr(ip)
+	if err != nil {
+		return false, err
+	}
+	start, err := netutils.NewIPV4Addr(net.StartIp)
+	if err != nil {
+		return false, err
+	}
+	end, err := netutils.NewIPV4Addr(net.EndIp)
+	if err != nil {
+		return false, err
+	}
+	return netutils.NewIPV4AddrRange(start, end).Contains(address), nil
 }
