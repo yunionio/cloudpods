@@ -511,7 +511,7 @@ func (v *ValidatorStruct) Validate(data *jsonutils.JSONDict) error {
 	if valueValidator, ok := v.Value.(IValidatorBase); ok {
 		err = valueValidator.Validate(data)
 		if err != nil {
-			return err
+			return newInvalidValueError(v.Key, err.Error())
 		}
 	}
 	data.Set(v.Key, jsonutils.Marshal(v.Value))

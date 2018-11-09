@@ -39,6 +39,18 @@ func init() {
 		printList(result, modules.LoadbalancerBackendGroups.GetColumns(s))
 		return nil
 	})
+	R(&options.LoadbalancerBackendGroupUpdateOptions{}, "lbbackendgroup-update", "Update lbbackendgroup", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendGroupUpdateOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		lbbackendgroup, err := modules.LoadbalancerBackendGroups.Update(s, opts.ID, params)
+		if err != nil {
+			return err
+		}
+		printObject(lbbackendgroup)
+		return nil
+	})
 	R(&options.LoadbalancerBackendGroupDeleteOptions{}, "lbbackendgroup-delete", "Show lbbackendgroup", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendGroupDeleteOptions) error {
 		lbbackendgroup, err := modules.LoadbalancerBackendGroups.Delete(s, opts.ID, nil)
 		if err != nil {

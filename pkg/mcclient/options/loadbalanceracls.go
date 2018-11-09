@@ -69,7 +69,9 @@ type LoadbalancerAclListOptions struct {
 }
 
 type LoadbalancerAclUpdateOptions struct {
-	ID       string   `json:"-"`
+	ID   string `json:"-"`
+	Name string
+
 	AclEntry []string `help:"acl entry with cidr and comment separated by #, e.g. 10.9.0.0/16#no comment" json:"-"`
 }
 
@@ -99,9 +101,13 @@ func (opts *LoadbalancerAclUpdateOptions) Params() (*jsonutils.JSONDict, error) 
 	if err != nil {
 		return nil, err
 	}
-	aclEntries := NewAclEntries(opts.AclEntry)
-	aclEntriesJson := jsonutils.Marshal(aclEntries)
-	params.Set("acl_entries", aclEntriesJson)
+	// - when it's nil, we leave it alone without updating
+	// - when it's non-nil, we update it as a whole
+	if opts.AclEntry != nil {
+		aclEntries := NewAclEntries(opts.AclEntry)
+		aclEntriesJson := jsonutils.Marshal(aclEntries)
+		params.Set("acl_entries", aclEntriesJson)
+	}
 	return params, nil
 }
 

@@ -11,7 +11,9 @@ type LoadbalancerGetOptions struct {
 }
 
 type LoadbalancerUpdateOptions struct {
-	ID           string
+	ID   string
+	Name string
+
 	BackendGroup string
 }
 

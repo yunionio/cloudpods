@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/moul/http2curl"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/trace"
 
@@ -189,62 +189,58 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 	}
 	rbody, err := ioutil.ReadAll(resp.Body)
 	if debug {
-		fmt.Println(string(rbody))
+		fmt.Fprintf(os.Stderr, "%s\n", string(rbody))
 	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("Fail to read body: %s", err)
 	}
+
 	var jrbody jsonutils.JSONObject = nil
 	if len(rbody) > 0 {
+		var err error
 		jrbody, err = jsonutils.Parse(rbody)
-
 		if err != nil && debug {
-			log.Errorf("parse JSON body %s fail: %s", rbody, err)
-		}
-		///// XXX: ignore error case
-		// if err != nil && resp.StatusCode < 300 {
-		//     return nil, nil, fmt.Errorf("Fail to decode body: %s", err)
-		// }
-		if jrbody != nil && debug {
-			fmt.Println(jrbody)
+			fmt.Fprintf(os.Stderr, "parsing json failed: %s", err)
 		}
 	}
-	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+
+	if resp.StatusCode < 300 {
+		return resp.Header, jrbody, nil
+	} else if resp.StatusCode >= 300 && resp.StatusCode < 400 {
 		ce := JSONClientError{}
 		ce.Code = resp.StatusCode
 		ce.Details = resp.Header.Get("Location")
 		ce.Class = "redirect"
 		return nil, nil, &ce
-	} else if resp.StatusCode >= 400 {
+	} else {
 		ce := JSONClientError{}
+
 		if jrbody == nil {
 			ce.Code = resp.StatusCode
 			ce.Details = resp.Status
 			return nil, nil, &ce
-		} else {
-			jrbody2, e := jrbody.Get("error")
-			if e == nil {
-				ecode, e := jrbody2.Int("code")
-				if e == nil {
-					ce.Code = int(ecode)
-					ce.Details, _ = jrbody2.GetString("message")
-					ce.Class, _ = jrbody2.GetString("title")
-					return nil, nil, &ce
-				} else {
-					ce.Code = resp.StatusCode
-					ce.Details = jrbody2.String()
-					return nil, nil, &ce
-				}
+		}
+
+		jrbody2, err := jrbody.Get("error")
+		if err == nil {
+			ecode, err := jrbody2.Int("code")
+			if err == nil {
+				ce.Code = int(ecode)
+				ce.Details, _ = jrbody2.GetString("message")
+				ce.Class, _ = jrbody2.GetString("title")
+				return nil, nil, &ce
 			} else {
-				err = jrbody.Unmarshal(&ce)
-				if err != nil {
-					return nil, nil, err
-				} else {
-					return nil, nil, &ce
-				}
+				ce.Code = resp.StatusCode
+				ce.Details = jrbody2.String()
+				return nil, nil, &ce
 			}
 		}
-	} else {
-		return resp.Header, jrbody, nil
+
+		err = jrbody.Unmarshal(&ce)
+		if err != nil {
+			return nil, nil, err
+		} else {
+			return nil, nil, &ce
+		}
 	}
 }
