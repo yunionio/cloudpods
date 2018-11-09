@@ -18,12 +18,10 @@ func main() {
 	})
 	app.AddHandler("GET", "/panic", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		panic("the handler is panic")
-		appsrv.Send(w, "pong")
 	})
 	app.AddHandler("GET", "/delaypanic", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		time.Sleep(time.Second * 1)
 		panic("the handler is panic")
-		appsrv.Send(w, "pong")
 	})
 	app.ListenAndServe("0.0.0.0:44444")
 }
