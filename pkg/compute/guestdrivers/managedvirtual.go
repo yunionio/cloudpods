@@ -156,6 +156,23 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 		if err != nil {
 			return nil, err
 		}
+
+		for _, guestdisk := range guest.GetDisks() {
+			if disk := guestdisk.GetDisk(); disk != nil && disk.AutoDelete {
+				idisk, err := disk.GetIDisk()
+				if err != nil {
+					if err == cloudprovider.ErrNotFound {
+						continue
+					} else {
+						return nil, err
+					}
+				}
+				err = idisk.Delete()
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 		return nil, nil
 	})
 	return nil

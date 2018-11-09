@@ -113,7 +113,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 					return nil, err
 				}
 
-				data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd)
+				data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd, action)
 				return data, nil
 			}
 		})
@@ -136,7 +136,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 			if err != nil {
 				return nil, err
 			}
-			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd, action)
 			return data, nil
 		})
 	} else if action == "rebuild" {
@@ -153,7 +153,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 			}
 
 			log.Debugf("VMrebuildRoot %s, and status is ready", iVM.GetGlobalId())
-			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd, action)
 
 			return data, nil
 		})

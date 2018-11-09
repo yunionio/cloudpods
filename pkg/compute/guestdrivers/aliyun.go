@@ -81,7 +81,7 @@ type SDiskInfo struct {
 	Metadata map[string]string
 }
 
-func fetchIVMinfo(desc SManagedVMCreateConfig, iVM cloudprovider.ICloudVM, guestId string, account, passwd string) *jsonutils.JSONDict {
+func fetchIVMinfo(desc SManagedVMCreateConfig, iVM cloudprovider.ICloudVM, guestId string, account, passwd string, action string) *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 
 	data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
@@ -116,6 +116,9 @@ func fetchIVMinfo(desc SManagedVMCreateConfig, iVM cloudprovider.ICloudVM, guest
 			dinfo.BillingType = idisks[i].GetBillingType()
 			dinfo.DiskFormat = idisks[i].GetDiskFormat()
 			dinfo.AutoDelete = idisks[i].GetIsAutoDelete()
+			if action == "create" {
+				dinfo.AutoDelete = true
+			}
 			dinfo.TemplateId = idisks[i].GetTemplateId()
 			dinfo.FsFromat = idisks[i].GetFsFormat()
 			dinfo.ExpiredAt = idisks[i].GetExpiredAt()
@@ -219,7 +222,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				}
 			}*/
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd, action)
 
 			/* data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
 
@@ -299,7 +302,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd, action)
 
 			/*
 				data := jsonutils.NewDict()
@@ -366,7 +369,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				}
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd, action)
 
 			return data, nil
 		})
@@ -402,7 +405,9 @@ func (self *SAliyunGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Contex
 				disk.Status = models.DISK_READY
 				disk.BillingType = diskInfo[i].BillingType
 				disk.FsFormat = diskInfo[i].FsFromat
-				disk.AutoDelete = diskInfo[i].AutoDelete
+				if diskInfo[i].AutoDelete {
+					disk.AutoDelete = true
+				}
 				disk.TemplateId = diskInfo[i].TemplateId
 				disk.DiskFormat = diskInfo[i].DiskFormat
 				disk.ExpiredAt = diskInfo[i].ExpiredAt

@@ -739,7 +739,9 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		self.Status = extDisk.GetStatus()
 		self.DiskFormat = extDisk.GetDiskFormat()
 		self.DiskSize = extDisk.GetDiskSizeMB()
-		self.AutoDelete = extDisk.GetIsAutoDelete()
+		if extDisk.GetIsAutoDelete() {
+			self.AutoDelete = true
+		}
 		// self.TemplateId = extDisk.GetTemplateId() no sync template ID
 		self.DiskType = extDisk.GetDiskType()
 		if index == 0 {
