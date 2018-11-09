@@ -146,6 +146,10 @@ func DoQuery(from IQuerySource, f ...IQueryField) *SQuery {
 	return &tq
 }
 
+func (q *SQuery) AppendField(f ...IQueryField) {
+	q.fields = append(q.fields, f...)
+}
+
 func (table *SSubQuery) Query(f ...IQueryField) *SQuery {
 	return DoQuery(table, f...)
 }
@@ -527,22 +531,29 @@ func (q *SQuery) All(dest interface{}) error {
 	return err
 }
 
-func (q *SQuery) Row2Struct(row IRowScanner, dest interface{}) error {
-	result, err := q.rowScan2StringMap(row)
-	if err != nil {
-		return err
-	}
+func (q *SQuery) Row2Map(row IRowScanner) (map[string]string, error) {
+	return q.rowScan2StringMap(row)
+}
 
+func (q *SQuery) RowMap2Struct(result map[string]string, dest interface{}) error {
 	destPtrValue := reflect.ValueOf(dest)
 	if destPtrValue.Kind() != reflect.Ptr {
 		return fmt.Errorf("input must be a pointer")
 	}
 
 	destValue := destPtrValue.Elem()
-	err = mapString2Struct(result, destValue)
+	err := mapString2Struct(result, destValue)
 	if err != nil {
 		return err
 	}
 	callAfterQuery(destPtrValue)
 	return nil
+}
+
+func (q *SQuery) Row2Struct(row IRowScanner, dest interface{}) error {
+	result, err := q.rowScan2StringMap(row)
+	if err != nil {
+		return err
+	}
+	return q.RowMap2Struct(result, dest)
 }
