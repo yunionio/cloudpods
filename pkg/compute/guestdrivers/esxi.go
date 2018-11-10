@@ -29,6 +29,10 @@ func (self *SESXiGuestDriver) GetDetachDiskStatus() ([]string, error) {
 	return []string{models.VM_READY}, nil
 }
 
+func (self *SESXiGuestDriver) GetAttachDiskStatus() ([]string, error) {
+	return []string{models.VM_READY}, nil
+}
+
 func (self *SESXiGuestDriver) CanKeepDetachDisk() bool {
 	return false
 }

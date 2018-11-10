@@ -42,6 +42,7 @@ const (
 	DISK_DEALLOC_FAILED = "dealloc_failed"
 	DISK_UNKNOWN        = "unknown"
 	DISK_DETACHING      = "detaching"
+	DISK_ATTACHING      = "attaching"
 
 	DISK_START_SAVE = "start_save"
 	DISK_SAVING     = "saving"

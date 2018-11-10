@@ -86,12 +86,21 @@ func (self *SBaseGuestDriver) RequestDetachDisk(ctx context.Context, guest *mode
 	return nil
 }
 
+func (self *SBaseGuestDriver) RequestAttachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
 func (self *SBaseGuestDriver) RequestGuestCreateAllDisks(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement")
 }
 
 func (self *SBaseGuestDriver) GetDetachDiskStatus() ([]string, error) {
 	return []string{}, fmt.Errorf("This Guest driver dose not implement GetDetachDiskStatus")
+}
+
+func (self *SBaseGuestDriver) GetAttachDiskStatus() ([]string, error) {
+	return []string{}, fmt.Errorf("This Guest driver dose not implement GetAttachDiskStatus")
 }
 
 func (self *SBaseGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, disk *models.SDisk, task taskman.ITask, isPurge bool) error {
