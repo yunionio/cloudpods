@@ -66,6 +66,9 @@ const (
 	VM_STOPPING        = "stopping"
 	VM_STOP_FAILED     = "stop_fail" // # = running
 
+	VM_ATTACH_DISK_FAILED = "attach_disk_fail"
+	VM_DETACH_DISK_FAILED = "detach_disk_fail"
+
 	VM_START_SUSPEND  = "start_suspend"
 	VM_SUSPENDING     = "suspending"
 	VM_SUSPEND        = "suspend"
@@ -2130,44 +2133,52 @@ func (self *SGuest) ValidateAttachDisk(ctx context.Context, disk *SDisk) error {
 		host := self.GetHost()
 		if provider.Id != host.ManagerId {
 			return httperrors.NewInputParameterError("Disk %s and guest not belong to the same account", disk.Name)
-		} else if storage.ZoneId != host.ZoneId {
+		}
+		if storage.ZoneId != host.ZoneId {
 			return httperrors.NewInputParameterError("Disk %s and guest not belong to the same zone", disk.Name)
 		}
-		return nil
 	}
 
 	if disk.isAttached() {
 		return httperrors.NewInputParameterError("Disk %s has been attached", disk.Name)
-	} else if len(disk.GetPathAtHost(self.GetHost())) == 0 {
+	}
+	if len(disk.GetPathAtHost(self.GetHost())) == 0 {
 		return httperrors.NewInputParameterError("Disk %s not belong the guest's host", disk.Name)
-	} else if disk.Status != DISK_READY {
+	}
+	if disk.Status != DISK_READY {
 		return httperrors.NewInputParameterError("Disk in %s not able to attach", disk.Status)
-	} else if !utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_READY}) {
-		return httperrors.NewInputParameterError("Server in %s not able to attach disk", self.Status)
+	}
+	guestStatus, err := self.GetDriver().GetAttachDiskStatus()
+	if err != nil {
+		return err
+	}
+	if !utils.IsInStringArray(self.Status, guestStatus) {
+		return httperrors.NewInputParameterError("Guest %s not support attach disk in status %s", self.Name, self.Status)
 	}
 	return nil
 }
 
 func (self *SGuest) PerformAttachdisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if diskId, err := data.GetString("disk_id"); err != nil {
+	diskId, err := data.GetString("disk_id")
+	if err != nil {
 		return nil, err
-	} else {
-		if disk, err := DiskManager.FetchByIdOrName(userCred, diskId); err != nil {
-			return nil, err
-		} else if disk == nil {
-			return nil, httperrors.NewResourceNotFoundError("Disk %s not found", diskId)
-		} else if err := self.ValidateAttachDisk(ctx, disk.(*SDisk)); err != nil {
-			return nil, err
-		} else {
-			driver, _ := data.GetString("driver")
-			cache, _ := data.GetString("cache")
-			mountpoint, _ := data.GetString("mountpoint")
-			if err := self.attach2Disk(disk.(*SDisk), userCred, driver, cache, mountpoint); err != nil {
-				return nil, err
-			} else {
-				self.StartSyncTask(ctx, userCred, false, "")
-			}
-		}
+	}
+	disk, err := DiskManager.FetchByIdOrName(userCred, diskId)
+	if err != nil {
+		return nil, err
+	}
+	if disk == nil {
+		return nil, httperrors.NewResourceNotFoundError("Disk %s not found", diskId)
+	}
+	if err := self.ValidateAttachDisk(ctx, disk.(*SDisk)); err != nil {
+		return nil, err
+	}
+
+	taskData := data.(*jsonutils.JSONDict)
+	taskData.Set("disk_id", jsonutils.NewString(disk.GetId()))
+
+	if err := self.GetDriver().StartGuestAttachDiskTask(ctx, userCred, self, taskData, ""); err != nil {
+		return nil, err
 	}
 	return nil, nil
 }
