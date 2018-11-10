@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
+	candidatecache "yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager"
 	"yunion.io/x/pkg/utils"
@@ -450,4 +451,38 @@ func GetHistoryDetail(historyDetailArgs *api.HistoryDetailArgs) (*api.HistoryDet
 	return &api.HistoryDetailResult{
 		Detail: historyDetail,
 	}, nil
+}
+
+func GetCandidateHostsDesc() ([]*candidate.HostDesc, error) {
+	cs, err := GetCandidateManager().GetCandidates(data_manager.CandidateGetArgs{ResType: "host"})
+	if err != nil {
+		return nil, err
+	}
+	hosts, err := data_manager.ToHostCandidates(cs)
+	if err != nil {
+		return nil, err
+	}
+	return hosts, nil
+}
+
+func GetK8sCandidateHosts(nodesName ...string) ([]*candidatecache.HostDesc, error) {
+	hosts, err := GetCandidateHostsDesc()
+	if err != nil {
+		return nil, err
+	}
+	findHost := func(nodeName string) *candidatecache.HostDesc {
+		for _, host := range hosts {
+			if host.Name == nodeName {
+				return host
+			}
+		}
+		return nil
+	}
+	ret := make([]*candidatecache.HostDesc, 0)
+	for _, nodeName := range nodesName {
+		if host := findHost(nodeName); host != nil {
+			ret = append(ret, host)
+		}
+	}
+	return ret, nil
 }
