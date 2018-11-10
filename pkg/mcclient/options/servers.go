@@ -89,6 +89,7 @@ func ParseServerDeployInfoList(list []string) (*jsonutils.JSONDict, error) {
 }
 
 type ServerCreateOptions struct {
+	ScheduleOptions
 	NAME             string   `help:"Name of server"`
 	MEM              string   `help:"Memory size" metavar:"MEMORY" json:"vmem_size"`
 	Disk             []string `help:"Disk descriptions" nargs:"+"`
@@ -107,15 +108,11 @@ type ServerCreateOptions struct {
 	AllowDelete      *bool    `help:"Unlock server to allow deleting" json:"-"`
 	ShutdownBehavior string   `help:"Behavior after VM server shutdown, stop or terminate server" metavar:"<SHUTDOWN_BEHAVIOR>" choices:"stop|terminate"`
 	AutoStart        *bool    `help:"Auto start server after it is created"`
-	Zone             string   `help:"Preferred zone where virtual server should be created" json:"prefer_zone"`
-	Host             string   `help:"Preferred host where virtual server should be created" json:"prefer_host"`
-	Schedtag         []string `help:"Schedule policy, key = aggregate name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
 	Deploy           []string `help:"Specify deploy files in virtual server file system" json:"-"`
 	Group            []string `help:"Group of virtual server"`
 	Project          string   `help:"'Owner project ID or Name" json:"tenant"`
 	User             string   `help:"Owner user ID or Name"`
 	System           *bool    `help:"Create a system VM, sysadmin ONLY option" json:"is_system"`
-	Hypervisor       string   `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure|qcloud"`
 	TaskNotify       *bool    `help:"Setup task notify" json:"-"`
 	Count            *int     `help:"Create multiple simultaneously" default:"1" json:"-"`
 	DryRun           *bool    `help:"Dry run to test scheduler" json:"-"`
@@ -124,10 +121,16 @@ type ServerCreateOptions struct {
 }
 
 func (opts *ServerCreateOptions) Params() (*jsonutils.JSONDict, error) {
+	schedParams, err := opts.ScheduleOptions.Params()
+	if err != nil {
+		return nil, err
+	}
+
 	params, err := optionsStructToParams(opts)
 	if err != nil {
 		return nil, err
 	}
+	params.Update(schedParams)
 
 	{
 		deployParams, err := ParseServerDeployInfoList(opts.Deploy)
