@@ -103,6 +103,14 @@ func (self *SManagedVirtualizedGuestDriver) RequestGuestCreateAllDisks(ctx conte
 	return storageCache.StartImageCacheTask(ctx, task.GetUserCred(), imageId, false, task.GetTaskId())
 }
 
+func (self *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
+}
+
+func (self *SManagedVirtualizedGuestDriver) RequestAttachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
+}
+
 func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	return nil
 }
