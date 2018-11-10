@@ -14,6 +14,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/util/aliyun/provider"
 	_ "yunion.io/x/onecloud/pkg/util/azure/provider"
 	_ "yunion.io/x/onecloud/pkg/util/esxi/provider"
+	_ "yunion.io/x/onecloud/pkg/util/qcloud/provider"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"

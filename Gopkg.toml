@@ -111,9 +111,21 @@
   version = "v1.3.0"
 
 [[constraint]]
+  name = "github.com/tencentcloud/tencentcloud-sdk-go"
+  version = "=v3.0.28"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/nelsonken/cos-go-sdk-v5"
+
+[[constraint]]
   branch = "master"
   name = "github.com/tredoe/osutil"
 
 [[constraint]]
   branch = "master"
   name = "golang.org/x/crypto"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/forhappy/cos-go-sdk"
