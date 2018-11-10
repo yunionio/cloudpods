@@ -201,7 +201,7 @@ func (manager *SSecurityGroupManager) getSecurityGroups() ([]SSecurityGroup, err
 	}
 }
 
-func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCred mcclient.TokenCredential, secgroups []cloudprovider.ICloudSecurityGroup) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
+func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCred mcclient.TokenCredential, secgroups []cloudprovider.ICloudSecurityGroup, projectId string, projectSync bool) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
 	localSecgroups := make([]SSecurityGroup, 0)
 	remoteSecgroups := make([]cloudprovider.ICloudSecurityGroup, 0)
 	syncResult := compare.SyncResult{}
@@ -223,7 +223,7 @@ func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCre
 			if rules, err := commonext[i].GetRules(); err != nil {
 				syncResult.Error(err)
 			} else if len(rules) > 0 {
-				if err = commondb[i].SyncWithCloudSecurityGroup(userCred, commonext[i]); err != nil {
+				if err = commondb[i].SyncWithCloudSecurityGroup(userCred, commonext[i], projectId, projectSync); err != nil {
 					syncResult.UpdateError(err)
 				} else {
 					localSecgroups = append(localSecgroups, commondb[i])
@@ -244,7 +244,7 @@ func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCre
 			if rules, err := added[i].GetRules(); err != nil {
 				syncResult.AddError(err)
 			} else if len(rules) > 0 {
-				if new, err := manager.newFromCloudVpc(added[i]); err != nil {
+				if new, err := manager.newFromCloudVpc(userCred, added[i], projectId); err != nil {
 					syncResult.AddError(err)
 				} else if len(rules) > 0 {
 					localSecgroups = append(localSecgroups, *new)
@@ -258,11 +258,15 @@ func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCre
 	return localSecgroups, remoteSecgroups, syncResult
 }
 
-func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup) error {
+func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup, projectId string, projectSync bool) error {
 	if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		extSec.Refresh()
 		self.Name = extSec.GetName()
 		self.Description = extSec.GetDescription()
+		self.ProjectId = userCred.GetProjectId()
+		if projectSync && len(projectId) > 0 {
+			self.ProjectId = projectId
+		}
 		return nil
 	}); err != nil {
 		log.Errorf("syncWithCloudSecurityGroup error %s", err)
@@ -271,12 +275,16 @@ func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCr
 	return nil
 }
 
-func (manager *SSecurityGroupManager) newFromCloudVpc(extSec cloudprovider.ICloudSecurityGroup) (*SSecurityGroup, error) {
+func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup, projectId string) (*SSecurityGroup, error) {
 	secgroup := SSecurityGroup{}
 	secgroup.SetModelManager(manager)
 	secgroup.Name = extSec.GetName()
 	secgroup.ExternalId = extSec.GetGlobalId()
 	secgroup.Description = extSec.GetDescription()
+	secgroup.ProjectId = userCred.GetProjectId()
+	if len(projectId) > 0 {
+		secgroup.ProjectId = projectId
+	}
 
 	if err := manager.TableSpec().Insert(&secgroup); err != nil {
 		return nil, err

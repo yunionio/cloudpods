@@ -177,7 +177,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd, action)
 			return data, nil
 		})
 	case "rebuild":
@@ -229,7 +229,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 				}
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd, action)
 
 			return data, nil
 		})

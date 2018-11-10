@@ -497,6 +497,7 @@ func (region *SRegion) AttachDisk(instanceId, diskId string) error {
 	for i := 0; i < len(instance.Properties.StorageProfile.DataDisks); i++ {
 		instance.Properties.StorageProfile.DataDisks[i].Lun = lun
 		dataDisks = append(dataDisks, instance.Properties.StorageProfile.DataDisks[i])
+		lun++
 	}
 	dataDisks = append(dataDisks, DataDisk{
 		Lun:          lun,
@@ -776,17 +777,29 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 }
 
 func (self *SInstance) DeleteVM() error {
-	if err := self.host.zone.region.DeleteVM(self.ID); err != nil {
+	sysDiskId := ""
+	if self.Properties.StorageProfile.OsDisk.ManagedDisk != nil {
+		sysDiskId = self.Properties.StorageProfile.OsDisk.ManagedDisk.ID
+	}
+	err := self.host.zone.region.DeleteVM(self.ID)
+	if err != nil {
 		return err
 	}
-	if nics, err := self.getNics(); err != nil {
+	if len(sysDiskId) > 0 {
+		err := self.host.zone.region.deleteDisk(sysDiskId)
+		if err != nil {
+			return err
+		}
+	}
+
+	nics, err := self.getNics()
+	if err != nil {
 		return err
-	} else {
-		for _, nic := range nics {
-			if err := nic.Delete(); err != nil {
-				if err != cloudprovider.ErrNotFound {
-					return err
-				}
+	}
+	for _, nic := range nics {
+		if err := nic.Delete(); err != nil {
+			if err != cloudprovider.ErrNotFound {
+				return err
 			}
 		}
 	}

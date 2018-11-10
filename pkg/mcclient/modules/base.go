@@ -113,6 +113,9 @@ func (this *BaseManager) _list(session *mcclient.ClientSession, path, responseKe
 	if err != nil {
 		return nil, err
 	}
+	if body == nil {
+		return nil, fmt.Errorf("empty response")
+	}
 	rets, err := body.GetArray(responseKey)
 	if err != nil {
 		return nil, err

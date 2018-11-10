@@ -86,7 +86,8 @@ type LoadbalancerAgentGetOptions struct {
 }
 
 type LoadbalancerAgentUpdateOptions struct {
-	ID string
+	ID   string
+	Name string
 
 	HbTimeout *int
 

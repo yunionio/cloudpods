@@ -24,6 +24,7 @@ type SHandlerInfo struct {
 	counter5XX     handlerRequestCounter
 	processTimeout time.Duration
 	workerMan      *SWorkerManager
+	skipLog        bool
 }
 
 func (this *SHandlerInfo) GetName(params map[string]string) string {
@@ -94,5 +95,10 @@ func (hi *SHandlerInfo) SetProcessTimeout(to time.Duration) *SHandlerInfo {
 
 func (hi *SHandlerInfo) SetWorkerManager(workerMan *SWorkerManager) *SHandlerInfo {
 	hi.workerMan = workerMan
+	return hi
+}
+
+func (hi *SHandlerInfo) SetSkipLog(skip bool) *SHandlerInfo {
+	hi.skipLog = skip
 	return hi
 }

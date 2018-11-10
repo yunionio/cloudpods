@@ -37,6 +37,7 @@ func init() {
 		PROVIDER  string `help:"Driver for cloud account" choices:"VMware|Aliyun|Azure|Qcloud"`
 		AccessURL string `helo:"hello" metavar:"Azure choices: <AzureGermanCloud、AzureChinaCloud、AzureUSGovernmentCloud、AzurePublicCloud>"`
 		Desc      string `help:"Description"`
+		Enabled   bool   `help:"Enabled the account automatically"`
 
 		Import            bool `help:"Import all sub account automatically"`
 		AutoSync          bool `help:"Enabled the account automatically"`
@@ -48,6 +49,10 @@ func init() {
 		params.Add(jsonutils.NewString(args.ACCOUNT), "account")
 		params.Add(jsonutils.NewString(args.SECRET), "secret")
 		params.Add(jsonutils.NewString(args.PROVIDER), "provider")
+
+		if args.Enabled {
+			params.Add(jsonutils.JSONTrue, "enabled")
+		}
 
 		if args.Import {
 			params.Add(jsonutils.JSONTrue, "import")

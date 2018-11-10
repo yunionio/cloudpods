@@ -123,6 +123,7 @@ const (
 	HYPERVISOR_ESXI      = "esxi"
 	HYPERVISOR_HYPERV    = "hyperv"
 	HYPERVISOR_ALIYUN    = "aliyun"
+	HYPERVISOR_QCLOUD    = "qcloud"
 	HYPERVISOR_AZURE     = "azure"
 	HYPERVISOR_AWS       = "aws"
 
@@ -133,7 +134,9 @@ const (
 var VM_RUNNING_STATUS = []string{VM_START_START, VM_STARTING, VM_RUNNING, VM_SNAPSHOT_STREAM}
 var VM_CREATING_STATUS = []string{VM_CREATE_NETWORK, VM_CREATE_DISK, VM_START_DEPLOY, VM_DEPLOYING}
 
-var HYPERVISORS = []string{HYPERVISOR_KVM, HYPERVISOR_BAREMETAL, HYPERVISOR_ESXI, HYPERVISOR_CONTAINER, HYPERVISOR_ALIYUN, HYPERVISOR_AZURE, HYPERVISOR_AWS}
+var HYPERVISORS = []string{HYPERVISOR_KVM, HYPERVISOR_BAREMETAL, HYPERVISOR_ESXI, HYPERVISOR_CONTAINER, HYPERVISOR_ALIYUN, HYPERVISOR_AZURE, HYPERVISOR_AWS, HYPERVISOR_QCLOUD}
+
+var PUBLIC_CLOUD_HYPERVISORS = []string{HYPERVISOR_ALIYUN, HYPERVISOR_AWS, HYPERVISOR_AZURE, HYPERVISOR_QCLOUD}
 
 // var HYPERVISORS = []string{HYPERVISOR_ALIYUN}
 
@@ -145,6 +148,7 @@ var HYPERVISOR_HOSTTYPE = map[string]string{
 	HYPERVISOR_ALIYUN:    HOST_TYPE_ALIYUN,
 	HYPERVISOR_AZURE:     HOST_TYPE_AZURE,
 	HYPERVISOR_AWS:       HOST_TYPE_AWS,
+	HYPERVISOR_QCLOUD:    HOST_TYPE_QCLOUD,
 }
 
 var HOSTTYPE_HYPERVISOR = map[string]string{
@@ -155,6 +159,7 @@ var HOSTTYPE_HYPERVISOR = map[string]string{
 	HOST_TYPE_ALIYUN:     HYPERVISOR_ALIYUN,
 	HOST_TYPE_AZURE:      HYPERVISOR_AZURE,
 	HOST_TYPE_AWS:        HYPERVISOR_AWS,
+	HOST_TYPE_QCLOUD:     HYPERVISOR_QCLOUD,
 }
 
 type SGuestManager struct {
@@ -589,44 +594,69 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		}
 	}
 
-	disk0Json, _ := data.Get("disk.0")
-	if disk0Json == nil {
-		return nil, httperrors.NewInputParameterError("No disk information provided")
-	}
-	diskConfig, err := parseDiskInfo(ctx, userCred, disk0Json)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
-	}
+	var err error
+	var hypervisor string
+	var rootStorageType string
+	var osProf osprofile.SOSProfile
+	hypervisor, _ = data.GetString("hypervisor")
+	if hypervisor != HYPERVISOR_CONTAINER {
+		disk0Json, _ := data.Get("disk.0")
+		if disk0Json == nil {
+			return nil, httperrors.NewInputParameterError("No disk information provided")
+		}
+		diskConfig, err := parseDiskInfo(ctx, userCred, disk0Json)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
+		}
 
-	if len(diskConfig.Backend) == 0 {
-		diskConfig.Backend = STORAGE_LOCAL
-	}
-	rootStorageType := diskConfig.Backend
+		if len(diskConfig.Backend) == 0 {
+			diskConfig.Backend = STORAGE_LOCAL
+		}
+		rootStorageType = diskConfig.Backend
 
-	data.Add(jsonutils.Marshal(diskConfig), "disk.0")
+		data.Add(jsonutils.Marshal(diskConfig), "disk.0")
 
-	imgProperties := diskConfig.ImageProperties
-	if imgProperties == nil || len(imgProperties) == 0 {
-		imgProperties = map[string]string{"os_type": "Linux"}
-	}
+		imgProperties := diskConfig.ImageProperties
+		if imgProperties == nil || len(imgProperties) == 0 {
+			imgProperties = map[string]string{"os_type": "Linux"}
+		}
 
-	hypervisor, _ := data.GetString("hypervisor")
-	osType, _ := data.GetString("os_type")
+		osType, _ := data.GetString("os_type")
 
-	osProf, err := osprofile.GetOSProfileFromImageProperties(imgProperties, hypervisor)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
-	}
+		osProf, err = osprofile.GetOSProfileFromImageProperties(imgProperties, hypervisor)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
+		}
 
-	if len(osProf.Hypervisor) > 0 && len(hypervisor) == 0 {
-		hypervisor = osProf.Hypervisor
-		data.Add(jsonutils.NewString(osProf.Hypervisor), "hypervisor")
+		if len(osProf.Hypervisor) > 0 && len(hypervisor) == 0 {
+			hypervisor = osProf.Hypervisor
+			data.Add(jsonutils.NewString(osProf.Hypervisor), "hypervisor")
+		}
+		if len(osProf.OSType) > 0 && len(osType) == 0 {
+			osType = osProf.OSType
+			data.Add(jsonutils.NewString(osProf.OSType), "os_type")
+		}
+		data.Add(jsonutils.Marshal(osProf), "__os_profile__")
+
+		// start from data disk
+		for idx := 1; data.Contains(fmt.Sprintf("disk.%d", idx)); idx += 1 {
+			diskJson, err := data.Get(fmt.Sprintf("disk.%d", idx))
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("invalid disk description %s", err)
+			}
+			diskConfig, err := parseDiskInfo(ctx, userCred, diskJson)
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("parse disk description error %s", err)
+			}
+			if len(diskConfig.Backend) == 0 {
+				diskConfig.Backend = rootStorageType
+			}
+			if len(diskConfig.Driver) == 0 {
+				diskConfig.Driver = osProf.DiskDriver
+			}
+			data.Add(jsonutils.Marshal(diskConfig), fmt.Sprintf("disk.%d", idx))
+		}
 	}
-	if len(osProf.OSType) > 0 && len(osType) == 0 {
-		osType = osProf.OSType
-		data.Add(jsonutils.NewString(osProf.OSType), "os_type")
-	}
-	data.Add(jsonutils.Marshal(osProf), "__os_profile__")
 
 	if jsonutils.QueryBoolean(data, "baremetal", false) {
 		hypervisor = HYPERVISOR_BAREMETAL
@@ -734,24 +764,6 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	}
 
 	data.Add(jsonutils.NewString(hypervisor), "hypervisor")
-	// start from data disk
-	for idx := 1; data.Contains(fmt.Sprintf("disk.%d", idx)); idx += 1 {
-		diskJson, err := data.Get(fmt.Sprintf("disk.%d", idx))
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid disk description %s", err)
-		}
-		diskConfig, err := parseDiskInfo(ctx, userCred, diskJson)
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("parse disk description error %s", err)
-		}
-		if len(diskConfig.Backend) == 0 {
-			diskConfig.Backend = rootStorageType
-		}
-		if len(diskConfig.Driver) == 0 {
-			diskConfig.Driver = osProf.DiskDriver
-		}
-		data.Add(jsonutils.Marshal(diskConfig), fmt.Sprintf("disk.%d", idx))
-	}
 
 	for idx := 0; data.Contains(fmt.Sprintf("net.%d", idx)); idx += 1 {
 		netJson, err := data.Get(fmt.Sprintf("net.%d", idx))
@@ -1047,6 +1059,11 @@ func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 	}
 	extra.Add(isGpu, "is_gpu")
 
+	extra.Add(jsonutils.JSONNull, "cdrom")
+	if cdrom := self.getCdrom(); cdrom != nil {
+		extra.Set("cdrom", jsonutils.NewString(cdrom.GetDetails()))
+	}
+
 	return self.moreExtraInfo(extra)
 }
 
@@ -1126,16 +1143,95 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 	return self.moreExtraInfo(extra)
 }
 
-func (self *SGuest) GetExportItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	exportKeys, _ := query.GetString("export_keys")
 	keys := strings.Split(exportKeys, ",")
-	res := jsonutils.NewDict()
-	if utils.IsInStringArray("os_distribution", keys) {
-		osType := self.GetMetadata("os_distribution", userCred)
-		if len(osType) == 0 {
-			osType = self.OsType
+
+	// guest_id as filter key
+	if utils.IsInStringArray("ips", keys) {
+		guestIpsQuery := GuestnetworkManager.Query("guest_id").GroupBy("guest_id")
+		guestIpsQuery.AppendField(sqlchemy.GROUP_CONCAT("concat_ip_addr", guestIpsQuery.Field("ip_addr")))
+		ipsSubQuery := guestIpsQuery.SubQuery()
+		guestIpsQuery.DebugQuery()
+		q.LeftJoin(ipsSubQuery, sqlchemy.Equals(q.Field("id"), ipsSubQuery.Field("guest_id")))
+		q.AppendField(ipsSubQuery.Field("concat_ip_addr"))
+	}
+	if utils.IsInStringArray("disk", keys) {
+		guestDisksQuery := GuestdiskManager.Query("guest_id", "disk_id").GroupBy("guest_id")
+		diskQuery := DiskManager.Query("id", "disk_size").SubQuery()
+		guestDisksQuery.Join(diskQuery, sqlchemy.Equals(diskQuery.Field("id"), guestDisksQuery.Field("disk_id")))
+		guestDisksQuery.AppendField(sqlchemy.SUM("disk_size", diskQuery.Field("disk_size")))
+		guestDisksSubQuery := guestDisksQuery.SubQuery()
+		guestDisksSubQuery.DebugQuery()
+		q.LeftJoin(guestDisksSubQuery, sqlchemy.Equals(q.Field("id"), guestDisksSubQuery.
+			Field("guest_id")))
+		q.AppendField(guestDisksSubQuery.Field("disk_size"))
+	}
+	if utils.IsInStringArray("eip", keys) {
+		eipsQuery := ElasticipManager.Query("associate_id", "ip_addr").Equals("associate_type", "server").GroupBy("associate_id")
+		eipsSubQuery := eipsQuery.SubQuery()
+		eipsSubQuery.DebugQuery()
+		q.LeftJoin(eipsSubQuery, sqlchemy.Equals(q.Field("id"), eipsSubQuery.Field("associate_id")))
+		q.AppendField(eipsSubQuery.Field("ip_addr", "eip"))
+	}
+
+	// host_id as filter key
+	if utils.IsInStringArray("region", keys) {
+		zoneQuery := ZoneManager.Query("id", "cloudregion_id").SubQuery()
+		hostQuery := HostManager.Query("id", "zone_id").GroupBy("id")
+		cloudregionQuery := CloudregionManager.Query("id", "name").SubQuery()
+		hostQuery.LeftJoin(zoneQuery, sqlchemy.Equals(hostQuery.Field("zone_id"), zoneQuery.Field("id"))).
+			LeftJoin(cloudregionQuery, sqlchemy.OR(sqlchemy.Equals(cloudregionQuery.Field("id"),
+				zoneQuery.Field("cloudregion_id")), sqlchemy.Equals(cloudregionQuery.Field("id"), "default")))
+		hostQuery.AppendField(cloudregionQuery.Field("name", "region"))
+		hostSubQuery := hostQuery.SubQuery()
+		q.LeftJoin(hostSubQuery, sqlchemy.Equals(q.Field("host_id"), hostSubQuery.Field("id")))
+		q.AppendField(hostSubQuery.Field("region"))
+	}
+	if utils.IsInStringArray("manager", keys) {
+		hostQuery := HostManager.Query("id", "manager_id").GroupBy("id")
+		cloudProviderQuery := CloudproviderManager.Query("id", "name").SubQuery()
+		hostQuery.LeftJoin(cloudProviderQuery, sqlchemy.Equals(hostQuery.Field("manager_id"),
+			cloudProviderQuery.Field("id")))
+		hostQuery.AppendField(cloudProviderQuery.Field("name", "manager"))
+		hostSubQuery := hostQuery.SubQuery()
+		q.LeftJoin(hostSubQuery, sqlchemy.Equals(q.Field("host_id"), hostSubQuery.Field("id")))
+		q.AppendField(hostSubQuery.Field("manager"))
+	}
+	return q, nil
+}
+
+func (manager *SGuestManager) GetExportExtraKeys(ctx context.Context, query jsonutils.JSONObject, rowMap map[string]string) *jsonutils.JSONDict {
+	res := manager.SStatusStandaloneResourceBaseManager.GetExportExtraKeys(ctx, query, rowMap)
+	exportKeys, _ := query.GetString("export_keys")
+	keys := strings.Split(exportKeys, ",")
+	if ips, ok := rowMap["concat_ip_addr"]; ok && len(ips) > 0 {
+		res.Set("ips", jsonutils.NewString(ips))
+	}
+	if eip, ok := rowMap["eip"]; ok && len(eip) > 0 {
+		res.Set("eip", jsonutils.NewString(eip))
+	}
+	if disk, ok := rowMap["disk_size"]; ok {
+		res.Set("disk", jsonutils.NewString(disk))
+	}
+	if region, ok := rowMap["region"]; ok && len(region) > 0 {
+		res.Set("region", jsonutils.NewString(region))
+	}
+	if manager, ok := rowMap["manager"]; ok && len(manager) > 0 {
+		res.Set("manager", jsonutils.NewString(manager))
+	}
+	if utils.IsInStringArray("tenant", keys) {
+		if projectId, ok := rowMap["tenant_id"]; ok {
+			tenant, err := db.TenantCacheManager.FetchTenantById(ctx, projectId)
+			if err == nil {
+				res.Set("tenant", jsonutils.NewString(tenant.GetName()))
+			}
 		}
-		res.Set("os_distribution", jsonutils.NewString(osType))
+	}
+	if utils.IsInStringArray("os_distribution", keys) {
+		if osType, ok := rowMap["os_type"]; ok {
+			res.Set("os_distribution", jsonutils.NewString(osType))
+		}
 	}
 	return res
 }
@@ -3327,7 +3423,7 @@ func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.Token
 	for _, guestdisk := range self.GetDisks() {
 		disk := guestdisk.GetDisk()
 		storage := disk.GetStorage()
-		if utils.IsInStringArray(storage.StorageType, sysutils.LOCAL_STORAGE_TYPES) || disk.DiskType == DISK_TYPE_SYS || disk.DiskType == DISK_TYPE_SWAP || self.Hypervisor == HYPERVISOR_ALIYUN {
+		if utils.IsInStringArray(storage.StorageType, sysutils.LOCAL_STORAGE_TYPES) || utils.IsInStringArray(disk.DiskType, []string{DISK_TYPE_SYS, DISK_TYPE_SWAP}) || (utils.IsInStringArray(self.Hypervisor, PUBLIC_CLOUD_HYPERVISORS) && disk.AutoDelete) {
 			disk.DoPendingDelete(ctx, userCred)
 		} else {
 			self.DetachDisk(ctx, disk, userCred)

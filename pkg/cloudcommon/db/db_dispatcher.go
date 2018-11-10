@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type DBModelDispatcher struct {
@@ -265,11 +266,20 @@ func listItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchem
 	userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 
 	if !jsonutils.QueryBoolean(query, "admin", false) {
-		q = manager.FilterByOwner(q, manager.GetOwnerId(userCred))
+		ownerId := manager.GetOwnerId(userCred)
+		if len(ownerId) > 0 {
+			q = manager.FilterByOwner(q, ownerId)
+		}
 	}
 	q, err := manager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
+	}
+	if query.Contains("export_keys") {
+		q, err = manager.ListItemExportKeys(ctx, q, userCred, query)
+		if err != nil {
+			return nil, err
+		}
 	}
 	q, err = listItemsQueryByColumn(manager, q, userCred, query)
 	if err != nil {
@@ -325,28 +335,40 @@ func query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 	for rows.Next() {
 		itemValue := reflect.Indirect(reflect.ValueOf(item))
 		itemValue.Set(itemInitValue)
-		err = q.Row2Struct(rows, item)
-		if err != nil {
-			return nil, err
+		extraData := jsonutils.NewDict()
+		if query.Contains("export_keys") {
+			RowMap, err := q.Row2Map(rows)
+			if err != nil {
+				return nil, err
+			}
+			extraKeys := manager.GetExportExtraKeys(ctx, query, RowMap)
+			if extraKeys != nil {
+				extraData.Update(extraKeys)
+			}
+			err = q.RowMap2Struct(RowMap, item)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			err = q.Row2Struct(rows, item)
+			if err != nil {
+				return nil, err
+			}
 		}
+
 		jsonData := jsonutils.Marshal(item)
 		jsonDict, ok := jsonData.(*jsonutils.JSONDict)
 		if !ok {
 			return nil, fmt.Errorf("invalid model data structure, not a dict")
 		}
 		jsonDict = jsonDict.CopyIncludes(listF...)
-		if showDetails {
+		jsonDict.Update(extraData)
+		if showDetails && !query.Contains("export_keys") {
 			extraDict := item.GetCustomizeColumns(ctx, userCred, query)
 			if extraDict != nil {
 				jsonDict.Update(extraDict)
 			}
 			jsonDict = getModelExtraDetails(item, ctx, jsonDict)
-		}
-		if query.Contains("export_keys") {
-			exportDict := item.GetExportItems(ctx, userCred, query)
-			if exportDict != nil {
-				jsonDict.Update(exportDict)
-			}
 		}
 		results = append(results, jsonDict)
 	}
@@ -500,8 +522,13 @@ func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.J
 	var isAllow bool
 	if consts.IsRbacEnabled() {
 		isAdmin := jsonutils.QueryBoolean(query, "admin", false)
-		isAllow = policy.PolicyManager.Allow(isAdmin, userCred, consts.GetServiceType(),
-			dispatcher.modelManager.KeywordPlural(), policy.PolicyActionList)
+		manager := dispatcher.modelManager
+		jointManager, ok := manager.(IJointModelManager)
+		if ok {
+			isAllow = isJointListRbacAllowed(jointManager, userCred, isAdmin)
+		} else {
+			isAllow = isListRbacAllowed(manager, userCred, isAdmin)
+		}
 	} else {
 		isAllow = dispatcher.modelManager.AllowListItems(ctx, userCred, query)
 	}
@@ -611,7 +638,7 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 	// log.Debugf("Get found %s", model)
 	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isRbacAllowed(dispatcher.modelManager, model, userCred, policy.PolicyActionGet)
+		isAllow = isObjectRbacAllowed(dispatcher.modelManager, model, userCred, policy.PolicyActionGet)
 	} else {
 		isAllow = model.AllowGetDetails(ctx, userCred, query)
 	}
@@ -642,7 +669,7 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 
 	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isRbacAllowed(dispatcher.modelManager, model, userCred, policy.PolicyActionGet, spec)
+		isAllow = isObjectRbacAllowed(dispatcher.modelManager, model, userCred, policy.PolicyActionGet, spec)
 	} else {
 		funcName := fmt.Sprintf("AllowGetDetails%s", specCamel)
 
@@ -686,21 +713,21 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 	}
 }
 
-func fetchOwnerProjectId(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) (string, error) {
+func fetchOwnerProjectId(ctx context.Context, manager IModelManager, userCred mcclient.TokenCredential, data jsonutils.JSONObject) (string, error) {
 	var projId string
 	if data != nil {
-		projId, _ = data.GetString("project")
-		if len(projId) == 0 {
-			projId, _ = data.GetString("tenant")
-		}
+		projId = jsonutils.GetAnyString(data, []string{"project", "tenant", "project_id", "tenant_id"})
 	}
 	if len(projId) == 0 {
-		return userCred.GetProjectId(), nil
+		return manager.GetOwnerId(userCred), nil
 	}
 	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = policy.PolicyManager.Allow(true, userCred,
+		result := policy.PolicyManager.Allow(true, userCred,
 			consts.GetServiceType(), policy.PolicyDelegation, "")
+		if result == rbacutils.Allow {
+			isAllow = true
+		}
 	} else {
 		isAllow = userCred.IsSystemAdmin()
 	}
@@ -798,7 +825,7 @@ func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.
 func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, ctxId string) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
 
-	ownerProjId, err := fetchOwnerProjectId(ctx, userCred, data)
+	ownerProjId, err := fetchOwnerProjectId(ctx, dispatcher.modelManager, userCred, data)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -821,7 +848,7 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 
 	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isRbacAllowed(dispatcher.modelManager, nil, userCred, policy.PolicyActionCreate)
+		isAllow = isClassActionRbacAllowed(dispatcher.modelManager, userCred, ownerProjId, policy.PolicyActionCreate)
 	} else {
 		isAllow = dispatcher.modelManager.AllowCreateItem(ctx, userCred, query, data)
 	}
@@ -864,7 +891,7 @@ func expandMultiCreateParams(data jsonutils.JSONObject, count int) ([]jsonutils.
 func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, count int, ctxId string) ([]modules.SubmitResult, error) {
 	userCred := fetchUserCredential(ctx)
 
-	ownerProjId, err := fetchOwnerProjectId(ctx, userCred, data)
+	ownerProjId, err := fetchOwnerProjectId(ctx, dispatcher.modelManager, userCred, data)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -885,7 +912,7 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 
 	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isRbacAllowed(dispatcher.modelManager, nil, userCred, policy.PolicyActionCreate)
+		isAllow = isClassActionRbacAllowed(dispatcher.modelManager, userCred, ownerProjId, policy.PolicyActionCreate)
 	} else {
 		isAllow = dispatcher.modelManager.AllowCreateItem(ctx, userCred, query, data)
 	}
@@ -933,7 +960,7 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
 
-	ownerProjId, err := fetchOwnerProjectId(ctx, userCred, data)
+	ownerProjId, err := fetchOwnerProjectId(ctx, dispatcher.modelManager, userCred, data)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -952,7 +979,7 @@ func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, act
 
 		var isAllow bool
 		if consts.IsRbacEnabled() {
-			isAllow = isRbacAllowed(manager, nil, userCred, policy.PolicyActionPerform, action)
+			isAllow = isClassActionRbacAllowed(manager, userCred, ownerProjId, policy.PolicyActionPerform, action)
 		} else {
 			isAllow = manager.AllowPerformCheckCreateData(ctx, userCred, query, data)
 		}
@@ -1030,7 +1057,7 @@ func objectPerformAction(dispatcher *DBModelDispatcher, model IModel, modelValue
 
 	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isRbacAllowed(dispatcher.modelManager, model, userCred, policy.PolicyActionPerform, action)
+		isAllow = isObjectRbacAllowed(dispatcher.modelManager, model, userCred, policy.PolicyActionPerform, action)
 	} else {
 		allowFuncName := "Allow" + funcName
 		allowFuncValue := modelValue.MethodByName(allowFuncName)
@@ -1142,7 +1169,7 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 
 	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isRbacAllowed(dispatcher.modelManager, model, userCred, policy.PolicyActionUpdate)
+		isAllow = isObjectRbacAllowed(dispatcher.modelManager, model, userCred, policy.PolicyActionUpdate)
 	} else {
 		isAllow = model.AllowUpdateItem(ctx, userCred)
 	}
@@ -1178,7 +1205,7 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 
 	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isRbacAllowed(manager, model, userCred, policy.PolicyActionDelete)
+		isAllow = isObjectRbacAllowed(manager, model, userCred, policy.PolicyActionDelete)
 	} else {
 		isAllow = model.AllowDeleteItem(ctx, userCred, query, data)
 	}

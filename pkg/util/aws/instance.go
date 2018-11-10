@@ -546,8 +546,8 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 				// The st1 volume type cannot be used for boot volumes. Please use a supported boot volume type: standard,io1,gp2.
 				// the encrypted flag cannot be specified since device /dev/sda1 has a snapshot specified.
 				// Encrypted:           &disk.Encrypted,
-				VolumeSize:          &size,
-				VolumeType:          &disk.Category,
+				VolumeSize: &size,
+				VolumeType: &disk.Category,
 			}
 
 			// todo: 这里是镜像绑定的deviceName

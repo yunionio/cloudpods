@@ -1,6 +1,8 @@
 package shell
 
 import (
+	"fmt"
+
 	"yunion.io/x/onecloud/pkg/util/aliyun"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -38,8 +40,12 @@ func init() {
 	}
 
 	shellutils.R(&SnapshotCreateOptions{}, "snapshot-create", "Create snapshot", func(cli *aliyun.SRegion, args *SnapshotCreateOptions) error {
-		_, err := cli.CreateSnapshot(args.DiskId, args.Name, args.Desc)
-		return err
+		snapshotId, err := cli.CreateSnapshot(args.DiskId, args.Name, args.Desc)
+		if err != nil {
+			return err
+		}
+		fmt.Println(snapshotId)
+		return nil
 	})
 
 }

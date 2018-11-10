@@ -67,4 +67,12 @@ func initNode() {
 		fmt.Println(ret)
 		return nil
 	})
+
+	R(&o.NodeConfigDockerRegistryOptions{}, cmdN("config-docker-registry"), "Config node docker daemon registry",
+		func(s *mcclient.ClientSession, args *o.NodeConfigDockerRegistryOptions) error {
+			params := args.Params()
+			ret := k8s.Nodes.BatchPerformAction(s, args.ID, "config-docker-registry", params)
+			printBatchResults(ret, k8s.Nodes.GetColumns(s))
+			return nil
+		})
 }

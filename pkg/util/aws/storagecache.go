@@ -172,7 +172,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 
 	// check image name, avoid name conflict
 	for {
-		 _, err = self.region.GetImageByName(imageName)
+		_, err = self.region.GetImageByName(imageName)
 		if err != nil {
 			if err == cloudprovider.ErrNotFound {
 				break
@@ -193,8 +193,8 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 	}
 
 	// todo:// 等待镜像导入完成
-	for i:=1 ;i< 120 ;i++  {
-		ret, err := self.region.ec2Client.DescribeImportImageTasks(&ec2.DescribeImportImageTasksInput{ImportTaskIds:[]*string{&task.TaskId}})
+	for i := 1; i < 120; i++ {
+		ret, err := self.region.ec2Client.DescribeImportImageTasks(&ec2.DescribeImportImageTasksInput{ImportTaskIds: []*string{&task.TaskId}})
 		if err != nil {
 			return "", err
 		}
@@ -205,12 +205,12 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		}
 
 		log.Debugf("DescribeImportImage Task %s", ret.String())
-		for _, item := range ret.ImportImageTasks{
+		for _, item := range ret.ImportImageTasks {
 			if *item.Status == "completed" {
 				return *item.ImageId, nil
 			}
 		}
-		time.Sleep(1*time.Minute)
+		time.Sleep(1 * time.Minute)
 	}
 
 	return task.ImageId, fmt.Errorf("uploadImage uncompleted: %s", task)
@@ -306,10 +306,10 @@ func (self *SRegion) GetARNPartition() string {
 	// https://github.com/aws/chalice/issues/777
 	// https://github.com/aws/chalice/issues/792
 	/*
-	I assume this is because the ARN format is slightly different for China.
-	In general, ARNs follow the pattern arn:partition:service:region:account-id:resource,
-	where partition is aws for most of the world and aws-cn for China.
-	It looks like the more common "arn:aws" is currently hardcoded in quite a few places.
+		I assume this is because the ARN format is slightly different for China.
+		In general, ARNs follow the pattern arn:partition:service:region:account-id:resource,
+		where partition is aws for most of the world and aws-cn for China.
+		It looks like the more common "arn:aws" is currently hardcoded in quite a few places.
 	*/
 	if strings.HasPrefix(self.RegionId, "cn-") {
 		return "aws-cn"

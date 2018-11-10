@@ -16,16 +16,15 @@ package responses
 
 import (
 	"bytes"
+	"encoding/json"
 	"encoding/xml"
-	"fmt"
-	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
 type AcsResponse interface {
-	IsSuccess() bool
 	GetHttpStatus() int
 	GetHttpHeaders() map[string][]string
 	GetHttpContentString() string
@@ -39,25 +38,8 @@ func Unmarshal(response AcsResponse, httpResponse *http.Response, format string)
 	if err != nil {
 		return
 	}
-	if !response.IsSuccess() {
-		err = errors.NewServerError(response.GetHttpStatus(), response.GetHttpContentString(), "")
-		return
-	}
-	if _, isCommonResponse := response.(CommonResponse); isCommonResponse {
-		// common response need not unmarshal
-		return
-	}
-
-	if len(response.GetHttpContentBytes()) == 0 {
-		return
-	}
-
 	if strings.ToUpper(format) == "JSON" {
-		initJsonParserOnce()
-		err = jsonParser.Unmarshal(response.GetHttpContentBytes(), response)
-		if err != nil {
-			err = errors.NewClientError(errors.JsonUnmarshalErrorCode, errors.JsonUnmarshalErrorMessage, err)
-		}
+		err = json.Unmarshal(response.GetHttpContentBytes(), response)
 	} else if strings.ToUpper(format) == "XML" {
 		err = xml.Unmarshal(response.GetHttpContentBytes(), response)
 	}
@@ -117,17 +99,15 @@ func (baseResponse *BaseResponse) parseFromHttpResponse(httpResponse *http.Respo
 func (baseResponse *BaseResponse) String() string {
 	resultBuilder := bytes.Buffer{}
 	// statusCode
-	resultBuilder.WriteString("\n")
-	resultBuilder.WriteString(fmt.Sprintf("%s %s\n", baseResponse.originHttpResponse.Proto, baseResponse.originHttpResponse.Status))
+	resultBuilder.WriteString("StatusCode : " + strconv.Itoa(baseResponse.httpStatus) + "\n")
 	// httpHeaders
-	//resultBuilder.WriteString("Headers:\n")
+	resultBuilder.WriteString("Headers:\n")
 	for key, value := range baseResponse.httpHeaders {
-		resultBuilder.WriteString(key + ": " + strings.Join(value, ";") + "\n")
+		resultBuilder.WriteString(" -> " + key + " : " + strings.Join(value, ";") + "\n")
 	}
-	resultBuilder.WriteString("\n")
 	// content
-	//resultBuilder.WriteString("Content:\n")
-	resultBuilder.WriteString(baseResponse.httpContentString + "\n")
+	resultBuilder.WriteString("Content:\n")
+	resultBuilder.WriteString(" -> " + baseResponse.httpContentString + "\n")
 	return resultBuilder.String()
 }
 
@@ -135,7 +115,7 @@ type CommonResponse struct {
 	*BaseResponse
 }
 
-func NewCommonResponse() (response *CommonResponse) {
+func NewCommonResponse() (request *CommonResponse) {
 	return &CommonResponse{
 		BaseResponse: &BaseResponse{},
 	}

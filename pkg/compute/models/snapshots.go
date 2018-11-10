@@ -25,11 +25,12 @@ const (
 	MANUAL = "manual"
 	AUTO   = "auto"
 
-	SNAPSHOT_CREATING = "creating"
-	SNAPSHOT_FAILED   = "create_failed"
-	SNAPSHOT_READY    = "ready"
-	SNAPSHOT_DELETING = "deleting"
-	SNAPSHOT_UNKNOWN  = "unknown"
+	SNAPSHOT_CREATING    = "creating"
+	SNAPSHOT_ROLLBACKING = "rollbacking"
+	SNAPSHOT_FAILED      = "create_failed"
+	SNAPSHOT_READY       = "ready"
+	SNAPSHOT_DELETING    = "deleting"
+	SNAPSHOT_UNKNOWN     = "unknown"
 )
 
 type SSnapshotManager struct {

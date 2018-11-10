@@ -19,6 +19,7 @@ const (
 	HostTypeAliyun       = "aliyun"
 	HostTypeAzure        = "azure"
 	HostTypeAws          = "aws"
+	HostTypeQcloud       = "qcloud"
 	HostTypeKubelet      = "kubelet"
 
 	AggregateStrategyRequire = "require"
@@ -52,6 +53,7 @@ var (
 		HostTypeAliyun,
 		HostTypeAzure,
 		HostTypeAws,
+		HostTypeQcloud,
 	)
 
 	ValidGpuTypes = sets.NewString(

@@ -67,3 +67,20 @@ func (o NodeCreateOptions) Params() *jsonutils.JSONDict {
 	}
 	return params
 }
+
+type NodeConfigDockerRegistryOptions struct {
+	IdentsOptions
+	RegistryMirror   []string `help:"Docker registry mirrors, e.g. 'https://registry.docker-cn.com'"`
+	InsecureRegistry []string `help:"Docker insecure registry"`
+}
+
+func (o NodeConfigDockerRegistryOptions) Params() jsonutils.JSONObject {
+	dockerConf := dockerConfig{}
+	for _, rm := range o.RegistryMirror {
+		dockerConf.RegistryMirrors = append(dockerConf.RegistryMirrors, rm)
+	}
+	for _, im := range o.InsecureRegistry {
+		dockerConf.InsecureRegistries = append(dockerConf.InsecureRegistries, im)
+	}
+	return jsonutils.Marshal(dockerConf)
+}

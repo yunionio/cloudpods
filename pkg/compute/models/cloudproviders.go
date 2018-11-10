@@ -31,6 +31,7 @@ const (
 
 	CLOUD_PROVIDER_VMWARE = "VMware"
 	CLOUD_PROVIDER_ALIYUN = "Aliyun"
+	CLOUD_PROVIDER_QCLOUD = "Qcloud"
 	CLOUD_PROVIDER_AZURE  = "Azure"
 	CLOUD_PROVIDER_AWS    = "Aws"
 )
@@ -74,6 +75,14 @@ type SCloudprovider struct {
 	Sysinfo jsonutils.JSONObject `get:"admin"` // Column(JSONEncodedDict, nullable=True)
 
 	Provider string `width:"64" charset:"ascii" list:"admin" create:"admin_required"`
+}
+
+func (manager *SCloudproviderManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
+	return userCred.GetProjectId()
+}
+
+func (self *SCloudprovider) GetOwnerProjectId() string {
+	return self.ProjectId
 }
 
 func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
