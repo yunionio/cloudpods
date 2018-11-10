@@ -1043,6 +1043,7 @@ func (self *SHost) syncWithCloudHost(extHost cloudprovider.ICloudHost) error {
 
 		self.ManagerId = extHost.GetManagerId()
 		self.IsEmulated = extHost.IsEmulated()
+		self.Enabled = extHost.GetEnabled()
 
 		return nil
 	})
