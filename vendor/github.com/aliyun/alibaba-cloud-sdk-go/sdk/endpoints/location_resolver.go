@@ -16,7 +16,6 @@ package endpoints
 import (
 	"encoding/json"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
-	"sync"
 	"time"
 )
 
@@ -24,15 +23,8 @@ const (
 	EndpointCacheExpireTime = 3600 //Seconds
 )
 
-var lastClearTimePerProduct = struct {
-	sync.RWMutex
-	cache map[string]int64
-}{cache: make(map[string]int64)}
-
-var endpointCache = struct {
-	sync.RWMutex
-	cache map[string]string
-}{cache: make(map[string]string)}
+var lastClearTimePerProduct map[string]int64 = make(map[string]int64)
+var endpointCache map[string]string = make(map[string]string)
 
 type LocationResolver struct {
 }
@@ -45,31 +37,30 @@ func (resolver *LocationResolver) TryResolve(param *ResolveParam) (endpoint stri
 
 	//get from cache
 	cacheKey := param.Product + "#" + param.RegionId
-	if endpointCache.cache != nil && len(endpointCache.cache[cacheKey]) > 0 && !CheckCacheIsExpire(cacheKey) {
-		endpoint = endpointCache.cache[cacheKey]
+	if endpointCache != nil && len(endpointCache[cacheKey]) > 0 && !CheckCacheIsExpire(cacheKey) {
+		endpoint = endpointCache[cacheKey]
 		support = true
 		return
 	}
 
 	//get from remote
 	getEndpointRequest := requests.NewCommonRequest()
-
 	getEndpointRequest.Product = "Location"
 	getEndpointRequest.Version = "2015-06-12"
 	getEndpointRequest.ApiName = "DescribeEndpoints"
 	getEndpointRequest.Domain = "location.aliyuncs.com"
 	getEndpointRequest.Method = "GET"
-	getEndpointRequest.Scheme = requests.HTTPS
 
 	getEndpointRequest.QueryParams["Id"] = param.RegionId
 	getEndpointRequest.QueryParams["ServiceCode"] = param.LocationProduct
-	if len(param.LocationEndpointType) > 0 {
-		getEndpointRequest.QueryParams["Type"] = param.LocationEndpointType
+	if len(param.LocationEndpoint) > 0 {
+		getEndpointRequest.QueryParams["Type"] = param.LocationEndpoint
 	} else {
 		getEndpointRequest.QueryParams["Type"] = "openAPI"
 	}
 
 	response, err := param.CommonApi(getEndpointRequest)
+	//{"Endpoints":{"Endpoint":[{"Protocols":{"Protocols":["HTTP","HTTPS"]},"Type":"openAPI","Namespace":"26842","Id":"cn-hangzhou","SerivceCode":"apigateway","Endpoint":"apigateway.cn-hangzhou.aliyuncs.com"}]},"RequestId":"3287538B-19A0-4550-9995-143C5EDBD955","Success":true}
 	var getEndpointResponse GetEndpointResponse
 	if !response.IsSuccess() {
 		support = false
@@ -87,12 +78,8 @@ func (resolver *LocationResolver) TryResolve(param *ResolveParam) (endpoint stri
 	}
 	if len(getEndpointResponse.Endpoints.Endpoint[0].Endpoint) > 0 {
 		endpoint = getEndpointResponse.Endpoints.Endpoint[0].Endpoint
-		endpointCache.Lock()
-		endpointCache.cache[cacheKey] = endpoint
-		endpointCache.Unlock()
-		lastClearTimePerProduct.Lock()
-		lastClearTimePerProduct.cache[cacheKey] = time.Now().Unix()
-		lastClearTimePerProduct.Unlock()
+		endpointCache[cacheKey] = endpoint
+		lastClearTimePerProduct[cacheKey] = time.Now().Unix()
 		support = true
 		return
 	}
@@ -102,12 +89,10 @@ func (resolver *LocationResolver) TryResolve(param *ResolveParam) (endpoint stri
 }
 
 func CheckCacheIsExpire(cacheKey string) bool {
-	lastClearTime := lastClearTimePerProduct.cache[cacheKey]
+	lastClearTime := lastClearTimePerProduct[cacheKey]
 	if lastClearTime <= 0 {
 		lastClearTime = time.Now().Unix()
-		lastClearTimePerProduct.Lock()
-		lastClearTimePerProduct.cache[cacheKey] = lastClearTime
-		lastClearTimePerProduct.Unlock()
+		lastClearTimePerProduct[cacheKey] = lastClearTime
 	}
 
 	now := time.Now().Unix()

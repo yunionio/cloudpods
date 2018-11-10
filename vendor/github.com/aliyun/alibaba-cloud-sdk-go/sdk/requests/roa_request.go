@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/utils"
 	"io"
-	"net/url"
 	"sort"
 	"strings"
 )
@@ -45,15 +44,13 @@ func (request *RoaRequest) GetBodyReader() io.Reader {
 }
 
 func (request *RoaRequest) GetQueries() string {
+	if len(request.queries) == 0 {
+		request.buildQueries()
+	}
 	return request.queries
 }
 
-// for sign method, need not url encoded
-func (request *RoaRequest) BuildQueries() string {
-	return request.buildQueries(false)
-}
-
-func (request *RoaRequest) buildQueries(needParamEncode bool) string {
+func (request *RoaRequest) buildQueries() {
 	// replace path params with value
 	path := request.pathPattern
 	for key, value := range request.PathParams {
@@ -77,44 +74,23 @@ func (request *RoaRequest) buildQueries(needParamEncode bool) string {
 	// append urlBuilder
 	urlBuilder := bytes.Buffer{}
 	urlBuilder.WriteString(path)
-	if len(queryKeys) > 0 {
-		urlBuilder.WriteString("?")
-	}
+	urlBuilder.WriteString("?")
 	for i := 0; i < len(queryKeys); i++ {
 		queryKey := queryKeys[i]
 		urlBuilder.WriteString(queryKey)
 		if value := queryParams[queryKey]; len(value) > 0 {
 			urlBuilder.WriteString("=")
-			if needParamEncode {
-				urlBuilder.WriteString(url.QueryEscape(value))
-			} else {
-				urlBuilder.WriteString(value)
-			}
+			urlBuilder.WriteString(value)
 		}
 		if i < len(queryKeys)-1 {
 			urlBuilder.WriteString("&")
 		}
 	}
-	result := urlBuilder.String()
-	result = popStandardUrlencode(result)
-	request.queries = result
-	return request.queries
-}
-
-func popStandardUrlencode(stringToSign string) (result string) {
-	result = strings.Replace(stringToSign, "+", "%20", -1)
-	result = strings.Replace(result, "*", "%2A", -1)
-	result = strings.Replace(result, "%7E", "~", -1)
-	return
+	request.queries = urlBuilder.String()
 }
 
 func (request *RoaRequest) GetUrl() string {
 	return strings.ToLower(request.Scheme) + "://" + request.Domain + ":" + request.Port + request.GetQueries()
-}
-
-func (request *RoaRequest) BuildUrl() string {
-	// for network trans, need url encoded
-	return strings.ToLower(request.Scheme) + "://" + request.Domain + ":" + request.Port + request.buildQueries(true)
 }
 
 func (request *RoaRequest) addPathParam(key, value string) {

@@ -33,6 +33,7 @@ const (
 	CLOUD_PROVIDER_ALIYUN = "Aliyun"
 	CLOUD_PROVIDER_QCLOUD = "Qcloud"
 	CLOUD_PROVIDER_AZURE  = "Azure"
+	CLOUD_PROVIDER_AWS    = "Aws"
 )
 
 type SCloudproviderManager struct {
