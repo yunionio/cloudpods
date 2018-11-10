@@ -404,6 +404,8 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 	if len(filters) > 0 {
 		params = params.SetFilters(filters)
 	}
+
+	log.Debugf("GetInstances with params: %s", params.String())
 	res, err := self.ec2Client.DescribeInstances(params)
 	if err != nil {
 		log.Errorf("GetInstances fail %s", err)
@@ -413,6 +415,7 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 	instances := []SInstance{}
 	for _, reservation := range res.Reservations {
 		for _, instance := range reservation.Instances {
+			log.Debugf("GetInstances %s", instance.String())
 			if err := FillZero(instance); err != nil {
 				return nil, 0, err
 			}
@@ -540,7 +543,9 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 			size = int64(disk.Size)
 			ebs := &ec2.EbsBlockDevice{
 				DeleteOnTermination: &disk.DeleteWithInstance,
-				Encrypted:           &disk.Encrypted,
+				// The st1 volume type cannot be used for boot volumes. Please use a supported boot volume type: standard,io1,gp2.
+				// the encrypted flag cannot be specified since device /dev/sda1 has a snapshot specified.
+				// Encrypted:           &disk.Encrypted,
 				VolumeSize:          &size,
 				VolumeType:          &disk.Category,
 			}
@@ -581,7 +586,6 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		return "", err
 	}
 
-	dryrun := true
 	params := ec2.RunInstancesInput{
 		ImageId:             &imageId,
 		InstanceType:        &instanceType,
@@ -594,7 +598,6 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		Placement:           &ec2.Placement{AvailabilityZone: &zoneId},
 		SecurityGroupIds:    []*string{&securityGroupId},
 		TagSpecifications:   []*ec2.TagSpecification{ec2TagSpec},
-		DryRun:              &dryrun, // todo: 测试
 	}
 	res, err := self.ec2Client.RunInstances(&params)
 	if err != nil {

@@ -56,6 +56,7 @@ func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 }
 
 func (self *SHost) GetIVMById(gid string) (cloudprovider.ICloudVM, error) {
+	log.Debugf("GetIVMById %s", gid)
 	ivms, _, err := self.zone.region.GetInstances(self.zone.ZoneId, []string{gid}, 0, 1)
 	if err != nil {
 		return nil, err

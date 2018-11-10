@@ -140,8 +140,8 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 			if err != nil {
 				return nil, err
 			}
-			log.Debugf("VMcreated %s, wait status ready ...", iVM.GetGlobalId())
-			err = cloudprovider.WaitStatus(iVM, models.VM_READY, time.Second*5, time.Second*1800)
+			log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
+			err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800)
 			if err != nil {
 				return nil, err
 			}
