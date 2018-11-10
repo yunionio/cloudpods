@@ -73,7 +73,7 @@ func (self *SClassicHost) GetMemSizeMB() int {
 	return 0
 }
 func (self *SClassicHost) GetEnabled() bool {
-	return true
+	return false
 }
 
 func (self *SClassicHost) GetHostStatus() string {
