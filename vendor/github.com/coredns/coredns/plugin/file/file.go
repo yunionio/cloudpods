@@ -98,8 +98,6 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 		return dns.RcodeServerFailure, nil
 	}
 
-	state.SizeAndDo(m)
-	m, _ = state.Scrub(m)
 	w.WriteMsg(m)
 	return dns.RcodeSuccess, nil
 }
@@ -122,16 +120,18 @@ func (s *serialErr) Error() string {
 // If serial >= 0 it will reload the zone, if the SOA hasn't changed
 // it returns an error indicating nothing was read.
 func Parse(f io.Reader, origin, fileName string, serial int64) (*Zone, error) {
-	tokens := dns.ParseZone(f, dns.Fqdn(origin), fileName)
+
+	zp := dns.NewZoneParser(f, dns.Fqdn(origin), fileName)
+	zp.SetIncludeAllowed(true)
 	z := NewZone(origin, fileName)
 	seenSOA := false
-	for x := range tokens {
-		if x.Error != nil {
-			return nil, x.Error
+	for rr, ok := zp.Next(); ok; rr, ok = zp.Next() {
+		if err := zp.Err(); err != nil {
+			return nil, err
 		}
 
 		if !seenSOA && serial >= 0 {
-			if s, ok := x.RR.(*dns.SOA); ok {
+			if s, ok := rr.(*dns.SOA); ok {
 				if s.Serial == uint32(serial) { // same serial
 					return nil, &serialErr{err: "no change in SOA serial", origin: origin, zone: fileName, serial: serial}
 				}
@@ -139,7 +139,7 @@ func Parse(f io.Reader, origin, fileName string, serial int64) (*Zone, error) {
 			}
 		}
 
-		if err := z.Insert(x.RR); err != nil {
+		if err := z.Insert(rr); err != nil {
 			return nil, err
 		}
 	}

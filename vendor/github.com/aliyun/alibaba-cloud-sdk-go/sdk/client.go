@@ -15,17 +15,13 @@
 package sdk
 
 import (
-	"fmt"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/endpoints"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/responses"
-	"net"
 	"net/http"
-	"strconv"
-	"sync"
 )
 
 // this value will be replaced while build: -ldflags="-X sdk.version=x.x.x"
@@ -40,8 +36,6 @@ type Client struct {
 
 	debug     bool
 	isRunning bool
-	// void "panic(write to close channel)" cause of addAsync() after Shutdown()
-	asyncChanLock *sync.RWMutex
 }
 
 func (client *Client) Init() (err error) {
@@ -50,7 +44,6 @@ func (client *Client) Init() (err error) {
 
 func (client *Client) InitWithOptions(regionId string, config *Config, credential auth.Credential) (err error) {
 	client.isRunning = true
-	client.asyncChanLock = new(sync.RWMutex)
 	client.regionId = regionId
 	client.config = config
 	if err != nil {
@@ -81,10 +74,8 @@ func (client *Client) EnableAsync(routinePoolSize, maxTaskQueueSize int) {
 		go func() {
 			for client.isRunning {
 				select {
-				case task, notClosed := <-client.asyncTaskQueue:
-					if notClosed {
-						task()
-					}
+				case task := <-client.asyncTaskQueue:
+					task()
 				}
 			}
 		}()
@@ -100,19 +91,9 @@ func (client *Client) InitWithAccessKey(regionId, accessKeyId, accessKeySecret s
 	return client.InitWithOptions(regionId, config, credential)
 }
 
-func (client *Client) InitWithStsToken(regionId, accessKeyId, accessKeySecret, securityToken string) (err error) {
+func (client *Client) InitWithRoleArn(regionId, accessKeyId, accessKeySecret, roleArn, roleSessionName string) (err error) {
 	config := client.InitClientConfig()
-	credential := &credentials.StsTokenCredential{
-		AccessKeyId:       accessKeyId,
-		AccessKeySecret:   accessKeySecret,
-		AccessKeyStsToken: securityToken,
-	}
-	return client.InitWithOptions(regionId, config, credential)
-}
-
-func (client *Client) InitWithRamRoleArn(regionId, accessKeyId, accessKeySecret, roleArn, roleSessionName string) (err error) {
-	config := client.InitClientConfig()
-	credential := &credentials.RamRoleArnCredential{
+	credential := &credentials.StsAssumeRoleCredential{
 		AccessKeyId:     accessKeyId,
 		AccessKeySecret: accessKeySecret,
 		RoleArn:         roleArn,
@@ -121,9 +102,9 @@ func (client *Client) InitWithRamRoleArn(regionId, accessKeyId, accessKeySecret,
 	return client.InitWithOptions(regionId, config, credential)
 }
 
-func (client *Client) InitWithRsaKeyPair(regionId, publicKeyId, privateKey string, sessionExpiration int) (err error) {
+func (client *Client) InitWithKeyPair(regionId, publicKeyId, privateKey string, sessionExpiration int) (err error) {
 	config := client.InitClientConfig()
-	credential := &credentials.RsaKeyPairCredential{
+	credential := &credentials.KeyPairCredential{
 		PrivateKey:        privateKey,
 		PublicKeyId:       publicKeyId,
 		SessionExpiration: sessionExpiration,
@@ -131,68 +112,25 @@ func (client *Client) InitWithRsaKeyPair(regionId, publicKeyId, privateKey strin
 	return client.InitWithOptions(regionId, config, credential)
 }
 
-func (client *Client) InitWithEcsRamRole(regionId, roleName string) (err error) {
+func (client *Client) InitWithEcsInstance(regionId, roleName string) (err error) {
 	config := client.InitClientConfig()
-	credential := &credentials.EcsRamRoleCredential{
+	credential := &credentials.EcsInstanceCredential{
 		RoleName: roleName,
 	}
 	return client.InitWithOptions(regionId, config, credential)
 }
 
 func (client *Client) InitClientConfig() (config *Config) {
+	config = NewConfig()
 	if client.config != nil {
-		return client.config
-	} else {
-		return NewConfig()
+		config = client.config
 	}
+
+	return
 }
 
 func (client *Client) DoAction(request requests.AcsRequest, response responses.AcsResponse) (err error) {
 	return client.DoActionWithSigner(request, response, nil)
-}
-
-func (client *Client) BuildRequestWithSigner(request requests.AcsRequest, signer auth.Signer) (err error) {
-	// add clientVersion
-	request.GetHeaders()["x-sdk-core-version"] = Version
-
-	regionId := client.regionId
-	if len(request.GetRegionId()) > 0 {
-		regionId = request.GetRegionId()
-	}
-
-	// resolve endpoint
-	resolveParam := &endpoints.ResolveParam{
-		Domain:               request.GetDomain(),
-		Product:              request.GetProduct(),
-		RegionId:             regionId,
-		LocationProduct:      request.GetLocationServiceCode(),
-		LocationEndpointType: request.GetLocationEndpointType(),
-		CommonApi:            client.ProcessCommonRequest,
-	}
-	endpoint, err := endpoints.Resolve(resolveParam)
-	if err != nil {
-		return
-	}
-	request.SetDomain(endpoint)
-
-	// init request params
-	err = requests.InitParams(request)
-	if err != nil {
-		return
-	}
-
-	// signature
-	var finalSigner auth.Signer
-	if signer != nil {
-		finalSigner = signer
-	} else {
-		finalSigner = client.signer
-	}
-	httpRequest, err := buildHttpRequest(request, finalSigner, regionId)
-	if client.config.UserAgent != "" {
-		httpRequest.Header.Set("User-Agent", client.config.UserAgent)
-	}
-	return err
 }
 
 func (client *Client) DoActionWithSigner(request requests.AcsRequest, response responses.AcsResponse, signer auth.Signer) (err error) {
@@ -207,12 +145,12 @@ func (client *Client) DoActionWithSigner(request requests.AcsRequest, response r
 
 	// resolve endpoint
 	resolveParam := &endpoints.ResolveParam{
-		Domain:               request.GetDomain(),
-		Product:              request.GetProduct(),
-		RegionId:             regionId,
-		LocationProduct:      request.GetLocationServiceCode(),
-		LocationEndpointType: request.GetLocationEndpointType(),
-		CommonApi:            client.ProcessCommonRequest,
+		Domain:           request.GetDomain(),
+		Product:          request.GetProduct(),
+		RegionId:         client.regionId,
+		LocationProduct:  request.GetLocationServiceCode(),
+		LocationEndpoint: request.GetLocationEndpointType(),
+		CommonApi:        client.ProcessCommonRequest,
 	}
 	endpoint, err := endpoints.Resolve(resolveParam)
 	if err != nil {
@@ -220,9 +158,6 @@ func (client *Client) DoActionWithSigner(request requests.AcsRequest, response r
 	}
 	request.SetDomain(endpoint)
 
-	if request.GetScheme() == "" {
-		request.SetScheme(client.config.Scheme)
-	}
 	// init request params
 	err = requests.InitParams(request)
 	if err != nil {
@@ -230,113 +165,41 @@ func (client *Client) DoActionWithSigner(request requests.AcsRequest, response r
 	}
 
 	// signature
-	var finalSigner auth.Signer
 	if signer != nil {
-		finalSigner = signer
+		err = auth.Sign(request, signer, regionId)
 	} else {
-		finalSigner = client.signer
+		err = auth.Sign(request, client.signer, regionId)
 	}
-	httpRequest, err := buildHttpRequest(request, finalSigner, regionId)
-	if client.config.UserAgent != "" {
-		httpRequest.Header.Set("User-Agent", client.config.UserAgent)
-	}
+
 	if err != nil {
 		return
 	}
-	var httpResponse *http.Response
-	for retryTimes := 0; retryTimes <= client.config.MaxRetryTime; retryTimes++ {
-		httpResponse, err = client.httpClient.Do(httpRequest)
 
-		var timeout bool
-		// receive error
-		if err != nil {
-			if !client.config.AutoRetry {
-				return
-			} else if timeout = isTimeout(err); !timeout {
-				// if not timeout error, return
-				return
-			} else if retryTimes >= client.config.MaxRetryTime {
-				// timeout but reached the max retry times, return
-				timeoutErrorMsg := fmt.Sprintf(errors.TimeoutErrorMessage, strconv.Itoa(retryTimes+1), strconv.Itoa(retryTimes+1))
-				err = errors.NewClientError(errors.TimeoutErrorCode, timeoutErrorMsg, err)
-				return
-			}
-		}
-		//  if status code >= 500 or timeout, will trigger retry
-		if client.config.AutoRetry && (timeout || isServerError(httpResponse)) {
-			// rewrite signatureNonce and signature
-			httpRequest, err = buildHttpRequest(request, finalSigner, regionId)
-			if err != nil {
-				return
-			}
-			continue
-		}
-		break
-	}
-	err = responses.Unmarshal(response, httpResponse, request.GetAcceptFormat())
-	// wrap server errors
-	if serverErr, ok := err.(*errors.ServerError); ok {
-		var wrapInfo = map[string]string{}
-		wrapInfo["StringToSign"] = request.GetStringToSign()
-		err = errors.WrapServerError(serverErr, wrapInfo)
-	}
-	return
-}
-
-func buildHttpRequest(request requests.AcsRequest, singer auth.Signer, regionId string) (httpRequest *http.Request, err error) {
-	err = auth.Sign(request, singer, regionId)
-	if err != nil {
-		return
-	}
 	requestMethod := request.GetMethod()
-	requestUrl := request.BuildUrl()
+	requestUrl := request.GetUrl()
 	body := request.GetBodyReader()
-	httpRequest, err = http.NewRequest(requestMethod, requestUrl, body)
+	httpRequest, err := http.NewRequest(requestMethod, requestUrl, body)
 	if err != nil {
 		return
 	}
 	for key, value := range request.GetHeaders() {
 		httpRequest.Header[key] = []string{value}
 	}
-	// host is a special case
-	if host, containsHost := request.GetHeaders()["Host"]; containsHost {
-		httpRequest.Host = host
+	httpResponse, err := client.httpClient.Do(httpRequest)
+	if err != nil {
+		return
 	}
+	err = responses.Unmarshal(response, httpResponse, request.GetAcceptFormat())
 	return
 }
 
-func isTimeout(err error) bool {
-	if err == nil {
-		return false
-	}
-	netErr, isNetError := err.(net.Error)
-	return isNetError && netErr.Timeout()
-}
-
-func isServerError(httpResponse *http.Response) bool {
-	return httpResponse.StatusCode >= http.StatusInternalServerError
-}
-
-/**
-only block when any one of the following occurs:
-1. the asyncTaskQueue is full, increase the queue size to avoid this
-2. Shutdown() in progressing, the client is being closed
-**/
 func (client *Client) AddAsyncTask(task func()) (err error) {
 	if client.asyncTaskQueue != nil {
-		client.asyncChanLock.RLock()
-		defer client.asyncChanLock.RUnlock()
-		if client.isRunning {
-			client.asyncTaskQueue <- task
-		}
+		client.asyncTaskQueue <- task
 	} else {
 		err = errors.NewClientError(errors.AsyncFunctionNotEnabledCode, errors.AsyncFunctionNotEnabledMessage, nil)
 	}
 	return
-}
-
-func (client *Client) GetConfig() *Config {
-	return client.config
 }
 
 func NewClient() (client *Client, err error) {
@@ -355,40 +218,6 @@ func NewClientWithAccessKey(regionId, accessKeyId, accessKeySecret string) (clie
 	client = &Client{}
 	err = client.InitWithAccessKey(regionId, accessKeyId, accessKeySecret)
 	return
-}
-
-func NewClientWithStsToken(regionId, stsAccessKeyId, stsAccessKeySecret, stsToken string) (client *Client, err error) {
-	client = &Client{}
-	err = client.InitWithStsToken(regionId, stsAccessKeyId, stsAccessKeySecret, stsToken)
-	return
-}
-
-func NewClientWithRamRoleArn(regionId string, accessKeyId, accessKeySecret, roleArn, roleSessionName string) (client *Client, err error) {
-	client = &Client{}
-	err = client.InitWithRamRoleArn(regionId, accessKeyId, accessKeySecret, roleArn, roleSessionName)
-	return
-}
-
-func NewClientWithEcsRamRole(regionId string, roleName string) (client *Client, err error) {
-	client = &Client{}
-	err = client.InitWithEcsRamRole(regionId, roleName)
-	return
-}
-
-func NewClientWithRsaKeyPair(regionId string, publicKeyId, privateKey string, sessionExpiration int) (client *Client, err error) {
-	client = &Client{}
-	err = client.InitWithRsaKeyPair(regionId, publicKeyId, privateKey, sessionExpiration)
-	return
-}
-
-// Deprecated: Use NewClientWithRamRoleArn in this package instead.
-func NewClientWithStsRoleArn(regionId string, accessKeyId, accessKeySecret, roleArn, roleSessionName string) (client *Client, err error) {
-	return NewClientWithRamRoleArn(regionId, accessKeyId, accessKeySecret, roleArn, roleSessionName)
-}
-
-// Deprecated: Use NewClientWithEcsRamRole in this package instead.
-func NewClientWithStsRoleNameOnEcs(regionId string, roleName string) (client *Client, err error) {
-	return NewClientWithEcsRamRole(regionId, roleName)
 }
 
 func (client *Client) ProcessCommonRequest(request *requests.CommonRequest) (response *responses.CommonResponse, err error) {
@@ -411,9 +240,6 @@ func (client *Client) ProcessCommonRequestWithSigner(request *requests.CommonReq
 
 func (client *Client) Shutdown() {
 	client.signer.Shutdown()
-	// lock the addAsync()
-	client.asyncChanLock.Lock()
-	defer client.asyncChanLock.Unlock()
-	client.isRunning = false
 	close(client.asyncTaskQueue)
+	client.isRunning = false
 }

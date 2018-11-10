@@ -156,7 +156,6 @@ func init() {
 			return e
 		}
 
-		// todo : add create disks
 		err := cli.ChangeVMConfig(instance.ZoneId, args.ID, args.Ncpu, args.Vmem, nil)
 		if err != nil {
 			return err

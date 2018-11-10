@@ -28,7 +28,7 @@ type Signer interface {
 	GetName() string
 	GetType() string
 	GetVersion() string
-	GetAccessKeyId() (string, error)
+	GetAccessKeyId() string
 	GetExtraParam() map[string]string
 	Sign(stringToSign, secretSuffix string) string
 	Shutdown()
@@ -36,42 +36,29 @@ type Signer interface {
 
 func NewSignerWithCredential(credential Credential, commonApi func(request *requests.CommonRequest, signer interface{}) (response *responses.CommonResponse, err error)) (signer Signer, err error) {
 	switch instance := credential.(type) {
-	case *credentials.AccessKeyCredential:
+	case *credentials.BaseCredential:
 		{
-			signer, err = signers.NewAccessKeySigner(instance)
+			signer, err = signers.NewSignerV1(instance)
 		}
-	case *credentials.StsTokenCredential:
+	case *credentials.StsCredential:
 		{
-			signer, err = signers.NewStsTokenSigner(instance)
+			signer, err = signers.NewSignerSts(instance)
 		}
-
-	case *credentials.RamRoleArnCredential:
+	case *credentials.StsAssumeRoleCredential:
 		{
-			signer, err = signers.NewRamRoleArnSigner(instance, commonApi)
+			signer, err = signers.NewSignerStsAssumeRole(instance, commonApi)
 		}
-	case *credentials.RsaKeyPairCredential:
+	case *credentials.KeyPairCredential:
 		{
 			signer, err = signers.NewSignerKeyPair(instance, commonApi)
 		}
-	case *credentials.EcsRamRoleCredential:
+	case *credentials.EcsInstanceCredential:
 		{
-			signer, err = signers.NewEcsRamRoleSigner(instance, commonApi)
-		}
-	case *credentials.BaseCredential: // deprecated user interface
-		{
-			signer, err = signers.NewAccessKeySigner(instance.ToAccessKeyCredential())
-		}
-	case *credentials.StsRoleArnCredential: // deprecated user interface
-		{
-			signer, err = signers.NewRamRoleArnSigner(instance.ToRamRoleArnCredential(), commonApi)
-		}
-	case *credentials.StsRoleNameOnEcsCredential: // deprecated user interface
-		{
-			signer, err = signers.NewEcsRamRoleSigner(instance.ToEcsRamRoleCredential(), commonApi)
+			signer, err = signers.NewSignereEcsInstance(instance, commonApi)
 		}
 	default:
-		message := fmt.Sprintf(errors.UnsupportedCredentialErrorMessage, reflect.TypeOf(credential))
-		err = errors.NewClientError(errors.UnsupportedCredentialErrorCode, message, nil)
+		message := fmt.Sprintf(errors.UnsupportedCredentialMessage, reflect.TypeOf(credential))
+		err = errors.NewClientError(errors.UnsupportedCredentialCode, message, nil)
 	}
 	return
 }
@@ -84,11 +71,11 @@ func Sign(request requests.AcsRequest, signer Signer, regionId string) (err erro
 		}
 	case requests.RPC:
 		{
-			err = signRpcRequest(request, signer, regionId)
+			signRpcRequest(request, signer, regionId)
 		}
 	default:
-		message := fmt.Sprintf(errors.UnknownRequestTypeErrorMessage, reflect.TypeOf(request))
-		err = errors.NewClientError(errors.UnknownRequestTypeErrorCode, message, nil)
+		message := fmt.Sprintf(errors.UnknownRequestTypeMessage, reflect.TypeOf(request))
+		err = errors.NewClientError(errors.UnknownRequestTypeCode, message, nil)
 	}
 
 	return

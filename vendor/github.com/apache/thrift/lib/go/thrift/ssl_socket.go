@@ -20,7 +20,6 @@
 package thrift
 
 import (
-	"context"
 	"crypto/tls"
 	"net"
 	"time"
@@ -159,7 +158,7 @@ func (p *TSSLSocket) Write(buf []byte) (int, error) {
 	return p.conn.Write(buf)
 }
 
-func (p *TSSLSocket) Flush(ctx context.Context) error {
+func (p *TSSLSocket) Flush() error {
 	return nil
 }
 

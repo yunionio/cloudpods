@@ -150,6 +150,58 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 	return instances, int(total), nil
 }
 
+func (self *SRegion) fetchTags(resourceType string, resourceId string) (*jsonutils.JSONDict, error) {
+	// 资源类型。取值范围：
+	// disk
+	// instance
+	// image
+	// securitygroup
+	// snapshot
+	var page int64 = 1
+	var pageSize int64 = 50
+	params := make(map[string]string)
+	params["RegionId"] = self.RegionId
+	params["ResourceType"] = resourceType
+	params["ResourceId"] = resourceId
+	params["PageSize"] = fmt.Sprintf("%d", pageSize)
+	params["PageNumber"] = fmt.Sprintf("%d", page)
+	ret, err := self.ecsRequest("DescribeTags", params)
+	if err != nil {
+		return nil, err
+	}
+
+	tags := jsonutils.NewDict()
+	result, _ := ret.GetArray("Tags", "Tag")
+	for _, item := range result {
+		k, _ := item.GetString("TagKey")
+		v, _ := item.Get("TagValue")
+		if len(k) > 0 {
+			tags.Set(k, v)
+		}
+	}
+
+	total, _ := ret.Int("TotalCount")
+	for ; total > page*pageSize; page++ {
+		params["PageSize"] = fmt.Sprintf("%d", pageSize)
+		params["PageNumber"] = fmt.Sprintf("%d", page)
+		ret, err := self.ecsRequest("DescribeTags", params)
+		if err != nil {
+			return nil, err
+		}
+
+		result, _ := ret.GetArray("Tags", "Tag")
+		for _, item := range result {
+			k, _ := item.GetString("TagKey")
+			v, _ := item.Get("TagValue")
+			if len(k) > 0 {
+				tags.Set(k, v)
+			}
+		}
+	}
+
+	return tags, nil
+}
+
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 
@@ -160,6 +212,12 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	}
 	priceKey := fmt.Sprintf("%s::%s::%s::%s::%s", self.RegionId, self.InstanceType, self.InstanceNetworkType, self.OSType, optimized)
 	data.Add(jsonutils.NewString(priceKey), "price_key")
+
+	tags, err := self.host.zone.region.fetchTags("instance", self.InstanceId)
+	if err != nil {
+		log.Errorf(err.Error())
+	}
+	data.Update(tags)
 
 	if len(self.ImageId) > 0 {
 		if image, err := self.host.zone.region.GetImage(self.ImageId); err != nil {

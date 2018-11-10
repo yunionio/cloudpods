@@ -22,41 +22,27 @@ import (
 	"strings"
 )
 
-func signRoaRequest(request requests.AcsRequest, signer Signer, regionId string) (err error) {
+func signRoaRequest(request requests.AcsRequest, signer Signer, regionId string) {
 	completeROASignParams(request, signer, regionId)
 	stringToSign := buildRoaStringToSign(request)
-	request.SetStringToSign(stringToSign)
 	signature := signer.Sign(stringToSign, "")
-	accessKeyId, err := signer.GetAccessKeyId()
-	if err != nil {
-		return nil
-	}
-
-	request.GetHeaders()["Authorization"] = "acs " + accessKeyId + ":" + signature
-
-	return
+	request.GetHeaders()["Authorization"] = "acs " + signer.GetAccessKeyId() + ":" + signature
 }
 
 func completeROASignParams(request requests.AcsRequest, signer Signer, regionId string) {
-	headerParams := request.GetHeaders()
-
 	// complete query params
 	queryParams := request.GetQueryParams()
-	//if _, ok := queryParams["RegionId"]; !ok {
-	//	queryParams["RegionId"] = regionId
-	//}
+	if _, ok := queryParams["RegionId"]; !ok {
+		queryParams["RegionId"] = regionId
+	}
 	if extraParam := signer.GetExtraParam(); extraParam != nil {
 		for key, value := range extraParam {
-			if key == "SecurityToken" {
-				headerParams["x-acs-security-token"] = value
-				continue
-			}
-
 			queryParams[key] = value
 		}
 	}
 
 	// complete header params
+	headerParams := request.GetHeaders()
 	headerParams["Date"] = utils.GetTimeInFormatRFC2616()
 	headerParams["x-acs-signature-method"] = signer.GetName()
 	headerParams["x-acs-signature-version"] = signer.GetVersion()
@@ -108,7 +94,7 @@ func buildRoaStringToSign(request requests.AcsRequest) (stringToSign string) {
 	}
 
 	// append query params
-	stringToSignBuilder.WriteString(request.BuildQueries())
+	stringToSignBuilder.WriteString(request.GetQueries())
 	stringToSign = stringToSignBuilder.String()
 	return
 }
