@@ -324,6 +324,10 @@ func (self *SAwsGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *mod
 	return nil
 }
 
+func (self *SAwsGuestDriver) GetAttachDiskStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
 func init() {
 	driver := SAwsGuestDriver{}
 	models.RegisterGuestDriver(&driver)
