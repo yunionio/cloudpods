@@ -355,7 +355,7 @@ func ToHostCandidate(c interface{}) (*candidatecache.HostDesc, error) {
 	return h, nil
 }
 
-func ToHostCandidates(cs []interface{}) ([]*candidatecache.HostDesc, error) {
+func ToHostCandidates(cs []core.Candidater) ([]*candidatecache.HostDesc, error) {
 	hs := make([]*candidatecache.HostDesc, 0)
 	for _, c := range cs {
 		h, err := ToHostCandidate(c)

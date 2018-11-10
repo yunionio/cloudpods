@@ -24,6 +24,7 @@ func InstallHandler(r *gin.Engine) {
 	r.POST("/scheduler/:action/:ident", timer(schedulerActionIdentHandler))
 	InstallPingHandler(r)
 	InstallVersionHandler(r)
+	InstallK8sSchedExtenderHandler(r)
 }
 
 func timer(f gin.HandlerFunc) gin.HandlerFunc {

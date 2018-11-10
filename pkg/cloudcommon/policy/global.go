@@ -6,6 +6,8 @@ import (
 )
 
 func EnableGlobalRbac(refreshInterval time.Duration, retryInterval time.Duration) {
-	consts.EnableRbac()
-	PolicyManager.start(refreshInterval, retryInterval)
+	if !consts.IsRbacEnabled() {
+		consts.EnableRbac()
+		PolicyManager.start(refreshInterval, retryInterval)
+	}
 }

@@ -1301,6 +1301,17 @@
   version = "v1.1.0"
 
 [[projects]]
+  digest = "1:356a33d2d627cbb232a1d71cc42051fbac0e5e6a1717679f110054baa02472e5"
+  name = "k8s.io/kubernetes"
+  packages = [
+    "pkg/scheduler/api",
+    "pkg/scheduler/api/v1",
+  ]
+  pruneopts = "UT"
+  revision = "17c77c7898218073f14c8d573582e8d2313dc740"
+  version = "v1.12.2"
+
+[[projects]]
   branch = "master"
   digest = "1:54554b3c72f4fcbd3c27c5137f9acd9d153d7e7150d77cd509af50c75fcb41b9"
   name = "yunion.io/x/jsonutils"
@@ -1463,6 +1474,7 @@
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/rest",
     "k8s.io/client-go/tools/clientcmd",
+    "k8s.io/kubernetes/pkg/scheduler/api/v1",
     "yunion.io/x/jsonutils",
     "yunion.io/x/log",
     "yunion.io/x/pkg/gotypes",
