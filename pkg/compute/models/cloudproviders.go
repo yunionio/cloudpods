@@ -31,6 +31,7 @@ const (
 
 	CLOUD_PROVIDER_VMWARE = "VMware"
 	CLOUD_PROVIDER_ALIYUN = "Aliyun"
+	CLOUD_PROVIDER_QCLOUD = "Qcloud"
 	CLOUD_PROVIDER_AZURE  = "Azure"
 )
 

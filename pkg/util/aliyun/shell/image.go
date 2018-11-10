@@ -1,6 +1,8 @@
 package shell
 
 import (
+	"fmt"
+
 	"yunion.io/x/onecloud/pkg/util/aliyun"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -28,5 +30,48 @@ func init() {
 	}
 	shellutils.R(&ImageDeleteOptions{}, "image-delete", "Delete image", func(cli *aliyun.SRegion, args *ImageDeleteOptions) error {
 		return cli.DeleteImage(args.ID)
+	})
+
+	type ImageCreateOptions struct {
+		SNAPSHOT string `help:"Snapshot id"`
+		NAME     string `help:"Image name"`
+		Desc     string `help:"Image desc"`
+	}
+	shellutils.R(&ImageCreateOptions{}, "image-create", "Create image", func(cli *aliyun.SRegion, args *ImageCreateOptions) error {
+		imageId, err := cli.CreateImage(args.SNAPSHOT, args.NAME, args.Desc)
+		if err != nil {
+			return err
+		}
+		fmt.Println(imageId)
+		return nil
+	})
+
+	type ImageExportOptions struct {
+		ID     string `help:"ID or Name to export"`
+		BUCKET string `help:"Bucket name"`
+	}
+
+	shellutils.R(&ImageExportOptions{}, "image-export", "Export image", func(cli *aliyun.SRegion, args *ImageExportOptions) error {
+		oss, err := cli.GetOssClient()
+		if err != nil {
+			return err
+		}
+		exist, err := oss.IsBucketExist(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		if !exist {
+			return fmt.Errorf("not exist bucket %s", args.BUCKET)
+		}
+		bucket, err := oss.Bucket(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		task, err := cli.ExportImage(args.ID, bucket)
+		if err != nil {
+			return err
+		}
+		printObject(task)
+		return nil
 	})
 }
