@@ -58,6 +58,9 @@ type ComputeOptions struct {
 	DefaultMaxSnapshotCount       int `default:"9" help:"Per Disk max snapshot count, default 9"`
 	DefaultMaxManualSnapshotCount int `default:"2" help:"Per Disk max manual snapshot count, default 2"`
 
+	// aws instance type file
+	DefaultAwsInstanceTypeFile string `default:"/etc/yunion/aws_instance_types.json" help:"aws instance type json file"`
+
 	ConvertHypervisorDefaultTemplate string `default:"Default template" help:"Kvm baremetal convert option"`
 	ConvertEsxiDefaultTemplate       string `default:"Default template" help:"ESXI baremetal convert option"`
 	ConvertKubeletDockerVolumeSize   string `default:"256g" help:"Docker volume size"`

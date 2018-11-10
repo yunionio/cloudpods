@@ -27,10 +27,6 @@ import (
 	"time"
 )
 
-// if you use go 1.10 or higher, you can hack this util by these to avoid "TimeZone.zip not found" on Windows
-var LoadLocationFromTZData func(name string, data []byte) (*time.Location, error) = nil
-var TZData []byte = nil
-
 func GetUUIDV4() (uuidHex string) {
 	uuidV4 := uuid.NewV4()
 	uuidHex = hex.EncodeToString(uuidV4.Bytes())
@@ -45,17 +41,8 @@ func GetMD5Base64(bytes []byte) (base64Value string) {
 	return
 }
 
-func GetGMTLocation() (*time.Location, error) {
-	if LoadLocationFromTZData != nil && TZData != nil {
-		return LoadLocationFromTZData("GMT", TZData)
-	} else {
-		return time.LoadLocation("GMT")
-	}
-}
-
 func GetTimeInFormatISO8601() (timeStr string) {
-	gmt, err := GetGMTLocation()
-
+	gmt, err := time.LoadLocation("GMT")
 	if err != nil {
 		panic(err)
 	}
@@ -63,8 +50,7 @@ func GetTimeInFormatISO8601() (timeStr string) {
 }
 
 func GetTimeInFormatRFC2616() (timeStr string) {
-	gmt, err := GetGMTLocation()
-
+	gmt, err := time.LoadLocation("GMT")
 	if err != nil {
 		panic(err)
 	}
@@ -102,9 +88,6 @@ func InitStructWithDefaultTag(bean interface{}) {
 		setter := reflect.ValueOf(bean).Elem().Field(i)
 		switch field.Type.String() {
 		case "int":
-			intValue, _ := strconv.ParseInt(defaultValue, 10, 64)
-			setter.SetInt(intValue)
-		case "time.Duration":
 			intValue, _ := strconv.ParseInt(defaultValue, 10, 64)
 			setter.SetInt(intValue)
 		case "string":

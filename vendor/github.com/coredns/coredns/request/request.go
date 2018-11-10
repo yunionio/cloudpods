@@ -226,18 +226,6 @@ func (r *Request) SizeAndDo(m *dns.Msg) bool {
 	return true
 }
 
-// Result is the result of Scrub.
-type Result int
-
-const (
-	// ScrubIgnored is returned when Scrub did nothing to the message.
-	ScrubIgnored Result = iota
-	// ScrubExtra is returned when the reply has been scrubbed by removing RRs from the additional section.
-	ScrubExtra
-	// ScrubAnswer is returned when the reply has been scrubbed by removing RRs from the answer section.
-	ScrubAnswer
-)
-
 // Scrub scrubs the reply message so that it will fit the client's buffer. It will first
 // check if the reply fits without compression and then *with* compression.
 // Scrub will then use binary search to find a save cut off point in the additional section.
@@ -246,34 +234,32 @@ const (
 // we set the TC bit on the reply; indicating the client should retry over TCP.
 // Note, the TC bit will be set regardless of protocol, even TCP message will
 // get the bit, the client should then retry with pigeons.
-func (r *Request) Scrub(reply *dns.Msg) (*dns.Msg, Result) {
+func (r *Request) Scrub(reply *dns.Msg) *dns.Msg {
 	size := r.Size()
 
 	reply.Compress = false
 	rl := reply.Len()
 	if size >= rl {
-		return reply, ScrubIgnored
+		return reply
 	}
 
 	reply.Compress = true
 	rl = reply.Len()
 	if size >= rl {
-		return reply, ScrubIgnored
+		return reply
 	}
 
 	// Account for the OPT record that gets added in SizeAndDo(), subtract that length.
-	sub := 0
+	re := len(reply.Extra)
 	if r.Req.IsEdns0() != nil {
-		sub = optLen
+		size -= optLen
+		// re can never be 0 because we have an OPT RR.
+		re--
 	}
-
-	// subtract to make spaces for re-added EDNS0 OPT RR.
-	re := len(reply.Extra) - sub
-	size -= sub
 
 	l, m := 0, 0
 	origExtra := reply.Extra
-	for l < re {
+	for l <= re {
 		m = (l + re) / 2
 		reply.Extra = origExtra[:m]
 		rl = reply.Len()
@@ -290,21 +276,26 @@ func (r *Request) Scrub(reply *dns.Msg) (*dns.Msg, Result) {
 		}
 	}
 
-	// We may come out of this loop with one rotation too many, m makes it too large, but m-1 works.
+	// The binary search only breaks on an exact match, which will be
+	// pretty rare. Normally, the loop will exit when l > re, meaning that
+	// in the previous iteration either:
+	// rl < size: no need to do anything.
+	// rl > size: the final size is too large, and if m > 0, the preceeding
+	// iteration the size was too small. Select that preceeding size.
 	if rl > size && m > 0 {
 		reply.Extra = origExtra[:m-1]
 		rl = reply.Len()
 	}
 
-	if rl < size {
+	if rl <= size {
 		r.SizeAndDo(reply)
-		return reply, ScrubExtra
+		return reply
 	}
 
 	ra := len(reply.Answer)
 	l, m = 0, 0
 	origAnswer := reply.Answer
-	for l < ra {
+	for l <= ra {
 		m = (l + ra) / 2
 		reply.Answer = origAnswer[:m]
 		rl = reply.Len()
@@ -321,7 +312,12 @@ func (r *Request) Scrub(reply *dns.Msg) (*dns.Msg, Result) {
 		}
 	}
 
-	// We may come out of this loop with one rotation too many, m makes it too large, but m-1 works.
+	// The binary search only breaks on an exact match, which will be
+	// pretty rare. Normally, the loop will exit when l > ra, meaning that
+	// in the previous iteration either:
+	// rl < size: no need to do anything.
+	// rl > size: the final size is too large, and if m > 0, the preceeding
+	// iteration the size was too small. Select that preceeding size.
 	if rl > size && m > 0 {
 		reply.Answer = origAnswer[:m-1]
 		// No need to recalc length, as we don't use it. We set truncated anyway. Doing
@@ -330,7 +326,7 @@ func (r *Request) Scrub(reply *dns.Msg) (*dns.Msg, Result) {
 
 	r.SizeAndDo(reply)
 	reply.Truncated = true
-	return reply, ScrubAnswer
+	return reply
 }
 
 // Type returns the type of the question as a string. If the request is malformed the empty string is returned.

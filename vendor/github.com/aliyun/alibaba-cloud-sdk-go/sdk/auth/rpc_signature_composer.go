@@ -22,24 +22,14 @@ import (
 	"strings"
 )
 
-func signRpcRequest(request requests.AcsRequest, signer Signer, regionId string) (err error) {
-	err = completeRpcSignParams(request, signer, regionId)
-	if err != nil {
-		return
-	}
-	// remove while retry
-	if _, containsSign := request.GetQueryParams()["Signature"]; containsSign {
-		delete(request.GetQueryParams(), "Signature")
-	}
+func signRpcRequest(request requests.AcsRequest, signer Signer, regionId string) {
+	completeRpcSignParams(request, signer, regionId)
 	stringToSign := buildRpcStringToSign(request)
-	request.SetStringToSign(stringToSign)
 	signature := signer.Sign(stringToSign, "&")
 	request.GetQueryParams()["Signature"] = signature
-
-	return
 }
 
-func completeRpcSignParams(request requests.AcsRequest, signer Signer, regionId string) (err error) {
+func completeRpcSignParams(request requests.AcsRequest, signer Signer, regionId string) {
 	queryParams := request.GetQueryParams()
 	queryParams["Version"] = request.GetVersion()
 	queryParams["Action"] = request.GetActionName()
@@ -49,11 +39,7 @@ func completeRpcSignParams(request requests.AcsRequest, signer Signer, regionId 
 	queryParams["SignatureType"] = signer.GetType()
 	queryParams["SignatureVersion"] = signer.GetVersion()
 	queryParams["SignatureNonce"] = utils.GetUUIDV4()
-	queryParams["AccessKeyId"], err = signer.GetAccessKeyId()
-
-	if err != nil {
-		return
-	}
+	queryParams["AccessKeyId"] = signer.GetAccessKeyId()
 
 	if _, contains := queryParams["RegionId"]; !contains {
 		queryParams["RegionId"] = regionId
@@ -67,8 +53,6 @@ func completeRpcSignParams(request requests.AcsRequest, signer Signer, regionId 
 	request.GetHeaders()["Content-Type"] = requests.Form
 	formString := utils.GetUrlFormedMap(request.GetFormParams())
 	request.SetContent([]byte(formString))
-
-	return
 }
 
 func buildRpcStringToSign(request requests.AcsRequest) (stringToSign string) {

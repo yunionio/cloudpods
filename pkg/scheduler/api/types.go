@@ -18,6 +18,7 @@ const (
 	HostHypervisorForKvm = "hypervisor"
 	HostTypeAliyun       = "aliyun"
 	HostTypeAzure        = "azure"
+	HostTypeAws          = "aws"
 	HostTypeQcloud       = "qcloud"
 	HostTypeKubelet      = "kubelet"
 
@@ -51,6 +52,7 @@ var (
 	PublicCloudProviders = sets.NewString(
 		HostTypeAliyun,
 		HostTypeAzure,
+		HostTypeAws,
 		HostTypeQcloud,
 	)
 

@@ -4,24 +4,16 @@ import "strconv"
 
 type Integer string
 
-func NewInteger(integer int) Integer {
-	return Integer(strconv.Itoa(integer))
+func NewInteger(n int) Integer {
+	return Integer(strconv.Itoa(n))
 }
 
-func (integer Integer) HasValue() bool {
+func (integer Integer) hasValue() bool {
 	return integer != ""
 }
 
-func (integer Integer) GetValue() (int, error) {
+func (integer Integer) getValue() (int, error) {
 	return strconv.Atoi(string(integer))
-}
-
-func NewInteger64(integer int64) Integer {
-	return Integer(strconv.FormatInt(integer, 10))
-}
-
-func (integer Integer) GetValue64() (int64, error) {
-	return strconv.ParseInt(string(integer), 10, 0)
 }
 
 type Boolean string
@@ -30,11 +22,11 @@ func NewBoolean(bool bool) Boolean {
 	return Boolean(strconv.FormatBool(bool))
 }
 
-func (boolean Boolean) HasValue() bool {
+func (boolean Boolean) hasValue() bool {
 	return boolean != ""
 }
 
-func (boolean Boolean) GetValue() (bool, error) {
+func (boolean Boolean) getValue() (bool, error) {
 	return strconv.ParseBool(string(boolean))
 }
 
@@ -44,10 +36,10 @@ func NewFloat(f float64) Float {
 	return Float(strconv.FormatFloat(f, 'f', 6, 64))
 }
 
-func (float Float) HasValue() bool {
+func (float Float) hasValue() bool {
 	return float != ""
 }
 
-func (float Float) GetValue() (float64, error) {
+func (float Float) getValue() (float64, error) {
 	return strconv.ParseFloat(string(float), 64)
 }
