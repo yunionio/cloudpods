@@ -78,12 +78,15 @@ type IGuestDriver interface {
 
 	GetGuestVncInfo(userCred mcclient.TokenCredential, guest *SGuest, host *SHost) (*jsonutils.JSONDict, error)
 
+	RequestAttachDisk(ctx context.Context, guest *SGuest, task taskman.ITask) error
 	RequestDetachDisk(ctx context.Context, guest *SGuest, task taskman.ITask) error
 	GetDetachDiskStatus() ([]string, error)
+	GetAttachDiskStatus() ([]string, error)
 	CanKeepDetachDisk() bool
 
 	RequestDeleteDetachedDisk(ctx context.Context, disk *SDisk, task taskman.ITask, isPurge bool) error
 	StartGuestDetachdiskTask(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, params *jsonutils.JSONDict, parentTaskId string) error
+	StartGuestAttachDiskTask(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, params *jsonutils.JSONDict, parentTaskId string) error
 
 	StartSuspendTask(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, params *jsonutils.JSONDict, parentTaskId string) error
 	RqeuestSuspendOnHost(ctx context.Context, guest *SGuest, task taskman.ITask) error

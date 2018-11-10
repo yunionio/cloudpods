@@ -131,6 +131,7 @@ func (self *GuestDetachDiskTask) OnTaskFail(ctx context.Context, guest *models.S
 	if disk != nil {
 		disk.SetDiskReady(ctx, self.UserCred, "")
 	}
+	guest.SetStatus(self.UserCred, models.VM_DETACH_DISK_FAILED, err.Error())
 	self.SetStageFailed(ctx, err.Error())
 	log.Errorf("Guest %s GuestDetachDiskTask failed %s", guest.Id, err.Error())
 }
