@@ -2,18 +2,13 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 type GuestBatchCreateTask struct {
@@ -25,105 +20,19 @@ func init() {
 }
 
 func (self *GuestBatchCreateTask) OnInit(ctx context.Context, objs []db.IStandaloneModel, body jsonutils.JSONObject) {
-	guests := make([]*models.SGuest, 0)
-	for _, obj := range objs {
-		guest := obj.(*models.SGuest)
-		guests = append(guests, guest)
-		db.OpsLog.LogEvent(guest, db.ACT_ALLOCATING, nil, self.UserCred)
-		guest.SetStatus(self.UserCred, models.VM_SCHEDULE, "")
-	}
-	self.startScheduleGuests(ctx, guests)
+	StartScheduleObjects(ctx, self, objs)
 }
 
-func (self *GuestBatchCreateTask) startScheduleGuests(ctx context.Context, guests []*models.SGuest) {
-	// log.Infof("%s", self.Params)
-	schedtags := models.ApplySchedPolicies(self.Params)
-
-	self.SetStage("on_guest_schedule_complete", schedtags)
-
-	s := auth.GetAdminSession(options.Options.Region, "")
-	results, err := modules.SchedManager.DoSchedule(s, self.Params, len(guests))
-	if err != nil {
-		self.onSchedulerRequestFail(ctx, guests, fmt.Sprintf("Scheduler fail: %s", err))
-		return
-	} else {
-		self.onSchedulerResults(ctx, guests, results)
-	}
-}
-
-func (self *GuestBatchCreateTask) cancelPendingUsage(ctx context.Context) {
-	pendingUsage := models.SQuota{}
-	err := self.GetPendingUsage(&pendingUsage)
-	if err != nil {
-		log.Errorf("Taks GetPendingUsage fail %s", err)
-	} else {
-		ownerProjectId, _ := self.Params.GetString("owner_tenant_id")
-		err := models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, ownerProjectId, &pendingUsage, &pendingUsage)
-		if err != nil {
-			log.Errorf("cancelpendingusage error %s", err)
-		}
-	}
-}
-
-func (self *GuestBatchCreateTask) onSchedulerRequestFail(ctx context.Context, guests []*models.SGuest, reason string) {
-	for _, guest := range guests {
-		self.onScheduleFail(ctx, guest, reason)
-	}
-	self.SetStageFailed(ctx, fmt.Sprintf("Schedule failed: %s", reason))
-	self.cancelPendingUsage(ctx)
-}
-
-func (self *GuestBatchCreateTask) onScheduleFail(ctx context.Context, guest *models.SGuest, msg string) {
-	lockman.LockObject(ctx, guest)
-	defer lockman.ReleaseObject(ctx, guest)
-
-	reason := "No matching resources"
-	if len(msg) > 0 {
-		reason = fmt.Sprintf("%s: %s", reason, msg)
-	}
+func (self *GuestBatchCreateTask) OnScheduleFailCallback(obj IScheduleModel) {
+	guest := obj.(*models.SGuest)
 	if guest.DisableDelete.IsTrue() {
 		guest.SetDisableDelete(false)
 	}
-	guest.SetStatus(self.UserCred, models.VM_SCHEDULE_FAILED, reason)
-	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
-	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_SCHEDULE_FAILED, reason)
 }
 
-func (self *GuestBatchCreateTask) onSchedulerResults(ctx context.Context, guests []*models.SGuest, results []jsonutils.JSONObject) {
-	succCount := 0
-	for idx := 0; idx < len(guests); idx += 1 {
-		guest := guests[idx]
-		result := results[idx]
-		if result.Contains("candidate") {
-			hostId, _ := result.GetString("candidate", "id")
-			self.onScheduleSucc(ctx, guest, hostId)
-			succCount += 1
-		} else if result.Contains("error") {
-			msg, _ := result.Get("error")
-			self.onScheduleFail(ctx, guest, fmt.Sprintf("%s", msg))
-		} else {
-			msg := fmt.Sprintf("Unknown scheduler result %s", result)
-			self.onScheduleFail(ctx, guest, msg)
-			return
-		}
-	}
-	if succCount == 0 {
-		self.SetStageFailed(ctx, "Schedule failed")
-	}
-	self.cancelPendingUsage(ctx)
-}
-
-func (self *GuestBatchCreateTask) onScheduleSucc(ctx context.Context, guest *models.SGuest, hostId string) {
-	lockman.LockObject(ctx, guest)
-	defer lockman.ReleaseObject(ctx, guest)
-
-	self.saveScheduleResult(ctx, guest, hostId)
-	models.HostManager.ClearSchedDescCache(hostId)
-}
-
-func (self *GuestBatchCreateTask) saveScheduleResult(ctx context.Context, guest *models.SGuest, hostId string) {
+func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, hostId string) {
 	var err error
-
+	guest := obj.(*models.SGuest)
 	pendingUsage := models.SQuota{}
 	err = self.GetPendingUsage(&pendingUsage)
 	if err != nil {
@@ -185,6 +94,6 @@ func (self *GuestBatchCreateTask) saveScheduleResult(ctx context.Context, guest 
 	}
 }
 
-func (self *GuestBatchCreateTask) OnGuestScheduleComplete(ctx context.Context, items []db.IStandaloneModel, data *jsonutils.JSONDict) {
+func (self *GuestBatchCreateTask) OnScheduleComplete(ctx context.Context, items []db.IStandaloneModel, data *jsonutils.JSONDict) {
 	self.SetStageComplete(ctx, nil)
 }
