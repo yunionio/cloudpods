@@ -251,7 +251,15 @@ func (self *SKVMGuestDriver) RequestDetachDisk(ctx context.Context, guest *model
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
+func (self *SKVMGuestDriver) RequestAttachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
+}
+
 func (self *SKVMGuestDriver) GetDetachDiskStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SKVMGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{models.VM_READY, models.VM_RUNNING}, nil
 }
 

@@ -55,6 +55,7 @@ func (self *GuestSyncConfTask) OnDiskSyncCompleteFailed(ctx context.Context, obj
 	guest := obj.(*models.SGuest)
 	db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF_FAIL, data.String(), self.UserCred)
 	log.Errorf("Guest sync config failed: %v", data.String())
+	self.SetStageFailed(ctx, data.String())
 }
 
 func (self *GuestSyncConfTask) OnSyncCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -62,6 +63,7 @@ func (self *GuestSyncConfTask) OnSyncCompleteFailed(ctx context.Context, obj db.
 	guest.SetStatus(self.GetUserCred(), models.VM_SYNC_FAIL, data.String())
 	log.Errorf("Guest sync config failed: %v", data.String())
 	db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF_FAIL, data.String(), self.UserCred)
+	self.SetStageFailed(ctx, data.String())
 }
 
 func (self *GuestSyncConfTask) OnSyncStatusComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
