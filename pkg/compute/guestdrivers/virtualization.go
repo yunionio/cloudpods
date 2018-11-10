@@ -220,6 +220,15 @@ func (self *SVirtualizedGuestDriver) StartGuestDetachdiskTask(ctx context.Contex
 	return nil
 }
 
+func (self *SVirtualizedGuestDriver) StartGuestAttachDiskTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestAttachDiskTask", guest, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
 func (self *SVirtualizedGuestDriver) StartSuspendTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestSuspendTask", guest, userCred, params, parentTaskId, "", nil)
 	if err != nil {

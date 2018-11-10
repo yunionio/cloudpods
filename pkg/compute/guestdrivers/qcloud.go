@@ -144,7 +144,7 @@ func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				log.Errorf("cannot find vm %s", err)
 				return nil, err
 			}
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd, action)
 			return data, nil
 		})
 	} else if action == "deploy" {
@@ -176,7 +176,7 @@ func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd, action)
 			return data, nil
 		})
 	} else if action == "rebuild" {
@@ -237,7 +237,7 @@ func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				}
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd)
+			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd, action)
 
 			return data, nil
 		})
