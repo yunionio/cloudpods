@@ -149,3 +149,13 @@ func (self *SHoststorage) Delete(ctx context.Context, userCred mcclient.TokenCre
 func (self *SHoststorage) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DetachJoint(ctx, userCred, self)
 }
+
+func (manager *SHoststorageManager) GetStorages(hostId string) ([]SHoststorage, error) {
+	hoststorage := make([]SHoststorage, 0)
+	hoststorages := HoststorageManager.Query().SubQuery()
+	err := hoststorages.Query().Equals("host_id", hostId).All(&hoststorage)
+	if err != nil {
+		return nil, err
+	}
+	return hoststorage, nil
+}

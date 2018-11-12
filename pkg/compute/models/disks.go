@@ -93,7 +93,7 @@ type SDisk struct {
 
 	AutoDelete bool `nullable:"false" default:"false" get:"user" update:"user"` // Column(Boolean, nullable=False, default=False)
 
-	StorageId string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"required"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
+	StorageId string `width:"128" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=True)
 
 	// # backing template id and type
 	TemplateId string `width:"256" charset:"ascii" nullable:"true" list:"user"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=True)
@@ -236,74 +236,136 @@ func (self *SDisk) CustomizeCreate(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if disk, err := data.Get("disk"); err != nil {
+	disk, err := data.Get("disk")
+	if err != nil {
 		return nil, err
-	} else {
-		if diskConfig, err := parseDiskInfo(ctx, userCred, disk); err != nil {
-			return nil, err
-		} else {
-			data.Add(jsonutils.Marshal(diskConfig), "disk")
-			if storageID, err := data.GetString("storage_id"); err != nil {
-				return nil, err
-			} else {
-				storages := StorageManager.Query().SubQuery()
-				storage := SStorage{}
-				storage.SetModelManager(StorageManager)
-				if err := storages.Query().Equals("id", storageID).First(&storage); err != nil {
-					return nil, err
-				}
-				if !storage.Enabled {
-					return nil, httperrors.NewInputParameterError("Cannot create disk with disabled storage[%s]", storage.Name)
-				}
-				if !utils.IsInStringArray(storage.Status, []string{STORAGE_ENABLED, STORAGE_ONLINE}) {
-					return nil, httperrors.NewInputParameterError("Cannot create disk with offline storage[%s]", storage.Name)
-				}
-				if len(diskConfig.Backend) == 0 {
-					diskConfig.Backend = storage.StorageType
-				}
-				if storage.StorageType != diskConfig.Backend {
-					return nil, httperrors.NewInputParameterError("Storage type[%s] not match backend %s", storage.StorageType, diskConfig.Backend)
-				}
-				size := diskConfig.Size >> 10
-				if storage.StorageType == STORAGE_RBD {
-					diskConfig.Format = "raw"
-					data.Add(jsonutils.Marshal(diskConfig), "disk")
-				} else if storage.StorageType == STORAGE_CLOUD_EFFICIENCY || storage.StorageType == STORAGE_CLOUD_SSD {
-					if size < 20 || size > 32768 {
-						return nil, httperrors.NewInputParameterError("cloud_ssd or cloud_efficiency disk only support 20G ~ 32768G")
-					}
-				} else if storage.StorageType == STORAGE_PUBLIC_CLOUD {
-					if size < 5 || size > 2000 {
-						return nil, httperrors.NewInputParameterError("cloud disk only support 5G ~ 2000G")
-					}
-				}
-				hoststorages := HoststorageManager.Query().SubQuery()
-				hoststorage := make([]SHoststorage, 0)
-				if err := hoststorages.Query().Equals("storage_id", storage.Id).All(&hoststorage); err != nil {
-					return nil, err
-				}
-				if len(hoststorage) == 0 {
-					return nil, httperrors.NewInputParameterError("Storage[%s] must attach to a host", storage.Name)
-				}
-				if diskConfig.Size > storage.GetFreeCapacity() && !storage.IsEmulated {
-					return nil, httperrors.NewInputParameterError("Not enough free space")
-				}
-				if _, err := manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
-					return nil, err
-				}
-				pendingUsage := SQuota{Storage: diskConfig.Size}
-				if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), &pendingUsage); err != nil {
-					return nil, err
-				}
-			}
+	}
+
+	diskConfig, err := parseDiskInfo(ctx, userCred, disk)
+	if err != nil {
+		return nil, err
+	}
+
+	storageID := jsonutils.GetAnyString(data, []string{"storage_id", "storage"})
+	if storageID != "" {
+		storageObj, err := StorageManager.FetchByIdOrName(nil, storageID)
+		if err != nil {
+			return nil, httperrors.NewResourceNotFoundError("Storage %s not found", storageID)
 		}
+		storage := storageObj.(*SStorage)
+
+		if len(diskConfig.Backend) == 0 {
+			diskConfig.Backend = storage.StorageType
+		}
+		err = manager.validateDiskOnStorage(diskConfig, storage)
+		if err != nil {
+			return nil, err
+		}
+		data.Add(jsonutils.NewString(storage.Id), "storage_id")
+	} else {
+		diskConfig.Backend = STORAGE_LOCAL
+		hypervisor, _ := data.GetString("hypervisor")
+		data, err = ValidateScheduleCreateData(ctx, userCred, data, hypervisor)
+		if err != nil {
+			return nil, err
+		}
+	}
+	data.Add(jsonutils.Marshal(diskConfig), "disk")
+
+	if _, err := manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
+		return nil, err
+	}
+	pendingUsage := SQuota{Storage: diskConfig.Size}
+	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), &pendingUsage); err != nil {
+		return nil, err
 	}
 	return data, nil
 }
 
-func (disk *SDisk) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	disk.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
-	disk.StartDiskCreateTask(ctx, userCred, false, "", "")
+func (manager *SDiskManager) validateDiskOnStorage(diskConfig *SDiskConfig, storage *SStorage) error {
+	if !storage.Enabled {
+		return httperrors.NewInputParameterError("Cannot create disk with disabled storage[%s]", storage.Name)
+	}
+	if !utils.IsInStringArray(storage.Status, []string{STORAGE_ENABLED, STORAGE_ONLINE}) {
+		return httperrors.NewInputParameterError("Cannot create disk with offline storage[%s]", storage.Name)
+	}
+	if storage.StorageType != diskConfig.Backend {
+		return httperrors.NewInputParameterError("Storage type[%s] not match backend %s", storage.StorageType, diskConfig.Backend)
+	}
+	size := diskConfig.Size >> 10
+	if storage.StorageType == STORAGE_CLOUD_EFFICIENCY || storage.StorageType == STORAGE_CLOUD_SSD {
+		if size < 20 || size > 32768 {
+			return httperrors.NewInputParameterError("cloud_ssd or cloud_efficiency disk only support 20G ~ 32768G")
+		}
+	} else if storage.StorageType == STORAGE_PUBLIC_CLOUD {
+		if size < 5 || size > 2000 {
+			return httperrors.NewInputParameterError("cloud disk only support 5G ~ 2000G")
+		}
+	}
+	hoststorages := HoststorageManager.Query().SubQuery()
+	hoststorage := make([]SHoststorage, 0)
+	if err := hoststorages.Query().Equals("storage_id", storage.Id).All(&hoststorage); err != nil {
+		return err
+	}
+	if len(hoststorage) == 0 {
+		return httperrors.NewInputParameterError("Storage[%s] must attach to a host", storage.Name)
+	}
+	if diskConfig.Size > storage.GetFreeCapacity() && !storage.IsEmulated {
+		return httperrors.NewInputParameterError("Not enough free space")
+	}
+	return nil
+}
+
+func (disk *SDisk) SetStorageByHost(hostId string, diskConfig *SDiskConfig) error {
+	host := HostManager.FetchHostById(hostId)
+	backend := diskConfig.Backend
+	if backend == "" {
+		return fmt.Errorf("Backend is empty")
+	}
+	var storage *SStorage
+	if utils.IsInStringArray(backend, STORAGE_LIMITED_TYPES) {
+		storage = host.GetLeastUsedStorage(backend)
+	} else {
+		// unlimited pulic cloud storages
+		storages := host.GetAttachedStorages("")
+		for _, s := range storages {
+			if s.StorageType == backend {
+				tmpS := s
+				storage = &tmpS
+			}
+		}
+	}
+	if storage == nil {
+		return fmt.Errorf("Not found host %s backend %s storage", host.Name, backend)
+	}
+	err := DiskManager.validateDiskOnStorage(diskConfig, storage)
+	if err != nil {
+		return err
+	}
+	_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
+		disk.StorageId = storage.Id
+		return nil
+	})
+	return err
+}
+
+func getDiskResourceRequirements(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, count int) SQuota {
+	diskSize, _ := data.Int("disk", "size")
+	return SQuota{
+		Storage: int(diskSize) * count,
+	}
+}
+
+func (manager *SDiskManager) convertToBatchCreateData(data jsonutils.JSONObject) *jsonutils.JSONDict {
+	diskConfig, _ := data.Get("disk")
+	newData := data.(*jsonutils.JSONDict).CopyExcludes("disk")
+	newData.Add(diskConfig, "disk.0")
+	return newData
+}
+
+func (manager *SDiskManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	pendingUsage := getDiskResourceRequirements(ctx, userCred, data, len(items))
+	RunBatchCreateTask(ctx, items, userCred, manager.convertToBatchCreateData(data), pendingUsage, "DiskBatchCreateTask")
 }
 
 func (self *SDisk) StartDiskCreateTask(ctx context.Context, userCred mcclient.TokenCredential, rebuild bool, snapshot string, parentTaskId string) error {
@@ -1176,8 +1238,10 @@ func (self *SDisk) GetShortDesc() *jsonutils.JSONDict {
 	desc := self.SSharableVirtualResourceBase.GetShortDesc()
 	desc.Add(jsonutils.NewInt(int64(self.DiskSize)), "size")
 	storage := self.GetStorage()
-	desc.Add(jsonutils.NewString(storage.StorageType), "storage_type")
-	desc.Add(jsonutils.NewString(storage.MediumType), "medium_type")
+	if storage != nil {
+		desc.Add(jsonutils.NewString(storage.StorageType), "storage_type")
+		desc.Add(jsonutils.NewString(storage.MediumType), "medium_type")
+	}
 
 	if priceKey := self.GetMetadata("price_key", nil); len(priceKey) > 0 {
 		desc.Add(jsonutils.NewString(priceKey), "price_key")
