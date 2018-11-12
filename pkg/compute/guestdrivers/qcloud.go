@@ -9,6 +9,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/util/sysutils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -65,6 +67,17 @@ func (self *SQcloudGuestDriver) GetChangeConfigStatus() ([]string, error) {
 
 func (self *SQcloudGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SQcloudGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
+	//https://cloud.tencent.com/document/product/362/5747
+	if !utils.IsInStringArray(guest.Status, []string{models.VM_READY, models.VM_RUNNING}) {
+		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
+	}
+	if utils.IsInStringArray(storage.StorageType, []string{sysutils.STORAGE_LOCAL_BASIC, sysutils.STORAGE_LOCAL_SSD}) {
+		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
+	}
+	return nil
 }
 
 func (self *SQcloudGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
