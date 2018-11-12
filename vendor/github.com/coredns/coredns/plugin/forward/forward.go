@@ -1,6 +1,6 @@
 // Package forward implements a forwarding proxy. It caches an upstream net.Conn for some time, so if the same
 // client returns the upstream's Conn will be precached. Depending on how you benchmark this looks to be
-// 50% faster than just opening a new connection for every client. It works with UDP and TCP and uses
+// 50% faster than just openening a new connection for every client. It works with UDP and TCP and uses
 // inband healthchecking.
 package forward
 
@@ -12,14 +12,11 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/debug"
-	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
 )
-
-var log = clog.NewWithPlugin("forward")
 
 // Forward represents a plugin instance that can proxy requests to another (DNS) server. It has a list
 // of proxies each representing one upstream proxy.
@@ -151,7 +148,13 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			return 0, nil
 		}
 
+		// When using force_tcp the upstream can send a message that is too big for
+		// the udp buffer, hence we need to truncate the message to at least make it
+		// fit the udp buffer.
+		ret, _ = state.Scrub(ret)
+
 		w.WriteMsg(ret)
+
 		return 0, nil
 	}
 

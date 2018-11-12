@@ -1,6 +1,8 @@
 package forward
 
 import (
+	"sync"
+
 	"github.com/coredns/coredns/plugin"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -46,3 +48,5 @@ var (
 		Help:      "Gauge of open sockets per upstream.",
 	}, []string{"to"})
 )
+
+var once sync.Once

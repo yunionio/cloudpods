@@ -113,12 +113,11 @@
   version = "v1.0.1"
 
 [[projects]]
-  digest = "1:e64acfe8cda1955db545ede8e863c54d69f1ac6cd058df4349be4040320840fd"
+  digest = "1:eee9386329f4fcdf8d6c0def0c9771b634bdd5ba460d888aa98c17d59b37a76c"
   name = "github.com/apache/thrift"
   packages = ["lib/go/thrift"]
   pruneopts = "UT"
-  revision = "327ebb6c2b6df8bf075da02ef45a2a034e9b79ba"
-  version = "0.11.0"
+  revision = "e59b73d3c2bf1c328ccb78e683c0462fa1a473c7"
 
 [[projects]]
   digest = "1:55bf2a4da68caa693d660683e53bab3e651a940cd46354b997ab68bec7920e23"
@@ -190,7 +189,7 @@
   version = "v0.2.1"
 
 [[projects]]
-  digest = "1:1c45e98df3726b24a0cc200f5ed182e5eefbe6a8cf2927f9d4335151aa190d15"
+  digest = "1:40098afbdd06a76dee4b6bcb85a22fed81ac9d2ebaf775c91e558c80f57aaff1"
   name = "github.com/coredns/coredns"
   packages = [
     "core/dnsserver",
@@ -232,7 +231,6 @@
     "plugin/pkg/response",
     "plugin/pkg/tls",
     "plugin/pkg/trace",
-    "plugin/pkg/transport",
     "plugin/pkg/uniq",
     "plugin/pkg/up",
     "plugin/pkg/upstream",
@@ -244,8 +242,8 @@
     "request",
   ]
   pruneopts = "UT"
-  revision = "756749c5cad4cd40453b82f70592bc19bb9ccb15"
-  version = "v1.2.6"
+  revision = "2e322f6e8a54f18c6aef9c25a7c432c291a3d9f7"
+  version = "v1.2.0"
 
 [[projects]]
   digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
@@ -806,16 +804,15 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:26663fafdea73a38075b07e8e9d82fc0056379d2be8bb4e13899e8fda7c7dd23"
+  digest = "1:d14a5f4bfecf017cb780bdde1b6483e5deb87e12c332544d2c430eda58734bcb"
   name = "github.com/prometheus/client_golang"
   packages = [
     "prometheus",
-    "prometheus/internal",
     "prometheus/promhttp",
   ]
   pruneopts = "UT"
-  revision = "abad2d1bd44235a26707c172eab6bca5bf2dbad3"
-  version = "v0.9.1"
+  revision = "c5b7fccd204277076155f10851dad72b76a49317"
+  version = "v0.8.0"
 
 [[projects]]
   branch = "master"
@@ -1293,14 +1290,6 @@
   version = "v9.0.0"
 
 [[projects]]
-  digest = "1:7719608fe0b52a4ece56c2dde37bedd95b938677d1ab0f84b8a7852e4c59f849"
-  name = "sigs.k8s.io/yaml"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "fd68e9863619f6ec2fdd8625fe1f02e7c877e480"
-  version = "v1.1.0"
-
-[[projects]]
   digest = "1:356a33d2d627cbb232a1d71cc42051fbac0e5e6a1717679f110054baa02472e5"
   name = "k8s.io/kubernetes"
   packages = [
@@ -1310,6 +1299,14 @@
   pruneopts = "UT"
   revision = "17c77c7898218073f14c8d573582e8d2313dc740"
   version = "v1.12.2"
+
+[[projects]]
+  digest = "1:7719608fe0b52a4ece56c2dde37bedd95b938677d1ab0f84b8a7852e4c59f849"
+  name = "sigs.k8s.io/yaml"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "fd68e9863619f6ec2fdd8625fe1f02e7c877e480"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"

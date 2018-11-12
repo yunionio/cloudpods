@@ -14,21 +14,34 @@ func MinimalTTL(m *dns.Msg, mt response.Type) time.Duration {
 		return MinimalDefaultTTL
 	}
 
-	// No records or OPT is the only record, return a short ttl as a fail safe.
-	if len(m.Answer)+len(m.Ns) == 0 &&
-		(len(m.Extra) == 0 || (len(m.Extra) == 1 && m.Extra[0].Header().Rrtype == dns.TypeOPT)) {
+	// No data to examine, return a short ttl as a fail safe.
+	if len(m.Answer)+len(m.Ns)+len(m.Extra) == 0 {
 		return MinimalDefaultTTL
 	}
 
 	minTTL := MaximumDefaulTTL
 	for _, r := range m.Answer {
-		if r.Header().Ttl < uint32(minTTL.Seconds()) {
-			minTTL = time.Duration(r.Header().Ttl) * time.Second
+		switch mt {
+		case response.NameError, response.NoData:
+			if r.Header().Rrtype == dns.TypeSOA {
+				minTTL = time.Duration(r.(*dns.SOA).Minttl) * time.Second
+			}
+		case response.NoError, response.Delegation:
+			if r.Header().Ttl < uint32(minTTL.Seconds()) {
+				minTTL = time.Duration(r.Header().Ttl) * time.Second
+			}
 		}
 	}
 	for _, r := range m.Ns {
-		if r.Header().Ttl < uint32(minTTL.Seconds()) {
-			minTTL = time.Duration(r.Header().Ttl) * time.Second
+		switch mt {
+		case response.NameError, response.NoData:
+			if r.Header().Rrtype == dns.TypeSOA {
+				minTTL = time.Duration(r.(*dns.SOA).Minttl) * time.Second
+			}
+		case response.NoError, response.Delegation:
+			if r.Header().Ttl < uint32(minTTL.Seconds()) {
+				minTTL = time.Duration(r.Header().Ttl) * time.Second
+			}
 		}
 	}
 
@@ -37,8 +50,15 @@ func MinimalTTL(m *dns.Msg, mt response.Type) time.Duration {
 			// OPT records use TTL field for extended rcode and flags
 			continue
 		}
-		if r.Header().Ttl < uint32(minTTL.Seconds()) {
-			minTTL = time.Duration(r.Header().Ttl) * time.Second
+		switch mt {
+		case response.NameError, response.NoData:
+			if r.Header().Rrtype == dns.TypeSOA {
+				minTTL = time.Duration(r.(*dns.SOA).Minttl) * time.Second
+			}
+		case response.NoError, response.Delegation:
+			if r.Header().Ttl < uint32(minTTL.Seconds()) {
+				minTTL = time.Duration(r.Header().Ttl) * time.Second
+			}
 		}
 	}
 	return minTTL

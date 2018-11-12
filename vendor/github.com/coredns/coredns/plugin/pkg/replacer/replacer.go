@@ -35,11 +35,13 @@ func New(r *dns.Msg, rr *dnstest.Recorder, emptyValue string) Replacer {
 	req := request.Request{W: rr, Req: r}
 	rep := replacer{
 		replacements: map[string]string{
-			"{type}":   req.Type(),
-			"{name}":   req.Name(),
-			"{class}":  req.Class(),
-			"{proto}":  req.Proto(),
-			"{when}":   "", // made a noop
+			"{type}":  req.Type(),
+			"{name}":  req.Name(),
+			"{class}": req.Class(),
+			"{proto}": req.Proto(),
+			"{when}": func() string {
+				return time.Now().Format(timeFormat)
+			}(),
 			"{size}":   strconv.Itoa(req.Len()),
 			"{remote}": addrToRFC3986(req.IP()),
 			"{port}":   req.Port(),
@@ -161,4 +163,7 @@ func addrToRFC3986(addr string) string {
 	return addr
 }
 
-const headerReplacer = "{>"
+const (
+	timeFormat     = "02/Jan/2006:15:04:05 -0700"
+	headerReplacer = "{>"
+)

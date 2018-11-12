@@ -10,7 +10,6 @@ type U struct {
 type item struct {
 	state int          // either todo or done
 	f     func() error // function to be executed.
-	obj   interface{}  // any object to return when needed
 }
 
 // New returns a new initialized U.
@@ -18,19 +17,21 @@ func New() U { return U{u: make(map[string]item)} }
 
 // Set sets function f in U under key. If the key already exists
 // it is not overwritten.
-func (u U) Set(key string, f func() error, o interface{}) interface{} {
-	if item, ok := u.u[key]; ok {
-		return item.obj
+func (u U) Set(key string, f func() error) {
+	if _, ok := u.u[key]; ok {
+		return
 	}
-	u.u[key] = item{todo, f, o}
-	return o
+	u.u[key] = item{todo, f}
 }
 
-// Unset removes the key.
-func (u U) Unset(key string) {
-	if _, ok := u.u[key]; ok {
-		delete(u.u, key)
+// SetTodo sets key to 'todo' again.
+func (u U) SetTodo(key string) {
+	v, ok := u.u[key]
+	if !ok {
+		return
 	}
+	v.state = todo
+	u.u[key] = v
 }
 
 // ForEach iterates for u executes f for each element that is 'todo' and sets it to 'done'.

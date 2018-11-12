@@ -30,11 +30,11 @@ func (z *Zone) Lookup(state request.Request, qname string) ([]dns.RR, []dns.RR, 
 	qtype := state.QType()
 	do := state.Do()
 
-	if 0 < z.ReloadInterval {
+	if !z.NoReload {
 		z.reloadMu.RLock()
 	}
 	defer func() {
-		if 0 < z.ReloadInterval {
+		if !z.NoReload {
 			z.reloadMu.RUnlock()
 		}
 	}()
