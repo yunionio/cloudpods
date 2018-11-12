@@ -263,6 +263,18 @@ func (self *SKVMGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{models.VM_READY, models.VM_RUNNING}, nil
 }
 
+func (self *SKVMGuestDriver) GetRebuildRootStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SKVMGuestDriver) GetChangeConfigStatus() ([]string, error) {
+	return []string{models.VM_READY}, nil
+}
+
+func (self *SKVMGuestDriver) GetDeployStatus() ([]string, error) {
+	return []string{models.VM_READY}, nil
+}
+
 func (self *SKVMGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, disk *models.SDisk, task taskman.ITask, isPurge bool) error {
 	return disk.StartDiskDeleteTask(ctx, task.GetUserCred(), task.GetTaskId(), isPurge)
 }

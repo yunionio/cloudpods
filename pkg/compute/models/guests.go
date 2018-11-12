@@ -2112,7 +2112,12 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 		}
 	}
 
-	if utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_READY, VM_ADMIN}) {
+	deployStatus, err := self.GetDriver().GetDeployStatus()
+	if err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+
+	if utils.IsInStringArray(self.Status, deployStatus) {
 		if doRestart && self.Status == VM_RUNNING {
 			kwargs.Set("restart", jsonutils.JSONTrue)
 		}
@@ -2847,7 +2852,13 @@ func (self *SGuest) AllowPerformRebuildRoot(ctx context.Context, userCred mcclie
 
 func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	imageId, _ := data.GetString("image_id")
-	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING, VM_ADMIN}) {
+
+	rebuildStatus, err := self.GetDriver().GetRebuildRootStatus()
+	if err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+
+	if !utils.IsInStringArray(self.Status, rebuildStatus) {
 		return nil, httperrors.NewInvalidStatusError("Cannot reset root in status %s", self.Status)
 	}
 
@@ -2899,9 +2910,7 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 		}
 	}
 
-	err := self.StartRebuildRootTask(ctx, userCred, imageId, needStop, autoStart, passwd, resetPasswd)
-	return nil, err
-
+	return nil, self.StartRebuildRootTask(ctx, userCred, imageId, needStop, autoStart, passwd, resetPasswd)
 }
 
 func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool, passwd string, resetPasswd bool) error {
@@ -3261,7 +3270,11 @@ func (self *SGuest) AllowPerformChangeConfig(ctx context.Context, userCred mccli
 }
 
 func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !utils.IsInStringArray(self.Status, []string{VM_READY}) {
+	changeStatus, err := self.GetDriver().GetChangeConfigStatus()
+	if err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+	if !utils.IsInStringArray(self.Status, changeStatus) {
 		return nil, httperrors.NewInvalidStatusError("Cannot change config in %s", self.Status)
 	}
 	if !self.GetDriver().AllowReconfigGuest() {
