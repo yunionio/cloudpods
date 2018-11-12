@@ -63,7 +63,7 @@
 
 [[constraint]]
   name = "github.com/coredns/coredns"
-  version = "=v1.2.0"
+  version = "v1.2.0"
 
 [[constraint]]
   name = "github.com/fatih/color"
@@ -180,14 +180,6 @@
 [[constraint]]
   branch = "master"
   name = "yunion.io/x/structarg"
-
-[[override]]
-  name = "github.com/prometheus/client_golang"
-  version = "=v0.8.0"
-
-[[override]]
-  revision = "e59b73d3c2bf1c328ccb78e683c0462fa1a473c7"
-  name = "github.com/apache/thrift"
 
 [prune]
   go-tests = true
