@@ -124,11 +124,9 @@ func (self *SVirtualizedGuestDriver) OnGuestDeployTaskComplete(ctx context.Conte
 	if jsonutils.QueryBoolean(task.GetParams(), "restart", false) {
 		task.SetStage("OnDeployStartGuestComplete", nil)
 		return guest.StartGueststartTask(ctx, task.GetUserCred(), nil, task.GetTaskId())
-	} else {
-		guest.SetStatus(task.GetUserCred(), models.VM_READY, "ready")
-		task.SetStageComplete(ctx, nil)
-		return nil
 	}
+	task.SetStage("OnDeployGuestSyncstatusComplete", nil)
+	return guest.StartSyncstatus(ctx, task.GetUserCred(), task.GetTaskId())
 }
 
 func (self *SVirtualizedGuestDriver) StartGuestSyncstatusTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
