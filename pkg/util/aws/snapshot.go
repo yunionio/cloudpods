@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -11,9 +12,9 @@ import (
 type SnapshotStatusType string
 
 const (
-	SnapshotStatusAccomplished SnapshotStatusType = "accomplished"
-	SnapshotStatusProgress     SnapshotStatusType = "progressing"
-	SnapshotStatusFailed       SnapshotStatusType = "failed"
+	SnapshotStatusAccomplished SnapshotStatusType = "completed"
+	SnapshotStatusProgress     SnapshotStatusType = "pending"
+	SnapshotStatusFailed       SnapshotStatusType = "error"
 )
 
 type SSnapshot struct {
@@ -176,8 +177,9 @@ func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
 	}
 
 	params.SetDescription(desc)
-	_, err := self.ec2Client.CreateSnapshot(params)
-	return "", err
+	log.Debugf("CreateSnapshots with params %s", params)
+	ret, err := self.ec2Client.CreateSnapshot(params)
+	return StrVal(ret.SnapshotId), err
 }
 
 func (self *SRegion) DeleteSnapshot(snapshotId string) error {
