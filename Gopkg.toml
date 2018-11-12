@@ -181,11 +181,11 @@
   branch = "master"
   name = "yunion.io/x/structarg"
 
-[[constraint]]
+[[override]]
   name = "github.com/prometheus/client_golang"
   version = "=v0.8.0"
 
-[[constraint]]
+[[override]]
   revision = "e59b73d3c2bf1c328ccb78e683c0462fa1a473c7"
   name = "github.com/apache/thrift"
 
