@@ -338,6 +338,7 @@ func (self *SRegion) DeleteDisk(diskId string) error {
 	}
 
 	params.SetVolumeId(diskId)
+	log.Debugf("DeleteDisk with params: %s", params.String())
 	_, err = self.ec2Client.DeleteVolume(params)
 	return err
 }
