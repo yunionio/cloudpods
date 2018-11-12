@@ -858,7 +858,7 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		results[i] = result
 	}
 	if len(models) > 0 {
-		dispatcher.modelManager.OnCreateComplete(ctx, models, userCred, query, data)
+		dispatcher.modelManager.OnCreateComplete(ctx, models, userCred, query, multiData[0])
 	}
 	return results, nil
 }
