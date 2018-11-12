@@ -76,6 +76,18 @@ func (self *SBaremetalGuestDriver) PrepareDiskRaidConfig(host *models.SHost, par
 	}
 }
 
+func (self *SBaremetalGuestDriver) GetRebuildRootStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_ADMIN}, nil
+}
+
+func (self *SBaremetalGuestDriver) GetChangeConfigStatus() ([]string, error) {
+	return nil, httperrors.NewUnsupportOperationError("Cannot change config for baremtal")
+}
+
+func (self *SBaremetalGuestDriver) GetDeployStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_ADMIN}, nil
+}
+
 func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig) (*models.SNetwork, string, int8, models.IPAddlocationDirection) {
 	netif, net := host.GetNetinterfaceWithNetworkAndCredential(netConfig.Network, userCred, netConfig.Reserved)
 	if netif != nil {
