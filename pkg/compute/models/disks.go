@@ -546,28 +546,38 @@ func (self *SDisk) AllowPerformResize(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if sizeStr, err := data.GetString("size"); err != nil {
+	sizeStr, err := data.GetString("size")
+	if err != nil {
 		return nil, err
-	} else if size, err := fileutils.GetSizeMb(sizeStr, 'M', 1024); err != nil {
-		return nil, err
-	} else if self.Status != DISK_READY {
-		return nil, httperrors.NewResourceNotReadyError("Resize disk when disk is READY")
-	} else if size < self.DiskSize {
-		return nil, httperrors.NewUnsupportOperationError("Disk cannot be thrink")
-	} else if size == self.DiskSize {
-		return nil, nil
-	} else {
-		addDisk := size - self.DiskSize
-		storage := self.GetStorage()
-		if addDisk > storage.GetFreeCapacity() && !storage.IsEmulated {
-			return nil, httperrors.NewOutOfResourceError("Not enough free space")
-		}
-		pendingUsage := SQuota{Storage: int(addDisk)}
-		if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), &pendingUsage); err != nil {
-			return nil, httperrors.NewOutOfQuotaError(err.Error())
-		}
-		return nil, self.StartDiskResizeTask(ctx, userCred, int64(size), "", &pendingUsage)
 	}
+	size, err := fileutils.GetSizeMb(sizeStr, 'M', 1024)
+	if err != nil {
+		return nil, err
+	}
+	if self.Status != DISK_READY {
+		return nil, httperrors.NewResourceNotReadyError("Resize disk when disk is READY")
+	}
+	if size < self.DiskSize {
+		return nil, httperrors.NewUnsupportOperationError("Disk cannot be thrink")
+	}
+	if size == self.DiskSize {
+		return nil, nil
+	}
+	addDisk := size - self.DiskSize
+	storage := self.GetStorage()
+	if addDisk > storage.GetFreeCapacity() && !storage.IsEmulated {
+		return nil, httperrors.NewOutOfResourceError("Not enough free space")
+	}
+	if guests := self.GetGuests(); len(guests) > 0 {
+		if err := guests[0].ValidateResizeDisk(self, storage); err != nil {
+			return nil, httperrors.NewInputParameterError(err.Error())
+		}
+	}
+	pendingUsage := SQuota{Storage: int(addDisk)}
+	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), &pendingUsage); err != nil {
+		return nil, httperrors.NewOutOfQuotaError(err.Error())
+	}
+	return nil, self.StartDiskResizeTask(ctx, userCred, int64(size), "", &pendingUsage)
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
