@@ -389,5 +389,11 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 		return "", err
 	}
 
+	paramsWait := &ec2.DescribeVolumesInput{}
+	paramsWait.SetVolumeIds([]*string{ret.VolumeId})
+	err = self.ec2Client.WaitUntilVolumeAvailable(paramsWait)
+	if err != nil {
+		return "", err
+	}
 	return StrVal(ret.VolumeId), nil
 }

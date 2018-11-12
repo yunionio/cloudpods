@@ -374,12 +374,18 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 }
 
 func (self *SInstance) AttachDisk(diskId string) error {
-	// todo：bugfix . self.DeviceNames => self.GetDeviceNames()
 	name, err := NextDeviceName(self.DeviceNames)
 	if err != nil {
 		return err
 	}
-	return self.host.zone.region.AttachDisk(self.InstanceId, diskId, name)
+
+	err = self.host.zone.region.AttachDisk(self.InstanceId, diskId, name)
+	if err != nil {
+		return err
+	}
+
+	self.DeviceNames = append(self.DeviceNames, name)
+	return nil
 }
 
 func (self *SInstance) DetachDisk(diskId string) error {
