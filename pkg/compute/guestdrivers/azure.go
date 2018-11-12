@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -68,6 +69,15 @@ func (self *SAzureGuestDriver) GetChangeConfigStatus() ([]string, error) {
 
 func (self *SAzureGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{models.VM_RUNNING}, nil
+}
+
+func (self *SAzureGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
+	//https://docs.microsoft.com/en-us/rest/api/compute/disks/update
+	//Resizes are only allowed if the disk is not attached to a running VM, and can only increase the disk's size
+	if !utils.IsInStringArray(guest.Status, []string{models.VM_READY}) {
+		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
+	}
+	return nil
 }
 
 func (self *SAzureGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
