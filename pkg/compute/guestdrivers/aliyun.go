@@ -57,6 +57,18 @@ func (self *SAliyunGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{models.VM_READY, models.VM_RUNNING}, nil
 }
 
+func (self *SAliyunGuestDriver) GetRebuildRootStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SAliyunGuestDriver) GetChangeConfigStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SAliyunGuestDriver) GetDeployStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
 func (self *SAliyunGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
