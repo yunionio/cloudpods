@@ -16,11 +16,12 @@ func policyReadFilter(session *mcclient.ClientSession, s jsonutils.JSONObject) (
 	ret := ss.CopyIncludes("id", "type")
 	blobStr, _ := ss.GetString("blob")
 	if len(blobStr) > 0 {
-		blobJson, err := jsonutils.ParseString(blobStr)
-		if err != nil {
-			return nil, err
+		blobJson, _ := jsonutils.ParseString(blobStr)
+		var policy string
+		if blobJson != nil {
+			policy = blobJson.YAMLString()
 		}
-		ret.Add(jsonutils.NewString(blobJson.YAMLString()), "policy")
+		ret.Add(jsonutils.NewString(policy), "policy")
 	}
 	return ret, nil
 }
