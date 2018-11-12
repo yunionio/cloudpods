@@ -55,7 +55,7 @@ func (self *SClassicStorage) GetIZone() cloudprovider.ICloudZone {
 }
 
 func (self *SClassicStorage) GetEnabled() bool {
-	return true
+	return false
 }
 
 func (self *SClassicStorage) GetCapacityMB() int {
