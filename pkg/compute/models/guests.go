@@ -497,6 +497,10 @@ func (guest *SGuest) SetHostId(hostId string) error {
 	return err
 }
 
+func (guest *SGuest) ValidateResizeDisk(disk *SDisk, storage *SStorage) error {
+	return guest.GetDriver().ValidateResizeDisk(guest, disk, storage)
+}
+
 func validateMemCpuData(data jsonutils.JSONObject) (int, int, error) {
 	vmemSize := 0
 	vcpuCount := 0

@@ -9,6 +9,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -293,6 +294,13 @@ func (self *SKVMGuestDriver) GetChangeConfigStatus() ([]string, error) {
 
 func (self *SKVMGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{models.VM_READY}, nil
+}
+
+func (self *SKVMGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
+	if !utils.IsInStringArray(guest.Status, []string{models.VM_READY, models.VM_RUNNING}) {
+		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
+	}
+	return nil
 }
 
 func (self *SKVMGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, disk *models.SDisk, task taskman.ITask, isPurge bool) error {

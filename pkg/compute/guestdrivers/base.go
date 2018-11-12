@@ -111,6 +111,10 @@ func (self *SBaseGuestDriver) GetChangeConfigStatus() ([]string, error) {
 	return []string{}, fmt.Errorf("This Guest driver dose not implement GetChangeConfigStatus")
 }
 
+func (self *SBaseGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
+	return fmt.Errorf("This Guest driver dose not implement ValidateResizeDisk")
+}
+
 func (self *SBaseGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{}, fmt.Errorf("This Guest driver dose not implement GetDeployStatus")
 }
