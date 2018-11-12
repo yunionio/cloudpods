@@ -84,6 +84,7 @@ type IGuestDriver interface {
 	GetRebuildRootStatus() ([]string, error)
 	GetChangeConfigStatus() ([]string, error)
 	GetDeployStatus() ([]string, error)
+	ValidateResizeDisk(guest *SGuest, disk *SDisk, storage *SStorage) error
 	CanKeepDetachDisk() bool
 
 	RequestDeleteDetachedDisk(ctx context.Context, disk *SDisk, task taskman.ITask, isPurge bool) error
