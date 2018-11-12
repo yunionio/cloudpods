@@ -69,6 +69,19 @@ func (self *SAliyunGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{models.VM_READY, models.VM_RUNNING}, nil
 }
 
+func (self *SAliyunGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
+	if !utils.IsInStringArray(guest.Status, []string{models.VM_READY, models.VM_RUNNING}) {
+		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
+	}
+	if disk.DiskType == models.DISK_TYPE_SYS {
+		return fmt.Errorf("Cannot resize system disk")
+	}
+	if !utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_PUBLIC_CLOUD, models.STORAGE_CLOUD_SSD, models.STORAGE_CLOUD_EFFICIENCY}) {
+		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
+	}
+	return nil
+}
+
 func (self *SAliyunGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
