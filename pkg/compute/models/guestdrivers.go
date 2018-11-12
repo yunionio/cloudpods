@@ -82,6 +82,9 @@ type IGuestDriver interface {
 	RequestDetachDisk(ctx context.Context, guest *SGuest, task taskman.ITask) error
 	GetDetachDiskStatus() ([]string, error)
 	GetAttachDiskStatus() ([]string, error)
+	GetRebuildRootStatus() ([]string, error)
+	GetChangeConfigStatus() ([]string, error)
+	GetDeployStatus() ([]string, error)
 	CanKeepDetachDisk() bool
 
 	RequestDeleteDetachedDisk(ctx context.Context, disk *SDisk, task taskman.ITask, isPurge bool) error
