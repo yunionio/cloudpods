@@ -58,6 +58,18 @@ func (self *SAzureGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{models.VM_READY, models.VM_RUNNING}, nil
 }
 
+func (self *SAzureGuestDriver) GetRebuildRootStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SAzureGuestDriver) GetChangeConfigStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SAzureGuestDriver) GetDeployStatus() ([]string, error) {
+	return []string{models.VM_RUNNING}, nil
+}
+
 func (self *SAzureGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
