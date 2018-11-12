@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -41,6 +42,23 @@ func (self *SAwsGuestDriver) ChooseHostStorage(host *models.SHost, backend strin
 
 func (self *SAwsGuestDriver) GetDetachDiskStatus() ([]string, error) {
 	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SAwsGuestDriver) GetAttachDiskStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SAwsGuestDriver) GetRebuildRootStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SAwsGuestDriver) GetChangeConfigStatus() ([]string, error) {
+	return []string{models.VM_READY}, nil
+}
+
+//AWS不允许更改密码或替换密钥对
+func (self *SAwsGuestDriver) GetDeployStatus() ([]string, error) {
+	return []string{}, nil
 }
 
 func (self *SAwsGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
