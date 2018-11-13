@@ -42,7 +42,7 @@ func Run() {
 	caddy.TrapSignals()
 
 	// Reset flag.CommandLine to get rid of unwanted flags for instance from glog (used in kubernetes).
-	// And read the ones we want to keep.
+	// And readd the once we want to keep.
 	flag.VisitAll(func(f *flag.Flag) {
 		if _, ok := flagsBlacklist[f.Name]; ok {
 			return
@@ -62,7 +62,7 @@ func Run() {
 	}
 
 	log.SetOutput(os.Stdout)
-	log.SetFlags(0) // Set to 0 because we're doing our own time, with timezone
+	log.SetFlags(log.LstdFlags)
 
 	if version {
 		showVersion()
