@@ -487,15 +487,21 @@ func (region *SRegion) AttachDisk(instanceId, diskId string) error {
 	if err != nil {
 		return err
 	}
-	dataDisks := []DataDisk{}
-	lun := int32(0)
-	for i := 0; i < len(instance.Properties.StorageProfile.DataDisks); i++ {
-		instance.Properties.StorageProfile.DataDisks[i].Lun = lun
-		dataDisks = append(dataDisks, instance.Properties.StorageProfile.DataDisks[i])
-		lun++
+	dataDisks := instance.Properties.StorageProfile.DataDisks
+	lun, find := -1, false
+	for i := 0; i < len(dataDisks); i++ {
+		if dataDisks[i].Lun != int32(i) {
+			lun, find = i, true
+			break
+		}
 	}
+
+	if !find || lun == -1 {
+		lun = len(dataDisks)
+	}
+
 	dataDisks = append(dataDisks, DataDisk{
-		Lun:          lun,
+		Lun:          int32(lun),
 		CreateOption: "Attach",
 		ManagedDisk: &ManagedDiskParameters{
 			ID: disk.ID,
@@ -524,12 +530,9 @@ func (region *SRegion) DetachDisk(instanceId, diskId string) error {
 		return err
 	}
 	dataDisks := []DataDisk{}
-	index := int32(0)
 	for _, origDisk := range instance.Properties.StorageProfile.DataDisks {
 		if origDisk.ManagedDisk.ID != disk.ID {
-			origDisk.Lun = index
 			dataDisks = append(dataDisks, origDisk)
-			index++
 		}
 	}
 	instance.Properties.StorageProfile.DataDisks = dataDisks
