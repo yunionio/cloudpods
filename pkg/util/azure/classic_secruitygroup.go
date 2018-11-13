@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
@@ -64,10 +65,11 @@ func (v ClassicSecurityRulesSet) Less(i, j int) bool {
 
 func (self *ClassicSecurityGroupRuleProperties) toRules() []secrules.SecurityRule {
 	rules := []secrules.SecurityRule{}
-	rule := secrules.SecurityRule{}
-	rule.Action = secrules.TSecurityRuleAction(strings.ToLower(self.Action))
-	rule.Direction = secrules.TSecurityRuleDirection(strings.Replace(strings.ToLower(self.Type), "bound", "", -1))
-	rule.Protocol = strings.ToLower(self.Protocol)
+	rule := secrules.SecurityRule{
+		Action:    secrules.TSecurityRuleAction(strings.ToLower(self.Action)),
+		Direction: secrules.TSecurityRuleDirection(strings.Replace(strings.ToLower(self.Type), "bound", "", -1)),
+		Protocol:  strings.ToLower(self.Protocol),
+	}
 	if rule.Protocol == "*" {
 		rule.Protocol = "any"
 	}
@@ -105,9 +107,11 @@ func (self *ClassicSecurityGroupRuleProperties) toRules() []secrules.SecurityRul
 		rule.PortEnd, _ = strconv.Atoi(ports[0])
 	}
 	if rule.PortStart > 0 && rule.Protocol == "any" {
-		rule.Protocol = "tcp"
+		rule.Protocol = secrules.PROTO_TCP
 		rules = append(rules, rule)
-		rule.Protocol = "udp"
+		rule.Protocol = secrules.PROTO_UDP
+		rules = append(rules, rule)
+		rule.Protocol = secrules.PROTO_ICMP
 		rules = append(rules, rule)
 	}
 	return rules
@@ -168,6 +172,10 @@ func (self *SClassicSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 			rule := _rules[i]
 			rule.Priority = priority
 			rule.Description = secgrouprules[i].Name
+			if err := rule.ValidateRule(); err != nil {
+				log.Errorf("Azure classic secgroup get rules error: %v", err)
+				return nil, err
+			}
 			rules = append(rules, rule)
 		}
 		if len(_rules) > 0 {
@@ -240,8 +248,7 @@ func (region *SRegion) updateClassicSecurityGroupRules(secgroupId string, rules 
 	securityRules := []SecurityRules{}
 	priority := int32(100)
 	for i := 0; i < len(rules); i++ {
-		rules[i].Priority = int(priority)
-		if rule := convertSecurityGroupRule(rules[i]); rule != nil {
+		if rule := convertSecurityGroupRule(rules[i], priority); rule != nil {
 			securityRules = append(securityRules, *rule)
 			priority++
 		}
