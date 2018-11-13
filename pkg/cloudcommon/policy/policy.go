@@ -154,6 +154,9 @@ func (manager *SPolicyManager) Allow(isAdmin bool, userCred mcclient.TokenCreden
 			currentPriv = result
 		}
 	}
+	if consts.IsRbacDebug() {
+		log.Debugf("[RBAC: %v] %s %s %s %#v permission %s", isAdmin, service, resource, action, extra, currentPriv)
+	}
 	return currentPriv
 }
 
