@@ -1343,6 +1343,9 @@ func (self *SGuest) Attach2Network(ctx context.Context, userCred mcclient.TokenC
 		}
 	}
 	notes := jsonutils.NewDict()
+	if len(address) == 0 {
+		address = guestnic.IpAddr
+	}
 	notes.Add(jsonutils.NewString(address), "ip_addr")
 	db.OpsLog.LogAttachEvent(self, network, userCred, notes)
 	return nil
