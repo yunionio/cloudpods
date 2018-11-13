@@ -95,7 +95,8 @@ func (self *SSnapshot) Delete() error {
 }
 
 func (self *SSnapshot) GetRegionId() string {
-	return self.region.GetId()
+	// 这里特别注意：aws没有有uuid形式的region id
+	return self.region.Get
 }
 
 func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName string, snapshotIds []string, offset int, limit int) ([]SSnapshot, int, error) {

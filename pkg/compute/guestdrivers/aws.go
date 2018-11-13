@@ -308,6 +308,12 @@ func (self *SAwsGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *mod
 	if err != nil {
 		return err
 	}
+
+	zone := disk.GetZone()
+	if zone == nil {
+		return fmt.Errorf("can't not fetch zone by disk %s", disk.Id)
+	}
+
 	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
 	snapshot := iSnapshot.(*models.SSnapshot)
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
@@ -318,7 +324,7 @@ func (self *SAwsGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *mod
 		res := jsonutils.NewDict()
 		res.Set("snapshot_id", jsonutils.NewString(cloudSnapshot.GetId()))
 		res.Set("manager_id", jsonutils.NewString(cloudSnapshot.GetManagerId()))
-		res.Set("cloudregion_id", jsonutils.NewString(cloudSnapshot.GetRegionId()))
+		res.Set("cloudregion_id", jsonutils.NewString(zone.CloudregionId))
 		return res, nil
 	})
 	return nil
