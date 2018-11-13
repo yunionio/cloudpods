@@ -3,6 +3,8 @@ package guest
 import (
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 const (
@@ -27,10 +29,14 @@ func (p *StatusPredicate) Clone() core.FitPredicate {
 
 func (p *StatusPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(p, u, c)
+	hc, err := h.HostCandidate()
+	if err != nil {
+		return false, nil, err
+	}
 
-	curStatus := h.Get("Status").(string)
-	curHostStatus := h.Get("HostStatus").(string)
-	curEnableStatus := h.Get("EnableStatus").(string)
+	curStatus := hc.Status
+	curHostStatus := hc.HostStatus
+	curEnableStatus := hc.Enabled
 
 	if curStatus != ExpectedStatus {
 		h.Exclude2("status", curStatus, ExpectedStatus)
@@ -40,8 +46,14 @@ func (p *StatusPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core
 		h.Exclude2("host_status", curHostStatus, ExpectedHostStatus)
 	}
 
-	if curEnableStatus != ExpectedEnableStatus {
-		h.Exclude2("enable_status", curEnableStatus, ExpectedEnableStatus)
+	if !curEnableStatus {
+		h.Exclude2("enable_status", curEnableStatus, true)
+	}
+
+	if hc.Cloudprovider != nil {
+		if hc.Cloudprovider.Status != models.CLOUD_PROVIDER_CONNECTED {
+			h.Exclude2("cloud_provider_status", hc.Cloudprovider.Status, models.CLOUD_PROVIDER_CONNECTED)
+		}
 	}
 
 	return h.GetResult()
