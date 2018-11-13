@@ -164,7 +164,7 @@ func targetStrip(name string, targetStrip int) string {
 		offset, end = dns.NextLabel(name, offset)
 	}
 	if end {
-		// We overshot the name, use the original one.
+		// We overshot the name, use the orignal one.
 		offset = 0
 	}
 	name = name[offset:]

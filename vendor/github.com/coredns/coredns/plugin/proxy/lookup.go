@@ -71,7 +71,7 @@ func (p Proxy) lookup(state request.Request) (*dns.Msg, error) {
 	}
 	for {
 		start := time.Now()
-		var reply *dns.Msg
+		reply := new(dns.Msg)
 		var backendErr error
 
 		// Since Select() should give us "up" hosts, keep retrying
