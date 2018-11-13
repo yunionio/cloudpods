@@ -3,7 +3,6 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -303,13 +302,6 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 			return err
 		}
 	}
-
-	log.Debugf("VMchangeConfig %s, wait status ready ...", iVM.GetGlobalId())
-	err = cloudprovider.WaitStatus(iVM, models.VM_READY, time.Second*5, time.Second*300)
-	if err != nil {
-		return err
-	}
-	log.Debugf("VMchangeConfig %s, and status is ready", iVM.GetGlobalId())
 	return nil
 }
 
