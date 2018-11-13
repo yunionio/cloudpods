@@ -549,13 +549,6 @@ func (self *SAliyunGuestDriver) RequestChangeVmConfig(ctx context.Context, guest
 			return err
 		}
 	}
-
-	log.Debugf("VMchangeConfig %s, wait status ready ...", iVM.GetGlobalId())
-	err = cloudprovider.WaitStatus(iVM, models.VM_READY, time.Second*5, time.Second*300)
-	if err != nil {
-		return err
-	}
-	log.Debugf("VMchangeConfig %s, and status is ready", iVM.GetGlobalId())
 	return nil
 }
 
