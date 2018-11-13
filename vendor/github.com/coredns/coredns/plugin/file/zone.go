@@ -3,10 +3,9 @@ package file
 import (
 	"fmt"
 	"net"
-	"path/filepath"
+	"path"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/coredns/coredns/plugin/file/tree"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
@@ -28,8 +27,7 @@ type Zone struct {
 	TransferFrom []string
 	Expired      *bool
 
-	ReloadInterval time.Duration
-	LastReloaded   time.Time
+	NoReload       bool
 	reloadMu       sync.RWMutex
 	reloadShutdown chan bool
 	Upstream       upstream.Upstream // Upstream for looking up names during the resolution process
@@ -48,11 +46,10 @@ func NewZone(name, file string) *Zone {
 	z := &Zone{
 		origin:         dns.Fqdn(name),
 		origLen:        dns.CountLabel(dns.Fqdn(name)),
-		file:           filepath.Clean(file),
+		file:           path.Clean(file),
 		Tree:           &tree.Tree{},
 		Expired:        new(bool),
 		reloadShutdown: make(chan bool),
-		LastReloaded:   time.Now(),
 	}
 	*z.Expired = false
 
@@ -164,7 +161,7 @@ func (z *Zone) TransferAllowed(state request.Request) bool {
 // All returns all records from the zone, the first record will be the SOA record,
 // otionally followed by all RRSIG(SOA)s.
 func (z *Zone) All() []dns.RR {
-	if z.ReloadInterval > 0 {
+	if !z.NoReload {
 		z.reloadMu.RLock()
 		defer z.reloadMu.RUnlock()
 	}
@@ -206,7 +203,7 @@ func (z *Zone) nameFromRight(qname string, i int) (string, bool) {
 	}
 
 	k := 0
-	var shot bool
+	shot := false
 	for j := 1; j <= i; j++ {
 		k, shot = dns.PrevLabel(qname, j+z.origLen)
 		if shot {

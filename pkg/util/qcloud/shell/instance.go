@@ -136,11 +136,10 @@ func init() {
 	}
 
 	shellutils.R(&InstanceRebuildRootOptions{}, "instance-rebuild-root", "Reinstall virtual server system image", func(cli *qcloud.SRegion, args *InstanceRebuildRootOptions) error {
-		diskID, err := cli.ReplaceSystemDisk(args.ID, args.Image, args.Password, args.Keypair, args.Size)
+		err := cli.ReplaceSystemDisk(args.ID, args.Image, args.Password, args.Keypair, args.Size)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("New diskID is %s", diskID)
 		return nil
 	})
 
