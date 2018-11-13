@@ -188,7 +188,7 @@ func init() {
 	}
 	R(&PolicyAdminCapableOptions{}, "policy-admin-capable", "Check admin capable", func(s *mcclient.ClientSession, args *PolicyAdminCapableOptions) error {
 		auth.InitFromClientSession(s)
-		policy.EnableGlobalRbac(15*time.Second, 15*time.Second)
+		policy.EnableGlobalRbac(15*time.Second, 15*time.Second, false)
 
 		capable := policy.PolicyManager.IsAdminCapable(s.GetToken())
 		fmt.Printf("%v\n", capable)
@@ -201,7 +201,7 @@ func init() {
 	}
 	R(&PolicyExplainOptions{}, "policy-explain", "Explain policy result", func(s *mcclient.ClientSession, args *PolicyExplainOptions) error {
 		auth.InitFromClientSession(s)
-		policy.EnableGlobalRbac(15*time.Second, 15*time.Second)
+		policy.EnableGlobalRbac(15*time.Second, 15*time.Second, false)
 
 		req := jsonutils.NewDict()
 		for i := 0; i < len(args.Request); i += 1 {
