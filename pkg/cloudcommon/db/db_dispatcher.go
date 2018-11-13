@@ -993,6 +993,7 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 	if diff != nil {
 		diffStr := sqlchemy.UpdateDiffString(diff)
 		if len(diffStr) > 0 {
+			item.PostUpdate(ctx, userCred, query, dataDict)
 			OpsLog.LogEvent(item, ACT_UPDATE, diffStr, userCred)
 		}
 	}
