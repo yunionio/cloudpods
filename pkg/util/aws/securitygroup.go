@@ -324,7 +324,7 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Secur
 				if cmp == 0 {
 					if secgroup.Permissions[j].Description != rules[i].Description {
 						if err := self.updateSecurityGroupRuleDescription(secgroupId, &rules[i]); err != nil {
-							log.Errorf("updateSecurityGroupRuleDescription error %v", rules[i])
+							log.Errorf("updateSecurityGroupRuleDescription %v error: %s", rules[i], err.Error())
 							return err
 						}
 					}
@@ -332,26 +332,26 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Secur
 					j += 1
 				} else if cmp > 0 {
 					if err := self.delSecurityGroupRule(secgroupId, &secgroup.Permissions[j]); err != nil {
-						log.Errorf("delSecurityGroupRule error %v", secgroup.Permissions[j])
+						log.Errorf("delSecurityGroupRule %v error: %s", secgroup.Permissions[j], err.Error())
 						return err
 					}
 					j += 1
 				} else {
 					if err := self.addSecurityGroupRules(secgroupId, &rules[i]); err != nil {
-						log.Errorf("addSecurityGroupRule error %v", rules[i])
+						log.Errorf("addSecurityGroupRule %v error: %s", rules[i], err.Error())
 						return err
 					}
 					i += 1
 				}
 			} else if i >= len(rules) {
 				if err := self.delSecurityGroupRule(secgroupId, &secgroup.Permissions[j]); err != nil {
-					log.Errorf("delSecurityGroupRule error %v", secgroup.Permissions[j])
+					log.Errorf("delSecurityGroupRule %v error: %s", secgroup.Permissions[j], err.Error())
 					return err
 				}
 				j += 1
 			} else if j >= len(secgroup.Permissions) {
 				if err := self.addSecurityGroupRules(secgroupId, &rules[i]); err != nil {
-					log.Errorf("addSecurityGroupRule error %v", rules[i])
+					log.Errorf("addSecurityGroupRule %v error: %s", rules[i], err.Error())
 					return err
 				}
 				i += 1

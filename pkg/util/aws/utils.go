@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"regexp"
 	"strings"
 	"yunion.io/x/jsonutils"
 
@@ -295,6 +296,8 @@ func AwsIpPermissionToYunion(direction secrules.TSecurityRuleDirection, p ec2.Ip
 	return rules, nil
 }
 
+// YunionSecRuleToAws 不能保证无损转换
+// 规则描述如果包含中文等字符，将被丢弃掉
 func YunionSecRuleToAws(rule secrules.SecurityRule) ([]*ec2.IpPermission, error) {
 	if rule.Action == secrules.SecurityRuleDeny {
 		return nil, fmt.Errorf("YunionSecRuleToAws ignored  aws not supported deny rule")
@@ -304,8 +307,13 @@ func YunionSecRuleToAws(rule secrules.SecurityRule) ([]*ec2.IpPermission, error)
 	if iprange == "<nil>" {
 		return nil, fmt.Errorf("YunionSecRuleToAws ignored  ipnet should not be empty")
 	}
+
+	description := ""
+	if match, err := regexp.MatchString("^[\\sa-zA-Z0-9. _:/()#,@\\]\\[+=&;{}!$*-]+$", rule.Description);err == nil && match {
+		description = rule.Description
+	}
 	ipranges := []*ec2.IpRange{}
-	ipranges = append(ipranges, &ec2.IpRange{CidrIp: &iprange, Description: &rule.Description})
+	ipranges = append(ipranges, &ec2.IpRange{CidrIp: &iprange, Description: &description})
 
 	portranges := yunionPortRangeToAws(rule)
 	protocol := yunionProtocolToAws(rule)
