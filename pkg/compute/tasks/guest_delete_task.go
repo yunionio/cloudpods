@@ -25,6 +25,11 @@ func init() {
 
 func (self *GuestDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
+	host := guest.GetHost()
+	if guest.Hypervisor == models.HYPERVISOR_BAREMETAL && host.HostType != models.HOST_TYPE_BAREMETAL {
+		self.OnGuestStopComplete(ctx, obj, data)
+		return
+	}
 	self.SetStage("on_guest_stop_complete", nil)
 	err := guest.GetDriver().RequestStopGuestForDelete(ctx, guest, self)
 	if err != nil {
