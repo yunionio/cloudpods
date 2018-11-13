@@ -3,6 +3,7 @@ package aws
 import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"strings"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -90,7 +91,7 @@ func (self *SSnapshot) GetDiskId() string {
 }
 
 func (self *SSnapshot) Delete() error {
-	panic("implement me")
+	return self.region.DeleteSnapshot(self.SnapshotId)
 }
 
 func (self *SSnapshot) GetRegionId() string {
@@ -125,6 +126,10 @@ func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName
 
 	ret, err := self.ec2Client.DescribeSnapshots(params)
 	if err != nil {
+		if strings.Contains(err.Error(), "InvalidSnapshot.NotFound") {
+			return nil, 0, cloudprovider.ErrNotFound
+		}
+
 		return nil, 0, err
 	}
 

@@ -27,7 +27,7 @@ type SDisk struct {
 	DiskId   string // VolumeId
 
 	DiskName         string // Tag Name
-	Size             int    // Size
+	Size             int    // Size GB
 	Category         string // VolumeType
 	Type             string // system | data
 	Status           string // State
@@ -366,8 +366,49 @@ func (self *SRegion) resizeDisk(diskId string, size int64) error {
 }
 
 func (self *SRegion) resetDisk(diskId, snapshotId string) error {
-	// aws貌似不支持直接重置
-	return cloudprovider.ErrNotImplemented
+	// 这里实际是回滚快照
+	disk, err := self.GetDisk(diskId)
+	if err != nil {
+		log.Debugf("resetDisk %s:%s",diskId, err.Error())
+		return err
+	}
+
+	params := &ec2.CreateVolumeInput{}
+	params.SetSnapshotId(snapshotId)
+	params.SetSize(int64(disk.Size))
+	params.SetVolumeType(disk.Category)
+	params.SetAvailabilityZone(disk.ZoneId)
+	tags,_ := disk.Tags.GetTagSpecifications()
+	params.SetTagSpecifications([]*ec2.TagSpecification{tags})
+	ret, err := self.ec2Client.CreateVolume(params)
+	if err != nil {
+		log.Debugf("resetDisk %s: %s",params.String(), err.Error())
+		return err
+	}
+
+	// detach disk
+	if disk.Status == ec2.VolumeStateInUse {
+		err := self.DetachDisk(disk.InstanceId, diskId)
+		if err != nil {
+			log.Debugf("resetDisk %s %s: %s", disk.InstanceId, diskId, err.Error())
+			return err
+		}
+
+		err = self.ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds:[]*string{&diskId}})
+		if err != nil {
+			log.Debugf("resetDisk :%s", err.Error())
+			return err
+		}
+	}
+
+	err = self.AttachDisk(disk.InstanceId, *ret.VolumeId, disk.Device)
+	if err != nil {
+		log.Debugf("resetDisk %s %s %s: %s",disk.InstanceId, *ret.VolumeId, disk.Device, err.Error())
+		return err
+	}
+
+	// 绑定成功后删除原磁盘
+	return self.DeleteDisk(diskId)
 }
 
 func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, snapshotId string, desc string) (string, error) {
