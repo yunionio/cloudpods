@@ -1,0 +1,52 @@
+package options
+
+import "yunion.io/x/onecloud/pkg/cloudcommon"
+
+type SHostOptions struct {
+	cloudcommon.Options
+
+	//host agent default disable rbac
+	EnableRbac bool `help:"Switch on Role-based Access Control" default:"false"`
+
+	HostType        string   `help:"Host server type, either hypervisor or kubelet" default:"hypervisor"`
+	ListenInterface string   `help:"Master address of host server"`
+	BridgeDriver    string   `help:"Bridge driver, bridge or openvswitch" default: "openvswitch"`
+	Networks        []string `help:"Network interface information"`
+	Rack            string   `help:"Rack of host (optional)"`
+	Slots           string   `help:"Slots of host (optional)"`
+	Hostname        string   `help:"Customized host name"`
+
+	ServersPath     string `help:"Path for virtual server configuration files"`
+	ImageCachePath  string `help:"Path for storing image caches"`
+	ImageCacheLimit int    `help:"Maximal storage space for image caching, in GB" default:"20"`
+	AgentTempPath   string `help:"Path for ESXi agent"`
+	AgentTempLimit  int    `help:"Maximal storage space for ESXi agent, in GB" default:"10"`
+
+	RecycleDiskfile         bool `help:"Recycle instead of remove deleted disk file" default:"true"`
+	RecycleDiskfileKeepDays int  `help:"How long recycled files kept, default 28 days" default:"28"`
+
+	EnableTemplateBacking    bool `help:"Use template as backing file"`
+	AutoMergeBackingTemplate bool `help:"Automatically stream merging backing file"`
+	AutoMergeDelaySeconds    int  `help:"Seconds to delay mergeing backing file after VM start, default 15 minutes" default:"900"`
+	EnableFallocateDisk      bool `help:"Automatically allocate all spaces using fallocate"`
+
+	EnableMonitor  bool `help:"Enable monitor"`
+	ReportInterval int  `help:"Report interval in seconds", default:"60"`
+
+	EnableTcBwlimit     bool `help:"Enable linux tc bandwidth limit"`
+	BwDownloadBandwidth int  `help:"Default ingress bandwidth in mbit (0 disabled)" default:"10"`
+
+	DnsServer       string `help:"Address of host DNS server"`
+	DnsServerLegacy string `help:"Deprecated Address of host DNS server"`
+
+	ChntpwPath           string `help:"path to chntpw tool" default:"/usr/local/bin/chntpw.static"`
+	OvmfPath             string `help:"Path to OVMF.fd" default:"/opt/cloud/contrib/OVMF.fd"`
+	LinuxDefaultRootUser bool   `help:"Default account for linux system is root"`
+
+	BlockIoScheduler string `help:"Block IO scheduler, deadline or cfq" default:"deadline"`
+	EnableKsm        bool   `help:"Enable Kernel Same Page Merging"`
+	HugepagesOption  string `help:"Hugepages option: disable|native|transparent" default:"transparent"`
+	EnableQmpMonitor bool   `help:"Enable qmp monitor" default:"true"`
+}
+
+var HostOptions SHostOptions

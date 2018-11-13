@@ -1118,6 +1118,14 @@
   revision = "49a4782e9908fe098c907022a1bd7519c79803d6"
 
 [[projects]]
+  digest = "1:0dc41f232ad16c241c1ab36d51eaffef124e3550ef490dfd1ea3ebdf11ca1d21"
+  name = "github.com/shirou/gopsutil"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "3ec50d2876a36047b2ca39f955ba88fb7a455e92"
+  version = "v2.18.10"
+
+[[projects]]
   digest = "1:69b1cc331fca23d702bd72f860c6a647afd0aa9fcbc1d0659b1365e26546dd70"
   name = "github.com/sirupsen/logrus"
   packages = ["."]
@@ -1657,6 +1665,7 @@
     "util/seclib",
     "util/secrules",
     "util/sets",
+    "util/signalutils",
     "util/stringutils",
     "util/timeutils",
     "util/trace",
@@ -1759,6 +1768,7 @@
     "github.com/nelsonken/cos-go-sdk-v5/cos",
     "github.com/pierrec/lz4",
     "github.com/serialx/hashring",
+    "github.com/shirou/gopsutil",
     "github.com/stretchr/testify/assert",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http",
@@ -1804,6 +1814,7 @@
     "yunion.io/x/pkg/util/seclib",
     "yunion.io/x/pkg/util/secrules",
     "yunion.io/x/pkg/util/sets",
+    "yunion.io/x/pkg/util/signalutils",
     "yunion.io/x/pkg/util/stringutils",
     "yunion.io/x/pkg/util/timeutils",
     "yunion.io/x/pkg/util/trace",
