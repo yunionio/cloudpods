@@ -982,12 +982,12 @@ func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 	return err
 }
 
-func (self *SInstance) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) error {
+func (self *SInstance) SyncSecurityGroup(dbSecgroupId string, name string, rules []secrules.SecurityRule) error {
 	nics, err := self.getNics()
 	if err != nil {
 		return err
 	}
-	if len(secgroupId) == 0 {
+	if len(dbSecgroupId) == 0 {
 		for _, nic := range nics {
 			if err := nic.revokeSecurityGroup(); err != nil {
 				return err
@@ -995,7 +995,7 @@ func (self *SInstance) SyncSecurityGroup(secgroupId string, name string, rules [
 		}
 		return nil
 	}
-	extId, err := self.host.zone.region.syncSecurityGroup(secgroupId, name, rules)
+	extId, err := self.host.zone.region.syncSecurityGroup(dbSecgroupId, name, rules)
 	if err != nil {
 		return err
 	}
