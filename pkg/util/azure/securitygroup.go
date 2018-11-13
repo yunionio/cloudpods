@@ -2,28 +2,33 @@ package azure
 
 import (
 	"fmt"
+	"net"
 	"sort"
+	"strconv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/pkg/utils"
 )
 
 type SecurityRulePropertiesFormat struct {
-	Description                string    `json:"description,omitempty"`
-	Protocol                   string    `json:"protocol,omitempty"`
-	SourcePortRange            string    `json:"sourcePortRange,omitempty"`
-	DestinationPortRange       string    `json:"destinationPortRange,omitempty"`
-	SourceAddressPrefix        string    `json:"sourceAddressPrefix,omitempty"`
-	SourceAddressPrefixes      *[]string `json:"sourceAddressPrefixes,omitempty"`
-	DestinationAddressPrefix   string    `json:"destinationAddressPrefix,omitempty"`
-	DestinationAddressPrefixes *[]string `json:"destinationAddressPrefixes,omitempty"`
-	SourcePortRanges           *[]string `json:"sourcePortRanges,omitempty"`
-	DestinationPortRanges      *[]string `json:"destinationPortRanges,omitempty"`
-	Access                     string    `json:"access,omitempty"` // Allow or Deny
-	Priority                   int32     `json:"priority,omitempty"`
-	Direction                  string    `json:"direction,omitempty"` //Inbound or Outbound
-	ProvisioningState          string    `json:"-"`
+	Description                string   `json:"description,omitempty"`
+	Protocol                   string   `json:"protocol,omitempty"`
+	SourcePortRange            string   `json:"sourcePortRange,omitempty"`
+	DestinationPortRange       string   `json:"destinationPortRange,omitempty"`
+	SourceAddressPrefix        string   `json:"sourceAddressPrefix,omitempty"`
+	SourceAddressPrefixes      []string `json:"sourceAddressPrefixes,omitempty"`
+	DestinationAddressPrefix   string   `json:"destinationAddressPrefix,omitempty"`
+	DestinationAddressPrefixes []string `json:"destinationAddressPrefixes,omitempty"`
+	SourcePortRanges           []string `json:"sourcePortRanges,omitempty"`
+	DestinationPortRanges      []string `json:"destinationPortRanges,omitempty"`
+	Access                     string   `json:"access,omitempty"` // Allow or Deny
+	Priority                   int32    `json:"priority,omitempty"`
+	Direction                  string   `json:"direction,omitempty"` //Inbound or Outbound
+	ProvisioningState          string   `json:"-"`
 }
 type SecurityRules struct {
 	Properties SecurityRulePropertiesFormat
@@ -79,56 +84,205 @@ func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
-func (self *SecurityRulePropertiesFormat) String() string {
-	//log.Debugf("serize rule: %s", jsonutils.Marshal(self).PrettyString())
-	action := secrules.SecurityRuleDeny
-	if self.Access == "Allow" {
-		action = secrules.SecurityRuleAllow
+func parseCIDR(cidr string) (*net.IPNet, error) {
+	if cidr == "*" || strings.ToLower(cidr) == "internet" {
+		cidr = "0.0.0.0/0"
 	}
-	direction := "in"
-	if self.Direction == "Outbound" {
-		direction = "out"
+	if strings.Index(cidr, "/") > 0 {
+		_, ipnet, err := net.ParseCIDR(cidr)
+		return ipnet, err
 	}
-	cidr := self.SourceAddressPrefix
-	port := self.SourcePortRange
-	if self.SourcePortRanges != nil && len(*self.SourcePortRanges) > 0 {
-		port = strings.Join(*self.SourcePortRanges, ",")
+	ip := net.ParseIP(cidr)
+	if ip == nil {
+		return nil, fmt.Errorf("Parse ip %s error", cidr)
 	}
-	if direction == "out" {
-		cidr = self.DestinationAddressPrefix
-		port = self.DestinationPortRange
-		if self.DestinationPortRanges != nil && len(*self.DestinationPortRanges) > 0 {
-			port = strings.Join(*self.DestinationPortRanges, ",")
+	return &net.IPNet{IP: ip, Mask: net.CIDRMask(32, 32)}, nil
+}
+
+type rulePorts struct {
+	ports     []int
+	portStart int
+	portEnd   int
+}
+
+func parsePorts(ports string) (rulePorts, error) {
+	result := rulePorts{
+		portStart: -1,
+		portEnd:   -1,
+		ports:     []int{},
+	}
+	if ports == "*" {
+		return result, nil
+	} else if strings.Index(ports, ",") > 0 {
+		for _, _port := range strings.Split(ports, ",") {
+			port, err := strconv.Atoi(_port)
+			if err != nil {
+				msg := fmt.Sprintf("parse rule port %s error: %v", ports, err)
+				log.Errorf(msg)
+				return result, fmt.Errorf(msg)
+			}
+			result.ports = append(result.ports, port)
 		}
+	} else if strings.Index(ports, "-") > 0 {
+		_ports := strings.Split(ports, "-")
+		if len(_ports) == 2 {
+			portStart, err := strconv.Atoi(_ports[0])
+			if err != nil {
+				msg := fmt.Sprintf("parse rule port %s error: %v", ports, err)
+				log.Errorf(msg)
+				return result, fmt.Errorf(msg)
+			}
+			result.portStart = portStart
+			portEnd, err := strconv.Atoi(_ports[1])
+			if err != nil {
+				msg := fmt.Sprintf("parse rule port %s error: %v", ports, err)
+				log.Errorf(msg)
+				return result, fmt.Errorf(msg)
+			}
+			result.portEnd = portEnd
+		}
+	} else {
+		_port, err := strconv.Atoi(ports)
+		if err != nil {
+			msg := fmt.Sprintf("parse rule port %s error: %v", ports, err)
+			log.Errorf(msg)
+			return result, fmt.Errorf(msg)
+		}
+		result.ports = append(result.ports, _port)
 	}
-	if cidr == "*" || cidr == "0.0.0.0/0" {
-		cidr = ""
-	}
-	if port == "*" {
-		port = ""
-	}
-	protocol := strings.ToLower(self.Protocol)
-	if protocol == "*" {
-		protocol = "any"
+	return result, nil
+}
+
+func paresPortsWithIpNet(port string, ports []string, ip string, ips []string) ([]rulePorts, []*net.IPNet, error) {
+	portsResult, ipResult := []rulePorts{}, []*net.IPNet{}
+	if len(port) > 0 {
+		_ports, err := parsePorts(port)
+		if err != nil {
+			return nil, nil, err
+		}
+		portsResult = append(portsResult, _ports)
+	} else if len(ports) > 0 {
+		for i := 0; i < len(ports); i++ {
+			_ports, err := parsePorts(ports[i])
+			if err != nil {
+				return nil, nil, err
+			}
+			portsResult = append(portsResult, _ports)
+		}
 	}
 
-	result := fmt.Sprintf("%s:%s", direction, string(action))
-	if len(cidr) > 0 {
-		result += fmt.Sprintf(" %s", cidr)
-	}
-	result += fmt.Sprintf(" %s", protocol)
-	if len(port) > 0 {
-		if strings.Index(port, ",") > 0 && strings.Index(port, "-") > 0 {
-			results := make([]string, 0)
-			for _, _port := range strings.Split(port, ",") {
-				results = append(results, fmt.Sprintf("%s %s", result, _port))
+	if len(ip) > 0 {
+		ipnet, err := parseCIDR(ip)
+		if err != nil {
+			return nil, nil, err
+		}
+		ipResult = append(ipResult, ipnet)
+	} else if len(ips) > 0 {
+		for i := 0; i < len(ips); i++ {
+			ipnet, err := parseCIDR(ips[i])
+			if err != nil {
+				return nil, nil, err
 			}
-			result = strings.Join(results, ";")
-		} else {
-			result += fmt.Sprintf(" %s", port)
+			ipResult = append(ipResult, ipnet)
 		}
 	}
-	return result
+	return portsResult, ipResult, nil
+}
+
+func (self *SecurityRulePropertiesFormat) toRules() ([]secrules.SecurityRule, error) {
+	result := []secrules.SecurityRule{}
+	rule := secrules.SecurityRule{
+		Action:      secrules.TSecurityRuleAction(strings.ToLower(self.Access)),
+		Direction:   secrules.TSecurityRuleDirection(strings.Replace(strings.ToLower(self.Direction), "bound", "", -1)),
+		Protocol:    strings.ToLower(self.Protocol),
+		Priority:    int(self.Priority),
+		Description: self.Description,
+	}
+
+	if rule.Protocol == "*" {
+		rule.Protocol = "any"
+	}
+
+	addressPrefix, addressPrefixes := "", []string{}
+	if rule.Direction == secrules.DIR_IN {
+		addressPrefix, addressPrefixes = self.SourceAddressPrefix, self.SourceAddressPrefixes
+	} else {
+		addressPrefix, addressPrefixes = self.DestinationAddressPrefix, self.DestinationAddressPrefixes
+	}
+
+	if strings.ToLower(addressPrefix) == "internet" || addressPrefix == "*" {
+		addressPrefix = "0.0.0.0/0"
+	}
+
+	if !regutils.MatchIPAddr(addressPrefix) && !regutils.MatchCIDR(addressPrefix) && len(addressPrefixes) == 0 {
+		return nil, nil
+	}
+
+	ports, ips, err := paresPortsWithIpNet(self.DestinationPortRange, self.DestinationPortRanges, addressPrefix, addressPrefixes)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := 0; i < len(ips); i++ {
+		rule.IPNet = ips[i]
+		withICMP := false
+		for j := 0; j < len(ports); j++ {
+			rule.Ports = ports[j].ports
+			rule.PortStart = ports[j].portStart
+			rule.PortEnd = ports[j].portEnd
+			if rule.Protocol == secrules.PROTO_ANY && len(rule.Ports) > 0 || (rule.PortStart+rule.PortStart > 0) {
+				tcp := rule
+				tcp.Protocol = secrules.PROTO_TCP
+				err := tcp.ValidateRule()
+				if err != nil {
+					return nil, err
+				}
+				result = append(result, tcp)
+
+				udp := rule
+				udp.Protocol = secrules.PROTO_UDP
+				err = udp.ValidateRule()
+				if err != nil {
+					return nil, err
+				}
+				result = append(result, udp)
+				withICMP = true
+			} else {
+				err := rule.ValidateRule()
+				if err != nil {
+					return nil, err
+				}
+				result = append(result, rule)
+			}
+		}
+		if withICMP {
+			icmp := rule
+			icmp.Protocol = secrules.PROTO_ICMP
+			icmp.PortStart = -1
+			icmp.PortEnd = -1
+			icmp.Ports = []int{}
+			err := icmp.ValidateRule()
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, icmp)
+		}
+	}
+
+	return result, nil
+}
+
+func (self *SecurityRulePropertiesFormat) String() string {
+	rules, err := self.toRules()
+	if err != nil {
+		log.Errorf("convert secrules error: %v", err)
+		return ""
+	}
+	result := []string{}
+	for i := 0; i < len(rules); i++ {
+		result = append(result, rules[i].String())
+	}
+	return strings.Join(result, ";")
 }
 
 func (self *SSecurityGroup) GetId() string {
@@ -154,18 +308,17 @@ func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 	}
 	sort.Sort(SecurityRulesSet(*self.Properties.SecurityRules))
 	priority := 100
-
 	for _, _rule := range *self.Properties.SecurityRules {
-		for _, ruleString := range strings.Split(_rule.Properties.String(), ";") {
-			if rule, err := secrules.ParseSecurityRule(ruleString); err != nil {
-				return rules, err
-			} else {
-				rule.Priority = priority
-				priority--
-				rule.Description = _rule.Properties.Description
-				rules = append(rules, *rule)
-			}
+		_rule.Properties.Priority = int32(priority)
+		secRules, err := _rule.Properties.toRules()
+		if err != nil {
+			log.Errorf("Azure convert rule %v error: %v", _rule, err)
+			return nil, err
 		}
+		if len(secRules) > 0 {
+			priority--
+		}
+		rules = append(rules, secRules...)
 	}
 	return rules, nil
 }
@@ -224,7 +377,7 @@ func (region *SRegion) checkSecurityGroup(tagId, name string) (*SSecurityGroup, 
 	}
 	for i := 0; i < len(secgroups); i++ {
 		for k, v := range secgroups[i].Tags {
-			if k == "id" && v == tagId {
+			if k == "id" && v == tagId || secgroups[i].Name == name {
 				return &secgroups[i], nil
 			}
 		}
@@ -234,61 +387,63 @@ func (region *SRegion) checkSecurityGroup(tagId, name string) (*SSecurityGroup, 
 
 func convertRulePort(rule secrules.SecurityRule) []string {
 	ports := []string{}
-	for i := 0; i < len(rule.Ports); i++ {
-		ports = append(ports, fmt.Sprintf("%d", rule.Ports[i]))
+	if len(rule.Ports) > 0 {
+		for i := 0; i < len(rule.Ports); i++ {
+			ports = append(ports, fmt.Sprintf("%d", rule.Ports[i]))
+		}
+		return ports
 	}
 	if rule.PortStart > 0 && rule.PortEnd < 65535 {
+		if rule.PortStart == rule.PortEnd {
+			return []string{fmt.Sprintf("%d", rule.PortStart)}
+		}
 		ports = append(ports, fmt.Sprintf("%d-%d", rule.PortStart, rule.PortEnd))
 	}
 	return ports
 }
 
-func convertSecurityGroupRule(rule secrules.SecurityRule) *SecurityRules {
+func convertSecurityGroupRule(rule secrules.SecurityRule, priority int32) *SecurityRules {
 	name := strings.Replace(rule.String(), ":", "_", -1)
 	name = strings.Replace(name, " ", "_", -1)
 	name = strings.Replace(name, "-", "_", -1)
+	name = strings.Replace(name, "/", "_", -1)
 	name = fmt.Sprintf("%s_%d", name, rule.Priority)
 	destRule := SecurityRules{
-		Name:       name,
-		Properties: SecurityRulePropertiesFormat{},
+		Name: name,
+		Properties: SecurityRulePropertiesFormat{
+			Access:                   utils.Capitalize(string(rule.Action)),
+			Priority:                 priority,
+			Protocol:                 "*",
+			Direction:                utils.Capitalize((string(rule.Direction) + "bound")),
+			Description:              rule.Description,
+			DestinationAddressPrefix: "*",
+			DestinationPortRanges:    convertRulePort(rule),
+			SourcePortRange:          "*",
+			SourceAddressPrefix:      "*",
+			DestinationPortRange:     "*",
+		},
 	}
-	protocol := "*"
-	if len(rule.Protocol) == 0 || rule.Protocol == secrules.PROTO_ANY {
-		protocol = "*"
-	} else if rule.Protocol == secrules.PROTO_TCP {
-		protocol = "Tcp"
-	} else if rule.Protocol == secrules.PROTO_UDP {
-		protocol = "Udp"
-	} else {
+	if rule.Protocol != secrules.PROTO_ANY {
+		destRule.Properties.Protocol = utils.Capitalize(rule.Protocol)
+	}
+
+	if rule.Protocol == secrules.PROTO_ICMP {
 		return nil
 	}
-	destRule.Properties.Protocol = protocol
-	destRule.Properties.Description = rule.Description
-	direction := "Inbound"
-	if rule.Direction == secrules.SecurityRuleEgress {
-		direction = "Outbound"
-	}
-	destRule.Properties.Direction = direction
-	ipAddr := rule.IPNet.String()
-	ports := convertRulePort(rule)
-	if len(ports) == 0 {
-		port := "*"
-		destRule.Properties.SourcePortRange = port
-		destRule.Properties.DestinationPortRange = port
-	} else {
-		destRule.Properties.SourcePortRanges = &ports
-		destRule.Properties.DestinationPortRanges = &ports
-	}
-	destRule.Properties.DestinationAddressPrefix = ipAddr
-	destRule.Properties.SourceAddressPrefix = ipAddr
 
-	access := "Allow"
-	if rule.Action == secrules.SecurityRuleDeny {
-		access = "Deny"
+	if len(destRule.Properties.DestinationPortRanges) > 0 {
+		destRule.Properties.DestinationPortRange = ""
 	}
-	destRule.Properties.Access = access
-	priority := int32(rule.Priority)
-	destRule.Properties.Priority = priority
+
+	ipAddr := "*"
+	if rule.IPNet != nil {
+		ipAddr = rule.IPNet.String()
+	}
+	if rule.Direction == secrules.DIR_IN {
+		destRule.Properties.SourceAddressPrefix = ipAddr
+	} else {
+		destRule.Properties.DestinationAddressPrefix = ipAddr
+	}
 	return &destRule
 }
 
@@ -299,11 +454,16 @@ func (region *SRegion) updateSecurityGroupRules(secgroupId string, rules []secru
 	}
 	securityRules := []SecurityRules{}
 	priority := int32(100)
+	ruleStrs := []string{}
 	for i := 0; i < len(rules); i++ {
-		rules[i].Priority = int(priority)
-		if rule := convertSecurityGroupRule(rules[i]); rule != nil {
-			securityRules = append(securityRules, *rule)
-			priority++
+		ruleStr := rules[i].String()
+		if !utils.IsInStringArray(ruleStr, ruleStrs) {
+			rule := convertSecurityGroupRule(rules[i], priority)
+			if rule != nil {
+				securityRules = append(securityRules, *rule)
+				priority++
+			}
+			ruleStrs = append(ruleStrs, ruleStr)
 		}
 	}
 	secgroup.Properties.SecurityRules = &securityRules
@@ -350,6 +510,7 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Secur
 	i, j := 0, 0
 	for i < len(rules) || j < len(*secgroup.Properties.SecurityRules) {
 		if i < len(rules) && j < len(*secgroup.Properties.SecurityRules) {
+			(*secgroup.Properties.SecurityRules)[j].Properties.Priority = 1
 			srcRule := (*secgroup.Properties.SecurityRules)[j].Properties.String()
 			destRule := rules[i].String()
 			cmp := strings.Compare(srcRule, destRule)
