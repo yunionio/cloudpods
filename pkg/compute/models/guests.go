@@ -3780,6 +3780,20 @@ func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
 	desc := self.SStandaloneResourceBase.GetShortDesc()
 	desc.Set("mem", jsonutils.NewInt(int64(self.VmemSize)))
 	desc.Set("cpu", jsonutils.NewInt(int64(self.VcpuCount)))
+
+	address := jsonutils.NewString(strings.Join(self.getRealIPs(), ","))
+	desc.Set("ip_addr", address)
+
+	if len(self.OsType) > 0 {
+		desc.Add(jsonutils.NewString(self.OsType), "os_type")
+	}
+	if osDist := self.GetMetadata("os_distribution", nil); len(osDist) > 0 {
+		desc.Add(jsonutils.NewString(osDist), "os_distribution")
+	}
+	if osVer := self.GetMetadata("os_version", nil); len(osVer) > 0 {
+		desc.Add(jsonutils.NewString(osVer), "os_version")
+	}
+
 	templateId := self.GetTemplateId()
 	if len(templateId) > 0 {
 		desc.Set("cpu", jsonutils.NewString(templateId))
