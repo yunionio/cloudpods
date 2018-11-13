@@ -61,7 +61,7 @@ func isClassActionRbacAllowed(manager IModelManager, userCred mcclient.TokenCred
 			return true
 		}
 	}
-	result := policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
+	result := policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
 		manager.KeywordPlural(), action, extra...)
 	return result == rbacutils.Allow
 }
