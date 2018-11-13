@@ -44,6 +44,8 @@ func InitAuth(options *Options, authComplete auth.AuthCompletedCallback) {
 
 	if options.EnableRbac {
 		policy.EnableGlobalRbac(time.Duration(options.RbacPolicySyncPeriodSeconds)*time.Second,
-			time.Duration(options.RbacPolicySyncFailedRetrySeconds)*time.Second)
+			time.Duration(options.RbacPolicySyncFailedRetrySeconds)*time.Second,
+			options.RbacDebug,
+		)
 	}
 }
