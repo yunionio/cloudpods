@@ -33,8 +33,10 @@ func (self *GuestDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 	self.SetStage("on_guest_stop_complete", nil)
 	err := guest.GetDriver().RequestStopGuestForDelete(ctx, guest, self)
 	if err != nil {
-		errMsg := jsonutils.NewString(err.Error())
-		self.OnGuestStopCompleteFailed(ctx, obj, errMsg)
+		log.Errorf("RequestStopGuestForDelete fail %s", err)
+		// errMsg := jsonutils.NewString(err.Error())
+		// self.OnGuestStopCompleteFailed(ctx, obj, errMsg)
+		self.OnGuestStopComplete(ctx, obj, data)
 	}
 }
 
@@ -75,6 +77,10 @@ func (self *GuestDeleteTask) OnEipDissociateComplete(ctx context.Context, obj db
 }
 
 func (self *GuestDeleteTask) OnGuestStopCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
+	self.OnGuestStopComplete(ctx, obj, err) // ignore stop error
+}
+
+func (self *GuestDeleteTask) OnGuestDeleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	self.OnFailed(ctx, guest, err)
 }
@@ -120,6 +126,10 @@ func (self *GuestDeleteTask) StartDeleteGuest(ctx context.Context, guest *models
 func (self *GuestDeleteTask) OnGuestDetachDisksComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	self.DoDeleteGuest(ctx, guest)
+}
+
+func (self *GuestDeleteTask) OnGuestDetachDisksCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.OnGuestDeleteFailed(ctx, obj, data)
 }
 
 func (self *GuestDeleteTask) DoDeleteGuest(ctx context.Context, guest *models.SGuest) {
