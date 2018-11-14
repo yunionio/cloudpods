@@ -54,14 +54,14 @@ func isClassActionRbacAllowed(manager IModelManager, userCred mcclient.TokenCred
 	} else {
 		requireAdmin = true
 	}
-	if !requireAdmin {
-		result := policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
-			manager.KeywordPlural(), action, extra...)
-		if result == rbacutils.Allow || result == rbacutils.OwnerAllow {
-			return true
-		}
+	// if !requireAdmin {
+	result := policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
+		manager.KeywordPlural(), action, extra...)
+	if result == rbacutils.Allow || (!requireAdmin && result == rbacutils.OwnerAllow) {
+		return true
 	}
-	result := policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
+	// }
+	result = policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
 		manager.KeywordPlural(), action, extra...)
 	return result == rbacutils.Allow
 }
@@ -85,14 +85,14 @@ func isObjectRbacAllowed(manager IModelManager, model IModel, userCred mcclient.
 		requireAdmin = true
 	}
 
-	if !requireAdmin {
-		result := policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
-			manager.KeywordPlural(), action, extra...)
-		if result == rbacutils.Allow || (result == rbacutils.OwnerAllow && isOwner) {
-			return true
-		}
+	//if !requireAdmin {
+	result := policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
+		manager.KeywordPlural(), action, extra...)
+	if result == rbacutils.Allow || (!requireAdmin && result == rbacutils.OwnerAllow && isOwner) {
+		return true
 	}
-	result := policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
+	//}
+	result = policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
 		manager.KeywordPlural(), action, extra...)
 	return result == rbacutils.Allow
 }
