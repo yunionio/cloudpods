@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"yunion.io/x/pkg/util/errors"
 
@@ -30,7 +31,7 @@ func (p *NetworkPredicate) Name() string {
 	return "network"
 }
 
-func (p *NetworkPredicate) PreExecute(pod *v1.Pod, node *v1.Node, host *candidate.HostDesc) bool {
+func (p *NetworkPredicate) PreExecute(cli *kubernetes.Clientset, pod *v1.Pod, node *v1.Node, host *candidate.HostDesc) bool {
 	net, netCont := pod.Annotations[YUNION_CNI_NETWORK_ANNOTATION]
 	ipAddr, ipCont := pod.Annotations[YUNION_CNI_IPADDR_ANNOTATION]
 	p.network = net
@@ -38,7 +39,7 @@ func (p *NetworkPredicate) PreExecute(pod *v1.Pod, node *v1.Node, host *candidat
 	return netCont || ipCont
 }
 
-func (p *NetworkPredicate) Execute(pod *v1.Pod, node *v1.Node, host *candidate.HostDesc) (bool, error) {
+func (p *NetworkPredicate) Execute(cli *kubernetes.Clientset, pod *v1.Pod, node *v1.Node, host *candidate.HostDesc) (bool, error) {
 	hostNets := host.Networks
 	if p.network != "" {
 		err := p.checkByNetworks(hostNets)
