@@ -20,6 +20,8 @@ type IGuestDriver interface {
 
 	ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
 
+	ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
+
 	ValidateCreateHostData(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *SHost, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
 
 	PrepareDiskRaidConfig(host *SHost, params *jsonutils.JSONDict) error

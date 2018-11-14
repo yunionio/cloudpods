@@ -562,6 +562,11 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
 	}
 
+	data, err = self.GetDriver().ValidateUpdateData(ctx, userCred, data)
+	if err != nil {
+		return nil, err
+	}
+
 	err = self.checkUpdateQuota(ctx, userCred, vcpuCount, vmemSize)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError(err.Error())
