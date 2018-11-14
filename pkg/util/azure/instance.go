@@ -668,7 +668,7 @@ func (region *SRegion) DeployVM(instanceId, name, password, publicKey string, de
 		return nil
 	}
 	if len(publicKey) > 0 {
-		err = region.resetPublicKey(instanceId, instance.Properties.OsProfile.AdminUsername, publicKey)
+		return region.resetPublicKey(instanceId, instance.Properties.OsProfile.AdminUsername, publicKey)
 	}
 	return region.resetPassword(instanceId, instance.Properties.OsProfile.AdminUsername, password)
 }

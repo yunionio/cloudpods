@@ -71,6 +71,10 @@ func (self *SAzureGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{models.VM_RUNNING}, nil
 }
 
+func (self *SAzureGuestDriver) IsNeedRestartForResetLoginInfo() bool {
+	return false
+}
+
 func (self *SAzureGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
 	//https://docs.microsoft.com/en-us/rest/api/compute/disks/update
 	//Resizes are only allowed if the disk is not attached to a running VM, and can only increase the disk's size
