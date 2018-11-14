@@ -1975,10 +1975,10 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 		return nil, fmt.Errorf("Parse query body error")
 	}
 
-	// 变更密码/密钥时需要Restart才能生效。更新普通字段不需要Restart
+	// 变更密码/密钥时需要Restart才能生效。更新普通字段不需要Restart, Azure需要在运行状态下操作
 	doRestart := false
 	if kwargs.Contains("__delete_keypair__") || kwargs.Contains("keypair") {
-		doRestart = true
+		doRestart = self.GetDriver().IsNeedRestartForResetLoginInfo()
 		var kpId string
 
 		if kwargs.Contains("keypair") {
