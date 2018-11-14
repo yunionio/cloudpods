@@ -88,6 +88,7 @@ type IGuestDriver interface {
 	GetDeployStatus() ([]string, error)
 	ValidateResizeDisk(guest *SGuest, disk *SDisk, storage *SStorage) error
 	CanKeepDetachDisk() bool
+	IsNeedRestartForResetLoginInfo() bool
 
 	RequestDeleteDetachedDisk(ctx context.Context, disk *SDisk, task taskman.ITask, isPurge bool) error
 	StartGuestDetachdiskTask(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, params *jsonutils.JSONDict, parentTaskId string) error
