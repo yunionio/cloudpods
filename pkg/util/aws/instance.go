@@ -273,23 +273,26 @@ func (self *SInstance) SyncSecurityGroup(secgroupId string, name string, rules [
 	if vpc, err := self.getVpc(); err != nil {
 		return err
 	} else if len(secgroupId) == 0 {
-		for index, secgrpId := range self.SecurityGroupIds.SecurityGroupId {
-			if err := vpc.revokeSecurityGroup(secgrpId, self.InstanceId, index == 0); err != nil {
-				return err
-			}
-		}
+		// todo ： 这里应该有问题。aws不能直接删除安全组。且至少选择一个安全组
+		// for index, secgrpId := range self.SecurityGroupIds.SecurityGroupId {
+		// 	if err := vpc.revokeSecurityGroup(secgrpId, self.InstanceId, index == 0); err != nil {
+		// 		return err
+		// 	}
+		// }
+		return nil
 	} else if secgrpId, err := vpc.SyncSecurityGroup(secgroupId, name, rules); err != nil {
 		return err
 	} else if err := vpc.assignSecurityGroup(secgrpId, self.InstanceId); err != nil {
 		return err
 	} else {
-		for _, secgroupId := range self.SecurityGroupIds.SecurityGroupId {
-			if secgroupId != secgrpId {
-				if err := vpc.revokeSecurityGroup(secgroupId, self.InstanceId, false); err != nil {
-					return err
-				}
-			}
-		}
+		// todo ： 这里应该有问题。aws不能直接删除安全组。且至少选择一个安全组
+		// for _, secgroupId := range self.SecurityGroupIds.SecurityGroupId {
+		// 	if secgroupId != secgrpId {
+		// 		if err := vpc.revokeSecurityGroup(secgroupId, self.InstanceId, false); err != nil {
+		// 			return err
+		// 		}
+		// 	}
+		// }
 		self.SecurityGroupIds.SecurityGroupId = []string{secgrpId}
 	}
 	return nil

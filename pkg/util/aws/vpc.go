@@ -240,19 +240,44 @@ func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
 }
 
 func (self *SRegion) revokeSecurityGroup(secgroupId, instanceId string, keep bool) error {
+	// todo : keep ? 直接使用assignSecurityGroup 即可？
 	return nil
 }
 
 func (self *SRegion) assignSecurityGroup(secgroupId, instanceId string) error {
+	instance, err := self.GetInstance(instanceId)
+	if err != nil {
+		return err
+	}
+
+	for _, eth := range instance.NetworkInterfaces.NetworkInterface {
+		params := &ec2.ModifyNetworkInterfaceAttributeInput{}
+		params.SetNetworkInterfaceId(eth.NetworkInterfaceId)
+		params.SetGroups([]*string{&secgroupId})
+
+		_, err := self.ec2Client.ModifyNetworkInterfaceAttribute(params)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 func (self *SRegion) deleteSecurityGroup(secGrpId string) error {
-	return nil
+	params := &ec2.DeleteSecurityGroupInput{}
+	params.SetGroupId(secGrpId)
+
+	_, err := self.ec2Client.DeleteSecurityGroup(params)
+	return err
 }
 
 func (self *SRegion) DeleteVpc(vpcId string) error {
-	return nil
+	params := &ec2.DeleteVpcInput{}
+	params.SetVpcId(vpcId)
+
+	_, err := self.ec2Client.DeleteVpc(params)
+	return err
 }
 
 func (self *SRegion) GetVpcs(vpcId []string, offset int, limit int) ([]SVpc, int, error) {
