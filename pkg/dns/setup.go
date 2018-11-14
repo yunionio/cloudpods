@@ -36,7 +36,7 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error(PluginName, err)
 	}
 
-	go rDNS.startRefreshKubeConfig()
+	go rDNS.initK8s()
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		rDNS.Next = next
