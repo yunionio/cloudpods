@@ -119,6 +119,10 @@ func (self *SBaseGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{}, fmt.Errorf("This Guest driver dose not implement GetDeployStatus")
 }
 
+func (self *SBaseGuestDriver) IsNeedRestartForResetLoginInfo() bool {
+	return true
+}
+
 func (self *SBaseGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, disk *models.SDisk, task taskman.ITask, isPurge bool) error {
 	return fmt.Errorf("Not Implement")
 }
