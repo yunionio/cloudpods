@@ -7,6 +7,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/pkg/utils"
@@ -85,7 +86,25 @@ func (self *SAzureGuestDriver) RequestDetachDisk(ctx context.Context, guest *mod
 }
 
 func (self *SAzureGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, data)
+	data, err := self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, data)
+	if err != nil {
+		return nil, err
+	}
+	if data.Contains("net.0") && data.Contains("net.1") {
+		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
+	}
+	return data, nil
+}
+
+func (self *SAzureGuestDriver) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	data, err := self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, data)
+	if err != nil {
+		return nil, err
+	}
+	if data.Contains("name") {
+		return nil, httperrors.NewInputParameterError("cannot support change azure instance name")
+	}
+	return data, nil
 }
 
 func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
