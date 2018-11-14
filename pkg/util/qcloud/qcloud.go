@@ -3,6 +3,7 @@ package qcloud
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	tchttp "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http"
@@ -54,9 +55,9 @@ func jsonRequest(client *common.Client, apiName string, params map[string]string
 
 func vpcRequest(client *common.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	domain := "vpc.tencentcloudapi.com"
-	// if region, ok := params["Region"]; ok && strings.HasSuffix(region, "-fsi") {
-	// 	domain = "vpc." + region + ".tencentcloudapi.com"
-	// }
+	if region, ok := params["Region"]; ok && strings.HasSuffix(region, "-fsi") {
+		domain = "vpc." + region + ".tencentcloudapi.com"
+	}
 	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params)
 }
 
@@ -89,9 +90,24 @@ func _jsonRequest(client *common.Client, domain string, version string, apiName 
 	resp := &QcloudResponse{
 		BaseResponse: &tchttp.BaseResponse{},
 	}
-	err := client.Send(req, resp)
-	if err != nil {
-		log.Errorf("request url: %s\nparams: %s\nerror: %v", req.GetDomain(), jsonutils.Marshal(req.GetParams()).PrettyString(), err)
+	for i := 1; i <= 3; i++ {
+		err := client.Send(req, resp)
+		if err == nil {
+			break
+		}
+		needRetry := false
+		for _, msg := range []string{"EOF", "TLS handshake timeout", "Code=InternalError"} {
+			if strings.Index(err.Error(), msg) > 0 {
+				needRetry = true
+				break
+			}
+		}
+		if needRetry && i != 3 {
+			log.Errorf("request url %s\nparams: %s\nerror: %v\nafter %d second try again", req.GetDomain(), jsonutils.Marshal(req.GetParams()).PrettyString(), err, i*10)
+			time.Sleep(time.Second * time.Duration(i*10))
+			continue
+		}
+		log.Errorf("request url: %s\nparams: %s\nresponse: %s\nerror: %v", req.GetDomain(), jsonutils.Marshal(req.GetParams()).PrettyString(), resp.Response, err)
 		return nil, err
 	}
 	return jsonutils.Marshal(resp.Response), nil
