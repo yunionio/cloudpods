@@ -309,7 +309,7 @@ func YunionSecRuleToAws(rule secrules.SecurityRule) ([]*ec2.IpPermission, error)
 	}
 
 	description := ""
-	if match, err := regexp.MatchString("^[\\sa-zA-Z0-9. _:/()#,@\\]\\[+=&;{}!$*-]+$", rule.Description);err == nil && match {
+	if match, err := regexp.MatchString("^[\\sa-zA-Z0-9. _:/()#,@\\]\\[+=&;{}!$*-]+$", rule.Description); err == nil && match {
 		description = rule.Description
 	}
 	ipranges := []*ec2.IpRange{}

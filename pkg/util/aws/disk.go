@@ -369,7 +369,7 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) error {
 	// 这里实际是回滚快照
 	disk, err := self.GetDisk(diskId)
 	if err != nil {
-		log.Debugf("resetDisk %s:%s",diskId, err.Error())
+		log.Debugf("resetDisk %s:%s", diskId, err.Error())
 		return err
 	}
 
@@ -378,11 +378,11 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) error {
 	params.SetSize(int64(disk.Size))
 	params.SetVolumeType(disk.Category)
 	params.SetAvailabilityZone(disk.ZoneId)
-	tags,_ := disk.Tags.GetTagSpecifications()
+	tags, _ := disk.Tags.GetTagSpecifications()
 	params.SetTagSpecifications([]*ec2.TagSpecification{tags})
 	ret, err := self.ec2Client.CreateVolume(params)
 	if err != nil {
-		log.Debugf("resetDisk %s: %s",params.String(), err.Error())
+		log.Debugf("resetDisk %s: %s", params.String(), err.Error())
 		return err
 	}
 
@@ -394,7 +394,7 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) error {
 			return err
 		}
 
-		err = self.ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds:[]*string{&diskId}})
+		err = self.ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&diskId}})
 		if err != nil {
 			log.Debugf("resetDisk :%s", err.Error())
 			return err
@@ -403,7 +403,7 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) error {
 
 	err = self.AttachDisk(disk.InstanceId, *ret.VolumeId, disk.Device)
 	if err != nil {
-		log.Debugf("resetDisk %s %s %s: %s",disk.InstanceId, *ret.VolumeId, disk.Device, err.Error())
+		log.Debugf("resetDisk %s %s %s: %s", disk.InstanceId, *ret.VolumeId, disk.Device, err.Error())
 		return err
 	}
 
