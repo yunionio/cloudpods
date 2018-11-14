@@ -2,6 +2,11 @@ package k8s
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"os/exec"
+
+	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
@@ -136,6 +141,62 @@ func initCluster() {
 			return err
 		}
 		ret, err := k8s.Clusters.PerformAction(s, args.ID, "delete-nodes", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
+	R(&o.IdentOptions{}, cmdN("engineconfig-edit"), "Edit and update kubernetes engine config of a cluster", func(s *mcclient.ClientSession, args *o.IdentOptions) error {
+		ret, err := k8s.Clusters.GetSpecific(s, args.ID, "engine-config", nil)
+		if err != nil {
+			return err
+		}
+		conf, err := ret.GetString("config")
+		if err != nil {
+			return err
+		}
+		tempfile, err := ioutil.TempFile("", fmt.Sprintf("%s-engineconfig", args.ID))
+		if err != nil {
+			return err
+		}
+		defer os.Remove(tempfile.Name())
+
+		if _, err := tempfile.Write([]byte(conf)); err != nil {
+			return err
+		}
+		if err := tempfile.Close(); err != nil {
+			return err
+		}
+
+		cmd := exec.Command("vim", tempfile.Name())
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		if err := cmd.Run(); err != nil {
+			return err
+		}
+
+		params := jsonutils.NewDict()
+		configBytes, err := ioutil.ReadFile(tempfile.Name())
+		if err != nil {
+			return err
+		}
+		params.Add(jsonutils.NewString(string(configBytes)), "config")
+		result, err := k8s.Clusters.PerformAction(s, args.ID, "update-engine-config", params)
+		if err != nil {
+			return err
+		}
+		conf, err = result.GetString("config")
+		if err != nil {
+			return err
+		}
+		fmt.Println(conf)
+		return nil
+	})
+
+	R(&o.IdentOptions{}, cmdN("sync-config"), "Sync kubernetes cluster by engineconfig", func(s *mcclient.ClientSession, args *o.IdentOptions) error {
+		ret, err := k8s.Clusters.PerformAction(s, args.ID, "sync-config", nil)
 		if err != nil {
 			return err
 		}
