@@ -52,12 +52,12 @@ func parseJsonPolicy(obj jsonutils.JSONObject) (string, rbacutils.SRbacPolicy, e
 		return "", policy, err
 	}
 
-	blobStr, err := obj.GetString("blob")
+	blobStr, err := obj.GetString("policy")
 	if err != nil {
 		log.Errorf("get blob error %s", err)
 		return "", policy, err
 	}
-	blob, err := jsonutils.ParseString(blobStr)
+	blob, err := jsonutils.ParseYAML(blobStr)
 	if err != nil {
 		log.Errorf("parse blob json error %s", err)
 		return "", policy, err
@@ -77,14 +77,12 @@ func fetchPolicies() (map[string]rbacutils.SRbacPolicy, map[string]rbacutils.SRb
 	policies := make(map[string]rbacutils.SRbacPolicy)
 	adminPolicies := make(map[string]rbacutils.SRbacPolicy)
 
-	modules.Policies.SetEnableFilter(false)
-
 	offset := 0
 	for {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewInt(2048), "limit")
 		params.Add(jsonutils.NewInt(int64(offset)), "offset")
-		result, err := modules.Policies.ResourceManager.List(s, params)
+		result, err := modules.Policies.List(s, params)
 
 		if err != nil {
 			log.Errorf("fetch policy failed")
