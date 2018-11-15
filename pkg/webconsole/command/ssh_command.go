@@ -85,7 +85,7 @@ func NewSSHtoolSolCommand(ctx context.Context, userCred mcclient.TokenCredential
 func (c *SSHtoolSol) GetCommand() *exec.Cmd {
 	if c.BaseCommand != nil {
 		cmd := c.BaseCommand.GetCommand()
-		cmd.Env = append(cmd.Env, "TERM=screen-256color")
+		cmd.Env = append(cmd.Env, "TERM=xterm-256color")
 		return cmd
 	}
 	return nil
