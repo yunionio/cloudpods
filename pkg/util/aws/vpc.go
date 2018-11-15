@@ -108,19 +108,7 @@ func (self *SVpc) GetManagerId() string {
 }
 
 func (self *SVpc) Delete() error {
-	err := self.fetchSecurityGroups()
-	if err != nil {
-		log.Errorf("fetchSecurityGroup for VPC delete fail %s", err)
-		return err
-	}
-	for i := 0; i < len(self.secgroups); i += 1 {
-		secgroup := self.secgroups[i].(*SSecurityGroup)
-		err := self.region.deleteSecurityGroup(secgroup.SecurityGroupId)
-		if err != nil {
-			log.Errorf("deleteSecurityGroup for VPC delete fail %s", err)
-			return err
-		}
-	}
+    // 删除vpc会同步删除关联的安全组
 	return self.region.DeleteVpc(self.VpcId)
 }
 
@@ -287,6 +275,9 @@ func (self *SRegion) GetVpcs(vpcId []string, offset int, limit int) ([]SVpc, int
 	}
 	ret, err := self.ec2Client.DescribeVpcs(params)
 	if err != nil {
+		if strings.Contains(err.Error(), "InvalidVpcID.NotFound") {
+			return nil, 0, cloudprovider.ErrNotFound
+		}
 		return nil, 0, err
 	}
 
