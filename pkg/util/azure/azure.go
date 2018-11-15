@@ -280,7 +280,7 @@ func (self *SAzureClient) checkParams(body jsonutils.JSONObject, params []string
 	for i := 0; i < len(params); i++ {
 		data, err := body.GetString(params[i])
 		if err != nil {
-			return nil, fmt.Errorf("Missing %s params")
+			return nil, fmt.Errorf("Missing %s params", params[i])
 		}
 		result[params[i]] = data
 	}
