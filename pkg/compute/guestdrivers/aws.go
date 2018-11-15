@@ -69,43 +69,6 @@ func (self *SAwsGuestDriver) ValidateCreateData(ctx context.Context, userCred mc
 	return self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, data)
 }
 
-func fetchAwsIVMinfo(desc SManagedVMCreateConfig, iVM cloudprovider.ICloudVM, guestId string) *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
-	if len(desc.OsDistribution) > 0 {
-		data.Add(jsonutils.NewString(desc.OsDistribution), "distro")
-	}
-	if len(desc.OsVersion) > 0 {
-		data.Add(jsonutils.NewString(desc.OsVersion), "version")
-	}
-
-	idisks, err := iVM.GetIDisks()
-
-	if err != nil {
-		log.Errorf("GetiDisks error %s", err)
-	} else {
-		diskInfo := make([]SDiskInfo, len(idisks))
-		for i := 0; i < len(idisks); i += 1 {
-			dinfo := SDiskInfo{}
-			dinfo.Uuid = idisks[i].GetGlobalId()
-			dinfo.Size = idisks[i].GetDiskSizeMB()
-			dinfo.DiskType = idisks[i].GetDiskType()
-			if metaData := idisks[i].GetMetadata(); metaData != nil {
-				dinfo.Metadata = make(map[string]string, 0)
-				if err := metaData.Unmarshal(dinfo.Metadata); err != nil {
-					log.Errorf("Get disk %s metadata info error: %v", idisks[i].GetName(), err)
-				}
-			}
-			diskInfo[i] = dinfo
-		}
-		data.Add(jsonutils.Marshal(&diskInfo), "disks")
-	}
-
-	data.Add(jsonutils.NewString(iVM.GetGlobalId()), "uuid")
-	data.Add(iVM.GetMetadata(), "metadata")
-	return data
-}
-
 func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
@@ -171,7 +134,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 				return nil, err
 			}
 
-			data := fetchAwsIVMinfo(desc, iVM, guest.Id)
+			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd, action)
 			return data, nil
 		})
 	case "deploy":
@@ -279,6 +242,12 @@ func (self *SAwsGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, 
 				disk.ExternalId = diskInfo[i].Uuid
 				disk.DiskType = diskInfo[i].DiskType
 				disk.Status = models.DISK_READY
+				disk.BillingType = diskInfo[i].BillingType
+				disk.FsFormat = diskInfo[i].FsFromat
+				disk.AutoDelete = true
+				//disk.TemplateId = diskInfo[i].TemplateId
+				disk.DiskFormat = diskInfo[i].DiskFormat
+				disk.ExpiredAt = diskInfo[i].ExpiredAt
 				if len(diskInfo[i].Metadata) > 0 {
 					for key, value := range diskInfo[i].Metadata {
 						if err := disk.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {
