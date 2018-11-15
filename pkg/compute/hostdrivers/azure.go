@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SAzureHostDriver struct {
@@ -26,6 +27,13 @@ func init() {
 
 func (self *SAzureHostDriver) GetHostType() string {
 	return models.HOST_TYPE_AZURE
+}
+
+func (self *SAzureHostDriver) ValidateUpdateDisk(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	if data.Contains("name") {
+		return nil, httperrors.NewInputParameterError("cannot support change azure disk name")
+	}
+	return data, nil
 }
 
 func (self *SAzureHostDriver) CheckAndSetCacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
