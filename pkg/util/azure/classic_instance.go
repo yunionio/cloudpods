@@ -10,7 +10,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/pkg/util/osprofile"
-	"yunion.io/x/pkg/util/secrules"
 )
 
 type ClassicVirtualMachineInstanceView struct {
@@ -415,10 +414,6 @@ func (self *SRegion) StopClassicVM(instanceId string, isForce bool) error {
 	return err
 }
 
-func (self *SClassicInstance) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) error {
-	return cloudprovider.ErrNotSupported
-}
-
 func (self *SClassicInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	if self.Properties.NetworkProfile.ReservedIps != nil && len(*self.Properties.NetworkProfile.ReservedIps) > 0 {
 		for _, reserveIp := range *self.Properties.NetworkProfile.ReservedIps {
@@ -455,4 +450,12 @@ func (self *SClassicInstance) GetBillingType() string {
 
 func (self *SClassicInstance) GetExpiredAt() time.Time {
 	return time.Now()
+}
+
+func (self *SClassicInstance) AssignSecurityGroup(secgroupId string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SClassicInstance) RevokeSecurityGroup() error {
+	return cloudprovider.ErrNotImplemented
 }

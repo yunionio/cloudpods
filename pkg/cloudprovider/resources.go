@@ -43,6 +43,7 @@ type ICloudRegion interface {
 	GetIHostById(id string) (ICloudHost, error)
 	GetIStorageById(id string) (ICloudStorage, error)
 	GetIStoragecacheById(id string) (ICloudStoragecache, error)
+	SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error)
 
 	CreateIVpc(name string, desc string, cidr string) (ICloudVpc, error)
 
@@ -163,7 +164,10 @@ type ICloudVM interface {
 	GetBios() string
 	GetMachine() string
 
-	SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) error
+	RevokeSecurityGroup() error
+	AssignSecurityGroup(secgroupId string) error
+
+	//SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) error
 	GetHypervisor() string
 
 	// GetSecurityGroup() ICloudSecurityGroup
@@ -273,7 +277,7 @@ type ICloudVpc interface {
 
 	GetIWireById(wireId string) (ICloudWire, error)
 
-	SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) (string, error)
+	//SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) (string, error)
 }
 
 type ICloudWire interface {

@@ -1,6 +1,8 @@
 package shell
 
 import (
+	"fmt"
+
 	"yunion.io/x/onecloud/pkg/util/aliyun"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -31,4 +33,20 @@ func init() {
 		printObject(secgrp)
 		return nil
 	})
+
+	type SecurityGroupCreateOptions struct {
+		NAME  string `help:"SecurityGroup name"`
+		VpcId string `help:"VPC ID"`
+		Desc  string `help:"SecurityGroup description"`
+	}
+
+	shellutils.R(&SecurityGroupCreateOptions{}, "security-group-create", "Create details of a security group", func(cli *aliyun.SRegion, args *SecurityGroupCreateOptions) error {
+		secgroupId, err := cli.CreateSecurityGroup(args.VpcId, args.NAME, args.Desc)
+		if err != nil {
+			return err
+		}
+		fmt.Println("secgroupId: %s", secgroupId)
+		return nil
+	})
+
 }

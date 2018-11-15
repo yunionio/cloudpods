@@ -10,7 +10,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/pkg/util/osprofile"
-	"yunion.io/x/pkg/util/secrules"
 )
 
 const (
@@ -977,31 +976,6 @@ func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 	return err
 }
 
-func (self *SInstance) SyncSecurityGroup(dbSecgroupId string, name string, rules []secrules.SecurityRule) error {
-	nics, err := self.getNics()
-	if err != nil {
-		return err
-	}
-	if len(dbSecgroupId) == 0 {
-		for _, nic := range nics {
-			if err := nic.revokeSecurityGroup(); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	extId, err := self.host.zone.region.syncSecurityGroup(dbSecgroupId, name, rules)
-	if err != nil {
-		return err
-	}
-	for _, nic := range nics {
-		if err := nic.assignSecurityGroup(extId); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	nics, err := self.getNics()
 	if err != nil {
@@ -1029,4 +1003,21 @@ func (self *SInstance) GetBillingType() string {
 
 func (self *SInstance) GetExpiredAt() time.Time {
 	return time.Now()
+}
+
+func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
+	return self.host.zone.region.AssiginSecurityGroup(self.ID, secgroupId)
+}
+
+func (self *SInstance) RevokeSecurityGroup() error {
+	nics, err := self.getNics()
+	if err != nil {
+		return err
+	}
+	for _, nic := range nics {
+		if err := nic.revokeSecurityGroup(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

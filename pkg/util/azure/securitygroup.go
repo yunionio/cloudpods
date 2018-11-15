@@ -370,21 +370,6 @@ func (self *SSecurityGroup) Refresh() error {
 	return jsonutils.Update(self, sec)
 }
 
-func (region *SRegion) checkSecurityGroup(tagId, name string) (*SSecurityGroup, error) {
-	secgroups, err := region.GetSecurityGroups()
-	if err != nil {
-		return nil, err
-	}
-	for i := 0; i < len(secgroups); i++ {
-		for k, v := range secgroups[i].Tags {
-			if k == "id" && v == tagId || secgroups[i].Name == name {
-				return &secgroups[i], nil
-			}
-		}
-	}
-	return region.CreateSecurityGroup(name, tagId)
-}
-
 func convertRulePort(rule secrules.SecurityRule) []string {
 	ports := []string{}
 	if len(rule.Ports) > 0 {
@@ -452,6 +437,7 @@ func (region *SRegion) updateSecurityGroupRules(secgroupId string, rules []secru
 	if err != nil {
 		return "", err
 	}
+	sort.Sort(secrules.SecurityRuleSet(rules))
 	securityRules := []SecurityRules{}
 	priority := int32(100)
 	ruleStrs := []string{}
@@ -486,64 +472,13 @@ func (region *SRegion) AttachSecurityToInterfaces(secgroupId string, nicIds []st
 }
 
 func (region *SRegion) AssiginSecurityGroup(instanceId, secgroupId string) error {
-	if instance, err := region.GetInstance(instanceId); err != nil {
+	instance, err := region.GetInstance(instanceId)
+	if err != nil {
 		return err
-	} else {
-		nicIds := []string{}
-		for _, nic := range instance.Properties.NetworkProfile.NetworkInterfaces {
-			nicIds = append(nicIds, nic.ID)
-		}
-		return region.AttachSecurityToInterfaces(secgroupId, nicIds)
 	}
-}
-
-func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.SecurityRule) (string, error) {
-	secgroup, err := self.GetSecurityGroupDetails(secgroupId)
-	if err != nil {
-		return "", err
+	nicIds := []string{}
+	for _, nic := range instance.Properties.NetworkProfile.NetworkInterfaces {
+		nicIds = append(nicIds, nic.ID)
 	}
-	sort.Sort(secrules.SecurityRuleSet(rules))
-	sort.Sort(SecurityRulesSet(*secgroup.Properties.SecurityRules))
-
-	newRules := []secrules.SecurityRule{}
-
-	i, j := 0, 0
-	for i < len(rules) || j < len(*secgroup.Properties.SecurityRules) {
-		if i < len(rules) && j < len(*secgroup.Properties.SecurityRules) {
-			(*secgroup.Properties.SecurityRules)[j].Properties.Priority = 1
-			srcRule := (*secgroup.Properties.SecurityRules)[j].Properties.String()
-			destRule := rules[i].String()
-			cmp := strings.Compare(srcRule, destRule)
-			if cmp == 0 {
-				// keep secRule
-				newRules = append(newRules, rules[i])
-				i++
-				j++
-			} else if cmp > 0 {
-				// remove srcRule
-				j++
-			} else {
-				// add destRule
-				newRules = append(newRules, rules[i])
-				i++
-			}
-		} else if i >= len(rules) {
-			// del other rules
-			j++
-		} else if j >= len(*secgroup.Properties.SecurityRules) {
-			// add rule
-			newRules = append(newRules, rules[i])
-			i++
-		}
-	}
-	return self.updateSecurityGroupRules(secgroup.ID, newRules)
-
-}
-
-func (self *SRegion) syncSecurityGroup(tagId, name string, rules []secrules.SecurityRule) (string, error) {
-	secgroup, err := self.checkSecurityGroup(tagId, name)
-	if err != nil {
-		return "", err
-	}
-	return self.syncSecgroupRules(secgroup.ID, rules)
+	return region.AttachSecurityToInterfaces(secgroupId, nicIds)
 }

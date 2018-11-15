@@ -202,25 +202,32 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 
 	if action == "create" {
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+			iregion, err := host.GetIRegion()
+			if err != nil {
+				log.Errorf("GetIRegion fail %s", err)
+				return nil, err
+			}
 
 			nets := guest.GetNetworks()
 			net := nets[0].GetNetwork()
 			vpc := net.GetVpc()
 
-			ivpc, err := vpc.GetIVpc()
-			if err != nil {
-				log.Errorf("getIVPC fail %s", err)
-				return nil, err
+			secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), desc.SecGroupId, host.GetRegion().GetId(), host.ManagerId)
+			if secgroupCache == nil {
+				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s, regionId: %s, provider: %s", desc.SecGroupId, host.GetRegion().GetId(), host.ManagerId)
 			}
 
-			secgrpId, err := ivpc.SyncSecurityGroup(desc.SecGroupId, desc.SecGroupName, desc.SecRules)
+			secgroupExtId, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpc.ExternalId, desc.SecGroupName, "", desc.SecRules)
 			if err != nil {
 				log.Errorf("SyncSecurityGroup fail %s", err)
 				return nil, err
 			}
+			if err := secgroupCache.SetExternalId(secgroupExtId); err != nil {
+				return nil, fmt.Errorf("failed to set externalId for secgroup %s externalId %s: error: %v", desc.SecGroupId, secgroupExtId, err)
+			}
 
 			iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId)
+				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId)
 			if err != nil {
 				return nil, err
 			}

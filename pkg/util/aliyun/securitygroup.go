@@ -204,7 +204,7 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 	return &secgrp, nil
 }
 
-func (self *SRegion) createSecurityGroup(vpcId string, name string, desc string) (string, error) {
+func (self *SRegion) CreateSecurityGroup(vpcId string, name string, desc string) (string, error) {
 	params := make(map[string]string)
 	if len(vpcId) > 0 {
 		params["VpcId"] = vpcId
@@ -384,7 +384,7 @@ func (self *SRegion) delSecurityGroupRule(secGrpId string, rule *secrules.Securi
 }
 
 func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
-	secId, err := self.createSecurityGroup(vpcId, "", "")
+	secId, err := self.CreateSecurityGroup(vpcId, "", "")
 	if err != nil {
 		return "", err
 	}

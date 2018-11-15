@@ -123,34 +123,47 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 	if err := config.Unmarshal(&desc, "desc"); err != nil {
 		return err
 	}
-	if action, err := config.GetString("action"); err != nil {
+	action, err := config.GetString("action")
+	if err != nil {
 		return err
-	} else if ihost, err := host.GetIHost(); err != nil {
+	}
+	ihost, err := host.GetIHost()
+	if err != nil {
 		return err
-	} else if action == "create" {
+	}
+	if action == "create" {
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+			if len(passwd) == 0 {
+				//Azure创建必须要设置密码
+				passwd = seclib2.RandomPassword2(12)
+			}
+
+			iregion, err := host.GetIRegion()
+			if err != nil {
+				log.Errorf("GetIRegion fail %s", err)
+				return nil, err
+			}
+
+			secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), desc.SecGroupId, host.GetRegion().GetId(), host.ManagerId)
+			if secgroupCache == nil {
+				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s, regionId: %s, provider: %s", desc.SecGroupId, host.GetRegion().GetId(), host.ManagerId)
+			}
+
 			nets := guest.GetNetworks()
 			net := nets[0].GetNetwork()
 			vpc := net.GetVpc()
 
-			ivpc, err := vpc.GetIVpc()
-			if err != nil {
-				log.Errorf("getIVPC fail %s", err)
-				return nil, err
-			}
-
-			if len(passwd) == 0 {
-				passwd = seclib2.RandomPassword2(12)
-			}
-
-			secgrpId, err := ivpc.SyncSecurityGroup(desc.SecGroupId, desc.SecGroupName, desc.SecRules)
+			secgroupExtId, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpc.ExternalId, desc.SecGroupName, "", desc.SecRules)
 			if err != nil {
 				log.Errorf("SyncSecurityGroup fail %s", err)
 				return nil, err
 			}
+			if err := secgroupCache.SetExternalId(secgroupExtId); err != nil {
+				return nil, fmt.Errorf("failed to set externalId for secgroup %s externalId %s: error: %v", desc.SecGroupId, secgroupExtId, err)
+			}
 
 			if iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId); err != nil {
+				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId); err != nil {
 				return nil, err
 			} else {
 				log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())

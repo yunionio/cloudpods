@@ -9,7 +9,6 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/util/secrules"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -37,10 +36,6 @@ func (self *SVirtualMachine) getVirtualMachine() *mo.VirtualMachine {
 
 func (self *SVirtualMachine) GetGlobalId() string {
 	return self.getUuid()
-}
-
-func (self *SVirtualMachine) SyncSecurityGroup(secgroupId, name string, rules []secrules.SecurityRule) error {
-	return nil
 }
 
 func (self *SVirtualMachine) GetStatus() string {
@@ -244,4 +239,12 @@ func (self *SVirtualMachine) GetBillingType() string {
 
 func (self *SVirtualMachine) GetExpiredAt() time.Time {
 	return time.Time{}
+}
+
+func (self *SVirtualMachine) AssignSecurityGroup(secgroupId string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SVirtualMachine) RevokeSecurityGroup() error {
+	return cloudprovider.ErrNotImplemented
 }

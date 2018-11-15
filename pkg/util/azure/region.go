@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/pkg/util/secrules"
 )
 
 type SVMSize struct {
@@ -415,4 +416,15 @@ func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 		ieips[len(eips)+i] = &classicEips[i]
 	}
 	return ieips, nil
+}
+
+func (region *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
+	if len(secgroupId) == 0 {
+		secgroup, err := region.CreateSecurityGroup(name, "")
+		if err != nil {
+			return "", err
+		}
+		secgroupId = secgroup.ID
+	}
+	return region.updateClassicSecurityGroupRules(secgroupId, rules)
 }

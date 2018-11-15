@@ -194,7 +194,7 @@ func (manager *SSecurityGroupManager) getSecurityGroups() ([]SSecurityGroup, err
 	}
 }
 
-func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCred mcclient.TokenCredential, secgroups []cloudprovider.ICloudSecurityGroup) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
+func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCred mcclient.TokenCredential, secgroups []cloudprovider.ICloudSecurityGroup, regionId, providerId string) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
 	localSecgroups := make([]SSecurityGroup, 0)
 	remoteSecgroups := make([]cloudprovider.ICloudSecurityGroup, 0)
 	syncResult := compare.SyncResult{}
@@ -237,7 +237,7 @@ func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCre
 			if rules, err := added[i].GetRules(); err != nil {
 				syncResult.AddError(err)
 			} else if len(rules) > 0 {
-				if new, err := manager.newFromCloudVpc(userCred, added[i]); err != nil {
+				if new, err := manager.newFromCloudVpc(userCred, added[i], regionId, providerId); err != nil {
 					syncResult.AddError(err)
 				} else if len(rules) > 0 {
 					localSecgroups = append(localSecgroups, *new)
@@ -265,7 +265,7 @@ func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCr
 	return nil
 }
 
-func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup) (*SSecurityGroup, error) {
+func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup, regionId, providerId string) (*SSecurityGroup, error) {
 	secgroup := SSecurityGroup{}
 	secgroup.SetModelManager(manager)
 	secgroup.Name = extSec.GetName()
@@ -276,6 +276,17 @@ func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCre
 	if err := manager.TableSpec().Insert(&secgroup); err != nil {
 		return nil, err
 	}
+
+	secgroupcache := SSecurityGroupCache{}
+	secgroupcache.ExternalId = secgroup.ExternalId
+	secgroupcache.SecgroupId = secgroup.Id
+	secgroupcache.CloudregionId = regionId
+	secgroupcache.ManagerId = providerId
+
+	if err := SecurityGroupCacheManager.TableSpec().Insert(&secgroupcache); err != nil {
+		return nil, err
+	}
+
 	return &secgroup, nil
 }
 

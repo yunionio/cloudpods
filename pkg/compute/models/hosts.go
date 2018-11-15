@@ -1505,6 +1505,23 @@ func (self *SHost) GetIHost() (cloudprovider.ICloudHost, error) {
 	return ihost, nil
 }
 
+func (self *SHost) GetIRegion() (cloudprovider.ICloudRegion, error) {
+	provider, err := self.GetDriver()
+	if err != nil {
+		return nil, fmt.Errorf("No cloudprovide for host %s: %s", self.Name, err)
+	}
+	region := self.GetRegion()
+	if region == nil {
+		return nil, fmt.Errorf("failed to find host %s region info", self.Name)
+	}
+	iregion, err := provider.GetIRegionById(region.ExternalId)
+	if err != nil {
+		msg := fmt.Sprintf("fail to find iregion by id %s: %v", region.ExternalId, err)
+		return nil, fmt.Errorf(msg)
+	}
+	return iregion, nil
+}
+
 func (self *SHost) getDiskConfig() jsonutils.JSONObject {
 	bs := self.GetBaremetalstorage()
 	if bs != nil {
