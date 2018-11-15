@@ -6,13 +6,18 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
+
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
+	o "yunion.io/x/onecloud/cmd/scheduler/options"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	candidatecache "yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager"
-	"yunion.io/x/pkg/utils"
+	"yunion.io/x/onecloud/pkg/util/k8s"
 )
 
 const defaultIgnorePool = true
@@ -29,6 +34,7 @@ type SchedulerManager struct {
 	CandidateManager *data_manager.CandidateManager
 	//ReservedPoolManager *data_manager.ReservedPoolManager
 	//NetworkManager   *data_manager.NetworkManager
+	KubeClusterManager *k8s.SKubeClusterManager
 }
 
 func NewSchedulerManager(stopCh <-chan struct{}) *SchedulerManager {
@@ -41,8 +47,17 @@ func NewSchedulerManager(stopCh <-chan struct{}) *SchedulerManager {
 	sm.TaskManager = NewTaskManager(stopCh)
 	//sm.ReservedPoolManager = data_manager.NewReservedPoolManager(stopCh)
 	//sm.NetworkManager = data_manager.NewNetworkManager(sm.DataManager, sm.ReservedPoolManager)
+	sm.KubeClusterManager = k8s.NewKubeClusterManager(o.GetOptions().Region, 30*time.Second)
 
 	return sm
+}
+
+func GetScheduleManager() *SchedulerManager {
+	return schedManager
+}
+
+func GetK8sClient() (*kubernetes.Clientset, error) {
+	return GetScheduleManager().KubeClusterManager.GetK8sClient()
 }
 
 func InitAndStart(stopCh <-chan struct{}) {
@@ -65,6 +80,7 @@ func (sm *SchedulerManager) start() {
 		sm.CandidateManager.Run,
 		//sm.ReservedPoolManager.Run,
 		//sm.NetworkManager.Run,
+		sm.KubeClusterManager.Start,
 	}
 	for _, f := range startFuncs {
 		go f()

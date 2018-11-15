@@ -9,6 +9,8 @@ import (
 	"k8s.io/api/core/v1"
 	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api/v1"
 
+	"yunion.io/x/log"
+
 	k8spredicates "yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates/k8s"
 	schedman "yunion.io/x/onecloud/pkg/scheduler/manager"
 )
@@ -70,7 +72,11 @@ func doK8sPredicates(pod *v1.Pod, node *v1.Node) (bool, error) {
 	if len(hosts) == 0 {
 		return false, fmt.Errorf("Not found candidate host %s", node.Name)
 	}
-	return k8spredicates.PredicatesManager.DoFilter(pod, node, hosts[0])
+	k8sCli, err := schedman.GetK8sClient()
+	if err != nil {
+		log.Warningf("Get k8s client error: %v, some predicates will not execute", err)
+	}
+	return k8spredicates.PredicatesManager.DoFilter(k8sCli, pod, node, hosts[0])
 }
 
 func k8sPrioritizeHandler(c *gin.Context) {

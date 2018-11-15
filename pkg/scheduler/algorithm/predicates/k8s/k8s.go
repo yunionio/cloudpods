@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 )
@@ -16,14 +17,15 @@ func init() {
 	PredicatesManager.Register(
 		&HostStatusPredicate{},
 		&NetworkPredicate{},
+		&LocalVolumePredicate{},
 	)
 }
 
 type IPredicate interface {
 	Name() string
 	Clone() IPredicate
-	PreExecute(pod *v1.Pod, node *v1.Node, host *candidate.HostDesc) bool
-	Execute(pod *v1.Pod, node *v1.Node, host *candidate.HostDesc) (bool, error)
+	PreExecute(cli *kubernetes.Clientset, pod *v1.Pod, node *v1.Node, host *candidate.HostDesc) bool
+	Execute(cli *kubernetes.Clientset, pod *v1.Pod, node *v1.Node, host *candidate.HostDesc) (bool, error)
 }
 
 type SPredicatesManager struct {
@@ -58,13 +60,18 @@ func (man *SPredicatesManager) Has(newPre IPredicate) bool {
 	return false
 }
 
-func (man *SPredicatesManager) DoFilter(pod *v1.Pod, node *v1.Node, host *candidate.HostDesc) (bool, error) {
+func (man *SPredicatesManager) DoFilter(
+	k8sCli *kubernetes.Clientset,
+	pod *v1.Pod,
+	node *v1.Node,
+	host *candidate.HostDesc,
+) (bool, error) {
 	for _, pre := range man.predicates {
 		tmpPre := pre.Clone()
-		if !tmpPre.PreExecute(pod, node, host) {
+		if !tmpPre.PreExecute(k8sCli, pod, node, host) {
 			continue
 		}
-		fit, err := tmpPre.Execute(pod, node, host)
+		fit, err := tmpPre.Execute(k8sCli, pod, node, host)
 		if err != nil {
 			return false, err
 		}
