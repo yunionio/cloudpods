@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
@@ -26,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
-	"yunion.io/x/jsonutils"
 	ylog "yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -35,7 +33,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	kubeserver "yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 	"yunion.io/x/onecloud/pkg/util/k8s"
 )
 
@@ -74,14 +71,11 @@ type SRegionDNS struct {
 	AdminUser     string
 	AdminPassword string
 	Region        string
-	k8sConfigLock *sync.RWMutex
-	k8sConfig     string
+	K8sManager    *k8s.SKubeClusterManager
 }
 
 func New() *SRegionDNS {
-	r := &SRegionDNS{
-		k8sConfigLock: new(sync.RWMutex),
-	}
+	r := &SRegionDNS{}
 	return r
 }
 
@@ -106,6 +100,12 @@ func (r *SRegionDNS) initDB(c *caddy.Controller) error {
 	return nil
 }
 
+func (r *SRegionDNS) initK8s() {
+	r.initAuth()
+	r.K8sManager = k8s.NewKubeClusterManager(r.Region, 30*time.Second)
+	r.K8sManager.Start()
+}
+
 func (r *SRegionDNS) getAdminSession() *mcclient.ClientSession {
 	return auth.GetAdminSession(r.Region, "")
 }
@@ -113,68 +113,6 @@ func (r *SRegionDNS) getAdminSession() *mcclient.ClientSession {
 func (r *SRegionDNS) initAuth() {
 	authInfo := auth.NewAuthInfo(r.AuthUrl, "", r.AdminUser, r.AdminPassword, r.AdminProject)
 	auth.Init(authInfo, false, true, "", "")
-}
-
-func (r *SRegionDNS) getKubeClusterConfig() (string, error) {
-	session := r.getAdminSession()
-	params := jsonutils.NewDict()
-	params.Add(jsonutils.JSONTrue, "directly")
-	ret, err := kubeserver.Clusters.PerformAction(session, "default", "generate-kubeconfig", params)
-	if err != nil {
-		return "", err
-	}
-	return ret.GetString("kubeconfig")
-}
-
-func (r *SRegionDNS) getK8sConfig() string {
-	r.k8sConfigLock.RLock()
-	defer r.k8sConfigLock.RUnlock()
-	return r.k8sConfig
-}
-
-func (r *SRegionDNS) setK8sConfig(conf string) {
-	r.k8sConfigLock.Lock()
-	defer r.k8sConfigLock.Unlock()
-	r.k8sConfig = conf
-}
-
-func (r *SRegionDNS) isK8sHealthy() bool {
-	if r.getK8sConfig() == "" {
-		return false
-	}
-	cli, err := r.getK8sClient()
-	if err != nil {
-		return false
-	}
-	_, err = cli.Discovery().ServerVersion()
-	if err != nil {
-		ylog.Errorf("Discovery k8s version: %v", err)
-		return false
-	}
-	return true
-}
-
-func (r *SRegionDNS) startRefreshKubeConfig() {
-	r.initAuth()
-	r.refreshKubeConfig()
-	tick := time.Tick(30 * time.Second)
-	for {
-		select {
-		case <-tick:
-			r.refreshKubeConfig()
-		}
-	}
-}
-
-func (r *SRegionDNS) refreshKubeConfig() {
-	if r.isK8sHealthy() {
-		return
-	}
-	kubeConfig, err := r.getKubeClusterConfig()
-	if err != nil {
-		ylog.Errorf("Get default k8s config from kube server error: %v", err)
-	}
-	r.setK8sConfig(kubeConfig)
 }
 
 func (r *SRegionDNS) ServeDNS(ctx context.Context, w dns.ResponseWriter, rmsg *dns.Msg) (int, error) {
@@ -341,12 +279,7 @@ func getK8sServiceBackends(cli *kubernetes.Clientset, req *recordRequest) ([]str
 }
 
 func (r *SRegionDNS) getK8sClient() (*kubernetes.Clientset, error) {
-	cli, err := k8s.NewClientByContent([]byte(r.getK8sConfig()), nil)
-	if err != nil {
-		ylog.Warningf("Init kubernetes client error: %v", err)
-		return nil, err
-	}
-	return cli, nil
+	return r.K8sManager.GetK8sClient()
 }
 
 func getK8sServicePods(cli *kubernetes.Clientset, namespace, name string) ([]v1.Pod, error) {
