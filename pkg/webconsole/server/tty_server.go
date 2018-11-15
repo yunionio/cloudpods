@@ -99,7 +99,7 @@ func initSocketHandler(so socketio.Socket, p *session.Pty) {
 					log.Infof("exec: %s", p.Command)
 					args := strings.Split(p.Command, " ")
 					cmd := exec.Command(args[0], args[1:]...)
-					cmd.Env = append(cmd.Env, "TERM=screen-256color")
+					cmd.Env = append(cmd.Env, "TERM=xterm-256color")
 					if _pty, err := pty.Start(cmd); err != nil {
 						so.Emit(OUTPUT_EVENT, err.Error()+"\r\n")
 						log.Errorf("exec error: %v", err)
