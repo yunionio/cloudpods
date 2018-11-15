@@ -235,6 +235,25 @@ func (self *SDisk) CustomizeCreate(ctx context.Context, userCred mcclient.TokenC
 	return self.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerProjId, query, data)
 }
 
+func (self *SDisk) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	storage := self.GetStorage()
+	if storage == nil {
+		return nil, httperrors.NewNotFoundError("failed to find storage for disk %s", self.Name)
+	}
+
+	host := storage.GetMasterHost()
+	if host == nil {
+		return nil, httperrors.NewNotFoundError("failed to find host for storage %s with disk %s", storage.Name, self.Name)
+	}
+
+	data, err := host.GetHostDriver().ValidateUpdateDisk(ctx, userCred, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+}
+
 func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	disk, err := data.Get("disk")
 	if err != nil {
