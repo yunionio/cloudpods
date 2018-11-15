@@ -257,7 +257,7 @@ func (manager *SPolicyManager) ExplainRpc(userCred mcclient.TokenCredential, par
 }
 
 func (manager *SPolicyManager) IsAdminCapable(userCred mcclient.TokenCredential) bool {
-	if ! consts.IsRbacEnabled() && userCred.IsSystemAdmin() {
+	if !consts.IsRbacEnabled() && userCred.IsSystemAdmin() {
 		return true
 	}
 

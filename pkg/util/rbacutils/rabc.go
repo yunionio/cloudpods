@@ -150,7 +150,7 @@ func (policy *SRbacPolicy) GetMatchRule(service string, resource string, action 
 		match, matchCnt, weight := policy.Rules[i].match(service, resource, action, extra...)
 		if match && (maxMatchCnt < matchCnt ||
 			(maxMatchCnt == matchCnt && minWeight > weight) ||
-			(maxMatchCnt == matchCnt && minWeight == weight && matchRule.stricterThan(&policy.Rules[i])))  {
+			(maxMatchCnt == matchCnt && minWeight == weight && matchRule.stricterThan(&policy.Rules[i]))) {
 			maxMatchCnt = matchCnt
 			minWeight = weight
 			matchRule = &policy.Rules[i]

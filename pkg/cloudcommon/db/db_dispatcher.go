@@ -66,7 +66,7 @@ func (dispatcher *DBModelDispatcher) Filter(f appsrv.FilterHandler) appsrv.Filte
 
 func fetchUserCredential(ctx context.Context) mcclient.TokenCredential {
 	token := auth.FetchUserCredential(ctx)
-	if token == nil && ! consts.IsRbacEnabled() {
+	if token == nil && !consts.IsRbacEnabled() {
 		log.Fatalf("user token credential not found?")
 	}
 	return token
