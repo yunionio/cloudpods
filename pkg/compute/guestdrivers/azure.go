@@ -244,7 +244,7 @@ func (self *SAzureGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context
 				disk.BillingType = diskInfo[i].BillingType
 				disk.FsFormat = diskInfo[i].FsFromat
 				disk.AutoDelete = diskInfo[i].AutoDelete
-				disk.TemplateId = diskInfo[i].TemplateId
+				// disk.TemplateId = diskInfo[i].TemplateId
 				disk.DiskFormat = diskInfo[i].DiskFormat
 				disk.ExpiredAt = diskInfo[i].ExpiredAt
 				if len(diskInfo[i].Metadata) > 0 {
