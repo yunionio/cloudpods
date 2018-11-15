@@ -153,7 +153,7 @@ func (policy *SRbacPolicy) GetMatchRule(service string, resource string, action 
 	return matchRule
 }
 
-func compactRules(rules []SRbacRule) []SRbacRule {
+func CompactRules(rules []SRbacRule) []SRbacRule {
 	output := make([]SRbacRule, 1)
 	output[0] = rules[0]
 	for i := 1; i < len(rules); i += 1 {
@@ -190,7 +190,7 @@ func (policy *SRbacPolicy) Decode(policyJson jsonutils.JSONObject) error {
 		return err
 	}
 
-	policy.Rules = compactRules(rules)
+	policy.Rules = CompactRules(rules)
 
 	return nil
 }
