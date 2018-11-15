@@ -22,8 +22,9 @@ type SSnapshot struct {
 	Name       string
 	Location   string
 	ManagedBy  string
-	Sku        SnapshotSku
+	Sku        *SnapshotSku
 	Properties DiskProperties
+	Type       string
 }
 
 func (self *SSnapshot) GetId() string {
@@ -57,7 +58,23 @@ func (self *SSnapshot) IsEmulated() bool {
 }
 
 func (self *SRegion) CreateSnapshot(diskId, snapName, desc string) (*SSnapshot, error) {
-	snapshot := SSnapshot{}
+	disk, err := self.GetDisk(diskId)
+	if err != nil {
+		return nil, err
+	}
+	snapshot := SSnapshot{
+		region:   self,
+		Name:     snapName,
+		Location: self.Name,
+		Properties: DiskProperties{
+			CreationData: CreationData{
+				CreateOption:     "Copy",
+				SourceResourceID: diskId,
+			},
+			DiskSizeGB: disk.Properties.DiskSizeGB,
+		},
+		Type: "Microsoft.Compute/snapshots",
+	}
 	return &snapshot, self.client.Create(jsonutils.Marshal(snapshot), &snapshot)
 }
 
