@@ -13,29 +13,29 @@ type TRbacResult string
 const (
 	WILD_MATCH = "*"
 
-	Allow      = TRbacResult("allow")
+	AdminAllow = TRbacResult("allow")
 	OwnerAllow = TRbacResult("owner")
+	UserAllow  = TRbacResult("user")
+	GuestAllow = TRbacResult("guest")
 	Deny       = TRbacResult("deny")
 )
 
-func (result TRbacResult) IsHigherPrivilege(r2 TRbacResult) bool {
-	switch result {
-	case Allow:
-		if r2 == Allow {
-			return false
-		} else {
-			return true
-		}
-	case OwnerAllow:
-		if r2 == Deny {
-			return true
-		} else {
-			return false
-		}
-	case Deny:
-		return false
+var (
+	strictness = map[TRbacResult]int{
+		Deny:       0,
+		AdminAllow: 1,
+		OwnerAllow: 2,
+		UserAllow:  3,
+		GuestAllow: 4,
 	}
-	return false
+)
+
+func (r TRbacResult) Strictness() int {
+	return strictness[r]
+}
+
+func (r1 TRbacResult) StricterThan(r2 TRbacResult) bool {
+	return r1.Strictness() < r2.Strictness()
 }
 
 type SRbacPolicy struct {
@@ -77,6 +77,10 @@ func (rule *SRbacRule) contains(rule2 *SRbacRule) bool {
 		return false
 	}
 	return true
+}
+
+func (rule *SRbacRule) stricterThan(r2 *SRbacRule) bool {
+	return rule.Result.StricterThan(r2.Result)
 }
 
 func (rule *SRbacRule) match(service string, resource string, action string, extra ...string) (bool, int, int) {
@@ -144,7 +148,9 @@ func (policy *SRbacPolicy) GetMatchRule(service string, resource string, action 
 	var matchRule *SRbacRule
 	for i := 0; i < len(policy.Rules); i += 1 {
 		match, matchCnt, weight := policy.Rules[i].match(service, resource, action, extra...)
-		if match && (maxMatchCnt < matchCnt || (maxMatchCnt == matchCnt && minWeight > weight)) {
+		if match && (maxMatchCnt < matchCnt ||
+			(maxMatchCnt == matchCnt && minWeight > weight) ||
+			(maxMatchCnt == matchCnt && minWeight == weight && matchRule.stricterThan(&policy.Rules[i])))  {
 			maxMatchCnt = matchCnt
 			minWeight = weight
 			matchRule = &policy.Rules[i]
@@ -208,10 +214,14 @@ func decode(rules jsonutils.JSONObject, decodeRule SRbacRule, level int) ([]SRba
 		ruleJsonStr := rules.(*jsonutils.JSONString)
 		ruleStr, _ := ruleJsonStr.GetString()
 		switch ruleStr {
-		case string(Allow):
-			decodeRule.Result = Allow
+		case string(AdminAllow):
+			decodeRule.Result = AdminAllow
 		case string(OwnerAllow):
 			decodeRule.Result = OwnerAllow
+		case string(UserAllow):
+			decodeRule.Result = UserAllow
+		case string(GuestAllow):
+			decodeRule.Result = GuestAllow
 		case string(Deny):
 			decodeRule.Result = Deny
 		default:

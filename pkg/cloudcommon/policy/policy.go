@@ -34,31 +34,31 @@ var (
 		{
 			Resource: "tasks",
 			Action:   PolicyActionPerform,
-			Result:   rbacutils.Allow,
+			Result:   rbacutils.UserAllow,
 		},
 		{
 			Service:  "compute",
 			Resource: "zones",
 			Action:   PolicyActionList,
-			Result:   rbacutils.Allow,
+			Result:   rbacutils.UserAllow,
 		},
 		{
 			Service:  "compute",
 			Resource: "zones",
 			Action:   PolicyActionGet,
-			Result:   rbacutils.Allow,
+			Result:   rbacutils.UserAllow,
 		},
 		{
 			Service:  "compute",
 			Resource: "cloudregions",
 			Action:   PolicyActionList,
-			Result:   rbacutils.Allow,
+			Result:   rbacutils.UserAllow,
 		},
 		{
 			Service:  "compute",
 			Resource: "cloudregions",
 			Action:   PolicyActionGet,
-			Result:   rbacutils.Allow,
+			Result:   rbacutils.UserAllow,
 		},
 	}
 )
@@ -187,13 +187,13 @@ func (manager *SPolicyManager) Allow(isAdmin bool, userCred mcclient.TokenCreden
 	currentPriv := rbacutils.Deny
 	for _, p := range policies {
 		result := p.Allow(userCredJson, service, resource, action, extra...)
-		if result.IsHigherPrivilege(currentPriv) {
+		if currentPriv.StricterThan(result) {
 			currentPriv = result
 		}
 	}
 	if manager.defaultPolicy != nil {
 		result := manager.defaultPolicy.Allow(userCredJson, service, resource, action, extra...)
-		if result.IsHigherPrivilege(currentPriv) {
+		if currentPriv.StricterThan(result) {
 			currentPriv = result
 		}
 	}
@@ -210,8 +210,10 @@ func (manager *SPolicyManager) explainPolicy(userCred mcclient.TokenCredential, 
 	}
 	isAdmin, _ := policySeq[0].Bool()
 	if !consts.IsRbacEnabled() {
-		if !isAdmin || (isAdmin && userCred.IsSystemAdmin()) {
-			return rbacutils.Allow, nil
+		if !isAdmin {
+			return rbacutils.OwnerAllow, nil
+		} else if isAdmin && userCred.IsSystemAdmin() {
+			return rbacutils.AdminAllow, nil
 		} else {
 			return rbacutils.Deny, httperrors.NewForbiddenError("operation not allowed")
 		}
@@ -255,6 +257,10 @@ func (manager *SPolicyManager) ExplainRpc(userCred mcclient.TokenCredential, par
 }
 
 func (manager *SPolicyManager) IsAdminCapable(userCred mcclient.TokenCredential) bool {
+	if ! consts.IsRbacEnabled() && userCred.IsSystemAdmin() {
+		return true
+	}
+
 	userCredJson := userCred.ToJson()
 	for _, p := range manager.adminPolicies {
 		match, _ := conditionparser.Eval(p.Condition, userCredJson)

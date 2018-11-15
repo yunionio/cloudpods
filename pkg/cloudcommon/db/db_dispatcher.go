@@ -57,12 +57,16 @@ func (dispatcher *DBModelDispatcher) ContextKeywordPlural() []string {
 }
 
 func (dispatcher *DBModelDispatcher) Filter(f appsrv.FilterHandler) appsrv.FilterHandler {
-	return auth.Authenticate(f)
+	if consts.IsRbacEnabled() {
+		return auth.AuthenticateWithDelayDecision(f, true)
+	} else {
+		return auth.Authenticate(f)
+	}
 }
 
 func fetchUserCredential(ctx context.Context) mcclient.TokenCredential {
 	token := auth.FetchUserCredential(ctx)
-	if token == nil {
+	if token == nil && ! consts.IsRbacEnabled() {
 		log.Fatalf("user token credential not found?")
 	}
 	return token
@@ -727,7 +731,7 @@ func fetchOwnerProjectId(ctx context.Context, manager IModelManager, userCred mc
 	if consts.IsRbacEnabled() {
 		result := policy.PolicyManager.Allow(true, userCred,
 			consts.GetServiceType(), policy.PolicyDelegation, "")
-		if result == rbacutils.Allow {
+		if result == rbacutils.AdminAllow {
 			isAllow = true
 		}
 	} else {
