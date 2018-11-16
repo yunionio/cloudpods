@@ -37,7 +37,7 @@ func AttachUsageQuery(
 	case "vcenter":
 		q = q.Filter(sqlchemy.Equals(hosts.Field("manager_id"), rangeObjId))
 	case "schedtag":
-		aggHosts := SchedtagManager.Query().SubQuery()
+		aggHosts := HostschedtagManager.Query().SubQuery()
 		q = q.Join(aggHosts, sqlchemy.AND(
 			sqlchemy.Equals(hosts.Field("id"), aggHosts.Field("host_id")),
 			sqlchemy.IsFalse(aggHosts.Field("deleted")))).
