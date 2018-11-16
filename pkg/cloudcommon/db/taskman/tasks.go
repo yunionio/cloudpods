@@ -89,10 +89,6 @@ func (manager *STaskManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlc
 	return q
 }
 
-func (manager *STaskManager) FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery {
-	return q
-}
-
 func (manager *STaskManager) AllowPerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return true
 }
@@ -103,6 +99,19 @@ func (manager *STaskManager) PerformAction(ctx context.Context, userCred mcclien
 	// 'result': 'ok'
 	resp.Add(jsonutils.NewString("ok"), "result")
 	return resp, nil
+}
+
+func (manager *STaskManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
+	return userCred.GetProjectId()
+}
+
+func (self *STask) GetOwnerProjectId() string {
+	return self.UserCred.GetProjectId()
+}
+
+func (manager *STaskManager) FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery {
+	q = q.Contains("user_cred", owner)
+	return q
 }
 
 func (self *STask) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -414,7 +423,7 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 		return
 	}
 
-	log.Debugf("Call %s %s: %s with %s", task.TaskName, stageName, funcValue, params)
+	log.Debugf("Call %s %s", task.TaskName, stageName)
 	funcValue.Call(params)
 
 	// call save request context
