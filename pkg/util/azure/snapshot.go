@@ -154,9 +154,11 @@ func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	classicSnapshots = append(classicSnapshots, _classicSnapshots...)
 	isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots)+len(classicSnapshots))
 	for i := 0; i < len(snapshots); i++ {
+		snapshots[i].region = self
 		isnapshots[i] = &snapshots[i]
 	}
 	for i := 0; i < len(classicSnapshots); i++ {
+		classicSnapshots[i].region = self
 		isnapshots[len(snapshots)+i] = &classicSnapshots[i]
 	}
 	return isnapshots, nil
@@ -164,14 +166,6 @@ func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 
 func (self *SSnapshot) GetDiskId() string {
 	return self.Properties.CreationData.SourceResourceID
-}
-
-func (self *SSnapshot) GetManagerId() string {
-	return self.region.client.providerId
-}
-
-func (self *SSnapshot) GetRegionId() string {
-	return self.region.GetId()
 }
 
 func (self *SSnapshot) GetDiskType() string {
