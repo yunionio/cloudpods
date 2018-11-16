@@ -147,7 +147,7 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		if err == cloudprovider.ErrNoSuchProvder {
 			return nil, httperrors.NewResourceNotFoundError("no such provider %s", provider)
 		}
-		return nil, httperrors.NewInvalidCredentialError("invalid cloud account info")
+		return nil, httperrors.NewInputParameterError("invalid cloud account info")
 	}
 
 	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
