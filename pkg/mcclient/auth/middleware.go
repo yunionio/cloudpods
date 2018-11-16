@@ -17,25 +17,38 @@ const (
 )
 
 func Authenticate(f appsrv.FilterHandler) appsrv.FilterHandler {
+	return AuthenticateWithDelayDecision(f, false)
+}
+
+func AuthenticateWithDelayDecision(f appsrv.FilterHandler, delayDecision bool) appsrv.FilterHandler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		tokenStr := r.Header.Get(mcclient.AUTH_TOKEN)
 		if len(tokenStr) == 0 {
-			httperrors.UnauthorizedError(w, "Unauthorized")
-			return
+			log.Errorf("no auth_token found!")
+			if !delayDecision {
+				httperrors.UnauthorizedError(w, "Unauthorized")
+				return
+			}
 		}
 		token, err := Verify(tokenStr)
 		if err != nil {
 			log.Errorf("Verify token failed: %s", err)
-			httperrors.UnauthorizedError(w, "InvalidToken")
-			return
+			if !delayDecision {
+				httperrors.UnauthorizedError(w, "InvalidToken")
+				return
+			}
 		}
-		ctx = context.WithValue(ctx, AUTH_TOKEN, token)
+		if token != nil {
+			ctx = context.WithValue(ctx, AUTH_TOKEN, token)
+		}
+
 		if taskId := r.Header.Get(mcclient.TASK_ID); taskId != "" {
 			ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_TASK_ID, taskId)
 		}
 		if taskNotifyUrl := r.Header.Get(mcclient.TASK_NOTIFY_URL); taskNotifyUrl != "" {
 			ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_TASK_NOTIFY_URL, taskNotifyUrl)
 		}
+
 		f(ctx, w, r)
 	}
 }
