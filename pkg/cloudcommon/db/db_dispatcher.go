@@ -57,12 +57,16 @@ func (dispatcher *DBModelDispatcher) ContextKeywordPlural() []string {
 }
 
 func (dispatcher *DBModelDispatcher) Filter(f appsrv.FilterHandler) appsrv.FilterHandler {
-	return auth.Authenticate(f)
+	if consts.IsRbacEnabled() {
+		return auth.AuthenticateWithDelayDecision(f, true)
+	} else {
+		return auth.Authenticate(f)
+	}
 }
 
 func fetchUserCredential(ctx context.Context) mcclient.TokenCredential {
 	token := auth.FetchUserCredential(ctx)
-	if token == nil {
+	if token == nil && !consts.IsRbacEnabled() {
 		log.Fatalf("user token credential not found?")
 	}
 	return token
@@ -479,14 +483,14 @@ func listItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-	retConut := len(retList)
+	retCount := len(retList)
 
 	// apply customizeFilters
 	retList, err = customizeFilters.DoApply(retList)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-	if len(retList) != retConut {
+	if len(retList) != retCount {
 		totalCnt = int64(len(retList))
 	}
 	paginate := false
@@ -500,7 +504,7 @@ func listItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 func calculateListResult(data []jsonutils.JSONObject, total, limit, offset int64, paginate bool) *modules.ListResult {
 	if paginate {
 		// do offset first
-		if offset != 0 {
+		if offset > 0 {
 			if total > offset {
 				data = data[offset:]
 			} else {
@@ -508,11 +512,13 @@ func calculateListResult(data []jsonutils.JSONObject, total, limit, offset int64
 			}
 		}
 		// do limit
-		if total > limit {
+		if limit > 0 && total > limit {
 			data = data[:limit]
 		}
 	}
+
 	retResult := modules.ListResult{Data: data, Total: int(total), Limit: int(limit), Offset: int(offset)}
+
 	return &retResult
 }
 
@@ -725,7 +731,7 @@ func fetchOwnerProjectId(ctx context.Context, manager IModelManager, userCred mc
 	if consts.IsRbacEnabled() {
 		result := policy.PolicyManager.Allow(true, userCred,
 			consts.GetServiceType(), policy.PolicyDelegation, "")
-		if result == rbacutils.Allow {
+		if result == rbacutils.AdminAllow {
 			isAllow = true
 		}
 	} else {
@@ -957,6 +963,34 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 	return results, nil
 }
 
+func managerPerformCheckCreateData(
+	manager IModelManager,
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	action string,
+	ownerProjId string,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	body, err := data.(*jsonutils.JSONDict).Get(manager.Keyword())
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	bodyDict := body.(*jsonutils.JSONDict)
+
+	var isAllow bool
+	if consts.IsRbacEnabled() {
+		isAllow = isClassActionRbacAllowed(manager, userCred, ownerProjId, policy.PolicyActionPerform, action)
+	} else {
+		isAllow = manager.AllowPerformCheckCreateData(ctx, userCred, query, data)
+	}
+	if !isAllow {
+		return nil, httperrors.NewForbiddenError("not allow to perform %s", action)
+	}
+
+	return manager.ValidateCreateData(ctx, userCred, ownerProjId, query, bodyDict)
+}
+
 func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
 
@@ -969,25 +1003,8 @@ func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, act
 	defer lockman.ReleaseClass(ctx, dispatcher.modelManager, ownerProjId)
 
 	if action == "check-create-data" {
-		manager := dispatcher.modelManager
-
-		body, err := data.(*jsonutils.JSONDict).Get(manager.Keyword())
-		if err != nil {
-			return nil, httperrors.NewGeneralError(err)
-		}
-		data := body.(*jsonutils.JSONDict)
-
-		var isAllow bool
-		if consts.IsRbacEnabled() {
-			isAllow = isClassActionRbacAllowed(manager, userCred, ownerProjId, policy.PolicyActionPerform, action)
-		} else {
-			isAllow = manager.AllowPerformCheckCreateData(ctx, userCred, query, data)
-		}
-		if !isAllow {
-			return nil, httperrors.NewForbiddenError("not allow to perform %s", action)
-		}
-
-		return manager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+		return managerPerformCheckCreateData(dispatcher.modelManager,
+			ctx, userCred, action, ownerProjId, query, data)
 	}
 
 	managerValue := reflect.ValueOf(dispatcher.modelManager)
@@ -1022,8 +1039,8 @@ func objectPerformAction(dispatcher *DBModelDispatcher, model IModel, modelValue
 
 	isGeneral := false
 	funcName := fmt.Sprintf("Perform%s", utils.Kebab2Camel(action, "-"))
-
 	funcValue := modelValue.MethodByName(funcName)
+
 	if !funcValue.IsValid() || funcValue.IsNil() {
 		funcValue = modelValue.MethodByName(generalFuncName)
 		if !funcValue.IsValid() || funcValue.IsNil() {
@@ -1057,7 +1074,12 @@ func objectPerformAction(dispatcher *DBModelDispatcher, model IModel, modelValue
 
 	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isObjectRbacAllowed(dispatcher.modelManager, model, userCred, policy.PolicyActionPerform, action)
+		if model == nil {
+			ownerProjId, _ := fetchOwnerProjectId(ctx, dispatcher.modelManager, userCred, data)
+			isAllow = isClassActionRbacAllowed(dispatcher.modelManager, userCred, ownerProjId, policy.PolicyActionPerform, action)
+		} else {
+			isAllow = isObjectRbacAllowed(dispatcher.modelManager, model, userCred, policy.PolicyActionPerform, action)
+		}
 	} else {
 		allowFuncName := "Allow" + funcName
 		allowFuncValue := modelValue.MethodByName(allowFuncName)
