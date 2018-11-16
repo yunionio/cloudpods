@@ -104,6 +104,7 @@ type SLoadbalancerListener struct {
 
 func (man *SLoadbalancerListenerManager) checkListenerUniqueness(ctx context.Context, lb *SLoadbalancer, listenerType string, listenerPort int64) error {
 	q := man.Query().
+		IsFalse("pending_deleted").
 		Equals("loadbalancer_id", lb.Id).
 		Equals("listener_port", listenerPort)
 	switch listenerType {
