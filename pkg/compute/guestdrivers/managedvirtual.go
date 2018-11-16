@@ -369,7 +369,12 @@ func (self *SManagedVirtualizedGuestDriver) RequestDiskSnapshot(ctx context.Cont
 		res := jsonutils.NewDict()
 		res.Set("snapshot_id", jsonutils.NewString(cloudSnapshot.GetId()))
 		res.Set("manager_id", jsonutils.NewString(cloudSnapshot.GetManagerId()))
-		res.Set("cloudregion_id", jsonutils.NewString(cloudSnapshot.GetRegionId()))
+		extId := cloudSnapshot.GetRegionId()
+		cloudregion, err := models.CloudregionManager.FetchByExternalId(extId)
+		if err != nil {
+			return nil, err
+		}
+		res.Set("cloudregion_id", jsonutils.NewString(cloudregion.GetId()))
 		return res, nil
 	})
 	return nil

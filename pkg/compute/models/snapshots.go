@@ -439,8 +439,16 @@ func totalSnapshotCount(projectId string) int {
 
 func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshot) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		self.Name = ext.GetName()
 		self.Status = ext.GetStatus()
 		self.DiskType = ext.GetDiskType()
+
+		cloudregionId := ext.GetRegionId()
+		region, err := CloudregionManager.FetchByExternalId(cloudregionId)
+		if err != nil {
+			return err
+		}
+		self.CloudregionId = region.GetId()
 		return nil
 	})
 	if err != nil {

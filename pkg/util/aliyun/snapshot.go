@@ -56,7 +56,7 @@ func (self *SSnapshot) GetManagerId() string {
 }
 
 func (self *SSnapshot) GetRegionId() string {
-	return self.region.GetId()
+	return self.region.GetGlobalId()
 }
 
 func (self *SSnapshot) GetSize() int32 {
