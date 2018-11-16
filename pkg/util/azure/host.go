@@ -64,7 +64,7 @@ func (self *SHost) searchNetorkInterface(IPAddr string, networkId string, secgro
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, networkId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, secgroupId string) (cloudprovider.ICloudVM, error) {
+func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, networkId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (cloudprovider.ICloudVM, error) {
 	net := self.zone.getNetworkById(networkId)
 	if net == nil {
 		return nil, fmt.Errorf("invalid network ID %s", networkId)
@@ -80,7 +80,6 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 			return nil, err
 		}
 	}
-
 	vmId, err := self._createVM(name, imgId, int32(sysDiskSize), cpu, memMB, nic.ID, ipAddr, desc, passwd, storageType, diskSizes, publicKey, userData)
 	if err != nil {
 		self.zone.region.DeleteNetworkInterface(nic.ID)
