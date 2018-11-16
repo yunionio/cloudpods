@@ -295,6 +295,7 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 	ownerProjId := lblis.GetOwnerProjectId()
 	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerProjId)
 	aclStatusV := validators.NewStringChoicesValidator("acl_status", LB_BOOL_VALUES)
+	aclStatusV.Default(lblis.AclStatus)
 	aclTypeV := validators.NewStringChoicesValidator("acl_type", LB_ACL_TYPES)
 	aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerProjId)
 	certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerProjId)
@@ -342,6 +343,12 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 		v.Optional(true)
 		if err := v.Validate(data); err != nil {
 			return nil, err
+		}
+	}
+	{
+		// clear out acl_id when acl_status is off
+		if aclStatusV.Value == LB_BOOL_OFF {
+			data.Set("acl_id", jsonutils.NewString(""))
 		}
 	}
 	{
