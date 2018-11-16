@@ -168,14 +168,6 @@ func (self *SSnapshot) GetDiskId() string {
 	return self.Properties.CreationData.SourceResourceID
 }
 
-func (self *SSnapshot) GetManagerId() string {
-	return self.region.client.providerId
-}
-
-func (self *SSnapshot) GetRegionId() string {
-	return self.region.GetGlobalId()
-}
-
 func (self *SSnapshot) GetDiskType() string {
 	return ""
 }

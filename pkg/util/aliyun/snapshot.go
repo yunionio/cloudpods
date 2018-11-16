@@ -51,14 +51,6 @@ func (self *SSnapshot) GetStatus() string {
 	}
 }
 
-func (self *SSnapshot) GetManagerId() string {
-	return self.region.client.providerId
-}
-
-func (self *SSnapshot) GetRegionId() string {
-	return self.region.GetGlobalId()
-}
-
 func (self *SSnapshot) GetSize() int32 {
 	return self.SourceDiskSize
 }
