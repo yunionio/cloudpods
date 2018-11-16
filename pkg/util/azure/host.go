@@ -42,18 +42,48 @@ func (self *SHost) Refresh() error {
 	return nil
 }
 
-func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, networkId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, secgroupId string) (cloudprovider.ICloudVM, error) {
-	nicId := ""
-	if net := self.zone.getNetworkById(networkId); net == nil {
-		return nil, fmt.Errorf("invalid network ID %s", networkId)
-	} else if nic, err := self.zone.region.CreateNetworkInterface(fmt.Sprintf("%s-ipconfig", name), ipAddr, net.GetId(), secgroupId); err != nil {
-		return nil, err
-	} else {
-		nicId = nic.ID
-	}
-	vmId, err := self._createVM(name, imgId, int32(sysDiskSize), cpu, memMB, nicId, ipAddr, desc, passwd, storageType, diskSizes, publicKey)
+func (self *SHost) searchNetorkInterface(IPAddr string, networkId string, secgroupId string) (*SInstanceNic, error) {
+	interfaces, err := self.zone.region.GetNetworkInterfaces()
 	if err != nil {
-		self.zone.region.DeleteNetworkInterface(nicId)
+		return nil, err
+	}
+	for i, nic := range interfaces {
+		for _, ipConf := range nic.Properties.IPConfigurations {
+			if ipConf.Properties.PrivateIPAddress == IPAddr && networkId == ipConf.Properties.Subnet.ID && ipConf.Properties.PrivateIPAllocationMethod == "Static" {
+				if nic.Properties.NetworkSecurityGroup == nil || nic.Properties.NetworkSecurityGroup.ID != secgroupId {
+					nic.Properties.NetworkSecurityGroup = &SSecurityGroup{ID: secgroupId}
+					if err := self.zone.region.client.Update(jsonutils.Marshal(nic), nil); err != nil {
+						log.Errorf("assign secgroup %s for nic %s failed %d")
+						return nil, err
+					}
+				}
+				return &interfaces[i], nil
+			}
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, networkId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, secgroupId string) (cloudprovider.ICloudVM, error) {
+	net := self.zone.getNetworkById(networkId)
+	if net == nil {
+		return nil, fmt.Errorf("invalid network ID %s", networkId)
+	}
+	nic, err := self.searchNetorkInterface(ipAddr, net.GetId(), secgroupId)
+	if err != nil {
+		if err == cloudprovider.ErrNotFound {
+			nic, err = self.zone.region.CreateNetworkInterface(fmt.Sprintf("%s-ipconfig", name), ipAddr, net.GetId(), secgroupId)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
+	}
+
+	vmId, err := self._createVM(name, imgId, int32(sysDiskSize), cpu, memMB, nic.ID, ipAddr, desc, passwd, storageType, diskSizes, publicKey)
+	if err != nil {
+		self.zone.region.DeleteNetworkInterface(nic.ID)
 		return nil, err
 	}
 	if vm, err := self.zone.region.GetInstance(vmId); err != nil {
