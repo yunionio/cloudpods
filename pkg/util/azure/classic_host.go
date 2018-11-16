@@ -26,7 +26,7 @@ func (self *SClassicHost) GetId() string {
 }
 
 func (self *SClassicHost) GetName() string {
-	return fmt.Sprintf("%s-classic", self.zone.region.client.subscriptionId)
+	return fmt.Sprintf("%s/%s-classic", self.zone.region.GetName(), self.zone.region.client.subscriptionId)
 }
 
 func (self *SClassicHost) GetGlobalId() string {
