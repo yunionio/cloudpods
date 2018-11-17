@@ -1101,6 +1101,7 @@ type DiskInfo struct {
 	MediumType string
 	Driver     string
 	Cache      string
+	DiskType   string
 }
 
 func (self *SDisk) ToDiskInfo() DiskInfo {
@@ -1110,6 +1111,7 @@ func (self *SDisk) ToDiskInfo() DiskInfo {
 		MountPoint: self.GetMountPoint(),
 		Format:     self.DiskFormat,
 		Size:       int64(self.DiskSize),
+		DiskType:   self.DiskType,
 	}
 	storage := self.GetStorage()
 	if storage == nil {
