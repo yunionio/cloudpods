@@ -13,10 +13,6 @@ type SClassicHost struct {
 	zone *SZone
 }
 
-const (
-	DEFAULT_USER = "yunion"
-)
-
 func (self *SClassicHost) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
