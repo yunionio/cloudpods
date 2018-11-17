@@ -59,12 +59,16 @@ func (self *SRegion) GetClient() *SAwsClient {
 	return self.client
 }
 
+func (self *SRegion) getAwsSession() (*session.Session, error) {
+	return session.NewSession(&sdk.Config{
+		Region:      sdk.String(self.RegionId),
+		Credentials: credentials.NewStaticCredentials(self.client.accessKey, self.client.secret, ""),
+	})
+}
+
 func (self *SRegion) getEc2Client() (*ec2.EC2, error) {
 	if self.ec2Client == nil {
-		s, err := session.NewSession(&sdk.Config{
-			Region:      sdk.String(self.RegionId),
-			Credentials: credentials.NewStaticCredentials(self.client.accessKey, self.client.secret, ""),
-		})
+		s, err := self.getAwsSession()
 
 		if err != nil {
 			return nil, err
@@ -79,10 +83,7 @@ func (self *SRegion) getEc2Client() (*ec2.EC2, error) {
 
 func (self *SRegion) getIamClient() (*iam.IAM, error) {
 	if self.iamClient == nil {
-		s, err := session.NewSession(&sdk.Config{
-			Region:      sdk.String(self.RegionId),
-			Credentials: credentials.NewStaticCredentials(self.client.accessKey, self.client.secret, ""),
-		})
+		s, err := self.getAwsSession()
 
 		if err != nil {
 			return nil, err
@@ -96,10 +97,7 @@ func (self *SRegion) getIamClient() (*iam.IAM, error) {
 
 func (self *SRegion) getS3Client() (*s3.S3, error) {
 	if self.s3Client == nil {
-		s, err := session.NewSession(&sdk.Config{
-			Region:      sdk.String(self.RegionId),
-			Credentials: credentials.NewStaticCredentials(self.client.accessKey, self.client.secret, ""),
-		})
+		s, err := self.getAwsSession()
 
 		if err != nil {
 			return nil, err

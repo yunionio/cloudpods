@@ -121,7 +121,7 @@
   version = "0.11.0"
 
 [[projects]]
-  digest = "1:55bf2a4da68caa693d660683e53bab3e651a940cd46354b997ab68bec7920e23"
+  digest = "1:ae41c49d4812dd31a848045447637fd0f10cac09af75e1d20825a241c626f3fa"
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -159,6 +159,8 @@
     "service/ec2",
     "service/iam",
     "service/s3",
+    "service/s3/s3iface",
+    "service/s3/s3manager",
     "service/sts",
   ]
   pruneopts = "UT"
@@ -1293,14 +1295,6 @@
   version = "v9.0.0"
 
 [[projects]]
-  digest = "1:7719608fe0b52a4ece56c2dde37bedd95b938677d1ab0f84b8a7852e4c59f849"
-  name = "sigs.k8s.io/yaml"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "fd68e9863619f6ec2fdd8625fe1f02e7c877e480"
-  version = "v1.1.0"
-
-[[projects]]
   digest = "1:356a33d2d627cbb232a1d71cc42051fbac0e5e6a1717679f110054baa02472e5"
   name = "k8s.io/kubernetes"
   packages = [
@@ -1310,6 +1304,14 @@
   pruneopts = "UT"
   revision = "17c77c7898218073f14c8d573582e8d2313dc740"
   version = "v1.12.2"
+
+[[projects]]
+  digest = "1:7719608fe0b52a4ece56c2dde37bedd95b938677d1ab0f84b8a7852e4c59f849"
+  name = "sigs.k8s.io/yaml"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "fd68e9863619f6ec2fdd8625fe1f02e7c877e480"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -1409,6 +1411,7 @@
     "github.com/aws/aws-sdk-go/service/ec2",
     "github.com/aws/aws-sdk-go/service/iam",
     "github.com/aws/aws-sdk-go/service/s3",
+    "github.com/aws/aws-sdk-go/service/s3/s3manager",
     "github.com/bitly/go-simplejson",
     "github.com/c-bata/go-prompt",
     "github.com/coredns/coredns/core/dnsserver",
