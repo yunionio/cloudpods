@@ -423,7 +423,6 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 	instances := []SInstance{}
 	for _, reservation := range res.Reservations {
 		for _, instance := range reservation.Instances {
-			log.Debugf("GetInstances %s", instance.String())
 			if err := FillZero(instance); err != nil {
 				return nil, 0, err
 			}
