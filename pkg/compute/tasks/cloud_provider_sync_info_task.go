@@ -343,7 +343,7 @@ func syncZoneHosts(ctx context.Context, provider *models.SCloudprovider, task *C
 		logSyncFailed(provider, task, msg)
 		return
 	}
-	localHosts, remoteHosts, result := models.HostManager.SyncHosts(ctx, task.UserCred, provider, localZone, hosts)
+	localHosts, remoteHosts, result := models.HostManager.SyncHosts(ctx, task.UserCred, provider, localZone, hosts, syncRange.ProjectSync)
 	msg := result.Result()
 	notes := fmt.Sprintf("SyncHosts for zone %s result: %s", localZone.Name, msg)
 	log.Infof(notes)
