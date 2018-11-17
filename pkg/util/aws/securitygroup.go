@@ -127,7 +127,7 @@ func (self *SRegion) addSecurityGroupRule(secGrpId string, rule *secrules.Securi
 		_, err = self.ec2Client.AuthorizeSecurityGroupEgress(params)
 	}
 
-	if err != nil && strings.Contains(err.Error(),"InvalidPermission.Duplicate") {
+	if err != nil && strings.Contains(err.Error(), "InvalidPermission.Duplicate") {
 		log.Debugf("addSecurityGroupRule %s %s", rule.Direction, err.Error())
 		return nil
 	}
@@ -321,8 +321,8 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Secur
 		sort.Sort(secrules.SecurityRuleSet(rules))
 		sort.Sort(secrules.SecurityRuleSet(secgroup.Permissions))
 
-		log.Debugf("local security rules %s",rules)
-		log.Debugf("remote security rules %s",secgroup.Permissions)
+		log.Debugf("local security rules %s", rules)
+		log.Debugf("remote security rules %s", secgroup.Permissions)
 
 		i, j := 0, 0
 		for i < len(rules) || j < len(secgroup.Permissions) {

@@ -150,8 +150,8 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 	// uploader to aws s3
 	input := &s3manager.UploadInput{
 		Bucket: &bucketName,
-		Key: &imageId,
-		Body: reader,
+		Key:    &imageId,
+		Body:   reader,
 	}
 
 	awsSession, err := self.region.getAwsSession()

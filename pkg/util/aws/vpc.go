@@ -108,7 +108,7 @@ func (self *SVpc) GetManagerId() string {
 }
 
 func (self *SVpc) Delete() error {
-    // 删除vpc会同步删除关联的安全组
+	// 删除vpc会同步删除关联的安全组
 	return self.region.DeleteVpc(self.VpcId)
 }
 
