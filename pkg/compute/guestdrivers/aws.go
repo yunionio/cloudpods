@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/util/ansible"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -158,7 +160,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action)
 			return data, nil
 		})
 	case "rebuild":
@@ -210,7 +212,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 				}
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action)
 
 			return data, nil
 		})
