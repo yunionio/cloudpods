@@ -3915,6 +3915,7 @@ func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 		diskSpec.Set("size", jsonutils.NewInt(info.Size))
 		diskSpec.Set("backend", jsonutils.NewString(info.Backend))
 		diskSpec.Set("medium_type", jsonutils.NewString(info.MediumType))
+		diskSpec.Set("disk_type", jsonutils.NewString(info.DiskType))
 		diskSpecs.Add(diskSpec)
 	}
 	spec.Set("disk", diskSpecs)
