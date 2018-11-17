@@ -386,6 +386,7 @@ func (self *SCloudaccount) ImportSubAccount(ctx context.Context, userCred mcclie
 	newCloudprovider.CloudaccountId = self.Id
 	newCloudprovider.Provider = self.Provider
 	newCloudprovider.Enabled = true
+	newCloudprovider.Status = CLOUD_PROVIDER_CONNECTED
 	newCloudprovider.Name = subAccount.Name
 	if !autoCreateProject {
 		newCloudprovider.ProjectId = auth.AdminCredential().GetProjectId()
