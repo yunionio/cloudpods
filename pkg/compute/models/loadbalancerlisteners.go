@@ -104,6 +104,7 @@ type SLoadbalancerListener struct {
 
 func (man *SLoadbalancerListenerManager) checkListenerUniqueness(ctx context.Context, lb *SLoadbalancer, listenerType string, listenerPort int64) error {
 	q := man.Query().
+		IsFalse("pending_deleted").
 		Equals("loadbalancer_id", lb.Id).
 		Equals("listener_port", listenerPort)
 	switch listenerType {
@@ -260,16 +261,8 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 			}
 		}
 	}
-	{
-		if aclStatusV.Value == LB_BOOL_ON {
-			acl := aclV.Model.(*SLoadbalancerAcl)
-			if acl == nil {
-				return nil, fmt.Errorf("missing acl")
-			}
-			if len(aclTypeV.Value) == 0 {
-				return nil, fmt.Errorf("missing acl_type")
-			}
-		}
+	if err := man.validateAcl(aclStatusV, aclTypeV, aclV, data); err != nil {
+		return nil, err
 	}
 	return man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
@@ -287,6 +280,20 @@ func (man *SLoadbalancerListenerManager) checkTypeV(listenerType string) validat
 	return nil
 }
 
+func (man *SLoadbalancerListenerManager) validateAcl(aclStatusV *validators.ValidatorStringChoices, aclTypeV *validators.ValidatorStringChoices, aclV *validators.ValidatorModelIdOrName, data *jsonutils.JSONDict) error {
+	if aclStatusV.Value == LB_BOOL_ON {
+		if aclV.Model == nil {
+			return httperrors.NewInputParameterError("missing acl")
+		}
+		if len(aclTypeV.Value) == 0 {
+			return httperrors.NewInputParameterError("missing acl_type")
+		}
+	} else {
+		data.Set("acl_id", jsonutils.NewString(""))
+	}
+	return nil
+}
+
 func (lblis *SLoadbalancerListener) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return lblis.IsOwner(userCred) || userCred.IsSystemAdmin()
 }
@@ -297,6 +304,9 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 	aclStatusV := validators.NewStringChoicesValidator("acl_status", LB_BOOL_VALUES)
 	aclStatusV.Default(lblis.AclStatus)
 	aclTypeV := validators.NewStringChoicesValidator("acl_type", LB_ACL_TYPES)
+	if LB_ACL_TYPES.Has(lblis.AclType) {
+		aclTypeV.Default(lblis.AclType)
+	}
 	aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerProjId)
 	certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerProjId)
 	tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", LB_TLS_CIPHER_POLICIES).Default(LB_TLS_CIPHER_POLICY_1_2)
@@ -345,11 +355,8 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 			return nil, err
 		}
 	}
-	{
-		// clear out acl_id when acl_status is off
-		if aclStatusV.Value == LB_BOOL_OFF {
-			data.Set("acl_id", jsonutils.NewString(""))
-		}
+	if err := LoadbalancerListenerManager.validateAcl(aclStatusV, aclTypeV, aclV, data); err != nil {
+		return nil, err
 	}
 	{
 		if backendGroup, ok := backendGroupV.Model.(*SLoadbalancerBackendGroup); ok && backendGroup.LoadbalancerId != lblis.LoadbalancerId {
