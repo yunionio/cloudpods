@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/coredns/coredns/plugin/pkg/log"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/pkg/util/osprofile"
@@ -420,7 +420,6 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 		log.Errorf("GetInstances fail %s", err)
 		return nil, 0, err
 	}
-
 	instances := []SInstance{}
 	for _, reservation := range res.Reservations {
 		for _, instance := range reservation.Instances {
@@ -473,8 +472,16 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				productCodes = append(productCodes, *p.ProductCodeId)
 			}
 
+			szone, err := self.getZoneById(*instance.Placement.AvailabilityZone)
+			if err != nil {
+				return nil, 0, err
+			}
+
+			host := szone.getHost()
+
 			sinstance := SInstance{
 				RegionId:          self.RegionId,
+				host:              host,
 				ZoneId:            *instance.Placement.AvailabilityZone,
 				InstanceId:        *instance.InstanceId,
 				ImageId:           *instance.ImageId,
