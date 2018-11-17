@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/ansible"
 )
 
 type SHost struct {
@@ -118,7 +119,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int32, cpu i
 			},
 			OsProfile: OsProfile{
 				ComputerName:  name,
-				AdminUsername: DEFAULT_USER,
+				AdminUsername: ansible.PUBLIC_CLOUD_ANSIBLE_USER,
 				AdminPassword: passwd,
 				CustomData:    userData,
 			},
