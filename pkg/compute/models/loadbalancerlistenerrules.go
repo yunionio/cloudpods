@@ -43,6 +43,7 @@ type SLoadbalancerListenerRule struct {
 
 func loadbalancerListenerRuleCheckUniqueness(ctx context.Context, lbls *SLoadbalancerListener, domain, path string) error {
 	q := LoadbalancerListenerRuleManager.Query().
+		IsFalse("pending_deleted").
 		Equals("listener_id", lbls.Id).
 		Equals("domain", domain).
 		Equals("path", path)
