@@ -3,6 +3,7 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/log"
@@ -10,6 +11,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
@@ -138,22 +140,26 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 				passwd = seclib2.RandomPassword2(12)
 			}
 
-			iregion, err := host.GetIRegion()
-			if err != nil {
-				log.Errorf("GetIRegion fail %s", err)
-				return nil, err
-			}
-
-			secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), desc.SecGroupId, host.GetRegion().GetId(), host.ManagerId)
-			if secgroupCache == nil {
-				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s, regionId: %s, provider: %s", desc.SecGroupId, host.GetRegion().GetId(), host.ManagerId)
-			}
-
 			nets := guest.GetNetworks()
 			net := nets[0].GetNetwork()
 			vpc := net.GetVpc()
 
-			secgroupExtId, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpc.ExternalId, desc.SecGroupName, "", desc.SecRules)
+			iregion, err := host.GetIRegion()
+			if err != nil {
+				return nil, err
+			}
+
+			vpcId := "normal"
+			if strings.HasSuffix(host.Name, "-classic") {
+				vpcId = "classic"
+			}
+
+			secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), desc.SecGroupId, vpcId, vpc.CloudregionId, vpc.ManagerId)
+			if secgroupCache == nil {
+				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s, vpc: %s", desc.SecGroupId, vpc.Name)
+			}
+
+			secgroupExtId, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpcId, desc.SecGroupName, "", desc.SecRules)
 			if err != nil {
 				log.Errorf("SyncSecurityGroup fail %s", err)
 				return nil, err
@@ -162,22 +168,21 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 				return nil, fmt.Errorf("failed to set externalId for secgroup %s externalId %s: error: %v", desc.SecGroupId, secgroupExtId, err)
 			}
 
-			if iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId); err != nil {
+			iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
+				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId)
+			if err != nil {
 				return nil, err
-			} else {
-				log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
-				if err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800); err != nil {
-					return nil, err
-				}
-				if iVM, err = ihost.GetIVMById(iVM.GetGlobalId()); err != nil {
-					log.Errorf("cannot find vm %s", err)
-					return nil, err
-				}
-
-				data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd, action)
-				return data, nil
 			}
+			log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
+			if err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800); err != nil {
+				return nil, err
+			}
+			if iVM, err = ihost.GetIVMById(iVM.GetGlobalId()); err != nil {
+				log.Errorf("cannot find vm %s", err)
+				return nil, err
+			}
+
+			return fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd, action), nil
 		})
 	} else if action == "deploy" {
 		iVM, err := ihost.GetIVMById(guest.GetExternalId())
@@ -290,5 +295,72 @@ func (self *SAzureGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context
 	}
 
 	guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
+	return nil
+}
+
+func (self *SAzureGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		ihost, err := host.GetIHost()
+		if err != nil {
+			return nil, err
+		}
+		iVM, err := ihost.GetIVMById(guest.ExternalId)
+		if err != nil {
+			return nil, err
+		}
+
+		if fwOnly, _ := task.GetParams().Bool("fw_only"); fwOnly {
+			vpcID := "normal"
+			if strings.HasSuffix(host.Name, "-classic") {
+				vpcID = "classic"
+			}
+			iregion, err := host.GetIRegion()
+			if err != nil {
+				return nil, err
+			}
+			secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), guest.SecgrpId, vpcID, host.GetRegion().Id, host.ManagerId)
+			if secgroupCache == nil {
+				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s vpc: %s", guest.SecgrpId, vpcID)
+			}
+			extID, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpcID, guest.GetSecgroupName(), "", guest.GetSecRules())
+			if err != nil {
+				return nil, err
+			}
+			if err = secgroupCache.SetExternalId(extID); err != nil {
+				return nil, err
+			}
+			return nil, iVM.AssignSecurityGroup(extID)
+		}
+
+		iDisks, err := iVM.GetIDisks()
+		if err != nil {
+			return nil, err
+		}
+		disks := make([]models.SDisk, 0)
+		for _, guestdisk := range guest.GetDisks() {
+			disk := guestdisk.GetDisk()
+			disks = append(disks, *disk)
+		}
+
+		added := make([]models.SDisk, 0)
+		commondb := make([]models.SDisk, 0)
+		commonext := make([]cloudprovider.ICloudDisk, 0)
+		removed := make([]cloudprovider.ICloudDisk, 0)
+
+		if err := compare.CompareSets(disks, iDisks, &added, &commondb, &commonext, &removed); err != nil {
+			return nil, err
+		}
+		for _, disk := range removed {
+			if err := iVM.DetachDisk(disk.GetId()); err != nil {
+				return nil, err
+			}
+		}
+		for _, disk := range added {
+			if err := iVM.AttachDisk(disk.ExternalId); err != nil {
+				return nil, err
+			}
+		}
+		return nil, nil
+	})
 	return nil
 }

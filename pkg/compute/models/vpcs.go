@@ -344,10 +344,6 @@ func (manager *SVpcManager) ValidateCreateData(ctx context.Context, userCred mcc
 		return nil, httperrors.NewInputParameterError("Invalid cloudregion_id")
 	}
 	if region.isManaged() {
-		if region.GetVpcCount() >= MAX_VPC_PER_REGION {
-			return nil, httperrors.NewNotAcceptableError("Too many vpcs per region")
-		}
-
 		managerStr, _ := data.GetString("manager_id")
 		if len(managerStr) == 0 {
 			managerStr, _ = data.GetString("manager")

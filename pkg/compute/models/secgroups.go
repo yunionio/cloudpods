@@ -15,6 +15,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -194,64 +195,7 @@ func (manager *SSecurityGroupManager) getSecurityGroups() ([]SSecurityGroup, err
 	}
 }
 
-func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCred mcclient.TokenCredential, secgroups []cloudprovider.ICloudSecurityGroup, regionId, providerId string) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
-	localSecgroups := make([]SSecurityGroup, 0)
-	remoteSecgroups := make([]cloudprovider.ICloudSecurityGroup, 0)
-	syncResult := compare.SyncResult{}
-
-	if dbSecgroups, err := manager.getSecurityGroups(); err != nil {
-		syncResult.Error(err)
-		return nil, nil, syncResult
-	} else {
-		removed := make([]SSecurityGroup, 0)
-		commondb := make([]SSecurityGroup, 0)
-		commonext := make([]cloudprovider.ICloudSecurityGroup, 0)
-		added := make([]cloudprovider.ICloudSecurityGroup, 0)
-		if err := compare.CompareSets(dbSecgroups, secgroups, &removed, &commondb, &commonext, &added); err != nil {
-			syncResult.Error(err)
-			return nil, nil, syncResult
-		}
-
-		for i := 0; i < len(commondb); i += 1 {
-			if rules, err := commonext[i].GetRules(); err != nil {
-				syncResult.Error(err)
-			} else if len(rules) > 0 {
-				if err = commondb[i].SyncWithCloudSecurityGroup(userCred, commonext[i]); err != nil {
-					syncResult.UpdateError(err)
-				} else {
-					localSecgroups = append(localSecgroups, commondb[i])
-					remoteSecgroups = append(remoteSecgroups, commonext[i])
-					SecurityGroupRuleManager.SyncRules(ctx, userCred, &commondb[i], rules)
-					syncResult.Update()
-				}
-			}
-		}
-
-		for i := 0; i < len(added); i += 1 {
-			if metadata := added[i].GetMetadata(); metadata != nil && metadata.Contains("id") {
-				secgroupId, _ := metadata.GetString("id")
-				if secgrp, _ := manager.FetchById(secgroupId); secgrp != nil {
-					continue
-				}
-			}
-			if rules, err := added[i].GetRules(); err != nil {
-				syncResult.AddError(err)
-			} else if len(rules) > 0 {
-				if new, err := manager.newFromCloudVpc(userCred, added[i], regionId, providerId); err != nil {
-					syncResult.AddError(err)
-				} else if len(rules) > 0 {
-					localSecgroups = append(localSecgroups, *new)
-					remoteSecgroups = append(remoteSecgroups, added[i])
-					SecurityGroupRuleManager.SyncRules(ctx, userCred, new, rules)
-					syncResult.Add()
-				}
-			}
-		}
-	}
-	return localSecgroups, remoteSecgroups, syncResult
-}
-
-func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup) error {
+func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup, vpc *SVpc) error {
 	if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		extSec.Refresh()
 		self.Name = extSec.GetName()
@@ -262,10 +206,17 @@ func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCr
 		log.Errorf("syncWithCloudSecurityGroup error %s", err)
 		return err
 	}
+
+	if secgroupcache := SecurityGroupCacheManager.Register(context.Background(), userCred, self.Id, extSec.GetVpcId(), vpc.CloudregionId, vpc.ManagerId); secgroupcache != nil {
+		if err := secgroupcache.SetExternalId(self.ExternalId); err != nil {
+			log.Errorf("set secgroupcache %s externalId error: %v", secgroupcache.Id, err)
+		}
+	}
+
 	return nil
 }
 
-func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup, regionId, providerId string) (*SSecurityGroup, error) {
+func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup, vpc *SVpc) (*SSecurityGroup, error) {
 	secgroup := SSecurityGroup{}
 	secgroup.SetModelManager(manager)
 	secgroup.Name = extSec.GetName()
@@ -277,17 +228,67 @@ func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCre
 		return nil, err
 	}
 
-	secgroupcache := SSecurityGroupCache{}
-	secgroupcache.ExternalId = secgroup.ExternalId
-	secgroupcache.SecgroupId = secgroup.Id
-	secgroupcache.CloudregionId = regionId
-	secgroupcache.ManagerId = providerId
-
-	if err := SecurityGroupCacheManager.TableSpec().Insert(&secgroupcache); err != nil {
-		return nil, err
+	if secgroupcache := SecurityGroupCacheManager.Register(context.Background(), userCred, secgroup.Id, extSec.GetVpcId(), vpc.CloudregionId, vpc.ManagerId); secgroupcache != nil {
+		if err := secgroupcache.SetExternalId(secgroup.ExternalId); err != nil {
+			log.Errorf("set secgroupcache %s externalId error: %v", secgroupcache.Id, err)
+		}
 	}
 
 	return &secgroup, nil
+}
+
+func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCred mcclient.TokenCredential, secgroups []cloudprovider.ICloudSecurityGroup, vpc *SVpc) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
+	localSecgroups := make([]SSecurityGroup, 0)
+	remoteSecgroups := make([]cloudprovider.ICloudSecurityGroup, 0)
+	syncResult := compare.SyncResult{}
+
+	dbSecgroups, err := manager.getSecurityGroups()
+	if err != nil {
+		syncResult.Error(err)
+		return nil, nil, syncResult
+	}
+	removed := make([]SSecurityGroup, 0)
+	commondb := make([]SSecurityGroup, 0)
+	commonext := make([]cloudprovider.ICloudSecurityGroup, 0)
+	added := make([]cloudprovider.ICloudSecurityGroup, 0)
+	if err := compare.CompareSets(dbSecgroups, secgroups, &removed, &commondb, &commonext, &added); err != nil {
+		syncResult.Error(err)
+		return nil, nil, syncResult
+	}
+
+	for i := 0; i < len(commondb); i += 1 {
+		rules, err := commonext[i].GetRules()
+		if err != nil {
+			syncResult.Error(err)
+			continue
+		}
+		if err := commondb[i].SyncWithCloudSecurityGroup(userCred, commonext[i], vpc); err != nil {
+			syncResult.UpdateError(err)
+			continue
+		}
+		localSecgroups = append(localSecgroups, commondb[i])
+		remoteSecgroups = append(remoteSecgroups, commonext[i])
+		SecurityGroupRuleManager.SyncRules(ctx, userCred, &commondb[i], rules)
+		syncResult.Update()
+	}
+
+	for i := 0; i < len(added); i += 1 {
+		rules, err := added[i].GetRules()
+		if err != nil {
+			syncResult.AddError(err)
+			continue
+		}
+		new, err := manager.newFromCloudVpc(userCred, added[i], vpc)
+		if err != nil {
+			syncResult.AddError(err)
+			continue
+		}
+		localSecgroups = append(localSecgroups, *new)
+		remoteSecgroups = append(remoteSecgroups, added[i])
+		SecurityGroupRuleManager.SyncRules(ctx, userCred, new, rules)
+		syncResult.Add()
+	}
+	return localSecgroups, remoteSecgroups, syncResult
 }
 
 func (manager *SSecurityGroupManager) DelaySync(ctx context.Context, userCred mcclient.TokenCredential, idStr string) {
@@ -390,4 +391,36 @@ func (self *SSecurityGroup) ValidateDeleteCondition(ctx context.Context) error {
 		return httperrors.NewProtectedResourceError("not allow to delete default security group")
 	}
 	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
+}
+
+func (self *SSecurityGroup) GetSecurityGroupCaches() []SSecurityGroupCache {
+	caches := []SSecurityGroupCache{}
+	q := SecurityGroupCacheManager.Query()
+	q = q.Filter(sqlchemy.Equals(q.Field("secgroup_id"), self.Id))
+	if err := db.FetchModelObjects(SecurityGroupCacheManager, q, &caches); err != nil {
+		log.Errorf("get secgroupcache for secgroup %s error: %v", self.Name, err)
+	}
+	return caches
+}
+
+func (self *SSecurityGroup) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	return self.StartDeleteSecurityGroupTask(ctx, userCred, jsonutils.NewDict(), "")
+}
+
+func (self *SSecurityGroup) StartDeleteSecurityGroupTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "SecurityGroupDeleteTask", self, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SSecurityGroup) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	log.Infof("SecurityGroup delete do nothing")
+	return nil
+}
+
+func (self *SSecurityGroup) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }

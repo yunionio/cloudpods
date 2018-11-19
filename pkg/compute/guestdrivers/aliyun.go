@@ -202,19 +202,18 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 
 	if action == "create" {
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			iregion, err := host.GetIRegion()
-			if err != nil {
-				log.Errorf("GetIRegion fail %s", err)
-				return nil, err
-			}
 
 			nets := guest.GetNetworks()
 			net := nets[0].GetNetwork()
 			vpc := net.GetVpc()
+			iregion, err := host.GetIRegion()
+			if err != nil {
+				return nil, err
+			}
 
-			secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), desc.SecGroupId, host.GetRegion().GetId(), host.ManagerId)
+			secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), desc.SecGroupId, vpc.Id, vpc.CloudregionId, vpc.ManagerId)
 			if secgroupCache == nil {
-				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s, regionId: %s, provider: %s", desc.SecGroupId, host.GetRegion().GetId(), host.ManagerId)
+				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s, vpc: %s", desc.SecGroupId, vpc.Name)
 			}
 
 			secgroupExtId, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpc.ExternalId, desc.SecGroupName, "", desc.SecRules)
@@ -489,27 +488,4 @@ func (self *SAliyunGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Contex
 
 func (self *SAliyunGuestDriver) AllowReconfigGuest() bool {
 	return true
-}
-
-func (self *SAliyunGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, snapshotId, diskId string) error {
-	iDisk, _ := models.DiskManager.FetchById(diskId)
-	disk := iDisk.(*models.SDisk)
-	providerDisk, err := disk.GetIDisk()
-	if err != nil {
-		return err
-	}
-	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
-	snapshot := iSnapshot.(*models.SSnapshot)
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		cloudSnapshot, err := providerDisk.CreateISnapshot(snapshot.Name, "")
-		if err != nil {
-			return nil, err
-		}
-		res := jsonutils.NewDict()
-		res.Set("snapshot_id", jsonutils.NewString(cloudSnapshot.GetId()))
-		res.Set("manager_id", jsonutils.NewString(cloudSnapshot.GetManagerId()))
-		res.Set("cloudregion_id", jsonutils.NewString(cloudSnapshot.GetRegionId()))
-		return res, nil
-	})
-	return nil
 }

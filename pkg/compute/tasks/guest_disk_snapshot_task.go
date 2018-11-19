@@ -52,32 +52,25 @@ func (self *GuestDiskSnapshotTask) DoDiskSnapshot(ctx context.Context, guest *mo
 
 func (self *GuestDiskSnapshotTask) OnDiskSnapshotComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	res := data.(*jsonutils.JSONDict)
+	snapshotId, _ := self.Params.GetString("snapshot_id")
+	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
+	snapshot := iSnapshot.(*models.SSnapshot)
 	if guest.Hypervisor == models.HYPERVISOR_KVM {
 		location, err := res.GetString("location")
 		if err != nil {
 			log.Infof("OnDiskSnapshotComplete called with data no location")
 			return
 		}
-		snapshotId, _ := self.Params.GetString("snapshot_id")
-		iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
-		snapshot := iSnapshot.(*models.SSnapshot)
 		models.SnapshotManager.TableSpec().Update(snapshot, func() error {
 			snapshot.Location = location
 			snapshot.Status = models.SNAPSHOT_READY
 			return nil
 		})
 	} else {
-		snapshotId, _ := self.Params.GetString("snapshot_id")
-		iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
-		snapshot := iSnapshot.(*models.SSnapshot)
 		extSnapshotId, _ := data.GetString("snapshot_id")
-		cloudregionId, _ := data.GetString("cloudregion_id")
-		managerId, _ := data.GetString("manager_id")
 		models.SnapshotManager.TableSpec().Update(snapshot, func() error {
-			snapshot.CloudregionId = cloudregionId
 			snapshot.ExternalId = extSnapshotId
 			snapshot.Status = models.SNAPSHOT_READY
-			snapshot.ManagerId = managerId
 			return nil
 		})
 	}

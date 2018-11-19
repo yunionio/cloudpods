@@ -219,7 +219,7 @@ func syncVpcSecGroup(ctx context.Context, provider *models.SCloudprovider, task 
 		logSyncFailed(provider, task, msg)
 		return
 	} else {
-		_, _, result := models.SecurityGroupManager.SyncSecgroups(ctx, task.UserCred, secgroups, localVpc.CloudregionId, provider.Id)
+		_, _, result := models.SecurityGroupManager.SyncSecgroups(ctx, task.UserCred, secgroups, localVpc)
 		msg := result.Result()
 		notes := fmt.Sprintf("SyncSecurityGroup for VPC %s result: %s", localVpc.Name, msg)
 		log.Infof(notes)

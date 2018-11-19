@@ -108,42 +108,21 @@ type NetworkProfile struct {
 	NetworkInterfaces []NetworkInterfaceReference `json:"networkInterfaces,omitempty"`
 }
 
-type InstanceViewStatus struct {
+type Statuses struct {
 	Code          string
 	Level         string
-	DisplayStatus string
+	DisplayStatus string `json:"displayStatus,omitempty"`
 	Message       string
 	//Time          time.Time
 }
 
-type FormattedMessage struct {
-	Language string
-	Message  string
-}
-
-type GuestAgentStatus struct {
-	ProtocolVersion   string
-	Timestamp         time.Time
-	GuestAgentVersion string
-	Status            string
-	FormattedMessage  FormattedMessage
+type VMAgent struct {
+	VmAgentVersion string   `json:"vmAgentVersion,omitempty"`
+	Statuses       Statuses `json:"statuses,omitempty"`
 }
 
 type VirtualMachineInstanceView struct {
-	UpdateDomain             int
-	FaultDomain              int
-	Status                   string
-	StatusMessage            string
-	PowerState               string
-	PrivateIpAddress         string
-	PublicIpAddresses        []string
-	FullyQualifiedDomainName string
-	GuestAgentStatus         GuestAgentStatus
-
-	ComputerName string
-	OsName       string
-	OsVersion    string
-	Statuses     []InstanceViewStatus
+	Statuses []Statuses `json:"statuses,omitempty"`
 }
 
 type DomainName struct {
@@ -958,7 +937,7 @@ func (self *SInstance) StartVM() error {
 	if err := self.host.zone.region.StartVM(self.ID); err != nil {
 		return err
 	}
-	self.host.zone.region.client.jsonRequest("PATCH", self.ID, "")
+	self.host.zone.region.client.jsonRequest("PATCH", self.ID, jsonutils.Marshal(self).String())
 	return cloudprovider.WaitStatus(self, models.VM_RUNNING, 10*time.Second, 300*time.Second)
 }
 
@@ -967,7 +946,7 @@ func (self *SInstance) StopVM(isForce bool) error {
 	if err != nil {
 		return err
 	}
-	self.host.zone.region.client.jsonRequest("PATCH", self.ID, "")
+	self.host.zone.region.client.jsonRequest("PATCH", self.ID, jsonutils.Marshal(self).String())
 	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second)
 }
 
@@ -997,27 +976,14 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	return nil, nil
 }
 
+func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
+	return self.host.zone.region.AssiginSecurityGroup(self.ID, secgroupId)
+}
+
 func (self *SInstance) GetBillingType() string {
 	return models.BILLING_TYPE_POSTPAID
 }
 
 func (self *SInstance) GetExpiredAt() time.Time {
 	return time.Now()
-}
-
-func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return self.host.zone.region.AssiginSecurityGroup(self.ID, secgroupId)
-}
-
-func (self *SInstance) RevokeSecurityGroup() error {
-	nics, err := self.getNics()
-	if err != nil {
-		return err
-	}
-	for _, nic := range nics {
-		if err := nic.revokeSecurityGroup(); err != nil {
-			return err
-		}
-	}
-	return nil
 }

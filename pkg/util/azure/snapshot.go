@@ -22,8 +22,9 @@ type SSnapshot struct {
 	Name       string
 	Location   string
 	ManagedBy  string
-	Sku        SnapshotSku
+	Sku        *SnapshotSku
 	Properties DiskProperties
+	Type       string
 }
 
 func (self *SSnapshot) GetId() string {
@@ -57,7 +58,23 @@ func (self *SSnapshot) IsEmulated() bool {
 }
 
 func (self *SRegion) CreateSnapshot(diskId, snapName, desc string) (*SSnapshot, error) {
-	snapshot := SSnapshot{}
+	disk, err := self.GetDisk(diskId)
+	if err != nil {
+		return nil, err
+	}
+	snapshot := SSnapshot{
+		region:   self,
+		Name:     snapName,
+		Location: self.Name,
+		Properties: DiskProperties{
+			CreationData: CreationData{
+				CreateOption:     "Copy",
+				SourceResourceID: diskId,
+			},
+			DiskSizeGB: disk.Properties.DiskSizeGB,
+		},
+		Type: "Microsoft.Compute/snapshots",
+	}
 	return &snapshot, self.client.Create(jsonutils.Marshal(snapshot), &snapshot)
 }
 
@@ -137,9 +154,11 @@ func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	classicSnapshots = append(classicSnapshots, _classicSnapshots...)
 	isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots)+len(classicSnapshots))
 	for i := 0; i < len(snapshots); i++ {
+		snapshots[i].region = self
 		isnapshots[i] = &snapshots[i]
 	}
 	for i := 0; i < len(classicSnapshots); i++ {
+		classicSnapshots[i].region = self
 		isnapshots[len(snapshots)+i] = &classicSnapshots[i]
 	}
 	return isnapshots, nil
@@ -147,14 +166,6 @@ func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 
 func (self *SSnapshot) GetDiskId() string {
 	return self.Properties.CreationData.SourceResourceID
-}
-
-func (self *SSnapshot) GetManagerId() string {
-	return self.region.client.providerId
-}
-
-func (self *SSnapshot) GetRegionId() string {
-	return self.region.GetId()
 }
 
 func (self *SSnapshot) GetDiskType() string {

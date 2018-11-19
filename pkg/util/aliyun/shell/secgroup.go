@@ -9,12 +9,13 @@ import (
 
 func init() {
 	type SecurityGroupListOptions struct {
-		VpcId  string `help:"VPC ID"`
-		Limit  int    `help:"page size"`
-		Offset int    `help:"page offset"`
+		VpcId            string   `help:"VPC ID"`
+		SecurityGroupIds []string `help:"SecurityGroup ids"`
+		Limit            int      `help:"page size"`
+		Offset           int      `help:"page offset"`
 	}
 	shellutils.R(&SecurityGroupListOptions{}, "security-group-list", "List security group", func(cli *aliyun.SRegion, args *SecurityGroupListOptions) error {
-		secgrps, total, e := cli.GetSecurityGroups(args.VpcId, args.Offset, args.Limit)
+		secgrps, total, e := cli.GetSecurityGroups(args.VpcId, args.SecurityGroupIds, args.Offset, args.Limit)
 		if e != nil {
 			return e
 		}

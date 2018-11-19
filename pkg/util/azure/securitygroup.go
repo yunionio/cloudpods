@@ -60,11 +60,11 @@ type Interface struct {
 }
 
 type SecurityGroupPropertiesFormat struct {
-	SecurityRules        *[]SecurityRules `json:"securityRules,omitempty"`
-	DefaultSecurityRules *[]SecurityRules `json:"defaultSecurityRules,omitempty"`
-	NetworkInterfaces    *[]Interface     `json:"networkInterfaces,omitempty"`
-	Subnets              *[]Subnet        `json:"subnets,omitempty"`
-	ProvisioningState    string           //Possible values are: 'Updating', 'Deleting', and 'Failed'
+	SecurityRules        []SecurityRules `json:"securityRules,omitempty"`
+	DefaultSecurityRules []SecurityRules `json:"defaultSecurityRules,omitempty"`
+	NetworkInterfaces    *[]Interface    `json:"networkInterfaces,omitempty"`
+	Subnets              *[]Subnet       `json:"subnets,omitempty"`
+	ProvisioningState    string          //Possible values are: 'Updating', 'Deleting', and 'Failed'
 }
 type SSecurityGroup struct {
 	vpc        *SVpc
@@ -306,9 +306,9 @@ func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 	if self.Properties.SecurityRules == nil {
 		return rules, nil
 	}
-	sort.Sort(SecurityRulesSet(*self.Properties.SecurityRules))
+	sort.Sort(SecurityRulesSet(self.Properties.SecurityRules))
 	priority := 100
-	for _, _rule := range *self.Properties.SecurityRules {
+	for _, _rule := range self.Properties.SecurityRules {
 		_rule.Properties.Priority = int32(priority)
 		secRules, err := _rule.Properties.toRules()
 		if err != nil {
@@ -331,13 +331,18 @@ func (self *SSecurityGroup) IsEmulated() bool {
 	return false
 }
 
-func (region *SRegion) CreateSecurityGroup(secName string, tagId string) (*SSecurityGroup, error) {
-	securityName := fmt.Sprintf("%s-%s", region.Name, secName)
+func (self *SSecurityGroup) GetVpcId() string {
+	return "normal"
+}
+
+func (region *SRegion) CreateSecurityGroup(secName string) (*SSecurityGroup, error) {
+	if secName == "Default" {
+		secName = "Default-copy"
+	}
 	secgroup := SSecurityGroup{
-		Name:     securityName,
+		Name:     secName,
 		Type:     "Microsoft.Network/networkSecurityGroups",
 		Location: region.Name,
-		Tags:     map[string]string{"id": tagId},
 	}
 	return &secgroup, region.client.Create(jsonutils.Marshal(secgroup), &secgroup)
 }
@@ -452,23 +457,23 @@ func (region *SRegion) updateSecurityGroupRules(secgroupId string, rules []secru
 			ruleStrs = append(ruleStrs, ruleStr)
 		}
 	}
-	secgroup.Properties.SecurityRules = &securityRules
+	secgroup.Properties.SecurityRules = securityRules
 	secgroup.Properties.ProvisioningState = ""
 	return secgroup.ID, region.client.Update(jsonutils.Marshal(secgroup), nil)
 }
 
 func (region *SRegion) AttachSecurityToInterfaces(secgroupId string, nicIds []string) error {
-	secgroup, err := region.GetSecurityGroupDetails(secgroupId)
-	if err != nil {
-		return err
+	for _, nicId := range nicIds {
+		nic, err := region.GetNetworkInterfaceDetail(nicId)
+		if err != nil {
+			return err
+		}
+		nic.Properties.NetworkSecurityGroup = &SSecurityGroup{ID: secgroupId}
+		if err := region.client.Update(jsonutils.Marshal(nic), nil); err != nil {
+			return err
+		}
 	}
-	interfaces := []Interface{}
-	for i := 0; i < len(nicIds); i++ {
-		interfaces = append(interfaces, Interface{ID: nicIds[i]})
-	}
-	secgroup.Properties.NetworkInterfaces = &interfaces
-	secgroup.Properties.ProvisioningState = ""
-	return region.client.Update(jsonutils.Marshal(secgroup), nil)
+	return nil
 }
 
 func (region *SRegion) AssiginSecurityGroup(instanceId, secgroupId string) error {

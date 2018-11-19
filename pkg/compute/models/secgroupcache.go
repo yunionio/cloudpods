@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/util/stringutils"
@@ -24,8 +25,9 @@ type SSecurityGroupCache struct {
 
 	Id            string `width:"128" charset:"ascii" primary:"true" list:"user"`
 	SecgroupId    string `width:"128" charset:"ascii" create:"required"`
+	VpcId         string `width:"128" charset:"ascii" create:"required"`
+	CloudregionId string `width:"128" charset:"ascii" create:"required"`
 	ExternalId    string `width:"256" charset:"utf8" index:"true" list:"admin" create:"admin_optional"`
-	CloudregionId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 }
 
 var SecurityGroupCacheManager *SSecurityGroupCacheManager
@@ -69,25 +71,50 @@ func (manager *SSecurityGroupCacheManager) ListItemFilter(ctx context.Context, q
 		if secgroup, _ := SecurityGroupManager.FetchByIdOrName(userCred.GetProjectId(), defsecgroup); secgroup != nil {
 			sql = sql.Equals("secgroup_id", secgroup.GetId())
 		} else {
-			return nil, httperrors.NewNotFoundError(fmt.Sprintf("Security Group %s not found", defsecgroup))
+			return nil, httperrors.NewNotFoundError("Security Group %s not found", defsecgroup)
 		}
 	}
 	return sql, nil
 }
 
+func (self *SSecurityGroupCache) GetIRegion() (cloudprovider.ICloudRegion, error) {
+	provider, err := self.GetDriver()
+	if err != nil {
+		return nil, err
+	}
+	if region := CloudregionManager.FetchRegionById(self.CloudregionId); region != nil {
+		return provider.GetIRegionById(region.ExternalId)
+	}
+	return nil, fmt.Errorf("failed to find iregion for secgroupcache %s vpc: %s externalId: %s", self.Id, self.VpcId, self.ExternalId)
+}
+
+func (self *SSecurityGroupCache) DeleteCloudSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if len(self.ExternalId) > 0 {
+		iregion, err := self.GetIRegion()
+		if err != nil {
+			return err
+		}
+		return iregion.DeleteSecurityGroup(self.VpcId, self.ExternalId)
+	}
+	return nil
+}
+
 func (self *SSecurityGroupCache) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if err := self.DeleteCloudSecurityGroup(ctx, userCred); err != nil {
+		log.Errorf("delete secgroup cache %v error: %v", self, err)
+	}
 	return db.DeleteModel(ctx, userCred, self)
 }
 
-func (manager *SSecurityGroupCacheManager) GetSecgroupCache(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, regionId, providerId string) *SSecurityGroupCache {
+func (manager *SSecurityGroupCacheManager) GetSecgroupCache(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, vpcId string, regionId string, providerId string) *SSecurityGroupCache {
 	secgroupCache := SSecurityGroupCache{}
 	query := manager.Query()
-	cond := sqlchemy.AND(sqlchemy.Equals(query.Field("secgroup_id"), secgroupId), sqlchemy.Equals(query.Field("cloudregion_id"), regionId), sqlchemy.Equals(query.Field("manager_id"), providerId))
+	cond := sqlchemy.AND(sqlchemy.Equals(query.Field("secgroup_id"), secgroupId), sqlchemy.Equals(query.Field("vpc_id"), vpcId), sqlchemy.Equals(query.Field("cloudregion_id"), regionId), sqlchemy.Equals(query.Field("manager_id"), providerId))
 	query = query.Filter(cond)
 
 	count := query.Count()
 	if count > 1 {
-		log.Errorf("duplicate secgroupcache for secgroup: %s regionId: %s providerId: %s", secgroupId, regionId, providerId)
+		log.Errorf("duplicate secgroupcache for secgroup: %s vpcId: %s regionId: %s", secgroupId, vpcId, regionId)
 	} else if count == 0 {
 		return nil
 	}
@@ -96,21 +123,22 @@ func (manager *SSecurityGroupCacheManager) GetSecgroupCache(ctx context.Context,
 	return &secgroupCache
 }
 
-func (manager *SSecurityGroupCacheManager) Register(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, regionId, providerId string) *SSecurityGroupCache {
+func (manager *SSecurityGroupCacheManager) Register(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, vpcId, regionId string, providerId string) *SSecurityGroupCache {
 	lockman.LockClass(ctx, manager, userCred.GetProjectId())
 	defer lockman.ReleaseClass(ctx, manager, userCred.GetProjectId())
 
-	secgroupCache := manager.GetSecgroupCache(ctx, userCred, secgroupId, regionId, providerId)
+	secgroupCache := manager.GetSecgroupCache(ctx, userCred, secgroupId, vpcId, regionId, providerId)
 	if secgroupCache != nil {
 		return secgroupCache
 	}
 
 	secgroupCache = &SSecurityGroupCache{
 		SecgroupId:    secgroupId,
+		VpcId:         vpcId,
 		CloudregionId: regionId,
 	}
-	secgroupCache.SetModelManager(manager)
 	secgroupCache.ManagerId = providerId
+	secgroupCache.SetModelManager(manager)
 	if err := manager.TableSpec().Insert(secgroupCache); err != nil {
 		log.Errorf("insert secgroupcache error: %v", err)
 		return nil

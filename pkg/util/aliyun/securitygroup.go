@@ -8,7 +8,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 )
@@ -87,6 +86,10 @@ func (v PermissionSet) Less(i, j int) bool {
 	return false
 }
 
+func (self *SSecurityGroup) GetVpcId() string {
+	return self.VpcId
+}
+
 func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
 	if len(self.Tags.Tag) == 0 {
 		return nil
@@ -155,7 +158,7 @@ func (self *SSecurityGroup) Refresh() error {
 	}
 }
 
-func (self *SRegion) GetSecurityGroups(vpcId string, offset int, limit int) ([]SSecurityGroup, int, error) {
+func (self *SRegion) GetSecurityGroups(vpcId string, securityGroupIds []string, offset int, limit int) ([]SSecurityGroup, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50
 	}
@@ -165,6 +168,10 @@ func (self *SRegion) GetSecurityGroups(vpcId string, offset int, limit int) ([]S
 	params["PageNumber"] = fmt.Sprintf("%d", (offset/limit)+1)
 	if len(vpcId) > 0 {
 		params["VpcId"] = vpcId
+	}
+
+	if securityGroupIds != nil && len(securityGroupIds) > 0 {
+		params["SecurityGroupIds"] = jsonutils.Marshal(securityGroupIds).String()
 	}
 
 	body, err := self.ecsRequest("DescribeSecurityGroups", params)
@@ -209,6 +216,11 @@ func (self *SRegion) CreateSecurityGroup(vpcId string, name string, desc string)
 	if len(vpcId) > 0 {
 		params["VpcId"] = vpcId
 	}
+
+	if name == "Default" {
+		name = "Default-copy"
+	}
+
 	if len(name) > 0 {
 		params["SecurityGroupName"] = name
 	}
@@ -383,58 +395,6 @@ func (self *SRegion) delSecurityGroupRule(secGrpId string, rule *secrules.Securi
 	}
 }
 
-func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
-	secId, err := self.CreateSecurityGroup(vpcId, "", "")
-	if err != nil {
-		return "", err
-	}
-	inRule := secrules.SecurityRule{
-		Priority:  1,
-		Action:    secrules.SecurityRuleAllow,
-		Protocol:  "",
-		Direction: secrules.SecurityRuleIngress,
-		PortStart: -1,
-		PortEnd:   -1,
-	}
-	err = self.addSecurityGroupRules(secId, &inRule)
-	if err != nil {
-		return "", err
-	}
-	outRule := secrules.SecurityRule{
-		Priority:  1,
-		Action:    secrules.SecurityRuleAllow,
-		Protocol:  "",
-		Direction: secrules.SecurityRuleEgress,
-		PortStart: -1,
-		PortEnd:   -1,
-	}
-	err = self.addSecurityGroupRules(secId, &outRule)
-	if err != nil {
-		return "", err
-	}
-	return secId, nil
-}
-
-func (self *SRegion) getSecurityGroupByTag(vpcId, secgroupId string) (*SSecurityGroup, error) {
-	params := make(map[string]string)
-	params["RegionId"] = self.RegionId
-	if len(vpcId) > 0 {
-		params["VpcId"] = vpcId
-	}
-	params["Tag.1.Key"] = "id"
-	params["Tag.1.Value"] = secgroupId
-
-	secgrps := make([]SSecurityGroup, 0)
-	if body, err := self.ecsRequest("DescribeSecurityGroups", params); err != nil {
-		return nil, err
-	} else if err := body.Unmarshal(&secgrps, "SecurityGroups", "SecurityGroup"); err != nil {
-		return nil, err
-	} else if len(secgrps) != 1 {
-		return nil, httperrors.NewNotFoundError("failed to find SecurityGroup %s", secgroupId)
-	}
-	return &secgrps[0], nil
-}
-
 func (self *SPermission) String() string {
 	action := secrules.SecurityRuleDeny
 	if strings.ToLower(self.Policy) == "accept" {
@@ -472,50 +432,6 @@ func (self *SPermission) String() string {
 		result += fmt.Sprintf(" %s", port)
 	}
 	return result
-}
-
-func (self *SRegion) addTagToSecurityGroup(secgroupId, key, value string, index int) error {
-	if index > 5 || index < 1 {
-		index = 1
-	}
-	params := map[string]string{"ResourceType": "securitygroup", "ResourceId": secgroupId}
-	params[fmt.Sprintf("Tag.%d.Key", index)] = key
-	params[fmt.Sprintf("Tag.%d.Value", index)] = value
-	_, err := self.ecsRequest("AddTags", params)
-	return err
-}
-
-func (self *SRegion) revokeSecurityGroup(secgroupId, instanceId string, keep bool) error {
-	if !keep {
-		return self.leaveSecurityGroup(secgroupId, instanceId)
-	}
-	if secgroup, err := self.GetSecurityGroupDetails(secgroupId); err != nil {
-		return err
-	} else {
-		for _, permission := range secgroup.Permissions.Permission {
-			if rule, err := secrules.ParseSecurityRule(permission.String()); err != nil {
-				return err
-			} else {
-				rule.Priority = permission.Priority
-				if err := self.delSecurityGroupRule(secgroup.SecurityGroupId, rule); err != nil {
-					return err
-				}
-			}
-		}
-		if rule, err := secrules.ParseSecurityRule("in:allow any"); err != nil {
-			rule.Priority = 100
-			if err := self.addSecurityGroupRules(secgroup.SecurityGroupId, rule); err != nil {
-				return err
-			}
-		}
-		if rule, err := secrules.ParseSecurityRule("out:allow any"); err != nil {
-			rule.Priority = 100
-			if err := self.addSecurityGroupRules(secgroup.SecurityGroupId, rule); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.SecurityRule) error {
@@ -584,10 +500,23 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Secur
 	return nil
 }
 
-func (self *SRegion) assignSecurityGroup(secgroupId, instanceId string) error {
+func (self *SRegion) AssignSecurityGroup(secgroupId, instanceId string) error {
 	params := map[string]string{"InstanceId": instanceId, "SecurityGroupId": secgroupId}
-	_, err := self.ecsRequest("JoinSecurityGroup", params)
-	return err
+	if _, err := self.ecsRequest("JoinSecurityGroup", params); err != nil {
+		return err
+	}
+	instance, err := self.GetInstance(instanceId)
+	if err != nil {
+		return err
+	}
+	for _, _secgroupId := range instance.SecurityGroupIds.SecurityGroupId {
+		if _secgroupId != secgroupId {
+			if err := self.leaveSecurityGroup(_secgroupId, instanceId); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (self *SRegion) leaveSecurityGroup(secgroupId, instanceId string) error {
@@ -596,7 +525,7 @@ func (self *SRegion) leaveSecurityGroup(secgroupId, instanceId string) error {
 	return err
 }
 
-func (self *SRegion) deleteSecurityGroup(secGrpId string) error {
+func (self *SRegion) DeleteSecurityGroup(vpcId, secGrpId string) error {
 	params := make(map[string]string)
 	params["SecurityGroupId"] = secGrpId
 

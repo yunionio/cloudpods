@@ -273,6 +273,7 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, userCred mccli
 		return nil, err
 	}
 	disk := iDisk.(*SDisk)
+	storage := disk.GetStorage()
 	snapshot := &SSnapshot{}
 	snapshot.SetModelManager(self)
 	snapshot.ProjectId = userCred.GetProjectId()
@@ -282,6 +283,8 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, userCred mccli
 	snapshot.DiskType = disk.DiskType
 	snapshot.Location = location
 	snapshot.CreatedBy = createdBy
+	snapshot.ManagerId = storage.ManagerId
+	snapshot.CloudregionId = storage.getZone().GetRegion().GetId()
 	snapshot.Name = name
 	snapshot.Status = SNAPSHOT_CREATING
 	err = SnapshotManager.TableSpec().Insert(snapshot)
@@ -437,10 +440,12 @@ func totalSnapshotCount(projectId string) int {
 	return count
 }
 
-func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshot) error {
+func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshot, region *SCloudregion) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		self.Name = ext.GetName()
 		self.Status = ext.GetStatus()
 		self.DiskType = ext.GetDiskType()
+		self.CloudregionId = region.Id
 		return nil
 	})
 	if err != nil {
@@ -449,7 +454,7 @@ func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, 
 	return err
 }
 
-func (manager *SSnapshotManager) newFromCloudSnapshot(userCred mcclient.TokenCredential, extSnapshot cloudprovider.ICloudSnapshot, region *SCloudregion) (*SSnapshot, error) {
+func (manager *SSnapshotManager) newFromCloudSnapshot(userCred mcclient.TokenCredential, extSnapshot cloudprovider.ICloudSnapshot, region *SCloudregion, provider *SCloudprovider) (*SSnapshot, error) {
 	snapshot := SSnapshot{}
 	snapshot.SetModelManager(manager)
 
@@ -467,7 +472,7 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(userCred mcclient.TokenCre
 
 	snapshot.DiskType = extSnapshot.GetDiskType()
 	snapshot.Size = int(extSnapshot.GetSize()) * 1024
-	snapshot.ManagerId = extSnapshot.GetManagerId()
+	snapshot.ManagerId = provider.Id
 	snapshot.CloudregionId = region.Id
 
 	snapshot.ProjectId = userCred.GetProjectId()
@@ -518,7 +523,7 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudSnapshot(userCred, commonext[i])
+		err = commondb[i].SyncWithCloudSnapshot(userCred, commonext[i], region)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -526,7 +531,7 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		_, err := manager.newFromCloudSnapshot(userCred, added[i], region)
+		_, err := manager.newFromCloudSnapshot(userCred, added[i], region, provider)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {

@@ -752,6 +752,10 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	}
 }
 
+func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
+	return self.host.zone.region.AssignSecurityGroup(secgroupId, self.InstanceId)
+}
+
 func (self *SInstance) GetBillingType() string {
 	switch self.InstanceChargeType {
 	case PrePaidInstanceChargeType:
@@ -765,12 +769,4 @@ func (self *SInstance) GetBillingType() string {
 
 func (self *SInstance) GetExpiredAt() time.Time {
 	return self.ExpiredTime
-}
-
-func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return cloudprovider.ErrNotImplemented
-}
-
-func (self *SInstance) RevokeSecurityGroup() error {
-	return cloudprovider.ErrNotImplemented
 }

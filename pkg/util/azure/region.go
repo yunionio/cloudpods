@@ -418,13 +418,50 @@ func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	return ieips, nil
 }
 
-func (region *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
+func (region *SRegion) DeleteSecurityGroup(vpcId, secgroupId string) error {
+	if vpcId == "classic" {
+		return region.deleteClassicSecurityGroup(secgroupId)
+	}
+	secgroup, err := region.GetSecurityGroupDetails(secgroupId)
+	if err != nil {
+		if err == cloudprovider.ErrNotFound {
+			return nil
+		}
+		return err
+	}
+	if secgroup.Properties.NetworkInterfaces != nil {
+		for _, nic := range *secgroup.Properties.NetworkInterfaces {
+			nic, err := region.GetNetworkInterfaceDetail(nic.ID)
+			if err != nil {
+				return err
+			}
+			nic.Properties.NetworkSecurityGroup = nil
+			if err := region.client.Update(jsonutils.Marshal(nic), nil); err != nil {
+				return err
+			}
+		}
+	}
+	return region.client.Delete(secgroupId)
+}
+
+func (region *SRegion) SyncSecurityGroup(secgroupId, vpcId, name, desc string, rules []secrules.SecurityRule) (string, error) {
+	if vpcId == "classic" {
+		return region.syncClassicSecurityGroup(secgroupId, name, desc, rules)
+	}
+	if len(secgroupId) > 0 {
+		if _, err := region.GetSecurityGroupDetails(secgroupId); err != nil {
+			if err != cloudprovider.ErrNotFound {
+				return "", err
+			}
+			secgroupId = ""
+		}
+	}
 	if len(secgroupId) == 0 {
-		secgroup, err := region.CreateSecurityGroup(name, "")
+		secgroup, err := region.CreateSecurityGroup(name)
 		if err != nil {
 			return "", err
 		}
 		secgroupId = secgroup.ID
 	}
-	return region.updateClassicSecurityGroupRules(secgroupId, rules)
+	return region.updateSecurityGroupRules(secgroupId, rules)
 }

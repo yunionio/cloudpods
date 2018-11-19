@@ -637,12 +637,21 @@ func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) 
 }
 
 func (region *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
-	if len(secgroupId) == 0 {
-		extId, err := region.CreateSecurityGroup(vpcId, name, desc)
+	if len(secgroupId) > 0 {
+		_, total, err := region.GetSecurityGroups("", []string{secgroupId}, 0, 1)
 		if err != nil {
 			return "", err
 		}
-		secgroupId = extId
+		if total == 0 {
+			secgroupId = ""
+		}
 	}
-	return secgroupId, cloudprovider.ErrNotImplemented
+	if len(secgroupId) == 0 {
+		extID, err := region.CreateSecurityGroup(vpcId, name, desc)
+		if err != nil {
+			return "", err
+		}
+		secgroupId = extID
+	}
+	return secgroupId, region.syncSecgroupRules(secgroupId, rules)
 }

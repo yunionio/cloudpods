@@ -155,7 +155,7 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 func (self *SVpc) fetchSecurityGroups() error {
 	secgroups := make([]SSecurityGroup, 0)
 	for {
-		parts, total, err := self.region.GetSecurityGroups(self.VpcId, len(secgroups), 50)
+		parts, total, err := self.region.GetSecurityGroups(self.VpcId, []string{}, len(secgroups), 50)
 		if err != nil {
 			return err
 		}
@@ -194,19 +194,11 @@ func (self *SVpc) Delete() error {
 	}
 	for i := 0; i < len(self.secgroups); i += 1 {
 		secgroup := self.secgroups[i].(*SSecurityGroup)
-		err := self.region.deleteSecurityGroup(secgroup.SecurityGroupId)
+		err := self.region.DeleteSecurityGroup(self.VpcId, secgroup.SecurityGroupId)
 		if err != nil {
 			log.Errorf("deleteSecurityGroup for VPC delete fail %s", err)
 			return err
 		}
 	}
 	return self.region.DeleteVpc(self.VpcId)
-}
-
-func (self *SVpc) assignSecurityGroup(secgroupId string, instanceId string) error {
-	return self.region.assignSecurityGroup(secgroupId, instanceId)
-}
-
-func (self *SVpc) revokeSecurityGroup(secgroupId string, instanceId string, keep bool) error {
-	return self.region.revokeSecurityGroup(secgroupId, instanceId, keep)
 }

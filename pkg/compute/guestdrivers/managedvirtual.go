@@ -305,6 +305,27 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 	return nil
 }
 
+func (self *SManagedVirtualizedGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, snapshotId, diskId string) error {
+	iDisk, _ := models.DiskManager.FetchById(diskId)
+	disk := iDisk.(*models.SDisk)
+	providerDisk, err := disk.GetIDisk()
+	if err != nil {
+		return err
+	}
+	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
+	snapshot := iSnapshot.(*models.SSnapshot)
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		cloudSnapshot, err := providerDisk.CreateISnapshot(snapshot.Name, "")
+		if err != nil {
+			return nil, err
+		}
+		res := jsonutils.NewDict()
+		res.Set("snapshot_id", jsonutils.NewString(cloudSnapshot.GetId()))
+		return res, nil
+	})
+	return nil
+}
+
 func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		ihost, err := host.GetIHost()
@@ -315,20 +336,8 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.
 		if err != nil {
 			return nil, err
 		}
-		if fw_only, _ := task.GetParams().Bool("fw_only"); fw_only {
-			if len(guest.SecgrpId) == 0 {
-				return nil, iVM.RevokeSecurityGroup()
-			}
-			iregion, err := host.GetIRegion()
-			if err != nil {
-				return nil, err
-			}
-			region := host.GetRegion()
-			secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), guest.SecgrpId, region.GetId(), host.ManagerId)
-			if secgroupCache == nil {
-				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s region: %s, provider: %s", guest.SecgrpId, region.GetId(), host.ManagerId)
-			}
 
+		if fwOnly, _ := task.GetParams().Bool("fw_only"); fwOnly {
 			vpcId := ""
 			for _, network := range guest.GetNetworks() {
 				if vpc := network.GetNetwork().GetVpc(); vpc != nil {
@@ -336,16 +345,24 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.
 					break
 				}
 			}
-
-			extId, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpcId, guest.GetSecgroupName(), "", guest.GetSecRules())
+			iregion, err := host.GetIRegion()
 			if err != nil {
 				return nil, err
 			}
-			if err = secgroupCache.SetExternalId(extId); err != nil {
+			secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), guest.SecgrpId, vpcId, host.GetRegion().Id, host.ManagerId)
+			if secgroupCache == nil {
+				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s vpc: %s", guest.SecgrpId, vpcId)
+			}
+			extID, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpcId, guest.GetSecgroupName(), "", guest.GetSecRules())
+			if err != nil {
 				return nil, err
 			}
-			return nil, iVM.AssignSecurityGroup(extId)
+			if err = secgroupCache.SetExternalId(extID); err != nil {
+				return nil, err
+			}
+			return nil, iVM.AssignSecurityGroup(extID)
 		}
+
 		iDisks, err := iVM.GetIDisks()
 		if err != nil {
 			return nil, err
