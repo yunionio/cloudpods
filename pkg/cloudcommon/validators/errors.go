@@ -54,64 +54,58 @@ func (ve *ValidateError) Error() string {
 
 // TODO let each validator provide the error
 func newMissingKeyError(key string) error {
-	msg := fmt.Sprintf("missing %q", key)
-	return newError(ERR_MISSING_KEY, msg)
+	return newError(ERR_MISSING_KEY, "missing %q", key)
 }
 
 func newGeneralError(key string, err error) error {
-	msg := fmt.Sprintf("general error for %q: %s", key, err)
-	return newError(ERR_GENERAL, msg)
+	return newError(ERR_GENERAL, "general error for %q: %s", key, err)
 }
 
 func newInvalidTypeError(key string, typ string, err error) error {
-	msg := fmt.Sprintf("expecting %s type for %q: %s", typ, key, err)
-	return newError(ERR_INVALID_TYPE, msg)
+	return newError(ERR_INVALID_TYPE, "expecting %s type for %q: %s", typ, key, err)
 }
 
 func newInvalidChoiceError(key string, choices Choices, choice string) error {
-	msg := fmt.Sprintf("invalid %q, want %s, got %s", key, choices, choice)
-	return newError(ERR_INVALID_CHOICE, msg)
+	return newError(ERR_INVALID_CHOICE, "invalid %q, want %s, got %s", key, choices, choice)
 }
 
 func newNotInRangeError(key string, value, lower, upper int64) error {
-	msg := fmt.Sprintf("invalid %q: %d, want [%d,%d]", key, value, lower, upper)
-	return newError(ERR_NOT_IN_RANGE, msg)
+	return newError(ERR_NOT_IN_RANGE, "invalid %q: %d, want [%d,%d]", key, value, lower, upper)
 }
 
 func newInvalidValueError(key string, value string) error {
-	msg := fmt.Sprintf("invalid %q: %s", key, value)
-	return newError(ERR_INVALID_VALUE, msg)
+	return newError(ERR_INVALID_VALUE, "invalid %q: %s", key, value)
 }
 
 func newModelManagerError(modelKeyword string) error {
-	msg := fmt.Sprintf("internal error: getting model manager for %q failed",
-		modelKeyword)
-	return newError(ERR_MODEL_MANAGER, msg)
+	return newError(ERR_MODEL_MANAGER, "failed getting model manager for %q", modelKeyword)
 }
 
 func newModelNotFoundError(modelKeyword, idOrName string, err error) error {
-	msg := fmt.Sprintf("cannot find %q with id/name %q",
-		modelKeyword, idOrName)
+	errFmt := "cannot find %q with id/name %q"
+	params := []interface{}{modelKeyword, idOrName}
 	if err != sql.ErrNoRows {
-		msg += ": " + err.Error()
+		errFmt += ": %s"
+		params = append(params, err.Error())
 	}
-	return newError(ERR_MODEL_NOT_FOUND, msg)
+	return newError(ERR_MODEL_NOT_FOUND, errFmt, params...)
 }
 
-func newError(typ ErrType, msg string) error {
-	err := &ValidateError{
-		ErrType: typ,
-		Msg:     msg,
-	}
+func newError(typ ErrType, errFmt string, params ...interface{}) error {
+	errFmt = fmt.Sprintf("%s: %s", typ, errFmt)
 	if returnHttpError {
 		switch typ {
 		case ERR_SUCCESS:
 			return nil
 		case ERR_GENERAL, ERR_MODEL_MANAGER:
-			return httperrors.NewInternalServerError(msg)
+			return httperrors.NewInternalServerError(errFmt, params...)
 		default:
-			return httperrors.NewInputParameterError(msg)
+			return httperrors.NewInputParameterError(errFmt, params...)
 		}
+	}
+	err := &ValidateError{
+		ErrType: typ,
+		Msg:     fmt.Sprintf(errFmt, params...),
 	}
 	return err
 }
