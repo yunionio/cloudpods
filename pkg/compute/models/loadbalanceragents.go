@@ -154,7 +154,7 @@ func (p *SLoadbalancerAgentParamsTelegraf) Validate(data *jsonutils.JSONDict) er
 	if p.InfluxDbOutputUrl != "" {
 		_, err := url.Parse(p.InfluxDbOutputUrl)
 		if err != nil {
-			return err
+			return httperrors.NewInputParameterError("telegraf params: invalid influxdb url: %s", err)
 		}
 	}
 	if p.HaproxyInputInterval <= 0 {

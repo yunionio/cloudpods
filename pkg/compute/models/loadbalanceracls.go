@@ -14,6 +14,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -33,16 +34,16 @@ func (aclEntry *SLoadbalancerAclEntry) Validate(data *jsonutils.JSONDict) error 
 	} else {
 		ip := net.ParseIP(aclEntry.Cidr).To4()
 		if ip == nil {
-			return fmt.Errorf("invalid addr %s", aclEntry.Cidr)
+			return httperrors.NewInputParameterError("invalid addr %s", aclEntry.Cidr)
 		}
 	}
 	if commentLimit := 128; len(aclEntry.Comment) > commentLimit {
-		return fmt.Errorf("comment too long (%d>=%d)",
+		return httperrors.NewInputParameterError("comment too long (%d>=%d)",
 			len(aclEntry.Comment), commentLimit)
 	}
 	for _, r := range aclEntry.Comment {
 		if !unicode.IsPrint(r) {
-			return fmt.Errorf("comment contains non-printable char: %v", r)
+			return httperrors.NewInputParameterError("comment contains non-printable char: %v", r)
 		}
 	}
 	return nil
@@ -68,7 +69,7 @@ func (aclEntries *SLoadbalancerAclEntries) Validate(data *jsonutils.JSONDict) er
 		}
 		if _, ok := found[aclEntry.Cidr]; ok {
 			// error so that the user has a chance to deal with comments
-			return fmt.Errorf("acl cidr duplicate %s", aclEntry.Cidr)
+			return httperrors.NewInputParameterError("acl cidr duplicate %s", aclEntry.Cidr)
 		}
 		found[aclEntry.Cidr] = true
 	}
