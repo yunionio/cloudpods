@@ -9,8 +9,6 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
-	"github.com/coredns/coredns/plugin/pkg/parse"
-	"github.com/coredns/coredns/plugin/pkg/transport"
 
 	"github.com/mholt/caddy"
 	"github.com/mholt/caddy/caddyfile"
@@ -113,29 +111,29 @@ func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
 	var servers []caddy.Server
 	for addr, group := range groups {
 		// switch on addr
-		switch tr, _ := parse.Transport(addr); tr {
-		case transport.DNS:
+		switch Transport(addr) {
+		case TransportDNS:
 			s, err := NewServer(addr, group)
 			if err != nil {
 				return nil, err
 			}
 			servers = append(servers, s)
 
-		case transport.TLS:
+		case TransportTLS:
 			s, err := NewServerTLS(addr, group)
 			if err != nil {
 				return nil, err
 			}
 			servers = append(servers, s)
 
-		case transport.GRPC:
+		case TransportGRPC:
 			s, err := NewServergRPC(addr, group)
 			if err != nil {
 				return nil, err
 			}
 			servers = append(servers, s)
 
-		case transport.HTTPS:
+		case TransportHTTPS:
 			s, err := NewServerHTTPS(addr, group)
 			if err != nil {
 				return nil, err
@@ -236,8 +234,16 @@ func groupConfigsByListenAddr(configs []*Config) (map[string][]*Config, error) {
 	return groups, nil
 }
 
-// DefaultPort is the default port.
-const DefaultPort = transport.Port
+const (
+	// DefaultPort is the default port.
+	DefaultPort = "53"
+	// TLSPort is the default port for DNS-over-TLS.
+	TLSPort = "853"
+	// GRPCPort is the default port for DNS-over-gRPC.
+	GRPCPort = "443"
+	// HTTPSPort is the default port for DNS-over-HTTPS.
+	HTTPSPort = "443"
+)
 
 // These "soft defaults" are configurable by
 // command line flags, etc.

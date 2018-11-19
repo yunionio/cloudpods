@@ -3,7 +3,6 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -303,13 +302,6 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 			return err
 		}
 	}
-
-	log.Debugf("VMchangeConfig %s, wait status ready ...", iVM.GetGlobalId())
-	err = cloudprovider.WaitStatus(iVM, models.VM_READY, time.Second*5, time.Second*300)
-	if err != nil {
-		return err
-	}
-	log.Debugf("VMchangeConfig %s, and status is ready", iVM.GetGlobalId())
 	return nil
 }
 
@@ -356,6 +348,27 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.
 			}
 		}
 		return nil, nil
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizedGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, snapshotId, diskId string) error {
+	iDisk, _ := models.DiskManager.FetchById(diskId)
+	disk := iDisk.(*models.SDisk)
+	providerDisk, err := disk.GetIDisk()
+	if err != nil {
+		return err
+	}
+	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
+	snapshot := iSnapshot.(*models.SSnapshot)
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		cloudSnapshot, err := providerDisk.CreateISnapshot(snapshot.Name, "")
+		if err != nil {
+			return nil, err
+		}
+		res := jsonutils.NewDict()
+		res.Set("snapshot_id", jsonutils.NewString(cloudSnapshot.GetId()))
+		return res, nil
 	})
 	return nil
 }

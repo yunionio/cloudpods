@@ -2,7 +2,7 @@ package file
 
 // OnShutdown shuts down any running go-routines for this zone.
 func (z *Zone) OnShutdown() error {
-	if 0 < z.ReloadInterval {
+	if !z.NoReload {
 		z.reloadShutdown <- true
 	}
 	return nil

@@ -492,15 +492,21 @@ func (region *SRegion) AttachDisk(instanceId, diskId string) error {
 	if err != nil {
 		return err
 	}
-	dataDisks := []DataDisk{}
-	lun := int32(0)
-	for i := 0; i < len(instance.Properties.StorageProfile.DataDisks); i++ {
-		instance.Properties.StorageProfile.DataDisks[i].Lun = lun
-		dataDisks = append(dataDisks, instance.Properties.StorageProfile.DataDisks[i])
-		lun++
+	dataDisks := instance.Properties.StorageProfile.DataDisks
+	lun, find := -1, false
+	for i := 0; i < len(dataDisks); i++ {
+		if dataDisks[i].Lun != int32(i) {
+			lun, find = i, true
+			break
+		}
 	}
+
+	if !find || lun == -1 {
+		lun = len(dataDisks)
+	}
+
 	dataDisks = append(dataDisks, DataDisk{
-		Lun:          lun,
+		Lun:          int32(lun),
 		CreateOption: "Attach",
 		ManagedDisk: &ManagedDiskParameters{
 			ID: disk.ID,
@@ -529,12 +535,9 @@ func (region *SRegion) DetachDisk(instanceId, diskId string) error {
 		return err
 	}
 	dataDisks := []DataDisk{}
-	index := int32(0)
 	for _, origDisk := range instance.Properties.StorageProfile.DataDisks {
 		if origDisk.ManagedDisk.ID != disk.ID {
-			origDisk.Lun = index
 			dataDisks = append(dataDisks, origDisk)
-			index++
 		}
 	}
 	instance.Properties.StorageProfile.DataDisks = dataDisks
@@ -665,7 +668,7 @@ func (region *SRegion) DeployVM(instanceId, name, password, publicKey string, de
 		return nil
 	}
 	if len(publicKey) > 0 {
-		err = region.resetPublicKey(instanceId, instance.Properties.OsProfile.AdminUsername, publicKey)
+		return region.resetPublicKey(instanceId, instance.Properties.OsProfile.AdminUsername, publicKey)
 	}
 	return region.resetPassword(instanceId, instance.Properties.OsProfile.AdminUsername, password)
 }
@@ -979,12 +982,12 @@ func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 	return err
 }
 
-func (self *SInstance) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) error {
+func (self *SInstance) SyncSecurityGroup(dbSecgroupId string, name string, rules []secrules.SecurityRule) error {
 	nics, err := self.getNics()
 	if err != nil {
 		return err
 	}
-	if len(secgroupId) == 0 {
+	if len(dbSecgroupId) == 0 {
 		for _, nic := range nics {
 			if err := nic.revokeSecurityGroup(); err != nil {
 				return err
@@ -992,7 +995,7 @@ func (self *SInstance) SyncSecurityGroup(secgroupId string, name string, rules [
 		}
 		return nil
 	}
-	extId, err := self.host.zone.region.syncSecurityGroup(secgroupId, name, rules)
+	extId, err := self.host.zone.region.syncSecurityGroup(dbSecgroupId, name, rules)
 	if err != nil {
 		return err
 	}

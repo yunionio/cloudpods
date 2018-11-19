@@ -145,7 +145,12 @@ func (self *SNetwork) ValidateDeleteCondition(ctx context.Context) error {
 }
 
 func (self *SNetwork) GetTotalNicCount() int {
-	return self.GetGuestnicsCount() + self.GetGroupNicsCount() + self.GetBaremetalNicsCount() + self.GetReservedNicsCount()
+	total := self.GetGuestnicsCount() +
+		self.GetGroupNicsCount() +
+		self.GetBaremetalNicsCount() +
+		self.GetReservedNicsCount() +
+		self.GetLoadbalancerIpsCount()
+	return total
 }
 
 func (self *SNetwork) GetGuestnicsCount() int {
@@ -162,6 +167,10 @@ func (self *SNetwork) GetBaremetalNicsCount() int {
 
 func (self *SNetwork) GetReservedNicsCount() int {
 	return ReservedipManager.Query().Equals("network_id", self.Id).Count()
+}
+
+func (self *SNetwork) GetLoadbalancerIpsCount() int {
+	return LoadbalancernetworkManager.Query().Equals("network_id", self.Id).Count()
 }
 
 func (self *SNetwork) GetUsedAddresses() map[string]bool {
@@ -818,6 +827,7 @@ func (self *SNetwork) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSOND
 		extra.Add(jsonutils.JSONFalse, "exit")
 	}
 	extra.Add(jsonutils.NewInt(int64(self.getIPRange().AddressCount())), "ports")
+	extra.Add(jsonutils.NewInt(int64(self.GetTotalNicCount())), "ports_used")
 	extra.Add(jsonutils.NewInt(int64(self.GetGuestnicsCount())), "vnics")
 	extra.Add(jsonutils.NewInt(int64(self.GetBaremetalNicsCount())), "bm_vnics")
 	extra.Add(jsonutils.NewInt(int64(self.GetGroupNicsCount())), "group_vnics")

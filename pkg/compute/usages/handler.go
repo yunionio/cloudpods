@@ -272,7 +272,7 @@ func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandalo
 
 	if consts.IsRbacEnabled() {
 		if policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
-			"usages", policy.PolicyActionGet) == rbacutils.Allow {
+			"usages", policy.PolicyActionGet) == rbacutils.AdminAllow {
 			isAdmin = true
 		}
 	} else {
@@ -286,19 +286,27 @@ func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandalo
 		}
 	}
 
+	includeCommon := false
 	if consts.IsRbacEnabled() {
 		if policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
 			"usages", policy.PolicyActionGet) == rbacutils.Deny {
-			err = httperrors.NewForbiddenError("not allow to get usages")
-			return
+			if !isAdmin {
+				err = httperrors.NewForbiddenError("not allow to get usages")
+				return
+			}
+		} else {
+			includeCommon = true
 		}
 	}
 
-	commonUsage, err := getCommonGeneralUsage(userCred, rangeObj, hostTypes)
-	if err != nil {
-		return
+	if includeCommon {
+		var commonUsage map[string]interface{}
+		commonUsage, err = getCommonGeneralUsage(userCred, rangeObj, hostTypes)
+		if err != nil {
+			return
+		}
+		count.Include(commonUsage)
 	}
-	count.Include(commonUsage)
 	return
 }
 

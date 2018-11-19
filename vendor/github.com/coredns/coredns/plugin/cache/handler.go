@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
@@ -30,6 +31,8 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	if i != nil && found {
 		resp := i.toMsg(r, now)
 
+		state.SizeAndDo(resp)
+		resp, _ = state.Scrub(resp)
 		w.WriteMsg(resp)
 
 		if c.prefetch > 0 {
@@ -125,3 +128,5 @@ var (
 		Help:      "The number responses that are not cached, because the reply is malformed.",
 	}, []string{"server"})
 )
+
+var once sync.Once

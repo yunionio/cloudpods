@@ -64,6 +64,10 @@ func (d *dnsEx) Exchange(ctx context.Context, addr string, state request.Request
 		return nil, err
 	}
 	reply.Id = state.Req.Id
+	// When using force_tcp the upstream can send a message that is too big for
+	// the udp buffer, hence we need to truncate the message to at least make it
+	// fit the udp buffer.
+	reply, _ = state.Scrub(reply)
 
 	return reply, nil
 }
@@ -89,12 +93,15 @@ func exchange(m *dns.Msg, co net.Conn) (*dns.Msg, error) {
 
 	writeDeadline := time.Now().Add(defaultTimeout)
 	dnsco.SetWriteDeadline(writeDeadline)
-	if err := dnsco.WriteMsg(m); err != nil {
-		log.Debugf("Failed to send message: %v", err)
-		return nil, err
-	}
+	dnsco.WriteMsg(m)
 
 	readDeadline := time.Now().Add(defaultTimeout)
 	co.SetReadDeadline(readDeadline)
-	return dnsco.ReadMsg()
+	r, err := dnsco.ReadMsg()
+
+	dnsco.Close()
+	if r == nil {
+		return nil, err
+	}
+	return r, err
 }

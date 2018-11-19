@@ -958,7 +958,7 @@ func (manager *SHostManager) getHostsByZone(zone *SZone, provider *SCloudprovide
 	return hosts, nil
 }
 
-func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, hosts []cloudprovider.ICloudHost) ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
+func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, hosts []cloudprovider.ICloudHost, projectSync bool) ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
 	localHosts := make([]SHost, 0)
 	remoteHosts := make([]cloudprovider.ICloudHost, 0)
 	syncResult := compare.SyncResult{}
@@ -1002,7 +1002,7 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudHost(commonext[i])
+		err = commondb[i].syncWithCloudHost(commonext[i], projectSync)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -1025,7 +1025,7 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 	return localHosts, remoteHosts, syncResult
 }
 
-func (self *SHost) syncWithCloudHost(extHost cloudprovider.ICloudHost) error {
+func (self *SHost) syncWithCloudHost(extHost cloudprovider.ICloudHost, projectSync bool) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Name = extHost.GetName()
 		self.Status = extHost.GetStatus()
@@ -1052,6 +1052,13 @@ func (self *SHost) syncWithCloudHost(extHost cloudprovider.ICloudHost) error {
 	if err != nil {
 		log.Errorf("syncWithCloudZone error %s", err)
 	}
+
+	if projectSync {
+		if err := HostManager.ClearSchedDescCache(self.Id); err != nil {
+			log.Errorf("ClearSchedDescCache for host %s error %v", self.Name, err)
+		}
+	}
+
 	return err
 }
 
@@ -1089,6 +1096,11 @@ func (manager *SHostManager) newFromCloudHost(extHost cloudprovider.ICloudHost, 
 		log.Errorf("newFromCloudHost fail %s", err)
 		return nil, err
 	}
+
+	if err := manager.ClearSchedDescCache(host.Id); err != nil {
+		log.Errorf("ClearSchedDescCache for host %s error %v", host.Name, err)
+	}
+
 	return &host, nil
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates/guest"
 	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
@@ -19,11 +20,11 @@ func (p *HostStatusPredicate) Name() string {
 	return "host_status"
 }
 
-func (p *HostStatusPredicate) PreExecute(pod *v1.Pod, node *v1.Node, host *candidate.HostDesc) bool {
+func (p *HostStatusPredicate) PreExecute(cli *kubernetes.Clientset, pod *v1.Pod, node *v1.Node, host *candidate.HostDesc) bool {
 	return true
 }
 
-func (p *HostStatusPredicate) Execute(pod *v1.Pod, node *v1.Node, host *candidate.HostDesc) (bool, error) {
+func (p *HostStatusPredicate) Execute(cli *kubernetes.Clientset, pod *v1.Pod, node *v1.Node, host *candidate.HostDesc) (bool, error) {
 	if host.Status != guest.ExpectedStatus {
 		return false, fmt.Errorf("Host status is %s", host.Status)
 	}

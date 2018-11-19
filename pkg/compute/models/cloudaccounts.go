@@ -73,10 +73,44 @@ func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context) error {
 	if self.Enabled {
 		return httperrors.NewInvalidStatusError("account is enabled")
 	}
-	if len(self.GetCloudproviders()) > 0 {
-		return httperrors.NewNotEmptyError("Not an empty cloud account")
+	cloudproviders := self.GetCloudproviders()
+	for i := 0; i < len(cloudproviders); i++ {
+		if err := cloudproviders[i].ValidateDeleteCondition(ctx); err != nil {
+			return err
+		}
 	}
+
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
+}
+
+func (self *SCloudaccount) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	_, err := self.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, data)
+	if err != nil {
+		return nil, err
+	}
+	cloudproviders := self.GetCloudproviders()
+	for i := 0; i < len(cloudproviders); i++ {
+		_, err := cloudproviders[i].PerformEnable(ctx, userCred, query, data)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil
+}
+
+func (self *SCloudaccount) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	_, err := self.SEnabledStatusStandaloneResourceBase.PerformDisable(ctx, userCred, query, data)
+	if err != nil {
+		return nil, err
+	}
+	cloudproviders := self.GetCloudproviders()
+	for i := 0; i < len(cloudproviders); i++ {
+		_, err := cloudproviders[i].PerformDisable(ctx, userCred, query, data)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil
 }
 
 func (self *SCloudaccount) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -118,6 +152,13 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 	}
 
 	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+}
+
+func (self *SCloudaccount) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	cloudproviders := self.GetCloudproviders()
+	for i := 0; i < len(cloudproviders); i++ {
+		cloudproviders[i].Delete(ctx, userCred)
+	}
 }
 
 func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -346,6 +387,7 @@ func (self *SCloudaccount) ImportSubAccount(ctx context.Context, userCred mcclie
 	newCloudprovider.CloudaccountId = self.Id
 	newCloudprovider.Provider = self.Provider
 	newCloudprovider.Enabled = true
+	newCloudprovider.Status = CLOUD_PROVIDER_CONNECTED
 	newCloudprovider.Name = subAccount.Name
 	if !autoCreateProject {
 		newCloudprovider.ProjectId = auth.AdminCredential().GetProjectId()

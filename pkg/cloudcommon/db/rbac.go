@@ -28,14 +28,22 @@ func isListRbacAllowedInternal(manager IModelManager, resource string, userCred 
 	}
 	result := policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
 		resource, policy.PolicyActionList)
-	log.Debugf("allow list for non-admin %s %v ownerId: %s", result, requireAdmin, ownerId)
-	if (result == rbacutils.OwnerAllow && !requireAdmin) || (result == rbacutils.Allow && requireAdmin) {
+
+	switch {
+	case result == rbacutils.GuestAllow:
+		return true
+	case result == rbacutils.UserAllow && userCred != nil && userCred.IsValid():
+		return true
+	case result == rbacutils.OwnerAllow && !requireAdmin:
+		return true
+	case result == rbacutils.AdminAllow && requireAdmin:
 		return true
 	}
+
 	result = policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
 		resource, policy.PolicyActionList)
-	log.Debugf("allow list for admin %s %v ownerId: %s", result, requireAdmin, ownerId)
-	return result == rbacutils.Allow
+
+	return result == rbacutils.AdminAllow
 }
 
 func isJointListRbacAllowed(manager IJointModelManager, userCred mcclient.TokenCredential, isAdminMode bool) bool {
@@ -54,16 +62,23 @@ func isClassActionRbacAllowed(manager IModelManager, userCred mcclient.TokenCred
 	} else {
 		requireAdmin = true
 	}
-	if !requireAdmin {
-		result := policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
-			manager.KeywordPlural(), action, extra...)
-		if result == rbacutils.Allow || result == rbacutils.OwnerAllow {
-			return true
-		}
-	}
+
 	result := policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
 		manager.KeywordPlural(), action, extra...)
-	return result == rbacutils.Allow
+	switch {
+	case result == rbacutils.GuestAllow:
+		return true
+	case result == rbacutils.UserAllow && userCred != nil && userCred.IsValid():
+		return true
+	case result == rbacutils.OwnerAllow && !requireAdmin:
+		return true
+	case result == rbacutils.AdminAllow && requireAdmin:
+		return true
+	}
+
+	result = policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
+		manager.KeywordPlural(), action, extra...)
+	return result == rbacutils.AdminAllow
 }
 
 func isObjectRbacAllowed(manager IModelManager, model IModel, userCred mcclient.TokenCredential, action string, extra ...string) bool {
@@ -85,16 +100,22 @@ func isObjectRbacAllowed(manager IModelManager, model IModel, userCred mcclient.
 		requireAdmin = true
 	}
 
-	if !requireAdmin {
-		result := policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
-			manager.KeywordPlural(), action, extra...)
-		if result == rbacutils.Allow || (result == rbacutils.OwnerAllow && isOwner) {
-			return true
-		}
-	}
-	result := policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
+	result := policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
 		manager.KeywordPlural(), action, extra...)
-	return result == rbacutils.Allow
+	switch {
+	case result == rbacutils.GuestAllow:
+		return true
+	case result == rbacutils.UserAllow && userCred != nil && userCred.IsValid():
+		return true
+	case result == rbacutils.OwnerAllow && isOwner && !requireAdmin:
+		return true
+	case result == rbacutils.AdminAllow && (requireAdmin || isOwner):
+		return true
+	}
+
+	result = policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
+		manager.KeywordPlural(), action, extra...)
+	return result == rbacutils.AdminAllow
 }
 
 func isJointObjectRbacAllowed(manager IJointModelManager, item IJointModel, userCred mcclient.TokenCredential, action string, extra ...string) bool {

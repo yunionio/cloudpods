@@ -56,6 +56,31 @@ func (self *SAliyunGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{models.VM_READY, models.VM_RUNNING}, nil
 }
 
+func (self *SAliyunGuestDriver) GetRebuildRootStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SAliyunGuestDriver) GetChangeConfigStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SAliyunGuestDriver) GetDeployStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SAliyunGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
+	if !utils.IsInStringArray(guest.Status, []string{models.VM_READY, models.VM_RUNNING}) {
+		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
+	}
+	if disk.DiskType == models.DISK_TYPE_SYS {
+		return fmt.Errorf("Cannot resize system disk")
+	}
+	if !utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_PUBLIC_CLOUD, models.STORAGE_CLOUD_SSD, models.STORAGE_CLOUD_EFFICIENCY}) {
+		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
+	}
+	return nil
+}
+
 func (self *SAliyunGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
@@ -433,7 +458,7 @@ func (self *SAliyunGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Contex
 				if diskInfo[i].AutoDelete {
 					disk.AutoDelete = true
 				}
-				disk.TemplateId = diskInfo[i].TemplateId
+				// disk.TemplateId = diskInfo[i].TemplateId
 				disk.DiskFormat = diskInfo[i].DiskFormat
 				disk.ExpiredAt = diskInfo[i].ExpiredAt
 				if len(diskInfo[i].Metadata) > 0 {
@@ -478,31 +503,4 @@ func (self *SAliyunGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Contex
 
 func (self *SAliyunGuestDriver) AllowReconfigGuest() bool {
 	return true
-}
-
-func (self *SAliyunGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, snapshotId, diskId string) error {
-	iDisk, _ := models.DiskManager.FetchById(diskId)
-	disk := iDisk.(*models.SDisk)
-	providerDisk, err := disk.GetIDisk()
-	if err != nil {
-		return err
-	}
-	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
-	snapshot := iSnapshot.(*models.SSnapshot)
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		cloudSnapshot, err := providerDisk.CreateISnapshot(snapshot.Name, "")
-		if err != nil {
-			return nil, err
-		}
-		res := jsonutils.NewDict()
-		res.Set("snapshot_id", jsonutils.NewString(cloudSnapshot.GetId()))
-		res.Set("manager_id", jsonutils.NewString(cloudSnapshot.GetManagerId()))
-		cloudRegion, err := models.CloudregionManager.FetchByExternalId("Aliyun/" + cloudSnapshot.GetRegionId())
-		if err != nil {
-			return nil, fmt.Errorf("Cloud region not found? %s", err)
-		}
-		res.Set("cloudregion_id", jsonutils.NewString(cloudRegion.GetId()))
-		return res, nil
-	})
-	return nil
 }

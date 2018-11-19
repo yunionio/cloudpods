@@ -104,6 +104,30 @@ func (self *SBaseGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{}, fmt.Errorf("This Guest driver dose not implement GetAttachDiskStatus")
 }
 
+func (self *SBaseGuestDriver) GetRebuildRootStatus() ([]string, error) {
+	return []string{}, fmt.Errorf("This Guest driver dose not implement GetRebuildRootStatus")
+}
+
+func (self *SBaseGuestDriver) GetChangeConfigStatus() ([]string, error) {
+	return []string{}, fmt.Errorf("This Guest driver dose not implement GetChangeConfigStatus")
+}
+
+func (self *SBaseGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
+	return fmt.Errorf("This Guest driver dose not implement ValidateResizeDisk")
+}
+
+func (self *SBaseGuestDriver) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	return data, nil
+}
+
+func (self *SBaseGuestDriver) GetDeployStatus() ([]string, error) {
+	return []string{}, fmt.Errorf("This Guest driver dose not implement GetDeployStatus")
+}
+
+func (self *SBaseGuestDriver) IsNeedRestartForResetLoginInfo() bool {
+	return true
+}
+
 func (self *SBaseGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, disk *models.SDisk, task taskman.ITask, isPurge bool) error {
 	return fmt.Errorf("Not Implement")
 }

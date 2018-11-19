@@ -7,8 +7,11 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/ansible"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -19,10 +22,6 @@ import (
 type SAzureGuestDriver struct {
 	SManagedVirtualizedGuestDriver
 }
-
-const (
-	DEFAULT_USER = "yunion"
-)
 
 func init() {
 	driver := SAzureGuestDriver{}
@@ -58,12 +57,55 @@ func (self *SAzureGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{models.VM_READY, models.VM_RUNNING}, nil
 }
 
+func (self *SAzureGuestDriver) GetRebuildRootStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SAzureGuestDriver) GetChangeConfigStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SAzureGuestDriver) GetDeployStatus() ([]string, error) {
+	return []string{models.VM_RUNNING}, nil
+}
+
+func (self *SAzureGuestDriver) IsNeedRestartForResetLoginInfo() bool {
+	return false
+}
+
+func (self *SAzureGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
+	//https://docs.microsoft.com/en-us/rest/api/compute/disks/update
+	//Resizes are only allowed if the disk is not attached to a running VM, and can only increase the disk's size
+	if !utils.IsInStringArray(guest.Status, []string{models.VM_READY}) {
+		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
+	}
+	return nil
+}
+
 func (self *SAzureGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
 func (self *SAzureGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, data)
+	data, err := self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, data)
+	if err != nil {
+		return nil, err
+	}
+	if data.Contains("net.0") && data.Contains("net.1") {
+		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
+	}
+	return data, nil
+}
+
+func (self *SAzureGuestDriver) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	data, err := self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, data)
+	if err != nil {
+		return nil, err
+	}
+	if data.Contains("name") {
+		return nil, httperrors.NewInputParameterError("cannot support change azure instance name")
+	}
+	return data, nil
 }
 
 func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
@@ -124,7 +166,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 					return nil, err
 				}
 
-				data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd, action)
+				data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action)
 				return data, nil
 			}
 		})
@@ -147,7 +189,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 			if err != nil {
 				return nil, err
 			}
-			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action)
 			return data, nil
 		})
 	} else if action == "rebuild" {
@@ -164,7 +206,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 			}
 
 			log.Debugf("VMrebuildRoot %s, and status is ready", iVM.GetGlobalId())
-			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action)
 
 			return data, nil
 		})
@@ -199,7 +241,7 @@ func (self *SAzureGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context
 				disk.BillingType = diskInfo[i].BillingType
 				disk.FsFormat = diskInfo[i].FsFromat
 				disk.AutoDelete = diskInfo[i].AutoDelete
-				disk.TemplateId = diskInfo[i].TemplateId
+				// disk.TemplateId = diskInfo[i].TemplateId
 				disk.DiskFormat = diskInfo[i].DiskFormat
 				disk.ExpiredAt = diskInfo[i].ExpiredAt
 				if len(diskInfo[i].Metadata) > 0 {

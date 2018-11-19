@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"yunion.io/x/onecloud/pkg/util/ansible"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -43,49 +46,29 @@ func (self *SAwsGuestDriver) GetDetachDiskStatus() ([]string, error) {
 	return []string{models.VM_READY, models.VM_RUNNING}, nil
 }
 
+func (self *SAwsGuestDriver) GetAttachDiskStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SAwsGuestDriver) GetRebuildRootStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SAwsGuestDriver) GetChangeConfigStatus() ([]string, error) {
+	return []string{models.VM_READY}, nil
+}
+
+//AWS不允许更改密码或替换密钥对
+func (self *SAwsGuestDriver) GetDeployStatus() ([]string, error) {
+	return []string{}, nil
+}
+
 func (self *SAwsGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
 func (self *SAwsGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, data)
-}
-
-func fetchAwsIVMinfo(desc SManagedVMCreateConfig, iVM cloudprovider.ICloudVM, guestId string) *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-	data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
-	if len(desc.OsDistribution) > 0 {
-		data.Add(jsonutils.NewString(desc.OsDistribution), "distro")
-	}
-	if len(desc.OsVersion) > 0 {
-		data.Add(jsonutils.NewString(desc.OsVersion), "version")
-	}
-
-	idisks, err := iVM.GetIDisks()
-
-	if err != nil {
-		log.Errorf("GetiDisks error %s", err)
-	} else {
-		diskInfo := make([]SDiskInfo, len(idisks))
-		for i := 0; i < len(idisks); i += 1 {
-			dinfo := SDiskInfo{}
-			dinfo.Uuid = idisks[i].GetGlobalId()
-			dinfo.Size = idisks[i].GetDiskSizeMB()
-			dinfo.DiskType = idisks[i].GetDiskType()
-			if metaData := idisks[i].GetMetadata(); metaData != nil {
-				dinfo.Metadata = make(map[string]string, 0)
-				if err := metaData.Unmarshal(dinfo.Metadata); err != nil {
-					log.Errorf("Get disk %s metadata info error: %v", idisks[i].GetName(), err)
-				}
-			}
-			diskInfo[i] = dinfo
-		}
-		data.Add(jsonutils.Marshal(&diskInfo), "disks")
-	}
-
-	data.Add(jsonutils.NewString(iVM.GetGlobalId()), "uuid")
-	data.Add(iVM.GetMetadata(), "metadata")
-	return data
 }
 
 func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
@@ -153,7 +136,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 				return nil, err
 			}
 
-			data := fetchAwsIVMinfo(desc, iVM, guest.Id)
+			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd, action)
 			return data, nil
 		})
 	case "deploy":
@@ -177,7 +160,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action)
 			return data, nil
 		})
 	case "rebuild":
@@ -229,7 +212,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 				}
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action)
 
 			return data, nil
 		})
@@ -261,6 +244,12 @@ func (self *SAwsGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, 
 				disk.ExternalId = diskInfo[i].Uuid
 				disk.DiskType = diskInfo[i].DiskType
 				disk.Status = models.DISK_READY
+				disk.BillingType = diskInfo[i].BillingType
+				disk.FsFormat = diskInfo[i].FsFromat
+				disk.AutoDelete = true
+				//disk.TemplateId = diskInfo[i].TemplateId
+				disk.DiskFormat = diskInfo[i].DiskFormat
+				disk.ExpiredAt = diskInfo[i].ExpiredAt
 				if len(diskInfo[i].Metadata) > 0 {
 					for key, value := range diskInfo[i].Metadata {
 						if err := disk.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {
@@ -299,39 +288,6 @@ func (self *SAwsGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, 
 
 	guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
 	return nil
-}
-
-func (self *SAwsGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, snapshotId, diskId string) error {
-	iDisk, _ := models.DiskManager.FetchById(diskId)
-	disk := iDisk.(*models.SDisk)
-	providerDisk, err := disk.GetIDisk()
-	if err != nil {
-		return err
-	}
-
-	zone := disk.GetZone()
-	if zone == nil {
-		return fmt.Errorf("can't not fetch zone by disk %s", disk.Id)
-	}
-
-	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
-	snapshot := iSnapshot.(*models.SSnapshot)
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		cloudSnapshot, err := providerDisk.CreateISnapshot(snapshot.Name, "")
-		if err != nil {
-			return nil, err
-		}
-		res := jsonutils.NewDict()
-		res.Set("snapshot_id", jsonutils.NewString(cloudSnapshot.GetId()))
-		res.Set("manager_id", jsonutils.NewString(cloudSnapshot.GetManagerId()))
-		res.Set("cloudregion_id", jsonutils.NewString(zone.CloudregionId))
-		return res, nil
-	})
-	return nil
-}
-
-func (self *SAwsGuestDriver) GetAttachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
 }
 
 func init() {

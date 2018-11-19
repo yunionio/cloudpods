@@ -2,7 +2,7 @@ package hosts
 
 import (
 	"os"
-	"path/filepath"
+	"path"
 	"strings"
 	"time"
 
@@ -83,8 +83,8 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 			h.path = args[0]
 			args = args[1:]
 
-			if !filepath.IsAbs(h.path) && config.Root != "" {
-				h.path = filepath.Join(config.Root, h.path)
+			if !path.IsAbs(h.path) && config.Root != "" {
+				h.path = path.Join(config.Root, h.path)
 			}
 			s, err := os.Stat(h.path)
 			if err != nil {

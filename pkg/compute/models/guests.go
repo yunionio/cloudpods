@@ -516,6 +516,10 @@ func (guest *SGuest) SetHostId(hostId string) error {
 	return err
 }
 
+func (guest *SGuest) ValidateResizeDisk(disk *SDisk, storage *SStorage) error {
+	return guest.GetDriver().ValidateResizeDisk(guest, disk, storage)
+}
+
 func validateMemCpuData(data jsonutils.JSONObject) (int, int, error) {
 	vmemSize := 0
 	vcpuCount := 0
@@ -575,6 +579,11 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	}
 	if vcpuCount > 0 {
 		data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
+	}
+
+	data, err = self.GetDriver().ValidateUpdateData(ctx, userCred, data)
+	if err != nil {
+		return nil, err
 	}
 
 	err = self.checkUpdateQuota(ctx, userCred, vcpuCount, vmemSize)
@@ -663,112 +672,11 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		}
 	}
 
-	if jsonutils.QueryBoolean(data, "baremetal", false) {
-		hypervisor = HYPERVISOR_BAREMETAL
+	data, err = ValidateScheduleCreateData(ctx, userCred, data, hypervisor)
+	if err != nil {
+		return nil, err
 	}
-
-	// base validate_create_data
-	if (data.Contains("prefer_baremetal") || data.Contains("prefer_host")) && hypervisor != HYPERVISOR_CONTAINER {
-		if !userCred.IsSystemAdmin() {
-			return nil, httperrors.NewNotSufficientPrivilegeError("Only system admin can specify preferred host")
-		}
-		bmName, _ := data.GetString("prefer_host")
-		if len(bmName) == 0 {
-			bmName, _ = data.GetString("prefer_baremetal")
-		}
-		bmObj, err := HostManager.FetchByIdOrName(nil, bmName)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError("Host %s not found", bmName)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		baremetal := bmObj.(*SHost)
-		if !baremetal.Enabled {
-			return nil, httperrors.NewInvalidStatusError("Baremetal %s not enabled", bmName)
-		}
-
-		if len(hypervisor) > 0 && hypervisor != HOSTTYPE_HYPERVISOR[baremetal.HostType] {
-			return nil, httperrors.NewInputParameterError("cannot run hypervisor %s on specified host with type %s", hypervisor, baremetal.HostType)
-		}
-
-		if len(hypervisor) == 0 {
-			hypervisor = HOSTTYPE_HYPERVISOR[baremetal.HostType]
-		}
-
-		if len(hypervisor) == 0 {
-			hypervisor = HYPERVISOR_DEFAULT
-		}
-
-		_, err = GetDriver(hypervisor).ValidateCreateHostData(ctx, userCred, bmName, baremetal, data)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		schedtags := make(map[string]string)
-		if data.Contains("aggregate_strategy") {
-			err = data.Unmarshal(&schedtags, "aggregate_strategy")
-			if err != nil {
-				return nil, httperrors.NewInputParameterError("invalid aggregate_strategy")
-			}
-		}
-		for idx := 0; data.Contains(fmt.Sprintf("schedtag.%d", idx)); idx += 1 {
-			aggStr, _ := data.GetString(fmt.Sprintf("schedtag.%d", idx))
-			if len(aggStr) > 0 {
-				parts := strings.Split(aggStr, ":")
-				if len(parts) >= 2 && len(parts[0]) > 0 && len(parts[1]) > 0 {
-					schedtags[parts[0]] = parts[1]
-				}
-			}
-		}
-		if len(schedtags) > 0 {
-			schedtags, err = SchedtagManager.ValidateSchedtags(userCred, schedtags)
-			if err != nil {
-				return nil, httperrors.NewInputParameterError("invalid aggregate_strategy: %s", err)
-			}
-			data.Add(jsonutils.Marshal(schedtags), "aggregate_strategy")
-		}
-
-		if data.Contains("prefer_wire") {
-			wireStr, _ := data.GetString("prefer_wire")
-			wireObj, err := WireManager.FetchById(wireStr)
-			if err != nil {
-				if err == sql.ErrNoRows {
-					return nil, httperrors.NewResourceNotFoundError("Wire %s not found", wireStr)
-				} else {
-					return nil, httperrors.NewGeneralError(err)
-				}
-			}
-			wire := wireObj.(*SWire)
-			data.Add(jsonutils.NewString(wire.Id), "prefer_wire_id")
-			zone := wire.GetZone()
-			data.Add(jsonutils.NewString(zone.Id), "prefer_zone_id")
-		} else if data.Contains("prefer_zone") {
-			zoneStr, _ := data.GetString("prefer_zone")
-			zoneObj, err := ZoneManager.FetchById(zoneStr)
-			if err != nil {
-				if err == sql.ErrNoRows {
-					return nil, httperrors.NewResourceNotFoundError("Zone %s not found", zoneStr)
-				} else {
-					return nil, httperrors.NewGeneralError(err)
-				}
-			}
-			zone := zoneObj.(*SZone)
-			data.Add(jsonutils.NewString(zone.Id), "prefer_zone_id")
-		}
-	}
-
-	// default hypervisor
-	if len(hypervisor) == 0 {
-		hypervisor = HYPERVISOR_KVM
-	}
-
-	if !utils.IsInStringArray(hypervisor, HYPERVISORS) {
-		return nil, httperrors.NewInputParameterError("Hypervisor %s not supported", hypervisor)
-	}
-
-	data.Add(jsonutils.NewString(hypervisor), "hypervisor")
+	hypervisor, _ = data.GetString("hypervisor")
 
 	for idx := 0; data.Contains(fmt.Sprintf("net.%d", idx)); idx += 1 {
 		netJson, err := data.Get(fmt.Sprintf("net.%d", idx))
@@ -988,18 +896,7 @@ func (guest *SGuest) setApptags(ctx context.Context, appTags []string, userCred 
 
 func (manager *SGuestManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	pendingUsage := getGuestResourceRequirements(ctx, userCred, data, len(items))
-
-	taskItems := make([]db.IStandaloneModel, len(items))
-	for i, t := range items {
-		taskItems[i] = t.(db.IStandaloneModel)
-	}
-	params := data.(*jsonutils.JSONDict)
-	task, err := taskman.TaskManager.NewParallelTask(ctx, "GuestBatchCreateTask", taskItems, userCred, params, "", "", &pendingUsage)
-	if err != nil {
-		log.Errorf("GuestBatchCreateTask newTask error %s", err)
-	} else {
-		task.ScheduleRun(nil)
-	}
+	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, "GuestBatchCreateTask")
 }
 
 func (guest *SGuest) GetGroups() []SGroupguest {
@@ -1703,6 +1600,9 @@ func (self *SGuest) Attach2Network(ctx context.Context, userCred mcclient.TokenC
 		}
 	}
 	notes := jsonutils.NewDict()
+	if len(address) == 0 {
+		address = guestnic.IpAddr
+	}
 	notes.Add(jsonutils.NewString(address), "ip_addr")
 	db.OpsLog.LogAttachEvent(self, network, userCred, notes)
 	return nil
@@ -2080,10 +1980,10 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 		return nil, fmt.Errorf("Parse query body error")
 	}
 
-	// 变更密码/密钥时需要Restart才能生效。更新普通字段不需要Restart
+	// 变更密码/密钥时需要Restart才能生效。更新普通字段不需要Restart, Azure需要在运行状态下操作
 	doRestart := false
 	if kwargs.Contains("__delete_keypair__") || kwargs.Contains("keypair") {
-		doRestart = true
+		doRestart = self.GetDriver().IsNeedRestartForResetLoginInfo()
 		var kpId string
 
 		if kwargs.Contains("keypair") {
@@ -2114,7 +2014,12 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 		}
 	}
 
-	if utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_READY, VM_ADMIN}) {
+	deployStatus, err := self.GetDriver().GetDeployStatus()
+	if err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+
+	if utils.IsInStringArray(self.Status, deployStatus) {
 		if doRestart && self.Status == VM_RUNNING {
 			kwargs.Set("restart", jsonutils.JSONTrue)
 		}
@@ -2849,7 +2754,13 @@ func (self *SGuest) AllowPerformRebuildRoot(ctx context.Context, userCred mcclie
 
 func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	imageId, _ := data.GetString("image_id")
-	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING, VM_ADMIN}) {
+
+	rebuildStatus, err := self.GetDriver().GetRebuildRootStatus()
+	if err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+
+	if !utils.IsInStringArray(self.Status, rebuildStatus) {
 		return nil, httperrors.NewInvalidStatusError("Cannot reset root in status %s", self.Status)
 	}
 
@@ -2901,9 +2812,7 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 		}
 	}
 
-	err := self.StartRebuildRootTask(ctx, userCred, imageId, needStop, autoStart, passwd, resetPasswd)
-	return nil, err
-
+	return nil, self.StartRebuildRootTask(ctx, userCred, imageId, needStop, autoStart, passwd, resetPasswd)
 }
 
 func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool, passwd string, resetPasswd bool) error {
@@ -3263,7 +3172,11 @@ func (self *SGuest) AllowPerformChangeConfig(ctx context.Context, userCred mccli
 }
 
 func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !utils.IsInStringArray(self.Status, []string{VM_READY}) {
+	changeStatus, err := self.GetDriver().GetChangeConfigStatus()
+	if err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+	if !utils.IsInStringArray(self.Status, changeStatus) {
 		return nil, httperrors.NewInvalidStatusError("Cannot change config in %s", self.Status)
 	}
 	if !self.GetDriver().AllowReconfigGuest() {
@@ -4002,6 +3915,7 @@ func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 		diskSpec.Set("size", jsonutils.NewInt(info.Size))
 		diskSpec.Set("backend", jsonutils.NewString(info.Backend))
 		diskSpec.Set("medium_type", jsonutils.NewString(info.MediumType))
+		diskSpec.Set("disk_type", jsonutils.NewString(info.DiskType))
 		diskSpecs.Add(diskSpec)
 	}
 	spec.Set("disk", diskSpecs)
@@ -4111,6 +4025,20 @@ func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
 	desc := self.SStandaloneResourceBase.GetShortDesc()
 	desc.Set("mem", jsonutils.NewInt(int64(self.VmemSize)))
 	desc.Set("cpu", jsonutils.NewInt(int64(self.VcpuCount)))
+
+	address := jsonutils.NewString(strings.Join(self.getRealIPs(), ","))
+	desc.Set("ip_addr", address)
+
+	if len(self.OsType) > 0 {
+		desc.Add(jsonutils.NewString(self.OsType), "os_type")
+	}
+	if osDist := self.GetMetadata("os_distribution", nil); len(osDist) > 0 {
+		desc.Add(jsonutils.NewString(osDist), "os_distribution")
+	}
+	if osVer := self.GetMetadata("os_version", nil); len(osVer) > 0 {
+		desc.Add(jsonutils.NewString(osVer), "os_version")
+	}
+
 	templateId := self.GetTemplateId()
 	if len(templateId) > 0 {
 		desc.Set("cpu", jsonutils.NewString(templateId))

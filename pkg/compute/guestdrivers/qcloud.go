@@ -9,6 +9,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/util/sysutils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -53,6 +55,29 @@ func (self *SQcloudGuestDriver) GetDetachDiskStatus() ([]string, error) {
 
 func (self *SQcloudGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SQcloudGuestDriver) GetRebuildRootStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SQcloudGuestDriver) GetChangeConfigStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SQcloudGuestDriver) GetDeployStatus() ([]string, error) {
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
+}
+
+func (self *SQcloudGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
+	//https://cloud.tencent.com/document/product/362/5747
+	if !utils.IsInStringArray(guest.Status, []string{models.VM_READY, models.VM_RUNNING}) {
+		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
+	}
+	if utils.IsInStringArray(storage.StorageType, []string{sysutils.STORAGE_LOCAL_BASIC, sysutils.STORAGE_LOCAL_SSD}) {
+		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
+	}
+	return nil
 }
 
 func (self *SQcloudGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
@@ -274,7 +299,7 @@ func (self *SQcloudGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Contex
 				disk.BillingType = diskInfo[i].BillingType
 				disk.FsFormat = diskInfo[i].FsFromat
 				disk.AutoDelete = true
-				disk.TemplateId = diskInfo[i].TemplateId
+				//disk.TemplateId = diskInfo[i].TemplateId
 				disk.DiskFormat = diskInfo[i].DiskFormat
 				disk.ExpiredAt = diskInfo[i].ExpiredAt
 				if len(diskInfo[i].Metadata) > 0 {
@@ -319,31 +344,4 @@ func (self *SQcloudGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Contex
 
 func (self *SQcloudGuestDriver) AllowReconfigGuest() bool {
 	return true
-}
-
-func (self *SQcloudGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, snapshotId, diskId string) error {
-	iDisk, _ := models.DiskManager.FetchById(diskId)
-	disk := iDisk.(*models.SDisk)
-	providerDisk, err := disk.GetIDisk()
-	if err != nil {
-		return err
-	}
-	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
-	snapshot := iSnapshot.(*models.SSnapshot)
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		cloudSnapshot, err := providerDisk.CreateISnapshot(snapshot.Name, "")
-		if err != nil {
-			return nil, err
-		}
-		res := jsonutils.NewDict()
-		res.Set("snapshot_id", jsonutils.NewString(cloudSnapshot.GetId()))
-		res.Set("manager_id", jsonutils.NewString(cloudSnapshot.GetManagerId()))
-		cloudRegion, err := models.CloudregionManager.FetchByExternalId("Aliyun/" + cloudSnapshot.GetRegionId())
-		if err != nil {
-			return nil, fmt.Errorf("Cloud region not found? %s", err)
-		}
-		res.Set("cloudregion_id", jsonutils.NewString(cloudRegion.GetId()))
-		return res, nil
-	})
-	return nil
 }

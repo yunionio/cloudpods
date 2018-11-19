@@ -63,7 +63,7 @@
 
 [[constraint]]
   name = "github.com/coredns/coredns"
-  version = "1.2.6"
+  version = "v1.2.0"
 
 [[constraint]]
   name = "github.com/fatih/color"
