@@ -203,4 +203,17 @@ func initCluster() {
 		printObject(ret)
 		return nil
 	})
+
+	R(&o.ClusterRestartAgentsOptions{}, cmdN("restart-agent"), "Restart node agents in cluster", func(s *mcclient.ClientSession, args *o.ClusterRestartAgentsOptions) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := k8s.Clusters.PerformAction(s, args.ID, "restart-agent", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
 }
