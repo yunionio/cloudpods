@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 var returnHttpError = true
@@ -75,6 +76,19 @@ func newNotInRangeError(key string, value, lower, upper int64) error {
 
 func newInvalidValueError(key string, value string) error {
 	return newError(ERR_INVALID_VALUE, "invalid %q: %s", key, value)
+}
+
+func newInvalidStructError(key string, err error) error {
+	errFmt := "invalid %q: "
+	params := []interface{}{key}
+	jsonClientErr, ok := err.(*httputils.JSONClientError)
+	if ok {
+		errFmt += jsonClientErr.Data.Id
+		for _, f := range jsonClientErr.Data.Fields {
+			params = append(params, f)
+		}
+	}
+	return newError(ERR_INVALID_VALUE, errFmt, params...)
 }
 
 func newModelManagerError(modelKeyword string) error {
