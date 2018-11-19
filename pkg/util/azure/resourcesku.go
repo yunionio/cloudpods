@@ -2,6 +2,7 @@ package azure
 
 import (
 	"fmt"
+
 	"yunion.io/x/pkg/utils"
 )
 
@@ -108,7 +109,7 @@ func (self *SAzureClient) ListResourceSkus() ([]SResourceSku, error) {
 	url := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Compute/skus?api-version=2017-09-01", self.subscriptionId)
 	skus := make([]SResourceSku, 0)
 	for {
-		body, err := jsonRequest(cli, "GET", self.domain, url, "")
+		body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "")
 		if err != nil {
 			return nil, err
 		}
