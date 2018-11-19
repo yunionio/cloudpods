@@ -147,7 +147,7 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		if err == cloudprovider.ErrNoSuchProvder {
 			return nil, httperrors.NewResourceNotFoundError("no such provider %s", provider)
 		}
-		return nil, httperrors.NewInvalidCredentialError("invalid cloud account info")
+		return nil, httperrors.NewInputParameterError("invalid cloud account info")
 	}
 
 	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
@@ -386,6 +386,7 @@ func (self *SCloudaccount) ImportSubAccount(ctx context.Context, userCred mcclie
 	newCloudprovider.CloudaccountId = self.Id
 	newCloudprovider.Provider = self.Provider
 	newCloudprovider.Enabled = true
+	newCloudprovider.Status = CLOUD_PROVIDER_CONNECTED
 	newCloudprovider.Name = subAccount.Name
 	if !autoCreateProject {
 		newCloudprovider.ProjectId = auth.AdminCredential().GetProjectId()

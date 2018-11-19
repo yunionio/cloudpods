@@ -111,6 +111,18 @@ func init() {
 		return nil
 	})
 
+	type SchedpoliciesShowOptions struct {
+		ID string `help:"ID or name of the sched policy"`
+	}
+	R(&SchedpoliciesShowOptions{}, "sched-policy-show", "show details of a sched policy", func(s *mcclient.ClientSession, args *SchedpoliciesShowOptions) error {
+		result, err := modules.Schedpolicies.Get(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	type SchedpoliciesEvaluateOptions struct {
 		ID     string `help:"ID or name of the sched policy"`
 		SERVER string `help:"ID or name of the server"`

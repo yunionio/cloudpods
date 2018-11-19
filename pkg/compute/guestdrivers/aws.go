@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/util/ansible"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -158,7 +160,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action)
 			return data, nil
 		})
 	case "rebuild":
@@ -210,7 +212,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 				}
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action)
 
 			return data, nil
 		})
@@ -285,29 +287,6 @@ func (self *SAwsGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, 
 	}
 
 	guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
-	return nil
-}
-
-func (self *SAwsGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, snapshotId, diskId string) error {
-	iDisk, _ := models.DiskManager.FetchById(diskId)
-	disk := iDisk.(*models.SDisk)
-	providerDisk, err := disk.GetIDisk()
-	if err != nil {
-		return err
-	}
-	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
-	snapshot := iSnapshot.(*models.SSnapshot)
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		cloudSnapshot, err := providerDisk.CreateISnapshot(snapshot.Name, "")
-		if err != nil {
-			return nil, err
-		}
-		res := jsonutils.NewDict()
-		res.Set("snapshot_id", jsonutils.NewString(cloudSnapshot.GetId()))
-		res.Set("manager_id", jsonutils.NewString(cloudSnapshot.GetManagerId()))
-		res.Set("cloudregion_id", jsonutils.NewString(cloudSnapshot.GetRegionId()))
-		return res, nil
-	})
 	return nil
 }
 

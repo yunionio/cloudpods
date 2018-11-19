@@ -31,7 +31,7 @@ type SSHtoolSol struct {
 func getCommand(ctx context.Context, userCred mcclient.TokenCredential, ip string) (string, *BaseCommand, error) {
 	cmd := NewBaseCommand(o.Options.SshToolPath)
 	s := auth.GetAdminSession(o.Options.Region, "v2")
-	key, err := modules.Sshkeypairs.GetById(s, userCred.GetProjectId(), jsonutils.NewDict())
+	key, err := modules.Sshkeypairs.GetById(s, userCred.GetProjectId(), jsonutils.Marshal(map[string]bool{"admin": true}))
 	if err != nil {
 		return "", nil, err
 	}
@@ -85,7 +85,7 @@ func NewSSHtoolSolCommand(ctx context.Context, userCred mcclient.TokenCredential
 func (c *SSHtoolSol) GetCommand() *exec.Cmd {
 	if c.BaseCommand != nil {
 		cmd := c.BaseCommand.GetCommand()
-		cmd.Env = append(cmd.Env, "TERM=screen-256color")
+		cmd.Env = append(cmd.Env, "TERM=xterm-256color")
 		return cmd
 	}
 	return nil

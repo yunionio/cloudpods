@@ -49,29 +49,29 @@ func (self *SKVMGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest *
 }
 
 func (self *SKVMGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, snapshotId, diskId string) error {
-	url := fmt.Sprintf("/servers/%s/snapshot", guest.Id)
+	host := guest.GetHost()
+	url := fmt.Sprintf("%s/servers/%s/snapshot", host.ManagerUri, guest.Id)
 	body := jsonutils.NewDict()
 	body.Set("disk_id", jsonutils.NewString(diskId))
 	body.Set("snapshot_id", jsonutils.NewString(snapshotId))
 	header := self.getTaskRequestHeader(task)
-	host := guest.GetHost()
-	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
 	return err
 }
 
 func (self *SKVMGuestDriver) RequestDeleteSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, params *jsonutils.JSONDict) error {
-	url := fmt.Sprintf("/servers/%s/delete-snapshot", guest.Id)
-	header := self.getTaskRequestHeader(task)
 	host := guest.GetHost()
-	_, err := host.Request(task.GetUserCred(), "POST", url, header, params)
+	url := fmt.Sprintf("%s/servers/%s/delete-snapshot", host.ManagerUri, guest.Id)
+	header := self.getTaskRequestHeader(task)
+	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, params, false)
 	return err
 }
 
 func (self *SKVMGuestDriver) RequestReloadDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, params *jsonutils.JSONDict) error {
-	url := fmt.Sprintf("/servers/%s/reload-disk-snapshot", guest.Id)
-	header := self.getTaskRequestHeader(task)
 	host := guest.GetHost()
-	_, err := host.Request(task.GetUserCred(), "POST", url, header, params)
+	url := fmt.Sprintf("%s/servers/%s/reload-disk-snapshot", host.ManagerUri, guest.Id)
+	header := self.getTaskRequestHeader(task)
+	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, params, false)
 	return err
 }
 
@@ -294,9 +294,9 @@ func (self *SKVMGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest 
 	if fw_only, _ := task.GetParams().Bool("fw_only"); fw_only {
 		body.Add(jsonutils.JSONTrue, "fw_only")
 	}
-	url := fmt.Sprintf("/servers/%s/sync", guest.Id)
+	url := fmt.Sprintf("%s/servers/%s/sync", host.ManagerUri, guest.Id)
 	header := self.getTaskRequestHeader(task)
-	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
 	return err
 }
 

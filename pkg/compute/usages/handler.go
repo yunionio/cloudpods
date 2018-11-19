@@ -272,7 +272,7 @@ func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandalo
 
 	if consts.IsRbacEnabled() {
 		if policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
-			"usages", policy.PolicyActionGet) == rbacutils.Allow {
+			"usages", policy.PolicyActionGet) == rbacutils.AdminAllow {
 			isAdmin = true
 		}
 	} else {

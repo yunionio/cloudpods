@@ -9,6 +9,10 @@ import (
 	"github.com/Azure/go-autorest/autorest"
 )
 
+const (
+	DEBUG = false
+)
+
 func LogRequest() autorest.PrepareDecorator {
 	return func(p autorest.Preparer) autorest.Preparer {
 		return autorest.PreparerFunc(func(r *http.Request) (*http.Request, error) {
