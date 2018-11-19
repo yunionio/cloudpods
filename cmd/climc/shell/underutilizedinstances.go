@@ -12,7 +12,7 @@ func init() {
 	type UnderutilizedInstancesListOptions struct {
 		options.BaseListOptions
 	}
-	R(&UnderutilizedInstancesListOptions{}, "underutilizedinstances-list", "List underutilized instances", func(s *mcclient.ClientSession, args *UnderutilizedInstancesListOptions) error {
+	R(&UnderutilizedInstancesListOptions{}, "underutilized-instances-list", "List underutilized instances", func(s *mcclient.ClientSession, args *UnderutilizedInstancesListOptions) error {
 		var params *jsonutils.JSONDict
 		{
 			var err error
