@@ -106,8 +106,10 @@ func (self *SAzureClient) getDefaultClient() (*autorest.Client, error) {
 		return nil, err
 	}
 	client.Authorizer = authorizer
-	// client.RequestInspector = LogRequest()
-	// client.ResponseInspector = LogResponse()
+	if DEBUG {
+		client.RequestInspector = LogRequest()
+		client.ResponseInspector = LogResponse()
+	}
 	return &client, nil
 }
 
@@ -116,7 +118,7 @@ func (self *SAzureClient) jsonRequest(method, url string, body string) (jsonutil
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, method, self.domain, url, body)
+	return jsonRequest(cli, method, self.domain, url, self.subscriptionId, body)
 }
 
 func (self *SAzureClient) Get(resourceId string, params []string, retVal interface{}) error {
@@ -131,7 +133,7 @@ func (self *SAzureClient) Get(resourceId string, params []string, retVal interfa
 	if err != nil {
 		return err
 	}
-	body, err := jsonRequest(cli, "GET", self.domain, path, "")
+	body, err := jsonRequest(cli, "GET", self.domain, path, self.subscriptionId, "")
 	if err != nil {
 		return err
 	}
@@ -151,7 +153,7 @@ func (self *SAzureClient) ListVmSizes(location string) (jsonutils.JSONObject, er
 		return nil, fmt.Errorf("need subscription id")
 	}
 	url := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Compute/locations/%s/vmSizes", self.subscriptionId, location)
-	return jsonRequest(cli, "GET", self.domain, url, "")
+	return jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "")
 }
 
 func (self *SAzureClient) ListClassicDisks() (jsonutils.JSONObject, error) {
@@ -163,7 +165,7 @@ func (self *SAzureClient) ListClassicDisks() (jsonutils.JSONObject, error) {
 		return nil, fmt.Errorf("need subscription id")
 	}
 	url := fmt.Sprintf("/subscriptions/%s/services/disks", self.subscriptionId)
-	return jsonRequest(cli, "GET", self.domain, url, "")
+	return jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "")
 }
 
 func (self *SAzureClient) ListAll(resourceType string, retVal interface{}) error {
@@ -178,7 +180,7 @@ func (self *SAzureClient) ListAll(resourceType string, retVal interface{}) error
 	if len(resourceType) > 0 {
 		url += fmt.Sprintf("/providers/%s", resourceType)
 	}
-	body, err := jsonRequest(cli, "GET", self.domain, url, "")
+	body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "")
 	if err != nil {
 		return err
 	}
@@ -193,7 +195,7 @@ func (self *SAzureClient) ListSubscriptions() (jsonutils.JSONObject, error) {
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "GET", self.domain, "/subscriptions", "")
+	return jsonRequest(cli, "GET", self.domain, "/subscriptions", self.subscriptionId, "")
 }
 
 func (self *SAzureClient) List(golbalResource string, retVal interface{}) error {
@@ -208,7 +210,7 @@ func (self *SAzureClient) List(golbalResource string, retVal interface{}) error 
 	if len(self.subscriptionId) > 0 && len(golbalResource) > 0 {
 		url += fmt.Sprintf("/%s", golbalResource)
 	}
-	body, err := jsonRequest(cli, "GET", self.domain, url, "")
+	body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "")
 	if err != nil {
 		return err
 	}
@@ -224,7 +226,7 @@ func (self *SAzureClient) ListByTypeWithResourceGroup(resourceGroupName string, 
 		return fmt.Errorf("Missing subscription Info")
 	}
 	url := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s", self.subscriptionId, resourceGroupName, Type)
-	body, err := jsonRequest(cli, "GET", self.domain, url, "")
+	body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "")
 	if err != nil {
 		return err
 	}
@@ -236,7 +238,7 @@ func (self *SAzureClient) Delete(resourceId string) error {
 	if err != nil {
 		return err
 	}
-	_, err = jsonRequest(cli, "DELETE", self.domain, resourceId, "")
+	_, err = jsonRequest(cli, "DELETE", self.domain, resourceId, self.subscriptionId, "")
 	return err
 }
 
@@ -246,7 +248,7 @@ func (self *SAzureClient) PerformAction(resourceId string, action string, body s
 		return nil, err
 	}
 	url := fmt.Sprintf("%s/%s", resourceId, action)
-	return jsonRequest(cli, "POST", self.domain, url, body)
+	return jsonRequest(cli, "POST", self.domain, url, self.subscriptionId, body)
 }
 
 func (self *SAzureClient) fetchResourceGroup(cli *autorest.Client, location string) error {
@@ -261,7 +263,7 @@ func (self *SAzureClient) fetchResourceGroup(cli *autorest.Client, location stri
 	if len(self.ressourceGroups) == 0 {
 		//Create Default resourceGroup
 		_url := fmt.Sprintf("/subscriptions/%s/resourcegroups/Default", self.subscriptionId)
-		body, err := jsonRequest(cli, "PUT", self.domain, _url, fmt.Sprintf(`{"name": "Default", "location": "%s"}`, location))
+		body, err := jsonRequest(cli, "PUT", self.domain, _url, self.subscriptionId, fmt.Sprintf(`{"name": "Default", "location": "%s"}`, location))
 		if err != nil {
 			return err
 		}
@@ -287,6 +289,18 @@ func (self *SAzureClient) checkParams(body jsonutils.JSONObject, params []string
 	return result, nil
 }
 
+type AzureErrorDetail struct {
+	Code    string `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
+	Target  string `json:"target,omitempty"`
+}
+
+type AzureError struct {
+	Code    string             `json:"code,omitempty"`
+	Details []AzureErrorDetail `json:"details,omitempty"`
+	Message string             `json:"message,omitempty"`
+}
+
 func (self *SAzureClient) Create(body jsonutils.JSONObject, retVal interface{}) error {
 	cli, err := self.getDefaultClient()
 	if err != nil {
@@ -307,11 +321,14 @@ func (self *SAzureClient) Create(body jsonutils.JSONObject, retVal interface{}) 
 		return fmt.Errorf("Create Default resourceGroup error?")
 	}
 	url := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s", self.subscriptionId, self.ressourceGroups[0].Name, params["type"], params["name"])
-	result, err := jsonRequest(cli, "PUT", self.domain, url, body.String())
+	result, err := jsonRequest(cli, "PUT", self.domain, url, self.subscriptionId, body.String())
 	if err != nil {
 		return err
 	}
-	return result.Unmarshal(retVal)
+	if retVal != nil {
+		return result.Unmarshal(retVal)
+	}
+	return nil
 }
 
 func (self *SAzureClient) CheckNameAvailability(Type string, body string) (jsonutils.JSONObject, error) {
@@ -323,7 +340,7 @@ func (self *SAzureClient) CheckNameAvailability(Type string, body string) (jsonu
 		return nil, fmt.Errorf("Missing subscription ID")
 	}
 	url := fmt.Sprintf("/subscriptions/%s/providers/%s/checkNameAvailability", self.subscriptionId, Type)
-	return jsonRequest(cli, "POST", self.domain, url, body)
+	return jsonRequest(cli, "POST", self.domain, url, self.subscriptionId, body)
 }
 
 func (self *SAzureClient) Update(body jsonutils.JSONObject, retVal interface{}) error {
@@ -332,7 +349,7 @@ func (self *SAzureClient) Update(body jsonutils.JSONObject, retVal interface{}) 
 		return err
 	}
 	url, err := body.GetString("id")
-	result, err := jsonRequest(cli, "PUT", self.domain, url, body.String())
+	result, err := jsonRequest(cli, "PUT", self.domain, url, self.subscriptionId, body.String())
 	if err != nil {
 		return err
 	}
@@ -342,8 +359,86 @@ func (self *SAzureClient) Update(body jsonutils.JSONObject, retVal interface{}) 
 	return nil
 }
 
-func jsonRequest(client *autorest.Client, method, domain, baseUrl string, body string) (jsonutils.JSONObject, error) {
-	return _jsonRequest(client, method, domain, baseUrl, body)
+func waitRegisterComplete(client *autorest.Client, domain, subscriptionId string, serviceType string) error {
+	for i := 1; i < 10; i++ {
+		result, err := _jsonRequest(client, "GET", domain, fmt.Sprintf("/subscriptions/%s/providers", subscriptionId), "")
+		if err != nil {
+			return err
+		}
+		value, err := result.GetArray("value")
+		if err != nil {
+			return err
+		}
+		for _, v := range value {
+			namespace, _ := v.GetString("namespace")
+			if namespace == serviceType {
+				state, _ := v.GetString("registrationState")
+				if state == "Registered" {
+					return nil
+				}
+				log.Debugf("service %s state %s waite %d second ...", serviceType, state, i*10)
+			}
+		}
+		time.Sleep(time.Second * time.Duration(i*10))
+	}
+	return fmt.Errorf("wait service %s register timeout", serviceType)
+}
+
+func registerService(client *autorest.Client, domain, subscriptionId string, serviceType string) error {
+	registryUrl := fmt.Sprintf("/subscriptions/%s/providers/%s/register", subscriptionId, serviceType)
+	result, err := _jsonRequest(client, "POST", domain, registryUrl, "")
+	if err != nil || result.Contains("error") {
+		return fmt.Errorf("failed to register %s service", serviceType)
+	}
+	if state, _ := result.GetString("registrationState"); state == "Registered" {
+		return nil
+	}
+	return waitRegisterComplete(client, domain, subscriptionId, serviceType)
+}
+
+func recoverFromError(client *autorest.Client, domain, subscriptionId string, azureErr AzureError) bool {
+	switch azureErr.Code {
+	case "SubscriptionNotRegistered":
+		services := []string{"Microsoft.Network"}
+		for _, service := range services {
+			if err := registerService(client, domain, subscriptionId, service); err != nil {
+				log.Errorf("register %s error: %v", service, err)
+				return false
+			}
+		}
+		return true
+	case "MissingSubscriptionRegistration":
+		for _, detail := range azureErr.Details {
+			log.Errorf("The subscription is not registered to use namespace '%s', try register it", detail.Target)
+			if err := registerService(client, domain, subscriptionId, detail.Target); err != nil {
+				log.Errorf("register %s error: %v", detail.Target, err)
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
+	return false
+}
+
+func jsonRequest(client *autorest.Client, method, domain, baseUrl string, subscriptionId string, body string) (jsonutils.JSONObject, error) {
+	result, err := _jsonRequest(client, method, domain, baseUrl, body)
+	if err != nil {
+		return nil, err
+	}
+	if result.Contains("error") {
+		azureError := AzureError{}
+		if err := result.Unmarshal(&azureError, "error"); err != nil {
+			return nil, fmt.Errorf(result.String())
+		}
+		if recoverFromError(client, domain, subscriptionId, azureError) {
+			return _jsonRequest(client, method, domain, baseUrl, body)
+		}
+		log.Errorf("Azure %s request: %s \nbody: %s error: %v", method, baseUrl, body, result.String())
+		return nil, fmt.Errorf(result.String())
+	}
+	return result, nil
 }
 
 func waitForComplatetion(client *autorest.Client, req *http.Request, resp *http.Response, timeout time.Duration) (jsonutils.JSONObject, error) {
@@ -470,15 +565,7 @@ func _jsonRequest(client *autorest.Client, method, domain, baseURL, body string)
 		return nil, err
 	}
 	_data := strings.Replace(string(data), "\r", "", -1)
-	result, err = jsonutils.Parse([]byte(_data))
-	if err != nil {
-		return nil, err
-	}
-	if result.Contains("error") {
-		log.Errorf("Azure %s request: %s \nbody: %s error: %v", req.Method, req.URL.String(), body, result.String())
-		return nil, fmt.Errorf(result.String())
-	}
-	return result, nil
+	return jsonutils.Parse([]byte(_data))
 }
 
 func (self *SAzureClient) UpdateAccount(tenantId, secret, envName string) error {

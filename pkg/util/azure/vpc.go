@@ -77,7 +77,11 @@ func (self *SVpc) GetCidrBlock() string {
 }
 
 func (self *SVpc) Delete() error {
-	return self.region.client.Delete(self.ID)
+	return self.region.DeleteVpc(self.ID)
+}
+
+func (self *SRegion) DeleteVpc(vpcId string) error {
+	return self.client.Delete(vpcId)
 }
 
 func (self *SVpc) getSecurityGroups() ([]SSecurityGroup, error) {
