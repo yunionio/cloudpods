@@ -429,7 +429,7 @@ func (self *SCloudprovider) SaveSysInfo(info jsonutils.JSONObject) {
 func (manager *SCloudproviderManager) FetchCloudproviderById(providerId string) *SCloudprovider {
 	providerObj, err := manager.FetchById(providerId)
 	if err != nil {
-		log.Errorf("%s", err)
+		log.Errorf("fetch cloud provider %s: %s", providerId, err)
 		return nil
 	}
 	return providerObj.(*SCloudprovider)
