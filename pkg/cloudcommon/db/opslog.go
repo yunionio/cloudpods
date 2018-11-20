@@ -27,11 +27,16 @@ const (
 	ACT_ATTACH  = "attach"
 	ACT_DETACH  = "detach"
 
-	ACT_UPDATE_STATUS = "updatestatus"
+	ACT_START_CREATE_BACKUP  = "start_create_backup"
+	ACT_CREATE_BACKUP        = "create_backup"
+	ACT_CREATE_BACKUP_FAILED = "create_backup_failed"
 
-	ACT_STARTING   = "starting"
-	ACT_START      = "start"
-	ACT_START_FAIL = "start_fail"
+	ACT_UPDATE_STATUS       = "updatestatus"
+	ACT_STARTING            = "starting"
+	ACT_START               = "start"
+	ACT_START_FAIL          = "start_fail"
+	ACT_BACKUP_START        = "backup_start"
+	ACT_BACKUP_START_FAILED = "backup_start_fail"
 
 	ACT_STOPPING  = "stopping"
 	ACT_STOP      = "stop"
@@ -49,6 +54,9 @@ const (
 	ACT_SAVE      = "save"
 	ACT_SAVE_FAIL = "save_fail"
 
+	ACT_SWITCHED      = "switched"
+	ACT_SWITCH_FAILED = "switch_failed"
+
 	ACT_SNAPSHOTING          = "snapshoting"
 	ACT_SNAPSHOT_STREAM      = "snapshot_stream"
 	ACT_SNAPSHOT_DONE        = "snapshot"
@@ -63,9 +71,12 @@ const (
 	ACT_DISK_CLEAN_UP_SNAPSHOTS      = "disk_clean_up_snapshots"
 	ACT_DISK_CLEAN_UP_SNAPSHOTS_FAIL = "disk_clean_up_snapshots_fail"
 
-	ACT_ALLOCATING    = "allocating"
-	ACT_ALLOCATE      = "allocate"
-	ACT_ALLOCATE_FAIL = "alloc_fail"
+	ACT_ALLOCATING           = "allocating"
+	ACT_BACKUP_ALLOCATING    = "backup_allocating"
+	ACT_ALLOCATE             = "allocate"
+	ACT_BACKUP_ALLOCATE      = "backup_allocate"
+	ACT_ALLOCATE_FAIL        = "alloc_fail"
+	ACT_BACKUP_ALLOCATE_FAIL = "backup_alloc_fail"
 
 	ACT_DELOCATING    = "delocating"
 	ACT_DELOCATE      = "delocate"

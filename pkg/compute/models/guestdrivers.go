@@ -67,7 +67,7 @@ type IGuestDriver interface {
 
 	StartGuestSaveImage(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, params *jsonutils.JSONDict, parentTaskId string) error
 
-	RequestStopGuestForDelete(ctx context.Context, guest *SGuest, task taskman.ITask) error
+	RequestStopGuestForDelete(ctx context.Context, guest *SGuest, host *SHost, task taskman.ITask) error
 
 	RequestDetachDisksFromGuestForDelete(ctx context.Context, guest *SGuest, task taskman.ITask) error
 
@@ -110,6 +110,7 @@ type IGuestDriver interface {
 	RequestDiskSnapshot(ctx context.Context, guest *SGuest, task taskman.ITask, snapshotId, diskId string) error
 	RequestDeleteSnapshot(ctx context.Context, guest *SGuest, task taskman.ITask, params *jsonutils.JSONDict) error
 	RequestReloadDiskSnapshot(ctx context.Context, guest *SGuest, task taskman.ITask, params *jsonutils.JSONDict) error
+	RequestSyncToBackup(ctx context.Context, guest *SGuest, task taskman.ITask) error
 }
 
 var guestDrivers map[string]IGuestDriver

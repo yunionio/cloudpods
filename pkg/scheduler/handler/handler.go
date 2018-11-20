@@ -108,10 +108,10 @@ func doSchedulerTest(c *gin.Context) {
 	c.JSON(http.StatusOK, transToSchedTestResult(result, schedInfo.SuggestionLimit))
 }
 
-func transToSchedTestResult(result []*core.SchedResultItem, limit int64) interface{} {
+func transToSchedTestResult(result *core.SchedResultItemList, limit int64) interface{} {
 	return &api.SchedTestResult{
-		Data:   result,
-		Total:  int64(len(result)),
+		Data:   result.Data,
+		Total:  int64(result.Len()),
 		Limit:  limit,
 		Offset: 0,
 	}
@@ -258,7 +258,15 @@ func doSyncSchedule(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, transToRegionSchedResult(result, schedInfo.Data.Count))
+	count := schedInfo.Data.Count
+	var resp interface{}
+	if schedInfo.Data.Backup {
+		resp = transToBackupSchedResult(result, schedInfo.Data.BackupHostID, count)
+	} else {
+		resp = transToRegionSchedResult(result.Data, count)
+	}
+
+	c.JSON(http.StatusOK, resp)
 }
 
 func transToRegionSchedResult(result []*core.SchedResultItem, count int64) interface{} {

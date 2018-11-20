@@ -175,8 +175,11 @@ func (self *SBaremetalGuestDriver) RequestStartOnHost(ctx context.Context, guest
 	return host.BaremetalSyncRequest(ctx, "POST", url, headers, config)
 }
 
-func (self *SBaremetalGuestDriver) RequestStopGuestForDelete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	host := guest.GetHost()
+func (self *SBaremetalGuestDriver) RequestStopGuestForDelete(ctx context.Context, guest *models.SGuest,
+	host *models.SHost, task taskman.ITask) error {
+	if host == nil {
+		host = guest.GetHost()
+	}
 	guestStatus, _ := task.GetParams().GetString("guest_status")
 	overridePendingDelete := jsonutils.QueryBoolean(task.GetParams(), "override_pending_delete", false)
 	purge := jsonutils.QueryBoolean(task.GetParams(), "purge", false)

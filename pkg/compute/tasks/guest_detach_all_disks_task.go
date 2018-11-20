@@ -40,6 +40,9 @@ func (self *GuestDetachAllDisksTask) OnDiskDeleteComplete(ctx context.Context, o
 		if purge {
 			taskData.Add(jsonutils.JSONTrue, "purge")
 		}
+		if jsonutils.QueryBoolean(self.Params, "override_pending_delete", false) {
+			taskData.Add(jsonutils.JSONTrue, "override_pending_delete")
+		}
 		disk := guestdisk.GetDisk()
 		storage := disk.GetStorage()
 		if storage.IsLocal() {

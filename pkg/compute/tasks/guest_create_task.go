@@ -42,7 +42,7 @@ func (self *GuestCreateTask) OnWaitGuestNetworksReady(ctx context.Context, obj d
 
 func (self *GuestCreateTask) OnGuestNetworkReady(ctx context.Context, guest *models.SGuest) {
 	guest.SetStatus(self.UserCred, models.VM_CREATE_DISK, "")
-	self.SetStage("on_disk_prepared", nil)
+	self.SetStage("OnDiskPrepared", nil)
 	guest.GetDriver().RequestGuestCreateAllDisks(ctx, guest, self)
 }
 
@@ -58,7 +58,7 @@ func (self *GuestCreateTask) OnDiskPrepared(ctx context.Context, obj db.IStandal
 	guest := obj.(*models.SGuest)
 	cdrom, _ := self.Params.GetString("cdrom")
 	if len(cdrom) > 0 {
-		self.SetStage("on_cdrom_prepared", nil)
+		self.SetStage("OnCdromPrepared", nil)
 		guest.GetDriver().RequestGuestCreateInsertIso(ctx, cdrom, guest, self)
 	} else {
 		self.OnCdromPrepared(ctx, obj, data)
@@ -83,7 +83,7 @@ func (self *GuestCreateTask) OnCdromPreparedFailed(ctx context.Context, obj db.I
 }
 
 func (self *GuestCreateTask) StartDeployGuest(ctx context.Context, guest *models.SGuest) {
-	self.SetStage("on_deploy_guest_desc_complete", nil)
+	self.SetStage("OnDeployGuestDescComplete", nil)
 	guest.StartGuestDeployTask(ctx, self.UserCred, self.Params, "create", self.GetId())
 }
 
