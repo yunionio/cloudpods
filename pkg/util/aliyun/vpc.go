@@ -45,6 +45,14 @@ type SVpc struct {
 	VpcName      string
 }
 
+func (self *SVpc) apiRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
+	client, err := self.region.getSdkClient()
+	if err != nil {
+		return nil, err
+	}
+	return _jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params)
+}
+
 func (self *SVpc) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
