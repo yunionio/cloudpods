@@ -9,7 +9,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -319,29 +318,20 @@ func (self *SSnapshot) CustomizeDelete(ctx context.Context, userCred mcclient.To
 	if self.Status == SNAPSHOT_DELETING {
 		return fmt.Errorf("Cannot delete snapshot in status %s", self.Status)
 	}
-	if self.Status == SNAPSHOT_UNKNOWN {
-		return self.RealDelete(ctx, userCred)
-	}
 	if len(self.ExternalId) == 0 {
-		if utils.IsInStringArray(self.Status, []string{SNAPSHOT_FAILED}) {
-			return self.RealDelete(ctx, userCred)
-		}
 		if self.CreatedBy == MANUAL {
 			if !self.FakeDeleted {
 				return self.FakeDelete()
-			} else {
-				_, err := SnapshotManager.GetConvertSnapshot(self)
-				if err != nil {
-					return fmt.Errorf("Cannot delete snapshot: %s, disk need at least one of snapshot as backing file", err.Error())
-				}
-				return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
 			}
-		} else {
-			return fmt.Errorf("Cannot delete snapshot created by %s", self.CreatedBy)
+			_, err := SnapshotManager.GetConvertSnapshot(self)
+			if err != nil {
+				return fmt.Errorf("Cannot delete snapshot: %s, disk need at least one of snapshot as backing file", err.Error())
+			}
+			return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
 		}
-	} else {
-		return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
+		return fmt.Errorf("Cannot delete snapshot created by %s", self.CreatedBy)
 	}
+	return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
 }
 
 func (self *SSnapshot) AllowPerformDeleted(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
