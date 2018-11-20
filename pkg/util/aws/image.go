@@ -2,6 +2,7 @@ package aws
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/jsonutils"
@@ -189,6 +190,8 @@ func (self *SRegion) GetImageByName(name string) (*SImage, error) {
 	if len(images) == 0 {
 		return nil, cloudprovider.ErrNotFound
 	}
+
+	log.Debugf("%d image found match name %", len(images), name)
 	return &images[0], nil
 }
 
@@ -230,8 +233,16 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 	if len(imageId) > 0 {
 		params.SetImageIds(ConvertedList(imageId))
 	}
+
+	if len(filters) > 0 {
+		params.SetFilters(filters)
+	}
+
 	ret, err := self.ec2Client.DescribeImages(params)
 	if err != nil {
+		if strings.Contains(err.Error(), ".NotFound") {
+			return nil, 0, cloudprovider.ErrNotFound
+		}
 		return nil, 0, err
 	}
 

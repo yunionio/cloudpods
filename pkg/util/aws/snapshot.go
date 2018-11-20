@@ -3,7 +3,9 @@ package aws
 import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"strings"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -11,9 +13,9 @@ import (
 type SnapshotStatusType string
 
 const (
-	SnapshotStatusAccomplished SnapshotStatusType = "accomplished"
-	SnapshotStatusProgress     SnapshotStatusType = "progressing"
-	SnapshotStatusFailed       SnapshotStatusType = "failed"
+	SnapshotStatusAccomplished SnapshotStatusType = "completed"
+	SnapshotStatusProgress     SnapshotStatusType = "pending"
+	SnapshotStatusFailed       SnapshotStatusType = "error"
 )
 
 type SSnapshot struct {
@@ -89,10 +91,11 @@ func (self *SSnapshot) GetDiskId() string {
 }
 
 func (self *SSnapshot) Delete() error {
-	panic("implement me")
+	return self.region.DeleteSnapshot(self.SnapshotId)
 }
 
 func (self *SSnapshot) GetRegionId() string {
+	// 这里特别注意：aws没有有uuid形式的region id
 	return self.region.GetId()
 }
 
@@ -124,6 +127,10 @@ func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName
 
 	ret, err := self.ec2Client.DescribeSnapshots(params)
 	if err != nil {
+		if strings.Contains(err.Error(), "InvalidSnapshot.NotFound") {
+			return nil, 0, cloudprovider.ErrNotFound
+		}
+
 		return nil, 0, err
 	}
 
@@ -176,8 +183,9 @@ func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
 	}
 
 	params.SetDescription(desc)
-	_, err := self.ec2Client.CreateSnapshot(params)
-	return "", err
+	log.Debugf("CreateSnapshots with params %s", params)
+	ret, err := self.ec2Client.CreateSnapshot(params)
+	return StrVal(ret.SnapshotId), err
 }
 
 func (self *SRegion) DeleteSnapshot(snapshotId string) error {

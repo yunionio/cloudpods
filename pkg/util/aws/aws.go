@@ -1,7 +1,7 @@
 package aws
 
 import (
-	"github.com/coredns/coredns/plugin/pkg/log"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 
@@ -33,6 +33,7 @@ func NewAwsClient(providerId string, providerName string, accessUrl string, acce
 	client := SAwsClient{providerId: providerId, providerName: providerName, accessUrl: accessUrl, accessKey: accessKey, secret: secret}
 	err := client.fetchRegions()
 	if err != nil {
+		log.Debugf("NewAwsClient %s", err.Error())
 		return nil, err
 	}
 	return &client, nil

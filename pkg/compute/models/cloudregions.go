@@ -288,7 +288,7 @@ func (self *SCloudregion) PerformDefaultVpc(ctx context.Context, userCred mcclie
 func (manager *SCloudregionManager) FetchRegionById(id string) *SCloudregion {
 	obj, err := manager.FetchById(id)
 	if err != nil {
-		log.Errorf("%s", err)
+		log.Errorf("region %s %s", id, err)
 		return nil
 	}
 	return obj.(*SCloudregion)
