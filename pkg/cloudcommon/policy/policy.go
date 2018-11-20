@@ -233,7 +233,8 @@ func (manager *SPolicyManager) explainPolicy(userCred mcclient.TokenCredential, 
 	}
 	if len(policySeq) > 4 {
 		for i := 4; i < len(policySeq); i += 1 {
-			extra[i-4], _ = policySeq[i].GetString()
+			ev, _ := policySeq[i].GetString()
+			extra = append(extra, ev)
 		}
 	}
 
