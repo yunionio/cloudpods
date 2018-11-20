@@ -130,7 +130,7 @@ func (self *SCloudprovider) ValidateUpdateData(ctx context.Context, userCred mcc
 }
 
 func (self *SCloudproviderManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return nil, httperrors.NewUnsupportOperationError("Not support create cloudprovider, please considir create cloudaccount")
+	return nil, httperrors.NewUnsupportOperationError("Directly creating cloudprovider is not supported, create cloudaccount instead")
 }
 
 func (self *SCloudprovider) getPassword() (string, error) {
