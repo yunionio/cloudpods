@@ -139,3 +139,11 @@ func NewWebsocketManager(keyword, keywordPlural string, columns, adminColumns []
 			serviceType:  "websocket"},
 		Keyword: keyword, KeywordPlural: keywordPlural}
 }
+
+func NewCloudmetaManager(keyword, keywordPlural string, columns, adminColumns []string) ResourceManager {
+	return ResourceManager{
+		BaseManager: BaseManager{columns: columns,
+			adminColumns: adminColumns,
+			serviceType:  "cloudmeta"},
+		Keyword: keyword, KeywordPlural: keywordPlural}
+}
