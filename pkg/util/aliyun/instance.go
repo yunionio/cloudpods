@@ -219,6 +219,7 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	}
 	data.Update(tags)
 
+	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
 	if len(self.ImageId) > 0 {
 		if image, err := self.host.zone.region.GetImage(self.ImageId); err != nil {
 			log.Errorf("Failed to find image %s for instance %s", self.ImageId, self.GetName())
@@ -258,6 +259,10 @@ func (self *SInstance) GetGlobalId() string {
 
 func (self *SInstance) IsEmulated() bool {
 	return false
+}
+
+func (self *SInstance) GetInstanceType() string {
+	return self.InstanceType
 }
 
 func (self *SInstance) getVpc() (*SVpc, error) {
@@ -468,6 +473,10 @@ func (self *SInstance) RebuildRoot(imageId string, passwd string, publicKey stri
 
 func (self *SInstance) ChangeConfig(instanceId string, ncpu int, vmem int) error {
 	return self.host.zone.region.ChangeVMConfig(self.ZoneId, self.InstanceId, ncpu, vmem, nil)
+}
+
+func (self *SInstance) ChangeConfig2(instanceId string, instanceType string) error {
+	return self.host.zone.region.ChangeVMConfig2(self.ZoneId, self.InstanceId, instanceType, nil)
 }
 
 func (self *SInstance) AttachDisk(diskId string) error {
@@ -767,6 +776,19 @@ func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, 
 	}
 
 	return fmt.Errorf("Failed to change vm config, specification not supported")
+}
+
+func (self *SRegion) ChangeVMConfig2(zoneId string, instanceId string, instanceType string, disks []*SDisk) error {
+	// todo: support change disk config?
+	params := make(map[string]string)
+	params["InstanceType"] = instanceType
+	params["ClientToken"] = utils.GenRequestId(20)
+	if err := self.instanceOperation(instanceId, "ModifyInstanceSpec", params); err != nil {
+		log.Errorf("Failed for %s: %s", instanceType, err)
+		return fmt.Errorf("Failed to change vm config, specification not supported")
+	} else {
+		return nil
+	}
 }
 
 func (self *SRegion) DetachDisk(instanceId string, diskId string) error {

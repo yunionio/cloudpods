@@ -58,9 +58,9 @@ func (self *SAwsGuestDriver) GetChangeConfigStatus() ([]string, error) {
 	return []string{models.VM_READY}, nil
 }
 
-//AWS不允许更改密码或替换密钥对
+// AWS不允许更改密码或替换密钥对
 func (self *SAwsGuestDriver) GetDeployStatus() ([]string, error) {
-	return []string{}, nil
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
 }
 
 func (self *SAwsGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
@@ -118,11 +118,20 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 				return nil, err
 			}
 
-			iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-				desc.IpAddr, desc.Description, "", desc.StorageType, desc.DataDisks, publicKey, secgrpId, userData)
-			if err != nil {
-				return nil, err
+			var createErr error
+			var iVM cloudprovider.ICloudVM
+			if len(desc.InstanceType) > 0 {
+				iVM, createErr = ihost.CreateVM2(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.InstanceType, desc.ExternalNetworkId,
+					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId, userData)
+			} else {
+				iVM, createErr = ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
+					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId, userData)
 			}
+
+			if createErr != nil {
+				return nil, createErr
+			}
+
 			log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
 			err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800)
 			if err != nil {

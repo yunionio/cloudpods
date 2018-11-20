@@ -225,9 +225,17 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				return nil, err
 			}
 
-			iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId, userData)
-			if err != nil {
+			var createErr error
+			var iVM cloudprovider.ICloudVM
+			if len(desc.InstanceType) > 0 {
+				iVM, createErr = ihost.CreateVM2(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.InstanceType, desc.ExternalNetworkId,
+					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId, userData)
+			} else {
+				iVM, createErr = ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
+					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId, userData)
+			}
+
+			if createErr != nil {
 				return nil, err
 			}
 			log.Debugf("VMcreated %s, wait status ready ...", iVM.GetGlobalId())

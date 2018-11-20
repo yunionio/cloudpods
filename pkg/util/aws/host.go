@@ -156,15 +156,7 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 
 func (self *SHost) CreateVM(name, imgId string, sysDiskSize, cpu, memMB int, networkId, ipAddr, desc,
 	passwd, storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (cloudprovider.ICloudVM, error) {
-	if len(publicKey) == 0 {
-		return nil, fmt.Errorf("AWS instance create error: keypair required")
-	}
-
-	if len(passwd) > 0 {
-		log.Debugf("Ignored: AWS not support password.Use keypair instand")
-	}
-
-	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, networkId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId)
+	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, "", networkId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId, userData)
 	if err != nil {
 		return nil, err
 	}
@@ -177,9 +169,24 @@ func (self *SHost) CreateVM(name, imgId string, sysDiskSize, cpu, memMB int, net
 	return vm, err
 }
 
-func (self *SHost) _createVM(name, imgId string, sysDiskSize, cpu, memMB int,
+func (self *SHost) CreateVM2(name, imgId string, sysDiskSize int, instanceType string, networkId, ipAddr, desc,
+	passwd, storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (cloudprovider.ICloudVM, error) {
+	vmId, err := self._createVM(name, imgId, sysDiskSize, 0, 0, instanceType, networkId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId, userData)
+	if err != nil {
+		return nil, err
+	}
+
+	vm, err := self.GetInstanceById(vmId)
+	if err != nil {
+		return nil, err
+	}
+
+	return vm, err
+}
+
+func (self *SHost) _createVM(name, imgId string, sysDiskSize int, cpu, memMB int, instanceType string,
 	networkId, ipAddr, desc, passwd,
-	storageType string, diskSizes []int, publicKey string, secgroupId string) (string, error) {
+	storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (string, error) {
 	// 网络配置及安全组绑定
 	net := self.zone.getNetworkById(networkId)
 	if net == nil {
@@ -215,19 +222,19 @@ func (self *SHost) _createVM(name, imgId string, sysDiskSize, cpu, memMB int,
 		}
 	}
 	// 同步keypair
+	var err error
 	keypair := ""
-	if len(publicKey) <= 0 {
-		return "", fmt.Errorf("publickey should not be empty")
+	if len(publicKey) > 0 {
+		keypair, err = self.zone.region.syncKeypair(publicKey)
+		if err != nil {
+			return "", err
+		}
 	}
 
-	keypair, err := self.zone.region.syncKeypair(publicKey)
-	if err != nil {
-		return "", err
-	}
 	// 镜像及硬盘配置
 	img, err := self.zone.region.GetImage(imgId)
 	if err != nil {
-		log.Errorf("getiamge fail %s", err)
+		log.Errorf("getiamge %s fail %s", imgId, err)
 		return "", err
 	}
 	if img.Status != ImageStatusAvailable {
@@ -247,6 +254,19 @@ func (self *SHost) _createVM(name, imgId string, sysDiskSize, cpu, memMB int,
 		disks[i+1].Category = storageType
 	}
 
+	// 创建实例
+	if len(instanceType) > 0 {
+		log.Debugf("Try instancetype : %s", instanceType)
+		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceType, networkId, secgroupId, self.zone.ZoneId, desc, disks, ipAddr, keypair, userData)
+		if err != nil {
+			log.Errorf("Failed for %s: %s", instanceType, err)
+			return "", fmt.Errorf("Failed to create, specification %s not supported", instanceType)
+		} else {
+			return vmId, nil
+		}
+	}
+
+	// 匹配实例类型
 	instanceTypes, err := self.zone.region.GetMatchInstanceTypes(cpu, memMB, 0, self.zone.ZoneId)
 	if err != nil {
 		return "", err
@@ -254,17 +274,17 @@ func (self *SHost) _createVM(name, imgId string, sysDiskSize, cpu, memMB int,
 	if len(instanceTypes) == 0 {
 		return "", fmt.Errorf("instance type %dC%dMB not avaiable", cpu, memMB)
 	}
-	// 匹配实例类型
+
 	for _, instType := range instanceTypes {
 		instanceTypeId := instType.InstanceTypeId
 		log.Debugf("Try instancetype : %s", instanceTypeId)
-		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceTypeId, networkId, secgroupId, self.zone.ZoneId, desc, disks, ipAddr, keypair)
+		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceTypeId, networkId, secgroupId, self.zone.ZoneId, desc, disks, ipAddr, keypair, userData)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceTypeId, err)
 		} else {
 			return vmId, nil
 		}
 	}
-	// 创建实例
+
 	return "", fmt.Errorf("Failed to create, specification not supported")
 }

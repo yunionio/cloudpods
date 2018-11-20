@@ -297,7 +297,7 @@ func (this *ResourceManager) params2Body(s *mcclient.ClientSession, params jsonu
 	return body
 }
 
-func (this *ResourceManager)Create(session *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (this *ResourceManager) Create(session *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return this.CreateInContexts(session, params, nil)
 }
 

@@ -3,6 +3,7 @@ package service
 import (
 	"os"
 	"time"
+	"yunion.io/x/onecloud/pkg/compute/skus"
 
 	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
@@ -59,6 +60,7 @@ func StartService() {
 			cron.AddJob1("CleanPendingDeleteDisks", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.DiskManager.CleanPendingDeleteDisks)
 			cron.AddJob1("CleanPendingDeleteLoadbalancers", time.Duration(options.Options.LoadbalancerPendingDeleteCheckInterval)*time.Second, models.LoadbalancerAgentManager.CleanPendingDeleteLoadbalancers)
 			cron.AddJob2("AutoDiskSnapshot", options.Options.AutoSnapshotDay, options.Options.AutoSnapshotHour, 0, 0, models.DiskManager.AutoDiskSnapshot)
+			cron.AddJob2("SyncSkus", options.Options.SyncSkusDay, options.Options.SyncSkusHour, 0, 0, skus.SyncSkus)
 
 			cron.Start()
 			defer cron.Stop()

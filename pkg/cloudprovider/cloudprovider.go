@@ -55,6 +55,15 @@ func GetProvider(providerId, providerName, accessUrl, account, secret, provider 
 	return nil, fmt.Errorf("No such provider %s", provider)
 }
 
+func GetRegistedProviderIds() []string {
+	providers := []string{}
+	for id := range providerTable {
+		providers = append(providers, id)
+	}
+
+	return providers
+}
+
 func IsSupported(provider string) bool {
 	_, ok := providerTable[provider]
 	return ok

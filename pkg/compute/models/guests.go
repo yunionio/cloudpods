@@ -559,6 +559,16 @@ func validateMemCpuData(data jsonutils.JSONObject) (int, int, error) {
 	return vmemSize, vcpuCount, nil
 }
 
+func validateSkuData(sku_id string) (string, int, int, error) {
+	isku, err := ServerSkuManager.FetchById(sku_id)
+	if err != nil {
+		return "", 0, 0, err
+	}
+
+	sku := isku.(*SServerSku)
+	return sku.GetId(), sku.CpuCoreCount, sku.MemorySizeMB, nil
+}
+
 func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	vmemSize, vcpuCount, err := validateMemCpuData(data)
 	if err != nil {
@@ -767,19 +777,32 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		return nil, err
 	}
 
-	vmemSize, vcpuCount, err := validateMemCpuData(data)
-	if err != nil {
-		return nil, err
-	}
+	// support sku here
+	sku_id, _ := data.GetString("sku_id")
+	if len(sku_id) > 0 {
+		sku_id, vcpuCount, vmemSize, err := validateSkuData(sku_id)
+		if err != nil {
+			return nil, err
+		}
 
-	if vmemSize == 0 {
-		return nil, httperrors.NewInputParameterError("Missing memory size")
+		data.Add(jsonutils.NewString(sku_id), "sku_id")
+		data.Add(jsonutils.NewInt(int64(vmemSize)), "vmem_size")
+		data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
+	} else {
+		vmemSize, vcpuCount, err := validateMemCpuData(data)
+		if err != nil {
+			return nil, err
+		}
+
+		if vmemSize == 0 {
+			return nil, httperrors.NewInputParameterError("Missing memory size")
+		}
+		if vcpuCount == 0 {
+			vcpuCount = 1
+		}
+		data.Add(jsonutils.NewInt(int64(vmemSize)), "vmem_size")
+		data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
 	}
-	if vcpuCount == 0 {
-		vcpuCount = 1
-	}
-	data.Add(jsonutils.NewInt(int64(vmemSize)), "vmem_size")
-	data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
 
 	if !jsonutils.QueryBoolean(data, "is_system", false) {
 		err = manager.checkCreateQuota(ctx, userCred, ownerProjId, data)
@@ -1387,7 +1410,6 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		self.Name = extVM.GetName()
 		self.Status = extVM.GetStatus()
 		self.VcpuCount = extVM.GetVcpuCount()
-		self.VmemSize = extVM.GetVmemSizeMB()
 		self.BootOrder = extVM.GetBootOrder()
 		self.Vga = extVM.GetVga()
 		self.Vdi = extVM.GetVdi()
@@ -1396,6 +1418,26 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		self.Machine = extVM.GetMachine()
 		self.HostId = host.Id
 		self.ProjectId = userCred.GetProjectId()
+
+		metaData := extVM.GetMetadata()
+		instanceType := extVM.GetInstanceType()
+		zoneExtId, err := metaData.GetString("zone_ext_id")
+		if err != nil {
+			log.Errorf("get zone external id fail %s", err)
+		}
+
+		isku, err := ServerSkuManager.FetchByZoneExtId(zoneExtId, instanceType)
+		if err != nil {
+			log.Errorf("get sku fail %s", err)
+		}
+
+		self.SkuId = isku.GetId()
+		if extVM.GetHypervisor() == HYPERVISOR_AWS {
+			self.VmemSize = isku.(*SServerSku).MemorySizeMB
+
+		} else {
+			self.VmemSize = extVM.GetVmemSizeMB()
+		}
 
 		if projectSync && len(projectId) > 0 {
 			self.ProjectId = projectId
@@ -1453,7 +1495,6 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.ExternalId = extVM.GetGlobalId()
 	guest.Name = extVM.GetName()
 	guest.VcpuCount = extVM.GetVcpuCount()
-	guest.VmemSize = extVM.GetVmemSizeMB()
 	guest.BootOrder = extVM.GetBootOrder()
 	guest.Vga = extVM.GetVga()
 	guest.Vdi = extVM.GetVdi()
@@ -1469,12 +1510,31 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 	guest.HostId = host.Id
 
+	metaData := extVM.GetMetadata()
+	instanceType := extVM.GetInstanceType()
+	zoneExtId, err := metaData.GetString("zone_ext_id")
+	if err != nil {
+		log.Errorf("get zone external id fail %s", err)
+	}
+
+	isku, err := ServerSkuManager.FetchByZoneExtId(zoneExtId, instanceType)
+	if err != nil {
+		log.Errorf("get sku zone %s instance type %s fail %s", zoneExtId, instanceType, err)
+	}
+
+	// todo： isku可能空指针异常。需要处理
+	guest.SkuId = isku.GetId()
+	if extVM.GetHypervisor() == HYPERVISOR_AWS {
+		guest.VmemSize = isku.(*SServerSku).MemorySizeMB
+
+	} else {
+		guest.VmemSize = extVM.GetVmemSizeMB()
+	}
+
 	guest.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		guest.ProjectId = projectId
 	}
-
-	metaData := extVM.GetMetadata()
 
 	if metaData != nil && metaData.Contains("secgroupId") {
 		if secgroupId, err := metaData.GetString("secgroupId"); err == nil && len(secgroupId) > 0 {
@@ -1486,7 +1546,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		}
 	}
 
-	err := manager.TableSpec().Insert(&guest)
+	err = manager.TableSpec().Insert(&guest)
 	if err != nil {
 		log.Errorf("Insert fail %s", err)
 	}
@@ -3186,35 +3246,52 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	if host == nil {
 		return nil, httperrors.NewInvalidStatusError("No valid host")
 	}
+
 	var addCpu, addMem int
 	confs := jsonutils.NewDict()
-	vcpuCount, err := data.GetString("vcpu_count")
-	if err == nil {
-		nVcpu, err := strconv.ParseInt(vcpuCount, 10, 0)
+	skuId, _ := data.GetString("sku_id")
+	if len(skuId) > 0 && self.SkuId != skuId {
+		isku, err := ServerSkuManager.FetchById(skuId)
 		if err != nil {
-			return nil, httperrors.NewBadRequestError("Params vcpu_count parse error")
+			return nil, httperrors.NewNotFoundError("sku_id %s not found", skuId)
 		}
-		err = confs.Add(jsonutils.NewInt(nVcpu), "vcpu_count")
-		if err != nil {
-			return nil, httperrors.NewBadRequestError("Params vcpu_count parse error")
+
+		sku := isku.(*SServerSku)
+		addCpu = sku.CpuCoreCount - int(self.VcpuCount)
+		addMem = sku.MemorySizeMB - self.VmemSize
+		confs.Add(jsonutils.NewString(sku.ExternalId), "sku_id")
+		confs.Add(jsonutils.NewInt(int64(sku.CpuCoreCount)), "vcpu_count")
+		confs.Add(jsonutils.NewInt(int64(sku.MemorySizeMB)), "vmem_size")
+	} else {
+		vcpuCount, err := data.GetString("vcpu_count")
+		if err == nil {
+			nVcpu, err := strconv.ParseInt(vcpuCount, 10, 0)
+			if err != nil {
+				return nil, httperrors.NewBadRequestError("Params vcpu_count parse error")
+			}
+			err = confs.Add(jsonutils.NewInt(nVcpu), "vcpu_count")
+			if err != nil {
+				return nil, httperrors.NewBadRequestError("Params vcpu_count parse error")
+			}
+			addCpu = int(nVcpu - int64(self.VcpuCount))
 		}
-		addCpu = int(nVcpu - int64(self.VcpuCount))
+		vmemSize, err := data.GetString("vmem_size")
+		if err == nil {
+			if !regutils.MatchSize(vmemSize) {
+				return nil, httperrors.NewBadRequestError("Memory size must be number[+unit], like 256M, 1G or 256")
+			}
+			nVmem, err := fileutils.GetSizeMb(vmemSize, 'M', 1024)
+			if err != nil {
+				httperrors.NewBadRequestError("Params vmem_size parse error")
+			}
+			err = confs.Add(jsonutils.NewInt(int64(nVmem)), "vmem_size")
+			if err != nil {
+				return nil, httperrors.NewBadRequestError("Params vmem_size parse error")
+			}
+			addMem = nVmem - self.VmemSize
+		}
 	}
-	vmemSize, err := data.GetString("vmem_size")
-	if err == nil {
-		if !regutils.MatchSize(vmemSize) {
-			return nil, httperrors.NewBadRequestError("Memory size must be number[+unit], like 256M, 1G or 256")
-		}
-		nVmem, err := fileutils.GetSizeMb(vmemSize, 'M', 1024)
-		if err != nil {
-			httperrors.NewBadRequestError("Params vmem_size parse error")
-		}
-		err = confs.Add(jsonutils.NewInt(int64(nVmem)), "vmem_size")
-		if err != nil {
-			return nil, httperrors.NewBadRequestError("Params vmem_size parse error")
-		}
-		addMem = nVmem - self.VmemSize
-	}
+
 	disks := self.GetDisks()
 	var addDisk int
 	var diskIdx = 1

@@ -229,6 +229,7 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 		data.Add(jsonutils.NewString(loginKey), "login_key")
 	}
 
+	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
 	priceKey := fmt.Sprintf("%s::%s", self.Properties.HardwareProfile.VMSize, self.host.zone.region.Name)
 	data.Add(jsonutils.NewString(priceKey), "price_key")
 	if nics, err := self.getNics(); err == nil {
@@ -251,6 +252,10 @@ func (self *SInstance) GetHypervisor() string {
 
 func (self *SInstance) IsEmulated() bool {
 	return false
+}
+
+func (self *SInstance) GetInstanceType() string {
+	return self.Properties.HardwareProfile.VMSize
 }
 
 func (self *SInstance) getOsDisk() (*SDisk, error) {
@@ -561,12 +566,33 @@ func (self *SInstance) ChangeConfig(instanceId string, ncpu int, vmem int) error
 	return fmt.Errorf("Failed to change vm config, specification not supported")
 }
 
+func (self *SInstance) ChangeConfig2(instanceId string, instanceType string) error {
+	self.Properties.HardwareProfile.VMSize = instanceType
+	self.Properties.ProvisioningState = ""
+	self.Properties.InstanceView = nil
+	log.Debugf("Try HardwareProfile : %s", instanceType)
+	err := self.host.zone.region.client.Update(jsonutils.Marshal(self), nil)
+	if err == nil {
+		return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
+	}
+
+	return fmt.Errorf("Failed to change vm config, specification not supported")
+}
+
 func (region *SRegion) ChangeVMConfig(instanceId string, ncpu int, vmem int) error {
-	instacen, err := region.GetInstance(instanceId)
+	instance, err := region.GetInstance(instanceId)
 	if err != nil {
 		return err
 	}
-	return instacen.ChangeConfig(instanceId, ncpu, vmem)
+	return instance.ChangeConfig(instanceId, ncpu, vmem)
+}
+
+func (region *SRegion) ChangeVMConfig2(instanceId string, instanceType string) error {
+	instance, err := region.GetInstance(instanceId)
+	if err != nil {
+		return err
+	}
+	return instance.ChangeConfig2(instanceId, instanceType)
 }
 
 func (self *SInstance) DeployVM(name string, password string, publicKey string, deleteKeypair bool, description string) error {

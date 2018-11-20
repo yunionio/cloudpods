@@ -131,7 +131,7 @@ func (self *SCloudregion) GetExtraDetails(ctx context.Context, userCred mcclient
 	return self.getMoreDetails(extra)
 }
 
-func (manager *SCloudregionManager) getRegionByProvider(provider string) ([]SCloudregion, error) {
+func (manager *SCloudregionManager) GetRegionByProvider(provider string) ([]SCloudregion, error) {
 	regions := make([]SCloudregion, 0)
 	q := manager.Query().Startswith("external_id", provider)
 	err := db.FetchModelObjects(manager, q, &regions)
@@ -147,7 +147,7 @@ func (manager *SCloudregionManager) SyncRegions(ctx context.Context, userCred mc
 	localRegions := make([]SCloudregion, 0)
 	remoteRegions := make([]cloudprovider.ICloudRegion, 0)
 
-	dbRegions, err := manager.getRegionByProvider(provider)
+	dbRegions, err := manager.GetRegionByProvider(provider)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult

@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/fatih/color"
+	"github.com/moul/http2curl"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -11,9 +13,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
-	"github.com/fatih/color"
-	"github.com/moul/http2curl"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"

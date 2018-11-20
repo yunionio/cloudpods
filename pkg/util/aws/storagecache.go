@@ -126,43 +126,61 @@ func (self *SStoragecache) fetchImages() error {
 }
 
 func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
-	// todo: implement me
-	bucketName := "imgcache-onecloud"
+	bucketName := GetBucketName(self.region.GetId())
 	err := self.region.initVmimport()
 	if err != nil {
 		return "", err
 	}
 
-	// first upload image to oss
+	// checking remote
+	s3client, err := self.region.getS3Client()
+	if err != nil {
+		return "", err
+	}
+	var diskFormat string
 	s := auth.GetAdminSession(options.Options.Region, "")
-
-	meta, reader, err := modules.Images.Download(s, imageId)
+	_, err = s3client.GetObject(&s3.GetObjectInput{Bucket: &bucketName, Key: &imageId})
 	if err != nil {
-		return "", err
-	}
-	log.Infof("meta data %s", meta)
+		log.Debugf("GetObject %s", err)
+		// first upload image to oss
+		meta, reader, err := modules.Images.Download(s, imageId)
+		if err != nil {
+			return "", err
+		}
+		log.Infof("meta data %s", meta)
 
-	diskFormat, err := meta.GetString("disk_format")
-	if err != nil {
-		return "", err
-	}
+		diskFormat, err = meta.GetString("disk_format")
+		if err != nil {
+			return "", err
+		}
 
-	// uploader to aws s3
-	input := &s3manager.UploadInput{
-		Bucket: &bucketName,
-		Key:    &imageId,
-		Body:   reader,
-	}
+		// uploader to aws s3
+		input := &s3manager.UploadInput{
+			Bucket: &bucketName,
+			Key:    &imageId,
+			Body:   reader,
+		}
 
-	awsSession, err := self.region.getAwsSession()
-	if err != nil {
-		log.Debugf("uploadImage %s", err.Error())
-		return "", fmt.Errorf("get aws session failed")
-	}
-	uploader := s3manager.NewUploader(awsSession)
-	_, err = uploader.Upload(input)
-	if err != nil {
-		return "", nil
+		s3Session, err := self.region.getAwsSession()
+		if err != nil {
+			return "", err
+		}
+
+		uploader := s3manager.NewUploader(s3Session)
+		_, err = uploader.Upload(input)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		meta, _, err := modules.Images.Download(s, imageId)
+		if err != nil {
+			return "", err
+		}
+
+		diskFormat, err = meta.GetString("disk_format")
+		if err != nil {
+			return "", err
+		}
 	}
 
 	imageBaseName := imageId
@@ -222,7 +240,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 
 func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error) {
 	// aws 导出镜像限制比较多。https://docs.aws.amazon.com/zh_cn/vm-import/latest/userguide/vmexport.html
-	bucketName := "imgcache-onecloud"
+	bucketName := GetBucketName(self.region.GetId())
 	if err := self.region.checkBucket(bucketName); err != nil {
 		return nil, err
 	}
@@ -302,6 +320,21 @@ func (self *SRegion) IsBucketExist(bucketName string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+func (self *SRegion) GetBucketRegionId(bucketName string) (string, error) {
+	s3Client, err := self.getS3Client()
+	if err != nil {
+		return "", err
+	}
+
+	params := &s3.GetBucketLocationInput{Bucket: &bucketName}
+	ret, err := s3Client.GetBucketLocation(params)
+	if err != nil {
+		return "", err
+	}
+
+	return StrVal(ret.LocationConstraint), nil
 }
 
 func (self *SRegion) GetARNPartition() string {
@@ -404,7 +437,7 @@ func (self *SRegion) initVmimportRolePolicy() error {
    ]
 }`
 		params := &iam.PutRolePolicyInput{}
-		params.SetPolicyDocument(fmt.Sprintf(rolePolicy, partition, "imgcache-onecloud"))
+		params.SetPolicyDocument(fmt.Sprintf(rolePolicy, partition, "imgcache-*"))
 		params.SetPolicyName(policyName)
 		params.SetRoleName(roleName)
 		_, err = iamClient.PutRolePolicy(params)
@@ -413,9 +446,8 @@ func (self *SRegion) initVmimportRolePolicy() error {
 }
 
 func (self *SRegion) initVmimportBucket() error {
-	bucketName := "imgcache-onecloud"
-	// todo: "imgcache-onecloud" 使用常量
-	exists, err := self.IsBucketExist("imgcache-onecloud")
+	bucketName := GetBucketName(self.GetId())
+	exists, err := self.IsBucketExist(bucketName)
 	if err != nil {
 		return err
 	}

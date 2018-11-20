@@ -69,6 +69,10 @@ func (self *SVirtualMachine) IsEmulated() bool {
 	return false
 }
 
+func (self *SVirtualMachine) GetInstanceType() string {
+	return ""
+}
+
 func (self *SVirtualMachine) DeployVM(name string, password string, publicKey string, deleteKeypair bool, description string) error {
 	return cloudprovider.ErrNotImplemented
 }
@@ -235,6 +239,10 @@ func (self *SVirtualMachine) acquireVmrcUrl() (jsonutils.JSONObject, error) {
 }
 
 func (dc *SVirtualMachine) ChangeConfig(instanceId string, ncpu int, vmem int) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (dc *SVirtualMachine) ChangeConfig2(instanceId string, instanceType string) error {
 	return cloudprovider.ErrNotImplemented
 }
 

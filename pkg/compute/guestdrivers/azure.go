@@ -153,22 +153,31 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 				return nil, err
 			}
 
-			if iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId, userData); err != nil {
-				return nil, err
+			var createErr error
+			var iVM cloudprovider.ICloudVM
+			if len(desc.InstanceType) > 0 {
+				iVM, createErr = ihost.CreateVM2(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.InstanceType, desc.ExternalNetworkId,
+					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId, userData)
 			} else {
-				log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
-				if err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800); err != nil {
-					return nil, err
-				}
-				if iVM, err = ihost.GetIVMById(iVM.GetGlobalId()); err != nil {
-					log.Errorf("cannot find vm %s", err)
-					return nil, err
-				}
-
-				data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action)
-				return data, nil
+				iVM, createErr = ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
+					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId, userData)
 			}
+
+			if createErr != nil {
+				return nil, createErr
+			}
+
+			log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
+			if err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800); err != nil {
+				return nil, err
+			}
+			if iVM, err = ihost.GetIVMById(iVM.GetGlobalId()); err != nil {
+				log.Errorf("cannot find vm %s", err)
+				return nil, err
+			}
+
+			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action)
+			return data, nil
 		})
 	} else if action == "deploy" {
 		iVM, err := ihost.GetIVMById(guest.GetExternalId())

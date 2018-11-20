@@ -2,8 +2,8 @@ package models
 
 import (
 	"context"
-
 	"database/sql"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -40,35 +40,43 @@ func init() {
 	ServerSkuManager.NameRequireAscii = false
 }
 
+// SServerSku 实际对应的是instance type清单. 这里的Sku实际指的是instance type。
 type SServerSku struct {
 	db.SStandaloneResourceBase
 	SInfrastructure
 
-	// SkuId       string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
-	SkuFamily   string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	SkuCategory string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	// SkuId       string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`                 // x2.large
+	InstanceTypeFamily   string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"` // x2
+	InstanceTypeCategory string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"` // 通用型
 
 	CpuCoreCount int `nullable:"false" list:"user" create:"admin_required" update:"admin"`
 	MemorySizeMB int `nullable:"false" list:"user" create:"admin_required" update:"admin"`
 
-	SysDiskResizable bool `default:"true" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	SysDiskMaxSizeGB int  `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	OsName string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin"` // windows|linux|any
+
+	SysDiskResizable bool   `default:"true" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	SysDiskType      string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin"`
+	SysDiskMinSizeGB int    `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // not required。 windows比较新的版本都是50G左右。
+	SysDiskMaxSizeGB int    `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // not required
 
 	AttachedDiskType   string `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 	AttachedDiskSizeGB int    `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 	AttachedDiskCount  int    `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 
-	MaxDataDiskCount int `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	DataDiskTypes    string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	DataDiskMaxCount int    `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 
 	NicType     string `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	MaxNicCount int    `default:"1" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	NicMaxCount int    `default:"1" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 
 	GpuAttachable bool   `default:"true" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 	GpuSpec       string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 	GpuCount      int    `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	GpuMaxCount   int    `nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 
 	CloudregionId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin"`
 	ZoneId        string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	Provider      string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 }
 
 func (self *SServerSkuManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -112,6 +120,34 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 	return self.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
 
+func (self *SServerSkuManager) FetchByZoneExtId(zoneExtId string, name string) (db.IModel, error) {
+	zoneObj, err := ZoneManager.FetchByExternalId(zoneExtId)
+	if err != nil {
+		return nil, err
+	}
+
+	return self.FetchByZoneId(zoneObj.GetId(), name)
+}
+
+func (self *SServerSkuManager) FetchByZoneId(zoneId string, name string) (db.IModel, error) {
+	q := self.Query().Equals("zone_id", zoneId).Equals("name", name)
+	count := q.Count()
+	if count == 1 {
+		obj, err := db.NewModelObject(self)
+		if err != nil {
+			return nil, err
+		}
+		err = q.First(obj)
+		if err != nil {
+			return nil, err
+		} else {
+			return obj.(db.IStandaloneModel), nil
+		}
+	} else {
+		return nil, sql.ErrNoRows
+	}
+}
+
 func (self *SServerSku) ValidateUpdateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -129,4 +165,14 @@ func (self *SServerSku) ValidateUpdateData(
 		data.Add(jsonutils.NewString(zoneObj.GetId()), "zone_id")
 	}
 	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+}
+
+func (self *SServerSku) GetZoneExternalId() (string, error) {
+	zoneObj, err := ZoneManager.FetchById(self.ZoneId)
+	if err != nil {
+		return "", err
+	}
+
+	zone := zoneObj.(*SZone)
+	return zone.GetExternalId(), nil
 }

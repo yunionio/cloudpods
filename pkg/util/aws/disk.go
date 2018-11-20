@@ -2,6 +2,8 @@ package aws
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -309,13 +311,32 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 
 		disks = append(disks, disk)
 	}
+
+	// 	系统盘必须放在第零个位置
+	sort.Slice(disks, func(i, j int) bool {
+		if disks[i].Type == models.DISK_TYPE_SYS {
+			return true
+		}
+
+		if disks[i].Type != models.DISK_TYPE_SYS && disks[j].Type != models.DISK_TYPE_SYS {
+			if disks[i].Device < disks[j].Device {
+				return true
+			}
+		}
+		return false
+	})
+
 	return disks, len(disks), nil
 }
 
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	disks, total, err := self.GetDisks("", "", "", []string{diskId}, 0, 1)
 	if err != nil {
-		return nil, err
+		if strings.Contains(err.Error(), "InvalidVolume.NotFound") {
+			return nil, cloudprovider.ErrNotFound
+		} else {
+			return nil, err
+		}
 	}
 	if total != 1 {
 		return nil, cloudprovider.ErrNotFound

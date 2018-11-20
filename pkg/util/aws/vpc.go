@@ -129,12 +129,16 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 
 func (self *SVpc) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) (string, error) {
 	secgrpId := ""
-	if secgroup, err := self.region.getSecurityGroupByTag(self.VpcId, secgroupId); err != nil {
-		// 名称为default的安全组与aws默认安全组名冲突
-		if strings.ToLower(name) == "default" {
-			name = fmt.Sprintf("%s-%s", self.VpcId, name)
-		}
+	// 名称为default的安全组与aws默认安全组名冲突
+	if strings.ToLower(name) == "default" {
+		name = fmt.Sprintf("%s-%s", self.VpcId, name)
+	}
 
+	if strings.ToLower(secgroupId) == "default" {
+		secgroupId = fmt.Sprintf("%s-%s", self.VpcId, secgroupId)
+	}
+
+	if secgroup, err := self.region.getSecurityGroupByTag(self.VpcId, secgroupId); err != nil {
 		desc := fmt.Sprintf("security group %s for vpc %s", name, self.VpcId)
 		if secgrpId, err = self.region.createSecurityGroup(self.VpcId, name, secgroupId, desc); err != nil {
 			return "", err

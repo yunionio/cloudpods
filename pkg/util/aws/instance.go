@@ -2,6 +2,7 @@ package aws
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -59,7 +60,7 @@ type SInstance struct {
 	InstanceName      string
 	InstanceType      string
 	Cpu               int8
-	Memory            int
+	Memory            int // MB
 	IoOptimized       bool
 	KeyPairName       string
 	CreationTime      time.Time // LaunchTime
@@ -118,7 +119,6 @@ func (self *SInstance) GetGlobalId() string {
 }
 
 func (self *SInstance) GetStatus() string {
-	// todo : implement me
 	switch self.Status {
 	case InstanceStatusRunning:
 		return models.VM_RUNNING
@@ -145,15 +145,25 @@ func (self *SInstance) IsEmulated() bool {
 	return false
 }
 
+func (self *SInstance) GetInstanceType() string {
+	return self.InstanceType
+}
+
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 	// todo: add price_key here
+	// 格式 ：regionId::instanceType::osName::os_license::preInstall::tenancy::usageType
+	// 举例 ： cn-northwest-1::c3.2xlarge::linux::NA::NA::shared::boxusage
+	// 注意：除了空用大写NA.其他一律用小写格式
+	priceKey := fmt.Sprintf("%s::%s::%s::NA::NA::shared::boxusage", self.RegionId, self.InstanceType, strings.ToLower(self.OSType))
+	data.Add(jsonutils.NewString(priceKey), "price_key")
 	tags, err := FetchTags(self.host.zone.region.ec2Client, self.InstanceId)
 	if err != nil {
 		log.Errorf(err.Error())
 	}
 	data.Update(tags)
 
+	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
 	if len(self.ImageId) > 0 {
 		if image, err := self.host.zone.region.GetImage(self.ImageId); err != nil {
 			log.Errorf("Failed to find image %s for instance %s zone %s", self.ImageId, self.GetId(), self.ZoneId)
@@ -312,7 +322,7 @@ func (self *SInstance) StartVM() error {
 		if err != nil {
 			return err
 		}
-		log.Debugf("status %s expect %s", self.GetStatus(), models.VM_RUNNING)
+
 		if self.GetStatus() == models.VM_RUNNING {
 			return nil
 		} else if self.GetStatus() == models.VM_READY {
@@ -343,8 +353,8 @@ func (self *SInstance) DeleteVM() error {
 			break
 		}
 	}
-	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
 
+	return self.host.zone.region.ec2Client.WaitUntilInstanceTerminated(&ec2.DescribeInstancesInput{InstanceIds: ConvertedList([]string{self.InstanceId})})
 }
 
 func (self *SInstance) UpdateVM(name string) error {
@@ -370,6 +380,10 @@ func (self *SInstance) DeployVM(name string, password string, publicKey string, 
 
 func (self *SInstance) ChangeConfig(instanceId string, ncpu int, vmem int) error {
 	return self.host.zone.region.ChangeVMConfig(self.ZoneId, self.InstanceId, ncpu, vmem, nil)
+}
+
+func (self *SInstance) ChangeConfig2(instanceId string, instanceType string) error {
+	return self.host.zone.region.ChangeVMConfig2(self.ZoneId, self.InstanceId, instanceType, nil)
 }
 
 func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
@@ -420,15 +434,11 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 		log.Errorf("GetInstances fail %s", err)
 		return nil, 0, err
 	}
+
 	instances := []SInstance{}
 	for _, reservation := range res.Reservations {
 		for _, instance := range reservation.Instances {
 			if err := FillZero(instance); err != nil {
-				return nil, 0, err
-			}
-
-			instanceType, err := self.GetInstanceType(*instance.InstanceType)
-			if err != nil {
 				return nil, 0, err
 			}
 
@@ -476,6 +486,11 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				return nil, 0, err
 			}
 
+			image, err := self.GetImage(*instance.ImageId)
+			if err != nil {
+				return nil, 0, err
+			}
+
 			host := szone.getHost()
 
 			sinstance := SInstance{
@@ -486,7 +501,6 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				ImageId:           *instance.ImageId,
 				InstanceType:      *instance.InstanceType,
 				Cpu:               int8(*instance.CpuOptions.CoreCount),
-				Memory:            instanceType.memoryMB(),
 				IoOptimized:       *instance.EbsOptimized,
 				KeyPairName:       *instance.KeyName,
 				CreationTime:      *instance.LaunchTime,
@@ -503,7 +517,8 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				NetworkInterfaces: networkInterfaces,
 				VpcAttributes:     vpcattr,
 				ProductCodes:      productCodes,
-				// OSName   todo: 通过关联的image获取 OS Name
+				OSName:            image.OSName, // todo: 这里在model层回写OSName信息
+				OSType:            image.OSType,
 				// ExpiredTime:
 				// EipAddress:
 				// VlanId:
@@ -548,16 +563,17 @@ func (self *SRegion) GetInstanceIdByImageId(imageId string) (string, error) {
 
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, SubnetId string, securityGroupId string,
 	zoneId string, desc string, disks []SDisk, ipAddr string,
-	keypair string) (string, error) {
+	keypair string, userData string) (string, error) {
 	var count int64 = 1
 	// disk
 	blockDevices := []*ec2.BlockDeviceMapping{}
 	for i, disk := range disks {
 		if i == 0 {
 			var size int64
+			deleteOnTermination := true
 			size = int64(disk.Size)
 			ebs := &ec2.EbsBlockDevice{
-				DeleteOnTermination: &disk.DeleteWithInstance,
+				DeleteOnTermination: &deleteOnTermination,
 				// The st1 volume type cannot be used for boot volumes. Please use a supported boot volume type: standard,io1,gp2.
 				// the encrypted flag cannot be specified since device /dev/sda1 has a snapshot specified.
 				// Encrypted:           &disk.Encrypted,
@@ -565,7 +581,6 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 				VolumeType: &disk.Category,
 			}
 
-			// todo: 这里是镜像绑定的deviceName
 			divceName := fmt.Sprintf("/dev/sda1")
 			blockDevice := &ec2.BlockDeviceMapping{
 				DeviceName: &divceName,
@@ -583,15 +598,17 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 				VolumeType:          &disk.Category,
 			}
 			// todo: generator device name
-			divceName := fmt.Sprintf("/dev/sd%s", string(98+i))
+			// todo: 这里还需要测试预置硬盘的实例。deviceName是否会冲突。
+			deviceName := fmt.Sprintf("/dev/sd%s", string(98+i))
 			blockDevice := &ec2.BlockDeviceMapping{
-				DeviceName: &divceName,
+				DeviceName: &deviceName,
 				Ebs:        ebs,
 			}
 
 			blockDevices = append(blockDevices, blockDevice)
 		}
 	}
+
 	// tags
 	tags := TagSpec{ResourceType: "instance"}
 	tags.SetNameTag(name)
@@ -609,11 +626,21 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		SubnetId:            &SubnetId,
 		PrivateIpAddress:    &ipAddr,
 		BlockDeviceMappings: blockDevices,
-		KeyName:             &keypair,
 		Placement:           &ec2.Placement{AvailabilityZone: &zoneId},
 		SecurityGroupIds:    []*string{&securityGroupId},
 		TagSpecifications:   []*ec2.TagSpecification{ec2TagSpec},
 	}
+
+	// keypair
+	if len(keypair) > 0 {
+		params.SetKeyName(keypair)
+	}
+
+	// user data
+	if len(userData) > 0 {
+		params.SetUserData(userData)
+	}
+
 	res, err := self.ec2Client.RunInstances(&params)
 	if err != nil {
 		log.Errorf("CreateInstance fail %s", err)
@@ -640,11 +667,11 @@ func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
 func (self *SRegion) instanceStatusChecking(instanceId, status string) error {
 	remoteStatus, err := self.GetInstanceStatus(instanceId)
 	if err != nil {
-		log.Errorf("Fail to get instance status on StartVM: %s", err)
+		log.Errorf("Fail to get instance status: %s", err)
 		return err
 	}
 	if status != remoteStatus {
-		log.Errorf("StartVM: vm status is %s expect %s", remoteStatus, status)
+		log.Errorf("instanceStatusChecking: vm status is %s expect %s", remoteStatus, status)
 		return cloudprovider.ErrInvalidStatus
 	}
 
@@ -743,12 +770,14 @@ func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, sysDis
 	for _, disk := range disks {
 		if disk.Type == models.DISK_TYPE_SYS {
 			rootDisk = &disk
+			break
 		}
 	}
 
 	if rootDisk == nil {
 		return "", fmt.Errorf("can not find root disk of instance %s", instanceId)
 	}
+	log.Debugf("ReplaceSystemDisk replace root disk %s", rootDisk)
 
 	image, err := self.GetImage(imageId)
 	if err != nil {
@@ -761,19 +790,27 @@ func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, sysDis
 	}
 
 	self.ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&diskId}})
-	// todo: 检查instance状态
-	err = instance.DetachDisk(rootDisk.DiskId)
+	self.ec2Client.WaitUntilInstanceStopped(&ec2.DescribeInstancesInput{InstanceIds: []*string{&instanceId}})
+
+	err = self.DetachDisk(instance.GetId(), rootDisk.DiskId)
 	if err != nil {
+		log.Debugf("ReplaceSystemDisk detach disk %s: %s", rootDisk.DiskId, err)
 		return "", err
 	}
+	self.ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&rootDisk.DiskId}})
 
-	self.ec2Client.WaitUntilInstanceStopped(&ec2.DescribeInstancesInput{InstanceIds: []*string{&instanceId}})
-	err = instance.AttachDisk(diskId)
+	err = self.AttachDisk(instance.GetId(), diskId, rootDisk.Device)
 	if err != nil {
+		log.Debugf("ReplaceSystemDisk attach disk %s: %s", diskId, err)
 		return "", err
 	}
-
 	self.ec2Client.WaitUntilInstanceStopped(&ec2.DescribeInstancesInput{InstanceIds: []*string{&instanceId}})
+	self.ec2Client.WaitUntilVolumeInUse(&ec2.DescribeVolumesInput{VolumeIds: []*string{&diskId}})
+
+	err = self.DeleteDisk(rootDisk.DiskId)
+	if err != nil {
+		log.Debugf("ReplaceSystemDisk delete old disk %s", rootDisk.DiskId)
+	}
 	return diskId, nil
 }
 
@@ -800,11 +837,26 @@ func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, 
 	return fmt.Errorf("Failed to change vm config, specification not supported")
 }
 
+func (self *SRegion) ChangeVMConfig2(zoneId string, instanceId string, instanceType string, disks []*SDisk) error {
+	params := &ec2.ModifyInstanceAttributeInput{}
+	params.SetInstanceId(instanceId)
+
+	t := &ec2.AttributeValue{Value: &instanceType}
+	params.SetInstanceType(t)
+
+	_, err := self.ec2Client.ModifyInstanceAttribute(params)
+	if err != nil {
+		return fmt.Errorf("Failed to change vm config, specification not supported. %s", err.Error())
+	} else {
+		return nil
+	}
+}
+
 func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
 	params := &ec2.DetachVolumeInput{}
 	params.SetInstanceId(instanceId)
 	params.SetVolumeId(diskId)
-
+	log.Debugf("DetachDisk %s", params.String())
 	_, err := self.ec2Client.DetachVolume(params)
 	return err
 }
@@ -814,7 +866,7 @@ func (self *SRegion) AttachDisk(instanceId string, diskId string, deviceName str
 	params.SetInstanceId(instanceId)
 	params.SetVolumeId(diskId)
 	params.SetDevice(deviceName)
-
+	log.Debugf("AttachDisk %s", params.String())
 	_, err := self.ec2Client.AttachVolume(params)
 	return err
 }
