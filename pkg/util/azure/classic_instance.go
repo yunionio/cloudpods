@@ -113,7 +113,8 @@ type SClassicInstance struct {
 
 func (self *SClassicInstance) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
-	data.Add(jsonutils.NewString(self.Properties.HardwareProfile.Size), "price_key")
+	priceKey := fmt.Sprintf("%s::%s", self.Properties.HardwareProfile.Size, self.host.zone.region.Name)
+	data.Add(jsonutils.NewString(priceKey), "price_key")
 	if self.Properties.NetworkProfile.NetworkSecurityGroup != nil {
 		data.Add(jsonutils.NewString(self.Properties.NetworkProfile.NetworkSecurityGroup.ID), "secgroupId")
 	}
