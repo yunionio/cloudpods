@@ -188,22 +188,6 @@ func (self *SAwsHostDriver) RequestResizeDiskOnHost(host *models.SHost, storage 
 	return nil
 }
 
-func (self *SAwsHostDriver) RequestResetDisk(ctx context.Context, host *models.SHost, disk *models.SDisk, params *jsonutils.JSONDict, task taskman.ITask) error {
-	iDisk, err := disk.GetIDisk()
-	if err != nil {
-		return err
-	}
-	snapshotId, err := params.GetString("snapshot_id")
-	if err != nil {
-		return err
-	}
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		err := iDisk.Reset(snapshotId)
-		return nil, err
-	})
-	return nil
-}
-
 func init() {
 	driver := SAwsHostDriver{}
 	models.RegisterHostDriver(&driver)
