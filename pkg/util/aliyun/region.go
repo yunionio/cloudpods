@@ -79,11 +79,11 @@ func (self *SRegion) GetOssClient() (*oss.Client, error) {
 }
 
 func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := self.getEcsClient()
+	client, err := self.getEcsClient()
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, apiName, params)
+	return _jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params)
 }
 
 /////////////////////////////////////////////////////////////////////////////
