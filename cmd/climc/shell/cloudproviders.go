@@ -31,38 +31,6 @@ func init() {
 		return nil
 	})
 
-	type CloudproviderCreateOptions struct {
-		NAME      string `help:"Name of cloud provider"`
-		ACCOUNT   string `help:"Account to access the cloud provider, tenantId/subscriptionId for Azure"`
-		SECRET    string `help:"Secret to access the cloud provider, clientId/clientScret for Azure"`
-		PROVIDER  string `help:"Driver for cloud provider" choices:"VMware|Aliyun|Azure"`
-		AccessURL string `helo:"hello" metavar:"Azure choices: <AzureGermanCloud、AzureChinaCloud、AzureUSGovernmentCloud、AzurePublicCloud>"`
-		Desc      string `help:"Description"`
-		Enabled   bool   `help:"Enabled the provider automatically"`
-	}
-	R(&CloudproviderCreateOptions{}, "cloud-provider-create", "Create a cloud provider", func(s *mcclient.ClientSession, args *CloudproviderCreateOptions) error {
-		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.NAME), "name")
-		params.Add(jsonutils.NewString(args.ACCOUNT), "account")
-		params.Add(jsonutils.NewString(args.SECRET), "secret")
-		params.Add(jsonutils.NewString(args.PROVIDER), "provider")
-		if args.Enabled {
-			params.Add(jsonutils.JSONTrue, "enabled")
-		}
-		if len(args.AccessURL) > 0 {
-			params.Add(jsonutils.NewString(args.AccessURL), "access_url")
-		}
-		if len(args.Desc) > 0 {
-			params.Add(jsonutils.NewString(args.Desc), "description")
-		}
-		result, err := modules.Cloudproviders.Create(s, params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
 	type CloudproviderUpdateOptions struct {
 		ID        string `help:"ID or Name of cloud provider"`
 		Name      string `help:"New name to update"`
