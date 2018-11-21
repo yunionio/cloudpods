@@ -400,7 +400,15 @@ func (self *SCloudprovider) getAccount() (SAccount, error) {
 
 	cloudaccount := self.GetCloudaccount()
 	if cloudaccount == nil {
-		return account, fmt.Errorf("fail to find cloudaccount???")
+		// legacy mode
+		passwd, err := self.getPassword()
+		if err != nil {
+			return account, err
+		}
+		account.Account = self.Account
+		account.AccessUrl = self.AccessUrl
+		account.Secret = passwd
+		return account, nil // fmt.Errorf("fail to find cloudaccount???")
 	}
 
 	passwd, err := cloudaccount.getPassword()
