@@ -9,7 +9,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -300,6 +299,7 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, userCred mccli
 		return nil, err
 	}
 	disk := iDisk.(*SDisk)
+	storage := disk.GetStorage()
 	snapshot := &SSnapshot{}
 	snapshot.SetModelManager(self)
 	snapshot.ProjectId = userCred.GetProjectId()
@@ -311,6 +311,8 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, userCred mccli
 	snapshot.DiskType = disk.DiskType
 	snapshot.Location = location
 	snapshot.CreatedBy = createdBy
+	snapshot.ManagerId = storage.ManagerId
+	snapshot.CloudregionId = storage.getZone().GetRegion().GetId()
 	snapshot.Name = name
 	snapshot.Status = SNAPSHOT_CREATING
 	err = SnapshotManager.TableSpec().Insert(snapshot)
@@ -345,29 +347,20 @@ func (self *SSnapshot) CustomizeDelete(ctx context.Context, userCred mcclient.To
 	if self.Status == SNAPSHOT_DELETING {
 		return fmt.Errorf("Cannot delete snapshot in status %s", self.Status)
 	}
-	if self.Status == SNAPSHOT_UNKNOWN {
-		return self.RealDelete(ctx, userCred)
-	}
 	if len(self.ExternalId) == 0 {
-		if utils.IsInStringArray(self.Status, []string{SNAPSHOT_FAILED}) {
-			return self.RealDelete(ctx, userCred)
-		}
 		if self.CreatedBy == MANUAL {
 			if !self.FakeDeleted {
 				return self.FakeDelete()
-			} else {
-				_, err := SnapshotManager.GetConvertSnapshot(self)
-				if err != nil {
-					return fmt.Errorf("Cannot delete snapshot: %s, disk need at least one of snapshot as backing file", err.Error())
-				}
-				return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
 			}
-		} else {
-			return fmt.Errorf("Cannot delete snapshot created by %s", self.CreatedBy)
+			_, err := SnapshotManager.GetConvertSnapshot(self)
+			if err != nil {
+				return fmt.Errorf("Cannot delete snapshot: %s, disk need at least one of snapshot as backing file", err.Error())
+			}
+			return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
 		}
-	} else {
-		return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
+		return fmt.Errorf("Cannot delete snapshot created by %s", self.CreatedBy)
 	}
+	return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
 }
 
 func (self *SSnapshot) AllowPerformDeleted(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -467,13 +460,15 @@ func totalSnapshotCount(projectId string) int {
 }
 
 // Only sync snapshot status
-func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshot, projectId string, projectSync bool) error {
+func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshot, projectId string, projectSync bool, region *SCloudregion) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		self.Name = ext.GetName()
 		self.Status = ext.GetStatus()
 		self.DiskType = ext.GetDiskType()
 		if projectSync && len(projectId) > 0 {
 			self.ProjectId = projectId
 		}
+		self.CloudregionId = region.Id
 		return nil
 	})
 	if err != nil {
@@ -482,7 +477,7 @@ func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, 
 	return err
 }
 
-func (manager *SSnapshotManager) newFromCloudSnapshot(userCred mcclient.TokenCredential, extSnapshot cloudprovider.ICloudSnapshot, region *SCloudregion, projectId string) (*SSnapshot, error) {
+func (manager *SSnapshotManager) newFromCloudSnapshot(userCred mcclient.TokenCredential, extSnapshot cloudprovider.ICloudSnapshot, region *SCloudregion, projectId string, provider *SCloudprovider) (*SSnapshot, error) {
 	snapshot := SSnapshot{}
 	snapshot.SetModelManager(manager)
 
@@ -500,7 +495,7 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(userCred mcclient.TokenCre
 
 	snapshot.DiskType = extSnapshot.GetDiskType()
 	snapshot.Size = int(extSnapshot.GetSize()) * 1024
-	snapshot.ManagerId = extSnapshot.GetManagerId()
+	snapshot.ManagerId = provider.Id
 	snapshot.CloudregionId = region.Id
 
 	snapshot.ProjectId = userCred.GetProjectId()
@@ -555,7 +550,7 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudSnapshot(userCred, commonext[i], projectId, projectSync)
+		err = commondb[i].SyncWithCloudSnapshot(userCred, commonext[i], projectId, projectSync, region)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -563,7 +558,7 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		_, err := manager.newFromCloudSnapshot(userCred, added[i], region, projectId)
+		_, err := manager.newFromCloudSnapshot(userCred, added[i], region, projectId, provider)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {

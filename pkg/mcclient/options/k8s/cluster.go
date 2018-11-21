@@ -194,3 +194,21 @@ func (o ClusterDeleteNodesOptions) Params() (*jsonutils.JSONDict, error) {
 	params.Add(nodesArray, "nodes")
 	return params, nil
 }
+
+type ClusterRestartAgentsOptions struct {
+	ClusterDeleteNodesOptions
+	All bool `help:"Restart all nodes agent"`
+}
+
+func (o ClusterRestartAgentsOptions) Params() (*jsonutils.JSONDict, error) {
+	params, err := o.ClusterDeleteNodesOptions.Params()
+	if err != nil {
+		return nil, err
+	}
+	all := jsonutils.JSONFalse
+	if o.All {
+		all = jsonutils.JSONTrue
+	}
+	params.Add(all, "all")
+	return params, nil
+}

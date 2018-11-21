@@ -32,4 +32,23 @@ func init() {
 		printObject(vpc)
 		return nil
 	})
+
+	shellutils.R(&VpcOptions{}, "vpc-delete", "Delete vpc", func(cli *azure.SRegion, args *VpcOptions) error {
+		return cli.DeleteVpc(args.ID)
+	})
+
+	type VpcCreateOptions struct {
+		NAME string `help:"vpc Name"`
+		CIDR string `help:"vpc cidr"`
+		Desc string `help:"vpc description"`
+	}
+
+	shellutils.R(&VpcCreateOptions{}, "vpc-create", "Create vpc", func(cli *azure.SRegion, args *VpcCreateOptions) error {
+		vpc, err := cli.CreateIVpc(args.NAME, args.Desc, args.CIDR)
+		if err != nil {
+			return err
+		}
+		printObject(vpc)
+		return nil
+	})
 }

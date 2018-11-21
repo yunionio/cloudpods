@@ -257,12 +257,10 @@ type ICloudDisk interface {
 
 type ICloudSnapshot interface {
 	ICloudResource
-	GetManagerId() string
 	GetSize() int32
 	GetDiskId() string
 	GetDiskType() string
 	Delete() error
-	GetRegionId() string
 }
 
 type ICloudVpc interface {

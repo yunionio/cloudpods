@@ -25,6 +25,15 @@ func NewMonitorManager(keyword, keywordPlural string, columns, adminColumns []st
 		Keyword: keyword, KeywordPlural: keywordPlural}
 }
 
+func NewCloudmonManager(keyword, keywordPlural string, columns, adminColumns []string) ResourceManager {
+	return ResourceManager{
+		BaseManager: BaseManager{columns: columns,
+			adminColumns: adminColumns,
+			version:      "v1",
+			serviceType:  "cloudmon"},
+		Keyword: keyword, KeywordPlural: keywordPlural}
+}
+
 func NewNotifyManager(keyword, keywordPlural string, columns, adminColumns []string) ResourceManager {
 	return ResourceManager{
 		BaseManager: BaseManager{columns: columns,
@@ -137,5 +146,13 @@ func NewWebsocketManager(keyword, keywordPlural string, columns, adminColumns []
 		BaseManager: BaseManager{columns: columns,
 			adminColumns: adminColumns,
 			serviceType:  "websocket"},
+		Keyword: keyword, KeywordPlural: keywordPlural}
+}
+
+func NewCloudmetaManager(keyword, keywordPlural string, columns, adminColumns []string) ResourceManager {
+	return ResourceManager{
+		BaseManager: BaseManager{columns: columns,
+			adminColumns: adminColumns,
+			serviceType:  "cloudmeta"},
 		Keyword: keyword, KeywordPlural: keywordPlural}
 }

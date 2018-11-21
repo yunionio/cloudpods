@@ -230,7 +230,8 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 		data.Add(jsonutils.NewString(loginKey), "login_key")
 	}
 
-	data.Add(jsonutils.NewString(self.Properties.HardwareProfile.VMSize), "price_key")
+	priceKey := fmt.Sprintf("%s::%s", self.Properties.HardwareProfile.VMSize, self.host.zone.region.Name)
+	data.Add(jsonutils.NewString(priceKey), "price_key")
 	if nics, err := self.getNics(); err == nil {
 		for _, nic := range nics {
 			if nic.Properties.NetworkSecurityGroup != nil {

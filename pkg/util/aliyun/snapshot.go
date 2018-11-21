@@ -51,14 +51,6 @@ func (self *SSnapshot) GetStatus() string {
 	}
 }
 
-func (self *SSnapshot) GetManagerId() string {
-	return self.region.client.providerId
-}
-
-func (self *SSnapshot) GetRegionId() string {
-	return self.region.GetId()
-}
-
 func (self *SSnapshot) GetSize() int32 {
 	return self.SourceDiskSize
 }
@@ -168,13 +160,16 @@ func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName
 }
 
 func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
-	if snapshots, total, err := self.GetSnapshots("", "", "", []string{snapshotId}, 0, 1); err != nil {
+	snapshots, total, err := self.GetSnapshots("", "", "", []string{snapshotId}, 0, 1)
+	if err != nil {
 		return nil, err
-	} else if total != 1 {
-		return nil, cloudprovider.ErrNotFound
-	} else {
-		return &snapshots[0], nil
 	}
+	if total == 0 {
+		return nil, cloudprovider.ErrNotFound
+	} else if total > 1 {
+		return nil, cloudprovider.ErrDuplicateId
+	}
+	return &snapshots[0], nil
 }
 
 func (self *SRegion) DeleteSnapshot(snapshotId string) error {

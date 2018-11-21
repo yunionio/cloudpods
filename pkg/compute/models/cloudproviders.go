@@ -130,7 +130,7 @@ func (self *SCloudprovider) ValidateUpdateData(ctx context.Context, userCred mcc
 }
 
 func (self *SCloudproviderManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return nil, httperrors.NewUnsupportOperationError("Not support create cloudprovider, please considir create cloudaccount")
+	return nil, httperrors.NewUnsupportOperationError("Directly creating cloudprovider is not supported, create cloudaccount instead")
 }
 
 func (self *SCloudprovider) getPassword() (string, error) {
@@ -400,7 +400,15 @@ func (self *SCloudprovider) getAccount() (SAccount, error) {
 
 	cloudaccount := self.GetCloudaccount()
 	if cloudaccount == nil {
-		return account, fmt.Errorf("fail to find cloudaccount???")
+		// legacy mode
+		passwd, err := self.getPassword()
+		if err != nil {
+			return account, err
+		}
+		account.Account = self.Account
+		account.AccessUrl = self.AccessUrl
+		account.Secret = passwd
+		return account, nil // fmt.Errorf("fail to find cloudaccount???")
 	}
 
 	passwd, err := cloudaccount.getPassword()
@@ -429,7 +437,7 @@ func (self *SCloudprovider) SaveSysInfo(info jsonutils.JSONObject) {
 func (manager *SCloudproviderManager) FetchCloudproviderById(providerId string) *SCloudprovider {
 	providerObj, err := manager.FetchById(providerId)
 	if err != nil {
-		log.Errorf("%s", err)
+		log.Errorf("fetch cloud provider %s: %s", providerId, err)
 		return nil
 	}
 	return providerObj.(*SCloudprovider)

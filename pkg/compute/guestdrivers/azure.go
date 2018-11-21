@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/ansible"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/pkg/utils"
 
@@ -21,10 +22,6 @@ import (
 type SAzureGuestDriver struct {
 	SManagedVirtualizedGuestDriver
 }
-
-const (
-	DEFAULT_USER = "yunion"
-)
 
 func init() {
 	driver := SAzureGuestDriver{}
@@ -169,7 +166,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 					return nil, err
 				}
 
-				data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd, action)
+				data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action)
 				return data, nil
 			}
 		})
@@ -192,7 +189,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 			if err != nil {
 				return nil, err
 			}
-			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action)
 			return data, nil
 		})
 	} else if action == "rebuild" {
@@ -209,7 +206,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 			}
 
 			log.Debugf("VMrebuildRoot %s, and status is ready", iVM.GetGlobalId())
-			data := fetchIVMinfo(desc, iVM, guest.Id, DEFAULT_USER, passwd, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action)
 
 			return data, nil
 		})

@@ -91,7 +91,7 @@ func getQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 		if consts.IsRbacEnabled() {
 			result := policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
 				policy.PolicyDelegation, policy.PolicyActionGet)
-			isAllow = result == rbacutils.Allow
+			isAllow = result == rbacutils.AdminAllow
 		} else {
 			isAllow = userCred.IsSystemAdmin()
 		}
@@ -101,7 +101,7 @@ func getQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 		}
 		if consts.IsRbacEnabled() {
 			if policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
-				"quotas", policy.PolicyActionGet) != rbacutils.Allow {
+				"quotas", policy.PolicyActionGet) != rbacutils.AdminAllow {
 				httperrors.ForbiddenError(w, "not allow to query quota")
 				return
 			}
@@ -138,7 +138,7 @@ func setQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 	var isAllow bool
 	if consts.IsRbacEnabled() {
 		isAllow = policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
-			"quotas", policy.PolicyActionUpdate) == rbacutils.Allow
+			"quotas", policy.PolicyActionUpdate) == rbacutils.AdminAllow
 	} else {
 		isAllow = userCred.IsSystemAdmin()
 	}
@@ -201,7 +201,7 @@ func checkQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Reque
 	isAllow := false
 	if consts.IsRbacEnabled() {
 		isAllow = policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
-			policy.PolicyDelegation, policy.PolicyActionGet) == rbacutils.Allow
+			policy.PolicyDelegation, policy.PolicyActionGet) == rbacutils.AdminAllow
 	} else {
 		isAllow = userCred.IsSystemAdmin()
 	}
@@ -211,7 +211,7 @@ func checkQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Reque
 	}
 	if consts.IsRbacEnabled() {
 		if policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
-			"quotas", policy.PolicyActionGet) != rbacutils.Allow {
+			"quotas", policy.PolicyActionGet) != rbacutils.AdminAllow {
 			httperrors.ForbiddenError(w, "not allow to query quota")
 			return
 		}

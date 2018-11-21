@@ -30,8 +30,37 @@ const (
 var (
 	PolicyManager *SPolicyManager
 
-	PolicyFailedRetryInterval = 15 * time.Second
-	PolicyRefreshInterval     = 15 * time.Minute
+	defaultRules = []rbacutils.SRbacRule{
+		{
+			Resource: "tasks",
+			Action:   PolicyActionPerform,
+			Result:   rbacutils.UserAllow,
+		},
+		{
+			Service:  "compute",
+			Resource: "zones",
+			Action:   PolicyActionList,
+			Result:   rbacutils.UserAllow,
+		},
+		{
+			Service:  "compute",
+			Resource: "zones",
+			Action:   PolicyActionGet,
+			Result:   rbacutils.UserAllow,
+		},
+		{
+			Service:  "compute",
+			Resource: "cloudregions",
+			Action:   PolicyActionList,
+			Result:   rbacutils.UserAllow,
+		},
+		{
+			Service:  "compute",
+			Resource: "cloudregions",
+			Action:   PolicyActionGet,
+			Result:   rbacutils.UserAllow,
+		},
+	}
 )
 
 func init() {
@@ -41,7 +70,11 @@ func init() {
 type SPolicyManager struct {
 	policies      map[string]rbacutils.SRbacPolicy
 	adminPolicies map[string]rbacutils.SRbacPolicy
+	defaultPolicy *rbacutils.SRbacPolicy
 	lastSync      time.Time
+
+	failedRetryInterval time.Duration
+	refreshInterval     time.Duration
 }
 
 func parseJsonPolicy(obj jsonutils.JSONObject) (string, rbacutils.SRbacPolicy, error) {
@@ -114,8 +147,13 @@ func fetchPolicies() (map[string]rbacutils.SRbacPolicy, map[string]rbacutils.SRb
 
 func (manager *SPolicyManager) start(refreshInterval time.Duration, retryInterval time.Duration) {
 	log.Infof("PolicyManager start to fetch policies ...")
-	PolicyRefreshInterval = refreshInterval
-	PolicyFailedRetryInterval = retryInterval
+	manager.refreshInterval = refreshInterval
+	manager.failedRetryInterval = retryInterval
+	if len(defaultRules) > 0 {
+		manager.defaultPolicy = &rbacutils.SRbacPolicy{
+			Rules: rbacutils.CompactRules(defaultRules),
+		}
+	}
 	manager.sync()
 }
 
@@ -124,13 +162,14 @@ func (manager *SPolicyManager) sync() {
 	policies, adminPolicies, err := fetchPolicies()
 	if err != nil {
 		log.Errorf("sync policy fail %s", err)
-		time.AfterFunc(PolicyFailedRetryInterval, manager.sync)
+		time.AfterFunc(manager.failedRetryInterval, manager.sync)
 		return
 	}
 	manager.policies = policies
 	manager.adminPolicies = adminPolicies
+
 	manager.lastSync = time.Now()
-	time.AfterFunc(PolicyRefreshInterval, manager.sync)
+	time.AfterFunc(manager.refreshInterval, manager.sync)
 }
 
 func (manager *SPolicyManager) Allow(isAdmin bool, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) rbacutils.TRbacResult {
@@ -148,7 +187,13 @@ func (manager *SPolicyManager) Allow(isAdmin bool, userCred mcclient.TokenCreden
 	currentPriv := rbacutils.Deny
 	for _, p := range policies {
 		result := p.Allow(userCredJson, service, resource, action, extra...)
-		if result.IsHigherPrivilege(currentPriv) {
+		if currentPriv.StricterThan(result) {
+			currentPriv = result
+		}
+	}
+	if manager.defaultPolicy != nil {
+		result := manager.defaultPolicy.Allow(userCredJson, service, resource, action, extra...)
+		if currentPriv.StricterThan(result) {
 			currentPriv = result
 		}
 	}
@@ -165,8 +210,10 @@ func (manager *SPolicyManager) explainPolicy(userCred mcclient.TokenCredential, 
 	}
 	isAdmin, _ := policySeq[0].Bool()
 	if !consts.IsRbacEnabled() {
-		if !isAdmin || (isAdmin && userCred.IsSystemAdmin()) {
-			return rbacutils.Allow, nil
+		if !isAdmin {
+			return rbacutils.OwnerAllow, nil
+		} else if isAdmin && userCred.IsSystemAdmin() {
+			return rbacutils.AdminAllow, nil
 		} else {
 			return rbacutils.Deny, httperrors.NewForbiddenError("operation not allowed")
 		}
@@ -186,7 +233,8 @@ func (manager *SPolicyManager) explainPolicy(userCred mcclient.TokenCredential, 
 	}
 	if len(policySeq) > 4 {
 		for i := 4; i < len(policySeq); i += 1 {
-			extra[i-4], _ = policySeq[i].GetString()
+			ev, _ := policySeq[i].GetString()
+			extra = append(extra, ev)
 		}
 	}
 
@@ -210,6 +258,10 @@ func (manager *SPolicyManager) ExplainRpc(userCred mcclient.TokenCredential, par
 }
 
 func (manager *SPolicyManager) IsAdminCapable(userCred mcclient.TokenCredential) bool {
+	if !consts.IsRbacEnabled() && userCred.IsSystemAdmin() {
+		return true
+	}
+
 	userCredJson := userCred.ToJson()
 	for _, p := range manager.adminPolicies {
 		match, _ := conditionparser.Eval(p.Condition, userCredJson)

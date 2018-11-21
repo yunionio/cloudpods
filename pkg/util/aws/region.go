@@ -2,6 +2,7 @@ package aws
 
 import (
 	"fmt"
+
 	sdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -13,6 +14,28 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
+
+var RegionLocations map[string]string = map[string]string{
+	"us-east-2":      "美国东部(俄亥俄州)",
+	"us-east-1":      "美国东部(弗吉尼亚北部)",
+	"us-west-1":      "美国西部(加利福尼亚北部)",
+	"us-west-2":      "美国西部(俄勒冈)",
+	"ap-south-1":     "亚太地区(孟买)",
+	"ap-northeast-2": "亚太区域(首尔)",
+	"ap-northeast-3": "亚太区域(大阪)",
+	"ap-southeast-1": "亚太区域(新加坡)",
+	"ap-southeast-2": "亚太区域(悉尼)",
+	"ap-northeast-1": "亚太区域(东京)",
+	"ca-central-1":   "加拿大(中部)",
+	"cn-north-1":     "中国(北京)",
+	"cn-northwest-1": "中国(宁夏)",
+	"eu-central-1":   "欧洲(法兰克福)",
+	"eu-west-1":      "欧洲(爱尔兰)",
+	"eu-west-2":      "欧洲(伦敦)",
+	"eu-west-3":      "欧洲(巴黎)",
+	"sa-east-1":      "南美洲(圣保罗)",
+	"us-gov-west-1":  "AWS GovCloud(美国)",
+}
 
 type SRegion struct {
 	client    *SAwsClient
@@ -36,12 +59,16 @@ func (self *SRegion) GetClient() *SAwsClient {
 	return self.client
 }
 
+func (self *SRegion) getAwsSession() (*session.Session, error) {
+	return session.NewSession(&sdk.Config{
+		Region:      sdk.String(self.RegionId),
+		Credentials: credentials.NewStaticCredentials(self.client.accessKey, self.client.secret, ""),
+	})
+}
+
 func (self *SRegion) getEc2Client() (*ec2.EC2, error) {
 	if self.ec2Client == nil {
-		s, err := session.NewSession(&sdk.Config{
-			Region:      sdk.String(self.RegionId),
-			Credentials: credentials.NewStaticCredentials(self.client.accessKey, self.client.secret, ""),
-		})
+		s, err := self.getAwsSession()
 
 		if err != nil {
 			return nil, err
@@ -56,10 +83,7 @@ func (self *SRegion) getEc2Client() (*ec2.EC2, error) {
 
 func (self *SRegion) getIamClient() (*iam.IAM, error) {
 	if self.iamClient == nil {
-		s, err := session.NewSession(&sdk.Config{
-			Region:      sdk.String(self.RegionId),
-			Credentials: credentials.NewStaticCredentials(self.client.accessKey, self.client.secret, ""),
-		})
+		s, err := self.getAwsSession()
 
 		if err != nil {
 			return nil, err
@@ -73,10 +97,7 @@ func (self *SRegion) getIamClient() (*iam.IAM, error) {
 
 func (self *SRegion) getS3Client() (*s3.S3, error) {
 	if self.s3Client == nil {
-		s, err := session.NewSession(&sdk.Config{
-			Region:      sdk.String(self.RegionId),
-			Credentials: credentials.NewStaticCredentials(self.client.accessKey, self.client.secret, ""),
-		})
+		s, err := self.getAwsSession()
 
 		if err != nil {
 			return nil, err
@@ -164,6 +185,10 @@ func (self *SRegion) GetId() string {
 }
 
 func (self *SRegion) GetName() string {
+	if localName, ok := RegionLocations[self.RegionId]; ok {
+		return fmt.Sprintf("%s %s", CLOUD_PROVIDER_AWS_CN, localName)
+	}
+
 	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_AWS_CN, self.RegionId)
 }
 
@@ -188,11 +213,27 @@ func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SRegion) GetLatitude() float32 {
-	return 0.0
+	if data, ok := LatitudeAndLongitude[self.RegionId]; !ok {
+		log.Debugf("Region %s not found in LatitudeAndLongitude", self.RegionId)
+		return 0.0
+	} else if lat, ok := data["latitude"]; !ok {
+		log.Debugf("Region %s's latitude not found in LatitudeAndLongitude", self.RegionId)
+		return 0.0
+	} else {
+		return lat
+	}
 }
 
 func (self *SRegion) GetLongitude() float32 {
-	return 0.0
+	if data, ok := LatitudeAndLongitude[self.RegionId]; !ok {
+		log.Debugf("Region %s not found in LatitudeAndLongitude", self.RegionId)
+		return 0.0
+	} else if lat, ok := data["longitude"]; !ok {
+		log.Debugf("Region %s's latitude not found in LatitudeAndLongitude", self.RegionId)
+		return 0.0
+	} else {
+		return lat
+	}
 }
 
 func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
@@ -320,9 +361,30 @@ func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStorag
 }
 
 func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
+	tagspec := TagSpec{ResourceType: "vpc"}
+	if len(name) > 0 {
+		tagspec.SetNameTag(name)
+	}
+
+	if len(desc) > 0 {
+		tagspec.SetDescTag(desc)
+	}
+
+	spec, err := tagspec.GetTagSpecifications()
+	if err != nil {
+		return nil, err
+	}
+
+	// start create vpc
 	vpc, err := self.ec2Client.CreateVpc(&ec2.CreateVpcInput{CidrBlock: &cidr})
 	if err != nil {
 		return nil, err
+	}
+
+	tagsParams := &ec2.CreateTagsInput{Resources: []*string{vpc.Vpc.VpcId}, Tags: spec.Tags}
+	_, err = self.ec2Client.CreateTags(tagsParams)
+	if err != nil {
+		log.Debugf("CreateIVpc add tag failed %s", err.Error())
 	}
 
 	err = self.fetchInfrastructure()
