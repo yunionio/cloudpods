@@ -339,7 +339,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				}
 			}
 
-			err := iVM.DeployVM(name, passwd, publicKey, deleteKeypair, description)
+			err := iVM.DeployVM(ctx, name, passwd, publicKey, deleteKeypair, description)
 			if err != nil {
 				return nil, err
 			}
@@ -378,7 +378,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				}
 			}
 
-			diskId, err := iVM.RebuildRoot(desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
+			diskId, err := iVM.RebuildRoot(ctx, desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
 			if err != nil {
 				return nil, err
 			}

@@ -188,7 +188,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 		deleteKeypair := jsonutils.QueryBoolean(params, "__delete_keypair__", false)
 
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			err := iVM.DeployVM(name, passwd, publicKey, deleteKeypair, description)
+			err := iVM.DeployVM(ctx, name, passwd, publicKey, deleteKeypair, description)
 			if err != nil {
 				return nil, err
 			}
@@ -203,7 +203,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 		}
 
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			_, err := iVM.RebuildRoot(desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
+			_, err := iVM.RebuildRoot(ctx, desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
 			if err != nil {
 				return nil, err
 			}

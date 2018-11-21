@@ -107,7 +107,7 @@ func (self *SQcloudHostDriver) RequestAllocateDiskOnStorage(ctx context.Context,
 	return nil
 }
 
-func (self *SQcloudHostDriver) RequestDeallocateDiskOnHost(host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
+func (self *SQcloudHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
 	data := jsonutils.NewDict()
 	if iCloudStorage, err := storage.GetIStorage(); err != nil {
 		return err
@@ -117,18 +117,18 @@ func (self *SQcloudHostDriver) RequestDeallocateDiskOnHost(host *models.SHost, s
 			return nil
 		}
 		return err
-	} else if err := iDisk.Delete(); err != nil {
+	} else if err := iDisk.Delete(ctx); err != nil {
 		return err
 	}
 	task.ScheduleRun(data)
 	return nil
 }
 
-func (self *SQcloudHostDriver) RequestResizeDiskOnHostOnline(host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
-	return self.RequestResizeDiskOnHost(host, storage, disk, size, task)
+func (self *SQcloudHostDriver) RequestResizeDiskOnHostOnline(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
+	return self.RequestResizeDiskOnHost(ctx, host, storage, disk, size, task)
 }
 
-func (self *SQcloudHostDriver) RequestResizeDiskOnHost(host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
+func (self *SQcloudHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
 	iCloudStorage, err := storage.GetIStorage()
 	if err != nil {
 		return err
@@ -137,7 +137,7 @@ func (self *SQcloudHostDriver) RequestResizeDiskOnHost(host *models.SHost, stora
 	if err != nil {
 		return err
 	}
-	err = iDisk.Resize(size >> 10)
+	err = iDisk.Resize(ctx, size>>10)
 	if err != nil {
 		return err
 	}
@@ -164,7 +164,7 @@ func (self *SQcloudHostDriver) RequestSaveUploadImageOnHost(ctx context.Context,
 		return httperrors.NewResourceNotFoundError("fail to find iStoragecache for storage: %s", iStorage.GetName())
 	}
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		snapshot, err := iDisk.CreateISnapshot(fmt.Sprintf("Snapshot-%s", imageId), "PrepareSaveImage")
+		snapshot, err := iDisk.CreateISnapshot(ctx, fmt.Sprintf("Snapshot-%s", imageId), "PrepareSaveImage")
 		if err != nil {
 			return nil, err
 		}

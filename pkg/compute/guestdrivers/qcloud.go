@@ -196,7 +196,7 @@ func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			// 	}
 			// }
 
-			err := iVM.DeployVM(name, passwd, publicKey, deleteKeypair, description)
+			err := iVM.DeployVM(ctx, name, passwd, publicKey, deleteKeypair, description)
 			if err != nil {
 				return nil, err
 			}
@@ -221,7 +221,7 @@ func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			// 	}
 			// }
 
-			diskId, err := iVM.RebuildRoot(desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
+			diskId, err := iVM.RebuildRoot(ctx, desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
 			if err != nil {
 				return nil, err
 			}
@@ -356,7 +356,7 @@ func (self *SQcloudGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *
 	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
 	snapshot := iSnapshot.(*models.SSnapshot)
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		cloudSnapshot, err := providerDisk.CreateISnapshot(snapshot.Name, "")
+		cloudSnapshot, err := providerDisk.CreateISnapshot(ctx, snapshot.Name, "")
 		if err != nil {
 			return nil, err
 		}

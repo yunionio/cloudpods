@@ -196,7 +196,7 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 			return
 		}
 
-		err = iVM.AttachDisk(disk.GetExternalId())
+		err = iVM.AttachDisk(ctx, disk.GetExternalId())
 		if err != nil {
 			log.Debugf("Attach Disk %s to guest fail: %s", diskId, err)
 			self.SetStageFailed(ctx, "Attach Disk to guest fail")

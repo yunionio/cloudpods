@@ -754,7 +754,8 @@ func (manager *SDiskManager) syncCloudDisk(ctx context.Context, userCred mcclien
 	diskObj, err := manager.FetchByExternalId(vdisk.GetGlobalId())
 	if err != nil {
 		if err == sql.ErrNoRows {
-			vstorage := vdisk.GetIStorge()
+			vstorage, _ := vdisk.GetIStorage()
+
 			storageObj, err := StorageManager.FetchByExternalId(vstorage.GetGlobalId())
 			if err != nil {
 				log.Errorf("cannot find storage of vdisk %s", err)
@@ -1101,6 +1102,7 @@ type DiskInfo struct {
 	MediumType string
 	Driver     string
 	Cache      string
+	DiskType   string
 }
 
 func (self *SDisk) ToDiskInfo() DiskInfo {
@@ -1110,6 +1112,7 @@ func (self *SDisk) ToDiskInfo() DiskInfo {
 		MountPoint: self.GetMountPoint(),
 		Format:     self.DiskFormat,
 		Size:       int64(self.DiskSize),
+		DiskType:   self.DiskType,
 	}
 	storage := self.GetStorage()
 	if storage == nil {

@@ -90,7 +90,7 @@ func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, ho
 	return err
 }
 
-func (self *SKVMHostDriver) RequestDeallocateDiskOnHost(host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
+func (self *SKVMHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
 	log.Infof("Deallocating disk on host %s", host.GetName())
 	header := http.Header{}
 	header.Add("X-Task-Id", task.GetTaskId())
@@ -101,7 +101,7 @@ func (self *SKVMHostDriver) RequestDeallocateDiskOnHost(host *models.SHost, stor
 	return err
 }
 
-func (self *SKVMHostDriver) RequestResizeDiskOnHost(host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
+func (self *SKVMHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
 	header := http.Header{}
 	header.Add("X-Task-Id", task.GetTaskId())
 	header.Add("X-Region-Version", "v2")
@@ -114,8 +114,8 @@ func (self *SKVMHostDriver) RequestResizeDiskOnHost(host *models.SHost, storage 
 	return err
 }
 
-func (self *SKVMHostDriver) RequestResizeDiskOnHostOnline(host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
-	self.RequestResizeDiskOnHost(host, storage, disk, size, task)
+func (self *SKVMHostDriver) RequestResizeDiskOnHostOnline(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
+	self.RequestResizeDiskOnHost(ctx, host, storage, disk, size, task)
 	header := http.Header{}
 	header.Add("X-Task-Id", task.GetTaskId())
 	header.Add("X-Region-Version", "v2")

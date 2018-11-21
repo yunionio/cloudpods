@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"database/sql"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -944,9 +945,12 @@ func (self *SHost) GetHostDriver() IHostDriver {
 	return GetHostDriver(self.HostType)
 }
 
-func (manager *SHostManager) getHostsByZone(zone *SZone, provider *SCloudprovider) ([]SHost, error) {
+func (manager *SHostManager) getHostsByZoneProvider(zone *SZone, provider *SCloudprovider) ([]SHost, error) {
 	hosts := make([]SHost, 0)
-	q := manager.Query().Equals("zone_id", zone.Id)
+	q := manager.Query()
+	if zone != nil {
+		q = q.Equals("zone_id", zone.Id)
+	}
 	if provider != nil {
 		q = q.Equals("manager_id", provider.Id)
 	}
@@ -963,7 +967,7 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 	remoteHosts := make([]cloudprovider.ICloudHost, 0)
 	syncResult := compare.SyncResult{}
 
-	dbHosts, err := manager.getHostsByZone(zone, provider)
+	dbHosts, err := manager.getHostsByZoneProvider(zone, provider)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
@@ -1028,6 +1032,7 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 func (self *SHost) syncWithCloudHost(extHost cloudprovider.ICloudHost) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Name = extHost.GetName()
+
 		self.Status = extHost.GetStatus()
 		self.HostStatus = extHost.GetHostStatus()
 		self.AccessIp = extHost.GetAccessIp()
@@ -1047,6 +1052,9 @@ func (self *SHost) syncWithCloudHost(extHost cloudprovider.ICloudHost) error {
 		self.IsEmulated = extHost.IsEmulated()
 		self.Enabled = extHost.GetEnabled()
 
+		self.IsMaintenance = extHost.GetIsMaintenance()
+		self.Version = extHost.GetVersion()
+
 		return nil
 	})
 	if err != nil {
@@ -1055,13 +1063,23 @@ func (self *SHost) syncWithCloudHost(extHost cloudprovider.ICloudHost) error {
 	return err
 }
 
-func (manager *SHostManager) newFromCloudHost(extHost cloudprovider.ICloudHost, zone *SZone) (*SHost, error) {
+func (manager *SHostManager) newFromCloudHost(extHost cloudprovider.ICloudHost, izone *SZone) (*SHost, error) {
 	host := SHost{}
 	host.SetModelManager(manager)
 
+	if izone == nil {
+		wire, err := WireManager.GetWireOfIp(extHost.GetAccessIp())
+		if err != nil {
+			msg := fmt.Sprintf("fail to find wire for host %s %s: %s", extHost.GetName(), extHost.GetAccessIp(), err)
+			log.Errorf(msg)
+			return nil, fmt.Errorf(msg)
+		}
+		izone = wire.GetZone()
+	}
+
 	host.Name = extHost.GetName()
 	host.ExternalId = extHost.GetGlobalId()
-	host.ZoneId = zone.Id
+	host.ZoneId = izone.Id
 	// host.ManagerId = extHost.GetManagerId()
 	host.HostType = extHost.GetHostType()
 
@@ -1083,6 +1101,9 @@ func (manager *SHostManager) newFromCloudHost(extHost cloudprovider.ICloudHost, 
 
 	host.ManagerId = extHost.GetManagerId()
 	host.IsEmulated = extHost.IsEmulated()
+
+	host.IsMaintenance = extHost.GetIsMaintenance()
+	host.Version = extHost.GetVersion()
 
 	err := manager.TableSpec().Insert(&host)
 	if err != nil {
@@ -1177,8 +1198,18 @@ func (self *SHost) Attach2Storage(ctx context.Context, userCred mcclient.TokenCr
 func (self *SHost) newCloudHostStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage) error {
 	storageObj, err := StorageManager.FetchByExternalId(extStorage.GetGlobalId())
 	if err != nil {
-		log.Errorf("%s", err)
-		return nil
+		if err == sql.ErrNoRows {
+			// no cloud storage found, this may happen for on-premise host
+			// create the storage
+			storageObj, err = StorageManager.newFromCloudStorage(extStorage, self.GetZone())
+			if err != nil {
+				log.Errorf("create by cloud storage fail %s", err)
+				return err
+			}
+		} else {
+			log.Errorf("%s", err)
+			return err
+		}
 	}
 	storage := storageObj.(*SStorage)
 	err = self.Attach2Storage(ctx, userCred, storage, "")
@@ -2377,26 +2408,49 @@ func (self *SHost) PerformAddNetif(ctx context.Context, userCred mcclient.TokenC
 	}
 	wire, _ := data.GetString("wire")
 	ipAddr, _ := data.GetString("ip_addr")
+	rate, _ := data.Int("rate")
+	nicType, _ := data.GetString("nic_type")
+	index, _ := data.Int("index")
+	linkUp, _ := data.GetString("link_up")
+	mtu, _ := data.Int("mtu")
+	reset := jsonutils.QueryBoolean(data, "reset", false)
+	strInterface, _ := data.GetString("interface")
+	bridge, _ := data.GetString("bridge")
+	reserve := jsonutils.QueryBoolean(data, "reserve", false)
+	requireDesignatedIp := jsonutils.QueryBoolean(data, "require_designated_ip", false)
+
+	err := self.addNetif(ctx, userCred, mac, wire, ipAddr, int(rate), nicType, int8(index), utils.ToBool(linkUp),
+		int16(mtu), reset, strInterface, bridge, reserve, requireDesignatedIp)
+	return nil, err
+}
+
+func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredential,
+	mac string, wire string, ipAddr string,
+	rate int, nicType string, index int8, linkUp bool, mtu int16,
+	reset bool, strInterface string, bridge string,
+	reserve bool, requireDesignatedIp bool,
+) error {
+
 	var sw *SWire
 	if len(wire) > 0 && len(ipAddr) == 0 {
 		iWire, err := WireManager.FetchByIdOrName(userCred, wire)
 		if err != nil {
-			return nil, httperrors.NewBadRequestError("Wire %s not found", wire)
+			return httperrors.NewBadRequestError("Wire %s not found", wire)
 		}
 		sw = iWire.(*SWire)
 	} else if len(ipAddr) > 0 && len(wire) == 0 {
 		ipWire, err := WireManager.GetWireOfIp(ipAddr)
 		if err != nil {
-			return nil, httperrors.NewBadRequestError("IP %s not attach to any wire", ipAddr)
+			return httperrors.NewBadRequestError("IP %s not attach to any wire", ipAddr)
 		}
 		sw = ipWire
 	} else if len(wire) > 0 && len(ipAddr) > 0 {
 		ipWire, err := WireManager.GetWireOfIp(ipAddr)
 		if err != nil {
-			return nil, httperrors.NewBadRequestError("IP %s not attach to any wire", ipAddr)
+			return httperrors.NewBadRequestError("IP %s not attach to any wire", ipAddr)
 		}
 		if ipWire.Id != wire && ipWire.GetName() != wire {
-			httperrors.NewBadRequestError("IP %s not attach to wire %s", ipAddr, wire)
+			return httperrors.NewBadRequestError("IP %s not attach to wire %s", ipAddr, wire)
 		}
 		sw = ipWire
 	}
@@ -2408,24 +2462,14 @@ func (self *SHost) PerformAddNetif(ctx context.Context, userCred mcclient.TokenC
 		if sw != nil {
 			netif.WireId = sw.Id
 		}
-		if rate, err := data.Int("rate"); err == nil {
-			netif.Rate = int(rate)
-		}
-		if nicType, err := data.GetString("nic_type"); err == nil {
-			netif.NicType = nicType
-		}
-		if index, err := data.Int("index"); err == nil {
-			netif.Index = int8(index)
-		}
-		if linkUp, err := data.GetString("link_up"); err == nil {
-			netif.LinkUp = utils.ToBool(linkUp)
-		}
-		if mtu, err := data.Int("mtu"); err == nil {
-			netif.Mtu = int16(mtu)
-		}
+		netif.Rate = rate
+		netif.NicType = nicType
+		netif.Index = index
+		netif.LinkUp = linkUp
+		netif.Mtu = mtu
 		err = NetInterfaceManager.TableSpec().Insert(netif)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	} else {
 		var changed = false
@@ -2438,44 +2482,42 @@ func (self *SHost) PerformAddNetif(ctx context.Context, userCred mcclient.TokenC
 				changed = true
 				netif.WireId = sw.Id
 			}
-			if rate, err := data.Int("rate"); err == nil {
+			if rate != netif.Rate {
 				changed = true
 				netif.Rate = int(rate)
 			}
-			if nicType, err := data.GetString("nic_type"); err == nil {
+			if nicType != netif.NicType {
 				changed = true
 				netif.NicType = nicType
 			}
-			if index, err := data.Int("index"); err == nil && index >= 0 {
+			if index >= 0 && index != netif.Index {
 				changed = true
 				netif.Index = int8(index)
 			}
-			if linkUp, err := data.GetString("link_up"); err != nil {
+			if linkUp != netif.LinkUp {
 				changed = true
-				netif.LinkUp = utils.ToBool(linkUp)
+				netif.LinkUp = linkUp
 			}
-			if mtu, err := data.Int("mtu"); err != nil {
+			if mtu != netif.Mtu {
 				changed = true
 				netif.Mtu = int16(mtu)
 			}
 			return nil
 		})
 		if err != nil {
-			return nil, err
+			return err
 		}
-		if changed || jsonutils.QueryBoolean(data, "reset", false) {
+		if changed || reset {
 			self.DisableNetif(ctx, userCred, netif, false)
 		}
 	}
 	sw = netif.GetWire()
 	if sw != nil {
-		strInterface, err := data.GetString("interface")
-		if err != nil {
+		if len(strInterface) == 0 {
 			strInterface = fmt.Sprintf("eth%d", netif.Index)
 		}
 		if len(strInterface) > 0 {
-			bridge, err := data.GetString("bridge")
-			if err != nil {
+			if len(bridge) == 0 {
 				bridge = fmt.Sprintf("br%s", sw.GetName())
 			}
 			var isMaster = netif.NicType == NIC_TYPE_ADMIN
@@ -2490,7 +2532,7 @@ func (self *SHost) PerformAddNetif(ctx context.Context, userCred mcclient.TokenC
 				hw.MacAddr = mac
 				err := HostwireManager.TableSpec().Insert(hw)
 				if err != nil {
-					return nil, err
+					return err
 				}
 			} else {
 				hw := ihw.(*SHostwire)
@@ -2504,15 +2546,13 @@ func (self *SHost) PerformAddNetif(ctx context.Context, userCred mcclient.TokenC
 			}
 		}
 	}
-	reserve := jsonutils.QueryBoolean(data, "reserve", false)
-	requireDesignatedIp := jsonutils.QueryBoolean(data, "require_designated_ip", false)
 	if len(ipAddr) > 0 {
 		err = self.EnableNetif(ctx, userCred, netif, "", ipAddr, "", reserve, requireDesignatedIp)
 		if err != nil {
-			return nil, httperrors.NewBadRequestError(err.Error())
+			return httperrors.NewBadRequestError(err.Error())
 		}
 	}
-	return nil, nil
+	return nil
 }
 
 func (self *SHost) AllowPerformEnableNetif(ctx context.Context,
@@ -2962,4 +3002,111 @@ func (self *SHost) UpdateDiskConfig(layouts []baremetal.Layout) error {
 		}
 	}
 	return nil
+}
+
+func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.TokenCredential, ihost cloudprovider.ICloudHost) compare.SyncResult {
+	result := compare.SyncResult{}
+
+	netIfs := host.GetNetInterfaces()
+	extNics, err := ihost.GetIHostNics()
+	if err != nil {
+		result.Error(err)
+		return result
+	}
+
+	disables := make([]*SNetInterface, 0)
+	enables := make([]cloudprovider.ICloudHostNetInterface, 0)
+
+	type sRemoveNetInterface struct {
+		netif     *SNetInterface
+		reserveIp bool
+	}
+
+	type sAddNetInterface struct {
+		netif     cloudprovider.ICloudHostNetInterface
+		reserveIp bool
+	}
+
+	removes := make([]sRemoveNetInterface, 0)
+	adds := make([]sAddNetInterface, 0)
+
+	nicMax := len(netIfs)
+	if nicMax < len(extNics) {
+		nicMax = len(extNics)
+	}
+	for i := 0; i < nicMax; i += 1 {
+		if i < len(netIfs) && i < len(extNics) {
+			obn := netIfs[i].GetBaremetalNetwork()
+			var oip string
+			if obn != nil {
+				oip = obn.IpAddr
+			}
+			nip := extNics[i].GetIpAddr()
+			if netIfs[i].Mac == extNics[i].GetMac() {
+				if oip != nip {
+					if obn != nil {
+						disables = append(disables, &netIfs[i])
+					}
+					if len(nip) > 0 {
+						enables = append(enables, extNics[i])
+					}
+				} else {
+					// do nothing, in sync
+				}
+			} else {
+				reserveIp := false
+				if len(oip) > 0 && oip == nip {
+					// # mac change case
+					reserveIp = true
+				}
+				removes = append(removes, sRemoveNetInterface{netif: &netIfs[i], reserveIp: reserveIp})
+				adds = append(adds, sAddNetInterface{netif: extNics[i], reserveIp: reserveIp})
+			}
+		} else if i < len(netIfs) && i >= len(extNics) {
+			removes = append(removes, sRemoveNetInterface{netif: &netIfs[i], reserveIp: false})
+		} else if i >= len(netIfs) && i < len(extNics) {
+			adds = append(adds, sAddNetInterface{netif: extNics[i], reserveIp: false})
+		}
+	}
+
+	for i := len(removes) - 1; i >= 0; i -= 1 {
+		err = host.RemoveNetif(ctx, userCred, removes[i].netif, removes[i].reserveIp)
+		if err != nil {
+			result.DeleteError(err)
+		} else {
+			result.Delete()
+		}
+	}
+
+	for i := len(disables) - 1; i >= 0; i -= 1 {
+		err = host.DisableNetif(ctx, userCred, disables[i], false)
+		if err != nil {
+			result.DeleteError(err)
+		} else {
+			result.Delete()
+		}
+	}
+
+	for i := 0; i < len(enables); i += 1 {
+		netif := host.GetNetInterface(enables[i].GetMac())
+		err = host.EnableNetif(ctx, userCred, netif, "", enables[i].GetIpAddr(), "", false, true)
+		if err != nil {
+			result.AddError(err)
+		} else {
+			result.Add()
+		}
+	}
+
+	for i := 0; i < len(adds); i += 1 {
+		extNic := adds[i].netif
+		err = host.addNetif(ctx, userCred, extNic.GetMac(), "", extNic.GetIpAddr(), 0, extNic.GetNicType(), extNic.GetIndex(),
+			extNic.IsLinkUp(), extNic.GetMtu(), false, "", "", false, true)
+		if err != nil {
+			result.AddError(err)
+		} else {
+			result.Add()
+		}
+	}
+
+	return result
 }

@@ -252,3 +252,15 @@ func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
 func (self *SHost) GetManagerId() string {
 	return self.zone.region.client.providerId
 }
+
+func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+func (host *SHost) GetIsMaintenance() bool {
+	return false
+}
+
+func (host *SHost) GetVersion() string {
+	return AZURE_API_VERSION
+}

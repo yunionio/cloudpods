@@ -153,7 +153,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 		deleteKeypair := jsonutils.QueryBoolean(params, "__delete_keypair__", false)
 
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			err := iVM.DeployVM(name, passwd, publicKey, deleteKeypair, description)
+			err := iVM.DeployVM(ctx, name, passwd, publicKey, deleteKeypair, description)
 			if err != nil {
 				return nil, err
 			}
@@ -169,7 +169,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 		}
 
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			diskId, err := iVM.RebuildRoot(desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
+			diskId, err := iVM.RebuildRoot(ctx, desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
 			if err != nil {
 				return nil, err
 			}
@@ -298,7 +298,7 @@ func (self *SAwsGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *mod
 	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
 	snapshot := iSnapshot.(*models.SSnapshot)
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		cloudSnapshot, err := providerDisk.CreateISnapshot(snapshot.Name, "")
+		cloudSnapshot, err := providerDisk.CreateISnapshot(ctx, snapshot.Name, "")
 		if err != nil {
 			return nil, err
 		}

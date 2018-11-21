@@ -268,3 +268,15 @@ func (self *SHost) _createVM(name, imgId string, sysDiskSize, cpu, memMB int,
 	// 创建实例
 	return "", fmt.Errorf("Failed to create, specification not supported")
 }
+
+func (self *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+func (self *SHost) GetIsMaintenance() bool {
+	return false
+}
+
+func (self *SHost) GetVersion() string {
+	return AWS_API_VERSION
+}

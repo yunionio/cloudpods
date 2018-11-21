@@ -35,6 +35,10 @@ func (self *SQcloudProvider) IsPublicCloud() bool {
 	return true
 }
 
+func (self *SQcloudProvider) IsOnPremiseInfrastructure() bool {
+	return false
+}
+
 func (self *SQcloudProvider) GetId() string {
 	return qcloud.CLOUD_PROVIDER_QCLOUD
 }
@@ -81,4 +85,8 @@ func (self *SQcloudProvider) GetIStoragecacheById(id string) (cloudprovider.IClo
 
 func (self *SQcloudProvider) GetBalance() (float64, error) {
 	return 0.0, nil
+}
+
+func (self *SQcloudProvider) GetOnPremiseIHosts() ([]cloudprovider.ICloudHost, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }

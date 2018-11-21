@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -150,11 +151,11 @@ func (self *SRegion) DeleteDisk(diskId string) error {
 	return err
 }
 
-func (self *SDisk) Delete() error {
+func (self *SDisk) Delete(ctx context.Context) error {
 	return self.storage.zone.region.DeleteDisk(self.DiskId)
 }
 
-func (self *SRegion) ResizeDisk(diskId string, sizeGb int64) error {
+func (self *SRegion) ResizeDisk(ctx context.Context, diskId string, sizeGb int64) error {
 	params := make(map[string]string)
 	params["DiskId"] = diskId
 	params["DiskSize"] = fmt.Sprintf("%d", sizeGb)
@@ -175,8 +176,8 @@ func (self *SRegion) ResizeDisk(diskId string, sizeGb int64) error {
 	}
 }
 
-func (self *SDisk) Resize(size int64) error {
-	return self.storage.zone.region.ResizeDisk(self.DiskId, size)
+func (self *SDisk) Resize(ctx context.Context, size int64) error {
+	return self.storage.zone.region.ResizeDisk(ctx, self.DiskId, size)
 }
 
 func (self *SDisk) GetName() string {
@@ -194,8 +195,8 @@ func (self *SDisk) IsEmulated() bool {
 	return false
 }
 
-func (self *SDisk) GetIStorge() cloudprovider.ICloudStorage {
-	return self.storage
+func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
+	return self.storage, nil
 }
 
 func (self *SDisk) GetStatus() string {
@@ -215,7 +216,7 @@ func (self *SDisk) Refresh() error {
 	return jsonutils.Update(self, new)
 }
 
-func (self *SDisk) CreateISnapshot(name, desc string) (cloudprovider.ICloudSnapshot, error) {
+func (self *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
 	snapshotId, err := self.storage.zone.region.CreateSnapshot(self.DiskId, name, desc)
 	if err != nil {
 		log.Errorf("createSnapshot fail %s", err)
@@ -344,7 +345,7 @@ func (self *SRegion) ResetDisk(diskId, snapshotId string) error {
 	return nil
 }
 
-func (self *SDisk) Reset(snapshotId string) error {
+func (self *SDisk) Reset(ctx context.Context, snapshotId string) error {
 	return self.storage.zone.region.ResetDisk(self.DiskId, snapshotId)
 }
 

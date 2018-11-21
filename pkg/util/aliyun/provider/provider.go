@@ -55,6 +55,10 @@ func (self *SAliyunProvider) IsPublicCloud() bool {
 	return true
 }
 
+func (self *SAliyunProvider) IsOnPremiseInfrastructure() bool {
+	return false
+}
+
 func (self *SAliyunProvider) GetId() string {
 	return aliyun.CLOUD_PROVIDER_ALIYUN
 }
@@ -105,4 +109,8 @@ func (self *SAliyunProvider) GetBalance() (float64, error) {
 		return 0.0, err
 	}
 	return balance.AvailableAmount, nil
+}
+
+func (self *SAliyunProvider) GetOnPremiseIHosts() ([]cloudprovider.ICloudHost, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }

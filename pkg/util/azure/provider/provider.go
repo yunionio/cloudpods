@@ -35,6 +35,10 @@ func (self *SAzureProvider) IsPublicCloud() bool {
 	return true
 }
 
+func (self *SAzureProvider) IsOnPremiseInfrastructure() bool {
+	return false
+}
+
 func (self *SAzureProvider) GetId() string {
 	return azure.CLOUD_PROVIDER_AZURE
 }
@@ -85,4 +89,8 @@ func (self *SAzureProvider) GetBalance() (float64, error) {
 		return 0.0, err
 	}
 	return balance.AvailableAmount, nil
+}
+
+func (self *SAzureProvider) GetOnPremiseIHosts() ([]cloudprovider.ICloudHost, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }

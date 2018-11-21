@@ -54,7 +54,7 @@ func (self *DiskResizeTask) StartResizeDisk(ctx context.Context, host *models.SH
 	if online {
 		proc = host.GetHostDriver().RequestResizeDiskOnHostOnline
 	}
-	if err := proc(host, storage, disk, size, self); err != nil {
+	if err := proc(ctx, host, storage, disk, size, self); err != nil {
 		log.Errorf("request_resize_disk_on_host: %v", err)
 		self.OnStartResizeDiskFailed(ctx, disk, err)
 		return

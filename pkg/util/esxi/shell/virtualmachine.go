@@ -40,6 +40,40 @@ func init() {
 		return nil
 	})
 
+	shellutils.R(&VirtualMachineShowOptions{}, "vm-nics", "Show vm nics details", func(cli *esxi.SESXiClient, args *VirtualMachineShowOptions) error {
+		host, err := cli.FindHostByIp(args.HOSTIP)
+		if err != nil {
+			return err
+		}
+		vm, err := host.GetIVMById(args.VMID)
+		if err != nil {
+			return err
+		}
+		vmnics, err := vm.GetINics()
+		if err != nil {
+			return err
+		}
+		printList(vmnics, []string{})
+		return nil
+	})
+
+	shellutils.R(&VirtualMachineShowOptions{}, "vm-disks", "Show vm disks details", func(cli *esxi.SESXiClient, args *VirtualMachineShowOptions) error {
+		host, err := cli.FindHostByIp(args.HOSTIP)
+		if err != nil {
+			return err
+		}
+		vm, err := host.GetIVMById(args.VMID)
+		if err != nil {
+			return err
+		}
+		vmdisks, err := vm.GetIDisks()
+		if err != nil {
+			return err
+		}
+		printList(vmdisks, []string{})
+		return nil
+	})
+
 	shellutils.R(&VirtualMachineShowOptions{}, "vm-vnc", "Show vm VNC details", func(cli *esxi.SESXiClient, args *VirtualMachineShowOptions) error {
 		host, err := cli.FindHostByIp(args.HOSTIP)
 		if err != nil {
@@ -56,4 +90,5 @@ func init() {
 		printutils.PrintJSONObject(info)
 		return nil
 	})
+
 }

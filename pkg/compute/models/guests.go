@@ -3915,6 +3915,7 @@ func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 		diskSpec.Set("size", jsonutils.NewInt(info.Size))
 		diskSpec.Set("backend", jsonutils.NewString(info.Backend))
 		diskSpec.Set("medium_type", jsonutils.NewString(info.MediumType))
+		diskSpec.Set("disk_type", jsonutils.NewString(info.DiskType))
 		diskSpecs.Add(diskSpec)
 	}
 	spec.Set("disk", diskSpecs)
@@ -4040,7 +4041,7 @@ func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
 
 	templateId := self.GetTemplateId()
 	if len(templateId) > 0 {
-		desc.Set("cpu", jsonutils.NewString(templateId))
+		desc.Set("template_id", jsonutils.NewString(templateId))
 	}
 	extBw := self.getBandwidth(true)
 	intBw := self.getBandwidth(false)

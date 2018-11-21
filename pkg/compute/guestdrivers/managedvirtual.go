@@ -120,7 +120,7 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(_ context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
+func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
 	ihost, e := host.GetIHost()
 	if e != nil {
 		return nil, e
@@ -133,7 +133,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(_ context.Context
 
 	result := jsonutils.NewDict()
 	if ivm.GetStatus() != models.VM_RUNNING {
-		if err := ivm.StartVM(); err != nil {
+		if err := ivm.StartVM(ctx); err != nil {
 			return nil, e
 		} else {
 			task.ScheduleRun(result)
@@ -159,7 +159,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 				return nil, err
 			}
 		}
-		err = ivm.DeleteVM()
+		err = ivm.DeleteVM(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -174,7 +174,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 						return nil, err
 					}
 				}
-				err = idisk.Delete()
+				err = idisk.Delete(ctx)
 				if err != nil {
 					return nil, err
 				}
@@ -195,7 +195,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestStopOnHost(ctx context.Contex
 		if err != nil {
 			return nil, err
 		}
-		err = ivm.StopVM(true)
+		err = ivm.StopVM(ctx, true)
 		return nil, err
 	})
 	return nil
@@ -297,7 +297,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 	}
 
 	if int(guest.VcpuCount) != config.Cpu || guest.VmemSize != config.Memory {
-		err = iVM.ChangeConfig(config.InstanceId, config.Cpu, config.Memory)
+		err = iVM.ChangeConfig(ctx, config.InstanceId, config.Cpu, config.Memory)
 		if err != nil {
 			return err
 		}
@@ -335,12 +335,12 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.
 						return nil, err
 					}
 					for _, disk := range removed {
-						if err := iVM.DetachDisk(disk.GetId()); err != nil {
+						if err := iVM.DetachDisk(ctx, disk.GetId()); err != nil {
 							return nil, err
 						}
 					}
 					for _, disk := range added {
-						if err := iVM.AttachDisk(disk.ExternalId); err != nil {
+						if err := iVM.AttachDisk(ctx, disk.ExternalId); err != nil {
 							return nil, err
 						}
 					}
@@ -362,7 +362,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestDiskSnapshot(ctx context.Cont
 	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
 	snapshot := iSnapshot.(*models.SSnapshot)
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		cloudSnapshot, err := providerDisk.CreateISnapshot(snapshot.Name, "")
+		cloudSnapshot, err := providerDisk.CreateISnapshot(ctx, snapshot.Name, "")
 		if err != nil {
 			return nil, err
 		}

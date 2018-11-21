@@ -58,6 +58,10 @@ func (self *SAwsProvider) IsPublicCloud() bool {
 	return true
 }
 
+func (self *SAwsProvider) IsOnPremiseInfrastructure() bool {
+	return false
+}
+
 func (self *SAwsProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegionById(id)
 }
@@ -84,4 +88,8 @@ func (self *SAwsProvider) GetBalance() (float64, error) {
 		return 0.0, err
 	}
 	return balance.AvailableAmount, nil
+}
+
+func (self *SAwsProvider) GetOnPremiseIHosts() ([]cloudprovider.ICloudHost, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }

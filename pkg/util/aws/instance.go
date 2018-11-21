@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"context"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/coredns/coredns/plugin/pkg/log"
 	"yunion.io/x/jsonutils"
@@ -299,7 +300,7 @@ func (self *SInstance) GetHypervisor() string {
 	return models.HYPERVISOR_AWS
 }
 
-func (self *SInstance) StartVM() error {
+func (self *SInstance) StartVM(ctx context.Context) error {
 	timeout := 300 * time.Second
 	interval := 15 * time.Second
 
@@ -323,7 +324,7 @@ func (self *SInstance) StartVM() error {
 	return cloudprovider.ErrTimeout
 }
 
-func (self *SInstance) StopVM(isForce bool) error {
+func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 	err := self.host.zone.region.StopVM(self.InstanceId, isForce)
 	if err != nil {
 		return err
@@ -331,7 +332,7 @@ func (self *SInstance) StopVM(isForce bool) error {
 	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
 }
 
-func (self *SInstance) DeleteVM() error {
+func (self *SInstance) DeleteVM(ctx context.Context) error {
 	for {
 		err := self.host.zone.region.DeleteVM(self.InstanceId)
 		if err != nil {
@@ -344,16 +345,16 @@ func (self *SInstance) DeleteVM() error {
 
 }
 
-func (self *SInstance) UpdateVM(name string) error {
+func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
 	return self.host.zone.region.UpdateVM(self.InstanceId, name)
 }
 
-func (self *SInstance) RebuildRoot(imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
 	if len(publicKey) > 0 || len(passwd) > 0 {
 		return "", fmt.Errorf("aws rebuild root not support specific publickey/password")
 	}
 
-	diskId, err := self.host.zone.region.ReplaceSystemDisk(self.InstanceId, imageId, sysSizeGB)
+	diskId, err := self.host.zone.region.ReplaceSystemDisk(ctx, self.InstanceId, imageId, sysSizeGB)
 	if err != nil {
 		return "", err
 	}
@@ -361,11 +362,11 @@ func (self *SInstance) RebuildRoot(imageId string, passwd string, publicKey stri
 	return diskId, nil
 }
 
-func (self *SInstance) DeployVM(name string, password string, publicKey string, deleteKeypair bool, description string) error {
+func (self *SInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
 	return self.host.zone.region.DeployVM(self.InstanceId, name, password, publicKey, deleteKeypair, description)
 }
 
-func (self *SInstance) ChangeConfig(instanceId string, ncpu int, vmem int) error {
+func (self *SInstance) ChangeConfig(ctx context.Context, instanceId string, ncpu int, vmem int) error {
 	return self.host.zone.region.ChangeVMConfig(self.ZoneId, self.InstanceId, ncpu, vmem, nil)
 }
 
@@ -373,7 +374,7 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 	panic("implement me")
 }
 
-func (self *SInstance) AttachDisk(diskId string) error {
+func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
 	// todo：bugfix . self.DeviceNames => self.GetDeviceNames()
 	name, err := NextDeviceName(self.DeviceNames)
 	if err != nil {
@@ -382,7 +383,7 @@ func (self *SInstance) AttachDisk(diskId string) error {
 	return self.host.zone.region.AttachDisk(self.InstanceId, diskId, name)
 }
 
-func (self *SInstance) DetachDisk(diskId string) error {
+func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
 	return self.host.zone.region.DetachDisk(self.InstanceId, diskId)
 }
 
@@ -713,7 +714,7 @@ func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
 	return fmt.Errorf("aws not support change hostname.")
 }
 
-func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, sysDiskSizeGB int) (string, error) {
+func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, imageId string, sysDiskSizeGB int) (string, error) {
 	instance, err := self.GetInstance(instanceId)
 	if err != nil {
 		return "", err
@@ -747,13 +748,13 @@ func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, sysDis
 
 	self.ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&diskId}})
 	// todo: 检查instance状态
-	err = instance.DetachDisk(rootDisk.DiskId)
+	err = instance.DetachDisk(ctx, rootDisk.DiskId)
 	if err != nil {
 		return "", err
 	}
 
 	self.ec2Client.WaitUntilInstanceStopped(&ec2.DescribeInstancesInput{InstanceIds: []*string{&instanceId}})
-	err = instance.AttachDisk(diskId)
+	err = instance.AttachDisk(ctx, diskId)
 	if err != nil {
 		return "", err
 	}

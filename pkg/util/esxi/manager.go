@@ -50,12 +50,16 @@ func NewESXiClient(providerId string, providerName string, host string, port int
 	return cli, nil
 }
 
-func (cli *SESXiClient) url() string {
+func (cli *SESXiClient) getUrl() string {
 	if cli.port == 443 || cli.port == 0 {
-		return fmt.Sprintf("https://%s/sdk", cli.host)
+		return fmt.Sprintf("https://%s", cli.host)
 	} else {
-		return fmt.Sprintf("https://%s:%d/sdk", cli.host, cli.port)
+		return fmt.Sprintf("https://%s:%d", cli.host, cli.port)
 	}
+}
+
+func (cli *SESXiClient) url() string {
+	return fmt.Sprintf("%s/sdk", cli.getUrl())
 }
 
 func (cli *SESXiClient) connect() error {
@@ -101,7 +105,18 @@ func (cli *SESXiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 }
 
 func (cli *SESXiClient) About() jsonutils.JSONObject {
-	return jsonutils.Marshal(&cli.client.ServiceContent.About)
+	about := jsonutils.Marshal(&cli.client.ServiceContent.About)
+	aboutDict := about.(*jsonutils.JSONDict)
+	aboutDict.Add(jsonutils.NewString(cli.getEndpointType()), "endpoint_type")
+	return aboutDict
+}
+
+func (cli *SESXiClient) getEndpointType() string {
+	if cli.IsVCenter() {
+		return "VCenter"
+	} else {
+		return "ESXi"
+	}
 }
 
 func (cli *SESXiClient) GetUUID() string {
@@ -118,6 +133,16 @@ func (cli *SESXiClient) fetchDatacenters() error {
 	cli.datacenters = make([]*SDatacenter, len(dcs))
 	for i := 0; i < len(dcs); i += 1 {
 		cli.datacenters[i] = newDatacenter(cli, &dcs[i])
+
+		err = cli.datacenters[i].scanHosts()
+		if err != nil {
+			return err
+		}
+
+		err = cli.datacenters[i].scanDatastores()
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -151,36 +176,9 @@ func (cli *SESXiClient) scanMObjects(folder types.ManagedObjectReference, props 
 	return nil
 }
 
-/*
-func getStructFields(dst interface{}) []string {
-	dataValue := reflect.Indirect(reflect.ValueOf(dst))
-	dataType := dataValue.Type()
-	if dataType.Kind() != reflect.Struct {
-		log.Warningf("GetStructFeilds for non-struct data")
-		return nil
-	}
-	return _getStructFields(dataType)
-}
-
-func _getStructFields(dataType reflect.Type) []string {
-	ret := make([]string, 0)
-	for i := 1; i < dataType.NumField(); i += 1 {
-		field := dataType.Field(i)
-		if field.Type.Kind() == reflect.Struct && field.Anonymous {
-			subfields := _getStructFields(field.Type)
-			ret = append(ret, subfields...)
-		} else if gotypes.IsFieldExportable(field.Name)  {
-			log.Debugf("%s: %s", field.Name, field.Type.Name())
-			ret = append(ret, utils.CamelSplit(field.Name, "_"))
-		}
-	}
-	return ret
-}
-*/
-
 func (cli *SESXiClient) references2Objects(refs []types.ManagedObjectReference, props []string, dst interface{}) error {
 	pc := property.DefaultCollector(cli.client.Client)
-	err := pc.Retrieve(cli.context, refs, []string{"name", "config", "summary"}, dst)
+	err := pc.Retrieve(cli.context, refs, props, dst)
 	if err != nil {
 		return err
 	}
@@ -202,7 +200,7 @@ func (cli *SESXiClient) GetDatacenters() ([]*SDatacenter, error) {
 	return cli.datacenters, nil
 }
 
-func (cli *SESXiClient) FindDatacenterById(dcId string) (*SDatacenter, error) {
+func (cli *SESXiClient) FindDatacenterByMoId(dcId string) (*SDatacenter, error) {
 	dcs, err := cli.GetDatacenters()
 	if err != nil {
 		return nil, err
@@ -215,8 +213,22 @@ func (cli *SESXiClient) FindDatacenterById(dcId string) (*SDatacenter, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
+func (cli *SESXiClient) FindHostByMoId(moId string) (cloudprovider.ICloudHost, error) {
+	dcs, err := cli.GetDatacenters()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(dcs); i += 1 {
+		ihost, err := dcs[i].GetIHostByMoId(moId)
+		if err == nil {
+			return ihost, nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
 func (cli *SESXiClient) getPrivateId(idStr string) string {
-	if strings.HasPrefix(idStr, cli.providerId) {
+	if len(cli.providerId) > 0 && strings.HasPrefix(idStr, cli.providerId) {
 		idStr = idStr[len(cli.providerId)+1:]
 	}
 	return idStr
@@ -224,10 +236,15 @@ func (cli *SESXiClient) getPrivateId(idStr string) string {
 
 func (cli *SESXiClient) FindHostByIp(hostIp string) (*SHost, error) {
 	searchIndex := object.NewSearchIndex(cli.client.Client)
+
 	hostRef, err := searchIndex.FindByIp(cli.context, nil, cli.getPrivateId(hostIp), false)
 	if err != nil {
 		log.Errorf("searchIndex.FindByIp fail %s", err)
 		return nil, err
+	}
+
+	if hostRef == nil {
+		return nil, fmt.Errorf("cannot find %s", cli.getPrivateId(hostIp))
 	}
 
 	var host mo.HostSystem
@@ -243,4 +260,12 @@ func (cli *SESXiClient) FindHostByIp(hostIp string) (*SHost, error) {
 func (cli *SESXiClient) acquireCloneTicket() (string, error) {
 	manager := session.NewManager(cli.client.Client)
 	return manager.AcquireCloneTicket(cli.context)
+}
+
+func (cli *SESXiClient) IsVCenter() bool {
+	return cli.client.Client.IsVC()
+}
+
+func (cli *SESXiClient) IsValid() bool {
+	return cli.client.Client.Valid()
 }

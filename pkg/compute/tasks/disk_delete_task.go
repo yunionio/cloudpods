@@ -54,7 +54,7 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 		self.SetStage("on_guest_disk_delete_succ", nil)
 		if host == nil {
 			self.OnGuestDiskDeleteFailed(ctx, disk, httperrors.NewNotFoundError("fail to find master host"))
-		} else if err := host.GetHostDriver().RequestDeallocateDiskOnHost(host, storage, disk, self); err != nil {
+		} else if err := host.GetHostDriver().RequestDeallocateDiskOnHost(ctx, host, storage, disk, self); err != nil {
 			self.OnGuestDiskDeleteFailed(ctx, disk, err)
 		}
 	}

@@ -93,7 +93,17 @@ func syncCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider,
 	notes := fmt.Sprintf("Start sync host info ...")
 	log.Infof(notes)
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_START, "", task.UserCred)
+
+	if driver.IsOnPremiseInfrastructure() {
+		syncOnPremiseCloudProviderInfo(ctx, provider, task, driver, syncRange)
+	} else {
+		syncPublicCloudProviderInfo(ctx, provider, task, driver, syncRange)
+	}
+}
+
+func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, driver cloudprovider.ICloudProvider, syncRange *models.SSyncRange) {
 	regions := driver.GetIRegions()
+
 	localRegions, remoteRegions, result := models.CloudregionManager.SyncRegions(ctx, task.UserCred, provider.Provider, regions)
 	msg := result.Result()
 	log.Infof("SyncRegion result: %s", msg)

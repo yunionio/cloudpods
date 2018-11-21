@@ -76,3 +76,29 @@ func (dc *SDatacenter) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	}
 	return dc.istorages, nil
 }
+
+func (dc *SDatacenter) GetIHostByMoId(idstr string) (cloudprovider.ICloudHost, error) {
+	ihosts, err := dc.GetIHosts()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(ihosts); i += 1 {
+		if ihosts[i].GetId() == idstr {
+			return ihosts[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (dc *SDatacenter) GetIStorageByMoId(idstr string) (cloudprovider.ICloudStorage, error) {
+	istorages, err := dc.GetIStorages()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(istorages); i += 1 {
+		if istorages[i].GetId() == idstr {
+			return istorages[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}

@@ -75,6 +75,10 @@ func (self *SESXiProvider) IsPublicCloud() bool {
 	return false
 }
 
+func (self *SESXiProvider) IsOnPremiseInfrastructure() bool {
+	return true
+}
+
 func (self *SESXiProvider) GetId() string {
 	return esxi.CLOUD_PROVIDER_VMWARE
 }
@@ -113,13 +117,30 @@ func (self *SESXiProvider) GetIVpcById(id string) (cloudprovider.ICloudVpc, erro
 }
 
 func (self *SESXiProvider) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SESXiProvider) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SESXiProvider) GetBalance() (float64, error) {
 	return 0.0, nil
+}
+
+func (self *SESXiProvider) GetOnPremiseIHosts() ([]cloudprovider.ICloudHost, error) {
+	dcs, err := self.client.GetDatacenters()
+	if err != nil {
+		return nil, err
+	}
+
+	ihosts := make([]cloudprovider.ICloudHost, 0)
+	for i := 0; i < len(dcs); i += 1 {
+		dcIHosts, err := dcs[i].GetIHosts()
+		if err != nil {
+			return nil, err
+		}
+		ihosts = append(ihosts, dcIHosts...)
+	}
+	return ihosts, nil
 }

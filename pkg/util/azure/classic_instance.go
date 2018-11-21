@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -254,38 +255,38 @@ func (self *SClassicInstance) GetIHost() cloudprovider.ICloudHost {
 	return self.host
 }
 
-func (self *SClassicInstance) AttachDisk(diskId string) error {
+func (self *SClassicInstance) AttachDisk(ctx context.Context, diskId string) error {
 	if err := self.host.zone.region.AttachDisk(self.ID, diskId); err != nil {
 		return err
 	}
 	return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
 }
 
-func (self *SClassicInstance) DetachDisk(diskId string) error {
+func (self *SClassicInstance) DetachDisk(ctx context.Context, diskId string) error {
 	if err := self.host.zone.region.DetachDisk(self.ID, diskId); err != nil {
 		return err
 	}
 	return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
 }
 
-func (self *SClassicInstance) ChangeConfig(instanceId string, ncpu int, vmem int) error {
-	if err := self.host.zone.region.ChangeVMConfig(instanceId, ncpu, vmem); err != nil {
+func (self *SClassicInstance) ChangeConfig(ctx context.Context, instanceId string, ncpu int, vmem int) error {
+	if err := self.host.zone.region.ChangeVMConfig(ctx, instanceId, ncpu, vmem); err != nil {
 		return err
 	}
 	return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
 }
 
-func (self *SClassicInstance) DeployVM(name string, password string, publicKey string, deleteKeypair bool, description string) error {
+func (self *SClassicInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
 	return cloudprovider.ErrNotImplemented
 	//return self.host.zone.region.DeployVM(self.ID, name, password, publicKey, deleteKeypair, description)
 }
 
-func (self *SClassicInstance) RebuildRoot(imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+func (self *SClassicInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 	//return self.host.zone.region.ReplaceSystemDisk(self.ID, imageId, passwd, publicKey, int32(sysSizeGB))
 }
 
-func (self *SClassicInstance) UpdateVM(name string) error {
+func (self *SClassicInstance) UpdateVM(ctx context.Context, name string) error {
 	return cloudprovider.ErrNotSupported
 }
 
@@ -301,7 +302,7 @@ func (self *SClassicInstance) GetGlobalId() string {
 	return strings.ToLower(self.ID)
 }
 
-func (self *SClassicInstance) DeleteVM() error {
+func (self *SClassicInstance) DeleteVM(ctx context.Context) error {
 	if err := self.host.zone.region.DeleteVM(self.ID); err != nil {
 		return err
 	}
@@ -395,14 +396,14 @@ func (self *SClassicInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 	return ret, nil
 }
 
-func (self *SClassicInstance) StartVM() error {
+func (self *SClassicInstance) StartVM(ctx context.Context) error {
 	if err := self.host.zone.region.StartVM(self.ID); err != nil {
 		return err
 	}
 	return cloudprovider.WaitStatus(self, models.VM_RUNNING, 10*time.Second, 300*time.Second)
 }
 
-func (self *SClassicInstance) StopVM(isForce bool) error {
+func (self *SClassicInstance) StopVM(ctx context.Context, isForce bool) error {
 	err := self.host.zone.region.StopClassicVM(self.ID, isForce)
 	if err != nil {
 		return err

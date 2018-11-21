@@ -76,7 +76,7 @@ func (self *SAwsHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, ho
 		return httperrors.NewResourceNotFoundError("fail to find iStoragecache for storage: %s", iStorage.GetName())
 	} else {
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			if snapshot, err := iDisk.CreateISnapshot(fmt.Sprintf("Snapshot-%s", imageId), "PrepareSaveImage"); err != nil {
+			if snapshot, err := iDisk.CreateISnapshot(ctx, fmt.Sprintf("Snapshot-%s", imageId), "PrepareSaveImage"); err != nil {
 				return nil, err
 			} else {
 				params := task.GetParams()
@@ -154,7 +154,7 @@ func (self *SAwsHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, ho
 	return nil
 }
 
-func (self *SAwsHostDriver) RequestDeallocateDiskOnHost(host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
+func (self *SAwsHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
 	data := jsonutils.NewDict()
 	if iCloudStorage, err := storage.GetIStorage(); err != nil {
 		return err
@@ -164,23 +164,23 @@ func (self *SAwsHostDriver) RequestDeallocateDiskOnHost(host *models.SHost, stor
 			return nil
 		}
 		return err
-	} else if err := iDisk.Delete(); err != nil {
+	} else if err := iDisk.Delete(ctx); err != nil {
 		return err
 	}
 	task.ScheduleRun(data)
 	return nil
 }
 
-func (self *SAwsHostDriver) RequestResizeDiskOnHostOnline(host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
-	return self.RequestResizeDiskOnHost(host, storage, disk, size, task)
+func (self *SAwsHostDriver) RequestResizeDiskOnHostOnline(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
+	return self.RequestResizeDiskOnHost(ctx, host, storage, disk, size, task)
 }
 
-func (self *SAwsHostDriver) RequestResizeDiskOnHost(host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
+func (self *SAwsHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
 	if iCloudStorage, err := storage.GetIStorage(); err != nil {
 		return err
 	} else if iDisk, err := iCloudStorage.GetIDisk(disk.GetExternalId()); err != nil {
 		return err
-	} else if err := iDisk.Resize(size >> 10); err != nil {
+	} else if err := iDisk.Resize(ctx, size>>10); err != nil {
 		return err
 	} else {
 		task.ScheduleRun(jsonutils.Marshal(map[string]int64{"disk_size": size}))
