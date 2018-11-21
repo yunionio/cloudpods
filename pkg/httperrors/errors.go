@@ -1,6 +1,7 @@
 package httperrors
 
 import (
+	"bytes"
 	"fmt"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -18,39 +19,38 @@ func msgToTemplate(msg string) string {
 	fmtstr := false
 	lst := []rune(msg)
 	lastIndex := len(lst) - 1
-	temp := []rune{}
+	temp := bytes.Buffer{}
 	index := 0
 	for i, c := range lst {
 		switch c {
 		case '%':
 			if fmtstr || i == lastIndex {
-				temp = append(temp, c)
+				temp.WriteRune(c)
 				fmtstr = false
 			} else {
 				fmtstr = true
 			}
 		case 'v', 'T', 't', 'b', 'c', 'd', 'o', 'q', 'x', 'X', 'U', 'e', 'E', 'f', 'F', 'g', 'G', 's', 'p':
 			if fmtstr {
-				i := []rune(fmt.Sprintf("%d", index))
-				temp = append(temp, '{')
-				temp = append(temp, i...)
-				temp = append(temp, '}')
+				temp.WriteRune('{')
+				temp.WriteString(fmt.Sprintf("%d", index))
+				temp.WriteRune('}')
 				index++
 				fmtstr = false
 			} else {
-				temp = append(temp, c)
+				temp.WriteRune(c)
 			}
 
 		default:
 			if fmtstr {
-				temp = append(temp, '%')
+				temp.WriteRune('%')
 			}
-			temp = append(temp, c)
+			temp.WriteRune(c)
 			fmtstr = false
 		}
 	}
 
-	return string(temp)
+	return temp.String()
 }
 
 func errorMessage(msg string, params ...interface{}) (string, httputils.Error) {
