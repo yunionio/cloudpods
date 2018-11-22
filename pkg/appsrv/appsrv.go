@@ -39,7 +39,7 @@ type Application struct {
 }
 
 const (
-	DEFAULT_BACKLOG             = 256
+	DEFAULT_BACKLOG             = 1024
 	DEFAULT_IDLE_TIMEOUT        = 10 * time.Second
 	DEFAULT_READ_TIMEOUT        = 0
 	DEFAULT_READ_HEADER_TIMEOUT = 10 * time.Second
