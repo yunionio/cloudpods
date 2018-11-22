@@ -67,4 +67,22 @@ func initRepo() {
 		printObject(repo)
 		return nil
 	})
+
+	R(&o.RepoGetOptions{}, cmdN("public"), "Make repository public", func(s *mcclient.ClientSession, args *o.RepoGetOptions) error {
+		repo, err := k8s.Repos.PerformAction(s, args.NAME, "public", nil)
+		if err != nil {
+			return err
+		}
+		printObject(repo)
+		return nil
+	})
+
+	R(&o.RepoGetOptions{}, cmdN("private"), "Make repository private", func(s *mcclient.ClientSession, args *o.RepoGetOptions) error {
+		repo, err := k8s.Repos.PerformAction(s, args.NAME, "private", nil)
+		if err != nil {
+			return err
+		}
+		printObject(repo)
+		return nil
+	})
 }
