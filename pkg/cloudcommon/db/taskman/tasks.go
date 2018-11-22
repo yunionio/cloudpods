@@ -227,6 +227,10 @@ func (manager *STaskManager) NewParallelTask(ctx context.Context, taskName strin
 		return nil, fmt.Errorf("task %s not found", taskName)
 	}
 
+	if len(objs) == 0 {
+		return nil, fmt.Errorf("failed to do task %s with zero objs", taskName)
+	}
+
 	log.Debugf("number of objs: %d", len(objs))
 	lockman.LockClass(ctx, objs[0].GetModelManager(), userCred.GetProjectId())
 	defer lockman.ReleaseClass(ctx, objs[0].GetModelManager(), userCred.GetProjectId())
