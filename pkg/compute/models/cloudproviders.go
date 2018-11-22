@@ -378,53 +378,28 @@ func (self *SCloudprovider) GetDriver() (cloudprovider.ICloudProvider, error) {
 		return nil, fmt.Errorf("Cloud provider is not enabled")
 	}
 
-	account, err := self.getAccount()
+	passwd, err := self.getPassword()
 	if err != nil {
 		return nil, err
 	}
-	return cloudprovider.GetProvider(self.Id, self.Name, account.AccessUrl, account.Account, account.Secret, self.Provider)
+	return cloudprovider.GetProvider(self.Id, self.Name, self.AccessUrl, self.Account, passwd, self.Provider)
 }
 
-type SAccount struct {
-	AccessUrl string
-	Account   string
-	Secret    string
+func (self *SCloudprovider) savePassword(secret string) error {
+	sec, err := utils.EncryptAESBase64(self.Id, secret)
+	if err != nil {
+		return err
+	}
+
+	_, err = self.GetModelManager().TableSpec().Update(self, func() error {
+		self.Secret = sec
+		return nil
+	})
+	return err
 }
 
 func (self *SCloudprovider) GetCloudaccount() *SCloudaccount {
 	return CloudaccountManager.FetchCloudaccountById(self.CloudaccountId)
-}
-
-func (self *SCloudprovider) getAccount() (SAccount, error) {
-	account := SAccount{}
-
-	cloudaccount := self.GetCloudaccount()
-	if cloudaccount == nil {
-		// legacy mode
-		passwd, err := self.getPassword()
-		if err != nil {
-			return account, err
-		}
-		account.Account = self.Account
-		account.AccessUrl = self.AccessUrl
-		account.Secret = passwd
-		return account, nil // fmt.Errorf("fail to find cloudaccount???")
-	}
-
-	passwd, err := cloudaccount.getPassword()
-	if err != nil {
-		return account, err
-	}
-
-	account.Account = cloudaccount.Account
-	account.AccessUrl = cloudaccount.AccessUrl
-	account.Secret = passwd
-
-	if len(self.Account) > 0 && self.Account != account.Account {
-		account.Account = fmt.Sprintf("%s/%s", account.Account, self.Account)
-	}
-
-	return account, nil
 }
 
 func (self *SCloudprovider) SaveSysInfo(info jsonutils.JSONObject) {
