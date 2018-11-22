@@ -425,6 +425,8 @@ func syncHostVMs(ctx context.Context, provider *models.SCloudprovider, task *Clo
 		syncVMNics(ctx, provider, task, localHost, &localVMs[i], remoteVMs[i])
 		syncVMDisks(ctx, provider, task, localHost, &localVMs[i], remoteVMs[i])
 		syncVMEip(ctx, provider, task, &localVMs[i], remoteVMs[i])
+
+		db.OpsLog.LogEvent(&localVMs[i], db.ACT_SYNC_CLOUD_SERVER, localVMs[i].GetShortDesc(), task.UserCred)
 	}
 }
 
