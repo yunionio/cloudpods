@@ -121,14 +121,35 @@ func (self *SHoststorage) PostCreate(ctx context.Context, userCred mcclient.Toke
 			if storagecache != nil {
 				body.Set("imagecache_path", jsonutils.NewString(
 					storage.GetStorageCachePath(self.MountPoint, storagecache.Path)))
-				body.Set("sotragecache_id", jsonutils.NewString(storagecache.Id))
+				body.Set("storagecache_id", jsonutils.NewString(storagecache.Id))
 			}
 		}
 		_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(),
 			ctx, "POST", url, headers, body, false)
 		if err != nil {
 			log.Errorf("Host Storage Post Create Error: %s", err)
-			return
+			// panic(err) ???
+		}
+		self.SyncStorageStatus()
+	}
+}
+
+func (self *SHoststorage) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	storage := self.GetStorage()
+	if !utils.IsInStringArray(storage.StorageType, STORAGE_LOCAL_TYPES) {
+		host := storage.GetMasterHost()
+		log.Infof("Attach SharedStorage[%s] on host %s ...", storage.Name, host.Name)
+		url := fmt.Sprintf("%s/storages/detach", host.ManagerUri)
+		headers := http.Header{}
+		headers.Set("X-Auth-Token", userCred.GetTokenString())
+		body := jsonutils.NewDict()
+		body.Set("mount_point", jsonutils.NewString(self.MountPoint))
+		body.Set("name", jsonutils.NewString(storage.Name))
+		_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(),
+			ctx, "POST", url, headers, body, false)
+		if err != nil {
+			log.Errorf("Host Storage Post Create Error: %s", err)
+			// panic(err) ???
 		}
 		self.SyncStorageStatus()
 	}
@@ -177,6 +198,7 @@ func (self *SHoststorage) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.
 		storagecache := StoragecacheManager.FetchStoragecacheById(storage.StoragecacheId)
 		if storagecache != nil {
 			extra.Set("imagecache_path", jsonutils.NewString(storage.GetStorageCachePath(self.MountPoint, storagecache.Path)))
+			extra.Set("storagecache_id", jsonutils.NewString(storagecache.Id))
 		}
 	}
 	return extra

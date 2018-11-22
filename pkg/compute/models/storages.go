@@ -231,7 +231,7 @@ func (self *SStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCre
 		sc := &SStoragecache{}
 		sc.Path = options.Options.NfsDefaultImageCacheDir
 		sc.ExternalId = self.Id
-		sc.Name = "nfs" + self.Name + time.Now().String()
+		sc.Name = "nfs-" + self.Name + time.Now().Format("2006-01-02 15:04:05")
 		err := StoragecacheManager.TableSpec().Insert(sc)
 		if err != nil {
 			log.Errorln(err)
@@ -242,10 +242,14 @@ func (self *SStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCre
 			log.Errorln(err)
 			return
 		}
-		self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err = self.GetModelManager().TableSpec().Update(self, func() error {
 			self.StoragecacheId = sc.Id
+			self.Status = STORAGE_ONLINE
 			return nil
 		})
+		if err != nil {
+			log.Errorln(err)
+		}
 	}
 }
 

@@ -3,6 +3,7 @@ package prettytable
 import (
 	"bytes"
 	"strings"
+	"unicode"
 )
 
 type AlignmentType uint8
@@ -102,6 +103,17 @@ func textLine(buf *bytes.Buffer, columns []ptColumn, widths []int) {
 	}
 }
 
+func runeDisplayWidth(r rune) int {
+	const puncts = "。，；：（）、？《》"
+	if unicode.Is(unicode.Han, r) {
+		return 2
+	}
+	if strings.ContainsRune(puncts, r) {
+		return 2
+	}
+	return 1
+}
+
 // cellDisplayWidth returns display width of the cell when printed as the
 // nthCol.  prevWidth is the total display width (as return by this same func)
 // of previous cells in the same line
@@ -116,7 +128,7 @@ func cellDisplayWidth(cell string, nthCol int, prevWidth int) int {
 		for _, c := range line {
 			incr := 0
 			if c != '\t' {
-				incr = 1
+				incr = runeDisplayWidth(c)
 			} else {
 				// terminal with have the char TabWidth aligned
 				incr = TabWidth - (x & (TabWidth - 1))

@@ -1331,7 +1331,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:bf987f904fd821c6395fefdab956d070596eb401657fff40420014a3a8e3f45c"
+  digest = "1:8c4d781aafefb667511de3e0e9fe02170519f63d75a69e34045bd417f25d5523"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1355,7 +1355,6 @@
     "util/secrules",
     "util/sets",
     "util/stringutils",
-    "util/sysutils",
     "util/timeutils",
     "util/trace",
     "util/ttlpool",
@@ -1365,7 +1364,7 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "7614d751299a6703a05f757a13e6dc900332e31b"
+  revision = "883ea57a4b57d551bbf2fb7d1876d6ab9355c486"
 
 [[projects]]
   branch = "master"
@@ -1377,11 +1376,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f07a1ef9758f56186dd9039a8608bc9d537070a7c04479dbab6aeb42501001b7"
+  digest = "1:bbaf572e68e5dad4045e1e424af29838882c620df391fa1631dd8dc851c87a95"
   name = "yunion.io/x/structarg"
   packages = ["."]
   pruneopts = "UT"
-  revision = "e0cc2c73375327d401b100bd8988fa340c2687ee"
+  revision = "c95bf78846decd8dea379e925410f2895fb20076"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1496,7 +1495,6 @@
     "yunion.io/x/pkg/util/secrules",
     "yunion.io/x/pkg/util/sets",
     "yunion.io/x/pkg/util/stringutils",
-    "yunion.io/x/pkg/util/sysutils",
     "yunion.io/x/pkg/util/timeutils",
     "yunion.io/x/pkg/util/trace",
     "yunion.io/x/pkg/util/ttlpool",
