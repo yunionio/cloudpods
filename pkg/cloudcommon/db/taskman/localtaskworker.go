@@ -12,7 +12,7 @@ import (
 var localTaskWorkerMan *appsrv.SWorkerManager
 
 func init() {
-	localTaskWorkerMan = appsrv.NewWorkerManager("LocalTaskWorkerManager", 4, 10)
+	localTaskWorkerMan = appsrv.NewWorkerManager("LocalTaskWorkerManager", 4, 1024)
 }
 
 func Error2TaskData(err error) jsonutils.JSONObject {
