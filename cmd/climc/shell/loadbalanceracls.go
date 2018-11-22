@@ -43,6 +43,7 @@ func init() {
 			err := lbAclConvert(jd)
 			if err != nil {
 				printList(list, columns)
+				return
 			}
 		}
 		printList(list, columns)
