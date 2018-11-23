@@ -86,6 +86,11 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 	return isecgroups, nil
 }
 
+func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
+	rts := []cloudprovider.ICloudRouteTable{}
+	return rts, nil
+}
+
 func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
 	for i := 0; i <= len(self.iwires); i++ {
 		wire := self.iwires[i].(*SWire)

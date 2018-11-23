@@ -30,7 +30,8 @@ type SVpc struct {
 
 	iwires []cloudprovider.ICloudWire
 
-	secgroups []cloudprovider.ICloudSecurityGroup
+	secgroups   []cloudprovider.ICloudSecurityGroup
+	routeTables []cloudprovider.ICloudRouteTable
 
 	CidrBlock    string
 	CreationTime time.Time
@@ -189,6 +190,36 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 		}
 	}
 	return self.secgroups, nil
+}
+
+func (self *SVpc) fetchRouteTables() error {
+	routeTables := make([]*SRouteTable, 0)
+	for {
+		parts, total, err := self.RemoteGetRouteTableList(len(routeTables), 50)
+		if err != nil {
+			return err
+		}
+		routeTables = append(routeTables, parts...)
+		if len(routeTables) >= total {
+			break
+		}
+	}
+	self.routeTables = make([]cloudprovider.ICloudRouteTable, len(routeTables))
+	for i := 0; i < len(routeTables); i++ {
+		routeTables[i].vpc = self
+		self.routeTables[i] = routeTables[i]
+	}
+	return nil
+}
+
+func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
+	if self.routeTables == nil {
+		err := self.fetchRouteTables()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return self.routeTables, nil
 }
 
 func (self *SVpc) GetManagerId() string {

@@ -9,10 +9,12 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -91,6 +93,7 @@ func init() {
 
 type SRouteTable struct {
 	db.SVirtualResourceBase
+	SManagedResourceBase
 
 	VpcId         string   `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	CloudregionId string   `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
@@ -250,5 +253,124 @@ func (rt *SRouteTable) GetCustomizeColumns(ctx context.Context, userCred mcclien
 
 func (rt *SRouteTable) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := rt.GetCustomizeColumns(ctx, userCred, query)
+	extra = rt.SManagedResourceBase.getExtraDetails(ctx, extra)
 	return extra
+}
+
+func (man *SRouteTableManager) SyncRouteTables(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc, cloudRouteTables []cloudprovider.ICloudRouteTable) ([]SRouteTable, []cloudprovider.ICloudRouteTable, compare.SyncResult) {
+	localRouteTables := make([]SRouteTable, 0)
+	remoteRouteTables := make([]cloudprovider.ICloudRouteTable, 0)
+	syncResult := compare.SyncResult{}
+
+	dbRouteTables := []SRouteTable{}
+	if err := db.FetchModelObjects(man, man.Query(), &dbRouteTables); err != nil {
+		syncResult.Error(err)
+		return nil, nil, syncResult
+	}
+	removed := make([]SRouteTable, 0)
+	commondb := make([]SRouteTable, 0)
+	commonext := make([]cloudprovider.ICloudRouteTable, 0)
+	added := make([]cloudprovider.ICloudRouteTable, 0)
+	if false {
+		for _, rt := range cloudRouteTables {
+			log.Errorf("%s, %s", rt.GetName(), rt.GetGlobalId())
+			routes, err := rt.GetIRoutes()
+			if err != nil {
+				log.Errorf("get routes err: %s", err)
+				continue
+			}
+			for i, route := range routes {
+				log.Errorf("route %d: %#v ", i, route)
+			}
+		}
+	}
+	if err := compare.CompareSets(dbRouteTables, cloudRouteTables, &removed, &commondb, &commonext, &added); err != nil {
+		syncResult.Error(err)
+		return nil, nil, syncResult
+	}
+
+	for i := 0; i < len(commondb); i += 1 {
+		err := commondb[i].SyncWithCloudRouteTable(userCred, vpc, commonext[i])
+		if err != nil {
+			syncResult.UpdateError(err)
+			continue
+		}
+		localRouteTables = append(localRouteTables, commondb[i])
+		remoteRouteTables = append(remoteRouteTables, commonext[i])
+		syncResult.Update()
+	}
+
+	for i := 0; i < len(added); i += 1 {
+		routeTableNew, err := man.insertFromCloud(userCred, vpc, added[i])
+		if err != nil {
+			syncResult.AddError(err)
+			continue
+		}
+		localRouteTables = append(localRouteTables, *routeTableNew)
+		remoteRouteTables = append(remoteRouteTables, added[i])
+		syncResult.Add()
+	}
+	return localRouteTables, remoteRouteTables, syncResult
+}
+
+func (man *SRouteTableManager) newRouteTableFromCloud(userCred mcclient.TokenCredential, vpc *SVpc, cloudRouteTable cloudprovider.ICloudRouteTable) (*SRouteTable, error) {
+	routes := []*SRoute{}
+	{
+		cloudRoutes, err := cloudRouteTable.GetIRoutes()
+		if err != nil {
+			return nil, err
+		}
+		for _, cloudRoute := range cloudRoutes {
+			route := &SRoute{
+				Type:        cloudRoute.GetType(),
+				Cidr:        cloudRoute.GetCidr(),
+				NextHopType: cloudRoute.GetNextHopType(),
+				NextHopId:   cloudRoute.GetNextHop(),
+			}
+			routes = append(routes, route)
+		}
+	}
+	routeTable := &SRouteTable{
+		CloudregionId: vpc.CloudregionId,
+		VpcId:         vpc.Id,
+		Type:          cloudRouteTable.GetType(),
+		Routes:        (*SRoutes)(&routes),
+	}
+	routeTable.Name = cloudRouteTable.GetName()
+	routeTable.ManagerId = vpc.ManagerId
+	routeTable.ExternalId = cloudRouteTable.GetGlobalId()
+	routeTable.Description = cloudRouteTable.GetDescription()
+	routeTable.ProjectId = userCred.GetProjectId()
+	routeTable.SetModelManager(man)
+	return routeTable, nil
+}
+
+func (man *SRouteTableManager) insertFromCloud(userCred mcclient.TokenCredential, vpc *SVpc, cloudRouteTable cloudprovider.ICloudRouteTable) (*SRouteTable, error) {
+	routeTable, err := man.newRouteTableFromCloud(userCred, vpc, cloudRouteTable)
+	if err != nil {
+		return nil, err
+	}
+	if err := man.TableSpec().Insert(routeTable); err != nil {
+		return nil, err
+	}
+	return routeTable, nil
+}
+
+func (self *SRouteTable) SyncWithCloudRouteTable(userCred mcclient.TokenCredential, vpc *SVpc, cloudRouteTable cloudprovider.ICloudRouteTable) error {
+	man := self.GetModelManager().(*SRouteTableManager)
+	routeTable, err := man.newRouteTableFromCloud(userCred, vpc, cloudRouteTable)
+	if err != nil {
+		return err
+	}
+	_, err = man.TableSpec().Update(self, func() error {
+		self.CloudregionId = routeTable.CloudregionId
+		self.VpcId = vpc.Id
+		self.Type = routeTable.Type
+		self.Routes = routeTable.Routes
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
