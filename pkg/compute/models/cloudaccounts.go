@@ -187,7 +187,7 @@ func (self *SCloudaccount) getPassword() (string, error) {
 }
 
 func (self *SCloudaccount) CanSync() bool {
-	if self.Status == CLOUD_PROVIDER_SYNCING {
+	if self.Status == CLOUD_PROVIDER_SYNCING || self.Status == CLOUD_PROVIDER_START_SYNC {
 		if self.LastSync.IsZero() || time.Now().Sub(self.LastSync) > 900*time.Second {
 			return true
 		} else {
