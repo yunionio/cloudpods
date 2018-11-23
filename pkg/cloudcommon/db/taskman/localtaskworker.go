@@ -18,7 +18,7 @@ func init() {
 func Error2TaskData(err error) jsonutils.JSONObject {
 	errJson := jsonutils.NewDict()
 	errJson.Add(jsonutils.NewString("ERROR"), "__status__")
-	errJson.Add(jsonutils.NewString(err.Error()), "reason")
+	errJson.Add(jsonutils.NewString(err.Error()), "__reason__")
 	return errJson
 }
 
