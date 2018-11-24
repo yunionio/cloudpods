@@ -482,6 +482,10 @@ type assignProperties struct {
 	NetworkSecurityGroup SubResource `json:"networkSecurityGroup,omitempty"`
 }
 
+func (self *SClassicInstance) AssignSecurityGroups(secgroupIds []string) error {
+	return cloudprovider.ErrNotSupported
+}
+
 func (self *SClassicInstance) AssignSecurityGroup(secgroupId string) error {
 	if self.Properties.NetworkProfile.NetworkSecurityGroup != nil {
 		if self.Properties.NetworkProfile.NetworkSecurityGroup.ID == secgroupId {

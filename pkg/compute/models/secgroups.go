@@ -50,9 +50,13 @@ type SSecurityGroup struct {
 }
 
 func (self *SSecurityGroup) GetGuestsQuery() *sqlchemy.SQuery {
-	guests := GuestManager.Query().SubQuery()
-	return guests.Query().Filter(sqlchemy.OR(sqlchemy.Equals(guests.Field("secgrp_id"), self.Id),
-		sqlchemy.Equals(guests.Field("admin_secgrp_id"), self.Id)))
+	guests := GuestManager.Query()
+	guestsecgroups := GuestsecgroupManager.Query().SubQuery()
+	query := guests.Join(guestsecgroups, sqlchemy.AND(sqlchemy.Equals(guestsecgroups.Field("guest_id"), guests.Field("id"))))
+	return query.Filter(sqlchemy.OR(sqlchemy.Equals(guests.Field("secgrp_id"), self.Id),
+		sqlchemy.Equals(guests.Field("admin_secgrp_id"), self.Id),
+		sqlchemy.Equals(guestsecgroups.Field("secgroup_id"), self.Id)),
+	)
 }
 
 func (self *SSecurityGroup) GetGuestsCount() int {
@@ -68,6 +72,14 @@ func (self *SSecurityGroup) GetGuests() []SGuest {
 		return nil
 	}
 	return guests
+}
+
+func (self *SSecurityGroup) getDesc() jsonutils.JSONObject {
+	desc := jsonutils.NewDict()
+	desc.Add(jsonutils.NewString(self.Name), "name")
+	desc.Add(jsonutils.NewString(self.Id), "id")
+	desc.Add(jsonutils.NewString(self.getSecurityRuleString("")), "security_rules")
+	return desc
 }
 
 func (self *SSecurityGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
@@ -121,7 +133,7 @@ func (self *SSecurityGroup) getSecurityRules(direction string) (rules []SSecurit
 	return
 }
 
-func (self *SSecurityGroup) getSecRules(direction string) []secrules.SecurityRule {
+func (self *SSecurityGroup) GetSecRules(direction string) []secrules.SecurityRule {
 	rules := make([]secrules.SecurityRule, 0)
 	for _, _rule := range self.getSecurityRules(direction) {
 		//这里没必要拆分为单个单个的端口,到公有云那边适配

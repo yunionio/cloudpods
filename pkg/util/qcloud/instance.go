@@ -711,6 +711,14 @@ func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
 	return self.host.zone.region.instanceOperation(self.InstanceId, "ModifyInstancesAttribute", params)
 }
 
+func (self *SInstance) AssignSecurityGroups(secgroupIds []string) error {
+	params := map[string]string{}
+	for i := 0; i < len(secgroupIds); i++ {
+		params[fmt.Sprintf("SecurityGroups.%d", i)] = secgroupIds[i]
+	}
+	return self.host.zone.region.instanceOperation(self.InstanceId, "ModifyInstancesAttribute", params)
+}
+
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	eip, total, err := self.host.zone.region.GetEips("", self.InstanceId, 0, 1)
 	if err != nil {

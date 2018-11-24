@@ -519,6 +519,28 @@ func (self *SRegion) AssignSecurityGroup(secgroupId, instanceId string) error {
 	return nil
 }
 
+func (self *SRegion) AssignSecurityGroups(secgroupIds []string, instanceId string) error {
+	params := map[string]string{"InstanceId": instanceId}
+	for _, secgroupId := range secgroupIds {
+		params["SecurityGroupId"] = secgroupId
+		if _, err := self.ecsRequest("JoinSecurityGroup", params); err != nil {
+			return err
+		}
+	}
+	instance, err := self.GetInstance(instanceId)
+	if err != nil {
+		return err
+	}
+	for _, _secgroupId := range instance.SecurityGroupIds.SecurityGroupId {
+		if !utils.IsInStringArray(_secgroupId, secgroupIds) {
+			if err := self.leaveSecurityGroup(_secgroupId, instanceId); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (self *SRegion) leaveSecurityGroup(secgroupId, instanceId string) error {
 	params := map[string]string{"InstanceId": instanceId, "SecurityGroupId": secgroupId}
 	_, err := self.ecsRequest("LeaveSecurityGroup", params)

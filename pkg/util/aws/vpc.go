@@ -265,7 +265,27 @@ func (self *SRegion) assignSecurityGroup(secgroupId, instanceId string) error {
 	return nil
 }
 
-func (self *SRegion) DeleteSecurityGroup(vpcId, secGrpId string) error {
+func (self *SRegion) assignSecurityGroups(secgroupIds []*string, instanceId string) error {
+	instance, err := self.GetInstance(instanceId)
+	if err != nil {
+		return err
+	}
+
+	for _, eth := range instance.NetworkInterfaces.NetworkInterface {
+		params := &ec2.ModifyNetworkInterfaceAttributeInput{}
+		params.SetNetworkInterfaceId(eth.NetworkInterfaceId)
+		params.SetGroups(secgroupIds)
+
+		_, err := self.ec2Client.ModifyNetworkInterfaceAttribute(params)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (self *SRegion) DeleteSecurityGroup(vpcId string, secGrpId string) error {
 	params := &ec2.DeleteSecurityGroupInput{}
 	params.SetGroupId(secGrpId)
 
