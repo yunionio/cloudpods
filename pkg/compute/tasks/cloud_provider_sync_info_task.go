@@ -209,6 +209,7 @@ func syncRegionVPCs(ctx context.Context, provider *models.SCloudprovider, task *
 	for j := 0; j < len(localVpcs); j += 1 {
 		syncVpcWires(ctx, provider, task, &localVpcs[j], remoteVpcs[j], syncRange)
 		syncVpcSecGroup(ctx, provider, task, &localVpcs[j], remoteVpcs[j], syncRange)
+		syncVpcRouteTables(ctx, provider, task, &localVpcs[j], remoteVpcs[j], syncRange)
 	}
 }
 
@@ -227,6 +228,24 @@ func syncVpcSecGroup(ctx context.Context, provider *models.SCloudprovider, task 
 			logSyncFailed(provider, task, msg)
 			return
 		}
+	}
+}
+
+func syncVpcRouteTables(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localVpc *models.SVpc, remoteVpc cloudprovider.ICloudVpc, syncRange *models.SSyncRange) {
+	routeTables, err := remoteVpc.GetIRouteTables()
+	if err != nil {
+		msg := fmt.Sprintf("GetIRouteTables for vpc %s failed %s", remoteVpc.GetId(), err)
+		log.Errorf(msg)
+		logSyncFailed(provider, task, msg)
+		return
+	}
+	_, _, result := models.RouteTableManager.SyncRouteTables(ctx, task.GetUserCred(), localVpc, routeTables)
+	msg := result.Result()
+	notes := fmt.Sprintf("SyncRouteTables for VPC %s result: %s", localVpc.Name, msg)
+	log.Infof(notes)
+	if result.IsError() {
+		logSyncFailed(provider, task, msg)
+		return
 	}
 }
 
