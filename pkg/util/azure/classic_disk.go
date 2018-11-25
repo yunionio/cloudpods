@@ -102,7 +102,9 @@ func (self *SRegion) GetClassicDisks() ([]SClassicDisk, error) {
 }
 
 func (self *SClassicDisk) GetMetadata() *jsonutils.JSONDict {
-	return nil
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewString(models.HYPERVISOR_AZURE), "hypervisor")
+	return data
 }
 
 func (self *SClassicDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {

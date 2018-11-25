@@ -103,6 +103,11 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 	return self.secgroups, nil
 }
 
+func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
+	rts := []cloudprovider.ICloudRouteTable{}
+	return rts, nil
+}
+
 func (self *SVpc) GetManagerId() string {
 	return self.region.client.providerId
 }

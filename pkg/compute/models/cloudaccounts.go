@@ -190,7 +190,7 @@ func (self *SCloudaccount) getPassword() (string, error) {
 }
 
 func (self *SCloudaccount) CanSync() bool {
-	if self.Status == CLOUD_PROVIDER_SYNCING {
+	if self.Status == CLOUD_PROVIDER_SYNCING || self.Status == CLOUD_PROVIDER_START_SYNC {
 		if self.LastSync.IsZero() || time.Now().Sub(self.LastSync) > 900*time.Second {
 			return true
 		} else {
@@ -233,6 +233,9 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 	changed := false
 	secret, _ := data.GetString("secret")
 	account, _ := data.GetString("account")
+	if len(account) > 0 && self.Provider == CLOUD_PROVIDER_AZURE {
+		return nil, httperrors.NewInputParameterError("not allow update azure tenant info")
+	}
 	accessUrl, _ := data.GetString("access_url")
 	if len(secret) > 0 || len(account) > 0 || len(accessUrl) > 0 {
 		// check duplication
@@ -279,6 +282,11 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		if err != nil {
 			return nil, err
 		}
+
+		for _, provider := range self.GetCloudproviders() {
+			provider.savePassword(secret)
+		}
+
 		changed = true
 	}
 
@@ -388,6 +396,7 @@ func (self *SCloudaccount) ImportSubAccount(ctx context.Context, userCred mcclie
 	newCloudprovider.Account = subAccount.Account
 	newCloudprovider.CloudaccountId = self.Id
 	newCloudprovider.Provider = self.Provider
+	newCloudprovider.AccessUrl = self.AccessUrl
 	newCloudprovider.Enabled = true
 	newCloudprovider.Status = CLOUD_PROVIDER_CONNECTED
 	newCloudprovider.Name = subAccount.Name
@@ -402,6 +411,13 @@ func (self *SCloudaccount) ImportSubAccount(ctx context.Context, userCred mcclie
 		log.Errorf("insert new cloudprovider fail %s", err)
 		return nil, isNew, err
 	}
+
+	passwd, err := self.getPassword()
+	if err != nil {
+		return nil, isNew, err
+	}
+
+	newCloudprovider.savePassword(passwd)
 
 	if autoCreateProject {
 		err = newCloudprovider.syncProject(ctx)
@@ -497,12 +513,12 @@ func (self *SCloudaccount) GetExtraDetails(ctx context.Context, userCred mcclien
 }
 
 func migrateCloudprovider(cloudprovider *SCloudprovider) error {
-	mainAccount, providerAccount, providerName := cloudprovider.Account, cloudprovider.Account, cloudprovider.Name
+	mainAccount, providerName := cloudprovider.Account, cloudprovider.Name
 
 	if cloudprovider.Provider == CLOUD_PROVIDER_AZURE {
 		accountInfo := strings.Split(cloudprovider.Account, "/")
 		if len(accountInfo) == 2 {
-			mainAccount, providerAccount = accountInfo[0], accountInfo[1]
+			mainAccount = accountInfo[0]
 			if len(cloudprovider.Description) > 0 {
 				providerName = cloudprovider.Description
 			}
@@ -554,9 +570,6 @@ func migrateCloudprovider(cloudprovider *SCloudprovider) error {
 
 	_, err = CloudproviderManager.TableSpec().Update(cloudprovider, func() error {
 		cloudprovider.CloudaccountId = account.Id
-		cloudprovider.Account = providerAccount
-		cloudprovider.Secret = ""
-		cloudprovider.Name = providerName
 		return nil
 	})
 	if err != nil {

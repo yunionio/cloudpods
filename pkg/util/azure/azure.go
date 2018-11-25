@@ -626,10 +626,11 @@ func (self *SAzureClient) GetSubAccounts() (subAccounts []cloudprovider.SSubAcco
 	}
 	subAccounts = make([]cloudprovider.SSubAccount, len(subscriptions))
 	for i, subscription := range subscriptions {
-		subAccounts[i].Account, err = subscription.GetString("subscriptionId")
+		subscriptionId, err := subscription.GetString("subscriptionId")
 		if err != nil {
 			return nil, err
 		}
+		subAccounts[i].Account = fmt.Sprintf("%s/%s", self.tenantId, subscriptionId)
 		subAccounts[i].State, err = subscription.GetString("state")
 		if err != nil {
 			return nil, err

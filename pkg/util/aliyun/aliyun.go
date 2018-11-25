@@ -16,7 +16,8 @@ const (
 
 	ALIYUN_DEFAULT_REGION = "cn-hangzhou"
 
-	ALIYUN_API_VERSION = "2014-05-26"
+	ALIYUN_API_VERSION     = "2014-05-26"
+	ALIYUN_API_VERSION_VPC = "2016-04-28"
 
 	ALIYUN_BSS_API_VERSION = "2017-12-14"
 
@@ -40,7 +41,7 @@ func NewAliyunClient(providerId string, providerName string, accessKey string, s
 	return &client, nil
 }
 
-func jsonRequest(client *sdk.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func ecsRequest(client *sdk.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	return _jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params)
 }
 
@@ -83,16 +84,16 @@ func (self *SAliyunClient) getDefaultClient() (*sdk.Client, error) {
 	return sdk.NewClientWithAccessKey(ALIYUN_DEFAULT_REGION, self.accessKey, self.secret)
 }
 
-func (self *SAliyunClient) jsonRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func (self *SAliyunClient) ecsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	cli, err := self.getDefaultClient()
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, apiName, params)
+	return ecsRequest(cli, apiName, params)
 }
 
 func (self *SAliyunClient) fetchRegions() error {
-	body, err := self.jsonRequest("DescribeRegions", map[string]string{"AcceptLanguage": "zh-CN"})
+	body, err := self.ecsRequest("DescribeRegions", map[string]string{"AcceptLanguage": "zh-CN"})
 	if err != nil {
 		log.Errorf("fetchRegions fail %s", err)
 		return err
