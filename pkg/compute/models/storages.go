@@ -18,23 +18,43 @@ import (
 )
 
 const (
-	STORAGE_LOCAL            = "local"
-	STORAGE_BAREMETAL        = "baremetal"
-	STORAGE_SHEEPDOG         = "sheepdog"
-	STORAGE_RBD              = "rbd"
-	STORAGE_DOCKER           = "docker"
-	STORAGE_NAS              = "nas"
-	STORAGE_VSAN             = "vsan"
+	STORAGE_LOCAL     = "local"
+	STORAGE_BAREMETAL = "baremetal"
+	STORAGE_SHEEPDOG  = "sheepdog"
+	STORAGE_RBD       = "rbd"
+	STORAGE_DOCKER    = "docker"
+	STORAGE_NAS       = "nas"
+	STORAGE_VSAN      = "vsan"
+	STORAGE_NFS       = "nfs"
+
 	STORAGE_PUBLIC_CLOUD     = "cloud"
 	STORAGE_CLOUD_EFFICIENCY = "cloud_efficiency"
 	STORAGE_CLOUD_SSD        = "cloud_ssd"
-	STORAGE_EPHEMERAL_SSD    = "ephemeral_ssd"
-	STORAGE_GP2_SSD          = "gp2"      // aws general purpose ssd
-	STORAGE_IO1_SSD          = "io1"      // aws Provisioned IOPS SSD
-	STORAGE_ST1_HDD          = "st1"      // aws Throughput Optimized HDD
-	STORAGE_SC1_SSD          = "sc1"      // aws Cold HDD
-	STORAGE_STANDARD_SSD     = "standard" // aws Magnetic volumes
+	STORAGE_CLOUD_ESSD       = "cloud_essd" //增强型(Enhanced)SSD 云盘
 
+	//Azure hdd and ssd storagetype
+	STORAGE_STANDARD_GRS   = "standard_grs"
+	STORAGE_STANDARD_LRS   = "standard_lrs"
+	STORAGE_STANDARD_RAGRS = "standard_ragrs"
+	STORAGE_STANDARD_ZRS   = "standard_zrs"
+	STORAGE_PREMIUM_LRS    = "premium_lrs"
+
+	// aws storage type
+	STORAGE_GP2_SSD      = "gp2"      // aws general purpose ssd
+	STORAGE_IO1_SSD      = "io1"      // aws Provisioned IOPS SSD
+	STORAGE_ST1_HDD      = "st1"      // aws Throughput Optimized HDD
+	STORAGE_SC1_SSD      = "sc1"      // aws Cold HDD
+	STORAGE_STANDARD_SSD = "standard" // aws Magnetic volumes
+
+	// qcloud storage type
+	// STORAGE_CLOUD_SSD ="cloud_ssd"
+	STORAGE_LOCAL_BASIC   = "local_basic"
+	STORAGE_LOCAL_SSD     = "local_ssd"
+	STORAGE_CLOUD_BASIC   = "cloud_basic"
+	STORAGE_CLOUD_PERMIUM = "cloud_permium"
+)
+
+const (
 	STORAGE_ENABLED  = "enabled"
 	STORAGE_DISABLED = "disabled"
 	STORAGE_OFFLINE  = "offline"
@@ -47,13 +67,22 @@ const (
 
 var (
 	DISK_TYPES            = []string{DISK_TYPE_ROTATE, DISK_TYPE_SSD, DISK_TYPE_HYBRID}
-	STORAGE_LOCAL_TYPES   = []string{STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_NAS}
+	STORAGE_LOCAL_TYPES   = []string{STORAGE_LOCAL, STORAGE_BAREMETAL}
 	STORAGE_SUPPORT_TYPES = STORAGE_LOCAL_TYPES
 	STORAGE_ALL_TYPES     = []string{
 		STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_SHEEPDOG,
 		STORAGE_RBD, STORAGE_DOCKER, STORAGE_NAS, STORAGE_VSAN,
+		STORAGE_NFS,
 	}
-	STORAGE_LIMITED_TYPES = []string{STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_NAS, STORAGE_RBD}
+	STORAGE_TYPES = []string{STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_SHEEPDOG,
+		STORAGE_RBD, STORAGE_DOCKER, STORAGE_NAS, STORAGE_VSAN, STORAGE_NFS,
+		STORAGE_PUBLIC_CLOUD, STORAGE_CLOUD_SSD, STORAGE_CLOUD_ESSD, STORAGE_CLOUD_EFFICIENCY,
+		STORAGE_STANDARD_GRS, STORAGE_STANDARD_LRS, STORAGE_STANDARD_RAGRS, STORAGE_STANDARD_ZRS, STORAGE_PREMIUM_LRS,
+		STORAGE_GP2_SSD, STORAGE_IO1_SSD, STORAGE_ST1_HDD, STORAGE_SC1_SSD, STORAGE_STANDARD_SSD,
+		STORAGE_LOCAL_BASIC, STORAGE_LOCAL_SSD, STORAGE_CLOUD_BASIC, STORAGE_CLOUD_PERMIUM,
+	}
+
+	STORAGE_LIMITED_TYPES = []string{STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_NAS, STORAGE_RBD, STORAGE_NFS}
 )
 
 type SStorageManager struct {
@@ -806,11 +835,11 @@ func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	}
 
 	if jsonutils.QueryBoolean(query, "share", false) {
-		q = q.Filter(sqlchemy.NotIn(q.Field("storage_type"), LOCAL_STORAGE_TYPES))
+		q = q.Filter(sqlchemy.NotIn(q.Field("storage_type"), STORAGE_LOCAL_TYPES))
 	}
 
 	if jsonutils.QueryBoolean(query, "local", false) {
-		q = q.Filter(sqlchemy.In(q.Field("storage_type"), LOCAL_STORAGE_TYPES))
+		q = q.Filter(sqlchemy.In(q.Field("storage_type"), STORAGE_LOCAL_TYPES))
 	}
 
 	if jsonutils.QueryBoolean(query, "usable", false) {

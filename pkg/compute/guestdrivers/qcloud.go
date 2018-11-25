@@ -72,7 +72,7 @@ func (self *SQcloudGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *m
 	if !utils.IsInStringArray(guest.Status, []string{models.VM_READY, models.VM_RUNNING}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
-	if utils.IsInStringArray(storage.StorageType, []string{sysutils.STORAGE_LOCAL_BASIC, sysutils.STORAGE_LOCAL_SSD}) {
+	if utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_LOCAL_BASIC, models.STORAGE_LOCAL_SSD}) {
 		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
 	}
 	return nil
