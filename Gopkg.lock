@@ -79,7 +79,7 @@
   version = "v1.19.0"
 
 [[projects]]
-  digest = "1:bad9acf125c8b98ea473f45cf8eabee4c401fcd108534b65d2033af7481be25d"
+  digest = "1:c9956ee9d99542ed5be2a37e8a35505a4ca1516520380623e3f54f51bfc53d7a"
   name = "github.com/aliyun/alibaba-cloud-sdk-go"
   packages = [
     "sdk",
@@ -93,8 +93,8 @@
     "sdk/utils",
   ]
   pruneopts = "UT"
-  revision = "1d757c22fbf7997c68c43d72e92d462ea05e1439"
-  version = "0.7.4"
+  revision = "a46ca5dbc29d3df78e8da89737b5f40dd8c03d26"
+  version = "0.7.7"
 
 [[projects]]
   digest = "1:5a2d4da3f703696f4bec1ba1d363f50461b72934b1817c07ab0963496ed1c90d"
@@ -248,12 +248,12 @@
   version = "v1.2.0"
 
 [[projects]]
-  digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
+  digest = "1:a2c1d0e43bd3baaa071d1b9ed72c27d78169b2b269f71c105ac4ba34b1be4a39"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   pruneopts = "UT"
-  revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
-  version = "v1.1.1"
+  revision = "346938d642f2ec3594ed81d874461961cd0faa76"
+  version = "v1.1.0"
 
 [[projects]]
   digest = "1:76dc72490af7174349349838f2fe118996381b31ea83243812a97e5a0fd5ed55"
@@ -1312,11 +1312,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:54554b3c72f4fcbd3c27c5137f9acd9d153d7e7150d77cd509af50c75fcb41b9"
+  digest = "1:b132a75f45cf6214d156cd2df68106fff39ca3ba4d31d27d97924fb5b5948d0c"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "7079aada4c7e9a37e4c3b183bddb0ef684e038f2"
+  revision = "65d663564e6e37b6aec8864b384238a6091bdd75"
 
 [[projects]]
   branch = "master"
@@ -1331,7 +1331,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:bf987f904fd821c6395fefdab956d070596eb401657fff40420014a3a8e3f45c"
+  digest = "1:8c4d781aafefb667511de3e0e9fe02170519f63d75a69e34045bd417f25d5523"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1355,7 +1355,6 @@
     "util/secrules",
     "util/sets",
     "util/stringutils",
-    "util/sysutils",
     "util/timeutils",
     "util/trace",
     "util/ttlpool",
@@ -1365,7 +1364,7 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "7614d751299a6703a05f757a13e6dc900332e31b"
+  revision = "883ea57a4b57d551bbf2fb7d1876d6ab9355c486"
 
 [[projects]]
   branch = "master"
@@ -1377,11 +1376,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f07a1ef9758f56186dd9039a8608bc9d537070a7c04479dbab6aeb42501001b7"
+  digest = "1:bbaf572e68e5dad4045e1e424af29838882c620df391fa1631dd8dc851c87a95"
   name = "yunion.io/x/structarg"
   packages = ["."]
   pruneopts = "UT"
-  revision = "e0cc2c73375327d401b100bd8988fa340c2687ee"
+  revision = "c95bf78846decd8dea379e925410f2895fb20076"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1462,6 +1461,7 @@
     "github.com/vmware/govmomi/property",
     "github.com/vmware/govmomi/session",
     "github.com/vmware/govmomi/view",
+    "github.com/vmware/govmomi/vim25",
     "github.com/vmware/govmomi/vim25/mo",
     "github.com/vmware/govmomi/vim25/types",
     "golang.org/x/crypto/ssh",
@@ -1496,7 +1496,6 @@
     "yunion.io/x/pkg/util/secrules",
     "yunion.io/x/pkg/util/sets",
     "yunion.io/x/pkg/util/stringutils",
-    "yunion.io/x/pkg/util/sysutils",
     "yunion.io/x/pkg/util/timeutils",
     "yunion.io/x/pkg/util/trace",
     "yunion.io/x/pkg/util/ttlpool",

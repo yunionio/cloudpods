@@ -22,6 +22,7 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/responses"
 	"net/http"
+	"net"
 )
 
 // this value will be replaced while build: -ldflags="-X sdk.version=x.x.x"
@@ -185,12 +186,33 @@ func (client *Client) DoActionWithSigner(request requests.AcsRequest, response r
 	for key, value := range request.GetHeaders() {
 		httpRequest.Header[key] = []string{value}
 	}
-	httpResponse, err := client.httpClient.Do(httpRequest)
-	if err != nil {
-		return
+	var httpResponse *http.Response
+	for retryTimes := 0; retryTimes < client.config.MaxRetryTime; retryTimes++ {
+		httpResponse, err = client.httpClient.Do(httpRequest)
+		// if status code >= 500 or timeout, will trigger retry
+		if client.config.AutoRetry && isNeedRetry(httpResponse, err){
+			continue
+		}
+		// receive error but not timeout
+		if err != nil {
+			return
+		}
+		break
 	}
 	err = responses.Unmarshal(response, httpResponse, request.GetAcceptFormat())
 	return
+}
+
+func isNeedRetry(response *http.Response, err error) bool {
+	if response.StatusCode >= http.StatusInternalServerError {
+		// internal server error
+		return true
+	}else if  err, ok := err.(net.Error); ok && err.Timeout() {
+		// timeout
+		return true
+	}else{
+		return false
+	}
 }
 
 func (client *Client) AddAsyncTask(task func()) (err error) {

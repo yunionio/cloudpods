@@ -43,6 +43,41 @@ func (c *Config) WithTimeout(timeout time.Duration) *Config {
 	return c
 }
 
+func (c *Config) WithAutoRetry(isAutoRetry bool) *Config {
+	c.AutoRetry = isAutoRetry
+	return c
+}
+
+func (c *Config) WithMaxRetryTime(maxRetryTime int) *Config {
+	c.MaxRetryTime = maxRetryTime
+	return c
+}
+
+func (c *Config) WithUserAgent(userAgent string) *Config {
+	c.UserAgent = userAgent
+	return c
+}
+
+func (c *Config) WithHttpTransport(httpTransport *http.Transport) *Config {
+	c.HttpTransport = httpTransport
+	return c
+}
+
+func (c *Config) WithEnableAsync(isEnableAsync bool) *Config {
+	c.EnableAsync = isEnableAsync
+	return c
+}
+
+func (c *Config) WithMaxTaskQueueSize(maxTaskQueueSize int) *Config {
+	c.MaxTaskQueueSize = maxTaskQueueSize
+	return c
+}
+
+func (c *Config) WithGoRoutinePoolSize(goRoutinePoolSize int) *Config {
+	c.GoRoutinePoolSize = goRoutinePoolSize
+	return c
+}
+
 func (c *Config) WithDebug(isDebug bool) *Config {
 	c.Debug = isDebug
 	return c
