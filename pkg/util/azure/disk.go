@@ -173,8 +173,8 @@ func (self *SDisk) Delete(ctx context.Context) error {
 	return self.storage.zone.region.deleteDisk(self.ID)
 }
 
-func (self *SDisk) Resize(ctx context.Context, size int64) error {
-	return self.storage.zone.region.ResizeDisk(self.ID, int32(size))
+func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
+	return self.storage.zone.region.ResizeDisk(self.ID, int32(sizeMb/1024))
 }
 
 func (self *SDisk) GetName() string {
@@ -320,4 +320,8 @@ func (self *SDisk) Reset(ctx context.Context, snapshotId string) error {
 
 func (self *SRegion) resetDisk(diskId, snapshotId string) error {
 	return cloudprovider.ErrNotSupported
+}
+
+func (disk *SDisk) GetAccessPath() string {
+	return ""
 }

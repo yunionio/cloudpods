@@ -369,7 +369,7 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, password strin
 	return self.host.zone.region.DeployVM(self.InstanceId, name, password, publicKey, deleteKeypair, description)
 }
 
-func (self *SInstance) ChangeConfig(ctx context.Context, instanceId string, ncpu int, vmem int) error {
+func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
 	return self.host.zone.region.ChangeVMConfig(self.ZoneId, self.InstanceId, ncpu, vmem, nil)
 }
 
@@ -818,4 +818,8 @@ func (self *SRegion) AttachDisk(instanceId string, diskId string, deviceName str
 
 	_, err := self.ec2Client.AttachVolume(params)
 	return err
+}
+
+func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+	return cloudprovider.ErrNotSupported
 }

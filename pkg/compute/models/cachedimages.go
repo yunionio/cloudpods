@@ -60,7 +60,7 @@ func (self *SCachedimage) ValidateDeleteCondition(ctx context.Context) error {
 	if self.getStoragecacheCount() > 0 {
 		return httperrors.NewNotEmptyError("The image has been cached on storages")
 	}
-	if self.getStatus() == "active" && !self.isReferenceSessionExpire() {
+	if self.GetStatus() == "active" && !self.isReferenceSessionExpire() {
 		return httperrors.NewConflictError("the image reference session has not been expired!")
 	}
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -82,27 +82,27 @@ func (self *SCachedimage) isRefreshSessionExpire() bool {
 	}
 }
 
-func (self *SCachedimage) getName() string {
+func (self *SCachedimage) GetName() string {
 	name, _ := self.Info.GetString("name")
 	return name
 }
 
-func (self *SCachedimage) getOwner() string {
+func (self *SCachedimage) GetOwner() string {
 	owner, _ := self.Info.GetString("owner")
 	return owner
 }
 
-func (self *SCachedimage) getFormat() string {
+func (self *SCachedimage) GetFormat() string {
 	format, _ := self.Info.GetString("disk_format")
 	return format
 }
 
-func (self *SCachedimage) getStatus() string {
+func (self *SCachedimage) GetStatus() string {
 	status, _ := self.Info.GetString("status")
 	return status
 }
 
-func (self *SCachedimage) getOSType() string {
+func (self *SCachedimage) GetOSType() string {
 	osType, _ := self.Info.GetString("properties", "os_type")
 	return osType
 }
@@ -116,7 +116,7 @@ func (self *SCachedimage) getStoragecacheCount() int {
 	return self.getStoragecacheQuery().Count()
 }
 
-func (self *SCachedimage) getImage() (*SImage, error) {
+func (self *SCachedimage) GetImage() (*SImage, error) {
 	image := SImage{}
 
 	err := self.Info.Unmarshal(&image)
@@ -183,8 +183,8 @@ func (manager *SCachedimageManager) GetImageById(ctx context.Context, userCred m
 		imgObj, _ := manager.FetchById(imageId)
 		if imgObj != nil {
 			cachedImage := imgObj.(*SCachedimage)
-			if cachedImage.getStatus() == "active" && len(cachedImage.getOSType()) > 0 && cachedImage.isRefreshSessionExpire() {
-				return cachedImage.getImage()
+			if cachedImage.GetStatus() == "active" && len(cachedImage.GetOSType()) > 0 && cachedImage.isRefreshSessionExpire() {
+				return cachedImage.GetImage()
 			}
 		}
 	}
@@ -198,7 +198,7 @@ func (manager *SCachedimageManager) GetImageById(ctx context.Context, userCred m
 	if err != nil {
 		return nil, err
 	}
-	return cachedImage.getImage()
+	return cachedImage.GetImage()
 }
 
 func (manager *SCachedimageManager) getImageByName(ctx context.Context, userCred mcclient.TokenCredential, imageId string) (*SImage, error) {
@@ -211,7 +211,7 @@ func (manager *SCachedimageManager) getImageByName(ctx context.Context, userCred
 	if err != nil {
 		return nil, err
 	}
-	return cachedImage.getImage()
+	return cachedImage.GetImage()
 }
 
 func (manager *SCachedimageManager) getImageInfo(ctx context.Context, userCred mcclient.TokenCredential, imageId string, refresh bool) (*SImage, error) {
@@ -225,10 +225,10 @@ func (manager *SCachedimageManager) getImageInfo(ctx context.Context, userCred m
 
 func (self *SCachedimage) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	extra.Add(jsonutils.NewString(self.getName()), "name")
-	extra.Add(jsonutils.NewString(self.getOwner()), "owner")
-	extra.Add(jsonutils.NewString(self.getFormat()), "format")
-	extra.Add(jsonutils.NewString(self.getStatus()), "status")
+	extra.Add(jsonutils.NewString(self.GetName()), "name")
+	extra.Add(jsonutils.NewString(self.GetOwner()), "owner")
+	extra.Add(jsonutils.NewString(self.GetFormat()), "format")
+	extra.Add(jsonutils.NewString(self.GetStatus()), "status")
 	for _, k := range []string{"os_type", "os_distribution", "os_version", "hypervisor"} {
 		val, _ := self.Info.GetString("properties", k)
 		if len(val) > 0 {
@@ -252,7 +252,7 @@ func (self *SCachedimage) PerformRefresh(ctx context.Context, userCred mcclient.
 }
 
 func (self *SCachedimage) addRefCount() {
-	if self.getStatus() != "active" {
+	if self.GetStatus() != "active" {
 		return
 	}
 	_, err := CachedimageManager.TableSpec().Update(self, func() error {
@@ -294,7 +294,7 @@ func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, exclu
 		for _, obj := range v {
 			q = q.Filter(sqlchemy.Equals(host.Field("zone_id"), obj.Id))
 		}
-	case []*SVCenter:
+	case []*SCloudprovider:
 		for _, obj := range v {
 			q = q.Filter(sqlchemy.Equals(host.Field("manager_id"), obj.Id))
 		}

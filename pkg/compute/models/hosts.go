@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -9,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/serialx/hashring"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -21,7 +24,6 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"database/sql"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -457,6 +459,19 @@ func (self *SHost) GetHoststorageOfId(storageId string) *SHoststorage {
 		return nil
 	}
 	return &hoststorage
+}
+
+func (self *SHost) GetStorageByFilePath(path string) *SStorage {
+	hoststorages := self.GetHoststorages()
+	if hoststorages == nil {
+		return nil
+	}
+	for i := 0; i < len(hoststorages); i += 1 {
+		if strings.HasPrefix(path, hoststorages[i].MountPoint) {
+			return hoststorages[i].GetStorage()
+		}
+	}
+	return nil
 }
 
 func (self *SHost) GetBaremetalstorage() *SHoststorage {
@@ -1125,7 +1140,9 @@ func (manager *SHostManager) newFromCloudHost(extHost cloudprovider.ICloudHost, 
 	return &host, nil
 }
 
-func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, storages []cloudprovider.ICloudStorage) compare.SyncResult {
+func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, storages []cloudprovider.ICloudStorage) ([]SStorage, []cloudprovider.ICloudStorage, compare.SyncResult) {
+	localStorages := make([]SStorage, 0)
+	remoteStorages := make([]cloudprovider.ICloudStorage, 0)
 	syncResult := compare.SyncResult{}
 
 	dbStorages := make([]SStorage, 0)
@@ -1150,7 +1167,7 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 	err := compare.CompareSets(dbStorages, storages, &removed, &commondb, &commonext, &added)
 	if err != nil {
 		syncResult.Error(err)
-		return syncResult
+		return nil, nil, syncResult
 	}
 
 	for i := 0; i < len(removed); i += 1 {
@@ -1166,29 +1183,34 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 
 	for i := 0; i < len(commondb); i += 1 {
 		log.Infof("host %s is still connected with %s, to update ...", self.Id, commondb[i].Id)
-		err := self.syncWithCloudHostStorage(commonext[i])
+		err := self.syncWithCloudHostStorage(&commondb[i], commonext[i])
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
 			syncResult.Update()
 		}
+		localStorages = append(localStorages, commondb[i])
+		remoteStorages = append(remoteStorages, commonext[i])
 	}
 
 	for i := 0; i < len(added); i += 1 {
 		log.Infof("host %s is found connected with %s, to add ...", self.Id, added[i].GetId())
-		err := self.newCloudHostStorage(ctx, userCred, added[i])
+		local, err := self.newCloudHostStorage(ctx, userCred, added[i])
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
 			syncResult.Add()
 		}
+		localStorages = append(localStorages, *local)
+		remoteStorages = append(remoteStorages, added[i])
 	}
-	return syncResult
+	return localStorages, remoteStorages, syncResult
 }
 
-func (self *SHost) syncWithCloudHostStorage(extStorage cloudprovider.ICloudStorage) error {
+func (self *SHost) syncWithCloudHostStorage(localStorage *SStorage, extStorage cloudprovider.ICloudStorage) error {
 	// do nothing
-	return nil
+	hs := self.GetHoststorageOfId(localStorage.Id)
+	return hs.syncWithCloudHostStorage(extStorage)
 }
 
 func (self *SHost) Attach2Storage(ctx context.Context, userCred mcclient.TokenCredential, storage *SStorage, mountPoint string) error {
@@ -1207,25 +1229,25 @@ func (self *SHost) Attach2Storage(ctx context.Context, userCred mcclient.TokenCr
 	return nil
 }
 
-func (self *SHost) newCloudHostStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage) error {
+func (self *SHost) newCloudHostStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage) (*SStorage, error) {
 	storageObj, err := StorageManager.FetchByExternalId(extStorage.GetGlobalId())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// no cloud storage found, this may happen for on-premise host
-			// create the storage
+			// create the storage right now
 			storageObj, err = StorageManager.newFromCloudStorage(extStorage, self.GetZone())
 			if err != nil {
 				log.Errorf("create by cloud storage fail %s", err)
-				return err
+				return nil, err
 			}
 		} else {
 			log.Errorf("%s", err)
-			return err
+			return nil, err
 		}
 	}
 	storage := storageObj.(*SStorage)
-	err = self.Attach2Storage(ctx, userCred, storage, "")
-	return err
+	err = self.Attach2Storage(ctx, userCred, storage, extStorage.GetMountPoint())
+	return storage, err
 }
 
 func (self *SHost) SyncHostWires(ctx context.Context, userCred mcclient.TokenCredential, wires []cloudprovider.ICloudWire) compare.SyncResult {
@@ -1656,7 +1678,23 @@ func (self *SHost) GetIHost() (cloudprovider.ICloudHost, error) {
 	if err != nil {
 		return nil, fmt.Errorf("No cloudprovide for host: %s", err)
 	}
-	ihost, err := provider.GetIHostById(self.ExternalId)
+	var iregion cloudprovider.ICloudRegion
+	if provider.IsOnPremiseInfrastructure() {
+		iregion, err = provider.GetOnPremiseIRegion()
+	} else {
+		region := self.GetRegion()
+		if region == nil {
+			msg := "fail to find region of host???"
+			log.Errorf(msg)
+			return nil, fmt.Errorf(msg)
+		}
+		iregion, err = provider.GetIRegionById(region.ExternalId)
+	}
+	if err != nil {
+		log.Errorf("fail to find iregion: %s", err)
+		return nil, err
+	}
+	ihost, err := iregion.GetIHostById(self.ExternalId)
 	if err != nil {
 		log.Errorf("fail to find ihost by id %s %s", self.ExternalId, err)
 		return nil, fmt.Errorf("fail to find ihost by id %s", err)
@@ -3121,4 +3159,58 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 	}
 
 	return result
+}
+
+func (manager *SHostManager) GetEsxiAgentHostId(key string) (string, error) {
+	q := HostManager.Query("id")
+	q = q.Equals("host_status", HOST_ONLINE)
+	q = q.Equals("host_type", HOST_TYPE_HYPERVISOR)
+	q = q.IsTrue("enabled")
+
+	rows, err := q.Rows()
+	if err != nil {
+		return "", err
+	}
+
+	var hostId string
+	hostIds := make([]string, 0)
+	for rows.Next() {
+		err = rows.Scan(&hostId)
+		if err != nil {
+			return "", err
+		}
+		hostIds = append(hostIds, hostId)
+	}
+
+	ring := hashring.New(hostIds)
+	ret, _ := ring.GetNode(key)
+	return ret, nil
+}
+
+func (manager *SHostManager) GetEsxiAgentHost(key string) (*SHost, error) {
+	hostId, err := manager.GetEsxiAgentHostId(key)
+	if err != nil {
+		return nil, err
+	}
+	return manager.FetchHostById(hostId), nil
+}
+
+func (host *SHost) GetEsxiAgentHost() (*SHost, error) {
+	return HostManager.GetEsxiAgentHost(host.Id)
+}
+
+func (manager *SHostManager) GetHostByIp(hostIp string) (*SHost, error) {
+	q := manager.Query()
+	q = q.Equals("access_ip", hostIp)
+
+	host, err := db.NewModelObject(manager)
+	if err != nil {
+		return nil, err
+	}
+	err = q.First(host)
+	if err != nil {
+		return nil, err
+	}
+
+	return host.(*SHost), nil
 }

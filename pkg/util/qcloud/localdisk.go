@@ -127,3 +127,7 @@ func (self *SLocalDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
 func (self *SLocalDisk) Resize(ctx context.Context, size int64) error {
 	return cloudprovider.ErrNotSupported
 }
+
+func (disk *SLocalDisk) GetAccessPath() string {
+	return ""
+}

@@ -209,6 +209,10 @@ func (self *SClassicDisk) Reset(ctx context.Context, snapshotId string) error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (self *SClassicDisk) Resize(ctx context.Context, size int64) error {
+func (self *SClassicDisk) Resize(ctx context.Context, sizeMb int64) error {
 	return cloudprovider.ErrNotSupported
+}
+
+func (disk *SClassicDisk) GetAccessPath() string {
+	return ""
 }

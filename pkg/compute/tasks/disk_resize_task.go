@@ -49,12 +49,12 @@ func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 func (self *DiskResizeTask) StartResizeDisk(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, online bool) {
 	log.Infof("Resizing disk on host %s ...", host.GetName())
 	self.SetStage("on_disk_resize_complete", nil)
-	size, _ := self.GetParams().Int("size")
+	sizeMb, _ := self.GetParams().Int("size")
 	proc := host.GetHostDriver().RequestResizeDiskOnHost
 	if online {
 		proc = host.GetHostDriver().RequestResizeDiskOnHostOnline
 	}
-	if err := proc(ctx, host, storage, disk, size, self); err != nil {
+	if err := proc(ctx, host, storage, disk, sizeMb, self); err != nil {
 		log.Errorf("request_resize_disk_on_host: %v", err)
 		self.OnStartResizeDiskFailed(ctx, disk, err)
 		return
@@ -80,7 +80,7 @@ func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *mode
 		self.OnStartResizeDiskFailed(ctx, disk, err)
 		return
 	}
-	size, err := jSize.Int()
+	sizeMb, err := jSize.Int()
 	if err != nil {
 		log.Errorf("OnDiskResizeComplete error: %s", err.Error())
 		self.OnStartResizeDiskFailed(ctx, disk, err)
@@ -89,7 +89,7 @@ func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *mode
 	oldStatus := disk.Status
 	_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
 		disk.Status = models.DISK_READY
-		disk.DiskSize = int(size)
+		disk.DiskSize = int(sizeMb)
 		return nil
 	})
 	if err != nil {
@@ -107,8 +107,8 @@ func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *mode
 	self.finalReleasePendingUsage(ctx)
 }
 
-func (self *DiskResizeTask) OnDiskResizeCompleteFailed(ctx context.Context, disk *models.SDisk, reason error) {
-	disk.SetDiskReady(ctx, self.GetUserCred(), reason.Error())
+func (self *DiskResizeTask) OnDiskResizeCompleteFailed(ctx context.Context, disk *models.SDisk, reason jsonutils.JSONObject) {
+	disk.SetDiskReady(ctx, self.GetUserCred(), reason.String())
 	db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, disk.GetShortDesc(), self.UserCred)
-	logclient.AddActionLog(disk, logclient.ACT_RESIZE, reason.Error(), self.UserCred, false)
+	logclient.AddActionLog(disk, logclient.ACT_RESIZE, reason.String(), self.UserCred, false)
 }

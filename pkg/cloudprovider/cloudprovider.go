@@ -27,12 +27,12 @@ type ICloudProvider interface {
 	GetIRegions() []ICloudRegion
 	GetIRegionById(id string) (ICloudRegion, error)
 
-	GetOnPremiseIHosts() ([]ICloudHost, error)
+	GetOnPremiseIRegion() (ICloudRegion, error)
 
-	GetIHostById(id string) (ICloudHost, error)
-	GetIVpcById(id string) (ICloudVpc, error)
-	GetIStorageById(id string) (ICloudStorage, error)
-	GetIStoragecacheById(id string) (ICloudStoragecache, error)
+	// GetIHostById(id string) (ICloudHost, error)
+	// GetIVpcById(id string) (ICloudVpc, error)
+	// GetIStorageById(id string) (ICloudStorage, error)
+	// GetIStoragecacheById(id string) (ICloudStoragecache, error)
 
 	GetBalance() (float64, error)
 

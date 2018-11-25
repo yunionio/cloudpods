@@ -423,7 +423,7 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 		return
 	}
 
-	log.Debugf("Call %s %s", task.TaskName, stageName)
+	log.Debugf("Call %s %s %#v", task.TaskName, stageName, params)
 	funcValue.Call(params)
 
 	// call save request context
@@ -647,4 +647,12 @@ func (self *STask) GetObject() db.IStandaloneModel {
 
 func (self *STask) GetObjects() []db.IStandaloneModel {
 	return self.taskObjects
+}
+
+func (task *STask) GetTaskRequestHeader() http.Header {
+	header := http.Header{}
+	header.Set(mcclient.AUTH_TOKEN, task.GetUserCred().GetTokenString())
+	header.Set(mcclient.TASK_ID, task.GetTaskId())
+	header.Set(mcclient.REGION_VERSION, "v2")
+	return header
 }

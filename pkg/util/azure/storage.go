@@ -68,7 +68,7 @@ func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudpr
 	return disk, nil
 }
 
-func (self *SStorage) GetIDisk(diskId string) (cloudprovider.ICloudDisk, error) {
+func (self *SStorage) GetIDiskById(diskId string) (cloudprovider.ICloudDisk, error) {
 	if disk, err := self.zone.region.GetDisk(diskId); err != nil {
 		return nil, err
 	} else {
@@ -156,4 +156,8 @@ func (self *SStorage) GetStorageType() string {
 func (self *SStorage) Refresh() error {
 	// do nothing
 	return nil
+}
+
+func (self *SStorage) GetMountPoint() string {
+	return ""
 }

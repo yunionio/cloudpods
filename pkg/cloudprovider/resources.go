@@ -36,20 +36,21 @@ type ICloudRegion interface {
 	GetIZones() ([]ICloudZone, error)
 	GetIVpcs() ([]ICloudVpc, error)
 	GetIEips() ([]ICloudEIP, error)
-	GetISnapshots() ([]ICloudSnapshot, error)
-
-	GetISnapshotById(snapshotId string) (ICloudSnapshot, error)
-	GetIZoneById(id string) (ICloudZone, error)
 	GetIVpcById(id string) (ICloudVpc, error)
-	GetIHostById(id string) (ICloudHost, error)
-	GetIStorageById(id string) (ICloudStorage, error)
-	GetIStoragecacheById(id string) (ICloudStoragecache, error)
+	GetIZoneById(id string) (ICloudZone, error)
+	GetIEipById(id string) (ICloudEIP, error)
 
 	CreateIVpc(name string, desc string, cidr string) (ICloudVpc, error)
-
 	CreateEIP(name string, bwMbps int, chargeType string) (ICloudEIP, error)
 
-	GetIEipById(id string) (ICloudEIP, error)
+	GetISnapshots() ([]ICloudSnapshot, error)
+	GetISnapshotById(snapshotId string) (ICloudSnapshot, error)
+
+	GetIHosts() ([]ICloudHost, error)
+	GetIHostById(id string) (ICloudHost, error)
+
+	GetIStorages() ([]ICloudStorage, error)
+	GetIStorageById(id string) (ICloudStorage, error)
 
 	GetProvider() string
 }
@@ -69,7 +70,7 @@ type ICloudZone interface {
 type ICloudImage interface {
 	ICloudResource
 
-	Delete() error
+	Delete(ctx context.Context) error
 	GetIStoragecache() ICloudStoragecache
 }
 
@@ -77,6 +78,9 @@ type ICloudStoragecache interface {
 	ICloudResource
 
 	GetIImages() ([]ICloudImage, error)
+	GetIImageById(extId string) (ICloudImage, error)
+
+	GetPath() string
 
 	GetManagerId() string
 
@@ -104,7 +108,10 @@ type ICloudStorage interface {
 	GetManagerId() string
 
 	CreateIDisk(name string, sizeGb int, desc string) (ICloudDisk, error)
-	GetIDisk(idStr string) (ICloudDisk, error)
+
+	GetIDiskById(idStr string) (ICloudDisk, error)
+
+	GetMountPoint() string
 }
 
 type ICloudHost interface {
@@ -186,10 +193,12 @@ type ICloudVM interface {
 
 	DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error
 
-	ChangeConfig(ctx context.Context, instanceId string, ncpu int, vmem int) error
+	ChangeConfig(ctx context.Context, ncpu int, vmem int) error
 	GetVNCInfo() (jsonutils.JSONObject, error)
 	AttachDisk(ctx context.Context, diskId string) error
 	DetachDisk(ctx context.Context, diskId string) error
+
+	CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error
 }
 
 type ICloudNic interface {
@@ -245,13 +254,16 @@ type ICloudDisk interface {
 	GetDriver() string
 	GetCacheMode() string
 	GetMountpoint() string
+
+	GetAccessPath() string
+
 	Delete(ctx context.Context) error
 
 	CreateISnapshot(ctx context.Context, name string, desc string) (ICloudSnapshot, error)
 	GetISnapshot(idStr string) (ICloudSnapshot, error)
 	GetISnapshots() ([]ICloudSnapshot, error)
 
-	Resize(ctx context.Context, newSize int64) error
+	Resize(ctx context.Context, newSizeMB int64) error
 	Reset(ctx context.Context, snapshotId string) error
 }
 

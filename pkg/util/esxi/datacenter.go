@@ -1,7 +1,10 @@
 package esxi
 
 import (
+	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/types"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -24,6 +27,10 @@ func newDatacenter(manager *SESXiClient, dc *mo.Datacenter) *SDatacenter {
 
 func (dc *SDatacenter) getDatacenter() *mo.Datacenter {
 	return dc.object.(*mo.Datacenter)
+}
+
+func (dc *SDatacenter) getObjectDatacenter() *object.Datacenter {
+	return object.NewDatacenter(dc.manager.client.Client, dc.object.Reference())
 }
 
 func (dc *SDatacenter) scanHosts() error {
@@ -51,15 +58,11 @@ func (dc *SDatacenter) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 
 func (dc *SDatacenter) scanDatastores() error {
 	if dc.istorages == nil {
-		stores := make([]mo.Datastore, 0)
+		var stores []mo.Datastore
 		dsList := dc.getDatacenter().Datastore
-		for i := 0; i < len(dsList); i += 1 {
-			var ds mo.Datastore
-			err := dc.manager.reference2Object(dsList[i], DATASTORE_PROPS, &ds)
-			if err != nil {
-				return err
-			}
-			stores = append(stores, ds)
+		err := dc.manager.references2Objects(dsList, DATASTORE_PROPS, &stores)
+		if err != nil {
+			return err
 		}
 		dc.istorages = make([]cloudprovider.ICloudStorage, len(stores))
 		for i := 0; i < len(stores); i += 1 {
@@ -101,4 +104,23 @@ func (dc *SDatacenter) GetIStorageByMoId(idstr string) (cloudprovider.ICloudStor
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
+}
+
+func (dc *SDatacenter) getDcObj() *object.Datacenter {
+	return object.NewDatacenter(dc.manager.client.Client, dc.object.Reference())
+}
+
+func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference) ([]cloudprovider.ICloudVM, error) {
+	var vms []mo.VirtualMachine
+	err := dc.manager.references2Objects(vmRefs, VIRTUAL_MACHINE_PROPS, &vms)
+	if err != nil {
+		log.Errorf("references2Objects fail %s", err)
+		return nil, err
+	}
+
+	retVms := make([]cloudprovider.ICloudVM, len(vms))
+	for i := 0; i < len(vms); i += 1 {
+		retVms[i] = NewVirtualMachine(dc.manager, &vms[i], dc)
+	}
+	return retVms, nil
 }

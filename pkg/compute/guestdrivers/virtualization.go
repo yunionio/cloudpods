@@ -185,10 +185,6 @@ func (self *SVirtualizedGuestDriver) ValidateCreateHostData(ctx context.Context,
 	return data, nil
 }
 
-func (self *SVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
-	return guest.GetJsonDescAtHypervisor(ctx, host)
-}
-
 func (self *SVirtualizedGuestDriver) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, data *jsonutils.JSONDict) error {
 	return guest.StartGueststartTask(ctx, userCred, data, "")
 }

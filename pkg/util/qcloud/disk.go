@@ -176,8 +176,8 @@ func (self *SRegion) ResizeDisk(ctx context.Context, diskId string, sizeGb int64
 	}
 }
 
-func (self *SDisk) Resize(ctx context.Context, size int64) error {
-	return self.storage.zone.region.ResizeDisk(ctx, self.DiskId, size)
+func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
+	return self.storage.zone.region.ResizeDisk(ctx, self.DiskId, sizeMb/1024)
 }
 
 func (self *SDisk) GetName() string {
@@ -373,4 +373,8 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 		return "", fmt.Errorf("Create Disk error")
 	}
 	return diskIDSet[0], nil
+}
+
+func (disk *SDisk) GetAccessPath() string {
+	return ""
 }

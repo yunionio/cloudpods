@@ -185,9 +185,5 @@ func (self *SBaseGuestDriver) RequestReloadDiskSnapshot(ctx context.Context, gue
 }
 
 func (self *SBaseGuestDriver) getTaskRequestHeader(task taskman.ITask) http.Header {
-	header := http.Header{}
-	header.Set(mcclient.AUTH_TOKEN, task.GetUserCred().GetTokenString())
-	header.Set(mcclient.TASK_ID, task.GetTaskId())
-	header.Set(mcclient.REGION_VERSION, "v2")
-	return header
+	return task.GetTaskRequestHeader()
 }

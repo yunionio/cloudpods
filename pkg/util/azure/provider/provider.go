@@ -67,22 +67,6 @@ func (self *SAzureProvider) GetIRegionById(id string) (cloudprovider.ICloudRegio
 	return self.client.GetIRegionById(id)
 }
 
-func (self *SAzureProvider) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	return self.client.GetIHostById(id)
-}
-
-func (self *SAzureProvider) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
-	return self.client.GetIVpcById(id)
-}
-
-func (self *SAzureProvider) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	return self.client.GetIStorageById(id)
-}
-
-func (self *SAzureProvider) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
-	return self.client.GetIStoragecacheById(id)
-}
-
 func (self *SAzureProvider) GetBalance() (float64, error) {
 	balance, err := self.client.QueryAccountBalance()
 	if err != nil {
@@ -91,6 +75,6 @@ func (self *SAzureProvider) GetBalance() (float64, error) {
 	return balance.AvailableAmount, nil
 }
 
-func (self *SAzureProvider) GetOnPremiseIHosts() ([]cloudprovider.ICloudHost, error) {
+func (self *SAzureProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }

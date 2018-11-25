@@ -1,17 +1,19 @@
 package esxi
 
 import (
+	"context"
+	"fmt"
+	"strings"
+
 	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/jsonutils"
-
-	"fmt"
-	"github.com/vmware/govmomi/vim25/types"
-	"strings"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/netutils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/pkg/util/netutils"
 )
 
 var HOST_SYSTEM_PROPS = []string{"name", "parent", "summary", "config", "hardware", "vm", "datastore"}
@@ -65,6 +67,8 @@ type SHost struct {
 
 	datastores []cloudprovider.ICloudStorage
 
+	storageCache *SDatastoreImageCache
+
 	vms []cloudprovider.ICloudVM
 }
 
@@ -102,7 +106,15 @@ func (self *SHost) GetStatus() string {
 }
 
 func (self *SHost) Refresh() error {
-	self.vms = nil
+	base := self.SManagedObject
+	var moObj mo.HostSystem
+	err := self.manager.reference2Object(self.object.Reference(), HOST_SYSTEM_PROPS, &moObj)
+	if err != nil {
+		return err
+	}
+	base.object = &moObj
+	*self = SHost{}
+	self.SManagedObject = base
 	return nil
 }
 
@@ -114,21 +126,23 @@ func (self *SHost) fetchVMs() error {
 	if self.vms != nil {
 		return nil
 	}
-	var vms []mo.VirtualMachine
-	err := self.manager.references2Objects(self.getHostSystem().Vm, VIRTUAL_MACHINE_PROPS, &vms)
-	if err != nil {
-		return err
-	}
 
 	dc, err := self.GetDatacenter()
 	if err != nil {
 		return err
 	}
 
-	self.vms = make([]cloudprovider.ICloudVM, len(vms))
-	for i := 0; i < len(vms); i += 1 {
-		self.vms[i] = NewVirtualMachine(self.manager, &vms[i], dc, self)
+	hostVms := self.getHostSystem().Vm
+	if len(hostVms) == 0 {
+		// log.Errorf("host VMs are nil!!!!!")
+		return nil
 	}
+
+	vms, err := dc.fetchVms(hostVms)
+	if err != nil {
+		return err
+	}
+	self.vms = vms
 	return nil
 }
 
@@ -496,4 +510,55 @@ func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error
 		inics[i] = &nics[i]
 	}
 	return inics, nil
+}
+
+func (host *SHost) getLocalStorageCache() (*SDatastoreImageCache, error) {
+	if host.storageCache == nil {
+		sc, err := host.newLocalStorageCache()
+		if err != nil {
+			return nil, err
+		}
+		host.storageCache = sc
+	}
+	return host.storageCache, nil
+}
+
+func (host *SHost) newLocalStorageCache() (*SDatastoreImageCache, error) {
+	ctx := context.Background()
+
+	istorages, err := host.GetIStorages()
+	if err != nil {
+		return nil, err
+	}
+	var cacheDs *SDatastore
+	var maxDs *SDatastore
+	var maxCapacity int
+	for i := 0; i < len(istorages); i += 1 {
+		ds := istorages[i].(*SDatastore)
+		if !ds.isLocalVMFS() {
+			continue
+		}
+		_, err := ds.CheckFile(ctx, IMAGE_CACHE_DIR_NAME)
+		if err != nil {
+			if err != cloudprovider.ErrNotFound {
+				return nil, err
+			}
+			if maxCapacity < ds.GetCapacityMB() {
+				maxCapacity = ds.GetCapacityMB()
+				maxDs = ds
+			}
+		} else {
+			cacheDs = ds
+			break
+		}
+	}
+	if cacheDs == nil {
+		// if no existing image cache dir found, use the one with maximal capacilty
+		cacheDs = maxDs
+	}
+
+	return &SDatastoreImageCache{
+		datastore: cacheDs,
+		host:      host,
+	}, nil
 }

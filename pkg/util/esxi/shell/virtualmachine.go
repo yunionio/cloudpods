@@ -1,6 +1,8 @@
 package shell
 
 import (
+	"context"
+	"fmt"
 	"yunion.io/x/onecloud/pkg/util/esxi"
 	"yunion.io/x/onecloud/pkg/util/printutils"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -72,6 +74,33 @@ func init() {
 		}
 		printList(vmdisks, []string{})
 		return nil
+	})
+
+	type VirtualMachineDiskResizeOptions struct {
+		HOSTIP  string `help:"host ip"`
+		VMID    string `help:"virtual machine UUID"`
+		DISKIDX int    `help:"disk index"`
+		SIZEGB  int64  `help:"new size of disk"`
+	}
+	shellutils.R(&VirtualMachineDiskResizeOptions{}, "vm-disk-resize", "Resize a vm disk", func(cli *esxi.SESXiClient, args *VirtualMachineDiskResizeOptions) error {
+		host, err := cli.FindHostByIp(args.HOSTIP)
+		if err != nil {
+			return err
+		}
+		vm, err := host.GetIVMById(args.VMID)
+		if err != nil {
+			return err
+		}
+		vmdisks, err := vm.GetIDisks()
+		if err != nil {
+			return err
+		}
+		if args.DISKIDX < 0 || args.DISKIDX >= len(vmdisks) {
+			return fmt.Errorf("Out of index: %d", args.DISKIDX)
+		}
+		disk := vmdisks[args.DISKIDX]
+		ctx := context.Background()
+		return disk.Resize(ctx, args.SIZEGB*1024)
 	})
 
 	shellutils.R(&VirtualMachineShowOptions{}, "vm-vnc", "Show vm VNC details", func(cli *esxi.SESXiClient, args *VirtualMachineShowOptions) error {

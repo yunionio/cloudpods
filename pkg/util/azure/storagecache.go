@@ -84,6 +84,19 @@ func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 	return self.iimages, nil
 }
 
+func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {
+	img, err := self.region.GetImageById(extId)
+	if err != nil {
+		return nil, err
+	}
+	img.storageCache = self
+	return img, nil
+}
+
+func (self *SStoragecache) GetPath() string {
+	return ""
+}
+
 func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, extId string, isForce bool) (string, error) {
 	if len(extId) > 0 {
 		log.Debugf("UploadImage: Image external ID exists %s", extId)

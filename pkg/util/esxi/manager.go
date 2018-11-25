@@ -27,6 +27,8 @@ const (
 )
 
 type SESXiClient struct {
+	cloudprovider.SFakeOnPremiseRegion
+
 	providerId   string
 	providerName string
 	host         string
@@ -180,6 +182,7 @@ func (cli *SESXiClient) references2Objects(refs []types.ManagedObjectReference, 
 	pc := property.DefaultCollector(cli.client.Client)
 	err := pc.Retrieve(cli.context, refs, props, dst)
 	if err != nil {
+		log.Errorf("pc.Retrieve fail %s", err)
 		return err
 	}
 	return nil
@@ -187,7 +190,12 @@ func (cli *SESXiClient) references2Objects(refs []types.ManagedObjectReference, 
 
 func (cli *SESXiClient) reference2Object(ref types.ManagedObjectReference, props []string, dst interface{}) error {
 	pc := property.DefaultCollector(cli.client.Client)
-	return pc.RetrieveOne(cli.context, ref, props, dst)
+	err := pc.RetrieveOne(cli.context, ref, props, dst)
+	if err != nil {
+		log.Errorf("pc.RetrieveOne fail %s", err)
+		return err
+	}
+	return nil
 }
 
 func (cli *SESXiClient) GetDatacenters() ([]*SDatacenter, error) {

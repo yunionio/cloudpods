@@ -215,8 +215,8 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return isnapshots, nil
 }
 
-func (self *SDisk) Resize(ctx context.Context, newSize int64) error {
-	return self.storage.zone.region.resizeDisk(self.DiskId, newSize)
+func (self *SDisk) Resize(ctx context.Context, newSizeMb int64) error {
+	return self.storage.zone.region.resizeDisk(self.DiskId, newSizeMb)
 }
 
 func (self *SDisk) Reset(ctx context.Context, snapshotId string) error {
@@ -344,14 +344,15 @@ func (self *SRegion) DeleteDisk(diskId string) error {
 	return err
 }
 
-func (self *SRegion) resizeDisk(diskId string, size int64) error {
+func (self *SRegion) resizeDisk(diskId string, sizeMb int64) error {
 	// https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/volume_constraints.html
 	// MBR -> 2 TiB
 	// GPT -> 16 TiB
 	// size unit GiB
+	sizeGb := sizeMb / 1024
 	params := &ec2.ModifyVolumeInput{}
-	if size > 0 {
-		params.SetSize(size)
+	if sizeGb > 0 {
+		params.SetSize(sizeGb)
 	} else {
 		return fmt.Errorf("size should great than 0")
 	}
@@ -439,4 +440,8 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 		return "", err
 	}
 	return StrVal(ret.VolumeId), nil
+}
+
+func (disk *SDisk) GetAccessPath() string {
+	return ""
 }

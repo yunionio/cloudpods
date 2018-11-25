@@ -548,7 +548,7 @@ func (region *SRegion) DetachDisk(instanceId, diskId string) error {
 	return region.client.Update(jsonutils.Marshal(instance), nil)
 }
 
-func (self *SInstance) ChangeConfig(ctx context.Context, instanceId string, ncpu int, vmem int) error {
+func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
 	for _, vmSize := range self.host.zone.region.getHardwareProfile(ncpu, vmem) {
 		self.Properties.HardwareProfile.VMSize = vmSize
 		self.Properties.ProvisioningState = ""
@@ -567,7 +567,7 @@ func (region *SRegion) ChangeVMConfig(ctx context.Context, instanceId string, nc
 	if err != nil {
 		return err
 	}
-	return instacen.ChangeConfig(ctx, instanceId, ncpu, vmem)
+	return instacen.ChangeConfig(ctx, ncpu, vmem)
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
@@ -1039,5 +1039,9 @@ func (self *SInstance) GetExpiredAt() time.Time {
 }
 
 func (self *SInstance) UpdateUserData(userData string) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
 	return cloudprovider.ErrNotSupported
 }

@@ -600,22 +600,24 @@ func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
-	if storage := self.GetStorage(); storage == nil {
+	storage := self.GetStorage()
+	if storage == nil {
 		return nil, httperrors.NewResourceNotFoundError("fail to find storage for disk %s", self.GetName())
-	} else if provider, err := storage.GetDriver(); err != nil {
-		return nil, err
-	} else {
-		return provider.GetIStorageById(storage.GetExternalId())
 	}
+	istorage, err := storage.GetIStorage()
+	if err != nil {
+		return nil, err
+	}
+	return istorage, nil
 }
 
 func (self *SDisk) GetIDisk() (cloudprovider.ICloudDisk, error) {
-	if iStorage, err := self.GetIStorage(); err != nil {
+	iStorage, err := self.GetIStorage()
+	if err != nil {
 		log.Errorf("fail to find iStorage: %v", err)
 		return nil, err
-	} else {
-		return iStorage.GetIDisk(self.GetExternalId())
 	}
+	return iStorage.GetIDiskById(self.GetExternalId())
 }
 
 func (self *SDisk) GetZone() *SZone {
@@ -839,6 +841,7 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		self.Status = extDisk.GetStatus()
 		self.DiskFormat = extDisk.GetDiskFormat()
 		self.DiskSize = extDisk.GetDiskSizeMB()
+		self.AccessPath = extDisk.GetAccessPath()
 		if extDisk.GetIsAutoDelete() {
 			self.AutoDelete = true
 		}
@@ -1199,9 +1202,9 @@ func (self *SDisk) GetCustomizeColumns(ctx context.Context, userCred mcclient.To
 	return self.getMoreDetails(extra)
 }
 
-func (self *SDisk) StartDiskResizeTask(ctx context.Context, userCred mcclient.TokenCredential, size int64, parentTaskId string, pendingUsage quotas.IQuota) error {
+func (self *SDisk) StartDiskResizeTask(ctx context.Context, userCred mcclient.TokenCredential, sizeMb int64, parentTaskId string, pendingUsage quotas.IQuota) error {
 	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewInt(size), "size")
+	params.Add(jsonutils.NewInt(sizeMb), "size")
 	if task, err := taskman.TaskManager.NewTask(ctx, "DiskResizeTask", self, userCred, params, parentTaskId, "", pendingUsage); err != nil {
 		return err
 	} else {

@@ -66,7 +66,7 @@ func (self *SClassicStorage) CreateIDisk(name string, sizeGb int, desc string) (
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SClassicStorage) GetIDisk(diskId string) (cloudprovider.ICloudDisk, error) {
+func (self *SClassicStorage) GetIDiskById(diskId string) (cloudprovider.ICloudDisk, error) {
 	disks, err := self.GetIDisks()
 	if err != nil {
 		return nil, err
@@ -124,4 +124,8 @@ func (self *SClassicStorage) GetStorageType() string {
 func (self *SClassicStorage) Refresh() error {
 	// do nothing
 	return nil
+}
+
+func (self *SClassicStorage) GetMountPoint() string {
+	return ""
 }

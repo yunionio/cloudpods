@@ -467,7 +467,7 @@ func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd s
 	return diskId, nil
 }
 
-func (self *SInstance) ChangeConfig(ctx context.Context, instanceId string, ncpu int, vmem int) error {
+func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
 	return self.host.zone.region.ChangeVMConfig(self.ZoneId, self.InstanceId, ncpu, vmem, nil)
 }
 
@@ -860,4 +860,8 @@ func (self *SInstance) GetExpiredAt() time.Time {
 
 func (self *SInstance) UpdateUserData(userData string) error {
 	return self.host.zone.region.updateInstance(self.InstanceId, "", "", "", "", userData)
+}
+
+func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+	return cloudprovider.ErrNotSupported
 }

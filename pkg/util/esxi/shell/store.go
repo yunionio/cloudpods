@@ -2,11 +2,24 @@ package shell
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"yunion.io/x/onecloud/pkg/util/esxi"
 	"yunion.io/x/onecloud/pkg/util/printutils"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
+
+func getDatastore(cli *esxi.SESXiClient, dcId string, dsId string) (*esxi.SDatastore, error) {
+	dc, err := cli.FindDatacenterByMoId(dcId)
+	if err != nil {
+		return nil, err
+	}
+	ds, err := dc.GetIStorageByMoId(dsId)
+	if err != nil {
+		return nil, err
+	}
+	return ds.(*esxi.SDatastore), nil
+}
 
 func init() {
 	type DatastoreListOptions struct {
@@ -30,15 +43,35 @@ func init() {
 		DSID       string `help:"Datastore ID""`
 	}
 	shellutils.R(&DatastoreShowOptions{}, "ds-show", "Show details of a datastore", func(cli *esxi.SESXiClient, args *DatastoreShowOptions) error {
-		dc, err := cli.FindDatacenterByMoId(args.DATACENTER)
-		if err != nil {
-			return err
-		}
-		ds, err := dc.GetIStorageByMoId(args.DSID)
+		ds, err := getDatastore(cli, args.DATACENTER, args.DSID)
 		if err != nil {
 			return err
 		}
 		printObject(ds)
+		return nil
+	})
+
+	shellutils.R(&DatastoreShowOptions{}, "ds-cache-show", "Show details of a datastore image cache", func(cli *esxi.SESXiClient, args *DatastoreShowOptions) error {
+		ds, err := getDatastore(cli, args.DATACENTER, args.DSID)
+		if err != nil {
+			return err
+		}
+		cache := ds.GetIStoragecache()
+		printObject(cache)
+		return nil
+	})
+
+	shellutils.R(&DatastoreShowOptions{}, "ds-cache-list", "Show image list of a datastore image cache", func(cli *esxi.SESXiClient, args *DatastoreShowOptions) error {
+		ds, err := getDatastore(cli, args.DATACENTER, args.DSID)
+		if err != nil {
+			return err
+		}
+		cache := ds.GetIStoragecache()
+		images, err := cache.GetIImages()
+		if err != nil {
+			return err
+		}
+		printList(images, []string{})
 		return nil
 	})
 
@@ -48,16 +81,11 @@ func init() {
 		DIR        string `help:"directory"`
 	}
 	shellutils.R(&DatastoreListDirOptions{}, "ds-list-dir", "List directory of a datastore", func(cli *esxi.SESXiClient, args *DatastoreListDirOptions) error {
-		dc, err := cli.FindDatacenterByMoId(args.DATACENTER)
-		if err != nil {
-			return err
-		}
-		ds, err := dc.GetIStorageByMoId(args.DSID)
+		dsObj, err := getDatastore(cli, args.DATACENTER, args.DSID)
 		if err != nil {
 			return err
 		}
 		ctx := context.Background()
-		dsObj := ds.(*esxi.SDatastore)
 		fileList, err := dsObj.ListDir(ctx, args.DIR)
 		if err != nil {
 			return err
@@ -67,16 +95,11 @@ func init() {
 	})
 
 	shellutils.R(&DatastoreListDirOptions{}, "ds-check-file", "Check file status in a datastore", func(cli *esxi.SESXiClient, args *DatastoreListDirOptions) error {
-		dc, err := cli.FindDatacenterByMoId(args.DATACENTER)
-		if err != nil {
-			return err
-		}
-		ds, err := dc.GetIStorageByMoId(args.DSID)
+		dsObj, err := getDatastore(cli, args.DATACENTER, args.DSID)
 		if err != nil {
 			return err
 		}
 		ctx := context.Background()
-		dsObj := ds.(*esxi.SDatastore)
 		file, err := dsObj.CheckFile(ctx, args.DIR)
 		if err != nil {
 			return err
@@ -86,20 +109,72 @@ func init() {
 	})
 
 	shellutils.R(&DatastoreListDirOptions{}, "ds-delete-file", "Delete file in a datastore", func(cli *esxi.SESXiClient, args *DatastoreListDirOptions) error {
-		dc, err := cli.FindDatacenterByMoId(args.DATACENTER)
-		if err != nil {
-			return err
-		}
-		ds, err := dc.GetIStorageByMoId(args.DSID)
+		dsObj, err := getDatastore(cli, args.DATACENTER, args.DSID)
 		if err != nil {
 			return err
 		}
 		ctx := context.Background()
-		dsObj := ds.(*esxi.SDatastore)
 		err = dsObj.Delete(ctx, args.DIR)
 		if err != nil {
 			return err
 		}
+		fmt.Println("success")
+		return nil
+	})
+
+	shellutils.R(&DatastoreListDirOptions{}, "ds-check-vmdk", "Check vmdk file status in a datastore", func(cli *esxi.SESXiClient, args *DatastoreListDirOptions) error {
+		dsObj, err := getDatastore(cli, args.DATACENTER, args.DSID)
+		if err != nil {
+			return err
+		}
+		ctx := context.Background()
+		err = dsObj.CheckVmdk(ctx, args.DIR)
+		if err != nil {
+			return err
+		}
+		fmt.Println("valid")
+		return nil
+	})
+
+	shellutils.R(&DatastoreListDirOptions{}, "ds-delete-vmdk", "Delete vmdk file from a datastore", func(cli *esxi.SESXiClient, args *DatastoreListDirOptions) error {
+		dsObj, err := getDatastore(cli, args.DATACENTER, args.DSID)
+		if err != nil {
+			return err
+		}
+		ctx := context.Background()
+		err = dsObj.DeleteVmdk(ctx, args.DIR)
+		if err != nil {
+			return err
+		}
+		fmt.Println("success")
+		return nil
+	})
+
+	shellutils.R(&DatastoreListDirOptions{}, "ds-mkdir", "Delete vmdk directory from a datastore", func(cli *esxi.SESXiClient, args *DatastoreListDirOptions) error {
+		dsObj, err := getDatastore(cli, args.DATACENTER, args.DSID)
+		if err != nil {
+			return err
+		}
+		ctx := context.Background()
+		path, err := dsObj.MakeDir(ctx, args.DIR)
+		if err != nil {
+			return err
+		}
+		fmt.Println("Make dir success", path)
+		return nil
+	})
+
+	shellutils.R(&DatastoreListDirOptions{}, "ds-rmdir", "Remove vmdk directory from a datastore", func(cli *esxi.SESXiClient, args *DatastoreListDirOptions) error {
+		dsObj, err := getDatastore(cli, args.DATACENTER, args.DSID)
+		if err != nil {
+			return err
+		}
+		ctx := context.Background()
+		err = dsObj.RemoveDir(ctx, args.DIR)
+		if err != nil {
+			return err
+		}
+		fmt.Println("Remove dir success")
 		return nil
 	})
 

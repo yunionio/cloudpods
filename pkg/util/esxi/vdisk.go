@@ -1,17 +1,17 @@
 package esxi
 
 import (
+	"context"
 	"fmt"
 	"path"
+	"strings"
+	"time"
 
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	"context"
-	"strings"
-	"time"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -90,8 +90,14 @@ func (disk *SVirtualDisk) GetDiskSizeMB() int {
 	return int(capa / 1024 / 1024)
 }
 
-func (disk *SVirtualDisk) getFilename() string {
-	return disk.getBackingInfo().FileName
+func (disk *SVirtualDisk) GetAccessPath() string {
+	istore, err := disk.GetIStorage()
+	if err != nil {
+		log.Errorf("disk.GetIStorage fail %s", err)
+		return ""
+	}
+	ds := istore.(*SDatastore)
+	return ds.getFullPath(disk.getBackingInfo().FileName)
 }
 
 func (disk *SVirtualDisk) GetDiskFormat() string {
@@ -127,7 +133,6 @@ func (disk *SVirtualDisk) GetTemplateId() string {
 func (disk *SVirtualDisk) GetDiskType() string {
 	backing := disk.getBackingInfo()
 	if backing.Parent != nil {
-		// log.Infof("%s", backing.Parent.FileName)
 		return models.DISK_TYPE_SYS
 	}
 	return models.DISK_TYPE_DATA
@@ -176,10 +181,11 @@ func (disk *SVirtualDisk) GetMountpoint() string {
 func (disk *SVirtualDisk) Delete(ctx context.Context) error {
 	istorage, err := disk.GetIStorage()
 	if err != nil {
+		log.Errorf("disk.GetIStorage() fail %s", err)
 		return err
 	}
 	ds := istorage.(*SDatastore)
-	return ds.DeleteVmdk(ctx, disk.getFilename())
+	return ds.DeleteVmdk(ctx, disk.getBackingInfo().FileName)
 }
 
 func (disk *SVirtualDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
@@ -194,8 +200,33 @@ func (disk *SVirtualDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (disk *SVirtualDisk) Resize(ctx context.Context, newSize int64) error {
-	return cloudprovider.ErrNotImplemented
+func (disk *SVirtualDisk) Resize(ctx context.Context, newSizeMb int64) error {
+	ndisk := disk.getVirtualDisk()
+	ndisk.CapacityInKB = newSizeMb * 1024
+
+	devSpec := types.VirtualDeviceConfigSpec{}
+	devSpec.Device = ndisk
+	devSpec.Operation = types.VirtualDeviceConfigSpecOperationEdit
+
+	spec := types.VirtualMachineConfigSpec{}
+	spec.DeviceChange = []types.BaseVirtualDeviceConfigSpec{&devSpec}
+
+	vm := disk.vm.getVmObj()
+
+	task, err := vm.Reconfigure(ctx, spec)
+
+	if err != nil {
+		log.Errorf("vm.Reconfigure fail %s", err)
+		return err
+	}
+
+	err = task.Wait(ctx)
+	if err != nil {
+		log.Errorf("task.Wait fail %s", err)
+		return err
+	}
+
+	return err
 }
 
 func (disk *SVirtualDisk) Reset(ctx context.Context, snapshotId string) error {

@@ -14,15 +14,23 @@ import (
 )
 
 func syncOnPremiseCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, driver cloudprovider.ICloudProvider, syncRange *models.SSyncRange) {
-	ihosts, err := driver.GetOnPremiseIHosts()
+	iregion, err := driver.GetOnPremiseIRegion()
 	if err != nil {
-		msg := fmt.Sprintf("GetOnPremiseIHosts for provider %s failed %s", provider.GetName(), err)
+		msg := fmt.Sprintf("GetOnPremiseIRegion for provider %s failed %s", provider.GetName(), err)
 		log.Errorf(msg)
 		logSyncFailed(provider, task, msg)
 		return
 	}
 
-	localHosts, remoteHosts, result := models.HostManager.SyncHosts(ctx, task.UserCred, provider, nil, ihosts)
+	ihosts, err := iregion.GetIHosts()
+	if err != nil {
+		msg := fmt.Sprintf("GetIHosts for provider %s failed %s", provider.GetName(), err)
+		log.Errorf(msg)
+		logSyncFailed(provider, task, msg)
+		return
+	}
+
+	localHosts, remoteHosts, result := models.HostManager.SyncHosts(ctx, task.UserCred, provider, nil, ihosts, syncRange.ProjectSync)
 	msg := result.Result()
 	notes := fmt.Sprintf("SyncHosts for provider %s result: %s", provider.Name, msg)
 	log.Infof(notes)

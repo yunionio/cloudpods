@@ -270,11 +270,8 @@ func (self *SClassicInstance) DetachDisk(ctx context.Context, diskId string) err
 	return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
 }
 
-func (self *SClassicInstance) ChangeConfig(ctx context.Context, instanceId string, ncpu int, vmem int) error {
-	if err := self.host.zone.region.ChangeVMConfig(ctx, instanceId, ncpu, vmem); err != nil {
-		return err
-	}
-	return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
+func (self *SClassicInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SClassicInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
@@ -460,5 +457,9 @@ func (self *SClassicInstance) GetExpiredAt() time.Time {
 }
 
 func (self *SClassicInstance) UpdateUserData(userData string) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SClassicInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
 	return cloudprovider.ErrNotSupported
 }

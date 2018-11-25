@@ -3199,6 +3199,9 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 			return nil, httperrors.NewBadRequestError("Params vcpu_count parse error")
 		}
 		addCpu = int(nVcpu - int64(self.VcpuCount))
+		if addCpu < 0 {
+			addCpu = 0
+		}
 	}
 	vmemSize, err := data.GetString("vmem_size")
 	if err == nil {
@@ -3214,6 +3217,9 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 			return nil, httperrors.NewBadRequestError("Params vmem_size parse error")
 		}
 		addMem = nVmem - self.VmemSize
+		if addMem < 0 {
+			addMem = 0
+		}
 	}
 	disks := self.GetDisks()
 	var addDisk int

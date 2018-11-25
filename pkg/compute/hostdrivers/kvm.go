@@ -3,7 +3,6 @@ package hostdrivers
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"net/url"
 
 	"yunion.io/x/jsonutils"
@@ -17,7 +16,7 @@ import (
 )
 
 type SKVMHostDriver struct {
-	SBaseHostDriver
+	SVirtualizationHostDriver
 }
 
 func init() {
@@ -46,8 +45,16 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mod
 		return err
 	}
 
-	content := jsonutils.NewDict()
-	content.Add(jsonutils.NewString(imageId), "image_id")
+	type contentStruct struct {
+		ImageId        string
+		SrcUrl         string
+		IsForce        bool
+		StoragecacheId string
+	}
+
+	content := contentStruct{}
+	content.ImageId = imageId
+
 	if srcHostCacheImage != nil {
 		err = srcHostCacheImage.AddDownloadRefcount()
 		if err != nil {
@@ -57,21 +64,19 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mod
 		if err != nil {
 			return err
 		}
-		srcUrl := fmt.Sprintf("%s/download/images/%s", srcHost.ManagerUri, imageId)
-		content.Add(jsonutils.NewString(srcUrl), "src_url")
+		content.SrcUrl = fmt.Sprintf("%s/download/images/%s", srcHost.ManagerUri, imageId)
 	}
 	url := fmt.Sprintf("%s/disks/image_cache", host.ManagerUri)
 
 	if isForce {
-		content.Add(jsonutils.NewBool(true), "is_force")
+		content.IsForce = true
 	}
-	content.Add(jsonutils.NewString(storageCache.Id), "storagecache_id")
+	content.StoragecacheId = storageCache.Id
 	body := jsonutils.NewDict()
-	body.Add(content, "disk")
-	header := http.Header{}
-	header.Set("X-Auth-Token", task.GetUserCred().GetTokenString())
-	header.Set("X-Task-Id", task.GetTaskId())
-	header.Set("X-Region-Version", "v2")
+	body.Add(jsonutils.Marshal(&content), "disk")
+
+	header := task.GetTaskRequestHeader()
+
 	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
 	if err != nil {
 		return err
@@ -79,10 +84,39 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mod
 	return nil
 }
 
+func (self *SKVMHostDriver) RequestUncacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
+	type contentStruct struct {
+		ImageId        string
+		StoragecacheId string
+	}
+
+	params := task.GetParams()
+	imageId, err := params.GetString("image_id")
+	if err != nil {
+		return err
+	}
+
+	content := contentStruct{}
+	content.ImageId = imageId
+	content.StoragecacheId = storageCache.Id
+
+	url := fmt.Sprintf("%s/disks/image_cache", host.ManagerUri)
+
+	body := jsonutils.NewDict()
+	body.Add(jsonutils.Marshal(&content), "disk")
+
+	header := task.GetTaskRequestHeader()
+
+	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "DELETE", url, header, body, false)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
-	header := http.Header{}
-	header.Add("X-Task-Id", task.GetTaskId())
-	header.Add("X-Region-Version", "v2")
+	header := task.GetTaskRequestHeader()
+
 	url := fmt.Sprintf("/disks/%s/create/%s", storage.Id, disk.Id)
 	body := jsonutils.NewDict()
 	body.Add(content, "disk")
@@ -92,38 +126,36 @@ func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, ho
 
 func (self *SKVMHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
 	log.Infof("Deallocating disk on host %s", host.GetName())
-	header := http.Header{}
-	header.Add("X-Task-Id", task.GetTaskId())
-	header.Add("X-Region-Version", "v2")
+	header := task.GetTaskRequestHeader()
+
 	url := fmt.Sprintf("/disks/%s/delete/%s", storage.Id, disk.Id)
 	body := jsonutils.NewDict()
 	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
 	return err
 }
 
-func (self *SKVMHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
-	header := http.Header{}
-	header.Add("X-Task-Id", task.GetTaskId())
-	header.Add("X-Region-Version", "v2")
+func (self *SKVMHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, sizeMb int64, task taskman.ITask) error {
+	header := task.GetTaskRequestHeader()
+
 	url := fmt.Sprintf("/disks/%s/resize/%s", storage.Id, disk.Id)
 	body := jsonutils.NewDict()
 	content := jsonutils.NewDict()
-	content.Add(jsonutils.NewInt(size), "size")
+	content.Add(jsonutils.NewInt(sizeMb), "size")
 	body.Add(content, "disk")
 	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
 	return err
 }
 
-func (self *SKVMHostDriver) RequestResizeDiskOnHostOnline(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
-	self.RequestResizeDiskOnHost(ctx, host, storage, disk, size, task)
-	header := http.Header{}
-	header.Add("X-Task-Id", task.GetTaskId())
-	header.Add("X-Region-Version", "v2")
+func (self *SKVMHostDriver) RequestResizeDiskOnHostOnline(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, sizeMb int64, task taskman.ITask) error {
+	self.RequestResizeDiskOnHost(ctx, host, storage, disk, sizeMb, task)
+
+	header := task.GetTaskRequestHeader()
+
 	for _, guest := range disk.GetAttachedGuests() {
 		guestdisk := guest.GetGuestDisk(disk.GetId())
 		url := fmt.Sprintf("/servers/%s/monitor", guest.GetId())
 		body := jsonutils.NewDict()
-		cmd := fmt.Sprintf("block_resize drive_%d %dM", guestdisk.Index, size)
+		cmd := fmt.Sprintf("block_resize drive_%d %dM", guestdisk.Index, sizeMb)
 		body.Add(jsonutils.NewString(cmd), "cmd")
 		host.Request(task.GetUserCred(), "POST", url, header, body)
 	}
@@ -134,7 +166,9 @@ func (self *SKVMHostDriver) RequestPrepareSaveDiskOnHost(ctx context.Context, ho
 	body := jsonutils.NewDict()
 	body.Add(jsonutils.Marshal(map[string]string{"image_id": imageId}), "disk")
 	url := fmt.Sprintf("/disks/%s/save-prepare/%s", disk.StorageId, disk.Id)
-	header := http.Header{"X-Task-Id": []string{task.GetTaskId()}, "X-Region-Version": []string{"v2"}}
+
+	header := task.GetTaskRequestHeader()
+
 	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
 	return err
 }
@@ -148,7 +182,9 @@ func (self *SKVMHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, ho
 	}
 	body.Add(jsonutils.Marshal(content), "disk")
 	url := fmt.Sprintf("/disks/%s/upload", disk.StorageId)
-	header := http.Header{"X-Task-Id": []string{task.GetTaskId()}, "X-Region-Version": []string{"v2"}}
+
+	header := task.GetTaskRequestHeader()
+
 	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
 	return err
 }
@@ -157,27 +193,27 @@ func (self *SKVMHostDriver) RequestDeleteSnapshotsWithStorage(ctx context.Contex
 	url := fmt.Sprintf("/storages/%s/delete-snapshots", snapshot.StorageId)
 	body := jsonutils.NewDict()
 	body.Set("disk_id", jsonutils.NewString(snapshot.DiskId))
-	header := http.Header{}
-	header.Add("X-Task-Id", task.GetTaskId())
-	header.Add("X-Region-Version", "v2")
+
+	header := task.GetTaskRequestHeader()
+
 	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
 	return err
 }
 
 func (self *SKVMHostDriver) RequestResetDisk(ctx context.Context, host *models.SHost, disk *models.SDisk, params *jsonutils.JSONDict, task taskman.ITask) error {
 	url := fmt.Sprintf("/disks/%s/reset/%s", disk.StorageId, disk.Id)
-	header := http.Header{}
-	header.Add("X-Task-Id", task.GetTaskId())
-	header.Add("X-Region-Version", "v2")
+
+	header := task.GetTaskRequestHeader()
+
 	_, err := host.Request(task.GetUserCred(), "POST", url, header, params)
 	return err
 }
 
 func (self *SKVMHostDriver) RequestCleanUpDiskSnapshots(ctx context.Context, host *models.SHost, disk *models.SDisk, params *jsonutils.JSONDict, task taskman.ITask) error {
 	url := fmt.Sprintf("/disks/%s/cleanup-snapshots/%s", disk.StorageId, disk.Id)
-	header := http.Header{}
-	header.Add("X-Task-Id", task.GetTaskId())
-	header.Add("X-Region-Version", "v2")
+
+	header := task.GetTaskRequestHeader()
+
 	_, err := host.Request(task.GetUserCred(), "POST", url, header, params)
 	return err
 }

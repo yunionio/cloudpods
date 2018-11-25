@@ -5,6 +5,7 @@ import (
 
 	"context"
 	"fmt"
+	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/types"
 	"io"
 	"io/ioutil"
@@ -22,12 +23,16 @@ import (
 	"yunion.io/x/onecloud/pkg/util/vmdkutils"
 )
 
-var DATASTORE_PROPS = []string{"name", "parent", "info", "summary", "host"}
+var DATASTORE_PROPS = []string{"name", "parent", "info", "summary", "host", "vm"}
 
 type SDatastore struct {
 	SManagedObject
 
+	// vms []cloudprovider.ICloudVM
+
 	ihosts []cloudprovider.ICloudHost
+
+	storageCache *SDatastoreImageCache
 }
 
 func NewDatastore(manager *SESXiClient, ds *mo.Datastore, dc *SDatacenter) *SDatastore {
@@ -76,7 +81,16 @@ func (self *SDatastore) GetStatus() string {
 }
 
 func (self *SDatastore) Refresh() error {
-	return cloudprovider.ErrNotImplemented
+	base := self.SManagedObject
+	var moObj mo.Datastore
+	err := self.manager.reference2Object(self.object.Reference(), DATASTORE_PROPS, &moObj)
+	if err != nil {
+		return err
+	}
+	base.object = &moObj
+	*self = SDatastore{}
+	self.SManagedObject = base
+	return nil
 }
 
 func (self *SDatastore) IsEmulated() bool {
@@ -179,19 +193,80 @@ func (self *SDatastore) getLocalHost() (cloudprovider.ICloudHost, error) {
 }
 
 func (self *SDatastore) GetIStoragecache() cloudprovider.ICloudStoragecache {
-	return nil
+	if self.isLocalVMFS() {
+		ihost, err := self.getLocalHost()
+		if err != nil {
+			log.Errorf("GetIStoragecache getLocalHost fail %s", err)
+			return nil
+		}
+		host := ihost.(*SHost)
+		sc, err := host.getLocalStorageCache()
+		if err != nil {
+			log.Errorf("GetIStoragecache getLocalStorageCache fail %s", err)
+			return nil
+		}
+		return sc
+	} else {
+		return self.getStorageCache()
+	}
+}
+
+func (self *SDatastore) getStorageCache() *SDatastoreImageCache {
+	if self.storageCache == nil {
+		self.storageCache = &SDatastoreImageCache{
+			datastore: self,
+		}
+	}
+	return self.storageCache
 }
 
 func (self *SDatastore) GetIZone() cloudprovider.ICloudZone {
 	return nil
 }
 
-func (self *SDatastore) GetIDisk(idStr string) (cloudprovider.ICloudDisk, error) {
-	return nil, cloudprovider.ErrNotImplemented
+func (self *SDatastore) getVMs() ([]cloudprovider.ICloudVM, error) {
+	dc, err := self.GetDatacenter()
+	if err != nil {
+		log.Errorf("SDatastore GetDatacenter fail %s", err)
+		return nil, err
+	}
+	vms := self.getDatastore().Vm
+	if len(vms) == 0 {
+		return nil, nil
+	}
+	return dc.fetchVms(vms)
+}
+
+func (self *SDatastore) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
+	vms, err := self.getVMs()
+	if err != nil {
+		log.Errorf("self.getVMs fail %s", err)
+		return nil, err
+	}
+	for i := 0; i < len(vms); i += 1 {
+		vm := vms[i].(*SVirtualMachine)
+		disk, err := vm.GetIDiskById(idStr)
+		if err == nil {
+			return disk, nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SDatastore) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	vms, err := self.getVMs()
+	if err != nil {
+		return nil, err
+	}
+	allDisks := make([]cloudprovider.ICloudDisk, 0)
+	for i := 0; i < len(vms); i += 1 {
+		disks, err := vms[i].GetIDisks()
+		if err != nil {
+			return nil, err
+		}
+		allDisks = append(allDisks, disks...)
+	}
+	return allDisks, nil
 }
 
 func (self *SDatastore) isLocalVMFS() bool {
@@ -259,6 +334,10 @@ func (self *SDatastore) GetUrl() string {
 	return self.getDatastore().Info.GetDatastoreInfo().Url
 }
 
+func (self *SDatastore) GetMountPoint() string {
+	return self.GetUrl()
+}
+
 func (self *SDatastore) cleanPath(remotePath string) string {
 	dsName := fmt.Sprintf("[%s]", self.SManagedObject.GetName())
 	dsUrl := self.GetUrl()
@@ -296,6 +375,11 @@ func (self *SDatastore) getPathString(path string) string {
 		path = path[1:]
 	}
 	return fmt.Sprintf("[%s] %s", self.SManagedObject.GetName(), path)
+}
+
+func (self *SDatastore) getFullPath(remotePath string) string {
+	remotePath = self.cleanPath(remotePath)
+	return path.Join(self.GetUrl(), remotePath)
 }
 
 func (self *SDatastore) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
@@ -396,6 +480,9 @@ func (self *SDatastore) CheckFile(ctx context.Context, remotePath string) (*SDat
 
 	err = self.manager.client.Do(ctx, req, func(resp *http.Response) error {
 		if resp.StatusCode >= 400 {
+			if resp.StatusCode == 404 {
+				return cloudprovider.ErrNotFound
+			}
 			return fmt.Errorf("%s", resp.Status)
 		}
 		sizeStr := resp.Header.Get("Content-Length")
@@ -502,6 +589,13 @@ func (self *SDatastore) Delete(ctx context.Context, remotePath string) error {
 }
 
 func (self *SDatastore) DeleteVmdk(ctx context.Context, remotePath string) error {
+	info, err := self.CheckFile(ctx, remotePath)
+	if err != nil {
+		return err
+	}
+	if info.Size > 4096 {
+		return fmt.Errorf("not a valid vmdk file")
+	}
 	vmdkContent, err := self.FileGetContent(ctx, remotePath)
 	if err != nil {
 		return err
@@ -515,10 +609,59 @@ func (self *SDatastore) DeleteVmdk(ctx context.Context, remotePath string) error
 		return err
 	}
 	if len(vmdkInfo.ExtentFile) > 0 {
-		err = self.Delete(ctx, path.Join(remotePath, vmdkInfo.ExtentFile))
+		err = self.Delete(ctx, path.Join(path.Dir(remotePath), vmdkInfo.ExtentFile))
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (self *SDatastore) CheckVmdk(ctx context.Context, remotePath string) error {
+	dm := object.NewVirtualDiskManager(self.manager.client.Client)
+	defer dm.Destroy(ctx)
+
+	dc, err := self.GetDatacenter()
+	if err != nil {
+		return err
+	}
+
+	dcObj := dc.getObjectDatacenter()
+
+	infoList, err := dm.QueryVirtualDiskInfo(ctx, self.getPathString(remotePath), dcObj, true)
+	if err != nil {
+		return err
+	}
+
+	log.Debugf("%#v", infoList)
+	return nil
+}
+
+func (self *SDatastore) getDatastoreObj() *object.Datastore {
+	return object.NewDatastore(self.manager.client.Client, self.getDatastore().Self)
+}
+
+func (self *SDatastore) MakeDir(ctx context.Context, remotePath string) (string, error) {
+	dnm := object.NewDatastoreNamespaceManager(self.manager.client.Client)
+
+	remotePath = self.cleanPath(remotePath)
+
+	objDS := self.getDatastoreObj()
+
+	return dnm.CreateDirectory(ctx, objDS, remotePath, "")
+}
+
+func (self *SDatastore) RemoveDir(ctx context.Context, remotePath string) error {
+	dnm := object.NewDatastoreNamespaceManager(self.manager.client.Client)
+
+	remotePath = self.getFullPath(remotePath)
+
+	dc, err := self.GetDatacenter()
+	if err != nil {
+		return err
+	}
+
+	dcObj := dc.getObjectDatacenter()
+
+	return dnm.DeleteDirectory(ctx, dcObj, remotePath)
 }

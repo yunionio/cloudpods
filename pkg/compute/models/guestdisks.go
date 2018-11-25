@@ -202,7 +202,7 @@ func (self *SGuestdisk) GetDetailedJson() *jsonutils.JSONDict {
 		cachedImageObj, _ := CachedimageManager.FetchById(imageId)
 		if cachedImageObj != nil {
 			cachedImage := cachedImageObj.(*SCachedimage)
-			desc.Add(jsonutils.NewString(cachedImage.getName()), "image")
+			desc.Add(jsonutils.NewString(cachedImage.GetName()), "image")
 		}
 	}
 

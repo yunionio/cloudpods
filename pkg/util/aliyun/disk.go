@@ -122,8 +122,8 @@ func (self *SDisk) Delete(ctx context.Context) error {
 	return self.storage.zone.region.deleteDisk(self.DiskId)
 }
 
-func (self *SDisk) Resize(ctx context.Context, size int64) error {
-	return self.storage.zone.region.resizeDisk(self.DiskId, size)
+func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
+	return self.storage.zone.region.resizeDisk(self.DiskId, sizeMb)
 }
 
 func (self *SDisk) GetName() string {
@@ -262,14 +262,15 @@ func (self *SRegion) DeleteDisk(diskId string) error {
 	return err
 }
 
-func (self *SRegion) resizeDisk(diskId string, size int64) error {
+func (self *SRegion) resizeDisk(diskId string, sizeMb int64) error {
+	sizeGb := sizeMb / 1024
 	params := make(map[string]string)
 	params["DiskId"] = diskId
-	params["NewSize"] = fmt.Sprintf("%d", size)
+	params["NewSize"] = fmt.Sprintf("%d", sizeGb)
 
 	_, err := self.ecsRequest("ResizeDisk", params)
 	if err != nil {
-		log.Errorf("resizing disk (%s) to %d GiB failed: %s", diskId, size, err)
+		log.Errorf("resizing disk (%s) to %d GiB failed: %s", diskId, sizeGb, err)
 		return err
 	}
 
@@ -376,4 +377,8 @@ func (self *SDisk) GetBillingType() string {
 
 func (self *SDisk) GetExpiredAt() time.Time {
 	return self.ExpiredTime
+}
+
+func (self *SDisk) GetAccessPath() string {
+	return ""
 }

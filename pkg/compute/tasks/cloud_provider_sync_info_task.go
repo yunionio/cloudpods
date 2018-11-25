@@ -381,7 +381,7 @@ func syncHostStorages(ctx context.Context, provider *models.SCloudprovider, task
 		logSyncFailed(provider, task, msg)
 		return
 	}
-	result := localHost.SyncHostStorages(ctx, task.UserCred, storages)
+	localStorages, remoteStorages, result := localHost.SyncHostStorages(ctx, task.UserCred, storages)
 	msg := result.Result()
 	notes := fmt.Sprintf("SyncHostStorages for host %s result: %s", localHost.Name, msg)
 	log.Infof(notes)
@@ -391,6 +391,10 @@ func syncHostStorages(ctx context.Context, provider *models.SCloudprovider, task
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
 	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
+
+	for i := 0; i < len(localStorages); i += 1 {
+		syncStorageCaches(ctx, provider, task, &localStorages[i], remoteStorages[i])
+	}
 }
 
 func syncHostWires(ctx context.Context, provider *models.SCloudprovider, task taskman.ITask, localHost *models.SHost, remoteHost cloudprovider.ICloudHost) {
