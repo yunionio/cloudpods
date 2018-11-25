@@ -702,6 +702,7 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 				log.Infof("The instance is initializing, try later ...")
 				time.Sleep(10 * time.Second)
 			} else {
+				log.Errorf("DeleteVM fail: %s", err)
 				return err
 			}
 		} else {
