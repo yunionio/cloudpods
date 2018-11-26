@@ -91,15 +91,12 @@ func (self *GuestDetachDiskTask) OnSyncConfigComplete(ctx context.Context, guest
 		db.OpsLog.LogEvent(disk, db.ACT_DELETE, "", self.UserCred)
 		disk.RealDelete(ctx, self.UserCred)
 		self.SetStageComplete(ctx, nil)
-		return
-	}
-	if !keepDisk && disk.GetGuestDiskCount() == 0 && disk.AutoDelete {
+	} else if (disk.Status != models.DISK_READY || !keepDisk) && disk.GetGuestDiskCount() == 0 && disk.AutoDelete {
 		self.SetStage("on_disk_delete_complete", nil)
 		db.OpsLog.LogEvent(disk, db.ACT_DELETE, "", self.UserCred)
 		err := guest.GetDriver().RequestDeleteDetachedDisk(ctx, disk, self, purge)
 		if err != nil {
 			self.OnTaskFail(ctx, guest, disk, err)
-			return
 		}
 	} else {
 		self.SetStageComplete(ctx, nil)

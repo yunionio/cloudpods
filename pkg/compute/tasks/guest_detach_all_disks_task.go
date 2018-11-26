@@ -43,13 +43,7 @@ func (self *GuestDetachAllDisksTask) OnDiskDeleteComplete(ctx context.Context, o
 		if jsonutils.QueryBoolean(self.Params, "override_pending_delete", false) {
 			taskData.Add(jsonutils.JSONTrue, "override_pending_delete")
 		}
-		disk := guestdisk.GetDisk()
-		storage := disk.GetStorage()
-		if storage.IsLocal() {
-			taskData.Add(jsonutils.JSONFalse, "keep_disk")
-		} else {
-			taskData.Add(jsonutils.JSONTrue, "keep_disk")
-		}
+		taskData.Add(jsonutils.JSONFalse, "keep_disk")
 		task, err := taskman.TaskManager.NewTask(ctx, "GuestDetachDiskTask", guest, self.UserCred, taskData, self.GetTaskId(), "", nil)
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())

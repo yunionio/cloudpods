@@ -2,6 +2,10 @@ package models
 
 import (
 	"context"
+	"fmt"
+	"path"
+	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -10,31 +14,51 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/util/sysutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 )
 
 const (
-	STORAGE_LOCAL            = "local"
-	STORAGE_BAREMETAL        = "baremetal"
-	STORAGE_SHEEPDOG         = "sheepdog"
-	STORAGE_RBD              = "rbd"
-	STORAGE_DOCKER           = "docker"
-	STORAGE_NAS              = "nas"
-	STORAGE_VSAN             = "vsan"
+	STORAGE_LOCAL     = "local"
+	STORAGE_BAREMETAL = "baremetal"
+	STORAGE_SHEEPDOG  = "sheepdog"
+	STORAGE_RBD       = "rbd"
+	STORAGE_DOCKER    = "docker"
+	STORAGE_NAS       = "nas"
+	STORAGE_VSAN      = "vsan"
+	STORAGE_NFS       = "nfs"
+
 	STORAGE_PUBLIC_CLOUD     = "cloud"
 	STORAGE_CLOUD_EFFICIENCY = "cloud_efficiency"
 	STORAGE_CLOUD_SSD        = "cloud_ssd"
-	STORAGE_EPHEMERAL_SSD    = "ephemeral_ssd"
-	STORAGE_GP2_SSD          = "gp2"      // aws general purpose ssd
-	STORAGE_IO1_SSD          = "io1"      // aws Provisioned IOPS SSD
-	STORAGE_ST1_HDD          = "st1"      // aws Throughput Optimized HDD
-	STORAGE_SC1_SSD          = "sc1"      // aws Cold HDD
-	STORAGE_STANDARD_SSD     = "standard" // aws Magnetic volumes
+	STORAGE_CLOUD_ESSD       = "cloud_essd" //增强型(Enhanced)SSD 云盘
 
+	//Azure hdd and ssd storagetype
+	STORAGE_STANDARD_GRS   = "standard_grs"
+	STORAGE_STANDARD_LRS   = "standard_lrs"
+	STORAGE_STANDARD_RAGRS = "standard_ragrs"
+	STORAGE_STANDARD_ZRS   = "standard_zrs"
+	STORAGE_PREMIUM_LRS    = "premium_lrs"
+
+	// aws storage type
+	STORAGE_GP2_SSD      = "gp2"      // aws general purpose ssd
+	STORAGE_IO1_SSD      = "io1"      // aws Provisioned IOPS SSD
+	STORAGE_ST1_HDD      = "st1"      // aws Throughput Optimized HDD
+	STORAGE_SC1_SSD      = "sc1"      // aws Cold HDD
+	STORAGE_STANDARD_SSD = "standard" // aws Magnetic volumes
+
+	// qcloud storage type
+	// STORAGE_CLOUD_SSD ="cloud_ssd"
+	STORAGE_LOCAL_BASIC   = "local_basic"
+	STORAGE_LOCAL_SSD     = "local_ssd"
+	STORAGE_CLOUD_BASIC   = "cloud_basic"
+	STORAGE_CLOUD_PERMIUM = "cloud_permium"
+)
+
+const (
 	STORAGE_ENABLED  = "enabled"
 	STORAGE_DISABLED = "disabled"
 	STORAGE_OFFLINE  = "offline"
@@ -47,17 +71,26 @@ const (
 
 var (
 	DISK_TYPES            = []string{DISK_TYPE_ROTATE, DISK_TYPE_SSD, DISK_TYPE_HYBRID}
-	STORAGE_LOCAL_TYPES   = []string{STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_NAS}
+	STORAGE_LOCAL_TYPES   = []string{STORAGE_LOCAL, STORAGE_BAREMETAL}
 	STORAGE_SUPPORT_TYPES = STORAGE_LOCAL_TYPES
 	STORAGE_ALL_TYPES     = []string{
 		STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_SHEEPDOG,
 		STORAGE_RBD, STORAGE_DOCKER, STORAGE_NAS, STORAGE_VSAN,
+		STORAGE_NFS,
 	}
-	STORAGE_LIMITED_TYPES = []string{STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_NAS, STORAGE_RBD}
+	STORAGE_TYPES = []string{STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_SHEEPDOG,
+		STORAGE_RBD, STORAGE_DOCKER, STORAGE_NAS, STORAGE_VSAN, STORAGE_NFS,
+		STORAGE_PUBLIC_CLOUD, STORAGE_CLOUD_SSD, STORAGE_CLOUD_ESSD, STORAGE_CLOUD_EFFICIENCY,
+		STORAGE_STANDARD_GRS, STORAGE_STANDARD_LRS, STORAGE_STANDARD_RAGRS, STORAGE_STANDARD_ZRS, STORAGE_PREMIUM_LRS,
+		STORAGE_GP2_SSD, STORAGE_IO1_SSD, STORAGE_ST1_HDD, STORAGE_SC1_SSD, STORAGE_STANDARD_SSD,
+		STORAGE_LOCAL_BASIC, STORAGE_LOCAL_SSD, STORAGE_CLOUD_BASIC, STORAGE_CLOUD_PERMIUM,
+	}
+
+	STORAGE_LIMITED_TYPES = []string{STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_NAS, STORAGE_RBD, STORAGE_NFS}
 )
 
 type SStorageManager struct {
-	db.SEnabledStatusStandaloneResourceBaseManager
+	db.SStandaloneResourceBaseManager
 	SInfrastructureManager
 }
 
@@ -65,7 +98,7 @@ var StorageManager *SStorageManager
 
 func init() {
 	StorageManager = &SStorageManager{
-		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
 			SStorage{},
 			"storages_tbl",
 			"storage",
@@ -75,7 +108,7 @@ func init() {
 }
 
 type SStorage struct {
-	db.SEnabledStatusStandaloneResourceBase
+	db.SStandaloneResourceBase
 	SInfrastructure
 	SManagedResourceBase
 
@@ -89,6 +122,9 @@ type SStorage struct {
 	ZoneId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
 
 	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin"`
+
+	Enabled bool   `nullable:"false" default:"true" list:"user" create:"optional"`
+	Status  string `width:"36" charset:"ascii" nullable:"false" default:"offline" list:"user" create:"optional"`
 }
 
 func (manager *SStorageManager) GetContextManager() []db.IModelManager {
@@ -98,7 +134,12 @@ func (manager *SStorageManager) GetContextManager() []db.IModelManager {
 func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	storageType, _ := data.GetString("storage_type")
 	mediumType, _ := data.GetString("medium_type")
-	if !utils.IsInStringArray(storageType, STORAGE_ALL_TYPES) {
+	capacity, _ := data.Int("capacity")
+	if capacity <= 0 {
+		return nil, httperrors.NewInputParameterError("Invalid capacity")
+	}
+	data.Set("capacity", jsonutils.NewInt(capacity))
+	if !utils.IsInStringArray(storageType, STORAGE_TYPES) {
 		return nil, httperrors.NewInputParameterError("Invalid storage type %s", storageType)
 	}
 	if !utils.IsInStringArray(mediumType, DISK_TYPES) {
@@ -113,27 +154,196 @@ func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred
 		return nil, httperrors.NewResourceNotFoundError("zone %s", zoneId)
 	}
 	data.Set("zone_id", jsonutils.NewString(zone.GetId()))
-	// TODO: ValidateRdbConfData
-	// if storageType == STORAGE_RBD {
-	// 	conf := jsonutils.NewDict()
-	// 	for k, v := range data.Value() {
-	// 		if strings.HasPrefix(k, fmt.Sprintf("%s_", storageType)) {
-	// 			k = k[len(storageType)+1:]
-	// 			if len(k) > 0 {
-	// 				conf.Set(k, v)
-	// 			}
-	// 		}
-	// 	}
-	// 	data.Set("capacity", manager.ValidateRdbConfData(conf))
-	// }
-	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	if storageType == STORAGE_RBD {
+		conf, err := manager.ValidateRbdConfData(data)
+		if err != nil {
+			return nil, httperrors.NewBadRequestError("Vaildata rbd conf error: %s", err.Error())
+		}
+		data.Set("storage_conf", conf)
+		// data.Set("capacity", rbdConf)
+	} else if storageType == STORAGE_NFS {
+		conf, err := manager.ValidataNfsConfdata(data)
+		if err != nil {
+			return nil, httperrors.NewBadRequestError("Vaildata nfs conf error: %s", err.Error())
+		}
+		data.Set("storage_conf", conf)
+	}
+	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+}
+
+func (manager *SStorageManager) ValidataNfsConfdata(data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	conf := jsonutils.NewDict()
+	if nfsHost, err := data.GetString("nfs_host"); err != nil {
+		return nil, httperrors.NewInputParameterError("Get nfs conf host error: %s", err.Error())
+	} else {
+		conf.Set("nfs_host", jsonutils.NewString(nfsHost))
+	}
+	if nfsSharedDir, err := data.GetString("nfs_shared_dir"); err != nil {
+		return nil, httperrors.NewInputParameterError("Get nfs conf shared dir error: %s", err.Error())
+	} else {
+		conf.Set("nfs_shared_dir", jsonutils.NewString(nfsSharedDir))
+	}
+	return conf, nil
+}
+
+func (manager *SStorageManager) ValidateRbdConfData(data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	conf := jsonutils.NewDict()
+	for k, v := range data.Value() {
+		if strings.HasPrefix(k, fmt.Sprintf("%s_", STORAGE_RBD)) {
+			k = k[len(STORAGE_RBD)+1:]
+			if len(k) > 0 {
+				conf.Set(k, v)
+			}
+		}
+	}
+	requireFields := []string{"mon_host", "key", "pool"}
+	for _, field := range requireFields {
+		if !conf.Contains(field) {
+			return nil, httperrors.NewMissingParameterError(field)
+		}
+	}
+	storages := make([]SStorage, 0)
+	err := manager.Query().Equals("storage_type", STORAGE_RBD).All(&storages)
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(storages); i++ {
+		if conf.Equals(storages[i].StorageConf) {
+			return nil, httperrors.NewDuplicateResourceError("This RBD Storage[%s/%s] has already exist", storages[i].Name, conf.String())
+		}
+	}
+	// TODO??? ensure rbd pool can use and get capacity
+	return conf, nil
 }
 
 func (self *SStorage) ValidateDeleteCondition(ctx context.Context) error {
 	if self.GetHostCount() > 0 || self.GetDiskCount() > 0 || self.GetSnapshotCount() > 0 {
 		return httperrors.NewNotEmptyError("Not an empty storage provider")
 	}
-	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
+	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
+}
+
+func (self *SStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+	if self.StorageType == STORAGE_RBD {
+		// TODO
+	} else if self.StorageType == STORAGE_NFS {
+		sc := &SStoragecache{}
+		sc.Path = options.Options.NfsDefaultImageCacheDir
+		sc.ExternalId = self.Id
+		sc.Name = "nfs-" + self.Name + time.Now().Format("2006-01-02 15:04:05")
+		err := StoragecacheManager.TableSpec().Insert(sc)
+		if err != nil {
+			log.Errorln(err)
+			return
+		}
+		err = StoragecacheManager.Query().Equals("external_id", self.Id).First(sc)
+		if err != nil {
+			log.Errorln(err)
+			return
+		}
+		_, err = self.GetModelManager().TableSpec().Update(self, func() error {
+			self.StoragecacheId = sc.Id
+			self.Status = STORAGE_ONLINE
+			return nil
+		})
+		if err != nil {
+			log.Errorln(err)
+		}
+	}
+}
+
+func (self *SStorage) SetStatus(userCred mcclient.TokenCredential, status string, reason string) error {
+	if self.Status == status {
+		return nil
+	}
+	oldStatus := self.Status
+	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		self.Status = status
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if userCred != nil {
+		notes := fmt.Sprintf("%s=>%s", oldStatus, status)
+		if len(reason) > 0 {
+			notes = fmt.Sprintf("%s: %s", notes, reason)
+		}
+		db.OpsLog.LogEvent(self, db.ACT_UPDATE_STATUS, notes, userCred)
+		if strings.Contains(notes, "fail") {
+			logclient.AddActionLog(self, logclient.ACT_VM_SYNC_STATUS, notes, userCred, false)
+		}
+	}
+	return nil
+}
+
+func (self *SStorage) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SStorage) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !self.Enabled {
+		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+			self.Enabled = true
+			return nil
+		})
+		if err != nil {
+			log.Errorf("PerformEnable save update fail %s", err)
+			return nil, err
+		}
+		db.OpsLog.LogEvent(self, db.ACT_ENABLE, "", userCred)
+	}
+	return nil, nil
+}
+
+func (self *SStorage) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SStorage) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Enabled {
+		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+			self.Enabled = false
+			return nil
+		})
+		if err != nil {
+			log.Errorf("PerformDisable save update fail %s", err)
+			return nil, err
+		}
+		db.OpsLog.LogEvent(self, db.ACT_DISABLE, "", userCred)
+	}
+	return nil, nil
+}
+
+func (self *SStorage) AllowPerformOnline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SStorage) PerformOnline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Status != STORAGE_ONLINE {
+		err := self.SetStatus(userCred, STORAGE_ONLINE, "")
+		if err != nil {
+			return nil, err
+		}
+		db.OpsLog.LogEvent(self, db.ACT_ONLINE, "", userCred)
+	}
+	return nil, nil
+}
+
+func (self *SStorage) AllowPerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SStorage) PerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Status != STORAGE_OFFLINE {
+		err := self.SetStatus(userCred, STORAGE_OFFLINE, "")
+		if err != nil {
+			return nil, err
+		}
+		db.OpsLog.LogEvent(self, db.ACT_OFFLINE, "", userCred)
+	}
+	return nil, nil
 }
 
 func (self *SStorage) GetHostCount() int {
@@ -156,6 +366,14 @@ func (manager *SStorageManager) AllowListItems(ctx context.Context, userCred mcc
 	return true
 }
 
+func (self *SStorage) GetStorageCachePath(mountPoint, imageCachePath string) string {
+	if self.StorageType == STORAGE_NFS {
+		return path.Join(mountPoint, imageCachePath)
+	} else {
+		return imageCachePath
+	}
+}
+
 func (self *SStorage) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	used := self.GetUsedCapacity(tristate.True)
 	waste := self.GetUsedCapacity(tristate.False)
@@ -176,7 +394,7 @@ func (self *SStorage) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSOND
 }
 
 func (self *SStorage) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SEnabledStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	return self.getMoreDetails(extra)
 }
 
@@ -761,7 +979,7 @@ func (manager *SStorageManager) InitializeData() error {
 }
 
 func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -777,11 +995,11 @@ func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	}
 
 	if jsonutils.QueryBoolean(query, "share", false) {
-		q = q.Filter(sqlchemy.NotIn(q.Field("storage_type"), sysutils.LOCAL_STORAGE_TYPES))
+		q = q.Filter(sqlchemy.NotIn(q.Field("storage_type"), STORAGE_LOCAL_TYPES))
 	}
 
 	if jsonutils.QueryBoolean(query, "local", false) {
-		q = q.Filter(sqlchemy.In(q.Field("storage_type"), sysutils.LOCAL_STORAGE_TYPES))
+		q = q.Filter(sqlchemy.In(q.Field("storage_type"), STORAGE_LOCAL_TYPES))
 	}
 
 	if jsonutils.QueryBoolean(query, "usable", false) {
