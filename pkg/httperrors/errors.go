@@ -1,8 +1,8 @@
 package httperrors
 
 import (
+	"bytes"
 	"fmt"
-
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -11,13 +11,55 @@ func NewJsonClientError(code int, title string, msg string, error httputils.Erro
 	return &err
 }
 
+func msgToTemplate(msg string) string {
+	// 将%s %d之类格式化字符串转换成{0}、{1}格式
+	// 注意： 1.不支持复杂类型的转换例如%.2f , %[1]d, % x
+	//       2.原始msg中如果包含{0},{1}形式的字符串同样会引发错误。
+	// 在抛出error msg时应注意避免
+	fmtstr := false
+	lst := []rune(msg)
+	lastIndex := len(lst) - 1
+	temp := bytes.Buffer{}
+	index := 0
+	for i, c := range lst {
+		switch c {
+		case '%':
+			if fmtstr || i == lastIndex {
+				temp.WriteRune(c)
+				fmtstr = false
+			} else {
+				fmtstr = true
+			}
+		case 'v', 'T', 't', 'b', 'c', 'd', 'o', 'q', 'x', 'X', 'U', 'e', 'E', 'f', 'F', 'g', 'G', 's', 'p':
+			if fmtstr {
+				temp.WriteRune('{')
+				temp.WriteString(fmt.Sprintf("%d", index))
+				temp.WriteRune('}')
+				index++
+				fmtstr = false
+			} else {
+				temp.WriteRune(c)
+			}
+
+		default:
+			if fmtstr {
+				temp.WriteRune('%')
+			}
+			temp.WriteRune(c)
+			fmtstr = false
+		}
+	}
+
+	return temp.String()
+}
+
 func errorMessage(msg string, params ...interface{}) (string, httputils.Error) {
 	fields := make([]string, len(params))
 	for i, v := range params {
 		fields[i] = fmt.Sprint(v)
 	}
 
-	error := httputils.Error{Id: msg, Fields: fields}
+	error := httputils.Error{Id: msgToTemplate(msg), Fields: fields}
 	if len(params) > 0 {
 		msg = fmt.Sprintf(msg, params...)
 	}
