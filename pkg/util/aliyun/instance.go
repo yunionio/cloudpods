@@ -8,7 +8,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/seclib"
-	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -796,32 +795,6 @@ func (self *SRegion) AttachDisk(instanceId string, diskId string) error {
 	return nil
 }
 
-func (self *SInstance) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) error {
-	if vpc, err := self.getVpc(); err != nil {
-		return err
-	} else if len(secgroupId) == 0 {
-		for index, secgrpId := range self.SecurityGroupIds.SecurityGroupId {
-			if err := vpc.revokeSecurityGroup(secgrpId, self.InstanceId, index == 0); err != nil {
-				return err
-			}
-		}
-	} else if secgrpId, err := vpc.SyncSecurityGroup(secgroupId, name, rules); err != nil {
-		return err
-	} else if err := vpc.assignSecurityGroup(secgrpId, self.InstanceId); err != nil {
-		return err
-	} else {
-		for _, secgroupId := range self.SecurityGroupIds.SecurityGroupId {
-			if secgroupId != secgrpId {
-				if err := vpc.revokeSecurityGroup(secgroupId, self.InstanceId, false); err != nil {
-					return err
-				}
-			}
-		}
-		self.SecurityGroupIds.SecurityGroupId = []string{secgrpId}
-	}
-	return nil
-}
-
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	if len(self.PublicIpAddress.IpAddress) > 0 {
 		eip := SEipAddress{}
@@ -840,6 +813,10 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	} else {
 		return nil, nil
 	}
+}
+
+func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
+	return self.host.zone.region.AssignSecurityGroup(secgroupId, self.InstanceId)
 }
 
 func (self *SInstance) GetBillingType() string {
