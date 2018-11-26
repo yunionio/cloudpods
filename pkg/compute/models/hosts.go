@@ -1754,7 +1754,9 @@ func (self *SHost) getGuestsResource(status string) *SHostGuestResourceUsage {
 	q := guests.Query(sqlchemy.COUNT("guest_count"),
 		sqlchemy.SUM("guest_vcpu_count", guests.Field("vcpu_count")),
 		sqlchemy.SUM("guest_vmem_size", guests.Field("vmem_size")))
-	q = q.Equals("host_id", self.Id)
+	cond := sqlchemy.OR(sqlchemy.Equals(q.Field("host_id"), self.Id),
+		sqlchemy.Equals(q.Field("backup_host_id"), self.Id))
+	q = q.Filter(cond)
 	if len(status) > 0 {
 		q = q.Equals("status", status)
 	}

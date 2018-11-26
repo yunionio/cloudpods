@@ -143,6 +143,11 @@ func (self *SVirtualizedGuestDriver) StartGuestRestartTask(guest *models.SGuest,
 	return nil
 }
 
+func (self *SVirtualizedGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, disk *models.SDisk, task taskman.ITask, isPurge bool) error {
+	return disk.StartDiskDeleteTask(ctx, task.GetUserCred(), task.GetTaskId(), isPurge,
+		jsonutils.QueryBoolean(task.GetParams(), "override_pending_delete", false))
+}
+
 func (self *SVirtualizedGuestDriver) OnGuestDeployTaskComplete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	if jsonutils.QueryBoolean(task.GetParams(), "restart", false) {
 		task.SetStage("OnDeployStartGuestComplete", nil)
@@ -161,8 +166,11 @@ func (self *SVirtualizedGuestDriver) StartGuestSyncstatusTask(guest *models.SGue
 	return nil
 }
 
-func (self *SVirtualizedGuestDriver) RequestStopGuestForDelete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	host := guest.GetHost()
+func (self *SVirtualizedGuestDriver) RequestStopGuestForDelete(ctx context.Context, guest *models.SGuest,
+	host *models.SHost, task taskman.ITask) error {
+	if host == nil {
+		host = guest.GetHost()
+	}
 	if host != nil && host.Enabled && host.HostStatus == models.HOST_ONLINE {
 		return guest.StartGuestStopTask(ctx, task.GetUserCred(), true, task.GetTaskId())
 	}

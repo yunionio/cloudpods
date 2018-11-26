@@ -87,7 +87,7 @@ func (self *SContainerDriver) OnGuestDeployTaskDataReceived(ctx context.Context,
 	return nil
 }
 
-func (self *SContainerDriver) RequestStopGuestForDelete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+func (self *SContainerDriver) RequestStopGuestForDelete(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	// do nothing, call next stage
 	task.ScheduleRun(nil)
 	return nil

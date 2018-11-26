@@ -137,7 +137,9 @@ func (s *BaseScheduler) BeforePredicate() error {
 }
 
 func (s *BaseScheduler) DirtySelectedCandidates(scs []*core.SelectedCandidate) {
-	s.CandidateManager().SetCandidatesDirty(scs)
+	for _, sc := range scs {
+		s.CandidateManager().SetCandidateDirty(sc)
+	}
 }
 
 // GuestScheduler for guest type schedule

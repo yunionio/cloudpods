@@ -65,6 +65,8 @@ type ComputeOptions struct {
 	ConvertEsxiDefaultTemplate       string `default:"Default template" help:"ESXI baremetal convert option"`
 	ConvertKubeletDockerVolumeSize   string `default:"256g" help:"Docker volume size"`
 
+	NfsDefaultImageCacheDir string `default:"image_cache"`
+
 	cloudcommon.DBOptions
 }
 

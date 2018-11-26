@@ -101,6 +101,12 @@ type SchedData struct {
 
 	// baremental
 	BaremetalDiskConfigs []*baremetal.BaremetalDiskConfig `json:"baremetal_disk_config"`
+
+	// vm backup schedule
+	// Schedule server with backup server
+	Backup bool `json:"backup"`
+	// Backup server should be scheduled
+	BackupHostID string `json:"backup_host_id"`
 }
 
 func NewSchedData(sjson *simplejson.Json, count int64, byTest bool) (*SchedData, error) {
@@ -147,6 +153,18 @@ func NewSchedData(sjson *simplejson.Json, count int64, byTest bool) (*SchedData,
 	} else if baremetalID, ok := sjson.CheckGet("prefer_baremetal"); ok {
 		if str, err := baremetalID.String(); err == nil {
 			candidates = append(candidates, str)
+		}
+	}
+
+	if backupObj, ok := sjson.CheckGet("backup"); ok {
+		if backup, err := backupObj.Bool(); err == nil && backup {
+			data.Backup = true
+		}
+	}
+
+	if backupHostID, ok := sjson.CheckGet("prefer_backup_host_id"); ok {
+		if backHost, err := backupHostID.String(); err == nil {
+			data.BackupHostID = backHost
 		}
 	}
 
@@ -245,7 +263,9 @@ func (s *SchedData) reviseSchedType(sjson *simplejson.Json) error {
 }
 
 func (d *SchedData) SkipDirtyMarkHost() bool {
-	return d.IsPublicCloudProvider() || d.IsContainer || d.Hypervisor == SchedTypeContainer
+	skipByHypervisor := d.IsPublicCloudProvider() || d.IsContainer || d.Hypervisor == SchedTypeContainer
+	skipByBackup := d.Backup
+	return skipByHypervisor || skipByBackup
 }
 
 func (d *SchedData) IsPublicCloudProvider() bool {
@@ -369,8 +389,19 @@ func (d *SchedData) fillNetworksInfo(sjson *simplejson.Json) error {
 			break
 		}
 		net, err := newNetworkFromDesc(s.MustString())
-		if err != nil {
-			return err
+		if err != nil || net.Idx == "" {
+			net = new(Network)
+			net.Idx = s.Get("network").MustString()
+			if net.Idx == "" {
+				return fmt.Errorf("Invalid network desc: %s", s.MustString())
+			}
+			net.Wire = s.Get("wire").MustString()
+			net.Driver = s.Get("driver").MustString()
+			net.Exit = s.Get("exit").MustBool()
+			net.BwLimit = s.Get("bw_limit").MustInt64()
+			net.Private = s.Get("private").MustBool()
+			net.Reserved = s.Get("reserved").MustBool()
+			net.Vip = s.Get("vip").MustBool()
 		}
 		networks = append(networks, net)
 	}
@@ -807,13 +838,8 @@ type SchedResult struct {
 	Items []SchedResultItem `json:"scheduler"`
 }
 
-type candidateResult struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}
-
 type SchedSuccItem struct {
-	Candidate SchedNormalResultItem `json:"candidate"`
+	Candidate interface{} `json:"candidate"`
 }
 
 type SchedErrItem struct {
@@ -824,6 +850,11 @@ type SchedNormalResultItem struct {
 	ID   string                 `json:"id"`
 	Name string                 `json:"name"`
 	Data map[string]interface{} `json:"data"`
+}
+
+type SchedBackupResultItem struct {
+	MasterID string `json:"master_id"`
+	SlaveID  string `json:"slave_id"`
 }
 
 type SchedTestResult struct {

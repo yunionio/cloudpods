@@ -294,7 +294,37 @@ func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandal
 	self.SetStageComplete(ctx, nil)
 }
 
+type GuestCreateBackupDisksTask struct {
+	SGuestBaseTask
+}
+
+func (self *GuestCreateBackupDisksTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	self.CreateBackups(ctx, guest, nil)
+}
+
+func (self *GuestCreateBackupDisksTask) CreateBackups(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	body := jsonutils.NewDict()
+	var diskIndex int64 = 0
+	if self.Params.Contains("disk_index") {
+		diskIndex, _ = self.Params.Int("disk_index")
+	}
+	body.Set("disk_index", jsonutils.NewInt(diskIndex+1))
+	self.SetStage("CreateBackups", body)
+
+	guestDisks := guest.GetDisks()
+	if int(diskIndex) == len(guestDisks) {
+		self.SetStageComplete(ctx, nil)
+	} else {
+		err := guestDisks[diskIndex].GetDisk().StratCreateBackupTask(ctx, self.UserCred, self.GetTaskId())
+		if err != nil {
+			self.SetStageFailed(ctx, err.Error())
+		}
+	}
+}
+
 func init() {
+	taskman.RegisterTask(GuestCreateBackupDisksTask{})
 	taskman.RegisterTask(GuestCreateDiskTask{})
 	taskman.RegisterTask(KVMGuestCreateDiskTask{})
 	taskman.RegisterTask(ManagedGuestCreateDiskTask{})

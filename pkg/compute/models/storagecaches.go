@@ -290,6 +290,23 @@ func (manager *SStoragecacheManager) ListItemFilter(ctx context.Context, q *sqlc
 	return q, nil
 }
 
+func (manager *SStoragecacheManager) FetchStoragecacheById(storageCacheId string) *SStoragecache {
+	iStorageCache, _ := manager.FetchById(storageCacheId)
+	if iStorageCache == nil {
+		return nil
+	}
+	return iStorageCache.(*SStoragecache)
+}
+
+func (manager *SStoragecacheManager) GetCachePathById(storageCacheId string) string {
+	iStorageCache, _ := manager.FetchById(storageCacheId)
+	if iStorageCache == nil {
+		return ""
+	}
+	sc := iStorageCache.(*SStoragecache)
+	return sc.Path
+}
+
 func (self *SStoragecache) ValidateDeleteCondition(ctx context.Context) error {
 	if self.getCachedImageCount() > 0 {
 		return httperrors.NewNotEmptyError("storage cache not empty")
