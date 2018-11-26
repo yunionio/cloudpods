@@ -226,6 +226,24 @@ type ICloudSecurityGroup interface {
 	GetVpcId() string
 }
 
+type ICloudRouteTable interface {
+	ICloudResource
+	GetManagerId() string
+
+	GetDescription() string
+	GetRegionId() string
+	GetVpcId() string
+	GetType() string
+	GetIRoutes() ([]ICloudRoute, error)
+}
+
+type ICloudRoute interface {
+	GetType() string
+	GetCidr() string
+	GetNextHopType() string
+	GetNextHop() string
+}
+
 type ICloudDisk interface {
 	ICloudResource
 	IBillingResource
@@ -271,6 +289,7 @@ type ICloudVpc interface {
 	// GetStatus() string
 	GetIWires() ([]ICloudWire, error)
 	GetISecurityGroups() ([]ICloudSecurityGroup, error)
+	GetIRouteTables() ([]ICloudRouteTable, error)
 
 	GetManagerId() string
 

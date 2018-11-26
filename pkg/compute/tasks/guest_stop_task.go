@@ -39,7 +39,7 @@ func (self *GuestStopTask) stopGuest(ctx context.Context, guest *models.SGuest) 
 	if !self.isSubtask() {
 		guest.SetStatus(self.UserCred, models.VM_STOPPING, "")
 	}
-	self.SetStage("on_guest_stop_task_complete", nil)
+	self.SetStage("OnMasterStopTaskComplete", nil)
 	err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self)
 	if err != nil {
 		log.Errorf("RequestStopOnHost fail %s", err)
@@ -47,8 +47,21 @@ func (self *GuestStopTask) stopGuest(ctx context.Context, guest *models.SGuest) 
 	}
 }
 
-func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	guest := obj.(*models.SGuest)
+func (self *GuestStopTask) OnMasterStopTaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	if len(guest.BackupHostId) > 0 {
+		host := models.HostManager.FetchHostById(guest.BackupHostId)
+		self.SetStage("OnGuestStopTaskComplete", nil)
+		err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self)
+		if err != nil {
+			log.Errorf("RequestStopOnHost fail %s", err)
+			self.OnStopGuestFail(ctx, guest, err)
+		}
+	} else {
+		self.OnGuestStopTaskComplete(ctx, guest, data)
+	}
+}
+
+func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	if !self.isSubtask() {
 		guest.SetStatus(self.UserCred, models.VM_READY, "")
 	}

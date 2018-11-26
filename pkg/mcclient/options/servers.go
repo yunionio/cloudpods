@@ -18,7 +18,7 @@ type ServerListOptions struct {
 	Gpu           *bool  `help:"Show gpu servers"`
 	Secgroup      string `help:"Secgroup ID or Name"`
 	AdminSecgroup string `help:"AdminSecgroup ID or Name"`
-	Hypervisor    string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun|azure"`
+	Hypervisor    string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun|azure|aws"`
 	Manager       string `help:"Show servers imported from manager"`
 	Region        string `help:"Show servers in cloudregion"`
 	WithEip       *bool  `help:"Show Servers with EIP"`
@@ -108,6 +108,8 @@ type ServerCreateOptions struct {
 	AllowDelete      *bool    `help:"Unlock server to allow deleting" json:"-"`
 	ShutdownBehavior string   `help:"Behavior after VM server shutdown, stop or terminate server" metavar:"<SHUTDOWN_BEHAVIOR>" choices:"stop|terminate"`
 	AutoStart        *bool    `help:"Auto start server after it is created"`
+	Backup           *bool    `help:"Create server with backup server" json:"backup"`
+	BackupHost       string   `help:"Perfered host where virtual backup server should be created" json:"prefer_backup_host"`
 	Deploy           []string `help:"Specify deploy files in virtual server file system" json:"-"`
 	Group            []string `help:"Group of virtual server"`
 	Project          string   `help:"'Owner project ID or Name" json:"tenant"`

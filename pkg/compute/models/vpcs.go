@@ -29,6 +29,8 @@ const (
 	VPC_STATUS_UNKNOWN       = "unknown"
 
 	MAX_VPC_PER_REGION = 3
+
+	DEFAULT_VPC_ID = "default"
 )
 
 type SVpcManager struct {
@@ -67,7 +69,7 @@ func (manager *SVpcManager) GetContextManager() []db.IModelManager {
 
 func (self *SVpc) GetCloudRegionId() string {
 	if len(self.CloudregionId) == 0 {
-		return "default"
+		return DEFAULT_REGION_ID
 	} else {
 		return self.CloudregionId
 	}
@@ -85,7 +87,7 @@ func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
 	if self.GetNetworkCount() > 0 {
 		return httperrors.NewNotEmptyError("VPC not empty")
 	}
-	if self.Id == "default" {
+	if self.Id == DEFAULT_VPC_ID {
 		return httperrors.NewProtectedResourceError("not allow to delete default vpc")
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -93,7 +95,7 @@ func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
 
 func (self *SVpc) getWireQuery() *sqlchemy.SQuery {
 	wires := WireManager.Query()
-	if self.Id == "default" {
+	if self.Id == DEFAULT_VPC_ID {
 		return wires.Filter(sqlchemy.OR(sqlchemy.IsNull(wires.Field("vpc_id")),
 			sqlchemy.IsEmpty(wires.Field("vpc_id")),
 			sqlchemy.Equals(wires.Field("vpc_id"), self.Id)))
@@ -308,15 +310,15 @@ func (self *SVpc) markAllNetworksUnknown(userCred mcclient.TokenCredential) erro
 }
 
 func (manager *SVpcManager) InitializeData() error {
-	vpcObj, err := manager.FetchById("default")
+	vpcObj, err := manager.FetchById(DEFAULT_VPC_ID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			defVpc := SVpc{}
 			defVpc.SetModelManager(VpcManager)
 
-			defVpc.Id = "default"
+			defVpc.Id = DEFAULT_VPC_ID
 			defVpc.Name = "Default"
-			defVpc.CloudregionId = "default"
+			defVpc.CloudregionId = DEFAULT_REGION_ID
 			defVpc.Description = "Default VPC"
 			defVpc.Status = VPC_STATUS_AVAILABLE
 			defVpc.IsDefault = true

@@ -1,12 +1,11 @@
 package aws
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"io/ioutil"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"strings"
 	"time"
 	"yunion.io/x/jsonutils"
@@ -148,17 +147,20 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		return "", err
 	}
 
-	s3Client, err := self.region.getS3Client()
-	if err != nil {
-		return "", nil
+	// uploader to aws s3
+	input := &s3manager.UploadInput{
+		Bucket: &bucketName,
+		Key:    &imageId,
+		Body:   reader,
 	}
-	// 内存？
-	f, err := ioutil.ReadAll(reader)
-	params := &s3.PutObjectInput{}
-	params.SetBucket(bucketName)
-	params.SetKey(imageId)
-	params.SetBody(bytes.NewReader(f))
-	_, err = s3Client.PutObject(params)
+
+	awsSession, err := self.region.getAwsSession()
+	if err != nil {
+		log.Debugf("uploadImage %s", err.Error())
+		return "", fmt.Errorf("get aws session failed")
+	}
+	uploader := s3manager.NewUploader(awsSession)
+	_, err = uploader.Upload(input)
 	if err != nil {
 		return "", nil
 	}
@@ -183,6 +185,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 
 		imageName = fmt.Sprintf("%s-%d", imageBaseName, nameIdx)
 		nameIdx += 1
+		log.Debugf("uploadImage Match remote name %s", imageName)
 	}
 
 	task, err := self.region.ImportImage(imageName, osArch, osType, osDist, diskFormat, bucketName, imageId)
@@ -194,6 +197,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 
 	// todo:// 等待镜像导入完成
 	for i := 1; i < 120; i++ {
+		time.Sleep(2 * time.Minute)
 		ret, err := self.region.ec2Client.DescribeImportImageTasks(&ec2.DescribeImportImageTasksInput{ImportTaskIds: []*string{&task.TaskId}})
 		if err != nil {
 			return "", err
@@ -210,7 +214,6 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 				return *item.ImageId, nil
 			}
 		}
-		time.Sleep(1 * time.Minute)
 	}
 
 	return task.ImageId, fmt.Errorf("uploadImage uncompleted: %s", task)

@@ -72,9 +72,12 @@ func InitHandlers(app *appsrv.Application) {
 		models.LoadbalancerCertificateManager,
 		models.LoadbalancerAclManager,
 		models.LoadbalancerAgentManager,
+		models.RouteTableManager,
 
 		models.SchedpolicyManager,
 		models.DynamicschedtagManager,
+
+		models.ServerSkuManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

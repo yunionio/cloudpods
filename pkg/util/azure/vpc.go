@@ -139,6 +139,11 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 	return self.secgroups, nil
 }
 
+func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
+	rts := []cloudprovider.ICloudRouteTable{}
+	return rts, nil
+}
+
 func (self *SVpc) fetchWires() error {
 	networks := make([]cloudprovider.ICloudNetwork, len(*self.Properties.Subnets))
 	if len(self.region.izones) == 0 {

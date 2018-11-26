@@ -29,7 +29,7 @@ type SSecurityGroup struct {
 	VpcId             string
 	SecurityGroupId   string
 	Description       string
-	SecurityGroupName string
+	SecurityGroupName string //对应tag中的name标签
 	Permissions       []secrules.SecurityRule
 	Tags              Tags
 
@@ -123,22 +123,22 @@ func (self *SRegion) addSecurityGroupRule(secGrpId string, rule *secrules.Securi
 		params := &ec2.AuthorizeSecurityGroupIngressInput{}
 		params.SetGroupId(secGrpId)
 		params.SetIpPermissions(ipPermissions)
-		_, err := self.ec2Client.AuthorizeSecurityGroupIngress(params)
-		if err != nil {
-			return err
-		}
+		_, err = self.ec2Client.AuthorizeSecurityGroupIngress(params)
 	}
 
 	if rule.Direction == secrules.SecurityRuleEgress {
 		params := &ec2.AuthorizeSecurityGroupEgressInput{}
 		params.SetGroupId(secGrpId)
 		params.SetIpPermissions(ipPermissions)
-		_, err := self.ec2Client.AuthorizeSecurityGroupEgress(params)
-		if err != nil {
-			return err
-		}
+		_, err = self.ec2Client.AuthorizeSecurityGroupEgress(params)
 	}
-	return nil
+
+	if err != nil && strings.Contains(err.Error(), "InvalidPermission.Duplicate") {
+		log.Debugf("addSecurityGroupRule %s %s", rule.Direction, err.Error())
+		return nil
+	}
+
+	return err
 }
 
 func (self *SRegion) delSecurityGroupRule(secGrpId string, rule *secrules.SecurityRule) error {
@@ -151,20 +151,19 @@ func (self *SRegion) delSecurityGroupRule(secGrpId string, rule *secrules.Securi
 		params := &ec2.RevokeSecurityGroupIngressInput{}
 		params.SetGroupId(secGrpId)
 		params.SetIpPermissions(ipPermissions)
-		_, err := self.ec2Client.RevokeSecurityGroupIngress(params)
-		if err != nil {
-			return err
-		}
+		_, err = self.ec2Client.RevokeSecurityGroupIngress(params)
 	}
 
 	if rule.Direction == secrules.SecurityRuleEgress {
 		params := &ec2.RevokeSecurityGroupEgressInput{}
 		params.SetGroupId(secGrpId)
 		params.SetIpPermissions(ipPermissions)
-		_, err := self.ec2Client.RevokeSecurityGroupEgress(params)
-		if err != nil {
-			return err
-		}
+		_, err = self.ec2Client.RevokeSecurityGroupEgress(params)
+	}
+
+	if err != nil {
+		log.Debugf("delSecurityGroupRule %s %s", rule.Direction, err.Error())
+		return err
 	}
 	return nil
 }
@@ -217,6 +216,10 @@ func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name str
 	}
 
 	if len(secgroupId) == 0 {
+		// 名称为default的安全组与aws默认安全组名冲突
+		if strings.ToLower(name) == "default" {
+			name = fmt.Sprintf("%s-%s", vpcId, name)
+		}
 		var err error
 		secgroupId, err = self.createSecurityGroup(vpcId, name, desc)
 		if err != nil {
@@ -244,8 +247,8 @@ func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name str
 func (self *SRegion) createSecurityGroup(vpcId string, name string, desc string) (string, error) {
 	params := &ec2.CreateSecurityGroupInput{}
 	params.SetVpcId(vpcId)
+	// 这里的描述aws 上层代码拼接的描述。并非用户提交的描述，用户描述放置在Yunion本地数据库中。）
 	params.SetDescription(desc)
-	params.SetGroupName(name)
 
 	group, err := self.ec2Client.CreateSecurityGroup(params)
 	if err != nil {
@@ -253,6 +256,8 @@ func (self *SRegion) createSecurityGroup(vpcId string, name string, desc string)
 	}
 
 	tagspec := TagSpec{ResourceType: "security-group"}
+	tagspec.SetNameTag(name)
+	tagspec.SetDescTag(desc)
 	tags, _ := tagspec.GetTagSpecifications()
 	tagParams := &ec2.CreateTagsInput{}
 	tagParams.SetResources([]*string{group.GroupId})
@@ -353,12 +358,18 @@ func (self *SRegion) modifySecurityGroup(secGrpId string, name string, desc stri
 }
 
 func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.SecurityRule) error {
+	var DeleteRules []secrules.SecurityRule
+	var AddRules []secrules.SecurityRule
+
 	if secgroup, err := self.GetSecurityGroupDetails(secgroupId); err != nil {
 		return err
 	} else {
 
 		sort.Sort(secrules.SecurityRuleSet(rules))
 		sort.Sort(secrules.SecurityRuleSet(secgroup.Permissions))
+
+		log.Debugf("local security rules %s", rules)
+		log.Debugf("remote security rules %s", secgroup.Permissions)
 
 		i, j := 0, 0
 		for i < len(rules) || j < len(secgroup.Permissions) {
@@ -367,42 +378,41 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Secur
 				ruleStr := rules[i].String()
 				cmp := strings.Compare(permissionStr, ruleStr)
 				if cmp == 0 {
-					if secgroup.Permissions[j].Description != rules[i].Description {
-						if err := self.updateSecurityGroupRuleDescription(secgroupId, &rules[i]); err != nil {
-							log.Errorf("updateSecurityGroupRuleDescription error %v", rules[i])
-							return err
-						}
-					}
+					DeleteRules = append(DeleteRules, secgroup.Permissions[j])
+					AddRules = append(AddRules, rules[i])
 					i += 1
 					j += 1
 				} else if cmp > 0 {
-					if err := self.delSecurityGroupRule(secgroupId, &secgroup.Permissions[j]); err != nil {
-						log.Errorf("delSecurityGroupRule error %v", secgroup.Permissions[j])
-						return err
-					}
+					DeleteRules = append(DeleteRules, secgroup.Permissions[j])
 					j += 1
 				} else {
-					if err := self.addSecurityGroupRules(secgroupId, &rules[i]); err != nil {
-						log.Errorf("addSecurityGroupRule error %v", rules[i])
-						return err
-					}
+					AddRules = append(AddRules, rules[i])
 					i += 1
 				}
 			} else if i >= len(rules) {
-				if err := self.delSecurityGroupRule(secgroupId, &secgroup.Permissions[j]); err != nil {
-					log.Errorf("delSecurityGroupRule error %v", secgroup.Permissions[j])
-					return err
-				}
+				DeleteRules = append(DeleteRules, secgroup.Permissions[j])
 				j += 1
 			} else if j >= len(secgroup.Permissions) {
-				if err := self.addSecurityGroupRules(secgroupId, &rules[i]); err != nil {
-					log.Errorf("addSecurityGroupRule error %v", rules[i])
-					return err
-				}
+				AddRules = append(AddRules, rules[i])
 				i += 1
 			}
 		}
 	}
+
+	for _, r := range DeleteRules {
+		if err := self.delSecurityGroupRule(secgroupId, &r); err != nil {
+			log.Errorf("delSecurityGroupRule %v error: %s", r, err.Error())
+			return err
+		}
+	}
+
+	for _, r := range AddRules {
+		if err := self.addSecurityGroupRules(secgroupId, &r); err != nil {
+			log.Errorf("addSecurityGroupRule %v error: %s", r, err.Error())
+			return err
+		}
+	}
+
 	return nil
 }
 

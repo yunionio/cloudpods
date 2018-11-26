@@ -135,6 +135,11 @@ func (self *SClassicVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGro
 	return self.secgroups, nil
 }
 
+func (self *SClassicVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
+	rts := []cloudprovider.ICloudRouteTable{}
+	return rts, nil
+}
+
 func (self *SClassicVpc) fetchWires() error {
 	networks := make([]cloudprovider.ICloudNetwork, len(self.Properties.Subnets))
 	wire := SClassicWire{zone: self.region.izones[0].(*SZone), vpc: self}

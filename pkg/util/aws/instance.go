@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/coredns/coredns/plugin/pkg/log"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/pkg/util/osprofile"
@@ -351,12 +351,18 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 }
 
 func (self *SInstance) AttachDisk(diskId string) error {
-	// todo：bugfix . self.DeviceNames => self.GetDeviceNames()
 	name, err := NextDeviceName(self.DeviceNames)
 	if err != nil {
 		return err
 	}
-	return self.host.zone.region.AttachDisk(self.InstanceId, diskId, name)
+
+	err = self.host.zone.region.AttachDisk(self.InstanceId, diskId, name)
+	if err != nil {
+		return err
+	}
+
+	self.DeviceNames = append(self.DeviceNames, name)
+	return nil
 }
 
 func (self *SInstance) DetachDisk(diskId string) error {
@@ -388,11 +394,9 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 		log.Errorf("GetInstances fail %s", err)
 		return nil, 0, err
 	}
-
 	instances := []SInstance{}
 	for _, reservation := range res.Reservations {
 		for _, instance := range reservation.Instances {
-			log.Debugf("GetInstances %s", instance.String())
 			if err := FillZero(instance); err != nil {
 				return nil, 0, err
 			}
@@ -441,8 +445,16 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				productCodes = append(productCodes, *p.ProductCodeId)
 			}
 
+			szone, err := self.getZoneById(*instance.Placement.AvailabilityZone)
+			if err != nil {
+				return nil, 0, err
+			}
+
+			host := szone.getHost()
+
 			sinstance := SInstance{
 				RegionId:          self.RegionId,
+				host:              host,
 				ZoneId:            *instance.Placement.AvailabilityZone,
 				InstanceId:        *instance.InstanceId,
 				ImageId:           *instance.ImageId,

@@ -18,7 +18,7 @@ import (
 
 type SRegion struct {
 	client    *SAliyunClient
-	ecsClient *sdk.Client
+	sdkClient *sdk.Client
 	ossClient *oss.Client
 
 	RegionId  string
@@ -45,15 +45,15 @@ func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
-func (self *SRegion) getEcsClient() (*sdk.Client, error) {
-	if self.ecsClient == nil {
+func (self *SRegion) getSdkClient() (*sdk.Client, error) {
+	if self.sdkClient == nil {
 		cli, err := sdk.NewClientWithAccessKey(self.RegionId, self.client.accessKey, self.client.secret)
 		if err != nil {
 			return nil, err
 		}
-		self.ecsClient = cli
+		self.sdkClient = cli
 	}
-	return self.ecsClient, nil
+	return self.sdkClient, nil
 }
 
 // oss endpoint
@@ -80,11 +80,11 @@ func (self *SRegion) GetOssClient() (*oss.Client, error) {
 }
 
 func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := self.getEcsClient()
+	client, err := self.getSdkClient()
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, apiName, params)
+	return _jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params)
 }
 
 /////////////////////////////////////////////////////////////////////////////

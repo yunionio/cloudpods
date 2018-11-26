@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -85,7 +86,7 @@ func NewGenericScheduler(s Scheduler) (*GenericScheduler, error) {
 	return g, nil
 }
 
-func (g *GenericScheduler) Schedule(unit *Unit, candidates []Candidater) ([]*SchedResultItem, error) {
+func (g *GenericScheduler) Schedule(unit *Unit, candidates []Candidater) (*SchedResultItemList, error) {
 	startTime := time.Now()
 	defer func() {
 		log.V(4).Infof("Schedule cost time: %v", time.Since(startTime))
@@ -157,7 +158,7 @@ func (g *GenericScheduler) Schedule(unit *Unit, candidates []Candidater) ([]*Sch
 		g.DirtySelectedCandidates(selectedCandidates)
 	}
 
-	return resultItems, nil
+	return &SchedResultItemList{Unit: unit, Data: resultItems}, nil
 }
 
 func newSchedResultByCtx(u *Unit, count int64, c Candidater) *SchedResultItem {
@@ -270,26 +271,38 @@ func (its SchedResultItemList) Len() int {
 	return len(its.Data)
 }
 
+func (its *SchedResultItemList) Swap(i, j int) {
+	its.Data[i], its.Data[j] = its.Data[j], its.Data[i]
+}
+
 func (its SchedResultItemList) Less(i, j int) bool {
 	it1, it2 := its.Data[i], its.Data[j]
-	ctx := its.Unit
+	return it1.Capacity < it2.Capacity
+	/*
+		ctx := its.Unit
 
-	m := func(c int64) int64 {
-		if c > 0 {
-			return 1
+		m := func(c int64) int64 {
+			if c > 0 {
+				return 1
+			}
+			return 0
 		}
-		return 0
-	}
 
-	v := func(count, capacity, score int64) int64 {
-		return (m(count) << 42) | (m(capacity) << 21) | score
-	}
+		v := func(count, capacity, score int64) int64 {
+			return (m(count) << 42) | (m(capacity) << 21) | score
+		}
 
-	count1, count2 := it1.Count, it2.Count
-	capacity1, capacity2 := ctx.GetCapacity(it1.ID), ctx.GetCapacity(it2.ID)
-	score1, score2 := int64(ctx.GetScore(it1.ID)), int64(ctx.GetScore(it2.ID))
+		count1, count2 := it1.Count, it2.Count
+		capacity1, capacity2 := ctx.GetCapacity(it1.ID), ctx.GetCapacity(it2.ID)
+		score1, score2 := int64(ctx.GetScore(it1.ID)), int64(ctx.GetScore(it2.ID))
 
-	return v(count1, capacity1, score1) < v(count2, capacity2, score2)
+		return v(count1, capacity1, score1) < v(count2, capacity2, score2)
+	*/
+}
+
+func (its SchedResultItemList) String() string {
+	bytes, _ := json.Marshal(its.Data)
+	return string(bytes)
 }
 
 type SelectedCandidate struct {
@@ -299,6 +312,10 @@ type SelectedCandidate struct {
 
 func (s SelectedCandidate) Index() (string, error) {
 	return s.Candidate.IndexKey(), nil
+}
+
+func (s SelectedCandidate) GetCount() uint64 {
+	return uint64(s.Count)
 }
 
 // SelectHosts takes a prioritized list of candidates and then picks

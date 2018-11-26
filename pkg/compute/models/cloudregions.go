@@ -19,6 +19,8 @@ import (
 const (
 	CLOUD_REGION_STATUS_INSERVER     = "inservice"
 	CLOUD_REGION_STATUS_OUTOFSERVICE = "outofservice"
+
+	DEFAULT_REGION_ID = "default"
 )
 
 type SCloudregionManager struct {
@@ -64,7 +66,7 @@ func (self *SCloudregion) ValidateDeleteCondition(ctx context.Context) error {
 	if self.GetZoneCount() > 0 || self.GetVpcCount() > 0 {
 		return httperrors.NewNotEmptyError("not empty cloud region")
 	}
-	if self.Id == "default" {
+	if self.Id == DEFAULT_REGION_ID {
 		return httperrors.NewProtectedResourceError("not allow to delete default cloud region")
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -72,7 +74,7 @@ func (self *SCloudregion) ValidateDeleteCondition(ctx context.Context) error {
 
 func (self *SCloudregion) GetZoneCount() int {
 	zones := ZoneManager.Query()
-	if self.Id == "default" {
+	if self.Id == DEFAULT_REGION_ID {
 		return zones.Filter(sqlchemy.OR(sqlchemy.IsNull(zones.Field("cloudregion_id")),
 			sqlchemy.IsEmpty(zones.Field("cloudregion_id")),
 			sqlchemy.Equals(zones.Field("cloudregion_id"), self.Id))).Count()
@@ -83,7 +85,7 @@ func (self *SCloudregion) GetZoneCount() int {
 
 func (self *SCloudregion) GetGuestCount(increment bool) int {
 	zoneTable := ZoneManager.Query("id")
-	if self.Id == "default" {
+	if self.Id == DEFAULT_REGION_ID {
 		zoneTable = zoneTable.Filter(sqlchemy.OR(sqlchemy.IsNull(zoneTable.Field("cloudregion_id")),
 			sqlchemy.IsEmpty(zoneTable.Field("cloudregion_id")),
 			sqlchemy.Equals(zoneTable.Field("cloudregion_id"), self.Id)))
@@ -102,7 +104,7 @@ func (self *SCloudregion) GetGuestCount(increment bool) int {
 
 func (self *SCloudregion) GetVpcCount() int {
 	vpcs := VpcManager.Query()
-	if self.Id == "default" {
+	if self.Id == DEFAULT_REGION_ID {
 		return vpcs.Filter(sqlchemy.OR(sqlchemy.IsNull(vpcs.Field("cloudregion_id")),
 			sqlchemy.IsEmpty(vpcs.Field("cloudregion_id")),
 			sqlchemy.Equals(vpcs.Field("cloudregion_id"), self.Id))).Count()
@@ -286,7 +288,7 @@ func (self *SCloudregion) PerformDefaultVpc(ctx context.Context, userCred mcclie
 func (manager *SCloudregionManager) FetchRegionById(id string) *SCloudregion {
 	obj, err := manager.FetchById(id)
 	if err != nil {
-		log.Errorf("%s", err)
+		log.Errorf("region %s %s", id, err)
 		return nil
 	}
 	return obj.(*SCloudregion)
@@ -294,11 +296,11 @@ func (manager *SCloudregionManager) FetchRegionById(id string) *SCloudregion {
 
 func (manager *SCloudregionManager) InitializeData() error {
 	// check if default region exists
-	_, err := manager.FetchById("default")
+	_, err := manager.FetchById(DEFAULT_REGION_ID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			defRegion := SCloudregion{}
-			defRegion.Id = "default"
+			defRegion.Id = DEFAULT_REGION_ID
 			defRegion.Name = "Default"
 			defRegion.Enabled = true
 			defRegion.Description = "Default Region"

@@ -17,7 +17,6 @@ import (
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
-	"yunion.io/x/pkg/util/sysutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -467,7 +466,7 @@ func (self *SHost) GetBaremetalstorage() *SHoststorage {
 	q := hoststorages.Query()
 	q = q.Join(storages, sqlchemy.AND(sqlchemy.Equals(storages.Field("id"), hoststorages.Field("storage_id")),
 		sqlchemy.IsFalse(storages.Field("deleted"))))
-	q = q.Filter(sqlchemy.Equals(storages.Field("storage_type"), sysutils.STORAGE_BAREMETAL))
+	q = q.Filter(sqlchemy.Equals(storages.Field("storage_type"), STORAGE_BAREMETAL))
 	q = q.Filter(sqlchemy.Equals(hoststorages.Field("host_id"), self.Id))
 	if q.Count() == 1 {
 		hs := SHoststorage{}
@@ -1703,7 +1702,9 @@ func (self *SHost) getGuestsResource(status string) *SHostGuestResourceUsage {
 	q := guests.Query(sqlchemy.COUNT("guest_count"),
 		sqlchemy.SUM("guest_vcpu_count", guests.Field("vcpu_count")),
 		sqlchemy.SUM("guest_vmem_size", guests.Field("vmem_size")))
-	q = q.Equals("host_id", self.Id)
+	cond := sqlchemy.OR(sqlchemy.Equals(q.Field("host_id"), self.Id),
+		sqlchemy.Equals(q.Field("backup_host_id"), self.Id))
+	q = q.Filter(cond)
 	if len(status) > 0 {
 		q = q.Equals("status", status)
 	}

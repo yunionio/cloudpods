@@ -119,6 +119,7 @@ type Guest struct {
 	ShutdownBehavior string `json:"shutdown_behavior,omitempty" gorm:"column:shutdown_behavior"`
 	KeypairID        string `json:"keypair_id,omitempty" gorm:"column:keypair_id"`
 	HostID           string `json:"host_id,omitempty" gorm:"column:host_id"`
+	BackupHostID     string `json:"backup_host_id,omitempty" gorm:"column:backup_host_id"`
 	VNCPort          int64  `json:"vnc_port,omitempty" gorm:"column:vnc_port"`
 	VGA              string `json:"vga" gorm:"column:vga"`
 	FlavorID         string `json:"flavor_id,omitempty" gorm:"column:flavor_id"`
