@@ -1312,11 +1312,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b132a75f45cf6214d156cd2df68106fff39ca3ba4d31d27d97924fb5b5948d0c"
+  digest = "1:cdf0f619f0b3e37a792fb7f124bf2881d8a18cc13d693454b9731a8fa4f5fedc"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "65d663564e6e37b6aec8864b384238a6091bdd75"
+  revision = "f5b4a20f593f1f49039455fe40cb1274de53ac3f"
 
 [[projects]]
   branch = "master"
@@ -1397,7 +1397,6 @@
     "github.com/Microsoft/azure-vhd-utils/vhdcore/footer",
     "github.com/Microsoft/azure-vhd-utils/vhdcore/validator",
     "github.com/aliyun/alibaba-cloud-sdk-go/sdk",
-    "github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors",
     "github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests",
     "github.com/aliyun/aliyun-oss-go-sdk/oss",
     "github.com/aokoli/goutils",
