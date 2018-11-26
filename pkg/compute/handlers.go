@@ -57,6 +57,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.KeypairManager,
 		models.IsolatedDeviceManager,
 		models.SecurityGroupManager,
+		models.SecurityGroupCacheManager,
 		models.SecurityGroupRuleManager,
 		// models.VCenterManager,
 		models.DnsRecordManager,
