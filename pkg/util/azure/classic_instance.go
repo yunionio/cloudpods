@@ -11,8 +11,20 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/pkg/util/osprofile"
-	"yunion.io/x/pkg/util/secrules"
 )
+
+type FormattedMessage struct {
+	Language string
+	Message  string
+}
+
+type GuestAgentStatus struct {
+	ProtocolVersion   string           `json:"protocolVersion,omitempty"`
+	Timestamp         time.Time        `json:"timestamp,omitempty"`
+	GuestAgentVersion string           `json:"guestAgentVersion,omitempty"`
+	Status            string           `json:"status,omitempty"`
+	FormattedMessage  FormattedMessage `json:"formattedMessage,omitempty"`
+}
 
 type ClassicVirtualMachineInstanceView struct {
 	Status                   string   `json:"status,omitempty"`
@@ -20,9 +32,9 @@ type ClassicVirtualMachineInstanceView struct {
 	PublicIpAddresses        []string `json:"publicIpAddresses,omitempty"`
 	FullyQualifiedDomainName string   `json:"fullyQualifiedDomainName,omitempty"`
 
-	UpdateDomain        int
-	FaultDomain         int
-	StatusMessage       string
+	UpdateDomain        int              `json:"updateDomain,omitempty"`
+	FaultDomain         int              `json:"faultDomain,omitempty"`
+	StatusMessage       string           `json:"statusMessage,omitempty"`
 	PrivateIpAddress    string           `json:"privateIpAddress,omitempty"`
 	InstanceIpAddresses []string         `json:"instanceIpAddresses,omitempty"`
 	ComputerName        string           `json:"computerName,omitempty"`
@@ -30,9 +42,9 @@ type ClassicVirtualMachineInstanceView struct {
 }
 
 type SubResource struct {
-	ID   string
-	Name string
-	Type string
+	ID   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
+	Type string `json:"type,omitempty"`
 }
 
 type ClassicDisk struct {
@@ -94,6 +106,7 @@ type ClassicNetworkProfile struct {
 }
 
 type ClassicVirtualMachineProperties struct {
+	DomainName      *SubResource                       `json:"domainName,omitempty"`
 	InstanceView    *ClassicVirtualMachineInstanceView `json:"instanceView,omitempty"`
 	NetworkProfile  ClassicNetworkProfile              `json:"networkProfile,omitempty"`
 	HardwareProfile ClassicHardwareProfile             `json:"hardwareProfile,omitempty"`
@@ -304,6 +317,12 @@ func (self *SClassicInstance) DeleteVM(ctx context.Context) error {
 	if err := self.host.zone.region.DeleteVM(self.ID); err != nil {
 		return err
 	}
+	if self.Properties.NetworkProfile.NetworkSecurityGroup != nil {
+		self.host.zone.region.client.Delete(self.Properties.NetworkProfile.NetworkSecurityGroup.ID)
+	}
+	if self.Properties.DomainName != nil {
+		self.host.zone.region.client.Delete(self.Properties.DomainName.ID)
+	}
 	return nil
 }
 
@@ -414,10 +433,6 @@ func (self *SRegion) StopClassicVM(instanceId string, isForce bool) error {
 	return err
 }
 
-func (self *SClassicInstance) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) error {
-	return cloudprovider.ErrNotSupported
-}
-
 func (self *SClassicInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	if self.Properties.NetworkProfile.ReservedIps != nil && len(*self.Properties.NetworkProfile.ReservedIps) > 0 {
 		for _, reserveIp := range *self.Properties.NetworkProfile.ReservedIps {
@@ -446,6 +461,42 @@ func (self *SClassicInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 		return &eip, nil
 	}
 	return nil, nil
+}
+
+type assignSecurityGroup struct {
+	ID         string           `json:"id,omitempty"`
+	Name       string           `json:"name,omitempty"`
+	Properties assignProperties `json:"properties,omitempty"`
+	Type       string           `json:"type,omitempty"`
+}
+
+type assignProperties struct {
+	NetworkSecurityGroup SubResource `json:"networkSecurityGroup,omitempty"`
+}
+
+func (self *SClassicInstance) AssignSecurityGroup(secgroupId string) error {
+	if self.Properties.NetworkProfile.NetworkSecurityGroup != nil {
+		if self.Properties.NetworkProfile.NetworkSecurityGroup.ID == secgroupId {
+			return nil
+		}
+		self.host.zone.region.client.Delete(fmt.Sprintf("%s/associatedNetworkSecurityGroups/%s", self.ID, self.Properties.NetworkProfile.NetworkSecurityGroup.Name))
+	}
+
+	secgroup, err := self.host.zone.region.GetClassicSecurityGroupDetails(secgroupId)
+	if err != nil {
+		return err
+	}
+	data := assignSecurityGroup{
+		ID:   fmt.Sprintf("%s/associatedNetworkSecurityGroups/%s", self.ID, secgroup.Name),
+		Name: secgroup.Name,
+		Properties: assignProperties{
+			NetworkSecurityGroup: SubResource{
+				ID:   secgroup.ID,
+				Name: secgroup.Name,
+			},
+		},
+	}
+	return self.host.zone.region.client.Update(jsonutils.Marshal(data), nil)
 }
 
 func (self *SClassicInstance) GetBillingType() string {

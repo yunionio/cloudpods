@@ -3,6 +3,7 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/log"
@@ -11,6 +12,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
@@ -126,48 +128,64 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 	if err := config.Unmarshal(&desc, "desc"); err != nil {
 		return err
 	}
-	if action, err := config.GetString("action"); err != nil {
+	action, err := config.GetString("action")
+	if err != nil {
 		return err
-	} else if ihost, err := host.GetIHost(); err != nil {
+	}
+	ihost, err := host.GetIHost()
+	if err != nil {
 		return err
-	} else if action == "create" {
+	}
+	if action == "create" {
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+			if len(passwd) == 0 {
+				//Azure创建必须要设置密码
+				passwd = seclib2.RandomPassword2(12)
+			}
+
 			nets := guest.GetNetworks()
 			net := nets[0].GetNetwork()
 			vpc := net.GetVpc()
 
-			ivpc, err := vpc.GetIVpc()
+			iregion, err := host.GetIRegion()
 			if err != nil {
-				log.Errorf("getIVPC fail %s", err)
 				return nil, err
 			}
 
-			if len(passwd) == 0 {
-				passwd = seclib2.RandomPassword2(12)
+			vpcId := "normal"
+			if strings.HasSuffix(host.Name, "-classic") {
+				vpcId = "classic"
 			}
 
-			secgrpId, err := ivpc.SyncSecurityGroup(desc.SecGroupId, desc.SecGroupName, desc.SecRules)
+			secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), desc.SecGroupId, vpcId, vpc.CloudregionId, vpc.ManagerId)
+			if secgroupCache == nil {
+				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s, vpc: %s", desc.SecGroupId, vpc.Name)
+			}
+
+			secgroupExtId, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpcId, desc.SecGroupName, "", desc.SecRules)
 			if err != nil {
 				log.Errorf("SyncSecurityGroup fail %s", err)
 				return nil, err
 			}
-
-			if iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId, userData); err != nil {
-				return nil, err
-			} else {
-				log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
-				if err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800); err != nil {
-					return nil, err
-				}
-				if iVM, err = ihost.GetIVMById(iVM.GetGlobalId()); err != nil {
-					log.Errorf("cannot find vm %s", err)
-					return nil, err
-				}
-
-				data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action)
-				return data, nil
+			if err := secgroupCache.SetExternalId(secgroupExtId); err != nil {
+				return nil, fmt.Errorf("failed to set externalId for secgroup %s externalId %s: error: %v", desc.SecGroupId, secgroupExtId, err)
 			}
+
+			iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
+				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData)
+			if err != nil {
+				return nil, err
+			}
+			log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
+			if err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800); err != nil {
+				return nil, err
+			}
+			if iVM, err = ihost.GetIVMById(iVM.GetGlobalId()); err != nil {
+				log.Errorf("cannot find vm %s", err)
+				return nil, err
+			}
+
+			return fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action), nil
 		})
 	} else if action == "deploy" {
 		iVM, err := ihost.GetIVMById(guest.GetExternalId())
@@ -213,5 +231,72 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 	} else {
 		return fmt.Errorf("Action %s not supported", action)
 	}
+	return nil
+}
+
+func (self *SAzureGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		ihost, err := host.GetIHost()
+		if err != nil {
+			return nil, err
+		}
+		iVM, err := ihost.GetIVMById(guest.ExternalId)
+		if err != nil {
+			return nil, err
+		}
+
+		if fwOnly, _ := task.GetParams().Bool("fw_only"); fwOnly {
+			vpcID := "normal"
+			if strings.HasSuffix(host.Name, "-classic") {
+				vpcID = "classic"
+			}
+			iregion, err := host.GetIRegion()
+			if err != nil {
+				return nil, err
+			}
+			secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), guest.SecgrpId, vpcID, host.GetRegion().Id, host.ManagerId)
+			if secgroupCache == nil {
+				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s vpc: %s", guest.SecgrpId, vpcID)
+			}
+			extID, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpcID, guest.GetSecgroupName(), "", guest.GetSecRules())
+			if err != nil {
+				return nil, err
+			}
+			if err = secgroupCache.SetExternalId(extID); err != nil {
+				return nil, err
+			}
+			return nil, iVM.AssignSecurityGroup(extID)
+		}
+
+		iDisks, err := iVM.GetIDisks()
+		if err != nil {
+			return nil, err
+		}
+		disks := make([]models.SDisk, 0)
+		for _, guestdisk := range guest.GetDisks() {
+			disk := guestdisk.GetDisk()
+			disks = append(disks, *disk)
+		}
+
+		added := make([]models.SDisk, 0)
+		commondb := make([]models.SDisk, 0)
+		commonext := make([]cloudprovider.ICloudDisk, 0)
+		removed := make([]cloudprovider.ICloudDisk, 0)
+
+		if err := compare.CompareSets(disks, iDisks, &added, &commondb, &commonext, &removed); err != nil {
+			return nil, err
+		}
+		for _, disk := range removed {
+			if err := iVM.DetachDisk(ctx, disk.GetId()); err != nil {
+				return nil, err
+			}
+		}
+		for _, disk := range added {
+			if err := iVM.AttachDisk(ctx, disk.ExternalId); err != nil {
+				return nil, err
+			}
+		}
+		return nil, nil
+	})
 	return nil
 }

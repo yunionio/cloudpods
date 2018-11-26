@@ -147,65 +147,67 @@ func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
 
 func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool, tmpPath string) (string, error) {
 	s := auth.GetAdminSession(options.Options.Region, "")
-	if meta, reader, err := modules.Images.Download(s, imageId); err != nil {
+	meta, reader, err := modules.Images.Download(s, imageId)
+	if err != nil {
 		return "", err
-	} else {
-		// {"checksum":"d0ab0450979977c6ada8d85066a6e484","container_format":"bare","created_at":"2018-08-10T04:18:07","deleted":"False","disk_format":"vhd","id":"64189033-3ad4-413c-b074-6bf0b6be8508","is_public":"False","min_disk":"0","min_ram":"0","name":"centos-7.3.1611-20180104.vhd","owner":"5124d80475434da8b41fee48d5be94df","properties":{"os_arch":"x86_64","os_distribution":"CentOS","os_type":"Linux","os_version":"7.3.1611-VHD"},"protected":"False","size":"2028505088","status":"active","updated_at":"2018-08-10T04:20:59"}
-		log.Infof("meta data %s", meta)
-
-		imageNameOnBlob, _ := meta.GetString("name")
-		if !strings.HasSuffix(imageNameOnBlob, ".vhd") {
-			imageNameOnBlob = fmt.Sprintf("%s.vhd", imageNameOnBlob)
-		}
-		tmpFile := fmt.Sprintf("%s/%s", tmpPath, imageNameOnBlob)
-		defer os.Remove(tmpFile)
-		f, err := os.Create(tmpFile)
-		if err != nil {
-			return "", err
-		}
-		defer f.Close()
-		if _, err := io.Copy(f, reader); err != nil {
-			return "", err
-		}
-
-		storageaccount, err := self.checkStorageAccount()
-		if err != nil {
-			return "", err
-		}
-
-		blobURI, err := storageaccount.UploadFile("image-cache", tmpFile)
-		if err != nil {
-			return "", err
-		}
-
-		size, _ := meta.Int("size")
-
-		imageBaseName := imageId
-		if imageBaseName[0] >= '0' && imageBaseName[0] <= '9' {
-			imageBaseName = fmt.Sprintf("img%s", imageId)
-		}
-		imageName := imageBaseName
-		nameIdx := 1
-
-		// check image name, avoid name conflict
-		for {
-			if _, err = self.region.GetImageByName(imageName); err != nil {
-				if err == cloudprovider.ErrNotFound {
-					break
-				} else {
-					return "", err
-				}
-			}
-			imageName = fmt.Sprintf("%s-%d", imageBaseName, nameIdx)
-			nameIdx += 1
-		}
-
-		if image, err := self.region.CreateImageByBlob(imageName, osType, blobURI, int32(size>>30)); err != nil {
-			return "", err
-		} else {
-			return image.GetGlobalId(), nil
-		}
 	}
+	// {
+	// 	"checksum":"d0ab0450979977c6ada8d85066a6e484",
+	// 	"container_format":"bare",
+	// 	"created_at":"2018-08-10T04:18:07",
+	// 	"deleted":"False",
+	// 	"disk_format":"vhd",
+	// 	"id":"64189033-3ad4-413c-b074-6bf0b6be8508",
+	// 	"is_public":"False",
+	// 	"min_disk":"0",
+	// 	"min_ram":"0",
+	// 	"name":"centos-7.3.1611-20180104.vhd",
+	// 	"owner":"5124d80475434da8b41fee48d5be94df",
+	// 	"properties":{
+	// 		"os_arch":"x86_64",
+	// 		"os_distribution":"CentOS",
+	// 		"os_type":"Linux",
+	// 		"os_version":"7.3.1611-VHD"
+	// 	},
+	// 	"protected":"False",
+	// 	"size":"2028505088",
+	// 	"status":"active",
+	// 	"updated_at":"2018-08-10T04:20:59"
+	// }
+	log.Infof("meta data %s", meta)
+
+	imageNameOnBlob, _ := meta.GetString("name")
+	if !strings.HasSuffix(imageNameOnBlob, ".vhd") {
+		imageNameOnBlob = fmt.Sprintf("%s.vhd", imageNameOnBlob)
+	}
+	tmpFile := fmt.Sprintf("%s/%s", tmpPath, imageNameOnBlob)
+	defer os.Remove(tmpFile)
+	f, err := os.Create(tmpFile)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	if _, err := io.Copy(f, reader); err != nil {
+		return "", err
+	}
+
+	storageaccount, err := self.checkStorageAccount()
+	if err != nil {
+		return "", err
+	}
+
+	blobURI, err := storageaccount.UploadFile("image-cache", tmpFile)
+	if err != nil {
+		return "", err
+	}
+
+	size, _ := meta.Int("size")
+
+	image, err := self.region.CreateImageByBlob(imageId, osType, blobURI, int32(size>>30))
+	if err != nil {
+		return "", err
+	}
+	return image.GetGlobalId(), nil
 }
 
 func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {

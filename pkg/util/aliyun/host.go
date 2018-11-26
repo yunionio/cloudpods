@@ -197,25 +197,6 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 	}
 
 	var err error
-
-	if len(secgroupId) == 0 {
-		secgroups, err := net.wire.vpc.GetISecurityGroups()
-		if err != nil {
-			return "", fmt.Errorf("get security group error %s", err)
-		}
-
-		if len(secgroups) == 0 {
-			secId, err := self.zone.region.createDefaultSecurityGroup(net.wire.vpc.VpcId)
-			if err != nil {
-				return "", fmt.Errorf("no secgroup for vpc and failed to create a default One!!")
-			} else {
-				secgroupId = secId
-			}
-		} else {
-			secgroupId = secgroups[0].GetId()
-		}
-	}
-
 	keypair := ""
 	if len(publicKey) > 0 {
 		keypair, err = self.zone.region.syncKeypair(publicKey)

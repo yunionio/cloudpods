@@ -18,4 +18,13 @@ func init() {
 		printList(vpcs, total, args.Offset, args.Limit, []string{})
 		return nil
 	})
+
+	type VpcOptions struct {
+		ID string `help:"VPC id"`
+	}
+
+	shellutils.R(&VpcOptions{}, "vpc-delete", "Delete vpc", func(cli *aliyun.SRegion, args *VpcOptions) error {
+		return cli.DeleteVpc(args.ID)
+	})
+
 }

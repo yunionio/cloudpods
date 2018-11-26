@@ -6,7 +6,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/pkg/utils"
 )
 
 type SZone struct {
@@ -67,38 +66,6 @@ func (self *SZone) getClassicHost() *SClassicHost {
 	return self.classicHost
 }
 
-func (self *SZone) getStorageTypes() (err error) {
-	if len(self.storageTypes) > 0 {
-		return nil
-	}
-	storages, err := self.region.GetStorageTypes()
-	if err != nil {
-		return err
-	}
-	self.storageTypes = []string{}
-	for i := 0; i < len(storages); i++ {
-		if !utils.IsInStringArray(storages[i].Name, self.storageTypes) {
-			self.storageTypes = append(self.storageTypes, storages[i].Name)
-		}
-	}
-	return nil
-}
-
-func (self *SRegion) GetStorageTypes() ([]SStorage, error) {
-	storages := []SStorage{}
-	err := self.client.ListAll("Microsoft.Storage/skus", &storages)
-	if err != nil {
-		return nil, err
-	}
-	result := []SStorage{}
-	for i := 0; i < len(storages); i++ {
-		if utils.IsInStringArray(self.Name, storages[i].Locations) {
-			result = append(result, storages[i])
-		}
-	}
-	return result, nil
-}
-
 func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {
 	return self.region
 }
@@ -124,14 +91,8 @@ func (self *SZone) fetchClassicStorages() error {
 }
 
 func (self *SZone) fetchStorages() error {
-	if len(self.storageTypes) == 0 {
-		err := self.getStorageTypes()
-		if err != nil {
-			return err
-		}
-	}
-	self.istorages = make([]cloudprovider.ICloudStorage, len(self.storageTypes))
-	for i, storageType := range self.storageTypes {
+	self.istorages = make([]cloudprovider.ICloudStorage, len(STORAGETYPES))
+	for i, storageType := range STORAGETYPES {
 		storage := SStorage{zone: self, storageType: storageType}
 		self.istorages[i] = &storage
 	}

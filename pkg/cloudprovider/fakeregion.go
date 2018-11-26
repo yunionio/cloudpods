@@ -2,6 +2,7 @@ package cloudprovider
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/secrules"
 )
 
 type SFakeOnPremiseRegion struct {
@@ -73,4 +74,12 @@ func (region *SFakeOnPremiseRegion) CreateIVpc(name string, desc string, cidr st
 
 func (region *SFakeOnPremiseRegion) CreateEIP(name string, bwMbps int, chargeType string) (ICloudEIP, error) {
 	return nil, ErrNotSupported
+}
+
+func (region *SFakeOnPremiseRegion) DeleteSecurityGroup(vpcId, secgroupId string) error {
+	return ErrNotSupported
+}
+
+func (region *SFakeOnPremiseRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
+	return "", ErrNotSupported
 }
