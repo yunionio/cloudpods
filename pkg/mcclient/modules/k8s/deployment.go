@@ -5,15 +5,10 @@ import (
 )
 
 var (
-	Deployments    *DeploymentManager
-	DeployFromFile *DeployFromFileManager
+	Deployments *DeploymentManager
 )
 
 type DeploymentManager struct {
-	*NamespaceResourceManager
-}
-
-type DeployFromFileManager struct {
 	*NamespaceResourceManager
 }
 
@@ -22,10 +17,5 @@ func init() {
 		NewNamespaceResourceManager("deployment", "deployments",
 			NewNamespaceCols(), NewColumns())}
 
-	DeployFromFile = &DeployFromFileManager{
-		NewNamespaceResourceManager("deployfromfile", "deployfromfiles",
-			NewNamespaceCols(), NewColumns())}
-
 	modules.Register(Deployments)
-	modules.Register(DeployFromFile)
 }

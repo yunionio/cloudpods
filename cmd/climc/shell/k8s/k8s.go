@@ -40,6 +40,8 @@ func init() {
 	initPVC()
 	initJob()
 	initCronJob()
+
+	initApp()
 }
 
 var (
@@ -110,15 +112,19 @@ func (c *ShellCommands) AddR(rs ...*Cmd) *ShellCommands {
 }
 
 func initK8sClusterResource(kind string, manager modules.Manager) *ShellCommands {
-	cmdN := func(suffix string) string {
-		return resourceCmdN(kind, suffix)
-	}
+	cmdN := NewCmdNameFactory(kind)
+	return NewShellCommands(cmdN.Do).AddR(
+		NewK8sResourceListCmd(cmdN, manager),
+		NewK8sResourceGetCmd(cmdN, manager),
+		NewK8sResourceDeleteCmd(cmdN, manager),
+	)
+}
 
-	// List resource
-	listCmd := NewCommand(
+func NewK8sResourceListCmd(cmdN CmdNameFactory, manager modules.Manager) *Cmd {
+	return NewCommand(
 		&o.ResourceListOptions{},
-		cmdN("list"),
-		fmt.Sprintf("List k8s %s", kind),
+		cmdN.Do("list"),
+		fmt.Sprintf("List k8s %s", cmdN.Kind),
 		func(s *mcclient.ClientSession, args *o.ResourceListOptions) error {
 			ret, err := manager.List(s, args.Params())
 			if err != nil {
@@ -128,47 +134,27 @@ func initK8sClusterResource(kind string, manager modules.Manager) *ShellCommands
 			return nil
 		},
 	)
-
-	// Get resource details
-	getCmd := NewCommand(
-		&o.ResourceGetOptions{},
-		cmdN("show"),
-		fmt.Sprintf("Show k8s %s", kind),
-		func(s *mcclient.ClientSession, args *o.ResourceGetOptions) error {
-			ret, err := manager.Get(s, args.NAME, args.Params())
-			if err != nil {
-				return err
-			}
-			printObjectYAML(ret)
-			return nil
-		},
-	)
-
-	// Delete resource
-	deleteCmd := NewCommand(
-		&o.ResourceDeleteOptions{},
-		cmdN("delete"),
-		fmt.Sprintf("Delete k8s %s", kind),
-		func(s *mcclient.ClientSession, args *o.ResourceDeleteOptions) error {
-			ret := manager.BatchDelete(s, args.NAME, args.Params())
-			printBatchResults(ret, manager.GetColumns(s))
-			return nil
-		},
-	)
-
-	return NewShellCommands(cmdN).AddR(listCmd, getCmd, deleteCmd)
 }
 
-func initK8sNamespaceResource(kind string, manager modules.Manager) *ShellCommands {
-	cmdN := func(suffix string) string {
-		return resourceCmdN(kind, suffix)
-	}
+type CmdNameFactory struct {
+	Kind string
+	Do   func(string) string
+}
 
-	// List resource
-	listCmd := NewCommand(
+func NewCmdNameFactory(kind string) CmdNameFactory {
+	return CmdNameFactory{
+		Kind: kind,
+		Do: func(suffix string) string {
+			return resourceCmdN(kind, suffix)
+		},
+	}
+}
+
+func NewK8sNsResourceListCmd(cmdN CmdNameFactory, manager modules.Manager) *Cmd {
+	return NewCommand(
 		&o.NamespaceResourceListOptions{},
-		cmdN("list"),
-		fmt.Sprintf("List k8s %s", kind),
+		cmdN.Do("list"),
+		fmt.Sprintf("List k8s %s", cmdN.Kind),
 		func(s *mcclient.ClientSession, args *o.NamespaceResourceListOptions) error {
 			ret, err := manager.List(s, args.Params())
 			if err != nil {
@@ -178,12 +164,29 @@ func initK8sNamespaceResource(kind string, manager modules.Manager) *ShellComman
 			return nil
 		},
 	)
+}
 
-	// Get resource details
-	getCmd := NewCommand(
+func NewK8sResourceGetCmd(cmdN CmdNameFactory, manager modules.Manager) *Cmd {
+	return NewCommand(
+		&o.ResourceGetOptions{},
+		cmdN.Do("show"),
+		fmt.Sprintf("Show k8s %s", cmdN.Kind),
+		func(s *mcclient.ClientSession, args *o.ResourceGetOptions) error {
+			ret, err := manager.Get(s, args.NAME, args.Params())
+			if err != nil {
+				return err
+			}
+			printObjectYAML(ret)
+			return nil
+		},
+	)
+}
+
+func NewK8sNsResourceGetCmd(cmdN CmdNameFactory, manager modules.Manager) *Cmd {
+	return NewCommand(
 		&o.NamespaceResourceGetOptions{},
-		cmdN("show"),
-		fmt.Sprintf("Show k8s %s", kind),
+		cmdN.Do("show"),
+		fmt.Sprintf("Show k8s %s", cmdN.Kind),
 		func(s *mcclient.ClientSession, args *o.NamespaceResourceGetOptions) error {
 			ret, err := manager.Get(s, args.NAME, args.Params())
 			if err != nil {
@@ -193,17 +196,40 @@ func initK8sNamespaceResource(kind string, manager modules.Manager) *ShellComman
 			return nil
 		},
 	)
+}
 
-	// Delete resource
+func NewK8sResourceDeleteCmd(cmdN CmdNameFactory, manager modules.Manager) *Cmd {
+	return NewCommand(
+		&o.ResourceDeleteOptions{},
+		cmdN.Do("delete"),
+		fmt.Sprintf("Delete k8s %s", cmdN.Kind),
+		func(s *mcclient.ClientSession, args *o.ResourceDeleteOptions) error {
+			ret := manager.BatchDelete(s, args.NAME, args.Params())
+			printBatchResults(ret, manager.GetColumns(s))
+			return nil
+		},
+	)
+}
+
+func NewK8sNsResourceDeleteCmd(cmdN CmdNameFactory, manager modules.Manager) *Cmd {
 	deleteCmd := NewCommand(
 		&o.NamespaceResourceDeleteOptions{},
-		cmdN("delete"),
-		fmt.Sprintf("Delete k8s %s", kind),
+		cmdN.Do("delete"),
+		fmt.Sprintf("Delete k8s %s", cmdN.Kind),
 		func(s *mcclient.ClientSession, args *o.NamespaceResourceDeleteOptions) error {
 			ret := manager.BatchDelete(s, args.NAME, args.Params())
 			printBatchResults(ret, manager.GetColumns(s))
 			return nil
 		},
 	)
-	return NewShellCommands(cmdN).AddR(listCmd, getCmd, deleteCmd)
+	return deleteCmd
+}
+
+func initK8sNamespaceResource(kind string, manager modules.Manager) *ShellCommands {
+	cmdN := NewCmdNameFactory(kind)
+	return NewShellCommands(cmdN.Do).AddR(
+		NewK8sNsResourceListCmd(cmdN, manager),
+		NewK8sNsResourceGetCmd(cmdN, manager),
+		NewK8sNsResourceDeleteCmd(cmdN, manager),
+	)
 }
