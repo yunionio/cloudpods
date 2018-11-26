@@ -151,7 +151,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 				continue
 			}
 			if !(n.Idx == net.ID || n.Idx == net.Name) {
-				//errMsgs = append(errMsgs, fmt.Sprintf("%v(%v): id/name not matched", net.Name, net.ID))
+				errMsgs = append(errMsgs, fmt.Sprintf("%v(%v): id/name not matched", net.Name, net.ID))
 			} else if !(net.IsPublic || net.TenantID == d.OwnerTenantID) {
 				errMsgs = append(errMsgs, fmt.Sprintf("%v(%v): not owner (%v != %v)", net.Name, net.ID, net.TenantID, d.OwnerTenantID))
 			} else if !(net.Ports > 0 || isMigrate()) {
