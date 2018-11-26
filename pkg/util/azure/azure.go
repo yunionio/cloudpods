@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -65,6 +66,7 @@ var DEFAULT_API_VERSION = map[string]string{
 	"Microsoft.Network":                              "2018-06-01",
 	"Microsoft.ClassicNetwork/reservedIps":           "2016-04-01", //2014-01-01,2014-06-01,2015-06-01,2015-12-01,2016-04-01,2016-11-01
 	"Microsoft.ClassicNetwork/networkSecurityGroups": "2016-11-01", //2015-06-01,2015-12-01,2016-04-01,2016-11-01
+	"Microsoft.ClassicCompute/domainNames":           "2015-12-01", //2014-01-01, 2014-06-01, 2015-06-01, 2015-10-01, 2015-12-01, 2016-04-01, 2016-11-01, 2017-11-01, 2017-11-15
 }
 
 func NewAzureClient(providerId string, providerName string, accessKey string, secret string, envName string) (*SAzureClient, error) {
@@ -295,6 +297,28 @@ type AzureError struct {
 	Message string             `json:"message,omitempty"`
 }
 
+func (self *SAzureClient) getUniqName(cli *autorest.Client, resourceType, name string, body jsonutils.JSONObject) (string, string, error) {
+	url := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s", self.subscriptionId, self.ressourceGroups[0].Name, resourceType, name)
+	if _, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, ""); err != nil {
+		if err == cloudprovider.ErrNotFound {
+			return url, body.String(), nil
+		}
+		return "", "", err
+	}
+	for i := 0; i < 20; i++ {
+		url = fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s-%d", self.subscriptionId, self.ressourceGroups[0].Name, resourceType, name, i)
+		if _, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, ""); err == cloudprovider.ErrNotFound {
+			if err == cloudprovider.ErrNotFound {
+				data := body.(*jsonutils.JSONDict)
+				data.Set("name", jsonutils.NewString(fmt.Sprintf("%s-%d", name, i)))
+				return url, body.String(), nil
+			}
+			return "", "", err
+		}
+	}
+	return "", "", fmt.Errorf("not find uniq name for %s[%s]", resourceType, name)
+}
+
 func (self *SAzureClient) Create(body jsonutils.JSONObject, retVal interface{}) error {
 	cli, err := self.getDefaultClient()
 	if err != nil {
@@ -314,8 +338,12 @@ func (self *SAzureClient) Create(body jsonutils.JSONObject, retVal interface{}) 
 	if len(self.ressourceGroups) == 0 {
 		return fmt.Errorf("Create Default resourceGroup error?")
 	}
-	url := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s", self.subscriptionId, self.ressourceGroups[0].Name, params["type"], params["name"])
-	result, err := jsonRequest(cli, "PUT", self.domain, url, self.subscriptionId, body.String())
+
+	url, reqString, err := self.getUniqName(cli, params["type"], params["name"], body)
+	if err != nil {
+		return err
+	}
+	result, err := jsonRequest(cli, "PUT", self.domain, url, self.subscriptionId, reqString)
 	if err != nil {
 		return err
 	}
@@ -453,10 +481,19 @@ func waitForComplatetion(client *autorest.Client, req *http.Request, resp *http.
 				return nil, err
 			}
 			if asyncResp.StatusCode == 202 {
+				if _location := asyncResp.Header.Get("Location"); len(_location) > 0 {
+					location = _location
+				}
 				if time.Now().Sub(startTime) > timeout {
 					return nil, fmt.Errorf("Process request %s %s timeout", req.Method, req.URL.String())
 				}
-				time.Sleep(time.Second * 5)
+				timeSleep := time.Second * 5
+				if _timeSleep := asyncResp.Header.Get("Retry-After"); len(_timeSleep) > 0 {
+					if _time, err := strconv.Atoi(_timeSleep); err != nil {
+						timeSleep = time.Second * time.Duration(_time)
+					}
+				}
+				time.Sleep(timeSleep)
 				continue
 			}
 			if asyncResp.ContentLength == 0 {

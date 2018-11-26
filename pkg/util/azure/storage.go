@@ -15,6 +15,8 @@ type Capabilitie struct {
 	Value string
 }
 
+var STORAGETYPES = []string{"Standard_LRS", "Premium_LRS", "StandardSSD_LRS"}
+
 type SStorage struct {
 	zone *SZone
 

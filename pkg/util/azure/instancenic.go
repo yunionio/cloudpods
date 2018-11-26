@@ -1,8 +1,6 @@
 package azure
 
 import (
-	"fmt"
-	"regexp"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -133,49 +131,7 @@ func (self *SRegion) GetNetworkInterfaces() ([]SInstanceNic, error) {
 	return result, nil
 }
 
-func (self *SRegion) isNetworkInstanceNameAvaliable(resourceGroupName, nicName string) (bool, error) {
-	nics := []SInstanceNic{}
-	err := self.client.ListByTypeWithResourceGroup(resourceGroupName, "Microsoft.Network/networkInterfaces", &nics)
-	if err != nil {
-		return false, err
-	}
-	for i := 0; i < len(nics); i++ {
-		if nics[i].Name == nicName {
-			return false, nil
-		}
-	}
-	return true, nil
-}
-
-func getResourceGroupNameByID(id string) string {
-	reg := regexp.MustCompile("/resourceGroups/(.+)/providers/")
-	_resourceGroup := reg.FindStringSubmatch(id)
-	if len(_resourceGroup) == 2 {
-		return _resourceGroup[1]
-	}
-	return ""
-}
-
 func (self *SRegion) CreateNetworkInterface(nicName string, ipAddr string, subnetId string, secgrpId string) (*SInstanceNic, error) {
-	secgroup, err := self.GetSecurityGroupDetails(secgrpId)
-	if err != nil {
-		return nil, err
-	}
-	secgroup.Properties.ProvisioningState = ""
-
-	resourceGroupName := getResourceGroupNameByID(subnetId)
-	nicNameBase := nicName
-	for i := 0; i < 5; i++ {
-		ok, err := self.isNetworkInstanceNameAvaliable(resourceGroupName, nicName)
-		if err != nil {
-			return nil, err
-		}
-		if ok {
-			break
-		}
-		nicName = fmt.Sprintf("%s-%d", nicNameBase, i)
-	}
-
 	instancenic := SInstanceNic{
 		Name:     nicName,
 		Location: self.Name,
@@ -193,7 +149,7 @@ func (self *SRegion) CreateNetworkInterface(nicName string, ipAddr string, subne
 					},
 				},
 			},
-			NetworkSecurityGroup: secgroup,
+			NetworkSecurityGroup: &SSecurityGroup{ID: secgrpId},
 		},
 		Type: "Microsoft.Network/networkInterfaces",
 	}
