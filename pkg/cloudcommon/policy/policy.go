@@ -60,6 +60,24 @@ var (
 			Action:   PolicyActionGet,
 			Result:   rbacutils.UserAllow,
 		},
+		{
+			Service:  "yunionagent",
+			Resource: "notices",
+			Action:   PolicyActionList,
+			Result:   rbacutils.UserAllow,
+		},
+		{
+			Service:  "yunionagent",
+			Resource: "readmarks",
+			Action:   PolicyActionList,
+			Result:   rbacutils.UserAllow,
+		},
+		{
+			Service:  "yunionagent",
+			Resource: "readmarks",
+			Action:   PolicyActionCreate,
+			Result:   rbacutils.UserAllow,
+		},
 	}
 )
 
