@@ -2,11 +2,13 @@ package aws
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	"sort"
 	"strings"
+
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/pkg/util/secrules"
 )
@@ -37,6 +39,10 @@ type SSecurityGroup struct {
 
 func (self *SSecurityGroup) GetId() string {
 	return self.SecurityGroupId
+}
+
+func (self *SSecurityGroup) GetVpcId() string {
+	return self.VpcId
 }
 
 func (self *SSecurityGroup) GetName() string {
@@ -195,7 +201,47 @@ func (self *SRegion) updateSecurityGroupRuleDescription(secGrpId string, rule *s
 	return nil
 }
 
-func (self *SRegion) createSecurityGroup(vpcId string, name string, secgroupIdTag string, desc string) (string, error) {
+func (self *SRegion) DeleteSecurityGroup(vpcId, secgroupId string) error {
+	return self.deleteSecurityGroup(secgroupId)
+}
+
+func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
+	if len(secgroupId) > 0 {
+		_, err := self.GetSecurityGroupDetails(secgroupId)
+		if err != nil {
+			if err != cloudprovider.ErrNotFound {
+				return "", err
+			}
+			secgroupId = ""
+		}
+	}
+
+	if len(secgroupId) == 0 {
+		var err error
+		secgroupId, err = self.createSecurityGroup(vpcId, name, desc)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	secgroup, err := self.GetSecurityGroupDetails(secgroupId)
+	if err != nil {
+		return "", err
+	}
+
+	log.Debugf("Sync Rules for %s", secgroup.GetName())
+	if secgroup.GetName() != name {
+		if err := self.modifySecurityGroup(secgroupId, name, ""); err != nil {
+			log.Errorf("Change SecurityGroup name to %s failed: %v", name, err)
+		}
+	}
+	if err := self.syncSecgroupRules(secgroupId, rules); err != nil {
+		return "", err
+	}
+	return secgroupId, nil
+}
+
+func (self *SRegion) createSecurityGroup(vpcId string, name string, desc string) (string, error) {
 	params := &ec2.CreateSecurityGroupInput{}
 	params.SetVpcId(vpcId)
 	params.SetDescription(desc)
@@ -207,7 +253,6 @@ func (self *SRegion) createSecurityGroup(vpcId string, name string, secgroupIdTa
 	}
 
 	tagspec := TagSpec{ResourceType: "security-group"}
-	tagspec.SetTag("id", secgroupIdTag)
 	tags, _ := tagspec.GetTagSpecifications()
 	tagParams := &ec2.CreateTagsInput{}
 	tagParams.SetResources([]*string{group.GroupId})
@@ -221,7 +266,7 @@ func (self *SRegion) createSecurityGroup(vpcId string, name string, secgroupIdTa
 }
 
 func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
-	secId, err := self.createSecurityGroup(vpcId, "vpc default", fmt.Sprintf("%s-default", vpcId), "vpc default group")
+	secId, err := self.createSecurityGroup(vpcId, "vpc default", "vpc default group")
 	if err != nil {
 		return "", err
 	}
