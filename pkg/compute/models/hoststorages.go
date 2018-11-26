@@ -3,12 +3,16 @@ package models
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 )
 
@@ -97,12 +101,89 @@ func (manager *SHoststorageManager) ValidateCreateData(ctx context.Context, user
 	return manager.SJointResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
 
+func (self *SHoststorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SHostJointsBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+	storage := self.GetStorage()
+	if !utils.IsInStringArray(storage.StorageType, STORAGE_LOCAL_TYPES) {
+		host := storage.GetMasterHost()
+		log.Infof("Attach SharedStorage[%s] on host %s ...", storage.Name, host.Name)
+		url := fmt.Sprintf("%s/storages/attach", host.ManagerUri)
+		headers := http.Header{}
+		headers.Set("X-Auth-Token", userCred.GetTokenString())
+		body := jsonutils.NewDict()
+		body.Set("mount_point", jsonutils.NewString(self.MountPoint))
+		body.Set("name", jsonutils.NewString(storage.Name))
+		body.Set("storage_id", jsonutils.NewString(storage.Id))
+		body.Set("storage_conf", storage.StorageConf)
+		body.Set("storage_type", jsonutils.NewString(storage.StorageType))
+		if len(storage.StoragecacheId) > 0 {
+			storagecache := StoragecacheManager.FetchStoragecacheById(storage.StoragecacheId)
+			if storagecache != nil {
+				body.Set("imagecache_path", jsonutils.NewString(
+					storage.GetStorageCachePath(self.MountPoint, storagecache.Path)))
+				body.Set("storagecache_id", jsonutils.NewString(storagecache.Id))
+			}
+		}
+		_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(),
+			ctx, "POST", url, headers, body, false)
+		if err != nil {
+			log.Errorf("Host Storage Post Create Error: %s", err)
+			// panic(err) ???
+		}
+		self.SyncStorageStatus()
+	}
+}
+
+func (self *SHoststorage) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	storage := self.GetStorage()
+	if !utils.IsInStringArray(storage.StorageType, STORAGE_LOCAL_TYPES) {
+		host := storage.GetMasterHost()
+		log.Infof("Attach SharedStorage[%s] on host %s ...", storage.Name, host.Name)
+		url := fmt.Sprintf("%s/storages/detach", host.ManagerUri)
+		headers := http.Header{}
+		headers.Set("X-Auth-Token", userCred.GetTokenString())
+		body := jsonutils.NewDict()
+		body.Set("mount_point", jsonutils.NewString(self.MountPoint))
+		body.Set("name", jsonutils.NewString(storage.Name))
+		_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(),
+			ctx, "POST", url, headers, body, false)
+		if err != nil {
+			log.Errorf("Host Storage Post Create Error: %s", err)
+			// panic(err) ???
+		}
+		self.SyncStorageStatus()
+	}
+}
+
+func (self *SHoststorage) SyncStorageStatus() {
+	storage := self.GetStorage()
+	hostQuery := HostManager.Query().SubQuery()
+	count := HoststorageManager.Query().Join(hostQuery,
+		sqlchemy.AND(sqlchemy.Equals(hostQuery.Field("id"), self.HostId),
+			sqlchemy.Equals(hostQuery.Field("host_status"), "online"))).Count()
+	status := storage.Status
+	if count >= 1 {
+		status = STORAGE_ONLINE
+	} else {
+		status = STORAGE_OFFLINE
+	}
+	if status != storage.Status {
+		storage.GetModelManager().TableSpec().Update(storage, func() error {
+			storage.Status = status
+			return nil
+		})
+	}
+}
+
 func (self *SHoststorage) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	host := self.GetHost()
 	extra.Add(jsonutils.NewString(host.Name), "host")
 	storage := self.GetStorage()
 	extra.Add(jsonutils.NewString(storage.Name), "storage")
 	extra.Add(jsonutils.NewInt(int64(storage.Capacity)), "capacity")
+	if storage.StorageConf != nil {
+		extra.Set("storage_conf", storage.StorageConf)
+	}
 	used := storage.GetUsedCapacity(tristate.True)
 	wasted := storage.GetUsedCapacity(tristate.False)
 	extra.Add(jsonutils.NewInt(int64(used)), "used_capacity")
@@ -110,12 +191,16 @@ func (self *SHoststorage) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.
 	extra.Add(jsonutils.NewInt(int64(storage.Capacity-used-wasted)), "free_capacity")
 	extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
 	extra.Add(jsonutils.NewString(storage.MediumType), "medium_type")
-	if storage.Enabled {
-		extra.Add(jsonutils.JSONTrue, "enabled")
-	} else {
-		extra.Add(jsonutils.JSONFalse, "enabled")
-	}
+	extra.Add(jsonutils.NewBool(storage.Enabled), "enabled")
 	extra.Add(jsonutils.NewFloat(float64(storage.GetOvercommitBound())), "cmtbound")
+	extra.Add(jsonutils.NewInt(int64(self.GetGuestDiskCount())), "guest_disk_count")
+	if len(storage.StoragecacheId) > 0 {
+		storagecache := StoragecacheManager.FetchStoragecacheById(storage.StoragecacheId)
+		if storagecache != nil {
+			extra.Set("imagecache_path", jsonutils.NewString(storage.GetStorageCachePath(self.MountPoint, storagecache.Path)))
+			extra.Set("storagecache_id", jsonutils.NewString(storagecache.Id))
+		}
+	}
 	return extra
 }
 
