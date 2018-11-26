@@ -304,6 +304,8 @@ func deleteHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 				fmt.Sprintf("No request key: %s", manager.Keyword()))
 			return
 		}
+	} else {
+		data = jsonutils.NewDict()
 	}
 	result, err := manager.Delete(ctx, params["<resid>"], mergeQueryParams(params, query, "<resid>"), data)
 	if err != nil {

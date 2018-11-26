@@ -335,10 +335,13 @@ func (cm *CandidateManager) ReloadAll(resType string) ([]interface{}, error) {
 	return impl.ReloadAll()
 }
 
-func (cm *CandidateManager) SetCandidatesDirty(scs []*core.SelectedCandidate) {
-	for _, sc := range scs {
-		cm.dirtyPool.Add(sc, uint64(sc.Count))
-	}
+type IDirtyPoolItem interface {
+	ttlpool.Item
+	GetCount() uint64
+}
+
+func (cm *CandidateManager) SetCandidateDirty(item IDirtyPoolItem) {
+	cm.dirtyPool.Add(item, item.GetCount())
 }
 
 func (cm *CandidateManager) CleanDirtyCandidatesOnce(keys []string) {

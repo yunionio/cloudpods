@@ -195,7 +195,8 @@ type HostBuilder struct {
 	storageDict           map[string]interface{}
 	storageStatesSizeDict map[string]map[string]interface{}
 
-	hostGuests map[string][]interface{}
+	hostGuests       map[string][]interface{}
+	hostBackupGuests map[string][]interface{}
 
 	groupGuests        []interface{}
 	groups             []interface{}
@@ -681,6 +682,19 @@ func (b *HostBuilder) setGuests(ids []string, errMessageChannel chan error) {
 		errMessageChannel <- err
 		return
 	}
+
+	hostBackupGuests, err := utils.GroupBy(guests, func(obj interface{}) (string, error) {
+		gst, ok := obj.(*models.Guest)
+		if !ok {
+			return "", utils.ConvertError(obj, "*models.Guest")
+		}
+		return gst.BackupHostID, nil
+	})
+	if err != nil {
+		errMessageChannel <- err
+		return
+	}
+
 	guestDict, err := utils.ToDict(guests, func(obj interface{}) (string, error) {
 		gst, ok := obj.(*models.Guest)
 		if !ok {
@@ -695,6 +709,7 @@ func (b *HostBuilder) setGuests(ids []string, errMessageChannel chan error) {
 	b.guestIDs = guestIDs
 	b.guests = guests
 	b.hostGuests = hostGuests
+	b.hostBackupGuests = hostBackupGuests
 	b.guestDict = guestDict
 	return
 }
@@ -1020,6 +1035,10 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *models.Host) 
 	guestsOnHost, ok := b.hostGuests[host.ID]
 	if !ok {
 		guestsOnHost = []interface{}{}
+	}
+	backupGuestsOnHost, ok := b.hostBackupGuests[host.ID]
+	if ok {
+		guestsOnHost = append(guestsOnHost, backupGuestsOnHost...)
 	}
 
 	for _, gst := range guestsOnHost {

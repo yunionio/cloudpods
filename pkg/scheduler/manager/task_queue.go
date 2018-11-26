@@ -30,7 +30,7 @@ type TaskExecutor struct {
 	callback  TaskExecuteCallback
 	unit      *core.Unit
 
-	resultItems []*core.SchedResultItem
+	resultItems *core.SchedResultItemList
 	resultError error
 	logs        []string
 	completed   bool
@@ -63,7 +63,7 @@ func (te *TaskExecutor) Execute() {
 	}
 }
 
-func (te *TaskExecutor) execute() ([]*core.SchedResultItem, error) {
+func (te *TaskExecutor) execute() (*core.SchedResultItemList, error) {
 	scheduler := te.scheduler
 	genericScheduler, err := core.NewGenericScheduler(scheduler.(core.Scheduler))
 	if err != nil {
@@ -92,7 +92,7 @@ func (te *TaskExecutor) Kill() {
 	}
 }
 
-func (te *TaskExecutor) GetResult() ([]*core.SchedResultItem, error) {
+func (te *TaskExecutor) GetResult() (*core.SchedResultItemList, error) {
 	return te.resultItems, te.resultError
 }
 
@@ -254,7 +254,7 @@ type Task struct {
 	waitCh        chan struct{}
 
 	completedCount int
-	resultItems    []*core.SchedResultItem
+	resultItems    *core.SchedResultItemList
 	resultError    error
 }
 
@@ -266,7 +266,6 @@ func NewTask(manager *SchedulerManager, schedInfo *api.SchedInfo) *Task {
 		taskExecutors: []*TaskExecutor{},
 		lock:          sync.Mutex{},
 		waitCh:        make(chan struct{}),
-		resultItems:   []*core.SchedResultItem{},
 		resultError:   nil,
 	}
 }
@@ -312,7 +311,7 @@ func (t *Task) onTaskCompleted(taskExecutor *TaskExecutor) {
 		t.resultError = taskExecutor.resultError
 		t.onError()
 	} else {
-		t.resultItems = append(t.resultItems, taskExecutor.resultItems...)
+		t.resultItems = taskExecutor.resultItems
 		t.completedCount += 1
 		if t.completedCount >= len(t.taskExecutors) {
 			t.onCompleted()
@@ -349,12 +348,12 @@ func (t *Task) onCompleted() {
 	close(t.waitCh)
 }
 
-func (t *Task) Wait() ([]*core.SchedResultItem, error) {
+func (t *Task) Wait() (*core.SchedResultItemList, error) {
 	log.V(10).Infof("Task wait...")
 	<-t.waitCh
 	return t.GetResult()
 }
 
-func (t *Task) GetResult() ([]*core.SchedResultItem, error) {
+func (t *Task) GetResult() (*core.SchedResultItemList, error) {
 	return t.resultItems, t.resultError
 }
