@@ -1,13 +1,12 @@
 package aws
 
 import (
-	"fmt"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	"strings"
+
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/pkg/util/secrules"
 )
 
 type SUserCIDRs struct {
@@ -137,40 +136,6 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
-}
-
-func (self *SVpc) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) (string, error) {
-	secgrpId := ""
-	if secgroup, err := self.region.getSecurityGroupByTag(self.VpcId, secgroupId); err != nil {
-		// 名称为default的安全组与aws默认安全组名冲突
-		if strings.ToLower(name) == "default" {
-			name = fmt.Sprintf("%s-%s", self.VpcId, name)
-		}
-
-		desc := fmt.Sprintf("security group %s for vpc %s", name, self.VpcId)
-		if secgrpId, err = self.region.createSecurityGroup(self.VpcId, name, secgroupId, desc); err != nil {
-			return "", err
-		}
-
-		//addRules
-		log.Debugf("Add Rules for %s : %s", secgrpId, rules)
-		for _, rule := range rules {
-			if err := self.region.addSecurityGroupRule(secgrpId, &rule); err != nil {
-				return "", err
-			}
-		}
-	} else {
-		//syncRules
-		secgrpId = secgroup.SecurityGroupId
-		log.Debugf("Sync Rules for %s", secgroup.GetName())
-		if secgroup.GetName() != name {
-			if err := self.region.modifySecurityGroup(secgrpId, name, ""); err != nil {
-				log.Errorf("Change SecurityGroup name to %s failed: %v", name, err)
-			}
-		}
-		self.region.syncSecgroupRules(secgrpId, rules)
-	}
-	return secgrpId, nil
 }
 
 func (self *SVpc) getWireByZoneId(zoneId string) *SWire {

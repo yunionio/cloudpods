@@ -519,6 +519,10 @@ func (self *SRegion) instanceOperation(instanceId string, opname string, extra m
 	return err
 }
 
+func (self *SRegion) DeleteSecurityGroup(vpcId string, secgroupId string) error {
+	return self.deleteSecurityGroup(secgroupId)
+}
+
 func (self *SRegion) GetInstanceVNCUrl(instanceId string) (string, error) {
 	params := make(map[string]string)
 	params["InstanceId"] = instanceId
