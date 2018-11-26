@@ -60,11 +60,11 @@ type Interface struct {
 }
 
 type SecurityGroupPropertiesFormat struct {
-	SecurityRules        *[]SecurityRules `json:"securityRules,omitempty"`
-	DefaultSecurityRules *[]SecurityRules `json:"defaultSecurityRules,omitempty"`
-	NetworkInterfaces    *[]Interface     `json:"networkInterfaces,omitempty"`
-	Subnets              *[]Subnet        `json:"subnets,omitempty"`
-	ProvisioningState    string           //Possible values are: 'Updating', 'Deleting', and 'Failed'
+	SecurityRules        []SecurityRules `json:"securityRules,omitempty"`
+	DefaultSecurityRules []SecurityRules `json:"defaultSecurityRules,omitempty"`
+	NetworkInterfaces    *[]Interface    `json:"networkInterfaces,omitempty"`
+	Subnets              *[]Subnet       `json:"subnets,omitempty"`
+	ProvisioningState    string          //Possible values are: 'Updating', 'Deleting', and 'Failed'
 }
 type SSecurityGroup struct {
 	vpc        *SVpc
@@ -306,9 +306,9 @@ func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 	if self.Properties.SecurityRules == nil {
 		return rules, nil
 	}
-	sort.Sort(SecurityRulesSet(*self.Properties.SecurityRules))
+	sort.Sort(SecurityRulesSet(self.Properties.SecurityRules))
 	priority := 100
-	for _, _rule := range *self.Properties.SecurityRules {
+	for _, _rule := range self.Properties.SecurityRules {
 		_rule.Properties.Priority = int32(priority)
 		secRules, err := _rule.Properties.toRules()
 		if err != nil {
@@ -331,13 +331,18 @@ func (self *SSecurityGroup) IsEmulated() bool {
 	return false
 }
 
-func (region *SRegion) CreateSecurityGroup(secName string, tagId string) (*SSecurityGroup, error) {
-	securityName := fmt.Sprintf("%s-%s", region.Name, secName)
+func (self *SSecurityGroup) GetVpcId() string {
+	return "normal"
+}
+
+func (region *SRegion) CreateSecurityGroup(secName string) (*SSecurityGroup, error) {
+	if secName == "Default" {
+		secName = "Default-copy"
+	}
 	secgroup := SSecurityGroup{
-		Name:     securityName,
+		Name:     secName,
 		Type:     "Microsoft.Network/networkSecurityGroups",
 		Location: region.Name,
-		Tags:     map[string]string{"id": tagId},
 	}
 	return &secgroup, region.client.Create(jsonutils.Marshal(secgroup), &secgroup)
 }
@@ -368,21 +373,6 @@ func (self *SSecurityGroup) Refresh() error {
 		return err
 	}
 	return jsonutils.Update(self, sec)
-}
-
-func (region *SRegion) checkSecurityGroup(tagId, name string) (*SSecurityGroup, error) {
-	secgroups, err := region.GetSecurityGroups()
-	if err != nil {
-		return nil, err
-	}
-	for i := 0; i < len(secgroups); i++ {
-		for k, v := range secgroups[i].Tags {
-			if k == "id" && v == tagId || secgroups[i].Name == name {
-				return &secgroups[i], nil
-			}
-		}
-	}
-	return region.CreateSecurityGroup(name, tagId)
 }
 
 func convertRulePort(rule secrules.SecurityRule) []string {
@@ -452,6 +442,7 @@ func (region *SRegion) updateSecurityGroupRules(secgroupId string, rules []secru
 	if err != nil {
 		return "", err
 	}
+	sort.Sort(secrules.SecurityRuleSet(rules))
 	securityRules := []SecurityRules{}
 	priority := int32(100)
 	ruleStrs := []string{}
@@ -466,84 +457,33 @@ func (region *SRegion) updateSecurityGroupRules(secgroupId string, rules []secru
 			ruleStrs = append(ruleStrs, ruleStr)
 		}
 	}
-	secgroup.Properties.SecurityRules = &securityRules
+	secgroup.Properties.SecurityRules = securityRules
 	secgroup.Properties.ProvisioningState = ""
 	return secgroup.ID, region.client.Update(jsonutils.Marshal(secgroup), nil)
 }
 
 func (region *SRegion) AttachSecurityToInterfaces(secgroupId string, nicIds []string) error {
-	secgroup, err := region.GetSecurityGroupDetails(secgroupId)
-	if err != nil {
-		return err
+	for _, nicId := range nicIds {
+		nic, err := region.GetNetworkInterfaceDetail(nicId)
+		if err != nil {
+			return err
+		}
+		nic.Properties.NetworkSecurityGroup = &SSecurityGroup{ID: secgroupId}
+		if err := region.client.Update(jsonutils.Marshal(nic), nil); err != nil {
+			return err
+		}
 	}
-	interfaces := []Interface{}
-	for i := 0; i < len(nicIds); i++ {
-		interfaces = append(interfaces, Interface{ID: nicIds[i]})
-	}
-	secgroup.Properties.NetworkInterfaces = &interfaces
-	secgroup.Properties.ProvisioningState = ""
-	return region.client.Update(jsonutils.Marshal(secgroup), nil)
+	return nil
 }
 
 func (region *SRegion) AssiginSecurityGroup(instanceId, secgroupId string) error {
-	if instance, err := region.GetInstance(instanceId); err != nil {
+	instance, err := region.GetInstance(instanceId)
+	if err != nil {
 		return err
-	} else {
-		nicIds := []string{}
-		for _, nic := range instance.Properties.NetworkProfile.NetworkInterfaces {
-			nicIds = append(nicIds, nic.ID)
-		}
-		return region.AttachSecurityToInterfaces(secgroupId, nicIds)
 	}
-}
-
-func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.SecurityRule) (string, error) {
-	secgroup, err := self.GetSecurityGroupDetails(secgroupId)
-	if err != nil {
-		return "", err
+	nicIds := []string{}
+	for _, nic := range instance.Properties.NetworkProfile.NetworkInterfaces {
+		nicIds = append(nicIds, nic.ID)
 	}
-	sort.Sort(secrules.SecurityRuleSet(rules))
-	sort.Sort(SecurityRulesSet(*secgroup.Properties.SecurityRules))
-
-	newRules := []secrules.SecurityRule{}
-
-	i, j := 0, 0
-	for i < len(rules) || j < len(*secgroup.Properties.SecurityRules) {
-		if i < len(rules) && j < len(*secgroup.Properties.SecurityRules) {
-			(*secgroup.Properties.SecurityRules)[j].Properties.Priority = 1
-			srcRule := (*secgroup.Properties.SecurityRules)[j].Properties.String()
-			destRule := rules[i].String()
-			cmp := strings.Compare(srcRule, destRule)
-			if cmp == 0 {
-				// keep secRule
-				newRules = append(newRules, rules[i])
-				i++
-				j++
-			} else if cmp > 0 {
-				// remove srcRule
-				j++
-			} else {
-				// add destRule
-				newRules = append(newRules, rules[i])
-				i++
-			}
-		} else if i >= len(rules) {
-			// del other rules
-			j++
-		} else if j >= len(*secgroup.Properties.SecurityRules) {
-			// add rule
-			newRules = append(newRules, rules[i])
-			i++
-		}
-	}
-	return self.updateSecurityGroupRules(secgroup.ID, newRules)
-
-}
-
-func (self *SRegion) syncSecurityGroup(tagId, name string, rules []secrules.SecurityRule) (string, error) {
-	secgroup, err := self.checkSecurityGroup(tagId, name)
-	if err != nil {
-		return "", err
-	}
-	return self.syncSecgroupRules(secgroup.ID, rules)
+	return region.AttachSecurityToInterfaces(secgroupId, nicIds)
 }

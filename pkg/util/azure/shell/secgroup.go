@@ -52,16 +52,24 @@ func init() {
 	})
 
 	type SecurityGroupCreateOptions struct {
-		NAME  string `help:"Security Group name"`
-		TagId string `help:"Add a id tag to secgroup"`
+		NAME    string `help:"Security Group name"`
+		Classic bool   `help:"Create classic Security Group"`
 	}
 
 	shellutils.R(&SecurityGroupCreateOptions{}, "security-group-create", "Create security group", func(cli *azure.SRegion, args *SecurityGroupCreateOptions) error {
-		if secgrp, err := cli.CreateSecurityGroup(args.NAME, args.TagId); err != nil {
-			return err
-		} else {
+		if args.Classic {
+			secgrp, err := cli.CreateClassicSecurityGroup(args.NAME)
+			if err != nil {
+				return err
+			}
 			printObject(secgrp)
 			return nil
 		}
+		secgrp, err := cli.CreateSecurityGroup(args.NAME)
+		if err != nil {
+			return err
+		}
+		printObject(secgrp)
+		return nil
 	})
 }
