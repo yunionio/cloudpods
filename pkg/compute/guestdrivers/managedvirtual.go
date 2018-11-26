@@ -271,10 +271,6 @@ func (self *SManagedVirtualizedGuestDriver) DoGuestCreateDisksTask(ctx context.C
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, disk *models.SDisk, task taskman.ITask, isPurge bool) error {
-	return disk.StartDiskDeleteTask(ctx, task.GetUserCred(), task.GetTaskId(), isPurge)
-}
-
 type SManagedVMChangeConfig struct {
 	InstanceId string
 	Cpu        int

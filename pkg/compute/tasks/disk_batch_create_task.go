@@ -13,7 +13,7 @@ import (
 )
 
 type DiskBatchCreateTask struct {
-	taskman.STask
+	SSchedTask
 }
 
 func init() {
@@ -44,7 +44,8 @@ func (self *DiskBatchCreateTask) OnInit(ctx context.Context, objs []db.IStandalo
 	StartScheduleObjects(ctx, self, toSchedDisks)
 }
 
-func (self *DiskBatchCreateTask) OnScheduleFailCallback(obj IScheduleModel) {
+func (self *DiskBatchCreateTask) OnScheduleFailCallback(obj IScheduleModel, reason string) {
+	self.SSchedTask.OnScheduleFailCallback(obj, reason)
 	disk := obj.(*models.SDisk)
 	log.Errorf("Schedule disk %s failed", disk.Name)
 }

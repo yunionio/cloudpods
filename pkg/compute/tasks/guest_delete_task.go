@@ -30,14 +30,33 @@ func (self *GuestDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 		self.OnGuestStopComplete(ctx, obj, data)
 		return
 	}
-	self.SetStage("on_guest_stop_complete", nil)
-	err := guest.GetDriver().RequestStopGuestForDelete(ctx, guest, self)
+	if len(guest.BackupHostId) > 0 {
+		self.SetStage("OnMasterHostStopGuestComplete", nil)
+		if err := guest.GetDriver().RequestStopGuestForDelete(ctx, guest, nil, self); err != nil {
+			log.Errorf("RequestStopGuestForDelete fail %s", err)
+			self.OnMasterHostStopGuestComplete(ctx, guest, nil)
+		}
+	} else {
+		self.SetStage("OnGuestStopComplete", nil)
+		if err := guest.GetDriver().RequestStopGuestForDelete(ctx, guest, nil, self); err != nil {
+			log.Errorf("RequestStopGuestForDelete fail %s", err)
+			self.OnGuestStopComplete(ctx, guest, nil)
+		}
+	}
+}
+
+func (self *GuestDeleteTask) OnMasterHostStopGuestComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStage("OnGuestStopComplete", nil)
+	host := models.HostManager.FetchHostById(guest.BackupHostId)
+	err := guest.GetDriver().RequestStopGuestForDelete(ctx, guest, host, self)
 	if err != nil {
 		log.Errorf("RequestStopGuestForDelete fail %s", err)
-		// errMsg := jsonutils.NewString(err.Error())
-		// self.OnGuestStopCompleteFailed(ctx, obj, errMsg)
-		self.OnGuestStopComplete(ctx, obj, data)
+		self.OnGuestStopComplete(ctx, guest, nil)
 	}
+}
+
+func (self *GuestDeleteTask) OnMasterHostStopGuestCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.OnGuestStopComplete(ctx, guest, nil) // ignore stop error
 }
 
 func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -119,7 +138,7 @@ func (self *GuestDeleteTask) OnSyncGuestConfCompleteFailed(ctx context.Context, 
 
 func (self *GuestDeleteTask) StartDeleteGuest(ctx context.Context, guest *models.SGuest) {
 	// No snapshot
-	self.SetStage("on_guest_detach_disks_complete", nil)
+	self.SetStage("OnGuestDetachDisksComplete", nil)
 	guest.GetDriver().RequestDetachDisksFromGuestForDelete(ctx, guest, self)
 }
 

@@ -22,7 +22,11 @@ func init() {
 func (self *GuestUndeployTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	targetHostId, _ := self.Params.GetString("target_host_id")
+	self.SetStage("OnGuestUndeployComplete", nil)
 	if len(targetHostId) == 0 {
+		if len(guest.BackupHostId) > 0 {
+			self.SetStage("OnMasetHostUndeployGuestComplete", nil)
+		}
 		targetHostId = guest.HostId
 	}
 	var host *models.SHost
@@ -30,7 +34,19 @@ func (self *GuestUndeployTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		host = models.HostManager.FetchHostById(targetHostId)
 	}
 	if host != nil {
-		self.SetStage("on_guest_undeploy_complete", nil)
+		err := guest.GetDriver().RequestUndeployGuestOnHost(ctx, guest, host, self)
+		if err != nil {
+			self.OnStartDeleteGuestFail(ctx, err)
+		}
+	} else {
+		self.SetStageComplete(ctx, nil)
+	}
+}
+
+func (self *GuestUndeployTask) OnMasetHostUndeployGuestComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStage("OnGuestUndeployComplete", nil)
+	host := models.HostManager.FetchHostById(guest.BackupHostId)
+	if host != nil {
 		err := guest.GetDriver().RequestUndeployGuestOnHost(ctx, guest, host, self)
 		if err != nil {
 			self.OnStartDeleteGuestFail(ctx, err)

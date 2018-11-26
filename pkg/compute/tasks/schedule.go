@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -31,14 +32,52 @@ type IScheduleModel interface {
 
 type IScheduleTask interface {
 	GetUserCred() mcclient.TokenCredential
-	GetParams() *jsonutils.JSONDict
+	GetSchedParams() *jsonutils.JSONDict
 	GetPendingUsage(quota quotas.IQuota) error
-
 	SetStage(stageName string, data *jsonutils.JSONDict)
 	SetStageFailed(ctx context.Context, reason string)
-	OnScheduleFailCallback(obj IScheduleModel)
+
+	OnStartSchedule(obj IScheduleModel)
+	OnScheduleFailCallback(obj IScheduleModel, reason string)
 	OnScheduleComplete(ctx context.Context, items []db.IStandaloneModel, data *jsonutils.JSONDict)
 	SaveScheduleResult(ctx context.Context, obj IScheduleModel, hostId string)
+	SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave string)
+	OnScheduleFailed(ctx context.Context, reason string)
+}
+
+type SSchedTask struct {
+	taskman.STask
+}
+
+func (self *SSchedTask) GetSchedParams() *jsonutils.JSONDict {
+	return self.GetParams()
+}
+
+func (self *SSchedTask) OnStartSchedule(obj IScheduleModel) {
+	db.OpsLog.LogEvent(obj, db.ACT_ALLOCATING, nil, self.GetUserCred())
+	obj.SetStatus(self.GetUserCred(), SCHEDULE, "")
+}
+
+func (self *SSchedTask) OnScheduleFailCallback(obj IScheduleModel, reason string) {
+	obj.SetStatus(self.GetUserCred(), SCHEDULE_FAILED, reason)
+	db.OpsLog.LogEvent(obj, db.ACT_ALLOCATE_FAIL, reason, self.GetUserCred())
+	notifyclient.NotifySystemError(obj.GetId(), obj.GetName(), SCHEDULE_FAILED, reason)
+}
+
+func (self *SSchedTask) OnScheduleComplete(ctx context.Context, items []db.IStandaloneModel, data *jsonutils.JSONDict) {
+	self.SetStageComplete(ctx, nil)
+}
+
+func (self *SSchedTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, hostId string) {
+	// ...
+}
+
+func (self *SSchedTask) SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave string) {
+	// ...
+}
+
+func (self *SSchedTask) OnScheduleFailed(ctx context.Context, reason string) {
+	self.SetStageFailed(ctx, reason)
 }
 
 func StartScheduleObjects(
@@ -50,8 +89,7 @@ func StartScheduleObjects(
 	for i, obj := range objs {
 		schedObj := obj.(IScheduleModel)
 		schedObjs[i] = schedObj
-		db.OpsLog.LogEvent(schedObj, db.ACT_ALLOCATING, nil, task.GetUserCred())
-		schedObj.SetStatus(task.GetUserCred(), SCHEDULE, "")
+		task.OnStartSchedule(schedObj)
 	}
 	doScheduleObjects(ctx, task, schedObjs)
 }
@@ -61,12 +99,13 @@ func doScheduleObjects(
 	task IScheduleTask,
 	objs []IScheduleModel,
 ) {
-	schedtags := models.ApplySchedPolicies(task.GetParams())
+	parmas := task.GetSchedParams()
+	schedtags := models.ApplySchedPolicies(parmas)
 
 	task.SetStage("OnScheduleComplete", schedtags)
 
 	s := auth.GetAdminSession(options.Options.Region, "")
-	results, err := modules.SchedManager.DoSchedule(s, task.GetParams(), len(objs))
+	results, err := modules.SchedManager.DoSchedule(s, parmas, len(objs))
 	if err != nil {
 		onSchedulerRequestFail(ctx, task, objs, fmt.Sprintf("Scheduler fail: %s", err))
 		return
@@ -81,7 +120,7 @@ func cancelPendingUsage(ctx context.Context, task IScheduleTask) {
 		log.Errorf("Taks GetPendingUsage fail %s", err)
 		return
 	}
-	ownerProjectId, _ := task.GetParams().GetString("owner_tenant_id")
+	ownerProjectId, _ := task.GetSchedParams().GetString("owner_tenant_id")
 	err = models.QuotaManager.CancelPendingUsage(ctx, task.GetUserCred(), ownerProjectId, &pendingUsage, &pendingUsage)
 	if err != nil {
 		log.Errorf("cancelpendingusage error %s", err)
@@ -95,13 +134,13 @@ func onSchedulerRequestFail(
 	reason string,
 ) {
 	for _, obj := range objs {
-		onScheduleFail(ctx, task, obj, reason)
+		onObjScheduleFail(ctx, task, obj, reason)
 	}
-	task.SetStageFailed(ctx, fmt.Sprintf("Schedule failed: %s", reason))
+	task.OnScheduleFailed(ctx, fmt.Sprintf("Schedule failed: %s", reason))
 	cancelPendingUsage(ctx, task)
 }
 
-func onScheduleFail(
+func onObjScheduleFail(
 	ctx context.Context,
 	task IScheduleTask,
 	obj IScheduleModel,
@@ -114,11 +153,7 @@ func onScheduleFail(
 	if len(msg) > 0 {
 		reason = fmt.Sprintf("%s: %s", reason, msg)
 	}
-
-	obj.SetStatus(task.GetUserCred(), SCHEDULE_FAILED, reason)
-	db.OpsLog.LogEvent(obj, db.ACT_ALLOCATE_FAIL, reason, task.GetUserCred())
-	notifyclient.NotifySystemError(obj.GetId(), obj.GetName(), SCHEDULE_FAILED, reason)
-	task.OnScheduleFailCallback(obj)
+	task.OnScheduleFailCallback(obj, reason)
 }
 
 func onSchedulerResults(
@@ -131,23 +166,44 @@ func onSchedulerResults(
 	for idx := 0; idx < len(objs); idx += 1 {
 		obj := objs[idx]
 		result := results[idx]
-		if result.Contains("candidate") {
+		if result.Contains("candidate", "id") {
 			hostId, _ := result.GetString("candidate", "id")
 			onScheduleSucc(ctx, task, obj, hostId)
 			succCount += 1
+		} else if result.Contains("candidate", "master_id") {
+			master, _ := result.GetString("candidate", "master_id")
+			slave, _ := result.GetString("candidate", "slave_id")
+			if len(master) == 0 || len(slave) == 0 {
+				onObjScheduleFail(ctx, task, obj, "Scheduler candidates not match")
+			} else {
+				onMasterSlaveScheduleSucc(ctx, task, obj, master, slave)
+			}
 		} else if result.Contains("error") {
 			msg, _ := result.Get("error")
-			onScheduleFail(ctx, task, obj, fmt.Sprintf("%s", msg))
+			onObjScheduleFail(ctx, task, obj, fmt.Sprintf("%s", msg))
 		} else {
 			msg := fmt.Sprintf("Unknown scheduler result %s", result)
-			onScheduleFail(ctx, task, obj, msg)
+			onObjScheduleFail(ctx, task, obj, msg)
 			return
 		}
 	}
 	if succCount == 0 {
-		task.SetStageFailed(ctx, "Schedule failed")
+		task.OnScheduleFailed(ctx, "Schedule failed")
 	}
 	cancelPendingUsage(ctx, task)
+}
+
+func onMasterSlaveScheduleSucc(
+	ctx context.Context,
+	task IScheduleTask,
+	obj IScheduleModel,
+	master, slave string,
+) {
+	lockman.LockObject(ctx, obj)
+	defer lockman.ReleaseObject(ctx, obj)
+	task.SaveScheduleResultWithBackup(ctx, obj, master, slave)
+	models.HostManager.ClearSchedDescCache(master)
+	models.HostManager.ClearSchedDescCache(slave)
 }
 
 func onScheduleSucc(
