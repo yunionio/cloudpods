@@ -1473,10 +1473,15 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 				kwargs.Set("delete_public_key", jsonutils.NewString(okey.PublicKey))
 			}
 
-			self.GetModelManager().TableSpec().Update(self, func() error {
+			_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 				self.KeypairId = kpId
 				return nil
 			})
+
+			if err != nil {
+				log.Errorf("update keypair fail: %s", err)
+				return nil, httperrors.NewInternalServerError(err.Error())
+			}
 
 			kwargs.Set("reset_password", jsonutils.JSONTrue)
 		}
