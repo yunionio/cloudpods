@@ -10,6 +10,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 )
@@ -100,6 +101,11 @@ func (self *SRegion) GetSecurityGroups(vpcId string, offset int, limit int) ([]S
 
 func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
 	return nil
+}
+
+func (self *SSecurityGroup) GetVpcId() string {
+	//腾讯云安全组未与vpc关联，统一使用normal
+	return "normal"
 }
 
 func (self *SSecurityGroup) GetId() string {
@@ -293,6 +299,30 @@ func (self *SSecurityGroup) Refresh() error {
 	}
 }
 
+func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
+	if len(secgroupId) > 0 {
+		_, err := self.GetSecurityGroupDetails(secgroupId)
+		if err != nil {
+			if err != cloudprovider.ErrNotFound {
+				return "", err
+			}
+			secgroupId = ""
+		}
+	}
+	if len(secgroupId) == 0 {
+		secgroup, err := self.CreateSecurityGroup(name, desc)
+		if err != nil {
+			return "", err
+		}
+		secgroupId = secgroup.SecurityGroupId
+	}
+	return self.syncSecgroupRules(secgroupId, rules)
+}
+
+func (self *SRegion) syncSecgroupRules(secgroupid string, rules []secrules.SecurityRule) (string, error) {
+	return "", cloudprovider.ErrNotImplemented
+}
+
 func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup, error) {
 	params := make(map[string]string)
 	params["Region"] = self.Region
@@ -313,7 +343,7 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 	return &secgrp, nil
 }
 
-func (self *SRegion) DeleteSecurityGroup(secGroupId string) error {
+func (self *SRegion) deleteSecurityGroup(secGroupId string) error {
 	params := make(map[string]string)
 	params["Region"] = self.Region
 	params["SecurityGroupId"] = secGroupId

@@ -6,7 +6,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/pkg/util/secrules"
 )
 
 type SVpc struct {
@@ -154,35 +153,6 @@ func (self *SVpc) Refresh() error {
 		return err
 	}
 	return jsonutils.Update(self, new)
-}
-
-func (self *SVpc) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) (string, error) {
-	secgrpId := ""
-	// if secgroup, err := self.region.getSecurityGroupByTag(self.VpcId, secgroupId); err != nil {
-	// 	if secgrpId, err = self.region.createSecurityGroup(self.VpcId, name, ""); err != nil {
-	// 		return "", err
-	// 	} else if err := self.region.addTagToSecurityGroup(secgrpId, "id", secgroupId, 1); err != nil {
-	// 		return "", err
-	// 	}
-	// 	//addRules
-	// 	log.Debugf("Add Rules for %s", secgrpId)
-	// 	for _, rule := range rules {
-	// 		if err := self.region.addSecurityGroupRule(secgrpId, &rule); err != nil {
-	// 			return "", err
-	// 		}
-	// 	}
-	// } else {
-	// 	//syncRules
-	// 	secgrpId = secgroup.SecurityGroupId
-	// 	log.Debugf("Sync Rules for %s", secgroup.GetName())
-	// 	if secgroup.GetName() != name {
-	// 		if err := self.region.modifySecurityGroup(secgrpId, name, ""); err != nil {
-	// 			log.Errorf("Change SecurityGroup name to %s failed: %v", name, err)
-	// 		}
-	// 	}
-	// 	self.region.syncSecgroupRules(secgrpId, rules)
-	// }
-	return secgrpId, nil
 }
 
 func (self *SVpc) addWire(wire *SWire) {
