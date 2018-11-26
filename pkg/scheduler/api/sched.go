@@ -369,8 +369,19 @@ func (d *SchedData) fillNetworksInfo(sjson *simplejson.Json) error {
 			break
 		}
 		net, err := newNetworkFromDesc(s.MustString())
-		if err != nil {
-			return err
+		if err != nil || net.Idx == "" {
+			net = new(Network)
+			net.Idx = s.Get("network").MustString()
+			if net.Idx == "" {
+				return fmt.Errorf("Invalid network desc: %s", s.MustString())
+			}
+			net.Wire = s.Get("wire").MustString()
+			net.Driver = s.Get("driver").MustString()
+			net.Exit = s.Get("exit").MustBool()
+			net.BwLimit = s.Get("bw_limit").MustInt64()
+			net.Private = s.Get("private").MustBool()
+			net.Reserved = s.Get("reserved").MustBool()
+			net.Vip = s.Get("vip").MustBool()
 		}
 		networks = append(networks, net)
 	}
