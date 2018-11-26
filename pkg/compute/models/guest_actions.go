@@ -696,7 +696,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 			logclient.AddActionLog(self, logclient.ACT_CREATE, "No valid storage on current host", userCred, false)
 			return nil, httperrors.NewBadRequestError("No valid storage on current host")
 		}
-		if storage.GetCapacity() < size {
+		if storage.GetCapacity() > 0 && storage.GetCapacity() < size {
 			logclient.AddActionLog(self, logclient.ACT_CREATE, "Not eough storage space on current host", userCred, false)
 			return nil, httperrors.NewBadRequestError("Not eough storage space on current host")
 		}

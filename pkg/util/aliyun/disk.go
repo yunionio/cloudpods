@@ -119,7 +119,22 @@ func (self *SDisk) Delete(ctx context.Context) error {
 		log.Errorf("Failed to find disk %s when delete: %s", self.DiskId, err)
 		return err
 	}
-	return self.storage.zone.region.deleteDisk(self.DiskId)
+
+	for {
+		err := self.storage.zone.region.DeleteDisk(self.DiskId)
+		if err != nil {
+			if isError(err, "IncorrectDiskStatus") {
+				log.Infof("The disk is initializing, try later ...")
+				time.Sleep(10 * time.Second)
+			} else {
+				log.Errorf("DeleteDisk fail: %s", err)
+				return err
+			}
+		} else {
+			break
+		}
+	}
+	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
 }
 
 func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
@@ -244,14 +259,6 @@ func (self *SRegion) getDisk(diskId string) (*SDisk, error) {
 		return nil, cloudprovider.ErrNotFound
 	}
 	return &disks[0], nil
-}
-
-func (self *SRegion) deleteDisk(diskId string) error {
-	params := make(map[string]string)
-	params["DiskId"] = diskId
-
-	_, err := self.ecsRequest("DeleteDisk", params)
-	return err
 }
 
 func (self *SRegion) DeleteDisk(diskId string) error {

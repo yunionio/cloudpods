@@ -98,10 +98,6 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
-	/* onfinish, err := config.GetString("on_finish")
-	if err != nil {
-		return err
-	} */
 
 	action, err := config.GetString("action")
 	if err != nil {
@@ -263,20 +259,20 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 					log.Errorf("fail to find VM idisks %s", err)
 					return nil, err
 				}
-				if len(idisks) < len(desc.DataDisks)+1 {
+				if len(idisks) < len(desc.DataDisks)+1 || idisks[0].GetGlobalId() != diskId {
 					if waited > maxWaitSecs {
 						log.Errorf("inconsistent disk number, wait timeout, must be something wrong on remote")
 						return nil, cloudprovider.ErrTimeout
 					}
-					log.Debugf("inconsistent disk number???? %d != %d", len(idisks), len(desc.DataDisks)+1)
+					if len(idisks) < len(desc.DataDisks)+1 {
+						log.Debugf("inconsistent disk number???? %d != %d", len(idisks), len(desc.DataDisks)+1)
+					}
+					if idisks[0].GetGlobalId() != diskId {
+						log.Errorf("system disk id inconsistent %s != %s", idisks[0].GetGlobalId(), diskId)
+					}
 					time.Sleep(time.Second * 5)
 					waited += 5
 				} else {
-					if idisks[0].GetGlobalId() != diskId {
-						log.Errorf("system disk id inconsistent %s != %s", idisks[0].GetGlobalId(), diskId)
-						return nil, fmt.Errorf("inconsistent sys disk id after rebuild root")
-					}
-
 					break
 				}
 			}

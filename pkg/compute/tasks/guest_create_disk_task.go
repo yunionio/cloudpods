@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"time"
 )
 
 type GuestCreateDiskTask struct {
@@ -130,58 +131,48 @@ func (self *ManagedGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStan
 
 func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	var diskIndex = 0
-	var diskReady = true
-	for {
+
+	for self.Params.Contains(fmt.Sprintf("disk.%d.id", diskIndex)) {
 		diskId, err := self.Params.GetString(fmt.Sprintf("disk.%d.id", diskIndex))
-		if !diskReady || err != nil {
-			break
+		if err != nil {
+			self.SetStageFailed(ctx, err.Error())
+			return
 		}
 		iDisk, err := models.DiskManager.FetchById(diskId)
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
 			return
 		}
-		if iDisk == nil {
-			self.SetStageFailed(ctx, "Disk not found")
-			return
-		}
 		disk := iDisk.(*models.SDisk)
 		if disk.Status == models.DISK_INIT {
-			snapInfo, err := self.Params.GetString(fmt.Sprintf("disk.%d.snapshot", diskIndex))
-			if err != nil {
-				snapInfo = ""
-			}
+			snapInfo, _ := self.Params.GetString(fmt.Sprintf("disk.%d.snapshot", diskIndex))
 			err = disk.StartDiskCreateTask(ctx, self.UserCred, false, snapInfo, self.GetTaskId())
 			if err != nil {
 				self.SetStageFailed(ctx, err.Error())
 				return
 			}
-			diskReady = false
-			break
+			return
 		}
 		diskIndex += 1
 	}
+
 	diskIndex = 0
 	guest := obj.(*models.SGuest)
 
-	for {
+	for self.Params.Contains(fmt.Sprintf("disk.%d.id", diskIndex)) {
 		diskId, err := self.Params.GetString(fmt.Sprintf("disk.%d.id", diskIndex))
-		if !diskReady || err != nil {
-			break
+		if err != nil {
+			return
 		}
 		iDisk, err := models.DiskManager.FetchById(diskId)
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
 			return
 		}
-		if iDisk == nil {
-			self.SetStageFailed(ctx, "Disk not found")
-			return
-		}
 		disk := iDisk.(*models.SDisk)
 		if disk.Status != models.DISK_READY {
-			diskReady = false
-			break
+			self.SetStageFailed(ctx, fmt.Sprintf("disk %s is not ready", disk.Id))
+			return
 		}
 
 		iVM, e := guest.GetIVM()
@@ -196,20 +187,9 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 			self.SetStageFailed(ctx, "Attach Disk to guest fail")
 			return
 		}
+		time.Sleep(time.Second*5)
 		diskIndex += 1
 	}
-
-	/*if diskReady {
-		if guest.Status == models.VM_RUNNING {
-			self.SetStage("on_config_sync_complete", nil)
-			err := guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
-			if err != nil {
-				self.SetStageFailed(ctx, err.Error())
-			}
-		} else {
-
-		}
-	}*/
 
 	self.SetStageComplete(ctx, nil)
 }
