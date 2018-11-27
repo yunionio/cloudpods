@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -104,7 +105,7 @@ func (self *SImage) GetGlobalId() string {
 	return fmt.Sprintf("%s-%s")
 }
 
-func (self *SImage) Delete() error {
+func (self *SImage) Delete(ctx context.Context) error {
 	return self.storageCache.region.DeleteImage(self.ImageId)
 }
 

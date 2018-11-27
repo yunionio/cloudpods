@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -108,17 +109,36 @@ func (self *SDisk) GetId() string {
 	return self.DiskId
 }
 
-func (self *SDisk) Delete() error {
-	if _, err := self.storage.zone.region.getDisk(self.DiskId); err == cloudprovider.ErrNotFound {
-		// 未找到disk, 说明disk已经被删除了. 避免回收站中disk-delete循环删除失败
-		log.Errorf("Failed to find disk %s when delete", self.DiskId)
-		return nil
+func (self *SDisk) Delete(ctx context.Context) error {
+	_, err := self.storage.zone.region.getDisk(self.DiskId)
+	if err != nil {
+		if err == cloudprovider.ErrNotFound {
+			// 未找到disk, 说明disk已经被删除了. 避免回收站中disk-delete循环删除失败
+			return nil
+		}
+		log.Errorf("Failed to find disk %s when delete: %s", self.DiskId, err)
+		return err
 	}
-	return self.storage.zone.region.deleteDisk(self.DiskId)
+
+	for {
+		err := self.storage.zone.region.DeleteDisk(self.DiskId)
+		if err != nil {
+			if isError(err, "IncorrectDiskStatus") {
+				log.Infof("The disk is initializing, try later ...")
+				time.Sleep(10 * time.Second)
+			} else {
+				log.Errorf("DeleteDisk fail: %s", err)
+				return err
+			}
+		} else {
+			break
+		}
+	}
+	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
 }
 
-func (self *SDisk) Resize(size int64) error {
-	return self.storage.zone.region.resizeDisk(self.DiskId, size)
+func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
+	return self.storage.zone.region.resizeDisk(self.DiskId, sizeMb)
 }
 
 func (self *SDisk) GetName() string {
@@ -136,8 +156,8 @@ func (self *SDisk) IsEmulated() bool {
 	return false
 }
 
-func (self *SDisk) GetIStorge() cloudprovider.ICloudStorage {
-	return self.storage
+func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
+	return self.storage, nil
 }
 
 func (self *SDisk) GetStatus() string {
@@ -241,14 +261,6 @@ func (self *SRegion) getDisk(diskId string) (*SDisk, error) {
 	return &disks[0], nil
 }
 
-func (self *SRegion) deleteDisk(diskId string) error {
-	params := make(map[string]string)
-	params["DiskId"] = diskId
-
-	_, err := self.ecsRequest("DeleteDisk", params)
-	return err
-}
-
 func (self *SRegion) DeleteDisk(diskId string) error {
 	params := make(map[string]string)
 	params["DiskId"] = diskId
@@ -257,14 +269,15 @@ func (self *SRegion) DeleteDisk(diskId string) error {
 	return err
 }
 
-func (self *SRegion) resizeDisk(diskId string, size int64) error {
+func (self *SRegion) resizeDisk(diskId string, sizeMb int64) error {
+	sizeGb := sizeMb / 1024
 	params := make(map[string]string)
 	params["DiskId"] = diskId
-	params["NewSize"] = fmt.Sprintf("%d", size)
+	params["NewSize"] = fmt.Sprintf("%d", sizeGb)
 
 	_, err := self.ecsRequest("ResizeDisk", params)
 	if err != nil {
-		log.Errorf("resizing disk (%s) to %d GiB failed: %s", diskId, size, err)
+		log.Errorf("resizing disk (%s) to %d GiB failed: %s", diskId, sizeGb, err)
 		return err
 	}
 
@@ -284,7 +297,7 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) error {
 	return nil
 }
 
-func (self *SDisk) CreateISnapshot(name, desc string) (cloudprovider.ICloudSnapshot, error) {
+func (self *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
 	if snapshotId, err := self.storage.zone.region.CreateSnapshot(self.DiskId, name, desc); err != nil {
 		log.Errorf("createSnapshot fail %s", err)
 		return nil, err
@@ -354,7 +367,7 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return isnapshots, nil
 }
 
-func (self *SDisk) Reset(snapshotId string) error {
+func (self *SDisk) Reset(ctx context.Context, snapshotId string) error {
 	return self.storage.zone.region.resetDisk(self.DiskId, snapshotId)
 }
 
@@ -371,4 +384,8 @@ func (self *SDisk) GetBillingType() string {
 
 func (self *SDisk) GetExpiredAt() time.Time {
 	return self.ExpiredTime
+}
+
+func (self *SDisk) GetAccessPath() string {
+	return ""
 }

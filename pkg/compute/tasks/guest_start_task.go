@@ -71,9 +71,9 @@ func (self *GuestStartTask) RequestStart(ctx context.Context, guest *models.SGue
 		self.onStartGuestFailed(ctx, guest, err)
 	} else {
 		if result != nil && jsonutils.QueryBoolean(result, "is_running", false) {
-			self.OnStartComplete(ctx, guest, nil)
 			// guest.SetStatus(self.UserCred, models.VM_RUNNING, "start")
 			// self.taskComplete(ctx, guest)
+			self.OnStartComplete(ctx, guest, nil)
 		}
 	}
 }

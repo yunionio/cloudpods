@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -455,7 +456,7 @@ func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
 	return self.host
 }
 
-func (self *SInstance) AttachDisk(diskId string) error {
+func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
 	if err := self.host.zone.region.AttachDisk(self.ID, diskId); err != nil {
 		return err
 	}
@@ -497,7 +498,7 @@ func (region *SRegion) AttachDisk(instanceId, diskId string) error {
 	return region.client.Update(jsonutils.Marshal(instance), nil)
 }
 
-func (self *SInstance) DetachDisk(diskId string) error {
+func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
 	if err := self.host.zone.region.DetachDisk(self.ID, diskId); err != nil {
 		return err
 	}
@@ -525,7 +526,7 @@ func (region *SRegion) DetachDisk(instanceId, diskId string) error {
 	return region.client.Update(jsonutils.Marshal(instance), nil)
 }
 
-func (self *SInstance) ChangeConfig(instanceId string, ncpu int, vmem int) error {
+func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
 	for _, vmSize := range self.host.zone.region.getHardwareProfile(ncpu, vmem) {
 		self.Properties.HardwareProfile.VMSize = vmSize
 		self.Properties.ProvisioningState = ""
@@ -539,16 +540,16 @@ func (self *SInstance) ChangeConfig(instanceId string, ncpu int, vmem int) error
 	return fmt.Errorf("Failed to change vm config, specification not supported")
 }
 
-func (region *SRegion) ChangeVMConfig(instanceId string, ncpu int, vmem int) error {
+func (region *SRegion) ChangeVMConfig(ctx context.Context, instanceId string, ncpu int, vmem int) error {
 	instacen, err := region.GetInstance(instanceId)
 	if err != nil {
 		return err
 	}
-	return instacen.ChangeConfig(instanceId, ncpu, vmem)
+	return instacen.ChangeConfig(ctx, ncpu, vmem)
 }
 
-func (self *SInstance) DeployVM(name string, password string, publicKey string, deleteKeypair bool, description string) error {
-	return self.host.zone.region.DeployVM(self.ID, name, password, publicKey, deleteKeypair, description)
+func (self *SInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
+	return self.host.zone.region.DeployVM(ctx, self.ID, name, password, publicKey, deleteKeypair, description)
 }
 
 type VirtualMachineExtensionProperties struct {
@@ -638,7 +639,7 @@ func (region *SRegion) resetPassword(instanceId, username, password string) erro
 	return region.resetLoginInfo(instanceId, setting)
 }
 
-func (region *SRegion) DeployVM(instanceId, name, password, publicKey string, deleteKeypair bool, description string) error {
+func (region *SRegion) DeployVM(ctx context.Context, instanceId, name, password, publicKey string, deleteKeypair bool, description string) error {
 	instance, err := region.GetInstance(instanceId)
 	if err != nil {
 		return err
@@ -652,7 +653,7 @@ func (region *SRegion) DeployVM(instanceId, name, password, publicKey string, de
 	return region.resetPassword(instanceId, instance.Properties.OsProfile.AdminUsername, password)
 }
 
-func (self *SInstance) RebuildRoot(imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
 	return self.host.zone.region.ReplaceSystemDisk(self.ID, imageId, passwd, publicKey, int32(sysSizeGB))
 }
 
@@ -738,7 +739,7 @@ func (region *SRegion) ReplaceSystemDisk(instanceId, imageId, passwd, publicKey 
 	return disk.ID, nil
 }
 
-func (self *SInstance) UpdateVM(name string) error {
+func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
 	return cloudprovider.ErrNotSupported
 }
 
@@ -758,7 +759,7 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 	return self.doDeleteVM(instanceId)
 }
 
-func (self *SInstance) DeleteVM() error {
+func (self *SInstance) DeleteVM(ctx context.Context) error {
 	sysDiskId := ""
 	if self.Properties.StorageProfile.OsDisk.ManagedDisk != nil {
 		sysDiskId = self.Properties.StorageProfile.OsDisk.ManagedDisk.ID
@@ -939,7 +940,7 @@ func (self *SRegion) StartVM(instanceId string) error {
 	return err
 }
 
-func (self *SInstance) StartVM() error {
+func (self *SInstance) StartVM(ctx context.Context) error {
 	if err := self.host.zone.region.StartVM(self.ID); err != nil {
 		return err
 	}
@@ -947,7 +948,7 @@ func (self *SInstance) StartVM() error {
 	return cloudprovider.WaitStatus(self, models.VM_RUNNING, 10*time.Second, 300*time.Second)
 }
 
-func (self *SInstance) StopVM(isForce bool) error {
+func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 	err := self.host.zone.region.StopVM(self.ID, isForce)
 	if err != nil {
 		return err
@@ -991,9 +992,13 @@ func (self *SInstance) GetBillingType() string {
 }
 
 func (self *SInstance) GetExpiredAt() time.Time {
-	return time.Now()
+	return time.Time{}
 }
 
 func (self *SInstance) UpdateUserData(userData string) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
 	return cloudprovider.ErrNotSupported
 }

@@ -79,7 +79,7 @@
   version = "v1.19.0"
 
 [[projects]]
-  digest = "1:bad9acf125c8b98ea473f45cf8eabee4c401fcd108534b65d2033af7481be25d"
+  digest = "1:c9956ee9d99542ed5be2a37e8a35505a4ca1516520380623e3f54f51bfc53d7a"
   name = "github.com/aliyun/alibaba-cloud-sdk-go"
   packages = [
     "sdk",
@@ -93,8 +93,8 @@
     "sdk/utils",
   ]
   pruneopts = "UT"
-  revision = "1d757c22fbf7997c68c43d72e92d462ea05e1439"
-  version = "0.7.4"
+  revision = "a46ca5dbc29d3df78e8da89737b5f40dd8c03d26"
+  version = "0.7.7"
 
 [[projects]]
   digest = "1:5a2d4da3f703696f4bec1ba1d363f50461b72934b1817c07ab0963496ed1c90d"
@@ -248,12 +248,12 @@
   version = "v1.2.0"
 
 [[projects]]
-  digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
+  digest = "1:a2c1d0e43bd3baaa071d1b9ed72c27d78169b2b269f71c105ac4ba34b1be4a39"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   pruneopts = "UT"
-  revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
-  version = "v1.1.1"
+  revision = "346938d642f2ec3594ed81d874461961cd0faa76"
+  version = "v1.1.0"
 
 [[projects]]
   digest = "1:76dc72490af7174349349838f2fe118996381b31ea83243812a97e5a0fd5ed55"
@@ -1312,11 +1312,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:54554b3c72f4fcbd3c27c5137f9acd9d153d7e7150d77cd509af50c75fcb41b9"
+  digest = "1:cdf0f619f0b3e37a792fb7f124bf2881d8a18cc13d693454b9731a8fa4f5fedc"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "7079aada4c7e9a37e4c3b183bddb0ef684e038f2"
+  revision = "f5b4a20f593f1f49039455fe40cb1274de53ac3f"
 
 [[projects]]
   branch = "master"
@@ -1397,7 +1397,6 @@
     "github.com/Microsoft/azure-vhd-utils/vhdcore/footer",
     "github.com/Microsoft/azure-vhd-utils/vhdcore/validator",
     "github.com/aliyun/alibaba-cloud-sdk-go/sdk",
-    "github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors",
     "github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests",
     "github.com/aliyun/aliyun-oss-go-sdk/oss",
     "github.com/aokoli/goutils",
@@ -1461,6 +1460,7 @@
     "github.com/vmware/govmomi/property",
     "github.com/vmware/govmomi/session",
     "github.com/vmware/govmomi/view",
+    "github.com/vmware/govmomi/vim25",
     "github.com/vmware/govmomi/vim25/mo",
     "github.com/vmware/govmomi/vim25/types",
     "golang.org/x/crypto/ssh",

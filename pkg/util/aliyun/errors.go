@@ -1,13 +1,15 @@
 package aliyun
 
 import (
-	aliyunerrors "github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors"
+	"fmt"
+	"strings"
 )
 
 func isError(err error, code string) bool {
-	aliyunErr, ok := err.(aliyunerrors.Error)
-	if !ok {
+	errStr := fmt.Sprintf("%s", err)
+	if strings.Index(errStr, code) > 0 {
+		return true
+	} else {
 		return false
 	}
-	return aliyunErr.ErrorCode() == code
 }

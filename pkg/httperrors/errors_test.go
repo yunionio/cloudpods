@@ -60,22 +60,22 @@ func TestMsgToTemplate(t *testing.T) {
 	}{
 		{
 			name: "non-empty msg to template",
-			msg: "%% baremetals %s delete.time %d%",
-			out: "% baremetals {0} delete.time {1}%",
+			msg:  "%% baremetals %s delete.time %d%",
+			out:  "% baremetals {0} delete.time {1}%",
 		},
 		{
 			name: "empty msg to template",
-			msg: "",
-			out: "",
+			msg:  "",
+			out:  "",
 		},
 		{
 			name: "non-empty with zh-utf8 characters msg to template",
-			msg: "%% baremetals %s 中文%d ¥%%",
-			out: "% baremetals {0} 中文{1} ¥%",
+			msg:  "%% baremetals %s 中文%d ¥%%",
+			out:  "% baremetals {0} 中文{1} ¥%",
 		},
 	}
 
-	for _, c := range cases{
+	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			resp := msgToTemplate(c.msg)
 			if resp != c.out {

@@ -696,7 +696,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 			logclient.AddActionLog(self, logclient.ACT_CREATE, "No valid storage on current host", userCred, false)
 			return nil, httperrors.NewBadRequestError("No valid storage on current host")
 		}
-		if storage.GetCapacity() < size {
+		if storage.GetCapacity() > 0 && storage.GetCapacity() < size {
 			logclient.AddActionLog(self, logclient.ACT_CREATE, "Not eough storage space on current host", userCred, false)
 			return nil, httperrors.NewBadRequestError("Not eough storage space on current host")
 		}
@@ -1473,10 +1473,15 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 				kwargs.Set("delete_public_key", jsonutils.NewString(okey.PublicKey))
 			}
 
-			self.GetModelManager().TableSpec().Update(self, func() error {
+			_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 				self.KeypairId = kpId
 				return nil
 			})
+
+			if err != nil {
+				log.Errorf("update keypair fail: %s", err)
+				return nil, httperrors.NewInternalServerError(err.Error())
+			}
 
 			kwargs.Set("reset_password", jsonutils.JSONTrue)
 		}

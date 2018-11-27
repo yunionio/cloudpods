@@ -93,7 +93,17 @@ func syncCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider,
 	notes := fmt.Sprintf("Start sync host info ...")
 	log.Infof(notes)
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_START, "", task.UserCred)
+
+	if driver.IsOnPremiseInfrastructure() {
+		syncOnPremiseCloudProviderInfo(ctx, provider, task, driver, syncRange)
+	} else {
+		syncPublicCloudProviderInfo(ctx, provider, task, driver, syncRange)
+	}
+}
+
+func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, driver cloudprovider.ICloudProvider, syncRange *models.SSyncRange) {
 	regions := driver.GetIRegions()
+
 	localRegions, remoteRegions, result := models.CloudregionManager.SyncRegions(ctx, task.UserCred, provider.Provider, regions)
 	msg := result.Result()
 	log.Infof("SyncRegion result: %s", msg)
@@ -390,7 +400,7 @@ func syncHostStorages(ctx context.Context, provider *models.SCloudprovider, task
 		logSyncFailed(provider, task, msg)
 		return
 	}
-	result := localHost.SyncHostStorages(ctx, task.UserCred, storages)
+	localStorages, remoteStorages, result := localHost.SyncHostStorages(ctx, task.UserCred, storages)
 	msg := result.Result()
 	notes := fmt.Sprintf("SyncHostStorages for host %s result: %s", localHost.Name, msg)
 	log.Infof(notes)
@@ -400,6 +410,10 @@ func syncHostStorages(ctx context.Context, provider *models.SCloudprovider, task
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
 	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
+
+	for i := 0; i < len(localStorages); i += 1 {
+		syncStorageCaches(ctx, provider, task, &localStorages[i], remoteStorages[i])
+	}
 }
 
 func syncHostWires(ctx context.Context, provider *models.SCloudprovider, task taskman.ITask, localHost *models.SHost, remoteHost cloudprovider.ICloudHost) {

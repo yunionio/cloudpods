@@ -1,7 +1,9 @@
 package esxi
 
 import (
+	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/vmware/govmomi/object"
@@ -10,20 +12,33 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/regutils"
+
+	"strings"
 )
 
-var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "runtime", "summary"}
+var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "runtime", "summary", "config", "guest"}
 
 type SVirtualMachine struct {
 	SManagedObject
 
-	host *SHost
+	vnics  []SVirtualNIC
+	vdisks []SVirtualDisk
+	vga    SVirtualVGA
+	cdroms []SVirtualCdrom
+	devs   map[int32]SVirtualDevice
+
+	guestIps map[string]string
 }
 
-func NewVirtualMachine(manager *SESXiClient, vm *mo.VirtualMachine, dc *SDatacenter, host *SHost) *SVirtualMachine {
-	return &SVirtualMachine{SManagedObject: newManagedObject(manager, vm, dc), host: host}
+func NewVirtualMachine(manager *SESXiClient, vm *mo.VirtualMachine, dc *SDatacenter) *SVirtualMachine {
+	svm := &SVirtualMachine{SManagedObject: newManagedObject(manager, vm, dc)}
+	svm.fetchHardwareInfo()
+	return svm
 }
 
 func (self *SVirtualMachine) GetMetadata() *jsonutils.JSONDict {
@@ -57,30 +72,40 @@ func (self *SVirtualMachine) GetStatus() string {
 }
 
 func (self *SVirtualMachine) Refresh() error {
-	return cloudprovider.ErrNotImplemented
+	base := self.SManagedObject
+	var moObj mo.VirtualMachine
+	err := self.manager.reference2Object(self.object.Reference(), VIRTUAL_MACHINE_PROPS, &moObj)
+	if err != nil {
+		return err
+	}
+	base.object = &moObj
+	*self = SVirtualMachine{}
+	self.SManagedObject = base
+	self.fetchHardwareInfo()
+	return nil
 }
 
 func (self *SVirtualMachine) IsEmulated() bool {
 	return false
 }
 
-func (self *SVirtualMachine) DeployVM(name string, password string, publicKey string, deleteKeypair bool, description string) error {
+func (self *SVirtualMachine) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SVirtualMachine) RebuildRoot(imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+func (self *SVirtualMachine) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
 
-func (self *SVirtualMachine) UpdateVM(name string) error {
+func (self *SVirtualMachine) UpdateVM(ctx context.Context, name string) error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SVirtualMachine) DetachDisk(diskId string) error {
+func (self *SVirtualMachine) DetachDisk(ctx context.Context, diskId string) error {
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SVirtualMachine) AttachDisk(diskId string) error {
+func (self *SVirtualMachine) AttachDisk(ctx context.Context, diskId string) error {
 	return cloudprovider.ErrNotImplemented
 }
 
@@ -89,19 +114,54 @@ func (self *SVirtualMachine) getUuid() string {
 }
 
 func (self *SVirtualMachine) GetCreateTime() time.Time {
-	return time.Time{}
+	moVM := self.getVirtualMachine()
+	ctm := moVM.Config.CreateDate
+	if ctm != nil {
+		return *ctm
+	} else {
+		return time.Time{}
+	}
 }
 
 func (self *SVirtualMachine) GetIHost() cloudprovider.ICloudHost {
-	return self.host
+	vm := self.getVmObj()
+
+	hostsys, err := vm.HostSystem(self.manager.context)
+	if err != nil {
+		log.Errorf("fail to find host system for vm %s", err)
+		return nil
+	}
+	ihost, err := self.manager.FindHostByMoId(moRefId(hostsys.Reference()))
+	if err != nil {
+		log.Errorf("fail to find host %s for vm %s???", hostsys.Name(), self.GetName())
+		return nil
+	}
+	return ihost
 }
 
 func (self *SVirtualMachine) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	idisks := make([]cloudprovider.ICloudDisk, len(self.vdisks))
+	for i := 0; i < len(self.vdisks); i += 1 {
+		idisks[i] = &(self.vdisks[i])
+	}
+	return idisks, nil
+}
+
+func (self *SVirtualMachine) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
+	for i := 0; i < len(self.vdisks); i += 1 {
+		if self.vdisks[i].GetGlobalId() == idStr {
+			return &self.vdisks[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SVirtualMachine) GetINics() ([]cloudprovider.ICloudNic, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	inics := make([]cloudprovider.ICloudNic, len(self.vnics))
+	for i := 0; i < len(self.vnics); i += 1 {
+		inics[i] = &(self.vnics[i])
+	}
+	return inics, nil
 }
 
 func (self *SVirtualMachine) GetIEIP() (cloudprovider.ICloudEIP, error) {
@@ -109,12 +169,10 @@ func (self *SVirtualMachine) GetIEIP() (cloudprovider.ICloudEIP, error) {
 }
 
 func (self *SVirtualMachine) GetVcpuCount() int8 {
-	// ret = self.obj.summary.config.numCpu
 	return int8(self.getVirtualMachine().Summary.Config.NumCpu)
 }
 
 func (self *SVirtualMachine) GetVmemSizeMB() int {
-	// self.obj.summary.config.memorySizeMB
 	return int(self.getVirtualMachine().Summary.Config.MemorySizeMB)
 }
 
@@ -130,11 +188,57 @@ func (self *SVirtualMachine) GetVdi() string {
 	return "vmrc"
 }
 
+func (self *SVirtualMachine) GetGuestFamily() string {
+	moVM := self.getVirtualMachine()
+	return moVM.Config.AlternateGuestName
+}
+
+func (self *SVirtualMachine) GetGuestId() string {
+	moVM := self.getVirtualMachine()
+	return moVM.Config.GuestId
+}
+
+func (self *SVirtualMachine) GetGuestFullName() string {
+	moVM := self.getVirtualMachine()
+	return moVM.Config.GuestFullName
+}
+
+func (self *SVirtualMachine) GetGuestState() string {
+	moVM := self.getVirtualMachine()
+	return moVM.Guest.GuestState
+}
+
+func (self *SVirtualMachine) GetGuestToolsStatus() string {
+	moVM := self.getVirtualMachine()
+	return string(moVM.Guest.ToolsStatus)
+}
+
+func (self *SVirtualMachine) isToolsOk() bool {
+	switch self.getVirtualMachine().Guest.ToolsStatus {
+	case types.VirtualMachineToolsStatusToolsNotInstalled:
+		return false
+	case types.VirtualMachineToolsStatusToolsNotRunning:
+		return false
+	}
+	return true
+}
+
+func (self *SVirtualMachine) GetGuestToolsRunningStatus() string {
+	moVM := self.getVirtualMachine()
+	return string(moVM.Guest.ToolsRunningStatus)
+}
+
 func (self *SVirtualMachine) GetOSType() string {
+	if osInfo, ok := GuestOsInfo[self.GetGuestId()]; ok {
+		return string(osInfo.OsType)
+	}
 	return ""
 }
 
 func (self *SVirtualMachine) GetOSName() string {
+	if osInfo, ok := GuestOsInfo[self.GetGuestId()]; ok {
+		return string(osInfo.OsDistribution)
+	}
 	return ""
 }
 
@@ -158,18 +262,142 @@ func (self *SVirtualMachine) GetHypervisor() string {
 	return models.HYPERVISOR_ESXI
 }
 
-// GetSecurityGroup() ICloudSecurityGroup
-
-func (self *SVirtualMachine) StartVM() error {
-	return cloudprovider.ErrNotImplemented
+func (self *SVirtualMachine) getVmObj() *object.VirtualMachine {
+	return object.NewVirtualMachine(self.manager.client.Client, self.getVirtualMachine().Self)
 }
 
-func (self *SVirtualMachine) StopVM(isForce bool) error {
-	return cloudprovider.ErrNotImplemented
+// ideopotent start
+func (self *SVirtualMachine) StartVM(ctx context.Context) error {
+	if self.GetStatus() == models.VM_RUNNING {
+		return nil
+	}
+	return self.startVM(ctx)
 }
 
-func (self *SVirtualMachine) DeleteVM() error {
-	return cloudprovider.ErrNotImplemented
+func (self *SVirtualMachine) startVM(ctx context.Context) error {
+	err := self.makeNicsStartConnected(ctx)
+	if err != nil {
+		return err
+	}
+
+	vm := self.getVmObj()
+
+	task, err := vm.PowerOn(ctx)
+	if err != nil {
+		return err
+	}
+	return task.Wait(ctx)
+}
+
+func (self *SVirtualMachine) makeNicsStartConnected(ctx context.Context) error {
+	spec := types.VirtualMachineConfigSpec{}
+	spec.DeviceChange = make([]types.BaseVirtualDeviceConfigSpec, len(self.vnics))
+	for i := 0; i < len(self.vnics); i += 1 {
+		spec.DeviceChange[i] = makeNicStartConnected(&self.vnics[i])
+	}
+
+	vm := self.getVmObj()
+
+	task, err := vm.Reconfigure(ctx, spec)
+	if err != nil {
+		return err
+	}
+	return task.Wait(ctx)
+}
+
+func makeNicStartConnected(nic *SVirtualNIC) *types.VirtualDeviceConfigSpec {
+	editSpec := types.VirtualDeviceConfigSpec{}
+	editSpec.Operation = types.VirtualDeviceConfigSpecOperationEdit
+	editSpec.FileOperation = ""
+	editSpec.Device = nic.dev
+	editSpec.Device.GetVirtualDevice().Connectable.StartConnected = true
+	return &editSpec
+}
+
+func (self *SVirtualMachine) StopVM(ctx context.Context, isForce bool) error {
+	if self.GetStatus() == models.VM_READY {
+		return nil
+	}
+	if !isForce && self.isToolsOk() {
+		return self.shutdownVM(ctx)
+	} else {
+		return self.poweroffVM(ctx)
+	}
+}
+
+func (self *SVirtualMachine) poweroffVM(ctx context.Context) error {
+	vm := self.getVmObj()
+
+	task, err := vm.PowerOff(ctx)
+	if err != nil {
+		return err
+	}
+	return task.Wait(ctx)
+}
+
+func (self *SVirtualMachine) shutdownVM(ctx context.Context) error {
+	vm := self.getVmObj()
+
+	err := vm.ShutdownGuest(ctx)
+	if err != nil {
+		return err
+	}
+	return err
+}
+
+func (self *SVirtualMachine) doDelete(ctx context.Context) error {
+	vm := self.getVmObj()
+
+	task, err := vm.Destroy(ctx)
+	if err != nil {
+		log.Errorf("vm.Destroy(ctx) fail %s", err)
+		return err
+	}
+	return task.Wait(ctx)
+}
+
+func (self *SVirtualMachine) DeleteVM(ctx context.Context) error {
+	for i := 0; i < len(self.vdisks); i += 1 {
+		err := self.doDetachAndDeleteDisk(ctx, &self.vdisks[i])
+		if err != nil {
+			log.Errorf("self.doDetachAndDeleteDisk(ctx, &self.vdisks[i]) fail %s", err)
+			return err
+		}
+	}
+	return self.doDelete(ctx)
+}
+
+func (self *SVirtualMachine) doDetachAndDeleteDisk(ctx context.Context, vdisk *SVirtualDisk) error {
+	return self.doDetachDisk(ctx, vdisk, true)
+}
+
+func (self *SVirtualMachine) doDetachDisk(ctx context.Context, vdisk *SVirtualDisk, remove bool) error {
+	removeSpec := types.VirtualDeviceConfigSpec{}
+	removeSpec.Operation = types.VirtualDeviceConfigSpecOperationRemove
+	removeSpec.Device = vdisk.dev
+
+	spec := types.VirtualMachineConfigSpec{}
+	spec.DeviceChange = []types.BaseVirtualDeviceConfigSpec{&removeSpec}
+
+	vm := self.getVmObj()
+
+	task, err := vm.Reconfigure(ctx, spec)
+	if err != nil {
+		log.Errorf("vm.Reconfigure fail %s", err)
+		return err
+	}
+
+	err = task.Wait(ctx)
+	if err != nil {
+		log.Errorf("task.Wait(ctx) fail %s", err)
+		return err
+	}
+
+	if !remove {
+		return nil
+	}
+
+	return vdisk.Delete(ctx)
 }
 
 func (self *SVirtualMachine) GetVNCInfo() (jsonutils.JSONObject, error) {
@@ -229,8 +457,48 @@ func (self *SVirtualMachine) acquireVmrcUrl() (jsonutils.JSONObject, error) {
 	return ret, nil
 }
 
-func (dc *SVirtualMachine) ChangeConfig(instanceId string, ncpu int, vmem int) error {
-	return cloudprovider.ErrNotImplemented
+func (self *SVirtualMachine) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
+	return self.doChangeConfig(ctx, int32(ncpu), int64(vmem), "", "")
+}
+
+func (self *SVirtualMachine) GetVersion() string {
+	return self.getVirtualMachine().Config.Version
+}
+
+func (self *SVirtualMachine) doChangeConfig(ctx context.Context, ncpu int32, vmemMB int64, guestId string, version string) error {
+	changed := false
+	configSpec := types.VirtualMachineConfigSpec{}
+	if int8(ncpu) != self.GetVcpuCount() {
+		configSpec.NumCPUs = ncpu
+		changed = true
+	}
+	if int(vmemMB) != self.GetVmemSizeMB() {
+		configSpec.MemoryMB = vmemMB
+		changed = true
+	}
+	if len(guestId) > 0 && guestId != self.GetGuestId() {
+		configSpec.GuestId = guestId
+		changed = true
+	}
+	if len(version) > 0 && version != self.GetVersion() {
+		configSpec.Version = version
+		changed = true
+	}
+	if !changed {
+		return nil
+	}
+
+	vm := self.getVmObj()
+
+	task, err := vm.Reconfigure(ctx, configSpec)
+	if err != nil {
+		return err
+	}
+	err = task.Wait(ctx)
+	if err != nil {
+		return err
+	}
+	return self.Refresh()
 }
 
 func (self *SVirtualMachine) AssignSecurityGroup(secgroupId string) error {
@@ -247,4 +515,170 @@ func (self *SVirtualMachine) GetExpiredAt() time.Time {
 
 func (self *SVirtualMachine) UpdateUserData(userData string) error {
 	return nil
+}
+
+func (self *SVirtualMachine) fetchHardwareInfo() {
+	self.vnics = make([]SVirtualNIC, 0)
+	self.vdisks = make([]SVirtualDisk, 0)
+	self.cdroms = make([]SVirtualCdrom, 0)
+	self.devs = make(map[int32]SVirtualDevice)
+
+	moVM := self.getVirtualMachine()
+
+	for i := 0; i < len(moVM.Config.Hardware.Device); i += 1 {
+		dev := moVM.Config.Hardware.Device[i]
+		devType := reflect.Indirect(reflect.ValueOf(dev)).Type()
+
+		etherType := reflect.TypeOf((*types.VirtualEthernetCard)(nil)).Elem()
+		diskType := reflect.TypeOf((*types.VirtualDisk)(nil)).Elem()
+		vgaType := reflect.TypeOf((*types.VirtualMachineVideoCard)(nil)).Elem()
+		cdromType := reflect.TypeOf((*types.VirtualCdrom)(nil)).Elem()
+
+		if StructContains(devType, etherType) {
+			self.vnics = append(self.vnics, NewVirtualNIC(self, dev, len(self.vnics)))
+		} else if StructContains(devType, diskType) {
+			self.vdisks = append(self.vdisks, NewVirtualDisk(self, dev, len(self.vnics)))
+		} else if StructContains(devType, vgaType) {
+			self.vga = NewVirtualVGA(self, dev, 0)
+		} else if StructContains(devType, cdromType) {
+			self.cdroms = append(self.cdroms, NewVirtualCdrom(self, dev, len(self.cdroms)))
+		}
+		vdev := NewVirtualDevice(self, dev, 0)
+		self.devs[vdev.getKey()] = vdev
+	}
+}
+
+func (self *SVirtualMachine) getVdev(key int32) SVirtualDevice {
+	return self.devs[key]
+}
+
+func (self *SVirtualMachine) fetchGuestIps() map[string]string {
+	guestIps := make(map[string]string)
+	moVM := self.getVirtualMachine()
+	for _, net := range moVM.Guest.Net {
+		mac := netutils.FormatMacAddr(net.MacAddress)
+		for _, ip := range net.IpAddress {
+			if regutils.MatchIP4Addr(ip) {
+				guestIps[mac] = ip
+				break
+			}
+		}
+	}
+	return guestIps
+}
+
+func (self *SVirtualMachine) getGuestIps() map[string]string {
+	if self.guestIps == nil {
+		self.guestIps = self.fetchGuestIps()
+	}
+	return self.guestIps
+}
+
+func (self *SVirtualMachine) GetIps() []string {
+	ips := make([]string, 0)
+	for _, ip := range self.getGuestIps() {
+		ips = append(ips, ip)
+	}
+	return ips
+}
+
+func (self *SVirtualMachine) GetVGADevice() string {
+	return fmt.Sprintf("%s", self.vga.String())
+}
+
+var (
+	driverTable = map[string][]string{
+		"sata":   {"ahci"},
+		"scsi":   {"lsilogic", "lsilogicsas", "buslogic"},
+		"pvscsi": {"parascsi"},
+		"ide":    {"ide"},
+	}
+)
+
+func (self *SVirtualMachine) getDevsByDriver(driver string) []SVirtualDevice {
+	devs := make([]SVirtualDevice, 0)
+	for _, drv := range self.devs {
+		if strings.HasSuffix(drv.GetDriver(), fmt.Sprintf("%scontroller", driver)) {
+			devs = append(devs, drv)
+		}
+	}
+	return devs
+}
+
+func minDevKey(devs []SVirtualDevice) int32 {
+	var minKey int32 = -1
+	for i := 0; i < len(devs); i += 1 {
+		if minKey < 0 || minKey > devs[i].getKey() {
+			minKey = devs[i].getKey()
+		}
+	}
+	return minKey
+}
+
+func minDiskKey(devs []SVirtualDisk) int32 {
+	var minKey int32 = -1
+	for i := 0; i < len(devs); i += 1 {
+		if minKey < 0 || minKey > devs[i].getKey() {
+			minKey = devs[i].getKey()
+		}
+	}
+	return minKey
+}
+
+func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+	aliasDrivers, ok := driverTable[driver]
+	if !ok {
+		return fmt.Errorf("Unsupported disk driver %s", driver)
+	}
+	var devs []SVirtualDevice
+	for _, alias := range aliasDrivers {
+		devs = self.getDevsByDriver(alias)
+		if len(devs) > 0 {
+			break
+		}
+	}
+	if len(devs) == 0 {
+		return fmt.Errorf("Driver %s not found", driver)
+	}
+	ctlKey := minDevKey(devs)
+	sameDisks := make([]SVirtualDisk, 0)
+	for i := 0; i < len(self.vdisks); i += 1 {
+		if self.vdisks[i].GetDriver() == driver {
+			sameDisks = append(sameDisks, self.vdisks[i])
+		}
+	}
+	var diskKey int32 = 2000
+	if len(sameDisks) == 0 {
+		diskKey = minDiskKey(sameDisks)
+	}
+	index := len(sameDisks)
+	if driver == "ide" {
+		ctlKey += int32(index / 2)
+	}
+	devSpec := NewDiskDev(int64(sizeMb), "", uuid, int32(index), diskKey, ctlKey)
+	spec := addDevSpec(devSpec)
+	spec.FileOperation = types.VirtualDeviceConfigSpecFileOperationCreate
+	configSpec := types.VirtualMachineConfigSpec{}
+	configSpec.DeviceChange = []types.BaseVirtualDeviceConfigSpec{spec}
+
+	vmObj := self.getVmObj()
+
+	task, err := vmObj.Reconfigure(ctx, configSpec)
+	if err != nil {
+		return err
+	}
+	err = task.Wait(ctx)
+	if err != nil {
+		return err
+	}
+	oldDiskCnt := len(self.vdisks)
+	maxTries := 60
+	for tried := 0; tried < maxTries; tried += 1 {
+		time.Sleep(time.Second)
+		self.Refresh()
+		if len(self.vdisks) > oldDiskCnt {
+			return nil
+		}
+	}
+	return cloudprovider.ErrTimeout
 }

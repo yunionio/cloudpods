@@ -9,16 +9,17 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/utils"
-	"yunion.io/x/sqlchemy"
 )
 
 const (
@@ -476,6 +477,14 @@ func (self *SStorage) getZone() *SZone {
 	return nil
 }
 
+func (self *SStorage) GetRegion() *SCloudregion {
+	zone := self.getZone()
+	if zone == nil {
+		return nil
+	}
+	return zone.GetRegion()
+}
+
 func (self *SStorage) GetReserved() int {
 	return self.Reserved
 }
@@ -923,7 +932,28 @@ func (self *SStorage) GetIStorage() (cloudprovider.ICloudStorage, error) {
 		log.Errorf("fail to find cloud provider")
 		return nil, err
 	}
-	return provider.GetIStorageById(self.GetExternalId())
+	var iRegion cloudprovider.ICloudRegion
+	if provider.IsOnPremiseInfrastructure() {
+		iRegion, err = provider.GetOnPremiseIRegion()
+	} else {
+		region := self.GetRegion()
+		if region == nil {
+			msg := "cannot find region for storage???"
+			log.Errorf(msg)
+			return nil, fmt.Errorf(msg)
+		}
+		iRegion, err = provider.GetIRegionById(region.ExternalId)
+	}
+	if err != nil {
+		log.Errorf("provider.GetIRegionById fail %s", err)
+		return nil, err
+	}
+	istore, err := iRegion.GetIStorageById(self.GetExternalId())
+	if err != nil {
+		log.Errorf("iRegion.GetIStorageById fail %s", err)
+		return nil, err
+	}
+	return istore, nil
 }
 
 func (manager *SStorageManager) FetchStorageById(storageId string) *SStorage {
@@ -1024,4 +1054,21 @@ func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	}
 
 	return q, err
+}
+
+func (self *SStorage) ClearSchedDescCache() error {
+	hosts := self.GetAllAttachingHosts()
+	if hosts == nil {
+		msg := "get attaching host error"
+		log.Errorf(msg)
+		return fmt.Errorf(msg)
+	}
+	for i := 0; i < len(hosts); i += 1 {
+		err := hosts[i].ClearSchedDescCache()
+		if err != nil {
+			log.Errorf("host CleanHostSchedCache error: %v", err)
+			return err
+		}
+	}
+	return nil
 }

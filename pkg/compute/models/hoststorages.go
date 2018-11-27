@@ -7,13 +7,15 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SHoststorageManager struct {
@@ -243,4 +245,12 @@ func (manager *SHoststorageManager) GetStorages(hostId string) ([]SHoststorage, 
 		return nil, err
 	}
 	return hoststorage, nil
+}
+
+func (self *SHoststorage) syncWithCloudHostStorage(extStorage cloudprovider.ICloudStorage) error {
+	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		self.MountPoint = extStorage.GetMountPoint()
+		return nil
+	})
+	return err
 }

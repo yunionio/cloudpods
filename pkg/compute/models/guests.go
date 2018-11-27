@@ -2931,7 +2931,7 @@ func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
 
 	templateId := self.GetTemplateId()
 	if len(templateId) > 0 {
-		desc.Set("cpu", jsonutils.NewString(templateId))
+		desc.Set("template_id", jsonutils.NewString(templateId))
 	}
 	extBw := self.getBandwidth(true)
 	intBw := self.getBandwidth(false)

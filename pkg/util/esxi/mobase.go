@@ -1,7 +1,7 @@
 package esxi
 
 import (
-	"reflect"
+	"strings"
 
 	"github.com/vmware/govmomi/vim25/mo"
 
@@ -27,11 +27,11 @@ func (self *SManagedObject) GetName() string {
 }
 
 func (self *SManagedObject) GetId() string {
-	return self.object.Entity().Self.Value
+	return moRefId(self.object.Entity().Self)
 }
 
 func (self *SManagedObject) GetType() string {
-	return self.object.Entity().Self.Type
+	return moRefType(self.object.Entity().Self)
 }
 
 func (self *SManagedObject) getCurrentParentEntity() *mo.ManagedEntity {
@@ -47,26 +47,10 @@ func (self *SManagedObject) getParentEntity(obj *mo.ManagedEntity) *mo.ManagedEn
 			log.Errorf("%s", err)
 			return nil
 		}
-		log.Debugf("getParentEntity %s %s %s", entity.Self.Type, entity.Self.Value, entity.Name)
+		// log.Debugf("getParentEntity %s %s %s", entity.Self.Type, entity.Self.Value, entity.Name)
 		return &entity
 	}
 	return nil
-}
-
-func reverseArray(array interface{}) {
-	arrayValue := reflect.Indirect(reflect.ValueOf(array))
-	if arrayValue.Kind() != reflect.Slice && arrayValue.Kind() != reflect.Array {
-		log.Errorf("reverse non array or slice")
-		return
-	}
-	tmp := reflect.Indirect(reflect.New(arrayValue.Type().Elem()))
-	for i, j := 0, arrayValue.Len()-1; i < j; i, j = i+1, j-1 {
-		tmpi := arrayValue.Index(i)
-		tmpj := arrayValue.Index(j)
-		tmp.Set(tmpi)
-		tmpi.Set(tmpj)
-		tmpj.Set(tmp)
-	}
 }
 
 func (self *SManagedObject) fetchPath() []string {
@@ -91,6 +75,7 @@ func (self *SManagedObject) findInParents(objType string) *mo.ManagedEntity {
 	obj := self.object.Entity()
 
 	for obj != nil && obj.Self.Type != objType {
+		// log.Debugf("find %s want %s", obj.Self.Type, objType)
 		obj = self.getParentEntity(obj)
 	}
 
@@ -102,7 +87,7 @@ func (self *SManagedObject) fetchDatacenter() (*SDatacenter, error) {
 	if me == nil {
 		return nil, cloudprovider.ErrNotFound
 	}
-	return self.manager.FindDatacenterById(me.Self.Value)
+	return self.manager.FindDatacenterByMoId(me.Self.Value)
 }
 
 func (self *SManagedObject) GetDatacenter() (*SDatacenter, error) {
@@ -124,4 +109,16 @@ func (self *SManagedObject) GetDatacenterPath() []string {
 	}
 	path := dc.GetPath()
 	return path[1:]
+}
+
+func (self *SManagedObject) GetDatacenterPathString() string {
+	path := self.GetDatacenterPath()
+	if path != nil {
+		return strings.Join(path, "/")
+	}
+	return ""
+}
+
+func (self *SManagedObject) getManagerUri() string {
+	return self.manager.getUrl()
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -315,7 +316,7 @@ func (self *SInstance) GetHypervisor() string {
 	return models.HYPERVISOR_QCLOUD
 }
 
-func (self *SInstance) StartVM() error {
+func (self *SInstance) StartVM(ctx context.Context) error {
 	timeout := 300 * time.Second
 	interval := 15 * time.Second
 
@@ -340,7 +341,7 @@ func (self *SInstance) StartVM() error {
 	return cloudprovider.ErrTimeout
 }
 
-func (self *SInstance) StopVM(isForce bool) error {
+func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 	err := self.host.zone.region.StopVM(self.InstanceId, isForce)
 	if err != nil {
 		return err
@@ -360,11 +361,11 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 	return ret, nil
 }
 
-func (self *SInstance) UpdateVM(name string) error {
+func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
 	return self.host.zone.region.UpdateVM(self.InstanceId, name)
 }
 
-func (self *SInstance) DeployVM(name string, password string, publicKey string, deleteKeypair bool, description string) error {
+func (self *SInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
 	var keypairName string
 	if len(publicKey) > 0 {
 		var err error
@@ -377,7 +378,7 @@ func (self *SInstance) DeployVM(name string, password string, publicKey string, 
 	return self.host.zone.region.DeployVM(self.InstanceId, name, password, keypairName, deleteKeypair, description)
 }
 
-func (self *SInstance) RebuildRoot(imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
 	keypair := ""
 	if len(publicKey) > 0 {
 		var err error
@@ -390,7 +391,7 @@ func (self *SInstance) RebuildRoot(imageId string, passwd string, publicKey stri
 	if err != nil {
 		return "", err
 	}
-	self.StopVM(true)
+	self.StopVM(ctx, true)
 	instance, err := self.host.zone.region.GetInstance(self.InstanceId)
 	if err != nil {
 		return "", err
@@ -398,15 +399,15 @@ func (self *SInstance) RebuildRoot(imageId string, passwd string, publicKey stri
 	return instance.SystemDisk.DiskId, nil
 }
 
-func (self *SInstance) ChangeConfig(instanceId string, ncpu int, vmem int) error {
+func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
 	return self.host.zone.region.ChangeVMConfig(self.Placement.Zone, self.InstanceId, ncpu, vmem, nil)
 }
 
-func (self *SInstance) AttachDisk(diskId string) error {
+func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
 	return self.host.zone.region.AttachDisk(self.InstanceId, diskId)
 }
 
-func (self *SInstance) DetachDisk(diskId string) error {
+func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
 	return self.host.zone.region.DetachDisk(self.InstanceId, diskId)
 }
 
@@ -527,7 +528,7 @@ func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 	return self.doStopVM(instanceId, isForce)
 }
 
-func (self *SRegion) DeleteVM(instanceId string) error {
+func (self *SRegion) DeleteVM(ctx context.Context, instanceId string) error {
 	status, err := self.GetInstanceStatus(instanceId)
 	if err != nil {
 		log.Errorf("Fail to get instance status on DeleteVM: %s", err)
@@ -581,9 +582,9 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 	return nil
 }
 
-func (self *SInstance) DeleteVM() error {
+func (self *SInstance) DeleteVM(ctx context.Context) error {
 	for {
-		err := self.host.zone.region.DeleteVM(self.InstanceId)
+		err := self.host.zone.region.DeleteVM(ctx, self.InstanceId)
 		if err != nil {
 			// if isError(err, "IncorrectInstanceStatus.Initializing") {
 			// 	log.Infof("The instance is initializing, try later ...")
@@ -710,5 +711,9 @@ func (self *SInstance) GetExpiredAt() time.Time {
 }
 
 func (self *SInstance) UpdateUserData(userData string) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
 	return cloudprovider.ErrNotSupported
 }

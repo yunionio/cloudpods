@@ -112,6 +112,10 @@ func (self *SContainerDriver) OnGuestDeployTaskComplete(ctx context.Context, gue
 	return nil
 }
 
+func (self *SContainerDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
+	return guest.GetJsonDescAtHypervisor(ctx, host)
+}
+
 func (self *SContainerDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
 	config.Add(jsonutils.JSONTrue, "k8s_pod")

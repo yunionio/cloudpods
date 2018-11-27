@@ -16,8 +16,8 @@ package responses
 
 import (
 	"bytes"
-	"encoding/json"
 	"encoding/xml"
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -25,6 +25,7 @@ import (
 )
 
 type AcsResponse interface {
+	IsSuccess() bool
 	GetHttpStatus() int
 	GetHttpHeaders() map[string][]string
 	GetHttpContentString() string
@@ -38,8 +39,13 @@ func Unmarshal(response AcsResponse, httpResponse *http.Response, format string)
 	if err != nil {
 		return
 	}
+	if !response.IsSuccess() {
+		err = errors.NewServerError(response.GetHttpStatus(), response.GetOriginHttpResponse().Status, response.GetHttpContentString())
+		return
+	}
 	if strings.ToUpper(format) == "JSON" {
-		err = json.Unmarshal(response.GetHttpContentBytes(), response)
+		initJsonParserOnce()
+		err = jsonParser.Unmarshal(response.GetHttpContentBytes(), response)
 	} else if strings.ToUpper(format) == "XML" {
 		err = xml.Unmarshal(response.GetHttpContentBytes(), response)
 	}

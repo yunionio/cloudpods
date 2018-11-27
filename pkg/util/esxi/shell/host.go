@@ -10,7 +10,7 @@ func init() {
 		DATACENTER string `help:"List hosts in datacenter"`
 	}
 	shellutils.R(&HostListOptions{}, "host-list", "List hosts in datacenter", func(cli *esxi.SESXiClient, args *HostListOptions) error {
-		dc, err := cli.FindDatacenterById(args.DATACENTER)
+		dc, err := cli.FindDatacenterByMoId(args.DATACENTER)
 		if err != nil {
 			return err
 		}

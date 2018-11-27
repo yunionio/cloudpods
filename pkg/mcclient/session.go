@@ -42,7 +42,8 @@ type ClientSession struct {
 func populateHeader(self *http.Header, update http.Header) {
 	for k, v := range update {
 		for _, vv := range v {
-			self.Add(k, vv)
+			// self.Add(k, vv)
+			self.Set(k, vv)
 		}
 	}
 }

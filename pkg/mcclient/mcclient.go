@@ -76,7 +76,9 @@ func getDefaultHeader(header http.Header, token string) http.Header {
 		if header == nil {
 			header = http.Header{}
 		}
-		header.Add("X-Auth-Token", token)
+		if len(header.Get(AUTH_TOKEN)) == 0 {
+			header.Add(AUTH_TOKEN, token)
+		}
 	}
 	return header
 }

@@ -2,13 +2,14 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type DiskDeleteTask struct {
@@ -57,8 +58,8 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 			self.SetStage("OnGuestDiskDeleteSucc", nil)
 		}
 		if host == nil {
-			self.OnGuestDiskDeleteFailed(ctx, disk, fmt.Errorf("fail to find master host"))
-		} else if err := host.GetHostDriver().RequestDeallocateDiskOnHost(host, storage, disk, self); err != nil {
+			self.OnGuestDiskDeleteFailed(ctx, disk, httperrors.NewNotFoundError("fail to find master host"))
+		} else if err := host.GetHostDriver().RequestDeallocateDiskOnHost(ctx, host, storage, disk, self); err != nil {
 			self.OnGuestDiskDeleteFailed(ctx, disk, err)
 		}
 	}
@@ -69,8 +70,8 @@ func (self *DiskDeleteTask) OnMasterStorageDeleteDiskSucc(ctx context.Context, d
 	storage := models.StorageManager.FetchStorageById(disk.BackupStorageId)
 	host := storage.GetMasterHost()
 	if host == nil {
-		self.OnGuestDiskDeleteFailed(ctx, disk, fmt.Errorf("backup storage %s fail to find master host", disk.BackupStorageId))
-	} else if err := host.GetHostDriver().RequestDeallocateDiskOnHost(host, storage, disk, self); err != nil {
+		self.OnGuestDiskDeleteFailed(ctx, disk, httperrors.NewNotFoundError("backup storage %s fail to find master host", disk.BackupStorageId))
+	} else if err := host.GetHostDriver().RequestDeallocateDiskOnHost(ctx, host, storage, disk, self); err != nil {
 		self.OnGuestDiskDeleteFailed(ctx, disk, err)
 	}
 }

@@ -93,6 +93,10 @@ func (self *SLocalStorage) CreateIDisk(name string, sizeGb int, desc string) (cl
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SLocalStorage) GetIDisk(idStr string) (cloudprovider.ICloudDisk, error) {
+func (self *SLocalStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
 	return &SLocalDisk{storage: self, DiskId: idStr}, nil
+}
+
+func (self *SLocalStorage) GetMountPoint() string {
+	return ""
 }

@@ -411,7 +411,28 @@ func (self *SVpc) GetIVpc() (cloudprovider.ICloudVpc, error) {
 		log.Errorf("fail to find cloud provider")
 		return nil, err
 	}
-	return provider.GetIVpcById(self.GetExternalId())
+	var iregion cloudprovider.ICloudRegion
+	if provider.IsOnPremiseInfrastructure() {
+		iregion, err = provider.GetOnPremiseIRegion()
+	} else {
+		region := self.GetRegion()
+		if region == nil {
+			msg := "fail to find region of host???"
+			log.Errorf(msg)
+			return nil, fmt.Errorf(msg)
+		}
+		iregion, err = provider.GetIRegionById(region.ExternalId)
+	}
+	if err != nil {
+		log.Errorf("fail to find iregion: %s", err)
+		return nil, err
+	}
+	ivpc, err := iregion.GetIVpcById(self.ExternalId)
+	if err != nil {
+		log.Errorf("fail to find ivpc by id %s %s", self.ExternalId, err)
+		return nil, fmt.Errorf("fail to find ivpc by id %s", err)
+	}
+	return ivpc, nil
 }
 
 func (self *SVpc) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
