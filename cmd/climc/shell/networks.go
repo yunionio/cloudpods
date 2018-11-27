@@ -196,7 +196,7 @@ func init() {
 	})
 
 	type NetworkCreateOptions struct {
-		WIRE        string `help:"ID or Name of wire in wihich the network is created"`
+		WIRE        string `help:"ID or Name of wire in which the network is created"`
 		NETWORK     string `help:"Name of new network"`
 		STARTIP     string `help:"Start of IPv4 address range"`
 		ENDIP       string `help:"End of IPv4 address rnage"`
