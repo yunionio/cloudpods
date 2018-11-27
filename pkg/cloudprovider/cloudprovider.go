@@ -20,16 +20,19 @@ type ICloudProviderFactory interface {
 type ICloudProvider interface {
 	GetId() string
 	GetName() string
-	GetIRegions() []ICloudRegion
 	GetSysInfo() (jsonutils.JSONObject, error)
 	IsPublicCloud() bool
+	IsOnPremiseInfrastructure() bool
 
+	GetIRegions() []ICloudRegion
 	GetIRegionById(id string) (ICloudRegion, error)
 
-	GetIHostById(id string) (ICloudHost, error)
-	GetIVpcById(id string) (ICloudVpc, error)
-	GetIStorageById(id string) (ICloudStorage, error)
-	GetIStoragecacheById(id string) (ICloudStoragecache, error)
+	GetOnPremiseIRegion() (ICloudRegion, error)
+
+	// GetIHostById(id string) (ICloudHost, error)
+	// GetIVpcById(id string) (ICloudVpc, error)
+	// GetIStorageById(id string) (ICloudStorage, error)
+	// GetIStoragecacheById(id string) (ICloudStoragecache, error)
 
 	GetBalance() (float64, error)
 

@@ -156,6 +156,40 @@ func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, er
 	return nil, cloudprovider.ErrNotFound
 }
 
+func (self *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
+	iHosts := make([]cloudprovider.ICloudHost, 0)
+
+	izones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i += 1 {
+		iZoneHost, err := izones[i].GetIHosts()
+		if err != nil {
+			return nil, err
+		}
+		iHosts = append(iHosts, iZoneHost...)
+	}
+	return iHosts, nil
+}
+
+func (self *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
+	iStores := make([]cloudprovider.ICloudStorage, 0)
+
+	izones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i += 1 {
+		iZoneStores, err := izones[i].GetIStorages()
+		if err != nil {
+			return nil, err
+		}
+		iStores = append(iStores, iZoneStores...)
+	}
+	return iStores, nil
+}
+
 func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
 	storageCache := self.getStoragecache()
 	if storageCache.GetGlobalId() == id {

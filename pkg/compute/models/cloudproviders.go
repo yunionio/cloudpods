@@ -133,7 +133,19 @@ func (self *SCloudproviderManager) ValidateCreateData(ctx context.Context, userC
 	return nil, httperrors.NewUnsupportOperationError("Directly creating cloudprovider is not supported, create cloudaccount instead")
 }
 
+func (self *SCloudprovider) getAccessUrl() string {
+	if len(self.AccessUrl) > 0 {
+		return self.AccessUrl
+	}
+	account := self.GetCloudaccount()
+	return account.AccessUrl
+}
+
 func (self *SCloudprovider) getPassword() (string, error) {
+	if len(self.Secret) == 0 {
+		account := self.GetCloudaccount()
+		return account.getPassword()
+	}
 	return utils.DescryptAESBase64(self.Id, self.Secret)
 }
 
@@ -378,11 +390,12 @@ func (self *SCloudprovider) GetDriver() (cloudprovider.ICloudProvider, error) {
 		return nil, fmt.Errorf("Cloud provider is not enabled")
 	}
 
+	accessUrl := self.getAccessUrl()
 	passwd, err := self.getPassword()
 	if err != nil {
 		return nil, err
 	}
-	return cloudprovider.GetProvider(self.Id, self.Name, self.AccessUrl, self.Account, passwd, self.Provider)
+	return cloudprovider.GetProvider(self.Id, self.Name, accessUrl, self.Account, passwd, self.Provider)
 }
 
 func (self *SCloudprovider) savePassword(secret string) error {

@@ -35,6 +35,10 @@ func (self *SQcloudProvider) IsPublicCloud() bool {
 	return true
 }
 
+func (self *SQcloudProvider) IsOnPremiseInfrastructure() bool {
+	return false
+}
+
 func (self *SQcloudProvider) GetId() string {
 	return qcloud.CLOUD_PROVIDER_QCLOUD
 }
@@ -63,22 +67,10 @@ func (self *SQcloudProvider) GetIRegionById(id string) (cloudprovider.ICloudRegi
 	return self.client.GetIRegionById(id)
 }
 
-func (self *SQcloudProvider) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	return self.client.GetIHostById(id)
-}
-
-func (self *SQcloudProvider) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
-	return self.client.GetIVpcById(id)
-}
-
-func (self *SQcloudProvider) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	return self.client.GetIStorageById(id)
-}
-
-func (self *SQcloudProvider) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
-	return self.client.GetIStoragecacheById(id)
-}
-
 func (self *SQcloudProvider) GetBalance() (float64, error) {
 	return 0.0, nil
+}
+
+func (self *SQcloudProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }

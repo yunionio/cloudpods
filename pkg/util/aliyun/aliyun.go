@@ -193,15 +193,3 @@ func (self *SAliyunClient) GetIStorageById(id string) (cloudprovider.ICloudStora
 	}
 	return nil, cloudprovider.ErrNotFound
 }
-
-func (self *SAliyunClient) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
-	for i := 0; i < len(self.iregions); i += 1 {
-		ihost, err := self.iregions[i].GetIStoragecacheById(id)
-		if err == nil {
-			return ihost, nil
-		} else if err != cloudprovider.ErrNotFound {
-			return nil, err
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
-}

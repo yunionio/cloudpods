@@ -3,6 +3,7 @@ package azure
 import (
 	"strings"
 
+	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -141,6 +142,20 @@ func (self *SRegion) GetImageByName(name string) (*SImage, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
+func (self *SRegion) GetImageById(idstr string) (*SImage, error) {
+	images := []SImage{}
+	err := self.client.ListAll("Microsoft.Compute/images", &images)
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(images); i++ {
+		if images[i].ID == idstr {
+			return &images[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
 func (self *SRegion) CreateImageByBlob(imageName, osType, blobURI string, diskSizeGB int32) (*SImage, error) {
 	if diskSizeGB < 1 || diskSizeGB > 4095 {
 		diskSizeGB = 30
@@ -207,7 +222,7 @@ func (self *SImage) GetBlobUri() string {
 	return self.Properties.StorageProfile.OsDisk.BlobURI
 }
 
-func (self *SImage) Delete() error {
+func (self *SImage) Delete(ctx context.Context) error {
 	return self.storageCache.region.DeleteImage(self.ID)
 }
 

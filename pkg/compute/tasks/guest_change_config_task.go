@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -32,69 +33,63 @@ func (self *GuestChangeConfigTask) OnInit(ctx context.Context, obj db.IStandalon
 }
 
 func (self *GuestChangeConfigTask) OnDisksResizeComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+
 	iResizeDisks, err := self.Params.Get("resize")
 	if iResizeDisks == nil || err != nil {
-		self.markStageFailed(obj, ctx, err.Error())
+		self.markStageFailed(ctx, guest, err.Error())
 		return
 	}
 	resizeDisks := iResizeDisks.(*jsonutils.JSONArray)
 	for i := 0; i < resizeDisks.Length(); i++ {
 		iResizeSet, err := resizeDisks.GetAt(i)
 		if err != nil {
-			self.markStageFailed(obj, ctx, err.Error())
-			logclient.AddActionLog(obj, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
+			self.markStageFailed(ctx, guest, fmt.Sprintf("resizeDisks.GetAt fail %s", err))
 			return
 		}
 		resizeSet := iResizeSet.(*jsonutils.JSONArray)
 		diskId, err := resizeSet.GetAt(0)
 		if err != nil {
-			self.markStageFailed(obj, ctx, err.Error())
-			logclient.AddActionLog(obj, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
+			self.markStageFailed(ctx, guest, fmt.Sprintf("resizeSet.GetAt(0) fail %s", err))
 			return
 		}
 		idStr, err := diskId.GetString()
 		if err != nil {
-			self.markStageFailed(obj, ctx, err.Error())
-			logclient.AddActionLog(obj, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
+			self.markStageFailed(ctx, guest, fmt.Sprintf("diskId.GetString fail %s", err))
 			return
 		}
 		jSize, err := resizeSet.GetAt(1)
 		if err != nil {
-			self.markStageFailed(obj, ctx, err.Error())
-			logclient.AddActionLog(obj, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
+			self.markStageFailed(ctx, guest, fmt.Sprintf("resizeSet.GetAt(1) fail %s", err))
 			return
 		}
 		size, err := jSize.Int()
 		if err != nil {
-			self.markStageFailed(obj, ctx, err.Error())
-			logclient.AddActionLog(obj, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
+			self.markStageFailed(ctx, guest, fmt.Sprintf("jSize.Int fail %s", err))
 			return
 		}
 		iDisk, err := models.DiskManager.FetchById(idStr)
 		if err != nil {
-			self.markStageFailed(obj, ctx, err.Error())
-			logclient.AddActionLog(obj, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
+			self.markStageFailed(ctx, guest, fmt.Sprintf("models.DiskManager.FetchById(idStr) fail %s", err))
 			return
 		}
 		disk := iDisk.(*models.SDisk)
-		if err != nil {
-			self.markStageFailed(obj, ctx, err.Error())
-			logclient.AddActionLog(disk, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
-			return
-		}
 		if disk.DiskSize < int(size) {
 			var pendingUsage models.SQuota
 			err = self.GetPendingUsage(&pendingUsage)
 			if err != nil {
-				self.markStageFailed(obj, ctx, err.Error())
-				logclient.AddActionLog(disk, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
+				self.markStageFailed(ctx, guest, fmt.Sprintf("self.GetPendingUsage(&pendingUsage) fail %s", err))
 				return
 			}
-			disk.StartDiskResizeTask(ctx, self.UserCred, size, self.GetTaskId(), &pendingUsage)
+			err = disk.StartDiskResizeTask(ctx, self.UserCred, size, self.GetTaskId(), &pendingUsage)
+			if err != nil {
+				self.markStageFailed(ctx, guest, fmt.Sprintf("disk.StartDiskResizeTask fail %s", err))
+				return
+			}
 			return
 		}
 	}
-	guest := obj.(*models.SGuest)
+
 	self.DoCreateDisksTask(ctx, guest)
 }
 
@@ -107,12 +102,11 @@ func (self *GuestChangeConfigTask) DoCreateDisksTask(ctx context.Context, guest 
 	data := (iCreateData).(*jsonutils.JSONDict)
 	self.SetStage("on_create_disks_complete", nil)
 	guest.StartGuestCreateDiskTask(ctx, self.UserCred, data, self.GetTaskId())
-
 }
 
 func (self *GuestChangeConfigTask) OnCreateDisksCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
-	self.markStageFailed(obj, ctx, err.String())
-	logclient.AddActionLog(obj, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
+	guest := obj.(*models.SGuest)
+	self.markStageFailed(ctx, guest, fmt.Sprintf("OnCreateDisksCompleteFailed %s", err))
 }
 
 func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -125,23 +119,20 @@ func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 		if iVcpuCount != nil {
 			vcpuCount, err = iVcpuCount.Int()
 			if err != nil {
-				self.markStageFailed(obj, ctx, err.Error())
-				logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
+				self.markStageFailed(ctx, guest, fmt.Sprintf("iVcpuCount.Int() fail %s", err))
 				return
 			}
 		}
 		if iVmemSize != nil {
 			vmemSize, err = iVmemSize.Int()
 			if err != nil {
-				self.markStageFailed(obj, ctx, err.Error())
-				logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
+				self.markStageFailed(ctx, guest, fmt.Sprintf("iVmemSize.Int fail %s", err))
 				return
 			}
 		}
 		err = guest.GetDriver().RequestChangeVmConfig(ctx, guest, self, vcpuCount, vmemSize)
 		if err != nil {
-			self.markStageFailed(obj, ctx, err.Error())
-			logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
+			self.markStageFailed(ctx, guest, fmt.Sprintf("guest.GetDriver().RequestChangeVmConfig fail %s", err))
 			return
 		}
 		var addCpu, addMem = 0, 0
@@ -167,15 +158,13 @@ func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 			return nil
 		})
 		if err != nil {
-			self.markStageFailed(obj, ctx, err.Error())
-			logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
+			self.markStageFailed(ctx, guest, fmt.Sprintf("Update fail %s", err))
 			return
 		}
 		var pendingUsage models.SQuota
 		err = self.GetPendingUsage(&pendingUsage)
 		if err != nil {
-			self.markStageFailed(obj, ctx, err.Error())
-			logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
+			self.markStageFailed(ctx, guest, fmt.Sprintf("GetPendingUsage %s", err))
 			return
 		}
 		// ownerCred := guest.GetOwnerUserCred()
@@ -192,22 +181,19 @@ func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 
 		err = models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, guest.ProjectId, &pendingUsage, &cancelUsage)
 		if err != nil {
-			self.markStageFailed(obj, ctx, err.Error())
-			logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
+			self.markStageFailed(ctx, guest, fmt.Sprintf("CancelPendingUsage fail %s", err))
 			return
 		}
 		err = self.SetPendingUsage(&pendingUsage)
 		if err != nil {
-			self.markStageFailed(obj, ctx, err.Error())
-			logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
+			self.markStageFailed(ctx, guest, fmt.Sprintf("SetPendingUsage fail %s", err))
 			return
 		}
 	}
 	self.SetStage("on_sync_status_complete", nil)
 	err = guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
 	if err != nil {
-		self.markStageFailed(obj, ctx, err.Error())
-		logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
+		self.markStageFailed(ctx, guest, fmt.Sprintf("StartSyncstatus fail %s", err))
 		return
 	}
 }
@@ -221,8 +207,8 @@ func (self *GuestChangeConfigTask) OnSyncStatusComplete(ctx context.Context, obj
 	} else {
 		dt := jsonutils.NewDict()
 		dt.Add(jsonutils.NewString(guest.Id), "id")
-		self.SetStageComplete(ctx, dt)
 		logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, "", self.UserCred, true)
+		self.SetStageComplete(ctx, dt)
 	}
 }
 
@@ -233,8 +219,9 @@ func (self *GuestChangeConfigTask) OnGuestStartComplete(ctx context.Context, obj
 	self.SetStageComplete(ctx, dt)
 }
 
-func (self *GuestChangeConfigTask) markStageFailed(obj db.IStandaloneModel, ctx context.Context, reason string) {
-	guest := obj.(*models.SGuest)
+func (self *GuestChangeConfigTask) markStageFailed(ctx context.Context, guest *models.SGuest, reason string) {
 	guest.SetStatus(self.UserCred, models.VM_CHANGE_FLAVOR_FAIL, reason)
+	db.OpsLog.LogEvent(guest, db.ACT_CHANGE_FLAVOR_FAIL, reason, self.UserCred)
+	logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }

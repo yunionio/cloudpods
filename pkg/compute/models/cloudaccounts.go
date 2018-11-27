@@ -13,6 +13,8 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"net/url"
+	"strconv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -494,7 +496,9 @@ func (manager *SCloudaccountManager) FetchCloudaccountByIdOrName(accountId strin
 }
 
 func (self *SCloudaccount) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra.Add(jsonutils.Marshal(self.GetCloudproviders()), "accounts")
+	providers := self.GetCloudproviders()
+	extra.Add(jsonutils.NewInt(int64(len(providers))), "account_count")
+	extra.Add(jsonutils.Marshal(providers), "accounts")
 	return extra
 }
 
@@ -614,4 +618,55 @@ func (self *SCloudaccount) GetDetailsBalance(ctx context.Context, userCred mccli
 	ret := jsonutils.NewDict()
 	ret.Add(jsonutils.NewFloat(balance), "balance")
 	return ret, nil
+}
+
+func (self *SCloudaccount) getHostPort() (string, int, error) {
+	urlComponent, err := url.Parse(self.AccessUrl)
+	if err != nil {
+		return "", 0, err
+	}
+	host := urlComponent.Hostname()
+	portStr := urlComponent.Port()
+	port := 0
+	if len(portStr) > 0 {
+		port, err = strconv.Atoi(portStr)
+		if err != nil {
+			return "", 0, err
+		}
+	}
+	if port == 0 {
+		if urlComponent.Scheme == "http" {
+			port = 80
+		} else if urlComponent.Scheme == "https" {
+			port = 443
+		}
+	}
+	return host, port, nil
+}
+
+type SVCenterAccessInfo struct {
+	VcenterId string
+	Host      string
+	Port      int
+	Account   string
+	Password  string
+	PrivateId string
+}
+
+func (self *SCloudaccount) GetVCenterAccessInfo(privateId string) (SVCenterAccessInfo, error) {
+	info := SVCenterAccessInfo{}
+
+	host, port, err := self.getHostPort()
+	if err != nil {
+		return info, err
+	}
+
+	info.VcenterId = self.Id
+	info.Host = host
+	info.Port = port
+	info.Account = self.Account
+	info.Password = self.Secret
+	info.PrivateId = privateId
+
+	return info, nil
 }

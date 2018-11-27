@@ -253,3 +253,15 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 
 	return "", fmt.Errorf("Failed to create, specification not supported")
 }
+
+func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+func (host *SHost) GetIsMaintenance() bool {
+	return false
+}
+
+func (host *SHost) GetVersion() string {
+	return ALIYUN_API_VERSION
+}

@@ -250,18 +250,6 @@ func (client *SQcloudClient) GetIStorageById(id string) (cloudprovider.ICloudSto
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (client *SQcloudClient) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
-	for i := 0; i < len(client.iregions); i++ {
-		ihost, err := client.iregions[i].GetIStoragecacheById(id)
-		if err == nil {
-			return ihost, nil
-		} else if err != cloudprovider.ErrNotFound {
-			return nil, err
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
-}
-
 type SAccountBalance struct {
 	AvailableAmount     float64
 	AvailableCashAmount float64

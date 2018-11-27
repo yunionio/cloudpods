@@ -19,6 +19,14 @@ func (self *SManagedResourceBase) GetCloudprovider() *SCloudprovider {
 	return nil
 }
 
+func (self *SManagedResourceBase) GetCloudaccount() *SCloudaccount {
+	cp := self.GetCloudprovider()
+	if cp == nil {
+		return nil
+	}
+	return cp.GetCloudaccount()
+}
+
 func (self *SManagedResourceBase) GetDriver() (cloudprovider.ICloudProvider, error) {
 	provider := self.GetCloudprovider()
 	if provider == nil {

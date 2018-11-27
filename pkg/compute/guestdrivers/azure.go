@@ -16,7 +16,6 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -203,7 +202,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 		deleteKeypair := jsonutils.QueryBoolean(params, "__delete_keypair__", false)
 
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			err := iVM.DeployVM(name, passwd, publicKey, deleteKeypair, description)
+			err := iVM.DeployVM(ctx, name, passwd, publicKey, deleteKeypair, description)
 			if err != nil {
 				return nil, err
 			}
@@ -218,7 +217,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 		}
 
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			_, err := iVM.RebuildRoot(desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
+			_, err := iVM.RebuildRoot(ctx, desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
 			if err != nil {
 				return nil, err
 			}
@@ -232,73 +231,6 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 	} else {
 		return fmt.Errorf("Action %s not supported", action)
 	}
-	return nil
-}
-
-func (self *SAzureGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
-
-	if data.Contains("disks") {
-		diskInfo := make([]SDiskInfo, 0)
-		err := data.Unmarshal(&diskInfo, "disks")
-		if err != nil {
-			return err
-		}
-		disks := guest.GetDisks()
-		if len(disks) != len(diskInfo) {
-			msg := fmt.Sprintf("inconsistent disk number: have %d want %d", len(disks), len(diskInfo))
-			log.Errorf(msg)
-			return fmt.Errorf(msg)
-		}
-		for i := 0; i < len(diskInfo); i++ {
-			disk := disks[i].GetDisk()
-			_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
-				disk.DiskSize = diskInfo[i].Size
-				disk.ExternalId = diskInfo[i].Uuid
-				disk.DiskType = diskInfo[i].DiskType
-				disk.Status = models.DISK_READY
-				disk.BillingType = diskInfo[i].BillingType
-				disk.FsFormat = diskInfo[i].FsFromat
-				disk.AutoDelete = diskInfo[i].AutoDelete
-				// disk.TemplateId = diskInfo[i].TemplateId
-				disk.DiskFormat = diskInfo[i].DiskFormat
-				disk.ExpiredAt = diskInfo[i].ExpiredAt
-				if len(diskInfo[i].Metadata) > 0 {
-					for key, value := range diskInfo[i].Metadata {
-						if err := disk.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {
-							log.Errorf("set disk %s mata %s => %s error: %v", disk.Name, key, value, err)
-						}
-					}
-				}
-				return nil
-			})
-			if err != nil {
-				msg := fmt.Sprintf("save disk info failed %s", err)
-				log.Errorf(msg)
-				break
-			} else {
-				db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(), task.GetUserCred())
-			}
-		}
-	}
-	uuid, _ := data.GetString("uuid")
-	if len(uuid) > 0 {
-		guest.SetExternalId(uuid)
-	}
-
-	if metaData, _ := data.Get("metadata"); metaData != nil {
-		meta := make(map[string]string, 0)
-		if err := metaData.Unmarshal(meta); err != nil {
-			log.Errorf("Get guest %s metadata error: %v", guest.Name, err)
-		} else {
-			for key, value := range meta {
-				if err := guest.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {
-					log.Errorf("set guest %s mata %s => %s error: %v", guest.Name, key, value, err)
-				}
-			}
-		}
-	}
-
-	guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
 	return nil
 }
 
@@ -355,12 +287,12 @@ func (self *SAzureGuestDriver) RequestSyncConfigOnHost(ctx context.Context, gues
 			return nil, err
 		}
 		for _, disk := range removed {
-			if err := iVM.DetachDisk(disk.GetId()); err != nil {
+			if err := iVM.DetachDisk(ctx, disk.GetId()); err != nil {
 				return nil, err
 			}
 		}
 		for _, disk := range added {
-			if err := iVM.AttachDisk(disk.ExternalId); err != nil {
+			if err := iVM.AttachDisk(ctx, disk.ExternalId); err != nil {
 				return nil, err
 			}
 		}

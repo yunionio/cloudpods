@@ -3,6 +3,7 @@ package qcloud
 import (
 	"time"
 
+	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -20,11 +21,11 @@ func (self *SLocalDisk) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
-func (self *SLocalDisk) CreateISnapshot(name, desc string) (cloudprovider.ICloudSnapshot, error) {
+func (self *SLocalDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SLocalDisk) Delete() error {
+func (self *SLocalDisk) Delete(ctx context.Context) error {
 	return nil
 }
 
@@ -83,7 +84,7 @@ func (self *SLocalDisk) Refresh() error {
 	return nil
 }
 
-func (self *SLocalDisk) Reset(snapshotId string) error {
+func (self *SLocalDisk) Reset(ctx context.Context, snapshotId string) error {
 	return cloudprovider.ErrNotSupported
 }
 
@@ -119,10 +120,14 @@ func (self *SLocalDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) 
 	return nil, nil
 }
 
-func (self *SLocalDisk) GetIStorge() cloudprovider.ICloudStorage {
-	return self.storage
+func (self *SLocalDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
+	return self.storage, nil
 }
 
-func (self *SLocalDisk) Resize(size int64) error {
+func (self *SLocalDisk) Resize(ctx context.Context, size int64) error {
 	return cloudprovider.ErrNotSupported
+}
+
+func (disk *SLocalDisk) GetAccessPath() string {
+	return ""
 }

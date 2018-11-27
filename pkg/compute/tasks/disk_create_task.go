@@ -125,7 +125,7 @@ func (self *DiskCreateBackupTask) OnInit(ctx context.Context, obj db.IStandalone
 
 func (self *DiskCreateBackupTask) OnDiskReady(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	bkStorage := models.StorageManager.FetchStorageById(disk.BackupStorageId)
-	self.CleanStorageSchedCache(bkStorage)
+	bkStorage.ClearSchedDescCache()
 	disk.SetStatus(self.UserCred, models.DISK_READY, "")
 	db.OpsLog.LogEvent(disk, db.ACT_BACKUP_ALLOCATE, disk.GetShortDesc(), self.UserCred)
 	self.SetStageComplete(ctx, nil)

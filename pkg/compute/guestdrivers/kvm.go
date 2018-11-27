@@ -179,6 +179,10 @@ func (self *SKVMGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, gue
 	return nil
 }
 
+func (self *SKVMGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
+	return guest.GetJsonDescAtHypervisor(ctx, host)
+}
+
 func (self *SKVMGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
@@ -207,7 +211,7 @@ func (self *SKVMGuestDriver) RequestStartOnHost(ctx context.Context, guest *mode
 	header := self.getTaskRequestHeader(task)
 
 	config := jsonutils.NewDict()
-	desc := self.GetJsonDescAtHost(ctx, guest, host)
+	desc := guest.GetDriver().GetJsonDescAtHost(ctx, guest, host)
 	config.Add(desc, "desc")
 	params := task.GetParams()
 	if params.Length() > 0 {

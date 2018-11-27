@@ -13,7 +13,6 @@ import (
 )
 
 type SESXiProviderFactory struct {
-	providerTable map[string]*SESXiProvider
 }
 
 func (self *SESXiProviderFactory) GetId() string {
@@ -39,10 +38,6 @@ func parseHostPort(host string, defPort int) (string, int, error) {
 }
 
 func (self *SESXiProviderFactory) GetProvider(providerId, providerName, urlStr, account, secret string) (cloudprovider.ICloudProvider, error) {
-	provider, ok := self.providerTable[providerId]
-	if ok {
-		return provider, nil
-	}
 	parts, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, err
@@ -56,14 +51,11 @@ func (self *SESXiProviderFactory) GetProvider(providerId, providerName, urlStr, 
 	if err != nil {
 		return nil, err
 	}
-	self.providerTable[providerId] = &SESXiProvider{client: client}
-	return self.providerTable[providerId], nil
+	return &SESXiProvider{client: client}, nil
 }
 
 func init() {
-	factory := SESXiProviderFactory{
-		providerTable: make(map[string]*SESXiProvider),
-	}
+	factory := SESXiProviderFactory{}
 	cloudprovider.RegisterFactory(&factory)
 }
 
@@ -73,6 +65,10 @@ type SESXiProvider struct {
 
 func (self *SESXiProvider) IsPublicCloud() bool {
 	return false
+}
+
+func (self *SESXiProvider) IsOnPremiseInfrastructure() bool {
+	return true
 }
 
 func (self *SESXiProvider) GetId() string {
@@ -99,27 +95,10 @@ func (self *SESXiProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SESXiProvider) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	host, err := self.client.FindHostByIp(id)
-	if err != nil {
-		return nil, err
-	} else {
-		return host, nil
-	}
-}
-
-func (self *SESXiProvider) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
-	return nil, cloudprovider.ErrNotSupported
-}
-
-func (self *SESXiProvider) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SESXiProvider) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
 func (self *SESXiProvider) GetBalance() (float64, error) {
 	return 0.0, nil
+}
+
+func (self *SESXiProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
+	return self.client, nil
 }

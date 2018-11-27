@@ -58,24 +58,12 @@ func (self *SAwsProvider) IsPublicCloud() bool {
 	return true
 }
 
+func (self *SAwsProvider) IsOnPremiseInfrastructure() bool {
+	return false
+}
+
 func (self *SAwsProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegionById(id)
-}
-
-func (self *SAwsProvider) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	return self.client.GetIHostById(id)
-}
-
-func (self *SAwsProvider) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
-	return self.client.GetIVpcById(id)
-}
-
-func (self *SAwsProvider) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	return self.client.GetIStorageById(id)
-}
-
-func (self *SAwsProvider) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
-	return self.client.GetIStoragecacheById(id)
 }
 
 func (self *SAwsProvider) GetBalance() (float64, error) {
@@ -84,4 +72,8 @@ func (self *SAwsProvider) GetBalance() (float64, error) {
 		return 0.0, err
 	}
 	return balance.AvailableAmount, nil
+}
+
+func (self *SAwsProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }
