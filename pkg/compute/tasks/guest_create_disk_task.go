@@ -6,11 +6,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"time"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"time"
 )
 
 type GuestCreateDiskTask struct {
@@ -187,7 +187,7 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 			self.SetStageFailed(ctx, "Attach Disk to guest fail")
 			return
 		}
-		time.Sleep(time.Second*5)
+		time.Sleep(time.Second * 5)
 		diskIndex += 1
 	}
 
