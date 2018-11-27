@@ -61,6 +61,18 @@ var (
 			Result:   rbacutils.UserAllow,
 		},
 		{
+			Service:  "compute",
+			Resource: "quotas",
+			Action:   PolicyActionGet,
+			Result:   rbacutils.OwnerAllow,
+		},
+		{
+			Service:  "compute",
+			Resource: "usages",
+			Action:   PolicyActionGet,
+			Result:   rbacutils.OwnerAllow,
+		},
+		{
 			Service:  "yunionagent",
 			Resource: "notices",
 			Action:   PolicyActionList,
