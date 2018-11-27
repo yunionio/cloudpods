@@ -246,23 +246,7 @@ func (self *SRegion) revokeSecurityGroup(secgroupId, instanceId string, keep boo
 }
 
 func (self *SRegion) assignSecurityGroup(secgroupId, instanceId string) error {
-	instance, err := self.GetInstance(instanceId)
-	if err != nil {
-		return err
-	}
-
-	for _, eth := range instance.NetworkInterfaces.NetworkInterface {
-		params := &ec2.ModifyNetworkInterfaceAttributeInput{}
-		params.SetNetworkInterfaceId(eth.NetworkInterfaceId)
-		params.SetGroups([]*string{&secgroupId})
-
-		_, err := self.ec2Client.ModifyNetworkInterfaceAttribute(params)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return self.assignSecurityGroups([]*string{&secgroupId}, instanceId)
 }
 
 func (self *SRegion) assignSecurityGroups(secgroupIds []*string, instanceId string) error {
@@ -285,7 +269,7 @@ func (self *SRegion) assignSecurityGroups(secgroupIds []*string, instanceId stri
 	return nil
 }
 
-func (self *SRegion) DeleteSecurityGroup(vpcId string, secGrpId string) error {
+func (self *SRegion) DeleteSecurityGroup(vpcId, secGrpId string) error {
 	params := &ec2.DeleteSecurityGroupInput{}
 	params.SetGroupId(secGrpId)
 

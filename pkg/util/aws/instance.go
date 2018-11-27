@@ -172,13 +172,11 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 			data.Update(meta)
 		}
 	}
+	secgroupIds := jsonutils.NewArray()
 	for _, secgroupId := range self.SecurityGroupIds.SecurityGroupId {
-		if len(secgroupId) > 0 {
-			data.Add(jsonutils.NewString(secgroupId), "secgroupId")
-			break
-		}
+		secgroupIds.Add(jsonutils.NewString(secgroupId))
 	}
-
+	data.Add(secgroupIds, "secgroupIds")
 	return data
 }
 

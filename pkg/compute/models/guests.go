@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
@@ -264,10 +265,11 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		if secgrp == nil {
 			return nil, httperrors.NewResourceNotFoundError("secgroup %s not found", secgrpFilter)
 		}
-		guestsecgroups := GuestsecgroupManager.Query().SubQuery()
-		q = q.Join(guestsecgroups, sqlchemy.Equals(q.Field("id"), guestsecgroups.Field("guest_id")))
-		q = q.Filter(sqlchemy.OR(sqlchemy.Equals(q.Field("secgrp_id"), secgrp.GetId()),
-			sqlchemy.Equals(guestsecgroups.Field("secgroup_id"), secgrp.GetId())),
+		q = q.Filter(
+			sqlchemy.OR(
+				sqlchemy.In(q.Field("id"), GuestsecgroupManager.Query("guest_id").Equals("secgroup_id", secgrp.GetId()).SubQuery()),
+				sqlchemy.Equals(q.Field("secgrp_id"), secgrp.GetId()),
+			),
 		)
 	}
 
@@ -1394,16 +1396,17 @@ func (self *SGuest) getSecgroupJson() []jsonutils.JSONObject {
 }
 
 func (self *SGuest) GetSecgroups() []SSecurityGroup {
-	q := SecurityGroupManager.Query()
-	guestsecgroups := GuestsecgroupManager.Query().SubQuery()
-	q = q.Join(guestsecgroups, sqlchemy.Equals(guestsecgroups.Field("guest_id"), self.Id)).Filter(sqlchemy.OR(
-		sqlchemy.Equals(q.Field("id"), self.SecgrpId),
-		sqlchemy.Equals(q.Field("id"), guestsecgroups.Field("secgroup_id")),
-	))
-
+	secgrpQuery := SecurityGroupManager.Query()
+	secgrpQuery.Filter(
+		sqlchemy.OR(
+			sqlchemy.Equals(secgrpQuery.Field("id"), self.SecgrpId),
+			sqlchemy.In(secgrpQuery.Field("id"), GuestsecgroupManager.Query("secgroup_id").Equals("guest_id", self.Id).SubQuery()),
+		),
+	)
 	secgroups := []SSecurityGroup{}
-	if err := db.FetchModelObjects(SecurityGroupManager, q, &secgroups); err != nil {
+	if err := db.FetchModelObjects(SecurityGroupManager, secgrpQuery, &secgroups); err != nil {
 		log.Errorf("Get security group error: %v", err)
+		return nil
 	}
 	return secgroups
 }
@@ -1457,6 +1460,7 @@ func (self *SGuest) getSecurityRules() string {
 	}
 }
 
+//获取多个安全组规则，优先级降序排序
 func (self *SGuest) getSecurityGroupsRules() string {
 	secgroups := self.GetSecgroups()
 	secgroupids := []string{}
@@ -1541,12 +1545,23 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		self.BillingType = extVM.GetBillingType()
 		self.ExpiredAt = extVM.GetExpiredAt()
 
-		if metaData != nil && metaData.Contains("secgroupId") {
-			if secgroupId, err := metaData.GetString("secgroupId"); err == nil && len(secgroupId) > 0 {
-				if secgrp, err := SecurityGroupManager.FetchByExternalId(secgroupId); err == nil && secgrp != nil {
-					self.SecgrpId = secgrp.GetId()
-				} else {
-					log.Errorf("Failed find secgroup %s for guest %s error: %v", secgroupId, self.Name, err)
+		if metaData != nil && metaData.Contains("secgroupIds") {
+			secgroupIds := []string{}
+			if err := metaData.Unmarshal(&secgroupIds, "secgroupIds"); err == nil {
+				for _, secgroupId := range secgroupIds {
+					secgrp, err := SecurityGroupManager.FetchByExternalId(secgroupId)
+					if err != nil {
+						log.Errorf("Failed find secgroup %s for guest %s error: %v", secgroupId, self.Name, err)
+						continue
+					}
+					secgroup := secgrp.(*SSecurityGroup)
+					if len(self.SecgrpId) == 0 {
+						self.SecgrpId = secgroup.Id
+					} else {
+						if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, self, secgroup); err != nil {
+							log.Errorf("failed to bind secgroup %s for guest %s error: %v", secgroup.Name, self.Name, err)
+						}
+					}
 				}
 			}
 		}
@@ -1626,12 +1641,22 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		guest.ProjectId = projectId
 	}
 
-	if metaData != nil && metaData.Contains("secgroupId") {
-		if secgroupId, err := metaData.GetString("secgroupId"); err == nil && len(secgroupId) > 0 {
-			if secgrp, err := SecurityGroupManager.FetchByExternalId(secgroupId); err == nil && secgrp != nil {
-				guest.SecgrpId = secgrp.GetId()
-			} else {
-				log.Errorf("Failed find secgroup %s for guest %s error: %v", secgroupId, guest.Name, err)
+	extraSecgroups := []*SSecurityGroup{}
+	if metaData != nil && metaData.Contains("secgroupIds") {
+		secgroupIds := []string{}
+		if err := metaData.Unmarshal(&secgroupIds, "secgroupIds"); err == nil {
+			for _, secgroupId := range secgroupIds {
+				secgrp, err := SecurityGroupManager.FetchByExternalId(secgroupId)
+				if err != nil {
+					log.Errorf("Failed find secgroup %s for guest %s error: %v", secgroupId, guest.Name, err)
+					continue
+				}
+				secgroup := secgrp.(*SSecurityGroup)
+				if len(guest.SecgrpId) == 0 {
+					guest.SecgrpId = secgroup.Id
+				} else {
+					extraSecgroups = append(extraSecgroups, secgroup)
+				}
 			}
 		}
 	}
@@ -1639,6 +1664,12 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	err = manager.TableSpec().Insert(&guest)
 	if err != nil {
 		log.Errorf("Insert fail %s", err)
+	}
+
+	for _, secgroup := range extraSecgroups {
+		if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, &guest, secgroup); err != nil {
+			log.Errorf("failed to bind secgroup %s for guest %s error: %v", secgroup.Name, guest.Name, err)
+		}
 	}
 
 	if metaData != nil {
@@ -2643,7 +2674,6 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 		if srs.estimatedSinglePortRuleCount() <= options.FirewallFlowCountLimit {
 	*/
 
-	//获取多个安全组规则，优先级降序排序
 	rules := self.getSecurityGroupsRules()
 	if len(rules) > 0 {
 		desc.Add(jsonutils.NewString(rules), "security_rules")

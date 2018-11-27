@@ -37,22 +37,21 @@ type SGuestsecgroup struct {
 }
 
 func (self *SGuestsecgroup) getSecgroup() *SSecurityGroup {
-	secgroup := SSecurityGroup{}
-	secgroup.SetModelManager(SecurityGroupManager)
-	q := SecurityGroupManager.Query()
-	q = q.Equals("id", self.SecgroupId)
-	if err := q.First(&secgroup); err != nil {
+	secgrp, err := SecurityGroupManager.FetchById(self.SecgroupId)
+	if err != nil {
 		log.Errorf("failed to find secgroup %s", self.SecgroupId)
 		return nil
 	}
-	return &secgroup
+	secgroup := secgrp.(*SSecurityGroup)
+	secgroup.SetModelManager(SecurityGroupManager)
+	return secgroup
 }
 
 func (manager *SGuestsecgroupManager) newGuestSecgroup(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, secgroup *SSecurityGroup) (*SGuestsecgroup, error) {
 	q := manager.Query()
 	q = q.Equals("guest_id", guest.Id).Equals("secgroup_id", secgroup.Id)
 	if count := q.Count(); count > 0 {
-		return nil, fmt.Errorf("security group %s has assign guest %s", secgroup.Name, guest.Name)
+		return nil, fmt.Errorf("security group %s has already been assigned to guest %s", secgroup.Name, guest.Name)
 	}
 
 	gs := SGuestsecgroup{SecgroupId: secgroup.Id}
@@ -68,7 +67,7 @@ func (manager *SGuestsecgroupManager) newGuestSecgroup(ctx context.Context, user
 func (manager *SGuestsecgroupManager) DeleteGuestSecgroup(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, secgroup *SSecurityGroup) error {
 	gss := []SGuestsecgroup{}
 	q := manager.Query()
-	q = q.Equals(guest.Id, q.Field("guest_id")).Equals(secgroup.Id, q.Field("secgroup_id"))
+	q = q.Equals("guest_id", guest.Id).Equals("secgroup_id", secgroup.Id)
 	if err := db.FetchModelObjects(manager, q, &gss); err != nil {
 		return err
 	}

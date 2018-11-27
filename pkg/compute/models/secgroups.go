@@ -50,12 +50,13 @@ type SSecurityGroup struct {
 }
 
 func (self *SSecurityGroup) GetGuestsQuery() *sqlchemy.SQuery {
-	guests := GuestManager.Query()
-	guestsecgroups := GuestsecgroupManager.Query().SubQuery()
-	query := guests.Join(guestsecgroups, sqlchemy.AND(sqlchemy.Equals(guestsecgroups.Field("guest_id"), guests.Field("id"))))
-	return query.Filter(sqlchemy.OR(sqlchemy.Equals(guests.Field("secgrp_id"), self.Id),
-		sqlchemy.Equals(guests.Field("admin_secgrp_id"), self.Id),
-		sqlchemy.Equals(guestsecgroups.Field("secgroup_id"), self.Id)),
+	guests := GuestManager.Query().SubQuery()
+	return guests.Query().Filter(
+		sqlchemy.OR(
+			sqlchemy.Equals(guests.Field("secgrp_id"), self.Id),
+			sqlchemy.Equals(guests.Field("admin_secgrp_id"), self.Id),
+			sqlchemy.In(guests.Field("id"), GuestsecgroupManager.Query("guest_id").Equals("secgroup_id", self.Id).SubQuery()),
+		),
 	)
 }
 
@@ -64,7 +65,7 @@ func (self *SSecurityGroup) GetGuestsCount() int {
 }
 
 func (self *SSecurityGroup) GetGuests() []SGuest {
-	guests := make([]SGuest, 0)
+	guests := []SGuest{}
 	q := self.GetGuestsQuery()
 	err := db.FetchModelObjects(GuestManager, q, &guests)
 	if err != nil {
