@@ -2538,6 +2538,23 @@ func (self *SGuest) AllowPerformRebuildRoot(ctx context.Context, userCred mcclie
 
 func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	imageId, _ := data.GetString("image_id")
+	if len(imageId) == 0 {
+		gdc := self.CategorizeDisks()
+		imageId = gdc.Root.GetTemplateId()
+		if len(imageId) == 0 {
+			return nil, httperrors.NewBadRequestError("No template for root disk")
+		}
+	}
+	img, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
+	if err != nil {
+		return nil, httperrors.NewNotFoundError("failed to find %s", imageId)
+	}
+	osType, _ := img.Properties["os_type"]
+	osName := self.GetMetadata("os_name", userCred)
+	if len(osName) == 0 && len(osType) == 0 && strings.ToLower(osType) != strings.ToLower(osName) {
+		return nil, httperrors.NewBadRequestError("Cannot switch OS between %s-%s", osName, osType)
+	}
+	imageId = img.Id
 
 	rebuildStatus, err := self.GetDriver().GetRebuildRootStatus()
 	if err != nil {
@@ -2546,23 +2563,6 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 
 	if !utils.IsInStringArray(self.Status, rebuildStatus) {
 		return nil, httperrors.NewInvalidStatusError("Cannot reset root in status %s", self.Status)
-	}
-
-	if !data.Contains("image_id") {
-		gdc := self.CategorizeDisks()
-		imageId = gdc.Root.GetTemplateId()
-		if len(imageId) == 0 {
-			return nil, httperrors.NewBadRequestError("No template for root disk")
-		}
-		img, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
-		if err != nil {
-			return nil, httperrors.NewBadRequestError("Template %s not accessible: %s", imageId, err.Error())
-		}
-		osType, _ := img.Properties["os_type"]
-		osName := self.GetMetadata("os_name", userCred)
-		if len(osName) == 0 && len(osType) == 0 && strings.ToLower(osType) != strings.ToLower(osName) {
-			return nil, httperrors.NewBadRequestError("Cannot switch OS between %s-%s", osName, osType)
-		}
 	}
 
 	autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
