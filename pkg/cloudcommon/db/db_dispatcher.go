@@ -636,8 +636,7 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 
 	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, query)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("%s %s not found",
-			dispatcher.modelManager.Keyword(), idStr))
+		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idStr)
 	} else if err != nil {
 		return nil, err
 	}
@@ -658,8 +657,7 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 	userCred := fetchUserCredential(ctx)
 	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, query)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("%s %s not found",
-			dispatcher.modelManager.Keyword(), idStr))
+		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idStr)
 	} else if err != nil {
 		return nil, err
 	}
@@ -1015,8 +1013,7 @@ func (dispatcher *DBModelDispatcher) PerformAction(ctx context.Context, idStr st
 	userCred := fetchUserCredential(ctx)
 	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, nil)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("%s %s not found",
-			dispatcher.modelManager.Keyword(), idStr))
+		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idStr)
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -1184,8 +1181,7 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 	userCred := fetchUserCredential(ctx)
 	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, nil)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("%s %s not found",
-			dispatcher.modelManager.Keyword(), idStr))
+		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idStr)
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -1275,8 +1271,7 @@ func (dispatcher *DBModelDispatcher) Delete(ctx context.Context, idstr string, q
 	userCred := fetchUserCredential(ctx)
 	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idstr, nil)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("%s %s not found",
-			dispatcher.modelManager.Keyword(), idstr))
+		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idstr)
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}

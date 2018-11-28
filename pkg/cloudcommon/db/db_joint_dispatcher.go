@@ -59,8 +59,7 @@ func (dispatcher *DBJointModelDispatcher) ListMasterDescendent(ctx context.Conte
 
 	model, err := fetchItem(dispatcher.JointModelManager().GetMasterManager(), ctx, userCred, idStr, query)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("%s %s not found",
-			dispatcher.JointModelManager().GetMasterManager().Keyword(), idStr))
+		return nil, httperrors.NewResourceNotFoundError2(dispatcher.JointModelManager().GetMasterManager().Keyword(), idStr)
 	} else if err != nil {
 		return nil, err
 	}
@@ -86,8 +85,7 @@ func (dispatcher *DBJointModelDispatcher) ListSlaveDescendent(ctx context.Contex
 
 	model, err := fetchItem(dispatcher.JointModelManager().GetSlaveManager(), ctx, userCred, idStr, query)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("%s %s not found",
-			dispatcher.JointModelManager().GetSlaveManager().Keyword(), idStr))
+		return nil, httperrors.NewResourceNotFoundError2(dispatcher.JointModelManager().GetSlaveManager().Keyword(), idStr)
 	} else if err != nil {
 		return nil, err
 	}
@@ -139,8 +137,7 @@ func (dispatcher *DBJointModelDispatcher) Get(ctx context.Context, id1 string, i
 	userCred := fetchUserCredential(ctx)
 	_, _, item, err := fetchJointItem(dispatcher, ctx, userCred, id1, id2, query)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("%s %s-%s not found",
-			dispatcher.modelManager.Keyword(), id1, id2))
+		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), id1+"-"+id2)
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -187,7 +184,7 @@ func (dispatcher *DBJointModelDispatcher) Attach(ctx context.Context, id1 string
 	master, err := fetchItem(dispatcher.JointModelManager().GetMasterManager(), ctx, userCred, id1, query)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError("%s %d not found", dispatcher.JointModelManager().GetMasterManager().KeywordPlural(), id1)
+			return nil, httperrors.NewResourceNotFoundError2(dispatcher.JointModelManager().GetMasterManager().Keyword(), id1)
 		} else {
 			return nil, httperrors.NewGeneralError(err)
 		}
@@ -195,7 +192,7 @@ func (dispatcher *DBJointModelDispatcher) Attach(ctx context.Context, id1 string
 	slave, err := fetchItem(dispatcher.JointModelManager().GetSlaveManager(), ctx, userCred, id2, query)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError("%s %d not found", dispatcher.JointModelManager().GetSlaveManager().KeywordPlural(), id2)
+			return nil, httperrors.NewResourceNotFoundError2(dispatcher.JointModelManager().GetSlaveManager().Keyword(), id2)
 		} else {
 			return nil, httperrors.NewGeneralError(err)
 		}
@@ -209,8 +206,7 @@ func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string
 	userCred := fetchUserCredential(ctx)
 	master, slave, item, err := fetchJointItem(dispatcher, ctx, userCred, id1, id2, query)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("%s %s-%s not found",
-			dispatcher.modelManager.Keyword(), id1, id2))
+		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), id1+"-"+id2)
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -234,8 +230,7 @@ func (dispatcher *DBJointModelDispatcher) Detach(ctx context.Context, id1 string
 	userCred := fetchUserCredential(ctx)
 	master, slave, item, err := fetchJointItem(dispatcher, ctx, userCred, id1, id2, query)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("%s %s-%s not found",
-			dispatcher.modelManager.Keyword(), id1, id2))
+		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), id1+"-"+id2)
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
