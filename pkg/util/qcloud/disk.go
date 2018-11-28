@@ -65,16 +65,14 @@ func (v SDiskSet) Less(i, j int) bool {
 }
 
 func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
-	// data := jsonutils.NewDict()
+	data := jsonutils.NewDict()
 
 	// // The pricingInfo key structure is 'RegionId::DiskCategory::DiskType
 	// priceKey := fmt.Sprintf("%s::%s::%s", self.RegionId, self.Category, self.Type)
 	// data.Add(jsonutils.NewString(priceKey), "price_key")
 
-	// data.Add(jsonutils.NewString(models.HYPERVISOR_ALIYUN), "hypervisor")
-
-	// return data
-	return nil
+	data.Add(jsonutils.NewString(models.HYPERVISOR_QCLOUD), "hypervisor")
+	return data
 }
 
 func (self *SRegion) GetDisks(instanceId string, zoneId string, category string, diskIds []string, offset int, limit int) ([]SDisk, int, error) {
