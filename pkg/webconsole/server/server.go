@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 
 	"yunion.io/x/jsonutils"
@@ -28,13 +27,12 @@ func (s *ConnectionServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	log.Debugf("[connection] Get query: %v", query)
 	accessToken, _ := query.GetString("access_token")
 	if accessToken == "" {
-		httperrors.BadRequestError(w, fmt.Sprintf("Empty access_token"))
+		httperrors.BadRequestError(w, "Empty access_token")
 		return
 	}
 	sessionObj, ok := session.Manager.Get(accessToken)
 	if !ok {
-		log.Warningf("Not found session by token: %q", accessToken)
-		httperrors.NotFoundError(w, fmt.Sprintf("Not found session"))
+		httperrors.NotFoundError(w, "session not found")
 		return
 	}
 	var srv http.Handler
@@ -45,7 +43,7 @@ func (s *ConnectionServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		srv, err = NewTTYServer(sessionObj)
 	}
 	if err != nil {
-		httperrors.GeneralServerError(w, fmt.Errorf("New server error: %v", err))
+		httperrors.GeneralServerError(w, "New server error: %v", err)
 		return
 	}
 	srv.ServeHTTP(w, req)

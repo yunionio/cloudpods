@@ -3,7 +3,6 @@ package proxy
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -44,7 +43,7 @@ func (p *SReverseProxy) ServeHTTP(ctx context.Context, w http.ResponseWriter, r 
 	}
 	remoteUrl, err := url.Parse(endpoint)
 	if err != nil {
-		httperrors.InternalServerError(w, fmt.Sprintf("Parse remote url %q: %v", endpoint, err))
+		httperrors.InternalServerError(w, "failed parsing url %q: %v", endpoint, err)
 		return
 	}
 	log.Debugf("Forwarding to servie: %q, url: %q", p.serviceName, remoteUrl.String())
