@@ -224,6 +224,10 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 		nic := SInstanceNic{instance: self, ipAddr: ip}
 		nics = append(nics, &nic)
 	}
+	for _, ip := range self.PrivateIpAddresses {
+		nic := SInstanceNic{instance: self, ipAddr: ip}
+		nics = append(nics, &nic)
+	}
 	return nics, nil
 }
 
