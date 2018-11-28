@@ -245,6 +245,22 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		}
 	}
 
+	validateUrl := self.AccessUrl
+	if len(accessUrl) > 0 {
+		validateUrl = accessUrl
+	}
+	validateAccount := self.Account
+	if len(account) > 0 {
+		validateAccount = account
+	}
+	validateSecret, _ := self.getPassword()
+	if len(secret) > 0 {
+		validateSecret = secret
+	}
+	if err := cloudprovider.IsValidCloudAccount(validateUrl, validateAccount, validateSecret, self.Provider); err != nil {
+		return nil, httperrors.NewInputParameterError("invalid cloud account info")
+	}
+
 	if (len(account) > 0 && account != self.Account) || (len(accessUrl) > 0 && accessUrl != self.AccessUrl) {
 		if len(account) > 0 && account != self.Account {
 			for _, cloudprovider := range self.GetCloudproviders() {
