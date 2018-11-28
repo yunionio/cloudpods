@@ -140,6 +140,12 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 		data.Add(jsonutils.NewString(self.image.OsName), "os_distribution")
 	}
 
+	secgroupIds := jsonutils.NewArray()
+	for _, secgroupId := range self.SecurityGroupIds {
+		data.Add(jsonutils.NewString(secgroupId), "secgroupId")
+		secgroupIds.Add(jsonutils.NewString(secgroupId))
+	}
+	data.Add(secgroupIds, "secgroupIds")
 	return data
 }
 
