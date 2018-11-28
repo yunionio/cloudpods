@@ -271,19 +271,6 @@ func (man *SRouteTableManager) SyncRouteTables(ctx context.Context, userCred mcc
 	commondb := make([]SRouteTable, 0)
 	commonext := make([]cloudprovider.ICloudRouteTable, 0)
 	added := make([]cloudprovider.ICloudRouteTable, 0)
-	if false {
-		for _, rt := range cloudRouteTables {
-			log.Errorf("%s, %s", rt.GetName(), rt.GetGlobalId())
-			routes, err := rt.GetIRoutes()
-			if err != nil {
-				log.Errorf("get routes err: %s", err)
-				continue
-			}
-			for i, route := range routes {
-				log.Errorf("route %d: %#v ", i, route)
-			}
-		}
-	}
 	if err := compare.CompareSets(dbRouteTables, cloudRouteTables, &removed, &commondb, &commonext, &added); err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
