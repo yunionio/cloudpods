@@ -27,22 +27,5 @@ func initDeployment() {
 			return nil
 		})
 
-	createFromFileCmd := NewCommand(
-		&o.DeploymentCreateFromFileOptions{},
-		"k8s-create",
-		"Create resource by file",
-		func(s *mcclient.ClientSession, args *o.DeploymentCreateFromFileOptions) error {
-			params, err := args.Params()
-			if err != nil {
-				return err
-			}
-			ret, err := k8s.DeployFromFile.Create(s, params)
-			if err != nil {
-				return err
-			}
-			printObjectYAML(ret)
-			return nil
-		})
-
-	cmd.AddR(createCmd, createFromFileCmd)
+	cmd.AddR(createCmd)
 }
