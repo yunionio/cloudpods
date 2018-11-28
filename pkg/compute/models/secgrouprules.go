@@ -109,7 +109,7 @@ func (manager *SSecurityGroupRuleManager) ListItemFilter(ctx context.Context, q 
 		if secgroup, _ := SecurityGroupManager.FetchByIdOrName(userCred, defsecgroup); secgroup != nil {
 			sql = sql.Equals("secgroup_id", secgroup.GetId())
 		} else {
-			return nil, httperrors.NewNotFoundError(fmt.Sprintf("Security Group %s not found", defsecgroup))
+			return nil, httperrors.NewNotFoundError("Security Group %s not found", defsecgroup)
 		}
 	}
 	for _, field := range []string{"direction", "action", "protocol"} {

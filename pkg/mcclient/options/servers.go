@@ -261,8 +261,10 @@ type ServerSendKeyOptions struct {
 }
 
 type ServerMonitorOptions struct {
-	ID      string `help:"ID or Name of server" json:"-"`
+	ID string `help:"ID or Name of server" json:"-"`
+
 	COMMAND string `help:"Qemu Monitor command to send"`
+	Admin   *bool  `help:"Is this an admin call?"`
 }
 
 type ServerSaveImageOptions struct {

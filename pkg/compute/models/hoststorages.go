@@ -93,7 +93,7 @@ func (manager *SHoststorageManager) ValidateCreateData(ctx context.Context, user
 	}
 	storageTmp, _ := StorageManager.FetchById(storageId)
 	if storageTmp == nil {
-		return nil, httperrors.NewInputParameterError(fmt.Sprintf("invalid storage_id %s", storageId))
+		return nil, httperrors.NewInputParameterError("invalid storage_id %s", storageId)
 	}
 	storage := storageTmp.(*SStorage)
 	if storage.StorageType == STORAGE_RBD {

@@ -2,7 +2,6 @@ package models
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -131,7 +130,7 @@ func (manager *SReservedipManager) ListItemFilter(ctx context.Context, q *sqlche
 	if len(network) > 0 {
 		netObj, _ := NetworkManager.FetchByIdOrName(userCred, network)
 		if netObj == nil {
-			return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("network %s not found", network))
+			return nil, httperrors.NewResourceNotFoundError("network %s not found", network)
 		}
 		q = q.Equals("network_id", netObj.GetId())
 	}
