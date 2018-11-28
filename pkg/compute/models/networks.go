@@ -276,7 +276,7 @@ func (self *SNetwork) GetFreeIP(ctx context.Context, userCred mcclient.TokenCred
 	if reserved {
 		rip := ReservedipManager.GetReservedIP(self, candidate)
 		if rip == nil {
-			return "", httperrors.NewInsufficientResourceError(fmt.Sprintf("Reserved address %s not found", candidate))
+			return "", httperrors.NewInsufficientResourceError("Reserved address %s not found", candidate)
 		}
 		rip.Release(ctx, userCred, self)
 		return candidate, nil

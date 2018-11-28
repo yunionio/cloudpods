@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -85,7 +84,7 @@ func (manager *SVirtualResourceBaseManager) ListItemFilter(ctx context.Context, 
 			if tobj != nil {
 				q = q.Equals("tenant_id", tobj.GetId())
 			} else {
-				return nil, httperrors.NewTenantNotFoundError(fmt.Sprintf("tenant %s not found", tenant))
+				return nil, httperrors.NewTenantNotFoundError("tenant %s not found", tenant)
 			}
 		}
 		isSystem, err := query.Bool("system")
@@ -208,7 +207,7 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 	}
 	tobj, _ := TenantCacheManager.FetchTenantByIdOrName(ctx, tenant)
 	if tobj == nil {
-		return nil, httperrors.NewTenantNotFoundError(fmt.Sprintf("tenant %s not found", tenant))
+		return nil, httperrors.NewTenantNotFoundError("tenant %s not found", tenant)
 	}
 	q := model.GetModelManager().Query().Equals("name", model.GetName())
 	q = q.Equals("tenant_id", tobj.GetId())

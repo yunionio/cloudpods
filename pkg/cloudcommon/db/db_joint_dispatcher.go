@@ -218,7 +218,7 @@ func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string
 		isAllow = item.AllowUpdateJointItem(ctx, userCred, item)
 	}
 	if !isAllow {
-		return nil, httperrors.NewForbiddenError(fmt.Sprintf("Not allow to update item"))
+		return nil, httperrors.NewForbiddenError("Not allow to update item")
 	}
 
 	lockman.LockJointObject(ctx, master, slave)
