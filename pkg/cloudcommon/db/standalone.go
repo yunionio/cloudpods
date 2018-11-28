@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -64,7 +63,7 @@ func (manager *SStandaloneResourceBaseManager) ValidateName(name string) error {
 		return httperrors.NewInputParameterError("name starts with letter, and contains letter, number and ._@- only")
 	}
 	if manager.NameLength > 0 && len(name) > manager.NameLength {
-		return httperrors.NewInputParameterError(fmt.Sprintf("name longer than %d", manager.NameLength))
+		return httperrors.NewInputParameterError("name longer than %d", manager.NameLength)
 	}
 	return nil
 }
@@ -156,7 +155,7 @@ func (model *SStandaloneResourceBase) SetMetadata(ctx context.Context, key strin
 func (model *SStandaloneResourceBase) SetAllMetadata(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
 	for k := range dictstore {
 		if Metadata.IsSystemAdminKey(k) && !userCred.IsSystemAdmin() {
-			return httperrors.NewNotSufficientPrivilegeError(fmt.Sprintf("not allow to set system key %s", k))
+			return httperrors.NewNotSufficientPrivilegeError("not allow to set system key %s", k)
 		}
 	}
 	return Metadata.SetAll(ctx, model, dictstore, userCred)

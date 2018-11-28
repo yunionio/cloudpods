@@ -601,7 +601,7 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 		return nil, httperrors.NewInternalServerError("Invald %s return value", funcName)
 	}
 	if !outs[0].Bool() {
-		return nil, httperrors.NewForbiddenError(fmt.Sprintf("%s not allow to get property %s", dispatcher.Keyword(), property))
+		return nil, httperrors.NewForbiddenError("%s not allow to get property %s", dispatcher.Keyword(), property)
 	}
 
 	funcValue = modelValue.MethodByName(funcName)
@@ -636,8 +636,7 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 
 	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, query)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("%s %s not found",
-			dispatcher.modelManager.Keyword(), idStr))
+		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idStr)
 	} else if err != nil {
 		return nil, err
 	}
@@ -658,8 +657,7 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 	userCred := fetchUserCredential(ctx)
 	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, query)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("%s %s not found",
-			dispatcher.modelManager.Keyword(), idStr))
+		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idStr)
 	} else if err != nil {
 		return nil, err
 	}
@@ -681,7 +679,7 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 
 		funcValue := modelValue.MethodByName(funcName)
 		if !funcValue.IsValid() || funcValue.IsNil() {
-			return nil, httperrors.NewSpecNotFoundError(fmt.Sprintf("%s %s %s not found", dispatcher.Keyword(), idStr, spec))
+			return nil, httperrors.NewSpecNotFoundError("%s %s %s not found", dispatcher.Keyword(), idStr, spec)
 		}
 
 		outs := funcValue.Call(params)
@@ -692,13 +690,13 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 	}
 
 	if !isAllow {
-		return nil, httperrors.NewForbiddenError(fmt.Sprintf("%s not allow to get spec %s", dispatcher.Keyword(), spec))
+		return nil, httperrors.NewForbiddenError("%s not allow to get spec %s", dispatcher.Keyword(), spec)
 	}
 
 	funcName := fmt.Sprintf("GetDetails%s", specCamel)
 	funcValue := modelValue.MethodByName(funcName)
 	if !funcValue.IsValid() || funcValue.IsNil() {
-		return nil, httperrors.NewSpecNotFoundError(fmt.Sprintf("%s %s %s not found", dispatcher.Keyword(), idStr, spec))
+		return nil, httperrors.NewSpecNotFoundError("%s %s %s not found", dispatcher.Keyword(), idStr, spec)
 	}
 
 	outs := funcValue.Call(params)
@@ -742,7 +740,7 @@ func fetchOwnerProjectId(ctx context.Context, manager IModelManager, userCred mc
 	}
 	t, _ := TenantCacheManager.FetchTenantByIdOrName(ctx, projId)
 	if t == nil {
-		return "", httperrors.NewNotFoundError(fmt.Sprintf("Project %s not found", projId))
+		return "", httperrors.NewNotFoundError("Project %s not found", projId)
 	}
 	return t.GetId(), nil
 }
@@ -1015,8 +1013,7 @@ func (dispatcher *DBModelDispatcher) PerformAction(ctx context.Context, idStr st
 	userCred := fetchUserCredential(ctx)
 	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, nil)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("%s %s not found",
-			dispatcher.modelManager.Keyword(), idStr))
+		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idStr)
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -1097,7 +1094,7 @@ func objectPerformAction(dispatcher *DBModelDispatcher, model IModel, modelValue
 		isAllow = outs[0].Bool()
 	}
 	if !isAllow {
-		return nil, httperrors.NewForbiddenError(fmt.Sprintf("%s not allow to perform action %s", dispatcher.Keyword(), action))
+		return nil, httperrors.NewForbiddenError("%s not allow to perform action %s", dispatcher.Keyword(), action)
 	}
 
 	outs := funcValue.Call(params)
@@ -1184,8 +1181,7 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 	userCred := fetchUserCredential(ctx)
 	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idStr, nil)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("%s %s not found",
-			dispatcher.modelManager.Keyword(), idStr))
+		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idStr)
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -1197,7 +1193,7 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 		isAllow = model.AllowUpdateItem(ctx, userCred)
 	}
 	if !isAllow {
-		return nil, httperrors.NewForbiddenError(fmt.Sprintf("Not allow to update item"))
+		return nil, httperrors.NewForbiddenError("Not allow to update item")
 	}
 
 	lockman.LockObject(ctx, model)
@@ -1234,7 +1230,7 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 	}
 	if !isAllow {
 		log.Errorf("not allow to delete")
-		return nil, httperrors.NewForbiddenError(fmt.Sprintf("%s(%s) not allow to delete", manager.KeywordPlural(), model.GetId()))
+		return nil, httperrors.NewForbiddenError("%s(%s) not allow to delete", manager.KeywordPlural(), model.GetId())
 	}
 
 	err := model.ValidateDeleteCondition(ctx)
@@ -1275,8 +1271,7 @@ func (dispatcher *DBModelDispatcher) Delete(ctx context.Context, idstr string, q
 	userCred := fetchUserCredential(ctx)
 	model, err := fetchItem(dispatcher.modelManager, ctx, userCred, idstr, nil)
 	if err == sql.ErrNoRows {
-		return nil, httperrors.NewResourceNotFoundError(fmt.Sprintf("%s %s not found",
-			dispatcher.modelManager.Keyword(), idstr))
+		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), idstr)
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
