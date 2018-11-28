@@ -112,6 +112,10 @@ func NewResourceNotFoundError(msg string, params ...interface{}) *httputils.JSON
 	return NewJsonClientError(404, "ResourceNotFoundError", msg, err)
 }
 
+func NewResourceNotFoundError2(keyword, id string) *httputils.JSONClientError {
+	return NewResourceNotFoundError("%s %s not found", keyword, id)
+}
+
 func NewSpecNotFoundError(msg string, params ...interface{}) *httputils.JSONClientError {
 	msg, err := errorMessage(msg, params...)
 	return NewJsonClientError(404, "SpecNotFoundError", msg, err)
