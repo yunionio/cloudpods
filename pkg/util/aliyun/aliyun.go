@@ -1,6 +1,8 @@
 package aliyun
 
 import (
+	"fmt"
+
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 
@@ -65,6 +67,10 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 	if err != nil {
 		log.Errorf("parse json fail %s", err)
 		return nil, err
+	}
+	//{"Code":"InvalidInstanceType.ValueNotSupported","HostId":"ecs.aliyuncs.com","Message":"The specified instanceType beyond the permitted range.","RequestId":"0042EE30-0EDF-48A7-A414-56229D4AD532"}
+	if body.Contains("Code") {
+		return nil, fmt.Errorf(body.String())
 	}
 	return body, nil
 }
