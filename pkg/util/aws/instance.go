@@ -270,7 +270,7 @@ func (self *SInstance) GetMachine() string {
 }
 
 func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return self.host.zone.region.assignSecurityGroup(self.InstanceId, secgroupId)
+	return self.host.zone.region.assignSecurityGroup(secgroupId, self.InstanceId)
 }
 
 func (self *SInstance) GetHypervisor() string {

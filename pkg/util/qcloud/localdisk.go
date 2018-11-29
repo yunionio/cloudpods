@@ -18,7 +18,9 @@ type SLocalDisk struct {
 }
 
 func (self *SLocalDisk) GetMetadata() *jsonutils.JSONDict {
-	return nil
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewString(models.HYPERVISOR_QCLOUD), "hypervisor")
+	return data
 }
 
 func (self *SLocalDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
