@@ -195,8 +195,9 @@ func (self *SGuest) AllowPerformStop(ctx context.Context,
 
 func (self *SGuest) PerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
 	data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	isForce := jsonutils.QueryBoolean(data, "is_force", false)
-	if utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_STOP_FAILED}) || (isForce && self.Status == VM_STOPPING) {
+	// XXX if is force, force stop guest
+	var isForce = jsonutils.QueryBoolean(data, "is_force", false)
+	if isForce || utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_STOP_FAILED}) {
 		return nil, self.StartGuestStopTask(ctx, userCred, isForce, "")
 	} else {
 		return nil, httperrors.NewInvalidStatusError("Cannot stop server in status %s", self.Status)
