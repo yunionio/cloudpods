@@ -297,6 +297,8 @@ func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandalo
 		} else {
 			includeCommon = true
 		}
+	} else {
+		includeCommon = true
 	}
 
 	if includeCommon {
