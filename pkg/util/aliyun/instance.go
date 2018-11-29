@@ -450,6 +450,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	} else {
 		params["PasswordInherit"] = "True"
 	}
+	//{"Code":"InvalidSystemDiskCategory.ValueNotSupported","HostId":"ecs.aliyuncs.com","Message":"The specified parameter 'SystemDisk.Category' is not support IoOptimized Instance. Valid Values: cloud_efficiency;cloud_ssd. ","RequestId":"9C9A4E99-5196-42A2-80B6-4762F8F75C90"}
 	params["IoOptimized"] = "optimized"
 	for i, d := range disks {
 		if i == 0 {
