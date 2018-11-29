@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"encoding/base64"
 	"fmt"
 	"strconv"
 	"strings"
@@ -26,7 +25,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
-	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/compute/sshkeys"
@@ -2219,101 +2217,6 @@ func (self *SGuest) CategorizeNics() SGuestNicCategory {
 	return netCat
 }
 
-func (self *SGuest) NotifyServerEvent(event string, priority string, loginInfo bool) error {
-	meta, err := self.GetAllMetadata(nil)
-	if err != nil {
-		return err
-	}
-	kwargs := jsonutils.NewDict()
-	kwargs.Add(jsonutils.NewString(self.Name), "name")
-	if loginInfo {
-		kwargs.Add(jsonutils.NewStringArray(self.getNotifyIps()), "ips")
-		osName := meta["os_name"]
-		if osName == "Windows" {
-			kwargs.Add(jsonutils.JSONTrue, "windows")
-		}
-		loginAccount := meta["login_account"]
-		if len(loginAccount) > 0 {
-			kwargs.Add(jsonutils.NewString(loginAccount), "account")
-		}
-		keypair := self.getKeypairName()
-		if len(keypair) > 0 {
-			kwargs.Add(jsonutils.NewString(keypair), "keypair")
-		} else {
-			loginKey := meta["login_key"]
-			if len(loginKey) > 0 {
-				passwd, err := utils.DescryptAESBase64(self.Id, loginKey)
-				if err == nil {
-					kwargs.Add(jsonutils.NewString(passwd), "password")
-				}
-			}
-		}
-	}
-	return notifyclient.Notify(self.ProjectId, event, priority, kwargs)
-}
-
-func (self *SGuest) NotifyAdminServerEvent(ctx context.Context, event string, priority string) error {
-	kwargs := jsonutils.NewDict()
-	kwargs.Add(jsonutils.NewString(self.Name), "name")
-	tc, _ := self.GetTenantCache(ctx)
-	if tc != nil {
-		kwargs.Add(jsonutils.NewString(tc.Name), "tenant")
-	} else {
-		kwargs.Add(jsonutils.NewString(self.ProjectId), "tenant")
-	}
-	return notifyclient.Notify(options.Options.NotifyAdminUser, event, priority, kwargs)
-}
-
-func (self *SGuest) insertIso(imageId string) bool {
-	cdrom := self.getCdrom()
-	return cdrom.insertIso(imageId)
-}
-
-func (self *SGuest) InsertIsoSucc(imageId string, path string, size int, name string) bool {
-	cdrom := self.getCdrom()
-	return cdrom.insertIsoSucc(imageId, path, size, name)
-}
-
-func (self *SGuest) GetDetailsIso(userCred mcclient.TokenCredential) jsonutils.JSONObject {
-	cdrom := self.getCdrom()
-	desc := jsonutils.NewDict()
-	if len(cdrom.ImageId) > 0 {
-		desc.Set("image_id", jsonutils.NewString(cdrom.ImageId))
-		desc.Set("status", jsonutils.NewString("inserting"))
-	}
-	if len(cdrom.Path) > 0 {
-		desc.Set("name", jsonutils.NewString(cdrom.Name))
-		desc.Set("size", jsonutils.NewInt(int64(cdrom.Size)))
-		desc.Set("status", jsonutils.NewString("ready"))
-	}
-	return desc
-}
-
-func (self *SGuest) GetKeypairPublicKey() string {
-	keypair := self.getKeypair()
-	if keypair != nil {
-		return keypair.PublicKey
-	}
-	return ""
-}
-
-func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	eip, _ := self.GetEip()
-	if eip != nil {
-		eip.DoPendingDelete(ctx, userCred)
-	}
-	for _, guestdisk := range self.GetDisks() {
-		disk := guestdisk.GetDisk()
-		storage := disk.GetStorage()
-		if utils.IsInStringArray(storage.StorageType, STORAGE_LOCAL_TYPES) || utils.IsInStringArray(disk.DiskType, []string{DISK_TYPE_SYS, DISK_TYPE_SWAP}) || (utils.IsInStringArray(self.Hypervisor, PUBLIC_CLOUD_HYPERVISORS) && disk.AutoDelete) {
-			disk.DoPendingDelete(ctx, userCred)
-		} else {
-			self.DetachDisk(ctx, disk, userCred)
-		}
-	}
-	self.SVirtualResourceBase.DoPendingDelete(ctx, userCred)
-}
-
 func (self *SGuest) LeaveAllGroups(userCred mcclient.TokenCredential) {
 	groupGuests := make([]SGroupguest, 0)
 	q := GroupguestManager.Query()
@@ -3035,25 +2938,13 @@ func (self *SGuest) isAllDisksReady() bool {
 	return ready
 }
 
-/*
-
-TODO
-
-def start_guest_sched_start_task(self, user_cred, data=None,
-                                            parent_task_id=None):
-        from clouds.models.tasks import Tasks
-        from clouds.tasks import worker
-        from clouds.tasks.guests import GuestSchedStartTask
-        kwargs = {}
-        kwargs['guest_status'] = self.status
-        if data is not None:
-            kwargs['params'] = data
-        self.set_status(self.VM_SCHEDULE)
-        task = Tasks.new_task(GuestSchedStartTask, self, user_cred, kwargs,
-                                    parent_task_id=parent_task_id)
-        worker.get_manager().exec_task(task)
-
-*/
+func (self *SGuest) GetKeypairPublicKey() string {
+	keypair := self.getKeypair()
+	if keypair != nil {
+		return keypair.PublicKey
+	}
+	return ""
+}
 
 func (manager *SGuestManager) GetIpInProjectWithName(projectId, name string, isExitOnly bool) []string {
 	guestnics := GuestnetworkManager.Query().SubQuery()
@@ -3279,18 +3170,6 @@ func (self *SGuest) getDefaultStorageType() string {
 		}
 	}
 	return STORAGE_LOCAL
-}
-
-func (self *SGuest) setUserData(ctx context.Context, userCred mcclient.TokenCredential, data string) error {
-	data = base64.StdEncoding.EncodeToString([]byte(data))
-	if len(data) > 16*1024 {
-		return fmt.Errorf("User data is limited to 16 KB.")
-	}
-	err := self.SetMetadata(ctx, "user_data", data, userCred)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (self *SGuest) getSchedDesc() jsonutils.JSONObject {
