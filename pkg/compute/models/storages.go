@@ -226,24 +226,66 @@ func (self *SStorage) ValidateDeleteCondition(ctx context.Context) error {
 
 func (self *SStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+	storageConf, _ := data.Get("storage_conf")
+	if storageConf != nil {
+		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+			self.StorageConf = storageConf
+			return nil
+		})
+		if err != nil {
+			log.Errorln(err)
+			return
+		}
+	}
 	if self.StorageType == STORAGE_RBD {
-		// TODO
+		var storages = make([]SStorage, 0)
+		err := StorageManager.Query().Equals("storage_type", STORAGE_RBD).All(&storages)
+		if err != nil {
+			log.Errorln(err)
+			return
+		}
+		nMonHost, _ := storageConf.GetString("mon_host")
+		nKey, _ := storageConf.GetString("key")
+		for i := 0; i < len(storages); i++ {
+			monHost, _ := storages[i].StorageConf.GetString("mon_host")
+			key, _ := storages[i].StorageConf.GetString("key")
+			if monHost == nMonHost && nKey == key {
+				_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+					self.StoragecacheId = storages[i].StoragecacheId
+					return nil
+				})
+				if err != nil {
+					log.Errorln(err)
+					return
+				}
+				break
+			}
+		}
+		if len(self.StoragecacheId) == 0 {
+			sc := &SStoragecache{}
+			sc.SetModelManager(StoragecacheManager)
+			sc.Name = fmt.Sprintf("imagecache-%s", self.Id)
+			pool, _ := storageConf.GetString("pool")
+			sc.Path = fmt.Sprintf("rbd:%s", pool)
+			err := StorageManager.TableSpec().Insert(sc)
+			if err != nil {
+				log.Errorln(err)
+			}
+		}
 	} else if self.StorageType == STORAGE_NFS {
 		sc := &SStoragecache{}
 		sc.Path = options.Options.NfsDefaultImageCacheDir
 		sc.ExternalId = self.Id
 		sc.Name = "nfs-" + self.Name + time.Now().Format("2006-01-02 15:04:05")
-		err := StoragecacheManager.TableSpec().Insert(sc)
-		if err != nil {
+		if err := StoragecacheManager.TableSpec().Insert(sc); err != nil {
 			log.Errorln(err)
 			return
 		}
-		err = StoragecacheManager.Query().Equals("external_id", self.Id).First(sc)
-		if err != nil {
+		if err := StoragecacheManager.Query().Equals("external_id", self.Id).First(sc); err != nil {
 			log.Errorln(err)
 			return
 		}
-		_, err = self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 			self.StoragecacheId = sc.Id
 			self.Status = STORAGE_ONLINE
 			return nil
