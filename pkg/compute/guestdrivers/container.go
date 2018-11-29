@@ -87,7 +87,7 @@ func (self *SContainerDriver) OnGuestDeployTaskDataReceived(ctx context.Context,
 	return nil
 }
 
-func (self *SContainerDriver) RequestStopGuestForDelete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+func (self *SContainerDriver) RequestStopGuestForDelete(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	// do nothing, call next stage
 	task.ScheduleRun(nil)
 	return nil
@@ -110,6 +110,10 @@ func (self *SContainerDriver) OnGuestDeployTaskComplete(ctx context.Context, gue
 	guest.SetStatus(task.GetUserCred(), models.VM_RUNNING, "on deploy complete")
 	task.SetStageComplete(ctx, nil)
 	return nil
+}
+
+func (self *SContainerDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
+	return guest.GetJsonDescAtHypervisor(ctx, host)
 }
 
 func (self *SContainerDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {

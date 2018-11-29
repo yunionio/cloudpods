@@ -5,7 +5,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/pkg/util/secrules"
 )
 
 type AddressSpace struct {
@@ -107,14 +106,6 @@ func (self *SVpc) fetchSecurityGroups() error {
 	}
 }
 
-func (self *SVpc) SyncSecurityGroup(tag string, name string, rules []secrules.SecurityRule) (string, error) {
-	secgrp, err := self.region.checkSecurityGroup(tag, name)
-	if err != nil {
-		return "", err
-	}
-	return self.region.syncSecgroupRules(secgrp.ID, rules)
-}
-
 func (self *SVpc) getWire() *SWire {
 	if self.iwires == nil {
 		self.fetchWires()
@@ -146,6 +137,11 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 		}
 	}
 	return self.secgroups, nil
+}
+
+func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
+	rts := []cloudprovider.ICloudRouteTable{}
+	return rts, nil
 }
 
 func (self *SVpc) fetchWires() error {

@@ -2,9 +2,10 @@ package aws
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	"sort"
 	"strings"
+
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -37,6 +38,10 @@ type SSecurityGroup struct {
 
 func (self *SSecurityGroup) GetId() string {
 	return self.SecurityGroupId
+}
+
+func (self *SSecurityGroup) GetVpcId() string {
+	return self.VpcId
 }
 
 func (self *SSecurityGroup) GetName() string {
@@ -199,8 +204,6 @@ func (self *SRegion) createSecurityGroup(vpcId string, name string, secgroupIdTa
 	params.SetVpcId(vpcId)
 	// 这里的描述aws 上层代码拼接的描述。并非用户提交的描述，用户描述放置在Yunion本地数据库中。）
 	params.SetDescription(desc)
-	// 这里使用id作为组名。原因name容易重名、另外有可能包含中文，aws不支持中文
-	params.SetGroupName(secgroupIdTag)
 
 	group, err := self.ec2Client.CreateSecurityGroup(params)
 	if err != nil {
@@ -208,7 +211,6 @@ func (self *SRegion) createSecurityGroup(vpcId string, name string, secgroupIdTa
 	}
 
 	tagspec := TagSpec{ResourceType: "security-group"}
-	tagspec.SetTag("id", secgroupIdTag)
 	tagspec.SetNameTag(name)
 	tagspec.SetDescTag(desc)
 	tags, _ := tagspec.GetTagSpecifications()

@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
+	"fmt"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -40,7 +41,7 @@ type SStoragecache struct {
 	SInfrastructure
 	SManagedResourceBase
 
-	Path string `width:"256" charset:"utf8" nullable:"true" list:"admin" update:"admin" create:"admin_optional"` // = Column(VARCHAR(256, charset='utf8'), nullable=True)
+	Path string `width:"256" charset:"utf8" nullable:"true" list:"user" update:"admin" create:"admin_optional"` // = Column(VARCHAR(256, charset='utf8'), nullable=True)
 }
 
 func (self *SStoragecache) getStorages() []SStorage {
@@ -141,6 +142,8 @@ func (manager *SStoragecacheManager) newFromCloudStoragecache(cloudCache cloudpr
 	local.IsEmulated = cloudCache.IsEmulated()
 	local.ManagerId = cloudCache.GetManagerId()
 
+	local.Path = cloudCache.GetPath()
+
 	err := manager.TableSpec().Insert(&local)
 	if err != nil {
 		return nil, err
@@ -152,6 +155,8 @@ func (manager *SStoragecacheManager) newFromCloudStoragecache(cloudCache cloudpr
 func (self *SStoragecache) syncWithCloudStoragecache(cloudCache cloudprovider.ICloudStoragecache) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Name = cloudCache.GetName()
+
+		self.Path = cloudCache.GetPath()
 
 		self.IsEmulated = cloudCache.IsEmulated()
 		self.ManagerId = cloudCache.GetManagerId()
@@ -197,7 +202,9 @@ func (self *SStoragecache) getCachedImageSize() int64 {
 	var size int64 = 0
 	for _, img := range images {
 		imginfo := img.GetCachedimage()
-		size += imginfo.Size
+		if imginfo != nil {
+			size += imginfo.Size
+		}
 	}
 	return size
 }
@@ -237,13 +244,6 @@ func (self *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcc
 }
 
 func (self *SStoragecache) StartImageUncacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, isForce bool, parentTaskId string) error {
-	if !isForce {
-		err := self.ValidateDeleteCondition(ctx)
-		if err != nil {
-			return err
-		}
-	}
-
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewString(imageId), "image_id")
 	if isForce {
@@ -258,12 +258,18 @@ func (self *SStoragecache) StartImageUncacheTask(ctx context.Context, userCred m
 }
 
 func (self *SStoragecache) GetIStorageCache() (cloudprovider.ICloudStoragecache, error) {
-	provider, err := self.GetDriver()
+	storages := self.getStorages()
+	if len(storages) == 0 {
+		msg := "no storages for this storagecache???"
+		log.Errorf(msg)
+		return nil, fmt.Errorf(msg)
+	}
+	istorage, err := storages[0].GetIStorage()
 	if err != nil {
-		log.Errorf("fail to find cloud provider")
+		log.Errorf("fail to find istorage for storage %s", err)
 		return nil, err
 	}
-	return provider.GetIStoragecacheById(self.GetExternalId())
+	return istorage.GetIStoragecache(), nil
 }
 
 func (manager *SStoragecacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
@@ -282,6 +288,23 @@ func (manager *SStoragecacheManager) ListItemFilter(ctx context.Context, q *sqlc
 	}
 
 	return q, nil
+}
+
+func (manager *SStoragecacheManager) FetchStoragecacheById(storageCacheId string) *SStoragecache {
+	iStorageCache, _ := manager.FetchById(storageCacheId)
+	if iStorageCache == nil {
+		return nil
+	}
+	return iStorageCache.(*SStoragecache)
+}
+
+func (manager *SStoragecacheManager) GetCachePathById(storageCacheId string) string {
+	iStorageCache, _ := manager.FetchById(storageCacheId)
+	if iStorageCache == nil {
+		return ""
+	}
+	sc := iStorageCache.(*SStoragecache)
+	return sc.Path
 }
 
 func (self *SStoragecache) ValidateDeleteCondition(ctx context.Context) error {

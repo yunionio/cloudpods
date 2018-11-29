@@ -190,18 +190,6 @@ func (self *SAwsClient) GetIStorageById(id string) (cloudprovider.ICloudStorage,
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SAwsClient) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
-	for i := 0; i < len(self.iregions); i += 1 {
-		ihost, err := self.iregions[i].GetIStoragecacheById(id)
-		if err == nil {
-			return ihost, nil
-		} else if err != cloudprovider.ErrNotFound {
-			return nil, err
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
-}
-
 type SAccountBalance struct {
 	AvailableAmount     float64
 	AvailableCashAmount float64

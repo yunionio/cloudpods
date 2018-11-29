@@ -164,7 +164,7 @@ func (self *SKVMGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, gue
 	body := jsonutils.NewDict()
 
 	// XXXXXXXX
-	if guest.HostId != host.Id {
+	if guest.HostId != host.Id && guest.BackupHostId != host.Id {
 		body.Set("migrated", jsonutils.JSONTrue)
 	}
 	_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "DELETE", url, header, body, false)
@@ -177,6 +177,10 @@ func (self *SKVMGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, gue
 	}
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (self *SKVMGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
+	return guest.GetJsonDescAtHypervisor(ctx, host)
 }
 
 func (self *SKVMGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
@@ -207,7 +211,7 @@ func (self *SKVMGuestDriver) RequestStartOnHost(ctx context.Context, guest *mode
 	header := self.getTaskRequestHeader(task)
 
 	config := jsonutils.NewDict()
-	desc := self.GetJsonDescAtHost(ctx, guest, host)
+	desc := guest.GetDriver().GetJsonDescAtHost(ctx, guest, host)
 	config.Add(desc, "desc")
 	params := task.GetParams()
 	if params.Length() > 0 {
@@ -283,10 +287,6 @@ func (self *SKVMGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mode
 	return nil
 }
 
-func (self *SKVMGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, disk *models.SDisk, task taskman.ITask, isPurge bool) error {
-	return disk.StartDiskDeleteTask(ctx, task.GetUserCred(), task.GetTaskId(), isPurge)
-}
-
 func (self *SKVMGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	desc := guest.GetDriver().GetJsonDescAtHost(ctx, guest, host)
 	body := jsonutils.NewDict()
@@ -322,5 +322,18 @@ func (self *SKVMGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *
 		return err
 	}
 	subtask.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SKVMGuestDriver) RequestSyncToBackup(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	body := jsonutils.NewDict()
+	body.Set("backup_nbd_server_uri", jsonutils.NewString(guest.GetMetadata("backup_nbd_server_uri", task.GetUserCred())))
+	host := guest.GetHost()
+	url := fmt.Sprintf("%s/server/%s/drive-mirror", host.ManagerUri, guest.Id)
+	header := self.getTaskRequestHeader(task)
+	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+	if err != nil {
+		return err
+	}
 	return nil
 }

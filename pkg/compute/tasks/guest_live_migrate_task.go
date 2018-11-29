@@ -12,14 +12,11 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type GuestMigrateTask struct {
-	SGuestBaseTask
+	SSchedTask
 }
 
 type GuestLiveMigrateTask struct {
@@ -32,45 +29,38 @@ func init() {
 }
 
 func (self *GuestMigrateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, models.VM_MIGRATING, "")
-	db.OpsLog.LogEvent(guest, db.ACT_MIGRATING, "", self.UserCred)
-	self.FindCandidataTarget(ctx, guest)
+	StartScheduleObjects(ctx, self, []db.IStandaloneModel{obj})
 }
 
-func (self *GuestMigrateTask) FindCandidataTarget(ctx context.Context, guest *models.SGuest) {
+func (self *GuestMigrateTask) GetSchedParams() *jsonutils.JSONDict {
+	obj := self.GetObject()
+	guest := obj.(*models.SGuest)
 	schedDesc := guest.ToSchedDesc()
 	if self.Params.Contains("prefer_host_id") {
 		preferHostId, _ := self.Params.Get("prefer_host_id")
 		schedDesc.Set("prefer_host_id", preferHostId)
 	}
-	s := auth.GetAdminSession(options.Options.Region, "")
-	results, err := modules.SchedManager.DoSchedule(s, schedDesc, 1)
-	if err != nil {
-		self.TaskFailed(ctx, guest, fmt.Sprintf("Do schedule error %s", err))
-	} else {
-		self.OnScheduleComplete(ctx, guest, results)
-	}
+	return schedDesc
 }
 
-func (self *GuestMigrateTask) OnScheduleComplete(ctx context.Context, guest *models.SGuest, results []jsonutils.JSONObject) {
-	if len(results) != 1 {
-		self.TaskFailed(ctx, guest, "Schedule failed")
-		return
-	}
-	var targetHostId string
-	if results[0].Contains("candidate") {
-		targetHostId, _ = results[0].GetString("candidate", "id")
-	} else if results[0].Contains("error") {
-		msg, _ := results[0].Get("error")
-		self.TaskFailed(ctx, guest, msg.String())
-		return
-	} else {
-		msg := fmt.Sprintf("Unknown scheduler result %s", results[0])
-		self.TaskFailed(ctx, guest, msg)
-		return
-	}
+func (self *GuestMigrateTask) OnStartSchedule(obj IScheduleModel) {
+	guest := obj.(*models.SGuest)
+	guest.SetStatus(self.UserCred, models.VM_MIGRATING, "")
+	db.OpsLog.LogEvent(guest, db.ACT_MIGRATING, "", self.UserCred)
+}
 
+func (self *GuestMigrateTask) OnScheduleFailCallback(obj IScheduleModel, reason string) {
+	// do nothing
+}
+
+func (self *GuestMigrateTask) OnScheduleFailed(ctx context.Context, reason string) {
+	obj := self.GetObject()
+	guest := obj.(*models.SGuest)
+	self.TaskFailed(ctx, guest, reason)
+}
+
+func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, targetHostId string) {
+	guest := obj.(*models.SGuest)
 	targetHost := models.HostManager.FetchHostById(targetHostId)
 	if targetHost == nil {
 		self.TaskFailed(ctx, guest, "target host not found?")

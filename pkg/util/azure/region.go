@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/pkg/util/secrules"
 )
 
 type SVMSize struct {
@@ -173,6 +174,40 @@ func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, er
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
+	iHosts := make([]cloudprovider.ICloudHost, 0)
+
+	izones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i += 1 {
+		iZoneHost, err := izones[i].GetIHosts()
+		if err != nil {
+			return nil, err
+		}
+		iHosts = append(iHosts, iZoneHost...)
+	}
+	return iHosts, nil
+}
+
+func (self *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
+	iStores := make([]cloudprovider.ICloudStorage, 0)
+
+	izones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i += 1 {
+		iZoneStores, err := izones[i].GetIStorages()
+		if err != nil {
+			return nil, err
+		}
+		iStores = append(iStores, iZoneStores...)
+	}
+	return iStores, nil
 }
 
 func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
@@ -418,4 +453,52 @@ func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 		ieips[len(eips)+i] = &classicEips[i]
 	}
 	return ieips, nil
+}
+
+func (region *SRegion) DeleteSecurityGroup(vpcId, secgroupId string) error {
+	if vpcId == "classic" {
+		return region.deleteClassicSecurityGroup(secgroupId)
+	}
+	secgroup, err := region.GetSecurityGroupDetails(secgroupId)
+	if err != nil {
+		if err == cloudprovider.ErrNotFound {
+			return nil
+		}
+		return err
+	}
+	if secgroup.Properties.NetworkInterfaces != nil {
+		for _, nic := range *secgroup.Properties.NetworkInterfaces {
+			nic, err := region.GetNetworkInterfaceDetail(nic.ID)
+			if err != nil {
+				return err
+			}
+			nic.Properties.NetworkSecurityGroup = nil
+			if err := region.client.Update(jsonutils.Marshal(nic), nil); err != nil {
+				return err
+			}
+		}
+	}
+	return region.client.Delete(secgroupId)
+}
+
+func (region *SRegion) SyncSecurityGroup(secgroupId, vpcId, name, desc string, rules []secrules.SecurityRule) (string, error) {
+	if vpcId == "classic" {
+		return region.syncClassicSecurityGroup(secgroupId, name, desc, rules)
+	}
+	if len(secgroupId) > 0 {
+		if _, err := region.GetSecurityGroupDetails(secgroupId); err != nil {
+			if err != cloudprovider.ErrNotFound {
+				return "", err
+			}
+			secgroupId = ""
+		}
+	}
+	if len(secgroupId) == 0 {
+		secgroup, err := region.CreateSecurityGroup(name)
+		if err != nil {
+			return "", err
+		}
+		secgroupId = secgroup.ID
+	}
+	return region.updateSecurityGroupRules(secgroupId, rules)
 }

@@ -294,3 +294,15 @@ func (self *SHost) GetSysInfo() jsonutils.JSONObject {
 func (self *SHost) IsEmulated() bool {
 	return true
 }
+
+func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+func (host *SHost) GetIsMaintenance() bool {
+	return false
+}
+
+func (host *SHost) GetVersion() string {
+	return QCLOUD_API_VERSION
+}

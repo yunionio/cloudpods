@@ -2,12 +2,13 @@ package aws
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	"strings"
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/secrules"
+
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SUserCIDRs struct {
@@ -103,6 +104,11 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 	return self.secgroups, nil
 }
 
+func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
+	rts := []cloudprovider.ICloudRouteTable{}
+	return rts, nil
+}
+
 func (self *SVpc) GetManagerId() string {
 	return self.region.client.providerId
 }
@@ -127,27 +133,30 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SVpc) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) (string, error) {
+func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
 	secgrpId := ""
 	// 名称为default的安全组与aws默认安全组名冲突
 	if strings.ToLower(name) == "default" {
-		name = fmt.Sprintf("%s-%s", self.VpcId, name)
+		name = fmt.Sprintf("%s-%s", vpcId, name)
 	}
 
 	if strings.ToLower(secgroupId) == "default" {
-		secgroupId = fmt.Sprintf("%s-%s", self.VpcId, secgroupId)
+		secgroupId = fmt.Sprintf("%s-%s", vpcId, secgroupId)
 	}
 
-	if secgroup, err := self.region.getSecurityGroupByTag(self.VpcId, secgroupId); err != nil {
-		desc := fmt.Sprintf("security group %s for vpc %s", name, self.VpcId)
-		if secgrpId, err = self.region.createSecurityGroup(self.VpcId, name, secgroupId, desc); err != nil {
+	if secgroup, err := self.getSecurityGroupByTag(vpcId, secgroupId); err != nil {
+		if len(desc) == 0 {
+			desc = fmt.Sprintf("security group %s for vpc %s", name, vpcId)
+		}
+
+		if secgrpId, err = self.createSecurityGroup(vpcId, name, secgroupId, desc); err != nil {
 			return "", err
 		}
 
 		//addRules
 		log.Debugf("Add Rules for %s : %s", secgrpId, rules)
 		for _, rule := range rules {
-			if err := self.region.addSecurityGroupRule(secgrpId, &rule); err != nil {
+			if err := self.addSecurityGroupRule(secgrpId, &rule); err != nil {
 				return "", err
 			}
 		}
@@ -156,11 +165,11 @@ func (self *SVpc) SyncSecurityGroup(secgroupId string, name string, rules []secr
 		secgrpId = secgroup.SecurityGroupId
 		log.Debugf("Sync Rules for %s", secgroup.GetName())
 		if secgroup.GetName() != name {
-			if err := self.region.modifySecurityGroup(secgrpId, name, ""); err != nil {
+			if err := self.modifySecurityGroup(secgrpId, name, ""); err != nil {
 				log.Errorf("Change SecurityGroup name to %s failed: %v", name, err)
 			}
 		}
-		self.region.syncSecgroupRules(secgrpId, rules)
+		self.syncSecgroupRules(secgrpId, rules)
 	}
 	return secgrpId, nil
 }
@@ -256,7 +265,7 @@ func (self *SRegion) assignSecurityGroup(secgroupId, instanceId string) error {
 	return nil
 }
 
-func (self *SRegion) deleteSecurityGroup(secGrpId string) error {
+func (self *SRegion) DeleteSecurityGroup(vpcId, secGrpId string) error {
 	params := &ec2.DeleteSecurityGroupInput{}
 	params.SetGroupId(secGrpId)
 

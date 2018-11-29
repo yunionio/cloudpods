@@ -185,19 +185,39 @@ func init() {
 	})
 
 	type PolicyAdminCapableOptions struct {
+		User       string   `help:"For user"`
+		UserDomain string   `help:"Domain for user"`
+		Project    string   `help:"Role assignments for project"`
+		Role       []string `help:"Roles"`
 	}
 	R(&PolicyAdminCapableOptions{}, "policy-admin-capable", "Check admin capable", func(s *mcclient.ClientSession, args *PolicyAdminCapableOptions) error {
 		auth.InitFromClientSession(s)
 		policy.EnableGlobalRbac(15*time.Second, 15*time.Second, false)
 
-		capable := policy.PolicyManager.IsAdminCapable(s.GetToken())
+		var token mcclient.TokenCredential
+		if len(args.User) > 0 {
+			token = &mcclient.SSimpleToken{
+				Domain:  args.UserDomain,
+				User:    args.User,
+				Project: args.Project,
+				Roles:   strings.Join(args.Role, ","),
+			}
+		} else {
+			token = s.GetToken()
+		}
+
+		capable := policy.PolicyManager.IsAdminCapable(token)
 		fmt.Printf("%v\n", capable)
 
 		return nil
 	})
 
 	type PolicyExplainOptions struct {
-		Request []string `help:"explain request, in format of key:is_admin:service:resource:action:extra"`
+		User       string   `help:"For user"`
+		UserDomain string   `help:"Domain for user"`
+		Project    string   `help:"Role assignments for project"`
+		Role       []string `help:"Roles"`
+		Request    []string `help:"explain request, in format of key:is_admin:service:resource:action:extra"`
 	}
 	R(&PolicyExplainOptions{}, "policy-explain", "Explain policy result", func(s *mcclient.ClientSession, args *PolicyExplainOptions) error {
 		auth.InitFromClientSession(s)
@@ -224,11 +244,25 @@ func init() {
 			req.Add(jsonutils.NewArray(data...), key)
 		}
 		fmt.Println(req.String())
-		result, err := policy.PolicyManager.ExplainRpc(s.GetToken(), req)
+
+		var token mcclient.TokenCredential
+		if len(args.User) > 0 {
+			token = &mcclient.SSimpleToken{
+				Domain:  args.UserDomain,
+				User:    args.User,
+				Project: args.Project,
+				Roles:   strings.Join(args.Role, ","),
+			}
+		} else {
+			token = s.GetToken()
+		}
+
+		result, err := policy.PolicyManager.ExplainRpc(token, req)
 		if err != nil {
 			return err
 		}
 		printObject(result)
+
 		return nil
 	})
 }

@@ -1,6 +1,8 @@
 package aliyun
 
 import (
+	"fmt"
+
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 
@@ -16,7 +18,8 @@ const (
 
 	ALIYUN_DEFAULT_REGION = "cn-hangzhou"
 
-	ALIYUN_API_VERSION = "2014-05-26"
+	ALIYUN_API_VERSION     = "2014-05-26"
+	ALIYUN_API_VERSION_VPC = "2016-04-28"
 
 	ALIYUN_BSS_API_VERSION = "2017-12-14"
 
@@ -40,7 +43,7 @@ func NewAliyunClient(providerId string, providerName string, accessKey string, s
 	return &client, nil
 }
 
-func jsonRequest(client *sdk.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func ecsRequest(client *sdk.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	return _jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params)
 }
 
@@ -66,6 +69,10 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 		log.Errorf("parse json fail %s", err)
 		return nil, err
 	}
+	//{"Code":"InvalidInstanceType.ValueNotSupported","HostId":"ecs.aliyuncs.com","Message":"The specified instanceType beyond the permitted range.","RequestId":"0042EE30-0EDF-48A7-A414-56229D4AD532"}
+	if body.Contains("Code") {
+		return nil, fmt.Errorf(body.String())
+	}
 	return body, nil
 }
 
@@ -83,16 +90,16 @@ func (self *SAliyunClient) getDefaultClient() (*sdk.Client, error) {
 	return sdk.NewClientWithAccessKey(ALIYUN_DEFAULT_REGION, self.accessKey, self.secret)
 }
 
-func (self *SAliyunClient) jsonRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func (self *SAliyunClient) ecsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	cli, err := self.getDefaultClient()
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, apiName, params)
+	return ecsRequest(cli, apiName, params)
 }
 
 func (self *SAliyunClient) fetchRegions() error {
-	body, err := self.jsonRequest("DescribeRegions", map[string]string{"AcceptLanguage": "zh-CN"})
+	body, err := self.ecsRequest("DescribeRegions", map[string]string{"AcceptLanguage": "zh-CN"})
 	if err != nil {
 		log.Errorf("fetchRegions fail %s", err)
 		return err
@@ -184,18 +191,6 @@ func (self *SAliyunClient) GetIVpcById(id string) (cloudprovider.ICloudVpc, erro
 func (self *SAliyunClient) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
 	for i := 0; i < len(self.iregions); i += 1 {
 		ihost, err := self.iregions[i].GetIStorageById(id)
-		if err == nil {
-			return ihost, nil
-		} else if err != cloudprovider.ErrNotFound {
-			return nil, err
-		}
-	}
-	return nil, cloudprovider.ErrNotFound
-}
-
-func (self *SAliyunClient) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
-	for i := 0; i < len(self.iregions); i += 1 {
-		ihost, err := self.iregions[i].GetIStoragecacheById(id)
 		if err == nil {
 			return ihost, nil
 		} else if err != cloudprovider.ErrNotFound {

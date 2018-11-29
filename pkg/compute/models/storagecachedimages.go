@@ -153,7 +153,7 @@ func (self *SStoragecachedimage) getExtraDetails(extra *jsonutils.JSONDict) *jso
 	}
 	cachedImage := self.GetCachedimage()
 	if cachedImage != nil {
-		extra.Add(jsonutils.NewString(cachedImage.getName()), "image")
+		extra.Add(jsonutils.NewString(cachedImage.GetName()), "image")
 		extra.Add(jsonutils.NewInt(cachedImage.Size), "size")
 	}
 	extra.Add(jsonutils.NewInt(int64(self.getReferenceCount())), "reference")
@@ -237,7 +237,8 @@ func (self *SStoragecachedimage) markDeleting(ctx context.Context, userCred mccl
 	lockman.LockJointObject(ctx, cache, image)
 	defer lockman.ReleaseJointObject(ctx, cache, image)
 
-	if !isForce && !utils.IsInStringArray(self.Status, []string{CACHED_IMAGE_STATUS_READY, CACHED_IMAGE_STATUS_DELETING}) {
+	if !isForce && !utils.IsInStringArray(self.Status,
+		[]string{CACHED_IMAGE_STATUS_READY, CACHED_IMAGE_STATUS_DELETING, CACHED_IMAGE_STATUS_CACHE_FAILED}) {
 		return httperrors.NewInvalidStatusError("Cannot uncache in status %s", self.Status)
 	}
 	_, err = self.GetModelManager().TableSpec().Update(self, func() error {

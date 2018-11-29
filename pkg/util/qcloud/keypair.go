@@ -50,7 +50,7 @@ func (self *SRegion) GetKeypairs(name string, keyIds []string, offset int, limit
 		log.Errorf("Unmarshal keypair fail %s", err)
 		return nil, 0, err
 	}
-	total, _ := body.Int("TotalCount")
+	total, _ := body.Float("TotalCount")
 	return keypairs, int(total), nil
 }
 

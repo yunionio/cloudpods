@@ -8,9 +8,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/seclib"
-	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
+	"context"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -387,7 +387,7 @@ func (self *SInstance) GetHypervisor() string {
 	return models.HYPERVISOR_ALIYUN
 }
 
-func (self *SInstance) StartVM() error {
+func (self *SInstance) StartVM(ctx context.Context) error {
 	timeout := 300 * time.Second
 	interval := 15 * time.Second
 
@@ -411,7 +411,7 @@ func (self *SInstance) StartVM() error {
 	return cloudprovider.ErrTimeout
 }
 
-func (self *SInstance) StopVM(isForce bool) error {
+func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 	err := self.host.zone.region.StopVM(self.InstanceId, isForce)
 	if err != nil {
 		return err
@@ -437,11 +437,11 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 	return ret, nil
 }
 
-func (self *SInstance) UpdateVM(name string) error {
+func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
 	return self.host.zone.region.UpdateVM(self.InstanceId, name)
 }
 
-func (self *SInstance) DeployVM(name string, password string, publicKey string, deleteKeypair bool, description string) error {
+func (self *SInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
 	var keypairName string
 	if len(publicKey) > 0 {
 		var err error
@@ -454,7 +454,7 @@ func (self *SInstance) DeployVM(name string, password string, publicKey string, 
 	return self.host.zone.region.DeployVM(self.InstanceId, name, password, keypairName, deleteKeypair, description)
 }
 
-func (self *SInstance) RebuildRoot(imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
+func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
 	keypair := ""
 	if len(publicKey) > 0 {
 		var err error
@@ -471,19 +471,19 @@ func (self *SInstance) RebuildRoot(imageId string, passwd string, publicKey stri
 	return diskId, nil
 }
 
-func (self *SInstance) ChangeConfig(instanceId string, ncpu int, vmem int) error {
+func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
 	return self.host.zone.region.ChangeVMConfig(self.ZoneId, self.InstanceId, ncpu, vmem, nil)
 }
 
-func (self *SInstance) ChangeConfig2(instanceId string, instanceType string) error {
+func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
 	return self.host.zone.region.ChangeVMConfig2(self.ZoneId, self.InstanceId, instanceType, nil)
 }
 
-func (self *SInstance) AttachDisk(diskId string) error {
+func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
 	return self.host.zone.region.AttachDisk(self.InstanceId, diskId)
 }
 
-func (self *SInstance) DetachDisk(diskId string) error {
+func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
 	return self.host.zone.region.DetachDisk(self.InstanceId, diskId)
 }
 
@@ -518,6 +518,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	} else {
 		params["PasswordInherit"] = "True"
 	}
+	//{"Code":"InvalidSystemDiskCategory.ValueNotSupported","HostId":"ecs.aliyuncs.com","Message":"The specified parameter 'SystemDisk.Category' is not support IoOptimized Instance. Valid Values: cloud_efficiency;cloud_ssd. ","RequestId":"9C9A4E99-5196-42A2-80B6-4762F8F75C90"}
 	params["IoOptimized"] = "optimized"
 	for i, d := range disks {
 		if i == 0 {
@@ -702,7 +703,7 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 	}
 }
 
-func (self *SInstance) DeleteVM() error {
+func (self *SInstance) DeleteVM(ctx context.Context) error {
 	for {
 		err := self.host.zone.region.DeleteVM(self.InstanceId)
 		if err != nil {
@@ -710,6 +711,7 @@ func (self *SInstance) DeleteVM() error {
 				log.Infof("The instance is initializing, try later ...")
 				time.Sleep(10 * time.Second)
 			} else {
+				log.Errorf("DeleteVM fail: %s", err)
 				return err
 			}
 		} else {
@@ -818,32 +820,6 @@ func (self *SRegion) AttachDisk(instanceId string, diskId string) error {
 	return nil
 }
 
-func (self *SInstance) SyncSecurityGroup(secgroupId string, name string, rules []secrules.SecurityRule) error {
-	if vpc, err := self.getVpc(); err != nil {
-		return err
-	} else if len(secgroupId) == 0 {
-		for index, secgrpId := range self.SecurityGroupIds.SecurityGroupId {
-			if err := vpc.revokeSecurityGroup(secgrpId, self.InstanceId, index == 0); err != nil {
-				return err
-			}
-		}
-	} else if secgrpId, err := vpc.SyncSecurityGroup(secgroupId, name, rules); err != nil {
-		return err
-	} else if err := vpc.assignSecurityGroup(secgrpId, self.InstanceId); err != nil {
-		return err
-	} else {
-		for _, secgroupId := range self.SecurityGroupIds.SecurityGroupId {
-			if secgroupId != secgrpId {
-				if err := vpc.revokeSecurityGroup(secgroupId, self.InstanceId, false); err != nil {
-					return err
-				}
-			}
-		}
-		self.SecurityGroupIds.SecurityGroupId = []string{secgrpId}
-	}
-	return nil
-}
-
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	if len(self.PublicIpAddress.IpAddress) > 0 {
 		eip := SEipAddress{}
@@ -864,6 +840,10 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	}
 }
 
+func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
+	return self.host.zone.region.AssignSecurityGroup(secgroupId, self.InstanceId)
+}
+
 func (self *SInstance) GetBillingType() string {
 	switch self.InstanceChargeType {
 	case PrePaidInstanceChargeType:
@@ -881,4 +861,8 @@ func (self *SInstance) GetExpiredAt() time.Time {
 
 func (self *SInstance) UpdateUserData(userData string) error {
 	return self.host.zone.region.updateInstance(self.InstanceId, "", "", "", "", userData)
+}
+
+func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+	return cloudprovider.ErrNotSupported
 }

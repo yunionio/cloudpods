@@ -6,6 +6,8 @@ import (
 
 	"github.com/jinzhu/gorm"
 
+	"yunion.io/x/log"
+
 	o "yunion.io/x/onecloud/cmd/scheduler/options"
 )
 
@@ -65,7 +67,20 @@ func GetStorageCapacities(storageIDs []string) ([]StorageCapacity, error) {
 		Select("storage_id, status, sum(disk_size) as total_size").
 		Where(fmt.Sprintf("storage_id in ('%s') and deleted=0", strings.Join(storageIDs, "','"))).
 		Group("storage_id, status").Scan(&results).Error
-	return results, err
+	if err != nil {
+		return nil, err
+	}
+	backupResults := make([]StorageCapacity, 0)
+	err = Disks.DB().Table(disksTable).
+		Select("backup_storage_id as storage_id, status, sum(disk_size) as total_size").
+		Where(fmt.Sprintf("storage_id in ('%s') and deleted=0", strings.Join(storageIDs, "','"))).
+		Group("storage_id, status").Scan(&backupResults).Error
+	if err != nil {
+		log.Errorf("Get backup storage error: %v", err)
+		return results, nil
+	}
+	results = append(results, backupResults...)
+	return results, nil
 }
 
 func (s Storage) OverCommitBound() float64 {

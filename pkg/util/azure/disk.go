@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -168,12 +169,12 @@ func (self *SDisk) Refresh() error {
 	return nil
 }
 
-func (self *SDisk) Delete() error {
+func (self *SDisk) Delete(ctx context.Context) error {
 	return self.storage.zone.region.deleteDisk(self.ID)
 }
 
-func (self *SDisk) Resize(size int64) error {
-	return self.storage.zone.region.ResizeDisk(self.ID, int32(size))
+func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
+	return self.storage.zone.region.ResizeDisk(self.ID, int32(sizeMb/1024))
 }
 
 func (self *SDisk) GetName() string {
@@ -191,8 +192,8 @@ func (self *SDisk) IsEmulated() bool {
 	return false
 }
 
-func (self *SDisk) GetIStorge() cloudprovider.ICloudStorage {
-	return self.storage
+func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
+	return self.storage, nil
 }
 
 func (self *SDisk) GetFsFormat() string {
@@ -241,7 +242,7 @@ func (self *SDisk) GetDiskType() string {
 	return models.DISK_TYPE_DATA
 }
 
-func (self *SDisk) CreateISnapshot(name, desc string) (cloudprovider.ICloudSnapshot, error) {
+func (self *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
 	if snapshot, err := self.storage.zone.region.CreateSnapshot(self.ID, name, desc); err != nil {
 		log.Errorf("createSnapshot fail %s", err)
 		return nil, err
@@ -274,7 +275,7 @@ func (self *SDisk) GetBillingType() string {
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {
-	return time.Now()
+	return time.Time{}
 }
 
 func (self *SDisk) GetSnapshotDetail(snapshotId string) (*SSnapshot, error) {
@@ -313,10 +314,14 @@ func (region *SRegion) GetSnapShots(diskId string) ([]SSnapshot, error) {
 	return result, nil
 }
 
-func (self *SDisk) Reset(snapshotId string) error {
+func (self *SDisk) Reset(ctx context.Context, snapshotId string) error {
 	return self.storage.zone.region.resetDisk(self.ID, snapshotId)
 }
 
 func (self *SRegion) resetDisk(diskId, snapshotId string) error {
 	return cloudprovider.ErrNotSupported
+}
+
+func (disk *SDisk) GetAccessPath() string {
+	return ""
 }

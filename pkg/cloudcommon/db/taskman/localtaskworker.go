@@ -12,13 +12,13 @@ import (
 var localTaskWorkerMan *appsrv.SWorkerManager
 
 func init() {
-	localTaskWorkerMan = appsrv.NewWorkerManager("LocalTaskWorkerManager", 4, 10)
+	localTaskWorkerMan = appsrv.NewWorkerManager("LocalTaskWorkerManager", 4, 1024)
 }
 
 func Error2TaskData(err error) jsonutils.JSONObject {
 	errJson := jsonutils.NewDict()
 	errJson.Add(jsonutils.NewString("ERROR"), "__status__")
-	errJson.Add(jsonutils.NewString(err.Error()), "reason")
+	errJson.Add(jsonutils.NewString(err.Error()), "__reason__")
 	return errJson
 }
 

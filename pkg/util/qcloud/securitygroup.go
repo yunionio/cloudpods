@@ -10,6 +10,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 )
@@ -100,6 +101,11 @@ func (self *SRegion) GetSecurityGroups(vpcId string, offset int, limit int) ([]S
 
 func (self *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
 	return nil
+}
+
+func (self *SSecurityGroup) GetVpcId() string {
+	//腾讯云安全组未与vpc关联，统一使用normal
+	return "normal"
 }
 
 func (self *SSecurityGroup) GetId() string {
@@ -293,6 +299,92 @@ func (self *SSecurityGroup) Refresh() error {
 	}
 }
 
+func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
+	if len(secgroupId) > 0 {
+		_, err := self.GetSecurityGroupDetails(secgroupId)
+		if err != nil {
+			if err != cloudprovider.ErrNotFound {
+				return "", err
+			}
+			secgroupId = ""
+		}
+	}
+	if len(secgroupId) == 0 {
+		secgroup, err := self.CreateSecurityGroup(name, desc)
+		if err != nil {
+			return "", err
+		}
+		secgroupId = secgroup.SecurityGroupId
+	}
+	return self.syncSecgroupRules(secgroupId, rules)
+}
+
+func (self *SRegion) deleteAllRules(secgroupid string) error {
+	params := map[string]string{"SecurityGroupId": secgroupid, "SecurityGroupPolicySet.Version": "0"}
+	_, err := self.vpcRequest("ModifySecurityGroupPolicies", params)
+	return err
+}
+
+func (self *SRegion) syncSecgroupRules(secgroupid string, rules []secrules.SecurityRule) (string, error) {
+	if err := self.deleteAllRules(secgroupid); err != nil {
+		return "", err
+	}
+	egressIndex, ingressIndex := -1, -1
+	for _, rule := range rules {
+		params := map[string]string{}
+		params["SecurityGroupId"] = secgroupid
+		policyIndex := 0
+		direction := "Egress"
+		action := "accept"
+		if rule.Action == secrules.SecurityRuleDeny {
+			action = "drop"
+		}
+		protocol := "ALL"
+		if rule.Protocol != secrules.PROTO_ANY {
+			protocol = rule.Protocol
+		}
+		if rule.Direction == secrules.DIR_IN {
+			ingressIndex++
+			policyIndex = ingressIndex
+			direction = "Ingress"
+		} else {
+			egressIndex++
+			policyIndex = egressIndex
+		}
+		params[fmt.Sprintf("SecurityGroupPolicySet.%s.0.PolicyIndex", direction)] = fmt.Sprintf("%d", policyIndex)
+		params[fmt.Sprintf("SecurityGroupPolicySet.%s.0.Action", direction)] = action
+		params[fmt.Sprintf("SecurityGroupPolicySet.%s.0.PolicyDescription", direction)] = rule.Description
+		params[fmt.Sprintf("SecurityGroupPolicySet.%s.0.Protocol", direction)] = protocol
+		params[fmt.Sprintf("SecurityGroupPolicySet.%s.0.CidrBlock", direction)] = rule.IPNet.String()
+		if rule.Protocol == secrules.PROTO_TCP || rule.Protocol == secrules.PROTO_UDP {
+			port := "ALL"
+			if rule.PortEnd > 0 && rule.PortStart > 0 {
+				if rule.PortStart == rule.PortEnd {
+					port = fmt.Sprintf("%d", rule.PortStart)
+				} else {
+					port = fmt.Sprintf("%d-%d", rule.PortStart, rule.PortEnd)
+				}
+			} else if len(rule.Ports) > 0 {
+				ports := []string{}
+				for _, _port := range rule.Ports {
+					ports = append(ports, fmt.Sprintf("%d", _port))
+				}
+				port = strings.Join(ports, ",")
+			}
+			params[fmt.Sprintf("SecurityGroupPolicySet.%s.0.Port", direction)] = port
+		}
+		//为什么不一次创建完成?
+		//答: 因为如果只有入方向安全组规则，创建时会提示缺少出方向规则。
+		//为什么不分两次，一次创建入方向规则，一次创建出方向规则?
+		//答: 因为这样就不能设置优先级了，一次性创建的出或入方向的优先级必须一样。
+		_, err := self.vpcRequest("CreateSecurityGroupPolicies", params)
+		if err != nil {
+			return "", err
+		}
+	}
+	return secgroupid, nil
+}
+
 func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup, error) {
 	params := make(map[string]string)
 	params["Region"] = self.Region
@@ -313,7 +405,7 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 	return &secgrp, nil
 }
 
-func (self *SRegion) DeleteSecurityGroup(secGroupId string) error {
+func (self *SRegion) deleteSecurityGroup(secGroupId string) error {
 	params := make(map[string]string)
 	params["Region"] = self.Region
 	params["SecurityGroupId"] = secGroupId

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -101,14 +102,16 @@ func (self *SRegion) GetClassicDisks() ([]SClassicDisk, error) {
 }
 
 func (self *SClassicDisk) GetMetadata() *jsonutils.JSONDict {
-	return nil
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewString(models.HYPERVISOR_AZURE), "hypervisor")
+	return data
 }
 
-func (self *SClassicDisk) CreateISnapshot(name, desc string) (cloudprovider.ICloudSnapshot, error) {
+func (self *SClassicDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SClassicDisk) Delete() error {
+func (self *SClassicDisk) Delete(ctx context.Context) error {
 	return cloudprovider.ErrNotImplemented
 }
 
@@ -184,8 +187,8 @@ func (self *SClassicDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SClassicDisk) GetIStorge() cloudprovider.ICloudStorage {
-	return self.storage
+func (self *SClassicDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
+	return self.storage, nil
 }
 
 func (self *SClassicDisk) GetName() string {
@@ -204,10 +207,14 @@ func (self *SClassicDisk) Refresh() error {
 	return nil
 }
 
-func (self *SClassicDisk) Reset(snapshotId string) error {
+func (self *SClassicDisk) Reset(ctx context.Context, snapshotId string) error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (self *SClassicDisk) Resize(size int64) error {
+func (self *SClassicDisk) Resize(ctx context.Context, sizeMb int64) error {
 	return cloudprovider.ErrNotSupported
+}
+
+func (disk *SClassicDisk) GetAccessPath() string {
+	return ""
 }

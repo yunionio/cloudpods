@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -81,7 +82,7 @@ func (self *SRegion) GetImages(status string, owner string, imageIds []string, n
 	for i := 0; i < len(images); i++ {
 		images[i].storageCache = self.getStoragecache()
 	}
-	total, _ := body.Int("TotalCount")
+	total, _ := body.Float("TotalCount")
 	return images, int(total), nil
 }
 func (self *SImage) GetMetadata() *jsonutils.JSONDict {
@@ -104,7 +105,7 @@ func (self *SImage) GetGlobalId() string {
 	return fmt.Sprintf("%s-%s")
 }
 
-func (self *SImage) Delete() error {
+func (self *SImage) Delete(ctx context.Context) error {
 	return self.storageCache.region.DeleteImage(self.ImageId)
 }
 

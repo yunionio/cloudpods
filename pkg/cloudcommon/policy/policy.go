@@ -60,6 +60,36 @@ var (
 			Action:   PolicyActionGet,
 			Result:   rbacutils.UserAllow,
 		},
+		{
+			Service:  "compute",
+			Resource: "quotas",
+			Action:   PolicyActionGet,
+			Result:   rbacutils.OwnerAllow,
+		},
+		{
+			Service:  "compute",
+			Resource: "usages",
+			Action:   PolicyActionGet,
+			Result:   rbacutils.OwnerAllow,
+		},
+		{
+			Service:  "yunionagent",
+			Resource: "notices",
+			Action:   PolicyActionList,
+			Result:   rbacutils.UserAllow,
+		},
+		{
+			Service:  "yunionagent",
+			Resource: "readmarks",
+			Action:   PolicyActionList,
+			Result:   rbacutils.UserAllow,
+		},
+		{
+			Service:  "yunionagent",
+			Resource: "readmarks",
+			Action:   PolicyActionCreate,
+			Result:   rbacutils.UserAllow,
+		},
 	}
 )
 
@@ -203,20 +233,10 @@ func (manager *SPolicyManager) Allow(isAdmin bool, userCred mcclient.TokenCreden
 	return currentPriv
 }
 
-func (manager *SPolicyManager) explainPolicy(userCred mcclient.TokenCredential, policyReq jsonutils.JSONObject) (rbacutils.TRbacResult, error) {
+func (manager *SPolicyManager) explainPolicy(userCred mcclient.TokenCredential, policyReq jsonutils.JSONObject) ([]string, rbacutils.TRbacResult, error) {
 	policySeq, err := policyReq.GetArray()
 	if err != nil {
-		return rbacutils.Deny, httperrors.NewInputParameterError("invalid format")
-	}
-	isAdmin, _ := policySeq[0].Bool()
-	if !consts.IsRbacEnabled() {
-		if !isAdmin {
-			return rbacutils.OwnerAllow, nil
-		} else if isAdmin && userCred.IsSystemAdmin() {
-			return rbacutils.AdminAllow, nil
-		} else {
-			return rbacutils.Deny, httperrors.NewForbiddenError("operation not allowed")
-		}
+		return nil, rbacutils.Deny, httperrors.NewInputParameterError("invalid format")
 	}
 	service := rbacutils.WILD_MATCH
 	resource := rbacutils.WILD_MATCH
@@ -233,11 +253,27 @@ func (manager *SPolicyManager) explainPolicy(userCred mcclient.TokenCredential, 
 	}
 	if len(policySeq) > 4 {
 		for i := 4; i < len(policySeq); i += 1 {
-			extra[i-4], _ = policySeq[i].GetString()
+			ev, _ := policySeq[i].GetString()
+			extra = append(extra, ev)
 		}
 	}
 
-	return manager.Allow(isAdmin, userCred, service, resource, action, extra...), nil
+	reqStrs := []string{service, resource, action}
+	if len(extra) > 0 {
+		reqStrs = append(reqStrs, extra...)
+	}
+
+	isAdmin, _ := policySeq[0].Bool()
+	if !consts.IsRbacEnabled() {
+		if !isAdmin {
+			return reqStrs, rbacutils.OwnerAllow, nil
+		} else if isAdmin && userCred.IsSystemAdmin() {
+			return reqStrs, rbacutils.AdminAllow, nil
+		} else {
+			return reqStrs, rbacutils.Deny, httperrors.NewForbiddenError("operation not allowed")
+		}
+	}
+	return reqStrs, manager.Allow(isAdmin, userCred, service, resource, action, extra...), nil
 }
 
 func (manager *SPolicyManager) ExplainRpc(userCred mcclient.TokenCredential, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -247,11 +283,12 @@ func (manager *SPolicyManager) ExplainRpc(userCred mcclient.TokenCredential, par
 	}
 	ret := jsonutils.NewDict()
 	for key, policyReq := range paramDict {
-		result, err := manager.explainPolicy(userCred, policyReq)
+		reqStrs, result, err := manager.explainPolicy(userCred, policyReq)
 		if err != nil {
 			return nil, err
 		}
-		ret.Add(jsonutils.NewString(string(result)), key)
+		reqStrs = append(reqStrs, string(result))
+		ret.Add(jsonutils.NewStringArray(reqStrs), key)
 	}
 	return ret, nil
 }

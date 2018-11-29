@@ -99,17 +99,21 @@ func init() {
 	})
 
 	type StorageCreateOptions struct {
-		NAME        string `help:"Name of the Storage"`
-		Capacity    int64  `help:"Capacity of the Storage"`
-		MediumType  string `help:"Medium type, either ssd or rotate" choices:"ssd|rotate"`
-		StorageType string `help:"Storage type" choices:"local|nas|vsan|rbd|baremetal"`
-		MonHost     string `helo:"Ceph mon_host config"`
-		Key         string `helo:"Ceph key config"`
-		Pool        string `helo:"Ceph Poll Name"`
+		NAME         string `help:"Name of the Storage"`
+		ZONE         string `help:"Zone id of storage"`
+		Capacity     int64  `help:"Capacity of the Storage"`
+		MediumType   string `help:"Medium type, either ssd or rotate" choices:"ssd|rotate"`
+		StorageType  string `help:"Storage type" choices:"local|nas|vsan|rbd|nfs|baremetal"`
+		MonHost      string `help:"Ceph mon_host config"`
+		Key          string `help:"Ceph key config"`
+		Pool         string `help:"Ceph Poll Name"`
+		NfsHost      string `help:"NFS host"`
+		NfsSharedDir string `help:"NFS shared dir"`
 	}
 	R(&StorageCreateOptions{}, "storage-create", "Create a Storage", func(s *mcclient.ClientSession, args *StorageCreateOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.NAME), "name")
+		params.Add(jsonutils.NewString(args.ZONE), "zone")
 		params.Add(jsonutils.NewInt(args.Capacity), "capacity")
 		params.Add(jsonutils.NewString(args.StorageType), "storage_type")
 		params.Add(jsonutils.NewString(args.MediumType), "medium_type")
@@ -120,6 +124,12 @@ func init() {
 			params.Add(jsonutils.NewString(args.MonHost), "rbd_mon_host")
 			params.Add(jsonutils.NewString(args.Key), "rbd_key")
 			params.Add(jsonutils.NewString(args.Pool), "rbd_pool")
+		} else if args.StorageType == "nfs" {
+			if len(args.NfsHost) == 0 || len(args.NfsSharedDir) == 0 {
+				return fmt.Errorf("Storage type nfs missing conf host or shared dir")
+			}
+			params.Add(jsonutils.NewString(args.NfsHost), "nfs_host")
+			params.Add(jsonutils.NewString(args.NfsSharedDir), "nfs_shared_dir")
 		}
 		storage, err := modules.Storages.Create(s, params)
 		if err != nil {
@@ -161,6 +171,24 @@ func init() {
 
 	R(&StorageShowOptions{}, "storage-disable", "Disable a storage", func(s *mcclient.ClientSession, args *StorageShowOptions) error {
 		result, err := modules.Storages.PerformAction(s, args.ID, "disable", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&StorageShowOptions{}, "storage-online", "Online a storage", func(s *mcclient.ClientSession, args *StorageShowOptions) error {
+		result, err := modules.Storages.PerformAction(s, args.ID, "online", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&StorageShowOptions{}, "storage-offline", "Offline a storage", func(s *mcclient.ClientSession, args *StorageShowOptions) error {
+		result, err := modules.Storages.PerformAction(s, args.ID, "offline", nil)
 		if err != nil {
 			return err
 		}

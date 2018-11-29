@@ -13,6 +13,8 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"net/url"
+	"strconv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -188,7 +190,7 @@ func (self *SCloudaccount) getPassword() (string, error) {
 }
 
 func (self *SCloudaccount) CanSync() bool {
-	if self.Status == CLOUD_PROVIDER_SYNCING {
+	if self.Status == CLOUD_PROVIDER_SYNCING || self.Status == CLOUD_PROVIDER_START_SYNC {
 		if self.LastSync.IsZero() || time.Now().Sub(self.LastSync) > 900*time.Second {
 			return true
 		} else {
@@ -231,6 +233,9 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 	changed := false
 	secret, _ := data.GetString("secret")
 	account, _ := data.GetString("account")
+	if len(account) > 0 && self.Provider == CLOUD_PROVIDER_AZURE {
+		return nil, httperrors.NewInputParameterError("not allow update azure tenant info")
+	}
 	accessUrl, _ := data.GetString("access_url")
 	if len(secret) > 0 || len(account) > 0 || len(accessUrl) > 0 {
 		// check duplication
@@ -241,6 +246,22 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		if q.Count() > 0 {
 			return nil, httperrors.NewConflictError("Access url and account conflict")
 		}
+	}
+
+	validateUrl := self.AccessUrl
+	if len(accessUrl) > 0 {
+		validateUrl = accessUrl
+	}
+	validateAccount := self.Account
+	if len(account) > 0 {
+		validateAccount = account
+	}
+	validateSecret, _ := self.getPassword()
+	if len(secret) > 0 {
+		validateSecret = secret
+	}
+	if err := cloudprovider.IsValidCloudAccount(validateUrl, validateAccount, validateSecret, self.Provider); err != nil {
+		return nil, httperrors.NewInputParameterError("invalid cloud account info")
 	}
 
 	if (len(account) > 0 && account != self.Account) || (len(accessUrl) > 0 && accessUrl != self.AccessUrl) {
@@ -277,6 +298,11 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		if err != nil {
 			return nil, err
 		}
+
+		for _, provider := range self.GetCloudproviders() {
+			provider.savePassword(secret)
+		}
+
 		changed = true
 	}
 
@@ -386,6 +412,7 @@ func (self *SCloudaccount) ImportSubAccount(ctx context.Context, userCred mcclie
 	newCloudprovider.Account = subAccount.Account
 	newCloudprovider.CloudaccountId = self.Id
 	newCloudprovider.Provider = self.Provider
+	newCloudprovider.AccessUrl = self.AccessUrl
 	newCloudprovider.Enabled = true
 	newCloudprovider.Status = CLOUD_PROVIDER_CONNECTED
 	newCloudprovider.Name = subAccount.Name
@@ -400,6 +427,13 @@ func (self *SCloudaccount) ImportSubAccount(ctx context.Context, userCred mcclie
 		log.Errorf("insert new cloudprovider fail %s", err)
 		return nil, isNew, err
 	}
+
+	passwd, err := self.getPassword()
+	if err != nil {
+		return nil, isNew, err
+	}
+
+	newCloudprovider.savePassword(passwd)
 
 	if autoCreateProject {
 		err = newCloudprovider.syncProject(ctx)
@@ -478,7 +512,9 @@ func (manager *SCloudaccountManager) FetchCloudaccountByIdOrName(accountId strin
 }
 
 func (self *SCloudaccount) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra.Add(jsonutils.Marshal(self.GetCloudproviders()), "accounts")
+	providers := self.GetCloudproviders()
+	extra.Add(jsonutils.NewInt(int64(len(providers))), "account_count")
+	extra.Add(jsonutils.Marshal(providers), "accounts")
 	return extra
 }
 
@@ -493,12 +529,12 @@ func (self *SCloudaccount) GetExtraDetails(ctx context.Context, userCred mcclien
 }
 
 func migrateCloudprovider(cloudprovider *SCloudprovider) error {
-	mainAccount, providerAccount, providerName := cloudprovider.Account, cloudprovider.Account, cloudprovider.Name
+	mainAccount, providerName := cloudprovider.Account, cloudprovider.Name
 
 	if cloudprovider.Provider == CLOUD_PROVIDER_AZURE {
 		accountInfo := strings.Split(cloudprovider.Account, "/")
 		if len(accountInfo) == 2 {
-			mainAccount, providerAccount = accountInfo[0], accountInfo[1]
+			mainAccount = accountInfo[0]
 			if len(cloudprovider.Description) > 0 {
 				providerName = cloudprovider.Description
 			}
@@ -550,9 +586,6 @@ func migrateCloudprovider(cloudprovider *SCloudprovider) error {
 
 	_, err = CloudproviderManager.TableSpec().Update(cloudprovider, func() error {
 		cloudprovider.CloudaccountId = account.Id
-		cloudprovider.Account = providerAccount
-		cloudprovider.Secret = ""
-		cloudprovider.Name = providerName
 		return nil
 	})
 	if err != nil {
@@ -601,4 +634,55 @@ func (self *SCloudaccount) GetDetailsBalance(ctx context.Context, userCred mccli
 	ret := jsonutils.NewDict()
 	ret.Add(jsonutils.NewFloat(balance), "balance")
 	return ret, nil
+}
+
+func (self *SCloudaccount) getHostPort() (string, int, error) {
+	urlComponent, err := url.Parse(self.AccessUrl)
+	if err != nil {
+		return "", 0, err
+	}
+	host := urlComponent.Hostname()
+	portStr := urlComponent.Port()
+	port := 0
+	if len(portStr) > 0 {
+		port, err = strconv.Atoi(portStr)
+		if err != nil {
+			return "", 0, err
+		}
+	}
+	if port == 0 {
+		if urlComponent.Scheme == "http" {
+			port = 80
+		} else if urlComponent.Scheme == "https" {
+			port = 443
+		}
+	}
+	return host, port, nil
+}
+
+type SVCenterAccessInfo struct {
+	VcenterId string
+	Host      string
+	Port      int
+	Account   string
+	Password  string
+	PrivateId string
+}
+
+func (self *SCloudaccount) GetVCenterAccessInfo(privateId string) (SVCenterAccessInfo, error) {
+	info := SVCenterAccessInfo{}
+
+	host, port, err := self.getHostPort()
+	if err != nil {
+		return info, err
+	}
+
+	info.VcenterId = self.Id
+	info.Host = host
+	info.Port = port
+	info.Account = self.Account
+	info.Password = self.Secret
+	info.PrivateId = privateId
+
+	return info, nil
 }

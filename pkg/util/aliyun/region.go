@@ -9,6 +9,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -17,7 +18,7 @@ import (
 
 type SRegion struct {
 	client    *SAliyunClient
-	ecsClient *sdk.Client
+	sdkClient *sdk.Client
 	ossClient *oss.Client
 
 	RegionId  string
@@ -44,15 +45,15 @@ func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
-func (self *SRegion) getEcsClient() (*sdk.Client, error) {
-	if self.ecsClient == nil {
+func (self *SRegion) getSdkClient() (*sdk.Client, error) {
+	if self.sdkClient == nil {
 		cli, err := sdk.NewClientWithAccessKey(self.RegionId, self.client.accessKey, self.client.secret)
 		if err != nil {
 			return nil, err
 		}
-		self.ecsClient = cli
+		self.sdkClient = cli
 	}
-	return self.ecsClient, nil
+	return self.sdkClient, nil
 }
 
 // oss endpoint
@@ -79,11 +80,11 @@ func (self *SRegion) GetOssClient() (*oss.Client, error) {
 }
 
 func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	cli, err := self.getEcsClient()
+	client, err := self.getSdkClient()
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, apiName, params)
+	return _jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params)
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -550,6 +551,40 @@ func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, er
 	return nil, cloudprovider.ErrNotFound
 }
 
+func (self *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
+	iHosts := make([]cloudprovider.ICloudHost, 0)
+
+	izones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i += 1 {
+		iZoneHost, err := izones[i].GetIHosts()
+		if err != nil {
+			return nil, err
+		}
+		iHosts = append(iHosts, iZoneHost...)
+	}
+	return iHosts, nil
+}
+
+func (self *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
+	iStores := make([]cloudprovider.ICloudStorage, 0)
+
+	izones, err := self.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i += 1 {
+		iZoneStores, err := izones[i].GetIStorages()
+		if err != nil {
+			return nil, err
+		}
+		iStores = append(iStores, iZoneStores...)
+	}
+	return iStores, nil
+}
+
 func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
 	storageCache := self.getStoragecache()
 	if storageCache.GetGlobalId() == id {
@@ -636,4 +671,24 @@ func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) 
 		return nil, cloudprovider.ErrDuplicateId
 	}
 	return &eips[0], nil
+}
+
+func (region *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
+	if len(secgroupId) > 0 {
+		_, total, err := region.GetSecurityGroups("", []string{secgroupId}, 0, 1)
+		if err != nil {
+			return "", err
+		}
+		if total == 0 {
+			secgroupId = ""
+		}
+	}
+	if len(secgroupId) == 0 {
+		extID, err := region.CreateSecurityGroup(vpcId, name, desc)
+		if err != nil {
+			return "", err
+		}
+		secgroupId = extID
+	}
+	return secgroupId, region.syncSecgroupRules(secgroupId, rules)
 }

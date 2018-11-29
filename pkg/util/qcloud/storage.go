@@ -21,15 +21,15 @@ func (self *SStorage) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SStorage) GetId() string {
-	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerId, self.zone.GetId(), self.storageType)
+	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerId, self.zone.GetId(), strings.ToLower(self.storageType))
 }
 
 func (self *SStorage) GetName() string {
-	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerName, self.zone.GetId(), self.storageType)
+	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerName, self.zone.GetId(), strings.ToLower(self.storageType))
 }
 
 func (self *SStorage) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerId, self.zone.GetGlobalId(), self.storageType)
+	return fmt.Sprintf("%s-%s-%s", self.zone.region.client.providerId, self.zone.GetGlobalId(), strings.ToLower(self.storageType))
 }
 
 func (self *SStorage) IsEmulated() bool {
@@ -121,11 +121,15 @@ func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudpr
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SStorage) GetIDisk(idStr string) (cloudprovider.ICloudDisk, error) {
+func (self *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
 	disk, err := self.zone.region.GetDisk(idStr)
 	if err != nil {
 		return nil, err
 	}
 	disk.storage = self
 	return disk, nil
+}
+
+func (self *SStorage) GetMountPoint() string {
+	return ""
 }

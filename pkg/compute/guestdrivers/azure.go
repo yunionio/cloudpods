@@ -3,6 +3,7 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/log"
@@ -11,10 +12,10 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -127,40 +128,57 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 	if err := config.Unmarshal(&desc, "desc"); err != nil {
 		return err
 	}
-	if action, err := config.GetString("action"); err != nil {
+	action, err := config.GetString("action")
+	if err != nil {
 		return err
-	} else if ihost, err := host.GetIHost(); err != nil {
+	}
+	ihost, err := host.GetIHost()
+	if err != nil {
 		return err
-	} else if action == "create" {
+	}
+	if action == "create" {
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+			if len(passwd) == 0 {
+				//Azure创建必须要设置密码
+				passwd = seclib2.RandomPassword2(12)
+			}
+
 			nets := guest.GetNetworks()
 			net := nets[0].GetNetwork()
 			vpc := net.GetVpc()
 
-			ivpc, err := vpc.GetIVpc()
+			iregion, err := host.GetIRegion()
 			if err != nil {
-				log.Errorf("getIVPC fail %s", err)
 				return nil, err
 			}
 
-			if len(passwd) == 0 {
-				passwd = seclib2.RandomPassword2(12)
+			vpcId := "normal"
+			if strings.HasSuffix(host.Name, "-classic") {
+				vpcId = "classic"
 			}
 
-			secgrpId, err := ivpc.SyncSecurityGroup(desc.SecGroupId, desc.SecGroupName, desc.SecRules)
+			secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), desc.SecGroupId, vpcId, vpc.CloudregionId, vpc.ManagerId)
+			if secgroupCache == nil {
+				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s, vpc: %s", desc.SecGroupId, vpc.Name)
+			}
+
+			secgroupExtId, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpcId, desc.SecGroupName, "", desc.SecRules)
 			if err != nil {
 				log.Errorf("SyncSecurityGroup fail %s", err)
 				return nil, err
+			}
+			if err := secgroupCache.SetExternalId(secgroupExtId); err != nil {
+				return nil, fmt.Errorf("failed to set externalId for secgroup %s externalId %s: error: %v", desc.SecGroupId, secgroupExtId, err)
 			}
 
 			var createErr error
 			var iVM cloudprovider.ICloudVM
 			if len(desc.InstanceType) > 0 {
 				iVM, createErr = ihost.CreateVM2(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.InstanceType, desc.ExternalNetworkId,
-					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId, userData)
+					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData)
 			} else {
 				iVM, createErr = ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId, userData)
+					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData)
 			}
 
 			if createErr != nil {
@@ -194,7 +212,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 		deleteKeypair := jsonutils.QueryBoolean(params, "__delete_keypair__", false)
 
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			err := iVM.DeployVM(name, passwd, publicKey, deleteKeypair, description)
+			err := iVM.DeployVM(ctx, name, passwd, publicKey, deleteKeypair, description)
 			if err != nil {
 				return nil, err
 			}
@@ -209,7 +227,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 		}
 
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			_, err := iVM.RebuildRoot(desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
+			_, err := iVM.RebuildRoot(ctx, desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
 			if err != nil {
 				return nil, err
 			}
@@ -226,69 +244,69 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 	return nil
 }
 
-func (self *SAzureGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
-
-	if data.Contains("disks") {
-		diskInfo := make([]SDiskInfo, 0)
-		err := data.Unmarshal(&diskInfo, "disks")
+func (self *SAzureGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		ihost, err := host.GetIHost()
 		if err != nil {
-			return err
+			return nil, err
 		}
-		disks := guest.GetDisks()
-		if len(disks) != len(diskInfo) {
-			msg := fmt.Sprintf("inconsistent disk number: have %d want %d", len(disks), len(diskInfo))
-			log.Errorf(msg)
-			return fmt.Errorf(msg)
+		iVM, err := ihost.GetIVMById(guest.ExternalId)
+		if err != nil {
+			return nil, err
 		}
-		for i := 0; i < len(diskInfo); i++ {
-			disk := disks[i].GetDisk()
-			_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
-				disk.DiskSize = diskInfo[i].Size
-				disk.ExternalId = diskInfo[i].Uuid
-				disk.DiskType = diskInfo[i].DiskType
-				disk.Status = models.DISK_READY
-				disk.BillingType = diskInfo[i].BillingType
-				disk.FsFormat = diskInfo[i].FsFromat
-				disk.AutoDelete = diskInfo[i].AutoDelete
-				// disk.TemplateId = diskInfo[i].TemplateId
-				disk.DiskFormat = diskInfo[i].DiskFormat
-				disk.ExpiredAt = diskInfo[i].ExpiredAt
-				if len(diskInfo[i].Metadata) > 0 {
-					for key, value := range diskInfo[i].Metadata {
-						if err := disk.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {
-							log.Errorf("set disk %s mata %s => %s error: %v", disk.Name, key, value, err)
-						}
-					}
-				}
-				return nil
-			})
+
+		if fwOnly, _ := task.GetParams().Bool("fw_only"); fwOnly {
+			vpcID := "normal"
+			if strings.HasSuffix(host.Name, "-classic") {
+				vpcID = "classic"
+			}
+			iregion, err := host.GetIRegion()
 			if err != nil {
-				msg := fmt.Sprintf("save disk info failed %s", err)
-				log.Errorf(msg)
-				break
-			} else {
-				db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(), task.GetUserCred())
+				return nil, err
+			}
+			secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), guest.SecgrpId, vpcID, host.GetRegion().Id, host.ManagerId)
+			if secgroupCache == nil {
+				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s vpc: %s", guest.SecgrpId, vpcID)
+			}
+			extID, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpcID, guest.GetSecgroupName(), "", guest.GetSecRules())
+			if err != nil {
+				return nil, err
+			}
+			if err = secgroupCache.SetExternalId(extID); err != nil {
+				return nil, err
+			}
+			return nil, iVM.AssignSecurityGroup(extID)
+		}
+
+		iDisks, err := iVM.GetIDisks()
+		if err != nil {
+			return nil, err
+		}
+		disks := make([]models.SDisk, 0)
+		for _, guestdisk := range guest.GetDisks() {
+			disk := guestdisk.GetDisk()
+			disks = append(disks, *disk)
+		}
+
+		added := make([]models.SDisk, 0)
+		commondb := make([]models.SDisk, 0)
+		commonext := make([]cloudprovider.ICloudDisk, 0)
+		removed := make([]cloudprovider.ICloudDisk, 0)
+
+		if err := compare.CompareSets(disks, iDisks, &added, &commondb, &commonext, &removed); err != nil {
+			return nil, err
+		}
+		for _, disk := range removed {
+			if err := iVM.DetachDisk(ctx, disk.GetId()); err != nil {
+				return nil, err
 			}
 		}
-	}
-	uuid, _ := data.GetString("uuid")
-	if len(uuid) > 0 {
-		guest.SetExternalId(uuid)
-	}
-
-	if metaData, _ := data.Get("metadata"); metaData != nil {
-		meta := make(map[string]string, 0)
-		if err := metaData.Unmarshal(meta); err != nil {
-			log.Errorf("Get guest %s metadata error: %v", guest.Name, err)
-		} else {
-			for key, value := range meta {
-				if err := guest.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {
-					log.Errorf("set guest %s mata %s => %s error: %v", guest.Name, key, value, err)
-				}
+		for _, disk := range added {
+			if err := iVM.AttachDisk(ctx, disk.ExternalId); err != nil {
+				return nil, err
 			}
 		}
-	}
-
-	guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
+		return nil, nil
+	})
 	return nil
 }

@@ -13,7 +13,7 @@ import (
 )
 
 type GuestBatchCreateTask struct {
-	taskman.STask
+	SSchedTask
 }
 
 func init() {
@@ -24,11 +24,18 @@ func (self *GuestBatchCreateTask) OnInit(ctx context.Context, objs []db.IStandal
 	StartScheduleObjects(ctx, self, objs)
 }
 
-func (self *GuestBatchCreateTask) OnScheduleFailCallback(obj IScheduleModel) {
+func (self *GuestBatchCreateTask) OnScheduleFailCallback(obj IScheduleModel, reason string) {
+	self.SSchedTask.OnScheduleFailCallback(obj, reason)
 	guest := obj.(*models.SGuest)
 	if guest.DisableDelete.IsTrue() {
 		guest.SetDisableDelete(false)
 	}
+}
+
+func (self *GuestBatchCreateTask) SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave string) {
+	guest := obj.(*models.SGuest)
+	guest.SetHostIdWithBackup(master, slave)
+	self.SaveScheduleResult(ctx, obj, master)
 }
 
 func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, hostId string) {
@@ -39,7 +46,10 @@ func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IS
 	if err != nil {
 		log.Errorf("GetPendingUsage fail %s", err)
 	}
-	guest.SetHostId(hostId)
+	if len(guest.HostId) == 0 {
+		guest.SetHostId(hostId)
+	}
+
 	quotaCpuMem := models.SQuota{Cpu: int(guest.VcpuCount), Memory: guest.VmemSize}
 	err = models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, guest.ProjectId, &pendingUsage, &quotaCpuMem)
 	self.SetPendingUsage(&pendingUsage)

@@ -130,10 +130,22 @@ func (self *SCloudprovider) ValidateUpdateData(ctx context.Context, userCred mcc
 }
 
 func (self *SCloudproviderManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return nil, httperrors.NewUnsupportOperationError("Not support create cloudprovider, please considir create cloudaccount")
+	return nil, httperrors.NewUnsupportOperationError("Directly creating cloudprovider is not supported, create cloudaccount instead")
+}
+
+func (self *SCloudprovider) getAccessUrl() string {
+	if len(self.AccessUrl) > 0 {
+		return self.AccessUrl
+	}
+	account := self.GetCloudaccount()
+	return account.AccessUrl
 }
 
 func (self *SCloudprovider) getPassword() (string, error) {
+	if len(self.Secret) == 0 {
+		account := self.GetCloudaccount()
+		return account.getPassword()
+	}
 	return utils.DescryptAESBase64(self.Id, self.Secret)
 }
 
@@ -378,45 +390,29 @@ func (self *SCloudprovider) GetDriver() (cloudprovider.ICloudProvider, error) {
 		return nil, fmt.Errorf("Cloud provider is not enabled")
 	}
 
-	account, err := self.getAccount()
+	accessUrl := self.getAccessUrl()
+	passwd, err := self.getPassword()
 	if err != nil {
 		return nil, err
 	}
-	return cloudprovider.GetProvider(self.Id, self.Name, account.AccessUrl, account.Account, account.Secret, self.Provider)
+	return cloudprovider.GetProvider(self.Id, self.Name, accessUrl, self.Account, passwd, self.Provider)
 }
 
-type SAccount struct {
-	AccessUrl string
-	Account   string
-	Secret    string
+func (self *SCloudprovider) savePassword(secret string) error {
+	sec, err := utils.EncryptAESBase64(self.Id, secret)
+	if err != nil {
+		return err
+	}
+
+	_, err = self.GetModelManager().TableSpec().Update(self, func() error {
+		self.Secret = sec
+		return nil
+	})
+	return err
 }
 
 func (self *SCloudprovider) GetCloudaccount() *SCloudaccount {
 	return CloudaccountManager.FetchCloudaccountById(self.CloudaccountId)
-}
-
-func (self *SCloudprovider) getAccount() (SAccount, error) {
-	account := SAccount{}
-
-	cloudaccount := self.GetCloudaccount()
-	if cloudaccount == nil {
-		return account, fmt.Errorf("fail to find cloudaccount???")
-	}
-
-	passwd, err := cloudaccount.getPassword()
-	if err != nil {
-		return account, err
-	}
-
-	account.Account = cloudaccount.Account
-	account.AccessUrl = cloudaccount.AccessUrl
-	account.Secret = passwd
-
-	if len(self.Account) > 0 && self.Account != account.Account {
-		account.Account = fmt.Sprintf("%s/%s", account.Account, self.Account)
-	}
-
-	return account, nil
 }
 
 func (self *SCloudprovider) SaveSysInfo(info jsonutils.JSONObject) {

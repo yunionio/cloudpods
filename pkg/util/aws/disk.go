@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"context"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/coredns/coredns/plugin/pkg/log"
 	"yunion.io/x/jsonutils"
@@ -119,8 +120,8 @@ func (self *SDisk) GetExpiredAt() time.Time {
 	return self.ExpiredTime
 }
 
-func (self *SDisk) GetIStorge() cloudprovider.ICloudStorage {
-	return self.storage
+func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
+	return self.storage, nil
 }
 
 func (self *SDisk) GetDiskFormat() string {
@@ -163,7 +164,7 @@ func (self *SDisk) GetMountpoint() string {
 	return ""
 }
 
-func (self *SDisk) Delete() error {
+func (self *SDisk) Delete(ctx context.Context) error {
 	if _, err := self.storage.zone.region.GetDisk(self.DiskId); err == cloudprovider.ErrNotFound {
 		log.Errorf("Failed to find disk %s when delete", self.DiskId)
 		return nil
@@ -171,7 +172,7 @@ func (self *SDisk) Delete() error {
 	return self.storage.zone.region.DeleteDisk(self.DiskId)
 }
 
-func (self *SDisk) CreateISnapshot(name string, desc string) (cloudprovider.ICloudSnapshot, error) {
+func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
 	if snapshotId, err := self.storage.zone.region.CreateSnapshot(self.DiskId, name, desc); err != nil {
 		log.Errorf("createSnapshot fail %s", err)
 		return nil, err
@@ -216,11 +217,11 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return isnapshots, nil
 }
 
-func (self *SDisk) Resize(newSize int64) error {
-	return self.storage.zone.region.resizeDisk(self.DiskId, newSize)
+func (self *SDisk) Resize(ctx context.Context, newSizeMb int64) error {
+	return self.storage.zone.region.resizeDisk(self.DiskId, newSizeMb)
 }
 
-func (self *SDisk) Reset(snapshotId string) error {
+func (self *SDisk) Reset(ctx context.Context, snapshotId string) error {
 	return self.storage.zone.region.resetDisk(self.DiskId, snapshotId)
 }
 
@@ -364,14 +365,15 @@ func (self *SRegion) DeleteDisk(diskId string) error {
 	return err
 }
 
-func (self *SRegion) resizeDisk(diskId string, size int64) error {
+func (self *SRegion) resizeDisk(diskId string, sizeMb int64) error {
 	// https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/volume_constraints.html
 	// MBR -> 2 TiB
 	// GPT -> 16 TiB
 	// size unit GiB
+	sizeGb := sizeMb / 1024
 	params := &ec2.ModifyVolumeInput{}
-	if size > 0 {
-		params.SetSize(size)
+	if sizeGb > 0 {
+		params.SetSize(sizeGb)
 	} else {
 		return fmt.Errorf("size should great than 0")
 	}
@@ -459,4 +461,8 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 		return "", err
 	}
 	return StrVal(ret.VolumeId), nil
+}
+
+func (disk *SDisk) GetAccessPath() string {
+	return ""
 }

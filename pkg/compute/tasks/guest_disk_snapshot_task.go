@@ -162,12 +162,16 @@ func (self *SnapshotDeleteTask) deleteExternalSnapshot(ctx context.Context, snap
 	}
 	cloudSnapshot, err := cloudRegion.GetISnapshotById(snapshot.ExternalId)
 	if err != nil {
+		if err == cloudprovider.ErrNotFound {
+			return nil
+		}
 		log.Errorln(err, cloudSnapshot)
 		return err
 	}
-	cloudSnapshot.Delete()
-	err = cloudprovider.WaitDeleted(cloudSnapshot, 10*time.Second, 300*time.Second)
-	return err
+	if err := cloudSnapshot.Delete(); err != nil {
+		return err
+	}
+	return cloudprovider.WaitDeleted(cloudSnapshot, 10*time.Second, 300*time.Second)
 }
 
 func (self *SnapshotDeleteTask) StartReloadDisk(ctx context.Context, snapshot *models.SSnapshot, guest *models.SGuest) {

@@ -16,7 +16,7 @@ import (
 
 type SClassicSecurityGroup struct {
 	vpc        *SClassicVpc
-	Properties *SecurityGroupPropertiesFormat `json:"properties,omitempty"`
+	Properties ClassicSecurityGroupProperties `json:"properties,omitempty"`
 	ID         string
 	Name       string
 	Location   string
@@ -24,17 +24,22 @@ type SClassicSecurityGroup struct {
 	Tags       map[string]string
 }
 
+type ClassicSecurityGroupProperties struct {
+	NetworkSecurityGroupId string `json:"networkSecurityGroupId,omitempty"`
+	State                  string `json:"state,omitempty"`
+}
+
 type ClassicSecurityGroupRuleProperties struct {
-	State                    string
-	Protocol                 string
-	SourcePortRange          string
-	DestinationPortRange     string
-	SourceAddressPrefix      string
-	DestinationAddressPrefix string
-	Action                   string
-	Priority                 uint32
-	Type                     string
-	IsDefault                bool
+	State                    string `json:"state,omitempty"`
+	Protocol                 string `json:"protocol,omitempty"`
+	SourcePortRange          string `json:"sourcePortRange,omitempty"`
+	DestinationPortRange     string `json:"destinationPortRange,omitempty"`
+	SourceAddressPrefix      string `json:"sourceAddressPrefix,omitempty"`
+	DestinationAddressPrefix string `json:"destinationAddressPrefix,omitempty"`
+	Action                   string `json:"action,omitempty"`
+	Priority                 int32  `json:"priority,omitempty"`
+	Type                     string `json:"type,omitempty"`
+	IsDefault                bool   `json:"isDefault,omitempty"`
 }
 
 type SClassicSecurityGroupRule struct {
@@ -125,6 +130,10 @@ func (self *ClassicSecurityGroupRuleProperties) String() string {
 	return strings.Join(result, ";")
 }
 
+func (self *SClassicSecurityGroup) GetVpcId() string {
+	return "classic"
+}
+
 func (self *SClassicSecurityGroup) GetMetadata() *jsonutils.JSONDict {
 	if len(self.Tags) == 0 {
 		return nil
@@ -151,12 +160,7 @@ func (self *SClassicSecurityGroup) GetName() string {
 
 func (self *SClassicSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 	rules := make([]secrules.SecurityRule, 0)
-	secgrouprules := []SClassicSecurityGroupRule{}
-	body, err := self.vpc.region.client.jsonRequest("GET", fmt.Sprintf("%s/securityRules", self.ID), "")
-	if err != nil {
-		return nil, err
-	}
-	err = body.Unmarshal(&secgrouprules, "value")
+	secgrouprules, err := self.vpc.region.getClassicSecurityGroupRules(self.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -193,8 +197,16 @@ func (self *SClassicSecurityGroup) IsEmulated() bool {
 	return false
 }
 
-func (region *SRegion) CreateClassicSecurityGroup(secName, tagId string) (*SClassicSecurityGroup, error) {
-	return nil, cloudprovider.ErrNotImplemented
+func (region *SRegion) CreateClassicSecurityGroup(name string) (*SClassicSecurityGroup, error) {
+	if name == "Default" {
+		name = "Default-copy"
+	}
+	secgroup := SClassicSecurityGroup{
+		Name:     name,
+		Type:     "Microsoft.ClassicNetwork/networkSecurityGroups",
+		Location: region.Name,
+	}
+	return &secgroup, region.client.Create(jsonutils.Marshal(secgroup), &secgroup)
 }
 
 func (region *SRegion) GetClassicSecurityGroups() ([]SClassicSecurityGroup, error) {
@@ -217,6 +229,10 @@ func (region *SRegion) GetClassicSecurityGroupDetails(secgroupId string) (*SClas
 	return &secgroup, region.client.Get(secgroupId, []string{}, &secgroup)
 }
 
+func (region *SRegion) deleteClassicSecurityGroup(secgroupId string) error {
+	return region.client.Delete(secgroupId)
+}
+
 func (self *SClassicSecurityGroup) Refresh() error {
 	sec, err := self.vpc.region.GetClassicSecurityGroupDetails(self.ID)
 	if err != nil {
@@ -225,102 +241,120 @@ func (self *SClassicSecurityGroup) Refresh() error {
 	return jsonutils.Update(self, sec)
 }
 
-func (region *SRegion) checkClassicSecurityGroup(tagId, name string) (*SClassicSecurityGroup, error) {
-	secgroups, err := region.GetClassicSecurityGroups()
+func convertClassicSecurityGroupRules(rule secrules.SecurityRule, priority int32) ([]SClassicSecurityGroupRule, error) {
+	name := strings.Replace(rule.String(), ":", "_", -1)
+	name = strings.Replace(name, " ", "_", -1)
+	name = strings.Replace(name, "-", "_", -1)
+	name = strings.Replace(name, "/", "_", -1)
+	name = fmt.Sprintf("%s_%d", name, rule.Priority)
+	rules := []SClassicSecurityGroupRule{}
+	secRule := SClassicSecurityGroupRule{
+		Name: name,
+		Properties: ClassicSecurityGroupRuleProperties{
+			Action:                   utils.Capitalize(string(rule.Action)),
+			Priority:                 priority,
+			Type:                     utils.Capitalize(string(rule.Direction)) + "bound",
+			Protocol:                 utils.Capitalize(rule.Protocol),
+			SourcePortRange:          "*",
+			DestinationPortRange:     "*",
+			SourceAddressPrefix:      "*",
+			DestinationAddressPrefix: "*",
+		},
+	}
+	if rule.Protocol == secrules.PROTO_ANY {
+		secRule.Properties.Protocol = "*"
+	}
+	if rule.Protocol == secrules.PROTO_ICMP {
+		return nil, nil
+	}
+	ipAddr := "*"
+	if rule.IPNet != nil {
+		ipAddr = rule.IPNet.String()
+	}
+	if rule.Direction == secrules.DIR_IN {
+		secRule.Properties.SourceAddressPrefix = ipAddr
+	} else {
+		secRule.Properties.DestinationAddressPrefix = ipAddr
+	}
+	if len(rule.Ports) > 0 {
+		for _, port := range rule.Ports {
+			secRule.Properties.DestinationPortRange = fmt.Sprintf("%d", port)
+			rules = append(rules, secRule)
+		}
+		return rules, nil
+	} else if rule.PortStart > 0 && rule.PortEnd > 0 {
+		secRule.Properties.DestinationPortRange = fmt.Sprintf("%d-%d", rule.PortStart, rule.PortEnd)
+	}
+	rules = append(rules, secRule)
+	return rules, nil
+}
+
+func (self *SRegion) getClassicSecurityGroupRules(secgroupId string) ([]SClassicSecurityGroupRule, error) {
+	rules := []SClassicSecurityGroupRule{}
+	result, err := self.client.jsonRequest("GET", fmt.Sprintf("%s/securityRules?api-version=2015-06-01", secgroupId), "")
 	if err != nil {
 		return nil, err
 	}
-	for i := 0; i < len(secgroups); i++ {
-		for k, v := range secgroups[i].Tags {
-			if k == "id" && v == tagId {
-				return &secgroups[i], nil
-			}
-		}
-	}
-	return region.CreateClassicSecurityGroup(name, tagId)
-}
-
-func (region *SRegion) updateClassicSecurityGroupRules(secgroupId string, rules []secrules.SecurityRule) (string, error) {
-	secgroup, err := region.GetClassicSecurityGroupDetails(secgroupId)
-	if err != nil {
-		return "", err
-	}
-	securityRules := []SecurityRules{}
-	priority := int32(100)
-	for i := 0; i < len(rules); i++ {
-		if rule := convertSecurityGroupRule(rules[i], priority); rule != nil {
-			securityRules = append(securityRules, *rule)
-			priority++
-		}
-	}
-	secgroup.Properties.SecurityRules = &securityRules
-	secgroup.Properties.ProvisioningState = ""
-	return secgroup.ID, region.client.Update(jsonutils.Marshal(secgroup), nil)
-}
-
-func (region *SRegion) AssiginClassicSecurityGroup(instanceId, secgroupId string) error {
-	instance, err := region.GetClassicInstance(instanceId)
-	if err != nil {
-		return err
-	}
-	secgroup, err := region.GetClassicSecurityGroupDetails(secgroupId)
-	if err != nil {
-		return err
-	}
-	instance.Properties.NetworkProfile.NetworkSecurityGroup = &SubResource{
-		ID:   secgroupId,
-		Name: secgroup.Name,
-		Type: secgroup.Type,
-	}
-	return region.client.Update(jsonutils.Marshal(instance), nil)
+	return rules, result.Unmarshal(&rules, "value")
 }
 
 func (self *SRegion) syncClassicSecgroupRules(secgroupId string, rules []secrules.SecurityRule) (string, error) {
-	secgroup, err := self.GetClassicSecurityGroupDetails(secgroupId)
+	secgrouprules, err := self.getClassicSecurityGroupRules(secgroupId)
 	if err != nil {
 		return "", err
 	}
-	sort.Sort(secrules.SecurityRuleSet(rules))
-	sort.Sort(SecurityRulesSet(*secgroup.Properties.SecurityRules))
-
-	newRules := []secrules.SecurityRule{}
-
-	i, j := 0, 0
-	for i < len(rules) || j < len(*secgroup.Properties.SecurityRules) {
-		if i < len(rules) && j < len(*secgroup.Properties.SecurityRules) {
-			srcRule := (*secgroup.Properties.SecurityRules)[j].Properties.String()
-			destRule := rules[i].String()
-			cmp := strings.Compare(srcRule, destRule)
-			if cmp == 0 {
-				// keep secRule
-				newRules = append(newRules, rules[i])
-				i++
-				j++
-			} else if cmp > 0 {
-				// remove srcRule
-				j++
-			} else {
-				// add destRule
-				newRules = append(newRules, rules[i])
-				i++
-			}
-		} else if i >= len(rules) {
-			// del other rules
-			j++
-		} else if j >= len(*secgroup.Properties.SecurityRules) {
-			// add rule
-			newRules = append(newRules, rules[i])
-			i++
+	for _, rule := range secgrouprules {
+		if rule.Properties.Priority >= 65000 {
+			continue
+		}
+		if err := self.client.Delete(rule.ID); err != nil {
+			return "", err
 		}
 	}
-	return self.updateClassicSecurityGroupRules(secgroup.ID, newRules)
-
+	sort.Sort(secrules.SecurityRuleSet(rules))
+	priority := int32(100)
+	ruleStrs := []string{}
+	for i, _rule := range rules {
+		ruleStr := rules[i].String()
+		if !utils.IsInStringArray(ruleStr, ruleStrs) {
+			_rules, err := convertClassicSecurityGroupRules(_rule, priority)
+			if err != nil {
+				return "", err
+			}
+			priority++
+			ruleStrs = append(ruleStrs, ruleStr)
+			for _, rule := range _rules {
+				if err := self.addClassicSecgroupRule(secgroupId, rule); err != nil {
+					return "", err
+				}
+			}
+		}
+	}
+	return secgroupId, nil
 }
 
-func (self *SRegion) syncClassicSecurityGroup(tagId, name string, rules []secrules.SecurityRule) (string, error) {
-	secgroup, err := self.checkClassicSecurityGroup(tagId, name)
-	if err != nil {
-		return "", err
+func (self *SRegion) addClassicSecgroupRule(secgroupId string, rule SClassicSecurityGroupRule) error {
+	url := fmt.Sprintf("%s/securityRules/%s?api-version=2015-06-01", secgroupId, rule.Name)
+	_, err := self.client.jsonRequest("PUT", url, jsonutils.Marshal(rule).String())
+	return err
+}
+
+func (region *SRegion) syncClassicSecurityGroup(secgroupId, name, desc string, rules []secrules.SecurityRule) (string, error) {
+	if len(secgroupId) > 0 {
+		if _, err := region.GetClassicSecurityGroupDetails(secgroupId); err != nil {
+			if err != cloudprovider.ErrNotFound {
+				return "", err
+			}
+			secgroupId = ""
+		}
 	}
-	return self.syncClassicSecgroupRules(secgroup.ID, rules)
+
+	if len(secgroupId) == 0 {
+		secgroup, err := region.CreateClassicSecurityGroup(name)
+		if err != nil {
+			return "", err
+		}
+		secgroupId = secgroup.ID
+	}
+	return region.syncClassicSecgroupRules(secgroupId, rules)
 }

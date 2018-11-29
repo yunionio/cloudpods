@@ -15,7 +15,6 @@ import (
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/regutils"
-	"yunion.io/x/pkg/util/sysutils"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -32,18 +31,20 @@ import (
 )
 
 const (
-	DISK_INIT           = "init"
-	DISK_REBUILD        = "rebuild"
-	DISK_ALLOC_FAILED   = "alloc_failed"
-	DISK_STARTALLOC     = "start_alloc"
-	DISK_ALLOCATING     = "allocating"
-	DISK_READY          = "ready"
-	DISK_RESET          = "reset"
-	DISK_DEALLOC        = "deallocating"
-	DISK_DEALLOC_FAILED = "dealloc_failed"
-	DISK_UNKNOWN        = "unknown"
-	DISK_DETACHING      = "detaching"
-	DISK_ATTACHING      = "attaching"
+	DISK_INIT                = "init"
+	DISK_REBUILD             = "rebuild"
+	DISK_ALLOC_FAILED        = "alloc_failed"
+	DISK_STARTALLOC          = "start_alloc"
+	DISK_BACKUP_STARTALLOC   = "backup_start_alloc"
+	DISK_BACKUP_ALLOC_FAILED = "backup_alloc_failed"
+	DISK_ALLOCATING          = "allocating"
+	DISK_READY               = "ready"
+	DISK_RESET               = "reset"
+	DISK_DEALLOC             = "deallocating"
+	DISK_DEALLOC_FAILED      = "dealloc_failed"
+	DISK_UNKNOWN             = "unknown"
+	DISK_DETACHING           = "detaching"
+	DISK_ATTACHING           = "attaching"
 
 	DISK_START_SAVE = "start_save"
 	DISK_SAVING     = "saving"
@@ -93,7 +94,8 @@ type SDisk struct {
 
 	AutoDelete bool `nullable:"false" default:"false" get:"user" update:"user"` // Column(Boolean, nullable=False, default=False)
 
-	StorageId string `width:"128" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=True)
+	StorageId       string `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"required"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
+	BackupStorageId string `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"required"`
 
 	// # backing template id and type
 	TemplateId string `width:"256" charset:"ascii" nullable:"true" list:"user"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=True)
@@ -600,22 +602,24 @@ func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
-	if storage := self.GetStorage(); storage == nil {
+	storage := self.GetStorage()
+	if storage == nil {
 		return nil, httperrors.NewResourceNotFoundError("fail to find storage for disk %s", self.GetName())
-	} else if provider, err := storage.GetDriver(); err != nil {
-		return nil, err
-	} else {
-		return provider.GetIStorageById(storage.GetExternalId())
 	}
+	istorage, err := storage.GetIStorage()
+	if err != nil {
+		return nil, err
+	}
+	return istorage, nil
 }
 
 func (self *SDisk) GetIDisk() (cloudprovider.ICloudDisk, error) {
-	if iStorage, err := self.GetIStorage(); err != nil {
+	iStorage, err := self.GetIStorage()
+	if err != nil {
 		log.Errorf("fail to find iStorage: %v", err)
 		return nil, err
-	} else {
-		return iStorage.GetIDisk(self.GetExternalId())
 	}
+	return iStorage.GetIDiskById(self.GetExternalId())
 }
 
 func (self *SDisk) GetZone() *SZone {
@@ -725,6 +729,11 @@ func (self *SDisk) GetPathAtHost(host *SHost) string {
 	hostStorage := host.GetHoststorageOfId(self.StorageId)
 	if hostStorage != nil {
 		return path.Join(hostStorage.MountPoint, self.Id)
+	} else if len(self.BackupStorageId) > 0 {
+		hostStorage = host.GetHoststorageOfId(self.BackupStorageId)
+		if hostStorage != nil {
+			return path.Join(hostStorage.MountPoint, self.Id)
+		}
 	}
 	return ""
 }
@@ -754,7 +763,8 @@ func (manager *SDiskManager) syncCloudDisk(ctx context.Context, userCred mcclien
 	diskObj, err := manager.FetchByExternalId(vdisk.GetGlobalId())
 	if err != nil {
 		if err == sql.ErrNoRows {
-			vstorage := vdisk.GetIStorge()
+			vstorage, _ := vdisk.GetIStorage()
+
 			storageObj, err := StorageManager.FetchByExternalId(vstorage.GetGlobalId())
 			if err != nil {
 				log.Errorf("cannot find storage of vdisk %s", err)
@@ -838,6 +848,7 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		self.Status = extDisk.GetStatus()
 		self.DiskFormat = extDisk.GetDiskFormat()
 		self.DiskSize = extDisk.GetDiskSizeMB()
+		self.AccessPath = extDisk.GetAccessPath()
 		if extDisk.GetIsAutoDelete() {
 			self.AutoDelete = true
 		}
@@ -1022,7 +1033,7 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 			diskConfig.Mountpoint = p
 		} else if p == "autoextend" {
 			diskConfig.Size = -1
-		} else if utils.IsInStringArray(p, sysutils.STORAGE_TYPES) {
+		} else if utils.IsInStringArray(p, STORAGE_TYPES) {
 			diskConfig.Backend = p
 		} else if len(p) > 0 {
 			if userCred == nil {
@@ -1148,11 +1159,12 @@ func (self *SDisk) PerformPurge(ctx context.Context, userCred mcclient.TokenCred
 	if err != nil {
 		return nil, err
 	}
-	return nil, self.StartDiskDeleteTask(ctx, userCred, "", true)
+	return nil, self.StartDiskDeleteTask(ctx, userCred, "", true, false)
 }
 
 func (self *SDisk) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	return self.StartDiskDeleteTask(ctx, userCred, "", false)
+	return self.StartDiskDeleteTask(ctx, userCred, "", false,
+		jsonutils.QueryBoolean(query, "override_pending_delete", false))
 }
 
 func (self *SDisk) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
@@ -1198,9 +1210,9 @@ func (self *SDisk) GetCustomizeColumns(ctx context.Context, userCred mcclient.To
 	return self.getMoreDetails(extra)
 }
 
-func (self *SDisk) StartDiskResizeTask(ctx context.Context, userCred mcclient.TokenCredential, size int64, parentTaskId string, pendingUsage quotas.IQuota) error {
+func (self *SDisk) StartDiskResizeTask(ctx context.Context, userCred mcclient.TokenCredential, sizeMb int64, parentTaskId string, pendingUsage quotas.IQuota) error {
 	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewInt(size), "size")
+	params.Add(jsonutils.NewInt(sizeMb), "size")
 	if task, err := taskman.TaskManager.NewTask(ctx, "DiskResizeTask", self, userCred, params, parentTaskId, "", pendingUsage); err != nil {
 		return err
 	} else {
@@ -1209,10 +1221,13 @@ func (self *SDisk) StartDiskResizeTask(ctx context.Context, userCred mcclient.To
 	return nil
 }
 
-func (self *SDisk) StartDiskDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, isPurge bool) error {
+func (self *SDisk) StartDiskDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, isPurge, overridePendingDelete bool) error {
 	params := jsonutils.NewDict()
 	if isPurge {
 		params.Add(jsonutils.JSONTrue, "purge")
+	}
+	if overridePendingDelete {
+		params.Add(jsonutils.JSONTrue, "override_pending_delete")
 	}
 	task, err := taskman.TaskManager.NewTask(ctx, "DiskDeleteTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
@@ -1248,6 +1263,14 @@ func (self *SDisk) SetDiskReady(ctx context.Context, userCred mcclient.TokenCred
 			guest.StartSyncstatus(ctx, userCred, "")
 		}
 	}
+}
+
+func (self *SDisk) SwitchToBackup() error {
+	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		self.StorageId, self.BackupStorageId = self.BackupStorageId, self.StorageId
+		return nil
+	})
+	return err
 }
 
 func (self *SDisk) ClearHostSchedCache() error {
@@ -1349,7 +1372,7 @@ func (manager *SDiskManager) CleanPendingDeleteDisks(ctx context.Context, userCr
 		return
 	}
 	for i := 0; i < len(disks); i += 1 {
-		disks[i].StartDiskDeleteTask(ctx, userCred, "", false)
+		disks[i].StartDiskDeleteTask(ctx, userCred, "", false, false)
 	}
 }
 
@@ -1391,4 +1414,14 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 		}
 		guests[0].StartDiskSnapshot(ctx, userCred, disk.Id, snap.Id)
 	}
+}
+
+func (disk *SDisk) StratCreateBackupTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	if task, err := taskman.TaskManager.NewTask(ctx, "DiskCreateBackupTask", disk, userCred, nil, parentTaskId, "", nil); err != nil {
+		log.Errorf(err.Error())
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
 }

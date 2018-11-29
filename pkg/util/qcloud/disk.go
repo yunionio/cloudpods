@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -65,16 +66,14 @@ func (v SDiskSet) Less(i, j int) bool {
 }
 
 func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
-	// data := jsonutils.NewDict()
+	data := jsonutils.NewDict()
 
 	// // The pricingInfo key structure is 'RegionId::DiskCategory::DiskType
 	// priceKey := fmt.Sprintf("%s::%s::%s", self.RegionId, self.Category, self.Type)
 	// data.Add(jsonutils.NewString(priceKey), "price_key")
 
-	// data.Add(jsonutils.NewString(models.HYPERVISOR_ALIYUN), "hypervisor")
-
-	// return data
-	return nil
+	data.Add(jsonutils.NewString(models.HYPERVISOR_QCLOUD), "hypervisor")
+	return data
 }
 
 func (self *SRegion) GetDisks(instanceId string, zoneId string, category string, diskIds []string, offset int, limit int) ([]SDisk, int, error) {
@@ -150,11 +149,11 @@ func (self *SRegion) DeleteDisk(diskId string) error {
 	return err
 }
 
-func (self *SDisk) Delete() error {
+func (self *SDisk) Delete(ctx context.Context) error {
 	return self.storage.zone.region.DeleteDisk(self.DiskId)
 }
 
-func (self *SRegion) ResizeDisk(diskId string, sizeGb int64) error {
+func (self *SRegion) ResizeDisk(ctx context.Context, diskId string, sizeGb int64) error {
 	params := make(map[string]string)
 	params["DiskId"] = diskId
 	params["DiskSize"] = fmt.Sprintf("%d", sizeGb)
@@ -175,8 +174,8 @@ func (self *SRegion) ResizeDisk(diskId string, sizeGb int64) error {
 	}
 }
 
-func (self *SDisk) Resize(size int64) error {
-	return self.storage.zone.region.ResizeDisk(self.DiskId, size)
+func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
+	return self.storage.zone.region.ResizeDisk(ctx, self.DiskId, sizeMb/1024)
 }
 
 func (self *SDisk) GetName() string {
@@ -194,8 +193,8 @@ func (self *SDisk) IsEmulated() bool {
 	return false
 }
 
-func (self *SDisk) GetIStorge() cloudprovider.ICloudStorage {
-	return self.storage
+func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
+	return self.storage, nil
 }
 
 func (self *SDisk) GetStatus() string {
@@ -215,7 +214,7 @@ func (self *SDisk) Refresh() error {
 	return jsonutils.Update(self, new)
 }
 
-func (self *SDisk) CreateISnapshot(name, desc string) (cloudprovider.ICloudSnapshot, error) {
+func (self *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
 	snapshotId, err := self.storage.zone.region.CreateSnapshot(self.DiskId, name, desc)
 	if err != nil {
 		log.Errorf("createSnapshot fail %s", err)
@@ -344,7 +343,7 @@ func (self *SRegion) ResetDisk(diskId, snapshotId string) error {
 	return nil
 }
 
-func (self *SDisk) Reset(snapshotId string) error {
+func (self *SDisk) Reset(ctx context.Context, snapshotId string) error {
 	return self.storage.zone.region.ResetDisk(self.DiskId, snapshotId)
 }
 
@@ -372,4 +371,8 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 		return "", fmt.Errorf("Create Disk error")
 	}
 	return diskIDSet[0], nil
+}
+
+func (disk *SDisk) GetAccessPath() string {
+	return ""
 }

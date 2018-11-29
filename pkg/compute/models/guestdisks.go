@@ -146,7 +146,8 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 		}
 	}
 	storage := disk.GetStorage()
-	if host.HostType == HOST_TYPE_HYPERVISOR && disk.IsLocal() || (storage != nil && storage.StorageType == STORAGE_RBD) {
+	// XXX ???
+	if host.HostType == HOST_TYPE_HYPERVISOR {
 		desc.Add(jsonutils.NewString(disk.StorageId), "storage_id")
 		localpath := disk.GetPathAtHost(host)
 		if len(localpath) == 0 {
@@ -202,7 +203,7 @@ func (self *SGuestdisk) GetDetailedJson() *jsonutils.JSONDict {
 		cachedImageObj, _ := CachedimageManager.FetchById(imageId)
 		if cachedImageObj != nil {
 			cachedImage := cachedImageObj.(*SCachedimage)
-			desc.Add(jsonutils.NewString(cachedImage.getName()), "image")
+			desc.Add(jsonutils.NewString(cachedImage.GetName()), "image")
 		}
 	}
 

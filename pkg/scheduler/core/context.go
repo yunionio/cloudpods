@@ -593,20 +593,22 @@ func (u *Unit) GetFiltedData(id string, count int64) map[string]interface{} {
 	if data, ok := u.DataMap[id]; ok {
 		// deal networks
 		networks := make(map[string]int64)
-		data.Networks.Range(func(networkID, ipNumber interface{}) bool {
-			networkIDString := networkID.(string)
-			ipNumberInt64 := ipNumber.(int64)
-			if count > ipNumberInt64 {
-				networks[networkIDString] = ipNumberInt64
-				count = count - ipNumberInt64
-				return true
-			} else if count <= ipNumberInt64 {
-				networks[networkIDString] = count
-				count = 0
+		if data.Networks != nil {
+			data.Networks.Range(func(networkID, ipNumber interface{}) bool {
+				networkIDString := networkID.(string)
+				ipNumberInt64 := ipNumber.(int64)
+				if count > ipNumberInt64 {
+					networks[networkIDString] = ipNumberInt64
+					count = count - ipNumberInt64
+					return true
+				} else if count <= ipNumberInt64 {
+					networks[networkIDString] = count
+					count = 0
+					return false
+				}
 				return false
-			}
-			return false
-		})
+			})
+		}
 
 		schedContextData["networks"] = networks
 

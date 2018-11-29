@@ -112,7 +112,7 @@ func (manager *SVirtualJointResourceBaseManager) ListItemFilter(ctx context.Cont
 		if len(tenant) > 0 {
 			tc, _ := TenantCacheManager.FetchTenantByIdOrName(ctx, tenant)
 			if tc == nil {
-				return nil, httperrors.NewTenantNotFoundError(fmt.Sprintf("tenant %s not found", tenant))
+				return nil, httperrors.NewTenantNotFoundError("tenant %s not found", tenant)
 			}
 			q = q.Filter(sqlchemy.OR(sqlchemy.Equals(masterTable.Field("tenant_id"), tc.GetId()),
 				sqlchemy.Equals(slaveTable.Field("tenant_id"), tc.GetId())))

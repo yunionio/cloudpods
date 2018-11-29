@@ -6,7 +6,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/pkg/util/secrules"
 )
 
 type ClassicAddressSpace struct {
@@ -76,10 +75,6 @@ func (self *SClassicVpc) Delete() error {
 	return self.region.client.Delete(self.ID)
 }
 
-func (self *SClassicVpc) SyncSecurityGroup(tag string, name string, rules []secrules.SecurityRule) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
-}
-
 func (self *SClassicVpc) getWire() *SClassicWire {
 	if self.iwires == nil {
 		self.fetchWires()
@@ -138,6 +133,11 @@ func (self *SClassicVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGro
 		}
 	}
 	return self.secgroups, nil
+}
+
+func (self *SClassicVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
+	rts := []cloudprovider.ICloudRouteTable{}
+	return rts, nil
 }
 
 func (self *SClassicVpc) fetchWires() error {

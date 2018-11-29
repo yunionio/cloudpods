@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"context"
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -85,7 +86,7 @@ func (self *SImage) IsEmulated() bool {
 	return false
 }
 
-func (self *SImage) Delete() error {
+func (self *SImage) Delete(ctx context.Context) error {
 	return self.storageCache.region.DeleteImage(self.ImageId)
 }
 

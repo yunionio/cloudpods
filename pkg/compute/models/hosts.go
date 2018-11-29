@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -10,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/serialx/hashring"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
@@ -17,7 +20,6 @@ import (
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
-	"yunion.io/x/pkg/util/sysutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -458,6 +460,19 @@ func (self *SHost) GetHoststorageOfId(storageId string) *SHoststorage {
 	return &hoststorage
 }
 
+func (self *SHost) GetStorageByFilePath(path string) *SStorage {
+	hoststorages := self.GetHoststorages()
+	if hoststorages == nil {
+		return nil
+	}
+	for i := 0; i < len(hoststorages); i += 1 {
+		if strings.HasPrefix(path, hoststorages[i].MountPoint) {
+			return hoststorages[i].GetStorage()
+		}
+	}
+	return nil
+}
+
 func (self *SHost) GetBaremetalstorage() *SHoststorage {
 	if !self.IsBaremetal {
 		return nil
@@ -467,7 +482,7 @@ func (self *SHost) GetBaremetalstorage() *SHoststorage {
 	q := hoststorages.Query()
 	q = q.Join(storages, sqlchemy.AND(sqlchemy.Equals(storages.Field("id"), hoststorages.Field("storage_id")),
 		sqlchemy.IsFalse(storages.Field("deleted"))))
-	q = q.Filter(sqlchemy.Equals(storages.Field("storage_type"), sysutils.STORAGE_BAREMETAL))
+	q = q.Filter(sqlchemy.Equals(storages.Field("storage_type"), STORAGE_BAREMETAL))
 	q = q.Filter(sqlchemy.Equals(hoststorages.Field("host_id"), self.Id))
 	if q.Count() == 1 {
 		hs := SHoststorage{}
@@ -944,9 +959,12 @@ func (self *SHost) GetHostDriver() IHostDriver {
 	return GetHostDriver(self.HostType)
 }
 
-func (manager *SHostManager) getHostsByZone(zone *SZone, provider *SCloudprovider) ([]SHost, error) {
+func (manager *SHostManager) getHostsByZoneProvider(zone *SZone, provider *SCloudprovider) ([]SHost, error) {
 	hosts := make([]SHost, 0)
-	q := manager.Query().Equals("zone_id", zone.Id)
+	q := manager.Query()
+	if zone != nil {
+		q = q.Equals("zone_id", zone.Id)
+	}
 	if provider != nil {
 		q = q.Equals("manager_id", provider.Id)
 	}
@@ -963,7 +981,7 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 	remoteHosts := make([]cloudprovider.ICloudHost, 0)
 	syncResult := compare.SyncResult{}
 
-	dbHosts, err := manager.getHostsByZone(zone, provider)
+	dbHosts, err := manager.getHostsByZoneProvider(zone, provider)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
@@ -1028,6 +1046,7 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 func (self *SHost) syncWithCloudHost(extHost cloudprovider.ICloudHost, projectSync bool) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Name = extHost.GetName()
+
 		self.Status = extHost.GetStatus()
 		self.HostStatus = extHost.GetHostStatus()
 		self.AccessIp = extHost.GetAccessIp()
@@ -1047,6 +1066,9 @@ func (self *SHost) syncWithCloudHost(extHost cloudprovider.ICloudHost, projectSy
 		self.IsEmulated = extHost.IsEmulated()
 		self.Enabled = extHost.GetEnabled()
 
+		self.IsMaintenance = extHost.GetIsMaintenance()
+		self.Version = extHost.GetVersion()
+
 		return nil
 	})
 	if err != nil {
@@ -1062,13 +1084,23 @@ func (self *SHost) syncWithCloudHost(extHost cloudprovider.ICloudHost, projectSy
 	return err
 }
 
-func (manager *SHostManager) newFromCloudHost(extHost cloudprovider.ICloudHost, zone *SZone) (*SHost, error) {
+func (manager *SHostManager) newFromCloudHost(extHost cloudprovider.ICloudHost, izone *SZone) (*SHost, error) {
 	host := SHost{}
 	host.SetModelManager(manager)
 
+	if izone == nil {
+		wire, err := WireManager.GetWireOfIp(extHost.GetAccessIp())
+		if err != nil {
+			msg := fmt.Sprintf("fail to find wire for host %s %s: %s", extHost.GetName(), extHost.GetAccessIp(), err)
+			log.Errorf(msg)
+			return nil, fmt.Errorf(msg)
+		}
+		izone = wire.GetZone()
+	}
+
 	host.Name = extHost.GetName()
 	host.ExternalId = extHost.GetGlobalId()
-	host.ZoneId = zone.Id
+	host.ZoneId = izone.Id
 	// host.ManagerId = extHost.GetManagerId()
 	host.HostType = extHost.GetHostType()
 
@@ -1091,6 +1123,9 @@ func (manager *SHostManager) newFromCloudHost(extHost cloudprovider.ICloudHost, 
 	host.ManagerId = extHost.GetManagerId()
 	host.IsEmulated = extHost.IsEmulated()
 
+	host.IsMaintenance = extHost.GetIsMaintenance()
+	host.Version = extHost.GetVersion()
+
 	err := manager.TableSpec().Insert(&host)
 	if err != nil {
 		log.Errorf("newFromCloudHost fail %s", err)
@@ -1104,7 +1139,9 @@ func (manager *SHostManager) newFromCloudHost(extHost cloudprovider.ICloudHost, 
 	return &host, nil
 }
 
-func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, storages []cloudprovider.ICloudStorage) compare.SyncResult {
+func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, storages []cloudprovider.ICloudStorage) ([]SStorage, []cloudprovider.ICloudStorage, compare.SyncResult) {
+	localStorages := make([]SStorage, 0)
+	remoteStorages := make([]cloudprovider.ICloudStorage, 0)
 	syncResult := compare.SyncResult{}
 
 	dbStorages := make([]SStorage, 0)
@@ -1129,7 +1166,7 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 	err := compare.CompareSets(dbStorages, storages, &removed, &commondb, &commonext, &added)
 	if err != nil {
 		syncResult.Error(err)
-		return syncResult
+		return nil, nil, syncResult
 	}
 
 	for i := 0; i < len(removed); i += 1 {
@@ -1145,29 +1182,34 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 
 	for i := 0; i < len(commondb); i += 1 {
 		log.Infof("host %s is still connected with %s, to update ...", self.Id, commondb[i].Id)
-		err := self.syncWithCloudHostStorage(commonext[i])
+		err := self.syncWithCloudHostStorage(&commondb[i], commonext[i])
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
 			syncResult.Update()
 		}
+		localStorages = append(localStorages, commondb[i])
+		remoteStorages = append(remoteStorages, commonext[i])
 	}
 
 	for i := 0; i < len(added); i += 1 {
 		log.Infof("host %s is found connected with %s, to add ...", self.Id, added[i].GetId())
-		err := self.newCloudHostStorage(ctx, userCred, added[i])
+		local, err := self.newCloudHostStorage(ctx, userCred, added[i])
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
 			syncResult.Add()
 		}
+		localStorages = append(localStorages, *local)
+		remoteStorages = append(remoteStorages, added[i])
 	}
-	return syncResult
+	return localStorages, remoteStorages, syncResult
 }
 
-func (self *SHost) syncWithCloudHostStorage(extStorage cloudprovider.ICloudStorage) error {
+func (self *SHost) syncWithCloudHostStorage(localStorage *SStorage, extStorage cloudprovider.ICloudStorage) error {
 	// do nothing
-	return nil
+	hs := self.GetHoststorageOfId(localStorage.Id)
+	return hs.syncWithCloudHostStorage(extStorage)
 }
 
 func (self *SHost) Attach2Storage(ctx context.Context, userCred mcclient.TokenCredential, storage *SStorage, mountPoint string) error {
@@ -1186,15 +1228,25 @@ func (self *SHost) Attach2Storage(ctx context.Context, userCred mcclient.TokenCr
 	return nil
 }
 
-func (self *SHost) newCloudHostStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage) error {
+func (self *SHost) newCloudHostStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage) (*SStorage, error) {
 	storageObj, err := StorageManager.FetchByExternalId(extStorage.GetGlobalId())
 	if err != nil {
-		log.Errorf("%s", err)
-		return nil
+		if err == sql.ErrNoRows {
+			// no cloud storage found, this may happen for on-premise host
+			// create the storage right now
+			storageObj, err = StorageManager.newFromCloudStorage(extStorage, self.GetZone())
+			if err != nil {
+				log.Errorf("create by cloud storage fail %s", err)
+				return nil, err
+			}
+		} else {
+			log.Errorf("%s", err)
+			return nil, err
+		}
 	}
 	storage := storageObj.(*SStorage)
-	err = self.Attach2Storage(ctx, userCred, storage, "")
-	return err
+	err = self.Attach2Storage(ctx, userCred, storage, extStorage.GetMountPoint())
+	return storage, err
 }
 
 func (self *SHost) SyncHostWires(ctx context.Context, userCred mcclient.TokenCredential, wires []cloudprovider.ICloudWire) compare.SyncResult {
@@ -1625,12 +1677,45 @@ func (self *SHost) GetIHost() (cloudprovider.ICloudHost, error) {
 	if err != nil {
 		return nil, fmt.Errorf("No cloudprovide for host: %s", err)
 	}
-	ihost, err := provider.GetIHostById(self.ExternalId)
+	var iregion cloudprovider.ICloudRegion
+	if provider.IsOnPremiseInfrastructure() {
+		iregion, err = provider.GetOnPremiseIRegion()
+	} else {
+		region := self.GetRegion()
+		if region == nil {
+			msg := "fail to find region of host???"
+			log.Errorf(msg)
+			return nil, fmt.Errorf(msg)
+		}
+		iregion, err = provider.GetIRegionById(region.ExternalId)
+	}
+	if err != nil {
+		log.Errorf("fail to find iregion: %s", err)
+		return nil, err
+	}
+	ihost, err := iregion.GetIHostById(self.ExternalId)
 	if err != nil {
 		log.Errorf("fail to find ihost by id %s %s", self.ExternalId, err)
 		return nil, fmt.Errorf("fail to find ihost by id %s", err)
 	}
 	return ihost, nil
+}
+
+func (self *SHost) GetIRegion() (cloudprovider.ICloudRegion, error) {
+	provider, err := self.GetDriver()
+	if err != nil {
+		return nil, fmt.Errorf("No cloudprovide for host %s: %s", self.Name, err)
+	}
+	region := self.GetRegion()
+	if region == nil {
+		return nil, fmt.Errorf("failed to find host %s region info", self.Name)
+	}
+	iregion, err := provider.GetIRegionById(region.ExternalId)
+	if err != nil {
+		msg := fmt.Sprintf("fail to find iregion by id %s: %v", region.ExternalId, err)
+		return nil, fmt.Errorf(msg)
+	}
+	return iregion, nil
 }
 
 func (self *SHost) getDiskConfig() jsonutils.JSONObject {
@@ -1686,7 +1771,9 @@ func (self *SHost) getGuestsResource(status string) *SHostGuestResourceUsage {
 	q := guests.Query(sqlchemy.COUNT("guest_count"),
 		sqlchemy.SUM("guest_vcpu_count", guests.Field("vcpu_count")),
 		sqlchemy.SUM("guest_vmem_size", guests.Field("vmem_size")))
-	q = q.Equals("host_id", self.Id)
+	cond := sqlchemy.OR(sqlchemy.Equals(q.Field("host_id"), self.Id),
+		sqlchemy.Equals(q.Field("backup_host_id"), self.Id))
+	q = q.Filter(cond)
 	if len(status) > 0 {
 		q = q.Equals("status", status)
 	}
@@ -2331,7 +2418,8 @@ func (self *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCrede
 	}
 	result := jsonutils.NewDict()
 	result.Set("name", jsonutils.NewString(self.GetName()))
-	catalog := auth.GetCatalogData([]string{"ntpd", "kafka", "influxdb"}, options.Options.Region)
+	dependSvcs := []string{"ntpd", "kafka", "influxdb", "elasticsearch"}
+	catalog := auth.GetCatalogData(dependSvcs, options.Options.Region)
 	if catalog == nil {
 		return nil, fmt.Errorf("Get catalog error")
 	}
@@ -2389,26 +2477,49 @@ func (self *SHost) PerformAddNetif(ctx context.Context, userCred mcclient.TokenC
 	}
 	wire, _ := data.GetString("wire")
 	ipAddr, _ := data.GetString("ip_addr")
+	rate, _ := data.Int("rate")
+	nicType, _ := data.GetString("nic_type")
+	index, _ := data.Int("index")
+	linkUp, _ := data.GetString("link_up")
+	mtu, _ := data.Int("mtu")
+	reset := jsonutils.QueryBoolean(data, "reset", false)
+	strInterface, _ := data.GetString("interface")
+	bridge, _ := data.GetString("bridge")
+	reserve := jsonutils.QueryBoolean(data, "reserve", false)
+	requireDesignatedIp := jsonutils.QueryBoolean(data, "require_designated_ip", false)
+
+	err := self.addNetif(ctx, userCred, mac, wire, ipAddr, int(rate), nicType, int8(index), utils.ToBool(linkUp),
+		int16(mtu), reset, strInterface, bridge, reserve, requireDesignatedIp)
+	return nil, err
+}
+
+func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredential,
+	mac string, wire string, ipAddr string,
+	rate int, nicType string, index int8, linkUp bool, mtu int16,
+	reset bool, strInterface string, bridge string,
+	reserve bool, requireDesignatedIp bool,
+) error {
+
 	var sw *SWire
 	if len(wire) > 0 && len(ipAddr) == 0 {
 		iWire, err := WireManager.FetchByIdOrName(userCred, wire)
 		if err != nil {
-			return nil, httperrors.NewBadRequestError("Wire %s not found", wire)
+			return httperrors.NewBadRequestError("Wire %s not found", wire)
 		}
 		sw = iWire.(*SWire)
 	} else if len(ipAddr) > 0 && len(wire) == 0 {
 		ipWire, err := WireManager.GetWireOfIp(ipAddr)
 		if err != nil {
-			return nil, httperrors.NewBadRequestError("IP %s not attach to any wire", ipAddr)
+			return httperrors.NewBadRequestError("IP %s not attach to any wire", ipAddr)
 		}
 		sw = ipWire
 	} else if len(wire) > 0 && len(ipAddr) > 0 {
 		ipWire, err := WireManager.GetWireOfIp(ipAddr)
 		if err != nil {
-			return nil, httperrors.NewBadRequestError("IP %s not attach to any wire", ipAddr)
+			return httperrors.NewBadRequestError("IP %s not attach to any wire", ipAddr)
 		}
 		if ipWire.Id != wire && ipWire.GetName() != wire {
-			httperrors.NewBadRequestError("IP %s not attach to wire %s", ipAddr, wire)
+			return httperrors.NewBadRequestError("IP %s not attach to wire %s", ipAddr, wire)
 		}
 		sw = ipWire
 	}
@@ -2420,24 +2531,14 @@ func (self *SHost) PerformAddNetif(ctx context.Context, userCred mcclient.TokenC
 		if sw != nil {
 			netif.WireId = sw.Id
 		}
-		if rate, err := data.Int("rate"); err == nil {
-			netif.Rate = int(rate)
-		}
-		if nicType, err := data.GetString("nic_type"); err == nil {
-			netif.NicType = nicType
-		}
-		if index, err := data.Int("index"); err == nil {
-			netif.Index = int8(index)
-		}
-		if linkUp, err := data.GetString("link_up"); err == nil {
-			netif.LinkUp = utils.ToBool(linkUp)
-		}
-		if mtu, err := data.Int("mtu"); err == nil {
-			netif.Mtu = int16(mtu)
-		}
+		netif.Rate = rate
+		netif.NicType = nicType
+		netif.Index = index
+		netif.LinkUp = linkUp
+		netif.Mtu = mtu
 		err = NetInterfaceManager.TableSpec().Insert(netif)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	} else {
 		var changed = false
@@ -2450,44 +2551,42 @@ func (self *SHost) PerformAddNetif(ctx context.Context, userCred mcclient.TokenC
 				changed = true
 				netif.WireId = sw.Id
 			}
-			if rate, err := data.Int("rate"); err == nil {
+			if rate != netif.Rate {
 				changed = true
 				netif.Rate = int(rate)
 			}
-			if nicType, err := data.GetString("nic_type"); err == nil {
+			if nicType != netif.NicType {
 				changed = true
 				netif.NicType = nicType
 			}
-			if index, err := data.Int("index"); err == nil && index >= 0 {
+			if index >= 0 && index != netif.Index {
 				changed = true
 				netif.Index = int8(index)
 			}
-			if linkUp, err := data.GetString("link_up"); err != nil {
+			if linkUp != netif.LinkUp {
 				changed = true
-				netif.LinkUp = utils.ToBool(linkUp)
+				netif.LinkUp = linkUp
 			}
-			if mtu, err := data.Int("mtu"); err != nil {
+			if mtu != netif.Mtu {
 				changed = true
 				netif.Mtu = int16(mtu)
 			}
 			return nil
 		})
 		if err != nil {
-			return nil, err
+			return err
 		}
-		if changed || jsonutils.QueryBoolean(data, "reset", false) {
+		if changed || reset {
 			self.DisableNetif(ctx, userCred, netif, false)
 		}
 	}
 	sw = netif.GetWire()
 	if sw != nil {
-		strInterface, err := data.GetString("interface")
-		if err != nil {
+		if len(strInterface) == 0 {
 			strInterface = fmt.Sprintf("eth%d", netif.Index)
 		}
 		if len(strInterface) > 0 {
-			bridge, err := data.GetString("bridge")
-			if err != nil {
+			if len(bridge) == 0 {
 				bridge = fmt.Sprintf("br%s", sw.GetName())
 			}
 			var isMaster = netif.NicType == NIC_TYPE_ADMIN
@@ -2502,7 +2601,7 @@ func (self *SHost) PerformAddNetif(ctx context.Context, userCred mcclient.TokenC
 				hw.MacAddr = mac
 				err := HostwireManager.TableSpec().Insert(hw)
 				if err != nil {
-					return nil, err
+					return err
 				}
 			} else {
 				hw := ihw.(*SHostwire)
@@ -2516,15 +2615,13 @@ func (self *SHost) PerformAddNetif(ctx context.Context, userCred mcclient.TokenC
 			}
 		}
 	}
-	reserve := jsonutils.QueryBoolean(data, "reserve", false)
-	requireDesignatedIp := jsonutils.QueryBoolean(data, "require_designated_ip", false)
 	if len(ipAddr) > 0 {
 		err = self.EnableNetif(ctx, userCred, netif, "", ipAddr, "", reserve, requireDesignatedIp)
 		if err != nil {
-			return nil, httperrors.NewBadRequestError(err.Error())
+			return httperrors.NewBadRequestError(err.Error())
 		}
 	}
-	return nil, nil
+	return nil
 }
 
 func (self *SHost) AllowPerformEnableNetif(ctx context.Context,
@@ -2974,4 +3071,165 @@ func (self *SHost) UpdateDiskConfig(layouts []baremetal.Layout) error {
 		}
 	}
 	return nil
+}
+
+func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.TokenCredential, ihost cloudprovider.ICloudHost) compare.SyncResult {
+	result := compare.SyncResult{}
+
+	netIfs := host.GetNetInterfaces()
+	extNics, err := ihost.GetIHostNics()
+	if err != nil {
+		result.Error(err)
+		return result
+	}
+
+	disables := make([]*SNetInterface, 0)
+	enables := make([]cloudprovider.ICloudHostNetInterface, 0)
+
+	type sRemoveNetInterface struct {
+		netif     *SNetInterface
+		reserveIp bool
+	}
+
+	type sAddNetInterface struct {
+		netif     cloudprovider.ICloudHostNetInterface
+		reserveIp bool
+	}
+
+	removes := make([]sRemoveNetInterface, 0)
+	adds := make([]sAddNetInterface, 0)
+
+	nicMax := len(netIfs)
+	if nicMax < len(extNics) {
+		nicMax = len(extNics)
+	}
+	for i := 0; i < nicMax; i += 1 {
+		if i < len(netIfs) && i < len(extNics) {
+			obn := netIfs[i].GetBaremetalNetwork()
+			var oip string
+			if obn != nil {
+				oip = obn.IpAddr
+			}
+			nip := extNics[i].GetIpAddr()
+			if netIfs[i].Mac == extNics[i].GetMac() {
+				if oip != nip {
+					if obn != nil {
+						disables = append(disables, &netIfs[i])
+					}
+					if len(nip) > 0 {
+						enables = append(enables, extNics[i])
+					}
+				} else {
+					// do nothing, in sync
+				}
+			} else {
+				reserveIp := false
+				if len(oip) > 0 && oip == nip {
+					// # mac change case
+					reserveIp = true
+				}
+				removes = append(removes, sRemoveNetInterface{netif: &netIfs[i], reserveIp: reserveIp})
+				adds = append(adds, sAddNetInterface{netif: extNics[i], reserveIp: reserveIp})
+			}
+		} else if i < len(netIfs) && i >= len(extNics) {
+			removes = append(removes, sRemoveNetInterface{netif: &netIfs[i], reserveIp: false})
+		} else if i >= len(netIfs) && i < len(extNics) {
+			adds = append(adds, sAddNetInterface{netif: extNics[i], reserveIp: false})
+		}
+	}
+
+	for i := len(removes) - 1; i >= 0; i -= 1 {
+		err = host.RemoveNetif(ctx, userCred, removes[i].netif, removes[i].reserveIp)
+		if err != nil {
+			result.DeleteError(err)
+		} else {
+			result.Delete()
+		}
+	}
+
+	for i := len(disables) - 1; i >= 0; i -= 1 {
+		err = host.DisableNetif(ctx, userCred, disables[i], false)
+		if err != nil {
+			result.DeleteError(err)
+		} else {
+			result.Delete()
+		}
+	}
+
+	for i := 0; i < len(enables); i += 1 {
+		netif := host.GetNetInterface(enables[i].GetMac())
+		err = host.EnableNetif(ctx, userCred, netif, "", enables[i].GetIpAddr(), "", false, true)
+		if err != nil {
+			result.AddError(err)
+		} else {
+			result.Add()
+		}
+	}
+
+	for i := 0; i < len(adds); i += 1 {
+		extNic := adds[i].netif
+		err = host.addNetif(ctx, userCred, extNic.GetMac(), "", extNic.GetIpAddr(), 0, extNic.GetNicType(), extNic.GetIndex(),
+			extNic.IsLinkUp(), extNic.GetMtu(), false, "", "", false, true)
+		if err != nil {
+			result.AddError(err)
+		} else {
+			result.Add()
+		}
+	}
+
+	return result
+}
+
+func (manager *SHostManager) GetEsxiAgentHostId(key string) (string, error) {
+	q := HostManager.Query("id")
+	q = q.Equals("host_status", HOST_ONLINE)
+	q = q.Equals("host_type", HOST_TYPE_HYPERVISOR)
+	q = q.IsTrue("enabled")
+
+	rows, err := q.Rows()
+	if err != nil {
+		return "", err
+	}
+
+	var hostId string
+	hostIds := make([]string, 0)
+	for rows.Next() {
+		err = rows.Scan(&hostId)
+		if err != nil {
+			return "", err
+		}
+		hostIds = append(hostIds, hostId)
+	}
+
+	ring := hashring.New(hostIds)
+	ret, _ := ring.GetNode(key)
+	return ret, nil
+}
+
+func (manager *SHostManager) GetEsxiAgentHost(key string) (*SHost, error) {
+	hostId, err := manager.GetEsxiAgentHostId(key)
+	if err != nil {
+		return nil, err
+	}
+	return manager.FetchHostById(hostId), nil
+}
+
+func (host *SHost) GetEsxiAgentHost() (*SHost, error) {
+	return HostManager.GetEsxiAgentHost(host.Id)
+}
+
+func (manager *SHostManager) GetHostByIp(hostIp string) (*SHost, error) {
+	q := manager.Query()
+	q = q.Equals("access_ip", hostIp)
+
+	host, err := db.NewModelObject(manager)
+	if err != nil {
+		return nil, err
+	}
+	err = q.First(host)
+	if err != nil {
+		return nil, err
+	}
+
+	return host.(*SHost), nil
 }

@@ -108,6 +108,8 @@ type ServerCreateOptions struct {
 	AllowDelete      *bool    `help:"Unlock server to allow deleting" json:"-"`
 	ShutdownBehavior string   `help:"Behavior after VM server shutdown, stop or terminate server" metavar:"<SHUTDOWN_BEHAVIOR>" choices:"stop|terminate"`
 	AutoStart        *bool    `help:"Auto start server after it is created"`
+	Backup           *bool    `help:"Create server with backup server" json:"backup"`
+	BackupHost       string   `help:"Perfered host where virtual backup server should be created" json:"prefer_backup_host"`
 	Deploy           []string `help:"Specify deploy files in virtual server file system" json:"-"`
 	Group            []string `help:"Group of virtual server"`
 	Project          string   `help:"'Owner project ID or Name" json:"tenant"`
@@ -259,8 +261,10 @@ type ServerSendKeyOptions struct {
 }
 
 type ServerMonitorOptions struct {
-	ID      string `help:"ID or Name of server" json:"-"`
+	ID string `help:"ID or Name of server" json:"-"`
+
 	COMMAND string `help:"Qemu Monitor command to send"`
+	Admin   *bool  `help:"Is this an admin call?"`
 }
 
 type ServerSaveImageOptions struct {

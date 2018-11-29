@@ -9,10 +9,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/pkg/util/sysutils"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -74,7 +72,7 @@ func (self *SQcloudGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *m
 	if !utils.IsInStringArray(guest.Status, []string{models.VM_READY, models.VM_RUNNING}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
-	if utils.IsInStringArray(storage.StorageType, []string{sysutils.STORAGE_LOCAL_BASIC, sysutils.STORAGE_LOCAL_SSD}) {
+	if utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_LOCAL_BASIC, models.STORAGE_LOCAL_SSD}) {
 		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
 	}
 	return nil
@@ -140,26 +138,33 @@ func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			net := nets[0].GetNetwork()
 			vpc := net.GetVpc()
 
-			ivpc, err := vpc.GetIVpc()
+			iregion, err := host.GetIRegion()
 			if err != nil {
-				log.Errorf("getIVPC fail %s", err)
 				return nil, err
 			}
 
-			secgrpId, err := ivpc.SyncSecurityGroup(desc.SecGroupId, desc.SecGroupName, desc.SecRules)
+			secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), desc.SecGroupId, "normal", vpc.CloudregionId, vpc.ManagerId)
+			if secgroupCache == nil {
+				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s, vpc: %s", desc.SecGroupId, vpc.Name)
+			}
+
+			secgroupExtId, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpc.ExternalId, desc.SecGroupName, "", desc.SecRules)
 			if err != nil {
 				log.Errorf("SyncSecurityGroup fail %s", err)
 				return nil, err
+			}
+			if err := secgroupCache.SetExternalId(secgroupExtId); err != nil {
+				return nil, fmt.Errorf("failed to set externalId for secgroup %s externalId %s: error: %v", desc.SecGroupId, secgroupExtId, err)
 			}
 
 			var createErr error
 			var iVM cloudprovider.ICloudVM
 			if len(desc.InstanceType) > 0 {
 				iVM, createErr = ihost.CreateVM2(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.InstanceType, desc.ExternalNetworkId,
-					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId, userData)
+					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData)
 			} else {
 				iVM, createErr = ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgrpId, userData)
+					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData)
 			}
 
 			if createErr != nil {
@@ -205,7 +210,7 @@ func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			// 	}
 			// }
 
-			err := iVM.DeployVM(name, passwd, publicKey, deleteKeypair, description)
+			err := iVM.DeployVM(ctx, name, passwd, publicKey, deleteKeypair, description)
 			if err != nil {
 				return nil, err
 			}
@@ -230,7 +235,7 @@ func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			// 	}
 			// }
 
-			diskId, err := iVM.RebuildRoot(desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
+			diskId, err := iVM.RebuildRoot(ctx, desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
 			if err != nil {
 				return nil, err
 			}
@@ -281,73 +286,6 @@ func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		return fmt.Errorf("Action %s not supported", action)
 	}
 
-	return nil
-}
-
-func (self *SQcloudGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
-
-	if data.Contains("disks") {
-		diskInfo := make([]SDiskInfo, 0)
-		err := data.Unmarshal(&diskInfo, "disks")
-		if err != nil {
-			return err
-		}
-		disks := guest.GetDisks()
-		if len(disks) != len(diskInfo) {
-			msg := fmt.Sprintf("inconsistent disk number: have %d want %d", len(disks), len(diskInfo))
-			log.Errorf(msg)
-			return fmt.Errorf(msg)
-		}
-		for i := 0; i < len(diskInfo); i += 1 {
-			disk := disks[i].GetDisk()
-			_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
-				disk.DiskSize = diskInfo[i].Size
-				disk.ExternalId = diskInfo[i].Uuid
-				disk.DiskType = diskInfo[i].DiskType
-				disk.Status = models.DISK_READY
-				disk.BillingType = diskInfo[i].BillingType
-				disk.FsFormat = diskInfo[i].FsFromat
-				disk.AutoDelete = true
-				//disk.TemplateId = diskInfo[i].TemplateId
-				disk.DiskFormat = diskInfo[i].DiskFormat
-				disk.ExpiredAt = diskInfo[i].ExpiredAt
-				if len(diskInfo[i].Metadata) > 0 {
-					for key, value := range diskInfo[i].Metadata {
-						if err := disk.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {
-							log.Errorf("set disk %s mata %s => %s error: %v", disk.Name, key, value, err)
-						}
-					}
-				}
-				return nil
-			})
-			if err != nil {
-				msg := fmt.Sprintf("save disk info failed %s", err)
-				log.Errorf(msg)
-				break
-			} else {
-				db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(), task.GetUserCred())
-			}
-		}
-	}
-	uuid, _ := data.GetString("uuid")
-	if len(uuid) > 0 {
-		guest.SetExternalId(uuid)
-	}
-
-	if metaData, _ := data.Get("metadata"); metaData != nil {
-		meta := make(map[string]string, 0)
-		if err := metaData.Unmarshal(meta); err != nil {
-			log.Errorf("Get guest %s metadata error: %v", guest.Name, err)
-		} else {
-			for key, value := range meta {
-				if err := guest.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {
-					log.Errorf("set guest %s mata %s => %s error: %v", guest.Name, key, value, err)
-				}
-			}
-		}
-	}
-
-	guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
 	return nil
 }
 

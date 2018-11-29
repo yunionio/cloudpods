@@ -42,7 +42,7 @@ func (self *GuestCreateTask) OnWaitGuestNetworksReady(ctx context.Context, obj d
 
 func (self *GuestCreateTask) OnGuestNetworkReady(ctx context.Context, guest *models.SGuest) {
 	guest.SetStatus(self.UserCred, models.VM_CREATE_DISK, "")
-	self.SetStage("on_disk_prepared", nil)
+	self.SetStage("OnDiskPrepared", nil)
 	guest.GetDriver().RequestGuestCreateAllDisks(ctx, guest, self)
 }
 
@@ -52,13 +52,14 @@ func (self *GuestCreateTask) OnDiskPreparedFailed(ctx context.Context, obj db.IS
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	logclient.AddActionLog(guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_DISK_FAILED, data.String())
+	self.SetStageFailed(ctx, data.String())
 }
 
 func (self *GuestCreateTask) OnDiskPrepared(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	cdrom, _ := self.Params.GetString("cdrom")
 	if len(cdrom) > 0 {
-		self.SetStage("on_cdrom_prepared", nil)
+		self.SetStage("OnCdromPrepared", nil)
 		guest.GetDriver().RequestGuestCreateInsertIso(ctx, cdrom, guest, self)
 	} else {
 		self.OnCdromPrepared(ctx, obj, data)
@@ -80,10 +81,11 @@ func (self *GuestCreateTask) OnCdromPreparedFailed(ctx context.Context, obj db.I
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	logclient.AddActionLog(guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_DISK_FAILED, fmt.Sprintf("cdrom_failed %s", data))
+	self.SetStageFailed(ctx, fmt.Sprintf("cdrom_failed %s", data))
 }
 
 func (self *GuestCreateTask) StartDeployGuest(ctx context.Context, guest *models.SGuest) {
-	self.SetStage("on_deploy_guest_desc_complete", nil)
+	self.SetStage("OnDeployGuestDescComplete", nil)
 	guest.StartGuestDeployTask(ctx, self.UserCred, self.Params, "create", self.GetId())
 }
 
@@ -107,6 +109,7 @@ func (self *GuestCreateTask) OnDeployGuestDescCompleteFailed(ctx context.Context
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	logclient.AddActionLog(guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_DEPLOY_FAILED, data.String())
+	self.SetStageFailed(ctx, data.String())
 }
 
 func (self *GuestCreateTask) OnAutoStartGuest(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

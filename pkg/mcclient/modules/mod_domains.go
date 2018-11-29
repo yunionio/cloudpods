@@ -240,7 +240,7 @@ func (this *DomainManager) DoDomainConfigDelete(s *mcclient.ClientSession, param
 				log.Errorf("user list got error: %v", err)
 				return ret, httperrors.NewInternalServerError("fetching user list failed: %s", err)
 			} else if len(result.Data) > 0 {
-				return ret, httperrors.NewForbiddenError(fmt.Sprintf("cannot delete: there still exists %d user related with domain %s.", len(result.Data), objId))
+				return ret, httperrors.NewForbiddenError("cannot delete: there still exists %d user related with domain %s.", len(result.Data), objId)
 			}
 		}
 

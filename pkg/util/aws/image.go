@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"context"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -115,7 +116,7 @@ func (self *SImage) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
-func (self *SImage) Delete() error {
+func (self *SImage) Delete(ctx context.Context) error {
 	// todo: implement me
 	return self.storageCache.region.DeleteImage(self.ImageId)
 }
