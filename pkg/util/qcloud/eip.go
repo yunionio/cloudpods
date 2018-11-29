@@ -196,7 +196,7 @@ func (region *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddre
 		log.Errorf("Unmarshal EipAddress details fail %s", err)
 		return nil, 0, err
 	}
-	total, _ := body.Int("TotalCount")
+	total, _ := body.Float("TotalCount")
 	for i := 0; i < len(eips); i++ {
 		eips[i].region = region
 	}
@@ -222,12 +222,19 @@ func (region *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternet
 	if err != nil {
 		return nil, err
 	}
-	if err := body.Unmarshal(&addRessSet, "AddressSet"); err == nil && len(addRessSet) > 0 {
+	err = body.Unmarshal(&addRessSet, "AddressSet")
+	if err != nil {
+		return nil, err
+	}
+	if len(addRessSet) > 0 {
 		params["AddressId"] = addRessSet[0]
 		params["AddressName"] = name
-		if _, err := region.vpcRequest("ModifyAddressAttribute", params); err != nil {
+		_, err = region.vpcRequest("ModifyAddressAttribute", params)
+		if err != nil {
 			return nil, err
-		} else if err := region.UpdateEipBandwidth(addRessSet[0], bwMbps); err != nil {
+		}
+		err = region.UpdateEipBandwidth(addRessSet[0], bwMbps)
+		if err != nil {
 			return nil, err
 		}
 		return region.GetEip(addRessSet[0])
