@@ -530,6 +530,9 @@ func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 func (self *SRegion) DeleteVM(instanceId string) error {
 	status, err := self.GetInstanceStatus(instanceId)
 	if err != nil {
+		if err == cloudprovider.ErrNotFound {
+			return nil
+		}
 		log.Errorf("Fail to get instance status on DeleteVM: %s", err)
 		return err
 	}
@@ -582,18 +585,8 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 }
 
 func (self *SInstance) DeleteVM() error {
-	for {
-		err := self.host.zone.region.DeleteVM(self.InstanceId)
-		if err != nil {
-			// if isError(err, "IncorrectInstanceStatus.Initializing") {
-			// 	log.Infof("The instance is initializing, try later ...")
-			// 	time.Sleep(10 * time.Second)
-			// } else {
-			// 	return err
-			// }
-		} else {
-			break
-		}
+	if err := self.host.zone.region.DeleteVM(self.InstanceId); err != nil {
+		return err
 	}
 	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
 }
