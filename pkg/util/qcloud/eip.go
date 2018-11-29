@@ -64,12 +64,14 @@ func (self *SEipAddress) GetGlobalId() string {
 
 func (self *SEipAddress) GetStatus() string {
 	switch self.AddressStatus {
-	case EIP_STATUS_AVAILABLE, EIP_STATUS_INUSE:
-		return models.EIP_STATUS_READY
-	case EIP_STATUS_ASSOCIATING:
+	case "CREATING":
+		return models.EIP_STATUS_ALLOCATE
+	case "BINDING":
 		return models.EIP_STATUS_ASSOCIATE
-	case EIP_STATUS_UNASSOCIATING:
-		return models.EIP_STATUS_DISSOCIATE
+	case "BIND", "UNBINDING", "UNBIND", "OFFLINING", "BIND_ENI":
+		return models.EIP_STATUS_READY
+	case "CREATE_FAILED":
+		return models.EIP_STATUS_ALLOCATE_FAIL
 	default:
 		return models.EIP_STATUS_UNKNOWN
 	}
@@ -237,7 +239,12 @@ func (region *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternet
 		if err != nil {
 			return nil, err
 		}
-		return region.GetEip(addRessSet[0])
+
+		eip, err := region.GetEip(addRessSet[0])
+		if err != nil {
+			return nil, err
+		}
+		return eip, cloudprovider.WaitStatus(eip, models.EIP_STATUS_READY, time.Second*5, time.Second*300)
 	}
 	return nil, cloudprovider.ErrNotFound
 }
