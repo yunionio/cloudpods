@@ -29,7 +29,7 @@ func initSecret() {
 	registryCmd := initK8sNamespaceResource("registrysecret", k8s.RegistrySecrets)
 	createCmd := NewCommand(
 		&o.RegistrySecretCreateOptions{},
-		resourceCmdN("registrysecret", "create"),
+		registryCmd.CommandNameFactory("create"),
 		"Create docker registry secret resource",
 		func(s *mcclient.ClientSession, args *o.RegistrySecretCreateOptions) error {
 			params, err := args.Params()
