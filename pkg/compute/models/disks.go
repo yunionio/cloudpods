@@ -15,7 +15,6 @@ import (
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/regutils"
-	"yunion.io/x/pkg/util/sysutils"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -1022,7 +1021,7 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 			diskConfig.Mountpoint = p
 		} else if p == "autoextend" {
 			diskConfig.Size = -1
-		} else if utils.IsInStringArray(p, sysutils.STORAGE_TYPES) {
+		} else if utils.IsInStringArray(p, STORAGE_TYPES) {
 			diskConfig.Backend = p
 		} else if len(p) > 0 {
 			if userCred == nil {

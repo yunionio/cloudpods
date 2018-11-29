@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/regutils"
-	"yunion.io/x/pkg/util/sysutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 )
@@ -1308,7 +1307,7 @@ func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.Token
 	for _, guestdisk := range self.GetDisks() {
 		disk := guestdisk.GetDisk()
 		storage := disk.GetStorage()
-		if utils.IsInStringArray(storage.StorageType, sysutils.LOCAL_STORAGE_TYPES) || utils.IsInStringArray(disk.DiskType, []string{DISK_TYPE_SYS, DISK_TYPE_SWAP}) || (utils.IsInStringArray(self.Hypervisor, PUBLIC_CLOUD_HYPERVISORS) && disk.AutoDelete) {
+		if utils.IsInStringArray(storage.StorageType, STORAGE_LOCAL_TYPES) || utils.IsInStringArray(disk.DiskType, []string{DISK_TYPE_SYS, DISK_TYPE_SWAP}) || (utils.IsInStringArray(self.Hypervisor, PUBLIC_CLOUD_HYPERVISORS) && disk.AutoDelete) {
 			disk.DoPendingDelete(ctx, userCred)
 		} else {
 			self.DetachDisk(ctx, disk, userCred)
