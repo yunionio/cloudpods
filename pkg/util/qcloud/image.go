@@ -82,7 +82,7 @@ func (self *SRegion) GetImages(status string, owner string, imageIds []string, n
 	for i := 0; i < len(images); i++ {
 		images[i].storageCache = self.getStoragecache()
 	}
-	total, _ := body.Int("TotalCount")
+	total, _ := body.Float("TotalCount")
 	return images, int(total), nil
 }
 func (self *SImage) GetMetadata() *jsonutils.JSONDict {
