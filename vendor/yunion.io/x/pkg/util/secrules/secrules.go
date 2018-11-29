@@ -127,12 +127,21 @@ func ParseSecurityRule(pattern string) (*SecurityRule, error) {
 				return nil, ErrInvalidAction
 			}
 		} else if status == SEG_IP {
+			// NOTE regutils.MatchCIDR actually also matches IP address without prefix length
 			if regutils.MatchCIDR(seg) {
-				_, rule.IPNet, _ = net.ParseCIDR(seg)
-			} else if regutils.MatchIPAddr(seg) {
-				rule.IPNet = &net.IPNet{
-					IP:   net.ParseIP(seg),
-					Mask: net.CIDRMask(32, 32),
+				if idx := strings.Index(seg, "/"); idx > -1 {
+					if _, ipnet, err := net.ParseCIDR(seg); err != nil {
+						return nil, ErrInvalidNet
+					} else {
+						rule.IPNet = ipnet
+					}
+				} else if ip := net.ParseIP(seg); ip != nil {
+					rule.IPNet = &net.IPNet{
+						IP:   ip,
+						Mask: net.CIDRMask(32, 32),
+					}
+				} else {
+					return nil, ErrInvalidIPAddr
 				}
 			} else {
 				rule.IPNet = &net.IPNet{

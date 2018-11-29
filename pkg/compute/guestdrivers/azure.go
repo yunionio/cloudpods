@@ -41,7 +41,7 @@ func (self *SAzureGuestDriver) ChooseHostStorage(host *models.SHost, backend str
 			return &storages[i]
 		}
 	}
-	for _, stype := range []string{"standard_lrs", "premium_lrs"} {
+	for _, stype := range []string{"standard_lrs", "standardssd_lrs", "premium_lrs"} {
 		for i := 0; i < len(storages); i += 1 {
 			if storages[i].StorageType == stype {
 				return &storages[i]

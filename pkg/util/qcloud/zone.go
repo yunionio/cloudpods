@@ -122,7 +122,7 @@ func (self *SZone) getLocalStorageByCategory(category string) (*SLocalStorage, e
 }
 
 func (self *SZone) validateStorageType(category string) error {
-	if utils.IsInStringArray(strings.ToLower(category), []string{"local_basic", "local_ssd", "cloud_basic", "cloud_ssd", "cloud_permium"}) {
+	if utils.IsInStringArray(strings.ToLower(category), []string{"local_basic", "local_ssd", "cloud_basic", "cloud_ssd", "cloud_premium"}) {
 		return nil
 	}
 	return fmt.Errorf("No such storage %s", category)
