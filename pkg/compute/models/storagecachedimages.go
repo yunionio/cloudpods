@@ -32,7 +32,6 @@ const (
 
 type SStoragecachedimageManager struct {
 	db.SJointResourceBaseManager
-	SInfrastructureManager
 }
 
 var StoragecachedimageManager *SStoragecachedimageManager
@@ -54,7 +53,6 @@ func init() {
 
 type SStoragecachedimage struct {
 	db.SJointResourceBase
-	SInfrastructure
 
 	StoragecacheId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required" key_index:"true"`
 	CachedimageId  string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required" key_index:"true"`
@@ -73,6 +71,26 @@ func (joint *SStoragecachedimage) Master() db.IStandaloneModel {
 
 func (joint *SStoragecachedimage) Slave() db.IStandaloneModel {
 	return db.JointSlave(joint)
+}
+
+func (self *SStoragecachedimageManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionList)
+}
+
+func (self *SStoragecachedimageManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionCreate)
+}
+
+func (self *SStoragecachedimage) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionGet)
+}
+
+func (self *SStoragecachedimage) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionUpdate)
+}
+
+func (self *SStoragecachedimage) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionDelete)
 }
 
 func (self *SStoragecachedimage) getStorageHostId() (string, error) {

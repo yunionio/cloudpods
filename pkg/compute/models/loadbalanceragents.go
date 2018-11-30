@@ -22,7 +22,6 @@ import (
 
 type SLoadbalancerAgentManager struct {
 	db.SStandaloneResourceBaseManager
-	SInfrastructureManager
 }
 
 var LoadbalancerAgentManager *SLoadbalancerAgentManager
@@ -48,7 +47,6 @@ func init() {
 //
 type SLoadbalancerAgent struct {
 	db.SStandaloneResourceBase
-	SInfrastructure
 
 	HbLastSeen time.Time                 `nullable:"true" list:"admin" update:"admin"`
 	HbTimeout  int                       `nullable:"true" list:"admin" update:"admin" create:"optional" default:"3600"`
@@ -239,6 +237,27 @@ func (p *SLoadbalancerAgentParams) IsZero() bool {
 	return false
 }
 
+
+func (self *SLoadbalancerAgentManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionList)
+}
+
+func (self *SLoadbalancerAgentManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionCreate)
+}
+
+func (self *SLoadbalancerAgent) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionGet)
+}
+
+func (self *SLoadbalancerAgent) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionUpdate)
+}
+
+func (self *SLoadbalancerAgent) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionDelete)
+}
+
 func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	{
 		keyV := map[string]validators.IValidator{
@@ -353,10 +372,6 @@ func (man *SLoadbalancerAgentManager) CleanPendingDeleteLoadbalancers(ctx contex
 			}
 		}
 	}
-}
-
-func (man *SLoadbalancerAgentManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsAdminAllow(consts.GetServiceType(), man.KeywordPlural(), policy.PolicyActionCreate)
 }
 
 func (lbagent *SLoadbalancerAgent) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

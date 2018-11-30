@@ -50,6 +50,30 @@ var (
 		},
 		{
 			Service:  "compute",
+			Resource: "storages",
+			Action:   PolicyActionList,
+			Result:   rbacutils.UserAllow,
+		},
+		{
+			Service:  "compute",
+			Resource: "storages",
+			Action:   PolicyActionGet,
+			Result:   rbacutils.UserAllow,
+		},
+		{
+			Service:  "compute",
+			Resource: "schedtags",
+			Action:   PolicyActionList,
+			Result:   rbacutils.UserAllow,
+		},
+		{
+			Service:  "compute",
+			Resource: "schedtags",
+			Action:   PolicyActionGet,
+			Result:   rbacutils.UserAllow,
+		},
+		{
+			Service:  "compute",
 			Resource: "cloudregions",
 			Action:   PolicyActionList,
 			Result:   rbacutils.UserAllow,

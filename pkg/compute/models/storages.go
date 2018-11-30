@@ -87,7 +87,6 @@ var (
 
 type SStorageManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
-	SInfrastructureManager
 }
 
 var StorageManager *SStorageManager
@@ -105,7 +104,6 @@ func init() {
 
 type SStorage struct {
 	db.SEnabledStatusStandaloneResourceBase
-	SInfrastructure
 	SManagedResourceBase
 
 	Capacity    int                  `nullable:"false" list:"admin" update:"admin" create:"admin_required"`                           // Column(Integer, nullable=False) # capacity of disk in MB
@@ -122,6 +120,26 @@ type SStorage struct {
 
 func (manager *SStorageManager) GetContextManager() []db.IModelManager {
 	return []db.IModelManager{ZoneManager, StoragecacheManager}
+}
+
+func (manager *SStorageManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (self *SStorageManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionCreate)
+}
+
+func (self *SStorage) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionGet)
+}
+
+func (self *SStorage) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionUpdate)
+}
+
+func (self *SStorage) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionDelete)
 }
 
 func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -181,9 +199,6 @@ func (self *SStorage) IsLocal() bool {
 	return self.StorageType == STORAGE_LOCAL || self.StorageType == STORAGE_BAREMETAL
 }
 
-func (manager *SStorageManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return true
-}
 
 func (self *SStorage) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	used := self.GetUsedCapacity(tristate.True)

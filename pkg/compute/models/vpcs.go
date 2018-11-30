@@ -35,7 +35,6 @@ const (
 
 type SVpcManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
-	SInfrastructureManager
 }
 
 var VpcManager *SVpcManager
@@ -53,7 +52,6 @@ func init() {
 
 type SVpc struct {
 	db.SEnabledStatusStandaloneResourceBase
-	SInfrastructure
 	SManagedResourceBase
 
 	IsDefault bool `default:"false" list:"admin" create:"admin_optional"`
@@ -65,6 +63,26 @@ type SVpc struct {
 
 func (manager *SVpcManager) GetContextManager() []db.IModelManager {
 	return []db.IModelManager{CloudregionManager}
+}
+
+func (self *SVpcManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionList)
+}
+
+func (self *SVpcManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionCreate)
+}
+
+func (self *SVpc) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionGet)
+}
+
+func (self *SVpc) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionUpdate)
+}
+
+func (self *SVpc) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionDelete)
 }
 
 func (self *SVpc) GetCloudRegionId() string {

@@ -40,7 +40,6 @@ const (
 
 type SCloudproviderManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
-	SInfrastructureManager
 }
 
 var CloudproviderManager *SCloudproviderManager
@@ -58,7 +57,6 @@ func init() {
 
 type SCloudprovider struct {
 	db.SEnabledStatusStandaloneResourceBase
-	SInfrastructure
 
 	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 	// Hostname string `width:"64" charset:"ascii" nullable:"true"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
@@ -85,6 +83,26 @@ func (manager *SCloudproviderManager) GetOwnerId(userCred mcclient.IIdentityProv
 
 func (self *SCloudprovider) GetOwnerProjectId() string {
 	return self.ProjectId
+}
+
+func (self *SCloudproviderManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionList)
+}
+
+func (self *SCloudproviderManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionCreate)
+}
+
+func (self *SCloudprovider) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionGet)
+}
+
+func (self *SCloudprovider) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionUpdate)
+}
+
+func (self *SCloudprovider) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionDelete)
 }
 
 func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {

@@ -12,6 +12,8 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 )
 
 const (
@@ -23,7 +25,6 @@ const (
 
 type SZoneManager struct {
 	db.SStatusStandaloneResourceBaseManager
-	SInfrastructureManager
 }
 
 var ZoneManager *SZoneManager
@@ -42,7 +43,6 @@ func init() {
 
 type SZone struct {
 	db.SStatusStandaloneResourceBase
-	SInfrastructure
 
 	Location string `width:"256" charset:"utf8" get:"user" update:"admin"` // = Column(VARCHAR(256, charset='utf8'))
 	Contacts string `width:"256" charset:"utf8" get:"user" update:"admin"` // = Column(VARCHAR(256, charset='utf8'))
@@ -55,6 +55,22 @@ type SZone struct {
 
 func (manager *SZoneManager) GetContextManager() []db.IModelManager {
 	return []db.IModelManager{CloudregionManager}
+}
+
+func (self *SZoneManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionCreate)
+}
+
+func (self *SZone) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionGet)
+}
+
+func (self *SZone) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionUpdate)
+}
+
+func (self *SZone) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionDelete)
 }
 
 func (manager *SZoneManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

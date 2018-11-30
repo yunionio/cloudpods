@@ -12,6 +12,8 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 )
 
 type SchedStrategyType string
@@ -30,7 +32,6 @@ var STRATEGY_LIST = []string{STRATEGY_REQUIRE, STRATEGY_EXCLUDE, STRATEGY_PREFER
 
 type SSchedtagManager struct {
 	db.SStandaloneResourceBaseManager
-	SInfrastructureManager
 }
 
 var SchedtagManager *SSchedtagManager
@@ -48,7 +49,6 @@ func init() {
 
 type SSchedtag struct {
 	db.SStandaloneResourceBase
-	SInfrastructure
 
 	DefaultStrategy string `width:"16" charset:"ascii" nullable:"true" default:"" list:"user" update:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True, default='')
 }
@@ -59,6 +59,18 @@ func (manager *SSchedtagManager) AllowListItems(ctx context.Context, userCred mc
 
 func (self *SSchedtag) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
+}
+
+func (self *SSchedtagManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionCreate)
+}
+
+func (self *SSchedtag) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionUpdate)
+}
+
+func (self *SSchedtag) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionDelete)
 }
 
 func (manager *SSchedtagManager) ValidateSchedtags(userCred mcclient.TokenCredential, schedtags map[string]string) (map[string]string, error) {

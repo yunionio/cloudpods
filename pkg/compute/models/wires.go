@@ -15,11 +15,12 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 )
 
 type SWireManager struct {
 	db.SStandaloneResourceBaseManager
-	SInfrastructureManager
 }
 
 var WireManager *SWireManager
@@ -39,7 +40,6 @@ func init() {
 
 type SWire struct {
 	db.SStandaloneResourceBase
-	SInfrastructure
 
 	Bandwidth    int    `list:"admin" update:"admin" nullable:"false" create:"admin_required"`             // = Column(Integer, nullable=False) # bandwidth of network in Mbps
 	ScheduleRank int    `list:"admin" update:"admin"`                                                      // = Column(Integer, default=0, nullable=True)
@@ -49,6 +49,26 @@ type SWire struct {
 
 func (manager *SWireManager) GetContextManager() []db.IModelManager {
 	return []db.IModelManager{ZoneManager, VpcManager}
+}
+
+func (self *SWireManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionList)
+}
+
+func (self *SWireManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionCreate)
+}
+
+func (self *SWire) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionGet)
+}
+
+func (self *SWire) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionUpdate)
+}
+
+func (self *SWire) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionDelete)
 }
 
 func (manager *SWireManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
