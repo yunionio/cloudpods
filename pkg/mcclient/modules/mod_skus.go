@@ -21,7 +21,7 @@ var (
 )
 
 func init() {
-	CloudmetaSkus = SkusManager{NewCloudmetaManager("cloudmeta_provider", "cloudmeta_providers",
+	CloudmetaSkus = SkusManager{NewCloudmetaManager("sku", "skus",
 		[]string{},
 		[]string{})}
 
