@@ -116,11 +116,13 @@ func (self *SSecurityGroup) getSecurityRules(direction string) (rules []SSecurit
 func (self *SSecurityGroup) getSecRules(direction string) []secrules.SecurityRule {
 	rules := make([]secrules.SecurityRule, 0)
 	for _, _rule := range self.getSecurityRules(direction) {
-		singleRules, err := _rule.SingleRules()
+		//这里没必要拆分为单个单个的端口,到公有云那边适配
+		rule, err := _rule.toRule()
 		if err != nil {
 			log.Errorf(err.Error())
+			continue
 		}
-		rules = append(rules, singleRules...)
+		rules = append(rules, *rule)
 	}
 	return rules
 }
