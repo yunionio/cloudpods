@@ -532,4 +532,35 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type ServerAddExtraOption struct {
+		ID    string `help:"ID or name of server"`
+		KEY   string `help:"Option key"`
+		VALUE string `help:"Option value"`
+	}
+	R(&ServerAddExtraOption{}, "server-add-extra-options", "Add server extra options", func(s *mcclient.ClientSession, args *ServerAddExtraOption) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.KEY), "key")
+		params.Add(jsonutils.NewString(args.VALUE), "value")
+		result, err := modules.Servers.PerformAction(s, args.ID, "set-extra-option", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+	type ServerRemoveExtraOption struct {
+		ID  string `help:"ID or name of server"`
+		KEY string `help:"Option key"`
+	}
+	R(&ServerRemoveExtraOption{}, "server-remove-extra-options", "Remove server extra options", func(s *mcclient.ClientSession, args *ServerRemoveExtraOption) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.KEY), "key")
+		result, err := modules.Servers.PerformAction(s, args.ID, "del-extra-option", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }
