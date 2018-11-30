@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aokoli/goutils"
+	"golang.org/x/crypto/ssh"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -109,14 +110,47 @@ func (self *SRegion) CreateKeyPair(name string) (*SKeypair, error) {
 	return &keypair, err
 }
 
-func (self *SRegion) lookUpAliyunKeypair(publicKey string) (string, error) {
-	keypairs, _, err := self.GetKeypairs("", []string{}, 0, 0)
+func (self *SRegion) getKeypairs() ([]SKeypair, error) {
+	keypairs := []SKeypair{}
+	for {
+		parts, total, err := self.GetKeypairs("", []string{}, 0, 50)
+		if err != nil {
+			log.Errorf("Get keypairs fail %v", err)
+			return nil, err
+		}
+		keypairs = append(keypairs, parts...)
+		if len(keypairs) >= total {
+			break
+		}
+	}
+	return keypairs, nil
+}
+
+func (self *SRegion) getFingerprint(publicKey string) (string, error) {
+	pk, _, _, _, err := ssh.ParseAuthorizedKey([]byte(publicKey))
+	if err != nil {
+		return "", fmt.Errorf("publicKey error %s", err)
+	}
+	return ssh.FingerprintLegacyMD5(pk), nil
+}
+
+func (self *SRegion) lookUpQcloudKeypair(publicKey string) (string, error) {
+	keypairs, err := self.getKeypairs()
+	if err != nil {
+		return "", err
+	}
+
+	localFiger, err := self.getFingerprint(publicKey)
 	if err != nil {
 		return "", err
 	}
 
 	for i := 0; i < len(keypairs); i++ {
-		if keypairs[i].PublicKey == publicKey {
+		finger, err := self.getFingerprint(keypairs[i].PublicKey)
+		if err != nil {
+			continue
+		}
+		if finger == localFiger {
 			return keypairs[i].KeyId, nil
 		}
 	}
@@ -124,8 +158,8 @@ func (self *SRegion) lookUpAliyunKeypair(publicKey string) (string, error) {
 }
 
 func (self *SRegion) syncKeypair(publicKey string) (string, error) {
-	keypairId, e := self.lookUpAliyunKeypair(publicKey)
-	if e == nil {
+	keypairId, err := self.lookUpQcloudKeypair(publicKey)
+	if err == nil {
 		return keypairId, nil
 	}
 
