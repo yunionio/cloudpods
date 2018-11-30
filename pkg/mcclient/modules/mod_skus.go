@@ -26,13 +26,13 @@ func init() {
 		[]string{})}
 
 	ServerSkus = ServerSkusManager{NewComputeManager("serversku", "serverskus",
-		[]string{"ID", "Name", "Instance_type_family", "Instance_type_category", "Cpu_core_count", "Memmory_size_mb", "Os_name", "Sys_disk_resizable", "Sys_disk_type",
+		[]string{"ID", "Name", "Instance_type_family", "Instance_type_category", "Cpu_core_count", "Memory_size_mb", "Os_name", "Sys_disk_resizable", "Sys_disk_type",
 			"Sys_disk_min_size_mb", "Sys_disk_max_size_mb", "Attached_disk_type", "Attached_disk_size_gb", "Attached_disk_count", "Data_disk_types", "Data_disk_max_count", "Nic_max_count",
 			"Cloudregion_id", "Zone_id"},
 		[]string{})}
 
 	register(&CloudmetaSkus)
-	register(&ServerSkus)
+	registerCompute(&ServerSkus)
 }
 
 func (self *SkusManager) GetSkuRate(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {

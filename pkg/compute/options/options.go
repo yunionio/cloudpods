@@ -59,8 +59,8 @@ type ComputeOptions struct {
 	DefaultMaxManualSnapshotCount int `default:"2" help:"Per Disk max manual snapshot count, default 2"`
 
 	// sku sync
-	SyncSkusDay  int `default:"1" help:"Days auto snapshot disks, default 1 day"`
-	SyncSkusHour int `default:"3" help:"What hour take sanpshot, default 03:00"`
+	SyncSkusDay  int `default:"1" help:"Days auto sync skus data, default 1 day"`
+	SyncSkusHour int `default:"3" help:"What hour start sync skus, default 03:00"`
 
 	// aws instance type file
 	DefaultAwsInstanceTypeFile string `default:"/etc/yunion/aws_instance_types.json" help:"aws instance type json file"`
