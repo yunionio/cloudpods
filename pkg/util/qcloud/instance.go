@@ -162,7 +162,10 @@ func (self *SInstance) GetId() string {
 }
 
 func (self *SInstance) GetName() string {
-	return self.InstanceName
+	if len(self.InstanceName) > 0 && self.InstanceName != "未命名" {
+		return self.InstanceName
+	}
+	return self.InstanceId
 }
 
 func (self *SInstance) GetGlobalId() string {
