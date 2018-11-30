@@ -1551,13 +1551,12 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	isku, err := ServerSkuManager.FetchByZoneExtId(zoneExtId, instanceType)
 	if err != nil {
 		log.Errorf("get sku zone %s instance type %s fail %s", zoneExtId, instanceType, err)
+	} else {
+		guest.SkuId = isku.GetId()
 	}
 
-	// todo： isku可能空指针异常。需要处理
-	guest.SkuId = isku.GetId()
-	if extVM.GetHypervisor() == HYPERVISOR_AWS {
+	if extVM.GetHypervisor() == HYPERVISOR_AWS && isku != nil {
 		guest.VmemSize = isku.(*SServerSku).MemorySizeMB
-
 	} else {
 		guest.VmemSize = extVM.GetVmemSizeMB()
 	}
