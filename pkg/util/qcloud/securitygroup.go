@@ -264,8 +264,8 @@ func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 		secgroup.SecurityGroupPolicySet.Ingress[i].direction = "in"
 	}
 	originRules := []SecurityGroupPolicy{}
-	originRules = append(secgroup.SecurityGroupPolicySet.Egress)
-	originRules = append(secgroup.SecurityGroupPolicySet.Ingress)
+	originRules = append(originRules, secgroup.SecurityGroupPolicySet.Egress...)
+	originRules = append(originRules, secgroup.SecurityGroupPolicySet.Ingress...)
 	sort.Sort(SecurityGroupRuleSet(originRules))
 	rules := []secrules.SecurityRule{}
 	priority := 100

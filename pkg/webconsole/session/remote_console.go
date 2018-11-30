@@ -12,6 +12,7 @@ import (
 const (
 	VNC    = "vnc"
 	ALIYUN = "aliyun"
+	QCLOUD = "qcloud"
 	SPICE  = "spice"
 	WMKS   = "wmks"
 )
@@ -74,10 +75,26 @@ func (info *RemoteConsoleInfo) ShowInfo() string {
 }
 
 func (info *RemoteConsoleInfo) GetConnectParams() (string, error) {
-	if info.Protocol != ALIYUN {
-		return "", fmt.Errorf("Can't convert protocol %s to connect params", info.Protocol)
+	if info.Protocol == ALIYUN {
+		return info.getAliyunUrl()
 	}
 
+	if info.Protocol == QCLOUD {
+		return info.getQcloudUrl()
+	}
+
+	return "", fmt.Errorf("Can't convert protocol %s to connect params", info.Protocol)
+}
+
+func (info *RemoteConsoleInfo) getQcloudUrl() (string, error) {
+	base := "https://img.qcloud.com/qcloud/app/active_vnc/index.html"
+	params := url.Values{
+		"InstanceVncUrl": {info.Url},
+	}
+	return fmt.Sprintf("%s?%s", base, params.Encode()), nil
+}
+
+func (info *RemoteConsoleInfo) getAliyunUrl() (string, error) {
 	isWindows := "False"
 	if info.OsName == "Windows" {
 		isWindows = "True"
