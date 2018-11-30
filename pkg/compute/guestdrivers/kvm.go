@@ -329,7 +329,7 @@ func (self *SKVMGuestDriver) RequestSyncToBackup(ctx context.Context, guest *mod
 	body := jsonutils.NewDict()
 	body.Set("backup_nbd_server_uri", jsonutils.NewString(guest.GetMetadata("backup_nbd_server_uri", task.GetUserCred())))
 	host := guest.GetHost()
-	url := fmt.Sprintf("%s/server/%s/drive-mirror", host.ManagerUri, guest.Id)
+	url := fmt.Sprintf("%s/servers/%s/drive-mirror", host.ManagerUri, guest.Id)
 	header := self.getTaskRequestHeader(task)
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
 	if err != nil {

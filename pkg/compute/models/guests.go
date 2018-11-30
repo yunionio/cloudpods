@@ -90,6 +90,7 @@ const (
 	VM_SNAPSHOT        = "snapshot"
 	VM_SNAPSHOT_DELETE = "snapshot_delete"
 	VM_BLOCK_STREAM    = "block_stream"
+	VM_MIRROR_FAIL     = "mirror_failed"
 	VM_SNAPSHOT_SUCC   = "snapshot_succ"
 	VM_SNAPSHOT_FAILED = "snapshot_failed"
 
