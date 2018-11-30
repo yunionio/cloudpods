@@ -25,6 +25,7 @@ type SManagedVMCreateConfig struct {
 	ExternalImageId   string
 	OsDistribution    string
 	OsVersion         string
+	InstanceType      string // InstanceType 不为空时，直接采用InstanceType创建机器。
 	Cpu               int
 	Memory            int
 	ExternalNetworkId string
@@ -45,6 +46,15 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 	config.Cpu = int(guest.VcpuCount)
 	config.Memory = guest.VmemSize
 	config.Description = guest.Description
+
+	if len(guest.SkuId) > 0 {
+		isku, err := models.ServerSkuManager.FetchById(guest.SkuId)
+		if err != nil {
+			log.Errorf("GetJsonDescAtHost sku id %s not found", guest.SkuId)
+		}
+
+		config.InstanceType = isku.GetName()
+	}
 
 	if len(guest.KeypairId) > 0 {
 		config.PublicKey = guest.GetKeypairPublicKey()
@@ -272,14 +282,19 @@ func (self *SManagedVirtualizedGuestDriver) DoGuestCreateDisksTask(ctx context.C
 }
 
 type SManagedVMChangeConfig struct {
-	InstanceId string
-	Cpu        int
-	Memory     int
+	InstanceId   string
+	InstanceType string // InstanceType 不为空时，直接采用InstanceType更新主机。
+	Cpu          int
+	Memory       int
 }
 
 func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, vcpuCount, vmemSize int64) error {
 	config := SManagedVMChangeConfig{}
 	config.InstanceId = guest.GetExternalId()
+	if instanceType, err := task.GetParams().GetString("instance_type"); err == nil {
+		config.InstanceType = instanceType
+	}
+
 	config.Cpu = int(vcpuCount)
 	config.Memory = int(vmemSize)
 	ihost, err := guest.GetHost().GetIHost()
@@ -293,9 +308,16 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 	}
 
 	if int(guest.VcpuCount) != config.Cpu || guest.VmemSize != config.Memory {
-		err = iVM.ChangeConfig(ctx, config.Cpu, config.Memory)
-		if err != nil {
-			return err
+		if len(config.InstanceType) > 0 {
+			err = iVM.ChangeConfig2(ctx, config.InstanceType)
+			if err != nil {
+				return err
+			}
+		} else {
+			err = iVM.ChangeConfig(ctx, config.Cpu, config.Memory)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil

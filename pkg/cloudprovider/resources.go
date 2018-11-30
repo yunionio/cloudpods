@@ -150,6 +150,9 @@ type ICloudHost interface {
 
 	CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, vswitchId string, ipAddr string, desc string,
 		passwd string, storageType string, diskSizes []int, publicKey string, extSecGrpId string, userData string) (ICloudVM, error)
+	// 使用instanceType创建实例。
+	CreateVM2(name string, imgId string, sysDiskSize int, instanceType string, vswitchId string, ipAddr string, desc string,
+		passwd string, storageType string, diskSizes []int, publicKey string, extSecGrpId string, userData string) (ICloudVM, error)
 
 	GetIHostNics() ([]ICloudHostNetInterface, error)
 }
@@ -178,6 +181,7 @@ type ICloudVM interface {
 	GetOSName() string
 	GetBios() string
 	GetMachine() string
+	GetInstanceType() string
 
 	AssignSecurityGroup(secgroupId string) error
 
@@ -198,6 +202,8 @@ type ICloudVM interface {
 	DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error
 
 	ChangeConfig(ctx context.Context, ncpu int, vmem int) error
+	ChangeConfig2(ctx context.Context, instanceType string) error // instanceType support
+
 	GetVNCInfo() (jsonutils.JSONObject, error)
 	AttachDisk(ctx context.Context, diskId string) error
 	DetachDisk(ctx context.Context, diskId string) error

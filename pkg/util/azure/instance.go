@@ -208,6 +208,7 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 		data.Add(jsonutils.NewString(loginKey), "login_key")
 	}
 
+	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
 	priceKey := fmt.Sprintf("%s::%s", self.Properties.HardwareProfile.VMSize, self.host.zone.region.Name)
 	data.Add(jsonutils.NewString(priceKey), "price_key")
 	if nics, err := self.getNics(); err == nil {
@@ -230,6 +231,10 @@ func (self *SInstance) GetHypervisor() string {
 
 func (self *SInstance) IsEmulated() bool {
 	return false
+}
+
+func (self *SInstance) GetInstanceType() string {
+	return self.Properties.HardwareProfile.VMSize
 }
 
 func (self *SInstance) getOsDisk() (*SDisk, error) {
@@ -535,9 +540,34 @@ func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) err
 		err := self.host.zone.region.client.Update(jsonutils.Marshal(self), nil)
 		if err == nil {
 			return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
+		} else {
+			log.Debugf("ChangeConfig %s", err)
 		}
 	}
 	return fmt.Errorf("Failed to change vm config, specification not supported")
+}
+
+func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
+	self.Properties.HardwareProfile.VMSize = instanceType
+	self.Properties.ProvisioningState = ""
+	self.Properties.InstanceView = nil
+	log.Debugf("Try HardwareProfile : %s", instanceType)
+	err := self.host.zone.region.client.Update(jsonutils.Marshal(self), nil)
+	if err == nil {
+		return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
+	} else {
+		log.Errorf("ChangeConfig2 %s", err)
+	}
+
+	return fmt.Errorf("Failed to change vm config, specification not supported")
+}
+
+func (region *SRegion) ChangeVMConfig2(ctx context.Context, instanceId string, instanceType string) error {
+	instance, err := region.GetInstance(instanceId)
+	if err != nil {
+		return err
+	}
+	return instance.ChangeConfig2(ctx, instanceType)
 }
 
 func (region *SRegion) ChangeVMConfig(ctx context.Context, instanceId string, ncpu int, vmem int) error {

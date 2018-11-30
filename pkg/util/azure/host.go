@@ -81,7 +81,7 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 			return nil, err
 		}
 	}
-	vmId, err := self._createVM(name, imgId, int32(sysDiskSize), cpu, memMB, nic.ID, ipAddr, desc, passwd, storageType, diskSizes, publicKey, userData)
+	vmId, err := self._createVM(name, imgId, int32(sysDiskSize), cpu, memMB, "", nic.ID, ipAddr, desc, passwd, storageType, diskSizes, publicKey, userData)
 	if err != nil {
 		self.zone.region.DeleteNetworkInterface(nic.ID)
 		return nil, err
@@ -94,7 +94,36 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 	}
 }
 
-func (self *SHost) _createVM(name string, imgId string, sysDiskSize int32, cpu int, memMB int, nicId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, userData string) (string, error) {
+func (self *SHost) CreateVM2(name string, imgId string, sysDiskSize int, instanceType string, networkId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (cloudprovider.ICloudVM, error) {
+	net := self.zone.getNetworkById(networkId)
+	if net == nil {
+		return nil, fmt.Errorf("invalid network ID %s", networkId)
+	}
+	nic, err := self.searchNetorkInterface(ipAddr, net.GetId(), secgroupId)
+	if err != nil {
+		if err == cloudprovider.ErrNotFound {
+			nic, err = self.zone.region.CreateNetworkInterface(fmt.Sprintf("%s-ipconfig", name), ipAddr, net.GetId(), secgroupId)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
+	}
+	vmId, err := self._createVM(name, imgId, int32(sysDiskSize), 0, 0, instanceType, nic.ID, ipAddr, desc, passwd, storageType, diskSizes, publicKey, userData)
+	if err != nil {
+		self.zone.region.DeleteNetworkInterface(nic.ID)
+		return nil, err
+	}
+	if vm, err := self.zone.region.GetInstance(vmId); err != nil {
+		return nil, err
+	} else {
+		vm.host = self
+		return vm, err
+	}
+}
+
+func (self *SHost) _createVM(name string, imgId string, sysDiskSize int32, cpu int, memMB int, instanceType string, nicId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, userData string) (string, error) {
 	image, err := self.zone.region.GetImage(imgId)
 	if err != nil {
 		log.Errorf("Get Image %s fail %s", imgId, err)
@@ -173,6 +202,17 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int32, cpu i
 	}
 	if len(dataDisks) > 0 {
 		instance.Properties.StorageProfile.DataDisks = dataDisks
+	}
+
+	if len(instanceType) > 0 {
+		instance.Properties.HardwareProfile.VMSize = instanceType
+		log.Debugf("Try HardwareProfile : %s", instanceType)
+		err = self.zone.region.client.Create(jsonutils.Marshal(instance), &instance)
+		if err != nil {
+			log.Errorf("Failed for %s: %s", instanceType, err)
+			return "", fmt.Errorf("Failed to create, specification %s not supported", instanceType)
+		}
+		return instance.ID, nil
 	}
 
 	for _, profile := range self.zone.region.getHardwareProfile(cpu, memMB) {

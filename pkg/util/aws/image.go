@@ -129,11 +129,11 @@ func (self *SRegion) ImportImage(name string, osArch string, osType string, osDi
 	params := &ec2.ImportImageInput{}
 	params.SetArchitecture(osArch)
 	params.SetHypervisor("xen") // todo: osType?
-	params.SetPlatform(osType)
+	params.SetPlatform(osType)  // Linux|Windows
 	// https://docs.aws.amazon.com/zh_cn/vm-import/latest/userguide/vmimport-image-import.html#import-vm-image
 	params.SetRoleName("vmimport")
 	container := &ec2.ImageDiskContainer{}
-	container.SetDescription(fmt.Sprintf("vmimport %s", name))
+	container.SetDescription(fmt.Sprintf("vmimport %s - %s", name, osDist))
 	container.SetFormat(diskFormat)
 	container.SetDeviceName("/dev/sda") // default /dev/sda
 	bkt := &ec2.UserBucket{S3Bucket: &bucket, S3Key: &key}
@@ -270,6 +270,13 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 			}
 		}
 
+		osType := ""
+		if StrVal(image.Platform) != "windows" {
+			osType = "Linux"
+		} else {
+			osType = "Windows"
+		}
+
 		images = append(images, SImage{
 			storageCache:         self.getStoragecache(),
 			Architecture:         *image.Architecture,
@@ -283,8 +290,8 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 			CreationTime:         *image.CreationDate,
 			Size:                 size,
 			RootDevice:           rootDevice,
+			OSType:               osType,
 			// Usage:                "",
-			// OSName:               *image.Platform,
 		})
 	}
 

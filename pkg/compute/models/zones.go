@@ -311,7 +311,7 @@ func (zone *SZone) GetCloudRegionId() string {
 	}
 }
 
-func (manager *SZoneManager) getZonesByRegion(region *SCloudregion) ([]SZone, error) {
+func (manager *SZoneManager) GetZonesByRegion(region *SCloudregion) ([]SZone, error) {
 	zones := make([]SZone, 0)
 	q := manager.Query().Equals("cloudregion_id", region.Id)
 	err := db.FetchModelObjects(manager, q, &zones)
@@ -326,7 +326,7 @@ func (manager *SZoneManager) SyncZones(ctx context.Context, userCred mcclient.To
 	remoteZones := make([]cloudprovider.ICloudZone, 0)
 	syncResult := compare.SyncResult{}
 
-	dbZones, err := manager.getZonesByRegion(region)
+	dbZones, err := manager.GetZonesByRegion(region)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult

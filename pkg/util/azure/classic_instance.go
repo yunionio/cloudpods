@@ -143,6 +143,10 @@ func (self *SClassicInstance) IsEmulated() bool {
 	return false
 }
 
+func (self *SClassicInstance) GetInstanceType() string {
+	return self.Properties.HardwareProfile.Size
+}
+
 func (self *SRegion) GetClassicInstances() ([]SClassicInstance, error) {
 	result := []SClassicInstance{}
 	instances := []SClassicInstance{}
@@ -284,6 +288,10 @@ func (self *SClassicInstance) DetachDisk(ctx context.Context, diskId string) err
 }
 
 func (self *SClassicInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (self *SClassicInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
 	return cloudprovider.ErrNotImplemented
 }
 

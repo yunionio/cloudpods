@@ -110,12 +110,25 @@ func (self *GuestChangeConfigTask) OnCreateDisksCompleteFailed(ctx context.Conte
 }
 
 func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	iVcpuCount, errCpu := self.Params.Get("vcpu_count")
-	iVmemSize, errMem := self.Params.Get("vmem_size")
-	var vcpuCount, vmemSize int64
-	var err error
 	guest := obj.(*models.SGuest)
-	if errCpu == nil || errMem == nil {
+	var vcpuCount, vmemSize int64
+	var paramsError error
+	var err error
+	iSku, paramsError := self.Params.GetString("sku_id")
+	if paramsError == nil {
+		isku, err := models.ServerSkuManager.FetchById(iSku)
+		if err != nil {
+			self.markStageFailed(ctx, guest, fmt.Sprintf("Sku_id fail %s", err))
+			logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
+			return
+		}
+
+		sku := isku.(*models.SServerSku)
+		self.Params.Set("instance_type", jsonutils.NewString(sku.GetName()))
+		vcpuCount = int64(sku.CpuCoreCount)
+		vmemSize = int64(sku.MemorySizeMB)
+	} else {
+		iVcpuCount, cpuError := self.Params.Get("vcpu_count")
 		if iVcpuCount != nil {
 			vcpuCount, err = iVcpuCount.Int()
 			if err != nil {
@@ -123,6 +136,8 @@ func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 				return
 			}
 		}
+
+		iVmemSize, memError := self.Params.Get("vmem_size")
 		if iVmemSize != nil {
 			vmemSize, err = iVmemSize.Int()
 			if err != nil {
@@ -130,6 +145,13 @@ func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, ob
 				return
 			}
 		}
+
+		if cpuError == nil || memError == nil {
+			paramsError = nil
+		}
+	}
+
+	if paramsError == nil {
 		err = guest.GetDriver().RequestChangeVmConfig(ctx, guest, self, vcpuCount, vmemSize)
 		if err != nil {
 			self.markStageFailed(ctx, guest, fmt.Sprintf("guest.GetDriver().RequestChangeVmConfig fail %s", err))

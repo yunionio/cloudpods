@@ -144,10 +144,9 @@ func init() {
 	})
 
 	type InstanceChangeConfigOptions struct {
-		ID   string `help:"instance ID"`
-		Ncpu int    `help:"number of CPU"`
-		Vmem int    `help:"MiB of memory"`
-		Disk []int  `help:"Data disk sizes int GB"`
+		ID             string `help:"instance ID"`
+		InstanceTypeId string `help:"instance type"`
+		Disk           []int  `help:"Data disk sizes int GB"`
 	}
 
 	shellutils.R(&InstanceChangeConfigOptions{}, "instance-change-config", "Deploy keypair/password to a stopped virtual server", func(cli *aliyun.SRegion, args *InstanceChangeConfigOptions) error {
@@ -156,7 +155,7 @@ func init() {
 			return e
 		}
 
-		err := cli.ChangeVMConfig(instance.ZoneId, args.ID, args.Ncpu, args.Vmem, nil)
+		err := cli.ChangeVMConfig2(instance.ZoneId, args.ID, args.InstanceTypeId, nil)
 		if err != nil {
 			return err
 		}

@@ -39,7 +39,7 @@ func NewAwsClient(providerId string, providerName string, accessUrl string, acce
 	return &client, nil
 }
 
-func (self *SAwsClient) getDefaultSession() (*session.Session, error) {
+func (self *SAwsClient) getDefaultRegionId() string {
 	defaultRegion := AWS_INTERNATIONAL_DEFAULT_REGION
 	switch self.accessUrl {
 	case "InternationalCloud":
@@ -47,6 +47,12 @@ func (self *SAwsClient) getDefaultSession() (*session.Session, error) {
 	case "ChinaCloud":
 		defaultRegion = AWS_CHINA_DEFAULT_REGION
 	}
+
+	return defaultRegion
+}
+
+func (self *SAwsClient) getDefaultSession() (*session.Session, error) {
+	defaultRegion := self.getDefaultRegionId()
 	return session.NewSession(&sdk.Config{
 		Region:      sdk.String(defaultRegion),
 		Credentials: credentials.NewStaticCredentials(self.accessKey, self.secret, ""),
@@ -84,7 +90,6 @@ func (self *SAwsClient) fetchRegions() error {
 	svc := ec2.New(s)
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.DescribeRegions
 	result, err := svc.DescribeRegions(&ec2.DescribeRegionsInput{})
-	log.Debugf("remote regions: %s", result)
 	if err != nil {
 		return err
 	}

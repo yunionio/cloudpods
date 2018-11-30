@@ -125,6 +125,10 @@ func ConvertedList(list []string) []*string {
 	return result
 }
 
+func GetBucketName(regionId string) string {
+	return fmt.Sprintf("imgcache-%s", strings.ToLower(regionId))
+}
+
 func ConvertedPointList(list []*string) []string {
 	result := make([]string, len(list))
 	for _, item := range list {

@@ -89,6 +89,10 @@ func (self *SVirtualMachine) IsEmulated() bool {
 	return false
 }
 
+func (self *SVirtualMachine) GetInstanceType() string {
+	return ""
+}
+
 func (self *SVirtualMachine) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
 	return cloudprovider.ErrNotImplemented
 }
@@ -502,6 +506,10 @@ func (self *SVirtualMachine) doChangeConfig(ctx context.Context, ncpu int32, vme
 }
 
 func (self *SVirtualMachine) AssignSecurityGroup(secgroupId string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (dc *SVirtualMachine) ChangeConfig2(ctx context.Context, instanceType string) error {
 	return cloudprovider.ErrNotImplemented
 }
 

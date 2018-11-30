@@ -1081,35 +1081,52 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	if host == nil {
 		return nil, httperrors.NewInvalidStatusError("No valid host")
 	}
+
 	var addCpu, addMem int
 	confs := jsonutils.NewDict()
-	vcpuCount, err := data.GetString("vcpu_count")
-	if err == nil {
-		nVcpu, err := strconv.ParseInt(vcpuCount, 10, 0)
+	skuId, _ := data.GetString("sku_id")
+	if len(skuId) > 0 && self.SkuId != skuId {
+		isku, err := ServerSkuManager.FetchById(skuId)
 		if err != nil {
-			return nil, httperrors.NewBadRequestError("Params vcpu_count parse error")
+			return nil, httperrors.NewNotFoundError("sku_id %s not found", skuId)
 		}
-		err = confs.Add(jsonutils.NewInt(nVcpu), "vcpu_count")
-		if err != nil {
-			return nil, httperrors.NewBadRequestError("Params vcpu_count parse error")
+
+		sku := isku.(*SServerSku)
+		addCpu = sku.CpuCoreCount - int(self.VcpuCount)
+		addMem = sku.MemorySizeMB - self.VmemSize
+		confs.Add(jsonutils.NewString(sku.ExternalId), "sku_id")
+		confs.Add(jsonutils.NewInt(int64(sku.CpuCoreCount)), "vcpu_count")
+		confs.Add(jsonutils.NewInt(int64(sku.MemorySizeMB)), "vmem_size")
+	} else {
+		vcpuCount, err := data.GetString("vcpu_count")
+		if err == nil {
+			nVcpu, err := strconv.ParseInt(vcpuCount, 10, 0)
+			if err != nil {
+				return nil, httperrors.NewBadRequestError("Params vcpu_count parse error")
+			}
+			err = confs.Add(jsonutils.NewInt(nVcpu), "vcpu_count")
+			if err != nil {
+				return nil, httperrors.NewBadRequestError("Params vcpu_count parse error")
+			}
+			addCpu = int(nVcpu - int64(self.VcpuCount))
 		}
-		addCpu = int(nVcpu - int64(self.VcpuCount))
+		vmemSize, err := data.GetString("vmem_size")
+		if err == nil {
+			if !regutils.MatchSize(vmemSize) {
+				return nil, httperrors.NewBadRequestError("Memory size must be number[+unit], like 256M, 1G or 256")
+			}
+			nVmem, err := fileutils.GetSizeMb(vmemSize, 'M', 1024)
+			if err != nil {
+				httperrors.NewBadRequestError("Params vmem_size parse error")
+			}
+			err = confs.Add(jsonutils.NewInt(int64(nVmem)), "vmem_size")
+			if err != nil {
+				return nil, httperrors.NewBadRequestError("Params vmem_size parse error")
+			}
+			addMem = nVmem - self.VmemSize
+		}
 	}
-	vmemSize, err := data.GetString("vmem_size")
-	if err == nil {
-		if !regutils.MatchSize(vmemSize) {
-			return nil, httperrors.NewBadRequestError("Memory size must be number[+unit], like 256M, 1G or 256")
-		}
-		nVmem, err := fileutils.GetSizeMb(vmemSize, 'M', 1024)
-		if err != nil {
-			httperrors.NewBadRequestError("Params vmem_size parse error")
-		}
-		err = confs.Add(jsonutils.NewInt(int64(nVmem)), "vmem_size")
-		if err != nil {
-			return nil, httperrors.NewBadRequestError("Params vmem_size parse error")
-		}
-		addMem = nVmem - self.VmemSize
-	}
+
 	disks := self.GetDisks()
 	var addDisk int
 	var diskIdx = 1

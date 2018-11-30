@@ -45,6 +45,10 @@ func (self *SClassicHost) CreateVM(name string, imgId string, sysDiskSize int, c
 	return nil, cloudprovider.ErrNotImplemented
 }
 
+func (self *SClassicHost) CreateVM2(name string, imgId string, sysDiskSize int, skuId string, networkId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (cloudprovider.ICloudVM, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
 func (self *SClassicHost) GetAccessIp() string {
 	return ""
 }
