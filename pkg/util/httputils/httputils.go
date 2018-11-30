@@ -4,8 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/fatih/color"
-	"github.com/moul/http2curl"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -14,11 +12,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/fatih/color"
+	"github.com/moul/http2curl"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/trace"
-
-	"yunion.io/x/onecloud/pkg/appctx"
 )
 
 const (

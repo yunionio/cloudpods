@@ -165,7 +165,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			}
 
 			if createErr != nil {
-				return nil, err
+				return nil, createErr
 			}
 			log.Debugf("VMcreated %s, wait status ready ...", iVM.GetGlobalId())
 			err = cloudprovider.WaitStatus(iVM, models.VM_READY, time.Second*5, time.Second*1800)

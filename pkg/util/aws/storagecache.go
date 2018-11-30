@@ -157,13 +157,12 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 	s := auth.GetAdminSession(options.Options.Region, "")
 	_, err = s3client.GetObject(&s3.GetObjectInput{Bucket: &bucketName, Key: &imageId})
 	if err != nil {
-		log.Debugf("GetObject %s", err)
 		// first upload image to oss
 		meta, reader, err := modules.Images.Download(s, imageId)
 		if err != nil {
 			return "", err
 		}
-		log.Infof("meta data %s", meta)
+		log.Debugf("Images meta data %s", meta)
 
 		diskFormat, err = meta.GetString("disk_format")
 		if err != nil {

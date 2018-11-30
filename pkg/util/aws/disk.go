@@ -319,11 +319,10 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 			return true
 		}
 
-		if disks[i].Type != models.DISK_TYPE_SYS && disks[j].Type != models.DISK_TYPE_SYS {
-			if disks[i].Device < disks[j].Device {
-				return true
-			}
+		if disks[j].Type != models.DISK_TYPE_SYS && disks[i].Device < disks[j].Device {
+			return true
 		}
+
 		return false
 	})
 

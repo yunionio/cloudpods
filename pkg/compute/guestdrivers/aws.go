@@ -62,7 +62,6 @@ func (self *SAwsGuestDriver) GetChangeConfigStatus() ([]string, error) {
 	return []string{models.VM_READY}, nil
 }
 
-// AWS不允许更改密码或替换密钥对
 func (self *SAwsGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{models.VM_READY, models.VM_RUNNING}, nil
 }

@@ -1460,12 +1460,12 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		isku, err := ServerSkuManager.FetchByZoneExtId(zoneExtId, instanceType)
 		if err != nil {
 			log.Errorf("get sku fail %s", err)
+		} else {
+			self.SkuId = isku.GetId()
 		}
 
-		self.SkuId = isku.GetId()
-		if extVM.GetHypervisor() == HYPERVISOR_AWS {
+		if extVM.GetHypervisor() == HYPERVISOR_AWS && isku != nil {
 			self.VmemSize = isku.(*SServerSku).MemorySizeMB
-
 		} else {
 			self.VmemSize = extVM.GetVmemSizeMB()
 		}

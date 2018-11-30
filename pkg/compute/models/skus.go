@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -143,6 +144,8 @@ func (self *SServerSkuManager) FetchByZoneId(zoneId string, name string) (db.IMo
 		} else {
 			return obj.(db.IStandaloneModel), nil
 		}
+	} else if count > 1 {
+		return nil, sqlchemy.ErrDuplicateEntry
 	} else {
 		return nil, sql.ErrNoRows
 	}

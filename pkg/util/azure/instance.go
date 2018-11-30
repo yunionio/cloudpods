@@ -540,6 +540,8 @@ func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) err
 		err := self.host.zone.region.client.Update(jsonutils.Marshal(self), nil)
 		if err == nil {
 			return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
+		} else {
+			log.Debugf("ChangeConfig %s", err)
 		}
 	}
 	return fmt.Errorf("Failed to change vm config, specification not supported")
@@ -553,6 +555,8 @@ func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) e
 	err := self.host.zone.region.client.Update(jsonutils.Marshal(self), nil)
 	if err == nil {
 		return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
+	} else {
+		log.Errorf("ChangeConfig2 %s", err)
 	}
 
 	return fmt.Errorf("Failed to change vm config, specification not supported")

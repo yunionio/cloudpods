@@ -3,7 +3,7 @@ package modules
 import (
 	"fmt"
 	"strings"
-	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -26,19 +26,15 @@ func init() {
 		[]string{})}
 
 	ServerSkus = ServerSkusManager{NewComputeManager("serversku", "serverskus",
-		[]string{"ID", "Name", "Instance_type_family", "Instance_type_category", "Cpu_core_count", "Memory_size_mb", "Os_name", "Sys_disk_resizable", "Sys_disk_type",
-			"Sys_disk_min_size_mb", "Sys_disk_max_size_mb", "Attached_disk_type", "Attached_disk_size_gb", "Attached_disk_count", "Data_disk_types", "Data_disk_max_count", "Nic_max_count",
-			"Cloudregion_id", "Zone_id"},
+		[]string{"ID", "Name", "Instance_type_family", "Instance_type_category", "Cpu_core_count",
+			"Memory_size_mb", "Os_name", "Sys_disk_resizable", "Sys_disk_type",
+			"Sys_disk_min_size_mb", "Sys_disk_max_size_mb", "Attached_disk_type",
+			"Attached_disk_size_gb", "Attached_disk_count", "Data_disk_types",
+			"Data_disk_max_count", "Nic_max_count", "Cloudregion_id", "Zone_id"},
 		[]string{})}
 
 	register(&CloudmetaSkus)
 	registerCompute(&ServerSkus)
-}
-
-func (self *SkusManager) GetSkuRate(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	url := fmt.Sprintf("/providers/%s/regions/%s/zones/%s/skus/%s/rate", "T", "E", "S", "T")
-	fmt.Println(url)
-	return nil, nil
 }
 
 func (self *SkusManager) GetSkus(s *mcclient.ClientSession, providerId, regionId, zoneId string) (*ListResult, error) {
@@ -51,5 +47,5 @@ func (self *SkusManager) GetSkus(s *mcclient.ClientSession, providerId, regionId
 		return &ListResult{}, err
 	}
 
-	return ret, err
+	return ret, nil
 }

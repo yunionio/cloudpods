@@ -3,12 +3,13 @@ package aws
 import (
 	"fmt"
 	"strings"
+
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/secrules"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SUserCIDRs struct {
@@ -154,7 +155,6 @@ func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name str
 		}
 
 		//addRules
-		log.Debugf("Add Rules for %s : %s", secgrpId, rules)
 		for _, rule := range rules {
 			if err := self.addSecurityGroupRule(secgrpId, &rule); err != nil {
 				return "", err

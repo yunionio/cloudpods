@@ -329,7 +329,8 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 		}
 	}
 
-	return self.host.zone.region.ec2Client.WaitUntilInstanceTerminated(&ec2.DescribeInstancesInput{InstanceIds: ConvertedList([]string{self.InstanceId})})
+	params := &ec2.DescribeInstancesInput{InstanceIds: []*string{&self.InstanceId}}
+	return self.host.zone.region.ec2Client.WaitUntilInstanceTerminated(params)
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
@@ -784,7 +785,7 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 
 	err = self.DeleteDisk(rootDisk.DiskId)
 	if err != nil {
-		log.Debugf("ReplaceSystemDisk delete old disk %s", rootDisk.DiskId)
+		log.Debugf("ReplaceSystemDisk delete old disk %s: %s", rootDisk.DiskId, err)
 	}
 	return diskId, nil
 }
