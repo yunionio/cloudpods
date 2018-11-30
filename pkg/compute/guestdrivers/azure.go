@@ -171,11 +171,20 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 				return nil, fmt.Errorf("failed to set externalId for secgroup %s externalId %s: error: %v", desc.SecGroupId, secgroupExtId, err)
 			}
 
-			iVM, err := ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-				desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData)
-			if err != nil {
-				return nil, err
+			var createErr error
+			var iVM cloudprovider.ICloudVM
+			if len(desc.InstanceType) > 0 {
+				iVM, createErr = ihost.CreateVM2(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.InstanceType, desc.ExternalNetworkId,
+					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData)
+			} else {
+				iVM, createErr = ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
+					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData)
 			}
+
+			if createErr != nil {
+				return nil, createErr
+			}
+
 			log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
 			if err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800); err != nil {
 				return nil, err
@@ -185,7 +194,8 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 				return nil, err
 			}
 
-			return fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action), nil
+			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action)
+			return data, nil
 		})
 	} else if action == "deploy" {
 		iVM, err := ihost.GetIVMById(guest.GetExternalId())

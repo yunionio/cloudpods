@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/pkg/util/secrules"
 )
@@ -200,51 +199,7 @@ func (self *SRegion) updateSecurityGroupRuleDescription(secGrpId string, rule *s
 	return nil
 }
 
-func (self *SRegion) DeleteSecurityGroup(vpcId, secgroupId string) error {
-	return self.deleteSecurityGroup(secgroupId)
-}
-
-func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
-	if len(secgroupId) > 0 {
-		_, err := self.GetSecurityGroupDetails(secgroupId)
-		if err != nil {
-			if err != cloudprovider.ErrNotFound {
-				return "", err
-			}
-			secgroupId = ""
-		}
-	}
-
-	if len(secgroupId) == 0 {
-		// 名称为default的安全组与aws默认安全组名冲突
-		if strings.ToLower(name) == "default" {
-			name = fmt.Sprintf("%s-%s", vpcId, name)
-		}
-		var err error
-		secgroupId, err = self.createSecurityGroup(vpcId, name, desc)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	secgroup, err := self.GetSecurityGroupDetails(secgroupId)
-	if err != nil {
-		return "", err
-	}
-
-	log.Debugf("Sync Rules for %s", secgroup.GetName())
-	if secgroup.GetName() != name {
-		if err := self.modifySecurityGroup(secgroupId, name, ""); err != nil {
-			log.Errorf("Change SecurityGroup name to %s failed: %v", name, err)
-		}
-	}
-	if err := self.syncSecgroupRules(secgroupId, rules); err != nil {
-		return "", err
-	}
-	return secgroupId, nil
-}
-
-func (self *SRegion) createSecurityGroup(vpcId string, name string, desc string) (string, error) {
+func (self *SRegion) createSecurityGroup(vpcId string, name string, secgroupIdTag string, desc string) (string, error) {
 	params := &ec2.CreateSecurityGroupInput{}
 	params.SetVpcId(vpcId)
 	// 这里的描述aws 上层代码拼接的描述。并非用户提交的描述，用户描述放置在Yunion本地数据库中。）
@@ -271,7 +226,7 @@ func (self *SRegion) createSecurityGroup(vpcId string, name string, desc string)
 }
 
 func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
-	secId, err := self.createSecurityGroup(vpcId, "vpc default", "vpc default group")
+	secId, err := self.createSecurityGroup(vpcId, "vpc default", fmt.Sprintf("%s-default", vpcId), "vpc default group")
 	if err != nil {
 		return "", err
 	}

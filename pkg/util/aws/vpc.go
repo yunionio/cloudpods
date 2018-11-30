@@ -1,11 +1,15 @@
 package aws
 
 import (
+	"fmt"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/pkg/util/secrules"
+
+	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
 type SUserCIDRs struct {
@@ -130,6 +134,46 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 	return nil, cloudprovider.ErrNotFound
 }
 
+func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
+	secgrpId := ""
+	// 名称为default的安全组与aws默认安全组名冲突
+	if strings.ToLower(name) == "default" {
+		name = fmt.Sprintf("%s-%s", vpcId, name)
+	}
+
+	if strings.ToLower(secgroupId) == "default" {
+		secgroupId = fmt.Sprintf("%s-%s", vpcId, secgroupId)
+	}
+
+	if secgroup, err := self.getSecurityGroupByTag(vpcId, secgroupId); err != nil {
+		if len(desc) == 0 {
+			desc = fmt.Sprintf("security group %s for vpc %s", name, vpcId)
+		}
+
+		if secgrpId, err = self.createSecurityGroup(vpcId, name, secgroupId, desc); err != nil {
+			return "", err
+		}
+
+		//addRules
+		for _, rule := range rules {
+			if err := self.addSecurityGroupRule(secgrpId, &rule); err != nil {
+				return "", err
+			}
+		}
+	} else {
+		//syncRules
+		secgrpId = secgroup.SecurityGroupId
+		log.Debugf("Sync Rules for %s", secgroup.GetName())
+		if secgroup.GetName() != name {
+			if err := self.modifySecurityGroup(secgrpId, name, ""); err != nil {
+				log.Errorf("Change SecurityGroup name to %s failed: %v", name, err)
+			}
+		}
+		self.syncSecgroupRules(secgrpId, rules)
+	}
+	return secgrpId, nil
+}
+
 func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
 	for i := 0; i < len(self.iwires); i += 1 {
 		wire := self.iwires[i].(*SWire)
@@ -221,7 +265,7 @@ func (self *SRegion) assignSecurityGroup(secgroupId, instanceId string) error {
 	return nil
 }
 
-func (self *SRegion) deleteSecurityGroup(secGrpId string) error {
+func (self *SRegion) DeleteSecurityGroup(vpcId, secGrpId string) error {
 	params := &ec2.DeleteSecurityGroupInput{}
 	params.SetGroupId(secGrpId)
 

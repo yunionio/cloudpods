@@ -167,7 +167,7 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int,
 	vswitchId string, ipAddr string, desc string, passwd string,
 	storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (cloudprovider.ICloudVM, error) {
-	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, vswitchId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId, userData)
+	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, "", vswitchId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId, userData)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +179,22 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 	return vm, err
 }
 
-func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int, memMB int,
+func (self *SHost) CreateVM2(name string, imgId string, sysDiskSize int, instanceType string,
+	vswitchId string, ipAddr string, desc string, passwd string,
+	storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (cloudprovider.ICloudVM, error) {
+	vmId, err := self._createVM(name, imgId, sysDiskSize, 0, 0, instanceType, vswitchId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId, userData)
+	if err != nil {
+		return nil, err
+	}
+	vm, err := self.GetInstanceById(vmId)
+	if err != nil {
+		return nil, err
+	}
+	// err = vm.waitStatus(InstanceStatusStopped, time.Second*10, time.Second*1800)
+	return vm, err
+}
+
+func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, instanceType string,
 	vswitchId string, ipAddr string, desc string, passwd string,
 	storageType string, diskSizes []int, publicKey string, secgroupId string,
 	userData string) (string, error) {
@@ -230,6 +245,17 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 	for i, sz := range diskSizes {
 		disks[i+1].Size = sz
 		disks[i+1].Category = storageType
+	}
+
+	if len(instanceType) > 0 {
+		log.Debugf("Try instancetype : %s", instanceType)
+		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceType, secgroupId, self.zone.ZoneId, desc, passwd, disks, vswitchId, ipAddr, keypair, userData)
+		if err != nil {
+			log.Errorf("Failed for %s: %s", instanceType, err)
+			return "", fmt.Errorf("Failed to create, specification %s not supported", instanceType)
+		} else {
+			return vmId, nil
+		}
 	}
 
 	instanceTypes, err := self.zone.region.GetMatchInstanceTypes(cpu, memMB, 0, self.zone.ZoneId)

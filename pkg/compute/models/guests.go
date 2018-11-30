@@ -572,6 +572,16 @@ func validateMemCpuData(data jsonutils.JSONObject) (int, int, error) {
 	return vmemSize, vcpuCount, nil
 }
 
+func validateSkuData(sku_id string) (string, int, int, error) {
+	isku, err := ServerSkuManager.FetchById(sku_id)
+	if err != nil {
+		return "", 0, 0, err
+	}
+
+	sku := isku.(*SServerSku)
+	return sku.GetId(), sku.CpuCoreCount, sku.MemorySizeMB, nil
+}
+
 func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	vmemSize, vcpuCount, err := validateMemCpuData(data)
 	if err != nil {
@@ -783,19 +793,32 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		return nil, err
 	}
 
-	vmemSize, vcpuCount, err := validateMemCpuData(data)
-	if err != nil {
-		return nil, err
-	}
+	// support sku here
+	sku_id, _ := data.GetString("sku_id")
+	if len(sku_id) > 0 {
+		sku_id, vcpuCount, vmemSize, err := validateSkuData(sku_id)
+		if err != nil {
+			return nil, err
+		}
 
-	if vmemSize == 0 {
-		return nil, httperrors.NewInputParameterError("Missing memory size")
+		data.Add(jsonutils.NewString(sku_id), "sku_id")
+		data.Add(jsonutils.NewInt(int64(vmemSize)), "vmem_size")
+		data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
+	} else {
+		vmemSize, vcpuCount, err := validateMemCpuData(data)
+		if err != nil {
+			return nil, err
+		}
+
+		if vmemSize == 0 {
+			return nil, httperrors.NewInputParameterError("Missing memory size")
+		}
+		if vcpuCount == 0 {
+			vcpuCount = 1
+		}
+		data.Add(jsonutils.NewInt(int64(vmemSize)), "vmem_size")
+		data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
 	}
-	if vcpuCount == 0 {
-		vcpuCount = 1
-	}
-	data.Add(jsonutils.NewInt(int64(vmemSize)), "vmem_size")
-	data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
 
 	if !jsonutils.QueryBoolean(data, "is_system", false) {
 		err = manager.checkCreateQuota(ctx, userCred, ownerProjId, data,
@@ -1419,7 +1442,6 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		self.Name = extVM.GetName()
 		self.Status = extVM.GetStatus()
 		self.VcpuCount = extVM.GetVcpuCount()
-		self.VmemSize = extVM.GetVmemSizeMB()
 		self.BootOrder = extVM.GetBootOrder()
 		self.Vga = extVM.GetVga()
 		self.Vdi = extVM.GetVdi()
@@ -1428,6 +1450,26 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		self.Machine = extVM.GetMachine()
 		self.HostId = host.Id
 		self.ProjectId = userCred.GetProjectId()
+
+		metaData := extVM.GetMetadata()
+		instanceType := extVM.GetInstanceType()
+		zoneExtId, err := metaData.GetString("zone_ext_id")
+		if err != nil {
+			log.Errorf("get zone external id fail %s", err)
+		}
+
+		isku, err := ServerSkuManager.FetchByZoneExtId(zoneExtId, instanceType)
+		if err != nil {
+			log.Errorf("get sku fail %s", err)
+		} else {
+			self.SkuId = isku.GetId()
+		}
+
+		if extVM.GetHypervisor() == HYPERVISOR_AWS && isku != nil {
+			self.VmemSize = isku.(*SServerSku).MemorySizeMB
+		} else {
+			self.VmemSize = extVM.GetVmemSizeMB()
+		}
 
 		if projectSync && len(projectId) > 0 {
 			self.ProjectId = projectId
@@ -1485,7 +1527,6 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	guest.ExternalId = extVM.GetGlobalId()
 	guest.Name = extVM.GetName()
 	guest.VcpuCount = extVM.GetVcpuCount()
-	guest.VmemSize = extVM.GetVmemSizeMB()
 	guest.BootOrder = extVM.GetBootOrder()
 	guest.Vga = extVM.GetVga()
 	guest.Vdi = extVM.GetVdi()
@@ -1501,12 +1542,30 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 	guest.HostId = host.Id
 
+	metaData := extVM.GetMetadata()
+	instanceType := extVM.GetInstanceType()
+	zoneExtId, err := metaData.GetString("zone_ext_id")
+	if err != nil {
+		log.Errorf("get zone external id fail %s", err)
+	}
+
+	isku, err := ServerSkuManager.FetchByZoneExtId(zoneExtId, instanceType)
+	if err != nil {
+		log.Errorf("get sku zone %s instance type %s fail %s", zoneExtId, instanceType, err)
+	} else {
+		guest.SkuId = isku.GetId()
+	}
+
+	if extVM.GetHypervisor() == HYPERVISOR_AWS && isku != nil {
+		guest.VmemSize = isku.(*SServerSku).MemorySizeMB
+	} else {
+		guest.VmemSize = extVM.GetVmemSizeMB()
+	}
+
 	guest.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		guest.ProjectId = projectId
 	}
-
-	metaData := extVM.GetMetadata()
 
 	if metaData != nil && metaData.Contains("secgroupId") {
 		if secgroupId, err := metaData.GetString("secgroupId"); err == nil && len(secgroupId) > 0 {
@@ -1518,7 +1577,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		}
 	}
 
-	err := manager.TableSpec().Insert(&guest)
+	err = manager.TableSpec().Insert(&guest)
 	if err != nil {
 		log.Errorf("Insert fail %s", err)
 	}
