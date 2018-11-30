@@ -69,6 +69,8 @@ type IModel interface {
 
 	GetName() string
 
+	KeywordPlural() string
+
 	GetModelManager() IModelManager
 	SetModelManager(IModelManager)
 
@@ -164,7 +166,7 @@ type IVirtualModel interface {
 	IStandaloneModel
 
 	IsOwner(userCred mcclient.TokenCredential) bool
-	IsAdmin(userCred mcclient.TokenCredential) bool
+	// IsAdmin(userCred mcclient.TokenCredential) bool
 }
 
 type ISharableVirtualModelManager interface {

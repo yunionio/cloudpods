@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/pkg/utils"
@@ -150,8 +149,8 @@ func (this *ClientSession) ParseJSONResponse(resp *http.Response, err error) (ht
 	return httputils.ParseJSONResponse(resp, err, this.client.debug)
 }
 
-func (this *ClientSession) IsSystemAdmin() bool {
-	return this.token.IsSystemAdmin()
+func (this *ClientSession) HasSystemAdminPrivelege() bool {
+	return this.token.HasSystemAdminPrivelege()
 }
 
 func (this *ClientSession) GetRegion() string {

@@ -90,6 +90,12 @@ var (
 			Action:   PolicyActionCreate,
 			Result:   rbacutils.UserAllow,
 		},
+		{
+			Service:  "yunionconf",
+			Resource: "parameters",
+			Action:   PolicyActionGet,
+			Result:   rbacutils.OwnerAllow,
+		},
 	}
 )
 
@@ -278,7 +284,7 @@ func (manager *SPolicyManager) explainPolicy(userCred mcclient.TokenCredential, 
 	if !consts.IsRbacEnabled() {
 		if !isAdmin {
 			return reqStrs, rbacutils.OwnerAllow, nil
-		} else if isAdmin && userCred.IsSystemAdmin() {
+		} else if isAdmin && userCred.HasSystemAdminPrivelege() {
 			return reqStrs, rbacutils.AdminAllow, nil
 		} else {
 			return reqStrs, rbacutils.Deny, httperrors.NewForbiddenError("operation not allowed")
@@ -305,7 +311,7 @@ func (manager *SPolicyManager) ExplainRpc(userCred mcclient.TokenCredential, par
 }
 
 func (manager *SPolicyManager) IsAdminCapable(userCred mcclient.TokenCredential) bool {
-	if !consts.IsRbacEnabled() && userCred.IsSystemAdmin() {
+	if !consts.IsRbacEnabled() && userCred.HasSystemAdminPrivelege() {
 		return true
 	}
 

@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/sqlchemy"
 )
@@ -151,7 +153,7 @@ func (manager *SModelBaseManager) PerformAction(ctx context.Context, userCred mc
 }
 
 func (manager *SModelBaseManager) AllowPerformCheckCreateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionPerform, "check-create-data")
 }
 
 func (manager *SModelBaseManager) InitializeData() error {
@@ -176,6 +178,10 @@ func (model *SModelBase) GetId() string {
 
 func (model *SModelBase) Keyword() string {
 	return model.GetModelManager().Keyword()
+}
+
+func (model *SModelBase) KeywordPlural() string {
+	return model.GetModelManager().KeywordPlural()
 }
 
 func (model *SModelBase) GetName() string {

@@ -11,7 +11,9 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/util/stringutils"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 )
 
 const (
@@ -65,7 +67,7 @@ raise Exception('get_object_idstr: failed to generate obj ID')
 return idstr */
 
 func (manager *SMetadataManager) GetStringValue(model IModel, key string, userCred mcclient.TokenCredential) string {
-	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !userCred.IsSystemAdmin()) {
+	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !userCred.IsAdminAllow(consts.GetServiceType(), model.GetModelManager().KeywordPlural(), policy.PolicyActionGet, "metadata")) {
 		return ""
 	}
 	idStr := GetObjectIdstr(model)
@@ -78,7 +80,7 @@ func (manager *SMetadataManager) GetStringValue(model IModel, key string, userCr
 }
 
 func (manager *SMetadataManager) GetJsonValue(model IModel, key string, userCred mcclient.TokenCredential) jsonutils.JSONObject {
-	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !userCred.IsSystemAdmin()) {
+	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !userCred.IsAdminAllow(consts.GetServiceType(), model.GetModelManager().KeywordPlural(), policy.PolicyActionGet, "metadata")) {
 		return nil
 	}
 	idStr := GetObjectIdstr(model)
@@ -194,7 +196,7 @@ func (manager *SMetadataManager) GetAll(obj IModel, keys []string, userCred mccl
 	for _, rec := range records {
 		if len(rec.Value) > 0 {
 			if strings.HasPrefix(rec.Key, SYSTEM_ADMIN_PREFIX) {
-				if userCred != nil && userCred.IsSystemAdmin() {
+				if userCred != nil && userCred.IsAdminAllow(consts.GetServiceType(), obj.GetModelManager().KeywordPlural(), policy.PolicyActionGet, "metadata") {
 					key := rec.Key[len(SYSTEM_ADMIN_PREFIX):]
 					ret[key] = rec.Value
 				}

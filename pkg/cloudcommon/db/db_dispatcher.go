@@ -65,7 +65,7 @@ func (dispatcher *DBModelDispatcher) Filter(f appsrv.FilterHandler) appsrv.Filte
 }
 
 func fetchUserCredential(ctx context.Context) mcclient.TokenCredential {
-	token := auth.FetchUserCredential(ctx)
+	token := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 	if token == nil && !consts.IsRbacEnabled() {
 		log.Fatalf("user token credential not found?")
 	}
@@ -113,7 +113,7 @@ func listFields(manager IModelManager, userCred mcclient.TokenCredential) []stri
 		if !utils.IsInStringArray(list, []string{"user", "admin", ""}) {
 			log.Warningf("Invalid list value %s for field %s", list, col.Name())
 		}
-		if list == "user" || (list == "admin" && userCred.IsSystemAdmin()) {
+		if list == "user" || (list == "admin" && userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)) {
 			ret = append(ret, col.Name())
 		}
 	}
@@ -127,7 +127,7 @@ func searchFields(manager IModelManager, userCred mcclient.TokenCredential) []st
 		tags := col.Tags()
 		list := tags["list"]
 		search := tags["search"]
-		if list == "user" || search == "user" || ((list == "admin" || search == "admin") && userCred.IsSystemAdmin()) {
+		if list == "user" || search == "user" || ((list == "admin" || search == "admin") && userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)) {
 			ret = append(ret, col.Name())
 		}
 	}
@@ -140,7 +140,7 @@ func getDetailFields(manager IModelManager, userCred mcclient.TokenCredential) [
 		tags := col.Tags()
 		list := tags["list"]
 		get := tags["get"]
-		if list == "user" || get == "user" || ((list == "admin" || get == "admin") && userCred.IsSystemAdmin()) {
+		if list == "user" || get == "user" || ((list == "admin" || get == "admin") && userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionGet)) {
 			ret = append(ret, col.Name())
 		}
 	}
@@ -152,7 +152,7 @@ func createRequireFields(manager IModelManager, userCred mcclient.TokenCredentia
 	for _, col := range manager.TableSpec().Columns() {
 		tags := col.Tags()
 		create, _ := tags["create"]
-		if create == "required" || (create == "admin_required" && userCred.IsSystemAdmin()) {
+		if create == "required" || (create == "admin_required" && userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionCreate)) {
 			ret = append(ret, col.Name())
 		}
 	}
@@ -166,7 +166,7 @@ func createFields(manager IModelManager, userCred mcclient.TokenCredential) []st
 		tags := col.Tags()
 		create, _ := tags["create"]
 		update := tags["update"]
-		if update == "user" || (update == "admin" && userCred.IsSystemAdmin()) || create == "required" || create == "optional" || ((create == "admin_required" || create == "admin_optional") && userCred.IsSystemAdmin()) {
+		if update == "user" || (update == "admin" && userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionCreate)) || create == "required" || create == "optional" || ((create == "admin_required" || create == "admin_optional") && userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionCreate)) {
 			ret = append(ret, col.Name())
 		}
 	}
@@ -179,7 +179,7 @@ func updateFields(manager IModelManager, userCred mcclient.TokenCredential) []st
 	for _, col := range manager.TableSpec().Columns() {
 		tags := col.Tags()
 		update := tags["update"]
-		if update == "user" || (update == "admin" && userCred.IsSystemAdmin()) {
+		if update == "user" || (update == "admin" && userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionUpdate)) {
 			ret = append(ret, col.Name())
 		}
 	}
@@ -315,7 +315,7 @@ func query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 	}
 	listF := listFields(manager, userCred)
 	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
-	if len(fieldFilter) > 0 && userCred.IsSystemAdmin() {
+	if len(fieldFilter) > 0 && userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList) {
 		// only sysadmin can specify list Fields
 		listF = fieldFilter
 	}
@@ -735,7 +735,7 @@ func fetchOwnerProjectId(ctx context.Context, manager IModelManager, userCred mc
 			isAllow = true
 		}
 	} else {
-		isAllow = userCred.IsSystemAdmin()
+		isAllow = userCred.IsAdminAllow(consts.GetServiceType(), policy.PolicyDelegation, "")
 	}
 	if !isAllow {
 		return "", httperrors.NewForbiddenError("Delegation not allowed")

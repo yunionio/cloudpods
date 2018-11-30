@@ -63,6 +63,10 @@ func (this *DBOptions) GetDBConnection() (dialect, connstr string, err error) {
 }
 
 func ParseOptions(optStruct interface{}, optionsRef *Options, args []string, configFileName string) {
+	if len(consts.GetServiceType()) == 0 {
+		log.Fatalf("ServiceType not initialized!")
+	}
+
 	serviceName := path.Base(args[0])
 	parser, err := structarg.NewArgumentParser(optStruct,
 		serviceName,

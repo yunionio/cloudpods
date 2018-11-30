@@ -8,7 +8,9 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"golang.org/x/crypto/ssh"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -47,7 +49,7 @@ func (manager *SKeypairManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	if err != nil {
 		return nil, err
 	}
-	if userCred.IsSystemAdmin() && jsonutils.QueryBoolean(query, "admin", false) {
+	if jsonutils.QueryBoolean(query, "admin", false) && userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList) {
 		user, _ := query.GetString("user")
 		if len(user) > 0 {
 			uc, _ := db.UserCacheManager.FetchUserByIdOrName(user)
@@ -71,7 +73,7 @@ func (self *SKeypair) IsOwner(userCred mcclient.TokenCredential) bool {
 }
 
 func (self *SKeypair) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || userCred.IsSystemAdmin()
+	return self.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionGet)
 }
 
 func (self *SKeypair) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
@@ -85,7 +87,7 @@ func (self *SKeypair) GetExtraDetails(ctx context.Context, userCred mcclient.Tok
 	extra := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
 	extra.Add(jsonutils.NewInt(int64(len(self.PrivateKey))), "private_key_len")
 	extra.Add(jsonutils.NewInt(int64(self.GetLinkedGuestsCount())), "linked_guest_count")
-	if userCred.IsSystemAdmin() {
+	if userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionGet) {
 		extra.Add(jsonutils.NewString(self.OwnerId), "owner_id")
 		uc, _ := db.UserCacheManager.FetchUserById(self.OwnerId)
 		if uc != nil {
@@ -100,11 +102,11 @@ func (manager *SKeypairManager) AllowCreateItem(ctx context.Context, userCred mc
 }
 
 func (self *SKeypair) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionUpdate)
 }
 
 func (self *SKeypair) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || userCred.IsSystemAdmin()
+	return self.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionDelete)
 }
 
 func (self *SKeypair) GetLinkedGuestsCount() int {

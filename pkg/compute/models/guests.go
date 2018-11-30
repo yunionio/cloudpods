@@ -22,9 +22,11 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/compute/sshkeys"
@@ -207,7 +209,7 @@ type SGuest struct {
 
 func (manager *SGuestManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	if query.Contains("host") || query.Contains("wire") || query.Contains("zone") {
-		if !userCred.IsSystemAdmin() {
+		if !userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList) {
 			return false
 		}
 	}
@@ -919,7 +921,7 @@ func (self *SGuest) getExtBandwidth() int {
 func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
 
-	if userCred.IsSystemAdmin() {
+	if userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionGet) {
 		host := self.GetHost()
 		if host != nil {
 			extra.Add(jsonutils.NewString(host.Name), "host")
@@ -1012,7 +1014,7 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 	if metaData, err := self.GetAllMetadata(userCred); err == nil {
 		extra.Add(jsonutils.Marshal(metaData), "metadata")
 	}
-	if userCred.IsSystemAdmin() {
+	if userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionGet) {
 		host := self.GetHost()
 		if host != nil {
 			extra.Add(jsonutils.NewString(host.GetName()), "host")
@@ -2211,10 +2213,10 @@ func (self *SGuest) AllowDeleteItem(ctx context.Context, userCred mcclient.Token
 		overridePendingDelete = jsonutils.QueryBoolean(data, "override_pending_delete", false)
 		purge = jsonutils.QueryBoolean(data, "purge", false)
 	}
-	if (overridePendingDelete || purge) && !userCred.IsSystemAdmin() {
+	if (overridePendingDelete || purge) && !userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionDelete) {
 		return false
 	}
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionDelete)
 }
 
 func (self *SGuest) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {

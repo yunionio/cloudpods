@@ -12,7 +12,9 @@ import (
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -136,7 +138,7 @@ func (lbacl *SLoadbalancerAcl) ValidateUpdateData(ctx context.Context, userCred 
 }
 
 func (lbacl *SLoadbalancerAcl) AllowPerformPatch(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
-	return lbacl.IsOwner(userCred) || userCred.IsSystemAdmin()
+	return lbacl.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), lbacl.KeywordPlural(), policy.PolicyActionPerform, "patch")
 }
 
 // PerformPatch patches acl entries by adding then deleting the specified acls.

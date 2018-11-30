@@ -7,7 +7,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -137,7 +139,7 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 		}
 		baseName = guest.Name
 	case LB_BACKEND_HOST:
-		if !userCred.IsSystemAdmin() {
+		if !userCred.IsAdminAllow(consts.GetServiceType(), man.KeywordPlural(), policy.PolicyActionCreate) {
 			return nil, fmt.Errorf("only sysadmin can specify host as backend")
 		}
 		backendV := validators.NewModelIdOrNameValidator("backend", "host", userCred.GetProjectId())

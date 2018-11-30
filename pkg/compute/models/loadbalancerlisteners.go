@@ -9,8 +9,10 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -295,7 +297,7 @@ func (man *SLoadbalancerListenerManager) validateAcl(aclStatusV *validators.Vali
 }
 
 func (lblis *SLoadbalancerListener) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return lblis.IsOwner(userCred) || userCred.IsSystemAdmin()
+	return lblis.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), lblis.KeywordPlural(), policy.PolicyActionPerform, "status")
 }
 
 func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

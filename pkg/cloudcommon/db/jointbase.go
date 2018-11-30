@@ -8,6 +8,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/sqlchemy"
@@ -191,7 +193,7 @@ func (self *SJointResourceBase) AllowGetJointDetails(ctx context.Context, userCr
 	master := item.Master()
 	switch master.(type) {
 	case IVirtualModel:
-		return master.(IVirtualModel).IsOwner(userCred)
+		return master.(IVirtualModel).IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), master.KeywordPlural(), policy.PolicyActionGet)
 	default: // case item implemented customized AllowGetDetails, eg hostjoints
 		return item.AllowGetDetails(ctx, userCred, query)
 	}
@@ -201,7 +203,7 @@ func (self *SJointResourceBase) AllowUpdateJointItem(ctx context.Context, userCr
 	master := item.Master()
 	switch master.(type) {
 	case IVirtualModel:
-		return master.(IVirtualModel).IsOwner(userCred)
+		return master.(IVirtualModel).IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), master.KeywordPlural(), policy.PolicyActionUpdate)
 	default: // case item implemented customized AllowGetDetails, eg hostjoints
 		return item.AllowUpdateItem(ctx, userCred)
 	}
