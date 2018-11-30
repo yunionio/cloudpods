@@ -221,7 +221,7 @@ func (manager *SPolicyManager) Allow(isAdmin bool, userCred mcclient.TokenCreden
 			currentPriv = result
 		}
 	}
-	if manager.defaultPolicy != nil {
+	if !isAdmin && manager.defaultPolicy != nil {
 		result := manager.defaultPolicy.Allow(userCredJson, service, resource, action, extra...)
 		if currentPriv.StricterThan(result) {
 			currentPriv = result
@@ -229,6 +229,17 @@ func (manager *SPolicyManager) Allow(isAdmin bool, userCred mcclient.TokenCreden
 	}
 	if consts.IsRbacDebug() {
 		log.Debugf("[RBAC: %v] %s %s %s %#v permission %s", isAdmin, service, resource, action, extra, currentPriv)
+	}
+	if isAdmin {
+		switch currentPriv {
+		case rbacutils.OwnerAllow, rbacutils.UserAllow, rbacutils.GuestAllow:
+			currentPriv = rbacutils.AdminAllow
+		}
+	} else {
+		switch currentPriv {
+		case rbacutils.AdminAllow:
+			currentPriv = rbacutils.UserAllow
+		}
 	}
 	return currentPriv
 }
