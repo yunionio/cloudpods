@@ -1,7 +1,6 @@
 package httperrors
 
 import (
-	"fmt"
 	"net/http"
 
 	"yunion.io/x/jsonutils"
@@ -31,7 +30,7 @@ func GeneralServerError(w http.ResponseWriter, e error) {
 	if ok {
 		JsonClientError(w, je)
 	} else {
-		InternalServerError(w, fmt.Sprintf("%s", e))
+		InternalServerError(w, "%s", e)
 	}
 }
 
