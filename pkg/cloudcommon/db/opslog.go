@@ -176,13 +176,6 @@ var _ IModel = (*SOpsLog)(nil)
 
 func init() {
 	OpsLog = &SOpsLogManager{NewModelBaseManager(SOpsLog{}, "opslog_tbl", "event", "events")}
-
-}
-
-func (manager *SOpsLogManager) SetKeyword(kw, kwPlural string) *SOpsLogManager {
-	manager.keyword = kw
-	manager.keywordPlural = kwPlural
-	return manager
 }
 
 func (opslog *SOpsLog) GetId() string {

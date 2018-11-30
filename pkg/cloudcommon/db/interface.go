@@ -22,6 +22,7 @@ type IModelManager interface {
 	KeywordPlural() string
 	Alias() string
 	AliasPlural() string
+	SetAlias(alias string, aliasPlural string)
 
 	ValidateName(name string) error
 
