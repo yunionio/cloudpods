@@ -364,7 +364,7 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 		return nil, err
 	}
 	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.NewString("https://img.qcloud.com/qcloud/app/active_vnc/index.html?InstanceVncUrl="+url), "url")
+	ret.Add(jsonutils.NewString(url), "url")
 	ret.Add(jsonutils.NewString("qcloud"), "protocol")
 	ret.Add(jsonutils.NewString(self.InstanceId), "instance_id")
 	return ret, nil
