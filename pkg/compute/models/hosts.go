@@ -564,12 +564,12 @@ func (self *SHostManager) AllowGetPropertyBmStartRegisterScript(ctx context.Cont
 }
 
 func (self *SHostManager) GetPropertyBmStartRegisterScript(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	regionUri, err := auth.GetServiceURL("compute", options.Options.Region, "", "")
+	regionUri, err := auth.GetServiceURL("compute_v2", options.Options.Region, "", "")
 	if err != nil {
 		return nil, err
 	}
 	var script string
-	script += fmt.Sprintf("curl -fsSL -H 'X-Auth-Token: %s' %s/misc/bm-prepare-script", userCred.GetTokenString(), regionUri)
+	script += fmt.Sprintf("curl -k -fsSL -H 'X-Auth-Token: %s' %s/misc/bm-prepare-script", userCred.GetTokenString(), regionUri)
 	res := jsonutils.NewDict()
 	res.Add(jsonutils.NewString(script), "script")
 	return res, nil
