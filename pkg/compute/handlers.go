@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/capabilities"
+	"yunion.io/x/onecloud/pkg/compute/misc"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/specs"
 	"yunion.io/x/onecloud/pkg/compute/sshkeys"
@@ -22,6 +23,7 @@ func InitHandlers(app *appsrv.Application) {
 	specs.AddSpecHandler("", app)
 	sshkeys.AddSshKeysHandler("", app)
 	taskman.AddTaskHandler("", app)
+	misc.AddMiscHandler("", app)
 
 	for _, manager := range []db.IModelManager{
 		taskman.TaskManager,

@@ -350,7 +350,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		ret, err := modules.Servers.GetSpecific(s, opts.ID, "monitor", params)
+		ret, err := modules.Servers.PerformAction(s, opts.ID, "monitor", params)
 		if err != nil {
 			return err
 		}
