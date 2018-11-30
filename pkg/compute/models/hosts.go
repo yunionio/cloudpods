@@ -1487,15 +1487,7 @@ func (manager *SHostManager) totalCountQ(
 		}
 		q = q.Filter(cond(hosts.Field("is_baremetal")))
 	}
-	if userCred != nil && !userCred.IsSystemAdmin() {
-		zones := ZoneManager.Query().SubQuery()
-		q = q.Join(zones, sqlchemy.AND(
-			sqlchemy.Equals(zones.Field("id"), hosts.Field("zone_id")),
-			sqlchemy.IsFalse(zones.Field("deleted")))).
-			Filter(sqlchemy.Equals(zones.Field("admin_id"), userCred.GetProjectId()))
-	} else {
-		q = AttachUsageQuery(q, hosts, hosts.Field("id"), hostTypes, rangeObj)
-	}
+	q = AttachUsageQuery(q, hosts, hosts.Field("id"), hostTypes, rangeObj)
 	return q
 }
 
