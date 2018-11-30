@@ -43,7 +43,7 @@ func (s *ConnectionServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		srv, err = NewTTYServer(sessionObj)
 	}
 	if err != nil {
-		httperrors.GeneralServerError(w, "New server error: %v", err)
+		httperrors.GeneralServerError(w, err)
 		return
 	}
 	srv.ServeHTTP(w, req)
