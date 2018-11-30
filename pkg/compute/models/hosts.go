@@ -1943,7 +1943,7 @@ func (manager *SHostManager) ValidateSizeParams(data *jsonutils.JSONDict) (*json
 
 func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	zoneId, _ := data.GetString("zone_id")
-	if len(zoneId) == 0 || ZoneManager.Query().Equals("id", zoneId).Count() == 0 {
+	if len(zoneId) > 0 && ZoneManager.Query().Equals("id", zoneId).Count() == 0 {
 		return nil, httperrors.NewInputParameterError("Zone id %s not found", zoneId)
 	}
 	mangerUri, err := data.GetString("manager_uri")
