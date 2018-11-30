@@ -1740,7 +1740,7 @@ func (self *SGuest) PerformUserData(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SGuest) AllowPerformSetExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionPerform, "set-extra-option")
 }
 
 func (self *SGuest) PerformSetExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1768,7 +1768,7 @@ func (self *SGuest) SetExtraOptions(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SGuest) AllowPerformDelExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionPerform, "del-extra-option")
 }
 
 func (self *SGuest) PerformDelExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
