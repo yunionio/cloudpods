@@ -2356,9 +2356,9 @@ func (self *SHost) AllowPerformOffline(ctx context.Context,
 }
 
 func (self *SHost) PerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status != HOST_OFFLINE {
+	if self.HostStatus != HOST_OFFLINE {
 		self.GetModelManager().TableSpec().Update(self, func() error {
-			self.Status = HOST_OFFLINE
+			self.HostStatus = HOST_OFFLINE
 			return nil
 		})
 		db.OpsLog.LogEvent(self, db.ACT_OFFLINE, "", userCred)
@@ -2376,12 +2376,15 @@ func (self *SHost) AllowPerformOnline(ctx context.Context,
 
 func (self *SHost) PerformOnline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.HostStatus != HOST_ONLINE {
-		self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 			self.LastPingAt = time.Now()
 			self.HostStatus = HOST_ONLINE
 			self.Status = BAREMETAL_RUNNING
 			return nil
 		})
+		if err != nil {
+			return nil, err
+		}
 		db.OpsLog.LogEvent(self, db.ACT_ONLINE, "", userCred)
 		logclient.AddActionLog(self, logclient.ACT_ONLINE, nil, userCred, true)
 		self.SyncAttachedStorageStatus()

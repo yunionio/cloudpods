@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"database/sql"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -426,6 +427,7 @@ func (manager *SZoneManager) FetchZoneById(zoneId string) *SZone {
 	zoneObj, err := manager.FetchById(zoneId)
 	if err != nil {
 		log.Errorf("%s", err)
+		return nil
 	}
 	return zoneObj.(*SZone)
 }
