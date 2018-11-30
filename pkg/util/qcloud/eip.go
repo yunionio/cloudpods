@@ -274,12 +274,12 @@ func (region *SRegion) DeallocateEIP(eipId string) error {
 
 func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
 	params := make(map[string]string)
-	params["AllocationId"] = eipId
+	params["AddressId"] = eipId
 	params["InstanceId"] = instanceId
 
-	_, err := region.vpcRequest("AssociateEipAddress", params)
+	_, err := region.vpcRequest("AssociateAddress", params)
 	if err != nil {
-		log.Errorf("AssociateEipAddress fail %s", err)
+		log.Errorf("AssociateAddress fail %s", err)
 	}
 	return err
 }
