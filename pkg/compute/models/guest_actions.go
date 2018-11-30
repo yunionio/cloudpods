@@ -1571,3 +1571,45 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 
 	return nil, nil
 }
+
+func (self *SGuest) AllowPerformSetExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SGuest) PerformSetExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	key, err := data.GetString("key")
+	if err != nil {
+		return nil, httperrors.NewBadRequestError("Option key required")
+	}
+	value, _ := data.GetString("value")
+	extraOptions := self.GetExtraOptions(userCred)
+	extraOptions.Set(key, jsonutils.NewString(value))
+	return nil, self.SetExtraOptions(ctx, userCred, extraOptions)
+}
+
+func (self *SGuest) GetExtraOptions(userCred mcclient.TokenCredential) *jsonutils.JSONDict {
+	options := self.GetMetadataJson("extra_options", userCred)
+	o, ok := options.(*jsonutils.JSONDict)
+	if ok {
+		return o
+	}
+	return jsonutils.NewDict()
+}
+
+func (self *SGuest) SetExtraOptions(ctx context.Context, userCred mcclient.TokenCredential, extraOptions *jsonutils.JSONDict) error {
+	return self.SetMetadata(ctx, "extra_options", extraOptions, userCred)
+}
+
+func (self *SGuest) AllowPerformDelExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return userCred.IsSystemAdmin()
+}
+
+func (self *SGuest) PerformDelExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	key, err := data.GetString("key")
+	if err != nil {
+		return nil, httperrors.NewBadRequestError("Option key required")
+	}
+	extraOptions := self.GetExtraOptions(userCred)
+	extraOptions.Remove(key)
+	return nil, self.SetExtraOptions(ctx, userCred, extraOptions)
+}
