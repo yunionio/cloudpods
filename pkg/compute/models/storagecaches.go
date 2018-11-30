@@ -3,13 +3,13 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/serialx/hashring"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
-	"fmt"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -96,7 +96,7 @@ func (self *SStoragecache) getHostId() (string, error) {
 		sqlchemy.Equals(host.Field("host_status"), HOST_ONLINE),
 		sqlchemy.IsTrue(host.Field("enabled")))).
 		Join(storages, sqlchemy.AND(sqlchemy.Equals(storages.Field("storagecache_id"), self.Id),
-			sqlchemy.Equals(storages.Field("status"), STORAGE_ONLINE),
+			sqlchemy.In(storages.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE}),
 			sqlchemy.IsTrue(storages.Field("enabled")))).
 		Filter(sqlchemy.Equals(hoststorages.Field("storage_id"), storages.Field("id"))).All(&hosts)
 	if err != nil {
