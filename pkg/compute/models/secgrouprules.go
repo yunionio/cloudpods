@@ -282,6 +282,10 @@ func (self *SSecurityGroupRule) String() string {
 	return fields[0] + strings.Join(fields[1:], " ")
 }
 
+func (self *SSecurityGroupRule) toRule() (*secrules.SecurityRule, error) {
+	return secrules.ParseSecurityRule(self.String())
+}
+
 func (self *SSecurityGroupRule) SingleRules() ([]secrules.SecurityRule, error) {
 	rules := make([]secrules.SecurityRule, 0)
 	ruleStr := self.String()
