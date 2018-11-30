@@ -55,6 +55,8 @@ func getCommand(ctx context.Context, userCred mcclient.TokenCredential, ip strin
 	cmd.AppendArgs("-i", file.Name())
 	cmd.AppendArgs("-q")
 	cmd.AppendArgs("-o", "StrictHostKeyChecking=no")
+	cmd.AppendArgs("-o", "GlobalKnownHostsFile=/dev/null")
+	cmd.AppendArgs("-o", "UserKnownHostsFile=/dev/null")
 	cmd.AppendArgs("-o", "PasswordAuthentication=no")
 	cmd.AppendArgs(fmt.Sprintf("%s@%s", ansible.PUBLIC_CLOUD_ANSIBLE_USER, ip))
 	return file.Name(), cmd, nil
