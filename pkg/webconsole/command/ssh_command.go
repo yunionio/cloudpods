@@ -53,10 +53,9 @@ func (c *SSHtoolSol) GetData(data string) (isShow bool, ouput string, command st
 			return true, c.showInfo, ""
 		}
 		c.Username = data
-		return false, "Password: ", ""
-	} else {
-		return true, "", fmt.Sprintf("%s -p %s %s -oStrictHostKeyChecking=no %s@%s", o.Options.SshpassToolPath, data, o.Options.SshToolPath, c.Username, c.IP)
+		return false, "Password:", ""
 	}
+	return true, "", fmt.Sprintf("%s -p %s %s -oGlobalKnownHostsFile=/dev/null -oUserKnownHostsFile=/dev/null -oStrictHostKeyChecking=no %s@%s", o.Options.SshpassToolPath, data, o.Options.SshToolPath, c.Username, c.IP)
 }
 
 func (c *SSHtoolSol) ShowInfo() string {
