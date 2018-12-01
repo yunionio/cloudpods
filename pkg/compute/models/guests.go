@@ -103,8 +103,10 @@ const (
 	VM_RESTORE_STATE      = "restore_state"
 	VM_RESTORE_FAILED     = "restore_failed"
 
-	VM_ASSOCIATE_EIP  = "associate_eip"
-	VM_DISSOCIATE_EIP = "dissociate_eip"
+	VM_ASSOCIATE_EIP         = "associate_eip"
+	VM_ASSOCIATE_EIP_FAILED  = "associate_eip_failed"
+	VM_DISSOCIATE_EIP        = "dissociate_eip"
+	VM_DISSOCIATE_EIP_FAILED = "dissociate_eip_failed"
 
 	VM_REMOVE_STATEFILE = "remove_state"
 
