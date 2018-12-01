@@ -20,6 +20,10 @@ func (self *SBaseHostDriver) ValidateUpdateDisk(ctx context.Context, userCred mc
 	return data, nil
 }
 
+func (self *SBaseHostDriver) ValidateCreateDisk(storage *models.SStorage, sizeGb int) error {
+	return fmt.Errorf("ot Implement ValidateCreateDisk")
+}
+
 func (self *SBaseHostDriver) RequestDeleteSnapshotsWithStorage(ctx context.Context, host *models.SHost, snapshot *models.SSnapshot, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement")
 }

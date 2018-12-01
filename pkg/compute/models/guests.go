@@ -820,7 +820,7 @@ func getGuestResourceRequirements(ctx context.Context, userCred mcclient.TokenCr
 	for idx := 0; data.Contains(fmt.Sprintf("disk.%d", idx)); idx += 1 {
 		dataJson, _ := data.Get(fmt.Sprintf("disk.%d", idx))
 		diskConfig, _ := parseDiskInfo(ctx, userCred, dataJson)
-		diskSize += diskConfig.Size
+		diskSize += diskConfig.SizeMb
 	}
 
 	devCount := 0
