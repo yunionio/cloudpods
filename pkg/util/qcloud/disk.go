@@ -179,7 +179,7 @@ func (self *SDisk) Resize(ctx context.Context, sizeMb int64) error {
 }
 
 func (self *SDisk) GetName() string {
-	if len(self.DiskName) > 0 {
+	if len(self.DiskName) > 0 && self.DiskName != "未命名" {
 		return self.DiskName
 	}
 	return self.DiskId

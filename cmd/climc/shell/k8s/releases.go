@@ -66,4 +66,22 @@ func initRelease() {
 		_, err := k8s.Releases.Delete(s, args.NAME, args.Params())
 		return err
 	})
+
+	R(&o.ReleaseHistoryOptions{}, cmdN("history"), "Get release history", func(s *mcclient.ClientSession, args *o.ReleaseHistoryOptions) error {
+		ret, err := k8s.Releases.GetSpecific(s, args.NAME, "history", args.Params())
+		if err != nil {
+			return err
+		}
+		printObjectYAML(ret)
+		return nil
+	})
+
+	R(&o.ReleaseRollbackOptions{}, cmdN("rollback"), "Rollback release by history revision number", func(s *mcclient.ClientSession, args *o.ReleaseRollbackOptions) error {
+		ret, err := k8s.Releases.PerformAction(s, args.NAME, "rollback", args.Params())
+		if err != nil {
+			return err
+		}
+		printObjectYAML(ret)
+		return nil
+	})
 }

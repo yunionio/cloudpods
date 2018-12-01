@@ -17,6 +17,7 @@ import (
 	"yunion.io/x/onecloud/pkg/webconsole/command"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 	"yunion.io/x/onecloud/pkg/webconsole/session"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 )
 
 const (
@@ -102,7 +103,7 @@ type CloudEnv struct {
 
 func fetchCloudEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*CloudEnv, error) {
 	params, query, body := appsrv.FetchEnv(ctx, w, r)
-	userCred := auth.FetchUserCredential(ctx)
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 	if userCred == nil {
 		return nil, httperrors.NewUnauthorizedError("No token founded")
 	}
@@ -141,7 +142,7 @@ func handleK8sLog(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 }
 
 func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	userCred := auth.FetchUserCredential(ctx)
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 	env, err := fetchCloudEnv(ctx, w, r)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
@@ -194,7 +195,7 @@ func handleServerRemoteConsole(ctx context.Context, w http.ResponseWriter, r *ht
 		return
 	}
 	switch info.Protocol {
-	case session.ALIYUN:
+	case session.ALIYUN, session.QCLOUD:
 		responsePublicCloudConsole(info, w)
 	case session.VNC, session.SPICE, session.WMKS:
 		handleDataSession(info, w)

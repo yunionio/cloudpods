@@ -137,7 +137,7 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 		}
 		baseName = guest.Name
 	case LB_BACKEND_HOST:
-		if !userCred.IsSystemAdmin() {
+		if !db.IsAdminAllowCreate(userCred, man) {
 			return nil, fmt.Errorf("only sysadmin can specify host as backend")
 		}
 		backendV := validators.NewModelIdOrNameValidator("backend", "host", userCred.GetProjectId())

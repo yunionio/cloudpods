@@ -16,7 +16,6 @@ import (
 
 type SSchedpolicyManager struct {
 	db.SStandaloneResourceBaseManager
-	SInfrastructureManager
 }
 
 var SchedpolicyManager *SSchedpolicyManager
@@ -35,7 +34,6 @@ func init() {
 // sched policy is called before calling scheduler, add additional preferences for schedtags
 type SSchedpolicy struct {
 	db.SStandaloneResourceBase
-	SInfrastructure
 
 	Condition  string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
 	SchedtagId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
@@ -60,6 +58,26 @@ func validateSchedpolicyInputData(data *jsonutils.JSONDict, create bool) error {
 	}
 
 	return nil
+}
+
+func (self *SSchedpolicyManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowList(userCred, self)
+}
+
+func (self *SSchedpolicyManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowCreate(userCred, self)
+}
+
+func (self *SSchedpolicy) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGet(userCred, self)
+}
+
+func (self *SSchedpolicy) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return db.IsAdminAllowUpdate(userCred, self)
+}
+
+func (self *SSchedpolicy) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func (manager *SSchedpolicyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -121,7 +139,7 @@ func (manager *SSchedpolicyManager) getAllEnabledPolicies() []SSchedpolicy {
 }
 
 func (self *SSchedpolicy) AllowPerformEvaluate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "evaluate")
 }
 
 func (self *SSchedpolicy) PerformEvaluate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

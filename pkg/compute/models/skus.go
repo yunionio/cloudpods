@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"database/sql"
+
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/jsonutils"
@@ -24,7 +25,6 @@ const (
 
 type SServerSkuManager struct {
 	db.SStandaloneResourceBaseManager
-	SInfrastructureManager
 }
 
 var ServerSkuManager *SServerSkuManager
@@ -44,7 +44,6 @@ func init() {
 // SServerSku 实际对应的是instance type清单. 这里的Sku实际指的是instance type。
 type SServerSku struct {
 	db.SStandaloneResourceBase
-	SInfrastructure
 
 	// SkuId       string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`                 // x2.large
 	InstanceTypeFamily   string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"` // x2

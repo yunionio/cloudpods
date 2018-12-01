@@ -11,7 +11,6 @@ import (
 
 type SVCenterManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
-	SInfrastructureManager
 }
 
 var VCenterManager *SVCenterManager
@@ -29,7 +28,6 @@ func init() {
 
 type SVCenter struct {
 	db.SEnabledStatusStandaloneResourceBase
-	SInfrastructure
 
 	Hostname string `width:"64" charset:"ascii" nullable:"false" list:"admin"` // = Column(VARCHAR(64, charset='ascii'), nullable=False)
 	Port     int    `nullable:"false" list:"admin"`                            // = Column(Integer, nullable=False)
