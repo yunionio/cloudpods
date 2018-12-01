@@ -507,6 +507,63 @@ func (self *SHost) GetBaremetalstorage() *SHoststorage {
 	return nil
 }
 
+func (self *SHost) AllowPerformUpdateStorage(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return db.IsAdminAllowPerform(userCred, self, "update-storage")
+}
+
+func (self *SHost) PerformUpdateStorage(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	bs := self.GetBaremetalstorage()
+	capacity, _ := data.Int("capacity")
+	zoneId, _ := data.GetString("zone_id")
+	if bs == nil {
+		// 1. create storage
+		storage := SStorage{}
+		storage.Name = fmt.Sprintf("storage%s", self.GetName())
+		storage.Capacity = int(capacity)
+		storage.StorageType = STORAGE_BAREMETAL
+		storage.MediumType = self.StorageType
+		storage.Cmtbound = 1.0
+		storage.Status = STORAGE_ONLINE
+		storage.ZoneId = zoneId
+		err := StorageManager.TableSpec().Insert(&storage)
+		if err != nil {
+			return nil, fmt.Errorf("Create baremetal storage error: %v", err)
+		}
+		// 2. create host storage
+		bmStorage := SHoststorage{}
+		bmStorage.HostId = self.Id
+		bmStorage.StorageId = storage.Id
+		bmStorage.RealCapacity = int(capacity)
+		bmStorage.MountPoint = ""
+		err = HoststorageManager.TableSpec().Insert(&bmStorage)
+		if err != nil {
+			return nil, fmt.Errorf("Create baremetal hostStorage error: %v", err)
+		}
+		return nil, nil
+	}
+	storage := bs.GetStorage()
+	if capacity != int64(storage.Capacity) {
+		_, err := storage.GetModelManager().TableSpec().Update(storage, func() error {
+			storage.Capacity = int(capacity)
+			return nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("Update baremetal storage error: %v", err)
+		}
+	}
+	return nil, nil
+}
+
 func (self *SHost) GetFetchUrl() string {
 	managerUrl, err := url.Parse(self.ManagerUri)
 	if err != nil {
@@ -2031,7 +2088,7 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 	}
 	accessMac, err := data.GetString("access_mac")
 	if err == nil {
-		count := manager.TableSpec().Query().Equals("access_mac", accessMac).Count()
+		count := HostManager.Query().Equals("access_mac", accessMac).Count()
 		if count > 0 {
 			return nil, httperrors.NewDuplicateResourceError("Duplicate access_mac %s", accessMac)
 		}
@@ -2097,7 +2154,7 @@ func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 		val := jsonutils.NewDict()
 		val.Update(self.IpmiInfo)
 		val.Update(ipmiInfo)
-		data.Set("impi_info", val)
+		data.Set("ipmi_info", val)
 	}
 	data, err = self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 	if err != nil {
@@ -2145,9 +2202,11 @@ func (self *SHost) FetchIpmiInfo(data *jsonutils.JSONDict) (*jsonutils.JSONDict,
 	IPMI_KEY_PERFIX := "ipmi_"
 	ipmiInfo := jsonutils.NewDict()
 	kv, _ := data.GetMap()
+	var err error
 	for key := range kv {
-		value, err := ipmiInfo.GetString(key)
-		if strings.HasPrefix(value, IPMI_KEY_PERFIX) {
+		if strings.HasPrefix(key, IPMI_KEY_PERFIX) {
+			value, _ := data.GetString(key)
+			log.Errorf("---------fetch ipmiinfo key: %s, val: %s", key, value)
 			subkey := key[len(IPMI_KEY_PERFIX):]
 			data.Remove(key)
 			if subkey == "password" {
@@ -2156,8 +2215,13 @@ func (self *SHost) FetchIpmiInfo(data *jsonutils.JSONDict) (*jsonutils.JSONDict,
 					log.Errorf("encrypt password failed %s", err)
 					return nil, err
 				}
+			} else if subkey == "ip_addr" {
+				if !regutils.MatchIP4Addr(value) {
+					log.Errorf("%s: %s not match ip address", key, value)
+					continue
+				}
 			}
-			ipmiInfo.Set(key, jsonutils.NewString(value))
+			ipmiInfo.Set(subkey, jsonutils.NewString(value))
 		}
 	}
 	return ipmiInfo, nil
@@ -2557,23 +2621,18 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 				netif.WireId = sw.Id
 			}
 			if rate != netif.Rate {
-				changed = true
-				netif.Rate = int(rate)
+				netif.Rate = rate
 			}
 			if nicType != netif.NicType {
-				changed = true
 				netif.NicType = nicType
 			}
 			if index >= 0 && index != netif.Index {
-				changed = true
 				netif.Index = int8(index)
 			}
 			if linkUp != netif.LinkUp {
-				changed = true
 				netif.LinkUp = linkUp
 			}
 			if mtu != netif.Mtu {
-				changed = true
 				netif.Mtu = int16(mtu)
 			}
 			return nil
