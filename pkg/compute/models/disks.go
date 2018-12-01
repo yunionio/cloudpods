@@ -310,10 +310,9 @@ func (manager *SDiskManager) validateDiskOnStorage(diskConfig *SDiskConfig, stor
 	if storage.StorageType != diskConfig.Backend {
 		return httperrors.NewInputParameterError("Storage type[%s] not match backend %s", storage.StorageType, diskConfig.Backend)
 	}
-	sizeGb := diskConfig.SizeMb >> 10
 	if host := storage.GetMasterHost(); host != nil {
 		//公有云磁盘大小检查。
-		if err := host.GetHostDriver().ValidateCreateDisk(storage, sizeGb); err != nil {
+		if err := host.GetHostDriver().ValidateDiskSize(storage, diskConfig.SizeMb>>10); err != nil {
 			return httperrors.NewInputParameterError(err.Error())
 		}
 	}
@@ -565,21 +564,26 @@ func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 	if err != nil {
 		return nil, err
 	}
-	size, err := fileutils.GetSizeMb(sizeStr, 'M', 1024)
+	sizeMb, err := fileutils.GetSizeMb(sizeStr, 'M', 1024)
 	if err != nil {
 		return nil, err
 	}
 	if self.Status != DISK_READY {
 		return nil, httperrors.NewResourceNotReadyError("Resize disk when disk is READY")
 	}
-	if size < self.DiskSize {
+	if sizeMb < self.DiskSize {
 		return nil, httperrors.NewUnsupportOperationError("Disk cannot be thrink")
 	}
-	if size == self.DiskSize {
+	if sizeMb == self.DiskSize {
 		return nil, nil
 	}
-	addDisk := size - self.DiskSize
+	addDisk := sizeMb - self.DiskSize
 	storage := self.GetStorage()
+	if host := storage.GetMasterHost(); host != nil {
+		if err := host.GetHostDriver().ValidateDiskSize(storage, sizeMb>>10); err != nil {
+			return nil, httperrors.NewInputParameterError(err.Error())
+		}
+	}
 	if addDisk > storage.GetFreeCapacity() && !storage.IsEmulated {
 		return nil, httperrors.NewOutOfResourceError("Not enough free space")
 	}
@@ -592,7 +596,7 @@ func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), &pendingUsage); err != nil {
 		return nil, httperrors.NewOutOfQuotaError(err.Error())
 	}
-	return nil, self.StartDiskResizeTask(ctx, userCred, int64(size), "", &pendingUsage)
+	return nil, self.StartDiskResizeTask(ctx, userCred, int64(sizeMb), "", &pendingUsage)
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {

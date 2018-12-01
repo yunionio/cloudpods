@@ -24,7 +24,7 @@ func (self *SAwsHostDriver) GetHostType() string {
 	return models.HOST_TYPE_AWS
 }
 
-func (self *SAwsHostDriver) ValidateCreateDisk(storage *models.SStorage, sizeGb int) error {
+func (self *SAwsHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	if storage.StorageType == models.STORAGE_GP2_SSD {
 		if sizeGb < 1 || sizeGb > 16384 {
 			return fmt.Errorf("The %s disk size must be in the range of 1G ~ 16384GB", storage.StorageType)

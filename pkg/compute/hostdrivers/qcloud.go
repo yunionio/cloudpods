@@ -28,7 +28,7 @@ func (self *SQcloudHostDriver) GetHostType() string {
 	return models.HOST_TYPE_QCLOUD
 }
 
-func (self *SQcloudHostDriver) ValidateCreateDisk(storage *models.SStorage, sizeGb int) error {
+func (self *SQcloudHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	if sizeGb%10 != 0 {
 		return fmt.Errorf("The disk size must be a multiple of 10Gb")
 	}

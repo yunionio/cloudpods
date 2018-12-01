@@ -14,6 +14,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/utils"
 )
 
 type SAzureHostDriver struct {
@@ -36,7 +37,14 @@ func (self *SAzureHostDriver) ValidateUpdateDisk(ctx context.Context, userCred m
 	return data, nil
 }
 
-func (self *SAzureHostDriver) ValidateCreateDisk(storage *models.SStorage, sizeGb int) error {
+func (self *SAzureHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
+	if utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_STANDARD_LRS, models.STORAGE_STANDARDSSD_LRS, models.STORAGE_PREMIUM_LRS}) {
+		if sizeGb < 1 || sizeGb > 4095 {
+			return fmt.Errorf("The %s disk size must be in the range of 1G ~ 4095GB", storage.StorageType)
+		}
+	} else {
+		return fmt.Errorf("Not support create %s disk", storage.StorageType)
+	}
 	return nil
 }
 
