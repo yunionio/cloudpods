@@ -128,3 +128,33 @@ type ReleaseDeleteOptions struct {
 	ClusterBaseOptions
 	NAME string `help:"Release instance name"`
 }
+
+type ReleaseHistoryOptions struct {
+	ClusterBaseOptions
+	NAME string `help:"Release instance name"`
+	Max  int64  `help:"History limit size"`
+}
+
+func (o ReleaseHistoryOptions) Params() *jsonutils.JSONDict {
+	params := o.ClusterBaseOptions.Params()
+	if o.Max >= 1 {
+		params.Add(jsonutils.NewInt(o.Max), "max")
+	}
+	return params
+}
+
+type ReleaseRollbackOptions struct {
+	ClusterBaseOptions
+	NAME        string `help:"Release instance name"`
+	REVISION    int64  `help:"Release history revision number"`
+	Description string `help:"Release rollback description string"`
+}
+
+func (o ReleaseRollbackOptions) Params() *jsonutils.JSONDict {
+	params := o.ClusterBaseOptions.Params()
+	params.Add(jsonutils.NewInt(o.REVISION), "revision")
+	if o.Description != "" {
+		params.Add(jsonutils.NewString(o.Description), "description")
+	}
+	return params
+}
