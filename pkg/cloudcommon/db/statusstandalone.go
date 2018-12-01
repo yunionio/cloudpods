@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
-	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -52,7 +50,7 @@ func (model *SStatusStandaloneResourceBase) SetStatus(userCred mcclient.TokenCre
 }
 
 func (model *SStatusStandaloneResourceBase) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsAdminAllow(consts.GetServiceType(), model.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "status")
+	return IsAdminAllowPerform(userCred, model, "status")
 }
 
 func (model *SStatusStandaloneResourceBase) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

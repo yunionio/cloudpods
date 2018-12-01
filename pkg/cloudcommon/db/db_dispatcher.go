@@ -113,7 +113,7 @@ func listFields(manager IModelManager, userCred mcclient.TokenCredential) []stri
 		if !utils.IsInStringArray(list, []string{"user", "admin", ""}) {
 			log.Warningf("Invalid list value %s for field %s", list, col.Name())
 		}
-		if list == "user" || (list == "admin" && userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)) {
+		if list == "user" || (list == "admin" && IsAdminAllowList(userCred, manager)) {
 			ret = append(ret, col.Name())
 		}
 	}
@@ -127,7 +127,7 @@ func searchFields(manager IModelManager, userCred mcclient.TokenCredential) []st
 		tags := col.Tags()
 		list := tags["list"]
 		search := tags["search"]
-		if list == "user" || search == "user" || ((list == "admin" || search == "admin") && userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)) {
+		if list == "user" || search == "user" || ((list == "admin" || search == "admin") && IsAdminAllowList(userCred, manager)) {
 			ret = append(ret, col.Name())
 		}
 	}
@@ -152,7 +152,7 @@ func createRequireFields(manager IModelManager, userCred mcclient.TokenCredentia
 	for _, col := range manager.TableSpec().Columns() {
 		tags := col.Tags()
 		create, _ := tags["create"]
-		if create == "required" || (create == "admin_required" && userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionCreate)) {
+		if create == "required" || (create == "admin_required" && IsAdminAllowCreate(userCred, manager)) {
 			ret = append(ret, col.Name())
 		}
 	}
@@ -166,7 +166,7 @@ func createFields(manager IModelManager, userCred mcclient.TokenCredential) []st
 		tags := col.Tags()
 		create, _ := tags["create"]
 		update := tags["update"]
-		if update == "user" || (update == "admin" && userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionCreate)) || create == "required" || create == "optional" || ((create == "admin_required" || create == "admin_optional") && userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionCreate)) {
+		if update == "user" || (update == "admin" && IsAdminAllowCreate(userCred, manager)) || create == "required" || create == "optional" || ((create == "admin_required" || create == "admin_optional") && IsAdminAllowCreate(userCred, manager)) {
 			ret = append(ret, col.Name())
 		}
 	}
@@ -315,7 +315,7 @@ func query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 	}
 	listF := listFields(manager, userCred)
 	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
-	if len(fieldFilter) > 0 && userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList) {
+	if len(fieldFilter) > 0 && IsAdminAllowList(userCred, manager) {
 		// only sysadmin can specify list Fields
 		listF = fieldFilter
 	}

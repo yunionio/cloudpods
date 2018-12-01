@@ -6,8 +6,6 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
-	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/sqlchemy"
 )
@@ -153,7 +151,7 @@ func (manager *SModelBaseManager) PerformAction(ctx context.Context, userCred mc
 }
 
 func (manager *SModelBaseManager) AllowPerformCheckCreateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionPerform, "check-create-data")
+	return IsAdminAllowClassPerform(userCred, manager, "check-create-data")
 }
 
 func (manager *SModelBaseManager) InitializeData() error {

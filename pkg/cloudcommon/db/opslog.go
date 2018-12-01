@@ -9,8 +9,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
-	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/pkg/util/stringutils"
@@ -288,7 +286,7 @@ func (manager *SOpsLogManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 		queryDict.RemoveIgnoreCase("action")
 		q = q.Filter(sqlchemy.In(q.Field("action"), action))
 	}
-	if !userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList) {
+	if !IsAdminAllowList(userCred, manager) {
 		q = q.Filter(sqlchemy.OR(sqlchemy.AND(sqlchemy.IsNotNull(q.Field("owner_tenant_id")), sqlchemy.Equals(q.Field("owner_tenant_id"), userCred.GetProjectId())), sqlchemy.Equals(q.Field("tenant_id"), userCred.GetProjectId())))
 	}
 	since, _ := query.GetTime("since")
@@ -319,7 +317,7 @@ func (manager *SOpsLogManager) AllowCreateItem(ctx context.Context, userCred mcc
 }
 
 func (self *SOpsLog) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return userCred.IsAdminAllow(consts.GetServiceType(), self.GetModelManager().KeywordPlural(), policy.PolicyActionGet) || userCred.GetProjectId() == self.ProjectId || userCred.GetProjectId() == self.OwnerProjectId
+	return IsAdminAllowGet(userCred, self) || userCred.GetProjectId() == self.ProjectId || userCred.GetProjectId() == self.OwnerProjectId
 }
 
 func (self *SOpsLog) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {

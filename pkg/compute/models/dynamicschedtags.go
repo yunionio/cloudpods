@@ -7,9 +7,7 @@ import (
 	"yunion.io/x/log"
 
 	"database/sql"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/conditionparser"
@@ -46,23 +44,23 @@ type SDynamicschedtag struct {
 }
 
 func (self *SDynamicschedtagManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionList)
+	return db.IsAdminAllowList(userCred, self)
 }
 
 func (self *SDynamicschedtagManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionCreate)
+	return db.IsAdminAllowCreate(userCred, self)
 }
 
 func (self *SDynamicschedtag) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionGet)
+	return db.IsAdminAllowGet(userCred, self)
 }
 
 func (self *SDynamicschedtag) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionUpdate)
+	return db.IsAdminAllowUpdate(userCred, self)
 }
 
 func (self *SDynamicschedtag) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionDelete)
+	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func validateDynamicSchedtagInputData(data *jsonutils.JSONDict, create bool) error {
@@ -152,7 +150,7 @@ func (manager *SDynamicschedtagManager) getAllEnabledDynamicSchedtags() []SDynam
 }
 
 func (self *SDynamicschedtag) AllowPerformEvaluate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionPerform, "evaluate")
+	return db.IsAdminAllowPerform(userCred, self, "evaluate")
 }
 
 func (self *SDynamicschedtag) PerformEvaluate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

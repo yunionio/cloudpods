@@ -13,12 +13,10 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -495,7 +493,7 @@ func (self *SElasticip) StartEipDeallocateTask(ctx context.Context, userCred mcc
 }
 
 func (self *SElasticip) AllowPerformAssociate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionPerform, "associate")
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "associate")
 }
 
 func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -595,7 +593,7 @@ func (self *SElasticip) StartEipAssociateTask(ctx context.Context, userCred mccl
 }
 
 func (self *SElasticip) AllowPerformDissociate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionPerform, "dissociate")
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "dissociate")
 }
 
 func (self *SElasticip) PerformDissociate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -649,7 +647,7 @@ func (self *SElasticip) GetIEip() (cloudprovider.ICloudEIP, error) {
 }
 
 func (self *SElasticip) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionPerform, "sync")
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "sync")
 }
 
 func (self *SElasticip) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -733,7 +731,7 @@ func (manager *SElasticipManager) allocateEipAndAssociateVM(ctx context.Context,
 }
 
 func (self *SElasticip) AllowPerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionPerform, "change-bandwidth")
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "change-bandwidth")
 }
 
 func (self *SElasticip) PerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -836,7 +834,7 @@ func (manager *SElasticipManager) TotalCount(projectId string, rangeObj db.IStan
 }
 
 func (self *SElasticip) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionDelete)
+	return db.IsAdminAllowPerform(userCred, self, "purge")
 }
 
 func (self *SElasticip) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

@@ -8,9 +8,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"golang.org/x/crypto/ssh"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -49,7 +47,7 @@ func (manager *SKeypairManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	if err != nil {
 		return nil, err
 	}
-	if jsonutils.QueryBoolean(query, "admin", false) && userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList) {
+	if jsonutils.QueryBoolean(query, "admin", false) && db.IsAdminAllowList(userCred, manager) {
 		user, _ := query.GetString("user")
 		if len(user) > 0 {
 			uc, _ := db.UserCacheManager.FetchUserByIdOrName(user)
@@ -73,7 +71,7 @@ func (self *SKeypair) IsOwner(userCred mcclient.TokenCredential) bool {
 }
 
 func (self *SKeypair) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionGet)
+	return self.IsOwner(userCred) || db.IsAdminAllowGet(userCred, self)
 }
 
 func (self *SKeypair) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
@@ -87,7 +85,7 @@ func (self *SKeypair) GetExtraDetails(ctx context.Context, userCred mcclient.Tok
 	extra := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
 	extra.Add(jsonutils.NewInt(int64(len(self.PrivateKey))), "private_key_len")
 	extra.Add(jsonutils.NewInt(int64(self.GetLinkedGuestsCount())), "linked_guest_count")
-	if userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionGet) {
+	if db.IsAdminAllowGet(userCred, self) {
 		extra.Add(jsonutils.NewString(self.OwnerId), "owner_id")
 		uc, _ := db.UserCacheManager.FetchUserById(self.OwnerId)
 		if uc != nil {
@@ -102,11 +100,11 @@ func (manager *SKeypairManager) AllowCreateItem(ctx context.Context, userCred mc
 }
 
 func (self *SKeypair) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return self.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionUpdate)
+	return self.IsOwner(userCred) || db.IsAdminAllowUpdate(userCred, self)
 }
 
 func (self *SKeypair) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionDelete)
+	return self.IsOwner(userCred) || db.IsAdminAllowDelete(userCred, self)
 }
 
 func (self *SKeypair) GetLinkedGuestsCount() int {

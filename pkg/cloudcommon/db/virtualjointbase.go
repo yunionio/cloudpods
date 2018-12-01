@@ -10,8 +10,6 @@ import (
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
-	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -29,7 +27,7 @@ func NewVirtualJointResourceBaseManager(dt interface{}, tableName string, keywor
 }
 
 func (manager *SVirtualJointResourceBaseManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	if jsonutils.QueryBoolean(query, "admin", false) && !userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList) {
+	if jsonutils.QueryBoolean(query, "admin", false) && !IsAdminAllowList(userCred, manager) {
 		return false
 	}
 	return true
@@ -38,7 +36,7 @@ func (manager *SVirtualJointResourceBaseManager) AllowListItems(ctx context.Cont
 
 func (manager *SVirtualJointResourceBaseManager) AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, master IStandaloneModel, query jsonutils.JSONObject) bool {
 	masterVirtual := master.(IVirtualModel)
-	if masterVirtual.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), masterVirtual.KeywordPlural(), policy.PolicyActionList) {
+	if masterVirtual.IsOwner(userCred) || IsAdminAllowList(userCred, manager) {
 		return true
 	}
 	return false
@@ -64,12 +62,12 @@ func (manager *SVirtualJointResourceBaseManager) AllowAttach(ctx context.Context
 
 func (self *SVirtualJointResourceBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	masterVirtual := self.Master().(IVirtualModel)
-	return masterVirtual.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), masterVirtual.KeywordPlural(), policy.PolicyActionGet)
+	return masterVirtual.IsOwner(userCred) || IsAdminAllowGet(userCred, self)
 }
 
 func (self *SVirtualJointResourceBase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
 	masterVirtual := self.Master().(IVirtualModel)
-	return masterVirtual.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), masterVirtual.KeywordPlural(), policy.PolicyActionUpdate)
+	return masterVirtual.IsOwner(userCred) || IsAdminAllowUpdate(userCred, self)
 }
 
 func (manager *SVirtualJointResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
@@ -98,7 +96,7 @@ func (manager *SVirtualJointResourceBaseManager) ListItemFilter(ctx context.Cont
 		sqlchemy.IsFalse(masterTable.Field("deleted"))))
 	q = q.Join(slaveTable, sqlchemy.AND(sqlchemy.Equals(slaveField, slaveTable.Field("id")),
 		sqlchemy.IsFalse(slaveTable.Field("deleted"))))
-	if jsonutils.QueryBoolean(query, "admin", false) && userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList) {
+	if jsonutils.QueryBoolean(query, "admin", false) && IsAdminAllowList(userCred, manager) {
 		isSystem := jsonutils.QueryBoolean(query, "system", false)
 		if !isSystem {
 			if len(slaveQueryId) == 0 {

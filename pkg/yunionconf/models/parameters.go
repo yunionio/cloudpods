@@ -74,7 +74,7 @@ func getNamespaceInContext(userCred mcclient.TokenCredential, query jsonutils.JS
 
 func getNamespace(userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (string, string, error) {
 	var namespace, namespace_id string
-	if userCred.IsAdminAllow(consts.GetServiceType(), ParameterManager.KeywordPlural(), policy.PolicyActionGet) {
+	if db.IsAdminAllowGet(userCred, ParameterManager) {
 		if name, nameId, e := getNamespaceInContext(userCred, query, data); e != nil {
 			return "", "", e
 		} else {
@@ -94,7 +94,7 @@ func (manager *SParameterManager) AllowListItems(ctx context.Context, userCred m
 		return true
 	}
 
-	return userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
+	return db.IsAdminAllowList(userCred, manager)
 }
 
 func (manager *SParameterManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -102,7 +102,7 @@ func (manager *SParameterManager) AllowCreateItem(ctx context.Context, userCred 
 		return true
 	}
 
-	return userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionCreate)
+	return db.IsAdminAllowCreate(userCred, manager)
 }
 
 func (manager *SParameterManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -148,7 +148,7 @@ func (manager *SParameterManager) FilterByName(q *sqlchemy.SQuery, name string) 
 }
 
 func (manager *SParameterManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	if userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList) {
+	if db.IsAdminAllowList(userCred, manager) {
 		if id, _ := query.GetString("namespace_id"); len(id) > 0 {
 			q = q.Equals("namespace_id", id)
 		} else if id, _ := query.GetString("service_id"); len(id) > 0 {
@@ -173,7 +173,7 @@ func (model *SParameter) IsOwner(userCred mcclient.TokenCredential) bool {
 }
 
 func (model *SParameter) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return model.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), model.KeywordPlural(), policy.PolicyActionUpdate)
+	return model.IsOwner(userCred) || db.IsAdminAllowUpdate(userCred, model)
 }
 
 func (model *SParameter) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -193,7 +193,7 @@ func (model *SParameter) ValidateUpdateData(ctx context.Context, userCred mcclie
 }
 
 func (model *SParameter) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return model.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), model.KeywordPlural(), policy.PolicyActionDelete)
+	return model.IsOwner(userCred) || db.IsAdminAllowDelete(userCred, model)
 }
 
 func (model *SParameter) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -213,5 +213,5 @@ func (model *SParameter) Delete(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func (model *SParameter) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return model.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), model.KeywordPlural(), policy.PolicyActionGet)
+	return model.IsOwner(userCred) || db.IsAdminAllowGet(userCred, model)
 }

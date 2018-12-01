@@ -17,10 +17,8 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -136,7 +134,7 @@ func (self *SNetwork) GetVpc() *SVpc {
 }
 
 func (manager *SNetworkManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionCreate)
+	return db.IsAdminAllowCreate(userCred, manager)
 }
 
 func (self *SNetwork) ValidateDeleteCondition(ctx context.Context) error {
@@ -629,7 +627,7 @@ func (manager *SNetworkManager) allNetworksQ(rangeObj db.IStandaloneModel) *sqlc
 func (manager *SNetworkManager) totalPortCountQ(userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
 	q := manager.allNetworksQ(rangeObj)
 	networks := manager.Query().SubQuery()
-	if userCred != nil && !userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList) {
+	if userCred != nil && !db.IsAdminAllowList(userCred, manager) {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.Equals(networks.Field("tenant_id"), userCred.GetProjectId()),
 			sqlchemy.IsTrue(networks.Field("is_public"))))
@@ -762,7 +760,7 @@ func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *SNetworkCo
 			}
 			if netConfig.Reserved {
 				// the privilege to access reserved ip
-				if !userCred.IsAdminAllow(consts.GetServiceType(), ReservedipManager.KeywordPlural(), policy.PolicyActionGet) {
+				if !db.IsAdminAllowList(userCred, ReservedipManager) {
 					return httperrors.NewForbiddenError("Only system admin allowed to use reserved ip")
 				}
 				if ReservedipManager.GetReservedIP(net, netConfig.Address) == nil {
@@ -879,7 +877,7 @@ func (self *SNetwork) GetCustomizeColumns(ctx context.Context, userCred mcclient
 }
 
 func (self *SNetwork) AllowPerformReserveIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionPerform, "reserve-ip")
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "reserve-ip")
 }
 
 func (self *SNetwork) PerformReserveIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -906,7 +904,7 @@ func (self *SNetwork) PerformReserveIp(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SNetwork) AllowPerformReleaseReservedIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionPerform, "release-reserved-ip")
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "release-reserved-ip")
 }
 
 func (self *SNetwork) PerformReleaseReservedIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -923,7 +921,7 @@ func (self *SNetwork) PerformReleaseReservedIp(ctx context.Context, userCred mcc
 }
 
 func (self *SNetwork) AllowGetDetailsReservedIps(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionGet, "reserved-ips")
+	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "reserved-ips")
 }
 
 func (self *SNetwork) GetDetailsReservedIps(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1214,7 +1212,7 @@ func isOverlapNetworks(nets []SNetwork, startIp netutils.IPV4Addr, endIp netutil
 }
 
 func (self *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionCreate) && ownerProjId == userCred.GetProjectId() {
+	if db.IsAdminAllowCreate(userCred, self.GetModelManager()) && ownerProjId == userCred.GetProjectId() {
 		self.IsPublic = true
 	} else {
 		self.IsPublic = false
@@ -1399,7 +1397,7 @@ func (self *SNetwork) ValidateUpdateCondition(ctx context.Context) error {
 }
 
 func (self *SNetwork) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsAdminAllow(consts.GetServiceType(), self.KeywordPlural(), policy.PolicyActionDelete)
+	return db.IsAdminAllowPerform(userCred, self, "purge")
 }
 
 func (self *SNetwork) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
