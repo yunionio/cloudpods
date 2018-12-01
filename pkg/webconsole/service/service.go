@@ -12,10 +12,10 @@ import (
 
 	"net/http"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/webconsole"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 	"yunion.io/x/onecloud/pkg/webconsole/server"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 )
 
 func ensureBinExists(binPath string) {

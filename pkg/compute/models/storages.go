@@ -198,7 +198,6 @@ func (self *SStorage) IsLocal() bool {
 	return self.StorageType == STORAGE_LOCAL || self.StorageType == STORAGE_BAREMETAL
 }
 
-
 func (self *SStorage) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	used := self.GetUsedCapacity(tristate.True)
 	waste := self.GetUsedCapacity(tristate.False)

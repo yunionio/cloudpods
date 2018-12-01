@@ -235,7 +235,6 @@ func (p *SLoadbalancerAgentParams) IsZero() bool {
 	return false
 }
 
-
 func (self *SLoadbalancerAgentManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return db.IsAdminAllowList(userCred, self)
 }
