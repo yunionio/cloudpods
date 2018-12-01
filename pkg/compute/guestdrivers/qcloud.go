@@ -12,7 +12,6 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -344,12 +343,12 @@ func (self *SQcloudGuestDriver) RequestSyncConfigOnHost(ctx context.Context, gue
 			return nil, err
 		}
 		for _, disk := range removed {
-			if err := iVM.DetachDisk(disk.GetId()); err != nil {
+			if err := iVM.DetachDisk(ctx, disk.GetId()); err != nil {
 				return nil, err
 			}
 		}
 		for _, disk := range added {
-			if err := iVM.AttachDisk(disk.ExternalId); err != nil {
+			if err := iVM.AttachDisk(ctx, disk.ExternalId); err != nil {
 				return nil, err
 			}
 		}
