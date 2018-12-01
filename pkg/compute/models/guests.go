@@ -797,7 +797,9 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	sku_id, _ := data.GetString("sku_id")
 	if len(sku_id) > 0 {
 		sku_id, vcpuCount, vmemSize, err := validateSkuData(sku_id)
-		if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError2("sku_id", sku_id)
+		} else if err != nil {
 			return nil, err
 		}
 
