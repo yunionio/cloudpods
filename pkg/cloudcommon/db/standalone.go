@@ -201,10 +201,10 @@ func (model *SStandaloneResourceBase) PerformMetadata(ctx context.Context, userC
 	}
 	dictStore := make(map[string]interface{})
 	for k, v := range dictMap {
-		dictStore[k] = v
+		dictStore[k], _ = v.GetString()
 	}
-	model.SetAllMetadata(ctx, dictStore, userCred)
-	return nil, nil
+	err = model.SetAllMetadata(ctx, dictStore, userCred)
+	return nil, err
 }
 
 func (model *SStandaloneResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {

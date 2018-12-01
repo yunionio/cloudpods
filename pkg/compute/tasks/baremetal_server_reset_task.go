@@ -3,7 +3,6 @@ package tasks
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -23,8 +22,7 @@ func (self *BaremetalServerResetTask) OnInit(ctx context.Context, obj db.IStanda
 		return
 	}
 	url := fmt.Sprintf("/baremetals/%s/servers/%s/reset", baremetal.Id, guest.Id)
-	headers := http.Header{}
-	headers.Set("X-Auth-Token", self.UserCred.GetTokenString())
+	headers := self.GetTaskRequestHeader()
 	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, nil)
 	if err != nil {
 		log.Errorf(err.Error())

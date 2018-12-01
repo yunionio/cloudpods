@@ -2031,7 +2031,7 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 	}
 	accessMac, err := data.GetString("access_mac")
 	if err == nil {
-		count := manager.TableSpec().Query().Equals("access_mac", accessMac).Count()
+		count := HostManager.Query().Equals("access_mac", accessMac).Count()
 		if count > 0 {
 			return nil, httperrors.NewDuplicateResourceError("Duplicate access_mac %s", accessMac)
 		}
@@ -2097,7 +2097,7 @@ func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 		val := jsonutils.NewDict()
 		val.Update(self.IpmiInfo)
 		val.Update(ipmiInfo)
-		data.Set("impi_info", val)
+		data.Set("ipmi_info", val)
 	}
 	data, err = self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 	if err != nil {
@@ -2145,9 +2145,11 @@ func (self *SHost) FetchIpmiInfo(data *jsonutils.JSONDict) (*jsonutils.JSONDict,
 	IPMI_KEY_PERFIX := "ipmi_"
 	ipmiInfo := jsonutils.NewDict()
 	kv, _ := data.GetMap()
+	var err error
 	for key := range kv {
-		value, err := ipmiInfo.GetString(key)
-		if strings.HasPrefix(value, IPMI_KEY_PERFIX) {
+		if strings.HasPrefix(key, IPMI_KEY_PERFIX) {
+			value, _ := data.GetString(key)
+			log.Errorf("---------fetch ipmiinfo key: %s, val: %s", key, value)
 			subkey := key[len(IPMI_KEY_PERFIX):]
 			data.Remove(key)
 			if subkey == "password" {
@@ -2156,8 +2158,13 @@ func (self *SHost) FetchIpmiInfo(data *jsonutils.JSONDict) (*jsonutils.JSONDict,
 					log.Errorf("encrypt password failed %s", err)
 					return nil, err
 				}
+			} else if subkey == "ip_addr" {
+				if !regutils.MatchIP4Addr(value) {
+					log.Errorf("%s: %s not match ip address", key, value)
+					continue
+				}
 			}
-			ipmiInfo.Set(key, jsonutils.NewString(value))
+			ipmiInfo.Set(subkey, jsonutils.NewString(value))
 		}
 	}
 	return ipmiInfo, nil
@@ -2557,23 +2564,18 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 				netif.WireId = sw.Id
 			}
 			if rate != netif.Rate {
-				changed = true
-				netif.Rate = int(rate)
+				netif.Rate = rate
 			}
 			if nicType != netif.NicType {
-				changed = true
 				netif.NicType = nicType
 			}
 			if index >= 0 && index != netif.Index {
-				changed = true
 				netif.Index = int8(index)
 			}
 			if linkUp != netif.LinkUp {
-				changed = true
 				netif.LinkUp = linkUp
 			}
 			if mtu != netif.Mtu {
-				changed = true
 				netif.Mtu = int16(mtu)
 			}
 			return nil
