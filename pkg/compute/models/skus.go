@@ -48,12 +48,12 @@ type SServerSku struct {
 
 	// SkuId       string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`                 // x2.large
 	InstanceTypeFamily   string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"` // x2
-	InstanceTypeCategory string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"` // 通用型
+	InstanceTypeCategory string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" update:"admin"`  // 通用型
 
 	CpuCoreCount int `nullable:"false" list:"user" create:"admin_required" update:"admin"`
 	MemorySizeMB int `nullable:"false" list:"user" create:"admin_required" update:"admin"`
 
-	OsName string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin"` // windows|linux|any
+	OsName string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin" default:"Any"` // Windows|Linux|Any
 
 	SysDiskResizable bool   `default:"true" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 	SysDiskType      string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin"`
@@ -80,6 +80,16 @@ type SServerSku struct {
 	Provider      string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 }
 
+func inWhiteList(provider string) bool {
+	// 只有为true的hypervisor才进行创建和更新操作
+	switch provider {
+	case HYPERVISOR_ESXI, HYPERVISOR_KVM:
+		return true
+	default:
+		return false
+	}
+}
+
 func (self *SServerSkuManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
 }
@@ -94,6 +104,15 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 	query jsonutils.JSONObject,
 	data *jsonutils.JSONDict,
 ) (*jsonutils.JSONDict, error) {
+	provider, err := data.GetString("provider")
+	if err != nil || len(provider) == 0 {
+		return nil, httperrors.NewMissingParameterError("provider")
+	}
+
+	if !inWhiteList(provider) {
+		return nil, httperrors.NewInputParameterError("can not create with provider %s", provider)
+	}
+
 	regionStr := jsonutils.GetAnyString(data, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
 	if len(regionStr) > 0 {
 		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionStr)
@@ -151,11 +170,24 @@ func (self *SServerSkuManager) FetchByZoneId(zoneId string, name string) (db.IMo
 	}
 }
 
+func (self *SServerSku) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	if self.SStandaloneResourceBase.AllowUpdateItem(ctx, userCred) == false {
+		return false
+	}
+
+	return inWhiteList(self.Provider)
+}
+
 func (self *SServerSku) ValidateUpdateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	provider, err := data.GetString("provider")
+	if err == nil && !inWhiteList(provider) {
+		return nil, httperrors.NewInputParameterError("can not create with provider %s", provider)
+	}
+
 	zoneStr := jsonutils.GetAnyString(data, []string{"zone", "zone_id"})
 	if len(zoneStr) > 0 {
 		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zoneStr)
@@ -168,6 +200,19 @@ func (self *SServerSku) ValidateUpdateData(
 		data.Add(jsonutils.NewString(zoneObj.GetId()), "zone_id")
 	}
 	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+}
+
+func (self *SServerSku) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	if !inWhiteList(self.Provider) {
+		return false
+	}
+
+	count := GuestManager.Query().Equals("sku_id", self.Id).Count()
+	if count == 0 {
+		return self.SStandaloneResourceBase.AllowDeleteItem(ctx, userCred, query, data)
+	} else {
+		return false
+	}
 }
 
 func (self *SServerSku) GetZoneExternalId() (string, error) {

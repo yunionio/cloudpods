@@ -40,11 +40,13 @@ func init() {
 		CpuCoreCount int    `help:"Cpu Count" required:"true" positional:"true"`
 		MemorySizeMB int    `help:"Memory MB" required:"true" positional:"true"`
 
+		OsName      *string `help:"OS name/type" choices:"Linux|Windows|Any" default:"Any"`
 		SkuFamily   *string `help:"sku family"`
 		SkuCategory *string `help:"sku category" choices:"general_purpose|compute_optimized|memory_optimized|storage_optimized|hardware_accelerated|high_memory|high_storage"`
 
-		SysDiskResizable *bool `help:"system disk is resizable"`
-		SysDiskMaxSizeGB *int  `help:"system disk maximal size in gb"`
+		SysDiskResizable *bool   `help:"system disk is resizable"`
+		SysDiskType      *string `help:"system disk type" default:"local" choices:"local"`
+		SysDiskMaxSizeGB *int    `help:"system disk maximal size in gb"`
 
 		AttachedDiskType   *string `help:"attached data disk type"`
 		AttachedDiskSizeGB *int    `help:"attached data disk size in GB"`
@@ -59,8 +61,9 @@ func init() {
 		GPUCount      *int    `help:"GPU count"`
 		GPUAttachable *bool   `help:"Allow attach GPU"`
 
-		Zone   *string `help:"Zone ID or name"`
-		Region *string `help:"Region ID or name"`
+		Zone     *string `help:"Zone ID or name"`
+		Region   *string `help:"Region ID or name"`
+		Provider *string `help:"Provider name" choices:"kvm|esxi"`
 	}
 	R(&ServerSkusCreateOptions{}, "server-sku-create", "Create a server sku record", func(s *mcclient.ClientSession, args *ServerSkusCreateOptions) error {
 		params, err := options.StructToParams(args)
