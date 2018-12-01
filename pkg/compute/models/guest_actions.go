@@ -30,7 +30,7 @@ import (
 )
 
 func (self *SGuest) AllowGetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "vnc")
 }
 
 func (self *SGuest) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -51,7 +51,7 @@ func (self *SGuest) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SGuest) AllowGetDetailsMonitor(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "monitor")
 }
 
 func (self *SGuest) GetDetailsMonitor(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -66,7 +66,7 @@ func (self *SGuest) GetDetailsMonitor(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SGuest) AllowGetDetailsDesc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "desc")
 }
 
 func (self *SGuest) GetDetailsDesc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -79,7 +79,7 @@ func (self *SGuest) GetDetailsDesc(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SGuest) AllowPerformSaveImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "save-image")
 }
 
 func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -117,7 +117,7 @@ func (self *SGuest) StartGuestSaveImage(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SGuest) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "sync")
 }
 
 func (self *SGuest) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -159,7 +159,7 @@ func (self *SGuest) CheckQemuVersion(qemuVer, compareVer string) bool {
 }
 
 func (self *SGuest) AllowPerformMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "migrate")
 }
 
 func (self *SGuest) PerformMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -186,7 +186,7 @@ func (self *SGuest) PerformMigrate(ctx context.Context, userCred mcclient.TokenC
 	var preferHostId string
 	preferHost, _ := data.GetString("prefer_host")
 	if len(preferHost) > 0 {
-		if !userCred.IsSystemAdmin() {
+		if !db.IsAdminAllowPerform(userCred, self, "assign-host") {
 			return nil, httperrors.NewBadRequestError("Only system admin can assign host")
 		}
 		iHost, _ := HostManager.FetchByIdOrName(userCred, preferHost)
@@ -219,7 +219,7 @@ func (self *SGuest) StartMigrateTask(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SGuest) AllowPerformLiveMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "live-migrate")
 }
 
 func (self *SGuest) PerformLiveMigrate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -249,7 +249,7 @@ func (self *SGuest) PerformLiveMigrate(ctx context.Context, userCred mcclient.To
 		var preferHostId string
 		preferHost, _ := data.GetString("prefer_host")
 		if len(preferHost) > 0 {
-			if !userCred.IsSystemAdmin() {
+			if !db.IsAdminAllowPerform(userCred, self, "assign-host") {
 				return nil, httperrors.NewBadRequestError("Only system admin can assign host")
 			}
 			iHost, _ := HostManager.FetchByIdOrName(userCred, preferHost)
@@ -282,7 +282,7 @@ func (self *SGuest) StartGuestLiveMigrateTask(ctx context.Context, userCred mccl
 }
 
 func (self *SGuest) AllowPerformDeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "deploy")
 }
 
 func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -345,7 +345,7 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SGuest) AllowPerformAttachdisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "attachdisk")
 }
 
 func (self *SGuest) ValidateAttachDisk(ctx context.Context, disk *SDisk) error {
@@ -425,7 +425,7 @@ func (self *SGuest) StartSyncTask(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SGuest) AllowPerformSuspend(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "suspend")
 }
 
 func (self *SGuest) PerformSuspend(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -448,7 +448,7 @@ func (self *SGuest) AllowPerformStart(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "start")
 }
 
 func (self *SGuest) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
@@ -624,11 +624,11 @@ func (self *SGuest) StartDeleteGuestTask(ctx context.Context, userCred mcclient.
 }
 
 func (self *SGuest) AllowPerformAssignSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "assign-secgroup")
 }
 
 func (self *SGuest) AllowPerformRevokeSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "revoke-secgroup")
 }
 
 func (self *SGuest) PerformRevokeSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -679,7 +679,7 @@ func (self *SGuest) PerformAssignSecgroup(ctx context.Context, userCred mcclient
 }
 
 func (self *SGuest) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsAdmin(userCred)
+	return db.IsAdminAllowPerform(userCred, self, "purge")
 }
 
 func (self *SGuest) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -707,7 +707,7 @@ func (self *SGuest) setKeypairId(userCred mcclient.TokenCredential, keypairId st
 }
 
 func (self *SGuest) AllowPerformRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "rebuild-root")
 }
 
 func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -814,7 +814,7 @@ func (self *SGuest) DetachDisk(ctx context.Context, disk *SDisk, userCred mcclie
 }
 
 func (self *SGuest) AllowPerformCreatedisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "createdisk")
 }
 
 func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -885,7 +885,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SGuest) AllowPerformDetachdisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "detachdisk")
 }
 
 func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -931,7 +931,7 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SGuest) AllowPerformDetachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "detach-isolated-device")
 }
 
 func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -981,7 +981,7 @@ func (self *SGuest) detachIsolateDevice(userCred mcclient.TokenCredential, dev *
 }
 
 func (self *SGuest) AllowPerformAttachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "attach-isolated-device")
 }
 
 func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1019,7 +1019,7 @@ func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mc
 }
 
 func (self *SGuest) AllowPerformDetachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "detachnetwork")
 }
 
 func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1041,7 +1041,7 @@ func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.
 }
 
 func (self *SGuest) AllowPerformAttachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "attachnetwork")
 }
 
 func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1092,7 +1092,7 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 }
 
 func (self *SGuest) AllowPerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || userCred.IsSystemAdmin()
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "change-bandwidth")
 }
 
 func (self *SGuest) PerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1126,7 +1126,7 @@ func (self *SGuest) PerformChangeBandwidth(ctx context.Context, userCred mcclien
 }
 
 func (self *SGuest) AllowPerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || self.IsAdmin(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "change-config")
 }
 
 func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1317,7 +1317,7 @@ func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.Token
 }
 
 func (model *SGuest) AllowPerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, model, "cancel-delete")
 }
 
 func (self *SGuest) PerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1353,7 +1353,7 @@ func (self *SGuest) AllowPerformReset(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "reset")
 }
 
 func (self *SGuest) PerformReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
@@ -1367,7 +1367,7 @@ func (self *SGuest) PerformReset(ctx context.Context, userCred mcclient.TokenCre
 }
 
 func (self *SGuest) AllowPerformDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "disk-snapshot")
 }
 
 func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1421,7 +1421,7 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SGuest) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "syncstatus")
 }
 
 func (self *SGuest) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1465,7 +1465,7 @@ func (self *SGuest) AllowPerformStop(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "stop")
 }
 
 func (self *SGuest) PerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
@@ -1482,7 +1482,7 @@ func (self *SGuest) AllowPerformRestart(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "restart")
 }
 
 func (self *SGuest) PerformRestart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1495,7 +1495,7 @@ func (self *SGuest) PerformRestart(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SGuest) AllowPerformSendkeys(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "sendkeys")
 }
 
 func (self *SGuest) PerformSendkeys(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1569,7 +1569,7 @@ func (self *SGuest) SendMonitorCommand(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SGuest) AllowPerformAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "associate-eip")
 }
 
 func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1637,7 +1637,7 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SGuest) AllowPerformDissociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "dissociate-eip")
 }
 
 func (self *SGuest) PerformDissociateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1661,7 +1661,7 @@ func (self *SGuest) PerformDissociateEip(ctx context.Context, userCred mcclient.
 }
 
 func (self *SGuest) AllowPerformCreateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "create-eip")
 }
 
 func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1716,7 +1716,7 @@ func (self *SGuest) setUserData(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func (self *SGuest) AllowPerformUserData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "userdata")
 }
 
 func (self *SGuest) PerformUserData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1738,7 +1738,7 @@ func (self *SGuest) PerformUserData(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SGuest) AllowPerformSetExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "set-extra-option")
 }
 
 func (self *SGuest) PerformSetExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1766,7 +1766,7 @@ func (self *SGuest) SetExtraOptions(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SGuest) AllowPerformDelExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "del-extra-option")
 }
 
 func (self *SGuest) PerformDelExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

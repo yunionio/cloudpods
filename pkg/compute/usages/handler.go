@@ -75,7 +75,7 @@ func rangeObjHandler(
 	reporter objUsageFunc,
 ) appsrv.FilterHandler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		userCred := auth.FetchUserCredential(ctx)
+		userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 		obj, err := getRangeObj(ctx, manager, userCred)
 		if err != nil {
 			httperrors.NotFoundError(w, err.Error())
@@ -276,7 +276,7 @@ func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandalo
 			isAdmin = true
 		}
 	} else {
-		isAdmin = userCred.IsSystemAdmin()
+		isAdmin = userCred.IsAdminAllow(consts.GetServiceType(), "usages", policy.PolicyActionGet)
 	}
 
 	if isAdmin {

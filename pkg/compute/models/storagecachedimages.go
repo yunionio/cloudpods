@@ -30,7 +30,6 @@ const (
 
 type SStoragecachedimageManager struct {
 	db.SJointResourceBaseManager
-	SInfrastructureManager
 }
 
 var StoragecachedimageManager *SStoragecachedimageManager
@@ -52,7 +51,6 @@ func init() {
 
 type SStoragecachedimage struct {
 	db.SJointResourceBase
-	SInfrastructure
 
 	StoragecacheId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required" key_index:"true"`
 	CachedimageId  string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required" key_index:"true"`
@@ -71,6 +69,26 @@ func (joint *SStoragecachedimage) Master() db.IStandaloneModel {
 
 func (joint *SStoragecachedimage) Slave() db.IStandaloneModel {
 	return db.JointSlave(joint)
+}
+
+func (self *SStoragecachedimageManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowList(userCred, self)
+}
+
+func (self *SStoragecachedimageManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowCreate(userCred, self)
+}
+
+func (self *SStoragecachedimage) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGet(userCred, self)
+}
+
+func (self *SStoragecachedimage) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return db.IsAdminAllowUpdate(userCred, self)
+}
+
+func (self *SStoragecachedimage) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func (self *SStoragecachedimage) getStorageHostId() (string, error) {
@@ -127,7 +145,7 @@ func (self *SStoragecachedimage) GetExtraDetails(ctx context.Context, userCred m
 }
 
 func (manager *SStoragecachedimageManager) AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, model db.IStandaloneModel, query jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowList(userCred, manager)
 }
 
 func (self *SStoragecachedimage) GetCachedimage() *SCachedimage {

@@ -19,7 +19,6 @@ import (
 
 type SWireManager struct {
 	db.SStandaloneResourceBaseManager
-	SInfrastructureManager
 }
 
 var WireManager *SWireManager
@@ -39,7 +38,6 @@ func init() {
 
 type SWire struct {
 	db.SStandaloneResourceBase
-	SInfrastructure
 
 	Bandwidth    int    `list:"admin" update:"admin" nullable:"false" create:"admin_required"`             // = Column(Integer, nullable=False) # bandwidth of network in Mbps
 	ScheduleRank int    `list:"admin" update:"admin"`                                                      // = Column(Integer, default=0, nullable=True)
@@ -49,6 +47,26 @@ type SWire struct {
 
 func (manager *SWireManager) GetContextManager() []db.IModelManager {
 	return []db.IModelManager{ZoneManager, VpcManager}
+}
+
+func (self *SWireManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowList(userCred, self)
+}
+
+func (self *SWireManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowCreate(userCred, self)
+}
+
+func (self *SWire) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGet(userCred, self)
+}
+
+func (self *SWire) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return db.IsAdminAllowUpdate(userCred, self)
+}
+
+func (self *SWire) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func (manager *SWireManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

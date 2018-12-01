@@ -147,7 +147,7 @@ func (model *SStandaloneResourceBase) GetMetadataJson(key string, userCred mccli
 }
 
 func (model *SStandaloneResourceBase) SetMetadata(ctx context.Context, key string, value interface{}, userCred mcclient.TokenCredential) error {
-	if Metadata.IsSystemAdminKey(key) && !userCred.IsSystemAdmin() {
+	if Metadata.IsSystemAdminKey(key) && !IsAdminAllowPerform(userCred, model, "metadata") {
 		return httperrors.NewNotSufficientPrivilegeError("cannot set system key")
 	}
 	return Metadata.SetValue(ctx, model, key, value, userCred)
@@ -155,7 +155,7 @@ func (model *SStandaloneResourceBase) SetMetadata(ctx context.Context, key strin
 
 func (model *SStandaloneResourceBase) SetAllMetadata(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
 	for k := range dictstore {
-		if Metadata.IsSystemAdminKey(k) && !userCred.IsSystemAdmin() {
+		if Metadata.IsSystemAdminKey(k) && !IsAdminAllowPerform(userCred, model, "metadata") {
 			return httperrors.NewNotSufficientPrivilegeError(fmt.Sprintf("not allow to set system key %s", k))
 		}
 	}
@@ -175,7 +175,7 @@ func (model *SStandaloneResourceBase) GetAllMetadata(userCred mcclient.TokenCred
 }
 
 func (model *SStandaloneResourceBase) AllowGetDetailsMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return IsAdminAllowGetSpec(userCred, model, "metadata")
 }
 
 func (model *SStandaloneResourceBase) GetDetailsMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -188,7 +188,7 @@ func (model *SStandaloneResourceBase) GetDetailsMetadata(ctx context.Context, us
 }
 
 func (model *SStandaloneResourceBase) AllowPerformMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return IsAdminAllowPerform(userCred, model, "metadata")
 }
 
 func (model *SStandaloneResourceBase) PerformMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

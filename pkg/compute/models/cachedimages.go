@@ -28,7 +28,6 @@ const (
 
 type SCachedimageManager struct {
 	db.SStandaloneResourceBaseManager
-	SInfrastructureManager
 }
 
 var CachedimageManager *SCachedimageManager
@@ -46,7 +45,6 @@ func init() {
 
 type SCachedimage struct {
 	db.SStandaloneResourceBase
-	SInfrastructure
 
 	Size int64 `nullable:"false" list:"admin" update:"admin" create:"admin_required"` // = Column(BigInteger, nullable=False) # in Byte
 	// virtual_size = Column(BigInteger, nullable=False) # in Byte
@@ -54,6 +52,26 @@ type SCachedimage struct {
 	LastSync time.Time            `list:"admin"`                                                       // = Column(DateTime)
 	LastRef  time.Time            `list:"admin"`                                                       // = Column(DateTime)
 	RefCount int                  `default:"0" list:"admin"`                                           // = Column(Integer, default=0, server_default='0')
+}
+
+func (self *SCachedimageManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowList(userCred, self)
+}
+
+func (self *SCachedimageManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowCreate(userCred, self)
+}
+
+func (self *SCachedimage) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGet(userCred, self)
+}
+
+func (self *SCachedimage) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return db.IsAdminAllowUpdate(userCred, self)
+}
+
+func (self *SCachedimage) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func (self *SCachedimage) ValidateDeleteCondition(ctx context.Context) error {
@@ -240,7 +258,7 @@ func (self *SCachedimage) GetCustomizeColumns(ctx context.Context, userCred mccl
 }
 
 func (self *SCachedimage) AllowPerformRefresh(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "refresh")
 }
 
 func (self *SCachedimage) PerformRefresh(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

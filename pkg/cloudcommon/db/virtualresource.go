@@ -38,12 +38,12 @@ type SVirtualResourceBase struct {
 }
 
 func (model *SVirtualResourceBase) IsOwner(userCred mcclient.TokenCredential) bool {
-	return userCred.IsSystemAdmin() || userCred.GetProjectId() == model.ProjectId
+	return userCred.GetProjectId() == model.ProjectId
 }
 
-func (model *SVirtualResourceBase) IsAdmin(userCred mcclient.TokenCredential) bool {
+/*func (model *SVirtualResourceBase) IsAdmin(userCred mcclient.TokenCredential) bool {
 	return userCred.IsSystemAdmin() || (userCred.GetProjectId() == model.ProjectId && userCred.IsAdmin())
-}
+}*/
 
 func (model *SVirtualResourceBase) GetOwnerProjectId() string {
 	return model.ProjectId
@@ -111,7 +111,7 @@ func (manager *SVirtualResourceBaseManager) ListItemFilter(ctx context.Context, 
 
 func (manager *SVirtualResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	isSystem, err := data.Bool("is_system")
-	if err == nil && isSystem && !userCred.IsSystemAdmin() {
+	if err == nil && isSystem && !IsAdminAllowCreate(userCred, manager) {
 		return nil, httperrors.NewNotSufficientPrivilegeError("non-admin user not allowed to create system object")
 	}
 	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
@@ -130,14 +130,14 @@ func (model *SVirtualResourceBase) CustomizeCreate(ctx context.Context, userCred
 
 func (manager *SVirtualResourceBaseManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	isAdmin, err := query.Bool("admin")
-	if err == nil && isAdmin && !userCred.IsSystemAdmin() {
+	if err == nil && isAdmin && !IsAdminAllowList(userCred, manager) {
 		return false
 	}
 	return true
 }
 
 func (model *SVirtualResourceBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return model.IsOwner(userCred)
+	return model.IsOwner(userCred) || IsAdminAllowGet(userCred, model)
 }
 
 func (manager *SVirtualResourceBaseManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -145,19 +145,19 @@ func (manager *SVirtualResourceBaseManager) AllowCreateItem(ctx context.Context,
 }
 
 func (model *SVirtualResourceBase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return model.IsOwner(userCred)
+	return model.IsOwner(userCred) || IsAdminAllowUpdate(userCred, model)
 }
 
 func (model *SVirtualResourceBase) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return model.IsOwner(userCred)
+	return model.IsOwner(userCred) || IsAdminAllowDelete(userCred, model)
 }
 
 func (model *SVirtualResourceBase) AllowGetDetailsMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return model.IsOwner(userCred)
+	return model.IsOwner(userCred) || IsAdminAllowGetSpec(userCred, model, "metadata")
 }
 
 func (model *SVirtualResourceBase) AllowPerformMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return model.IsOwner(userCred)
+	return model.IsOwner(userCred) || IsAdminAllowPerform(userCred, model, "metadata")
 }
 
 func (model *SVirtualResourceBase) GetTenantCache(ctx context.Context) (*STenant, error) {
@@ -166,7 +166,7 @@ func (model *SVirtualResourceBase) GetTenantCache(ctx context.Context) (*STenant
 }
 
 func (model *SVirtualResourceBase) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	if userCred.IsSystemAdmin() {
+	if IsAdminAllowGet(userCred, model) {
 		// log.Debugf("GetCustomizeColumns")
 		tobj, err := model.GetTenantCache(ctx)
 		if err == nil {
@@ -198,7 +198,7 @@ func (model *SVirtualResourceBase) GetExtraDetails(ctx context.Context, userCred
 }
 
 func (model *SVirtualResourceBase) AllowPerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return IsAdminAllowPerform(userCred, model, "change-owner")
 }
 
 func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

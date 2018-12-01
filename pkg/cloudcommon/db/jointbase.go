@@ -191,7 +191,7 @@ func (self *SJointResourceBase) AllowGetJointDetails(ctx context.Context, userCr
 	master := item.Master()
 	switch master.(type) {
 	case IVirtualModel:
-		return master.(IVirtualModel).IsOwner(userCred)
+		return master.(IVirtualModel).IsOwner(userCred) || IsAdminAllowGet(userCred, master)
 	default: // case item implemented customized AllowGetDetails, eg hostjoints
 		return item.AllowGetDetails(ctx, userCred, query)
 	}
@@ -201,7 +201,7 @@ func (self *SJointResourceBase) AllowUpdateJointItem(ctx context.Context, userCr
 	master := item.Master()
 	switch master.(type) {
 	case IVirtualModel:
-		return master.(IVirtualModel).IsOwner(userCred)
+		return master.(IVirtualModel).IsOwner(userCred) || IsAdminAllowUpdate(userCred, master)
 	default: // case item implemented customized AllowGetDetails, eg hostjoints
 		return item.AllowUpdateItem(ctx, userCred)
 	}

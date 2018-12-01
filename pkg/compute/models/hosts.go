@@ -88,7 +88,6 @@ var NIC_TYPES = []string{NIC_TYPE_IPMI, NIC_TYPE_ADMIN}
 
 type SHostManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
-	SInfrastructureManager
 }
 
 var HostManager *SHostManager
@@ -107,7 +106,6 @@ func init() {
 
 type SHost struct {
 	db.SEnabledStatusStandaloneResourceBase
-	SInfrastructure
 	SManagedResourceBase
 
 	Rack  string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
@@ -142,7 +140,7 @@ type SHost struct {
 	// Status  string = Column(VARCHAR(16, charset='ascii'), nullable=False, default=baremetalstatus.INIT) # status
 	HostStatus string `width:"16" charset:"ascii" nullable:"false" default:"offline" list:"admin"` // Column(VARCHAR(16, charset='ascii'), nullable=False, server_default=HOST_OFFLINE, default=HOST_OFFLINE)
 
-	ZoneId string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
+	ZoneId string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_optional"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
 
 	HostType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 
@@ -159,16 +157,24 @@ func (manager *SHostManager) GetContextManager() []db.IModelManager {
 	return []db.IModelManager{ZoneManager}
 }
 
-func (manager *SHostManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	zoneId, err := data.GetString("zone_id")
-	if err != nil {
-		return false
-	}
-	_, err = ZoneManager.FetchById(zoneId)
-	if err != nil {
-		return false
-	}
-	return userCred.IsSystemAdmin()
+func (self *SHostManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowList(userCred, self)
+}
+
+func (self *SHostManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowCreate(userCred, self)
+}
+
+func (self *SHost) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGet(userCred, self)
+}
+
+func (self *SHost) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return db.IsAdminAllowUpdate(userCred, self)
+}
+
+func (self *SHost) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
@@ -261,6 +267,9 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 }
 
 func (self *SHost) GetZone() *SZone {
+	if len(self.ZoneId) == 0 {
+		return nil
+	}
 	zone, _ := ZoneManager.FetchById(self.ZoneId)
 	if zone != nil {
 		return zone.(*SZone)
@@ -1781,7 +1790,7 @@ func (self *SHost) GetExtraDetails(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SHost) AllowGetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowGetSpec(userCred, self, "vnc")
 }
 
 func (self *SHost) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1796,7 +1805,7 @@ func (self *SHost) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCre
 }
 
 func (self *SHost) AllowGetDetailsIpmi(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowGetSpec(userCred, self, "ipmi")
 }
 
 func (self *SHost) GetDetailsIpmi(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1932,7 +1941,7 @@ func (manager *SHostManager) ValidateSizeParams(data *jsonutils.JSONDict) (*json
 
 func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	zoneId, _ := data.GetString("zone_id")
-	if len(zoneId) == 0 || ZoneManager.Query().Equals("id", zoneId).Count() == 0 {
+	if len(zoneId) > 0 && ZoneManager.Query().Equals("id", zoneId).Count() == 0 {
 		return nil, httperrors.NewInputParameterError("Zone id %s not found", zoneId)
 	}
 	mangerUri, err := data.GetString("manager_uri")
@@ -2087,7 +2096,7 @@ func (self *SHost) AllowPerformStart(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "start")
 }
 
 func (self *SHost) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
@@ -2122,7 +2131,7 @@ func (self *SHost) AllowPerformStop(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "stop")
 }
 
 func (self *SHost) PerformStop(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
@@ -2172,7 +2181,8 @@ func (self *SHost) AllowPerformMaintenance(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "maintenance")
+
 }
 
 func (self *SHost) PerformMaintenance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -2211,7 +2221,7 @@ func (self *SHost) AllowPerformUnmaintenance(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "unmaintenance")
 }
 
 func (self *SHost) PerformUnmaintenance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -2273,7 +2283,7 @@ func (self *SHost) AllowPerformOffline(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "offline")
 }
 
 func (self *SHost) PerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -2292,7 +2302,7 @@ func (self *SHost) AllowPerformOnline(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "online")
 }
 
 func (self *SHost) PerformOnline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -2325,7 +2335,7 @@ func (self *SHost) AllowPerformPing(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "ping")
 }
 
 func (self *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -2352,7 +2362,7 @@ func (self *SHost) AllowPerformPrepare(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "prepare")
 }
 
 func (self *SHost) PerformPrepare(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -2388,7 +2398,7 @@ func (self *SHost) AllowPerformAddNetif(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "add-netif")
 }
 
 func (self *SHost) PerformAddNetif(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -2540,7 +2550,7 @@ func (self *SHost) AllowPerformEnableNetif(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "enable-netif")
 }
 
 func (self *SHost) PerformEnableNetif(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -2614,7 +2624,7 @@ func (self *SHost) AllowPerformDisableNetif(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "disable-netif")
 }
 
 func (self *SHost) PerformDisableNetif(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -2668,7 +2678,7 @@ func (self *SHost) AllowPerformRemoveNetif(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "remove-netif")
 }
 
 func (self *SHost) PerformRemoveNetif(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -2722,7 +2732,7 @@ func (self *SHost) AllowPerformSyncstatus(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "syncstatus")
 }
 
 func (self *SHost) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -2734,7 +2744,7 @@ func (self *SHost) AllowPerformReset(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "reset")
 }
 
 func (self *SHost) PerformReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -2764,7 +2774,7 @@ func (self *SHost) AllowPerformRemoveAllNetifs(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "remove-all-netifs")
 }
 
 func (self *SHost) PerformRemoveAllNetifs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -2781,7 +2791,7 @@ func (self *SHost) AllowPerformDisable(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "disable")
 }
 
 func (self *SHost) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -2804,7 +2814,7 @@ func (self *SHost) AllowPerformCacheImage(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "cache-image")
 }
 
 func (self *SHost) PerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -2836,7 +2846,7 @@ func (self *SHost) AllowPerformConvertHypervisor(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "convert-hypervisor")
 }
 
 func (self *SHost) isAlterNameUnique(name string) bool {
@@ -2902,7 +2912,7 @@ func (self *SHost) AllowPerformUndoConvert(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "undo-convert")
 }
 
 func (self *SHost) PerformUndoConvert(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

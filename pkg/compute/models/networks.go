@@ -134,7 +134,7 @@ func (self *SNetwork) GetVpc() *SVpc {
 }
 
 func (manager *SNetworkManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowCreate(userCred, manager)
 }
 
 func (self *SNetwork) ValidateDeleteCondition(ctx context.Context) error {
@@ -627,7 +627,7 @@ func (manager *SNetworkManager) allNetworksQ(rangeObj db.IStandaloneModel) *sqlc
 func (manager *SNetworkManager) totalPortCountQ(userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
 	q := manager.allNetworksQ(rangeObj)
 	networks := manager.Query().SubQuery()
-	if userCred != nil && !userCred.IsSystemAdmin() {
+	if userCred != nil && !db.IsAdminAllowList(userCred, manager) {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.Equals(networks.Field("tenant_id"), userCred.GetProjectId()),
 			sqlchemy.IsTrue(networks.Field("is_public"))))
@@ -759,7 +759,8 @@ func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *SNetworkCo
 				return httperrors.NewInputParameterError("Address %s not in range", netConfig.Address)
 			}
 			if netConfig.Reserved {
-				if !userCred.IsSystemAdmin() {
+				// the privilege to access reserved ip
+				if !db.IsAdminAllowList(userCred, ReservedipManager) {
 					return httperrors.NewForbiddenError("Only system admin allowed to use reserved ip")
 				}
 				if ReservedipManager.GetReservedIP(net, netConfig.Address) == nil {
@@ -876,7 +877,7 @@ func (self *SNetwork) GetCustomizeColumns(ctx context.Context, userCred mcclient
 }
 
 func (self *SNetwork) AllowPerformReserveIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "reserve-ip")
 }
 
 func (self *SNetwork) PerformReserveIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -903,7 +904,7 @@ func (self *SNetwork) PerformReserveIp(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SNetwork) AllowPerformReleaseReservedIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "release-reserved-ip")
 }
 
 func (self *SNetwork) PerformReleaseReservedIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -920,7 +921,7 @@ func (self *SNetwork) PerformReleaseReservedIp(ctx context.Context, userCred mcc
 }
 
 func (self *SNetwork) AllowGetDetailsReservedIps(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "reserved-ips")
 }
 
 func (self *SNetwork) GetDetailsReservedIps(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1211,7 +1212,7 @@ func isOverlapNetworks(nets []SNetwork, startIp netutils.IPV4Addr, endIp netutil
 }
 
 func (self *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if userCred.IsSystemAdmin() && ownerProjId == userCred.GetProjectId() {
+	if db.IsAdminAllowCreate(userCred, self.GetModelManager()) && ownerProjId == userCred.GetProjectId() {
 		self.IsPublic = true
 	} else {
 		self.IsPublic = false
@@ -1396,7 +1397,7 @@ func (self *SNetwork) ValidateUpdateCondition(ctx context.Context) error {
 }
 
 func (self *SNetwork) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "purge")
 }
 
 func (self *SNetwork) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

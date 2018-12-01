@@ -132,7 +132,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 }
 
 func (lb *SLoadbalancer) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return lb.IsOwner(userCred) || userCred.IsSystemAdmin()
+	return lb.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, lb, "status")
 }
 
 func (lb *SLoadbalancer) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {

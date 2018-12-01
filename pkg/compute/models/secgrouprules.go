@@ -78,14 +78,14 @@ func (manager *SSecurityGroupRuleManager) AllowListItems(ctx context.Context, us
 
 func (self *SSecurityGroupRule) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
 	if secgroup := self.GetSecGroup(); secgroup != nil {
-		return secgroup.IsOwner(userCred)
+		return secgroup.IsOwner(userCred) || db.IsAdminAllowUpdate(userCred, self)
 	}
 	return false
 }
 
 func (self *SSecurityGroupRule) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	if secgroup := self.GetSecGroup(); secgroup != nil {
-		return secgroup.IsOwner(userCred)
+		return secgroup.IsOwner(userCred) || db.IsAdminAllowDelete(userCred, self)
 	}
 	return false
 }
@@ -201,7 +201,7 @@ func (manager *SSecurityGroupRuleManager) ValidateCreateData(ctx context.Context
 	if err != nil {
 		return nil, httperrors.NewInputParameterError(err.Error())
 	}
-	return manager.SModelBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
 
 func (self *SSecurityGroupRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

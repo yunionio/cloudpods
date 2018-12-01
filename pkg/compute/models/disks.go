@@ -442,7 +442,7 @@ func (self *SDisk) StartAllocate(ctx context.Context, host *SHost, storage *SSto
 }
 
 func (self *SDisk) AllowGetDetailsConvertSnapshot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "convert-snapshot")
 }
 
 func (self *SDisk) GetDetailsConvertSnapshot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -499,7 +499,7 @@ func (self *SDisk) CleanUpDiskSnapshots(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SDisk) AllowPerformCreateSnapshot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "create-snapshot")
 }
 
 func (self *SDisk) PerformCreateSnapshot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -513,7 +513,7 @@ func (self *SDisk) PerformCreateSnapshot(ctx context.Context, userCred mcclient.
 }
 
 func (self *SDisk) AllowPerformDiskReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "disk-reset")
 }
 
 func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -560,7 +560,7 @@ func (self *SDisk) StartResetDisk(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SDisk) AllowPerformResize(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "resize")
 }
 
 func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -651,7 +651,7 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SDisk) AllowPerformSave(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "save")
 }
 
 func (self *SDisk) PerformSave(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1139,7 +1139,7 @@ func (self *SDisk) RealDelete(ctx context.Context, userCred mcclient.TokenCreden
 }
 
 func (self *SDisk) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "purge")
 }
 
 func (self *SDisk) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1315,7 +1315,7 @@ func (self *SDisk) isInit() bool {
 }
 
 func (self *SDisk) AllowPerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "cancel-delete")
 }
 
 func (self *SDisk) PerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

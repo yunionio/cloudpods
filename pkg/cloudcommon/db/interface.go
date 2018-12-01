@@ -22,6 +22,7 @@ type IModelManager interface {
 	KeywordPlural() string
 	Alias() string
 	AliasPlural() string
+	SetAlias(alias string, aliasPlural string)
 
 	ValidateName(name string) error
 
@@ -68,6 +69,8 @@ type IModel interface {
 	lockman.ILockedObject
 
 	GetName() string
+
+	KeywordPlural() string
 
 	GetModelManager() IModelManager
 	SetModelManager(IModelManager)
@@ -164,7 +167,7 @@ type IVirtualModel interface {
 	IStandaloneModel
 
 	IsOwner(userCred mcclient.TokenCredential) bool
-	IsAdmin(userCred mcclient.TokenCredential) bool
+	// IsAdmin(userCred mcclient.TokenCredential) bool
 }
 
 type ISharableVirtualModelManager interface {

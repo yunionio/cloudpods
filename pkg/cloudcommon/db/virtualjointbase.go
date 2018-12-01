@@ -27,7 +27,7 @@ func NewVirtualJointResourceBaseManager(dt interface{}, tableName string, keywor
 }
 
 func (manager *SVirtualJointResourceBaseManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	if jsonutils.QueryBoolean(query, "admin", false) && !userCred.IsSystemAdmin() {
+	if jsonutils.QueryBoolean(query, "admin", false) && !IsAdminAllowList(userCred, manager) {
 		return false
 	}
 	return true
@@ -36,7 +36,7 @@ func (manager *SVirtualJointResourceBaseManager) AllowListItems(ctx context.Cont
 
 func (manager *SVirtualJointResourceBaseManager) AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, master IStandaloneModel, query jsonutils.JSONObject) bool {
 	masterVirtual := master.(IVirtualModel)
-	if masterVirtual.IsOwner(userCred) {
+	if masterVirtual.IsOwner(userCred) || IsAdminAllowList(userCred, manager) {
 		return true
 	}
 	return false
@@ -62,12 +62,12 @@ func (manager *SVirtualJointResourceBaseManager) AllowAttach(ctx context.Context
 
 func (self *SVirtualJointResourceBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	masterVirtual := self.Master().(IVirtualModel)
-	return masterVirtual.IsOwner(userCred)
+	return masterVirtual.IsOwner(userCred) || IsAdminAllowGet(userCred, self)
 }
 
 func (self *SVirtualJointResourceBase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
 	masterVirtual := self.Master().(IVirtualModel)
-	return masterVirtual.IsOwner(userCred)
+	return masterVirtual.IsOwner(userCred) || IsAdminAllowUpdate(userCred, self)
 }
 
 func (manager *SVirtualJointResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
@@ -96,7 +96,7 @@ func (manager *SVirtualJointResourceBaseManager) ListItemFilter(ctx context.Cont
 		sqlchemy.IsFalse(masterTable.Field("deleted"))))
 	q = q.Join(slaveTable, sqlchemy.AND(sqlchemy.Equals(slaveField, slaveTable.Field("id")),
 		sqlchemy.IsFalse(slaveTable.Field("deleted"))))
-	if jsonutils.QueryBoolean(query, "admin", false) && userCred.IsSystemAdmin() {
+	if jsonutils.QueryBoolean(query, "admin", false) && IsAdminAllowList(userCred, manager) {
 		isSystem := jsonutils.QueryBoolean(query, "system", false)
 		if !isSystem {
 			if len(slaveQueryId) == 0 {
