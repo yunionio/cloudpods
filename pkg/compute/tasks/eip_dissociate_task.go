@@ -20,10 +20,10 @@ func init() {
 }
 
 func (self *EipDissociateTask) TaskFail(ctx context.Context, eip *models.SElasticip, msg string, vm *models.SGuest) {
-	eip.SetStatus(self.UserCred, models.EIP_STATUS_DISSOCIATE_FAIL, msg)
+	eip.SetStatus(self.UserCred, models.EIP_STATUS_READY, msg)
 	self.SetStageFailed(ctx, msg)
 	if vm != nil {
-		vm.StartSyncstatus(ctx, self.UserCred, "")
+		vm.SetStatus(self.UserCred, models.VM_DISSOCIATE_EIP_FAILED, msg)
 	}
 }
 
