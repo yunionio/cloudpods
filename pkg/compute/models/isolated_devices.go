@@ -80,7 +80,7 @@ type SIsolatedDevice struct {
 
 func (manager *SIsolatedDeviceManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	host, _ := query.GetString("host")
-	if len(host) > 0 && !userCred.IsSystemAdmin() {
+	if len(host) > 0 && !db.IsAdminAllowList(userCred, manager) {
 		return false
 	}
 	return true
@@ -92,7 +92,7 @@ func (manager *SIsolatedDeviceManager) ExtraSearchConditions(ctx context.Context
 }
 
 func (manager *SIsolatedDeviceManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowCreate(userCred, manager)
 }
 
 func (manager *SIsolatedDeviceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {

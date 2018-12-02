@@ -185,13 +185,6 @@ var _ IModel = (*SOpsLog)(nil)
 
 func init() {
 	OpsLog = &SOpsLogManager{NewModelBaseManager(SOpsLog{}, "opslog_tbl", "event", "events")}
-
-}
-
-func (manager *SOpsLogManager) SetKeyword(kw, kwPlural string) *SOpsLogManager {
-	manager.keyword = kw
-	manager.keywordPlural = kwPlural
-	return manager
 }
 
 func (opslog *SOpsLog) GetId() string {
@@ -304,7 +297,7 @@ func (manager *SOpsLogManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 		queryDict.RemoveIgnoreCase("action")
 		q = q.Filter(sqlchemy.In(q.Field("action"), action))
 	}
-	if !userCred.IsSystemAdmin() {
+	if !IsAdminAllowList(userCred, manager) {
 		q = q.Filter(sqlchemy.OR(sqlchemy.AND(sqlchemy.IsNotNull(q.Field("owner_tenant_id")), sqlchemy.Equals(q.Field("owner_tenant_id"), userCred.GetProjectId())), sqlchemy.Equals(q.Field("tenant_id"), userCred.GetProjectId())))
 	}
 	since, _ := query.GetTime("since")
@@ -335,7 +328,7 @@ func (manager *SOpsLogManager) AllowCreateItem(ctx context.Context, userCred mcc
 }
 
 func (self *SOpsLog) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin() || userCred.GetProjectId() == self.ProjectId || userCred.GetProjectId() == self.OwnerProjectId
+	return IsAdminAllowGet(userCred, self) || userCred.GetProjectId() == self.ProjectId || userCred.GetProjectId() == self.OwnerProjectId
 }
 
 func (self *SOpsLog) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {

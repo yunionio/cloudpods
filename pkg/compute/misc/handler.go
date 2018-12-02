@@ -7,6 +7,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -58,7 +59,7 @@ func getBmPrepareScript(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		httperrors.InternalServerError(w, err.Error())
 		return
 	}
-	userCred := auth.FetchUserCredential(ctx)
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 	var script string
 	script += fmt.Sprintf("curl -fsSL -k -o ./baremetal_prepare.tar.gz %s;",
 		options.Options.BaremetalPreparePackageUrl)

@@ -295,7 +295,7 @@ func (man *SLoadbalancerListenerManager) validateAcl(aclStatusV *validators.Vali
 }
 
 func (lblis *SLoadbalancerListener) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return lblis.IsOwner(userCred) || userCred.IsSystemAdmin()
+	return lblis.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, lblis, "status")
 }
 
 func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

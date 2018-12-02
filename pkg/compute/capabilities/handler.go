@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -18,7 +19,7 @@ func AddCapabilityHandler(prefix string, app *appsrv.Application) {
 }
 
 func capaHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	userCred := auth.FetchUserCredential(ctx)
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 	query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)

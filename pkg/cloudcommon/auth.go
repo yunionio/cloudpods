@@ -3,13 +3,14 @@ package cloudcommon
 import (
 	"fmt"
 	"os"
-
 	"time"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 func InitAuth(options *Options, authComplete auth.AuthCompletedCallback) {
+
 	if len(options.AuthURL) == 0 {
 		fmt.Println("Missing AuthURL")
 		os.Exit(1)
