@@ -32,7 +32,7 @@ func NewBaseManager(serviceType, endpointType, version string, columns, adminCol
 
 func (this *BaseManager) GetColumns(session *mcclient.ClientSession) []string {
 	cols := this.columns
-	if session.IsSystemAdmin() && len(this.adminColumns) > 0 {
+	if session.HasSystemAdminPrivelege() && len(this.adminColumns) > 0 {
 		cols = append(cols, this.adminColumns...)
 	}
 	return cols

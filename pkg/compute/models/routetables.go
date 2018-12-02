@@ -159,7 +159,7 @@ func (rt *SRouteTable) ValidateUpdateData(ctx context.Context, userCred mcclient
 }
 
 func (rt *SRouteTable) AllowPerformAddRoutes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
-	return rt.IsOwner(userCred) || userCred.IsSystemAdmin()
+	return rt.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, rt, "add-routes")
 }
 
 func (rt *SRouteTable) AllowPerformDelRoutes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {

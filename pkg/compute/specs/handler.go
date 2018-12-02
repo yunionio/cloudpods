@@ -12,6 +12,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -42,7 +43,7 @@ func AddSpecHandler(prefix string, app *appsrv.Application) {
 
 func processFilter(handleFunc specHandleFunc) appsrv.FilterHandler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		userCred := auth.FetchUserCredential(ctx)
+		userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 		query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
 		if err != nil {
 			httperrors.GeneralServerError(w, err)

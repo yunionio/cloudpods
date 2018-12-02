@@ -53,8 +53,8 @@ func (manager *SUserCacheManager) FetchUserByName(idStr string) (*SUser, error) 
 }
 
 func (manager *SUserCacheManager) Save(ctx context.Context, idStr string, name string, domainId string, domain string) (*SUser, error) {
-	lockman.LockRawObject(ctx, manager.keyword, idStr)
-	defer lockman.ReleaseRawObject(ctx, manager.keyword, idStr)
+	lockman.LockRawObject(ctx, manager.KeywordPlural(), idStr)
+	defer lockman.ReleaseRawObject(ctx, manager.KeywordPlural(), idStr)
 
 	obj, err := manager.FetchUserById(idStr)
 	if err != nil && err != sql.ErrNoRows {

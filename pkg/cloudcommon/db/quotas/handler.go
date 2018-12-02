@@ -72,7 +72,7 @@ func queryQuota(ctx context.Context, projectId string) (*jsonutils.JSONDict, err
 }
 
 func getQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	userCred := auth.FetchUserCredential(ctx)
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 	params := appctx.AppContextParams(ctx)
 
 	projectId := params["<tenantid>"]
@@ -93,7 +93,7 @@ func getQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 				policy.PolicyDelegation, policy.PolicyActionGet)
 			isAllow = result == rbacutils.AdminAllow
 		} else {
-			isAllow = userCred.IsSystemAdmin()
+			isAllow = userCred.IsAdminAllow(consts.GetServiceType(), policy.PolicyDelegation, policy.PolicyActionGet)
 		}
 		if !isAllow {
 			httperrors.ForbiddenError(w, "not allow to delegate query quota")
@@ -133,14 +133,15 @@ func getQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 }
 
 func setQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	userCred := auth.FetchUserCredential(ctx)
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 
 	var isAllow bool
 	if consts.IsRbacEnabled() {
 		isAllow = policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
 			"quotas", policy.PolicyActionUpdate) == rbacutils.AdminAllow
 	} else {
-		isAllow = userCred.IsSystemAdmin()
+		isAllow = userCred.IsAdminAllow(consts.GetServiceType(),
+			"quotas", policy.PolicyActionUpdate)
 	}
 	if !isAllow {
 		httperrors.ForbiddenError(w, "not allow to set quota")
@@ -196,14 +197,15 @@ func setQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 }
 
 func checkQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	userCred := auth.FetchUserCredential(ctx)
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 
 	isAllow := false
 	if consts.IsRbacEnabled() {
 		isAllow = policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
 			policy.PolicyDelegation, policy.PolicyActionGet) == rbacutils.AdminAllow
 	} else {
-		isAllow = userCred.IsSystemAdmin()
+		isAllow = userCred.IsAdminAllow(consts.GetServiceType(),
+			policy.PolicyDelegation, policy.PolicyActionGet)
 	}
 	if !isAllow {
 		httperrors.ForbiddenError(w, "not allow to delegate check quota")

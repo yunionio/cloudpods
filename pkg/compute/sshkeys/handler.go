@@ -9,7 +9,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -22,8 +24,8 @@ func AddSshKeysHandler(prefix string, app *appsrv.Application) {
 
 func adminSshKeysHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	publicOnly := false
-	userCred := auth.FetchUserCredential(ctx)
-	if !userCred.IsSystemAdmin() {
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
+	if !userCred.IsAdminAllow(consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet) {
 		publicOnly = true
 	}
 	params := appctx.AppContextParams(ctx)
@@ -53,7 +55,7 @@ func adminSshKeysHandler(ctx context.Context, w http.ResponseWriter, r *http.Req
 }
 
 func sshKeysHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	userCred := auth.FetchUserCredential(ctx)
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 	query, err := jsonutils.ParseQueryString(r.URL.RawQuery)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
@@ -67,7 +69,7 @@ func sshKeysHandler(ctx context.Context, w http.ResponseWriter, r *http.Request)
 func sendSshKey(ctx context.Context, w http.ResponseWriter, userCred mcclient.TokenCredential, projectId string, isAdmin bool, publicOnly bool) {
 	var privKey, pubKey string
 
-	if isAdmin && userCred.IsSystemAdmin() {
+	if isAdmin && userCred.IsAdminAllow(consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet) {
 		privKey, pubKey, _ = GetSshAdminKeypair(ctx)
 	} else {
 		privKey, pubKey, _ = GetSshProjectKeypair(ctx, projectId)
