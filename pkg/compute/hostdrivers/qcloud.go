@@ -28,6 +28,28 @@ func (self *SQcloudHostDriver) GetHostType() string {
 	return models.HOST_TYPE_QCLOUD
 }
 
+func (self *SQcloudHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
+	if sizeGb%10 != 0 {
+		return fmt.Errorf("The disk size must be a multiple of 10Gb")
+	}
+	if storage.StorageType == models.STORAGE_CLOUD_BASIC {
+		if sizeGb < 10 || sizeGb > 16000 {
+			return fmt.Errorf("The %s disk size must be in the range of 10 ~ 16000GB", storage.StorageType)
+		}
+	} else if storage.StorageType == models.STORAGE_CLOUD_PREMIUM {
+		if sizeGb < 50 || sizeGb > 16000 {
+			return fmt.Errorf("The %s disk size must be in the range of 50 ~ 16000GB", storage.StorageType)
+		}
+	} else if storage.StorageType == models.STORAGE_CLOUD_SSD {
+		if sizeGb < 100 || sizeGb > 16000 {
+			return fmt.Errorf("The %s disk size must be in the range of 100 ~ 16000GB", storage.StorageType)
+		}
+	} else {
+		return fmt.Errorf("Not support create %s disk", storage.StorageType)
+	}
+	return nil
+}
+
 func (self *SQcloudHostDriver) CheckAndSetCacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
 	params := task.GetParams()
 	imageId, err := params.GetString("image_id")

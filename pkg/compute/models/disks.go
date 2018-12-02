@@ -293,7 +293,7 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 	if _, err := manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
 		return nil, err
 	}
-	pendingUsage := SQuota{Storage: diskConfig.Size}
+	pendingUsage := SQuota{Storage: diskConfig.SizeMb}
 	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), &pendingUsage); err != nil {
 		return nil, err
 	}
@@ -310,14 +310,10 @@ func (manager *SDiskManager) validateDiskOnStorage(diskConfig *SDiskConfig, stor
 	if storage.StorageType != diskConfig.Backend {
 		return httperrors.NewInputParameterError("Storage type[%s] not match backend %s", storage.StorageType, diskConfig.Backend)
 	}
-	size := diskConfig.Size >> 10
-	if storage.StorageType == STORAGE_CLOUD_EFFICIENCY || storage.StorageType == STORAGE_CLOUD_SSD {
-		if size < 20 || size > 32768 {
-			return httperrors.NewInputParameterError("cloud_ssd or cloud_efficiency disk only support 20G ~ 32768G")
-		}
-	} else if storage.StorageType == STORAGE_PUBLIC_CLOUD {
-		if size < 5 || size > 2000 {
-			return httperrors.NewInputParameterError("cloud disk only support 5G ~ 2000G")
+	if host := storage.GetMasterHost(); host != nil {
+		//公有云磁盘大小检查。
+		if err := host.GetHostDriver().ValidateDiskSize(storage, diskConfig.SizeMb>>10); err != nil {
+			return httperrors.NewInputParameterError(err.Error())
 		}
 	}
 	hoststorages := HoststorageManager.Query().SubQuery()
@@ -328,7 +324,7 @@ func (manager *SDiskManager) validateDiskOnStorage(diskConfig *SDiskConfig, stor
 	if len(hoststorage) == 0 {
 		return httperrors.NewInputParameterError("Storage[%s] must attach to a host", storage.Name)
 	}
-	if diskConfig.Size > storage.GetFreeCapacity() && !storage.IsEmulated {
+	if diskConfig.SizeMb > storage.GetFreeCapacity() && !storage.IsEmulated {
 		return httperrors.NewInputParameterError("Not enough free space")
 	}
 	return nil
@@ -568,21 +564,26 @@ func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 	if err != nil {
 		return nil, err
 	}
-	size, err := fileutils.GetSizeMb(sizeStr, 'M', 1024)
+	sizeMb, err := fileutils.GetSizeMb(sizeStr, 'M', 1024)
 	if err != nil {
 		return nil, err
 	}
 	if self.Status != DISK_READY {
 		return nil, httperrors.NewResourceNotReadyError("Resize disk when disk is READY")
 	}
-	if size < self.DiskSize {
+	if sizeMb < self.DiskSize {
 		return nil, httperrors.NewUnsupportOperationError("Disk cannot be thrink")
 	}
-	if size == self.DiskSize {
+	if sizeMb == self.DiskSize {
 		return nil, nil
 	}
-	addDisk := size - self.DiskSize
+	addDisk := sizeMb - self.DiskSize
 	storage := self.GetStorage()
+	if host := storage.GetMasterHost(); host != nil {
+		if err := host.GetHostDriver().ValidateDiskSize(storage, sizeMb>>10); err != nil {
+			return nil, httperrors.NewInputParameterError(err.Error())
+		}
+	}
 	if addDisk > storage.GetFreeCapacity() && !storage.IsEmulated {
 		return nil, httperrors.NewOutOfResourceError("Not enough free space")
 	}
@@ -595,7 +596,7 @@ func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), &pendingUsage); err != nil {
 		return nil, httperrors.NewOutOfQuotaError(err.Error())
 	}
-	return nil, self.StartDiskResizeTask(ctx, userCred, int64(size), "", &pendingUsage)
+	return nil, self.StartDiskResizeTask(ctx, userCred, int64(sizeMb), "", &pendingUsage)
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
@@ -968,7 +969,7 @@ func totalDiskSize(projectId string, active tristate.TriState, ready tristate.Tr
 type SDiskConfig struct {
 	ImageId string
 	// ImageDiskFormat string
-	Size            int    // MB
+	SizeMb          int    // MB
 	Fs              string // file system
 	Format          string //
 	Driver          string //
@@ -1006,7 +1007,7 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 			continue
 		}
 		if regutils.MatchSize(p) {
-			diskConfig.Size, _ = fileutils.GetSizeMb(p, 'M', 1024)
+			diskConfig.SizeMb, _ = fileutils.GetSizeMb(p, 'M', 1024)
 		} else if utils.IsInStringArray(p, osprofile.FS_TYPES) {
 			diskConfig.Fs = p
 		} else if utils.IsInStringArray(p, osprofile.IMAGE_FORMAT_TYPES) {
@@ -1020,7 +1021,7 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 		} else if p[0] == '/' {
 			diskConfig.Mountpoint = p
 		} else if p == "autoextend" {
-			diskConfig.Size = -1
+			diskConfig.SizeMb = -1
 		} else if utils.IsInStringArray(p, STORAGE_TYPES) {
 			diskConfig.Backend = p
 		} else if len(p) > 0 {
@@ -1042,15 +1043,15 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 				}
 				// diskConfig.ImageDiskFormat = image.DiskFormat
 				CachedimageManager.ImageAddRefCount(image.Id)
-				if diskConfig.Size == 0 {
-					diskConfig.Size = image.MinDisk // MB
+				if diskConfig.SizeMb == 0 {
+					diskConfig.SizeMb = image.MinDisk // MB
 				}
 			}
 		}
 	}
-	if len(diskConfig.ImageId) > 0 && diskConfig.Size == 0 {
-		diskConfig.Size = options.Options.DefaultDiskSize // MB
-	} else if len(diskConfig.ImageId) == 0 && diskConfig.Size == 0 {
+	if len(diskConfig.ImageId) > 0 && diskConfig.SizeMb == 0 {
+		diskConfig.SizeMb = options.Options.DefaultDiskSize // MB
+	} else if len(diskConfig.ImageId) == 0 && diskConfig.SizeMb == 0 {
 		return nil, httperrors.NewInputParameterError("Diskinfo not contains either imageID or size")
 	}
 	return &diskConfig, nil
@@ -1086,7 +1087,7 @@ func (self *SDisk) fetchDiskInfo(diskConfig *SDiskConfig) {
 		self.Nonpersistent = false
 	}
 	self.DiskFormat = diskConfig.Format
-	self.DiskSize = diskConfig.Size
+	self.DiskSize = diskConfig.SizeMb
 }
 
 type DiskInfo struct {

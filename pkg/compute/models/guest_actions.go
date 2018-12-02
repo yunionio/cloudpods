@@ -834,11 +834,11 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 		}
 		disksConf.Set(diskSeq, jsonutils.Marshal(diskInfo))
 		if _, ok := diskSizes[diskInfo.Backend]; !ok {
-			diskSizes[diskInfo.Backend] = diskInfo.Size
+			diskSizes[diskInfo.Backend] = diskInfo.SizeMb
 		} else {
-			diskSizes[diskInfo.Backend] += diskInfo.Size
+			diskSizes[diskInfo.Backend] += diskInfo.SizeMb
 		}
-		diskSize += diskInfo.Size
+		diskSize += diskInfo.SizeMb
 		diskIdx += 1
 		diskSeq = fmt.Sprintf("disk.%d", diskIdx)
 	}
@@ -1193,11 +1193,11 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		if len(diskConf.Backend) == 0 {
 			diskConf.Backend = self.getDefaultStorageType()
 		}
-		if diskConf.Size > 0 {
+		if diskConf.SizeMb > 0 {
 			if diskIdx >= len(disks) {
 				newDisks.Add(jsonutils.Marshal(diskConf), fmt.Sprintf("disk.%d", newDiskIdx))
 				newDiskIdx += 1
-				addDisk += diskConf.Size
+				addDisk += diskConf.SizeMb
 				storage := host.GetLeastUsedStorage(diskConf.Backend)
 				if storage == nil {
 					return nil, httperrors.NewResourceNotReadyError("host not connect storage %s", diskConf.Backend)
@@ -1206,22 +1206,22 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 				if !ok {
 					diskSizes[storage.Id] = 0
 				}
-				diskSizes[storage.Id] = diskSizes[storage.Id] + diskConf.Size
+				diskSizes[storage.Id] = diskSizes[storage.Id] + diskConf.SizeMb
 			} else {
 				disk := disks[diskIdx].GetDisk()
 				oldSize := disk.DiskSize
-				if diskConf.Size < oldSize {
+				if diskConf.SizeMb < oldSize {
 					return nil, httperrors.NewInputParameterError("Cannot reduce disk size")
-				} else if diskConf.Size > oldSize {
-					arr := jsonutils.NewArray(jsonutils.NewString(disks[diskIdx].DiskId), jsonutils.NewInt(int64(diskConf.Size)))
+				} else if diskConf.SizeMb > oldSize {
+					arr := jsonutils.NewArray(jsonutils.NewString(disks[diskIdx].DiskId), jsonutils.NewInt(int64(diskConf.SizeMb)))
 					resizeDisks.Add(arr)
-					addDisk += diskConf.Size - oldSize
+					addDisk += diskConf.SizeMb - oldSize
 					storage := disks[diskIdx].GetDisk().GetStorage()
 					_, ok := diskSizes[storage.Id]
 					if !ok {
 						diskSizes[storage.Id] = 0
 					}
-					diskSizes[storage.Id] = diskSizes[storage.Id] + diskConf.Size - oldSize
+					diskSizes[storage.Id] = diskSizes[storage.Id] + diskConf.SizeMb - oldSize
 				}
 			}
 		}
