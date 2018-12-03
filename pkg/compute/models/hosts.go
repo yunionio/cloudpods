@@ -568,6 +568,15 @@ func (self *SHost) SyncAttachedStorageStatus() {
 	}
 }
 
+func (self *SHostManager) IsNewNameUnique(name string, userCred mcclient.TokenCredential, kwargs *jsonutils.JSONDict) bool {
+	q := self.Query().Equals("name", name)
+	if kwargs != nil && kwargs.Contains("zone_id") {
+		zoneId, _ := kwargs.GetString("zone_id")
+		q.Equals("zone_id", zoneId)
+	}
+	return q.Count() == 0
+}
+
 func (self *SHostManager) AllowGetPropertyBmStartRegisterScript(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
 }
