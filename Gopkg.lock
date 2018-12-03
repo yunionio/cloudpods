@@ -1310,11 +1310,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:54554b3c72f4fcbd3c27c5137f9acd9d153d7e7150d77cd509af50c75fcb41b9"
+  digest = "1:a2346cf0c965791c281a428a3e9bf522913941028e4c814a774af7f3cc2360b0"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "7079aada4c7e9a37e4c3b183bddb0ef684e038f2"
+  revision = "814e036849815935e5957ebd03bd0f4fc992fe83"
 
 [[projects]]
   branch = "master"
@@ -1329,7 +1329,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:bf987f904fd821c6395fefdab956d070596eb401657fff40420014a3a8e3f45c"
+  digest = "1:5d9a659bf3c1d341cdf4135eca0009dbfa64a6728b3e0535c06afb6a76189a98"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1353,7 +1353,6 @@
     "util/secrules",
     "util/sets",
     "util/stringutils",
-    "util/sysutils",
     "util/timeutils",
     "util/trace",
     "util/ttlpool",
@@ -1363,7 +1362,7 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "7614d751299a6703a05f757a13e6dc900332e31b"
+  revision = "cecf301871b09e94abaf1ff76d5ae7ac51ce0746"
 
 [[projects]]
   branch = "master"
@@ -1375,11 +1374,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f07a1ef9758f56186dd9039a8608bc9d537070a7c04479dbab6aeb42501001b7"
+  digest = "1:bbaf572e68e5dad4045e1e424af29838882c620df391fa1631dd8dc851c87a95"
   name = "yunion.io/x/structarg"
   packages = ["."]
   pruneopts = "UT"
-  revision = "e0cc2c73375327d401b100bd8988fa340c2687ee"
+  revision = "c95bf78846decd8dea379e925410f2895fb20076"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1493,7 +1492,6 @@
     "yunion.io/x/pkg/util/secrules",
     "yunion.io/x/pkg/util/sets",
     "yunion.io/x/pkg/util/stringutils",
-    "yunion.io/x/pkg/util/sysutils",
     "yunion.io/x/pkg/util/timeutils",
     "yunion.io/x/pkg/util/trace",
     "yunion.io/x/pkg/util/ttlpool",
