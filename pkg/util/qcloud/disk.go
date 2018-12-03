@@ -225,7 +225,7 @@ func (self *SDisk) CreateISnapshot(name, desc string) (cloudprovider.ICloudSnaps
 	}
 	if total == 1 {
 		snapshot := &snapshots[0]
-		err := cloudprovider.WaitStatus(snapshot, string(SnapshotStatusAccomplished), 15*time.Second, 3600*time.Second)
+		err := cloudprovider.WaitStatus(snapshot, models.SNAPSHOT_READY, 15*time.Second, 3600*time.Second)
 		if err != nil {
 			return nil, err
 		}
