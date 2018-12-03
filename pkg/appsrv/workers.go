@@ -53,13 +53,9 @@ func (worker *SWorker) isDetached() bool {
 }
 
 func (worker *SWorker) run() {
-	defer log.Debugf("no more job, exit worker %s", worker)
 	defer worker.manager.removeWorker(worker)
 	for {
 		if worker.isDetached() {
-			if isDebug {
-				log.Debugf("deteched worker %s, no need to pick up new job", worker)
-			}
 			break
 		}
 		req := worker.manager.queue.Pop()
@@ -68,17 +64,8 @@ func (worker *SWorker) run() {
 			if task.worker != nil {
 				task.worker <- worker
 			}
-			if isDebug {
-				log.Debugf("start exec task on worker %s", worker)
-			}
 			execCallback(task)
-			if isDebug {
-				log.Debugf("end exec task on worker %s", worker)
-			}
 		} else {
-			if isDebug {
-				log.Debugf("no more job, exit worker %s", worker)
-			}
 			break
 		}
 	}
