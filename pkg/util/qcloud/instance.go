@@ -659,8 +659,9 @@ func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, 
 		err := self.instanceOperation(instanceId, "ResetInstancesType", params)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instancetype.InstanceType, err)
+		} else {
+			return nil
 		}
-		return nil
 	}
 
 	return fmt.Errorf("Failed to change vm config, specification not supported")
