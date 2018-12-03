@@ -66,5 +66,6 @@ func JSONDeserialize(objType reflect.Type, strVal string) (gotypes.ISerializable
 	if err != nil {
 		return nil, err
 	}
+	objPtr = gotypes.Transform(objType, objPtr)
 	return objPtr, nil
 }
