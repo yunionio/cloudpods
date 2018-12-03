@@ -5,14 +5,14 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
-	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 )
 
 const (
@@ -72,9 +72,9 @@ func getNamespaceInContext(userCred mcclient.TokenCredential, query jsonutils.JS
 	}
 }
 
-func getNamespace(userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (string, string, error) {
+func getNamespace(userCred mcclient.TokenCredential, resource string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (string, string, error) {
 	var namespace, namespace_id string
-	if db.IsAdminAllowGet(userCred, ParameterManager) {
+	if userCred.IsAdminAllow(consts.GetServiceType(), resource, policy.PolicyActionList) {
 		if name, nameId, e := getNamespaceInContext(userCred, query, data); e != nil {
 			return "", "", e
 		} else {
@@ -113,7 +113,7 @@ func (manager *SParameterManager) ValidateCreateData(ctx context.Context, userCr
 		return nil, httperrors.NewUserNotFoundError("user not found")
 	}
 
-	namespace, namespace_id, e := getNamespace(userCred, query, data)
+	namespace, namespace_id, e := getNamespace(userCred, manager.KeywordPlural(), query, data)
 	if e != nil {
 		return nil, e
 	}
@@ -182,7 +182,7 @@ func (model *SParameter) ValidateUpdateData(ctx context.Context, userCred mcclie
 		return nil, httperrors.NewUserNotFoundError("user not found")
 	}
 
-	namespace, namespace_id, e := getNamespace(userCred, query, data)
+	namespace, namespace_id, e := getNamespace(userCred, model.KeywordPlural(), query, data)
 	if e != nil {
 		return nil, e
 	}
