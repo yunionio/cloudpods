@@ -451,10 +451,11 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	params["HostName"] = name
 	if len(passwd) > 0 {
 		params["LoginSettings.Password"] = passwd
+	} else if len(keypair) > 0 {
+		params["LoginSettings.KeyIds.0"] = keypair
 	} else {
 		params["LoginSettings.KeepImageLogin"] = "TRUE"
 	}
-
 	if len(userData) > 0 {
 		params["UserData"] = userData
 	}
@@ -478,9 +479,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	if len(ipAddr) > 0 {
 		params["VirtualPrivateCloud.PrivateIpAddresses.0"] = ipAddr
 	}
-	// if len(keypair) > 0 {
-	// 	params["KeyPairName"] = keypair
-	// }
+
 	params["ClientToken"] = utils.GenRequestId(20)
 	//log.Errorf("create params: %s", jsonutils.Marshal(params).PrettyString())
 	instanceIdSet := []string{}
