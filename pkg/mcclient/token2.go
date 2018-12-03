@@ -130,8 +130,12 @@ func (this *TokenCredentialV2) GetRegions() []string {
 	return this.ServiceCatalog.getRegions()
 }
 
-func (this *TokenCredentialV2) IsSystemAdmin() bool {
+func (this *TokenCredentialV2) HasSystemAdminPrivelege() bool {
 	return this.IsAdmin() && this.GetTenantName() == "system"
+}
+
+func (this *TokenCredentialV2) IsAdminAllow(service string, resource string, action string, extra ...string) bool {
+	return this.HasSystemAdminPrivelege()
 }
 
 func (this *TokenCredentialV2) GetServiceURL(service, region, zone, endpointType string) (string, error) {

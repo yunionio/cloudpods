@@ -30,7 +30,7 @@ func (manager *SSharableVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQ
 }
 
 func (model *SSharableVirtualResourceBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return model.IsOwner(userCred) || model.IsPublic
+	return model.IsOwner(userCred) || model.IsPublic || IsAdminAllowGet(userCred, model)
 }
 
 func (model *SSharableVirtualResourceBase) IsSharable() bool {
@@ -38,11 +38,11 @@ func (model *SSharableVirtualResourceBase) IsSharable() bool {
 }
 
 func (model *SSharableVirtualResourceBase) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return IsAdminAllowPerform(userCred, model, "public")
 }
 
 func (model *SSharableVirtualResourceBase) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return IsAdminAllowPerform(userCred, model, "private")
 }
 
 func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

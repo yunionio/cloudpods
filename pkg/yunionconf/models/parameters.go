@@ -5,7 +5,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/util/timeutils"
@@ -70,9 +72,9 @@ func getNamespaceInContext(userCred mcclient.TokenCredential, query jsonutils.JS
 	}
 }
 
-func getNamespace(userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (string, string, error) {
+func getNamespace(userCred mcclient.TokenCredential, resource string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (string, string, error) {
 	var namespace, namespace_id string
-	if userCred.IsSystemAdmin() {
+	if userCred.IsAdminAllow(consts.GetServiceType(), resource, policy.PolicyActionList) {
 		if name, nameId, e := getNamespaceInContext(userCred, query, data); e != nil {
 			return "", "", e
 		} else {
@@ -92,7 +94,7 @@ func (manager *SParameterManager) AllowListItems(ctx context.Context, userCred m
 		return true
 	}
 
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowList(userCred, manager)
 }
 
 func (manager *SParameterManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -100,7 +102,7 @@ func (manager *SParameterManager) AllowCreateItem(ctx context.Context, userCred 
 		return true
 	}
 
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowCreate(userCred, manager)
 }
 
 func (manager *SParameterManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -111,7 +113,7 @@ func (manager *SParameterManager) ValidateCreateData(ctx context.Context, userCr
 		return nil, httperrors.NewUserNotFoundError("user not found")
 	}
 
-	namespace, namespace_id, e := getNamespace(userCred, query, data)
+	namespace, namespace_id, e := getNamespace(userCred, manager.KeywordPlural(), query, data)
 	if e != nil {
 		return nil, e
 	}
@@ -146,7 +148,7 @@ func (manager *SParameterManager) FilterByName(q *sqlchemy.SQuery, name string) 
 }
 
 func (manager *SParameterManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	if userCred.IsSystemAdmin() {
+	if db.IsAdminAllowList(userCred, manager) {
 		if id, _ := query.GetString("namespace_id"); len(id) > 0 {
 			q = q.Equals("namespace_id", id)
 		} else if id, _ := query.GetString("service_id"); len(id) > 0 {
@@ -171,7 +173,7 @@ func (model *SParameter) IsOwner(userCred mcclient.TokenCredential) bool {
 }
 
 func (model *SParameter) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	return model.IsOwner(userCred) || userCred.IsSystemAdmin()
+	return model.IsOwner(userCred) || db.IsAdminAllowUpdate(userCred, model)
 }
 
 func (model *SParameter) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -180,7 +182,7 @@ func (model *SParameter) ValidateUpdateData(ctx context.Context, userCred mcclie
 		return nil, httperrors.NewUserNotFoundError("user not found")
 	}
 
-	namespace, namespace_id, e := getNamespace(userCred, query, data)
+	namespace, namespace_id, e := getNamespace(userCred, model.KeywordPlural(), query, data)
 	if e != nil {
 		return nil, e
 	}
@@ -191,7 +193,7 @@ func (model *SParameter) ValidateUpdateData(ctx context.Context, userCred mcclie
 }
 
 func (model *SParameter) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return model.IsOwner(userCred) || userCred.IsSystemAdmin()
+	return model.IsOwner(userCred) || db.IsAdminAllowDelete(userCred, model)
 }
 
 func (model *SParameter) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -211,5 +213,5 @@ func (model *SParameter) Delete(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func (model *SParameter) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return model.IsOwner(userCred) || userCred.IsSystemAdmin()
+	return model.IsOwner(userCred) || db.IsAdminAllowGet(userCred, model)
 }

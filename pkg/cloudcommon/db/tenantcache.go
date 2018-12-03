@@ -90,8 +90,8 @@ func (manager *STenantCacheManager) fetchTenantFromKeystone(ctx context.Context,
 }
 
 func (manager *STenantCacheManager) Save(ctx context.Context, idStr string, name string, domainId string, domain string) (*STenant, error) {
-	lockman.LockRawObject(ctx, manager.keyword, idStr)
-	defer lockman.ReleaseRawObject(ctx, manager.keyword, idStr)
+	lockman.LockRawObject(ctx, manager.KeywordPlural(), idStr)
+	defer lockman.ReleaseRawObject(ctx, manager.KeywordPlural(), idStr)
 
 	objo, err := manager.FetchById(idStr)
 	if err != nil && err != sql.ErrNoRows {

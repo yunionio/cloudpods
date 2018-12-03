@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -102,7 +103,7 @@ type CloudEnv struct {
 
 func fetchCloudEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*CloudEnv, error) {
 	params, query, body := appsrv.FetchEnv(ctx, w, r)
-	userCred := auth.FetchUserCredential(ctx)
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 	if userCred == nil {
 		return nil, httperrors.NewUnauthorizedError("No token founded")
 	}
@@ -141,7 +142,7 @@ func handleK8sLog(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 }
 
 func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	userCred := auth.FetchUserCredential(ctx)
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 	env, err := fetchCloudEnv(ctx, w, r)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)

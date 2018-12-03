@@ -136,7 +136,7 @@ func (lbacl *SLoadbalancerAcl) ValidateUpdateData(ctx context.Context, userCred 
 }
 
 func (lbacl *SLoadbalancerAcl) AllowPerformPatch(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
-	return lbacl.IsOwner(userCred) || userCred.IsSystemAdmin()
+	return lbacl.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, lbacl, "patch")
 }
 
 // PerformPatch patches acl entries by adding then deleting the specified acls.

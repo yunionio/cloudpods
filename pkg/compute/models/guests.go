@@ -218,7 +218,7 @@ type SGuest struct {
 
 func (manager *SGuestManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	if query.Contains("host") || query.Contains("wire") || query.Contains("zone") {
-		if !userCred.IsSystemAdmin() {
+		if !db.IsAdminAllowList(userCred, manager) {
 			return false
 		}
 	}
@@ -874,7 +874,7 @@ func getGuestResourceRequirements(ctx context.Context, userCred mcclient.TokenCr
 	for idx := 0; data.Contains(fmt.Sprintf("disk.%d", idx)); idx += 1 {
 		dataJson, _ := data.Get(fmt.Sprintf("disk.%d", idx))
 		diskConfig, _ := parseDiskInfo(ctx, userCred, dataJson)
-		diskSize += diskConfig.Size
+		diskSize += diskConfig.SizeMb
 	}
 
 	devCount := 0
@@ -988,7 +988,7 @@ func (self *SGuest) getExtBandwidth() int {
 func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
 
-	if userCred.IsSystemAdmin() {
+	if db.IsAdminAllowGet(userCred, self) {
 		host := self.GetHost()
 		if host != nil {
 			extra.Add(jsonutils.NewString(host.Name), "host")
@@ -1081,7 +1081,7 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 	if metaData, err := self.GetAllMetadata(userCred); err == nil {
 		extra.Add(jsonutils.Marshal(metaData), "metadata")
 	}
-	if userCred.IsSystemAdmin() {
+	if db.IsAdminAllowGet(userCred, self) {
 		host := self.GetHost()
 		if host != nil {
 			extra.Add(jsonutils.NewString(host.GetName()), "host")
@@ -2337,10 +2337,10 @@ func (self *SGuest) AllowDeleteItem(ctx context.Context, userCred mcclient.Token
 		overridePendingDelete = jsonutils.QueryBoolean(data, "override_pending_delete", false)
 		purge = jsonutils.QueryBoolean(data, "purge", false)
 	}
-	if (overridePendingDelete || purge) && !userCred.IsSystemAdmin() {
+	if (overridePendingDelete || purge) && !db.IsAdminAllowDelete(userCred, self) {
 		return false
 	}
-	return self.IsOwner(userCred)
+	return self.IsOwner(userCred) || db.IsAdminAllowDelete(userCred, self)
 }
 
 func (self *SGuest) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {

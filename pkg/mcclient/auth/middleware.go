@@ -53,10 +53,14 @@ func AuthenticateWithDelayDecision(f appsrv.FilterHandler, delayDecision bool) a
 	}
 }
 
-func FetchUserCredential(ctx context.Context) mcclient.TokenCredential {
+func FetchUserCredential(ctx context.Context, filter func(mcclient.TokenCredential) mcclient.TokenCredential) mcclient.TokenCredential {
 	tokenValue := ctx.Value(AUTH_TOKEN)
 	if tokenValue != nil {
-		return tokenValue.(mcclient.TokenCredential)
+		token := tokenValue.(mcclient.TokenCredential)
+		if filter != nil {
+			token = filter(token)
+		}
+		return token
 	}
 	return nil
 }

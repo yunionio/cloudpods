@@ -19,12 +19,10 @@ const (
 
 type SBaremetalagentManager struct {
 	db.SStandaloneResourceBaseManager
-	SInfrastructureManager
 }
 
 type SBaremetalagent struct {
 	db.SStandaloneResourceBase
-	SInfrastructure
 
 	Status     string `width:"36" charset:"ascii" nullable:"false" default:"disable" list:"user" create:"optional"`
 	AccessIp   string `width:"16" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
@@ -36,6 +34,26 @@ var BaremetalagentManager *SBaremetalagentManager
 
 func init() {
 	BaremetalagentManager = &SBaremetalagentManager{SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(SBaremetalagent{}, "baremetalagents_tbl", "baremetalagent", "baremetalagents")}
+}
+
+func (self *SBaremetalagentManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowList(userCred, self)
+}
+
+func (self *SBaremetalagentManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowCreate(userCred, self)
+}
+
+func (self *SBaremetalagent) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGet(userCred, self)
+}
+
+func (self *SBaremetalagent) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return db.IsAdminAllowUpdate(userCred, self)
+}
+
+func (self *SBaremetalagent) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func (self *SBaremetalagent) ValidateDeleteCondition(ctx context.Context) error {
@@ -80,7 +98,7 @@ func (manager *SBaremetalagentManager) ValidateCreateData(ctx context.Context, u
 }
 
 func (self *SBaremetalagent) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "enable")
 }
 
 func (self *SBaremetalagent) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -95,7 +113,7 @@ func (self *SBaremetalagent) PerformEnable(ctx context.Context, userCred mcclien
 }
 
 func (self *SBaremetalagent) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "disable")
 }
 
 func (self *SBaremetalagent) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -110,7 +128,7 @@ func (self *SBaremetalagent) PerformDisable(ctx context.Context, userCred mcclie
 }
 
 func (self *SBaremetalagent) AllowPerformOnline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "online")
 }
 
 func (self *SBaremetalagent) PerformOnline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -125,7 +143,7 @@ func (self *SBaremetalagent) PerformOnline(ctx context.Context, userCred mcclien
 }
 
 func (self *SBaremetalagent) AllowPerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "offline")
 }
 
 func (self *SBaremetalagent) PerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {

@@ -151,7 +151,7 @@ func (manager *SModelBaseManager) PerformAction(ctx context.Context, userCred mc
 }
 
 func (manager *SModelBaseManager) AllowPerformCheckCreateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return IsAdminAllowClassPerform(userCred, manager, "check-create-data")
 }
 
 func (manager *SModelBaseManager) InitializeData() error {
@@ -176,6 +176,10 @@ func (model *SModelBase) GetId() string {
 
 func (model *SModelBase) Keyword() string {
 	return model.GetModelManager().Keyword()
+}
+
+func (model *SModelBase) KeywordPlural() string {
+	return model.GetModelManager().KeywordPlural()
 }
 
 func (model *SModelBase) GetName() string {

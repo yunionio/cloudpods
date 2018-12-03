@@ -122,3 +122,35 @@ func isObjectRbacAllowed(manager IModelManager, model IModel, userCred mcclient.
 func isJointObjectRbacAllowed(manager IJointModelManager, item IJointModel, userCred mcclient.TokenCredential, action string, extra ...string) bool {
 	return isObjectRbacAllowed(manager, item.Master(), userCred, action, extra...)
 }
+
+func IsAdminAllowList(userCred mcclient.TokenCredential, manager IModelManager) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
+}
+
+func IsAdminAllowCreate(userCred mcclient.TokenCredential, manager IModelManager) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionCreate)
+}
+
+func IsAdminAllowClassPerform(userCred mcclient.TokenCredential, manager IModelManager, action string) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionPerform, action)
+}
+
+func IsAdminAllowGet(userCred mcclient.TokenCredential, obj IModel) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionGet)
+}
+
+func IsAdminAllowGetSpec(userCred mcclient.TokenCredential, obj IModel, spec string) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionGet, spec)
+}
+
+func IsAdminAllowPerform(userCred mcclient.TokenCredential, obj IModel, action string) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionPerform, action)
+}
+
+func IsAdminAllowUpdate(userCred mcclient.TokenCredential, obj IModel) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionUpdate)
+}
+
+func IsAdminAllowDelete(userCred mcclient.TokenCredential, obj IModel) bool {
+	return userCred.IsAdminAllow(consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionDelete)
+}

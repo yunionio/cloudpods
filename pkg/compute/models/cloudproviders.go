@@ -38,7 +38,6 @@ const (
 
 type SCloudproviderManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
-	SInfrastructureManager
 }
 
 var CloudproviderManager *SCloudproviderManager
@@ -56,7 +55,6 @@ func init() {
 
 type SCloudprovider struct {
 	db.SEnabledStatusStandaloneResourceBase
-	SInfrastructure
 
 	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 	// Hostname string `width:"64" charset:"ascii" nullable:"true"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
@@ -83,6 +81,26 @@ func (manager *SCloudproviderManager) GetOwnerId(userCred mcclient.IIdentityProv
 
 func (self *SCloudprovider) GetOwnerProjectId() string {
 	return self.ProjectId
+}
+
+func (self *SCloudproviderManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowList(userCred, self)
+}
+
+func (self *SCloudproviderManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowCreate(userCred, self)
+}
+
+func (self *SCloudprovider) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGet(userCred, self)
+}
+
+func (self *SCloudprovider) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return db.IsAdminAllowUpdate(userCred, self)
+}
+
+func (self *SCloudprovider) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
@@ -309,7 +327,7 @@ func (sr *SSyncRange) Normalize() error {
 }
 
 func (self *SCloudprovider) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "sync")
 }
 
 func (self *SCloudprovider) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -342,7 +360,7 @@ func (self *SCloudprovider) StartSyncCloudProviderInfoTask(ctx context.Context, 
 }
 
 func (self *SCloudprovider) AllowPerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowPerform(userCred, self, "change-project")
 }
 
 func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -594,7 +612,7 @@ func (self *SCloudprovider) GetBalance() (float64, error) {
 }
 
 func (self *SCloudprovider) AllowGetDetailsBalance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return userCred.IsSystemAdmin()
+	return db.IsAdminAllowGetSpec(userCred, self, "balance")
 }
 
 func (self *SCloudprovider) GetDetailsBalance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {

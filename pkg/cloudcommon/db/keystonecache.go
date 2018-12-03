@@ -64,7 +64,7 @@ func NewKeystoneCacheObject(id string, name string, domainId string, domain stri
 }*/
 
 func (manager *SKeystoneCacheObjectManager) BatchFetchNames(idStrs []string) []string {
-	t := manager.tableSpec.Instance()
+	t := manager.TableSpec().Instance()
 	results, err := t.Query(t.Field("name")).In("id", idStrs).AllStringMap()
 	if err != nil {
 		return nil

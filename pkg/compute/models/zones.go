@@ -24,7 +24,6 @@ const (
 
 type SZoneManager struct {
 	db.SStatusStandaloneResourceBaseManager
-	SInfrastructureManager
 }
 
 var ZoneManager *SZoneManager
@@ -43,7 +42,6 @@ func init() {
 
 type SZone struct {
 	db.SStatusStandaloneResourceBase
-	SInfrastructure
 
 	Location string `width:"256" charset:"utf8" get:"user" update:"admin"` // = Column(VARCHAR(256, charset='utf8'))
 	Contacts string `width:"256" charset:"utf8" get:"user" update:"admin"` // = Column(VARCHAR(256, charset='utf8'))
@@ -56,6 +54,22 @@ type SZone struct {
 
 func (manager *SZoneManager) GetContextManager() []db.IModelManager {
 	return []db.IModelManager{CloudregionManager}
+}
+
+func (self *SZoneManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowCreate(userCred, self)
+}
+
+func (self *SZone) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGet(userCred, self)
+}
+
+func (self *SZone) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return db.IsAdminAllowUpdate(userCred, self)
+}
+
+func (self *SZone) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowDelete(userCred, self)
 }
 
 func (manager *SZoneManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

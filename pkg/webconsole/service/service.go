@@ -12,6 +12,7 @@ import (
 
 	"net/http"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/webconsole"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 	"yunion.io/x/onecloud/pkg/webconsole/server"
@@ -24,6 +25,8 @@ func ensureBinExists(binPath string) {
 }
 
 func StartService() {
+	consts.SetServiceType("webconsole")
+
 	cloudcommon.ParseOptions(&o.Options, &o.Options.Options, os.Args, "webconsole.conf")
 
 	if o.Options.ApiServer == "" {
