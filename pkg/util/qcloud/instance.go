@@ -441,7 +441,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	params["Region"] = self.Region
 	params["ImageId"] = imageId
 	params["InstanceType"] = instanceType
-	//params["SecurityGroupId"] = securityGroupId
+	params["SecurityGroupIds.0"] = securityGroupId
 	params["Placement.Zone"] = zoneId
 	params["InstanceName"] = name
 	params["Description"] = desc
