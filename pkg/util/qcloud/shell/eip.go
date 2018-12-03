@@ -12,7 +12,7 @@ func init() {
 		Limit  int    `help:"List limit"`
 	}
 	shellutils.R(&EipListOptions{}, "eip-list", "List eips", func(cli *qcloud.SRegion, args *EipListOptions) error {
-		eips, total, err := cli.GetEips(args.Eip, args.Offset, args.Limit)
+		eips, total, err := cli.GetEips(args.Eip, "", args.Offset, args.Limit)
 		if err != nil {
 			return err
 		}

@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 
@@ -134,7 +135,7 @@ func init() {
 	}
 
 	shellutils.R(&InstanceRebuildRootOptions{}, "instance-rebuild-root", "Reinstall virtual server system image", func(cli *aws.SRegion, args *InstanceRebuildRootOptions) error {
-		diskID, err := cli.ReplaceSystemDisk(args.ID, args.Image, args.Size)
+		diskID, err := cli.ReplaceSystemDisk(context.Background(), args.ID, args.Image, args.Size)
 		if err != nil {
 			return err
 		}

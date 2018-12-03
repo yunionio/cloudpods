@@ -4,8 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"yunion.io/x/log"
-
 	"fmt"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -65,7 +63,6 @@ func (w *responseWriterChannel) wait(ctx context.Context, workerChan chan *SWork
 	for !stop {
 		select {
 		case worker = <-workerChan:
-			log.Debugf("request is being handled by worker %s", worker)
 		case <-ctx.Done():
 			// ctx deadline reached, timeout
 			if worker != nil {

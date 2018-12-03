@@ -149,7 +149,7 @@ type SHost struct {
 
 	Version string `width:"64" charset:"ascii" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(64, charset='ascii'))
 
-	IsBaremetal bool `nullable:"true" default:"false" list:"admin" update:"true" create:"admin_optional"` // Column(Boolean, nullable=True, default=False)
+	IsBaremetal bool `nullable:"true" default:"false" list:"admin" create:"admin_optional"` // Column(Boolean, nullable=True, default=False)
 
 	IsMaintenance bool `nullable:"true" default:"false" list:"admin"` // Column(Boolean, nullable=True, default=False)
 
