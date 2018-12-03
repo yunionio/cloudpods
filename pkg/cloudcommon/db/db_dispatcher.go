@@ -110,14 +110,10 @@ func listFields(manager IModelManager, userCred mcclient.TokenCredential) []stri
 	for _, col := range manager.TableSpec().Columns() {
 		tags := col.Tags()
 		list, _ := tags["list"]
-		if !utils.IsInStringArray(list, []string{"user", "admin", ""}) {
-			log.Warningf("Invalid list value %s for field %s", list, col.Name())
-		}
 		if list == "user" || (list == "admin" && IsAdminAllowList(userCred, manager)) {
 			ret = append(ret, col.Name())
 		}
 	}
-	log.Debugf("listFields: %s", ret)
 	return ret
 }
 
