@@ -281,7 +281,13 @@ func (self *SSecurityGroupRule) String() string {
 }
 
 func (self *SSecurityGroupRule) toRule() (*secrules.SecurityRule, error) {
-	return secrules.ParseSecurityRule(self.String())
+	rule, err := secrules.ParseSecurityRule(self.String())
+	if err != nil {
+		return nil, err
+	}
+	rule.Description = self.Description
+	rule.Priority = int(self.Priority)
+	return rule, nil
 }
 
 func (self *SSecurityGroupRule) SingleRules() ([]secrules.SecurityRule, error) {
