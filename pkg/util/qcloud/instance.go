@@ -462,10 +462,11 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	params["HostName"] = name
 	if len(passwd) > 0 {
 		params["LoginSettings.Password"] = passwd
+	} else if len(keypair) > 0 {
+		params["LoginSettings.KeyIds.0"] = keypair
 	} else {
 		params["LoginSettings.KeepImageLogin"] = "TRUE"
 	}
-
 	if len(userData) > 0 {
 		params["UserData"] = userData
 	}
@@ -489,9 +490,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	if len(ipAddr) > 0 {
 		params["VirtualPrivateCloud.PrivateIpAddresses.0"] = ipAddr
 	}
-	// if len(keypair) > 0 {
-	// 	params["KeyPairName"] = keypair
-	// }
+
 	params["ClientToken"] = utils.GenRequestId(20)
 	//log.Errorf("create params: %s", jsonutils.Marshal(params).PrettyString())
 	instanceIdSet := []string{}
@@ -713,14 +712,21 @@ func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
 }
 
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
-	if len(self.PublicIpAddresses) > 0 {
+	eip, total, err := self.host.zone.region.GetEips("", self.InstanceId, 0, 1)
+	if err != nil {
+		return nil, err
+	}
+	if total == 1 {
+		return &eip[0], nil
+	}
+	for _, address := range self.PublicIpAddresses {
 		eip := SEipAddress{region: self.host.zone.region}
-		eip.AddressIp = self.PublicIpAddresses[0]
+		eip.AddressIp = address
 		eip.InstanceId = self.InstanceId
 		eip.AddressId = self.InstanceId
-		eip.AddressName = self.PublicIpAddresses[0]
-		eip.AddressType = "WanIP"
-		eip.AddressStatus = EIP_STATUS_INUSE
+		eip.AddressName = address
+		eip.AddressType = EIP_TYPE_WANIP
+		eip.AddressStatus = EIP_STATUS_BIND
 		return &eip, nil
 	}
 	return nil, nil
