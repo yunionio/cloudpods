@@ -688,14 +688,21 @@ func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
 }
 
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
-	if len(self.PublicIpAddresses) > 0 {
+	eip, total, err := self.host.zone.region.GetEips("", self.InstanceId, 0, 1)
+	if err != nil {
+		return nil, err
+	}
+	if total == 1 {
+		return &eip[0], nil
+	}
+	for _, address := range self.PublicIpAddresses {
 		eip := SEipAddress{region: self.host.zone.region}
-		eip.AddressIp = self.PublicIpAddresses[0]
+		eip.AddressIp = address
 		eip.InstanceId = self.InstanceId
 		eip.AddressId = self.InstanceId
-		eip.AddressName = self.PublicIpAddresses[0]
-		eip.AddressType = "WanIP"
-		eip.AddressStatus = EIP_STATUS_INUSE
+		eip.AddressName = address
+		eip.AddressType = EIP_TYPE_WANIP
+		eip.AddressStatus = EIP_STATUS_BIND
 		return &eip, nil
 	}
 	return nil, nil
