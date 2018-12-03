@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 )
 
@@ -13,8 +14,33 @@ func RegisterModelManager(modelMan IModelManager) {
 	if globalTables == nil {
 		globalTables = make(map[string]IModelManager)
 	}
+	mustCheckModelManager(modelMan)
 	log.Infof("Register model %s", modelMan.Keyword())
 	globalTables[modelMan.Keyword()] = modelMan
+}
+
+func mustCheckModelManager(modelMan IModelManager) {
+	allowedTags := map[string][]string{
+		"create": {"required", "optional", "admin_required", "admin_optional"},
+		"search": {"user", "admin"},
+		"get":    {"user", "admin"},
+		"list":   {"user", "admin"},
+		"update": {"user", "admin"},
+	}
+	for _, col := range modelMan.TableSpec().Columns() {
+		tags := col.Tags()
+		for tagName, allowedValues := range allowedTags {
+			v, ok := tags[tagName]
+			if !ok {
+				continue
+			}
+			if !utils.IsInStringArray(v, allowedValues) {
+				msg := fmt.Sprintf("model manager %s: column %s has invalid tag %s:\"%s\", expecting %v",
+					modelMan.KeywordPlural(), col.Name(), tagName, v, allowedValues)
+				panic(msg)
+			}
+		}
+	}
 }
 
 func CheckSync(autoSync bool) bool {

@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/onecloud/pkg/util/azure"
@@ -138,7 +139,7 @@ func init() {
 	}
 
 	shellutils.R(&InstanceConfigOptions{}, "instance-change-conf", "Attach a disk to intance", func(cli *azure.SRegion, args *InstanceConfigOptions) error {
-		return cli.ChangeVMConfig(args.ID, args.NCPU, args.MEMERY)
+		return cli.ChangeVMConfig(context.Background(), args.ID, args.NCPU, args.MEMERY)
 	})
 
 	type InstanceDeployOptions struct {
@@ -148,7 +149,7 @@ func init() {
 	}
 
 	shellutils.R(&InstanceDeployOptions{}, "instance-reset-password", "Reset intance password", func(cli *azure.SRegion, args *InstanceDeployOptions) error {
-		return cli.DeployVM(args.ID, "", args.Password, args.PublicKey, false, "")
+		return cli.DeployVM(context.Background(), args.ID, "", args.Password, args.PublicKey, false, "")
 	})
 
 	type InstanceSecurityGroupOptions struct {

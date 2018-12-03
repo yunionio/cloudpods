@@ -23,7 +23,7 @@ type SStandaloneResourceBase struct {
 
 	Description string `width:"256" charset:"utf8" get:"user" list:"user" update:"user" create:"optional"`
 
-	IsEmulated bool `nullable:"false" default:"false" list:"admin" update:"true" create:"admin_optional"`
+	IsEmulated bool `nullable:"false" default:"false" list:"admin" create:"admin_optional"`
 }
 
 func (model *SStandaloneResourceBase) BeforeInsert() {

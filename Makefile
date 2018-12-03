@@ -31,7 +31,6 @@ GO_INSTALL := go install -ldflags $(LDFLAGS)
 GO_TEST := go test
 
 PKGS := go list ./...
-CMDS := $(shell find ./cmd -mindepth 1 -maxdepth 1 -type d)
 
 
 all: build
@@ -44,11 +43,8 @@ install: prepare_dir
 	done
 
 
-build: prepare_dir fmt
-	@for PKG in $(CMDS); do \
-		echo build $$PKG; \
-		$(GO_BUILD) -o $(BIN_DIR)/`basename $${PKG}` $$PKG; \
-	done
+build:
+	$(MAKE) $(wildcard cmd/*)
 
 
 test:
