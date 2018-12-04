@@ -1,10 +1,10 @@
 package shell
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 
-	"context"
 	"yunion.io/x/onecloud/pkg/util/aws"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )

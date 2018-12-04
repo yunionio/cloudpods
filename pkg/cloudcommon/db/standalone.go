@@ -23,7 +23,7 @@ type SStandaloneResourceBase struct {
 
 	Description string `width:"256" charset:"utf8" get:"user" list:"user" update:"user" create:"optional"`
 
-	IsEmulated bool `nullable:"false" default:"false" list:"admin" update:"true" create:"admin_optional"`
+	IsEmulated bool `nullable:"false" default:"false" list:"admin" create:"admin_optional"`
 }
 
 func (model *SStandaloneResourceBase) BeforeInsert() {
@@ -201,10 +201,10 @@ func (model *SStandaloneResourceBase) PerformMetadata(ctx context.Context, userC
 	}
 	dictStore := make(map[string]interface{})
 	for k, v := range dictMap {
-		dictStore[k] = v
+		dictStore[k], _ = v.GetString()
 	}
-	model.SetAllMetadata(ctx, dictStore, userCred)
-	return nil, nil
+	err = model.SetAllMetadata(ctx, dictStore, userCred)
+	return nil, err
 }
 
 func (model *SStandaloneResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {

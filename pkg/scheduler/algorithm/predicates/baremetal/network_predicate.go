@@ -5,10 +5,11 @@ import (
 	"strings"
 	"sync"
 
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
-	"yunion.io/x/pkg/utils"
 )
 
 type NetworkPredicate struct {

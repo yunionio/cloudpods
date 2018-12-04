@@ -1,13 +1,15 @@
 package cloudprovider
 
 import (
+	"context"
 	"time"
 
-	"context"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/secrules"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/pkg/util/secrules"
 )
 
 type ICloudResource interface {
@@ -92,7 +94,7 @@ type ICloudStoragecache interface {
 
 	DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error)
 
-	UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, extId string, isForce bool) (string, error)
+	UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error)
 }
 
 type ICloudStorage interface {
@@ -359,7 +361,7 @@ type ICloudHostNetInterface interface {
 	GetDriver() string
 	GetMac() string
 	GetIndex() int8
-	IsLinkUp() bool
+	IsLinkUp() tristate.TriState
 	GetIpAddr() string
 	GetMtu() int16
 	GetNicType() string

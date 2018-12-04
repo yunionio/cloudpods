@@ -3,7 +3,6 @@ package tasks
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
@@ -95,10 +94,7 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 
 // For local storage get disk info
 func (self *GuestMigrateTask) OnCachedImageComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	header := http.Header{}
-	header.Set("X-Auth-Token", self.GetUserCred().GetTokenString())
-	header.Set("X-Task-Id", self.GetTaskId())
-	header.Set("X-Region-Version", "v2")
+	header := self.GetTaskRequestHeader()
 	body := jsonutils.NewDict()
 	guestStatus, _ := self.Params.GetString("guest_status")
 	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) && (guestStatus == models.VM_RUNNING || guestStatus == models.VM_SUSPEND) {
@@ -138,10 +134,7 @@ func (self *GuestMigrateTask) OnSrcPrepareComplete(ctx context.Context, guest *m
 		body.Set("live_migrate", jsonutils.JSONTrue)
 	}
 
-	headers := http.Header{}
-	headers.Set("X-Auth-Token", self.GetUserCred().GetTokenString())
-	headers.Set("X-Task-Id", self.GetTaskId())
-	headers.Set("X-Region-Version", "v2")
+	headers := self.GetTaskRequestHeader()
 
 	url := fmt.Sprintf("%s/servers/%s/dest-prepare-migrate", targetHost.ManagerUri, guest.Id)
 	self.SetStage("OnMigrateConfAndDiskComplete", nil)
@@ -266,10 +259,7 @@ func (self *GuestLiveMigrateTask) OnStartDestComplete(ctx context.Context, guest
 	body.Set("live_migrate_dest_port", liveMigrateDestPort)
 	body.Set("dest_ip", jsonutils.NewString(targetHost.AccessIp))
 
-	headers := http.Header{}
-	headers.Set("X-Auth-Token", self.GetUserCred().GetTokenString())
-	headers.Set("X-Task-Id", self.GetTaskId())
-	headers.Set("X-Region-Version", "v2")
+	headers := self.GetTaskRequestHeader()
 
 	host := guest.GetHost()
 	url := fmt.Sprintf("%s/servers/%s/live-migrate", host.ManagerUri, guest.Id)
@@ -325,10 +315,7 @@ func (self *GuestLiveMigrateTask) OnLiveMigrateCompleteFailed(ctx context.Contex
 }
 
 func (self *GuestLiveMigrateTask) OnLiveMigrateComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	headers := http.Header{}
-	headers.Set("X-Auth-Token", self.GetUserCred().GetTokenString())
-	headers.Set("X-Task-Id", self.GetTaskId())
-	headers.Set("X-Region-Version", "v2")
+	headers := self.GetTaskRequestHeader()
 	body := jsonutils.NewDict()
 	body.Set("live_migrate", jsonutils.JSONTrue)
 	targetHostId, _ := self.Params.GetString("target_host_id")

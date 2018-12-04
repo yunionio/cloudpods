@@ -91,7 +91,10 @@ func (self *SRegion) GetClient() *SQcloudClient {
 }
 
 func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) {
-	eips, total, err := self.GetEips(eipId, 0, 1)
+	if len(eipId) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	eips, total, err := self.GetEips(eipId, "", 0, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -105,13 +108,13 @@ func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) 
 }
 
 func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	eips, total, err := self.GetEips("", 0, 50)
+	eips, total, err := self.GetEips("", "", 0, 50)
 	if err != nil {
 		return nil, err
 	}
 	for len(eips) < total {
 		var parts []SEipAddress
-		parts, total, err = self.GetEips("", len(eips), 50)
+		parts, total, err = self.GetEips("", "", len(eips), 50)
 		if err != nil {
 			return nil, err
 		}

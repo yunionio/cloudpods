@@ -18,18 +18,19 @@ const (
 )
 
 const (
-	EIP_STATUS_ASSOCIATING   = "Associating"
-	EIP_STATUS_UNASSOCIATING = "Unassociating"
-	EIP_STATUS_INUSE         = "InUse"
-	EIP_STATUS_AVAILABLE     = "Available"
+	EIP_STATUS_CREATING      = "CREATING"
+	EIP_STATUS_BINDING       = "BINDING"
+	EIP_STATUS_BIND          = "BIND"
+	EIP_STATUS_UNBINDING     = "UNBINDING"
+	EIP_STATUS_UNBIND        = "UNBIND"
+	EIP_STATUS_OFFLINING     = "OFFLINING"
+	EIP_STATUS_BIND_ENI      = "BIND_ENI"
+	EIP_STATUS_CREATE_FAILED = "CREATE_FAILED"
 
-	EIP_OPERATION_LOCK_FINANCIAL = "financial"
-	EIP_OPERATION_LOCK_SECURITY  = "security"
-
-	EIP_INSTANCE_TYPE_ECS   = "EcsInstance" // （默认值）：VPC类型的ECS实例
-	EIP_INTANNCE_TYPE_SLB   = "SlbInstance" // ：VPC类型的SLB实例
-	EIP_INSTANCE_TYPE_NAT   = "Nat"         // ：NAT网关
-	EIP_INSTANCE_TYPE_HAVIP = "HaVip"       // ：HAVIP
+	EIP_TYPE_CALCIP     = "CalcIP"     //表示设备ip
+	EIP_TYPE_WANIP      = "WanIP"      //普通公网ip
+	EIP_TYPE_EIP        = "EIP"        //弹性公网ip
+	EIP_TYPE_ANYCASTEIP = "AnycastEIP" //加速EIP
 )
 
 type SEipAddress struct {
@@ -55,7 +56,10 @@ func (self *SEipAddress) GetId() string {
 }
 
 func (self *SEipAddress) GetName() string {
-	return self.AddressName
+	if len(self.AddressName) > 0 && self.AddressName != "未命名" {
+		return self.AddressName
+	}
+	return self.AddressId
 }
 
 func (self *SEipAddress) GetGlobalId() string {
@@ -64,13 +68,13 @@ func (self *SEipAddress) GetGlobalId() string {
 
 func (self *SEipAddress) GetStatus() string {
 	switch self.AddressStatus {
-	case "CREATING":
+	case EIP_STATUS_CREATING:
 		return models.EIP_STATUS_ALLOCATE
-	case "BINDING":
+	case EIP_STATUS_BINDING:
 		return models.EIP_STATUS_ASSOCIATE
-	case "BIND", "UNBINDING", "UNBIND", "OFFLINING", "BIND_ENI":
+	case EIP_STATUS_BIND, EIP_STATUS_UNBINDING, EIP_STATUS_UNBIND, EIP_STATUS_OFFLINING, EIP_STATUS_BIND_ENI:
 		return models.EIP_STATUS_READY
-	case "CREATE_FAILED":
+	case EIP_STATUS_CREATE_FAILED:
 		return models.EIP_STATUS_ALLOCATE_FAIL
 	default:
 		return models.EIP_STATUS_UNKNOWN
@@ -114,9 +118,9 @@ func (self *SEipAddress) GetMode() string {
 
 func (self *SEipAddress) GetAssociationType() string {
 	switch self.AddressType {
-	case "EIP", "AnycastEIP", "WanIP":
+	case EIP_TYPE_EIP, EIP_TYPE_ANYCASTEIP, EIP_TYPE_WANIP:
 		return "server"
-	case "CalcIP":
+	case EIP_TYPE_CALCIP:
 		return "server"
 	default:
 		log.Fatalf("unsupported type: %s", self.AddressType)
@@ -173,7 +177,7 @@ func (self *SEipAddress) ChangeBandwidth(bw int) error {
 	return self.region.UpdateEipBandwidth(self.AddressId, bw)
 }
 
-func (region *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddress, int, error) {
+func (region *SRegion) GetEips(eipId string, instanceId string, offset int, limit int) ([]SEipAddress, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50
 	}
@@ -184,6 +188,11 @@ func (region *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddre
 
 	if len(eipId) > 0 {
 		params["AddressIds.0"] = eipId
+	}
+
+	if len(instanceId) > 0 {
+		params["Filters.0.Name"] = "instance-id"
+		params["Filters.0.Values.0"] = instanceId
 	}
 
 	body, err := region.vpcRequest("DescribeAddresses", params)
@@ -206,7 +215,7 @@ func (region *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddre
 }
 
 func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
-	eips, total, err := region.GetEips(eipId, 0, 1)
+	eips, total, err := region.GetEips(eipId, "", 0, 1)
 	if err != nil {
 		return nil, err
 	}

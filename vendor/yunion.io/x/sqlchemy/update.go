@@ -83,17 +83,16 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (map[string]SUpdateDiff, er
 	setters := make(map[string]SUpdateDiff)
 	for _, c := range us.tableSpec.columns {
 		k := c.Name()
-		of, ok := ofields[k]
-		if !ok {
-			continue
-		}
+		of := ofields[k]
 		nf := fields[k]
-		if c.IsPrimary() && !c.IsZero(of) { // skip update primary key
-			primaries[k] = of
-			continue
-		} else if c.IsKeyIndex() && !c.IsZero(of) {
-			keyIndexes[k] = of
-			continue
+		if !gotypes.IsNil(of) {
+			if c.IsPrimary() && !c.IsZero(of) { // skip update primary key
+				primaries[k] = of
+				continue
+			} else if c.IsKeyIndex() && !c.IsZero(of) {
+				keyIndexes[k] = of
+				continue
+			}
 		}
 		nc, ok := c.(*SIntegerColumn)
 		if ok && nc.IsAutoVersion {

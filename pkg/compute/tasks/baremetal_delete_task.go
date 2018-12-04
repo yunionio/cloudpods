@@ -3,7 +3,6 @@ package tasks
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -29,9 +28,7 @@ func (self *BaremetalDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		return
 	}
 	url := fmt.Sprintf("/baremetals/%s/delete", baremetal.Id)
-	headers := http.Header{}
-	headers.Set("X-Auth-Token", self.UserCred.GetTokenString())
-	headers.Set("X-Task-Id", self.GetTaskId())
+	headers := self.GetTaskRequestHeader()
 	self.SetStage("OnDeleteBaremetalComplete", nil)
 	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, nil)
 	if err != nil {
