@@ -33,3 +33,13 @@ func (self *SBillingResourceBase) GetBillingShortDesc() jsonutils.JSONObject {
 	}
 	return ret
 }
+
+func (self *SBillingResourceBase) IsValidPrePaid() bool {
+	if self.BillingType == BILLING_TYPE_PREPAID {
+		now := time.Now().UTC()
+		if self.ExpiredAt.After(now) {
+			return true
+		}
+	}
+	return false
+}

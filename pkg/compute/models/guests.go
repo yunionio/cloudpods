@@ -449,7 +449,10 @@ func (guest *SGuest) GetDriver() IGuestDriver {
 
 func (guest *SGuest) ValidateDeleteCondition(ctx context.Context) error {
 	if guest.DisableDelete.IsTrue() {
-		return fmt.Errorf("Virtual server is locked, cannot delete")
+		return httperrors.NewInvalidStatusError("Virtual server is locked, cannot delete")
+	}
+	if guest.IsValidPrePaid() {
+		return httperrors.NewForbiddenError("not allow to delete prepaid server in valid status")
 	}
 	return guest.SVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
@@ -3122,7 +3125,7 @@ func (manager *SGuestManager) getExpiredPendingDeleteGuests() []SGuest {
 	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds*-1) * time.Second)
 
 	q := manager.Query()
-	q = q.IsTrue("pending_deleted").LT("pending_deleted_at", deadline).In("hypervisor", []string{"aliyun"}).Limit(options.Options.PendingDeleteMaxCleanBatchSize)
+	q = q.IsTrue("pending_deleted").LT("pending_deleted_at", deadline).Limit(options.Options.PendingDeleteMaxCleanBatchSize)
 
 	guests := make([]SGuest, 0)
 	err := db.FetchModelObjects(GuestManager, q, &guests)
@@ -3136,6 +3139,32 @@ func (manager *SGuestManager) getExpiredPendingDeleteGuests() []SGuest {
 
 func (manager *SGuestManager) CleanPendingDeleteServers(ctx context.Context, userCred mcclient.TokenCredential) {
 	guests := manager.getExpiredPendingDeleteGuests()
+	if guests == nil {
+		return
+	}
+	for i := 0; i < len(guests); i += 1 {
+		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, true)
+	}
+}
+
+func (manager *SGuestManager) getExpiredPrepaidGuests() []SGuest {
+	deadline := time.Now().Add(time.Duration(options.Options.PrepaidExpireCheckSeconds*-1) * time.Second)
+
+	q := manager.Query()
+	q = q.Equals("billing_type", BILLING_TYPE_PREPAID).LT("expired_at", deadline).Limit(options.Options.ExpiredPrepaidMaxCleanBatchSize)
+
+	guests := make([]SGuest, 0)
+	err := db.FetchModelObjects(GuestManager, q, &guests)
+	if err != nil {
+		log.Errorf("fetch guests error %s", err)
+		return nil
+	}
+
+	return guests
+}
+
+func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, userCred mcclient.TokenCredential) {
+	guests := manager.getExpiredPrepaidGuests()
 	if guests == nil {
 		return
 	}
