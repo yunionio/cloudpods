@@ -3,7 +3,6 @@ package tasks
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -22,9 +21,7 @@ func init() {
 func (self *BaremetalPrepareTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	baremetal := obj.(*models.SHost)
 	url := fmt.Sprintf("/baremetals/%s/prepare", baremetal.Id)
-	headers := http.Header{}
-	headers.Set("X-Auth-Token", self.UserCred.GetTokenString())
-	headers.Set("X-Task-Id", self.GetTaskId())
+	headers := self.GetTaskRequestHeader()
 	self.SetStage("OnSyncConfigComplete", nil)
 	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, self.Params)
 	if err != nil {

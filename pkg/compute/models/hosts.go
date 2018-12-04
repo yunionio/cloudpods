@@ -135,7 +135,7 @@ type SHost struct {
 
 	StorageSize   int                  `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`                            // Column(Integer, nullable=True) # storage size in MB
 	StorageType   string               `width:"20" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(20, charset='ascii'), nullable=True)
-	StorageDriver string               `width:"20" charset:"ascii" nullable:"true" update:"admin" create:"admin_optional"`              // Column(VARCHAR(20, charset='ascii'), nullable=True)
+	StorageDriver string               `width:"20" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"`  // Column(VARCHAR(20, charset='ascii'), nullable=True)
 	StorageInfo   jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin" create:"admin_optional"`                             // Column(JSONEncodedDict, nullable=True)
 
 	IpmiInfo jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin" create:"admin_optional"` // Column(JSONEncodedDict, nullable=True)
@@ -507,6 +507,79 @@ func (self *SHost) GetBaremetalstorage() *SHoststorage {
 	return nil
 }
 
+func (self *SHost) SaveCleanUpdates(doUpdate func() error) (map[string]sqlchemy.SUpdateDiff, error) {
+	return self.saveUpdates(doUpdate, true)
+}
+
+func (self *SHost) SaveUpdates(doUpdate func() error) (map[string]sqlchemy.SUpdateDiff, error) {
+	return self.saveUpdates(doUpdate, false)
+}
+
+func (self *SHost) saveUpdates(doUpdate func() error, doSchedClean bool) (map[string]sqlchemy.SUpdateDiff, error) {
+	diff, err := self.GetModelManager().TableSpec().Update(self, doUpdate)
+	if err == nil && doSchedClean {
+		self.ClearSchedDescCache()
+	}
+	return diff, err
+}
+
+func (self *SHost) AllowPerformUpdateStorage(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return db.IsAdminAllowPerform(userCred, self, "update-storage")
+}
+
+func (self *SHost) PerformUpdateStorage(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	bs := self.GetBaremetalstorage()
+	capacity, _ := data.Int("capacity")
+	zoneId, _ := data.GetString("zone_id")
+	if bs == nil {
+		// 1. create storage
+		storage := SStorage{}
+		storage.Name = fmt.Sprintf("storage%s", self.GetName())
+		storage.Capacity = int(capacity)
+		storage.StorageType = STORAGE_BAREMETAL
+		storage.MediumType = self.StorageType
+		storage.Cmtbound = 1.0
+		storage.Status = STORAGE_ONLINE
+		storage.ZoneId = zoneId
+		err := StorageManager.TableSpec().Insert(&storage)
+		if err != nil {
+			return nil, fmt.Errorf("Create baremetal storage error: %v", err)
+		}
+		// 2. create host storage
+		bmStorage := SHoststorage{}
+		bmStorage.HostId = self.Id
+		bmStorage.StorageId = storage.Id
+		bmStorage.RealCapacity = int(capacity)
+		bmStorage.MountPoint = ""
+		err = HoststorageManager.TableSpec().Insert(&bmStorage)
+		if err != nil {
+			return nil, fmt.Errorf("Create baremetal hostStorage error: %v", err)
+		}
+		return nil, nil
+	}
+	storage := bs.GetStorage()
+	if capacity != int64(storage.Capacity) {
+		_, err := storage.GetModelManager().TableSpec().Update(storage, func() error {
+			storage.Capacity = int(capacity)
+			return nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("Update baremetal storage error: %v", err)
+		}
+	}
+	return nil, nil
+}
+
 func (self *SHost) GetFetchUrl() string {
 	managerUrl, err := url.Parse(self.ManagerUri)
 	if err != nil {
@@ -566,6 +639,15 @@ func (self *SHost) SyncAttachedStorageStatus() {
 		}
 		self.ClearSchedDescCache()
 	}
+}
+
+func (self *SHostManager) IsNewNameUnique(name string, userCred mcclient.TokenCredential, kwargs *jsonutils.JSONDict) bool {
+	q := self.Query().Equals("name", name)
+	if kwargs != nil && kwargs.Contains("zone_id") {
+		zoneId, _ := kwargs.GetString("zone_id")
+		q.Equals("zone_id", zoneId)
+	}
+	return q.Count() == 0
 }
 
 func (self *SHostManager) AllowGetPropertyBmStartRegisterScript(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -1053,7 +1135,7 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SHost) syncWithCloudHost(extHost cloudprovider.ICloudHost, projectSync bool) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := self.SaveUpdates(func() error {
 		self.Name = extHost.GetName()
 
 		self.Status = extHost.GetStatus()
@@ -1963,7 +2045,7 @@ func (self *SHost) PostCreate(ctx context.Context, userCred mcclient.TokenCreden
 		return
 	}
 	if ipmiInfo.Length() > 0 {
-		_, err := HostManager.TableSpec().Update(self, func() error {
+		_, err := self.SaveUpdates(func() error {
 			self.IpmiInfo = ipmiInfo
 			return nil
 		})
@@ -2031,7 +2113,7 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 	}
 	accessMac, err := data.GetString("access_mac")
 	if err == nil {
-		count := manager.TableSpec().Query().Equals("access_mac", accessMac).Count()
+		count := HostManager.Query().Equals("access_mac", accessMac).Count()
 		if count > 0 {
 			return nil, httperrors.NewDuplicateResourceError("Duplicate access_mac %s", accessMac)
 		}
@@ -2097,7 +2179,7 @@ func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 		val := jsonutils.NewDict()
 		val.Update(self.IpmiInfo)
 		val.Update(ipmiInfo)
-		data.Set("impi_info", val)
+		data.Set("ipmi_info", val)
 	}
 	data, err = self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 	if err != nil {
@@ -2145,9 +2227,10 @@ func (self *SHost) FetchIpmiInfo(data *jsonutils.JSONDict) (*jsonutils.JSONDict,
 	IPMI_KEY_PERFIX := "ipmi_"
 	ipmiInfo := jsonutils.NewDict()
 	kv, _ := data.GetMap()
+	var err error
 	for key := range kv {
-		value, err := ipmiInfo.GetString(key)
-		if strings.HasPrefix(value, IPMI_KEY_PERFIX) {
+		if strings.HasPrefix(key, IPMI_KEY_PERFIX) {
+			value, _ := data.GetString(key)
 			subkey := key[len(IPMI_KEY_PERFIX):]
 			data.Remove(key)
 			if subkey == "password" {
@@ -2156,8 +2239,13 @@ func (self *SHost) FetchIpmiInfo(data *jsonutils.JSONDict) (*jsonutils.JSONDict,
 					log.Errorf("encrypt password failed %s", err)
 					return nil, err
 				}
+			} else if subkey == "ip_addr" {
+				if !regutils.MatchIP4Addr(value) {
+					log.Errorf("%s: %s not match ip address", key, value)
+					continue
+				}
 			}
-			ipmiInfo.Set(key, jsonutils.NewString(value))
+			ipmiInfo.Set(subkey, jsonutils.NewString(value))
 		}
 	}
 	return ipmiInfo, nil
@@ -2359,12 +2447,16 @@ func (self *SHost) AllowPerformOffline(ctx context.Context,
 
 func (self *SHost) PerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.HostStatus != HOST_OFFLINE {
-		self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err := self.SaveUpdates(func() error {
 			self.HostStatus = HOST_OFFLINE
 			return nil
 		})
+		if err != nil {
+			return nil, err
+		}
 		db.OpsLog.LogEvent(self, db.ACT_OFFLINE, "", userCred)
 		logclient.AddActionLog(self, logclient.ACT_ONLINE, nil, userCred, true)
+		self.SyncAttachedStorageStatus()
 	}
 	return nil, nil
 }
@@ -2378,7 +2470,7 @@ func (self *SHost) AllowPerformOnline(ctx context.Context,
 
 func (self *SHost) PerformOnline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.HostStatus != HOST_ONLINE {
-		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err := self.SaveUpdates(func() error {
 			self.LastPingAt = time.Now()
 			self.HostStatus = HOST_ONLINE
 			self.Status = BAREMETAL_RUNNING
@@ -2416,7 +2508,7 @@ func (self *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCrede
 	if self.HostStatus != HOST_ONLINE {
 		self.PerformOnline(ctx, userCred, query, data)
 	} else {
-		self.GetModelManager().TableSpec().Update(self, func() error {
+		self.SaveUpdates(func() error {
 			self.LastPingAt = time.Now()
 			return nil
 		})
@@ -2493,18 +2585,26 @@ func (self *SHost) PerformAddNetif(ctx context.Context, userCred mcclient.TokenC
 	reserve := jsonutils.QueryBoolean(data, "reserve", false)
 	requireDesignatedIp := jsonutils.QueryBoolean(data, "require_designated_ip", false)
 
-	err := self.addNetif(ctx, userCred, mac, wire, ipAddr, int(rate), nicType, int8(index), utils.ToBool(linkUp),
+	isLinkUp := tristate.None
+	if linkUp != "" {
+		if utils.ToBool(linkUp) {
+			isLinkUp = tristate.True
+		} else {
+			isLinkUp = tristate.False
+		}
+	}
+
+	err := self.addNetif(ctx, userCred, mac, wire, ipAddr, int(rate), nicType, int8(index), isLinkUp,
 		int16(mtu), reset, strInterface, bridge, reserve, requireDesignatedIp)
 	return nil, err
 }
 
 func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredential,
 	mac string, wire string, ipAddr string,
-	rate int, nicType string, index int8, linkUp bool, mtu int16,
+	rate int, nicType string, index int8, linkUp tristate.TriState, mtu int16,
 	reset bool, strInterface string, bridge string,
 	reserve bool, requireDesignatedIp bool,
 ) error {
-
 	var sw *SWire
 	if len(wire) > 0 && len(ipAddr) == 0 {
 		iWire, err := WireManager.FetchByIdOrName(userCred, wire)
@@ -2539,7 +2639,9 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 		netif.Rate = rate
 		netif.NicType = nicType
 		netif.Index = index
-		netif.LinkUp = linkUp
+		if !linkUp.IsNone() {
+			netif.LinkUp = linkUp.Bool()
+		}
 		netif.Mtu = mtu
 		err = NetInterfaceManager.TableSpec().Insert(netif)
 		if err != nil {
@@ -2556,25 +2658,20 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 				changed = true
 				netif.WireId = sw.Id
 			}
-			if rate != netif.Rate {
-				changed = true
-				netif.Rate = int(rate)
+			if rate > 0 && rate != netif.Rate {
+				netif.Rate = rate
 			}
-			if nicType != netif.NicType {
-				changed = true
+			if nicType != "" && nicType != netif.NicType {
 				netif.NicType = nicType
 			}
 			if index >= 0 && index != netif.Index {
-				changed = true
-				netif.Index = int8(index)
+				netif.Index = index
 			}
-			if linkUp != netif.LinkUp {
-				changed = true
-				netif.LinkUp = linkUp
+			if !linkUp.IsNone() && linkUp.Bool() != netif.LinkUp {
+				netif.LinkUp = linkUp.Bool()
 			}
-			if mtu != netif.Mtu {
-				changed = true
-				netif.Mtu = int16(mtu)
+			if mtu > 0 && mtu != netif.Mtu {
+				netif.Mtu = mtu
 			}
 			return nil
 		})
@@ -2870,24 +2967,46 @@ func (self *SHost) PerformRemoveAllNetifs(ctx context.Context, userCred mcclient
 	return nil, nil
 }
 
-func (self *SHost) AllowPerformDisable(ctx context.Context,
+func (self *SHost) AllowPerformEnable(
+	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "disable")
+	data jsonutils.JSONObject,
+) bool {
+	return self.SEnabledStatusStandaloneResourceBase.AllowPerformEnable(ctx, userCred, query, data)
+}
+
+func (self *SHost) PerformEnable(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	if !self.Enabled {
+		_, err := self.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, data)
+		if err != nil {
+			return nil, err
+		}
+		self.SyncAttachedStorageStatus()
+	}
+	return nil, nil
+}
+
+func (self *SHost) AllowPerformDisable(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return self.SEnabledStatusStandaloneResourceBase.AllowPerformDisable(ctx, userCred, query, data)
 }
 
 func (self *SHost) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Enabled {
-		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
-			self.Enabled = false
-			return nil
-		})
+		_, err := self.SEnabledStatusStandaloneResourceBase.PerformDisable(ctx, userCred, query, data)
 		if err != nil {
 			return nil, err
 		}
-		db.OpsLog.LogEvent(self, db.ACT_DISABLE, "", userCred)
-		logclient.AddActionLog(self, logclient.ACT_DISABLE, nil, userCred, true)
 		self.SyncAttachedStorageStatus()
 	}
 	return nil, nil

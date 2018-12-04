@@ -654,9 +654,7 @@ func (self *STask) GetObjects() []db.IStandaloneModel {
 }
 
 func (task *STask) GetTaskRequestHeader() http.Header {
-	header := http.Header{}
-	header.Set(mcclient.AUTH_TOKEN, task.GetUserCred().GetTokenString())
+	header := mcclient.GetTokenHeaders(task.GetUserCred())
 	header.Set(mcclient.TASK_ID, task.GetTaskId())
-	header.Set(mcclient.REGION_VERSION, "v2")
 	return header
 }
