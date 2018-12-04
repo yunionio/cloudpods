@@ -243,6 +243,9 @@ func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 }
 
 func (self *SHost) GetIVMById(gid string) (cloudprovider.ICloudVM, error) {
+	if len(gid) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
 	parts, _, err := self.zone.region.GetInstances(self.zone.Zone, []string{gid}, 0, 1)
 	if err != nil {
 		return nil, err
