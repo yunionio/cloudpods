@@ -5,7 +5,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SEnabledStatusStandaloneResourceBase struct {
@@ -37,6 +39,7 @@ func (self *SEnabledStatusStandaloneResourceBase) PerformEnable(ctx context.Cont
 			return nil, err
 		}
 		OpsLog.LogEvent(self, ACT_ENABLE, "", userCred)
+		logclient.AddActionLog(self, logclient.ACT_ENABLE, nil, userCred, true)
 	}
 	return nil, nil
 }
@@ -56,6 +59,7 @@ func (self *SEnabledStatusStandaloneResourceBase) PerformDisable(ctx context.Con
 			return nil, err
 		}
 		OpsLog.LogEvent(self, ACT_DISABLE, "", userCred)
+		logclient.AddActionLog(self, logclient.ACT_DISABLE, nil, userCred, true)
 	}
 	return nil, nil
 }

@@ -2447,7 +2447,7 @@ func (self *SHost) AllowPerformOffline(ctx context.Context,
 
 func (self *SHost) PerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.HostStatus != HOST_OFFLINE {
-		_, err := self.SaveCleanUpdates(func() error {
+		_, err := self.SaveUpdates(func() error {
 			self.HostStatus = HOST_OFFLINE
 			return nil
 		})
@@ -2456,6 +2456,7 @@ func (self *SHost) PerformOffline(ctx context.Context, userCred mcclient.TokenCr
 		}
 		db.OpsLog.LogEvent(self, db.ACT_OFFLINE, "", userCred)
 		logclient.AddActionLog(self, logclient.ACT_ONLINE, nil, userCred, true)
+		self.SyncAttachedStorageStatus()
 	}
 	return nil, nil
 }
@@ -2469,7 +2470,7 @@ func (self *SHost) AllowPerformOnline(ctx context.Context,
 
 func (self *SHost) PerformOnline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.HostStatus != HOST_ONLINE {
-		_, err := self.SaveCleanUpdates(func() error {
+		_, err := self.SaveUpdates(func() error {
 			self.LastPingAt = time.Now()
 			self.HostStatus = HOST_ONLINE
 			self.Status = BAREMETAL_RUNNING
@@ -2966,24 +2967,46 @@ func (self *SHost) PerformRemoveAllNetifs(ctx context.Context, userCred mcclient
 	return nil, nil
 }
 
-func (self *SHost) AllowPerformDisable(ctx context.Context,
+func (self *SHost) AllowPerformEnable(
+	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
-	data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "disable")
+	data jsonutils.JSONObject,
+) bool {
+	return self.SEnabledStatusStandaloneResourceBase.AllowPerformEnable(ctx, userCred, query, data)
+}
+
+func (self *SHost) PerformEnable(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	if !self.Enabled {
+		_, err := self.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, data)
+		if err != nil {
+			return nil, err
+		}
+		self.SyncAttachedStorageStatus()
+	}
+	return nil, nil
+}
+
+func (self *SHost) AllowPerformDisable(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return self.SEnabledStatusStandaloneResourceBase.AllowPerformDisable(ctx, userCred, query, data)
 }
 
 func (self *SHost) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Enabled {
-		_, err := self.SaveCleanUpdates(func() error {
-			self.Enabled = false
-			return nil
-		})
+		_, err := self.SEnabledStatusStandaloneResourceBase.PerformDisable(ctx, userCred, query, data)
 		if err != nil {
 			return nil, err
 		}
-		db.OpsLog.LogEvent(self, db.ACT_DISABLE, "", userCred)
-		logclient.AddActionLog(self, logclient.ACT_DISABLE, nil, userCred, true)
 		self.SyncAttachedStorageStatus()
 	}
 	return nil, nil
