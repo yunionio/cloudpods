@@ -91,6 +91,9 @@ func (self *SRegion) GetClient() *SQcloudClient {
 }
 
 func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) {
+	if len(eipId) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
 	eips, total, err := self.GetEips(eipId, "", 0, 1)
 	if err != nil {
 		return nil, err
