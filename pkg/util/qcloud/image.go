@@ -3,12 +3,14 @@ package qcloud
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/pkg/utils"
 )
 
 type ImageStatusType string
@@ -163,23 +165,91 @@ func (self *SRegion) GetImageByName(name string) (*SImage, error) {
 	return &images[0], nil
 }
 
-func (self *SRegion) ImportImage(name string, osArch string, osType string, osVersion string, imageUrl string) (*SImage, error) {
-	params := make(map[string]string)
-	params["ImageName"] = name
-	if _, err := strconv.Atoi(osVersion); len(osVersion) == 0 || err != nil {
+type ImportImageOsListSupported struct {
+	Linux   []string //"CentOS|Ubuntu|Debian|OpenSUSE|SUSE|CoreOS|FreeBSD|Other Linux"
+	Windows []string //"Windows Server 2008|Windows Server 2012|Windows Server 2016"
+}
+
+type ImportImageOsVersionSet struct {
+	Architecture []string
+	OsName       string //"CentOS|Ubuntu|Debian|OpenSUSE|SUSE|CoreOS|FreeBSD|Other Linux|Windows Server 2008|Windows Server 2012|Windows Server 2016"
+	OsVersions   []string
+}
+
+type SupportImageSet struct {
+	ImportImageOsListSupported ImportImageOsListSupported
+	ImportImageOsVersionSet    []ImportImageOsVersionSet
+}
+
+func (self *SRegion) GetSupportImageSet() (*SupportImageSet, error) {
+	body, err := self.cvmRequest("DescribeImportImageOs", map[string]string{})
+	if err != nil {
+		return nil, err
+	}
+	imageSet := SupportImageSet{}
+	return &imageSet, body.Unmarshal(&imageSet)
+}
+
+func (self *SRegion) GetImportImageParams(name string, osArch, osDist, osVersion string, imageUrl string) (map[string]string, error) {
+	params := map[string]string{}
+	imageSet, err := self.GetSupportImageSet()
+	if err != nil {
+		return nil, err
+	}
+	osType := ""
+	for _, _imageSet := range imageSet.ImportImageOsVersionSet {
+		if strings.ToLower(osDist) == strings.ToLower(_imageSet.OsName) { //Linux一般可正常匹配
+			osType = _imageSet.OsName
+		} else if strings.Contains(strings.ToLower(_imageSet.OsName), "windows") && strings.Contains(strings.ToLower(osDist), "windows") {
+			info := strings.Split(_imageSet.OsName, " ")
+			_osVersion := "2008"
+			for _, version := range info {
+				if _, err := strconv.Atoi(version); err == nil {
+					_osVersion = version
+					break
+				}
+			}
+			if strings.Contains(osDist+osVersion, _osVersion) {
+				osType = _imageSet.OsName
+			}
+		}
+		if len(osType) == 0 {
+			continue
+		}
+		if !utils.IsInStringArray(osArch, _imageSet.Architecture) {
+			osArch = "x86_64"
+		}
+		for _, _osVersion := range _imageSet.OsVersions {
+			if strings.HasPrefix(osVersion, _osVersion) {
+				osVersion = _osVersion
+				break
+			}
+		}
+		if !utils.IsInStringArray(osVersion, _imageSet.OsVersions) {
+			osVersion = "-"
+		}
+		break
+	}
+	if len(osType) == 0 {
+		osType = "Other Linux"
+		osArch = "x86_64"
 		osVersion = "-"
 	}
-	params["OsVersion"] = osVersion // "6|7|8|-"
-	if len(osType) == 0 || osType == "linux" {
-		osType = "Other Linux"
-	}
-	params["OsType"] = osType // "CentOS|Ubuntu|Debian|OpenSUSE|SUSE|CoreOS|FreeBSD|Other Linux|Windows Server 2008|Windows Server 2012|Windows Server 2016"
-	if len(osArch) == 0 {
-		osArch = "x86_64"
-	}
+
+	params["ImageName"] = name
+	params["OsType"] = osType
+	params["OsVersion"] = osVersion
 	params["Architecture"] = osArch // "x86_64|i386"
 	params["ImageUrl"] = imageUrl
 	params["Force"] = "true"
+	return params, nil
+}
+
+func (self *SRegion) ImportImage(name string, osArch, osDist, osVersion string, imageUrl string) (*SImage, error) {
+	params, err := self.GetImportImageParams(name, osArch, osDist, osVersion, imageUrl)
+	if err != nil {
+		return nil, err
+	}
 
 	log.Debugf("Upload image with params %#v", params)
 
