@@ -259,6 +259,8 @@ func (self *SRegion) createSecurityGroup(vpcId string, name string, desc string)
 	}
 
 	tagspec := TagSpec{ResourceType: "security-group"}
+	tagspec.SetNameTag(name)
+	tagspec.SetDescTag(desc)
 	tags, _ := tagspec.GetTagSpecifications()
 	tagParams := &ec2.CreateTagsInput{}
 	tagParams.SetResources([]*string{group.GroupId})
