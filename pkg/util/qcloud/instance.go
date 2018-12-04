@@ -682,12 +682,11 @@ func (self *SRegion) ChangeVMConfig2(zoneId string, instanceId string, instanceT
 
 func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
 	params := make(map[string]string)
-	params["InstanceId"] = instanceId
-	params["DiskId"] = diskId
+	params["DiskIds.0"] = diskId
 	log.Infof("Detach instance %s disk %s", instanceId, diskId)
-	_, err := self.cvmRequest("DetachDisk", params)
+	_, err := self.cbsRequest("DetachDisks", params)
 	if err != nil {
-		log.Errorf("DetachDisk %s to %s fail %s", diskId, instanceId, err)
+		log.Errorf("DetachDisks %s to %s fail %s", diskId, instanceId, err)
 		return err
 	}
 
