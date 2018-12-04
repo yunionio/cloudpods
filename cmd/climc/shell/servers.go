@@ -575,4 +575,19 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type ServerRenewOptions struct {
+		ID       string `help:"ID or name of server to renew"`
+		DURATION string `help:"Duration of renew, ADMIN only command"`
+	}
+	R(&ServerRenewOptions{}, "server-renew", "Renew a server", func(s *mcclient.ClientSession, args *ServerRenewOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.DURATION), "duration")
+		result, err := modules.Servers.PerformAction(s, args.ID, "renew", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

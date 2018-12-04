@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/onecloud/pkg/util/qcloud"
@@ -64,7 +65,8 @@ func init() {
 		SIZE int64  `help:"Disk Size GB"`
 	}
 	shellutils.R(&DiskResizeOptions{}, "disk-resize", "Resize disk", func(cli *qcloud.SRegion, args *DiskResizeOptions) error {
-		return cli.ResizeDisk(args.ID, args.SIZE)
+		ctx := context.Background()
+		return cli.ResizeDisk(ctx, args.ID, args.SIZE)
 	})
 
 	type DiskResetOptions struct {

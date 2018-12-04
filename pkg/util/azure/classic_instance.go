@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/pkg/util/osprofile"
 )
 
@@ -520,5 +521,9 @@ func (self *SClassicInstance) UpdateUserData(userData string) error {
 }
 
 func (self *SClassicInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SClassicInstance) Renew(bc billing.SBillingCycle) error {
 	return cloudprovider.ErrNotSupported
 }

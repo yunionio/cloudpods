@@ -10,11 +10,13 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/secrules"
 
+	"time"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SManagedVirtualizedGuestDriver struct {
@@ -39,6 +41,8 @@ type SManagedVMCreateConfig struct {
 	SecGroupId        string
 	SecGroupName      string
 	SecRules          []secrules.SecurityRule
+
+	BillingCycle billing.SBillingCycle
 }
 
 func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
@@ -92,6 +96,15 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 			config.DataDisks[i-1] = disk.DiskSize / 1024 // MB => GB
 		}
 	}
+
+	if guest.BillingType == models.BILLING_TYPE_PREPAID {
+		bc, err := billing.ParseBillingCycle(guest.BillingCycle)
+		if err != nil {
+			log.Errorf("fail to parse billing cycle %s: %s", guest.BillingCycle, err)
+		}
+		config.BillingCycle = bc
+	}
+
 	return jsonutils.Marshal(&config)
 }
 
@@ -422,6 +435,11 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 		}
 	}
 
+	exp, err := data.GetTime("expired_at")
+	if err == nil {
+		guest.SaveRenewInfo(task.GetUserCred(), nil, &exp)
+	}
+
 	guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
 	return nil
 }
@@ -546,3 +564,15 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.
 	})
 	return nil
 }*/
+
+func (self *SManagedVirtualizedGuestDriver) RequestRenewInstance(guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
+	iVM, err := guest.GetIVM()
+	if err != nil {
+		return time.Time{}, err
+	}
+	err = iVM.Renew(bc)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return iVM.GetExpiredAt(), nil
+}

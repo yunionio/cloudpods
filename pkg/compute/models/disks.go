@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 const (
@@ -1303,6 +1304,7 @@ func (self *SDisk) GetShortDesc() *jsonutils.JSONDict {
 	}
 
 	desc.Add(jsonutils.NewString(self.GetChargeType()), "charge_type")
+	desc.Update(self.GetBillingShortDesc())
 
 	if hypervisor := self.GetMetadata("hypervisor", nil); len(hypervisor) > 0 {
 		desc.Add(jsonutils.NewString(hypervisor), "hypervisor")
@@ -1424,5 +1426,26 @@ func (disk *SDisk) StratCreateBackupTask(ctx context.Context, userCred mcclient.
 	} else {
 		task.ScheduleRun(nil)
 	}
+	return nil
+}
+
+func (self *SDisk) SaveRenewInfo(userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
+	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		if self.BillingType != BILLING_TYPE_PREPAID {
+			self.BillingType = BILLING_TYPE_PREPAID
+		}
+		if expireAt != nil && !expireAt.IsZero() {
+			self.ExpiredAt = *expireAt
+		} else if bc != nil {
+			self.BillingCycle = bc.String()
+			self.ExpiredAt = bc.EndAt(self.ExpiredAt)
+		}
+		return nil
+	})
+	if err != nil {
+		log.Errorf("Update error %s", err)
+		return err
+	}
+	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(), userCred)
 	return nil
 }

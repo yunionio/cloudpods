@@ -97,6 +97,10 @@ func (self *SServerSku) AllowGetDetails(ctx context.Context, userCred mcclient.T
 	return true
 }
 
+func (manager *SServerSkuManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowCreate(userCred, manager)
+}
+
 func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	ownerProjId string,
@@ -170,11 +174,7 @@ func (self *SServerSkuManager) FetchByZoneId(zoneId string, name string) (db.IMo
 }
 
 func (self *SServerSku) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	if self.SStandaloneResourceBase.AllowUpdateItem(ctx, userCred) == false {
-		return false
-	}
-
-	return inWhiteList(self.Provider)
+	return inWhiteList(self.Provider) && db.IsAdminAllowUpdate(userCred, self)
 }
 
 func (self *SServerSku) ValidateUpdateData(
@@ -202,16 +202,15 @@ func (self *SServerSku) ValidateUpdateData(
 }
 
 func (self *SServerSku) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	if !inWhiteList(self.Provider) {
-		return false
-	}
+	return inWhiteList(self.Provider) && db.IsAdminAllowDelete(userCred, self)
+}
 
+func (self *SServerSku) ValidateDeleteCondition(ctx context.Context) error {
 	count := GuestManager.Query().Equals("sku_id", self.Id).Count()
-	if count == 0 {
-		return self.SStandaloneResourceBase.AllowDeleteItem(ctx, userCred, query, data)
-	} else {
-		return false
+	if count > 0 {
+		return httperrors.NewNotEmptyError("sku used by servers")
 	}
+	return nil
 }
 
 func (self *SServerSku) GetZoneExternalId() (string, error) {
@@ -222,4 +221,42 @@ func (self *SServerSku) GetZoneExternalId() (string, error) {
 
 	zone := zoneObj.(*SZone)
 	return zone.GetExternalId(), nil
+}
+
+func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
+	provider := jsonutils.GetAnyString(query, []string{"provider"})
+	if len(provider) > 0 {
+		q = q.Equals("provider", provider)
+	}
+
+	regionStr := jsonutils.GetAnyString(query, []string{"region", "cloudregion", "region_id", "cloudregion_id"})
+	if len(regionStr) > 0 {
+		regionObj, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudregionManager.Keyword(), regionStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		q = q.Equals("cloudregion_id", regionObj.GetId())
+	}
+
+	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
+	if len(zoneStr) > 0 {
+		zoneObj, err := ZoneManager.FetchByIdOrName(nil, zoneStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), zoneStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		q = q.Equals("zone_id", zoneObj.GetId())
+	}
+
+	return q, err
 }

@@ -30,7 +30,7 @@ func init() {
 			"Memory_size_mb", "Os_name", "Sys_disk_resizable", "Sys_disk_type",
 			"Sys_disk_min_size_mb", "Sys_disk_max_size_mb", "Attached_disk_type",
 			"Attached_disk_size_gb", "Attached_disk_count", "Data_disk_types",
-			"Data_disk_max_count", "Nic_max_count", "Cloudregion_id", "Zone_id"},
+			"Data_disk_max_count", "Nic_max_count", "Cloudregion_id", "Zone_id", "Provider"},
 		[]string{})}
 
 	register(&CloudmetaSkus)

@@ -19,6 +19,7 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 
 	"strings"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "runtime", "summary", "config", "guest"}
@@ -689,4 +690,8 @@ func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid st
 		}
 	}
 	return cloudprovider.ErrTimeout
+}
+
+func (self *SVirtualMachine) Renew(bc billing.SBillingCycle) error {
+	return cloudprovider.ErrNotSupported
 }

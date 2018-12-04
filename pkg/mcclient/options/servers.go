@@ -120,6 +120,8 @@ type ServerCreateOptions struct {
 	DryRun           *bool    `help:"Dry run to test scheduler" json:"-"`
 	RaidConfig       []string `help:"Baremetal raid config" json:"-"`
 	UserDataFile     string   `help:"user_data file path" json:"-"`
+
+	Duration string `help:"valid duration of the server, e.g. 1H, 1D, 1W, 1M, 1Y, ADMIN ONLY option"`
 }
 
 func (opts *ServerCreateOptions) Params() (*jsonutils.JSONDict, error) {

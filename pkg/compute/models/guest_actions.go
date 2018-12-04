@@ -21,8 +21,10 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 
+	"time"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
@@ -879,7 +881,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
 
-	err = self.CreateDisksOnHost(ctx, userCred, host, disksConf, pendingUsage)
+	err = self.CreateDisksOnHost(ctx, userCred, host, disksConf, pendingUsage, false)
 	if err != nil {
 		QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
 		logclient.AddActionLog(self, logclient.ACT_CREATE, err.Error(), userCred, false)
@@ -1315,7 +1317,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		}
 	}
 	if newDisks.Length() > 0 {
-		err := self.CreateDisksOnHost(ctx, userCred, host, newDisks, pendingUsage)
+		err := self.CreateDisksOnHost(ctx, userCred, host, newDisks, pendingUsage, false)
 		if err != nil {
 			QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
 			return nil, httperrors.NewBadRequestError("Create disk on host error: %s", err)
@@ -1953,4 +1955,82 @@ func (self *SGuest) PerformDelExtraOption(ctx context.Context, userCred mcclient
 	extraOptions := self.GetExtraOptions(userCred)
 	extraOptions.Remove(key)
 	return nil, self.SetExtraOptions(ctx, userCred, extraOptions)
+}
+
+func (self *SGuest) AllowPerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "renew")
+}
+
+func (self *SGuest) PerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	durationStr := jsonutils.GetAnyString(data, []string{"duration"})
+	if len(durationStr) == 0 {
+		return nil, httperrors.NewInputParameterError("missong duration")
+	}
+
+	bc, err := billing.ParseBillingCycle(durationStr)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("invalid duration %s: %s", durationStr, err)
+	}
+
+	if !self.GetDriver().IsSupportedBillingCycle(bc) {
+		return nil, httperrors.NewInputParameterError("unsupported duration %s", durationStr)
+	}
+
+	err = self.startGuestRenewTask(ctx, userCred, durationStr, "")
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
+func (self *SGuest) startGuestRenewTask(ctx context.Context, userCred mcclient.TokenCredential, duration string, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewString(duration), "duration")
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestRenewTask", self, userCred, data, parentTaskId, "", nil)
+	if err != nil {
+		log.Errorf("fail to crate GuestRenewTask %s", err)
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SGuest) SaveRenewInfo(userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
+	err := self.doSaveRenewInfo(userCred, bc, expireAt)
+	if err != nil {
+		return err
+	}
+	guestdisks := self.GetDisks()
+	for i := 0; i < len(guestdisks); i += 1 {
+		disk := guestdisks[i].GetDisk()
+		if disk.BillingType == BILLING_TYPE_PREPAID {
+			err = disk.SaveRenewInfo(userCred, bc, expireAt)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (self *SGuest) doSaveRenewInfo(userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
+	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		if self.BillingType != BILLING_TYPE_PREPAID {
+			self.BillingType = BILLING_TYPE_PREPAID
+		}
+		if expireAt != nil && !expireAt.IsZero() {
+			self.ExpiredAt = *expireAt
+		} else {
+			self.BillingCycle = bc.String()
+			self.ExpiredAt = bc.EndAt(self.ExpiredAt)
+		}
+		return nil
+	})
+	if err != nil {
+		log.Errorf("Update error %s", err)
+		return err
+	}
+	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(), userCred)
+	return nil
 }

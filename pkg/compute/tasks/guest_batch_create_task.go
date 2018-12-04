@@ -69,7 +69,7 @@ func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IS
 	}
 
 	guest.GetDriver().PrepareDiskRaidConfig(host, self.Params)
-	err = guest.CreateDisksOnHost(ctx, self.UserCred, host, self.Params, &pendingUsage)
+	err = guest.CreateDisksOnHost(ctx, self.UserCred, host, self.Params, &pendingUsage, true)
 	self.SetPendingUsage(&pendingUsage)
 
 	if err != nil {

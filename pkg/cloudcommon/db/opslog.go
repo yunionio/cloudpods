@@ -150,6 +150,8 @@ const (
 	ACT_GUEST_DETACH_ISOLATED_DEVICE_FAIL = "guest_detach_isolated_deivce_fail"
 
 	ACT_CHANGE_BANDWIDTH = "eip_change_bandwidth"
+
+	ACT_RENEW = "renew"
 )
 
 type SOpsLogManager struct {

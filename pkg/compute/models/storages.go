@@ -895,7 +895,10 @@ func (manager *SStorageManager) TotalCapacity(rangeObj db.IStandaloneModel, host
 	return res1
 }
 
-func (self *SStorage) createDisk(name string, diskConfig *SDiskConfig, userCred mcclient.TokenCredential, ownerProjId string, autoDelete bool, isSystem bool) (*SDisk, error) {
+func (self *SStorage) createDisk(name string, diskConfig *SDiskConfig, userCred mcclient.TokenCredential,
+	ownerProjId string, autoDelete bool, isSystem bool,
+	billingType string, billingCycle string,
+) (*SDisk, error) {
 	disk := SDisk{}
 	disk.SetModelManager(DiskManager)
 
@@ -906,6 +909,9 @@ func (self *SStorage) createDisk(name string, diskConfig *SDiskConfig, userCred 
 	disk.AutoDelete = autoDelete
 	disk.ProjectId = ownerProjId
 	disk.IsSystem = isSystem
+
+	disk.BillingType = billingType
+	disk.BillingCycle = billingCycle
 
 	err := disk.GetModelManager().TableSpec().Insert(&disk)
 	if err != nil {

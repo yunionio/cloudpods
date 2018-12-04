@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -30,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -136,9 +138,22 @@ const (
 var VM_RUNNING_STATUS = []string{VM_START_START, VM_STARTING, VM_RUNNING, VM_BLOCK_STREAM}
 var VM_CREATING_STATUS = []string{VM_CREATE_NETWORK, VM_CREATE_DISK, VM_START_DEPLOY, VM_DEPLOYING}
 
-var HYPERVISORS = []string{HYPERVISOR_KVM, HYPERVISOR_BAREMETAL, HYPERVISOR_ESXI, HYPERVISOR_CONTAINER, HYPERVISOR_ALIYUN, HYPERVISOR_AZURE, HYPERVISOR_AWS, HYPERVISOR_QCLOUD}
+var HYPERVISORS = []string{HYPERVISOR_KVM,
+	HYPERVISOR_BAREMETAL,
+	HYPERVISOR_ESXI,
+	HYPERVISOR_CONTAINER,
+	HYPERVISOR_ALIYUN,
+	HYPERVISOR_AZURE,
+	HYPERVISOR_AWS,
+	HYPERVISOR_QCLOUD,
+}
 
-var PUBLIC_CLOUD_HYPERVISORS = []string{HYPERVISOR_ALIYUN, HYPERVISOR_AWS, HYPERVISOR_AZURE, HYPERVISOR_QCLOUD}
+var PUBLIC_CLOUD_HYPERVISORS = []string{
+	HYPERVISOR_ALIYUN,
+	HYPERVISOR_AWS,
+	HYPERVISOR_AZURE,
+	HYPERVISOR_QCLOUD,
+}
 
 // var HYPERVISORS = []string{HYPERVISOR_ALIYUN}
 
@@ -573,16 +588,6 @@ func validateMemCpuData(data jsonutils.JSONObject) (int, int, error) {
 	return vmemSize, vcpuCount, nil
 }
 
-func validateSkuData(sku_id string) (string, int, int, error) {
-	isku, err := ServerSkuManager.FetchById(sku_id)
-	if err != nil {
-		return "", 0, 0, err
-	}
-
-	sku := isku.(*SServerSku)
-	return sku.GetId(), sku.CpuCoreCount, sku.MemorySizeMB, nil
-}
-
 func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	vmemSize, vcpuCount, err := validateMemCpuData(data)
 	if err != nil {
@@ -638,6 +643,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	var osProf osprofile.SOSProfile
 	hypervisor, _ = data.GetString("hypervisor")
 	if hypervisor != HYPERVISOR_CONTAINER {
+
 		disk0Json, _ := data.Get("disk.0")
 		if disk0Json == nil {
 			return nil, httperrors.NewInputParameterError("No disk information provided")
@@ -675,14 +681,65 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			data.Add(jsonutils.NewString(osProf.OSType), "os_type")
 		}
 		data.Add(jsonutils.Marshal(osProf), "__os_profile__")
+	}
+
+	data, err = ValidateScheduleCreateData(ctx, userCred, data, hypervisor)
+	if err != nil {
+		return nil, err
+	}
+
+	hypervisor, _ = data.GetString("hypervisor")
+	if hypervisor != HYPERVISOR_CONTAINER {
+		// support sku here
+		var sku *SServerSku
+		skuId := jsonutils.GetAnyString(data, []string{"sku_id", "sku", "flavor", "instance_type"})
+		if len(skuId) > 0 {
+			isku, err := ServerSkuManager.FetchByIdOrName(nil, skuId)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError2(ServerSkuManager.Keyword(), skuId)
+				}
+				return nil, httperrors.NewGeneralError(err)
+			}
+			sku = isku.(*SServerSku)
+
+			data.Add(jsonutils.NewString(sku.Id), "sku_id")
+			data.Add(jsonutils.NewInt(int64(sku.MemorySizeMB)), "vmem_size")
+			data.Add(jsonutils.NewInt(int64(sku.CpuCoreCount)), "vcpu_count")
+		} else {
+			vmemSize, vcpuCount, err := validateMemCpuData(data)
+			if err != nil {
+				return nil, err
+			}
+
+			if vmemSize == 0 {
+				return nil, httperrors.NewInputParameterError("Missing memory size")
+			}
+			if vcpuCount == 0 {
+				vcpuCount = 1
+			}
+			data.Add(jsonutils.NewInt(int64(vmemSize)), "vmem_size")
+			data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
+		}
+
+		dataDiskDefs := make([]string, 0)
+		if sku != nil && sku.AttachedDiskCount > 0 {
+			for i := 0; i < sku.AttachedDiskCount; i += 1 {
+				dataDiskDefs = append(dataDiskDefs, fmt.Sprintf("%dgb:%s", sku.AttachedDiskSizeGB, sku.AttachedDiskType))
+			}
+		}
 
 		// start from data disk
 		for idx := 1; data.Contains(fmt.Sprintf("disk.%d", idx)); idx += 1 {
-			diskJson, err := data.Get(fmt.Sprintf("disk.%d", idx))
+			diskJson, err := data.GetString(fmt.Sprintf("disk.%d", idx))
 			if err != nil {
 				return nil, httperrors.NewInputParameterError("invalid disk description %s", err)
 			}
-			diskConfig, err := parseDiskInfo(ctx, userCred, diskJson)
+			dataDiskDefs = append(dataDiskDefs, diskJson)
+		}
+
+		for i := 0; i < len(dataDiskDefs); i += 1 {
+			diskConfig, err := parseDiskInfo(ctx, userCred, jsonutils.NewString(dataDiskDefs[i]))
 			if err != nil {
 				return nil, httperrors.NewInputParameterError("parse disk description error %s", err)
 			}
@@ -692,15 +749,30 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			if len(diskConfig.Driver) == 0 {
 				diskConfig.Driver = osProf.DiskDriver
 			}
-			data.Add(jsonutils.Marshal(diskConfig), fmt.Sprintf("disk.%d", idx))
+			data.Add(jsonutils.Marshal(diskConfig), fmt.Sprintf("disk.%d", i+1))
+		}
+
+		durationStr := jsonutils.GetAnyString(data, []string{"duration"})
+		if len(durationStr) > 0 {
+			if !userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), "renew") {
+				return nil, httperrors.NewForbiddenError("only admin can create prepaid resource")
+			}
+			billingCycle, err := billing.ParseBillingCycle(durationStr)
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("invalid duration %s", durationStr)
+			}
+
+			if !GetDriver(hypervisor).IsSupportedBillingCycle(billingCycle) {
+				return nil, httperrors.NewInputParameterError("unsupported duration %s", durationStr)
+			}
+
+			data.Add(jsonutils.NewString(BILLING_TYPE_PREPAID), "billing_type")
+			data.Add(jsonutils.NewString(billingCycle.String()), "billing_cycle")
+			// data.Add(jsonutils.NewTimeString(billingCycle.EndAt(time.Time{})), "expired_at")
+
+			data.Set("duration", jsonutils.NewString(billingCycle.String()))
 		}
 	}
-
-	data, err = ValidateScheduleCreateData(ctx, userCred, data, hypervisor)
-	if err != nil {
-		return nil, err
-	}
-	hypervisor, _ = data.GetString("hypervisor")
 
 	for idx := 0; data.Contains(fmt.Sprintf("net.%d", idx)); idx += 1 {
 		netJson, err := data.Get(fmt.Sprintf("net.%d", idx))
@@ -792,35 +864,6 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	data, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 	if err != nil {
 		return nil, err
-	}
-
-	// support sku here
-	sku_id, _ := data.GetString("sku_id")
-	if len(sku_id) > 0 {
-		sku_id, vcpuCount, vmemSize, err := validateSkuData(sku_id)
-		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError2(ServerSkuManager.Keyword(), sku_id)
-		} else if err != nil {
-			return nil, err
-		}
-
-		data.Add(jsonutils.NewString(sku_id), "sku_id")
-		data.Add(jsonutils.NewInt(int64(vmemSize)), "vmem_size")
-		data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
-	} else {
-		vmemSize, vcpuCount, err := validateMemCpuData(data)
-		if err != nil {
-			return nil, err
-		}
-
-		if vmemSize == 0 {
-			return nil, httperrors.NewInputParameterError("Missing memory size")
-		}
-		if vcpuCount == 0 {
-			vcpuCount = 1
-		}
-		data.Add(jsonutils.NewInt(int64(vmemSize)), "vmem_size")
-		data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
 	}
 
 	if !jsonutils.QueryBoolean(data, "is_system", false) {
@@ -2109,7 +2152,8 @@ func (self *SGuest) attach2RandomNetwork(ctx context.Context, userCred mcclient.
 	return driver.Attach2RandomNetwork(self, ctx, userCred, host, netConfig, pendingUsage)
 }
 
-func (self *SGuest) CreateDisksOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, data *jsonutils.JSONDict, pendingUsage quotas.IQuota) error {
+func (self *SGuest) CreateDisksOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost,
+	data *jsonutils.JSONDict, pendingUsage quotas.IQuota, inheritBilling bool) error {
 	for idx := 0; data.Contains(fmt.Sprintf("disk.%d", idx)); idx += 1 {
 		diskJson, err := data.Get(fmt.Sprintf("disk.%d", idx))
 		if err != nil {
@@ -2119,7 +2163,7 @@ func (self *SGuest) CreateDisksOnHost(ctx context.Context, userCred mcclient.Tok
 		if err != nil {
 			return err
 		}
-		disk, err := self.createDiskOnHost(ctx, userCred, host, diskConfig, pendingUsage)
+		disk, err := self.createDiskOnHost(ctx, userCred, host, diskConfig, pendingUsage, inheritBilling)
 		if err != nil {
 			return err
 		}
@@ -2128,7 +2172,8 @@ func (self *SGuest) CreateDisksOnHost(ctx context.Context, userCred mcclient.Tok
 	return nil
 }
 
-func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, storage *SStorage, diskConfig *SDiskConfig, pendingUsage quotas.IQuota) (*SDisk, error) {
+func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, storage *SStorage,
+	diskConfig *SDiskConfig, pendingUsage quotas.IQuota, inheritBilling bool) (*SDisk, error) {
 	lockman.LockObject(ctx, storage)
 	defer lockman.ReleaseObject(ctx, storage)
 
@@ -2136,7 +2181,15 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 	defer lockman.ReleaseClass(ctx, QuotaManager, self.ProjectId)
 
 	diskName := fmt.Sprintf("vdisk_%s_%d", self.Name, time.Now().UnixNano())
-	disk, err := storage.createDisk(diskName, diskConfig, userCred, self.ProjectId, true, self.IsSystem)
+
+	billingType := BILLING_TYPE_POSTPAID
+	billingCycle := ""
+	if inheritBilling {
+		billingType = self.BillingType
+		billingCycle = self.BillingCycle
+	}
+	disk, err := storage.createDisk(diskName, diskConfig, userCred, self.ProjectId, true, self.IsSystem,
+		billingType, billingCycle)
 
 	if err != nil {
 		return nil, err
@@ -2149,12 +2202,13 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 	return disk, nil
 }
 
-func (self *SGuest) createDiskOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, diskConfig *SDiskConfig, pendingUsage quotas.IQuota) (*SDisk, error) {
+func (self *SGuest) createDiskOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost,
+	diskConfig *SDiskConfig, pendingUsage quotas.IQuota, inheritBilling bool) (*SDisk, error) {
 	storage := self.GetDriver().ChooseHostStorage(host, diskConfig.Backend)
 	if storage == nil {
 		return nil, fmt.Errorf("No storage to create disk")
 	}
-	disk, err := self.createDiskOnStorage(ctx, userCred, storage, diskConfig, pendingUsage)
+	disk, err := self.createDiskOnStorage(ctx, userCred, storage, diskConfig, pendingUsage, inheritBilling)
 	if err != nil {
 		return nil, err
 	}
@@ -2917,12 +2971,14 @@ func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
 	}
 
 	desc.Add(jsonutils.NewString(self.GetChargeType()), "charge_type")
+	desc.Update(self.GetBillingShortDesc())
 
 	if len(self.ExternalId) > 0 {
 		desc.Add(jsonutils.NewString(self.ExternalId), "externalId")
 	}
 
 	desc.Set("hypervisor", jsonutils.NewString(self.GetHypervisor()))
+
 	spec := self.GetSpec(false)
 	if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
 		host := self.GetHost()

@@ -13,6 +13,7 @@ import (
 	"context"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 const (
@@ -500,7 +501,7 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
 	zoneId string, desc string, passwd string, disks []SDisk, vSwitchId string, ipAddr string,
-	keypair string, userData string) (string, error) {
+	keypair string, userData string, bc *billing.SBillingCycle) (string, error) {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["ImageId"] = imageId
@@ -536,14 +537,28 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	}
 	params["VSwitchId"] = vSwitchId
 	params["PrivateIpAddress"] = ipAddr
-	params["InstanceChargeType"] = "PostPaid"
-	params["SpotStrategy"] = "NoSpot"
+
 	if len(keypair) > 0 {
 		params["KeyPairName"] = keypair
 	}
 
 	if len(userData) > 0 {
 		params["UserData"] = userData
+	}
+
+	if bc != nil {
+		params["InstanceChargeType"] = "PrePaid"
+		if bc.GetWeeks() <= 4 {
+			params["PeriodUnit"] = "Week"
+			params["Period"] = fmt.Sprintf("%d", bc.GetWeeks())
+		} else {
+			params["PeriodUnit"] = "Month"
+			params["Period"] = fmt.Sprintf("%d", bc.GetMonths())
+		}
+		params["AutoRenew"] = "False"
+	} else {
+		params["InstanceChargeType"] = "PostPaid"
+		params["SpotStrategy"] = "NoSpot"
 	}
 
 	params["ClientToken"] = utils.GenRequestId(20)
@@ -865,4 +880,27 @@ func (self *SInstance) UpdateUserData(userData string) error {
 
 func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
 	return cloudprovider.ErrNotSupported
+}
+
+func (self *SInstance) Renew(bc billing.SBillingCycle) error {
+	return self.host.zone.region.RenewInstance(self.InstanceId, bc)
+}
+
+func (region *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle) error {
+	params := make(map[string]string)
+	params["InstanceId"] = instanceId
+	if bc.GetWeeks() <= 4 {
+		params["PeriodUnit"] = "Week"
+		params["Period"] = fmt.Sprintf("%s", bc.GetWeeks())
+	} else {
+		params["PeriodUnit"] = "Month"
+		params["Period"] = fmt.Sprintf("%s", bc.GetMonths())
+	}
+	params["ClientToken"] = utils.GenRequestId(20)
+	_, err := region.ecsRequest("RenewInstance", params)
+	if err != nil {
+		log.Errorf("RenewInstance fail %s", err)
+		return err
+	}
+	return nil
 }

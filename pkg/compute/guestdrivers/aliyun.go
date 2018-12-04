@@ -14,6 +14,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -156,12 +157,18 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 
 			var createErr error
 			var iVM cloudprovider.ICloudVM
+
+			var bc *billing.SBillingCycle
+			if desc.BillingCycle.IsValid() {
+				bc = &desc.BillingCycle
+			}
+
 			if len(desc.InstanceType) > 0 {
 				iVM, createErr = ihost.CreateVM2(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.InstanceType, desc.ExternalNetworkId,
-					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData)
+					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData, bc)
 			} else {
 				iVM, createErr = ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData)
+					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData, bc)
 			}
 
 			if createErr != nil {
@@ -300,4 +307,16 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 
 func (self *SAliyunGuestDriver) AllowReconfigGuest() bool {
 	return true
+}
+
+func (self *SAliyunGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {
+	weeks := bc.GetWeeks()
+	if weeks >= 1 && weeks <= 4 {
+		return true
+	}
+	months := bc.GetMonths()
+	if (months >= 1 && months <= 10) || (months == 12) || (months == 24) || (months == 36) || (months == 48) || (months == 60) {
+		return true
+	}
+	return false
 }
