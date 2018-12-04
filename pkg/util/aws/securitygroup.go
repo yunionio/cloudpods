@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/golang-plus/uuid"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -245,7 +246,12 @@ func (self *SRegion) createSecurityGroup(vpcId string, name string, desc string)
 	params := &ec2.CreateSecurityGroupInput{}
 	params.SetVpcId(vpcId)
 	params.SetDescription(desc)
-	params.SetGroupName(name)
+	// aws name 要求唯一，且不含中文等字符。所以随机生成一个uuid作为name。实际用户传入的name使用tag标记
+	secid, err := uuid.NewV4()
+	if err != nil {
+		return "", err
+	}
+	params.SetGroupName(secid.String())
 
 	group, err := self.ec2Client.CreateSecurityGroup(params)
 	if err != nil {
