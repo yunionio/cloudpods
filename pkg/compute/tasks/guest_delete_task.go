@@ -26,7 +26,7 @@ func init() {
 func (self *GuestDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	host := guest.GetHost()
-	if guest.Hypervisor == models.HYPERVISOR_BAREMETAL && host.HostType != models.HOST_TYPE_BAREMETAL {
+	if guest.Hypervisor == models.HYPERVISOR_BAREMETAL && host != nil && host.HostType != models.HOST_TYPE_BAREMETAL {
 		// if a fake server for converted hypervisor, then just skip stop
 		self.OnGuestStopComplete(ctx, obj, data)
 		return
