@@ -85,6 +85,9 @@ func _jsonRequest(client *common.Client, domain string, version string, apiName 
 	req.SetDomain(domain)
 
 	for k, v := range params {
+		if strings.HasSuffix(k, "Ids.0") && len(v) == 0 {
+			return nil, cloudprovider.ErrNotFound
+		}
 		req.GetParams()[k] = v
 	}
 	resp := &QcloudResponse{
