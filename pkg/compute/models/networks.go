@@ -87,8 +87,8 @@ type SNetwork struct {
 	GuestIpEnd   string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"` // Column(VARCHAR(16, charset='ascii'), nullable=False)
 	GuestIpMask  int8   `nullable:"false" list:"user" update:"user" create:"required"`                            // Column(TINYINT, nullable=False)
 	GuestGateway string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`  // Column(VARCHAR(16, charset='ascii'), nullable=True)
-	GuestDns     string `width:"16" charset:"ascii" nullable:"true" get:"user" update:"user" create:"optional"`   // Column(VARCHAR(16, charset='ascii'), nullable=True)
-	GuestDhcp    string `width:"16" charset:"ascii" nullable:"true" get:"user" update:"user" create:"optional"`   // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	GuestDns     string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`  // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	GuestDhcp    string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`  // Column(VARCHAR(16, charset='ascii'), nullable=True)
 
 	GuestDomain string `width:"128" charset:"ascii" nullable:"true" get:"user" update:"user"` // Column(VARCHAR(128, charset='ascii'), nullable=True)
 
