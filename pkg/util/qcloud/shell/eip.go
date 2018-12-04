@@ -7,12 +7,13 @@ import (
 
 func init() {
 	type EipListOptions struct {
-		Eip    string `help:"EIP ID"`
-		Offset int    `help:"List offset"`
-		Limit  int    `help:"List limit"`
+		Eip        string `help:"EIP ID"`
+		InstanceId string `help:"Instance Id"`
+		Offset     int    `help:"List offset"`
+		Limit      int    `help:"List limit"`
 	}
 	shellutils.R(&EipListOptions{}, "eip-list", "List eips", func(cli *qcloud.SRegion, args *EipListOptions) error {
-		eips, total, err := cli.GetEips(args.Eip, "", args.Offset, args.Limit)
+		eips, total, err := cli.GetEips(args.Eip, args.InstanceId, args.Offset, args.Limit)
 		if err != nil {
 			return err
 		}
