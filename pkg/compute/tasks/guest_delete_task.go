@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -12,7 +13,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/pkg/utils"
 )
 
 type GuestDeleteTask struct {
@@ -27,6 +27,7 @@ func (self *GuestDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 	guest := obj.(*models.SGuest)
 	host := guest.GetHost()
 	if guest.Hypervisor == models.HYPERVISOR_BAREMETAL && host.HostType != models.HOST_TYPE_BAREMETAL {
+		// if a fake server for converted hypervisor, then just skip stop
 		self.OnGuestStopComplete(ctx, obj, data)
 		return
 	}
