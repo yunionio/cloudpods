@@ -58,6 +58,7 @@ func (self *SAzureHostDriver) CheckAndSetCacheImage(ctx context.Context, host *m
 	osArch, _ := params.GetString("os_arch")
 	osType, _ := params.GetString("os_type")
 	osDist, _ := params.GetString("os_distribution")
+	osVersion, _ := params.GetString("os_version")
 
 	isForce := jsonutils.QueryBoolean(params, "is_force", false)
 	userCred := task.GetUserCred()
@@ -71,7 +72,7 @@ func (self *SAzureHostDriver) CheckAndSetCacheImage(ctx context.Context, host *m
 			return nil, err
 		}
 
-		extImgId, err := iStorageCache.UploadImage(userCred, imageId, osArch, osType, osDist, scimg.ExternalId, isForce)
+		extImgId, err := iStorageCache.UploadImage(userCred, imageId, osArch, osType, osDist, osVersion, scimg.ExternalId, isForce)
 		if err != nil {
 			return nil, err
 		} else {

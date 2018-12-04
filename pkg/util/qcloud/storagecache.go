@@ -109,7 +109,7 @@ func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 	return self.iimages, nil
 }
 
-func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, extId string, isForce bool) (string, error) {
+func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
 	if len(extId) > 0 {
 		log.Debugf("UploadImage: Image external ID exists %s", extId)
 
@@ -123,7 +123,7 @@ func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageI
 	} else {
 		log.Debugf("UploadImage: no external ID")
 	}
-	return self.uploadImage(userCred, imageId, osArch, osType, osDist, isForce)
+	return self.uploadImage(userCred, imageId, osArch, osType, osDist, osVersion, isForce)
 }
 
 func (self *SRegion) getCosUrl(bucket, object string) string {
@@ -131,7 +131,7 @@ func (self *SRegion) getCosUrl(bucket, object string) string {
 	return fmt.Sprintf("http://%s-%s.cos.%s.myqcloud.com/%s", bucket, self.client.AppID, self.Region, object)
 }
 
-func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
+func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, isForce bool) (string, error) {
 	// first upload image to oss
 	s := auth.GetAdminSession(options.Options.Region, "")
 
@@ -198,7 +198,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 	}
 
 	log.Debugf("Import image %s", imageName)
-	if image, err := self.region.ImportImage(imageName, osArch, osType, osDist, self.region.getCosUrl(bucketName, imageId)); err != nil {
+	if image, err := self.region.ImportImage(imageName, osArch, osDist, osVersion, self.region.getCosUrl(bucketName, imageId)); err != nil {
 		return "", err
 	} else if cloudprovider.WaitStatus(image, string(ImageStatusAvailable), 15*time.Second, 3600*time.Second); err != nil {
 		return "", err

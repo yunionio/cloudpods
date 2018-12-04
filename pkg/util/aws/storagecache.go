@@ -3,12 +3,10 @@ package aws
 import (
 	"bytes"
 	"fmt"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"io/ioutil"
 	"strings"
 	"time"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -16,6 +14,10 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/s3"
 )
 
 type SStoragecache struct {
@@ -87,7 +89,7 @@ func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imag
 	return self.downloadImage(userCred, imageId, extId)
 }
 
-func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, extId string, isForce bool) (string, error) {
+func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
 	if len(extId) > 0 {
 		log.Debugf("UploadImage: Image external ID exists %s", extId)
 
