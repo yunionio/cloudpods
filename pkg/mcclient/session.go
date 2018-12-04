@@ -47,6 +47,13 @@ func populateHeader(self *http.Header, update http.Header) {
 	}
 }
 
+func GetTokenHeaders(userCred TokenCredential) http.Header {
+	headers := http.Header{}
+	headers.Set(AUTH_TOKEN, userCred.GetTokenString())
+	headers.Set(REGION_VERSION, "v2")
+	return headers
+}
+
 func SplitVersionedURL(url string) (string, string) {
 	endidx := len(url) - 1
 	for ; endidx >= 0 && url[endidx] == '/'; endidx-- {

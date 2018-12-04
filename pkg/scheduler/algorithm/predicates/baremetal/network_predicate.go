@@ -5,7 +5,6 @@ import (
 	"strings"
 	"sync"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
@@ -104,7 +103,6 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 			return isRandomNetworkAvailable(network.Private, network.Exit, network.Wire)
 		}
 		for _, net := range candidate.Networks {
-			log.Errorf("============ net %s TenantID: %s, sched OwnerTenantID: %s", net.Name, net.TenantID, schedData.OwnerTenantID)
 			if (network.Idx == net.ID || network.Idx == net.Name) && (net.IsPublic || net.TenantID == schedData.OwnerTenantID) && (net.Ports > 0 || isMigrate()) {
 				h.SetCapacity(1)
 				return ""

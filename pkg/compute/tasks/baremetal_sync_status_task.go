@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type BaremetalSyncStatusTask struct {
@@ -42,7 +43,33 @@ func (self *BaremetalSyncAllGuestsStatusTask) OnInit(ctx context.Context, obj db
 	baremetal := obj.(*models.SHost)
 	guest := baremetal.GetBaremetalServer()
 	if guest != nil {
-
+		var first bool
+		if !guest.IsSystem {
+			first = true
+		}
+		guest.GetModelManager().TableSpec().Update(guest, func() error {
+			guest.IsSystem = true
+			guest.VmemSize = 0
+			guest.VcpuCount = 0
+			return nil
+		})
+		bs := baremetal.GetBaremetalstorage().GetStorage()
+		bs.SetStatus(self.UserCred, models.STORAGE_OFFLINE, "")
+		if first && baremetal.Name != guest.Name {
+			baremetal.GetModelManager().TableSpec().Update(baremetal, func() error {
+				if models.HostManager.IsNewNameUnique(guest.Name, self.UserCred, nil) {
+					baremetal.Name = guest.Name
+				} else {
+					baremetal.Name = db.GenerateName(baremetal.GetModelManager(),
+						self.UserCred.GetTokenString(), guest.Name)
+				}
+				return nil
+			})
+		}
+		if first {
+			db.OpsLog.LogEvent(guest, db.ACT_CONVERT_COMPLETE, "", self.UserCred)
+			logclient.AddActionLog(guest, logclient.ACT_BM_CONVERT_HYPER, "", self.UserCred, true)
+		}
 	}
 	self.SetStage("OnGuestSyncStatusComplete", nil)
 	self.OnGuestSyncStatusComplete(ctx, baremetal, nil)
