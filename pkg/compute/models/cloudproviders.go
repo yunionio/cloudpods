@@ -122,6 +122,7 @@ func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
 	}
 	usage := self.getUsage()
 	if !usage.isEmpty() {
+		log.Errorf("======Usage %#v", usage)
 		return httperrors.NewNotEmptyError("Not an empty cloud provider")
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)

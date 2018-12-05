@@ -12,16 +12,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//+build !linux
+//+build linux
 
-package dhcp4
+package dhcp
 
-import "errors"
+import (
+	"net"
+	"os"
+	"runtime"
+	"testing"
+)
 
-// NewSnooperConn creates a Conn that listens on the given UDP ip:port.
-//
-// Unlike NewConn, NewSnooperConn does not bind to the ip:port,
-// enabling the Conn to coexist with other services on the machine.
-func NewSnooperConn(addr string) (*Conn, error) {
-	return nil, errors.New("snooper Conns not supported on this OS")
+func TestLinuxConn(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skipf("not supported on %s", runtime.GOOS)
+	}
+	if os.Getuid() != 0 {
+		t.Skipf("must be root on %s", runtime.GOOS)
+	}
+
+	// Use a listener to grab a free port, but we don't use it beyond
+	// that.
+	l, err := net.ListenPacket("udp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := newLinuxConn(l.LocalAddr().(*net.UDPAddr).Port)
+	if err != nil {
+		t.Fatalf("creating the linuxconn: %s", err)
+	}
+
+	testConn(t, c, l.LocalAddr().String())
 }

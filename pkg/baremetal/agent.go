@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	BaremetalAgent *SBaremetalAgent
+	baremetalAgent *SBaremetalAgent
 )
 
 type SZone struct {
@@ -31,6 +31,7 @@ type SBaremetalAgent struct {
 	AgentId         string
 	AgentName       string
 	Zone            *SZone
+	Manager         *SBaremetalManager
 }
 
 func newBaremetalAgent() (*SBaremetalAgent, error) {
@@ -45,6 +46,7 @@ func newBaremetalAgent() (*SBaremetalAgent, error) {
 	if len(ips) == 0 {
 		return nil, fmt.Errorf("Interface %s ip address not found", o.Options.ListenInterface)
 	}
+	log.Debugf("Interface %s ip address: %v", iface.Name, ips)
 
 	agent := &SBaremetalAgent{
 		ListenInterface: iface,
@@ -56,7 +58,7 @@ func GetAdminSession() *mcclient.ClientSession {
 	return auth.GetAdminSession(o.Options.Region, "v2")
 }
 
-func (agent *SBaremetalAgent) GetListenIP() (net.IP, error) {
+func (agent *SBaremetalAgent) GetListenIPs() ([]net.IP, error) {
 	ips, err := getIfaceIPs(agent.ListenInterface)
 	if err != nil {
 		return nil, err
@@ -64,7 +66,42 @@ func (agent *SBaremetalAgent) GetListenIP() (net.IP, error) {
 	if len(ips) == 0 {
 		return nil, fmt.Errorf("Interface %s ip address not found", agent.ListenInterface.Name)
 	}
-	return ips[0], nil
+	return ips, nil
+}
+
+func (agent *SBaremetalAgent) GetListenIP() (net.IP, error) {
+	ips, err := agent.GetListenIPs()
+	if err != nil {
+		return nil, err
+	}
+	if o.Options.ListenAddress == "" {
+		return ips[0], nil
+	}
+	if o.Options.ListenAddress == "0.0.0.0" {
+		return net.ParseIP(o.Options.ListenAddress), nil
+	}
+	for _, ip := range ips {
+		if ip.String() == o.Options.ListenAddress {
+			return ip, nil
+		}
+	}
+	return nil, fmt.Errorf("Not found ListenAddress %s on %s", o.Options.ListenAddress, o.Options.ListenInterface)
+}
+
+func (agent *SBaremetalAgent) GetAccessIP() (net.IP, error) {
+	ips, err := agent.GetListenIPs()
+	if err != nil {
+		return nil, err
+	}
+	if o.Options.AccessAddress == "" {
+		return ips[0], nil
+	}
+	for _, ip := range ips {
+		if ip.String() == o.Options.AccessAddress {
+			return ip, nil
+		}
+	}
+	return nil, fmt.Errorf("Not found AccessAddress %s on %s", o.Options.AccessAddress, o.Options.ListenInterface)
 }
 
 func getIfaceIPs(iface *net.Interface) ([]net.IP, error) {
@@ -131,8 +168,13 @@ func (agent *SBaremetalAgent) register() error {
 		return fmt.Errorf("Baremetal manager load config error: %v", err)
 	}
 
-	agent.startServices(manager)
+	agent.Manager = manager
+	agent.startPXEServices(manager)
 	return nil
+}
+
+func (agent *SBaremetalAgent) GetManager() *SBaremetalManager {
+	return agent.Manager
 }
 
 func (agent *SBaremetalAgent) getZoneByIP(session *mcclient.ClientSession) (jsonutils.JSONObject, error) {
@@ -192,11 +234,11 @@ func (agent *SBaremetalAgent) fetchZone(session *mcclient.ClientSession) error {
 
 func (agent *SBaremetalAgent) createOrUpdateBaremetalAgent(session *mcclient.ClientSession) error {
 	params := jsonutils.NewDict()
-	listenIP, err := agent.GetListenIP()
+	naccessIP, err := agent.GetAccessIP()
 	if err != nil {
 		return err
 	}
-	params.Add(jsonutils.NewString(listenIP.String()), "access_ip")
+	params.Add(jsonutils.NewString(naccessIP.String()), "access_ip")
 	ret, err := modules.Baremetalagents.List(session, params)
 	if err != nil {
 		return err
@@ -218,7 +260,7 @@ func (agent *SBaremetalAgent) createOrUpdateBaremetalAgent(session *mcclient.Cli
 		managerUri, _ := cloudBmAgent.GetString("manager_uri")
 		zoneId, _ := cloudBmAgent.GetString("zone_id")
 		agentId, _ := cloudBmAgent.GetString("id")
-		if listenIP.String() != accessIP ||
+		if naccessIP.String() != accessIP ||
 			agent.GetManagerUri() != managerUri ||
 			zoneId != agent.Zone.Id {
 			cloudObj, err = agent.updateBaremetalAgent(session, agentId)
@@ -245,24 +287,24 @@ func (agent *SBaremetalAgent) createOrUpdateBaremetalAgent(session *mcclient.Cli
 }
 
 func (agent *SBaremetalAgent) GetManagerUri() string {
-	listenIP, _ := agent.GetListenIP()
+	accessIP, _ := agent.GetAccessIP()
 	proto := "http"
 	if o.Options.EnableSsl {
 		proto = "https"
 	}
-	return fmt.Sprintf("%s://%s:%d", proto, listenIP, o.Options.Port)
+	return fmt.Sprintf("%s://%s:%d", proto, accessIP, o.Options.Port)
 }
 
 func (agent *SBaremetalAgent) getCreateUpdateInfo() (jsonutils.JSONObject, error) {
-	listenIP, err := agent.GetListenIP()
+	accessIP, err := agent.GetAccessIP()
 	if err != nil {
 		return nil, err
 	}
 	params := jsonutils.NewDict()
 	if agent.AgentId == "" {
-		params.Add(jsonutils.NewString(fmt.Sprintf("baremetal_%s", listenIP)), "name")
+		params.Add(jsonutils.NewString(fmt.Sprintf("baremetal_%s", accessIP)), "name")
 	}
-	params.Add(jsonutils.NewString(listenIP.String()), "access_ip")
+	params.Add(jsonutils.NewString(accessIP.String()), "access_ip")
 	params.Add(jsonutils.NewString(agent.GetManagerUri()), "manager_uri")
 	params.Add(jsonutils.NewString(agent.Zone.Id), "zone_id")
 	return params, nil
@@ -306,7 +348,7 @@ func (agent *SBaremetalAgent) disableUDPOffloading() {
 	offGso.Run()
 }
 
-func (agent *SBaremetalAgent) startServices(manager *SBaremetalManager) {
+func (agent *SBaremetalAgent) startPXEServices(manager *SBaremetalManager) {
 	listenIP, err := agent.GetListenIP()
 	if err != nil {
 		log.Fatalf("Get listen ip address error: %v", err)
@@ -326,15 +368,23 @@ func (agent *SBaremetalAgent) startServices(manager *SBaremetalManager) {
 
 func Start() error {
 	var err error
-	if BaremetalAgent != nil {
-		log.Warningf("Global BaremetalAgent already start")
+	if baremetalAgent != nil {
+		log.Warningf("Global baremetalAgent already start")
 		return nil
 	}
-	BaremetalAgent, err = newBaremetalAgent()
+	baremetalAgent, err = newBaremetalAgent()
 	if err != nil {
 		return err
 	}
-	BaremetalAgent.startRegister()
+	baremetalAgent.startRegister()
 
 	return nil
+}
+
+func GetBaremetalAgent() *SBaremetalAgent {
+	return baremetalAgent
+}
+
+func GetBaremetalManager() *SBaremetalManager {
+	return GetBaremetalAgent().GetManager()
 }

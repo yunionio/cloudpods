@@ -1,16 +1,15 @@
 package pxe
 
 import (
-	"fmt"
 	"net"
 	"time"
 
 	"github.com/pin/tftp"
-	"go.universe.tf/netboot/dhcp4"
 
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/baremetal/types"
+	"yunion.io/x/onecloud/pkg/cloudcommon/dhcp"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -79,10 +78,11 @@ type IBaremetalManager interface {
 type IBaremetalInstance interface {
 	NeedPXEBoot() bool
 	GetIPMINic(cliMac net.HardwareAddr) *types.Nic
-	GetPXEDHCPConfig(arch uint16) (*ResponseConfig, error)
-	GetDHCPConfig(cliMac net.HardwareAddr) (*ResponseConfig, error)
+	GetPXEDHCPConfig(arch uint16) (*dhcp.ResponseConfig, error)
+	GetDHCPConfig(cliMac net.HardwareAddr) (*dhcp.ResponseConfig, error)
 	InitAdminNetif(cliMac net.HardwareAddr, netConf *types.NetworkConfig, nicType string) error
 	RegisterNetif(cliMac net.HardwareAddr, netConf *types.NetworkConfig) error
+	GetTFTPResponse() string
 }
 
 type Server struct {
@@ -105,26 +105,23 @@ func (s *Server) Serve() error {
 	if s.TFTPPort == 0 {
 		s.TFTPPort = portTFTP
 	}
-	tftpHandler, err := NewTFTPHandler(s.TFTPRootDir)
+	tftpHandler, err := NewTFTPHandler(s.TFTPRootDir, s.BaremetalManager)
 	if err != nil {
 		return err
 	}
 	tftpSrv := tftp.NewServer(tftpHandler.ReadHandler, nil)
 	tftpSrv.SetTimeout(5 * time.Second)
 
-	newDHCP := dhcp4.NewConn
-	dhcp, err := newDHCP(fmt.Sprintf("%s:%d", s.Address, s.DHCPPort))
-	if err != nil {
-		return fmt.Errorf("New DHCP error: %v", err)
-	}
+	dhcpSrv := dhcp.NewDHCPServer(s.Address, s.DHCPPort)
 
 	s.errs = make(chan error)
 
-	go func() { s.errs <- s.serveDHCP(dhcp) }()
+	dhcpHandler := &DHCPHandler{baremetalManager: s.BaremetalManager}
+
+	go func() { s.errs <- s.serveDHCP(dhcpSrv, dhcpHandler) }()
 	go func() { s.errs <- s.serveTFTP(tftpSrv) }()
 
 	err = <-s.errs
-	dhcp.Close()
 	tftpSrv.Shutdown()
 	return err
 }

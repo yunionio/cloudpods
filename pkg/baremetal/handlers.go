@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/baremetal/tasks"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -78,10 +80,19 @@ func (ctx *Context) Request() *http.Request {
 	return ctx.request
 }
 
+func (ctx *Context) RequestRemoteIP() string {
+	remoteAddr := ctx.Request().RemoteAddr
+	return strings.Split(remoteAddr, ":")[0]
+}
+
 func (ctx *Context) ResponseOk() {
 	obj := jsonutils.NewDict()
 	obj.Add(jsonutils.NewString("ok"), "result")
 	appsrv.SendJSON(ctx.writer, obj)
+}
+
+func (ctx *Context) GetBaremetalManager() *SBaremetalManager {
+	return GetBaremetalManager()
 }
 
 type handlerFunc func(ctx *Context)
@@ -100,7 +111,21 @@ func handleBaremetalNotify(ctx *Context) {
 		ctx.ResponseError(httperrors.NewInputParameterError("Not found key in query"))
 		return
 	}
-	remoteAddr := ctx.Request().RemoteAddr
-	log.Debugf("===Get key %q from remote address: %s, bmId: %s", key, remoteAddr, bmId)
+	remoteAddr := ctx.RequestRemoteIP()
+	baremetal := ctx.GetBaremetalManager().GetBaremetalById(bmId)
+	if baremetal == nil {
+		ctx.ResponseError(httperrors.NewNotFoundError("Not found baremetal by id: %s", bmId))
+		return
+	}
+	err = baremetal.SaveSSHConfig(remoteAddr, key)
+	if err != nil {
+		log.Errorf("Save baremetal %s ssh config: %v", bmId, err)
+	}
+
+	// execute BaremetalServerPrepareTask
+	task := baremetal.GetTask()
+	if task != nil {
+		task.(*tasks.SBaremetalServerPrepareTask).SSHExecute(task, remoteAddr, key, nil)
+	}
 	ctx.ResponseOk()
 }

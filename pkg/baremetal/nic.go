@@ -3,11 +3,13 @@ package baremetal
 import (
 	"fmt"
 	"net"
+	"time"
 
 	"yunion.io/x/pkg/util/netutils"
 
-	"yunion.io/x/onecloud/pkg/baremetal/pxe"
+	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/baremetal/types"
+	"yunion.io/x/onecloud/pkg/cloudcommon/dhcp"
 )
 
 func GetNicDHCPConfig(
@@ -16,7 +18,13 @@ func GetNicDHCPConfig(
 	hostName string,
 	isPxe bool,
 	arch uint16,
-) (*pxe.ResponseConfig, error) {
+) (*dhcp.ResponseConfig, error) {
+	if n == nil {
+		return nil, fmt.Errorf("Nic is nil")
+	}
+	if n.IpAddr == "" {
+		return nil, fmt.Errorf("Nic no ip address")
+	}
 	ipAddr, err := netutils.NewIPV4Addr(n.IpAddr)
 	if err != nil {
 		return nil, fmt.Errorf("Parse IP address error: %q", n.IpAddr)
@@ -24,7 +32,7 @@ func GetNicDHCPConfig(
 
 	subnetMask := net.ParseIP(netutils.Masklen2Mask(n.MaskLen).String())
 
-	conf := &pxe.ResponseConfig{
+	conf := &dhcp.ResponseConfig{
 		ServerIP:      net.ParseIP(serverIP),
 		ClientIP:      net.ParseIP(ipAddr.String()),
 		Gateway:       net.ParseIP(n.Gateway),
@@ -35,6 +43,8 @@ func GetNicDHCPConfig(
 		OsName:        "Linux",
 		Hostname:      hostName,
 		// TODO: routes opt
+		LeaseTime:   time.Duration(o.Options.DhcpLeaseTime) * time.Second,
+		RenewalTime: time.Duration(o.Options.DhcpRenewalTime) * time.Second,
 	}
 
 	if isPxe {

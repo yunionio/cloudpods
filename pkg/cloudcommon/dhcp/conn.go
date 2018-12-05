@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package dhcp4
+package dhcp
 
 import (
 	"errors"
@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"golang.org/x/net/ipv4"
+
+	"yunion.io/x/log"
 )
 
 // defined as a var so tests can override it.
@@ -141,14 +143,17 @@ func (c *Conn) RecvDHCP() (*Packet, *net.Interface, error) {
 			return nil, nil, err
 		}
 		if c.ifIndex != 0 && ifidx != c.ifIndex {
+			log.Errorf("======= ifIndex continue, c.ifIndex: %d, ifidx: %d", c.ifIndex, ifidx)
 			continue
 		}
 		pkt, err := Unmarshal(b)
 		if err != nil {
+			log.Errorf("======= pkt Unmarshal error: %v", err)
 			continue
 		}
 		intf, err := net.InterfaceByIndex(ifidx)
 		if err != nil {
+			log.Errorf("======= intf error: %v", err)
 			return nil, nil, err
 		}
 
@@ -178,7 +183,7 @@ func (c *Conn) SendDHCP(pkt *Packet, intf *net.Interface) error {
 	case txRelayAddr:
 		addr := net.UDPAddr{
 			IP:   pkt.RelayAddr,
-			Port: 67,
+			Port: dhcpClientPort,
 		}
 		return c.conn.Send(b, &addr, 0)
 	case txClientAddr:
