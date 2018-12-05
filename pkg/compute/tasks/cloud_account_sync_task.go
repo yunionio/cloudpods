@@ -85,7 +85,7 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncComplete(ctx context.Con
 		}
 
 		// sync skus
-		if err := skus.SyncSkusByProviderIds([]string{cloudprovider.GetId()}); err != nil {
+		if err := skus.SyncSkusByProviderIds([]string{cloudprovider.Provider}); err != nil {
 			self.SetStageFailed(ctx, err.Error())
 		}
 	}
