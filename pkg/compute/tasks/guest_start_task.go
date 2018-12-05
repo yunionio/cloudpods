@@ -45,7 +45,7 @@ func (self *GuestStartTask) startStart(ctx context.Context, guest *models.SGuest
 	guest.SetStatus(self.UserCred, models.VM_STARTING, "")
 	result, err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self)
 	if err != nil {
-		self.onStartGuestFailed(ctx, guest, err)
+		self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	} else {
 		if result != nil && jsonutils.QueryBoolean(result, "is_running", false) {
 			self.OnStartComplete(ctx, guest, nil)
@@ -71,14 +71,10 @@ func (self *GuestStartTask) OnGuestSyncstatusAfterStart(ctx context.Context, obj
 
 func (self *GuestStartTask) OnStartCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
+	guest.SetStatus(self.UserCred, models.VM_START_FAILED, err.String())
 	db.OpsLog.LogEvent(guest, db.ACT_START_FAIL, err, self.UserCred)
-}
-
-func (self *GuestStartTask) onStartGuestFailed(ctx context.Context, guest *models.SGuest, err error) {
-	guest.SetStatus(self.UserCred, models.VM_START_FAILED, err.Error())
-	self.SetStageFailed(ctx, err.Error())
-	self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	logclient.AddActionLog(guest, logclient.ACT_VM_START, err, self.UserCred, false)
+	self.SetStageFailed(ctx, err.String())
 }
 
 func (self *GuestStartTask) taskComplete(ctx context.Context, guest *models.SGuest) {
