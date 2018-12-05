@@ -1,14 +1,14 @@
 package tasks
 
-
 import (
-	"fmt"
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -39,13 +39,13 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		}
 
 		extEip, err := eip.GetIEip()
-		if err != nil {
+		if err != nil && err != cloudprovider.ErrNotFound {
 			msg := fmt.Sprintf("fail to find iEIP for eip %s", err)
 			self.TaskFail(ctx, eip, msg, server)
 			return
 		}
 
-		if len(extEip.GetAssociationExternalId()) > 0 {
+		if err == nil && len(extEip.GetAssociationExternalId()) > 0 {
 			err = extEip.Dissociate()
 			if err != nil {
 				msg := fmt.Sprintf("fail to remote dissociate eip %s", err)
