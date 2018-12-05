@@ -317,7 +317,6 @@ func SyncSkus(ctx context.Context, userCred mcclient.TokenCredential) {
 	}
 }
 
-
 func SyncSkusByProviderIds(providerIds []string) error {
 	skus := SkusZoneList{}
 	log.Debugf("SyncSkusByProviderIds %s", providerIds)
