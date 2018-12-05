@@ -42,10 +42,11 @@ func (t *Timer2) Next(now time.Time) time.Time {
 }
 
 type SCronJob struct {
-	Name  string
-	job   func(ctx context.Context, userCred mcclient.TokenCredential)
-	Timer ICronTimer
-	Next  time.Time
+	Name     string
+	job      func(ctx context.Context, userCred mcclient.TokenCredential)
+	Timer    ICronTimer
+	Next     time.Time
+	StartRun bool
 }
 
 type CronJobTimerHeap []*SCronJob
@@ -107,7 +108,7 @@ func (self *SCronJobManager) AddJob1(name string, interval time.Duration, jobFun
 	}
 }
 
-func (self *SCronJobManager) AddJob2(name string, day, hour, min, sec int, jobFunc func(ctx context.Context, userCred mcclient.TokenCredential)) {
+func (self *SCronJobManager) AddJob2(name string, day, hour, min, sec int, jobFunc func(ctx context.Context, userCred mcclient.TokenCredential), startRun bool) {
 	t := Timer2{
 		day:  day,
 		hour: hour,
@@ -115,9 +116,10 @@ func (self *SCronJobManager) AddJob2(name string, day, hour, min, sec int, jobFu
 		sec:  sec,
 	}
 	job := SCronJob{
-		Name:  name,
-		job:   jobFunc,
-		Timer: &t,
+		Name:     name,
+		job:      jobFunc,
+		Timer:    &t,
+		StartRun: startRun,
 	}
 	if !self.running {
 		self.jobs = append(self.jobs, &job)
@@ -154,6 +156,12 @@ func (self *SCronJobManager) run() {
 			timer = time.NewTimer(100000 * time.Hour)
 		} else {
 			timer = time.NewTimer(self.jobs[0].Next.Sub(now))
+		}
+		for i := 0; i < len(self.jobs); i += 1 {
+			if self.jobs[i].StartRun {
+				self.jobs[i].StartRun = false
+				self.jobs[i].runJob()
+			}
 		}
 		select {
 		case now = <-timer.C:
