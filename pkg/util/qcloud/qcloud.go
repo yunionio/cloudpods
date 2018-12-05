@@ -99,8 +99,8 @@ func _jsonRequest(client *common.Client, domain string, version string, apiName 
 			break
 		}
 		needRetry := false
-		for _, msg := range []string{"EOF", "TLS handshake timeout", "Code=InternalError"} {
-			if strings.Index(err.Error(), msg) > 0 {
+		for _, msg := range []string{"EOF", "TLS handshake timeout", "Code=InternalError", "retry later", "Code=MutexOperation.TaskRunning"} {
+			if strings.Contains(err.Error(), msg) {
 				needRetry = true
 				break
 			}
