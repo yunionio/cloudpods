@@ -103,32 +103,41 @@ func processSkuData(ndata jsonutils.JSONObject) jsonutils.JSONObject {
 func (self *SkusZone) Init() error {
 	s := auth.GetAdminSession(options.Options.Region, "")
 	p, r, z := self.getExternalZone()
-
-	ret, e := modules.CloudmetaSkus.GetSkus(s, p, r, z)
-	if e != nil {
-		log.Debugf("SkusZone %s init failed, %s", z, e.Error())
-		return e
-	}
+	limit := 1024
+	offset := 0
+	total := 1024
 
 	records := map[string]jsonutils.JSONObject{}
-	for _, sku := range ret.Data {
-		name, err := sku.GetString("name")
-		if err != nil {
-			log.Debugf("SkusZone sku name empty : %s", sku)
-			return err
+	for offset < total {
+		ret, e := modules.CloudmetaSkus.GetSkus(s, p, r, z, limit, offset)
+		if e != nil {
+			log.Debugf("SkusZone %s init failed, %s", z, e.Error())
+			return e
 		}
 
-		if odata, exists := records[name]; exists {
-			records[name] = mergeSkuData(odata, sku)
-		} else {
-			records[name] = processSkuData(sku)
+		for _, sku := range ret.Data {
+			name, err := sku.GetString("name")
+			if err != nil {
+				log.Debugf("SkusZone sku name empty : %s", sku)
+				return err
+			}
+
+			if odata, exists := records[name]; exists {
+				records[name] = mergeSkuData(odata, sku)
+			} else {
+				records[name] = processSkuData(sku)
+			}
 		}
+
+		offset += limit
+		total = ret.Total
 	}
 
 	filtedData := []jsonutils.JSONObject{}
 	for _, item := range records {
 		filtedData = append(filtedData, item)
 	}
+
 	self.total = len(records)
 	self.skus = filtedData
 	return nil
