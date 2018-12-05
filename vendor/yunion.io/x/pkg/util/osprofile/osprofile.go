@@ -106,7 +106,7 @@ func GetOSProfileFromImageProperties(imgProp map[string]string, hypervisor strin
 	}
 	var imgHypers []string
 	imgHyperStr, ok := imgProp["hypervisor"]
-	if ok {
+	if ok && len(imgHyperStr) > 0 {
 		imgHypers = strings.Split(imgHyperStr, ",")
 	} else {
 		imgHypers = []string{}
