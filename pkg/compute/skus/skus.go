@@ -103,32 +103,41 @@ func processSkuData(ndata jsonutils.JSONObject) jsonutils.JSONObject {
 func (self *SkusZone) Init() error {
 	s := auth.GetAdminSession(options.Options.Region, "")
 	p, r, z := self.getExternalZone()
-
-	ret, e := modules.CloudmetaSkus.GetSkus(s, p, r, z)
-	if e != nil {
-		log.Debugf("SkusZone %s init failed, %s", z, e.Error())
-		return e
-	}
+	limit := 1024
+	offset := 0
+	total := 1024
 
 	records := map[string]jsonutils.JSONObject{}
-	for _, sku := range ret.Data {
-		name, err := sku.GetString("name")
-		if err != nil {
-			log.Debugf("SkusZone sku name empty : %s", sku)
-			return err
+	for offset < total {
+		ret, e := modules.CloudmetaSkus.GetSkus(s, p, r, z, limit, offset)
+		if e != nil {
+			log.Debugf("SkusZone %s init failed, %s", z, e.Error())
+			return e
 		}
 
-		if odata, exists := records[name]; exists {
-			records[name] = mergeSkuData(odata, sku)
-		} else {
-			records[name] = processSkuData(sku)
+		for _, sku := range ret.Data {
+			name, err := sku.GetString("name")
+			if err != nil {
+				log.Debugf("SkusZone sku name empty : %s", sku)
+				return err
+			}
+
+			if odata, exists := records[name]; exists {
+				records[name] = mergeSkuData(odata, sku)
+			} else {
+				records[name] = processSkuData(sku)
+			}
 		}
+
+		offset += limit
+		total = ret.Total
 	}
 
 	filtedData := []jsonutils.JSONObject{}
 	for _, item := range records {
 		filtedData = append(filtedData, item)
 	}
+
 	self.total = len(records)
 	self.skus = filtedData
 	return nil
@@ -208,6 +217,9 @@ func (self *SkusZone) getExternalZone() (string, string, string) {
 	if len(parts) == 3 {
 		// provider, region, zone
 		return parts[0], parts[1], parts[2]
+	} else if len(parts) == 2 && parts[0] == models.CLOUD_PROVIDER_AZURE {
+		// azure 没有zone的概念
+		return parts[0], parts[1], parts[1]
 	}
 
 	log.Debugf("SkusZone invalid external zone id %s", self.ExternalZoneId)
@@ -235,9 +247,17 @@ func (self *SkusZoneList) initData(provider string, region models.SCloudregion, 
 	}
 }
 
-func (self *SkusZoneList) Refresh() error {
-	provideIds := cloudprovider.GetRegistedProviderIds()
-	for _, p := range provideIds {
+func (self *SkusZoneList) Refresh(providerIds *[]string) error {
+	self.Data = []*SkusZone{}
+
+	var pIds []string
+	if providerIds == nil {
+		pIds = cloudprovider.GetRegistedProviderIds()
+	} else {
+		pIds = *providerIds
+	}
+
+	for _, p := range pIds {
 		regions, e := models.CloudregionManager.GetRegionByProvider(p)
 		if e != nil {
 			return e
@@ -288,11 +308,25 @@ func (self *SkusZoneList) SyncToLocalDB() error {
 
 func SyncSkus(ctx context.Context, userCred mcclient.TokenCredential) {
 	skus := SkusZoneList{}
-	if e := skus.Refresh(); e != nil {
+	if e := skus.Refresh(nil); e != nil {
 		log.Errorf("SyncSkus refresh failed, %s", e.Error())
 	}
 
 	if e := skus.SyncToLocalDB(); e != nil {
 		log.Errorf("SyncSkus sync to local db failed, %s", e.Error())
 	}
+}
+
+func SyncSkusByProviderIds(providerIds []string) error {
+	skus := SkusZoneList{}
+	log.Debugf("SyncSkusByProviderIds %s", providerIds)
+	if e := skus.Refresh(&providerIds); e != nil {
+		return fmt.Errorf("SyncSkus refresh failed, %s", e.Error())
+	}
+
+	if e := skus.SyncToLocalDB(); e != nil {
+		return fmt.Errorf("SyncSkus sync to local db failed, %s", e.Error())
+	}
+
+	return nil
 }
