@@ -227,6 +227,9 @@ func (self *SRegion) GetImportImageParams(name string, osArch, osDist, osVersion
 		}
 		if !utils.IsInStringArray(osVersion, _imageSet.OsVersions) {
 			osVersion = "-"
+			if len(_imageSet.OsVersions) > 0 {
+				osVersion = _imageSet.OsVersions[0]
+			}
 		}
 		break
 	}
