@@ -26,11 +26,7 @@ func NewWebConsoleManager() ResourceManager {
 		Keyword: "webconsole", KeywordPlural: "webconsole"}
 }
 
-func (m WebConsoleManager) DoConnect(
-	s *mcclient.ClientSession,
-	connType, id, action string,
-	params jsonutils.JSONObject,
-) (jsonutils.JSONObject, error) {
+func (m WebConsoleManager) DoConnect(s *mcclient.ClientSession, connType, id, action string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if len(connType) == 0 {
 		return nil, fmt.Errorf("Empty connection resource type")
 	}
@@ -44,32 +40,22 @@ func (m WebConsoleManager) DoConnect(
 	return m._post(s, url, params, "webconsole")
 }
 
-func (m WebConsoleManager) DoK8sConnect(
-	s *mcclient.ClientSession,
-	id, action string,
-	params jsonutils.JSONObject,
-) (jsonutils.JSONObject, error) {
+func (m WebConsoleManager) DoK8sConnect(s *mcclient.ClientSession, id, action string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return m.DoConnect(s, "k8s", id, action, params)
 }
 
-func (m WebConsoleManager) DoK8sShellConnect(
-	s *mcclient.ClientSession,
-	id string, params jsonutils.JSONObject,
-) (jsonutils.JSONObject, error) {
+func (m WebConsoleManager) DoK8sShellConnect(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return m.DoK8sConnect(s, id, "shell", params)
 }
 
-func (m WebConsoleManager) DoK8sLogConnect(
-	s *mcclient.ClientSession,
-	id string, params jsonutils.JSONObject,
-) (jsonutils.JSONObject, error) {
+func (m WebConsoleManager) DoK8sLogConnect(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return m.DoK8sConnect(s, id, "log", params)
 }
 
-func (m WebConsoleManager) DoBaremetalConnect(s *mcclient.ClientSession, id string) (jsonutils.JSONObject, error) {
+func (m WebConsoleManager) DoBaremetalConnect(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return m.DoConnect(s, "baremetal", id, "", nil)
 }
 
-func (m WebConsoleManager) DoSshConnect(s *mcclient.ClientSession, id string) (jsonutils.JSONObject, error) {
+func (m WebConsoleManager) DoSshConnect(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return m.DoConnect(s, "ssh", id, "", nil)
 }
