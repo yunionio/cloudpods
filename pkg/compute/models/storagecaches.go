@@ -236,10 +236,11 @@ func (self *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcc
 
 	if image != nil {
 		imgInfo := imagetools.NormalizeImageInfo(image.Name, image.Properties["os_arch"], image.Properties["os_type"],
-			image.Properties["os_distribution"])
+			image.Properties["os_distribution"], image.Properties["os_version"])
 		data.Add(jsonutils.NewString(imgInfo.OsType), "os_type")
 		data.Add(jsonutils.NewString(imgInfo.OsArch), "os_arch")
 		data.Add(jsonutils.NewString(imgInfo.OsDistro), "os_distribution")
+		data.Add(jsonutils.NewString(imgInfo.OsVersion), "os_version")
 	}
 
 	if isForce {
