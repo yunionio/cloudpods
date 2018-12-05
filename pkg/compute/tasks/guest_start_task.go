@@ -68,7 +68,7 @@ func (self *GuestStartTask) RequestStart(ctx context.Context, guest *models.SGue
 	guest.SetStatus(self.UserCred, models.VM_STARTING, "")
 	result, err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self)
 	if err != nil {
-		self.onStartGuestFailed(ctx, guest, err)
+		self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	} else {
 		if result != nil && jsonutils.QueryBoolean(result, "is_running", false) {
 			// guest.SetStatus(self.UserCred, models.VM_RUNNING, "start")
@@ -84,7 +84,7 @@ func (self *GuestStartTask) RequestStartBacking(ctx context.Context, guest *mode
 	guest.SetStatus(self.UserCred, models.VM_BACKUP_STARTING, "")
 	result, err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self)
 	if err != nil {
-		self.onStartGuestFailed(ctx, guest, err)
+		self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	} else {
 		if result != nil && jsonutils.QueryBoolean(result, "is_running", false) {
 			self.OnStartBackupGuestComplete(ctx, guest, nil)
@@ -100,11 +100,15 @@ func (self *GuestStartTask) OnStartBackupGuestComplete(ctx context.Context, gues
 			nbdServerUri := fmt.Sprintf("nbd:%s:%d", backupHost.AccessIp, nbdServerPort)
 			guest.SetMetadata(ctx, "backup_nbd_server_uri", nbdServerUri, self.UserCred)
 		} else {
-			self.onStartGuestFailed(ctx, guest, fmt.Errorf("Start backup guest result missing nbd_server_port"))
+			self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString("Start backup guest result missing nbd_server_port"))
 			return
 		}
 	}
 	self.RequestStart(ctx, guest)
+}
+
+func (self *GuestStartTask) OnStartBackupGuestCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.OnStartCompleteFailed(ctx, guest, data)
 }
 
 func (self *GuestStartTask) OnStartComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -123,14 +127,10 @@ func (self *GuestStartTask) OnGuestSyncstatusAfterStart(ctx context.Context, obj
 
 func (self *GuestStartTask) OnStartCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
+	guest.SetStatus(self.UserCred, models.VM_START_FAILED, err.String())
 	db.OpsLog.LogEvent(guest, db.ACT_START_FAIL, err, self.UserCred)
-}
-
-func (self *GuestStartTask) onStartGuestFailed(ctx context.Context, guest *models.SGuest, err error) {
-	guest.SetStatus(self.UserCred, models.VM_START_FAILED, err.Error())
-	self.SetStageFailed(ctx, err.Error())
-	self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	logclient.AddActionLog(guest, logclient.ACT_VM_START, err, self.UserCred, false)
+	self.SetStageFailed(ctx, err.String())
 }
 
 func (self *GuestStartTask) taskComplete(ctx context.Context, guest *models.SGuest) {
