@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -76,11 +77,14 @@ type SServerSku struct {
 
 	CloudregionId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin"`
 	ZoneId        string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	Provider      string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	Provider      string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 }
 
 func inWhiteList(provider string) bool {
 	// 只有为true的hypervisor才进行创建和更新操作
+	if len(provider) == 0 {
+		return true
+	}
 	switch provider {
 	case HYPERVISOR_ESXI, HYPERVISOR_KVM:
 		return true
@@ -107,13 +111,11 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 	query jsonutils.JSONObject,
 	data *jsonutils.JSONDict,
 ) (*jsonutils.JSONDict, error) {
-	provider, err := data.GetString("provider")
-	if err != nil || len(provider) == 0 {
-		return nil, httperrors.NewMissingParameterError("provider")
-	}
+
+	provider, _ := data.GetString("provider")
 
 	if !inWhiteList(provider) {
-		return nil, httperrors.NewInputParameterError("can not create with provider %s", provider)
+		return nil, httperrors.NewForbiddenError("can not create instance_type for public cloud %s", provider)
 	}
 
 	regionStr := jsonutils.GetAnyString(data, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
@@ -182,9 +184,14 @@ func (self *SServerSku) ValidateUpdateData(
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+
+	if !inWhiteList(self.Provider) {
+		return nil, httperrors.NewForbiddenError("can not create instance_type for public cloud %s", self.Provider)
+	}
+
 	provider, err := data.GetString("provider")
 	if err == nil && !inWhiteList(provider) {
-		return nil, httperrors.NewInputParameterError("can not create with provider %s", provider)
+		return nil, httperrors.NewForbiddenError("can not create instance_type for public cloud %s", provider)
 	}
 
 	zoneStr := jsonutils.GetAnyString(data, []string{"zone", "zone_id"})
@@ -206,9 +213,12 @@ func (self *SServerSku) AllowDeleteItem(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SServerSku) ValidateDeleteCondition(ctx context.Context) error {
-	count := GuestManager.Query().Equals("sku_id", self.Id).Count()
+	if !inWhiteList(self.Provider) {
+		return httperrors.NewForbiddenError("not allow to delete public cloud instance_type: %s", self.Name)
+	}
+	count := GuestManager.Query().Equals("instance_type", self.Name).Count()
 	if count > 0 {
-		return httperrors.NewNotEmptyError("sku used by servers")
+		return httperrors.NewNotEmptyError("instance_type used by servers")
 	}
 	return nil
 }
@@ -224,14 +234,25 @@ func (self *SServerSku) GetZoneExternalId() (string, error) {
 }
 
 func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
-	if err != nil {
-		return nil, err
-	}
+	queryDict := query.(*jsonutils.JSONDict)
 
 	provider := jsonutils.GetAnyString(query, []string{"provider"})
 	if len(provider) > 0 {
-		q = q.Equals("provider", provider)
+		if provider != "all" {
+			q = q.Equals("provider", provider)
+		}
+
+		queryDict.Remove("provider")
+	} else {
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.IsNull(q.Field("provider")),
+			sqlchemy.IsEmpty(q.Field("provider")),
+		))
+	}
+
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
 	}
 
 	regionStr := jsonutils.GetAnyString(query, []string{"region", "cloudregion", "region_id", "cloudregion_id"})
@@ -259,4 +280,47 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 	}
 
 	return q, err
+}
+
+func (manager *SServerSkuManager) FetchSkuByNameAndHypervisor(name string, hypervisor string, checkConsistency bool) (*SServerSku, error) {
+	q := manager.Query()
+	q = q.Equals("name", name)
+	if len(hypervisor) > 0 {
+		switch hypervisor {
+		case HYPERVISOR_BAREMETAL, HYPERVISOR_CONTAINER:
+			return nil, httperrors.NewNotImplementedError("%s not supported", hypervisor)
+		case HYPERVISOR_KVM, HYPERVISOR_ESXI, HYPERVISOR_XEN, HOST_TYPE_HYPERV:
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.IsEmpty(q.Field("provider")),
+				sqlchemy.IsNull(q.Field("provider")),
+				sqlchemy.Equals(q.Field("provider"), hypervisor),
+			))
+		default:
+			q = q.Equals("provider", hypervisor)
+		}
+	} else {
+		q = q.IsEmpty("provider")
+	}
+	skus := make([]SServerSku, 0)
+	err := db.FetchModelObjects(manager, q, &skus)
+	if err != nil {
+		log.Errorf("fetch sku fail %s", err)
+		return nil, err
+	}
+	if len(skus) == 0 {
+		log.Errorf("no sku found for %s %s", name, hypervisor)
+		return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), name)
+	}
+	if len(skus) == 1 {
+		return &skus[0], nil
+	}
+	if checkConsistency {
+		for i := 1; i < len(skus); i += 1 {
+			if skus[i].CpuCoreCount != skus[0].CpuCoreCount || skus[i].MemorySizeMB != skus[0].MemorySizeMB {
+				log.Errorf("inconsistent sku %s %s", jsonutils.Marshal(&skus[0]), jsonutils.Marshal(&skus[i]))
+				return nil, httperrors.NewDuplicateResourceError("duplicate instanceType %s", name)
+			}
+		}
+	}
+	return &skus[0], nil
 }

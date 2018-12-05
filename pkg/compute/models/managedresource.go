@@ -35,6 +35,14 @@ func (self *SManagedResourceBase) GetDriver() (cloudprovider.ICloudProvider, err
 	return provider.GetDriver()
 }
 
+func (self *SManagedResourceBase) GetProviderName() string {
+	driver := self.GetCloudprovider()
+	if driver != nil {
+		return driver.Provider
+	}
+	return ""
+}
+
 func (self *SManagedResourceBase) IsManaged() bool {
 	return len(self.ManagerId) > 0
 }

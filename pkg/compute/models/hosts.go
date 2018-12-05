@@ -40,14 +40,16 @@ import (
 const (
 	HOST_TYPE_BAREMETAL  = "baremetal"
 	HOST_TYPE_HYPERVISOR = "hypervisor" // KVM
-	HOST_TYPE_ESXI       = "esxi"       // # VMWare vSphere ESXi
-	HOST_TYPE_KUBELET    = "kubelet"    // # Kubernetes Kubelet
-	HOST_TYPE_HYPERV     = "hyperv"     // # Microsoft Hyper-V
-	HOST_TYPE_XEN        = "xen"        // # XenServer
-	HOST_TYPE_ALIYUN     = "aliyun"
-	HOST_TYPE_AWS        = "aws"
-	HOST_TYPE_QCLOUD     = "qcloud"
-	HOST_TYPE_AZURE      = "azure"
+	HOST_TYPE_KVM        = "kvm"
+	HOST_TYPE_ESXI       = "esxi"    // # VMWare vSphere ESXi
+	HOST_TYPE_KUBELET    = "kubelet" // # Kubernetes Kubelet
+	HOST_TYPE_HYPERV     = "hyperv"  // # Microsoft Hyper-V
+	HOST_TYPE_XEN        = "xen"     // # XenServer
+
+	HOST_TYPE_ALIYUN = "aliyun"
+	HOST_TYPE_AWS    = "aws"
+	HOST_TYPE_QCLOUD = "qcloud"
+	HOST_TYPE_AZURE  = "azure"
 
 	HOST_TYPE_DEFAULT = HOST_TYPE_HYPERVISOR
 
@@ -85,6 +87,13 @@ const (
 	HOST_STATUS_UNKNOWN = BAREMETAL_UNKNOWN
 )
 
+const (
+	HostResourceTypeShared         = "shared"
+	HostResourceTypeDefault        = HostResourceTypeShared
+	HostResourceTypePrepaidRecycle = "prepaid_recycle"
+	HostResourceTypeDedicated      = "dedicated"
+)
+
 var HOST_TYPES = []string{HOST_TYPE_BAREMETAL, HOST_TYPE_HYPERVISOR, HOST_TYPE_ESXI, HOST_TYPE_KUBELET, HOST_TYPE_XEN, HOST_TYPE_ALIYUN, HOST_TYPE_AZURE, HOST_TYPE_AWS, HOST_TYPE_QCLOUD}
 
 var NIC_TYPES = []string{NIC_TYPE_IPMI, NIC_TYPE_ADMIN}
@@ -110,6 +119,7 @@ func init() {
 type SHost struct {
 	db.SEnabledStatusStandaloneResourceBase
 	SManagedResourceBase
+	SBillingResourceBase
 
 	Rack  string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
 	Slots string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
@@ -154,6 +164,8 @@ type SHost struct {
 	IsMaintenance bool `nullable:"true" default:"false" list:"admin"` // Column(Boolean, nullable=True, default=False)
 
 	LastPingAt time.Time ``
+
+	ResourceType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
 func (manager *SHostManager) GetContextManager() []db.IModelManager {
@@ -1303,7 +1315,16 @@ func (self *SHost) syncWithCloudHostStorage(localStorage *SStorage, extStorage c
 	return hs.syncWithCloudHostStorage(extStorage)
 }
 
+func (self *SHost) isAttach2Storage(storage *SStorage) bool {
+	hs := self.GetHoststorageOfId(storage.Id)
+	return hs != nil
+}
+
 func (self *SHost) Attach2Storage(ctx context.Context, userCred mcclient.TokenCredential, storage *SStorage, mountPoint string) error {
+	if self.isAttach2Storage(storage) {
+		return nil
+	}
+
 	hs := SHoststorage{}
 	hs.SetModelManager(HoststorageManager)
 
@@ -1314,6 +1335,7 @@ func (self *SHost) Attach2Storage(ctx context.Context, userCred mcclient.TokenCr
 	if err != nil {
 		return err
 	}
+
 	db.OpsLog.LogAttachEvent(self, storage, userCred, nil)
 
 	return nil

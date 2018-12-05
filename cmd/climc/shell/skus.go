@@ -11,7 +11,7 @@ import (
 func init() {
 	type ServerSkusListOptions struct {
 		options.BaseListOptions
-		Provider string `help:"provider"`
+		Provider string `help:"provider" choices:"all|kvm|esxi|xen|hyperv|aliyun|azure|aws|qcloud|huawei"`
 		Region   string `help:"region Id or name"`
 		Zone     string `help:"zone Id or name"`
 		Cpu      int    `help:"Cpu core count"`
@@ -53,6 +53,7 @@ func init() {
 		Name         string `help:"Name ID of SKU" required:"true" positional:"true"`
 		CpuCoreCount int    `help:"Cpu Count" required:"true" positional:"true"`
 		MemorySizeMB int    `help:"Memory MB" required:"true" positional:"true"`
+		Provider     string `help:"Provider name" choices:"kvm|esxi"`
 
 		OsName      *string `help:"OS name/type" choices:"Linux|Windows|Any" default:"Any"`
 		SkuFamily   *string `help:"sku family"`
@@ -75,9 +76,8 @@ func init() {
 		GPUCount      *int    `help:"GPU count"`
 		GPUAttachable *bool   `help:"Allow attach GPU"`
 
-		Zone     *string `help:"Zone ID or name"`
-		Region   *string `help:"Region ID or name"`
-		Provider *string `help:"Provider name" choices:"kvm|esxi"`
+		Zone   *string `help:"Zone ID or name"`
+		Region *string `help:"Region ID or name"`
 	}
 	R(&ServerSkusCreateOptions{}, "server-sku-create", "Create a server sku record", func(s *mcclient.ClientSession, args *ServerSkusCreateOptions) error {
 		params, err := options.StructToParams(args)

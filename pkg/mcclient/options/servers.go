@@ -121,6 +121,8 @@ type ServerCreateOptions struct {
 	RaidConfig       []string `help:"Baremetal raid config" json:"-"`
 	UserDataFile     string   `help:"user_data file path" json:"-"`
 
+	InstanceType string `help:"Instance Type, e.g. S2.SMALL2 for qcloud"`
+
 	Duration string `help:"valid duration of the server, e.g. 1H, 1D, 1W, 1M, 1Y, ADMIN ONLY option"`
 }
 
@@ -292,6 +294,8 @@ type ServerChangeConfigOptions struct {
 	Ncpu *int     `help:"New number of Virtual CPU cores" json:"vcpu_count"`
 	Vmem string   `help:"New memory size" json:"vmem_size"`
 	Disk []string `help:"Data disk description, from the 1st data disk to the last one, empty string if no change for this data disk"`
+
+	InstanceType string `help:"Instance Type, e.g. S2.SMALL2 for qcloud"`
 }
 
 type ServerResetOptions struct {

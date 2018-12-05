@@ -1166,14 +1166,12 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 
 	var addCpu, addMem int
 	confs := jsonutils.NewDict()
-	skuId, _ := data.GetString("sku_id")
-	if len(skuId) > 0 && self.SkuId != skuId {
-		isku, err := ServerSkuManager.FetchById(skuId)
+	skuId := jsonutils.GetAnyString(data, []string{"instance_type", "sku", "flavor"})
+	if len(skuId) > 0 {
+		sku, err := ServerSkuManager.FetchSkuByNameAndHypervisor(skuId, self.GetHypervisor(), true)
 		if err != nil {
-			return nil, httperrors.NewNotFoundError("sku_id %s not found", skuId)
+			return nil, err
 		}
-
-		sku := isku.(*SServerSku)
 		addCpu = sku.CpuCoreCount - int(self.VcpuCount)
 		addMem = sku.MemorySizeMB - self.VmemSize
 		confs.Add(jsonutils.NewString(sku.ExternalId), "sku_id")

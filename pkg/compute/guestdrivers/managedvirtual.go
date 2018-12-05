@@ -52,14 +52,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 	config.Memory = guest.VmemSize
 	config.Description = guest.Description
 
-	if len(guest.SkuId) > 0 {
-		isku, err := models.ServerSkuManager.FetchById(guest.SkuId)
-		if err != nil {
-			log.Errorf("GetJsonDescAtHost sku id %s not found", guest.SkuId)
-		}
-
-		config.InstanceType = isku.GetName()
-	}
+	config.InstanceType = guest.InstanceType
 
 	if len(guest.KeypairId) > 0 {
 		config.PublicKey = guest.GetKeypairPublicKey()

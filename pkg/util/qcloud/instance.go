@@ -502,7 +502,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	}
 
 	params["ClientToken"] = utils.GenRequestId(20)
-	log.Errorf("create params: %s", jsonutils.Marshal(params).PrettyString())
+	// log.Errorf("create params: %s", jsonutils.Marshal(params).PrettyString())
 	instanceIdSet := []string{}
 	body, err := self.cvmRequest("RunInstances", params)
 	if err != nil {
