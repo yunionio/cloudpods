@@ -60,6 +60,6 @@ func (m WebConsoleManager) DoSshConnect(s *mcclient.ClientSession, id string, pa
 	return m.DoConnect(s, "ssh", id, "", nil)
 }
 
-func (m WebConsoleManager) DoServerConnect(s *mcclient.ClientSession, id string) (jsonutils.JSONObject, error) {
+func (m WebConsoleManager) DoServerConnect(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return m.DoConnect(s, "server", id, "", nil)
 }
