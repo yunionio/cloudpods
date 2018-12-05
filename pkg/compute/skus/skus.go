@@ -208,6 +208,9 @@ func (self *SkusZone) getExternalZone() (string, string, string) {
 	if len(parts) == 3 {
 		// provider, region, zone
 		return parts[0], parts[1], parts[2]
+	} else if len(parts) == 2 && parts[0] == models.CLOUD_PROVIDER_AZURE {
+		// azure 没有zone的概念
+		return parts[0], parts[1], parts[1]
 	}
 
 	log.Debugf("SkusZone invalid external zone id %s", self.ExternalZoneId)
@@ -235,9 +238,17 @@ func (self *SkusZoneList) initData(provider string, region models.SCloudregion, 
 	}
 }
 
-func (self *SkusZoneList) Refresh() error {
-	provideIds := cloudprovider.GetRegistedProviderIds()
-	for _, p := range provideIds {
+func (self *SkusZoneList) Refresh(providerIds *[]string) error {
+	self.Data = []*SkusZone{}
+
+	var pIds []string
+	if providerIds == nil {
+		pIds = cloudprovider.GetRegistedProviderIds()
+	} else {
+		pIds = *providerIds
+	}
+
+	for _, p := range pIds {
 		regions, e := models.CloudregionManager.GetRegionByProvider(p)
 		if e != nil {
 			return e
@@ -288,11 +299,25 @@ func (self *SkusZoneList) SyncToLocalDB() error {
 
 func SyncSkus(ctx context.Context, userCred mcclient.TokenCredential) {
 	skus := SkusZoneList{}
-	if e := skus.Refresh(); e != nil {
+	if e := skus.Refresh(nil); e != nil {
 		log.Errorf("SyncSkus refresh failed, %s", e.Error())
 	}
 
 	if e := skus.SyncToLocalDB(); e != nil {
 		log.Errorf("SyncSkus sync to local db failed, %s", e.Error())
 	}
+}
+
+
+func SyncSkusByProviderIds(providerIds []string) error {
+	skus := SkusZoneList{}
+	if e := skus.Refresh(&providerIds); e != nil {
+		return fmt.Errorf("SyncSkus refresh failed, %s", e.Error())
+	}
+
+	if e := skus.SyncToLocalDB(); e != nil {
+		return fmt.Errorf("SyncSkus sync to local db failed, %s", e.Error())
+	}
+
+	return nil
 }
