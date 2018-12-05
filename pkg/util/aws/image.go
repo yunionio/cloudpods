@@ -87,7 +87,6 @@ func (self *SImage) GetStatus() string {
 }
 
 func (self *SImage) Refresh() error {
-	// todo: GetImage
 	new, err := self.storageCache.region.GetImage(self.ImageId)
 	if err != nil {
 		return err
@@ -173,7 +172,11 @@ func (self *SRegion) ExportImage(instanceId string, imageId string) (*ImageExpor
 }
 
 func (self *SRegion) GetImage(imageId string) (*SImage, error) {
-	images, _, err := self.GetImages("", ImageOwnerSelf, []string{imageId}, "", 0, 1)
+	if len(imageId) == 0 {
+		return nil, fmt.Errorf("image id should not be empty")
+	}
+
+	images, _, err := self.GetImages("", ImageOwnerType(""), []string{imageId}, "", 0, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +187,11 @@ func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 }
 
 func (self *SRegion) GetImageByName(name string) (*SImage, error) {
-	images, _, err := self.GetImages("", ImageOwnerSelf, nil, name, 0, 1)
+	if len(name) == 0 {
+		return nil, fmt.Errorf("image name should not be empty")
+	}
+
+	images, _, err := self.GetImages("", ImageOwnerType(""), nil, name, 0, 1)
 	if err != nil {
 		return nil, err
 	}
