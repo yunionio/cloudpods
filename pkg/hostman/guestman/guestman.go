@@ -14,6 +14,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/httpclients"
+	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
+	"yunion.io/x/onecloud/pkg/hostman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/pkg/util/regutils"
 )
@@ -27,7 +29,7 @@ type SGuestManager struct {
 	isLoaded bool
 }
 
-func NewSGuestManager(serversPath string) *SGuestManager {
+func NewGuestManager(serversPath string) *SGuestManager {
 	manager := &SGuestManager{}
 	manager.ServersPath = serversPath
 	manager.Servers = make(map[string]*SKVMGuestInstance, 0)
@@ -81,7 +83,7 @@ func (m *SGuestManager) VerifyExistingGuests(pendingDelete bool) {
 
 func (m *SGuestManager) OnVerifyExistingGuestsFail(err error, pendingDelete bool) {
 	log.Errorf("OnVerifyExistingGuestFail: %s, try again 30 seconds later", err.Error())
-	AddTimeout(30*time.Second, func() { m.VerifyExistingGuests(false) })
+	hostman.AddTimeout(30*time.Second, func() { m.VerifyExistingGuests(false) })
 }
 
 func (m *SGuestManager) OnVerifyExistingGuestsSucc(res jsonutils.JSONObject, pendingDelete bool) {
@@ -193,7 +195,7 @@ func (m *SGuestManager) Monitor(sid, cmd string, callback func(string)) error {
 }
 
 func (m *SGuestManager) DoDeploy(ctx context.Context, sid string, body jsonutils.JSONObject, isInit bool) {
-
+	// TODO
 }
 
 // delay cpuset balance
@@ -219,11 +221,49 @@ func (m *SGuestManager) Status(sid string) string {
 	}
 }
 
-var guestManger *SGuestManager
+func (m *SGuestManager) Delete(sid string) (*SKVMGuestInstance, error) {
+	if guest, ok := m.Servers[sid]; ok {
+		delete(m.Servers, sid)
+		// 这里应该不需要append到deleted servers, 据观察 deleted servers没有用到
+		return guest, nil
+	} else {
+		return nil, httperrors.NewNotFoundError("Not found")
+	}
+}
+
+func (m *SGuestManager) Start(ctx context.Context, sid string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if guest, ok := m.Servers[sid]; ok {
+		if desc, err := body.Get("desc"); err != nil {
+			// TODO
+			guest.SaveDesc(desc)
+		}
+		if guest.IsStopped() {
+			params, _ := body.Get("params")
+			// TODO
+			if err := guest.StartGuest(ctx, params); err != nil {
+				return nil, httperrors.NewBadRequestError("Failed to start server")
+			} else {
+				return jsonutils.NewDict(jsonutils.JSONPair{"vnc_port", jsonutils.NewInt(0)}), nil
+			}
+		} else {
+			vncPort := guest.GetVncPort()
+			if vncPort > 0 {
+				res := jsonutils.NewDict()
+				res.Set("vnc_port", jsonutils.NewInt(int64(vncPort)))
+				res.Set("is_running", jsonutils.JSONTrue)
+				return res, nil
+			} else {
+				return nil, httperrors.NewBadGatewayError("Seems started, but no VNC info")
+			}
+		}
+	} else {
+		return nil, httperrors.NewNotFoundError("Not found")
+	}
+}
 
 func initGuestManager(serversPath string) {
 	if guestManger == nil {
-		guestManger = NewSGuestManager(serversPath)
+		guestManger = NewGuestManager(serversPath)
 	}
 }
 
@@ -237,4 +277,15 @@ func Stop() {
 
 func Init(serversPath string) {
 	initGuestManager(serversPath)
+}
+
+func GetWorkManager() *workmanager.SWorkManager {
+	return wm
+}
+
+var guestManger *SGuestManager
+var wm *workmanager.SWorkManager
+
+func init() {
+	wm = workmanager.NewWorkManger()
 }

@@ -1,4 +1,4 @@
-package hostinfo
+package hostman
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+	"time"
 
 	"yunion.io/x/log"
 )
@@ -73,4 +74,37 @@ func ChangeBlkdevParameter(dev, key, value string) {
 		}
 		log.Infof("Set %s of %s to %s", key, dev, value)
 	}
+}
+
+// timer utils
+
+func AddTimeout(second time.Duration, callback func()) {
+	go func() {
+		<-time.NewTimer(second).C
+		callback()
+	}()
+}
+
+/*
+func PathNotExists(path string) bool {
+    if _, err := os.Stat(path); os.IsNotExist(err) {
+        return true
+    }
+    return false
+}
+
+func PathExists(path string) bool {
+    if _, err := os.Stat(path); !os.IsNotExist(err) {
+        return true
+    }
+    return false
+}
+*/
+
+func FileGetContents(file string) (string, error) {
+	content, err := ioutil.ReadFile(file)
+	if err != nil {
+		return "", err
+	}
+	return string(content), nil
 }
