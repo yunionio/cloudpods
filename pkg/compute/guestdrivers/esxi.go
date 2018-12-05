@@ -33,6 +33,11 @@ func (self *SESXiGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest
 	return nil
 }
 
+func (self *SESXiGuestDriver) GetMaxSecurityGroupCount() int {
+	//暂不支持绑定安全组
+	return 0
+}
+
 func (self *SESXiGuestDriver) GetDetachDiskStatus() ([]string, error) {
 	return []string{models.VM_READY}, nil
 }

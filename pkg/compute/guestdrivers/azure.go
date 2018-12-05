@@ -52,6 +52,10 @@ func (self *SAzureGuestDriver) ChooseHostStorage(host *models.SHost, backend str
 	return nil
 }
 
+func (self *SAzureGuestDriver) GetMaxSecurityGroupCount() int {
+	return 1
+}
+
 func (self *SAzureGuestDriver) GetDetachDiskStatus() ([]string, error) {
 	return []string{models.VM_READY, models.VM_RUNNING}, nil
 }

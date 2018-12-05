@@ -17,6 +17,7 @@ type IGuestDriver interface {
 
 	GetMaxVCpuCount() int
 	GetMaxVMemSizeGB() int
+	GetMaxSecurityGroupCount() int
 
 	IsSupportedBillingCycle(bc billing.SBillingCycle) bool
 

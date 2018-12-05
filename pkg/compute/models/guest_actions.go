@@ -14,6 +14,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -633,6 +634,37 @@ func (self *SGuest) StartDeleteGuestTask(ctx context.Context, userCred mcclient.
 	return self.GetDriver().StartDeleteGuestTask(ctx, userCred, self, params, parentTaskId)
 }
 
+func (self *SGuest) AllowPerformAddSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformAddSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING, VM_SUSPEND}) {
+		return nil, httperrors.NewInputParameterError("Cannot assign security rules in status %s", self.Status)
+	}
+
+	secgrpV := validators.NewModelIdOrNameValidator("secgrp", "secgroup", userCred.GetProjectId())
+	if err := secgrpV.Validate(data.(*jsonutils.JSONDict)); err != nil {
+		return nil, err
+	}
+
+	maxCount := self.GetDriver().GetMaxSecurityGroupCount()
+	if maxCount == 0 {
+		return nil, httperrors.NewUnsupportOperationError("Cannot assign security group for this guest %s", self.Name)
+	}
+
+	secgroups := self.GetSecgroups()
+	if len(secgroups) >= maxCount {
+		return nil, httperrors.NewUnsupportOperationError("guest %s band to up to %d security groups", self.Name, maxCount)
+	}
+
+	secgroup := secgrpV.Model.(*SSecurityGroup)
+	if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, self, secgroup); err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+	return nil, self.StartSyncTask(ctx, userCred, true, "")
+}
+
 func (self *SGuest) AllowPerformAssignSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "assign-secgroup")
 }
@@ -641,51 +673,75 @@ func (self *SGuest) AllowPerformRevokeSecgroup(ctx context.Context, userCred mcc
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "revoke-secgroup")
 }
 
+func (self *SGuest) revokeSecgroup(ctx context.Context, userCred mcclient.TokenCredential, secgroup *SSecurityGroup) error {
+	if secgroup == nil {
+		return fmt.Errorf("failed to revoke null secgroup")
+	}
+	if self.SecgrpId != secgroup.Id {
+		return GuestsecgroupManager.DeleteGuestSecgroup(ctx, userCred, self, secgroup)
+	}
+	secgroups := self.GetSecgroups()
+	if len(secgroups) == 1 {
+		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+			self.SecgrpId = "default"
+			return nil
+		})
+		return err
+	}
+	for _, _secgroup := range secgroups {
+		if _secgroup.Id != secgroup.Id {
+			err := GuestsecgroupManager.DeleteGuestSecgroup(ctx, userCred, self, &_secgroup)
+			if err != nil {
+				return err
+			}
+			_, err = self.GetModelManager().TableSpec().Update(self, func() error {
+				self.SecgrpId = _secgroup.Id
+				return nil
+			})
+			return err
+		}
+	}
+	return nil
+}
+
 func (self *SGuest) PerformRevokeSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING, VM_SUSPEND}) {
 		return nil, httperrors.NewInputParameterError("Cannot revoke security rules in status %s", self.Status)
-	} else {
-		if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
-			self.SecgrpId = "default"
-			return nil
-		}); err != nil {
-			return nil, err
-		}
-		if err := self.StartSyncTask(ctx, userCred, true, ""); err != nil {
-			return nil, err
-		}
 	}
-	return nil, nil
+
+	secgrpV := validators.NewModelIdOrNameValidator("secgrp", "secgroup", userCred.GetProjectId())
+	secgrpV.Optional(true)
+	if err := secgrpV.Validate(data.(*jsonutils.JSONDict)); err != nil {
+		return nil, err
+	}
+
+	secgroup, ok := secgrpV.Model.(*SSecurityGroup)
+	if !ok {
+		secgroup = self.getSecgroup()
+	}
+	if err := self.revokeSecgroup(ctx, userCred, secgroup); err != nil {
+		return nil, err
+	}
+	return nil, self.StartSyncTask(ctx, userCred, true, "")
 }
 
 func (self *SGuest) PerformAssignSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING, VM_SUSPEND}) {
-		logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, "Cannot assign security rules in status "+self.Status, userCred, false)
 		return nil, httperrors.NewInputParameterError("Cannot assign security rules in status %s", self.Status)
-	} else {
-		if secgrp, err := data.GetString("secgrp"); err != nil {
-			logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, err, userCred, false)
-			return nil, err
-		} else if sg, err := SecurityGroupManager.FetchByIdOrName(userCred, secgrp); err != nil {
-			msg := fmt.Sprintf("SecurityGroup %s not found", secgrp)
-			logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, msg, userCred, false)
-			return nil, httperrors.NewNotFoundError("SecurityGroup %s not found", secgrp)
-		} else {
-			if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
-				self.SecgrpId = sg.GetId()
-				return nil
-			}); err != nil {
-				logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, err, userCred, false)
-				return nil, err
-			}
-			if err := self.StartSyncTask(ctx, userCred, true, ""); err != nil {
-				logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, err, userCred, false)
-				return nil, err
-			}
-		}
 	}
-	logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, nil, userCred, true)
-	return nil, nil
+	secgrpV := validators.NewModelIdOrNameValidator("secgrp", "secgroup", userCred.GetProjectId())
+	if err := secgrpV.Validate(data.(*jsonutils.JSONDict)); err != nil {
+		return nil, err
+	}
+
+	if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		self.SecgrpId = secgrpV.Model.GetId()
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return nil, self.StartSyncTask(ctx, userCred, true, "")
 }
 
 func (self *SGuest) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

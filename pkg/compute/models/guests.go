@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
@@ -281,7 +282,12 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		if secgrp == nil {
 			return nil, httperrors.NewResourceNotFoundError("secgroup %s not found", secgrpFilter)
 		}
-		q = q.Equals("secgrp_id", secgrp.GetId())
+		q = q.Filter(
+			sqlchemy.OR(
+				sqlchemy.In(q.Field("id"), GuestsecgroupManager.Query("guest_id").Equals("secgroup_id", secgrp.GetId()).SubQuery()),
+				sqlchemy.Equals(q.Field("secgrp_id"), secgrp.GetId()),
+			),
+		)
 	}
 
 	zoneFilter, _ := queryDict.GetString("zone")
@@ -1052,6 +1058,10 @@ func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 
 	extra.Add(jsonutils.NewString(self.GetSecgroupName()), "secgroup")
 
+	if secgroups := self.getSecgroupJson(); len(secgroups) > 0 {
+		extra.Add(jsonutils.NewArray(secgroups...), "secgroups")
+	}
+
 	if self.PendingDeleted {
 		pendingDeletedAt := self.PendingDeletedAt.Add(time.Second * time.Duration(options.Options.PendingDeleteExpireSeconds))
 		extra.Add(jsonutils.NewString(timeutils.FullIsoTime(pendingDeletedAt)), "auto_delete_at")
@@ -1115,6 +1125,11 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 	// extra.Add(jsonutils.NewString(self.getFlavorName()), "flavor")
 	extra.Add(jsonutils.NewString(self.getKeypairName()), "keypair")
 	extra.Add(jsonutils.NewString(self.GetSecgroupName()), "secgroup")
+
+	if secgroups := self.getSecgroupJson(); len(secgroups) > 0 {
+		extra.Add(jsonutils.NewArray(secgroups...), "secgroups")
+	}
+
 	extra.Add(jsonutils.NewString(strings.Join(self.getIPs(), ",")), "ips")
 	extra.Add(jsonutils.NewString(self.getSecurityRules()), "security_rules")
 	extra.Add(jsonutils.NewString(self.getIsolatedDeviceDetails()), "isolated_devices")
@@ -1416,6 +1431,30 @@ func (self *SGuest) IsWindows() bool {
 	}
 }
 
+func (self *SGuest) getSecgroupJson() []jsonutils.JSONObject {
+	secgroups := []jsonutils.JSONObject{}
+	for _, secGrp := range self.GetSecgroups() {
+		secgroups = append(secgroups, secGrp.getDesc())
+	}
+	return secgroups
+}
+
+func (self *SGuest) GetSecgroups() []SSecurityGroup {
+	secgrpQuery := SecurityGroupManager.Query()
+	secgrpQuery.Filter(
+		sqlchemy.OR(
+			sqlchemy.Equals(secgrpQuery.Field("id"), self.SecgrpId),
+			sqlchemy.In(secgrpQuery.Field("id"), GuestsecgroupManager.Query("secgroup_id").Equals("guest_id", self.Id).SubQuery()),
+		),
+	)
+	secgroups := []SSecurityGroup{}
+	if err := db.FetchModelObjects(SecurityGroupManager, secgrpQuery, &secgroups); err != nil {
+		log.Errorf("Get security group error: %v", err)
+		return nil
+	}
+	return secgroups
+}
+
 func (self *SGuest) getSecgroup() *SSecurityGroup {
 	return SecurityGroupManager.FetchSecgroupById(self.SecgrpId)
 }
@@ -1446,7 +1485,7 @@ func (self *SGuest) GetSecRules() []secrules.SecurityRule {
 
 func (self *SGuest) getSecRules() []secrules.SecurityRule {
 	if secgrp := self.getSecgroup(); secgrp != nil {
-		return secgrp.getSecRules("")
+		return secgrp.GetSecRules("")
 	}
 	if rule, err := secrules.ParseSecurityRule(options.Options.DefaultSecurityRules); err == nil {
 		return []secrules.SecurityRule{*rule}
@@ -1463,6 +1502,27 @@ func (self *SGuest) getSecurityRules() string {
 	} else {
 		return options.Options.DefaultSecurityRules
 	}
+}
+
+//获取多个安全组规则，优先级降序排序
+func (self *SGuest) getSecurityGroupsRules() string {
+	secgroups := self.GetSecgroups()
+	secgroupids := []string{}
+	for _, secgroup := range secgroups {
+		secgroupids = append(secgroupids, secgroup.Id)
+	}
+	q := SecurityGroupRuleManager.Query()
+	q.Filter(sqlchemy.In(q.Field("secgroup_id"), secgroupids)).Desc(q.Field("priority"))
+	secrules := []SSecurityGroupRule{}
+	if err := db.FetchModelObjects(SecurityGroupRuleManager, q, &secrules); err != nil {
+		log.Errorf("Get rules error: %v", err)
+		return options.Options.DefaultSecurityRules
+	}
+	rules := []string{}
+	for _, rule := range secrules {
+		rules = append(rules, rule.String())
+	}
+	return strings.Join(rules, SECURITY_GROUP_SEPARATOR)
 }
 
 func (self *SGuest) getAdminSecurityRules() string {
@@ -1539,12 +1599,23 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		self.BillingType = extVM.GetBillingType()
 		self.ExpiredAt = extVM.GetExpiredAt()
 
-		if metaData != nil && metaData.Contains("secgroupId") {
-			if secgroupId, err := metaData.GetString("secgroupId"); err == nil && len(secgroupId) > 0 {
-				if secgrp, err := SecurityGroupManager.FetchByExternalId(secgroupId); err == nil && secgrp != nil {
-					self.SecgrpId = secgrp.GetId()
-				} else {
-					log.Errorf("Failed find secgroup %s for guest %s error: %v", secgroupId, self.Name, err)
+		if metaData != nil && metaData.Contains("secgroupIds") {
+			secgroupIds := []string{}
+			if err := metaData.Unmarshal(&secgroupIds, "secgroupIds"); err == nil {
+				for _, secgroupId := range secgroupIds {
+					secgrp, err := SecurityGroupManager.FetchByExternalId(secgroupId)
+					if err != nil {
+						log.Errorf("Failed find secgroup %s for guest %s error: %v", secgroupId, self.Name, err)
+						continue
+					}
+					secgroup := secgrp.(*SSecurityGroup)
+					if len(self.SecgrpId) == 0 {
+						self.SecgrpId = secgroup.Id
+					} else {
+						if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, self, secgroup); err != nil {
+							log.Errorf("failed to bind secgroup %s for guest %s error: %v", secgroup.Name, self.Name, err)
+						}
+					}
 				}
 			}
 		}
@@ -1634,12 +1705,22 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		guest.ProjectId = projectId
 	}
 
-	if metaData != nil && metaData.Contains("secgroupId") {
-		if secgroupId, err := metaData.GetString("secgroupId"); err == nil && len(secgroupId) > 0 {
-			if secgrp, err := SecurityGroupManager.FetchByExternalId(secgroupId); err == nil && secgrp != nil {
-				guest.SecgrpId = secgrp.GetId()
-			} else {
-				log.Errorf("Failed find secgroup %s for guest %s error: %v", secgroupId, guest.Name, err)
+	extraSecgroups := []*SSecurityGroup{}
+	if metaData != nil && metaData.Contains("secgroupIds") {
+		secgroupIds := []string{}
+		if err := metaData.Unmarshal(&secgroupIds, "secgroupIds"); err == nil {
+			for _, secgroupId := range secgroupIds {
+				secgrp, err := SecurityGroupManager.FetchByExternalId(secgroupId)
+				if err != nil {
+					log.Errorf("Failed find secgroup %s for guest %s error: %v", secgroupId, guest.Name, err)
+					continue
+				}
+				secgroup := secgrp.(*SSecurityGroup)
+				if len(guest.SecgrpId) == 0 {
+					guest.SecgrpId = secgroup.Id
+				} else {
+					extraSecgroups = append(extraSecgroups, secgroup)
+				}
 			}
 		}
 	}
@@ -1648,6 +1729,12 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	if err != nil {
 		log.Errorf("Insert fail %s", err)
 		return nil, err
+	}
+
+	for _, secgroup := range extraSecgroups {
+		if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, &guest, secgroup); err != nil {
+			log.Errorf("failed to bind secgroup %s for guest %s error: %v", secgroup.Name, guest.Name, err)
+		}
 	}
 
 	if metaData != nil {
@@ -2653,13 +2740,17 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 		desc.Add(jsonutils.NewString(secGrp.Name), "secgroup")
 	}
 
+	if secgroups := self.getSecgroupJson(); len(secgroups) > 0 {
+		desc.Add(jsonutils.NewArray(secgroups...), "secgroups")
+	}
+
 	/*
 		TODO
 		srs := self.getSecurityRuleSet()
 		if srs.estimatedSinglePortRuleCount() <= options.FirewallFlowCountLimit {
 	*/
 
-	rules := self.getSecurityRules()
+	rules := self.getSecurityGroupsRules()
 	if len(rules) > 0 {
 		desc.Add(jsonutils.NewString(rules), "security_rules")
 	}
@@ -2773,7 +2864,7 @@ func (self *SGuest) GetJsonDescAtBaremetal(ctx context.Context, host *SHost) *js
 		desc.Add(jsonutils.NewStringArray(netRoles), "network_roles")
 	}
 
-	rules := self.getSecurityRules()
+	rules := self.getSecurityGroupsRules()
 	if len(rules) > 0 {
 		desc.Add(jsonutils.NewString(rules), "security_rules")
 	}

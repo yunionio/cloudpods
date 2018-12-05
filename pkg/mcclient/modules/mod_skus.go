@@ -37,11 +37,11 @@ func init() {
 	registerCompute(&ServerSkus)
 }
 
-func (self *SkusManager) GetSkus(s *mcclient.ClientSession, providerId, regionId, zoneId string) (*ListResult, error) {
+func (self *SkusManager) GetSkus(s *mcclient.ClientSession, providerId, regionId, zoneId string, limit, offset int) (*ListResult, error) {
 	p := strings.ToLower(providerId)
 	r := strings.ToLower(regionId)
 	z := strings.ToLower(zoneId)
-	url := fmt.Sprintf("/providers/%s/regions/%s/zones/%s/skus", p, r, z)
+	url := fmt.Sprintf("/providers/%s/regions/%s/zones/%s/skus?limit=%d&offset=%d", p, r, z, limit, offset)
 	ret, err := self._list(s, url, self.KeywordPlural)
 	if err != nil {
 		return &ListResult{}, err

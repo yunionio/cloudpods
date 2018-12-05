@@ -7,7 +7,7 @@ import (
 )
 
 type GeneralUsageOptions struct {
-	HostType []string `help:"Host types" choices:"hypervisor|baremetal|esxi|xen|kubelet|hyperv"`
+	HostType []string `help:"Host types" choices:"hypervisor|baremetal|esxi|xen|kubelet|hyperv|aliyun|azure|aws|huawei|qcloud"`
 	Project  string
 }
 

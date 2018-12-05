@@ -75,6 +75,9 @@ func (self *SQcloudGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *m
 	if !utils.IsInStringArray(guest.Status, []string{models.VM_READY, models.VM_RUNNING}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
+	if disk.DiskType == models.DISK_TYPE_SYS {
+		return fmt.Errorf("Cannot resize system disk")
+	}
 	if utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_LOCAL_BASIC, models.STORAGE_LOCAL_SSD}) {
 		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
 	}
@@ -312,21 +315,27 @@ func (self *SQcloudGuestDriver) RequestSyncConfigOnHost(ctx context.Context, gue
 			if err != nil {
 				return nil, err
 			}
-			lockman.LockRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-normal", guest.SecgrpId))
-			defer lockman.ReleaseRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-normal", guest.SecgrpId))
+			secgroups := guest.GetSecgroups()
+			externalIds := []string{}
+			for _, secgroup := range secgroups {
 
-			secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), guest.SecgrpId, "normal", host.GetRegion().Id, host.ManagerId)
-			if secgroupCache == nil {
-				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s", guest.SecgrpId)
+				lockman.LockRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-normal", guest.SecgrpId))
+				defer lockman.ReleaseRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-normal", guest.SecgrpId))
+
+				secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), secgroup.Id, "normal", host.GetRegion().Id, host.ManagerId)
+				if secgroupCache == nil {
+					return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s", secgroup.Id)
+				}
+				extID, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, "", secgroup.Name, secgroup.Description, secgroup.GetSecRules(""))
+				if err != nil {
+					return nil, err
+				}
+				if err = secgroupCache.SetExternalId(extID); err != nil {
+					return nil, err
+				}
+				externalIds = append(externalIds, extID)
 			}
-			extID, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, "normal", guest.GetSecgroupName(), "", guest.GetSecRules())
-			if err != nil {
-				return nil, err
-			}
-			if err = secgroupCache.SetExternalId(extID); err != nil {
-				return nil, err
-			}
-			return nil, iVM.AssignSecurityGroup(extID)
+			return nil, iVM.AssignSecurityGroups(externalIds)
 		}
 
 		iDisks, err := iVM.GetIDisks()

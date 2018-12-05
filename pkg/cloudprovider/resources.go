@@ -187,6 +187,7 @@ type ICloudVM interface {
 	GetInstanceType() string
 
 	AssignSecurityGroup(secgroupId string) error
+	AssignSecurityGroups(secgroupIds []string) error
 
 	GetHypervisor() string
 

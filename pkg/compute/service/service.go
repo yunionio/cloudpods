@@ -61,8 +61,8 @@ func StartService() {
 			cron.AddJob1("CleanPendingDeleteLoadbalancers", time.Duration(options.Options.LoadbalancerPendingDeleteCheckInterval)*time.Second, models.LoadbalancerAgentManager.CleanPendingDeleteLoadbalancers)
 			cron.AddJob1("CleanPendingDeleteServers", time.Duration(options.Options.PrepaidExpireCheckSeconds)*time.Second, models.GuestManager.DeleteExpiredPrepaidServers)
 
-			cron.AddJob2("AutoDiskSnapshot", options.Options.AutoSnapshotDay, options.Options.AutoSnapshotHour, 0, 0, models.DiskManager.AutoDiskSnapshot)
-			cron.AddJob2("SyncSkus", options.Options.SyncSkusDay, options.Options.SyncSkusHour, 0, 0, skus.SyncSkus)
+			cron.AddJob2("AutoDiskSnapshot", options.Options.AutoSnapshotDay, options.Options.AutoSnapshotHour, 0, 0, models.DiskManager.AutoDiskSnapshot, false)
+			cron.AddJob2("SyncSkus", options.Options.SyncSkusDay, options.Options.SyncSkusHour, 0, 0, skus.SyncSkus, true)
 
 			cron.Start()
 			defer cron.Stop()

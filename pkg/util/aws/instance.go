@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"context"
+
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -172,13 +173,11 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 			data.Update(meta)
 		}
 	}
+	secgroupIds := jsonutils.NewArray()
 	for _, secgroupId := range self.SecurityGroupIds.SecurityGroupId {
-		if len(secgroupId) > 0 {
-			data.Add(jsonutils.NewString(secgroupId), "secgroupId")
-			break
-		}
+		secgroupIds.Add(jsonutils.NewString(secgroupId))
 	}
-
+	data.Add(secgroupIds, "secgroupIds")
 	return data
 }
 
@@ -281,7 +280,15 @@ func (self *SInstance) GetMachine() string {
 }
 
 func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return self.host.zone.region.assignSecurityGroup(secgroupId, self.InstanceId)
+	return self.AssignSecurityGroups([]string{secgroupId})
+}
+
+func (self *SInstance) AssignSecurityGroups(secgroupIds []string) error {
+	ids := []*string{}
+	for i := 0; i < len(secgroupIds); i++ {
+		ids = append(ids, &secgroupIds[i])
+	}
+	return self.host.zone.region.assignSecurityGroups(ids, self.InstanceId)
 }
 
 func (self *SInstance) GetHypervisor() string {
