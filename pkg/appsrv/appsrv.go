@@ -36,6 +36,9 @@ type Application struct {
 	defHandlerInfo    SHandlerInfo
 	cors              *Cors
 	middlewares       []MiddlewareFunc
+
+	// record Http server for handle shotdown
+	server *http.Server
 }
 
 const (
@@ -326,11 +329,18 @@ func (app *Application) initServer(addr string) *http.Server {
 }
 
 func (app *Application) ListenAndServe(addr string) {
-	s := app.initServer(addr)
-	err := s.ListenAndServe()
+	app.server = app.initServer(addr)
+	err := app.server.ListenAndServe()
 	if err != nil {
 		log.Fatalf("ListAndServer fail: %s", err)
 	}
+}
+
+func (app *Application) ShowDown(ctx context.Context) error {
+	if app.server != nil {
+		return app.server.Shutdown(ctx)
+	}
+	return fmt.Errorf("Not init http server ??")
 }
 
 func (app *Application) ListenAndServeTLS(addr string, certFile, keyFile string) {

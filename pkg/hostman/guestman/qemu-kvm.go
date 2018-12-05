@@ -16,7 +16,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/regutils"
 
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/httpclients"
+	"yunion.io/x/onecloud/pkg/hostman"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 )
@@ -24,6 +26,7 @@ import (
 const (
 	STATE_FILE_PREFIX = "STATEFILE"
 	MONITOR_PORT_BASE = 55900
+	MAX_TRY           = 3
 )
 
 type SKVMGuestInstance struct {
@@ -161,9 +164,40 @@ func (s *SKVMGuestInstance) DirtyServerRequestStart() {
 	}
 }
 
-func (s *SKVMGuestInstance) AsyncScriptStart() {
+// Must called in new goroutine
+func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params *jsonutils.JSONDict) {
 	// TODO
-	// s.manager.RequestStartGuest()
+	// hostinof.instace().clean_deleted_ports
+	time.Sleep(100 * time.Millisecond)
+	var isStarted, tried, err = false, 0, nil
+	for !isStarted && tried < MAX_TRY {
+		tried += 1
+		vncPort := s.manager.GetFreeVncPort()
+		s.saveVncPort(vncPort)
+		params.Set("vnc_port", jsonutils.NewInt(vncPort))
+		s.saveScripts(params)
+		isStarted, err = s.scriptStart()
+		if !isStarted {
+			log.Errorf("Start VM failed: %s", err)
+			time.Sleep((1 << (tried - 1)) * time.Seconde)
+		} else {
+			log.Infof("VM started ...")
+		}
+	}
+	s.onAsyncScriptStart(ctx, isStarted, err)
+}
+
+func (s *SKVMGuestInstance) onAsyncScriptStart(ctx context.Context, isStarted bool, err error) {
+	if isStarted {
+		log.Infof("Async start server %s success!", s.GetName())
+		s.StartMonitor(ctx)
+	} else {
+		log.Infof("Async start server %s failed: %s!!!", s.GetName(), err)
+		if ctx != nil {
+			s.TaskFailed(ctx, fmt.Sprintf("Async start server failed: %s", err))
+		}
+		s.SyncStatus()
+	}
 }
 
 func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
@@ -173,14 +207,14 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 			jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
 			s.DirtyServerRequestStart()
 		} else {
-			s.AsyncScriptStart()
+			s.StartGuest(nil, nil)
 		}
 		return
 	}
 	if s.IsRunning() {
 		log.Infof("%s is running, pending_delete=%s", s.GetName(), pendingDelete)
 		if !pendingDelete {
-			s.StartMonitor(nil)
+			go s.StartMonitor(nil)
 		}
 	} else {
 		var action = "stopped"
@@ -194,6 +228,10 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 
 func (s *SKVMGuestInstance) IsRunning() bool {
 	return s.GetPid() > 0
+}
+
+func (s *SKVMGuestInstance) IsStopped() bool {
+	return !s.IsRunning()
 }
 
 func (s *SKVMGuestInstance) IsSuspend() bool {
@@ -217,9 +255,11 @@ func (s *SKVMGuestInstance) ListStateFilePaths() []string {
 	return nil
 }
 
+// Must called in new goroutine
 func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
-	// delay 100ms start monitor
-	AddTimeout(100*time.Millisecond, func() { s.delayStartMonitor(ctx) })
+	// delay 100ms start monitor // hostman.AddTimeout(100*time.Millisecond, func() { s.delayStartMonitor(ctx) })
+	time.Sleep(100 * time.Millisecond)
+	s.delayStartMonitor(ctx)
 }
 
 func (s *SKVMGuestInstance) delayStartMonitor(ctx context.Context) {
@@ -240,7 +280,19 @@ func (s *SKVMGuestInstance) onMonitorConnected(ctx context.Context) {
 func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string) {
 	s.QemuVersion = version
 	log.Infof("Guest(%s) qemu version %s", s.Id, s.QemuVersion)
-	// TODO
+	if s.Desc.Contains("live_migrate_dest_port") && ctx != nil {
+		migratePort, _ := s.Desc.Get("live_migrate_dest_port")
+		body := jsonutils.NewDict(
+			jsonutils.JSONPair{"live_migrate_dest_port", migratePort})
+		s.TaskComplete(ctx, body)
+	} else if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
+		// TODO
+	} else if jsonutils.QueryBoolean(s.Desc, "is_master", false) && ctx == nil {
+		// TODO
+	} else {
+		// TODO
+		s.DoResumeTask(ctx)
+	}
 }
 
 func (s *SKVMGuestInstance) onMonitorDisConnect(err error) {
@@ -287,4 +339,43 @@ func (s *SKVMGuestInstance) SyncStatus() {
 		status = "suspend"
 	}
 	httpclients.GetDefaultComputeClient().UpdateServerStatus(s.GetId(), status)
+}
+
+func (s *SKVMGuestInstance) TaskFailed(ctx context.Context, reason string) error {
+	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
+		httpclients.GetDefaultComputeClient().TaskFail(ctx, taskId.(string), reason)
+		return nil
+	} else {
+		log.Errorln("Reqeuest task failed missing task id, with reason(%s)", reason)
+		return fmt.Errorf("Reqeuest task failed missing task id")
+	}
+}
+
+func (s *SKVMGuestInstance) TaskComplete(ctx context.Context, data jsonutils.JSONObject) error {
+	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
+		httpclients.GetDefaultComputeClient().TaskComplete(ctx, taskId.(string), data, 0)
+		return nil
+	} else {
+		log.Errorln("Reqeuest task complete missing task id")
+		return fmt.Errorf("Reqeuest task complete missing task id")
+	}
+}
+
+func (s *SKVMGuestInstance) SaveDesc(desc jsonutils.JSONObject) error {
+	// TODO
+	// bw_info = self._get_bw_info()
+	// netmon_info = self._get_netmon_info()
+	s.Desc = desc.(*jsonutils.JSONDict)
+	if err := hostman.FilePutContents(s.GetDescFilePath(), desc.String()); err != nil {
+		log.Errorln(err)
+	}
+	// TODO
+	// self._update_bw_limit(bw_info)
+	// self._update_netmon_nic(netmon_info)
+}
+
+func (s *SKVMGuestInstance) StartGuest(ctx context.Context, params jsonutils.JSONObject) {
+	wm.RunTask(func() {
+		s.asyncScriptStart(ctx, params)
+	})
 }
