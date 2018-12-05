@@ -1785,6 +1785,8 @@
     "github.com/vmware/govmomi/vim25/types",
     "go.etcd.io/etcd/clientv3",
     "golang.org/x/crypto/ssh",
+    "golang.org/x/net/bpf",
+    "golang.org/x/net/ipv4",
     "gopkg.in/gin-gonic/gin.v1",
     "k8s.io/api/core/v1",
     "k8s.io/apimachinery/pkg/api/errors",

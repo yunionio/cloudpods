@@ -12,5 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package dhcp4 provides building blocks for DHCP clients and servers.
-package dhcp4 // import "go.universe.tf/netboot/dhcp4"
+//+build !linux
+
+package dhcp
+
+import "errors"
+
+// NewSnooperConn creates a Conn that listens on the given UDP ip:port.
+//
+// Unlike NewConn, NewSnooperConn does not bind to the ip:port,
+// enabling the Conn to coexist with other services on the machine.
+func NewSnooperConn(addr string) (*Conn, error) {
+	return nil, errors.New("snooper Conns not supported on this OS")
+}

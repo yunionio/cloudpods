@@ -6,50 +6,16 @@ import (
 	"net"
 	"strings"
 
-	dhcp "go.universe.tf/netboot/dhcp4"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/baremetal/types"
+	"yunion.io/x/onecloud/pkg/cloudcommon/dhcp"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
-const (
-	PXECLIENT = "PXEClient"
-
-	OptClientArchitecture               dhcp.Option = 93
-	OptClientNetworkInterfaceIdentifier dhcp.Option = 94
-	OptClientMachineIdentifier          dhcp.Option = 97
-)
-
-func (s *Server) serveDHCP(conn *dhcp.Conn) error {
-	for {
-		pkt, intf, err := conn.RecvDHCP()
-		if err != nil {
-			return fmt.Errorf("Receiving DHCP packet: %s", err)
-		}
-		if intf == nil {
-			return fmt.Errorf("Received DHCP packet with no interface information (this is a violation of dhcp4.Conn's contract)")
-		}
-		go func() {
-			h := &DHCPHandler{baremetalManager: s.BaremetalManager}
-			resp, err := h.ServeDHCP(pkt)
-			if err != nil {
-				log.Warningf("[DHCP] handler serve error: %v", err)
-				return
-			}
-			if resp == nil {
-				log.Warningf("[DHCP] hander response null packet")
-				return
-			}
-			log.Debugf("[DHCP] send response packet: %s to interface: %#v", resp.DebugString(), intf)
-			if err = conn.SendDHCP(resp, intf); err != nil {
-				log.Errorf("[DHCP] failed to response packet for %s: %v", pkt.HardwareAddr, err)
-				return
-			}
-		}()
-	}
+func (s *Server) serveDHCP(srv *dhcp.DHCPServer, handler dhcp.DHCPHandler) error {
+	return srv.ListenAndServe(handler)
 }
 
 type NetworkInterfaceIdent struct {
@@ -85,27 +51,14 @@ func (h *DHCPHandler) ServeDHCP(pkt *dhcp.Packet) (*dhcp.Packet, error) {
 	}
 	log.Infof("======Parse packet end: %#v", h)
 
-	//if h.RelayAddr.String() == "0.0.0.0" {
-	//return nil, fmt.Errorf("Request not from a DHCP relay, ignore mac: %s", h.ClientMac)
-	//}
+	if h.RelayAddr.String() == "0.0.0.0" {
+		return nil, fmt.Errorf("Request not from a DHCP relay, ignore mac: %s", h.ClientMac)
+	}
 	conf, err := h.fetchConfig()
 	if err != nil {
 		return nil, err
 	}
-	return h.handleRequest(pkt, conf)
-}
-
-func (h *DHCPHandler) handleRequest(pkt *dhcp.Packet, conf *ResponseConfig) (*dhcp.Packet, error) {
-	msgType := dhcp.MsgOffer
-	if pkt.Type == dhcp.MsgRequest {
-		reqAddr, _ := pkt.Options.IP(dhcp.OptRequestedIP)
-		if reqAddr != nil && !conf.ClientIP.Equal(reqAddr) {
-			msgType = dhcp.MsgNack
-		} else {
-			msgType = dhcp.MsgAck
-		}
-	}
-	return makeDHCPReplyPacket(pkt, conf, msgType), nil
+	return dhcp.MakeReplyPacket(pkt, conf)
 }
 
 func (h *DHCPHandler) parsePacket(pkt *dhcp.Packet) error {
@@ -127,9 +80,9 @@ func (h *DHCPHandler) parsePacket(pkt *dhcp.Packet) error {
 		switch optCode {
 		case dhcp.OptVendorIdentifier:
 			vendorClsId, err = h.Options.String(optCode)
-		case OptClientArchitecture:
+		case dhcp.OptClientArchitecture:
 			cliArch, err = h.Options.Uint16(optCode)
-		case OptClientNetworkInterfaceIdentifier:
+		case dhcp.OptClientNetworkInterfaceIdentifier:
 			netIfIdentBs, err := h.Options.Bytes(optCode)
 			if err != nil {
 				break
@@ -140,7 +93,7 @@ func (h *DHCPHandler) parsePacket(pkt *dhcp.Packet) error {
 				Minior: uint16(netIfIdentBs[2]),
 			}
 			log.Debugf("[DHCP] get network iface identifier: %#v", netIfIdent)
-		case OptClientMachineIdentifier:
+		case dhcp.OptClientMachineIdentifier:
 			switch len(data) {
 			case 0:
 				// A missing GUID is invalid according to the spec, however
@@ -166,7 +119,7 @@ func (h *DHCPHandler) parsePacket(pkt *dhcp.Packet) error {
 	return err
 }
 
-func (h *DHCPHandler) fetchConfig() (*ResponseConfig, error) {
+func (h *DHCPHandler) fetchConfig() (*dhcp.ResponseConfig, error) {
 	// 1. find_network_conf
 	netConf, err := h.findNetworkConf(false)
 	if err != nil {
@@ -178,7 +131,7 @@ func (h *DHCPHandler) fetchConfig() (*ResponseConfig, error) {
 	//
 	if h.isPXERequest() {
 		// handle PXE DHCP request
-		log.Infof("DHCP relay from %s(%s) for %s, find matched networks: %s", h.RelayAddr, h.ClientAddr, h.ClientMac, netConf)
+		log.Infof("DHCP relay from %s(%s) for %s, find matched networks: %#v", h.RelayAddr, h.ClientAddr, h.ClientMac, netConf)
 		bmDesc, err := h.createOrUpdateBaremetal()
 		if err != nil {
 			return nil, err
@@ -216,83 +169,6 @@ func (h *DHCPHandler) fetchConfig() (*ResponseConfig, error) {
 		}
 		return h.baremetalInstance.GetDHCPConfig(h.ClientMac)
 	}
-}
-
-type ResponseConfig struct {
-	OsName        string
-	ServerIP      net.IP // OptServerIdentifier 54
-	ClientIP      net.IP
-	Gateway       net.IP      // OptRouters 3
-	Domain        string      // OptDomainName 15
-	LeaseTime     uint32      // OptLeaseTime 51
-	RenewalTime   uint32      // OptRenewalTime 58
-	BroadcastAddr net.IP      // OptBroadcastAddr 28
-	Hostname      string      // OptHostname 12
-	SubnetMask    net.IP      // OptSubnetMask 1
-	DNSServer     net.IP      // OptDNSServers
-	Routes        interface{} // TODO: 249 for windows, 121 for linux
-
-	// TFTP config
-	BootServer string
-	BootFile   string
-}
-
-func getPacketVendorClassId(pkt *dhcp.Packet) string {
-	vendorClsId, _ := pkt.Options.String(dhcp.OptVendorIdentifier)
-	return vendorClsId
-}
-
-func makeDHCPReplyPacket(pkt *dhcp.Packet, conf *ResponseConfig, msgType dhcp.MessageType) *dhcp.Packet {
-	if conf.OsName == "" {
-		if vendorClsId := getPacketVendorClassId(pkt); vendorClsId != "" && strings.HasPrefix(vendorClsId, "MSFT ") {
-			conf.OsName = "win"
-		}
-	}
-	resp := &dhcp.Packet{
-		Type:          msgType,
-		TransactionID: pkt.TransactionID,
-		HardwareAddr:  pkt.HardwareAddr,
-		RelayAddr:     pkt.RelayAddr,
-		ServerAddr:    conf.ServerIP,
-		Options:       make(dhcp.Options),
-	}
-	if msgType == dhcp.MsgNack {
-		return resp
-	}
-	resp.YourAddr = conf.ClientIP
-	resp.Options[dhcp.OptServerIdentifier] = conf.ServerIP
-	if conf.SubnetMask != nil {
-		resp.Options[dhcp.OptSubnetMask] = conf.SubnetMask
-	}
-	if conf.Gateway != nil {
-		resp.Options[dhcp.OptRouters] = conf.Gateway
-	}
-	if conf.Domain != "" {
-		resp.Options[dhcp.OptDomainName] = []byte(conf.Domain)
-	}
-	if conf.BroadcastAddr != nil {
-		resp.Options[dhcp.OptBroadcastAddr] = conf.BroadcastAddr
-	}
-	if conf.Hostname != "" {
-		resp.Options[dhcp.OptHostname] = []byte(conf.Hostname)
-	}
-	if conf.DNSServer != nil {
-		resp.Options[dhcp.OptDNSServers] = conf.DNSServer
-	}
-	if conf.BootServer != "" {
-		resp.BootServerName = conf.BootServer
-	}
-	if conf.BootFile != "" {
-		resp.BootFilename = conf.BootFile
-		// says the server should identify itself as a PXEClient vendor
-		// type, even though it's a server. Strange.
-		resp.Options[dhcp.OptVendorIdentifier] = []byte(PXECLIENT)
-	}
-	if pkt.Options[OptClientMachineIdentifier] != nil {
-		resp.Options[OptClientMachineIdentifier] = pkt.Options[OptClientMachineIdentifier]
-	}
-	// TODO: routes support
-	return resp
 }
 
 func (h *DHCPHandler) findNetworkConf(filterUseIp bool) (*types.NetworkConfig, error) {
@@ -396,15 +272,7 @@ func (h *DHCPHandler) doInitBaremetalAdminNetif(desc jsonutils.JSONObject) error
 
 func (h *DHCPHandler) isPXERequest() bool {
 	pkt := h.packet
-	if pkt.Type != dhcp.MsgDiscover {
-		log.Warningf("packet is %s, not %s", pkt.Type, dhcp.MsgDiscover)
-		return false
-	}
-
-	if pkt.Options[93] == nil {
-		log.Warningf("not a PXE boot request (missing option 93)")
-	}
-	return true
+	return dhcp.IsPXERequest(pkt)
 }
 
 func (s *Server) validateDHCP(pkt *dhcp.Packet) (Machine, Firmware, error) {

@@ -14,7 +14,7 @@
 
 //+build linux
 
-package dhcp4
+package dhcp
 
 import (
 	"encoding/binary"

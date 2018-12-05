@@ -19,14 +19,18 @@ var (
 )
 
 type TFTPHandler struct {
-	RootDir string
+	RootDir          string
+	BaremetalManager IBaremetalManager
 }
 
-func NewTFTPHandler(rootDir string) (*TFTPHandler, error) {
+func NewTFTPHandler(rootDir string, baremetalManager IBaremetalManager) (*TFTPHandler, error) {
 	if _, err := os.Stat(rootDir); err != nil {
 		return nil, fmt.Errorf("TFTP root dir %q  stat error: %v", rootDir, err)
 	}
-	return &TFTPHandler{rootDir}, nil
+	return &TFTPHandler{
+		RootDir:          rootDir,
+		BaremetalManager: baremetalManager,
+	}, nil
 }
 
 // ReadHandler is called when client starts file download from server
@@ -56,21 +60,15 @@ func (h *TFTPHandler) ReadHandler(filename string, rf io.ReaderFrom) error {
 	return h.sendFile(filename, rf)
 }
 
-func getTFTPResponse() string {
-	return fmt.Sprintf(
-		`default start
-serial 1 115200
-label start
-    menu label ^Start
-    menu default
-    kernel kernel
-    append initrd=initramfs token=%s url=%s`,
-		"token_str", "http://10.168.10.1")
-}
-
 func (h *TFTPHandler) sendPxeLinuxCfgResponse(mac net.HardwareAddr, rf io.ReaderFrom) error {
 	log.Debugf("[TFTP] client mac: %s", mac)
-	respStr := getTFTPResponse()
+	bmInstance := h.BaremetalManager.GetBaremetalByMac(mac)
+	if bmInstance == nil {
+		err := fmt.Errorf("Not found baremetal instance by mac: %s", mac)
+		log.Errorf("Get baremetal error: %v", err)
+		return err
+	}
+	respStr := bmInstance.GetTFTPResponse()
 	log.Debugf("[TFTP] get tftp response config: %s", respStr)
 	size := len(respStr)
 	buffer := bytes.NewBufferString(respStr)
