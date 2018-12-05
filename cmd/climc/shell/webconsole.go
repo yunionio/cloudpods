@@ -76,7 +76,7 @@ func init() {
 	})
 
 	R(&o.WebConsoleServerOptions{}, "webconsole-server", "Connect server remote graphic console", func(s *mcclient.ClientSession, args *o.WebConsoleServerOptions) error {
-		ret, err := modules.WebConsole.DoServerConnect(s, args.ID)
+		ret, err := modules.WebConsole.DoServerConnect(s, args.ID, nil)
 		if err != nil {
 			return err
 		}
