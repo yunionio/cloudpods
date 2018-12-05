@@ -66,6 +66,7 @@ func (self *DiskSaveTask) StartBackupDisk(ctx context.Context, disk *models.SDis
 func (self *DiskSaveTask) OnDiskBackupCompleteFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	disk.SetDiskReady(ctx, self.GetUserCred(), data.String())
 	db.OpsLog.LogEvent(disk, db.ACT_SAVE_FAIL, data.String(), self.GetUserCred())
+	self.SetStageFailed(ctx, data.String())
 }
 
 func (self *DiskSaveTask) OnDiskBackupComplete(ctx context.Context, disk *models.SDisk, data *jsonutils.JSONDict) {

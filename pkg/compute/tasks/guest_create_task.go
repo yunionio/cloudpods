@@ -107,6 +107,7 @@ func (self *GuestCreateTask) OnDeployGuestDescCompleteFailed(ctx context.Context
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	logclient.AddActionLog(guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_DEPLOY_FAILED, data.String())
+	self.SetStageFailed(ctx, data.String())
 }
 
 func (self *GuestCreateTask) OnAutoStartGuest(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

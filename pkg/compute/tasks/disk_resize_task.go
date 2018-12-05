@@ -103,7 +103,8 @@ func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *mode
 	self.finalReleasePendingUsage(ctx)
 }
 
-func (self *DiskResizeTask) OnDiskResizeCompleteFailed(ctx context.Context, disk *models.SDisk, resion error) {
-	disk.SetDiskReady(ctx, self.GetUserCred(), resion.Error())
+func (self *DiskResizeTask) OnDiskResizeCompleteFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
+	disk.SetDiskReady(ctx, self.GetUserCred(), data.String())
 	db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, disk.GetShortDesc(), self.UserCred)
+	self.SetStageFailed(ctx, data.String())
 }

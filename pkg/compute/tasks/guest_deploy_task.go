@@ -107,11 +107,13 @@ func (self *GuestDeployTask) OnDeployStartGuestComplete(ctx context.Context, obj
 }
 
 func (self *GuestDeployTask) OnDeployStartGuestCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, models.VM_START_FAILED, data.String())
 	self.SetStageFailed(ctx, data.String())
 }
 
 func (self *GuestDeployTask) OnDeployGuestSyncstatusComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *GuestDeployTask) OnDeployGuestSyncstatusCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, data.String())
 }
