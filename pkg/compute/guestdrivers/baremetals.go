@@ -34,6 +34,11 @@ func (self *SBaremetalGuestDriver) GetHypervisor() string {
 	return models.HYPERVISOR_BAREMETAL
 }
 
+func (self *SBaremetalGuestDriver) GetMaxSecurityGroupCount() int {
+	//暂不支持绑定安全组
+	return 0
+}
+
 func (self *SBaremetalGuestDriver) GetMaxVCpuCount() int {
 	return 1024
 }

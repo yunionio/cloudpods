@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"context"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -211,17 +212,18 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
 	priceKey := fmt.Sprintf("%s::%s", self.Properties.HardwareProfile.VMSize, self.host.zone.region.Name)
 	data.Add(jsonutils.NewString(priceKey), "price_key")
+	secgroupIds := jsonutils.NewArray()
 	if nics, err := self.getNics(); err == nil {
 		for _, nic := range nics {
 			if nic.Properties.NetworkSecurityGroup != nil {
 				if len(nic.Properties.NetworkSecurityGroup.ID) > 0 {
-					data.Add(jsonutils.NewString(nic.Properties.NetworkSecurityGroup.ID), "secgroupId")
+					secgroupIds.Add(jsonutils.NewString(nic.Properties.NetworkSecurityGroup.ID))
 					break
 				}
 			}
 		}
 	}
-
+	data.Add(secgroupIds, "secgroupIds")
 	return data
 }
 
@@ -1015,6 +1017,10 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 
 func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
 	return self.host.zone.region.AssiginSecurityGroup(self.ID, secgroupId)
+}
+
+func (self *SInstance) AssignSecurityGroups(secgroupIds []string) error {
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SInstance) GetBillingType() string {
