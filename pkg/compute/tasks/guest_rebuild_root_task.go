@@ -111,6 +111,7 @@ func (self *GuestRebuildRootTask) OnRebuildRootDiskCompleteFailed(ctx context.Co
 	db.OpsLog.LogEvent(guest, db.ACT_REBUILD_ROOT_FAIL, data, self.UserCred)
 	guest.SetStatus(self.UserCred, models.VM_REBUILD_ROOT_FAIL, "")
 	logclient.AddActionLog(guest, logclient.ACT_VM_REBUILD, data, self.UserCred, false)
+	self.SetStageFailed(ctx, data.String())
 }
 
 func (self *GuestRebuildRootTask) OnSyncStatusComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -165,7 +166,6 @@ func (self *KVMGuestRebuildRootTask) OnGuestDeployComplete(ctx context.Context, 
 	self.SetStageComplete(ctx, nil)
 	logclient.AddActionLog(guest, logclient.ACT_VM_REBUILD, nil, self.UserCred, true)
 }
-
 
 type ManagedGuestRebuildRootTask struct {
 	SGuestBaseTask
