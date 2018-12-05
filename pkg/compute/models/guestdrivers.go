@@ -15,6 +15,7 @@ type IGuestDriver interface {
 
 	GetMaxVCpuCount() int
 	GetMaxVMemSizeGB() int
+	GetMaxSecurityGroupCount() int
 
 	GetJsonDescAtHost(ctx context.Context, guest *SGuest, host *SHost) jsonutils.JSONObject
 

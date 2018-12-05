@@ -501,16 +501,23 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Secur
 }
 
 func (self *SRegion) AssignSecurityGroup(secgroupId, instanceId string) error {
-	params := map[string]string{"InstanceId": instanceId, "SecurityGroupId": secgroupId}
-	if _, err := self.ecsRequest("JoinSecurityGroup", params); err != nil {
-		return err
+	return self.AssignSecurityGroups([]string{secgroupId}, instanceId)
+}
+
+func (self *SRegion) AssignSecurityGroups(secgroupIds []string, instanceId string) error {
+	params := map[string]string{"InstanceId": instanceId}
+	for _, secgroupId := range secgroupIds {
+		params["SecurityGroupId"] = secgroupId
+		if _, err := self.ecsRequest("JoinSecurityGroup", params); err != nil {
+			return err
+		}
 	}
 	instance, err := self.GetInstance(instanceId)
 	if err != nil {
 		return err
 	}
 	for _, _secgroupId := range instance.SecurityGroupIds.SecurityGroupId {
-		if _secgroupId != secgroupId {
+		if !utils.IsInStringArray(_secgroupId, secgroupIds) {
 			if err := self.leaveSecurityGroup(_secgroupId, instanceId); err != nil {
 				return err
 			}

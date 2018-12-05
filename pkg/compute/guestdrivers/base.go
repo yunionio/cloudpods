@@ -188,6 +188,10 @@ func (self *SBaseGuestDriver) RequestSyncToBackup(ctx context.Context, guest *mo
 	return fmt.Errorf("Not Implement")
 }
 
+func (self *SBaseGuestDriver) GetMaxSecurityGroupCount() int {
+	return 5
+}
+
 func (self *SBaseGuestDriver) getTaskRequestHeader(task taskman.ITask) http.Header {
 	return task.GetTaskRequestHeader()
 }

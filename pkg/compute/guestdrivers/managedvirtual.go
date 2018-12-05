@@ -449,22 +449,26 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.
 			if err != nil {
 				return nil, err
 			}
+			secgroups := guest.GetSecgroups()
+			externalIds := []string{}
+			for _, secgroup := range secgroups {
+				lockman.LockRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s", guest.SecgrpId, vpcId))
+				defer lockman.ReleaseRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s", guest.SecgrpId, vpcId))
 
-			lockman.LockRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s", guest.SecgrpId, vpcId))
-			defer lockman.ReleaseRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s", guest.SecgrpId, vpcId))
-
-			secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), guest.SecgrpId, vpcId, host.GetRegion().Id, host.ManagerId)
-			if secgroupCache == nil {
-				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s vpc: %s", guest.SecgrpId, vpcId)
+				secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), secgroup.Id, vpcId, host.GetRegion().Id, host.ManagerId)
+				if secgroupCache == nil {
+					return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s vpc: %s", secgroup.Id, vpcId)
+				}
+				extID, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpcId, secgroup.Name, secgroup.Description, secgroup.GetSecRules(""))
+				if err != nil {
+					return nil, err
+				}
+				if err = secgroupCache.SetExternalId(extID); err != nil {
+					return nil, err
+				}
+				externalIds = append(externalIds, extID)
 			}
-			extID, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpcId, guest.GetSecgroupName(), "", guest.GetSecRules())
-			if err != nil {
-				return nil, err
-			}
-			if err = secgroupCache.SetExternalId(extID); err != nil {
-				return nil, err
-			}
-			return nil, iVM.AssignSecurityGroup(extID)
+			return nil, iVM.AssignSecurityGroups(externalIds)
 		}
 
 		iDisks, err := iVM.GetIDisks()

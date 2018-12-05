@@ -145,7 +145,6 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
 	secgroupIds := jsonutils.NewArray()
 	for _, secgroupId := range self.SecurityGroupIds {
-		data.Add(jsonutils.NewString(secgroupId), "secgroupId")
 		secgroupIds.Add(jsonutils.NewString(secgroupId))
 	}
 	data.Add(secgroupIds, "secgroupIds")
@@ -707,6 +706,14 @@ func (self *SRegion) AttachDisk(instanceId string, diskId string) error {
 
 func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
 	params := map[string]string{"SecurityGroups.0": secgroupId}
+	return self.host.zone.region.instanceOperation(self.InstanceId, "ModifyInstancesAttribute", params)
+}
+
+func (self *SInstance) AssignSecurityGroups(secgroupIds []string) error {
+	params := map[string]string{}
+	for i := 0; i < len(secgroupIds); i++ {
+		params[fmt.Sprintf("SecurityGroups.%d", i)] = secgroupIds[i]
+	}
 	return self.host.zone.region.instanceOperation(self.InstanceId, "ModifyInstancesAttribute", params)
 }
 

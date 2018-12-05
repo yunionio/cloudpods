@@ -513,6 +513,10 @@ func (dc *SVirtualMachine) ChangeConfig2(ctx context.Context, instanceType strin
 	return cloudprovider.ErrNotImplemented
 }
 
+func (self *SVirtualMachine) AssignSecurityGroups(secgroupIds []string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
 func (self *SVirtualMachine) GetBillingType() string {
 	return models.BILLING_TYPE_POSTPAID
 }
