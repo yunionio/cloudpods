@@ -102,6 +102,20 @@ func (self *SVirtualMachine) RebuildRoot(ctx context.Context, imageId string, pa
 	return "", cloudprovider.ErrNotImplemented
 }
 
+func (self *SVirtualMachine) rebuildDisk(ctx context.Context, disk *SVirtualDisk) error {
+	uuid := disk.GetId()
+	sizeMb := disk.GetDiskSizeMB()
+	index := disk.index
+	diskKey := disk.getKey()
+	ctlKey := disk.getControllerKey()
+
+	err := self.doDetachAndDeleteDisk(ctx, disk)
+	if err != nil {
+		return err
+	}
+	return self.createDiskInternal(ctx, sizeMb, uuid, int32(index), diskKey, ctlKey)
+}
+
 func (self *SVirtualMachine) UpdateVM(ctx context.Context, name string) error {
 	return cloudprovider.ErrNotImplemented
 }
@@ -668,7 +682,12 @@ func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid st
 	if driver == "ide" {
 		ctlKey += int32(index / 2)
 	}
-	devSpec := NewDiskDev(int64(sizeMb), "", uuid, int32(index), diskKey, ctlKey)
+
+	return self.createDiskInternal(ctx, sizeMb, uuid, int32(index), diskKey, ctlKey)
+}
+
+func (self *SVirtualMachine) createDiskInternal(ctx context.Context, sizeMb int, uuid string, index int32, diskKey int32, ctlKey int32) error {
+	devSpec := NewDiskDev(int64(sizeMb), "", uuid, index, diskKey, ctlKey)
 	spec := addDevSpec(devSpec)
 	spec.FileOperation = types.VirtualDeviceConfigSpecFileOperationCreate
 	configSpec := types.VirtualMachineConfigSpec{}

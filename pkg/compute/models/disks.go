@@ -114,14 +114,31 @@ func (manager *SDiskManager) GetContextManager() []db.IModelManager {
 }
 
 func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	queryDict, ok := query.(*jsonutils.JSONDict)
+	if !ok {
+		return nil, fmt.Errorf("invalid querystring format")
+	}
+
+	billingTypeStr, _ := queryDict.GetString("billing_type")
+	if len(billingTypeStr) > 0 {
+		if billingTypeStr == BILLING_TYPE_POSTPAID {
+			q = q.Filter(
+				sqlchemy.OR(
+					sqlchemy.IsNullOrEmpty(q.Field("billing_type")),
+					sqlchemy.Equals(q.Field("billing_type"), billingTypeStr),
+				),
+			)
+		} else {
+			q = q.Equals("billing_type", billingTypeStr)
+		}
+		queryDict.Remove("billing_type")
+	}
+
 	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
-	queryDict, ok := query.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, fmt.Errorf("Invalid querystring formst: %v", query)
-	}
+
 	if query.Contains("unused") {
 		guestdisks := GuestdiskManager.Query().SubQuery()
 		sq := guestdisks.Query(guestdisks.Field("disk_id"))
@@ -436,9 +453,10 @@ func (self *SDisk) StartAllocate(ctx context.Context, host *SHost, storage *SSto
 		}
 	}
 	if rebuild {
-		content.Add(jsonutils.JSONTrue, "rebuild")
+		return host.GetHostDriver().RequestRebuildDiskOnStorage(ctx, host, storage, self, task, content)
+	} else {
+		return host.GetHostDriver().RequestAllocateDiskOnStorage(ctx, host, storage, self, task, content)
 	}
-	return host.GetHostDriver().RequestAllocateDiskOnStorage(ctx, host, storage, self, task, content)
 }
 
 func (self *SDisk) AllowGetDetailsConvertSnapshot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -844,6 +862,11 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.TokenCredential, extDisk cloudprovider.ICloudDisk, index int, projectId string, projectSync bool) error {
+	recycle := false
+	guests := self.GetGuests()
+	if len(guests) == 1 && guests[0].IsPrepaidRecycle() {
+		recycle = true
+	}
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		extDisk.Refresh()
 		self.Name = extDisk.GetName()
@@ -864,8 +887,10 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 
 		self.IsEmulated = extDisk.IsEmulated()
 
-		self.BillingType = extDisk.GetBillingType()
-		self.ExpiredAt = extDisk.GetExpiredAt()
+		if !recycle {
+			self.BillingType = extDisk.GetBillingType()
+			self.ExpiredAt = extDisk.GetExpiredAt()
+		}
 
 		self.ProjectId = userCred.GetProjectId()
 		if projectSync && len(projectId) > 0 {
@@ -1369,7 +1394,7 @@ func (manager *SDiskManager) getExpiredPendingDeleteDisks() []SDisk {
 	return disks
 }
 
-func (manager *SDiskManager) CleanPendingDeleteDisks(ctx context.Context, userCred mcclient.TokenCredential) {
+func (manager *SDiskManager) CleanPendingDeleteDisks(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	disks := manager.getExpiredPendingDeleteDisks()
 	if disks == nil {
 		return
@@ -1389,7 +1414,7 @@ func (manager *SDiskManager) getAutoSnapshotDisks() []SDisk {
 	return dest
 }
 
-func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential) {
+func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	disks := manager.getAutoSnapshotDisks()
 	if disks == nil {
 		return

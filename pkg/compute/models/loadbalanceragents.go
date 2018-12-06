@@ -270,7 +270,7 @@ func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, us
 	return man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
 
-func (man *SLoadbalancerAgentManager) CleanPendingDeleteLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential) {
+func (man *SLoadbalancerAgentManager) CleanPendingDeleteLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	agents := []SLoadbalancerAgent{}
 	{
 		// find active agents

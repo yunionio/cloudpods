@@ -244,13 +244,29 @@ func (manager *SGuestManager) AllowListItems(ctx context.Context, userCred mccli
 }
 
 func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
-	if err != nil {
-		return nil, err
-	}
 	queryDict, ok := query.(*jsonutils.JSONDict)
 	if !ok {
 		return nil, fmt.Errorf("invalid querystring format")
+	}
+
+	billingTypeStr, _ := queryDict.GetString("billing_type")
+	if len(billingTypeStr) > 0 {
+		if billingTypeStr == BILLING_TYPE_POSTPAID {
+			q = q.Filter(
+				sqlchemy.OR(
+					sqlchemy.IsNullOrEmpty(q.Field("billing_type")),
+					sqlchemy.Equals(q.Field("billing_type"), billingTypeStr),
+				),
+			)
+		} else {
+			q = q.Equals("billing_type", billingTypeStr)
+		}
+		queryDict.Remove("billing_type")
+	}
+
+	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
 	}
 	isBMstr, _ := queryDict.GetString("baremetal")
 	if len(isBMstr) > 0 && utils.ToBool(isBMstr) {
@@ -260,6 +276,25 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 	hypervisor, _ := queryDict.GetString("hypervisor")
 	if len(hypervisor) > 0 {
 		q = q.Equals("hypervisor", hypervisor)
+	}
+
+	resourceTypeStr := jsonutils.GetAnyString(queryDict, []string{"resource_type"})
+	if len(resourceTypeStr) > 0 {
+		hosts := HostManager.Query().SubQuery()
+		subq := hosts.Query(hosts.Field("id"))
+		switch resourceTypeStr {
+		case HostResourceTypeShared:
+			subq = subq.Filter(
+				sqlchemy.OR(
+					sqlchemy.IsNullOrEmpty(hosts.Field("resource_type")),
+					sqlchemy.Equals(hosts.Field("resource_type"), resourceTypeStr),
+				),
+			)
+		default:
+			subq = subq.Equals("resource_type", resourceTypeStr)
+		}
+
+		q = q.In("host_id", subq.SubQuery())
 	}
 
 	hostFilter, _ := queryDict.GetString("host")
@@ -775,6 +810,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 
 			data.Add(jsonutils.NewString(BILLING_TYPE_PREPAID), "billing_type")
 			data.Add(jsonutils.NewString(billingCycle.String()), "billing_cycle")
+			// expired_at will be set later by callback
 			// data.Add(jsonutils.NewTimeString(billingCycle.EndAt(time.Time{})), "expired_at")
 
 			data.Set("duration", jsonutils.NewString(billingCycle.String()))
@@ -1543,10 +1579,16 @@ func (self *SGuest) GetIsolatedDevices() []SIsolatedDevice {
 }
 
 func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, extVM cloudprovider.ICloudVM, projectId string, projectSync bool) error {
+	recycle := false
+
+	if self.IsPrepaidRecycle() {
+		recycle = true
+	}
+
 	metaData := extVM.GetMetadata()
 	diff, err := GuestManager.TableSpec().Update(self, func() error {
 		extVM.Refresh()
-		self.Name = extVM.GetName()
+		// self.Name = extVM.GetName()
 		self.Status = extVM.GetStatus()
 		self.VcpuCount = extVM.GetVcpuCount()
 		self.BootOrder = extVM.GetBootOrder()
@@ -1555,23 +1597,12 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		self.OsType = extVM.GetOSType()
 		self.Bios = extVM.GetBios()
 		self.Machine = extVM.GetMachine()
-		self.HostId = host.Id
-		self.ProjectId = userCred.GetProjectId()
+		if !recycle {
+			self.HostId = host.Id
+		}
 
 		metaData := extVM.GetMetadata()
 		instanceType := extVM.GetInstanceType()
-
-		/* zoneExtId, err := metaData.GetString("zone_ext_id")
-		if err != nil {
-			log.Errorf("get zone external id fail %s", err)
-		}
-
-		isku, err := ServerSkuManager.FetchByZoneExtId(zoneExtId, instanceType)
-		if err != nil {
-			log.Errorf("get sku fail %s", err)
-		} else {
-			self.SkuId = isku.GetId()
-		}*/
 
 		if len(instanceType) > 0 {
 			self.InstanceType = instanceType
@@ -1596,8 +1627,10 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 
 		self.IsEmulated = extVM.IsEmulated()
 
-		self.BillingType = extVM.GetBillingType()
-		self.ExpiredAt = extVM.GetExpiredAt()
+		if !recycle {
+			self.BillingType = extVM.GetBillingType()
+			self.ExpiredAt = extVM.GetExpiredAt()
+		}
 
 		if metaData != nil && metaData.Contains("secgroupIds") {
 			secgroupIds := []string{}
@@ -1643,6 +1676,15 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			}
 		}
 	}
+
+	if recycle {
+		vhost := self.GetHost()
+		err = vhost.syncWithCloudPrepaidVM(extVM, host, projectSync)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -2206,6 +2248,9 @@ func (self *SGuest) CreateNetworksOnHost(ctx context.Context, userCred mcclient.
 		if err != nil {
 			return err
 		}
+		if netJson == jsonutils.JSONNull {
+			break
+		}
 		netConfig, err := parseNetworkInfo(userCred, netJson)
 		if err != nil {
 			return err
@@ -2268,6 +2313,9 @@ func (self *SGuest) CreateDisksOnHost(ctx context.Context, userCred mcclient.Tok
 		if err != nil {
 			return err
 		}
+		if diskJson == jsonutils.JSONNull {
+			break
+		}
 		diskConfig, err := parseDiskInfo(ctx, userCred, diskJson)
 		if err != nil {
 			return err
@@ -2297,7 +2345,12 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 		billingType = self.BillingType
 		billingCycle = self.BillingCycle
 	}
-	disk, err := storage.createDisk(diskName, diskConfig, userCred, self.ProjectId, true, self.IsSystem,
+
+	autoDelete := false
+	if storage.IsLocal() || billingType == BILLING_TYPE_PREPAID {
+		autoDelete = true
+	}
+	disk, err := storage.createDisk(diskName, diskConfig, userCred, self.ProjectId, autoDelete, self.IsSystem,
 		billingType, billingCycle)
 
 	if err != nil {
@@ -3247,7 +3300,7 @@ func (manager *SGuestManager) getExpiredPendingDeleteGuests() []SGuest {
 	return guests
 }
 
-func (manager *SGuestManager) CleanPendingDeleteServers(ctx context.Context, userCred mcclient.TokenCredential) {
+func (manager *SGuestManager) CleanPendingDeleteServers(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	guests := manager.getExpiredPendingDeleteGuests()
 	if guests == nil {
 		return
@@ -3273,7 +3326,7 @@ func (manager *SGuestManager) getExpiredPrepaidGuests() []SGuest {
 	return guests
 }
 
-func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, userCred mcclient.TokenCredential) {
+func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	guests := manager.getExpiredPrepaidGuests()
 	if guests == nil {
 		return
@@ -3538,4 +3591,17 @@ func (self *SGuest) GuestDisksHasSnapshot() bool {
 		}
 	}
 	return false
+}
+
+func (self *SGuest) OnScheduleToHost(ctx context.Context, userCred mcclient.TokenCredential, hostId string) error {
+	err := self.SetHostId(hostId)
+	if err != nil {
+		return err
+	}
+
+	notes := jsonutils.NewDict()
+	notes.Add(jsonutils.NewString(hostId), "host_id")
+	db.OpsLog.LogEvent(self, db.ACT_SCHEDULE, notes, userCred)
+
+	return nil
 }

@@ -282,7 +282,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 					if len(idisks) < len(desc.DataDisks)+1 {
 						log.Debugf("inconsistent disk number???? %d != %d", len(idisks), len(desc.DataDisks)+1)
 					}
-					if idisks[0].GetGlobalId() != diskId {
+					if len(idisks) > 0 && idisks[0].GetGlobalId() != diskId {
 						log.Errorf("system disk id inconsistent %s != %s", idisks[0].GetGlobalId(), diskId)
 					}
 					time.Sleep(time.Second * 5)

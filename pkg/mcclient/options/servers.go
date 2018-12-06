@@ -24,6 +24,10 @@ type ServerListOptions struct {
 	WithEip       *bool  `help:"Show Servers with EIP"`
 	WithoutEip    *bool  `help:"Show Servers without EIP"`
 
+	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
+
+	BillingType string `help:"billing type" choices:"postpaid|prepaid"`
+
 	BaseListOptions
 }
 
@@ -90,8 +94,9 @@ func ParseServerDeployInfoList(list []string) (*jsonutils.JSONDict, error) {
 
 type ServerCreateOptions struct {
 	ScheduleOptions
+
 	NAME             string   `help:"Name of server"`
-	MEM              string   `help:"Memory size" metavar:"MEMORY" json:"vmem_size"`
+	MEMSPEC          string   `help:"Memory size Or Instance Type" metavar:"MEMSPEC" json:"-"`
 	Disk             []string `help:"Disk descriptions" nargs:"+"`
 	Net              []string `help:"Network descriptions" metavar:"NETWORK"`
 	IsolatedDevice   []string `help:"Isolated device model or ID" metavar:"ISOLATED_DEVICE"`
@@ -120,8 +125,6 @@ type ServerCreateOptions struct {
 	DryRun           *bool    `help:"Dry run to test scheduler" json:"-"`
 	RaidConfig       []string `help:"Baremetal raid config" json:"-"`
 	UserDataFile     string   `help:"user_data file path" json:"-"`
-
-	InstanceType string `help:"Instance Type, e.g. S2.SMALL2 for qcloud"`
 
 	Duration string `help:"valid duration of the server, e.g. 1H, 1D, 1W, 1M, 1Y, ADMIN ONLY option"`
 }
@@ -287,6 +290,7 @@ type ServerRebuildRootOptions struct {
 	Password      string `help:"Default user password"`
 	NoAccountInit *bool  `help:"Not reset account password"`
 	AutoStart     *bool  `help:"Auto start server after it is created"`
+	AllDisks      *bool  `help:"Rebuild all disks including data disks"`
 }
 
 type ServerChangeConfigOptions struct {

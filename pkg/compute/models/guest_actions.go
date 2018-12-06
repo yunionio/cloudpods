@@ -778,23 +778,19 @@ func (self *SGuest) AllowPerformRebuildRoot(ctx context.Context, userCred mcclie
 
 func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	imageId, _ := data.GetString("image_id")
-	if len(imageId) == 0 {
-		gdc := self.CategorizeDisks()
-		imageId = gdc.Root.GetTemplateId()
-		if len(imageId) == 0 {
-			return nil, httperrors.NewBadRequestError("No template for root disk")
+
+	if len(imageId) > 0 {
+		img, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
+		if err != nil {
+			return nil, httperrors.NewNotFoundError("failed to find %s", imageId)
 		}
+		osType, _ := img.Properties["os_type"]
+		osName := self.GetMetadata("os_name", userCred)
+		if len(osName) == 0 && len(osType) == 0 && strings.ToLower(osType) != strings.ToLower(osName) {
+			return nil, httperrors.NewBadRequestError("Cannot switch OS between %s-%s", osName, osType)
+		}
+		imageId = img.Id
 	}
-	img, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
-	if err != nil {
-		return nil, httperrors.NewNotFoundError("failed to find %s", imageId)
-	}
-	osType, _ := img.Properties["os_type"]
-	osName := self.GetMetadata("os_name", userCred)
-	if len(osName) == 0 && len(osType) == 0 && strings.ToLower(osType) != strings.ToLower(osName) {
-		return nil, httperrors.NewBadRequestError("Cannot switch OS between %s-%s", osName, osType)
-	}
-	imageId = img.Id
 
 	rebuildStatus, err := self.GetDriver().GetRebuildRootStatus()
 	if err != nil {
@@ -836,11 +832,20 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 		}
 	}
 
-	return nil, self.StartRebuildRootTask(ctx, userCred, imageId, needStop, autoStart, passwd, resetPasswd)
+	allDisks := jsonutils.QueryBoolean(data, "all_disks", false)
+
+	return nil, self.StartRebuildRootTask(ctx, userCred, imageId, needStop, autoStart, passwd, resetPasswd, allDisks)
 }
 
-func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool, passwd string, resetPasswd bool) error {
+func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool, passwd string, resetPasswd bool, allDisk bool) error {
 	data := jsonutils.NewDict()
+	if len(imageId) == 0 {
+		gdc := self.CategorizeDisks()
+		imageId = gdc.Root.GetTemplateId()
+		if len(imageId) == 0 {
+			return httperrors.NewBadRequestError("No template for root disk")
+		}
+	}
 	data.Set("image_id", jsonutils.NewString(imageId))
 	if needStop {
 		data.Set("need_stop", jsonutils.JSONTrue)
@@ -855,6 +860,12 @@ func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.
 	}
 	if len(passwd) > 0 {
 		data.Set("password", jsonutils.NewString(passwd))
+	}
+
+	if allDisk {
+		data.Set("all_disks", jsonutils.JSONTrue)
+	} else {
+		data.Set("all_disks", jsonutils.JSONFalse)
 	}
 	if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
 		task, err := taskman.TaskManager.NewTask(ctx, "BaremetalServerRebuildRootTask", self, userCred, data, "", "", nil)
@@ -1395,15 +1406,31 @@ func (self *SGuest) StartChangeConfigTask(ctx context.Context, userCred mcclient
 	return nil
 }
 
+func (self *SGuest) revokeAllSecgroups(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := self.revokeSecgroup(ctx, userCred, self.getSecgroup())
+	if err != nil {
+		return err
+	}
+	err = GuestsecgroupManager.DeleteGuestSecgroup(ctx, userCred, self, nil)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	eip, _ := self.GetEip()
 	if eip != nil {
 		eip.DoPendingDelete(ctx, userCred)
 	}
+	// revoke all secgroups
+	// TODO: sync revoked secgroups to remote cloud
+	self.revokeAllSecgroups(ctx, userCred)
+	// remove detachable disks
 	for _, guestdisk := range self.GetDisks() {
 		disk := guestdisk.GetDisk()
 		storage := disk.GetStorage()
-		if utils.IsInStringArray(storage.StorageType, STORAGE_LOCAL_TYPES) || utils.IsInStringArray(disk.DiskType, []string{DISK_TYPE_SYS, DISK_TYPE_SWAP}) || (utils.IsInStringArray(self.Hypervisor, PUBLIC_CLOUD_HYPERVISORS) && disk.AutoDelete) {
+		if storage.IsLocal() || disk.BillingType == BILLING_TYPE_PREPAID || utils.IsInStringArray(disk.DiskType, []string{DISK_TYPE_SYS, DISK_TYPE_SWAP}) || (utils.IsInStringArray(self.Hypervisor, PUBLIC_CLOUD_HYPERVISORS) && disk.AutoDelete) {
 			disk.DoPendingDelete(ctx, userCred)
 		} else {
 			self.DetachDisk(ctx, disk, userCred)

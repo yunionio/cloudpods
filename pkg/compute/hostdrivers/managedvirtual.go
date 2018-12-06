@@ -241,6 +241,7 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 		data := jsonutils.NewDict()
 		data.Add(jsonutils.NewInt(int64(iDisk.GetDiskSizeMB())), "disk_size")
 		data.Add(jsonutils.NewString(iDisk.GetDiskFormat()), "disk_format")
+		data.Add(jsonutils.NewString(iDisk.GetAccessPath()), "disk_path")
 
 		return data, nil
 	})
@@ -285,6 +286,28 @@ func (self *SAliyunHostDriver) RequestResetDisk(ctx context.Context, host *model
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		err := iDisk.Reset(ctx, snapshotId)
 		return nil, err
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationHostDriver) RequestRebuildDiskOnStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
+	iDisk, err := disk.GetIDisk()
+	if err != nil {
+		return err
+	}
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		err := iDisk.Rebuild(ctx)
+
+		if err != nil {
+			return nil, err
+		}
+
+		data := jsonutils.NewDict()
+		data.Add(jsonutils.NewInt(int64(iDisk.GetDiskSizeMB())), "disk_size")
+		data.Add(jsonutils.NewString(iDisk.GetDiskFormat()), "disk_format")
+		data.Add(jsonutils.NewString(iDisk.GetAccessPath()), "disk_path")
+
+		return data, nil
 	})
 	return nil
 }

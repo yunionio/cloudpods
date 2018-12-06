@@ -22,8 +22,10 @@ func init() {
 		Occupied  bool   `help:"show occupid host"`
 		Enabled   bool   `help:"Show enabled host only"`
 		Disabled  bool   `help:"Show disabled host only"`
-		HostType  string `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv"`
+		HostType  string `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv|aliyun|azure|qcloud|aws|huawei"`
 		AnyMac    string `help:"Mac matches one of the host's interface"`
+
+		ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 
 		Manager string `help:"Show regions belongs to the cloud provider"`
 		Usable  bool   `help:"List all zones that is usable"`
@@ -63,6 +65,9 @@ func init() {
 		}
 		if len(args.HostType) > 0 {
 			params.Add(jsonutils.NewString(args.HostType), "host_type")
+		}
+		if len(args.ResourceType) > 0 {
+			params.Add(jsonutils.NewString(args.ResourceType), "resource_type")
 		}
 
 		if len(args.Manager) > 0 {
@@ -403,12 +408,24 @@ func init() {
 	})
 
 	type HostEnableNetIfOptions struct {
-		ID  string `help:"ID or Name of host"`
-		MAC string `help:"MAC of NIC to enable"`
+		ID       string `help:"ID or Name of host"`
+		MAC      string `help:"MAC of NIC to enable"`
+		Ip       string `help:"IP address"`
+		Network  string `help:"network to connect"`
+		Reserved bool   `help:"fetch IP from reserved pool"`
 	}
 	R(&HostEnableNetIfOptions{}, "host-enable-netif", "Enable a network interface for a host", func(s *mcclient.ClientSession, args *HostEnableNetIfOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.MAC), "mac")
+		if len(args.Ip) > 0 {
+			params.Add(jsonutils.NewString(args.Ip), "ip_addr")
+			if args.Reserved {
+				params.Add(jsonutils.JSONTrue, "reserve")
+			}
+		}
+		if len(args.Network) > 0 {
+			params.Add(jsonutils.NewString(args.Network), "network")
+		}
 		result, err := modules.Hosts.PerformAction(s, args.ID, "enable-netif", params)
 		if err != nil {
 			return err
@@ -512,4 +529,16 @@ func init() {
 		return nil
 	})
 
+	type HostUndoPrepaidRecycleOptions struct {
+		ID string `help:"ID or name of host to undo recycle"`
+	}
+	R(&HostUndoPrepaidRecycleOptions{}, "host-undo-recycle", "Pull a prepaid server from recycle pool, so that it will not be shared any more", func(s *mcclient.ClientSession, args *HostUndoPrepaidRecycleOptions) error {
+		params := jsonutils.NewDict()
+		result, err := modules.Hosts.PerformAction(s, args.ID, "undo-prepaid-recycle", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

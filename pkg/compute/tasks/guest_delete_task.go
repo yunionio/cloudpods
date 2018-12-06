@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -155,7 +156,16 @@ func (self *GuestDeleteTask) OnGuestDetachDisksCompleteFailed(ctx context.Contex
 func (self *GuestDeleteTask) DoDeleteGuest(ctx context.Context, guest *models.SGuest) {
 	models.IsolatedDeviceManager.ReleaseDevicesOfGuest(guest, self.UserCred)
 	host := guest.GetHost()
-	if (host == nil || !host.Enabled) && jsonutils.QueryBoolean(self.Params, "purge", false) {
+	if guest.IsPrepaidRecycle() {
+		err := host.BorrowIpAddrsFromGuest(ctx, self.UserCred, guest)
+		if err != nil {
+			msg := fmt.Sprintf("host.BorrowIpAddrsFromGuest fail %s", err)
+			log.Errorf(msg)
+			self.OnGuestDeleteFailed(ctx, guest, jsonutils.NewString(msg))
+			return
+		}
+		self.OnGuestDeleteComplete(ctx, guest, nil)
+	} else if (host == nil || !host.Enabled) && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		self.OnGuestDeleteComplete(ctx, guest, nil)
 	} else {
 		self.SetStage("on_guest_delete_complete", nil)

@@ -319,9 +319,15 @@ func (self *SDisk) Reset(ctx context.Context, snapshotId string) error {
 }
 
 func (self *SRegion) resetDisk(diskId, snapshotId string) error {
+	// TODO
 	return cloudprovider.ErrNotSupported
 }
 
 func (disk *SDisk) GetAccessPath() string {
 	return ""
+}
+
+func (self *SDisk) Rebuild(ctx context.Context) error {
+	// TODO
+	return cloudprovider.ErrNotSupported
 }

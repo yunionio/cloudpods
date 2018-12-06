@@ -128,6 +128,11 @@ func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, ho
 	return err
 }
 
+func (self *SKVMHostDriver) RequestRebuildDiskOnStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
+	content.Add(jsonutils.JSONTrue, "rebuild")
+	return self.RequestAllocateDiskOnStorage(ctx, host, storage, disk, task, content)
+}
+
 func (self *SKVMHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
 	log.Infof("Deallocating disk on host %s", host.GetName())
 	header := task.GetTaskRequestHeader()

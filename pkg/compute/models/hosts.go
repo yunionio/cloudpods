@@ -90,7 +90,7 @@ const (
 const (
 	HostResourceTypeShared         = "shared"
 	HostResourceTypeDefault        = HostResourceTypeShared
-	HostResourceTypePrepaidRecycle = "prepaid_recycle"
+	HostResourceTypePrepaidRecycle = "prepaid"
 	HostResourceTypeDedicated      = "dedicated"
 )
 
@@ -166,6 +166,8 @@ type SHost struct {
 	LastPingAt time.Time ``
 
 	ResourceType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+
+	RealExternalId string `width:"256" charset:"utf8" get:"admin"`
 }
 
 func (manager *SHostManager) GetContextManager() []db.IModelManager {
@@ -193,6 +195,24 @@ func (self *SHost) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	resType, _ := query.GetString("resource_type")
+	if len(resType) > 0 {
+		queryDict := query.(*jsonutils.JSONDict)
+		queryDict.Remove("resource_type")
+
+		switch resType {
+		case HostResourceTypeShared:
+			q = q.Filter(
+				sqlchemy.OR(
+					sqlchemy.IsNullOrEmpty(q.Field("resource_type")),
+					sqlchemy.Equals(q.Field("resource_type"), HostResourceTypeShared),
+				),
+			)
+		default:
+			q = q.Equals("resource_type", resType)
+		}
+	}
+
 	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
@@ -1071,6 +1091,9 @@ func (manager *SHostManager) getHostsByZoneProvider(zone *SZone, provider *SClou
 	if provider != nil {
 		q = q.Equals("manager_id", provider.Id)
 	}
+	// exclude prepaid_recycle fake hosts
+	q = q.NotEquals("resource_type", HostResourceTypePrepaidRecycle)
+
 	err := db.FetchModelObjects(manager, q, &hosts)
 	if err != nil {
 		log.Errorf("%s", err)
@@ -1171,6 +1194,32 @@ func (self *SHost) syncWithCloudHost(extHost cloudprovider.ICloudHost, projectSy
 
 		self.IsMaintenance = extHost.GetIsMaintenance()
 		self.Version = extHost.GetVersion()
+
+		return nil
+	})
+	if err != nil {
+		log.Errorf("syncWithCloudZone error %s", err)
+	}
+
+	if projectSync {
+		if err := HostManager.ClearSchedDescCache(self.Id); err != nil {
+			log.Errorf("ClearSchedDescCache for host %s error %v", self.Name, err)
+		}
+	}
+
+	return err
+}
+
+func (self *SHost) syncWithCloudPrepaidVM(extVM cloudprovider.ICloudVM, host *SHost, projectSync bool) error {
+	_, err := self.SaveUpdates(func() error {
+
+		self.CpuCount = extVM.GetVcpuCount()
+		self.MemSize = extVM.GetVmemSizeMB()
+
+		self.BillingType = extVM.GetBillingType()
+		self.ExpiredAt = extVM.GetExpiredAt()
+
+		self.ExternalId = host.ExternalId
 
 		return nil
 	})
@@ -1493,6 +1542,13 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for i := 0; i < len(added); i += 1 {
+		if added[i].GetBillingType() == BILLING_TYPE_PREPAID {
+			vhost := HostManager.GetHostByRealExternalId(added[i].GetGlobalId())
+			if vhost != nil {
+				// this recycle vm is not build yet, skip synchronize
+				continue
+			}
+		}
 		new, err := GuestManager.newCloudVM(ctx, userCred, self, added[i], projectId)
 		if err != nil {
 			syncResult.AddError(err)

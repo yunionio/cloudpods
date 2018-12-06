@@ -152,7 +152,7 @@ func (self *SESXiGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context,
 		if host.Id != guest.HostId {
 			models.HostManager.ClearSchedDescCache(host.Id)
 			models.HostManager.ClearSchedDescCache(guest.HostId)
-			guest.SetHostId(host.Id)
+			guest.OnScheduleToHost(ctx, task.GetUserCred(), host.Id)
 		}
 	}
 

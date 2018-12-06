@@ -470,6 +470,10 @@ func (self *STask) SaveRequestContext(data *appctx.AppContextData) {
 	}
 }
 
+func (self *STask) SaveParams(data *jsonutils.JSONDict) {
+	self.SetStage("", data)
+}
+
 func (self *STask) SetStage(stageName string, data *jsonutils.JSONDict) {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		params := jsonutils.NewDict()
@@ -487,7 +491,9 @@ func (self *STask) SetStage(stageName string, data *jsonutils.JSONDict) {
 		stageData.Add(jsonutils.NewString(self.Stage), "name")
 		stageData.Add(jsonutils.NewTimeString(time.Now()), "complete_at")
 		stageList.Add(stageData)
-		self.Stage = stageName
+		if len(stageName) > 0 {
+			self.Stage = stageName
+		}
 		self.Params = params
 		return nil
 	})

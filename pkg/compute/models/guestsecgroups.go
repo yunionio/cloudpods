@@ -67,7 +67,12 @@ func (manager *SGuestsecgroupManager) newGuestSecgroup(ctx context.Context, user
 func (manager *SGuestsecgroupManager) DeleteGuestSecgroup(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, secgroup *SSecurityGroup) error {
 	gss := []SGuestsecgroup{}
 	q := manager.Query()
-	q = q.Equals("guest_id", guest.Id).Equals("secgroup_id", secgroup.Id)
+	if guest != nil {
+		q = q.Equals("guest_id", guest.Id)
+	}
+	if secgroup != nil {
+		q = q.Equals("secgroup_id", secgroup.Id)
+	}
 	if err := db.FetchModelObjects(manager, q, &gss); err != nil {
 		return err
 	}

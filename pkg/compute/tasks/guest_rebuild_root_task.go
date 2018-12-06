@@ -71,6 +71,41 @@ func (self *GuestRebuildRootTask) StartRebuildRootDisk(ctx context.Context, gues
 }
 
 func (self *GuestRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	allDisks := jsonutils.QueryBoolean(self.Params, "all_disks", false)
+	if allDisks {
+		guestdisks := guest.GetDisks()
+		for i := 1; i < len(guestdisks); i += 1 {
+			disk := guestdisks[i].GetDisk()
+			if disk != nil {
+				disk.SetStatus(self.UserCred, models.DISK_INIT, "rebuild data disks")
+			}
+		}
+		self.SetStage("OnRebuildingDataDisksComplete", nil)
+		self.OnRebuildingDataDisksComplete(ctx, guest, data)
+	} else {
+		self.OnRebuildAllDisksComplete(ctx, guest, data)
+	}
+}
+
+func (self *GuestRebuildRootTask) OnRebuildingDataDisksComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	diskReady := true
+	guestdisks := guest.GetDisks()
+	if len(guestdisks) > 0 {
+		guest.SetStatus(self.UserCred, models.VM_REBUILD_ROOT, "rebuild data disks")
+	}
+	for i := 1; i < len(guestdisks); i += 1 {
+		disk := guestdisks[i].GetDisk()
+		if disk.Status == models.DISK_INIT {
+			diskReady = false
+			disk.StartDiskCreateTask(ctx, self.UserCred, true, "", self.GetTaskId())
+		}
+	}
+	if diskReady {
+		self.OnRebuildAllDisksComplete(ctx, guest, data)
+	}
+}
+
+func (self *GuestRebuildRootTask) OnRebuildAllDisksComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	imgId, _ := self.Params.GetString("image_id")
 	imginfo, err := models.CachedimageManager.GetImageById(ctx, self.UserCred, imgId, false)
 	if err != nil {
@@ -162,7 +197,6 @@ func (self *KVMGuestRebuildRootTask) OnRebuildRootDiskCompleteFailed(ctx context
 
 func (self *KVMGuestRebuildRootTask) OnGuestDeployComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-
 	self.SetStageComplete(ctx, nil)
 	logclient.AddActionLog(guest, logclient.ACT_VM_REBUILD, nil, self.UserCred, true)
 }

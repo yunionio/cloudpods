@@ -324,3 +324,14 @@ func (manager *SServerSkuManager) FetchSkuByNameAndHypervisor(name string, hyper
 	}
 	return &skus[0], nil
 }
+
+func (manager *SServerSkuManager) GetSkuCountByProvider(provider string) int {
+	q := manager.Query()
+	if len(provider) == 0 {
+		q = q.IsNotEmpty("provider")
+	} else {
+		q = q.Equals("provider", provider)
+	}
+
+	return q.Count()
+}

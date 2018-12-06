@@ -152,6 +152,8 @@ const (
 	ACT_CHANGE_BANDWIDTH = "eip_change_bandwidth"
 
 	ACT_RENEW = "renew"
+
+	ACT_SCHEDULE = "schedule"
 )
 
 type SOpsLogManager struct {
