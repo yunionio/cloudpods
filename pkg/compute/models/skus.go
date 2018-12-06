@@ -3,8 +3,10 @@ package models
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -167,6 +169,74 @@ func (self *SServerSkuManager) FetchByZoneId(zoneId string, name string) (db.IMo
 	} else {
 		return nil, sql.ErrNoRows
 	}
+}
+
+func (self *SServerSkuManager) AllowGetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	q := self.Query()
+	zone, err := query.GetString("zone")
+	if err == nil && len(zone) > 0 {
+		q = q.Equals("zone", zone)
+	} else {
+		return nil, httperrors.NewMissingParameterError("zone")
+	}
+
+	skus := make([]SServerSku, 0)
+	q = q.GroupBy(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
+	q = q.Asc(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
+	err = q.All(&skus)
+	if err != nil {
+		log.Errorf("%s", err)
+		return nil, httperrors.NewBadRequestError("instance specs list query error")
+	}
+
+	cpus := jsonutils.NewArray()
+	mems_mb := jsonutils.NewArray()
+	cpu_mems_mb := map[int][]int{}
+
+	oc, om := 0, 0
+	for i := range skus {
+		nc := skus[i].CpuCoreCount
+		nm := skus[i].MemorySizeMB
+
+		if nc > oc {
+			cpus.Add(jsonutils.NewInt(int64(nc)))
+			oc = nc
+		}
+
+		if nm > om {
+			mems_mb.Add(jsonutils.NewInt(int64(nm)))
+			om = nm
+		}
+
+		if _, exists := cpu_mems_mb[nc]; !exists {
+			cpu_mems_mb[nc] = []int{nm}
+		} else {
+			cpu_mems_mb[nc] = append(cpu_mems_mb[nc], nm)
+		}
+	}
+
+	ret := jsonutils.NewDict()
+	ret.Add(cpus, "cpus")
+	ret.Add(mems_mb, "mems_mb")
+
+	r, err := json.Marshal(&cpu_mems_mb)
+	if err != nil {
+		log.Errorf("%s", err)
+		return nil, httperrors.NewInternalServerError("instance specs list marshal failed")
+	}
+
+	r_obj, err := jsonutils.Parse(r)
+	if err != nil {
+		log.Errorf("%s", err)
+		return nil, httperrors.NewInternalServerError("instance specs list parse failed")
+	}
+
+	ret.Add(r_obj, "cpu_mems_mb")
+	return ret, nil
 }
 
 func (self *SServerSku) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
