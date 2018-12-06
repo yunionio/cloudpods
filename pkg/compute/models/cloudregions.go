@@ -43,9 +43,9 @@ func init() {
 type SCloudregion struct {
 	db.SEnabledStatusStandaloneResourceBase
 
-	Latitude  float32 `list:"user"`
-	Longitude float32 `list:"user"`
-	Provider  string  `width:"64" charset:"ascii" list:"user"`
+	cloudprovider.SGeographicInfo
+
+	Provider string `width:"64" charset:"ascii" list:"user"`
 }
 
 func (manager *SCloudregionManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -227,8 +227,7 @@ func (self *SCloudregion) syncWithCloudRegion(cloudRegion cloudprovider.ICloudRe
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Name = cloudRegion.GetName()
 		self.Status = cloudRegion.GetStatus()
-		self.Latitude = cloudRegion.GetLatitude()
-		self.Longitude = cloudRegion.GetLongitude()
+		self.SGeographicInfo = cloudRegion.GetGeographicInfo()
 		self.Provider = cloudRegion.GetProvider()
 
 		self.IsEmulated = cloudRegion.IsEmulated()
@@ -247,8 +246,7 @@ func (manager *SCloudregionManager) newFromCloudRegion(cloudRegion cloudprovider
 
 	region.ExternalId = cloudRegion.GetGlobalId()
 	region.Name = cloudRegion.GetName()
-	region.Latitude = cloudRegion.GetLatitude()
-	region.Longitude = cloudRegion.GetLongitude()
+	region.SGeographicInfo = cloudRegion.GetGeographicInfo()
 	region.Status = cloudRegion.GetStatus()
 	region.Enabled = true
 	region.Provider = cloudRegion.GetProvider()
@@ -352,17 +350,46 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 		}
 		q = q.Equals("provider", manager.Provider)
 	}
-	if jsonutils.QueryBoolean(query, "usable", false) {
+
+	if jsonutils.QueryBoolean(query, "usable", false) || jsonutils.QueryBoolean(query, "usable_vpc", false) {
+		providers := CloudproviderManager.Query().SubQuery()
 		networks := NetworkManager.Query().SubQuery()
 		wires := WireManager.Query().SubQuery()
 		vpcs := VpcManager.Query().SubQuery()
 
-		sq := vpcs.Query(sqlchemy.DISTINCT("cloudregion_id", vpcs.Field("cloudregion_id")))
-		sq = sq.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
-		sq = sq.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
-		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		usableNet := jsonutils.QueryBoolean(query, "usable", false)
+		usableVpc := jsonutils.QueryBoolean(query, "usable_vpc", false)
 
-		q = q.Filter(sqlchemy.In(q.Field("id"), sq.SubQuery()))
+		sq := vpcs.Query(sqlchemy.DISTINCT("cloudregion_id", vpcs.Field("cloudregion_id")))
+		if usableNet {
+			sq = sq.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+			sq = sq.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+		}
+		sq = sq.Join(providers, sqlchemy.Equals(vpcs.Field("manager_id"), providers.Field("id")))
+		if usableNet {
+			sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		}
+		sq = sq.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
+		sq = sq.Filter(sqlchemy.In(providers.Field("status"), CLOUD_PROVIDER_VALID_STATUS))
+		if usableVpc {
+			sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+		}
+
+		sq2 := vpcs.Query(sqlchemy.DISTINCT("cloudregion_id", vpcs.Field("cloudregion_id")))
+		if usableNet {
+			sq2 = sq2.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+			sq2 = sq2.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+			sq2 = sq2.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		}
+		sq2 = sq2.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
+		if usableVpc {
+			sq2 = sq2.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+		}
+
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.In(q.Field("id"), sq.SubQuery()),
+			sqlchemy.In(q.Field("id"), sq2.SubQuery()),
+		))
 	}
 	return q, nil
 }

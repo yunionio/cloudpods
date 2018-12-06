@@ -7,11 +7,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -33,6 +35,11 @@ func init() {
 	}
 }
 
+type SLoadbalancerHTTPRateLimiter struct {
+	HTTPRequestRate       int `nullable:"false" list:"user" create:"optional" update:"user"`
+	HTTPRequestRatePerSrc int `nullable:"false" list:"user" create:"optional" update:"user"`
+}
+
 type SLoadbalancerTCPListener struct{}
 type SLoadbalancerUDPListener struct{}
 
@@ -43,8 +50,6 @@ type SLoadbalancerHTTPListener struct {
 	StickySessionCookie        string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 	StickySessionCookieTimeout int    `nullable:"false" list:"user" create:"optional" update:"user"`
 
-	//XForwardedForSLBIP bool `nullable:"false" list:"user" create:"optional"`
-	//XForwardedForSLBID bool `nullable:"false" list:"user" create:"optional"`
 	XForwardedFor bool `nullable:"false" list:"user" create:"optional" update:"user"`
 	Gzip          bool `nullable:"false" list:"user" create:"optional" update:"user"`
 }
@@ -69,7 +74,6 @@ type SLoadbalancerListener struct {
 	ListenerPort   int    `nullable:"false" list:"user" create:"required"`
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 
-	Bandwidth int    `nullable:"false" list:"user" create:"optional" update:"user"`
 	Scheduler string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
 
 	ClientRequestTimeout  int `nullable:"false" list:"user" create:"optional" update:"user"`
@@ -100,6 +104,8 @@ type SLoadbalancerListener struct {
 	SLoadbalancerUDPListener
 	SLoadbalancerHTTPListener
 	SLoadbalancerHTTPSListener
+
+	SLoadbalancerHTTPRateLimiter
 }
 
 func (man *SLoadbalancerListenerManager) checkListenerUniqueness(ctx context.Context, lb *SLoadbalancer, listenerType string, listenerPort int64) error {
@@ -139,29 +145,13 @@ func (man *SLoadbalancerListenerManager) ListItemFilter(ctx context.Context, q *
 	}
 	userProjId := userCred.GetProjectId()
 	data := query.(*jsonutils.JSONDict)
-	{
-		lbV := validators.NewModelIdOrNameValidator("loadbalancer", "loadbalancer", userProjId)
-		lbV.Optional(true)
-		q, err = lbV.QueryFilter(q, data)
-		if err != nil {
-			return nil, err
-		}
-	}
-	{
-		backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", userProjId)
-		backendGroupV.Optional(true)
-		q, err = backendGroupV.QueryFilter(q, data)
-		if err != nil {
-			return nil, err
-		}
-	}
-	{
-		aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", userProjId)
-		aclV.Optional(true)
-		q, err = aclV.QueryFilter(q, data)
-		if err != nil {
-			return nil, err
-		}
+	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
+		{Key: "loadbalancer", ModelKeyword: "loadbalancer", ProjectId: userProjId},
+		{Key: "backend_group", ModelKeyword: "loadbalancerbackendgroup", ProjectId: userProjId},
+		{Key: "acl", ModelKeyword: "loadbalanceracl", ProjectId: userProjId},
+	})
+	if err != nil {
+		return nil, err
 	}
 	return q, nil
 }
@@ -201,6 +191,9 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 
 		"x_forwarded_for": validators.NewBoolValidator("x_forwarded_for").Default(true),
 		"gzip":            validators.NewBoolValidator("gzip").Default(false),
+
+		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate").Default(0),
+		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src").Default(0),
 	}
 	for _, v := range keyV {
 		if err := v.Validate(data); err != nil {
@@ -345,9 +338,12 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 		"x_forwarded_for": validators.NewBoolValidator("x_forwarded_for"),
 		"gzip":            validators.NewBoolValidator("gzip"),
 
+		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate"),
+		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src"),
+
 		"certificate":       certV,
 		"tls_cipher_policy": tlsCipherPolicyV,
-		"enable_http2":      validators.NewBoolValidator("enable_http2").Default(true),
+		"enable_http2":      validators.NewBoolValidator("enable_http2"),
 	}
 	for _, v := range keyV {
 		v.Optional(true)
@@ -416,4 +412,148 @@ func (lblis *SLoadbalancerListener) PreDeleteSubs(ctx context.Context, userCred 
 
 func (lblis *SLoadbalancerListener) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
+}
+
+func (man *SLoadbalancerListenerManager) getLoadbalancerListenersByLoadbalancer(lb *SLoadbalancer) ([]SLoadbalancerListener, error) {
+	listeners := []SLoadbalancerListener{}
+	q := man.Query().Equals("loadbalancer_id", lb.Id)
+	if err := db.FetchModelObjects(man, q, &listeners); err != nil {
+		return nil, err
+	}
+	return listeners, nil
+}
+
+func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, lb *SLoadbalancer, listeners []cloudprovider.ICloudLoadbalancerListener, syncRange *SSyncRange) ([]SLoadbalancerListener, []cloudprovider.ICloudLoadbalancerListener, compare.SyncResult) {
+	localListeners := []SLoadbalancerListener{}
+	remoteListeners := []cloudprovider.ICloudLoadbalancerListener{}
+	syncResult := compare.SyncResult{}
+
+	dbListeners, err := man.getLoadbalancerListenersByLoadbalancer(lb)
+	if err != nil {
+		syncResult.Error(err)
+		return nil, nil, syncResult
+	}
+
+	removed := []SLoadbalancerListener{}
+	commondb := []SLoadbalancerListener{}
+	commonext := []cloudprovider.ICloudLoadbalancerListener{}
+	added := []cloudprovider.ICloudLoadbalancerListener{}
+
+	err = compare.CompareSets(dbListeners, listeners, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		syncResult.Error(err)
+		return nil, nil, syncResult
+	}
+
+	for i := 0; i < len(removed); i++ {
+		err = removed[i].ValidateDeleteCondition(ctx)
+		if err != nil { // cannot delete
+			err = removed[i].SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
+			if err != nil {
+				syncResult.DeleteError(err)
+			} else {
+				syncResult.Delete()
+			}
+		} else {
+			err = removed[i].Delete(ctx, userCred)
+			if err != nil {
+				syncResult.DeleteError(err)
+			} else {
+				syncResult.Delete()
+			}
+		}
+	}
+	for i := 0; i < len(commondb); i++ {
+		err = commondb[i].SyncWithCloudLoadbalancerListener(ctx, userCred, lb, commonext[i], provider.ProjectId, syncRange.ProjectSync)
+		if err != nil {
+			syncResult.UpdateError(err)
+		} else {
+			localListeners = append(localListeners, commondb[i])
+			remoteListeners = append(remoteListeners, commonext[i])
+			syncResult.Update()
+		}
+	}
+	for i := 0; i < len(added); i++ {
+		new, err := man.newFromCloudLoadbalancerListener(ctx, userCred, lb, added[i], provider.ProjectId)
+		if err != nil {
+			syncResult.AddError(err)
+		} else {
+			localListeners = append(localListeners, *new)
+			remoteListeners = append(remoteListeners, added[i])
+			syncResult.Add()
+		}
+	}
+	return localListeners, remoteListeners, syncResult
+}
+
+func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener) {
+	lblis.Name = extListener.GetName()
+	lblis.ListenerType = extListener.GetListenerType()
+	lblis.ListenerPort = extListener.GetListenerPort()
+	lblis.Scheduler = extListener.GetScheduler()
+	lblis.Status = extListener.GetStatus()
+
+	lblis.AclStatus = extListener.GetAclStatus()
+	lblis.AclType = extListener.GetAclType()
+	if aclID := extListener.GetAclId(); len(aclID) > 0 {
+		if acl, err := LoadbalancerAclManager.FetchByExternalId(aclID); err == nil {
+			lblis.AclId = acl.GetId()
+		}
+	}
+
+	lblis.HealthCheck = extListener.GetHealthCheck()
+	lblis.HealthCheckType = extListener.GetHealthCheckType()
+	lblis.HealthCheckTimeout = extListener.GetHealthCheckTimeout()
+	lblis.HealthCheckInterval = extListener.GetHealthCheckInterval()
+
+	switch lblis.ListenerType {
+	case LB_LISTENER_TYPE_HTTPS:
+		lblis.TLSCipherPolicy = extListener.GetTLSCipherPolicy()
+		lblis.EnableHttp2 = extListener.HTTP2Enabled()
+		if certificateId := extListener.GetCertificateId(); len(certificateId) > 0 {
+			if certificate, err := LoadbalancerCertificateManager.FetchByExternalId(certificateId); err == nil {
+				lblis.CertificateId = certificate.GetId()
+			}
+		}
+		fallthrough
+	case LB_LISTENER_TYPE_HTTP:
+		lblis.StickySession = extListener.GetStickySession()
+		lblis.StickySessionType = extListener.GetStickySessionType()
+		lblis.StickySessionCookie = extListener.GetStickySessionCookie()
+		lblis.StickySessionCookieTimeout = extListener.GetStickySessionCookieTimeout()
+		lblis.XForwardedFor = extListener.XForwardedForEnabled()
+		lblis.Gzip = extListener.GzipEnabled()
+	}
+	groupId := extListener.GetBackendGroupId()
+	if len(groupId) == 0 {
+		lblis.BackendGroupId = lb.BackendGroupId
+	} else if group, err := LoadbalancerBackendGroupManager.FetchByExternalId(groupId); err == nil {
+		lblis.BackendGroupId = group.GetId()
+	}
+}
+
+func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, projectId string, projectSync bool) error {
+	_, err := lblis.GetModelManager().TableSpec().Update(lblis, func() error {
+		lblis.constructFieldsFromCloudListener(lb, extListener)
+		if projectSync && len(projectId) > 0 {
+			lblis.ProjectId = projectId
+		}
+		return nil
+	})
+	return err
+}
+
+func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, projectId string) (*SLoadbalancerListener, error) {
+	lblis := &SLoadbalancerListener{}
+	lblis.SetModelManager(man)
+
+	lblis.LoadbalancerId = lb.Id
+	lblis.ExternalId = extListener.GetGlobalId()
+	lblis.constructFieldsFromCloudListener(lb, extListener)
+
+	lblis.ProjectId = userCred.GetProjectId()
+	if len(projectId) > 0 {
+		lblis.ProjectId = projectId
+	}
+	return lblis, man.TableSpec().Insert(lblis)
 }

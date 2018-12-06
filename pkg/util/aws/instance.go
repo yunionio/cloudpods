@@ -1,17 +1,20 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
-	"context"
 	"github.com/aws/aws-sdk-go/service/ec2"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/osprofile"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/pkg/util/osprofile"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 const (
@@ -171,13 +174,11 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 			data.Update(meta)
 		}
 	}
+	secgroupIds := jsonutils.NewArray()
 	for _, secgroupId := range self.SecurityGroupIds.SecurityGroupId {
-		if len(secgroupId) > 0 {
-			data.Add(jsonutils.NewString(secgroupId), "secgroupId")
-			break
-		}
+		secgroupIds.Add(jsonutils.NewString(secgroupId))
 	}
-
+	data.Add(secgroupIds, "secgroupIds")
 	return data
 }
 
@@ -227,17 +228,16 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 }
 
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
-	// todo: implement me
-	if len(self.PublicIpAddress.IpAddress) > 0 {
+	if len(self.EipAddress.IpAddress) > 0 {
+		return self.host.zone.region.GetEipByIpAddress(self.EipAddress.IpAddress)
+	} else if len(self.PublicIpAddress.IpAddress) > 0 {
 		eip := SEipAddress{}
 		eip.region = self.host.zone.region
 		eip.IpAddress = self.PublicIpAddress.IpAddress[0]
 		eip.InstanceId = self.InstanceId
-		eip.AllocationId = self.InstanceId // fixed
+		eip.AllocationId = self.InstanceId // fixed. AllocationId等于InstanceId即表示为 仿真EIP。
 		eip.Bandwidth = 10000
 		return &eip, nil
-	} else if len(self.EipAddress.IpAddress) > 0 {
-		return self.host.zone.region.GetEip(self.EipAddress.AllocationId)
 	} else {
 		return nil, nil
 	}
@@ -280,7 +280,15 @@ func (self *SInstance) GetMachine() string {
 }
 
 func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return self.host.zone.region.assignSecurityGroup(secgroupId, self.InstanceId)
+	return self.AssignSecurityGroups([]string{secgroupId})
+}
+
+func (self *SInstance) AssignSecurityGroups(secgroupIds []string) error {
+	ids := []*string{}
+	for i := 0; i < len(secgroupIds); i++ {
+		ids = append(ids, &secgroupIds[i])
+	}
+	return self.host.zone.region.assignSecurityGroups(ids, self.InstanceId)
 }
 
 func (self *SInstance) GetHypervisor() string {
@@ -322,7 +330,7 @@ func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 func (self *SInstance) DeleteVM(ctx context.Context) error {
 	for {
 		err := self.host.zone.region.DeleteVM(self.InstanceId)
-		if err != nil {
+		if err != nil && self.Status != InstanceStatusTerminated {
 			return err
 		} else {
 			break
@@ -407,8 +415,11 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 	log.Debugf("GetInstances with params: %s", params.String())
 	res, err := self.ec2Client.DescribeInstances(params)
 	if err != nil {
-		log.Errorf("GetInstances fail %s", err)
-		return nil, 0, err
+		if strings.Contains(err.Error(), "InvalidInstanceID.NotFound") {
+			return nil, 0, cloudprovider.ErrNotFound
+		} else {
+			return nil, 0, err
+		}
 	}
 
 	instances := []SInstance{}
@@ -416,6 +427,11 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 		for _, instance := range reservation.Instances {
 			if err := FillZero(instance); err != nil {
 				return nil, 0, err
+			}
+
+			// 不同步已经terminated的主机
+			if *instance.State.Name == ec2.InstanceStateNameTerminated {
+				continue
 			}
 
 			tagspec := TagSpec{}
@@ -438,6 +454,7 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 			}
 
 			var networkInterfaces SNetworkInterfaces
+			eipAddress := SEipAddress{}
 			for _, n := range instance.NetworkInterfaces {
 				i := SNetworkInterface{
 					MacAddress:         *n.MacAddress,
@@ -445,6 +462,13 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 					PrimaryIpAddress:   *n.PrivateIpAddress,
 				}
 				networkInterfaces.NetworkInterface = append(networkInterfaces.NetworkInterface, i)
+
+				// todo: 可能有多个EIP的情况。目前只支持一个EIP
+				if n.Association != nil && StrVal(n.Association.IpOwnerId) != "amazon" {
+					if eipAddress.IpAddress == "" && len(StrVal(n.Association.PublicIp)) > 0 {
+						eipAddress.IpAddress = *n.Association.PublicIp
+					}
+				}
 			}
 
 			var vpcattr SVpcAttributes
@@ -455,6 +479,16 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 			var productCodes []string
 			for _, p := range instance.ProductCodes {
 				productCodes = append(productCodes, *p.ProductCodeId)
+			}
+
+			publicIpAddress := SIpAddress{}
+			if len(*instance.PublicIpAddress) > 0 {
+				publicIpAddress.IpAddress = []string{*instance.PublicIpAddress}
+			}
+
+			innerIpAddress := SIpAddress{}
+			if len(*instance.PrivateIpAddress) > 0 {
+				innerIpAddress.IpAddress = []string{*instance.PrivateIpAddress}
 			}
 
 			szone, err := self.getZoneById(*instance.Placement.AvailabilityZone)
@@ -483,8 +517,9 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				PublicDNSName:     *instance.PublicDnsName,
 				RootDeviceName:    *instance.RootDeviceName,
 				Status:            *instance.State.Name,
-				InnerIpAddress:    SIpAddress{[]string{*instance.PrivateIpAddress}},
-				PublicIpAddress:   SIpAddress{[]string{*instance.PublicIpAddress}},
+				InnerIpAddress:    innerIpAddress,
+				PublicIpAddress:   publicIpAddress,
+				EipAddress:        eipAddress,
 				InstanceName:      tagspec.GetNameTag(),
 				Description:       tagspec.GetDescTag(),
 				Disks:             disks,
@@ -496,7 +531,6 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				OSName:            image.OSName, // todo: 这里在model层回写OSName信息
 				OSType:            image.OSType,
 				// ExpiredTime:
-				// EipAddress:
 				// VlanId:
 				// OSType:
 			}
@@ -509,6 +543,10 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 }
 
 func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
+	if len(instanceId) == 0 {
+		return nil, fmt.Errorf("GetInstance instanceId should not be empty.")
+	}
+
 	instances, _, err := self.GetInstances("", []string{instanceId}, 0, 1)
 	if err != nil {
 		return nil, err
@@ -626,7 +664,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	if len(res.Instances) == 1 {
 		return *res.Instances[0].InstanceId, nil
 	} else {
-		msg := fmt.Sprintf("CreateInstance fail: %s instance created. ", len(res.Instances))
+		msg := fmt.Sprintf("CreateInstance fail: %d instance created. ", len(res.Instances))
 		log.Errorf(msg)
 		return "", fmt.Errorf(msg)
 	}
@@ -681,9 +719,23 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 		return err
 	}
 
+	// 检查删除保护状态.如果已开启则先关闭删除保护再进行删除操作
+	protect, err := self.deleteProtectStatusVM(instanceId)
+	if err != nil {
+		return err
+	}
+
+	if protect {
+		log.Warningf("DeleteVM instance %s which termination protect is in open status", instanceId)
+		err = self.deleteProtectVM(instanceId, false)
+		if err != nil {
+			return err
+		}
+	}
+
 	params := &ec2.TerminateInstancesInput{}
 	params.SetInstanceIds([]*string{&instanceId})
-	_, err := self.ec2Client.TerminateInstances(params)
+	_, err = self.ec2Client.TerminateInstances(params)
 	return err
 }
 
@@ -753,7 +805,7 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 	if rootDisk == nil {
 		return "", fmt.Errorf("can not find root disk of instance %s", instanceId)
 	}
-	log.Debugf("ReplaceSystemDisk replace root disk %s", rootDisk)
+	log.Debugf("ReplaceSystemDisk replace root disk %s", rootDisk.DiskId)
 
 	image, err := self.GetImage(imageId)
 	if err != nil {
@@ -847,6 +899,31 @@ func (self *SRegion) AttachDisk(instanceId string, diskId string, deviceName str
 	return err
 }
 
+func (self *SRegion) deleteProtectStatusVM(instanceId string) (bool, error) {
+	p := &ec2.DescribeInstanceAttributeInput{}
+	p.SetInstanceId(instanceId)
+	p.SetAttribute("disableApiTermination")
+	ret, err := self.ec2Client.DescribeInstanceAttribute(p)
+	if err != nil {
+		return false, err
+	}
+
+	return *ret.DisableApiTermination.Value, nil
+}
+
+func (self *SRegion) deleteProtectVM(instanceId string, disableDelete bool) error {
+	p2 := &ec2.ModifyInstanceAttributeInput{
+		DisableApiTermination: &ec2.AttributeBooleanValue{Value: &disableDelete},
+		InstanceId:            &instanceId,
+	}
+	_, err := self.ec2Client.ModifyInstanceAttribute(p2)
+	return err
+}
+
 func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SInstance) Renew(bc billing.SBillingCycle) error {
 	return cloudprovider.ErrNotSupported
 }

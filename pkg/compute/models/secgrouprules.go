@@ -9,14 +9,15 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SSecurityGroupRuleManager struct {
@@ -281,7 +282,13 @@ func (self *SSecurityGroupRule) String() string {
 }
 
 func (self *SSecurityGroupRule) toRule() (*secrules.SecurityRule, error) {
-	return secrules.ParseSecurityRule(self.String())
+	rule, err := secrules.ParseSecurityRule(self.String())
+	if err != nil {
+		return nil, err
+	}
+	rule.Description = self.Description
+	rule.Priority = int(self.Priority)
+	return rule, nil
 }
 
 func (self *SSecurityGroupRule) SingleRules() ([]secrules.SecurityRule, error) {
@@ -453,4 +460,16 @@ func (manager *SSecurityGroupRuleManager) newFromCloudSecurityGroup(rule secrule
 		return nil, err
 	}
 	return secrule, nil
+}
+
+func (manager *SSecurityGroupRuleManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
+	return userCred.GetProjectId()
+}
+
+func (self *SSecurityGroupRule) GetOwnerProjectId() string {
+	secgrp := self.GetSecGroup()
+	if secgrp != nil {
+		return secgrp.ProjectId
+	}
+	return ""
 }

@@ -2,11 +2,13 @@ package qcloud
 
 import (
 	"fmt"
-	"yunion.io/x/pkg/utils"
 
 	"github.com/nelsonken/cos-go-sdk-v5/cos"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -91,7 +93,10 @@ func (self *SRegion) GetClient() *SQcloudClient {
 }
 
 func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) {
-	eips, total, err := self.GetEips(eipId, 0, 1)
+	if len(eipId) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	eips, total, err := self.GetEips(eipId, "", 0, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -105,13 +110,13 @@ func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) 
 }
 
 func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	eips, total, err := self.GetEips("", 0, 50)
+	eips, total, err := self.GetEips("", "", 0, 50)
 	if err != nil {
 		return nil, err
 	}
 	for len(eips) < total {
 		var parts []SEipAddress
-		parts, total, err = self.GetEips("", len(eips), 50)
+		parts, total, err = self.GetEips("", "", len(eips), 50)
 		if err != nil {
 			return nil, err
 		}
@@ -391,18 +396,11 @@ func (self *SRegion) GetVpcs(vpcIds []string, offset int, limit int) ([]SVpc, in
 	return vpcs, int(total), nil
 }
 
-func (self *SRegion) GetLatitude() float32 {
+func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	if info, ok := LatitudeAndLongitude[self.Region]; ok {
-		return info["latitude"]
+		return info
 	}
-	return 0.0
-}
-
-func (self *SRegion) GetLongitude() float32 {
-	if info, ok := LatitudeAndLongitude[self.Region]; ok {
-		return info["longitude"]
-	}
-	return 0.0
+	return cloudprovider.SGeographicInfo{}
 }
 
 func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
@@ -531,7 +529,7 @@ func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, me
 		log.Debugf("Search in zone %s", z.Zone)
 		net := z.getNetworkById(networkId)
 		if net != nil {
-			inst, err := z.getHost().CreateVM(name, imgId, 0, cpu, memGB*1024, networkId, "", "", passwd, storageType, dataDiskSizesGB, publicKey, "", "")
+			inst, err := z.getHost().CreateVM(name, imgId, 0, cpu, memGB*1024, networkId, "", "", passwd, storageType, dataDiskSizesGB, publicKey, "", "", nil)
 			if err != nil {
 				return nil, err
 			}
@@ -573,4 +571,16 @@ func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
 		return "", err
 	}
 	return instance.InstanceState, nil
+}
+
+func (region *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetILoadbalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetILoadbalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }

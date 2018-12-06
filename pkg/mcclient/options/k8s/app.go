@@ -26,6 +26,7 @@ type K8sAppBaseCreateOptions struct {
 	Cpu             float64  `help:"Cpu request cores"`
 	Command         string   `help:"Container start command"`
 	CommandArgs     string   `help:"Container start command args"`
+	Pvc             []string `help:"PVC volume desc, format is <pvc_name>:<mount_point>"`
 }
 
 func (o K8sAppBaseCreateOptions) Params() (*jsonutils.JSONDict, error) {
@@ -92,6 +93,18 @@ func (o K8sAppBaseCreateOptions) Params() (*jsonutils.JSONDict, error) {
 	if o.CommandArgs != "" {
 		params.Add(jsonutils.NewString(o.CommandArgs), "containerCommandArgs")
 	}
+	vols := jsonutils.NewArray()
+	volMounts := jsonutils.NewArray()
+	for _, pvc := range o.Pvc {
+		vol, volMount, err := parsePvc(pvc)
+		if err != nil {
+			return nil, err
+		}
+		vols.Add(vol)
+		volMounts.Add(volMount)
+	}
+	params.Add(vols, "volumes")
+	params.Add(volMounts, "volumeMounts")
 	return params, nil
 }
 
@@ -185,4 +198,45 @@ func parseLabel(str string) (jsonutils.JSONObject, error) {
 	label.Add(jsonutils.NewString(parts[0]), "key")
 	label.Add(jsonutils.NewString(parts[1]), "value")
 	return label, nil
+}
+
+func parsePvc(pvcDesc string) (jsonutils.JSONObject, jsonutils.JSONObject, error) {
+	parts := strings.Split(pvcDesc, ":")
+	if len(parts) != 2 {
+		return nil, nil, fmt.Errorf("Invalid PVC desc string: %s", pvcDesc)
+	}
+	pvcName := parts[0]
+	pvcMntPath := parts[1]
+
+	pvcVol := jsonutils.NewDict()
+	pvcVol.Add(jsonutils.NewString(pvcName), "claimName")
+	vol := jsonutils.NewDict()
+	vol.Add(jsonutils.NewString(pvcName), "name")
+	vol.Add(pvcVol, "persistentVolumeClaim")
+
+	volMnt := jsonutils.NewDict()
+	volMnt.Add(jsonutils.NewString(pvcName), "name")
+	volMnt.Add(jsonutils.NewString(pvcMntPath), "mountPath")
+
+	return vol, volMnt, nil
+}
+
+func parsePvcTemplate(pvcDesc string) (jsonutils.JSONObject, jsonutils.JSONObject, error) {
+	parts := strings.Split(pvcDesc, ":")
+	if len(parts) != 3 {
+		return nil, nil, fmt.Errorf("Invalid PVC desc string: %s", pvcDesc)
+	}
+	pvcName := parts[0]
+	pvcSize := parts[1]
+	pvcMntPath := parts[2]
+
+	vol := jsonutils.NewDict()
+	vol.Add(jsonutils.NewString(pvcName), "name")
+	vol.Add(jsonutils.NewString(pvcSize), "size")
+
+	volMnt := jsonutils.NewDict()
+	volMnt.Add(jsonutils.NewString(pvcName), "name")
+	volMnt.Add(jsonutils.NewString(pvcMntPath), "mountPath")
+
+	return vol, volMnt, nil
 }

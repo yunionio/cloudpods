@@ -84,7 +84,13 @@ func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonu
 	if err != nil {
 		return nil, err
 	}
-	return _jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params)
+
+func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	client, err := self.getSdkClient()
+	if err != nil {
+		return nil, err
+	}
+	return jsonRequest(client, "slb.aliyuncs.com", ALIYUN_API_VERSION_LB, apiName, params)
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -108,18 +114,11 @@ func (self *SRegion) GetProvider() string {
 	return CLOUD_PROVIDER_ALIYUN
 }
 
-func (self *SRegion) GetLatitude() float32 {
-	if locationInfo, ok := LatitudeAndLongitude[self.RegionId]; ok {
-		return locationInfo["latitude"]
+func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
+	if info, ok := LatitudeAndLongitude[self.RegionId]; ok {
+		return info
 	}
-	return 0.0
-}
-
-func (self *SRegion) GetLongitude() float32 {
-	if locationInfo, ok := LatitudeAndLongitude[self.RegionId]; ok {
-		return locationInfo["longitude"]
-	}
-	return 0.0
+	return cloudprovider.SGeographicInfo{}
 }
 
 func (self *SRegion) GetStatus() string {
@@ -433,7 +432,7 @@ func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, me
 		log.Debugf("Search in zone %s", z.LocalName)
 		net := z.getNetworkById(vswitchId)
 		if net != nil {
-			inst, err := z.getHost().CreateVM(name, imgId, 0, cpu, memGB*1024, vswitchId, "", "", passwd, storageType, dataDiskSizesGB, publicKey, "", "")
+			inst, err := z.getHost().CreateVM(name, imgId, 0, cpu, memGB*1024, vswitchId, "", "", passwd, storageType, dataDiskSizesGB, publicKey, "", "", nil)
 			if err != nil {
 				return nil, err
 			}
@@ -691,4 +690,43 @@ func (region *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name s
 		secgroupId = extID
 	}
 	return secgroupId, region.syncSecgroupRules(secgroupId, rules)
+}
+
+func (region *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
+	lbs, err := region.GetLoadbalancers(nil)
+	if err != nil {
+		return nil, err
+	}
+	ilbs := []cloudprovider.ICloudLoadbalancer{}
+	for i := 0; i < len(lbs); i++ {
+		lbs[i].region = region
+		ilbs = append(ilbs, &lbs[i])
+	}
+	return ilbs, nil
+}
+
+func (region *SRegion) GetILoadbalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
+	acls, err := region.GetLoadbalancerAcls()
+	if err != nil {
+		return nil, err
+	}
+	iAcls := []cloudprovider.ICloudLoadbalancerAcl{}
+	for i := 0; i < len(acls); i++ {
+		acls[i].region = region
+		iAcls = append(iAcls, &acls[i])
+	}
+	return iAcls, nil
+}
+
+func (region *SRegion) GetILoadbalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
+	certificates, err := region.GetLoadbalancerServerCertificates()
+	if err != nil {
+		return nil, err
+	}
+	iCertificates := []cloudprovider.ICloudLoadbalancerCertificate{}
+	for i := 0; i < len(certificates); i++ {
+		certificates[i].region = region
+		iCertificates = append(iCertificates, &certificates[i])
+	}
+	return iCertificates, nil
 }

@@ -7,14 +7,15 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SWireManager struct {
@@ -275,30 +276,26 @@ func (manager *SWireManager) newFromCloudWire(extWire cloudprovider.ICloudWire, 
 	return &wire, nil
 }
 
-func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes []string) *sqlchemy.SQuery {
+func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes []string, providers []string) *sqlchemy.SQuery {
 	guests := GuestManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
+
 	gNics := GuestnetworkManager.Query().SubQuery()
 	gNicQ := gNics.Query(
 		gNics.Field("network_id"),
-		sqlchemy.COUNT("id").Label("gnic_count")).
-		Join(guests, sqlchemy.AND(
-			sqlchemy.IsFalse(guests.Field("deleted")),
-			sqlchemy.Equals(guests.Field("id"), gNics.Field("guest_id")),
-		)).
-		Join(hosts, sqlchemy.AND(
-			sqlchemy.Equals(guests.Field("host_id"), hosts.Field("id")),
-			sqlchemy.IsFalse(hosts.Field("deleted")),
-			sqlchemy.IsTrue(hosts.Field("enabled"))))
+		sqlchemy.COUNT("id").Label("gnic_count"),
+	)
+	gNicQ = gNicQ.Join(guests, sqlchemy.Equals(guests.Field("id"), gNics.Field("guest_id")))
+	gNicQ = gNicQ.Join(hosts, sqlchemy.Equals(guests.Field("host_id"), hosts.Field("id")))
+	gNicQ = gNicQ.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 
 	hNics := HostnetworkManager.Query().SubQuery()
 	hNicQ := hNics.Query(
 		hNics.Field("network_id"),
-		sqlchemy.COUNT("id").Label("hnic_count")).
-		Join(hosts, sqlchemy.AND(
-			sqlchemy.Equals(hNics.Field("baremetal_id"), hosts.Field("id")),
-			sqlchemy.IsFalse(hosts.Field("deleted")),
-			sqlchemy.IsTrue(hosts.Field("enabled"))))
+		sqlchemy.COUNT("id").Label("hnic_count"),
+	)
+	hNicQ = hNicQ.Join(hosts, sqlchemy.Equals(hNics.Field("baremetal_id"), hosts.Field("id")))
+	hNicQ = hNicQ.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 
 	revIps := ReservedipManager.Query().SubQuery()
 	revQ := revIps.Query(revIps.Field("network_id"), sqlchemy.COUNT("id").Label("rnic_count"))
@@ -313,30 +310,41 @@ func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes
 		sqlchemy.COUNT("id").Label("net_count"),
 		sqlchemy.SUM("gnic_count", gNicQ.Field("gnic_count")),
 		sqlchemy.SUM("hnic_count", hNicQ.Field("hnic_count")),
-		sqlchemy.SUM("rev_count", revQ.Field("rnic_count"))).
-		LeftJoin(gNicSQ, sqlchemy.Equals(gNicSQ.Field("network_id"), networks.Field("id"))).
-		LeftJoin(hNicSQ, sqlchemy.Equals(hNicSQ.Field("network_id"), networks.Field("id"))).
-		LeftJoin(revSQ, sqlchemy.Equals(revSQ.Field("network_id"), networks.Field("id"))).
-		GroupBy(networks.Field("wire_id")).SubQuery()
+		sqlchemy.SUM("rev_count", revQ.Field("rnic_count")))
+	netQ = netQ.LeftJoin(gNicSQ, sqlchemy.Equals(gNicSQ.Field("network_id"), networks.Field("id")))
+	netQ = netQ.LeftJoin(hNicSQ, sqlchemy.Equals(hNicSQ.Field("network_id"), networks.Field("id")))
+	netQ = netQ.LeftJoin(revSQ, sqlchemy.Equals(revSQ.Field("network_id"), networks.Field("id")))
+	netQ = netQ.GroupBy(networks.Field("wire_id"))
+	netSQ := netQ.SubQuery()
 
 	wires := WireManager.Query().SubQuery()
 	q := wires.Query(
 		sqlchemy.COUNT("id").Label("wires_count"),
-		sqlchemy.SUM("net_count", netQ.Field("net_count")),
-		sqlchemy.SUM("guest_nic_count", netQ.Field("gnic_count")),
-		sqlchemy.SUM("host_nic_count", netQ.Field("hnic_count")),
-		sqlchemy.SUM("reserved_count", netQ.Field("rev_count")),
-	).
-		LeftJoin(netQ, sqlchemy.Equals(wires.Field("id"), netQ.Field("wire_id")))
-	hostwires := HostwireManager.Query().SubQuery()
-	sq := hostwires.Query(hostwires.Field("wire_id")).
-		Join(hosts, sqlchemy.AND(
-			sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")),
-			sqlchemy.IsFalse(hosts.Field("deleted")),
-			sqlchemy.IsTrue(hosts.Field("enabled"))))
-	sq = AttachUsageQuery(sq, hosts, hosts.Field("id"), hostTypes, rangeObj)
+		sqlchemy.SUM("net_count", netSQ.Field("net_count")),
+		sqlchemy.SUM("guest_nic_count", netSQ.Field("gnic_count")),
+		sqlchemy.SUM("host_nic_count", netSQ.Field("hnic_count")),
+		sqlchemy.SUM("reserved_count", netSQ.Field("rev_count")),
+	)
+	q = q.LeftJoin(netSQ, sqlchemy.Equals(wires.Field("id"), netSQ.Field("wire_id")))
 
-	q = q.Filter(sqlchemy.In(wires.Field("id"), sq.Distinct()))
+	if rangeObj != nil || len(hostTypes) > 0 {
+		hostwires := HostwireManager.Query().SubQuery()
+		sq := hostwires.Query(hostwires.Field("wire_id"))
+		sq = sq.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
+		sq = sq.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
+		sq = AttachUsageQuery(sq, hosts, hostTypes, nil, nil, rangeObj)
+		q = q.Filter(sqlchemy.In(wires.Field("id"), sq.Distinct()))
+	}
+
+	if len(providers) > 0 {
+		vpcs := VpcManager.Query().SubQuery()
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+		subq := vpcs.Query(vpcs.Field("id"))
+		subq = subq.Join(cloudproviders, sqlchemy.Equals(vpcs.Field("manager_id"), cloudproviders.Field("id")))
+		subq = subq.Filter(sqlchemy.In(cloudproviders.Field("provider"), providers))
+		q = q.Filter(sqlchemy.In(wires.Field("vpc_id"), subq.SubQuery()))
+	}
+
 	return q
 }
 
@@ -348,9 +356,9 @@ type WiresCountStat struct {
 	ReservedCount int
 }
 
-func (manager *SWireManager) TotalCount(rangeObj db.IStandaloneModel, hostTypes []string) WiresCountStat {
+func (manager *SWireManager) TotalCount(rangeObj db.IStandaloneModel, hostTypes []string, providers []string) WiresCountStat {
 	stat := WiresCountStat{}
-	err := manager.totalCountQ(rangeObj, hostTypes).First(&stat)
+	err := manager.totalCountQ(rangeObj, hostTypes, providers).First(&stat)
 	if err != nil {
 		log.Errorf("Wire total count: %v", err)
 	}
@@ -625,6 +633,49 @@ func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.In("vpc_id", sq.SubQuery())
 	}
 
+	managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
+	if len(managerStr) > 0 {
+		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		sq := VpcManager.Query("id").Equals("manager_id", provider.GetId())
+		q = q.In("vpc_id", sq.SubQuery())
+	}
+
+	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
+	if len(accountStr) > 0 {
+		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		vpcs := VpcManager.Query().SubQuery()
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+
+		subq := vpcs.Query(vpcs.Field("id"))
+		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), vpcs.Field("manager_id")))
+		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), account.GetId()))
+		q = q.Filter(sqlchemy.In(q.Field("vpc_id"), subq.SubQuery()))
+	}
+
+	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
+	if len(providerStr) > 0 {
+		vpcs := VpcManager.Query().SubQuery()
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+
+		subq := vpcs.Query(vpcs.Field("id"))
+		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), vpcs.Field("manager_id")))
+		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr))
+
+		q = q.Filter(sqlchemy.In(q.Field("vpc_id"), subq.SubQuery()))
+	}
+
 	return q, err
 }
 
@@ -648,7 +699,7 @@ func (self *SWire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenC
 
 func (self *SWire) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	extra.Add(jsonutils.NewInt(int64(self.NetworkCount())), "networks")
-	zone := self.GetZone()
+	/*zone := self.GetZone()
 	if zone != nil {
 		extra.Add(jsonutils.NewString(zone.GetName()), "zone")
 		if len(zone.GetExternalId()) > 0 {
@@ -662,13 +713,17 @@ func (self *SWire) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 		if len(region.GetExternalId()) > 0 {
 			extra.Add(jsonutils.NewString(region.GetExternalId()), "region_external_id")
 		}
-	}
+	}*/
 	vpc := self.getVpc()
 	if vpc != nil {
 		extra.Add(jsonutils.NewString(vpc.GetName()), "vpc")
 		if len(vpc.GetExternalId()) > 0 {
-			extra.Add(jsonutils.NewString(vpc.GetExternalId()), "vpc_external_id")
+			extra.Add(jsonutils.NewString(vpc.GetExternalId()), "vpc_ext_id")
 		}
 	}
+
+	info := vpc.getCloudProviderInfo()
+	extra.Update(jsonutils.Marshal(&info))
+
 	return extra
 }

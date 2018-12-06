@@ -3,10 +3,10 @@ package tasks
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 
-	"time"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -66,11 +66,8 @@ func (self *KVMGuestCreateDiskTask) OnKvmDiskPrepared(ctx context.Context, obj d
 		}
 		disk := iDisk.(*models.SDisk)
 		if disk.Status == models.DISK_INIT {
-			snapInfo, err := self.Params.GetString(fmt.Sprintf("disk.%d.snapshot", diskIndex))
-			if err != nil {
-				snapInfo = ""
-			}
-			err = disk.StartDiskCreateTask(ctx, self.UserCred, false, snapInfo, self.GetTaskId())
+			snapshotId, _ := self.Params.GetString(fmt.Sprintf("disk.%d.snapshot", diskIndex))
+			err = disk.StartDiskCreateTask(ctx, self.UserCred, false, snapshotId, self.GetTaskId())
 			if err != nil {
 				self.SetStageFailed(ctx, err.Error())
 				return
@@ -267,8 +264,8 @@ func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandal
 
 		disk.SetStatus(self.UserCred, models.DISK_READY, "create disk success")
 		disk.GetStorage().ClearSchedDescCache()
-		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(), self.UserCred)
-		db.OpsLog.LogAttachEvent(guest, disk, self.UserCred, disk.GetShortDesc())
+		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), self.UserCred)
+		db.OpsLog.LogAttachEvent(ctx, guest, disk, self.UserCred, disk.GetShortDesc(ctx))
 	}
 
 	self.SetStageComplete(ctx, nil)

@@ -35,6 +35,11 @@ func (self *SBaremetalGuestDriver) GetHypervisor() string {
 	return models.HYPERVISOR_BAREMETAL
 }
 
+func (self *SBaremetalGuestDriver) GetMaxSecurityGroupCount() int {
+	//暂不支持绑定安全组
+	return 0
+}
+
 func (self *SBaremetalGuestDriver) GetMaxVCpuCount() int {
 	return 1024
 }
@@ -249,12 +254,14 @@ func (self *SBaremetalGuestDriver) StartGuestSyncstatusTask(guest *models.SGuest
 
 func (self *SBaremetalGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	var confs = make([]baremetal.BaremetalDiskConfig, 0)
-	for data.Contains(fmt.Sprintf("baremetal_disk_config.%d", len(confs))) {
-		desc, _ := data.GetString(fmt.Sprintf("baremetal_disk_config.%d", len(confs)))
-		data.Remove(fmt.Sprintf("baremetal_disk_config.%d", len(confs)))
+	jsonArray := jsonutils.GetArrayOfPrefix(data, "baremetal_disk_config")
+	for i := 0; i < len(jsonArray); i += 1 {
+		// for data.Contains(fmt.Sprintf("baremetal_disk_config.%d", len(confs))) {
+		desc, _ := jsonArray[i].GetString() // data.GetString(fmt.Sprintf("baremetal_disk_config.%d", len(confs)))
+		data.Remove(fmt.Sprintf("baremetal_disk_config.%d", i))
 		bmConf, err := baremetal.ParseDiskConfig(desc)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("baremetal_disk_config.%d", len(confs))
+			return nil, httperrors.NewInputParameterError("baremetal_disk_config.%d", i)
 		}
 		confs = append(confs, bmConf)
 	}
@@ -340,7 +347,7 @@ func (self *SBaremetalGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Con
 			}
 			db.OpsLog.LogEvent(disk, db.ACT_UPDATE_STATUS, notes, task.GetUserCred())
 			logclient.AddActionLog(disk, logclient.ACT_VM_SYNC_STATUS, nil, task.GetUserCred(), false)
-			db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(), task.GetUserCred())
+			db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), task.GetUserCred())
 			if disks[i].Contains("dev") {
 				dev, _ := disks[i].GetString("dev")
 				disk.SetMetadata(ctx, "dev", dev, task.GetUserCred())

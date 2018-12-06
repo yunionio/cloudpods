@@ -3,7 +3,6 @@ package tasks
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -31,9 +30,7 @@ func (self *BaremetalServerSyncStatusTask) OnInit(ctx context.Context, obj db.IS
 		return
 	}
 	url := fmt.Sprintf("/baremetals/%s/servers/%s/status", baremetal.Id, guest.Id)
-	headers := http.Header{}
-	headers.Set("X-Auth-Token", self.GetUserCred().GetTokenString())
-	headers.Set("X-Task-Id", self.GetId())
+	headers := self.GetTaskRequestHeader()
 	self.SetStage("OnGuestStatusTaskComplete", nil)
 	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, nil)
 	if err != nil {

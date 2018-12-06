@@ -49,6 +49,9 @@ type SSnapshot struct {
 	FakeDeleted bool   `nullable:"false" default:"false" index:"true"`
 	DiskType    string `width:"32" charset:"ascii" nullable:"true" list:"user"`
 
+	// create disk from snapshot, snapshot as disk backing file
+	RefCount int `nullable:"false" default:"0" list:"user"`
+
 	CloudregionId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 }
 
@@ -138,6 +141,19 @@ func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		q = q.Equals("manager_id", managerObj.GetId())
 	}
 
+	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
+	if len(accountStr) > 0 {
+		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", account.GetId()).SubQuery()
+		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+	}
+
 	return q, nil
 }
 
@@ -155,13 +171,13 @@ func (self *SSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSON
 	if IStorage, _ := StorageManager.FetchById(self.StorageId); IStorage != nil {
 		storage := IStorage.(*SStorage)
 		extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
-		if provider := storage.GetCloudprovider(); provider != nil {
-			extra.Add(jsonutils.NewString(provider.Name), "provider")
-		}
+		// if provider := storage.GetCloudprovider(); provider != nil {
+		// 	extra.Add(jsonutils.NewString(provider.Name), "provider")
+		// }
 	} else {
-		if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
-			extra.Add(jsonutils.NewString(cloudprovider.Provider), "provider")
-		}
+		// if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
+		// 	extra.Add(jsonutils.NewString(cloudprovider.Provider), "provider")
+		// }
 	}
 	disk, _ := self.GetDisk()
 	if disk != nil {
@@ -174,13 +190,17 @@ func (self *SSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSON
 		}
 		extra.Add(jsonutils.NewString(disk.Name), "disk_name")
 	}
+
+	info := self.getCloudProviderInfo()
+	extra.Update(jsonutils.Marshal(&info))
+
 	return extra
 }
 
-func (self *SSnapshot) GetShortDesc() *jsonutils.JSONDict {
-	res := self.SVirtualResourceBase.GetShortDesc()
+func (self *SSnapshot) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	res := self.SVirtualResourceBase.GetShortDesc(ctx)
 	res.Add(jsonutils.NewInt(int64(self.Size)), "size")
-	if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
+	/*if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
 		res.Add(jsonutils.NewString(cloudprovider.Provider), "hypervisor")
 	}
 	if len(self.CloudregionId) > 0 {
@@ -188,7 +208,9 @@ func (self *SSnapshot) GetShortDesc() *jsonutils.JSONDict {
 		if cloudRegion != nil {
 			res.Add(jsonutils.NewString(cloudRegion.ExternalId), "region")
 		}
-	}
+	}*/
+	info := self.getCloudProviderInfo()
+	res.Update(jsonutils.Marshal(&info))
 	return res
 }
 
@@ -241,6 +263,20 @@ func (self *SSnapshot) GetHost() *SHost {
 	}
 	storage := iStorage.(*SStorage)
 	return storage.GetMasterHost()
+}
+
+func (self *SSnapshotManager) AddRefCount(snapshotId string, count int) {
+	iSnapshot, _ := self.FetchById(snapshotId)
+	if iSnapshot != nil {
+		snapshot := iSnapshot.(*SSnapshot)
+		_, err := self.TableSpec().Update(snapshot, func() error {
+			snapshot.RefCount += count
+			return nil
+		})
+		if err != nil {
+			log.Errorf("Snapshot add refence count error: %s", err)
+		}
+	}
 }
 
 func (self *SSnapshotManager) GetDiskSnapshotsByCreate(diskId, createdBy string) []SSnapshot {
@@ -340,6 +376,9 @@ func (self *SSnapshot) StartSnapshotDeleteTask(ctx context.Context, userCred mcc
 }
 
 func (self *SSnapshot) ValidateDeleteCondition(ctx context.Context) error {
+	if self.RefCount > 0 {
+		return fmt.Errorf("Snapshot reference(by disk) count > 0, can not delete")
+	}
 	return nil
 }
 
@@ -453,10 +492,31 @@ func (self *SSnapshot) Delete(ctx context.Context, userCred mcclient.TokenCreden
 	return nil
 }
 
-func totalSnapshotCount(projectId string) int {
+func TotalSnapshotCount(projectId string, rangeObj db.IStandaloneModel, providers []string) int {
 	q := SnapshotManager.Query()
-	count := q.Equals("tenant_id", projectId).Equals("fake_deleted", false).Count()
-	return count
+	if len(projectId) > 0 {
+		q = q.Equals("tenant_id", projectId)
+	}
+	if rangeObj != nil {
+		switch rangeObj.Keyword() {
+		case "cloudprovider":
+			q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), rangeObj.GetId()))
+		case "cloudaccount":
+			cloudproviders := CloudproviderManager.Query().SubQuery()
+			subq := cloudproviders.Query(cloudproviders.Field("id")).Equals("cloudaccount_id", rangeObj.GetId()).SubQuery()
+			q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+		case "cloudregion":
+			q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), rangeObj.GetId()))
+		}
+	}
+	if len(providers) > 0 {
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+		subq := cloudproviders.Query(cloudproviders.Field("id"))
+		subq = subq.In("provider", providers)
+		q = q.In("manager_id", subq.SubQuery())
+	}
+	q = q.Equals("fake_deleted", false)
+	return q.Count()
 }
 
 // Only sync snapshot status
@@ -477,7 +537,7 @@ func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, 
 	return err
 }
 
-func (manager *SSnapshotManager) newFromCloudSnapshot(userCred mcclient.TokenCredential, extSnapshot cloudprovider.ICloudSnapshot, region *SCloudregion, projectId string, provider *SCloudprovider) (*SSnapshot, error) {
+func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userCred mcclient.TokenCredential, extSnapshot cloudprovider.ICloudSnapshot, region *SCloudregion, projectId string, provider *SCloudprovider) (*SSnapshot, error) {
 	snapshot := SSnapshot{}
 	snapshot.SetModelManager(manager)
 
@@ -507,7 +567,7 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(userCred mcclient.TokenCre
 		log.Errorf("newFromCloudEip fail %s", err)
 		return nil, err
 	}
-	db.OpsLog.LogEvent(&snapshot, db.ACT_SNAPSHOT_DONE, snapshot.GetShortDesc(), userCred)
+	db.OpsLog.LogEvent(&snapshot, db.ACT_SNAPSHOT_DONE, snapshot.GetShortDesc(ctx), userCred)
 	return &snapshot, nil
 }
 
@@ -558,7 +618,7 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		_, err := manager.newFromCloudSnapshot(userCred, added[i], region, projectId, provider)
+		_, err := manager.newFromCloudSnapshot(ctx, userCred, added[i], region, projectId, provider)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -602,4 +662,10 @@ func (self *SSnapshot) PerformPurge(ctx context.Context, userCred mcclient.Token
 	}
 	err = self.RealDelete(ctx, userCred)
 	return nil, err
+}
+
+func (self *SSnapshot) getCloudProviderInfo() SCloudProviderInfo {
+	region := self.GetRegion()
+	provider := self.GetCloudprovider()
+	return MakeCloudProviderInfo(region, nil, provider)
 }

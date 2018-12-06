@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -12,6 +13,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SBaseGuestDriver struct {
@@ -55,6 +57,13 @@ func (self *SBaseGuestDriver) StartGuestCreateTask(guest *models.SGuest, ctx con
 }
 
 func (self *SBaseGuestDriver) OnGuestCreateTaskComplete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	duration, _ := task.GetParams().GetString("duration")
+	if len(duration) > 0 {
+		bc, err := billing.ParseBillingCycle(duration)
+		if err == nil && guest.ExpiredAt.IsZero() {
+			guest.SaveRenewInfo(ctx, task.GetUserCred(), &bc, nil)
+		}
+	}
 	if jsonutils.QueryBoolean(task.GetParams(), "auto_start", false) {
 		task.SetStage("on_auto_start_guest", nil)
 		return guest.StartGueststartTask(ctx, task.GetUserCred(), nil, task.GetTaskId())
@@ -188,6 +197,18 @@ func (self *SBaseGuestDriver) RequestSyncToBackup(ctx context.Context, guest *mo
 	return fmt.Errorf("Not Implement")
 }
 
+func (self *SBaseGuestDriver) GetMaxSecurityGroupCount() int {
+	return 5
+}
+
 func (self *SBaseGuestDriver) getTaskRequestHeader(task taskman.ITask) http.Header {
 	return task.GetTaskRequestHeader()
+}
+
+func (self *SBaseGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {
+	return true
+}
+
+func (self *SBaseGuestDriver) RequestRenewInstance(guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
+	return time.Time{}, nil
 }

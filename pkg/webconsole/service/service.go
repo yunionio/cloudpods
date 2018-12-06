@@ -27,28 +27,31 @@ func ensureBinExists(binPath string) {
 func StartService() {
 	consts.SetServiceType("webconsole")
 
-	cloudcommon.ParseOptions(&o.Options, &o.Options.Options, os.Args, "webconsole.conf")
+	opts := &o.Options
+	commonOpts := &o.Options.CommonOptions
+	cloudcommon.ParseOptions(opts, commonOpts, os.Args, "webconsole.conf")
 
-	if o.Options.ApiServer == "" {
+	if opts.ApiServer == "" {
 		log.Fatalf("--api-server must specified")
 	}
-	_, err := url.Parse(o.Options.ApiServer)
+	_, err := url.Parse(opts.ApiServer)
 	if err != nil {
-		log.Fatalf("invalid --api-server %s", o.Options.ApiServer)
+		log.Fatalf("invalid --api-server %s", opts.ApiServer)
 	}
 
-	for _, binPath := range []string{o.Options.KubectlPath, o.Options.IpmitoolPath, o.Options.SshToolPath, o.Options.SshpassToolPath} {
+	for _, binPath := range []string{opts.KubectlPath, opts.IpmitoolPath, opts.SshToolPath, opts.SshpassToolPath} {
 		ensureBinExists(binPath)
 	}
 
-	cloudcommon.InitAuth(&o.Options.Options, func() {
+	cloudcommon.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete")
 	})
 	start()
 }
 
 func start() {
-	app := cloudcommon.InitApp(&o.Options.Options)
+	commonOpts := &o.Options.CommonOptions
+	app := cloudcommon.InitApp(commonOpts, false)
 	webconsole.InitHandlers(app)
 
 	root := mux.NewRouter()

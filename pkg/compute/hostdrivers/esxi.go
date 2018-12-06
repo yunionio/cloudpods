@@ -3,12 +3,14 @@ package hostdrivers
 import (
 	"context"
 	"fmt"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"github.com/golang-plus/errors"
 )
 
 type SESXiHostDriver struct {
@@ -62,6 +64,12 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 	content.Format = cacheImage.GetFormat()
 
 	storage := host.GetStorageByFilePath(storageCache.Path)
+	if storage == nil {
+		msg := fmt.Sprintf("fail to find storage for storageCache %s", storageCache.Path)
+		log.Errorf(msg)
+		return errors.New(msg)
+	}
+
 	accessInfo, err := host.GetCloudaccount().GetVCenterAccessInfo(storage.ExternalId)
 	if err != nil {
 		return err

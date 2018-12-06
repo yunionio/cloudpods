@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -11,6 +12,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SESXiGuestDriver struct {
@@ -29,6 +31,11 @@ func (self *SESXiGuestDriver) GetHypervisor() string {
 func (self *SESXiGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (self *SESXiGuestDriver) GetMaxSecurityGroupCount() int {
+	//暂不支持绑定安全组
+	return 0
 }
 
 func (self *SESXiGuestDriver) GetDetachDiskStatus() ([]string, error) {
@@ -145,7 +152,7 @@ func (self *SESXiGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context,
 		if host.Id != guest.HostId {
 			models.HostManager.ClearSchedDescCache(host.Id)
 			models.HostManager.ClearSchedDescCache(guest.HostId)
-			guest.SetHostId(host.Id)
+			guest.OnScheduleToHost(ctx, task.GetUserCred(), host.Id)
 		}
 	}
 
@@ -163,4 +170,8 @@ func (self *SESXiGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest 
 	}
 	subtask.ScheduleRun(nil)
 	return nil
+}
+
+func (self *SESXiGuestDriver) RequestRenewInstance(guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
+	return time.Time{}, nil
 }

@@ -30,7 +30,7 @@ type SSHtoolSol struct {
 
 func getCommand(ctx context.Context, userCred mcclient.TokenCredential, ip string) (string, *BaseCommand, error) {
 	cmd := NewBaseCommand(o.Options.SshToolPath)
-	s := auth.GetAdminSession(o.Options.Region, "v2")
+	s := auth.GetAdminSession(ctx, o.Options.Region, "v2")
 	key, err := modules.Sshkeypairs.GetById(s, userCred.GetProjectId(), jsonutils.Marshal(map[string]bool{"admin": true}))
 	if err != nil {
 		return "", nil, err
@@ -103,6 +103,15 @@ func (c *SSHtoolSol) Cleanup() error {
 
 func (c *SSHtoolSol) GetProtocol() string {
 	return PROTOCOL_TTY
+}
+
+func (c *SSHtoolSol) Connect() error {
+	conn, err := net.DialTimeout("tcp", c.IP+":22", time.Second*2)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	return nil
 }
 
 func (c *SSHtoolSol) GetData(data string) (isShow bool, ouput string, command string) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/vmware/govmomi/object"
@@ -11,14 +12,13 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 
-	"strings"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "runtime", "summary", "config", "guest"}
@@ -99,6 +99,20 @@ func (self *SVirtualMachine) DeployVM(ctx context.Context, name string, password
 
 func (self *SVirtualMachine) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
+}
+
+func (self *SVirtualMachine) rebuildDisk(ctx context.Context, disk *SVirtualDisk) error {
+	uuid := disk.GetId()
+	sizeMb := disk.GetDiskSizeMB()
+	index := disk.index
+	diskKey := disk.getKey()
+	ctlKey := disk.getControllerKey()
+
+	err := self.doDetachAndDeleteDisk(ctx, disk)
+	if err != nil {
+		return err
+	}
+	return self.createDiskInternal(ctx, sizeMb, uuid, int32(index), diskKey, ctlKey)
 }
 
 func (self *SVirtualMachine) UpdateVM(ctx context.Context, name string) error {
@@ -513,6 +527,10 @@ func (dc *SVirtualMachine) ChangeConfig2(ctx context.Context, instanceType strin
 	return cloudprovider.ErrNotImplemented
 }
 
+func (self *SVirtualMachine) AssignSecurityGroups(secgroupIds []string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
 func (self *SVirtualMachine) GetBillingType() string {
 	return models.BILLING_TYPE_POSTPAID
 }
@@ -663,7 +681,12 @@ func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid st
 	if driver == "ide" {
 		ctlKey += int32(index / 2)
 	}
-	devSpec := NewDiskDev(int64(sizeMb), "", uuid, int32(index), diskKey, ctlKey)
+
+	return self.createDiskInternal(ctx, sizeMb, uuid, int32(index), diskKey, ctlKey)
+}
+
+func (self *SVirtualMachine) createDiskInternal(ctx context.Context, sizeMb int, uuid string, index int32, diskKey int32, ctlKey int32) error {
+	devSpec := NewDiskDev(int64(sizeMb), "", uuid, index, diskKey, ctlKey)
 	spec := addDevSpec(devSpec)
 	spec.FileOperation = types.VirtualDeviceConfigSpecFileOperationCreate
 	configSpec := types.VirtualMachineConfigSpec{}
@@ -689,4 +712,8 @@ func (self *SVirtualMachine) CreateDisk(ctx context.Context, sizeMb int, uuid st
 		}
 	}
 	return cloudprovider.ErrTimeout
+}
+
+func (self *SVirtualMachine) Renew(bc billing.SBillingCycle) error {
+	return cloudprovider.ErrNotSupported
 }

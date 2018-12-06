@@ -8,15 +8,16 @@ import (
 	"strings"
 	"time"
 
+	coslib "github.com/nelsonken/cos-go-sdk-v5/cos"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-
-	coslib "github.com/nelsonken/cos-go-sdk-v5/cos"
 )
 
 type SStoragecache struct {
@@ -125,7 +126,7 @@ func (self *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, extId string, isForce bool) (string, error) {
+func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
 	if len(extId) > 0 {
 		log.Debugf("UploadImage: Image external ID exists %s", extId)
 
@@ -139,7 +140,7 @@ func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageI
 	} else {
 		log.Debugf("UploadImage: no external ID")
 	}
-	return self.uploadImage(userCred, imageId, osArch, osType, osDist, isForce)
+	return self.uploadImage(ctx, userCred, imageId, osArch, osType, osDist, osVersion, isForce)
 }
 
 func (self *SRegion) getCosUrl(bucket, object string) string {
@@ -147,9 +148,9 @@ func (self *SRegion) getCosUrl(bucket, object string) string {
 	return fmt.Sprintf("http://%s-%s.cos.%s.myqcloud.com/%s", bucket, self.client.AppID, self.Region, object)
 }
 
-func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
+func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, isForce bool) (string, error) {
 	// first upload image to oss
-	s := auth.GetAdminSession(options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 
 	meta, reader, err := modules.Images.Download(s, imageId)
 	if err != nil {
@@ -191,6 +192,9 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		log.Errorf("UploadObject error %s %s", imageId, err)
 		return "", err
 	}
+
+	defer cos.Bucket(bucketName).DeleteObject(context.Background(), imageId)
+
 	// 腾讯云镜像名称需要小于20个字符
 	imageBaseName := imageId[:10]
 	if imageBaseName[0] >= '0' && imageBaseName[0] <= '9' {
@@ -214,7 +218,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 	}
 
 	log.Debugf("Import image %s", imageName)
-	if image, err := self.region.ImportImage(imageName, osArch, osType, osDist, self.region.getCosUrl(bucketName, imageId)); err != nil {
+	if image, err := self.region.ImportImage(imageName, osArch, osDist, osVersion, self.region.getCosUrl(bucketName, imageId)); err != nil {
 		return "", err
 	} else if cloudprovider.WaitStatus(image, string(ImageStatusAvailable), 15*time.Second, 3600*time.Second); err != nil {
 		return "", err

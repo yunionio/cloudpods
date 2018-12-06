@@ -1,6 +1,7 @@
 package k8s
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -92,7 +93,7 @@ func (man *SKubeClusterManager) refreshKubeConfig() {
 }
 
 func (man *SKubeClusterManager) getKubeClusterConfig() (string, error) {
-	session := auth.GetAdminSession(man.region, "v1")
+	session := auth.GetAdminSession(context.Background(), man.region, "v1")
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.JSONTrue, "directly")
 	ret, err := kubeserver.Clusters.PerformAction(session, "default", "generate-kubeconfig", params)

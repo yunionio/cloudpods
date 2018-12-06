@@ -1,17 +1,18 @@
 package qcloud
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 
-	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/pkg/utils"
 )
 
 type Placement struct {
@@ -226,7 +227,7 @@ func (self *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (clou
 	}
 	if total == 1 {
 		snapshot := &snapshots[0]
-		err := cloudprovider.WaitStatus(snapshot, string(SnapshotStatusAccomplished), 15*time.Second, 3600*time.Second)
+		err := cloudprovider.WaitStatus(snapshot, models.SNAPSHOT_READY, 15*time.Second, 3600*time.Second)
 		if err != nil {
 			return nil, err
 		}
@@ -343,8 +344,8 @@ func (self *SRegion) ResetDisk(diskId, snapshotId string) error {
 	return nil
 }
 
-func (self *SDisk) Reset(ctx context.Context, snapshotId string) error {
-	return self.storage.zone.region.ResetDisk(self.DiskId, snapshotId)
+func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
+	return "", self.storage.zone.region.ResetDisk(self.DiskId, snapshotId)
 }
 
 func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, desc string) (string, error) {
@@ -375,4 +376,9 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 
 func (disk *SDisk) GetAccessPath() string {
 	return ""
+}
+
+func (self *SDisk) Rebuild(ctx context.Context) error {
+	// TODO
+	return cloudprovider.ErrNotSupported
 }

@@ -51,7 +51,6 @@ func (self *VpcCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 
 	err = vpc.SyncWithCloudVpc(ivpc)
 	if err != nil {
-		log.Errorf("SyncWithCloudVpc fail: %s", err)
 		self.TaskFailed(ctx, vpc, err)
 		return
 	}
@@ -60,16 +59,13 @@ func (self *VpcCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 	syncVpcWires(ctx, provider, self, vpc, ivpc, &models.SSyncRange{})
 
 	hosts := models.HostManager.GetHostsByManagerAndRegion(provider.Id, vpc.CloudregionId)
-	if hosts != nil {
-		for i := 0; i < len(hosts); i += 1 {
-			ihost, err := hosts[i].GetIHost()
-			if err != nil {
-				log.Errorf("getiHost fail %s", err)
-				self.TaskFailed(ctx, vpc, err)
-				return
-			}
-			syncHostWires(ctx, provider, self, &hosts[i], ihost)
+	for i := 0; i < len(hosts); i += 1 {
+		ihost, err := hosts[i].GetIHost()
+		if err != nil {
+			self.TaskFailed(ctx, vpc, err)
+			return
 		}
+		syncHostWires(ctx, provider, self, &hosts[i], ihost)
 	}
 
 	self.SetStageComplete(ctx, nil)

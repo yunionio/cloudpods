@@ -1,15 +1,17 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 
-	"context"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/coredns/coredns/plugin/pkg/log"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -221,11 +223,15 @@ func (self *SDisk) Resize(ctx context.Context, newSizeMb int64) error {
 	return self.storage.zone.region.resizeDisk(self.DiskId, newSizeMb)
 }
 
-func (self *SDisk) Reset(ctx context.Context, snapshotId string) error {
+func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
 	return self.storage.zone.region.resetDisk(self.DiskId, snapshotId)
 }
 
 func (self *SDisk) getSnapshot(snapshotId string) (*SSnapshot, error) {
+	if len(snapshotId) == 0 {
+		return nil, fmt.Errorf("GetSnapshot snapshot id should not be empty.")
+	}
+
 	if snapshots, total, err := self.storage.zone.region.GetSnapshots("", "", "", []string{snapshotId}, 0, 1); err != nil {
 		return nil, err
 	} else if total != 1 {
@@ -296,7 +302,7 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 			if len(disk.InstanceId) > 0 {
 				instance, err := self.GetInstance(disk.InstanceId)
 				if err != nil {
-					log.Debug(err)
+					log.Debugf("%s", err)
 					return nil, 0, err
 				}
 
@@ -330,6 +336,9 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 }
 
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
+	if len(diskId) == 0 {
+		return nil, fmt.Errorf("GetDisk diskId should not be empty.")
+	}
 	disks, total, err := self.GetDisks("", "", "", []string{diskId}, 0, 1)
 	if err != nil {
 		if strings.Contains(err.Error(), "InvalidVolume.NotFound") {
@@ -382,21 +391,22 @@ func (self *SRegion) resizeDisk(diskId string, sizeMb int64) error {
 	} else {
 		params.SetVolumeId(diskId)
 	}
-
 	_, err := self.ec2Client.ModifyVolume(params)
 	return err
 }
 
-func (self *SRegion) resetDisk(diskId, snapshotId string) error {
+func (self *SRegion) resetDisk(diskId, snapshotId string) (string, error) {
 	// 这里实际是回滚快照
 	disk, err := self.GetDisk(diskId)
 	if err != nil {
 		log.Debugf("resetDisk %s:%s", diskId, err.Error())
-		return err
+		return "", err
 	}
 
 	params := &ec2.CreateVolumeInput{}
-	params.SetSnapshotId(snapshotId)
+	if len(snapshotId) > 0 {
+		params.SetSnapshotId(snapshotId)
+	}
 	params.SetSize(int64(disk.Size))
 	params.SetVolumeType(disk.Category)
 	params.SetAvailabilityZone(disk.ZoneId)
@@ -405,7 +415,7 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) error {
 	ret, err := self.ec2Client.CreateVolume(params)
 	if err != nil {
 		log.Debugf("resetDisk %s: %s", params.String(), err.Error())
-		return err
+		return "", err
 	}
 
 	// detach disk
@@ -413,24 +423,24 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) error {
 		err := self.DetachDisk(disk.InstanceId, diskId)
 		if err != nil {
 			log.Debugf("resetDisk %s %s: %s", disk.InstanceId, diskId, err.Error())
-			return err
+			return "", err
 		}
 
 		err = self.ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&diskId}})
 		if err != nil {
 			log.Debugf("resetDisk :%s", err.Error())
-			return err
+			return "", err
 		}
 	}
 
 	err = self.AttachDisk(disk.InstanceId, *ret.VolumeId, disk.Device)
 	if err != nil {
 		log.Debugf("resetDisk %s %s %s: %s", disk.InstanceId, *ret.VolumeId, disk.Device, err.Error())
-		return err
+		return "", err
 	}
 
 	// 绑定成功后删除原磁盘
-	return self.DeleteDisk(diskId)
+	return StrVal(ret.VolumeId), self.DeleteDisk(diskId)
 }
 
 func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, snapshotId string, desc string) (string, error) {
@@ -464,4 +474,9 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 
 func (disk *SDisk) GetAccessPath() string {
 	return ""
+}
+
+func (self *SDisk) Rebuild(ctx context.Context) error {
+	_, err := self.storage.zone.region.resetDisk(self.DiskId, "")
+	return err
 }

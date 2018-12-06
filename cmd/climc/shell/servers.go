@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/pkg/util/regutils"
 )
 
 func init() {
@@ -55,6 +56,17 @@ func init() {
 		params, err := opts.Params()
 		if err != nil {
 			return err
+		}
+
+		if opts.GenerateName {
+			params.Add(jsonutils.NewString(opts.NAME), "generate_name")
+		} else {
+			params.Add(jsonutils.NewString(opts.NAME), "name")
+		}
+		if regutils.MatchSize(opts.MEMSPEC) {
+			params.Add(jsonutils.NewString(opts.MEMSPEC), "vmem_size")
+		} else {
+			params.Add(jsonutils.NewString(opts.MEMSPEC), "instance_type")
 		}
 
 		if opts.NoAccountInit != nil && *opts.NoAccountInit {
@@ -301,6 +313,32 @@ func init() {
 		return nil
 	})
 
+	R(&options.ServerSecGroupsOptions{}, "server-set-secgroup", "Set security groups to a VM", func(s *mcclient.ClientSession, opts *options.ServerSecGroupsOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		srv, err := modules.Servers.PerformAction(s, opts.ID, "set-secgroup", params)
+		if err != nil {
+			return err
+		}
+		printObject(srv)
+		return nil
+	})
+
+	R(&options.ServerSecGroupsOptions{}, "server-add-secgroup", "Add security group to a VM", func(s *mcclient.ClientSession, opts *options.ServerSecGroupsOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		srv, err := modules.Servers.PerformAction(s, opts.ID, "add-secgroup", params)
+		if err != nil {
+			return err
+		}
+		printObject(srv)
+		return nil
+	})
+
 	R(&options.ServerSecGroupOptions{}, "server-assign-secgroup", "Assign security group to a VM", func(s *mcclient.ClientSession, opts *options.ServerSecGroupOptions) error {
 		params, err := options.StructToParams(opts)
 		if err != nil {
@@ -327,10 +365,14 @@ func init() {
 		return nil
 	})
 
-	R(&options.ServerIdOptions{}, "server-revoke-secgroup", "Assign security group to a VM", func(s *mcclient.ClientSession, opts *options.ServerIdOptions) error {
-		srv, e := modules.Servers.PerformAction(s, opts.ID, "revoke-secgroup", nil)
-		if e != nil {
-			return e
+	R(&options.ServerSecGroupsOptions{}, "server-revoke-secgroup", "Revoke security group from VM", func(s *mcclient.ClientSession, opts *options.ServerSecGroupsOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		srv, err := modules.Servers.PerformAction(s, opts.ID, "revoke-secgroup", params)
+		if err != nil {
+			return err
 		}
 		printObject(srv)
 		return nil
@@ -575,4 +617,43 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type ServerRenewOptions struct {
+		ID       string `help:"ID or name of server to renew"`
+		DURATION string `help:"Duration of renew, ADMIN only command"`
+	}
+	R(&ServerRenewOptions{}, "server-renew", "Renew a server", func(s *mcclient.ClientSession, args *ServerRenewOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.DURATION), "duration")
+		result, err := modules.Servers.PerformAction(s, args.ID, "renew", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type ServerPrepaidRecycleOptions struct {
+		ID string `help:"ID or name of server to recycle"`
+	}
+	R(&ServerPrepaidRecycleOptions{}, "server-enable-recycle", "Put a prepaid server into recycle pool, so that it can be shared", func(s *mcclient.ClientSession, args *ServerPrepaidRecycleOptions) error {
+		params := jsonutils.NewDict()
+		result, err := modules.Servers.PerformAction(s, args.ID, "prepaid-recycle", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&ServerPrepaidRecycleOptions{}, "server-disable-recycle", "Pull a prepaid server from recycle pool, so that it will not be shared anymore", func(s *mcclient.ClientSession, args *ServerPrepaidRecycleOptions) error {
+		params := jsonutils.NewDict()
+		result, err := modules.Servers.PerformAction(s, args.ID, "undo-prepaid-recycle", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 }

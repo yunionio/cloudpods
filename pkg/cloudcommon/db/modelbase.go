@@ -194,7 +194,7 @@ func (model *SModelBase) GetModelManager() IModelManager {
 	return model.manager
 }
 
-func (model *SModelBase) GetShortDesc() *jsonutils.JSONDict {
+func (model *SModelBase) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	desc := jsonutils.NewDict()
 	desc.Add(jsonutils.NewString(model.Keyword()), "res_name")
 	return desc

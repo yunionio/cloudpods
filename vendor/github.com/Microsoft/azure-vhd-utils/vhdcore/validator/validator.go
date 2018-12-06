@@ -14,7 +14,7 @@ const oneTB int64 = 1024 * 1024 * 1024 * 1024
 // ValidateVhd returns error if the vhdPath refer to invalid vhd.
 //
 func ValidateVhd(vhdPath string) error {
-	vFactory := &vhdFile.FileFactory{}
+	vFactory := &vhdfile.FileFactory{}
 	_, err := vFactory.Create(vhdPath)
 	if err != nil {
 		return fmt.Errorf("%s is not a valid VHD: %v", vhdPath, err)

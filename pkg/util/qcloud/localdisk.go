@@ -1,10 +1,11 @@
 package qcloud
 
 import (
+	"context"
 	"time"
 
-	"context"
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -86,8 +87,8 @@ func (self *SLocalDisk) Refresh() error {
 	return nil
 }
 
-func (self *SLocalDisk) Reset(ctx context.Context, snapshotId string) error {
-	return cloudprovider.ErrNotSupported
+func (self *SLocalDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
+	return "", cloudprovider.ErrNotSupported
 }
 
 func (self *SLocalDisk) GetTemplateId() string {
@@ -132,4 +133,9 @@ func (self *SLocalDisk) Resize(ctx context.Context, size int64) error {
 
 func (disk *SLocalDisk) GetAccessPath() string {
 	return ""
+}
+
+func (self *SLocalDisk) Rebuild(ctx context.Context) error {
+	// TODO
+	return cloudprovider.ErrNotSupported
 }

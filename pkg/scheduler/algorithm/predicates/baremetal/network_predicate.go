@@ -5,14 +5,18 @@ import (
 	"strings"
 	"sync"
 
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
-	"yunion.io/x/pkg/utils"
 )
 
 type NetworkPredicate struct {
 	BasePredicate
+	plugin.BasePlugin
 	SelectedNetworks sync.Map
 }
 
@@ -102,6 +106,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 			return isRandomNetworkAvailable(network.Private, network.Exit, network.Wire)
 		}
 		for _, net := range candidate.Networks {
+			log.Errorf("============ net %s TenantID: %s, sched OwnerTenantID: %s", net.Name, net.TenantID, schedData.OwnerTenantID)
 			if (network.Idx == net.ID || network.Idx == net.Name) && (net.IsPublic || net.TenantID == schedData.OwnerTenantID) && (net.Ports > 0 || isMigrate()) {
 				h.SetCapacity(1)
 				return ""
@@ -139,12 +144,4 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	}
 
 	return h.GetResult()
-}
-
-func (p *NetworkPredicate) OnSelect(u *core.Unit, c core.Candidater) bool {
-	u.SetFiltedData(c.IndexKey(), "networks", &p.SelectedNetworks)
-	return true
-}
-
-func (p *NetworkPredicate) OnSelectEnd(u *core.Unit, c core.Candidater, count int64) {
 }

@@ -25,12 +25,12 @@ func NewMonitorManager(keyword, keywordPlural string, columns, adminColumns []st
 		Keyword: keyword, KeywordPlural: keywordPlural}
 }
 
-func NewCloudmonManager(keyword, keywordPlural string, columns, adminColumns []string) ResourceManager {
+func NewCloudwatcherManager(keyword, keywordPlural string, columns, adminColumns []string) ResourceManager {
 	return ResourceManager{
 		BaseManager: BaseManager{columns: columns,
 			adminColumns: adminColumns,
 			version:      "v1",
-			serviceType:  "cloudmon"},
+			serviceType:  "cloudwatcher"},
 		Keyword: keyword, KeywordPlural: keywordPlural}
 }
 

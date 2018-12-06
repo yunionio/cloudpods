@@ -33,7 +33,12 @@ type SBaremetalagent struct {
 var BaremetalagentManager *SBaremetalagentManager
 
 func init() {
-	BaremetalagentManager = &SBaremetalagentManager{SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(SBaremetalagent{}, "baremetalagents_tbl", "baremetalagent", "baremetalagents")}
+	BaremetalagentManager = &SBaremetalagentManager{
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(SBaremetalagent{},
+			"baremetalagents_tbl",
+			"baremetalagent",
+			"baremetalagents",
+		)}
 }
 
 func (self *SBaremetalagentManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -85,12 +90,12 @@ func (self *SBaremetalagent) ValidateUpdateData(ctx context.Context, userCred mc
 
 func (manager *SBaremetalagentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	mangerUri, _ := data.GetString("manager_uri")
-	count := manager.TableSpec().Query().Equals("manager_uri", mangerUri).Count()
+	count := manager.Query().Equals("manager_uri", mangerUri).Count()
 	if count > 0 {
 		return nil, httperrors.NewDuplicateResourceError("Duplicate manager_uri %s", mangerUri)
 	}
 	accessIp, _ := data.GetString("access_ip")
-	count = manager.TableSpec().Query().Equals("access_ip", accessIp).Count()
+	count = manager.Query().Equals("access_ip", accessIp).Count()
 	if count > 0 {
 		return nil, httperrors.NewDuplicateResourceError("Duplicate access_ip %s", accessIp)
 	}

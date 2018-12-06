@@ -7,18 +7,17 @@ import (
 	"sync"
 
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/scheduler/api"
+	"yunion.io/x/onecloud/pkg/scheduler/core/score"
 )
 
 const (
-	EmptyScore    int   = 0x7FFFFFFFFFFFFFFF
-	BaseScore     int   = 10000
 	EmptyCapacity int64 = -1
 	MaxCapacity   int64 = 0x7FFFFFFFFFFFFFFF
 )
 
 var (
-	EmptyScores     = make(map[string]int)
 	EmptyCapacities = make(map[string]Counter)
 )
 
@@ -185,8 +184,19 @@ type Capacity struct {
 }
 
 type Score struct {
-	Values map[string]int
-	Sum    int
+	*score.ScoreBucket
+}
+
+func newScore() *Score {
+	return &Score{
+		ScoreBucket: score.NewScoreBuckets(),
+	}
+}
+
+func newZeroScore() Score {
+	s := newScore()
+	s.Append(score.NewZeroScore())
+	return *s
 }
 
 type SchedContextDataItem struct {
@@ -483,7 +493,11 @@ func validateCapacityInput(c Counter) bool {
 	return false
 }
 
-func (u *Unit) SetScore(id, name string, score int) error {
+type ScoreValue struct {
+	value score.TScore
+}
+
+func (u *Unit) setScore(id string, val score.SScore, tofront bool) {
 	u.scoreLock.Lock()
 	defer u.scoreLock.Unlock()
 
@@ -493,75 +507,45 @@ func (u *Unit) SetScore(id, name string, score int) error {
 	)
 
 	if scoreObj, ok = u.ScoreMap[id]; !ok {
-		scoreObj = Score{Values: make(map[string]int), Sum: EmptyScore}
+		scoreObj = *newScore()
 		u.ScoreMap[id] = scoreObj
 	}
 
-	scoreObj.Values[name] = score
-	scoreObj.Sum = EmptyScore
-
-	log.V(10).Infof("%q SetScore: %q -> %d", name, id, score)
-	return nil
-}
-
-func (u *Unit) IncreaseScore(id string, name string, increase int) error {
-
-	u.scoreLock.Lock()
-	defer u.scoreLock.Unlock()
-
-	var (
-		scoreObj Score
-		ok       bool
-	)
-
-	score := int(0)
-	if scoreObj, ok = u.ScoreMap[id]; !ok {
-		scoreObj = Score{Values: make(map[string]int), Sum: EmptyScore}
-		u.ScoreMap[id] = scoreObj
-		score = increase
+	if tofront {
+		scoreObj.AddToFirst(val)
 	} else {
-		if value, ok := scoreObj.Values[name]; ok {
-			score = value + increase
-		} else {
-			score = increase
-		}
+		scoreObj.SetScore(val)
 	}
 
-	scoreObj.Values[name] = score
-	scoreObj.Sum = EmptyScore
-
-	log.V(10).Infof("%q IncreaseScore: %q -> %d", name, id, score)
-	return nil
+	log.V(10).Infof("SetScore: %q -> %s", id, val.String())
 }
 
-func (u *Unit) GetScore(id string) int {
+func (u *Unit) SetScore(id string, val score.SScore) {
+	u.setScore(id, val, false)
+}
+
+func (u *Unit) SetFrontScore(id string, val score.SScore) {
+	u.setScore(id, val, true)
+}
+
+func (u *Unit) GetScore(id string) Score {
 	var (
 		scoreObj Score
 		ok       bool
 	)
 
 	if scoreObj, ok = u.ScoreMap[id]; !ok {
-		return BaseScore
+		return *newScore()
 	}
-
-	if scoreObj.Sum == EmptyScore {
-		sum := int(0)
-		for _, value := range scoreObj.Values {
-			sum += value
-		}
-
-		scoreObj.Sum = sum
-	}
-
-	return scoreObj.Sum + BaseScore
+	return scoreObj
 }
 
-func (u *Unit) GetScores(id string) map[string]int {
-	if scores, ok := u.ScoreMap[id]; ok {
-		return scores.Values
+func (u *Unit) GetScoreDetails(id string) string {
+	if score, ok := u.ScoreMap[id]; ok {
+		return score.String()
 	}
 
-	return EmptyScores
+	return "EmptyScore"
 }
 func (u *Unit) SetFiltedData(id string, name string, data interface{}) error {
 	u.scoreLock.Lock()

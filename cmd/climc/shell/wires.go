@@ -10,26 +10,20 @@ import (
 func init() {
 	type WireListOptions struct {
 		options.BaseListOptions
-		Zone string `help:"list wires in zone"`
-		Vpc  string `help:"List wires in vpc"`
-	}
-	R(&WireListOptions{}, "wire-list", "List wires", func(s *mcclient.ClientSession, args *WireListOptions) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = args.BaseListOptions.Params()
-			if err != nil {
-				return err
 
-			}
+		Region string `help:"List hosts in region"`
+		Zone   string `help:"list wires in zone" json:"-"`
+		Vpc    string `help:"List wires in vpc"`
+	}
+	R(&WireListOptions{}, "wire-list", "List wires", func(s *mcclient.ClientSession, opts *WireListOptions) error {
+		params, err := options.ListStructToParams(opts)
+		if err != nil {
+			return err
 		}
-		if len(args.Vpc) > 0 {
-			params.Add(jsonutils.NewString(args.Vpc), "vpc")
-		}
+
 		var result *modules.ListResult
-		var err error
-		if len(args.Zone) > 0 {
-			result, err = modules.Wires.ListInContext(s, params, &modules.Zones, args.Zone)
+		if len(opts.Zone) > 0 {
+			result, err = modules.Wires.ListInContext(s, params, &modules.Zones, opts.Zone)
 		} else {
 			result, err = modules.Wires.List(s, params)
 		}

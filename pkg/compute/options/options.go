@@ -26,6 +26,9 @@ type ComputeOptions struct {
 	PendingDeleteExpireSeconds     int  `default:"259200" help:"How long a pending delete VM/disks cleaned automatically, default 3 days"`
 	PendingDeleteMaxCleanBatchSize int  `default:"50" help:"How many pending delete servers can be clean in a batch"`
 
+	PrepaidExpireCheckSeconds int `default:"600" help:"How long to wait to scan expired prepaid VM or disks, default is 10 minutes"`
+	ExpiredPrepaidMaxCleanBatchSize int  `default:"50" help:"How many expired prepaid servers can be deleted in a batch"`
+
 	LoadbalancerPendingDeleteCheckInterval int `default:"3600" help:"Interval between checks of pending deleted loadbalancer objects, defaults to 1h"`
 
 	ImageCacheStoragePolicy string `default:"least_used" choices:"best_fit|least_used" help:"Policy to choose storage for image cache, best_fit or least_used"`
@@ -71,6 +74,12 @@ type ComputeOptions struct {
 
 	NfsDefaultImageCacheDir string `default:"image_cache"`
 
+	SnapshotCreateDiskProtocol string `help:"Snapshot create disk protocol" choices:"url|fuse" default:"fuse"`
+
+	HostOfflineMaxSeconds        int `help:"Maximal seconds interval that a host considered offline during which it did not ping region, default is 3 minues" default:"180"`
+	HostOfflineDetectionInterval int `help:"Interval to check offline hosts, defualt is half a minute" default:"30"`
+
+	cloudcommon.CommonOptions
 	cloudcommon.DBOptions
 }
 

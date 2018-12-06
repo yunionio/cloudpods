@@ -348,15 +348,16 @@ func (conn Conn) handleResponse(resp *http.Response, crc hash.Hash64) (*Response
 
 		if len(respBody) == 0 {
 			// No error in response body
-			err = fmt.Errorf("oss: service returned without a response body (%s)", resp.Status)
+			err = fmt.Errorf("oss: service returned empty response body, status = %s, RequestId = %s", resp.Status, resp.Header.Get(HTTPHeaderOssRequestID))
 		} else {
 			// Response contains storage service error object, unmarshal
 			srvErr, errIn := serviceErrFromXML(respBody, resp.StatusCode,
 				resp.Header.Get(HTTPHeaderOssRequestID))
-			if err != nil { // error unmarshaling the error response
-				err = errIn
+			if errIn != nil { // error unmarshaling the error response
+				err = fmt.Errorf("oss: service returned invalid response body, status = %s, RequestId = %s", resp.Status, resp.Header.Get(HTTPHeaderOssRequestID))
+			} else {
+				err = srvErr
 			}
-			err = srvErr
 		}
 
 		return &Response{
@@ -424,9 +425,11 @@ func readResponseBody(resp *http.Response) ([]byte, error) {
 
 func serviceErrFromXML(body []byte, statusCode int, requestID string) (ServiceError, error) {
 	var storageErr ServiceError
+
 	if err := xml.Unmarshal(body, &storageErr); err != nil {
 		return storageErr, err
 	}
+
 	storageErr.StatusCode = statusCode
 	storageErr.RequestID = requestID
 	storageErr.RawMessage = string(body)

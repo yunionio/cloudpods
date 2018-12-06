@@ -6,6 +6,7 @@ import (
 	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/pkg/util/secrules"
 )
 
@@ -30,8 +31,9 @@ type IBillingResource interface {
 type ICloudRegion interface {
 	ICloudResource
 
-	GetLatitude() float32
-	GetLongitude() float32
+	// GetLatitude() float32
+	// GetLongitude() float32
+	GetGeographicInfo() SGeographicInfo
 
 	GetIZones() ([]ICloudZone, error)
 	GetIVpcs() ([]ICloudVpc, error)
@@ -54,6 +56,10 @@ type ICloudRegion interface {
 
 	GetIStorages() ([]ICloudStorage, error)
 	GetIStorageById(id string) (ICloudStorage, error)
+
+	GetILoadBalancers() ([]ICloudLoadbalancer, error)
+	GetILoadbalancerAcls() ([]ICloudLoadbalancerAcl, error)
+	GetILoadbalancerCertificates() ([]ICloudLoadbalancerCertificate, error)
 
 	GetProvider() string
 }
@@ -91,7 +97,7 @@ type ICloudStoragecache interface {
 
 	DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error)
 
-	UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, extId string, isForce bool) (string, error)
+	UploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error)
 }
 
 type ICloudStorage interface {
@@ -149,10 +155,10 @@ type ICloudHost interface {
 	GetManagerId() string
 
 	CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, vswitchId string, ipAddr string, desc string,
-		passwd string, storageType string, diskSizes []int, publicKey string, extSecGrpId string, userData string) (ICloudVM, error)
+		passwd string, storageType string, diskSizes []int, publicKey string, extSecGrpId string, userData string, billingCycle *billing.SBillingCycle) (ICloudVM, error)
 	// 使用instanceType创建实例。
 	CreateVM2(name string, imgId string, sysDiskSize int, instanceType string, vswitchId string, ipAddr string, desc string,
-		passwd string, storageType string, diskSizes []int, publicKey string, extSecGrpId string, userData string) (ICloudVM, error)
+		passwd string, storageType string, diskSizes []int, publicKey string, extSecGrpId string, userData string, billingCycle *billing.SBillingCycle) (ICloudVM, error)
 
 	GetIHostNics() ([]ICloudHostNetInterface, error)
 }
@@ -184,6 +190,7 @@ type ICloudVM interface {
 	GetInstanceType() string
 
 	AssignSecurityGroup(secgroupId string) error
+	AssignSecurityGroups(secgroupIds []string) error
 
 	GetHypervisor() string
 
@@ -209,6 +216,8 @@ type ICloudVM interface {
 	DetachDisk(ctx context.Context, diskId string) error
 
 	CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error
+
+	Renew(bc billing.SBillingCycle) error
 }
 
 type ICloudNic interface {
@@ -293,7 +302,9 @@ type ICloudDisk interface {
 	GetISnapshots() ([]ICloudSnapshot, error)
 
 	Resize(ctx context.Context, newSizeMB int64) error
-	Reset(ctx context.Context, snapshotId string) error
+	Reset(ctx context.Context, snapshotId string) (string, error)
+
+	Rebuild(ctx context.Context) error
 }
 
 type ICloudSnapshot interface {
@@ -360,4 +371,110 @@ type ICloudHostNetInterface interface {
 	GetIpAddr() string
 	GetMtu() int16
 	GetNicType() string
+}
+
+type ICloudLoadbalancer interface {
+	ICloudResource
+
+	GetAddress() string
+	GetAddressType() string
+	GetNetworkType() string
+	GetNetworkId() string
+	GetVpcId() string
+	GetZoneId() string
+
+	GetILoadbalancerListeners() ([]ICloudLoadbalancerListener, error)
+	GetILoadbalancerBackendGroups() ([]ICloudLoadbalancerBackendGroup, error)
+}
+
+type ICloudLoadbalancerListener interface {
+	ICloudResource
+
+	GetListenerType() string
+	GetListenerPort() int
+	GetScheduler() string
+	GetAclStatus() string
+	GetAclType() string
+	GetAclId() string
+
+	GetHealthCheck() string
+	GetHealthCheckType() string
+	GetHealthCheckTimeout() int
+	GetHealthCheckInterval() int
+	GetHealthCheckRise() int
+	GetHealthCheckFail() int
+
+	GetHealthCheckReq() string
+	GetHealthCheckExp() string
+
+	GetBackendGroupId() string
+
+	// HTTP && HTTPS
+	GetHealthCheckDomain() string
+	GetHealthCheckURI() string
+	GetHealthCheckCode() string
+	GetILoadbalancerListenerRules() ([]ICloudLoadbalancerListenerRule, error)
+	GetStickySession() string
+	GetStickySessionType() string
+	GetStickySessionCookie() string
+	GetStickySessionCookieTimeout() int
+	XForwardedForEnabled() bool
+	GzipEnabled() bool
+
+	// HTTPS
+	GetCertificateId() string
+	GetTLSCipherPolicy() string
+	HTTP2Enabled() bool
+}
+
+type ICloudLoadbalancerListenerRule interface {
+	ICloudResource
+
+	GetDomain() string
+	GetPath() string
+	GetBackendGroupId() string
+}
+
+type ICloudLoadbalancerBackendGroup interface {
+	ICloudResource
+
+	IsDefault() bool
+	GetType() string
+	GetILoadbalancerBackends() ([]ICloudLoadbalancerBackend, error)
+}
+
+type ICloudLoadbalancerBackend interface {
+	ICloudResource
+
+	GetWeight() int
+	GetPort() int
+	GetBackendType() string
+	GetBackendRole() string
+	GetBackendId() string
+}
+
+type ICloudLoadbalancerCertificate interface {
+	ICloudResource
+
+	GetCommonName() string
+	GetSubjectAlternativeNames() string
+	GetFingerprint() string // return value format: <algo>:<fingerprint>，比如sha1:7454a14fdb8ae1ea8b2f72e458a24a76bd23ec19
+	GetExpireTime() time.Time
+}
+
+type ICloudLoadbalancerAcl interface {
+	ICloudResource
+
+	// return array data like this:
+	// [
+	// 	{
+	// 		"cidr":"10.10.12.0/24",
+	// 		"comment":"test data"
+	// 	},
+	// 	{
+	// 		"cidr":"192.168.10.12",
+	// 		"comment":"test data2"
+	// 	}
+	// ]
+	GetAclEntries() *jsonutils.JSONArray
 }

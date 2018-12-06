@@ -27,6 +27,7 @@ const (
 	LB_STATUS_DISABLED = "disabled"
 
 	LB_STATUS_INIT           = "init"
+	LB_STATUS_UNKNOWN        = "unknown"
 	LB_STATUS_RUNNING        = "running"
 	LB_STATUS_STOPPED        = "stopped"
 	LB_STATUS_CONFIGURING    = "configuring" // config changes pending
@@ -38,6 +39,21 @@ const (
 var LB_STATUS_SPEC = validators.NewChoices(
 	LB_STATUS_ENABLED,
 	LB_STATUS_DISABLED,
+)
+
+const (
+	//默认后端服务器组
+	LB_BACKENDGROUP_TYPE_DEFAULT = "default"
+	//普通后端服务器组
+	LB_BACKENDGROUP_TYPE_NORMAL = "normal"
+	//主备后端服务器组
+	LB_BACKENDGROUP_TYPE_MASTER_SLAVE = "master_slave"
+)
+
+var LB_BACKENDGROUP_TYPE = validators.NewChoices(
+	LB_BACKENDGROUP_TYPE_DEFAULT,
+	LB_BACKENDGROUP_TYPE_NORMAL,
+	LB_BACKENDGROUP_TYPE_MASTER_SLAVE,
 )
 
 var LB_STATUS_RUNTIME = validators.NewChoices(
@@ -99,6 +115,11 @@ const (
 var LB_ACL_TYPES = validators.NewChoices(
 	LB_ACL_TYPE_BLACK,
 	LB_ACL_TYPE_WHITE,
+)
+
+const (
+	LB_TLS_CERT_FINGERPRINT_ALGO_SHA1   = "sha1"
+	LB_TLS_CERT_FINGERPRINT_ALGO_SHA256 = "sha256"
 )
 
 const (
@@ -212,4 +233,16 @@ const (
 var LB_BACKEND_TYPES = validators.NewChoices(
 	LB_BACKEND_GUEST,
 	LB_BACKEND_HOST,
+)
+
+const (
+	LB_BACKEND_ROLE_DEFAULT = "default"
+	LB_BACKEND_ROLE_MASTER  = "master"
+	LB_BACKEND_ROLE_SLAVE   = "slave"
+)
+
+var LB_BACKEND_ROLES = validators.NewChoices(
+	LB_BACKEND_ROLE_MASTER,
+	LB_BACKEND_ROLE_DEFAULT,
+	LB_BACKEND_ROLE_SLAVE,
 )

@@ -6,14 +6,17 @@ import (
 
 type Loadbalancer struct {
 	VirtualResource
+	ManagedResource
 
 	Address     string
 	AddressType string
 	NetworkType string
 	NetworkId   string
+	VpcId       string
 	ZoneId      string
 
 	BackendGroupId string
+	CloudregionId  string
 }
 
 type LoadbalancerTCPListener struct{}
@@ -25,10 +28,8 @@ type LoadbalancerHTTPListener struct {
 	StickySessionCookie        string
 	StickySessionCookieTimeout int
 
-	XForwardedFor      bool
-	XForwardedForSLBIP bool
-	XForwardedForSLBID bool
-	Gzip               bool
+	XForwardedFor bool
+	Gzip          bool
 }
 
 // CACertificate string
@@ -38,11 +39,15 @@ type LoadbalancerHTTPSListener struct {
 	EnableHttp2     bool
 }
 
+type LoadbalancerHTTPRateLimiter struct {
+	HTTPRequestRate       int
+	HTTPRequestRatePerSrc int
+}
+
 type LoadbalancerListener struct {
 	VirtualResource
 
 	LoadbalancerId string
-	Bandwidth      int
 	ListenerType   string
 	ListenerPort   int
 
@@ -79,8 +84,7 @@ type LoadbalancerListener struct {
 	LoadbalancerHTTPListener
 	LoadbalancerHTTPSListener
 
-	XForwardedFor bool
-	Gzip          bool
+	LoadbalancerHTTPRateLimiter
 }
 
 type LoadbalancerListenerRule struct {
@@ -91,11 +95,14 @@ type LoadbalancerListenerRule struct {
 
 	Domain string
 	Path   string
+
+	LoadbalancerHTTPRateLimiter
 }
 
 type LoadbalancerBackendGroup struct {
 	VirtualResource
 
+	Type           string
 	LoadbalancerId string
 }
 
@@ -105,6 +112,7 @@ type LoadbalancerBackend struct {
 	BackendGroupId string
 	BackendId      string
 	BackendType    string
+	BackendRole    string
 	Weight         int
 	Address        string
 	Port           int
@@ -117,20 +125,24 @@ type LoadbalancerAclEntry struct {
 type LoadbalancerAclEntries []*LoadbalancerAclEntry
 type LoadbalancerAcl struct {
 	SharableVirtualResource
+	ManagedResource
 
-	AclEntries *LoadbalancerAclEntries
+	AclEntries    *LoadbalancerAclEntries
+	CloudregionId string
 }
 
 type LoadbalancerCertificate struct {
 	VirtualResource
+	ManagedResource
 
 	Certificate string
 	PrivateKey  string
 
+	CloudregionId           string
 	PublicKeyAlgorithm      string
 	PublicKeyBitLen         int
 	SignatureAlgorithm      string
-	FingerprintSha256       string
+	Fingerprint             string
 	NotBefore               time.Time
 	NotAfter                time.Time
 	CommonName              string

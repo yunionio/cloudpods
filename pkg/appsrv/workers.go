@@ -53,13 +53,9 @@ func (worker *SWorker) isDetached() bool {
 }
 
 func (worker *SWorker) run() {
-	defer log.Debugf("no more job, exit worker %s", worker)
 	defer worker.manager.removeWorker(worker)
 	for {
 		if worker.isDetached() {
-			if isDebug {
-				log.Debugf("deteched worker %s, no need to pick up new job", worker)
-			}
 			break
 		}
 		req := worker.manager.queue.Pop()
@@ -68,17 +64,8 @@ func (worker *SWorker) run() {
 			if task.worker != nil {
 				task.worker <- worker
 			}
-			if isDebug {
-				log.Debugf("start exec task on worker %s", worker)
-			}
 			execCallback(task)
-			if isDebug {
-				log.Debugf("end exec task on worker %s", worker)
-			}
 		} else {
-			if isDebug {
-				log.Debugf("no more job, exit worker %s", worker)
-			}
 			break
 		}
 	}
@@ -142,9 +129,10 @@ type SWorkerManager struct {
 	detachedWorker *SWorkerList
 	workerLock     *sync.Mutex
 	workerId       uint64
+	dbWorker       bool
 }
 
-func NewWorkerManager(name string, workerCount int, backlog int) *SWorkerManager {
+func NewWorkerManager(name string, workerCount int, backlog int, dbWorker bool) *SWorkerManager {
 	manager := SWorkerManager{name: name,
 		queue:          NewRing(workerCount * backlog),
 		workerCount:    workerCount,
@@ -152,7 +140,9 @@ func NewWorkerManager(name string, workerCount int, backlog int) *SWorkerManager
 		activeWorker:   newWorkerList(),
 		detachedWorker: newWorkerList(),
 		workerLock:     &sync.Mutex{},
-		workerId:       0}
+		workerId:       0,
+		dbWorker:       dbWorker,
+	}
 
 	workerManagers = append(workerManagers, &manager)
 	return &manager
@@ -173,7 +163,7 @@ func (wm *SWorkerManager) Run(task func(), worker chan *SWorker, onErr func(erro
 	if ret {
 		wm.schedule()
 	} else {
-		log.Warningf("[%] BUSY fail to push task, queue is FULL")
+		log.Warningf("queue full, task dropped")
 	}
 	return ret
 }
@@ -219,7 +209,7 @@ func (wm *SWorkerManager) scheduleWithLock() {
 		}
 		go worker.run()
 	} else {
-		log.Warningf("[%s] BUSY activeWork %d max %d queue: %d", wm, wm.activeWorker.size(), wm.workerCount, wm.queue.Size())
+		log.Warningf("[%s] BUSY activeWork %d detachedWork %d max %d queue: %d", wm, wm.ActiveWorkerCount(), wm.DetachedWorkerCount(), wm.workerCount, wm.queue.Size())
 	}
 }
 
@@ -234,6 +224,7 @@ func (wm *SWorkerManager) DetachedWorkerCount() int {
 type SWorkerManagerStates struct {
 	Name            string
 	Backlog         int
+	QueueCnt        int
 	MaxWorkerCnt    int
 	ActiveWorkerCnt int
 	DetachWorkerCnt int
@@ -243,7 +234,8 @@ func (wm *SWorkerManager) getState() SWorkerManagerStates {
 	state := SWorkerManagerStates{}
 
 	state.Name = wm.name
-	state.Backlog = wm.queue.Size()
+	state.Backlog = wm.backlog
+	state.QueueCnt = wm.queue.Size()
 	state.MaxWorkerCnt = wm.workerCount
 	state.ActiveWorkerCnt = wm.activeWorker.size()
 	state.DetachWorkerCnt = wm.detachedWorker.size()
@@ -261,18 +253,12 @@ func WorkerStatsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	fmt.Fprintf(w, result.String())
 }
 
-func WaitChannel(ch chan interface{}) interface{} {
-	var ret interface{}
-	stop := false
-	for !stop {
-		select {
-		case c, more := <-ch:
-			if more {
-				ret = c
-			} else {
-				stop = true
-			}
+func GetDBConnectionCount() int {
+	conn := 0
+	for i := 0; i < len(workerManagers); i += 1 {
+		if workerManagers[i].dbWorker {
+			conn += workerManagers[i].workerCount
 		}
 	}
-	return ret
+	return conn
 }

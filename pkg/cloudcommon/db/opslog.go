@@ -121,6 +121,10 @@ const (
 	ACT_SYNCING_HOST       = "syncing_host"
 	ACT_SYNC_HOST_COMPLETE = "sync_host_end"
 
+	ACT_SYNC_LB_START    = "sync_lb_start"
+	ACT_SYNCING_LB       = "syncing_lb"
+	ACT_SYNC_LB_COMPLETE = "sync_lb_end"
+
 	ACT_CACHING_IMAGE      = "caching_image"
 	ACT_CACHE_IMAGE_FAIL   = "cache_image_fail"
 	ACT_CACHED_IMAGE       = "cached_image"
@@ -150,6 +154,13 @@ const (
 	ACT_GUEST_DETACH_ISOLATED_DEVICE_FAIL = "guest_detach_isolated_deivce_fail"
 
 	ACT_CHANGE_BANDWIDTH = "eip_change_bandwidth"
+
+	ACT_RENEW = "renew"
+
+	ACT_SCHEDULE = "schedule"
+
+	ACT_RECYCLE_PREPAID      = "recycle_prepaid"
+	ACT_UNDO_RECYCLE_PREPAID = "undo_recycle_prepaid"
 )
 
 type SOpsLogManager struct {
@@ -235,8 +246,8 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 	}
 }
 
-func combineNotes(m2 IModel, notes jsonutils.JSONObject) *jsonutils.JSONDict {
-	desc := m2.GetShortDesc()
+func combineNotes(ctx context.Context, m2 IModel, notes jsonutils.JSONObject) *jsonutils.JSONDict {
+	desc := m2.GetShortDesc(ctx)
 	if notes != nil {
 		if notesDict, ok := notes.(*jsonutils.JSONDict); ok {
 			notesMap, _ := notesDict.GetMap()
@@ -259,22 +270,22 @@ func combineNotes(m2 IModel, notes jsonutils.JSONObject) *jsonutils.JSONDict {
 	return desc
 }
 
-func (manager *SOpsLogManager) logOneJointEvent(m1, m2 IModel, event string, userCred mcclient.TokenCredential, notes jsonutils.JSONObject) {
-	nn := combineNotes(m2, notes)
+func (manager *SOpsLogManager) logOneJointEvent(ctx context.Context, m1, m2 IModel, event string, userCred mcclient.TokenCredential, notes jsonutils.JSONObject) {
+	nn := combineNotes(ctx, m2, notes)
 	manager.LogEvent(m1, event, nn, userCred)
 }
 
-func (manager *SOpsLogManager) logJoinEvent(m1, m2 IModel, event string, userCred mcclient.TokenCredential, notes jsonutils.JSONObject) {
-	manager.logOneJointEvent(m1, m2, event, userCred, notes)
-	manager.logOneJointEvent(m2, m1, event, userCred, notes)
+func (manager *SOpsLogManager) logJoinEvent(ctx context.Context, m1, m2 IModel, event string, userCred mcclient.TokenCredential, notes jsonutils.JSONObject) {
+	manager.logOneJointEvent(ctx, m1, m2, event, userCred, notes)
+	manager.logOneJointEvent(ctx, m2, m1, event, userCred, notes)
 }
 
-func (manager *SOpsLogManager) LogAttachEvent(m1, m2 IModel, userCred mcclient.TokenCredential, notes jsonutils.JSONObject) {
-	manager.logJoinEvent(m1, m2, ACT_ATTACH, userCred, notes)
+func (manager *SOpsLogManager) LogAttachEvent(ctx context.Context, m1, m2 IModel, userCred mcclient.TokenCredential, notes jsonutils.JSONObject) {
+	manager.logJoinEvent(ctx, m1, m2, ACT_ATTACH, userCred, notes)
 }
 
-func (manager *SOpsLogManager) LogDetachEvent(m1, m2 IModel, userCred mcclient.TokenCredential, notes jsonutils.JSONObject) {
-	manager.logJoinEvent(m1, m2, ACT_DETACH, userCred, notes)
+func (manager *SOpsLogManager) LogDetachEvent(ctx context.Context, m1, m2 IModel, userCred mcclient.TokenCredential, notes jsonutils.JSONObject) {
+	manager.logJoinEvent(ctx, m1, m2, ACT_DETACH, userCred, notes)
 }
 
 func (manager *SOpsLogManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {

@@ -1,6 +1,8 @@
 package logclient
 
 import (
+	"context"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/stringutils"
@@ -56,7 +58,12 @@ const (
 	ACT_VM_SYNC_STATUS               = "同步状态"
 	ACT_VM_UNBIND_KEYPAIR            = "解绑密钥"
 	ACT_VM_ASSIGNSECGROUP            = "关联安全组"
+	ACT_VM_REVOKESECGROUP            = "取消关联安全组"
+	ACT_VM_SETSECGROUP               = "设置安全组"
 	ACT_RESET_DISK                   = "回滚磁盘"
+
+	ACT_RECYCLE_PREPAID      = "池化预付费主机"
+	ACT_UNDO_RECYCLE_PREPAID = "取消池化预付费主机"
 )
 
 // golang 不支持 const 的string array, http://t.cn/EzAvbw8
@@ -65,7 +72,7 @@ var BLACK_LIST_OBJ_TYPE = []string{"parameter"}
 var logclientWorkerMan *appsrv.SWorkerManager
 
 func init() {
-	logclientWorkerMan = appsrv.NewWorkerManager("LogClientWorkerManager", 1, 50)
+	logclientWorkerMan = appsrv.NewWorkerManager("LogClientWorkerManager", 1, 50, false)
 }
 
 type IObject interface {
@@ -130,7 +137,7 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 
 	logentry.Add(jsonutils.NewString(notes), "notes")
 	logclientWorkerMan.Run(func() {
-		s := auth.GetSession(userCred, "", "")
+		s := auth.GetSession(context.Background(), userCred, "", "")
 		_, err := api.Create(s, logentry)
 		if err != nil {
 			log.Errorf("create action log failed %s", err)

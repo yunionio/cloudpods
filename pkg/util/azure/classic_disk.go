@@ -1,12 +1,13 @@
 package azure
 
 import (
+	"context"
 	"strings"
 	"time"
 
-	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -207,8 +208,8 @@ func (self *SClassicDisk) Refresh() error {
 	return nil
 }
 
-func (self *SClassicDisk) Reset(ctx context.Context, snapshotId string) error {
-	return cloudprovider.ErrNotSupported
+func (self *SClassicDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
+	return "", cloudprovider.ErrNotSupported
 }
 
 func (self *SClassicDisk) Resize(ctx context.Context, sizeMb int64) error {
@@ -217,4 +218,8 @@ func (self *SClassicDisk) Resize(ctx context.Context, sizeMb int64) error {
 
 func (disk *SClassicDisk) GetAccessPath() string {
 	return ""
+}
+
+func (self *SClassicDisk) Rebuild(ctx context.Context) error {
+	return cloudprovider.ErrNotSupported
 }

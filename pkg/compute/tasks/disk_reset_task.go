@@ -28,6 +28,10 @@ func (self *DiskResetTask) TaskFailed(ctx context.Context, disk *models.SDisk, r
 }
 
 func (self *DiskResetTask) TaskCompleted(ctx context.Context, disk *models.SDisk, data *jsonutils.JSONDict) {
+	// data不能为空指针，否则会导致AddActionLog抛空指针异常
+	if data == nil {
+		data = jsonutils.NewDict()
+	}
 	logclient.AddActionLog(disk, logclient.ACT_RESET_DISK, data, self.UserCred, true)
 	self.SetStageComplete(ctx, data)
 }
@@ -81,9 +85,12 @@ func (self *DiskResetTask) OnRequestResetDisk(ctx context.Context, disk *models.
 	snapshotId, _ := self.Params.GetString("snapshot_id")
 	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
 	snapshot := iSnapshot.(*models.SSnapshot)
-	if disk.DiskSize != snapshot.Size {
+
+	externalId, _ := data.GetString("exteranl_disk_id")
+	if disk.DiskSize != snapshot.Size || (len(externalId) > 0 && externalId != disk.GetExternalId()) {
 		_, err := models.DiskManager.TableSpec().Update(disk, func() error {
 			disk.DiskSize = snapshot.Size
+			disk.ExternalId = externalId
 			return nil
 		})
 		if err != nil {

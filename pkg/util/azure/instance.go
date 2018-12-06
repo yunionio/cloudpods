@@ -1,16 +1,18 @@
 package azure
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
-	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/osprofile"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/pkg/util/osprofile"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 const (
@@ -211,17 +213,18 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
 	priceKey := fmt.Sprintf("%s::%s", self.Properties.HardwareProfile.VMSize, self.host.zone.region.Name)
 	data.Add(jsonutils.NewString(priceKey), "price_key")
+	secgroupIds := jsonutils.NewArray()
 	if nics, err := self.getNics(); err == nil {
 		for _, nic := range nics {
 			if nic.Properties.NetworkSecurityGroup != nil {
 				if len(nic.Properties.NetworkSecurityGroup.ID) > 0 {
-					data.Add(jsonutils.NewString(nic.Properties.NetworkSecurityGroup.ID), "secgroupId")
+					secgroupIds.Add(jsonutils.NewString(nic.Properties.NetworkSecurityGroup.ID))
 					break
 				}
 			}
 		}
 	}
-
+	data.Add(secgroupIds, "secgroupIds")
 	return data
 }
 
@@ -1017,6 +1020,10 @@ func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
 	return self.host.zone.region.AssiginSecurityGroup(self.ID, secgroupId)
 }
 
+func (self *SInstance) AssignSecurityGroups(secgroupIds []string) error {
+	return cloudprovider.ErrNotSupported
+}
+
 func (self *SInstance) GetBillingType() string {
 	return models.BILLING_TYPE_POSTPAID
 }
@@ -1030,5 +1037,9 @@ func (self *SInstance) UpdateUserData(userData string) error {
 }
 
 func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SInstance) Renew(bc billing.SBillingCycle) error {
 	return cloudprovider.ErrNotSupported
 }

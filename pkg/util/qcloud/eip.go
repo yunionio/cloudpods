@@ -6,6 +6,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -18,18 +19,19 @@ const (
 )
 
 const (
-	EIP_STATUS_ASSOCIATING   = "Associating"
-	EIP_STATUS_UNASSOCIATING = "Unassociating"
-	EIP_STATUS_INUSE         = "InUse"
-	EIP_STATUS_AVAILABLE     = "Available"
+	EIP_STATUS_CREATING      = "CREATING"
+	EIP_STATUS_BINDING       = "BINDING"
+	EIP_STATUS_BIND          = "BIND"
+	EIP_STATUS_UNBINDING     = "UNBINDING"
+	EIP_STATUS_UNBIND        = "UNBIND"
+	EIP_STATUS_OFFLINING     = "OFFLINING"
+	EIP_STATUS_BIND_ENI      = "BIND_ENI"
+	EIP_STATUS_CREATE_FAILED = "CREATE_FAILED"
 
-	EIP_OPERATION_LOCK_FINANCIAL = "financial"
-	EIP_OPERATION_LOCK_SECURITY  = "security"
-
-	EIP_INSTANCE_TYPE_ECS   = "EcsInstance" // （默认值）：VPC类型的ECS实例
-	EIP_INTANNCE_TYPE_SLB   = "SlbInstance" // ：VPC类型的SLB实例
-	EIP_INSTANCE_TYPE_NAT   = "Nat"         // ：NAT网关
-	EIP_INSTANCE_TYPE_HAVIP = "HaVip"       // ：HAVIP
+	EIP_TYPE_CALCIP     = "CalcIP"     //表示设备ip
+	EIP_TYPE_WANIP      = "WanIP"      //普通公网ip
+	EIP_TYPE_EIP        = "EIP"        //弹性公网ip
+	EIP_TYPE_ANYCASTEIP = "AnycastEIP" //加速EIP
 )
 
 type SEipAddress struct {
@@ -55,7 +57,10 @@ func (self *SEipAddress) GetId() string {
 }
 
 func (self *SEipAddress) GetName() string {
-	return self.AddressName
+	if len(self.AddressName) > 0 && self.AddressName != "未命名" {
+		return self.AddressName
+	}
+	return self.AddressId
 }
 
 func (self *SEipAddress) GetGlobalId() string {
@@ -64,13 +69,13 @@ func (self *SEipAddress) GetGlobalId() string {
 
 func (self *SEipAddress) GetStatus() string {
 	switch self.AddressStatus {
-	case "CREATING":
+	case EIP_STATUS_CREATING:
 		return models.EIP_STATUS_ALLOCATE
-	case "BINDING":
+	case EIP_STATUS_BINDING:
 		return models.EIP_STATUS_ASSOCIATE
-	case "BIND", "UNBINDING", "UNBIND", "OFFLINING", "BIND_ENI":
+	case EIP_STATUS_BIND, EIP_STATUS_UNBINDING, EIP_STATUS_UNBIND, EIP_STATUS_OFFLINING, EIP_STATUS_BIND_ENI:
 		return models.EIP_STATUS_READY
-	case "CREATE_FAILED":
+	case EIP_STATUS_CREATE_FAILED:
 		return models.EIP_STATUS_ALLOCATE_FAIL
 	default:
 		return models.EIP_STATUS_UNKNOWN
@@ -114,9 +119,9 @@ func (self *SEipAddress) GetMode() string {
 
 func (self *SEipAddress) GetAssociationType() string {
 	switch self.AddressType {
-	case "EIP", "AnycastEIP", "WanIP":
+	case EIP_TYPE_EIP, EIP_TYPE_ANYCASTEIP, EIP_TYPE_WANIP:
 		return "server"
-	case "CalcIP":
+	case EIP_TYPE_CALCIP:
 		return "server"
 	default:
 		log.Fatalf("unsupported type: %s", self.AddressType)
@@ -137,20 +142,26 @@ func (self *SEipAddress) Delete() error {
 }
 
 func (self *SEipAddress) GetBandwidth() int {
-	return 100
-	//return self.Bandwidth
+	if len(self.InstanceId) > 0 {
+		if instance, err := self.region.GetInstance(self.InstanceId); err == nil {
+			return instance.InternetAccessible.InternetMaxBandwidthOut
+		}
+	}
+	return 0
 }
 
 func (self *SEipAddress) GetInternetChargeType() string {
-	// switch self.InternetChargeType {
-	// case string(InternetChargeByTraffic):
-	// 	return models.EIP_CHARGE_TYPE_BY_TRAFFIC
-	// case string(InternetChargeByBandwidth):
-	// 	return models.EIP_CHARGE_TYPE_BY_BANDWIDTH
-	// default:
-	// 	return models.EIP_CHARGE_TYPE_BY_TRAFFIC
-	// }
-	return "unkonw"
+	if len(self.InstanceId) > 0 {
+		if instance, err := self.region.GetInstance(self.InstanceId); err == nil {
+			switch instance.InternetAccessible.InternetChargeType {
+			case InternetChargeTypeTrafficPostpaidByHour:
+				return models.EIP_CHARGE_TYPE_BY_TRAFFIC
+			default:
+				return models.EIP_CHARGE_TYPE_BY_BANDWIDTH
+			}
+		}
+	}
+	return models.EIP_CHARGE_TYPE_BY_TRAFFIC
 }
 
 func (self *SEipAddress) Associate(instanceId string) error {
@@ -170,10 +181,15 @@ func (self *SEipAddress) Dissociate() error {
 }
 
 func (self *SEipAddress) ChangeBandwidth(bw int) error {
-	return self.region.UpdateEipBandwidth(self.AddressId, bw)
+	if self.GetInternetChargeType() == models.EIP_CHARGE_TYPE_BY_TRAFFIC {
+		if len(self.InstanceId) > 0 {
+			return self.region.UpdateInstanceBandwidth(self.InstanceId, bw)
+		}
+	}
+	return cloudprovider.ErrNotSupported
 }
 
-func (region *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddress, int, error) {
+func (region *SRegion) GetEips(eipId string, instanceId string, offset int, limit int) ([]SEipAddress, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50
 	}
@@ -184,6 +200,11 @@ func (region *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddre
 
 	if len(eipId) > 0 {
 		params["AddressIds.0"] = eipId
+	}
+
+	if len(instanceId) > 0 {
+		params["Filters.0.Name"] = "instance-id"
+		params["Filters.0.Values.0"] = instanceId
 	}
 
 	body, err := region.vpcRequest("DescribeAddresses", params)
@@ -206,7 +227,7 @@ func (region *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddre
 }
 
 func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
-	eips, total, err := region.GetEips(eipId, 0, 1)
+	eips, total, err := region.GetEips(eipId, "", 0, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -232,10 +253,6 @@ func (region *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternet
 		params["AddressId"] = addRessSet[0]
 		params["AddressName"] = name
 		_, err = region.vpcRequest("ModifyAddressAttribute", params)
-		if err != nil {
-			return nil, err
-		}
-		err = region.UpdateEipBandwidth(addRessSet[0], bwMbps)
 		if err != nil {
 			return nil, err
 		}
@@ -296,14 +313,12 @@ func (region *SRegion) DissociateEip(eipId string) error {
 	return err
 }
 
-func (region *SRegion) UpdateEipBandwidth(eipId string, bw int) error {
-	// params := make(map[string]string)
-	// params["Region"] = region.Region
-	// params["AddressIds.0"] = eipId
-	// params["InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bw)
+func (region *SRegion) UpdateInstanceBandwidth(instanceId string, bw int) error {
+	params := make(map[string]string)
+	params["Region"] = region.Region
+	params["InstanceIds.0"] = instanceId
+	params["InternetAccessible.InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bw)
 
-	// _, err := region.vpcRequest("ModifyAddressesBandwidth", params)
-	// return err
-	// 腾讯云这个接口目前有问题
-	return nil
+	_, err := region.cvmRequest("ResetInstancesInternetMaxBandwidth", params)
+	return err
 }

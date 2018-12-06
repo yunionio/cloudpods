@@ -10,29 +10,16 @@ import (
 
 func init() {
 	type ElasticipListOptions struct {
-		Manager string `help:"Show servers imported from manager"`
-		Region  string `help:"Show servers in cloudregion"`
-		Usable  bool   `help:"List all zones that is usable"`
+		Region string `help:"Show servers in cloudregion"`
+
+		Usable *bool `help:"List all zones that is usable"`
 
 		options.BaseListOptions
 	}
-	R(&ElasticipListOptions{}, "eip-list", "List elastic IPs", func(s *mcclient.ClientSession, args *ElasticipListOptions) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = args.BaseListOptions.Params()
-			if err != nil {
-				return err
-			}
-		}
-		if len(args.Manager) > 0 {
-			params.Add(jsonutils.NewString(args.Manager), "manager")
-		}
-		if len(args.Region) > 0 {
-			params.Add(jsonutils.NewString(args.Region), "region")
-		}
-		if args.Usable {
-			params.Add(jsonutils.JSONTrue, "usable")
+	R(&ElasticipListOptions{}, "eip-list", "List elastic IPs", func(s *mcclient.ClientSession, opts *ElasticipListOptions) error {
+		params, err := options.ListStructToParams(opts)
+		if err != nil {
+			return err
 		}
 		results, err := modules.Elasticips.List(s, params)
 		if err != nil {
@@ -196,6 +183,31 @@ func init() {
 			return err
 		}
 		printObject(result)
+		return nil
+	})
+
+	type EipChangeOwnerOptions struct {
+		ID      string `help:"EIP to change owner"`
+		PROJECT string `help:"Project ID or change"`
+		RawId   bool   `help:"User raw ID, instead of name"`
+	}
+	R(&EipChangeOwnerOptions{}, "eip-change-owner", "Change owner porject of a eip", func(s *mcclient.ClientSession, opts *EipChangeOwnerOptions) error {
+		params := jsonutils.NewDict()
+		if opts.RawId {
+			projid, err := modules.Projects.GetId(s, opts.PROJECT, nil)
+			if err != nil {
+				return err
+			}
+			params.Add(jsonutils.NewString(projid), "tenant")
+			params.Add(jsonutils.JSONTrue, "raw_id")
+		} else {
+			params.Add(jsonutils.NewString(opts.PROJECT), "tenant")
+		}
+		srv, err := modules.Elasticips.PerformAction(s, opts.ID, "change-owner", params)
+		if err != nil {
+			return err
+		}
+		printObject(srv)
 		return nil
 	})
 

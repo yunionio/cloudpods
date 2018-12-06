@@ -18,6 +18,27 @@ func (o DeploymentCreateOptions) Params() (*jsonutils.JSONDict, error) {
 
 type StatefulSetCreateOptions struct {
 	K8sAppBaseCreateOptions
+	PvcTemplate []string `help:"PVC volume desc, format is <pvc_name>:<size>:<mount_point>"`
+}
+
+func (o StatefulSetCreateOptions) Params() (*jsonutils.JSONDict, error) {
+	params, err := o.K8sAppBaseCreateOptions.Params()
+	if err != nil {
+		return nil, err
+	}
+	vols := jsonutils.NewArray()
+	volMounts := jsonutils.NewArray()
+	for _, pvc := range o.PvcTemplate {
+		vol, volMount, err := parsePvcTemplate(pvc)
+		if err != nil {
+			return nil, err
+		}
+		vols.Add(vol)
+		volMounts.Add(volMount)
+	}
+	params.Add(vols, "volumeClaimTemplates")
+	params.Add(volMounts, "volumeMounts")
+	return params, nil
 }
 
 type JobCreateOptions struct {

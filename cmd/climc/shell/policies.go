@@ -20,9 +20,11 @@ func init() {
 		Offset int64  `help:"Offset, default 0, i.e. no offset"`
 		Search string `help:"Search by name"`
 		Type   string `help:"filter by type"`
+		Format string `help:"policy format, default to yaml" default:"yaml" choices:"yaml|json"`
 	}
 	R(&PolicyListOptions{}, "policy-list", "List all policies", func(s *mcclient.ClientSession, args *PolicyListOptions) error {
 		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.Format), "format")
 		if len(args.Search) > 0 {
 			params.Add(jsonutils.NewString(args.Search), "type__icontains")
 		}
@@ -115,10 +117,13 @@ func init() {
 	})
 
 	type PolicyShowOptions struct {
-		ID string `help:"ID of policy"`
+		ID     string `help:"ID of policy"`
+		Format string `help:"policy format, default yaml" default:"yaml" choices:"yaml|json"`
 	}
 	R(&PolicyShowOptions{}, "policy-show", "Show policy", func(s *mcclient.ClientSession, args *PolicyShowOptions) error {
-		result, err := modules.Policies.Get(s, args.ID, nil)
+		query := jsonutils.NewDict()
+		query.Add(jsonutils.NewString(args.Format), "format")
+		result, err := modules.Policies.Get(s, args.ID, query)
 		if err != nil {
 			return err
 		}
@@ -134,7 +139,9 @@ func init() {
 		ID string `help:"ID of policy"`
 	}
 	R(&PolicyEditOptions{}, "policy-edit", "Edit and update policy", func(s *mcclient.ClientSession, args *PolicyEditOptions) error {
-		result, err := modules.Policies.Get(s, args.ID, nil)
+		query := jsonutils.NewDict()
+		query.Add(jsonutils.NewString("yaml"), "format")
+		result, err := modules.Policies.Get(s, args.ID, query)
 		if err != nil {
 			return err
 		}
@@ -218,6 +225,7 @@ func init() {
 		Project    string   `help:"Role assignments for project"`
 		Role       []string `help:"Roles"`
 		Request    []string `help:"explain request, in format of key:is_admin:service:resource:action:extra"`
+		Name       string   `help:"policy name"`
 	}
 	R(&PolicyExplainOptions{}, "policy-explain", "Explain policy result", func(s *mcclient.ClientSession, args *PolicyExplainOptions) error {
 		auth.InitFromClientSession(s)
@@ -257,7 +265,7 @@ func init() {
 			token = s.GetToken()
 		}
 
-		result, err := policy.PolicyManager.ExplainRpc(token, req)
+		result, err := policy.PolicyManager.ExplainRpc(token, req, args.Name)
 		if err != nil {
 			return err
 		}

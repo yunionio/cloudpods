@@ -37,7 +37,8 @@ func init() {
 			"secgroups",
 		),
 	}
-	SecurityGroupManager.NameRequireAscii = false
+	SecurityGroupManager.NameLength = 128
+	SecurityGroupManager.NameRequireAscii = true
 }
 
 const (
@@ -52,7 +53,7 @@ type SSecurityGroup struct {
 func (self *SSecurityGroup) GetGuestsQuery() *sqlchemy.SQuery {
 	guests := GuestManager.Query().SubQuery()
 	return guests.Query().Filter(sqlchemy.OR(sqlchemy.Equals(guests.Field("secgrp_id"), self.Id),
-		sqlchemy.Equals(guests.Field("admin_secgrp_id"), self.Id)))
+		sqlchemy.Equals(guests.Field("admin_secgrp_id"), self.Id))).Filter(sqlchemy.NotIn(guests.Field("hypervisor"), []string{HYPERVISOR_CONTAINER, HYPERVISOR_BAREMETAL, HYPERVISOR_ESXI}))
 }
 
 func (self *SSecurityGroup) GetGuestsCount() int {
@@ -60,7 +61,7 @@ func (self *SSecurityGroup) GetGuestsCount() int {
 }
 
 func (self *SSecurityGroup) GetGuests() []SGuest {
-	guests := make([]SGuest, 0)
+	guests := []SGuest{}
 	q := self.GetGuestsQuery()
 	err := db.FetchModelObjects(GuestManager, q, &guests)
 	if err != nil {
@@ -68,6 +69,14 @@ func (self *SSecurityGroup) GetGuests() []SGuest {
 		return nil
 	}
 	return guests
+}
+
+func (self *SSecurityGroup) getDesc() jsonutils.JSONObject {
+	desc := jsonutils.NewDict()
+	desc.Add(jsonutils.NewString(self.Name), "name")
+	desc.Add(jsonutils.NewString(self.Id), "id")
+	desc.Add(jsonutils.NewString(self.getSecurityRuleString("")), "security_rules")
+	return desc
 }
 
 func (self *SSecurityGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
@@ -121,7 +130,7 @@ func (self *SSecurityGroup) getSecurityRules(direction string) (rules []SSecurit
 	return
 }
 
-func (self *SSecurityGroup) getSecRules(direction string) []secrules.SecurityRule {
+func (self *SSecurityGroup) GetSecRules(direction string) []secrules.SecurityRule {
 	rules := make([]secrules.SecurityRule, 0)
 	for _, _rule := range self.getSecurityRules(direction) {
 		//这里没必要拆分为单个单个的端口,到公有云那边适配
@@ -229,6 +238,14 @@ func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCr
 }
 
 func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup, vpc *SVpc, projectId string) (*SSecurityGroup, error) {
+	if secgroup, exist := SecurityGroupCacheManager.CheckExist(context.Background(), userCred, extSec.GetGlobalId(), extSec.GetVpcId(), vpc.CloudregionId, vpc.ManagerId); exist {
+		if secgroup.GetGuestsCount() == 0 {
+			return secgroup, true, nil
+		}
+		//避免重复同步
+		return secgroup, false, nil
+	}
+
 	secgroup := SSecurityGroup{}
 	secgroup.SetModelManager(manager)
 	secgroup.Name = extSec.GetName()
@@ -240,7 +257,7 @@ func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCre
 	}
 
 	if err := manager.TableSpec().Insert(&secgroup); err != nil {
-		return nil, err
+		return nil, true, err
 	}
 
 	if secgroupcache := SecurityGroupCacheManager.Register(context.Background(), userCred, secgroup.Id, extSec.GetVpcId(), vpc.CloudregionId, vpc.ManagerId); secgroupcache != nil {
@@ -249,7 +266,7 @@ func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCre
 		}
 	}
 
-	return &secgroup, nil
+	return &secgroup, true, nil
 }
 
 func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCred mcclient.TokenCredential, secgroups []cloudprovider.ICloudSecurityGroup, vpc *SVpc, projectId string, projectSync bool) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
@@ -293,15 +310,18 @@ func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCre
 			syncResult.AddError(err)
 			continue
 		}
-		new, err := manager.newFromCloudVpc(userCred, added[i], vpc, projectId)
+
+		new, ruleSync, err := manager.newFromCloudVpc(userCred, added[i], vpc)
 		if err != nil {
 			syncResult.AddError(err)
 			continue
 		}
 		localSecgroups = append(localSecgroups, *new)
 		remoteSecgroups = append(remoteSecgroups, added[i])
-		SecurityGroupRuleManager.SyncRules(ctx, userCred, new, rules)
 		syncResult.Add()
+		if ruleSync {
+			SecurityGroupRuleManager.SyncRules(ctx, userCred, new, rules)
+		}
 	}
 	return localSecgroups, remoteSecgroups, syncResult
 }

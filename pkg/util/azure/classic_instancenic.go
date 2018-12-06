@@ -2,8 +2,9 @@ package azure
 
 import (
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/netutils"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SClassicInstanceNic struct {

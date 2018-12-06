@@ -6,7 +6,6 @@ import (
 
 type ChartListOptions struct {
 	BaseListOptions
-	Name       string `help:"Chart name"`
 	Repo       string `help:"Repository name"`
 	RepoUrl    string `help:"Repository url"`
 	AllVersion bool   `json:"Get Chart all history versions"`

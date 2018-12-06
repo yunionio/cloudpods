@@ -398,8 +398,8 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 		}
 		task.taskObjects = objs
 
-		// lockman.LockClass(ctx, objResManager, task.UserCred.GetProjectId())
-		// defer lockman.ReleaseClass(ctx, objResManager, task.UserCred.GetProjectId())
+		lockman.LockClass(ctx, objResManager, task.UserCred.GetProjectId())
+		defer lockman.ReleaseClass(ctx, objResManager, task.UserCred.GetProjectId())
 
 		params[1] = reflect.ValueOf(objs)
 	} else {
@@ -413,8 +413,8 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 		}
 		task.taskObject = obj
 
-		// lockman.LockObject(ctx, obj)
-		// defer lockman.ReleaseObject(ctx, obj)
+		lockman.LockObject(ctx, obj)
+		defer lockman.ReleaseObject(ctx, obj)
 
 		params[1] = reflect.ValueOf(obj)
 	}
@@ -470,30 +470,37 @@ func (self *STask) SaveRequestContext(data *appctx.AppContextData) {
 	}
 }
 
-func (self *STask) SetStage(stageName string, data *jsonutils.JSONDict) {
+func (self *STask) SaveParams(data *jsonutils.JSONDict) error {
+	return self.SetStage("", data)
+}
+
+func (self *STask) SetStage(stageName string, data *jsonutils.JSONDict) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		params := jsonutils.NewDict()
 		params.Update(self.Params)
 		if data != nil {
 			params.Update(data)
 		}
-		stages, _ := params.Get("__stages")
-		if stages == nil {
-			stages = jsonutils.NewArray()
-			params.Add(stages, "__stages")
+		if len(stageName) > 0 {
+			stages, _ := params.Get("__stages")
+			if stages == nil {
+				stages = jsonutils.NewArray()
+				params.Add(stages, "__stages")
+			}
+			stageList := stages.(*jsonutils.JSONArray)
+			stageData := jsonutils.NewDict()
+			stageData.Add(jsonutils.NewString(self.Stage), "name")
+			stageData.Add(jsonutils.NewTimeString(time.Now()), "complete_at")
+			stageList.Add(stageData)
+			self.Stage = stageName
 		}
-		stageList := stages.(*jsonutils.JSONArray)
-		stageData := jsonutils.NewDict()
-		stageData.Add(jsonutils.NewString(self.Stage), "name")
-		stageData.Add(jsonutils.NewTimeString(time.Now()), "complete_at")
-		stageList.Add(stageData)
-		self.Stage = stageName
 		self.Params = params
 		return nil
 	})
 	if err != nil {
 		log.Errorf("set_stage fail %s", err)
 	}
+	return err
 }
 
 func (self *STask) GetObjectIdStr() string {

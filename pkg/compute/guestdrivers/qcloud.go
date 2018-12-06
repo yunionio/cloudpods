@@ -7,8 +7,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 
@@ -16,6 +14,9 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -74,6 +75,9 @@ func (self *SQcloudGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *m
 	if !utils.IsInStringArray(guest.Status, []string{models.VM_READY, models.VM_RUNNING}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
+	if disk.DiskType == models.DISK_TYPE_SYS {
+		return fmt.Errorf("Cannot resize system disk")
+	}
 	if utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_LOCAL_BASIC, models.STORAGE_LOCAL_SSD}) {
 		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
 	}
@@ -91,6 +95,20 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 	}
 	if data.Contains("net.0") && data.Contains("net.1") {
 		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
+	}
+	sysDisk := models.SDiskConfig{}
+	if err := data.Unmarshal(&sysDisk, "disk.0"); err != nil {
+		return nil, fmt.Errorf("Missing system disk information")
+	}
+	switch sysDisk.Backend {
+	case models.STORAGE_CLOUD_BASIC, models.STORAGE_CLOUD_SSD:
+		if sysDisk.SizeMb > 500*1024 {
+			return nil, fmt.Errorf("The %s system disk size must be less than 500GB", sysDisk.Backend)
+		}
+	case models.STORAGE_CLOUD_PREMIUM:
+		if sysDisk.SizeMb > 1024*1024 {
+			return nil, fmt.Errorf("The %s system disk size must be less than 1024GB", sysDisk.Backend)
+		}
 	}
 	return data, nil
 }
@@ -161,12 +179,16 @@ func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 
 			var createErr error
 			var iVM cloudprovider.ICloudVM
+			var bc *billing.SBillingCycle
+			if desc.BillingCycle.IsValid() {
+				bc = &desc.BillingCycle
+			}
 			if len(desc.InstanceType) > 0 {
 				iVM, createErr = ihost.CreateVM2(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.InstanceType, desc.ExternalNetworkId,
-					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData)
+					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData, bc)
 			} else {
 				iVM, createErr = ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData)
+					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData, bc)
 			}
 
 			if createErr != nil {
@@ -307,21 +329,27 @@ func (self *SQcloudGuestDriver) RequestSyncConfigOnHost(ctx context.Context, gue
 			if err != nil {
 				return nil, err
 			}
-			lockman.LockRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-normal", guest.SecgrpId))
-			defer lockman.ReleaseRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-normal", guest.SecgrpId))
+			secgroups := guest.GetSecgroups()
+			externalIds := []string{}
+			for _, secgroup := range secgroups {
 
-			secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), guest.SecgrpId, "normal", host.GetRegion().Id, host.ManagerId)
-			if secgroupCache == nil {
-				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s", guest.SecgrpId)
+				lockman.LockRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-normal", guest.SecgrpId))
+				defer lockman.ReleaseRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-normal", guest.SecgrpId))
+
+				secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), secgroup.Id, "normal", host.GetRegion().Id, host.ManagerId)
+				if secgroupCache == nil {
+					return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s", secgroup.Id)
+				}
+				extID, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, "", secgroup.Name, secgroup.Description, secgroup.GetSecRules(""))
+				if err != nil {
+					return nil, err
+				}
+				if err = secgroupCache.SetExternalId(extID); err != nil {
+					return nil, err
+				}
+				externalIds = append(externalIds, extID)
 			}
-			extID, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, "normal", guest.GetSecgroupName(), "", guest.GetSecRules())
-			if err != nil {
-				return nil, err
-			}
-			if err = secgroupCache.SetExternalId(extID); err != nil {
-				return nil, err
-			}
-			return nil, iVM.AssignSecurityGroup(extID)
+			return nil, iVM.AssignSecurityGroups(externalIds)
 		}
 
 		iDisks, err := iVM.GetIDisks()
@@ -359,4 +387,12 @@ func (self *SQcloudGuestDriver) RequestSyncConfigOnHost(ctx context.Context, gue
 
 func (self *SQcloudGuestDriver) AllowReconfigGuest() bool {
 	return true
+}
+
+func (self *SQcloudGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {
+	months := bc.GetMonths()
+	if (months >= 1 && months <= 12) || (months == 24) || (months == 36) {
+		return true
+	}
+	return false
 }

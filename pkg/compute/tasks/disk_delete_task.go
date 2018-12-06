@@ -9,7 +9,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type DiskDeleteTask struct {
@@ -37,9 +36,9 @@ func (self *DiskDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 }
 
 func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SDisk) {
-	db.OpsLog.LogEvent(disk, db.ACT_DELOCATING, disk.GetShortDesc(), self.UserCred)
+	db.OpsLog.LogEvent(disk, db.ACT_DELOCATING, disk.GetShortDesc(ctx), self.UserCred)
 	if disk.Status == models.DISK_INIT {
-		self.OnGuestDiskDeleteSucc(ctx, disk, nil)
+		self.OnGuestDiskDeleteComplete(ctx, disk, nil)
 		return
 	}
 	storage := disk.GetStorage()
@@ -50,7 +49,7 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 	}
 	disk.SetStatus(self.UserCred, models.DISK_DEALLOC, "")
 	if isPurge {
-		self.OnGuestDiskDeleteSucc(ctx, disk, nil)
+		self.OnGuestDiskDeleteComplete(ctx, disk, nil)
 	} else {
 		if len(disk.BackupStorageId) > 0 {
 			self.SetStage("OnMasterStorageDeleteDiskSucc", nil)
@@ -61,6 +60,11 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 			self.OnGuestDiskDeleteFailed(ctx, disk, httperrors.NewNotFoundError("fail to find master host"))
 		} else if err := host.GetHostDriver().RequestDeallocateDiskOnHost(ctx, host, storage, disk, self); err != nil {
 			self.OnGuestDiskDeleteFailed(ctx, disk, err)
+		self.SetStage("OnGuestDiskDeleteComplete", nil)
+		if host == nil {
+			self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString("fail to find master host"))
+		} else if err := host.GetHostDriver().RequestDeallocateDiskOnHost(host, storage, disk, self); err != nil {
+			self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString(err.Error()))
 		}
 	}
 }
@@ -81,20 +85,23 @@ func (self *DiskDeleteTask) startPendingDeleteDisk(ctx context.Context, disk *mo
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *DiskDeleteTask) OnGuestDiskDeleteSucc(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+func (self *DiskDeleteTask) OnGuestDiskDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	if obj == nil {
 		self.SetStageComplete(ctx, nil)
 		return
 	}
 	disk := obj.(*models.SDisk)
 	self.CleanHostSchedCache(disk)
-	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE, disk.GetShortDesc(), self.UserCred)
+	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE, disk.GetShortDesc(ctx), self.UserCred)
+	if len(disk.SnapshotId) > 0 && disk.GetMetadata("merge_snapshot", nil) == "true" {
+		models.SnapshotManager.AddRefCount(disk.SnapshotId, -1)
+	}
 	disk.RealDelete(ctx, self.UserCred)
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *DiskDeleteTask) OnGuestDiskDeleteFailed(ctx context.Context, disk *models.SDisk, resion error) {
-	disk.SetStatus(self.GetUserCred(), models.DISK_DEALLOC_FAILED, resion.Error())
-	self.SetStageFailed(ctx, resion.Error())
-	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, disk.GetShortDesc(), self.GetUserCred())
+func (self *DiskDeleteTask) OnGuestDiskDeleteCompleteFailed(ctx context.Context, disk *models.SDisk, resion jsonutils.JSONObject) {
+	disk.SetStatus(self.GetUserCred(), models.DISK_DEALLOC_FAILED, resion.String())
+	self.SetStageFailed(ctx, resion.String())
+	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, disk.GetShortDesc(ctx), self.GetUserCred())
 }

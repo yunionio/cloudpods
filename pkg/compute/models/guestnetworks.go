@@ -337,7 +337,7 @@ func (manager *SGuestnetworkManager) DeleteGuestNics(ctx context.Context, guest 
 		if err != nil {
 			log.Errorf("%s", err)
 		}
-		gn.LogDetachEvent(userCred, guest, net)
+		gn.LogDetachEvent(ctx, userCred, guest, net)
 		if reserve && regutils.MatchIP4Addr(gn.IpAddr) {
 			ReservedipManager.ReserveIP(userCred, net, gn.IpAddr, "Delete to reserve")
 		}
@@ -361,12 +361,12 @@ func (manager *SGuestnetworkManager) getGuestNicByIP(ip string, networkId string
 	return &gn, nil
 }
 
-func (self *SGuestnetwork) LogDetachEvent(userCred mcclient.TokenCredential, guest *SGuest, network *SNetwork) {
+func (self *SGuestnetwork) LogDetachEvent(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, network *SNetwork) {
 	if network == nil {
 		netTmp, _ := NetworkManager.FetchById(self.NetworkId)
 		network = netTmp.(*SNetwork)
 	}
-	db.OpsLog.LogDetachEvent(guest, network, userCred, nil)
+	db.OpsLog.LogDetachEvent(ctx, guest, network, userCred, nil)
 }
 
 func (self *SGuestnetwork) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -574,6 +574,7 @@ func (manager *SGuestnetworkManager) getRecentlyReleasedIPAddresses(networkId st
 		log.Errorf("GetRecentlyReleasedIPAddresses fail %s", err)
 		return nil
 	}
+	defer rows.Close()
 	ret := make(map[string]bool)
 	for rows.Next() {
 		var ip string

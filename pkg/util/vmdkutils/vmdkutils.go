@@ -2,12 +2,12 @@ package vmdkutils
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"regexp"
+	"strconv"
 	"strings"
 
-	"fmt"
-	"strconv"
 	"yunion.io/x/pkg/utils"
 )
 

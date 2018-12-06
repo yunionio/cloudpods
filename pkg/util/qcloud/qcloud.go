@@ -8,8 +8,10 @@ import (
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	tchttp "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -20,7 +22,8 @@ const (
 
 	QCLOUD_DEFAULT_REGION = "ap-beijing"
 
-	QCLOUD_API_VERSION = "2017-03-12"
+	QCLOUD_API_VERSION         = "2017-03-12"
+	QCLOUD_BILLING_API_VERSION = "2018-07-09"
 )
 
 type SQcloudClient struct {
@@ -69,6 +72,11 @@ func cbsRequest(client *common.Client, apiName string, params map[string]string)
 	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params)
 }
 
+func billingRequest(client *common.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	domain := "billing.tencentcloudapi.com"
+	return _jsonRequest(client, domain, QCLOUD_BILLING_API_VERSION, apiName, params)
+}
+
 type QcloudResponse struct {
 	*tchttp.BaseResponse
 	Response *interface{} `json:"Response"`
@@ -85,6 +93,9 @@ func _jsonRequest(client *common.Client, domain string, version string, apiName 
 	req.SetDomain(domain)
 
 	for k, v := range params {
+		if strings.HasSuffix(k, "Ids.0") && len(v) == 0 {
+			return nil, cloudprovider.ErrNotFound
+		}
 		req.GetParams()[k] = v
 	}
 	resp := &QcloudResponse{
@@ -96,8 +107,8 @@ func _jsonRequest(client *common.Client, domain string, version string, apiName 
 			break
 		}
 		needRetry := false
-		for _, msg := range []string{"EOF", "TLS handshake timeout", "Code=InternalError"} {
-			if strings.Index(err.Error(), msg) > 0 {
+		for _, msg := range []string{"EOF", "TLS handshake timeout", "Code=InternalError", "retry later", "Code=MutexOperation.TaskRunning"} {
+			if strings.Contains(err.Error(), msg) {
 				needRetry = true
 				break
 			}
@@ -142,6 +153,14 @@ func (client *SQcloudClient) cbsRequest(apiName string, params map[string]string
 	return cbsRequest(cli, apiName, params)
 }
 
+func (client *SQcloudClient) billingRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return billingRequest(cli, apiName, params)
+}
+
 func (client *SQcloudClient) jsonRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	cli, err := client.getDefaultClient()
 	if err != nil {
@@ -179,6 +198,7 @@ func (client *SQcloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 	subAccount := cloudprovider.SSubAccount{}
 	subAccount.Name = client.providerName
 	subAccount.Account = client.SecretID
+	subAccount.HealthStatus = models.CLOUD_PROVIDER_HEALTH_NORMAL
 	if len(client.AppID) > 0 {
 		subAccount.Account = fmt.Sprintf("%s/%s", client.SecretID, client.AppID)
 	}
@@ -259,5 +279,14 @@ type SAccountBalance struct {
 }
 
 func (client *SQcloudClient) QueryAccountBalance() (*SAccountBalance, error) {
-	return nil, nil
+	balance := SAccountBalance{}
+	body, err := client.billingRequest("DescribeAccountBalance", nil)
+	if err != nil {
+		log.Errorf("DescribeAccountBalance fail %s", err)
+		return nil, err
+	}
+	log.Debugf("%s", body)
+	balanceCent, _ := body.Float("Balance")
+	balance.AvailableAmount = balanceCent / 100.0
+	return &balance, nil
 }

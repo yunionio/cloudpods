@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -33,7 +32,7 @@ func (self *GuestStopTask) isSubtask() bool {
 func (self *GuestStopTask) stopGuest(ctx context.Context, guest *models.SGuest) {
 	host := guest.GetHost()
 	if host == nil {
-		self.OnStopGuestFail(ctx, guest, fmt.Errorf("no associated host"))
+		self.OnGuestStopTaskCompleteFailed(ctx, guest, jsonutils.NewString("no associated host"))
 		return
 	}
 	if !self.isSubtask() {
@@ -43,7 +42,7 @@ func (self *GuestStopTask) stopGuest(ctx context.Context, guest *models.SGuest) 
 	err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self)
 	if err != nil {
 		log.Errorf("RequestStopOnHost fail %s", err)
-		self.OnStopGuestFail(ctx, guest, err)
+		self.OnGuestStopTaskCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}
 }
 
@@ -54,18 +53,23 @@ func (self *GuestStopTask) OnMasterStopTaskComplete(ctx context.Context, guest *
 		err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self)
 		if err != nil {
 			log.Errorf("RequestStopOnHost fail %s", err)
-			self.OnStopGuestFail(ctx, guest, err)
+			self.OnGuestStopTaskCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 		}
 	} else {
 		self.OnGuestStopTaskComplete(ctx, guest, data)
 	}
 }
 
+func (self *GuestStopTask) OnMasterStopTaskCompleteFailed(ctx context.Context, obj db.IStandaloneModel, resion jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	self.OnGuestStopTaskCompleteFailed(ctx, guest, resion)
+}
+
 func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	if !self.isSubtask() {
 		guest.SetStatus(self.UserCred, models.VM_READY, "")
 	}
-	db.OpsLog.LogEvent(guest, db.ACT_STOP, guest.GetShortDesc(), self.UserCred)
+	db.OpsLog.LogEvent(guest, db.ACT_STOP, guest.GetShortDesc(ctx), self.UserCred)
 	models.HostManager.ClearSchedDescCache(guest.HostId)
 	self.SetStageComplete(ctx, nil)
 	if guest.Status == models.VM_READY && guest.DisableDelete.IsFalse() && guest.ShutdownBehavior == models.SHUTDOWN_TERMINATE {
@@ -74,9 +78,9 @@ func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, guest *m
 	logclient.AddActionLog(guest, logclient.ACT_VM_STOP, "", self.UserCred, true)
 }
 
-func (self *GuestStopTask) OnStopGuestFail(ctx context.Context, guest *models.SGuest, err error) {
-	guest.SetStatus(self.UserCred, models.VM_STOP_FAILED, err.Error())
-	db.OpsLog.LogEvent(guest, db.ACT_STOP_FAIL, err.Error(), self.UserCred)
-	self.SetStageFailed(ctx, err.Error())
-	logclient.AddActionLog(guest, logclient.ACT_VM_STOP, err, self.UserCred, false)
+func (self *GuestStopTask) OnGuestStopTaskCompleteFailed(ctx context.Context, guest *models.SGuest, resion jsonutils.JSONObject) {
+	guest.SetStatus(self.UserCred, models.VM_STOP_FAILED, resion.String())
+	db.OpsLog.LogEvent(guest, db.ACT_STOP_FAIL, resion.String(), self.UserCred)
+	self.SetStageFailed(ctx, resion.String())
+	logclient.AddActionLog(guest, logclient.ACT_VM_STOP, resion.String(), self.UserCred, false)
 }

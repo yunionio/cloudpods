@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -72,12 +73,12 @@ func (self *SQuota) FetchSystemQuota() {
 	self.Snapshot = options.Options.DefaultSnapshotQuota
 }
 
-func (self *SQuota) FetchUsage(projectId string) error {
+func (self *SQuota) FetchUsage(ctx context.Context, projectId string) error {
 	diskSize := totalDiskSize(projectId, tristate.None, tristate.None, false)
 	net := totalGuestNicCount(projectId, nil, false)
-	guest := totalGuestResourceCount(projectId, nil, nil, nil, false, false, "")
+	guest := totalGuestResourceCount(projectId, nil, nil, nil, false, false, nil, nil, nil)
 	eipUsage := ElasticipManager.TotalCount(projectId, nil, nil)
-	snapshotCount := totalSnapshotCount(projectId)
+	snapshotCount := TotalSnapshotCount(projectId, nil, nil)
 	// XXX
 	// keypair belongs to user
 	// keypair := totalKeypairCount(projectId)
@@ -91,7 +92,7 @@ func (self *SQuota) FetchUsage(projectId string) error {
 	self.Bw = net.InternalBandwidth
 	self.Ebw = net.ExternalBandwidth
 	self.Keypair = 0 // keypair
-	s := auth.GetAdminSession(options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 	self.Image, _ = modules.Images.GetPrivateImageCount(s, projectId, true)
 	self.Group = 0
 	self.Secgroup = totalSecurityGroupCount(projectId)

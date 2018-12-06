@@ -3,10 +3,10 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/secrules"
 
@@ -15,6 +15,8 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SManagedVirtualizedGuestDriver struct {
@@ -39,6 +41,8 @@ type SManagedVMCreateConfig struct {
 	SecGroupId        string
 	SecGroupName      string
 	SecRules          []secrules.SecurityRule
+
+	BillingCycle billing.SBillingCycle
 }
 
 func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
@@ -48,14 +52,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 	config.Memory = guest.VmemSize
 	config.Description = guest.Description
 
-	if len(guest.SkuId) > 0 {
-		isku, err := models.ServerSkuManager.FetchById(guest.SkuId)
-		if err != nil {
-			log.Errorf("GetJsonDescAtHost sku id %s not found", guest.SkuId)
-		}
-
-		config.InstanceType = isku.GetName()
-	}
+	config.InstanceType = guest.InstanceType
 
 	if len(guest.KeypairId) > 0 {
 		config.PublicKey = guest.GetKeypairPublicKey()
@@ -92,6 +89,15 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 			config.DataDisks[i-1] = disk.DiskSize / 1024 // MB => GB
 		}
 	}
+
+	if guest.BillingType == models.BILLING_TYPE_PREPAID {
+		bc, err := billing.ParseBillingCycle(guest.BillingCycle)
+		if err != nil {
+			log.Errorf("fail to parse billing cycle %s: %s", guest.BillingCycle, err)
+		}
+		config.BillingCycle = bc
+	}
+
 	return jsonutils.Marshal(&config)
 }
 
@@ -347,6 +353,11 @@ func (self *SManagedVirtualizedGuestDriver) RequestDiskSnapshot(ctx context.Cont
 
 func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
 
+	recycle := false
+	if guest.IsPrepaidRecycle() {
+		recycle = true
+	}
+
 	if data.Contains("disks") {
 		diskInfo := make([]SDiskInfo, 0)
 		err := data.Unmarshal(&diskInfo, "disks")
@@ -367,15 +378,19 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 				disk.ExternalId = diskInfo[i].Uuid
 				disk.DiskType = diskInfo[i].DiskType
 				disk.Status = models.DISK_READY
-				disk.BillingType = diskInfo[i].BillingType
+
 				disk.FsFormat = diskInfo[i].FsFromat
 				if diskInfo[i].AutoDelete {
 					disk.AutoDelete = true
 				}
 				// disk.TemplateId = diskInfo[i].TemplateId
 				disk.AccessPath = diskInfo[i].Path
-				disk.DiskFormat = diskInfo[i].DiskFormat
-				disk.ExpiredAt = diskInfo[i].ExpiredAt
+
+				if !recycle {
+					disk.BillingType = diskInfo[i].BillingType
+					disk.ExpiredAt = diskInfo[i].ExpiredAt
+				}
+
 				if len(diskInfo[i].Metadata) > 0 {
 					for key, value := range diskInfo[i].Metadata {
 						if err := disk.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {
@@ -390,7 +405,7 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 				log.Errorf(msg)
 				break
 			}
-			db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(), task.GetUserCred())
+			db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), task.GetUserCred())
 			guestdisk := guest.GetGuestDisk(disk.Id)
 			_, err = guestdisk.GetModelManager().TableSpec().Update(guestdisk, func() error {
 				guestdisk.Driver = diskInfo[i].Driver
@@ -422,6 +437,11 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 		}
 	}
 
+	exp, err := data.GetTime("expired_at")
+	if err == nil && !guest.IsPrepaidRecycle() {
+		guest.SaveRenewInfo(ctx, task.GetUserCred(), nil, &exp)
+	}
+
 	guest.SaveDeployInfo(ctx, task.GetUserCred(), data)
 	return nil
 }
@@ -449,22 +469,26 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.
 			if err != nil {
 				return nil, err
 			}
+			secgroups := guest.GetSecgroups()
+			externalIds := []string{}
+			for _, secgroup := range secgroups {
+				lockman.LockRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s", guest.SecgrpId, vpcId))
+				defer lockman.ReleaseRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s", guest.SecgrpId, vpcId))
 
-			lockman.LockRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s", guest.SecgrpId, vpcId))
-			defer lockman.ReleaseRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s", guest.SecgrpId, vpcId))
-
-			secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), guest.SecgrpId, vpcId, host.GetRegion().Id, host.ManagerId)
-			if secgroupCache == nil {
-				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s vpc: %s", guest.SecgrpId, vpcId)
+				secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), secgroup.Id, vpcId, host.GetRegion().Id, host.ManagerId)
+				if secgroupCache == nil {
+					return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s vpc: %s", secgroup.Id, vpcId)
+				}
+				extID, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpcId, secgroup.Name, secgroup.Description, secgroup.GetSecRules(""))
+				if err != nil {
+					return nil, err
+				}
+				if err = secgroupCache.SetExternalId(extID); err != nil {
+					return nil, err
+				}
+				externalIds = append(externalIds, extID)
 			}
-			extID, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpcId, guest.GetSecgroupName(), "", guest.GetSecRules())
-			if err != nil {
-				return nil, err
-			}
-			if err = secgroupCache.SetExternalId(extID); err != nil {
-				return nil, err
-			}
-			return nil, iVM.AssignSecurityGroup(extID)
+			return nil, iVM.AssignSecurityGroups(externalIds)
 		}
 
 		iDisks, err := iVM.GetIDisks()
@@ -546,3 +570,15 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.
 	})
 	return nil
 }*/
+
+func (self *SManagedVirtualizedGuestDriver) RequestRenewInstance(guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
+	iVM, err := guest.GetIVM()
+	if err != nil {
+		return time.Time{}, err
+	}
+	err = iVM.Renew(bc)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return iVM.GetExpiredAt(), nil
+}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -9,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/c-bata/go-prompt"
+	prompt "github.com/c-bata/go-prompt"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/version"
@@ -42,7 +43,7 @@ type BaseOptions struct {
 	OsRegionName   string `default:"$OS_REGION_NAME" help:"Defaults to env[OS_REGION_NAME]"`
 	OsZoneName     string `default:"$OS_ZONE_NAME" help:"Defaults to env[OS_ZONE_NAME]"`
 	OsEndpointType string `default:"$OS_ENDPOINT_TYPE|internalURL" help:"Defaults to env[OS_ENDPOINT_TYPE] or internalURL" choices:"publicURL|internalURL|adminURL"`
-	ApiVersion     string `default:"$API_VERSION|v1" help:"apiVersion, default to v1"`
+	ApiVersion     string `default:"$API_VERSION" help:"override default modules service api version"`
 	SUBCOMMAND     string `help:"climc subcommand" subcommand:"true"`
 }
 
@@ -96,7 +97,7 @@ func getSubcommandsParser() (*structarg.ArgumentParser, error) {
 }
 
 func showErrorAndExit(e error) {
-	fmt.Printf("Error: %s\n", e)
+	fmt.Fprintf(os.Stderr, "Error: %s\n", e)
 	os.Exit(1)
 }
 
@@ -178,11 +179,14 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 				fo.Close()
 			}
 		}
-	} else {
-		// fmt.Printf("******** Use Token Cache At %s ********\n", tokenCachePath)
 	}
 
-	session := client.NewSession(options.OsRegionName,
+	if options.ApiVersion != "" {
+		mcclient.DisableApiVersionByModule()
+	}
+	session := client.NewSession(
+		context.Background(),
+		options.OsRegionName,
 		options.OsZoneName,
 		options.OsEndpointType,
 		cacheToken,

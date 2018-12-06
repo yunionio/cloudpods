@@ -110,14 +110,10 @@ func listFields(manager IModelManager, userCred mcclient.TokenCredential) []stri
 	for _, col := range manager.TableSpec().Columns() {
 		tags := col.Tags()
 		list, _ := tags["list"]
-		if !utils.IsInStringArray(list, []string{"user", "admin", ""}) {
-			log.Warningf("Invalid list value %s for field %s", list, col.Name())
-		}
 		if list == "user" || (list == "admin" && IsAdminAllowList(userCred, manager)) {
 			ret = append(ret, col.Name())
 		}
 	}
-	log.Debugf("listFields: %s", ret)
 	return ret
 }
 
@@ -309,10 +305,6 @@ func listItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchem
 }
 
 func query2List(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, query jsonutils.JSONObject) ([]jsonutils.JSONObject, error) {
-	rows, err := q.Rows()
-	if err != nil {
-		return nil, err
-	}
 	listF := listFields(manager, userCred)
 	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
 	if len(fieldFilter) > 0 && IsAdminAllowList(userCred, manager) {
@@ -336,6 +328,11 @@ func query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 		return nil, err
 	}
 	results := make([]jsonutils.JSONObject, 0)
+	rows, err := q.Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 	for rows.Next() {
 		itemValue := reflect.Indirect(reflect.ValueOf(item))
 		itemValue.Set(itemInitValue)
@@ -762,6 +759,7 @@ func FetchModelObjects(modelManager IModelManager, query *sqlchemy.SQuery, targe
 		}
 		return err
 	}
+	defer rows.Close()
 
 	targetsValue := reflect.Indirect(reflect.ValueOf(targets))
 	for rows.Next() {
@@ -865,7 +863,7 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		log.Errorf("fail to doCreateItem %s", err)
 		return nil, httperrors.NewGeneralError(err)
 	}
-	OpsLog.LogEvent(model, ACT_CREATE, model.GetShortDesc(), userCred)
+	OpsLog.LogEvent(model, ACT_CREATE, model.GetShortDesc(ctx), userCred)
 	logclient.AddActionLog(model, logclient.ACT_CREATE, "", userCred, true)
 	dispatcher.modelManager.OnCreateComplete(ctx, []IModel{model}, userCred, query, data)
 	return getItemDetails(dispatcher.modelManager, model, ctx, userCred, query)
@@ -1214,8 +1212,8 @@ func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IM
 		logclient.AddActionLog(item, logclient.ACT_DELETE, msg, userCred, false)
 		return httperrors.NewGeneralError(err)
 	}
-	OpsLog.LogEvent(item, ACT_DELETE, item.GetShortDesc(), userCred)
-	logclient.AddActionLog(item, logclient.ACT_DELETE, item.GetShortDesc(), userCred, true)
+	OpsLog.LogEvent(item, ACT_DELETE, item.GetShortDesc(ctx), userCred)
+	logclient.AddActionLog(item, logclient.ACT_DELETE, item.GetShortDesc(ctx), userCred, true)
 	return nil
 }
 
@@ -1275,7 +1273,7 @@ func (dispatcher *DBModelDispatcher) Delete(ctx context.Context, idstr string, q
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-	log.Debugf("Delete %s", model.GetShortDesc())
+	// log.Debugf("Delete %s", model.GetShortDesc(ctx))
 
 	lockman.LockObject(ctx, model)
 	defer lockman.ReleaseObject(ctx, model)

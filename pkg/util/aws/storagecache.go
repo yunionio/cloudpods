@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/iam"
@@ -8,8 +9,16 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -62,6 +71,10 @@ func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 }
 
 func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {
+	if len(extId) == 0 {
+		return nil, fmt.Errorf("GetIImageById image id should not be empty")
+	}
+
 	parts, _, err := self.region.GetImages(ImageStatusType(""), ImageOwnerSelf, []string{extId}, "", 0, 1)
 	if err != nil {
 		return nil, err
@@ -102,7 +115,7 @@ func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imag
 	return self.downloadImage(userCred, imageId, extId)
 }
 
-func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, extId string, isForce bool) (string, error) {
+func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
 	if len(extId) > 0 {
 		log.Debugf("UploadImage: Image external ID exists %s", extId)
 
@@ -117,7 +130,7 @@ func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageI
 		log.Debugf("UploadImage: no external ID")
 	}
 
-	return self.uploadImage(userCred, imageId, osArch, osType, osDist, isForce)
+	return self.uploadImage(ctx, userCred, imageId, osArch, osType, osDist, isForce)
 
 }
 
@@ -141,9 +154,9 @@ func (self *SStoragecache) fetchImages() error {
 	return nil
 }
 
-func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
-	bucketName := GetBucketName(self.region.GetId())
-	err := self.region.initVmimport()
+func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
+	bucketName := GetBucketName(self.region.GetId(), imageId)
+	err := self.region.initVmimport(bucketName)
 	if err != nil {
 		return "", err
 	}
@@ -153,8 +166,11 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 	if err != nil {
 		return "", err
 	}
+
+	defer s3client.DeleteBucket(&s3.DeleteBucketInput{Bucket: &bucketName}) // remove bucket
+
 	var diskFormat string
-	s := auth.GetAdminSession(options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 	_, err = s3client.GetObject(&s3.GetObjectInput{Bucket: &bucketName, Key: &imageId})
 	if err != nil {
 		// first upload image to oss
@@ -186,6 +202,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		if err != nil {
 			return "", err
 		}
+		defer s3client.DeleteObject(&s3.DeleteObjectInput{Bucket: &bucketName, Key: &imageId}) // remove object
 	} else {
 		meta, _, err := modules.Images.Download(s, imageId)
 		if err != nil {
@@ -255,7 +272,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 
 func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error) {
 	// aws 导出镜像限制比较多。https://docs.aws.amazon.com/zh_cn/vm-import/latest/userguide/vmexport.html
-	bucketName := GetBucketName(self.region.GetId())
+	bucketName := GetBucketName(self.region.GetId(), imageId)
 	if err := self.region.checkBucket(bucketName); err != nil {
 		return nil, err
 	}
@@ -289,7 +306,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 		return nil, err
 	}
 
-	s := auth.GetAdminSession(options.Options.Region, "")
+	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
 	params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
 	if result, err := modules.Images.Upload(s, params, ret.Body, IntVal(ret.ContentLength)); err != nil {
 		return nil, err
@@ -460,8 +477,7 @@ func (self *SRegion) initVmimportRolePolicy() error {
 	}
 }
 
-func (self *SRegion) initVmimportBucket() error {
-	bucketName := GetBucketName(self.GetId())
+func (self *SRegion) initVmimportBucket(bucketName string) error {
 	exists, err := self.IsBucketExist(bucketName)
 	if err != nil {
 		return err
@@ -480,7 +496,7 @@ func (self *SRegion) initVmimportBucket() error {
 	return err
 }
 
-func (self *SRegion) initVmimport() error {
+func (self *SRegion) initVmimport(bucketName string) error {
 	if err := self.initVmimportRole(); err != nil {
 		return err
 	}
@@ -489,7 +505,7 @@ func (self *SRegion) initVmimport() error {
 		return err
 	}
 
-	if err := self.initVmimportBucket(); err != nil {
+	if err := self.initVmimportBucket(bucketName); err != nil {
 		return err
 	}
 

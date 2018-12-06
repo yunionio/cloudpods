@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"net"
 	"reflect"
 	"strings"
@@ -108,14 +109,58 @@ func (man *SRouteTableManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 	}
 	userProjId := userCred.GetProjectId()
 	data := query.(*jsonutils.JSONDict)
-	for _, key := range []string{"vpc", "cloudregion"} {
-		v := validators.NewModelIdOrNameValidator(key, key, userProjId)
-		v.Optional(true)
-		q, err = v.QueryFilter(q, data)
-		if err != nil {
-			return nil, err
-		}
+	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
+		{Key: "vpc", ModelKeyword: "vpc", ProjectId: userProjId},
+		{Key: "cloudregion", ModelKeyword: "cloudregion", ProjectId: userProjId},
+		{Key: "manager", ModelKeyword: "cloudprovider", ProjectId: userProjId},
+	})
+	if err != nil {
+		return nil, err
 	}
+
+	managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
+	if len(managerStr) > 0 {
+		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		sq := VpcManager.Query("id").Equals("manager_id", provider.GetId())
+		q = q.In("vpc_id", sq.SubQuery())
+	}
+
+	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
+	if len(accountStr) > 0 {
+		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		vpcs := VpcManager.Query().SubQuery()
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+
+		subq := vpcs.Query(vpcs.Field("id"))
+		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), vpcs.Field("manager_id")))
+		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), account.GetId()))
+		q = q.Filter(sqlchemy.In(q.Field("vpc_id"), subq.SubQuery()))
+	}
+
+	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
+	if len(providerStr) > 0 {
+		vpcs := VpcManager.Query().SubQuery()
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+
+		subq := vpcs.Query(vpcs.Field("id"))
+		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), vpcs.Field("manager_id")))
+		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr))
+
+		q = q.Filter(sqlchemy.In(q.Field("vpc_id"), subq.SubQuery()))
+	}
+
 	return q, nil
 }
 
@@ -142,12 +187,35 @@ func (man *SRouteTableManager) ValidateCreateData(ctx context.Context, userCred 
 		return nil, err
 	}
 	vpc := vpcV.Model.(*SVpc)
-	cloudregion := vpc.GetRegion()
-	if cloudregion == nil {
-		return nil, httperrors.NewConflictError("failed fetching cloudregion of vpc %s(%s)", vpc.Name, vpc.Id)
+	cloudregion, err := vpc.GetRegion()
+	if err != nil {
+		return nil, httperrors.NewConflictError("failed getting region of vpc %s(%s)", vpc.Name, vpc.Id)
 	}
 	data.Set("cloudregion_id", jsonutils.NewString(cloudregion.Id))
 	return man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+}
+
+func (rt *SRouteTable) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, rt, "purge")
+}
+
+func (rt *SRouteTable) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	err := rt.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	provider := rt.GetCloudprovider()
+	if provider != nil {
+		if provider.Enabled {
+			return nil, httperrors.NewInvalidStatusError("Cannot purge route_table on enabled cloud provider")
+		}
+	}
+	err = rt.RealDelete(ctx, userCred)
+	return nil, err
+}
+
+func (rt *SRouteTable) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return rt.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
 func (rt *SRouteTable) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -232,6 +300,12 @@ func (rt *SRouteTable) PerformDelRoutes(ctx context.Context, userCred mcclient.T
 	return nil, nil
 }
 
+func (rt *SRouteTable) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	info := rt.getCloudProviderInfo()
+	extra.Update(jsonutils.Marshal(&info))
+	return extra
+}
+
 func (rt *SRouteTable) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := rt.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	vpcM, err := VpcManager.FetchById(rt.VpcId)
@@ -248,12 +322,14 @@ func (rt *SRouteTable) GetCustomizeColumns(ctx context.Context, userCred mcclien
 	}
 	extra.Set("vpc", jsonutils.NewString(vpcM.GetName()))
 	extra.Set("cloudregion", jsonutils.NewString(cloudregionM.GetName()))
+
+	extra = rt.getMoreDetails(extra)
 	return extra
 }
 
 func (rt *SRouteTable) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := rt.GetCustomizeColumns(ctx, userCred, query)
-	extra = rt.SManagedResourceBase.getExtraDetails(ctx, extra)
+	extra = rt.getMoreDetails(extra)
 	return extra
 }
 
@@ -360,4 +436,27 @@ func (self *SRouteTable) SyncWithCloudRouteTable(userCred mcclient.TokenCredenti
 		return err
 	}
 	return nil
+}
+
+func (self *SRouteTable) getVpc() (*SVpc, error) {
+	val, err := VpcManager.FetchById(self.VpcId)
+	if err != nil {
+		log.Errorf("VpcManager.FetchById fail %s", err)
+		return nil, err
+	}
+	return val.(*SVpc), nil
+}
+
+func (self *SRouteTable) getRegion() (*SCloudregion, error) {
+	vpc, err := self.getVpc()
+	if err != nil {
+		return nil, err
+	}
+	return vpc.GetRegion()
+}
+
+func (self *SRouteTable) getCloudProviderInfo() SCloudProviderInfo {
+	region, _ := self.getRegion()
+	provider := self.GetCloudprovider()
+	return MakeCloudProviderInfo(region, nil, provider)
 }

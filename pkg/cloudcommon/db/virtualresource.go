@@ -300,3 +300,13 @@ func (model *SVirtualResourceBase) CancelPendingDelete(ctx context.Context, user
 	})
 	return err
 }
+
+func (model *SVirtualResourceBase) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := model.SStatusStandaloneResourceBase.GetShortDesc(ctx)
+	desc.Add(jsonutils.NewString(model.ProjectId), "owner_tenant_id")
+	tc, _ := TenantCacheManager.FetchTenantById(ctx, model.ProjectId)
+	if tc != nil {
+		desc.Add(jsonutils.NewString(tc.GetName()), "owner_tenant")
+	}
+	return desc
+}

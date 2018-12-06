@@ -5,8 +5,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SClassicHost struct {
@@ -41,11 +43,15 @@ func (self *SClassicHost) Refresh() error {
 	return nil
 }
 
-func (self *SClassicHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, networkId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (cloudprovider.ICloudVM, error) {
+func (self *SClassicHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int,
+	networkId string, ipAddr string, desc string, passwd string, storageType string,
+	diskSizes []int, publicKey string, secgroupId string, userData string, bc *billing.SBillingCycle) (cloudprovider.ICloudVM, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SClassicHost) CreateVM2(name string, imgId string, sysDiskSize int, skuId string, networkId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (cloudprovider.ICloudVM, error) {
+func (self *SClassicHost) CreateVM2(name string, imgId string, sysDiskSize int, skuId string,
+	networkId string, ipAddr string, desc string, passwd string, storageType string,
+	diskSizes []int, publicKey string, secgroupId string, userData string, bc *billing.SBillingCycle) (cloudprovider.ICloudVM, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 

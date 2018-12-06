@@ -6,9 +6,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/ansible"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SHost struct {
@@ -65,7 +67,10 @@ func (self *SHost) searchNetorkInterface(IPAddr string, networkId string, secgro
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, networkId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (cloudprovider.ICloudVM, error) {
+func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int,
+	networkId string, ipAddr string, desc string, passwd string, storageType string,
+	diskSizes []int, publicKey string, secgroupId string, userData string,
+	bc *billing.SBillingCycle) (cloudprovider.ICloudVM, error) {
 	net := self.zone.getNetworkById(networkId)
 	if net == nil {
 		return nil, fmt.Errorf("invalid network ID %s", networkId)
@@ -94,7 +99,9 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 	}
 }
 
-func (self *SHost) CreateVM2(name string, imgId string, sysDiskSize int, instanceType string, networkId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (cloudprovider.ICloudVM, error) {
+func (self *SHost) CreateVM2(name string, imgId string, sysDiskSize int, instanceType string,
+	networkId string, ipAddr string, desc string, passwd string, storageType string,
+	diskSizes []int, publicKey string, secgroupId string, userData string, bc *billing.SBillingCycle) (cloudprovider.ICloudVM, error) {
 	net := self.zone.getNetworkById(networkId)
 	if net == nil {
 		return nil, fmt.Errorf("invalid network ID %s", networkId)

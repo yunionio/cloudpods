@@ -7,11 +7,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/pkg/utils"
-	"yunion.io/x/sqlchemy"
 )
 
 type SchedStrategyType string
@@ -201,10 +202,8 @@ func (self *SSchedtag) GetExtraDetails(ctx context.Context, userCred mcclient.To
 	self.SStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
 }*/
 
-func (self *SSchedtag) GetShortDesc() *jsonutils.JSONDict {
-	desc := jsonutils.NewDict()
-	desc.Add(jsonutils.NewString(self.Id), "id")
-	desc.Add(jsonutils.NewString(self.Name), "name")
+func (self *SSchedtag) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := self.SStandaloneResourceBase.GetShortDesc(ctx)
 	desc.Add(jsonutils.NewString(self.DefaultStrategy), "default")
 	return desc
 }

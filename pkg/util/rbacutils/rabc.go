@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/util/conditionparser"
 )
 
@@ -13,7 +14,9 @@ type TRbacResult string
 const (
 	WILD_MATCH = "*"
 
-	AdminAllow = TRbacResult("allow")
+	Allow = TRbacResult("allow")
+
+	AdminAllow = TRbacResult("admin")
 	OwnerAllow = TRbacResult("owner")
 	UserAllow  = TRbacResult("user")
 	GuestAllow = TRbacResult("guest")
@@ -160,6 +163,9 @@ func (policy *SRbacPolicy) GetMatchRule(service string, resource string, action 
 }
 
 func CompactRules(rules []SRbacRule) []SRbacRule {
+	if len(rules) == 0 {
+		return nil
+	}
 	output := make([]SRbacRule, 1)
 	output[0] = rules[0]
 	for i := 1; i < len(rules); i += 1 {
@@ -191,9 +197,13 @@ func (policy *SRbacPolicy) Decode(policyJson jsonutils.JSONObject) error {
 		return err
 	}
 
-	rules, err := decode(ruleJson, SRbacRule{}, levelService)
+	rules, err := decode(policy.IsAdmin, ruleJson, SRbacRule{}, levelService)
 	if err != nil {
 		return err
+	}
+
+	if len(rules) == 0 {
+		return fmt.Errorf("empty policy")
 	}
 
 	policy.Rules = CompactRules(rules)
@@ -208,12 +218,18 @@ const (
 	levelExtra    = 3
 )
 
-func decode(rules jsonutils.JSONObject, decodeRule SRbacRule, level int) ([]SRbacRule, error) {
+func decode(isAdmin bool, rules jsonutils.JSONObject, decodeRule SRbacRule, level int) ([]SRbacRule, error) {
 	switch rules.(type) {
 	case *jsonutils.JSONString:
 		ruleJsonStr := rules.(*jsonutils.JSONString)
 		ruleStr, _ := ruleJsonStr.GetString()
 		switch ruleStr {
+		case string(Allow):
+			if isAdmin {
+				decodeRule.Result = AdminAllow
+			} else {
+				decodeRule.Result = OwnerAllow
+			}
 		case string(AdminAllow):
 			decodeRule.Result = AdminAllow
 		case string(OwnerAllow):
@@ -251,7 +267,7 @@ func decode(rules jsonutils.JSONObject, decodeRule SRbacRule, level int) ([]SRba
 					rule.Extra = append(rule.Extra, key)
 				}
 			}
-			decoded, err := decode(ruleJson, rule, level+1)
+			decoded, err := decode(isAdmin, ruleJson, rule, level+1)
 			if err != nil {
 				return nil, err
 			}

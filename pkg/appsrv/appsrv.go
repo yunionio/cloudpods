@@ -26,7 +26,7 @@ type Application struct {
 	session           *SWorkerManager
 	systemSession     *SWorkerManager
 	roots             map[string]*RadixNode
-	rootLock          *sync.Mutex
+	rootLock          *sync.RWMutex
 	connMax           int
 	idleTimeout       time.Duration
 	readTimeout       time.Duration
@@ -47,14 +47,14 @@ const (
 	DEFAULT_PROCESS_TIMEOUT     = 15 * time.Second
 )
 
-func NewApplication(name string, connMax int) *Application {
+func NewApplication(name string, connMax int, db bool) *Application {
 	app := Application{name: name,
 		context:           context.Background(),
 		connMax:           connMax,
-		session:           NewWorkerManager("HttpRequestWorkerManager", connMax, DEFAULT_BACKLOG),
-		systemSession:     NewWorkerManager("InternalHttpRequestWorkerManager", 1, DEFAULT_BACKLOG),
+		session:           NewWorkerManager("HttpRequestWorkerManager", connMax, DEFAULT_BACKLOG, db),
+		systemSession:     NewWorkerManager("InternalHttpRequestWorkerManager", 1, DEFAULT_BACKLOG, false),
 		roots:             make(map[string]*RadixNode),
-		rootLock:          &sync.Mutex{},
+		rootLock:          &sync.RWMutex{},
 		idleTimeout:       DEFAULT_IDLE_TIMEOUT,
 		readTimeout:       DEFAULT_READ_TIMEOUT,
 		readHeaderTimeout: DEFAULT_READ_HEADER_TIMEOUT,
@@ -85,21 +85,19 @@ func (app *Application) GetName() string {
 	return app.name
 }
 
-func (app *Application) getRootLocked(method string) *RadixNode {
-	app.rootLock.Lock()
-	defer app.rootLock.Unlock()
-	if _, ok := app.roots[method]; !ok {
-		app.roots[method] = NewRadix()
-	}
-	return app.roots[method]
-}
-
 func (app *Application) getRoot(method string) *RadixNode {
+	app.rootLock.RLock()
 	if v, ok := app.roots[method]; ok {
+		app.rootLock.RUnlock()
 		return v
-	} else {
-		return app.getRootLocked(method)
 	}
+	app.rootLock.RUnlock()
+
+	v := NewRadix()
+	app.rootLock.Lock()
+	app.roots[method] = v
+	app.rootLock.Unlock()
+	return v
 }
 
 func (app *Application) AddReverseProxyHandler(prefix string, ef *proxy.SEndpointFactory) {
@@ -114,7 +112,6 @@ func (app *Application) AddHandler(method string, prefix string, handler func(co
 }
 
 func (app *Application) AddHandler2(method string, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request), metadata map[string]interface{}, name string, tags map[string]string) {
-	log.Debugf("%s - %s", method, prefix)
 	segs := SplitPath(prefix)
 	hi := newHandlerInfo(method, segs, handler, metadata, name, tags)
 	app.AddHandler3(hi)
@@ -157,7 +154,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rid := genRequestId(w, r)
 	lrw := &loggingResponseWriter{w, http.StatusOK}
 	start := time.Now()
-	hi := app.defaultHandle(lrw, r, rid)
+	hi, params := app.defaultHandle(lrw, r, rid)
 	if hi == nil {
 		hi = &app.defHandlerInfo
 	}
@@ -172,7 +169,15 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	duration := float64(time.Since(start).Nanoseconds()) / 1000000
 	counter.hit += 1
 	counter.duration += duration
-	if !hi.skipLog {
+	skipLog := false
+	if params != nil {
+		if params.SkipLog {
+			skipLog = true
+		}
+	} else if hi.skipLog {
+		skipLog = true
+	}
+	if !skipLog {
 		log.Infof("%d %s %s %s (%s) %.2fms", lrw.status, rid, r.Method, r.URL, r.RemoteAddr, duration)
 	}
 }
@@ -190,7 +195,7 @@ func (app *Application) handleCORS(w http.ResponseWriter, r *http.Request) bool 
 	}
 }
 
-func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, rid string) *SHandlerInfo {
+func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, rid string) (*SHandlerInfo, *SAppParams) {
 	segs := SplitPath(r.URL.Path)
 	params := make(map[string]string)
 	w.Header().Set("Server", "Yunion AppServer/Go/2018.4")
@@ -213,6 +218,8 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 			if session == nil {
 				session = app.session
 			}
+			appParams := hand.GetAppParams(params, segs)
+			appParams.Request = r
 			session.Run(
 				func() {
 					if ctx.Err() == nil {
@@ -223,9 +230,14 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 						if hand.metadata != nil {
 							ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_METADATA, hand.metadata)
 						}
+						ctx = context.WithValue(ctx, APP_CONTEXT_KEY_APP_PARAMS, appParams)
 						func() {
-							span := trace.StartServerTrace(&fw, r, hand.GetName(params), app.GetName(), hand.GetTags())
-							defer span.EndTrace()
+							span := trace.StartServerTrace(&fw, r, appParams.Name, app.GetName(), hand.GetTags())
+							defer func() {
+								if !appParams.SkipTrace {
+									span.EndTrace()
+								}
+							}()
 							ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_TRACE, span)
 							hand.handler(ctx, &fw, r)
 						}()
@@ -249,7 +261,7 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 				}
 			}
 			fw.closeChannels()
-			return hand
+			return hand, appParams
 		} else {
 			log.Errorf("Invalid handler for %s", r.URL)
 			httperrors.InternalServerError(w, "Invalid handler %s", r.URL)
@@ -258,10 +270,10 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 		log.Errorf("Handler not found")
 		httperrors.NotFoundError(w, "Handler not found")
 	}
-	return nil
+	return nil, nil
 }
 
-func (app *Application) addDefaultHandler(method string, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request), name string) {
+func (app *Application) AddDefaultHandler(method string, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request), name string) {
 	segs := SplitPath(prefix)
 	hi := newHandlerInfo(method, segs, handler, nil, name, nil)
 	hi.SetSkipLog(true).SetWorkerManager(app.systemSession)
@@ -269,11 +281,11 @@ func (app *Application) addDefaultHandler(method string, prefix string, handler 
 }
 
 func (app *Application) addDefaultHandlers() {
-	app.addDefaultHandler("GET", "/version", VersionHandler, "version")
-	app.addDefaultHandler("GET", "/stats", StatisticHandler, "stats")
-	app.addDefaultHandler("POST", "/ping", PingHandler, "ping")
-	app.addDefaultHandler("GET", "/ping", PingHandler, "ping")
-	app.addDefaultHandler("GET", "/worker_stats", WorkerStatsHandler, "worker_stats")
+	app.AddDefaultHandler("GET", "/version", VersionHandler, "version")
+	app.AddDefaultHandler("GET", "/stats", StatisticHandler, "stats")
+	app.AddDefaultHandler("POST", "/ping", PingHandler, "ping")
+	app.AddDefaultHandler("GET", "/ping", PingHandler, "ping")
+	app.AddDefaultHandler("GET", "/worker_stats", WorkerStatsHandler, "worker_stats")
 }
 
 func timeoutHandle(h http.Handler) http.HandlerFunc {
@@ -289,11 +301,12 @@ func timeoutHandle(h http.Handler) http.HandlerFunc {
 }
 
 func (app *Application) initServer(addr string) *http.Server {
-	db := AppContextDB(app.context)
+	/* db := AppContextDB(app.context)
 	if db != nil {
 		db.SetMaxIdleConns(app.connMax + 1)
 		db.SetMaxOpenConns(app.connMax + 1)
 	}
+	*/
 	app.addDefaultHandlers()
 	s := &http.Server{
 		Addr:              addr,

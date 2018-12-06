@@ -10,10 +10,8 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/utils"
-
-	"fmt"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 )
 
 var (
@@ -329,21 +327,13 @@ func evalParen(expr *ast.ParenExpr, input interface{}) (interface{}, error) {
 func getJSONProperty(json *jsonutils.JSONDict, identStr string) (jsonutils.JSONObject, error) {
 	if json.Contains(identStr) {
 		return json.Get(identStr)
-	} else if json.Contains(fmt.Sprintf("%s.0", identStr)) {
-		idx := 0
-		jsonArray := jsonutils.NewArray()
-		for {
-			obj, _ := json.Get(fmt.Sprintf("%s.%d", identStr, idx))
-			if obj != nil {
-				jsonArray.Add(obj)
-				idx += 1
-			} else {
-				break
-			}
-		}
-		return jsonArray, nil
 	} else {
-		return nil, ErrFieldNotFound
+		identArray := jsonutils.GetArrayOfPrefix(json, identStr)
+		if len(identArray) > 0 {
+			return jsonutils.NewArray(identArray...), nil
+		} else {
+			return nil, ErrFieldNotFound
+		}
 	}
 }
 

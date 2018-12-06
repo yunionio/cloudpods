@@ -3,10 +3,13 @@ package models
 import (
 	"context"
 	"database/sql"
-
-	"yunion.io/x/sqlchemy"
+	"fmt"
+	"strconv"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/sqlchemy"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -22,6 +25,17 @@ const (
 	SkuCategoryHighStorage         = "high_storage"         // 高存储型
 	SkuCategoryHighMemory          = "high_memory"          // 高内存型
 )
+
+var InstanceFamilies = map[string]string{
+	SkuCategoryGeneralPurpose:      "g1",
+	SkuCategoryBurstable:           "t1",
+	SkuCategoryComputeOptimized:    "c1",
+	SkuCategoryMemoryOptimized:     "r1",
+	SkuCategoryStorageIOOptimized:  "i1",
+	SkuCategoryHardwareAccelerated: "",
+	SkuCategoryHighStorage:         "hc1",
+	SkuCategoryHighMemory:          "hr1",
+}
 
 type SServerSkuManager struct {
 	db.SStandaloneResourceBaseManager
@@ -52,10 +66,10 @@ type SServerSku struct {
 	CpuCoreCount int `nullable:"false" list:"user" create:"admin_required" update:"admin"`
 	MemorySizeMB int `nullable:"false" list:"user" create:"admin_required" update:"admin"`
 
-	OsName string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin" default:"Any"` // Windows|Linux|Any
+	OsName string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin" default:"Any"` // Windows|Linux|Any
 
 	SysDiskResizable bool   `default:"true" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	SysDiskType      string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin"`
+	SysDiskType      string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 	SysDiskMinSizeGB int    `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // not required。 windows比较新的版本都是50G左右。
 	SysDiskMaxSizeGB int    `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // not required
 
@@ -76,17 +90,28 @@ type SServerSku struct {
 
 	CloudregionId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin"`
 	ZoneId        string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	Provider      string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
+	Provider      string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 }
 
 func inWhiteList(provider string) bool {
-	// 只有为true的hypervisor才进行创建和更新操作
-	switch provider {
-	case HYPERVISOR_ESXI, HYPERVISOR_KVM:
+	// provider 字段为空时表示私有云套餐
+	if len(provider) == 0 {
 		return true
-	default:
+	} else {
 		return false
 	}
+}
+
+func genInstanceType(family string, cpu, mem_mb int64) (string, error) {
+	if cpu <= 0 {
+		return "", fmt.Errorf("cpu_core_count should great than zero")
+	}
+
+	if mem_mb <= 0 || mem_mb%1024 != 0 {
+		return "", fmt.Errorf("memory_size_mb should great than zero. and should be integral multiple of 1024")
+	}
+
+	return fmt.Sprintf("ecs.%s.c%dm%d", family, cpu, mem_mb/1024), nil
 }
 
 func (self *SServerSkuManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -97,20 +122,24 @@ func (self *SServerSku) AllowGetDetails(ctx context.Context, userCred mcclient.T
 	return true
 }
 
+func (manager *SServerSkuManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowCreate(userCred, manager)
+}
+
 func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	ownerProjId string,
 	query jsonutils.JSONObject,
 	data *jsonutils.JSONDict,
 ) (*jsonutils.JSONDict, error) {
-	provider, err := data.GetString("provider")
-	if err != nil || len(provider) == 0 {
-		return nil, httperrors.NewMissingParameterError("provider")
-	}
+
+	provider, _ := data.GetString("provider")
 
 	if !inWhiteList(provider) {
-		return nil, httperrors.NewInputParameterError("can not create with provider %s", provider)
+		return nil, httperrors.NewForbiddenError("can not create instance_type for public cloud %s", provider)
 	}
+
+	data.Remove("provider")
 
 	regionStr := jsonutils.GetAnyString(data, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
 	if len(regionStr) > 0 {
@@ -136,6 +165,47 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 		}
 		data.Add(jsonutils.NewString(zoneObj.GetId()), "zone_id")
 	}
+
+	// name 由服务器端生成
+	cpu, err := data.Int("cpu_core_count")
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("cpu_core_count should not be empty")
+	} else {
+		data.Set("cpu_core_count", jsonutils.NewInt(cpu))
+	}
+
+	mem, err := data.Int("memory_size_mb")
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("memory_size_mb should not be empty")
+	} else {
+		data.Set("memory_size_mb", jsonutils.NewInt(mem))
+	}
+
+	category, _ := data.GetString("instance_type_category")
+	family, exists := InstanceFamilies[category]
+	if !exists {
+		return nil, httperrors.NewInputParameterError("instance_type_category %s is invalid", category)
+	}
+
+	data.Set("instance_type_family", jsonutils.NewString(family))
+	// 格式 ecs.g1.c1m1
+	name, err := genInstanceType(family, cpu, mem)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+
+	data.Set("name", jsonutils.NewString(name))
+
+	q := self.Query()
+	q = q.Equals("name", name).Filter(sqlchemy.OR(
+		sqlchemy.IsNull(q.Field("provider")),
+		sqlchemy.IsEmpty(q.Field("provider")),
+	))
+
+	if q.Count() > 0 {
+		return nil, httperrors.NewDuplicateResourceError("Duplicate sku %s", name)
+	}
+
 	return self.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
 
@@ -169,12 +239,88 @@ func (self *SServerSkuManager) FetchByZoneId(zoneId string, name string) (db.IMo
 	}
 }
 
-func (self *SServerSku) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
-	if self.SStandaloneResourceBase.AllowUpdateItem(ctx, userCred) == false {
-		return false
+func (self *SServerSkuManager) AllowGetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	q := self.Query()
+	provider, _ := query.GetString("provider")
+	if inWhiteList(provider) {
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.IsNull(q.Field("provider")),
+			sqlchemy.IsEmpty(q.Field("provider")),
+		))
+	} else {
+		q = q.Equals("provider", provider)
 	}
 
-	return inWhiteList(self.Provider)
+	// 如果是查询私有云需要忽略zone参数
+	zone := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
+	if !inWhiteList(provider) {
+		if len(zone) > 0 {
+			zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zone)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), zone)
+				}
+				return nil, httperrors.NewGeneralError(err)
+			}
+
+			q = q.Equals("zone_id", zoneObj.GetId())
+		} else {
+			return nil, httperrors.NewMissingParameterError("zone")
+		}
+	}
+
+	skus := make([]SServerSku, 0)
+	q = q.GroupBy(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
+	q = q.Asc(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
+	err := q.All(&skus)
+	if err != nil {
+		log.Errorf("%s", err)
+		return nil, httperrors.NewBadRequestError("instance specs list query error")
+	}
+
+	cpus := jsonutils.NewArray()
+	mems_mb := jsonutils.NewArray()
+	cpu_mems_mb := map[string][]int{}
+
+	mems := map[int]bool{}
+	oc := 0
+	for i := range skus {
+		nc := skus[i].CpuCoreCount
+		nm := skus[i].MemorySizeMB
+
+		if nc > oc {
+			cpus.Add(jsonutils.NewInt(int64(nc)))
+			oc = nc
+		}
+
+		if _, exists := mems[nm]; !exists {
+			mems_mb.Add(jsonutils.NewInt(int64(nm)))
+			mems[nm] = true
+		}
+
+		k := strconv.Itoa(nc)
+		if _, exists := cpu_mems_mb[k]; !exists {
+			cpu_mems_mb[k] = []int{nm}
+		} else {
+			cpu_mems_mb[k] = append(cpu_mems_mb[k], nm)
+		}
+	}
+
+	ret := jsonutils.NewDict()
+	ret.Add(cpus, "cpus")
+	ret.Add(mems_mb, "mems_mb")
+
+	r_obj := jsonutils.Marshal(&cpu_mems_mb)
+	ret.Add(r_obj, "cpu_mems_mb")
+	return ret, nil
+}
+
+func (self *SServerSku) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return inWhiteList(self.Provider) && db.IsAdminAllowUpdate(userCred, self)
 }
 
 func (self *SServerSku) ValidateUpdateData(
@@ -182,10 +328,16 @@ func (self *SServerSku) ValidateUpdateData(
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+
+	if !inWhiteList(self.Provider) {
+		return nil, httperrors.NewForbiddenError("can not update instance_type for public cloud %s", self.Provider)
+	}
+
 	provider, err := data.GetString("provider")
 	if err == nil && !inWhiteList(provider) {
-		return nil, httperrors.NewInputParameterError("can not create with provider %s", provider)
+		return nil, httperrors.NewForbiddenError("can not update instance_type for public cloud %s", provider)
 	}
+	data.Remove("provider")
 
 	zoneStr := jsonutils.GetAnyString(data, []string{"zone", "zone_id"})
 	if len(zoneStr) > 0 {
@@ -198,20 +350,68 @@ func (self *SServerSku) ValidateUpdateData(
 		}
 		data.Add(jsonutils.NewString(zoneObj.GetId()), "zone_id")
 	}
+
+	// name 由服务器端生成
+	cpu, err := data.Int("cpu_core_count")
+	if err != nil {
+		cpu = int64(self.CpuCoreCount)
+	}
+	data.Set("cpu_core_count", jsonutils.NewInt(cpu))
+
+	mem, err := data.Int("memory_size_mb")
+	if err != nil {
+		mem = int64(self.MemorySizeMB)
+	}
+	data.Set("memory_size_mb", jsonutils.NewInt(mem))
+
+	category, err := data.GetString("instance_type_category")
+	family := ""
+	if err != nil {
+		family = self.InstanceTypeFamily
+	} else {
+		f, exists := InstanceFamilies[category]
+		if !exists {
+			return nil, httperrors.NewInputParameterError("instance_type_category %s is invalid", category)
+		}
+
+		family = f
+	}
+
+	data.Set("instance_type_family", jsonutils.NewString(family))
+	// 格式 ecs.g1.c1m1
+	name, err := genInstanceType(family, cpu, mem)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+
+	data.Set("name", jsonutils.NewString(name))
+
+	q := self.GetModelManager().Query()
+	q = q.Equals("name", name).Filter(sqlchemy.OR(
+		sqlchemy.IsNull(q.Field("provider")),
+		sqlchemy.IsEmpty(q.Field("provider")),
+	))
+
+	if q.Count() > 0 {
+		return nil, httperrors.NewDuplicateResourceError("sku cpu %d mem %d(Mb) already exists", cpu, mem)
+	}
+
 	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
 func (self *SServerSku) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	if !inWhiteList(self.Provider) {
-		return false
-	}
+	return inWhiteList(self.Provider) && db.IsAdminAllowDelete(userCred, self)
+}
 
-	count := GuestManager.Query().Equals("sku_id", self.Id).Count()
-	if count == 0 {
-		return self.SStandaloneResourceBase.AllowDeleteItem(ctx, userCred, query, data)
-	} else {
-		return false
+func (self *SServerSku) ValidateDeleteCondition(ctx context.Context) error {
+	if !inWhiteList(self.Provider) {
+		return httperrors.NewForbiddenError("not allow to delete public cloud instance_type: %s", self.Name)
 	}
+	count := GuestManager.Query().Equals("instance_type", self.Name).Count()
+	if count > 0 {
+		return httperrors.NewNotEmptyError("instance_type used by servers")
+	}
+	return nil
 }
 
 func (self *SServerSku) GetZoneExternalId() (string, error) {
@@ -222,4 +422,137 @@ func (self *SServerSku) GetZoneExternalId() (string, error) {
 
 	zone := zoneObj.(*SZone)
 	return zone.GetExternalId(), nil
+}
+
+func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	provider := jsonutils.GetAnyString(query, []string{"provider"})
+	queryDict := query.(*jsonutils.JSONDict)
+	if provider == "" {
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.IsNull(q.Field("provider")),
+			sqlchemy.IsEmpty(q.Field("provider")),
+		))
+	} else if provider == "all" {
+		// provider 参数为all时。表示查询所有instance type.
+		queryDict.Remove("provider")
+	} else {
+		q = q.Equals("provider", provider)
+	}
+
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
+	regionStr := jsonutils.GetAnyString(query, []string{"region", "cloudregion", "region_id", "cloudregion_id"})
+	if len(regionStr) > 0 {
+		regionObj, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudregionManager.Keyword(), regionStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		q = q.Equals("cloudregion_id", regionObj.GetId())
+	}
+
+	// 当查询私有云时，需要忽略zone参数
+	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
+	if !inWhiteList(provider) && len(zoneStr) > 0 {
+		zoneObj, err := ZoneManager.FetchByIdOrName(nil, zoneStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), zoneStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		q = q.Equals("zone_id", zoneObj.GetId())
+	} else {
+		queryDict.Remove("zone")
+		queryDict.Remove("zone_id")
+	}
+
+	q = q.Asc(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
+	return q, err
+}
+
+func (manager *SServerSkuManager) FetchSkuByNameAndHypervisor(name string, hypervisor string, checkConsistency bool) (*SServerSku, error) {
+	q := manager.Query()
+	q = q.Equals("name", name)
+	if len(hypervisor) > 0 {
+		switch hypervisor {
+		case HYPERVISOR_BAREMETAL, HYPERVISOR_CONTAINER:
+			return nil, httperrors.NewNotImplementedError("%s not supported", hypervisor)
+		case HYPERVISOR_KVM, HYPERVISOR_ESXI, HYPERVISOR_XEN, HOST_TYPE_HYPERV:
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.IsEmpty(q.Field("provider")),
+				sqlchemy.IsNull(q.Field("provider")),
+				sqlchemy.Equals(q.Field("provider"), hypervisor),
+			))
+		default:
+			q = q.Equals("provider", hypervisor)
+		}
+	} else {
+		q = q.IsEmpty("provider")
+	}
+	skus := make([]SServerSku, 0)
+	err := db.FetchModelObjects(manager, q, &skus)
+	if err != nil {
+		log.Errorf("fetch sku fail %s", err)
+		return nil, err
+	}
+	if len(skus) == 0 {
+		log.Errorf("no sku found for %s %s", name, hypervisor)
+		return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), name)
+	}
+	if len(skus) == 1 {
+		return &skus[0], nil
+	}
+	if checkConsistency {
+		for i := 1; i < len(skus); i += 1 {
+			if skus[i].CpuCoreCount != skus[0].CpuCoreCount || skus[i].MemorySizeMB != skus[0].MemorySizeMB {
+				log.Errorf("inconsistent sku %s %s", jsonutils.Marshal(&skus[0]), jsonutils.Marshal(&skus[i]))
+				return nil, httperrors.NewDuplicateResourceError("duplicate instanceType %s", name)
+			}
+		}
+	}
+	return &skus[0], nil
+}
+
+func (manager *SServerSkuManager) GetSkuCountByProvider(provider string) int {
+	q := manager.Query()
+	if len(provider) == 0 {
+		q = q.IsNotEmpty("provider")
+	} else {
+		q = q.Equals("provider", provider)
+	}
+
+	return q.Count()
+}
+
+// 删除表中zone not found的记录
+func (manager *SServerSkuManager) PendingDeleteInvalidSku() error {
+	sq := ZoneManager.Query("id").Distinct().SubQuery()
+	skus := make([]SServerSku, 0)
+	q := manager.Query()
+	q = q.NotIn("zone_id", sq).IsNotEmpty("zone_id")
+	err := db.FetchModelObjects(manager, q, &skus)
+	if err != nil {
+		log.Errorf(err.Error())
+		return httperrors.NewInternalServerError("query sku list failed.")
+	}
+
+	for i := range skus {
+		sku := skus[i]
+		_, err = manager.TableSpec().Update(&sku, func() error {
+			return sku.MarkDelete()
+		})
+
+		if err != nil {
+			log.Errorf(err.Error())
+			return httperrors.NewInternalServerError("delete sku %s failed.", sku.Id)
+		}
+	}
+
+	return nil
 }

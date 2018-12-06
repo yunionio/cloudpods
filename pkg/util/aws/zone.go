@@ -2,8 +2,10 @@ package aws
 
 import (
 	"fmt"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -12,8 +14,8 @@ var StorageTypes = []string{
 	models.STORAGE_GP2_SSD,
 	models.STORAGE_IO1_SSD,
 	models.STORAGE_ST1_HDD,
-	models.STORAGE_SC1_SSD,
-	models.STORAGE_STANDARD_SSD,
+	models.STORAGE_SC1_HDD,
+	models.STORAGE_STANDARD_HDD,
 }
 
 type SZone struct {

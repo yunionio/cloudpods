@@ -2,11 +2,9 @@ package appsrv
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
-	"yunion.io/x/log"
-
-	"fmt"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
@@ -58,6 +56,16 @@ func (w *responseWriterChannel) WriteHeader(status int) {
 	<-w.statusResp
 }
 
+// implent http.Flusher
+func (w *responseWriterChannel) Flush() {
+	if w.isClosed {
+		return
+	}
+	if f, ok := w.backend.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
 func (w *responseWriterChannel) wait(ctx context.Context, workerChan chan *SWorker) interface{} {
 	var err error
 	var worker *SWorker
@@ -65,7 +73,6 @@ func (w *responseWriterChannel) wait(ctx context.Context, workerChan chan *SWork
 	for !stop {
 		select {
 		case worker = <-workerChan:
-			log.Debugf("request is being handled by worker %s", worker)
 		case <-ctx.Done():
 			// ctx deadline reached, timeout
 			if worker != nil {

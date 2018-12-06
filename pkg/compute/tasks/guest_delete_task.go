@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -26,7 +27,8 @@ func init() {
 func (self *GuestDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	host := guest.GetHost()
-	if guest.Hypervisor == models.HYPERVISOR_BAREMETAL && host.HostType != models.HOST_TYPE_BAREMETAL {
+	if guest.Hypervisor == models.HYPERVISOR_BAREMETAL && host != nil && host.HostType != models.HOST_TYPE_BAREMETAL {
+		// if a fake server for converted hypervisor, then just skip stop
 		self.OnGuestStopComplete(ctx, obj, data)
 		return
 	}
@@ -65,8 +67,14 @@ func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, obj db.ISt
 	eip, _ := guest.GetEip()
 	if eip != nil && eip.Mode != models.EIP_MODE_INSTANCE_PUBLICIP {
 		// detach floating EIP only
-		self.SetStage("on_eip_dissociate_complete", nil)
-		eip.StartEipDissociateTask(ctx, self.UserCred, self.GetTaskId())
+		if jsonutils.QueryBoolean(self.Params, "purge", false) {
+			// purge locally
+			eip.Dissociate(ctx, self.UserCred)
+			self.OnEipDissociateComplete(ctx, guest, nil)
+		} else {
+			self.SetStage("on_eip_dissociate_complete", nil)
+			eip.StartEipDissociateTask(ctx, self.UserCred, self.GetTaskId())
+		}
 	} else {
 		self.OnEipDissociateComplete(ctx, obj, nil)
 	}
@@ -113,7 +121,7 @@ func (self *GuestDeleteTask) doStartDeleteGuest(ctx context.Context, obj db.ISta
 
 func (self *GuestDeleteTask) StartPendingDeleteGuest(ctx context.Context, guest *models.SGuest) {
 	guest.DoPendingDelete(ctx, self.UserCred)
-	models.IsolatedDeviceManager.ReleaseDevicesOfGuest(guest, self.UserCred)
+	models.IsolatedDeviceManager.ReleaseDevicesOfGuest(ctx, guest, self.UserCred)
 	self.SetStage("on_pending_delete_complete", nil)
 	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
 }
@@ -152,9 +160,18 @@ func (self *GuestDeleteTask) OnGuestDetachDisksCompleteFailed(ctx context.Contex
 }
 
 func (self *GuestDeleteTask) DoDeleteGuest(ctx context.Context, guest *models.SGuest) {
-	models.IsolatedDeviceManager.ReleaseDevicesOfGuest(guest, self.UserCred)
+	models.IsolatedDeviceManager.ReleaseDevicesOfGuest(ctx, guest, self.UserCred)
 	host := guest.GetHost()
-	if (host == nil || !host.Enabled) && jsonutils.QueryBoolean(self.Params, "purge", false) {
+	if guest.IsPrepaidRecycle() {
+		err := host.BorrowIpAddrsFromGuest(ctx, self.UserCred, guest)
+		if err != nil {
+			msg := fmt.Sprintf("host.BorrowIpAddrsFromGuest fail %s", err)
+			log.Errorf(msg)
+			self.OnGuestDeleteFailed(ctx, guest, jsonutils.NewString(msg))
+			return
+		}
+		self.OnGuestDeleteComplete(ctx, guest, nil)
+	} else if (host == nil || !host.Enabled) && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		self.OnGuestDeleteComplete(ctx, guest, nil)
 	} else {
 		self.SetStage("on_guest_delete_complete", nil)
@@ -176,7 +193,7 @@ func (self *GuestDeleteTask) OnGuestDeleteCompleteFailed(ctx context.Context, ob
 
 func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.LeaveAllGroups(self.UserCred)
+	guest.LeaveAllGroups(ctx, self.UserCred)
 	guest.DetachAllNetworks(ctx, self.UserCred)
 	guest.EjectIso(self.UserCred)
 	guest.DeleteEip(ctx, self.UserCred)

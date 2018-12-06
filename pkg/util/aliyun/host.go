@@ -5,8 +5,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SHost struct {
@@ -166,8 +168,9 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 
 func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int,
 	vswitchId string, ipAddr string, desc string, passwd string,
-	storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (cloudprovider.ICloudVM, error) {
-	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, "", vswitchId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId, userData)
+	storageType string, diskSizes []int, publicKey string, secgroupId string, userData string,
+	bc *billing.SBillingCycle) (cloudprovider.ICloudVM, error) {
+	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, "", vswitchId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId, userData, bc)
 	if err != nil {
 		return nil, err
 	}
@@ -181,8 +184,9 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 
 func (self *SHost) CreateVM2(name string, imgId string, sysDiskSize int, instanceType string,
 	vswitchId string, ipAddr string, desc string, passwd string,
-	storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (cloudprovider.ICloudVM, error) {
-	vmId, err := self._createVM(name, imgId, sysDiskSize, 0, 0, instanceType, vswitchId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId, userData)
+	storageType string, diskSizes []int, publicKey string, secgroupId string,
+	userData string, bc *billing.SBillingCycle) (cloudprovider.ICloudVM, error) {
+	vmId, err := self._createVM(name, imgId, sysDiskSize, 0, 0, instanceType, vswitchId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId, userData, bc)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +201,7 @@ func (self *SHost) CreateVM2(name string, imgId string, sysDiskSize int, instanc
 func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, instanceType string,
 	vswitchId string, ipAddr string, desc string, passwd string,
 	storageType string, diskSizes []int, publicKey string, secgroupId string,
-	userData string) (string, error) {
+	userData string, bc *billing.SBillingCycle) (string, error) {
 	net := self.zone.getNetworkById(vswitchId)
 	if net == nil {
 		return "", fmt.Errorf("invalid switch ID %s", vswitchId)
@@ -249,13 +253,12 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 
 	if len(instanceType) > 0 {
 		log.Debugf("Try instancetype : %s", instanceType)
-		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceType, secgroupId, self.zone.ZoneId, desc, passwd, disks, vswitchId, ipAddr, keypair, userData)
+		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceType, secgroupId, self.zone.ZoneId, desc, passwd, disks, vswitchId, ipAddr, keypair, userData, bc)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceType, err)
 			return "", fmt.Errorf("Failed to create, specification %s not supported", instanceType)
-		} else {
-			return vmId, nil
 		}
+		return vmId, nil
 	}
 
 	instanceTypes, err := self.zone.region.GetMatchInstanceTypes(cpu, memMB, 0, self.zone.ZoneId)
@@ -269,7 +272,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 	for _, instType := range instanceTypes {
 		instanceTypeId := instType.InstanceTypeId
 		log.Debugf("Try instancetype : %s", instanceTypeId)
-		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceTypeId, secgroupId, self.zone.ZoneId, desc, passwd, disks, vswitchId, ipAddr, keypair, userData)
+		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceTypeId, secgroupId, self.zone.ZoneId, desc, passwd, disks, vswitchId, ipAddr, keypair, userData, bc)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceTypeId, err)
 		} else {

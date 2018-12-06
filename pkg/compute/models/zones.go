@@ -6,13 +6,14 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/sqlchemy"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/sqlchemy"
 )
 
 const (
@@ -475,24 +476,56 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		return nil, err
 	}
 
-	if jsonutils.QueryBoolean(query, "is_private", false) {
+	if jsonutils.QueryBoolean(query, "is_private", false) || jsonutils.QueryBoolean(query, "private", false) {
 		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("external_id")),
 			sqlchemy.IsEmpty(q.Field("external_id"))))
 	}
-	if jsonutils.QueryBoolean(query, "is_public", false) {
+	if jsonutils.QueryBoolean(query, "is_public", false) || jsonutils.QueryBoolean(query, "public", false) {
 		q = q.Filter(sqlchemy.AND(sqlchemy.IsNotNull(q.Field("external_id")),
 			sqlchemy.IsNotEmpty(q.Field("external_id"))))
 	}
 
-	if jsonutils.QueryBoolean(query, "usable", false) {
+	if jsonutils.QueryBoolean(query, "usable", false) || jsonutils.QueryBoolean(query, "usable_vpc", false) {
 		networks := NetworkManager.Query().SubQuery()
 		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		providers := CloudproviderManager.Query().SubQuery()
 
-		zoneQ := wires.Query(sqlchemy.DISTINCT("zone_id", wires.Field("zone_id")))
-		zoneQ = zoneQ.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
-		zoneQ = zoneQ.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		usableNet := jsonutils.QueryBoolean(query, "usable", false)
+		usableVpc := jsonutils.QueryBoolean(query, "usable_vpc", false)
 
-		q = q.Filter(sqlchemy.In(q.Field("id"), zoneQ.SubQuery()))
+		sq := wires.Query(sqlchemy.DISTINCT("zone_id", wires.Field("zone_id")))
+		if usableNet {
+			sq = sq.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+		}
+		sq = sq.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
+		sq = sq.Join(providers, sqlchemy.Equals(vpcs.Field("manager_id"), providers.Field("id")))
+		if usableNet {
+			sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		}
+		sq = sq.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
+		sq = sq.Filter(sqlchemy.In(providers.Field("status"), CLOUD_PROVIDER_VALID_STATUS))
+		if usableVpc {
+			sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+		}
+
+		sq2 := wires.Query(sqlchemy.DISTINCT("zone_id", wires.Field("zone_id")))
+		if usableNet {
+			sq2 = sq2.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+		}
+		sq2 = sq2.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
+		if usableNet {
+			sq2 = sq2.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		}
+		sq2 = sq2.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
+		if usableVpc {
+			sq2 = sq2.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+		}
+
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.In(q.Field("id"), sq.SubQuery()),
+			sqlchemy.In(q.Field("id"), sq2.SubQuery()),
+		))
 	}
 	return q, nil
 }

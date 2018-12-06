@@ -87,7 +87,7 @@ func NewArgumentParser(target interface{}, prog, desc, epilog string) (*Argument
 		epilog: epilog, target: target}
 	target_type := reflect.TypeOf(target).Elem()
 	target_value := reflect.ValueOf(target).Elem()
-	e := parser.addStructArgument(target_type, target_value)
+	e := parser.addStructArgument("", target_type, target_value)
 	if e != nil {
 		return nil, e
 	}
@@ -165,7 +165,7 @@ const (
 	TAG_ALIAS = "alias"
 )
 
-func (this *ArgumentParser) addStructArgument(tp reflect.Type, val reflect.Value) error {
+func (this *ArgumentParser) addStructArgument(prefix string, tp reflect.Type, val reflect.Value) error {
 	for i := 0; i < tp.NumField(); i++ {
 		v := val.Field(i)
 		if !v.CanSet() {
@@ -173,12 +173,16 @@ func (this *ArgumentParser) addStructArgument(tp reflect.Type, val reflect.Value
 		}
 		f := tp.Field(i)
 		if f.Type.Kind() == reflect.Struct {
-			e := this.addStructArgument(f.Type, v)
+			p := prefix
+			if !f.Anonymous {
+				p += f.Name + "-"
+			}
+			e := this.addStructArgument(p, f.Type, v)
 			if e != nil {
 				return e
 			}
 		} else {
-			e := this.addArgument(f, v)
+			e := this.addArgument(prefix, f, v)
 			if e != nil {
 				return e
 			}
@@ -187,13 +191,14 @@ func (this *ArgumentParser) addStructArgument(tp reflect.Type, val reflect.Value
 	return nil
 }
 
-func (this *ArgumentParser) addArgument(f reflect.StructField, v reflect.Value) error {
+func (this *ArgumentParser) addArgument(prefix string, f reflect.StructField, v reflect.Value) error {
 	tagMap := utils.TagMap(f.Tag)
 	help := tagMap[TAG_HELP]
 	token, ok := tagMap[TAG_TOKEN]
 	if !ok {
 		token = f.Name
 	}
+	token = prefix + token
 	shorttoken := tagMap[TAG_SHORT_TOKEN]
 	alias := tagMap[TAG_ALIAS]
 	metavar := tagMap[TAG_METAVAR]
@@ -344,6 +349,15 @@ func (this *ArgumentParser) AddArgument(arg Argument) error {
 		}
 		this.posArgs = append(this.posArgs, arg)
 	} else {
+		for _, argOld := range this.optArgs {
+			if argOld.Token() == arg.Token() {
+				rt := reflect.TypeOf(this.target)
+				if rt.Kind() == reflect.Ptr || rt.Kind() == reflect.Interface {
+					rt = rt.Elem()
+				}
+				return fmt.Errorf("%s: Duplicate argument %s", rt.Name(), argOld.Token())
+			}
+		}
 		// Put required at the end and try to be stable
 		if arg.IsRequired() {
 			this.optArgs = append(this.optArgs, arg)

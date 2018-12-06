@@ -8,9 +8,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/pkg/utils"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 const (
@@ -28,6 +30,13 @@ const (
 	InstanceStatusRunning  = "RUNNING"
 	InstanceStatusStopping = "STOPPING"
 	InstanceStatusStarting = "STARTING"
+)
+
+const (
+	InternetChargeTypeBandwidthPrepaid        = "BANDWIDTH_PREPAID"
+	InternetChargeTypeTrafficPostpaidByHour   = "TRAFFIC_POSTPAID_BY_HOUR"
+	InternetChargeTypeBandwidthPostpaidByHour = "BANDWIDTH_POSTPAID_BY_HOUR"
+	InternetChargeTypeBandwidthPackage        = "BANDWIDTH_PACKAGE"
 )
 
 type SystemDisk struct {
@@ -143,9 +152,11 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	}
 
 	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
+	priceKey := fmt.Sprintf("%s::%s", self.host.zone.Zone, self.InstanceType)
+	data.Add(jsonutils.NewString(priceKey), "price_key")
+
 	secgroupIds := jsonutils.NewArray()
 	for _, secgroupId := range self.SecurityGroupIds {
-		data.Add(jsonutils.NewString(secgroupId), "secgroupId")
 		secgroupIds.Add(jsonutils.NewString(secgroupId))
 	}
 	data.Add(secgroupIds, "secgroupIds")
@@ -365,7 +376,7 @@ func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 	if err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
+	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 8*time.Minute) // 8 mintues, 腾讯云有时关机比较慢
 }
 
 func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
@@ -447,27 +458,37 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
 	zoneId string, desc string, passwd string, disks []SDisk, networkId string, ipAddr string,
-	keypair string, userData string) (string, error) {
+	keypair string, userData string, bc *billing.SBillingCycle) (string, error) {
 	params := make(map[string]string)
 	params["Region"] = self.Region
 	params["ImageId"] = imageId
 	params["InstanceType"] = instanceType
-	//params["SecurityGroupId"] = securityGroupId
+	params["SecurityGroupIds.0"] = securityGroupId
 	params["Placement.Zone"] = zoneId
 	params["InstanceName"] = name
 	params["Description"] = desc
-	params["InstanceChargeType"] = "POSTPAID_BY_HOUR"
+
+	params["InternetAccessible.InternetChargeType"] = "TRAFFIC_POSTPAID_BY_HOUR"
 	params["InternetAccessible.InternetMaxBandwidthOut"] = "100"
 	params["InternetAccessible.PublicIpAssigned"] = "FALSE"
 	params["HostName"] = name
 	if len(passwd) > 0 {
 		params["LoginSettings.Password"] = passwd
+	} else if len(keypair) > 0 {
+		params["LoginSettings.KeyIds.0"] = keypair
 	} else {
 		params["LoginSettings.KeepImageLogin"] = "TRUE"
 	}
-
 	if len(userData) > 0 {
 		params["UserData"] = userData
+	}
+
+	if bc != nil {
+		params["InstanceChargeType"] = "PREPAID"
+		params["InstanceChargePrepaid.Period"] = fmt.Sprintf("%d", bc.GetMonths())
+		params["InstanceChargePrepaid.RenewFlag"] = "NOTIFY_AND_MANUAL_RENEW"
+	} else {
+		params["InstanceChargeType"] = "POSTPAID_BY_HOUR"
 	}
 
 	//params["IoOptimized"] = "optimized"
@@ -489,11 +510,9 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	if len(ipAddr) > 0 {
 		params["VirtualPrivateCloud.PrivateIpAddresses.0"] = ipAddr
 	}
-	// if len(keypair) > 0 {
-	// 	params["KeyPairName"] = keypair
-	// }
+
 	params["ClientToken"] = utils.GenRequestId(20)
-	//log.Errorf("create params: %s", jsonutils.Marshal(params).PrettyString())
+	// log.Errorf("create params: %s", jsonutils.Marshal(params).PrettyString())
 	instanceIdSet := []string{}
 	body, err := self.cvmRequest("RunInstances", params)
 	if err != nil {
@@ -609,8 +628,19 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
-	if err := self.host.zone.region.DeleteVM(self.InstanceId); err != nil {
-		return err
+	for {
+		err := self.host.zone.region.DeleteVM(self.InstanceId)
+		if err != nil {
+			if isError(err, []string{"InvalidInstance.NotSupported", "MutexOperation.TaskRunning"}) {
+				log.Infof("The instance is initializing, try later ...")
+				time.Sleep(10 * time.Second)
+			} else {
+				log.Errorf("DeleteVM fail: %s", err)
+				return err
+			}
+		} else {
+			break
+		}
 	}
 	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
 }
@@ -659,8 +689,9 @@ func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, 
 		err := self.instanceOperation(instanceId, "ResetInstancesType", params)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instancetype.InstanceType, err)
+		} else {
+			return nil
 		}
-		return nil
 	}
 
 	return fmt.Errorf("Failed to change vm config, specification not supported")
@@ -682,12 +713,11 @@ func (self *SRegion) ChangeVMConfig2(zoneId string, instanceId string, instanceT
 
 func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
 	params := make(map[string]string)
-	params["InstanceId"] = instanceId
-	params["DiskId"] = diskId
+	params["DiskIds.0"] = diskId
 	log.Infof("Detach instance %s disk %s", instanceId, diskId)
-	_, err := self.cvmRequest("DetachDisk", params)
+	_, err := self.cbsRequest("DetachDisks", params)
 	if err != nil {
-		log.Errorf("DetachDisk %s to %s fail %s", diskId, instanceId, err)
+		log.Errorf("DetachDisks %s to %s fail %s", diskId, instanceId, err)
 		return err
 	}
 
@@ -711,15 +741,30 @@ func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
 	return self.host.zone.region.instanceOperation(self.InstanceId, "ModifyInstancesAttribute", params)
 }
 
+func (self *SInstance) AssignSecurityGroups(secgroupIds []string) error {
+	params := map[string]string{}
+	for i := 0; i < len(secgroupIds); i++ {
+		params[fmt.Sprintf("SecurityGroups.%d", i)] = secgroupIds[i]
+	}
+	return self.host.zone.region.instanceOperation(self.InstanceId, "ModifyInstancesAttribute", params)
+}
+
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
-	if len(self.PublicIpAddresses) > 0 {
+	eip, total, err := self.host.zone.region.GetEips("", self.InstanceId, 0, 1)
+	if err != nil {
+		return nil, err
+	}
+	if total == 1 {
+		return &eip[0], nil
+	}
+	for _, address := range self.PublicIpAddresses {
 		eip := SEipAddress{region: self.host.zone.region}
-		eip.AddressIp = self.PublicIpAddresses[0]
+		eip.AddressIp = address
 		eip.InstanceId = self.InstanceId
 		eip.AddressId = self.InstanceId
-		eip.AddressName = self.PublicIpAddresses[0]
-		eip.AddressType = "WanIP"
-		eip.AddressStatus = EIP_STATUS_INUSE
+		eip.AddressName = address
+		eip.AddressType = EIP_TYPE_WANIP
+		eip.AddressStatus = EIP_STATUS_BIND
 		return &eip, nil
 	}
 	return nil, nil
@@ -746,4 +791,25 @@ func (self *SInstance) UpdateUserData(userData string) error {
 
 func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
 	return cloudprovider.ErrNotSupported
+}
+
+func (self *SInstance) Renew(bc billing.SBillingCycle) error {
+	return self.host.zone.region.RenewInstances([]string{self.InstanceId}, bc)
+}
+
+func (region *SRegion) RenewInstances(instanceId []string, bc billing.SBillingCycle) error {
+	params := make(map[string]string)
+	for i := 0; i < len(instanceId); i += 1 {
+		params[fmt.Sprintf("InstanceIds.%d", i)] = instanceId[i]
+	}
+	params["InstanceChargePrepaid.Period"] = fmt.Sprintf("%d", bc.GetMonths())
+	params["InstanceChargePrepaid.RenewFlag"] = "NOTIFY_AND_MANUAL_RENEW"
+	params["RenewPortableDataDisk"] = "TRUE"
+	params["ClientToken"] = utils.GenRequestId(20)
+	_, err := region.cvmRequest("RenewInstances", params)
+	if err != nil {
+		log.Errorf("RenewInstance fail %s", err)
+		return err
+	}
+	return nil
 }

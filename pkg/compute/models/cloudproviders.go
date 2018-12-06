@@ -29,11 +29,21 @@ const (
 	CLOUD_PROVIDER_START_SYNC   = "start_sync"
 	CLOUD_PROVIDER_SYNCING      = "syncing"
 
+	CLOUD_PROVIDER_KVM    = "KVM"
 	CLOUD_PROVIDER_VMWARE = "VMware"
 	CLOUD_PROVIDER_ALIYUN = "Aliyun"
 	CLOUD_PROVIDER_QCLOUD = "Qcloud"
 	CLOUD_PROVIDER_AZURE  = "Azure"
 	CLOUD_PROVIDER_AWS    = "Aws"
+	CLOUD_PROVIDER_HUAWEI = "Huawei"
+
+	CLOUD_PROVIDER_HEALTH_NORMAL    = "normal"    // 远端处于健康状态
+	CLOUD_PROVIDER_HEALTH_SUSPENDED = "suspended" // 远端处于冻结状态
+	CLOUD_PROVIDER_HEALTH_ARREARS   = "arrears"   // 远端处于欠费状态
+)
+
+var (
+	CLOUD_PROVIDER_VALID_STATUS = []string{CLOUD_PROVIDER_CONNECTED, CLOUD_PROVIDER_START_SYNC, CLOUD_PROVIDER_SYNCING}
 )
 
 type SCloudproviderManager struct {
@@ -55,6 +65,8 @@ func init() {
 
 type SCloudprovider struct {
 	db.SEnabledStatusStandaloneResourceBase
+
+	HealthStatus string `width:"64" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_optional"` // 云端服务健康状态。例如欠费、项目冻结都属于不健康状态。
 
 	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 	// Hostname string `width:"64" charset:"ascii" nullable:"true"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
@@ -114,6 +126,18 @@ func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
+func (self *SCloudprovider) CleanSchedCache() {
+	hosts := []SHost{}
+	q := HostManager.Query().Equals("manager_id", self.Id)
+	if err := db.FetchModelObjects(HostManager, q, &hosts); err != nil {
+		log.Errorf("failed to get hosts for cloudprovider %s error: %v", self.Name, err)
+		return
+	}
+	for _, host := range hosts {
+		host.ClearSchedDescCache()
+	}
+}
+
 func (self *SCloudprovider) GetGuestCount() int {
 	sq := HostManager.Query("id").Equals("manager_id", self.Id)
 	return GuestManager.Query().In("host_id", sq).Count()
@@ -141,6 +165,10 @@ func (self *SCloudprovider) getEipCount() int {
 
 func (self *SCloudprovider) getSnapshotCount() int {
 	return SnapshotManager.Query().Equals("manager_id", self.Id).Count()
+}
+
+func (self *SCloudprovider) getLoadbalancerCount() int {
+	return LoadbalancerManager.Query().Equals("manager_id", self.Id).Count()
 }
 
 func (self *SCloudprovider) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -202,7 +230,7 @@ func (self *SCloudprovider) syncProject(ctx context.Context) error {
 
 	var projectId string
 	if err == sql.ErrNoRows { // create one
-		s := auth.GetAdminSession(options.Options.Region, "")
+		s := auth.GetAdminSession(ctx, options.Options.Region, "")
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(self.Name), "name")
 		params.Add(jsonutils.NewString(fmt.Sprintf("auto create from cloud provider %s (%s)", self.Name, self.Id)), "description")
@@ -284,7 +312,15 @@ func (sr *SSyncRange) normalizeZoneIds() error {
 				return err
 			}
 		}
-		sr.Zone[i] = obj.GetId()
+		zone := obj.(*SZone)
+		region := zone.GetRegion()
+		if region == nil {
+			continue
+		}
+		sr.Zone[i] = zone.GetId()
+		if !utils.IsInStringArray(region.Id, sr.Region) {
+			sr.Region = append(sr.Region, region.Id)
+		}
 	}
 	return nil
 }
@@ -299,7 +335,22 @@ func (sr *SSyncRange) normalizeHostIds() error {
 				return err
 			}
 		}
-		sr.Host[i] = obj.GetId()
+		host := obj.(*SHost)
+		zone := host.GetZone()
+		if zone == nil {
+			continue
+		}
+		region := zone.GetRegion()
+		if region == nil {
+			continue
+		}
+		sr.Host[i] = host.GetId()
+		if !utils.IsInStringArray(zone.Id, sr.Zone) {
+			sr.Zone = append(sr.Zone, zone.Id)
+		}
+		if !utils.IsInStringArray(region.Id, sr.Region) {
+			sr.Region = append(sr.Region, region.Id)
+		}
 	}
 	return nil
 }
@@ -310,18 +361,24 @@ func (sr *SSyncRange) Normalize() error {
 		if err != nil {
 			return err
 		}
+	} else {
+		sr.Region = make([]string, 0)
 	}
 	if sr.Zone != nil && len(sr.Zone) > 0 {
 		err := sr.normalizeZoneIds()
 		if err != nil {
 			return err
 		}
+	} else {
+		sr.Zone = make([]string, 0)
 	}
 	if sr.Host != nil && len(sr.Host) > 0 {
 		err := sr.normalizeHostIds()
 		if err != nil {
 			return err
 		}
+	} else {
+		sr.Host = make([]string, 0)
 	}
 	return nil
 }
@@ -403,6 +460,10 @@ func (self *SCloudprovider) MarkStartSync(userCred mcclient.TokenCredential) {
 	self.SetStatus(userCred, CLOUD_PROVIDER_START_SYNC, "")
 }
 
+func (self *SCloudprovider) GetProviderDriver() (cloudprovider.ICloudProviderFactory, error) {
+	return cloudprovider.GetProviderDriver(self.Provider)
+}
+
 func (self *SCloudprovider) GetDriver() (cloudprovider.ICloudProvider, error) {
 	if !self.Enabled {
 		return nil, fmt.Errorf("Cloud provider is not enabled")
@@ -468,6 +529,7 @@ type SCloudproviderUsage struct {
 	StorageCacheCount int
 	EipCount          int
 	SnapshotCount     int
+	LoadbalancerCount int
 }
 
 func (usage *SCloudproviderUsage) isEmpty() bool {
@@ -489,6 +551,9 @@ func (usage *SCloudproviderUsage) isEmpty() bool {
 	if usage.SnapshotCount > 0 {
 		return false
 	}
+	if usage.LoadbalancerCount > 0 {
+		return false
+	}
 	return true
 }
 
@@ -502,6 +567,7 @@ func (self *SCloudprovider) getUsage() *SCloudproviderUsage {
 	usage.StorageCacheCount = self.getStoragecacheCount()
 	usage.EipCount = self.getEipCount()
 	usage.SnapshotCount = self.getSnapshotCount()
+	usage.LoadbalancerCount = self.getLoadbalancerCount()
 
 	return &usage
 }
@@ -516,6 +582,10 @@ func (self *SCloudprovider) getMoreDetails(ctx context.Context, extra *jsonutils
 	project := self.getProject(ctx)
 	if project != nil {
 		extra.Add(jsonutils.NewString(project.Name), "tenant")
+	}
+	account := self.GetCloudaccount()
+	if account != nil {
+		extra.Add(jsonutils.NewString(account.GetName()), "account")
 	}
 	return extra
 }

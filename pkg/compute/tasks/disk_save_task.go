@@ -66,11 +66,12 @@ func (self *DiskSaveTask) StartBackupDisk(ctx context.Context, disk *models.SDis
 func (self *DiskSaveTask) OnDiskBackupCompleteFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	disk.SetDiskReady(ctx, self.GetUserCred(), data.String())
 	db.OpsLog.LogEvent(disk, db.ACT_SAVE_FAIL, data.String(), self.GetUserCred())
+	self.SetStageFailed(ctx, data.String())
 }
 
 func (self *DiskSaveTask) OnDiskBackupComplete(ctx context.Context, disk *models.SDisk, data *jsonutils.JSONDict) {
 	disk.SetDiskReady(ctx, self.GetUserCred(), "")
-	db.OpsLog.LogEvent(disk, db.ACT_SAVE, disk.GetShortDesc(), self.GetUserCred())
+	db.OpsLog.LogEvent(disk, db.ACT_SAVE, disk.GetShortDesc(ctx), self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 	imageId, _ := self.GetParams().GetString("image_id")
 	if host := self.GetMasterHost(disk); host == nil {
@@ -101,7 +102,7 @@ func (self *DiskSaveTask) TaskFailed(ctx context.Context, resion string) {
 	self.SetStageFailed(ctx, resion)
 	if imageId, err := self.GetParams().GetString("image_id"); err != nil && len(imageId) > 0 {
 		log.Errorf("save disk task failed, set image %s killed", imageId)
-		s := auth.GetAdminSession(options.Options.Region, "")
+		s := auth.GetAdminSession(ctx, options.Options.Region, "")
 		mc.Images.Update(s, imageId, jsonutils.Marshal(map[string]string{"status": "killed"}))
 	}
 }

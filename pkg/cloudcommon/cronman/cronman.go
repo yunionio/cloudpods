@@ -8,15 +8,19 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
+
+type TCronJobFunction func(ctx context.Context, userCred mcclient.TokenCredential, isStart bool)
 
 var manager *SCronJobManager
 
 func init() {
 	manager = &SCronJobManager{
-		jobs: make([]*SCronJob, 0),
+		jobs:    make([]*SCronJob, 0),
+		workers: appsrv.NewWorkerManager("CronJobWorkers", 4, 1024, true),
 	}
 }
 
@@ -42,10 +46,11 @@ func (t *Timer2) Next(now time.Time) time.Time {
 }
 
 type SCronJob struct {
-	Name  string
-	job   func(ctx context.Context, userCred mcclient.TokenCredential)
-	Timer ICronTimer
-	Next  time.Time
+	Name     string
+	job      TCronJobFunction
+	Timer    ICronTimer
+	Next     time.Time
+	StartRun bool
 }
 
 type CronJobTimerHeap []*SCronJob
@@ -85,13 +90,14 @@ type SCronJobManager struct {
 	add     chan *SCronJob
 	stop    chan struct{}
 	running bool
+	workers *appsrv.SWorkerManager
 }
 
 func GetCronJobManager() *SCronJobManager {
 	return manager
 }
 
-func (self *SCronJobManager) AddJob1(name string, interval time.Duration, jobFunc func(ctx context.Context, userCred mcclient.TokenCredential)) {
+func (self *SCronJobManager) AddJob1(name string, interval time.Duration, jobFunc TCronJobFunction) {
 	t := Timer1{
 		dur: interval,
 	}
@@ -107,7 +113,7 @@ func (self *SCronJobManager) AddJob1(name string, interval time.Duration, jobFun
 	}
 }
 
-func (self *SCronJobManager) AddJob2(name string, day, hour, min, sec int, jobFunc func(ctx context.Context, userCred mcclient.TokenCredential)) {
+func (self *SCronJobManager) AddJob2(name string, day, hour, min, sec int, jobFunc TCronJobFunction, startRun bool) {
 	t := Timer2{
 		day:  day,
 		hour: hour,
@@ -115,9 +121,10 @@ func (self *SCronJobManager) AddJob2(name string, day, hour, min, sec int, jobFu
 		sec:  sec,
 	}
 	job := SCronJob{
-		Name:  name,
-		job:   jobFunc,
-		Timer: &t,
+		Name:     name,
+		job:      jobFunc,
+		Timer:    &t,
+		StartRun: startRun,
 	}
 	if !self.running {
 		self.jobs = append(self.jobs, &job)
@@ -155,13 +162,19 @@ func (self *SCronJobManager) run() {
 		} else {
 			timer = time.NewTimer(self.jobs[0].Next.Sub(now))
 		}
+		for i := 0; i < len(self.jobs); i += 1 {
+			if self.jobs[i].StartRun {
+				self.jobs[i].StartRun = false
+				self.jobs[i].runJob(true)
+			}
+		}
 		select {
 		case now = <-timer.C:
 			for i, job := range self.jobs {
 				if job.Next.After(now) || job.Next.IsZero() {
 					break
 				}
-				go job.runJob()
+				job.runJob(false)
 				job.Next = job.Timer.Next(now)
 				heap.Fix(&self.jobs, i)
 			}
@@ -176,7 +189,13 @@ func (self *SCronJobManager) run() {
 	}
 }
 
-func (job *SCronJob) runJob() {
+func (job *SCronJob) runJob(isStart bool) {
+	manager.workers.Run(func() {
+		job.runJobInWorker(isStart)
+	}, nil, nil)
+}
+
+func (job *SCronJob) runJobInWorker(isStart bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Errorf("CronJob task %s run error: %s", job.Name, r)
@@ -186,7 +205,7 @@ func (job *SCronJob) runJob() {
 
 	log.Debugf("Cron job: %s started", job.Name)
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, "Region-Corn-Service")
+	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, "Region-Cron-Service")
 	userCred := auth.AdminCredential()
-	job.job(ctx, userCred)
+	job.job(ctx, userCred, isStart)
 }

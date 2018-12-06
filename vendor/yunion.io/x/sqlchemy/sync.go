@@ -120,6 +120,21 @@ func (ts *STableSpec) fetchColumnDefs() ([]IColumnSpec, error) {
 	return specs, nil
 }
 
+func (ts *STableSpec) fetchIndexesAndConstraints() ([]STableIndex, []STableConstraint, error) {
+	sql := fmt.Sprintf("SHOW CREATE TABLE %s", ts.name)
+	query := NewRawQuery(sql, "table", "create table")
+	row := query.Row()
+	var name, defStr string
+	err := row.Scan(&name, &defStr)
+	if err != nil {
+		log.Errorf("fetch create table info fail %s", err)
+		return nil, nil, err
+	}
+	indexes := parseIndexes(defStr)
+	constraints := parseConstraints(defStr)
+	return indexes, constraints, nil
+}
+
 func compareColumnSpec(c1, c2 IColumnSpec) int {
 	return strings.Compare(c1.Name(), c2.Name())
 }
@@ -164,6 +179,27 @@ func diffCols(cols1 []IColumnSpec, cols2 []IColumnSpec) ([]IColumnSpec, []IColum
 	return remove, update, add
 }
 
+func diffIndexes2(exists []STableIndex, defs []STableIndex) (diff []STableIndex) {
+	diff = make([]STableIndex, 0)
+	for i := 0; i < len(exists); i += 1 {
+		findDef := false
+		for j := 0; j < len(defs); j += 1 {
+			if defs[j].IsIdentical(exists[i].columns...) {
+				findDef = true
+				break
+			}
+		}
+		if ! findDef {
+			diff = append(diff, exists[i])
+		}
+	}
+	return
+}
+
+func diffIndexes(exists []STableIndex, defs []STableIndex) (added []STableIndex, removed []STableIndex) {
+	return diffIndexes2(defs, exists), diffIndexes2(exists, defs)
+}
+
 func (ts *STableSpec) SyncSQL() []string {
 	tables := GetTables()
 	in, _ := utils.InStringArray(ts.name, tables)
@@ -172,27 +208,55 @@ func (ts *STableSpec) SyncSQL() []string {
 		sql := ts.CreateSQL()
 		return []string{sql}
 	}
+
+	indexes, constraints, err := ts.fetchIndexesAndConstraints()
+	if err != nil {
+		log.Errorf("fetchIndexesAndConstraints fail %s", err)
+		return nil
+	}
+
 	ret := make([]string, 0)
 	cols, err := ts.fetchColumnDefs()
 	if err != nil {
 		log.Errorf("fetchColumnDefs fail: %s", err)
 		return nil
 	}
+
+	for _, constraint := range constraints {
+		sql := fmt.Sprintf("ALTER TABLE %s DROP FOREIGN KEY %s", ts.name, constraint.name)
+		ret = append(ret, sql)
+		log.Infof(sql)
+	}
+
+	addIndexes, removeIndexes := diffIndexes(indexes, ts.indexes)
+
+	for _, idx := range removeIndexes {
+		sql := fmt.Sprintf("DROP INDEX `%s` ON `%s`", idx.name, ts.name)
+		log.Infof(sql)
+	}
+
 	remove, update, add := diffCols(cols, ts.columns)
 	/* IGNORE DROP STATEMENT */
 	for _, col := range remove {
-		sql := fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s;", ts.name, col.Name())
+		sql := fmt.Sprintf("ALTER TABLE `%s` DROP COLUMN `%s`;", ts.name, col.Name())
 		// ret = append(ret, sql)
 		log.Infof(sql)
 	}
 	for _, col := range update {
-		sql := fmt.Sprintf("ALTER TABLE %s MODIFY %s;", ts.name, col.DefinitionString())
+		sql := fmt.Sprintf("ALTER TABLE `%s` MODIFY %s;", ts.name, col.DefinitionString())
 		ret = append(ret, sql)
 	}
 	for _, col := range add {
-		sql := fmt.Sprintf("ALTER TABLE %s ADD %s;", ts.name, col.DefinitionString())
+		sql := fmt.Sprintf("ALTER TABLE `%s` ADD %s;", ts.name, col.DefinitionString())
 		ret = append(ret, sql)
 	}
+
+	for _, idx := range addIndexes {
+		sql := fmt.Sprintf("CREATE INDEX `%s` ON `%s` (%s)", idx.name, ts.name, strings.Join(idx.QuotedColumns(), ","))
+		ret = append(ret, sql)
+		log.Infof(sql)
+	}
+
 	return ret
 }
 

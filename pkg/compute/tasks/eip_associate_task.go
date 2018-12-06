@@ -57,7 +57,7 @@ func (self *EipAssociateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 		return
 	}
 
-	err = eip.AssociateVM(self.UserCred, server)
+	err = eip.AssociateVM(ctx, self.UserCred, server)
 	if err != nil {
 		msg := fmt.Sprintf("fail to local associate EIP %s", err)
 		self.TaskFail(ctx, eip, msg, server)

@@ -25,12 +25,12 @@ func defaultPredicates() sets.String {
 		factory.RegisterFitPredicate("i-GuestStorageFilter", &predicateguest.StoragePredicate{}),
 		factory.RegisterFitPredicate("j-GuestNetworkFilter", &predicateguest.NetworkPredicate{}),
 		factory.RegisterFitPredicate("k-GuestIsolatedDeviceFilter", &predicateguest.IsolatedDevicePredicate{}),
+		factory.RegisterFitPredicate("l-GuestResourceTypeFilter", &predicates.ResourceTypePredicate{}),
 	)
 }
 
 func defaultPriorities() sets.String {
 	return sets.NewString(
-		factory.RegisterPriority("guest-avoid-same-cluster", &priorityguest.AvoidSameClusterPriority{}, 1),
 		factory.RegisterPriority("guest-avoid-same-host", &priorityguest.AvoidSameHostPriority{}, 1),
 		factory.RegisterPriority("guest-lowload", &priorityguest.LowLoadPriority{}, 1),
 		factory.RegisterPriority("guest-creating", &priorityguest.CreatingPriority{}, 1),

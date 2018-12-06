@@ -229,8 +229,8 @@ func (disk *SVirtualDisk) Resize(ctx context.Context, newSizeMb int64) error {
 	return err
 }
 
-func (disk *SVirtualDisk) Reset(ctx context.Context, snapshotId string) error {
-	return cloudprovider.ErrNotImplemented
+func (disk *SVirtualDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
+	return "", cloudprovider.ErrNotImplemented
 }
 
 func (disk *SVirtualDisk) GetBillingType() string {
@@ -239,4 +239,8 @@ func (disk *SVirtualDisk) GetBillingType() string {
 
 func (disk *SVirtualDisk) GetExpiredAt() time.Time {
 	return time.Time{}
+}
+
+func (disk *SVirtualDisk) Rebuild(ctx context.Context) error {
+	return disk.vm.rebuildDisk(ctx, disk)
 }

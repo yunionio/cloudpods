@@ -93,3 +93,17 @@ func GetAnyString(json JSONObject, keys []string) string {
 	}
 	return ""
 }
+
+func GetArrayOfPrefix(json JSONObject, prefix string) []JSONObject {
+	retArray := make([]JSONObject, 0)
+	idx := 0
+	for {
+		obj, _ := json.Get(fmt.Sprintf("%s.%d", prefix, idx))
+		if obj == nil || obj == JSONNull {
+			break
+		}
+		retArray = append(retArray, obj)
+		idx += 1
+	}
+	return retArray
+}

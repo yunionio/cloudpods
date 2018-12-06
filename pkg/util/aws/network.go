@@ -1,14 +1,18 @@
 package aws
 
 import (
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"fmt"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go/service/ec2"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/netutils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/pkg/util/netutils"
 )
 
 type SNetwork struct {
@@ -31,6 +35,10 @@ func (self *SNetwork) GetId() string {
 }
 
 func (self *SNetwork) GetName() string {
+	if len(self.NetworkName) == 0 {
+		return self.NetworkId
+	}
+
 	return self.NetworkName
 }
 
@@ -117,11 +125,25 @@ func (self *SRegion) createNetwork(zoneId string, vpcId string, name string, cid
 	if err != nil {
 		return "", err
 	} else {
+		paramsTags := &ec2.CreateTagsInput{}
+		tagspec := TagSpec{ResourceType: "subnet"}
+		tagspec.SetNameTag(name)
+		tagspec.SetDescTag(desc)
+		ec2Tag, _ := tagspec.GetTagSpecifications()
+		paramsTags.SetResources([]*string{ret.Subnet.SubnetId})
+		paramsTags.SetTags(ec2Tag.Tags)
+		_, err := self.ec2Client.CreateTags(paramsTags)
+		if err != nil {
+			log.Infof("createNetwork write tags failed:%s", err)
+		}
 		return *ret.Subnet.SubnetId, nil
 	}
 }
 
 func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
+	if len(networkId) == 0 {
+		return nil, fmt.Errorf("GetNetwork networkId should not be empty.")
+	}
 	networks, total, err := self.GetNetwroks([]string{networkId}, "", 0, 0)
 	if err != nil {
 		return nil, err
@@ -164,10 +186,14 @@ func (self *SRegion) GetNetwroks(ids []string, vpcId string, limit int, offset i
 	}
 
 	subnets := []SNetwork{}
-	for _, item := range ret.Subnets {
+	for i := range ret.Subnets {
+		item := ret.Subnets[i]
 		if err := FillZero(item); err != nil {
 			return nil, 0, err
 		}
+
+		tagspec := TagSpec{ResourceType: "subnet"}
+		tagspec.LoadingEc2Tags(item.Tags)
 
 		subnet := SNetwork{}
 		subnet.CidrBlock = *item.CidrBlock
@@ -176,7 +202,7 @@ func (self *SRegion) GetNetwroks(ids []string, vpcId string, limit int, offset i
 		subnet.ZoneId = *item.AvailabilityZone
 		subnet.IsDefault = *item.DefaultForAz
 		subnet.NetworkId = *item.SubnetId
-		subnet.NetworkName = *item.SubnetId
+		subnet.NetworkName = tagspec.GetNameTag()
 		subnets = append(subnets, subnet)
 	}
 	return subnets, len(subnets), nil

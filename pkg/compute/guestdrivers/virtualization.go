@@ -7,12 +7,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SVirtualizedGuestDriver struct {
@@ -190,6 +190,14 @@ func (self *SVirtualizedGuestDriver) ValidateCreateHostData(ctx context.Context,
 		return nil, httperrors.NewInvalidStatusError("Host %s is not online", bmName)
 	}
 	data.Add(jsonutils.NewString(host.Id), "prefer_host_id")
+	if host.IsPrepaidRecycle() {
+		data.Set("vmem_size", jsonutils.NewInt(int64(host.MemSize)))
+		data.Set("vcpu_count", jsonutils.NewInt(int64(host.CpuCount)))
+
+		if host.GetGuestCount() >= 1 {
+			return nil, httperrors.NewInsufficientResourceError("host has been occupied")
+		}
+	}
 	return data, nil
 }
 

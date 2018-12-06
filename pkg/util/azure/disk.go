@@ -1,13 +1,14 @@
 package azure
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
-	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -314,14 +315,20 @@ func (region *SRegion) GetSnapShots(diskId string) ([]SSnapshot, error) {
 	return result, nil
 }
 
-func (self *SDisk) Reset(ctx context.Context, snapshotId string) error {
-	return self.storage.zone.region.resetDisk(self.ID, snapshotId)
+func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
+	return "", self.storage.zone.region.resetDisk(self.ID, snapshotId)
 }
 
 func (self *SRegion) resetDisk(diskId, snapshotId string) error {
+	// TODO
 	return cloudprovider.ErrNotSupported
 }
 
 func (disk *SDisk) GetAccessPath() string {
 	return ""
+}
+
+func (self *SDisk) Rebuild(ctx context.Context) error {
+	// TODO
+	return cloudprovider.ErrNotSupported
 }

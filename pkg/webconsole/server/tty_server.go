@@ -19,9 +19,10 @@ const (
 	ON_DISCONNECTION = "disconnection"
 	ON_ERROR         = "error"
 
-	OUTPUT_EVENT = "output"
-	INPUT_EVENT  = "input"
-	RESIZE_EVENT = "resize"
+	DISCONNECT_EVENT = "disconnect"
+	OUTPUT_EVENT     = "output"
+	INPUT_EVENT      = "input"
+	RESIZE_EVENT     = "resize"
 
 	COMMAND_QUERY = "command"
 	ARGS_QUERY    = "args"
@@ -72,6 +73,11 @@ func initSocketHandler(so socketio.Socket, p *session.Pty) {
 					so.Emit(OUTPUT_EVENT, string(buf[0:n]))
 				}
 				if !p.IsOk {
+					if err := p.Session.Connect(); err != nil {
+						so.Emit(DISCONNECT_EVENT, "")
+						cleanUp(so, p)
+						return
+					}
 					p.Stop()
 					if info := p.Session.ShowInfo(); len(info) > 0 {
 						so.Emit(OUTPUT_EVENT, info)
@@ -89,6 +95,11 @@ func initSocketHandler(so socketio.Socket, p *session.Pty) {
 	// handle write
 	so.On(INPUT_EVENT, func(data string) {
 		if !p.IsOk {
+			if err := p.Session.Connect(); err != nil {
+				so.Emit(DISCONNECT_EVENT, "")
+				cleanUp(so, p)
+				return
+			}
 			if data == "\r" {
 				p.Show, p.Output, p.Command = p.Session.GetData(p.Buffer)
 				so.Emit(OUTPUT_EVENT, "\r\n")

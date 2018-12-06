@@ -10,41 +10,16 @@ import (
 func init() {
 	type SnapshotsListOptions struct {
 		options.BaseListOptions
-		Disk        string `help:"Disk snapshots"`
+		Disk        string `help:"Disk snapshots" json:"disk_id"`
 		FakeDeleted bool   `help:"Show fake deleted snapshot or not"`
-		Local       bool   `help:"Show local snapshots"`
-		Share       bool   `help:"Show shared snapshots"`
+		Local       *bool  `help:"Show local snapshots"`
+		Share       *bool  `help:"Show shared snapshots"`
 		DiskType    string `help:"Filter by disk type" choices:"sys|data"`
-		Provider    string `help:"Cloud provider" choices:"Aliyun|VMware|Azure"`
-
-		Manager string `help:"Show snapshots belongs to a specific cloud provider"`
 	}
 	R(&SnapshotsListOptions{}, "snapshot-list", "Show snapshots", func(s *mcclient.ClientSession, args *SnapshotsListOptions) error {
-		params, err := args.BaseListOptions.Params()
+		params, err := options.ListStructToParams(args)
 		if err != nil {
 			return err
-		}
-		if len(args.Disk) > 0 {
-			params.Add(jsonutils.NewString(args.Disk), "disk_id")
-		}
-		params.Add(jsonutils.NewBool(args.FakeDeleted), "fake_deleted")
-		if args.Local {
-			params.Add(jsonutils.NewBool(args.Local), "local")
-		}
-		if args.Share {
-			params.Add(jsonutils.NewBool(args.Share), "share")
-		}
-		if len(args.Disk) > 0 {
-			params.Add(jsonutils.NewString(args.Disk), "disk_id")
-		}
-		if len(args.DiskType) > 0 {
-			params.Add(jsonutils.NewString(args.DiskType), "disk_type")
-		}
-		if len(args.Provider) > 0 {
-			params.Add(jsonutils.NewString(args.Provider), "provider")
-		}
-		if len(args.Manager) > 0 {
-			params.Add(jsonutils.NewString(args.Manager), "manager")
 		}
 		result, err := modules.Snapshots.List(s, params)
 		if err != nil {

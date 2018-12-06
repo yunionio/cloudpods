@@ -55,13 +55,10 @@ func (self *GuestInsertIsoTask) OnIsoPrepareCompleteFailed(ctx context.Context, 
 
 func (self *GuestInsertIsoTask) OnIsoPrepareComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	imageId, _ := data.GetString("image_id")
-	jSize, err := data.Get("size")
+	size, err := data.Int("size")
 	if err != nil {
 		self.SetStageFailed(ctx, err.Error())
-	}
-	size, err := jSize.Int()
-	if err != nil {
-		self.SetStageFailed(ctx, err.Error())
+		return
 	}
 	name, _ := data.GetString("name")
 	path, _ := data.GetString("path")

@@ -37,7 +37,12 @@ func (t *STableSpec) insertSqlPrep(dataFields map[string]interface{}) (string, [
 			createdAtFields = append(createdAtFields, k)
 			names = append(names, fmt.Sprintf("`%s`", k))
 			format = append(format, "UTC_TIMESTAMP()")
-		} else if ov != nil && !c.IsZero(ov) && !isAutoInc {
+		} else if c.IsSupportDefault() && len(c.Default()) > 0 && ov != nil && c.IsZero(ov) { // empty text value
+			val := c.ConvertFromString(c.Default())
+			values = append(values, val)
+			names = append(names, fmt.Sprintf("`%s`", k))
+			format = append(format, "?")
+		} else if ov != nil && (!c.IsZero(ov) || (!c.IsPointer() && !c.IsText())) && !isAutoInc {
 			v := c.ConvertFromValue(ov)
 			values = append(values, v)
 			names = append(names, fmt.Sprintf("`%s`", k))
@@ -51,11 +56,6 @@ func (t *STableSpec) insertSqlPrep(dataFields map[string]interface{}) (string, [
 			} else {
 				return "", nil, fmt.Errorf("cannot insert for null primary key %q", k)
 			}
-		} else if !c.IsSupportDefault() && len(c.Default()) > 0 && ov != nil && c.IsZero(ov) { // empty text value
-			val := c.ConvertFromString(c.Default())
-			values = append(values, val)
-			names = append(names, fmt.Sprintf("`%s`", k))
-			format = append(format, "?")
 		}
 	}
 
@@ -80,7 +80,7 @@ func (t *STableSpec) insert(data interface{}, debug bool) error {
 	}
 
 	if DEBUG_SQLCHEMY || debug {
-		log.Debugf("%s values: %s", insertSql, values)
+		log.Debugf("%s values: %v", insertSql, values)
 	}
 
 	results, err := _db.Exec(insertSql, values...)

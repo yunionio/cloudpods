@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/service/ec2"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/secrules"
 
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SUserCIDRs struct {
@@ -145,7 +146,7 @@ func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name str
 		secgroupId = fmt.Sprintf("%s-%s", vpcId, secgroupId)
 	}
 
-	if secgroup, err := self.getSecurityGroupByTag(vpcId, secgroupId); err != nil {
+	if secgroup, err := self.getSecurityGroupById(vpcId, secgroupId); err != nil {
 		if len(desc) == 0 {
 			desc = fmt.Sprintf("security group %s for vpc %s", name, vpcId)
 		}
@@ -229,6 +230,10 @@ func (self *SVpc) fetchSecurityGroups() error {
 }
 
 func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
+	if len(vpcId) == 0 {
+		return nil, fmt.Errorf("GetVpc vpc id should not be empty.")
+	}
+
 	vpcs, total, err := self.GetVpcs([]string{vpcId}, 0, 1)
 	if err != nil {
 		return nil, err
@@ -246,6 +251,10 @@ func (self *SRegion) revokeSecurityGroup(secgroupId, instanceId string, keep boo
 }
 
 func (self *SRegion) assignSecurityGroup(secgroupId, instanceId string) error {
+	return self.assignSecurityGroups([]*string{&secgroupId}, instanceId)
+}
+
+func (self *SRegion) assignSecurityGroups(secgroupIds []*string, instanceId string) error {
 	instance, err := self.GetInstance(instanceId)
 	if err != nil {
 		return err
@@ -254,7 +263,7 @@ func (self *SRegion) assignSecurityGroup(secgroupId, instanceId string) error {
 	for _, eth := range instance.NetworkInterfaces.NetworkInterface {
 		params := &ec2.ModifyNetworkInterfaceAttributeInput{}
 		params.SetNetworkInterfaceId(eth.NetworkInterfaceId)
-		params.SetGroups([]*string{&secgroupId})
+		params.SetGroups(secgroupIds)
 
 		_, err := self.ec2Client.ModifyNetworkInterfaceAttribute(params)
 		if err != nil {

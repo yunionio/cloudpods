@@ -102,3 +102,12 @@ func (hi *SHandlerInfo) SetSkipLog(skip bool) *SHandlerInfo {
 	hi.skipLog = skip
 	return hi
 }
+
+func (hi *SHandlerInfo) GetAppParams(params map[string]string, path []string) *SAppParams {
+	appParams := SAppParams{}
+	appParams.Name = hi.GetName(params)
+	appParams.SkipLog = hi.skipLog
+	appParams.Params = params
+	appParams.Path = path
+	return &appParams
+}

@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,8 +15,6 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"net/url"
-	"strconv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -413,6 +413,7 @@ func (self *SCloudaccount) ImportSubAccount(ctx context.Context, userCred mcclie
 		_, err = CloudproviderManager.TableSpec().Update(provider, func() error {
 			provider.Name = subAccount.Name
 			provider.Enabled = true
+			provider.HealthStatus = subAccount.HealthStatus
 			return nil
 		})
 
@@ -433,6 +434,7 @@ func (self *SCloudaccount) ImportSubAccount(ctx context.Context, userCred mcclie
 	newCloudprovider.AccessUrl = self.AccessUrl
 	newCloudprovider.Enabled = true
 	newCloudprovider.Status = CLOUD_PROVIDER_CONNECTED
+	newCloudprovider.HealthStatus = subAccount.HealthStatus
 	newCloudprovider.Name = subAccount.Name
 	if !autoCreateProject {
 		newCloudprovider.ProjectId = auth.AdminCredential().GetProjectId()
@@ -529,10 +531,113 @@ func (manager *SCloudaccountManager) FetchCloudaccountByIdOrName(accountId strin
 	return providerObj.(*SCloudaccount)
 }
 
+
+func (self *SCloudaccount) getProviderCount() int {
+	q := CloudproviderManager.Query().Equals("cloudaccount_id", self.Id)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getHostCount() int {
+	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	q := HostManager.Query().In("manager_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getVpcCount() int {
+	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	q := VpcManager.Query().In("manager_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getStorageCount() int {
+	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	q := StorageManager.Query().In("manager_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getStoragecacheCount() int {
+	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	q := StoragecacheManager.Query().In("manager_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getEipCount() int {
+	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	q := ElasticipManager.Query().In("manager_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getRoutetableCount() int {
+	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	q := RouteTableManager.Query().In("manager_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getGuestCount() int {
+	subsubq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	subq := HostManager.Query("id").In("manager_id", subsubq).SubQuery()
+	q := GuestManager.Query().In("host_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getDiskCount() int {
+	subsubq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	subq := StorageManager.Query("id").In("manager_id", subsubq).SubQuery()
+	q := DiskManager.Query().In("storage_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getProjectIds() []string {
+	q := CloudproviderManager.Query("tenant_id").Equals("cloudaccount_id", self.Id).Distinct()
+	rows, err := q.Rows()
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	ret := make([]string, 0)
+	for rows.Next() {
+		var projId string
+		err := rows.Scan(&projId)
+		if err != nil {
+			return nil
+		}
+		ret = append(ret, projId)
+	}
+	return ret
+}
+
+func (self *SCloudaccount) getVersion() string {
+	q := CloudproviderManager.Query("version").Equals("cloudaccount_id", self.Id).Distinct()
+	rows, err := q.Rows()
+	if err != nil {
+		return ""
+	}
+	defer rows.Close()
+	ret := make([]string, 0)
+	for rows.Next() {
+		var projId string
+		err := rows.Scan(&projId)
+		if err != nil {
+			return ""
+		}
+	}
+
+	return strings.Join(ret, ",")
+}
+
 func (self *SCloudaccount) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	providers := self.GetCloudproviders()
-	extra.Add(jsonutils.NewInt(int64(len(providers))), "account_count")
-	extra.Add(jsonutils.Marshal(providers), "accounts")
+	extra.Add(jsonutils.NewInt(int64(self.getProviderCount())), "provider_count")
+	extra.Add(jsonutils.NewInt(int64(self.getHostCount())), "host_count")
+	extra.Add(jsonutils.NewInt(int64(self.getGuestCount())), "guest_count")
+	extra.Add(jsonutils.NewInt(int64(self.getDiskCount())), "disk_count")
+	extra.Add(jsonutils.NewString(self.getVersion()), "version")
+	projects := jsonutils.NewArray()
+	for _, projectId := range projectIds {
+		if proj, _ := db.TenantCacheManager.FetchTenantById(context.Background(), projectId); proj != nil {
+			projects.Add(jsonutils.Marshal(map[string]string{"tenant_id": projectId, "telnet": proj.Name}))
+		}
+	}
+	extra.Add(projects, "projects")
 	return extra
 }
 

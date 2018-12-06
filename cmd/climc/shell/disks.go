@@ -11,40 +11,20 @@ import (
 func init() {
 	type DiskListOptions struct {
 		options.BaseListOptions
-		Unused   bool   `help:"Show unused disks"`
-		Share    bool   `help:"Show Share storage disks"`
-		Local    bool   `help:"Show Local storage disks"`
-		Guest    string `help:"Guest ID or name"`
-		Storage  string `help:"Storage ID or name"`
-		Provider string `help:"Provider for disk" choices:"Aliyun|VMware|Azure"`
-	}
-	R(&DiskListOptions{}, "disk-list", "List virtual disks", func(s *mcclient.ClientSession, suboptions *DiskListOptions) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = suboptions.BaseListOptions.Params()
-			if err != nil {
-				return err
 
-			}
-		}
-		if suboptions.Unused {
-			params.Add(jsonutils.JSONTrue, "unused")
-		}
-		if suboptions.Share {
-			params.Add(jsonutils.JSONTrue, "share")
-		}
-		if suboptions.Local {
-			params.Add(jsonutils.JSONTrue, "local")
-		}
-		if len(suboptions.Guest) > 0 {
-			params.Add(jsonutils.NewString(suboptions.Guest), "guest")
-		}
-		if len(suboptions.Storage) > 0 {
-			params.Add(jsonutils.NewString(suboptions.Storage), "storage")
-		}
-		if len(suboptions.Provider) > 0 {
-			params.Add(jsonutils.NewString(suboptions.Provider), "provider")
+		Unused  *bool  `help:"Show unused disks"`
+		Share   *bool  `help:"Show Share storage disks"`
+		Local   *bool  `help:"Show Local storage disks"`
+		Guest   string `help:"Guest ID or name"`
+		Storage string `help:"Storage ID or name"`
+		Type    string `help:"Disk type" choices:"sys|data|swap|volume"`
+
+		BillingType string `help:"billing type" choices:"postpaid|prepaid"`
+	}
+	R(&DiskListOptions{}, "disk-list", "List virtual disks", func(s *mcclient.ClientSession, opts *DiskListOptions) error {
+		params, err := options.ListStructToParams(opts)
+		if err != nil {
+			return err
 		}
 		result, err := modules.Disks.List(s, params)
 		if err != nil {
@@ -131,6 +111,7 @@ func init() {
 		Desc         string `help:"Description" metavar:"DESCRIPTION"`
 		AutoDelete   string `help:"enable/disable auto delete of disk" choices:"enable|disable"`
 		AutoSnapshot string `help:"enable/disable auto snapshot of disk" choices:"enable|disable"`
+		DiskType     string `help:"Disk type" choices:"data|volume"`
 	}
 	R(&DiskUpdateOptions{}, "disk-update", "Update property of a virtual disk", func(s *mcclient.ClientSession, args *DiskUpdateOptions) error {
 		params := jsonutils.NewDict()
@@ -153,6 +134,9 @@ func init() {
 			} else {
 				params.Add(jsonutils.JSONFalse, "auto_snapshot")
 			}
+		}
+		if len(args.DiskType) > 0 {
+			params.Add(jsonutils.NewString(args.DiskType), "disk_type")
 		}
 		if params.Size() == 0 {
 			return InvalidUpdateError()

@@ -6,10 +6,13 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/golang-plus/uuid"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/pkg/util/secrules"
+
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type Tags struct {
@@ -204,6 +207,12 @@ func (self *SRegion) createSecurityGroup(vpcId string, name string, secgroupIdTa
 	params.SetVpcId(vpcId)
 	// 这里的描述aws 上层代码拼接的描述。并非用户提交的描述，用户描述放置在Yunion本地数据库中。）
 	params.SetDescription(desc)
+	// aws name 要求唯一，且不含中文等字符。所以随机生成一个uuid作为name。实际用户传入的name使用tag标记
+	secid, err := uuid.NewV4()
+	if err != nil {
+		return "", err
+	}
+	params.SetGroupName(secid.String())
 
 	group, err := self.ec2Client.CreateSecurityGroup(params)
 	if err != nil {
@@ -211,6 +220,9 @@ func (self *SRegion) createSecurityGroup(vpcId string, name string, secgroupIdTa
 	}
 
 	tagspec := TagSpec{ResourceType: "security-group"}
+	if len(secgroupIdTag) > 0 {
+		tagspec.SetTag("id", secgroupIdTag)
+	}
 	tagspec.SetNameTag(name)
 	tagspec.SetDescTag(desc)
 	tags, _ := tagspec.GetTagSpecifications()
@@ -248,6 +260,9 @@ func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
 }
 
 func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup, error) {
+	if len(secGroupId) == 0 {
+		return nil, fmt.Errorf("GetSecurityGroupDetails security group id should not be empty.")
+	}
 	params := &ec2.DescribeSecurityGroupsInput{}
 	params.SetGroupIds([]*string{&secGroupId})
 
@@ -264,11 +279,14 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 
 		permissions := self.getSecRules(s.IpPermissions, s.IpPermissionsEgress)
 
+		tagspec := TagSpec{ResourceType: "scuritygroup"}
+		tagspec.LoadingEc2Tags(s.Tags)
+
 		return &SSecurityGroup{
 			vpc:               vpc,
 			Description:       *s.Description,
 			SecurityGroupId:   *s.GroupId,
-			SecurityGroupName: *s.GroupName,
+			SecurityGroupName: tagspec.GetNameTag(),
 			VpcId:             *s.VpcId,
 			Permissions:       permissions,
 			RegionId:          self.RegionId,
@@ -278,7 +296,11 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 	}
 }
 
-func (self *SRegion) getSecurityGroupByTag(vpcId, secgroupId string) (*SSecurityGroup, error) {
+func (self *SRegion) getSecurityGroupById(vpcId, secgroupId string) (*SSecurityGroup, error) {
+	if len(secgroupId) == 0 {
+		return nil, httperrors.NewInputParameterError("security group id should not be empty")
+	}
+
 	secgroups, total, err := self.GetSecurityGroups(vpcId, secgroupId, 0, 0)
 	if err != nil {
 		return nil, err
@@ -322,9 +344,6 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Secur
 
 		sort.Sort(secrules.SecurityRuleSet(rules))
 		sort.Sort(secrules.SecurityRuleSet(secgroup.Permissions))
-
-		log.Debugf("local security rules %s", rules)
-		log.Debugf("remote security rules %s", secgroup.Permissions)
 
 		i, j := 0, 0
 		for i < len(rules) || j < len(secgroup.Permissions) {
@@ -398,15 +417,15 @@ func (self *SRegion) getSecRules(ingress []*ec2.IpPermission, egress []*ec2.IpPe
 	return rules
 }
 
-func (self *SRegion) GetSecurityGroups(vpcId string, secgroupIdTag string, offset int, limit int) ([]SSecurityGroup, int, error) {
+func (self *SRegion) GetSecurityGroups(vpcId string, secgroupId string, offset int, limit int) ([]SSecurityGroup, int, error) {
 	params := &ec2.DescribeSecurityGroupsInput{}
 	filters := make([]*ec2.Filter, 0)
 	if len(vpcId) > 0 {
 		filters = AppendSingleValueFilter(filters, "vpc-id", vpcId)
 	}
 
-	if len(secgroupIdTag) > 0 {
-		filters = AppendSingleValueFilter(filters, "tag:id", secgroupIdTag)
+	if len(secgroupId) > 0 {
+		params.SetGroupIds([]*string{&secgroupId})
 	}
 
 	if len(filters) > 0 {
@@ -435,12 +454,15 @@ func (self *SRegion) GetSecurityGroups(vpcId string, secgroupIdTag string, offse
 			continue
 		}
 
+		tagspec := TagSpec{ResourceType: "scuritygroup"}
+		tagspec.LoadingEc2Tags(item.Tags)
+
 		permissions := self.getSecRules(item.IpPermissions, item.IpPermissionsEgress)
 		group := SSecurityGroup{
 			vpc:               vpc,
 			Description:       *item.Description,
 			SecurityGroupId:   *item.GroupId,
-			SecurityGroupName: *item.GroupName,
+			SecurityGroupName: tagspec.GetNameTag(),
 			VpcId:             *item.VpcId,
 			Permissions:       permissions,
 			RegionId:          self.RegionId,

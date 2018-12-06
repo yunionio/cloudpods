@@ -1,6 +1,7 @@
 package appsrv
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -59,23 +60,60 @@ func TestRadixNode(t *testing.T) {
 	}
 }
 
-func TestParams(t *testing.T) {
+func TestRadixMatchParams(t *testing.T) {
 	r := NewRadix()
 	r.Add([]string{"POST", "clouds", "<cls_action>"}, "classAction")
 	r.Add([]string{"POST", "clouds", "<resid>", "sync"}, "objectSyncAction")
 	r.Add([]string{"POST", "clouds", "<resid>", "<obj_action>"}, "objectAction")
-	params := make(map[string]string)
-	ret := r.Match([]string{"POST", "clouds", "myid", "sync"}, params)
-	t.Logf("match: %s", ret)
-	t.Logf("params: %s", params)
-
-	params = make(map[string]string)
-	ret = r.Match([]string{"POST", "clouds", "myid", "start"}, params)
-	t.Logf("match: %s", ret)
-	t.Logf("params: %s", params)
-
-	params = make(map[string]string)
-	ret = r.Match([]string{"POST", "clouds", "sync"}, params)
-	t.Logf("match: %s", ret)
-	t.Logf("params: %s", params)
+	cases := []struct {
+		in        []string
+		out       interface{}
+		outParams map[string]string
+	}{
+		{
+			in:  []string{"POST", "clouds", "myid", "sync"},
+			out: "objectSyncAction",
+			outParams: map[string]string{
+				"<resid>": "myid",
+			},
+		},
+		{
+			in:  []string{"POST", "clouds", "myid", "start"},
+			out: "objectAction",
+			outParams: map[string]string{
+				"<resid>":      "myid",
+				"<obj_action>": "start",
+			},
+		},
+		{
+			in:  []string{"POST", "clouds", "start"},
+			out: "classAction",
+			outParams: map[string]string{
+				"<cls_action>": "start",
+			},
+		},
+	}
+	for _, c := range cases {
+		t.Run(strings.Join(c.in, "_"), func(t *testing.T) {
+			gotParams := map[string]string{}
+			got := r.Match(c.in, gotParams)
+			if got != c.out {
+				t.Fatalf("want %s, got %s", c.out, c.out)
+			}
+			if len(gotParams) != len(c.outParams) {
+				t.Fatalf("params length mismatch\nwant %#v\ngot %#v",
+					c.outParams, gotParams,
+				)
+			}
+			for k, v := range gotParams {
+				v1 := c.outParams[k]
+				if v == v1 {
+					continue
+				}
+				t.Fatalf("params key %s has mismatch value\nwant %#v\ngot %#v",
+					k, c.outParams, gotParams,
+				)
+			}
+		})
+	}
 }

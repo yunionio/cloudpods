@@ -48,7 +48,7 @@ func (u Usage) Include(nus ...Usage) Usage {
 	return u
 }
 
-type objUsageFunc func(mcclient.TokenCredential, db.IStandaloneModel, []string) (Usage, error)
+type objUsageFunc func(mcclient.TokenCredential, db.IStandaloneModel, []string, []string) (Usage, error)
 
 func getRangeObjId(ctx context.Context) (string, error) {
 	params := appctx.AppContextParams(ctx)
@@ -81,7 +81,7 @@ func rangeObjHandler(
 			httperrors.NotFoundError(w, err.Error())
 			return
 		}
-		projectName, _ := getQuery(r).GetString("project")
+		projectName := json.GetAnyString(getQuery(r), []string{"project", "tenant"})
 		if projectName != "" {
 			userCred, err = generateProjectUserCred(ctx, userCred, projectName)
 			if err != nil {
@@ -89,7 +89,11 @@ func rangeObjHandler(
 				return
 			}
 		}
-		usage, err := reporter(userCred, obj, getHostTypes(r))
+		query := getQuery(r)
+		hostTypes := json.GetQueryStringArray(query, "host_type")
+		// resourceTypes := json.GetQueryStringArray(query, "resource_type")
+		providers := json.GetQueryStringArray(query, "provider")
+		usage, err := reporter(userCred, obj, hostTypes, providers)
 		if err != nil {
 			httperrors.GeneralServerError(w, err)
 			return
@@ -124,13 +128,14 @@ func addHandler(prefix, rangeObjKey string, hf appsrv.FilterHandler, app *appsrv
 func AddUsageHandler(prefix string, app *appsrv.Application) {
 	prefix = fmt.Sprintf("%s/usages", prefix)
 	for key, f := range map[string]appsrv.FilterHandler{
-		"":            rangeObjHandler(nil, ReportGeneralUsage),
-		"zone":        rangeObjHandler(models.ZoneManager, ReportZoneUsage),
-		"wire":        rangeObjHandler(models.WireManager, ReportWireUsage),
-		"schedtag":    rangeObjHandler(models.SchedtagManager, ReportSchedtagUsage),
-		"host":        rangeObjHandler(models.HostManager, ReportHostUsage),
-		"vcenter":     rangeObjHandler(models.VCenterManager, ReportVCenterUsage),
-		"cloudregion": rangeObjHandler(models.CloudregionManager, ReportCloudRegionUsage),
+		"":              rangeObjHandler(nil, ReportGeneralUsage),
+		"zone":          rangeObjHandler(models.ZoneManager, ReportZoneUsage),
+		"wire":          rangeObjHandler(models.WireManager, ReportWireUsage),
+		"schedtag":      rangeObjHandler(models.SchedtagManager, ReportSchedtagUsage),
+		"host":          rangeObjHandler(models.HostManager, ReportHostUsage),
+		"cloudaccount":  rangeObjHandler(models.CloudaccountManager, ReportCloudAccountUsage),
+		"cloudprovider": rangeObjHandler(models.CloudproviderManager, ReportCloudProviderUsage),
+		"cloudregion":   rangeObjHandler(models.CloudregionManager, ReportCloudRegionUsage),
 	} {
 		addHandler(prefix, key, f, app)
 	}
@@ -151,47 +156,45 @@ func getQuery(r *http.Request) json.JSONObject {
 	return query
 }
 
-func getHostTypes(r *http.Request) []string {
-	types := make([]string, 0)
-	t, _ := getQuery(r).GetString("host_type")
-	if len(t) != 0 {
-		types = append(types, t)
-	}
-	return types
+func ReportHostUsage(userCred mcclient.TokenCredential, host db.IStandaloneModel, hostTypes []string, providers []string) (Usage, error) {
+	return ReportGeneralUsage(userCred, host, hostTypes, providers)
 }
 
-func ReportHostUsage(userCred mcclient.TokenCredential, host db.IStandaloneModel, hostTypes []string) (Usage, error) {
-	return ReportGeneralUsage(userCred, host, hostTypes)
+func ReportWireUsage(userCred mcclient.TokenCredential, wire db.IStandaloneModel, hostTypes []string, providers []string) (Usage, error) {
+	return ReportGeneralUsage(userCred, wire, hostTypes, providers)
 }
 
-func ReportWireUsage(userCred mcclient.TokenCredential, wire db.IStandaloneModel, hostTypes []string) (Usage, error) {
-	return ReportGeneralUsage(userCred, wire, hostTypes)
+func ReportCloudAccountUsage(userCred mcclient.TokenCredential, account db.IStandaloneModel, hostTypes []string, providers []string) (Usage, error) {
+	return ReportGeneralUsage(userCred, account, hostTypes, providers)
 }
 
-func ReportVCenterUsage(userCred mcclient.TokenCredential, vcenter db.IStandaloneModel, hostTypes []string) (Usage, error) {
-	return ReportGeneralUsage(userCred, vcenter, hostTypes)
+func ReportCloudProviderUsage(userCred mcclient.TokenCredential, provider db.IStandaloneModel, hostTypes []string, providers []string) (Usage, error) {
+	return ReportGeneralUsage(userCred, provider, hostTypes, providers)
 }
 
-func ReportSchedtagUsage(userCred mcclient.TokenCredential, schedtag db.IStandaloneModel, hostTypes []string) (Usage, error) {
-	return ReportGeneralUsage(userCred, schedtag, hostTypes)
+func ReportSchedtagUsage(userCred mcclient.TokenCredential, schedtag db.IStandaloneModel, hostTypes []string, providers []string) (Usage, error) {
+	return ReportGeneralUsage(userCred, schedtag, hostTypes, providers)
 }
 
-func ReportZoneUsage(userCred mcclient.TokenCredential, zone db.IStandaloneModel, hostTypes []string) (Usage, error) {
-	return ReportGeneralUsage(userCred, zone, hostTypes)
+func ReportZoneUsage(userCred mcclient.TokenCredential, zone db.IStandaloneModel, hostTypes []string, providers []string) (Usage, error) {
+	return ReportGeneralUsage(userCred, zone, hostTypes, providers)
 }
 
-func ReportCloudRegionUsage(userCred mcclient.TokenCredential, cloudRegion db.IStandaloneModel, hostTypes []string) (Usage, error) {
-	return ReportGeneralUsage(userCred, cloudRegion, hostTypes)
+func ReportCloudRegionUsage(userCred mcclient.TokenCredential, cloudRegion db.IStandaloneModel, hostTypes []string, providers []string) (Usage, error) {
+	return ReportGeneralUsage(userCred, cloudRegion, hostTypes, providers)
 }
 
-//func ReportGuestUsage()
+func getAdminGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string, providers []string) (count Usage, err error) {
+	count = RegionUsage(providers)
+	zone := ZoneUsage(providers)
+	count.Include(zone)
+	vpc := VpcUsage(providers)
+	count.Include(vpc)
 
-func getAdminGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) (count Usage, err error) {
-	count = ZoneUsage()
 	var pmemTotal float64
 	var pcpuTotal float64
 
-	hostEnabledUsage := HostEnabledUsage(userCred, rangeObj, hostTypes)
+	hostEnabledUsage := HostEnabledUsage("", userCred, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers)
 	pmemTotal = float64(hostEnabledUsage.Get("enabled_hosts.memory").(int64))
 	pcpuTotal = float64(hostEnabledUsage.Get("enabled_hosts.cpu").(int64))
 	if rangeObj != nil && rangeObj.Keyword() == "host" {
@@ -203,10 +206,12 @@ func getAdminGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStanda
 		count.Add("memory.virtual", host.GetVirtualMemorySize())
 		count.Add("cpu.virtual", host.GetVirtualCPUCount())
 	}
-	guestRunningUsage := GuestRunningUsage("all.running_servers", nil, rangeObj, hostTypes)
+
+	guestRunningUsage := GuestRunningUsage("all.running_servers", nil, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers)
 	runningMem := guestRunningUsage.Get("all.running_servers.memory").(int)
 	runningCpu := guestRunningUsage.Get("all.running_servers.cpu").(int)
-	containerRunningUsage := containerUsage("all.containers", nil, rangeObj)
+
+	containerRunningUsage := containerUsage("all.containers", nil, rangeObj, hostTypes, nil, providers)
 	containerRunningMem := containerRunningUsage.Get("all.containers.memory").(int)
 	containerRunningCpu := containerRunningUsage.Get("all.containers.cpu").(int)
 	runningMem += containerRunningMem
@@ -222,50 +227,92 @@ func getAdminGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStanda
 	count.Add("all.memory_commit_rate.running", runningMemCmtRate)
 	count.Add("all.cpu_commit_rate.running", runningCpuCmtRate)
 
-	storageUsage := StorageUsage(rangeObj, hostTypes)
-	storageCmtRate := 0.0
-	disksSize := storageUsage.Get("all.disks").(int64)
-	storageSize := storageUsage.Get("storages").(int64)
-	if storageSize > 0 {
-		storageCmtRate = utils.FloatRound(float64(disksSize)/float64(storageSize), 2)
-	}
-	count.Add("storages_commit_rate", storageCmtRate)
+	storageUsage := StorageUsage("", rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers)
 
 	count.Include(
-		HostAllUsage(userCred, rangeObj, hostTypes),
+		HostAllUsage("", userCred, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers),
+		HostAllUsage("prepaid_pool", userCred, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		HostAllUsage("any_pool", userCred, rangeObj, hostTypes, nil, providers),
+
 		hostEnabledUsage,
-		BaremetalUsage(userCred, rangeObj, hostTypes),
+		HostEnabledUsage("prepaid_pool", userCred, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		HostEnabledUsage("any_pool", userCred, rangeObj, hostTypes, nil, providers),
+
+		BaremetalUsage(userCred, rangeObj, hostTypes, providers),
+
 		storageUsage,
-		GuestNormalUsage("all.servers", nil, rangeObj, hostTypes),
-		GuestPendingDeleteUsage("all.pending_delete_servers", nil, rangeObj, hostTypes),
-		GuestReadyUsage("all.ready_servers", nil, rangeObj, hostTypes),
+		StorageUsage("prepaid_pool", rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		StorageUsage("any_pool", rangeObj, hostTypes, nil, providers),
+
+		GuestNormalUsage("all.servers", nil, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers),
+		GuestNormalUsage("all.servers.prepaid_pool", nil, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		GuestNormalUsage("all.servers.any_pool", nil, rangeObj, hostTypes, nil, providers),
+
+		GuestPendingDeleteUsage("all.pending_delete_servers", nil, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers),
+		GuestPendingDeleteUsage("all.pending_delete_servers.prepaid_pool", nil, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		GuestPendingDeleteUsage("all.pending_delete_servers.any_pool", nil, rangeObj, hostTypes, nil, providers),
+
+		GuestReadyUsage("all.ready_servers", nil, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers),
+		GuestReadyUsage("all.ready_servers.prepaid_pool", nil, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		GuestReadyUsage("all.ready_servers.any_pool", nil, rangeObj, hostTypes, nil, providers),
+
 		guestRunningUsage,
+		GuestRunningUsage("all.running_servers.prepaid_pool", nil, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		GuestRunningUsage("all.running_servers.any_pool", nil, rangeObj, hostTypes, nil, providers),
+
 		containerRunningUsage,
-		IsolatedDeviceUsage(rangeObj, hostTypes),
-		WireUsage(rangeObj, hostTypes),
-		EipUsage(rangeObj, hostTypes),
+
+		IsolatedDeviceUsage("", rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers),
+		IsolatedDeviceUsage("prepaid_pool", rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		IsolatedDeviceUsage("any_pool", rangeObj, hostTypes, nil, providers),
+
+		WireUsage(rangeObj, hostTypes, providers),
+
+		EipUsage("", rangeObj, providers),
+
+		SnapshotUsage("", rangeObj, providers),
 	)
 
 	return
 }
 
-func getCommonGeneralUsage(cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) (count Usage, err error) {
-	guestNormalUsage := GuestNormalUsage("servers", cred, rangeObj, hostTypes)
-	guestRunningUsage := GuestRunningUsage("running_servers", cred, rangeObj, hostTypes)
-	guestPendingDeleteUsage := GuestPendingDeleteUsage("pending_delete_servers", cred, rangeObj, hostTypes)
-	guestReadyUsage := GuestReadyUsage("ready_servers", cred, rangeObj, hostTypes)
-	containerUsage := containerUsage("containers", cred, rangeObj)
+func getCommonGeneralUsage(cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string, providers []string) (count Usage, err error) {
+	guestNormalUsage := GuestNormalUsage("servers", cred, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers)
+
+	containerUsage := containerUsage("containers", cred, rangeObj, hostTypes, nil, providers)
+
+	eipUsage := EipUsage(cred.GetProjectId(), rangeObj, providers)
+
+	snapshotUsage := SnapshotUsage(cred.GetProjectId(), rangeObj, providers)
+
 	count = guestNormalUsage.Include(
-		guestRunningUsage,
-		guestPendingDeleteUsage,
-		guestReadyUsage,
+		GuestNormalUsage("servers.prepaid_pool", cred, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		GuestNormalUsage("servers.any_pool", cred, rangeObj, hostTypes, nil, providers),
+
+		GuestRunningUsage("running_servers", cred, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers),
+		GuestRunningUsage("running_servers.prepaid_pool", cred, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		GuestRunningUsage("running_servers.any_pool", cred, rangeObj, hostTypes, nil, providers),
+
+		GuestPendingDeleteUsage("pending_delete_servers", cred, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers),
+		GuestPendingDeleteUsage("pending_delete_servers.prepaid_pool", cred, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		GuestPendingDeleteUsage("pending_delete_servers.any_pool", cred, rangeObj, hostTypes, nil, providers),
+
+		GuestReadyUsage("ready_servers", cred, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers),
+		GuestReadyUsage("ready_servers.prepaid_pool", cred, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		GuestReadyUsage("ready_servers.any_pool", cred, rangeObj, hostTypes, nil, providers),
+
 		containerUsage,
-		NetworkUsage(cred, rangeObj),
+
+		NetworkUsage(cred, providers, rangeObj),
+
+		eipUsage,
+
+		snapshotUsage,
 	)
 	return
 }
 
-func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) (count Usage, err error) {
+func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string, providers []string) (count Usage, err error) {
 	count = make(map[string]interface{})
 
 	isAdmin := false
@@ -280,7 +327,7 @@ func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandalo
 	}
 
 	if isAdmin {
-		count, err = getAdminGeneralUsage(userCred, rangeObj, hostTypes)
+		count, err = getAdminGeneralUsage(userCred, rangeObj, hostTypes, providers)
 		if err != nil {
 			return
 		}
@@ -303,7 +350,7 @@ func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandalo
 
 	if includeCommon {
 		var commonUsage map[string]interface{}
-		commonUsage, err = getCommonGeneralUsage(userCred, rangeObj, hostTypes)
+		commonUsage, err = getCommonGeneralUsage(userCred, rangeObj, hostTypes, providers)
 		if err != nil {
 			return
 		}
@@ -312,29 +359,68 @@ func ReportGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStandalo
 	return
 }
 
-func ZoneUsage() Usage {
+func RegionUsage(providers []string) Usage {
+	q := models.CloudregionManager.Query()
+	if len(providers) > 0 {
+		q = q.In("provider", providers)
+	}
 	count := make(map[string]interface{})
-	count["zones"] = models.ZoneManager.Count()
+	count["regions"] = q.Count()
 	return count
 }
 
-func StorageUsage(rangeObj db.IStandaloneModel, hostTypes []string) Usage {
+func ZoneUsage(providers []string) Usage {
+	regions := models.CloudregionManager.Query().SubQuery()
+	subq := regions.Query(regions.Field("id"))
+	if len(providers) > 0 {
+		subq = subq.In("provider", providers)
+	}
+	q := models.ZoneManager.Query().In("cloudregion_id", subq.SubQuery())
+	count := make(map[string]interface{})
+	count["zones"] = q.Count()
+	return count
+}
+
+func VpcUsage(providers []string) Usage {
+	regions := models.CloudregionManager.Query().SubQuery()
+	subq := regions.Query(regions.Field("id"))
+	if len(providers) > 0 {
+		subq = subq.In("provider", providers)
+	}
+	q := models.VpcManager.Query().In("cloudregion_id", subq.SubQuery())
+	count := make(map[string]interface{})
+	count["vpcs"] = q.Count()
+	return count
+}
+
+func StorageUsage(prefix string, rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string) Usage {
 	sPrefix := "storages"
 	dPrefix := "all.disks"
+	if len(prefix) > 0 {
+		sPrefix = fmt.Sprintf("%s.%s", sPrefix, prefix)
+		dPrefix = fmt.Sprintf("%s.%s", dPrefix, prefix)
+	}
 	count := make(map[string]interface{})
-	result := models.StorageManager.TotalCapacity(rangeObj, hostTypes)
+	result := models.StorageManager.TotalCapacity(rangeObj, hostTypes, resourceTypes, providers)
 	count[sPrefix] = result.Capacity
 	count[fmt.Sprintf("%s.virtual", sPrefix)] = result.CapacityVirtual
 	count[dPrefix] = result.CapacityUsed
-	count[fmt.Sprintf("%s.unready", dPrefix)] = result.CapacityUnread
+	count[fmt.Sprintf("%s.unready", dPrefix)] = result.CapacityUnready
 	count[fmt.Sprintf("%s.attached", dPrefix)] = result.AttachedCapacity
 	count[fmt.Sprintf("%s.detached", dPrefix)] = result.DetachedCapacity
+
+	storageCmtRate := 0.0
+	if result.Capacity > 0 {
+		storageCmtRate = utils.FloatRound(float64(result.CapacityUsed)/float64(result.Capacity), 2)
+	}
+	count[fmt.Sprintf("%s.commit_rate", sPrefix)] = storageCmtRate
+
 	return count
 }
 
-func WireUsage(rangeObj db.IStandaloneModel, hostTypes []string) Usage {
+func WireUsage(rangeObj db.IStandaloneModel, hostTypes []string, providers []string) Usage {
 	count := make(map[string]interface{})
-	result := models.WireManager.TotalCount(rangeObj, hostTypes)
+	result := models.WireManager.TotalCount(rangeObj, hostTypes, providers)
 	count["wires"] = result.WiresCount
 	count["networks"] = result.NetCount
 	count["all.nics.guest"] = result.GuestNicCount
@@ -343,27 +429,36 @@ func WireUsage(rangeObj db.IStandaloneModel, hostTypes []string) Usage {
 	return count
 }
 
-func NetworkUsage(userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel) Usage {
+func NetworkUsage(userCred mcclient.TokenCredential, providers []string, rangeObj db.IStandaloneModel) Usage {
 	count := make(map[string]interface{})
-	ret := models.NetworkManager.TotalPortCount(userCred, rangeObj)
+	ret := models.NetworkManager.TotalPortCount(userCred, providers, rangeObj)
 	count["ports"] = ret.Count
 	count["ports_exit"] = ret.CountExt
 	return count
 }
 
-func HostAllUsage(userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) Usage {
+func HostAllUsage(pref string, userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel,
+	hostTypes []string, resourceTypes []string, providers []string) Usage {
 	prefix := "hosts"
-	return hostUsage(userCred, prefix, rangeObj, hostTypes, tristate.None, tristate.None)
+	if len(pref) > 0 {
+		prefix = fmt.Sprintf("%s.%s", prefix, pref)
+	}
+	return hostUsage(userCred, prefix, rangeObj, hostTypes, resourceTypes, providers, tristate.None, tristate.None)
 }
 
-func HostEnabledUsage(userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) Usage {
+func HostEnabledUsage(pref string, userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel,
+	hostTypes []string, resourceTypes []string, providers []string) Usage {
 	prefix := "enabled_hosts"
-	return hostUsage(userCred, prefix, rangeObj, hostTypes, tristate.True, tristate.None)
+	if len(pref) > 0 {
+		prefix = fmt.Sprintf("%s.%s", prefix, pref)
+	}
+	return hostUsage(userCred, prefix, rangeObj, hostTypes, resourceTypes, providers, tristate.True, tristate.None)
 }
 
-func BaremetalUsage(userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) Usage {
+func BaremetalUsage(userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel,
+	hostTypes []string, providers []string) Usage {
 	prefix := "baremetals"
-	count := hostUsage(userCred, prefix, rangeObj, hostTypes, tristate.None, tristate.True)
+	count := hostUsage(userCred, prefix, rangeObj, hostTypes, nil, providers, tristate.None, tristate.True)
 	delete(count, fmt.Sprintf("%s.memory.virtual", prefix))
 	delete(count, fmt.Sprintf("%s.cpu.virtual", prefix))
 	return count
@@ -372,11 +467,12 @@ func BaremetalUsage(userCred mcclient.TokenCredential, rangeObj db.IStandaloneMo
 func hostUsage(
 	userCred mcclient.TokenCredential, prefix string,
 	rangeObj db.IStandaloneModel, hostTypes []string,
+	resourceTypes []string, providers []string,
 	enabled, isBaremetal tristate.TriState,
 ) Usage {
 	count := make(map[string]interface{})
 
-	result := models.HostManager.TotalCount(userCred, rangeObj, "", "", hostTypes, enabled, isBaremetal)
+	result := models.HostManager.TotalCount(userCred, rangeObj, "", "", hostTypes, resourceTypes, providers, enabled, isBaremetal)
 	count[prefix] = result.Count
 	count[fmt.Sprintf("%s.memory", prefix)] = result.Memory
 	count[fmt.Sprintf("%s.cpu", prefix)] = result.CPU
@@ -386,38 +482,35 @@ func hostUsage(
 	return count
 }
 
-func GuestNormalUsage(prefix string, cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) Usage {
-	return guestUsage(prefix, cred, rangeObj, hostTypes, nil, false)
+func GuestNormalUsage(prefix string, cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string) Usage {
+	return guestUsage(prefix, cred, rangeObj, hostTypes, resourceTypes, providers, nil, false)
 }
 
-func GuestPendingDeleteUsage(prefix string, cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) Usage {
-	return guestUsage(prefix, cred, rangeObj, hostTypes, nil, true)
+func GuestPendingDeleteUsage(prefix string, cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string) Usage {
+	return guestUsage(prefix, cred, rangeObj, hostTypes, resourceTypes, providers, nil, true)
 }
 
-func GuestRunningUsage(prefix string, cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) Usage {
-	return guestUsage(prefix, cred, rangeObj, hostTypes, []string{models.VM_RUNNING}, false)
+func GuestRunningUsage(prefix string, cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string) Usage {
+	return guestUsage(prefix, cred, rangeObj, hostTypes, resourceTypes, providers, []string{models.VM_RUNNING}, false)
 }
 
-func GuestReadyUsage(prefix string, cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string) Usage {
-	return guestUsage(prefix, cred, rangeObj, hostTypes, []string{models.VM_READY}, false)
+func GuestReadyUsage(prefix string, cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string) Usage {
+	return guestUsage(prefix, cred, rangeObj, hostTypes, resourceTypes, providers, []string{models.VM_READY}, false)
 }
 
 func guestHypervisorsUsage(
 	prefix string,
 	userCred mcclient.TokenCredential,
 	rangeObj db.IStandaloneModel,
-	hostTypes, status, hypervisors []string,
+	hostTypes []string, resourceTypes []string, providers []string,
+	status, hypervisors []string,
 	pendingDelete bool,
 ) Usage {
-	hostType := ""
-	if len(hostTypes) != 0 {
-		hostType = hostTypes[0]
-	}
 	projectId := ""
 	if userCred != nil {
 		projectId = userCred.GetProjectId()
 	}
-	guest := models.GuestManager.TotalCount(projectId, rangeObj, status, hypervisors, true, pendingDelete, hostType)
+	guest := models.GuestManager.TotalCount(projectId, rangeObj, status, hypervisors, true, pendingDelete, hostTypes, resourceTypes, providers)
 	count := make(map[string]interface{})
 	count[prefix] = guest.TotalGuestCount
 	count[fmt.Sprintf("%s.cpu", prefix)] = guest.TotalCpuCount
@@ -430,34 +523,60 @@ func guestHypervisorsUsage(
 	count[fmt.Sprintf("%s.disk", prefix)] = guest.TotalDiskSize
 	count[fmt.Sprintf("%s.isolated_devices", prefix)] = guest.TotalIsolatedCount
 
+	count[fmt.Sprintf("%s.ha", prefix)] = guest.TotalBackupGuestCount
+	count[fmt.Sprintf("%s.ha.cpu", prefix)] = guest.TotalBackupCpuCount
+	count[fmt.Sprintf("%s.ha.memory", prefix)] = guest.TotalBackupMemSize
+	count[fmt.Sprintf("%s.ha.disk", prefix)] = guest.TotalBackupDiskSize
+
 	return count
 }
 
-func guestUsage(prefix string, userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes, status []string, pendingDelete bool) Usage {
+func guestUsage(prefix string, userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel,
+	hostTypes []string, resourceTypes []string, providers []string,
+	status []string, pendingDelete bool) Usage {
 	hypervisors := sets.NewString(models.HYPERVISORS...)
 	hypervisors.Delete(models.HYPERVISOR_CONTAINER)
-	return guestHypervisorsUsage(prefix, userCred, rangeObj, hostTypes, status, hypervisors.List(), pendingDelete)
+	return guestHypervisorsUsage(prefix, userCred, rangeObj, hostTypes, resourceTypes, providers, status, hypervisors.List(), pendingDelete)
 }
 
-func containerUsage(prefix string, userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel) Usage {
+func containerUsage(prefix string, userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel,
+	hostTypes []string, resourceTypes []string, providers []string) Usage {
 	hypervisors := []string{models.HYPERVISOR_CONTAINER}
-	return guestHypervisorsUsage(prefix, userCred, rangeObj, nil, nil, hypervisors, false)
+	return guestHypervisorsUsage(prefix, userCred, rangeObj, hostTypes, resourceTypes, providers, nil, hypervisors, false)
 }
 
-func IsolatedDeviceUsage(rangeObj db.IStandaloneModel, hostType []string) Usage {
+func IsolatedDeviceUsage(pref string, rangeObj db.IStandaloneModel, hostType []string, resourceTypes []string, providers []string) Usage {
 	prefix := "isolated_devices"
-	ret := models.IsolatedDeviceManager.TotalCount(hostType, rangeObj)
+	if len(pref) > 0 {
+		prefix = fmt.Sprintf("%s.%s", prefix, pref)
+	}
+	ret := models.IsolatedDeviceManager.TotalCount(hostType, resourceTypes, providers, rangeObj)
 	count := make(map[string]interface{})
 	count[prefix] = ret.Devices
 	return count
 }
 
-func EipUsage(rangeObj db.IStandaloneModel, hostTypes []string) Usage {
-	eipUsage := models.ElasticipManager.TotalCount("", rangeObj, hostTypes)
+func getKey(projectId, key string) string {
+	if len(projectId) > 0 {
+		return key
+	} else {
+		return fmt.Sprintf("all.%s", key)
+	}
+}
+
+func EipUsage(projectId string, rangeObj db.IStandaloneModel, providers []string) Usage {
+	eipUsage := models.ElasticipManager.TotalCount(projectId, rangeObj, providers)
 	count := make(map[string]interface{})
-	count["eip.all"] = eipUsage.Total()
-	count["eip.public_ip"] = eipUsage.PublicIPCount
-	count["eip.floating_ip"] = eipUsage.EIPCount
-	count["eip.floating_ip.used"] = eipUsage.EIPUsedCount
+	count[getKey(projectId, "eip")] = eipUsage.Total()
+	count[getKey(projectId, "eip.public_ip")] = eipUsage.PublicIPCount
+	count[getKey(projectId, "eip.floating_ip")] = eipUsage.EIPCount
+	count[getKey(projectId, "eip.floating_ip.used")] = eipUsage.EIPUsedCount
+	return count
+}
+
+func SnapshotUsage(projectId string, rangeObj db.IStandaloneModel, providers []string) Usage {
+	cnt := models.TotalSnapshotCount(projectId, rangeObj, providers)
+	count := make(map[string]interface{})
+	count[getKey(projectId, "snapshot")] = cnt
 	return count
 }

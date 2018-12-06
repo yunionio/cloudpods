@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/serialx/hashring"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
@@ -243,10 +244,11 @@ func (self *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcc
 
 	if image != nil {
 		imgInfo := imagetools.NormalizeImageInfo(image.Name, image.Properties["os_arch"], image.Properties["os_type"],
-			image.Properties["os_distribution"])
+			image.Properties["os_distribution"], image.Properties["os_version"])
 		data.Add(jsonutils.NewString(imgInfo.OsType), "os_type")
 		data.Add(jsonutils.NewString(imgInfo.OsArch), "os_arch")
 		data.Add(jsonutils.NewString(imgInfo.OsDistro), "os_distribution")
+		data.Add(jsonutils.NewString(imgInfo.OsVersion), "os_version")
 	}
 
 	if isForce {
@@ -343,13 +345,20 @@ func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcc
 	}
 	isForce := jsonutils.QueryBoolean(data, "is_force", false)
 
+	var imageId string
 	image, err := CachedimageManager.getImageInfo(ctx, userCred, imageStr, isForce)
 	if err != nil {
 		log.Infof("image %s not found %s", imageStr, err)
-		return nil, httperrors.NewImageNotFoundError(imageStr)
+		if !isForce {
+			return nil, httperrors.NewImageNotFoundError(imageStr)
+		} else {
+			imageId = imageStr
+		}
+	} else {
+		imageId = image.Id
 	}
 
-	scimg := StoragecachedimageManager.GetStoragecachedimage(self.Id, image.Id)
+	scimg := StoragecachedimageManager.GetStoragecachedimage(self.Id, imageId)
 	if scimg == nil {
 		return nil, httperrors.NewResourceNotFoundError("storage not cache image")
 	}
@@ -364,7 +373,7 @@ func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcc
 		return nil, httperrors.NewInvalidStatusError("Fail to mark cache status: %s", err)
 	}
 
-	err = self.StartImageUncacheTask(ctx, userCred, image.Id, isForce, "")
+	err = self.StartImageUncacheTask(ctx, userCred, imageId, isForce, "")
 
 	return nil, err
 }

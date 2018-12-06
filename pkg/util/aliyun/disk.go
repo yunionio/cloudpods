@@ -1,15 +1,16 @@
 package aliyun
 
 import (
+	"context"
 	"fmt"
 	"time"
 
-	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/pkg/utils"
 )
 
 type SMountInstances struct {
@@ -367,8 +368,8 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return isnapshots, nil
 }
 
-func (self *SDisk) Reset(ctx context.Context, snapshotId string) error {
-	return self.storage.zone.region.resetDisk(self.DiskId, snapshotId)
+func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
+	return "", self.storage.zone.region.resetDisk(self.DiskId, snapshotId)
 }
 
 func (self *SDisk) GetBillingType() string {
@@ -388,4 +389,27 @@ func (self *SDisk) GetExpiredAt() time.Time {
 
 func (self *SDisk) GetAccessPath() string {
 	return ""
+}
+
+func (self *SDisk) Rebuild(ctx context.Context) error {
+	err := self.storage.zone.region.rebuildDisk(self.DiskId)
+	if err != nil {
+		if isError(err, "IncorrectInstanceStatus") {
+			return nil
+		}
+		log.Errorf("rebuild disk fail %s", err)
+		return err
+	}
+	return nil
+}
+
+func (self *SRegion) rebuildDisk(diskId string) error {
+	params := make(map[string]string)
+	params["DiskId"] = diskId
+	_, err := self.ecsRequest("ReInitDisk", params)
+	if err != nil {
+		log.Errorf("ReInitDisk %s fail %s", diskId, err)
+		return err
+	}
+	return nil
 }

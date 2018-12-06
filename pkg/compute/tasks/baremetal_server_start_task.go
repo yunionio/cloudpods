@@ -3,7 +3,6 @@ package tasks
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -33,9 +32,7 @@ func (self *BaremetalServerStartTask) OnInit(ctx context.Context, obj db.IStanda
 	config := jsonutils.NewDict()
 	config.Set("desc", desc)
 	url := fmt.Sprintf("/baremetals/%s/servers/%s/start", baremetal.Id, guest.Id)
-	headers := http.Header{}
-	headers.Set("X-Auth-Token", self.UserCred.GetTokenString())
-	headers.Set("X-Task-Id", self.GetTaskId())
+	headers := self.GetTaskRequestHeader()
 	self.SetStage("OnStartComplete", nil)
 	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, config)
 	if err != nil {
@@ -48,7 +45,7 @@ func (self *BaremetalServerStartTask) OnStartComplete(ctx context.Context, guest
 	guest.SetStatus(self.UserCred, models.VM_RUNNING, "")
 	baremetal := guest.GetHost()
 	baremetal.SetStatus(self.UserCred, models.BAREMETAL_RUNNING, "")
-	db.OpsLog.LogEvent(guest, db.ACT_START, guest.GetShortDesc(), self.UserCred)
+	db.OpsLog.LogEvent(guest, db.ACT_START, guest.GetShortDesc(ctx), self.UserCred)
 }
 
 func (self *BaremetalServerStartTask) OnStartCompleteFailed(ctx context.Context, guest *models.SGuest, body jsonutils.JSONObject) {

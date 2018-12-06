@@ -14,6 +14,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -486,6 +487,7 @@ func waitForComplatetion(client *autorest.Client, req *http.Request, resp *http.
 			if err != nil {
 				return nil, err
 			}
+			defer asyncResp.Body.Close()
 			if asyncResp.StatusCode == 202 {
 				if _location := asyncResp.Header.Get("Location"); len(_location) > 0 {
 					location = _location
@@ -577,6 +579,7 @@ func _jsonRequest(client *autorest.Client, method, domain, baseURL, body string)
 		log.Errorf("Azure %s request: %s \nbody: %s error: %v", req.Method, req.URL.String(), body, err)
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode == 404 {
 		data := []byte{}
@@ -676,6 +679,8 @@ func (self *SAzureClient) GetSubAccounts() (subAccounts []cloudprovider.SSubAcco
 		if err != nil {
 			return nil, err
 		}
+
+		subAccounts[i].HealthStatus = models.CLOUD_PROVIDER_HEALTH_NORMAL
 	}
 	return subAccounts, nil
 }

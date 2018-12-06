@@ -1,16 +1,18 @@
 package azure
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
-	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/osprofile"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/pkg/util/osprofile"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type FormattedMessage struct {
@@ -129,9 +131,12 @@ func (self *SClassicInstance) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 	priceKey := fmt.Sprintf("%s::%s", self.Properties.HardwareProfile.Size, self.host.zone.region.Name)
 	data.Add(jsonutils.NewString(priceKey), "price_key")
+	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
+	secgroupIds := jsonutils.NewArray()
 	if self.Properties.NetworkProfile.NetworkSecurityGroup != nil {
-		data.Add(jsonutils.NewString(self.Properties.NetworkProfile.NetworkSecurityGroup.ID), "secgroupId")
+		secgroupIds.Add(jsonutils.NewString(self.Properties.NetworkProfile.NetworkSecurityGroup.ID))
 	}
+	data.Add(secgroupIds, "secgroupIds")
 	return data
 }
 
@@ -482,6 +487,10 @@ type assignProperties struct {
 	NetworkSecurityGroup SubResource `json:"networkSecurityGroup,omitempty"`
 }
 
+func (self *SClassicInstance) AssignSecurityGroups(secgroupIds []string) error {
+	return cloudprovider.ErrNotSupported
+}
+
 func (self *SClassicInstance) AssignSecurityGroup(secgroupId string) error {
 	if self.Properties.NetworkProfile.NetworkSecurityGroup != nil {
 		if self.Properties.NetworkProfile.NetworkSecurityGroup.ID == secgroupId {
@@ -520,5 +529,9 @@ func (self *SClassicInstance) UpdateUserData(userData string) error {
 }
 
 func (self *SClassicInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SClassicInstance) Renew(bc billing.SBillingCycle) error {
 	return cloudprovider.ErrNotSupported
 }

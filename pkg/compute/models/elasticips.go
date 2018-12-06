@@ -4,8 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
@@ -116,6 +114,25 @@ func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchem
 		q = q.Equals("cloudregion_id", regionObj.GetId())
 	}
 
+	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
+	if len(accountStr) > 0 {
+		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", account.GetId()).SubQuery()
+		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+	}
+
+	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
+	if len(providerStr) > 0 {
+		subq := CloudproviderManager.Query("id").Equals("provider", providerStr).SubQuery()
+		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+	}
+
 	if query.Contains("usable") {
 		usable := jsonutils.QueryBoolean(query, "usable", false)
 		if usable {
@@ -144,19 +161,31 @@ func (self *SElasticip) GetRegion() *SCloudregion {
 	return CloudregionManager.FetchRegionById(self.CloudregionId)
 }
 
-func (self *SElasticip) GetShortDesc() *jsonutils.JSONDict {
-	desc := self.SVirtualResourceBase.GetShortDesc()
+func (self *SElasticip) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := self.SVirtualResourceBase.GetShortDesc(ctx)
+
 	desc.Add(jsonutils.NewString(self.ChargeType), "charge_type")
+
 	desc.Add(jsonutils.NewInt(int64(self.Bandwidth)), "bandwidth")
 	desc.Add(jsonutils.NewString(self.Mode), "mode")
-	region := self.GetRegion()
-	if len(region.ExternalId) > 0 {
-		regionInfo := strings.Split(region.ExternalId, "/")
-		if len(regionInfo) == 2 {
-			desc.Add(jsonutils.NewString(strings.ToLower(regionInfo[0])), "hypervisor")
-			desc.Add(jsonutils.NewString(regionInfo[1]), "region")
-		}
-	}
+
+	// region := self.GetRegion()
+	// if len(region.ExternalId) > 0 {
+	// regionInfo := strings.Split(region.ExternalId, "/")
+	// if len(regionInfo) == 2 {
+	// desc.Add(jsonutils.NewString(strings.ToLower(regionInfo[0])), "hypervisor")
+	// desc.Add(jsonutils.NewString(regionInfo[1]), "region")
+	// }
+	//}
+
+	billingInfo := SCloudBillingInfo{}
+
+	billingInfo.SCloudProviderInfo = self.getCloudProviderInfo()
+
+	billingInfo.InternetChargeType = self.ChargeType
+
+	desc.Update(jsonutils.Marshal(billingInfo))
+
 	return desc
 }
 
@@ -199,7 +228,7 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		_, err := manager.newFromCloudEip(userCred, added[i], region, projectId)
+		_, err := manager.newFromCloudEip(ctx, userCred, added[i], region, projectId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -235,7 +264,7 @@ func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred m
 			log.Errorf("fail to find vm by external ID %s", vmExtId)
 			return err
 		}
-		err = self.AssociateVM(userCred, newVM.(*SGuest))
+		err = self.AssociateVM(ctx, userCred, newVM.(*SGuest))
 		if err != nil {
 			log.Errorf("fail to associate with new vm %s", err)
 			return err
@@ -270,7 +299,7 @@ func (self *SElasticip) SyncWithCloudEip(userCred mcclient.TokenCredential, ext 
 	return err
 }
 
-func (manager *SElasticipManager) newFromCloudEip(userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, region *SCloudregion, projectId string) (*SElasticip, error) {
+func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, region *SCloudregion, projectId string) (*SElasticip, error) {
 	eip := SElasticip{}
 	eip.SetModelManager(manager)
 
@@ -295,7 +324,7 @@ func (manager *SElasticipManager) newFromCloudEip(userCred mcclient.TokenCredent
 		return nil, err
 	}
 
-	db.OpsLog.LogEvent(&eip, db.ACT_SYNC_CLOUD_EIP, eip.GetShortDesc(), userCred)
+	db.OpsLog.LogEvent(&eip, db.ACT_SYNC_CLOUD_EIP, eip.GetShortDesc(ctx), userCred)
 	return &eip, nil
 }
 
@@ -346,9 +375,9 @@ func (self *SElasticip) Dissociate(ctx context.Context, userCred mcclient.TokenC
 		return err
 	}
 	if vm != nil {
-		db.OpsLog.LogDetachEvent(vm, self, userCred, self.GetShortDesc())
-		db.OpsLog.LogEvent(self, db.ACT_EIP_DETACH, vm.GetShortDesc(), userCred)
-		db.OpsLog.LogEvent(vm, db.ACT_EIP_DETACH, self.GetShortDesc(), userCred)
+		db.OpsLog.LogDetachEvent(ctx, vm, self, userCred, self.GetShortDesc(ctx))
+		db.OpsLog.LogEvent(self, db.ACT_EIP_DETACH, vm.GetShortDesc(ctx), userCred)
+		db.OpsLog.LogEvent(vm, db.ACT_EIP_DETACH, self.GetShortDesc(ctx), userCred)
 	}
 	if self.Mode == EIP_MODE_INSTANCE_PUBLICIP {
 		self.Delete(ctx, userCred)
@@ -356,7 +385,7 @@ func (self *SElasticip) Dissociate(ctx context.Context, userCred mcclient.TokenC
 	return nil
 }
 
-func (self *SElasticip) AssociateVM(userCred mcclient.TokenCredential, vm *SGuest) error {
+func (self *SElasticip) AssociateVM(ctx context.Context, userCred mcclient.TokenCredential, vm *SGuest) error {
 	if len(self.AssociateType) > 0 {
 		return fmt.Errorf("EIP has been associated!!")
 	}
@@ -369,14 +398,14 @@ func (self *SElasticip) AssociateVM(userCred mcclient.TokenCredential, vm *SGues
 		return err
 	}
 
-	db.OpsLog.LogAttachEvent(vm, self, userCred, self.GetShortDesc())
-	db.OpsLog.LogEvent(self, db.ACT_EIP_ATTACH, vm.GetShortDesc(), userCred)
-	db.OpsLog.LogEvent(vm, db.ACT_EIP_ATTACH, self.GetShortDesc(), userCred)
+	db.OpsLog.LogAttachEvent(ctx, vm, self, userCred, self.GetShortDesc(ctx))
+	db.OpsLog.LogEvent(self, db.ACT_EIP_ATTACH, vm.GetShortDesc(ctx), userCred)
+	db.OpsLog.LogEvent(vm, db.ACT_EIP_ATTACH, self.GetShortDesc(ctx), userCred)
 
 	return nil
 }
 
-func (manager *SElasticipManager) getEipByExtEip(userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, region *SCloudregion, projectId string) (*SElasticip, error) {
+func (manager *SElasticipManager) getEipByExtEip(ctx context.Context, userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, region *SCloudregion, projectId string) (*SElasticip, error) {
 	eipObj, err := manager.FetchByExternalId(extEip.GetGlobalId())
 	if err == nil {
 		return eipObj.(*SElasticip), nil
@@ -386,7 +415,7 @@ func (manager *SElasticipManager) getEipByExtEip(userCred mcclient.TokenCredenti
 		return nil, err
 	}
 
-	return manager.newFromCloudEip(userCred, extEip, region, projectId)
+	return manager.newFromCloudEip(ctx, userCred, extEip, region, projectId)
 }
 
 func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -430,15 +459,16 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 
 	data.Add(jsonutils.NewString(chargeType), "charge_type")
 
+	data, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	if err != nil {
+		return nil, err
+	}
+
+	//避免参数重名后还有pending.eip残留
 	eipPendingUsage := &SQuota{Eip: 1}
 	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), eipPendingUsage)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError("Out of eip quota: %s", err)
-	}
-
-	data, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
-	if err != nil {
-		return nil, err
 	}
 
 	return data, nil
@@ -685,6 +715,9 @@ func (self *SElasticip) GetCustomizeColumns(ctx context.Context, userCred mcclie
 }
 
 func (self *SElasticip) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
+		extra.Add(jsonutils.NewString(cloudprovider.Provider), "provider")
+	}
 	vm := self.GetAssociateVM()
 	if vm != nil {
 		extra.Add(jsonutils.NewString(vm.GetName()), "associate_name")
@@ -734,6 +767,20 @@ func (self *SElasticip) AllowPerformChangeBandwidth(ctx context.Context, userCre
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "change-bandwidth")
 }
 
+func (self *SElasticip) GetProviderDriver() (cloudprovider.ICloudProviderFactory, error) {
+	if provider := self.GetCloudprovider(); provider != nil {
+		return provider.GetProviderDriver()
+	}
+	return nil, fmt.Errorf("failed to find provider for eip %s", self.Name)
+}
+
+func (self *SElasticip) GetProviderDriver() (cloudprovider.ICloudProviderFactory, error) {
+	if provider := self.GetCloudprovider(); provider != nil {
+		return provider.GetProviderDriver()
+	}
+	return nil, fmt.Errorf("failed to find provider for eip %s", self.Name)
+}
+
 func (self *SElasticip) PerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Status != EIP_STATUS_READY {
 		return nil, httperrors.NewInvalidStatusError("cannot change bandwidth in status %s", self.Status)
@@ -743,6 +790,16 @@ func (self *SElasticip) PerformChangeBandwidth(ctx context.Context, userCred mcc
 	if err != nil || bandwidth <= 0 {
 		return nil, httperrors.NewInputParameterError("Invalid bandwidth")
 	}
+
+	dirver, err := self.GetProviderDriver()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := dirver.ValidateChangeBandwidth(self.AssociateId, bandwidth); err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+
 	err = self.StartEipChangeBandwidthTask(ctx, userCred, bandwidth)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
@@ -798,30 +855,62 @@ func (u EipUsage) Total() int {
 	return u.PublicIPCount + u.EIPCount
 }
 
-func (manager *SElasticipManager) usageQ(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, hostTypes []string) *sqlchemy.SQuery {
-	if rangeObj == nil {
+func (manager *SElasticipManager) usageQByProvider(q *sqlchemy.SQuery, providers []string) *sqlchemy.SQuery {
+	if len(providers) == 0 {
 		return q
 	}
-	zones := ZoneManager.Query().SubQuery()
-	hosts := HostManager.Query().SubQuery()
-	sq := zones.Query(zones.Field("cloudregion_id")).
-		Join(hosts, sqlchemy.AND(
-			sqlchemy.IsFalse(hosts.Field("deleted")),
-			sqlchemy.IsTrue(hosts.Field("enabled")),
-			sqlchemy.Equals(hosts.Field("zone_id"), zones.Field("id"))))
-	sq = AttachUsageQuery(sq, hosts, hosts.Field("id"), hostTypes, rangeObj)
-	q = q.Filter(sqlchemy.In(q.Field("cloudregion_id"), sq.Distinct()))
+	cloudproviders := CloudproviderManager.Query().SubQuery()
+	subq := cloudproviders.Query(cloudproviders.Field("id")).In("provider", providers).SubQuery()
+	q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
 	return q
 }
 
-func (manager *SElasticipManager) TotalCount(projectId string, rangeObj db.IStandaloneModel, hostTypes []string) EipUsage {
+func (manager *SElasticipManager) usageQByRange(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
+	if rangeObj == nil {
+		return q
+	}
+
+	kw := rangeObj.Keyword()
+	// log.Debugf("rangeObj keyword: %s", kw)
+	switch kw {
+	case "zone":
+		zone := rangeObj.(*SZone)
+		q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), zone.CloudregionId))
+	case "wire":
+		wire := rangeObj.(*SWire)
+		zone := wire.GetZone()
+		q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), zone.CloudregionId))
+	case "host":
+		host := rangeObj.(*SHost)
+		zone := host.GetZone()
+		q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), zone.CloudregionId))
+	case "cloudprovider":
+		q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), rangeObj.GetId()))
+	case "cloudaccount":
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+		subq := cloudproviders.Query(cloudproviders.Field("id")).Equals("cloudaccount_id", rangeObj.GetId()).SubQuery()
+		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+	case "cloudregion":
+		q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), rangeObj.GetId()))
+	}
+
+	return q
+}
+
+func (manager *SElasticipManager) usageQ(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, providers []string) *sqlchemy.SQuery {
+	q = manager.usageQByRange(q, rangeObj)
+	q = manager.usageQByProvider(q, providers)
+	return q
+}
+
+func (manager *SElasticipManager) TotalCount(projectId string, rangeObj db.IStandaloneModel, providers []string) EipUsage {
 	usage := EipUsage{}
 	q1 := manager.Query().Equals("mode", EIP_MODE_INSTANCE_PUBLICIP)
-	q1 = manager.usageQ(q1, rangeObj, hostTypes)
+	q1 = manager.usageQ(q1, rangeObj, providers)
 	q2 := manager.Query().Equals("mode", EIP_MODE_STANDALONE_EIP)
-	q2 = manager.usageQ(q2, rangeObj, hostTypes)
+	q2 = manager.usageQ(q2, rangeObj, providers)
 	q3 := manager.Query().Equals("mode", EIP_MODE_STANDALONE_EIP).IsNotEmpty("associate_id")
-	q3 = manager.usageQ(q3, rangeObj, hostTypes)
+	q3 = manager.usageQ(q3, rangeObj, providers)
 	if len(projectId) > 0 {
 		q1 = q1.Equals("tenant_id", projectId)
 		q2 = q2.Equals("tenant_id", projectId)
@@ -858,4 +947,10 @@ func (self *SElasticip) DoPendingDelete(ctx context.Context, userCred mcclient.T
 		return
 	}
 	self.Dissociate(ctx, userCred)
+}
+
+func (self *SElasticip) getCloudProviderInfo() SCloudProviderInfo {
+	region := self.GetRegion()
+	provider := self.GetCloudprovider()
+	return MakeCloudProviderInfo(region, nil, provider)
 }

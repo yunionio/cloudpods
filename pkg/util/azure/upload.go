@@ -9,14 +9,14 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/storage"
-	"yunion.io/x/onecloud/pkg/util/azure/concurrent"
-	"yunion.io/x/onecloud/pkg/util/azure/progress"
-
 	"github.com/Microsoft/azure-vhd-utils/vhdcore/block/bitmap"
 	"github.com/Microsoft/azure-vhd-utils/vhdcore/common"
 	"github.com/Microsoft/azure-vhd-utils/vhdcore/diskstream"
 	"github.com/Microsoft/azure-vhd-utils/vhdcore/footer"
 	"github.com/Microsoft/azure-vhd-utils/vhdcore/validator"
+
+	"yunion.io/x/onecloud/pkg/util/azure/concurrent"
+	"yunion.io/x/onecloud/pkg/util/azure/progress"
 )
 
 // DiskUploadContext type describes VHD upload context, this includes the disk stream to read from, the ranges of

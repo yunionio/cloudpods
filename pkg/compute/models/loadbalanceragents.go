@@ -270,7 +270,7 @@ func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, us
 	return man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
 
-func (man *SLoadbalancerAgentManager) CleanPendingDeleteLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential) {
+func (man *SLoadbalancerAgentManager) CleanPendingDeleteLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	agents := []SLoadbalancerAgent{}
 	{
 		// find active agents
@@ -330,6 +330,7 @@ func (man *SLoadbalancerAgentManager) CleanPendingDeleteLoadbalancers(ctx contex
 				log.Errorf("%s: query pending_deleted_at < %s: %s", keyPlural, minT, err)
 				continue
 			}
+			defer rows.Close()
 			m, err := db.NewModelObject(man)
 			if err != nil {
 				log.Errorf("%s: new model object failed: %s", keyPlural, err)

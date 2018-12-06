@@ -15,6 +15,7 @@ var (
 type ICloudProviderFactory interface {
 	GetProvider(providerId, providerName, url, account, secret string) (ICloudProvider, error)
 	GetId() string
+	ValidateChangeBandwidth(instanceId string, bandwidth int64) error
 }
 
 type ICloudProvider interface {
@@ -49,10 +50,19 @@ func RegisterFactory(factory ICloudProviderFactory) {
 	providerTable[factory.GetId()] = factory
 }
 
+func GetProviderDriver(provider string) (ICloudProviderFactory, error) {
+	factory, ok := providerTable[provider]
+	if ok {
+		return factory, nil
+	}
+	log.Errorf("Provider %s not registerd", provider)
+	return nil, fmt.Errorf("No such provider %s", provider)
+}
+
 func GetProvider(providerId, providerName, accessUrl, account, secret, provider string) (ICloudProvider, error) {
 	factory, ok := providerTable[provider]
 	if ok {
-		return factory.GetProvider(providerId, providerName, accessUrl, account, secret)
+		return factory, nil
 	}
 	log.Errorf("Provider %s not registerd", provider)
 	return nil, fmt.Errorf("No such provider %s", provider)

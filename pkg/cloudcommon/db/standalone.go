@@ -19,11 +19,11 @@ type SStandaloneResourceBase struct {
 
 	Id         string `width:"128" charset:"ascii" primary:"true" list:"user"`
 	Name       string `width:"128" charset:"utf8" nullable:"false" index:"true" list:"user" update:"user" create:"required"`
-	ExternalId string `width:"256" charset:"utf8" index:"true" list:"admin" create:"admin_optional"`
+	ExternalId string `width:"256" charset:"utf8" index:"true" list:"user" create:"admin_optional"`
 
 	Description string `width:"256" charset:"utf8" get:"user" list:"user" update:"user" create:"optional"`
 
-	IsEmulated bool `nullable:"false" default:"false" list:"admin" update:"true" create:"admin_optional"`
+	IsEmulated bool `nullable:"false" default:"false" list:"admin" create:"admin_optional"`
 }
 
 func (model *SStandaloneResourceBase) BeforeInsert() {
@@ -127,8 +127,8 @@ func (model *SStandaloneResourceBase) GetName() string {
 	return model.Name
 }
 
-func (model *SStandaloneResourceBase) GetShortDesc() *jsonutils.JSONDict {
-	desc := model.SResourceBase.GetShortDesc()
+func (model *SStandaloneResourceBase) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := model.SResourceBase.GetShortDesc(ctx)
 	desc.Add(jsonutils.NewString(model.GetName()), "name")
 	desc.Add(jsonutils.NewString(model.GetId()), "id")
 	return desc
@@ -201,10 +201,10 @@ func (model *SStandaloneResourceBase) PerformMetadata(ctx context.Context, userC
 	}
 	dictStore := make(map[string]interface{})
 	for k, v := range dictMap {
-		dictStore[k] = v
+		dictStore[k], _ = v.GetString()
 	}
-	model.SetAllMetadata(ctx, dictStore, userCred)
-	return nil, nil
+	err = model.SetAllMetadata(ctx, dictStore, userCred)
+	return nil, err
 }
 
 func (model *SStandaloneResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {

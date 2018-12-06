@@ -31,8 +31,17 @@ GO_INSTALL := go install -ldflags $(LDFLAGS)
 GO_TEST := go test
 
 PKGS := go list ./...
-CMDS := $(shell find ./cmd -mindepth 1 -maxdepth 1 -type d)
 
+CGO_CFLAGS_ENV = $(shell go env CGO_CFLAGS)
+CGO_LDFLAGS_ENV = $(shell go env CGO_LDFLAGS)
+
+ifdef LIBQEMUIO_PATH
+    X_CGO_CFLAGS := ${CGO_CFLAGS_ENV} -I${LIBQEMUIO_PATH}/src -I${LIBQEMUIO_PATH}/src/include
+    X_CGO_LDFLAGS := ${CGO_LDFLAGS_ENV} -laio -lqemuio -lpthread  -L ${LIBQEMUIO_PATH}/src
+endif
+
+export CGO_CFLAGS = ${X_CGO_CFLAGS}
+export CGO_LDFLAGS = ${X_CGO_LDFLAGS}
 
 all: build
 
@@ -44,12 +53,11 @@ install: prepare_dir
 	done
 
 
-build: prepare_dir fmt
-	@for PKG in $(CMDS); do \
-		echo build $$PKG; \
-		$(GO_BUILD) -o $(BIN_DIR)/`basename $${PKG}` $$PKG; \
-	done
+build: gendoc
+	$(MAKE) $(filter-out cmd/host-image, $(wildcard cmd/*))
 
+gendoc:
+	@sh build/gendoc.sh
 
 test:
 	@for PKG in $$( $(PKGS) | grep "$(filter-out $@,$(MAKECMDGOALS))" ); do \

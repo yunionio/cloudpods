@@ -1,4 +1,4 @@
-// +build dragonfly netbsd openbsd
+// +build dragonfly openbsd
 
 package termios
 

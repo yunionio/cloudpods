@@ -450,6 +450,7 @@ func (q *SQuery) AllStringMap() ([]map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	results := make([]map[string]string, 0)
 	for rows.Next() {
 		result, err := q.rowScan2StringMap(rows)

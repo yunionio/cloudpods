@@ -36,12 +36,8 @@ func (region *SFakeOnPremiseRegion) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
-func (region *SFakeOnPremiseRegion) GetLatitude() float32 {
-	return 0.0
-}
-
-func (region *SFakeOnPremiseRegion) GetLongitude() float32 {
-	return 0.0
+func (region *SFakeOnPremiseRegion) GetGeographicInfo() SGeographicInfo {
+	return SGeographicInfo{}
 }
 
 func (region *SFakeOnPremiseRegion) GetIZones() ([]ICloudZone, error) {
@@ -82,4 +78,16 @@ func (region *SFakeOnPremiseRegion) DeleteSecurityGroup(vpcId, secgroupId string
 
 func (region *SFakeOnPremiseRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
 	return "", ErrNotSupported
+}
+
+func (region *SFakeOnPremiseRegion) GetILoadBalancers() ([]ICloudLoadbalancer, error) {
+	return nil, ErrNotSupported
+}
+
+func (region *SFakeOnPremiseRegion) GetILoadbalancerAcls() ([]ICloudLoadbalancerAcl, error) {
+	return nil, ErrNotSupported
+}
+
+func (region *SFakeOnPremiseRegion) GetILoadbalancerCertificates() ([]ICloudLoadbalancerCertificate, error) {
+	return nil, ErrNotSupported
 }
