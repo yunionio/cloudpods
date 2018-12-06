@@ -63,13 +63,13 @@ func (manager *SQuotaManager) _cancelPendingUsage(ctx context.Context, userCred 
 		log.Errorf("%s", err)
 		return err
 	}
-	if localUsage != nil {
-		localUsage.Sub(cancelUsage)
-	}
 	quota.Sub(cancelUsage)
 	err = manager.pendingStore.SetQuota(ctx, userCred, projectId, quota)
 	if err != nil {
 		log.Errorf("%s", err)
+	}
+	if localUsage != nil {
+		localUsage.Sub(cancelUsage)
 	}
 	return err
 }
