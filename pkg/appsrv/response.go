@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"fmt"
+
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
@@ -54,6 +55,16 @@ func (w *responseWriterChannel) WriteHeader(status int) {
 	}
 	w.statusChan <- status
 	<-w.statusResp
+}
+
+// implent http.Flusher
+func (w *responseWriterChannel) Flush() {
+	if w.isClosed {
+		return
+	}
+	if f, ok := w.backend.(http.Flusher); ok {
+		f.Flush()
+	}
 }
 
 func (w *responseWriterChannel) wait(ctx context.Context, workerChan chan *SWorker) interface{} {

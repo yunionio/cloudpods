@@ -629,7 +629,7 @@ func (self *SHost) GetFetchUrl() string {
 			port = 80
 		}
 	}
-	return fmt.Sprintf("%s://%s:%d", managerUrl.Scheme, managerUrl.Host, port+40000)
+	return fmt.Sprintf("%s://%s:%d", managerUrl.Scheme, strings.Split(managerUrl.Host, ":")[0], port+40000)
 }
 
 func (self *SHost) GetAttachedStorages(storageType string) []SStorage {

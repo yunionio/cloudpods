@@ -689,6 +689,9 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
 		}
+		if len(diskConfig.ImageId) > 0 && diskConfig.DiskType != DISK_TYPE_SYS {
+			return nil, httperrors.NewBadRequestError("Snapshot error: disk index 0 but disk type is %s", diskConfig.DiskType)
+		}
 
 		if len(diskConfig.Backend) == 0 {
 			diskConfig.Backend = STORAGE_LOCAL
@@ -776,6 +779,9 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			diskConfig, err := parseDiskInfo(ctx, userCred, jsonutils.NewString(dataDiskDefs[i]))
 			if err != nil {
 				return nil, httperrors.NewInputParameterError("parse disk description error %s", err)
+			}
+			if diskConfig.DiskType == DISK_TYPE_SYS {
+				return nil, httperrors.NewBadRequestError("Snapshot error: disk index %d > 0 but disk type is %s", idx, DISK_TYPE_SYS)
 			}
 			if len(diskConfig.Backend) == 0 {
 				diskConfig.Backend = rootStorageType
@@ -2344,6 +2350,10 @@ func (self *SGuest) CreateDisksOnHost(ctx context.Context, userCred mcclient.Tok
 			return err
 		}
 		data.Add(jsonutils.NewString(disk.Id), fmt.Sprintf("disk.%d.id", idx))
+		log.Errorln("CreateDisksOnHost XXXXXXXXXX", diskConfig.SnapshotId)
+		if len(diskConfig.SnapshotId) > 0 {
+			data.Add(jsonutils.NewString(diskConfig.SnapshotId), fmt.Sprintf("disk.%d.snapshot", idx))
+		}
 	}
 	return nil
 }

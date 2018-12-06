@@ -113,6 +113,15 @@ func (manager *SDiskManager) GetContextManager() []db.IModelManager {
 	return []db.IModelManager{StorageManager}
 }
 
+func (manager *SDiskManager) FetchDiskById(diskId string) *SDisk {
+	disk, err := manager.FetchById(diskId)
+	if err != nil {
+		log.Errorf("FetchById fail %s", err)
+		return nil
+	}
+	return disk.(*SDisk)
+}
+
 func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	queryDict, ok := query.(*jsonutils.JSONDict)
 	if !ok {
@@ -1006,6 +1015,10 @@ func totalDiskSize(projectId string, active tristate.TriState, ready tristate.Tr
 
 type SDiskConfig struct {
 	ImageId string
+
+	SnapshotId string
+	DiskType   string // sys, data, swap
+
 	// ImageDiskFormat string
 	SizeMb          int    // MB
 	Fs              string // file system
@@ -1062,28 +1075,16 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 			diskConfig.SizeMb = -1
 		} else if utils.IsInStringArray(p, STORAGE_TYPES) {
 			diskConfig.Backend = p
+		} else if strings.HasPrefix(p, "snapshot-") {
+			// HACK: use snapshot creat disk format snapshot-id
+			// example: snapshot-3140cecb-ccc4-4865-abae-3a5ba8c69d9b
+			log.Errorln("The snapshot XXXXXXX Create disk", p[len("snapshot-"):])
+			if err := fillDiskConfigBySnapshot(userCred, &diskConfig, p[len("snapshot-"):]); err != nil {
+				return nil, err
+			}
 		} else if len(p) > 0 {
-			if userCred == nil {
-				diskConfig.ImageId = p
-			} else {
-				image, err := CachedimageManager.getImageInfo(ctx, userCred, p, false)
-				if err != nil {
-					log.Errorf("getImageInfo fail %s", err)
-					return nil, err
-				}
-				if image.Status != IMAGE_STATUS_ACTIVE {
-					return nil, httperrors.NewInvalidStatusError("Image status is not active")
-				}
-				diskConfig.ImageId = image.Id
-				diskConfig.ImageProperties = image.Properties
-				if len(diskConfig.Format) == 0 {
-					diskConfig.Format = image.DiskFormat
-				}
-				// diskConfig.ImageDiskFormat = image.DiskFormat
-				CachedimageManager.ImageAddRefCount(image.Id)
-				if diskConfig.SizeMb == 0 {
-					diskConfig.SizeMb = image.MinDisk // MB
-				}
+			if err := fillDiskConfigByImage(ctx, userCred, &diskConfig, p); err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -1093,6 +1094,60 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 		return nil, httperrors.NewInputParameterError("Diskinfo not contains either imageID or size")
 	}
 	return &diskConfig, nil
+}
+
+func fillDiskConfigBySnapshot(userCred mcclient.TokenCredential, diskConfig *SDiskConfig, snapshotId string) error {
+	iSnapshot, err := SnapshotManager.FetchByIdOrName(userCred, snapshotId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return httperrors.NewNotFoundError("Snapshot %s not found", snapshotId)
+		}
+		return err
+	}
+	var snapshot = iSnapshot.(*SSnapshot)
+	if storage := StorageManager.FetchStorageById(snapshot.StorageId); storage == nil {
+		return httperrors.NewBadRequestError("Snapshot %s storage %s not found, is public cloud?",
+			snapshotId, snapshot.StorageId)
+	} else {
+		if disk := DiskManager.FetchDiskById(snapshot.DiskId); disk != nil {
+			diskConfig.Fs = disk.FsFormat
+			if len(diskConfig.Format) == 0 {
+				diskConfig.Format = disk.DiskFormat
+			}
+		}
+		diskConfig.SnapshotId = snapshot.Id
+		diskConfig.DiskType = snapshot.DiskType
+		diskConfig.SizeMb = snapshot.Size
+		diskConfig.Backend = storage.StorageType
+	}
+	return nil
+}
+
+func fillDiskConfigByImage(ctx context.Context, userCred mcclient.TokenCredential,
+	diskConfig *SDiskConfig, imageId string) error {
+	if userCred == nil {
+		diskConfig.ImageId = imageId
+	} else {
+		image, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
+		if err != nil {
+			log.Errorf("getImageInfo fail %s", err)
+			return err
+		}
+		if image.Status != IMAGE_STATUS_ACTIVE {
+			return httperrors.NewInvalidStatusError("Image status is not active")
+		}
+		diskConfig.ImageId = image.Id
+		diskConfig.ImageProperties = image.Properties
+		if len(diskConfig.Format) == 0 {
+			diskConfig.Format = image.DiskFormat
+		}
+		// diskConfig.ImageDiskFormat = image.DiskFormat
+		CachedimageManager.ImageAddRefCount(image.Id)
+		if diskConfig.SizeMb == 0 {
+			diskConfig.SizeMb = image.MinDisk // MB
+		}
+	}
+	return nil
 }
 
 func parseIsoInfo(ctx context.Context, userCred mcclient.TokenCredential, info string) (string, error) {
@@ -1111,6 +1166,10 @@ func (self *SDisk) fetchDiskInfo(diskConfig *SDiskConfig) {
 	if len(diskConfig.ImageId) > 0 {
 		self.TemplateId = diskConfig.ImageId
 		self.DiskType = DISK_TYPE_SYS
+	} else if len(diskConfig.SnapshotId) > 0 {
+		// XXX: HACK reuse template id as snapshot id
+		// self.TemplateId = "snapshot-" + diskConfig.SnapshotId
+		self.DiskType = diskConfig.DiskType
 	}
 	if len(diskConfig.Fs) > 0 {
 		self.FsFormat = diskConfig.Fs

@@ -1450,6 +1450,7 @@
     "github.com/miekg/dns",
     "github.com/moul/http2curl",
     "github.com/nelsonken/cos-go-sdk-v5/cos",
+    "github.com/pierrec/lz4",
     "github.com/serialx/hashring",
     "github.com/stretchr/testify/assert",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common",
