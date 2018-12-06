@@ -51,7 +51,6 @@ func (self *VpcCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 
 	err = vpc.SyncWithCloudVpc(ivpc)
 	if err != nil {
-		log.Errorf("SyncWithCloudVpc fail: %s", err)
 		self.TaskFailed(ctx, vpc, err)
 		return
 	}

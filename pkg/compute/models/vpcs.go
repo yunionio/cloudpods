@@ -288,9 +288,6 @@ func (self *SVpc) SyncWithCloudVpc(extVPC cloudprovider.ICloudVpc) error {
 
 		return nil
 	})
-	if err != nil {
-		log.Errorf("syncWithCloudVpc error %s", err)
-	}
 	return err
 }
 
