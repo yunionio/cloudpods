@@ -226,7 +226,7 @@ func yunionPortRangeToAws(r secrules.SecurityRule) []portRange {
 		portranges = append(portranges, portRange{int64(start), int64(end)})
 	}
 
-	for i, _ := range r.Ports {
+	for i := range r.Ports {
 		port := r.Ports[i]
 		if port <= 0 && (r.Protocol == "tcp" || r.Protocol == "udp") {
 			portranges = append(portranges, portRange{0, 65535})
@@ -323,7 +323,7 @@ func YunionSecRuleToAws(rule secrules.SecurityRule) ([]*ec2.IpPermission, error)
 	portranges := yunionPortRangeToAws(rule)
 	protocol := yunionProtocolToAws(rule)
 	permissions := []*ec2.IpPermission{}
-	for i, _ := range portranges {
+	for i := range portranges {
 		port := portranges[i]
 		permission := ec2.IpPermission{
 			FromPort:   &port.Start,
