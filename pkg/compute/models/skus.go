@@ -171,17 +171,17 @@ func (self *SServerSkuManager) FetchByZoneId(zoneId string, name string) (db.IMo
 	}
 }
 
-func (self *SServerSkuManager) AllowGetPropertyInstanceSpecsList(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+func (self *SServerSkuManager) AllowGetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
 }
 
-func (self *SServerSkuManager) GetPropertyInstanceSpecsList(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	q := self.Query()
-	zone, err := query.GetString("zone_id")
+	zone, err := query.GetString("zone")
 	if err == nil && len(zone) > 0 {
-		q = q.Equals("zone_id", zone)
+		q = q.Equals("zone", zone)
 	} else {
-		return nil, httperrors.NewMissingParameterError("zone_id")
+		return nil, httperrors.NewMissingParameterError("zone")
 	}
 
 	skus := make([]SServerSku, 0)
