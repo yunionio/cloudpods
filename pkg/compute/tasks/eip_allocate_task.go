@@ -20,6 +20,20 @@ func init() {
 	taskman.RegisterTask(EipAllocateTask{})
 }
 
+func (self *EipAllocateTask) onFailed(ctx context.Context, resion string) {
+	self.finalReleasePendingUsage(ctx)
+	self.SetStageFailed(ctx, resion)
+}
+
+func (self *EipAllocateTask) finalReleasePendingUsage(ctx context.Context) {
+	pendingUsage := models.SQuota{}
+	if err := self.GetPendingUsage(&pendingUsage); err == nil && !pendingUsage.IsEmpty() {
+		if err := models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, self.UserCred.GetProjectId(), nil, &pendingUsage); err != nil {
+			log.Errorf("CancelPendingUsage error: %v", err)
+		}
+	}
+}
+
 func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	eip := obj.(*models.SElasticip)
 
@@ -27,7 +41,7 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 	if err != nil {
 		msg := fmt.Sprintf("fail to find iregion for eip %s", err)
 		eip.SetStatus(self.UserCred, models.EIP_STATUS_ALLOCATE_FAIL, msg)
-		self.SetStageFailed(ctx, msg)
+		self.onFailed(ctx, msg)
 		return
 	}
 
@@ -35,7 +49,7 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 	if err != nil {
 		msg := fmt.Sprintf("create eip fail %s", err)
 		eip.SetStatus(self.UserCred, models.EIP_STATUS_ALLOCATE_FAIL, msg)
-		self.SetStageFailed(ctx, msg)
+		self.onFailed(ctx, msg)
 		return
 	}
 
@@ -44,16 +58,11 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 	if err != nil {
 		msg := fmt.Sprintf("sync eip fail %s", err)
 		eip.SetStatus(self.UserCred, models.EIP_STATUS_ALLOCATE_FAIL, msg)
-		self.SetStageFailed(ctx, msg)
+		self.onFailed(ctx, msg)
 		return
 	}
 
-	eipPendingUsage := &models.SQuota{Eip: 1}
-	err = models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, self.UserCred.GetProjectId(), eipPendingUsage, eipPendingUsage)
-
-	if err != nil {
-		log.Errorf("CancelPendingUsage fail %s", err)
-	}
+	self.finalReleasePendingUsage(ctx)
 
 	if self.Params != nil && self.Params.Contains("instance_id") {
 		self.SetStage("on_eip_associate_complete", nil)
