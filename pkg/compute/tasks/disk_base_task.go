@@ -26,7 +26,7 @@ func (self *SDiskBaseTask) SetStageFailed(ctx context.Context, reason string) {
 func (self *SDiskBaseTask) finalReleasePendingUsage(ctx context.Context) {
 	pendingUsage := models.SQuota{}
 	err := self.GetPendingUsage(&pendingUsage)
-	if err != nil {
+	if err == nil {
 		if !pendingUsage.IsEmpty() {
 			disk := self.getDisk()
 			models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, disk.ProjectId, &pendingUsage, &pendingUsage)

@@ -52,6 +52,7 @@ func (self *GuestCreateTask) OnDiskPreparedFailed(ctx context.Context, obj db.IS
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	logclient.AddActionLog(guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_DISK_FAILED, data.String())
+	self.SetStageFailed(ctx, data.String())
 }
 
 func (self *GuestCreateTask) OnDiskPrepared(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -80,6 +81,7 @@ func (self *GuestCreateTask) OnCdromPreparedFailed(ctx context.Context, obj db.I
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	logclient.AddActionLog(guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_DISK_FAILED, fmt.Sprintf("cdrom_failed %s", data))
+	self.SetStageFailed(ctx, fmt.Sprintf("cdrom_failed %s", data))
 }
 
 func (self *GuestCreateTask) StartDeployGuest(ctx context.Context, guest *models.SGuest) {
