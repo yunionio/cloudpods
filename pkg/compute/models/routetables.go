@@ -142,9 +142,9 @@ func (man *SRouteTableManager) ValidateCreateData(ctx context.Context, userCred 
 		return nil, err
 	}
 	vpc := vpcV.Model.(*SVpc)
-	cloudregion := vpc.GetRegion()
-	if cloudregion == nil {
-		return nil, httperrors.NewConflictError("failed fetching cloudregion of vpc %s(%s)", vpc.Name, vpc.Id)
+	cloudregion, err := vpc.GetRegion()
+	if err != nil {
+		return nil, httperrors.NewConflictError("failed getting region of vpc %s(%s)", vpc.Name, vpc.Id)
 	}
 	data.Set("cloudregion_id", jsonutils.NewString(cloudregion.Id))
 	return man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)

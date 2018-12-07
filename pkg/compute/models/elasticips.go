@@ -430,15 +430,16 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 
 	data.Add(jsonutils.NewString(chargeType), "charge_type")
 
+	data, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	if err != nil {
+		return nil, err
+	}
+
+	//避免参数重名后还有pending.eip残留
 	eipPendingUsage := &SQuota{Eip: 1}
 	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), eipPendingUsage)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError("Out of eip quota: %s", err)
-	}
-
-	data, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
-	if err != nil {
-		return nil, err
 	}
 
 	return data, nil
