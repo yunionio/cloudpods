@@ -2007,6 +2007,13 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 	}
 	extra.Add(jsonutils.NewFloat(memCommitRate), "mem_commit_rate")
 	extra = self.SManagedResourceBase.getExtraDetails(ctx, extra)
+
+	if self.IsPrepaidRecycle() {
+		extra.Add(jsonutils.JSONTrue, "is_prepaid_recycle")
+	} else {
+		extra.Add(jsonutils.JSONFalse, "is_prepaid_recycle")
+	}
+
 	return extra
 }
 

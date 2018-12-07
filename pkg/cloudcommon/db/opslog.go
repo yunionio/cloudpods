@@ -154,6 +154,9 @@ const (
 	ACT_RENEW = "renew"
 
 	ACT_SCHEDULE = "schedule"
+
+	ACT_RECYCLE_PREPAID      = "recycle_prepaid"
+	ACT_UNDO_RECYCLE_PREPAID = "undo_recycle_prepaid"
 )
 
 type SOpsLogManager struct {

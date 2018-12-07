@@ -8,7 +8,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/sqlchemy"
 
 	"strings"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -16,6 +15,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 func (self *SHost) GetResourceType() string {
@@ -39,8 +39,12 @@ func (self *SGuest) PerformPrepaidRecycle(ctx context.Context, userCred mcclient
 
 	err := self.doPrepaidRecycle(ctx, userCred)
 	if err != nil {
+		logclient.AddActionLog(self, logclient.ACT_RECYCLE_PREPAID, self.GetShortDesc(), userCred, false)
 		return nil, httperrors.NewGeneralError(err)
 	}
+
+	db.OpsLog.LogEvent(self, db.ACT_RECYCLE_PREPAID, self.GetShortDesc(), userCred)
+	logclient.AddActionLog(self, logclient.ACT_RECYCLE_PREPAID, self.GetShortDesc(), userCred, true)
 
 	return nil, nil
 }
@@ -129,8 +133,6 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 		return err
 	}
 
-	log.Infof("save fakeHost success %s", fakeHost.Id)
-
 	for i := 0; i < len(guestnics); i += 1 {
 		var nicType string
 		if i == 0 {
@@ -166,7 +168,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 		}
 	}
 
-	diff, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err = self.GetModelManager().TableSpec().Update(self, func() error {
 		// clear billing information
 		self.BillingType = BILLING_TYPE_POSTPAID
 		self.BillingCycle = ""
@@ -177,12 +179,10 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	})
 
 	if err != nil {
-		log.Errorf("fail to change vm hostId", err)
+		log.Errorf("clear billing information fail: %s", err)
 		fakeHost.RealDelete(ctx, userCred)
 		return err
 	}
-
-	log.Debugf("%s", sqlchemy.UpdateDiffString(diff))
 
 	return nil
 }
@@ -208,8 +208,12 @@ func (self *SGuest) PerformUndoPrepaidRecycle(ctx context.Context, userCred mccl
 
 	err := doUndoPrepaidRecycle(ctx, userCred, host, self)
 	if err != nil {
+		logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(), userCred, false)
 		return nil, httperrors.NewGeneralError(err)
 	}
+
+	db.OpsLog.LogEvent(self, db.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(), userCred)
+	logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(), userCred, true)
 
 	return nil, nil
 }
@@ -239,8 +243,12 @@ func (self *SHost) PerformUndoPrepaidRecycle(ctx context.Context, userCred mccli
 
 	err := doUndoPrepaidRecycle(ctx, userCred, self, &guests[0])
 	if err != nil {
+		logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(), userCred, false)
 		return nil, httperrors.NewGeneralError(err)
 	}
+
+	db.OpsLog.LogEvent(self, db.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(), userCred)
+	logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(), userCred, true)
 
 	return nil, nil
 }
@@ -281,9 +289,8 @@ func doUndoPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential
 		server.HostId = oHost.Id
 		return nil
 	})
-
 	if err != nil {
-		log.Errorf("fail to recover vm hostId", err)
+		log.Errorf("fail to recover vm hostId %s", err)
 		return err
 	}
 
@@ -375,11 +382,6 @@ func (host *SHost) SetGuestCreateNetworkAndDiskParams(ctx context.Context, userC
 	}
 	params.Set(fmt.Sprintf("net.%d", netIdx), jsonutils.JSONNull)
 
-	/*diskConfs := make([]baremetal.BaremetalStorage, 0)
-	err := host.StorageInfo.Unmarshal(&diskConfs)
-	if err != nil {
-		return nil, err
-	}*/
 	for i := 0; i < len(idisks); i += 1 {
 		istorage, err := idisks[i].GetIStorage()
 		if err != nil {

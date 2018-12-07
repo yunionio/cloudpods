@@ -69,7 +69,6 @@ func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IS
 		self.SaveParams(self.Params)
 	}
 
-	log.Debugf("%s", self.Params)
 	err = guest.CreateNetworksOnHost(ctx, self.UserCred, host, self.Params, &pendingUsage)
 	self.SetPendingUsage(&pendingUsage)
 

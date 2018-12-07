@@ -34,7 +34,7 @@ type IScheduleTask interface {
 	GetUserCred() mcclient.TokenCredential
 	GetSchedParams() *jsonutils.JSONDict
 	GetPendingUsage(quota quotas.IQuota) error
-	SetStage(stageName string, data *jsonutils.JSONDict)
+	SetStage(stageName string, data *jsonutils.JSONDict) error
 	SetStageFailed(ctx context.Context, reason string)
 
 	OnStartSchedule(obj IScheduleModel)

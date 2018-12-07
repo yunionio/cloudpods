@@ -470,28 +470,28 @@ func (self *STask) SaveRequestContext(data *appctx.AppContextData) {
 	}
 }
 
-func (self *STask) SaveParams(data *jsonutils.JSONDict) {
-	self.SetStage("", data)
+func (self *STask) SaveParams(data *jsonutils.JSONDict) error {
+	return self.SetStage("", data)
 }
 
-func (self *STask) SetStage(stageName string, data *jsonutils.JSONDict) {
+func (self *STask) SetStage(stageName string, data *jsonutils.JSONDict) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		params := jsonutils.NewDict()
 		params.Update(self.Params)
 		if data != nil {
 			params.Update(data)
 		}
-		stages, _ := params.Get("__stages")
-		if stages == nil {
-			stages = jsonutils.NewArray()
-			params.Add(stages, "__stages")
-		}
-		stageList := stages.(*jsonutils.JSONArray)
-		stageData := jsonutils.NewDict()
-		stageData.Add(jsonutils.NewString(self.Stage), "name")
-		stageData.Add(jsonutils.NewTimeString(time.Now()), "complete_at")
-		stageList.Add(stageData)
 		if len(stageName) > 0 {
+			stages, _ := params.Get("__stages")
+			if stages == nil {
+				stages = jsonutils.NewArray()
+				params.Add(stages, "__stages")
+			}
+			stageList := stages.(*jsonutils.JSONArray)
+			stageData := jsonutils.NewDict()
+			stageData.Add(jsonutils.NewString(self.Stage), "name")
+			stageData.Add(jsonutils.NewTimeString(time.Now()), "complete_at")
+			stageList.Add(stageData)
 			self.Stage = stageName
 		}
 		self.Params = params
@@ -500,6 +500,7 @@ func (self *STask) SetStage(stageName string, data *jsonutils.JSONDict) {
 	if err != nil {
 		log.Errorf("set_stage fail %s", err)
 	}
+	return err
 }
 
 func (self *STask) GetObjectIdStr() string {
