@@ -1978,12 +1978,10 @@ func (self *SHost) GetDetailsIpmi(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (manager *SHostManager) GetHostsByManagerAndRegion(managerId string, regionId string) []SHost {
-	hosts := HostManager.Query().SubQuery()
-	zones := ZoneManager.Query().SubQuery()
-	q := hosts.Query()
-	q = q.Join(zones, sqlchemy.Equals(hosts.Field("zone_id"), zones.Field("id")))
-	q = q.Filter(sqlchemy.Equals(hosts.Field("manager_id"), managerId))
-	q = q.Filter(sqlchemy.Equals(zones.Field("cloudregion_id"), regionId))
+	zones := ZoneManager.Query().Equals("cloudregion_id", regionId).SubQuery()
+	hosts := HostManager.Query()
+	q := hosts.Equals("manager_id", managerId)
+	q = q.Join(zones, sqlchemy.Equals(zones.Field("id"), hosts.Field("zone_id")))
 	ret := make([]SHost, 0)
 	err := db.FetchModelObjects(HostManager, q, &ret)
 	if err != nil {
