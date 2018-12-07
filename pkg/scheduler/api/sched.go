@@ -94,6 +94,7 @@ type SchedData struct {
 	ForGuests       []*ForGuest       `json:"for_guests"`
 	GuestStatus     string            `json:"guest_status"`
 	Hypervisor      string            `json:"hypervisor"`
+	ResourceType    string            `json:"resource_type"`
 
 	// VM
 	Groups         []string        `json:"group"`
@@ -166,6 +167,10 @@ func NewSchedData(sjson *simplejson.Json, count int64, byTest bool) (*SchedData,
 		if backHost, err := backupHostID.String(); err == nil {
 			data.BackupHostID = backHost
 		}
+	}
+
+	if resourceType, ok := sjson.CheckGet("resource_type"); ok {
+		data.ResourceType = resourceType.MustString()
 	}
 
 	data.Candidates = candidates

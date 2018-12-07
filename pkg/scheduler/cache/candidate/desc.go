@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	cloudmodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 )
@@ -24,6 +25,7 @@ func (b *baseDesc) UUID() string {
 
 type baseHostDesc struct {
 	baseDesc
+	models.BillingResourceBase
 
 	ManagerID      *string                      `json:"manager_id"`
 	Status         string                       `json:"status"`
@@ -44,6 +46,15 @@ type baseHostDesc struct {
 	Aggregates     []*models.Aggregate          `json:"aggregates"`
 	HostAggregates []*models.Aggregate          `json:"host_aggregates"`
 	Cloudprovider  *models.Cloudprovider        `json:"cloudprovider"`
+	ResourceType   string                       `json:"resource_type"`
+	RealExternalId string                       `json:"real_external_id"`
+}
+
+func reviseResourceType(resType string) string {
+	if resType == "" {
+		return cloudmodels.HostResourceTypeDefault
+	}
+	return resType
 }
 
 func newBaseHostDesc(host *models.Host) (*baseHostDesc, error) {
@@ -53,16 +64,19 @@ func newBaseHostDesc(host *models.Host) (*baseHostDesc, error) {
 			Name:      host.Name,
 			UpdatedAt: host.UpdatedAt,
 		},
-		ManagerID:     host.ManagerID,
-		Status:        host.Status,
-		CPUCount:      host.CPUCount,
-		MemSize:       host.MemSize,
-		HostStatus:    host.HostStatus,
-		Enabled:       host.Enabled,
-		HostType:      host.HostType,
-		IsBaremetal:   host.IsBaremetal,
-		NodeCount:     host.NodeCount,
-		IsMaintenance: host.IsMaintenance,
+		BillingResourceBase: host.BillingResourceBase,
+		ManagerID:           host.ManagerID,
+		Status:              host.Status,
+		CPUCount:            host.CPUCount,
+		MemSize:             host.MemSize,
+		HostStatus:          host.HostStatus,
+		Enabled:             host.Enabled,
+		HostType:            host.HostType,
+		IsBaremetal:         host.IsBaremetal,
+		NodeCount:           host.NodeCount,
+		IsMaintenance:       host.IsMaintenance,
+		ResourceType:        reviseResourceType(host.ResourceType),
+		RealExternalId:      host.RealExternalId,
 	}
 
 	if err := desc.fillCloudProvider(host); err != nil {
@@ -97,6 +111,7 @@ func (b baseHostDesc) GetSchedDesc() *jsonutils.JSONDict {
 	desc.Add(jsonutils.NewString(b.HostType), "host_type")
 	desc.Add(jsonutils.NewString(b.ZoneID), "zone_id")
 	desc.Add(jsonutils.NewString(b.Zone), "zone")
+	desc.Add(jsonutils.NewString(b.ResourceType), "resource_type")
 
 	if b.Cloudprovider != nil {
 		p := b.Cloudprovider
@@ -107,6 +122,10 @@ func (b baseHostDesc) GetSchedDesc() *jsonutils.JSONDict {
 	}
 
 	return desc
+}
+
+func (b baseHostDesc) GetResourceType() string {
+	return b.ResourceType
 }
 
 func (b *baseHostDesc) fillCloudProvider(host *models.Host) error {
