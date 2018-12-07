@@ -1928,6 +1928,7 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 		memCommitRate = float64(usage.GuestVmemSize) * 1.0 / float64(totalMem)
 	}
 	extra.Add(jsonutils.NewFloat(memCommitRate), "mem_commit_rate")
+	extra.Add(self.GetHardwareSpecification(), "spec")
 	extra = self.SManagedResourceBase.getExtraDetails(ctx, extra)
 	return extra
 }
