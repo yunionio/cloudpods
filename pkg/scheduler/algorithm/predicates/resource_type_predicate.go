@@ -35,7 +35,7 @@ func (p *ResourceTypePredicate) Execute(u *core.Unit, c core.Candidater) (bool, 
 		h.Exclude2("resource_type", hostResType, reqResType)
 	}
 
-	if reqResType == models.HostResourceTypePrepaidRecycle {
+	if hostResType == models.HostResourceTypePrepaidRecycle {
 		if c.GetGuestCount() == 0 {
 			h.SetCapacity(1)
 		} else {
