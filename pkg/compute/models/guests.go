@@ -843,6 +843,9 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		}*/
 
 	data, err = GetDriver(hypervisor).ValidateCreateData(ctx, userCred, data)
+	if err != nil {
+		return nil, err
+	}
 
 	data, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 	if err != nil {
