@@ -12,10 +12,10 @@ import (
 
 	"context"
 
+	"sort"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
-	"sort"
 )
 
 const (
@@ -272,8 +272,8 @@ func (self *SInstance) getVpc() (*SVpc, error) {
 
 type byAttachedTime []SDisk
 
-func (a byAttachedTime) Len() int           { return len(a) }
-func (a byAttachedTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a byAttachedTime) Len() int      { return len(a) }
+func (a byAttachedTime) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a byAttachedTime) Less(i, j int) bool {
 	switch a[i].GetDiskType() {
 	case models.DISK_TYPE_SYS:
@@ -290,7 +290,7 @@ func (a byAttachedTime) Less(i, j int) bool {
 			return false
 		}
 	}
-	return  a[i].AttachedTime.Before(a[j].AttachedTime)
+	return a[i].AttachedTime.Before(a[j].AttachedTime)
 }
 
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {

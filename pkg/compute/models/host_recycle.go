@@ -387,7 +387,7 @@ func (host *SHost) SetGuestCreateNetworkAndDiskParams(ctx context.Context, userC
 			return nil, err
 		}
 
- 		key := fmt.Sprintf("disk.%d", i)
+		key := fmt.Sprintf("disk.%d", i)
 		if params.Contains(key) {
 			jsonConf, err := params.Get(key)
 			if err != nil {
