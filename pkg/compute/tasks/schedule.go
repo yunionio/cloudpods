@@ -212,8 +212,8 @@ func onScheduleSucc(
 	obj IScheduleModel,
 	hostId string,
 ) {
-	lockman.LockObject(ctx, obj)
-	defer lockman.ReleaseObject(ctx, obj)
+	lockman.LockRawObject(ctx, models.HostManager.KeywordPlural(), hostId)
+	defer lockman.ReleaseRawObject(ctx, models.HostManager.KeywordPlural(), hostId)
 
 	task.SaveScheduleResult(ctx, obj, hostId)
 	models.HostManager.ClearSchedDescCache(hostId)

@@ -398,8 +398,8 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 		}
 		task.taskObjects = objs
 
-		// lockman.LockClass(ctx, objResManager, task.UserCred.GetProjectId())
-		// defer lockman.ReleaseClass(ctx, objResManager, task.UserCred.GetProjectId())
+		lockman.LockClass(ctx, objResManager, task.UserCred.GetProjectId())
+		defer lockman.ReleaseClass(ctx, objResManager, task.UserCred.GetProjectId())
 
 		params[1] = reflect.ValueOf(objs)
 	} else {
@@ -413,8 +413,8 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 		}
 		task.taskObject = obj
 
-		// lockman.LockObject(ctx, obj)
-		// defer lockman.ReleaseObject(ctx, obj)
+		lockman.LockObject(ctx, obj)
+		defer lockman.ReleaseObject(ctx, obj)
 
 		params[1] = reflect.ValueOf(obj)
 	}
