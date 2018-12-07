@@ -180,7 +180,7 @@ func (self *SSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSON
 func (self *SSnapshot) GetShortDesc() *jsonutils.JSONDict {
 	res := self.SVirtualResourceBase.GetShortDesc()
 	res.Add(jsonutils.NewInt(int64(self.Size)), "size")
-	if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
+	/*if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
 		res.Add(jsonutils.NewString(cloudprovider.Provider), "hypervisor")
 	}
 	if len(self.CloudregionId) > 0 {
@@ -188,7 +188,10 @@ func (self *SSnapshot) GetShortDesc() *jsonutils.JSONDict {
 		if cloudRegion != nil {
 			res.Add(jsonutils.NewString(cloudRegion.ExternalId), "region")
 		}
-	}
+	}*/
+	info := self.getCloudBillingInfo()
+	res.Update(jsonutils.Marshal(&info))
+
 	return res
 }
 
@@ -602,4 +605,36 @@ func (self *SSnapshot) PerformPurge(ctx context.Context, userCred mcclient.Token
 	}
 	err = self.RealDelete(ctx, userCred)
 	return nil, err
+}
+
+func (self *SSnapshot) getCloudBillingInfo() SCloudBillingInfo {
+	info := SCloudBillingInfo{}
+
+	region := self.GetRegion()
+	if region != nil {
+		info.Region = region.GetName()
+		info.RegionId = region.GetId()
+	}
+
+	provider := self.GetCloudprovider()
+	if provider != nil {
+		info.SubAccount = provider.GetName()
+		info.SubAccountId = provider.GetId()
+
+		account := provider.GetCloudaccount()
+		info.Account = account.GetName()
+		info.AccountId = account.GetId()
+
+		driver, err := provider.GetDriver()
+
+		if err == nil {
+			info.Provider = driver.GetId()
+
+			iregion, err := driver.GetIRegionById(region.ExternalId)
+			if err == nil {
+				info.RegionExtId = iregion.GetId()
+			}
+		}
+	}
+	return info
 }

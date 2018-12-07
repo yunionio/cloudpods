@@ -19,3 +19,20 @@ func (self *SBillingResourceBase) GetChargeType() string {
 		return BILLING_TYPE_POSTPAID
 	}
 }
+
+type SCloudBillingInfo struct {
+	Provider           string
+	Account            string
+	AccountId          string
+	SubAccount         string
+	SubAccountId       string
+	Region             string
+	RegionId           string
+	RegionExtId        string
+	Zone               string
+	ZoneId             string
+	ZoneExtId          string
+	PriceKey           string
+	ChargeType         string
+	InternetChargeType string
+}

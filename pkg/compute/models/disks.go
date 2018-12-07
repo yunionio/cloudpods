@@ -1298,12 +1298,6 @@ func (self *SDisk) GetShortDesc() *jsonutils.JSONDict {
 		desc.Add(jsonutils.NewString(storage.MediumType), "medium_type")
 	}
 
-	if priceKey := self.GetMetadata("price_key", nil); len(priceKey) > 0 {
-		desc.Add(jsonutils.NewString(priceKey), "price_key")
-	}
-
-	desc.Add(jsonutils.NewString(self.GetChargeType()), "charge_type")
-
 	if hypervisor := self.GetMetadata("hypervisor", nil); len(hypervisor) > 0 {
 		desc.Add(jsonutils.NewString(hypervisor), "hypervisor")
 	}
@@ -1320,6 +1314,21 @@ func (self *SDisk) GetShortDesc() *jsonutils.JSONDict {
 	if len(tid) > 0 {
 		desc.Add(jsonutils.NewString(tid), "template_id")
 	}
+
+	var billingInfo SCloudBillingInfo
+
+	if storage != nil {
+		billingInfo = storage.getCloudBillingInfo()
+	}
+
+	if priceKey := self.GetMetadata("price_key", nil); len(priceKey) > 0 {
+		billingInfo.PriceKey = priceKey
+	}
+
+	billingInfo.ChargeType = self.GetChargeType()
+
+	desc.Update(jsonutils.Marshal(billingInfo))
+
 	return desc
 }
 

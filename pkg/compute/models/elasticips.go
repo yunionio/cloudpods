@@ -4,8 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
@@ -146,17 +144,27 @@ func (self *SElasticip) GetRegion() *SCloudregion {
 
 func (self *SElasticip) GetShortDesc() *jsonutils.JSONDict {
 	desc := self.SVirtualResourceBase.GetShortDesc()
+
 	desc.Add(jsonutils.NewString(self.ChargeType), "charge_type")
+
 	desc.Add(jsonutils.NewInt(int64(self.Bandwidth)), "bandwidth")
 	desc.Add(jsonutils.NewString(self.Mode), "mode")
-	region := self.GetRegion()
-	if len(region.ExternalId) > 0 {
-		regionInfo := strings.Split(region.ExternalId, "/")
-		if len(regionInfo) == 2 {
-			desc.Add(jsonutils.NewString(strings.ToLower(regionInfo[0])), "hypervisor")
-			desc.Add(jsonutils.NewString(regionInfo[1]), "region")
-		}
-	}
+
+	// region := self.GetRegion()
+	// if len(region.ExternalId) > 0 {
+		// regionInfo := strings.Split(region.ExternalId, "/")
+		// if len(regionInfo) == 2 {
+			// desc.Add(jsonutils.NewString(strings.ToLower(regionInfo[0])), "hypervisor")
+			// desc.Add(jsonutils.NewString(regionInfo[1]), "region")
+		// }
+	//}
+
+	billingInfo := self.getCloudBillingInfo()
+
+	billingInfo.InternetChargeType = self.ChargeType
+
+	desc.Update(jsonutils.Marshal(billingInfo))
+
 	return desc
 }
 
@@ -859,4 +867,36 @@ func (self *SElasticip) DoPendingDelete(ctx context.Context, userCred mcclient.T
 		return
 	}
 	self.Dissociate(ctx, userCred)
+}
+
+func (self *SElasticip) getCloudBillingInfo() SCloudBillingInfo {
+	info := SCloudBillingInfo{}
+
+	region := self.GetRegion()
+	if region != nil {
+		info.Region = region.GetName()
+		info.RegionId = region.GetId()
+	}
+
+	provider := self.GetCloudprovider()
+	if provider != nil {
+		info.SubAccount = provider.GetName()
+		info.SubAccountId = provider.GetId()
+
+		account := provider.GetCloudaccount()
+		info.Account = account.GetName()
+		info.AccountId = account.GetId()
+
+		driver, err := provider.GetDriver()
+
+		if err == nil {
+			info.Provider = driver.GetId()
+
+			iregion, err := driver.GetIRegionById(region.ExternalId)
+			if err == nil {
+				info.RegionExtId = iregion.GetId()
+			}
+		}
+	}
+	return info
 }

@@ -1127,3 +1127,56 @@ func (self *SStorage) ClearSchedDescCache() error {
 	}
 	return nil
 }
+
+func (self *SStorage) getCloudBillingInfo() SCloudBillingInfo {
+	info := SCloudBillingInfo{}
+
+	var region *SCloudregion
+
+	zone := self.getZone()
+
+	if zone != nil {
+		info.Zone = zone.GetName()
+		info.ZoneId = zone.GetId()
+
+		region := zone.GetRegion()
+		if region != nil {
+			info.Region = region.GetName()
+			info.RegionId = region.GetId()
+		}
+	}
+
+	provider := self.GetCloudprovider()
+	if provider != nil {
+		info.SubAccount = provider.GetName()
+		info.SubAccountId = provider.GetId()
+
+		account := provider.GetCloudaccount()
+		info.Account = account.GetName()
+		info.AccountId = account.GetId()
+
+		driver, err := provider.GetDriver()
+
+		if err == nil {
+			info.Provider = driver.GetId()
+
+			if region != nil {
+				iregion, err := driver.GetIRegionById(region.ExternalId)
+				if err == nil {
+					info.RegionExtId = iregion.GetId()
+
+					izone, err := iregion.GetIZoneById(zone.ExternalId)
+					if err == nil {
+						info.ZoneExtId = izone.GetId()
+					}
+				}
+			}
+		}
+	}
+	return info
+}
+
+func (self *SStorage) GetShortDesc() *jsonutils.JSONDict {
+	info := self.getCloudBillingInfo()
+	return jsonutils.Marshal(&info).(*jsonutils.JSONDict)
+}
