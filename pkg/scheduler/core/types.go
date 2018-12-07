@@ -49,6 +49,8 @@ type Candidater interface {
 	GetHostAggregates() []*models.Aggregate
 
 	GetSchedDesc() *jsonutils.JSONDict
+	GetGuestCount() int64
+	GetResourceType() string
 }
 
 // HostPriority represents the priority of scheduling to particular host, higher priority is better.

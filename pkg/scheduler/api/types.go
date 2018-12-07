@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"yunion.io/x/pkg/util/sets"
+
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 const (
@@ -16,10 +18,6 @@ const (
 	SchedTypeHyperV      = "hyperv"
 	SchedTypeKvm         = "kvm"
 	HostHypervisorForKvm = "hypervisor"
-	HostTypeAliyun       = "aliyun"
-	HostTypeAzure        = "azure"
-	HostTypeAws          = "aws"
-	HostTypeQcloud       = "qcloud"
 	HostTypeKubelet      = "kubelet"
 
 	AggregateStrategyRequire = "require"
@@ -49,12 +47,7 @@ var (
 		AggregateStrategyAvoid,
 	)
 
-	PublicCloudProviders = sets.NewString(
-		HostTypeAliyun,
-		HostTypeAzure,
-		HostTypeAws,
-		HostTypeQcloud,
-	)
+	PublicCloudProviders = sets.NewString(models.PUBLIC_CLOUD_HYPERVISORS...)
 
 	ValidGpuTypes = sets.NewString(
 		GPU_HPC_TYPE,
