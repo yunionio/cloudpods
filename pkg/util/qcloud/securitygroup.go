@@ -266,11 +266,13 @@ func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 	originRules := []SecurityGroupPolicy{}
 	originRules = append(originRules, secgroup.SecurityGroupPolicySet.Egress...)
 	originRules = append(originRules, secgroup.SecurityGroupPolicySet.Ingress...)
+	for i := 0; i < len(originRules); i++ {
+		originRules[i].vpc = self.vpc
+	}
 	sort.Sort(SecurityGroupRuleSet(originRules))
 	rules := []secrules.SecurityRule{}
 	priority := 100
 	for _, rule := range originRules {
-		rule.vpc = self.vpc
 		subRules := rule.toRules()
 		for i := 0; i < len(subRules); i++ {
 			subRules[i].Priority = priority
