@@ -403,6 +403,10 @@ func (self *SCloudprovider) MarkStartSync(userCred mcclient.TokenCredential) {
 	self.SetStatus(userCred, CLOUD_PROVIDER_START_SYNC, "")
 }
 
+func (self *SCloudprovider) GetProviderDriver() (cloudprovider.ICloudProviderFactory, error) {
+	return cloudprovider.GetProviderDriver(self.Provider)
+}
+
 func (self *SCloudprovider) GetDriver() (cloudprovider.ICloudProvider, error) {
 	if !self.Enabled {
 		return nil, fmt.Errorf("Cloud provider is not enabled")
