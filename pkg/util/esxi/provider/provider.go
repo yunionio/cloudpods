@@ -21,7 +21,7 @@ func (self *SESXiProviderFactory) GetId() string {
 }
 
 func (self *SESXiProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
-	return fmt.Errorf("Not support change bandwidth for %s", esxi.CLOUD_PROVIDER_VMWARE)
+	return fmt.Errorf("Changing %s bandwidth is not supported", esxi.CLOUD_PROVIDER_VMWARE)
 }
 
 func parseHostPort(host string, defPort int) (string, int, error) {

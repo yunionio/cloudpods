@@ -17,7 +17,7 @@ func (self *SAzureProviderFactory) GetId() string {
 }
 
 func (self *SAzureProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
-	return fmt.Errorf("Not support change bandwidth for %s", azure.CLOUD_PROVIDER_AZURE)
+	return fmt.Errorf("Changing %s bandwidth is not supported", azure.CLOUD_PROVIDER_AZURE)
 }
 
 func (self *SAzureProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
