@@ -15,6 +15,10 @@ func (self *SAliyunProviderFactory) GetId() string {
 	return aliyun.CLOUD_PROVIDER_ALIYUN
 }
 
+func (self *SAliyunProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
+	return nil
+}
+
 func (self *SAliyunProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
 	/*	provider, ok := self.providerTable[providerId]
 		if ok {
