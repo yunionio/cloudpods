@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -17,6 +18,10 @@ type SESXiProviderFactory struct {
 
 func (self *SESXiProviderFactory) GetId() string {
 	return esxi.CLOUD_PROVIDER_VMWARE
+}
+
+func (self *SESXiProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
+	return fmt.Errorf("Changing %s bandwidth is not supported", esxi.CLOUD_PROVIDER_VMWARE)
 }
 
 func parseHostPort(host string, defPort int) (string, int, error) {
