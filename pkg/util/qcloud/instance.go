@@ -28,6 +28,13 @@ const (
 	InstanceStatusStarting = "STARTING"
 )
 
+const (
+	InternetChargeTypeBandwidthPrepaid        = "BANDWIDTH_PREPAID"
+	InternetChargeTypeTrafficPostpaidByHour   = "TRAFFIC_POSTPAID_BY_HOUR"
+	InternetChargeTypeBandwidthPostpaidByHour = "BANDWIDTH_POSTPAID_BY_HOUR"
+	InternetChargeTypeBandwidthPackage        = "BANDWIDTH_PACKAGE"
+)
+
 type SystemDisk struct {
 	DiskType string  //系统盘类型。系统盘类型限制详见CVM实例配置。取值范围：LOCAL_BASIC：本地硬盘 LOCAL_SSD：本地SSD硬盘 CLOUD_BASIC：普通云硬盘 CLOUD_SSD：SSD云硬盘 CLOUD_PREMIUM：高性能云硬盘 默认取值：CLOUD_BASIC。
 	DiskId   string  //	系统盘ID。LOCAL_BASIC 和 LOCAL_SSD 类型没有ID。暂时不支持该参数。
