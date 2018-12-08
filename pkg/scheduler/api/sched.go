@@ -13,6 +13,7 @@ import (
 
 	o "yunion.io/x/onecloud/cmd/scheduler/options"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type Meta map[string]string
@@ -268,7 +269,8 @@ func (s *SchedData) reviseSchedType(sjson *simplejson.Json) error {
 }
 
 func (d *SchedData) SkipDirtyMarkHost() bool {
-	skipByHypervisor := d.IsPublicCloudProvider() || d.IsContainer || d.Hypervisor == SchedTypeContainer
+	isSharePublicCloudProvider := d.IsPublicCloudProvider() && (d.ResourceType == "" || d.ResourceType == models.HostResourceTypeShared)
+	skipByHypervisor := isSharePublicCloudProvider || d.IsContainer || d.Hypervisor == SchedTypeContainer
 	skipByBackup := d.Backup
 	return skipByHypervisor || skipByBackup
 }
