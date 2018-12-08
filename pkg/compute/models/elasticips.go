@@ -686,6 +686,9 @@ func (self *SElasticip) GetCustomizeColumns(ctx context.Context, userCred mcclie
 }
 
 func (self *SElasticip) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
+		extra.Add(jsonutils.NewString(cloudprovider.Provider), "provider")
+	}
 	vm := self.GetAssociateVM()
 	if vm != nil {
 		extra.Add(jsonutils.NewString(vm.GetName()), "associate_name")
