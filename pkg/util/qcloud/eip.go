@@ -141,20 +141,26 @@ func (self *SEipAddress) Delete() error {
 }
 
 func (self *SEipAddress) GetBandwidth() int {
-	return 100
-	//return self.Bandwidth
+	if len(self.InstanceId) > 0 {
+		if instance, err := self.region.GetInstance(self.InstanceId); err == nil {
+			return instance.InternetAccessible.InternetMaxBandwidthOut
+		}
+	}
+	return 0
 }
 
 func (self *SEipAddress) GetInternetChargeType() string {
-	// switch self.InternetChargeType {
-	// case string(InternetChargeByTraffic):
-	// 	return models.EIP_CHARGE_TYPE_BY_TRAFFIC
-	// case string(InternetChargeByBandwidth):
-	// 	return models.EIP_CHARGE_TYPE_BY_BANDWIDTH
-	// default:
-	// 	return models.EIP_CHARGE_TYPE_BY_TRAFFIC
-	// }
-	return "unkonw"
+	if len(self.InstanceId) > 0 {
+		if instance, err := self.region.GetInstance(self.InstanceId); err == nil {
+			switch instance.InternetAccessible.InternetChargeType {
+			case InternetChargeTypeTrafficPostpaidByHour:
+				return models.EIP_CHARGE_TYPE_BY_TRAFFIC
+			default:
+				return models.EIP_CHARGE_TYPE_BY_BANDWIDTH
+			}
+		}
+	}
+	return models.EIP_CHARGE_TYPE_BY_TRAFFIC
 }
 
 func (self *SEipAddress) Associate(instanceId string) error {
@@ -174,7 +180,12 @@ func (self *SEipAddress) Dissociate() error {
 }
 
 func (self *SEipAddress) ChangeBandwidth(bw int) error {
-	return self.region.UpdateEipBandwidth(self.AddressId, bw)
+	if self.GetInternetChargeType() == models.EIP_CHARGE_TYPE_BY_TRAFFIC {
+		if len(self.InstanceId) > 0 {
+			return self.region.UpdateInstanceBandwidth(self.InstanceId, bw)
+		}
+	}
+	return cloudprovider.ErrNotSupported
 }
 
 func (region *SRegion) GetEips(eipId string, instanceId string, offset int, limit int) ([]SEipAddress, int, error) {
@@ -244,10 +255,6 @@ func (region *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternet
 		if err != nil {
 			return nil, err
 		}
-		err = region.UpdateEipBandwidth(addRessSet[0], bwMbps)
-		if err != nil {
-			return nil, err
-		}
 
 		eip, err := region.GetEip(addRessSet[0])
 		if err != nil {
@@ -305,14 +312,12 @@ func (region *SRegion) DissociateEip(eipId string) error {
 	return err
 }
 
-func (region *SRegion) UpdateEipBandwidth(eipId string, bw int) error {
-	// params := make(map[string]string)
-	// params["Region"] = region.Region
-	// params["AddressIds.0"] = eipId
-	// params["InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bw)
+func (region *SRegion) UpdateInstanceBandwidth(instanceId string, bw int) error {
+	params := make(map[string]string)
+	params["Region"] = region.Region
+	params["InstanceIds.0"] = instanceId
+	params["InternetAccessible.InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bw)
 
-	// _, err := region.vpcRequest("ModifyAddressesBandwidth", params)
-	// return err
-	// 腾讯云这个接口目前有问题
-	return nil
+	_, err := region.cvmRequest("ResetInstancesInternetMaxBandwidth", params)
+	return err
 }
