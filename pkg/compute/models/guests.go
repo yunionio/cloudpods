@@ -691,7 +691,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	if hypervisor != HYPERVISOR_CONTAINER {
 
 		disk0Json, _ := data.Get("disk.0")
-		if disk0Json == nil {
+		if disk0Json == nil || disk0Json == jsonutils.JSONNull {
 			return nil, httperrors.NewInputParameterError("No disk information provided")
 		}
 		diskConfig, err := parseDiskInfo(ctx, userCred, disk0Json)
@@ -772,8 +772,9 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		}
 
 		// start from data disk
-		for idx := 1; data.Contains(fmt.Sprintf("disk.%d", idx)); idx += 1 {
-			diskJson, err := data.GetString(fmt.Sprintf("disk.%d", idx))
+		jsonArray := jsonutils.GetArrayOfPrefix(data, "disk")
+		for idx := 1; idx < len(jsonArray); idx += 1 { // data.Contains(fmt.Sprintf("disk.%d", idx))
+			diskJson, err := jsonArray[idx].GetString() // data.GetString(fmt.Sprintf("disk.%d", idx))
 			if err != nil {
 				return nil, httperrors.NewInputParameterError("invalid disk description %s", err)
 			}
@@ -794,11 +795,19 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			data.Add(jsonutils.Marshal(diskConfig), fmt.Sprintf("disk.%d", i+1))
 		}
 
+		resourceTypeStr := jsonutils.GetAnyString(data, []string{"resource_type"})
 		durationStr := jsonutils.GetAnyString(data, []string{"duration"})
+
 		if len(durationStr) > 0 {
+
 			if !userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), "renew") {
 				return nil, httperrors.NewForbiddenError("only admin can create prepaid resource")
 			}
+
+			if resourceTypeStr == HostResourceTypePrepaidRecycle {
+				return nil, httperrors.NewConflictError("cannot create prepaid server on prepaid resource type")
+			}
+
 			billingCycle, err := billing.ParseBillingCycle(durationStr)
 			if err != nil {
 				return nil, httperrors.NewInputParameterError("invalid duration %s", durationStr)
@@ -817,12 +826,9 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		}
 	}
 
-	for idx := 0; data.Contains(fmt.Sprintf("net.%d", idx)); idx += 1 {
-		netJson, err := data.Get(fmt.Sprintf("net.%d", idx))
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid network description %s", err)
-		}
-		netConfig, err := parseNetworkInfo(userCred, netJson)
+	netJsonArray := jsonutils.GetArrayOfPrefix(data, "net")
+	for idx := 0; idx < len(netJsonArray); idx += 1 { // .Contains(fmt.Sprintf("net.%d", idx)); idx += 1 {
+		netConfig, err := parseNetworkInfo(userCred, netJsonArray[idx])
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("parse network description error %s", err)
 		}
@@ -833,18 +839,15 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		if len(netConfig.Driver) == 0 {
 			netConfig.Driver = osProf.NetDriver
 		}
-		data.Add(jsonutils.Marshal(netConfig), fmt.Sprintf("net.%d", idx))
+		data.Set(fmt.Sprintf("net.%d", idx), jsonutils.Marshal(netConfig))
 	}
 
-	for idx := 0; data.Contains(fmt.Sprintf("isolated_device.%d", idx)); idx += 1 {
+	isoDevArray := jsonutils.GetArrayOfPrefix(data, "isolated_device")
+	for idx := 0; idx < len(isoDevArray); idx += 1 { // .Contains(fmt.Sprintf("isolated_device.%d", idx)); idx += 1 {
 		if jsonutils.QueryBoolean(data, "backup", false) {
 			return nil, httperrors.NewBadRequestError("Cannot create backup with isolated device")
 		}
-		devJson, err := data.Get(fmt.Sprintf("isolated_device.%d", idx))
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid isolated device description %s", err)
-		}
-		devConfig, err := IsolatedDeviceManager.parseDeviceInfo(userCred, devJson)
+		devConfig, err := IsolatedDeviceManager.parseDeviceInfo(userCred, isoDevArray[idx])
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("parse isolated device description error %s", err)
 		}
@@ -852,7 +855,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		if err != nil {
 			return nil, err
 		}
-		data.Add(jsonutils.Marshal(devConfig), fmt.Sprintf("isolated_device.%d", idx))
+		data.Set(fmt.Sprintf("isolated_device.%d", idx), jsonutils.Marshal(devConfig))
 	}
 
 	if data.Contains("cdrom") {
@@ -957,24 +960,25 @@ func getGuestResourceRequirements(ctx context.Context, userCred mcclient.TokenCr
 
 	diskSize := 0
 
-	for idx := 0; data.Contains(fmt.Sprintf("disk.%d", idx)); idx += 1 {
-		dataJson, _ := data.Get(fmt.Sprintf("disk.%d", idx))
-		diskConfig, _ := parseDiskInfo(ctx, userCred, dataJson)
+	diskJsonArray := jsonutils.GetArrayOfPrefix(data, "disk")
+	for idx := 0; idx < len(diskJsonArray); idx += 1 { // data.Contains(fmt.Sprintf("disk.%d", idx)); idx += 1 {
+		diskConfig, _ := parseDiskInfo(ctx, userCred, diskJsonArray[idx])
 		diskSize += diskConfig.SizeMb
 	}
 
-	devCount := 0
-	for idx := 0; data.Contains(fmt.Sprintf("isolated_device.%d", idx)); idx += 1 {
-		devCount += 1
-	}
+	isoDevArray := jsonutils.GetArrayOfPrefix(data, "isolated_device")
+	devCount := len(isoDevArray)
+	// for idx := 0; data.Contains(fmt.Sprintf("isolated_device.%d", idx)); idx += 1 {
+	// 	devCount += 1
+	//}
 
 	eNicCnt := 0
 	iNicCnt := 0
 	eBw := 0
 	iBw := 0
-	for idx := 0; data.Contains(fmt.Sprintf("net.%d", idx)); idx += 1 {
-		netJson, _ := data.Get(fmt.Sprintf("net.%d", idx))
-		netConfig, _ := parseNetworkInfo(userCred, netJson)
+	netJsonArray := jsonutils.GetArrayOfPrefix(data, "net")
+	for idx := 0; idx < len(netJsonArray); idx += 1 { // .Contains(fmt.Sprintf("net.%d", idx)); idx += 1 {
+		netConfig, _ := parseNetworkInfo(userCred, netJsonArray[idx])
 		if isExitNetworkInfo(netConfig) {
 			eNicCnt += 1
 			eBw += netConfig.BwLimit
@@ -1145,6 +1149,14 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 			}
 		}
 	}
+
+	err := self.CanPerformPrepaidRecycle()
+	if err != nil {
+		extra.Add(jsonutils.JSONFalse, "can_recycle")
+	}else {
+		extra.Add(jsonutils.JSONTrue, "can_recycle")
+	}
+
 	return extra
 }
 
@@ -2248,7 +2260,8 @@ func (self *SGuest) getDefaultNetworkConfig() *SNetworkConfig {
 }
 
 func (self *SGuest) CreateNetworksOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, data *jsonutils.JSONDict, pendingUsage quotas.IQuota) error {
-	idx := 0
+	netJsonArray := jsonutils.GetArrayOfPrefix(data, "net")
+	/* idx := 0
 	for idx = 0; data.Contains(fmt.Sprintf("net.%d", idx)); idx += 1 {
 		netJson, err := data.Get(fmt.Sprintf("net.%d", idx))
 		if err != nil {
@@ -2257,7 +2270,14 @@ func (self *SGuest) CreateNetworksOnHost(ctx context.Context, userCred mcclient.
 		if netJson == jsonutils.JSONNull {
 			break
 		}
-		netConfig, err := parseNetworkInfo(userCred, netJson)
+
+	}*/
+	if len(netJsonArray) == 0 {
+		netConfig := self.getDefaultNetworkConfig()
+		return self.attach2RandomNetwork(ctx, userCred, host, netConfig, pendingUsage)
+	}
+	for idx := 0; idx < len(netJsonArray); idx += 1 {
+		netConfig, err := parseNetworkInfo(userCred, netJsonArray[idx])
 		if err != nil {
 			return err
 		}
@@ -2265,10 +2285,6 @@ func (self *SGuest) CreateNetworksOnHost(ctx context.Context, userCred mcclient.
 		if err != nil {
 			return err
 		}
-	}
-	if idx == 0 {
-		netConfig := self.getDefaultNetworkConfig()
-		return self.attach2RandomNetwork(ctx, userCred, host, netConfig, pendingUsage)
 	}
 	return nil
 }
@@ -2314,15 +2330,9 @@ func (self *SGuest) attach2RandomNetwork(ctx context.Context, userCred mcclient.
 
 func (self *SGuest) CreateDisksOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost,
 	data *jsonutils.JSONDict, pendingUsage quotas.IQuota, inheritBilling bool) error {
-	for idx := 0; data.Contains(fmt.Sprintf("disk.%d", idx)); idx += 1 {
-		diskJson, err := data.Get(fmt.Sprintf("disk.%d", idx))
-		if err != nil {
-			return err
-		}
-		if diskJson == jsonutils.JSONNull {
-			break
-		}
-		diskConfig, err := parseDiskInfo(ctx, userCred, diskJson)
+	diskJsonArray := jsonutils.GetArrayOfPrefix(data, "disk")
+	for idx := 0; idx < len(diskJsonArray); idx += 1 { // .Contains(fmt.Sprintf("disk.%d", idx)); idx += 1 {
+		diskConfig, err := parseDiskInfo(ctx, userCred, diskJsonArray[idx])
 		if err != nil {
 			return err
 		}
@@ -2397,12 +2407,9 @@ func (self *SGuest) createDiskOnHost(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SGuest) CreateIsolatedDeviceOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, data *jsonutils.JSONDict, pendingUsage quotas.IQuota) error {
-	for idx := 0; data.Contains(fmt.Sprintf("isolated_device.%d", idx)); idx += 1 {
-		devJson, err := data.Get(fmt.Sprintf("isolated_device.%d", idx))
-		if err != nil {
-			return err
-		}
-		devConfig, err := IsolatedDeviceManager.parseDeviceInfo(userCred, devJson)
+	devJsonArray := jsonutils.GetArrayOfPrefix(data, "isolated_device")
+	for idx := 0; idx < len(devJsonArray); idx += 1 { // .Contains(fmt.Sprintf("isolated_device.%d", idx)); idx += 1 {
+		devConfig, err := IsolatedDeviceManager.parseDeviceInfo(userCred, devJsonArray[idx])
 		if err != nil {
 			return err
 		}

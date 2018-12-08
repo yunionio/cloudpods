@@ -869,7 +869,7 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 	}
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		extDisk.Refresh()
-		self.Name = extDisk.GetName()
+		// self.Name = extDisk.GetName()
 		self.Status = extDisk.GetStatus()
 		self.DiskFormat = extDisk.GetDiskFormat()
 		self.DiskSize = extDisk.GetDiskSizeMB()
@@ -892,7 +892,7 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 			self.ExpiredAt = extDisk.GetExpiredAt()
 		}
 
-		self.ProjectId = userCred.GetProjectId()
+		// self.ProjectId = userCred.GetProjectId()
 		if projectSync && len(projectId) > 0 {
 			self.ProjectId = projectId
 		}

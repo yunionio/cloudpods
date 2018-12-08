@@ -29,15 +29,30 @@ func (self *SGuest) AllowPerformPrepaidRecycle(ctx context.Context, userCred mcc
 	return db.IsAdminAllowPerform(userCred, self, "prepaid-recycle")
 }
 
-func (self *SGuest) PerformPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SGuest) CanPerformPrepaidRecycle() error {
 	if self.BillingType != BILLING_TYPE_PREPAID {
-		return nil, httperrors.NewInvalidStatusError("recycle prepaid server only")
+		return fmt.Errorf("recycle prepaid server only")
 	}
 	if self.ExpiredAt.Before(time.Now()) {
-		return nil, httperrors.NewInvalidStatusError("prepaid expired")
+		return fmt.Errorf("prepaid expired")
+	}
+	host := self.GetHost()
+	if host == nil {
+		return fmt.Errorf("no host")
+	}
+	if ! host.IsManaged() {
+		return fmt.Errorf("only managed prepaid server can be pooled")
+	}
+	return nil
+}
+
+func (self *SGuest) PerformPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	err := self.CanPerformPrepaidRecycle()
+	if err != nil {
+		return nil, httperrors.NewInvalidStatusError(err.Error())
 	}
 
-	err := self.doPrepaidRecycle(ctx, userCred)
+	err = self.doPrepaidRecycle(ctx, userCred)
 	if err != nil {
 		logclient.AddActionLog(self, logclient.ACT_RECYCLE_PREPAID, self.GetShortDesc(), userCred, false)
 		return nil, httperrors.NewGeneralError(err)
@@ -390,13 +405,11 @@ func (host *SHost) SetGuestCreateNetworkAndDiskParams(ctx context.Context, userC
 		}
 
 		key := fmt.Sprintf("disk.%d", i)
-		if params.Contains(key) {
-			jsonConf, err := params.Get(key)
-			if err != nil {
-				return nil, err
-			}
+		jsonConf, _ := params.Get(key)
+		if jsonConf != nil && jsonConf != jsonutils.JSONNull {
 			conf, err := parseDiskInfo(ctx, userCred, jsonConf)
 			if err != nil {
+				log.Debugf("parseDiskInfo %s fail %s", jsonConf, err)
 				return nil, err
 			}
 			conf.SizeMb = idisks[i].GetDiskSizeMB()
@@ -412,6 +425,8 @@ func (host *SHost) SetGuestCreateNetworkAndDiskParams(ctx context.Context, userC
 		}
 	}
 	params.Set(fmt.Sprintf("disk.%d", len(idisks)), jsonutils.JSONNull)
+
+	// log.Debugf("params after rebuid: %s", params.String())
 
 	return params, nil
 }

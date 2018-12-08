@@ -58,6 +58,11 @@ func init() {
 			return err
 		}
 
+		if opts.GenerateName {
+			params.Add(jsonutils.NewString(opts.NAME), "generate_name")
+		} else {
+			params.Add(jsonutils.NewString(opts.NAME), "name")
+		}
 		if regutils.MatchSize(opts.MEMSPEC) {
 			params.Add(jsonutils.NewString(opts.MEMSPEC), "vmem_size")
 		} else {

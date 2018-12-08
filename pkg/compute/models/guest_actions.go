@@ -895,13 +895,18 @@ func (self *SGuest) AllowPerformCreatedisk(ctx context.Context, userCred mcclien
 }
 
 func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	var diskIdx, diskSize = 0, 0
+	diskSize := 0
 	disksConf := jsonutils.NewDict()
 	diskSizes := make(map[string]int, 0)
-	diskSeq := fmt.Sprintf("disk.%d", diskIdx)
-	for data.Contains(diskSeq) {
-		diskDef, _ := data.Get(diskSeq)
-		diskInfo, err := parseDiskInfo(ctx, userCred, diskDef)
+
+	diskDefArray := jsonutils.GetArrayOfPrefix(data, "disk")
+	if len(diskDefArray) == 0 {
+		logclient.AddActionLog(self, logclient.ACT_CREATE, "No Disk Info Provided", userCred, false)
+		return nil, httperrors.NewBadRequestError("No Disk Info Provided")
+	}
+
+	for diskIdx := 0; diskIdx < len(diskDefArray); diskIdx += 1 {
+		diskInfo, err := parseDiskInfo(ctx, userCred, diskDefArray[diskIdx])
 		if err != nil {
 			logclient.AddActionLog(self, logclient.ACT_CREATE, err.Error(), userCred, false)
 			return nil, httperrors.NewBadRequestError(err.Error())
@@ -909,19 +914,13 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 		if len(diskInfo.Backend) == 0 {
 			diskInfo.Backend = self.getDefaultStorageType()
 		}
-		disksConf.Set(diskSeq, jsonutils.Marshal(diskInfo))
+		disksConf.Set(fmt.Sprintf("disk.%d", diskIdx), jsonutils.Marshal(diskInfo))
 		if _, ok := diskSizes[diskInfo.Backend]; !ok {
 			diskSizes[diskInfo.Backend] = diskInfo.SizeMb
 		} else {
 			diskSizes[diskInfo.Backend] += diskInfo.SizeMb
 		}
 		diskSize += diskInfo.SizeMb
-		diskIdx += 1
-		diskSeq = fmt.Sprintf("disk.%d", diskIdx)
-	}
-	if diskIdx == 0 {
-		logclient.AddActionLog(self, logclient.ACT_CREATE, "No Disk Info Provided", userCred, false)
-		return nil, httperrors.NewBadRequestError("No Disk Info Provided")
 	}
 	host := self.GetHost()
 	if host == nil {
@@ -1290,7 +1289,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	for {
 		diskNum := fmt.Sprintf("disk.%d", diskIdx)
 		diskDesc, err := data.Get(diskNum)
-		if err != nil {
+		if err != nil || diskDesc == jsonutils.JSONNull {
 			break
 		}
 		diskConf, err := parseDiskInfo(ctx, userCred, diskDesc)
@@ -1336,11 +1335,6 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	}
 
 	provider, e := self.GetHost().GetDriver()
-	/*if e != nil {
-	    log.Errorf("Get Provider Error: %s", e)
-	    return nil, httperrors.NewInsufficientResourceError("Provider Not Found")
-	}*/
-
 	if e != nil || !provider.IsPublicCloud() {
 		for storageId, needSize := range diskSizes {
 			iStorage, err := StorageManager.FetchById(storageId)

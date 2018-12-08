@@ -57,7 +57,7 @@ func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IS
 	host := guest.GetHost()
 
 	if host.IsPrepaidRecycle() {
-		self.Params, err = host.SetGuestCreateNetworkAndDiskParams(ctx, self.UserCred, self.Params)
+		params, err := host.SetGuestCreateNetworkAndDiskParams(ctx, self.UserCred, self.Params)
 		if err != nil {
 			log.Errorf("host.SetGuestCreateNetworkAndDiskParams fail %s", err)
 			guest.SetStatus(self.UserCred, models.VM_CREATE_FAILED, err.Error())
@@ -66,7 +66,8 @@ func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IS
 			notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_CREATE_FAILED, err.Error())
 			return
 		}
-		self.SaveParams(self.Params)
+		self.Params = params
+		self.SaveParams(params)
 	}
 
 	err = guest.CreateNetworksOnHost(ctx, self.UserCred, host, self.Params, &pendingUsage)
