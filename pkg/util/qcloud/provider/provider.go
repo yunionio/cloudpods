@@ -1,6 +1,8 @@
 package provider
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/qcloud"
@@ -12,6 +14,13 @@ type SQcloudProviderFactory struct {
 
 func (self *SQcloudProviderFactory) GetId() string {
 	return qcloud.CLOUD_PROVIDER_QCLOUD
+}
+
+func (self *SQcloudProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
+	if len(instanceId) == 0 {
+		return fmt.Errorf("Only changes to the binding machine's EIP bandwidth are supported")
+	}
+	return nil
 }
 
 func (self *SQcloudProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
