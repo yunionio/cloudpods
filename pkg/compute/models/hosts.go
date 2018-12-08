@@ -3356,3 +3356,18 @@ func (manager *SHostManager) GetHostByIp(hostIp string) (*SHost, error) {
 
 	return host.(*SHost), nil
 }
+
+func (self *SHost) getCloudBillingInfo() SCloudBillingInfo {
+	var region *SCloudregion
+	zone := self.GetZone()
+	if zone != nil {
+		region = zone.GetRegion()
+	}
+	provider := self.GetCloudprovider()
+	return MakeCloudBillingInfo(region, zone, provider)
+}
+
+func (self *SHost) GetShortDesc() *jsonutils.JSONDict {
+	info := self.getCloudBillingInfo()
+	return jsonutils.Marshal(&info).(*jsonutils.JSONDict)
+}
