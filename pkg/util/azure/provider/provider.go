@@ -1,6 +1,8 @@
 package provider
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/azure"
@@ -12,6 +14,10 @@ type SAzureProviderFactory struct {
 
 func (self *SAzureProviderFactory) GetId() string {
 	return azure.CLOUD_PROVIDER_AZURE
+}
+
+func (self *SAzureProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
+	return fmt.Errorf("Changing %s bandwidth is not supported", azure.CLOUD_PROVIDER_AZURE)
 }
 
 func (self *SAzureProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
