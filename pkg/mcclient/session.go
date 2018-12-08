@@ -21,21 +21,32 @@ const (
 	REGION_VERSION  = "X-Region-Version"
 
 	DEFAULT_API_VERSION = "v1"
+	V2_API_VERSION      = "v2"
 )
 
 var (
 	MutilVersionService = []string{"compute"}
+	ApiVersionByModule  = true
 )
+
+func DisableApiVersionByModule() {
+	ApiVersionByModule = false
+}
+
+func EnableApiVersionByModule() {
+	ApiVersionByModule = true
+}
 
 type ClientSession struct {
 	client        *Client
 	region        string
 	zone          string
 	endpointType  string
-	apiVersion    string
 	token         TokenCredential
 	Header        http.Header /// headers for this session
 	notifyChannel chan string
+
+	defaultApiVersion string
 }
 
 func populateHeader(self *http.Header, update http.Header) {
@@ -50,7 +61,7 @@ func populateHeader(self *http.Header, update http.Header) {
 func GetTokenHeaders(userCred TokenCredential) http.Header {
 	headers := http.Header{}
 	headers.Set(AUTH_TOKEN, userCred.GetTokenString())
-	headers.Set(REGION_VERSION, "v2")
+	headers.Set(REGION_VERSION, V2_API_VERSION)
 	return headers
 }
 
@@ -81,14 +92,30 @@ func (this *ClientSession) GetClient() *Client {
 	return this.client
 }
 
+func (this *ClientSession) getServiceName(service, apiVersion string) string {
+	if utils.IsInStringArray(service, MutilVersionService) && len(apiVersion) > 0 && apiVersion != DEFAULT_API_VERSION {
+		service = fmt.Sprintf("%s_%s", service, apiVersion)
+	}
+	return service
+}
+
+func (this *ClientSession) getApiVersion(moduleApiVersion string) string {
+	if moduleApiVersion != "" && ApiVersionByModule {
+		return moduleApiVersion
+	}
+	return this.defaultApiVersion
+}
+
 func (this *ClientSession) GetServiceURL(service, endpointType string) (string, error) {
+	return this.GetServiceVersionURL(service, endpointType, this.getApiVersion(""))
+}
+
+func (this *ClientSession) GetServiceVersionURL(service, endpointType, apiVersion string) (string, error) {
 	if len(this.endpointType) > 0 {
 		// session specific endpoint type should override the input endpointType, which is supplied by manager
 		endpointType = this.endpointType
 	}
-	if utils.IsInStringArray(service, MutilVersionService) && len(this.apiVersion) > 0 && this.apiVersion != DEFAULT_API_VERSION {
-		service = fmt.Sprintf("%s_%s", service, this.apiVersion)
-	}
+	service = this.getServiceName(service, apiVersion)
 	url, err := this.token.GetServiceURL(service, this.region, this.zone, endpointType)
 	if err != nil {
 		url, err = this.client.serviceCatalog.GetServiceURL(service, this.region, this.zone, endpointType)
@@ -97,13 +124,15 @@ func (this *ClientSession) GetServiceURL(service, endpointType string) (string, 
 }
 
 func (this *ClientSession) GetServiceURLs(service, endpointType string) ([]string, error) {
+	return this.GetServiceVersionURLs(service, endpointType, this.getApiVersion(""))
+}
+
+func (this *ClientSession) GetServiceVersionURLs(service, endpointType, apiVersion string) ([]string, error) {
 	if len(this.endpointType) > 0 {
 		// session specific endpoint type should override the input endpointType, which is supplied by manager
 		endpointType = this.endpointType
 	}
-	if utils.IsInStringArray(service, MutilVersionService) && len(this.apiVersion) > 0 && this.apiVersion != DEFAULT_API_VERSION {
-		service = fmt.Sprintf("%s_%s", service, this.apiVersion)
-	}
+	service = this.getServiceName(service, apiVersion)
 	urls, err := this.token.GetServiceURLs(service, this.region, this.zone, endpointType)
 	if err != nil {
 		urls, err = this.client.serviceCatalog.GetServiceURLs(service, this.region, this.zone, endpointType)
@@ -111,20 +140,24 @@ func (this *ClientSession) GetServiceURLs(service, endpointType string) ([]strin
 	return urls, err
 }
 
-func (this *ClientSession) getBaseUrl(service, endpointType string) (string, error) {
+func (this *ClientSession) getBaseUrl(service, endpointType, apiVersion string) (string, error) {
 	if len(service) > 0 {
 		if strings.HasPrefix(service, "http://") || strings.HasPrefix(service, "https://") {
 			return service, nil
 		} else {
-			return this.GetServiceURL(service, endpointType)
+			return this.GetServiceVersionURL(service, endpointType, this.getApiVersion(apiVersion))
 		}
 	} else {
 		return "", fmt.Errorf("Empty service type or baseURL")
 	}
 }
 
-func (this *ClientSession) RawRequest(service, endpointType, method, url string, headers http.Header, body io.Reader) (*http.Response, error) {
-	baseurl, err := this.getBaseUrl(service, endpointType)
+func (this *ClientSession) RawVersionRequest(
+	service, endpointType, method, url string,
+	headers http.Header, body io.Reader,
+	apiVersion string,
+) (*http.Response, error) {
+	baseurl, err := this.getBaseUrl(service, endpointType, apiVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -138,8 +171,16 @@ func (this *ClientSession) RawRequest(service, endpointType, method, url string,
 		method, url, tmpHeader, body)
 }
 
-func (this *ClientSession) JSONRequest(service, endpointType, method, url string, headers http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	baseUrl, err := this.getBaseUrl(service, endpointType)
+func (this *ClientSession) RawRequest(service, endpointType, method, url string, headers http.Header, body io.Reader) (*http.Response, error) {
+	return this.RawVersionRequest(service, endpointType, method, url, headers, body, "")
+}
+
+func (this *ClientSession) JSONVersionRequest(
+	service, endpointType, method, url string,
+	headers http.Header, body jsonutils.JSONObject,
+	apiVersion string,
+) (http.Header, jsonutils.JSONObject, error) {
+	baseUrl, err := this.getBaseUrl(service, endpointType, apiVersion)
 	if err != nil {
 		return headers, nil, err
 	}
@@ -151,6 +192,10 @@ func (this *ClientSession) JSONRequest(service, endpointType, method, url string
 	return this.client.jsonRequest(baseUrl,
 		this.token.GetTokenString(),
 		method, url, tmpHeader, body)
+}
+
+func (this *ClientSession) JSONRequest(service, endpointType, method, url string, headers http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+	return this.JSONVersionRequest(service, endpointType, method, url, headers, body, "")
 }
 
 func (this *ClientSession) ParseJSONResponse(resp *http.Response, err error) (http.Header, jsonutils.JSONObject, error) {
@@ -226,10 +271,11 @@ func (this *ClientSession) WaitTaskNotify() {
 }
 
 func (this *ClientSession) GetApiVersion() string {
-	if len(this.apiVersion) == 0 {
+	apiVersion := this.getApiVersion("")
+	if len(apiVersion) == 0 {
 		return DEFAULT_API_VERSION
 	}
-	return this.apiVersion
+	return apiVersion
 }
 
 func (this *ClientSession) ToJson() jsonutils.JSONObject {

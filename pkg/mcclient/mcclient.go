@@ -339,8 +339,8 @@ func (this *Client) NewSession(region, zone, endpointType string, token TokenCre
 	}
 	return &ClientSession{client: this, region: region, zone: zone,
 		endpointType: endpointType, token: token,
-		apiVersion: apiVersion,
-		Header:     http.Header{}}
+		defaultApiVersion: apiVersion,
+		Header:            http.Header{}}
 }
 
 /*
