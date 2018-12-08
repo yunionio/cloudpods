@@ -13,6 +13,10 @@ func (self *SAwsProviderFactory) GetId() string {
 	return aws.CLOUD_PROVIDER_AWS
 }
 
+func (self *SAwsProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
+	return nil
+}
+
 func (self *SAwsProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
 	client, err := aws.NewAwsClient(providerId, providerName, url, account, secret)
 	if err != nil {
