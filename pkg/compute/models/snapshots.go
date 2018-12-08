@@ -608,33 +608,7 @@ func (self *SSnapshot) PerformPurge(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SSnapshot) getCloudBillingInfo() SCloudBillingInfo {
-	info := SCloudBillingInfo{}
-
 	region := self.GetRegion()
-	if region != nil {
-		info.Region = region.GetName()
-		info.RegionId = region.GetId()
-	}
-
 	provider := self.GetCloudprovider()
-	if provider != nil {
-		info.SubAccount = provider.GetName()
-		info.SubAccountId = provider.GetId()
-
-		account := provider.GetCloudaccount()
-		info.Account = account.GetName()
-		info.AccountId = account.GetId()
-
-		driver, err := provider.GetDriver()
-
-		if err == nil {
-			info.Provider = driver.GetId()
-
-			iregion, err := driver.GetIRegionById(region.ExternalId)
-			if err == nil {
-				info.RegionExtId = iregion.GetId()
-			}
-		}
-	}
-	return info
+	return MakeCloudBillingInfo(region, nil, provider)
 }
