@@ -16,6 +16,8 @@ type BaseManager struct {
 	serviceType  string
 	endpointType string
 	version      string
+	apiVersion   string
+
 	columns      []string
 	adminColumns []string
 }
@@ -42,6 +44,14 @@ func (this *BaseManager) SetVersion(v string) {
 	this.version = v
 }
 
+func (this *BaseManager) SetApiVersion(v string) {
+	this.apiVersion = v
+}
+
+func (this *BaseManager) GetApiVersion() string {
+	return this.apiVersion
+}
+
 func (this *BaseManager) versionedURL(path string) string {
 	offset := 0
 	for ; path[offset] == '/'; offset++ {
@@ -59,17 +69,17 @@ func (this *BaseManager) versionedURL(path string) string {
 func (this *BaseManager) jsonRequest(session *mcclient.ClientSession,
 	method string, path string,
 	header http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	return session.JSONRequest(this.serviceType, this.endpointType,
+	return session.JSONVersionRequest(this.serviceType, this.endpointType,
 		method, this.versionedURL(path),
-		header, body)
+		header, body, this.GetApiVersion())
 }
 
 func (this *BaseManager) rawRequest(session *mcclient.ClientSession,
 	method string, path string,
 	header http.Header, body io.Reader) (*http.Response, error) {
-	return session.RawRequest(this.serviceType, this.endpointType,
+	return session.RawVersionRequest(this.serviceType, this.endpointType,
 		method, this.versionedURL(path),
-		header, body)
+		header, body, this.GetApiVersion())
 }
 
 type ListResult struct {
