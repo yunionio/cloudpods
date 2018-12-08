@@ -722,6 +722,13 @@ func (self *SElasticip) AllowPerformChangeBandwidth(ctx context.Context, userCre
 	return self.IsOwner(userCred)
 }
 
+func (self *SElasticip) GetProviderDriver() (cloudprovider.ICloudProviderFactory, error) {
+	if provider := self.GetCloudprovider(); provider != nil {
+		return provider.GetProviderDriver()
+	}
+	return nil, fmt.Errorf("failed to find provider for eip %s", self.Name)
+}
+
 func (self *SElasticip) PerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Status != EIP_STATUS_READY {
 		return nil, httperrors.NewInvalidStatusError("cannot change bandwidth in status %s", self.Status)
@@ -731,6 +738,16 @@ func (self *SElasticip) PerformChangeBandwidth(ctx context.Context, userCred mcc
 	if err != nil || bandwidth <= 0 {
 		return nil, httperrors.NewInputParameterError("Invalid bandwidth")
 	}
+
+	dirver, err := self.GetProviderDriver()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := dirver.ValidateChangeBandwidth(self.AssociateId, bandwidth); err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+
 	err = self.StartEipChangeBandwidthTask(ctx, userCred, bandwidth)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
