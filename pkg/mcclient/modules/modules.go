@@ -16,6 +16,7 @@ type BaseManagerInterface interface {
 	EndpointType() string
 	GetColumns(session *mcclient.ClientSession) []string
 	List(session *mcclient.ClientSession, params jsonutils.JSONObject) (*ListResult, error)
+	SetApiVersion(string)
 }
 
 type ManagerContext struct {

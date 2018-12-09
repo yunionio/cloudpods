@@ -542,3 +542,7 @@ func (this *ResourceManager) BatchDeleteInContextsWithParam(session *mcclient.Cl
 func (this *ResourceManager) GetMetadata(session *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return this.GetSpecific(session, id, "metadata", params)
 }
+
+func (this *ResourceManager) SetMetadata(session *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return this.PerformAction(session, id, "metadata", params)
+}

@@ -4,8 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
@@ -146,17 +144,27 @@ func (self *SElasticip) GetRegion() *SCloudregion {
 
 func (self *SElasticip) GetShortDesc() *jsonutils.JSONDict {
 	desc := self.SVirtualResourceBase.GetShortDesc()
+
 	desc.Add(jsonutils.NewString(self.ChargeType), "charge_type")
+
 	desc.Add(jsonutils.NewInt(int64(self.Bandwidth)), "bandwidth")
 	desc.Add(jsonutils.NewString(self.Mode), "mode")
-	region := self.GetRegion()
-	if len(region.ExternalId) > 0 {
-		regionInfo := strings.Split(region.ExternalId, "/")
-		if len(regionInfo) == 2 {
-			desc.Add(jsonutils.NewString(strings.ToLower(regionInfo[0])), "hypervisor")
-			desc.Add(jsonutils.NewString(regionInfo[1]), "region")
-		}
-	}
+
+	// region := self.GetRegion()
+	// if len(region.ExternalId) > 0 {
+	// regionInfo := strings.Split(region.ExternalId, "/")
+	// if len(regionInfo) == 2 {
+	// desc.Add(jsonutils.NewString(strings.ToLower(regionInfo[0])), "hypervisor")
+	// desc.Add(jsonutils.NewString(regionInfo[1]), "region")
+	// }
+	//}
+
+	billingInfo := self.getCloudBillingInfo()
+
+	billingInfo.InternetChargeType = self.ChargeType
+
+	desc.Update(jsonutils.Marshal(billingInfo))
+
 	return desc
 }
 
@@ -430,15 +438,16 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 
 	data.Add(jsonutils.NewString(chargeType), "charge_type")
 
+	data, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	if err != nil {
+		return nil, err
+	}
+
+	//避免参数重名后还有pending.eip残留
 	eipPendingUsage := &SQuota{Eip: 1}
 	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), eipPendingUsage)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError("Out of eip quota: %s", err)
-	}
-
-	data, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
-	if err != nil {
-		return nil, err
 	}
 
 	return data, nil
@@ -685,6 +694,9 @@ func (self *SElasticip) GetCustomizeColumns(ctx context.Context, userCred mcclie
 }
 
 func (self *SElasticip) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
+		extra.Add(jsonutils.NewString(cloudprovider.Provider), "provider")
+	}
 	vm := self.GetAssociateVM()
 	if vm != nil {
 		extra.Add(jsonutils.NewString(vm.GetName()), "associate_name")
@@ -734,6 +746,13 @@ func (self *SElasticip) AllowPerformChangeBandwidth(ctx context.Context, userCre
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "change-bandwidth")
 }
 
+func (self *SElasticip) GetProviderDriver() (cloudprovider.ICloudProviderFactory, error) {
+	if provider := self.GetCloudprovider(); provider != nil {
+		return provider.GetProviderDriver()
+	}
+	return nil, fmt.Errorf("failed to find provider for eip %s", self.Name)
+}
+
 func (self *SElasticip) PerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Status != EIP_STATUS_READY {
 		return nil, httperrors.NewInvalidStatusError("cannot change bandwidth in status %s", self.Status)
@@ -743,6 +762,16 @@ func (self *SElasticip) PerformChangeBandwidth(ctx context.Context, userCred mcc
 	if err != nil || bandwidth <= 0 {
 		return nil, httperrors.NewInputParameterError("Invalid bandwidth")
 	}
+
+	dirver, err := self.GetProviderDriver()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := dirver.ValidateChangeBandwidth(self.AssociateId, bandwidth); err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+
 	err = self.StartEipChangeBandwidthTask(ctx, userCred, bandwidth)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
@@ -890,4 +919,10 @@ func (self *SElasticip) DoPendingDelete(ctx context.Context, userCred mcclient.T
 		return
 	}
 	self.Dissociate(ctx, userCred)
+}
+
+func (self *SElasticip) getCloudBillingInfo() SCloudBillingInfo {
+	region := self.GetRegion()
+	provider := self.GetCloudprovider()
+	return MakeCloudBillingInfo(region, nil, provider)
 }

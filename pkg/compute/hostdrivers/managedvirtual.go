@@ -274,7 +274,7 @@ func (self *SManagedVirtualizationHostDriver) RequestDeallocateDiskOnHost(ctx co
 	return nil
 }
 
-func (self *SAliyunHostDriver) RequestResetDisk(ctx context.Context, host *models.SHost, disk *models.SDisk, params *jsonutils.JSONDict, task taskman.ITask) error {
+func (self *SManagedVirtualizationHostDriver) RequestResetDisk(ctx context.Context, host *models.SHost, disk *models.SDisk, params *jsonutils.JSONDict, task taskman.ITask) error {
 	iDisk, err := disk.GetIDisk()
 	if err != nil {
 		return err

@@ -42,7 +42,7 @@ type BaseOptions struct {
 	OsRegionName   string `default:"$OS_REGION_NAME" help:"Defaults to env[OS_REGION_NAME]"`
 	OsZoneName     string `default:"$OS_ZONE_NAME" help:"Defaults to env[OS_ZONE_NAME]"`
 	OsEndpointType string `default:"$OS_ENDPOINT_TYPE|internalURL" help:"Defaults to env[OS_ENDPOINT_TYPE] or internalURL" choices:"publicURL|internalURL|adminURL"`
-	ApiVersion     string `default:"$API_VERSION|v1" help:"apiVersion, default to v1"`
+	ApiVersion     string `default:"$API_VERSION" help:"override default modules service api version"`
 	SUBCOMMAND     string `help:"climc subcommand" subcommand:"true"`
 }
 
@@ -178,10 +178,11 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 				fo.Close()
 			}
 		}
-	} else {
-		// fmt.Printf("******** Use Token Cache At %s ********\n", tokenCachePath)
 	}
 
+	if options.ApiVersion != "" {
+		mcclient.DisableApiVersionByModule()
+	}
 	session := client.NewSession(options.OsRegionName,
 		options.OsZoneName,
 		options.OsEndpointType,

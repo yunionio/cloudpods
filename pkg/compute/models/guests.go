@@ -3144,22 +3144,16 @@ func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
 		desc.Add(jsonutils.NewString(self.OsType), "os_type")
 	}
 
-	if priceKey := self.GetMetadata("price_key", nil); len(priceKey) > 0 {
-		desc.Add(jsonutils.NewString(priceKey), "price_key")
-	}
-
-	desc.Add(jsonutils.NewString(self.GetChargeType()), "charge_type")
-	desc.Update(self.GetBillingShortDesc())
-
 	if len(self.ExternalId) > 0 {
 		desc.Add(jsonutils.NewString(self.ExternalId), "externalId")
 	}
 
 	desc.Set("hypervisor", jsonutils.NewString(self.GetHypervisor()))
 
+	host := self.GetHost()
+
 	spec := self.GetSpec(false)
 	if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
-		host := self.GetHost()
 		if host != nil {
 			hostSpec := host.GetSpec(false)
 			hostSpecIdent := HostManager.GetSpecIdent(hostSpec)
@@ -3169,6 +3163,21 @@ func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
 	if spec != nil {
 		desc.Update(spec)
 	}
+
+	var billingInfo SCloudBillingInfo
+
+	if host != nil {
+		billingInfo = host.getCloudBillingInfo()
+	}
+
+	if priceKey := self.GetMetadata("price_key", nil); len(priceKey) > 0 {
+		billingInfo.PriceKey = priceKey
+	}
+
+	self.FetchCloudBillingInfo(&billingInfo)
+
+	desc.Update(jsonutils.Marshal(billingInfo))
+
 	return desc
 }
 

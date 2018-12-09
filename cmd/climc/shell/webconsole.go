@@ -58,7 +58,7 @@ func init() {
 	})
 
 	R(&o.WebConsoleBaremetalOptions{}, "webconsole-baremetal", "Connect baremetal host webconsole", func(s *mcclient.ClientSession, args *o.WebConsoleBaremetalOptions) error {
-		ret, err := modules.WebConsole.DoBaremetalConnect(s, args.ID)
+		ret, err := modules.WebConsole.DoBaremetalConnect(s, args.ID, nil)
 		if err != nil {
 			return err
 		}
@@ -67,7 +67,7 @@ func init() {
 	})
 
 	R(&o.WebConsoleSshOptions{}, "webconsole-ssh", "Connect ssh webconsole", func(s *mcclient.ClientSession, args *o.WebConsoleSshOptions) error {
-		ret, err := modules.WebConsole.DoSshConnect(s, args.IP)
+		ret, err := modules.WebConsole.DoSshConnect(s, args.IP, nil)
 		if err != nil {
 			return err
 		}
@@ -76,7 +76,7 @@ func init() {
 	})
 
 	R(&o.WebConsoleServerOptions{}, "webconsole-server", "Connect server remote graphic console", func(s *mcclient.ClientSession, args *o.WebConsoleServerOptions) error {
-		ret, err := modules.WebConsole.DoServerConnect(s, args.ID)
+		ret, err := modules.WebConsole.DoServerConnect(s, args.ID, nil)
 		if err != nil {
 			return err
 		}

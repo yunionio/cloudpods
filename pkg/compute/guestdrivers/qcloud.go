@@ -96,6 +96,24 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 	if data.Contains("net.0") && data.Contains("net.1") {
 		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
 	}
+	sysDisk := models.SDiskConfig{}
+	if err := data.Unmarshal(&sysDisk, "disk.0"); err != nil {
+		return nil, fmt.Errorf("Missing system disk information")
+	}
+	switch sysDisk.Backend {
+	case models.STORAGE_CLOUD_BASIC, models.STORAGE_CLOUD_SSD:
+		if sysDisk.SizeMb < 50*10024 || sysDisk.SizeMb > 500*1024 {
+			return nil, fmt.Errorf("The %s system disk size must be in the range of 50 ~ 500GB", sysDisk.Backend)
+		}
+	case models.STORAGE_CLOUD_PREMIUM:
+		if sysDisk.SizeMb < 50*1024 || sysDisk.SizeMb > 1024*1024 {
+			return nil, fmt.Errorf("The %s system disk size must be in the range of 50 ~ 1024GB", sysDisk.Backend)
+		}
+	default:
+		if sysDisk.SizeMb < 50*1024 {
+			return nil, fmt.Errorf("The system disk must be greater than or equal to 50GB")
+		}
+	}
 	return data, nil
 }
 

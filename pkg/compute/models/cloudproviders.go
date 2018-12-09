@@ -29,6 +29,7 @@ const (
 	CLOUD_PROVIDER_START_SYNC   = "start_sync"
 	CLOUD_PROVIDER_SYNCING      = "syncing"
 
+	CLOUD_PROVIDER_KVM    = "KVM"
 	CLOUD_PROVIDER_VMWARE = "VMware"
 	CLOUD_PROVIDER_ALIYUN = "Aliyun"
 	CLOUD_PROVIDER_QCLOUD = "Qcloud"
@@ -401,6 +402,10 @@ func (self *SCloudprovider) MarkStartSync(userCred mcclient.TokenCredential) {
 		return
 	}
 	self.SetStatus(userCred, CLOUD_PROVIDER_START_SYNC, "")
+}
+
+func (self *SCloudprovider) GetProviderDriver() (cloudprovider.ICloudProviderFactory, error) {
+	return cloudprovider.GetProviderDriver(self.Provider)
 }
 
 func (self *SCloudprovider) GetDriver() (cloudprovider.ICloudProvider, error) {

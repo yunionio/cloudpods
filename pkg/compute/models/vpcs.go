@@ -153,23 +153,24 @@ func (self *SVpc) GetNetworkCount() int {
 func (self *SVpc) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	extra.Add(jsonutils.NewInt(int64(self.GetWireCount())), "wire_count")
 	extra.Add(jsonutils.NewInt(int64(self.GetNetworkCount())), "network_count")
-	region := self.GetRegion()
-	if region != nil {
-		extra.Add(jsonutils.NewString(region.GetName()), "region")
-		if len(region.GetExternalId()) > 0 {
-			extra.Add(jsonutils.NewString(region.GetExternalId()), "region_external_id")
-		}
+	region, err := self.GetRegion()
+	if err != nil {
+		log.Errorf("failed getting region for vpc %s(%s)", self.Name, self.Id)
+		return extra
+	}
+	extra.Add(jsonutils.NewString(region.GetName()), "region")
+	if len(region.GetExternalId()) > 0 {
+		extra.Add(jsonutils.NewString(region.GetExternalId()), "region_external_id")
 	}
 	return extra
 }
 
-func (self *SVpc) GetRegion() *SCloudregion {
+func (self *SVpc) GetRegion() (*SCloudregion, error) {
 	region, err := CloudregionManager.FetchById(self.CloudregionId)
 	if err != nil {
-		log.Errorf("Get region error %s", err)
-		return nil
+		return nil, err
 	}
-	return region.(*SCloudregion)
+	return region.(*SCloudregion), nil
 }
 
 func (self *SVpc) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
@@ -287,9 +288,6 @@ func (self *SVpc) SyncWithCloudVpc(extVPC cloudprovider.ICloudVpc) error {
 
 		return nil
 	})
-	if err != nil {
-		log.Errorf("syncWithCloudVpc error %s", err)
-	}
 	return err
 }
 
@@ -410,14 +408,12 @@ func (self *SVpc) PostCreate(ctx context.Context, userCred mcclient.TokenCredent
 }
 
 func (self *SVpc) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	region := self.GetRegion()
-	if region == nil {
-		log.Errorf("cannot find region for this vpc??")
-		return nil, fmt.Errorf("Cannot find region")
+	region, err := self.GetRegion()
+	if err != nil {
+		return nil, err
 	}
 	provider, err := self.GetDriver()
 	if err != nil {
-		log.Errorf("fail to find cloud provider")
 		return nil, err
 	}
 	return provider.GetIRegionById(region.GetExternalId())
@@ -433,11 +429,9 @@ func (self *SVpc) GetIVpc() (cloudprovider.ICloudVpc, error) {
 	if provider.IsOnPremiseInfrastructure() {
 		iregion, err = provider.GetOnPremiseIRegion()
 	} else {
-		region := self.GetRegion()
-		if region == nil {
-			msg := "fail to find region of host???"
-			log.Errorf(msg)
-			return nil, fmt.Errorf(msg)
+		region, err := self.GetRegion()
+		if err != nil {
+			return nil, err
 		}
 		iregion, err = provider.GetIRegionById(region.ExternalId)
 	}

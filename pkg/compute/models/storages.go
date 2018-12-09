@@ -1140,3 +1140,18 @@ func (self *SStorage) ClearSchedDescCache() error {
 	}
 	return nil
 }
+
+func (self *SStorage) getCloudBillingInfo() SCloudBillingInfo {
+	var region *SCloudregion
+	zone := self.getZone()
+	if zone != nil {
+		region = zone.GetRegion()
+	}
+	provider := self.GetCloudprovider()
+	return MakeCloudBillingInfo(region, zone, provider)
+}
+
+func (self *SStorage) GetShortDesc() *jsonutils.JSONDict {
+	info := self.getCloudBillingInfo()
+	return jsonutils.Marshal(&info).(*jsonutils.JSONDict)
+}
