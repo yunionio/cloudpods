@@ -353,6 +353,11 @@ func (self *SManagedVirtualizedGuestDriver) RequestDiskSnapshot(ctx context.Cont
 
 func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
 
+	recycle := false
+	if guest.IsPrepaidRecycle() {
+		recycle = true
+	}
+
 	if data.Contains("disks") {
 		diskInfo := make([]SDiskInfo, 0)
 		err := data.Unmarshal(&diskInfo, "disks")
@@ -373,15 +378,19 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 				disk.ExternalId = diskInfo[i].Uuid
 				disk.DiskType = diskInfo[i].DiskType
 				disk.Status = models.DISK_READY
-				disk.BillingType = diskInfo[i].BillingType
+
 				disk.FsFormat = diskInfo[i].FsFromat
 				if diskInfo[i].AutoDelete {
 					disk.AutoDelete = true
 				}
 				// disk.TemplateId = diskInfo[i].TemplateId
 				disk.AccessPath = diskInfo[i].Path
-				disk.DiskFormat = diskInfo[i].DiskFormat
-				disk.ExpiredAt = diskInfo[i].ExpiredAt
+
+				if !recycle {
+					disk.BillingType = diskInfo[i].BillingType
+					disk.ExpiredAt = diskInfo[i].ExpiredAt
+				}
+
 				if len(diskInfo[i].Metadata) > 0 {
 					for key, value := range diskInfo[i].Metadata {
 						if err := disk.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {

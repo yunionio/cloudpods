@@ -1153,7 +1153,7 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 	err := self.CanPerformPrepaidRecycle()
 	if err != nil {
 		extra.Add(jsonutils.JSONFalse, "can_recycle")
-	}else {
+	} else {
 		extra.Add(jsonutils.JSONTrue, "can_recycle")
 	}
 
@@ -1817,9 +1817,10 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 func (manager *SGuestManager) TotalCount(
 	projectId string, rangeObj db.IStandaloneModel,
 	status []string, hypervisors []string,
-	includeSystem bool, pendingDelete bool, hostType string,
+	includeSystem bool, pendingDelete bool,
+	hostTypes []string, resourceTypes []string, providers []string,
 ) SGuestCountStat {
-	return totalGuestResourceCount(projectId, rangeObj, status, hypervisors, includeSystem, pendingDelete, hostType)
+	return totalGuestResourceCount(projectId, rangeObj, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers)
 }
 
 func (self *SGuest) detachNetwork(ctx context.Context, userCred mcclient.TokenCredential, network *SNetwork, reserve bool, deploy bool) error {
@@ -2147,18 +2148,14 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 	return result
 }
 
-func filterGuestByRange(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, hostType string) *sqlchemy.SQuery {
+func filterGuestByRange(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string) *sqlchemy.SQuery {
 	hosts := HostManager.Query().SubQuery()
-	q = q.Join(hosts, sqlchemy.AND(
-		sqlchemy.Equals(hosts.Field("id"), q.Field("host_id")),
-		sqlchemy.IsFalse(hosts.Field("deleted")),
-		sqlchemy.IsTrue(hosts.Field("enabled")),
-		sqlchemy.Equals(hosts.Field("host_status"), HOST_ONLINE)))
-	hostTypes := []string{}
-	if len(hostType) != 0 {
-		hostTypes = append(hostTypes, hostType)
-	}
-	q = AttachUsageQuery(q, hosts, hosts.Field("id"), hostTypes, rangeObj)
+
+	q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), q.Field("host_id")))
+	q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
+	// q = q.Filter(sqlchemy.Equals(hosts.Field("host_status"), HOST_ONLINE))
+
+	q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, rangeObj)
 	return q
 }
 
@@ -2180,7 +2177,9 @@ func totalGuestResourceCount(
 	hypervisors []string,
 	includeSystem bool,
 	pendingDelete bool,
-	hostType string,
+	hostTypes []string,
+	resourceTypes []string,
+	providers []string,
 ) SGuestCountStat {
 
 	guestdisks := GuestdiskManager.Query().SubQuery()
@@ -2220,7 +2219,7 @@ func totalGuestResourceCount(
 
 	q = q.LeftJoin(isoDevSubQuery, sqlchemy.Equals(isoDevSubQuery.Field("guest_id"), guests.Field("id")))
 
-	q = filterGuestByRange(q, rangeObj, hostType)
+	q = filterGuestByRange(q, rangeObj, hostTypes, resourceTypes, providers)
 
 	if len(projectId) > 0 {
 		q = q.Filter(sqlchemy.Equals(guests.Field("tenant_id"), projectId))

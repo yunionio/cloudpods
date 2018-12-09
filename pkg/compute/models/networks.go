@@ -606,26 +606,22 @@ func (manager *SNetworkManager) GetNetworkOfIP(ipAddr string, serverType string,
 	return nil, sql.ErrNoRows
 }
 
-func (manager *SNetworkManager) allNetworksQ(rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
+func (manager *SNetworkManager) allNetworksQ(providers []string, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
 	networks := manager.Query().SubQuery()
 	hostwires := HostwireManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
-	q := networks.Query().
-		Join(hostwires, sqlchemy.AND(
-			sqlchemy.Equals(hostwires.Field("wire_id"), networks.Field("wire_id")),
-			sqlchemy.IsFalse(hostwires.Field("deleted")))).
-		Join(hosts, sqlchemy.AND(
-			sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")),
-			sqlchemy.IsFalse(hosts.Field("deleted")),
-			sqlchemy.IsTrue(hosts.Field("enabled")),
-			sqlchemy.OR(
+	q := networks.Query()
+	q = q.Join(hostwires, sqlchemy.Equals(hostwires.Field("wire_id"), networks.Field("wire_id")))
+	q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
+	q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
+	q = q.Filter(sqlchemy.OR(
 				sqlchemy.Equals(hosts.Field("host_type"), HOST_TYPE_BAREMETAL),
-				sqlchemy.Equals(hosts.Field("host_status"), HOST_ONLINE))))
-	return AttachUsageQuery(q, hosts, hostwires.Field("host_id"), nil, rangeObj)
+				sqlchemy.Equals(hosts.Field("host_status"), HOST_ONLINE)))
+	return AttachUsageQuery(q, hosts, nil, nil, providers, rangeObj)
 }
 
-func (manager *SNetworkManager) totalPortCountQ(userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
-	q := manager.allNetworksQ(rangeObj)
+func (manager *SNetworkManager) totalPortCountQ(userCred mcclient.TokenCredential, providers []string, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
+	q := manager.allNetworksQ(providers, rangeObj)
 	networks := manager.Query().SubQuery()
 	if userCred != nil && !db.IsAdminAllowList(userCred, manager) {
 		q = q.Filter(sqlchemy.OR(
@@ -640,9 +636,9 @@ type NetworkPortStat struct {
 	CountExt int
 }
 
-func (manager *SNetworkManager) TotalPortCount(userCred mcclient.TokenCredential, rangeObj db.IStandaloneModel) NetworkPortStat {
+func (manager *SNetworkManager) TotalPortCount(userCred mcclient.TokenCredential, providers []string, rangeObj db.IStandaloneModel) NetworkPortStat {
 	nets := make([]SNetwork, 0)
-	err := manager.totalPortCountQ(userCred, rangeObj).All(&nets)
+	err := manager.totalPortCountQ(userCred, providers, rangeObj).All(&nets)
 	if err != nil {
 		log.Errorf("TotalPortCount: %v", err)
 	}

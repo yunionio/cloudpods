@@ -798,30 +798,62 @@ func (u EipUsage) Total() int {
 	return u.PublicIPCount + u.EIPCount
 }
 
-func (manager *SElasticipManager) usageQ(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, hostTypes []string) *sqlchemy.SQuery {
-	if rangeObj == nil {
+func (manager *SElasticipManager) usageQByProvider(q *sqlchemy.SQuery, providers []string) *sqlchemy.SQuery {
+	if len(providers) == 0 {
 		return q
 	}
-	zones := ZoneManager.Query().SubQuery()
-	hosts := HostManager.Query().SubQuery()
-	sq := zones.Query(zones.Field("cloudregion_id")).
-		Join(hosts, sqlchemy.AND(
-			sqlchemy.IsFalse(hosts.Field("deleted")),
-			sqlchemy.IsTrue(hosts.Field("enabled")),
-			sqlchemy.Equals(hosts.Field("zone_id"), zones.Field("id"))))
-	sq = AttachUsageQuery(sq, hosts, hosts.Field("id"), hostTypes, rangeObj)
-	q = q.Filter(sqlchemy.In(q.Field("cloudregion_id"), sq.Distinct()))
+	cloudproviders := CloudproviderManager.Query().SubQuery()
+	subq := cloudproviders.Query(cloudproviders.Field("id")).In("provider", providers).SubQuery()
+	q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
 	return q
 }
 
-func (manager *SElasticipManager) TotalCount(projectId string, rangeObj db.IStandaloneModel, hostTypes []string) EipUsage {
+func (manager *SElasticipManager) usageQByRange(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
+	if rangeObj == nil {
+		return q
+	}
+
+	kw := rangeObj.Keyword()
+	// log.Debugf("rangeObj keyword: %s", kw)
+	switch kw {
+	case "zone":
+		zone := rangeObj.(*SZone)
+		q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), zone.CloudregionId))
+	case "wire":
+		wire := rangeObj.(*SWire)
+		zone := wire.GetZone()
+		q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), zone.CloudregionId))
+	case "host":
+		host := rangeObj.(*SHost)
+		zone := host.GetZone()
+		q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), zone.CloudregionId))
+	case "cloudprovider":
+		q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), rangeObj.GetId()))
+	case "cloudaccount":
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+		subq := cloudproviders.Query(cloudproviders.Field("id")).Equals("cloudaccount_id", rangeObj.GetId()).SubQuery()
+		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+	case "cloudregion":
+		q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), rangeObj.GetId()))
+	}
+
+	return q
+}
+
+func (manager *SElasticipManager) usageQ(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, providers []string) *sqlchemy.SQuery {
+	q = manager.usageQByRange(q, rangeObj)
+	q = manager.usageQByProvider(q, providers)
+	return q
+}
+
+func (manager *SElasticipManager) TotalCount(projectId string, rangeObj db.IStandaloneModel, providers []string) EipUsage {
 	usage := EipUsage{}
 	q1 := manager.Query().Equals("mode", EIP_MODE_INSTANCE_PUBLICIP)
-	q1 = manager.usageQ(q1, rangeObj, hostTypes)
+	q1 = manager.usageQ(q1, rangeObj, providers)
 	q2 := manager.Query().Equals("mode", EIP_MODE_STANDALONE_EIP)
-	q2 = manager.usageQ(q2, rangeObj, hostTypes)
+	q2 = manager.usageQ(q2, rangeObj, providers)
 	q3 := manager.Query().Equals("mode", EIP_MODE_STANDALONE_EIP).IsNotEmpty("associate_id")
-	q3 = manager.usageQ(q3, rangeObj, hostTypes)
+	q3 = manager.usageQ(q3, rangeObj, providers)
 	if len(projectId) > 0 {
 		q1 = q1.Equals("tenant_id", projectId)
 		q2 = q2.Equals("tenant_id", projectId)

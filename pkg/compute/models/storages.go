@@ -800,6 +800,7 @@ func (manager *SStorageManager) disksFailedQ() *sqlchemy.SSubQuery {
 
 func (manager *SStorageManager) totalCapacityQ(
 	rangeObj db.IStandaloneModel, hostTypes []string,
+	resourceTypes []string, providers []string,
 ) *sqlchemy.SQuery {
 	stmt := manager.disksReadyQ()
 	stmt2 := manager.disksFailedQ()
@@ -814,26 +815,32 @@ func (manager *SStorageManager) totalCapacityQ(
 		stmt2.Field("failed_capacity"),
 		attachedDisks.Field("attached_used_capacity"),
 		detachedDisks.Field("detached_used_capacity"),
-	).
-		LeftJoin(stmt, sqlchemy.Equals(stmt.Field("storage_id"), storages.Field("id"))).
-		LeftJoin(stmt2, sqlchemy.Equals(stmt2.Field("storage_id"), storages.Field("id"))).
-		LeftJoin(attachedDisks, sqlchemy.Equals(attachedDisks.Field("storage_id"), storages.Field("id"))).
-		LeftJoin(detachedDisks, sqlchemy.Equals(detachedDisks.Field("storage_id"), storages.Field("id")))
+	)
+	q = q.LeftJoin(stmt, sqlchemy.Equals(stmt.Field("storage_id"), storages.Field("id")))
+	q = q.LeftJoin(stmt2, sqlchemy.Equals(stmt2.Field("storage_id"), storages.Field("id")))
+	q = q.LeftJoin(attachedDisks, sqlchemy.Equals(attachedDisks.Field("storage_id"), storages.Field("id")))
+	q = q.LeftJoin(detachedDisks, sqlchemy.Equals(detachedDisks.Field("storage_id"), storages.Field("id")))
 
-	hosts := HostManager.Query().SubQuery()
-	hostStorages := HoststorageManager.Query().SubQuery()
+	if len(hostTypes) > 0 || len(resourceTypes) > 0 || rangeObj != nil {
+		hosts := HostManager.Query().SubQuery()
+		hostStorages := HoststorageManager.Query().SubQuery()
 
-	q = q.Join(hostStorages, sqlchemy.AND(
-		sqlchemy.Equals(hostStorages.Field("storage_id"), storages.Field("id")),
-		sqlchemy.IsFalse(hostStorages.Field("deleted")),
-	)).Join(
-		hosts, sqlchemy.AND(
-			sqlchemy.Equals(hosts.Field("id"), hostStorages.Field("host_id")),
-			sqlchemy.IsFalse(hosts.Field("deleted")),
-			sqlchemy.IsTrue(hosts.Field("enabled")),
-			sqlchemy.Equals(hosts.Field("host_status"), HOST_ONLINE)))
+		q = q.Join(hostStorages, sqlchemy.Equals(hostStorages.Field("storage_id"), storages.Field("id")))
+		q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostStorages.Field("host_id")))
+		q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
+		q = q.Filter(sqlchemy.Equals(hosts.Field("host_status"), HOST_ONLINE))
 
-	return AttachUsageQuery(q, hosts, hostStorages.Field("host_id"), hostTypes, rangeObj)
+		q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, nil, rangeObj)
+	}
+
+	if len(providers) > 0 {
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+		subq := cloudproviders.Query(cloudproviders.Field("id"))
+		subq = subq.Filter(sqlchemy.In(cloudproviders.Field("provider"), providers))
+		q = q.Filter(sqlchemy.In(storages.Field("manager_id"), subq.SubQuery()))
+	}
+
+	return q
 }
 
 type StorageStat struct {
@@ -890,8 +897,8 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 	}
 }
 
-func (manager *SStorageManager) TotalCapacity(rangeObj db.IStandaloneModel, hostTypes []string) StoragesCapacityStat {
-	res1 := manager.calculateCapacity(manager.totalCapacityQ(rangeObj, hostTypes))
+func (manager *SStorageManager) TotalCapacity(rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string) StoragesCapacityStat {
+	res1 := manager.calculateCapacity(manager.totalCapacityQ(rangeObj, hostTypes, resourceTypes, providers))
 	return res1
 }
 

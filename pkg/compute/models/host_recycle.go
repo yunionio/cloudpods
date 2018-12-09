@@ -40,7 +40,7 @@ func (self *SGuest) CanPerformPrepaidRecycle() error {
 	if host == nil {
 		return fmt.Errorf("no host")
 	}
-	if ! host.IsManaged() {
+	if !host.IsManaged() {
 		return fmt.Errorf("only managed prepaid server can be pooled")
 	}
 	return nil

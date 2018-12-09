@@ -453,10 +453,31 @@ func (self *SSnapshot) Delete(ctx context.Context, userCred mcclient.TokenCreden
 	return nil
 }
 
-func totalSnapshotCount(projectId string) int {
+func TotalSnapshotCount(projectId string, rangeObj db.IStandaloneModel, providers []string) int {
 	q := SnapshotManager.Query()
-	count := q.Equals("tenant_id", projectId).Equals("fake_deleted", false).Count()
-	return count
+	if len(projectId) > 0 {
+		q = q.Equals("tenant_id", projectId)
+	}
+	if rangeObj != nil {
+		switch rangeObj.Keyword() {
+		case "cloudprovider":
+			q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), rangeObj.GetId()))
+		case "cloudaccount":
+			cloudproviders := CloudproviderManager.Query().SubQuery()
+			subq := cloudproviders.Query(cloudproviders.Field("id")).Equals("cloudaccount_id", rangeObj.GetId()).SubQuery()
+			q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+		case "cloudregion":
+			q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), rangeObj.GetId()))
+		}
+	}
+	if len(providers) > 0 {
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+		subq := cloudproviders.Query(cloudproviders.Field("id"))
+		subq = subq.In("provider", providers)
+		q = q.In("manager_id", subq.SubQuery())
+	}
+	q = q.Equals("fake_deleted", false)
+	return q.Count()
 }
 
 // Only sync snapshot status
