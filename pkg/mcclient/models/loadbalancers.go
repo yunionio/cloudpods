@@ -36,6 +36,11 @@ type LoadbalancerHTTPSListener struct {
 	EnableHttp2     bool
 }
 
+type LoadbalancerHTTPRateLimiter struct {
+	HTTPRequestRate       int
+	HTTPRequestRatePerSrc int
+}
+
 type LoadbalancerListener struct {
 	VirtualResource
 
@@ -75,6 +80,8 @@ type LoadbalancerListener struct {
 	LoadbalancerUDPListener
 	LoadbalancerHTTPListener
 	LoadbalancerHTTPSListener
+
+	LoadbalancerHTTPRateLimiter
 }
 
 type LoadbalancerListenerRule struct {
@@ -85,6 +92,8 @@ type LoadbalancerListenerRule struct {
 
 	Domain string
 	Path   string
+
+	LoadbalancerHTTPRateLimiter
 }
 
 type LoadbalancerBackendGroup struct {

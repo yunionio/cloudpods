@@ -33,6 +33,11 @@ func init() {
 	}
 }
 
+type SLoadbalancerHTTPRateLimiter struct {
+	HTTPRequestRate       int `nullable:"false" list:"user" create:"optional" update:"user"`
+	HTTPRequestRatePerSrc int `nullable:"false" list:"user" create:"optional" update:"user"`
+}
+
 type SLoadbalancerTCPListener struct{}
 type SLoadbalancerUDPListener struct{}
 
@@ -97,6 +102,8 @@ type SLoadbalancerListener struct {
 	SLoadbalancerUDPListener
 	SLoadbalancerHTTPListener
 	SLoadbalancerHTTPSListener
+
+	SLoadbalancerHTTPRateLimiter
 }
 
 func (man *SLoadbalancerListenerManager) checkListenerUniqueness(ctx context.Context, lb *SLoadbalancer, listenerType string, listenerPort int64) error {
@@ -198,6 +205,9 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 
 		"x_forwarded_for": validators.NewBoolValidator("x_forwarded_for").Default(true),
 		"gzip":            validators.NewBoolValidator("gzip").Default(false),
+
+		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate").Default(0),
+		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src").Default(0),
 	}
 	for _, v := range keyV {
 		if err := v.Validate(data); err != nil {
@@ -341,6 +351,9 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 
 		"x_forwarded_for": validators.NewBoolValidator("x_forwarded_for"),
 		"gzip":            validators.NewBoolValidator("gzip"),
+
+		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate").Default(0),
+		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src").Default(0),
 
 		"certificate":       certV,
 		"tls_cipher_policy": tlsCipherPolicyV,

@@ -45,6 +45,9 @@ type LoadbalancerListenerCreateOptions struct {
 	Certificate     string
 	TLSCipherPolicy string
 	EnableHttp2     string `choices:"true|false"`
+
+	HTTPRequestRate       *int
+	HTTPRequestRatePerSrc *int
 }
 
 type LoadbalancerListenerListOptions struct {
@@ -92,6 +95,9 @@ type LoadbalancerListenerListOptions struct {
 	Certificate     string
 	TLSCipherPolicy string
 	EnableHttp2     string `choices:"true|false"`
+
+	HTTPRequestRate       *int
+	HTTPRequestRatePerSrc *int
 }
 
 type LoadbalancerListenerUpdateOptions struct {
@@ -137,6 +143,9 @@ type LoadbalancerListenerUpdateOptions struct {
 	Certificate     string
 	TLSCipherPolicy string
 	EnableHttp2     string `choices:"true|false"`
+
+	HTTPRequestRate       *int
+	HTTPRequestRatePerSrc *int
 }
 
 type LoadbalancerListenerGetOptions struct {
