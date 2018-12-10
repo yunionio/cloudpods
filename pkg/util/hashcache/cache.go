@@ -27,7 +27,7 @@ func NewCache(size uint32, defaultTTL time.Duration) *Cache {
 }
 
 const (
-	HASH_ALG_MD5    int = iota
+	HASH_ALG_MD5 int = iota
 	HASH_ALG_SHA1
 	HASH_ALG_SHA256
 )
@@ -87,7 +87,7 @@ func (c *Cache) Set(key string, val interface{}, expire ...time.Time) {
 		c.table[idx].key = key
 	}
 	c.table[idx].value = val
-	if len(expire) > 0 && ! expire[0].IsZero() {
+	if len(expire) > 0 && !expire[0].IsZero() {
 		c.table[idx].expire = expire[0]
 	} else if c.defaultTtl > time.Millisecond {
 		c.table[idx].expire = time.Now().Add(c.defaultTtl)
