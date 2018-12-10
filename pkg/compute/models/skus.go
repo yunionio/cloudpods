@@ -184,7 +184,7 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 	q := self.Query()
 	zone, err := query.GetString("zone")
 	if err == nil && len(zone) > 0 {
-		q = q.Equals("zone", zone)
+		q = q.Equals("zone_id", zone)
 	} else {
 		return nil, httperrors.NewMissingParameterError("zone")
 	}
