@@ -16,6 +16,8 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"github.com/golang-plus/errors"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 func (self *SHost) GetResourceType() string {
@@ -174,13 +176,55 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 		}
 	}
 
+	storageSize := 0
+	var externalId string
 	for i := 0; i < len(guestdisks); i += 1 {
-		err = fakeHost.Attach2Storage(ctx, userCred, guestdisks[i].GetDisk().GetStorage(), "")
-		if err != nil {
-			log.Errorf("fail to addStorage %d: %s", i, err)
-			fakeHost.RealDelete(ctx, userCred)
-			return err
+		disk :=  guestdisks[i].GetDisk()
+		storage := disk.GetStorage()
+		if disk.BillingType == BILLING_TYPE_PREPAID {
+			storageSize += disk.DiskSize
+			if len(externalId) == 0 {
+				externalId = storage.ExternalId
+			} else {
+				if externalId != storage.ExternalId {
+					msg := "inconsistent storage !!!!"
+					log.Errorf(msg)
+					return errors.New(msg)
+				}
+			}
 		}
+	}
+
+	sysStorage := guestdisks[0].GetDisk().GetStorage()
+
+	fakeStorage := SStorage{}
+	fakeStorage.SetModelManager(StorageManager)
+
+	fakeStorage.Name = fmt.Sprintf("%s-storage", self.Name)
+	fakeStorage.Capacity = storageSize
+	fakeStorage.StorageType = STORAGE_LOCAL
+	fakeStorage.MediumType = sysStorage.MediumType
+	fakeStorage.Cmtbound = 1.0
+	fakeStorage.ZoneId = fakeHost.ZoneId
+	fakeStorage.StoragecacheId = sysStorage.StoragecacheId
+	fakeStorage.Enabled = true
+	fakeStorage.Status = STORAGE_ONLINE
+	fakeStorage.Description = "fake storage for prepaid vm recycling"
+	fakeStorage.IsEmulated = true
+	fakeStorage.ManagerId = sysStorage.ManagerId
+	fakeStorage.ExternalId = externalId
+
+	err = StorageManager.TableSpec().Insert(&fakeStorage)
+	if err != nil {
+		log.Errorf("fail to insert fake storage %s", err)
+		return err
+	}
+
+	err = fakeHost.Attach2Storage(ctx, userCred, &fakeStorage, "")
+	if err != nil {
+		log.Errorf("fail to add fake storage: %s", err)
+		fakeHost.RealDelete(ctx, userCred)
+		return err
 	}
 
 	_, err = self.GetModelManager().TableSpec().Update(self, func() error {
@@ -197,6 +241,25 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 		log.Errorf("clear billing information fail: %s", err)
 		fakeHost.RealDelete(ctx, userCred)
 		return err
+	}
+
+	for i := 0; i < len(guestdisks); i += 1 {
+		disk := guestdisks[i].GetDisk()
+
+		if disk.BillingType == BILLING_TYPE_PREPAID {
+			_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
+				disk.BillingType = BILLING_TYPE_POSTPAID
+				disk.BillingCycle = ""
+				disk.ExpiredAt = time.Time{}
+				disk.StorageId = fakeStorage.Id
+				return nil
+			})
+			if err != nil {
+				log.Errorf("clear billing information for %d %s disk fail: %s", i, disk.DiskType, err)
+				fakeHost.RealDelete(ctx, userCred)
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -268,9 +331,20 @@ func (self *SHost) PerformUndoPrepaidRecycle(ctx context.Context, userCred mccli
 	return nil, nil
 }
 
+func findIdiskById(idisks []cloudprovider.ICloudDisk, uuid string) cloudprovider.ICloudDisk {
+	for i := 0; i < len(idisks); i += 1 {
+		if idisks[i].GetGlobalId() == uuid {
+			return idisks[i]
+		}
+	}
+	return nil
+}
+
 func doUndoPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, server *SGuest) error {
 	if host.RealExternalId != server.ExternalId {
-		return fmt.Errorf("host and server external id not match!!!!")
+		msg := "host and server external id not match!!!!"
+		log.Errorf(msg)
+		return errors.New(msg)
 	}
 
 	q := HostManager.Query()
@@ -281,10 +355,14 @@ func doUndoPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential
 	oHostCnt := q.Count()
 
 	if oHostCnt == 0 {
-		return fmt.Errorf("orthordox host not found???")
+		msg := "orthordox host not found???"
+		log.Errorf(msg)
+		return errors.New(msg)
 	}
 	if oHostCnt > 1 {
-		return fmt.Errorf("more than 1 (%d) orthordox host found???", oHostCnt)
+		msg := fmt.Sprintf("more than 1 (%d) orthordox host found???", oHostCnt)
+		log.Errorf(msg)
+		return errors.New(msg)
 	}
 
 	oHost := SHost{}
@@ -292,7 +370,30 @@ func doUndoPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential
 
 	err := q.First(&oHost)
 	if err != nil {
-		return fmt.Errorf("fail to query orthordox host %s", err)
+		msg := fmt.Sprintf("fail to query orthordox host %s", err)
+		log.Errorf(msg)
+		return errors.New(msg)
+	}
+
+	iHost, err := oHost.GetIHost()
+	if err != nil {
+		msg := fmt.Sprint("fail to find ihost %s", err)
+		log.Errorf(msg)
+		return errors.New(msg)
+	}
+
+	iVM, err := iHost.GetIVMById(server.ExternalId)
+	if err != nil {
+		msg := fmt.Sprintf("fail to GetIVMById %s", err)
+		log.Errorf(msg)
+		return errors.New(msg)
+	}
+
+	idisks, err := iVM.GetIDisks()
+	if err != nil {
+		msg := fmt.Sprintf("iVM.GetIDisks fail %s", err)
+		log.Errorf(msg)
+		return errors.New(msg)
 	}
 
 	_, err = server.GetModelManager().TableSpec().Update(server, func() error {
@@ -307,6 +408,46 @@ func doUndoPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential
 	if err != nil {
 		log.Errorf("fail to recover vm hostId %s", err)
 		return err
+	}
+
+	guestdisks := server.GetDisks()
+
+	for i := 0; i < len(guestdisks); i += 1 {
+		disk := guestdisks[i].GetDisk()
+		storage := disk.GetStorage()
+		idisk := findIdiskById(idisks, disk.ExternalId)
+		if idisk == nil {
+			msg := fmt.Sprintf("fail to find idisk by ID %s: %s", disk.ExternalId, err)
+			log.Errorf(msg)
+			return errors.New(msg)
+		}
+		istorage, err := idisk.GetIStorage()
+		if err != nil {
+			log.Errorf("idisk.GetIStorage fail %s", err)
+			return err
+		}
+
+		oStorageObj, err := StorageManager.FetchByExternalId(istorage.GetGlobalId())
+		if err != nil {
+			log.Errorf("StorageManager.FetchByExternalId fail %s", err)
+			return err
+		}
+
+		oStorage := oStorageObj.(*SStorage)
+
+		if storage.StorageType == STORAGE_LOCAL {
+			_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
+				disk.BillingType = BILLING_TYPE_PREPAID
+				disk.BillingCycle = host.BillingCycle
+				disk.ExpiredAt = host.ExpiredAt
+				disk.StorageId = oStorage.Id
+				return nil
+			})
+			if err != nil {
+				log.Errorf("fail to recover prepaid disk info %s", err)
+				return err
+			}
+		}
 	}
 
 	err = host.RealDelete(ctx, userCred)
@@ -398,11 +539,11 @@ func (host *SHost) SetGuestCreateNetworkAndDiskParams(ctx context.Context, userC
 	params.Set(fmt.Sprintf("net.%d", netIdx), jsonutils.JSONNull)
 
 	for i := 0; i < len(idisks); i += 1 {
-		istorage, err := idisks[i].GetIStorage()
+		/*istorage, err := idisks[i].GetIStorage()
 		if err != nil {
 			log.Errorf("idisks[i].GetIStorage fail %s", err)
 			return nil, err
-		}
+		}*/
 
 		key := fmt.Sprintf("disk.%d", i)
 		jsonConf, _ := params.Get(key)
@@ -413,10 +554,10 @@ func (host *SHost) SetGuestCreateNetworkAndDiskParams(ctx context.Context, userC
 				return nil, err
 			}
 			conf.SizeMb = idisks[i].GetDiskSizeMB()
-			conf.Backend = istorage.GetStorageType()
+			conf.Backend = STORAGE_LOCAL
 			params.Set(key, jsonutils.Marshal(conf))
 		} else {
-			strConf := fmt.Sprintf("%s:%d", istorage.GetStorageType(), idisks[i].GetDiskSizeMB())
+			strConf := fmt.Sprintf("%s:%d", STORAGE_LOCAL, idisks[i].GetDiskSizeMB())
 			conf, err := parseDiskInfo(ctx, userCred, jsonutils.NewString(strConf))
 			if err != nil {
 				return nil, err

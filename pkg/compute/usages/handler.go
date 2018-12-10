@@ -207,8 +207,6 @@ func getAdminGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStanda
 		count.Add("cpu.virtual", host.GetVirtualCPUCount())
 	}
 
-	prepaidHostEnabledUsage := HostEnabledUsage("prepaid_pool", userCred, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers)
-
 	guestRunningUsage := GuestRunningUsage("all.running_servers", nil, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers)
 	runningMem := guestRunningUsage.Get("all.running_servers.memory").(int)
 	runningCpu := guestRunningUsage.Get("all.running_servers.cpu").(int)
@@ -230,37 +228,48 @@ func getAdminGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStanda
 	count.Add("all.cpu_commit_rate.running", runningCpuCmtRate)
 
 	storageUsage := StorageUsage("", rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers)
-	storageCmtRate := 0.0
-	disksSize := storageUsage.Get("all.disks").(int64)
-	storageSize := storageUsage.Get("storages").(int64)
-	if storageSize > 0 {
-		storageCmtRate = utils.FloatRound(float64(disksSize)/float64(storageSize), 2)
-	}
-	count.Add("storages_commit_rate", storageCmtRate)
-
-	prepaidStorageUsage := StorageUsage("prepaid_pool", rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers)
 
 	count.Include(
 		HostAllUsage("", userCred, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers),
 		HostAllUsage("prepaid_pool", userCred, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		HostAllUsage("any_pool", userCred, rangeObj, hostTypes, nil, providers),
+
 		hostEnabledUsage,
-		prepaidHostEnabledUsage,
+		HostEnabledUsage("prepaid_pool", userCred, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		HostEnabledUsage("any_pool", userCred, rangeObj, hostTypes, nil, providers),
+
 		BaremetalUsage(userCred, rangeObj, hostTypes, providers),
+
 		storageUsage,
-		prepaidStorageUsage,
+		StorageUsage("prepaid_pool", rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		StorageUsage("any_pool", rangeObj, hostTypes, nil, providers),
+
 		GuestNormalUsage("all.servers", nil, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers),
 		GuestNormalUsage("all.servers.prepaid_pool", nil, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		GuestNormalUsage("all.servers.any_pool", nil, rangeObj, hostTypes, nil, providers),
+
 		GuestPendingDeleteUsage("all.pending_delete_servers", nil, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers),
 		GuestPendingDeleteUsage("all.pending_delete_servers.prepaid_pool", nil, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		GuestPendingDeleteUsage("all.pending_delete_servers.any_pool", nil, rangeObj, hostTypes, nil, providers),
+
 		GuestReadyUsage("all.ready_servers", nil, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers),
 		GuestReadyUsage("all.ready_servers.prepaid_pool", nil, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		GuestReadyUsage("all.ready_servers.any_pool", nil, rangeObj, hostTypes, nil, providers),
+
 		guestRunningUsage,
 		GuestRunningUsage("all.running_servers.prepaid_pool", nil, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		GuestRunningUsage("all.running_servers.any_pool", nil, rangeObj, hostTypes, nil, providers),
+
 		containerRunningUsage,
+
 		IsolatedDeviceUsage("", rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers),
 		IsolatedDeviceUsage("prepaid_pool", rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		IsolatedDeviceUsage("any_pool", rangeObj, hostTypes, nil, providers),
+
 		WireUsage(rangeObj, hostTypes, providers),
+
 		EipUsage("", rangeObj, providers),
+
 		SnapshotUsage("", rangeObj, providers),
 	)
 
@@ -269,16 +278,6 @@ func getAdminGeneralUsage(userCred mcclient.TokenCredential, rangeObj db.IStanda
 
 func getCommonGeneralUsage(cred mcclient.TokenCredential, rangeObj db.IStandaloneModel, hostTypes []string, providers []string) (count Usage, err error) {
 	guestNormalUsage := GuestNormalUsage("servers", cred, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers)
-	prepaidGuestNormalUsage := GuestNormalUsage("servers.prepaid_pool", cred, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers)
-
-	guestRunningUsage := GuestRunningUsage("running_servers", cred, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers)
-	prepaidGuestRunningUsage := GuestRunningUsage("running_servers.prepaid_pool", cred, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers)
-
-	guestPendingDeleteUsage := GuestPendingDeleteUsage("pending_delete_servers", cred, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers)
-	prepaidGuestPendingDeleteUsage := GuestPendingDeleteUsage("pending_delete_servers.prepaid_pool", cred, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers)
-
-	guestReadyUsage := GuestReadyUsage("ready_servers", cred, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers)
-	prepaidGuestReadyUsage := GuestReadyUsage("ready_servers.prepaid_pool", cred, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers)
 
 	containerUsage := containerUsage("containers", cred, rangeObj, hostTypes, nil, providers)
 
@@ -287,16 +286,20 @@ func getCommonGeneralUsage(cred mcclient.TokenCredential, rangeObj db.IStandalon
 	snapshotUsage := SnapshotUsage(cred.GetProjectId(), rangeObj, providers)
 
 	count = guestNormalUsage.Include(
-		prepaidGuestNormalUsage,
+		GuestNormalUsage("servers.prepaid_pool", cred, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		GuestNormalUsage("servers.any_pool", cred, rangeObj, hostTypes, nil, providers),
 
-		guestRunningUsage,
-		prepaidGuestRunningUsage,
+		GuestRunningUsage("running_servers", cred, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers),
+		GuestRunningUsage("running_servers.prepaid_pool", cred, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		GuestRunningUsage("running_servers.any_pool", cred, rangeObj, hostTypes, nil, providers),
 
-		guestPendingDeleteUsage,
-		prepaidGuestPendingDeleteUsage,
+		GuestPendingDeleteUsage("pending_delete_servers", cred, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers),
+		GuestPendingDeleteUsage("pending_delete_servers.prepaid_pool", cred, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		GuestPendingDeleteUsage("pending_delete_servers.any_pool", cred, rangeObj, hostTypes, nil, providers),
 
-		guestReadyUsage,
-		prepaidGuestReadyUsage,
+		GuestReadyUsage("ready_servers", cred, rangeObj, hostTypes, []string{models.HostResourceTypeShared}, providers),
+		GuestReadyUsage("ready_servers.prepaid_pool", cred, rangeObj, hostTypes, []string{models.HostResourceTypePrepaidRecycle}, providers),
+		GuestReadyUsage("ready_servers.any_pool", cred, rangeObj, hostTypes, nil, providers),
 
 		containerUsage,
 
@@ -402,9 +405,16 @@ func StorageUsage(prefix string, rangeObj db.IStandaloneModel, hostTypes []strin
 	count[sPrefix] = result.Capacity
 	count[fmt.Sprintf("%s.virtual", sPrefix)] = result.CapacityVirtual
 	count[dPrefix] = result.CapacityUsed
-	count[fmt.Sprintf("%s.unready", dPrefix)] = result.CapacityUnread
+	count[fmt.Sprintf("%s.unready", dPrefix)] = result.CapacityUnready
 	count[fmt.Sprintf("%s.attached", dPrefix)] = result.AttachedCapacity
 	count[fmt.Sprintf("%s.detached", dPrefix)] = result.DetachedCapacity
+
+	storageCmtRate := 0.0
+	if result.Capacity > 0 {
+		storageCmtRate = utils.FloatRound(float64(result.CapacityUsed)/float64(result.Capacity), 2)
+	}
+	count[fmt.Sprintf("%s.commit_rate", sPrefix)] = storageCmtRate
+
 	return count
 }
 
@@ -512,6 +522,11 @@ func guestHypervisorsUsage(
 
 	count[fmt.Sprintf("%s.disk", prefix)] = guest.TotalDiskSize
 	count[fmt.Sprintf("%s.isolated_devices", prefix)] = guest.TotalIsolatedCount
+
+	count[fmt.Sprintf("%s.ha", prefix)] = guest.TotalBackupGuestCount
+	count[fmt.Sprintf("%s.ha.cpu", prefix)] = guest.TotalBackupCpuCount
+	count[fmt.Sprintf("%s.ha.memory", prefix)] = guest.TotalBackupMemSize
+	count[fmt.Sprintf("%s.ha.disk", prefix)] = guest.TotalBackupDiskSize
 
 	return count
 }

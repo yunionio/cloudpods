@@ -857,7 +857,7 @@ type StoragesCapacityStat struct {
 	Capacity         int64
 	CapacityVirtual  float64
 	CapacityUsed     int64
-	CapacityUnread   int64
+	CapacityUnready  int64
 	AttachedCapacity int64
 	DetachedCapacity int64
 }
@@ -891,7 +891,7 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 		Capacity:         tCapa,
 		CapacityVirtual:  tVCapa,
 		CapacityUsed:     tUsed,
-		CapacityUnread:   tFailed,
+		CapacityUnready:  tFailed,
 		AttachedCapacity: atCapa,
 		DetachedCapacity: dtCapa,
 	}

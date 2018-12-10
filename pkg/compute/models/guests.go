@@ -378,8 +378,8 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		if count > 0 {
 			sgq := guestdisks.Query(guestdisks.Field("guest_id")).
 				Filter(sqlchemy.AND(
-					sqlchemy.Equals(guestdisks.Field("disk_id"), disk.Id),
-					sqlchemy.IsFalse(guestdisks.Field("deleted"))))
+				sqlchemy.Equals(guestdisks.Field("disk_id"), disk.Id),
+				sqlchemy.IsFalse(guestdisks.Field("deleted"))))
 			q = q.Filter(sqlchemy.In(q.Field("id"), sgq))
 		} else {
 			hosts := HostManager.Query().SubQuery()
@@ -387,11 +387,11 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 			storages := StorageManager.Query().SubQuery()
 			sq := hosts.Query(hosts.Field("id")).
 				Join(hoststorages, sqlchemy.AND(
-					sqlchemy.Equals(hoststorages.Field("host_id"), hosts.Field("id")),
-					sqlchemy.IsFalse(hoststorages.Field("deleted")))).
+				sqlchemy.Equals(hoststorages.Field("host_id"), hosts.Field("id")),
+				sqlchemy.IsFalse(hoststorages.Field("deleted")))).
 				Join(storages, sqlchemy.AND(
-					sqlchemy.Equals(storages.Field("id"), hoststorages.Field("storage_id")),
-					sqlchemy.IsFalse(storages.Field("deleted")))).
+				sqlchemy.Equals(storages.Field("id"), hoststorages.Field("storage_id")),
+				sqlchemy.IsFalse(storages.Field("deleted")))).
 				Filter(sqlchemy.Equals(storages.Field("id"), disk.StorageId)).SubQuery()
 			q = q.In("host_id", sq)
 		}
@@ -445,8 +445,8 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		isodev := IsolatedDeviceManager.Query().SubQuery()
 		sgq := isodev.Query(isodev.Field("guest_id")).
 			Filter(sqlchemy.AND(
-				sqlchemy.IsNotNull(isodev.Field("guest_id")),
-				sqlchemy.Startswith(isodev.Field("dev_type"), "GPU")))
+			sqlchemy.IsNotNull(isodev.Field("guest_id")),
+			sqlchemy.Startswith(isodev.Field("dev_type"), "GPU")))
 		showGpu := utils.ToBool(gpu)
 		cond := sqlchemy.NotIn
 		if showGpu {
@@ -1255,7 +1255,7 @@ func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchem
 		cloudregionQuery := CloudregionManager.Query("id", "name").SubQuery()
 		hostQuery.LeftJoin(zoneQuery, sqlchemy.Equals(hostQuery.Field("zone_id"), zoneQuery.Field("id"))).
 			LeftJoin(cloudregionQuery, sqlchemy.OR(sqlchemy.Equals(cloudregionQuery.Field("id"),
-				zoneQuery.Field("cloudregion_id")), sqlchemy.Equals(cloudregionQuery.Field("id"), "default")))
+			zoneQuery.Field("cloudregion_id")), sqlchemy.Equals(cloudregionQuery.Field("id"), "default")))
 		hostQuery.AppendField(cloudregionQuery.Field("name", "region"))
 		hostSubQuery := hostQuery.SubQuery()
 		q.LeftJoin(hostSubQuery, sqlchemy.Equals(q.Field("host_id"), hostSubQuery.Field("id")))
@@ -2160,14 +2160,15 @@ func filterGuestByRange(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, hostTy
 }
 
 type SGuestCountStat struct {
-	TotalGuestCount     int
-	TotalCpuCount       int
-	TotalMemSize        int
-	TotalDiskSize       int
-	TotalIsolatedCount  int
-	TotalBackupCpuCount int
-	TotalBackupMemSize  int
-	TotalBackupDiskSize int
+	TotalGuestCount       int
+	TotalCpuCount         int
+	TotalMemSize          int
+	TotalDiskSize         int
+	TotalIsolatedCount    int
+	TotalBackupGuestCount int
+	TotalBackupCpuCount   int
+	TotalBackupMemSize    int
+	TotalBackupDiskSize   int
 }
 
 func totalGuestResourceCount(
@@ -2186,12 +2187,17 @@ func totalGuestResourceCount(
 	disks := DiskManager.Query().SubQuery()
 
 	diskQuery := guestdisks.Query(guestdisks.Field("guest_id"), sqlchemy.SUM("guest_disk_size", disks.Field("disk_size")))
-	diskQuery = diskQuery.Join(disks, sqlchemy.AND(sqlchemy.Equals(guestdisks.Field("disk_id"), disks.Field("id")),
-		sqlchemy.IsFalse(disks.Field("deleted"))))
+	diskQuery = diskQuery.Join(disks, sqlchemy.Equals(guestdisks.Field("disk_id"), disks.Field("id")))
 	diskQuery = diskQuery.GroupBy(guestdisks.Field("guest_id"))
-
 	diskSubQuery := diskQuery.SubQuery()
-	diskBackupSubQuery := diskQuery.IsNotEmpty("backup_storage_id").SubQuery()
+
+	backupDiskQuery := guestdisks.Query(guestdisks.Field("guest_id"), sqlchemy.SUM("guest_disk_size", disks.Field("disk_size")))
+	backupDiskQuery = backupDiskQuery.LeftJoin(disks, sqlchemy.Equals(guestdisks.Field("disk_id"), disks.Field("id")))
+	backupDiskQuery = backupDiskQuery.Filter(sqlchemy.IsNotEmpty(disks.Field("backup_storage_id")))
+	backupDiskQuery = backupDiskQuery.GroupBy(guestdisks.Field("guest_id"))
+
+	diskBackupSubQuery := backupDiskQuery.SubQuery()
+	// diskBackupSubQuery := diskQuery.IsNotEmpty("backup_storage_id").SubQuery()
 
 	isolated := IsolatedDeviceManager.Query().SubQuery()
 
@@ -2202,7 +2208,11 @@ func totalGuestResourceCount(
 	isoDevSubQuery := isoDevQuery.SubQuery()
 
 	guests := GuestManager.Query().SubQuery()
-	guestBackupSubQuery := GuestManager.Query("id", "vcpu_count", "vmem_size").IsNotEmpty("backup_host_id").SubQuery()
+	guestBackupSubQuery := GuestManager.Query(
+		"id",
+		"vcpu_count",
+		"vmem_size",
+	).IsNotEmpty("backup_host_id").SubQuery()
 
 	q := guests.Query(sqlchemy.COUNT("total_guest_count"),
 		sqlchemy.SUM("total_cpu_count", guests.Field("vcpu_count")),
@@ -2211,10 +2221,13 @@ func totalGuestResourceCount(
 		sqlchemy.SUM("total_isolated_count", isoDevSubQuery.Field("device_sum")),
 		sqlchemy.SUM("total_backup_disk_size", diskBackupSubQuery.Field("guest_disk_size")),
 		sqlchemy.SUM("total_backup_cpu_count", guestBackupSubQuery.Field("vcpu_count")),
-		sqlchemy.SUM("total_backup_mem_size", guestBackupSubQuery.Field("vmem_size")))
+		sqlchemy.SUM("total_backup_mem_size", guestBackupSubQuery.Field("vmem_size")),
+		sqlchemy.COUNT("total_backup_guest_count", guestBackupSubQuery.Field("id")),
+	)
+
+	q = q.LeftJoin(guestBackupSubQuery, sqlchemy.Equals(guestBackupSubQuery.Field("id"), guests.Field("id")))
 
 	q = q.LeftJoin(diskSubQuery, sqlchemy.Equals(diskSubQuery.Field("guest_id"), guests.Field("id")))
-	q = q.LeftJoin(guestBackupSubQuery, sqlchemy.Equals(guestBackupSubQuery.Field("id"), q.Field("id")))
 	q = q.LeftJoin(diskBackupSubQuery, sqlchemy.Equals(diskBackupSubQuery.Field("guest_id"), guests.Field("id")))
 
 	q = q.LeftJoin(isoDevSubQuery, sqlchemy.Equals(isoDevSubQuery.Field("guest_id"), guests.Field("id")))
@@ -3263,7 +3276,7 @@ func (manager *SGuestManager) GetIpInProjectWithName(projectId, name string, isE
 				sqlchemy.IsFalse(guests.Field("pending_deleted"))),
 			sqlchemy.IsFalse(guests.Field("deleted")))).
 		Join(networks, sqlchemy.AND(sqlchemy.Equals(networks.Field("id"), guestnics.Field("network_id")),
-			sqlchemy.IsFalse(networks.Field("deleted")))).
+		sqlchemy.IsFalse(networks.Field("deleted")))).
 		Filter(sqlchemy.Equals(guests.Field("name"), name)).
 		Filter(sqlchemy.NotEquals(guestnics.Field("ip_addr"), "")).
 		Filter(sqlchemy.IsNotNull(guestnics.Field("ip_addr"))).
@@ -3306,7 +3319,7 @@ func (manager *SGuestManager) getIpsByExit(ips []string, isExitOnly bool) []stri
 }
 
 func (manager *SGuestManager) getExpiredPendingDeleteGuests() []SGuest {
-	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds*-1) * time.Second)
+	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds * -1) * time.Second)
 
 	q := manager.Query()
 	q = q.IsTrue("pending_deleted").LT("pending_deleted_at", deadline).Limit(options.Options.PendingDeleteMaxCleanBatchSize)
@@ -3332,7 +3345,7 @@ func (manager *SGuestManager) CleanPendingDeleteServers(ctx context.Context, use
 }
 
 func (manager *SGuestManager) getExpiredPrepaidGuests() []SGuest {
-	deadline := time.Now().Add(time.Duration(options.Options.PrepaidExpireCheckSeconds*-1) * time.Second)
+	deadline := time.Now().Add(time.Duration(options.Options.PrepaidExpireCheckSeconds * -1) * time.Second)
 
 	q := manager.Query()
 	q = q.Equals("billing_type", BILLING_TYPE_PREPAID).LT("expired_at", deadline).Limit(options.Options.ExpiredPrepaidMaxCleanBatchSize)
