@@ -14,6 +14,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 var HOST_SYSTEM_PROPS = []string{"name", "parent", "summary", "config", "hardware", "vm", "datastore"}
@@ -498,12 +499,12 @@ func (self *SHost) GetVersion() string {
 }
 
 func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, vswitchId string, ipAddr string, desc string,
-	passwd string, storageType string, diskSizes []int, publicKey string, secGrpId string, userData string) (cloudprovider.ICloudVM, error) {
+	passwd string, storageType string, diskSizes []int, publicKey string, secGrpId string, userData string, bc *billing.SBillingCycle) (cloudprovider.ICloudVM, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SHost) CreateVM2(name string, imgId string, sysDiskSize int, instanceType string, vswitchId string, ipAddr string, desc string,
-	passwd string, storageType string, diskSizes []int, publicKey string, secGrpId string, userData string) (cloudprovider.ICloudVM, error) {
+	passwd string, storageType string, diskSizes []int, publicKey string, secGrpId string, userData string, bc *billing.SBillingCycle) (cloudprovider.ICloudVM, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 

@@ -20,6 +20,7 @@ var (
 
 type Host struct {
 	StandaloneModel
+	BillingResourceBase
 
 	Rack       string `json:"rack,omitempty" gorm:"column:rack"`
 	Slots      string `json:"slots,omitempty" gorm:"column:slots"`
@@ -56,6 +57,9 @@ type Host struct {
 	IsBaremetal   bool    `json:"is_baremetal" gorm:"column:is_baremetal"`
 	ManagerID     *string `json:"manager_id" gorm:"column:manager_id"`
 	IsMaintenance bool    `json:"is_maintenance" gorm:"column:is_maintenance"`
+
+	ResourceType   string `json:"resource_type" gorm:"column:resource_type"`
+	RealExternalId string `json:"real_external_id" gorm:"column:real_external_id;type:varchar(256) CHARACTER SET utf8"`
 
 	// DECAPITATE
 	ClusterID string `json:"cluster_id" gorm:"column:cluster_id"`

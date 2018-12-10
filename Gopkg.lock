@@ -1312,11 +1312,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a2346cf0c965791c281a428a3e9bf522913941028e4c814a774af7f3cc2360b0"
+  digest = "1:3c2ee66e652654aae64107ab7e0087cfb05a959b2e22ff75880d0cd7b47e695d"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "814e036849815935e5957ebd03bd0f4fc992fe83"
+  revision = "0233c7b766f65b0ebbe6f72717f141405afbb496"
 
 [[projects]]
   branch = "master"
@@ -1331,7 +1331,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:5293df1051bc3efc179027b9250533e5ece1da66ab03bbfb00384c18b9916282"
+  digest = "1:6d91d27a4867494b3fdaa177e519f13ee45dbb0c246c9b7ed05ea7a586ebb9a4"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1364,23 +1364,23 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "9ea65d37be78406707a313fdecb17aa392199575"
+  revision = "a8af02b7adb621ab73bb094330e2c0c3adbfbf90"
 
 [[projects]]
   branch = "master"
-  digest = "1:5a3958d2f3c6c6510cc6b0e754cc45f6e98d8f8780ea04c1232a8f22fd6d91fc"
+  digest = "1:2fdf064ae928c1b311e67ec51e856ce655abc39e8eacf5e6b3f7bd0417fac0a6"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "30271a36b97155505642d6d3709a37600aade302"
+  revision = "e22221d5efcc667e68b0fdeed19958e788c3ad63"
 
 [[projects]]
   branch = "master"
-  digest = "1:bbaf572e68e5dad4045e1e424af29838882c620df391fa1631dd8dc851c87a95"
+  digest = "1:97c47d46b272f535bc6760672a3dd4512bf66fb4463cb70547178e21cf9078f7"
   name = "yunion.io/x/structarg"
   packages = ["."]
   pruneopts = "UT"
-  revision = "c95bf78846decd8dea379e925410f2895fb20076"
+  revision = "1a162c0cfa82905f20a795e9ac530bf27f9a0549"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1434,6 +1434,7 @@
     "github.com/coredns/coredns/request",
     "github.com/fatih/color",
     "github.com/go-sql-driver/mysql",
+    "github.com/golang-plus/errors",
     "github.com/golang-plus/uuid",
     "github.com/googollee/go-socket.io",
     "github.com/gorilla/mux",

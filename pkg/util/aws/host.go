@@ -6,6 +6,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SHost struct {
@@ -155,7 +156,8 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 }
 
 func (self *SHost) CreateVM(name, imgId string, sysDiskSize, cpu, memMB int, networkId, ipAddr, desc,
-	passwd, storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (cloudprovider.ICloudVM, error) {
+	passwd, storageType string, diskSizes []int, publicKey string, secgroupId string, userData string,
+	bc *billing.SBillingCycle) (cloudprovider.ICloudVM, error) {
 	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, "", networkId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId, userData)
 	if err != nil {
 		return nil, err
@@ -170,7 +172,7 @@ func (self *SHost) CreateVM(name, imgId string, sysDiskSize, cpu, memMB int, net
 }
 
 func (self *SHost) CreateVM2(name, imgId string, sysDiskSize int, instanceType string, networkId, ipAddr, desc,
-	passwd, storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (cloudprovider.ICloudVM, error) {
+	passwd, storageType string, diskSizes []int, publicKey string, secgroupId string, userData string, bc *billing.SBillingCycle) (cloudprovider.ICloudVM, error) {
 	vmId, err := self._createVM(name, imgId, sysDiskSize, 0, 0, instanceType, networkId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId, userData)
 	if err != nil {
 		return nil, err

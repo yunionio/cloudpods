@@ -275,30 +275,26 @@ func (manager *SWireManager) newFromCloudWire(extWire cloudprovider.ICloudWire, 
 	return &wire, nil
 }
 
-func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes []string) *sqlchemy.SQuery {
+func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes []string, providers []string) *sqlchemy.SQuery {
 	guests := GuestManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
+
 	gNics := GuestnetworkManager.Query().SubQuery()
 	gNicQ := gNics.Query(
 		gNics.Field("network_id"),
-		sqlchemy.COUNT("id").Label("gnic_count")).
-		Join(guests, sqlchemy.AND(
-			sqlchemy.IsFalse(guests.Field("deleted")),
-			sqlchemy.Equals(guests.Field("id"), gNics.Field("guest_id")),
-		)).
-		Join(hosts, sqlchemy.AND(
-			sqlchemy.Equals(guests.Field("host_id"), hosts.Field("id")),
-			sqlchemy.IsFalse(hosts.Field("deleted")),
-			sqlchemy.IsTrue(hosts.Field("enabled"))))
+		sqlchemy.COUNT("id").Label("gnic_count"),
+	)
+	gNicQ = gNicQ.Join(guests, sqlchemy.Equals(guests.Field("id"), gNics.Field("guest_id")))
+	gNicQ = gNicQ.Join(hosts, sqlchemy.Equals(guests.Field("host_id"), hosts.Field("id")))
+	gNicQ = gNicQ.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 
 	hNics := HostnetworkManager.Query().SubQuery()
 	hNicQ := hNics.Query(
 		hNics.Field("network_id"),
-		sqlchemy.COUNT("id").Label("hnic_count")).
-		Join(hosts, sqlchemy.AND(
-			sqlchemy.Equals(hNics.Field("baremetal_id"), hosts.Field("id")),
-			sqlchemy.IsFalse(hosts.Field("deleted")),
-			sqlchemy.IsTrue(hosts.Field("enabled"))))
+		sqlchemy.COUNT("id").Label("hnic_count"),
+	)
+	hNicQ = hNicQ.Join(hosts, sqlchemy.Equals(hNics.Field("baremetal_id"), hosts.Field("id")))
+	hNicQ = hNicQ.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 
 	revIps := ReservedipManager.Query().SubQuery()
 	revQ := revIps.Query(revIps.Field("network_id"), sqlchemy.COUNT("id").Label("rnic_count"))
@@ -313,30 +309,41 @@ func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes
 		sqlchemy.COUNT("id").Label("net_count"),
 		sqlchemy.SUM("gnic_count", gNicQ.Field("gnic_count")),
 		sqlchemy.SUM("hnic_count", hNicQ.Field("hnic_count")),
-		sqlchemy.SUM("rev_count", revQ.Field("rnic_count"))).
-		LeftJoin(gNicSQ, sqlchemy.Equals(gNicSQ.Field("network_id"), networks.Field("id"))).
-		LeftJoin(hNicSQ, sqlchemy.Equals(hNicSQ.Field("network_id"), networks.Field("id"))).
-		LeftJoin(revSQ, sqlchemy.Equals(revSQ.Field("network_id"), networks.Field("id"))).
-		GroupBy(networks.Field("wire_id")).SubQuery()
+		sqlchemy.SUM("rev_count", revQ.Field("rnic_count")))
+	netQ = netQ.LeftJoin(gNicSQ, sqlchemy.Equals(gNicSQ.Field("network_id"), networks.Field("id")))
+	netQ = netQ.LeftJoin(hNicSQ, sqlchemy.Equals(hNicSQ.Field("network_id"), networks.Field("id")))
+	netQ = netQ.LeftJoin(revSQ, sqlchemy.Equals(revSQ.Field("network_id"), networks.Field("id")))
+	netQ = netQ.GroupBy(networks.Field("wire_id"))
+	netSQ := netQ.SubQuery()
 
 	wires := WireManager.Query().SubQuery()
 	q := wires.Query(
 		sqlchemy.COUNT("id").Label("wires_count"),
-		sqlchemy.SUM("net_count", netQ.Field("net_count")),
-		sqlchemy.SUM("guest_nic_count", netQ.Field("gnic_count")),
-		sqlchemy.SUM("host_nic_count", netQ.Field("hnic_count")),
-		sqlchemy.SUM("reserved_count", netQ.Field("rev_count")),
-	).
-		LeftJoin(netQ, sqlchemy.Equals(wires.Field("id"), netQ.Field("wire_id")))
-	hostwires := HostwireManager.Query().SubQuery()
-	sq := hostwires.Query(hostwires.Field("wire_id")).
-		Join(hosts, sqlchemy.AND(
-			sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")),
-			sqlchemy.IsFalse(hosts.Field("deleted")),
-			sqlchemy.IsTrue(hosts.Field("enabled"))))
-	sq = AttachUsageQuery(sq, hosts, hosts.Field("id"), hostTypes, rangeObj)
+		sqlchemy.SUM("net_count", netSQ.Field("net_count")),
+		sqlchemy.SUM("guest_nic_count", netSQ.Field("gnic_count")),
+		sqlchemy.SUM("host_nic_count", netSQ.Field("hnic_count")),
+		sqlchemy.SUM("reserved_count", netSQ.Field("rev_count")),
+	)
+	q = q.LeftJoin(netSQ, sqlchemy.Equals(wires.Field("id"), netSQ.Field("wire_id")))
 
-	q = q.Filter(sqlchemy.In(wires.Field("id"), sq.Distinct()))
+	if rangeObj != nil || len(hostTypes) > 0 {
+		hostwires := HostwireManager.Query().SubQuery()
+		sq := hostwires.Query(hostwires.Field("wire_id"))
+		sq = sq.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
+		sq = sq.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
+		sq = AttachUsageQuery(sq, hosts, hostTypes, nil, nil, rangeObj)
+		q = q.Filter(sqlchemy.In(wires.Field("id"), sq.Distinct()))
+	}
+
+	if len(providers) > 0 {
+		vpcs := VpcManager.Query().SubQuery()
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+		subq := vpcs.Query(vpcs.Field("id"))
+		subq = subq.Join(cloudproviders, sqlchemy.Equals(vpcs.Field("manager_id"), cloudproviders.Field("id")))
+		subq = subq.Filter(sqlchemy.In(cloudproviders.Field("provider"), providers))
+		q = q.Filter(sqlchemy.In(wires.Field("vpc_id"), subq.SubQuery()))
+	}
+
 	return q
 }
 
@@ -348,9 +355,9 @@ type WiresCountStat struct {
 	ReservedCount int
 }
 
-func (manager *SWireManager) TotalCount(rangeObj db.IStandaloneModel, hostTypes []string) WiresCountStat {
+func (manager *SWireManager) TotalCount(rangeObj db.IStandaloneModel, hostTypes []string, providers []string) WiresCountStat {
 	stat := WiresCountStat{}
-	err := manager.totalCountQ(rangeObj, hostTypes).First(&stat)
+	err := manager.totalCountQ(rangeObj, hostTypes, providers).First(&stat)
 	if err != nil {
 		log.Errorf("Wire total count: %v", err)
 	}

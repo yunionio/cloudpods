@@ -84,10 +84,18 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncComplete(ctx context.Con
 			account.SetStatus(self.UserCred, models.CLOUD_PROVIDER_CONNECTED, "")
 		}
 
-		// sync skus
-		if err := skus.SyncSkusByProviderIds([]string{cloudprovider.Provider}); err != nil {
-			self.SetStageFailed(ctx, err.Error())
+		if models.ServerSkuManager.GetSkuCountByProvider(cloudprovider.Provider) == 0 {
+			// sync skus
+			self.SetStage("OnSyncServerSkuComplete", nil)
+			taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
+				err := skus.SyncSkusByProviderIds([]string{cloudprovider.Provider})
+				return nil, err
+			})
 		}
 	}
+	self.SetStageComplete(ctx, nil)
+}
+
+func (self *CloudAccountSyncInfoTask) OnSyncServerSkuComplete(ctx context.Context, items []db.IStandaloneModel, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
 }

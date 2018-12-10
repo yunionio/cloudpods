@@ -9,8 +9,10 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	"time"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SESXiGuestDriver struct {
@@ -150,7 +152,7 @@ func (self *SESXiGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context,
 		if host.Id != guest.HostId {
 			models.HostManager.ClearSchedDescCache(host.Id)
 			models.HostManager.ClearSchedDescCache(guest.HostId)
-			guest.SetHostId(host.Id)
+			guest.OnScheduleToHost(ctx, task.GetUserCred(), host.Id)
 		}
 	}
 
@@ -168,4 +170,8 @@ func (self *SESXiGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest 
 	}
 	subtask.ScheduleRun(nil)
 	return nil
+}
+
+func (self *SESXiGuestDriver) RequestRenewInstance(guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
+	return time.Time{}, nil
 }

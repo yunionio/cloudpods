@@ -396,7 +396,9 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) error {
 	}
 
 	params := &ec2.CreateVolumeInput{}
-	params.SetSnapshotId(snapshotId)
+	if len(snapshotId) > 0 {
+		params.SetSnapshotId(snapshotId)
+	}
 	params.SetSize(int64(disk.Size))
 	params.SetVolumeType(disk.Category)
 	params.SetAvailabilityZone(disk.ZoneId)
@@ -464,4 +466,8 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 
 func (disk *SDisk) GetAccessPath() string {
 	return ""
+}
+
+func (self *SDisk) Rebuild(ctx context.Context) error {
+	return self.storage.zone.region.resetDisk(self.DiskId, "")
 }

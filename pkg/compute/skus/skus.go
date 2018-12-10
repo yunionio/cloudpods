@@ -306,7 +306,12 @@ func (self *SkusZoneList) SyncToLocalDB() error {
 	return err
 }
 
-func SyncSkus(ctx context.Context, userCred mcclient.TokenCredential) {
+func SyncSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	if isStart {
+		if models.ServerSkuManager.GetSkuCountByProvider("") > 0 {
+			return
+		}
+	}
 	skus := SkusZoneList{}
 	if e := skus.Refresh(nil); e != nil {
 		log.Errorf("SyncSkus refresh failed, %s", e.Error())

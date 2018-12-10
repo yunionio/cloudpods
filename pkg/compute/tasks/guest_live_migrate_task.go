@@ -301,7 +301,7 @@ func (self *GuestMigrateTask) setGuest(ctx context.Context, guest *models.SGuest
 	}
 	oldHost := guest.GetHost()
 	oldHost.ClearSchedDescCache()
-	err := guest.SetHostId(targetHostId)
+	err := guest.OnScheduleToHost(ctx, self.UserCred, targetHostId)
 	if err != nil {
 		return err
 	}

@@ -13,6 +13,7 @@ import (
 
 	o "yunion.io/x/onecloud/cmd/scheduler/options"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type Meta map[string]string
@@ -94,6 +95,7 @@ type SchedData struct {
 	ForGuests       []*ForGuest       `json:"for_guests"`
 	GuestStatus     string            `json:"guest_status"`
 	Hypervisor      string            `json:"hypervisor"`
+	ResourceType    string            `json:"resource_type"`
 
 	// VM
 	Groups         []string        `json:"group"`
@@ -166,6 +168,10 @@ func NewSchedData(sjson *simplejson.Json, count int64, byTest bool) (*SchedData,
 		if backHost, err := backupHostID.String(); err == nil {
 			data.BackupHostID = backHost
 		}
+	}
+
+	if resourceType, ok := sjson.CheckGet("resource_type"); ok {
+		data.ResourceType = resourceType.MustString()
 	}
 
 	data.Candidates = candidates
@@ -263,7 +269,8 @@ func (s *SchedData) reviseSchedType(sjson *simplejson.Json) error {
 }
 
 func (d *SchedData) SkipDirtyMarkHost() bool {
-	skipByHypervisor := d.IsPublicCloudProvider() || d.IsContainer || d.Hypervisor == SchedTypeContainer
+	isSharePublicCloudProvider := d.IsPublicCloudProvider() && (d.ResourceType == "" || d.ResourceType == models.HostResourceTypeShared)
+	skipByHypervisor := isSharePublicCloudProvider || d.IsContainer || d.Hypervisor == SchedTypeContainer
 	skipByBackup := d.Backup
 	return skipByHypervisor || skipByBackup
 }

@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/pkg/util/osprofile"
 )
 
@@ -855,5 +856,9 @@ func (self *SRegion) AttachDisk(instanceId string, diskId string, deviceName str
 }
 
 func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (self *SInstance) Renew(bc billing.SBillingCycle) error {
 	return cloudprovider.ErrNotSupported
 }

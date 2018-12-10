@@ -24,6 +24,7 @@ const (
 	ErrNoMoreSpaceForUnspecificSplit   = `no more space for an unspecific split`
 	ErrSubtotalOfSplitExceedsDiskSize  = `subtotal of split exceeds disk size`
 	ErrBaremetalHasAlreadyBeenOccupied = `baremetal has already been occupied`
+	ErrPrepaidHostOccupied             = `prepaid host occupied`
 
 	ErrUnknown = `unknown error`
 )
