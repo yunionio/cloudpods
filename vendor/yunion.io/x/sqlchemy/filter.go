@@ -107,6 +107,11 @@ func (q *SQuery) IsEmpty(f string) *SQuery {
 	return q.Filter(cond)
 }
 
+func (q *SQuery) IsNullOrEmpty(f string) *SQuery {
+	cond := IsNullOrEmpty(q.Field(f))
+	return q.Filter(cond)
+}
+
 func (q *SQuery) IsNotEmpty(f string) *SQuery {
 	cond := IsNotEmpty(q.Field(f))
 	return q.Filter(cond)
