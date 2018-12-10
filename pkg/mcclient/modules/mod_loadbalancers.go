@@ -22,6 +22,7 @@ func init() {
 				"network_type",
 				"network_id",
 				"zone_id",
+				"cloudregion_id",
 			},
 			[]string{"tenant"},
 		),

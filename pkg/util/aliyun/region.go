@@ -87,6 +87,14 @@ func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonu
 	return _jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params)
 }
 
+func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	client, err := self.getSdkClient()
+	if err != nil {
+		return nil, err
+	}
+	return _jsonRequest(client, "slb.aliyuncs.com", ALIYUN_API_VERSION_LB, apiName, params)
+}
+
 /////////////////////////////////////////////////////////////////////////////
 func (self *SRegion) GetId() string {
 	return self.RegionId
@@ -684,4 +692,43 @@ func (region *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name s
 		secgroupId = extID
 	}
 	return secgroupId, region.syncSecgroupRules(secgroupId, rules)
+}
+
+func (region *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
+	lbs, err := region.GetLoadbalancers(nil)
+	if err != nil {
+		return nil, err
+	}
+	ilbs := []cloudprovider.ICloudLoadbalancer{}
+	for i := 0; i < len(lbs); i++ {
+		lbs[i].region = region
+		ilbs = append(ilbs, &lbs[i])
+	}
+	return ilbs, nil
+}
+
+func (region *SRegion) GetILoadbalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
+	acls, err := region.GetLoadbalancerAcls()
+	if err != nil {
+		return nil, err
+	}
+	iAcls := []cloudprovider.ICloudLoadbalancerAcl{}
+	for i := 0; i < len(acls); i++ {
+		acls[i].region = region
+		iAcls = append(iAcls, &acls[i])
+	}
+	return iAcls, nil
+}
+
+func (region *SRegion) GetILoadbalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
+	certificates, err := region.GetLoadbalancerServerCertificates()
+	if err != nil {
+		return nil, err
+	}
+	iCertificates := []cloudprovider.ICloudLoadbalancerCertificate{}
+	for i := 0; i < len(certificates); i++ {
+		certificates[i].region = region
+		iCertificates = append(iCertificates, &certificates[i])
+	}
+	return iCertificates, nil
 }

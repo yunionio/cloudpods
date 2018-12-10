@@ -59,6 +59,10 @@ type ICloudRegion interface {
 	GetIStorages() ([]ICloudStorage, error)
 	GetIStorageById(id string) (ICloudStorage, error)
 
+	GetILoadBalancers() ([]ICloudLoadbalancer, error)
+	GetILoadbalancerAcls() ([]ICloudLoadbalancerAcl, error)
+	GetILoadbalancerCertificates() ([]ICloudLoadbalancerCertificate, error)
+
 	GetProvider() string
 }
 
@@ -369,4 +373,55 @@ type ICloudHostNetInterface interface {
 	GetIpAddr() string
 	GetMtu() int16
 	GetNicType() string
+}
+
+type ICloudLoadbalancer interface {
+	ICloudResource
+
+	GetAddress() string
+	GetAddressType() string
+	GetNetworkType() string
+	GetNetworkId() string
+	GetVpcId() string
+	GetZoneId() string
+
+	GetILoadbalancerListeners() ([]ICloudLoadbalancerListener, error)
+	GetILoadbalancerBackendgroups() ([]ICloudLoadbalancerBackendgroup, error)
+}
+
+type ICloudLoadbalancerListener interface {
+	ICloudResource
+
+	GetILoadbalancerListenerRules() ([]ICloudLoadbalancerListenerRule, error)
+}
+
+type ICloudLoadbalancerListenerRule interface {
+	ICloudResource
+}
+
+type ICloudLoadbalancerBackendgroup interface {
+	ICloudResource
+
+	GetILoadbalancerBackends() ([]ICloudLoadbalancerBackend, error)
+}
+
+type ICloudLoadbalancerBackend interface {
+	ICloudResource
+
+	GetWeight() int
+	GetAddress() string
+	GetPort() int
+	GetBackendType() string
+	GetBackendId() string
+}
+
+type ICloudLoadbalancerCertificate interface {
+	ICloudResource
+	//GetCertKeyPair(userCred mcclient.TokenCredential) (string, string, error)
+}
+
+type ICloudLoadbalancerAcl interface {
+	ICloudResource
+
+	GetAclEntries() *jsonutils.JSONArray
 }

@@ -5,10 +5,12 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -181,4 +183,113 @@ func (lbb *SLoadbalancerBackend) PreDelete(ctx context.Context, userCred mcclien
 
 func (lbb *SLoadbalancerBackend) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
+}
+
+func (man *SLoadbalancerBackendManager) getLoadbalancerBackendsByLoadbalancerBackendgroup(lbbg *SLoadbalancerBackendGroup) ([]SLoadbalancerBackend, error) {
+	lbbs := []SLoadbalancerBackend{}
+	q := man.Query().Equals("backend_group_id", lbbg.Id)
+	if err := db.FetchModelObjects(man, q, &lbbg); err != nil {
+		return nil, err
+	}
+	return lbbs, nil
+}
+
+func (man *SLoadbalancerBackendManager) SyncLoadbalancerBackends(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, lbbg *SLoadbalancerBackendGroup, lbbs []cloudprovider.ICloudLoadbalancerBackend, syncRange *SSyncRange) compare.SyncResult {
+	syncResult := compare.SyncResult{}
+
+	dbLbbs, err := man.getLoadbalancerBackendsByLoadbalancerBackendgroup(lbbg)
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+
+	removed := []SLoadbalancerBackend{}
+	commondb := []SLoadbalancerBackend{}
+	commonext := []cloudprovider.ICloudLoadbalancerBackend{}
+	added := []cloudprovider.ICloudLoadbalancerBackend{}
+
+	err = compare.CompareSets(dbLbbs, lbbs, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+
+	for i := 0; i < len(removed); i++ {
+		err = removed[i].ValidateDeleteCondition(ctx)
+		if err != nil { // cannot delete
+			err = removed[i].SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
+			if err != nil {
+				syncResult.DeleteError(err)
+			} else {
+				syncResult.Delete()
+			}
+		} else {
+			err = removed[i].Delete(ctx, userCred)
+			if err != nil {
+				syncResult.DeleteError(err)
+			} else {
+				syncResult.Delete()
+			}
+		}
+	}
+	for i := 0; i < len(commondb); i++ {
+		err = commondb[i].SyncWithCloudLoadbalancerBackend(ctx, userCred, commonext[i], provider.ProjectId, syncRange.ProjectSync)
+		if err != nil {
+			syncResult.UpdateError(err)
+		} else {
+			syncResult.Update()
+		}
+	}
+	for i := 0; i < len(added); i++ {
+		_, err := man.newFromCloudLoadbalancerBackend(ctx, userCred, lbbg, added[i], provider.ProjectId)
+		if err != nil {
+			syncResult.AddError(err)
+		} else {
+			syncResult.Add()
+		}
+	}
+	return syncResult
+}
+
+func (lbb *SLoadbalancerBackend) SyncWithCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, extLbb cloudprovider.ICloudLoadbalancerBackend, projectId string, projectSync bool) error {
+	_, err := LoadbalancerBackendManager.TableSpec().Update(lbb, func() error {
+		lbb.Name = extLbb.GetName()
+		lbb.Status = extLbb.GetStatus()
+
+		lbb.Weight = extLbb.GetWeight()
+		lbb.Address = extLbb.GetAddress()
+		lbb.Port = extLbb.GetPort()
+
+		lbb.BackendType = extLbb.GetBackendType()
+		lbb.BackendId = extLbb.GetBackendId()
+
+		if projectSync && len(projectId) > 0 {
+			lbb.ProjectId = projectId
+		}
+
+		return nil
+	})
+	return err
+}
+
+func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbbg *SLoadbalancerBackendGroup, extLbb cloudprovider.ICloudLoadbalancerBackend, projectId string) (*SLoadbalancerBackend, error) {
+	lbb := SLoadbalancerBackend{}
+	lbb.SetModelManager(man)
+
+	lbb.BackendGroupId = lbbg.Id
+	lbb.Name = extLbb.GetName()
+	lbb.ExternalId = extLbb.GetGlobalId()
+	lbb.Status = extLbb.GetStatus()
+
+	lbb.Weight = extLbb.GetWeight()
+	lbb.Address = extLbb.GetAddress()
+	lbb.Port = extLbb.GetPort()
+	lbb.BackendType = extLbb.GetBackendType()
+	lbb.BackendId = extLbb.GetBackendId()
+
+	lbb.ProjectId = userCred.GetProjectId()
+	if len(projectId) > 0 {
+		lbb.ProjectId = projectId
+	}
+	return &lbb, man.TableSpec().Insert(&lbb)
 }

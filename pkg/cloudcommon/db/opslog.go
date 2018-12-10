@@ -121,6 +121,10 @@ const (
 	ACT_SYNCING_HOST       = "syncing_host"
 	ACT_SYNC_HOST_COMPLETE = "sync_host_end"
 
+	ACT_SYNC_LB_START    = "sync_lb_start"
+	ACT_SYNCING_LB       = "syncing_lb"
+	ACT_SYNC_LB_COMPLETE = "sync_lb_end"
+
 	ACT_CACHING_IMAGE      = "caching_image"
 	ACT_CACHE_IMAGE_FAIL   = "cache_image_fail"
 	ACT_CACHED_IMAGE       = "cached_image"

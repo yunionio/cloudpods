@@ -450,3 +450,15 @@ func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, me
 	}
 	return nil, fmt.Errorf("cannot find vswitch %s", networkId)
 }
+
+func (region *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetILoadbalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetILoadbalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}

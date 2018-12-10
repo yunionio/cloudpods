@@ -6,11 +6,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -33,6 +35,7 @@ func init() {
 
 type SLoadbalancerBackendGroup struct {
 	db.SVirtualResourceBase
+	SManagedResourceBase
 
 	LoadbalancerId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 }
@@ -137,4 +140,104 @@ func (lbbg *SLoadbalancerBackendGroup) PreDeleteSubs(ctx context.Context, userCr
 
 func (lbbg *SLoadbalancerBackendGroup) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
+}
+
+func (man *SLoadbalancerBackendGroupManager) getLoadbalancerBackendgroupsByLoadbalancer(lb *SLoadbalancer) ([]SLoadbalancerBackendGroup, error) {
+	lbbgs := []SLoadbalancerBackendGroup{}
+	q := man.Query().Equals("loadbalancer_id", lb.Id)
+	if err := db.FetchModelObjects(man, q, &lbbgs); err != nil {
+		log.Errorf("failed to get lbbgs for lb: %v error: %v", lb, err)
+		return nil, err
+	}
+	return lbbgs, nil
+}
+
+func (man *SLoadbalancerBackendGroupManager) SyncLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, lb *SLoadbalancer, lbbgs []cloudprovider.ICloudLoadbalancerBackendgroup, syncRange *SSyncRange) ([]SLoadbalancerBackendGroup, []cloudprovider.ICloudLoadbalancerBackendgroup, compare.SyncResult) {
+	localLbgs := []SLoadbalancerBackendGroup{}
+	remoteLbbgs := []cloudprovider.ICloudLoadbalancerBackendgroup{}
+	syncResult := compare.SyncResult{}
+
+	dbLbbgs, err := man.getLoadbalancerBackendgroupsByLoadbalancer(lb)
+	if err != nil {
+		syncResult.Error(err)
+		return nil, nil, syncResult
+	}
+
+	removed := []SLoadbalancerBackendGroup{}
+	commondb := []SLoadbalancerBackendGroup{}
+	commonext := []cloudprovider.ICloudLoadbalancerBackendgroup{}
+	added := []cloudprovider.ICloudLoadbalancerBackendgroup{}
+
+	err = compare.CompareSets(dbLbbgs, lbbgs, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		syncResult.Error(err)
+		return nil, nil, syncResult
+	}
+
+	for i := 0; i < len(removed); i++ {
+		err = removed[i].ValidateDeleteCondition(ctx)
+		if err != nil { // cannot delete
+			err = removed[i].SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
+			if err != nil {
+				syncResult.DeleteError(err)
+			} else {
+				syncResult.Delete()
+			}
+		} else {
+			err = removed[i].Delete(ctx, userCred)
+			if err != nil {
+				syncResult.DeleteError(err)
+			} else {
+				syncResult.Delete()
+			}
+		}
+	}
+	for i := 0; i < len(commondb); i++ {
+		err = commondb[i].SyncWithCloudLoadbalancerBackendgroup(ctx, userCred, commonext[i], provider.ProjectId, syncRange.ProjectSync)
+		if err != nil {
+			syncResult.UpdateError(err)
+		} else {
+			localLbgs = append(localLbgs, commondb[i])
+			remoteLbbgs = append(remoteLbbgs, commonext[i])
+			syncResult.Update()
+		}
+	}
+	for i := 0; i < len(added); i++ {
+		new, err := man.newFromCloudLoadbalancerBackendgroup(ctx, userCred, lb, added[i], provider.ProjectId)
+		if err != nil {
+			syncResult.AddError(err)
+		} else {
+			localLbgs = append(localLbgs, *new)
+			remoteLbbgs = append(remoteLbbgs, added[i])
+			syncResult.Add()
+		}
+	}
+	return localLbgs, remoteLbbgs, syncResult
+}
+
+func (lbbg *SLoadbalancerBackendGroup) SyncWithCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, extLbbg cloudprovider.ICloudLoadbalancerBackendgroup, projectId string, projectSync bool) error {
+	_, err := LoadbalancerBackendGroupManager.TableSpec().Update(lbbg, func() error {
+		lbbg.Name = extLbbg.GetName()
+
+		if projectSync && len(projectId) > 0 {
+			lbbg.ProjectId = projectId
+		}
+
+		return nil
+	})
+	return err
+}
+
+func (man *SLoadbalancerBackendGroupManager) newFromCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLbbg cloudprovider.ICloudLoadbalancerBackendgroup, projectId string) (*SLoadbalancerBackendGroup, error) {
+	lbbg := SLoadbalancerBackendGroup{}
+	lbbg.SetModelManager(man)
+
+	lbbg.LoadbalancerId = lb.Id
+	lbbg.Name = extLbbg.GetName()
+	lbbg.ExternalId = extLbbg.GetGlobalId()
+	lbbg.ProjectId = userCred.GetProjectId()
+	if len(projectId) > 0 {
+		lbbg.ProjectId = projectId
+	}
+	return &lbbg, man.TableSpec().Insert(&lbbg)
 }

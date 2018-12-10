@@ -9,11 +9,14 @@ import (
 	"unicode"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -98,8 +101,10 @@ func init() {
 
 type SLoadbalancerAcl struct {
 	db.SSharableVirtualResourceBase
+	SManagedResourceBase
 
-	AclEntries *SLoadbalancerAclEntries `list:"user" update:"user" create:"required"`
+	CloudregionId string                   `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required"`
+	AclEntries    *SLoadbalancerAclEntries `list:"user" update:"user" create:"required"`
 }
 
 func loadbalancerAclsValidateAclEntries(data *jsonutils.JSONDict, update bool) (*jsonutils.JSONDict, error) {
@@ -215,4 +220,107 @@ func (lbacl *SLoadbalancerAcl) PreDelete(ctx context.Context, userCred mcclient.
 
 func (lbacl *SLoadbalancerAcl) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
+}
+
+func (man *SLoadbalancerAclManager) getLoadbalancerAclsByRegion(region *SCloudregion, provider *SCloudprovider) ([]SLoadbalancerAcl, error) {
+	acls := []SLoadbalancerAcl{}
+	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id)
+	if err := db.FetchModelObjects(man, q, &acls); err != nil {
+		log.Errorf("failed to get acls for region: %v provider: %v error: %v", region, provider, err)
+		return nil, err
+	}
+	return acls, nil
+}
+
+func (man *SLoadbalancerAclManager) SyncLoadbalancerAcls(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, acls []cloudprovider.ICloudLoadbalancerAcl, syncRange *SSyncRange) compare.SyncResult {
+	syncResult := compare.SyncResult{}
+
+	dbAcls, err := man.getLoadbalancerAclsByRegion(region, provider)
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+
+	removed := []SLoadbalancerAcl{}
+	commondb := []SLoadbalancerAcl{}
+	commonext := []cloudprovider.ICloudLoadbalancerAcl{}
+	added := []cloudprovider.ICloudLoadbalancerAcl{}
+
+	err = compare.CompareSets(dbAcls, acls, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+
+	for i := 0; i < len(removed); i++ {
+		err = removed[i].ValidateDeleteCondition(ctx)
+		if err != nil { // cannot delete
+			err = removed[i].SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
+			if err != nil {
+				syncResult.DeleteError(err)
+			} else {
+				syncResult.Delete()
+			}
+		} else {
+			err = removed[i].Delete(ctx, userCred)
+			if err != nil {
+				syncResult.DeleteError(err)
+			} else {
+				syncResult.Delete()
+			}
+		}
+	}
+	for i := 0; i < len(commondb); i++ {
+		err = commondb[i].SyncWithCloudLoadbalancerAcl(ctx, userCred, commonext[i], provider.ProjectId, syncRange.ProjectSync)
+		if err != nil {
+			syncResult.UpdateError(err)
+		} else {
+			syncResult.Update()
+		}
+	}
+	for i := 0; i < len(added); i++ {
+		_, err := man.newFromCloudLoadbalancerAcl(ctx, userCred, provider, added[i], region)
+		if err != nil {
+			syncResult.AddError(err)
+		} else {
+			syncResult.Add()
+		}
+	}
+	return syncResult
+}
+
+func (man *SLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extAcl cloudprovider.ICloudLoadbalancerAcl, region *SCloudregion) (*SLoadbalancerAcl, error) {
+	acl := SLoadbalancerAcl{}
+	acl.SetModelManager(man)
+
+	acl.ExternalId = extAcl.GetGlobalId()
+	acl.Name = extAcl.GetName()
+	acl.ManagerId = provider.Id
+	acl.CloudregionId = region.Id
+
+	acl.ProjectId = userCred.GetProjectId()
+	if len(provider.ProjectId) > 0 {
+		acl.ProjectId = provider.ProjectId
+	}
+
+	aclEntries := extAcl.GetAclEntries()
+	acl.AclEntries = &SLoadbalancerAclEntries{}
+	if err := aclEntries.Unmarshal(acl.AclEntries); err != nil {
+		return nil, err
+	}
+	return &acl, man.TableSpec().Insert(&acl)
+}
+
+func (acl *SLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, extAcl cloudprovider.ICloudLoadbalancerAcl, projectId string, projectSync bool) error {
+	_, err := LoadbalancerManager.TableSpec().Update(acl, func() error {
+		acl.Name = extAcl.GetName()
+		aclEntries := extAcl.GetAclEntries()
+
+		if projectSync && len(projectId) > 0 {
+			acl.ProjectId = projectId
+		}
+
+		return aclEntries.Unmarshal(acl.AclEntries)
+	})
+	return err
 }

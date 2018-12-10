@@ -12,10 +12,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -43,6 +45,7 @@ func init() {
 //  - ca info: self-signed, public ca
 type SLoadbalancerCertificate struct {
 	db.SVirtualResourceBase
+	SManagedResourceBase
 
 	Certificate string `create:"required" list:"user" update:"user"`
 	PrivateKey  string `create:"required" list:"admin" update:"user"`
@@ -56,6 +59,8 @@ type SLoadbalancerCertificate struct {
 	NotAfter                time.Time `create:"optional" list:"user" update:"user"`
 	CommonName              string    `create:"optional" list:"user" update:"user"`
 	SubjectAlternativeNames string    `create:"optional" list:"user" update:"user"`
+
+	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required"`
 }
 
 func (man *SLoadbalancerCertificateManager) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
@@ -204,4 +209,96 @@ func (lbcert *SLoadbalancerCertificate) PreDelete(ctx context.Context, userCred 
 
 func (lbcert *SLoadbalancerCertificate) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
+}
+
+func (man *SLoadbalancerCertificateManager) getLoadbalancerCertificatesByRegion(region *SCloudregion, provider *SCloudprovider) ([]SLoadbalancerCertificate, error) {
+	certificates := []SLoadbalancerCertificate{}
+	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id)
+	if err := db.FetchModelObjects(man, q, &certificates); err != nil {
+		log.Errorf("failed to get acls for region: %v provider: %v error: %v", region, provider, err)
+		return nil, err
+	}
+	return certificates, nil
+}
+
+func (man *SLoadbalancerCertificateManager) SyncLoadbalancerCertificates(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, certificates []cloudprovider.ICloudLoadbalancerCertificate, syncRange *SSyncRange) compare.SyncResult {
+	syncResult := compare.SyncResult{}
+
+	dbCertificates, err := man.getLoadbalancerCertificatesByRegion(region, provider)
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+
+	removed := []SLoadbalancerCertificate{}
+	commondb := []SLoadbalancerCertificate{}
+	commonext := []cloudprovider.ICloudLoadbalancerCertificate{}
+	added := []cloudprovider.ICloudLoadbalancerCertificate{}
+
+	err = compare.CompareSets(dbCertificates, certificates, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+
+	for i := 0; i < len(removed); i++ {
+		err = removed[i].ValidateDeleteCondition(ctx)
+		if err != nil { // cannot delete
+			err = removed[i].SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
+			if err != nil {
+				syncResult.DeleteError(err)
+			} else {
+				syncResult.Delete()
+			}
+		} else {
+			err = removed[i].Delete(ctx, userCred)
+			if err != nil {
+				syncResult.DeleteError(err)
+			} else {
+				syncResult.Delete()
+			}
+		}
+	}
+	for i := 0; i < len(commondb); i++ {
+		err = commondb[i].SyncWithCloudLoadbalancerCertificate(ctx, userCred, commonext[i], provider.ProjectId, syncRange.ProjectSync)
+		if err != nil {
+			syncResult.UpdateError(err)
+		} else {
+			syncResult.Update()
+		}
+	}
+	for i := 0; i < len(added); i++ {
+		_, err := man.newFromCloudLoadbalancerCertificate(ctx, userCred, provider, added[i], region)
+		if err != nil {
+			syncResult.AddError(err)
+		} else {
+			syncResult.Add()
+		}
+	}
+	return syncResult
+}
+
+func (man *SLoadbalancerCertificateManager) newFromCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extCertificate cloudprovider.ICloudLoadbalancerCertificate, region *SCloudregion) (*SLoadbalancerCertificate, error) {
+	lbcert := SLoadbalancerCertificate{}
+	lbcert.SetModelManager(man)
+
+	lbcert.Name = extCertificate.GetName()
+	lbcert.ExternalId = extCertificate.GetGlobalId()
+	lbcert.ManagerId = provider.Id
+	lbcert.CloudregionId = region.Id
+
+	return &lbcert, man.TableSpec().Insert(&lbcert)
+}
+
+func (lbcert *SLoadbalancerCertificate) SyncWithCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, extCertificate cloudprovider.ICloudLoadbalancerCertificate, projectId string, projectSync bool) error {
+	_, err := LoadbalancerCertificateManager.TableSpec().Update(lbcert, func() error {
+		lbcert.Name = extCertificate.GetName()
+
+		if projectSync && len(projectId) > 0 {
+			lbcert.ProjectId = projectId
+		}
+
+		return nil
+	})
+	return err
 }

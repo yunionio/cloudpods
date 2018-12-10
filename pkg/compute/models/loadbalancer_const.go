@@ -27,6 +27,7 @@ const (
 	LB_STATUS_DISABLED = "disabled"
 
 	LB_STATUS_INIT           = "init"
+	LB_STATUS_UNKNOWN        = "unknown"
 	LB_STATUS_RUNNING        = "running"
 	LB_STATUS_STOPPED        = "stopped"
 	LB_STATUS_CONFIGURING    = "configuring" // config changes pending

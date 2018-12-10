@@ -6,12 +6,14 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -45,12 +47,15 @@ func init() {
 // TODO update backendgroupid
 type SLoadbalancer struct {
 	db.SVirtualResourceBase
+	SManagedResourceBase
 
-	Address     string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	AddressType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	NetworkType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	NetworkId   string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	ZoneId      string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	Address       string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	AddressType   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	NetworkType   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	NetworkId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	VpcId         string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	ZoneId        string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required"`
 
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" update:"user" update:"user"`
 }
@@ -227,5 +232,165 @@ func (lb *SLoadbalancer) PreDeleteSubs(ctx context.Context, userCred mcclient.To
 }
 
 func (lb *SLoadbalancer) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return nil
+}
+
+func (man *SLoadbalancerManager) getLoadbalancersByRegion(region *SCloudregion, provider *SCloudprovider) ([]SLoadbalancer, error) {
+	lbs := []SLoadbalancer{}
+	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id)
+	if err := db.FetchModelObjects(man, q, &lbs); err != nil {
+		log.Errorf("failed to get lbs for region: %v provider: %v error: %v", region, provider, err)
+		return nil, err
+	}
+	return lbs, nil
+}
+
+func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, lbs []cloudprovider.ICloudLoadbalancer, syncRange *SSyncRange) ([]SLoadbalancer, []cloudprovider.ICloudLoadbalancer, compare.SyncResult) {
+	localLbs := []SLoadbalancer{}
+	remoteLbs := []cloudprovider.ICloudLoadbalancer{}
+	syncResult := compare.SyncResult{}
+
+	dbLbs, err := man.getLoadbalancersByRegion(region, provider)
+	if err != nil {
+		syncResult.Error(err)
+		return nil, nil, syncResult
+	}
+
+	removed := []SLoadbalancer{}
+	commondb := []SLoadbalancer{}
+	commonext := []cloudprovider.ICloudLoadbalancer{}
+	added := []cloudprovider.ICloudLoadbalancer{}
+
+	err = compare.CompareSets(dbLbs, lbs, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		syncResult.Error(err)
+		return nil, nil, syncResult
+	}
+
+	for i := 0; i < len(removed); i++ {
+		err = removed[i].ValidateDeleteCondition(ctx)
+		if err != nil { // cannot delete
+			err = removed[i].SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
+			if err != nil {
+				syncResult.DeleteError(err)
+			} else {
+				syncResult.Delete()
+			}
+		} else {
+			err = removed[i].Delete(ctx, userCred)
+			if err != nil {
+				syncResult.DeleteError(err)
+			} else {
+				syncResult.Delete()
+			}
+		}
+	}
+	for i := 0; i < len(commondb); i++ {
+		err = commondb[i].SyncWithCloudLoadbalancer(ctx, userCred, commonext[i], provider.ProjectId, syncRange.ProjectSync)
+		if err != nil {
+			syncResult.UpdateError(err)
+		} else {
+			localLbs = append(localLbs, commondb[i])
+			remoteLbs = append(remoteLbs, commonext[i])
+			syncResult.Update()
+		}
+	}
+	for i := 0; i < len(added); i++ {
+		new, err := man.newFromCloudLoadbalancer(ctx, userCred, provider, added[i], region)
+		if err != nil {
+			syncResult.AddError(err)
+		} else {
+			localLbs = append(localLbs, *new)
+			remoteLbs = append(remoteLbs, added[i])
+			syncResult.Add()
+		}
+	}
+	return localLbs, remoteLbs, syncResult
+}
+
+func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extLb cloudprovider.ICloudLoadbalancer, region *SCloudregion) (*SLoadbalancer, error) {
+	lb := SLoadbalancer{}
+	lb.SetModelManager(man)
+
+	lb.ManagerId = provider.Id
+	lb.CloudregionId = region.Id
+	lb.Address = extLb.GetAddress()
+	lb.AddressType = extLb.GetAddressType()
+	lb.NetworkType = extLb.GetNetworkType()
+	lb.Name = extLb.GetName()
+	lb.Status = extLb.GetStatus()
+	lb.ExternalId = extLb.GetGlobalId()
+	if networkId := extLb.GetNetworkId(); len(networkId) > 0 {
+		if network, err := NetworkManager.FetchByExternalId(networkId); err == nil && network != nil {
+			lb.NetworkId = network.GetId()
+		}
+	}
+	if vpcId := extLb.GetVpcId(); len(vpcId) > 0 {
+		if vpc, err := VpcManager.FetchByExternalId(vpcId); err == nil && vpc != nil {
+			lb.VpcId = vpc.GetId()
+		}
+	}
+	if zoneId := extLb.GetZoneId(); len(zoneId) > 0 {
+		if zone, err := ZoneManager.FetchByExternalId(zoneId); err == nil && zone != nil {
+			lb.ZoneId = zone.GetId()
+		}
+	}
+
+	lb.ProjectId = userCred.GetProjectId()
+	if len(provider.ProjectId) > 0 {
+		lb.ProjectId = provider.ProjectId
+	}
+
+	if err := man.TableSpec().Insert(&lb); err != nil {
+		log.Errorf("newFromCloudRegion fail %s", err)
+		return nil, err
+	}
+	return &lb, nil
+}
+
+func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, extLb cloudprovider.ICloudLoadbalancer, projectId string, projectSync bool) error {
+	_, err := LoadbalancerManager.TableSpec().Update(lb, func() error {
+		lb.Address = extLb.GetAddress()
+		lb.Status = extLb.GetStatus()
+		lb.Name = extLb.GetName()
+
+		if projectSync && len(projectId) > 0 {
+			lb.ProjectId = projectId
+		}
+
+		return nil
+	})
+	return err
+}
+
+func (lb *SLoadbalancer) setCloudregionId() error {
+	zone := ZoneManager.FetchZoneById(lb.ZoneId)
+	if zone == nil {
+		return fmt.Errorf("failed to find zone %s", lb.ZoneId)
+	}
+	region := zone.GetRegion()
+	if region == nil {
+		return fmt.Errorf("failed to find region for zone: %s", lb.ZoneId)
+	}
+	_, err := lb.GetModelManager().TableSpec().Update(lb, func() error {
+		lb.CloudregionId = region.Id
+		return nil
+	})
+	return err
+}
+
+func (man *SLoadbalancerManager) InitializeData() error {
+	lbs := []SLoadbalancer{}
+	q := LoadbalancerManager.Query()
+	q = q.Filter(sqlchemy.OR(sqlchemy.IsEmpty(q.Field("cloudregion_id")), sqlchemy.IsNull(q.Field("cloudregion_id"))))
+	if err := db.FetchModelObjects(LoadbalancerManager, q, &lbs); err != nil {
+		log.Errorf("fetch all lbs fail %v", err)
+		return err
+	}
+	for i := 0; i < len(lbs); i++ {
+		if err := lbs[i].setCloudregionId(); err != nil {
+			log.Errorf("fill cloud region info failed error: %v", err)
+		}
+	}
 	return nil
 }

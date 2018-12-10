@@ -7,11 +7,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -410,4 +412,95 @@ func (lblis *SLoadbalancerListener) PreDeleteSubs(ctx context.Context, userCred 
 
 func (lblis *SLoadbalancerListener) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
+}
+
+func (man *SLoadbalancerListenerManager) getLoadbalancerListenersByLoadbalancer(lb *SLoadbalancer) ([]SLoadbalancerListener, error) {
+	listeners := []SLoadbalancerListener{}
+	q := man.Query().Equals("loadbalancer_id", lb.Id)
+	if err := db.FetchModelObjects(man, q, &listeners); err != nil {
+		return nil, err
+	}
+	return listeners, nil
+}
+
+func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, lb *SLoadbalancer, listeners []cloudprovider.ICloudLoadbalancerListener, syncRange *SSyncRange) ([]SLoadbalancerListener, []cloudprovider.ICloudLoadbalancerListener, compare.SyncResult) {
+	localListeners := []SLoadbalancerListener{}
+	remoteListeners := []cloudprovider.ICloudLoadbalancerListener{}
+	syncResult := compare.SyncResult{}
+
+	dbListeners, err := man.getLoadbalancerListenersByLoadbalancer(lb)
+	if err != nil {
+		syncResult.Error(err)
+		return nil, nil, syncResult
+	}
+
+	removed := []SLoadbalancerListener{}
+	commondb := []SLoadbalancerListener{}
+	commonext := []cloudprovider.ICloudLoadbalancerListener{}
+	added := []cloudprovider.ICloudLoadbalancerListener{}
+
+	err = compare.CompareSets(dbListeners, listeners, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		syncResult.Error(err)
+		return nil, nil, syncResult
+	}
+
+	for i := 0; i < len(removed); i++ {
+		err = removed[i].ValidateDeleteCondition(ctx)
+		if err != nil { // cannot delete
+			err = removed[i].SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
+			if err != nil {
+				syncResult.DeleteError(err)
+			} else {
+				syncResult.Delete()
+			}
+		} else {
+			err = removed[i].Delete(ctx, userCred)
+			if err != nil {
+				syncResult.DeleteError(err)
+			} else {
+				syncResult.Delete()
+			}
+		}
+	}
+	for i := 0; i < len(commondb); i++ {
+		err = commondb[i].SyncWithCloudLoadbalancerListener(ctx, userCred, commonext[i], provider.ProjectId, syncRange.ProjectSync)
+		if err != nil {
+			syncResult.UpdateError(err)
+		} else {
+			localListeners = append(localListeners, commondb[i])
+			remoteListeners = append(remoteListeners, commonext[i])
+			syncResult.Update()
+		}
+	}
+	for i := 0; i < len(added); i++ {
+		new, err := man.newFromCloudLoadbalancerListener(ctx, userCred, lb, added[i], provider.ProjectId)
+		if err != nil {
+			syncResult.AddError(err)
+		} else {
+			localListeners = append(localListeners, *new)
+			remoteListeners = append(remoteListeners, added[i])
+			syncResult.Add()
+		}
+	}
+	return localListeners, remoteListeners, syncResult
+}
+
+func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, extListener cloudprovider.ICloudLoadbalancerListener, projectId string, projectSync bool) error {
+	_, err := LoadbalancerBackendManager.TableSpec().Update(lblis, func() error {
+		lblis.Name = extListener.GetName()
+		return nil
+	})
+	return err
+}
+
+func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, projectId string) (*SLoadbalancerListener, error) {
+	lblis := SLoadbalancerListener{}
+	lblis.SetModelManager(man)
+
+	lblis.ProjectId = userCred.GetProjectId()
+	if len(projectId) > 0 {
+		lblis.ProjectId = projectId
+	}
+	return &lblis, man.TableSpec().Insert(&lblis)
 }
