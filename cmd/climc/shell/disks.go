@@ -11,40 +11,21 @@ import (
 func init() {
 	type DiskListOptions struct {
 		options.BaseListOptions
-		Unused   bool   `help:"Show unused disks"`
-		Share    bool   `help:"Show Share storage disks"`
-		Local    bool   `help:"Show Local storage disks"`
-		Guest    string `help:"Guest ID or name"`
-		Storage  string `help:"Storage ID or name"`
+
+		Unused  *bool  `help:"Show unused disks"`
+		Share   *bool  `help:"Show Share storage disks"`
+		Local   *bool  `help:"Show Local storage disks"`
+		Guest   string `help:"Guest ID or name"`
+		Storage string `help:"Storage ID or name"`
+
 		Provider string `help:"Provider for disk" choices:"Aliyun|VMware|Azure"`
+
+		BillingType string `help:"billing type" choices:"postpaid|prepaid"`
 	}
 	R(&DiskListOptions{}, "disk-list", "List virtual disks", func(s *mcclient.ClientSession, suboptions *DiskListOptions) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = suboptions.BaseListOptions.Params()
-			if err != nil {
-				return err
-
-			}
-		}
-		if suboptions.Unused {
-			params.Add(jsonutils.JSONTrue, "unused")
-		}
-		if suboptions.Share {
-			params.Add(jsonutils.JSONTrue, "share")
-		}
-		if suboptions.Local {
-			params.Add(jsonutils.JSONTrue, "local")
-		}
-		if len(suboptions.Guest) > 0 {
-			params.Add(jsonutils.NewString(suboptions.Guest), "guest")
-		}
-		if len(suboptions.Storage) > 0 {
-			params.Add(jsonutils.NewString(suboptions.Storage), "storage")
-		}
-		if len(suboptions.Provider) > 0 {
-			params.Add(jsonutils.NewString(suboptions.Provider), "provider")
+		params, err := options.ListStructToParams(suboptions)
+		if err != nil {
+			return err
 		}
 		result, err := modules.Disks.List(s, params)
 		if err != nil {

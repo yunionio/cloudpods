@@ -224,6 +224,10 @@ func (h *HostDesc) Type() int {
 	return 0
 }
 
+func (h *HostDesc) GetGuestCount() int64 {
+	return h.GuestCount
+}
+
 func (h *HostDesc) Get(key string) interface{} {
 	switch key {
 	case "ID":
@@ -953,7 +957,7 @@ func (b *HostBuilder) build() ([]interface{}, error) {
 	if len(errs) > 0 {
 		//return nil, errors.NewAggregate(errs)
 		err := errors.NewAggregate(errs)
-		log.Warningf("Build schedule descs error: %s", err)
+		log.V(4).Warningf("Build schedule descs error: %s", err)
 	}
 
 	return schedDescs, nil

@@ -3,11 +3,13 @@ package models
 import (
 	"context"
 
+	"time"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type IGuestDriver interface {
@@ -16,6 +18,10 @@ type IGuestDriver interface {
 	GetMaxVCpuCount() int
 	GetMaxVMemSizeGB() int
 	GetMaxSecurityGroupCount() int
+
+	IsSupportedBillingCycle(bc billing.SBillingCycle) bool
+
+	RequestRenewInstance(guest *SGuest, bc billing.SBillingCycle) (time.Time, error)
 
 	GetJsonDescAtHost(ctx context.Context, guest *SGuest, host *SHost) jsonutils.JSONObject
 

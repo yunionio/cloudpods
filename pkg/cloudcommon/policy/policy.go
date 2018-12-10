@@ -97,6 +97,18 @@ var (
 			Result:   rbacutils.OwnerAllow,
 		},
 		{
+			Service:  "compute",
+			Resource: "serverskus",
+			Action:   PolicyActionList,
+			Result:   rbacutils.UserAllow,
+		},
+		{
+			Service:  "compute",
+			Resource: "serverskus",
+			Action:   PolicyActionGet,
+			Result:   rbacutils.UserAllow,
+		},
+		{
 			Service:  "yunionagent",
 			Resource: "notices",
 			Action:   PolicyActionList,

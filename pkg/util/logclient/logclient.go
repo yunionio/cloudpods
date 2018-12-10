@@ -57,6 +57,9 @@ const (
 	ACT_VM_UNBIND_KEYPAIR            = "解绑密钥"
 	ACT_VM_ASSIGNSECGROUP            = "关联安全组"
 	ACT_RESET_DISK                   = "回滚磁盘"
+
+	ACT_RECYCLE_PREPAID      = "池化预付费主机"
+	ACT_UNDO_RECYCLE_PREPAID = "取消池化预付费主机"
 )
 
 // golang 不支持 const 的string array, http://t.cn/EzAvbw8

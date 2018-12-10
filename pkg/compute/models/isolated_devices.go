@@ -385,20 +385,18 @@ func (manager *SIsolatedDeviceManager) ReleaseDevicesOfGuest(guest *SGuest, user
 }
 
 func (manager *SIsolatedDeviceManager) totalCountQ(
-	devType, hostTypes []string,
+	devType []string, hostTypes []string,
+	resourceTypes []string, providers []string,
 	rangeObj db.IStandaloneModel,
 ) *sqlchemy.SQuery {
 	hosts := HostManager.Query().SubQuery()
-	q := manager.Query().Join(hosts, sqlchemy.AND(
-		sqlchemy.IsFalse(hosts.Field("deleted")),
-		sqlchemy.IsTrue(hosts.Field("enabled")),
-	))
-	q = q.Filter(sqlchemy.Equals(hosts.Field("id"), q.Field("host_id")))
-	if len(devType) != 0 {
-		q.In("dev_type", devType)
-	}
 	devs := manager.Query().SubQuery()
-	return AttachUsageQuery(q, hosts, devs.Field("host_id"), hostTypes, rangeObj)
+	q := devs.Query().Join(hosts, sqlchemy.Equals(devs.Field("host_id"), hosts.Field("id")))
+	q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
+	if len(devType) != 0 {
+		q = q.Filter(sqlchemy.In(devs.Field("dev_type"), devType))
+	}
+	return AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, rangeObj)
 }
 
 type IsolatedDeviceCountStat struct {
@@ -406,14 +404,14 @@ type IsolatedDeviceCountStat struct {
 	Gpus    int
 }
 
-func (manager *SIsolatedDeviceManager) totalCount(devType, hostTypes []string, rangeObj db.IStandaloneModel) int {
-	return manager.totalCountQ(devType, hostTypes, rangeObj).Count()
+func (manager *SIsolatedDeviceManager) totalCount(devType, hostTypes []string, resourceTypes []string, providers []string, rangeObj db.IStandaloneModel) int {
+	return manager.totalCountQ(devType, hostTypes, resourceTypes, providers, rangeObj).Count()
 }
 
-func (manager *SIsolatedDeviceManager) TotalCount(hostType []string, rangeObj db.IStandaloneModel) IsolatedDeviceCountStat {
+func (manager *SIsolatedDeviceManager) TotalCount(hostType []string, resourceTypes []string, providers []string, rangeObj db.IStandaloneModel) IsolatedDeviceCountStat {
 	return IsolatedDeviceCountStat{
-		Devices: manager.totalCount(nil, hostType, rangeObj),
-		Gpus:    manager.totalCount(VALID_GPU_TYPES, hostType, rangeObj),
+		Devices: manager.totalCount(nil, hostType, resourceTypes, providers, rangeObj),
+		Gpus:    manager.totalCount(VALID_GPU_TYPES, hostType, resourceTypes, providers, rangeObj),
 	}
 }
 

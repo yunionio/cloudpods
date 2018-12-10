@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SDiskInfo struct {
@@ -84,6 +85,10 @@ func fetchIVMinfo(desc SManagedVMCreateConfig, iVM cloudprovider.ICloudVM, guest
 
 	data.Add(jsonutils.NewString(iVM.GetGlobalId()), "uuid")
 	data.Add(iVM.GetMetadata(), "metadata")
+
+	if iVM.GetBillingType() == models.BILLING_TYPE_PREPAID {
+		data.Add(jsonutils.NewTimeString(iVM.GetExpiredAt()), "expired_at")
+	}
 
 	return data
 }

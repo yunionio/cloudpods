@@ -159,12 +159,25 @@ func IsEmpty(f IQueryField) ICondition {
 	return &c
 }
 
+type SIsNullOrEmptyCondition struct {
+	SSingleCondition
+}
+
+func (c *SIsNullOrEmptyCondition) WhereClause() string {
+	return fmt.Sprintf("%s IS NULL OR LENGTH(%s) = 0", c.field.Reference(), c.field.Reference())
+}
+
+func IsNullOrEmpty(f IQueryField) ICondition {
+	c := SIsNullOrEmptyCondition{NewSingleCondition(f)}
+	return &c
+}
+
 type SIsNotEmptyCondition struct {
 	SSingleCondition
 }
 
 func (c *SIsNotEmptyCondition) WhereClause() string {
-	return fmt.Sprintf("LENGTH(%s) > 0", c.field.Reference())
+	return fmt.Sprintf("%s IS NOT NULL AND LENGTH(%s) > 0", c.field.Reference(), c.field.Reference())
 }
 
 func IsNotEmpty(f IQueryField) ICondition {

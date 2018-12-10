@@ -13,8 +13,9 @@ const (
 )
 
 type SBillingResourceBase struct {
-	BillingType string    `width:"36" charset:"ascii" nullable:"true" default:"postpaid" list:"user" create:"optional"`
-	ExpiredAt   time.Time `nullable:"true" list:"user" create:"optional"`
+	BillingType  string    `width:"36" charset:"ascii" nullable:"true" default:"postpaid" list:"user" create:"admin_optional"`
+	ExpiredAt    time.Time `nullable:"true" list:"user" create:"admin_optional"`
+	BillingCycle string    `width:"10" charset:"ascii" nullable:"true" list:"user" create:"admin_optional"`
 }
 
 func (self *SBillingResourceBase) GetChargeType() string {
@@ -23,6 +24,24 @@ func (self *SBillingResourceBase) GetChargeType() string {
 	} else {
 		return BILLING_TYPE_POSTPAID
 	}
+}
+
+func (self *SBillingResourceBase) FetchCloudBillingInfo(info *SCloudBillingInfo) {
+	info.ChargeType = self.GetChargeType()
+	if self.GetChargeType() == BILLING_TYPE_PREPAID {
+		info.ExpiredAt = self.ExpiredAt
+		info.BillingCycle = self.BillingCycle
+	}
+}
+
+func (self *SBillingResourceBase) IsValidPrePaid() bool {
+	if self.BillingType == BILLING_TYPE_PREPAID {
+		now := time.Now().UTC()
+		if self.ExpiredAt.After(now) {
+			return true
+		}
+	}
+	return false
 }
 
 type SCloudBillingInfo struct {
@@ -42,6 +61,8 @@ type SCloudBillingInfo struct {
 	PriceKey            string
 	ChargeType          string
 	InternetChargeType  string
+	ExpiredAt           time.Time
+	BillingCycle        string
 }
 
 func MakeCloudBillingInfo(region *SCloudregion, zone *SZone, provider *SCloudprovider) SCloudBillingInfo {

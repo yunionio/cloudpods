@@ -40,14 +40,16 @@ import (
 const (
 	HOST_TYPE_BAREMETAL  = "baremetal"
 	HOST_TYPE_HYPERVISOR = "hypervisor" // KVM
-	HOST_TYPE_ESXI       = "esxi"       // # VMWare vSphere ESXi
-	HOST_TYPE_KUBELET    = "kubelet"    // # Kubernetes Kubelet
-	HOST_TYPE_HYPERV     = "hyperv"     // # Microsoft Hyper-V
-	HOST_TYPE_XEN        = "xen"        // # XenServer
-	HOST_TYPE_ALIYUN     = "aliyun"
-	HOST_TYPE_AWS        = "aws"
-	HOST_TYPE_QCLOUD     = "qcloud"
-	HOST_TYPE_AZURE      = "azure"
+	HOST_TYPE_KVM        = "kvm"
+	HOST_TYPE_ESXI       = "esxi"    // # VMWare vSphere ESXi
+	HOST_TYPE_KUBELET    = "kubelet" // # Kubernetes Kubelet
+	HOST_TYPE_HYPERV     = "hyperv"  // # Microsoft Hyper-V
+	HOST_TYPE_XEN        = "xen"     // # XenServer
+
+	HOST_TYPE_ALIYUN = "aliyun"
+	HOST_TYPE_AWS    = "aws"
+	HOST_TYPE_QCLOUD = "qcloud"
+	HOST_TYPE_AZURE  = "azure"
 
 	HOST_TYPE_DEFAULT = HOST_TYPE_HYPERVISOR
 
@@ -85,6 +87,13 @@ const (
 	HOST_STATUS_UNKNOWN = BAREMETAL_UNKNOWN
 )
 
+const (
+	HostResourceTypeShared         = "shared"
+	HostResourceTypeDefault        = HostResourceTypeShared
+	HostResourceTypePrepaidRecycle = "prepaid"
+	HostResourceTypeDedicated      = "dedicated"
+)
+
 var HOST_TYPES = []string{HOST_TYPE_BAREMETAL, HOST_TYPE_HYPERVISOR, HOST_TYPE_ESXI, HOST_TYPE_KUBELET, HOST_TYPE_XEN, HOST_TYPE_ALIYUN, HOST_TYPE_AZURE, HOST_TYPE_AWS, HOST_TYPE_QCLOUD}
 
 var NIC_TYPES = []string{NIC_TYPE_IPMI, NIC_TYPE_ADMIN}
@@ -110,6 +119,7 @@ func init() {
 type SHost struct {
 	db.SEnabledStatusStandaloneResourceBase
 	SManagedResourceBase
+	SBillingResourceBase
 
 	Rack  string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
 	Slots string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
@@ -154,6 +164,10 @@ type SHost struct {
 	IsMaintenance bool `nullable:"true" default:"false" list:"admin"` // Column(Boolean, nullable=True, default=False)
 
 	LastPingAt time.Time ``
+
+	ResourceType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+
+	RealExternalId string `width:"256" charset:"utf8" get:"admin"`
 }
 
 func (manager *SHostManager) GetContextManager() []db.IModelManager {
@@ -181,6 +195,24 @@ func (self *SHost) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	resType, _ := query.GetString("resource_type")
+	if len(resType) > 0 {
+		queryDict := query.(*jsonutils.JSONDict)
+		queryDict.Remove("resource_type")
+
+		switch resType {
+		case HostResourceTypeShared:
+			q = q.Filter(
+				sqlchemy.OR(
+					sqlchemy.IsNullOrEmpty(q.Field("resource_type")),
+					sqlchemy.Equals(q.Field("resource_type"), HostResourceTypeShared),
+				),
+			)
+		default:
+			q = q.Equals("resource_type", resType)
+		}
+	}
+
 	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
@@ -1059,6 +1091,9 @@ func (manager *SHostManager) getHostsByZoneProvider(zone *SZone, provider *SClou
 	if provider != nil {
 		q = q.Equals("manager_id", provider.Id)
 	}
+	// exclude prepaid_recycle fake hosts
+	q = q.NotEquals("resource_type", HostResourceTypePrepaidRecycle)
+
 	err := db.FetchModelObjects(manager, q, &hosts)
 	if err != nil {
 		log.Errorf("%s", err)
@@ -1159,6 +1194,32 @@ func (self *SHost) syncWithCloudHost(extHost cloudprovider.ICloudHost, projectSy
 
 		self.IsMaintenance = extHost.GetIsMaintenance()
 		self.Version = extHost.GetVersion()
+
+		return nil
+	})
+	if err != nil {
+		log.Errorf("syncWithCloudZone error %s", err)
+	}
+
+	if projectSync {
+		if err := HostManager.ClearSchedDescCache(self.Id); err != nil {
+			log.Errorf("ClearSchedDescCache for host %s error %v", self.Name, err)
+		}
+	}
+
+	return err
+}
+
+func (self *SHost) syncWithCloudPrepaidVM(extVM cloudprovider.ICloudVM, host *SHost, projectSync bool) error {
+	_, err := self.SaveUpdates(func() error {
+
+		self.CpuCount = extVM.GetVcpuCount()
+		self.MemSize = extVM.GetVmemSizeMB()
+
+		self.BillingType = extVM.GetBillingType()
+		self.ExpiredAt = extVM.GetExpiredAt()
+
+		self.ExternalId = host.ExternalId
 
 		return nil
 	})
@@ -1303,7 +1364,16 @@ func (self *SHost) syncWithCloudHostStorage(localStorage *SStorage, extStorage c
 	return hs.syncWithCloudHostStorage(extStorage)
 }
 
+func (self *SHost) isAttach2Storage(storage *SStorage) bool {
+	hs := self.GetHoststorageOfId(storage.Id)
+	return hs != nil
+}
+
 func (self *SHost) Attach2Storage(ctx context.Context, userCred mcclient.TokenCredential, storage *SStorage, mountPoint string) error {
+	if self.isAttach2Storage(storage) {
+		return nil
+	}
+
 	hs := SHoststorage{}
 	hs.SetModelManager(HoststorageManager)
 
@@ -1314,6 +1384,7 @@ func (self *SHost) Attach2Storage(ctx context.Context, userCred mcclient.TokenCr
 	if err != nil {
 		return err
 	}
+
 	db.OpsLog.LogAttachEvent(self, storage, userCred, nil)
 
 	return nil
@@ -1471,6 +1542,13 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for i := 0; i < len(added); i += 1 {
+		if added[i].GetBillingType() == BILLING_TYPE_PREPAID {
+			vhost := HostManager.GetHostByRealExternalId(added[i].GetGlobalId())
+			if vhost != nil {
+				// this recycle vm is not build yet, skip synchronize
+				continue
+			}
+		}
 		new, err := GuestManager.newCloudVM(ctx, userCred, self, added[i], projectId)
 		if err != nil {
 			syncResult.AddError(err)
@@ -1607,6 +1685,8 @@ func (manager *SHostManager) totalCountQ(
 	rangeObj db.IStandaloneModel,
 	hostStatus, status string,
 	hostTypes []string,
+	resourceTypes []string,
+	providers []string,
 	enabled, isBaremetal tristate.TriState,
 ) *sqlchemy.SQuery {
 	hosts := manager.Query().SubQuery()
@@ -1631,7 +1711,7 @@ func (manager *SHostManager) totalCountQ(
 		}
 		q = q.Filter(cond(hosts.Field("is_baremetal")))
 	}
-	q = AttachUsageQuery(q, hosts, hosts.Field("id"), hostTypes, rangeObj)
+	q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, rangeObj)
 	return q
 }
 
@@ -1708,25 +1788,16 @@ func (manager *SHostManager) calculateCount(q *sqlchemy.SQuery) HostsCountStat {
 	}
 }
 
-func (manager *SHostManager) totalCount(
-	userCred mcclient.TokenCredential,
-	rangeObj db.IStandaloneModel,
-	hostStatus, status string,
-	hostTypes []string,
-	enabled, isBaremetal tristate.TriState,
-) HostsCountStat {
-	return manager.calculateCount(manager.totalCountQ(userCred, rangeObj, hostStatus, status, hostTypes, enabled, isBaremetal))
-}
-
 func (manager *SHostManager) TotalCount(
 	userCred mcclient.TokenCredential,
 	rangeObj db.IStandaloneModel,
 	hostStatus, status string,
 	hostTypes []string,
+	resourceTypes []string,
+	providers []string,
 	enabled, isBaremetal tristate.TriState,
 ) HostsCountStat {
-	stat1 := manager.totalCount(userCred, rangeObj, hostStatus, status, hostTypes, enabled, isBaremetal)
-	return stat1
+	return manager.calculateCount(manager.totalCountQ(userCred, rangeObj, hostStatus, status, hostTypes, resourceTypes, providers, enabled, isBaremetal))
 }
 
 /*
@@ -1930,6 +2001,13 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 	extra.Add(jsonutils.NewFloat(memCommitRate), "mem_commit_rate")
 	extra.Add(self.GetHardwareSpecification(), "spec")
 	extra = self.SManagedResourceBase.getExtraDetails(ctx, extra)
+
+	if self.IsPrepaidRecycle() {
+		extra.Add(jsonutils.JSONTrue, "is_prepaid_recycle")
+	} else {
+		extra.Add(jsonutils.JSONFalse, "is_prepaid_recycle")
+	}
+
 	return extra
 }
 

@@ -47,7 +47,7 @@ func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IS
 		log.Errorf("GetPendingUsage fail %s", err)
 	}
 	if len(guest.HostId) == 0 {
-		guest.SetHostId(hostId)
+		guest.OnScheduleToHost(ctx, self.UserCred, hostId)
 	}
 
 	quotaCpuMem := models.SQuota{Cpu: int(guest.VcpuCount), Memory: guest.VmemSize}
@@ -55,6 +55,20 @@ func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IS
 	self.SetPendingUsage(&pendingUsage)
 
 	host := guest.GetHost()
+
+	if host.IsPrepaidRecycle() {
+		params, err := host.SetGuestCreateNetworkAndDiskParams(ctx, self.UserCred, self.Params)
+		if err != nil {
+			log.Errorf("host.SetGuestCreateNetworkAndDiskParams fail %s", err)
+			guest.SetStatus(self.UserCred, models.VM_CREATE_FAILED, err.Error())
+			self.SetStageFailed(ctx, err.Error())
+			db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
+			notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_CREATE_FAILED, err.Error())
+			return
+		}
+		self.Params = params
+		self.SaveParams(params)
+	}
 
 	err = guest.CreateNetworksOnHost(ctx, self.UserCred, host, self.Params, &pendingUsage)
 	self.SetPendingUsage(&pendingUsage)
@@ -69,7 +83,7 @@ func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IS
 	}
 
 	guest.GetDriver().PrepareDiskRaidConfig(host, self.Params)
-	err = guest.CreateDisksOnHost(ctx, self.UserCred, host, self.Params, &pendingUsage)
+	err = guest.CreateDisksOnHost(ctx, self.UserCred, host, self.Params, &pendingUsage, true)
 	self.SetPendingUsage(&pendingUsage)
 
 	if err != nil {
@@ -95,13 +109,38 @@ func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IS
 
 	guest.JoinGroups(self.UserCred, self.Params)
 
+	if guest.IsPrepaidRecycle() {
+		err := host.RebuildRecycledGuest(ctx, self.UserCred, guest)
+		if err != nil {
+			log.Errorf("start guest create task fail %s", err)
+			guest.SetStatus(self.UserCred, models.VM_CREATE_FAILED, err.Error())
+			self.SetStageFailed(ctx, err.Error())
+			db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
+			notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_CREATE_FAILED, err.Error())
+			return
+		}
+
+		autoStart := jsonutils.QueryBoolean(self.Params, "auto_start", false)
+		resetPassword := jsonutils.QueryBoolean(self.Params, "reset_password", true)
+		passwd, _ := self.Params.GetString("password")
+		err = guest.StartRebuildRootTask(ctx, self.UserCred, "", false, autoStart, passwd, resetPassword, true)
+		if err != nil {
+			log.Errorf("start guest create task fail %s", err)
+			guest.SetStatus(self.UserCred, models.VM_CREATE_FAILED, err.Error())
+			self.SetStageFailed(ctx, err.Error())
+			db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
+			notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_CREATE_FAILED, err.Error())
+			return
+		}
+		return
+	}
 	err = guest.StartGuestCreateTask(ctx, self.UserCred, self.Params, nil, self.GetId())
 	if err != nil {
 		log.Errorf("start guest create task fail %s", err)
 		guest.SetStatus(self.UserCred, models.VM_CREATE_FAILED, err.Error())
 		self.SetStageFailed(ctx, err.Error())
 		db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
-		notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_DEVICE_FAILED, err.Error())
+		notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_CREATE_FAILED, err.Error())
 	}
 }
 

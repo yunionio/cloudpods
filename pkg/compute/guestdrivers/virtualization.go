@@ -190,6 +190,14 @@ func (self *SVirtualizedGuestDriver) ValidateCreateHostData(ctx context.Context,
 		return nil, httperrors.NewInvalidStatusError("Host %s is not online", bmName)
 	}
 	data.Add(jsonutils.NewString(host.Id), "prefer_host_id")
+	if host.IsPrepaidRecycle() {
+		data.Set("vmem_size", jsonutils.NewInt(int64(host.MemSize)))
+		data.Set("vcpu_count", jsonutils.NewInt(int64(host.CpuCount)))
+
+		if host.GetGuestCount() >= 1 {
+			return nil, httperrors.NewInsufficientResourceError("host has been occupied")
+		}
+	}
 	return data, nil
 }
 

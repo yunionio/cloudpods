@@ -8,6 +8,7 @@ import (
 
 type GeneralUsageOptions struct {
 	HostType []string `help:"Host types" choices:"hypervisor|baremetal|esxi|xen|kubelet|hyperv|aliyun|azure|aws|huawei|qcloud"`
+	Provider []string `help:"Provider" choices:"VMware|Aliyun|Azure|Aws|Qcloud|Huawei"`
 	Project  string
 }
 
@@ -15,6 +16,9 @@ func fetchHostTypeOptions(args *GeneralUsageOptions) *jsonutils.JSONDict {
 	params := jsonutils.NewDict()
 	if len(args.HostType) > 0 {
 		params.Add(jsonutils.NewStringArray(args.HostType), "host_type")
+	}
+	if len(args.Provider) > 0 {
+		params.Add(jsonutils.NewStringArray(args.Provider), "provider")
 	}
 	return params
 }
@@ -61,9 +65,21 @@ func init() {
 		return nil
 	})
 
-	R(&ResourceUsageOptions{}, "vcenter-usage", "Show general usage of vcenter", func(s *mcclient.ClientSession, args *ResourceUsageOptions) error {
+	R(&ResourceUsageOptions{}, "cloud-provider-usage", "Show general usage of vcenter", func(s *mcclient.ClientSession, args *ResourceUsageOptions) error {
 		params := fetchHostTypeOptions(&args.GeneralUsageOptions)
-		params.Add(jsonutils.NewString("vcenters"), "range_type")
+		params.Add(jsonutils.NewString("cloudproviders"), "range_type")
+		params.Add(jsonutils.NewString(args.ID), "range_id")
+		result, err := modules.Usages.GetGeneralUsage(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&ResourceUsageOptions{}, "cloud-account-usage", "Show general usage of vcenter", func(s *mcclient.ClientSession, args *ResourceUsageOptions) error {
+		params := fetchHostTypeOptions(&args.GeneralUsageOptions)
+		params.Add(jsonutils.NewString("cloudaccounts"), "range_type")
 		params.Add(jsonutils.NewString(args.ID), "range_id")
 		result, err := modules.Usages.GetGeneralUsage(s, params)
 		if err != nil {

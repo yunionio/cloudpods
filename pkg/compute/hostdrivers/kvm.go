@@ -128,6 +128,11 @@ func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, ho
 	return err
 }
 
+func (self *SKVMHostDriver) RequestRebuildDiskOnStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
+	content.Add(jsonutils.JSONTrue, "rebuild")
+	return self.RequestAllocateDiskOnStorage(ctx, host, storage, disk, task, content)
+}
+
 func (self *SKVMHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
 	log.Infof("Deallocating disk on host %s", host.GetName())
 	header := task.GetTaskRequestHeader()
@@ -228,11 +233,11 @@ func (self *SKVMHostDriver) PrepareConvert(host *models.SHost, image, raid strin
 		return nil, err
 	}
 	var sysSize = "60g"
-	log.Infof("%v", data)
 	if data.Contains("baremetal_disk_config.0") {
-		for i := 0; data.Contains(fmt.Sprintf("baremetal_disk_config.%d", i)); i++ {
-			v, _ := data.Get(fmt.Sprintf("baremetal_disk_config.%d", i))
-			params.Set(fmt.Sprintf("baremetal_disk_config.%d", i), v)
+		jsonArray := jsonutils.GetArrayOfPrefix(data, "baremetal_disk_config")
+		for i := 0; i < len(jsonArray); i += 1 { // } .Contains(fmt.Sprintf("baremetal_disk_config.%d", i)); i++ {
+			// v, _ := data.Get(fmt.Sprintf("baremetal_disk_config.%d", i))
+			params.Set(fmt.Sprintf("baremetal_disk_config.%d", i), jsonArray[i])
 		}
 	} else {
 		raid, err = self.GetRaidScheme(host, raid)
@@ -244,9 +249,10 @@ func (self *SKVMHostDriver) PrepareConvert(host *models.SHost, image, raid strin
 		}
 	}
 	if data.Contains("disk.0") {
-		for i := 0; data.Contains(fmt.Sprintf("disk.%d", i)); i++ {
-			v, _ := data.Get(fmt.Sprintf("disk.%d", i))
-			params.Set(fmt.Sprintf("disk.%d", i), v)
+		jsonArray := jsonutils.GetArrayOfPrefix(data, "disk")
+		for i := 0; i < len(jsonArray); i += 1 { // } data.Contains(fmt.Sprintf("disk.%d", i)); i++ {
+			// v, _ := data.Get(fmt.Sprintf("disk.%d", i))
+			params.Set(fmt.Sprintf("disk.%d", i), jsonArray[i])
 		}
 	} else {
 		if len(image) == 0 {
@@ -265,9 +271,10 @@ func (self *SKVMHostDriver) PrepareConvert(host *models.SHost, image, raid strin
 		params.Set("disk.1", jsonutils.NewString("ext4:autoextend:/opt/cloud/workspace"))
 	}
 	if data.Contains("net.0") {
-		for i := 0; data.Contains(fmt.Sprintf("net.%d", i)); i++ {
-			v, _ := data.Get(fmt.Sprintf("net.%d", i))
-			params.Set(fmt.Sprintf("net.%d", i), v)
+		jsonArray := jsonutils.GetArrayOfPrefix(data, "net")
+		for i := 0; i < len(jsonArray); i += 1 { // } data.Contains(fmt.Sprintf("net.%d", i)); i++ {
+			// v, _ := data.Get(fmt.Sprintf("net.%d", i))
+			params.Set(fmt.Sprintf("net.%d", i), jsonArray[i])
 		}
 	} else {
 		wire := host.GetMasterWire()

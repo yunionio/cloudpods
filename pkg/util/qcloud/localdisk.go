@@ -133,3 +133,8 @@ func (self *SLocalDisk) Resize(ctx context.Context, size int64) error {
 func (disk *SLocalDisk) GetAccessPath() string {
 	return ""
 }
+
+func (self *SLocalDisk) Rebuild(ctx context.Context) error {
+	// TODO
+	return cloudprovider.ErrNotSupported
+}

@@ -20,5 +20,6 @@ func baremetalPredicates() sets.String {
 		factory.RegisterFitPredicate("d-BaremetalMemoryFilter", &predicatebm.MemoryPredicate{}),
 		factory.RegisterFitPredicate("e-BaremetalStorageFilter", &predicatebm.StoragePredicate{}),
 		factory.RegisterFitPredicate("f-BaremetalNetFilter", &predicatebm.NetworkPredicate{}),
+		factory.RegisterFitPredicate("g-BaremetalResourceTypeFilter", &predicates.ResourceTypePredicate{}),
 	)
 }

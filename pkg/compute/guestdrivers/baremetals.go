@@ -247,12 +247,14 @@ func (self *SBaremetalGuestDriver) StartGuestSyncstatusTask(guest *models.SGuest
 
 func (self *SBaremetalGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	var confs = make([]baremetal.BaremetalDiskConfig, 0)
-	for data.Contains(fmt.Sprintf("baremetal_disk_config.%d", len(confs))) {
-		desc, _ := data.GetString(fmt.Sprintf("baremetal_disk_config.%d", len(confs)))
-		data.Remove(fmt.Sprintf("baremetal_disk_config.%d", len(confs)))
+	jsonArray := jsonutils.GetArrayOfPrefix(data, "baremetal_disk_config")
+	for i := 0; i < len(jsonArray); i += 1 {
+		// for data.Contains(fmt.Sprintf("baremetal_disk_config.%d", len(confs))) {
+		desc, _ := jsonArray[i].GetString() // data.GetString(fmt.Sprintf("baremetal_disk_config.%d", len(confs)))
+		data.Remove(fmt.Sprintf("baremetal_disk_config.%d", i))
 		bmConf, err := baremetal.ParseDiskConfig(desc)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError("baremetal_disk_config.%d", len(confs))
+			return nil, httperrors.NewInputParameterError("baremetal_disk_config.%d", i)
 		}
 		confs = append(confs, bmConf)
 	}

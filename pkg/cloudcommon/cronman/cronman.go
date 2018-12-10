@@ -12,6 +12,8 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
+type TCronJobFunction func(ctx context.Context, userCred mcclient.TokenCredential, isStart bool)
+
 var manager *SCronJobManager
 
 func init() {
@@ -43,7 +45,7 @@ func (t *Timer2) Next(now time.Time) time.Time {
 
 type SCronJob struct {
 	Name     string
-	job      func(ctx context.Context, userCred mcclient.TokenCredential)
+	job      TCronJobFunction
 	Timer    ICronTimer
 	Next     time.Time
 	StartRun bool
@@ -92,7 +94,7 @@ func GetCronJobManager() *SCronJobManager {
 	return manager
 }
 
-func (self *SCronJobManager) AddJob1(name string, interval time.Duration, jobFunc func(ctx context.Context, userCred mcclient.TokenCredential)) {
+func (self *SCronJobManager) AddJob1(name string, interval time.Duration, jobFunc TCronJobFunction) {
 	t := Timer1{
 		dur: interval,
 	}
@@ -108,7 +110,7 @@ func (self *SCronJobManager) AddJob1(name string, interval time.Duration, jobFun
 	}
 }
 
-func (self *SCronJobManager) AddJob2(name string, day, hour, min, sec int, jobFunc func(ctx context.Context, userCred mcclient.TokenCredential), startRun bool) {
+func (self *SCronJobManager) AddJob2(name string, day, hour, min, sec int, jobFunc TCronJobFunction, startRun bool) {
 	t := Timer2{
 		day:  day,
 		hour: hour,
@@ -160,7 +162,7 @@ func (self *SCronJobManager) run() {
 		for i := 0; i < len(self.jobs); i += 1 {
 			if self.jobs[i].StartRun {
 				self.jobs[i].StartRun = false
-				self.jobs[i].runJob()
+				self.jobs[i].runJob(true)
 			}
 		}
 		select {
@@ -169,7 +171,7 @@ func (self *SCronJobManager) run() {
 				if job.Next.After(now) || job.Next.IsZero() {
 					break
 				}
-				go job.runJob()
+				go job.runJob(false)
 				job.Next = job.Timer.Next(now)
 				heap.Fix(&self.jobs, i)
 			}
@@ -184,7 +186,7 @@ func (self *SCronJobManager) run() {
 	}
 }
 
-func (job *SCronJob) runJob() {
+func (job *SCronJob) runJob(isStart bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Errorf("CronJob task %s run error: %s", job.Name, r)
@@ -196,5 +198,5 @@ func (job *SCronJob) runJob() {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, "Region-Corn-Service")
 	userCred := auth.AdminCredential()
-	job.job(ctx, userCred)
+	job.job(ctx, userCred, isStart)
 }

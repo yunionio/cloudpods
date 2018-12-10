@@ -13,7 +13,7 @@ type ITask interface {
 	GetParams() *jsonutils.JSONDict
 	GetUserCred() mcclient.TokenCredential
 	GetTaskId() string
-	SetStage(stageName string, data *jsonutils.JSONDict)
+	SetStage(stageName string, data *jsonutils.JSONDict) error
 
 	GetTaskRequestHeader() http.Header
 

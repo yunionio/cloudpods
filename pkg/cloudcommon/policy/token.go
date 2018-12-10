@@ -1,8 +1,6 @@
 package policy
 
 import (
-	"yunion.io/x/log"
-
 	"yunion.io/x/pkg/gotypes"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -32,7 +30,7 @@ func (self *SPolicyTokenCredential) IsAdminAllow(service string, resource string
 
 func init() {
 	gotypes.RegisterSerializableTransformer(mcclient.TokenCredentialType, func(input gotypes.ISerializable) gotypes.ISerializable {
-		log.Debugf("do TokenCredential transform for %#v", input)
+		// log.Debugf("do TokenCredential transform for %#v", input)
 		switch val := input.(type) {
 		case *mcclient.SSimpleToken:
 			return &SPolicyTokenCredential{val}
