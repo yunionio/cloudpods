@@ -16,6 +16,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/conditionparser"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/hashcache"
+	"sort"
 )
 
 const (
@@ -232,7 +233,7 @@ func (manager *SPolicyManager) start(refreshInterval time.Duration, retryInterva
 		}
 	}
 
-	manager.cache = hashcache.NewCache(2048, time.Second*5)
+	manager.cache = hashcache.NewCache(2048, manager.refreshInterval/2)
 	manager.sync()
 }
 
@@ -250,30 +251,39 @@ func (manager *SPolicyManager) sync() {
 	time.AfterFunc(manager.refreshInterval, manager.sync)
 }
 
+func queryKey(isAdmin bool, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) string {
+	queryKeys := []string{fmt.Sprintf("%v", isAdmin)}
+	queryKeys = append(queryKeys, userCred.GetProjectId(), userCred.GetDomainId(), userCred.GetUserId())
+	roles := userCred.GetRoles()
+	if len(roles) > 0 {
+		sort.Strings(roles)
+	}
+	queryKeys = append(queryKeys, strings.Join(roles, ":"))
+	if rbacutils.WILD_MATCH == service || len(service) == 0 {
+		service = rbacutils.WILD_MATCH
+	}
+	queryKeys = append(queryKeys, service)
+	if rbacutils.WILD_MATCH == resource || len(resource) == 0 {
+		resource = rbacutils.WILD_MATCH
+	}
+	queryKeys = append(queryKeys, resource)
+	if rbacutils.WILD_MATCH == action || len(action) == 0 {
+		action = rbacutils.WILD_MATCH
+	}
+	queryKeys = append(queryKeys, action)
+	if len(extra) > 0 {
+		queryKeys = append(queryKeys, extra...)
+	}
+	return strings.Join(queryKeys, "-")
+}
+
 func (manager *SPolicyManager) Allow(isAdmin bool, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) rbacutils.TRbacResult {
 	if manager.cache != nil {
-		isAdminStr := fmt.Sprintf("%v", isAdmin)
-		queryKeys := []string{isAdminStr, userCred.String()}
-		if rbacutils.WILD_MATCH == service || len(service) == 0 {
-			queryKeys = append(queryKeys, rbacutils.WILD_MATCH)
-		}
-		if rbacutils.WILD_MATCH == resource || len(resource) == 0 {
-			queryKeys = append(queryKeys, rbacutils.WILD_MATCH)
-		}
-		if rbacutils.WILD_MATCH == action || len(action) == 0 {
-			queryKeys = append(queryKeys, rbacutils.WILD_MATCH)
-		}
-		if len(extra) > 0 {
-			queryKeys = append(queryKeys, extra...)
-		}
-		key := strings.Join(queryKeys, "-")
-		log.Debugf("%s", key)
+		key := queryKey(isAdmin, userCred, service, resource, action, extra...)
 		val := manager.cache.Get(key)
 		if val != nil {
-			log.Debugf("cache hit")
 			return val.(rbacutils.TRbacResult)
 		}
-		log.Debugf("cache miss!!")
 		result := manager.allowWithoutCache(isAdmin, userCred, service, resource, action, extra...)
 		manager.cache.Set(key, result)
 		return result
