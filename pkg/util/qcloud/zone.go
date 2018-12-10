@@ -34,7 +34,6 @@ type SZone struct {
 	refreshTime   time.Time
 
 	Zone      string
-	ZoneId    string
 	ZoneName  string
 	ZoneState string
 }
