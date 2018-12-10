@@ -1368,19 +1368,19 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:35bcee3fd56603e5a4900825378bf75a81f30cf94b43a575841772eaed5963a0"
+  digest = "1:2fdf064ae928c1b311e67ec51e856ce655abc39e8eacf5e6b3f7bd0417fac0a6"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "75c341b1221002e2aa33b13c5de2a75196dfe233"
+  revision = "e22221d5efcc667e68b0fdeed19958e788c3ad63"
 
 [[projects]]
   branch = "master"
-  digest = "1:bbaf572e68e5dad4045e1e424af29838882c620df391fa1631dd8dc851c87a95"
+  digest = "1:97c47d46b272f535bc6760672a3dd4512bf66fb4463cb70547178e21cf9078f7"
   name = "yunion.io/x/structarg"
   packages = ["."]
   pruneopts = "UT"
-  revision = "c95bf78846decd8dea379e925410f2895fb20076"
+  revision = "1a162c0cfa82905f20a795e9ac530bf27f9a0549"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1434,6 +1434,7 @@
     "github.com/coredns/coredns/request",
     "github.com/fatih/color",
     "github.com/go-sql-driver/mysql",
+    "github.com/golang-plus/errors",
     "github.com/golang-plus/uuid",
     "github.com/googollee/go-socket.io",
     "github.com/gorilla/mux",

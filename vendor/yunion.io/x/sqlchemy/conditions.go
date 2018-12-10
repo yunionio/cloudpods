@@ -177,7 +177,7 @@ type SIsNotEmptyCondition struct {
 }
 
 func (c *SIsNotEmptyCondition) WhereClause() string {
-	return fmt.Sprintf("LENGTH(%s) > 0", c.field.Reference())
+	return fmt.Sprintf("%s IS NOT NULL AND LENGTH(%s) > 0", c.field.Reference(), c.field.Reference())
 }
 
 func IsNotEmpty(f IQueryField) ICondition {

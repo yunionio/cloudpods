@@ -38,8 +38,14 @@ func NewFunctionField(name string, funcexp string, fields ...IQueryField) SFunct
 	return ff
 }
 
-func COUNT(name string) IQueryField {
-	ff := NewFunctionField(name, "COUNT(*)")
+func COUNT(name string, field ...IQueryField) IQueryField {
+	var expr string
+	if len(field) == 0 {
+		expr = "COUNT(*)"
+	} else {
+		expr = "COUNT(%s)"
+	}
+	ff := NewFunctionField(name, expr, field...)
 	return &ff
 }
 
