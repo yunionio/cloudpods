@@ -42,7 +42,6 @@ type LoadbalancerListener struct {
 	VirtualResource
 
 	LoadbalancerId string
-	Bandwidth      int
 	ListenerType   string
 	ListenerPort   int
 

@@ -9,7 +9,6 @@ type LoadbalancerListenerCreateOptions struct {
 	BackendGroup string
 
 	Scheduler string `required:"true" choices:"rr|wrr|wlc|sch|tch"`
-	Bandwidth *int
 
 	ClientRequestTimeout  *int
 	ClientIdleTimeout     *int
@@ -57,7 +56,6 @@ type LoadbalancerListenerListOptions struct {
 	BackendGroup string
 
 	Scheduler string `choices:"rr|wrr|wlc|sch|tch"`
-	Bandwidth *int
 
 	ClientRequestTimeout  *int
 	ClientIdleTimeout     *int
@@ -103,7 +101,6 @@ type LoadbalancerListenerUpdateOptions struct {
 	BackendGroup string
 
 	Scheduler string `choices:"rr|wrr|wlc|sch|tch"`
-	Bandwidth *int
 
 	ClientRequestTimeout  *int
 	ClientIdleTimeout     *int

@@ -69,7 +69,6 @@ type SLoadbalancerListener struct {
 	ListenerPort   int    `nullable:"false" list:"user" create:"required"`
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 
-	Bandwidth int    `nullable:"false" list:"user" create:"optional" update:"user"`
 	Scheduler string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
 
 	ClientRequestTimeout  int `nullable:"false" list:"user" create:"optional" update:"user"`
