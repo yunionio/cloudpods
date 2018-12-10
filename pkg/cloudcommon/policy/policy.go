@@ -2,6 +2,8 @@ package policy
 
 import (
 	"time"
+	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -13,6 +15,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/conditionparser"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/hashcache"
 )
 
 const (
@@ -135,6 +138,8 @@ type SPolicyManager struct {
 
 	failedRetryInterval time.Duration
 	refreshInterval     time.Duration
+
+	cache *hashcache.Cache // policy cache
 }
 
 func parseJsonPolicy(obj jsonutils.JSONObject) (string, rbacutils.SRbacPolicy, error) {
@@ -214,6 +219,8 @@ func (manager *SPolicyManager) start(refreshInterval time.Duration, retryInterva
 			Rules: rbacutils.CompactRules(defaultRules),
 		}
 	}
+
+	manager.cache = hashcache.NewCache(2048, time.Second*5)
 	manager.sync()
 }
 
@@ -232,6 +239,38 @@ func (manager *SPolicyManager) sync() {
 }
 
 func (manager *SPolicyManager) Allow(isAdmin bool, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) rbacutils.TRbacResult {
+	if manager.cache != nil {
+		isAdminStr := fmt.Sprintf("%v", isAdmin)
+		queryKeys := []string{isAdminStr, userCred.String()}
+		if rbacutils.WILD_MATCH == service || len(service) == 0 {
+			queryKeys = append(queryKeys, rbacutils.WILD_MATCH)
+		}
+		if rbacutils.WILD_MATCH == resource || len(resource) == 0 {
+			queryKeys = append(queryKeys, rbacutils.WILD_MATCH)
+		}
+		if rbacutils.WILD_MATCH == action || len(action) == 0 {
+			queryKeys = append(queryKeys, rbacutils.WILD_MATCH)
+		}
+		if len(extra) > 0 {
+			queryKeys = append(queryKeys, extra...)
+		}
+		key := strings.Join(queryKeys, "-")
+		log.Debugf("%s", key)
+		val := manager.cache.Get(key)
+		if val != nil {
+			log.Debugf("cache hit")
+			return val.(rbacutils.TRbacResult)
+		}
+		log.Debugf("cache miss!!")
+		result := manager.allowWithoutCache(isAdmin, userCred, service, resource, action, extra...)
+		manager.cache.Set(key, result)
+		return result
+	} else {
+		return manager.allowWithoutCache(isAdmin, userCred, service, resource, action, extra...)
+	}
+}
+
+func (manager *SPolicyManager) allowWithoutCache(isAdmin bool, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) rbacutils.TRbacResult {
 	var policies map[string]rbacutils.SRbacPolicy
 	if isAdmin {
 		policies = manager.adminPolicies
