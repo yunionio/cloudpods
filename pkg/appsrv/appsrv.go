@@ -157,7 +157,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rid := genRequestId(w, r)
 	lrw := &loggingResponseWriter{w, http.StatusOK}
 	start := time.Now()
-	hi := app.defaultHandle(lrw, r, rid)
+	hi, params := app.defaultHandle(lrw, r, rid)
 	if hi == nil {
 		hi = &app.defHandlerInfo
 	}
@@ -172,7 +172,15 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	duration := float64(time.Since(start).Nanoseconds()) / 1000000
 	counter.hit += 1
 	counter.duration += duration
-	if !hi.skipLog {
+	skipLog := false
+	if params != nil {
+		if params.SkipLog {
+			skipLog = true
+		}
+	} else if hi.skipLog {
+		skipLog = true
+	}
+	if !skipLog {
 		log.Infof("%d %s %s %s (%s) %.2fms", lrw.status, rid, r.Method, r.URL, r.RemoteAddr, duration)
 	}
 }
@@ -190,7 +198,7 @@ func (app *Application) handleCORS(w http.ResponseWriter, r *http.Request) bool 
 	}
 }
 
-func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, rid string) *SHandlerInfo {
+func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, rid string) (*SHandlerInfo, *SAppParams) {
 	segs := SplitPath(r.URL.Path)
 	params := make(map[string]string)
 	w.Header().Set("Server", "Yunion AppServer/Go/2018.4")
@@ -213,6 +221,8 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 			if session == nil {
 				session = app.session
 			}
+			appParams := hand.GetAppParams(params, segs)
+			appParams.Request = r
 			session.Run(
 				func() {
 					if ctx.Err() == nil {
@@ -223,9 +233,14 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 						if hand.metadata != nil {
 							ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_METADATA, hand.metadata)
 						}
+						ctx = context.WithValue(ctx, APP_CONTEXT_KEY_APP_PARAMS, appParams)
 						func() {
-							span := trace.StartServerTrace(&fw, r, hand.GetName(params), app.GetName(), hand.GetTags())
-							defer span.EndTrace()
+							span := trace.StartServerTrace(&fw, r, appParams.Name, app.GetName(), hand.GetTags())
+							defer func() {
+								if !appParams.SkipTrace {
+									span.EndTrace()
+								}
+							}()
 							ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_TRACE, span)
 							hand.handler(ctx, &fw, r)
 						}()
@@ -249,7 +264,7 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 				}
 			}
 			fw.closeChannels()
-			return hand
+			return hand, appParams
 		} else {
 			log.Errorf("Invalid handler for %s", r.URL)
 			httperrors.InternalServerError(w, "Invalid handler %s", r.URL)
@@ -258,7 +273,7 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 		log.Errorf("Handler not found")
 		httperrors.NotFoundError(w, "Handler not found")
 	}
-	return nil
+	return nil, nil
 }
 
 func (app *Application) addDefaultHandler(method string, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request), name string) {
