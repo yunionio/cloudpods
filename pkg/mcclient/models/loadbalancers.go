@@ -25,10 +25,8 @@ type LoadbalancerHTTPListener struct {
 	StickySessionCookie        string
 	StickySessionCookieTimeout int
 
-	XForwardedFor      bool
-	XForwardedForSLBIP bool
-	XForwardedForSLBID bool
-	Gzip               bool
+	XForwardedFor bool
+	Gzip          bool
 }
 
 // CACertificate string
@@ -77,9 +75,6 @@ type LoadbalancerListener struct {
 	LoadbalancerUDPListener
 	LoadbalancerHTTPListener
 	LoadbalancerHTTPSListener
-
-	XForwardedFor bool
-	Gzip          bool
 }
 
 type LoadbalancerListenerRule struct {

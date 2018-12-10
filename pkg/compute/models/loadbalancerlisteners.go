@@ -43,8 +43,6 @@ type SLoadbalancerHTTPListener struct {
 	StickySessionCookie        string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 	StickySessionCookieTimeout int    `nullable:"false" list:"user" create:"optional" update:"user"`
 
-	//XForwardedForSLBIP bool `nullable:"false" list:"user" create:"optional"`
-	//XForwardedForSLBID bool `nullable:"false" list:"user" create:"optional"`
 	XForwardedFor bool `nullable:"false" list:"user" create:"optional" update:"user"`
 	Gzip          bool `nullable:"false" list:"user" create:"optional" update:"user"`
 }
