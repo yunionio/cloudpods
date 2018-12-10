@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/baremetal/status"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
@@ -32,6 +33,10 @@ func (self *SBaremetalServerPrepareTask) OnPXEBootRequest(ctx context.Context, c
 	err := newBaremetalPrepareTask(self.Baremetal).DoPrepare(cli)
 	if err != nil {
 		log.Errorf("Prepare failed: %v", err)
+		self.Baremetal.SyncStatus(status.PREPARE_FAIL, err.Error())
+		return err
 	}
+	self.Baremetal.AutoSyncStatus()
+	SetTaskComplete(self, nil)
 	return nil
 }

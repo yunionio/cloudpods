@@ -131,10 +131,10 @@ func makeDHCPReplyPacket(pkt *Packet, conf *ResponseConfig, msgType MessageType)
 }
 
 func IsPXERequest(pkt *Packet) bool {
-	if pkt.Type != MsgDiscover {
-		log.Warningf("packet is %s, not %s", pkt.Type, MsgDiscover)
-		return false
-	}
+	//if pkt.Type != MsgDiscover {
+	//log.Warningf("packet is %s, not %s", pkt.Type, MsgDiscover)
+	//return false
+	//}
 
 	if pkt.Options[OptClientArchitecture] == nil {
 		log.Warningf("not a PXE boot request (missing option 93)")

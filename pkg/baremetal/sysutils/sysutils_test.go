@@ -235,8 +235,8 @@ func TestParseNicInfo(t *testing.T) {
 				},
 			},
 			want: []*types.NicDevInfo{
-				&types.NicDevInfo{Dev: "eth0", Mac: "00:22:25:0b:ab:49", Speed: 0, Up: true, Mtu: 1500},
-				&types.NicDevInfo{Dev: "eth1", Mac: "00:22:25:0b:ab:50", Speed: 0, Up: false, Mtu: 1500},
+				{Dev: "eth0", Mac: "00:22:25:0b:ab:49", Speed: 0, Up: true, Mtu: 1500},
+				{Dev: "eth1", Mac: "00:22:25:0b:ab:50", Speed: 0, Up: false, Mtu: 1500},
 			},
 		},
 	}

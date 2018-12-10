@@ -3,6 +3,7 @@ package ssh
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/ssh"
 
@@ -25,6 +26,7 @@ func (conf ClientConfig) ToSshConfig() (*ssh.ClientConfig, error) {
 	cliConfig := &ssh.ClientConfig{
 		User:            conf.Username,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         15 * time.Second,
 	}
 	auths := make([]ssh.AuthMethod, 0)
 	if conf.Password != "" {
@@ -55,6 +57,7 @@ func (conf ClientConfig) Connect() (*ssh.Client, error) {
 }
 
 type Client struct {
+	config ClientConfig
 	client *ssh.Client
 }
 
@@ -64,6 +67,7 @@ func (conf ClientConfig) NewClient() (*Client, error) {
 		return nil, err
 	}
 	return &Client{
+		config: conf,
 		client: cli,
 	}, nil
 }
@@ -85,6 +89,10 @@ func NewClient(
 	return config.NewClient()
 }
 
+func (s *Client) GetConfig() ClientConfig {
+	return s.config
+}
+
 func (s *Client) Run(cmds ...string) ([]string, error) {
 	ret := []string{}
 	for _, cmd := range cmds {
@@ -98,14 +106,17 @@ func (s *Client) Run(cmds ...string) ([]string, error) {
 			log.Errorf("Error output: %s", string(out))
 			return nil, err
 		}
-		ret = append(ret, parseOutput(out)...)
+		ret = append(ret, ParseOutput(out)...)
 	}
 
 	return ret, nil
 }
 
-func parseOutput(output []byte) []string {
-	lines := strings.Split(string(output), "\n")
+func ParseOutput(output []byte) []string {
+	lines := make([]string, 0)
+	for _, line := range strings.Split(string(output), "\n") {
+		lines = append(lines, strings.TrimSpace(line))
+	}
 	return lines
 }
 

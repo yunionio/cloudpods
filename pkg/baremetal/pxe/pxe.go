@@ -1,10 +1,8 @@
 package pxe
 
 import (
+	"fmt"
 	"net"
-	"time"
-
-	"github.com/pin/tftp"
 
 	"yunion.io/x/jsonutils"
 
@@ -105,12 +103,17 @@ func (s *Server) Serve() error {
 	if s.TFTPPort == 0 {
 		s.TFTPPort = portTFTP
 	}
+
+	tftpConn, err := net.ListenPacket("udp", fmt.Sprintf("%s:%d", s.Address, s.TFTPPort))
+	if err != nil {
+		return err
+	}
 	tftpHandler, err := NewTFTPHandler(s.TFTPRootDir, s.BaremetalManager)
 	if err != nil {
 		return err
 	}
-	tftpSrv := tftp.NewServer(tftpHandler.ReadHandler, nil)
-	tftpSrv.SetTimeout(5 * time.Second)
+	//tftpSrv := tftp.NewServer(tftpHandler.ReadHandler, nil)
+	//tftpSrv.SetTimeout(5 * time.Second)
 
 	dhcpSrv := dhcp.NewDHCPServer(s.Address, s.DHCPPort)
 
@@ -119,9 +122,8 @@ func (s *Server) Serve() error {
 	dhcpHandler := &DHCPHandler{baremetalManager: s.BaremetalManager}
 
 	go func() { s.errs <- s.serveDHCP(dhcpSrv, dhcpHandler) }()
-	go func() { s.errs <- s.serveTFTP(tftpSrv) }()
+	go func() { s.errs <- s.serveTFTP(tftpConn, tftpHandler) }()
 
 	err = <-s.errs
-	tftpSrv.Shutdown()
 	return err
 }

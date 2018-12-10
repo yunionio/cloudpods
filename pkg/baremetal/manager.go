@@ -19,10 +19,12 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
+	"yunion.io/x/onecloud/pkg/baremetal/profiles"
 	"yunion.io/x/onecloud/pkg/baremetal/pxe"
-	"yunion.io/x/onecloud/pkg/baremetal/status"
+	baremetalstatus "yunion.io/x/onecloud/pkg/baremetal/status"
 	"yunion.io/x/onecloud/pkg/baremetal/tasks"
 	"yunion.io/x/onecloud/pkg/baremetal/types"
+	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
 	"yunion.io/x/onecloud/pkg/cloudcommon/dhcp"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -167,7 +169,7 @@ func (m *SBaremetalManager) GetBaremetalByMac(mac net.HardwareAddr) pxe.IBaremet
 	var obj *SBaremetalInstance
 	getter := func(key, val interface{}) bool {
 		instance := val.(*SBaremetalInstance)
-		if instance.getNicByMac(mac) != nil {
+		if instance.GetNicByMac(mac) != nil {
 			obj = instance
 			// stop the iteration
 			return false
@@ -221,7 +223,7 @@ func (m *sBaremetalMap) Pop(id string) *SBaremetalInstance {
 
 type SBaremetalInstance struct {
 	manager   *SBaremetalManager
-	desc      jsonutils.JSONObject
+	desc      *jsonutils.JSONDict
 	descLock  *sync.Mutex
 	taskQueue *tasks.TaskQueue
 }
@@ -229,7 +231,7 @@ type SBaremetalInstance struct {
 func newBaremetalInstance(man *SBaremetalManager, desc jsonutils.JSONObject) (*SBaremetalInstance, error) {
 	bm := &SBaremetalInstance{
 		manager:   man,
-		desc:      desc,
+		desc:      desc.(*jsonutils.JSONDict),
 		descLock:  new(sync.Mutex),
 		taskQueue: tasks.NewTaskQueue(),
 	}
@@ -243,6 +245,10 @@ func newBaremetalInstance(man *SBaremetalManager, desc jsonutils.JSONObject) (*S
 	}
 	// TODO: load server and init task queue
 	return bm, nil
+}
+
+func (b *SBaremetalInstance) GetClientSession() *mcclient.ClientSession {
+	return b.manager.GetClientSession()
 }
 
 func (b *SBaremetalInstance) GetId() string {
@@ -289,11 +295,17 @@ func (b *SBaremetalInstance) GetStatus() string {
 	return status
 }
 
+func (b *SBaremetalInstance) AutoSaveDesc() error {
+	return b.SaveDesc(nil)
+}
+
 func (b *SBaremetalInstance) SaveDesc(desc jsonutils.JSONObject) error {
 	b.descLock.Lock()
 	defer b.descLock.Unlock()
-	b.desc = desc
-	return ioutil.WriteFile(b.GetDescFilePath(), []byte(desc.String()), 0644)
+	if desc != nil {
+		b.desc = desc.(*jsonutils.JSONDict)
+	}
+	return ioutil.WriteFile(b.GetDescFilePath(), []byte(b.desc.String()), 0644)
 }
 
 func (b *SBaremetalInstance) SaveSSHConfig(remoteAddr string, key string) error {
@@ -374,7 +386,10 @@ func (b *SBaremetalInstance) ClearSSHConfig() {
 		Password: "None",
 		RemoteIP: "None",
 	}
-	b.SyncSSHConfig(emptyConfig)
+	err = b.SyncSSHConfig(emptyConfig)
+	if err != nil {
+		log.Errorf("Sync emtpy SSH config error: %v", err)
+	}
 }
 
 func (b *SBaremetalInstance) SyncSSHConfig(conf types.SSHConfig) error {
@@ -394,9 +409,62 @@ func (b *SBaremetalInstance) SyncStatusBackground() {
 
 }
 
-func (b *SBaremetalInstance) SyncStatus(status string) {
-	log.Infof("sync baremetal %s status %s", b.GetName(), status)
-	// TODO
+func PowerStatusToBaremetalStatus(status string) string {
+	switch status {
+	case types.POWER_STATUS_ON:
+		return baremetalstatus.RUNNING
+	case types.POWER_STATUS_OFF:
+		return baremetalstatus.READY
+	}
+	return baremetalstatus.UNKNOWN
+}
+
+func (b *SBaremetalInstance) AutoSyncStatus() {
+	b.SyncStatus("", "")
+}
+
+func (b *SBaremetalInstance) SyncStatus(status string, reason string) {
+	if status == "" {
+		powerStatus, err := b.GetPowerStatus()
+		if err != nil {
+			log.Errorf("Get power status error: %v", err)
+		}
+		status = PowerStatusToBaremetalStatus(powerStatus)
+	}
+	b.desc.Set("status", jsonutils.NewString(status))
+	b.AutoSaveDesc()
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(status), "status")
+	if reason != "" {
+		params.Add(jsonutils.NewString(reason), "reason")
+	}
+	_, err := modules.Hosts.PerformAction(b.GetClientSession(), b.GetId(), "status", params)
+	if err != nil {
+		log.Errorf("Update baremetal %s status %s error: %v", b.GetId(), status, err)
+		return
+	}
+	log.Infof("Update baremetal %s to status %s", b.GetId(), status)
+}
+
+func (b *SBaremetalInstance) AutoSyncAllStatus() {
+	b.SyncAllStatus("")
+}
+
+func (b *SBaremetalInstance) DelayedSyncStatus() (jsonutils.JSONObject, error) {
+	b.AutoSyncAllStatus()
+	return nil, nil
+}
+
+func (b *SBaremetalInstance) SyncAllStatus(status string) {
+	var err error
+	if status == "" {
+		status, err = b.GetPowerStatus()
+		if err != nil {
+			log.Errorf("Get power status error: %v", err)
+		}
+	}
+	b.SyncStatus(PowerStatusToBaremetalStatus(status), "")
+	// b.SyncServerStatus(PowerStatusToServerStatus(status))
 }
 
 func (b *SBaremetalInstance) getNicInfo() *types.NicInfo {
@@ -423,7 +491,7 @@ func (b *SBaremetalInstance) getNicByType(nicType string) *types.Nic {
 	return nil
 }
 
-func (b *SBaremetalInstance) getNicByMac(mac net.HardwareAddr) *types.Nic {
+func (b *SBaremetalInstance) GetNicByMac(mac net.HardwareAddr) *types.Nic {
 	nicInfo := b.getNicInfo()
 	if nicInfo == nil {
 		return nil
@@ -457,6 +525,14 @@ func (b *SBaremetalInstance) GetIPMINic(cliMac net.HardwareAddr) *types.Nic {
 	return nil
 }
 
+func (b *SBaremetalInstance) GetIPMINicIPAddr() string {
+	nic := b.getNicByType(types.NIC_TYPE_IPMI)
+	if nic == nil {
+		return ""
+	}
+	return nic.IpAddr
+}
+
 func (b *SBaremetalInstance) GetDHCPConfig(cliMac net.HardwareAddr) (*dhcp.ResponseConfig, error) {
 	/*
 		if self.get_server() is not None and (self.get_task() is None or not self.get_task().__pxe_boot__)
@@ -466,7 +542,7 @@ func (b *SBaremetalInstance) GetDHCPConfig(cliMac net.HardwareAddr) (*dhcp.Respo
 		nic = self.get_nic_by_mac(mac)
 		hostname = None
 	*/
-	nic := b.getNicByMac(cliMac)
+	nic := b.GetNicByMac(cliMac)
 	if nic == nil {
 		return nil, fmt.Errorf("GetNicDHCPConfig no nic found")
 	}
@@ -520,8 +596,8 @@ func (b *SBaremetalInstance) GetTask() tasks.ITask {
 func (b *SBaremetalInstance) SetTask(task tasks.ITask) {
 	b.taskQueue.AppendTask(task)
 	if reflect.DeepEqual(task, b.taskQueue.GetTask()) {
-		//tasks.ExecuteTask(task, nil)
 		log.Infof("Set task equal")
+		tasks.ExecuteTask(task, nil)
 	}
 }
 
@@ -535,13 +611,16 @@ func (b *SBaremetalInstance) InitAdminNetif(
 	// sync status to PREPARE
 	if nicType == types.NIC_TYPE_ADMIN &&
 		utils.IsInStringArray(b.GetStatus(),
-			[]string{status.INIT, status.PREPARE, status.PREPARE_FAIL, status.UNKNOWN}) &&
+			[]string{baremetalstatus.INIT,
+				baremetalstatus.PREPARE,
+				baremetalstatus.PREPARE_FAIL,
+				baremetalstatus.UNKNOWN}) &&
 		b.GetTask() == nil && b.GetServer() == nil {
 		b.SetTask(tasks.NewBaremetalServerPrepareTask(b))
-		b.SyncStatus(status.PREPARE)
+		b.SyncStatus(baremetalstatus.PREPARE, "")
 	}
 
-	nic := b.getNicByMac(cliMac)
+	nic := b.GetNicByMac(cliMac)
 	if nic == nil || nic.WireId == "" {
 		_, err := b.attachWire(cliMac, netConf.WireId, nicType)
 		if err != nil {
@@ -558,7 +637,7 @@ func (b *SBaremetalInstance) RegisterNetif(
 	cliMac net.HardwareAddr,
 	netConf *types.NetworkConfig,
 ) error {
-	nic := b.getNicByMac(cliMac)
+	nic := b.GetNicByMac(cliMac)
 	if nic == nil || nic.WireId == "" || nic.WireId != netConf.WireId {
 		desc, err := b.attachWire(cliMac, netConf.WireId, nic.Type)
 		if err != nil {
@@ -609,7 +688,34 @@ func (b *SBaremetalInstance) enableWire(mac net.HardwareAddr, ipAddr string, nic
 	if nicType == types.NIC_TYPE_IPMI {
 		params.Add(jsonutils.NewString("stepup"), "alloc_dir") // alloc bottom up
 	}
+	log.Errorf("enable net if params: %s", params.String())
 	return modules.Hosts.PerformAction(session, b.GetId(), "enable-netif", params)
+}
+
+func (b *SBaremetalInstance) GetIPMIConfig() *types.IPMIInfo {
+	conf := b.GetRawIPMIConfig()
+	if conf == nil || conf.Password == "" {
+		return nil
+	}
+	if conf.Username == "" {
+		sysInfo := types.IPMISystemInfo{}
+		err := b.desc.Unmarshal(&sysInfo, "sys_info")
+		if err != nil {
+			log.Errorf("Unmarshal get sys_info error: %v", err)
+		}
+		conf.Username = profiles.GetRootName(&sysInfo)
+	}
+	if conf.IpAddr == "" {
+		nicIPAddr := b.GetIPMINicIPAddr()
+		if nicIPAddr != "" {
+			conf.IpAddr = nicIPAddr
+		}
+	}
+	conf.Password = utils.Unquote(conf.Password) // XXX: remove quotes!!!
+	if conf.IpAddr == "" {
+		return nil
+	}
+	return conf
 }
 
 func (b *SBaremetalInstance) GetRawIPMIConfig() *types.IPMIInfo {
@@ -633,6 +739,111 @@ func (b *SBaremetalInstance) GetServer() interface{} {
 	return nil
 }
 
-func (b *SBaremetalInstance) DoPowerShutdown(soft bool) {
-	log.Infof("DoPowerShutdown")
+func (b *SBaremetalInstance) SetExistingIPMIIPAddr(ipAddr string) {
+	info, _ := b.desc.Get("ipmi_info")
+	if info == nil {
+		info = jsonutils.NewDict()
+	}
+	oIPAddr, _ := info.GetString("ip_addr")
+	if oIPAddr == "" {
+		info.(*jsonutils.JSONDict).Add(jsonutils.NewString(ipAddr), "ip_addr")
+	}
+	b.desc.Set("ipmi_info", info)
+}
+
+func (b *SBaremetalInstance) GetIPMITool() *ipmitool.LanPlusIPMI {
+	conf := b.GetIPMIConfig()
+	if conf == nil {
+		return nil
+	}
+	return ipmitool.NewLanPlusIPMI(conf.IpAddr, conf.Username, conf.Password)
+}
+
+func (b *SBaremetalInstance) GetIPMILanChannel() int {
+	conf := b.GetIPMIConfig()
+	if conf == nil {
+		return 0
+	}
+	return conf.LanChannel
+}
+
+func (b *SBaremetalInstance) DoPXEBoot() error {
+	log.Infof("Do PXE Boot ........., wait")
+	b.ClearSSHConfig()
+	ipmiCli := b.GetIPMITool()
+	if ipmiCli != nil {
+		return ipmitool.DoRebootToPXE(ipmiCli)
+	}
+	return fmt.Errorf("Baremetal %s ipmitool is nil", b.GetId())
+}
+
+func (b *SBaremetalInstance) DoDiskBoot() error {
+	log.Infof("Do DISK Boot ........., wait")
+	b.ClearSSHConfig()
+	ipmiCli := b.GetIPMITool()
+	if ipmiCli != nil {
+		return ipmitool.DoRebootToDisk(ipmiCli)
+	}
+	return fmt.Errorf("Baremetal %s ipmitool is nil", b.GetId())
+}
+
+func (b *SBaremetalInstance) GetPowerStatus() (string, error) {
+	ipmiCli := b.GetIPMITool()
+	if ipmiCli == nil {
+		return "", fmt.Errorf("Baremetal %s ipmitool is nil", b.GetId())
+	}
+	return ipmitool.GetChassisPowerStatus(ipmiCli)
+}
+
+func (b *SBaremetalInstance) DoPowerShutdown(soft bool) error {
+	b.ClearSSHConfig()
+	ipmiCli := b.GetIPMITool()
+	if ipmiCli != nil {
+		if soft {
+			return ipmitool.DoSoftShutdown(ipmiCli)
+		}
+		return ipmitool.DoHardShutdown(ipmiCli)
+	}
+	return fmt.Errorf("Baremetal %s ipmitool is nil", b.GetId())
+}
+
+func (b *SBaremetalInstance) GetStorageDriver() string {
+	driver, _ := b.desc.GetString("storage_driver")
+	return driver
+}
+
+func (b *SBaremetalInstance) GetZoneId() string {
+	return b.manager.GetZoneId()
+}
+
+func (b *SBaremetalInstance) DelayedRemove() (jsonutils.JSONObject, error) {
+	b.remove()
+	return nil, nil
+}
+
+func (b *SBaremetalInstance) remove() {
+	b.manager.CleanBaremetal(b.GetId())
+	b.manager = nil
+	b.desc = nil
+}
+
+func (b *SBaremetalInstance) StartBaremetalMaintenanceTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) {
+	if jsonutils.QueryBoolean(data, "force_reboot", false) {
+		b.ClearSSHConfig()
+	}
+	if jsonutils.QueryBoolean(data, "guest_running", false) {
+		data.(*jsonutils.JSONDict).Set("soft_reboot", jsonutils.JSONTrue)
+	}
+	task := tasks.NewBaremetalMaintenanceTask(b, taskId, data)
+	b.SetTask(task)
+}
+
+func (b *SBaremetalInstance) StartBaremetalUnmaintenanceTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) {
+	task := tasks.NewBaremetalUnmaintenanceTask(b, taskId, data)
+	b.SetTask(task)
+}
+
+func (b *SBaremetalInstance) StartBaremetalReprepareTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) {
+	task := tasks.NewBaremetalReprepareTask(b, taskId, data)
+	b.SetTask(task)
 }

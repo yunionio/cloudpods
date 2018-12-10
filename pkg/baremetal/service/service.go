@@ -6,6 +6,7 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/baremetal"
+	"yunion.io/x/onecloud/pkg/baremetal/handler"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -18,7 +19,7 @@ func StartService() {
 	cloudcommon.InitAuth(&o.Options.Options, startAgent)
 
 	app := cloudcommon.InitApp(&o.Options.Options)
-	baremetal.InitHandlers(app)
+	handler.InitHandlers(app)
 	cloudcommon.ServeForever(app, &o.Options.Options)
 }
 

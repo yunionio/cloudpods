@@ -44,12 +44,12 @@ type DHCPHandler struct {
 }
 
 func (h *DHCPHandler) ServeDHCP(pkt *dhcp.Packet) (*dhcp.Packet, error) {
-	log.Debugf("[DHCP] request: %s", pkt.DebugString())
+	log.V(4).Debugf("[DHCP] request: %s", pkt.DebugString())
 	err := h.parsePacket(pkt)
 	if err != nil {
 		log.Errorf("[DHCP] parse packet error: %v", err)
 	}
-	log.Infof("======Parse packet end: %#v", h)
+	log.V(4).Debugf("[DHCP] parse packet end: %#v", h)
 
 	if h.RelayAddr.String() == "0.0.0.0" {
 		return nil, fmt.Errorf("Request not from a DHCP relay, ignore mac: %s", h.ClientMac)
@@ -160,12 +160,16 @@ func (h *DHCPHandler) fetchConfig() (*dhcp.ResponseConfig, error) {
 		h.baremetalInstance = bmInstance
 		ipmiNic := h.baremetalInstance.GetIPMINic(h.ClientMac)
 		if ipmiNic != nil && ipmiNic.Mac == h.ClientMac.String() {
-			err = h.baremetalInstance.InitAdminNetif(h.ClientMac, h.netConfig, types.NIC_TYPE_ADMIN)
+			err = h.baremetalInstance.InitAdminNetif(h.ClientMac, h.netConfig, types.NIC_TYPE_IPMI)
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			h.baremetalInstance.RegisterNetif(h.ClientMac, h.netConfig)
+			err = h.baremetalInstance.RegisterNetif(h.ClientMac, h.netConfig)
+			if err != nil {
+				log.Errorf("RegisterNetif error: %v", err)
+				return nil, err
+			}
 		}
 		return h.baremetalInstance.GetDHCPConfig(h.ClientMac)
 	}

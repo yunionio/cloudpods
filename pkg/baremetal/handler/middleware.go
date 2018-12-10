@@ -1,4 +1,4 @@
-package baremetal
+package handler
 
 import (
 	"context"
@@ -7,22 +7,46 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/baremetal/tasks"
+	"yunion.io/x/onecloud/pkg/baremetal"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
-func InitHandlers(app *appsrv.Application) {
-	initBaremetalsHandler(app)
+const (
+	PREFIX = "baremetals"
+
+	PARAMS_ID_KEY = "<id>"
+)
+
+func getBaremetalPrefix(action string) string {
+	return fmt.Sprintf("%s/%s/%s", PREFIX, PARAMS_ID_KEY, action)
 }
 
-func initBaremetalsHandler(app *appsrv.Application) {
-	prefix := "baremetals"
-	app.AddHandler("GET", fmt.Sprintf("%s/<id>/notify", prefix), authMiddleware(handleBaremetalNotify))
+type handlerFunc func(ctx *Context)
+
+func authMiddleware(h handlerFunc) appsrv.FilterHandler {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		newCtx := NewContext(ctx, w, r)
+		h(newCtx)
+	}
+}
+
+type objectHandlerFunc func(ctx *Context, bm *baremetal.SBaremetalInstance)
+
+func objectMiddleware(h objectHandlerFunc) appsrv.FilterHandler {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		newCtx := NewContext(ctx, w, r)
+		bmId := newCtx.Params()[PARAMS_ID_KEY]
+		baremetal := newCtx.GetBaremetalManager().GetBaremetalById(bmId)
+		if baremetal == nil {
+			newCtx.ResponseError(httperrors.NewNotFoundError("Not found baremetal by id: %s", bmId))
+			return
+		}
+		h(newCtx, baremetal)
+	}
 }
 
 type Context struct {
@@ -64,6 +88,10 @@ func (ctx *Context) UserCred() mcclient.TokenCredential {
 	return ctx.userCred
 }
 
+func (ctx *Context) TaskId() string {
+	return ctx.Request().Header.Get(mcclient.TASK_ID)
+}
+
 func (ctx *Context) ResponseStruct(obj interface{}) {
 	appsrv.SendStruct(ctx.writer, obj)
 }
@@ -91,41 +119,10 @@ func (ctx *Context) ResponseOk() {
 	appsrv.SendJSON(ctx.writer, obj)
 }
 
-func (ctx *Context) GetBaremetalManager() *SBaremetalManager {
-	return GetBaremetalManager()
+func (ctx *Context) GetBaremetalManager() *baremetal.SBaremetalManager {
+	return baremetal.GetBaremetalManager()
 }
 
-type handlerFunc func(ctx *Context)
-
-func authMiddleware(h handlerFunc) appsrv.FilterHandler {
-	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		newCtx := NewContext(ctx, w, r)
-		h(newCtx)
-	}
-}
-
-func handleBaremetalNotify(ctx *Context) {
-	bmId := ctx.Params()["<id>"]
-	key, err := ctx.Query().GetString("key")
-	if err != nil {
-		ctx.ResponseError(httperrors.NewInputParameterError("Not found key in query"))
-		return
-	}
-	remoteAddr := ctx.RequestRemoteIP()
-	baremetal := ctx.GetBaremetalManager().GetBaremetalById(bmId)
-	if baremetal == nil {
-		ctx.ResponseError(httperrors.NewNotFoundError("Not found baremetal by id: %s", bmId))
-		return
-	}
-	err = baremetal.SaveSSHConfig(remoteAddr, key)
-	if err != nil {
-		log.Errorf("Save baremetal %s ssh config: %v", bmId, err)
-	}
-
-	// execute BaremetalServerPrepareTask
-	task := baremetal.GetTask()
-	if task != nil {
-		task.(*tasks.SBaremetalServerPrepareTask).SSHExecute(task, remoteAddr, key, nil)
-	}
-	ctx.ResponseOk()
+func (ctx *Context) DelayProcess(process ProcessFunc) {
+	DelayProcess(process, ctx.GetBaremetalManager().GetClientSession(), ctx.TaskId())
 }

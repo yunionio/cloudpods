@@ -2,6 +2,7 @@ package sysutils
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 
@@ -23,11 +24,11 @@ func valueOfKeyword(line string, key string) *string {
 	return nil
 }
 
-func dumpMapToObject(data map[string]string, obj interface{}) error {
+func DumpMapToObject(data map[string]string, obj interface{}) error {
 	return jsonutils.Marshal(data).Unmarshal(obj)
 }
 
-func ParseDMISysinfo(lines []string) (*types.DMIInfo, error) {
+func ParseDMISysinfo(lines []string) (*types.DMISystemInfo, error) {
 	if len(lines) == 0 {
 		return nil, fmt.Errorf("Empty input")
 	}
@@ -46,8 +47,8 @@ func ParseDMISysinfo(lines []string) (*types.DMIInfo, error) {
 			}
 		}
 	}
-	info := types.DMIInfo{}
-	err := dumpMapToObject(ret, &info)
+	info := types.DMISystemInfo{}
+	err := DumpMapToObject(ret, &info)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +157,7 @@ func ParseNicInfo(lines []string) []*types.NicDevInfo {
 		dat := strings.Split(line, " ")
 		if len(dat) > 4 {
 			dev := dat[0]
-			mac := dat[1]
+			mac, _ := net.ParseMAC(dat[1])
 			speed, _ := strconv.Atoi(dat[2])
 			up := false
 			if dat[3] == "1" {
