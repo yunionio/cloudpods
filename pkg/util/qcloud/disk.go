@@ -376,3 +376,8 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 func (disk *SDisk) GetAccessPath() string {
 	return ""
 }
+
+func (self *SDisk) Rebuild(ctx context.Context) error {
+	// TODO
+	return cloudprovider.ErrNotSupported
+}

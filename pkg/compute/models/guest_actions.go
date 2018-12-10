@@ -22,8 +22,10 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 
+	"time"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
@@ -776,23 +778,19 @@ func (self *SGuest) AllowPerformRebuildRoot(ctx context.Context, userCred mcclie
 
 func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	imageId, _ := data.GetString("image_id")
-	if len(imageId) == 0 {
-		gdc := self.CategorizeDisks()
-		imageId = gdc.Root.GetTemplateId()
-		if len(imageId) == 0 {
-			return nil, httperrors.NewBadRequestError("No template for root disk")
+
+	if len(imageId) > 0 {
+		img, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
+		if err != nil {
+			return nil, httperrors.NewNotFoundError("failed to find %s", imageId)
 		}
+		osType, _ := img.Properties["os_type"]
+		osName := self.GetMetadata("os_name", userCred)
+		if len(osName) == 0 && len(osType) == 0 && strings.ToLower(osType) != strings.ToLower(osName) {
+			return nil, httperrors.NewBadRequestError("Cannot switch OS between %s-%s", osName, osType)
+		}
+		imageId = img.Id
 	}
-	img, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
-	if err != nil {
-		return nil, httperrors.NewNotFoundError("failed to find %s", imageId)
-	}
-	osType, _ := img.Properties["os_type"]
-	osName := self.GetMetadata("os_name", userCred)
-	if len(osName) == 0 && len(osType) == 0 && strings.ToLower(osType) != strings.ToLower(osName) {
-		return nil, httperrors.NewBadRequestError("Cannot switch OS between %s-%s", osName, osType)
-	}
-	imageId = img.Id
 
 	rebuildStatus, err := self.GetDriver().GetRebuildRootStatus()
 	if err != nil {
@@ -834,11 +832,20 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 		}
 	}
 
-	return nil, self.StartRebuildRootTask(ctx, userCred, imageId, needStop, autoStart, passwd, resetPasswd)
+	allDisks := jsonutils.QueryBoolean(data, "all_disks", false)
+
+	return nil, self.StartRebuildRootTask(ctx, userCred, imageId, needStop, autoStart, passwd, resetPasswd, allDisks)
 }
 
-func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool, passwd string, resetPasswd bool) error {
+func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool, passwd string, resetPasswd bool, allDisk bool) error {
 	data := jsonutils.NewDict()
+	if len(imageId) == 0 {
+		gdc := self.CategorizeDisks()
+		imageId = gdc.Root.GetTemplateId()
+		if len(imageId) == 0 {
+			return httperrors.NewBadRequestError("No template for root disk")
+		}
+	}
 	data.Set("image_id", jsonutils.NewString(imageId))
 	if needStop {
 		data.Set("need_stop", jsonutils.JSONTrue)
@@ -853,6 +860,12 @@ func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.
 	}
 	if len(passwd) > 0 {
 		data.Set("password", jsonutils.NewString(passwd))
+	}
+
+	if allDisk {
+		data.Set("all_disks", jsonutils.JSONTrue)
+	} else {
+		data.Set("all_disks", jsonutils.JSONFalse)
 	}
 	if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
 		task, err := taskman.TaskManager.NewTask(ctx, "BaremetalServerRebuildRootTask", self, userCred, data, "", "", nil)
@@ -882,13 +895,18 @@ func (self *SGuest) AllowPerformCreatedisk(ctx context.Context, userCred mcclien
 }
 
 func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	var diskIdx, diskSize = 0, 0
+	diskSize := 0
 	disksConf := jsonutils.NewDict()
 	diskSizes := make(map[string]int, 0)
-	diskSeq := fmt.Sprintf("disk.%d", diskIdx)
-	for data.Contains(diskSeq) {
-		diskDef, _ := data.Get(diskSeq)
-		diskInfo, err := parseDiskInfo(ctx, userCred, diskDef)
+
+	diskDefArray := jsonutils.GetArrayOfPrefix(data, "disk")
+	if len(diskDefArray) == 0 {
+		logclient.AddActionLog(self, logclient.ACT_CREATE, "No Disk Info Provided", userCred, false)
+		return nil, httperrors.NewBadRequestError("No Disk Info Provided")
+	}
+
+	for diskIdx := 0; diskIdx < len(diskDefArray); diskIdx += 1 {
+		diskInfo, err := parseDiskInfo(ctx, userCred, diskDefArray[diskIdx])
 		if err != nil {
 			logclient.AddActionLog(self, logclient.ACT_CREATE, err.Error(), userCred, false)
 			return nil, httperrors.NewBadRequestError(err.Error())
@@ -896,19 +914,13 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 		if len(diskInfo.Backend) == 0 {
 			diskInfo.Backend = self.getDefaultStorageType()
 		}
-		disksConf.Set(diskSeq, jsonutils.Marshal(diskInfo))
+		disksConf.Set(fmt.Sprintf("disk.%d", diskIdx), jsonutils.Marshal(diskInfo))
 		if _, ok := diskSizes[diskInfo.Backend]; !ok {
 			diskSizes[diskInfo.Backend] = diskInfo.SizeMb
 		} else {
 			diskSizes[diskInfo.Backend] += diskInfo.SizeMb
 		}
 		diskSize += diskInfo.SizeMb
-		diskIdx += 1
-		diskSeq = fmt.Sprintf("disk.%d", diskIdx)
-	}
-	if diskIdx == 0 {
-		logclient.AddActionLog(self, logclient.ACT_CREATE, "No Disk Info Provided", userCred, false)
-		return nil, httperrors.NewBadRequestError("No Disk Info Provided")
 	}
 	host := self.GetHost()
 	if host == nil {
@@ -938,7 +950,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
 
-	err = self.CreateDisksOnHost(ctx, userCred, host, disksConf, pendingUsage)
+	err = self.CreateDisksOnHost(ctx, userCred, host, disksConf, pendingUsage, false)
 	if err != nil {
 		QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
 		logclient.AddActionLog(self, logclient.ACT_CREATE, err.Error(), userCred, false)
@@ -1220,14 +1232,12 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 
 	var addCpu, addMem int
 	confs := jsonutils.NewDict()
-	skuId, _ := data.GetString("sku_id")
-	if len(skuId) > 0 && self.SkuId != skuId {
-		isku, err := ServerSkuManager.FetchById(skuId)
+	skuId := jsonutils.GetAnyString(data, []string{"instance_type", "sku", "flavor"})
+	if len(skuId) > 0 {
+		sku, err := ServerSkuManager.FetchSkuByNameAndHypervisor(skuId, self.GetHypervisor(), true)
 		if err != nil {
-			return nil, httperrors.NewNotFoundError("sku_id %s not found", skuId)
+			return nil, err
 		}
-
-		sku := isku.(*SServerSku)
 		addCpu = sku.CpuCoreCount - int(self.VcpuCount)
 		addMem = sku.MemorySizeMB - self.VmemSize
 		confs.Add(jsonutils.NewString(sku.ExternalId), "sku_id")
@@ -1245,6 +1255,9 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 				return nil, httperrors.NewBadRequestError("Params vcpu_count parse error")
 			}
 			addCpu = int(nVcpu - int64(self.VcpuCount))
+			if addCpu < 0 {
+				addCpu = 0
+			}
 		}
 		vmemSize, err := data.GetString("vmem_size")
 		if err == nil {
@@ -1260,6 +1273,9 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 				return nil, httperrors.NewBadRequestError("Params vmem_size parse error")
 			}
 			addMem = nVmem - self.VmemSize
+			if addMem < 0 {
+				addMem = 0
+			}
 		}
 	}
 
@@ -1273,7 +1289,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	for {
 		diskNum := fmt.Sprintf("disk.%d", diskIdx)
 		diskDesc, err := data.Get(diskNum)
-		if err != nil {
+		if err != nil || diskDesc == jsonutils.JSONNull {
 			break
 		}
 		diskConf, err := parseDiskInfo(ctx, userCred, diskDesc)
@@ -1319,11 +1335,6 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	}
 
 	provider, e := self.GetHost().GetDriver()
-	/*if e != nil {
-	    log.Errorf("Get Provider Error: %s", e)
-	    return nil, httperrors.NewInsufficientResourceError("Provider Not Found")
-	}*/
-
 	if e != nil || !provider.IsPublicCloud() {
 		for storageId, needSize := range diskSizes {
 			iStorage, err := StorageManager.FetchById(storageId)
@@ -1368,7 +1379,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		}
 	}
 	if newDisks.Length() > 0 {
-		err := self.CreateDisksOnHost(ctx, userCred, host, newDisks, pendingUsage)
+		err := self.CreateDisksOnHost(ctx, userCred, host, newDisks, pendingUsage, false)
 		if err != nil {
 			QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
 			return nil, httperrors.NewBadRequestError("Create disk on host error: %s", err)
@@ -1389,15 +1400,31 @@ func (self *SGuest) StartChangeConfigTask(ctx context.Context, userCred mcclient
 	return nil
 }
 
+func (self *SGuest) revokeAllSecgroups(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := self.revokeSecgroup(ctx, userCred, self.getSecgroup())
+	if err != nil {
+		return err
+	}
+	err = GuestsecgroupManager.DeleteGuestSecgroup(ctx, userCred, self, nil)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	eip, _ := self.GetEip()
 	if eip != nil {
 		eip.DoPendingDelete(ctx, userCred)
 	}
+	// revoke all secgroups
+	// TODO: sync revoked secgroups to remote cloud
+	self.revokeAllSecgroups(ctx, userCred)
+	// remove detachable disks
 	for _, guestdisk := range self.GetDisks() {
 		disk := guestdisk.GetDisk()
 		storage := disk.GetStorage()
-		if utils.IsInStringArray(storage.StorageType, STORAGE_LOCAL_TYPES) || utils.IsInStringArray(disk.DiskType, []string{DISK_TYPE_SYS, DISK_TYPE_SWAP}) || (utils.IsInStringArray(self.Hypervisor, PUBLIC_CLOUD_HYPERVISORS) && disk.AutoDelete) {
+		if storage.IsLocal() || disk.BillingType == BILLING_TYPE_PREPAID || utils.IsInStringArray(disk.DiskType, []string{DISK_TYPE_SYS, DISK_TYPE_SWAP}) || (utils.IsInStringArray(self.Hypervisor, PUBLIC_CLOUD_HYPERVISORS) && disk.AutoDelete) {
 			disk.DoPendingDelete(ctx, userCred)
 		} else {
 			self.DetachDisk(ctx, disk, userCred)
@@ -2006,4 +2033,82 @@ func (self *SGuest) PerformDelExtraOption(ctx context.Context, userCred mcclient
 	extraOptions := self.GetExtraOptions(userCred)
 	extraOptions.Remove(key)
 	return nil, self.SetExtraOptions(ctx, userCred, extraOptions)
+}
+
+func (self *SGuest) AllowPerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "renew")
+}
+
+func (self *SGuest) PerformRenew(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	durationStr := jsonutils.GetAnyString(data, []string{"duration"})
+	if len(durationStr) == 0 {
+		return nil, httperrors.NewInputParameterError("missong duration")
+	}
+
+	bc, err := billing.ParseBillingCycle(durationStr)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("invalid duration %s: %s", durationStr, err)
+	}
+
+	if !self.GetDriver().IsSupportedBillingCycle(bc) {
+		return nil, httperrors.NewInputParameterError("unsupported duration %s", durationStr)
+	}
+
+	err = self.startGuestRenewTask(ctx, userCred, durationStr, "")
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
+func (self *SGuest) startGuestRenewTask(ctx context.Context, userCred mcclient.TokenCredential, duration string, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewString(duration), "duration")
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestRenewTask", self, userCred, data, parentTaskId, "", nil)
+	if err != nil {
+		log.Errorf("fail to crate GuestRenewTask %s", err)
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SGuest) SaveRenewInfo(userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
+	err := self.doSaveRenewInfo(userCred, bc, expireAt)
+	if err != nil {
+		return err
+	}
+	guestdisks := self.GetDisks()
+	for i := 0; i < len(guestdisks); i += 1 {
+		disk := guestdisks[i].GetDisk()
+		if disk.BillingType == BILLING_TYPE_PREPAID {
+			err = disk.SaveRenewInfo(userCred, bc, expireAt)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (self *SGuest) doSaveRenewInfo(userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
+	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		if self.BillingType != BILLING_TYPE_PREPAID {
+			self.BillingType = BILLING_TYPE_PREPAID
+		}
+		if expireAt != nil && !expireAt.IsZero() {
+			self.ExpiredAt = *expireAt
+		} else {
+			self.BillingCycle = bc.String()
+			self.ExpiredAt = bc.EndAt(self.ExpiredAt)
+		}
+		return nil
+	})
+	if err != nil {
+		log.Errorf("Update error %s", err)
+		return err
+	}
+	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(), userCred)
+	return nil
 }

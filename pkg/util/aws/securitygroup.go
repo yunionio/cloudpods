@@ -271,11 +271,14 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 
 		permissions := self.getSecRules(s.IpPermissions, s.IpPermissionsEgress)
 
+		tagspec := TagSpec{ResourceType: "scuritygroup"}
+		tagspec.LoadingEc2Tags(s.Tags)
+
 		return &SSecurityGroup{
 			vpc:               vpc,
 			Description:       *s.Description,
 			SecurityGroupId:   *s.GroupId,
-			SecurityGroupName: *s.GroupName,
+			SecurityGroupName: tagspec.GetNameTag(),
 			VpcId:             *s.VpcId,
 			Permissions:       permissions,
 			RegionId:          self.RegionId,
@@ -442,12 +445,15 @@ func (self *SRegion) GetSecurityGroups(vpcId string, secgroupIdTag string, offse
 			continue
 		}
 
+		tagspec := TagSpec{ResourceType: "scuritygroup"}
+		tagspec.LoadingEc2Tags(item.Tags)
+
 		permissions := self.getSecRules(item.IpPermissions, item.IpPermissionsEgress)
 		group := SSecurityGroup{
 			vpc:               vpc,
 			Description:       *item.Description,
 			SecurityGroupId:   *item.GroupId,
-			SecurityGroupName: *item.GroupName,
+			SecurityGroupName: tagspec.GetNameTag(),
 			VpcId:             *item.VpcId,
 			Permissions:       permissions,
 			RegionId:          self.RegionId,

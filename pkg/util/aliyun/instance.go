@@ -12,8 +12,10 @@ import (
 
 	"context"
 
+	"sort"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 const (
@@ -268,6 +270,29 @@ func (self *SInstance) getVpc() (*SVpc, error) {
 	return self.host.zone.region.getVpc(self.VpcAttributes.VpcId)
 }
 
+type byAttachedTime []SDisk
+
+func (a byAttachedTime) Len() int      { return len(a) }
+func (a byAttachedTime) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a byAttachedTime) Less(i, j int) bool {
+	switch a[i].GetDiskType() {
+	case models.DISK_TYPE_SYS:
+		return true
+	case models.DISK_TYPE_SWAP:
+		switch a[j].GetDiskType() {
+		case models.DISK_TYPE_SYS:
+			return false
+		case models.DISK_TYPE_DATA:
+			return true
+		}
+	case models.DISK_TYPE_DATA:
+		if a[j].GetDiskType() != models.DISK_TYPE_DATA {
+			return false
+		}
+	}
+	return a[i].AttachedTime.Before(a[j].AttachedTime)
+}
+
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	disks, total, err := self.host.zone.region.GetDisks(self.InstanceId, "", "", nil, 0, 50)
 	if err != nil {
@@ -277,6 +302,11 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	if total > len(disks) {
 		disks, _, err = self.host.zone.region.GetDisks(self.InstanceId, "", "", nil, 0, total)
 	}
+
+	sort.Sort(byAttachedTime(disks))
+
+	log.Debugf("%s", jsonutils.Marshal(&disks))
+
 	idisks := make([]cloudprovider.ICloudDisk, len(disks))
 	for i := 0; i < len(disks); i += 1 {
 		store, err := self.host.zone.getStorageByCategory(disks[i].Category)
@@ -499,7 +529,7 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
 	zoneId string, desc string, passwd string, disks []SDisk, vSwitchId string, ipAddr string,
-	keypair string, userData string) (string, error) {
+	keypair string, userData string, bc *billing.SBillingCycle) (string, error) {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["ImageId"] = imageId
@@ -535,14 +565,28 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	}
 	params["VSwitchId"] = vSwitchId
 	params["PrivateIpAddress"] = ipAddr
-	params["InstanceChargeType"] = "PostPaid"
-	params["SpotStrategy"] = "NoSpot"
+
 	if len(keypair) > 0 {
 		params["KeyPairName"] = keypair
 	}
 
 	if len(userData) > 0 {
 		params["UserData"] = userData
+	}
+
+	if bc != nil {
+		params["InstanceChargeType"] = "PrePaid"
+		if bc.GetWeeks() <= 4 {
+			params["PeriodUnit"] = "Week"
+			params["Period"] = fmt.Sprintf("%d", bc.GetWeeks())
+		} else {
+			params["PeriodUnit"] = "Month"
+			params["Period"] = fmt.Sprintf("%d", bc.GetMonths())
+		}
+		params["AutoRenew"] = "False"
+	} else {
+		params["InstanceChargeType"] = "PostPaid"
+		params["SpotStrategy"] = "NoSpot"
 	}
 
 	params["ClientToken"] = utils.GenRequestId(20)
@@ -619,6 +663,9 @@ func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 	if err != nil {
 		log.Errorf("Fail to get instance status on StopVM: %s", err)
 		return err
+	}
+	if status == InstanceStatusStopped {
+		return nil
 	}
 	if status != InstanceStatusRunning {
 		log.Errorf("StopVM: vm status is %s expect %s", status, InstanceStatusRunning)
@@ -868,4 +915,27 @@ func (self *SInstance) UpdateUserData(userData string) error {
 
 func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
 	return cloudprovider.ErrNotSupported
+}
+
+func (self *SInstance) Renew(bc billing.SBillingCycle) error {
+	return self.host.zone.region.RenewInstance(self.InstanceId, bc)
+}
+
+func (region *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle) error {
+	params := make(map[string]string)
+	params["InstanceId"] = instanceId
+	if bc.GetWeeks() <= 4 {
+		params["PeriodUnit"] = "Week"
+		params["Period"] = fmt.Sprintf("%s", bc.GetWeeks())
+	} else {
+		params["PeriodUnit"] = "Month"
+		params["Period"] = fmt.Sprintf("%s", bc.GetMonths())
+	}
+	params["ClientToken"] = utils.GenRequestId(20)
+	_, err := region.ecsRequest("RenewInstance", params)
+	if err != nil {
+		log.Errorf("RenewInstance fail %s", err)
+		return err
+	}
+	return nil
 }

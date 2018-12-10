@@ -104,6 +104,13 @@ func (bd *BaremetalDesc) Get(key string) interface{} {
 	}
 }
 
+func (bd *BaremetalDesc) GetGuestCount() int64 {
+	if bd.ServerID == "" {
+		return 0
+	}
+	return 1
+}
+
 func (bd *BaremetalDesc) XGet(key string, kind core.Kind) interface{} {
 	return core.XGetCalculator(bd, key, kind)
 }

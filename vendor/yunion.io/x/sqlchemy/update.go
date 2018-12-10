@@ -107,6 +107,9 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (map[string]SUpdateDiff, er
 		if reflect.DeepEqual(of, nf) {
 			continue
 		}
+		if c.IsZero(nf) && c.IsText() {
+			nf = nil
+		}
 		setters[k] = SUpdateDiff{old: of, new: nf, col: c}
 	}
 
@@ -124,8 +127,12 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (map[string]SUpdateDiff, er
 		} else {
 			buf.WriteString(", ")
 		}
-		buf.WriteString(fmt.Sprintf("`%s` = ?", k))
-		vars = append(vars, v.col.ConvertFromValue(v.new))
+		if gotypes.IsNil(v.new) {
+			buf.WriteString(fmt.Sprintf("`%s` = NULL", k))
+		} else {
+			buf.WriteString(fmt.Sprintf("`%s` = ?", k))
+			vars = append(vars, v.col.ConvertFromValue(v.new))
+		}
 	}
 	for _, versionField := range versionFields {
 		buf.WriteString(fmt.Sprintf(", `%s` = `%s` + 1", versionField, versionField))

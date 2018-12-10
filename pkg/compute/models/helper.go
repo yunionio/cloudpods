@@ -3,7 +3,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -93,8 +92,9 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 				return nil, httperrors.NewInputParameterError("invalid aggregate_strategy")
 			}
 		}
-		for idx := 0; data.Contains(fmt.Sprintf("schedtag.%d", idx)); idx += 1 {
-			aggStr, _ := data.GetString(fmt.Sprintf("schedtag.%d", idx))
+		aggArray := jsonutils.GetArrayOfPrefix(data, "schedtag")
+		for idx := 0; idx < len(aggArray); idx += 1 { // data.Contains(fmt.Sprintf("schedtag.%d", idx)); idx += 1 {
+			aggStr, _ := aggArray[idx].GetString() // .GetString(fmt.Sprintf("schedtag.%d", idx))
 			if len(aggStr) > 0 {
 				parts := strings.Split(aggStr, ":")
 				if len(parts) >= 2 && len(parts[0]) > 0 && len(parts[1]) > 0 {

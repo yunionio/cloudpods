@@ -34,7 +34,7 @@ type IScheduleTask interface {
 	GetUserCred() mcclient.TokenCredential
 	GetSchedParams() *jsonutils.JSONDict
 	GetPendingUsage(quota quotas.IQuota) error
-	SetStage(stageName string, data *jsonutils.JSONDict)
+	SetStage(stageName string, data *jsonutils.JSONDict) error
 	SetStageFailed(ctx context.Context, reason string)
 
 	OnStartSchedule(obj IScheduleModel)
@@ -212,8 +212,8 @@ func onScheduleSucc(
 	obj IScheduleModel,
 	hostId string,
 ) {
-	lockman.LockObject(ctx, obj)
-	defer lockman.ReleaseObject(ctx, obj)
+	lockman.LockRawObject(ctx, models.HostManager.KeywordPlural(), hostId)
+	defer lockman.ReleaseRawObject(ctx, models.HostManager.KeywordPlural(), hostId)
 
 	task.SaveScheduleResult(ctx, obj, hostId)
 	models.HostManager.ClearSchedDescCache(hostId)

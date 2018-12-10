@@ -43,9 +43,11 @@ install: prepare_dir
 	done
 
 
-build:
+build: gendoc
 	$(MAKE) $(wildcard cmd/*)
 
+gendoc:
+	@sh build/gendoc.sh
 
 test:
 	@for PKG in $$( $(PKGS) | grep "$(filter-out $@,$(MAKECMDGOALS))" ); do \

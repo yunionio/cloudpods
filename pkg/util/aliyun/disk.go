@@ -389,3 +389,26 @@ func (self *SDisk) GetExpiredAt() time.Time {
 func (self *SDisk) GetAccessPath() string {
 	return ""
 }
+
+func (self *SDisk) Rebuild(ctx context.Context) error {
+	err := self.storage.zone.region.rebuildDisk(self.DiskId)
+	if err != nil {
+		if isError(err, "IncorrectInstanceStatus") {
+			return nil
+		}
+		log.Errorf("rebuild disk fail %s", err)
+		return err
+	}
+	return nil
+}
+
+func (self *SRegion) rebuildDisk(diskId string) error {
+	params := make(map[string]string)
+	params["DiskId"] = diskId
+	_, err := self.ecsRequest("ReInitDisk", params)
+	if err != nil {
+		log.Errorf("ReInitDisk %s fail %s", diskId, err)
+		return err
+	}
+	return nil
+}

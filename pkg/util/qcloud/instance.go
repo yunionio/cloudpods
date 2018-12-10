@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -148,6 +149,9 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	if self.image != nil {
 		data.Add(jsonutils.NewString(self.image.OsName), "os_distribution")
 	}
+
+	priceKey := fmt.Sprintf("%s::%s", self.host.zone.Zone, self.InstanceType)
+	data.Add(jsonutils.NewString(priceKey), "price_key")
 
 	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
 	secgroupIds := jsonutils.NewArray()
@@ -453,7 +457,7 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 
 func (self *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
 	zoneId string, desc string, passwd string, disks []SDisk, networkId string, ipAddr string,
-	keypair string, userData string) (string, error) {
+	keypair string, userData string, bc *billing.SBillingCycle) (string, error) {
 	params := make(map[string]string)
 	params["Region"] = self.Region
 	params["ImageId"] = imageId
@@ -462,7 +466,8 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	params["Placement.Zone"] = zoneId
 	params["InstanceName"] = name
 	params["Description"] = desc
-	params["InstanceChargeType"] = "POSTPAID_BY_HOUR"
+
+	params["InternetAccessible.InternetChargeType"] = "TRAFFIC_POSTPAID_BY_HOUR"
 	params["InternetAccessible.InternetMaxBandwidthOut"] = "100"
 	params["InternetAccessible.PublicIpAssigned"] = "FALSE"
 	params["HostName"] = name
@@ -475,6 +480,14 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	}
 	if len(userData) > 0 {
 		params["UserData"] = userData
+	}
+
+	if bc != nil {
+		params["InstanceChargeType"] = "PREPAID"
+		params["InstanceChargePrepaid.Period"] = fmt.Sprintf("%d", bc.GetMonths())
+		params["InstanceChargePrepaid.RenewFlag"] = "NOTIFY_AND_MANUAL_RENEW"
+	} else {
+		params["InstanceChargeType"] = "POSTPAID_BY_HOUR"
 	}
 
 	//params["IoOptimized"] = "optimized"
@@ -498,7 +511,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	}
 
 	params["ClientToken"] = utils.GenRequestId(20)
-	//log.Errorf("create params: %s", jsonutils.Marshal(params).PrettyString())
+	// log.Errorf("create params: %s", jsonutils.Marshal(params).PrettyString())
 	instanceIdSet := []string{}
 	body, err := self.cvmRequest("RunInstances", params)
 	if err != nil {
@@ -614,8 +627,19 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
-	if err := self.host.zone.region.DeleteVM(self.InstanceId); err != nil {
-		return err
+	for {
+		err := self.host.zone.region.DeleteVM(self.InstanceId)
+		if err != nil {
+			if isError(err, []string{"InvalidInstance.NotSupported", "MutexOperation.TaskRunning"}) {
+				log.Infof("The instance is initializing, try later ...")
+				time.Sleep(10 * time.Second)
+			} else {
+				log.Errorf("DeleteVM fail: %s", err)
+				return err
+			}
+		} else {
+			break
+		}
 	}
 	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
 }
@@ -766,4 +790,25 @@ func (self *SInstance) UpdateUserData(userData string) error {
 
 func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
 	return cloudprovider.ErrNotSupported
+}
+
+func (self *SInstance) Renew(bc billing.SBillingCycle) error {
+	return self.host.zone.region.RenewInstances([]string{self.InstanceId}, bc)
+}
+
+func (region *SRegion) RenewInstances(instanceId []string, bc billing.SBillingCycle) error {
+	params := make(map[string]string)
+	for i := 0; i < len(instanceId); i += 1 {
+		params[fmt.Sprintf("InstanceIds.%d", i)] = instanceId[i]
+	}
+	params["InstanceChargePrepaid.Period"] = fmt.Sprintf("%d", bc.GetMonths())
+	params["InstanceChargePrepaid.RenewFlag"] = "NOTIFY_AND_MANUAL_RENEW"
+	params["RenewPortableDataDisk"] = "TRUE"
+	params["ClientToken"] = utils.GenRequestId(20)
+	_, err := region.cvmRequest("RenewInstances", params)
+	if err != nil {
+		log.Errorf("RenewInstance fail %s", err)
+		return err
+	}
+	return nil
 }

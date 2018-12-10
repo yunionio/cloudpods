@@ -25,6 +25,7 @@ func defaultPredicates() sets.String {
 		factory.RegisterFitPredicate("i-GuestStorageFilter", &predicateguest.StoragePredicate{}),
 		factory.RegisterFitPredicate("j-GuestNetworkFilter", &predicateguest.NetworkPredicate{}),
 		factory.RegisterFitPredicate("k-GuestIsolatedDeviceFilter", &predicateguest.IsolatedDevicePredicate{}),
+		factory.RegisterFitPredicate("l-GuestResourceTypeFilter", &predicates.ResourceTypePredicate{}),
 	)
 }
 

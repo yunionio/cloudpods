@@ -218,3 +218,7 @@ func (self *SClassicDisk) Resize(ctx context.Context, sizeMb int64) error {
 func (disk *SClassicDisk) GetAccessPath() string {
 	return ""
 }
+
+func (self *SClassicDisk) Rebuild(ctx context.Context) error {
+	return cloudprovider.ErrNotSupported
+}
