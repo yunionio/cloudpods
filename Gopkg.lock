@@ -1767,7 +1767,6 @@
     "github.com/moul/http2curl",
     "github.com/nelsonken/cos-go-sdk-v5/cos",
     "github.com/pierrec/lz4",
-    "github.com/pin/tftp",
     "github.com/serialx/hashring",
     "github.com/shirou/gopsutil",
     "github.com/stretchr/testify/assert",

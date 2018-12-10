@@ -1,5 +1,11 @@
 package types
 
+import (
+	"net"
+
+	"yunion.io/x/pkg/util/netutils"
+)
+
 const (
 	NIC_TYPE_IPMI  = "ipmi"
 	NIC_TYPE_ADMIN = "admin"
@@ -28,4 +34,12 @@ type Nic struct {
 	Net     string `json:"net"`
 	Gateway string `json:"gateway"`
 	LinkUp  bool   `json:"link_up"`
+}
+
+func (n Nic) GetNetMask() string {
+	return netutils.Masklen2Mask(n.MaskLen).String()
+}
+
+func (n Nic) GetMac() net.HardwareAddr {
+	return getMac(n.Mac)
 }

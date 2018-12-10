@@ -5,10 +5,13 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/baremetal/types"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
@@ -119,6 +122,7 @@ type ITask interface {
 
 	// GetTaskId return remote service task id
 	GetTaskId() string
+	GetClientSession() *mcclient.ClientSession
 
 	GetTaskQueue() *TaskQueue
 	// GetData return TaskData from region
@@ -162,6 +166,7 @@ type IBaremetalTask interface {
 
 type SBaremetalTaskBase struct {
 	Baremetal    IBaremetal
+	userCred     mcclient.TokenCredential
 	stageFunc    TaskStageFunc
 	sshStageFunc SSHTaskStageFunc
 	taskId       string
@@ -228,35 +233,112 @@ func (task *SBaremetalTaskBase) CallNextStage(iTask ITask, stage TaskStageFunc, 
 	ExecuteTask(iTask, args)
 }
 
+func (task *SBaremetalTaskBase) GetClientSession() *mcclient.ClientSession {
+	return task.Baremetal.GetClientSession()
+}
+
+func (self *SBaremetalTaskBase) EnsurePowerShutdown(soft bool) error {
+	log.Infof("EnsurePowerShutdown: soft=%v", soft)
+	status, err := self.Baremetal.GetPowerStatus()
+	if err != nil {
+		return err
+	}
+	startTime := time.Now()
+	maxWait := 60 * time.Second
+	for status == "" || status == types.POWER_STATUS_ON {
+		if time.Since(startTime).Seconds() >= maxWait.Seconds() && soft {
+			soft = false
+		}
+		self.Baremetal.DoPowerShutdown(soft)
+		time.Sleep(20 * time.Second)
+		status, err = self.Baremetal.GetPowerStatus()
+		if err != nil {
+			return err
+		}
+	}
+	if status != types.POWER_STATUS_OFF {
+		return fmt.Errorf("Baremetal invalid status %s for shutdown", status)
+	}
+	return nil
+}
+
+func (self *SBaremetalTaskBase) EnsurePowerUp(bootdev string) error {
+	log.Infof("EnsurePowerUp: bootdev=%s", bootdev)
+	var bootFunc func() error = nil
+	switch bootdev {
+	case "pxe":
+		bootFunc = self.Baremetal.DoPXEBoot
+	case "disk":
+		bootFunc = self.Baremetal.DoDiskBoot
+	}
+	if bootFunc == nil {
+		return fmt.Errorf("No boot func %s found", bootdev)
+	}
+	status, err := self.Baremetal.GetPowerStatus()
+	if err != nil {
+		return err
+	}
+	for status == "" || status == types.POWER_STATUS_OFF {
+		if status == types.POWER_STATUS_OFF {
+			err = bootFunc()
+			if err != nil {
+				return err
+			}
+		}
+		status, err = self.Baremetal.GetPowerStatus()
+		if err != nil {
+			return err
+		}
+		if status == "" || status == types.POWER_STATUS_OFF {
+			time.Sleep(40 * time.Second)
+			status, err = self.Baremetal.GetPowerStatus()
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if status != types.POWER_STATUS_ON {
+		return fmt.Errorf("Baremetal invalid restart status: %s", status)
+	}
+	return nil
+}
+
 type IPXEBootTask interface {
 	ITask
-	OnPXEBoot(ctx context.Context, args interface{}) error
+	OnPXEBoot(ctx context.Context, cli *ssh.Client, args interface{}) error
 }
 
 type SBaremetalPXEBootTaskBase struct {
 	*SBaremetalTaskBase
+	pxeBootTask IPXEBootTask
+	startTime   time.Time
 }
 
 func newBaremetalPXEBootTaskBase(
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
-	pxeBootTask IPXEBootTask,
 ) *SBaremetalPXEBootTaskBase {
 	baseTask := newBaremetalTaskBase(baremetal, taskId, data)
 	self := &SBaremetalPXEBootTaskBase{
 		SBaremetalTaskBase: baseTask,
 	}
+	return self
+
+}
+
+func (self *SBaremetalPXEBootTaskBase) InitPXEBootTask(pxeBootTask IPXEBootTask, data jsonutils.JSONObject) *SBaremetalPXEBootTaskBase {
+	self.pxeBootTask = pxeBootTask
 	//OnInitStage(pxeBootTask)
 	sshConf, _ := self.Baremetal.GetSSHConfig()
 	if sshConf != nil && self.Baremetal.TestSSHConfig() {
-		pxeBootTask.SetStage(pxeBootTask.OnPXEBoot)
+		pxeBootTask.SetSSHStage(pxeBootTask.OnPXEBoot)
+		self.SSHExecute(pxeBootTask, sshConf.RemoteIP, sshConf.Password, nil)
 		return self
 	}
 	// Do soft reboot
 	if data != nil && jsonutils.QueryBoolean(data, "soft_boot", false) {
-		//self.SetStage(self.WaitForShutdown)
-		// self.start_time = time.time()
+		self.startTime = time.Now()
 		self.Baremetal.DoPowerShutdown(true)
 		self.CallNextStage(self, self.WaitForShutdown, nil)
 		return self
@@ -264,23 +346,37 @@ func newBaremetalPXEBootTaskBase(
 	// shutdown and power up to PXE mode
 	self.EnsurePowerShutdown(false)
 	self.EnsurePowerUp("pxe")
-	// this stage will be called by baremetalInstance when pxe start
-	self.SetStage(pxeBootTask.OnPXEBoot)
+	// this stage will be called by baremetalInstance when pxe start notify
+	self.SetSSHStage(pxeBootTask.OnPXEBoot)
 	return self
 }
 
 func (self *SBaremetalPXEBootTaskBase) WaitForShutdown(ctx context.Context, args interface{}) error {
+	self.SetStage(self.OnStopComplete)
+	status, err := self.Baremetal.GetPowerStatus()
+	if err != nil {
+		return err
+	}
+	if status == types.POWER_STATUS_OFF {
+		self.Execute(self, nil)
+	} else if time.Since(self.startTime) >= 90*time.Second {
+		err = self.Baremetal.DoPowerShutdown(false)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (self *SBaremetalPXEBootTaskBase) OnStopComplete(ctx context.Context, args interface{}) error {
+	err := self.EnsurePowerUp("pxe")
+	if err != nil {
+		return err
+	}
+	self.SetSSHStage(self.pxeBootTask.OnPXEBoot)
 	return nil
 }
 
 func (self *SBaremetalPXEBootTaskBase) GetName() string {
 	return "BaremetalPXEBootTaskBase"
-}
-
-func (self *SBaremetalPXEBootTaskBase) EnsurePowerShutdown(soft bool) {
-
-}
-
-func (self *SBaremetalPXEBootTaskBase) EnsurePowerUp(bootdev string) {
-	log.Infof("[EnsurePowerUp] bootdev: %s", bootdev)
 }

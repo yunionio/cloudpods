@@ -3,9 +3,11 @@ package tasks
 import (
 	"context"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 var baremetalTaskWorkerMan *appsrv.SWorkerManager
@@ -35,10 +37,11 @@ func executeTask(task ITask, args interface{}) {
 	}
 }
 
-func SetTaskComplete(task ITask) {
+func SetTaskComplete(task ITask, data jsonutils.JSONObject) {
 	taskId := task.GetTaskId()
 	if taskId != "" {
-		// TODO: notify region complete
+		session := task.GetClientSession()
+		modules.ComputeTasks.TaskComplete(session, taskId, data)
 	}
 	onTaskEnd(task)
 }
@@ -46,7 +49,8 @@ func SetTaskComplete(task ITask) {
 func SetTaskFail(task ITask, err error) {
 	taskId := task.GetTaskId()
 	if taskId != "" {
-		// TODO: notify region task fail
+		session := task.GetClientSession()
+		modules.ComputeTasks.TaskFailed(session, taskId, err)
 	}
 	onTaskEnd(task)
 }

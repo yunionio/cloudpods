@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
 	"regexp"
 
-	"github.com/pin/tftp"
-
 	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/tftp"
 )
 
 var (
@@ -33,9 +34,8 @@ func NewTFTPHandler(rootDir string, baremetalManager IBaremetalManager) (*TFTPHa
 	}, nil
 }
 
-// ReadHandler is called when client starts file download from server
-func (h *TFTPHandler) ReadHandler(filename string, rf io.ReaderFrom) error {
-	log.Debugf("TFTP request file: %s", filename)
+// Handle is called when client starts file download from server
+func (h *TFTPHandler) Handle(filename string, clientAddr net.Addr) (io.ReadCloser, int64, error) {
 	regEx := regexp.MustCompile(PxeLinuxCfgPattern)
 	matches := regEx.FindStringSubmatch(filename)
 
@@ -49,71 +49,71 @@ func (h *TFTPHandler) ReadHandler(filename string, rf io.ReaderFrom) error {
 		}
 		mac, ok := paramsMap["mac"]
 		if !ok {
-			return fmt.Errorf("request filename %q not found mac pattern", filename)
+			return nil, 0, fmt.Errorf("request filename %q not found mac pattern", filename)
 		}
 		macAddr, err := net.ParseMAC(mac)
 		if err != nil {
-			return fmt.Errorf("Parse mac string %q error: %v", mac, err)
+			return nil, 0, fmt.Errorf("Parse mac string %q error: %v", mac, err)
 		}
-		return h.sendPxeLinuxCfgResponse(macAddr, rf)
+		return h.sendPxeLinuxCfgResponse(macAddr, clientAddr)
 	}
-	return h.sendFile(filename, rf)
+	return h.sendFile(filename, clientAddr)
 }
 
-func (h *TFTPHandler) sendPxeLinuxCfgResponse(mac net.HardwareAddr, rf io.ReaderFrom) error {
+func (h *TFTPHandler) sendPxeLinuxCfgResponse(mac net.HardwareAddr, _ net.Addr) (io.ReadCloser, int64, error) {
 	log.Debugf("[TFTP] client mac: %s", mac)
 	bmInstance := h.BaremetalManager.GetBaremetalByMac(mac)
 	if bmInstance == nil {
 		err := fmt.Errorf("Not found baremetal instance by mac: %s", mac)
 		log.Errorf("Get baremetal error: %v", err)
-		return err
+		return nil, 0, err
 	}
 	respStr := bmInstance.GetTFTPResponse()
 	log.Debugf("[TFTP] get tftp response config: %s", respStr)
-	size := len(respStr)
+	bs := []byte(respStr)
+	size := int64(len(bs))
 	buffer := bytes.NewBufferString(respStr)
 
-	rf.(tftp.OutgoingTransfer).SetSize(int64(size))
-
-	n, err := rf.ReadFrom(buffer)
-	if err != nil {
-		return err
-	}
-
-	log.Debugf("[TFTP] %d bytes sent", n)
-	return nil
+	return ioutil.NopCloser(buffer), size, nil
 }
 
-func (h *TFTPHandler) sendFile(filename string, rf io.ReaderFrom) error {
+func (h *TFTPHandler) sendFile(filename string, _ net.Addr) (io.ReadCloser, int64, error) {
 	filename = h.getFilePath(filename)
+
+	st, err := os.Stat(filename)
+	if err != nil {
+		log.Errorf("TFTP stat file %q error: %v", filename, err)
+		return nil, 0, err
+	}
+	if !st.Mode().IsRegular() {
+		return nil, 0, fmt.Errorf("requested path %q is not a file", filename)
+	}
+
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Errorf("TFTP open file %q error: %v", filename, err)
-		return err
+		return nil, 0, err
 	}
-	n, err := rf.ReadFrom(file)
-	if err != nil {
-		return err
-	}
-	log.Debugf("[TFTP] %d bytes sent", n)
-	return nil
+	return file, st.Size(), err
 }
 
 func (h *TFTPHandler) getFilePath(fileName string) string {
 	return filepath.Join(h.RootDir, fileName)
 }
 
-func (s *Server) serveTFTP(srv *tftp.Server) error {
-	addr := fmt.Sprintf("%s:%d", s.Address, s.TFTPPort)
-	udpAddr, err := net.ResolveUDPAddr("udp4", addr)
-	if err != nil {
-		return err
-	}
-	conn, err := net.ListenUDP("udp4", udpAddr)
-	if err != nil {
-		return err
-	}
+func (h *TFTPHandler) transferLog(clientAddr net.Addr, path string, err error) {
+	log.Debugf("TFTP transfer log clientAddr: %s, path: %s, error: %v", clientAddr, path, err)
+}
 
-	srv.Serve(conn)
+func (s *Server) serveTFTP(l net.PacketConn, handler *TFTPHandler) error {
+	ts := tftp.Server{
+		Handler:     handler.Handle,
+		InfoLog:     func(msg string) { log.Debugf("TFTP msg: %s", msg) },
+		TransferLog: handler.transferLog,
+	}
+	err := ts.Serve(l)
+	if err != nil {
+		return fmt.Errorf("TFTP server shut down: %v", err)
+	}
 	return nil
 }
