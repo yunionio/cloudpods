@@ -10,7 +10,7 @@ import (
 func init() {
 	type ParametersListOptions struct {
 		NamespaceId string `help:"List parameter of specificated namespace id, ADMIN only"`
-		User        string `help:"List parameter of specificated user id, ADMIN only"`
+		User        string `help:"List parameter of specificated user id, ADMIN only" token:"user-id"`
 		Service     string `help:"List parameter of specificated service id, ADMIN only"`
 		options.BaseListOptions
 	}

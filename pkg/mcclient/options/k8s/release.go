@@ -8,7 +8,6 @@ import (
 
 type ReleaseListOptions struct {
 	NamespaceResourceListOptions
-	Name       string `help:"Search by name"`
 	Filter     string `help:"Filter, split by space"`
 	Admin      bool   `help:"Admin to show all namespace releases"`
 	Deployed   bool   `help:"Show deployed status releases"`
