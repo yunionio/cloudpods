@@ -3,21 +3,22 @@ package models
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
+
+	"github.com/golang-plus/errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 
-	"strings"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"github.com/golang-plus/errors"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 func (self *SHost) GetResourceType() string {
@@ -179,7 +180,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	storageSize := 0
 	var externalId string
 	for i := 0; i < len(guestdisks); i += 1 {
-		disk :=  guestdisks[i].GetDisk()
+		disk := guestdisks[i].GetDisk()
 		storage := disk.GetStorage()
 		if disk.BillingType == BILLING_TYPE_PREPAID {
 			storageSize += disk.DiskSize

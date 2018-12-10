@@ -372,26 +372,17 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 		disk := diskI.(*SDisk)
 		guestdisks := GuestdiskManager.Query().SubQuery()
-		count := guestdisks.Query().Filter(sqlchemy.AND(
-			sqlchemy.Equals(guestdisks.Field("disk_id"), disk.Id),
-			sqlchemy.IsFalse(guestdisks.Field("deleted")))).Count()
+		count := guestdisks.Query().Equals("disk_id", disk.Id).Count()
 		if count > 0 {
-			sgq := guestdisks.Query(guestdisks.Field("guest_id")).
-				Filter(sqlchemy.AND(
-				sqlchemy.Equals(guestdisks.Field("disk_id"), disk.Id),
-				sqlchemy.IsFalse(guestdisks.Field("deleted"))))
+			sgq := guestdisks.Query(guestdisks.Field("guest_id")).Equals("disk_id", disk.Id).SubQuery()
 			q = q.Filter(sqlchemy.In(q.Field("id"), sgq))
 		} else {
 			hosts := HostManager.Query().SubQuery()
 			hoststorages := HoststorageManager.Query().SubQuery()
 			storages := StorageManager.Query().SubQuery()
 			sq := hosts.Query(hosts.Field("id")).
-				Join(hoststorages, sqlchemy.AND(
-				sqlchemy.Equals(hoststorages.Field("host_id"), hosts.Field("id")),
-				sqlchemy.IsFalse(hoststorages.Field("deleted")))).
-				Join(storages, sqlchemy.AND(
-				sqlchemy.Equals(storages.Field("id"), hoststorages.Field("storage_id")),
-				sqlchemy.IsFalse(storages.Field("deleted")))).
+				Join(hoststorages, sqlchemy.Equals(hoststorages.Field("host_id"), hosts.Field("id"))).
+				Join(storages, sqlchemy.Equals(storages.Field("id"), hoststorages.Field("storage_id"))).
 				Filter(sqlchemy.Equals(storages.Field("id"), disk.StorageId)).SubQuery()
 			q = q.In("host_id", sq)
 		}
@@ -445,8 +436,8 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		isodev := IsolatedDeviceManager.Query().SubQuery()
 		sgq := isodev.Query(isodev.Field("guest_id")).
 			Filter(sqlchemy.AND(
-			sqlchemy.IsNotNull(isodev.Field("guest_id")),
-			sqlchemy.Startswith(isodev.Field("dev_type"), "GPU")))
+				sqlchemy.IsNotNull(isodev.Field("guest_id")),
+				sqlchemy.Startswith(isodev.Field("dev_type"), "GPU")))
 		showGpu := utils.ToBool(gpu)
 		cond := sqlchemy.NotIn
 		if showGpu {
@@ -1255,7 +1246,7 @@ func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchem
 		cloudregionQuery := CloudregionManager.Query("id", "name").SubQuery()
 		hostQuery.LeftJoin(zoneQuery, sqlchemy.Equals(hostQuery.Field("zone_id"), zoneQuery.Field("id"))).
 			LeftJoin(cloudregionQuery, sqlchemy.OR(sqlchemy.Equals(cloudregionQuery.Field("id"),
-			zoneQuery.Field("cloudregion_id")), sqlchemy.Equals(cloudregionQuery.Field("id"), "default")))
+				zoneQuery.Field("cloudregion_id")), sqlchemy.Equals(cloudregionQuery.Field("id"), "default")))
 		hostQuery.AppendField(cloudregionQuery.Field("name", "region"))
 		hostSubQuery := hostQuery.SubQuery()
 		q.LeftJoin(hostSubQuery, sqlchemy.Equals(q.Field("host_id"), hostSubQuery.Field("id")))
@@ -3273,10 +3264,8 @@ func (manager *SGuestManager) GetIpInProjectWithName(projectId, name string, isE
 		sqlchemy.AND(
 			sqlchemy.Equals(guests.Field("id"), guestnics.Field("guest_id")),
 			sqlchemy.OR(sqlchemy.IsNull(guests.Field("pending_deleted")),
-				sqlchemy.IsFalse(guests.Field("pending_deleted"))),
-			sqlchemy.IsFalse(guests.Field("deleted")))).
-		Join(networks, sqlchemy.AND(sqlchemy.Equals(networks.Field("id"), guestnics.Field("network_id")),
-		sqlchemy.IsFalse(networks.Field("deleted")))).
+				sqlchemy.IsFalse(guests.Field("pending_deleted"))))).
+		Join(networks, sqlchemy.Equals(networks.Field("id"), guestnics.Field("network_id"))).
 		Filter(sqlchemy.Equals(guests.Field("name"), name)).
 		Filter(sqlchemy.NotEquals(guestnics.Field("ip_addr"), "")).
 		Filter(sqlchemy.IsNotNull(guestnics.Field("ip_addr"))).
@@ -3319,7 +3308,7 @@ func (manager *SGuestManager) getIpsByExit(ips []string, isExitOnly bool) []stri
 }
 
 func (manager *SGuestManager) getExpiredPendingDeleteGuests() []SGuest {
-	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds * -1) * time.Second)
+	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds*-1) * time.Second)
 
 	q := manager.Query()
 	q = q.IsTrue("pending_deleted").LT("pending_deleted_at", deadline).Limit(options.Options.PendingDeleteMaxCleanBatchSize)
@@ -3345,7 +3334,7 @@ func (manager *SGuestManager) CleanPendingDeleteServers(ctx context.Context, use
 }
 
 func (manager *SGuestManager) getExpiredPrepaidGuests() []SGuest {
-	deadline := time.Now().Add(time.Duration(options.Options.PrepaidExpireCheckSeconds * -1) * time.Second)
+	deadline := time.Now().Add(time.Duration(options.Options.PrepaidExpireCheckSeconds*-1) * time.Second)
 
 	q := manager.Query()
 	q = q.Equals("billing_type", BILLING_TYPE_PREPAID).LT("expired_at", deadline).Limit(options.Options.ExpiredPrepaidMaxCleanBatchSize)
