@@ -31,6 +31,10 @@ func (self *SNetwork) GetId() string {
 }
 
 func (self *SNetwork) GetName() string {
+	if len(self.NetworkName) == 0 {
+		return self.NetworkId
+	}
+
 	return self.NetworkName
 }
 
@@ -117,6 +121,17 @@ func (self *SRegion) createNetwork(zoneId string, vpcId string, name string, cid
 	if err != nil {
 		return "", err
 	} else {
+		paramsTags := &ec2.CreateTagsInput{}
+		tagspec := TagSpec{ResourceType: "subnet"}
+		tagspec.SetNameTag(name)
+		tagspec.SetDescTag(desc)
+		ec2Tag, _ := tagspec.GetTagSpecifications()
+		paramsTags.SetResources([]*string{ret.Subnet.SubnetId})
+		paramsTags.SetTags(ec2Tag.Tags)
+		_, err := self.ec2Client.CreateTags(paramsTags)
+		if err != nil {
+			log.Infof("createNetwork write tags failed:%s", err)
+		}
 		return *ret.Subnet.SubnetId, nil
 	}
 }
@@ -164,10 +179,14 @@ func (self *SRegion) GetNetwroks(ids []string, vpcId string, limit int, offset i
 	}
 
 	subnets := []SNetwork{}
-	for _, item := range ret.Subnets {
+	for i := range ret.Subnets {
+		item := ret.Subnets[i]
 		if err := FillZero(item); err != nil {
 			return nil, 0, err
 		}
+
+		tagspec := TagSpec{ResourceType: "subnet"}
+		tagspec.LoadingEc2Tags(item.Tags)
 
 		subnet := SNetwork{}
 		subnet.CidrBlock = *item.CidrBlock
@@ -176,7 +195,7 @@ func (self *SRegion) GetNetwroks(ids []string, vpcId string, limit int, offset i
 		subnet.ZoneId = *item.AvailabilityZone
 		subnet.IsDefault = *item.DefaultForAz
 		subnet.NetworkId = *item.SubnetId
-		subnet.NetworkName = *item.SubnetId
+		subnet.NetworkName = tagspec.GetNameTag()
 		subnets = append(subnets, subnet)
 	}
 	return subnets, len(subnets), nil
