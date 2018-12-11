@@ -11,7 +11,7 @@ import (
 func init() {
 	type ServerSkusListOptions struct {
 		options.BaseListOptions
-		Provider string `help:"provider" choices:"all|kvm|esxi|xen|hyperv|aliyun|azure|aws|qcloud|huawei"`
+		Provider string `help:"provider" choices:"all|aliyun|azure|aws|qcloud|huawei" default:""`
 		Region   string `help:"region Id or name"`
 		Zone     string `help:"zone Id or name"`
 		Cpu      int    `help:"Cpu core count"`
@@ -50,9 +50,8 @@ func init() {
 	})
 
 	type ServerSkusCreateOptions struct {
-		CpuCoreCount int    `help:"Cpu Count" required:"true" positional:"true"`
-		MemorySizeMB int    `help:"Memory MB" required:"true" positional:"true"`
-		Provider     string `help:"Provider name" choices:"all|kvm|esxi"`
+		CpuCoreCount int `help:"Cpu Count" required:"true" positional:"true"`
+		MemorySizeMB int `help:"Memory MB" required:"true" positional:"true"`
 
 		OsName               *string `help:"OS name/type" choices:"Linux|Windows|Any" default:"Any"`
 		InstanceTypeCategory *string `help:"instance type category" choices:"general_purpose|compute_optimized|memory_optimized|storage_optimized|hardware_accelerated|high_memory|high_storage"`
@@ -96,7 +95,6 @@ func init() {
 		CpuCoreCount *int `help:"Cpu Count"`
 		MemorySizeMB *int `help:"Memory MB"`
 
-		Provider             string  `help:"Provider name" choices:"all|kvm|esxi"`
 		InstanceTypeCategory *string `help:"instance type category" choices:"general_purpose|compute_optimized|memory_optimized|storage_optimized|hardware_accelerated|high_memory|high_storage"`
 
 		SysDiskResizable *bool `help:"system disk is resizable"`

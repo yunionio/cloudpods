@@ -66,10 +66,10 @@ type SServerSku struct {
 	CpuCoreCount int `nullable:"false" list:"user" create:"admin_required" update:"admin"`
 	MemorySizeMB int `nullable:"false" list:"user" create:"admin_required" update:"admin"`
 
-	OsName string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin" default:"Any"` // Windows|Linux|Any
+	OsName string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin" default:"Any"` // Windows|Linux|Any
 
 	SysDiskResizable bool   `default:"true" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
-	SysDiskType      string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin"`
+	SysDiskType      string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 	SysDiskMinSizeGB int    `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // not required。 windows比较新的版本都是50G左右。
 	SysDiskMaxSizeGB int    `nullable:"false" list:"user" create:"admin_optional" update:"admin"` // not required
 
@@ -94,24 +94,20 @@ type SServerSku struct {
 }
 
 func inWhiteList(provider string) bool {
-	// 只有为true的hypervisor才进行创建和更新操作
+	// provider 字段为空时表示私有云套餐
 	if len(provider) == 0 {
 		return true
-	}
-	switch provider {
-	case HYPERVISOR_ESXI, HYPERVISOR_KVM, "all": // 空或者all时。表示`通用`私用云instance type列表
-		return true
-	default:
+	} else {
 		return false
 	}
 }
 
 func genInstanceType(family string, cpu, mem_mb int64) (string, error) {
-	if cpu < 0 {
+	if cpu <= 0 {
 		return "", fmt.Errorf("cpu_core_count should great than zero")
 	}
 
-	if mem_mb < 0 || mem_mb%1024 != 0 {
+	if mem_mb <= 0 || mem_mb%1024 != 0 {
 		return "", fmt.Errorf("memory_size_mb should great than zero. and should be integral multiple of 1024")
 	}
 
@@ -143,9 +139,7 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 		return nil, httperrors.NewForbiddenError("can not create instance_type for public cloud %s", provider)
 	}
 
-	if provider == "all" {
-		data.Remove("provider")
-	}
+	data.Remove("provider")
 
 	regionStr := jsonutils.GetAnyString(data, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
 	if len(regionStr) > 0 {
@@ -189,7 +183,7 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("memory_size_mb should not be empty")
 	} else {
-		data.Set("cpu_core_count", jsonutils.NewInt(mem))
+		data.Set("memory_size_mb", jsonutils.NewInt(mem))
 	}
 
 	category, _ := data.GetString("instance_type_category")
@@ -207,15 +201,11 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 
 	data.Set("name", jsonutils.NewString(name))
 
-	q := self.Query().Equals("name", name)
-	if len(provider) > 0 && provider != "all" {
-		q = q.Equals("provider", provider)
-	} else {
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.IsNull(q.Field("provider")),
-			sqlchemy.IsEmpty(q.Field("provider")),
-		))
-	}
+	q := self.Query()
+	q = q.Equals("name", name).Filter(sqlchemy.OR(
+		sqlchemy.IsNull(q.Field("provider")),
+		sqlchemy.IsEmpty(q.Field("provider")),
+	))
 
 	if q.Count() > 0 {
 		return nil, httperrors.NewDuplicateResourceError("Duplicate sku %s", name)
@@ -348,10 +338,7 @@ func (self *SServerSku) ValidateUpdateData(
 	if err == nil && !inWhiteList(provider) {
 		return nil, httperrors.NewForbiddenError("can not update instance_type for public cloud %s", provider)
 	}
-
-	if provider == "all" {
-		data.Remove("provider")
-	}
+	data.Remove("provider")
 
 	zoneStr := jsonutils.GetAnyString(data, []string{"zone", "zone_id"})
 	if len(zoneStr) > 0 {
@@ -405,15 +392,11 @@ func (self *SServerSku) ValidateUpdateData(
 
 	data.Set("name", jsonutils.NewString(name))
 
-	q := self.GetModelManager().Query().Equals("name", name)
-	if len(provider) > 0 && provider != "all" {
-		q = q.Equals("provider", provider)
-	} else {
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.IsNull(q.Field("provider")),
-			sqlchemy.IsEmpty(q.Field("provider")),
-		))
-	}
+	q := self.GetModelManager().Query()
+	q = q.Equals("name", name).Filter(sqlchemy.OR(
+		sqlchemy.IsNull(q.Field("provider")),
+		sqlchemy.IsEmpty(q.Field("provider")),
+	))
 
 	if q.Count() > 0 {
 		return nil, httperrors.NewDuplicateResourceError("sku cpu %d mem %d(Mb) already exists", cpu, mem)
@@ -449,28 +432,13 @@ func (self *SServerSku) GetZoneExternalId() (string, error) {
 
 func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	provider := jsonutils.GetAnyString(query, []string{"provider"})
-	if inWhiteList(provider) {
-		// provider 参数为空或者all时。表示查询`通用`私用云instance type列表
-		if provider == "" {
-			q = q.Filter(sqlchemy.OR(
-				sqlchemy.IsNull(q.Field("provider")),
-				sqlchemy.IsEmpty(q.Field("provider")),
-				sqlchemy.Equals(q.Field("provider"), HYPERVISOR_KVM),
-				sqlchemy.Equals(q.Field("provider"), HYPERVISOR_ESXI),
-			))
-		} else if provider == "all" {
-			q = q.Filter(sqlchemy.OR(
-				sqlchemy.IsNull(q.Field("provider")),
-				sqlchemy.IsEmpty(q.Field("provider")),
-			))
-		} else {
-			q = q.Filter(sqlchemy.OR(
-				sqlchemy.IsNull(q.Field("provider")),
-				sqlchemy.IsEmpty(q.Field("provider")),
-				sqlchemy.Equals(q.Field("provider"), provider),
-			))
-		}
-	} else {
+	// provider 参数为all时。表示查询所有instance type
+	if provider == "" {
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.IsNull(q.Field("provider")),
+			sqlchemy.IsEmpty(q.Field("provider")),
+		))
+	} else if provider != "all" {
 		q = q.Equals("provider", provider)
 	}
 
