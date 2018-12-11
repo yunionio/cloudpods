@@ -36,12 +36,8 @@ func (region *SFakeOnPremiseRegion) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
-func (region *SFakeOnPremiseRegion) GetLatitude() float32 {
-	return 0.0
-}
-
-func (region *SFakeOnPremiseRegion) GetLongitude() float32 {
-	return 0.0
+func (region *SFakeOnPremiseRegion) GetGeographicInfo() SGeographicInfo {
+	return SGeographicInfo{}
 }
 
 func (region *SFakeOnPremiseRegion) GetIZones() ([]ICloudZone, error) {

@@ -108,18 +108,11 @@ func (self *SRegion) GetProvider() string {
 	return CLOUD_PROVIDER_ALIYUN
 }
 
-func (self *SRegion) GetLatitude() float32 {
-	if locationInfo, ok := LatitudeAndLongitude[self.RegionId]; ok {
-		return locationInfo["latitude"]
+func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
+	if info, ok := LatitudeAndLongitude[self.RegionId]; ok {
+		return info
 	}
-	return 0.0
-}
-
-func (self *SRegion) GetLongitude() float32 {
-	if locationInfo, ok := LatitudeAndLongitude[self.RegionId]; ok {
-		return locationInfo["longitude"]
-	}
-	return 0.0
+	return cloudprovider.SGeographicInfo{}
 }
 
 func (self *SRegion) GetStatus() string {

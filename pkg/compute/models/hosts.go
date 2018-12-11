@@ -195,9 +195,10 @@ func (self *SHost) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	queryDict := query.(*jsonutils.JSONDict)
+
 	resType, _ := query.GetString("resource_type")
 	if len(resType) > 0 {
-		queryDict := query.(*jsonutils.JSONDict)
 		queryDict.Remove("resource_type")
 
 		switch resType {
@@ -267,23 +268,65 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 
 	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
 	if len(zoneStr) > 0 {
-		zone, _ := ZoneManager.FetchByIdOrName(nil, zoneStr)
-		if zone == nil {
-			return nil, httperrors.NewResourceNotFoundError("Zone %s not found", zoneStr)
+		zone, err := ZoneManager.FetchByIdOrName(nil, zoneStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), zoneStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
 		}
 		q = q.Filter(sqlchemy.Equals(q.Field("zone_id"), zone.GetId()))
+
+		queryDict.Remove("zone_id")
 	}
+
+	regionStr := jsonutils.GetAnyString(query, []string{"region", "region_id"})
+	if len(regionStr) > 0 {
+		region, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudregionManager.Keyword(), regionStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		subq := ZoneManager.Query("id").Equals("cloudregion_id", region.GetId()).SubQuery()
+		q = q.Filter(sqlchemy.In(q.Field("zone_id"), subq))
+	}
+
 	// vcenter
 	// zone
 	// cachedimage
 
-	managerStr := jsonutils.GetAnyString(query, []string{"manager", "provider", "manager_id", "provider_id"})
+	managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
 	if len(managerStr) > 0 {
-		provider := CloudproviderManager.FetchCloudproviderByIdOrName(managerStr)
-		if provider == nil {
-			return nil, httperrors.NewResourceNotFoundError("provider %s not found", managerStr)
+		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
 		}
 		q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), provider.GetId()))
+		queryDict.Remove("manager_id")
+	}
+
+	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
+	if len(accountStr) > 0 {
+		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", account.GetId()).SubQuery()
+		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+	}
+
+	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
+	if len(providerStr) > 0 {
+		subq := CloudproviderManager.Query("id").Equals("provider", providerStr).SubQuery()
+		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
 	}
 
 	usable := jsonutils.QueryBoolean(query, "usable", false)
@@ -1941,13 +1984,25 @@ func (self *SHost) getGuestsResource(status string) *SHostGuestResourceUsage {
 }
 
 func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	zone := self.GetZone()
+	/*zone := self.GetZone()
 	if zone != nil {
 		extra.Add(jsonutils.NewString(zone.Id), "zone_id")
 		extra.Add(jsonutils.NewString(zone.Name), "zone")
-		extra.Add(jsonutils.NewString(zone.GetRegion().GetName()), "region")
-		extra.Add(jsonutils.NewString(zone.GetRegion().GetId()), "region_id")
-	}
+		if len(zone.ExternalId) > 0 {
+			extra.Add(jsonutils.NewString(zone.ExternalId), "")
+		}
+		region := zone.GetRegion()
+		if region != nil {
+			extra.Add(jsonutils.NewString(zone.GetRegion().GetName()), "region")
+			extra.Add(jsonutils.NewString(zone.GetRegion().GetId()), "region_id")
+		}
+	}*/
+
+	info := self.getCloudBillingInfo()
+	infoJson := jsonutils.Marshal(&info)
+	log.Debugf("%s", infoJson.String())
+	extra.Update(infoJson)
+
 	server := self.GetBaremetalServer()
 	if server != nil {
 		extra.Add(jsonutils.NewString(server.Id), "server_id")
@@ -2000,7 +2055,8 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 	}
 	extra.Add(jsonutils.NewFloat(memCommitRate), "mem_commit_rate")
 	extra.Add(self.GetHardwareSpecification(), "spec")
-	extra = self.SManagedResourceBase.getExtraDetails(ctx, extra)
+
+	// extra = self.SManagedResourceBase.getExtraDetails(ctx, extra)
 
 	if self.IsPrepaidRecycle() {
 		extra.Add(jsonutils.JSONTrue, "is_prepaid_recycle")

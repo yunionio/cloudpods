@@ -394,18 +394,11 @@ func (self *SRegion) GetVpcs(vpcIds []string, offset int, limit int) ([]SVpc, in
 	return vpcs, int(total), nil
 }
 
-func (self *SRegion) GetLatitude() float32 {
+func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	if info, ok := LatitudeAndLongitude[self.Region]; ok {
-		return info["latitude"]
+		return info
 	}
-	return 0.0
-}
-
-func (self *SRegion) GetLongitude() float32 {
-	if info, ok := LatitudeAndLongitude[self.Region]; ok {
-		return info["longitude"]
-	}
-	return 0.0
+	return cloudprovider.SGeographicInfo{}
 }
 
 func (self *SRegion) GetMetadata() *jsonutils.JSONDict {

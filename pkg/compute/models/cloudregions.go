@@ -43,9 +43,9 @@ func init() {
 type SCloudregion struct {
 	db.SEnabledStatusStandaloneResourceBase
 
-	Latitude  float32 `list:"user"`
-	Longitude float32 `list:"user"`
-	Provider  string  `width:"64" charset:"ascii" list:"user"`
+	cloudprovider.SGeographicInfo
+
+	Provider string `width:"64" charset:"ascii" list:"user"`
 }
 
 func (manager *SCloudregionManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -227,8 +227,7 @@ func (self *SCloudregion) syncWithCloudRegion(cloudRegion cloudprovider.ICloudRe
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Name = cloudRegion.GetName()
 		self.Status = cloudRegion.GetStatus()
-		self.Latitude = cloudRegion.GetLatitude()
-		self.Longitude = cloudRegion.GetLongitude()
+		self.SGeographicInfo = cloudRegion.GetGeographicInfo()
 		self.Provider = cloudRegion.GetProvider()
 
 		self.IsEmulated = cloudRegion.IsEmulated()
@@ -247,8 +246,7 @@ func (manager *SCloudregionManager) newFromCloudRegion(cloudRegion cloudprovider
 
 	region.ExternalId = cloudRegion.GetGlobalId()
 	region.Name = cloudRegion.GetName()
-	region.Latitude = cloudRegion.GetLatitude()
-	region.Longitude = cloudRegion.GetLongitude()
+	region.SGeographicInfo = cloudRegion.GetGeographicInfo()
 	region.Status = cloudRegion.GetStatus()
 	region.Enabled = true
 	region.Provider = cloudRegion.GetProvider()
@@ -352,6 +350,7 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 		}
 		q = q.Equals("provider", manager.Provider)
 	}
+
 	if jsonutils.QueryBoolean(query, "usable", false) {
 		networks := NetworkManager.Query().SubQuery()
 		wires := WireManager.Query().SubQuery()

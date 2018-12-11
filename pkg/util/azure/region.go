@@ -117,12 +117,11 @@ func (self *SRegion) GetProvider() string {
 	return CLOUD_PROVIDER_AZURE
 }
 
-func (self *SRegion) GetLatitude() float32 {
-	return self.Latitude
-}
-
-func (self *SRegion) GetLongitude() float32 {
-	return self.Longitude
+func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
+	info := cloudprovider.SGeographicInfo{}
+	info.Latitude = self.Latitude
+	info.Longitude = self.Longitude
+	return info
 }
 
 func (self *SRegion) GetStatus() string {

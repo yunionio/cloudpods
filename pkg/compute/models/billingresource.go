@@ -45,24 +45,24 @@ func (self *SBillingResourceBase) IsValidPrePaid() bool {
 }
 
 type SCloudBillingInfo struct {
-	Provider            string
-	Account             string
-	AccountId           string
-	SubAccount          string
-	SubAccountId        string
-	SubAccountProject   string
-	SubAccountProjectId string
-	Region              string
-	RegionId            string
-	RegionExtId         string
-	Zone                string
-	ZoneId              string
-	ZoneExtId           string
-	PriceKey            string
-	ChargeType          string
-	InternetChargeType  string
-	ExpiredAt           time.Time
-	BillingCycle        string
+	Provider           string    `json:",omitempty"`
+	Account            string    `json:",omitempty"`
+	AccountId          string    `json:",omitempty"`
+	Manager            string    `json:",omitempty"`
+	ManagerId          string    `json:",omitempty"`
+	ManagerProject     string    `json:",omitempty"`
+	ManagerProjectId   string    `json:",omitempty"`
+	Region             string    `json:",omitempty"`
+	RegionId           string    `json:",omitempty"`
+	RegionExtId        string    `json:",omitempty"`
+	Zone               string    `json:",omitempty"`
+	ZoneId             string    `json:",omitempty"`
+	ZoneExtId          string    `json:",omitempty"`
+	PriceKey           string    `json:",omitempty"`
+	ChargeType         string    `json:",omitempty"`
+	InternetChargeType string    `json:",omitempty"`
+	ExpiredAt          time.Time `json:",omitempty"`
+	BillingCycle       string    `json:",omitempty"`
 }
 
 func MakeCloudBillingInfo(region *SCloudregion, zone *SZone, provider *SCloudprovider) SCloudBillingInfo {
@@ -79,14 +79,14 @@ func MakeCloudBillingInfo(region *SCloudregion, zone *SZone, provider *SCloudpro
 	}
 
 	if provider != nil {
-		info.SubAccount = provider.GetName()
-		info.SubAccountId = provider.GetId()
+		info.Manager = provider.GetName()
+		info.ManagerId = provider.GetId()
 
 		if len(provider.ProjectId) > 0 {
-			info.SubAccountProjectId = provider.ProjectId
+			info.ManagerProjectId = provider.ProjectId
 			tc, err := db.TenantCacheManager.FetchTenantById(appctx.Background, provider.ProjectId)
 			if err == nil {
-				info.SubAccountProject = tc.GetName()
+				info.ManagerProject = tc.GetName()
 			}
 		}
 

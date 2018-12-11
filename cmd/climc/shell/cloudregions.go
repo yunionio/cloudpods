@@ -11,10 +11,11 @@ import (
 func init() {
 	type CloudregionListOptions struct {
 		options.BaseListOptions
-		Private bool   `help:"show private cloud regions only"`
-		Public  bool   `help:"show public cloud regions only"`
-		Manager string `help:"Show regions belongs to the cloud provider"`
-		Usable  bool   `help:"List regions that are usable"`
+		Private  bool   `help:"show private cloud regions only"`
+		Public   bool   `help:"show public cloud regions only"`
+		Manager  string `help:"Show regions belongs to the cloud provider"`
+		Provider string `help:"List regions of the public cloud provider" choices:"Aliyun|Qcloud|Azure|Aws|Huawei"`
+		Usable   bool   `help:"List regions that are usable"`
 	}
 	R(&CloudregionListOptions{}, "cloud-region-list", "List cloud regions", func(s *mcclient.ClientSession, args *CloudregionListOptions) error {
 		var params *jsonutils.JSONDict
@@ -37,6 +38,9 @@ func init() {
 		}
 		if len(args.Manager) > 0 {
 			params.Add(jsonutils.NewString(args.Manager), "manager")
+		}
+		if len(args.Provider) > 0 {
+			params.Add(jsonutils.NewString(args.Provider), "provider")
 		}
 		result, err := modules.Cloudregions.List(s, params)
 		if err != nil {
