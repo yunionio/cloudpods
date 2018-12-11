@@ -856,6 +856,10 @@ func (self *SNetwork) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSOND
 			extra.Add(jsonutils.NewString(vpc.GetExternalId()), "vpc_external_id")
 		}
 	}
+	routes := self.GetRoutes()
+	if len(routes) > 0 {
+		extra.Add(jsonutils.Marshal(routes), "routes")
+	}
 
 	return extra
 }
