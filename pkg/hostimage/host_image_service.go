@@ -73,7 +73,6 @@ func inputCheck(ctx context.Context) (string, error) {
 	var userCred = auth.FetchUserCredential(ctx, nil)
 	if !userCred.HasSystemAdminPrivelege() {
 		return "", httperrors.NewForbiddenError("System admin only")
-
 	}
 
 	var params = appctx.AppContextParams(ctx)

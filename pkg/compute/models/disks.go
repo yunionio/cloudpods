@@ -100,6 +100,9 @@ type SDisk struct {
 
 	// # backing template id and type
 	TemplateId string `width:"256" charset:"ascii" nullable:"true" list:"user"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=True)
+	// backing snapshot id
+	SnapshotId string `width:"256" charset:"ascii" nullable:"true" list:"user"`
+
 	// # file system
 	FsFormat string `width:"32" charset:"ascii" nullable:"true" list:"user"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
 	// # disk type, OS, SWAP, DAT
@@ -446,6 +449,8 @@ func (self *SDisk) StartAllocate(ctx context.Context, host *SHost, storage *SSto
 	content.Add(jsonutils.NewInt(int64(self.DiskSize)), "size")
 	if len(snapshot) > 0 {
 		content.Add(jsonutils.NewString(snapshot), "snapshot")
+		SnapshotManager.AddRefCount(self.SnapshotId, 1)
+		self.SetMetadata(ctx, "merge_snapshot", jsonutils.JSONTrue, userCred)
 	} else if len(templateId) > 0 {
 		content.Add(jsonutils.NewString(templateId), "image_id")
 	}
@@ -1078,7 +1083,6 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 		} else if strings.HasPrefix(p, "snapshot-") {
 			// HACK: use snapshot creat disk format snapshot-id
 			// example: snapshot-3140cecb-ccc4-4865-abae-3a5ba8c69d9b
-			log.Errorln("The snapshot XXXXXXX Create disk", p[len("snapshot-"):])
 			if err := fillDiskConfigBySnapshot(userCred, &diskConfig, p[len("snapshot-"):]); err != nil {
 				return nil, err
 			}
@@ -1167,8 +1171,7 @@ func (self *SDisk) fetchDiskInfo(diskConfig *SDiskConfig) {
 		self.TemplateId = diskConfig.ImageId
 		self.DiskType = DISK_TYPE_SYS
 	} else if len(diskConfig.SnapshotId) > 0 {
-		// XXX: HACK reuse template id as snapshot id
-		// self.TemplateId = "snapshot-" + diskConfig.SnapshotId
+		self.SnapshotId = diskConfig.SnapshotId
 		self.DiskType = diskConfig.DiskType
 	}
 	if len(diskConfig.Fs) > 0 {

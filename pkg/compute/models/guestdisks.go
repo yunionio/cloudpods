@@ -166,6 +166,12 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	if len(tid) > 0 {
 		desc.Add(jsonutils.NewString(tid), "template_id")
 	}
+	if len(disk.SnapshotId) > 0 {
+		needMerge := disk.GetMetadata("merge_snapshot", nil)
+		if needMerge == "true" {
+			desc.Set("merge_snapshot", jsonutils.JSONTrue)
+		}
+	}
 	fs := disk.GetFsFormat()
 	if len(fs) > 0 {
 		desc.Add(jsonutils.NewString(fs), "fs")

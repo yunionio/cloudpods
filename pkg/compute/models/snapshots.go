@@ -49,6 +49,9 @@ type SSnapshot struct {
 	FakeDeleted bool   `nullable:"false" default:"false" index:"true"`
 	DiskType    string `width:"32" charset:"ascii" nullable:"true" list:"user"`
 
+	// create disk from snapshot, snapshot as disk backing file
+	RefCount int `nullable:"false" default:"0" list:"user"`
+
 	CloudregionId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
 }
 
@@ -246,6 +249,17 @@ func (self *SSnapshot) GetHost() *SHost {
 	return storage.GetMasterHost()
 }
 
+func (self *SSnapshotManager) AddRefCount(snapshotId string, count int) {
+	iSnapshot, _ := self.FetchById(snapshotId)
+	snapshot := iSnapshot.(*SSnapshot)
+	if snapshot != nil {
+		self.TableSpec().Update(snapshot, func() error {
+			snapshot.RefCount += count
+			return nil
+		})
+	}
+}
+
 func (self *SSnapshotManager) GetDiskSnapshotsByCreate(diskId, createdBy string) []SSnapshot {
 	dest := make([]SSnapshot, 0)
 	q := self.Query().SubQuery()
@@ -343,6 +357,9 @@ func (self *SSnapshot) StartSnapshotDeleteTask(ctx context.Context, userCred mcc
 }
 
 func (self *SSnapshot) ValidateDeleteCondition(ctx context.Context) error {
+	if self.RefCount > 0 {
+		return fmt.Errorf("Snapshot reference(by disk) count > 0, can not delete")
+	}
 	return nil
 }
 

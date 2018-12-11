@@ -2350,7 +2350,6 @@ func (self *SGuest) CreateDisksOnHost(ctx context.Context, userCred mcclient.Tok
 			return err
 		}
 		data.Add(jsonutils.NewString(disk.Id), fmt.Sprintf("disk.%d.id", idx))
-		log.Errorln("CreateDisksOnHost XXXXXXXXXX", diskConfig.SnapshotId)
 		if len(diskConfig.SnapshotId) > 0 {
 			data.Add(jsonutils.NewString(diskConfig.SnapshotId), fmt.Sprintf("disk.%d.snapshot", idx))
 		}

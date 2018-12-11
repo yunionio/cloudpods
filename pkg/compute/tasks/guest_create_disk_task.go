@@ -67,7 +67,6 @@ func (self *KVMGuestCreateDiskTask) OnKvmDiskPrepared(ctx context.Context, obj d
 		disk := iDisk.(*models.SDisk)
 		if disk.Status == models.DISK_INIT {
 			snapshotId, _ := self.Params.GetString(fmt.Sprintf("disk.%d.snapshot", diskIndex))
-			log.Errorln("XXXXXXXXXXXXXX", snapshotId)
 			err = disk.StartDiskCreateTask(ctx, self.UserCred, false, snapshotId, self.GetTaskId())
 			if err != nil {
 				self.SetStageFailed(ctx, err.Error())
