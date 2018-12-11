@@ -1,25 +1,28 @@
-package appsrv
+package hashcache
 
 import (
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
 	"sync"
+	"time"
 )
 
 type cacheNode struct {
-	key   string
-	value interface{}
+	key    string
+	expire time.Time
+	value  interface{}
 }
 
 type Cache struct {
-	table []cacheNode
-	lock  *sync.Mutex
-	size  uint32
+	table      []cacheNode
+	lock       *sync.Mutex
+	size       uint32
+	defaultTtl time.Duration
 }
 
-func NewCache(size uint32) *Cache {
-	ca := &Cache{table: make([]cacheNode, size), lock: &sync.Mutex{}, size: size}
+func NewCache(size uint32, defaultTTL time.Duration) *Cache {
+	ca := &Cache{table: make([]cacheNode, size), lock: &sync.Mutex{}, size: size, defaultTtl: defaultTTL}
 	return ca
 }
 
@@ -51,10 +54,14 @@ func checksum(alg int, key string) uint32 {
 
 func (c *Cache) find(key string) (bool, uint32) {
 	var idx uint32
+	now := time.Now()
 	for _, alg := range []int{HASH_ALG_MD5, HASH_ALG_SHA1, HASH_ALG_SHA256} {
 		idx = checksum(alg, key) % c.size
 		if c.table[idx].key == key {
-			return true, idx
+			if c.table[idx].expire.IsZero() || c.table[idx].expire.After(now) {
+				return true, idx
+			}
+			break
 		}
 	}
 	return false, idx
@@ -74,13 +81,18 @@ func (c *Cache) AtomicGet(key string) interface{} {
 	return c.Get(key)
 }
 
-func (c *Cache) Set(key string, val interface{}) {
+func (c *Cache) Set(key string, val interface{}, expire ...time.Time) {
 	find, idx := c.find(key)
-	if find {
-		c.table[idx].value = val
-	} else {
+	if !find {
 		c.table[idx].key = key
-		c.table[idx].value = val
+	}
+	c.table[idx].value = val
+	if len(expire) > 0 && !expire[0].IsZero() {
+		c.table[idx].expire = expire[0]
+	} else if c.defaultTtl > time.Millisecond {
+		c.table[idx].expire = time.Now().Add(c.defaultTtl)
+	} else {
+		c.table[idx].expire = time.Time{}
 	}
 }
 
