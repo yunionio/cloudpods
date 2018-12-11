@@ -1,23 +1,18 @@
 package priorities
 
 import (
-	"math"
-
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm"
 	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/core/score"
 )
-
-func aggPriority(x float64) float64 {
-	return math.Log(x + math.Sqrt(x*x+1))
-}
 
 // PriorityHelper is a struct that as a base interface for all priorities.
 type PriorityHelper struct {
 	priority  core.Priority
 	unit      *core.Unit
 	Candidate core.Candidater
-	score     int
+	score     score.SScore
 	err       error
 }
 
@@ -29,9 +24,38 @@ func NewPriorityHelper(p core.Priority, u *core.Unit, c core.Candidater) *Priori
 	}
 }
 
-func (h *PriorityHelper) SetScore(score int) {
-	h.score = score
-	h.unit.SetScore(h.Candidate.IndexKey(), h.priority.Name(), score)
+func (h *PriorityHelper) setIntervalScore(val int) score.SScore {
+	h.score = score.NewScore(
+		h.priority.ScoreIntervals().ToScore(int64(val)),
+		h.priority.Name())
+	return h.score
+}
+
+func (h *PriorityHelper) setRawScore(val int) score.SScore {
+	h.score = score.NewScore(
+		score.TScore(val),
+		h.priority.Name())
+	return h.score
+}
+
+func (h *PriorityHelper) SetScore(val int) {
+	h.setIntervalScore(val)
+	h.unit.SetScore(h.Candidate.IndexKey(), h.score)
+}
+
+func (h *PriorityHelper) SetFrontScore(val int) {
+	h.setIntervalScore(val)
+	h.unit.SetFrontScore(h.Candidate.IndexKey(), h.score)
+}
+
+func (h *PriorityHelper) SetRawScore(val int) {
+	h.setRawScore(val)
+	h.unit.SetScore(h.Candidate.IndexKey(), h.score)
+}
+
+func (h *PriorityHelper) SetFrontRawScore(val int) {
+	h.setRawScore(val)
+	h.unit.SetFrontScore(h.Candidate.IndexKey(), h.score)
 }
 
 func (h *PriorityHelper) SetError(err error) {
@@ -41,7 +65,6 @@ func (h *PriorityHelper) SetError(err error) {
 func (h *PriorityHelper) GetResult() (core.HostPriority, error) {
 	return core.HostPriority{
 		Host:      h.Candidate.IndexKey(),
-		Score:     h.score,
 		Candidate: h.Candidate,
 	}, h.err
 }
@@ -70,4 +93,8 @@ func (b *BasePriority) Name() string {
 
 func (b *BasePriority) HostCandidate(c core.Candidater) (*candidate.HostDesc, error) {
 	return algorithm.ToHostCandidate(c)
+}
+
+func (b *BasePriority) ScoreIntervals() score.Intervals {
+	return score.NewIntervals(0, 1, 2)
 }
