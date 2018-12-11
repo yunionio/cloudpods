@@ -586,7 +586,7 @@ func (guest *SGuest) ValidateResizeDisk(disk *SDisk, storage *SStorage) error {
 	return guest.GetDriver().ValidateResizeDisk(guest, disk, storage)
 }
 
-func validateMemCpuData(data jsonutils.JSONObject) (int, int, error) {
+func ValidateMemCpuData(data jsonutils.JSONObject) (int, int, error) {
 	vmemSize := 0
 	vcpuCount := 0
 	var err error
@@ -626,7 +626,7 @@ func validateMemCpuData(data jsonutils.JSONObject) (int, int, error) {
 }
 
 func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	vmemSize, vcpuCount, err := validateMemCpuData(data)
+	vmemSize, vcpuCount, err := ValidateMemCpuData(data)
 	if err != nil {
 		return nil, err
 	}
@@ -740,7 +740,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			data.Add(jsonutils.NewInt(int64(sku.MemorySizeMB)), "vmem_size")
 			data.Add(jsonutils.NewInt(int64(sku.CpuCoreCount)), "vcpu_count")
 		} else {
-			vmemSize, vcpuCount, err := validateMemCpuData(data)
+			vmemSize, vcpuCount, err := ValidateMemCpuData(data)
 			if err != nil {
 				return nil, err
 			}

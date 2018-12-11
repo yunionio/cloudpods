@@ -26,6 +26,20 @@ func init() {
 	models.RegisterGuestDriver(&driver)
 }
 
+func (self *SContainerDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	vmemSize, vcpuCount, err := models.ValidateMemCpuData(data)
+	if err != nil {
+		return nil, err
+	}
+	if vmemSize > 0 {
+		data.Add(jsonutils.NewInt(int64(vmemSize)), "vmem_size")
+	}
+	if vcpuCount > 0 {
+		data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
+	}
+	return data, nil
+}
+
 func (self *SContainerDriver) newUnsupportOperationError(option string) error {
 	return httperrors.NewUnsupportOperationError("Container not support %s", option)
 }
