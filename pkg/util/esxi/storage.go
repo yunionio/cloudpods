@@ -1,12 +1,8 @@
 package esxi
 
 import (
-	"github.com/vmware/govmomi/vim25/mo"
-
 	"context"
 	"fmt"
-	"github.com/vmware/govmomi/object"
-	"github.com/vmware/govmomi/vim25/types"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -16,8 +12,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/vim25/types"
+	"github.com/vmware/govmomi/vim25/mo"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/vmdkutils"
@@ -330,8 +332,14 @@ func (self *SDatastore) GetManagerId() string {
 	return self.manager.providerId
 }
 
+const dsPrefix = "ds://"
+
 func (self *SDatastore) GetUrl() string {
-	return self.getDatastore().Info.GetDatastoreInfo().Url
+	url := self.getDatastore().Info.GetDatastoreInfo().Url
+	if strings.HasPrefix(url, dsPrefix) {
+		url = url[len(dsPrefix):]
+	}
+	return url
 }
 
 func (self *SDatastore) GetMountPoint() string {
