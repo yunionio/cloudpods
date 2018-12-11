@@ -11,9 +11,9 @@ func init() {
 
 	type BillDetailListOptions struct {
 		options.BaseListOptions
-		STARTDATE string `"help":"start date of the bill_detail"`
-		ENDDATE   string `"help":"end date of the bill_detail"`
-		ProjectId string `"help":"project id of the bill_detail"`
+		STARTDATE string `help:"start date of the bill_detail"`
+		ENDDATE   string `help:"end date of the bill_detail"`
+		ProjectId string `help:"project id of the bill_detail"`
 	}
 	R(&BillDetailListOptions{}, "billdetail-list", "List all bill details", func(s *mcclient.ClientSession, args *BillDetailListOptions) error {
 		var params *jsonutils.JSONDict
