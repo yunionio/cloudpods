@@ -50,10 +50,9 @@ func init() {
 	})
 
 	type ServerSkusCreateOptions struct {
-		Name         string `help:"Name ID of SKU" required:"true" positional:"true"`
 		CpuCoreCount int    `help:"Cpu Count" required:"true" positional:"true"`
 		MemorySizeMB int    `help:"Memory MB" required:"true" positional:"true"`
-		Provider     string `help:"Provider name" choices:"kvm|esxi"`
+		Provider     string `help:"Provider name" choices:"all|kvm|esxi"`
 
 		OsName      *string `help:"OS name/type" choices:"Linux|Windows|Any" default:"Any"`
 		SkuFamily   *string `help:"sku family"`
@@ -95,9 +94,8 @@ func init() {
 	type ServerSkusUpdateOptions struct {
 		ID string `help:"Name or ID of SKU" json:"-"`
 
-		Name         *string `help:"new name of SKU"`
-		CpuCoreCount *int    `help:"Cpu Count"`
-		MemorySizeMB *int    `help:"Memory MB"`
+		CpuCoreCount *int `help:"Cpu Count"`
+		MemorySizeMB *int `help:"Memory MB"`
 
 		SkuFamily   *string `help:"sku family"`
 		SkuCategory *string `help:"sku category" choices:"general_purpose|compute_optimized|memory_optimized|storage_optimized|hardware_accelerated|high_memory|high_storage"`
