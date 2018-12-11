@@ -54,9 +54,8 @@ func init() {
 		MemorySizeMB int    `help:"Memory MB" required:"true" positional:"true"`
 		Provider     string `help:"Provider name" choices:"all|kvm|esxi"`
 
-		OsName      *string `help:"OS name/type" choices:"Linux|Windows|Any" default:"Any"`
-		SkuFamily   *string `help:"sku family"`
-		SkuCategory *string `help:"sku category" choices:"general_purpose|compute_optimized|memory_optimized|storage_optimized|hardware_accelerated|high_memory|high_storage"`
+		OsName               *string `help:"OS name/type" choices:"Linux|Windows|Any" default:"Any"`
+		InstanceTypeCategory *string `help:"instance type category" choices:"general_purpose|compute_optimized|memory_optimized|storage_optimized|hardware_accelerated|high_memory|high_storage"`
 
 		SysDiskResizable *bool   `help:"system disk is resizable"`
 		SysDiskType      *string `help:"system disk type" default:"local" choices:"local"`
@@ -97,8 +96,8 @@ func init() {
 		CpuCoreCount *int `help:"Cpu Count"`
 		MemorySizeMB *int `help:"Memory MB"`
 
-		SkuFamily   *string `help:"sku family"`
-		SkuCategory *string `help:"sku category" choices:"general_purpose|compute_optimized|memory_optimized|storage_optimized|hardware_accelerated|high_memory|high_storage"`
+		Provider             string  `help:"Provider name" choices:"all|kvm|esxi"`
+		InstanceTypeCategory *string `help:"instance type category" choices:"general_purpose|compute_optimized|memory_optimized|storage_optimized|hardware_accelerated|high_memory|high_storage"`
 
 		SysDiskResizable *bool `help:"system disk is resizable"`
 		SysDiskMaxSizeGB *int  `help:"system disk maximal size in gb"`

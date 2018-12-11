@@ -143,6 +143,10 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 		return nil, httperrors.NewForbiddenError("can not create instance_type for public cloud %s", provider)
 	}
 
+	if provider == "all" {
+		data.Remove("provider")
+	}
+
 	regionStr := jsonutils.GetAnyString(data, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
 	if len(regionStr) > 0 {
 		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionStr)
@@ -177,11 +181,15 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 	cpu, err := data.Int("cpu_core_count")
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("cpu_core_count should not be empty")
+	} else {
+		data.Set("cpu_core_count", jsonutils.NewInt(cpu))
 	}
 
 	mem, err := data.Int("memory_size_mb")
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("memory_size_mb should not be empty")
+	} else {
+		data.Set("cpu_core_count", jsonutils.NewInt(mem))
 	}
 
 	category, _ := data.GetString("instance_type_category")
@@ -189,6 +197,8 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 	if !exists {
 		return nil, httperrors.NewInputParameterError("instance_type_category %s is invalid", category)
 	}
+
+	data.Set("instance_type_family", jsonutils.NewString(family))
 	// 格式 ecs.g1.c1m1
 	name, err := genInstanceType(family, cpu, mem)
 	if err != nil {
@@ -198,7 +208,7 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 	data.Set("name", jsonutils.NewString(name))
 
 	q := self.Query().Equals("name", name)
-	if len(provider) > 0 {
+	if len(provider) > 0 && provider != "all" {
 		q = q.Equals("provider", provider)
 	} else {
 		q = q.Filter(sqlchemy.OR(
@@ -208,7 +218,7 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 	}
 
 	if q.Count() > 0 {
-		return nil, httperrors.NewDuplicateResourceError("Duplicate sku")
+		return nil, httperrors.NewDuplicateResourceError("Duplicate sku %s", name)
 	}
 
 	return self.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
@@ -339,6 +349,10 @@ func (self *SServerSku) ValidateUpdateData(
 		return nil, httperrors.NewForbiddenError("can not update instance_type for public cloud %s", provider)
 	}
 
+	if provider == "all" {
+		data.Remove("provider")
+	}
+
 	zoneStr := jsonutils.GetAnyString(data, []string{"zone", "zone_id"})
 	if len(zoneStr) > 0 {
 		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zoneStr)
@@ -361,17 +375,28 @@ func (self *SServerSku) ValidateUpdateData(
 	if err != nil {
 		cpu = int64(self.CpuCoreCount)
 	}
+	data.Set("cpu_core_count", jsonutils.NewInt(cpu))
 
 	mem, err := data.Int("memory_size_mb")
 	if err != nil {
 		mem = int64(self.MemorySizeMB)
 	}
+	data.Set("memory_size_mb", jsonutils.NewInt(mem))
 
-	category, _ := data.GetString("instance_type_category")
-	family, exists := InstanceFamilies[category]
-	if !exists {
-		return nil, httperrors.NewInputParameterError("instance_type_category %s is invalid", category)
+	category, err := data.GetString("instance_type_category")
+	family := ""
+	if err != nil {
+		family = self.InstanceTypeFamily
+	} else {
+		f, exists := InstanceFamilies[category]
+		if !exists {
+			return nil, httperrors.NewInputParameterError("instance_type_category %s is invalid", category)
+		}
+
+		family = f
 	}
+
+	data.Set("instance_type_family", jsonutils.NewString(family))
 	// 格式 ecs.g1.c1m1
 	name, err := genInstanceType(family, cpu, mem)
 	if err != nil {
@@ -381,7 +406,7 @@ func (self *SServerSku) ValidateUpdateData(
 	data.Set("name", jsonutils.NewString(name))
 
 	q := self.GetModelManager().Query().Equals("name", name)
-	if len(provider) > 0 {
+	if len(provider) > 0 && provider != "all" {
 		q = q.Equals("provider", provider)
 	} else {
 		q = q.Filter(sqlchemy.OR(
@@ -391,7 +416,7 @@ func (self *SServerSku) ValidateUpdateData(
 	}
 
 	if q.Count() > 0 {
-		return nil, httperrors.NewDuplicateResourceError("sku cpu %s mem %s(Mb) already exists", cpu, mem)
+		return nil, httperrors.NewDuplicateResourceError("sku cpu %d mem %d(Mb) already exists", cpu, mem)
 	}
 
 	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
@@ -426,7 +451,14 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 	provider := jsonutils.GetAnyString(query, []string{"provider"})
 	if inWhiteList(provider) {
 		// provider 参数为空或者all时。表示查询`通用`私用云instance type列表
-		if provider == "" || provider == "all" {
+		if provider == "" {
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.IsNull(q.Field("provider")),
+				sqlchemy.IsEmpty(q.Field("provider")),
+				sqlchemy.Equals(q.Field("provider"), HYPERVISOR_KVM),
+				sqlchemy.Equals(q.Field("provider"), HYPERVISOR_ESXI),
+			))
+		} else if provider == "all" {
 			q = q.Filter(sqlchemy.OR(
 				sqlchemy.IsNull(q.Field("provider")),
 				sqlchemy.IsEmpty(q.Field("provider")),
