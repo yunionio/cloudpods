@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -107,7 +108,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 		info.Size = int64(disk.DiskSize)
 		info.Index = int64(i)
 		info.Slot = i
-		info.Driver = storage.StorageType
+		info.Driver = baremetal.DISK_DRIVER_LINUX
 		info.Rotate = (storage.MediumType != DISK_TYPE_SSD)
 
 		storageInfo = append(storageInfo, info)
@@ -320,6 +321,10 @@ func (self *SHost) PerformUndoPrepaidRecycle(ctx context.Context, userCred mccli
 		return nil, httperrors.NewInvalidStatusError("a recycle host shoud not allocate more than 1 guest")
 	}
 
+	if guests[0].PendingDeleted {
+		return nil, httperrors.NewInvalidStatusError("cannot undo a recycle host with pending_deleted guest")
+	}
+
 	err := doUndoPrepaidRecycle(ctx, userCred, self, &guests[0])
 	if err != nil {
 		logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(), userCred, false)
@@ -351,7 +356,10 @@ func doUndoPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential
 	q := HostManager.Query()
 	q = q.Equals("external_id", host.ExternalId)
 	q = q.Equals("host_type", host.HostType)
-	q = q.IsNullOrEmpty("resource_type")
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.IsNullOrEmpty(q.Field("resource_type")),
+		sqlchemy.Equals(q.Field("resource_type"), HostResourceTypeShared),
+	))
 
 	oHostCnt := q.Count()
 
@@ -428,13 +436,14 @@ func doUndoPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential
 			return err
 		}
 
-		oStorageObj, err := StorageManager.FetchByExternalId(istorage.GetGlobalId())
-		if err != nil {
-			log.Errorf("StorageManager.FetchByExternalId fail %s", err)
-			return err
+		oHostStorage := oHost.GetHoststorageByExternalId(istorage.GetGlobalId())
+		if oHostStorage == nil {
+			msg := fmt.Sprintf("oHost.GetHoststorageByExternalId not found %s", istorage.GetGlobalId())
+			log.Errorf(msg)
+			return errors.New(msg)
 		}
 
-		oStorage := oStorageObj.(*SStorage)
+		oStorage := oHostStorage.GetStorage()
 
 		if storage.StorageType == STORAGE_LOCAL {
 			_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
@@ -579,7 +588,11 @@ func (host *SHost) RebuildRecycledGuest(ctx context.Context, userCred mcclient.T
 
 	q := HostManager.Query()
 	q = q.Equals("external_id", host.ExternalId)
-	q = q.IsNullOrEmpty("resource_type")
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.IsNullOrEmpty(q.Field("resource_type")),
+		sqlchemy.Equals(q.Field("resource_type"), HostResourceTypeShared),
+	))
+
 	err := q.First(&oHost)
 	if err != nil {
 		log.Errorf("query oHost fail %s", err)
