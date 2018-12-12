@@ -375,7 +375,7 @@ func (s *SKVMGuestInstance) SaveDesc(desc jsonutils.JSONObject) error {
 }
 
 func (s *SKVMGuestInstance) StartGuest(ctx context.Context, params jsonutils.JSONObject) {
-	wm.RunTask(func() {
+	wm.DelayTask(func() {
 		s.asyncScriptStart(ctx, params)
 	})
 }
