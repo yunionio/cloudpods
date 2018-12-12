@@ -644,25 +644,46 @@ func (self *SGuest) PerformAddSecgroup(ctx context.Context, userCred mcclient.To
 		return nil, httperrors.NewInputParameterError("Cannot assign security rules in status %s", self.Status)
 	}
 
-	secgrpV := validators.NewModelIdOrNameValidator("secgrp", "secgroup", userCred.GetProjectId())
-	if err := secgrpV.Validate(data.(*jsonutils.JSONDict)); err != nil {
-		return nil, err
-	}
-
 	maxCount := self.GetDriver().GetMaxSecurityGroupCount()
 	if maxCount == 0 {
 		return nil, httperrors.NewUnsupportOperationError("Cannot assign security group for this guest %s", self.Name)
 	}
 
+	secgrps := []string{}
+	if err := data.Unmarshal(&secgrps, "secgrps"); err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+
 	secgroups := self.GetSecgroups()
-	if len(secgroups) >= maxCount {
+	if len(secgroups)+len(secgrps) >= maxCount {
 		return nil, httperrors.NewUnsupportOperationError("guest %s band to up to %d security groups", self.Name, maxCount)
 	}
 
-	secgroup := secgrpV.Model.(*SSecurityGroup)
-	if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, self, secgroup); err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+	secgroupIds := []string{}
+	for _, secgroup := range secgroups {
+		secgroupIds = append(secgroupIds, secgroup.Id)
 	}
+
+	addSecgroups := []*SSecurityGroup{}
+
+	for _, _secgrp := range secgrps {
+		secgrp, err := SecurityGroupManager.FetchByIdOrName(userCred, _secgrp)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError(err.Error())
+		}
+
+		if utils.IsInStringArray(secgrp.GetId(), secgroupIds) {
+			return nil, httperrors.NewInputParameterError("security group %s has already been assigned to guest %s", secgrp.GetName(), self.Name)
+		}
+		addSecgroups = append(addSecgroups, secgrp.(*SSecurityGroup))
+	}
+
+	for _, secgroup := range addSecgroups {
+		if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, self, secgroup); err != nil {
+			return nil, httperrors.NewInputParameterError(err.Error())
+		}
+	}
+
 	return nil, self.StartSyncTask(ctx, userCred, true, "")
 }
 
