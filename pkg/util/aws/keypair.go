@@ -2,11 +2,13 @@ package aws
 
 import (
 	"fmt"
+	"strconv"
+	"time"
+
 	"github.com/aokoli/goutils"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"golang.org/x/crypto/ssh"
-	"strconv"
-	"time"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 

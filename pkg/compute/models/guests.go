@@ -399,6 +399,37 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("host_id", sq)
 	}
 
+	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
+	if len(accountStr) > 0 {
+		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		hosts := HostManager.Query().SubQuery()
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+
+		subq := hosts.Query(hosts.Field("id"))
+		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), hosts.Field("manager_id")))
+		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), account.GetId()))
+
+		q = q.Filter(sqlchemy.In(q.Field("host_id"), subq.SubQuery()))
+	}
+
+	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
+	if len(providerStr) > 0 {
+		hosts := HostManager.Query().SubQuery()
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+
+		subq := hosts.Query(hosts.Field("id"))
+		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), hosts.Field("manager_id")))
+		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr))
+
+		q = q.Filter(sqlchemy.In(q.Field("host_id"), subq.SubQuery()))
+	}
+
 	regionFilter, _ := queryDict.GetString("region")
 	if len(regionFilter) > 0 {
 		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionFilter)
@@ -1127,7 +1158,7 @@ func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	zone := self.getZone()
+	/*zone := self.getZone()
 	if zone != nil {
 		extra.Add(jsonutils.NewString(zone.GetId()), "zone_id")
 		extra.Add(jsonutils.NewString(zone.GetName()), "zone")
@@ -1153,6 +1184,12 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 				extra.Add(jsonutils.NewString(provider.GetName()), "manager")
 			}
 		}
+	}*/
+
+	host := self.GetHost()
+	if host != nil {
+		info := host.getCloudProviderInfo()
+		extra.Update(jsonutils.Marshal(&info))
 	}
 
 	err := self.CanPerformPrepaidRecycle()
@@ -3188,14 +3225,14 @@ func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
 	var billingInfo SCloudBillingInfo
 
 	if host != nil {
-		billingInfo = host.getCloudBillingInfo()
+		billingInfo.SCloudProviderInfo = host.getCloudProviderInfo()
 	}
 
 	if priceKey := self.GetMetadata("price_key", nil); len(priceKey) > 0 {
 		billingInfo.PriceKey = priceKey
 	}
 
-	self.FetchCloudBillingInfo(&billingInfo)
+	billingInfo.SBillingBaseInfo = self.getBillingBaseInfo()
 
 	desc.Update(jsonutils.Marshal(billingInfo))
 

@@ -134,5 +134,9 @@ type RouteTableListOptions struct {
 	Vpc         string
 	Cloudregion string
 
+	Manager  string `help:"List hosts belongs to the cloud provider"`
+	Account  string `help:"List hosts belongs to the cloud account"`
+	Provider string `help:"List hosts belongs to the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei"`
+
 	BaseListOptions
 }

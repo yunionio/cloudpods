@@ -3,11 +3,12 @@ package esxi
 import (
 	"context"
 	"path"
+	"strings"
 
 	"github.com/vmware/govmomi/object"
 
-	"strings"
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 

@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/vmware/govmomi/vim25/types"
-	// "yunion.io/x/log"
 )
 
 type SVirtualDevice struct {

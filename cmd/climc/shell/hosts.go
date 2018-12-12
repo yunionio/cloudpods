@@ -13,8 +13,8 @@ func init() {
 	type HostListOptions struct {
 		Schedtag  string `help:"List hosts in schedtag"`
 		Zone      string `help:"List hosts in zone"`
+		Region    string `help:"List hosts in region"`
 		Wire      string `help:"List hosts in wire"`
-		VCenter   string `help:"List hosts in vcenter"`
 		Image     string `help:"List hosts cached images"`
 		Storage   string `help:"List hosts attached to storages"`
 		Baremetal string `help:"List hosts that is managed by baremetal system" choices:"true|false"`
@@ -27,8 +27,11 @@ func init() {
 
 		ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 
-		Manager string `help:"Show regions belongs to the cloud provider"`
-		Usable  bool   `help:"List all zones that is usable"`
+		Manager  string `help:"List hosts belongs to the cloud provider"`
+		Account  string `help:"List hosts belongs to the cloud account"`
+		Provider string `help:"List hosts belongs to the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei"`
+
+		Usable bool `help:"List all zones that is usable"`
 
 		options.BaseListOptions
 	}
@@ -48,11 +51,11 @@ func init() {
 		if len(args.Zone) > 0 {
 			params.Add(jsonutils.NewString(args.Zone), "zone")
 		}
+		if len(args.Region) > 0 {
+			params.Add(jsonutils.NewString(args.Region), "region")
+		}
 		if len(args.Wire) > 0 {
 			params.Add(jsonutils.NewString(args.Wire), "wire")
-		}
-		if len(args.VCenter) > 0 {
-			params.Add(jsonutils.NewString(args.VCenter), "vcenter")
 		}
 		if len(args.Image) > 0 {
 			params.Add(jsonutils.NewString(args.Image), "cachedimage")
@@ -72,6 +75,12 @@ func init() {
 
 		if len(args.Manager) > 0 {
 			params.Add(jsonutils.NewString(args.Manager), "manager")
+		}
+		if len(args.Account) > 0 {
+			params.Add(jsonutils.NewString(args.Account), "account")
+		}
+		if len(args.Provider) > 0 {
+			params.Add(jsonutils.NewString(args.Provider), "provider")
 		}
 
 		if args.Usable {

@@ -33,8 +33,9 @@ type IBillingResource interface {
 type ICloudRegion interface {
 	ICloudResource
 
-	GetLatitude() float32
-	GetLongitude() float32
+	// GetLatitude() float32
+	// GetLongitude() float32
+	GetGeographicInfo() SGeographicInfo
 
 	GetIZones() ([]ICloudZone, error)
 	GetIVpcs() ([]ICloudVpc, error)

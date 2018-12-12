@@ -18,7 +18,9 @@ func init() {
 		Guest   string `help:"Guest ID or name"`
 		Storage string `help:"Storage ID or name"`
 
-		Provider string `help:"Provider for disk" choices:"Aliyun|VMware|Azure"`
+		Manager  string `help:"List disks belongs to the cloud provider"`
+		Account  string `help:"List disks belongs to the cloud account"`
+		Provider string `help:"List disks belongs to the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei"`
 
 		BillingType string `help:"billing type" choices:"postpaid|prepaid"`
 	}

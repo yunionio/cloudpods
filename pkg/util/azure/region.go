@@ -5,10 +5,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/secrules"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
-	"yunion.io/x/pkg/util/secrules"
 )
 
 type SVMSize struct {
@@ -117,12 +118,11 @@ func (self *SRegion) GetProvider() string {
 	return CLOUD_PROVIDER_AZURE
 }
 
-func (self *SRegion) GetLatitude() float32 {
-	return self.Latitude
-}
-
-func (self *SRegion) GetLongitude() float32 {
-	return self.Longitude
+func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
+	info := cloudprovider.SGeographicInfo{}
+	info.Latitude = self.Latitude
+	info.Longitude = self.Longitude
+	return info
 }
 
 func (self *SRegion) GetStatus() string {

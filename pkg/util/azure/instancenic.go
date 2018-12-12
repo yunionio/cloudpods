@@ -5,8 +5,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/netutils"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type PublicIPAddress struct {

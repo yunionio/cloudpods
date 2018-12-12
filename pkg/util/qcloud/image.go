@@ -1,16 +1,17 @@
 package qcloud
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
-	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type ImageStatusType string
