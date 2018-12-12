@@ -25,9 +25,9 @@ func init() {
 		}
 		var result *modules.ListResult
 		var err error
-		if len(args.Storage) > 0 {
-			params.Add(jsonutils.NewString(args.Storage), "storage")
-		}
+		// if len(args.Storage) > 0 {
+		// 	params.Add(jsonutils.NewString(args.Storage), "storage")
+		// }
 		if len(args.Host) > 0 {
 			result, err = modules.Hoststorages.ListDescendent(s, args.Host, params)
 		} else if len(args.Storage) > 0 {
