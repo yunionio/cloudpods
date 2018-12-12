@@ -91,6 +91,7 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncComplete(ctx context.Con
 				err := skus.SyncSkusByProviderIds([]string{cloudprovider.Provider})
 				return nil, err
 			})
+			return
 		}
 	}
 	self.SetStageComplete(ctx, nil)

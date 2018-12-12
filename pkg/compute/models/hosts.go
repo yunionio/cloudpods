@@ -1340,6 +1340,8 @@ func (manager *SHostManager) newFromCloudHost(extHost cloudprovider.ICloudHost, 
 	host.MemSize = extHost.GetMemSizeMB()
 	host.StorageSize = extHost.GetStorageSizeMB()
 	host.StorageType = extHost.GetStorageType()
+	host.CpuCmtbound = 8.0
+	host.MemCmtbound = 1.0
 
 	host.ManagerId = extHost.GetManagerId()
 	host.IsEmulated = extHost.IsEmulated()

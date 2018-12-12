@@ -332,8 +332,14 @@ func (self *SDatastore) GetManagerId() string {
 	return self.manager.providerId
 }
 
+const dsPrefix = "ds://"
+
 func (self *SDatastore) GetUrl() string {
-	return self.getDatastore().Info.GetDatastoreInfo().Url
+	url := self.getDatastore().Info.GetDatastoreInfo().Url
+	if strings.HasPrefix(url, dsPrefix) {
+		url = url[len(dsPrefix):]
+	}
+	return url
 }
 
 func (self *SDatastore) GetMountPoint() string {
