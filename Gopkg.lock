@@ -1310,11 +1310,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a2346cf0c965791c281a428a3e9bf522913941028e4c814a774af7f3cc2360b0"
+  digest = "1:30c2a461ac89edba03106741bfd399b5b19354f5a1c8879816e459775e762ae7"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "814e036849815935e5957ebd03bd0f4fc992fe83"
+  revision = "3dc94f21b85b0975a07c9cbe6854acf6fd63b77d"
 
 [[projects]]
   branch = "master"
