@@ -167,11 +167,6 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 	}
 
 	// name 由服务器端生成
-	_, err := data.GetString("name")
-	if err != nil {
-		data.Remove("name")
-	}
-
 	cpu, err := data.Int("cpu_core_count")
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("cpu_core_count should not be empty")
@@ -262,7 +257,7 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 
 	// 如果是查询私有云需要忽略zone参数
 	zone := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
-	if !inWhiteList(provider){
+	if !inWhiteList(provider) {
 		if len(zone) > 0 {
 			zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zone)
 			if err != nil {
@@ -366,11 +361,6 @@ func (self *SServerSku) ValidateUpdateData(
 	}
 
 	// name 由服务器端生成
-	_, err = data.GetString("name")
-	if err != nil {
-		data.Remove("name")
-	}
-
 	cpu, err := data.Int("cpu_core_count")
 	if err != nil {
 		cpu = int64(self.CpuCoreCount)
