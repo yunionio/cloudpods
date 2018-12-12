@@ -753,16 +753,21 @@ func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 		}
 	}
 	spec.Set("nic_count", jsonutils.NewInt(nicCount))
-	manufacture, err := self.SysInfo.Get("manufacture")
-	if err != nil {
-		manufacture = jsonutils.NewString("Unknown")
+
+	var manufacture string
+	var model string
+	if self.SysInfo != nil {
+		manufacture, _ = self.SysInfo.GetString("manufacture")
+		model, _ = self.SysInfo.GetString("model")
 	}
-	spec.Set("manufacture", manufacture)
-	model, err := self.SysInfo.Get("model")
-	if err != nil {
-		model = jsonutils.NewString("Unknown")
+	if manufacture == "" {
+		manufacture = "Unknown"
 	}
-	spec.Set("model", model)
+	if model == "" {
+		model = "Unknown"
+	}
+	spec.Set("manufacture", jsonutils.NewString(manufacture))
+	spec.Set("model", jsonutils.NewString(model))
 	return spec
 }
 
