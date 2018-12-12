@@ -330,7 +330,7 @@ func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 func (self *SInstance) DeleteVM(ctx context.Context) error {
 	for {
 		err := self.host.zone.region.DeleteVM(self.InstanceId)
-		if err != nil {
+		if err != nil && self.Status != InstanceStatusTerminated {
 			return err
 		} else {
 			break
@@ -422,6 +422,7 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 		}
 	}
 
+	// todo: 不同步已经terminated的主机
 	instances := []SInstance{}
 	for _, reservation := range res.Reservations {
 		for _, instance := range reservation.Instances {
