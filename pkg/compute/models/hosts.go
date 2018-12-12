@@ -502,6 +502,26 @@ func (self *SHost) GetHoststorageOfId(storageId string) *SHoststorage {
 	return &hoststorage
 }
 
+func (self *SHost) GetHoststorageByExternalId(extId string) *SHoststorage {
+	hoststorage := SHoststorage{}
+	hoststorage.SetModelManager(HoststorageManager)
+
+	hoststorages := HoststorageManager.Query().SubQuery()
+	storages := StorageManager.Query().SubQuery()
+	q := hoststorages.Query()
+	q = q.Join(storages, sqlchemy.Equals(hoststorages.Field("storage_id"), storages.Field("id")))
+	q = q.Filter(sqlchemy.Equals(hoststorages.Field("host_id"), self.Id))
+	q = q.Filter(sqlchemy.Equals(storages.Field("external_id"), extId))
+
+	err := q.First(&hoststorage)
+	if err != nil {
+		log.Errorf("GetHoststorageByExternalId fail %s", err)
+		return nil
+	}
+
+	return &hoststorage
+}
+
 func (self *SHost) GetStorageByFilePath(path string) *SStorage {
 	hoststorages := self.GetHoststorages()
 	if hoststorages == nil {
@@ -629,7 +649,7 @@ func (self *SHost) GetFetchUrl() string {
 			port = 80
 		}
 	}
-	return fmt.Sprintf("%s://%s:%d", managerUrl.Scheme, managerUrl.Host, port+40000)
+	return fmt.Sprintf("%s://%s:%d", managerUrl.Scheme, strings.Split(managerUrl.Host, ":")[0], port+40000)
 }
 
 func (self *SHost) GetAttachedStorages(storageType string) []SStorage {
@@ -733,16 +753,21 @@ func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 		}
 	}
 	spec.Set("nic_count", jsonutils.NewInt(nicCount))
-	manufacture, err := self.SysInfo.Get("manufacture")
-	if err != nil {
-		manufacture = jsonutils.NewString("Unknown")
+
+	var manufacture string
+	var model string
+	if self.SysInfo != nil {
+		manufacture, _ = self.SysInfo.GetString("manufacture")
+		model, _ = self.SysInfo.GetString("model")
 	}
-	spec.Set("manufacture", manufacture)
-	model, err := self.SysInfo.Get("model")
-	if err != nil {
-		model = jsonutils.NewString("Unknown")
+	if manufacture == "" {
+		manufacture = "Unknown"
 	}
-	spec.Set("model", model)
+	if model == "" {
+		model = "Unknown"
+	}
+	spec.Set("manufacture", jsonutils.NewString(manufacture))
+	spec.Set("model", jsonutils.NewString(model))
 	return spec
 }
 

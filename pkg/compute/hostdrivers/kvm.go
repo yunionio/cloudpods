@@ -120,6 +120,22 @@ func (self *SKVMHostDriver) RequestUncacheImage(ctx context.Context, host *model
 
 func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
 	header := task.GetTaskRequestHeader()
+	if snapshotId, err := content.GetString("snapshot"); err == nil {
+		iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
+		snapshot := iSnapshot.(*models.SSnapshot)
+		snapshotStorage := models.StorageManager.FetchStorageById(snapshot.StorageId)
+		snapshotHost := snapshotStorage.GetMasterHost()
+		if options.Options.SnapshotCreateDiskProtocol == "url" {
+			content.Set("snapshot_url",
+				jsonutils.NewString(fmt.Sprintf("%s/download/snapshots/%s/%s/%s",
+					snapshotHost.ManagerUri, snapshotStorage.Id, snapshot.DiskId, snapshot.Id)))
+			content.Set("snapshot_out_of_chain", jsonutils.NewBool(snapshot.OutOfChain))
+		} else if options.Options.SnapshotCreateDiskProtocol == "fuse" {
+			content.Set("snapshot_url", jsonutils.NewString(fmt.Sprintf("%s/snapshots/%s/%s",
+				snapshotHost.GetFetchUrl(), snapshot.DiskId, snapshot.Id)))
+		}
+		content.Set("protocol", jsonutils.NewString(options.Options.SnapshotCreateDiskProtocol))
+	}
 
 	url := fmt.Sprintf("/disks/%s/create/%s", storage.Id, disk.Id)
 	body := jsonutils.NewDict()

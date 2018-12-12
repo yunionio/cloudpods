@@ -1368,11 +1368,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:2fdf064ae928c1b311e67ec51e856ce655abc39e8eacf5e6b3f7bd0417fac0a6"
+  digest = "1:04973e1902449b00dd7f3a9ad0b2b892c637cc8bc2e0dc569a82026fe1c4a4b3"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "e22221d5efcc667e68b0fdeed19958e788c3ad63"
+  revision = "998e91b54b0b9441f21dc9c09036f875a02ef8c5"
 
 [[projects]]
   branch = "master"
@@ -1450,6 +1450,7 @@
     "github.com/miekg/dns",
     "github.com/moul/http2curl",
     "github.com/nelsonken/cos-go-sdk-v5/cos",
+    "github.com/pierrec/lz4",
     "github.com/serialx/hashring",
     "github.com/stretchr/testify/assert",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common",

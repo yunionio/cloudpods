@@ -74,6 +74,8 @@ type ComputeOptions struct {
 
 	NfsDefaultImageCacheDir string `default:"image_cache"`
 
+	SnapshotCreateDiskProtocol string `help:"Snapshot create disk protocol" choices:"url|fuse" default:"fuse"`
+
 	cloudcommon.DBOptions
 }
 

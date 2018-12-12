@@ -6,8 +6,10 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/core/score"
 	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 	"yunion.io/x/onecloud/pkg/util/conditionparser"
 )
@@ -23,6 +25,7 @@ import (
 // the host is available.
 type AggregatePredicate struct {
 	BasePredicate
+	plugin.BasePlugin
 	AggregateHosts    hostsAggregatesMap
 	RequireAggregates []api.Aggregate
 	ExcludeAggregates []api.Aggregate
@@ -193,33 +196,6 @@ func getHostAggregateCount(inAggs []api.Aggregate, hAggs []*models.Aggregate, st
 	return
 }
 
-func (p *AggregatePredicate) OnSelect(u *core.Unit, c core.Candidater) bool {
-	hostAggs, ok := p.AggregateHosts[c.IndexKey()]
-	if !ok {
-		return true
-	}
-
-	avoidCountMap := getHostAggregateCount(p.AvoidAggregates, hostAggs, api.AggregateStrategyAvoid)
-	preferCountMap := getHostAggregateCount(p.PreferAggregates, hostAggs, api.AggregateStrategyPrefer)
-
-	setScore := func(aggCountMap map[string]int, postiveScore bool) {
-		stepScore := core.PriorityStep
-		if !postiveScore {
-			stepScore = -stepScore
-		}
-		for n, count := range aggCountMap {
-			u.IncreaseScore(c.IndexKey(), n, count*stepScore)
-		}
-	}
-
-	setScore(avoidCountMap, false)
-	setScore(preferCountMap, true)
-
-	return true
-}
-
-func (p *AggregatePredicate) OnSelectEnd(u *core.Unit, c core.Candidater, count int64) {}
-
 func (p *AggregatePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := NewPredicateHelper(p, u, c)
 
@@ -280,4 +256,30 @@ func (p *AggregatePredicate) exec(h *PredicateHelper) string {
 	}
 
 	return ""
+}
+
+func (p *AggregatePredicate) OnPriorityEnd(u *core.Unit, c core.Candidater) {
+	hostAggs, ok := p.AggregateHosts[c.IndexKey()]
+	if !ok {
+		return
+	}
+
+	avoidCountMap := getHostAggregateCount(p.AvoidAggregates, hostAggs, api.AggregateStrategyAvoid)
+	preferCountMap := getHostAggregateCount(p.PreferAggregates, hostAggs, api.AggregateStrategyPrefer)
+
+	setScore := func(aggCountMap map[string]int, postiveScore bool) {
+		stepScore := core.PriorityStep
+		if !postiveScore {
+			stepScore = -stepScore
+		}
+		for n, count := range aggCountMap {
+			u.SetFrontScore(
+				c.IndexKey(),
+				score.NewScore(score.TScore(count*stepScore), n),
+			)
+		}
+	}
+
+	setScore(preferCountMap, true)
+	setScore(avoidCountMap, false)
 }

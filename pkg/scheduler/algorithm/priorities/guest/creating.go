@@ -27,8 +27,8 @@ func (p *CreatingPriority) Map(u *core.Unit, c core.Candidater) (core.HostPriori
 	}
 
 	if hc.CreatingGuestCount > 0 {
-		score := -int(hc.CreatingGuestCount) * 20
-		h.SetScore(score)
+		score := -int(hc.CreatingGuestCount)
+		h.SetFrontScore(score)
 	}
 
 	return h.GetResult()
