@@ -108,7 +108,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 		info.Size = int64(disk.DiskSize)
 		info.Index = int64(i)
 		info.Slot = i
-		info.Driver = storage.StorageType
+		info.Driver = baremetal.DISK_DRIVER_LINUX
 		info.Rotate = (storage.MediumType != DISK_TYPE_SSD)
 
 		storageInfo = append(storageInfo, info)
