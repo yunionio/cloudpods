@@ -33,6 +33,11 @@ func init() {
 	}
 }
 
+type SLoadbalancerHTTPRateLimiter struct {
+	HTTPRequestRate       int `nullable:"false" list:"user" create:"optional" update:"user"`
+	HTTPRequestRatePerSrc int `nullable:"false" list:"user" create:"optional" update:"user"`
+}
+
 type SLoadbalancerTCPListener struct{}
 type SLoadbalancerUDPListener struct{}
 
@@ -43,8 +48,6 @@ type SLoadbalancerHTTPListener struct {
 	StickySessionCookie        string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 	StickySessionCookieTimeout int    `nullable:"false" list:"user" create:"optional" update:"user"`
 
-	//XForwardedForSLBIP bool `nullable:"false" list:"user" create:"optional"`
-	//XForwardedForSLBID bool `nullable:"false" list:"user" create:"optional"`
 	XForwardedFor bool `nullable:"false" list:"user" create:"optional" update:"user"`
 	Gzip          bool `nullable:"false" list:"user" create:"optional" update:"user"`
 }
@@ -69,7 +72,6 @@ type SLoadbalancerListener struct {
 	ListenerPort   int    `nullable:"false" list:"user" create:"required"`
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 
-	Bandwidth int    `nullable:"false" list:"user" create:"optional" update:"user"`
 	Scheduler string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
 
 	ClientRequestTimeout  int `nullable:"false" list:"user" create:"optional" update:"user"`
@@ -100,6 +102,8 @@ type SLoadbalancerListener struct {
 	SLoadbalancerUDPListener
 	SLoadbalancerHTTPListener
 	SLoadbalancerHTTPSListener
+
+	SLoadbalancerHTTPRateLimiter
 }
 
 func (man *SLoadbalancerListenerManager) checkListenerUniqueness(ctx context.Context, lb *SLoadbalancer, listenerType string, listenerPort int64) error {
@@ -201,6 +205,9 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 
 		"x_forwarded_for": validators.NewBoolValidator("x_forwarded_for").Default(true),
 		"gzip":            validators.NewBoolValidator("gzip").Default(false),
+
+		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate").Default(0),
+		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src").Default(0),
 	}
 	for _, v := range keyV {
 		if err := v.Validate(data); err != nil {
@@ -344,6 +351,9 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 
 		"x_forwarded_for": validators.NewBoolValidator("x_forwarded_for"),
 		"gzip":            validators.NewBoolValidator("gzip"),
+
+		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate").Default(0),
+		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src").Default(0),
 
 		"certificate":       certV,
 		"tls_cipher_policy": tlsCipherPolicyV,

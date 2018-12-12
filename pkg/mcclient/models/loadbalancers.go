@@ -25,10 +25,8 @@ type LoadbalancerHTTPListener struct {
 	StickySessionCookie        string
 	StickySessionCookieTimeout int
 
-	XForwardedFor      bool
-	XForwardedForSLBIP bool
-	XForwardedForSLBID bool
-	Gzip               bool
+	XForwardedFor bool
+	Gzip          bool
 }
 
 // CACertificate string
@@ -38,11 +36,15 @@ type LoadbalancerHTTPSListener struct {
 	EnableHttp2     bool
 }
 
+type LoadbalancerHTTPRateLimiter struct {
+	HTTPRequestRate       int
+	HTTPRequestRatePerSrc int
+}
+
 type LoadbalancerListener struct {
 	VirtualResource
 
 	LoadbalancerId string
-	Bandwidth      int
 	ListenerType   string
 	ListenerPort   int
 
@@ -79,8 +81,7 @@ type LoadbalancerListener struct {
 	LoadbalancerHTTPListener
 	LoadbalancerHTTPSListener
 
-	XForwardedFor bool
-	Gzip          bool
+	LoadbalancerHTTPRateLimiter
 }
 
 type LoadbalancerListenerRule struct {
@@ -91,6 +92,8 @@ type LoadbalancerListenerRule struct {
 
 	Domain string
 	Path   string
+
+	LoadbalancerHTTPRateLimiter
 }
 
 type LoadbalancerBackendGroup struct {
