@@ -130,51 +130,48 @@ func struct2JSONPairs(val reflect.Value) []JSONPair {
 	structType := val.Type()
 	objPairs := make([]JSONPair, 0)
 	for i := 0; i < structType.NumField(); i += 1 {
-		fieldType := structType.Field(i)
-		if !gotypes.IsFieldExportable(fieldType.Name) { // unexportable field, ignore
+		sf := structType.Field(i)
+
+		// ignore unexported field altogether
+		if !gotypes.IsFieldExportable(sf.Name) {
 			continue
 		}
-		if fieldType.Anonymous {
-			nextVal := val.Field(i)
-			switch fieldType.Type.Kind() {
-			case reflect.Struct: // embbed struct
-				nextVal = val.Field(i)
-			case reflect.Interface: // embbed interface
-			CHECKINTERFACE:
-				for {
-					switch nextVal.Type().Kind() {
-					case reflect.Interface:
-						nextVal = nextVal.Elem()
-					case reflect.Ptr:
-						nextVal = reflect.Indirect(nextVal)
-					case reflect.Struct:
-						break CHECKINTERFACE
-					default:
-						log.Warningf("embeded interface point to a non struct data %s", nextVal.Type())
-						break CHECKINTERFACE
-					}
-				}
-			default:
-				log.Warningf("unsupport anonymous embeded type %s", fieldType.Type.Name())
-				continue
-			}
-			newPairs := struct2JSONPairs(nextVal)
-			objPairs = append(objPairs, newPairs...)
-		} else {
-			jsonInfo := parseJsonMarshalInfo(fieldType.Tag)
 
-			if jsonInfo.ignore {
+		if sf.Anonymous {
+			fv := val.Field(i)
+
+			// T, *T
+			switch fv.Kind() {
+			case reflect.Ptr, reflect.Interface:
+				// ignore nil values completely
+				if !fv.IsValid() || fv.IsNil() {
+					continue
+				}
+				fv = fv.Elem()
+			}
+			// note that we regard anonymous interface field the
+			// same as with anonymous struct field.  This is
+			// different from how encoding/json handles struct
+			// field of interface type.
+			if fv.Kind() == reflect.Struct {
+				newPairs := struct2JSONPairs(fv)
+				objPairs = append(objPairs, newPairs...)
 				continue
 			}
-			key := jsonInfo.name
-			if len(key) == 0 {
-				key = utils.CamelSplit(fieldType.Name, "_")
-			}
-			val := marshalValue(val.Field(i), &jsonInfo)
-			if val != nil && val != JSONNull {
-				objPair := JSONPair{key: key, val: val}
-				objPairs = append(objPairs, objPair)
-			}
+		}
+
+		jsonInfo := parseJsonMarshalInfo(sf.Tag)
+		if jsonInfo.ignore {
+			continue
+		}
+		key := jsonInfo.name
+		if len(key) == 0 {
+			key = utils.CamelSplit(sf.Name, "_")
+		}
+		val := marshalValue(val.Field(i), &jsonInfo)
+		if val != nil && val != JSONNull {
+			objPair := JSONPair{key: key, val: val}
+			objPairs = append(objPairs, objPair)
 		}
 	}
 	return objPairs
