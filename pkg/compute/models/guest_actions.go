@@ -91,7 +91,7 @@ func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.Toke
 		return nil, httperrors.NewInputParameterError("No root image")
 	} else {
 		kwargs := data.(*jsonutils.JSONDict)
-		restart := self.Status == VM_RUNNING
+		restart := (self.Status == VM_RUNNING) || jsonutils.QueryBoolean(data, "auto_start", false)
 		properties := jsonutils.NewDict()
 		if notes, err := data.GetString("notes"); err != nil && len(notes) > 0 {
 			properties.Add(jsonutils.NewString(notes), "notes")
@@ -334,7 +334,8 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 	}
 
 	if utils.IsInStringArray(self.Status, deployStatus) {
-		if doRestart && self.Status == VM_RUNNING {
+		if (doRestart && self.Status == VM_RUNNING) ||
+			jsonutils.QueryBoolean(kwargs, "auto_start", false) {
 			kwargs.Set("restart", jsonutils.JSONTrue)
 		}
 		err := self.StartGuestDeployTask(ctx, userCred, kwargs, "deploy", "")
