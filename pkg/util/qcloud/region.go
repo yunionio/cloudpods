@@ -2,11 +2,13 @@ package qcloud
 
 import (
 	"fmt"
-	"yunion.io/x/pkg/utils"
 
 	"github.com/nelsonken/cos-go-sdk-v5/cos"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )

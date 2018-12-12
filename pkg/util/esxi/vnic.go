@@ -4,8 +4,9 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/netutils"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SVirtualNIC struct {

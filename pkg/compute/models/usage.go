@@ -1,10 +1,10 @@
 package models
 
 import (
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/pkg/utils"
 )
 
 func AttachUsageQuery(

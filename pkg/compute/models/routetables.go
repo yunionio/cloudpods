@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"net"
 	"reflect"
 	"strings"
@@ -12,7 +13,6 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
-	"database/sql"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"

@@ -7,10 +7,12 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/golang-plus/uuid"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/pkg/util/secrules"
+
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type Tags struct {

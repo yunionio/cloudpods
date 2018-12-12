@@ -8,15 +8,16 @@ import (
 	"strings"
 	"time"
 
+	coslib "github.com/nelsonken/cos-go-sdk-v5/cos"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-
-	coslib "github.com/nelsonken/cos-go-sdk-v5/cos"
 )
 
 type SStoragecache struct {

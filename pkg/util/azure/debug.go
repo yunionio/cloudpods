@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"net/http/httputil"
 
-	"yunion.io/x/log"
-
 	"github.com/Azure/go-autorest/autorest"
+
+	"yunion.io/x/log"
 )
 
 const (
