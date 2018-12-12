@@ -143,29 +143,13 @@ func (man *SLoadbalancerListenerManager) ListItemFilter(ctx context.Context, q *
 	}
 	userProjId := userCred.GetProjectId()
 	data := query.(*jsonutils.JSONDict)
-	{
-		lbV := validators.NewModelIdOrNameValidator("loadbalancer", "loadbalancer", userProjId)
-		lbV.Optional(true)
-		q, err = lbV.QueryFilter(q, data)
-		if err != nil {
-			return nil, err
-		}
-	}
-	{
-		backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", userProjId)
-		backendGroupV.Optional(true)
-		q, err = backendGroupV.QueryFilter(q, data)
-		if err != nil {
-			return nil, err
-		}
-	}
-	{
-		aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", userProjId)
-		aclV.Optional(true)
-		q, err = aclV.QueryFilter(q, data)
-		if err != nil {
-			return nil, err
-		}
+	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
+		{Key: "loadbalancer", ModelKeyword: "loadbalancer", ProjectId: userProjId},
+		{Key: "backend_group", ModelKeyword: "loadbalancerbackendgroup", ProjectId: userProjId},
+		{Key: "acl", ModelKeyword: "loadbalanceracl", ProjectId: userProjId},
+	})
+	if err != nil {
+		return nil, err
 	}
 	return q, nil
 }
@@ -357,7 +341,7 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 
 		"certificate":       certV,
 		"tls_cipher_policy": tlsCipherPolicyV,
-		"enable_http2":      validators.NewBoolValidator("enable_http2").Default(true),
+		"enable_http2":      validators.NewBoolValidator("enable_http2"),
 	}
 	for _, v := range keyV {
 		v.Optional(true)

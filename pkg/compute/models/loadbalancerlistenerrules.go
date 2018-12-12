@@ -72,21 +72,12 @@ func (man *SLoadbalancerListenerRuleManager) ListItemFilter(ctx context.Context,
 	}
 	userProjId := userCred.GetProjectId()
 	data := query.(*jsonutils.JSONDict)
-	{
-		listenerV := validators.NewModelIdOrNameValidator("listener", "loadbalancerlistener", userProjId)
-		listenerV.Optional(true)
-		q, err = listenerV.QueryFilter(q, data)
-		if err != nil {
-			return nil, err
-		}
-	}
-	{
-		backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", userProjId)
-		backendGroupV.Optional(true)
-		q, err = backendGroupV.QueryFilter(q, data)
-		if err != nil {
-			return nil, err
-		}
+	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
+		{Key: "listener", ModelKeyword: "loadbalancerlistener", ProjectId: userProjId},
+		{Key: "backend_group", ModelKeyword: "loadbalancerbackendgroup", ProjectId: userProjId},
+	})
+	if err != nil {
+		return nil, err
 	}
 	return q, nil
 }
