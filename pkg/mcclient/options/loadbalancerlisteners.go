@@ -9,7 +9,6 @@ type LoadbalancerListenerCreateOptions struct {
 	BackendGroup string
 
 	Scheduler string `required:"true" choices:"rr|wrr|wlc|sch|tch"`
-	Bandwidth *int
 
 	ClientRequestTimeout  *int
 	ClientIdleTimeout     *int
@@ -46,6 +45,9 @@ type LoadbalancerListenerCreateOptions struct {
 	Certificate     string
 	TLSCipherPolicy string
 	EnableHttp2     string `choices:"true|false"`
+
+	HTTPRequestRate       *int
+	HTTPRequestRatePerSrc *int
 }
 
 type LoadbalancerListenerListOptions struct {
@@ -57,7 +59,6 @@ type LoadbalancerListenerListOptions struct {
 	BackendGroup string
 
 	Scheduler string `choices:"rr|wrr|wlc|sch|tch"`
-	Bandwidth *int
 
 	ClientRequestTimeout  *int
 	ClientIdleTimeout     *int
@@ -94,6 +95,9 @@ type LoadbalancerListenerListOptions struct {
 	Certificate     string
 	TLSCipherPolicy string
 	EnableHttp2     string `choices:"true|false"`
+
+	HTTPRequestRate       *int
+	HTTPRequestRatePerSrc *int
 }
 
 type LoadbalancerListenerUpdateOptions struct {
@@ -103,7 +107,6 @@ type LoadbalancerListenerUpdateOptions struct {
 	BackendGroup string
 
 	Scheduler string `choices:"rr|wrr|wlc|sch|tch"`
-	Bandwidth *int
 
 	ClientRequestTimeout  *int
 	ClientIdleTimeout     *int
@@ -140,6 +143,9 @@ type LoadbalancerListenerUpdateOptions struct {
 	Certificate     string
 	TLSCipherPolicy string
 	EnableHttp2     string `choices:"true|false"`
+
+	HTTPRequestRate       *int
+	HTTPRequestRatePerSrc *int
 }
 
 type LoadbalancerListenerGetOptions struct {
