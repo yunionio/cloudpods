@@ -357,7 +357,7 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 
 		"certificate":       certV,
 		"tls_cipher_policy": tlsCipherPolicyV,
-		"enable_http2":      validators.NewBoolValidator("enable_http2").Default(true),
+		"enable_http2":      validators.NewBoolValidator("enable_http2"),
 	}
 	for _, v := range keyV {
 		v.Optional(true)
