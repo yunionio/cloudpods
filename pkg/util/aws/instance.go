@@ -689,9 +689,23 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 		return err
 	}
 
+	// 检查删除保护状态.如果已开启则先关闭删除保护再进行删除操作
+	protect, err := self.deleteProtectStatusVM(instanceId)
+	if err != nil {
+		return err
+	}
+
+	if protect {
+		log.Warningf("DeleteVM instance %s which termination protect is in open status", instanceId)
+		err = self.deleteProtectVM(instanceId, false)
+		if err != nil {
+			return err
+		}
+	}
+
 	params := &ec2.TerminateInstancesInput{}
 	params.SetInstanceIds([]*string{&instanceId})
-	_, err := self.ec2Client.TerminateInstances(params)
+	_, err = self.ec2Client.TerminateInstances(params)
 	return err
 }
 
@@ -852,6 +866,27 @@ func (self *SRegion) AttachDisk(instanceId string, diskId string, deviceName str
 	params.SetDevice(deviceName)
 	log.Debugf("AttachDisk %s", params.String())
 	_, err := self.ec2Client.AttachVolume(params)
+	return err
+}
+
+func (self *SRegion) deleteProtectStatusVM(instanceId string) (bool, error) {
+	p := &ec2.DescribeInstanceAttributeInput{}
+	p.SetInstanceId(instanceId)
+	p.SetAttribute("disableApiTermination")
+	ret, err := self.ec2Client.DescribeInstanceAttribute(p)
+	if err != nil {
+		return false, err
+	}
+
+	return *ret.DisableApiTermination.Value, nil
+}
+
+func (self *SRegion) deleteProtectVM(instanceId string, disableDelete bool) error {
+	p2 := &ec2.ModifyInstanceAttributeInput{
+		DisableApiTermination: &ec2.AttributeBooleanValue{Value: &disableDelete},
+		InstanceId:            &instanceId,
+	}
+	_, err := self.ec2Client.ModifyInstanceAttribute(p2)
 	return err
 }
 

@@ -145,7 +145,7 @@ func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name str
 		secgroupId = fmt.Sprintf("%s-%s", vpcId, secgroupId)
 	}
 
-	if secgroup, err := self.getSecurityGroupByTag(vpcId, secgroupId); err != nil {
+	if secgroup, err := self.getSecurityGroupById(vpcId, secgroupId); err != nil {
 		if len(desc) == 0 {
 			desc = fmt.Sprintf("security group %s for vpc %s", name, vpcId)
 		}
