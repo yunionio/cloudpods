@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -22,7 +23,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 
-	"time"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/util/billing"
@@ -2112,4 +2112,19 @@ func (self *SGuest) doSaveRenewInfo(userCred mcclient.TokenCredential, bc *billi
 	}
 	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(), userCred)
 	return nil
+}
+
+func (self *SGuest) AllowPerformStreamDisksComplete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "stream-disks-complete")
+}
+
+func (self *SGuest) PerformStreamDisksComplete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	for _, disk := range self.GetDisks() {
+		d := disk.GetDisk()
+		if len(d.SnapshotId) > 0 {
+			SnapshotManager.AddRefCount(d.SnapshotId, -1)
+			d.SetMetadata(ctx, "merge_snapshot", jsonutils.JSONFalse, userCred)
+		}
+	}
+	return nil, nil
 }
