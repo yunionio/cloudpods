@@ -158,14 +158,7 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.In(storages.Field("storage_type"), STORAGE_LOCAL_TYPES))
 		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
 	}
-	if provier, _ := queryDict.GetString("provider"); len(provier) > 0 {
-		cloudprovider := CloudproviderManager.Query().SubQuery()
-		sq := storages.Query(storages.Field("id")).Join(cloudprovider,
-			sqlchemy.AND(
-				sqlchemy.Equals(cloudprovider.Field("id"), storages.Field("manager_id")),
-				sqlchemy.Equals(cloudprovider.Field("provider"), provier)))
-		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
-	}
+
 	guestId, _ := queryDict.GetString("guest")
 	if len(guestId) != 0 {
 		guest := GuestManager.FetchGuestById(guestId)
@@ -190,6 +183,47 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		}
 		q = q.Filter(sqlchemy.Equals(q.Field("storage_id"), storageObj.GetId()))
 	}
+
+	managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
+	if len(managerStr) > 0 {
+		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		subq := storages.Query(storages.Field("id")).Equals("manager_id", provider.GetId())
+		q = q.Filter(sqlchemy.In(q.Field("storage_id"), subq.SubQuery()))
+	}
+
+	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
+	if len(accountStr) > 0 {
+		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+		subq := storages.Query(storages.Field("id"))
+		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), storages.Field("manager_id")))
+		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), account.GetId()))
+
+		q = q.Filter(sqlchemy.In(q.Field("storage_id"), subq.SubQuery()))
+	}
+
+	if provier, _ := queryDict.GetString("provider"); len(provier) > 0 {
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+		sq := storages.Query(storages.Field("id"))
+		sq = sq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), storages.Field("manager_id")))
+		sq = sq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), provier))
+
+		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq.SubQuery()))
+	}
+
 	return q, nil
 }
 
@@ -1202,15 +1236,19 @@ func (self *SDisk) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 		extra.Add(jsonutils.NewString(storage.GetName()), "storage")
 		extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
 		extra.Add(jsonutils.NewString(storage.MediumType), "medium_type")
-		extra.Add(jsonutils.NewString(storage.ZoneId), "zone_id")
+		/*extra.Add(jsonutils.NewString(storage.ZoneId), "zone_id")
 		if zone := storage.getZone(); zone != nil {
 			extra.Add(jsonutils.NewString(zone.Name), "zone")
 			extra.Add(jsonutils.NewString(zone.CloudregionId), "region_id")
 			if region := zone.GetRegion(); region != nil {
 				extra.Add(jsonutils.NewString(region.Name), "region")
 			}
-		}
+		}*/
+
+		info := storage.getCloudProviderInfo()
+		extra.Update(jsonutils.Marshal(&info))
 	}
+
 	guests, guest_status := []string{}, []string{}
 	for _, guest := range self.GetGuests() {
 		guests = append(guests, guest.Name)
@@ -1344,14 +1382,14 @@ func (self *SDisk) GetShortDesc() *jsonutils.JSONDict {
 	var billingInfo SCloudBillingInfo
 
 	if storage != nil {
-		billingInfo = storage.getCloudBillingInfo()
+		billingInfo.SCloudProviderInfo = storage.getCloudProviderInfo()
 	}
 
 	if priceKey := self.GetMetadata("price_key", nil); len(priceKey) > 0 {
 		billingInfo.PriceKey = priceKey
 	}
 
-	self.FetchCloudBillingInfo(&billingInfo)
+	billingInfo.SBillingBaseInfo = self.getBillingBaseInfo()
 
 	desc.Update(jsonutils.Marshal(billingInfo))
 

@@ -34,6 +34,7 @@ func InitHandlers(app *appsrv.Application) {
 		db.Metadata,
 		models.GuestcdromManager,
 		models.NetInterfaceManager,
+		models.VCenterManager,
 	} {
 		db.RegisterModelManager(manager)
 	}

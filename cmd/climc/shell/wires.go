@@ -10,8 +10,14 @@ import (
 func init() {
 	type WireListOptions struct {
 		options.BaseListOptions
-		Zone string `help:"list wires in zone"`
-		Vpc  string `help:"List wires in vpc"`
+
+		Region string `help:"List hosts in region"`
+		Zone   string `help:"list wires in zone"`
+		Vpc    string `help:"List wires in vpc"`
+
+		Manager  string `help:"List hosts belongs to the cloud provider"`
+		Account  string `help:"List hosts belongs to the cloud account"`
+		Provider string `help:"List hosts belongs to the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei"`
 	}
 	R(&WireListOptions{}, "wire-list", "List wires", func(s *mcclient.ClientSession, args *WireListOptions) error {
 		var params *jsonutils.JSONDict
@@ -26,6 +32,19 @@ func init() {
 		if len(args.Vpc) > 0 {
 			params.Add(jsonutils.NewString(args.Vpc), "vpc")
 		}
+		if len(args.Region) > 0 {
+			params.Add(jsonutils.NewString(args.Region), "region")
+		}
+		if len(args.Manager) > 0 {
+			params.Add(jsonutils.NewString(args.Manager), "manager")
+		}
+		if len(args.Account) > 0 {
+			params.Add(jsonutils.NewString(args.Account), "account")
+		}
+		if len(args.Provider) > 0 {
+			params.Add(jsonutils.NewString(args.Provider), "provider")
+		}
+
 		var result *modules.ListResult
 		var err error
 		if len(args.Zone) > 0 {

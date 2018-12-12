@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -35,7 +36,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/appsrv"
 )
 
 const (
@@ -1999,10 +1999,8 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 		}
 	}*/
 
-	info := self.getCloudBillingInfo()
-	infoJson := jsonutils.Marshal(&info)
-	log.Debugf("%s", infoJson.String())
-	extra.Update(infoJson)
+	info := self.getCloudProviderInfo()
+	extra.Update(jsonutils.Marshal(&info))
 
 	server := self.GetBaremetalServer()
 	if server != nil {
@@ -3500,17 +3498,17 @@ func (manager *SHostManager) GetHostByIp(hostIp string) (*SHost, error) {
 	return host.(*SHost), nil
 }
 
-func (self *SHost) getCloudBillingInfo() SCloudBillingInfo {
+func (self *SHost) getCloudProviderInfo() SCloudProviderInfo {
 	var region *SCloudregion
 	zone := self.GetZone()
 	if zone != nil {
 		region = zone.GetRegion()
 	}
 	provider := self.GetCloudprovider()
-	return MakeCloudBillingInfo(region, zone, provider)
+	return MakeCloudProviderInfo(region, zone, provider)
 }
 
 func (self *SHost) GetShortDesc() *jsonutils.JSONDict {
-	info := self.getCloudBillingInfo()
+	info := self.getCloudProviderInfo()
 	return jsonutils.Marshal(&info).(*jsonutils.JSONDict)
 }

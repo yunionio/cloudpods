@@ -102,7 +102,7 @@ func (self *SVpc) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetNetworkCount() > 0 {
+	if self.GetNetworkCount() > 0 || self.GetRouteTableCount() > 0 {
 		return httperrors.NewNotEmptyError("VPC not empty")
 	}
 	if self.Id == DEFAULT_VPC_ID {
@@ -150,10 +150,15 @@ func (self *SVpc) GetNetworkCount() int {
 	return q.Count()
 }
 
+func (self *SVpc) GetRouteTableCount() int {
+	return RouteTableManager.Query().Equals("vpc_id", self.Id).Count()
+}
+
 func (self *SVpc) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	extra.Add(jsonutils.NewInt(int64(self.GetWireCount())), "wire_count")
 	extra.Add(jsonutils.NewInt(int64(self.GetNetworkCount())), "network_count")
-	region, err := self.GetRegion()
+	extra.Add(jsonutils.NewInt(int64(self.GetRouteTableCount())), "routetable_count")
+	/* region, err := self.GetRegion()
 	if err != nil {
 		log.Errorf("failed getting region for vpc %s(%s)", self.Name, self.Id)
 		return extra
@@ -161,8 +166,18 @@ func (self *SVpc) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict 
 	extra.Add(jsonutils.NewString(region.GetName()), "region")
 	if len(region.GetExternalId()) > 0 {
 		extra.Add(jsonutils.NewString(region.GetExternalId()), "region_external_id")
-	}
+	}*/
+
+	info := self.getCloudProviderInfo()
+	extra.Update(jsonutils.Marshal(&info))
+
 	return extra
+}
+
+func (self *SVpc) getCloudProviderInfo() SCloudProviderInfo {
+	region, _ := self.GetRegion()
+	provider := self.GetCloudprovider()
+	return MakeCloudProviderInfo(region, nil, provider)
 }
 
 func (self *SVpc) GetRegion() (*SCloudregion, error) {
@@ -510,18 +525,43 @@ func (self *SVpc) PerformPurge(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func (manager *SVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	queryDict := query.(*jsonutils.JSONDict)
+
+	managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
+	if len(managerStr) > 0 {
+		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), provider.GetId()))
+		queryDict.Remove("manager_id")
+	}
+
 	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
 
-	managerStr := jsonutils.GetAnyString(query, []string{"manager", "provider", "manager_id", "provider_id"})
-	if len(managerStr) > 0 {
-		provider := CloudproviderManager.FetchCloudproviderByIdOrName(managerStr)
-		if provider == nil {
-			return nil, httperrors.NewResourceNotFoundError("provider %s not found", managerStr)
+	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
+	if len(accountStr) > 0 {
+		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
 		}
-		q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), provider.GetId()))
+		subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", account.GetId()).SubQuery()
+		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+	}
+
+	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
+	if len(providerStr) > 0 {
+		subq := CloudproviderManager.Query("id").Equals("provider", providerStr).SubQuery()
+		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
 	}
 
 	return q, nil

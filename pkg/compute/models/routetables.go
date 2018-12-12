@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	"database/sql"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -116,6 +117,50 @@ func (man *SRouteTableManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 			return nil, err
 		}
 	}
+
+	managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
+	if len(managerStr) > 0 {
+		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		sq := VpcManager.Query("id").Equals("manager_id", provider.GetId())
+		q = q.In("vpc_id", sq.SubQuery())
+	}
+
+	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
+	if len(accountStr) > 0 {
+		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		vpcs := VpcManager.Query().SubQuery()
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+
+		subq := vpcs.Query(vpcs.Field("id"))
+		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), vpcs.Field("manager_id")))
+		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), account.GetId()))
+		q = q.Filter(sqlchemy.In(q.Field("vpc_id"), subq.SubQuery()))
+	}
+
+	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
+	if len(providerStr) > 0 {
+		vpcs := VpcManager.Query().SubQuery()
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+
+		subq := vpcs.Query(vpcs.Field("id"))
+		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), vpcs.Field("manager_id")))
+		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr))
+
+		q = q.Filter(sqlchemy.In(q.Field("vpc_id"), subq.SubQuery()))
+	}
+
 	return q, nil
 }
 
@@ -232,6 +277,12 @@ func (rt *SRouteTable) PerformDelRoutes(ctx context.Context, userCred mcclient.T
 	return nil, nil
 }
 
+func (rt *SRouteTable) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	info := rt.getCloudProviderInfo()
+	extra.Update(jsonutils.Marshal(&info))
+	return extra
+}
+
 func (rt *SRouteTable) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := rt.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	vpcM, err := VpcManager.FetchById(rt.VpcId)
@@ -248,12 +299,14 @@ func (rt *SRouteTable) GetCustomizeColumns(ctx context.Context, userCred mcclien
 	}
 	extra.Set("vpc", jsonutils.NewString(vpcM.GetName()))
 	extra.Set("cloudregion", jsonutils.NewString(cloudregionM.GetName()))
+
+	extra = rt.getMoreDetails(extra)
 	return extra
 }
 
 func (rt *SRouteTable) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := rt.GetCustomizeColumns(ctx, userCred, query)
-	extra = rt.SManagedResourceBase.getExtraDetails(ctx, extra)
+	extra = rt.getMoreDetails(extra)
 	return extra
 }
 
@@ -360,4 +413,27 @@ func (self *SRouteTable) SyncWithCloudRouteTable(userCred mcclient.TokenCredenti
 		return err
 	}
 	return nil
+}
+
+func (self *SRouteTable) getVpc() (*SVpc, error) {
+	val, err := VpcManager.FetchById(self.VpcId)
+	if err != nil {
+		log.Errorf("VpcManager.FetchById fail %s", err)
+		return nil, err
+	}
+	return val.(*SVpc), nil
+}
+
+func (self *SRouteTable) getRegion() (*SCloudregion, error) {
+	vpc, err := self.getVpc()
+	if err != nil {
+		return nil, err
+	}
+	return vpc.GetRegion()
+}
+
+func (self *SRouteTable) getCloudProviderInfo() SCloudProviderInfo {
+	region, _ := self.getRegion()
+	provider := self.GetCloudprovider()
+	return MakeCloudProviderInfo(region, nil, provider)
 }
