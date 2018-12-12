@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/service/ec2"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/secrules"
 
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SUserCIDRs struct {

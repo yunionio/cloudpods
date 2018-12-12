@@ -18,7 +18,9 @@ func init() {
 		Zone   string `help:"List storages in zone"`
 		Region string `help:"List storages in region"`
 
-		Manager string `help:"Show regions belongs to the cloud provider"`
+		Manager  string `help:"List storages belongs to the cloud provider"`
+		Account  string `help:"List storages belongs to the cloud account"`
+		Provider string `help:"List storages belongs to the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei"`
 	}
 	R(&StorageListOptions{}, "storage-list", "List storages", func(s *mcclient.ClientSession, args *StorageListOptions) error {
 		var params *jsonutils.JSONDict
@@ -45,6 +47,12 @@ func init() {
 
 		if len(args.Manager) > 0 {
 			params.Add(jsonutils.NewString(args.Manager), "manager")
+		}
+		if len(args.Account) > 0 {
+			params.Add(jsonutils.NewString(args.Account), "account")
+		}
+		if len(args.Provider) > 0 {
+			params.Add(jsonutils.NewString(args.Provider), "provider")
 		}
 
 		var result *modules.ListResult

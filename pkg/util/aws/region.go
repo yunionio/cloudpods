@@ -9,13 +9,15 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/s3"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
-var RegionLocations map[string]string = map[string]string{
+var RegionLocations = map[string]string{
 	"us-east-2":      "美国东部(俄亥俄州)",
 	"us-east-1":      "美国东部(弗吉尼亚北部)",
 	"us-west-1":      "美国西部(加利福尼亚北部)",
@@ -212,28 +214,11 @@ func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
-func (self *SRegion) GetLatitude() float32 {
-	if data, ok := LatitudeAndLongitude[self.RegionId]; !ok {
-		log.Debugf("Region %s not found in LatitudeAndLongitude", self.RegionId)
-		return 0.0
-	} else if lat, ok := data["latitude"]; !ok {
-		log.Debugf("Region %s's latitude not found in LatitudeAndLongitude", self.RegionId)
-		return 0.0
-	} else {
-		return lat
+func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
+	if info, ok := LatitudeAndLongitude[self.RegionId]; ok {
+		return info
 	}
-}
-
-func (self *SRegion) GetLongitude() float32 {
-	if data, ok := LatitudeAndLongitude[self.RegionId]; !ok {
-		log.Debugf("Region %s not found in LatitudeAndLongitude", self.RegionId)
-		return 0.0
-	} else if lat, ok := data["longitude"]; !ok {
-		log.Debugf("Region %s's latitude not found in LatitudeAndLongitude", self.RegionId)
-		return 0.0
-	} else {
-		return lat
-	}
+	return cloudprovider.SGeographicInfo{}
 }
 
 func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {

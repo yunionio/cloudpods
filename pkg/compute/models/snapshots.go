@@ -141,6 +141,19 @@ func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		q = q.Equals("manager_id", managerObj.GetId())
 	}
 
+	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
+	if len(accountStr) > 0 {
+		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", account.GetId()).SubQuery()
+		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+	}
+
 	return q, nil
 }
 
@@ -158,13 +171,13 @@ func (self *SSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSON
 	if IStorage, _ := StorageManager.FetchById(self.StorageId); IStorage != nil {
 		storage := IStorage.(*SStorage)
 		extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
-		if provider := storage.GetCloudprovider(); provider != nil {
-			extra.Add(jsonutils.NewString(provider.Name), "provider")
-		}
+		// if provider := storage.GetCloudprovider(); provider != nil {
+		// 	extra.Add(jsonutils.NewString(provider.Name), "provider")
+		// }
 	} else {
-		if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
-			extra.Add(jsonutils.NewString(cloudprovider.Provider), "provider")
-		}
+		// if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
+		// 	extra.Add(jsonutils.NewString(cloudprovider.Provider), "provider")
+		// }
 	}
 	disk, _ := self.GetDisk()
 	if disk != nil {
@@ -177,6 +190,10 @@ func (self *SSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSON
 		}
 		extra.Add(jsonutils.NewString(disk.Name), "disk_name")
 	}
+
+	info := self.getCloudProviderInfo()
+	extra.Update(jsonutils.Marshal(&info))
+
 	return extra
 }
 
@@ -192,9 +209,8 @@ func (self *SSnapshot) GetShortDesc() *jsonutils.JSONDict {
 			res.Add(jsonutils.NewString(cloudRegion.ExternalId), "region")
 		}
 	}*/
-	info := self.getCloudBillingInfo()
+	info := self.getCloudProviderInfo()
 	res.Update(jsonutils.Marshal(&info))
-
 	return res
 }
 
@@ -648,8 +664,8 @@ func (self *SSnapshot) PerformPurge(ctx context.Context, userCred mcclient.Token
 	return nil, err
 }
 
-func (self *SSnapshot) getCloudBillingInfo() SCloudBillingInfo {
+func (self *SSnapshot) getCloudProviderInfo() SCloudProviderInfo {
 	region := self.GetRegion()
 	provider := self.GetCloudprovider()
-	return MakeCloudBillingInfo(region, nil, provider)
+	return MakeCloudProviderInfo(region, nil, provider)
 }

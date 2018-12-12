@@ -830,7 +830,7 @@ func (self *SNetwork) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSOND
 	extra.Add(jsonutils.NewInt(int64(self.GetGroupNicsCount())), "group_vnics")
 	extra.Add(jsonutils.NewInt(int64(self.GetReservedNicsCount())), "reserve_vnics")
 
-	zone := self.getZone()
+	/*zone := self.getZone()
 	if zone != nil {
 		extra.Add(jsonutils.NewString(zone.GetId()), "zone_id")
 		extra.Add(jsonutils.NewString(zone.GetName()), "zone")
@@ -846,20 +846,23 @@ func (self *SNetwork) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSOND
 		if len(region.GetExternalId()) > 0 {
 			extra.Add(jsonutils.NewString(region.GetExternalId()), "region_external_id")
 		}
-	}
+	}*/
 
 	vpc := self.getVpc()
 	if vpc != nil {
 		extra.Add(jsonutils.NewString(vpc.GetId()), "vpc_id")
 		extra.Add(jsonutils.NewString(vpc.GetName()), "vpc")
 		if len(vpc.GetExternalId()) > 0 {
-			extra.Add(jsonutils.NewString(vpc.GetExternalId()), "vpc_external_id")
+			extra.Add(jsonutils.NewString(vpc.GetExternalId()), "vpc_ext_id")
 		}
 	}
 	routes := self.GetRoutes()
 	if len(routes) > 0 {
 		extra.Add(jsonutils.Marshal(routes), "routes")
 	}
+
+	info := vpc.getCloudProviderInfo()
+	extra.Update(jsonutils.Marshal(&info))
 
 	return extra
 }
@@ -1331,6 +1334,7 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	if err != nil {
 		return nil, err
 	}
+
 	zoneStr, _ := query.GetString("zone")
 	if len(zoneStr) > 0 {
 		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zoneStr)
@@ -1340,6 +1344,7 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		sq := WireManager.Query("id").Equals("zone_id", zoneObj.GetId())
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
 	}
+
 	vpcStr, _ := query.GetString("vpc")
 	if len(vpcStr) > 0 {
 		vpcObj, err := VpcManager.FetchByIdOrName(userCred, vpcStr)
@@ -1349,6 +1354,7 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		sq := WireManager.Query("id").Equals("vpc_id", vpcObj.GetId())
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
 	}
+
 	regionStr := jsonutils.GetAnyString(query, []string{"region_id", "region", "cloudregion_id", "cloudregion"})
 	if len(regionStr) > 0 {
 		region, err := CloudregionManager.FetchByIdOrName(userCred, regionStr)
@@ -1367,6 +1373,63 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 				sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))))
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
 	}
+
+	managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
+	if len(managerStr) > 0 {
+		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+
+		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+
+		subq := wires.Query(wires.Field("id"))
+		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		subq = subq.Filter(sqlchemy.Equals(vpcs.Field("manager_id"), provider.GetId()))
+
+		q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq.SubQuery()))
+	}
+
+	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
+	if len(accountStr) > 0 {
+		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+
+		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+
+		subq := wires.Query(wires.Field("id"))
+		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), vpcs.Field("manager_id")))
+		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), account.GetId()))
+
+		q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq.SubQuery()))
+	}
+
+	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
+	if len(providerStr) > 0 {
+		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+
+		subq := wires.Query(wires.Field("id"))
+		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), vpcs.Field("manager_id")))
+		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr))
+
+		q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq.SubQuery()))
+	}
+
 	return q, nil
 }
 

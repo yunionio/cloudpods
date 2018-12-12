@@ -3,7 +3,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -26,7 +25,7 @@ const (
 	SkuCategoryHighMemory          = "high_memory"          // 高内存型
 )
 
-var InstanceFamilies map[string]string = map[string]string{
+var InstanceFamilies = map[string]string{
 	SkuCategoryGeneralPurpose:      "g1",
 	SkuCategoryBurstable:           "t1",
 	SkuCategoryComputeOptimized:    "c1",
@@ -312,17 +311,17 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 	ret.Add(cpus, "cpus")
 	ret.Add(mems_mb, "mems_mb")
 
-	r, err := json.Marshal(&cpu_mems_mb)
+	/* r, err := json.Marshal(&cpu_mems_mb)
 	if err != nil {
 		log.Errorf("%s", err)
 		return nil, httperrors.NewInternalServerError("instance specs list marshal failed")
-	}
+	}*/
 
-	r_obj, err := jsonutils.Parse(r)
-	if err != nil {
+	r_obj := jsonutils.Marshal(&cpu_mems_mb)
+	/*if err != nil {
 		log.Errorf("%s", err)
 		return nil, httperrors.NewInternalServerError("instance specs list parse failed")
-	}
+	}*/
 
 	ret.Add(r_obj, "cpu_mems_mb")
 	return ret, nil

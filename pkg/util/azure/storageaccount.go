@@ -10,7 +10,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/Microsoft/azure-vhd-utils/vhdcore/common"
 	"github.com/Microsoft/azure-vhd-utils/vhdcore/diskstream"
+
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 

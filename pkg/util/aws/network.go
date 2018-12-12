@@ -1,14 +1,17 @@
 package aws
 
 import (
-	"github.com/aws/aws-sdk-go/service/ec2"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go/service/ec2"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/netutils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/pkg/util/netutils"
 )
 
 type SNetwork struct {

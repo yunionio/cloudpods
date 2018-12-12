@@ -1,12 +1,8 @@
 package esxi
 
 import (
-	"github.com/vmware/govmomi/vim25/mo"
-
 	"context"
 	"fmt"
-	"github.com/vmware/govmomi/object"
-	"github.com/vmware/govmomi/vim25/types"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -16,8 +12,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/types"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/vmdkutils"
