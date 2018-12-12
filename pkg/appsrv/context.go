@@ -5,6 +5,7 @@ import (
 	"database/sql"
 
 	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/util/hashcache"
 )
 
 func AppContextDB(ctx context.Context) *sql.DB {
@@ -15,12 +16,12 @@ func AppContextDB(ctx context.Context) *sql.DB {
 	return val.(*sql.DB)
 }
 
-func AppContextCache(ctx context.Context) *Cache {
+func AppContextCache(ctx context.Context) *hashcache.Cache {
 	val := ctx.Value(appctx.APP_CONTEXT_KEY_CACHE)
 	if val == nil {
 		return nil
 	}
-	return val.(*Cache)
+	return val.(*hashcache.Cache)
 }
 
 func AppContextApp(ctx context.Context) *Application {

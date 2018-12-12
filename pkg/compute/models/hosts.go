@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/appsrv"
 )
 
 const (
@@ -2654,6 +2655,14 @@ func (self *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCrede
 		return nil, fmt.Errorf("Get catalog error")
 	}
 	result.Set("catalog", catalog)
+
+	appParams := appsrv.AppContextGetParams(ctx)
+	if appParams != nil {
+		// skip log&trace, when everything is normal
+		appParams.SkipTrace = true
+		appParams.SkipLog = true
+	}
+
 	return result, nil
 }
 
