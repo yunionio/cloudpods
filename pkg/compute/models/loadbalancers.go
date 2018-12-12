@@ -62,21 +62,12 @@ func (man *SLoadbalancerManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	}
 	userProjId := userCred.GetProjectId()
 	data := query.(*jsonutils.JSONDict)
-	{
-		networkV := validators.NewModelIdOrNameValidator("network", "network", userProjId)
-		networkV.Optional(true)
-		q, err = networkV.QueryFilter(q, data)
-		if err != nil {
-			return nil, err
-		}
-	}
-	{
-		zoneV := validators.NewModelIdOrNameValidator("zone", "zone", userProjId)
-		zoneV.Optional(true)
-		q, err = zoneV.QueryFilter(q, data)
-		if err != nil {
-			return nil, err
-		}
+	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
+		{Key: "network", ModelKeyword: "network", ProjectId: userProjId},
+		{Key: "zone", ModelKeyword: "zone", ProjectId: userProjId},
+	})
+	if err != nil {
+		return nil, err
 	}
 	return q, nil
 }

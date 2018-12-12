@@ -3,6 +3,7 @@ package guest
 import (
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/priorities"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/core/score"
 )
 
 type LowLoadPriority struct {
@@ -28,8 +29,12 @@ func (p *LowLoadPriority) Map(u *core.Unit, c core.Candidater) (core.HostPriorit
 	cpuCommitRate := float64(hc.RunningCPUCount) / float64(hc.TotalCPUCount)
 	memCommitRate := float64(hc.RunningMemSize) / float64(hc.TotalMemSize)
 	if cpuCommitRate < 0.5 && memCommitRate < 0.5 {
-		score := 20 * (1 - cpuCommitRate - memCommitRate)
+		score := 10 * (1 - cpuCommitRate - memCommitRate)
 		h.SetScore(int(score))
 	}
 	return h.GetResult()
+}
+
+func (p *LowLoadPriority) ScoreIntervals() score.Intervals {
+	return score.NewIntervals(0, 1, 5)
 }

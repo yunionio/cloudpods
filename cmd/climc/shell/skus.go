@@ -11,7 +11,7 @@ import (
 func init() {
 	type ServerSkusListOptions struct {
 		options.BaseListOptions
-		Provider string `help:"provider" choices:"all|kvm|esxi|xen|hyperv|aliyun|azure|aws|qcloud|huawei"`
+		Provider string `help:"provider" choices:"all|aliyun|azure|aws|qcloud|huawei" default:""`
 		Region   string `help:"region Id or name"`
 		Zone     string `help:"zone Id or name"`
 		Cpu      int    `help:"Cpu core count"`
@@ -50,14 +50,11 @@ func init() {
 	})
 
 	type ServerSkusCreateOptions struct {
-		Name         string `help:"Name ID of SKU" required:"true" positional:"true"`
-		CpuCoreCount int    `help:"Cpu Count" required:"true" positional:"true"`
-		MemorySizeMB int    `help:"Memory MB" required:"true" positional:"true"`
-		Provider     string `help:"Provider name" choices:"kvm|esxi"`
+		CpuCoreCount int `help:"Cpu Count" required:"true" positional:"true"`
+		MemorySizeMB int `help:"Memory MB" required:"true" positional:"true"`
 
-		OsName      *string `help:"OS name/type" choices:"Linux|Windows|Any" default:"Any"`
-		SkuFamily   *string `help:"sku family"`
-		SkuCategory *string `help:"sku category" choices:"general_purpose|compute_optimized|memory_optimized|storage_optimized|hardware_accelerated|high_memory|high_storage"`
+		OsName               *string `help:"OS name/type" choices:"Linux|Windows|Any" default:"Any"`
+		InstanceTypeCategory *string `help:"instance type category" choices:"general_purpose|compute_optimized|memory_optimized|storage_optimized|hardware_accelerated|high_memory|high_storage"`
 
 		SysDiskResizable *bool   `help:"system disk is resizable"`
 		SysDiskType      *string `help:"system disk type" default:"local" choices:"local"`
@@ -95,12 +92,10 @@ func init() {
 	type ServerSkusUpdateOptions struct {
 		ID string `help:"Name or ID of SKU" json:"-"`
 
-		Name         *string `help:"new name of SKU"`
-		CpuCoreCount *int    `help:"Cpu Count"`
-		MemorySizeMB *int    `help:"Memory MB"`
+		CpuCoreCount *int `help:"Cpu Count"`
+		MemorySizeMB *int `help:"Memory MB"`
 
-		SkuFamily   *string `help:"sku family"`
-		SkuCategory *string `help:"sku category" choices:"general_purpose|compute_optimized|memory_optimized|storage_optimized|hardware_accelerated|high_memory|high_storage"`
+		InstanceTypeCategory *string `help:"instance type category" choices:"general_purpose|compute_optimized|memory_optimized|storage_optimized|hardware_accelerated|high_memory|high_storage"`
 
 		SysDiskResizable *bool `help:"system disk is resizable"`
 		SysDiskMaxSizeGB *int  `help:"system disk maximal size in gb"`

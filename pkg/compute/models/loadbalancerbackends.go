@@ -55,22 +55,12 @@ func (man *SLoadbalancerBackendManager) ListItemFilter(ctx context.Context, q *s
 	}
 	userProjId := userCred.GetProjectId()
 	data := query.(*jsonutils.JSONDict)
-	{
-		backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", userProjId)
-		backendGroupV.Optional(true)
-		q, err = backendGroupV.QueryFilter(q, data)
-		if err != nil {
-			return nil, err
-		}
-	}
-	{
-		// NOTE extend this when new backend_type was added
-		backendV := validators.NewModelIdOrNameValidator("backend", "server", userProjId)
-		backendV.Optional(true)
-		q, err = backendV.QueryFilter(q, data)
-		if err != nil {
-			return nil, err
-		}
+	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
+		{Key: "backend_group", ModelKeyword: "loadbalancerbackendgroup", ProjectId: userProjId},
+		{Key: "backend", ModelKeyword: "server", ProjectId: userProjId}, // NOTE extend this when new backend_type was added
+	})
+	if err != nil {
+		return nil, err
 	}
 	return q, nil
 }

@@ -169,13 +169,13 @@ func newSchedResultByCtx(u *Unit, count int64, c Candidater) *SchedResultItem {
 		Count:    count,
 		Capacity: u.GetCapacity(id),
 		Name:     fmt.Sprintf("%v", c.Get("Name")),
-		Score:    u.GetScore(id),
+		Score:    u.GetScore(id).DigitString(),
 		Data:     u.GetFiltedData(id, count),
 	}
 
 	if showDetails {
 		r.CapacityDetails = GetCapacities(u, id)
-		r.ScoreDetails = u.GetScores(id)
+		r.ScoreDetails = u.GetScoreDetails(id)
 	}
 	return r
 }
@@ -229,10 +229,10 @@ type SchedResultItem struct {
 	Count    int64                  `json:"count"`
 	Data     map[string]interface{} `json:"data"`
 	Capacity int64                  `json:"capacity"`
-	Score    int                    `json:"score"`
+	Score    string                 `json:"score"`
 
 	CapacityDetails map[string]int64 `json:"capacity_details"`
-	ScoreDetails    map[string]int   `json:"score_details"`
+	ScoreDetails    string           `json:"score_details"`
 }
 
 func GetCapacities(u *Unit, id string) (res map[string]int64) {
@@ -244,22 +244,6 @@ func GetCapacities(u *Unit, id string) (res map[string]int64) {
 		}
 	}
 	return
-}
-
-func GetScore(u *Unit, id string, details bool) string {
-	score := u.GetScore(id)
-	s := fmt.Sprintf("%v", score)
-	if details {
-		scores := u.GetScores(id)
-		if len(scores) > 0 {
-			ss := []string{}
-			for name, score := range scores {
-				ss = append(ss, fmt.Sprintf("%v:%v", name, score))
-			}
-			s += " (" + strings.Join(ss, ", ") + ")"
-		}
-	}
-	return s
 }
 
 type SchedResultItemList struct {
@@ -325,15 +309,16 @@ func SelectHosts(unit *Unit, priorityList HostPriorityList) ([]*SelectedCandidat
 		return nil, fmt.Errorf("SelectHosts get empty priorityList.")
 	}
 
-	sort.Sort(sort.Reverse(priorityList))
-
 	selectedMap := make(map[string]*SelectedCandidate)
 	schedData := unit.SchedData()
 	count := schedData.Count
 	isSuggestion := unit.SchedInfo.IsSuggestion
 	bestEffort := unit.SchedInfo.BestEffort
 	selectedCandidates := []*SelectedCandidate{}
+
 	plugins := unit.AllSelectPlugins()
+
+	sort.Sort(sort.Reverse(priorityList))
 
 completed:
 	for len(priorityList) > 0 {
@@ -357,18 +342,8 @@ completed:
 			}
 			selectedItem.Count++
 			count--
-			doPlugins := func() bool {
-				r := true
-				for _, plugin := range plugins {
-					if !plugin.OnSelect(unit, selectedItem.Candidate) {
-						r = false
-					}
-				}
-				return r
-			}
-			// if no one of plugins return false or capacity of the host large than
-			// selected count, this host can be added to priorityList.
-			if doPlugins() && unit.GetCapacity(hostID) > selectedItem.Count {
+			// if capacity of the host large than selected count, this host can be added to priorityList.
+			if unit.GetCapacity(hostID) > selectedItem.Count {
 				priorityList0 = append(priorityList0, it)
 			}
 		}
@@ -635,15 +610,23 @@ func PrioritizeCandidates(
 	result := make(HostPriorityList, 0, len(candidates))
 	// TODO: Consider parallelizing it
 
-	for i := range candidates {
-		result = append(result, HostPriority{Host: candidates[i].IndexKey(), Score: 0, Candidate: candidates[i]})
-		for j := range newPriorities {
-			result[i].Score += results[j][i].Score * newPriorities[j].Weight
+	// Do plugin priorities step
+	for _, candidate := range candidates {
+		for _, plugin := range unit.AllSelectPlugins() {
+			plugin.OnPriorityEnd(unit, candidate)
 		}
+	}
+
+	for i, candidate := range candidates {
+		result = append(result, HostPriority{Host: candidates[i].IndexKey(), Score: *newScore(), Candidate: candidates[i]})
+		//for j := range newPriorities {
+		//result[i].Score += results[j][i].Score * newPriorities[j].Weight
+		//}
+		result[i].Score = unit.GetScore(candidate.IndexKey())
 	}
 	if log.V(10) {
 		for i := range result {
-			log.Infof("Host %s => Score %d", result[i].Host, result[i].Score)
+			log.Infof("Host %s => Score %s", result[i].Host, result[i].Score.DigitString())
 		}
 	}
 	return result, nil
@@ -671,7 +654,7 @@ func EqualPriority(_ *Unit, candidate Candidater) (HostPriority, error) {
 	}
 	return HostPriority{
 		Host:      indexKey,
-		Score:     1,
+		Score:     newZeroScore(),
 		Candidate: candidate,
 	}, nil
 }

@@ -512,14 +512,22 @@ func (guest *SGuest) GetDriver() IGuestDriver {
 	return GetDriver(hypervisor)
 }
 
-func (guest *SGuest) ValidateDeleteCondition(ctx context.Context) error {
+func (guest *SGuest) validateDeleteCondition(ctx context.Context, isPurge bool) error {
 	if guest.DisableDelete.IsTrue() {
 		return httperrors.NewInvalidStatusError("Virtual server is locked, cannot delete")
 	}
-	if guest.IsValidPrePaid() {
+	if !isPurge && guest.IsValidPrePaid() {
 		return httperrors.NewForbiddenError("not allow to delete prepaid server in valid status")
 	}
 	return guest.SVirtualResourceBase.ValidateDeleteCondition(ctx)
+}
+
+func (guest *SGuest) ValidatePurgeCondition(ctx context.Context) error {
+	return guest.validateDeleteCondition(ctx, true)
+}
+
+func (guest *SGuest) ValidateDeleteCondition(ctx context.Context) error {
+	return guest.validateDeleteCondition(ctx, false)
 }
 
 func (guest *SGuest) GetDisksQuery() *sqlchemy.SQuery {
@@ -720,6 +728,9 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
 		}
+		if len(diskConfig.SnapshotId) > 0 && diskConfig.DiskType != DISK_TYPE_SYS {
+			return nil, httperrors.NewBadRequestError("Snapshot error: disk index 0 but disk type is %s", diskConfig.DiskType)
+		}
 
 		if len(diskConfig.Backend) == 0 {
 			diskConfig.Backend = STORAGE_LOCAL
@@ -807,6 +818,9 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			diskConfig, err := parseDiskInfo(ctx, userCred, jsonutils.NewString(dataDiskDefs[i]))
 			if err != nil {
 				return nil, httperrors.NewInputParameterError("parse disk description error %s", err)
+			}
+			if diskConfig.DiskType == DISK_TYPE_SYS {
+				return nil, httperrors.NewBadRequestError("Snapshot error: disk index %d > 0 but disk type is %s", i+1, DISK_TYPE_SYS)
 			}
 			if len(diskConfig.Backend) == 0 {
 				diskConfig.Backend = rootStorageType
@@ -2381,6 +2395,9 @@ func (self *SGuest) CreateDisksOnHost(ctx context.Context, userCred mcclient.Tok
 			return err
 		}
 		data.Add(jsonutils.NewString(disk.Id), fmt.Sprintf("disk.%d.id", idx))
+		if len(diskConfig.SnapshotId) > 0 {
+			data.Add(jsonutils.NewString(diskConfig.SnapshotId), fmt.Sprintf("disk.%d.snapshot", idx))
+		}
 	}
 	return nil
 }
