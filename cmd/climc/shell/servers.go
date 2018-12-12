@@ -313,7 +313,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ServerSecGroupOptions{}, "server-add-secgroup", "Add security group to a VM", func(s *mcclient.ClientSession, opts *options.ServerSecGroupOptions) error {
+	R(&options.ServerSecGroupsOptions{}, "server-add-secgroup", "Add security group to a VM", func(s *mcclient.ClientSession, opts *options.ServerSecGroupsOptions) error {
 		params, err := options.StructToParams(opts)
 		if err != nil {
 			return err
