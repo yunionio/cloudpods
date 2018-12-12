@@ -251,12 +251,15 @@ func (self *SSnapshot) GetHost() *SHost {
 
 func (self *SSnapshotManager) AddRefCount(snapshotId string, count int) {
 	iSnapshot, _ := self.FetchById(snapshotId)
-	snapshot := iSnapshot.(*SSnapshot)
-	if snapshot != nil {
-		self.TableSpec().Update(snapshot, func() error {
+	if iSnapshot != nil {
+		snapshot := iSnapshot.(*SSnapshot)
+		_, err := self.TableSpec().Update(snapshot, func() error {
 			snapshot.RefCount += count
 			return nil
 		})
+		if err != nil {
+			log.Errorf("Snapshot add refence count error: %s", err)
+		}
 	}
 }
 

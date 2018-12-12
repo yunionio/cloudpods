@@ -689,7 +689,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
 		}
-		if len(diskConfig.ImageId) > 0 && diskConfig.DiskType != DISK_TYPE_SYS {
+		if len(diskConfig.SnapshotId) > 0 && diskConfig.DiskType != DISK_TYPE_SYS {
 			return nil, httperrors.NewBadRequestError("Snapshot error: disk index 0 but disk type is %s", diskConfig.DiskType)
 		}
 
@@ -781,7 +781,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 				return nil, httperrors.NewInputParameterError("parse disk description error %s", err)
 			}
 			if diskConfig.DiskType == DISK_TYPE_SYS {
-				return nil, httperrors.NewBadRequestError("Snapshot error: disk index %d > 0 but disk type is %s", idx, DISK_TYPE_SYS)
+				return nil, httperrors.NewBadRequestError("Snapshot error: disk index %d > 0 but disk type is %s", i+1, DISK_TYPE_SYS)
 			}
 			if len(diskConfig.Backend) == 0 {
 				diskConfig.Backend = rootStorageType
