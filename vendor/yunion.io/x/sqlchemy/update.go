@@ -83,16 +83,17 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (map[string]SUpdateDiff, er
 	setters := make(map[string]SUpdateDiff)
 	for _, c := range us.tableSpec.columns {
 		k := c.Name()
-		of := ofields[k]
+		of, ok := ofields[k]
+		if !ok {
+			continue
+		}
 		nf := fields[k]
-		if !gotypes.IsNil(of) {
-			if c.IsPrimary() && !c.IsZero(of) { // skip update primary key
-				primaries[k] = of
-				continue
-			} else if c.IsKeyIndex() && !c.IsZero(of) {
-				keyIndexes[k] = of
-				continue
-			}
+		if c.IsPrimary() && !c.IsZero(of) { // skip update primary key
+			primaries[k] = of
+			continue
+		} else if c.IsKeyIndex() && !c.IsZero(of) {
+			keyIndexes[k] = of
+			continue
 		}
 		nc, ok := c.(*SIntegerColumn)
 		if ok && nc.IsAutoVersion {
@@ -106,9 +107,6 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (map[string]SUpdateDiff, er
 		}
 		if reflect.DeepEqual(of, nf) {
 			continue
-		}
-		if c.IsZero(nf) && c.IsText() {
-			nf = nil
 		}
 		setters[k] = SUpdateDiff{old: of, new: nf, col: c}
 	}
@@ -127,12 +125,8 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (map[string]SUpdateDiff, er
 		} else {
 			buf.WriteString(", ")
 		}
-		if gotypes.IsNil(v.new) {
-			buf.WriteString(fmt.Sprintf("`%s` = NULL", k))
-		} else {
-			buf.WriteString(fmt.Sprintf("`%s` = ?", k))
-			vars = append(vars, v.col.ConvertFromValue(v.new))
-		}
+		buf.WriteString(fmt.Sprintf("`%s` = ?", k))
+		vars = append(vars, v.col.ConvertFromValue(v.new))
 	}
 	for _, versionField := range versionFields {
 		buf.WriteString(fmt.Sprintf(", `%s` = `%s` + 1", versionField, versionField))
