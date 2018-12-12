@@ -318,6 +318,43 @@ func (b *LoadbalancerCorpus) genHaproxyConfigBackend(data map[string]interface{}
 	return nil
 }
 
+func (b *LoadbalancerCorpus) genHaproxyConfigHttpRate(data map[string]interface{}, requestRate, requestRatePerSrc int) error {
+	periodSecond := 10
+	id := data["id"].(string)
+	dummyBackends := []map[string]string{}
+	rateRules := []string{}
+
+	// order matters here: every src uses up his own quota before touching
+	// the shared one
+	if requestRatePerSrc > 0 {
+		idPerSrc := id + "_persrc"
+		dummyBackends = append(dummyBackends, map[string]string{
+			"id":          idPerSrc,
+			"stick_table": fmt.Sprintf("stick-table type ip size 1m expire 1m store http_req_rate(%ds)", periodSecond),
+		})
+		rateRules = append(rateRules,
+			fmt.Sprintf("http-request deny deny_status 429 if { src_http_req_rate(%s) gt %d }",
+				idPerSrc, requestRatePerSrc*periodSecond),
+			fmt.Sprintf("http-request track-sc0 src table %s",
+				idPerSrc))
+	}
+	if requestRate > 0 {
+		idTotal := id + "_total"
+		dummyBackends = append(dummyBackends, map[string]string{
+			"id":          idTotal,
+			"stick_table": fmt.Sprintf("stick-table type integer size 1 expire 1m store http_req_rate(%ds)", periodSecond),
+		})
+		rateRules = append(rateRules,
+			fmt.Sprintf("http-request deny deny_status 429 if { int(1),table_http_req_rate(%s) gt %d }",
+				idTotal, requestRate*periodSecond),
+			fmt.Sprintf("http-request track-sc1 int(1) table %s",
+				idTotal))
+	}
+	data["rate_rules"] = rateRules
+	data["dummy_backends"] = dummyBackends
+	return nil
+}
+
 func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *LoadbalancerListener, opts *AgentParams) error {
 	lb := listener.loadbalancer
 	rules := listener.rules.OrderedEnabledList()
@@ -366,8 +403,10 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 					backendGroup.Name, backendGroup.Id),
 				"id": ruleBackendIdGen(rule.Id),
 			}
-			err := b.genHaproxyConfigBackend(backendData, lb, listener, backendGroup)
-			if err != nil {
+			if err := b.genHaproxyConfigBackend(backendData, lb, listener, backendGroup); err != nil {
+				return err
+			}
+			if err := b.genHaproxyConfigHttpRate(backendData, rule.HTTPRequestRate, rule.HTTPRequestRatePerSrc); err != nil {
 				return err
 			}
 			backends = append(backends, backendData)
@@ -381,8 +420,10 @@ func (b *LoadbalancerCorpus) genHaproxyConfigHttp(buf *bytes.Buffer, listener *L
 					backendGroup.Name, backendGroup.Id),
 				"id": fmt.Sprintf("backends_listener_default-%s", listener.Id),
 			}
-			err := b.genHaproxyConfigBackend(backendData, lb, listener, backendGroup)
-			if err != nil {
+			if err := b.genHaproxyConfigBackend(backendData, lb, listener, backendGroup); err != nil {
+				return err
+			}
+			if err := b.genHaproxyConfigHttpRate(backendData, listener.HTTPRequestRate, listener.HTTPRequestRatePerSrc); err != nil {
 				return err
 			}
 			backends = append(backends, backendData)
@@ -436,12 +477,17 @@ listen {{ .id }}
 
 {{ define "httpListen" -}}
 # {{ .listener_type }} listener: {{ .comment }}
+{{- range .dummy_backends }}
+backend {{ .id }}
+	{{ println .stick_table }}
+{{- end }}
 frontend {{ .id }}
 	bind {{ .bind }}
 	mode http
 	{{- println }}
 	{{- if .log }}	{{ println "option httplog clf" }} {{- end }}
 	{{- if .acl }}	{{ println .acl }} {{- end}}
+	{{- range .rate_rules }}	{{ println . }} {{- end }}
 	{{- if .client_request_timeout }}	timeout http-request {{ println .client_request_timeout }} {{- end}}
 	{{- if .client_idle_timeout }}	timeout http-keep-alive {{ println .client_idle_timeout }} {{- end}}
 	{{- if .xforwardedfor }}	{{ println "option forwardfor" }} {{- end}}
@@ -455,10 +501,15 @@ frontend {{ .id }}
 
 {{ define "backend" -}}
 # {{ .comment }}
+{{- range .dummy_backends }}
+backend {{ .id }}
+	{{ println .stick_table }}
+{{- end }}
 backend {{ .id }}
 	mode {{ .mode }}
 	balance {{ .balanceAlgorithm }}
 	{{- println }}
+	{{- range .rate_rules }}	{{ println . }} {{- end }}
 	{{- if .backend_connect_timeout }}	timeout connect {{ println .backend_connect_timeout }} {{- end}}
 	{{- if .backend_idle_timeout }}	timeout server {{ println .backend_idle_timeout }} {{- end}}
 	{{- if .timeout_check }}	{{ println .timeout_check }} {{- end }}

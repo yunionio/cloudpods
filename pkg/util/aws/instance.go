@@ -1,19 +1,20 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
-	"context"
-
 	"github.com/aws/aws-sdk-go/service/ec2"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/osprofile"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/pkg/util/osprofile"
 )
 
 const (

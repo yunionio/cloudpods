@@ -10,9 +10,12 @@ import (
 
 func init() {
 	type ElasticipListOptions struct {
-		Manager string `help:"Show servers imported from manager"`
-		Region  string `help:"Show servers in cloudregion"`
-		Usable  bool   `help:"List all zones that is usable"`
+		Manager  string `help:"Show servers imported from manager"`
+		Region   string `help:"Show servers in cloudregion"`
+		Account  string `help:"List hosts belongs to the cloud account"`
+		Provider string `help:"List hosts belongs to the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei"`
+
+		Usable bool `help:"List all zones that is usable"`
 
 		options.BaseListOptions
 	}
@@ -27,6 +30,12 @@ func init() {
 		}
 		if len(args.Manager) > 0 {
 			params.Add(jsonutils.NewString(args.Manager), "manager")
+		}
+		if len(args.Account) > 0 {
+			params.Add(jsonutils.NewString(args.Account), "account")
+		}
+		if len(args.Provider) > 0 {
+			params.Add(jsonutils.NewString(args.Provider), "provider")
 		}
 		if len(args.Region) > 0 {
 			params.Add(jsonutils.NewString(args.Region), "region")

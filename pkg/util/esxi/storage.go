@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/vmware/govmomi/object"
-	"github.com/vmware/govmomi/vim25/types"
 	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"

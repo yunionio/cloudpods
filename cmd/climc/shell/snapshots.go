@@ -15,9 +15,10 @@ func init() {
 		Local       bool   `help:"Show local snapshots"`
 		Share       bool   `help:"Show shared snapshots"`
 		DiskType    string `help:"Filter by disk type" choices:"sys|data"`
-		Provider    string `help:"Cloud provider" choices:"Aliyun|VMware|Azure"`
 
-		Manager string `help:"Show snapshots belongs to a specific cloud provider"`
+		Manager  string `help:"Show snapshots belongs to a specific cloud provider"`
+		Account  string `help:"List hosts belongs to the cloud account"`
+		Provider string `help:"List hosts belongs to the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei"`
 	}
 	R(&SnapshotsListOptions{}, "snapshot-list", "Show snapshots", func(s *mcclient.ClientSession, args *SnapshotsListOptions) error {
 		params, err := args.BaseListOptions.Params()
@@ -45,6 +46,9 @@ func init() {
 		}
 		if len(args.Manager) > 0 {
 			params.Add(jsonutils.NewString(args.Manager), "manager")
+		}
+		if len(args.Account) > 0 {
+			params.Add(jsonutils.NewString(args.Account), "account")
 		}
 		result, err := modules.Snapshots.List(s, params)
 		if err != nil {

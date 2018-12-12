@@ -6,13 +6,14 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/stringutils"
+	"yunion.io/x/sqlchemy"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/pkg/util/stringutils"
-	"yunion.io/x/sqlchemy"
 )
 
 type SSecurityGroupCacheManager struct {
@@ -121,6 +122,23 @@ func (manager *SSecurityGroupCacheManager) GetSecgroupCache(ctx context.Context,
 	query.First(&secgroupCache)
 	secgroupCache.SetModelManager(manager)
 	return &secgroupCache
+}
+
+func (manager *SSecurityGroupCacheManager) CheckExist(ctx context.Context, userCred mcclient.TokenCredential, externalId, vpcId, regionId string, providerId string) (*SSecurityGroup, bool) {
+	secgroupCaches := []SSecurityGroupCache{}
+	query := manager.Query()
+	cond := sqlchemy.AND(sqlchemy.Equals(query.Field("external_id"), externalId), sqlchemy.Equals(query.Field("vpc_id"), vpcId), sqlchemy.Equals(query.Field("cloudregion_id"), regionId), sqlchemy.Equals(query.Field("manager_id"), providerId))
+	query = query.Filter(cond)
+
+	if err := query.All(&secgroupCaches); err != nil {
+		return nil, false
+	}
+	for _, secgroupCache := range secgroupCaches {
+		if secgroup, err := SecurityGroupManager.FetchById(secgroupCache.SecgroupId); err == nil {
+			return secgroup.(*SSecurityGroup), true
+		}
+	}
+	return nil, false
 }
 
 func (manager *SSecurityGroupCacheManager) Register(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, vpcId, regionId string, providerId string) *SSecurityGroupCache {

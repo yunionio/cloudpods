@@ -31,7 +31,6 @@ func defaultPredicates() sets.String {
 
 func defaultPriorities() sets.String {
 	return sets.NewString(
-		factory.RegisterPriority("guest-avoid-same-cluster", &priorityguest.AvoidSameClusterPriority{}, 1),
 		factory.RegisterPriority("guest-avoid-same-host", &priorityguest.AvoidSameHostPriority{}, 1),
 		factory.RegisterPriority("guest-lowload", &priorityguest.LowLoadPriority{}, 1),
 		factory.RegisterPriority("guest-creating", &priorityguest.CreatingPriority{}, 1),

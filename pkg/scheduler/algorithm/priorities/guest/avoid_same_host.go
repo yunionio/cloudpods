@@ -27,7 +27,7 @@ func (p *AvoidSameHostPriority) Map(u *core.Unit, c core.Candidater) (core.HostP
 
 	ownerTenantID := u.SchedData().OwnerTenantID
 	if count, ok := hc.Tenants[ownerTenantID]; ok && count > 0 {
-		h.SetScore(-50 * int(count))
+		h.SetFrontRawScore(-1 * int(count))
 	}
 
 	return h.GetResult()

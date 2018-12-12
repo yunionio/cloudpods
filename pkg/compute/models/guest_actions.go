@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -22,7 +23,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 
-	"time"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/util/billing"
@@ -98,7 +98,7 @@ func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.Toke
 		return nil, httperrors.NewInputParameterError("No root image")
 	} else {
 		kwargs := data.(*jsonutils.JSONDict)
-		restart := self.Status == VM_RUNNING
+		restart := (self.Status == VM_RUNNING) || jsonutils.QueryBoolean(data, "auto_start", false)
 		properties := jsonutils.NewDict()
 		if notes, err := data.GetString("notes"); err != nil && len(notes) > 0 {
 			properties.Add(jsonutils.NewString(notes), "notes")
@@ -347,7 +347,8 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 	}
 
 	if utils.IsInStringArray(self.Status, deployStatus) {
-		if doRestart && self.Status == VM_RUNNING {
+		if (doRestart && self.Status == VM_RUNNING) ||
+			jsonutils.QueryBoolean(kwargs, "auto_start", false) {
 			kwargs.Set("restart", jsonutils.JSONTrue)
 		}
 		err := self.StartGuestDeployTask(ctx, userCred, kwargs, "deploy", "")
@@ -643,25 +644,46 @@ func (self *SGuest) PerformAddSecgroup(ctx context.Context, userCred mcclient.To
 		return nil, httperrors.NewInputParameterError("Cannot assign security rules in status %s", self.Status)
 	}
 
-	secgrpV := validators.NewModelIdOrNameValidator("secgrp", "secgroup", userCred.GetProjectId())
-	if err := secgrpV.Validate(data.(*jsonutils.JSONDict)); err != nil {
-		return nil, err
-	}
-
 	maxCount := self.GetDriver().GetMaxSecurityGroupCount()
 	if maxCount == 0 {
 		return nil, httperrors.NewUnsupportOperationError("Cannot assign security group for this guest %s", self.Name)
 	}
 
+	secgrps := []string{}
+	if err := data.Unmarshal(&secgrps, "secgrps"); err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+
 	secgroups := self.GetSecgroups()
-	if len(secgroups) >= maxCount {
+	if len(secgroups)+len(secgrps) >= maxCount {
 		return nil, httperrors.NewUnsupportOperationError("guest %s band to up to %d security groups", self.Name, maxCount)
 	}
 
-	secgroup := secgrpV.Model.(*SSecurityGroup)
-	if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, self, secgroup); err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+	secgroupIds := []string{}
+	for _, secgroup := range secgroups {
+		secgroupIds = append(secgroupIds, secgroup.Id)
 	}
+
+	addSecgroups := []*SSecurityGroup{}
+
+	for _, _secgrp := range secgrps {
+		secgrp, err := SecurityGroupManager.FetchByIdOrName(userCred, _secgrp)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError(err.Error())
+		}
+
+		if utils.IsInStringArray(secgrp.GetId(), secgroupIds) {
+			return nil, httperrors.NewInputParameterError("security group %s has already been assigned to guest %s", secgrp.GetName(), self.Name)
+		}
+		addSecgroups = append(addSecgroups, secgrp.(*SSecurityGroup))
+	}
+
+	for _, secgroup := range addSecgroups {
+		if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, self, secgroup); err != nil {
+			return nil, httperrors.NewInputParameterError(err.Error())
+		}
+	}
+
 	return nil, self.StartSyncTask(ctx, userCred, true, "")
 }
 
@@ -749,7 +771,7 @@ func (self *SGuest) AllowPerformPurge(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SGuest) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidatePurgeCondition(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -2111,4 +2133,19 @@ func (self *SGuest) doSaveRenewInfo(userCred mcclient.TokenCredential, bc *billi
 	}
 	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(), userCred)
 	return nil
+}
+
+func (self *SGuest) AllowPerformStreamDisksComplete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "stream-disks-complete")
+}
+
+func (self *SGuest) PerformStreamDisksComplete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	for _, disk := range self.GetDisks() {
+		d := disk.GetDisk()
+		if len(d.SnapshotId) > 0 {
+			SnapshotManager.AddRefCount(d.SnapshotId, -1)
+			d.SetMetadata(ctx, "merge_snapshot", jsonutils.JSONFalse, userCred)
+		}
+	}
+	return nil, nil
 }

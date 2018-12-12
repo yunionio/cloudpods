@@ -2,11 +2,13 @@ package qcloud
 
 import (
 	"fmt"
-	"yunion.io/x/pkg/utils"
 
 	"github.com/nelsonken/cos-go-sdk-v5/cos"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -394,18 +396,11 @@ func (self *SRegion) GetVpcs(vpcIds []string, offset int, limit int) ([]SVpc, in
 	return vpcs, int(total), nil
 }
 
-func (self *SRegion) GetLatitude() float32 {
+func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	if info, ok := LatitudeAndLongitude[self.Region]; ok {
-		return info["latitude"]
+		return info
 	}
-	return 0.0
-}
-
-func (self *SRegion) GetLongitude() float32 {
-	if info, ok := LatitudeAndLongitude[self.Region]; ok {
-		return info["longitude"]
-	}
-	return 0.0
+	return cloudprovider.SGeographicInfo{}
 }
 
 func (self *SRegion) GetMetadata() *jsonutils.JSONDict {

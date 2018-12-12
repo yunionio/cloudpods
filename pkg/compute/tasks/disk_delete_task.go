@@ -93,6 +93,9 @@ func (self *DiskDeleteTask) OnGuestDiskDeleteComplete(ctx context.Context, obj d
 	disk := obj.(*models.SDisk)
 	self.CleanHostSchedCache(disk)
 	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE, disk.GetShortDesc(), self.UserCred)
+	if len(disk.SnapshotId) > 0 && disk.GetMetadata("merge_snapshot", nil) == "true" {
+		models.SnapshotManager.AddRefCount(disk.SnapshotId, -1)
+	}
 	disk.RealDelete(ctx, self.UserCred)
 	self.SetStageComplete(ctx, nil)
 }

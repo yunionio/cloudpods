@@ -10,8 +10,12 @@ import (
 func init() {
 	type VpcListOptions struct {
 		options.BaseListOptions
-		Region  string `help:"ID or Name of region"`
-		Manager string `help:"Show vpcs belongs to the cloud provider"`
+
+		Region string `help:"ID or Name of region"`
+
+		Manager  string `help:"List vpcs belongs to the cloud provider"`
+		Account  string `help:"List vpcs belongs to the cloud account"`
+		Provider string `help:"List vpcs belongs to the public cloud" choices:"Aliyun|Qcloud|Azure|Aws|Huawei"`
 	}
 	R(&VpcListOptions{}, "vpc-list", "List VPCs", func(s *mcclient.ClientSession, args *VpcListOptions) error {
 		var params *jsonutils.JSONDict
@@ -26,6 +30,12 @@ func init() {
 
 		if len(args.Manager) > 0 {
 			params.Add(jsonutils.NewString(args.Manager), "manager")
+		}
+		if len(args.Account) > 0 {
+			params.Add(jsonutils.NewString(args.Account), "account")
+		}
+		if len(args.Provider) > 0 {
+			params.Add(jsonutils.NewString(args.Provider), "provider")
 		}
 
 		var result *modules.ListResult

@@ -7,14 +7,15 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SWireManager struct {
@@ -632,6 +633,49 @@ func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.In("vpc_id", sq.SubQuery())
 	}
 
+	managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
+	if len(managerStr) > 0 {
+		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		sq := VpcManager.Query("id").Equals("manager_id", provider.GetId())
+		q = q.In("vpc_id", sq.SubQuery())
+	}
+
+	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
+	if len(accountStr) > 0 {
+		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		vpcs := VpcManager.Query().SubQuery()
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+
+		subq := vpcs.Query(vpcs.Field("id"))
+		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), vpcs.Field("manager_id")))
+		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), account.GetId()))
+		q = q.Filter(sqlchemy.In(q.Field("vpc_id"), subq.SubQuery()))
+	}
+
+	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
+	if len(providerStr) > 0 {
+		vpcs := VpcManager.Query().SubQuery()
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+
+		subq := vpcs.Query(vpcs.Field("id"))
+		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), vpcs.Field("manager_id")))
+		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr))
+
+		q = q.Filter(sqlchemy.In(q.Field("vpc_id"), subq.SubQuery()))
+	}
+
 	return q, err
 }
 
@@ -655,7 +699,7 @@ func (self *SWire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenC
 
 func (self *SWire) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	extra.Add(jsonutils.NewInt(int64(self.NetworkCount())), "networks")
-	zone := self.GetZone()
+	/*zone := self.GetZone()
 	if zone != nil {
 		extra.Add(jsonutils.NewString(zone.GetName()), "zone")
 		if len(zone.GetExternalId()) > 0 {
@@ -669,13 +713,17 @@ func (self *SWire) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 		if len(region.GetExternalId()) > 0 {
 			extra.Add(jsonutils.NewString(region.GetExternalId()), "region_external_id")
 		}
-	}
+	}*/
 	vpc := self.getVpc()
 	if vpc != nil {
 		extra.Add(jsonutils.NewString(vpc.GetName()), "vpc")
 		if len(vpc.GetExternalId()) > 0 {
-			extra.Add(jsonutils.NewString(vpc.GetExternalId()), "vpc_external_id")
+			extra.Add(jsonutils.NewString(vpc.GetExternalId()), "vpc_ext_id")
 		}
 	}
+
+	info := vpc.getCloudProviderInfo()
+	extra.Update(jsonutils.Marshal(&info))
+
 	return extra
 }

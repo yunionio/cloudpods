@@ -114,6 +114,25 @@ func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchem
 		q = q.Equals("cloudregion_id", regionObj.GetId())
 	}
 
+	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
+	if len(accountStr) > 0 {
+		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", account.GetId()).SubQuery()
+		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+	}
+
+	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
+	if len(providerStr) > 0 {
+		subq := CloudproviderManager.Query("id").Equals("provider", providerStr).SubQuery()
+		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+	}
+
 	if query.Contains("usable") {
 		usable := jsonutils.QueryBoolean(query, "usable", false)
 		if usable {
@@ -159,7 +178,9 @@ func (self *SElasticip) GetShortDesc() *jsonutils.JSONDict {
 	// }
 	//}
 
-	billingInfo := self.getCloudBillingInfo()
+	billingInfo := SCloudBillingInfo{}
+
+	billingInfo.SCloudProviderInfo = self.getCloudProviderInfo()
 
 	billingInfo.InternetChargeType = self.ChargeType
 
@@ -921,8 +942,8 @@ func (self *SElasticip) DoPendingDelete(ctx context.Context, userCred mcclient.T
 	self.Dissociate(ctx, userCred)
 }
 
-func (self *SElasticip) getCloudBillingInfo() SCloudBillingInfo {
+func (self *SElasticip) getCloudProviderInfo() SCloudProviderInfo {
 	region := self.GetRegion()
 	provider := self.GetCloudprovider()
-	return MakeCloudBillingInfo(region, nil, provider)
+	return MakeCloudProviderInfo(region, nil, provider)
 }
