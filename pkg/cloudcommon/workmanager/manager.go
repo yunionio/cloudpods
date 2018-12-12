@@ -3,6 +3,7 @@ package workmanager
 import (
 	"context"
 	"sync/atomic"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -22,11 +23,11 @@ func (w *SWorkManager) done() {
 	atomic.AddInt32(&w.curCount, -1)
 }
 
-func (w *SWorkManager) DelayTask(task DelayTaskFunc, ctx context.Context, params jsonutils.JSONObject) {
+func (w *SWorkManager) DelayTask(task func()) {
 	w.add()
 	go func() {
 		defer w.done()
-		task(ctx, params)
+		task()
 	}()
 }
 
@@ -34,6 +35,7 @@ func (w *SWorkManager) Stop() {
 	log.Infof("WorkManager To stop, wait for workers ...")
 	for w.curCount > 0 {
 		log.Warningf("Busy workers count %d, waiting stopped", w.curCount)
+		time.Sleep(1)
 	}
 }
 

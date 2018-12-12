@@ -19,6 +19,8 @@ import (
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/httpclients"
 	"yunion.io/x/onecloud/pkg/hostman"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 )
@@ -194,7 +196,7 @@ func (s *SKVMGuestInstance) onAsyncScriptStart(ctx context.Context, isStarted bo
 	} else {
 		log.Infof("Async start server %s failed: %s!!!", s.GetName(), err)
 		if ctx != nil {
-			s.TaskFailed(ctx, fmt.Sprintf("Async start server failed: %s", err))
+			TaskFailed(ctx, fmt.Sprintf("Async start server failed: %s", err))
 		}
 		s.SyncStatus()
 	}
@@ -284,7 +286,7 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 		migratePort, _ := s.Desc.Get("live_migrate_dest_port")
 		body := jsonutils.NewDict(
 			jsonutils.JSONPair{"live_migrate_dest_port", migratePort})
-		s.TaskComplete(ctx, body)
+		TaskComplete(ctx, body)
 	} else if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
 		// TODO
 	} else if jsonutils.QueryBoolean(s.Desc, "is_master", false) && ctx == nil {
@@ -341,7 +343,7 @@ func (s *SKVMGuestInstance) SyncStatus() {
 	httpclients.GetDefaultComputeClient().UpdateServerStatus(s.GetId(), status)
 }
 
-func (s *SKVMGuestInstance) TaskFailed(ctx context.Context, reason string) error {
+func TaskFailed(ctx context.Context, reason string) error {
 	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
 		httpclients.GetDefaultComputeClient().TaskFail(ctx, taskId.(string), reason)
 		return nil
@@ -351,7 +353,7 @@ func (s *SKVMGuestInstance) TaskFailed(ctx context.Context, reason string) error
 	}
 }
 
-func (s *SKVMGuestInstance) TaskComplete(ctx context.Context, data jsonutils.JSONObject) error {
+func TaskComplete(ctx context.Context, data jsonutils.JSONObject) error {
 	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
 		httpclients.GetDefaultComputeClient().TaskComplete(ctx, taskId.(string), data, 0)
 		return nil
@@ -378,4 +380,17 @@ func (s *SKVMGuestInstance) StartGuest(ctx context.Context, params jsonutils.JSO
 	wm.DelayTask(func() {
 		s.asyncScriptStart(ctx, params)
 	})
+}
+
+func (s *SKVMGuestInstance) DeployFs(deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error) {
+	disks, _ := s.Desc.GetArray("disks")
+	if len(disks) > 0 {
+		storageId, _ := disks[0].GetString("storage_id")
+		diskId, _ := disks[0].GetString("disk_id")
+
+		disk := hostinfo.GetStorageManager().GetStorageDisk(storageId, diskId)
+		return disk.DeployGuestFs(s.Desc, deployInfo)
+	} else {
+		return nil, fmt.Errorf("Guest dosen't have disk ??")
+	}
 }

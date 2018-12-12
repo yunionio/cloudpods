@@ -11,12 +11,15 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/qemutils"
 	"yunion.io/x/onecloud/pkg/hostman"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/hostman/storageman"
 )
 
 type SHostInfo struct {
 	isRegistered bool
 
 	Cpu *SCPUInfo
+
+	storageManager *storageman.SStorageManager
 }
 
 func (h *SHostInfo) Start() error {
@@ -289,4 +292,8 @@ func Init() error {
 
 func Instance() *SHostInfo {
 	return hostInfo
+}
+
+func GetStorageManager() *storageman.SStorageManager {
+	return hostInfo.storageManager
 }
