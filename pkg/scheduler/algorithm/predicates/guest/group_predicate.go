@@ -3,14 +3,17 @@ package guest
 import (
 	"fmt"
 
+	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/core/score"
 )
 
 // GroupPredicate filter the packet based on the label information,
 // the same group of guests should avoid schedule on same host.
 type GroupPredicate struct {
 	predicates.BasePredicate
+	plugin.BasePlugin
 
 	ExcludeGroups []string
 	RequireGroups []string
@@ -47,33 +50,6 @@ func (p *GroupPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, e
 	return true, nil
 }
 
-func (p *GroupPredicate) OnSelect(u *core.Unit, c core.Candidater) bool {
-	if len(p.ExcludeGroups) > 0 {
-		return false
-	}
-
-	if len(p.RequireGroups) > 0 {
-		// TODO: what?
-	}
-
-	if len(p.AvoidGroups) > 0 {
-		u.IncreaseScore(c.IndexKey(),
-			p.Name()+":avoid", -core.PriorityStep*len(p.AvoidGroups),
-		)
-	}
-
-	if len(p.PreferGroups) > 0 {
-		u.IncreaseScore(c.IndexKey(),
-			p.Name()+":prefer", core.PriorityStep*len(p.PreferGroups),
-		)
-	}
-
-	return true
-}
-
-func (p *GroupPredicate) OnSelectEnd(u *core.Unit, c core.Candidater, count int64) {
-}
-
 func (p *GroupPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 
 	h := predicates.NewPredicateHelper(p, u, c)
@@ -100,4 +76,24 @@ func (p *GroupPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.
 	}
 
 	return h.GetResult()
+}
+
+func (p *GroupPredicate) OnPriorityEnd(u *core.Unit, c core.Candidater) {
+	if len(p.AvoidGroups) > 0 {
+		u.SetFrontScore(
+			c.IndexKey(),
+			score.NewScore(
+				score.TScore(-core.PriorityStep*len(p.AvoidGroups)),
+				p.Name()+":avoid",
+			))
+	}
+
+	if len(p.PreferGroups) > 0 {
+		u.SetFrontScore(
+			c.IndexKey(),
+			score.NewScore(
+				score.TScore(core.PriorityStep*len(p.PreferGroups)),
+				p.Name()+":prefer",
+			))
+	}
 }
