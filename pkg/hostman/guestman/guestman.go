@@ -14,10 +14,13 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/httpclients"
+	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
 	"yunion.io/x/onecloud/pkg/hostman"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/util/seclib"
 )
 
 type SGuestManager struct {
@@ -195,7 +198,36 @@ func (m *SGuestManager) Monitor(sid, cmd string, callback func(string)) error {
 }
 
 func (m *SGuestManager) DoDeploy(ctx context.Context, sid string, body jsonutils.JSONObject, isInit bool) {
-	// TODO
+	guest, ok := m.Servers[sid]
+	if ok {
+		desc, _ := body.Get("desc")
+		if desc != nil {
+			guest.SaveDesc(desc)
+		}
+		if jsonutils.QueryBoolean(body, "k8s_pod", false) {
+			TaskComplete(ctx, nil)
+			return
+		}
+		// TODO
+		publicKey := sshkeys.GetKeys(body)
+		deploys, _ := body.Get("deploys")
+		password, _ := body.GetString("password")
+		resetPassword := jsonutils.QueryBoolean(body, "reset_password", false)
+		if resetPassword && len(password) == 0 {
+			password = seclib.RandomPassword(12)
+		}
+
+		guestInfo, err := guest.DeployFs(&guestfs.SDeployInfo{
+			publicKey, deploys, password, isInit})
+		if err != nil {
+			log.Errorf("Deploy guest fs error: %s", err)
+			TaskFailed(ctx, err.Error())
+		} else {
+			TaskComplete(ctx, guestInfo)
+		}
+	} else {
+		TaskFailed(ctx, fmt.Sprinft("Guest %s not found", sid))
+	}
 }
 
 // delay cpuset balance
