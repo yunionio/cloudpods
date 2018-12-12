@@ -242,6 +242,7 @@ func (this *ProjectManagerV3) DeleteInContexts(session *mcclient.ClientSession, 
 	if ctxs == nil {
 		p := jsonutils.NewDict()
 		p.Add(jsonutils.JSONTrue, "admin")
+		p.Add(jsonutils.JSONTrue, "system")
 		p.Add(jsonutils.NewString(id), "tenant")
 		ret, e := Servers.List(session, p)
 		if e != nil {
