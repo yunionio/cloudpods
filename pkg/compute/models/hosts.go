@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -35,7 +36,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/appsrv"
 )
 
 const (
@@ -166,7 +166,7 @@ type SHost struct {
 
 	LastPingAt time.Time ``
 
-	ResourceType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	ResourceType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_optional" default:"shared"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 
 	RealExternalId string `width:"256" charset:"utf8" get:"admin"`
 }
