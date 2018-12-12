@@ -1,15 +1,14 @@
 package core
 
 import (
-	//"sync"
-	//"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/scheduler/core/score"
 	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 )
 
 const (
-	PriorityStep int = 100
+	PriorityStep int = 1
 )
 
 type FailedCandidate struct {
@@ -23,7 +22,8 @@ type FailedCandidates struct {
 }
 
 type SelectPlugin interface {
-	OnSelect(*Unit, Candidater) bool
+	Name() string
+	OnPriorityEnd(*Unit, Candidater)
 	OnSelectEnd(u *Unit, c Candidater, count int64)
 }
 
@@ -58,7 +58,7 @@ type HostPriority struct {
 	// Name of the host
 	Host string
 	// Score associated with the host
-	Score int
+	Score Score
 	// Resource wraps Candidate host info
 	Candidate Candidater
 }
@@ -70,10 +70,10 @@ func (h HostPriorityList) Len() int {
 }
 
 func (h HostPriorityList) Less(i, j int) bool {
-	if h[i].Score == h[j].Score {
+	if score.Equal(h[i].Score.ScoreBucket, h[j].Score.ScoreBucket) {
 		return h[i].Host < h[j].Host
 	}
-	return h[i].Score < h[j].Score
+	return score.Less(h[i].Score.ScoreBucket, h[j].Score.ScoreBucket)
 }
 
 func (h HostPriorityList) Swap(i, j int) {
@@ -115,4 +115,7 @@ type Priority interface {
 	Map(*Unit, Candidater) (HostPriority, error)
 	Reduce(*Unit, []Candidater, HostPriorityList) error
 	PreExecute(*Unit, []Candidater) (bool, []PredicateFailureReason, error)
+
+	// Score intervals
+	ScoreIntervals() score.Intervals
 }
