@@ -9,10 +9,13 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/lbagent"
 )
 
 func main() {
+	consts.SetServiceType("lbagent")
+
 	opts := &lbagent.Options{}
 	commonOpts := &opts.CommonOpts
 	{

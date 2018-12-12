@@ -39,6 +39,8 @@ type SLoadbalancerListenerRule struct {
 
 	Domain string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	Path   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+
+	SLoadbalancerHTTPRateLimiter
 }
 
 func loadbalancerListenerRuleCheckUniqueness(ctx context.Context, lbls *SLoadbalancerListener, domain, path string) error {
@@ -101,6 +103,9 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 		"backend_group": backendGroupV,
 		"domain":        domainV.AllowEmpty(true).Default(""),
 		"path":          pathV.Default(""),
+
+		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate").Default(0),
+		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src").Default(0),
 	}
 	for _, v := range keyV {
 		if err := v.Validate(data); err != nil {
@@ -131,10 +136,16 @@ func (lbr *SLoadbalancerListenerRule) AllowPerformStatus(ctx context.Context, us
 
 func (lbr *SLoadbalancerListenerRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", lbr.GetOwnerProjectId())
-	backendGroupV.Optional(true)
-	err := backendGroupV.Validate(data)
-	if err != nil {
-		return nil, err
+	keyV := map[string]validators.IValidator{
+		"backend_group":             backendGroupV,
+		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate"),
+		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src"),
+	}
+	for _, v := range keyV {
+		v.Optional(true)
+		if err := v.Validate(data); err != nil {
+			return nil, err
+		}
 	}
 	if backendGroup, ok := backendGroupV.Model.(*SLoadbalancerBackendGroup); ok && backendGroup.Id != lbr.BackendGroupId {
 		listenerM, err := LoadbalancerListenerManager.FetchById(lbr.ListenerId)
