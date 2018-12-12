@@ -66,7 +66,15 @@ func init() {
 				}
 			}
 			if len(args.Project) > 0 {
-				data.Add(jsonutils.NewString(args.Project), "tenant")
+				ret, err := modules.Projects.Get(s, args.Project, nil)
+				if err != nil {
+					return err
+				}
+				projectId, err := ret.GetString("id")
+				if err != nil {
+					return err
+				}
+				data.Add(jsonutils.NewString(projectId), "owner_tenant_id")
 			}
 			if len(args.Hypervisor) > 0 {
 				data.Add(jsonutils.NewString(args.Hypervisor), "hypervisor")
