@@ -150,6 +150,29 @@ func (man *SRouteTableManager) ValidateCreateData(ctx context.Context, userCred 
 	return man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
 
+func (rt *SRouteTable) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, rt, "purge")
+}
+
+func (rt *SRouteTable) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	err := rt.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	provider := rt.GetCloudprovider()
+	if provider != nil {
+		if provider.Enabled {
+			return nil, httperrors.NewInvalidStatusError("Cannot purge route_table on enabled cloud provider")
+		}
+	}
+	err = rt.RealDelete(ctx, userCred)
+	return nil, err
+}
+
+func (rt *SRouteTable) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return rt.SVirtualResourceBase.Delete(ctx, userCred)
+}
+
 func (rt *SRouteTable) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	data, err := RouteTableManager.validateRoutes(data, true)
 	if err != nil {

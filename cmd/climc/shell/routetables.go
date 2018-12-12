@@ -114,4 +114,12 @@ func init() {
 		printObjectRecursive(routetable)
 		return nil
 	})
+	R(&options.RouteTablePurgeOptions{}, "routetable-purge", "Purge routetable", func(s *mcclient.ClientSession, opts *options.RouteTablePurgeOptions) error {
+		routetable, err := modules.RouteTables.PerformAction(s, opts.ID, "purge", nil)
+		if err != nil {
+			return err
+		}
+		printObjectRecursive(routetable)
+		return nil
+	})
 }
