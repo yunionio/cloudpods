@@ -52,13 +52,11 @@ func (man *SLoadbalancerBackendGroupManager) ListItemFilter(ctx context.Context,
 	}
 	userProjId := userCred.GetProjectId()
 	data := query.(*jsonutils.JSONDict)
-	{
-		lbV := validators.NewModelIdOrNameValidator("loadbalancer", "loadbalancer", userProjId)
-		lbV.Optional(true)
-		q, err = lbV.QueryFilter(q, data)
-		if err != nil {
-			return nil, err
-		}
+	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
+		{Key: "loadbalancer", ModelKeyword: "loadbalancer", ProjectId: userProjId},
+	})
+	if err != nil {
+		return nil, err
 	}
 	return q, nil
 }
