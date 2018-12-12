@@ -352,8 +352,8 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 		"x_forwarded_for": validators.NewBoolValidator("x_forwarded_for"),
 		"gzip":            validators.NewBoolValidator("gzip"),
 
-		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate").Default(0),
-		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src").Default(0),
+		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate"),
+		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src"),
 
 		"certificate":       certV,
 		"tls_cipher_policy": tlsCipherPolicyV,
