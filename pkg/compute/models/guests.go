@@ -481,14 +481,22 @@ func (guest *SGuest) GetDriver() IGuestDriver {
 	return GetDriver(hypervisor)
 }
 
-func (guest *SGuest) ValidateDeleteCondition(ctx context.Context) error {
+func (guest *SGuest) validateDeleteCondition(ctx context.Context, isPurge bool) error {
 	if guest.DisableDelete.IsTrue() {
 		return httperrors.NewInvalidStatusError("Virtual server is locked, cannot delete")
 	}
-	if guest.IsValidPrePaid() {
+	if !isPurge && guest.IsValidPrePaid() {
 		return httperrors.NewForbiddenError("not allow to delete prepaid server in valid status")
 	}
 	return guest.SVirtualResourceBase.ValidateDeleteCondition(ctx)
+}
+
+func (guest *SGuest) ValidatePurgeCondition(ctx context.Context) error {
+	return guest.validateDeleteCondition(ctx, true)
+}
+
+func (guest *SGuest) ValidateDeleteCondition(ctx context.Context) error {
+	return guest.validateDeleteCondition(ctx, false)
 }
 
 func (guest *SGuest) GetDisksQuery() *sqlchemy.SQuery {

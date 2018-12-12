@@ -771,7 +771,7 @@ func (self *SGuest) AllowPerformPurge(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SGuest) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidatePurgeCondition(ctx)
 	if err != nil {
 		return nil, err
 	}

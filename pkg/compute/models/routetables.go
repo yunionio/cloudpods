@@ -108,13 +108,13 @@ func (man *SRouteTableManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 	}
 	userProjId := userCred.GetProjectId()
 	data := query.(*jsonutils.JSONDict)
-	for _, key := range []string{"vpc", "cloudregion"} {
-		v := validators.NewModelIdOrNameValidator(key, key, userProjId)
-		v.Optional(true)
-		q, err = v.QueryFilter(q, data)
-		if err != nil {
-			return nil, err
-		}
+	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
+		{Key: "vpc", ModelKeyword: "vpc", ProjectId: userProjId},
+		{Key: "cloudregion", ModelKeyword: "cloudregion", ProjectId: userProjId},
+		{Key: "manager", ModelKeyword: "cloudprovider", ProjectId: userProjId},
+	})
+	if err != nil {
+		return nil, err
 	}
 	return q, nil
 }
@@ -148,6 +148,29 @@ func (man *SRouteTableManager) ValidateCreateData(ctx context.Context, userCred 
 	}
 	data.Set("cloudregion_id", jsonutils.NewString(cloudregion.Id))
 	return man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+}
+
+func (rt *SRouteTable) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, rt, "purge")
+}
+
+func (rt *SRouteTable) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	err := rt.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	provider := rt.GetCloudprovider()
+	if provider != nil {
+		if provider.Enabled {
+			return nil, httperrors.NewInvalidStatusError("Cannot purge route_table on enabled cloud provider")
+		}
+	}
+	err = rt.RealDelete(ctx, userCred)
+	return nil, err
+}
+
+func (rt *SRouteTable) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return rt.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
 func (rt *SRouteTable) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
