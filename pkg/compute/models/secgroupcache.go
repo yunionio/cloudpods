@@ -123,6 +123,23 @@ func (manager *SSecurityGroupCacheManager) GetSecgroupCache(ctx context.Context,
 	return &secgroupCache
 }
 
+func (manager *SSecurityGroupCacheManager) CheckExist(ctx context.Context, userCred mcclient.TokenCredential, externalId, vpcId, regionId string, providerId string) (*SSecurityGroup, bool) {
+	secgroupCaches := []SSecurityGroupCache{}
+	query := manager.Query()
+	cond := sqlchemy.AND(sqlchemy.Equals(query.Field("external_id"), externalId), sqlchemy.Equals(query.Field("vpc_id"), vpcId), sqlchemy.Equals(query.Field("cloudregion_id"), regionId), sqlchemy.Equals(query.Field("manager_id"), providerId))
+	query = query.Filter(cond)
+
+	if err := query.All(&secgroupCaches); err != nil {
+		return nil, false
+	}
+	for _, secgroupCache := range secgroupCaches {
+		if secgroup, err := SecurityGroupManager.FetchById(secgroupCache.SecgroupId); err == nil {
+			return secgroup.(*SSecurityGroup), true
+		}
+	}
+	return nil, false
+}
+
 func (manager *SSecurityGroupCacheManager) Register(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, vpcId, regionId string, providerId string) *SSecurityGroupCache {
 	lockman.LockClass(ctx, manager, userCred.GetProjectId())
 	defer lockman.ReleaseClass(ctx, manager, userCred.GetProjectId())
