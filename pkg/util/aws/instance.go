@@ -415,8 +415,11 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 	log.Debugf("GetInstances with params: %s", params.String())
 	res, err := self.ec2Client.DescribeInstances(params)
 	if err != nil {
-		log.Errorf("GetInstances fail %s", err)
-		return nil, 0, err
+		if strings.Contains(err.Error(), "InvalidInstanceID.NotFound") {
+			return nil, 0, cloudprovider.ErrNotFound
+		} else {
+			return nil, 0, err
+		}
 	}
 
 	instances := []SInstance{}
