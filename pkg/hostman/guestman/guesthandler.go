@@ -29,7 +29,7 @@ func getStatus(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 }
 
 func cpusetBalance(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	wm.RunTask(func() { guestManger.CpusetBalance(ctx) })
+	wm.DelayTask(func() { guestManger.CpusetBalance(ctx) })
 	responseOk(ctx, w)
 }
 
@@ -59,7 +59,7 @@ func deleteGuest(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		response(ctx, w, err)
 	} else {
-		wm.RunTask(func() { guest.CleanGuest(ctx, migrated) })
+		wm.DelayTask(func() { guest.CleanGuest(ctx, migrated) })
 		response(ctx, w, map[string]bool{"delay_clean": true})
 	}
 }
@@ -69,7 +69,7 @@ func doCreate(ctx context.Context, sid string, body jsonutils.JSONObject) (inter
 	if err != nil {
 		return nil, httperrors.NewBadRequestError(err.Error())
 	}
-	wm.RunTask(func() { guestManger.DoDeploy(ctx, sid, body, true) })
+	wm.DelayTask(func() { guestManger.DoDeploy(ctx, sid, body, true) })
 	return nil, nil
 }
 
