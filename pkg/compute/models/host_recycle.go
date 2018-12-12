@@ -321,6 +321,10 @@ func (self *SHost) PerformUndoPrepaidRecycle(ctx context.Context, userCred mccli
 		return nil, httperrors.NewInvalidStatusError("a recycle host shoud not allocate more than 1 guest")
 	}
 
+	if guests[0].PendingDeleted {
+		return nil, httperrors.NewInvalidStatusError("cannot undo a recycle host with pending_deleted guest")
+	}
+
 	err := doUndoPrepaidRecycle(ctx, userCred, self, &guests[0])
 	if err != nil {
 		logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(), userCred, false)
@@ -584,7 +588,11 @@ func (host *SHost) RebuildRecycledGuest(ctx context.Context, userCred mcclient.T
 
 	q := HostManager.Query()
 	q = q.Equals("external_id", host.ExternalId)
-	q = q.IsNullOrEmpty("resource_type")
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.IsNullOrEmpty(q.Field("resource_type")),
+		sqlchemy.Equals(q.Field("resource_type"), HostResourceTypeShared),
+	))
+
 	err := q.First(&oHost)
 	if err != nil {
 		log.Errorf("query oHost fail %s", err)
