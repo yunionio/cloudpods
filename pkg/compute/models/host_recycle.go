@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -351,7 +352,10 @@ func doUndoPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential
 	q := HostManager.Query()
 	q = q.Equals("external_id", host.ExternalId)
 	q = q.Equals("host_type", host.HostType)
-	q = q.IsNullOrEmpty("resource_type")
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.IsNullOrEmpty(q.Field("resource_type")),
+		sqlchemy.Equals(q.Field("resource_type"), HostResourceTypeShared),
+	))
 
 	oHostCnt := q.Count()
 
@@ -428,13 +432,14 @@ func doUndoPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential
 			return err
 		}
 
-		oStorageObj, err := StorageManager.FetchByExternalId(istorage.GetGlobalId())
-		if err != nil {
-			log.Errorf("StorageManager.FetchByExternalId fail %s", err)
-			return err
+		oHostStorage := oHost.GetHoststorageByExternalId(istorage.GetGlobalId())
+		if oHostStorage == nil {
+			msg := fmt.Sprintf("oHost.GetHoststorageByExternalId not found %s", istorage.GetGlobalId())
+			log.Errorf(msg)
+			return errors.New(msg)
 		}
 
-		oStorage := oStorageObj.(*SStorage)
+		oStorage := oHostStorage.GetStorage()
 
 		if storage.StorageType == STORAGE_LOCAL {
 			_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {

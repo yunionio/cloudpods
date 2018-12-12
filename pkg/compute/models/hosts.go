@@ -502,6 +502,26 @@ func (self *SHost) GetHoststorageOfId(storageId string) *SHoststorage {
 	return &hoststorage
 }
 
+func (self *SHost) GetHoststorageByExternalId(extId string) *SHoststorage {
+	hoststorage := SHoststorage{}
+	hoststorage.SetModelManager(HoststorageManager)
+
+	hoststorages := HoststorageManager.Query().SubQuery()
+	storages := StorageManager.Query().SubQuery()
+	q := hoststorages.Query()
+	q = q.Join(storages, sqlchemy.Equals(hoststorages.Field("storage_id"), storages.Field("id")))
+	q = q.Filter(sqlchemy.Equals(hoststorages.Field("host_id"), self.Id))
+	q = q.Filter(sqlchemy.Equals(storages.Field("external_id"), extId))
+
+	err := q.First(&hoststorage)
+	if err != nil {
+		log.Errorf("GetHoststorageByExternalId fail %s", err)
+		return nil
+	}
+
+	return &hoststorage
+}
+
 func (self *SHost) GetStorageByFilePath(path string) *SStorage {
 	hoststorages := self.GetHoststorages()
 	if hoststorages == nil {
