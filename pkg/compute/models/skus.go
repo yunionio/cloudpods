@@ -250,25 +250,38 @@ func (self *SServerSkuManager) AllowGetPropertyInstanceSpecs(ctx context.Context
 
 func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	q := self.Query()
-	zone, err := query.GetString("zone")
-	if err == nil && len(zone) > 0 {
-		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zone)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), zone)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-
-		q = q.Equals("zone_id", zoneObj.GetId())
+	provider, _ := query.GetString("provider")
+	if inWhiteList(provider) {
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.IsNull(q.Field("provider")),
+			sqlchemy.IsEmpty(q.Field("provider")),
+		))
 	} else {
-		return nil, httperrors.NewMissingParameterError("zone")
+		q = q.Equals("provider", provider)
+	}
+
+	// 如果是查询私有云需要忽略zone参数
+	zone := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
+	if !inWhiteList(provider){
+		if len(zone) > 0 {
+			zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zone)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), zone)
+				}
+				return nil, httperrors.NewGeneralError(err)
+			}
+
+			q = q.Equals("zone_id", zoneObj.GetId())
+		} else {
+			return nil, httperrors.NewMissingParameterError("zone")
+		}
 	}
 
 	skus := make([]SServerSku, 0)
 	q = q.GroupBy(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
 	q = q.Asc(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
-	err = q.All(&skus)
+	err := q.All(&skus)
 	if err != nil {
 		log.Errorf("%s", err)
 		return nil, httperrors.NewBadRequestError("instance specs list query error")
@@ -432,13 +445,16 @@ func (self *SServerSku) GetZoneExternalId() (string, error) {
 
 func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	provider := jsonutils.GetAnyString(query, []string{"provider"})
-	// provider 参数为all时。表示查询所有instance type
+	queryDict := query.(*jsonutils.JSONDict)
 	if provider == "" {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.IsNull(q.Field("provider")),
 			sqlchemy.IsEmpty(q.Field("provider")),
 		))
-	} else if provider != "all" {
+	} else if provider == "all" {
+		// provider 参数为all时。表示查询所有instance type.
+		queryDict.Remove("provider")
+	} else {
 		q = q.Equals("provider", provider)
 	}
 
@@ -470,6 +486,9 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 			return nil, httperrors.NewGeneralError(err)
 		}
 		q = q.Equals("zone_id", zoneObj.GetId())
+	} else {
+		queryDict.Remove("zone")
+		queryDict.Remove("zone_id")
 	}
 
 	return q, err
