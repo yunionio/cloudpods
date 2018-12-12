@@ -746,6 +746,7 @@ func (manager *SStorageManager) newFromCloudStorage(extStorage cloudprovider.ICl
 	storage.MediumType = extStorage.GetMediumType()
 	storage.StorageConf = extStorage.GetStorageConf()
 	storage.Capacity = extStorage.GetCapacityMB()
+	storage.Cmtbound = 1.0
 
 	storage.Enabled = extStorage.GetEnabled()
 
