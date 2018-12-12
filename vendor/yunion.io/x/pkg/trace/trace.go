@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 )
@@ -235,4 +236,5 @@ func (tr *STrace) AddClientRequestHeader(header http.Header) {
 }
 
 func SubmitTrace(trace *STrace) {
+	log.Infof("%s", trace)
 }
