@@ -6,14 +6,17 @@ import (
 
 type Loadbalancer struct {
 	VirtualResource
+	ManagedResource
 
 	Address     string
 	AddressType string
 	NetworkType string
 	NetworkId   string
+	VpcId       string
 	ZoneId      string
 
 	BackendGroupId string
+	CloudregionId  string
 }
 
 type LoadbalancerTCPListener struct{}
@@ -99,6 +102,7 @@ type LoadbalancerListenerRule struct {
 type LoadbalancerBackendGroup struct {
 	VirtualResource
 
+	Type           string
 	LoadbalancerId string
 }
 
@@ -108,6 +112,7 @@ type LoadbalancerBackend struct {
 	BackendGroupId string
 	BackendId      string
 	BackendType    string
+	BackendRole    string
 	Weight         int
 	Address        string
 	Port           int
@@ -120,16 +125,20 @@ type LoadbalancerAclEntry struct {
 type LoadbalancerAclEntries []*LoadbalancerAclEntry
 type LoadbalancerAcl struct {
 	SharableVirtualResource
+	ManagedResource
 
-	AclEntries *LoadbalancerAclEntries
+	AclEntries    *LoadbalancerAclEntries
+	CloudregionId string
 }
 
 type LoadbalancerCertificate struct {
 	VirtualResource
+	ManagedResource
 
 	Certificate string
 	PrivateKey  string
 
+	CloudregionId           string
 	PublicKeyAlgorithm      string
 	PublicKeyBitLen         int
 	SignatureAlgorithm      string

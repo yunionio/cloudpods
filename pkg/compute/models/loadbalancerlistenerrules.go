@@ -191,7 +191,7 @@ func (man *SLoadbalancerListenerRuleManager) getLoadbalancerListenerRulesByListe
 	rules := []SLoadbalancerListenerRule{}
 	q := man.Query().Equals("listener_id", listener.Id)
 	if err := db.FetchModelObjects(man, q, &rules); err != nil {
-		log.Errorf("failed to get acls for listener %v error: %v", listener, err)
+		log.Errorf("failed to get lb listener rules for listener %s error: %v", listener.Name, err)
 		return nil, err
 	}
 	return rules, nil
@@ -244,7 +244,7 @@ func (man *SLoadbalancerListenerRuleManager) SyncLoadbalancerListenerRules(ctx c
 		}
 	}
 	for i := 0; i < len(added); i++ {
-		_, err := man.newFromCloudLoadbalancerListenerRule(ctx, userCred, listener, added[i])
+		_, err := man.newFromCloudLoadbalancerListenerRule(ctx, userCred, listener, added[i], provider.ProjectId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -255,25 +255,40 @@ func (man *SLoadbalancerListenerRuleManager) SyncLoadbalancerListenerRules(ctx c
 	return syncResult
 }
 
-func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, listener *SLoadbalancerListener, extRule cloudprovider.ICloudLoadbalancerListenerRule) (*SLoadbalancerListenerRule, error) {
-	rule := SLoadbalancerListenerRule{}
-	rule.SetModelManager(man)
-
-	rule.Name = extRule.GetName()
-	rule.ExternalId = extRule.GetGlobalId()
-	rule.ListenerId = listener.Id
-
-	return &rule, man.TableSpec().Insert(&rule)
+func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(extRule cloudprovider.ICloudLoadbalancerListenerRule) {
+	lbr.Name = extRule.GetName()
+	lbr.Domain = extRule.GetDomain()
+	lbr.Path = extRule.GetPath()
+	if groupId := extRule.GetBackendGroupId(); len(groupId) > 0 {
+		if backendgroup, err := LoadbalancerBackendGroupManager.FetchByExternalId(groupId); err == nil {
+			lbr.BackendGroupId = backendgroup.GetId()
+		}
+	}
 }
 
-func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, extCertificate cloudprovider.ICloudLoadbalancerListenerRule, projectId string, projectSync bool) error {
-	_, err := LoadbalancerCertificateManager.TableSpec().Update(lbr, func() error {
-		lbr.Name = extCertificate.GetName()
+func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, listener *SLoadbalancerListener, extRule cloudprovider.ICloudLoadbalancerListenerRule, projectId string) (*SLoadbalancerListenerRule, error) {
+	lbr := &SLoadbalancerListenerRule{}
+	lbr.SetModelManager(man)
+
+	lbr.ExternalId = extRule.GetGlobalId()
+	lbr.ListenerId = listener.Id
+
+	lbr.constructFieldsFromCloudListenerRule(extRule)
+	lbr.ProjectId = userCred.GetProjectId()
+	if len(projectId) > 0 {
+		lbr.ProjectId = projectId
+	}
+
+	return lbr, man.TableSpec().Insert(lbr)
+}
+
+func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, extRule cloudprovider.ICloudLoadbalancerListenerRule, projectId string, projectSync bool) error {
+	_, err := lbr.GetModelManager().TableSpec().Update(lbr, func() error {
+		lbr.constructFieldsFromCloudListenerRule(extRule)
 
 		if projectSync && len(projectId) > 0 {
 			lbr.ProjectId = projectId
 		}
-
 		return nil
 	})
 	return err

@@ -103,7 +103,7 @@ type SLoadbalancerAcl struct {
 	db.SSharableVirtualResourceBase
 	SManagedResourceBase
 
-	CloudregionId string                   `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required"`
+	CloudregionId string                   `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"required"`
 	AclEntries    *SLoadbalancerAclEntries `list:"user" update:"user" create:"required"`
 }
 
@@ -312,7 +312,7 @@ func (man *SLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx context.Cont
 }
 
 func (acl *SLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, extAcl cloudprovider.ICloudLoadbalancerAcl, projectId string, projectSync bool) error {
-	_, err := LoadbalancerManager.TableSpec().Update(acl, func() error {
+	_, err := acl.GetModelManager().TableSpec().Update(acl, func() error {
 		acl.Name = extAcl.GetName()
 		aclEntries := extAcl.GetAclEntries()
 

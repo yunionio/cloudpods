@@ -113,13 +113,20 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 			return nil, httperrors.NewNotAcceptableError("network %s(%s) has no free addresses",
 				network.Name, network.Id)
 		}
-		if wire := network.GetWire(); wire == nil {
+		wire := network.GetWire()
+		if wire == nil {
 			return nil, fmt.Errorf("getting wire failed")
-		} else if zone := wire.GetZone(); zone == nil {
-			return nil, fmt.Errorf("getting zone failed")
-		} else {
-			data.Set("zone_id", jsonutils.NewString(zone.GetId()))
 		}
+		zone := wire.GetZone()
+		if zone == nil {
+			return nil, fmt.Errorf("getting zone failed")
+		}
+		data.Set("zone_id", jsonutils.NewString(zone.GetId()))
+		region := zone.GetRegion()
+		if region == nil {
+			return nil, fmt.Errorf("getting region failed")
+		}
+		data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
 		// TODO validate network is of classic type
 		data.Set("network_type", jsonutils.NewString(LB_NETWORK_TYPE_CLASSIC))
 		data.Set("address_type", jsonutils.NewString(LB_ADDR_TYPE_INTRANET))
@@ -349,7 +356,7 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 }
 
 func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, extLb cloudprovider.ICloudLoadbalancer, projectId string, projectSync bool) error {
-	_, err := LoadbalancerManager.TableSpec().Update(lb, func() error {
+	_, err := lb.GetModelManager().TableSpec().Update(lb, func() error {
 		lb.Address = extLb.GetAddress()
 		lb.Status = extLb.GetStatus()
 		lb.Name = extLb.GetName()
@@ -382,14 +389,14 @@ func (lb *SLoadbalancer) setCloudregionId() error {
 func (man *SLoadbalancerManager) InitializeData() error {
 	lbs := []SLoadbalancer{}
 	q := LoadbalancerManager.Query()
-	q = q.Filter(sqlchemy.OR(sqlchemy.IsEmpty(q.Field("cloudregion_id")), sqlchemy.IsNull(q.Field("cloudregion_id"))))
+	q = q.Filter(sqlchemy.IsNullOrEmpty(q.Field("cloudregion_id")))
 	if err := db.FetchModelObjects(LoadbalancerManager, q, &lbs); err != nil {
-		log.Errorf("fetch all lbs fail %v", err)
+		log.Errorf("failed fetching lbs with empty cloudregion_id error: %v", err)
 		return err
 	}
 	for i := 0; i < len(lbs); i++ {
 		if err := lbs[i].setCloudregionId(); err != nil {
-			log.Errorf("fill cloud region info failed error: %v", err)
+			log.Errorf("failed setting lb %s(%s) cloud region error: %v", lbs[i].Name, lbs[i].Id, err)
 		}
 	}
 	return nil

@@ -41,6 +41,21 @@ var LB_STATUS_SPEC = validators.NewChoices(
 	LB_STATUS_DISABLED,
 )
 
+const (
+	//默认后端服务器组
+	LB_BACKENDGROUP_TYPE_DEFAULT = "default"
+	//普通后端服务器组
+	LB_BACKENDGROUP_TYPE_NORMAL = "normal"
+	//主备后端服务器组
+	LB_BACKENDGROUP_TYPE_MASTER_SLAVE = "master_slave"
+)
+
+var LB_BACKENDGROUP_TYPE = validators.NewChoices(
+	LB_BACKENDGROUP_TYPE_DEFAULT,
+	LB_BACKENDGROUP_TYPE_NORMAL,
+	LB_BACKENDGROUP_TYPE_MASTER_SLAVE,
+)
+
 var LB_STATUS_RUNTIME = validators.NewChoices(
 	LB_STATUS_INIT,
 	LB_STATUS_CONFIGURING,
@@ -218,4 +233,16 @@ const (
 var LB_BACKEND_TYPES = validators.NewChoices(
 	LB_BACKEND_GUEST,
 	LB_BACKEND_HOST,
+)
+
+const (
+	LB_BACKEND_ROLE_DEFAULT = "default"
+	LB_BACKEND_ROLE_MASTER  = "master"
+	LB_BACKEND_ROLE_SLAVE   = "slave"
+)
+
+var LB_BACKEND_ROLES = validators.NewChoices(
+	LB_BACKEND_ROLE_MASTER,
+	LB_BACKEND_ROLE_DEFAULT,
+	LB_BACKEND_ROLE_SLAVE,
 )

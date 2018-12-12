@@ -386,22 +386,62 @@ type ICloudLoadbalancer interface {
 	GetZoneId() string
 
 	GetILoadbalancerListeners() ([]ICloudLoadbalancerListener, error)
-	GetILoadbalancerBackendgroups() ([]ICloudLoadbalancerBackendgroup, error)
+	GetILoadbalancerBackendGroups() ([]ICloudLoadbalancerBackendGroup, error)
 }
 
 type ICloudLoadbalancerListener interface {
 	ICloudResource
 
+	GetListenerType() string
+	GetListenerPort() int
+	GetScheduler() string
+	GetAclStatus() string
+	GetAclType() string
+	GetAclId() string
+
+	GetHealthCheck() string
+	GetHealthCheckType() string
+	GetHealthCheckTimeout() int
+	GetHealthCheckInterval() int
+	GetHealthCheckRise() int
+	GetHealthCheckFail() int
+
+	GetHealthCheckReq() string
+	GetHealthCheckExp() string
+
+	GetBackendGroupId() string
+
+	// HTTP && HTTPS
+	GetHealthCheckDomain() string
+	GetHealthCheckURI() string
+	GetHealthCheckCode() string
 	GetILoadbalancerListenerRules() ([]ICloudLoadbalancerListenerRule, error)
+	GetStickySession() string
+	GetStickySessionType() string
+	GetStickySessionCookie() string
+	GetStickySessionCookieTimeout() int
+	XForwardedForEnabled() bool
+	GzipEnabled() bool
+
+	// HTTPS
+	GetCertificateId() string
+	GetTLSCipherPolicy() string
+	HTTP2Enabled() bool
 }
 
 type ICloudLoadbalancerListenerRule interface {
 	ICloudResource
+
+	GetDomain() string
+	GetPath() string
+	GetBackendGroupId() string
 }
 
-type ICloudLoadbalancerBackendgroup interface {
+type ICloudLoadbalancerBackendGroup interface {
 	ICloudResource
 
+	IsDefault() bool
+	GetType() string
 	GetILoadbalancerBackends() ([]ICloudLoadbalancerBackend, error)
 }
 
@@ -409,19 +449,34 @@ type ICloudLoadbalancerBackend interface {
 	ICloudResource
 
 	GetWeight() int
-	GetAddress() string
 	GetPort() int
 	GetBackendType() string
+	GetBackendRole() string
 	GetBackendId() string
 }
 
 type ICloudLoadbalancerCertificate interface {
 	ICloudResource
-	//GetCertKeyPair(userCred mcclient.TokenCredential) (string, string, error)
+
+	GetCommonName() string
+	GetSubjectAlternativeNames() string
+	GetFingerprint() string // return value format: <algo>:<fingerprint>，比如sha1:7454a14fdb8ae1ea8b2f72e458a24a76bd23ec19
+	GetExpireTime() time.Time
 }
 
 type ICloudLoadbalancerAcl interface {
 	ICloudResource
 
+	// return array data like this:
+	// [
+	// 	{
+	// 		"cidr":"10.10.12.0/24",
+	// 		"comment":"test data"
+	// 	},
+	// 	{
+	// 		"cidr":"192.168.10.12",
+	// 		"comment":"test data2"
+	// 	}
+	// ]
 	GetAclEntries() *jsonutils.JSONArray
 }

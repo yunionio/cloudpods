@@ -37,6 +37,7 @@ type SLoadbalancerBackend struct {
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	BackendId      string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	BackendType    string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	BackendRole    string `width:"36" charset:"ascii" nullable:"false" list:"user" default:"default" create:"optional"`
 	Weight         int    `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 	Address        string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	Port           int    `nullable:"false" list:"user" create:"required" update:"user"`
@@ -111,19 +112,9 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 			// get guest intranet address
 			//
 			// NOTE add address hint (cidr) if needed
-			gns := guest.GetNetworks()
-			if len(gns) == 0 {
-				return nil, fmt.Errorf("guest %s has no network attached", guest.GetId())
-			}
-			var address string
-			for _, gn := range gns {
-				if !gn.IsExit() {
-					address = gn.IpAddr
-					break
-				}
-			}
-			if len(address) == 0 {
-				return nil, fmt.Errorf("guest %s has no intranet address attached", guest.GetId())
+			address, err := man.getGuestAddress(guest)
+			if err != nil {
+				return nil, err
 			}
 			data.Set("address", jsonutils.NewString(address))
 		}
@@ -163,6 +154,19 @@ func (lbb *SLoadbalancerBackend) AllowPerformStatus(ctx context.Context, userCre
 	return false
 }
 
+func (man *SLoadbalancerBackendManager) getGuestAddress(guest *SGuest) (string, error) {
+	gns := guest.GetNetworks()
+	if len(gns) == 0 {
+		return "", fmt.Errorf("guest %s has no network attached", guest.GetId())
+	}
+	for _, gn := range gns {
+		if !gn.IsExit() {
+			return gn.IpAddr, nil
+		}
+	}
+	return "", fmt.Errorf("guest %s has no intranet address attached", guest.GetId())
+}
+
 func (lbb *SLoadbalancerBackend) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	keyV := map[string]validators.IValidator{
 		"weight": validators.NewRangeValidator("weight", 1, 256),
@@ -185,19 +189,19 @@ func (lbb *SLoadbalancerBackend) Delete(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
-func (man *SLoadbalancerBackendManager) getLoadbalancerBackendsByLoadbalancerBackendgroup(lbbg *SLoadbalancerBackendGroup) ([]SLoadbalancerBackend, error) {
-	lbbs := []SLoadbalancerBackend{}
-	q := man.Query().Equals("backend_group_id", lbbg.Id)
-	if err := db.FetchModelObjects(man, q, &lbbg); err != nil {
+func (man *SLoadbalancerBackendManager) getLoadbalancerBackendsByLoadbalancerBackendgroup(loadbalancerBackendgroup *SLoadbalancerBackendGroup) ([]SLoadbalancerBackend, error) {
+	loadbalancerBackends := []SLoadbalancerBackend{}
+	q := man.Query().Equals("backend_group_id", loadbalancerBackendgroup.Id)
+	if err := db.FetchModelObjects(man, q, &loadbalancerBackends); err != nil {
 		return nil, err
 	}
-	return lbbs, nil
+	return loadbalancerBackends, nil
 }
 
-func (man *SLoadbalancerBackendManager) SyncLoadbalancerBackends(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, lbbg *SLoadbalancerBackendGroup, lbbs []cloudprovider.ICloudLoadbalancerBackend, syncRange *SSyncRange) compare.SyncResult {
+func (man *SLoadbalancerBackendManager) SyncLoadbalancerBackends(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, loadbalancerBackendgroup *SLoadbalancerBackendGroup, lbbs []cloudprovider.ICloudLoadbalancerBackend, syncRange *SSyncRange) compare.SyncResult {
 	syncResult := compare.SyncResult{}
 
-	dbLbbs, err := man.getLoadbalancerBackendsByLoadbalancerBackendgroup(lbbg)
+	dbLbbs, err := man.getLoadbalancerBackendsByLoadbalancerBackendgroup(loadbalancerBackendgroup)
 	if err != nil {
 		syncResult.Error(err)
 		return syncResult
@@ -241,7 +245,7 @@ func (man *SLoadbalancerBackendManager) SyncLoadbalancerBackends(ctx context.Con
 		}
 	}
 	for i := 0; i < len(added); i++ {
-		_, err := man.newFromCloudLoadbalancerBackend(ctx, userCred, lbbg, added[i], provider.ProjectId)
+		_, err := man.newFromCloudLoadbalancerBackend(ctx, userCred, loadbalancerBackendgroup, added[i], provider.ProjectId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -251,45 +255,54 @@ func (man *SLoadbalancerBackendManager) SyncLoadbalancerBackends(ctx context.Con
 	return syncResult
 }
 
-func (lbb *SLoadbalancerBackend) SyncWithCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, extLbb cloudprovider.ICloudLoadbalancerBackend, projectId string, projectSync bool) error {
-	_, err := LoadbalancerBackendManager.TableSpec().Update(lbb, func() error {
-		lbb.Name = extLbb.GetName()
-		lbb.Status = extLbb.GetStatus()
+func (lbb *SLoadbalancerBackend) constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend) error {
+	lbb.Name = extLoadbalancerBackend.GetName()
+	lbb.Status = extLoadbalancerBackend.GetStatus()
 
-		lbb.Weight = extLbb.GetWeight()
-		lbb.Address = extLbb.GetAddress()
-		lbb.Port = extLbb.GetPort()
+	lbb.Weight = extLoadbalancerBackend.GetWeight()
+	lbb.Port = extLoadbalancerBackend.GetPort()
 
-		lbb.BackendType = extLbb.GetBackendType()
-		lbb.BackendId = extLbb.GetBackendId()
+	lbb.BackendType = extLoadbalancerBackend.GetBackendType()
+	lbb.BackendId = extLoadbalancerBackend.GetBackendId()
+	lbb.BackendRole = extLoadbalancerBackend.GetBackendRole()
 
+	instance, err := GuestManager.FetchByExternalId(lbb.BackendId)
+	if err != nil {
+		return err
+	}
+	guest := instance.(*SGuest)
+	address, err := LoadbalancerBackendManager.getGuestAddress(guest)
+	if err != nil {
+		return err
+	}
+	lbb.Address = address
+	return nil
+}
+
+func (lbb *SLoadbalancerBackend) SyncWithCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend, projectId string, projectSync bool) error {
+	_, err := lbb.GetModelManager().TableSpec().Update(lbb, func() error {
 		if projectSync && len(projectId) > 0 {
 			lbb.ProjectId = projectId
 		}
-
-		return nil
+		return lbb.constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend)
 	})
 	return err
 }
 
-func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbbg *SLoadbalancerBackendGroup, extLbb cloudprovider.ICloudLoadbalancerBackend, projectId string) (*SLoadbalancerBackend, error) {
-	lbb := SLoadbalancerBackend{}
+func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, loadbalancerBackendgroup *SLoadbalancerBackendGroup, extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend, projectId string) (*SLoadbalancerBackend, error) {
+	lbb := &SLoadbalancerBackend{}
 	lbb.SetModelManager(man)
 
-	lbb.BackendGroupId = lbbg.Id
-	lbb.Name = extLbb.GetName()
-	lbb.ExternalId = extLbb.GetGlobalId()
-	lbb.Status = extLbb.GetStatus()
+	lbb.BackendGroupId = loadbalancerBackendgroup.Id
+	lbb.ExternalId = extLoadbalancerBackend.GetGlobalId()
 
-	lbb.Weight = extLbb.GetWeight()
-	lbb.Address = extLbb.GetAddress()
-	lbb.Port = extLbb.GetPort()
-	lbb.BackendType = extLbb.GetBackendType()
-	lbb.BackendId = extLbb.GetBackendId()
+	if err := lbb.constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend); err != nil {
+		return nil, err
+	}
 
 	lbb.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		lbb.ProjectId = projectId
 	}
-	return &lbb, man.TableSpec().Insert(&lbb)
+	return lbb, man.TableSpec().Insert(lbb)
 }

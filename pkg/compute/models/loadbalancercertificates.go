@@ -60,7 +60,7 @@ type SLoadbalancerCertificate struct {
 	CommonName              string    `create:"optional" list:"user" update:"user"`
 	SubjectAlternativeNames string    `create:"optional" list:"user" update:"user"`
 
-	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required"`
+	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"required"`
 }
 
 func (man *SLoadbalancerCertificateManager) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
@@ -215,7 +215,7 @@ func (man *SLoadbalancerCertificateManager) getLoadbalancerCertificatesByRegion(
 	certificates := []SLoadbalancerCertificate{}
 	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id)
 	if err := db.FetchModelObjects(man, q, &certificates); err != nil {
-		log.Errorf("failed to get acls for region: %v provider: %v error: %v", region, provider, err)
+		log.Errorf("failed to get lb certificates for region: %v provider: %v error: %v", region, provider, err)
 		return nil, err
 	}
 	return certificates, nil
@@ -268,7 +268,7 @@ func (man *SLoadbalancerCertificateManager) SyncLoadbalancerCertificates(ctx con
 		}
 	}
 	for i := 0; i < len(added); i++ {
-		_, err := man.newFromCloudLoadbalancerCertificate(ctx, userCred, provider, added[i], region)
+		_, err := man.newFromCloudLoadbalancerCertificate(ctx, userCred, provider, added[i], region, provider.ProjectId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -278,7 +278,7 @@ func (man *SLoadbalancerCertificateManager) SyncLoadbalancerCertificates(ctx con
 	return syncResult
 }
 
-func (man *SLoadbalancerCertificateManager) newFromCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extCertificate cloudprovider.ICloudLoadbalancerCertificate, region *SCloudregion) (*SLoadbalancerCertificate, error) {
+func (man *SLoadbalancerCertificateManager) newFromCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extCertificate cloudprovider.ICloudLoadbalancerCertificate, region *SCloudregion, projectId string) (*SLoadbalancerCertificate, error) {
 	lbcert := SLoadbalancerCertificate{}
 	lbcert.SetModelManager(man)
 
@@ -287,12 +287,26 @@ func (man *SLoadbalancerCertificateManager) newFromCloudLoadbalancerCertificate(
 	lbcert.ManagerId = provider.Id
 	lbcert.CloudregionId = region.Id
 
+	lbcert.CommonName = extCertificate.GetCommonName()
+	lbcert.SubjectAlternativeNames = extCertificate.GetSubjectAlternativeNames()
+	lbcert.Fingerprint = extCertificate.GetFingerprint()
+	lbcert.NotAfter = extCertificate.GetExpireTime()
+
+	lbcert.ProjectId = userCred.GetProjectId()
+	if len(projectId) > 0 {
+		lbcert.ProjectId = projectId
+	}
+
 	return &lbcert, man.TableSpec().Insert(&lbcert)
 }
 
 func (lbcert *SLoadbalancerCertificate) SyncWithCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, extCertificate cloudprovider.ICloudLoadbalancerCertificate, projectId string, projectSync bool) error {
-	_, err := LoadbalancerCertificateManager.TableSpec().Update(lbcert, func() error {
+	_, err := lbcert.GetModelManager().TableSpec().Update(lbcert, func() error {
 		lbcert.Name = extCertificate.GetName()
+		lbcert.CommonName = extCertificate.GetCommonName()
+		lbcert.SubjectAlternativeNames = extCertificate.GetSubjectAlternativeNames()
+		lbcert.Fingerprint = extCertificate.GetFingerprint()
+		lbcert.NotAfter = extCertificate.GetExpireTime()
 
 		if projectSync && len(projectId) > 0 {
 			lbcert.ProjectId = projectId

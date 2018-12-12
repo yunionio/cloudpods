@@ -1,6 +1,11 @@
 package aliyun
 
-import "yunion.io/x/jsonutils"
+import (
+	"fmt"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+)
 
 type SLoadbalancerHTTPListener struct {
 	lb *SLoadbalancer
@@ -44,17 +49,17 @@ type SLoadbalancerHTTPListener struct {
 	Gzip                   string //	是否开启Gzip压缩。
 	EnableHttp2            string //	是否开启HTTP/2特性。取值：on（默认值）|off
 
-	Rules           []Rule //监听下的转发规则列表，具体请参见RuleList。
+	Rules           Rules  //监听下的转发规则列表，具体请参见RuleList。
 	ForwardPort     int    //	HTTP至HTTPS的监听转发端口。暂时只支持将HTTP 80访问重定向转发至HTTPS 443。 说明 如果 ListenerForward的值为 off，该参数不显示。
 	ListenerForward string //	表示是否开启HTTP至HTTPS的监听转发。on：表示开启 off：表示未开启
 }
 
 func (listener *SLoadbalancerHTTPListener) GetName() string {
-	return ""
+	return fmt.Sprintf("HTTP:%d", listener.ListenerPort)
 }
 
 func (listerner *SLoadbalancerHTTPListener) GetId() string {
-	return ""
+	return fmt.Sprintf("%s/%d", listerner.lb.LoadBalancerId, listerner.ListenerPort)
 }
 
 func (listerner *SLoadbalancerHTTPListener) GetGlobalId() string {
@@ -62,7 +67,7 @@ func (listerner *SLoadbalancerHTTPListener) GetGlobalId() string {
 }
 
 func (listerner *SLoadbalancerHTTPListener) GetStatus() string {
-	return ""
+	return listerner.Status
 }
 
 func (listerner *SLoadbalancerHTTPListener) GetMetadata() *jsonutils.JSONDict {
@@ -77,11 +82,141 @@ func (listerner *SLoadbalancerHTTPListener) Refresh() error {
 	return nil
 }
 
-func (region *SRegion) GetLoadbalancerHTTPListener(loadbalancerId string, listenerPort string) (*SLoadbalancerHTTPListener, error) {
+func (listerner *SLoadbalancerHTTPListener) GetListenerType() string {
+	return "http"
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetListenerPort() int {
+	return listerner.ListenerPort
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetBackendGroupId() string {
+	return ""
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetScheduler() string {
+	return listerner.Scheduler
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetAclStatus() string {
+	return listerner.AclStatus
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetAclType() string {
+	return listerner.AclType
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetAclId() string {
+	return listerner.AclId
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetHealthCheck() string {
+	return listerner.HealthCheck
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetHealthCheckType() string {
+	return ""
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetHealthCheckDomain() string {
+	return listerner.HealthCheckDomain
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetHealthCheckURI() string {
+	return listerner.HealthCheckURI
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetHealthCheckCode() string {
+	return listerner.HealthCheckHttpCode
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetHealthCheckRise() int {
+	return listerner.HealthyThreshold
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetHealthCheckFail() int {
+	return listerner.UnhealthyThreshold
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetHealthCheckTimeout() int {
+	return listerner.HealthCheckTimeout
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetHealthCheckInterval() int {
+	return listerner.HealthCheckInterval
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetHealthCheckReq() string {
+	return ""
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetHealthCheckExp() string {
+	return ""
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetStickySession() string {
+	return listerner.StickySession
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetStickySessionType() string {
+	return listerner.StickySessionType
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetStickySessionCookie() string {
+	return listerner.Cookie
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetStickySessionCookieTimeout() int {
+	return listerner.CookieTimeout
+}
+
+func (listerner *SLoadbalancerHTTPListener) XForwardedForEnabled() bool {
+	if listerner.XForwardedFor == "on" {
+		return true
+	}
+	return false
+}
+
+func (listerner *SLoadbalancerHTTPListener) GzipEnabled() bool {
+	if listerner.Gzip == "on" {
+		return true
+	}
+	return false
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetCertificateId() string {
+	return ""
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetTLSCipherPolicy() string {
+	return ""
+}
+
+func (listerner *SLoadbalancerHTTPListener) HTTP2Enabled() bool {
+	if listerner.EnableHttp2 == "on" {
+		return true
+	}
+	return false
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetILoadbalancerListenerRules() ([]cloudprovider.ICloudLoadbalancerListenerRule, error) {
+	rules, err := listerner.lb.region.GetLoadbalancerListenerRules(listerner.lb.LoadBalancerId, listerner.ListenerPort)
+	if err != nil {
+		return nil, err
+	}
+	iRules := []cloudprovider.ICloudLoadbalancerListenerRule{}
+	for i := 0; i < len(rules); i++ {
+		rules[i].httpListener = listerner
+		iRules = append(iRules, &rules[i])
+	}
+	return iRules, nil
+}
+
+func (region *SRegion) GetLoadbalancerHTTPListener(loadbalancerId string, listenerPort int) (*SLoadbalancerHTTPListener, error) {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
 	params["LoadBalancerId"] = loadbalancerId
-	params["ListenerPort"] = listenerPort
+	params["ListenerPort"] = fmt.Sprintf("%d", listenerPort)
 	body, err := region.lbRequest("DescribeLoadBalancerHTTPListenerAttribute", params)
 	if err != nil {
 		return nil, err

@@ -144,7 +144,7 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 func syncRegionLoadbalancerCertificates(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localRegion *models.SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *models.SSyncRange) {
 	certificates, err := remoteRegion.GetILoadbalancerCertificates()
 	if err != nil {
-		msg := fmt.Sprintf("GetILoadbalancerAcls for region %s failed %s", remoteRegion.GetName(), err)
+		msg := fmt.Sprintf("GetILoadbalancerCertificates for region %s failed %s", remoteRegion.GetName(), err)
 		log.Errorf(msg)
 		logSyncFailed(provider, task, msg)
 		return
@@ -185,7 +185,7 @@ func syncRegionLoadbalancers(ctx context.Context, provider *models.SCloudprovide
 	}
 	localLbs, remoteLbs, result := models.LoadbalancerManager.SyncLoadbalancers(ctx, task.GetUserCred(), provider, localRegion, lbs, syncRange)
 	msg := result.Result()
-	log.Infof("SyncLoadbalances for region %s result: %s", localRegion.Name, msg)
+	log.Infof("SyncLoadbalancers for region %s result: %s", localRegion.Name, msg)
 	if result.IsError() {
 		logSyncFailed(provider, task, msg)
 		return
@@ -235,9 +235,9 @@ func syncLoadbalancerListenerRules(ctx context.Context, provider *models.SCloudp
 }
 
 func syncLoadbalancerBackendgroups(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localLoadbalancer *models.SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *models.SSyncRange) {
-	remoteBackendgroups, err := remoteLoadbalancer.GetILoadbalancerBackendgroups()
+	remoteBackendgroups, err := remoteLoadbalancer.GetILoadbalancerBackendGroups()
 	if err != nil {
-		msg := fmt.Sprintf("GetILoadbalancerBackendgroups for loadbalancer %s failed %s", localLoadbalancer.Name, err)
+		msg := fmt.Sprintf("GetILoadbalancerBackendGroups for loadbalancer %s failed %s", localLoadbalancer.Name, err)
 		log.Errorf(msg)
 		logSyncFailed(provider, task, msg)
 		return
@@ -254,7 +254,7 @@ func syncLoadbalancerBackendgroups(ctx context.Context, provider *models.SCloudp
 	}
 }
 
-func syncLoadbalancerBackends(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localLbbg *models.SLoadbalancerBackendGroup, remoteLbbg cloudprovider.ICloudLoadbalancerBackendgroup, syncRange *models.SSyncRange) {
+func syncLoadbalancerBackends(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localLbbg *models.SLoadbalancerBackendGroup, remoteLbbg cloudprovider.ICloudLoadbalancerBackendGroup, syncRange *models.SSyncRange) {
 	remoteLbbs, err := remoteLbbg.GetILoadbalancerBackends()
 	if err != nil {
 		msg := fmt.Sprintf("GetILoadbalancerBackends for lbbg %s failed %s", localLbbg.Name, err)

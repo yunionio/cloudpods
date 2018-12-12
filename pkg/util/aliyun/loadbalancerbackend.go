@@ -4,10 +4,12 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SLoadbalancerBackend struct {
-	lbbg *SLoadbalancerBackendgroup
+	lbbg *SLoadbalancerBackendGroup
 
 	ServerId string
 	Port     int
@@ -39,7 +41,16 @@ func (backend *SLoadbalancerBackend) IsEmulated() bool {
 }
 
 func (backend *SLoadbalancerBackend) Refresh() error {
-	return nil
+	loadbalancerBackends, err := backend.lbbg.lb.region.GetLoadbalancerBackends(backend.lbbg.VServerGroupId)
+	if err != nil {
+		return err
+	}
+	for _, loadbalancerBackend := range loadbalancerBackends {
+		if loadbalancerBackend.ServerId == backend.ServerId {
+			return jsonutils.Update(backend, loadbalancerBackend)
+		}
+	}
+	return cloudprovider.ErrNotFound
 }
 
 func (backend *SLoadbalancerBackend) GetWeight() int {
@@ -50,16 +61,16 @@ func (backend *SLoadbalancerBackend) GetPort() int {
 	return backend.Port
 }
 
-func (backend *SLoadbalancerBackend) GetAddress() string {
-	return ""
+func (backend *SLoadbalancerBackend) GetBackendType() string {
+	return models.LB_BACKEND_GUEST
 }
 
-func (backend *SLoadbalancerBackend) GetBackendType() string {
-	return ""
+func (backend *SLoadbalancerBackend) GetBackendRole() string {
+	return models.LB_BACKEND_ROLE_DEFAULT
 }
 
 func (backend *SLoadbalancerBackend) GetBackendId() string {
-	return ""
+	return backend.ServerId
 }
 
 func (region *SRegion) GetLoadbalancerBackends(backendgroupId string) ([]SLoadbalancerBackend, error) {

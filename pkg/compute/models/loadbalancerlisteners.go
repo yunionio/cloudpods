@@ -464,7 +464,7 @@ func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.C
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancerListener(ctx, userCred, commonext[i], provider.ProjectId, syncRange.ProjectSync)
+		err = commondb[i].SyncWithCloudLoadbalancerListener(ctx, userCred, lb, commonext[i], provider.ProjectId, syncRange.ProjectSync)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -486,21 +486,74 @@ func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.C
 	return localListeners, remoteListeners, syncResult
 }
 
-func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, extListener cloudprovider.ICloudLoadbalancerListener, projectId string, projectSync bool) error {
-	_, err := LoadbalancerBackendManager.TableSpec().Update(lblis, func() error {
-		lblis.Name = extListener.GetName()
+func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener) {
+	lblis.Name = extListener.GetName()
+	lblis.ListenerType = extListener.GetListenerType()
+	lblis.ListenerPort = extListener.GetListenerPort()
+	lblis.Scheduler = extListener.GetScheduler()
+	lblis.Status = extListener.GetStatus()
+
+	lblis.AclStatus = extListener.GetAclStatus()
+	lblis.AclType = extListener.GetAclType()
+	if aclID := extListener.GetAclId(); len(aclID) > 0 {
+		if acl, err := LoadbalancerAclManager.FetchByExternalId(aclID); err == nil {
+			lblis.AclId = acl.GetId()
+		}
+	}
+
+	lblis.HealthCheck = extListener.GetHealthCheck()
+	lblis.HealthCheckType = extListener.GetHealthCheckType()
+	lblis.HealthCheckTimeout = extListener.GetHealthCheckTimeout()
+	lblis.HealthCheckInterval = extListener.GetHealthCheckInterval()
+
+	switch lblis.ListenerType {
+	case LB_LISTENER_TYPE_HTTPS:
+		lblis.TLSCipherPolicy = extListener.GetTLSCipherPolicy()
+		lblis.EnableHttp2 = extListener.HTTP2Enabled()
+		if certificateId := extListener.GetCertificateId(); len(certificateId) > 0 {
+			if certificate, err := LoadbalancerCertificateManager.FetchByExternalId(certificateId); err == nil {
+				lblis.CertificateId = certificate.GetId()
+			}
+		}
+		fallthrough
+	case LB_LISTENER_TYPE_HTTP:
+		lblis.StickySession = extListener.GetStickySession()
+		lblis.StickySessionType = extListener.GetStickySessionType()
+		lblis.StickySessionCookie = extListener.GetStickySessionCookie()
+		lblis.StickySessionCookieTimeout = extListener.GetStickySessionCookieTimeout()
+		lblis.XForwardedFor = extListener.XForwardedForEnabled()
+		lblis.Gzip = extListener.GzipEnabled()
+	}
+	groupId := extListener.GetBackendGroupId()
+	if len(groupId) == 0 {
+		lblis.BackendGroupId = lb.BackendGroupId
+	} else if group, err := LoadbalancerBackendGroupManager.FetchByExternalId(groupId); err == nil {
+		lblis.BackendGroupId = group.GetId()
+	}
+}
+
+func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, projectId string, projectSync bool) error {
+	_, err := lblis.GetModelManager().TableSpec().Update(lblis, func() error {
+		lblis.constructFieldsFromCloudListener(lb, extListener)
+		if projectSync && len(projectId) > 0 {
+			lblis.ProjectId = projectId
+		}
 		return nil
 	})
 	return err
 }
 
 func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, projectId string) (*SLoadbalancerListener, error) {
-	lblis := SLoadbalancerListener{}
+	lblis := &SLoadbalancerListener{}
 	lblis.SetModelManager(man)
+
+	lblis.LoadbalancerId = lb.Id
+	lblis.ExternalId = extListener.GetGlobalId()
+	lblis.constructFieldsFromCloudListener(lb, extListener)
 
 	lblis.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		lblis.ProjectId = projectId
 	}
-	return &lblis, man.TableSpec().Insert(&lblis)
+	return lblis, man.TableSpec().Insert(lblis)
 }

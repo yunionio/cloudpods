@@ -48,7 +48,11 @@ func (acl *SLoadbalancerAcl) IsEmulated() bool {
 }
 
 func (acl *SLoadbalancerAcl) Refresh() error {
-	return nil
+	loadbalancerAcl, err := acl.region.GetLoadbalancerAclDetail(acl.AclId)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(acl, loadbalancerAcl)
 }
 
 func (acl *SLoadbalancerAcl) GetAclEntries() *jsonutils.JSONArray {

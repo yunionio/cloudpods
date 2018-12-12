@@ -35,8 +35,8 @@ func init() {
 
 type SLoadbalancerBackendGroup struct {
 	db.SVirtualResourceBase
-	SManagedResourceBase
 
+	Type           string `width:"36" charset:"ascii" nullable:"false" list:"user" default:"normal" create:"optional"`
 	LoadbalancerId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 }
 
@@ -146,15 +146,15 @@ func (man *SLoadbalancerBackendGroupManager) getLoadbalancerBackendgroupsByLoadb
 	lbbgs := []SLoadbalancerBackendGroup{}
 	q := man.Query().Equals("loadbalancer_id", lb.Id)
 	if err := db.FetchModelObjects(man, q, &lbbgs); err != nil {
-		log.Errorf("failed to get lbbgs for lb: %v error: %v", lb, err)
+		log.Errorf("failed to get lbbgs for lb: %s error: %v", lb.Name, err)
 		return nil, err
 	}
 	return lbbgs, nil
 }
 
-func (man *SLoadbalancerBackendGroupManager) SyncLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, lb *SLoadbalancer, lbbgs []cloudprovider.ICloudLoadbalancerBackendgroup, syncRange *SSyncRange) ([]SLoadbalancerBackendGroup, []cloudprovider.ICloudLoadbalancerBackendgroup, compare.SyncResult) {
+func (man *SLoadbalancerBackendGroupManager) SyncLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, lb *SLoadbalancer, lbbgs []cloudprovider.ICloudLoadbalancerBackendGroup, syncRange *SSyncRange) ([]SLoadbalancerBackendGroup, []cloudprovider.ICloudLoadbalancerBackendGroup, compare.SyncResult) {
 	localLbgs := []SLoadbalancerBackendGroup{}
-	remoteLbbgs := []cloudprovider.ICloudLoadbalancerBackendgroup{}
+	remoteLbbgs := []cloudprovider.ICloudLoadbalancerBackendGroup{}
 	syncResult := compare.SyncResult{}
 
 	dbLbbgs, err := man.getLoadbalancerBackendgroupsByLoadbalancer(lb)
@@ -165,8 +165,8 @@ func (man *SLoadbalancerBackendGroupManager) SyncLoadbalancerBackendgroups(ctx c
 
 	removed := []SLoadbalancerBackendGroup{}
 	commondb := []SLoadbalancerBackendGroup{}
-	commonext := []cloudprovider.ICloudLoadbalancerBackendgroup{}
-	added := []cloudprovider.ICloudLoadbalancerBackendgroup{}
+	commonext := []cloudprovider.ICloudLoadbalancerBackendGroup{}
+	added := []cloudprovider.ICloudLoadbalancerBackendGroup{}
 
 	err = compare.CompareSets(dbLbbgs, lbbgs, &removed, &commondb, &commonext, &added)
 	if err != nil {
@@ -193,7 +193,7 @@ func (man *SLoadbalancerBackendGroupManager) SyncLoadbalancerBackendgroups(ctx c
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancerBackendgroup(ctx, userCred, commonext[i], provider.ProjectId, syncRange.ProjectSync)
+		err = commondb[i].SyncWithCloudLoadbalancerBackendgroup(ctx, userCred, lb, commonext[i], provider.ProjectId, syncRange.ProjectSync)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -215,12 +215,27 @@ func (man *SLoadbalancerBackendGroupManager) SyncLoadbalancerBackendgroups(ctx c
 	return localLbgs, remoteLbbgs, syncResult
 }
 
-func (lbbg *SLoadbalancerBackendGroup) SyncWithCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, extLbbg cloudprovider.ICloudLoadbalancerBackendgroup, projectId string, projectSync bool) error {
-	_, err := LoadbalancerBackendGroupManager.TableSpec().Update(lbbg, func() error {
-		lbbg.Name = extLbbg.GetName()
+func (lbbg *SLoadbalancerBackendGroup) constructFieldsFromCloudBackendgroup(lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup) {
+	lbbg.Name = extLoadbalancerBackendgroup.GetName()
+	lbbg.Type = extLoadbalancerBackendgroup.GetType()
+}
 
+func (lbbg *SLoadbalancerBackendGroup) SyncWithCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup, projectId string, projectSync bool) error {
+	_, err := lbbg.GetModelManager().TableSpec().Update(lbbg, func() error {
+
+		lbbg.constructFieldsFromCloudBackendgroup(lb, extLoadbalancerBackendgroup)
 		if projectSync && len(projectId) > 0 {
 			lbbg.ProjectId = projectId
+		}
+
+		if extLoadbalancerBackendgroup.IsDefault() {
+			_, err := lb.GetModelManager().TableSpec().Update(lb, func() error {
+				lb.BackendGroupId = lbbg.Id
+				return nil
+			})
+			if err != nil {
+				log.Errorf("failed to set backendgroup id for lb %s error: %v", lb.Name, err)
+			}
 		}
 
 		return nil
@@ -228,16 +243,52 @@ func (lbbg *SLoadbalancerBackendGroup) SyncWithCloudLoadbalancerBackendgroup(ctx
 	return err
 }
 
-func (man *SLoadbalancerBackendGroupManager) newFromCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLbbg cloudprovider.ICloudLoadbalancerBackendgroup, projectId string) (*SLoadbalancerBackendGroup, error) {
-	lbbg := SLoadbalancerBackendGroup{}
+func (man *SLoadbalancerBackendGroupManager) newFromCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup, projectId string) (*SLoadbalancerBackendGroup, error) {
+	lbbg := &SLoadbalancerBackendGroup{}
 	lbbg.SetModelManager(man)
 
 	lbbg.LoadbalancerId = lb.Id
-	lbbg.Name = extLbbg.GetName()
-	lbbg.ExternalId = extLbbg.GetGlobalId()
+	lbbg.ExternalId = extLoadbalancerBackendgroup.GetGlobalId()
+
+	lbbg.constructFieldsFromCloudBackendgroup(lb, extLoadbalancerBackendgroup)
+
 	lbbg.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		lbbg.ProjectId = projectId
 	}
-	return &lbbg, man.TableSpec().Insert(&lbbg)
+	err := man.TableSpec().Insert(lbbg)
+	if err != nil {
+		return nil, err
+	}
+
+	if extLoadbalancerBackendgroup.IsDefault() {
+		_, err := lb.GetModelManager().TableSpec().Update(lb, func() error {
+			lb.BackendGroupId = lbbg.Id
+			return nil
+		})
+		if err != nil {
+			log.Errorf("failed to set backendgroup id for lb %s error: %v", lb.Name, err)
+		}
+	}
+	return lbbg, nil
+}
+
+func (man *SLoadbalancerBackendGroupManager) InitializeData() error {
+	backendgroups := []SLoadbalancerBackendGroup{}
+	q := man.Query()
+	q = q.Filter(sqlchemy.IsNullOrEmpty(q.Field("type")))
+	if err := db.FetchModelObjects(man, q, &backendgroups); err != nil {
+		log.Errorf("failed fetching backendgroups with empty type error: %v", err)
+		return err
+	}
+	for i := 0; i < len(backendgroups); i++ {
+		_, err := man.TableSpec().Update(&backendgroups[i], func() error {
+			backendgroups[i].Type = LB_BACKENDGROUP_TYPE_NORMAL
+			return nil
+		})
+		if err != nil {
+			log.Errorf("failed setting backendgroup %s(%s) type error: %v", backendgroups[i].Name, backendgroups[i].Id, err)
+		}
+	}
+	return nil
 }

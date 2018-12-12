@@ -67,15 +67,3 @@ func (cli *SESXiClient) GetIStorageById(id string) (cloudprovider.ICloudStorage,
 func (cli *SESXiClient) GetProvider() string {
 	return models.CLOUD_PROVIDER_VMWARE
 }
-
-func (cli *SESXiClient) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
-	return nil, cloudprovider.ErrNotSupported
-}
-
-func (region *SESXiClient) GetILoadbalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
-	return nil, cloudprovider.ErrNotSupported
-}
-
-func (region *SESXiClient) GetILoadbalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
-	return nil, cloudprovider.ErrNotSupported
-}

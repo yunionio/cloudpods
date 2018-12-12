@@ -1,6 +1,11 @@
 package aliyun
 
-import "yunion.io/x/jsonutils"
+import (
+	"fmt"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+)
 
 type SLoadbalancerUDPListener struct {
 	lb *SLoadbalancer
@@ -28,11 +33,11 @@ type SLoadbalancerUDPListener struct {
 }
 
 func (listener *SLoadbalancerUDPListener) GetName() string {
-	return ""
+	return fmt.Sprintf("UDP:%d", listener.ListenerPort)
 }
 
 func (listerner *SLoadbalancerUDPListener) GetId() string {
-	return ""
+	return fmt.Sprintf("%s/%d", listerner.lb.LoadBalancerId, listerner.ListenerPort)
 }
 
 func (listerner *SLoadbalancerUDPListener) GetGlobalId() string {
@@ -40,7 +45,7 @@ func (listerner *SLoadbalancerUDPListener) GetGlobalId() string {
 }
 
 func (listerner *SLoadbalancerUDPListener) GetStatus() string {
-	return ""
+	return listerner.Status
 }
 
 func (listerner *SLoadbalancerUDPListener) GetMetadata() *jsonutils.JSONDict {
@@ -55,11 +60,126 @@ func (listerner *SLoadbalancerUDPListener) Refresh() error {
 	return nil
 }
 
-func (region *SRegion) GetLoadbalancerUDPListener(loadbalancerId string, listenerPort string) (*SLoadbalancerUDPListener, error) {
+func (listerner *SLoadbalancerUDPListener) GetListenerType() string {
+	return "udp"
+}
+
+func (listerner *SLoadbalancerUDPListener) GetListenerPort() int {
+	return listerner.ListenerPort
+}
+
+func (listerner *SLoadbalancerUDPListener) GetBackendGroupId() string {
+	if len(listerner.VServerGroupId) > 0 {
+		return listerner.VServerGroupId
+	}
+	return listerner.MaterSlaveServerGroupId
+}
+
+func (listerner *SLoadbalancerUDPListener) GetScheduler() string {
+	return listerner.Scheduler
+}
+
+func (listerner *SLoadbalancerUDPListener) GetAclStatus() string {
+	return listerner.AclStatus
+}
+
+func (listerner *SLoadbalancerUDPListener) GetAclType() string {
+	return listerner.AclType
+}
+
+func (listerner *SLoadbalancerUDPListener) GetAclId() string {
+	return listerner.AclId
+}
+
+func (listerner *SLoadbalancerUDPListener) GetHealthCheck() string {
+	return listerner.HealthCheck
+}
+
+func (listerner *SLoadbalancerUDPListener) GetHealthCheckType() string {
+	return ""
+}
+
+func (listerner *SLoadbalancerUDPListener) GetHealthCheckDomain() string {
+	return ""
+}
+
+func (listerner *SLoadbalancerUDPListener) GetHealthCheckURI() string {
+	return ""
+}
+
+func (listerner *SLoadbalancerUDPListener) GetHealthCheckCode() string {
+	return ""
+}
+
+func (listerner *SLoadbalancerUDPListener) GetHealthCheckRise() int {
+	return listerner.HealthyThreshold
+}
+
+func (listerner *SLoadbalancerUDPListener) GetHealthCheckFail() int {
+	return listerner.UnhealthyThreshold
+}
+
+func (listerner *SLoadbalancerUDPListener) GetHealthCheckTimeout() int {
+	return listerner.HealthCheckConnectTimeout
+}
+
+func (listerner *SLoadbalancerUDPListener) GetHealthCheckInterval() int {
+	return listerner.HealthCheckInterval
+}
+
+func (listerner *SLoadbalancerUDPListener) GetHealthCheckReq() string {
+	return ""
+}
+
+func (listerner *SLoadbalancerUDPListener) GetHealthCheckExp() string {
+	return ""
+}
+
+func (listerner *SLoadbalancerUDPListener) GetStickySession() string {
+	return ""
+}
+
+func (listerner *SLoadbalancerUDPListener) GetStickySessionType() string {
+	return ""
+}
+
+func (listerner *SLoadbalancerUDPListener) GetStickySessionCookie() string {
+	return ""
+}
+
+func (listerner *SLoadbalancerUDPListener) GetStickySessionCookieTimeout() int {
+	return 0
+}
+
+func (listerner *SLoadbalancerUDPListener) XForwardedForEnabled() bool {
+	return false
+}
+
+func (listerner *SLoadbalancerUDPListener) GzipEnabled() bool {
+	return false
+}
+
+func (listerner *SLoadbalancerUDPListener) GetCertificateId() string {
+	return ""
+}
+
+func (listerner *SLoadbalancerUDPListener) GetTLSCipherPolicy() string {
+	return ""
+}
+
+func (listerner *SLoadbalancerUDPListener) HTTP2Enabled() bool {
+	return false
+}
+
+func (listerner *SLoadbalancerUDPListener) GetILoadbalancerListenerRules() ([]cloudprovider.ICloudLoadbalancerListenerRule, error) {
+	return []cloudprovider.ICloudLoadbalancerListenerRule{}, nil
+}
+
+func (region *SRegion) GetLoadbalancerUDPListener(loadbalancerId string, listenerPort int) (*SLoadbalancerUDPListener, error) {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
 	params["LoadBalancerId"] = loadbalancerId
-	params["ListenerPort"] = listenerPort
+	params["ListenerPort"] = fmt.Sprintf("%d", listenerPort)
 	body, err := region.lbRequest("DescribeLoadBalancerUDPListenerAttribute", params)
 	if err != nil {
 		return nil, err
