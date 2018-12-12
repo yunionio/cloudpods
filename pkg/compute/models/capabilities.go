@@ -11,9 +11,9 @@ import (
 )
 
 type SCapabilities struct {
-	Hypervisors        []string
-	StorageTypes       []string
-	GPUModels          []string
+	Hypervisors        []string     `json:",allowempty"`
+	StorageTypes       []string		`json:",allowempty"`
+	GPUModels          []string		`json:",allowempty"`
 	MinNicCount        int
 	MaxNicCount        int
 	MinDataDiskCount   int
