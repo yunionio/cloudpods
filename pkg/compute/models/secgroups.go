@@ -228,7 +228,12 @@ func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCr
 	return nil
 }
 
-func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup, vpc *SVpc, projectId string) (*SSecurityGroup, error) {
+func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup, vpc *SVpc, projectId string) (*SSecurityGroup, bool, error) {
+	if secgroup, exist := SecurityGroupCacheManager.CheckExist(context.Background(), userCred, extSec.GetGlobalId(), extSec.GetVpcId(), vpc.CloudregionId, vpc.ManagerId); exist {
+		//避免重复同步
+		return secgroup, true, nil
+	}
+
 	secgroup := SSecurityGroup{}
 	secgroup.SetModelManager(manager)
 	secgroup.Name = extSec.GetName()
@@ -240,7 +245,7 @@ func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCre
 	}
 
 	if err := manager.TableSpec().Insert(&secgroup); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	if secgroupcache := SecurityGroupCacheManager.Register(context.Background(), userCred, secgroup.Id, extSec.GetVpcId(), vpc.CloudregionId, vpc.ManagerId); secgroupcache != nil {
@@ -249,7 +254,7 @@ func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCre
 		}
 	}
 
-	return &secgroup, nil
+	return &secgroup, false, nil
 }
 
 func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCred mcclient.TokenCredential, secgroups []cloudprovider.ICloudSecurityGroup, vpc *SVpc, projectId string, projectSync bool) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
@@ -293,9 +298,12 @@ func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCre
 			syncResult.AddError(err)
 			continue
 		}
-		new, err := manager.newFromCloudVpc(userCred, added[i], vpc, projectId)
+		new, exist, err := manager.newFromCloudVpc(userCred, added[i], vpc, projectId)
 		if err != nil {
 			syncResult.AddError(err)
+			continue
+		}
+		if exist {
 			continue
 		}
 		localSecgroups = append(localSecgroups, *new)
