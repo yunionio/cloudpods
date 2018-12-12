@@ -126,6 +126,7 @@ type RouteTableDeleteOptions struct {
 }
 
 type RouteTableListOptions struct {
+	Manager     string
 	Vpc         string
 	Cloudregion string
 
