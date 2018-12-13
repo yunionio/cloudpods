@@ -101,30 +101,26 @@ func (self *SDatastore) IsEmulated() bool {
 
 func (self *SDatastore) getVolumeId() (string, error) {
 	moStore := self.getDatastore()
-	vmfsInfo, ok := moStore.Info.(*types.VmfsDatastoreInfo)
-	if ok {
-		if vmfsInfo.Vmfs.Local != nil && *vmfsInfo.Vmfs.Local {
+	switch fsInfo := moStore.Info.(type) {
+	case *types.VmfsDatastoreInfo:
+		if fsInfo.Vmfs.Local == nil || *fsInfo.Vmfs.Local {
 			host, err := self.getLocalHost()
 			if err != nil {
 				return "", err
 			}
-			return fmt.Sprintf("%s:%s", host.GetAccessIp(), vmfsInfo.Vmfs.Uuid), nil
+			return fmt.Sprintf("%s:%s", host.GetAccessIp(), fsInfo.Vmfs.Uuid), nil
 		} else {
-			return vmfsInfo.Vmfs.Uuid, nil
+			return fsInfo.Vmfs.Uuid, nil
 		}
-	}
-	nasInfo, ok := moStore.Info.(*types.NasDatastoreInfo)
-	if ok {
-		return fmt.Sprintf("%s:%s", nasInfo.Nas.RemoteHost, nasInfo.Nas.RemotePath), nil
+	case *types.NasDatastoreInfo:
+		return fmt.Sprintf("%s:%s", fsInfo.Nas.RemoteHost, fsInfo.Nas.RemotePath), nil
 	}
 	if moStore.Summary.Type == "vsan" {
 		vsanId := moStore.Summary.Url
 		vsanId = vsanId[strings.Index(vsanId, "vsan:"):]
-
 		endIdx := len(vsanId)
-		for ; vsanId[endIdx-1] == '/'; endIdx -= 1 {
+		for ; endIdx >= 0 && vsanId[endIdx-1] == '/'; endIdx -= 1 {
 		}
-
 		return vsanId[:endIdx], nil
 	}
 	log.Fatalf("unsupported volume type %#v", moStore.Info)
@@ -273,23 +269,25 @@ func (self *SDatastore) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 
 func (self *SDatastore) isLocalVMFS() bool {
 	moStore := self.getDatastore()
-	vmfsInfo, ok := moStore.Info.(*types.VmfsDatastoreInfo)
-	if ok && vmfsInfo.Vmfs.Local != nil && *vmfsInfo.Vmfs.Local {
-		return true
+	switch vmfsInfo := moStore.Info.(type) {
+	case *types.VmfsDatastoreInfo:
+		if vmfsInfo.Vmfs.Local == nil || *vmfsInfo.Vmfs.Local == true {
+			return true
+		}
 	}
 	return false
 }
 
 func (self *SDatastore) GetStorageType() string {
 	moStore := self.getDatastore()
-	switch moStore.Summary.Type {
-	case "VMFS":
+	switch strings.ToLower(moStore.Summary.Type) {
+	case "vmfs":
 		if self.isLocalVMFS() {
 			return models.STORAGE_LOCAL
 		} else {
 			return models.STORAGE_NAS
 		}
-	case "NFS", "NFS41", "CIFS", "vsan":
+	case "nfs", "nfs41", "cifs", "vsan":
 		return models.STORAGE_NAS
 	default:
 		log.Fatalf("unsupported datastore type %s", moStore.Summary.Type)
