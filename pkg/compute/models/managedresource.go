@@ -6,6 +6,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"strings"
 )
 
 type SManagedResourceBase struct {
@@ -82,6 +83,15 @@ type SCloudProviderInfo struct {
 	ZoneExtId        string `json:",omitempty"`
 }
 
+func fetchExternalId(extId string) string {
+	pos := strings.LastIndexByte(extId, '/')
+	if pos > 0 {
+		return extId[pos+1:]
+	} else {
+		return extId
+	}
+}
+
 func MakeCloudProviderInfo(region *SCloudregion, zone *SZone, provider *SCloudprovider) SCloudProviderInfo {
 	info := SCloudProviderInfo{}
 
@@ -111,22 +121,12 @@ func MakeCloudProviderInfo(region *SCloudregion, zone *SZone, provider *SCloudpr
 		info.Account = account.GetName()
 		info.AccountId = account.GetId()
 
-		driver, err := provider.GetDriver()
+		info.Provider = provider.Provider
 
-		if err == nil {
-			info.Provider = driver.GetId()
-
-			if region != nil {
-				iregion, err := driver.GetIRegionById(region.ExternalId)
-				if err == nil {
-					info.RegionExtId = iregion.GetId()
-					if zone != nil {
-						izone, err := iregion.GetIZoneById(zone.ExternalId)
-						if err == nil {
-							info.ZoneExtId = izone.GetId()
-						}
-					}
-				}
+		if region != nil {
+			info.RegionExtId = fetchExternalId(region.ExternalId)
+			if zone != nil {
+				info.ZoneExtId = fetchExternalId(zone.ExternalId)
 			}
 		}
 	}
