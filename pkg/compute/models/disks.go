@@ -537,7 +537,7 @@ func (self *SDisk) GetDetailsConvertSnapshot(ctx context.Context, userCred mccli
 // On disk reset, auto delete snapshots after the reset snapshot(reserve manualed snapshot)
 func (self *SDisk) CleanUpDiskSnapshots(ctx context.Context, userCred mcclient.TokenCredential, snapshot *SSnapshot) error {
 	dest := make([]SSnapshot, 0)
-	query := SnapshotManager.TableSpec().Query()
+	query := SnapshotManager.Query()
 	query.Filter(sqlchemy.Equals(query.Field("disk_id"), self.Id)).
 		GT("created_at", snapshot.CreatedAt).Asc("created_at").All(&dest)
 	if len(dest) == 0 {

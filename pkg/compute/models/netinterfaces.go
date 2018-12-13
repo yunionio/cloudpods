@@ -50,7 +50,7 @@ func (manager *SNetInterfaceManager) FetchByMac(mac string) (*SNetInterface, err
 	if err != nil {
 		return nil, err
 	}
-	err = manager.TableSpec().Query().Equals("mac", mac).First(netif)
+	err = manager.Query().Equals("mac", mac).First(netif)
 	if err != nil {
 		return nil, err
 	}
