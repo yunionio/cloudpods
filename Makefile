@@ -32,6 +32,16 @@ GO_TEST := go test
 
 PKGS := go list ./...
 
+CGO_CFLAGS_ENV = $(shell go env CGO_CFLAGS)
+CGO_LDFLAGS_ENV = $(shell go env CGO_LDFLAGS)
+
+ifdef LIBQEMUIO_PATH
+    X_CGO_CFLAGS := ${CGO_CFLAGS_ENV} -I${LIBQEMUIO_PATH}/src -I${LIBQEMUIO_PATH}/src/include
+    X_CGO_LDFLAGS := ${CGO_LDFLAGS_ENV} -laio -lqemuio -lpthread  -L ${LIBQEMUIO_PATH}/src
+endif
+
+export CGO_CFLAGS = ${X_CGO_CFLAGS}
+export CGO_LDFLAGS = ${X_CGO_LDFLAGS}
 
 all: build
 
@@ -44,7 +54,7 @@ install: prepare_dir
 
 
 build: gendoc
-	$(MAKE) $(wildcard cmd/*)
+	$(MAKE) $(filter-out cmd/host-image, $(wildcard cmd/*))
 
 gendoc:
 	@sh build/gendoc.sh
