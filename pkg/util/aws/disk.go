@@ -1,15 +1,17 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 
-	"context"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/coredns/coredns/plugin/pkg/log"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -296,7 +298,7 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 			if len(disk.InstanceId) > 0 {
 				instance, err := self.GetInstance(disk.InstanceId)
 				if err != nil {
-					log.Debug(err)
+					log.Debugf("%s", err)
 					return nil, 0, err
 				}
 

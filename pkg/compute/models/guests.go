@@ -399,6 +399,37 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("host_id", sq)
 	}
 
+	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
+	if len(accountStr) > 0 {
+		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		hosts := HostManager.Query().SubQuery()
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+
+		subq := hosts.Query(hosts.Field("id"))
+		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), hosts.Field("manager_id")))
+		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), account.GetId()))
+
+		q = q.Filter(sqlchemy.In(q.Field("host_id"), subq.SubQuery()))
+	}
+
+	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
+	if len(providerStr) > 0 {
+		hosts := HostManager.Query().SubQuery()
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+
+		subq := hosts.Query(hosts.Field("id"))
+		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), hosts.Field("manager_id")))
+		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr))
+
+		q = q.Filter(sqlchemy.In(q.Field("host_id"), subq.SubQuery()))
+	}
+
 	regionFilter, _ := queryDict.GetString("region")
 	if len(regionFilter) > 0 {
 		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionFilter)
@@ -481,14 +512,22 @@ func (guest *SGuest) GetDriver() IGuestDriver {
 	return GetDriver(hypervisor)
 }
 
-func (guest *SGuest) ValidateDeleteCondition(ctx context.Context) error {
+func (guest *SGuest) validateDeleteCondition(ctx context.Context, isPurge bool) error {
 	if guest.DisableDelete.IsTrue() {
 		return httperrors.NewInvalidStatusError("Virtual server is locked, cannot delete")
 	}
-	if guest.IsValidPrePaid() {
+	if !isPurge && guest.IsValidPrePaid() {
 		return httperrors.NewForbiddenError("not allow to delete prepaid server in valid status")
 	}
 	return guest.SVirtualResourceBase.ValidateDeleteCondition(ctx)
+}
+
+func (guest *SGuest) ValidatePurgeCondition(ctx context.Context) error {
+	return guest.validateDeleteCondition(ctx, true)
+}
+
+func (guest *SGuest) ValidateDeleteCondition(ctx context.Context) error {
+	return guest.validateDeleteCondition(ctx, false)
 }
 
 func (guest *SGuest) GetDisksQuery() *sqlchemy.SQuery {
@@ -689,6 +728,9 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
 		}
+		if len(diskConfig.SnapshotId) > 0 && diskConfig.DiskType != DISK_TYPE_SYS {
+			return nil, httperrors.NewBadRequestError("Snapshot error: disk index 0 but disk type is %s", diskConfig.DiskType)
+		}
 
 		if len(diskConfig.Backend) == 0 {
 			diskConfig.Backend = STORAGE_LOCAL
@@ -776,6 +818,9 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			diskConfig, err := parseDiskInfo(ctx, userCred, jsonutils.NewString(dataDiskDefs[i]))
 			if err != nil {
 				return nil, httperrors.NewInputParameterError("parse disk description error %s", err)
+			}
+			if diskConfig.DiskType == DISK_TYPE_SYS {
+				return nil, httperrors.NewBadRequestError("Snapshot error: disk index %d > 0 but disk type is %s", i+1, DISK_TYPE_SYS)
 			}
 			if len(diskConfig.Backend) == 0 {
 				diskConfig.Backend = rootStorageType
@@ -1113,7 +1158,7 @@ func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	zone := self.getZone()
+	/*zone := self.getZone()
 	if zone != nil {
 		extra.Add(jsonutils.NewString(zone.GetId()), "zone_id")
 		extra.Add(jsonutils.NewString(zone.GetName()), "zone")
@@ -1139,6 +1184,12 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 				extra.Add(jsonutils.NewString(provider.GetName()), "manager")
 			}
 		}
+	}*/
+
+	host := self.GetHost()
+	if host != nil {
+		info := host.getCloudProviderInfo()
+		extra.Update(jsonutils.Marshal(&info))
 	}
 
 	err := self.CanPerformPrepaidRecycle()
@@ -2344,6 +2395,9 @@ func (self *SGuest) CreateDisksOnHost(ctx context.Context, userCred mcclient.Tok
 			return err
 		}
 		data.Add(jsonutils.NewString(disk.Id), fmt.Sprintf("disk.%d.id", idx))
+		if len(diskConfig.SnapshotId) > 0 {
+			data.Add(jsonutils.NewString(diskConfig.SnapshotId), fmt.Sprintf("disk.%d.snapshot", idx))
+		}
 	}
 	return nil
 }
@@ -3171,14 +3225,14 @@ func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
 	var billingInfo SCloudBillingInfo
 
 	if host != nil {
-		billingInfo = host.getCloudBillingInfo()
+		billingInfo.SCloudProviderInfo = host.getCloudProviderInfo()
 	}
 
 	if priceKey := self.GetMetadata("price_key", nil); len(priceKey) > 0 {
 		billingInfo.PriceKey = priceKey
 	}
 
-	self.FetchCloudBillingInfo(&billingInfo)
+	billingInfo.SBillingBaseInfo = self.getBillingBaseInfo()
 
 	desc.Update(jsonutils.Marshal(billingInfo))
 

@@ -7,6 +7,7 @@ import (
 
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
@@ -14,6 +15,7 @@ import (
 
 type NetworkPredicate struct {
 	BasePredicate
+	plugin.BasePlugin
 	SelectedNetworks sync.Map
 }
 
@@ -140,12 +142,4 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	}
 
 	return h.GetResult()
-}
-
-func (p *NetworkPredicate) OnSelect(u *core.Unit, c core.Candidater) bool {
-	u.SetFiltedData(c.IndexKey(), "networks", &p.SelectedNetworks)
-	return true
-}
-
-func (p *NetworkPredicate) OnSelectEnd(u *core.Unit, c core.Candidater, count int64) {
 }

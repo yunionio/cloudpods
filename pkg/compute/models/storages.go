@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"path"
 	"strings"
@@ -446,11 +447,20 @@ func (self *SStorage) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSOND
 		extra.Add(jsonutils.NewFloat(0.0), "commit_rate")
 	}
 	extra.Add(jsonutils.NewFloat(float64(self.GetOvercommitBound())), "commit_bound")
+
+	info := self.getCloudProviderInfo()
+	extra.Update(jsonutils.Marshal(&info))
+
 	return extra
 }
 
 func (self *SStorage) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	return self.getMoreDetails(extra)
+}
+
+func (self *SStorage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
 	return self.getMoreDetails(extra)
 }
 
@@ -736,6 +746,7 @@ func (manager *SStorageManager) newFromCloudStorage(extStorage cloudprovider.ICl
 	storage.MediumType = extStorage.GetMediumType()
 	storage.StorageConf = extStorage.GetStorageConf()
 	storage.Capacity = extStorage.GetCapacityMB()
+	storage.Cmtbound = 1.0
 
 	storage.Enabled = extStorage.GetEnabled()
 
@@ -1112,13 +1123,35 @@ func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 			Filter(sqlchemy.IsTrue(q.Field("enabled")))
 	}
 
-	managerStr := jsonutils.GetAnyString(query, []string{"manager", "provider", "manager_id", "provider_id"})
+	managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
 	if len(managerStr) > 0 {
-		provider := CloudproviderManager.FetchCloudproviderByIdOrName(managerStr)
-		if provider == nil {
-			return nil, httperrors.NewResourceNotFoundError("provider %s not found", managerStr)
+		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
 		}
 		q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), provider.GetId()))
+	}
+
+	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
+	if len(accountStr) > 0 {
+		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", account.GetId()).SubQuery()
+		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+	}
+
+	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
+	if len(providerStr) > 0 {
+		subq := CloudproviderManager.Query("id").Equals("provider", providerStr).SubQuery()
+		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
 	}
 
 	return q, err
@@ -1141,17 +1174,17 @@ func (self *SStorage) ClearSchedDescCache() error {
 	return nil
 }
 
-func (self *SStorage) getCloudBillingInfo() SCloudBillingInfo {
+func (self *SStorage) getCloudProviderInfo() SCloudProviderInfo {
 	var region *SCloudregion
 	zone := self.getZone()
 	if zone != nil {
 		region = zone.GetRegion()
 	}
 	provider := self.GetCloudprovider()
-	return MakeCloudBillingInfo(region, zone, provider)
+	return MakeCloudProviderInfo(region, zone, provider)
 }
 
 func (self *SStorage) GetShortDesc() *jsonutils.JSONDict {
-	info := self.getCloudBillingInfo()
+	info := self.getCloudProviderInfo()
 	return jsonutils.Marshal(&info).(*jsonutils.JSONDict)
 }

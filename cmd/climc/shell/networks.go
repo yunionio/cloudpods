@@ -18,6 +18,10 @@ func init() {
 		Vpc        string `help:"search networks belongs to a VPC"`
 		Region     string `help:"search networks belongs to a CloudRegion"`
 		ServerType string `help:"search networks belongs to a ServerType"`
+
+		Manager  string `help:"List networks belongs to the cloud provider"`
+		Account  string `help:"List networks belongs to the cloud account"`
+		Provider string `help:"List networks belongs to the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei"`
 	}
 	R(&NetworkListOptions{}, "network-list", "List networks", func(s *mcclient.ClientSession, args *NetworkListOptions) error {
 		var params *jsonutils.JSONDict
@@ -43,6 +47,15 @@ func init() {
 		}
 		if len(args.ServerType) > 0 {
 			params.Add(jsonutils.NewString(args.ServerType), "server_type")
+		}
+		if len(args.Manager) > 0 {
+			params.Add(jsonutils.NewString(args.Manager), "manager")
+		}
+		if len(args.Account) > 0 {
+			params.Add(jsonutils.NewString(args.Account), "account")
+		}
+		if len(args.Provider) > 0 {
+			params.Add(jsonutils.NewString(args.Provider), "provider")
 		}
 		var result *modules.ListResult
 		var err error

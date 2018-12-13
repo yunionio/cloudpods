@@ -19,10 +19,13 @@ type ServerListOptions struct {
 	Secgroup      string `help:"Secgroup ID or Name"`
 	AdminSecgroup string `help:"AdminSecgroup ID or Name"`
 	Hypervisor    string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun|azure|aws"`
-	Manager       string `help:"Show servers imported from manager"`
 	Region        string `help:"Show servers in cloudregion"`
 	WithEip       *bool  `help:"Show Servers with EIP"`
 	WithoutEip    *bool  `help:"Show Servers without EIP"`
+
+	Manager  string `help:"Show servers imported from manager"`
+	Account  string `help:"List hosts belongs to the cloud account"`
+	Provider string `help:"List hosts belongs to the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei"`
 
 	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 
@@ -261,6 +264,11 @@ func (opts *ServerDeployOptions) Params() (*jsonutils.JSONDict, error) {
 type ServerSecGroupOptions struct {
 	ID     string `help:"ID or Name of server" metavar:"Guest" json:"-"`
 	Secgrp string `help:"ID of Security Group" metavar:"Security Group" positional:"true"`
+}
+
+type ServerSecGroupsOptions struct {
+	ID      string   `help:"ID or Name of server" metavar:"Guest" json:"-"`
+	Secgrps []string `help:"Ids of Security Groups" metavar:"Security Groups" positional:"true"`
 }
 
 type ServerSendKeyOptions struct {

@@ -3,13 +3,14 @@ package cloudinit
 import (
 	"bytes"
 	"encoding/base64"
-
 	"fmt"
 	"strings"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 /*

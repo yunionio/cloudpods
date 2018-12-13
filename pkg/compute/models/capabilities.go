@@ -132,11 +132,7 @@ func getNetworkCount(zone *SZone) int {
 }
 
 func isSchedPolicySupported(zone *SZone) bool {
-	if zone != nil {
-		return !zone.isManaged()
-	} else {
-		return true
-	}
+	return true
 }
 
 func getMinNicCount(zone *SZone) int {

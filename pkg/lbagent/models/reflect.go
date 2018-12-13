@@ -88,7 +88,10 @@ func GetModels(opts *GetModelsOptions) error {
 	listOptions := options.BaseListOptions{
 		Admin:   options.Bool(true),
 		Details: options.Bool(true),
-		Filter:  []string{minUpdatedAtFilter(minUpdatedAt)},
+		Filter: []string{
+			minUpdatedAtFilter(minUpdatedAt), // order matters, filter.0
+			"isempty(manager_id)",            // len(manager_id) > 0 is for pubcloud objects
+		},
 		OrderBy: []string{"updated_at", "id"},
 		Order:   "asc",
 		Limit:   options.Int(opts.BatchListSize),

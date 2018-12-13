@@ -5,12 +5,14 @@ import (
 	"strings"
 	"sync"
 
+	"yunion.io/x/pkg/util/sets"
+	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	networks "yunion.io/x/onecloud/pkg/scheduler/db/models"
-	"yunion.io/x/pkg/util/sets"
-	"yunion.io/x/pkg/utils"
 )
 
 // NetworkPredicate will filter the current network information with
@@ -18,6 +20,7 @@ import (
 // randomly match the available network resources.
 type NetworkPredicate struct {
 	predicates.BasePredicate
+	plugin.BasePlugin
 	SelectedNetworks sync.Map
 }
 
@@ -105,10 +108,6 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 				p.SelectedNetworks.Store(n.ID, counter.GetCount())
 				counters.Add(counter)
 				found = true
-
-				if counters.GetCount() >= d.Count {
-					break
-				}
 			} else {
 				fullErrMsgs = append(fullErrMsgs,
 					fmt.Sprintf("%s: %s", n.ID, strings.Join(errMsgs, ",")),
@@ -201,12 +200,4 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	}
 
 	return h.GetResult()
-}
-
-func (p *NetworkPredicate) OnSelect(u *core.Unit, c core.Candidater) bool {
-	u.SetFiltedData(c.IndexKey(), "networks", &p.SelectedNetworks)
-	return true
-}
-
-func (p *NetworkPredicate) OnSelectEnd(u *core.Unit, c core.Candidater, count int64) {
 }
