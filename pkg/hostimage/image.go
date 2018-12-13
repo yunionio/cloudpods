@@ -2,8 +2,6 @@ package hostimage
 
 /*
 #cgo pkg-config: glib-2.0 zlib
-#cgo CFLAGS: -I/home/yunion/rpmbuild/SOURCES/qemu/src -I/home/yunion/rpmbuild/SOURCES/qemu/src/include
-#cgo LDFLAGS: -laio -lqemuio -lpthread  -L /home/yunion/rpmbuild/SOURCES/qemu/src
 
 #include "libqemuio.h"
 #include "qemu/osdep.h"
