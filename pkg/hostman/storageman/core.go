@@ -1,10 +1,12 @@
 package storageman
 
 import (
+	"fmt"
 	"path"
 	"sync"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 )
 
@@ -63,8 +65,15 @@ func (d *SBaseDisk) DeployGuestFs(
 	deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error) {
 	// TODO
 	var kvmDisk = NewKVMGuestDisk(d.getPath())
-	defer kvmDisk.Disconnect()
-	kvmDisk.Connect()
+	if kvmDisk.Connect() {
+		defer kvmDisk.Disconnect()
+		log.Infof("Kvm Disk Connect Success !!")
+		if part := kvmDisk.Mount(); part != nil {
+			defer kvmDisk.Umount(part)
+			return part.DeployGuestFs(guestdesc, deployInfo)
+		}
+	}
+	return nil, fmt.Errorf("Kvm disk connect or mount error")
 }
 
 func NewBaseDisk(storage IStorage, id string) *SBaseDisk {
