@@ -11,37 +11,17 @@ func init() {
 	type VpcListOptions struct {
 		options.BaseListOptions
 
-		Region string `help:"ID or Name of region"`
-
-		Manager  string `help:"List vpcs belongs to the cloud provider"`
-		Account  string `help:"List vpcs belongs to the cloud account"`
-		Provider string `help:"List vpcs belongs to the public cloud" choices:"Aliyun|Qcloud|Azure|Aws|Huawei"`
+		Region string `help:"ID or Name of region" json:"-"`
 	}
-	R(&VpcListOptions{}, "vpc-list", "List VPCs", func(s *mcclient.ClientSession, args *VpcListOptions) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = args.BaseListOptions.Params()
-			if err != nil {
-				return err
-
-			}
-		}
-
-		if len(args.Manager) > 0 {
-			params.Add(jsonutils.NewString(args.Manager), "manager")
-		}
-		if len(args.Account) > 0 {
-			params.Add(jsonutils.NewString(args.Account), "account")
-		}
-		if len(args.Provider) > 0 {
-			params.Add(jsonutils.NewString(args.Provider), "provider")
+	R(&VpcListOptions{}, "vpc-list", "List VPCs", func(s *mcclient.ClientSession, opts *VpcListOptions) error {
+		params, err := options.ListStructToParams(opts)
+		if err != nil {
+			return err
 		}
 
 		var result *modules.ListResult
-		var err error
-		if len(args.Region) > 0 {
-			result, err = modules.Vpcs.ListInContext(s, params, &modules.Cloudregions, args.Region)
+		if len(opts.Region) > 0 {
+			result, err = modules.Vpcs.ListInContext(s, params, &modules.Cloudregions, opts.Region)
 		} else {
 			result, err = modules.Vpcs.List(s, params)
 		}

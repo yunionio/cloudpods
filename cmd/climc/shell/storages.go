@@ -12,53 +12,20 @@ import (
 func init() {
 	type StorageListOptions struct {
 		options.BaseListOptions
-		Share  bool   `help:"Share storage list"`
-		Local  bool   `help:"Local storage list"`
-		Usable bool   `help:"Usable storage list"`
-		Zone   string `help:"List storages in zone"`
+		Share  *bool  `help:"Share storage list"`
+		Local  *bool  `help:"Local storage list"`
+		Usable *bool  `help:"Usable storage list"`
+		Zone   string `help:"List storages in zone" json:"-"`
 		Region string `help:"List storages in region"`
-
-		Manager  string `help:"List storages belongs to the cloud provider"`
-		Account  string `help:"List storages belongs to the cloud account"`
-		Provider string `help:"List storages belongs to the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei"`
 	}
-	R(&StorageListOptions{}, "storage-list", "List storages", func(s *mcclient.ClientSession, args *StorageListOptions) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = args.BaseListOptions.Params()
-			if err != nil {
-				return err
-
-			}
+	R(&StorageListOptions{}, "storage-list", "List storages", func(s *mcclient.ClientSession, opts *StorageListOptions) error {
+		params, err := options.ListStructToParams(opts)
+		if err != nil {
+			return err
 		}
-		if args.Share {
-			params.Add(jsonutils.JSONTrue, "share")
-		}
-		if args.Local {
-			params.Add(jsonutils.JSONTrue, "local")
-		}
-		if args.Usable {
-			params.Add(jsonutils.JSONTrue, "usable")
-		}
-		if len(args.Region) > 0 {
-			params.Add(jsonutils.NewString(args.Region), "region")
-		}
-
-		if len(args.Manager) > 0 {
-			params.Add(jsonutils.NewString(args.Manager), "manager")
-		}
-		if len(args.Account) > 0 {
-			params.Add(jsonutils.NewString(args.Account), "account")
-		}
-		if len(args.Provider) > 0 {
-			params.Add(jsonutils.NewString(args.Provider), "provider")
-		}
-
 		var result *modules.ListResult
-		var err error
-		if len(args.Zone) > 0 {
-			result, err = modules.Storages.ListInContext(s, params, &modules.Zones, args.Zone)
+		if len(opts.Zone) > 0 {
+			result, err = modules.Storages.ListInContext(s, params, &modules.Zones, opts.Zone)
 		} else {
 			result, err = modules.Storages.List(s, params)
 		}
