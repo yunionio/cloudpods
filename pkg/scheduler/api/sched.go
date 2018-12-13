@@ -452,7 +452,14 @@ func (d *SchedData) fillIsolatedDeviceInfo(sjson *simplejson.Json) error {
 		}
 		dev, err := newIsolatedDeviceFromDesc(s.MustString())
 		if err != nil {
-			return err
+			dev = new(IsolatedDevice)
+			dev.ID = s.Get("id").MustString()
+			dev.Model = s.Get("model").MustString()
+			dev.Vendor = s.Get("vendor").MustString()
+			dev.Type = s.Get("dev_type").MustString()
+			if len(dev.ID) == 0 && len(dev.Model) == 0 {
+				return fmt.Errorf("Invalid isolated device description")
+			}
 		}
 		devs = append(devs, dev)
 	}
