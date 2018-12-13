@@ -306,6 +306,7 @@ func (self *SkusZoneList) SyncToLocalDB() error {
 	return err
 }
 
+// 全量同步sku列表.
 func SyncSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	if isStart {
 		if models.ServerSkuManager.GetSkuCountByProvider("") > 0 {
@@ -322,6 +323,7 @@ func SyncSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bo
 	}
 }
 
+// 同步指定provider sku列表
 func SyncSkusByProviderIds(providerIds []string) error {
 	skus := SkusZoneList{}
 	log.Debugf("SyncSkusByProviderIds %s", providerIds)
@@ -334,4 +336,12 @@ func SyncSkusByProviderIds(providerIds []string) error {
 	}
 
 	return nil
+}
+
+// 伪删除无效的sku.只在启动进程时进行清理。
+func DeleteInvalidSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	if isStart {
+		log.Debugf("DeleteInvalidSkus in processing...")
+		models.ServerSkuManager.PendingDeleteInvalidSku()
+	}
 }
