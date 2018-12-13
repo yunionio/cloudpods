@@ -14,53 +14,19 @@ func init() {
 		options.BaseListOptions
 		Ip         string `help:"search networks that contain this IP"`
 		Zone       string `help:"search networks in a zone"`
-		Wire       string `help:"search networks belongs to a wire"`
+		Wire       string `help:"search networks belongs to a wire" json:"-"`
 		Vpc        string `help:"search networks belongs to a VPC"`
-		Region     string `help:"search networks belongs to a CloudRegion"`
+		Region     string `help:"search networks belongs to a CloudRegion" json:"cloudregion"`
 		ServerType string `help:"search networks belongs to a ServerType"`
-
-		Manager  string `help:"List networks belongs to the cloud provider"`
-		Account  string `help:"List networks belongs to the cloud account"`
-		Provider string `help:"List networks belongs to the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei"`
 	}
-	R(&NetworkListOptions{}, "network-list", "List networks", func(s *mcclient.ClientSession, args *NetworkListOptions) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = args.BaseListOptions.Params()
-			if err != nil {
-				return err
-
-			}
-		}
-		if len(args.Ip) > 0 {
-			params.Add(jsonutils.NewString(args.Ip), "ip")
-		}
-		if len(args.Zone) > 0 {
-			params.Add(jsonutils.NewString(args.Zone), "zone")
-		}
-		if len(args.Vpc) > 0 {
-			params.Add(jsonutils.NewString(args.Vpc), "vpc")
-		}
-		if len(args.Region) > 0 {
-			params.Add(jsonutils.NewString(args.Region), "cloudregion")
-		}
-		if len(args.ServerType) > 0 {
-			params.Add(jsonutils.NewString(args.ServerType), "server_type")
-		}
-		if len(args.Manager) > 0 {
-			params.Add(jsonutils.NewString(args.Manager), "manager")
-		}
-		if len(args.Account) > 0 {
-			params.Add(jsonutils.NewString(args.Account), "account")
-		}
-		if len(args.Provider) > 0 {
-			params.Add(jsonutils.NewString(args.Provider), "provider")
+	R(&NetworkListOptions{}, "network-list", "List networks", func(s *mcclient.ClientSession, opts *NetworkListOptions) error {
+		params, err := options.ListStructToParams(opts)
+		if err != nil {
+			return err
 		}
 		var result *modules.ListResult
-		var err error
-		if len(args.Wire) > 0 {
-			result, err = modules.Networks.ListInContext(s, params, &modules.Wires, args.Wire)
+		if len(opts.Wire) > 0 {
+			result, err = modules.Networks.ListInContext(s, params, &modules.Wires, opts.Wire)
 		} else {
 			result, err = modules.Networks.List(s, params)
 		}

@@ -15,90 +15,37 @@ func init() {
 		Zone      string `help:"List hosts in zone"`
 		Region    string `help:"List hosts in region"`
 		Wire      string `help:"List hosts in wire"`
-		Image     string `help:"List hosts cached images"`
+		Image     string `help:"List hosts cached images" json:"cachedimage"`
 		Storage   string `help:"List hosts attached to storages"`
 		Baremetal string `help:"List hosts that is managed by baremetal system" choices:"true|false"`
-		Empty     bool   `help:"show empty host"`
-		Occupied  bool   `help:"show occupid host"`
-		Enabled   bool   `help:"Show enabled host only"`
-		Disabled  bool   `help:"Show disabled host only"`
+		Empty     bool   `help:"show empty host" json:"-"`
+		Occupied  bool   `help:"show occupid host" json:"-"`
+		Enabled   bool   `help:"Show enabled host only" json:"-"`
+		Disabled  bool   `help:"Show disabled host only" json:"-"`
 		HostType  string `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv|aliyun|azure|qcloud|aws|huawei"`
 		AnyMac    string `help:"Mac matches one of the host's interface"`
 
 		ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 
-		Manager  string `help:"List hosts belongs to the cloud provider"`
-		Account  string `help:"List hosts belongs to the cloud account"`
-		Provider string `help:"List hosts belongs to the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei"`
-
-		Usable bool `help:"List all zones that is usable"`
+		Usable *bool `help:"List all zones that is usable"`
 
 		options.BaseListOptions
 	}
-	R(&HostListOptions{}, "host-list", "List hosts", func(s *mcclient.ClientSession, args *HostListOptions) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = args.BaseListOptions.Params()
-			if err != nil {
-				return err
-
-			}
-		}
-		if len(args.Schedtag) > 0 {
-			params.Add(jsonutils.NewString(args.Schedtag), "schedtag")
-		}
-		if len(args.Zone) > 0 {
-			params.Add(jsonutils.NewString(args.Zone), "zone")
-		}
-		if len(args.Region) > 0 {
-			params.Add(jsonutils.NewString(args.Region), "region")
-		}
-		if len(args.Wire) > 0 {
-			params.Add(jsonutils.NewString(args.Wire), "wire")
-		}
-		if len(args.Image) > 0 {
-			params.Add(jsonutils.NewString(args.Image), "cachedimage")
-		}
-		if len(args.Storage) > 0 {
-			params.Add(jsonutils.NewString(args.Storage), "storage")
-		}
-		if len(args.Baremetal) > 0 {
-			params.Add(jsonutils.NewString(args.Baremetal), "baremetal")
-		}
-		if len(args.HostType) > 0 {
-			params.Add(jsonutils.NewString(args.HostType), "host_type")
-		}
-		if len(args.ResourceType) > 0 {
-			params.Add(jsonutils.NewString(args.ResourceType), "resource_type")
+	R(&HostListOptions{}, "host-list", "List hosts", func(s *mcclient.ClientSession, opts *HostListOptions) error {
+		params, err := options.ListStructToParams(opts)
+		if err != nil {
+			return err
 		}
 
-		if len(args.Manager) > 0 {
-			params.Add(jsonutils.NewString(args.Manager), "manager")
-		}
-		if len(args.Account) > 0 {
-			params.Add(jsonutils.NewString(args.Account), "account")
-		}
-		if len(args.Provider) > 0 {
-			params.Add(jsonutils.NewString(args.Provider), "provider")
-		}
-
-		if args.Usable {
-			params.Add(jsonutils.JSONTrue, "usable")
-		}
-
-		if args.Empty {
+		if opts.Empty {
 			params.Add(jsonutils.JSONTrue, "is_empty")
-		} else if args.Occupied {
+		} else if opts.Occupied {
 			params.Add(jsonutils.JSONFalse, "is_empty")
 		}
-		if args.Enabled {
+		if opts.Enabled {
 			params.Add(jsonutils.NewInt(1), "enabled")
-		} else if args.Disabled {
+		} else if opts.Disabled {
 			params.Add(jsonutils.NewInt(0), "enabled")
-		}
-		if len(args.AnyMac) > 0 {
-			params.Add(jsonutils.NewString(args.AnyMac), "any_mac")
 		}
 		result, err := modules.Hosts.List(s, params)
 		if err != nil {

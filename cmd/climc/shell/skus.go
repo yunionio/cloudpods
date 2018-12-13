@@ -1,8 +1,6 @@
 package shell
 
 import (
-	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -11,23 +9,16 @@ import (
 func init() {
 	type ServerSkusListOptions struct {
 		options.BaseListOptions
-		Provider string `help:"provider" choices:"all|aliyun|azure|aws|qcloud|huawei" default:""`
-		Region   string `help:"region Id or name"`
-		Zone     string `help:"zone Id or name"`
-		Cpu      int    `help:"Cpu core count"`
-		Mem      int    `help:"Memory size in MB"`
-		Name     string `help:"Name of Sku"`
+		Region string `help:"region Id or name"`
+		Zone   string `help:"zone Id or name"`
+		Cpu    int    `help:"Cpu core count" json:"cpu_core_count"`
+		Mem    int    `help:"Memory size in MB" json:"memory_size_mb"`
+		Name   string `help:"Name of Sku"`
 	}
 	R(&ServerSkusListOptions{}, "server-sku-list", "List all avaiable Server SKU", func(s *mcclient.ClientSession, args *ServerSkusListOptions) error {
 		params, err := options.ListStructToParams(args)
 		if err != nil {
 			return err
-		}
-		if args.Cpu > 0 {
-			params.Add(jsonutils.NewInt(int64(args.Cpu)), "cpu_core_count")
-		}
-		if args.Mem > 0 {
-			params.Add(jsonutils.NewInt(int64(args.Mem)), "memory_size_mb")
 		}
 		results, err := modules.ServerSkus.List(s, params)
 		if err != nil {

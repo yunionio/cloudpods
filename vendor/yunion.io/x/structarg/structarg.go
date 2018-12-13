@@ -351,7 +351,11 @@ func (this *ArgumentParser) AddArgument(arg Argument) error {
 	} else {
 		for _, argOld := range this.optArgs {
 			if argOld.Token() == arg.Token() {
-				return fmt.Errorf("Duplicate argument %s", argOld.Token())
+				rt := reflect.TypeOf(this.target)
+				if rt.Kind() == reflect.Ptr || rt.Kind() == reflect.Interface {
+					rt = rt.Elem()
+				}
+				return fmt.Errorf("%s: Duplicate argument %s", rt.Name(), argOld.Token())
 			}
 		}
 		// Put required at the end and try to be stable

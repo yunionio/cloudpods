@@ -11,36 +11,14 @@ import (
 func init() {
 	type CloudregionListOptions struct {
 		options.BaseListOptions
-		Private  bool   `help:"show private cloud regions only"`
-		Public   bool   `help:"show public cloud regions only"`
-		Manager  string `help:"Show regions belongs to the cloud provider"`
-		Provider string `help:"List regions of the public cloud provider" choices:"Aliyun|Qcloud|Azure|Aws|Huawei"`
-		Usable   bool   `help:"List regions that are usable"`
+		Private *bool `help:"show private cloud regions only" json:"is_private"`
+		Public  *bool `help:"show public cloud regions only" json:"is_public"`
+		Usable  *bool `help:"List regions that are usable"`
 	}
-	R(&CloudregionListOptions{}, "cloud-region-list", "List cloud regions", func(s *mcclient.ClientSession, args *CloudregionListOptions) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = args.BaseListOptions.Params()
-			if err != nil {
-				return err
-
-			}
-		}
-		if args.Usable {
-			params.Add(jsonutils.JSONTrue, "usable")
-		}
-		if args.Private {
-			params.Add(jsonutils.JSONTrue, "is_private")
-		}
-		if args.Public {
-			params.Add(jsonutils.JSONTrue, "is_public")
-		}
-		if len(args.Manager) > 0 {
-			params.Add(jsonutils.NewString(args.Manager), "manager")
-		}
-		if len(args.Provider) > 0 {
-			params.Add(jsonutils.NewString(args.Provider), "provider")
+	R(&CloudregionListOptions{}, "cloud-region-list", "List cloud regions", func(s *mcclient.ClientSession, opts *CloudregionListOptions) error {
+		params, err := options.ListStructToParams(opts)
+		if err != nil {
+			return err
 		}
 		result, err := modules.Cloudregions.List(s, params)
 		if err != nil {

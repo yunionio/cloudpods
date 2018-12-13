@@ -23,10 +23,6 @@ type ServerListOptions struct {
 	WithEip       *bool  `help:"Show Servers with EIP"`
 	WithoutEip    *bool  `help:"Show Servers without EIP"`
 
-	Manager  string `help:"Show servers imported from manager"`
-	Account  string `help:"List hosts belongs to the cloud account"`
-	Provider string `help:"List hosts belongs to the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei"`
-
 	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 
 	BillingType string `help:"billing type" choices:"postpaid|prepaid"`
