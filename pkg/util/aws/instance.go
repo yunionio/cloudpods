@@ -228,17 +228,16 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 }
 
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
-	// todo: implement me
-	if len(self.PublicIpAddress.IpAddress) > 0 {
+	if len(self.EipAddress.IpAddress) > 0 {
+		return self.host.zone.region.GetEipByIpAddress(self.EipAddress.IpAddress)
+	} else if len(self.PublicIpAddress.IpAddress) > 0 {
 		eip := SEipAddress{}
 		eip.region = self.host.zone.region
 		eip.IpAddress = self.PublicIpAddress.IpAddress[0]
 		eip.InstanceId = self.InstanceId
-		eip.AllocationId = self.InstanceId // fixed
+		eip.AllocationId = self.InstanceId // fixed. AllocationId等于InstanceId即表示为 仿真EIP。
 		eip.Bandwidth = 10000
 		return &eip, nil
-	} else if len(self.EipAddress.IpAddress) > 0 {
-		return self.host.zone.region.GetEip(self.EipAddress.AllocationId)
 	} else {
 		return nil, nil
 	}
@@ -451,6 +450,7 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 			}
 
 			var networkInterfaces SNetworkInterfaces
+			var eipAddress SEipAddress
 			for _, n := range instance.NetworkInterfaces {
 				i := SNetworkInterface{
 					MacAddress:         *n.MacAddress,
@@ -458,6 +458,11 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 					PrimaryIpAddress:   *n.PrivateIpAddress,
 				}
 				networkInterfaces.NetworkInterface = append(networkInterfaces.NetworkInterface, i)
+
+				// todo: 可能有多个EIP的情况。目前只支持一个EIP
+				if eipAddress.IpAddress == "" && *n.Association.IpOwnerId != "amazon" && len(*n.Association.PublicIp) > 0 {
+					eipAddress.IpAddress = *n.Association.PublicIp
+				}
 			}
 
 			var vpcattr SVpcAttributes
@@ -468,6 +473,16 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 			var productCodes []string
 			for _, p := range instance.ProductCodes {
 				productCodes = append(productCodes, *p.ProductCodeId)
+			}
+
+			publicIpAddress := SIpAddress{}
+			if len(*instance.PublicIpAddress) > 0 {
+				publicIpAddress.IpAddress = []string{*instance.PublicIpAddress}
+			}
+
+			innerIpAddress := SIpAddress{}
+			if len(*instance.PrivateIpAddress) > 0 {
+				innerIpAddress.IpAddress = []string{*instance.PrivateIpAddress}
 			}
 
 			szone, err := self.getZoneById(*instance.Placement.AvailabilityZone)
@@ -496,8 +511,9 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				PublicDNSName:     *instance.PublicDnsName,
 				RootDeviceName:    *instance.RootDeviceName,
 				Status:            *instance.State.Name,
-				InnerIpAddress:    SIpAddress{[]string{*instance.PrivateIpAddress}},
-				PublicIpAddress:   SIpAddress{[]string{*instance.PublicIpAddress}},
+				InnerIpAddress:    innerIpAddress,
+				PublicIpAddress:   publicIpAddress,
+				EipAddress:        eipAddress,
 				InstanceName:      tagspec.GetNameTag(),
 				Description:       tagspec.GetDescTag(),
 				Disks:             disks,
@@ -509,7 +525,6 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				OSName:            image.OSName, // todo: 这里在model层回写OSName信息
 				OSType:            image.OSType,
 				// ExpiredTime:
-				// EipAddress:
 				// VlanId:
 				// OSType:
 			}

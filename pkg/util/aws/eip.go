@@ -144,10 +144,14 @@ func (self *SEipAddress) ChangeBandwidth(bw int) error {
 	return self.region.UpdateEipBandwidth(self.AllocationId, bw)
 }
 
-func (self *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddress, int, error) {
+func (self *SRegion) GetEips(eipId string, eipAddress string, offset int, limit int) ([]SEipAddress, int, error) {
 	params := ec2.DescribeAddressesInput{}
 	if len(eipId) > 0 {
 		params.SetAllocationIds([]*string{&eipId})
+	}
+
+	if len(eipAddress) > 0 {
+		params.SetPublicIps([]*string{&eipAddress})
 	}
 
 	res, err := self.ec2Client.DescribeAddresses(&params)
@@ -191,7 +195,18 @@ func (self *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddress
 }
 
 func (self *SRegion) GetEip(eipId string) (*SEipAddress, error) {
-	eips, total, err := self.GetEips(eipId, 0, 0)
+	eips, total, err := self.GetEips(eipId, "", 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	if total != 1 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return &eips[0], nil
+}
+
+func (self *SRegion) GetEipByIpAddress(eipAddress string) (*SEipAddress, error) {
+	eips, total, err := self.GetEips("", eipAddress, 0, 0)
 	if err != nil {
 		return nil, err
 	}
