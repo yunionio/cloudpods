@@ -10,24 +10,12 @@ import (
 func init() {
 	type StoragecacheListOptions struct {
 		options.BaseListOptions
-
-		Manager string `help:"Show regions belongs to the cloud provider"`
 	}
-	R(&StoragecacheListOptions{}, "storage-cache-list", "List storage caches", func(s *mcclient.ClientSession, args *StoragecacheListOptions) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = args.BaseListOptions.Params()
-			if err != nil {
-				return err
-
-			}
+	R(&StoragecacheListOptions{}, "storage-cache-list", "List storage caches", func(s *mcclient.ClientSession, opts *StoragecacheListOptions) error {
+		params, err := options.ListStructToParams(opts)
+		if err != nil {
+			return err
 		}
-
-		if len(args.Manager) > 0 {
-			params.Add(jsonutils.NewString(args.Manager), "manager")
-		}
-
 		result, err := modules.Storagecaches.List(s, params)
 		if err != nil {
 			return err

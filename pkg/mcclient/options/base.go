@@ -174,6 +174,10 @@ type BaseListOptions struct {
 	ExportFile       string   `help:"Export to file" metavar:"<EXPORT_FILE_PATH>" json:"-"`
 	ExportKeys       string   `help:"Export field keys"`
 	ExportTexts      string   `help:"Export field displayname texts" json:"-"`
+
+	Manager  string `help:"List objects belonging to the cloud provider"`
+	Account  string `help:"List objects belonging to the cloud account"`
+	Provider string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei"`
 }
 
 func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {

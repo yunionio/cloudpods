@@ -1376,11 +1376,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:97c47d46b272f535bc6760672a3dd4512bf66fb4463cb70547178e21cf9078f7"
+  digest = "1:428cc9d6e84fe526b606d57ca4c18aa0433e310ab25c6c1106607c0c64c9c4c2"
   name = "yunion.io/x/structarg"
   packages = ["."]
   pruneopts = "UT"
-  revision = "1a162c0cfa82905f20a795e9ac530bf27f9a0549"
+  revision = "28def21ba4844dc7a92bfc8833a3f9af157a6c52"
 
 [solve-meta]
   analyzer-name = "dep"

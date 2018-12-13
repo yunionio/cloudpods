@@ -18,14 +18,10 @@ func init() {
 		Guest   string `help:"Guest ID or name"`
 		Storage string `help:"Storage ID or name"`
 
-		Manager  string `help:"List disks belongs to the cloud provider"`
-		Account  string `help:"List disks belongs to the cloud account"`
-		Provider string `help:"List disks belongs to the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei"`
-
 		BillingType string `help:"billing type" choices:"postpaid|prepaid"`
 	}
-	R(&DiskListOptions{}, "disk-list", "List virtual disks", func(s *mcclient.ClientSession, suboptions *DiskListOptions) error {
-		params, err := options.ListStructToParams(suboptions)
+	R(&DiskListOptions{}, "disk-list", "List virtual disks", func(s *mcclient.ClientSession, opts *DiskListOptions) error {
+		params, err := options.ListStructToParams(opts)
 		if err != nil {
 			return err
 		}

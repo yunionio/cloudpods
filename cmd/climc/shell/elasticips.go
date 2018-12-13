@@ -10,38 +10,16 @@ import (
 
 func init() {
 	type ElasticipListOptions struct {
-		Manager  string `help:"Show servers imported from manager"`
-		Region   string `help:"Show servers in cloudregion"`
-		Account  string `help:"List hosts belongs to the cloud account"`
-		Provider string `help:"List hosts belongs to the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei"`
+		Region string `help:"Show servers in cloudregion"`
 
-		Usable bool `help:"List all zones that is usable"`
+		Usable *bool `help:"List all zones that is usable"`
 
 		options.BaseListOptions
 	}
-	R(&ElasticipListOptions{}, "eip-list", "List elastic IPs", func(s *mcclient.ClientSession, args *ElasticipListOptions) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = args.BaseListOptions.Params()
-			if err != nil {
-				return err
-			}
-		}
-		if len(args.Manager) > 0 {
-			params.Add(jsonutils.NewString(args.Manager), "manager")
-		}
-		if len(args.Account) > 0 {
-			params.Add(jsonutils.NewString(args.Account), "account")
-		}
-		if len(args.Provider) > 0 {
-			params.Add(jsonutils.NewString(args.Provider), "provider")
-		}
-		if len(args.Region) > 0 {
-			params.Add(jsonutils.NewString(args.Region), "region")
-		}
-		if args.Usable {
-			params.Add(jsonutils.JSONTrue, "usable")
+	R(&ElasticipListOptions{}, "eip-list", "List elastic IPs", func(s *mcclient.ClientSession, opts *ElasticipListOptions) error {
+		params, err := options.ListStructToParams(opts)
+		if err != nil {
+			return err
 		}
 		results, err := modules.Elasticips.List(s, params)
 		if err != nil {
