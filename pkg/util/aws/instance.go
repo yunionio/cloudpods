@@ -450,7 +450,7 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 			}
 
 			var networkInterfaces SNetworkInterfaces
-			var eipAddress SEipAddress
+			eipAddress := SEipAddress{}
 			for _, n := range instance.NetworkInterfaces {
 				i := SNetworkInterface{
 					MacAddress:         *n.MacAddress,
