@@ -1184,7 +1184,9 @@ func (self *SStorage) getCloudProviderInfo() SCloudProviderInfo {
 	return MakeCloudProviderInfo(region, zone, provider)
 }
 
-func (self *SStorage) GetShortDesc() *jsonutils.JSONDict {
+func (self *SStorage) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := self.SStandaloneResourceBase.GetShortDesc(ctx)
 	info := self.getCloudProviderInfo()
-	return jsonutils.Marshal(&info).(*jsonutils.JSONDict)
+	desc.Update(jsonutils.Marshal(&info))
+	return desc
 }

@@ -58,12 +58,12 @@ func (self *SGuest) PerformPrepaidRecycle(ctx context.Context, userCred mcclient
 
 	err = self.doPrepaidRecycle(ctx, userCred)
 	if err != nil {
-		logclient.AddActionLog(self, logclient.ACT_RECYCLE_PREPAID, self.GetShortDesc(), userCred, false)
+		logclient.AddActionLog(self, logclient.ACT_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, false)
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	db.OpsLog.LogEvent(self, db.ACT_RECYCLE_PREPAID, self.GetShortDesc(), userCred)
-	logclient.AddActionLog(self, logclient.ACT_RECYCLE_PREPAID, self.GetShortDesc(), userCred, true)
+	db.OpsLog.LogEvent(self, db.ACT_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred)
+	logclient.AddActionLog(self, logclient.ACT_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, true)
 
 	return nil, nil
 }
@@ -288,12 +288,12 @@ func (self *SGuest) PerformUndoPrepaidRecycle(ctx context.Context, userCred mccl
 
 	err := doUndoPrepaidRecycle(ctx, userCred, host, self)
 	if err != nil {
-		logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(), userCred, false)
+		logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, false)
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	db.OpsLog.LogEvent(self, db.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(), userCred)
-	logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(), userCred, true)
+	db.OpsLog.LogEvent(self, db.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred)
+	logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, true)
 
 	return nil, nil
 }
@@ -327,12 +327,12 @@ func (self *SHost) PerformUndoPrepaidRecycle(ctx context.Context, userCred mccli
 
 	err := doUndoPrepaidRecycle(ctx, userCred, self, &guests[0])
 	if err != nil {
-		logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(), userCred, false)
+		logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, false)
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	db.OpsLog.LogEvent(self, db.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(), userCred)
-	logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(), userCred, true)
+	db.OpsLog.LogEvent(self, db.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred)
+	logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, true)
 
 	return nil, nil
 }

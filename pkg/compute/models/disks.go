@@ -1012,7 +1012,7 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 		}
 	}
 
-	db.OpsLog.LogEvent(&disk, db.ACT_SYNC_CLOUD_DISK, disk.GetShortDesc(), userCred)
+	db.OpsLog.LogEvent(&disk, db.ACT_SYNC_CLOUD_DISK, disk.GetShortDesc(ctx), userCred)
 	return &disk, nil
 }
 
@@ -1415,8 +1415,8 @@ func (self *SDisk) ClearHostSchedCache() error {
 	return nil
 }
 
-func (self *SDisk) GetShortDesc() *jsonutils.JSONDict {
-	desc := self.SSharableVirtualResourceBase.GetShortDesc()
+func (self *SDisk) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := self.SSharableVirtualResourceBase.GetShortDesc(ctx)
 	desc.Add(jsonutils.NewInt(int64(self.DiskSize)), "size")
 	storage := self.GetStorage()
 	if storage != nil {
@@ -1562,7 +1562,7 @@ func (disk *SDisk) StratCreateBackupTask(ctx context.Context, userCred mcclient.
 	return nil
 }
 
-func (self *SDisk) SaveRenewInfo(userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
+func (self *SDisk) SaveRenewInfo(ctx context.Context, userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		if self.BillingType != BILLING_TYPE_PREPAID {
 			self.BillingType = BILLING_TYPE_PREPAID
@@ -1579,6 +1579,6 @@ func (self *SDisk) SaveRenewInfo(userCred mcclient.TokenCredential, bc *billing.
 		log.Errorf("Update error %s", err)
 		return err
 	}
-	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(), userCred)
+	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(ctx), userCred)
 	return nil
 }

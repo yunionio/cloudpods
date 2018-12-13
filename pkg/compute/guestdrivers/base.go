@@ -61,7 +61,7 @@ func (self *SBaseGuestDriver) OnGuestCreateTaskComplete(ctx context.Context, gue
 	if len(duration) > 0 {
 		bc, err := billing.ParseBillingCycle(duration)
 		if err == nil && guest.ExpiredAt.IsZero() {
-			guest.SaveRenewInfo(task.GetUserCred(), &bc, nil)
+			guest.SaveRenewInfo(ctx, task.GetUserCred(), &bc, nil)
 		}
 	}
 	if jsonutils.QueryBoolean(task.GetParams(), "auto_start", false) {

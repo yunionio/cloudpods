@@ -340,7 +340,7 @@ func (self *SBaremetalGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Con
 			}
 			db.OpsLog.LogEvent(disk, db.ACT_UPDATE_STATUS, notes, task.GetUserCred())
 			logclient.AddActionLog(disk, logclient.ACT_VM_SYNC_STATUS, nil, task.GetUserCred(), false)
-			db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(), task.GetUserCred())
+			db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), task.GetUserCred())
 			if disks[i].Contains("dev") {
 				dev, _ := disks[i].GetString("dev")
 				disk.SetMetadata(ctx, "dev", dev, task.GetUserCred())

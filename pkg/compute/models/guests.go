@@ -1852,7 +1852,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		}
 	}
 
-	db.OpsLog.LogEvent(&guest, db.ACT_SYNC_CLOUD_SERVER, guest.GetShortDesc(), userCred)
+	db.OpsLog.LogEvent(&guest, db.ACT_SYNC_CLOUD_SERVER, guest.GetShortDesc(ctx), userCred)
 	return &guest, nil
 }
 
@@ -1953,7 +1953,7 @@ func (self *SGuest) Attach2Network(ctx context.Context, userCred mcclient.TokenC
 		address = guestnic.IpAddr
 	}
 	notes.Add(jsonutils.NewString(address), "ip_addr")
-	db.OpsLog.LogAttachEvent(self, network, userCred, notes)
+	db.OpsLog.LogAttachEvent(ctx, self, network, userCred, notes)
 	return nil
 }
 
@@ -2090,11 +2090,11 @@ func (self *SGuest) getMaxDiskIndex() int8 {
 	return int8(len(guestdisks))
 }
 
-func (self *SGuest) AttachDisk(disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string) error {
-	return self.attach2Disk(disk, userCred, driver, cache, mountpoint)
+func (self *SGuest) AttachDisk(ctx context.Context, disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string) error {
+	return self.attach2Disk(ctx, disk, userCred, driver, cache, mountpoint)
 }
 
-func (self *SGuest) attach2Disk(disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string) error {
+func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string) error {
 	if self.isAttach2Disk(disk) {
 		return fmt.Errorf("Guest has been attached to disk")
 	}
@@ -2111,7 +2111,7 @@ func (self *SGuest) attach2Disk(disk *SDisk, userCred mcclient.TokenCredential, 
 	guestdisk.Index = index
 	err := guestdisk.DoSave(driver, cache, mountpoint)
 	if err == nil {
-		db.OpsLog.LogAttachEvent(self, disk, userCred, nil)
+		db.OpsLog.LogAttachEvent(ctx, self, disk, userCred, nil)
 	}
 	return err
 }
@@ -2179,7 +2179,7 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 	}
 	for i := 0; i < len(needAdds); i += 1 {
 		vdisk := needAdds[i].vdisk
-		err := self.attach2Disk(needAdds[i].disk, userCred, vdisk.GetDriver(), vdisk.GetCacheMode(), vdisk.GetMountpoint())
+		err := self.attach2Disk(ctx, needAdds[i].disk, userCred, vdisk.GetDriver(), vdisk.GetCacheMode(), vdisk.GetMountpoint())
 		if err != nil {
 			log.Errorf("attach2Disk error: %v", err)
 			result.AddError(err)
@@ -2459,7 +2459,7 @@ func (self *SGuest) createDiskOnHost(ctx context.Context, userCred mcclient.Toke
 			return disk, err
 		}
 	}
-	err = self.attach2Disk(disk, userCred, diskConfig.Driver, diskConfig.Cache, diskConfig.Mountpoint)
+	err = self.attach2Disk(ctx, disk, userCred, diskConfig.Driver, diskConfig.Cache, diskConfig.Mountpoint)
 	return disk, err
 }
 
@@ -2482,7 +2482,7 @@ func (self *SGuest) createIsolatedDeviceOnHost(ctx context.Context, userCred mcc
 	lockman.LockClass(ctx, QuotaManager, self.ProjectId)
 	defer lockman.ReleaseClass(ctx, QuotaManager, self.ProjectId)
 
-	err := IsolatedDeviceManager.attachHostDeviceToGuestByDesc(self, host, devConfig, userCred)
+	err := IsolatedDeviceManager.attachHostDeviceToGuestByDesc(ctx, self, host, devConfig, userCred)
 	if err != nil {
 		return err
 	}
@@ -2492,7 +2492,7 @@ func (self *SGuest) createIsolatedDeviceOnHost(ctx context.Context, userCred mcc
 	return err
 }
 
-func (self *SGuest) attachIsolatedDevice(userCred mcclient.TokenCredential, dev *SIsolatedDevice) error {
+func (self *SGuest) attachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, dev *SIsolatedDevice) error {
 	if len(dev.GuestId) > 0 {
 		return fmt.Errorf("Isolated device already attached to another guest: %s", dev.GuestId)
 	}
@@ -2506,7 +2506,7 @@ func (self *SGuest) attachIsolatedDevice(userCred mcclient.TokenCredential, dev 
 	if err != nil {
 		return err
 	}
-	db.OpsLog.LogEvent(self, db.ACT_GUEST_ATTACH_ISOLATED_DEVICE, dev.GetShortDesc(), userCred)
+	db.OpsLog.LogEvent(self, db.ACT_GUEST_ATTACH_ISOLATED_DEVICE, dev.GetShortDesc(ctx), userCred)
 	return nil
 }
 
@@ -2566,7 +2566,7 @@ func (self *SGuest) CategorizeNics() SGuestNicCategory {
 	return netCat
 }
 
-func (self *SGuest) LeaveAllGroups(userCred mcclient.TokenCredential) {
+func (self *SGuest) LeaveAllGroups(ctx context.Context, userCred mcclient.TokenCredential) {
 	groupGuests := make([]SGroupguest, 0)
 	q := GroupguestManager.Query()
 	err := q.Filter(sqlchemy.Equals(q.Field("guest_id"), self.Id)).All(&groupGuests)
@@ -2583,7 +2583,7 @@ func (self *SGuest) LeaveAllGroups(userCred mcclient.TokenCredential) {
 			log.Errorln(err.Error())
 			return
 		}
-		db.OpsLog.LogDetachEvent(self, &group, userCred, nil)
+		db.OpsLog.LogDetachEvent(ctx, self, &group, userCred, nil)
 	}
 }
 
@@ -3167,8 +3167,8 @@ func (self *SGuest) GetTemplateId() string {
 	return ""
 }
 
-func (self *SGuest) GetShortDesc() *jsonutils.JSONDict {
-	desc := self.SStandaloneResourceBase.GetShortDesc()
+func (self *SGuest) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := self.SVirtualResourceBase.GetShortDesc(ctx)
 	desc.Set("mem", jsonutils.NewInt(int64(self.VmemSize)))
 	desc.Set("cpu", jsonutils.NewInt(int64(self.VcpuCount)))
 
@@ -3434,12 +3434,12 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 		// do nothing
 	} else if eip == nil && extEip != nil {
 		// add
-		neip, err := ElasticipManager.getEipByExtEip(userCred, extEip, self.getRegion(), projectId)
+		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, self.getRegion(), projectId)
 		if err != nil {
 			log.Errorf("getEipByExtEip error %v", err)
 			result.AddError(err)
 		} else {
-			err = neip.AssociateVM(userCred, self)
+			err = neip.AssociateVM(ctx, userCred, self)
 			if err != nil {
 				log.Errorf("AssociateVM error %v", err)
 				result.AddError(err)
@@ -3465,11 +3465,11 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 				result.DeleteError(err)
 			} else {
 				result.Delete()
-				neip, err := ElasticipManager.getEipByExtEip(userCred, extEip, self.getRegion(), projectId)
+				neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, self.getRegion(), projectId)
 				if err != nil {
 					result.AddError(err)
 				} else {
-					err = neip.AssociateVM(userCred, self)
+					err = neip.AssociateVM(ctx, userCred, self)
 					if err != nil {
 						result.AddError(err)
 					} else {

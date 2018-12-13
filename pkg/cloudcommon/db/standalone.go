@@ -127,8 +127,8 @@ func (model *SStandaloneResourceBase) GetName() string {
 	return model.Name
 }
 
-func (model *SStandaloneResourceBase) GetShortDesc() *jsonutils.JSONDict {
-	desc := model.SResourceBase.GetShortDesc()
+func (model *SStandaloneResourceBase) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := model.SResourceBase.GetShortDesc(ctx)
 	desc.Add(jsonutils.NewString(model.GetName()), "name")
 	desc.Add(jsonutils.NewString(model.GetId()), "id")
 	return desc

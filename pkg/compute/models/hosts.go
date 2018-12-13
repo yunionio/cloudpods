@@ -1138,7 +1138,7 @@ func (self *SHost) GetNetInterface(mac string) *SNetInterface {
 func (self *SHost) DeleteBaremetalnetwork(ctx context.Context, userCred mcclient.TokenCredential, bn *SHostnetwork, reserve bool) {
 	net := bn.GetNetwork()
 	bn.Delete(ctx, userCred)
-	db.OpsLog.LogDetachEvent(self, net, userCred, nil)
+	db.OpsLog.LogDetachEvent(ctx, self, net, userCred, nil)
 	if reserve && net != nil && len(bn.IpAddr) > 0 && regutils.MatchIP4Addr(bn.IpAddr) {
 		ReservedipManager.ReserveIP(userCred, net, bn.IpAddr, "Delete baremetalnetwork to reserve")
 	}
@@ -1456,7 +1456,7 @@ func (self *SHost) Attach2Storage(ctx context.Context, userCred mcclient.TokenCr
 		return err
 	}
 
-	db.OpsLog.LogAttachEvent(self, storage, userCred, nil)
+	db.OpsLog.LogAttachEvent(ctx, self, storage, userCred, nil)
 
 	return nil
 }
@@ -1559,7 +1559,7 @@ func (self *SHost) Attach2Wire(ctx context.Context, userCred mcclient.TokenCrede
 	if err != nil {
 		return err
 	}
-	db.OpsLog.LogAttachEvent(self, wire, userCred, nil)
+	db.OpsLog.LogAttachEvent(ctx, self, wire, userCred, nil)
 	return nil
 }
 
@@ -2052,7 +2052,7 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 	if schedtags != nil && len(schedtags) > 0 {
 		info := make([]jsonutils.JSONObject, len(schedtags))
 		for i := 0; i < len(schedtags); i += 1 {
-			info[i] = schedtags[i].GetShortDesc()
+			info[i] = schedtags[i].GetShortDesc(ctx)
 		}
 		extra.Add(jsonutils.NewArray(info...), "schedtags")
 	}
@@ -3014,8 +3014,12 @@ func (self *SHost) Attach2Network(ctx context.Context, userCred mcclient.TokenCr
 	bn.NetworkId = net.Id
 	bn.IpAddr = freeIp
 	bn.MacAddr = netif.Mac
-	HostnetworkManager.TableSpec().Insert(bn)
-	db.OpsLog.LogAttachEvent(self, net, userCred, jsonutils.NewString(freeIp))
+	err = HostnetworkManager.TableSpec().Insert(bn)
+	if err != nil {
+		log.Errorf("HostnetworkManager.TableSpec().Insert fail %s", err)
+		return err
+	}
+	db.OpsLog.LogAttachEvent(ctx, self, net, userCred, jsonutils.NewString(freeIp))
 	self.UpdateDnsRecord(netif, true)
 	net.UpdateBaremetalNetmap(bn, self.GetNetifName(netif))
 	return nil
@@ -3055,7 +3059,7 @@ func (self *SHost) RemoveNetif(ctx context.Context, userCred mcclient.TokenCrede
 		if len(others) == 0 {
 			hw, _ := HostwireManager.FetchByIds(self.Id, wire.Id)
 			if hw != nil {
-				db.OpsLog.LogDetachEvent(self, wire, userCred, jsonutils.NewString(fmt.Sprintf("disable netif %s", self.AccessMac)))
+				db.OpsLog.LogDetachEvent(ctx, self, wire, userCred, jsonutils.NewString(fmt.Sprintf("disable netif %s", self.AccessMac)))
 				log.Infof("Detach host wire because of remove netif %s", netif.Mac)
 				return hw.Delete(ctx, userCred)
 			}
@@ -3535,7 +3539,9 @@ func (self *SHost) getCloudProviderInfo() SCloudProviderInfo {
 	return MakeCloudProviderInfo(region, zone, provider)
 }
 
-func (self *SHost) GetShortDesc() *jsonutils.JSONDict {
+func (self *SHost) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := self.SEnabledStatusStandaloneResourceBase.GetShortDesc(ctx)
 	info := self.getCloudProviderInfo()
-	return jsonutils.Marshal(&info).(*jsonutils.JSONDict)
+	desc.Update(jsonutils.Marshal(&info))
+	return desc
 }
