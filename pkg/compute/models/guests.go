@@ -2441,7 +2441,7 @@ func (self *SGuest) createDiskOnHost(ctx context.Context, userCred mcclient.Toke
 	diskConfig *SDiskConfig, pendingUsage quotas.IQuota, inheritBilling bool) (*SDisk, error) {
 	storage := self.GetDriver().ChooseHostStorage(host, diskConfig.Backend)
 	if storage == nil {
-		return nil, fmt.Errorf("No storage to create disk")
+		return nil, fmt.Errorf("No storage on %s to create disk for %s", host.GetName(), diskConfig.Backend)
 	}
 	disk, err := self.createDiskOnStorage(ctx, userCred, storage, diskConfig, pendingUsage, inheritBilling)
 	if err != nil {

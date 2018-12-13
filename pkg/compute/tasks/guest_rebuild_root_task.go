@@ -106,10 +106,14 @@ func (self *GuestRebuildRootTask) OnRebuildingDataDisksComplete(ctx context.Cont
 }
 
 func (self *GuestRebuildRootTask) OnRebuildingDataDisksCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	db.OpsLog.LogEvent(guest, db.ACT_REBUILD_ROOT_FAIL, data, self.UserCred)
-	guest.SetStatus(self.UserCred, models.VM_REBUILD_ROOT_FAIL, "OnRebuildingDataDisksCompleteFailed")
-	logclient.AddActionLog(guest, logclient.ACT_VM_REBUILD, data, self.UserCred, false)
-	self.SetStageFailed(ctx, data.String())
+	/*
+		XXX ignore rebuild data disk errors
+		db.OpsLog.LogEvent(guest, db.ACT_REBUILD_ROOT_FAIL, data, self.UserCred)
+		guest.SetStatus(self.UserCred, models.VM_REBUILD_ROOT_FAIL, "OnRebuildingDataDisksCompleteFailed")
+		logclient.AddActionLog(guest, logclient.ACT_VM_REBUILD, data, self.UserCred, false)
+		self.SetStageFailed(ctx, data.String())
+	*/
+	self.OnRebuildAllDisksComplete(ctx, guest, data)
 }
 
 func (self *GuestRebuildRootTask) OnRebuildAllDisksComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
