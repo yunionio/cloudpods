@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -283,7 +284,7 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 
 	cpus := jsonutils.NewArray()
 	mems_mb := jsonutils.NewArray()
-	cpu_mems_mb := map[int][]int{}
+	cpu_mems_mb := map[string][]int{}
 
 	oc, om := 0, 0
 	for i := range skus {
@@ -300,10 +301,11 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 			om = nm
 		}
 
-		if _, exists := cpu_mems_mb[nc]; !exists {
-			cpu_mems_mb[nc] = []int{nm}
+		k := strconv.Itoa(nc)
+		if _, exists := cpu_mems_mb[k]; !exists {
+			cpu_mems_mb[k] = []int{nm}
 		} else {
-			cpu_mems_mb[nc] = append(cpu_mems_mb[nc], nm)
+			cpu_mems_mb[k] = append(cpu_mems_mb[k], nm)
 		}
 	}
 
@@ -311,18 +313,7 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 	ret.Add(cpus, "cpus")
 	ret.Add(mems_mb, "mems_mb")
 
-	/* r, err := json.Marshal(&cpu_mems_mb)
-	if err != nil {
-		log.Errorf("%s", err)
-		return nil, httperrors.NewInternalServerError("instance specs list marshal failed")
-	}*/
-
 	r_obj := jsonutils.Marshal(&cpu_mems_mb)
-	/*if err != nil {
-		log.Errorf("%s", err)
-		return nil, httperrors.NewInternalServerError("instance specs list parse failed")
-	}*/
-
 	ret.Add(r_obj, "cpu_mems_mb")
 	return ret, nil
 }
