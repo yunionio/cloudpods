@@ -460,8 +460,10 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				networkInterfaces.NetworkInterface = append(networkInterfaces.NetworkInterface, i)
 
 				// todo: 可能有多个EIP的情况。目前只支持一个EIP
-				if eipAddress.IpAddress == "" && *n.Association.IpOwnerId != "amazon" && len(*n.Association.PublicIp) > 0 {
-					eipAddress.IpAddress = *n.Association.PublicIp
+				if n.Association != nil && StrVal(n.Association.IpOwnerId) != "amazon" {
+					if eipAddress.IpAddress == "" && len(StrVal(n.Association.PublicIp)) > 0 {
+						eipAddress.IpAddress = *n.Association.PublicIp
+					}
 				}
 			}
 
