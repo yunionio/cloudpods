@@ -63,7 +63,6 @@ func StartService() {
 
 			cron.AddJob2("AutoDiskSnapshot", options.Options.AutoSnapshotDay, options.Options.AutoSnapshotHour, 0, 0, models.DiskManager.AutoDiskSnapshot, false)
 			cron.AddJob2("SyncSkus", options.Options.SyncSkusDay, options.Options.SyncSkusHour, 0, 0, skus.SyncSkus, true)
-			cron.AddJob2("CleanInvalidSkus", options.Options.SyncSkusDay, options.Options.SyncSkusHour, 0, 0, skus.DeleteInvalidSkus, true) // skus只在启动时进行清理
 
 			cron.Start()
 			defer cron.Stop()

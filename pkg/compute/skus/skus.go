@@ -321,6 +321,10 @@ func SyncSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bo
 	if e := skus.SyncToLocalDB(); e != nil {
 		log.Errorf("SyncSkus sync to local db failed, %s", e.Error())
 	}
+
+	// 清理无效的sku
+	log.Debugf("DeleteInvalidSkus in processing...")
+	models.ServerSkuManager.PendingDeleteInvalidSku()
 }
 
 // 同步指定provider sku列表
@@ -336,12 +340,4 @@ func SyncSkusByProviderIds(providerIds []string) error {
 	}
 
 	return nil
-}
-
-// 伪删除无效的sku.只在启动进程时进行清理。
-func DeleteInvalidSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	if isStart {
-		log.Debugf("DeleteInvalidSkus in processing...")
-		models.ServerSkuManager.PendingDeleteInvalidSku()
-	}
 }
