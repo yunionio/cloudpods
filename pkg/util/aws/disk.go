@@ -228,6 +228,10 @@ func (self *SDisk) Reset(ctx context.Context, snapshotId string) error {
 }
 
 func (self *SDisk) getSnapshot(snapshotId string) (*SSnapshot, error) {
+	if len(snapshotId) == 0 {
+		return nil, fmt.Errorf("GetSnapshot snapshot id should not be empty.")
+	}
+
 	if snapshots, total, err := self.storage.zone.region.GetSnapshots("", "", "", []string{snapshotId}, 0, 1); err != nil {
 		return nil, err
 	} else if total != 1 {
@@ -332,6 +336,9 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 }
 
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
+	if len(diskId) == 0 {
+		return nil, fmt.Errorf("GetDisk diskId should not be empty.")
+	}
 	disks, total, err := self.GetDisks("", "", "", []string{diskId}, 0, 1)
 	if err != nil {
 		if strings.Contains(err.Error(), "InvalidVolume.NotFound") {

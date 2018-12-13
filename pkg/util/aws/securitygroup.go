@@ -260,6 +260,9 @@ func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
 }
 
 func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup, error) {
+	if len(secGroupId) == 0 {
+		return nil, fmt.Errorf("GetSecurityGroupDetails security group id should not be empty.")
+	}
 	params := &ec2.DescribeSecurityGroupsInput{}
 	params.SetGroupIds([]*string{&secGroupId})
 

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
@@ -195,6 +194,11 @@ func (self *SRegion) GetEips(eipId string, eipAddress string, offset int, limit 
 }
 
 func (self *SRegion) GetEip(eipId string) (*SEipAddress, error) {
+	// 这里必须强制要求eipId大于零。避免用户账号正好只有一个eip的情况，返回错误的eip。
+	if len(eipId) == 0 {
+		return nil, fmt.Errorf("GetEip eipId should not be emtpy.")
+	}
+
 	eips, total, err := self.GetEips(eipId, "", 0, 0)
 	if err != nil {
 		return nil, err

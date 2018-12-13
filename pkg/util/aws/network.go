@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -140,6 +141,9 @@ func (self *SRegion) createNetwork(zoneId string, vpcId string, name string, cid
 }
 
 func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
+	if len(networkId) == 0 {
+		return nil, fmt.Errorf("GetNetwork networkId should not be empty.")
+	}
 	networks, total, err := self.GetNetwroks([]string{networkId}, "", 0, 0)
 	if err != nil {
 		return nil, err

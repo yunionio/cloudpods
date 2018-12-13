@@ -65,6 +65,10 @@ func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 }
 
 func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {
+	if len(extId) == 0 {
+		return nil, fmt.Errorf("GetIImageById image id should not be empty")
+	}
+
 	parts, _, err := self.region.GetImages(ImageStatusType(""), ImageOwnerSelf, []string{extId}, "", 0, 1)
 	if err != nil {
 		return nil, err

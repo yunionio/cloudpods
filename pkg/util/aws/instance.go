@@ -539,6 +539,10 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 }
 
 func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
+	if len(instanceId) == 0 {
+		return nil, fmt.Errorf("GetInstance instanceId should not be empty.")
+	}
+
 	instances, _, err := self.GetInstances("", []string{instanceId}, 0, 1)
 	if err != nil {
 		return nil, err

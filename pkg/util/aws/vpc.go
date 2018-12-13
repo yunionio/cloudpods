@@ -230,6 +230,10 @@ func (self *SVpc) fetchSecurityGroups() error {
 }
 
 func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
+	if len(vpcId) == 0 {
+		return nil, fmt.Errorf("GetVpc vpc id should not be empty.")
+	}
+
 	vpcs, total, err := self.GetVpcs([]string{vpcId}, 0, 1)
 	if err != nil {
 		return nil, err

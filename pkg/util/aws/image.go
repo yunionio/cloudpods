@@ -175,7 +175,7 @@ func (self *SRegion) ExportImage(instanceId string, imageId string) (*ImageExpor
 
 func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 	if len(imageId) == 0 {
-		return nil, fmt.Errorf("image id should not be empty")
+		return nil, fmt.Errorf("GetImage image id should not be empty")
 	}
 
 	images, _, err := self.GetImages("", ImageOwnerType(""), []string{imageId}, "", 0, 1)
