@@ -459,7 +459,7 @@ func (man *SIsolatedDeviceManager) GetSpecIdent(spec *jsonutils.JSONDict) []stri
 
 func (self *SIsolatedDevice) GetShortDesc() *jsonutils.JSONDict {
 	desc := self.getDesc()
-	desc.Add(jsonutils.NewString(self.Keyword()), "res_name")
+	desc.Add(jsonutils.NewString(IsolatedDeviceManager.Keyword()), "res_name")
 	return desc
 }
 
