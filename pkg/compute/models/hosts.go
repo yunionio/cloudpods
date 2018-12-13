@@ -2258,14 +2258,14 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 	}
 	mangerUri, err := data.GetString("manager_uri")
 	if err == nil {
-		count := manager.TableSpec().Query().Equals("manager_uri", mangerUri).Count()
+		count := manager.Query().Equals("manager_uri", mangerUri).Count()
 		if count > 0 {
 			return nil, httperrors.NewConflictError("Conflict manager_uri %s", mangerUri)
 		}
 	}
 	accessIp, err := data.GetString("access_ip")
 	if err == nil {
-		count := manager.TableSpec().Query().Equals("access_ip", accessIp).Count()
+		count := manager.Query().Equals("access_ip", accessIp).Count()
 		if count > 0 {
 			return nil, httperrors.NewDuplicateResourceError("Duplicate access_ip %s", accessIp)
 		}
