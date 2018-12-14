@@ -477,7 +477,7 @@ func (self *SVpc) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SVpc) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(), userCred)
+	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(ctx), userCred)
 	self.SetStatus(userCred, VPC_STATUS_DELETED, "real delete")
 	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
 }

@@ -113,7 +113,7 @@ func (self *GuestStartTask) OnStartBackupGuestCompleteFailed(ctx context.Context
 
 func (self *GuestStartTask) OnStartComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	db.OpsLog.LogEvent(guest, db.ACT_START, guest.GetShortDesc(), self.UserCred)
+	db.OpsLog.LogEvent(guest, db.ACT_START, guest.GetShortDesc(ctx), self.UserCred)
 	self.SetStage("OnGuestSyncstatusAfterStart", nil)
 	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
 	logclient.AddActionLog(guest, logclient.ACT_VM_START, "", self.UserCred, true)

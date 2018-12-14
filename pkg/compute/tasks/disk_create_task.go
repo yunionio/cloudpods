@@ -45,11 +45,11 @@ func (self *DiskCreateTask) OnStorageCacheImageComplete(ctx context.Context, dis
 	rebuild, _ := self.GetParams().Bool("rebuild")
 	snapshot, _ := self.GetParams().GetString("snapshot")
 	if rebuild {
-		db.OpsLog.LogEvent(disk, db.ACT_DELOCATE, disk.GetShortDesc(), self.GetUserCred())
+		db.OpsLog.LogEvent(disk, db.ACT_DELOCATE, disk.GetShortDesc(ctx), self.GetUserCred())
 	}
 	storage := disk.GetStorage()
 	host := storage.GetMasterHost()
-	db.OpsLog.LogEvent(disk, db.ACT_ALLOCATING, disk.GetShortDesc(), self.GetUserCred())
+	db.OpsLog.LogEvent(disk, db.ACT_ALLOCATING, disk.GetShortDesc(ctx), self.GetUserCred())
 	disk.SetStatus(self.GetUserCred(), models.DISK_STARTALLOC, "")
 	if len(disk.BackupStorageId) > 0 {
 		self.SetStage("OnMasterStorageCreateDiskComplete", nil)
@@ -66,7 +66,7 @@ func (self *DiskCreateTask) OnMasterStorageCreateDiskComplete(ctx context.Contex
 	snapshot, _ := self.GetParams().GetString("snapshot")
 	storage := models.StorageManager.FetchStorageById(disk.BackupStorageId)
 	host := storage.GetMasterHost()
-	db.OpsLog.LogEvent(disk, db.ACT_BACKUP_ALLOCATING, disk.GetShortDesc(), self.GetUserCred())
+	db.OpsLog.LogEvent(disk, db.ACT_BACKUP_ALLOCATING, disk.GetShortDesc(ctx), self.GetUserCred())
 	disk.SetStatus(self.UserCred, models.DISK_BACKUP_STARTALLOC, "")
 	self.SetStage("OnDiskReady", nil)
 	if err := disk.StartAllocate(ctx, host, storage, self.GetTaskId(), self.GetUserCred(), rebuild, snapshot, self); err != nil {
@@ -97,7 +97,7 @@ func (self *DiskCreateTask) OnDiskReady(ctx context.Context, disk *models.SDisk,
 
 	disk.SetStatus(self.UserCred, models.DISK_READY, "")
 	self.CleanHostSchedCache(disk)
-	db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(), self.UserCred)
+	db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), self.UserCred)
 	self.SetStageComplete(ctx, nil)
 }
 
@@ -127,7 +127,7 @@ func (self *DiskCreateBackupTask) OnDiskReady(ctx context.Context, disk *models.
 	bkStorage := models.StorageManager.FetchStorageById(disk.BackupStorageId)
 	bkStorage.ClearSchedDescCache()
 	disk.SetStatus(self.UserCred, models.DISK_READY, "")
-	db.OpsLog.LogEvent(disk, db.ACT_BACKUP_ALLOCATE, disk.GetShortDesc(), self.UserCred)
+	db.OpsLog.LogEvent(disk, db.ACT_BACKUP_ALLOCATE, disk.GetShortDesc(ctx), self.UserCred)
 	self.SetStageComplete(ctx, nil)
 }
 

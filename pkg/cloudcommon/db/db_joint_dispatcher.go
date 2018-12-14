@@ -174,7 +174,7 @@ func attachItems(dispatcher *DBJointModelDispatcher, master IStandaloneModel, sl
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-	OpsLog.LogAttachEvent(master, slave, userCred, jsonutils.Marshal(item))
+	OpsLog.LogAttachEvent(ctx, master, slave, userCred, jsonutils.Marshal(item))
 	dispatcher.modelManager.OnCreateComplete(ctx, []IModel{item}, userCred, query, data)
 	return getItemDetails(dispatcher.JointModelManager(), item, ctx, userCred, query)
 }
@@ -238,7 +238,7 @@ func (dispatcher *DBJointModelDispatcher) Detach(ctx context.Context, id1 string
 	defer lockman.ReleaseJointObject(ctx, master, slave)
 	obj, err := deleteItem(dispatcher.JointModelManager(), item, ctx, userCred, query, data)
 	if err == nil {
-		OpsLog.LogDetachEvent(item.Master(), item.Slave(), userCred, jsonutils.Marshal(item))
+		OpsLog.LogDetachEvent(ctx, item.Master(), item.Slave(), userCred, jsonutils.Marshal(item))
 	}
 	return obj, err
 }
@@ -250,7 +250,7 @@ func DetachJoint(ctx context.Context, userCred mcclient.TokenCredential, item IJ
 	}
 	err = item.Delete(ctx, userCred)
 	if err == nil {
-		OpsLog.LogDetachEvent(item.Master(), item.Slave(), userCred, item.GetShortDesc())
+		OpsLog.LogDetachEvent(ctx, item.Master(), item.Slave(), userCred, item.GetShortDesc(ctx))
 	}
 	return err
 }

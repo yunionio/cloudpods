@@ -38,7 +38,7 @@ func (self *GuestAttachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	cache, _ := self.Params.GetString("cache")
 	mountpoint, _ := self.Params.GetString("mountpoint")
 
-	err = guest.AttachDisk(disk, self.UserCred, driver, cache, mountpoint)
+	err = guest.AttachDisk(ctx, disk, self.UserCred, driver, cache, mountpoint)
 	if err != nil {
 		self.OnTaskFail(ctx, guest, nil, err)
 		return
