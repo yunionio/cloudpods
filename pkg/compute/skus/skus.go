@@ -306,6 +306,7 @@ func (self *SkusZoneList) SyncToLocalDB() error {
 	return err
 }
 
+// 全量同步sku列表.
 func SyncSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	if isStart {
 		if models.ServerSkuManager.GetSkuCountByProvider("") > 0 {
@@ -320,8 +321,13 @@ func SyncSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bo
 	if e := skus.SyncToLocalDB(); e != nil {
 		log.Errorf("SyncSkus sync to local db failed, %s", e.Error())
 	}
+
+	// 清理无效的sku
+	log.Debugf("DeleteInvalidSkus in processing...")
+	models.ServerSkuManager.PendingDeleteInvalidSku()
 }
 
+// 同步指定provider sku列表
 func SyncSkusByProviderIds(providerIds []string) error {
 	skus := SkusZoneList{}
 	log.Debugf("SyncSkusByProviderIds %s", providerIds)
