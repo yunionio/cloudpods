@@ -31,7 +31,7 @@ func (self *VpcDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 	vpc := obj.(*models.SVpc)
 
 	vpc.SetStatus(self.UserCred, models.VPC_STATUS_DELETING, "")
-	db.OpsLog.LogEvent(vpc, db.ACT_DELOCATING, vpc.GetShortDesc(), self.UserCred)
+	db.OpsLog.LogEvent(vpc, db.ACT_DELOCATING, vpc.GetShortDesc(ctx), self.UserCred)
 
 	region, err := vpc.GetIRegion()
 	if err != nil {

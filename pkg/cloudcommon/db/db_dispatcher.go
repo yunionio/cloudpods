@@ -861,7 +861,7 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		log.Errorf("fail to doCreateItem %s", err)
 		return nil, httperrors.NewGeneralError(err)
 	}
-	OpsLog.LogEvent(model, ACT_CREATE, model.GetShortDesc(), userCred)
+	OpsLog.LogEvent(model, ACT_CREATE, model.GetShortDesc(ctx), userCred)
 	logclient.AddActionLog(model, logclient.ACT_CREATE, "", userCred, true)
 	dispatcher.modelManager.OnCreateComplete(ctx, []IModel{model}, userCred, query, data)
 	return getItemDetails(dispatcher.modelManager, model, ctx, userCred, query)
@@ -1210,8 +1210,8 @@ func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IM
 		logclient.AddActionLog(item, logclient.ACT_DELETE, msg, userCred, false)
 		return httperrors.NewGeneralError(err)
 	}
-	OpsLog.LogEvent(item, ACT_DELETE, item.GetShortDesc(), userCred)
-	logclient.AddActionLog(item, logclient.ACT_DELETE, item.GetShortDesc(), userCred, true)
+	OpsLog.LogEvent(item, ACT_DELETE, item.GetShortDesc(ctx), userCred)
+	logclient.AddActionLog(item, logclient.ACT_DELETE, item.GetShortDesc(ctx), userCred, true)
 	return nil
 }
 
@@ -1271,7 +1271,7 @@ func (dispatcher *DBModelDispatcher) Delete(ctx context.Context, idstr string, q
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-	log.Debugf("Delete %s", model.GetShortDesc())
+	// log.Debugf("Delete %s", model.GetShortDesc(ctx))
 
 	lockman.LockObject(ctx, model)
 	defer lockman.ReleaseObject(ctx, model)

@@ -197,8 +197,8 @@ func (self *SSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSON
 	return extra
 }
 
-func (self *SSnapshot) GetShortDesc() *jsonutils.JSONDict {
-	res := self.SVirtualResourceBase.GetShortDesc()
+func (self *SSnapshot) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	res := self.SVirtualResourceBase.GetShortDesc(ctx)
 	res.Add(jsonutils.NewInt(int64(self.Size)), "size")
 	/*if cloudprovider := self.GetCloudprovider(); cloudprovider != nil {
 		res.Add(jsonutils.NewString(cloudprovider.Provider), "hypervisor")
@@ -537,7 +537,7 @@ func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, 
 	return err
 }
 
-func (manager *SSnapshotManager) newFromCloudSnapshot(userCred mcclient.TokenCredential, extSnapshot cloudprovider.ICloudSnapshot, region *SCloudregion, projectId string, provider *SCloudprovider) (*SSnapshot, error) {
+func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userCred mcclient.TokenCredential, extSnapshot cloudprovider.ICloudSnapshot, region *SCloudregion, projectId string, provider *SCloudprovider) (*SSnapshot, error) {
 	snapshot := SSnapshot{}
 	snapshot.SetModelManager(manager)
 
@@ -567,7 +567,7 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(userCred mcclient.TokenCre
 		log.Errorf("newFromCloudEip fail %s", err)
 		return nil, err
 	}
-	db.OpsLog.LogEvent(&snapshot, db.ACT_SNAPSHOT_DONE, snapshot.GetShortDesc(), userCred)
+	db.OpsLog.LogEvent(&snapshot, db.ACT_SNAPSHOT_DONE, snapshot.GetShortDesc(ctx), userCred)
 	return &snapshot, nil
 }
 
@@ -618,7 +618,7 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		_, err := manager.newFromCloudSnapshot(userCred, added[i], region, projectId, provider)
+		_, err := manager.newFromCloudSnapshot(ctx, userCred, added[i], region, projectId, provider)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {

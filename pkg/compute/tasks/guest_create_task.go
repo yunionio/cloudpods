@@ -114,10 +114,10 @@ func (self *GuestCreateTask) OnDeployGuestDescCompleteFailed(ctx context.Context
 
 func (self *GuestCreateTask) OnAutoStartGuest(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	self.SetStageComplete(ctx, guest.GetShortDesc())
+	self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
 }
 
 func (self *GuestCreateTask) OnSyncStatusComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	self.SetStageComplete(ctx, guest.GetShortDesc())
+	self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
 }

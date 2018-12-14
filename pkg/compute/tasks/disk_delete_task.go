@@ -37,7 +37,7 @@ func (self *DiskDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 }
 
 func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SDisk) {
-	db.OpsLog.LogEvent(disk, db.ACT_DELOCATING, disk.GetShortDesc(), self.UserCred)
+	db.OpsLog.LogEvent(disk, db.ACT_DELOCATING, disk.GetShortDesc(ctx), self.UserCred)
 	if disk.Status == models.DISK_INIT {
 		self.OnGuestDiskDeleteComplete(ctx, disk, nil)
 		return
@@ -92,7 +92,7 @@ func (self *DiskDeleteTask) OnGuestDiskDeleteComplete(ctx context.Context, obj d
 	}
 	disk := obj.(*models.SDisk)
 	self.CleanHostSchedCache(disk)
-	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE, disk.GetShortDesc(), self.UserCred)
+	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE, disk.GetShortDesc(ctx), self.UserCred)
 	if len(disk.SnapshotId) > 0 && disk.GetMetadata("merge_snapshot", nil) == "true" {
 		models.SnapshotManager.AddRefCount(disk.SnapshotId, -1)
 	}
@@ -103,5 +103,5 @@ func (self *DiskDeleteTask) OnGuestDiskDeleteComplete(ctx context.Context, obj d
 func (self *DiskDeleteTask) OnGuestDiskDeleteCompleteFailed(ctx context.Context, disk *models.SDisk, resion jsonutils.JSONObject) {
 	disk.SetStatus(self.GetUserCred(), models.DISK_DEALLOC_FAILED, resion.String())
 	self.SetStageFailed(ctx, resion.String())
-	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, disk.GetShortDesc(), self.GetUserCred())
+	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, disk.GetShortDesc(ctx), self.GetUserCred())
 }

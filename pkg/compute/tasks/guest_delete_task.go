@@ -115,7 +115,7 @@ func (self *GuestDeleteTask) doStartDeleteGuest(ctx context.Context, obj db.ISta
 
 func (self *GuestDeleteTask) StartPendingDeleteGuest(ctx context.Context, guest *models.SGuest) {
 	guest.DoPendingDelete(ctx, self.UserCred)
-	models.IsolatedDeviceManager.ReleaseDevicesOfGuest(guest, self.UserCred)
+	models.IsolatedDeviceManager.ReleaseDevicesOfGuest(ctx, guest, self.UserCred)
 	self.SetStage("on_pending_delete_complete", nil)
 	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
 }
@@ -154,7 +154,7 @@ func (self *GuestDeleteTask) OnGuestDetachDisksCompleteFailed(ctx context.Contex
 }
 
 func (self *GuestDeleteTask) DoDeleteGuest(ctx context.Context, guest *models.SGuest) {
-	models.IsolatedDeviceManager.ReleaseDevicesOfGuest(guest, self.UserCred)
+	models.IsolatedDeviceManager.ReleaseDevicesOfGuest(ctx, guest, self.UserCred)
 	host := guest.GetHost()
 	if guest.IsPrepaidRecycle() {
 		err := host.BorrowIpAddrsFromGuest(ctx, self.UserCred, guest)
@@ -187,7 +187,7 @@ func (self *GuestDeleteTask) OnGuestDeleteCompleteFailed(ctx context.Context, ob
 
 func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.LeaveAllGroups(self.UserCred)
+	guest.LeaveAllGroups(ctx, self.UserCred)
 	guest.DetachAllNetworks(ctx, self.UserCred)
 	guest.EjectIso(self.UserCred)
 	guest.DeleteEip(ctx, self.UserCred)

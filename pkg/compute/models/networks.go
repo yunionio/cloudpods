@@ -1268,7 +1268,7 @@ func (self *SNetwork) CustomizeDelete(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SNetwork) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(), userCred)
+	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(ctx), userCred)
 	self.SetStatus(userCred, NETWORK_STATUS_DELETED, "real delete")
 	return self.SSharableVirtualResourceBase.Delete(ctx, userCred)
 }

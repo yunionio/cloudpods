@@ -405,7 +405,7 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 				log.Errorf(msg)
 				break
 			}
-			db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(), task.GetUserCred())
+			db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), task.GetUserCred())
 			guestdisk := guest.GetGuestDisk(disk.Id)
 			_, err = guestdisk.GetModelManager().TableSpec().Update(guestdisk, func() error {
 				guestdisk.Driver = diskInfo[i].Driver
@@ -439,7 +439,7 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 
 	exp, err := data.GetTime("expired_at")
 	if err == nil && !guest.IsPrepaidRecycle() {
-		guest.SaveRenewInfo(task.GetUserCred(), nil, &exp)
+		guest.SaveRenewInfo(ctx, task.GetUserCred(), nil, &exp)
 	}
 
 	guest.SaveDeployInfo(ctx, task.GetUserCred(), data)

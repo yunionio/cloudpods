@@ -71,7 +71,7 @@ func (self *DiskSaveTask) OnDiskBackupCompleteFailed(ctx context.Context, disk *
 
 func (self *DiskSaveTask) OnDiskBackupComplete(ctx context.Context, disk *models.SDisk, data *jsonutils.JSONDict) {
 	disk.SetDiskReady(ctx, self.GetUserCred(), "")
-	db.OpsLog.LogEvent(disk, db.ACT_SAVE, disk.GetShortDesc(), self.GetUserCred())
+	db.OpsLog.LogEvent(disk, db.ACT_SAVE, disk.GetShortDesc(ctx), self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 	imageId, _ := self.GetParams().GetString("image_id")
 	if host := self.GetMasterHost(disk); host == nil {
