@@ -2,11 +2,11 @@ package models
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"strings"
 )
 
 type SManagedResourceBase struct {
