@@ -285,15 +285,15 @@ func (manager *SIsolatedDeviceManager) isValidDeviceinfo(config *SIsolatedDevice
 	return nil
 }
 
-func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDesc(guest *SGuest, host *SHost, devConfig *SIsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
+func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDesc(ctx context.Context, guest *SGuest, host *SHost, devConfig *SIsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
 	if len(devConfig.Id) > 0 {
-		return manager.attachSpecificDeviceToGuest(guest, devConfig, userCred)
+		return manager.attachSpecificDeviceToGuest(ctx, guest, devConfig, userCred)
 	} else {
-		return manager.attachHostDeviceToGuestByModel(guest, host, devConfig, userCred)
+		return manager.attachHostDeviceToGuestByModel(ctx, guest, host, devConfig, userCred)
 	}
 }
 
-func (manager *SIsolatedDeviceManager) attachSpecificDeviceToGuest(guest *SGuest, devConfig *SIsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
+func (manager *SIsolatedDeviceManager) attachSpecificDeviceToGuest(ctx context.Context, guest *SGuest, devConfig *SIsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
 	devObj, err := manager.FetchById(devConfig.Id)
 	if devObj == nil {
 		return fmt.Errorf("Device %s not found: %s", devConfig.Id, err)
@@ -302,10 +302,10 @@ func (manager *SIsolatedDeviceManager) attachSpecificDeviceToGuest(guest *SGuest
 	if len(devConfig.DevType) > 0 && devConfig.DevType != dev.DevType {
 		dev.DevType = devConfig.DevType
 	}
-	return guest.attachIsolatedDevice(userCred, dev)
+	return guest.attachIsolatedDevice(ctx, userCred, dev)
 }
 
-func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(guest *SGuest, host *SHost, devConfig *SIsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
+func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(ctx context.Context, guest *SGuest, host *SHost, devConfig *SIsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
 	if len(devConfig.Model) == 0 {
 		return fmt.Errorf("Not found model from info: %s", devConfig)
 	}
@@ -314,7 +314,7 @@ func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(guest *SGu
 		return fmt.Errorf("Can't found %s model on host", host.Id)
 	}
 	selectedDev := devs[0]
-	return guest.attachIsolatedDevice(userCred, &selectedDev)
+	return guest.attachIsolatedDevice(ctx, userCred, &selectedDev)
 }
 
 func (manager *SIsolatedDeviceManager) findUnusedQuery() *sqlchemy.SQuery {
@@ -365,7 +365,7 @@ func (manager *SIsolatedDeviceManager) findHostUnusedByModel(model string, hostI
 	return devs, nil
 }
 
-func (manager *SIsolatedDeviceManager) ReleaseDevicesOfGuest(guest *SGuest, userCred mcclient.TokenCredential) error {
+func (manager *SIsolatedDeviceManager) ReleaseDevicesOfGuest(ctx context.Context, guest *SGuest, userCred mcclient.TokenCredential) error {
 	devs := manager.findAttachedDevicesOfGuest(guest)
 	if devs == nil {
 		return fmt.Errorf("fail to find attached devices")
@@ -376,10 +376,10 @@ func (manager *SIsolatedDeviceManager) ReleaseDevicesOfGuest(guest *SGuest, user
 			return nil
 		})
 		if err != nil {
-			db.OpsLog.LogEvent(guest, db.ACT_GUEST_DETACH_ISOLATED_DEVICE_FAIL, dev.GetShortDesc(), userCred)
+			db.OpsLog.LogEvent(guest, db.ACT_GUEST_DETACH_ISOLATED_DEVICE_FAIL, dev.GetShortDesc(ctx), userCred)
 			return err
 		}
-		db.OpsLog.LogEvent(guest, db.ACT_GUEST_DETACH_ISOLATED_DEVICE, dev.GetShortDesc(), userCred)
+		db.OpsLog.LogEvent(guest, db.ACT_GUEST_DETACH_ISOLATED_DEVICE, dev.GetShortDesc(ctx), userCred)
 	}
 	return nil
 }
@@ -457,7 +457,7 @@ func (man *SIsolatedDeviceManager) GetSpecIdent(spec *jsonutils.JSONDict) []stri
 	return keys
 }
 
-func (self *SIsolatedDevice) GetShortDesc() *jsonutils.JSONDict {
+func (self *SIsolatedDevice) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	desc := self.getDesc()
 	desc.Add(jsonutils.NewString(IsolatedDeviceManager.Keyword()), "res_name")
 	return desc
@@ -536,14 +536,14 @@ func (self *SIsolatedDevice) CustomizeDelete(ctx context.Context, userCred mccli
 			return err
 		}
 		guest := iGuest.(*SGuest)
-		err = guest.detachIsolateDevice(userCred, self)
+		err = guest.detachIsolateDevice(ctx, userCred, self)
 		if err != nil {
 			return err
 		}
 	}
 	host := self.getHost()
 	if host != nil {
-		db.OpsLog.LogEvent(host, db.ACT_HOST_DETACH_ISOLATED_DEVICE, self.GetShortDesc(), userCred)
+		db.OpsLog.LogEvent(host, db.ACT_HOST_DETACH_ISOLATED_DEVICE, self.GetShortDesc(ctx), userCred)
 	}
 	return self.RealDelete(ctx, userCred)
 }

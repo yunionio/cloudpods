@@ -30,7 +30,7 @@ func (self *NetworkDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	network := obj.(*models.SNetwork)
 
 	network.SetStatus(self.UserCred, models.NETWORK_STATUS_DELETING, "")
-	db.OpsLog.LogEvent(network, db.ACT_DELOCATING, network.GetShortDesc(), self.UserCred)
+	db.OpsLog.LogEvent(network, db.ACT_DELOCATING, network.GetShortDesc(ctx), self.UserCred)
 
 	inet, err := network.GetINetwork()
 	if inet != nil {

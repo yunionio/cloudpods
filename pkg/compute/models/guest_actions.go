@@ -1066,11 +1066,11 @@ func (self *SGuest) PerformDetachIsolatedDevice(ctx context.Context, userCred mc
 	host := self.GetHost()
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
-	err = self.detachIsolateDevice(userCred, dev)
+	err = self.detachIsolateDevice(ctx, userCred, dev)
 	return nil, err
 }
 
-func (self *SGuest) detachIsolateDevice(userCred mcclient.TokenCredential, dev *SIsolatedDevice) error {
+func (self *SGuest) detachIsolateDevice(ctx context.Context, userCred mcclient.TokenCredential, dev *SIsolatedDevice) error {
 	if dev.GuestId != self.Id {
 		msg := "Isolated device is not attached to this guest"
 		logclient.AddActionLog(self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
@@ -1083,7 +1083,7 @@ func (self *SGuest) detachIsolateDevice(userCred mcclient.TokenCredential, dev *
 	if err != nil {
 		return err
 	}
-	db.OpsLog.LogEvent(self, db.ACT_GUEST_DETACH_ISOLATED_DEVICE, dev.GetShortDesc(), userCred)
+	db.OpsLog.LogEvent(self, db.ACT_GUEST_DETACH_ISOLATED_DEVICE, dev.GetShortDesc(ctx), userCred)
 	return nil
 }
 
@@ -1116,7 +1116,7 @@ func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mc
 	host := self.GetHost()
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
-	err = self.attachIsolatedDevice(userCred, dev)
+	err = self.attachIsolatedDevice(ctx, userCred, dev)
 	var msg string
 	if err != nil {
 		msg = err.Error()
@@ -2096,8 +2096,8 @@ func (self *SGuest) startGuestRenewTask(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
-func (self *SGuest) SaveRenewInfo(userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
-	err := self.doSaveRenewInfo(userCred, bc, expireAt)
+func (self *SGuest) SaveRenewInfo(ctx context.Context, userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
+	err := self.doSaveRenewInfo(ctx, userCred, bc, expireAt)
 	if err != nil {
 		return err
 	}
@@ -2105,7 +2105,7 @@ func (self *SGuest) SaveRenewInfo(userCred mcclient.TokenCredential, bc *billing
 	for i := 0; i < len(guestdisks); i += 1 {
 		disk := guestdisks[i].GetDisk()
 		if disk.BillingType == BILLING_TYPE_PREPAID {
-			err = disk.SaveRenewInfo(userCred, bc, expireAt)
+			err = disk.SaveRenewInfo(ctx, userCred, bc, expireAt)
 			if err != nil {
 				return err
 			}
@@ -2114,7 +2114,7 @@ func (self *SGuest) SaveRenewInfo(userCred mcclient.TokenCredential, bc *billing
 	return nil
 }
 
-func (self *SGuest) doSaveRenewInfo(userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
+func (self *SGuest) doSaveRenewInfo(ctx context.Context, userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		if self.BillingType != BILLING_TYPE_PREPAID {
 			self.BillingType = BILLING_TYPE_PREPAID
@@ -2131,7 +2131,7 @@ func (self *SGuest) doSaveRenewInfo(userCred mcclient.TokenCredential, bc *billi
 		log.Errorf("Update error %s", err)
 		return err
 	}
-	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(), userCred)
+	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(ctx), userCred)
 	return nil
 }
 

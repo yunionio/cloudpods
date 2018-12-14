@@ -117,7 +117,7 @@ func (self *GuestDetachDiskTask) OnSyncConfigCompleteFailed(ctx context.Context,
 	disk := objDisk.(*models.SDisk)
 	db.OpsLog.LogEvent(disk, db.ACT_DETACH, resion.String(), self.UserCred)
 	disk.SetDiskReady(ctx, self.UserCred, "")
-	err = guest.AttachDisk(disk, self.UserCred, driver, cache, mountpoint)
+	err = guest.AttachDisk(ctx, disk, self.UserCred, driver, cache, mountpoint)
 	if err != nil {
 		self.OnTaskFail(ctx, guest, disk, err)
 		return
