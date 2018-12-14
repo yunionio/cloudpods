@@ -246,7 +246,7 @@ func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 		return nil, err
 	}
 
-	eips, total, err := self.GetEips("", 0, 0)
+	eips, total, err := self.GetEips("", "", 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -414,7 +414,7 @@ func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudpro
 }
 
 func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) {
-	eips, total, err := self.GetEips(eipId, 0, 0)
+	eips, total, err := self.GetEips(eipId, "", 0, 0)
 	if err != nil {
 		return nil, err
 	}

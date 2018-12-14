@@ -11,7 +11,7 @@ func init() {
 		Limit  int `help:"List limit"`
 	}
 	shellutils.R(&EipListOptions{}, "eip-list", "List eips", func(cli *aws.SRegion, args *EipListOptions) error {
-		eips, total, e := cli.GetEips("", args.Offset, args.Limit)
+		eips, total, e := cli.GetEips("", "", args.Offset, args.Limit)
 		if e != nil {
 			return e
 		}

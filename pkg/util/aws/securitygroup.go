@@ -220,6 +220,9 @@ func (self *SRegion) createSecurityGroup(vpcId string, name string, secgroupIdTa
 	}
 
 	tagspec := TagSpec{ResourceType: "security-group"}
+	if len(secgroupIdTag) > 0 {
+		tagspec.SetTag("id", secgroupIdTag)
+	}
 	tagspec.SetNameTag(name)
 	tagspec.SetDescTag(desc)
 	tags, _ := tagspec.GetTagSpecifications()
@@ -257,6 +260,9 @@ func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
 }
 
 func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup, error) {
+	if len(secGroupId) == 0 {
+		return nil, fmt.Errorf("GetSecurityGroupDetails security group id should not be empty.")
+	}
 	params := &ec2.DescribeSecurityGroupsInput{}
 	params.SetGroupIds([]*string{&secGroupId})
 
@@ -290,7 +296,11 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 	}
 }
 
-func (self *SRegion) getSecurityGroupByTag(vpcId, secgroupId string) (*SSecurityGroup, error) {
+func (self *SRegion) getSecurityGroupById(vpcId, secgroupId string) (*SSecurityGroup, error) {
+	if len(secgroupId) == 0 {
+		return nil, httperrors.NewInputParameterError("security group id should not be empty")
+	}
+
 	secgroups, total, err := self.GetSecurityGroups(vpcId, secgroupId, 0, 0)
 	if err != nil {
 		return nil, err
@@ -410,15 +420,15 @@ func (self *SRegion) getSecRules(ingress []*ec2.IpPermission, egress []*ec2.IpPe
 	return rules
 }
 
-func (self *SRegion) GetSecurityGroups(vpcId string, secgroupIdTag string, offset int, limit int) ([]SSecurityGroup, int, error) {
+func (self *SRegion) GetSecurityGroups(vpcId string, secgroupId string, offset int, limit int) ([]SSecurityGroup, int, error) {
 	params := &ec2.DescribeSecurityGroupsInput{}
 	filters := make([]*ec2.Filter, 0)
 	if len(vpcId) > 0 {
 		filters = AppendSingleValueFilter(filters, "vpc-id", vpcId)
 	}
 
-	if len(secgroupIdTag) > 0 {
-		filters = AppendSingleValueFilter(filters, "tag:id", secgroupIdTag)
+	if len(secgroupId) > 0 {
+		params.SetGroupIds([]*string{&secgroupId})
 	}
 
 	if len(filters) > 0 {

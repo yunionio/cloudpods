@@ -146,7 +146,7 @@ func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name str
 		secgroupId = fmt.Sprintf("%s-%s", vpcId, secgroupId)
 	}
 
-	if secgroup, err := self.getSecurityGroupByTag(vpcId, secgroupId); err != nil {
+	if secgroup, err := self.getSecurityGroupById(vpcId, secgroupId); err != nil {
 		if len(desc) == 0 {
 			desc = fmt.Sprintf("security group %s for vpc %s", name, vpcId)
 		}
@@ -230,6 +230,10 @@ func (self *SVpc) fetchSecurityGroups() error {
 }
 
 func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
+	if len(vpcId) == 0 {
+		return nil, fmt.Errorf("GetVpc vpc id should not be empty.")
+	}
+
 	vpcs, total, err := self.GetVpcs([]string{vpcId}, 0, 1)
 	if err != nil {
 		return nil, err

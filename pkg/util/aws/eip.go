@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
@@ -32,6 +31,7 @@ type SEipAddress struct {
 	NetworkInterfaceOwnerId string
 	PrivateIpAddress        string
 	IpAddress               string
+	Name                    string
 }
 
 func (self *SEipAddress) GetId() string {
@@ -39,7 +39,11 @@ func (self *SEipAddress) GetId() string {
 }
 
 func (self *SEipAddress) GetName() string {
-	return self.IpAddress
+	if len(self.Name) == 0 {
+		return self.IpAddress
+	}
+
+	return self.Name
 }
 
 func (self *SEipAddress) GetGlobalId() string {
@@ -139,10 +143,14 @@ func (self *SEipAddress) ChangeBandwidth(bw int) error {
 	return self.region.UpdateEipBandwidth(self.AllocationId, bw)
 }
 
-func (self *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddress, int, error) {
+func (self *SRegion) GetEips(eipId string, eipAddress string, offset int, limit int) ([]SEipAddress, int, error) {
 	params := ec2.DescribeAddressesInput{}
 	if len(eipId) > 0 {
 		params.SetAllocationIds([]*string{&eipId})
+	}
+
+	if len(eipAddress) > 0 {
+		params.SetPublicIps([]*string{&eipAddress})
 	}
 
 	res, err := self.ec2Client.DescribeAddresses(&params)
@@ -179,13 +187,30 @@ func (self *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddress
 			NetworkInterfaceOwnerId: *ip.NetworkInterfaceOwnerId,
 			PrivateIpAddress:        *ip.PrivateIpAddress,
 			IpAddress:               *ip.PublicIp,
+			Name:                    tagspec.GetNameTag(),
 		})
 	}
 	return eips, len(eips), nil
 }
 
 func (self *SRegion) GetEip(eipId string) (*SEipAddress, error) {
-	eips, total, err := self.GetEips(eipId, 0, 0)
+	// 这里必须强制要求eipId大于零。避免用户账号正好只有一个eip的情况，返回错误的eip。
+	if len(eipId) == 0 {
+		return nil, fmt.Errorf("GetEip eipId should not be emtpy.")
+	}
+
+	eips, total, err := self.GetEips(eipId, "", 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	if total != 1 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return &eips[0], nil
+}
+
+func (self *SRegion) GetEipByIpAddress(eipAddress string) (*SEipAddress, error) {
+	eips, total, err := self.GetEips("", eipAddress, 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +239,22 @@ func (self *SRegion) AllocateEIP(domainType string) (*SEipAddress, error) {
 func (self *SRegion) CreateEIP(name string, bwMbps int, chargeType string) (cloudprovider.ICloudEIP, error) {
 	// todo: aws 不支持指定bwMbps, chargeType ？
 	log.Debugf("CreateEip: aws not support specific params name/bwMbps/chargeType.")
-	return self.AllocateEIP("vpc")
+	ieip, err := self.AllocateEIP("vpc")
+	if err == nil && len(name) > 0 {
+		eipId := ieip.GetId()
+		k := "Name"
+		nameTag := &ec2.Tag{Key: &k, Value: &name}
+		params := &ec2.CreateTagsInput{}
+		params.SetResources([]*string{&eipId})
+		params.SetTags([]*ec2.Tag{nameTag})
+
+		// name 创建成功与否不影响eip的正常使用
+		if _, e := self.ec2Client.CreateTags(params); e != nil {
+			log.Infof("CreateEIP create name tag failed: %s", e)
+		}
+	}
+
+	return ieip, err
 }
 
 func (self *SRegion) DeallocateEIP(eipId string) error {
