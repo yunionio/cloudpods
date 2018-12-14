@@ -1980,7 +1980,7 @@ func (self *SHost) getSchedtags() []SSchedtag {
 	q = q.Join(hostschedtags, sqlchemy.AND(sqlchemy.Equals(hostschedtags.Field("schedtag_id"), schedtags.Field("id")),
 		sqlchemy.IsFalse(hostschedtags.Field("deleted"))))
 	q = q.Filter(sqlchemy.Equals(hostschedtags.Field("host_id"), self.Id))
-	err := q.All(&tags)
+	err := db.FetchModelObjects(SchedtagManager, q, &tags)
 	if err != nil {
 		log.Errorf("%s", err)
 		return nil
