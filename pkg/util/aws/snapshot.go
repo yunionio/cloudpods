@@ -44,6 +44,10 @@ func (self *SSnapshot) GetId() string {
 }
 
 func (self *SSnapshot) GetName() string {
+	if len(self.SnapshotName) == 0 {
+		return self.SnapshotId
+	}
+
 	return self.SnapshotName
 }
 
@@ -111,10 +115,10 @@ func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName
 		filters = AppendSingleValueFilter(filters, "volume-id", diskId)
 	}
 
-	// not supported. use Tag?
-	// if len(snapshotName) > 0 {
-	// 	filters = AppendSingleValueFilter(filters, "volume-id", diskId)
-	// }
+	if len(snapshotName) > 0 {
+		filters = AppendSingleValueFilter(filters, "tag:Name", snapshotName)
+	}
+
 	if len(filters) > 0 {
 		params.SetFilters(filters)
 	}
@@ -138,6 +142,9 @@ func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName
 			return nil, 0, err
 		}
 
+		tagspec := TagSpec{ResourceType: "snapshot"}
+		tagspec.LoadingEc2Tags(item.Tags)
+
 		snapshot := SSnapshot{}
 		snapshot.SnapshotId = *item.SnapshotId
 		snapshot.Status = SnapshotStatusType(*item.State)
@@ -147,6 +154,7 @@ func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName
 		snapshot.SourceDiskId = *item.VolumeId
 		snapshot.SourceDiskSize = int32(*item.VolumeSize)
 		// snapshot.SourceDiskType
+		snapshot.SnapshotName = tagspec.GetNameTag()
 		snapshots = append(snapshots, snapshot)
 	}
 

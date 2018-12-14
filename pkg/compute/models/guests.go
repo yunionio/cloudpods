@@ -771,14 +771,14 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	if hypervisor != HYPERVISOR_CONTAINER {
 		// support sku here
 		var sku *SServerSku
-		skuId := jsonutils.GetAnyString(data, []string{"sku", "flavor", "instance_type"})
-		if len(skuId) > 0 {
-			sku, err := ServerSkuManager.FetchSkuByNameAndHypervisor(skuId, hypervisor, true)
+		skuName := jsonutils.GetAnyString(data, []string{"sku", "flavor", "instance_type"})
+		if len(skuName) > 0 {
+			sku, err := ServerSkuManager.FetchSkuByNameAndHypervisor(skuName, hypervisor, true)
 			if err != nil {
 				return nil, err
 			}
 
-			data.Add(jsonutils.NewString(sku.Id), "instance_type")
+			data.Add(jsonutils.NewString(sku.Name), "instance_type")
 			data.Add(jsonutils.NewInt(int64(sku.MemorySizeMB)), "vmem_size")
 			data.Add(jsonutils.NewInt(int64(sku.CpuCoreCount)), "vcpu_count")
 		} else {
