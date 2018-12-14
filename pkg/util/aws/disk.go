@@ -391,7 +391,6 @@ func (self *SRegion) resizeDisk(diskId string, sizeMb int64) error {
 	} else {
 		params.SetVolumeId(diskId)
 	}
-
 	_, err := self.ec2Client.ModifyVolume(params)
 	return err
 }

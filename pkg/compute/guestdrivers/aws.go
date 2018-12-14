@@ -80,10 +80,10 @@ func (self *SAwsGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mode
 	if !utils.IsInStringArray(guest.Status, []string{models.VM_RUNNING, models.VM_READY}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
-	if disk.DiskType == models.DISK_TYPE_SYS {
-		return fmt.Errorf("Cannot resize system disk")
+	if disk.DiskType == models.DISK_TYPE_SYS && !utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_IO1_SSD, models.STORAGE_STANDARD_HDD, models.STORAGE_GP2_SSD}) {
+		return fmt.Errorf("Cannot resize system disk with unsupported volumes type %s", storage.StorageType)
 	}
-	if !utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_GP2_SSD, models.STORAGE_IO1_SSD, models.STORAGE_ST1_HDD, models.STORAGE_SC1_SSD, models.STORAGE_STANDARD_SSD}) {
+	if !utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_GP2_SSD, models.STORAGE_IO1_SSD, models.STORAGE_ST1_HDD, models.STORAGE_SC1_HDD, models.STORAGE_STANDARD_HDD}) {
 		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
 	}
 	return nil
