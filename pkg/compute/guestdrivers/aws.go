@@ -7,13 +7,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/pkg/utils"
 )
 
 type SAwsGuestDriver struct {
@@ -73,6 +73,20 @@ func (self *SAwsGuestDriver) RequestDetachDisk(ctx context.Context, guest *model
 
 func (self *SAwsGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, data)
+}
+
+func (self *SAwsGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
+	// https://docs.amazonaws.cn/AWSEC2/latest/UserGuide/stop-start.html
+	if !utils.IsInStringArray(guest.Status, []string{models.VM_RUNNING, models.VM_READY}) {
+		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
+	}
+	if disk.DiskType == models.DISK_TYPE_SYS && !utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_IO1_SSD, models.STORAGE_STANDARD_HDD, models.STORAGE_GP2_SSD}) {
+		return fmt.Errorf("Cannot resize system disk with unsupported volumes type %s", storage.StorageType)
+	}
+	if !utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_GP2_SSD, models.STORAGE_IO1_SSD, models.STORAGE_ST1_HDD, models.STORAGE_SC1_HDD, models.STORAGE_STANDARD_HDD}) {
+		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
+	}
+	return nil
 }
 
 func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
