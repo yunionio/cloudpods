@@ -539,21 +539,11 @@ func (manager *SServerSkuManager) GetSkuCountByProvider(provider string) int {
 
 // 删除表中zone not found的记录
 func (manager *SServerSkuManager) PendingDeleteInvalidSku() error {
-	zones := make([]SZone, 0)
-	err := ZoneManager.Query("id").Distinct().All(&zones)
-	if err != nil {
-		log.Errorf(err.Error())
-		return httperrors.NewInternalServerError("query zone list failed.")
-	}
-
-	zoneIds := []string{}
-	for _, zone := range zones {
-		zoneIds = append(zoneIds, zone.Id)
-	}
-
+	sq := ZoneManager.Query("id").Distinct().SubQuery()
 	skus := make([]SServerSku, 0)
 	q := manager.Query()
-	err = q.NotIn("zone_id", zoneIds).All(&skus)
+	q = q.NotIn("zone_id", sq).IsNotEmpty("zone_id")
+	err := db.FetchModelObjects(manager, q, &skus)
 	if err != nil {
 		log.Errorf(err.Error())
 		return httperrors.NewInternalServerError("query sku list failed.")
