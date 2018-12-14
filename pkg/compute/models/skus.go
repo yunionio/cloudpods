@@ -286,7 +286,8 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 	mems_mb := jsonutils.NewArray()
 	cpu_mems_mb := map[string][]int{}
 
-	oc, om := 0, 0
+	mems := map[int]bool{}
+	oc := 0
 	for i := range skus {
 		nc := skus[i].CpuCoreCount
 		nm := skus[i].MemorySizeMB
@@ -296,9 +297,9 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 			oc = nc
 		}
 
-		if nm > om {
+		if _, exists := mems[nm]; !exists {
 			mems_mb.Add(jsonutils.NewInt(int64(nm)))
-			om = nm
+			mems[nm] = true
 		}
 
 		k := strconv.Itoa(nc)
