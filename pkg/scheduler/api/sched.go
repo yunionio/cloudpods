@@ -172,6 +172,8 @@ func NewSchedData(sjson *simplejson.Json, count int64, byTest bool) (*SchedData,
 
 	if resourceType, ok := sjson.CheckGet("resource_type"); ok {
 		data.ResourceType = resourceType.MustString()
+	} else {
+		data.ResourceType = models.HostResourceTypeShared
 	}
 
 	data.Candidates = candidates

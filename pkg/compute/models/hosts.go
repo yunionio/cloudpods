@@ -785,6 +785,9 @@ func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 		if self.MemSize == 0 || self.CpuCount == 0 {
 			return nil
 		}
+		if self.ResourceType == HostResourceTypePrepaidRecycle && self.GetGuestCount() > 0 {
+			return nil
+		}
 	}
 	spec := self.GetHardwareSpecification()
 	spec.Remove("storage_info")
