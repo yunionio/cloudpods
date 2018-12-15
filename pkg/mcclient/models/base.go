@@ -64,6 +64,10 @@ type VirtualResource struct {
 	PendingDeleted   bool
 }
 
+type ManagedResource struct {
+	ManagerId string
+}
+
 func (r *VirtualResource) GetPendingDeleted() bool {
 	return r.PendingDeleted
 }

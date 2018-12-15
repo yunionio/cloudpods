@@ -79,3 +79,15 @@ func (region *SFakeOnPremiseRegion) DeleteSecurityGroup(vpcId, secgroupId string
 func (region *SFakeOnPremiseRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
 	return "", ErrNotSupported
 }
+
+func (region *SFakeOnPremiseRegion) GetILoadBalancers() ([]ICloudLoadbalancer, error) {
+	return nil, ErrNotSupported
+}
+
+func (region *SFakeOnPremiseRegion) GetILoadbalancerAcls() ([]ICloudLoadbalancerAcl, error) {
+	return nil, ErrNotSupported
+}
+
+func (region *SFakeOnPremiseRegion) GetILoadbalancerCertificates() ([]ICloudLoadbalancerCertificate, error) {
+	return nil, ErrNotSupported
+}

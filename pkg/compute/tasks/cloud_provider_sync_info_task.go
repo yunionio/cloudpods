@@ -135,6 +135,139 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 			}
 		}
 		syncRegionSnapshots(ctx, provider, task, &localRegions[i], remoteRegions[i], syncRange)
+		syncRegionLoadbalancerAcls(ctx, provider, task, &localRegions[i], remoteRegions[i], syncRange)
+		syncRegionLoadbalancerCertificates(ctx, provider, task, &localRegions[i], remoteRegions[i], syncRange)
+		syncRegionLoadbalancers(ctx, provider, task, &localRegions[i], remoteRegions[i], syncRange)
+	}
+}
+
+func syncRegionLoadbalancerCertificates(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localRegion *models.SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *models.SSyncRange) {
+	certificates, err := remoteRegion.GetILoadbalancerCertificates()
+	if err != nil {
+		msg := fmt.Sprintf("GetILoadbalancerCertificates for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		logSyncFailed(provider, task, msg)
+		return
+	}
+	result := models.LoadbalancerCertificateManager.SyncLoadbalancerCertificates(ctx, task.GetUserCred(), provider, localRegion, certificates, syncRange)
+	msg := result.Result()
+	log.Infof("SyncLoadbalancerCertificates for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		logSyncFailed(provider, task, msg)
+		return
+	}
+}
+
+func syncRegionLoadbalancerAcls(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localRegion *models.SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *models.SSyncRange) {
+	acls, err := remoteRegion.GetILoadbalancerAcls()
+	if err != nil {
+		msg := fmt.Sprintf("GetILoadbalancerAcls for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		logSyncFailed(provider, task, msg)
+		return
+	}
+	result := models.LoadbalancerAclManager.SyncLoadbalancerAcls(ctx, task.GetUserCred(), provider, localRegion, acls, syncRange)
+	msg := result.Result()
+	log.Infof("SyncLoadbalancerAcls for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		logSyncFailed(provider, task, msg)
+		return
+	}
+}
+
+func syncRegionLoadbalancers(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localRegion *models.SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *models.SSyncRange) {
+	lbs, err := remoteRegion.GetILoadBalancers()
+	if err != nil {
+		msg := fmt.Sprintf("GetILoadBalancers for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		logSyncFailed(provider, task, msg)
+		return
+	}
+	localLbs, remoteLbs, result := models.LoadbalancerManager.SyncLoadbalancers(ctx, task.GetUserCred(), provider, localRegion, lbs, syncRange)
+	msg := result.Result()
+	log.Infof("SyncLoadbalancers for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		logSyncFailed(provider, task, msg)
+		return
+	}
+	db.OpsLog.LogEvent(provider, db.ACT_SYNC_LB_COMPLETE, msg, task.GetUserCred())
+	for i := 0; i < len(localLbs); i++ {
+		syncLoadbalancerBackendgroups(ctx, provider, task, &localLbs[i], remoteLbs[i], syncRange)
+		syncLoadbalancerListeners(ctx, provider, task, &localLbs[i], remoteLbs[i], syncRange)
+	}
+}
+
+func syncLoadbalancerListeners(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localLoadbalancer *models.SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *models.SSyncRange) {
+	remoteListeners, err := remoteLoadbalancer.GetILoadbalancerListeners()
+	if err != nil {
+		msg := fmt.Sprintf("GetILoadbalancerListeners for loadbalancer %s failed %s", localLoadbalancer.Name, err)
+		log.Errorf(msg)
+		logSyncFailed(provider, task, msg)
+		return
+	}
+	localListeners, remoteListeners, result := models.LoadbalancerListenerManager.SyncLoadbalancerListeners(ctx, task.GetUserCred(), provider, localLoadbalancer, remoteListeners, syncRange)
+	msg := result.Result()
+	log.Infof("SyncLoadbalancerListeners for loadbalancer %s result: %s", localLoadbalancer.Name, msg)
+	if result.IsError() {
+		logSyncFailed(provider, task, msg)
+		return
+	}
+	for i := 0; i < len(localListeners); i++ {
+		syncLoadbalancerListenerRules(ctx, provider, task, &localListeners[i], remoteListeners[i], syncRange)
+	}
+}
+
+func syncLoadbalancerListenerRules(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localListener *models.SLoadbalancerListener, remoteListener cloudprovider.ICloudLoadbalancerListener, syncRange *models.SSyncRange) {
+	remoteRules, err := remoteListener.GetILoadbalancerListenerRules()
+	if err != nil {
+		msg := fmt.Sprintf("GetILoadbalancerListenerRules for listener %s failed %s", localListener.Name, err)
+		log.Errorf(msg)
+		logSyncFailed(provider, task, msg)
+		return
+	}
+	result := models.LoadbalancerListenerRuleManager.SyncLoadbalancerListenerRules(ctx, task.GetUserCred(), provider, localListener, remoteRules, syncRange)
+	msg := result.Result()
+	log.Infof("SyncLoadbalancerListenerRules for listener %s result: %s", localListener.Name, msg)
+	if result.IsError() {
+		logSyncFailed(provider, task, msg)
+		return
+	}
+}
+
+func syncLoadbalancerBackendgroups(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localLoadbalancer *models.SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *models.SSyncRange) {
+	remoteBackendgroups, err := remoteLoadbalancer.GetILoadbalancerBackendGroups()
+	if err != nil {
+		msg := fmt.Sprintf("GetILoadbalancerBackendGroups for loadbalancer %s failed %s", localLoadbalancer.Name, err)
+		log.Errorf(msg)
+		logSyncFailed(provider, task, msg)
+		return
+	}
+	localLbbgs, remoteLbbgs, result := models.LoadbalancerBackendGroupManager.SyncLoadbalancerBackendgroups(ctx, task.GetUserCred(), provider, localLoadbalancer, remoteBackendgroups, syncRange)
+	msg := result.Result()
+	log.Infof("SyncLoadbalancerBackendgroups for loadbalancer %s result: %s", localLoadbalancer.Name, msg)
+	if result.IsError() {
+		logSyncFailed(provider, task, msg)
+		return
+	}
+	for i := 0; i < len(localLbbgs); i++ {
+		syncLoadbalancerBackends(ctx, provider, task, &localLbbgs[i], remoteLbbgs[i], syncRange)
+	}
+}
+
+func syncLoadbalancerBackends(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localLbbg *models.SLoadbalancerBackendGroup, remoteLbbg cloudprovider.ICloudLoadbalancerBackendGroup, syncRange *models.SSyncRange) {
+	remoteLbbs, err := remoteLbbg.GetILoadbalancerBackends()
+	if err != nil {
+		msg := fmt.Sprintf("GetILoadbalancerBackends for lbbg %s failed %s", localLbbg.Name, err)
+		log.Errorf(msg)
+		logSyncFailed(provider, task, msg)
+		return
+	}
+	result := models.LoadbalancerBackendManager.SyncLoadbalancerBackends(ctx, task.GetUserCred(), provider, localLbbg, remoteLbbs, syncRange)
+	msg := result.Result()
+	log.Infof("SyncLoadbalancerBackends for LoadbalancerBackendgroup %s result: %s", localLbbg.Name, msg)
+	if result.IsError() {
+		logSyncFailed(provider, task, msg)
+		return
 	}
 }
 
