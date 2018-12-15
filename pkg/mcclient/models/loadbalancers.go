@@ -133,7 +133,7 @@ type LoadbalancerCertificate struct {
 	PublicKeyAlgorithm      string
 	PublicKeyBitLen         int
 	SignatureAlgorithm      string
-	FingerprintSha256       string
+	Fingerprint             string
 	NotBefore               time.Time
 	NotAfter                time.Time
 	CommonName              string
