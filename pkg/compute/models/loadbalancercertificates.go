@@ -44,7 +44,7 @@ func init() {
 type SLoadbalancerCertificate struct {
 	db.SVirtualResourceBase
 
-	Certificate string `create:"required" list:"admin" update:"user"`
+	Certificate string `create:"required" list:"user" update:"user"`
 	PrivateKey  string `create:"required" list:"admin" update:"user"`
 
 	// derived attributes
