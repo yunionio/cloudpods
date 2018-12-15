@@ -2,12 +2,16 @@ package models
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -40,14 +44,14 @@ func init() {
 type SLoadbalancerCertificate struct {
 	db.SVirtualResourceBase
 
-	Certificate string `create:"required" list:"admin" update:"user"`
+	Certificate string `create:"required" list:"user" update:"user"`
 	PrivateKey  string `create:"required" list:"admin" update:"user"`
 
 	// derived attributes
 	PublicKeyAlgorithm      string    `create:"optional" list:"user" update:"user"`
 	PublicKeyBitLen         int       `create:"optional" list:"user" update:"user"`
 	SignatureAlgorithm      string    `create:"optional" list:"user" update:"user"`
-	FingerprintSha256       string    `create:"optional" list:"user" update:"user"`
+	Fingerprint             string    `create:"optional" list:"user" update:"user"`
 	NotBefore               time.Time `create:"optional" list:"user" update:"user"`
 	NotAfter                time.Time `create:"optional" list:"user" update:"user"`
 	CommonName              string    `create:"optional" list:"user" update:"user"`
@@ -107,7 +111,7 @@ func (man *SLoadbalancerCertificateManager) validateCertKey(ctx context.Context,
 	data.Set("public_key_algorithm", jsonutils.NewString(certPubKeyAlgo))
 	data.Set("public_key_bit_len", jsonutils.NewInt(int64(certV.PublicKeyBitLen())))
 	data.Set("signature_algorithm", jsonutils.NewString(cert.SignatureAlgorithm.String()))
-	data.Set("fingerprint_sha256", jsonutils.NewString(certV.FingerprintSha256String()))
+	data.Set("fingerprint", jsonutils.NewString(LB_TLS_CERT_FINGERPRINT_ALGO_SHA256+":"+certV.FingerprintSha256String()))
 	return data, nil
 }
 
@@ -117,6 +121,43 @@ func (man *SLoadbalancerCertificateManager) ValidateCreateData(ctx context.Conte
 		return nil, err
 	}
 	return man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+}
+
+func (man *SLoadbalancerCertificateManager) InitializeData() error {
+	// initialize newly added null certificate fingerprint column
+	q := man.Query().IsNull("fingerprint")
+	lbcerts := []SLoadbalancerCertificate{}
+	if err := q.All(&lbcerts); err != nil {
+		return err
+	}
+	for i := range lbcerts {
+		lbcert := &lbcerts[i]
+		fp := lbcert.Fingerprint
+		if fp != "" {
+			continue
+		}
+		if lbcert.Certificate == "" {
+			continue
+		}
+		{
+			p, _ := pem.Decode([]byte(lbcert.Certificate))
+			c, err := x509.ParseCertificate(p.Bytes)
+			if err != nil {
+				log.Errorf("parsing certificate %s(%s): %s", lbcert.Name, lbcert.Id, err)
+				continue
+			}
+			d := sha256.Sum256(c.Raw)
+			fp = LB_TLS_CERT_FINGERPRINT_ALGO_SHA256 + ":" + hex.EncodeToString(d[:])
+		}
+		_, err := man.TableSpec().Update(lbcert, func() error {
+			lbcert.Fingerprint = fp
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (lbcert *SLoadbalancerCertificate) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
