@@ -16,6 +16,7 @@ func InitDB() error {
 		StorageManager,
 		SecurityGroupManager,
 		NetworkManager,
+		LoadbalancerCertificateManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {
