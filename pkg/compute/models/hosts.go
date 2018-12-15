@@ -820,9 +820,15 @@ func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 func (manager *SHostManager) GetSpecIdent(spec *jsonutils.JSONDict) []string {
 	nCpu, _ := spec.Int("cpu")
 	memSize, _ := spec.Int("mem")
-	memGB, err := utils.GetSizeGB(fmt.Sprintf("%d", memSize), "M")
-	if err != nil {
-		log.Errorf("Get mem size %d GB error: %v", memSize, err)
+	var memSizeStr string
+	if memSize < 1024 {
+		memSizeStr = fmt.Sprintf("mem:%dM", memSize)
+	} else {
+		memGB, err := utils.GetSizeGB(fmt.Sprintf("%d", memSize), "M")
+		if err != nil {
+			log.Errorf("Get mem size %d GB error: %v", memSize, err)
+		}
+		memSizeStr = fmt.Sprintf("mem:%dG", memGB)
 	}
 	nicCount, _ := spec.Int("nic_count")
 	manufacture, _ := spec.GetString("manufacture")
@@ -830,7 +836,7 @@ func (manager *SHostManager) GetSpecIdent(spec *jsonutils.JSONDict) []string {
 
 	specKeys := []string{
 		fmt.Sprintf("cpu:%d", nCpu),
-		fmt.Sprintf("mem:%dG", memGB),
+		memSizeStr,
 		fmt.Sprintf("nic:%d", nicCount),
 		fmt.Sprintf("manufacture:%s", manufacture),
 		fmt.Sprintf("model:%s", model),
