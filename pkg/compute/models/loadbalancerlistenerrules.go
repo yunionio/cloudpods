@@ -6,10 +6,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -184,3 +186,110 @@ func (lbr *SLoadbalancerListenerRule) Delete(ctx context.Context, userCred mccli
 }
 
 // Delete, Update
+
+func (man *SLoadbalancerListenerRuleManager) getLoadbalancerListenerRulesByListener(listener *SLoadbalancerListener) ([]SLoadbalancerListenerRule, error) {
+	rules := []SLoadbalancerListenerRule{}
+	q := man.Query().Equals("listener_id", listener.Id)
+	if err := db.FetchModelObjects(man, q, &rules); err != nil {
+		log.Errorf("failed to get lb listener rules for listener %s error: %v", listener.Name, err)
+		return nil, err
+	}
+	return rules, nil
+}
+
+func (man *SLoadbalancerListenerRuleManager) SyncLoadbalancerListenerRules(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, listener *SLoadbalancerListener, rules []cloudprovider.ICloudLoadbalancerListenerRule, syncRange *SSyncRange) compare.SyncResult {
+	syncResult := compare.SyncResult{}
+
+	dbRules, err := man.getLoadbalancerListenerRulesByListener(listener)
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+
+	removed := []SLoadbalancerListenerRule{}
+	commondb := []SLoadbalancerListenerRule{}
+	commonext := []cloudprovider.ICloudLoadbalancerListenerRule{}
+	added := []cloudprovider.ICloudLoadbalancerListenerRule{}
+
+	err = compare.CompareSets(dbRules, rules, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+
+	for i := 0; i < len(removed); i++ {
+		err = removed[i].ValidateDeleteCondition(ctx)
+		if err != nil { // cannot delete
+			err = removed[i].SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
+			if err != nil {
+				syncResult.DeleteError(err)
+			} else {
+				syncResult.Delete()
+			}
+		} else {
+			err = removed[i].Delete(ctx, userCred)
+			if err != nil {
+				syncResult.DeleteError(err)
+			} else {
+				syncResult.Delete()
+			}
+		}
+	}
+	for i := 0; i < len(commondb); i++ {
+		err = commondb[i].SyncWithCloudLoadbalancerListenerRule(ctx, userCred, commonext[i], provider.ProjectId, syncRange.ProjectSync)
+		if err != nil {
+			syncResult.UpdateError(err)
+		} else {
+			syncResult.Update()
+		}
+	}
+	for i := 0; i < len(added); i++ {
+		_, err := man.newFromCloudLoadbalancerListenerRule(ctx, userCred, listener, added[i], provider.ProjectId)
+		if err != nil {
+			syncResult.AddError(err)
+		} else {
+			syncResult.Add()
+		}
+	}
+
+	return syncResult
+}
+
+func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(extRule cloudprovider.ICloudLoadbalancerListenerRule) {
+	lbr.Name = extRule.GetName()
+	lbr.Domain = extRule.GetDomain()
+	lbr.Path = extRule.GetPath()
+	if groupId := extRule.GetBackendGroupId(); len(groupId) > 0 {
+		if backendgroup, err := LoadbalancerBackendGroupManager.FetchByExternalId(groupId); err == nil {
+			lbr.BackendGroupId = backendgroup.GetId()
+		}
+	}
+}
+
+func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, listener *SLoadbalancerListener, extRule cloudprovider.ICloudLoadbalancerListenerRule, projectId string) (*SLoadbalancerListenerRule, error) {
+	lbr := &SLoadbalancerListenerRule{}
+	lbr.SetModelManager(man)
+
+	lbr.ExternalId = extRule.GetGlobalId()
+	lbr.ListenerId = listener.Id
+
+	lbr.constructFieldsFromCloudListenerRule(extRule)
+	lbr.ProjectId = userCred.GetProjectId()
+	if len(projectId) > 0 {
+		lbr.ProjectId = projectId
+	}
+
+	return lbr, man.TableSpec().Insert(lbr)
+}
+
+func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, extRule cloudprovider.ICloudLoadbalancerListenerRule, projectId string, projectSync bool) error {
+	_, err := lbr.GetModelManager().TableSpec().Update(lbr, func() error {
+		lbr.constructFieldsFromCloudListenerRule(extRule)
+
+		if projectSync && len(projectId) > 0 {
+			lbr.ProjectId = projectId
+		}
+		return nil
+	})
+	return err
+}

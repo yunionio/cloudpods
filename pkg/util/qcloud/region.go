@@ -572,3 +572,15 @@ func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
 	}
 	return instance.InstanceState, nil
 }
+
+func (region *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetILoadbalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetILoadbalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
