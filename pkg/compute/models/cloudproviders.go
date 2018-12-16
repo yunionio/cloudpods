@@ -144,6 +144,10 @@ func (self *SCloudprovider) getSnapshotCount() int {
 	return SnapshotManager.Query().Equals("manager_id", self.Id).Count()
 }
 
+func (self *SCloudprovider) getLoadbalancerCount() int {
+	return LoadbalancerManager.Query().Equals("manager_id", self.Id).Count()
+}
+
 func (self *SCloudprovider) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
@@ -473,6 +477,7 @@ type SCloudproviderUsage struct {
 	StorageCacheCount int
 	EipCount          int
 	SnapshotCount     int
+	LoadbalancerCount int
 }
 
 func (usage *SCloudproviderUsage) isEmpty() bool {
@@ -494,6 +499,9 @@ func (usage *SCloudproviderUsage) isEmpty() bool {
 	if usage.SnapshotCount > 0 {
 		return false
 	}
+	if usage.LoadbalancerCount > 0 {
+		return false
+	}
 	return true
 }
 
@@ -507,6 +515,7 @@ func (self *SCloudprovider) getUsage() *SCloudproviderUsage {
 	usage.StorageCacheCount = self.getStoragecacheCount()
 	usage.EipCount = self.getEipCount()
 	usage.SnapshotCount = self.getSnapshotCount()
+	usage.LoadbalancerCount = self.getLoadbalancerCount()
 
 	return &usage
 }
