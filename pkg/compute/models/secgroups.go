@@ -230,8 +230,11 @@ func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCr
 
 func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup, vpc *SVpc, projectId string) (*SSecurityGroup, bool, error) {
 	if secgroup, exist := SecurityGroupCacheManager.CheckExist(context.Background(), userCred, extSec.GetGlobalId(), extSec.GetVpcId(), vpc.CloudregionId, vpc.ManagerId); exist {
+		if secgroup.GetGuestsCount() == 0 {
+			return secgroup, true, nil
+		}
 		//避免重复同步
-		return secgroup, true, nil
+		return secgroup, false, nil
 	}
 
 	secgroup := SSecurityGroup{}
@@ -245,7 +248,7 @@ func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCre
 	}
 
 	if err := manager.TableSpec().Insert(&secgroup); err != nil {
-		return nil, false, err
+		return nil, true, err
 	}
 
 	if secgroupcache := SecurityGroupCacheManager.Register(context.Background(), userCred, secgroup.Id, extSec.GetVpcId(), vpc.CloudregionId, vpc.ManagerId); secgroupcache != nil {
@@ -254,7 +257,7 @@ func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCre
 		}
 	}
 
-	return &secgroup, false, nil
+	return &secgroup, true, nil
 }
 
 func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCred mcclient.TokenCredential, secgroups []cloudprovider.ICloudSecurityGroup, vpc *SVpc, projectId string, projectSync bool) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
@@ -298,18 +301,17 @@ func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCre
 			syncResult.AddError(err)
 			continue
 		}
-		new, exist, err := manager.newFromCloudVpc(userCred, added[i], vpc, projectId)
+		new, ruleSync, err := manager.newFromCloudVpc(userCred, added[i], vpc, projectId)
 		if err != nil {
 			syncResult.AddError(err)
 			continue
 		}
-		if exist {
-			continue
-		}
 		localSecgroups = append(localSecgroups, *new)
 		remoteSecgroups = append(remoteSecgroups, added[i])
-		SecurityGroupRuleManager.SyncRules(ctx, userCred, new, rules)
 		syncResult.Add()
+		if ruleSync {
+			SecurityGroupRuleManager.SyncRules(ctx, userCred, new, rules)
+		}
 	}
 	return localSecgroups, remoteSecgroups, syncResult
 }
