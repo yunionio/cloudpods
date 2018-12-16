@@ -10,6 +10,14 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/pkg/util/fileutils"
+	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -22,14 +30,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
-
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/pkg/util/fileutils"
-	"yunion.io/x/pkg/util/regutils"
-	"yunion.io/x/pkg/utils"
-	"yunion.io/x/sqlchemy"
 )
 
 func (self *SGuest) AllowGetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -744,6 +744,7 @@ func (self *SGuest) PerformRevokeSecgroup(ctx context.Context, userCred mcclient
 	if err := self.revokeSecgroup(ctx, userCred, secgroup); err != nil {
 		return nil, err
 	}
+	logclient.AddActionLog(self, logclient.ACT_VM_REVOKESECGROUP, nil, userCred, true)
 	return nil, self.StartSyncTask(ctx, userCred, true, "")
 }
 
@@ -763,6 +764,7 @@ func (self *SGuest) PerformAssignSecgroup(ctx context.Context, userCred mcclient
 		return nil, err
 	}
 
+	logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, fmt.Sprintf("secgroup: %s", secgrpV.Model.GetName()), userCred, true)
 	return nil, self.StartSyncTask(ctx, userCred, true, "")
 }
 
