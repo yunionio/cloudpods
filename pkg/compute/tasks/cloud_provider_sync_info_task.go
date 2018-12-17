@@ -80,6 +80,7 @@ func (self *CloudProviderSyncInfoTask) OnInit(ctx context.Context, obj db.IStand
 	}
 
 	provider.SetStatus(self.UserCred, models.CLOUD_PROVIDER_CONNECTED, "")
+	provider.CleanSchedCache()
 	self.SetStageComplete(ctx, nil)
 	logclient.AddActionLog(provider, getAction(self.Params), body, self.UserCred, true)
 }
