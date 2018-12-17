@@ -460,3 +460,15 @@ func (manager *SSecurityGroupRuleManager) newFromCloudSecurityGroup(rule secrule
 	}
 	return secrule, nil
 }
+
+func (manager *SSecurityGroupRuleManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
+	return userCred.GetProjectId()
+}
+
+func (self *SSecurityGroupRule) GetOwnerProjectId() string {
+	secgrp := self.GetSecGroup()
+	if secgrp != nil {
+		return secgrp.ProjectId
+	}
+	return ""
+}
