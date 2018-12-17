@@ -121,6 +121,7 @@ func (d *SKVMGuestDisk) Mount() guestfs.IRootFsDriver {
 	for i := 0; i < d.partitions; i++ {
 		if d.partitions[i].Mount() {
 			if fs := guestfs.DetectRootFs(d.partitions[i]); fs != nil {
+				log.Infof("Use rootfs %s", fs)
 				return fs
 			} else {
 				d.partitions[i].Umount()

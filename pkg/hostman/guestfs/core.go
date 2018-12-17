@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"path"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -38,21 +39,31 @@ func (f *SLocalGuestFS) isReadonly() bool {
 	}
 }
 
-func (f *SLocalGuestFS) getLocalPath(path string, caseInsensitive bool) string {
+func (f *SLocalGuestFS) getLocalPath(sPath string, caseInsensitive bool) string {
 	var fullPath = f.mountPath
-	pathSegs := strings.Split(path, "/")
-	for i := 0; i < len(pathSegs); i++ {
-		if len(pathSegs[i]) > 0 {
-			var readSeg string
+	pathSegs := strings.Split(sPath, "/")
+	for _, seg := range pathSegs {
+		if len(seg) > 0 {
+			var realSeg string
 			files, _ := ioutil.ReadDir(fullPath)
 			for _, file := range files {
-				if file.Name() == pathSegs[i] 
-                    || (caseInsensitive && strings.ToLower(file.Name())) == strings.ToLower(pathSegs[i]) {
-
+				var f = file.Name()
+				if f == seg || (caseInsensitive && (strings.ToLower(f)) == strings.ToLower(seg)) ||
+					(seg[len(seg)-1] == '*' && strings.HasPrefix(f, seg[:len(seg)-1])) ||
+					(caseInsensitive && strings.HasPrefix(strings.ToLower(f),
+						strings.ToLower(seg[:len(seg)]))) {
+					realSeg = f
+					break
 				}
+			}
+			if len(realSeg) > 0 {
+				fullPath = path.Join(fullPath, realSeg)
+			} else {
+				return ""
 			}
 		}
 	}
+	return fullPath
 }
 
 func (f *SLocalGuestFS) Remove(path string, caseInsensitive bool) {
@@ -69,11 +80,18 @@ func NewLocalGuestFS(mountPath string) *SLocalGuestFS {
 }
 
 type IRootFsDriver interface {
+	GetPartition() *SKVMGuestDiskPartition
+	String() string
+	TestRootfs() bool
 }
 
 var rootfsDrivers map[string]IRootFsDriver
 
 func DetectRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	//TODO
+	for k, v := range rootfsDrivers {
+		if v.TestRootfs(part) {
+			return v
+		}
+	}
 	return nil
 }
