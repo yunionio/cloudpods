@@ -313,6 +313,19 @@ func init() {
 		return nil
 	})
 
+	R(&options.ServerSecGroupsOptions{}, "server-set-secgroup", "Set security groups to a VM", func(s *mcclient.ClientSession, opts *options.ServerSecGroupsOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		srv, err := modules.Servers.PerformAction(s, opts.ID, "set-secgroup", params)
+		if err != nil {
+			return err
+		}
+		printObject(srv)
+		return nil
+	})
+
 	R(&options.ServerSecGroupsOptions{}, "server-add-secgroup", "Add security group to a VM", func(s *mcclient.ClientSession, opts *options.ServerSecGroupsOptions) error {
 		params, err := options.StructToParams(opts)
 		if err != nil {
@@ -352,7 +365,7 @@ func init() {
 		return nil
 	})
 
-	R(&options.ServerSecGroupOptions{}, "server-revoke-secgroup", "Revoke security group from VM", func(s *mcclient.ClientSession, opts *options.ServerSecGroupOptions) error {
+	R(&options.ServerSecGroupsOptions{}, "server-revoke-secgroup", "Revoke security group from VM", func(s *mcclient.ClientSession, opts *options.ServerSecGroupsOptions) error {
 		params, err := options.StructToParams(opts)
 		if err != nil {
 			return err

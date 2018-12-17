@@ -1221,7 +1221,7 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 	}
 
 	extra.Add(jsonutils.NewString(strings.Join(self.getIPs(), ",")), "ips")
-	extra.Add(jsonutils.NewString(self.getSecurityRules()), "security_rules")
+	extra.Add(jsonutils.NewString(self.getSecurityGroupsRules()), "security_rules")
 	extra.Add(jsonutils.NewString(self.getIsolatedDeviceDetails()), "isolated_devices")
 	osName := self.GetOS()
 	if len(osName) > 0 {
