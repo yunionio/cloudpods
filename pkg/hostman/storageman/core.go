@@ -68,9 +68,9 @@ func (d *SBaseDisk) DeployGuestFs(
 	if kvmDisk.Connect() {
 		defer kvmDisk.Disconnect()
 		log.Infof("Kvm Disk Connect Success !!")
-		if part := kvmDisk.Mount(); part != nil {
-			defer kvmDisk.Umount(part)
-			return part.DeployGuestFs(guestdesc, deployInfo)
+		if root := kvmDisk.Mount(); root != nil {
+			defer kvmDisk.Umount(root)
+			return root.DeployGuestFs(guestDesc, deployInfo)
 		}
 	}
 	return nil, fmt.Errorf("Kvm disk connect or mount error")
