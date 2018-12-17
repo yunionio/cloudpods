@@ -57,6 +57,7 @@ const (
 	ACT_VM_UNBIND_KEYPAIR            = "解绑密钥"
 	ACT_VM_ASSIGNSECGROUP            = "关联安全组"
 	ACT_VM_REVOKESECGROUP            = "取消关联安全组"
+	ACT_VM_SETSECGROUP               = "设置安全组"
 	ACT_RESET_DISK                   = "回滚磁盘"
 
 	ACT_RECYCLE_PREPAID      = "池化预付费主机"
