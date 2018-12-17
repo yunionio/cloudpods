@@ -736,20 +736,39 @@ func (self *SGuest) PerformRevokeSecgroup(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewInputParameterError("Cannot revoke security rules in status %s", self.Status)
 	}
 
-	secgrpV := validators.NewModelIdOrNameValidator("secgrp", "secgroup", userCred.GetProjectId())
-	secgrpV.Optional(true)
-	if err := secgrpV.Validate(data.(*jsonutils.JSONDict)); err != nil {
-		return nil, err
+	revokeSecgroups := []*SSecurityGroup{}
+	secgrpJsonArray := jsonutils.GetArrayOfPrefix(data, "secgrp")
+	originSecgroups := self.GetSecgroups()
+	originSecgroupIds := []string{}
+	for _, originSecgroup := range originSecgroups {
+		originSecgroupIds = append(originSecgroupIds, originSecgroup.Id)
 	}
 
-	secgroup, ok := secgrpV.Model.(*SSecurityGroup)
-	if !ok {
-		secgroup = self.getSecgroup()
+	if len(secgrpJsonArray) == 0 {
+		revokeSecgroups = append(revokeSecgroups, self.getSecgroup())
 	}
-	if err := self.revokeSecgroup(ctx, userCred, secgroup); err != nil {
-		return nil, err
+	for idx := 0; idx < len(secgrpJsonArray); idx++ {
+		secgroupId, _ := secgrpJsonArray[idx].GetString()
+		secgrp, err := SecurityGroupManager.FetchByIdOrName(userCred, secgroupId)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewInputParameterError("failed to find secgroup %s for params %s", secgroupId, fmt.Sprintf("secgrp.%d", idx))
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		if !utils.IsInStringArray(secgrp.GetId(), originSecgroupIds) {
+			return nil, httperrors.NewInputParameterError("security group %s not assigned to guest %s", secgrp.GetName(), self.Name)
+		}
+		revokeSecgroups = append(revokeSecgroups, secgrp.(*SSecurityGroup))
 	}
-	logclient.AddActionLog(self, logclient.ACT_VM_REVOKESECGROUP, fmt.Sprintf("secgroup: %s", secgroup.GetName()), userCred, true)
+
+	for _, secgroup := range revokeSecgroups {
+		if err := self.revokeSecgroup(ctx, userCred, secgroup); err != nil {
+			return nil, err
+		}
+		logclient.AddActionLog(self, logclient.ACT_VM_REVOKESECGROUP, fmt.Sprintf("secgroup: %s", secgroup.GetName()), userCred, true)
+	}
+
 	return nil, self.StartSyncTask(ctx, userCred, true, "")
 }
 
