@@ -744,7 +744,7 @@ func (self *SGuest) PerformRevokeSecgroup(ctx context.Context, userCred mcclient
 	if err := self.revokeSecgroup(ctx, userCred, secgroup); err != nil {
 		return nil, err
 	}
-	logclient.AddActionLog(self, logclient.ACT_VM_REVOKESECGROUP, nil, userCred, true)
+	logclient.AddActionLog(self, logclient.ACT_VM_REVOKESECGROUP, fmt.Sprintf("secgroup: %s", secgrpV.Model.GetName()), userCred, true)
 	return nil, self.StartSyncTask(ctx, userCred, true, "")
 }
 
