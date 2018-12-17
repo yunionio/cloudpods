@@ -114,6 +114,18 @@ func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
+func (self *SCloudprovider) CleanSchedCache() {
+	hosts := []SHost{}
+	q := HostManager.Query().Equals("manager_id", self.Id)
+	if err := db.FetchModelObjects(HostManager, q, &hosts); err != nil {
+		log.Errorf("failed to get hosts for cloudprovider %s error: %v", self.Name, err)
+		return
+	}
+	for _, host := range hosts {
+		host.ClearSchedDescCache()
+	}
+}
+
 func (self *SCloudprovider) GetGuestCount() int {
 	sq := HostManager.Query("id").Equals("manager_id", self.Id)
 	return GuestManager.Query().In("host_id", sq).Count()
