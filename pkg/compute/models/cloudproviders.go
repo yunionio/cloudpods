@@ -8,14 +8,14 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 const (
@@ -68,6 +68,18 @@ func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
 		return httperrors.NewNotEmptyError("Not an empty cloud provider")
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
+}
+
+func (self *SCloudprovider) CleanSchedCache() {
+	hosts := []SHost{}
+	q := HostManager.Query().Equals("manager_id", self.Id)
+	if err := db.FetchModelObjects(HostManager, q, &hosts); err != nil {
+		log.Errorf("failed to get hosts for cloudprovider %s error: %v", self.Name, err)
+		return
+	}
+	for _, host := range hosts {
+		host.ClearSchedDescCache()
+	}
 }
 
 func (self *SCloudprovider) GetGuestCount() int {
