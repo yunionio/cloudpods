@@ -665,7 +665,7 @@ func (self *SGuest) PerformAddSecgroup(ctx context.Context, userCred mcclient.To
 	}
 
 	newSecgroups := []*SSecurityGroup{}
-
+	newSecgroupNames := []string{}
 	for idx := 0; idx < len(secgrpJsonArray); idx++ {
 		secgroupId, _ := secgrpJsonArray[idx].GetString()
 		secgrp, err := SecurityGroupManager.FetchByIdOrName(userCred, secgroupId)
@@ -679,15 +679,16 @@ func (self *SGuest) PerformAddSecgroup(ctx context.Context, userCred mcclient.To
 			return nil, httperrors.NewInputParameterError("security group %s has already been assigned to guest %s", secgrp.GetName(), self.Name)
 		}
 		newSecgroups = append(newSecgroups, secgrp.(*SSecurityGroup))
+		newSecgroupNames = append(newSecgroupNames, secgrp.GetName())
 	}
 
 	for _, secgroup := range newSecgroups {
 		if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, self, secgroup); err != nil {
 			return nil, httperrors.NewInputParameterError(err.Error())
 		}
-		logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, fmt.Sprintf("secgroup: %s", secgroup.GetName()), userCred, true)
 	}
 
+	logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, fmt.Sprintf("secgroups: %s", strings.Join(newSecgroupNames, ",")), userCred, true)
 	return nil, self.StartSyncTask(ctx, userCred, true, "")
 }
 
@@ -747,6 +748,8 @@ func (self *SGuest) PerformRevokeSecgroup(ctx context.Context, userCred mcclient
 	if len(secgrpJsonArray) == 0 {
 		revokeSecgroups = append(revokeSecgroups, self.getSecgroup())
 	}
+
+	revokeSecgroupNames := []string{}
 	for idx := 0; idx < len(secgrpJsonArray); idx++ {
 		secgroupId, _ := secgrpJsonArray[idx].GetString()
 		secgrp, err := SecurityGroupManager.FetchByIdOrName(userCred, secgroupId)
@@ -760,15 +763,15 @@ func (self *SGuest) PerformRevokeSecgroup(ctx context.Context, userCred mcclient
 			return nil, httperrors.NewInputParameterError("security group %s not assigned to guest %s", secgrp.GetName(), self.Name)
 		}
 		revokeSecgroups = append(revokeSecgroups, secgrp.(*SSecurityGroup))
+		revokeSecgroupNames = append(revokeSecgroupNames, secgrp.GetName())
 	}
 
 	for _, secgroup := range revokeSecgroups {
 		if err := self.revokeSecgroup(ctx, userCred, secgroup); err != nil {
 			return nil, err
 		}
-		logclient.AddActionLog(self, logclient.ACT_VM_REVOKESECGROUP, fmt.Sprintf("secgroup: %s", secgroup.GetName()), userCred, true)
 	}
-
+	logclient.AddActionLog(self, logclient.ACT_VM_REVOKESECGROUP, fmt.Sprintf("secgroups: %s", strings.Join(revokeSecgroupNames, ",")), userCred, true)
 	return nil, self.StartSyncTask(ctx, userCred, true, "")
 }
 
@@ -789,6 +792,66 @@ func (self *SGuest) PerformAssignSecgroup(ctx context.Context, userCred mcclient
 	}
 
 	logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, fmt.Sprintf("secgroup: %s", secgrpV.Model.GetName()), userCred, true)
+	return nil, self.StartSyncTask(ctx, userCred, true, "")
+}
+
+func (self *SGuest) AllowPerformSetSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "set-secgroup")
+}
+
+func (self *SGuest) PerformSetSecgroup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING, VM_SUSPEND}) {
+		return nil, httperrors.NewInputParameterError("Cannot assign security rules in status %s", self.Status)
+	}
+	secgrpJsonArray := jsonutils.GetArrayOfPrefix(data, "secgrp")
+	if len(secgrpJsonArray) == 0 {
+		return nil, httperrors.NewInputParameterError("Missing secgrp.0 secgrp.1 ... parameters")
+	}
+
+	maxCount := self.GetDriver().GetMaxSecurityGroupCount()
+	if maxCount == 0 {
+		return nil, httperrors.NewUnsupportOperationError("Cannot assign security group for this guest %s", self.Name)
+	}
+
+	if len(secgrpJsonArray) > maxCount {
+		return nil, httperrors.NewUnsupportOperationError("guest %s band to up to %d security groups", self.Name, maxCount)
+	}
+
+	setSecgroups := []*SSecurityGroup{}
+	setSecgroupNames := []string{}
+	for idx := 0; idx < len(secgrpJsonArray); idx++ {
+		secgroupId, _ := secgrpJsonArray[idx].GetString()
+		secgrp, err := SecurityGroupManager.FetchByIdOrName(userCred, secgroupId)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewInputParameterError("failed to find secgroup %s for params %s", secgroupId, fmt.Sprintf("secgrp.%d", idx))
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		setSecgroups = append(setSecgroups, secgrp.(*SSecurityGroup))
+		setSecgroupNames = append(setSecgroupNames, secgrp.GetName())
+	}
+
+	if err := self.revokeAllSecgroups(ctx, userCred); err != nil {
+		return nil, err
+	}
+
+	for i := 0; i < len(setSecgroups); i++ {
+		if i == 0 {
+			_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+				self.SecgrpId = setSecgroups[i].Id
+				return nil
+			})
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, self, setSecgroups[i]); err != nil {
+				return nil, httperrors.NewInputParameterError(err.Error())
+			}
+		}
+	}
+	logclient.AddActionLog(self, logclient.ACT_VM_SETSECGROUP, fmt.Sprintf("secgroups: %s", strings.Join(setSecgroupNames, ",")), userCred, true)
 	return nil, self.StartSyncTask(ctx, userCred, true, "")
 }
 
