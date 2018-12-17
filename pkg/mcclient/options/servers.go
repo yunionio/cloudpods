@@ -263,8 +263,8 @@ type ServerSecGroupOptions struct {
 }
 
 type ServerSecGroupsOptions struct {
-	ID      string   `help:"ID or Name of server" metavar:"Guest" json:"-"`
-	Secgrps []string `help:"Ids of Security Groups" metavar:"Security Groups" positional:"true"`
+	ID     string   `help:"ID or Name of server" metavar:"Guest" json:"-"`
+	Secgrp []string `help:"Ids of Security Groups" metavar:"Security Groups" positional:"true"`
 }
 
 type ServerSendKeyOptions struct {
