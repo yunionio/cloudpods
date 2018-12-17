@@ -649,39 +649,43 @@ func (self *SGuest) PerformAddSecgroup(ctx context.Context, userCred mcclient.To
 		return nil, httperrors.NewUnsupportOperationError("Cannot assign security group for this guest %s", self.Name)
 	}
 
-	secgrps := []string{}
-	if err := data.Unmarshal(&secgrps, "secgrps"); err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+	secgrpJsonArray := jsonutils.GetArrayOfPrefix(data, "secgrp")
+	if len(secgrpJsonArray) == 0 {
+		return nil, httperrors.NewInputParameterError("Missing secgrp.0 secgrp.1 ... parameters")
 	}
 
-	secgroups := self.GetSecgroups()
-	if len(secgroups)+len(secgrps) >= maxCount {
+	originSecgroups := self.GetSecgroups()
+	if len(originSecgroups)+len(secgrpJsonArray) >= maxCount {
 		return nil, httperrors.NewUnsupportOperationError("guest %s band to up to %d security groups", self.Name, maxCount)
 	}
 
-	secgroupIds := []string{}
-	for _, secgroup := range secgroups {
-		secgroupIds = append(secgroupIds, secgroup.Id)
+	originSecgroupIds := []string{}
+	for _, secgroup := range originSecgroups {
+		originSecgroupIds = append(originSecgroupIds, secgroup.Id)
 	}
 
-	addSecgroups := []*SSecurityGroup{}
+	newSecgroups := []*SSecurityGroup{}
 
-	for _, _secgrp := range secgrps {
-		secgrp, err := SecurityGroupManager.FetchByIdOrName(userCred, _secgrp)
+	for idx := 0; idx < len(secgrpJsonArray); idx++ {
+		secgroupId, _ := secgrpJsonArray[idx].GetString()
+		secgrp, err := SecurityGroupManager.FetchByIdOrName(userCred, secgroupId)
 		if err != nil {
-			return nil, httperrors.NewInputParameterError(err.Error())
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewInputParameterError("failed to find secgroup %s for params %s", secgroupId, fmt.Sprintf("secgrp.%d", idx))
+			}
+			return nil, httperrors.NewGeneralError(err)
 		}
-
-		if utils.IsInStringArray(secgrp.GetId(), secgroupIds) {
+		if utils.IsInStringArray(secgrp.GetId(), originSecgroupIds) {
 			return nil, httperrors.NewInputParameterError("security group %s has already been assigned to guest %s", secgrp.GetName(), self.Name)
 		}
-		addSecgroups = append(addSecgroups, secgrp.(*SSecurityGroup))
+		newSecgroups = append(newSecgroups, secgrp.(*SSecurityGroup))
 	}
 
-	for _, secgroup := range addSecgroups {
+	for _, secgroup := range newSecgroups {
 		if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, self, secgroup); err != nil {
 			return nil, httperrors.NewInputParameterError(err.Error())
 		}
+		logclient.AddActionLog(self, logclient.ACT_VM_ASSIGNSECGROUP, fmt.Sprintf("secgroup: %s", secgroup.GetName()), userCred, true)
 	}
 
 	return nil, self.StartSyncTask(ctx, userCred, true, "")
@@ -703,7 +707,7 @@ func (self *SGuest) revokeSecgroup(ctx context.Context, userCred mcclient.TokenC
 		return GuestsecgroupManager.DeleteGuestSecgroup(ctx, userCred, self, secgroup)
 	}
 	secgroups := self.GetSecgroups()
-	if len(secgroups) == 1 {
+	if len(secgroups) <= 1 {
 		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 			self.SecgrpId = "default"
 			return nil
@@ -711,6 +715,7 @@ func (self *SGuest) revokeSecgroup(ctx context.Context, userCred mcclient.TokenC
 		return err
 	}
 	for _, _secgroup := range secgroups {
+		// 从guestsecgroups中移除一个安全组，并将guest的 secgroupId 设为此安全组ID
 		if _secgroup.Id != secgroup.Id {
 			err := GuestsecgroupManager.DeleteGuestSecgroup(ctx, userCred, self, &_secgroup)
 			if err != nil {
@@ -744,7 +749,7 @@ func (self *SGuest) PerformRevokeSecgroup(ctx context.Context, userCred mcclient
 	if err := self.revokeSecgroup(ctx, userCred, secgroup); err != nil {
 		return nil, err
 	}
-	logclient.AddActionLog(self, logclient.ACT_VM_REVOKESECGROUP, fmt.Sprintf("secgroup: %s", secgrpV.Model.GetName()), userCred, true)
+	logclient.AddActionLog(self, logclient.ACT_VM_REVOKESECGROUP, fmt.Sprintf("secgroup: %s", secgroup.GetName()), userCred, true)
 	return nil, self.StartSyncTask(ctx, userCred, true, "")
 }
 
