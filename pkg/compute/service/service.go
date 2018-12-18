@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	"yunion.io/x/onecloud/pkg/compute/skus"
 
 	"yunion.io/x/log"
 
@@ -16,6 +16,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/util/azure/provider"
 	_ "yunion.io/x/onecloud/pkg/util/esxi/provider"
 	_ "yunion.io/x/onecloud/pkg/util/huawei/provider"
+	_ "yunion.io/x/onecloud/pkg/util/openstack/provider"
 	_ "yunion.io/x/onecloud/pkg/util/qcloud/provider"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
