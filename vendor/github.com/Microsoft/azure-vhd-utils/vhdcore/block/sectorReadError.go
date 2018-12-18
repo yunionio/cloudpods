@@ -13,7 +13,7 @@ type SectorReadError struct {
 // Error returns the string representation  of the SectorReadError instance.
 //
 func (e *SectorReadError) Error() string {
-	return fmt.Sprint("Read sector '%d' of block '%d' failed: %s", e.SectorIndex, e.BlockIndex, e.err)
+	return fmt.Sprintf("Read sector '%d' of block '%d' failed: %s", e.SectorIndex, e.BlockIndex, e.err)
 }
 
 // NewSectorReadError returns a new SectorReadError instance.

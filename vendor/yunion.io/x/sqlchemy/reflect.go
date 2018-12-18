@@ -125,14 +125,20 @@ func setValueBySQLString(value reflect.Value, val string) error {
 		reflect.Append(value, reflect.ValueOf(val))
 	default:
 		valueType := value.Type()
-		if !valueType.Implements(gotypes.ISerializableType) {
-			return fmt.Errorf("not supported type: %s", valueType)
+		if valueType.Implements(gotypes.ISerializableType) {
+			serializable, err := jsonutils.JSONDeserialize(valueType, val)
+			if err != nil {
+				return err
+			}
+			value.Set(reflect.ValueOf(serializable))
+			return nil
+		} else if value.Kind() == reflect.Ptr {
+			if value.IsNil() {
+				value.Set(reflect.New(value.Type().Elem()))
+			}
+			return setValueBySQLString(value.Elem(), val)
 		}
-		serializable, err := jsonutils.JSONDeserialize(valueType, val)
-		if err != nil {
-			return err
-		}
-		value.Set(reflect.ValueOf(serializable))
+		return fmt.Errorf("not supported type: %s", valueType)
 	}
 	return nil
 }

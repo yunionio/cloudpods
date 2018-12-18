@@ -15,7 +15,21 @@ func structField2ColumnSpec(field *reflect.StructField) IColumnSpec {
 	if _, ok := tagmap[TAG_IGNORE]; ok {
 		return nil
 	}
-	switch field.Type {
+	var retCol = getFiledTypeCol(field.Type, fieldname, tagmap)
+	if retCol == nil && field.Type.Kind() == reflect.Ptr {
+		retCol = getFiledTypeCol(field.Type.Elem(), fieldname, tagmap)
+		if retCol != nil {
+			retCol.SetIsPointer()
+		}
+	}
+	if retCol == nil {
+		panic("not supported type %s" + field.Type.Name())
+	}
+	return retCol
+}
+
+func getFiledTypeCol(fieldType reflect.Type, fieldname string, tagmap map[string]string) IColumnSpec {
+	switch fieldType {
 	case gotypes.StringType:
 		col := NewTextColumn(fieldname, tagmap)
 		return &col
@@ -65,7 +79,7 @@ func structField2ColumnSpec(field *reflect.StructField) IColumnSpec {
 			return &col
 		} else {
 			colType := "FLOAT"
-			if field.Type == gotypes.Float64Type {
+			if fieldType == gotypes.Float64Type {
 				colType = "DOUBLE"
 			}
 			col := NewFloatColumn(fieldname, colType, tagmap)
@@ -74,22 +88,13 @@ func structField2ColumnSpec(field *reflect.StructField) IColumnSpec {
 	case gotypes.TimeType:
 		col := NewDateTimeColumn(fieldname, tagmap)
 		return &col
-	/*case jsonutils.JSONDictType:
-		col := NewJSONColumn(fieldname, tagmap)
-		return &col
-	case jsonutils.JSONArrayType:
-		col := NewJSONColumn(fieldname, tagmap)
-		return &col
-	case jsonutils.JSONObjectType:
-		col := NewJSONColumn(fieldname, tagmap)
-		return &col*/
 	default:
-		if field.Type.Implements(gotypes.ISerializableType) {
+		if fieldType.Implements(gotypes.ISerializableType) {
 			col := NewCompoundColumn(fieldname, tagmap)
 			return &col
 		}
-		panic("not supported type %s" + field.Type.Name())
 	}
+	return nil
 }
 
 func struct2TableSpec(st reflect.Type, table *STableSpec) {
@@ -100,6 +105,9 @@ func struct2TableSpec(st reflect.Type, table *STableSpec) {
 		} else {
 			column := structField2ColumnSpec(&f)
 			if column != nil {
+				if column.IsIndex() {
+					table.AddIndex(column.IsUnique(), column.Name())
+				}
 				table.columns = append(table.columns, column)
 			}
 		}

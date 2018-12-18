@@ -44,6 +44,14 @@ const (
 	StorageArchive StorageClassType = "Archive"
 )
 
+// PayerType the type of request payer
+type PayerType string
+
+const (
+	// Requester the requester who send the request
+	Requester PayerType = "requester"
+)
+
 // HTTPMethod HTTP request method
 type HTTPMethod string
 
@@ -109,6 +117,7 @@ const (
 	HTTPHeaderOssStorageClass                = "X-Oss-Storage-Class"
 	HTTPHeaderOssCallback                    = "X-Oss-Callback"
 	HTTPHeaderOssCallbackVar                 = "X-Oss-Callback-Var"
+	HTTPHeaderOSSRequester                   = "X-Oss-Request-Payer"
 )
 
 // HTTP Param
@@ -131,5 +140,5 @@ const (
 
 	CheckpointFileSuffix = ".cp" // Checkpoint file suffix
 
-	Version = "1.9.1" // Go SDK version
+	Version = "1.9.2" // Go SDK version
 )

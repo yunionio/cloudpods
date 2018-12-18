@@ -143,11 +143,12 @@ func open() (*TTY, error) {
 	if false && isatty.IsTerminal(os.Stdin.Fd()) {
 		tty.in = os.Stdin
 	} else {
-		conin, err := os.Open("CONIN$")
+		in, err := syscall.Open("CONIN$", syscall.O_RDWR, 0)
 		if err != nil {
 			return nil, err
 		}
-		tty.in = conin
+
+		tty.in = os.NewFile(uintptr(in), "/dev/tty")
 	}
 
 	if isatty.IsTerminal(os.Stdout.Fd()) {
@@ -177,7 +178,7 @@ func open() (*TTY, error) {
 	st &^= enableWindowInput
 	st &^= enableExtendedFlag
 	st &^= enableQuickEditMode
-	st |= enableProcessedInput
+	st &^= enableProcessedInput
 
 	// ignore error
 	procSetConsoleMode.Call(h, uintptr(st))

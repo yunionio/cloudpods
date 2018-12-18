@@ -21,8 +21,8 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/responses"
-	"net/http"
 	"net"
+	"net/http"
 )
 
 // this value will be replaced while build: -ldflags="-X sdk.version=x.x.x"
@@ -187,15 +187,24 @@ func (client *Client) DoActionWithSigner(request requests.AcsRequest, response r
 		httpRequest.Header[key] = []string{value}
 	}
 	var httpResponse *http.Response
-	for retryTimes := 0; retryTimes < client.config.MaxRetryTime; retryTimes++ {
+	for retryTimes := 0; retryTimes <= client.config.MaxRetryTime; retryTimes++ {
 		httpResponse, err = client.httpClient.Do(httpRequest)
-		// if status code >= 500 or timeout, will trigger retry
-		if client.config.AutoRetry && isNeedRetry(httpResponse, err){
-			continue
-		}
-		// receive error but not timeout
+
+		// retry params
+		var timeout bool
+		var serverError bool
+
+		// receive error
 		if err != nil {
-			return
+			// if not timeout error, return
+			if timeout = isTimeout(err); !timeout {
+				return
+			}
+		}
+		serverError = isServerError(httpResponse)
+		//  if status code >= 500 or timeout, will trigger retry
+		if client.config.AutoRetry && (timeout || serverError) {
+			continue
 		}
 		break
 	}
@@ -203,16 +212,16 @@ func (client *Client) DoActionWithSigner(request requests.AcsRequest, response r
 	return
 }
 
-func isNeedRetry(response *http.Response, err error) bool {
-	if response.StatusCode >= http.StatusInternalServerError {
-		// internal server error
-		return true
-	}else if  err, ok := err.(net.Error); ok && err.Timeout() {
-		// timeout
-		return true
-	}else{
+func isTimeout(err error) bool {
+	if err == nil {
 		return false
 	}
+	netErr, isNetError := err.(net.Error)
+	return isNetError && netErr.Timeout()
+}
+
+func isServerError(httpResponse *http.Response) bool {
+	return httpResponse.StatusCode >= http.StatusInternalServerError
 }
 
 func (client *Client) AddAsyncTask(task func()) (err error) {

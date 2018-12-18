@@ -1,6 +1,6 @@
 // Package forward implements a forwarding proxy. It caches an upstream net.Conn for some time, so if the same
 // client returns the upstream's Conn will be precached. Depending on how you benchmark this looks to be
-// 50% faster than just openening a new connection for every client. It works with UDP and TCP and uses
+// 50% faster than just opening a new connection for every client. It works with UDP and TCP and uses
 // inband healthchecking.
 package forward
 
@@ -35,16 +35,16 @@ func averageTimeout(currentAvg *int64, observedDuration time.Duration, weight in
 	atomic.AddInt64(currentAvg, int64(observedDuration-dt)/weight)
 }
 
-func (t *transport) dialTimeout() time.Duration {
+func (t *Transport) dialTimeout() time.Duration {
 	return limitTimeout(&t.avgDialTime, minDialTimeout, maxDialTimeout)
 }
 
-func (t *transport) updateDialTimeout(newDialTime time.Duration) {
+func (t *Transport) updateDialTimeout(newDialTime time.Duration) {
 	averageTimeout(&t.avgDialTime, newDialTime, cumulativeAvgWeight)
 }
 
 // Dial dials the address configured in transport, potentially reusing a connection or creating a new one.
-func (t *transport) Dial(proto string) (*dns.Conn, bool, error) {
+func (t *Transport) Dial(proto string) (*dns.Conn, bool, error) {
 	// If tls has been configured; use it.
 	if t.tlsConfig != nil {
 		proto = "tcp-tls"
@@ -67,14 +67,6 @@ func (t *transport) Dial(proto string) (*dns.Conn, bool, error) {
 	conn, err := dns.DialTimeout(proto, t.addr, timeout)
 	t.updateDialTimeout(time.Since(reqTime))
 	return conn, false, err
-}
-
-func (p *Proxy) readTimeout() time.Duration {
-	return limitTimeout(&p.avgRtt, minTimeout, maxTimeout)
-}
-
-func (p *Proxy) updateRtt(newRtt time.Duration) {
-	averageTimeout(&p.avgRtt, newRtt, cumulativeAvgWeight)
 }
 
 // Connect selects an upstream, sends the request and waits for a response.
@@ -103,7 +95,6 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 	}
 
 	conn.SetWriteDeadline(time.Now().Add(maxTimeout))
-	reqTime := time.Now()
 	if err := conn.WriteMsg(state.Req); err != nil {
 		conn.Close() // not giving it back
 		if err == io.EOF && cached {
@@ -112,18 +103,15 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 		return nil, err
 	}
 
-	conn.SetReadDeadline(time.Now().Add(p.readTimeout()))
+	conn.SetReadDeadline(time.Now().Add(readTimeout))
 	ret, err := conn.ReadMsg()
 	if err != nil {
-		p.updateRtt(maxTimeout)
 		conn.Close() // not giving it back
 		if err == io.EOF && cached {
 			return nil, ErrCachedClosed
 		}
 		return ret, err
 	}
-
-	p.updateRtt(time.Since(reqTime))
 
 	p.transport.Yield(conn)
 
