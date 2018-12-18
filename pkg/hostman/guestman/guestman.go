@@ -210,7 +210,7 @@ func (m *SGuestManager) DoDeploy(ctx context.Context, sid string, body jsonutils
 		}
 		// TODO
 		publicKey := sshkeys.GetKeys(body)
-		deploys, _ := body.Get("deploys")
+		deploys, _ := body.GetArray("deploys")
 		password, _ := body.GetString("password")
 		resetPassword := jsonutils.QueryBoolean(body, "reset_password", false)
 		if resetPassword && len(password) == 0 {

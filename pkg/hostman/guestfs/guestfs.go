@@ -2,8 +2,10 @@ package guestfs
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/hostman"
@@ -46,9 +48,12 @@ func (p *SKVMGuestDiskPartition) Mount() bool {
 		log.Errorf("SKVMGuestDiskPartition mount error: %s", err)
 		return false
 	}
-	if p.isReadonly() {
+	if p.IsReadonly() {
 		log.Errorf("SKVMGuestDiskPartition %s is readonly, try mount as ro", p.partDev)
-		p.Umount()
+		e := p.Umount() // TODO
+		if e != nil {
+			log.Errorln(e)
+		}
 		err = p.mount(true)
 		if err != nil {
 			log.Errorf("SKVMGuestDiskPartition mount as ro error %s", err)
@@ -112,4 +117,45 @@ func (p *SKVMGuestDiskPartition) fsck() error {
 		}
 	}
 	return nil
+}
+
+func (p *SKVMGuestDiskPartition) Exists(sPath string, caseInsensitive bool) bool {
+	sPath = p.getLocalPath(sPath, caseInsensitive)
+	if len(sPath) > 0 {
+		if _, err := os.Stat(sPath); !os.IsNotExist(err) {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *SKVMGuestDiskPartition) IsMounted() bool {
+	if _, err := os.Stat(p.mountPath); os.IsNotExist(err) {
+		return false
+	}
+	err := exec.Command("mountpoint", p.mountPath).Run()
+	if err == nil {
+		return true
+	} else {
+		log.Errorln(err)
+	}
+	return false
+}
+
+func (p *SKVMGuestDiskPartition) Umount() bool {
+	if p.IsMounted() {
+		var tries = 0
+		for tries < 10 {
+			tries += 1
+			err := exec.Command("umount", p.mountPath).Run()
+			if err == nil {
+				exec.Command("blockdev", "--flushbufs", p.partDev).Run()
+				os.Remove(p.mountPath)
+				return true
+			} else {
+				time.Sleep(time.Second * 1)
+			}
+		}
+	}
+	return false
 }

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 
@@ -31,7 +32,37 @@ func CommandWithTimeout(timeout int, cmds ...string) *exec.Cmd {
 
 // file utils
 
-func FilePutContents(filename string, context string, modAppend bool) error {
+// TODO: test
+func Cleandir(sPath string, keepdir bool) error {
+	if f, _ := os.Lstat(sPath); f == nil || f.Mode()&os.ModeSymlink == os.ModeSymlink {
+		return nil
+	}
+	files, _ := ioutil.ReadDir(sPath)
+	for _, file := range files {
+		fp := path.Join(sPath, file.Name())
+		if f, _ := os.Lstat(fp); f.Mode()&os.ModeSymlink == os.ModeSymlink {
+			if !keepdir {
+				if err := os.Remove(fp); err != nil {
+					return err
+				}
+			}
+		} else if f.IsDir() {
+			Cleandir(fp, keepdir)
+			if !keepdir {
+				if err := os.Remove(fp); err != nil {
+					return err
+				}
+			}
+		} else {
+			if err := os.Remove(fp); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func FilePutContents(filename string, content string, modAppend bool) error {
 	var mode = os.O_WRONLY | os.O_CREATE
 	if modAppend {
 		mode = mode | os.O_APPEND
@@ -41,7 +72,7 @@ func FilePutContents(filename string, context string, modAppend bool) error {
 		return err
 	}
 	defer fd.Close()
-	_, err = fd.WriteString(context)
+	_, err = fd.WriteString(content)
 	return err
 }
 
@@ -156,4 +187,33 @@ func CleanFailedMountpoints() {
 			exec.Command("umount", mp).Run()
 		}
 	}
+}
+
+type HostsFile map[string][]string
+
+func (hf HostsFile) Parse(content string) {
+	lines := strings.Split(content, "\n")
+	for _, line := range lines {
+		data := regexp.MustCompile(`\s+`).Split(line, -1)
+		for len(data) > 0 && data[len(data)-1] == "" {
+			data = data[:len(data)-1]
+		}
+		if len(data) > 1 {
+			hf[data[0]] = data[1:]
+		}
+	}
+}
+
+func (hf HostsFile) Add(name string, value ...string) {
+	hf[name] = value
+}
+
+func (hf HostsFile) String() string {
+	var ret = ""
+	for k, v := range hf {
+		if len(v) > 0 {
+			ret += fmt.Sprintf("%s\t%s\n", k, strings.Join(v, "\t"))
+		}
+	}
+	return ret
 }
