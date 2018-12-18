@@ -25,7 +25,7 @@ func (o ClusterListOptions) Params() *jsonutils.JSONDict {
 }
 
 type K8sSupportVersion struct {
-	K8sVersion string `help:"Cluster kubernetes components version" choices:"v1.10.5|v1.11.3|v1.12.0"`
+	K8sVersion string `help:"Cluster kubernetes components version" choices:"v1.10.5|v1.11.3|v1.12.3"`
 }
 
 type ClusterCreateOptions struct {
