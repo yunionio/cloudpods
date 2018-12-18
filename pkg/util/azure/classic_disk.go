@@ -208,8 +208,8 @@ func (self *SClassicDisk) Refresh() error {
 	return nil
 }
 
-func (self *SClassicDisk) Reset(ctx context.Context, snapshotId string) error {
-	return cloudprovider.ErrNotSupported
+func (self *SClassicDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
+	return "", cloudprovider.ErrNotSupported
 }
 
 func (self *SClassicDisk) Resize(ctx context.Context, sizeMb int64) error {

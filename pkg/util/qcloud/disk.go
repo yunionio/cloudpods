@@ -344,8 +344,8 @@ func (self *SRegion) ResetDisk(diskId, snapshotId string) error {
 	return nil
 }
 
-func (self *SDisk) Reset(ctx context.Context, snapshotId string) error {
-	return self.storage.zone.region.ResetDisk(self.DiskId, snapshotId)
+func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
+	return "", self.storage.zone.region.ResetDisk(self.DiskId, snapshotId)
 }
 
 func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, desc string) (string, error) {

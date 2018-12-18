@@ -669,7 +669,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	if len(res.Instances) == 1 {
 		return *res.Instances[0].InstanceId, nil
 	} else {
-		msg := fmt.Sprintf("CreateInstance fail: %s instance created. ", len(res.Instances))
+		msg := fmt.Sprintf("CreateInstance fail: %d instance created. ", len(res.Instances))
 		log.Errorf(msg)
 		return "", fmt.Errorf(msg)
 	}
@@ -810,7 +810,7 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 	if rootDisk == nil {
 		return "", fmt.Errorf("can not find root disk of instance %s", instanceId)
 	}
-	log.Debugf("ReplaceSystemDisk replace root disk %s", rootDisk)
+	log.Debugf("ReplaceSystemDisk replace root disk %s", rootDisk.DiskId)
 
 	image, err := self.GetImage(imageId)
 	if err != nil {

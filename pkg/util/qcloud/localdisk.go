@@ -87,8 +87,8 @@ func (self *SLocalDisk) Refresh() error {
 	return nil
 }
 
-func (self *SLocalDisk) Reset(ctx context.Context, snapshotId string) error {
-	return cloudprovider.ErrNotSupported
+func (self *SLocalDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
+	return "", cloudprovider.ErrNotSupported
 }
 
 func (self *SLocalDisk) GetTemplateId() string {

@@ -229,8 +229,8 @@ func (disk *SVirtualDisk) Resize(ctx context.Context, newSizeMb int64) error {
 	return err
 }
 
-func (disk *SVirtualDisk) Reset(ctx context.Context, snapshotId string) error {
-	return cloudprovider.ErrNotImplemented
+func (disk *SVirtualDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
+	return "", cloudprovider.ErrNotImplemented
 }
 
 func (disk *SVirtualDisk) GetBillingType() string {
