@@ -304,7 +304,7 @@ type ICloudDisk interface {
 	GetISnapshots() ([]ICloudSnapshot, error)
 
 	Resize(ctx context.Context, newSizeMB int64) error
-	Reset(ctx context.Context, snapshotId string) error
+	Reset(ctx context.Context, snapshotId string) (string, error)
 
 	Rebuild(ctx context.Context) error
 }

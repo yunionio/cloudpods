@@ -282,8 +282,10 @@ func (self *SManagedVirtualizationHostDriver) RequestResetDisk(ctx context.Conte
 		return err
 	}
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		err := iDisk.Reset(ctx, snapshotId)
-		return nil, err
+		exteranlDiskId, err := iDisk.Reset(ctx, snapshotId)
+		data := jsonutils.NewDict()
+		data.Set("exteranl_disk_id", jsonutils.NewString(exteranlDiskId))
+		return data, err
 	})
 	return nil
 }

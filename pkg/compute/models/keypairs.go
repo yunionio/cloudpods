@@ -142,8 +142,15 @@ func (manager *SKeypairManager) ValidateCreateData(ctx context.Context, userCred
 		log.Errorf("invalid public key %s", err)
 		return nil, httperrors.NewInputParameterError("invalid public")
 	}
+
+	// 只允许上传RSA格式密钥。PS: AWS只支持RSA格式。
+	scheme := seclib2.GetPublicKeyScheme(pubKey)
+	if scheme != "RSA" {
+		return nil, httperrors.NewInputParameterError("Unsupported scheme %s", scheme)
+	}
+
 	data.Set("fingerprint", jsonutils.NewString(ssh.FingerprintLegacyMD5(pubKey)))
-	data.Set("scheme", jsonutils.NewString(seclib2.GetPublicKeyScheme(pubKey)))
+	data.Set("scheme", jsonutils.NewString(scheme))
 	data.Set("owner_id", jsonutils.NewString(userCred.GetUserId()))
 
 	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)

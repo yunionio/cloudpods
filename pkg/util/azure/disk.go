@@ -315,8 +315,8 @@ func (region *SRegion) GetSnapShots(diskId string) ([]SSnapshot, error) {
 	return result, nil
 }
 
-func (self *SDisk) Reset(ctx context.Context, snapshotId string) error {
-	return self.storage.zone.region.resetDisk(self.ID, snapshotId)
+func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
+	return "", self.storage.zone.region.resetDisk(self.ID, snapshotId)
 }
 
 func (self *SRegion) resetDisk(diskId, snapshotId string) error {
