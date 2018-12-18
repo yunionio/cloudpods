@@ -345,9 +345,6 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Secur
 		sort.Sort(secrules.SecurityRuleSet(rules))
 		sort.Sort(secrules.SecurityRuleSet(secgroup.Permissions))
 
-		log.Debugf("local security rules %s", rules)
-		log.Debugf("remote security rules %s", secgroup.Permissions)
-
 		i, j := 0, 0
 		for i < len(rules) || j < len(secgroup.Permissions) {
 			if i < len(rules) && j < len(secgroup.Permissions) {
