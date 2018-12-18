@@ -223,7 +223,7 @@ func (self *SDisk) Resize(ctx context.Context, newSizeMb int64) error {
 	return self.storage.zone.region.resizeDisk(self.DiskId, newSizeMb)
 }
 
-func (self *SDisk) Reset(ctx context.Context, snapshotId string) error {
+func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
 	return self.storage.zone.region.resetDisk(self.DiskId, snapshotId)
 }
 
@@ -395,12 +395,12 @@ func (self *SRegion) resizeDisk(diskId string, sizeMb int64) error {
 	return err
 }
 
-func (self *SRegion) resetDisk(diskId, snapshotId string) error {
+func (self *SRegion) resetDisk(diskId, snapshotId string) (string, error) {
 	// 这里实际是回滚快照
 	disk, err := self.GetDisk(diskId)
 	if err != nil {
 		log.Debugf("resetDisk %s:%s", diskId, err.Error())
-		return err
+		return "", err
 	}
 
 	params := &ec2.CreateVolumeInput{}
@@ -415,7 +415,7 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) error {
 	ret, err := self.ec2Client.CreateVolume(params)
 	if err != nil {
 		log.Debugf("resetDisk %s: %s", params.String(), err.Error())
-		return err
+		return "", err
 	}
 
 	// detach disk
@@ -423,24 +423,24 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) error {
 		err := self.DetachDisk(disk.InstanceId, diskId)
 		if err != nil {
 			log.Debugf("resetDisk %s %s: %s", disk.InstanceId, diskId, err.Error())
-			return err
+			return "", err
 		}
 
 		err = self.ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&diskId}})
 		if err != nil {
 			log.Debugf("resetDisk :%s", err.Error())
-			return err
+			return "", err
 		}
 	}
 
 	err = self.AttachDisk(disk.InstanceId, *ret.VolumeId, disk.Device)
 	if err != nil {
 		log.Debugf("resetDisk %s %s %s: %s", disk.InstanceId, *ret.VolumeId, disk.Device, err.Error())
-		return err
+		return "", err
 	}
 
 	// 绑定成功后删除原磁盘
-	return self.DeleteDisk(diskId)
+	return StrVal(ret.VolumeId), self.DeleteDisk(diskId)
 }
 
 func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, snapshotId string, desc string) (string, error) {
@@ -477,5 +477,6 @@ func (disk *SDisk) GetAccessPath() string {
 }
 
 func (self *SDisk) Rebuild(ctx context.Context) error {
-	return self.storage.zone.region.resetDisk(self.DiskId, "")
+	_, err := self.storage.zone.region.resetDisk(self.DiskId, "")
+	return err
 }
