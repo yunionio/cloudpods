@@ -368,8 +368,8 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	return isnapshots, nil
 }
 
-func (self *SDisk) Reset(ctx context.Context, snapshotId string) error {
-	return self.storage.zone.region.resetDisk(self.DiskId, snapshotId)
+func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
+	return "", self.storage.zone.region.resetDisk(self.DiskId, snapshotId)
 }
 
 func (self *SDisk) GetBillingType() string {

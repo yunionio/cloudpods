@@ -201,7 +201,7 @@ func (self *SRegion) GetImageByName(name string) (*SImage, error) {
 		return nil, cloudprovider.ErrNotFound
 	}
 
-	log.Debugf("%d image found match name %", len(images), name)
+	log.Debugf("%d image found match name %s", len(images), name)
 	return &images[0], nil
 }
 
