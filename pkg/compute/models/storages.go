@@ -347,13 +347,16 @@ func (self *SStorage) SyncStatusWithHosts() {
 	}
 	var status string
 	if !self.IsLocal() {
-		status = STORAGE_ENABLED
+		status = self.Status
+		if online == 0 {
+			status = STORAGE_OFFLINE
+		}
 	} else if online > 0 {
-		status = STORAGE_ENABLED
+		status = STORAGE_ONLINE
 	} else if offline > 0 {
 		status = STORAGE_OFFLINE
 	} else {
-		status = STORAGE_DISABLED
+		status = STORAGE_OFFLINE
 	}
 	if status != self.Status {
 		self.SetStatus(nil, status, "SyncStatusWithHosts")
