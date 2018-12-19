@@ -9,6 +9,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/baremetal/profiles"
@@ -119,16 +120,6 @@ func (ipmi *LanPlusIPMI) ExecuteCommand(args ...string) ([]string, error) {
 	return ssh.ParseOutput(out), nil
 }
 
-func splitKeyValue(line string) (*string, *string) {
-	pos := strings.Index(line, ":")
-	if pos > 0 {
-		key := strings.TrimSpace(line[:pos])
-		val := strings.TrimSpace(line[pos+1:])
-		return &key, &val
-	}
-	return nil, nil
-}
-
 func GetSysInfo(exector IPMIExecutor) (*types.IPMISystemInfo, error) {
 	// TODO: do cache
 	args := []string{"fru", "print", "0"}
@@ -148,11 +139,11 @@ func GetSysInfo(exector IPMIExecutor) (*types.IPMISystemInfo, error) {
 	}
 
 	for _, line := range lines {
-		key, val := splitKeyValue(line)
-		if key != nil {
+		key, val := stringutils.SplitKeyValue(line)
+		if key != "" {
 			for n, v := range keys {
-				if _, ok := ret[n]; v == *key && !ok {
-					ret[n] = *val
+				if _, ok := ret[n]; v == key && !ok {
+					ret[n] = val
 				}
 			}
 		}
@@ -188,23 +179,23 @@ func GetLanConfig(exector IPMIExecutor, channel int) (*types.IPMILanConfig, erro
 	}
 	ret := new(types.IPMILanConfig)
 	for _, line := range lines {
-		key, val := splitKeyValue(line)
-		if key == nil {
+		key, val := stringutils.SplitKeyValue(line)
+		if key == "" {
 			continue
 		}
-		switch *key {
+		switch key {
 		case "IP Address Source":
-			if *val == "Static Address" {
+			if val == "Static Address" {
 				ret.IPSrc = "static"
 			}
 		case "IP Address":
-			ret.IPAddr = *val
+			ret.IPAddr = val
 		case "Subnet Mask":
-			ret.Netmask = *val
+			ret.Netmask = val
 		case "MAC Address":
-			ret.Mac, _ = net.ParseMAC(*val)
+			ret.Mac, _ = net.ParseMAC(val)
 		case "Default Gateway IP":
-			ret.Gateway = *val
+			ret.Gateway = val
 		}
 	}
 	return ret, nil
