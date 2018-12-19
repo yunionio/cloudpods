@@ -2,10 +2,11 @@
 package metrics
 
 import (
+	"context"
 	"net"
 	"net/http"
-	"os"
 	"sync"
+	"time"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics/vars"
@@ -22,9 +23,10 @@ type Metrics struct {
 	ln      net.Listener
 	lnSetup bool
 	mux     *http.ServeMux
+	srv     *http.Server
 
 	zoneNames []string
-	zoneMap   map[string]bool
+	zoneMap   map[string]struct{}
 	zoneMu    sync.RWMutex
 }
 
@@ -33,11 +35,11 @@ func New(addr string) *Metrics {
 	met := &Metrics{
 		Addr:    addr,
 		Reg:     prometheus.NewRegistry(),
-		zoneMap: make(map[string]bool),
+		zoneMap: make(map[string]struct{}),
 	}
 	// Add the default collectors
 	met.MustRegister(prometheus.NewGoCollector())
-	met.MustRegister(prometheus.NewProcessCollector(os.Getpid(), ""))
+	met.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 
 	// Add all of our collectors
 	met.MustRegister(buildInfo)
@@ -54,12 +56,20 @@ func New(addr string) *Metrics {
 }
 
 // MustRegister wraps m.Reg.MustRegister.
-func (m *Metrics) MustRegister(c prometheus.Collector) { m.Reg.MustRegister(c) }
+func (m *Metrics) MustRegister(c prometheus.Collector) {
+	err := m.Reg.Register(c)
+	if err != nil {
+		// ignore any duplicate error, but fatal on any other kind of error
+		if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+			log.Fatalf("Cannot register metrics collector: %s", err)
+		}
+	}
+}
 
 // AddZone adds zone z to m.
 func (m *Metrics) AddZone(z string) {
 	m.zoneMu.Lock()
-	m.zoneMap[z] = true
+	m.zoneMap[z] = struct{}{}
 	m.zoneNames = keys(m.zoneMap)
 	m.zoneMu.Unlock()
 }
@@ -94,9 +104,9 @@ func (m *Metrics) OnStartup() error {
 
 	m.mux = http.NewServeMux()
 	m.mux.Handle("/metrics", promhttp.HandlerFor(m.Reg, promhttp.HandlerOpts{}))
-
+	m.srv = &http.Server{Handler: m.mux}
 	go func() {
-		http.Serve(m.ln, m.mux)
+		m.srv.Serve(m.ln)
 	}()
 	return nil
 }
@@ -106,27 +116,31 @@ func (m *Metrics) OnRestart() error {
 	if !m.lnSetup {
 		return nil
 	}
+	uniqAddr.Unset(m.Addr)
+	return m.stopServer()
+}
 
-	uniqAddr.SetTodo(m.Addr)
-
-	m.ln.Close()
+func (m *Metrics) stopServer() error {
+	if !m.lnSetup {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	if err := m.srv.Shutdown(ctx); err != nil {
+		log.Infof("Failed to stop prometheus http server: %s", err)
+		return err
+	}
 	m.lnSetup = false
+	m.ln.Close()
 	return nil
 }
 
 // OnFinalShutdown tears down the metrics listener on shutdown and restart.
 func (m *Metrics) OnFinalShutdown() error {
-	// We allow prometheus statements in multiple Server Blocks, but only the first
-	// will open the listener, for the rest they are all nil; guard against that.
-	if !m.lnSetup {
-		return nil
-	}
-
-	m.lnSetup = false
-	return m.ln.Close()
+	return m.stopServer()
 }
 
-func keys(m map[string]bool) []string {
+func keys(m map[string]struct{}) []string {
 	sx := []string{}
 	for k := range m {
 		sx = append(sx, k)
@@ -137,6 +151,10 @@ func keys(m map[string]bool) []string {
 // ListenAddr is assigned the address of the prometheus listener. Its use is mainly in tests where
 // we listen on "localhost:0" and need to retrieve the actual address.
 var ListenAddr string
+
+// shutdownTimeout is the maximum amount of time the metrics plugin will wait
+// before erroring when it tries to close the metrics server
+const shutdownTimeout time.Duration = time.Second * 5
 
 var buildInfo = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 	Namespace: plugin.Namespace,

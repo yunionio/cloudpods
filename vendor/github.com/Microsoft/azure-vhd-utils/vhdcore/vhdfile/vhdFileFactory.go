@@ -1,4 +1,4 @@
-package vhdFile
+package vhdfile
 
 import (
 	"os"

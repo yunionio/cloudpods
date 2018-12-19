@@ -3,7 +3,7 @@ package aws
 import "testing"
 
 type testPublicKey struct {
-	publickey string
+	publickey   string
 	fingerprint string
 }
 
@@ -22,9 +22,9 @@ func TestMd5Fingerprint(t *testing.T) {
 			continue
 		}
 
-		if fingerprint !=  k.fingerprint {
+		if fingerprint != k.fingerprint {
 			t.Errorf("ssh-rsa fingerprint is not as expected.%s != %s", fingerprint, k.fingerprint)
 			continue
 		}
-     }
+	}
 }

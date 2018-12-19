@@ -4,6 +4,10 @@ import (
 	"reflect"
 )
 
+type IDeepCopy interface {
+	DeepCopy() interface{}
+}
+
 type DeepCopyFlags uintptr
 
 func DeepCopy(v interface{}) interface{} {
@@ -19,6 +23,21 @@ func DeepCopyRv(rv reflect.Value) reflect.Value {
 		return reflect.Value{}
 	}
 	typ := rv.Type()
+
+	// XXX: for copy unexportable filed
+	if rv.CanInterface() {
+		if rvCopyer, ok := rv.Interface().(IDeepCopy); ok {
+			if rv.Kind() == reflect.Ptr && rv.IsNil() {
+				return reflect.New(typ).Elem()
+			}
+			cpRv := rvCopyer.DeepCopy()
+			if cpRv == nil {
+				return reflect.New(typ).Elem()
+			}
+			return reflect.ValueOf(cpRv)
+		}
+	}
+
 	switch kind {
 	case reflect.Ptr:
 		if rv.IsNil() {
