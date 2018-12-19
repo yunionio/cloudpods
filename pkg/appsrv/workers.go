@@ -160,7 +160,7 @@ func (wm *SWorkerManager) Run(task func(), worker chan *SWorker, onErr func(erro
 	if ret {
 		wm.schedule()
 	} else {
-		log.Warningf("[%] BUSY fail to push task, queue is FULL")
+		log.Warningf("queue full, task dropped")
 	}
 	return ret
 }
