@@ -450,7 +450,7 @@ func (b *SBaremetalInstance) AutoSyncAllStatus() {
 	b.SyncAllStatus("")
 }
 
-func (b *SBaremetalInstance) DelayedSyncStatus() (jsonutils.JSONObject, error) {
+func (b *SBaremetalInstance) DelayedSyncStatus(_ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	b.AutoSyncAllStatus()
 	return nil, nil
 }
@@ -816,7 +816,7 @@ func (b *SBaremetalInstance) GetZoneId() string {
 	return b.manager.GetZoneId()
 }
 
-func (b *SBaremetalInstance) DelayedRemove() (jsonutils.JSONObject, error) {
+func (b *SBaremetalInstance) DelayedRemove(_ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	b.remove()
 	return nil, nil
 }
@@ -846,4 +846,43 @@ func (b *SBaremetalInstance) StartBaremetalUnmaintenanceTask(userCred mcclient.T
 func (b *SBaremetalInstance) StartBaremetalReprepareTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) {
 	task := tasks.NewBaremetalReprepareTask(b, taskId, data)
 	b.SetTask(task)
+}
+
+func (b *SBaremetalInstance) StartBaremetalResetBMCTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) {
+	task := tasks.NewBaremetalResetBMCTask(b, taskId, data)
+	b.SetTask(task)
+}
+
+func (b *SBaremetalInstance) DelayedSyncIPMIInfo(data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	ipmiCli := b.GetIPMITool()
+	lanChannel := b.GetIPMILanChannel()
+	sysInfo, err := ipmitool.GetSysInfo(ipmiCli)
+	if err != nil {
+		return nil, err
+	}
+	if lanChannel <= 0 {
+		lanChannel = ipmitool.GetDefaultLanChannel(sysInfo)
+	}
+	retObj := make(map[string]string)
+	if ipAddr, _ := data.GetString("ip_addr"); ipAddr != "" {
+		err = ipmitool.SetLanStaticIP(ipmiCli, lanChannel, ipAddr)
+		if err != nil {
+			return nil, err
+		}
+		// TODO: netutils.wait_ip_alive(ipAddr, 120)
+		retObj["ipmi_ip_addr"] = ipAddr
+	}
+	if passwd, _ := data.GetString("password"); passwd != "" {
+		err = ipmitool.SetLanPasswd(ipmiCli, ipmitool.GetRootId(sysInfo), passwd)
+		if err != nil {
+			return nil, err
+		}
+		retObj["ipmi_password"] = passwd
+	}
+	return jsonutils.Marshal(retObj), nil
+}
+
+func (b *SBaremetalInstance) DelayedSyncDesc(data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	err := b.SaveDesc(data)
+	return nil, err
 }

@@ -330,7 +330,7 @@ func SetLanUserPasswd(exector IPMIExecutor, channel int, user string, password s
 	return doActions(exector, "set_lan_user_password3", args...)
 }
 
-func SetLanPasswd(exector IPMIExecutor, rootId string, password string) error {
+func SetLanPasswd(exector IPMIExecutor, rootId int, password string) error {
 	// TODO: escape password
 	args := newArgs("user", "set", "password", rootId, fmt.Sprint("\"%s\"", password))
 	return doActions(exector, "set_lan_passwd", args)
