@@ -75,6 +75,8 @@ type IRootFsDriver interface {
 	CommitChanges() error
 
 	DeployGuestFs(IRootFsDriver, *jsonutils.JSONDict, *SDeployInfo) (jsonutils.JSONObject, error)
+
+	// PrepareFsForTemplate() error
 }
 
 type SGuestRootFsDriver struct {

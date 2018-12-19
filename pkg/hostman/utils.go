@@ -11,7 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/netutils"
 )
 
 // timer utils
@@ -56,6 +58,37 @@ func Cleandir(sPath string, keepdir bool) error {
 		} else {
 			if err := os.Remove(fp); err != nil {
 				return err
+			}
+		}
+	}
+	return nil
+}
+
+// TODO: test
+func Zerofiles(sPath string) error {
+	f, err := os.Lstat(sPath)
+	switch {
+	case err != nil:
+		return err
+	case f.Mode()&os.ModeSymlink == os.ModeSymlink:
+		// islink
+		return nil
+	case f.Mode().IsRegular():
+		return FilePutContents(sPath, "", false)
+	case f.Mode().IsDir():
+		files, err := ioutil.ReadDir(sPath)
+		if err != nil {
+			return err
+		}
+		for _, file := range files {
+			if file.Mode()&os.ModeSymlink == os.ModeSymlink {
+				continue
+			} else if file.Mode().IsRegular() {
+				if err := FilePutContents(path.Join(sPath, file.Name()), "", false); err != nil {
+					return err
+				}
+			} else if file.Mode().IsDir() {
+				return Zerofiles(path.Join(sPath, file.Name()))
 			}
 		}
 	}
@@ -216,4 +249,88 @@ func (hf HostsFile) String() string {
 		}
 	}
 	return ret
+}
+
+//net utils
+var PSEUDO_VIP = "169.254.169.231"
+var MASKS = []string{"0", "128", "192", "224", "240", "248", "252", "254", "255"}
+
+func GetMainNic(nics []jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	var mainIp netutils.IPV4Addr
+	var mainNic jsonutils.JSONObject
+	for _, n := range nics {
+		if n.Contains("gateway") {
+			ip, _ := n.GetString("ip")
+			ipInt, err := netutils.NewIPV4Addr(ip)
+			if err != nil {
+				return nil, err
+			}
+			if mainIp > 0 {
+				mainIp = ipInt
+				mainNic = n
+			} else if !netutils.IsPrivate(ipInt) && netutils.IsPrivate(mainIp) {
+				mainIp = ipInt
+				mainNic = n
+			}
+		}
+	}
+	return mainNic, nil
+}
+
+func Netlen2Mask(netmasklen int64) string {
+	var mask = ""
+	var segCnt = 0
+	for netmasklen > 0 {
+		var m string
+		if netmasklen > 8 {
+			m = MASKS[8]
+			netmasklen -= 8
+		} else {
+			m = MASKS[netmasklen]
+		}
+		if mask != "" {
+			mask += "."
+		}
+		mask += m
+		segCnt += 1
+	}
+	for i := 0; i < (4 - segCnt); i++ {
+		if mask != "" {
+			mask += "."
+		}
+		mask += "0"
+	}
+	return mask
+}
+
+func addRoute(routes []string, net, gw string) {
+	for _, rt := range routes {
+		// if rt???? 有问题
+	}
+}
+
+func extendRoutes(routes []string, nicRoutes []jsonutils.JSONObject) error {
+	for i := 0; i < len(nicRoutes); i++ {
+		rt, ok := nicRoutes[i].(*jsonutils.JSONArray)
+		if !ok {
+			return fmt.Errorf("Nic routes format error")
+		}
+		// 写到这里了
+		rts := rt.GetStringArray()
+		if len(rts) < 2 {
+			return fmt.Errorf("Nic routes count error")
+		}
+		addRoute(routes, rts[0], rts[1])
+	}
+}
+
+func AddNicRoutes(routes []string, nic jsonutils.JSONObject, mainIp string, nicCnt int) []string {
+	ip, _ := nic.GetString("ip")
+	if mainIp == ip {
+		return routes
+	}
+	if nic.Contains("routes") {
+		nicRoutes, _ := nic.GetArray("routes")
+		extendRoutes(routes, nicRoutes)
+	}
 }

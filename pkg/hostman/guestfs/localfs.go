@@ -21,6 +21,10 @@ type SLocalGuestFS struct {
 	readOnly  bool
 }
 
+func (f *SLocalGuestFS) SupportOsPathExists() bool {
+	return false
+}
+
 func (f *SLocalGuestFS) IsReadonly() bool {
 	log.Infof("Test if read-only fs ...")
 	var filename = fmt.Sprint("./%f", rand.Float32())
@@ -122,7 +126,6 @@ func (f *SLocalGuestFS) Cleandir(dir string, keepdir, caseInsensitive bool) erro
 func (f *SLocalGuestFS) Zerofiles(dir string, caseInsensitive bool) error {
 	sPath := f.getLocalPath(dir, caseInsensitive)
 	if len(sPath) > 0 {
-		//写到这里了。。。
 		return hostman.Zerofiles(sPath)
 	}
 	return fmt.Errorf("No such file %s", sPath)
