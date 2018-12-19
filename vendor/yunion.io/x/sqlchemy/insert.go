@@ -37,6 +37,11 @@ func (t *STableSpec) insertSqlPrep(dataFields map[string]interface{}) (string, [
 			createdAtFields = append(createdAtFields, k)
 			names = append(names, fmt.Sprintf("`%s`", k))
 			format = append(format, "UTC_TIMESTAMP()")
+		} else if c.IsSupportDefault() && len(c.Default()) > 0 && ov != nil && c.IsZero(ov) { // empty text value
+			val := c.ConvertFromString(c.Default())
+			values = append(values, val)
+			names = append(names, fmt.Sprintf("`%s`", k))
+			format = append(format, "?")
 		} else if ov != nil && (!c.IsZero(ov) || (!c.IsPointer() && !c.IsText())) && !isAutoInc {
 			v := c.ConvertFromValue(ov)
 			values = append(values, v)
@@ -51,11 +56,6 @@ func (t *STableSpec) insertSqlPrep(dataFields map[string]interface{}) (string, [
 			} else {
 				return "", nil, fmt.Errorf("cannot insert for null primary key %q", k)
 			}
-		} else if !c.IsSupportDefault() && len(c.Default()) > 0 && ov != nil && c.IsZero(ov) { // empty text value
-			val := c.ConvertFromString(c.Default())
-			values = append(values, val)
-			names = append(names, fmt.Sprintf("`%s`", k))
-			format = append(format, "?")
 		}
 	}
 
