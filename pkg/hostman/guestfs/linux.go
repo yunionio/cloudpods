@@ -21,7 +21,7 @@ type SLinuxRootFs struct {
 }
 
 func NewLinuxRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	return &SAndroidRootFs{SGuestRootFsDriver: NewGuestRootFsDriver(part).(*SGuestRootFsDriver)}
+	return &SLinuxRootFs{SGuestRootFsDriver: NewGuestRootFsDriver(part).(*SGuestRootFsDriver)}
 }
 
 func (l *SLinuxRootFs) String() string {
@@ -260,14 +260,16 @@ func (l *SLinuxRootFs) GetArch() string {
 	}
 }
 
-func (l *SLinuxRootFs) PrepareFsForTemplate() {
+func (l *SLinuxRootFs) PrepareFsForTemplate() error {
 	// clean /etc/fstab
 	if l.rootFs.Exists("/etc/fstab", false) {
 		fstabcont, _ := l.rootFs.FileGetContents("/etc/fstab", false)
 		fstab := fstabutils.FSTabFile(string(fstabcont))
 		fstab.RemoveDevices(1)
 		cf := fstab.ToConf()
-		l.rootFs.FilePutContents("/etc/fstab", cf, false, false)
+		if err := l.rootFs.FilePutContents("/etc/fstab", cf, false, false); err != nil {
+			return err
+		}
 	}
 	// rm /etc/ssh/*_key.*
 	if l.rootFs.Exists("/etc/ssh", false) {
@@ -279,7 +281,9 @@ func (l *SLinuxRootFs) PrepareFsForTemplate() {
 	}
 	// clean cloud-init
 	if l.rootFs.Exists("/var/lib/cloud", false) {
-		l.rootFs.Cleandir("/var/lib/cloud", false, false)
+		if err := l.rootFs.Cleandir("/var/lib/cloud", false, false); err != nil {
+			return err
+		}
 	}
 	cloudDisableFile := "/etc/cloud/cloud-init.disabled"
 	if l.rootFs.Exists(cloudDisableFile, false) {
@@ -288,18 +292,35 @@ func (l *SLinuxRootFs) PrepareFsForTemplate() {
 	// clean /tmp /var/log /var/cache /var/spool /var/run
 	for _, dir := range []string{"/tmp", "/var/tmp"} {
 		if l.rootFs.Exists(dir, false) {
-			l.rootFs.Cleandir(dir, false, false)
+			if err := l.rootFs.Cleandir(dir, false, false); err != nil {
+				return err
+			}
 		}
 	}
 	for _, dir := range []string{"/var/log", "/var/cache", "/usr/local/var/log", "/usr/local/var/cache"} {
 		if l.rootFs.Exists(dir, false) {
-			l.rootFs.Zerofiles(dir, false)
+			if err := l.rootFs.Zerofiles(dir, false); err != nil {
+				return err
+			}
 		}
 	}
 	for _, dir := range []string{"/var/spool", "/var/run", "/run", "/usr/local/var/spool", "/usr/local/var/run"} {
 		if l.rootFs.Exists(dir, false) {
-			l.rootFs.Cleandir(dir, true, true)
+			if err := l.rootFs.Cleandir(dir, true, true); err != nil {
+				return err
+			}
 		}
+	}
+	return nil
+}
+
+func (l *SLinuxRootFs) GetSerialPorts() []string {
+	var confpath = "/proc/tty/driver/serial"
+	if l.rootFs.SupportOsPathExists() {
+		// TODO: with sshpart utils
+		return nil
+	} else {
+		return nil
 	}
 }
 
@@ -309,6 +330,65 @@ type SDebianLikeRootFs struct {
 
 func NewDebianLikeRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
 	return &SDebianLikeRootFs{SLinuxRootFs: NewLinuxRootFs(part).(*SLinuxRootFs)}
+}
+
+func (d *SDebianLikeRootFs) RootSignatures() []string {
+	sig := d.SLinuxRootFs.RootSignatures()
+	return append([]string{"/etc/hostname"}, sig...)
+}
+
+func (d *SDebianLikeRootFs) DeployHostname(hn, domain string) error {
+	return d.rootFs.FilePutContents("/etc/hostname", hn, false, false)
+}
+
+func (d *SDebianLikeRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject) error {
+	if err := d.SLinuxRootFs.DeployNetworkingScripts(nics); err != nil {
+		return err
+	}
+	fn := "/etc/network/interfaces"
+	cmds := ""
+	cmds += "auto lo\n"
+	cmds += "iface lo inet loopback\n\n"
+	mainNic, err := hostman.GetMainNic(nics)
+	if err != nil {
+		return err
+	}
+	var mainIp string
+	if mainNic != nil {
+		mainIp, _ := mainNic.GetString("ip")
+	}
+	for _, nic := range nics {
+		nicIdx, err := nic.Int("index")
+		if err != nil {
+			return err
+		}
+		cmds += fmt.Sprintf("auto eth%d\n", nicIdx)
+		if jsonutils.QueryBoolean(nic, "virtual", false) {
+			cmds += fmt.Sprintf("iface eth%d inet static\n", nicIdx)
+			cmds += fmt.Sprintf("    address %s\n", hostman.PSEUDO_VIP)
+			cmds += "    netmask 255.255.255.255\n"
+			cmds += "\n"
+		} else if jsonutils.QueryBoolean(nic, "manual", false) {
+			masklen, err := nic.Int("masklen")
+			if err != nil {
+				return err
+			}
+			netmask := hostman.Netlen2Mask(masklen)
+			ip, err := nic.GetString("ip")
+			if err != nil {
+				return err
+			}
+			cmds += fmt.Sprintf("iface eth%d inet static\n", nicIdx)
+			cmds += fmt.Sprintf("    address %s\n", ip)
+			cmds += fmt.Sprintf("    netmask %s\n", netmask)
+			if nic.Contains("gateway") && ip == mainIp {
+				gateway, _ := nic.GetString("gateway")
+				cmds += fmt.Sprintf("    gateway %s\n", gateway)
+			}
+			var routes = make([]string, 0)
+			hostman.AddNicRoutes(routes, nic, mainIp, len(nics))
+		}
+	}
 }
 
 type SDebianRootFs struct {
