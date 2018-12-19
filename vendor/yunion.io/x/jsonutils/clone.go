@@ -1,6 +1,8 @@
 package jsonutils
 
 import (
+	"reflect"
+
 	"yunion.io/x/pkg/utils"
 )
 
@@ -38,7 +40,34 @@ func (this *JSONArray) Copy() *JSONArray {
 	return arr
 }
 
+func (this *JSONString) DeepCopy() interface{} {
+	return DeepCopy(this)
+}
+
+func (this *JSONInt) DeepCopy() interface{} {
+	return DeepCopy(this)
+}
+
+func (this *JSONFloat) DeepCopy() interface{} {
+	return DeepCopy(this)
+}
+
+func (this *JSONBool) DeepCopy() interface{} {
+	return DeepCopy(this)
+}
+
+func (this *JSONArray) DeepCopy() interface{} {
+	return DeepCopy(this)
+}
+
+func (this *JSONDict) DeepCopy() interface{} {
+	return DeepCopy(this)
+}
+
 func DeepCopy(obj JSONObject) JSONObject {
+	if obj == nil || reflect.ValueOf(obj).IsNil() {
+		return nil
+	}
 	switch v := obj.(type) {
 	case *JSONString:
 		vc := *v

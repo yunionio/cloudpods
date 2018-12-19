@@ -1,10 +1,12 @@
 package replacer
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/request"
 
@@ -21,6 +23,7 @@ type Replacer interface {
 }
 
 type replacer struct {
+	ctx          context.Context
 	replacements map[string]string
 	emptyValue   string
 }
@@ -31,20 +34,20 @@ type replacer struct {
 // values into the replacer. rr may be nil if it is not
 // available. emptyValue should be the string that is used
 // in place of empty string (can still be empty string).
-func New(r *dns.Msg, rr *dnstest.Recorder, emptyValue string) Replacer {
+func New(ctx context.Context, r *dns.Msg, rr *dnstest.Recorder, emptyValue string) Replacer {
 	req := request.Request{W: rr, Req: r}
 	rep := replacer{
+		ctx: ctx,
 		replacements: map[string]string{
-			"{type}":  req.Type(),
-			"{name}":  req.Name(),
-			"{class}": req.Class(),
-			"{proto}": req.Proto(),
-			"{when}": func() string {
-				return time.Now().Format(timeFormat)
-			}(),
+			"{type}":   req.Type(),
+			"{name}":   req.Name(),
+			"{class}":  req.Class(),
+			"{proto}":  req.Proto(),
+			"{when}":   "", // made a noop
 			"{size}":   strconv.Itoa(req.Len()),
 			"{remote}": addrToRFC3986(req.IP()),
 			"{port}":   req.Port(),
+			"{local}":  addrToRFC3986(req.LocalIP()),
 		},
 		emptyValue: emptyValue,
 	}
@@ -73,22 +76,35 @@ func New(r *dns.Msg, rr *dnstest.Recorder, emptyValue string) Replacer {
 // Replace performs a replacement of values on s and returns
 // the string with the replaced values.
 func (r replacer) Replace(s string) string {
-	// Header replacements - these are case-insensitive, so we can't just use strings.Replace()
-	for strings.Contains(s, headerReplacer) {
-		idxStart := strings.Index(s, headerReplacer)
-		endOffset := idxStart + len(headerReplacer)
-		idxEnd := strings.Index(s[endOffset:], "}")
-		if idxEnd > -1 {
-			placeholder := strings.ToLower(s[idxStart : endOffset+idxEnd+1])
-			replacement := r.replacements[placeholder]
-			if replacement == "" {
-				replacement = r.emptyValue
+
+	// declare a function that replace based on header matching
+	fscanAndReplace := func(s string, header string, replace func(string) string) string {
+		b := strings.Builder{}
+		for strings.Contains(s, header) {
+			idxStart := strings.Index(s, header)
+			endOffset := idxStart + len(header)
+			idxEnd := strings.Index(s[endOffset:], "}")
+			if idxEnd > -1 {
+				placeholder := strings.ToLower(s[idxStart : endOffset+idxEnd+1])
+				replacement := replace(placeholder)
+				if replacement == "" {
+					replacement = r.emptyValue
+				}
+				b.WriteString(s[:idxStart])
+				b.WriteString(replacement)
+				s = s[endOffset+idxEnd+1:]
+			} else {
+				break
 			}
-			s = s[:idxStart] + replacement + s[endOffset+idxEnd+1:]
-		} else {
-			break
 		}
+		b.WriteString(s)
+		return b.String()
 	}
+
+	// Header replacements - these are case-insensitive, so we can't just use strings.Replace()
+	s = fscanAndReplace(s, headerReplacer, func(placeholder string) string {
+		return r.replacements[placeholder]
+	})
 
 	// Regular replacements - these are easier because they're case-sensitive
 	for placeholder, replacement := range r.replacements {
@@ -97,6 +113,16 @@ func (r replacer) Replace(s string) string {
 		}
 		s = strings.Replace(s, placeholder, replacement, -1)
 	}
+
+	// Metadata label replacements
+	s = fscanAndReplace(s, headerLabelReplacer, func(placeholder string) string {
+		// label place holder has the format {/<label>}
+		fm := metadata.ValueFunc(r.ctx, placeholder[len(headerLabelReplacer):len(placeholder)-1])
+		if fm != nil {
+			return fm()
+		}
+		return ""
+	})
 
 	return s
 }
@@ -164,6 +190,6 @@ func addrToRFC3986(addr string) string {
 }
 
 const (
-	timeFormat     = "02/Jan/2006:15:04:05 -0700"
-	headerReplacer = "{>"
+	headerReplacer      = "{>"
+	headerLabelReplacer = "{/"
 )

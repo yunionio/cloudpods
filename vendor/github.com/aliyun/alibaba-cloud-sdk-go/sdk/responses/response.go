@@ -121,7 +121,7 @@ type CommonResponse struct {
 	*BaseResponse
 }
 
-func NewCommonResponse() (request *CommonResponse) {
+func NewCommonResponse() (response *CommonResponse) {
 	return &CommonResponse{
 		BaseResponse: &BaseResponse{},
 	}

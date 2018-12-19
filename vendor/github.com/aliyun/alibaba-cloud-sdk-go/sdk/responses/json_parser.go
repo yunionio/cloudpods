@@ -1,14 +1,14 @@
 package responses
 
 import (
-	"github.com/json-iterator/go"
-	"sync"
-	"unsafe"
 	"encoding/json"
-	"strconv"
-	"strings"
+	"github.com/json-iterator/go"
 	"io"
 	"math"
+	"strconv"
+	"strings"
+	"sync"
+	"unsafe"
 )
 
 const maxUint = ^uint(0)
@@ -241,7 +241,7 @@ func (decoder *nullableFuzzyIntegerDecoder) Decode(ptr unsafe.Pointer, iter *jso
 	case jsoniter.StringValue:
 		str = iter.ReadString()
 		// support empty string
-		if str == ""{
+		if str == "" {
 			str = "0"
 		}
 	case jsoniter.BoolValue:
@@ -277,7 +277,7 @@ func (decoder *nullableFuzzyFloat32Decoder) Decode(ptr unsafe.Pointer, iter *jso
 	case jsoniter.StringValue:
 		str = iter.ReadString()
 		// support empty string
-		if str == ""{
+		if str == "" {
 			*((*float32)(ptr)) = 0
 			return
 		}
@@ -314,7 +314,7 @@ func (decoder *nullableFuzzyFloat64Decoder) Decode(ptr unsafe.Pointer, iter *jso
 	case jsoniter.StringValue:
 		str = iter.ReadString()
 		// support empty string
-		if str == ""{
+		if str == "" {
 			*((*float64)(ptr)) = 0
 			return
 		}

@@ -19,8 +19,8 @@ type DiskStream struct {
 	offset          int64
 	size            int64
 	isClosed        bool
-	vhdFactory      *vhdFile.FileFactory
-	vhdFile         *vhdFile.VhdFile
+	vhdFactory      *vhdfile.FileFactory
+	vhdFile         *vhdfile.VhdFile
 	vhdBlockFactory block.Factory
 	vhdFooterRange  *common.IndexRange
 	vhdDataRange    *common.IndexRange
@@ -39,7 +39,7 @@ type StreamExtent struct {
 func CreateNewDiskStream(vhdPath string) (*DiskStream, error) {
 	var err error
 	stream := &DiskStream{offset: 0, isClosed: false}
-	stream.vhdFactory = &vhdFile.FileFactory{}
+	stream.vhdFactory = &vhdfile.FileFactory{}
 	if stream.vhdFile, err = stream.vhdFactory.Create(vhdPath); err != nil {
 		return nil, err
 	}

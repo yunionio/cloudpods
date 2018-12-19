@@ -126,7 +126,7 @@ func parseYAMLLines(lines []string) (JSONObject, error) {
 		i++
 	}
 	if i >= len(lines) {
-		return nil, nil
+		return nil, fmt.Errorf("invalid yaml")
 	}
 	if lines[i][0] == '-' {
 		return parseYAMLJSONArray(lines[i:])

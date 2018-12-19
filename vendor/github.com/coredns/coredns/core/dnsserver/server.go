@@ -15,6 +15,7 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/rcode"
 	"github.com/coredns/coredns/plugin/pkg/trace"
+	"github.com/coredns/coredns/plugin/pkg/transport"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -69,7 +70,7 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		if site.registry != nil {
 			// this config is already computed with the chain of plugin
 			// set classChaos in accordance with previously registered plugins
-			for name := range enableChaos {
+			for name := range EnableChaos {
 				if _, ok := site.registry[name]; ok {
 					s.classChaos = true
 					break
@@ -96,7 +97,7 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 				}
 			}
 			// Unblock CH class queries when any of these plugins are loaded.
-			if _, ok := enableChaos[stack.Name()]; ok {
+			if _, ok := EnableChaos[stack.Name()]; ok {
 				s.classChaos = true
 			}
 		}
@@ -134,7 +135,7 @@ func (s *Server) ServePacket(p net.PacketConn) error {
 
 // Listen implements caddy.TCPServer interface.
 func (s *Server) Listen() (net.Listener, error) {
-	l, err := net.Listen("tcp", s.Addr[len(TransportDNS+"://"):])
+	l, err := listen("tcp", s.Addr[len(transport.DNS+"://"):])
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +144,7 @@ func (s *Server) Listen() (net.Listener, error) {
 
 // ListenPacket implements caddy.UDPServer interface.
 func (s *Server) ListenPacket() (net.PacketConn, error) {
-	p, err := net.ListenPacket("udp", s.Addr[len(TransportDNS+"://"):])
+	p, err := listenPacket("udp", s.Addr[len(transport.DNS+"://"):])
 	if err != nil {
 		return nil, err
 	}
@@ -236,6 +237,9 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 	var end bool
 
 	var dshandler *Config
+
+	// Wrap the response writer in a ScrubWriter so we automatically make the reply fit in the client's buffer.
+	w = request.NewScrubWriter(r, w)
 
 	for {
 		l := len(q[off:])
@@ -377,12 +381,11 @@ type (
 	loopKey struct{} // loopKey is the context key for counting self loops
 )
 
-// enableChaos is a map with plugin names for which we should open CH class queries as
-// we block these by default.
-var enableChaos = map[string]bool{
-	"chaos":   true,
-	"forward": true,
-	"proxy":   true,
+// EnableChaos is a map with plugin names for which we should open CH class queries as we block these by default.
+var EnableChaos = map[string]struct{}{
+	"chaos":   struct{}{},
+	"forward": struct{}{},
+	"proxy":   struct{}{},
 }
 
 // Quiet mode will not show any informative output on initialization.

@@ -55,5 +55,5 @@ func (p PlatformCode) String() string {
 		return "MacX"
 	}
 
-	return fmt.Sprint("%d", p)
+	return fmt.Sprintf("%d", p)
 }
