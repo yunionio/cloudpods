@@ -120,7 +120,7 @@ type SStorage struct {
 
 	ZoneId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
 
-	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin"`
+	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin" update:"admin" create:"optional"`
 
 	Enabled bool   `nullable:"false" default:"true" list:"user" create:"optional"`
 	Status  string `width:"36" charset:"ascii" nullable:"false" default:"offline" list:"user" create:"optional"`
