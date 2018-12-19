@@ -472,6 +472,7 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 		queryDict.Remove("zone_id")
 	}
 
+	q = q.Asc(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
 	return q, err
 }
 
