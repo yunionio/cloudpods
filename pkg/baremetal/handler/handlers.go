@@ -5,7 +5,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/baremetal"
-	"yunion.io/x/onecloud/pkg/baremetal/tasks"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
@@ -19,7 +18,10 @@ func initBaremetalsHandler(app *appsrv.Application) {
 	app.AddHandler("POST", getBaremetalPrefix("unmaintenance"), objectMiddleware(handleBaremetalUnmaintenance))
 	app.AddHandler("POST", getBaremetalPrefix("delete"), objectMiddleware(handleBaremetalDelete))
 	app.AddHandler("POST", getBaremetalPrefix("syncstatus"), objectMiddleware(handleBaremetalSyncStatus))
+	app.AddHandler("POST", getBaremetalPrefix("sync-config"), objectMiddleware(handleBaremetalSyncConfig))
+	app.AddHandler("POST", getBaremetalPrefix("sync-ipmi"), objectMiddleware(handleBaremetalSyncIPMI))
 	app.AddHandler("POST", getBaremetalPrefix("prepare"), objectMiddleware(handleBaremetalPrepare))
+	app.AddHandler("POST", getBaremetalPrefix("reset-bmc"), objectMiddleware(handleBaremetalResetBMC))
 }
 
 func handleBaremetalNotify(ctx *Context, bm *baremetal.SBaremetalInstance) {
@@ -38,7 +40,7 @@ func handleBaremetalNotify(ctx *Context, bm *baremetal.SBaremetalInstance) {
 	task := bm.GetTask()
 	log.Errorf("====== get task %#v", task)
 	if task != nil {
-		task.(*tasks.SBaremetalServerPrepareTask).SSHExecute(task, remoteAddr, key, nil)
+		task.SSHExecute(task, remoteAddr, key, nil)
 	}
 	ctx.ResponseOk()
 }
@@ -54,16 +56,31 @@ func handleBaremetalUnmaintenance(ctx *Context, bm *baremetal.SBaremetalInstance
 }
 
 func handleBaremetalDelete(ctx *Context, bm *baremetal.SBaremetalInstance) {
-	ctx.DelayProcess(bm.DelayedRemove)
+	ctx.DelayProcess(bm.DelayedRemove, nil)
 	ctx.ResponseOk()
 }
 
 func handleBaremetalSyncStatus(ctx *Context, bm *baremetal.SBaremetalInstance) {
-	ctx.DelayProcess(bm.DelayedSyncStatus)
+	ctx.DelayProcess(bm.DelayedSyncStatus, nil)
+	ctx.ResponseOk()
+}
+
+func handleBaremetalSyncConfig(ctx *Context, bm *baremetal.SBaremetalInstance) {
+	ctx.DelayProcess(bm.DelayedSyncDesc, nil)
+	ctx.ResponseOk()
+}
+
+func handleBaremetalSyncIPMI(ctx *Context, bm *baremetal.SBaremetalInstance) {
+	ctx.DelayProcess(bm.DelayedSyncIPMIInfo, nil)
 	ctx.ResponseOk()
 }
 
 func handleBaremetalPrepare(ctx *Context, bm *baremetal.SBaremetalInstance) {
 	bm.StartBaremetalReprepareTask(ctx.UserCred(), ctx.TaskId(), ctx.Data())
+	ctx.ResponseOk()
+}
+
+func handleBaremetalResetBMC(ctx *Context, bm *baremetal.SBaremetalInstance) {
+	bm.StartBaremetalResetBMCTask(ctx.UserCred(), ctx.TaskId(), ctx.Data())
 	ctx.ResponseOk()
 }

@@ -123,6 +123,6 @@ func (ctx *Context) GetBaremetalManager() *baremetal.SBaremetalManager {
 	return baremetal.GetBaremetalManager()
 }
 
-func (ctx *Context) DelayProcess(process ProcessFunc) {
-	DelayProcess(process, ctx.GetBaremetalManager().GetClientSession(), ctx.TaskId())
+func (ctx *Context) DelayProcess(process ProcessFunc, data jsonutils.JSONObject) {
+	DelayProcess(process, ctx.GetBaremetalManager().GetClientSession(), ctx.TaskId(), data)
 }
