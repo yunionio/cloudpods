@@ -177,7 +177,7 @@ func (r *SRegionDNS) ServeDNS(ctx context.Context, w dns.ResponseWriter, rmsg *d
 	m.Extra = append(m.Extra, extra...)
 
 	state.SizeAndDo(m)
-	m, _ = state.Scrub(m)
+	m = state.Scrub(m)
 	w.WriteMsg(m)
 	return dns.RcodeSuccess, nil
 }
