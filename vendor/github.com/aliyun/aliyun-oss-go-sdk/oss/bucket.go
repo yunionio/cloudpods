@@ -494,7 +494,7 @@ func (bucket Bucket) ListObjects(options ...Option) (ListObjectsResult, error) {
 		return out, err
 	}
 
-	resp, err := bucket.do("GET", "", params, nil, nil, nil)
+	resp, err := bucket.do("GET", "", params, options, nil, nil)
 	if err != nil {
 		return out, err
 	}
@@ -553,11 +553,11 @@ func (bucket Bucket) GetObjectDetailedMeta(objectKey string, options ...Option) 
 // http.Header    the object's metadata, valid when error is nil.
 // error    it's nil if no error, otherwise it's an error object.
 //
-func (bucket Bucket) GetObjectMeta(objectKey string) (http.Header, error) {
+func (bucket Bucket) GetObjectMeta(objectKey string, options ...Option) (http.Header, error) {
 	params := map[string]interface{}{}
 	params["objectMeta"] = nil
 	//resp, err := bucket.do("GET", objectKey, "?objectMeta", "", nil, nil, nil)
-	resp, err := bucket.do("GET", objectKey, params, nil, nil, nil)
+	resp, err := bucket.do("GET", objectKey, params, options, nil, nil)
 	if err != nil {
 		return nil, err
 	}

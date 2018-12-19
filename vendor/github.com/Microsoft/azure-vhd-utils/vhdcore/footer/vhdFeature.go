@@ -35,5 +35,5 @@ func (v VhdFeature) String() string {
 		return "Reserved"
 	}
 
-	return fmt.Sprint("%d", v)
+	return fmt.Sprintf("%d", v)
 }

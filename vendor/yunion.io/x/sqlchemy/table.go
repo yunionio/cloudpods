@@ -12,6 +12,8 @@ type STableSpec struct {
 	structType reflect.Type
 	name       string
 	columns    []IColumnSpec
+	indexes    []STableIndex
+	contraints []STableConstraint
 }
 
 type STable struct {

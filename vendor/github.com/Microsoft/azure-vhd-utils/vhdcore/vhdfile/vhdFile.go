@@ -1,4 +1,4 @@
-package vhdFile
+package vhdfile
 
 import (
 	"fmt"
@@ -16,7 +16,8 @@ type VhdFile struct {
 	// Footer represents the disk's footer.
 	Footer *footer.Footer
 	// Header represents the disk's header, this field is nil for fixed VHD.
-	// Only Dynamic and Differencing disk has header.
+	// Only Dynamic and Differencing disk has header.make
+
 	Header *header.Header
 	// BlockAllocationTable represents the table holding absolute offset to the first sector
 	// of blocks in the disk. Only Dynamic and Differencing disk has BAT.

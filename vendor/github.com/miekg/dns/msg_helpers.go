@@ -101,32 +101,32 @@ func unpackHeader(msg []byte, off int) (rr RR_Header, off1 int, truncmsg []byte,
 
 // pack packs an RR header, returning the offset to the end of the header.
 // See PackDomainName for documentation about the compression.
-func (hdr RR_Header) pack(msg []byte, off int, compression map[string]int, compress bool) (off1 int, err error) {
+func (hdr RR_Header) pack(msg []byte, off int, compression compressionMap, compress bool) (int, int, error) {
 	if off == len(msg) {
-		return off, nil
+		return off, off, nil
 	}
 
-	off, err = PackDomainName(hdr.Name, msg, off, compression, compress)
+	off, _, err := packDomainName(hdr.Name, msg, off, compression, compress)
 	if err != nil {
-		return len(msg), err
+		return off, len(msg), err
 	}
 	off, err = packUint16(hdr.Rrtype, msg, off)
 	if err != nil {
-		return len(msg), err
+		return off, len(msg), err
 	}
 	off, err = packUint16(hdr.Class, msg, off)
 	if err != nil {
-		return len(msg), err
+		return off, len(msg), err
 	}
 	off, err = packUint32(hdr.Ttl, msg, off)
 	if err != nil {
-		return len(msg), err
+		return off, len(msg), err
 	}
-	off, err = packUint16(hdr.Rdlength, msg, off)
+	off, err = packUint16(0, msg, off) // The RDLENGTH field will be set later in packRR.
 	if err != nil {
-		return len(msg), err
+		return off, len(msg), err
 	}
-	return off, nil
+	return off, off, nil
 }
 
 // helper helper functions.
@@ -223,8 +223,8 @@ func unpackUint48(msg []byte, off int) (i uint64, off1 int, err error) {
 		return 0, len(msg), &Error{err: "overflow unpacking uint64 as uint48"}
 	}
 	// Used in TSIG where the last 48 bits are occupied, so for now, assume a uint48 (6 bytes)
-	i = uint64(uint64(msg[off])<<40 | uint64(msg[off+1])<<32 | uint64(msg[off+2])<<24 | uint64(msg[off+3])<<16 |
-		uint64(msg[off+4])<<8 | uint64(msg[off+5]))
+	i = uint64(msg[off])<<40 | uint64(msg[off+1])<<32 | uint64(msg[off+2])<<24 | uint64(msg[off+3])<<16 |
+		uint64(msg[off+4])<<8 | uint64(msg[off+5])
 	off += 6
 	return i, off, nil
 }
@@ -275,7 +275,7 @@ func unpackString(msg []byte, off int) (string, int, error) {
 			s.WriteByte('\\')
 			s.WriteByte(b)
 		case b < ' ' || b > '~': // unprintable
-			writeEscapedByte(&s, b)
+			s.WriteString(escapeByte(b))
 		default:
 			s.WriteByte(b)
 		}
@@ -621,10 +621,10 @@ func unpackDataDomainNames(msg []byte, off, end int) ([]string, int, error) {
 	return servers, off, nil
 }
 
-func packDataDomainNames(names []string, msg []byte, off int, compression map[string]int, compress bool) (int, error) {
+func packDataDomainNames(names []string, msg []byte, off int, compression compressionMap, compress bool) (int, error) {
 	var err error
 	for j := 0; j < len(names); j++ {
-		off, err = PackDomainName(names[j], msg, off, compression, false && compress)
+		off, _, err = packDomainName(names[j], msg, off, compression, compress)
 		if err != nil {
 			return len(msg), err
 		}
