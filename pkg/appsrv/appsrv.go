@@ -112,7 +112,6 @@ func (app *Application) AddHandler(method string, prefix string, handler func(co
 }
 
 func (app *Application) AddHandler2(method string, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request), metadata map[string]interface{}, name string, tags map[string]string) {
-	log.Debugf("%s - %s", method, prefix)
 	segs := SplitPath(prefix)
 	hi := newHandlerInfo(method, segs, handler, metadata, name, tags)
 	app.AddHandler3(hi)
