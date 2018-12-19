@@ -247,19 +247,3 @@ func WorkerStatsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	result.Add(jsonutils.Marshal(&stats), "workers")
 	fmt.Fprintf(w, result.String())
 }
-
-func WaitChannel(ch chan interface{}) interface{} {
-	var ret interface{}
-	stop := false
-	for !stop {
-		select {
-		case c, more := <-ch:
-			if more {
-				ret = c
-			} else {
-				stop = true
-			}
-		}
-	}
-	return ret
-}

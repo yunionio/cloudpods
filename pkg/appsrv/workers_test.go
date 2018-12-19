@@ -1,6 +1,7 @@
 package appsrv
 
 import (
+	"sync"
 	"testing"
 	"time"
 )
@@ -27,21 +28,39 @@ func TestWorkerManager(t *testing.T) {
 
 func TestWorkerManagerError(t *testing.T) {
 	wm := NewWorkerManager("testwm", 2, 10)
-	err := make(chan interface{})
-	wm.Run(func() {
-		panic("Panic inside worker")
-	}, nil, err)
-	e := WaitChannel(err)
-	if e == nil {
-		t.Error("Panic not captured")
+	errCbFactory := func(wg *sync.WaitGroup, errMark *bool) func(error) {
+		return func(error) {
+			defer wg.Done()
+			if errMark != nil && !*errMark {
+				*errMark = true
+			}
+		}
 	}
-	err = make(chan interface{})
-	wm.Run(func() {
-		time.Sleep(1 * time.Second)
-	}, nil, err)
-	e = WaitChannel(err)
-	if e != nil {
-		t.Error("Should no error")
-	}
-
+	t.Run("normal", func(t *testing.T) {
+		wg := &sync.WaitGroup{}
+		errMark := false
+		errCb := errCbFactory(wg, &errMark)
+		wg.Add(1)
+		wm.Run(func() {
+			defer wg.Done()
+		}, nil, errCb)
+		wg.Wait()
+		if errMark {
+			t.Errorf("should be normal")
+		}
+	})
+	t.Run("panic", func(t *testing.T) {
+		wg := &sync.WaitGroup{}
+		errMark := false
+		errCb := errCbFactory(wg, &errMark)
+		wg.Add(2) // 1 for errCb
+		wm.Run(func() {
+			defer wg.Done()
+			panic("panic inside worker")
+		}, nil, errCb)
+		wg.Wait()
+		if !errMark {
+			t.Errorf("expecting error")
+		}
+	})
 }
