@@ -422,12 +422,16 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 		}
 	}
 
-	// todo: 不同步已经terminated的主机
 	instances := []SInstance{}
 	for _, reservation := range res.Reservations {
 		for _, instance := range reservation.Instances {
 			if err := FillZero(instance); err != nil {
 				return nil, 0, err
+			}
+
+			// 不同步已经terminated的主机
+			if *instance.State.Name == ec2.InstanceStateNameTerminated {
+				continue
 			}
 
 			tagspec := TagSpec{}
