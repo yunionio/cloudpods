@@ -43,3 +43,24 @@ func (n Nic) GetNetMask() string {
 func (n Nic) GetMac() net.HardwareAddr {
 	return getMac(n.Mac)
 }
+
+type Route []string
+
+type ServerNic struct {
+	Bridge    string  `json:"bridge"`
+	Domain    string  `json:"domain"`
+	Ip        string  `json:"ip"`
+	Vlan      int     `json:"vlan"`
+	Driver    string  `json:"driver"`
+	Masklen   int     `json:"masklen"`
+	Virtual   bool    `json:"virtual"`
+	NetId     string  `json:"net_id"`
+	Mac       string  `json:"mac"`
+	BandWidth int     `json:"bw"`
+	Dns       string  `json:"dns"`
+	Net       string  `json:"net"`
+	Interface string  `json:"interface"`
+	Gateway   string  `json:"gateway"`
+	Ifname    string  `json:"ifname"`
+	Routes    []Route `json:"routes,omitempty"`
+}
