@@ -303,13 +303,46 @@ func Netlen2Mask(netmasklen int64) string {
 	return mask
 }
 
-func addRoute(routes []string, net, gw string) {
-	for _, rt := range routes {
-		// if rt???? 有问题
+func addRoute(routes *[][]string, net, gw string) {
+	for _, rt := range *routes {
+		if rt[0] == net {
+			return
+		}
 	}
+	*routes = append(*routes, []string{net, gw})
 }
 
-func extendRoutes(routes []string, nicRoutes []jsonutils.JSONObject) error {
+
+    // if len(nic.Routes) != 0 {
+    //     for _, nicRoute := range nic.Routes {
+    //         tRoute, err := parseNicRoute(nicRoute)
+    //         if err != nil {
+    //             log.Errorf("Parse route %v error: %v", nicRoute, err)
+    //             continue
+    //         }
+    //         routes = append(routes, tRoute)
+    //     }
+    // }
+
+
+func parseNicRoute(route Route) (*types.Route, error) {
+    if len(route) != 2 {
+        return nil, fmt.Errorf("Invalid route format: %v", route)
+    }
+    _, dstNet, err := net.ParseCIDR(route[0])
+    if err != nil {
+        return nil, err
+    }
+    gwIP := net.ParseIP(route[1])
+    return &types.Route{
+        Dst: *dstNet,
+        GW:  gwIP,
+    }, nil
+}
+
+
+
+func extendRoutes(routes *[][]string, nicRoutes []jsonutils.JSONObject) error {
 	for i := 0; i < len(nicRoutes); i++ {
 		rt, ok := nicRoutes[i].(*jsonutils.JSONArray)
 		if !ok {
@@ -322,15 +355,18 @@ func extendRoutes(routes []string, nicRoutes []jsonutils.JSONObject) error {
 		}
 		addRoute(routes, rts[0], rts[1])
 	}
+	return nil
 }
 
-func AddNicRoutes(routes []string, nic jsonutils.JSONObject, mainIp string, nicCnt int) []string {
+func AddNicRoutes(routes *[][]string, nic jsonutils.JSONObject, mainIp string, nicCnt int) {
+	var nicDesc = new(SNic)
+	nic.Unmarshal(nicDesc)
 	ip, _ := nic.GetString("ip")
 	if mainIp == ip {
-		return routes
+		return
 	}
 	if nic.Contains("routes") {
 		nicRoutes, _ := nic.GetArray("routes")
 		extendRoutes(routes, nicRoutes)
-	}
+	} else if nic.Contains("gateway") && 
 }
