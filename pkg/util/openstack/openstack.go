@@ -2,7 +2,9 @@ package openstack
 
 import (
 	"fmt"
+	"net/http"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -53,18 +55,27 @@ func (cli *SOpenStackClient) fetchRegions() error {
 	return nil
 }
 
-func (cli *SOpenStackClient) jsonRequest() error {
-	return cli._jsonRequest()
+func (cli *SOpenStackClient) Get(region string, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+	if body == nil {
+		body = jsonutils.NewDict()
+	}
+	header := http.Header{}
+	if len(microversion) > 0 {
+		header.Set("X-Openstack-Nova-API-Version", microversion)
+	}
+	session := cli.client.NewSession(region, "", "internal", cli.tokenCredential, "")
+	return session.JSONRequest("compute", "", "GET", url, header, body)
 }
 
-func (cli *SOpenStackClient) _jsonRequest() error {
-
-	return nil
-}
-
-func (cli *SOpenStackClient) ComputeRequest(region string, apiVersion string) error {
-	session := cli.client.NewSession(region, "", "compute", cli.tokenCredential, apiVersion)
-	session.JSONRequest()
+func (cli *SOpenStackClient) getComputeVersion(region string, service string) (string, string, error) {
+	session := cli.client.NewSession(region, "", "internal", cli.tokenCredential, "")
+	_, resp, err := session.JSONRequest(service, "", "GET", "/", nil, nil)
+	if err != nil {
+		return "", "", err
+	}
+	minVersion, _ := resp.GetString("version", "min_version")
+	maxVersion, _ := resp.GetString("version", "version")
+	return minVersion, maxVersion, nil
 }
 
 func (cli *SOpenStackClient) connect() error {

@@ -2,6 +2,7 @@ package openstack
 
 import (
 	"fmt"
+	"net/http"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -65,7 +66,7 @@ func (region *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudp
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
+func (region *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 	// izones, err := self.GetIZones()
 	// if err != nil {
 	// 	return nil, err
@@ -81,7 +82,7 @@ func (self *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
+func (region *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
 	// izones, err := self.GetIZones()
 	// if err != nil {
 	// 	return nil, err
@@ -97,24 +98,23 @@ func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, er
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
-	iHosts := make([]cloudprovider.ICloudHost, 0)
-
-	// izones, err := self.GetIZones()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// for i := 0; i < len(izones); i += 1 {
-	// 	iZoneHost, err := izones[i].GetIHosts()
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	iHosts = append(iHosts, iZoneHost...)
-	// }
+func (region *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
+	iHosts := []cloudprovider.ICloudHost{}
+	izones, err := region.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i++ {
+		iZoneHost, err := izones[i].GetIHosts()
+		if err != nil {
+			return nil, err
+		}
+		iHosts = append(iHosts, iZoneHost...)
+	}
 	return iHosts, nil
 }
 
-func (self *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
+func (region *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	iStores := make([]cloudprovider.ICloudStorage, 0)
 
 	// izones, err := self.GetIZones()
@@ -131,7 +131,7 @@ func (self *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	return iStores, nil
 }
 
-func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
+func (region *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
 	// storageCache := self.getStoragecache()
 	// if storageCache.GetGlobalId() == id {
 	// 	return self.storageCache, nil
@@ -139,7 +139,7 @@ func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStorag
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
+func (region *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
 	// ivpcs, err := self.GetIVpcs()
 	// if err != nil {
 	// 	return nil, err
@@ -152,21 +152,26 @@ func (self *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
-	// if izones, err := self.GetIZones(); err != nil {
-	// 	return nil, err
-	// } else {
-	// 	for i := 0; i < len(izones); i += 1 {
-	// 		if izones[i].GetGlobalId() == id {
-	// 			return izones[i], nil
-	// 		}
-	// 	}
-	// }
+func (region *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {
+	izones, err := region.GetIZones()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(izones); i++ {
+		if izones[i].GetGlobalId() == id {
+			return izones[i], nil
+		}
+	}
 	return nil, cloudprovider.ErrNotFound
 }
 
 func (region *SRegion) fetchZones() error {
-	session := region.client
+	zones, err := region.GetIZones()
+	if err != nil {
+		return err
+	}
+	region.izones = zones
+	return nil
 }
 
 func (region *SRegion) fetchInfrastructure() error {
@@ -189,16 +194,35 @@ func (region *SRegion) fetchInfrastructure() error {
 	return nil
 }
 
-func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
-	// if self.izones == nil {
-	// 	if err := self.fetchInfrastructure(); err != nil {
-	// 		return nil, err
-	// 	}
-	// }
-	return nil, cloudprovider.ErrNotImplemented
+func (region *SRegion) Get(url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+	return region.client.Get(region.Name, url, microversion, body)
 }
 
-func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
+func (region *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
+	_, resp, err := region.Get("/os-availability-zone", "", jsonutils.NewDict())
+	if err != nil {
+		return nil, err
+	}
+	zones := []SZone{}
+	if err := resp.Unmarshal(&zones, "availabilityZoneInfo"); err != nil {
+		return nil, err
+	}
+	izones := []cloudprovider.ICloudZone{}
+	for i := 0; i < len(zones); i++ {
+		if zones[i].ZoneName == "internal" {
+			continue
+		}
+		zones[i].region = region
+		izones = append(izones, &zones[i])
+	}
+	return izones, nil
+}
+
+func (region *SRegion) GetVersion(service string) (string, string, error) {
+	return region.client.getComputeVersion(region.Name, service)
+}
+
+func (region *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 	// if self.ivpcs == nil || self.iclassicVpcs == nil {
 	// 	if err := self.fetchInfrastructure(); err != nil {
 	// 		return nil, err
@@ -233,14 +257,26 @@ func (region *SRegion) CreateEIP(name string, bwMbps int, chargeType string) (cl
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) {
+func (region *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
+func (region *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
+func (region *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetILoadbalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetILoadbalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
