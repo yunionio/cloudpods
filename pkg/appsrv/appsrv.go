@@ -26,7 +26,7 @@ type Application struct {
 	session           *SWorkerManager
 	systemSession     *SWorkerManager
 	roots             map[string]*RadixNode
-	rootLock          *sync.Mutex
+	rootLock          *sync.RWMutex
 	connMax           int
 	idleTimeout       time.Duration
 	readTimeout       time.Duration
@@ -54,7 +54,7 @@ func NewApplication(name string, connMax int) *Application {
 		session:           NewWorkerManager("HttpRequestWorkerManager", connMax, DEFAULT_BACKLOG),
 		systemSession:     NewWorkerManager("InternalHttpRequestWorkerManager", 1, DEFAULT_BACKLOG),
 		roots:             make(map[string]*RadixNode),
-		rootLock:          &sync.Mutex{},
+		rootLock:          &sync.RWMutex{},
 		idleTimeout:       DEFAULT_IDLE_TIMEOUT,
 		readTimeout:       DEFAULT_READ_TIMEOUT,
 		readHeaderTimeout: DEFAULT_READ_HEADER_TIMEOUT,
@@ -85,21 +85,19 @@ func (app *Application) GetName() string {
 	return app.name
 }
 
-func (app *Application) getRootLocked(method string) *RadixNode {
-	app.rootLock.Lock()
-	defer app.rootLock.Unlock()
-	if _, ok := app.roots[method]; !ok {
-		app.roots[method] = NewRadix()
-	}
-	return app.roots[method]
-}
-
 func (app *Application) getRoot(method string) *RadixNode {
+	app.rootLock.RLock()
 	if v, ok := app.roots[method]; ok {
+		app.rootLock.RUnlock()
 		return v
-	} else {
-		return app.getRootLocked(method)
 	}
+	app.rootLock.RUnlock()
+
+	v := NewRadix()
+	app.rootLock.Lock()
+	app.roots[method] = v
+	app.rootLock.Unlock()
+	return v
 }
 
 func (app *Application) AddReverseProxyHandler(prefix string, ef *proxy.SEndpointFactory) {
@@ -114,7 +112,6 @@ func (app *Application) AddHandler(method string, prefix string, handler func(co
 }
 
 func (app *Application) AddHandler2(method string, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request), metadata map[string]interface{}, name string, tags map[string]string) {
-	log.Debugf("%s - %s", method, prefix)
 	segs := SplitPath(prefix)
 	hi := newHandlerInfo(method, segs, handler, metadata, name, tags)
 	app.AddHandler3(hi)
