@@ -76,7 +76,7 @@ type IRootFsDriver interface {
 
 	DeployGuestFs(IRootFsDriver, *jsonutils.JSONDict, *SDeployInfo) (jsonutils.JSONObject, error)
 
-	// PrepareFsForTemplate() error
+	PrepareFsForTemplate() error
 }
 
 type SGuestRootFsDriver struct {
@@ -142,6 +142,10 @@ func (d *SGuestRootFsDriver) DeployFiles(deploys []jsonutils.JSONObject) error {
 		}
 	}
 	return nil
+}
+
+func (d *SGuestRootFsDriver) PrepareFsForTemplate() error {
+	return fmt.Errorf("Not Implemented")
 }
 
 func (d *SGuestRootFsDriver) DeployHostname(hn, domain string) error {

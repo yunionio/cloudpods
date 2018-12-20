@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/hostman"
+	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -24,14 +24,14 @@ func NewKVMGuestDiskPartition(devPath string) *SKVMGuestDiskPartition {
 	var res = new(SKVMGuestDiskPartition)
 	res.partDev = devPath
 	res.fs = res.getFsFormat()
-	hostman.CleanFailedMountpoints()
+	cloudcommon.CleanFailedMountpoints()
 	mountPath := fmt.Sprintf("/tmp/%s", strings.Replace(devPath, "/", "_", -1))
 	res.SLocalGuestFS = NewLocalGuestFS(mountPath)
 	return res
 }
 
 func (p *SKVMGuestDiskPartition) getFsFormat() string {
-	return hostman.GetFsFormat(p.partDev)
+	return cloudcommon.GetFsFormat(p.partDev)
 }
 
 func (p *SKVMGuestDiskPartition) Mount() bool {

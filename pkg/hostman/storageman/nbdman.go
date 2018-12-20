@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/hostman"
+	"yunion.io/x/onecloud/pkg/cloudcommon"
 )
 
 type SNBDManager struct {
@@ -51,7 +51,7 @@ func (m *SNBDManager) AcquireNbddev() string {
 	defer m.nbdLock.Unlock()
 	m.nbdLock.Lock()
 	for nbdDev := range m.nbdDevs {
-		if hostman.IsBlockDeviceUsed(nbdDev) {
+		if cloudcommon.IsBlockDeviceUsed(nbdDev) {
 			m.nbdDevs[nbdDev] = true
 		}
 		if !m.nbdDevs[nbdDev] {
