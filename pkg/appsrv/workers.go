@@ -160,7 +160,7 @@ func (wm *SWorkerManager) Run(task func(), worker chan *SWorker, onErr func(erro
 	if ret {
 		wm.schedule()
 	} else {
-		log.Warningf("[%] BUSY fail to push task, queue is FULL")
+		log.Warningf("queue full, task dropped")
 	}
 	return ret
 }
@@ -246,20 +246,4 @@ func WorkerStatsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	result := jsonutils.NewDict()
 	result.Add(jsonutils.Marshal(&stats), "workers")
 	fmt.Fprintf(w, result.String())
-}
-
-func WaitChannel(ch chan interface{}) interface{} {
-	var ret interface{}
-	stop := false
-	for !stop {
-		select {
-		case c, more := <-ch:
-			if more {
-				ret = c
-			} else {
-				stop = true
-			}
-		}
-	}
-	return ret
 }

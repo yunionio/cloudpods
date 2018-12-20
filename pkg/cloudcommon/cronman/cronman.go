@@ -196,7 +196,7 @@ func (job *SCronJob) runJob(isStart bool) {
 
 	log.Debugf("Cron job: %s started", job.Name)
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, "Region-Corn-Service")
+	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, "Region-Cron-Service")
 	userCred := auth.AdminCredential()
 	job.job(ctx, userCred, isStart)
 }
