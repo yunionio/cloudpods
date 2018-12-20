@@ -385,8 +385,8 @@ func (d *SDebianLikeRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject)
 				gateway, _ := nic.GetString("gateway")
 				cmds += fmt.Sprintf("    gateway %s\n", gateway)
 			}
-			var routes = make([]string, 0)
-			hostman.AddNicRoutes(routes, nic, mainIp, len(nics))
+			var routes = make([][]string, 0)
+			hostman.AddNicRoutes(&routes, nic, mainIp, len(nics))
 		}
 	}
 }
