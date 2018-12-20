@@ -61,6 +61,10 @@ func (self *SAzureProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	return info, nil
 }
 
+func (self *SAzureProvider) GetVersion() string {
+	return azure.AZURE_API_VERSION
+}
+
 func (self *SAzureProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return self.client.GetSubAccounts()
 }

@@ -58,6 +58,10 @@ func (self *SAwsProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	return info, nil
 }
 
+func (self *SAwsProvider) GetVersion() string {
+	return aws.AWS_API_VERSION
+}
+
 func (self *SAwsProvider) IsPublicCloud() bool {
 	return true
 }
