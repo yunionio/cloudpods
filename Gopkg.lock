@@ -95,6 +95,14 @@
   version = "v1.20.0"
 
 [[projects]]
+  digest = "1:e92f5581902c345eb4ceffdcd4a854fb8f73cf436d47d837d1ec98ef1fe0a214"
+  name = "github.com/StackExchange/wmi"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "5d049714c4a64225c3c79a7cf7d02f7fb5b96338"
+  version = "1.0.0"
+
+[[projects]]
   digest = "1:8c3176921eb3a8c3b9cadd2bbb2e8e39f62a99ee2e0965074a857868cc18a10b"
   name = "github.com/aliyun/alibaba-cloud-sdk-go"
   packages = [
@@ -532,6 +540,17 @@
   pruneopts = "UT"
   revision = "07c9b44f60d7ffdfb7d8efe1ad539965737836dc"
   version = "v0.4.0"
+
+[[projects]]
+  digest = "1:c96d16a4451e48e2c44b2c3531fd8ec9248d822637f1911a88959ca0bcae4a64"
+  name = "github.com/go-ole/go-ole"
+  packages = [
+    ".",
+    "oleutil",
+  ]
+  pruneopts = "UT"
+  revision = "39dc8486bd0952279431257138bc428275b86797"
+  version = "v1.2.2"
 
 [[projects]]
   digest = "1:ec6f9bf5e274c833c911923c9193867f3f18788c461f76f05f62bb1510e0ae65"
@@ -1118,9 +1137,12 @@
   revision = "49a4782e9908fe098c907022a1bd7519c79803d6"
 
 [[projects]]
-  digest = "1:0dc41f232ad16c241c1ab36d51eaffef124e3550ef490dfd1ea3ebdf11ca1d21"
+  digest = "1:568faa23f8a86cd59da9c9272c9fa3e4857e08b2e9a24b9e93cabb22ea645c4c"
   name = "github.com/shirou/gopsutil"
-  packages = ["."]
+  packages = [
+    "cpu",
+    "internal/common",
+  ]
   pruneopts = "UT"
   revision = "3ec50d2876a36047b2ca39f955ba88fb7a455e92"
   version = "v2.18.10"
@@ -1768,7 +1790,7 @@
     "github.com/nelsonken/cos-go-sdk-v5/cos",
     "github.com/pierrec/lz4",
     "github.com/serialx/hashring",
-    "github.com/shirou/gopsutil",
+    "github.com/shirou/gopsutil/cpu",
     "github.com/stretchr/testify/assert",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http",
