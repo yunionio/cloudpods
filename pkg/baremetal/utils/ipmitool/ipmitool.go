@@ -13,10 +13,10 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/baremetal/profiles"
-	"yunion.io/x/onecloud/pkg/baremetal/sysutils"
-	"yunion.io/x/onecloud/pkg/baremetal/types"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/ssh"
+	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
 type IPMIParser struct{}

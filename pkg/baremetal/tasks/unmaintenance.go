@@ -6,7 +6,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	baremetalstatus "yunion.io/x/onecloud/pkg/baremetal/status"
-	"yunion.io/x/onecloud/pkg/baremetal/types"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
 type SBaremetalUnmaintenanceTask struct {

@@ -12,13 +12,13 @@ import (
 
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/baremetal/profiles"
-	"yunion.io/x/onecloud/pkg/baremetal/sysutils"
-	"yunion.io/x/onecloud/pkg/baremetal/types"
-	"yunion.io/x/onecloud/pkg/baremetal/utils/detect_storages"
+	//"yunion.io/x/onecloud/pkg/baremetal/utils/detect_storages"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/ssh"
+	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
 type sBaremetalPrepareTask struct {
@@ -58,7 +58,7 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 		return err
 	}
 	// TODO: diskinfo
-	raidDiskInfo, nonRaidDiskInfo, pcieDiskInfo := detect_storages.DetectStorageInfo(cli, true)
+	//raidDiskInfo, nonRaidDiskInfo, pcieDiskInfo := detect_storages.DetectStorageInfo(cli, true)
 
 	ipmiEnable, err := isIPMIEnable(cli)
 	if err != nil {

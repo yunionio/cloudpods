@@ -9,8 +9,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
-	"yunion.io/x/onecloud/pkg/baremetal/types"
 	"yunion.io/x/onecloud/pkg/cloudcommon/dhcp"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 

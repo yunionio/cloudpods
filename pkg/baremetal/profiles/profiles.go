@@ -3,7 +3,7 @@ package profiles
 import (
 	"strings"
 
-	"yunion.io/x/onecloud/pkg/baremetal/types"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
 type IPMIProfile struct {

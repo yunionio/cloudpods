@@ -54,7 +54,7 @@ func (f *SLocalGuestFS) getLocalPath(sPath string, caseInsensitive bool) string 
 				if f == seg || (caseInsensitive && (strings.ToLower(f)) == strings.ToLower(seg)) ||
 					(seg[len(seg)-1] == '*' && strings.HasPrefix(f, seg[:len(seg)-1])) ||
 					(caseInsensitive && strings.HasPrefix(strings.ToLower(f),
-						strings.ToLower(seg[:len(seg)]))) {
+						strings.ToLower(seg[:]))) {
 					realSeg = f
 					break
 				}
@@ -251,7 +251,7 @@ func (f *SLocalGuestFS) MergeAuthorizedKeys(oldKeys string, pubkeys *sshkeys.SSH
 		}
 	}
 	var keys = make([]string, len(allkeys))
-	for key, _ := range allkeys {
+	for key := range allkeys {
 		keys = append(keys, key)
 	}
 	return strings.Join(keys, "\n")
