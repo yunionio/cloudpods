@@ -72,17 +72,23 @@ var (
 )
 
 type BaremetalStorage struct {
-	Slot         int    `json:"slot"`
-	Status       string `json:"status"`
-	Rotate       bool   `json:"rotate"`
-	Adapter      int    `json:"adapter"`
-	Driver       string `json:"driver"`
-	Model        string `json:"model"`
-	Enclosure    int    `json:"enclousure"`
 	Size         int64  `json:"size"`
+	Driver       string `json:"driver"`
+	Rotate       bool   `json:"rotate"`
+	Dev          string `json:"dev,omitempty"`
+	Sector       int    `json:"sector,omitempty"`
+	Block        int    `json:"block,omitempty"`
+	ModuleInfo   string `json:"module,omitempty"`
+	Kernel       string `json:"kernel,omitempty"`
+	PCIClass     string `json:"pci_class,omitempty"`
+	Slot         int    `json:"slot,omitempty"`
+	Status       string `json:"status,omitempty"`
+	Adapter      int    `json:"adapter,omitempty"`
+	Model        string `json:"model,omitempty"`
+	Enclosure    int    `json:"enclousure,omitempty"`
 	MinStripSize int64  `json:"min_strip_size,omitempty"`
 	MaxStripSize int64  `json:"max_strip_size,omitempty"`
-	Index        int64  `json:"index"`
+	Index        int64  `json:"index,omitempty"`
 }
 
 type BaremetalDiskConfig struct {
@@ -96,11 +102,11 @@ type BaremetalDiskConfig struct {
 	Size         []int64 `json:"size"`
 	Adapter      *int    `json:"adapter"`
 	Driver       string  `json:"driver"`
-	Cachedbadbbu bool    `json:"cachedbadbbu"`
-	Strip        int64   `json:"strip"`
-	RA           bool    `json:"ra"`
-	WT           bool    `json:"wt"`
-	Direct       bool    `json:"direct"`
+	Cachedbadbbu *bool   `json:"cachedbadbbu"`
+	Strip        *int64  `json:"strip"`
+	RA           *bool   `json:"ra"`
+	WT           *bool   `json:"wt"`
+	Direct       *bool   `json:"direct"`
 }
 
 type Disk struct {

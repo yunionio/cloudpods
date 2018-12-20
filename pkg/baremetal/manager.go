@@ -886,3 +886,65 @@ func (b *SBaremetalInstance) DelayedSyncDesc(data jsonutils.JSONObject) (jsonuti
 	err := b.SaveDesc(data)
 	return nil, err
 }
+
+type SBaremetalServer struct {
+	baremetal *SBaremetalInstance
+	desc      *jsonutils.JSONDict
+}
+
+func newBaremetalServer(baremetal *SBaremetalInstance, desc *jsonutils.JSONDict) *SBaremetalServer {
+	server := &SBaremetalServer{
+		baremetal: baremetal,
+		desc:      desc,
+	}
+	return server
+}
+
+func (server *SBaremetalServer) GetId() string {
+	id, err := server.desc.GetString("id")
+	if err != nil {
+		log.Fatalf("Get id from desc error: %v", err)
+	}
+	return id
+}
+
+func (server *SBaremetalServer) GetName() string {
+	id, err := server.desc.GetString("name")
+	if err != nil {
+		log.Fatalf("Get name from desc error: %v", err)
+	}
+	return id
+}
+
+func (server *SBaremetalServer) SaveDesc(desc jsonutils.JSONObject) error {
+	if desc != nil {
+		server.desc = desc.(*jsonutils.JSONDict)
+	}
+	return ioutil.WriteFile(server.baremetal.GetServerDescFilePath(), []byte(server.desc.String()), 0644)
+}
+
+func (s *SBaremetalServer) RemoveDesc() {
+	os.Remove(s.baremetal.GetServerDescFilePath())
+	s.desc = nil
+	s.baremetal = nil
+}
+
+func (s *SBaremetalServer) GetDiskConfig() interface{} {
+	return nil
+}
+
+func (s *SBaremetalServer) GetRootTemplateId() string {
+	rootDisk, err := s.desc.GetAt(0, "disks")
+	if err != nil {
+		log.Errorf("Can't found root disk")
+		return ""
+	}
+	id, _ := rootDisk.GetString("template_id")
+	return id
+}
+
+func (s *SBaremetalServer) DoEraseDisk(term *ssh.Client) error {
+	cmd := "/lib/mos/partdestroy.sh"
+	_, err := term.Run(cmd)
+	return err
+}

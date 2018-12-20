@@ -12,9 +12,10 @@ import (
 
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/baremetal/profiles"
-	//"yunion.io/x/onecloud/pkg/baremetal/utils/detect_storages"
+	"yunion.io/x/onecloud/pkg/baremetal/utils/detect_storages"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/ssh"
@@ -57,8 +58,25 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 	if err != nil {
 		return err
 	}
-	// TODO: diskinfo
-	//raidDiskInfo, nonRaidDiskInfo, pcieDiskInfo := detect_storages.DetectStorageInfo(cli, true)
+
+	raidDiskInfo, nonRaidDiskInfo, pcieDiskInfo, err := detect_storages.DetectStorageInfo(cli, true)
+	if err != nil {
+		return err
+	}
+	diskInfo := make([]*baremetal.BaremetalStorage, 0)
+	diskInfo = append(diskInfo, raidDiskInfo...)
+	diskInfo = append(diskInfo, nonRaidDiskInfo...)
+	diskInfo = append(diskInfo, pcieDiskInfo...)
+	var storageDriver string
+	if len(raidDiskInfo) > 0 {
+		raidDrivers := []string{}
+		for _, drv := range raidDiskInfo {
+			raidDrivers = append(raidDrivers, drv.Driver)
+		}
+		storageDriver = strings.Join(raidDrivers, ",")
+	} else {
+		storageDriver = baremetal.DISK_DRIVER_LINUX
+	}
 
 	ipmiEnable, err := isIPMIEnable(cli)
 	if err != nil {
@@ -245,10 +263,11 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 	updateInfo["cpu_mhz"] = cpuInfo.Freq
 	updateInfo["cpu_cache"] = cpuInfo.Cache
 	updateInfo["mem_size"] = memInfo.Total
+	updateInfo["storage_driver"] = storageDriver
+	updateInfo["storage_info"] = diskInfo
 	updateInfo["sys_info"] = sysInfo
 	updateInfo["sn"] = sysInfo.SN
-	// TODO: collect disk info
-	// updateInfo.update(task.collect_diskinfo(diskinfo))
+	task.collectDiskInfo(updateInfo, diskInfo)
 	updateData := jsonutils.Marshal(updateInfo)
 	updateData.(*jsonutils.JSONDict).Update(ipmiInfo.ToPrepareParams())
 	_, err = modules.Hosts.Update(task.getClientSession(), task.baremetal.GetId(), updateData)
@@ -464,6 +483,29 @@ func (task *sBaremetalPrepareTask) doNicWireProbe(cli *ssh.Client, nic *types.Ni
 		}
 	}
 	return nil
+}
+
+func (task *sBaremetalPrepareTask) collectDiskInfo(updateInfo map[string]interface{}, diskInfo []*baremetal.BaremetalStorage) {
+	cnt := 0
+	rotateCnt := 0
+	var size int64 = 0
+	var diskType string
+	for _, d := range diskInfo {
+		if d.Rotate {
+			rotateCnt += 1
+		}
+		size += d.Size
+		cnt += 1
+	}
+	if rotateCnt == cnt {
+		diskType = "rotate"
+	} else if rotateCnt == 0 {
+		diskType = "ssd"
+	} else {
+		diskType = "hybrid"
+	}
+	updateInfo["storage_size"] = size
+	updateInfo["storage_type"] = diskType
 }
 
 func SetIPMILanPortShared(cli ipmitool.IPMIExecutor, sysInfo *types.IPMISystemInfo) {
