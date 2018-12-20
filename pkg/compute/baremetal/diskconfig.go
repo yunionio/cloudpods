@@ -127,27 +127,36 @@ func ParseDiskConfig(desc string) (bdc BaremetalDiskConfig, err error) {
 		} else if len(p) > 2 && p[0] == '(' && p[len(p)-1] == ')' {
 			bdc.Splits = p[1 : len(p)-1]
 		} else if utils.HasPrefix(p, "strip") {
-			bdc.Strip = parseStrip(p[len("strip"):], "k")
+			strip := parseStrip(p[len("strip"):], "k")
+			bdc.Strip = &strip
 		} else if utils.HasPrefix(p, "adapter") {
 			ada, _ := strconv.ParseInt(p[len("adapter"):], 0, 64)
 			pada := int(ada)
 			bdc.Adapter = &pada
 		} else if p == "ra" {
-			bdc.RA = true
+			hasRA := true
+			bdc.RA = &hasRA
 		} else if p == "nora" {
-			bdc.RA = false
+			noRA := false
+			bdc.RA = &noRA
 		} else if p == "wt" {
-			bdc.WT = true
+			wt := true
+			bdc.WT = &wt
 		} else if p == "wb" {
-			bdc.WT = false
+			wt := false
+			bdc.WT = &wt
 		} else if p == "direct" {
-			bdc.Direct = true
+			direct := true
+			bdc.Direct = &direct
 		} else if p == "cached" {
-			bdc.Direct = false
+			direct := false
+			bdc.Direct = &direct
 		} else if p == "cachedbadbbu" {
-			bdc.Cachedbadbbu = true
+			cached := true
+			bdc.Cachedbadbbu = &cached
 		} else if p == "nocachedbadbbu" {
-			bdc.Cachedbadbbu = false
+			cached := false
+			bdc.Cachedbadbbu = &cached
 		} else {
 			err = fmt.Errorf("ParseDiskConfig unkown option %q", p)
 			return
@@ -310,11 +319,11 @@ func MeetConfig(
 		}
 	}
 
-	if driver == DISK_DRIVER_MEGARAID && conf.Strip != 0 {
+	if driver == DISK_DRIVER_MEGARAID && conf.Strip != nil {
 		minStripSize := storages[0].MinStripSize
 		maxStripSize := storages[0].MaxStripSize
 		if maxStripSize != 0 && minStripSize != 0 {
-			size := conf.Strip
+			size := *conf.Strip
 			if size > maxStripSize || size < minStripSize {
 				return fmt.Errorf("%q input strip size out of range(%d, %d)", DISK_DRIVER_MEGARAID, minStripSize, maxStripSize)
 			}
