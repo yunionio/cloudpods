@@ -47,6 +47,7 @@ func (n Nic) GetMac() net.HardwareAddr {
 type Route []string
 
 type ServerNic struct {
+	Index     int     `json:"index"`
 	Bridge    string  `json:"bridge"`
 	Domain    string  `json:"domain"`
 	Ip        string  `json:"ip"`
@@ -54,6 +55,7 @@ type ServerNic struct {
 	Driver    string  `json:"driver"`
 	Masklen   int     `json:"masklen"`
 	Virtual   bool    `json:"virtual"`
+	Manual    bool    `json:"manual"`
 	NetId     string  `json:"net_id"`
 	Mac       string  `json:"mac"`
 	BandWidth int     `json:"bw"`

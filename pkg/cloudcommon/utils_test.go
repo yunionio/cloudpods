@@ -1,4 +1,4 @@
-package hostman
+package cloudcommon
 
 import "testing"
 

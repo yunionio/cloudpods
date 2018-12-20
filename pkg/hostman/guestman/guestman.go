@@ -13,10 +13,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/httpclients"
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
-	"yunion.io/x/onecloud/pkg/hostman"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/pkg/util/regutils"
@@ -86,7 +86,7 @@ func (m *SGuestManager) VerifyExistingGuests(pendingDelete bool) {
 
 func (m *SGuestManager) OnVerifyExistingGuestsFail(err error, pendingDelete bool) {
 	log.Errorf("OnVerifyExistingGuestFail: %s, try again 30 seconds later", err.Error())
-	hostman.AddTimeout(30*time.Second, func() { m.VerifyExistingGuests(false) })
+	cloudcommon.AddTimeout(30*time.Second, func() { m.VerifyExistingGuests(false) })
 }
 
 func (m *SGuestManager) OnVerifyExistingGuestsSucc(res jsonutils.JSONObject, pendingDelete bool) {

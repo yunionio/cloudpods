@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/qemutils"
-	"yunion.io/x/onecloud/pkg/hostman"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 )
@@ -90,7 +90,7 @@ func (h *SHostInfo) prepareEnv() error {
 		ioParams["queue/iosched/group_idle"] = "0"
 		ioParams["queue/iosched/quantum"] = "32"
 	}
-	hostman.ChangeAllBlkdevsParams(ioParams)
+	cloudcommon.ChangeAllBlkdevsParams(ioParams)
 	_, err = exec.Command("modprobe", "tun").Output()
 	if err != nil {
 		return fmt.Errorf("Failed to activate tun/tap device")
@@ -206,7 +206,7 @@ func (h *SHostInfo) EnableNativeHugepages() error {
 		// TODO
 		// h.Memory 还未实现
 		preAllocPagesNum := h.GetMemory/h.Memory.GetHugepagesizeMb() + 1
-		cmd := hostman.CommandWithTimeout(1, "sh", "-c", fmt.Sprintf("echo %d > /proc/sys/vm/nr_hugepages", preAllocPagesNum))
+		cmd := cloudcommon.CommandWithTimeout(1, "sh", "-c", fmt.Sprintf("echo %d > /proc/sys/vm/nr_hugepages", preAllocPagesNum))
 		_, err := cmd.Output()
 		if err != nil {
 			log.Errorln(err)
@@ -225,7 +225,7 @@ func (h *SHostInfo) setSysConfig(path, val string) bool {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		oval, _ := ioutil.ReadFile(path)
 		if string(oval) != val {
-			err = hostman.FilePutContents(path, val, false)
+			err = cloudcommon.FilePutContents(path, val, false)
 			if err == nil {
 				return true
 			}

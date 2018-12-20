@@ -12,8 +12,8 @@ import (
 	"syscall"
 
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
-	"yunion.io/x/onecloud/pkg/hostman"
 )
 
 type SLocalGuestFS struct {
@@ -117,7 +117,7 @@ func (f *SLocalGuestFS) Listdir(sPath string, caseInsensitive bool) []string {
 func (f *SLocalGuestFS) Cleandir(dir string, keepdir, caseInsensitive bool) error {
 	sPath := f.getLocalPath(dir, caseInsensitive)
 	if len(sPath) > 0 {
-		return hostman.Cleandir(sPath, keepdir)
+		return cloudcommon.Cleandir(sPath, keepdir)
 	}
 	return fmt.Errorf("No such file %s", sPath)
 }
@@ -126,7 +126,7 @@ func (f *SLocalGuestFS) Cleandir(dir string, keepdir, caseInsensitive bool) erro
 func (f *SLocalGuestFS) Zerofiles(dir string, caseInsensitive bool) error {
 	sPath := f.getLocalPath(dir, caseInsensitive)
 	if len(sPath) > 0 {
-		return hostman.Zerofiles(sPath)
+		return cloudcommon.Zerofiles(sPath)
 	}
 	return fmt.Errorf("No such file %s", sPath)
 }
@@ -313,7 +313,7 @@ func (f *SLocalGuestFS) FilePutContents(sPath, content string, modAppend, caseIn
 		}
 	}
 	if len(sPath) > 0 {
-		return hostman.FilePutContents(sPath, content, modAppend)
+		return cloudcommon.FilePutContents(sPath, content, modAppend)
 	} else {
 		return fmt.Errorf("Cann't put content")
 	}

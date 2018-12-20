@@ -47,6 +47,8 @@ type SHostOptions struct {
 	EnableKsm        bool   `help:"Enable Kernel Same Page Merging"`
 	HugepagesOption  string `help:"Hugepages option: disable|native|transparent" default:"transparent"`
 	EnableQmpMonitor bool   `help:"Enable qmp monitor" default:"true"`
+
+	PrivatePrefixes []string `help:"IPv4 private prefixes"`
 }
 
 var HostOptions SHostOptions

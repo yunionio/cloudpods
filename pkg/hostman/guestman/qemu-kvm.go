@@ -17,8 +17,8 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/httpclients"
-	"yunion.io/x/onecloud/pkg/hostman"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
@@ -259,7 +259,7 @@ func (s *SKVMGuestInstance) ListStateFilePaths() []string {
 
 // Must called in new goroutine
 func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
-	// delay 100ms start monitor // hostman.AddTimeout(100*time.Millisecond, func() { s.delayStartMonitor(ctx) })
+	// delay 100ms start monitor // cloudcommon.AddTimeout(100*time.Millisecond, func() { s.delayStartMonitor(ctx) })
 	time.Sleep(100 * time.Millisecond)
 	s.delayStartMonitor(ctx)
 }
@@ -368,7 +368,7 @@ func (s *SKVMGuestInstance) SaveDesc(desc jsonutils.JSONObject) error {
 	// bw_info = self._get_bw_info()
 	// netmon_info = self._get_netmon_info()
 	s.Desc = desc.(*jsonutils.JSONDict)
-	if err := hostman.FilePutContents(s.GetDescFilePath(), desc.String()); err != nil {
+	if err := cloudcommon.FilePutContents(s.GetDescFilePath(), desc.String()); err != nil {
 		log.Errorln(err)
 	}
 	// TODO

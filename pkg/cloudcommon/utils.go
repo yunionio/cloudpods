@@ -1,4 +1,4 @@
-package hostman
+package cloudcommon
 
 import (
 	"bufio"
@@ -13,6 +13,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/pkg/util/netutils"
 )
 
@@ -255,6 +257,20 @@ func (hf HostsFile) String() string {
 var PSEUDO_VIP = "169.254.169.231"
 var MASKS = []string{"0", "128", "192", "224", "240", "248", "252", "254", "255"}
 
+var PRIVATE_PREFIXES = []string{
+	"10.0.0.0/8",
+	"172.16.0.0/12",
+	"192.168.0.0/16",
+}
+
+func GetPrivatePrefixes() []string {
+	if options.HostOptions.PrivatePrefixes != nil {
+		return options.HostOptions.PrivatePrefixes
+	} else {
+		return PRIVATE_PREFIXES
+	}
+}
+
 func GetMainNic(nics []jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	var mainIp netutils.IPV4Addr
 	var mainNic jsonutils.JSONObject
@@ -277,7 +293,7 @@ func GetMainNic(nics []jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return mainNic, nil
 }
 
-func Netlen2Mask(netmasklen int64) string {
+func Netlen2Mask(netmasklen int) string {
 	var mask = ""
 	var segCnt = 0
 	for netmasklen > 0 {
@@ -312,61 +328,39 @@ func addRoute(routes *[][]string, net, gw string) {
 	*routes = append(*routes, []string{net, gw})
 }
 
-
-    // if len(nic.Routes) != 0 {
-    //     for _, nicRoute := range nic.Routes {
-    //         tRoute, err := parseNicRoute(nicRoute)
-    //         if err != nil {
-    //             log.Errorf("Parse route %v error: %v", nicRoute, err)
-    //             continue
-    //         }
-    //         routes = append(routes, tRoute)
-    //     }
-    // }
-
-
-func parseNicRoute(route Route) (*types.Route, error) {
-    if len(route) != 2 {
-        return nil, fmt.Errorf("Invalid route format: %v", route)
-    }
-    _, dstNet, err := net.ParseCIDR(route[0])
-    if err != nil {
-        return nil, err
-    }
-    gwIP := net.ParseIP(route[1])
-    return &types.Route{
-        Dst: *dstNet,
-        GW:  gwIP,
-    }, nil
-}
-
-
-
-func extendRoutes(routes *[][]string, nicRoutes []jsonutils.JSONObject) error {
+func extendRoutes(routes *[][]string, nicRoutes []types.Route) error {
 	for i := 0; i < len(nicRoutes); i++ {
-		rt, ok := nicRoutes[i].(*jsonutils.JSONArray)
-		if !ok {
-			return fmt.Errorf("Nic routes format error")
-		}
-		// 写到这里了
-		rts := rt.GetStringArray()
-		if len(rts) < 2 {
-			return fmt.Errorf("Nic routes count error")
-		}
-		addRoute(routes, rts[0], rts[1])
+		addRoute(routes, nicRoutes[i][0], nicRoutes[i][1])
 	}
 	return nil
 }
 
-func AddNicRoutes(routes *[][]string, nic jsonutils.JSONObject, mainIp string, nicCnt int) {
-	var nicDesc = new(SNic)
-	nic.Unmarshal(nicDesc)
-	ip, _ := nic.GetString("ip")
-	if mainIp == ip {
+func isExitAddress(ip string) bool {
+	ipv4, err := netutils.NewIPV4Addr(ip)
+	if err != nil {
+		return false
+	}
+	return !netutils.IsPrivate(ipv4) || netutils.IsHostLocal(ipv4) || netutils.IsLinkLocal(ipv4)
+}
+
+func AddNicRoutes(routes *[][]string, nicDesc *types.ServerNic, mainIp string, nicCnt int) {
+	if mainIp == nicDesc.Ip {
 		return
 	}
-	if nic.Contains("routes") {
-		nicRoutes, _ := nic.GetArray("routes")
-		extendRoutes(routes, nicRoutes)
-	} else if nic.Contains("gateway") && 
+	if len(nicDesc.Routes) > 0 {
+		extendRoutes(routes, nicDesc.Routes)
+	} else if len(nicDesc.Gateway) > 0 && isExitAddress(nicDesc.Ip) &&
+		nicCnt == 2 && nicDesc.Ip != mainIp && isExitAddress(mainIp) {
+		for _, pref := range GetPrivatePrefixes() {
+			addRoute(routes, pref, nicDesc.Gateway)
+		}
+	}
+}
+
+func GetNicDns(nicdesc *types.ServerNic) []string {
+	dnslist := []string{}
+	if len(nicdesc.Dns) > 0 {
+		dnslist = append(dnslist, nicdesc.Dns)
+	}
+	return dnslist
 }
