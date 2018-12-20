@@ -161,6 +161,10 @@ func (this *SchedulerManager) CleanCache(s *mcclient.ClientSession, hostId strin
 	if len(hostId) > 0 {
 		url = fmt.Sprintf("%s/%s", url, hostId)
 	}
-	_, err := this.rawRequest(s, "POST", url, nil, nil)
-	return err
+	resp, err := this.rawRequest(s, "POST", url, nil, nil)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
 }
