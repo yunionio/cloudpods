@@ -527,7 +527,21 @@ func (manager *SCloudaccountManager) FetchCloudaccountByIdOrName(accountId strin
 }
 
 func (self *SCloudaccount) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra.Add(jsonutils.Marshal(self.GetCloudproviders()), "accounts")
+	providers := self.GetCloudproviders()
+	extra.Add(jsonutils.Marshal(providers), "accounts")
+	projectIds := []string{}
+	for i := 0; i < len(providers); i++ {
+		if len(providers[i].ProjectId) > 0 && !utils.IsInStringArray(providers[i].ProjectId, projectIds) {
+			projectIds = append(projectIds, providers[i].ProjectId)
+		}
+	}
+	projects := jsonutils.NewArray()
+	for _, projectId := range projectIds {
+		if proj, _ := db.TenantCacheManager.FetchTenantById(context.Background(), projectId); proj != nil {
+			projects.Add(jsonutils.Marshal(map[string]string{"tenant_id": projectId, "telnet": proj.Name}))
+		}
+	}
+	extra.Add(projects, "projects")
 	return extra
 }
 
