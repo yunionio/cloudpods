@@ -63,9 +63,7 @@ func (r *RadixNode) add(path []string, segments []string, data interface{}) erro
 		} else {
 			r.data = data
 			r.fullPath = make([]string, len(path))
-			for i := 0; i < len(path); i += 1 {
-				r.fullPath[i] = path[i]
-			}
+			copy(r.fullPath, path)
 			return nil
 		}
 	}
