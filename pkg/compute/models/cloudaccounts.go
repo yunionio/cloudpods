@@ -51,9 +51,7 @@ type SCloudaccount struct {
 	BalanceKey string    `width:"256" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 	LastSync   time.Time `get:"admin" list:"admin"` // = Column(DateTime, nullable=True)
 
-	Version string `width:"32" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
-
-	Sysinfo jsonutils.JSONObject `get:"admin"` // Column(JSONEncodedDict, nullable=True)
+	// Sysinfo jsonutils.JSONObject `get:"admin"` // Column(JSONEncodedDict, nullable=True)
 
 	Provider string `width:"64" charset:"ascii" list:"admin" create:"admin_required"`
 }
@@ -502,12 +500,12 @@ func getSubAccounts(name, accessUrl, account, secret, provider string) ([]cloudp
 	return iprovider.GetSubAccounts()
 }
 
-func (self *SCloudaccount) SaveSysInfo(info jsonutils.JSONObject) {
+/*func (self *SCloudaccount) SaveSysInfo(info jsonutils.JSONObject) {
 	self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Sysinfo = info
 		return nil
 	})
-}
+}*/
 
 func (manager *SCloudaccountManager) FetchCloudaccountById(accountId string) *SCloudaccount {
 	providerObj, err := manager.FetchById(accountId)
@@ -529,10 +527,113 @@ func (manager *SCloudaccountManager) FetchCloudaccountByIdOrName(accountId strin
 	return providerObj.(*SCloudaccount)
 }
 
+func (self *SCloudaccount) getProviderCount() int {
+	q := CloudproviderManager.Query().Equals("cloudaccount_id", self.Id)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getHostCount() int {
+	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	q := HostManager.Query().In("manager_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getVpcCount() int {
+	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	q := VpcManager.Query().In("manager_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getStorageCount() int {
+	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	q := StorageManager.Query().In("manager_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getStoragecacheCount() int {
+	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	q := StoragecacheManager.Query().In("manager_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getEipCount() int {
+	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	q := ElasticipManager.Query().In("manager_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getRoutetableCount() int {
+	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	q := RouteTableManager.Query().In("manager_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getGuestCount() int {
+	subsubq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	subq := HostManager.Query("id").In("manager_id", subsubq).SubQuery()
+	q := GuestManager.Query().In("host_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getDiskCount() int {
+	subsubq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	subq := StorageManager.Query("id").In("manager_id", subsubq).SubQuery()
+	q := DiskManager.Query().In("storage_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getProjectIds() []string {
+	q := CloudproviderManager.Query("tenant_id").Equals("cloudaccount_id", self.Id).Distinct()
+	rows, err := q.Rows()
+	if err != nil {
+		return nil
+	}
+	ret := make([]string, 0)
+	for rows.Next() {
+		var projId string
+		err := rows.Scan(&projId)
+		if err != nil {
+			return nil
+		}
+		ret = append(ret, projId)
+	}
+	return ret
+}
+
+func (self *SCloudaccount) getVersion() string {
+	q := CloudproviderManager.Query("version").Equals("cloudaccount_id", self.Id).Distinct()
+	rows, err := q.Rows()
+	if err != nil {
+		return ""
+	}
+	ret := make([]string, 0)
+	for rows.Next() {
+		var projId string
+		err := rows.Scan(&projId)
+		if err != nil {
+			return ""
+		}
+		ret = append(ret, projId)
+	}
+	return strings.Join(ret, ",")
+}
+
 func (self *SCloudaccount) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	providers := self.GetCloudproviders()
-	extra.Add(jsonutils.NewInt(int64(len(providers))), "account_count")
-	extra.Add(jsonutils.Marshal(providers), "accounts")
+	extra.Add(jsonutils.NewInt(int64(self.getProviderCount())), "provider_count")
+	extra.Add(jsonutils.NewInt(int64(self.getHostCount())), "host_count")
+	extra.Add(jsonutils.NewInt(int64(self.getGuestCount())), "guest_count")
+	extra.Add(jsonutils.NewInt(int64(self.getDiskCount())), "disk_count")
+	extra.Add(jsonutils.NewString(self.getVersion()), "version")
+	projects := jsonutils.NewArray()
+	for _, projectId := range self.getProjectIds() {
+		if proj, _ := db.TenantCacheManager.FetchTenantById(context.Background(), projectId); proj != nil {
+			projJson := jsonutils.NewDict()
+			projJson.Add(jsonutils.NewString(proj.Name), "tenant")
+			projJson.Add(jsonutils.NewString(proj.Id), "tenant_id")
+			projects.Add(projJson)
+		}
+	}
+	extra.Add(projects, "projects")
 	return extra
 }
 
@@ -578,7 +679,7 @@ func migrateCloudprovider(cloudprovider *SCloudprovider) error {
 		account.AccessUrl = cloudprovider.AccessUrl
 		account.Account = mainAccount
 		account.LastSync = cloudprovider.LastSync
-		account.Sysinfo = cloudprovider.Sysinfo
+		// account.Sysinfo = cloudprovider.Sysinfo
 		account.Provider = cloudprovider.Provider
 		account.Name = providerName
 		account.Status = cloudprovider.Status
@@ -703,4 +804,19 @@ func (self *SCloudaccount) GetVCenterAccessInfo(privateId string) (SVCenterAcces
 	info.PrivateId = privateId
 
 	return info, nil
+}
+
+func (self *SCloudaccount) AllowPerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "change-project")
+}
+
+func (self *SCloudaccount) PerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	providers := self.GetCloudproviders()
+	if len(providers) > 1 {
+		return nil, httperrors.NewInvalidStatusError("multiple subaccounts")
+	}
+	if len(providers) == 0 {
+		return nil, httperrors.NewInvalidStatusError("no subaccount")
+	}
+	return providers[0].PerformChangeProject(ctx, userCred, query, data)
 }
