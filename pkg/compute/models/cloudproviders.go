@@ -37,6 +37,10 @@ const (
 	CLOUD_PROVIDER_AWS    = "Aws"
 )
 
+var (
+	CLOUD_PROVIDER_VALID_STATUS = []string{CLOUD_PROVIDER_CONNECTED, CLOUD_PROVIDER_START_SYNC, CLOUD_PROVIDER_SYNCING}
+)
+
 type SCloudproviderManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
 }
