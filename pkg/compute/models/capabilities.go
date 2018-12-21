@@ -57,6 +57,7 @@ func getHypervisors(zone *SZone) []string {
 	if err != nil {
 		return nil
 	}
+	defer rows.Close()
 	hypervisors := make([]string, 0)
 	for rows.Next() {
 		var hostType string
@@ -80,6 +81,7 @@ func getStorageTypes(zone *SZone) []string {
 	if err != nil {
 		return nil
 	}
+	defer rows.Close()
 	storageTypes := make([]string, 0)
 	for rows.Next() {
 		var storageType, mediumType string
@@ -106,6 +108,7 @@ func getGPUs(zone *SZone) []string {
 	if err != nil {
 		return nil
 	}
+	defer rows.Close()
 	gpus := make([]string, 0)
 	for rows.Next() {
 		var model string

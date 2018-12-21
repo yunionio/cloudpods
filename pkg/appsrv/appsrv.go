@@ -47,12 +47,12 @@ const (
 	DEFAULT_PROCESS_TIMEOUT     = 15 * time.Second
 )
 
-func NewApplication(name string, connMax int) *Application {
+func NewApplication(name string, connMax int, db bool) *Application {
 	app := Application{name: name,
 		context:           context.Background(),
 		connMax:           connMax,
-		session:           NewWorkerManager("HttpRequestWorkerManager", connMax, DEFAULT_BACKLOG),
-		systemSession:     NewWorkerManager("InternalHttpRequestWorkerManager", 1, DEFAULT_BACKLOG),
+		session:           NewWorkerManager("HttpRequestWorkerManager", connMax, DEFAULT_BACKLOG, db),
+		systemSession:     NewWorkerManager("InternalHttpRequestWorkerManager", 1, DEFAULT_BACKLOG, false),
 		roots:             make(map[string]*RadixNode),
 		rootLock:          &sync.RWMutex{},
 		idleTimeout:       DEFAULT_IDLE_TIMEOUT,
@@ -273,7 +273,7 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 	return nil, nil
 }
 
-func (app *Application) addDefaultHandler(method string, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request), name string) {
+func (app *Application) AddDefaultHandler(method string, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request), name string) {
 	segs := SplitPath(prefix)
 	hi := newHandlerInfo(method, segs, handler, nil, name, nil)
 	hi.SetSkipLog(true).SetWorkerManager(app.systemSession)
@@ -281,11 +281,11 @@ func (app *Application) addDefaultHandler(method string, prefix string, handler 
 }
 
 func (app *Application) addDefaultHandlers() {
-	app.addDefaultHandler("GET", "/version", VersionHandler, "version")
-	app.addDefaultHandler("GET", "/stats", StatisticHandler, "stats")
-	app.addDefaultHandler("POST", "/ping", PingHandler, "ping")
-	app.addDefaultHandler("GET", "/ping", PingHandler, "ping")
-	app.addDefaultHandler("GET", "/worker_stats", WorkerStatsHandler, "worker_stats")
+	app.AddDefaultHandler("GET", "/version", VersionHandler, "version")
+	app.AddDefaultHandler("GET", "/stats", StatisticHandler, "stats")
+	app.AddDefaultHandler("POST", "/ping", PingHandler, "ping")
+	app.AddDefaultHandler("GET", "/ping", PingHandler, "ping")
+	app.AddDefaultHandler("GET", "/worker_stats", WorkerStatsHandler, "worker_stats")
 }
 
 func timeoutHandle(h http.Handler) http.HandlerFunc {
@@ -301,11 +301,12 @@ func timeoutHandle(h http.Handler) http.HandlerFunc {
 }
 
 func (app *Application) initServer(addr string) *http.Server {
-	db := AppContextDB(app.context)
+	/* db := AppContextDB(app.context)
 	if db != nil {
 		db.SetMaxIdleConns(app.connMax + 1)
 		db.SetMaxOpenConns(app.connMax + 1)
 	}
+	*/
 	app.addDefaultHandlers()
 	s := &http.Server{
 		Addr:              addr,
