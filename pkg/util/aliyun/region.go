@@ -92,7 +92,7 @@ func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonut
 	if err != nil {
 		return nil, err
 	}
-	return _jsonRequest(client, "slb.aliyuncs.com", ALIYUN_API_VERSION_LB, apiName, params)
+	return jsonRequest(client, "slb.aliyuncs.com", ALIYUN_API_VERSION_LB, apiName, params)
 }
 
 /////////////////////////////////////////////////////////////////////////////
