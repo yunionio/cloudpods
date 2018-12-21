@@ -18,6 +18,7 @@ type SHostInfo struct {
 	isRegistered bool
 
 	Cpu *SCPUInfo
+	Mem *SMemory
 
 	storageManager *storageman.SStorageManager
 }
@@ -190,6 +191,10 @@ func (h *SHostInfo) EnableTransparentHugepages() {
 	}
 }
 
+func (h *SHostInfo) GetMemory() int {
+	return h.Mem.Total // - options.reserved_memory
+}
+
 func (h *SHostInfo) EnableNativeHugepages() error {
 	content, err := ioutil.ReadFile("/proc/sys/vm/nr_hugepages")
 	if err != nil {
@@ -203,9 +208,7 @@ func (h *SHostInfo) EnableNativeHugepages() error {
 		for k, v := range kv {
 			h.setSysConfig(k, v)
 		}
-		// TODO
-		// h.Memory 还未实现
-		preAllocPagesNum := h.GetMemory/h.Memory.GetHugepagesizeMb() + 1
+		preAllocPagesNum := h.GetMemory()/h.Memory.GetHugepagesizeMb() + 1
 		cmd := cloudcommon.CommandWithTimeout(1, "sh", "-c", fmt.Sprintf("echo %d > /proc/sys/vm/nr_hugepages", preAllocPagesNum))
 		_, err := cmd.Output()
 		if err != nil {
@@ -275,11 +278,17 @@ func (h *SHostInfo) StartRegister() {
 	// TODO
 }
 
-func NewHostInfo() *SHostInfo {
-	cpu := DetectCpuInfo()
-	// memory := DetectMemoryInfo()
-	return &SHostInfo{
-		Cpu: cpu,
+func NewHostInfo() (*SHostInfo, error) {
+	var res = new(SHostInfo)
+	cpu, err := DetectCpuInfo()
+	if err != nil {
+		return nil, err
+	} else {
+		res.Cpu = cpu
+	}
+	mem, err := DetectMemoryInfo()
+	if err != nil {
+
 	}
 }
 

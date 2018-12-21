@@ -6,6 +6,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/cloudcommon/httpclients"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 )
 
@@ -64,4 +67,24 @@ func (c *SComputeClient) UpdateServerStatus(sid, status string) {
 	stus.Set("status", jsonutils.NewString(status))
 	body.Set("server", stus)
 	c.Request(context.Background(), "POST", url, nil, body, false)
+}
+
+func TaskFailed(ctx context.Context, reason string) error {
+	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
+		httpclients.GetDefaultComputeClient().TaskFail(ctx, taskId.(string), reason)
+		return nil
+	} else {
+		log.Errorln("Reqeuest task failed missing task id, with reason(%s)", reason)
+		return fmt.Errorf("Reqeuest task failed missing task id")
+	}
+}
+
+func TaskComplete(ctx context.Context, data jsonutils.JSONObject) error {
+	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
+		httpclients.GetDefaultComputeClient().TaskComplete(ctx, taskId.(string), data, 0)
+		return nil
+	} else {
+		log.Errorln("Reqeuest task complete missing task id")
+		return fmt.Errorf("Reqeuest task complete missing task id")
+	}
 }

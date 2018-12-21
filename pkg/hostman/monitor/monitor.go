@@ -13,6 +13,7 @@ type StringCallback func(string)
 
 type Monitor interface {
 	Connect(host string, port int) error
+	Dicconnect()
 
 	// The callback function will be called in another goroutine
 	SimpleCommand(cmd string, callback StringCallback)
@@ -57,6 +58,13 @@ func (m *SBaseMonitor) Connect(host string, port int) error {
 	conn.SetReadDeadline(time.Now().Add(90 * time.Second))
 	m.rwc = conn
 	return nil
+}
+
+func (m *SBaseMonitor) Disconnect() {
+	if m.connected {
+		m.connected = false
+		m.rwc.Close()
+	}
 }
 
 func (m *SBaseMonitor) checkReading() bool {

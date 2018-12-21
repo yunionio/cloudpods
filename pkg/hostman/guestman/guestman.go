@@ -177,11 +177,24 @@ func (m *SGuestManager) PrepareCreate(sid string) error {
 	m.ServersLock.Lock()
 	defer m.ServersLock.Unlock()
 	if _, ok := m.Servers[sid]; ok {
-		return httperrors.NewBadRequestError("Guest %s exists", sid)
+		return fmt.Errorf("Guest %s exists", sid)
 	}
 	guest := NewKVMGuestInstance(sid, m)
 	m.Servers[sid] = guest
 	return guest.PrepareDir()
+}
+
+func (m *SGuestManager) PrepareDeploy(sid string) error {
+	m.ServersLock.Lock()
+	defer m.ServersLock.Unlock()
+	if guest, ok := m.Servers[sid]; !ok {
+		return fmt.Errorf("Guest %s not exists", sid)
+	} else {
+		if guest.IsRunning() || guest.IsSuspend() {
+			return fmt.Errorf("Cannot deploy on running/suspend guest")
+		}
+	}
+	return nil
 }
 
 func (m *SGuestManager) Monitor(sid, cmd string, callback func(string)) error {
@@ -197,41 +210,44 @@ func (m *SGuestManager) Monitor(sid, cmd string, callback func(string)) error {
 	}
 }
 
-func (m *SGuestManager) DoDeploy(ctx context.Context, sid string, body jsonutils.JSONObject, isInit bool) {
-	guest, ok := m.Servers[sid]
+// Delay process
+func (m *SGuestManager) DoDeploy(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	deployParams, ok := params.(*SGuestDeploy)
+	if !ok {
+		return nil, fmt.Errorf("Unknown params")
+	}
+	guest, ok := m.Servers[deployParams.sid]
 	if ok {
-		desc, _ := body.Get("desc")
+		desc, _ := deployParams.body.Get("desc")
 		if desc != nil {
 			guest.SaveDesc(desc)
 		}
-		if jsonutils.QueryBoolean(body, "k8s_pod", false) {
-			TaskComplete(ctx, nil)
-			return
+		if jsonutils.QueryBoolean(deployParams.body, "k8s_pod", false) {
+			return nil, nil
 		}
-		// TODO
-		publicKey := sshkeys.GetKeys(body)
-		deploys, _ := body.GetArray("deploys")
-		password, _ := body.GetString("password")
-		resetPassword := jsonutils.QueryBoolean(body, "reset_password", false)
+		publicKey := sshkeys.GetKeys(deployParams.body)
+		deploys, _ := deployParams.body.GetArray("deploys")
+		password, _ := deployParams.body.GetString("password")
+		resetPassword := jsonutils.QueryBoolean(deployParams.body, "reset_password", false)
 		if resetPassword && len(password) == 0 {
 			password = seclib.RandomPassword(12)
 		}
 
 		guestInfo, err := guest.DeployFs(&guestfs.SDeployInfo{
-			publicKey, deploys, password, isInit})
+			publicKey, deploys, password, deployParams.isInit})
 		if err != nil {
 			log.Errorf("Deploy guest fs error: %s", err)
-			TaskFailed(ctx, err.Error())
+			return nil, err
 		} else {
-			TaskComplete(ctx, guestInfo)
+			return guestInfo, nil
 		}
 	} else {
-		TaskFailed(ctx, fmt.Sprinft("Guest %s not found", sid))
+		return nil, fmt.Errorf("Guest %s not found", sid)
 	}
 }
 
 // delay cpuset balance
-func (m *SGuestManager) CpusetBalance(ctx context.Context) {
+func (m *SGuestManager) CpusetBalance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	// TODO
 }
 
