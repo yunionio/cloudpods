@@ -1,6 +1,8 @@
 package taskman
 
 import (
+	"database/sql"
+
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -29,9 +31,12 @@ func (manager *STaskObjectManager) GetObjectIds(task *STask) []string {
 	q := taskobjs.Query(taskobjs.Field("obj_id")).Equals("task_id", task.Id)
 	rows, err := q.Rows()
 	if err != nil {
-		log.Errorf("TaskObjectManager GetObjectIds fail %s", err)
+		if err != sql.ErrNoRows {
+			log.Errorf("TaskObjectManager GetObjectIds fail %s", err)
+		}
 		return nil
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var objId string
 		err = rows.Scan(&objId)

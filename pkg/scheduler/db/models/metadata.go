@@ -40,5 +40,6 @@ func FetchMetadatas(resourceName string, ids, keys []string) ([]interface{}, err
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	return rowsToArray(Metadatas, rows)
 }

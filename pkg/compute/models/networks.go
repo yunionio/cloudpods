@@ -189,6 +189,7 @@ func (self *SNetwork) GetUsedAddresses() map[string]bool {
 			log.Errorf("GetUsedAddresses query fail: %s", err)
 			return nil
 		}
+		defer rows.Close()
 		for rows.Next() {
 			var ip string
 			err = rows.Scan(&ip)
@@ -298,6 +299,7 @@ func (self *SNetwork) GetUsedIfnames() map[string]bool {
 		log.Errorf("GetUsedIfnames query fail: %s", err)
 		return nil
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var ifname string
 		err = rows.Scan(&ifname)

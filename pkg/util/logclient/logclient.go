@@ -70,7 +70,7 @@ var BLACK_LIST_OBJ_TYPE = []string{"parameter"}
 var logclientWorkerMan *appsrv.SWorkerManager
 
 func init() {
-	logclientWorkerMan = appsrv.NewWorkerManager("LogClientWorkerManager", 1, 50)
+	logclientWorkerMan = appsrv.NewWorkerManager("LogClientWorkerManager", 1, 50, false)
 }
 
 type IObject interface {

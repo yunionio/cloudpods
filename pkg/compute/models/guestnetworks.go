@@ -574,6 +574,7 @@ func (manager *SGuestnetworkManager) getRecentlyReleasedIPAddresses(networkId st
 		log.Errorf("GetRecentlyReleasedIPAddresses fail %s", err)
 		return nil
 	}
+	defer rows.Close()
 	ret := make(map[string]bool)
 	for rows.Next() {
 		var ip string
