@@ -37,7 +37,8 @@ func init() {
 			"secgroups",
 		),
 	}
-	SecurityGroupManager.NameRequireAscii = false
+	SecurityGroupManager.NameLength = 128
+	SecurityGroupManager.NameRequireAscii = true
 }
 
 const (
