@@ -488,10 +488,16 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	if jsonutils.QueryBoolean(query, "usable", false) {
 		networks := NetworkManager.Query().SubQuery()
 		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		providers := CloudproviderManager.Query().SubQuery()
 
 		zoneQ := wires.Query(sqlchemy.DISTINCT("zone_id", wires.Field("zone_id")))
 		zoneQ = zoneQ.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+		zoneQ = zoneQ.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
+		zoneQ = zoneQ.Join(providers, sqlchemy.Equals(vpcs.Field("manager_id"), providers.Field("id")))
 		zoneQ = zoneQ.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		zoneQ = zoneQ.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
+		zoneQ = zoneQ.Filter(sqlchemy.In(providers.Field("status"), CLOUD_PROVIDER_VALID_STATUS))
 
 		q = q.Filter(sqlchemy.In(q.Field("id"), zoneQ.SubQuery()))
 	}
