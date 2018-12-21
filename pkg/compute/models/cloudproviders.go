@@ -454,9 +454,10 @@ func (self *SCloudprovider) GetCloudaccount() *SCloudaccount {
 	return CloudaccountManager.FetchCloudaccountById(self.CloudaccountId)
 }
 
-func (self *SCloudprovider) SaveSysInfo(info jsonutils.JSONObject) {
+func (self *SCloudprovider) SaveSysInfo(info jsonutils.JSONObject, version string) {
 	self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Sysinfo = info
+		self.Version = version
 		return nil
 	})
 }

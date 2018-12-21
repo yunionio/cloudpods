@@ -22,7 +22,8 @@ const (
 
 	QCLOUD_DEFAULT_REGION = "ap-beijing"
 
-	QCLOUD_API_VERSION = "2017-03-12"
+	QCLOUD_API_VERSION         = "2017-03-12"
+	QCLOUD_BILLING_API_VERSION = "2018-07-09"
 )
 
 type SQcloudClient struct {
@@ -69,6 +70,11 @@ func cbsRequest(client *common.Client, apiName string, params map[string]string)
 		domain = "cbs." + region + ".tencentcloudapi.com"
 	}
 	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params)
+}
+
+func billingRequest(client *common.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	domain := "billing.tencentcloudapi.com"
+	return _jsonRequest(client, domain, QCLOUD_BILLING_API_VERSION, apiName, params)
 }
 
 type QcloudResponse struct {
@@ -145,6 +151,14 @@ func (client *SQcloudClient) cbsRequest(apiName string, params map[string]string
 		return nil, err
 	}
 	return cbsRequest(cli, apiName, params)
+}
+
+func (client *SQcloudClient) billingRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return billingRequest(cli, apiName, params)
 }
 
 func (client *SQcloudClient) jsonRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -264,5 +278,14 @@ type SAccountBalance struct {
 }
 
 func (client *SQcloudClient) QueryAccountBalance() (*SAccountBalance, error) {
-	return nil, nil
+	balance := SAccountBalance{}
+	body, err := client.billingRequest("DescribeAccountBalance", nil)
+	if err != nil {
+		log.Errorf("DescribeAccountBalance fail %s", err)
+		return nil, err
+	}
+	log.Debugf("%s", body)
+	balanceCent, _ := body.Float("Balance")
+	balance.AvailableAmount = balanceCent / 100.0
+	return &balance, nil
 }
