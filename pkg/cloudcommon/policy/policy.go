@@ -336,10 +336,10 @@ func (manager *SPolicyManager) allowWithoutCache(isAdmin bool, userCred mcclient
 	if consts.IsRbacDebug() {
 		log.Debugf("[RBAC: %v] %s %s %s %#v permission %s", isAdmin, service, resource, action, extra, currentPriv)
 	}
-	return ExportRbacResult(isAdmin, currentPriv)
+	return unifyRbacResult(isAdmin, currentPriv)
 }
 
-func ExportRbacResult(isAdmin bool, currentPriv rbacutils.TRbacResult) rbacutils.TRbacResult {
+func unifyRbacResult(isAdmin bool, currentPriv rbacutils.TRbacResult) rbacutils.TRbacResult {
 	if isAdmin {
 		switch currentPriv {
 		case rbacutils.OwnerAllow, rbacutils.UserAllow, rbacutils.GuestAllow:
@@ -351,6 +351,10 @@ func ExportRbacResult(isAdmin bool, currentPriv rbacutils.TRbacResult) rbacutils
 			currentPriv = rbacutils.UserAllow
 		}
 	}
+	return currentPriv
+}
+
+func exportRbacResult(currentPriv rbacutils.TRbacResult) rbacutils.TRbacResult {
 	if currentPriv == rbacutils.AdminAllow || currentPriv == rbacutils.OwnerAllow {
 		return rbacutils.Allow
 	}
@@ -398,7 +402,7 @@ func (manager *SPolicyManager) explainPolicy(userCred mcclient.TokenCredential, 
 		}
 	}
 	if len(name) == 0 {
-		return reqStrs, manager.Allow(isAdmin, userCred, service, resource, action, extra...), nil
+		return reqStrs, exportRbacResult(manager.Allow(isAdmin, userCred, service, resource, action, extra...)), nil
 	}
 	policy := manager.findPolicyByName(isAdmin, name)
 	if policy == nil {
@@ -409,7 +413,7 @@ func (manager *SPolicyManager) explainPolicy(userCred mcclient.TokenCredential, 
 	if rule != nil {
 		result = rule.Result
 	}
-	return reqStrs, ExportRbacResult(isAdmin, result), nil
+	return reqStrs, exportRbacResult(unifyRbacResult(isAdmin, result)), nil
 }
 
 func (manager *SPolicyManager) ExplainRpc(userCred mcclient.TokenCredential, params jsonutils.JSONObject, name string) (jsonutils.JSONObject, error) {
