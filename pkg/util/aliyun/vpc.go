@@ -51,7 +51,7 @@ func (self *SVpc) apiRequest(action string, params map[string]string) (jsonutils
 	if err != nil {
 		return nil, err
 	}
-	return _jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params)
+	return jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params)
 }
 
 func (self *SVpc) GetMetadata() *jsonutils.JSONDict {

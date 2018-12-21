@@ -47,9 +47,9 @@ func NewAliyunClient(providerId string, providerName string, accessKey string, s
 	return &client, nil
 }
 
-func jsonRequest(client *sdk.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	for i := 1; i < 4; i++ {
-		resp, err := _jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params)
+		resp, err := _jsonRequest(client, domain, apiVersion, apiName, params)
 		if err != nil {
 			for _, code := range []string{"SignatureNonceUsed", "InvalidInstance.NotSupported"} {
 				if strings.Contains(err.Error(), code) {
@@ -115,7 +115,7 @@ func (self *SAliyunClient) ecsRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, apiName, params)
+	return jsonRequest(cli, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params)
 }
 
 func (self *SAliyunClient) fetchRegions() error {

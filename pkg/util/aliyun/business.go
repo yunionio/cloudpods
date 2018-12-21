@@ -10,7 +10,7 @@ import (
 )
 
 func businessRequest(client *sdk.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	return _jsonRequest(client, "business.aliyuncs.com", ALIYUN_BSS_API_VERSION, apiName, params)
+	return jsonRequest(client, "business.aliyuncs.com", ALIYUN_BSS_API_VERSION, apiName, params)
 }
 
 func (self *SAliyunClient) businessRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
