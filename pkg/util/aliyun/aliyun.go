@@ -2,6 +2,7 @@ package aliyun
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
@@ -44,7 +45,19 @@ func NewAliyunClient(providerId string, providerName string, accessKey string, s
 }
 
 func jsonRequest(client *sdk.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	return _jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params)
+	for i := 1; i < 4; i++ {
+		resp, err := _jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params)
+		if err != nil {
+			for _, code := range []string{"SignatureNonceUsed", "InvalidInstance.NotSupported"} {
+				if strings.Contains(err.Error(), code) {
+					time.Sleep(time.Second * time.Duration(i*10))
+					continue
+				}
+			}
+		}
+		return resp, err
+	}
+	return nil, fmt.Errorf("timeout for request %s params: %s", apiName, params)
 }
 
 func _jsonRequest(client *sdk.Client, domain string, version string, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
