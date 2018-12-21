@@ -1,6 +1,7 @@
 package baremetal
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
@@ -55,7 +56,7 @@ func newBaremetalAgent() (*SBaremetalAgent, error) {
 }
 
 func GetAdminSession() *mcclient.ClientSession {
-	return auth.GetAdminSession(o.Options.Region, "v2")
+	return auth.GetAdminSession(context.TODO(), o.Options.Region, "v2")
 }
 
 func (agent *SBaremetalAgent) GetListenIPs() ([]net.IP, error) {
@@ -102,6 +103,14 @@ func (agent *SBaremetalAgent) GetAccessIP() (net.IP, error) {
 		}
 	}
 	return nil, fmt.Errorf("Not found AccessAddress %s on %s", o.Options.AccessAddress, o.Options.ListenInterface)
+}
+
+func (agent *SBaremetalAgent) GetDHCPServerIP() (net.IP, error) {
+	listenIP := o.Options.ListenAddress
+	if len(listenIP) == 0 || listenIP == "0.0.0.0" {
+		return agent.GetAccessIP()
+	}
+	return agent.GetListenIP()
 }
 
 func getIfaceIPs(iface *net.Interface) ([]net.IP, error) {

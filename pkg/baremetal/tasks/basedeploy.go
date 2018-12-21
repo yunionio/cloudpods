@@ -63,7 +63,6 @@ func (self *SBaremetalServerBaseDeployTask) OnPXEBoot(ctx context.Context, term 
 	if utils.IsInStringArray(onFinishAction, []string{"restart", "shutdown"}) {
 		err = self.EnsurePowerShutdown(false)
 		if err != nil {
-			// TODO: maybe taskFail directly?
 			return err
 		}
 		if onFinishAction == "restart" {

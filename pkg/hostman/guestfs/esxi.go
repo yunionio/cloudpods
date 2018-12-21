@@ -1,13 +1,9 @@
 package guestfs
 
 type SEsxiRootFs struct {
-	*SGuestRootFsDriver
+	*sGuestRootFsDriver
 }
 
-func NewEsxiRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	return &SEsxiRootFs{SGuestRootFsDriver: NewGuestRootFsDriver(part).(*SGuestRootFsDriver)}
-}
-
-func init() {
-	rootfsDrivers = append(rootfsDrivers, NewEsxiRootFs)
-}
+//func NewEsxiRootFs(part IDiskPartition) IRootFsDriver {
+//return &SEsxiRootFs{sGuestRootFsDriver: newGuestRootFsDriver(part)}
+//}

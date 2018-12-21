@@ -3,6 +3,7 @@ package dhcp
 import (
 	"fmt"
 	"net"
+	"runtime/debug"
 
 	"yunion.io/x/log"
 )
@@ -52,6 +53,13 @@ func (s *DHCPServer) serveDHCP(handler DHCPHandler) error {
 		}
 
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Errorf("Serve panic error: %v", r)
+					debug.PrintStack()
+				}
+			}()
+
 			resp, err := handler.ServeDHCP(pkt, intf)
 			if err != nil {
 				log.Warningf("[DHCP] handler serve error: %v", err)

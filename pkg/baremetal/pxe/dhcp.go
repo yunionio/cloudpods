@@ -58,6 +58,9 @@ func (h *DHCPHandler) ServeDHCP(pkt *dhcp.Packet, _ *net.Interface) (*dhcp.Packe
 	if err != nil {
 		return nil, err
 	}
+	if conf == nil {
+		return nil, fmt.Errorf("Empty packet config")
+	}
 	return dhcp.MakeReplyPacket(pkt, conf)
 }
 
@@ -144,7 +147,7 @@ func (h *DHCPHandler) fetchConfig() (*dhcp.ResponseConfig, error) {
 			return h.baremetalInstance.GetPXEDHCPConfig(h.ClientArch)
 		}
 		// ignore
-		log.Warningf("No need to pxeboot, ignore the request ...(mac:%s guid:%d)", h.ClientMac, h.ClientGuid)
+		log.Warningf("No need to pxeboot, ignore the request ...(mac:%s guid:%s)", h.ClientMac, h.ClientGuid)
 		return nil, nil
 	} else {
 		// handle normal DHCP request

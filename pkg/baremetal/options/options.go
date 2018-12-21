@@ -5,7 +5,7 @@ import (
 )
 
 type BaremetalOptions struct {
-	cloudcommon.Options
+	cloudcommon.CommonOptions
 
 	ListenInterface        string `help:"Master net interface of baremetal server" default:"br0"`
 	AccessAddress          string `help:"Management IP address of baremetal server, only need to use when multiple address bind to ListenInterface"`

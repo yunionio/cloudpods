@@ -142,10 +142,10 @@ func (c *Conn) RecvDHCP() (*Packet, *net.Interface, error) {
 		if err != nil {
 			return nil, nil, err
 		}
-		if c.ifIndex != 0 && ifidx != c.ifIndex {
+		/*if c.ifIndex != 0 && ifidx != c.ifIndex {
 			log.Errorf("======= ifIndex continue, c.ifIndex: %d, ifidx: %d", c.ifIndex, ifidx)
 			continue
-		}
+		}*/
 		pkt, err := Unmarshal(b)
 		if err != nil {
 			log.Errorf("======= pkt Unmarshal error: %v", err)

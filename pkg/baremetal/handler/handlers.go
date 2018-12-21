@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/baremetal"
+	baremetaltypes "yunion.io/x/onecloud/pkg/baremetal/types"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
@@ -13,15 +14,26 @@ func InitHandlers(app *appsrv.Application) {
 }
 
 func initBaremetalsHandler(app *appsrv.Application) {
-	app.AddHandler("GET", getBaremetalPrefix("notify"), objectMiddleware(handleBaremetalNotify))
-	app.AddHandler("POST", getBaremetalPrefix("maintenance"), objectMiddleware(handleBaremetalMaintenance))
-	app.AddHandler("POST", getBaremetalPrefix("unmaintenance"), objectMiddleware(handleBaremetalUnmaintenance))
-	app.AddHandler("POST", getBaremetalPrefix("delete"), objectMiddleware(handleBaremetalDelete))
-	app.AddHandler("POST", getBaremetalPrefix("syncstatus"), objectMiddleware(handleBaremetalSyncStatus))
-	app.AddHandler("POST", getBaremetalPrefix("sync-config"), objectMiddleware(handleBaremetalSyncConfig))
-	app.AddHandler("POST", getBaremetalPrefix("sync-ipmi"), objectMiddleware(handleBaremetalSyncIPMI))
-	app.AddHandler("POST", getBaremetalPrefix("prepare"), objectMiddleware(handleBaremetalPrepare))
-	app.AddHandler("POST", getBaremetalPrefix("reset-bmc"), objectMiddleware(handleBaremetalResetBMC))
+	// baremetal actions handler
+	app.AddHandler("GET", bmActionPrefix("notify"), bmObjMiddleware(handleBaremetalNotify))
+	app.AddHandler("POST", bmActionPrefix("maintenance"), bmObjMiddleware(handleBaremetalMaintenance))
+	app.AddHandler("POST", bmActionPrefix("unmaintenance"), bmObjMiddleware(handleBaremetalUnmaintenance))
+	app.AddHandler("POST", bmActionPrefix("delete"), bmObjMiddleware(handleBaremetalDelete))
+	app.AddHandler("POST", bmActionPrefix("syncstatus"), bmObjMiddleware(handleBaremetalSyncStatus))
+	app.AddHandler("POST", bmActionPrefix("sync-config"), bmObjMiddleware(handleBaremetalSyncConfig))
+	app.AddHandler("POST", bmActionPrefix("sync-ipmi"), bmObjMiddleware(handleBaremetalSyncIPMI))
+	app.AddHandler("POST", bmActionPrefix("prepare"), bmObjMiddleware(handleBaremetalPrepare))
+	app.AddHandler("POST", bmActionPrefix("reset-bmc"), bmObjMiddleware(handleBaremetalResetBMC))
+
+	// server actions handler
+	app.AddHandler("POST", srvActionPrefix("create"), srvClassMiddleware(handleServerCreate))
+	app.AddHandler("POST", srvActionPrefix("deploy"), srvObjMiddleware(handleServerDeploy))
+	app.AddHandler("POST", srvActionPrefix("rebuild"), srvObjMiddleware(handleServerRebuild))
+	app.AddHandler("POST", srvActionPrefix("start"), srvObjMiddleware(handleServerStart))
+	app.AddHandler("POST", srvActionPrefix("stop"), srvObjMiddleware(handleServerStop))
+	app.AddHandler("POST", srvActionPrefix("reset"), srvObjMiddleware(handleServerReset))
+	app.AddHandler("POST", srvActionPrefix("status"), srvObjMiddleware(handleServerStatus))
+	app.AddHandler("DELETE", srvIdPrefix(), srvObjMiddleware(handleServerDelete))
 }
 
 func handleBaremetalNotify(ctx *Context, bm *baremetal.SBaremetalInstance) {
@@ -82,5 +94,61 @@ func handleBaremetalPrepare(ctx *Context, bm *baremetal.SBaremetalInstance) {
 
 func handleBaremetalResetBMC(ctx *Context, bm *baremetal.SBaremetalInstance) {
 	bm.StartBaremetalResetBMCTask(ctx.UserCred(), ctx.TaskId(), ctx.Data())
+	ctx.ResponseOk()
+}
+
+func handleServerCreate(ctx *Context, bm *baremetal.SBaremetalInstance) {
+	err := bm.StartServerCreateTask(ctx.UserCred(), ctx.TaskId(), ctx.Data())
+	if err != nil {
+		ctx.ResponseError(httperrors.NewGeneralError(err))
+		return
+	}
+	ctx.ResponseOk()
+}
+
+func handleServerDelete(ctx *Context, bm *baremetal.SBaremetalInstance, _ baremetaltypes.IBaremetalServer) {
+	bm.StartServerDestroyTask(ctx.UserCred(), ctx.TaskId(), nil)
+	ctx.ResponseOk()
+}
+
+func handleServerDeploy(ctx *Context, bm *baremetal.SBaremetalInstance, _ baremetaltypes.IBaremetalServer) {
+	if err := bm.StartServerDeployTask(ctx.UserCred(), ctx.TaskId(), ctx.Data()); err != nil {
+		ctx.ResponseError(httperrors.NewGeneralError(err))
+		return
+	}
+	ctx.ResponseOk()
+}
+
+func handleServerRebuild(ctx *Context, bm *baremetal.SBaremetalInstance, _ baremetaltypes.IBaremetalServer) {
+	if err := bm.StartServerRebuildTask(ctx.UserCred(), ctx.TaskId(), ctx.Data()); err != nil {
+		ctx.ResponseError(httperrors.NewGeneralError(err))
+		return
+	}
+	ctx.ResponseOk()
+}
+
+func handleServerStart(ctx *Context, bm *baremetal.SBaremetalInstance, _ baremetaltypes.IBaremetalServer) {
+	if err := bm.StartServerStartTask(ctx.UserCred(), ctx.TaskId(), ctx.Data()); err != nil {
+		ctx.ResponseError(httperrors.NewGeneralError(err))
+		return
+	}
+	ctx.ResponseOk()
+}
+
+func handleServerStop(ctx *Context, bm *baremetal.SBaremetalInstance, _ baremetaltypes.IBaremetalServer) {
+	if err := bm.StartServerStopTask(ctx.UserCred(), ctx.TaskId(), ctx.Data()); err != nil {
+		ctx.ResponseError(httperrors.NewGeneralError(err))
+		return
+	}
+	ctx.ResponseOk()
+}
+
+func handleServerReset(ctx *Context, bm *baremetal.SBaremetalInstance, _ baremetaltypes.IBaremetalServer) {
+	ctx.DelayProcess(bm.DelayedServerReset, nil)
+	ctx.ResponseOk()
+}
+
+func handleServerStatus(ctx *Context, bm *baremetal.SBaremetalInstance, _ baremetaltypes.IBaremetalServer) {
+	ctx.DelayProcess(bm.DelayedServerStatus, nil)
 	ctx.ResponseOk()
 }

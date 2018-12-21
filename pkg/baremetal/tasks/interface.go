@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	baremetaltypes "yunion.io/x/onecloud/pkg/baremetal/types"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -23,6 +24,7 @@ type IBaremetal interface {
 	GetRawIPMIConfig() *types.IPMIInfo
 	GetIPMINic(mac net.HardwareAddr) *types.Nic
 	SetExistingIPMIIPAddr(ipAddr string)
+	GetServer() baremetaltypes.IBaremetalServer
 
 	SyncStatus(status, reason string)
 	AutoSyncStatus()
@@ -33,4 +35,6 @@ type IBaremetal interface {
 	DoPowerShutdown(soft bool) error
 	DoPXEBoot() error
 	DoDiskBoot() error
+
+	RemoveServer()
 }

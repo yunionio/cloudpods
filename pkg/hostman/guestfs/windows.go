@@ -1,13 +1,9 @@
 package guestfs
 
 type SWindowsRootFs struct {
-	*SGuestRootFsDriver
+	*sGuestRootFsDriver
 }
 
-func NewWindowsRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	return &SWindowsRootFs{SGuestRootFsDriver: NewGuestRootFsDriver(part).(*SGuestRootFsDriver)}
-}
-
-func init() {
-	rootfsDrivers = append(rootfsDrivers, NewWindowsRootFs)
-}
+//func NewWindowsRootFs(part IDiskPartition) IRootFsDriver {
+//return &SWindowsRootFs{sGuestRootFsDriver: newGuestRootFsDriver(part)}
+//}

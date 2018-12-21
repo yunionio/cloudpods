@@ -11,7 +11,7 @@ import (
 var delayTaskWorkerMan *appsrv.SWorkerManager
 
 func init() {
-	delayTaskWorkerMan = appsrv.NewWorkerManager("DelayTaskWorkerManager", 8, 1024)
+	delayTaskWorkerMan = appsrv.NewWorkerManager("DelayTaskWorkerManager", 8, 1024, false)
 }
 
 type ProcessFunc func(data jsonutils.JSONObject) (jsonutils.JSONObject, error)

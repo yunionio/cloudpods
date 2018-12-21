@@ -91,6 +91,13 @@ type BaremetalStorage struct {
 	Index        int64  `json:"index,omitempty"`
 }
 
+func (s BaremetalStorage) GetBlock() int {
+	if s.Block <= 0 {
+		return 512
+	}
+	return s.Block
+}
+
 type BaremetalDiskConfig struct {
 	// disk type
 	Type string `json:"type"`

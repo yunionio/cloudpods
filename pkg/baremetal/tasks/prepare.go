@@ -24,6 +24,10 @@ func NewBaremetalServerPrepareTask(
 	return task
 }
 
+func (self *SBaremetalServerPrepareTask) NeedPXEBoot() bool {
+	return true
+}
+
 func (self *SBaremetalServerPrepareTask) GetName() string {
 	return "BaremetalServerPrepareTask"
 }

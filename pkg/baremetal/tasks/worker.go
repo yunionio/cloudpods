@@ -13,7 +13,7 @@ import (
 var baremetalTaskWorkerMan *appsrv.SWorkerManager
 
 func init() {
-	baremetalTaskWorkerMan = appsrv.NewWorkerManager("BaremetalTaskWorkerManager", 8, 1024)
+	baremetalTaskWorkerMan = appsrv.NewWorkerManager("BaremetalTaskWorkerManager", 8, 1024, false)
 }
 
 func ExecuteTask(task ITask, args interface{}) {

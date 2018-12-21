@@ -1,13 +1,9 @@
 package guestfs
 
 type SMacOSRootFs struct {
-	*SGuestRootFsDriver
+	*sGuestRootFsDriver
 }
 
-func NewMacOSRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	return &SMacOSRootFs{SGuestRootFsDriver: NewGuestRootFsDriver(part).(*SGuestRootFsDriver)}
-}
-
-func init() {
-	rootfsDrivers = append(rootfsDrivers, NewMacOSRootFs)
-}
+//func NewMacOSRootFs(part IDiskPartition) IRootFsDriver {
+//return &SMacOSRootFs{sGuestRootFsDriver: newGuestRootFsDriver(part)}
+//}
