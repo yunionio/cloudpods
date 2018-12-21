@@ -129,9 +129,10 @@ type SWorkerManager struct {
 	detachedWorker *SWorkerList
 	workerLock     *sync.Mutex
 	workerId       uint64
+	dbWorker       bool
 }
 
-func NewWorkerManager(name string, workerCount int, backlog int) *SWorkerManager {
+func NewWorkerManager(name string, workerCount int, backlog int, dbWorker bool) *SWorkerManager {
 	manager := SWorkerManager{name: name,
 		queue:          NewRing(workerCount * backlog),
 		workerCount:    workerCount,
@@ -139,7 +140,9 @@ func NewWorkerManager(name string, workerCount int, backlog int) *SWorkerManager
 		activeWorker:   newWorkerList(),
 		detachedWorker: newWorkerList(),
 		workerLock:     &sync.Mutex{},
-		workerId:       0}
+		workerId:       0,
+		dbWorker:       dbWorker,
+	}
 
 	workerManagers = append(workerManagers, &manager)
 	return &manager
@@ -206,7 +209,7 @@ func (wm *SWorkerManager) scheduleWithLock() {
 		}
 		go worker.run()
 	} else {
-		log.Warningf("[%s] BUSY activeWork %d max %d queue: %d", wm, wm.activeWorker.size(), wm.workerCount, wm.queue.Size())
+		log.Warningf("[%s] BUSY activeWork %d detachedWork %d max %d queue: %d", wm, wm.ActiveWorkerCount(), wm.DetachedWorkerCount(), wm.workerCount, wm.queue.Size())
 	}
 }
 
@@ -246,4 +249,14 @@ func WorkerStatsHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	result := jsonutils.NewDict()
 	result.Add(jsonutils.Marshal(&stats), "workers")
 	fmt.Fprintf(w, result.String())
+}
+
+func GetDBConnectionCount() int {
+	conn := 0
+	for i := 0; i < len(workerManagers); i += 1 {
+		if workerManagers[i].dbWorker {
+			conn += workerManagers[i].workerCount
+		}
+	}
+	return conn
 }

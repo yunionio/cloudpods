@@ -136,6 +136,8 @@ func virtualResourceRowsNotDeletedIn(r Resourcer, key string, set []string) (*sq
 }
 
 func rowsToArray(r Resourcer, rows *sql.Rows) ([]interface{}, error) {
+	defer rows.Close()
+
 	columns, _ := rows.Columns()
 
 	objs := make([]interface{}, 0, len(columns))

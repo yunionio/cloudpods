@@ -8,6 +8,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
@@ -18,7 +19,8 @@ var manager *SCronJobManager
 
 func init() {
 	manager = &SCronJobManager{
-		jobs: make([]*SCronJob, 0),
+		jobs:    make([]*SCronJob, 0),
+		workers: appsrv.NewWorkerManager("CronJobWorkers", 4, 1024, true),
 	}
 }
 
@@ -88,6 +90,7 @@ type SCronJobManager struct {
 	add     chan *SCronJob
 	stop    chan struct{}
 	running bool
+	workers *appsrv.SWorkerManager
 }
 
 func GetCronJobManager() *SCronJobManager {
@@ -171,7 +174,7 @@ func (self *SCronJobManager) run() {
 				if job.Next.After(now) || job.Next.IsZero() {
 					break
 				}
-				go job.runJob(false)
+				job.runJob(false)
 				job.Next = job.Timer.Next(now)
 				heap.Fix(&self.jobs, i)
 			}
@@ -187,6 +190,12 @@ func (self *SCronJobManager) run() {
 }
 
 func (job *SCronJob) runJob(isStart bool) {
+	manager.workers.Run(func() {
+		job.runJobInWorker(isStart)
+	}, nil, nil)
+}
+
+func (job *SCronJob) runJobInWorker(isStart bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Errorf("CronJob task %s run error: %s", job.Name, r)

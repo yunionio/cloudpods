@@ -588,6 +588,7 @@ func (self *SCloudaccount) getProjectIds() []string {
 	if err != nil {
 		return nil
 	}
+	defer rows.Close()
 	ret := make([]string, 0)
 	for rows.Next() {
 		var projId string
@@ -606,6 +607,7 @@ func (self *SCloudaccount) getVersion() string {
 	if err != nil {
 		return ""
 	}
+	defer rows.Close()
 	ret := make([]string, 0)
 	for rows.Next() {
 		var projId string
