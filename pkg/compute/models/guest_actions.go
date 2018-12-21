@@ -784,6 +784,10 @@ func (self *SGuest) PerformAssignSecgroup(ctx context.Context, userCred mcclient
 		return nil, err
 	}
 
+	if err := SecurityGroupManager.ValidateName(secgrpV.Model.GetName()); err != nil {
+		return nil, httperrors.NewInputParameterError("The secgroup name %s does not meet the requirements, please change the name", secgrpV.Model.GetName())
+	}
+
 	if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.SecgrpId = secgrpV.Model.GetId()
 		return nil
