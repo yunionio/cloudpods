@@ -3267,6 +3267,7 @@ func (self *SGuest) saveOsType(osType string) error {
 }
 
 func (self *SGuest) SaveDeployInfo(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) {
+	log.Errorf("------SaveDeployInfo: %s", data.PrettyString())
 	info := make(map[string]interface{})
 	if data.Contains("os") {
 		osName, _ := data.GetString("os")

@@ -15,12 +15,12 @@ import (
 func StartService() {
 	consts.SetServiceType("baremetal")
 
-	cloudcommon.ParseOptions(&o.Options, &o.Options.Options, os.Args, "baremetal.conf")
-	cloudcommon.InitAuth(&o.Options.Options, startAgent)
+	cloudcommon.ParseOptions(&o.Options, &o.Options.CommonOptions, os.Args, "baremetal.conf")
+	cloudcommon.InitAuth(&o.Options.CommonOptions, startAgent)
 
-	app := cloudcommon.InitApp(&o.Options.Options)
+	app := cloudcommon.InitApp(&o.Options.CommonOptions, false)
 	handler.InitHandlers(app)
-	cloudcommon.ServeForever(app, &o.Options.Options)
+	cloudcommon.ServeForever(app, &o.Options.CommonOptions)
 }
 
 func startAgent() {

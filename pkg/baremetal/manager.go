@@ -9,11 +9,13 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/errors"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/util/workqueue"
 	"yunion.io/x/pkg/utils"
@@ -23,9 +25,16 @@ import (
 	"yunion.io/x/onecloud/pkg/baremetal/pxe"
 	baremetalstatus "yunion.io/x/onecloud/pkg/baremetal/status"
 	"yunion.io/x/onecloud/pkg/baremetal/tasks"
+	baremetaltypes "yunion.io/x/onecloud/pkg/baremetal/types"
+	"yunion.io/x/onecloud/pkg/baremetal/utils/detect_storages"
+	"yunion.io/x/onecloud/pkg/baremetal/utils/disktool"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
 	"yunion.io/x/onecloud/pkg/cloudcommon/dhcp"
+	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/compute/baremetal"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs/sshpart"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -222,18 +231,21 @@ func (m *sBaremetalMap) Pop(id string) *SBaremetalInstance {
 }
 
 type SBaremetalInstance struct {
-	manager   *SBaremetalManager
-	desc      *jsonutils.JSONDict
-	descLock  *sync.Mutex
-	taskQueue *tasks.TaskQueue
+	manager    *SBaremetalManager
+	desc       *jsonutils.JSONDict
+	descLock   *sync.Mutex
+	taskQueue  *tasks.TaskQueue
+	server     baremetaltypes.IBaremetalServer
+	serverLock *sync.Mutex
 }
 
 func newBaremetalInstance(man *SBaremetalManager, desc jsonutils.JSONObject) (*SBaremetalInstance, error) {
 	bm := &SBaremetalInstance{
-		manager:   man,
-		desc:      desc.(*jsonutils.JSONDict),
-		descLock:  new(sync.Mutex),
-		taskQueue: tasks.NewTaskQueue(),
+		manager:    man,
+		desc:       desc.(*jsonutils.JSONDict),
+		descLock:   new(sync.Mutex),
+		taskQueue:  tasks.NewTaskQueue(),
+		serverLock: new(sync.Mutex),
 	}
 	err := os.MkdirAll(bm.GetDir(), 0755)
 	if err != nil {
@@ -243,7 +255,7 @@ func newBaremetalInstance(man *SBaremetalManager, desc jsonutils.JSONObject) (*S
 	if err != nil {
 		return nil, err
 	}
-	// TODO: load server and init task queue
+	bm.loadServer()
 	return bm, nil
 }
 
@@ -306,6 +318,35 @@ func (b *SBaremetalInstance) SaveDesc(desc jsonutils.JSONObject) error {
 		b.desc = desc.(*jsonutils.JSONDict)
 	}
 	return ioutil.WriteFile(b.GetDescFilePath(), []byte(b.desc.String()), 0644)
+}
+
+func (b *SBaremetalInstance) loadServer() {
+	b.serverLock.Lock()
+	defer b.serverLock.Unlock()
+	if !b.desc.Contains("server_id") {
+		return
+	}
+	descPath := b.GetServerDescFilePath()
+	desc, err := ioutil.ReadFile(descPath)
+	if err != nil {
+		log.Errorf("Failed to read server desc %s: %v", descPath, err)
+		return
+	}
+	descObj, err := jsonutils.Parse(desc)
+	if err != nil {
+		log.Errorf("Failed to parse server json string: %v", err)
+		return
+	}
+	srv, err := newBaremetalServer(b, descObj.(*jsonutils.JSONDict))
+	if err != nil {
+		log.Errorf("New server error: %v", err)
+		return
+	}
+	if bmSrvId, _ := b.desc.GetString("server_id"); srv.GetId() != bmSrvId {
+		log.Errorf("Server id %q not equal baremetal %q server id %q", srv.GetId(), b.GetName(), bmSrvId)
+		return
+	}
+	b.server = srv
 }
 
 func (b *SBaremetalInstance) SaveSSHConfig(remoteAddr string, key string) error {
@@ -406,7 +447,9 @@ func (b *SBaremetalInstance) SyncSSHConfig(conf types.SSHConfig) error {
 }
 
 func (b *SBaremetalInstance) SyncStatusBackground() {
-
+	go func() {
+		b.AutoSyncAllStatus()
+	}()
 }
 
 func PowerStatusToBaremetalStatus(status string) string {
@@ -415,6 +458,20 @@ func PowerStatusToBaremetalStatus(status string) string {
 		return baremetalstatus.RUNNING
 	case types.POWER_STATUS_OFF:
 		return baremetalstatus.READY
+	}
+	return baremetalstatus.UNKNOWN
+}
+
+func PowerStatusToServerStatus(bm *SBaremetalInstance, status string) string {
+	switch status {
+	case types.POWER_STATUS_ON:
+		if conf, _ := bm.GetSSHConfig(); conf == nil {
+			return baremetalstatus.SERVER_RUNNING
+		} else {
+			return baremetalstatus.SERVER_ADMIN
+		}
+	case types.POWER_STATUS_OFF:
+		return baremetalstatus.SERVER_READY
 	}
 	return baremetalstatus.UNKNOWN
 }
@@ -464,25 +521,46 @@ func (b *SBaremetalInstance) SyncAllStatus(status string) {
 		}
 	}
 	b.SyncStatus(PowerStatusToBaremetalStatus(status), "")
-	// b.SyncServerStatus(PowerStatusToServerStatus(status))
+	b.SyncServerStatus(PowerStatusToServerStatus(b, status))
 }
 
-func (b *SBaremetalInstance) getNicInfo() *types.NicInfo {
-	nicInfo := types.NicInfo{}
-	err := b.desc.Unmarshal(&nicInfo)
+func (b *SBaremetalInstance) SyncServerStatus(status string) {
+	if b.GetServerId() == "" {
+		return
+	}
+	if status == "" {
+		powerStatus, err := b.GetPowerStatus()
+		if err != nil {
+			log.Errorf("Get power status error: %v", err)
+		}
+		status = PowerStatusToServerStatus(b, powerStatus)
+	}
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(status), "status")
+	_, err := modules.Servers.PerformAction(b.GetClientSession(), b.GetServerId(), "status", params)
 	if err != nil {
-		log.Errorf("Unmarshal desc to get nic info error: %v", err)
+		log.Errorf("Update server %s status %s error: %v", b.GetServerName(), status, err)
+		return
+	}
+	log.Infof("Update server %s to status %s", b.GetServerName(), status)
+}
+
+func (b *SBaremetalInstance) getNics() []types.Nic {
+	nics := []types.Nic{}
+	err := b.desc.Unmarshal(&nics, "nic_info")
+	if err != nil {
+		log.Errorf("Unmarshal desc to get nics error: %v", err)
 		return nil
 	}
-	return &nicInfo
+	return nics
 }
 
 func (b *SBaremetalInstance) getNicByType(nicType string) *types.Nic {
-	nicInfo := b.getNicInfo()
-	if nicInfo == nil {
+	nics := b.getNics()
+	if len(nics) == 0 {
 		return nil
 	}
-	for _, nic := range nicInfo.Nics {
+	for _, nic := range nics {
 		tmp := nic
 		if tmp.Type == nicType {
 			return &tmp
@@ -492,11 +570,11 @@ func (b *SBaremetalInstance) getNicByType(nicType string) *types.Nic {
 }
 
 func (b *SBaremetalInstance) GetNicByMac(mac net.HardwareAddr) *types.Nic {
-	nicInfo := b.getNicInfo()
-	if nicInfo == nil {
+	nics := b.getNics()
+	if len(nics) == 0 {
 		return nil
 	}
-	for _, nic := range nicInfo.Nics {
+	for _, nic := range nics {
 		tmp := nic
 		if tmp.Mac == mac.String() {
 			return &tmp
@@ -510,8 +588,22 @@ func (b *SBaremetalInstance) GetAdminNic() *types.Nic {
 }
 
 func (b *SBaremetalInstance) NeedPXEBoot() bool {
-	// TODO:
-	return true
+	task := b.GetTask()
+	taskName := "nil"
+	serverId := b.GetServerId()
+	if task != nil {
+		taskName = task.GetName()
+	}
+	taskNeedPXEBoot := false
+	if task != nil && task.NeedPXEBoot() {
+		taskNeedPXEBoot = true
+	}
+	ret := false
+	if taskNeedPXEBoot || (task == nil && len(serverId) == 0) {
+		ret = true
+	}
+	log.Infof("Check task %s, server %s NeedPXEBoot: %v", taskName, serverId, ret)
+	return ret
 }
 
 func (b *SBaremetalInstance) GetIPMINic(cliMac net.HardwareAddr) *types.Nic {
@@ -534,19 +626,18 @@ func (b *SBaremetalInstance) GetIPMINicIPAddr() string {
 }
 
 func (b *SBaremetalInstance) GetDHCPConfig(cliMac net.HardwareAddr) (*dhcp.ResponseConfig, error) {
-	/*
-		if self.get_server() is not None and (self.get_task() is None or not self.get_task().__pxe_boot__)
-		nic = self.get_server().get_nic_by_mac(mac)
-		hostname = self.get_server().get_name()
-		else:
-		nic = self.get_nic_by_mac(mac)
-		hostname = None
-	*/
-	nic := b.GetNicByMac(cliMac)
+	var nic *types.Nic
+	var hostname string
+	if b.GetServer() != nil && (b.GetTask() == nil || !b.GetTask().NeedPXEBoot()) {
+		nic = b.GetServer().GetNicByMac(cliMac)
+		hostname = b.GetServer().GetName()
+	} else {
+		nic = b.GetNicByMac(cliMac)
+	}
 	if nic == nil {
 		return nil, fmt.Errorf("GetNicDHCPConfig no nic found")
 	}
-	return b.getDHCPConfig(nic, "", false, 0)
+	return b.getDHCPConfig(nic, hostname, false, 0)
 }
 
 func (b *SBaremetalInstance) GetPXEDHCPConfig(arch uint16) (*dhcp.ResponseConfig, error) {
@@ -562,11 +653,11 @@ func (b *SBaremetalInstance) getDHCPConfig(
 	if hostName == "" {
 		hostName = b.GetName()
 	}
-	accessIP, err := b.manager.Agent.GetAccessIP()
+	serverIP, err := b.manager.Agent.GetDHCPServerIP()
 	if err != nil {
 		return nil, err
 	}
-	return GetNicDHCPConfig(nic, accessIP.String(), hostName, isPxe, arch)
+	return GetNicDHCPConfig(nic, serverIP.String(), hostName, isPxe, arch)
 }
 
 func (b *SBaremetalInstance) GetNotifyUrl() string {
@@ -601,7 +692,6 @@ func (b *SBaremetalInstance) SetTask(task tasks.ITask) {
 	}
 }
 
-// TODO: impl
 func (b *SBaremetalInstance) InitAdminNetif(
 	cliMac net.HardwareAddr,
 	netConf *types.NetworkConfig,
@@ -735,8 +825,44 @@ func (b *SBaremetalInstance) GetRawIPMIConfig() *types.IPMIInfo {
 	return &ipmiInfo
 }
 
-func (b *SBaremetalInstance) GetServer() interface{} {
-	return nil
+func (b *SBaremetalInstance) GetServer() baremetaltypes.IBaremetalServer {
+	b.serverLock.Lock()
+	defer b.serverLock.Unlock()
+	if !b.desc.Contains("server_id") && b.server != nil {
+		log.Warningf("baremetal %s server_id not present, remove server %q", b.GetName(), b.server.GetName())
+		b.RemoveServer()
+		return nil
+	}
+	return b.server
+}
+
+func (b *SBaremetalInstance) GetServerId() string {
+	srv := b.GetServer()
+	if srv == nil {
+		return ""
+	}
+	return srv.GetId()
+}
+
+func (b *SBaremetalInstance) GetServerName() string {
+	srv := b.GetServer()
+	if srv == nil {
+		return ""
+	}
+	return srv.GetName()
+}
+
+func (b *SBaremetalInstance) RemoveServer() {
+	b.serverLock.Lock()
+	defer b.serverLock.Unlock()
+	b.removeServer()
+}
+
+func (b *SBaremetalInstance) removeServer() {
+	if b.server != nil {
+		b.server.RemoveDesc()
+		b.server = nil
+	}
 }
 
 func (b *SBaremetalInstance) SetExistingIPMIIPAddr(ipAddr string) {
@@ -853,6 +979,82 @@ func (b *SBaremetalInstance) StartBaremetalResetBMCTask(userCred mcclient.TokenC
 	b.SetTask(task)
 }
 
+func (b *SBaremetalInstance) DelayedServerReset(_ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	err := b.DoDiskBoot()
+	return nil, err
+}
+
+func (b *SBaremetalInstance) StartServerCreateTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
+	b.serverLock.Lock()
+	defer b.serverLock.Unlock()
+	if b.server != nil {
+		return fmt.Errorf("Baremetal %s already have server %s", b.GetName(), b.server.GetName())
+	}
+	descData, err := data.Get("desc")
+	if err != nil {
+		return fmt.Errorf("Create data not found server desc: %v", err)
+	}
+	server, err := newBaremetalServer(b, descData.(*jsonutils.JSONDict))
+	if err != nil {
+		return fmt.Errorf("New server error: %v", err)
+	}
+	b.server = server
+	b.desc.Set("server_id", jsonutils.NewString(b.server.GetId()))
+	b.AutoSaveDesc()
+	task := tasks.NewBaremetalServerCreateTask(b, taskId, data)
+	b.SetTask(task)
+	return nil
+}
+
+func (b *SBaremetalInstance) StartServerDeployTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
+	desc, err := data.Get("desc")
+	if err != nil {
+		return fmt.Errorf("Not found desc in data")
+	}
+	if err := b.GetServer().SaveDesc(desc); err != nil {
+		return fmt.Errorf("Save server desc: %v", err)
+	}
+	task := tasks.NewBaremetalServerDeployTask(b, taskId, data)
+	b.SetTask(task)
+	return nil
+}
+
+func (b *SBaremetalInstance) StartServerRebuildTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
+	desc, err := data.Get("desc")
+	if err != nil {
+		return fmt.Errorf("Not found desc in data")
+	}
+	if err := b.GetServer().SaveDesc(desc); err != nil {
+		return fmt.Errorf("Save server desc: %v", err)
+	}
+	task := tasks.NewBaremetalServerRebuildTask(b, taskId, data)
+	b.SetTask(task)
+	return nil
+}
+
+func (b *SBaremetalInstance) StartServerStartTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
+	task, err := tasks.NewBaremetalServerStartTask(b, taskId, data)
+	if err != nil {
+		return err
+	}
+	b.SetTask(task)
+	return nil
+}
+
+func (b *SBaremetalInstance) StartServerStopTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
+	task, err := tasks.NewBaremetalServerStopTask(b, taskId, data)
+	if err != nil {
+		return err
+	}
+	b.SetTask(task)
+	return nil
+}
+
+func (b *SBaremetalInstance) StartServerDestroyTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) {
+	task := tasks.NewBaremetalServerDestroyTask(b, taskId, data)
+	b.SetTask(task)
+}
+
 func (b *SBaremetalInstance) DelayedSyncIPMIInfo(data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	ipmiCli := b.GetIPMITool()
 	lanChannel := b.GetIPMILanChannel()
@@ -887,21 +1089,33 @@ func (b *SBaremetalInstance) DelayedSyncDesc(data jsonutils.JSONObject) (jsonuti
 	return nil, err
 }
 
+func (b *SBaremetalInstance) DelayedServerStatus(data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	ps, err := b.GetPowerStatus()
+	if err != nil {
+		return nil, err
+	}
+	status := PowerStatusToServerStatus(b, ps)
+	resp := jsonutils.NewDict()
+	resp.Add(jsonutils.NewString(status), "status")
+	return resp, err
+}
+
 type SBaremetalServer struct {
 	baremetal *SBaremetalInstance
 	desc      *jsonutils.JSONDict
 }
 
-func newBaremetalServer(baremetal *SBaremetalInstance, desc *jsonutils.JSONDict) *SBaremetalServer {
+func newBaremetalServer(baremetal *SBaremetalInstance, desc *jsonutils.JSONDict) (*SBaremetalServer, error) {
 	server := &SBaremetalServer{
 		baremetal: baremetal,
 		desc:      desc,
 	}
-	return server
+	err := server.SaveDesc(desc)
+	return server, err
 }
 
 func (server *SBaremetalServer) GetId() string {
-	id, err := server.desc.GetString("id")
+	id, err := server.desc.GetString("uuid")
 	if err != nil {
 		log.Fatalf("Get id from desc error: %v", err)
 	}
@@ -929,10 +1143,6 @@ func (s *SBaremetalServer) RemoveDesc() {
 	s.baremetal = nil
 }
 
-func (s *SBaremetalServer) GetDiskConfig() interface{} {
-	return nil
-}
-
 func (s *SBaremetalServer) GetRootTemplateId() string {
 	rootDisk, err := s.desc.GetAt(0, "disks")
 	if err != nil {
@@ -943,8 +1153,307 @@ func (s *SBaremetalServer) GetRootTemplateId() string {
 	return id
 }
 
+func (s *SBaremetalServer) GetDiskConfig() ([]*baremetal.BaremetalDiskConfig, error) {
+	layouts := make([]baremetal.Layout, 0)
+	err := s.desc.Unmarshal(&layouts, "disk_config")
+	if err != nil {
+		return nil, err
+	}
+	return baremetal.GetLayoutRaidConfig(layouts), nil
+}
+
+func (s *SBaremetalServer) DoDiskConfig(term *ssh.Client) error {
+	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, true)
+	if err != nil {
+		return err
+	}
+	storages := make([]*baremetal.BaremetalStorage, 0)
+	storages = append(storages, raid...)
+	storages = append(storages, nonRaid...)
+	storages = append(storages, pcie...)
+	confs, err := s.GetDiskConfig()
+	if err != nil {
+		return err
+	}
+	layouts, err := baremetal.CalculateLayout(confs, storages)
+	if err != nil {
+		return err
+	}
+	diskConfs := baremetal.GroupLayoutResultsByDriverAdapter(layouts)
+	for _, dConf := range diskConfs {
+		driver := dConf.Driver
+		adapter := dConf.Adapter
+		//TODO: build raid here
+		log.Errorf("=== driver: %s, adapter: %d", driver, adapter)
+		time.Sleep(10 * time.Second) // wait 10 seconds for raid status OK
+	}
+
+	tool := disktool.NewSSHPartitionTool(term)
+	tool.FetchDiskConfs(baremetal.GetDiskConfigurations(layouts))
+	err = tool.RetrieveDiskInfo()
+	if err != nil {
+		return err
+	}
+	maxTries := 60
+	for tried := 0; !tool.IsAllDisksReady() && tried < maxTries; tried++ {
+		time.Sleep(5 * time.Second)
+		tool.RetrieveDiskInfo()
+	}
+
+	if !tool.IsAllDisksReady() {
+		return fmt.Errorf("Raid disks are not ready???")
+	}
+
+	return nil
+}
+
+func (s *SBaremetalServer) DoDiskUnconfig(term *ssh.Client) error {
+	// tear down raid
+	//driver := s.baremetal.GetStorageDriver()
+	//util := raidutil.GetDriver(driver, term)
+	//if util  !=  nil {
+	//}
+	// TODO:
+	return nil
+}
+
 func (s *SBaremetalServer) DoEraseDisk(term *ssh.Client) error {
 	cmd := "/lib/mos/partdestroy.sh"
 	_, err := term.Run(cmd)
 	return err
+}
+
+func (s *SBaremetalServer) doCreateRoot(term *ssh.Client, devName string) error {
+	session := s.baremetal.GetClientSession()
+	token := session.GetToken().GetTokenString()
+	url, err := session.GetServiceURL("image", "internalURL")
+	if err != nil {
+		return err
+	}
+	imageId := s.GetRootTemplateId()
+	cmd := fmt.Sprintf("/lib/mos/rootcreate.sh %s %s %s %s", token, url, imageId, devName)
+	log.Errorf("====rootcreate cmd: %q", cmd)
+	if _, err := term.Run(cmd); err != nil {
+		return fmt.Errorf("Root create fail: %v", err)
+	}
+	return nil
+}
+
+func (s *SBaremetalServer) DoPartitionDisk(term *ssh.Client) ([]*disktool.Partition, error) {
+	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, true)
+	if err != nil {
+		return nil, err
+	}
+	storages := make([]*baremetal.BaremetalStorage, 0)
+	storages = append(storages, raid...)
+	storages = append(storages, nonRaid...)
+	storages = append(storages, pcie...)
+	confs, err := s.GetDiskConfig()
+	if err != nil {
+		return nil, err
+	}
+	layouts, err := baremetal.CalculateLayout(confs, storages)
+	if err != nil {
+		return nil, err
+	}
+
+	tool := disktool.NewSSHPartitionTool(term)
+	tool.FetchDiskConfs(baremetal.GetDiskConfigurations(layouts))
+	err = tool.RetrieveDiskInfo()
+	if err != nil {
+		return nil, err
+	}
+
+	disks, _ := s.desc.GetArray("disks")
+	if len(disks) == 0 {
+		return nil, fmt.Errorf("Empty disks in desc")
+	}
+
+	rootDisk := disks[0]
+	rootSize, _ := rootDisk.Int("size")
+	err = s.doCreateRoot(term, tool.GetRootDisk().GetDevName())
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create root: %v", err)
+	}
+
+	err = tool.RetrievePartitionInfo()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to retrieve diskInfo after root created: %v", err)
+	}
+	parts := tool.GetPartitions()
+	if len(parts) == 0 {
+		return nil, fmt.Errorf("Root disk create failed, no partitions")
+	}
+	if err := tool.ResizePartition(0, int(rootSize)); err != nil {
+		return nil, fmt.Errorf("Fail to resize root to %d, err: %v", rootSize, err)
+	}
+	if len(disks) > 1 {
+		for _, disk := range disks[1:] {
+			sz, err := disk.Int("size")
+			if err != nil {
+				sz = -1
+			}
+			fs, _ := disk.GetString("fs")
+			uuid, _ := disk.GetString("disk_id")
+			driver, _ := disk.GetString("driver")
+			log.Infof("Create partition %d %s", sz, fs)
+			if err := tool.CreatePartition(-1, int(sz), fs, true, driver, uuid); err != nil {
+				return nil, fmt.Errorf("Fail to create disk %s: %v", disk.String(), err)
+			}
+		}
+	}
+	log.Infof("Finish create partitions")
+
+	return tool.GetPartitions(), nil
+}
+
+func (s *SBaremetalServer) DoRebuildRootDisk(term *ssh.Client) ([]*disktool.Partition, error) {
+	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, true)
+	if err != nil {
+		return nil, err
+	}
+	storages := make([]*baremetal.BaremetalStorage, 0)
+	storages = append(storages, raid...)
+	storages = append(storages, nonRaid...)
+	storages = append(storages, pcie...)
+	confs, err := s.GetDiskConfig()
+	if err != nil {
+		return nil, err
+	}
+	layouts, err := baremetal.CalculateLayout(confs, storages)
+	if err != nil {
+		return nil, err
+	}
+
+	tool := disktool.NewSSHPartitionTool(term)
+	tool.FetchDiskConfs(baremetal.GetDiskConfigurations(layouts))
+	err = tool.RetrieveDiskInfo()
+	if err != nil {
+		return nil, err
+	}
+
+	disks, _ := s.desc.GetArray("disks")
+	if len(disks) == 0 {
+		return nil, fmt.Errorf("Empty disks in desc")
+	}
+
+	rootDisk := disks[0]
+	rootSize, _ := rootDisk.Int("size")
+	err = s.doCreateRoot(term, tool.GetRootDisk().GetDevName())
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create root: %v", err)
+	}
+
+	err = tool.RetrievePartitionInfo()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to retrieve diskInfo after root created: %v", err)
+	}
+
+	log.Infof("Resize root to %d MB", rootSize)
+	if err := tool.ResizePartition(0, int(rootSize)); err != nil {
+		return nil, fmt.Errorf("Fail to resize root to %d, err: %v", rootSize, err)
+	}
+	if len(disks) > 1 {
+		for _, disk := range disks[1:] {
+			sz, err := disk.Int("size")
+			if err != nil {
+				sz = -1
+			}
+			fs, _ := disk.GetString("fs")
+			uuid, _ := disk.GetString("disk_id")
+			driver, _ := disk.GetString("driver")
+			log.Infof("Create partition %d %s", sz, fs)
+			if err := tool.CreatePartition(0, int(sz), fs, false, driver, uuid); err != nil {
+				log.Errorf("Rebuild root create (%s, %d, %s, %s) partition error: %v", uuid, sz, fs, driver, err)
+				break
+			}
+		}
+	}
+	log.Infof("Finish create partitions")
+
+	return tool.GetPartitions(), nil
+}
+
+func (s *SBaremetalServer) SyncPartitionSize(term *ssh.Client, parts []*disktool.Partition) ([]jsonutils.JSONObject, error) {
+	disks, _ := s.desc.GetArray("disks")
+	rootPartsCnt := len(parts) - len(disks) + 1
+	rootParts := parts[0:rootPartsCnt]
+	dataParts := parts[rootPartsCnt:]
+	idx := 0
+	size := (rootParts[len(rootParts)-1].GetEnd() + 1) * 512 / 1024 / 1024
+	disks[idx].(*jsonutils.JSONDict).Set("size", jsonutils.NewInt(int64(size)))
+	idx += 1
+	for _, p := range dataParts {
+		sizeMB, err := p.GetSizeMB()
+		if err != nil {
+			return nil, err
+		}
+		disks[idx].(*jsonutils.JSONDict).Set("size", jsonutils.NewInt(int64(sizeMB)))
+		disks[idx].(*jsonutils.JSONDict).Set("dev", jsonutils.NewString(p.GetDev()))
+		idx++
+	}
+	return disks, nil
+}
+
+func (s *SBaremetalServer) DoDeploy(term *ssh.Client, data jsonutils.JSONObject, isInit bool) (jsonutils.JSONObject, error) {
+	publicKey := sshkeys.GetKeys(data)
+	deploys, _ := data.GetArray("deploys")
+	password, _ := data.GetString("password")
+	resetPassword := jsonutils.QueryBoolean(data, "reset_password", false)
+	if resetPassword && len(password) == 0 {
+		password = seclib.RandomPassword(12)
+	}
+	return s.deployFs(term, guestfs.NewDeployInfo(publicKey, deploys, password, isInit, false))
+}
+
+func (s *SBaremetalServer) deployFs(term *ssh.Client, deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error) {
+	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, true)
+	if err != nil {
+		return nil, err
+	}
+	storages := make([]*baremetal.BaremetalStorage, 0)
+	storages = append(storages, raid...)
+	storages = append(storages, nonRaid...)
+	storages = append(storages, pcie...)
+	confs, err := s.GetDiskConfig()
+	if err != nil {
+		return nil, err
+	}
+	layouts, err := baremetal.CalculateLayout(confs, storages)
+	if err != nil {
+		return nil, err
+	}
+	rootDev, rootfs, err := sshpart.MountSSHRootfs(term, layouts)
+	if err != nil {
+		return nil, fmt.Errorf("Find rootfs error: %s", err)
+	}
+	defer func() {
+		if err := rootDev.Unmount(); err != nil {
+			log.Errorf("Unmount %s error: %v", rootDev.GetMountPath(), err)
+		}
+	}()
+	if strings.ToLower(rootfs.GetOs()) == "windows" {
+		return nil, fmt.Errorf("Unsupported OS: %s", rootfs.GetOs())
+	}
+	return guestfs.DeployGuestFs(rootfs, s.desc, deployInfo)
+}
+
+func (s *SBaremetalServer) GetNics() []types.ServerNic {
+	nics := []types.ServerNic{}
+	err := s.desc.Unmarshal(&nics, "nics")
+	if err != nil {
+		log.Errorf("Unmarshal desc to get server nics error: %v", err)
+		return nil
+	}
+	return nics
+}
+
+func (s *SBaremetalServer) GetNicByMac(mac net.HardwareAddr) *types.Nic {
+	for _, n := range s.GetNics() {
+		if n.GetMac().String() == mac.String() {
+			nic := n.ToNic()
+			return &nic
+		}
+	}
+	return nil
 }

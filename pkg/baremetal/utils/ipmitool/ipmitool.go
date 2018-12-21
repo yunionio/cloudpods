@@ -16,6 +16,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/ssh"
+	stage_stringutils "yunion.io/x/onecloud/pkg/util/stringutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
@@ -294,10 +295,13 @@ func SetLanUserPasswd(exector IPMIExecutor, channel int, user string, password s
 	if err != nil {
 		return err
 	}
+	password, err = stage_stringutils.EscapeEchoString(password)
+	if err != nil {
+		return fmt.Errorf("EscapeEchoString for password: %s, error: %v", password, err)
+	}
 	rootId := GetRootId(sysInfo)
 	args := []Args{
 		newArgs("user", "enable", rootId),
-		// TODO: escape json string for password
 		newArgs("user", "set", "name", rootId, user, fmt.Sprintf("\"%s\"", password)),
 		newArgs("user", "priv", rootId, 4, channel),
 	}

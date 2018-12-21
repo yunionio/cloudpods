@@ -216,3 +216,18 @@ func ParsePCIEDiskInfo(lines []string) []*types.DiskInfo {
 func ParseSCSIDiskInfo(lines []string) []*types.DiskInfo {
 	return ParseDiskInfo(lines, baremetal.DISK_DRIVER_LINUX)
 }
+
+func GetSerialPorts(lines []string) []string {
+	ret := []string{}
+	for _, l := range lines {
+		if strings.Contains(l, "CTS") {
+			pos := strings.Index(l, ":")
+			if pos < 0 {
+				continue
+			}
+			idx := l[0:pos]
+			ret = append(ret, fmt.Sprintf("ttyS%s", idx))
+		}
+	}
+	return ret
+}

@@ -32,6 +32,11 @@ func GetNicDHCPConfig(
 
 	subnetMask := net.ParseIP(netutils.Masklen2Mask(n.MaskLen).String())
 
+	routes := make([][]string, 0)
+	for _, route := range n.Routes {
+		routes = append(routes, []string{route[0], route[1]})
+	}
+
 	conf := &dhcp.ResponseConfig{
 		ServerIP:      net.ParseIP(serverIP),
 		ClientIP:      net.ParseIP(ipAddr.String()),
@@ -42,9 +47,9 @@ func GetNicDHCPConfig(
 		Domain:        n.Domain,
 		OsName:        "Linux",
 		Hostname:      hostName,
-		// TODO: routes opt
-		LeaseTime:   time.Duration(o.Options.DhcpLeaseTime) * time.Second,
-		RenewalTime: time.Duration(o.Options.DhcpRenewalTime) * time.Second,
+		Routes:        routes,
+		LeaseTime:     time.Duration(o.Options.DhcpLeaseTime) * time.Second,
+		RenewalTime:   time.Duration(o.Options.DhcpRenewalTime) * time.Second,
 	}
 
 	if isPxe {

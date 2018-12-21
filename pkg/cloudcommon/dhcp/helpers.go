@@ -70,8 +70,8 @@ func GetClasslessRoutePack(route []string) []byte {
 	gwaddr := net.ParseIP(gw)
 
 	res := []byte{byte(masklen)}
-	res = append(res, netaddr...)
-	return append(res, gwaddr...)
+	res = append(res, []byte(netaddr.To4())...)
+	return append(res, []byte(gwaddr.To4())...)
 }
 
 func MakeReplyPacket(pkt *Packet, conf *ResponseConfig) (*Packet, error) {
@@ -153,9 +153,11 @@ func makeDHCPReplyPacket(pkt *Packet, conf *ResponseConfig, msgType MessageType)
 		if strings.HasPrefix(strings.ToLower(conf.OsName), "win") {
 			optCode = OptClasslessRouteWin
 		}
+		routeBytes := []byte{}
 		for _, route := range conf.Routes {
-			resp.Options.AddOption(optCode, GetClasslessRoutePack(route))
+			routeBytes = append(routeBytes, GetClasslessRoutePack(route)...)
 		}
+		resp.Options.AddOption(optCode, routeBytes)
 	}
 	return resp
 }

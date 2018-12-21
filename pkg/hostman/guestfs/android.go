@@ -1,13 +1,9 @@
 package guestfs
 
 type SAndroidRootFs struct {
-	*SGuestRootFsDriver
+	*sGuestRootFsDriver
 }
 
-func NewAndroidRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	return &SAndroidRootFs{SGuestRootFsDriver: NewGuestRootFsDriver(part).(*SGuestRootFsDriver)}
-}
-
-func init() {
-	rootfsDrivers = append(rootfsDrivers, NewAndroidRootFs)
-}
+//func NewAndroidRootFs(part IDiskPartition) IRootFsDriver {
+//return &SAndroidRootFs{sGuestRootFsDriver: newGuestRootFsDriver(part)}
+//}

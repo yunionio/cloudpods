@@ -130,7 +130,9 @@ type ITask interface {
 	GetName() string
 
 	Execute(ITask ITask, args interface{})
+	SetSSHStageParams(task ITask, remoteIP string, passwd string)
 	SSHExecute(task ITask, remoteIP string, passwd string, args interface{})
+	NeedPXEBoot() bool
 }
 
 func NewTaskQueue() *TaskQueue {
@@ -157,11 +159,6 @@ func (q *TaskQueue) AppendTask(task ITask) *TaskQueue {
 	log.Infof("Append task %s", task.GetName())
 	q.Append(task)
 	return q
-}
-
-type IBaremetalTask interface {
-	ITask
-	NeedPXEBoot() bool
 }
 
 type SBaremetalTaskBase struct {
@@ -218,20 +215,25 @@ func (task *SBaremetalTaskBase) Execute(iTask ITask, args interface{}) {
 	ExecuteTask(iTask, args)
 }
 
+func (task *SBaremetalTaskBase) SetSSHStageParams(iTask ITask, remoteIP string, password string) {
+	iTask.SetStage(sshStageW(iTask.GetSSHStage(), remoteIP, password).Do)
+}
+
 func (task *SBaremetalTaskBase) SSHExecute(
 	iTask ITask,
 	remoteIP string,
 	password string,
 	args interface{},
 ) {
-	iTask.SetStage(sshStageW(iTask.GetSSHStage(), remoteIP, password).Do)
+	//iTask.SetStage(sshStageW(iTask.GetSSHStage(), remoteIP, password).Do)
+	task.SetSSHStageParams(iTask, remoteIP, password)
 	ExecuteTask(iTask, args)
 }
 
-func (task *SBaremetalTaskBase) CallNextStage(iTask ITask, stage TaskStageFunc, args interface{}) {
-	iTask.SetStage(stage)
-	ExecuteTask(iTask, args)
-}
+//func (task *SBaremetalTaskBase) CallNextStage(iTask ITask, stage TaskStageFunc, args interface{}) {
+//iTask.SetStage(stage)
+//ExecuteTask(iTask, args)
+//}
 
 func (task *SBaremetalTaskBase) GetClientSession() *mcclient.ClientSession {
 	return task.Baremetal.GetClientSession()
@@ -303,6 +305,10 @@ func (self *SBaremetalTaskBase) EnsurePowerUp(bootdev string) error {
 	return nil
 }
 
+func (self *SBaremetalTaskBase) NeedPXEBoot() bool {
+	return false
+}
+
 type IPXEBootTask interface {
 	ITask
 	OnPXEBoot(ctx context.Context, cli *ssh.Client, args interface{}) error
@@ -333,14 +339,16 @@ func (self *SBaremetalPXEBootTaskBase) InitPXEBootTask(pxeBootTask IPXEBootTask,
 	sshConf, _ := self.Baremetal.GetSSHConfig()
 	if sshConf != nil && self.Baremetal.TestSSHConfig() {
 		pxeBootTask.SetSSHStage(pxeBootTask.OnPXEBoot)
-		self.SSHExecute(pxeBootTask, sshConf.RemoteIP, sshConf.Password, nil)
+		pxeBootTask.SetSSHStageParams(pxeBootTask, sshConf.RemoteIP, sshConf.Password)
 		return self
 	}
 	// Do soft reboot
 	if data != nil && jsonutils.QueryBoolean(data, "soft_boot", false) {
 		self.startTime = time.Now()
 		self.Baremetal.DoPowerShutdown(true)
-		self.CallNextStage(self, self.WaitForShutdown, nil)
+		//self.CallNextStage(self, self.WaitForShutdown, nil)
+		self.SetStage(self.WaitForShutdown)
+
 		return self
 	}
 	// shutdown and power up to PXE mode
@@ -349,6 +357,10 @@ func (self *SBaremetalPXEBootTaskBase) InitPXEBootTask(pxeBootTask IPXEBootTask,
 	// this stage will be called by baremetalInstance when pxe start notify
 	self.SetSSHStage(pxeBootTask.OnPXEBoot)
 	return self
+}
+
+func (self *SBaremetalPXEBootTaskBase) NeedPXEBoot() bool {
+	return true
 }
 
 func (self *SBaremetalPXEBootTaskBase) WaitForShutdown(ctx context.Context, args interface{}) error {

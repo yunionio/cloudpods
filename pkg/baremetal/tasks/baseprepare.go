@@ -270,6 +270,7 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 	task.collectDiskInfo(updateInfo, diskInfo)
 	updateData := jsonutils.Marshal(updateInfo)
 	updateData.(*jsonutils.JSONDict).Update(ipmiInfo.ToPrepareParams())
+	log.Infof("=== prepare update info: %s", updateData.PrettyString())
 	_, err = modules.Hosts.Update(task.getClientSession(), task.baremetal.GetId(), updateData)
 	if err != nil {
 		log.Errorf("Update baremetal info error: %v", err)
@@ -405,7 +406,7 @@ func getDMICPUInfo(cli *ssh.Client) (*types.DMICPUInfo, error) {
 }
 
 func getDMIMemInfo(cli *ssh.Client) (*types.DMIMemInfo, error) {
-	ret, err := cli.Run("/usr/sbin/dmidecode -t 4")
+	ret, err := cli.Run("/usr/sbin/dmidecode -t 17")
 	if err != nil {
 		return nil, err
 	}

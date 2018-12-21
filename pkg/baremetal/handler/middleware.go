@@ -10,19 +10,38 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/baremetal"
+	baremetaltypes "yunion.io/x/onecloud/pkg/baremetal/types"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 const (
-	PREFIX = "baremetals"
+	BM_PREFIX     = "baremetals"
+	SERVER_PREFIX = "servers"
 
-	PARAMS_ID_KEY = "<id>"
+	PARAMS_BMID_KEY  = "<bm_id>"
+	PARAMS_SRVID_KEY = "<srv_id>"
 )
 
-func getBaremetalPrefix(action string) string {
-	return fmt.Sprintf("%s/%s/%s", PREFIX, PARAMS_ID_KEY, action)
+func bmIdPrefix() string {
+	// baremetals/<bm_id>
+	return fmt.Sprintf("%s/%s", BM_PREFIX, PARAMS_BMID_KEY)
+}
+
+func bmActionPrefix(action string) string {
+	// baremetals/<bm_id>/action
+	return fmt.Sprintf("%s/%s", bmIdPrefix(), action)
+}
+
+func srvIdPrefix() string {
+	// baremetals/<bm_id>/servers/<srv_id>
+	return fmt.Sprintf("%s/%s/%s", bmIdPrefix(), SERVER_PREFIX, PARAMS_SRVID_KEY)
+}
+
+func srvActionPrefix(action string) string {
+	// baremetals/<bm_id>/servers/<srv_id>/action
+	return fmt.Sprintf("%s/%s", srvIdPrefix(), action)
 }
 
 type handlerFunc func(ctx *Context)
@@ -34,18 +53,57 @@ func authMiddleware(h handlerFunc) appsrv.FilterHandler {
 	}
 }
 
-type objectHandlerFunc func(ctx *Context, bm *baremetal.SBaremetalInstance)
+type bmObjHandlerFunc func(ctx *Context, bm *baremetal.SBaremetalInstance)
 
-func objectMiddleware(h objectHandlerFunc) appsrv.FilterHandler {
+func bmObjMiddleware(h bmObjHandlerFunc) appsrv.FilterHandler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		newCtx := NewContext(ctx, w, r)
-		bmId := newCtx.Params()[PARAMS_ID_KEY]
+		bmId := newCtx.Params()[PARAMS_BMID_KEY]
 		baremetal := newCtx.GetBaremetalManager().GetBaremetalById(bmId)
 		if baremetal == nil {
 			newCtx.ResponseError(httperrors.NewNotFoundError("Not found baremetal by id: %s", bmId))
 			return
 		}
 		h(newCtx, baremetal)
+	}
+}
+
+type srvObjHandlerFunc func(ctx *Context, bm *baremetal.SBaremetalInstance, srv baremetaltypes.IBaremetalServer)
+
+func srvClassMiddleware(h bmObjHandlerFunc) appsrv.FilterHandler {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		newCtx := NewContext(ctx, w, r)
+		bmId := newCtx.Params()[PARAMS_BMID_KEY]
+		//srvId := newCtx.Params()[PARAMS_SRVID_KEY]
+		baremetal := newCtx.GetBaremetalManager().GetBaremetalById(bmId)
+		if baremetal == nil {
+			newCtx.ResponseError(httperrors.NewNotFoundError("Not found baremetal by id: %s", bmId))
+			return
+		}
+		if baremetal.GetServerId() != "" {
+			newCtx.ResponseError(httperrors.NewNotAcceptableError("Baremetal %s occupied", bmId))
+			return
+		}
+		h(newCtx, baremetal)
+	}
+}
+
+func srvObjMiddleware(h srvObjHandlerFunc) appsrv.FilterHandler {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		newCtx := NewContext(ctx, w, r)
+		bmId := newCtx.Params()[PARAMS_BMID_KEY]
+		srvId := newCtx.Params()[PARAMS_SRVID_KEY]
+		baremetal := newCtx.GetBaremetalManager().GetBaremetalById(bmId)
+		if baremetal == nil {
+			newCtx.ResponseError(httperrors.NewNotFoundError("Not found baremetal by id: %s", bmId))
+			return
+		}
+		if baremetal.GetServerId() != srvId {
+			newCtx.ResponseError(httperrors.NewNotFoundError("Not found server by id: %s", srvId))
+			return
+		}
+		srv := baremetal.GetServer()
+		h(newCtx, baremetal, srv)
 	}
 }
 

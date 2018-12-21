@@ -4,43 +4,26 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path"
 	"strings"
-	"syscall"
 
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 type SLocalGuestFS struct {
 	mountPath string
-	readOnly  bool
-}
-
-func (f *SLocalGuestFS) SupportOsPathExists() bool {
-	return false
 }
 
 func (f *SLocalGuestFS) IsReadonly() bool {
-	log.Infof("Test if read-only fs ...")
-	var filename = fmt.Sprint("./%f", rand.Float32())
-	if err := f.FilePutContents(filename, fmt.Sprint("%f", rand.Float32()), false, false); err == nil {
-		f.Remove(filename, false)
-		return false
-	} else {
-		log.Errorf("File system is readonly: %s", err)
-		f.readOnly = true
-		return true
-	}
+	return IsPartitionReadonly(f)
 }
 
-func (f *SLocalGuestFS) GetReadonly() bool {
-	return f.readOnly
+func (f *SLocalGuestFS) SupportSerialPorts() bool {
+	return false
 }
 
 func (f *SLocalGuestFS) getLocalPath(sPath string, caseInsensitive bool) string {
@@ -98,7 +81,7 @@ func (f *SLocalGuestFS) Mkdir(sPath string, mode int, caseInsensitive bool) erro
 	return nil
 }
 
-func (f *SLocalGuestFS) Listdir(sPath string, caseInsensitive bool) []string {
+func (f *SLocalGuestFS) ListDir(sPath string, caseInsensitive bool) []string {
 	sPath = f.getLocalPath(sPath, caseInsensitive)
 	if len(sPath) > 0 {
 		files, err := ioutil.ReadDir(sPath)
@@ -215,82 +198,6 @@ func (f *SLocalGuestFS) UserAdd(user string, caseInsensitive bool) error {
 		return err
 	} else {
 		log.Infof("Useradd: %s", output)
-	}
-	return nil
-}
-
-func (f *SLocalGuestFS) MergeAuthorizedKeys(oldKeys string, pubkeys *sshkeys.SSHKeys) string {
-	var allkeys = make(map[string]string, 0)
-	if len(oldKeys) > 0 {
-		for _, line := range strings.Split(oldKeys, "\n") {
-			line = strings.TrimSpace(line)
-			dat := strings.Split(line, " ")
-			if len(dat) > 1 {
-				if _, ok := allkeys[dat[1]]; !ok {
-					allkeys[dat[1]] = line
-				}
-			}
-		}
-	}
-	if len(pubkeys.DeletePublicKey) > 0 {
-		dat := strings.Split(pubkeys.DeletePublicKey, " ")
-		if len(dat) > 1 {
-			if _, ok := allkeys[dat[1]]; ok {
-				delete(allkeys, dat[1])
-			}
-		}
-	}
-	for _, k := range []string{pubkeys.PublicKey, pubkeys.AdminPublicKey, pubkeys.ProjectPublicKey} {
-		if len(k) > 0 {
-			k = strings.TrimSpace(k)
-			dat := strings.Split(k, " ")
-			if len(dat) > 1 {
-				if _, ok := allkeys[dat[1]]; !ok {
-					allkeys[dat[1]] = k
-				}
-			}
-		}
-	}
-	var keys = make([]string, len(allkeys))
-	for key := range allkeys {
-		keys = append(keys, key)
-	}
-	return strings.Join(keys, "\n")
-}
-
-func (f *SLocalGuestFS) DeployAuthorizedKeys(usrDir string, pubkeys *sshkeys.SSHKeys, replace bool) error {
-	usrStat := f.Stat(usrDir, false)
-	if usrStat != nil {
-		sshDir := path.Join(usrDir, ".ssh")
-		authFile := path.Join(sshDir, "authorized_keys")
-		modeRwxOwner := syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
-		modeRwOwner := syscall.S_IRUSR | syscall.S_IWUSR
-		fStat := usrStat.Sys().(*syscall.Stat_t)
-		if !f.Exists(sshDir, false) {
-			err := f.Mkdir(sshDir, modeRwxOwner, false)
-			if err != nil {
-				return err
-			}
-			err = f.Chown(sshDir, int(fStat.Uid), int(fStat.Gid), false)
-			if err != nil {
-				return err
-			}
-		}
-		var oldKeys = ""
-		if !replace {
-			bOldKeys, _ := f.FileGetContents(authFile, false)
-			oldKeys = string(bOldKeys)
-		}
-		newKeys := f.MergeAuthorizedKeys(oldKeys, pubkeys)
-		err := f.FilePutContents(authFile, newKeys, false, false)
-		if err != nil {
-			return err
-		}
-		err = f.Chown(authFile, int(fStat.Uid), int(fStat.Gid), false)
-		if err != nil {
-			return err
-		}
-		return f.Chmod(authFile, uint32(modeRwOwner), false)
 	}
 	return nil
 }

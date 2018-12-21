@@ -20,3 +20,10 @@ const (
 	START_FAIL     = "start_fail"
 	STOP_FAIL      = "stop_fail"
 )
+
+const (
+	SERVER_RUNNING = "running"
+	SERVER_ADMIN   = "admin"
+	SERVER_READY   = "ready"
+	SERVER_UNKNOWN = "unknown"
+)

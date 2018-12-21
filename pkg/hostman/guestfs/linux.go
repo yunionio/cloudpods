@@ -19,28 +19,28 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fstabutils"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
-type SLinuxRootFs struct {
-	*SGuestRootFsDriver
+type sLinuxRootFs struct {
+	*sGuestRootFsDriver
 }
 
-func NewLinuxRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	return &SLinuxRootFs{SGuestRootFsDriver: NewGuestRootFsDriver(part).(*SGuestRootFsDriver)}
+func newLinuxRootFs(part IDiskPartition) *sLinuxRootFs {
+	return &sLinuxRootFs{
+		sGuestRootFsDriver: newGuestRootFsDriver(part),
+	}
 }
 
-func (l *SLinuxRootFs) String() string {
-	return "LinuxRootFs"
-}
-
-func (l *SLinuxRootFs) RootSignatures() []string {
+func (l *sLinuxRootFs) RootSignatures() []string {
 	return []string{"/bin", "/etc", "/boot", "/lib", "/usr"}
 }
 
-func (l *SLinuxRootFs) DeployHost(hn, domain string, ips []string) error {
+func (l *sLinuxRootFs) DeployHosts(rootFs IDiskPartition, hostname, domain string, ips []string) error {
+	var etcHosts = "/etc/hosts"
 	var oldHostFile string
-	if l.rootFs.Exists("/etc/hosts", false) {
-		oldhf, err := l.rootFs.FileGetContents("/etc/hosts", false)
+	if rootFs.Exists(etcHosts, false) {
+		oldhf, err := rootFs.FileGetContents(etcHosts, false)
 		if err != nil {
 			return err
 		}
@@ -50,83 +50,87 @@ func (l *SLinuxRootFs) DeployHost(hn, domain string, ips []string) error {
 	hf.Parse(oldHostFile)
 	hf.Add("127.0.0.1", "localhost")
 	for _, ip := range ips {
-		hf.Add(ip, fmt.Sprintf("%s.%s", hn+domain), hn)
+		hf.Add(ip, fmt.Sprintf("%s.%s", hostname, domain), hostname)
 	}
-	return nil
+	return rootFs.FilePutContents(etcHosts, hf.String(), false, false)
 }
 
-func (l *SLinuxRootFs) GetLoginAccount() string {
+func (l *sLinuxRootFs) GetLoginAccount(rootFs IDiskPartition) string {
 	var selUsr string
-	if options.HostOptions.LinuxDefaultRootUser && l.rootFs.Exists("/root", false) {
+	if options.HostOptions.LinuxDefaultRootUser && rootFs.Exists("/root", false) {
 		selUsr = "root"
 	} else {
-		usrs := l.rootFs.Listdir("/home", false)
+		usrs := rootFs.ListDir("/home", false)
 		for _, usr := range usrs {
 			if len(selUsr) == 0 || len(selUsr) > len(usr) {
 				selUsr = usr
 			}
 		}
-		if len(selUsr) > 0 && l.rootFs.Exists("/root", false) {
+		if len(selUsr) > 0 && rootFs.Exists("/root", false) {
 			selUsr = "root"
 		}
 	}
 	return selUsr
 }
 
-func (l *SLinuxRootFs) ChangeUserPassswd(account, gid, publicKey, password string) string {
+func (l *sLinuxRootFs) ChangeUserPasswd(rootFs IDiskPartition, account, gid, publicKey, password string) (string, error) {
 	var secret string
-	if err := l.rootFs.Passwd(account, password, false); err != nil {
+	var err error
+	err = rootFs.Passwd(account, password, false)
+	if err == nil {
 		if len(publicKey) > 0 {
-			secret, _ = seclib2.EncryptBase64(publicKey, password)
+			secret, err = seclib2.EncryptBase64(publicKey, password)
 		} else {
-			secret, _ = utils.EncryptAESBase64(gid, password)
+			secret, err = utils.EncryptAESBase64(gid, password)
 		}
 	} else {
-		log.Errorf("Change uer passwd error: %s", err)
+		return "", fmt.Errorf("ChangeUserPasswd error: %v", err)
 	}
-	return secret
+	return secret, err
 }
 
-func (l *SLinuxRootFs) DeployPublicKey(selUsr string, pubkeys *sshkeys.SSHKeys) error {
+func (l *sLinuxRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pubkeys *sshkeys.SSHKeys) error {
 	var usrDir string
 	if selUsr == "root" {
 		usrDir = "/root"
 	} else {
 		usrDir = path.Join("/home", selUsr)
 	}
-	return l.rootFs.DeployAuthorizedKeys(usrDir, pubkeys, false)
+	return DeployAuthorizedKeys(rootFs, usrDir, pubkeys, false)
 }
 
-func (l *SLinuxRootFs) DeployYunionroot(pubkeys *sshkeys.SSHKeys) error {
-	l.DisableSelinux()
-	l.DisableCloudinit()
+func (l *sLinuxRootFs) DeployYunionroot(rootFs IDiskPartition, pubkeys *sshkeys.SSHKeys) error {
+	l.DisableSelinux(rootFs)
+	l.DisableCloudinit(rootFs)
 	var yunionroot = "cloudroot"
-	if err := l.rootFs.UserAdd(yunionroot, false); err != nil {
-		return err
+	if err := rootFs.UserAdd(yunionroot, false); err != nil && !strings.Contains(err.Error(), "already exists") {
+		return fmt.Errorf("UserAdd %s: %v", yunionroot, err)
 	}
-	err := l.rootFs.DeployAuthorizedKeys(path.Join("/home", yunionroot), pubkeys, false)
+	err := DeployAuthorizedKeys(rootFs, path.Join("/home", yunionroot), pubkeys, true)
 	if err != nil {
-		return err
+		return fmt.Errorf("DeployAuthorizedKeys: %v", err)
 	}
-	return l.EnableUserSudo(yunionroot)
-}
-
-func (l *SLinuxRootFs) EnableUserSudo(user string) error {
-	var sudoDir = "/etc/sudoers.d"
-	var content = fmt.Sprintf("%s ALL=(ALL) NOPASSWD:ALL\n", user)
-	if l.rootFs.Exists(sudoDir, false) {
-		filepath := path.Join(sudoDir, fmt.Sprintf("90-%s-users", user))
-		err := l.rootFs.FilePutContents(filepath, content, false, false)
-		if err != nil {
-			log.Errorln(err)
-			return err
-		}
-		return l.rootFs.Chmod(filepath, syscall.S_IRUSR|syscall.S_IRGRP, false)
+	if err := l.EnableUserSudo(rootFs, yunionroot); err != nil {
+		return fmt.Errorf("EnableUserSudo: %v", err)
 	}
 	return nil
 }
 
-func (l *SLinuxRootFs) DisableSelinux() {
+func (l *sLinuxRootFs) EnableUserSudo(rootFs IDiskPartition, user string) error {
+	var sudoDir = "/etc/sudoers.d"
+	var content = fmt.Sprintf("%s ALL=(ALL) NOPASSWD:ALL\n", user)
+	if rootFs.Exists(sudoDir, false) {
+		filepath := path.Join(sudoDir, fmt.Sprintf("90-%s-users", user))
+		err := rootFs.FilePutContents(filepath, content, false, false)
+		if err != nil {
+			return fmt.Errorf("Write contents to %s: %v", filepath, err)
+		}
+		return rootFs.Chmod(filepath, syscall.S_IRUSR|syscall.S_IRGRP, false)
+	}
+	return nil
+}
+
+func (l *sLinuxRootFs) DisableSelinux(rootFs IDiskPartition) {
 	selinuxConfig := "/etc/selinux/config"
 	content := `# This file controls the state of SELinux on the system.
 # SELINUX= can take one of these three values:
@@ -140,21 +144,25 @@ SELINUX=disabled
 #     mls - Multi Level Security protection.
 SELINUXTYPE=targeted
 `
-	if l.rootFs.Exists(selinuxConfig, false) {
-		l.rootFs.FilePutContents(selinuxConfig, content, false, false)
+	if rootFs.Exists(selinuxConfig, false) {
+		if err := rootFs.FilePutContents(selinuxConfig, content, false, false); err != nil {
+			log.Errorf("DisableSelinux error: %v", err)
+		}
 	}
 }
 
-func (l *SLinuxRootFs) DisableCloudinit() {
+func (l *sLinuxRootFs) DisableCloudinit(rootFs IDiskPartition) {
 	cloudDir := "/etc/cloud"
 	cloudDisableFile := "/etc/cloud/cloud-init.disabled"
-	if l.rootFs.Exists(cloudDir, false) {
-		l.rootFs.FilePutContents(cloudDisableFile, "", false, false)
+	if rootFs.Exists(cloudDir, false) {
+		if err := rootFs.FilePutContents(cloudDisableFile, "", false, false); err != nil {
+			log.Errorf("DisableCloudinit error: %v", err)
+		}
 	}
 }
 
-func (l *SLinuxRootFs) DeployFstabScripts(disks []jsonutils.JSONObject) error {
-	fstabcont, err := l.rootFs.FileGetContents("/etc/fstab", false)
+func (l *sLinuxRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []jsonutils.JSONObject) error {
+	fstabcont, err := rootFs.FileGetContents("/etc/fstab", false)
 	if err != nil {
 		return err
 	}
@@ -193,18 +201,18 @@ func (l *SLinuxRootFs) DeployFstabScripts(disks []jsonutils.JSONObject) error {
 		}
 	}
 	cf := fstab.ToConf()
-	return l.rootFs.FilePutContents("/etc/fstab", cf, false, false)
+	return rootFs.FilePutContents("/etc/fstab", cf, false, false)
 }
 
-func (l *SLinuxRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject) error {
+func (l *sLinuxRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject) error {
 	udevPath := "/etc/udev/rules.d/"
-	if l.rootFs.Exists(udevPath, false) {
-		rules := l.rootFs.Listdir(udevPath, false)
+	if rootFs.Exists(udevPath, false) {
+		rules := rootFs.ListDir(udevPath, false)
 		for _, rule := range rules {
 			if strings.Index(rule, "persistent-net.rules") > 0 {
-				l.rootFs.Remove(path.Join(udevPath, rule), false)
+				rootFs.Remove(path.Join(udevPath, rule), false)
 			} else if strings.Index(rule, "persistent-cd.rules") > 0 {
-				if err := l.rootFs.FilePutContents(path.Join(udevPath, rule), "", false, false); err != nil {
+				if err := rootFs.FilePutContents(path.Join(udevPath, rule), "", false, false); err != nil {
 					return err
 				}
 			}
@@ -218,14 +226,14 @@ func (l *SLinuxRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject) erro
 			idx, _ := nic.Int("index")
 			nicRules += fmt.Sprintf(`NAME="eth%d"\n`, idx)
 		}
-		if err := l.rootFs.FilePutContents(path.Join(udevPath, "70-persistent-net.rules"), nicRules, false, false); err != nil {
+		if err := rootFs.FilePutContents(path.Join(udevPath, "70-persistent-net.rules"), nicRules, false, false); err != nil {
 			return err
 		}
 
 		var usbRules string
 		usbRules = `SUBSYSTEM=="usb", ATTRS{idVendor}=="1d6b", ATTRS{idProduct}=="0001", `
 		usbRules += `RUN+="/bin/sh -c \'echo enabled > /sys$env{DEVPATH}/../power/wakeup\'"\n`
-		if err := l.rootFs.FilePutContents(path.Join(udevPath,
+		if err := rootFs.FilePutContents(path.Join(udevPath,
 			"90-usb-tablet-remote-wakeup.rules"), usbRules, false, false); err != nil {
 			return err
 		}
@@ -233,7 +241,7 @@ func (l *SLinuxRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject) erro
 	return nil
 }
 
-func (l *SLinuxRootFs) DeployStandbyNetworkingScripts(nics, nicsStandby []jsonutils.JSONObject) error {
+func (l *sLinuxRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition, nics, nicsStandby []jsonutils.JSONObject) error {
 	var udevPath = "/etc/udev/rules.d/"
 	var nicRules string
 	for _, nic := range nicsStandby {
@@ -247,71 +255,71 @@ func (l *SLinuxRootFs) DeployStandbyNetworkingScripts(nics, nicsStandby []jsonut
 			nicRules += fmt.Sprintf(`NAME="eth%d"\n`, idx)
 		}
 	}
-	if err := l.rootFs.FilePutContents(path.Join(udevPath, "70-persistent-net.rules"), nicRules, false, false); err != nil {
+	if err := rootFs.FilePutContents(path.Join(udevPath, "70-persistent-net.rules"), nicRules, false, false); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (l *SLinuxRootFs) GetOs() string {
+func (l *sLinuxRootFs) GetOs() string {
 	return "Linux"
 }
 
-func (l *SLinuxRootFs) GetArch() string {
-	if l.rootFs.Exists("/lib64", false) && l.rootFs.Exists("/usr/lib64", false) {
+func (l *sLinuxRootFs) GetArch(rootFs IDiskPartition) string {
+	if rootFs.Exists("/lib64", false) && rootFs.Exists("/usr/lib64", false) {
 		return "x86_64"
 	} else {
 		return "x86"
 	}
 }
 
-func (l *SLinuxRootFs) PrepareFsForTemplate() error {
+func (l *sLinuxRootFs) PrepareFsForTemplate(rootFs IDiskPartition) error {
 	// clean /etc/fstab
-	if l.rootFs.Exists("/etc/fstab", false) {
-		fstabcont, _ := l.rootFs.FileGetContents("/etc/fstab", false)
+	if rootFs.Exists("/etc/fstab", false) {
+		fstabcont, _ := rootFs.FileGetContents("/etc/fstab", false)
 		fstab := fstabutils.FSTabFile(string(fstabcont))
 		fstab.RemoveDevices(1)
 		cf := fstab.ToConf()
-		if err := l.rootFs.FilePutContents("/etc/fstab", cf, false, false); err != nil {
+		if err := rootFs.FilePutContents("/etc/fstab", cf, false, false); err != nil {
 			return err
 		}
 	}
 	// rm /etc/ssh/*_key.*
-	if l.rootFs.Exists("/etc/ssh", false) {
-		for _, f := range l.rootFs.Listdir("/etc/ssh", false) {
+	if rootFs.Exists("/etc/ssh", false) {
+		for _, f := range l.rootFs.ListDir("/etc/ssh", false) {
 			if strings.HasSuffix(f, "_key") || strings.HasSuffix(f, "_key.pub") {
-				l.rootFs.Remove("/etc/ssh/"+f, false)
+				rootFs.Remove("/etc/ssh/"+f, false)
 			}
 		}
 	}
 	// clean cloud-init
-	if l.rootFs.Exists("/var/lib/cloud", false) {
-		if err := l.rootFs.Cleandir("/var/lib/cloud", false, false); err != nil {
+	if rootFs.Exists("/var/lib/cloud", false) {
+		if err := rootFs.Cleandir("/var/lib/cloud", false, false); err != nil {
 			return err
 		}
 	}
 	cloudDisableFile := "/etc/cloud/cloud-init.disabled"
-	if l.rootFs.Exists(cloudDisableFile, false) {
-		l.rootFs.Remove(cloudDisableFile, false)
+	if rootFs.Exists(cloudDisableFile, false) {
+		rootFs.Remove(cloudDisableFile, false)
 	}
 	// clean /tmp /var/log /var/cache /var/spool /var/run
 	for _, dir := range []string{"/tmp", "/var/tmp"} {
-		if l.rootFs.Exists(dir, false) {
-			if err := l.rootFs.Cleandir(dir, false, false); err != nil {
+		if rootFs.Exists(dir, false) {
+			if err := rootFs.Cleandir(dir, false, false); err != nil {
 				return err
 			}
 		}
 	}
 	for _, dir := range []string{"/var/log", "/var/cache", "/usr/local/var/log", "/usr/local/var/cache"} {
-		if l.rootFs.Exists(dir, false) {
+		if rootFs.Exists(dir, false) {
 			if err := l.rootFs.Zerofiles(dir, false); err != nil {
 				return err
 			}
 		}
 	}
 	for _, dir := range []string{"/var/spool", "/var/run", "/run", "/usr/local/var/spool", "/usr/local/var/run"} {
-		if l.rootFs.Exists(dir, false) {
-			if err := l.rootFs.Cleandir(dir, true, true); err != nil {
+		if rootFs.Exists(dir, false) {
+			if err := rootFs.Cleandir(dir, true, true); err != nil {
 				return err
 			}
 		}
@@ -319,38 +327,113 @@ func (l *SLinuxRootFs) PrepareFsForTemplate() error {
 	return nil
 }
 
-func (l *SLinuxRootFs) GetSerialPorts() []string {
-	// var confpath = "/proc/tty/driver/serial"
-	if l.rootFs.SupportOsPathExists() {
-		// TODO: with sshpart utils
+func (l *sLinuxRootFs) getSerialPorts(rootFs IDiskPartition) []string {
+	if !rootFs.SupportSerialPorts() {
 		return nil
-	} else {
+	}
+	// XXX HACK, only sshpart.SSHPartition support this
+	var confpath = "/proc/tty/driver/serial"
+	content, err := rootFs.FileGetContents(confpath, false)
+	if err != nil {
+		log.Errorf("Get %s error: %v", confpath, err)
 		return nil
+	}
+	return sysutils.GetSerialPorts(strings.Split(string(content), "\n"))
+}
+
+func (l *sLinuxRootFs) enableSerialConsoleInitCentos(rootFs IDiskPartition) error {
+	// http://www.jonno.org/drupal/node/10
+	var err error
+	for _, tty := range l.getSerialPorts(rootFs) {
+		content := fmt.Sprintf(
+			`stop on runlevel [016]
+start on runlevel [345]
+instance %s
+respawn
+pre-start exec /sbin/securetty %s
+exec /sbin/agetty /dev/%s 115200 vt100`, tty, tty, tty)
+		err = rootFs.FilePutContents(fmt.Sprintf("/etc/init/%s.conf", tty), content, false, false)
+	}
+	return err
+}
+
+func (l *sLinuxRootFs) enableSerialConsoleInit(rootFs IDiskPartition) error {
+	// https://help.ubuntu.com/community/SerialConsoleHowto
+	var err error
+	for _, tty := range l.getSerialPorts(rootFs) {
+		content := fmt.Sprintf(
+			`start on stopped rc or RUNLEVEL=[12345]
+stop on runlevel [!12345]
+respawn
+exec /sbin/getty -L 115200 %s vt102`, tty)
+		err = rootFs.FilePutContents(fmt.Sprintf("/etc/init/%s.conf", tty), content, false, false)
+	}
+	return err
+}
+
+func (l *sLinuxRootFs) disableSerialConsoleInit(rootFs IDiskPartition) {
+	for _, tty := range l.getSerialPorts(rootFs) {
+		path := fmt.Sprintf("/etc/init/%s.conf", tty)
+		if rootFs.Exists(path, false) {
+			rootFs.Remove(path, false)
+		}
 	}
 }
 
-// TODO: _enable_serial_console_init_centos, _enable_serial_console_init,
-// _disable_serial_console_init, _enable_serial_console_systemd, _disable_serial_console_systemd
-
-type SDebianLikeRootFs struct {
-	*SLinuxRootFs
+func (l *sLinuxRootFs) enableSerialConsoleSystemd(rootFs IDiskPartition) error {
+	for _, tty := range l.getSerialPorts(rootFs) {
+		sPath := fmt.Sprintf("/etc/systemd/system/getty.target.wants/getty@%s.service", tty)
+		if rootFs.Exists(sPath, false) {
+			//rootFs.Symlink("/usr/lib/systemd/system/getty@.service", sPath)
+		}
+	}
+	return nil
 }
 
-func NewDebianLikeRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	return &SDebianLikeRootFs{SLinuxRootFs: NewLinuxRootFs(part).(*SLinuxRootFs)}
+func (l *sLinuxRootFs) disableSerialConsoleSystemd(rootFs IDiskPartition) {
+	for _, tty := range l.getSerialPorts(rootFs) {
+		sPath := fmt.Sprintf("/etc/systemd/system/getty.target.wants/getty@%s.service", tty)
+		if rootFs.Exists(sPath, false) {
+			rootFs.Remove(sPath, false)
+		}
+	}
 }
 
-func (d *SDebianLikeRootFs) RootSignatures() []string {
-	sig := d.SLinuxRootFs.RootSignatures()
+type sDebianLikeRootFs struct {
+	*sLinuxRootFs
+}
+
+func newDebianLikeRootFs(part IDiskPartition) *sDebianLikeRootFs {
+	return &sDebianLikeRootFs{
+		sLinuxRootFs: newLinuxRootFs(part),
+	}
+}
+
+func (d *sDebianLikeRootFs) GetReleaseInfo(rootFs IDiskPartition, driver IDebianRootFsDriver) *SReleaseInfo {
+	version, err := rootFs.FileGetContents(driver.VersionFilePath(), false)
+	if err != nil {
+		log.Errorf("Get %s error: %v", driver.VersionFilePath(), err)
+		return nil
+	}
+	versionStr := strings.TrimSpace(string(version))
+	return &SReleaseInfo{
+		Distro:  driver.DistroName(),
+		Version: versionStr,
+		Arch:    d.GetArch(rootFs),
+	}
+}
+
+func (d *sDebianLikeRootFs) RootSignatures() []string {
+	sig := d.sLinuxRootFs.RootSignatures()
 	return append([]string{"/etc/hostname"}, sig...)
 }
 
-func (d *SDebianLikeRootFs) DeployHostname(hn, domain string) error {
-	return d.rootFs.FilePutContents("/etc/hostname", hn, false, false)
+func (d *sDebianLikeRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string) error {
+	return rootFs.FilePutContents("/etc/hostname", hn, false, false)
 }
 
-func (d *SDebianLikeRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject) error {
-	if err := d.SLinuxRootFs.DeployNetworkingScripts(nics); err != nil {
+func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject) error {
+	if err := d.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics); err != nil {
 		return err
 	}
 	fn := "/etc/network/interfaces"
@@ -409,64 +492,191 @@ func (d *SDebianLikeRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject)
 			cmds += fmt.Sprintf("iface eth%d inet dhcp\n\n", nicIdx)
 		}
 	}
-	return d.rootFs.FilePutContents(fn, cmds, false, false)
+	return rootFs.FilePutContents(fn, cmds, false, false)
 }
 
 type SDebianRootFs struct {
-	*SDebianLikeRootFs
+	*sDebianLikeRootFs
 }
 
-func NewDebianRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	return &SDebianRootFs{SDebianLikeRootFs: NewDebianLikeRootFs(part).(*SDebianLikeRootFs)}
+func NewDebianRootFs(part IDiskPartition) IRootFsDriver {
+	driver := new(SDebianRootFs)
+	driver.sDebianLikeRootFs = newDebianLikeRootFs(part)
+	return driver
+}
+
+func (d *SDebianRootFs) GetName() string {
+	return "Debian"
+}
+
+func (d *SDebianRootFs) DistroName() string {
+	return d.GetName()
+}
+
+func (d *SDebianRootFs) VersionFilePath() string {
+	return "/etc/debian_version"
+}
+
+func (d *SDebianRootFs) rootSignatures(driver IDebianRootFsDriver) []string {
+	sig := d.sDebianLikeRootFs.RootSignatures()
+	return append([]string{driver.VersionFilePath()}, sig...)
+}
+
+func (d *SDebianRootFs) RootSignatures() []string {
+	return d.rootSignatures(d)
+}
+
+func (d *SDebianRootFs) RootExcludeSignatures() []string {
+	return []string{"/etc/lsb-release"}
+}
+
+func (d *SDebianRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
+	return d.sDebianLikeRootFs.GetReleaseInfo(rootFs, d)
 }
 
 type SCirrosRootFs struct {
 	*SDebianRootFs
 }
 
-func NewCirrosRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	return &SCirrosRootFs{SDebianRootFs: NewDebianRootFs(part).(*SDebianRootFs)}
+func NewCirrosRootFs(part IDiskPartition) IRootFsDriver {
+	driver := new(SCirrosRootFs)
+	driver.SDebianRootFs = NewDebianRootFs(part).(*SDebianRootFs)
+	return driver
+}
+
+func (d *SCirrosRootFs) GetName() string {
+	return "Cirros"
+}
+
+func (d *SCirrosRootFs) DistroName() string {
+	return d.GetName()
+}
+
+func (d *SCirrosRootFs) VersionFilePath() string {
+	return "/etc/br-version"
+}
+
+func (d *SCirrosRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
+	return d.SDebianRootFs.sDebianLikeRootFs.GetReleaseInfo(rootFs, d)
+}
+
+func (d *SCirrosRootFs) RootSignatures() []string {
+	return d.rootSignatures(d)
 }
 
 type SCirrosNewRootFs struct {
 	*SDebianRootFs
 }
 
-func NewCirrosNewRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	return &SCirrosNewRootFs{SDebianRootFs: NewDebianRootFs(part).(*SDebianRootFs)}
+func NewCirrosNewRootFs(part IDiskPartition) IRootFsDriver {
+	driver := new(SCirrosNewRootFs)
+	driver.SDebianRootFs = NewDebianRootFs(part).(*SDebianRootFs)
+	return driver
+}
+
+func (d *SCirrosNewRootFs) GetName() string {
+	return "Cirros"
+}
+
+func (d *SCirrosNewRootFs) DistroName() string {
+	return d.GetName()
+}
+
+func (d *SCirrosNewRootFs) VersionFilePath() string {
+	return "/etc/cirros/version"
+}
+
+func (d *SCirrosNewRootFs) RootSignatures() []string {
+	return d.rootSignatures(d)
+}
+
+func (d *SCirrosNewRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
+	return d.SDebianRootFs.sDebianLikeRootFs.GetReleaseInfo(rootFs, d)
 }
 
 type SUbuntuRootFs struct {
-	*SDebianRootFs
+	*sDebianLikeRootFs
 }
 
-func NewUbuntuRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	return &SUbuntuRootFs{SDebianRootFs: NewDebianRootFs(part).(*SDebianRootFs)}
+func NewUbuntuRootFs(part IDiskPartition) IRootFsDriver {
+	driver := new(SUbuntuRootFs)
+	driver.sDebianLikeRootFs = newDebianLikeRootFs(part)
+	return driver
 }
 
-type SRedhatLikeRootFs struct {
-	*SLinuxRootFs
+func (d *SUbuntuRootFs) RootSignatures() []string {
+	sig := d.sDebianLikeRootFs.RootSignatures()
+	return append([]string{"/etc/lsb-release"}, sig...)
 }
 
-func NewRedhatLikeRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	return &SRedhatLikeRootFs{SLinuxRootFs: NewLinuxRootFs(part).(*SLinuxRootFs)}
+func (d *SUbuntuRootFs) GetName() string {
+	return "Ubuntu"
 }
 
-func (r *SRedhatLikeRootFs) RootSignatures() []string {
-	sig := r.SLinuxRootFs.RootSignatures()
+func (d *SUbuntuRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
+	distroKey := "DISTRIB_RELEASE="
+	rel, err := rootFs.FileGetContents("/etc/lsb-release", false)
+	if err != nil {
+		log.Errorf("Get ubuntu release info error: %v", err)
+		return nil
+	}
+	var version string
+	lines := strings.Split(string(rel), "\n")
+	for _, l := range lines {
+		if strings.HasPrefix(l, distroKey) {
+			version = strings.TrimSpace(l[len(distroKey) : len(l)-1])
+		}
+	}
+	return newReleaseInfo(d.GetName(), version, d.GetArch(rootFs))
+}
+
+func (d *SUbuntuRootFs) EnableSerialConsole(rootFs IDiskPartition, sysInfo *jsonutils.JSONDict) error {
+	relInfo := d.GetReleaseInfo(rootFs)
+	ver := strings.Split(relInfo.Version, ".")
+	verInt, _ := strconv.Atoi(ver[0])
+	if verInt < 16 {
+		return d.enableSerialConsoleInit(rootFs)
+	}
+	return d.enableSerialConsoleSystemd(rootFs)
+}
+
+func (d *SUbuntuRootFs) DisableSerialConcole(rootFs IDiskPartition) error {
+	relInfo := d.GetReleaseInfo(rootFs)
+	ver := strings.Split(relInfo.Version, ".")
+	verInt, _ := strconv.Atoi(ver[0])
+	if verInt < 16 {
+		d.disableSerialConsoleInit(rootFs)
+		return nil
+	}
+	d.disableSerialConsoleSystemd(rootFs)
+	return nil
+}
+
+type sRedhatLikeRootFs struct {
+	*sLinuxRootFs
+}
+
+func newRedhatLikeRootFs(part IDiskPartition) *sRedhatLikeRootFs {
+	return &sRedhatLikeRootFs{
+		sLinuxRootFs: newLinuxRootFs(part),
+	}
+}
+
+func (r *sRedhatLikeRootFs) RootSignatures() []string {
+	sig := r.sLinuxRootFs.RootSignatures()
 	return append([]string{"/etc/sysconfig/network", "/etc/redhat-release"}, sig...)
 }
 
-func (r *SRedhatLikeRootFs) DeployHostname(hn, domain string) error {
+func (r *sRedhatLikeRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string) error {
 	var sPath = "/etc/sysconfig/network"
 	centosHn := ""
 	centosHn += "NETWORKING=yes\n"
 	centosHn += fmt.Sprintf("HOSTNAME=%s.%s\n", hn, domain)
-	if err := r.rootFs.FilePutContents(sPath, centosHn, false, false); err != nil {
+	if err := rootFs.FilePutContents(sPath, centosHn, false, false); err != nil {
 		return err
 	}
-	if r.rootFs.Exists("/etc/hostname", false) {
-		return r.rootFs.FilePutContents("/etc/hostname", hn, false, false)
+	if rootFs.Exists("/etc/hostname", false) {
+		return rootFs.FilePutContents("/etc/hostname", hn, false, false)
 	}
 	return nil
 }
@@ -483,9 +693,9 @@ func (r *SRedhatLikeRootFs) DeployHostname(hn, domain string) error {
        self.root_fs.file_put_contents(os.path.join(udev_path, '60-net.rules'), nic_rules)
 */
 
-func (r *SRedhatLikeRootFs) Centos5DeployNetworkingScripts(nics []jsonutils.JSONObject) error {
+func (r *sRedhatLikeRootFs) Centos5DeployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject) error {
 	var udevPath = "/etc/udev/rules.d/"
-	if r.rootFs.Exists(udevPath, false) {
+	if rootFs.Exists(udevPath, false) {
 		var nicRules = ""
 		for _, nic := range nics {
 			var nicdesc = new(types.ServerNic)
@@ -496,22 +706,21 @@ func (r *SRedhatLikeRootFs) Centos5DeployNetworkingScripts(nics []jsonutils.JSON
 			nicRules += fmt.Sprintf(`SYSFS{address}=="%s", `, strings.ToLower(nicdesc.Mac))
 			nicRules += fmt.Sprintf(`NAME="eth%d"\`, nicdesc.Index)
 		}
-		return r.rootFs.FilePutContents(udevPath, nicRules, false, false)
+		return rootFs.FilePutContents(udevPath, nicRules, false, false)
 	}
 	return nil
 }
 
-func (r *SRedhatLikeRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject) error {
-	relinfo := r.GetReleaseInfo()
-	ver := strings.Split(relinfo[0], ".")
+func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject, relInfo *SReleaseInfo) error {
+	ver := strings.Split(relInfo.Version, ".")
 	iv, err := strconv.ParseInt(ver[0], 10, 0)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to get release version: %v", err)
 	}
 	if iv < 6 {
-		err = r.Centos5DeployNetworkingScripts(nics)
+		err = r.Centos5DeployNetworkingScripts(rootFs, nics)
 	} else {
-		err = r.SLinuxRootFs.DeployNetworkingScripts(nics)
+		err = r.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics)
 	}
 	if err != nil {
 		return err
@@ -556,7 +765,7 @@ func (r *SRedhatLikeRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject)
 			}
 			if len(rtbl) > 0 {
 				var fn = fmt.Sprintf("/etc/sysconfig/network-scripts/route-eth%d", nicdesc.Index)
-				if err := r.rootFs.FilePutContents(fn, rtbl, false, false); err != nil {
+				if err := rootFs.FilePutContents(fn, rtbl, false, false); err != nil {
 					return err
 				}
 			}
@@ -572,15 +781,15 @@ func (r *SRedhatLikeRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject)
 			cmds += "BOOTPROTO=dhcp\n"
 		}
 		var fn = fmt.Sprintf("/etc/sysconfig/network-scripts/ifcfg-eth%d", nicdesc.Index)
-		if err := r.rootFs.FilePutContents(fn, cmds, false, false); err != nil {
+		if err := rootFs.FilePutContents(fn, cmds, false, false); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (r *SRedhatLikeRootFs) DeployStandbyNetworkingScripts(nics, nicsStandby []jsonutils.JSONObject) error {
-	if err := r.SLinuxRootFs.DeployStandbyNetworkingScripts(nics, nicsStandby); err != nil {
+func (r *sRedhatLikeRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition, nics, nicsStandby []jsonutils.JSONObject) error {
+	if err := r.sLinuxRootFs.DeployStandbyNetworkingScripts(rootFs, nics, nicsStandby); err != nil {
 		return err
 	}
 	for _, nic := range nicsStandby {
@@ -596,7 +805,7 @@ func (r *SRedhatLikeRootFs) DeployStandbyNetworkingScripts(nics, nicsStandby []j
 			cmds += fmt.Sprintf("MACADDR=%s\n", nicdesc.Mac)
 			cmds += "ONBOOT=no\n"
 			var fn = fmt.Sprintf("/etc/sysconfig/network-scripts/ifcfg-eth%d", nicdesc.Index)
-			if err := r.rootFs.FilePutContents(fn, cmds, false, false); err != nil {
+			if err := rootFs.FilePutContents(fn, cmds, false, false); err != nil {
 				return err
 			}
 		}
@@ -608,20 +817,24 @@ func (r *SRedhatLikeRootFs) DeployStandbyNetworkingScripts(nics, nicsStandby []j
 //TODO disable_serial_console
 
 type SCentosRootFs struct {
-	*SRedhatLikeRootFs
+	*sRedhatLikeRootFs
 }
 
-func NewCentosRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	return &SCentosRootFs{SRedhatLikeRootFs: NewRedhatLikeRootFs(part).(*SRedhatLikeRootFs)}
+func NewCentosRootFs(part IDiskPartition) IRootFsDriver {
+	return &SCentosRootFs{sRedhatLikeRootFs: newRedhatLikeRootFs(part)}
+}
+
+func (c *SCentosRootFs) GetName() string {
+	return "CentOS"
 }
 
 func (c *SCentosRootFs) RootSignatures() []string {
-	sig := c.SRedhatLikeRootFs.RootSignatures()
+	sig := c.sRedhatLikeRootFs.RootSignatures()
 	return append([]string{"/etc/centos-release"}, sig...)
 }
 
-func (c *SCentosRootFs) GetReleaseInfo() []string {
-	rel, _ := c.rootFs.FileGetContents("/etc/centos-release", false)
+func (c *SCentosRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
+	rel, _ := rootFs.FileGetContents("/etc/centos-release", false)
 	var version string
 	if len(rel) > 0 {
 		re := regexp.MustCompile(`^\d+\.\d+`)
@@ -633,19 +846,20 @@ func (c *SCentosRootFs) GetReleaseInfo() []string {
 			}
 		}
 	}
-	return []string{"CentOS", version, c.GetArch()}
+	return newReleaseInfo(c.GetName(), version, c.GetArch(rootFs))
 }
 
-func (c *SCentosRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject) error {
-	if err := c.SRedhatLikeRootFs.DeployNetworkingScripts(nics); err != nil {
+func (c *SCentosRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject) error {
+	relInfo := c.GetReleaseInfo(rootFs)
+	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
 		return err
 	}
 	var udevPath = "/etc/udev/rules.d/"
 	var files = []string{"60-net.rules", "75-persistent-net-generator.rules"}
 	for _, f := range files {
 		sPath := path.Join(udevPath, f)
-		if !c.rootFs.Exists(sPath, false) {
-			if err := c.rootFs.FilePutContents(sPath, "", false, false); err != nil {
+		if !rootFs.Exists(sPath, false) {
+			if err := rootFs.FilePutContents(sPath, "", false, false); err != nil {
 				return err
 			}
 		}
@@ -654,58 +868,90 @@ func (c *SCentosRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject) err
 }
 
 type SFedoraRootFs struct {
-	*SRedhatLikeRootFs
+	*sRedhatLikeRootFs
 }
 
-func NewFedoraRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	return &SFedoraRootFs{SRedhatLikeRootFs: NewRedhatLikeRootFs(part).(*SRedhatLikeRootFs)}
+func NewFedoraRootFs(part IDiskPartition) IRootFsDriver {
+	return &SFedoraRootFs{sRedhatLikeRootFs: newRedhatLikeRootFs(part)}
+}
+
+func (c *SFedoraRootFs) GetName() string {
+	return "Fedora"
+}
+
+func (c *SFedoraRootFs) RootSignatures() []string {
+	sig := c.sRedhatLikeRootFs.RootSignatures()
+	return append([]string{"/etc/fedora-release"}, sig...)
+}
+
+func (c *SFedoraRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
+	rel, _ := rootFs.FileGetContents("/etc/fedora-release", false)
+	var version string
+	if len(rel) > 0 {
+		re := regexp.MustCompile(`^\d+`)
+		dat := strings.Split(string(rel), " ")
+		for _, v := range dat {
+			if re.Match([]byte(v)) {
+				version = v
+				break
+			}
+		}
+	}
+	return newReleaseInfo(c.GetName(), version, c.GetArch(rootFs))
 }
 
 type SRhelRootFs struct {
-	*SRedhatLikeRootFs
+	*sRedhatLikeRootFs
 }
 
-func NewRhelRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	return &SRhelRootFs{SRedhatLikeRootFs: NewRedhatLikeRootFs(part).(*SRedhatLikeRootFs)}
+func NewRhelRootFs(part IDiskPartition) IRootFsDriver {
+	return &SRhelRootFs{sRedhatLikeRootFs: newRedhatLikeRootFs(part)}
 }
 
-type SGentooRootFs struct {
-	*SLinuxRootFs
+func (d *SRhelRootFs) GetName() string {
+	return "RHEL"
 }
 
-func NewGentooRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	return &SGentooRootFs{SLinuxRootFs: NewLinuxRootFs(part).(*SLinuxRootFs)}
+func (d *SRhelRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
+	rel, _ := rootFs.FileGetContents("/etc/redhat-release", false)
+	var version string
+	if len(rel) > 0 {
+		dat := strings.Split(string(rel), " ")
+		if len(dat) > 6 {
+			version = dat[6]
+		}
+	}
+	return newReleaseInfo(d.GetName(), version, d.GetArch(rootFs))
+}
+
+/*type SGentooRootFs struct {
+	*sLinuxRootFs
+}
+
+func NewGentooRootFs(part IDiskPartition) IRootFsDriver {
+	return &SGentooRootFs{sLinuxRootFs: newLinuxRootFs(part)}
 }
 
 type SArchLinuxRootFs struct {
-	*SLinuxRootFs
+	*sLinuxRootFs
 }
 
-func NewArchLinuxRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	return &SArchLinuxRootFs{SLinuxRootFs: NewLinuxRootFs(part).(*SLinuxRootFs)}
+func NewArchLinuxRootFs(part IDiskPartition) IRootFsDriver {
+	return &SArchLinuxRootFs{sLinuxRootFs: newLinuxRootFs(part)}
 }
 
 type SOpenWrtRootFs struct {
-	*SLinuxRootFs
+	*sLinuxRootFs
 }
 
-func NewOpenWrtRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	return &SOpenWrtRootFs{SLinuxRootFs: NewLinuxRootFs(part).(*SLinuxRootFs)}
+func NewOpenWrtRootFs(part IDiskPartition) IRootFsDriver {
+	return &SOpenWrtRootFs{sLinuxRootFs: newLinuxRootFs(part)}
 }
 
 type SCoreOsRootFs struct {
 	*SGuestRootFsDriver
 }
 
-func NewCoreOsRootFs(part *SKVMGuestDiskPartition) IRootFsDriver {
-	return &SCoreOsRootFs{SGuestRootFsDriver: NewGuestRootFsDriver(part).(*SGuestRootFsDriver)}
-}
-
-func init() {
-	linuxFsDrivers := []newRootFsDriverFunc{
-		NewLinuxRootFs, NewDebianLikeRootFs, NewDebianRootFs, NewCirrosRootFs, NewCirrosNewRootFs,
-		NewUbuntuRootFs, NewRedhatLikeRootFs, NewCentosRootFs, NewFedoraRootFs, NewRhelRootFs,
-		NewGentooRootFs, NewArchLinuxRootFs, NewOpenWrtRootFs, NewCoreOsRootFs,
-	}
-	rootfsDrivers = append(rootfsDrivers, linuxFsDrivers...)
-}
+func NewCoreOsRootFs(part IDiskPartition) IRootFsDriver {
+	return &SCoreOsRootFs{SGuestRootFsDriver: newGuestRootFsDriver(part)}
+}*/
