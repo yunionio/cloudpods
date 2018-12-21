@@ -81,7 +81,11 @@ func (self *SQcloudProvider) GetIRegionById(id string) (cloudprovider.ICloudRegi
 }
 
 func (self *SQcloudProvider) GetBalance() (float64, error) {
-	return 0.0, nil
+	balance, err := self.client.QueryAccountBalance()
+	if err != nil {
+		return 0.0, err
+	}
+	return balance.AvailableAmount, nil
 }
 
 func (self *SQcloudProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
