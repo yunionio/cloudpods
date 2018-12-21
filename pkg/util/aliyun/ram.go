@@ -12,7 +12,7 @@ import (
 )
 
 func ramRequest(client *sdk.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	return _jsonRequest(client, "ram.aliyuncs.com", ALIYUN_RAM_API_VERSION, apiName, params)
+	return jsonRequest(client, "ram.aliyuncs.com", ALIYUN_RAM_API_VERSION, apiName, params)
 }
 
 func (self *SAliyunClient) ramRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
