@@ -538,10 +538,47 @@ func (self *SCloudaccount) getHostCount() int {
 	return q.Count()
 }
 
+func (self *SCloudaccount) getVpcCount() int {
+	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	q := VpcManager.Query().In("manager_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getStorageCount() int {
+	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	q := StorageManager.Query().In("manager_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getStoragecacheCount() int {
+	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	q := StoragecacheManager.Query().In("manager_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getEipCount() int {
+	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	q := ElasticipManager.Query().In("manager_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getRoutetableCount() int {
+	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	q := RouteTableManager.Query().In("manager_id", subq)
+	return q.Count()
+}
+
 func (self *SCloudaccount) getGuestCount() int {
 	subsubq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
 	subq := HostManager.Query("id").In("manager_id", subsubq).SubQuery()
 	q := GuestManager.Query().In("host_id", subq)
+	return q.Count()
+}
+
+func (self *SCloudaccount) getDiskCount() int {
+	subsubq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
+	subq := StorageManager.Query("id").In("manager_id", subsubq).SubQuery()
+	q := DiskManager.Query().In("storage_id", subq)
 	return q.Count()
 }
 
@@ -585,6 +622,7 @@ func (self *SCloudaccount) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.
 	extra.Add(jsonutils.NewInt(int64(self.getProviderCount())), "provider_count")
 	extra.Add(jsonutils.NewInt(int64(self.getHostCount())), "host_count")
 	extra.Add(jsonutils.NewInt(int64(self.getGuestCount())), "guest_count")
+	extra.Add(jsonutils.NewInt(int64(self.getDiskCount())), "disk_count")
 	extra.Add(jsonutils.NewString(self.getVersion()), "version")
 	projects := jsonutils.NewArray()
 	for _, projectId := range self.getProjectIds() {
