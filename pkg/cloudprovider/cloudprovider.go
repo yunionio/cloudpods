@@ -23,6 +23,7 @@ type ICloudProvider interface {
 	GetId() string
 	GetName() string
 	GetSysInfo() (jsonutils.JSONObject, error)
+	GetVersion() string
 	IsPublicCloud() bool
 	IsOnPremiseInfrastructure() bool
 

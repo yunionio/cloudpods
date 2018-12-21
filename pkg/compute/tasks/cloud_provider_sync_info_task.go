@@ -60,13 +60,14 @@ func (self *CloudProviderSyncInfoTask) OnInit(ctx context.Context, obj db.IStand
 		return
 	}
 
+	version := driver.GetVersion()
 	sysinfo, err := driver.GetSysInfo()
 	if err != nil {
 		reason := fmt.Sprintf("provider get sysinfo error %s", err)
 		taskFail(ctx, self, provider, reason)
 		return
 	} else {
-		provider.SaveSysInfo(sysinfo)
+		provider.SaveSysInfo(sysinfo, version)
 	}
 
 	syncRangeJson, _ := self.Params.Get("sync_range")
