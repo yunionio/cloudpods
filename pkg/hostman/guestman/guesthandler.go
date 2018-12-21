@@ -22,17 +22,6 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 	app.AddHandler("DELETE", "/servers/<sid>", auth.Authenticate(deleteGuest))
 }
 
-func getStatus(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	params, _, _ := appsrv.FetchEnv(ctx, w, r)
-	var status = guestManger.Status(params["<sid>"])
-	appsrv.SendStruct(w, strDict{"status": status})
-}
-
-func cpusetBalance(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	wm.DelayTask(func() { guestManger.CpusetBalance(ctx) })
-	responseOk(ctx, w)
-}
-
 func guestActions(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, body := appsrv.FetchEnv(ctx, w, r)
 	var sid = params["<sid>"]
@@ -51,6 +40,17 @@ func guestActions(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func getStatus(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	params, _, _ := appsrv.FetchEnv(ctx, w, r)
+	var status = guestManger.Status(params["<sid>"])
+	appsrv.SendStruct(w, strDict{"status": status})
+}
+
+func cpusetBalance(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	wm.DelayTask(ctx, guestManger.CpusetBalance, nil)
+	responseOk(ctx, w)
+}
+
 func deleteGuest(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, body := appsrv.FetchEnv(ctx, w, r)
 	var sid = params["<sid>"]
@@ -59,8 +59,29 @@ func deleteGuest(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		response(ctx, w, err)
 	} else {
-		wm.DelayTask(func() { guest.CleanGuest(ctx, migrated) })
+		// TODO: CleanGuest
+		wm.DelayTask(ctx, guest.CleanGuest, migrated)
 		response(ctx, w, map[string]bool{"delay_clean": true})
+	}
+}
+
+func responseOk(ctx context.Context, w http.ResponseWriter) {
+	response(ctx, w, strDict{"result": "ok"})
+}
+
+func response(ctx context.Context, w http.ResponseWriter, res interface{}) {
+	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
+		w.Header().Set("X-Request-Id", taskId.(string))
+	}
+	switch res.(type) {
+	case string:
+		appsrv.Send(w, res.(string))
+	case jsonutils.JSONObject:
+		appsrv.SendJSON(w, res.(jsonutils.JSONObject))
+	case error:
+		httperrors.GeneralServerError(w, res.(error))
+	default:
+		appsrv.SendStruct(w, res)
 	}
 }
 
@@ -69,12 +90,16 @@ func doCreate(ctx context.Context, sid string, body jsonutils.JSONObject) (inter
 	if err != nil {
 		return nil, httperrors.NewBadRequestError(err.Error())
 	}
-	wm.DelayTask(func() { guestManger.DoDeploy(ctx, sid, body, true) })
+	wm.DelayTask(ctx, guestManger.DoDeploy, &SGuestDeploy{sid, body, true})
 	return nil, nil
 }
 
 func doDeploy(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	// TODO
+	err := guestManger.PrepareDeploy(sid)
+	if err != nil {
+		return nil, httperrors.NewBadRequestError(err.Error())
+	}
+	wm.DelayTask(ctx, guestManger.DoDeploy, &SGuestDeploy{sid, body, false})
 	return nil, nil
 }
 
@@ -104,26 +129,6 @@ func doMonitor(ctx context.Context, sid string, body jsonutils.JSONObject) (inte
 		}
 	} else {
 		return nil, httperrors.NewMissingParameterError("cmd")
-	}
-}
-
-func responseOk(ctx context.Context, w http.ResponseWriter) {
-	response(ctx, w, strDict{"result": "ok"})
-}
-
-func response(ctx context.Context, w http.ResponseWriter, res interface{}) {
-	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
-		w.Header().Set("X-Request-Id", taskId.(string))
-	}
-	switch res.(type) {
-	case string:
-		appsrv.Send(w, res.(string))
-	case jsonutils.JSONObject:
-		appsrv.SendJSON(w, res.(jsonutils.JSONObject))
-	case error:
-		httperrors.GeneralServerError(w, res.(error))
-	default:
-		appsrv.SendStruct(w, res)
 	}
 }
 

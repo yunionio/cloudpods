@@ -49,6 +49,8 @@ type SHostOptions struct {
 	EnableQmpMonitor bool   `help:"Enable qmp monitor" default:"true"`
 
 	PrivatePrefixes []string `help:"IPv4 private prefixes"`
+	LocalImagePath  []string `help:"Local image storage paths"`
+	SharedStorages  []string `help:"Path of shared storages"`
 }
 
 var HostOptions SHostOptions

@@ -16,7 +16,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/regutils"
 
-	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/httpclients"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
@@ -69,6 +68,10 @@ func (s *SKVMGuestInstance) PrepareDir() error {
 
 func (s *SKVMGuestInstance) GetPidFilePath() string {
 	return path.Join(s.HomeDir(), "pid")
+}
+
+func (s *SKVMGuestInstance) GetVncFilePath() string {
+	return path.Join(s.HomeDir(), "vnc")
 }
 
 func (s *SKVMGuestInstance) GetPid() int {
@@ -196,7 +199,7 @@ func (s *SKVMGuestInstance) onAsyncScriptStart(ctx context.Context, isStarted bo
 	} else {
 		log.Infof("Async start server %s failed: %s!!!", s.GetName(), err)
 		if ctx != nil {
-			TaskFailed(ctx, fmt.Sprintf("Async start server failed: %s", err))
+			httpclients.TaskFailed(ctx, fmt.Sprintf("Async start server failed: %s", err))
 		}
 		s.SyncStatus()
 	}
@@ -286,7 +289,7 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 		migratePort, _ := s.Desc.Get("live_migrate_dest_port")
 		body := jsonutils.NewDict(
 			jsonutils.JSONPair{"live_migrate_dest_port", migratePort})
-		TaskComplete(ctx, body)
+		httpclients.TaskComplete(ctx, body)
 	} else if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
 		// TODO
 	} else if jsonutils.QueryBoolean(s.Desc, "is_master", false) && ctx == nil {
@@ -343,26 +346,6 @@ func (s *SKVMGuestInstance) SyncStatus() {
 	httpclients.GetDefaultComputeClient().UpdateServerStatus(s.GetId(), status)
 }
 
-func TaskFailed(ctx context.Context, reason string) error {
-	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
-		httpclients.GetDefaultComputeClient().TaskFail(ctx, taskId.(string), reason)
-		return nil
-	} else {
-		log.Errorln("Reqeuest task failed missing task id, with reason(%s)", reason)
-		return fmt.Errorf("Reqeuest task failed missing task id")
-	}
-}
-
-func TaskComplete(ctx context.Context, data jsonutils.JSONObject) error {
-	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
-		httpclients.GetDefaultComputeClient().TaskComplete(ctx, taskId.(string), data, 0)
-		return nil
-	} else {
-		log.Errorln("Reqeuest task complete missing task id")
-		return fmt.Errorf("Reqeuest task complete missing task id")
-	}
-}
-
 func (s *SKVMGuestInstance) SaveDesc(desc jsonutils.JSONObject) error {
 	// TODO
 	// bw_info = self._get_bw_info()
@@ -393,4 +376,83 @@ func (s *SKVMGuestInstance) DeployFs(deployInfo *guestfs.SDeployInfo) (jsonutils
 	} else {
 		return nil, fmt.Errorf("Guest dosen't have disk ??")
 	}
+}
+
+func (s *SKVMGuestInstance) CleanGuest(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	migrated, ok := params.(bool)
+	if !ok {
+		return nil, fmt.Errorf("Unknown params")
+	}
+	if err := s.StartDelete(ctx, migrated); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (s *SKVMGuestInstance) StartDelete(ctx context.Context, migrated bool) error {
+	for s.IsRunning() {
+		s.ForceStop()
+		time.Sleep(time.Second * 1)
+	}
+	return s.Delete(ctx, migrated)
+}
+
+func (s *SKVMGuestInstance) ForceStop() bool {
+	s.ExitCleanup(true)
+	if s.IsRunning() {
+		err := exec.Command("kill", "-9", fmt.Sprintf("%d", s.GetPid())).Run()
+		if err != nil {
+			log.Errorln(err)
+			return false
+		}
+		for _, f := range s.GetCleanFiles() {
+			err := exec.Command("rm", "-f", f).Run()
+			if err != nil {
+				log.Errorln(err)
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func (s *SKVMGuestInstance) ExitCleanup(clearCgroup bool) {
+	if clearCgroup {
+		pid := s.GetPid()
+		if pid > 0 {
+			// TODO: ClearCgroup
+			s.ClearCgroup(pid)
+		}
+	}
+	if s.monitor != nil {
+		s.monitor.Disconnect()
+		s.monitor = nil
+	}
+}
+
+func (s *SKVMGuestInstance) GetCleanFiles() []string {
+	return []string{s.GetPidFilePath(), s.GetVncFilePath()}
+}
+
+func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) {
+	disks, _ := s.Desc.GetArray("disks")
+	for _, disk := range disks {
+		if disk.Contains("path") {
+			diskPath, _ := disk.GetString("path")
+			// TODO GetDisksByPath, storagetypes, deleteallsnapshot, delete
+			d := hostinfo.GetStorageManager().GetDiskByPath(diskPath)
+			if d != nil && d.GetType == storagetypes.STORAGE_LOCAL && migrated {
+				d.DeleteAllSnapshot()
+				d.Delete(ctx)
+			}
+		}
+	}
+}
+
+func (s *SKVMGuestInstance) Delete(ctx context.Context, migrated bool) error {
+	// self._del_bw_limit()
+	// self._del_netmon_nic() ?? 需要开发？
+	s.delTmpDisks(ctx, migrated)
+	return exec.Command("rm", "-rf", s.HomeDir()).Run()
 }
