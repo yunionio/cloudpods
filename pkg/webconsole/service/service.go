@@ -48,7 +48,7 @@ func StartService() {
 }
 
 func start() {
-	app := cloudcommon.InitApp(&o.Options.Options)
+	app := cloudcommon.InitApp(&o.Options.Options, false)
 	webconsole.InitHandlers(app)
 
 	root := mux.NewRouter()

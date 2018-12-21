@@ -92,6 +92,7 @@ func ListItems(manager db.IModelManager, ctx context.Context, userCred mcclient.
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	items := make([]ISpecModel, 0)
 	for rows.Next() {
 		item, err := db.NewModelObject(manager)

@@ -330,6 +330,7 @@ func (man *SLoadbalancerAgentManager) CleanPendingDeleteLoadbalancers(ctx contex
 				log.Errorf("%s: query pending_deleted_at < %s: %s", keyPlural, minT, err)
 				continue
 			}
+			defer rows.Close()
 			m, err := db.NewModelObject(man)
 			if err != nil {
 				log.Errorf("%s: new model object failed: %s", keyPlural, err)

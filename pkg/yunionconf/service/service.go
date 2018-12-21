@@ -30,7 +30,7 @@ func StartService() {
 	cloudcommon.InitDB(&options.Options.DBOptions)
 	defer cloudcommon.CloseDB()
 
-	app := cloudcommon.InitApp(&options.Options.Options)
+	app := cloudcommon.InitApp(&options.Options.Options, true)
 	yunionconf.InitHandlers(app)
 
 	if db.CheckSync(options.Options.AutoSyncTable) {
