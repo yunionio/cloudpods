@@ -358,14 +358,23 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 		vpcs := VpcManager.Query().SubQuery()
 
 		sq := vpcs.Query(sqlchemy.DISTINCT("cloudregion_id", vpcs.Field("cloudregion_id")))
-		sq = sq.Join(providers, sqlchemy.Equals(vpcs.Field("manager_id"), providers.Field("id")))
 		sq = sq.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
 		sq = sq.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+		sq = sq.Join(providers, sqlchemy.Equals(vpcs.Field("manager_id"), providers.Field("id")))
 		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
 		sq = sq.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
 		sq = sq.Filter(sqlchemy.In(providers.Field("status"), CLOUD_PROVIDER_VALID_STATUS))
 
-		q = q.Filter(sqlchemy.In(q.Field("id"), sq.SubQuery()))
+		sq2 := vpcs.Query(sqlchemy.DISTINCT("cloudregion_id", vpcs.Field("cloudregion_id")))
+		sq2 = sq2.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		sq2 = sq2.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+		sq2 = sq2.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		sq2 = sq2.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
+
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.In(q.Field("id"), sq.SubQuery()),
+			sqlchemy.In(q.Field("id"), sq2.SubQuery()),
+		))
 	}
 	return q, nil
 }
