@@ -3,10 +3,10 @@ package qemuimg
 import (
 	"os/exec"
 
+	"fmt"
+	"regexp"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/qemutils"
-	"regexp"
-	"fmt"
 	"yunion.io/x/onecloud/pkg/cloudcommon/version"
 )
 
@@ -45,12 +45,12 @@ func QemuImgInit() error {
 
 func qcow2SparseOptions() []string {
 	if version.LE(qemuImgVersion, "1.1") {
-		return []string {"preallocation=metadata", "cluster_size=2M"}
+		return []string{"preallocation=metadata", "cluster_size=2M"}
 	} else if version.LE(qemuImgVersion, "1.7.1") {
-		return []string {"preallocation=metadata", "lazy_refcounts=on"}
+		return []string{"preallocation=metadata", "lazy_refcounts=on"}
 	} else if version.LE(qemuImgVersion, "2.2") {
-		return []string {"preallocation=metadata", "lazy_refcounts=on", "cluster_size=2M"}
+		return []string{"preallocation=metadata", "lazy_refcounts=on", "cluster_size=2M"}
 	} else {
-		return []string {}
+		return []string{}
 	}
 }

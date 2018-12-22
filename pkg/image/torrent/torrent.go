@@ -3,16 +3,16 @@ package torrent
 import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 
-	"yunion.io/x/log"
 	"fmt"
-	"yunion.io/x/onecloud/pkg/image/options"
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/image/options"
 )
 
 var (
 	torrentClient *torrent.Client
-	torrentTable = make(map[string]*torrent.Torrent)
+	torrentTable  = make(map[string]*torrent.Torrent)
 )
 
 func GetTrackers() []string {

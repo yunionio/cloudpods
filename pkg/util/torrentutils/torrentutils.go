@@ -7,7 +7,6 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 
 	"yunion.io/x/log"
-
 )
 
 func GenerateTorrent(root string, trackers []string, torrentFile string) (*metainfo.MetaInfo, error) {
@@ -49,4 +48,3 @@ func GenerateTorrent(root string, trackers []string, torrentFile string) (*metai
 	log.Debugf("generating torrent file %s ...done!", torrentFile)
 	return &mi, nil
 }
-

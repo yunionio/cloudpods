@@ -1,6 +1,5 @@
 package qemutils
 
-
 import (
 	"fmt"
 	"io/ioutil"

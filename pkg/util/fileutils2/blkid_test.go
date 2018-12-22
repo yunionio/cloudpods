@@ -4,7 +4,7 @@ import "testing"
 
 func TestGetBlkidType(t *testing.T) {
 	cases := []struct {
-		In string
+		In   string
 		Want string
 	}{
 		{

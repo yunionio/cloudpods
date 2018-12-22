@@ -1,21 +1,21 @@
 package qemuimg
 
 import (
-	"strings"
+	"bytes"
+	"errors"
+	"fmt"
+	"io"
 	"os"
 	"os/exec"
-	"fmt"
-	"bytes"
-	"io"
 	"strconv"
-	"errors"
+	"strings"
 
-	"yunion.io/x/pkg/utils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/qemutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/cloudcommon/qemutils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
@@ -205,7 +205,7 @@ func (img *SQemuImage) clone(name string, format TImageFormat, options []string,
 	return NewQemuImage(name)
 }
 
-func (img *SQemuImage) convert(format TImageFormat, options []string, compact bool, password string) (error) {
+func (img *SQemuImage) convert(format TImageFormat, options []string, compact bool, password string) error {
 	tmpPath := fmt.Sprintf("%s.%s", img.Path, utils.GenRequestId(36))
 	err := img.doConvert(tmpPath, format, options, compact, password)
 	if err != nil {

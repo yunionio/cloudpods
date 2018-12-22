@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"os/signal"
 	"path"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -13,9 +13,9 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 
 	"yunion.io/x/log"
-	"yunion.io/x/structarg"
-	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/onecloud/pkg/util/torrentutils"
+	"yunion.io/x/pkg/util/version"
+	"yunion.io/x/structarg"
 )
 
 type Options struct {

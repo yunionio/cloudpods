@@ -1,8 +1,8 @@
 package fileutils2
 
 import (
-	"regexp"
 	"os/exec"
+	"regexp"
 	"yunion.io/x/log"
 )
 

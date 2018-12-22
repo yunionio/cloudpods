@@ -19,6 +19,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/qemuimg"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -26,7 +27,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/streamutils"
 	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/onecloud/pkg/cloudcommon/qemuimg"
 )
 
 type TImageType string
@@ -50,7 +50,7 @@ const (
 )
 
 var (
-	candidateSubImageFormats = []qemuimg.TImageFormat {qemuimg.QCOW2, qemuimg.VMDK}
+	candidateSubImageFormats = []qemuimg.TImageFormat{qemuimg.QCOW2, qemuimg.VMDK}
 )
 
 type SImageManager struct {
@@ -544,7 +544,7 @@ func (self *SImage) PerformCancelDelete(ctx context.Context, userCred mcclient.T
 }
 
 func (manager *SImageManager) getExpiredPendingDeleteDisks() []SImage {
-	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds * -1) * time.Second)
+	deadline := time.Now().Add(time.Duration(options.Options.PendingDeleteExpireSeconds*-1) * time.Second)
 
 	q := manager.Query()
 	q = q.IsTrue("pending_deleted").LT("pending_deleted_at", deadline).Limit(options.Options.PendingDeleteMaxCleanBatchSize)

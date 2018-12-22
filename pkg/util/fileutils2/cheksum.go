@@ -1,16 +1,16 @@
 package fileutils2
 
 import (
-	"hash"
-	"os"
-	"io"
 	"fmt"
+	"hash"
+	"io"
+	"os"
 
-	"yunion.io/x/log"
 	"crypto/md5"
 	"crypto/sha1"
-	"crypto/sha512"
 	"crypto/sha256"
+	"crypto/sha512"
+	"yunion.io/x/log"
 )
 
 func FileHash(filename string, hash []hash.Hash) ([]string, error) {

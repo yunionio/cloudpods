@@ -1,14 +1,14 @@
 package models
 
 import (
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudcommon/qemuimg"
 	"fmt"
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
-	"yunion.io/x/onecloud/pkg/image/torrent"
-	"yunion.io/x/onecloud/pkg/util/torrentutils"
 	"os"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/qemuimg"
+	"yunion.io/x/onecloud/pkg/image/torrent"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/torrentutils"
 )
 
 type SImageSubformatManager struct {

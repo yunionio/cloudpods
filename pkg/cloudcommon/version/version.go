@@ -1,6 +1,5 @@
 package version
 
-
 import (
 	"strconv"
 	"strings"

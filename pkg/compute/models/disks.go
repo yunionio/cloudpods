@@ -720,12 +720,12 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 		return "", httperrors.NewConflictError("Duplicate image name %s", name)
 	}
 	/*
-	no need to check quota anymore
-	session := auth.GetSession(userCred, options.Options.Region, "v2")
-	quota := image_models.SQuota{Image: 1}
-	if _, err := modules.ImageQuotas.DoQuotaCheck(session, jsonutils.Marshal(&quota)); err != nil {
-		return "", err
-	}*/
+		no need to check quota anymore
+		session := auth.GetSession(userCred, options.Options.Region, "v2")
+		quota := image_models.SQuota{Image: 1}
+		if _, err := modules.ImageQuotas.DoQuotaCheck(session, jsonutils.Marshal(&quota)); err != nil {
+			return "", err
+		}*/
 	data.Add(jsonutils.NewInt(int64(self.DiskSize)), "virtual_size")
 	if result, err := modules.Images.Create(s, data); err != nil {
 		return "", err
