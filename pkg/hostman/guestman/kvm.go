@@ -18,6 +18,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/httpclients"
+	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
@@ -169,19 +170,35 @@ func (s *SKVMGuestInstance) DirtyServerRequestStart() {
 	}
 }
 
-// Must called in new goroutine
-func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params *jsonutils.JSONDict) {
-	// TODO
-	// hostinof.instace().clean_deleted_ports
+// Delay Process
+func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interface{}) {
+	data, ok := params.(*jsonutils.JSONDict)
+	if !ok {
+		log.Errorln("asyncScriptStart params error")
+		return
+	}
+
+	// TODO hostinof.instace().clean_deleted_ports
+
 	time.Sleep(100 * time.Millisecond)
 	var isStarted, tried, err = false, 0, nil
 	for !isStarted && tried < MAX_TRY {
 		tried += 1
+
 		vncPort := s.manager.GetFreeVncPort()
-		s.saveVncPort(vncPort)
-		params.Set("vnc_port", jsonutils.NewInt(vncPort))
-		s.saveScripts(params)
-		isStarted, err = s.scriptStart()
+		if err = s.saveVncPort(vncPort); err != nil {
+			goto finally
+		} else {
+			data.Set("vnc_port", jsonutils.NewInt(vncPort))
+		}
+
+		if err = s.saveScripts(data); err != nil {
+			goto finally
+		} else {
+			isStarted, err = s.scriptStart()
+		}
+
+	finally:
 		if !isStarted {
 			log.Errorf("Start VM failed: %s", err)
 			time.Sleep((1 << (tried - 1)) * time.Seconde)
@@ -189,6 +206,7 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params *jsonut
 			log.Infof("VM started ...")
 		}
 	}
+
 	s.onAsyncScriptStart(ctx, isStarted, err)
 }
 
@@ -203,6 +221,29 @@ func (s *SKVMGuestInstance) onAsyncScriptStart(ctx context.Context, isStarted bo
 		}
 		s.SyncStatus()
 	}
+}
+
+func (s *SKVMGuestInstance) saveScripts(data *jsonutils.JSONDict) error {
+	startScript, err := s.generateStartScript(data)
+	if err != nil {
+		return err
+	}
+	if err := cloudcommon.FilePutContents(s.GetStartScriptPath, startScript, false); err != nil {
+		return err
+	}
+	stopScript, err := s.generateStopScript(data)
+	if err != nil {
+		return err
+	}
+	return cloudcommon.FilePutContents(s.GetStopScriptPath, stopScript, false)
+}
+
+func (s *SKVMGuestInstance) GetStartScriptPath() string {
+	return path.Join(s.HomeDir(), "startvm")
+}
+
+func (s *SKVMGuestInstance) GetStopScriptPath() string {
+	return path.Join(s.HomeDir(), "stopvm")
 }
 
 func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
@@ -334,6 +375,10 @@ func (s *SKVMGuestInstance) GetVncPort() int {
 	return -1
 }
 
+func (s *SKVMGuestInstance) saveVncPort(port int64) error {
+	return cloudcommon.FilePutContents(s.GetVncFilePath(), fmt.Sprintf("%d", port), false)
+}
+
 func (s *SKVMGuestInstance) SyncStatus() {
 	if s.IsRunning() {
 		s.monitor.GetBlockJobs(s.CheckBlockOrRunning)
@@ -360,9 +405,7 @@ func (s *SKVMGuestInstance) SaveDesc(desc jsonutils.JSONObject) error {
 }
 
 func (s *SKVMGuestInstance) StartGuest(ctx context.Context, params jsonutils.JSONObject) {
-	wm.DelayTask(func() {
-		s.asyncScriptStart(ctx, params)
-	})
+	wm.DelayTask(ctx, s.asyncScriptStart, params)
 }
 
 func (s *SKVMGuestInstance) DeployFs(deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error) {
@@ -372,12 +415,13 @@ func (s *SKVMGuestInstance) DeployFs(deployInfo *guestfs.SDeployInfo) (jsonutils
 		diskId, _ := disks[0].GetString("disk_id")
 
 		disk := hostinfo.GetStorageManager().GetStorageDisk(storageId, diskId)
-		return disk.DeployGuestFs(s.Desc, deployInfo)
+		return disk.DeployGuestFs(disk.GetPath, s.Desc, deployInfo)
 	} else {
 		return nil, fmt.Errorf("Guest dosen't have disk ??")
 	}
 }
 
+// Delay process
 func (s *SKVMGuestInstance) CleanGuest(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	migrated, ok := params.(bool)
 	if !ok {
@@ -443,8 +487,12 @@ func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) {
 			// TODO GetDisksByPath, storagetypes, deleteallsnapshot, delete
 			d := hostinfo.GetStorageManager().GetDiskByPath(diskPath)
 			if d != nil && d.GetType == storagetypes.STORAGE_LOCAL && migrated {
-				d.DeleteAllSnapshot()
-				d.Delete(ctx)
+				if err := d.DeleteAllSnapshot(); err != nil {
+					log.Errorln(err)
+				}
+				if err := d.Delete(ctx); err != nil {
+					log.Errorln(err)
+				}
 			}
 		}
 	}

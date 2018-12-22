@@ -61,7 +61,3 @@ func (w *SWorkManager) Stop() {
 func NewWorkManger() *SWorkManager {
 	return &SWorkManager{}
 }
-
-// type ITaskPramas interface {
-// 	To
-// }

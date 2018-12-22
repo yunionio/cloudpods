@@ -1,22 +1,25 @@
 package storageman
 
 import (
-	"yunion.io/x/log"
+	"fmt"
+	"os"
+	"path"
+	"strings"
+
 	"yunion.io/x/onecloud/pkg/hostman/options"
 )
-
-/***************************************************************************/
-/****************************StorageManager*********************************/
-/***************************************************************************/
 
 const MINIMAL_FREE_SPACE = 128
 
 type SStorageManager struct {
-	storages               []IStorage
-	LocalStorageImagecache IStorageCache
+	storages                      []IStorage
+	AgentStorage                  IStorage
+	LocalStorageImagecacheManager IImageCacheManger
+	AgentStorageImagecacheManager IImageCacheManger
+	NfsStorageImagecacheMangers   []IImageCacheManger
 }
 
-func NewStorageManager() *SStorageManager {
+func NewStorageManager() (*SStorageManager, error) {
 	var ret = new(SStorageManager)
 	ret.storages = make([]IStorage, 0)
 	var allFull = true
@@ -36,12 +39,97 @@ func NewStorageManager() *SStorageManager {
 		allFull = False
 	}
 	if allFull {
-		log.Fatalf("Not enough storage space!")
+		return nil, fmt.Errorf("Not enough storage space!")
 	}
-	ret.initLocalStorageImagecache()
+	if err := ret.initLocalStorageImagecache(); err != nil {
+		return nil, fmt.Errorf("Init Local storage image cache failed: %s", err)
+	}
 	ret.initAgentStorageImagecache()
-	ret.initAgentStorage()
-	return ret
+	if err := ret.initAgentStorage(); err != nil {
+		return nil, fmt.Errorf("Init agent storage failed: %s", err)
+	}
+	return ret, nil
+}
+
+func (s *SStorageManager) getLeasedUsedLocalStorage(cacheDir string, limit int) (string, error) {
+	var maxFree int
+	var spath string
+	var maxStorage IStorage
+	for _, storage := range s.storages {
+		if _, ok := storage.(*SLocalStorage); ok {
+			cachePath := path.Join(storage.GetPath(), cacheDir)
+			if _, err := os.Stat(cachePath); !os.IsNotExist(err) {
+				spath = cachePath
+				break
+			}
+			free := storage.GetFreeSizeMb()
+			if maxFree < free {
+				maxFree = free
+				maxStorage = storage
+			}
+		}
+	}
+	if len(spath) == 0 {
+		if maxFree >= limit*1024 {
+			spath = path.Join(maxStorage.GetPath(), cacheDir)
+		} else {
+			return "", fmt.Errorf("No local storage has free space larger than %dGB", limit)
+		}
+	}
+	return spath, nil
+}
+
+func (s *SStorageManager) initLocalStorageImagecache() error {
+	var cacheDir = "image_cache"
+	cachePath := options.HostOptions.ImageCachePath
+	limit := options.HostOptions.ImageCacheLimit
+	if len(cachePath) == 0 {
+		var err error
+		cachePath, err = s.getLeasedUsedLocalStorage(cacheDir, limit)
+		if err != nil {
+			return err
+		}
+	}
+	if len(cachePath) == 0 {
+		s.LocalStorageImagecacheManager = NewLocalImageCacheManager(s, cachePath, limit, true, "")
+		return nil
+	} else {
+		fmt.Errorf("Cannot allocate image cache storage")
+	}
+}
+
+func (s *SStorageManager) initAgentStorageImagecache() {
+	s.AgentStorageImagecacheManager = NewAgentImageCacheManager(s)
+}
+
+func (s *SStorageManager) initAgentStorage() error {
+	var cacheDir = "agent_tmp"
+	var spath = options.HostOptions.AgentTempPath
+	var limit = options.HostOptions.AgentTempLimit
+	if len(spath) == 0 {
+		var err error
+		spath, err = s.getLeasedUsedLocalStorage(cacheDir, limit)
+		if err != nil {
+			return err
+		}
+	}
+	if len(spath) != nil {
+		// TODO: NewAgentStorage
+		s.AgentStorage = NewAgentStorage(s, spath)
+	} else {
+		return fmt.Errorf("Cannot allocate agent storage")
+	}
+}
+
+func (s *SStorageManager) AddNfsStorage(storagecacheId, cachePath string) {
+	if len(cachePath) == 0 {
+		return
+	}
+	if s.NfsStorageImagecacheMangers == nil {
+		s.NfsStorageImagecacheMangers = make(map[string]IImageCacheManger, 0)
+	}
+	s.NfsStorageImagecacheMangers[storagecacheId] = NewLocalImageCacheManager(s, cachePath,
+		options.HostOptions.ImageCacheLimit, true, storagecacheId)
 }
 
 func (s *SStorageManager) GetStorageDisk(storageId, diskId string) IDisk {
@@ -51,17 +139,26 @@ func (s *SStorageManager) GetStorageDisk(storageId, diskId string) IDisk {
 	return nil
 }
 
-func (s *SStorageManager) initLocalStorageImagecache() {
-	var cacheDir = "image_cache"
-	cachePath := options.HostOptions.ImageCachePath
-	limit := options.HostOptions.ImageCacheLimit
-	if len(cachePath) == 0 {
-		cachePath = s.getLeasedUsedLocalStorage(cacheDir, limit)
+func (s *SStorageManager) GetStorageByPath(sPath string) IStorage {
+	for _, storage := range s.storages {
+		if storage.GetPath() == sPath {
+			return storage
+		}
 	}
-	if len(cachePath) == 0 {
-		// TODO NewLocalImageCacheManager
-		s.LocalStorageImagecache = NewLocalImageCacheManager(s, cachePath, limit, true)
-	} else {
-		log.Fatalf("Cannot allocate image cache storage")
+	return nil
+}
+
+func (s *SStorageManager) GetDiskByPath(diskPath string) IDisk {
+	pos := strings.LastIndex(diskPath, "/")
+	sPath := path[:pos]
+	diskId := path[pos+1:]
+	pos = strings.LastIndex(diskId, ".")
+	if pos > 0 {
+		diskId = diskId[:pos]
 	}
+	storage := s.GetStorageByPath(sPath)
+	if storage != nil {
+		return storage.GetDiskById(diskId)
+	}
+	return nil
 }

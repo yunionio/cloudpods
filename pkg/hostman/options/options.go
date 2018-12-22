@@ -51,6 +51,8 @@ type SHostOptions struct {
 	PrivatePrefixes []string `help:"IPv4 private prefixes"`
 	LocalImagePath  []string `help:"Local image storage paths"`
 	SharedStorages  []string `help:"Path of shared storages"`
+
+	DefaultQemuVersion string `help:"Default qemu version" default:"2.9.1"`
 }
 
 var HostOptions SHostOptions

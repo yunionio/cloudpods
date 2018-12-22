@@ -1,6 +1,7 @@
 package storageman
 
 import (
+	"context"
 	"fmt"
 	"path"
 
@@ -12,8 +13,18 @@ import (
 type IDisk interface {
 	GetId() string
 	Probe() bool
-	DeployGuestFs(guestDesc *jsonutils.JSONDict,
-		deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error)
+
+	DeleteAllSnapshot() error
+	Delete() error
+
+	GetPath() string
+	CreateFromUrl(context.Context, string) error
+	// CreateFromSnapshot
+	CreateFromTemplate(context.Context, string, string, int64) error
+	Resize(context.Context, int64) error
+
+	// @params: diskPath, guestDesc, deployInfo
+	DeployGuestFs(string, *jsonutils.JSONDict, *guestfs.SDeployInfo) (jsonutils.JSONObject, error)
 }
 
 type SBaseDisk struct {
@@ -28,14 +39,37 @@ func NewBaseDisk(storage IStorage, id string) *SBaseDisk {
 	return ret
 }
 
-func (d *SBaseDisk) getPath() string {
+func (d *SBaseDisk) GetId() string {
+	return d.Id
+}
+
+func (d *SBaseDisk) GetPath() string {
 	return path.Join(d.Storage.GetPath(), d.Id)
 }
 
-func (d *SBaseDisk) DeployGuestFs(
-	guestDesc *jsonutils.JSONDict,
+func (d *SBaseDisk) Probe() error {
+	return fmt.Errorf("Not implemented")
+}
+
+func (d *SBaseDisk) Delete() error {
+	return fmt.Errorf("Not implemented")
+}
+
+func (d *SBaseDisk) CreateFromUrl(context.Context, string) error {
+	return fmt.Errorf("Not implemented")
+}
+
+func (d *SBaseDisk) CreateFromTemplate(context.Context, string, string, int64) error {
+	return fmt.Errorf("Not implemented")
+}
+
+func (d *SBaseDisk) Resize(context.Context, int64) error {
+	return fmt.Errorf("Not implemented")
+}
+
+func (d *SBaseDisk) DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict,
 	deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error) {
-	var kvmDisk = NewKVMGuestDisk(d.getPath())
+	var kvmDisk = NewKVMGuestDisk(diskPath)
 	if kvmDisk.Connect() {
 		defer kvmDisk.Disconnect()
 		log.Infof("Kvm Disk Connect Success !!")

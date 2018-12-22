@@ -1,18 +1,20 @@
 package storageman
 
+import "yunion.io/x/log"
+
 type SLocalStorage struct {
-	*SBaseStorage
+	SBaseStorage
 }
 
 func NewLocalStorage(manager *SStorageManager, path string) *SLocalStorage {
 	var ret = new(SLocalStorage)
-	ret.SBaseStorage = NewBaseStorage(manager, path)
+	ret.SBaseStorage = *NewBaseStorage(manager, path)
 	ret.StartSnapshotRecycle()
 	return ret
 }
 
 func (s *SLocalStorage) StorageType() string {
-	return "local"
+	return storagetypes.STORAGE_LOCAL
 }
 
 func (s *SLocalStorage) GetDiskById(diskId string) IDisk {
@@ -28,11 +30,13 @@ func (s *SLocalStorage) CreateDisk(diskId string) IDisk {
 	s.DiskLock.Lock()
 	defer s.DiskLock.Unlock()
 	var disk = NewLocalDisk(s, diskId)
-	if disk.Probe() {
+	if err := disk.Probe(); err != nil {
 		s.Disks = append(s.Disks, disk)
 		return disk
+	} else {
+		log.Errorln(err)
+		return nil
 	}
-	return nil
 }
 
 func (s *SLocalStorage) StartSnapshotRecycle() {
