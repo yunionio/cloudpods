@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -76,14 +77,17 @@ func (self *BaremetalSyncAllGuestsStatusTask) OnInit(ctx context.Context, obj db
 }
 
 func (self *BaremetalSyncAllGuestsStatusTask) OnGuestSyncStatusComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
-	guests := baremetal.GetGuests()
-	for _, guest := range guests {
-		if guest.Status == models.VM_UNKNOWN && guest.Hypervisor == models.HYPERVISOR_BAREMETAL {
+	var guests = make([]models.SGuest, 0)
+	for _, guest := range baremetal.GetGuests() {
+		if guest.Status == models.VM_UNKNOWN && guest.Hypervisor != models.HYPERVISOR_BAREMETAL {
 			guest.SetStatus(self.UserCred, models.VM_SYNCING_STATUS, "")
-			// GuestBatchSyncStatusTask
-			guest.StartSyncstatus(ctx, self.UserCred, "")
+			guests = append(guests, guest)
 		}
 	}
+	for _, guest := range guests {
+		guest.StartSyncstatus(ctx, self.UserCred, "")
+	}
+	log.Infof("All unknown guests syncstatus complete")
 	self.SetStageComplete(ctx, nil)
 }
 
