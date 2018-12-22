@@ -50,13 +50,18 @@ func NewAliyunClient(providerId string, providerName string, accessKey string, s
 func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	for i := 1; i < 4; i++ {
 		resp, err := _jsonRequest(client, domain, apiVersion, apiName, params)
+		retry := false
 		if err != nil {
 			for _, code := range []string{"SignatureNonceUsed", "InvalidInstance.NotSupported"} {
 				if strings.Contains(err.Error(), code) {
-					time.Sleep(time.Second * time.Duration(i*10))
-					continue
+					retry = true
+					break
 				}
 			}
+		}
+		if retry {
+			time.Sleep(time.Second * time.Duration(i*10))
+			continue
 		}
 		return resp, err
 	}
