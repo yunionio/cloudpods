@@ -14,7 +14,9 @@ type TRbacResult string
 const (
 	WILD_MATCH = "*"
 
-	AdminAllow = TRbacResult("allow")
+	Allow = TRbacResult("allow")
+
+	AdminAllow = TRbacResult("admin")
 	OwnerAllow = TRbacResult("owner")
 	UserAllow  = TRbacResult("user")
 	GuestAllow = TRbacResult("guest")
@@ -192,7 +194,7 @@ func (policy *SRbacPolicy) Decode(policyJson jsonutils.JSONObject) error {
 		return err
 	}
 
-	rules, err := decode(ruleJson, SRbacRule{}, levelService)
+	rules, err := decode(policy.IsAdmin, ruleJson, SRbacRule{}, levelService)
 	if err != nil {
 		return err
 	}
@@ -209,12 +211,18 @@ const (
 	levelExtra    = 3
 )
 
-func decode(rules jsonutils.JSONObject, decodeRule SRbacRule, level int) ([]SRbacRule, error) {
+func decode(isAdmin bool, rules jsonutils.JSONObject, decodeRule SRbacRule, level int) ([]SRbacRule, error) {
 	switch rules.(type) {
 	case *jsonutils.JSONString:
 		ruleJsonStr := rules.(*jsonutils.JSONString)
 		ruleStr, _ := ruleJsonStr.GetString()
 		switch ruleStr {
+		case string(Allow):
+			if isAdmin {
+				decodeRule.Result = AdminAllow
+			} else {
+				decodeRule.Result = OwnerAllow
+			}
 		case string(AdminAllow):
 			decodeRule.Result = AdminAllow
 		case string(OwnerAllow):
@@ -252,7 +260,7 @@ func decode(rules jsonutils.JSONObject, decodeRule SRbacRule, level int) ([]SRba
 					rule.Extra = append(rule.Extra, key)
 				}
 			}
-			decoded, err := decode(ruleJson, rule, level+1)
+			decoded, err := decode(isAdmin, ruleJson, rule, level+1)
 			if err != nil {
 				return nil, err
 			}
