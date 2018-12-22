@@ -7,7 +7,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/skus"
 
 	"yunion.io/x/log"
-	"yunion.io/x/sqlchemy"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "yunion.io/x/onecloud/pkg/compute/guestdrivers"
@@ -32,10 +31,6 @@ func StartService() {
 	consts.SetServiceType("compute")
 
 	cloudcommon.ParseOptions(&options.Options, &options.Options.Options, os.Args, "region.conf")
-
-	if options.Options.DebugSqlchemy {
-		sqlchemy.DEBUG_SQLCHEMY = true
-	}
 
 	if options.Options.PortV2 > 0 {
 		log.Infof("Port V2 %d is specified, use v2 port", options.Options.PortV2)

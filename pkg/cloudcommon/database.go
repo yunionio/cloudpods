@@ -24,6 +24,10 @@ func InitDB(options *DBOptions) {
 		consts.EnableGlobalVirtualResourceNamespace()
 	}
 
+	if options.DebugSqlchemy {
+		sqlchemy.DEBUG_SQLCHEMY = true
+	}
+
 	dialect, sqlStr, err := options.GetDBConnection()
 	if err != nil {
 		log.Fatalf("Invalid SqlConnection string: %s", options.SqlConnection)
