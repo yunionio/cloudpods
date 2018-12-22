@@ -186,4 +186,29 @@ func init() {
 		return nil
 	})
 
+	type EipChangeOwnerOptions struct {
+		ID      string `help:"EIP to change owner"`
+		PROJECT string `help:"Project ID or change"`
+		RawId   bool   `help:"User raw ID, instead of name"`
+	}
+	R(&EipChangeOwnerOptions{}, "eip-change-owner", "Change owner porject of a eip", func(s *mcclient.ClientSession, opts *EipChangeOwnerOptions) error {
+		params := jsonutils.NewDict()
+		if opts.RawId {
+			projid, err := modules.Projects.GetId(s, opts.PROJECT, nil)
+			if err != nil {
+				return err
+			}
+			params.Add(jsonutils.NewString(projid), "tenant")
+			params.Add(jsonutils.JSONTrue, "raw_id")
+		} else {
+			params.Add(jsonutils.NewString(opts.PROJECT), "tenant")
+		}
+		srv, err := modules.Elasticips.PerformAction(s, opts.ID, "change-owner", params)
+		if err != nil {
+			return err
+		}
+		printObject(srv)
+		return nil
+	})
+
 }
