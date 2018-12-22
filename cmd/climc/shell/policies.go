@@ -218,6 +218,7 @@ func init() {
 		Project    string   `help:"Role assignments for project"`
 		Role       []string `help:"Roles"`
 		Request    []string `help:"explain request, in format of key:is_admin:service:resource:action:extra"`
+		Name       string   `help:"policy name"`
 	}
 	R(&PolicyExplainOptions{}, "policy-explain", "Explain policy result", func(s *mcclient.ClientSession, args *PolicyExplainOptions) error {
 		auth.InitFromClientSession(s)
@@ -257,7 +258,7 @@ func init() {
 			token = s.GetToken()
 		}
 
-		result, err := policy.PolicyManager.ExplainRpc(token, req)
+		result, err := policy.PolicyManager.ExplainRpc(token, req, args.Name)
 		if err != nil {
 			return err
 		}
