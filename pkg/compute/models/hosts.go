@@ -3555,3 +3555,34 @@ func (self *SHost) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	desc.Update(jsonutils.Marshal(&info))
 	return desc
 }
+
+func (self *SHost) MarkGuestUnknown(userCred mcclient.TokenCredential) {
+	log.Errorln(self.GetGuests())
+	for _, guest := range self.GetGuests() {
+		guest.SetStatus(userCred, VM_UNKNOWN, "host offline")
+	}
+}
+
+func (manager *SHostManager) PingDetectionTask(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	deadline := time.Now().Add(-1 * time.Duration(options.Options.HostOfflineMaxSeconds) * time.Second)
+
+	q := manager.Query().Equals("host_status", HOST_ONLINE).
+		Equals("host_type", HOST_TYPE_HYPERVISOR)
+	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("last_ping_at")),
+		sqlchemy.LT(q.Field("last_ping_at"), deadline)))
+
+	rows, err := q.Rows()
+	if err != nil {
+		log.Errorln(err)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var host = SHost{}
+		q.Row2Struct(rows, &host)
+		host.SetModelManager(manager)
+		host.PerformOffline(ctx, userCred, nil, nil)
+		host.MarkGuestUnknown(userCred)
+	}
+}
