@@ -23,6 +23,8 @@ import (
 	"yunion.io/x/pkg/util/seclib"
 )
 
+const VNC_PORT_BASE = 5900
+
 type SGuestManager struct {
 	ServersPath      string
 	Servers          map[string]*SKVMGuestInstance
@@ -282,12 +284,10 @@ func (m *SGuestManager) Delete(sid string) (*SKVMGuestInstance, error) {
 func (m *SGuestManager) Start(ctx context.Context, sid string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if guest, ok := m.Servers[sid]; ok {
 		if desc, err := body.Get("desc"); err != nil {
-			// TODO
 			guest.SaveDesc(desc)
 		}
 		if guest.IsStopped() {
 			params, _ := body.Get("params")
-			// TODO
 			if err := guest.StartGuest(ctx, params); err != nil {
 				return nil, httperrors.NewBadRequestError("Failed to start server")
 			} else {
@@ -307,6 +307,26 @@ func (m *SGuestManager) Start(ctx context.Context, sid string, body jsonutils.JS
 	} else {
 		return nil, httperrors.NewNotFoundError("Not found")
 	}
+}
+
+func (m *SGuestManager) GetFreeVncPort() int64 {
+	vncPorts := make(map[int]struct{}, 0)
+	for _, guest := range m.Servers {
+		inUsePort := guest.GetVncPort()
+		if inUsePort > 0 {
+			vncPorts[inUsePort] = struct{}{}
+		}
+	}
+	var port = 1
+	for {
+		if _, ok := vncPorts[port]; !ok && !cloudcommon.IsTcpPortUsed("0.0.0.0", VNC_PORT_BASE+port) &&
+			!cloudcommon.IsTcpPortUsed("0.0.0.0", MONITOR_PORT_BASE+port) {
+			break
+		} else {
+			port += 1
+		}
+	}
+	return port
 }
 
 func initGuestManager(serversPath string) {

@@ -9,6 +9,7 @@ import (
 type IStorage interface {
 	StorageType() string
 	GetPath() string
+	GetFreeSizeMb() int
 
 	// Find owner disks first, if not found, call create disk
 	GetDiskById(diskId string) IDisk

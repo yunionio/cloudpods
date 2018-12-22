@@ -59,7 +59,6 @@ func deleteGuest(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		response(ctx, w, err)
 	} else {
-		// TODO: CleanGuest
 		wm.DelayTask(ctx, guest.CleanGuest, migrated)
 		response(ctx, w, map[string]bool{"delay_clean": true})
 	}
