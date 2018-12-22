@@ -3330,6 +3330,7 @@ func (manager *SGuestManager) GetIpInProjectWithName(projectId, name string, isE
 		log.Errorf("Get guest ip with name query err: %v", err)
 		return ips
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var ip string
 		err = rows.Scan(&ip)

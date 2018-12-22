@@ -3494,6 +3494,7 @@ func (manager *SHostManager) GetEsxiAgentHostId(key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer rows.Close()
 
 	var hostId string
 	hostIds := make([]string, 0)

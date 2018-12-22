@@ -675,6 +675,11 @@ func (self *SGuest) PerformAddSecgroup(ctx context.Context, userCred mcclient.To
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
+
+		if err := SecurityGroupManager.ValidateName(secgrp.GetName()); err != nil {
+			return nil, httperrors.NewInputParameterError("The secgroup name %s does not meet the requirements, please change the name", secgrp.GetName())
+		}
+
 		if utils.IsInStringArray(secgrp.GetId(), originSecgroupIds) {
 			return nil, httperrors.NewInputParameterError("security group %s has already been assigned to guest %s", secgrp.GetName(), self.Name)
 		}
@@ -784,6 +789,10 @@ func (self *SGuest) PerformAssignSecgroup(ctx context.Context, userCred mcclient
 		return nil, err
 	}
 
+	if err := SecurityGroupManager.ValidateName(secgrpV.Model.GetName()); err != nil {
+		return nil, httperrors.NewInputParameterError("The secgroup name %s does not meet the requirements, please change the name", secgrpV.Model.GetName())
+	}
+
 	if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.SecgrpId = secgrpV.Model.GetId()
 		return nil
@@ -828,6 +837,11 @@ func (self *SGuest) PerformSetSecgroup(ctx context.Context, userCred mcclient.To
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
+
+		if err := SecurityGroupManager.ValidateName(secgrp.GetName()); err != nil {
+			return nil, httperrors.NewInputParameterError("The secgroup name %s does not meet the requirements, please change the name", secgrp.GetName())
+		}
+
 		setSecgroups = append(setSecgroups, secgrp.(*SSecurityGroup))
 		setSecgroupNames = append(setSecgroupNames, secgrp.GetName())
 	}
