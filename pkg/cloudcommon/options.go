@@ -12,7 +12,7 @@ import (
 	"yunion.io/x/structarg"
 )
 
-type Options struct {
+type CommonOptions struct {
 	Port    int    `help:"The port that the service runs on"`
 	Address string `help:"The IP address to serve on (set to 0.0.0.0 for all interfaces)" default:"0.0.0.0"`
 
@@ -54,15 +54,13 @@ type DBOptions struct {
 
 	GlobalVirtualResourceNamespace bool `help:"Per project namespace or global namespace for virtual resources"`
 	DebugSqlchemy                  bool `default:"False" help:"Print SQL executed by sqlchemy"`
-
-	Options
 }
 
 func (this *DBOptions) GetDBConnection() (dialect, connstr string, err error) {
 	return utils.TransSQLAchemyURL(this.SqlConnection)
 }
 
-func ParseOptions(optStruct interface{}, optionsRef *Options, args []string, configFileName string) {
+func ParseOptions(optStruct interface{}, optionsRef *CommonOptions, args []string, configFileName string) {
 	if len(consts.GetServiceType()) == 0 {
 		log.Fatalf("ServiceType not initialized!")
 	}
