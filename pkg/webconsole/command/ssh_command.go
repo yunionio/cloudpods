@@ -105,6 +105,15 @@ func (c *SSHtoolSol) GetProtocol() string {
 	return PROTOCOL_TTY
 }
 
+func (c *SSHtoolSol) Connect() error {
+	conn, err := net.DialTimeout("tcp", c.IP+":22", time.Second*2)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	return nil
+}
+
 func (c *SSHtoolSol) GetData(data string) (isShow bool, ouput string, command string) {
 	if len(c.Username) == 0 {
 		if len(data) == 0 {

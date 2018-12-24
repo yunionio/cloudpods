@@ -16,6 +16,7 @@ type ICommand interface {
 	GetCommand() *exec.Cmd
 	Cleanup() error
 	GetData(string) (isShow bool, ouput string, command string)
+	Connect() error
 	ShowInfo() string
 }
 
@@ -40,6 +41,10 @@ func (c *BaseCommand) AppendArgs(args ...string) *BaseCommand {
 
 func (c BaseCommand) GetCommand() *exec.Cmd {
 	return exec.Command(c.name, c.args...)
+}
+
+func (c BaseCommand) Connect() error {
+	return nil
 }
 
 func (c BaseCommand) GetData(comand string) (isShow bool, ouput string, command string) {
