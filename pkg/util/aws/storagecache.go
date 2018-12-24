@@ -161,7 +161,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		return "", err
 	}
 
-	defer s3client.DeleteBucket(&s3.DeleteBucketInput{Bucket: &bucketName})  // remove bucket
+	defer s3client.DeleteBucket(&s3.DeleteBucketInput{Bucket: &bucketName}) // remove bucket
 
 	var diskFormat string
 	s := auth.GetAdminSession(options.Options.Region, "")
@@ -196,7 +196,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		if err != nil {
 			return "", err
 		}
-		defer s3client.DeleteObject(&s3.DeleteObjectInput{Bucket: &bucketName, Key: &imageId})  // remove object
+		defer s3client.DeleteObject(&s3.DeleteObjectInput{Bucket: &bucketName, Key: &imageId}) // remove object
 	} else {
 		meta, _, err := modules.Images.Download(s, imageId)
 		if err != nil {
