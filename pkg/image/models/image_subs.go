@@ -3,7 +3,11 @@ package models
 import (
 	"fmt"
 	"os"
+
+	t "github.com/anacrolix/torrent"
+
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/qemuimg"
 	"yunion.io/x/onecloud/pkg/image/torrent"
@@ -27,7 +31,7 @@ func init() {
 		),
 	}
 
-	ImageSubformatManager.TableSpec().AddIndex(true, "image_id", "format", "is_torrent")
+	ImageSubformatManager.TableSpec().AddIndex(true, "image_id", "format")
 }
 
 type SImageSubformat struct {
@@ -51,7 +55,7 @@ func (manager *SImageSubformatManager) FetchSubImage(id string, format string) *
 	subImg := SImageSubformat{}
 	err := q.First(&subImg)
 	if err != nil {
-		log.Errorf("query subimage fail!")
+		log.Errorf("query subimage fail! %s", err)
 		return nil
 	}
 	return &subImg
@@ -84,6 +88,7 @@ func (self *SImageSubformat) DoConvert(image *SImage) error {
 		log.Errorf("fail to seed torrent %s", err)
 		return err
 	}
+	log.Infof("Start seeding...")
 	return nil
 }
 
@@ -176,11 +181,17 @@ func (self *SImageSubformat) SaveTorrent() error {
 }
 
 func (self *SImageSubformat) getLocalLocation() string {
-	return self.Location[len(LocalFilePrefix):]
+	if len(self.Location) > len(LocalFilePrefix) {
+		return self.Location[len(LocalFilePrefix):]
+	}
+	return ""
 }
 
 func (self *SImageSubformat) getLocalTorrentLocation() string {
-	return self.TorrentLocation[len(LocalFilePrefix):]
+	if len(self.TorrentLocation) > len(LocalFilePrefix) {
+		return self.TorrentLocation[len(LocalFilePrefix):]
+	}
+	return ""
 }
 
 func (self *SImageSubformat) seedTorrent() error {
@@ -197,17 +208,64 @@ func (self *SImageSubformat) StopTorrent() {
 
 func (self *SImageSubformat) RemoveFiles() error {
 	self.StopTorrent()
-	if len(self.TorrentLocation) > 0 {
-		err := os.Remove(self.getLocalTorrentLocation())
+	location := self.getLocalTorrentLocation()
+	if len(location) > 0 && fileutils2.IsFile(location) {
+		err := os.Remove(location)
 		if err != nil {
 			return err
 		}
 	}
-	if len(self.Location) > 0 {
-		err := os.Remove(self.getLocalLocation())
+	location = self.getLocalLocation()
+	if len(location) > 0 && fileutils2.IsFile(location) {
+		err := os.Remove(location)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (self *SImageSubformat) getTorrent() *t.Torrent {
+	torrentPath := self.getLocalTorrentLocation()
+	if len(torrentPath) > 0 {
+		return torrent.GetTorrent(torrentPath)
+	}
+	return nil
+}
+
+type SImageSubformatDetails struct {
+	Format string
+
+	Size     int64
+	Checksum string
+	Status   string
+
+	TorrentSize     int64
+	TorrentChecksum string
+	TorrentStatus   string
+
+	TorrentSeeding bool
+	TorrentStats   t.TorrentStats
+}
+
+func (self *SImageSubformat) GetDetails() SImageSubformatDetails {
+	details := SImageSubformatDetails{}
+
+	details.Format = self.Format
+	details.Size = self.Size
+	details.Checksum = self.Checksum
+	details.Status = self.Status
+	details.TorrentSize = self.TorrentSize
+	details.TorrentChecksum = self.TorrentChecksum
+	details.TorrentStatus = self.TorrentStatus
+
+	t := self.getTorrent()
+
+	if t != nil {
+		if t.BytesMissing() == 0 {
+			details.TorrentSeeding = true
+		}
+		details.TorrentStats = t.Stats()
+	}
+	return details
 }

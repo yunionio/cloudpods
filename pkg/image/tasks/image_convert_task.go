@@ -21,10 +21,13 @@ func init() {
 func (self *ImageConvertTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	image := obj.(*models.SImage)
 
-	err := self.prepareConvert(image)
-	if err != nil {
-		self.SetStageFailed(ctx, "fail to convert subimages")
-		return
+	doPrepare := jsonutils.QueryBoolean(self.Params, "prepare", false)
+	if doPrepare {
+		err := self.prepareConvert(image)
+		if err != nil {
+			self.SetStageFailed(ctx, "fail to prepare convert subimages")
+			return
+		}
 	}
 	self.SetStage("OnConvertComplete", nil)
 	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {

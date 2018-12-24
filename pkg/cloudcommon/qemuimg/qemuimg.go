@@ -50,6 +50,9 @@ func NewEncryptedQemuImage(path string, password string) (*SQemuImage, error) {
 }
 
 func (img *SQemuImage) parse() error {
+	if len(img.Path) == 0 {
+		return fmt.Errorf("empty image path")
+	}
 	if strings.HasPrefix(img.Path, "nbd") {
 		// nbd TCP -> nbd:<server-ip>:<port>
 		// nbd Unix Domain Sockets -> nbd:unix:<domain-socket-file>
@@ -93,15 +96,17 @@ func (img *SQemuImage) parse() error {
 			case strings.HasPrefix(line, "file format:"):
 				img.Format = TImageFormat(line[strings.LastIndexByte(line, ' ')+1:])
 			case strings.HasPrefix(line, "virtual size:"):
-				sizeStr := line[strings.LastIndexByte(line, '(')+1 : strings.LastIndexByte(line, ' ')]
-				size, err := strconv.ParseInt(sizeStr, 10, -1)
-				if err != nil {
-					return fmt.Errorf("invalid size str %s", sizeStr)
+				if img.SizeBytes == 0 {
+					sizeStr := line[strings.LastIndexByte(line, '(')+1 : strings.LastIndexByte(line, ' ')]
+					size, err := strconv.ParseInt(sizeStr, 10, 64)
+					if err != nil {
+						return fmt.Errorf("invalid size str %s: %s", sizeStr, err)
+					}
+					img.SizeBytes = size
 				}
-				img.SizeBytes = size
 			case strings.HasPrefix(line, "cluster_size:"):
 				sizeStr := line[strings.LastIndexByte(line, ' ')+1:]
-				size, err := strconv.ParseInt(sizeStr, 10, -1)
+				size, err := strconv.ParseInt(sizeStr, 10, 64)
 				if err != nil {
 					return fmt.Errorf("invalid cluster size str %s", sizeStr)
 				}
@@ -168,7 +173,7 @@ func (img *SQemuImage) doConvert(name string, format TImageFormat, options []str
 	if len(img.Password) > 0 || len(password) > 0 {
 		input := ""
 		if len(img.Password) > 0 {
-			input = fmt.Sprintf("%s\r", input, img.Password)
+			input = fmt.Sprintf("%s%s\r", input, img.Password)
 		}
 		if len(password) > 0 {
 			input = fmt.Sprintf("%s%s\r", input, password)
@@ -309,7 +314,7 @@ func (img *SQemuImage) CloneRaw(name string) (*SQemuImage, error) {
 
 func (img *SQemuImage) create(sizeMB int, format TImageFormat, options []string) error {
 	if img.IsValid() {
-		return fmt.Errorf("The image is valid???")
+		return fmt.Errorf("create: the image is valid??? %s", img.Format)
 	}
 	args := []string{"create", "-f", format.String()}
 	if len(options) > 0 {

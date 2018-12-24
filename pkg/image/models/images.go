@@ -11,6 +11,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -23,10 +24,11 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/streamutils"
-	"yunion.io/x/pkg/tristate"
 )
 
 type TImageType string
@@ -50,7 +52,7 @@ const (
 )
 
 var (
-	candidateSubImageFormats = []qemuimg.TImageFormat{qemuimg.QCOW2, qemuimg.VMDK}
+	candidateSubImageFormats = []qemuimg.TImageFormat{qemuimg.QCOW2, qemuimg.VMDK, qemuimg.VHD}
 )
 
 type SImageManager struct {
@@ -148,15 +150,6 @@ func (manager *SImageManager) InitializeData() error {
 	return nil
 }
 
-func (self *SImage) AllowGetDetailsTorrent(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "torrent")
-}
-
-func (self *SImage) GetDetailsTorrent(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-
-	return nil, nil
-}
-
 func (manager *SImageManager) AllowGetPropertyDetail(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
 }
@@ -181,31 +174,43 @@ func (manager *SImageManager) IsCustomizedGetDetailsBody() bool {
 }
 
 func (self *SImage) CustomizedGetDetailsBody(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	filePath := self.getLocalLocation()
+	status := self.Status
+
+	formatStr := jsonutils.GetAnyString(query, []string{"format", "disk_format"})
+	if len(formatStr) > 0 {
+		subimg := ImageSubformatManager.FetchSubImage(self.Id, formatStr)
+		if subimg != nil {
+			isTorrent := jsonutils.QueryBoolean(query, "torrent", false)
+			if !isTorrent {
+				filePath = subimg.getLocalLocation()
+				status = subimg.Status
+			} else {
+				filePath = subimg.getLocalTorrentLocation()
+				status = subimg.TorrentStatus
+			}
+		}
+	}
+
+	if status != IMAGE_STATUS_ACTIVE {
+		return nil, httperrors.NewInvalidStatusError("cannot download in status %s", status)
+	}
+
+	if filePath == "" {
+		return nil, httperrors.NewInvalidStatusError("empty file path")
+	}
+
 	appParams := appsrv.AppContextGetParams(ctx)
 
-	filePath := self.GetPath("")
 	fp, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
 	defer fp.Close()
 
-	buf := make([]byte, 4096)
-	for {
-		n, _ := fp.Read(buf)
-
-		if n > 0 {
-			offset := 0
-			for offset < n {
-				m, err := appParams.Response.Write(buf[offset:n])
-				if err != nil {
-					return nil, err
-				}
-				offset += m
-			}
-		} else if n == 0 {
-			break
-		}
+	_, err = streamutils.StreamPipe(fp, appParams.Response)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
 	}
 
 	return nil, nil
@@ -268,6 +273,24 @@ func (self *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclien
 			val, _ := jsonDict.GetString(k)
 			if len(val) > 0 {
 				headers[fmt.Sprintf("%s%s", modules.IMAGE_META, k)] = val
+			}
+		}
+	}
+
+	formatStr := jsonutils.GetAnyString(query, []string{"format", "disk_format"})
+	if len(formatStr) > 0 {
+		subimg := ImageSubformatManager.FetchSubImage(self.Id, formatStr)
+		if subimg != nil {
+			headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "disk_format")] = formatStr
+			isTorrent := jsonutils.QueryBoolean(query, "torrent", false)
+			if !isTorrent {
+				headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "status")] = subimg.Status
+				headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "size")] = fmt.Sprintf("%d", subimg.Size)
+				headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "checksum")] = subimg.Checksum
+			} else {
+				headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "status")] = subimg.TorrentStatus
+				headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "size")] = fmt.Sprintf("%d", subimg.TorrentSize)
+				headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "checksum")] = subimg.TorrentChecksum
 			}
 		}
 	}
@@ -398,7 +421,7 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 
 		self.OnSaveSuccess(ctx, userCred, "create upload success")
 
-		self.StartImageConvertTask(ctx, userCred, "")
+		self.StartImageConvertTask(ctx, userCred, "", true)
 	} else {
 		copyFrom := appParams.Request.Header.Get(modules.IMAGE_META_COPY_FROM)
 		if len(copyFrom) > 0 {
@@ -522,8 +545,12 @@ func (self *SImage) startImageCopyFromUrlTask(ctx context.Context, userCred mccl
 	return nil
 }
 
-func (self *SImage) StartImageConvertTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "ImageConvertTask", self, userCred, nil, parentTaskId, "", nil)
+func (self *SImage) StartImageConvertTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, doPrepare bool) error {
+	params := jsonutils.NewDict()
+	if doPrepare {
+		params.Add(jsonutils.JSONTrue, "prepare")
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "ImageConvertTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
@@ -712,7 +739,10 @@ func (self *SImage) ConvertAllSubformats() error {
 }
 
 func (self *SImage) getLocalLocation() string {
-	return self.Location[len(LocalFilePrefix):]
+	if len(self.Location) > len(LocalFilePrefix) {
+		return self.Location[len(LocalFilePrefix):]
+	}
+	return ""
 }
 
 func (self *SImage) getQemuImage() (*qemuimg.SQemuImage, error) {
@@ -735,7 +765,14 @@ func (self *SImage) RemoveFiles() error {
 			return err
 		}
 	}
-	return os.Remove(self.getLocalLocation())
+	filePath := self.getLocalLocation()
+	if len(filePath) == 0 {
+		filePath = self.GetPath("")
+	}
+	if len(filePath) > 0 && fileutils2.IsFile(filePath) {
+		return os.Remove(filePath)
+	}
+	return nil
 }
 
 func (manager *SImageManager) getAllActiveImages() []SImage {
@@ -753,6 +790,19 @@ func SeedTorrents() {
 	images := ImageManager.getAllActiveImages()
 	for i := 0; i < len(images); i += 1 {
 		log.Debugf("convert image subformats %s", images[i].Name)
-		// images[i].StartImageConvertTask(context.TODO(), auth.AdminCredential(), "")
+		images[i].StartImageConvertTask(context.TODO(), auth.AdminCredential(), "", false)
 	}
+}
+
+func (self *SImage) AllowGetDetailsSubformats(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "subformats")
+}
+
+func (self *SImage) GetDetailsSubformats(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	subimgs := ImageSubformatManager.GetAllSubImages(self.Id)
+	ret := make([]SImageSubformatDetails, len(subimgs))
+	for i := 0; i < len(subimgs); i += 1 {
+		ret[i] = subimgs[i].GetDetails()
+	}
+	return jsonutils.Marshal(ret), nil
 }

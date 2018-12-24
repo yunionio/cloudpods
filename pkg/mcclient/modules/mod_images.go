@@ -548,8 +548,19 @@ func (this *ImageManager) _update(s *mcclient.ClientSession, id string, params j
 	return json.Get("image")
 }
 
-func (this *ImageManager) Download(s *mcclient.ClientSession, id string) (jsonutils.JSONObject, io.Reader, error) {
+func (this *ImageManager) Download(s *mcclient.ClientSession, id string, format string, torrent bool) (jsonutils.JSONObject, io.Reader, error) {
+	query := jsonutils.NewDict()
+	if len(format) > 0 {
+		query.Add(jsonutils.NewString(format), "format")
+		if torrent {
+			query.Add(jsonutils.JSONTrue, "torrent")
+		}
+	}
 	path := fmt.Sprintf("/%s/%s", this.URLPath(), url.PathEscape(id))
+	queryString := query.QueryString()
+	if len(queryString) > 0 {
+		path = fmt.Sprintf("%s?%s", path, queryString)
+	}
 	resp, err := this.rawRequest(s, "GET", path, nil, nil)
 	if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return FetchImageMeta(resp.Header), resp.Body, nil

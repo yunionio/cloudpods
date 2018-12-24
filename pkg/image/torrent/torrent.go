@@ -1,13 +1,15 @@
 package torrent
 
 import (
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-
 	"fmt"
+
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
+
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/image/options"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 var (
@@ -37,7 +39,7 @@ func InitTorrentClient() error {
 	clientConfig.DataDir = options.Options.FilesystemStoreDatadir
 	clientConfig.DisableTrackers = false
 	clientConfig.DisablePEX = false
-	clientConfig.NoDHT = true
+	clientConfig.NoDHT = false
 
 	client, err := torrent.NewClient(clientConfig)
 	if err != nil {
@@ -74,6 +76,13 @@ func AddTorrent(filepath string) error {
 		t.DownloadAll()
 	}()
 
+	return nil
+}
+
+func GetTorrent(filepath string) *torrent.Torrent {
+	if t, ok := torrentTable[filepath]; ok {
+		return t
+	}
 	return nil
 }
 

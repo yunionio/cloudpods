@@ -31,6 +31,7 @@ func initHandlers(app *appsrv.Application) {
 		models.ImageTagManager,
 		models.ImageMemberManager,
 		models.ImagePropertyManager,
+		models.ImageSubformatManager,
 	} {
 		db.RegisterModelManager(manager)
 	}

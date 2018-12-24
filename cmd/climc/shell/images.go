@@ -186,19 +186,28 @@ func init() {
 	})
 
 	type ImageShowOptions struct {
-		ID []string `help:"Image id or name" metavar:"IMAGE"`
+		ID      []string `help:"Image id or name" metavar:"IMAGE"`
+		Format  string   `help:"Image format"`
+		Torrent bool     `help:"show torrent information"`
 	}
 	R(&ImageShowOptions{}, "image-show", "Show details of a image", func(s *mcclient.ClientSession, args *ImageShowOptions) error {
+		params := jsonutils.NewDict()
+		if len(args.Format) > 0 {
+			params.Add(jsonutils.NewString(args.Format), "format")
+			if args.Torrent {
+				params.Add(jsonutils.JSONTrue, "torrent")
+			}
+		}
 		if len(args.ID) == 0 {
 			return fmt.Errorf("No image ID provided")
 		} else if len(args.ID) == 1 {
-			result, e := modules.Images.Get(s, args.ID[0], nil)
+			result, e := modules.Images.Get(s, args.ID[0], params)
 			if e != nil {
 				return e
 			}
 			printObject(result)
 		} else {
-			sr := modules.Images.BatchGet(s, args.ID, nil)
+			sr := modules.Images.BatchGet(s, args.ID, params)
 			printBatchResults(sr, modules.Images.GetColumns(s))
 		}
 		return nil
@@ -363,8 +372,10 @@ func init() {
 	})
 
 	type ImageDownloadOptions struct {
-		ID     string `help:"ID or Name of image"`
-		Output string `help:"Destination file, if omitted, output to stdout"`
+		ID      string `help:"ID or Name of image"`
+		Output  string `help:"Destination file, if omitted, output to stdout"`
+		Format  string `help:"Image format"`
+		Torrent bool   `help:"show torrent information"`
 	}
 	R(&ImageDownloadOptions{}, "image-download", "Download image data to a file or stdout", func(s *mcclient.ClientSession, args *ImageDownloadOptions) error {
 		imgId, err := modules.Images.GetId(s, args.ID, nil)
@@ -382,7 +393,7 @@ func init() {
 		} else {
 			sink = os.Stdout
 		}
-		meta, src, err := modules.Images.Download(s, imgId)
+		meta, src, err := modules.Images.Download(s, imgId, args.Format, args.Torrent)
 		if err != nil {
 			return err
 		}
@@ -424,6 +435,20 @@ func init() {
 		} else {
 			results := modules.Images.BatchPerformAction(s, args.ID, "public", nil)
 			printBatchResults(results, modules.Images.GetColumns(s))
+		}
+		return nil
+	})
+
+	R(&ImageShowOptions{}, "image-subformats", "Show all format status of a image", func(s *mcclient.ClientSession, args *ImageShowOptions) error {
+		for i := range args.ID {
+			result, err := modules.Images.GetSpecific(s, args.ID[i], "subformats", nil)
+			if err != nil {
+				fmt.Println("Fail to fetch subformats for", args.ID[i])
+				continue
+			}
+			arrays, _ := result.(*jsonutils.JSONArray).GetArray()
+			listResult := modules.ListResult{Data: arrays}
+			printList(&listResult, []string{})
 		}
 		return nil
 	})
