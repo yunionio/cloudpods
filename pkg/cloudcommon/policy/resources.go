@@ -18,20 +18,26 @@ var (
 		"dynamicschedtags",
 		"baremetalagents",
 		"schedpolicies",
+		"isolated-devices",
+		"reservedips",
+		"dnsrecords",
 	}
 	notifyAdminResources = []string{
 		"configs",
+		"contacts",
 	}
 	meterAdminResources = []string{
 		"rates",
+		"res_results",
 	}
 	k8sAdminResources = []string{
-		"clusters",
+		"kube_clusters",
 		"kube_nodes",
 	}
 	yunionagentAdminResources = []string{
 		"notices",
 		"readmarks",
+		"infos",
 	}
 )
 
