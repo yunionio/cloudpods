@@ -1,6 +1,8 @@
 package logclient
 
 import (
+	"context"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/stringutils"
@@ -135,7 +137,7 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 
 	logentry.Add(jsonutils.NewString(notes), "notes")
 	logclientWorkerMan.Run(func() {
-		s := auth.GetSession(userCred, "", "")
+		s := auth.GetSession(context.Background(), userCred, "", "")
 		_, err := api.Create(s, logentry)
 		if err != nil {
 			log.Errorf("create action log failed %s", err)

@@ -763,12 +763,12 @@ func (self *SHostManager) GetPropertyBmStartRegisterScript(ctx context.Context, 
 }
 
 func (maanger *SHostManager) ClearAllSchedDescCache() error {
-	s := auth.GetAdminSession(options.Options.Region, "")
+	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
 	return modules.SchedManager.CleanCache(s, "")
 }
 
 func (maanger *SHostManager) ClearSchedDescCache(hostId string) error {
-	s := auth.GetAdminSession(options.Options.Region, "")
+	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
 	return modules.SchedManager.CleanCache(s, hostId)
 }
 
@@ -2178,7 +2178,7 @@ func (manager *SHostManager) GetHostsByManagerAndRegion(managerId string, region
 }*/
 
 func (self *SHost) Request(userCred mcclient.TokenCredential, method string, url string, headers http.Header, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	s := auth.GetSession(userCred, "", "")
+	s := auth.GetSession(nil, userCred, "", "")
 	_, ret, err := s.JSONRequest(self.ManagerUri, "", method, url, headers, body)
 	return ret, err
 }

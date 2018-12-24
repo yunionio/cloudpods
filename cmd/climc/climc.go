@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -9,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/c-bata/go-prompt"
+	prompt "github.com/c-bata/go-prompt"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/version"
@@ -183,7 +184,9 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 	if options.ApiVersion != "" {
 		mcclient.DisableApiVersionByModule()
 	}
-	session := client.NewSession(options.OsRegionName,
+	session := client.NewSession(
+		context.Background(),
+		options.OsRegionName,
 		options.OsZoneName,
 		options.OsEndpointType,
 		cacheToken,

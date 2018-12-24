@@ -126,7 +126,7 @@ func (self *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
+func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
 	if len(extId) > 0 {
 		log.Debugf("UploadImage: Image external ID exists %s", extId)
 
@@ -140,7 +140,7 @@ func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageI
 	} else {
 		log.Debugf("UploadImage: no external ID")
 	}
-	return self.uploadImage(userCred, imageId, osArch, osType, osDist, osVersion, isForce)
+	return self.uploadImage(ctx, userCred, imageId, osArch, osType, osDist, osVersion, isForce)
 }
 
 func (self *SRegion) getCosUrl(bucket, object string) string {
@@ -148,9 +148,9 @@ func (self *SRegion) getCosUrl(bucket, object string) string {
 	return fmt.Sprintf("http://%s-%s.cos.%s.myqcloud.com/%s", bucket, self.client.AppID, self.Region, object)
 }
 
-func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, isForce bool) (string, error) {
+func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, isForce bool) (string, error) {
 	// first upload image to oss
-	s := auth.GetAdminSession(options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 
 	meta, reader, err := modules.Images.Download(s, imageId)
 	if err != nil {

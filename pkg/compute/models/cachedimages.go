@@ -206,7 +206,7 @@ func (manager *SCachedimageManager) GetImageById(ctx context.Context, userCred m
 			}
 		}
 	}
-	s := auth.GetAdminSession(options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 	obj, err := modules.Images.Get(s, imageId, nil)
 	if err != nil {
 		log.Errorf("GetImageById %s error %s", imageId, err)
@@ -220,7 +220,7 @@ func (manager *SCachedimageManager) GetImageById(ctx context.Context, userCred m
 }
 
 func (manager *SCachedimageManager) getImageByName(ctx context.Context, userCred mcclient.TokenCredential, imageId string) (*SImage, error) {
-	s := auth.GetSession(userCred, options.Options.Region, "")
+	s := auth.GetSession(ctx, userCred, options.Options.Region, "")
 	obj, err := modules.Images.GetByName(s, imageId, nil)
 	if err != nil {
 		return nil, err

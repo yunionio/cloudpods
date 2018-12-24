@@ -703,7 +703,7 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 	}
 	data.Add(jsonutils.NewString(self.DiskFormat), "disk_format")
 	name, _ := data.GetString("name")
-	s := auth.GetAdminSession(options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 	if imageList, err := modules.Images.List(s, jsonutils.Marshal(map[string]string{"name": name, "admin": "true"})); err != nil {
 		return "", err
 	} else if imageList.Total > 0 {

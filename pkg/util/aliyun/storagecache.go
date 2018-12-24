@@ -1,6 +1,7 @@
 package aliyun
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -104,7 +105,7 @@ func (self *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
+func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
 
 	if len(extId) > 0 {
 		log.Debugf("UploadImage: Image external ID exists %s", extId)
@@ -120,12 +121,12 @@ func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageI
 		log.Debugf("UploadImage: no external ID")
 	}
 
-	return self.uploadImage(userCred, imageId, osArch, osType, osDist, isForce)
+	return self.uploadImage(ctx, userCred, imageId, osArch, osType, osDist, isForce)
 }
 
-func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
+func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
 	// first upload image to oss
-	s := auth.GetAdminSession(options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 
 	meta, reader, err := modules.Images.Download(s, imageId)
 	if err != nil {
@@ -342,7 +343,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 	} else if err := bucket.DownloadFile(imageList.Objects[0].Key, tmpImageFile.Name(), 12*1024*1024, oss.Routines(3), oss.Progress(&OssProgressListener{})); err != nil {
 		return nil, err
 	} else {
-		s := auth.GetAdminSession(options.Options.Region, "")
+		s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
 		params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
 		if file, err := os.Open(tmpImageFile.Name()); err != nil {
 			return nil, err
