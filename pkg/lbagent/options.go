@@ -31,7 +31,7 @@ type LbagentOptions struct {
 }
 
 type Options struct {
-	CommonOpts cloudcommon.Options
+	CommonOpts cloudcommon.CommonOptions
 
 	LbagentOptions
 }

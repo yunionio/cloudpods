@@ -1,7 +1,6 @@
 package appsrv
 
 import (
-	"encoding/json"
 	"io/ioutil"
 	"net/http"
 
@@ -19,7 +18,11 @@ func FetchStruct(req *http.Request, v interface{}) error {
 		return e
 	}
 	if len(b) > 0 {
-		return json.Unmarshal(b, v)
+		obj, err := jsonutils.Parse(b)
+		if err != nil {
+			return err
+		}
+		return obj.Unmarshal(v)
 	} else {
 		return nil
 	}

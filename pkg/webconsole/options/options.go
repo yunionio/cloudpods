@@ -9,7 +9,7 @@ var (
 )
 
 type WebConsoleOptions struct {
-	cloudcommon.Options
+	cloudcommon.CommonOptions
 
 	ApiServer       string `help:"API server url to handle websocket connection, usually with public access" default:"http://webconsole.yunion.io"`
 	KubectlPath     string `help:"kubectl binary path used to connect k8s cluster" default:"/usr/bin/kubectl"`
