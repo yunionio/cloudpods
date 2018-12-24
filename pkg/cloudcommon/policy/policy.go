@@ -33,110 +33,6 @@ const (
 
 var (
 	PolicyManager *SPolicyManager
-
-	defaultRules = []rbacutils.SRbacRule{
-		{
-			Resource: "tasks",
-			Action:   PolicyActionPerform,
-			Result:   rbacutils.UserAllow,
-		},
-		{
-			Service:  "compute",
-			Resource: "zones",
-			Action:   PolicyActionList,
-			Result:   rbacutils.UserAllow,
-		},
-		{
-			Service:  "compute",
-			Resource: "zones",
-			Action:   PolicyActionGet,
-			Result:   rbacutils.UserAllow,
-		},
-		{
-			Service:  "compute",
-			Resource: "storages",
-			Action:   PolicyActionList,
-			Result:   rbacutils.UserAllow,
-		},
-		{
-			Service:  "compute",
-			Resource: "storages",
-			Action:   PolicyActionGet,
-			Result:   rbacutils.UserAllow,
-		},
-		{
-			Service:  "compute",
-			Resource: "schedtags",
-			Action:   PolicyActionList,
-			Result:   rbacutils.UserAllow,
-		},
-		{
-			Service:  "compute",
-			Resource: "schedtags",
-			Action:   PolicyActionGet,
-			Result:   rbacutils.UserAllow,
-		},
-		{
-			Service:  "compute",
-			Resource: "cloudregions",
-			Action:   PolicyActionList,
-			Result:   rbacutils.UserAllow,
-		},
-		{
-			Service:  "compute",
-			Resource: "cloudregions",
-			Action:   PolicyActionGet,
-			Result:   rbacutils.UserAllow,
-		},
-		{
-			Service:  "compute",
-			Resource: "quotas",
-			Action:   PolicyActionGet,
-			Result:   rbacutils.OwnerAllow,
-		},
-		{
-			Service:  "compute",
-			Resource: "usages",
-			Action:   PolicyActionGet,
-			Result:   rbacutils.OwnerAllow,
-		},
-		{
-			Service:  "compute",
-			Resource: "serverskus",
-			Action:   PolicyActionList,
-			Result:   rbacutils.UserAllow,
-		},
-		{
-			Service:  "compute",
-			Resource: "serverskus",
-			Action:   PolicyActionGet,
-			Result:   rbacutils.UserAllow,
-		},
-		{
-			Service:  "yunionagent",
-			Resource: "notices",
-			Action:   PolicyActionList,
-			Result:   rbacutils.UserAllow,
-		},
-		{
-			Service:  "yunionagent",
-			Resource: "readmarks",
-			Action:   PolicyActionList,
-			Result:   rbacutils.UserAllow,
-		},
-		{
-			Service:  "yunionagent",
-			Resource: "readmarks",
-			Action:   PolicyActionCreate,
-			Result:   rbacutils.UserAllow,
-		},
-		{
-			Service:  "yunionconf",
-			Resource: "parameters",
-			Action:   PolicyActionGet,
-			Result:   rbacutils.OwnerAllow,
-		},
-	}
 )
 
 func init() {
@@ -163,14 +59,9 @@ func parseJsonPolicy(obj jsonutils.JSONObject) (string, rbacutils.SRbacPolicy, e
 		return "", policy, err
 	}
 
-	blobStr, err := obj.GetString("policy")
+	blob, err := obj.Get("policy")
 	if err != nil {
 		log.Errorf("get blob error %s", err)
-		return "", policy, err
-	}
-	blob, err := jsonutils.ParseYAML(blobStr)
-	if err != nil {
-		log.Errorf("parse blob json error %s", err)
 		return "", policy, err
 	}
 	err = policy.Decode(blob)
@@ -362,9 +253,18 @@ func exportRbacResult(currentPriv rbacutils.TRbacResult) rbacutils.TRbacResult {
 }
 
 func (manager *SPolicyManager) explainPolicy(userCred mcclient.TokenCredential, policyReq jsonutils.JSONObject, name string) ([]string, rbacutils.TRbacResult, error) {
+	isAdmin, request, result, err := manager.explainPolicyInternal(userCred, policyReq, name)
+	log.Errorf("%v %s %s %s", isAdmin, request, result, err)
+	if !isAdmin && isAdminResource(request[0], request[1]) && result == rbacutils.Allow {
+		result = rbacutils.Deny
+	}
+	return request, result, err
+}
+
+func (manager *SPolicyManager) explainPolicyInternal(userCred mcclient.TokenCredential, policyReq jsonutils.JSONObject, name string) (bool, []string, rbacutils.TRbacResult, error) {
 	policySeq, err := policyReq.GetArray()
 	if err != nil {
-		return nil, rbacutils.Deny, httperrors.NewInputParameterError("invalid format")
+		return false, nil, rbacutils.Deny, httperrors.NewInputParameterError("invalid format")
 	}
 	service := rbacutils.WILD_MATCH
 	resource := rbacutils.WILD_MATCH
@@ -394,26 +294,26 @@ func (manager *SPolicyManager) explainPolicy(userCred mcclient.TokenCredential, 
 	isAdmin, _ := policySeq[0].Bool()
 	if !consts.IsRbacEnabled() {
 		if !isAdmin {
-			return reqStrs, rbacutils.OwnerAllow, nil
+			return isAdmin, reqStrs, rbacutils.OwnerAllow, nil
 		} else if isAdmin && userCred.HasSystemAdminPrivelege() {
-			return reqStrs, rbacutils.AdminAllow, nil
+			return isAdmin, reqStrs, rbacutils.AdminAllow, nil
 		} else {
-			return reqStrs, rbacutils.Deny, httperrors.NewForbiddenError("operation not allowed")
+			return isAdmin, reqStrs, rbacutils.Deny, httperrors.NewForbiddenError("operation not allowed")
 		}
 	}
 	if len(name) == 0 {
-		return reqStrs, exportRbacResult(manager.Allow(isAdmin, userCred, service, resource, action, extra...)), nil
+		return isAdmin, reqStrs, exportRbacResult(manager.Allow(isAdmin, userCred, service, resource, action, extra...)), nil
 	}
 	policy := manager.findPolicyByName(isAdmin, name)
 	if policy == nil {
-		return reqStrs, rbacutils.Deny, httperrors.NewNotFoundError("policy %s not found", name)
+		return isAdmin, reqStrs, rbacutils.Deny, httperrors.NewNotFoundError("policy %s not found", name)
 	}
 	rule := policy.GetMatchRule(service, resource, action, extra...)
 	result := rbacutils.Deny
 	if rule != nil {
 		result = rule.Result
 	}
-	return reqStrs, exportRbacResult(unifyRbacResult(isAdmin, result)), nil
+	return isAdmin, reqStrs, exportRbacResult(unifyRbacResult(isAdmin, result)), nil
 }
 
 func (manager *SPolicyManager) ExplainRpc(userCred mcclient.TokenCredential, params jsonutils.JSONObject, name string) (jsonutils.JSONObject, error) {

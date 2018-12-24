@@ -33,7 +33,12 @@ type SBaremetalagent struct {
 var BaremetalagentManager *SBaremetalagentManager
 
 func init() {
-	BaremetalagentManager = &SBaremetalagentManager{SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(SBaremetalagent{}, "baremetalagents_tbl", "baremetalagent", "baremetalagents")}
+	BaremetalagentManager = &SBaremetalagentManager{
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(SBaremetalagent{},
+			"baremetalagents_tbl",
+			"baremetalagent",
+			"baremetalagents",
+		)}
 }
 
 func (self *SBaremetalagentManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
