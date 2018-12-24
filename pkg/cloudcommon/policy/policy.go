@@ -59,14 +59,9 @@ func parseJsonPolicy(obj jsonutils.JSONObject) (string, rbacutils.SRbacPolicy, e
 		return "", policy, err
 	}
 
-	blobStr, err := obj.GetString("policy")
+	blob, err := obj.Get("policy")
 	if err != nil {
 		log.Errorf("get blob error %s", err)
-		return "", policy, err
-	}
-	blob, err := jsonutils.ParseYAML(blobStr)
-	if err != nil {
-		log.Errorf("parse blob json error %s", err)
 		return "", policy, err
 	}
 	err = policy.Decode(blob)

@@ -39,9 +39,23 @@ var (
 		"readmarks",
 		"infos",
 	}
-	logAdminResources = []string {
+	yunionconfAdminResources = []string{}
+	logAdminResources        = []string{}
+
+	adminResources = map[string][]string{
+		"compute":     computeAdminResources,
+		"notify":      notifyAdminResources,
+		"meter":       meterAdminResources,
+		"k8s":         k8sAdminResources,
+		"yunionagent": yunionagentAdminResources,
+		"yunionconf":  yunionconfAdminResources,
+		"log":         logAdminResources,
 	}
 )
+
+func GetAdminResources() map[string][]string {
+	return adminResources
+}
 
 func isAdminResource(service string, resource string) bool {
 	switch service {
@@ -79,4 +93,5 @@ func isAdminResource(service string, resource string) bool {
 	default:
 		return false
 	}
+	return false
 }
