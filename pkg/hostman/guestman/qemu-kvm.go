@@ -507,7 +507,9 @@ func (s *SKVMGuestInstance) Delete(ctx context.Context, migrated bool) error {
 
 func (s *SKVMGuestInstance) ExecStopTask(ctx context.Context, timeout int64) {
 	if s.IsRunning() && s.IsMonitorAlive() {
-		// Do Powerdown
-		s.monitor.SimpleCommand("system_powerdown", callback)
+		// Do Powerdown,
+		s.monitor.SimpleCommand("system_powerdown", s.OnPowerdownGuest)
+	} else {
+		s.CheckGuestRunningLater()
 	}
 }
