@@ -14,7 +14,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
-	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/pkg/util/netutils"
 )
 
@@ -263,9 +262,9 @@ var PRIVATE_PREFIXES = []string{
 	"192.168.0.0/16",
 }
 
-func GetPrivatePrefixes() []string {
-	if options.HostOptions.PrivatePrefixes != nil {
-		return options.HostOptions.PrivatePrefixes
+func GetPrivatePrefixes(privatePrefixes []string) []string {
+	if privatePrefixes != nil {
+		return privatePrefixes
 	} else {
 		return PRIVATE_PREFIXES
 	}
@@ -343,7 +342,7 @@ func isExitAddress(ip string) bool {
 	return !netutils.IsPrivate(ipv4) || netutils.IsHostLocal(ipv4) || netutils.IsLinkLocal(ipv4)
 }
 
-func AddNicRoutes(routes *[][]string, nicDesc *types.ServerNic, mainIp string, nicCnt int) {
+func AddNicRoutes(routes *[][]string, nicDesc *types.ServerNic, mainIp string, nicCnt int, privatePrefixes []string) {
 	if mainIp == nicDesc.Ip {
 		return
 	}
@@ -351,7 +350,7 @@ func AddNicRoutes(routes *[][]string, nicDesc *types.ServerNic, mainIp string, n
 		extendRoutes(routes, nicDesc.Routes)
 	} else if len(nicDesc.Gateway) > 0 && isExitAddress(nicDesc.Ip) &&
 		nicCnt == 2 && nicDesc.Ip != mainIp && isExitAddress(mainIp) {
-		for _, pref := range GetPrivatePrefixes() {
+		for _, pref := range GetPrivatePrefixes(privatePrefixes) {
 			addRoute(routes, pref, nicDesc.Gateway)
 		}
 	}

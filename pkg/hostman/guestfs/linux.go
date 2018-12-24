@@ -392,7 +392,7 @@ func (d *SDebianLikeRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject)
 				cmds += fmt.Sprintf("    gateway %s\n", nicDesc.Gateway)
 			}
 			var routes = make([][]string, 0)
-			cloudcommon.AddNicRoutes(&routes, nicDesc, mainIp, len(nics))
+			cloudcommon.AddNicRoutes(&routes, nicDesc, mainIp, len(nics), options.HostOptions.PrivatePrefixes)
 			for _, r := range routes {
 				cmds += fmt.Sprintf("    up route add -net %s gw %s || true\n", r[0], r[1])
 				cmds += fmt.Sprintf("    down route del -net %s gw %s || true\n", r[0], r[1])
@@ -548,7 +548,7 @@ func (r *SRedhatLikeRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject)
 			}
 			var routes = make([][]string, 0)
 			var rtbl string
-			cloudcommon.AddNicRoutes(&routes, nicdesc, mainIp, len(nics))
+			cloudcommon.AddNicRoutes(&routes, nicdesc, mainIp, len(nics), options.HostOptions.PrivatePrefixes)
 			for _, r := range routes {
 				rtbl += fmt.Sprintf("%s via %s dev eth%d\n", r[0], r[1], nicdesc.Index)
 			}

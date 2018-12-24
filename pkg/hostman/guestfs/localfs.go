@@ -208,7 +208,7 @@ func (f *SLocalGuestFS) Chmod(sPath string, mode uint32, caseInsensitive bool) e
 }
 
 func (f *SLocalGuestFS) UserAdd(user string, caseInsensitive bool) error {
-	output, err := exec.Command("chroot", f.mountPath, "useradd", user).Output()
+	output, err := exec.Command("chroot", f.mountPath, "useradd", "-m", "-s", "/bin/bash", user).Output()
 	if err != nil {
 		log.Errorf("Useradd fail: %s", err)
 		return err
