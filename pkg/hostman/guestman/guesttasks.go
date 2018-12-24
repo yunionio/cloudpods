@@ -41,8 +41,7 @@ func (s *SGuestStopTask) onPowerdownGuest(results string) {
 
 func (s *SGuestStopTask) checkGuestRunning() {
 	if !s.IsRunning() || time.Now().Sub(*s.startPowerdown) > (s.timeout*time.Duration) {
-		// force stop
-		s.Stop()
+		s.Stop() // force stop
 		httpclients.TaskComplete(s.ctx, nil)
 	} else {
 		s.CheckGuestRunningLater()
