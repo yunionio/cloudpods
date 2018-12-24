@@ -175,6 +175,9 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		log.Errorf("UploadObject error %s %s", imageId, err)
 		return "", err
 	}
+
+	defer cos.Bucket(bucketName).DeleteObject(context.Background(), imageId)
+
 	// 腾讯云镜像名称需要小于20个字符
 	imageBaseName := imageId[:10]
 	if imageBaseName[0] >= '0' && imageBaseName[0] <= '9' {
