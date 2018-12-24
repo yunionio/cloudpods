@@ -9,7 +9,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
-func InitAuth(options *Options, authComplete auth.AuthCompletedCallback) {
+func InitAuth(options *CommonOptions, authComplete auth.AuthCompletedCallback) {
 
 	if len(options.AuthURL) == 0 {
 		fmt.Println("Missing AuthURL")
