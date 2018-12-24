@@ -46,7 +46,7 @@ func (self *SAliyunProviderFactory) GetProvider(providerId, providerName, url, a
 
 func init() {
 	factory := SAliyunProviderFactory{
-		// providerTable: make(map[string]*SAliyunProvider),
+	// providerTable: make(map[string]*SAliyunProvider),
 	}
 	cloudprovider.RegisterFactory(&factory)
 }
