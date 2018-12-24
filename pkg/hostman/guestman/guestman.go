@@ -19,8 +19,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/seclib"
 )
@@ -350,15 +348,6 @@ func Init(serversPath string) {
 
 var guestManger *SGuestManager
 var wm *workmanager.SWorkManager
-var session *mcclient.ClientSession
-
-func SetClientSession() *mcclient.ClientSession {
-	session = auth.GetAdminSession(o.Options.Region, "v2")
-}
-
-func GetClinetSession() *mcclient.ClientSession {
-	return session
-}
 
 func GetGuestManager() *SGuestManager {
 	return guestManger
