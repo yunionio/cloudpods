@@ -21,9 +21,9 @@ func getUpdate(d []interface{}) ([]string, error) {
 
 func defaultSyncItems() []cache.CachedItem {
 	return []cache.CachedItem{
-		//newGlanceCache(),
-		//newNetworkCache(),
-		//newNetworksDataCache(),
+	//newGlanceCache(),
+	//newNetworkCache(),
+	//newNetworksDataCache(),
 	}
 }
 
