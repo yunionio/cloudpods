@@ -18,25 +18,28 @@ import (
 func StartService() {
 	consts.SetServiceType("yunionconf")
 
-	cloudcommon.ParseOptions(&options.Options, &options.Options.Options, os.Args, "yunionconf.conf")
-	cloudcommon.InitAuth(&options.Options.Options, func() {
+	opts := &options.Options
+	commonOpts := &options.Options.CommonOptions
+	dbOpts := &options.Options.DBOptions
+	cloudcommon.ParseOptions(opts, commonOpts, os.Args, "yunionconf.conf")
+	cloudcommon.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})
 
-	if options.Options.GlobalVirtualResourceNamespace {
+	if opts.GlobalVirtualResourceNamespace {
 		consts.EnableGlobalVirtualResourceNamespace()
 	}
 
-	cloudcommon.InitDB(&options.Options.DBOptions)
+	cloudcommon.InitDB(dbOpts)
 	defer cloudcommon.CloseDB()
 
-	app := cloudcommon.InitApp(&options.Options.Options, true)
+	app := cloudcommon.InitApp(commonOpts, true)
 	yunionconf.InitHandlers(app)
 
-	if db.CheckSync(options.Options.AutoSyncTable) {
+	if db.CheckSync(opts.AutoSyncTable) {
 		err := models.InitDB()
 		if err == nil {
-			cloudcommon.ServeForever(app, &options.Options.Options)
+			cloudcommon.ServeForever(app, commonOpts)
 		} else {
 			log.Errorf("InitDB fail: %s", err)
 		}

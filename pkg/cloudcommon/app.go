@@ -8,7 +8,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 )
 
-func InitApp(options *Options, dbAccess bool) *appsrv.Application {
+func InitApp(options *CommonOptions, dbAccess bool) *appsrv.Application {
 	// cache := appsrv.NewCache(options.AuthTokenCacheSize)
 	app := appsrv.NewApplication(options.ApplicationID, options.RequestWorkerCount, dbAccess)
 	app.CORSAllowHosts(options.CorsHosts)
@@ -20,9 +20,8 @@ func InitApp(options *Options, dbAccess bool) *appsrv.Application {
 	return app
 }
 
-func ServeForever(app *appsrv.Application, options *Options) {
+func ServeForever(app *appsrv.Application, options *CommonOptions) {
 	AppDBInit(app)
-
 	addr := net.JoinHostPort(options.Address, strconv.Itoa(options.Port))
 	proto := "http"
 	if options.EnableSsl {
