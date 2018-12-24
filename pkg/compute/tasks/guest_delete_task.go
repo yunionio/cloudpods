@@ -67,8 +67,14 @@ func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, obj db.ISt
 	eip, _ := guest.GetEip()
 	if eip != nil && eip.Mode != models.EIP_MODE_INSTANCE_PUBLICIP {
 		// detach floating EIP only
-		self.SetStage("on_eip_dissociate_complete", nil)
-		eip.StartEipDissociateTask(ctx, self.UserCred, self.GetTaskId())
+		if jsonutils.QueryBoolean(self.Params, "purge", false) {
+			// purge locally
+			eip.Dissociate(ctx, self.UserCred)
+			self.OnEipDissociateComplete(ctx, guest, nil)
+		} else {
+			self.SetStage("on_eip_dissociate_complete", nil)
+			eip.StartEipDissociateTask(ctx, self.UserCred, self.GetTaskId())
+		}
 	} else {
 		self.OnEipDissociateComplete(ctx, obj, nil)
 	}
