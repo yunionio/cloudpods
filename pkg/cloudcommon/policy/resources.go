@@ -39,6 +39,8 @@ var (
 		"readmarks",
 		"infos",
 	}
+	logAdminResources = []string {
+	}
 )
 
 func isAdminResource(service string, resource string) bool {
@@ -70,6 +72,10 @@ func isAdminResource(service string, resource string) bool {
 			return true
 		}
 		return false
+	case "log":
+		if utils.IsInStringArray(resource, logAdminResources) {
+			return true
+		}
 	default:
 		return false
 	}
