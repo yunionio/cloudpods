@@ -760,8 +760,19 @@ func (self *SDisk) StartDiskSaveTask(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SDisk) ValidateDeleteCondition(ctx context.Context) error {
+	return self.validateDeleteCondition(ctx, false)
+}
+
+func (self *SDisk) ValidatePurgeCondition(ctx context.Context) error {
+	return self.validateDeleteCondition(ctx, true)
+}
+
+func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) error {
 	if self.GetGuestDiskCount() > 0 {
 		return httperrors.NewNotEmptyError("Virtual disk used by virtual servers")
+	}
+	if !isPurge && self.IsValidPrePaid() {
+		return httperrors.NewForbiddenError("not allow to delete prepaid disk in valid status")
 	}
 	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
@@ -1278,7 +1289,7 @@ func (self *SDisk) AllowPerformPurge(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SDisk) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidatePurgeCondition(ctx)
 	if err != nil {
 		return nil, err
 	}

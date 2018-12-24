@@ -345,13 +345,20 @@ func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcc
 	}
 	isForce := jsonutils.QueryBoolean(data, "is_force", false)
 
+	var imageId string
 	image, err := CachedimageManager.getImageInfo(ctx, userCred, imageStr, isForce)
 	if err != nil {
 		log.Infof("image %s not found %s", imageStr, err)
-		return nil, httperrors.NewImageNotFoundError(imageStr)
+		if !isForce {
+			return nil, httperrors.NewImageNotFoundError(imageStr)
+		} else {
+			imageId = imageStr
+		}
+	} else {
+		imageId = image.Id
 	}
 
-	scimg := StoragecachedimageManager.GetStoragecachedimage(self.Id, image.Id)
+	scimg := StoragecachedimageManager.GetStoragecachedimage(self.Id, imageId)
 	if scimg == nil {
 		return nil, httperrors.NewResourceNotFoundError("storage not cache image")
 	}
@@ -366,7 +373,7 @@ func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcc
 		return nil, httperrors.NewInvalidStatusError("Fail to mark cache status: %s", err)
 	}
 
-	err = self.StartImageUncacheTask(ctx, userCred, image.Id, isForce, "")
+	err = self.StartImageUncacheTask(ctx, userCred, imageId, isForce, "")
 
 	return nil, err
 }

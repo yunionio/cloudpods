@@ -616,7 +616,7 @@ func (self *SRegion) doStopVM(instanceId string, isForce bool) error {
 
 func (self *SRegion) doDeleteVM(instanceId string) error {
 	params := make(map[string]string)
-	params["TerminateSubscription"] = "false"
+	params["TerminateSubscription"] = "true" // terminate expired prepaid instance
 	params["Force"] = "true"
 	return self.instanceOperation(instanceId, "DeleteInstance", params)
 }
