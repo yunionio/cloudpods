@@ -10,7 +10,7 @@ var (
 	EndpointsV3 ResourceManager
 )
 
-func endpointsV3ReadFilter(s *mcclient.ClientSession, result jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func endpointsV3ReadFilter(s *mcclient.ClientSession, result jsonutils.JSONObject, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	resultDict := result.(*jsonutils.JSONDict)
 	serviceId, _ := result.GetString("service_id")
 	service, err := cachedResourceManager.getById(&ServicesV3, s, serviceId)
