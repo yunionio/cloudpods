@@ -149,8 +149,8 @@ func (self *SStoragecache) fetchImages() error {
 }
 
 func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
-	bucketName := GetBucketName(self.region.GetId())
-	err := self.region.initVmimport()
+	bucketName := GetBucketName(self.region.GetId(), imageId)
+	err := self.region.initVmimport(bucketName)
 	if err != nil {
 		return "", err
 	}
@@ -160,6 +160,9 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 	if err != nil {
 		return "", err
 	}
+
+	defer s3client.DeleteBucket(&s3.DeleteBucketInput{Bucket: &bucketName})  // remove bucket
+
 	var diskFormat string
 	s := auth.GetAdminSession(options.Options.Region, "")
 	_, err = s3client.GetObject(&s3.GetObjectInput{Bucket: &bucketName, Key: &imageId})
@@ -193,6 +196,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 		if err != nil {
 			return "", err
 		}
+		defer s3client.DeleteObject(&s3.DeleteObjectInput{Bucket: &bucketName, Key: &imageId})  // remove object
 	} else {
 		meta, _, err := modules.Images.Download(s, imageId)
 		if err != nil {
@@ -262,7 +266,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 
 func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string) (jsonutils.JSONObject, error) {
 	// aws 导出镜像限制比较多。https://docs.aws.amazon.com/zh_cn/vm-import/latest/userguide/vmexport.html
-	bucketName := GetBucketName(self.region.GetId())
+	bucketName := GetBucketName(self.region.GetId(), imageId)
 	if err := self.region.checkBucket(bucketName); err != nil {
 		return nil, err
 	}
@@ -467,8 +471,7 @@ func (self *SRegion) initVmimportRolePolicy() error {
 	}
 }
 
-func (self *SRegion) initVmimportBucket() error {
-	bucketName := GetBucketName(self.GetId())
+func (self *SRegion) initVmimportBucket(bucketName string) error {
 	exists, err := self.IsBucketExist(bucketName)
 	if err != nil {
 		return err
@@ -487,7 +490,7 @@ func (self *SRegion) initVmimportBucket() error {
 	return err
 }
 
-func (self *SRegion) initVmimport() error {
+func (self *SRegion) initVmimport(bucketName string) error {
 	if err := self.initVmimportRole(); err != nil {
 		return err
 	}
@@ -496,7 +499,7 @@ func (self *SRegion) initVmimport() error {
 		return err
 	}
 
-	if err := self.initVmimportBucket(); err != nil {
+	if err := self.initVmimportBucket(bucketName); err != nil {
 		return err
 	}
 
