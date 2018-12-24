@@ -503,13 +503,24 @@ func (s *SKVMGuestInstance) Delete(ctx context.Context, migrated bool) error {
 	return exec.Command("rm", "-rf", s.HomeDir()).Run()
 }
 
-// ================ Guest Stop Task ==================
+func (s *SKVMGuestInstance) Stop() bool {
+	s.ExitCleanup(true)
+	if s.scriptStop() {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (s *SKVMGuestInstance) scriptStop() bool {
+	err := exec.Command("sh", s.GetStopScriptPath()).Run()
+	if err != nil {
+		log.Errorln(err)
+		return false
+	}
+	return true
+}
 
 func (s *SKVMGuestInstance) ExecStopTask(ctx context.Context, timeout int64) {
-	if s.IsRunning() && s.IsMonitorAlive() {
-		// Do Powerdown,
-		s.monitor.SimpleCommand("system_powerdown", s.OnPowerdownGuest)
-	} else {
-		s.CheckGuestRunningLater()
-	}
+	NewGuestStopTask(s, ctx, timeout).Start()
 }
