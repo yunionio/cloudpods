@@ -301,7 +301,15 @@ func (sr *SSyncRange) normalizeZoneIds() error {
 				return err
 			}
 		}
-		sr.Zone[i] = obj.GetId()
+		zone := obj.(*SZone)
+		region := zone.GetRegion()
+		if region == nil {
+			continue
+		}
+		sr.Zone[i] = zone.GetId()
+		if !utils.IsInStringArray(region.Id, sr.Region) {
+			sr.Region = append(sr.Region, region.Id)
+		}
 	}
 	return nil
 }
@@ -316,7 +324,22 @@ func (sr *SSyncRange) normalizeHostIds() error {
 				return err
 			}
 		}
-		sr.Host[i] = obj.GetId()
+		host := obj.(*SHost)
+		zone := host.GetZone()
+		if zone == nil {
+			continue
+		}
+		region := zone.GetRegion()
+		if region == nil {
+			continue
+		}
+		sr.Host[i] = host.GetId()
+		if !utils.IsInStringArray(zone.Id, sr.Zone) {
+			sr.Zone = append(sr.Zone, zone.Id)
+		}
+		if !utils.IsInStringArray(region.Id, sr.Region) {
+			sr.Region = append(sr.Region, region.Id)
+		}
 	}
 	return nil
 }
@@ -327,18 +350,24 @@ func (sr *SSyncRange) Normalize() error {
 		if err != nil {
 			return err
 		}
+	} else {
+		sr.Region = make([]string, 0)
 	}
 	if sr.Zone != nil && len(sr.Zone) > 0 {
 		err := sr.normalizeZoneIds()
 		if err != nil {
 			return err
 		}
+	} else {
+		sr.Zone = make([]string, 0)
 	}
 	if sr.Host != nil && len(sr.Host) > 0 {
 		err := sr.normalizeHostIds()
 		if err != nil {
 			return err
 		}
+	} else {
+		sr.Host = make([]string, 0)
 	}
 	return nil
 }
