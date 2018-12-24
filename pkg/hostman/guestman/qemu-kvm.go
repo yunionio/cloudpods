@@ -171,17 +171,18 @@ func (s *SKVMGuestInstance) DirtyServerRequestStart() {
 }
 
 // Delay Process
-func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interface{}) {
+func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	data, ok := params.(*jsonutils.JSONDict)
 	if !ok {
 		log.Errorln("asyncScriptStart params error")
-		return
+		return nil, fmt.Errorf("Unknown params")
 	}
 
 	// TODO hostinof.instace().clean_deleted_ports
 
 	time.Sleep(100 * time.Millisecond)
-	var isStarted, tried, err = false, 0, nil
+	var isStarted, tried = false, 0
+	var err error
 	for !isStarted && tried < MAX_TRY {
 		tried += 1
 
@@ -207,19 +208,15 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		}
 	}
 
-	s.onAsyncScriptStart(ctx, isStarted, err)
-}
-
-func (s *SKVMGuestInstance) onAsyncScriptStart(ctx context.Context, isStarted bool, err error) {
+	// is on_async_script_start
 	if isStarted {
 		log.Infof("Async start server %s success!", s.GetName())
 		s.StartMonitor(ctx)
+		return nil, nil
 	} else {
 		log.Infof("Async start server %s failed: %s!!!", s.GetName(), err)
-		if ctx != nil {
-			httpclients.TaskFailed(ctx, fmt.Sprintf("Async start server failed: %s", err))
-		}
-		s.SyncStatus()
+		cloudcommon.AddTimeout(100*time.Millisecond, s.SyncStatus())
+		return nil, err
 	}
 }
 
@@ -260,7 +257,7 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 	if s.IsRunning() {
 		log.Infof("%s is running, pending_delete=%s", s.GetName(), pendingDelete)
 		if !pendingDelete {
-			go s.StartMonitor(nil)
+			s.StartMonitor(nil)
 		}
 	} else {
 		var action = "stopped"
@@ -287,6 +284,10 @@ func (s *SKVMGuestInstance) IsSuspend() bool {
 	return false
 }
 
+func (s *SKVMGuestInstance) IsMonitorAlive() bool {
+	return s.monitor != nil && s.monitor.IsConnected()
+}
+
 func (s *SKVMGuestInstance) ListStateFilePaths() []string {
 	files, err := ioutil.ReadDir(s.HomeDir())
 	if err == nil {
@@ -301,11 +302,8 @@ func (s *SKVMGuestInstance) ListStateFilePaths() []string {
 	return nil
 }
 
-// Must called in new goroutine
 func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
-	// delay 100ms start monitor // cloudcommon.AddTimeout(100*time.Millisecond, func() { s.delayStartMonitor(ctx) })
-	time.Sleep(100 * time.Millisecond)
-	s.delayStartMonitor(ctx)
+	cloudcommon.AddTimeout(100*time.Millisecond, func() { s.delayStartMonitor(ctx) })
 }
 
 func (s *SKVMGuestInstance) delayStartMonitor(ctx context.Context) {
@@ -503,4 +501,13 @@ func (s *SKVMGuestInstance) Delete(ctx context.Context, migrated bool) error {
 	// self._del_netmon_nic() ?? 需要开发？
 	s.delTmpDisks(ctx, migrated)
 	return exec.Command("rm", "-rf", s.HomeDir()).Run()
+}
+
+// ================ Guest Stop Task ==================
+
+func (s *SKVMGuestInstance) ExecStopTask(ctx context.Context, timeout int64) {
+	if s.IsRunning() && s.IsMonitorAlive() {
+		// Do Powerdown
+		s.monitor.SimpleCommand("system_powerdown", callback)
+	}
 }
