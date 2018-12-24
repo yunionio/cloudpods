@@ -10,7 +10,7 @@ import (
 )
 
 type SResource struct {
-	CPU      int
+	CPU      int8
 	DiskGB   int
 	Host     string
 	MemoryMb int
@@ -42,7 +42,7 @@ func (host *SHostV2) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (host *SHostV2) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return host.zone.GetIWires()
 }
 
 func (host *SHostV2) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
@@ -54,11 +54,25 @@ func (host *SHostV2) GetIStorageById(id string) (cloudprovider.ICloudStorage, er
 }
 
 func (host *SHostV2) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	instances, err := host.zone.region.GetInstances(host.zone.ZoneName, host.HostName)
+	if err != nil {
+		return nil, err
+	}
+	iVMs := []cloudprovider.ICloudVM{}
+	for i := 0; i < len(instances); i++ {
+		instances[i].hostV2 = host
+		iVMs = append(iVMs, &instances[i])
+	}
+	return iVMs, nil
 }
 
 func (host *SHostV2) GetIVMById(gid string) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	instance, err := host.zone.region.GetInstance(gid)
+	if err != nil {
+		return nil, err
+	}
+	instance.hostV2 = host
+	return instance, nil
 }
 
 func (host *SHostV2) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int,
@@ -98,11 +112,23 @@ func (host *SHostV2) GetSN() string {
 }
 
 func (host *SHostV2) GetCpuCount() int8 {
+	if len(host.Resource) == 0 {
+		if err := host.Refresh(); err != nil {
+			return 0
+		}
+	}
+	for _, resource := range host.Resource {
+		for _, info := range resource {
+			if info.Project == "(total)" {
+				return info.CPU
+			}
+		}
+	}
 	return 0
 }
 
 func (host *SHostV2) GetNodeCount() int8 {
-	return 0
+	return host.GetCpuCount()
 }
 
 func (host *SHostV2) GetCpuDesc() string {
@@ -114,10 +140,34 @@ func (host *SHostV2) GetCpuMhz() int {
 }
 
 func (host *SHostV2) GetMemSizeMB() int {
+	if len(host.Resource) == 0 {
+		if err := host.Refresh(); err != nil {
+			return 0
+		}
+	}
+	for _, resource := range host.Resource {
+		for _, info := range resource {
+			if info.Project == "(total)" {
+				return info.MemoryMb
+			}
+		}
+	}
 	return 0
 }
 
 func (host *SHostV2) GetStorageSizeMB() int {
+	if len(host.Resource) == 0 {
+		if err := host.Refresh(); err != nil {
+			return 0
+		}
+	}
+	for _, resource := range host.Resource {
+		for _, info := range resource {
+			if info.Project == "(total)" {
+				return info.DiskGB * 1024
+			}
+		}
+	}
 	return 0
 }
 
@@ -159,12 +209,9 @@ func (host *SHostV2) IsEmulated() bool {
 }
 
 func (host *SHostV2) Refresh() error {
-	if host.Resource == nil || len(host.Resource) == 0 {
-		new, err := host.zone.GetIHostById(host.HostName)
-		if err != nil {
-			return err
-		}
-		return jsonutils.Update(host, new)
+	new, err := host.zone.GetIHostById(host.HostName)
+	if err != nil {
+		return err
 	}
-	return nil
+	return jsonutils.Update(host, new)
 }

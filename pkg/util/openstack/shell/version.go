@@ -9,7 +9,7 @@ import (
 
 func init() {
 	type VersionOptions struct {
-		SERVICE string `help:"Service name" choices:"compute"`
+		SERVICE string `help:"Service name" choices:"compute|volume|volumev2|volumev3"`
 	}
 	shellutils.R(&VersionOptions{}, "version-show", "Show a service version", func(cli *openstack.SRegion, args *VersionOptions) error {
 		minVersion, maxVersion, err := cli.GetVersion(args.SERVICE)

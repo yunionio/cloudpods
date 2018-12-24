@@ -1,6 +1,8 @@
 package provider
 
 import (
+	"strings"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -19,8 +21,13 @@ func (self *SOpenStackProviderFactory) ValidateChangeBandwidth(instanceId string
 	return nil
 }
 
-func (self *SOpenStackProviderFactory) GetProvider(providerId, providerName, url, username, password string) (cloudprovider.ICloudProvider, error) {
-	client, err := openstack.NewOpenStackClient(providerId, providerName, url, username, username, password)
+func (self *SOpenStackProviderFactory) GetProvider(providerId, providerName, url, account, password string) (cloudprovider.ICloudProvider, error) {
+	accountInfo := strings.Split(account, "/")
+	username, project := accountInfo[0], ""
+	if len(accountInfo) > 1 {
+		project = accountInfo[1]
+	}
+	client, err := openstack.NewOpenStackClient(providerId, providerName, url, username, password, project)
 	if err != nil {
 		return nil, err
 	}
@@ -40,6 +47,10 @@ func (self *SOpenStackProvider) IsPublicCloud() bool {
 	return false
 }
 
+func (self *SOpenStackProvider) GetVersion() string {
+	return ""
+}
+
 func (self *SOpenStackProvider) IsOnPremiseInfrastructure() bool {
 	return false
 }
@@ -53,7 +64,7 @@ func (self *SOpenStackProvider) GetName() string {
 }
 
 func (self *SOpenStackProvider) GetSysInfo() (jsonutils.JSONObject, error) {
-	return nil, nil
+	return jsonutils.NewDict(), nil
 }
 
 func (self *SOpenStackProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
@@ -61,11 +72,11 @@ func (self *SOpenStackProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, e
 }
 
 func (self *SOpenStackProvider) GetIRegions() []cloudprovider.ICloudRegion {
-	return nil
+	return self.client.GetIRegions()
 }
 
 func (self *SOpenStackProvider) GetIRegionById(extId string) (cloudprovider.ICloudRegion, error) {
-	return nil, cloudprovider.ErrNotSupported
+	return self.client.GetIRegionById(extId)
 }
 
 func (self *SOpenStackProvider) GetBalance() (float64, error) {

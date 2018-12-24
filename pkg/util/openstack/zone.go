@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/version"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -15,6 +16,9 @@ type ZoneState struct {
 
 type SZone struct {
 	region *SRegion
+
+	iwires    []cloudprovider.ICloudWire
+	istorages []cloudprovider.ICloudStorage
 
 	ZoneName  string
 	ZoneState ZoneState
@@ -56,31 +60,82 @@ func (zone *SZone) GetIRegion() cloudprovider.ICloudRegion {
 	return zone.region
 }
 
-func (zone *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	// if self.istorages == nil {
-	// 	self.fetchStorages()
-	// }
-	// return self.istorages, nil
-	return nil, cloudprovider.ErrNotImplemented
+func (zone *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
+	return zone.iwires, nil
 }
 
-func (zone *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (zone *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
-	_, maxVersion, err := zone.region.GetVersion("compute")
+func (zone *SZone) getStorageByCategory(category string) (*SStorage, error) {
+	storages, err := zone.GetIStorages()
 	if err != nil {
 		return nil, err
 	}
-	if version.GT(maxVersion, "2.43") {
+	for i := 0; i < len(storages); i++ {
+		storage := storages[i].(*SStorage)
+		if storage.Name == category {
+			return storage, nil
+		}
+	}
+	return nil, fmt.Errorf("No such storage %s", category)
+}
+
+func (zone *SZone) addWire(wire *SWire) {
+	if zone.iwires == nil {
+		zone.iwires = []cloudprovider.ICloudWire{}
+	}
+	zone.iwires = append(zone.iwires, wire)
+}
+
+func (zone *SZone) fetchStorages() error {
+	zone.istorages = []cloudprovider.ICloudStorage{}
+
+	for _, service := range []string{"volumev3", "volumev2", "volume"} {
+		_, resp, err := zone.region.Get(service, "/types", "", nil)
+		if err == nil {
+			storages := []SStorage{}
+			if err := resp.Unmarshal(&storages, "volume_types"); err != nil {
+				return err
+			}
+			for i := 0; i < len(storages); i++ {
+				storages[i].zone = zone
+				zone.istorages = append(zone.istorages, &storages[i])
+			}
+			return nil
+		}
+		log.Debugf("failed to get volume types by service %s error: %v, try another", service, err)
+	}
+	return fmt.Errorf("failed to find storage types by cinder service")
+}
+
+func (zone *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
+	if zone.istorages == nil {
+		zone.fetchStorages()
+	}
+	return zone.istorages, nil
+}
+
+func (zone *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
+	if zone.istorages == nil {
+		zone.fetchStorages()
+	}
+	for i := 0; i < len(zone.istorages); i++ {
+		if zone.istorages[i].GetGlobalId() == id {
+			return zone.istorages[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (zone *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
+	// 2.28 Hypervisor CPU字段是字符串，会解析失败
+	_, maxVersion, err := zone.region.GetVersion("compute")
+	if err == nil && version.GE(maxVersion, "2.28") {
 		return zone.GetIHostsV3()
 	}
 	return zone.GetIHostsV2()
 }
 
 func (zone *SZone) GetIHostsV2() ([]cloudprovider.ICloudHost, error) {
-	_, resp, err := zone.region.Get("/os-hosts", "", nil)
+	_, resp, err := zone.region.Get("compute", "/os-hosts", "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +154,8 @@ func (zone *SZone) GetIHostsV2() ([]cloudprovider.ICloudHost, error) {
 }
 
 func (zone *SZone) GetIHostsV3() ([]cloudprovider.ICloudHost, error) {
-	_, resp, err := zone.region.Get("/os-hypervisors/detail", "2.28", nil)
+	_, maxVersion, err := zone.region.GetVersion("compute")
+	_, resp, err := zone.region.Get("compute", "/os-hypervisors/detail", maxVersion, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -117,29 +173,28 @@ func (zone *SZone) GetIHostsV3() ([]cloudprovider.ICloudHost, error) {
 
 func (zone *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 	_, maxVersion, err := zone.region.GetVersion("compute")
-	if err != nil {
-		return nil, err
-	}
-	if version.GT(maxVersion, "2.43") {
+	if err == nil && version.GE(maxVersion, "2.43") {
 		return zone.GetIHostByIdV3(id)
 	}
 	return zone.GetIHostByIdV2(id)
 }
 
 func (zone *SZone) GetIHostByIdV3(id string) (cloudprovider.ICloudHost, error) {
-
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (zone *SZone) GetIHostByIdV2(id string) (*SHostV2, error) {
-	_, resp, err := zone.region.Get("/os-hosts/"+id, "", nil)
+	_, maxVersion, err := zone.region.GetVersion("compute")
+	_, resp, err := zone.region.Get("compute", "/os-hypervisors/"+id, maxVersion, nil)
 	if err != nil {
 		return nil, err
 	}
-	host := SHostV2{zone: zone, HostName: id, Resource: []map[string]SResource{}}
-	if err := resp.Unmarshal(&host.Resource, "host"); err != nil {
+	host := &SHostV3{zone: zone}
+	return host, resp.Unmarshal(&host, "hypervisor")
+}
+
+func (zone *SZone) GetIHostByIdV2(id string) (*SHostV2, error) {
+	_, maxVersion, err := zone.region.GetVersion("compute")
+	_, resp, err := zone.region.Get("compute", "/os-hosts/"+id, maxVersion, nil)
+	if err != nil {
 		return nil, err
 	}
-	host.zone = zone
-	return &host, nil
+	host := &SHostV2{zone: zone, HostName: id, Resource: []map[string]SResource{}}
+	return host, resp.Unmarshal(&(host.Resource), "host")
 }

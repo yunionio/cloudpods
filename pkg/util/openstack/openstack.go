@@ -3,8 +3,10 @@ package openstack
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudcommon/version"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -13,6 +15,8 @@ import (
 const (
 	CLOUD_PROVIDER_OPENSTACK = models.CLOUD_PROVIDER_OPENSTACK
 	OPENSTACK_DEFAULT_REGION = "RegionOne"
+
+	DEBUG = false
 )
 
 type SOpenStackClient struct {
@@ -30,7 +34,6 @@ type SOpenStackClient struct {
 func NewOpenStackClient(providerID string, providerName string, authURL string, username string, password string, project string) (*SOpenStackClient, error) {
 	cli := &SOpenStackClient{providerID: providerID, providerName: providerName,
 		authURL: authURL, username: username, password: password, project: project}
-
 	return cli, cli.fetchRegions()
 }
 
@@ -55,31 +58,56 @@ func (cli *SOpenStackClient) fetchRegions() error {
 	return nil
 }
 
-func (cli *SOpenStackClient) Get(region string, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	if body == nil {
-		body = jsonutils.NewDict()
-	}
+func (cli *SOpenStackClient) Request(region, service, method string, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
 	header := http.Header{}
 	if len(microversion) > 0 {
 		header.Set("X-Openstack-Nova-API-Version", microversion)
 	}
 	session := cli.client.NewSession(region, "", "internal", cli.tokenCredential, "")
-	return session.JSONRequest("compute", "", "GET", url, header, body)
+	return session.JSONRequest(service, "", method, url, header, body)
 }
 
-func (cli *SOpenStackClient) getComputeVersion(region string, service string) (string, string, error) {
+func (cli *SOpenStackClient) getVersion(region string, service string) (string, string, error) {
 	session := cli.client.NewSession(region, "", "internal", cli.tokenCredential, "")
-	_, resp, err := session.JSONRequest(service, "", "GET", "/", nil, nil)
+	uri, err := session.GetServiceURL(service, "internal")
+	if err != nil {
+		return "", "", err
+	}
+	url := uri
+	telnetID := cli.tokenCredential.GetTenantId()
+	if strings.Index(uri, telnetID) > 0 {
+		url = uri[0:strings.Index(uri, telnetID)]
+	}
+	_, resp, err := session.JSONRequest(url, "", "GET", "/", nil, nil)
 	if err != nil {
 		return "", "", err
 	}
 	minVersion, _ := resp.GetString("version", "min_version")
 	maxVersion, _ := resp.GetString("version", "version")
+	if resp.Contains("versions") {
+		minVersion, maxVersion = "1000.0", ""
+		versions, _ := resp.GetArray("versions")
+		for _, _version := range versions {
+			if _minVersion, _ := _version.GetString("min_version"); len(_minVersion) > 0 {
+				if version.LT(_minVersion, minVersion) {
+					minVersion = _minVersion
+				}
+			}
+			if _maxVersion, _ := _version.GetString("version"); len(_maxVersion) > 0 {
+				if version.GT(_maxVersion, maxVersion) {
+					maxVersion = _maxVersion
+				}
+			}
+		}
+		if minVersion == "1000.0" {
+			minVersion, maxVersion = "", ""
+		}
+	}
 	return minVersion, maxVersion, nil
 }
 
 func (cli *SOpenStackClient) connect() error {
-	cli.client = mcclient.NewClient(cli.authURL, 5, false, false, "", "")
+	cli.client = mcclient.NewClient(cli.authURL, 5, DEBUG, false, "", "")
 	tokenCredential, err := cli.client.Authenticate(cli.username, cli.password, "", cli.project)
 	if err != nil {
 		return err
@@ -95,6 +123,19 @@ func (cli *SOpenStackClient) GetRegion(regionId string) *SRegion {
 		}
 	}
 	return nil
+}
+
+func (cli *SOpenStackClient) GetIRegions() []cloudprovider.ICloudRegion {
+	return cli.iregions
+}
+
+func (cli *SOpenStackClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
+	for i := 0; i < len(cli.iregions); i++ {
+		if cli.iregions[i].GetGlobalId() == id {
+			return cli.iregions[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (cli *SOpenStackClient) GetRegions() []SRegion {

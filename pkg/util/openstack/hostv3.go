@@ -64,7 +64,7 @@ func (host *SHostV3) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (host *SHostV3) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return host.zone.GetIWires()
 }
 
 func (host *SHostV3) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
@@ -76,11 +76,25 @@ func (host *SHostV3) GetIStorageById(id string) (cloudprovider.ICloudStorage, er
 }
 
 func (host *SHostV3) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	instances, err := host.zone.region.GetInstances(host.zone.ZoneName, host.Service.Host)
+	if err != nil {
+		return nil, err
+	}
+	iVMs := []cloudprovider.ICloudVM{}
+	for i := 0; i < len(instances); i++ {
+		instances[i].hostV3 = host
+		iVMs = append(iVMs, &instances[i])
+	}
+	return iVMs, nil
 }
 
 func (host *SHostV3) GetIVMById(gid string) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	instance, err := host.zone.region.GetInstance(gid)
+	if err != nil {
+		return nil, err
+	}
+	instance.hostV3 = host
+	return instance, nil
 }
 
 func (host *SHostV3) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int,
@@ -102,7 +116,7 @@ func (host *SHostV3) GetEnabled() bool {
 }
 
 func (host *SHostV3) GetAccessIp() string {
-	return ""
+	return host.HostIP
 }
 
 func (host *SHostV3) GetAccessMac() string {
@@ -140,7 +154,7 @@ func (host *SHostV3) GetMemSizeMB() int {
 }
 
 func (host *SHostV3) GetStorageSizeMB() int {
-	return host.LocalGB
+	return host.LocalGB * 1024
 }
 
 func (host *SHostV3) GetStorageType() string {
@@ -191,5 +205,9 @@ func (host *SHostV3) IsEmulated() bool {
 }
 
 func (host *SHostV3) Refresh() error {
-	return nil
+	new, err := host.zone.region.GetIHostById(host.ID)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(host, new)
 }
