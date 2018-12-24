@@ -65,6 +65,5 @@ func (d *SLocalDisk) Delete() error {
 	               print 'delete backing-file:', path
 	               self.storage.delete_diskfile(path)
 	*/
-	d.Storage.RemoveDisk(d)
-	return nil
+	return d.Storage.RemoveDisk(d)
 }

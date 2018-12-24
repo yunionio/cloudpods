@@ -24,13 +24,21 @@ func (w *SWorkManager) done() {
 	atomic.AddInt32(&w.curCount, -1)
 }
 
+// If delay task is not panic and task func return err is nil
+// task complete will be called, otherwise called task failed
+// Params is interface for receive any type, task func should do type assert
 func (w *SWorkManager) DelayTask(ctx context.Context, task DelayTaskFunc, params interface{}) {
+	if ctx == nil || ctx.Value(APP_CONTEXT_KEY_TASK_ID) == nil {
+		w.DelayTaskWithoutTaskid(task, params)
+		return
+	}
+
 	w.add()
 	go func() {
 		defer w.done()
 		defer func() {
 			if r := recover(); r != nil {
-				log.Errorln("Delay task recover: ", r)
+				log.Errorln("DelayTask panic: ", r)
 				switch val := r.(type) {
 				case string:
 					httpclients.TaskFailed(ctx, val)
@@ -43,9 +51,28 @@ func (w *SWorkManager) DelayTask(ctx context.Context, task DelayTaskFunc, params
 		}()
 		res, err := task(ctx, params)
 		if err != nil {
+			log.Debugf("DelayTask failed: %s", err)
 			httpclients.TaskFailed(ctx, err.Error())
 		} else {
+			log.Debugf("DelayTask complete: %v", res)
 			httpclients.TaskComplete(ctx, res)
+		}
+	}()
+}
+
+func StartWorker()
+
+func (w *SWorkManager) DelayTaskWithoutTaskid(task DelayTaskFunc, params interface{}) {
+	w.add()
+	go func() {
+		defer w.done()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Errorln("DelayTaskWithoutTaskid panic: ", r)
+			}
+		}()
+		if _, err := task(ctx, params); err != nil {
+			log.Errorln("DelayTaskWithoutTaskid", err)
 		}
 	}()
 }

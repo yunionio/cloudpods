@@ -24,6 +24,9 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 
 func guestActions(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, body := appsrv.FetchEnv(ctx, w, r)
+	if body == nil {
+		body = jsonutils.NewDict()
+	}
 	var sid = params["<sid>"]
 	var action = params["<action>"]
 	if f, ok := actionFuncs[action]; !ok {
@@ -87,7 +90,7 @@ func response(ctx context.Context, w http.ResponseWriter, res interface{}) {
 func doCreate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	err := guestManger.PrepareCreate(sid)
 	if err != nil {
-		return nil, httperrors.NewBadRequestError(err.Error())
+		return nil, err
 	}
 	wm.DelayTask(ctx, guestManger.DoDeploy, &SGuestDeploy{sid, body, true})
 	return nil, nil
@@ -96,20 +99,22 @@ func doCreate(ctx context.Context, sid string, body jsonutils.JSONObject) (inter
 func doDeploy(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	err := guestManger.PrepareDeploy(sid)
 	if err != nil {
-		return nil, httperrors.NewBadRequestError(err.Error())
+		return nil, err
 	}
 	wm.DelayTask(ctx, guestManger.DoDeploy, &SGuestDeploy{sid, body, false})
 	return nil, nil
 }
 
 func doStart(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	res, err := guestManger.Start(ctx, sid, body)
-	return nil, nil
+	return guestManger.GuestStart(ctx, sid, body)
 }
 
 func doStop(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	// TODO
-	return nil, nil
+	timeout, err := body.Int("timeout")
+	if err != nil {
+		timeout = 30
+	}
+	return nil, guestManger.GuestStop(ctx, sid, timeout)
 }
 
 func doMonitor(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {

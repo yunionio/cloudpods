@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"regexp"
+	"strings"
 	"time"
 
 	"yunion.io/x/log"
@@ -234,7 +236,18 @@ func (m *QmpMonitor) Connect(host string, port int) error {
 	return nil
 }
 
+func (m *QmpMonitor) parseCmd(cmd string) string {
+	re := regexp.MustCompile(`\s+`)
+	parts := re.Split(strings.TrimSpace(cmd), -1)
+	if parts[0] == "info" && len(parts) > 1 {
+		return "query-" + parts[1]
+	} else {
+		return parts[0]
+	}
+}
+
 func (m *QmpMonitor) SimpleCommand(cmd string, callback StringCallback) {
+	cmd = m.parseCmd(cmd)
 	var cb func(res *Response)
 	if callback != nil {
 		cb = func(res *Response) {

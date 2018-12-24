@@ -14,6 +14,7 @@ type IStorage interface {
 	// Find owner disks first, if not found, call create disk
 	GetDiskById(diskId string) IDisk
 	CreateDisk(diskId string) IDisk
+	RemoveDisk(IDisk) error
 }
 
 type SBaseStorage struct {

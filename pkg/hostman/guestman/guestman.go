@@ -179,7 +179,7 @@ func (m *SGuestManager) PrepareCreate(sid string) error {
 	m.ServersLock.Lock()
 	defer m.ServersLock.Unlock()
 	if _, ok := m.Servers[sid]; ok {
-		return fmt.Errorf("Guest %s exists", sid)
+		return httperrors.NewBadRequestError("Guest %s exists", sid)
 	}
 	guest := NewKVMGuestInstance(sid, m)
 	m.Servers[sid] = guest
@@ -190,10 +190,10 @@ func (m *SGuestManager) PrepareDeploy(sid string) error {
 	m.ServersLock.Lock()
 	defer m.ServersLock.Unlock()
 	if guest, ok := m.Servers[sid]; !ok {
-		return fmt.Errorf("Guest %s not exists", sid)
+		return httperrors.NewBadRequestError("Guest %s not exists", sid)
 	} else {
 		if guest.IsRunning() || guest.IsSuspend() {
-			return fmt.Errorf("Cannot deploy on running/suspend guest")
+			return httperrors.NewBadRequestError("Cannot deploy on running/suspend guest")
 		}
 	}
 	return nil
@@ -281,7 +281,7 @@ func (m *SGuestManager) Delete(sid string) (*SKVMGuestInstance, error) {
 	}
 }
 
-func (m *SGuestManager) Start(ctx context.Context, sid string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (m *SGuestManager) GuestStart(ctx context.Context, sid string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if guest, ok := m.Servers[sid]; ok {
 		if desc, err := body.Get("desc"); err != nil {
 			guest.SaveDesc(desc)
@@ -301,11 +301,20 @@ func (m *SGuestManager) Start(ctx context.Context, sid string, body jsonutils.JS
 				res.Set("is_running", jsonutils.JSONTrue)
 				return res, nil
 			} else {
-				return nil, httperrors.NewBadGatewayError("Seems started, but no VNC info")
+				return nil, httperrors.NewBadRequestError("Seems started, but no VNC info")
 			}
 		}
 	} else {
 		return nil, httperrors.NewNotFoundError("Not found")
+	}
+}
+
+func (m *SGuestManager) GuestStop(ctx context.Context, sid string, timeout int64) error {
+	if guest, ok := m.Servers[sid]; !ok {
+		guest.ExecStopTask(ctx, timeout)
+		return nil
+	} else {
+		return httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
 }
 
