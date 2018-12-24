@@ -34,7 +34,7 @@ func (this *JointResourceManager) Get(s *mcclient.ClientSession, mid, sid string
 	if err != nil {
 		return nil, err
 	}
-	return this.filterSingleResult(s, result)
+	return this.filterSingleResult(s, result, params)
 }
 
 /*
@@ -62,7 +62,7 @@ func (this *JointResourceManager) ListDescendent(s *mcclient.ClientSession, mid 
 	if err != nil {
 		return nil, err
 	}
-	return this.filterListResults(s, results)
+	return this.filterListResults(s, results, params)
 }
 
 func (this *JointResourceManager) ListDescendent2(s *mcclient.ClientSession, sid string, params jsonutils.JSONObject) (*ListResult, error) {
@@ -81,7 +81,7 @@ func (this *JointResourceManager) ListAscendent(s *mcclient.ClientSession, mid s
 	if err != nil {
 		return nil, err
 	}
-	return this.filterListResults(s, results)
+	return this.filterListResults(s, results, params)
 }
 
 /* func (this *JointResourceManager) Exists(s *mcclient.ClientSession, mid, sid string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -101,7 +101,7 @@ func (this *JointResourceManager) Attach(s *mcclient.ClientSession, mid, sid str
 	if err != nil {
 		return nil, err
 	}
-	return this.filterSingleResult(s, result)
+	return this.filterSingleResult(s, result, nil)
 }
 
 func (this *JointResourceManager) BatchAttach(s *mcclient.ClientSession, mid string, sids []string, params jsonutils.JSONObject) []SubmitResult {
@@ -122,7 +122,7 @@ func (this *JointResourceManager) Detach(s *mcclient.ClientSession, mid, sid str
 	if err != nil {
 		return nil, err
 	}
-	return this.filterSingleResult(s, result)
+	return this.filterSingleResult(s, result, nil)
 }
 
 func (this *JointResourceManager) BatchDetach(s *mcclient.ClientSession, mid string, sids []string) []SubmitResult {
@@ -143,7 +143,7 @@ func (this *JointResourceManager) Update(s *mcclient.ClientSession, mid, sid str
 	if err != nil {
 		return nil, err
 	}
-	return this.filterSingleResult(s, result)
+	return this.filterSingleResult(s, result, nil)
 }
 
 func (this *JointResourceManager) Patch(s *mcclient.ClientSession, mid, sid string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -152,5 +152,5 @@ func (this *JointResourceManager) Patch(s *mcclient.ClientSession, mid, sid stri
 	if err != nil {
 		return nil, err
 	}
-	return this.filterSingleResult(s, result)
+	return this.filterSingleResult(s, result, nil)
 }
