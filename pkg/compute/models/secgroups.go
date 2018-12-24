@@ -58,7 +58,7 @@ func (self *SSecurityGroup) GetGuestsQuery() *sqlchemy.SQuery {
 			sqlchemy.Equals(guests.Field("admin_secgrp_id"), self.Id),
 			sqlchemy.In(guests.Field("id"), GuestsecgroupManager.Query("guest_id").Equals("secgroup_id", self.Id).SubQuery()),
 		),
-	)
+	).Filter(sqlchemy.NotIn(guests.Field("hypervisor"), []string{HYPERVISOR_CONTAINER, HYPERVISOR_BAREMETAL, HYPERVISOR_ESXI}))
 }
 
 func (self *SSecurityGroup) GetGuestsCount() int {
