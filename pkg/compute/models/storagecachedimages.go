@@ -230,7 +230,7 @@ func (self *SStoragecachedimage) ValidateDeleteCondition(ctx context.Context) er
 		return httperrors.NewResourceBusyError("Active download session not expired")
 	}
 	image := self.GetCachedimage()
-	if !image.canDeleteLastCache() {
+	if image != nil && !image.canDeleteLastCache() {
 		return httperrors.NewResourceBusyError("Cannot delete the last cache")
 	}
 	return self.SJointResourceBase.ValidateDeleteCondition(ctx)
@@ -253,8 +253,10 @@ func (self *SStoragecachedimage) markDeleting(ctx context.Context, userCred mccl
 	cache := self.GetStoragecache()
 	image := self.GetCachedimage()
 
-	lockman.LockJointObject(ctx, cache, image)
-	defer lockman.ReleaseJointObject(ctx, cache, image)
+	if image != nil {
+		lockman.LockJointObject(ctx, cache, image)
+		defer lockman.ReleaseJointObject(ctx, cache, image)
+	}
 
 	if !isForce && !utils.IsInStringArray(self.Status,
 		[]string{CACHED_IMAGE_STATUS_READY, CACHED_IMAGE_STATUS_DELETING, CACHED_IMAGE_STATUS_CACHE_FAILED}) {
