@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/httpclients"
+	"yunion.io/x/onecloud/pkg/util/timeutils2"
 )
 
 type SGuestStopTask struct {
@@ -49,5 +49,5 @@ func (s *SGuestStopTask) checkGuestRunning() {
 }
 
 func (s *SGuestStopTask) CheckGuestRunningLater() {
-	cloudcommon.AddTimeout(time.Second*1, s.checkGuestRunning())
+	timeutils2.AddTimeout(time.Second*1, s.checkGuestRunning())
 }

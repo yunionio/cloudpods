@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/shirou/gopsutil/cpu"
-
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudcommon"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
@@ -39,7 +39,7 @@ func DetectCpuInfo() (*SCPUInfo, err) {
 		return nil, err
 	}
 	cpu.Percent(interval, percpu)
-	ret, err := cloudcommon.FileGetContents("/proc/cpuinfo")
+	ret, err := fileutils2.FileGetContents("/proc/cpuinfo")
 	if err != nil {
 		log.Errorln(err)
 		return nil, err

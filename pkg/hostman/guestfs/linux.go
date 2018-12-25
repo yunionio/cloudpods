@@ -10,13 +10,15 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudcommon"
-	"yunion.io/x/onecloud/pkg/cloudcommon/fstabutils"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/fstabutils"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
-	"yunion.io/x/pkg/utils"
 )
 
 type SLinuxRootFs struct {
@@ -44,7 +46,7 @@ func (l *SLinuxRootFs) DeployHost(hn, domain string, ips []string) error {
 		}
 		oldHostFile = string(oldhf)
 	}
-	hf := make(cloudcommon.HostsFile, 0)
+	hf := make(fileutils2.HostsFile, 0)
 	hf.Parse(oldHostFile)
 	hf.Add("127.0.0.1", "localhost")
 	for _, ip := range ips {
@@ -355,7 +357,7 @@ func (d *SDebianLikeRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject)
 	cmds := ""
 	cmds += "auto lo\n"
 	cmds += "iface lo inet loopback\n\n"
-	mainNic, err := cloudcommon.GetMainNic(nics)
+	mainNic, err := netutils2.GetMainNic(nics)
 	if err != nil {
 		return err
 	}
@@ -376,11 +378,11 @@ func (d *SDebianLikeRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject)
 		cmds += fmt.Sprintf("auto eth%d\n", nicIdx)
 		if jsonutils.QueryBoolean(nic, "virtual", false) {
 			cmds += fmt.Sprintf("iface eth%d inet static\n", nicIdx)
-			cmds += fmt.Sprintf("    address %s\n", cloudcommon.PSEUDO_VIP)
+			cmds += fmt.Sprintf("    address %s\n", netutils2.PSEUDO_VIP)
 			cmds += "    netmask 255.255.255.255\n"
 			cmds += "\n"
 		} else if jsonutils.QueryBoolean(nic, "manual", false) {
-			netmask := cloudcommon.Netlen2Mask(nicDesc.Masklen)
+			netmask := netutils2.Netlen2Mask(nicDesc.Masklen)
 			ip, err := nic.GetString("ip")
 			if err != nil {
 				return err
@@ -392,12 +394,12 @@ func (d *SDebianLikeRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject)
 				cmds += fmt.Sprintf("    gateway %s\n", nicDesc.Gateway)
 			}
 			var routes = make([][]string, 0)
-			cloudcommon.AddNicRoutes(&routes, nicDesc, mainIp, len(nics), options.HostOptions.PrivatePrefixes)
+			netutils2.AddNicRoutes(&routes, nicDesc, mainIp, len(nics), options.HostOptions.PrivatePrefixes)
 			for _, r := range routes {
 				cmds += fmt.Sprintf("    up route add -net %s gw %s || true\n", r[0], r[1])
 				cmds += fmt.Sprintf("    down route del -net %s gw %s || true\n", r[0], r[1])
 			}
-			dnslist := cloudcommon.GetNicDns(nicDesc)
+			dnslist := netutils2.GetNicDns(nicDesc)
 			if len(dnslist) > 0 {
 				cmds += fmt.Sprintf("    dns-nameservers %s\n", strings.Join(dnslist, " "))
 				cmds += fmt.Sprintf("    dns-search %s\n", nicDesc.Domain)
@@ -514,7 +516,7 @@ func (r *SRedhatLikeRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject)
 	if err != nil {
 		return err
 	}
-	mainNic, err := cloudcommon.GetMainNic(nics)
+	mainNic, err := netutils2.GetMainNic(nics)
 	if err != nil {
 		return err
 	}
@@ -535,10 +537,10 @@ func (r *SRedhatLikeRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject)
 		if nicdesc.Virtual {
 			cmds += "BOOTPROTO=none\n"
 			cmds += "NETMASK=255.255.255.255\n"
-			cmds += fmt.Sprintf("IPADDR=%s\n", cloudcommon.PSEUDO_VIP)
+			cmds += fmt.Sprintf("IPADDR=%s\n", netutils2.PSEUDO_VIP)
 			cmds += "USERCTL=no\n"
 		} else if nicdesc.Manual {
-			netmask := cloudcommon.Netlen2Mask(nicdesc.Masklen)
+			netmask := netutils2.Netlen2Mask(nicdesc.Masklen)
 			cmds += "BOOTPROTO=none\n"
 			cmds += fmt.Sprintf("NETMASK=%s\n", netmask)
 			cmds += fmt.Sprintf("IPADDR=%s\n", nicdesc.Ip)
@@ -548,7 +550,7 @@ func (r *SRedhatLikeRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject)
 			}
 			var routes = make([][]string, 0)
 			var rtbl string
-			cloudcommon.AddNicRoutes(&routes, nicdesc, mainIp, len(nics), options.HostOptions.PrivatePrefixes)
+			netutils2.AddNicRoutes(&routes, nicdesc, mainIp, len(nics), options.HostOptions.PrivatePrefixes)
 			for _, r := range routes {
 				rtbl += fmt.Sprintf("%s via %s dev eth%d\n", r[0], r[1], nicdesc.Index)
 			}
@@ -558,7 +560,7 @@ func (r *SRedhatLikeRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject)
 					return err
 				}
 			}
-			dnslist := cloudcommon.GetNicDns(nicdesc)
+			dnslist := netutils2.GetNicDns(nicdesc)
 			if len(dnslist) > 0 {
 				cmds += "PEERDNS=yes\n"
 				for i := 0; i < len(dnslist); i++ {

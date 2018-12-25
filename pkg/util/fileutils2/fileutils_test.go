@@ -1,4 +1,4 @@
-package cloudcommon
+package fileutils2
 
 import "testing"
 

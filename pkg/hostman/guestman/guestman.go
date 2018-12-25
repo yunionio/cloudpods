@@ -13,14 +13,15 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudcommon"
+	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/util/seclib"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/httpclients"
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/pkg/util/regutils"
-	"yunion.io/x/pkg/util/seclib"
+	"yunion.io/x/onecloud/pkg/util/timeutils2"
 )
 
 const VNC_PORT_BASE = 5900
@@ -88,7 +89,7 @@ func (m *SGuestManager) VerifyExistingGuests(pendingDelete bool) {
 
 func (m *SGuestManager) OnVerifyExistingGuestsFail(err error, pendingDelete bool) {
 	log.Errorf("OnVerifyExistingGuestFail: %s, try again 30 seconds later", err.Error())
-	cloudcommon.AddTimeout(30*time.Second, func() { m.VerifyExistingGuests(false) })
+	timeutils2.AddTimeout(30*time.Second, func() { m.VerifyExistingGuests(false) })
 }
 
 func (m *SGuestManager) OnVerifyExistingGuestsSucc(res jsonutils.JSONObject, pendingDelete bool) {
@@ -328,8 +329,9 @@ func (m *SGuestManager) GetFreeVncPort() int64 {
 	}
 	var port = 1
 	for {
-		if _, ok := vncPorts[port]; !ok && !cloudcommon.IsTcpPortUsed("0.0.0.0", VNC_PORT_BASE+port) &&
-			!cloudcommon.IsTcpPortUsed("0.0.0.0", MONITOR_PORT_BASE+port) {
+		// TODO: IsTcpPortUsed
+		if _, ok := vncPorts[port]; !ok && !netutils2.IsTcpPortUsed("0.0.0.0", VNC_PORT_BASE+port) &&
+			!netutils2.IsTcpPortUsed("0.0.0.0", MONITOR_PORT_BASE+port) {
 			break
 		} else {
 			port += 1

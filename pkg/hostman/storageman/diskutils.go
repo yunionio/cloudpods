@@ -11,8 +11,8 @@ import (
 
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/qemutils"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
+	"yunion.io/x/onecloud/pkg/util/qemutils"
 )
 
 const MAX_TRIES = 3
