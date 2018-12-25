@@ -351,25 +351,40 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 		q = q.Equals("provider", manager.Provider)
 	}
 
-	if jsonutils.QueryBoolean(query, "usable", false) {
+	if jsonutils.QueryBoolean(query, "usable", false) || jsonutils.QueryBoolean(query, "usable_vpc", false) {
 		providers := CloudproviderManager.Query().SubQuery()
 		networks := NetworkManager.Query().SubQuery()
 		wires := WireManager.Query().SubQuery()
 		vpcs := VpcManager.Query().SubQuery()
 
+		usableNet := jsonutils.QueryBoolean(query, "usable", false)
+		usableVpc := jsonutils.QueryBoolean(query, "usable_vpc", false)
+
 		sq := vpcs.Query(sqlchemy.DISTINCT("cloudregion_id", vpcs.Field("cloudregion_id")))
-		sq = sq.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
-		sq = sq.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+		if usableNet {
+			sq = sq.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+			sq = sq.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+		}
 		sq = sq.Join(providers, sqlchemy.Equals(vpcs.Field("manager_id"), providers.Field("id")))
-		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		if usableNet {
+			sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		}
 		sq = sq.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
 		sq = sq.Filter(sqlchemy.In(providers.Field("status"), CLOUD_PROVIDER_VALID_STATUS))
+		if usableVpc {
+			sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+		}
 
 		sq2 := vpcs.Query(sqlchemy.DISTINCT("cloudregion_id", vpcs.Field("cloudregion_id")))
-		sq2 = sq2.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
-		sq2 = sq2.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
-		sq2 = sq2.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		if usableNet {
+			sq2 = sq2.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+			sq2 = sq2.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+			sq2 = sq2.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		}
 		sq2 = sq2.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
+		if usableVpc {
+			sq2 = sq2.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+		}
 
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.In(q.Field("id"), sq.SubQuery()),
