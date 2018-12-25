@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
 )
@@ -44,12 +45,12 @@ func (h *SHostInfo) parseConfig() error {
 	}
 	if len(options.HostOptions.ListenInterface) > 0 {
 		// TODO netutils.NetInterface netutils未实现
-		h.MasterNic = netutils.NetInterface(options.HostOptions.ListenInterface)
+		h.MasterNic = netutils2.NewNetInterface(options.HostOptions.ListenInterface)
 	} else {
 		h.MasterNic = nil
 	}
 	for _, n := range options.HostOptions.Networks {
-		var nic = NIC(n) // TODO NIC 未实现
+		var nic = NewNIC(n) // TODO NIC 未实现
 		h.Nics = append(h.Nics, nic)
 		// XXX ???
 		// if options.enable_tc_bwlimit:

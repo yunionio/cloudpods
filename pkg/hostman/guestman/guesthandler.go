@@ -156,6 +156,32 @@ func doSuspend(ctx context.Context, sid string, body jsonutils.JSONObject) (inte
 	return nil, nil
 }
 
+// snapshot 相关的有待重构，放入diskhandler中去，先不写
+func doSnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	if !guestManger.IsGuestExist(sid) {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
+	}
+	wm.DelayTask(ctx, guestManger.DoSnapshot, params)
+}
+
+func doSrcPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+}
+
+func doDestPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+}
+
+func doLiveMigrate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+}
+
+func doResume(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+}
+
+func doStartNbdServer(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+}
+
+func doDriveMirror(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+}
+
 var actionFuncs = map[string]actionFunc{
 	"create":               doCreate,
 	"deploy":               doDeploy,
@@ -167,8 +193,8 @@ var actionFuncs = map[string]actionFunc{
 	"snapshot":             doSnapshot,
 	"delete-snapshot":      doDeleteSnapshot,
 	"reload-disk-snapshot": doReloadDiskSnapshot,
-	"remove-statefile":     doRemoveStatefile,
-	"io-throttle":          doIoThrottle,
+	// "remove-statefile":     doRemoveStatefile,
+	// "io-throttle":          doIoThrottle,
 	"src-prepare-migrate":  doSrcPrepareMigrate,
 	"dest-prepare-migrate": doDestPrepareMigrate,
 	"live-migrate":         doLiveMigrate,

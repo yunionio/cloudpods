@@ -2,13 +2,12 @@ package guestman
 
 import "yunion.io/x/jsonutils"
 
-type SGuestDeploy struct {
-	Sid    string
-	Body   jsonutils.JSONObject
-	IsInit bool
-}
-
-type SGuestSync struct {
+type SBaseParms struct {
 	Sid  string
 	Body jsonutils.JSONObject
+}
+
+type SGuestDeploy struct {
+	SGuestBaseParms
+	IsInit bool
 }

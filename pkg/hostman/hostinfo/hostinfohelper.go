@@ -9,6 +9,7 @@ import (
 
 	"github.com/shirou/gopsutil/cpu"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -95,4 +96,19 @@ func (c *SCPUInfo) fetchCpuSpecs() (map[string]string, error) {
 func (c *SCPUInfo) GetJsonDesc(percentInterval int) {
 	// perc, err := cpu.Percent(time.Millisecond*percentInterval, false)
 	// os. ?????可能不需要要写
+}
+
+type SNIC struct {
+	inter  string
+	bridge string
+}
+
+func NewNIC(desc string) *SNIC {
+	nic := new(SNIC)
+	data := strings.Split(desc, "/")
+	nic.inter = data[0]
+	nic.bridge = data[1]
+	if regutils.MatchIP4Addr(data[2]) {
+		nic.ip = data[2]
+	}
 }

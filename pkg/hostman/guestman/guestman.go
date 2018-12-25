@@ -321,7 +321,7 @@ func (m *SGuestManager) GuestStop(ctx context.Context, sid string, timeout int64
 }
 
 func (m *SGuestManager) GuestSync(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	syncParams, ok := params.(*SGuestSync)
+	syncParams, ok := params.(*SBaseParms)
 	if !ok {
 		return nil, fmt.Errorf("Unknown params")
 	}
@@ -342,6 +342,11 @@ func (m *SGuestManager) GuestSuspend(ctx context.Context, params interface{}) (j
 	}
 	guest := m.Servers[sid]
 	guest.ExecSuspendTask()
+	return nil, nil
+}
+
+func (m *SGuestManager) DoSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	// TODO
 	return nil, nil
 }
 
