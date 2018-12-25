@@ -1199,16 +1199,16 @@ func fillDiskConfigByImage(ctx context.Context, userCred mcclient.TokenCredentia
 	return nil
 }
 
-func parseIsoInfo(ctx context.Context, userCred mcclient.TokenCredential, info string) (string, error) {
+func parseIsoInfo(ctx context.Context, userCred mcclient.TokenCredential, info string) (*SImage, error) {
 	image, err := CachedimageManager.getImageInfo(ctx, userCred, info, false)
 	if err != nil {
 		log.Errorf("getImageInfo fail %s", err)
-		return "", err
+		return nil, err
 	}
 	if image.Status != IMAGE_STATUS_ACTIVE {
-		return "", httperrors.NewInvalidStatusError("Image status is not active")
+		return nil, httperrors.NewInvalidStatusError("Image status is not active")
 	}
-	return image.Id, nil
+	return image, nil
 }
 
 func (self *SDisk) fetchDiskInfo(diskConfig *SDiskConfig) {
