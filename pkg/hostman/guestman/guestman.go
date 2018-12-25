@@ -16,11 +16,12 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/seclib"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/httpclients"
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
+	"yunion.io/x/onecloud/pkg/hostman"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
 )
 
@@ -77,13 +78,11 @@ func (m *SGuestManager) VerifyExistingGuests(pendingDelete bool) {
 		}
 		params.Set("filter.1", strings.Join(keys, ","))
 	}
-	urlStr := fmt.Sprintf("/servers?%s", params.Encode())
-	// TODO: get default context not use background context
-	_, res, err := httpclients.GetDefaultComputeClient().Request(context.Background(), "GET", urlStr, nil, nil, false)
+	res, err := modules.Servers.List(hostman.GetComputeSession(context.Background()), id, params)
 	if err != nil {
 		m.OnVerifyExistingGuestsFail(err, pendingDelete)
 	} else {
-		m.OnVerifyExistingGuestsSucc(res, pendingDelete)
+		m.OnVerifyExistingGuestsSucc(res.Data, pendingDelete)
 	}
 }
 
@@ -92,32 +91,26 @@ func (m *SGuestManager) OnVerifyExistingGuestsFail(err error, pendingDelete bool
 	timeutils2.AddTimeout(30*time.Second, func() { m.VerifyExistingGuests(false) })
 }
 
-func (m *SGuestManager) OnVerifyExistingGuestsSucc(res jsonutils.JSONObject, pendingDelete bool) {
-	iServers, err := res.Get("servers")
-	if err != nil {
-		m.OnVerifyExistingGuestsFail(err, pendingDelete)
-	} else {
-		servers := iServers.(*jsonutils.JSONArray)
-		for _, v := range servers.Value() {
-			id, _ := v.GetString("id")
-			server, ok := m.CandidateServers[id]
-			if !ok {
-				log.Errorf("verify_existing_guests return unknown server %s ???????", id)
-			} else {
-				server.ImportServer(pendingDelete)
-			}
-		}
-		if !pendingDelete {
-			m.VerifyExistingGuests(true)
+func (m *SGuestManager) OnVerifyExistingGuestsSucc(servers []jsonutils.JSONObject, pendingDelete bool) {
+	for _, v := range servers {
+		id, _ := v.GetString("id")
+		server, ok := m.CandidateServers[id]
+		if !ok {
+			log.Errorf("verify_existing_guests return unknown server %s ???????", id)
 		} else {
-			var unknownServerrs = make([]*SKVMGuestInstance, 0)
-			for _, server := range m.CandidateServers {
-				log.Errorf("Server %s not found on this host", server.GetName())
-				unknownServerrs = append(unknownServerrs, server)
-			}
-			for _, server := range unknownServerrs {
-				m.RemoveCandidateServer(server)
-			}
+			server.ImportServer(pendingDelete)
+		}
+	}
+	if !pendingDelete {
+		m.VerifyExistingGuests(true)
+	} else {
+		var unknownServerrs = make([]*SKVMGuestInstance, 0)
+		for _, server := range m.CandidateServers {
+			log.Errorf("Server %s not found on this host", server.GetName())
+			unknownServerrs = append(unknownServerrs, server)
+		}
+		for _, server := range unknownServerrs {
+			m.RemoveCandidateServer(server)
 		}
 	}
 }
@@ -151,6 +144,14 @@ func (m *SGuestManager) IsGuestDir(f os.FileInfo) bool {
 		return false
 	}
 	return true
+}
+
+func (m *SGuestManager) IsGuestExist(sid string) bool {
+	if _, ok := guestManger.Servers[sid]; !ok {
+		return false
+	} else {
+		return true
+	}
 }
 
 func (m *SGuestManager) LoadExistingGuests() {
@@ -214,30 +215,30 @@ func (m *SGuestManager) Monitor(sid, cmd string, callback func(string)) error {
 }
 
 // Delay process
-func (m *SGuestManager) DoDeploy(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+func (m *SGuestManager) GuestDeploy(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	deployParams, ok := params.(*SGuestDeploy)
 	if !ok {
 		return nil, fmt.Errorf("Unknown params")
 	}
-	guest, ok := m.Servers[deployParams.sid]
+	guest, ok := m.Servers[deployParams.Sid]
 	if ok {
-		desc, _ := deployParams.body.Get("desc")
+		desc, _ := deployParams.Body.Get("desc")
 		if desc != nil {
 			guest.SaveDesc(desc)
 		}
-		if jsonutils.QueryBoolean(deployParams.body, "k8s_pod", false) {
+		if jsonutils.QueryBoolean(deployParams.Body, "k8s_pod", false) {
 			return nil, nil
 		}
-		publicKey := sshkeys.GetKeys(deployParams.body)
-		deploys, _ := deployParams.body.GetArray("deploys")
-		password, _ := deployParams.body.GetString("password")
-		resetPassword := jsonutils.QueryBoolean(deployParams.body, "reset_password", false)
+		publicKey := sshkeys.GetKeys(deployParams.Body)
+		deploys, _ := deployParams.Body.GetArray("deploys")
+		password, _ := deployParams.Body.GetString("password")
+		resetPassword := jsonutils.QueryBoolean(deployParams.Body, "reset_password", false)
 		if resetPassword && len(password) == 0 {
 			password = seclib.RandomPassword(12)
 		}
 
 		guestInfo, err := guest.DeployFs(&guestfs.SDeployInfo{
-			publicKey, deploys, password, deployParams.isInit})
+			publicKey, deploys, password, deployParams.IsInit})
 		if err != nil {
 			log.Errorf("Deploy guest fs error: %s", err)
 			return nil, err
@@ -319,6 +320,31 @@ func (m *SGuestManager) GuestStop(ctx context.Context, sid string, timeout int64
 	}
 }
 
+func (m *SGuestManager) GuestSync(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	syncParams, ok := params.(*SGuestSync)
+	if !ok {
+		return nil, fmt.Errorf("Unknown params")
+	}
+	guest := m.Servers[syncParams.Sid]
+	if syncParams.Body.Contains("desc") {
+		desc, _ := syncParams.Body.Get("desc")
+		fwOnly := jsonutils.QueryBoolean(syncParams.Body, "fw_only", false)
+		// TODO :SyncConfig
+		return guest.SyncConfig(ctx, desc, fwOnly)
+	}
+	return nil, nil
+}
+
+func (m *SGuestManager) GuestSuspend(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	sid, ok := params.(string)
+	if !ok {
+		return nil, fmt.Errorf("Unknown params")
+	}
+	guest := m.Servers[sid]
+	guest.ExecSuspendTask()
+	return nil, nil
+}
+
 func (m *SGuestManager) GetFreeVncPort() int64 {
 	vncPorts := make(map[int]struct{}, 0)
 	for _, guest := range m.Servers {
@@ -340,25 +366,21 @@ func (m *SGuestManager) GetFreeVncPort() int64 {
 	return port
 }
 
+var guestManger *SGuestManager
+var wm *workmanager.SWorkManager
+
 func Stop() {
 	// guestManger.ExitGuestCleanup()
 }
 
 func Init(serversPath string) {
-	initGuestManager(serversPath)
-}
-
-var guestManger *SGuestManager
-var wm *workmanager.SWorkManager
-
-func GetGuestManager() *SGuestManager {
-	return guestManger
-}
-
-func initGuestManager(serversPath string) {
 	if guestManger == nil {
 		guestManger = NewGuestManager(serversPath)
 	}
+}
+
+func GetGuestManager() *SGuestManager {
+	return guestManger
 }
 
 func GetWorkManager() *workmanager.SWorkManager {
@@ -366,5 +388,5 @@ func GetWorkManager() *workmanager.SWorkManager {
 }
 
 func init() {
-	wm = workmanager.NewWorkManger()
+	wm = workmanager.NewWorkManger(hostman.TaskFailed, hostman.TaskComplete)
 }
