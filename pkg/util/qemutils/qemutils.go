@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/version"
+	"yunion.io/x/onecloud/pkg/util/version"
 )
 
 const (

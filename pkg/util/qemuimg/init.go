@@ -1,13 +1,14 @@
 package qemuimg
 
 import (
-	"os/exec"
-
 	"fmt"
+	"os/exec"
 	"regexp"
+
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudcommon/qemutils"
-	"yunion.io/x/onecloud/pkg/cloudcommon/version"
+
+	"yunion.io/x/onecloud/pkg/util/qemutils"
+	"yunion.io/x/onecloud/pkg/util/version"
 )
 
 const (
