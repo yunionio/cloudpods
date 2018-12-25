@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -37,7 +38,9 @@ var (
 )
 
 func init() {
-	PolicyManager = &SPolicyManager{}
+	PolicyManager = &SPolicyManager{
+		lock: &sync.Mutex{},
+	}
 }
 
 type SPolicyManager struct {
@@ -50,6 +53,8 @@ type SPolicyManager struct {
 	refreshInterval     time.Duration
 
 	cache *hashcache.Cache // policy cache
+
+	lock *sync.Mutex
 }
 
 func parseJsonPolicy(obj jsonutils.JSONObject) (string, rbacutils.SRbacPolicy, error) {
@@ -129,17 +134,25 @@ func (manager *SPolicyManager) start(refreshInterval time.Duration, retryInterva
 	manager.sync()
 }
 
-func (manager *SPolicyManager) sync() {
+func (manager *SPolicyManager) SyncOnce() {
 	policies, adminPolicies, err := fetchPolicies()
 	if err != nil {
 		log.Errorf("sync rbac policy failed: %s", err)
 		time.AfterFunc(manager.failedRetryInterval, manager.sync)
 		return
 	}
+
+	manager.lock.Lock()
+	defer manager.lock.Unlock()
+
 	manager.policies = policies
 	manager.adminPolicies = adminPolicies
 
 	manager.lastSync = time.Now()
+}
+
+func (manager *SPolicyManager) sync() {
+	manager.SyncOnce()
 	time.AfterFunc(manager.refreshInterval, manager.sync)
 }
 
@@ -303,7 +316,7 @@ func (manager *SPolicyManager) explainPolicyInternal(userCred mcclient.TokenCred
 		}
 	}
 	if len(name) == 0 {
-		return isAdmin, reqStrs, exportRbacResult(manager.Allow(isAdmin, userCred, service, resource, action, extra...)), nil
+		return isAdmin, reqStrs, exportRbacResult(manager.allowWithoutCache(isAdmin, userCred, service, resource, action, extra...)), nil
 	}
 	policy := manager.findPolicyByName(isAdmin, name)
 	if policy == nil {
