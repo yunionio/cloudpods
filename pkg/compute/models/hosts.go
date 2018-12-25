@@ -342,6 +342,15 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.In("id", hostQ.SubQuery())
 	}
 
+	if query.Contains("baremetal") {
+		isBaremetal := jsonutils.QueryBoolean(query, "baremetal", false)
+		if isBaremetal {
+			q = q.Equals("host_type", HOST_TYPE_BAREMETAL)
+		} else {
+			q = q.NotEquals("host_type", HOST_TYPE_BAREMETAL)
+		}
+	}
+
 	return q, nil
 }
 
