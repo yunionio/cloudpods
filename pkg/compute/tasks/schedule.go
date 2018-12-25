@@ -104,7 +104,7 @@ func doScheduleObjects(
 
 	task.SetStage("OnScheduleComplete", schedtags)
 
-	s := auth.GetAdminSession(options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 	results, err := modules.SchedManager.DoSchedule(s, parmas, len(objs))
 	if err != nil {
 		onSchedulerRequestFail(ctx, task, objs, fmt.Sprintf("Scheduler fail: %s", err))
