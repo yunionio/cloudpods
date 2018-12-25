@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 
@@ -55,7 +56,9 @@ func (manager *SImageSubformatManager) FetchSubImage(id string, format string) *
 	subImg := SImageSubformat{}
 	err := q.First(&subImg)
 	if err != nil {
-		log.Errorf("query subimage fail! %s", err)
+		if err != sql.ErrNoRows {
+			log.Errorf("query subimage fail! %s", err)
+		}
 		return nil
 	}
 	return &subImg

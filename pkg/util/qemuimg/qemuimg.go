@@ -197,6 +197,8 @@ func (img *SQemuImage) Clone(name string, format TImageFormat, compact bool) (*S
 		return img.CloneVmdk(name, compact)
 	case RAW:
 		return img.CloneRaw(name)
+	case VHD:
+		return img.CloneVhd(name, compact)
 	default:
 		return nil, ErrUnsupportedFormat
 	}
@@ -257,6 +259,10 @@ func (img *SQemuImage) Convert2Vmdk(compact bool) error {
 	return img.convert(VMDK, vmdkOptions(compact), false, "")
 }
 
+func (img *SQemuImage) Convert2Vhd(compact bool) error {
+	return img.convert(VHD, vhdOptions(compact), false, "")
+}
+
 func (img *SQemuImage) Convert2Raw() error {
 	return img.convert(RAW, nil, false, "")
 }
@@ -304,8 +310,20 @@ func vmdkOptions(compact bool) []string {
 	}
 }
 
+func vhdOptions(compact bool) []string {
+	if compact {
+		return []string{"subformat=dynamic"}
+	} else {
+		return []string{"subformat=fixed"}
+	}
+}
+
 func (img *SQemuImage) CloneVmdk(name string, compact bool) (*SQemuImage, error) {
 	return img.clone(name, VMDK, vmdkOptions(compact), compact, "")
+}
+
+func (img *SQemuImage) CloneVhd(name string, compact bool) (*SQemuImage, error) {
+	return img.clone(name, VHD, vhdOptions(compact), compact, "")
 }
 
 func (img *SQemuImage) CloneRaw(name string) (*SQemuImage, error) {
