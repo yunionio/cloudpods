@@ -10,31 +10,17 @@ import (
 func init() {
 	type ZoneListOptions struct {
 		options.BaseListOptions
-		Region  string `help:"cloud region ID or Name"`
-		Usable  bool   `help:"List all zones that is usable"`
-		Private bool   `help:"show all zones in private cloud regions only"`
-		Public  bool   `help:"show all zones in public cloud regions only"`
+		Region    string `help:"cloud region ID or Name" json:"-"`
+		Usable    *bool  `help:"List all zones where networks are usable"`
+		UsableVpc *bool  `help:"List all zones where vpc are usable"`
+		Private   *bool  `help:"show all zones in private cloud regions only"`
+		Public    *bool  `help:"show all zones in public cloud regions only"`
 	}
 	R(&ZoneListOptions{}, "zone-list", "List zones", func(s *mcclient.ClientSession, args *ZoneListOptions) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = args.BaseListOptions.Params()
-			if err != nil {
-				return err
-
-			}
+		params, err := options.ListStructToParams(args)
+		if err != nil {
+			return err
 		}
-		if args.Usable {
-			params.Add(jsonutils.JSONTrue, "usable")
-		}
-		if args.Private {
-			params.Add(jsonutils.JSONTrue, "is_private")
-		}
-		if args.Public {
-			params.Add(jsonutils.JSONTrue, "is_public")
-		}
-		var err error
 		var result *modules.ListResult
 		if len(args.Region) > 0 {
 			result, err = modules.Zones.ListInContext(s, params, &modules.Cloudregions, args.Region)
