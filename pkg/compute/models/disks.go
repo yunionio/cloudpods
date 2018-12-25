@@ -60,9 +60,10 @@ const (
 	DISK_START_SNAPSHOT = "start_snapshot"
 	DISK_SNAPSHOTING    = "snapshoting"
 
-	DISK_TYPE_SYS  = "sys"
-	DISK_TYPE_SWAP = "swap"
-	DISK_TYPE_DATA = "data"
+	DISK_TYPE_SYS    = "sys"
+	DISK_TYPE_SWAP   = "swap"
+	DISK_TYPE_DATA   = "data"
+	DISK_TYPE_VOLUME = "volume"
 
 	DISK_BACKING_IMAGE = "image"
 )
@@ -105,8 +106,8 @@ type SDisk struct {
 
 	// # file system
 	FsFormat string `width:"32" charset:"ascii" nullable:"true" list:"user"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
-	// # disk type, OS, SWAP, DAT
-	DiskType string `width:"32" charset:"ascii" nullable:"true" list:"user"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
+	// # disk type, OS, SWAP, DAT, VOLUME
+	DiskType string `width:"32" charset:"ascii" nullable:"true" list:"user" update:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
 	// # is persistent
 	Nonpersistent bool `default:"false" list:"user"` // Column(Boolean, default=False)
 	AutoSnapshot  bool `default:"false" nullable:"true" get:"user" update:"user"`
@@ -236,6 +237,9 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq.SubQuery()))
 	}
 
+	if diskType := jsonutils.GetAnyString(query, []string{"type", "disk_type"}); diskType != "" {
+		q = q.Filter(sqlchemy.Equals(q.Field("disk_type"), diskType))
+	}
 	return q, nil
 }
 
@@ -310,6 +314,12 @@ func (self *SDisk) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 	host := storage.GetMasterHost()
 	if host == nil {
 		return nil, httperrors.NewNotFoundError("failed to find host for storage %s with disk %s", storage.Name, self.Name)
+	}
+
+	if diskType, _ := data.GetString("disk_type"); diskType != "" {
+		if !utils.IsInStringArray(diskType, []string{DISK_TYPE_DATA, DISK_TYPE_VOLUME}) {
+			return nil, httperrors.NewInputParameterError("not support update disk_type %s", diskType)
+		}
 	}
 
 	data, err := host.GetHostDriver().ValidateUpdateDisk(ctx, userCred, data)
@@ -1067,7 +1077,7 @@ type SDiskConfig struct {
 	ImageId string
 
 	SnapshotId string
-	DiskType   string // sys, data, swap
+	DiskType   string // sys, data, swap, volume
 
 	// ImageDiskFormat string
 	SizeMb          int    // MB
@@ -1119,6 +1129,8 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 			diskConfig.Cache = p
 		} else if utils.IsInStringArray(p, DISK_TYPES) {
 			diskConfig.Medium = p
+		} else if utils.IsInStringArray(p, []string{DISK_TYPE_VOLUME}) {
+			diskConfig.DiskType = p
 		} else if p[0] == '/' {
 			diskConfig.Mountpoint = p
 		} else if p == "autoextend" {
@@ -1227,7 +1239,11 @@ func (self *SDisk) fetchDiskInfo(diskConfig *SDiskConfig) {
 		self.Nonpersistent = true
 	} else {
 		if len(self.DiskType) == 0 {
-			self.DiskType = DISK_TYPE_DATA
+			diskType := DISK_TYPE_DATA
+			if diskConfig.DiskType == DISK_TYPE_VOLUME {
+				diskType = DISK_TYPE_VOLUME
+			}
+			self.DiskType = diskType
 		}
 		self.Nonpersistent = false
 	}
