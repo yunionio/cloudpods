@@ -11,9 +11,10 @@ import (
 func init() {
 	type CloudregionListOptions struct {
 		options.BaseListOptions
-		Private *bool `help:"show private cloud regions only" json:"is_private"`
-		Public  *bool `help:"show public cloud regions only" json:"is_public"`
-		Usable  *bool `help:"List regions that are usable"`
+		Private   *bool `help:"show private cloud regions only" json:"is_private"`
+		Public    *bool `help:"show public cloud regions only" json:"is_public"`
+		Usable    *bool `help:"List regions where networks are usable"`
+		UsableVpc *bool `help:"List regions where VPC are usable"`
 	}
 	R(&CloudregionListOptions{}, "cloud-region-list", "List cloud regions", func(s *mcclient.ClientSession, opts *CloudregionListOptions) error {
 		params, err := options.ListStructToParams(opts)
