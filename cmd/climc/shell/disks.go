@@ -17,6 +17,7 @@ func init() {
 		Local   *bool  `help:"Show Local storage disks"`
 		Guest   string `help:"Guest ID or name"`
 		Storage string `help:"Storage ID or name"`
+		Type    string `help:"Disk type" choices:"sys|data|swap|volume"`
 
 		BillingType string `help:"billing type" choices:"postpaid|prepaid"`
 	}
@@ -110,6 +111,7 @@ func init() {
 		Desc         string `help:"Description" metavar:"DESCRIPTION"`
 		AutoDelete   string `help:"enable/disable auto delete of disk" choices:"enable|disable"`
 		AutoSnapshot string `help:"enable/disable auto snapshot of disk" choices:"enable|disable"`
+		DiskType     string `help:"Disk type" choices:"data|volume"`
 	}
 	R(&DiskUpdateOptions{}, "disk-update", "Update property of a virtual disk", func(s *mcclient.ClientSession, args *DiskUpdateOptions) error {
 		params := jsonutils.NewDict()
@@ -132,6 +134,9 @@ func init() {
 			} else {
 				params.Add(jsonutils.JSONFalse, "auto_snapshot")
 			}
+		}
+		if len(args.DiskType) > 0 {
+			params.Add(jsonutils.NewString(args.DiskType), "disk_type")
 		}
 		if params.Size() == 0 {
 			return InvalidUpdateError()
