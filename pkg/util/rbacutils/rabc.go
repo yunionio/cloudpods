@@ -163,6 +163,9 @@ func (policy *SRbacPolicy) GetMatchRule(service string, resource string, action 
 }
 
 func CompactRules(rules []SRbacRule) []SRbacRule {
+	if len(rules) == 0 {
+		return nil
+	}
 	output := make([]SRbacRule, 1)
 	output[0] = rules[0]
 	for i := 1; i < len(rules); i += 1 {
@@ -197,6 +200,10 @@ func (policy *SRbacPolicy) Decode(policyJson jsonutils.JSONObject) error {
 	rules, err := decode(policy.IsAdmin, ruleJson, SRbacRule{}, levelService)
 	if err != nil {
 		return err
+	}
+
+	if len(rules) == 0 {
+		return fmt.Errorf("empty policy")
 	}
 
 	policy.Rules = CompactRules(rules)
