@@ -732,6 +732,10 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			return nil, httperrors.NewBadRequestError("Snapshot error: disk index 0 but disk type is %s", diskConfig.DiskType)
 		}
 
+		if len(diskConfig.ImageId) == 0 && len(diskConfig.SnapshotId) == 0 && !data.Contains("cdrom") {
+			return nil, httperrors.NewBadRequestError("Miss operate system???")
+		}
+
 		if len(diskConfig.Backend) == 0 {
 			diskConfig.Backend = STORAGE_LOCAL
 		}
@@ -740,12 +744,26 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		data.Add(jsonutils.Marshal(diskConfig), "disk.0")
 
 		imgProperties := diskConfig.ImageProperties
-		if imgProperties == nil || len(imgProperties) == 0 {
+		if data.Contains("cdrom") {
+			cdromStr, err := data.GetString("cdrom")
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("invalid cdrom device description %s", err)
+			}
+			image, err := parseIsoInfo(ctx, userCred, cdromStr)
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("parse cdrom device info error %s", err)
+			}
+			data.Add(jsonutils.NewString(image.Id), "cdrom")
+			if len(imgProperties) == 0 {
+				imgProperties = image.Properties
+			}
+		}
+
+		if len(imgProperties) == 0 {
 			imgProperties = map[string]string{"os_type": "Linux"}
 		}
 
 		osType, _ := data.GetString("os_type")
-
 		osProf, err = osprofile.GetOSProfileFromImageProperties(imgProperties, hypervisor)
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
@@ -892,18 +910,6 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			return nil, err
 		}
 		data.Set(fmt.Sprintf("isolated_device.%d", idx), jsonutils.Marshal(devConfig))
-	}
-
-	if data.Contains("cdrom") {
-		cdromStr, err := data.GetString("cdrom")
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid cdrom device description %s", err)
-		}
-		cdromId, err := parseIsoInfo(ctx, userCred, cdromStr)
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("parse cdrom device info error %s", err)
-		}
-		data.Add(jsonutils.NewString(cdromId), "cdrom")
 	}
 
 	keypairId, _ := data.GetString("keypair")
