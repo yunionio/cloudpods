@@ -65,6 +65,11 @@ func (info *RemoteConsoleInfo) Cleanup() error {
 }
 
 // GetData implements ISessionData interface
+func (info *RemoteConsoleInfo) Connect() error {
+	return nil
+}
+
+// GetData implements ISessionData interface
 func (info *RemoteConsoleInfo) GetData(s string) (bool, string, string) {
 	return false, "", ""
 }
