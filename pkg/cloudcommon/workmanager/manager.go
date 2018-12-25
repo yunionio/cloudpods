@@ -7,13 +7,19 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudcommon/httpclients"
+
+	"yunion.io/x/onecloud/pkg/appctx"
 )
 
-type DelayTaskFunc func(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
+type DelayTaskFunc func(context.Context, interface{}) (jsonutils.JSONObject, error)
+type OnTaskFailed func(context.Context, string)
+type OnTaskCompleted func(context.Context, jsonutils.JSONObject)
 
 type SWorkManager struct {
 	curCount int32
+
+	onFailed    OnTaskFailed
+	onCompleted OnTaskCompleted
 }
 
 func (w *SWorkManager) add() {
@@ -28,63 +34,65 @@ func (w *SWorkManager) done() {
 // task complete will be called, otherwise called task failed
 // Params is interface for receive any type, task func should do type assert
 func (w *SWorkManager) DelayTask(ctx context.Context, task DelayTaskFunc, params interface{}) {
-	if ctx == nil || ctx.Value(APP_CONTEXT_KEY_TASK_ID) == nil {
-		w.DelayTaskWithoutTaskid(task, params)
+	if ctx == nil || ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID) == nil {
+		w.DelayTaskWithoutTask(ctx, task, params)
 		return
-	}
-
-	w.add()
-	go func() {
-		defer w.done()
-		defer func() {
-			if r := recover(); r != nil {
-				log.Errorln("DelayTask panic: ", r)
-				switch val := r.(type) {
-				case string:
-					httpclients.TaskFailed(ctx, val)
-				case error:
-					httpclients.TaskFailed(ctx, val.Error())
-				default:
-					httpclients.TaskFailed(ctx, "Unknown panic")
+	} else {
+		w.add()
+		go func() {
+			defer w.done()
+			defer func() {
+				if r := recover(); r != nil {
+					log.Errorln("DelayTask panic: ", r)
+					switch val := r.(type) {
+					case string:
+						w.onFailed(ctx, val)
+					case error:
+						w.onFailed(ctx, val.Error())
+					default:
+						w.onFailed(ctx, "Unknown panic")
+					}
 				}
+			}()
+
+			res, err := task(ctx, params)
+			if err != nil {
+				log.Debugf("DelayTask failed: %s", err)
+				w.onFailed(ctx, err.Error())
+			} else {
+				log.Debugf("DelayTask complete: %v", res)
+				w.onCompleted(ctx, res)
 			}
 		}()
-		res, err := task(ctx, params)
-		if err != nil {
-			log.Debugf("DelayTask failed: %s", err)
-			httpclients.TaskFailed(ctx, err.Error())
-		} else {
-			log.Debugf("DelayTask complete: %v", res)
-			httpclients.TaskComplete(ctx, res)
-		}
-	}()
+	}
 }
 
-func StartWorker()
-
-func (w *SWorkManager) DelayTaskWithoutTaskid(task DelayTaskFunc, params interface{}) {
+func (w *SWorkManager) DelayTaskWithoutTask(ctx context.Context, task DelayTaskFunc, params interface{}) {
 	w.add()
 	go func() {
 		defer w.done()
 		defer func() {
 			if r := recover(); r != nil {
-				log.Errorln("DelayTaskWithoutTaskid panic: ", r)
+				log.Errorln("DelayTaskWithoutTask panic: ", r)
 			}
 		}()
 		if _, err := task(ctx, params); err != nil {
-			log.Errorln("DelayTaskWithoutTaskid", err)
+			log.Errorln("DelayTaskWithoutTask error:", err)
 		}
 	}()
 }
 
 func (w *SWorkManager) Stop() {
-	log.Infof("WorkManager To stop, wait for workers ...")
+	log.Infof("WorkManager stop, waitting for workers ...")
 	for w.curCount > 0 {
 		log.Warningf("Busy workers count %d, waiting stopped", w.curCount)
 		time.Sleep(1 * time.Second)
 	}
 }
 
-func NewWorkManger() *SWorkManager {
-	return &SWorkManager{}
+func NewWorkManger(onFailed OnTaskFailed, onCompleted OnTaskCompleted) *SWorkManager {
+	return &SWorkManager{
+		onFailed:    onFailed,
+		onCompleted: onCompleted,
+	}
 }

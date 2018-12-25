@@ -92,7 +92,7 @@ func doCreate(ctx context.Context, sid string, body jsonutils.JSONObject) (inter
 	if err != nil {
 		return nil, err
 	}
-	wm.DelayTask(ctx, guestManger.DoDeploy, &SGuestDeploy{sid, body, true})
+	wm.DelayTask(ctx, guestManger.GuestDeploy, &SGuestDeploy{sid, body, true})
 	return nil, nil
 }
 
@@ -101,7 +101,7 @@ func doDeploy(ctx context.Context, sid string, body jsonutils.JSONObject) (inter
 	if err != nil {
 		return nil, err
 	}
-	wm.DelayTask(ctx, guestManger.DoDeploy, &SGuestDeploy{sid, body, false})
+	wm.DelayTask(ctx, guestManger.GuestDeploy, &SGuestDeploy{sid, body, false})
 	return nil, nil
 }
 
@@ -118,6 +118,10 @@ func doStop(ctx context.Context, sid string, body jsonutils.JSONObject) (interfa
 }
 
 func doMonitor(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	if !guestManger.IsGuestExist(sid) {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
+	}
+
 	if body.Contains("cmd") {
 		var c = make(chan string)
 		cb := func(res string) {
@@ -134,6 +138,22 @@ func doMonitor(ctx context.Context, sid string, body jsonutils.JSONObject) (inte
 	} else {
 		return nil, httperrors.NewMissingParameterError("cmd")
 	}
+}
+
+func doSync(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	if !guestManger.IsGuestExist(sid) {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
+	}
+	wm.DelayTask(ctx, guestManger.GuestSync, &SGuestSync{sid, body})
+	return nil, nil
+}
+
+func doSuspend(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	if !guestManger.IsGuestExist(sid) {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
+	}
+	wm.DelayTaskWithoutTask(ctx, guestManger.GuestSuspend, sid)
+	return nil, nil
 }
 
 var actionFuncs = map[string]actionFunc{

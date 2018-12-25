@@ -16,12 +16,13 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/regutils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/httpclients"
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
+	"yunion.io/x/onecloud/pkg/hostman"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
 )
@@ -159,13 +160,12 @@ func (s *SKVMGuestInstance) IsDirtyShotdown() bool {
 }
 
 func (s *SKVMGuestInstance) DirtyServerRequestStart() {
-	var url = "/servers/dirty-server-start"
 	hostId, _ := s.Desc.GetString("host_id")
 	var body = jsonutils.NewDict()
 	body.Set("guest_id", jsonutils.NewString(s.Id))
 	body.Set("host_id", jsonutils.NewString(hostId))
-	_, _, err := httpclients.GetDefaultComputeClient().
-		Request(context.Background(), "POST", url, nil, body, false)
+	_, err := modules.Servers.PerformClassAction(
+		hostman.GetComputeSession(context.Background()), "dirty-server-start", body)
 	if err != nil {
 		log.Errorf("Dirty server request start error: %s", err)
 	}
@@ -329,7 +329,7 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 		migratePort, _ := s.Desc.Get("live_migrate_dest_port")
 		body := jsonutils.NewDict(
 			jsonutils.JSONPair{"live_migrate_dest_port", migratePort})
-		httpclients.TaskComplete(ctx, body)
+		hostman.TaskComplete(ctx, body)
 	} else if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
 		// TODO
 	} else if jsonutils.QueryBoolean(s.Desc, "is_master", false) && ctx == nil {
@@ -387,7 +387,8 @@ func (s *SKVMGuestInstance) SyncStatus() {
 	if s.IsSuspend() {
 		status = "suspend"
 	}
-	httpclients.GetDefaultComputeClient().UpdateServerStatus(s.GetId(), status)
+
+	hostman.UpdateServerStatus(context.Background(), s.GetId(), status)
 }
 
 func (s *SKVMGuestInstance) SaveDesc(desc jsonutils.JSONObject) error {
@@ -524,4 +525,8 @@ func (s *SKVMGuestInstance) scriptStop() bool {
 
 func (s *SKVMGuestInstance) ExecStopTask(ctx context.Context, timeout int64) {
 	NewGuestStopTask(s, ctx, timeout).Start()
+}
+
+func (s *SKVMGuestInstance) ExecSuspendTask(ctx context.Context) {
+
 }

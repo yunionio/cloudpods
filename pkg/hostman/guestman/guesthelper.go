@@ -3,7 +3,12 @@ package guestman
 import "yunion.io/x/jsonutils"
 
 type SGuestDeploy struct {
-	sid    string
-	body   jsonutils.JSONObject
-	isInit bool
+	Sid    string
+	Body   jsonutils.JSONObject
+	IsInit bool
+}
+
+type SGuestSync struct {
+	Sid  string
+	Body jsonutils.JSONObject
 }
