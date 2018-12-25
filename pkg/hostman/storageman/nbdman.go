@@ -6,7 +6,8 @@ import (
 	"sync"
 
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudcommon"
+
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 type SNBDManager struct {
@@ -51,7 +52,7 @@ func (m *SNBDManager) AcquireNbddev() string {
 	defer m.nbdLock.Unlock()
 	m.nbdLock.Lock()
 	for nbdDev := range m.nbdDevs {
-		if cloudcommon.IsBlockDeviceUsed(nbdDev) {
+		if fileutils2.IsBlockDeviceUsed(nbdDev) {
 			m.nbdDevs[nbdDev] = true
 		}
 		if !m.nbdDevs[nbdDev] {

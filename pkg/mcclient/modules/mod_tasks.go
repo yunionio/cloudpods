@@ -45,8 +45,12 @@ func (man ComputeTasksManager) TaskComplete(session *mcclient.ClientSession, tas
 }
 
 func (man ComputeTasksManager) TaskFailed(session *mcclient.ClientSession, taskId string, err error) {
+	man.TaskFailed2(session, taskId, err.Error())
+}
+
+func (man ComputeTasksManager) TaskFailed2(session *mcclient.ClientSession, taskId string, reason string) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString("error"), "__status__")
-	params.Add(jsonutils.NewString(err.Error()), "__reason__")
+	params.Add(jsonutils.NewString(reason), "__reason__")
 	man.TaskComplete(session, taskId, params)
 }

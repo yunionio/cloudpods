@@ -16,13 +16,14 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/regutils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/httpclients"
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/timeutils2"
 )
 
 const (
@@ -215,7 +216,7 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		return nil, nil
 	} else {
 		log.Infof("Async start server %s failed: %s!!!", s.GetName(), err)
-		cloudcommon.AddTimeout(100*time.Millisecond, s.SyncStatus())
+		timeutils2.AddTimeout(100*time.Millisecond, s.SyncStatus())
 		return nil, err
 	}
 }
@@ -225,14 +226,14 @@ func (s *SKVMGuestInstance) saveScripts(data *jsonutils.JSONDict) error {
 	if err != nil {
 		return err
 	}
-	if err := cloudcommon.FilePutContents(s.GetStartScriptPath, startScript, false); err != nil {
+	if err := fileutils2.FilePutContents(s.GetStartScriptPath, startScript, false); err != nil {
 		return err
 	}
 	stopScript, err := s.generateStopScript(data)
 	if err != nil {
 		return err
 	}
-	return cloudcommon.FilePutContents(s.GetStopScriptPath, stopScript, false)
+	return fileutils2.FilePutContents(s.GetStopScriptPath, stopScript, false)
 }
 
 func (s *SKVMGuestInstance) GetStartScriptPath() string {
@@ -303,7 +304,7 @@ func (s *SKVMGuestInstance) ListStateFilePaths() []string {
 }
 
 func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
-	cloudcommon.AddTimeout(100*time.Millisecond, func() { s.delayStartMonitor(ctx) })
+	timeutils2.AddTimeout(100*time.Millisecond, func() { s.delayStartMonitor(ctx) })
 }
 
 func (s *SKVMGuestInstance) delayStartMonitor(ctx context.Context) {
@@ -374,7 +375,7 @@ func (s *SKVMGuestInstance) GetVncPort() int {
 }
 
 func (s *SKVMGuestInstance) saveVncPort(port int64) error {
-	return cloudcommon.FilePutContents(s.GetVncFilePath(), fmt.Sprintf("%d", port), false)
+	return fileutils2.FilePutContents(s.GetVncFilePath(), fmt.Sprintf("%d", port), false)
 }
 
 func (s *SKVMGuestInstance) SyncStatus() {
@@ -394,7 +395,7 @@ func (s *SKVMGuestInstance) SaveDesc(desc jsonutils.JSONObject) error {
 	// bw_info = self._get_bw_info()
 	// netmon_info = self._get_netmon_info()
 	s.Desc = desc.(*jsonutils.JSONDict)
-	if err := cloudcommon.FilePutContents(s.GetDescFilePath(), desc.String()); err != nil {
+	if err := fileutils2.FilePutContents(s.GetDescFilePath(), desc.String()); err != nil {
 		log.Errorln(err)
 	}
 	// TODO
