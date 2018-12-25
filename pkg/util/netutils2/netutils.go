@@ -1,7 +1,10 @@
 package netutils2
 
 import (
+	"net"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
@@ -116,4 +119,35 @@ func GetNicDns(nicdesc *types.ServerNic) []string {
 		dnslist = append(dnslist, nicdesc.Dns)
 	}
 	return dnslist
+}
+
+type SNetInterface struct {
+	name string
+	addr string
+	mask string
+	mac  string
+}
+
+func NewNetInterface(name string) *SNetInterface {
+	n := new(SNetInterface)
+	n.name = name
+	inter, err := net.InterfaceByName(name)
+	if err != nil {
+		log.Errorln(err)
+		return n
+	}
+	n.mac = inter.HardwareAddr.String()
+	addrs, err := inter.Addrs()
+	if err != nil {
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+				if ipnet.IP.To4() != nil {
+					n.addr = ipnet.IP.String()
+					n.mask = ipnet.Mask.String()
+					break
+				}
+			}
+		}
+	}
+	return n
 }
