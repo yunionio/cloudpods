@@ -102,7 +102,7 @@ func (self *DiskSaveTask) TaskFailed(ctx context.Context, resion string) {
 	self.SetStageFailed(ctx, resion)
 	if imageId, err := self.GetParams().GetString("image_id"); err != nil && len(imageId) > 0 {
 		log.Errorf("save disk task failed, set image %s killed", imageId)
-		s := auth.GetAdminSession(options.Options.Region, "")
+		s := auth.GetAdminSession(ctx, options.Options.Region, "")
 		mc.Images.Update(s, imageId, jsonutils.Marshal(map[string]string{"status": "killed"}))
 	}
 }

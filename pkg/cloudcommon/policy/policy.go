@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -74,7 +75,7 @@ func parseJsonPolicy(obj jsonutils.JSONObject) (string, rbacutils.SRbacPolicy, e
 }
 
 func fetchPolicies() (map[string]rbacutils.SRbacPolicy, map[string]rbacutils.SRbacPolicy, error) {
-	s := auth.GetAdminSession(consts.GetRegion(), "v1")
+	s := auth.GetAdminSession(context.Background(), consts.GetRegion(), "v1")
 
 	policies := make(map[string]rbacutils.SRbacPolicy)
 	adminPolicies := make(map[string]rbacutils.SRbacPolicy)

@@ -54,7 +54,7 @@ func queryQuota(ctx context.Context, projectId string) (*jsonutils.JSONDict, err
 		return nil, err
 	}
 	usage := _manager.newQuota()
-	err = usage.FetchUsage(projectId)
+	err = usage.FetchUsage(ctx, projectId)
 	if err != nil {
 		return nil, err
 	}

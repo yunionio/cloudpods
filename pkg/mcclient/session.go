@@ -1,6 +1,7 @@
 package mcclient
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -9,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/pkg/utils"
@@ -38,6 +40,8 @@ func EnableApiVersionByModule() {
 }
 
 type ClientSession struct {
+	ctx context.Context
+
 	client        *Client
 	region        string
 	zone          string
@@ -166,7 +170,11 @@ func (this *ClientSession) RawVersionRequest(
 		populateHeader(&tmpHeader, headers)
 	}
 	populateHeader(&tmpHeader, this.Header)
-	return this.client.rawRequest(baseurl,
+	ctx := this.ctx
+	if this.ctx == nil {
+		ctx = context.Background()
+	}
+	return this.client.rawRequest(ctx, baseurl,
 		this.token.GetTokenString(),
 		method, url, tmpHeader, body)
 }
@@ -189,7 +197,11 @@ func (this *ClientSession) JSONVersionRequest(
 		populateHeader(&tmpHeader, headers)
 	}
 	populateHeader(&tmpHeader, this.Header)
-	return this.client.jsonRequest(baseUrl,
+	ctx := this.ctx
+	if this.ctx == nil {
+		ctx = context.Background()
+	}
+	return this.client.jsonRequest(ctx, baseUrl,
 		this.token.GetTokenString(),
 		method, url, tmpHeader, body)
 }

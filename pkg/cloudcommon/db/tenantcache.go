@@ -78,7 +78,7 @@ func (manager *STenantCacheManager) FetchTenantByName(ctx context.Context, idStr
 }
 
 func (manager *STenantCacheManager) fetchTenantFromKeystone(ctx context.Context, idStr string) (*STenant, error) {
-	s := auth.GetAdminSession(consts.GetRegion(), "v1")
+	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
 	tenant, err := modules.Projects.Get(s, idStr, nil)
 	if err != nil {
 		log.Errorf("fetch project fail %s", err)

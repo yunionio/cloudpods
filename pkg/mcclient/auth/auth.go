@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -221,12 +222,12 @@ func AdminCredential() mcclient.TokenCredential {
 	return manager.adminCredential
 }
 
-func AdminSession(region, zone, endpointType, apiVersion string) *mcclient.ClientSession {
+func AdminSession(ctx context.Context, region, zone, endpointType, apiVersion string) *mcclient.ClientSession {
 	cli := Client()
 	if cli == nil {
 		return nil
 	}
-	return cli.NewSession(region, zone, endpointType, AdminCredential(), apiVersion)
+	return cli.NewSession(ctx, region, zone, endpointType, AdminCredential(), apiVersion)
 }
 
 type AuthCompletedCallback func()
@@ -262,12 +263,13 @@ func Init(info *AuthInfo, debug, insecure bool, certFile, keyFile string) {
 	<-done
 }
 
-func GetAdminSession(region string, apiVersion string) *mcclient.ClientSession {
-	return GetSession(manager.adminCredential, region, apiVersion)
+func GetAdminSession(ctx context.Context, region string,
+	apiVersion string) *mcclient.ClientSession {
+	return GetSession(ctx, manager.adminCredential, region, apiVersion)
 }
 
-func GetSession(token mcclient.TokenCredential, region string, apiVersion string) *mcclient.ClientSession {
-	return manager.client.NewSession(region, "", "internal", token, apiVersion)
+func GetSession(ctx context.Context, token mcclient.TokenCredential, region string, apiVersion string) *mcclient.ClientSession {
+	return manager.client.NewSession(ctx, region, "", "internal", token, apiVersion)
 }
 
 // use for climc test only

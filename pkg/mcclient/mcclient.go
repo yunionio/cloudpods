@@ -93,12 +93,11 @@ func joinUrl(baseUrl, path string) string {
 	return fmt.Sprintf("%s%s", baseUrl, path)
 }
 
-func (this *Client) rawRequest(endpoint string, token string, method string, url string, header http.Header, body io.Reader) (*http.Response, error) {
-	ctx := context.Background()
+func (this *Client) rawRequest(ctx context.Context, endpoint string, token string, method string, url string, header http.Header, body io.Reader) (*http.Response, error) {
 	return httputils.Request(this.httpconn, ctx, method, joinUrl(endpoint, url), getDefaultHeader(header, token), body, this.debug)
 }
 
-func (this *Client) jsonRequest(endpoint string, token string, method string, url string, header http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+func (this *Client) jsonRequest(ctx context.Context, endpoint string, token string, method string, url string, header http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
 	/*bodystr := ""
 	if body != nil {
 		bodystr = body.String()
@@ -110,7 +109,6 @@ func (this *Client) jsonRequest(endpoint string, token string, method string, ur
 	header.Add("Content-Type", "application/json")
 	resp, err := this.rawRequest(endpoint, token, method, url, header, jbody)
 	return this.parseJSONResponse(resp, err)*/
-	ctx := context.Background()
 	return httputils.JSONRequest(this.httpconn, ctx, method, joinUrl(endpoint, url), getDefaultHeader(header, token), body, this.debug)
 }
 
@@ -214,7 +212,7 @@ func (this *Client) _authV3(domainName, uname, passwd, projectId, projectName, t
 		body.Add(jsonutils.NewString("default"), "auth", "scope", "project", "domain", "id")
 		body.Add(jsonutils.NewString(projectName), "auth", "scope", "project", "name")
 	}
-	hdr, rbody, err := this.jsonRequest(this.authUrl, "", "POST", "/auth/tokens", nil, body)
+	hdr, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "POST", "/auth/tokens", nil, body)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +239,7 @@ func (this *Client) _authV2(uname, passwd, tenantId, tenantName, token string) (
 	if len(token) > 0 {
 		body.Add(jsonutils.NewString(token), "auth", "token", "id")
 	}
-	_, rbody, err := this.jsonRequest(this.authUrl, "", "POST", "/tokens", nil, body)
+	_, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "POST", "/tokens", nil, body)
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +290,7 @@ func (this *Client) verifyV3(adminToken, token string) (TokenCredential, error) 
 	header := http.Header{}
 	header.Add("X-Auth-Token", adminToken)
 	header.Add("X-Subject-Token", token)
-	_, rbody, err := this.jsonRequest(this.authUrl, "", "GET", "/auth/tokens", header, nil)
+	_, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "GET", "/auth/tokens", header, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +301,7 @@ func (this *Client) verifyV2(adminToken, token string) (TokenCredential, error) 
 	header := http.Header{}
 	header.Add("X-Auth-Token", adminToken)
 	verifyUrl := fmt.Sprintf("/tokens/%s", token)
-	_, rbody, err := this.jsonRequest(this.authUrl, "", "GET", verifyUrl, header, nil)
+	_, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "GET", verifyUrl, header, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +327,7 @@ func (this *Client) SetProject(tenantId, tenantName string, token TokenCredentia
 	}
 }
 
-func (this *Client) NewSession(region, zone, endpointType string, token TokenCredential, apiVersion string) *ClientSession {
+func (this *Client) NewSession(ctx context.Context, region, zone, endpointType string, token TokenCredential, apiVersion string) *ClientSession {
 	cata := token.GetServiceCatalog()
 	if this.serviceCatalog == nil {
 		if cata == nil {
@@ -337,10 +335,19 @@ func (this *Client) NewSession(region, zone, endpointType string, token TokenCre
 		}
 		this.serviceCatalog = cata
 	}
-	return &ClientSession{client: this, region: region, zone: zone,
-		endpointType: endpointType, token: token,
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return &ClientSession{
+		ctx:               ctx,
+		client:            this,
+		region:            region,
+		zone:              zone,
+		endpointType:      endpointType,
+		token:             token,
 		defaultApiVersion: apiVersion,
-		Header:            http.Header{}}
+		Header:            http.Header{},
+	}
 }
 
 /*

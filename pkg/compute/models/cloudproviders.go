@@ -223,7 +223,7 @@ func (self *SCloudprovider) syncProject(ctx context.Context) error {
 
 	var projectId string
 	if err == sql.ErrNoRows { // create one
-		s := auth.GetAdminSession(options.Options.Region, "")
+		s := auth.GetAdminSession(ctx, options.Options.Region, "")
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(self.Name), "name")
 		params.Add(jsonutils.NewString(fmt.Sprintf("auto create from cloud provider %s (%s)", self.Name, self.Id)), "description")
