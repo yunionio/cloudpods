@@ -1434,6 +1434,7 @@
     "github.com/Microsoft/azure-vhd-utils/vhdcore/validator",
     "github.com/aliyun/alibaba-cloud-sdk-go/sdk",
     "github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests",
+    "github.com/aliyun/alibaba-cloud-sdk-go/sdk/responses",
     "github.com/aliyun/aliyun-oss-go-sdk/oss",
     "github.com/aokoli/goutils",
     "github.com/aws/aws-sdk-go/aws",
