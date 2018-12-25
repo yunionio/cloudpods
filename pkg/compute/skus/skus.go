@@ -101,7 +101,7 @@ func processSkuData(ndata jsonutils.JSONObject) jsonutils.JSONObject {
 }
 
 func (self *SkusZone) Init() error {
-	s := auth.GetAdminSession(options.Options.Region, "")
+	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
 	p, r, z := self.getExternalZone()
 	limit := 1024
 	offset := 0

@@ -17,7 +17,7 @@ const (
 
 type IQuota interface {
 	FetchSystemQuota()
-	FetchUsage(projectId string) error
+	FetchUsage(ctx context.Context, projectId string) error
 	Update(quota IQuota)
 	Add(quota IQuota)
 	Sub(quota IQuota)
@@ -116,7 +116,7 @@ func (manager *SQuotaManager) _checkQuota(ctx context.Context, userCred mcclient
 		return nil, err
 	}
 	used := manager.newQuota()
-	err = used.FetchUsage(projectId)
+	err = used.FetchUsage(ctx, projectId)
 	if err != nil {
 		log.Errorf("fail to get quota usage %s", err)
 		return nil, err

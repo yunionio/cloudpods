@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -109,7 +110,7 @@ func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imag
 	return self.downloadImage(userCred, imageId, extId)
 }
 
-func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
+func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
 	if len(extId) > 0 {
 		log.Debugf("UploadImage: Image external ID exists %s", extId)
 
@@ -124,7 +125,7 @@ func (self *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageI
 		log.Debugf("UploadImage: no external ID")
 	}
 
-	return self.uploadImage(userCred, imageId, osArch, osType, osDist, isForce)
+	return self.uploadImage(ctx, userCred, imageId, osArch, osType, osDist, isForce)
 
 }
 
@@ -148,7 +149,7 @@ func (self *SStoragecache) fetchImages() error {
 	return nil
 }
 
-func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
+func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
 	bucketName := GetBucketName(self.region.GetId(), imageId)
 	err := self.region.initVmimport(bucketName)
 	if err != nil {
@@ -164,7 +165,7 @@ func (self *SStoragecache) uploadImage(userCred mcclient.TokenCredential, imageI
 	defer s3client.DeleteBucket(&s3.DeleteBucketInput{Bucket: &bucketName}) // remove bucket
 
 	var diskFormat string
-	s := auth.GetAdminSession(options.Options.Region, "")
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 	_, err = s3client.GetObject(&s3.GetObjectInput{Bucket: &bucketName, Key: &imageId})
 	if err != nil {
 		// first upload image to oss
@@ -300,7 +301,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 		return nil, err
 	}
 
-	s := auth.GetAdminSession(options.Options.Region, "")
+	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
 	params := jsonutils.Marshal(map[string]string{"image_id": imageId, "disk-format": "raw"})
 	if result, err := modules.Images.Upload(s, params, ret.Body, IntVal(ret.ContentLength)); err != nil {
 		return nil, err

@@ -46,7 +46,7 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 			return nil, err
 		}
 
-		extImgId, err := iStorageCache.UploadImage(userCred, imageId, osArch, osType, osDist, osVersion, scimg.ExternalId, isForce)
+		extImgId, err := iStorageCache.UploadImage(ctx, userCred, imageId, osArch, osType, osDist, osVersion, scimg.ExternalId, isForce)
 
 		if err != nil {
 			return nil, err
