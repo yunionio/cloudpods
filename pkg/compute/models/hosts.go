@@ -922,16 +922,18 @@ type SStorageCapacity struct {
 	VCapacity int
 }
 
+func (capa SStorageCapacity) GetFree() int {
+	return capa.VCapacity - capa.Used - capa.Wasted
+}
+
 func (self *SHost) GetAttachedStorageCapacity() SStorageCapacity {
 	ret := SStorageCapacity{}
 	storages := self.GetAttachedStorages("")
-	if storages != nil {
-		for _, s := range storages {
-			ret.Capacity += s.GetCapacity()
-			ret.Used += s.GetUsedCapacity(tristate.True)
-			ret.Wasted += s.GetUsedCapacity(tristate.False)
-			ret.VCapacity += int(float32(s.GetCapacity()) * s.GetOvercommitBound())
-		}
+	for _, s := range storages {
+		ret.Capacity += s.GetCapacity()
+		ret.Used += s.GetUsedCapacity(tristate.True)
+		ret.Wasted += s.GetUsedCapacity(tristate.False)
+		ret.VCapacity += int(float32(s.GetCapacity()) * s.GetOvercommitBound())
 	}
 	return ret
 }
@@ -2086,6 +2088,7 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 	}
 	extra.Add(jsonutils.NewInt(int64(self.GetGuestCount())), "guests")
 	extra.Add(jsonutils.NewInt(int64(self.GetNonsystemGuestCount())), "nonsystem_guests")
+	extra.Add(jsonutils.NewInt(int64(self.GetRunningGuestCount())), "running_guests")
 	totalCpu := self.GetCpuCount()
 	cpuCommitRate := 0.0
 	if totalCpu > 0 && usage.GuestVcpuCount > 0 {
@@ -2098,6 +2101,12 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 		memCommitRate = float64(usage.GuestVmemSize) * 1.0 / float64(totalMem)
 	}
 	extra.Add(jsonutils.NewFloat(memCommitRate), "mem_commit_rate")
+	capa := self.GetAttachedStorageCapacity()
+	extra.Add(jsonutils.NewInt(int64(capa.Capacity)), "storage")
+	extra.Add(jsonutils.NewInt(int64(capa.Used)), "storage_used")
+	extra.Add(jsonutils.NewInt(int64(capa.Wasted)), "storage_waste")
+	extra.Add(jsonutils.NewInt(int64(capa.VCapacity)), "storage_virtual")
+	extra.Add(jsonutils.NewInt(int64(capa.GetFree())), "storage_free")
 	extra.Add(self.GetHardwareSpecification(), "spec")
 
 	// extra = self.SManagedResourceBase.getExtraDetails(ctx, extra)
