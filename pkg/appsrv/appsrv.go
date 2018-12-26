@@ -225,7 +225,6 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 			appParams := hand.GetAppParams(params, segs)
 			appParams.Request = r
 			appParams.Response = w
-			appParams.Cancel = cancel
 			session.Run(
 				func() {
 					if ctx.Err() == nil {

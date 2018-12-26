@@ -23,7 +23,7 @@ type SAppParams struct {
 
 	OverrideResponseBodyWrapper bool
 
-	Cancel context.CancelFunc
+	// Cancel context.CancelFunc
 }
 
 func AppContextGetParams(ctx context.Context) *SAppParams {
