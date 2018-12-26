@@ -4,11 +4,22 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 )
+
+type K8sEnv struct {
+	Cluster    string
+	Namespace  string
+	Pod        string
+	Container  string
+	Kubeconfig string
+	Data       jsonutils.JSONObject
+}
 
 type Kubectl struct {
 	*BaseCommand
@@ -88,12 +99,12 @@ func (c *KubectlExec) Command(cmd string, args ...string) *KubectlExec {
 	return c
 }
 
-func NewPodBashCommand(kubeconfig, namespace, pod, container string) ICommand {
-	return NewKubectlCommand(kubeconfig, namespace).Exec().
+func NewPodBashCommand(env *K8sEnv) ICommand {
+	return NewKubectlCommand(env.Kubeconfig, env.Namespace).Exec().
 		Stdin().
 		TTY().
-		Pod(pod).
-		Container(container).
+		Pod(env.Pod).
+		Container(env.Container).
 		Command("sh")
 }
 
@@ -131,9 +142,24 @@ func (c *KubectlLog) Container(name string) *KubectlLog {
 	return c
 }
 
-func NewPodLogCommand(kubeconfig, namespace, pod, container string) ICommand {
-	return NewKubectlCommand(kubeconfig, namespace).Logs().
+func (c *KubectlLog) Since(data jsonutils.JSONObject) *KubectlLog {
+	durationStr, _ := data.GetString("since")
+	if durationStr == "" {
+		return c
+	}
+	// --since: Only return logs newer than a relative duration like 5s, 2m, or 3h. Defaults to all logs. Only one of since-time / since may be used
+	if _, err := time.ParseDuration(durationStr); err != nil {
+		log.Errorf("Failed to parse log since opt: %v", err)
+		return c
+	}
+	c.AppendArgs("--since", durationStr)
+	return c
+}
+
+func NewPodLogCommand(env *K8sEnv) ICommand {
+	return NewKubectlCommand(env.Kubeconfig, env.Namespace).Logs().
 		Follow().
-		Pod(pod).
-		Container(container)
+		Pod(env.Pod).
+		Since(env.Data).
+		Container(env.Container)
 }

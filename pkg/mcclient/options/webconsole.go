@@ -1,6 +1,8 @@
 package options
 
 import (
+	"time"
+
 	"yunion.io/x/jsonutils"
 )
 
@@ -26,6 +28,22 @@ type PodShellOptions struct {
 
 type PodLogOptoins struct {
 	PodBaseOptions
+	Since string `help:"Only return logs newer than a relative duration like 5s, 2m or 3h"`
+}
+
+func (opt *PodLogOptoins) Params() (*jsonutils.JSONDict, error) {
+	params, err := opt.PodBaseOptions.Params()
+	if err != nil {
+		return nil, err
+	}
+	if opt.Since != "" {
+		_, err = time.ParseDuration(opt.Since)
+		if err != nil {
+			return nil, err
+		}
+		params.Add(jsonutils.NewString(opt.Since), "since")
+	}
+	return params, nil
 }
 
 type WebConsoleBaremetalOptions struct {
