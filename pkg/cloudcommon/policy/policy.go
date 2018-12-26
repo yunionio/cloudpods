@@ -267,8 +267,8 @@ func unifyRbacResult(isAdmin bool, currentPriv rbacutils.TRbacResult) rbacutils.
 }
 
 func exportRbacResult(currentPriv rbacutils.TRbacResult) rbacutils.TRbacResult {
-	// if currentPriv == rbacutils.AdminAllow || currentPriv == rbacutils.OwnerAllow {
-	if currentPriv == rbacutils.AdminAllow {
+	if currentPriv == rbacutils.AdminAllow || currentPriv == rbacutils.OwnerAllow {
+		// if currentPriv == rbacutils.AdminAllow {
 		return rbacutils.Allow
 	}
 	return currentPriv
@@ -276,7 +276,6 @@ func exportRbacResult(currentPriv rbacutils.TRbacResult) rbacutils.TRbacResult {
 
 func (manager *SPolicyManager) explainPolicy(userCred mcclient.TokenCredential, policyReq jsonutils.JSONObject, name string) ([]string, rbacutils.TRbacResult, error) {
 	isAdmin, request, result, err := manager.explainPolicyInternal(userCred, policyReq, name)
-	log.Errorf("%v %s %s %s", isAdmin, request, result, err)
 	if !isAdmin && isAdminResource(request[0], request[1]) && result == rbacutils.OwnerAllow {
 		result = rbacutils.Deny
 	}
