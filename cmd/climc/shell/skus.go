@@ -11,8 +11,8 @@ func init() {
 		options.BaseListOptions
 		Region string `help:"region Id or name"`
 		Zone   string `help:"zone Id or name"`
-		Cpu    int    `help:"Cpu core count" json:"cpu_core_count"`
-		Mem    int    `help:"Memory size in MB" json:"memory_size_mb"`
+		Cpu    *int   `help:"Cpu core count" json:"cpu_core_count"`
+		Mem    *int   `help:"Memory size in MB" json:"memory_size_mb"`
 		Name   string `help:"Name of Sku"`
 	}
 	R(&ServerSkusListOptions{}, "server-sku-list", "List all avaiable Server SKU", func(s *mcclient.ClientSession, args *ServerSkusListOptions) error {
@@ -83,8 +83,10 @@ func init() {
 	type ServerSkusUpdateOptions struct {
 		ID string `help:"Name or ID of SKU" json:"-"`
 
-		CpuCoreCount *int `help:"Cpu Count"`
-		MemorySizeMB *int `help:"Memory MB"`
+		PostpaidStatus *string `help:"skus available status for postpaid instance" choices:"available|soldout"`
+		PrepaidStatus  *string `help:"skus available status for prepaid instance"  choices:"available|soldout"`
+		CpuCoreCount   *int    `help:"Cpu Count"`
+		MemorySizeMB   *int    `help:"Memory MB"`
 
 		InstanceTypeCategory *string `help:"instance type category" choices:"general_purpose|compute_optimized|memory_optimized|storage_optimized|hardware_accelerated|high_memory|high_storage"`
 

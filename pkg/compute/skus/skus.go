@@ -74,11 +74,7 @@ func processSkuData(ndata jsonutils.JSONObject) jsonutils.JSONObject {
 	}
 
 	// 处理os name
-	os_name, err := ndata.GetString("os_name")
-	if err != nil {
-		log.Debugf("no os name %s", ndata)
-	}
-
+	os_name, _ := ndata.GetString("os_name")
 	os_name = strings.ToLower(os_name)
 	if strings.Contains(os_name, "any") || strings.Contains(os_name, "na") || os_name == "" {
 		data.Set("os_name", jsonutils.NewString("Any"))
@@ -186,13 +182,11 @@ func (self *SkusZone) SyncToLocalDB() error {
 				log.Debugf("SyncToLocalDB zone %s name %s : %s", self.ZoneId, name, err.Error())
 				return err
 			}
-
 			data := models.SServerSku{}
 			if e := sku.Unmarshal(&data); e != nil {
 				log.Debugf("sku Unmarshal failed: %s, %s", sku, e.Error())
 				return e
 			}
-
 			if err := self.doCreate(data); err != nil {
 				return err
 			}
@@ -273,10 +267,14 @@ func (self *SkusZoneList) Refresh(providerIds *[]string) error {
 		}
 	}
 
+	self.refresh()
+	return nil
+}
+
+func (self *SkusZoneList) refresh() {
 	self.total = len(self.Data)
 	self.scuccesed = 0
 	self.failed = 0
-	return nil
 }
 
 func (self *SkusZoneList) SyncToLocalDB() error {
@@ -334,6 +332,25 @@ func SyncSkusByProviderIds(providerIds []string) error {
 	if e := skus.Refresh(&providerIds); e != nil {
 		return fmt.Errorf("SyncSkus refresh failed, %s", e.Error())
 	}
+
+	if e := skus.SyncToLocalDB(); e != nil {
+		return fmt.Errorf("SyncSkus sync to local db failed, %s", e.Error())
+	}
+
+	return nil
+}
+
+// 同步指定zone sku列表
+func SyncSkusByRegion(region *models.SCloudregion) error {
+	skus := SkusZoneList{}
+	zones, err := models.ZoneManager.GetZonesByRegion(region)
+	if err != nil {
+		return err
+	}
+
+	log.Debugf("SyncSkusByRegion %s", region.GetName())
+	skus.initData(region.Provider, *region, zones)
+	skus.refresh()
 
 	if e := skus.SyncToLocalDB(); e != nil {
 		return fmt.Errorf("SyncSkus sync to local db failed, %s", e.Error())

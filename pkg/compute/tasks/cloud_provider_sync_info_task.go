@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/skus"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/pkg/utils"
 )
@@ -124,6 +125,7 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 
 		localZones, remoteZones := syncRegionZones(ctx, provider, task, &localRegions[i], remoteRegions[i])
 
+		syncRegionSkus(ctx, provider, task, &localRegions[i])
 		syncRegionVPCs(ctx, provider, task, &localRegions[i], remoteRegions[i], syncRange)
 
 		if localZones != nil && remoteZones != nil {
@@ -137,6 +139,25 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 			}
 		}
 		syncRegionSnapshots(ctx, provider, task, &localRegions[i], remoteRegions[i], syncRange)
+	}
+}
+
+func syncRegionSkus(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localRegion *models.SCloudregion) {
+	if localRegion == nil {
+		log.Debugf("local region is nil skipped.")
+		return
+	}
+
+	regionId := localRegion.GetId()
+	if len(regionId) > 0 && models.ServerSkuManager.GetSkuCountByRegion(regionId) == 0 {
+		// 提前同步instance type.如果同步失败可能导致vm 内存显示为0
+		if err := skus.SyncSkusByRegion(localRegion); err != nil {
+			msg := fmt.Sprintf("Get Skus for region %s failed %s", localRegion.GetName(), err)
+			log.Errorf(msg)
+			// 暂时不终止同步
+			// logSyncFailed(provider, task, msg)
+			return
+		}
 	}
 }
 
