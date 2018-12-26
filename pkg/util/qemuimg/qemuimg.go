@@ -169,6 +169,7 @@ func (img *SQemuImage) doConvert(name string, format TImageFormat, options []str
 		cmdline = append(cmdline, "-o", strings.Join(options, ","))
 	}
 	cmdline = append(cmdline, img.Path, name)
+	log.Infof("XXXX qemu-img command: %s", cmdline)
 	cmd := exec.Command(qemutils.GetQemuImg(), cmdline...)
 	if len(img.Password) > 0 || len(password) > 0 {
 		input := ""
@@ -198,7 +199,7 @@ func (img *SQemuImage) Clone(name string, format TImageFormat, compact bool) (*S
 	case RAW:
 		return img.CloneRaw(name)
 	case VHD:
-		return img.CloneVhd(name, compact)
+		return img.CloneVhd(name)
 	default:
 		return nil, ErrUnsupportedFormat
 	}
@@ -256,11 +257,11 @@ func (img *SQemuImage) Convert2Qcow2(compact bool) error {
 }
 
 func (img *SQemuImage) Convert2Vmdk(compact bool) error {
-	return img.convert(VMDK, vmdkOptions(compact), false, "")
+	return img.convert(VMDK, vmdkOptions(compact), compact, "")
 }
 
-func (img *SQemuImage) Convert2Vhd(compact bool) error {
-	return img.convert(VHD, vhdOptions(compact), false, "")
+func (img *SQemuImage) Convert2Vhd() error {
+	return img.convert(VHD, nil, false, "")
 }
 
 func (img *SQemuImage) Convert2Raw() error {
@@ -310,20 +311,20 @@ func vmdkOptions(compact bool) []string {
 	}
 }
 
-func vhdOptions(compact bool) []string {
-	if compact {
-		return []string{"subformat=dynamic"}
-	} else {
-		return []string{"subformat=fixed"}
-	}
-}
+// func vhdOptions(compact bool) []string {
+//	if compact {
+//		return []string{"subformat=dynamic"}
+//	} else {
+//		return []string{"subformat=fixed"}
+//	}
+// }
 
 func (img *SQemuImage) CloneVmdk(name string, compact bool) (*SQemuImage, error) {
 	return img.clone(name, VMDK, vmdkOptions(compact), compact, "")
 }
 
-func (img *SQemuImage) CloneVhd(name string, compact bool) (*SQemuImage, error) {
-	return img.clone(name, VHD, vhdOptions(compact), compact, "")
+func (img *SQemuImage) CloneVhd(name string) (*SQemuImage, error) {
+	return img.clone(name, VHD, nil, false, "")
 }
 
 func (img *SQemuImage) CloneRaw(name string) (*SQemuImage, error) {
@@ -367,6 +368,10 @@ func (img *SQemuImage) CreateQcow2(sizeMB int, compact bool, backPath string) er
 
 func (img *SQemuImage) CreateVmdk(sizeMB int, compact bool) error {
 	return img.create(sizeMB, VMDK, vmdkOptions(compact))
+}
+
+func (img *SQemuImage) CreateVhd(sizeMB int) error {
+	return img.create(sizeMB, VHD, nil)
 }
 
 func (img *SQemuImage) CreateRaw(sizeMB int) error {

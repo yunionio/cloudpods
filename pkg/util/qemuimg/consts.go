@@ -1,5 +1,11 @@
 package qemuimg
 
+import (
+	"strings"
+
+	"yunion.io/x/log"
+)
+
 type TImageFormat string
 
 const (
@@ -17,4 +23,21 @@ func (fmt TImageFormat) String() string {
 	default:
 		return string(fmt)
 	}
+}
+
+func String2ImageFormat(fmt string) TImageFormat {
+	switch strings.ToLower(fmt) {
+	case "vhd":
+		return VHD
+	case "qcow2":
+		return QCOW2
+	case "vmdk":
+		return VMDK
+	case "iso":
+		return ISO
+	case "raw":
+		return RAW
+	}
+	log.Fatalf("unknown image format!!! %s", fmt)
+	return TImageFormat(fmt)
 }

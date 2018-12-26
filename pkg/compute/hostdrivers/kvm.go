@@ -141,7 +141,7 @@ func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, ho
 	url := fmt.Sprintf("/disks/%s/create/%s", storage.Id, disk.Id)
 	body := jsonutils.NewDict()
 	body.Add(content, "disk")
-	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, body)
 	return err
 }
 
@@ -156,7 +156,7 @@ func (self *SKVMHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, hos
 
 	url := fmt.Sprintf("/disks/%s/delete/%s", storage.Id, disk.Id)
 	body := jsonutils.NewDict()
-	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, body)
 	return err
 }
 
@@ -168,7 +168,7 @@ func (self *SKVMHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *m
 	content := jsonutils.NewDict()
 	content.Add(jsonutils.NewInt(sizeMb), "size")
 	body.Add(content, "disk")
-	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, body)
 	return err
 }
 
@@ -183,7 +183,7 @@ func (self *SKVMHostDriver) RequestResizeDiskOnHostOnline(ctx context.Context, h
 		body := jsonutils.NewDict()
 		cmd := fmt.Sprintf("block_resize drive_%d %dM", guestdisk.Index, sizeMb)
 		body.Add(jsonutils.NewString(cmd), "cmd")
-		host.Request(task.GetUserCred(), "POST", url, header, body)
+		host.Request(ctx, task.GetUserCred(), "POST", url, header, body)
 	}
 	return nil
 }
@@ -195,7 +195,7 @@ func (self *SKVMHostDriver) RequestPrepareSaveDiskOnHost(ctx context.Context, ho
 
 	header := task.GetTaskRequestHeader()
 
-	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, body)
 	return err
 }
 
@@ -211,7 +211,7 @@ func (self *SKVMHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, ho
 
 	header := task.GetTaskRequestHeader()
 
-	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, body)
 	return err
 }
 
@@ -222,7 +222,7 @@ func (self *SKVMHostDriver) RequestDeleteSnapshotsWithStorage(ctx context.Contex
 
 	header := task.GetTaskRequestHeader()
 
-	_, err := host.Request(task.GetUserCred(), "POST", url, header, body)
+	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, body)
 	return err
 }
 
@@ -231,7 +231,7 @@ func (self *SKVMHostDriver) RequestResetDisk(ctx context.Context, host *models.S
 
 	header := task.GetTaskRequestHeader()
 
-	_, err := host.Request(task.GetUserCred(), "POST", url, header, params)
+	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, params)
 	return err
 }
 
@@ -240,7 +240,7 @@ func (self *SKVMHostDriver) RequestCleanUpDiskSnapshots(ctx context.Context, hos
 
 	header := task.GetTaskRequestHeader()
 
-	_, err := host.Request(task.GetUserCred(), "POST", url, header, params)
+	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, params)
 	return err
 }
 

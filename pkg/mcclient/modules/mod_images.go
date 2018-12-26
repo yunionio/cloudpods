@@ -442,7 +442,7 @@ func (this *ImageManager) IsNameDuplicate(s *mcclient.ClientSession, name string
 }
 
 func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JSONObject, body io.Reader, size int64) (jsonutils.JSONObject, error) {
-	format, _ := params.GetString("disk-format")
+	/*format, _ := params.GetString("disk-format")
 	if len(format) == 0 {
 		format, _ = params.GetString("disk_format")
 		if len(format) == 0 {
@@ -452,7 +452,7 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 	exists, _ := utils.InStringArray(format, []string{"qcow2", "raw", "vhd", "vmdk", "iso", "docker"})
 	if !exists {
 		return nil, fmt.Errorf("Unsupported image format %s", format)
-	}
+	}*/
 	imageId, _ := params.GetString("image_id")
 	path := fmt.Sprintf("/%s", this.URLPath())
 	method := httputils.POST
@@ -461,8 +461,7 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 		if err != nil {
 			return nil, httperrors.NewMissingParameterError("os_type")
 		}
-		exists, _ = utils.InStringArray(osType, []string{"Windows", "Linux", "Freebsd", "Android", "macOS", "VMWare"})
-		if !exists {
+		if !utils.IsInStringArray(osType, []string{"Windows", "Linux", "Freebsd", "Android", "macOS", "VMWare"}) {
 			return nil, fmt.Errorf("OS type must be specified")
 		}
 		name, _ := params.GetString("name")
@@ -584,7 +583,6 @@ func init() {
 			"OS_Codename", "Description"},
 		[]string{"Owner", "Owner_name"})}
 	register(&Images)
-	registerV2(&Images)
 }
 
 type SImageUsageManager struct {
@@ -611,5 +609,5 @@ func init() {
 		[]string{},
 		[]string{})}
 
-	registerV2(&ImageUsages)
+	register(&ImageUsages)
 }

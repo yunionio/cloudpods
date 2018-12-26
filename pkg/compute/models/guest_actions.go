@@ -42,7 +42,7 @@ func (self *SGuest) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCr
 		if host == nil {
 			return nil, httperrors.NewInternalServerError("Host missing")
 		}
-		retval, err := self.GetDriver().GetGuestVncInfo(userCred, self, host)
+		retval, err := self.GetDriver().GetGuestVncInfo(ctx, userCred, self, host)
 		if err != nil {
 			return nil, err
 		}

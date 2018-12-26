@@ -27,7 +27,7 @@ const (
 )
 
 var (
-	MutilVersionService = []string{"compute", "image"}
+	MutilVersionService = []string{"compute"}
 	ApiVersionByModule  = true
 )
 

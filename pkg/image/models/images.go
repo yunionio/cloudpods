@@ -6,7 +6,9 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -36,10 +38,11 @@ type TImageType string
 const (
 	// https://docs.openstack.org/glance/pike/user/statuses.html
 	//
-	IMAGE_STATUS_QUEUED         = "queued"
-	IMAGE_STATUS_SAVING         = "saving"
-	IMAGE_STATUS_ACTIVE         = "active"
-	IMAGE_STATUS_CONVERTING     = "converting"
+	IMAGE_STATUS_QUEUED     = "queued"
+	IMAGE_STATUS_SAVING     = "saving"
+	IMAGE_STATUS_ACTIVE     = "active"
+	IMAGE_STATUS_CONVERTING = "converting"
+
 	IMAGE_STATUS_DEACTIVATED    = "deactivated"
 	IMAGE_STATUS_KILLED         = "killed"
 	IMAGE_STATUS_DELETED        = "deleted"
@@ -53,6 +56,8 @@ const (
 
 var (
 	candidateSubImageFormats = []qemuimg.TImageFormat{qemuimg.QCOW2, qemuimg.VMDK, qemuimg.VHD}
+
+	imageDeadStatus = []string{IMAGE_STATUS_DEACTIVATED, IMAGE_STATUS_KILLED, IMAGE_STATUS_DELETED, IMAGE_STATUS_PENDING_DELETE}
 )
 
 type SImageManager struct {
@@ -110,6 +115,7 @@ type SImage struct {
 
 	DiskFormat string `width:"20" charset:"ascii" nullable:"true" list:"user" create:"optional"` // Column(VARCHAR(32, charset='ascii'), nullable=False, default='qcow2')
 	Checksum   string `width:"32" charset:"ascii" nullable:"true" get:"user"`
+	FastHash   string `width:"32" charset:"ascii" nullable:"true" get:"user"`
 	Owner      string `width:"255" charset:"ascii" nullable:"true" get:"user"`
 	MinDisk    int32  `nullable:"false" default:"0" get:"user" create:"optional" update:"user"`
 	MinRam     int32  `nullable:"false" default:"0" get:"user" create:"optional" update:"user"`
@@ -189,6 +195,8 @@ func (self *SImage) CustomizedGetDetailsBody(ctx context.Context, userCred mccli
 				filePath = subimg.getLocalTorrentLocation()
 				status = subimg.TorrentStatus
 			}
+		} else {
+			return nil, httperrors.NewNotFoundError("format %s not found", formatStr)
 		}
 	}
 
@@ -355,21 +363,23 @@ func (self *SImage) OnSaveSuccess(ctx context.Context, userCred mcclient.TokenCr
 	logclient.AddActionLog(self, logclient.ACT_IMAGE_SAVE, nil, userCred, true)
 }
 
-func (self *SImage) SaveImageFromStream(reader io.Reader) error {
-	fp, err := os.Create(self.GetPath(""))
+func (self *SImage) saveImageFromStream(localPath string, reader io.Reader) (*streamutils.SStreamProperty, error) {
+	fp, err := os.Create(localPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer fp.Close()
+	return streamutils.StreamPipe(reader, fp)
+}
 
-	sp, err := streamutils.StreamPipe(reader, fp)
-	if err != nil {
-		return err
-	}
+func (self *SImage) SaveImageFromStream(reader io.Reader) error {
+	localPath := self.GetPath("")
+
+	sp, err := self.saveImageFromStream(localPath, reader)
 
 	virtualSize := int64(0)
 	format := ""
-	img, err := qemuimg.NewQemuImage(self.GetPath(""))
+	img, err := qemuimg.NewQemuImage(localPath)
 	if err != nil {
 		return err
 	} else {
@@ -377,10 +387,16 @@ func (self *SImage) SaveImageFromStream(reader io.Reader) error {
 		virtualSize = img.SizeBytes
 	}
 
+	fastChksum, err := fileutils2.FastCheckSum(localPath)
+	if err != nil {
+		return err
+	}
+
 	self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Size = sp.Size
 		self.Checksum = sp.CheckSum
-		self.Location = fmt.Sprintf("%s%s", LocalFilePrefix, self.GetPath(""))
+		self.FastHash = fastChksum
+		self.Location = fmt.Sprintf("%s%s", LocalFilePrefix, localPath)
 		if len(format) > 0 {
 			self.DiskFormat = format
 		}
@@ -545,6 +561,15 @@ func (self *SImage) startImageCopyFromUrlTask(ctx context.Context, userCred mccl
 	return nil
 }
 
+func (self *SImage) StartImageCheckTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "ImageCheckTask", self, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
 func (self *SImage) StartImageConvertTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, doPrepare bool) error {
 	params := jsonutils.NewDict()
 	if doPrepare {
@@ -671,32 +696,65 @@ func (self *SImage) GetImageType() TImageType {
 	}
 }
 
+func (self *SImage) newSubformat(format qemuimg.TImageFormat, migrate bool) error {
+	subformat := &SImageSubformat{}
+	subformat.SetModelManager(ImageSubformatManager)
+
+	subformat.ImageId = self.Id
+	subformat.Format = string(format)
+
+	if migrate {
+		subformat.Size = self.Size
+		subformat.Checksum = self.Checksum
+		subformat.FastHash = self.FastHash
+		subformat.Status = IMAGE_STATUS_ACTIVE
+		subformat.Location = self.Location
+	} else {
+		subformat.Status = IMAGE_STATUS_QUEUED
+	}
+
+	subformat.TorrentStatus = IMAGE_STATUS_QUEUED
+
+	err := ImageSubformatManager.TableSpec().Insert(subformat)
+	if err != nil {
+		log.Errorf("fail to make subformat %s", format)
+		return err
+	}
+	return nil
+}
+
 func (self *SImage) MigrateSubImage() error {
 	subimg := ImageSubformatManager.FetchSubImage(self.Id, self.DiskFormat)
 	if subimg != nil {
 		return nil
 	}
 
-	subformat := SImageSubformat{}
-	subformat.SetModelManager(ImageSubformatManager)
-
-	subformat.ImageId = self.Id
-
-	subformat.Format = self.DiskFormat
-
-	subformat.Size = self.Size
-	subformat.Checksum = self.Checksum
-	subformat.Status = IMAGE_STATUS_ACTIVE
-	subformat.Location = self.Location
-
-	subformat.TorrentStatus = IMAGE_STATUS_QUEUED
-
-	err := ImageSubformatManager.TableSpec().Insert(&subformat)
+	imgInst, err := self.getQemuImage()
 	if err != nil {
-		log.Errorf("fail to make subformat")
 		return err
 	}
-	return nil
+	if self.GetImageType() != ImageTypeISO && imgInst.IsSparse() {
+		// need to convert again
+		return self.newSubformat(qemuimg.String2ImageFormat(self.DiskFormat), false)
+	} else {
+		localPath := self.getLocalLocation()
+		if !strings.HasSuffix(localPath, fmt.Sprintf(".%s", self.DiskFormat)) {
+			newLocalpath := fmt.Sprintf("%s.%s", localPath, self.DiskFormat)
+			cmd := exec.Command("mv", "-f", localPath, newLocalpath)
+			err := cmd.Run()
+			if err != nil {
+				return err
+			}
+			_, err = self.GetModelManager().TableSpec().Update(self, func() error {
+				self.Location = fmt.Sprintf("%s%s", LocalFilePrefix, newLocalpath)
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return self.newSubformat(qemuimg.String2ImageFormat(self.DiskFormat), true)
+	}
 }
 
 func (self *SImage) MakeSubImages() error {
@@ -708,17 +766,8 @@ func (self *SImage) MakeSubImages() error {
 			// need to create a record
 			subformat := ImageSubformatManager.FetchSubImage(self.Id, string(format))
 			if subformat == nil {
-				subformat := &SImageSubformat{}
-				subformat.SetModelManager(ImageSubformatManager)
-
-				subformat.ImageId = self.Id
-				subformat.Format = string(format)
-				subformat.Status = IMAGE_STATUS_QUEUED
-				subformat.TorrentStatus = IMAGE_STATUS_QUEUED
-
-				err := ImageSubformatManager.TableSpec().Insert(subformat)
+				err := self.newSubformat(format, false)
 				if err != nil {
-					log.Errorf("fail to make subformat %s", format)
 					return err
 				}
 			}
@@ -756,6 +805,13 @@ func (self *SImage) StopTorrents() {
 	}
 }
 
+func (self *SImage) seedTorrents() {
+	subimgs := ImageSubformatManager.GetAllSubImages(self.Id)
+	for i := 0; i < len(subimgs); i += 1 {
+		subimgs[i].seedTorrent()
+	}
+}
+
 func (self *SImage) RemoveFiles() error {
 	subimgs := ImageSubformatManager.GetAllSubImages(self.Id)
 	for i := 0; i < len(subimgs); i += 1 {
@@ -775,9 +831,9 @@ func (self *SImage) RemoveFiles() error {
 	return nil
 }
 
-func (manager *SImageManager) getAllActiveImages() []SImage {
+func (manager *SImageManager) getAllAliveImages() []SImage {
 	images := make([]SImage, 0)
-	q := manager.Query().Equals("status", IMAGE_STATUS_ACTIVE)
+	q := manager.Query().NotIn("status", imageDeadStatus)
 	err := db.FetchModelObjects(manager, q, &images)
 	if err != nil {
 		log.Errorf("fail to query active images %s", err)
@@ -786,11 +842,11 @@ func (manager *SImageManager) getAllActiveImages() []SImage {
 	return images
 }
 
-func SeedTorrents() {
-	images := ImageManager.getAllActiveImages()
+func CheckImages() {
+	images := ImageManager.getAllAliveImages()
 	for i := 0; i < len(images); i += 1 {
 		log.Debugf("convert image subformats %s", images[i].Name)
-		images[i].StartImageConvertTask(context.TODO(), auth.AdminCredential(), "", false)
+		images[i].StartImageCheckTask(context.TODO(), auth.AdminCredential(), "")
 	}
 }
 
@@ -805,4 +861,102 @@ func (self *SImage) GetDetailsSubformats(ctx context.Context, userCred mcclient.
 		ret[i] = subimgs[i].GetDetails()
 	}
 	return jsonutils.Marshal(ret), nil
+}
+
+func (manager *SImageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	fmtJsonArray, _ := query.GetArray("disk_formats")
+	if len(fmtJsonArray) > 0 {
+		fmtArray := jsonutils.JSONArray2StringArray(fmtJsonArray)
+		q = q.In("disk_format", fmtArray)
+	}
+	return q, nil
+}
+
+func isActive(localPath string, size int64, chksum string, fastHash string, useFastHash bool) bool {
+	if len(localPath) == 0 || !fileutils2.Exists(localPath) {
+		log.Errorf("invalid file")
+		return false
+	}
+	if size != fileutils2.FileSize(localPath) {
+		log.Errorf("size mistmatch")
+		return false
+	}
+	if useFastHash && len(fastHash) > 0 {
+		fhash, err := fileutils2.FastCheckSum(localPath)
+		if err != nil {
+			log.Errorf("IsActive fastChecksum fail %s", err)
+			return false
+		}
+		if fastHash != fhash {
+			log.Errorf("IsActive fastChecksum mismatch")
+			return false
+		}
+	} else {
+		md5sum, err := fileutils2.MD5(localPath)
+		if err != nil {
+			log.Errorf("IsActive md5 fail %s", err)
+			return false
+		}
+		if chksum != md5sum {
+			log.Errorf("IsActive checksum mismatch")
+			return false
+		}
+	}
+	return true
+}
+
+func (self *SImage) isActive(useFast bool) bool {
+	return isActive(self.getLocalLocation(), self.Size, self.Checksum, self.FastHash, useFast)
+}
+
+func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCredential, useFast bool) {
+	if utils.IsInStringArray(self.Status, imageDeadStatus) {
+		return
+	}
+	if self.isActive(useFast) {
+		if self.Status != IMAGE_STATUS_ACTIVE {
+			self.SetStatus(userCred, IMAGE_STATUS_ACTIVE, "check active")
+		}
+		if len(self.FastHash) == 0 {
+			fastHash, err := fileutils2.FastCheckSum(self.getLocalLocation())
+			if err != nil {
+				log.Errorf("DoCheckStatus fileutils2.FastChecksum fail %s", err)
+			} else {
+				_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+					self.FastHash = fastHash
+					return nil
+				})
+				if err != nil {
+					log.Errorf("DoCheckStatus save FastHash fail %s", err)
+				}
+			}
+		}
+	} else {
+		if self.Status != IMAGE_STATUS_QUEUED {
+			self.SetStatus(userCred, IMAGE_STATUS_QUEUED, "check inactive")
+		}
+	}
+	needConvert := false
+	subimgs := ImageSubformatManager.GetAllSubImages(self.Id)
+	if len(subimgs) == 0 {
+		needConvert = true
+	}
+	for i := 0; i < len(subimgs); i += 1 {
+		subimgs[i].checkStatus(useFast)
+		if subimgs[i].Status != IMAGE_STATUS_ACTIVE || subimgs[i].Status != IMAGE_STATUS_ACTIVE {
+			needConvert = true
+		}
+	}
+	if self.Status == IMAGE_STATUS_ACTIVE {
+		if needConvert {
+			log.Infof("Image %s is active and need convert", self.Name)
+			self.StartImageConvertTask(ctx, userCred, "", true)
+		} else {
+			self.seedTorrents()
+		}
+	}
 }

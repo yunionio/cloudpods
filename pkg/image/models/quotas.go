@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"errors"
 
 	"yunion.io/x/jsonutils"
@@ -31,7 +32,7 @@ func (self *SQuota) FetchSystemQuota() {
 	self.Image = options.Options.DefaultImageQuota
 }
 
-func (self *SQuota) FetchUsage(projectId string) error {
+func (self *SQuota) FetchUsage(ctx context.Context, projectId string) error {
 	count := ImageManager.count(projectId, tristate.None, false)
 	self.Image = int(count.Count)
 	return nil

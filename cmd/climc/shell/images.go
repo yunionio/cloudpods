@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type ImageOptionalOptions struct {
@@ -116,28 +117,19 @@ func addImageOptionalOptions(s *mcclient.ClientSession, params *jsonutils.JSONDi
 
 func init() {
 	type ImageListOptions struct {
-		Tenant        string   `help:"Tenant id of image owner"`
-		IsPublic      string   `help:"filter images public or not(True, False or None)" choices:"true|false|none"`
-		Admin         bool     `help:"Show images of all tenants, ADMIN only"`
-		PendingDelete bool     `help:"Show pending deleted images"`
-		Limit         int64    `help:"Max items show, 0 means no limit"`
-		Offset        int64    `help:"Pagination offset, default 0"`
-		Format        []string `help:"Disk formats"`
-		Search        string   `help:"Search text"`
-		Marker        string   `help:"The last Image ID of the previous page"`
-		Name          string   `help:"Name filter"`
-		Details       bool     `help:"Show details"`
+		options.BaseListOptions
+
+		IsPublic string   `help:"filter images public or not(True, False or None)" choices:"true|false|none"`
+		Format   []string `help:"Disk formats"`
+		Name     string   `help:"Name filter"`
 	}
 	R(&ImageListOptions{}, "image-list", "List images", func(s *mcclient.ClientSession, args *ImageListOptions) error {
-		params := jsonutils.NewDict()
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
 		if len(args.IsPublic) > 0 {
 			params.Add(jsonutils.NewString(args.IsPublic), "is_public")
-		}
-		if args.PendingDelete {
-			params.Add(jsonutils.JSONTrue, "pending_delete")
-		}
-		if args.Admin {
-			params.Add(jsonutils.JSONTrue, "admin")
 		}
 		if len(args.Tenant) > 0 {
 			tid, e := modules.Projects.GetId(s, args.Tenant, nil)
@@ -149,18 +141,6 @@ func init() {
 		if len(args.Name) > 0 {
 			params.Add(jsonutils.NewString(args.Name), "name")
 		}
-		if len(args.Marker) > 0 {
-			params.Add(jsonutils.NewString(args.Marker), "marker")
-		}
-		if args.Limit > 0 {
-			params.Add(jsonutils.NewInt(args.Limit), "limit")
-		}
-		if args.Offset > 0 {
-			params.Add(jsonutils.NewInt(args.Offset), "offset")
-		}
-		if len(args.Search) > 0 {
-			params.Add(jsonutils.NewString(args.Search), "search")
-		}
 		if len(args.Format) > 0 {
 			if len(args.Format) == 1 {
 				params.Add(jsonutils.NewString(args.Format[0]), "disk_format")
@@ -171,11 +151,6 @@ func init() {
 				}
 				params.Add(fs, "disk_formats")
 			}
-		}
-		if args.Details {
-			params.Add(jsonutils.JSONTrue, "details")
-		} else {
-			params.Add(jsonutils.JSONFalse, "details")
 		}
 		result, err := modules.Images.List(s, params)
 		if err != nil {
@@ -318,9 +293,9 @@ func init() {
 	R(&ImageUploadOptions{}, "image-upload", "Upload a local image", func(s *mcclient.ClientSession, args *ImageUploadOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.NAME), "name")
-		if len(args.Format) == 0 {
-			return fmt.Errorf("Please specify image format")
-		}
+		// if len(args.Format) == 0 {
+		// 	return fmt.Errorf("Please specify image format")
+		//}
 		if len(args.OsType) == 0 {
 			return fmt.Errorf("Please specify OS type")
 		}

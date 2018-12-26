@@ -1,15 +1,19 @@
 package torrent
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/nodeid"
 )
 
 var (
@@ -33,13 +37,23 @@ func InitTorrentClient() error {
 		return fmt.Errorf("no valid torrent-tracker")
 	}
 
+	nodeId, err := nodeid.GetNodeId()
+	if err != nil {
+		log.Errorf("fail to generate node id: %s", err)
+		return err
+	}
+
+	log.Infof("Set torrent server as node %s", nodeId)
+
 	clientConfig := torrent.NewDefaultClientConfig()
+	clientConfig.PeerID = nodeId[:20]
 	clientConfig.Debug = false
 	clientConfig.Seed = true
+	clientConfig.NoUpload = false
 	clientConfig.DataDir = options.Options.FilesystemStoreDatadir
 	clientConfig.DisableTrackers = false
-	clientConfig.DisablePEX = false
-	clientConfig.NoDHT = false
+	clientConfig.DisablePEX = true
+	clientConfig.NoDHT = true
 
 	client, err := torrent.NewClient(clientConfig)
 	if err != nil {
@@ -48,7 +62,19 @@ func InitTorrentClient() error {
 	}
 	torrentClient = client
 
+	log.Infof("torrent client initialized")
+
 	return nil
+}
+
+func InitTorrentHandler(app *appsrv.Application) {
+	app.AddDefaultHandler("GET", "/torrent_stats", TorrentStatsHandler, "torrent_stats")
+}
+
+func TorrentStatsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	if torrentClient != nil {
+		torrentClient.WriteStatus(w)
+	}
 }
 
 func CloseTorrentClient() {

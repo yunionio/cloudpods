@@ -43,6 +43,7 @@ type SImageSubformat struct {
 	Size     int64  `nullable:"false"`
 	Location string `nullable:"false"`
 	Checksum string `width:"32" charset:"ascii" nullable:"true"`
+	FastHash string `width:"32" charset:"ascii" nullable:"true"`
 	Status   string `nullable:"false"`
 
 	TorrentSize     int64  `nullable:"false"`
@@ -117,20 +118,26 @@ func (self *SImageSubformat) Save(image *SImage) error {
 		log.Errorf("image.getQemuImage fail %s", err)
 		return err
 	}
-	nimg, err := img.Clone(location, qemuimg.TImageFormat(self.Format), true)
+	nimg, err := img.Clone(location, qemuimg.String2ImageFormat(self.Format), true)
 	if err != nil {
 		log.Errorf("img.Clone fail %s", err)
 		return err
 	}
-	checksum, err := fileutils2.Md5(location)
+	checksum, err := fileutils2.MD5(location)
 	if err != nil {
 		log.Errorf("fileutils2.Md5 fail %s", err)
+		return err
+	}
+	fastHash, err := fileutils2.FastCheckSum(location)
+	if err != nil {
+		log.Errorf("fileutils2.fastChecksum fail %s", err)
 		return err
 	}
 	_, err = self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Status = IMAGE_STATUS_ACTIVE
 		self.Location = fmt.Sprintf("%s%s", LocalFilePrefix, location)
 		self.Checksum = checksum
+		self.FastHash = fastHash
 		self.Size = nimg.ActualSizeBytes
 		return nil
 	})
@@ -164,7 +171,7 @@ func (self *SImageSubformat) SaveTorrent() error {
 		log.Errorf("torrentutils.GenerateTorrent fail %s", err)
 		return err
 	}
-	checksum, err := fileutils2.Md5(torrentPath)
+	checksum, err := fileutils2.MD5(torrentPath)
 	if err != nil {
 		log.Errorf("fileutils2.Md5 fail %s", err)
 		return err
@@ -241,6 +248,7 @@ type SImageSubformatDetails struct {
 
 	Size     int64
 	Checksum string
+	FastHash string
 	Status   string
 
 	TorrentSize     int64
@@ -257,6 +265,7 @@ func (self *SImageSubformat) GetDetails() SImageSubformatDetails {
 	details.Format = self.Format
 	details.Size = self.Size
 	details.Checksum = self.Checksum
+	details.FastHash = self.FastHash
 	details.Status = self.Status
 	details.TorrentSize = self.TorrentSize
 	details.TorrentChecksum = self.TorrentChecksum
@@ -271,4 +280,63 @@ func (self *SImageSubformat) GetDetails() SImageSubformatDetails {
 		details.TorrentStats = t.Stats()
 	}
 	return details
+}
+
+func (self *SImageSubformat) isActive(useFast bool) bool {
+	return isActive(self.getLocalLocation(), self.Size, self.Checksum, self.FastHash, useFast)
+}
+
+func (self *SImageSubformat) isTorrentActive() bool {
+	return isActive(self.getLocalTorrentLocation(), self.TorrentSize, self.TorrentChecksum, "", false)
+}
+
+func (self *SImageSubformat) setStatus(status string) error {
+	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		self.Status = status
+		return nil
+	})
+	return err
+}
+
+func (self *SImageSubformat) setTorrentStatus(status string) error {
+	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		self.TorrentStatus = status
+		return nil
+	})
+	return err
+}
+
+func (self *SImageSubformat) checkStatus(useFast bool) {
+	if self.isActive(useFast) {
+		if self.Status != IMAGE_STATUS_ACTIVE {
+			self.setStatus(IMAGE_STATUS_ACTIVE)
+		}
+		if len(self.FastHash) == 0 {
+			fastHash, err := fileutils2.FastCheckSum(self.getLocalLocation())
+			if err != nil {
+				log.Errorf("checkStatus fileutils2.FastChecksum fail %s", err)
+			} else {
+				_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+					self.FastHash = fastHash
+					return nil
+				})
+				if err != nil {
+					log.Errorf("checkStatus save FastHash fail %s", err)
+				}
+			}
+		}
+	} else {
+		if self.Status != IMAGE_STATUS_QUEUED {
+			self.setStatus(IMAGE_STATUS_QUEUED)
+		}
+	}
+	if self.isTorrentActive() {
+		if self.TorrentStatus != IMAGE_STATUS_ACTIVE {
+			self.setTorrentStatus(IMAGE_STATUS_ACTIVE)
+		}
+	} else {
+		if self.TorrentStatus != IMAGE_STATUS_QUEUED {
+			self.setTorrentStatus(IMAGE_STATUS_QUEUED)
+		}
+	}
 }

@@ -110,6 +110,43 @@ func TestQcow2(t *testing.T) {
 	img4.Delete()
 	img.Delete()
 }
+func TestVhd(t *testing.T) {
+	img, err := NewQemuImage("test")
+	if err != nil {
+		t.Errorf(err.Error())
+		return
+	}
+	err = img.CreateVhd(1024)
+	if err != nil {
+		t.Errorf(err.Error())
+		return
+	}
+	t.Logf("%s %v", img, img.IsSparse())
+	err = img.Delete()
+	if err != nil {
+		t.Errorf(err.Error())
+		return
+	}
+	err = img.CreateVhd(1024)
+	if err != nil {
+		t.Errorf(err.Error())
+		return
+	}
+	t.Logf("%s %v", img, img.IsSparse())
+	err = img.Convert2Vhd()
+	if err != nil {
+		t.Errorf(err.Error())
+		return
+	}
+	t.Logf("%s %v", img, img.IsSparse())
+	err = img.Convert2Vhd()
+	if err != nil {
+		t.Errorf(err.Error())
+		return
+	}
+	t.Logf("%s %v", img, img.IsSparse())
+	img.Delete()
+}
 
 func TestVmdk(t *testing.T) {
 	img, err := NewQemuImage("test")

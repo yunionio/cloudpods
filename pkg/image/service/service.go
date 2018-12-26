@@ -45,6 +45,7 @@ func StartService() {
 		log.Errorf("fail to initialize torrent client: %s", err)
 		return
 	}
+	torrent.InitTorrentHandler(app)
 	defer torrent.CloseTorrentClient()
 
 	if !db.CheckSync(options.Options.AutoSyncTable) {
@@ -53,7 +54,7 @@ func StartService() {
 
 	models.InitDB()
 
-	models.SeedTorrents()
+	models.CheckImages()
 
 	cron := cronman.GetCronJobManager()
 	cron.AddJob1("CleanPendingDeleteImages", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.ImageManager.CleanPendingDeleteImages)

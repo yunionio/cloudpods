@@ -13,9 +13,11 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/util/torrentutils"
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/structarg"
+
+	"yunion.io/x/onecloud/pkg/util/nodeid"
+	"yunion.io/x/onecloud/pkg/util/torrentutils"
 )
 
 type Options struct {
@@ -25,6 +27,8 @@ type Options struct {
 	TORRENT string `help:"path to torrent file"`
 
 	Tracker []string `help:"Tracker urls, e.g. http://10.168.222.252:6969/announce or udp://tracker.istole.it:6969"`
+
+	Debug bool `help:"turn on debug"`
 }
 
 func exitSignalHandlers(client *torrent.Client) {
@@ -83,9 +87,19 @@ func main() {
 		}
 	}
 
+	nodeId, err := nodeid.GetNodeId()
+	if err != nil {
+		log.Errorf("fail to generate node id: %s", err)
+		return
+	}
+
+	log.Infof("Set torrent server as node %s", nodeId)
+
 	clientConfig := torrent.NewDefaultClientConfig()
-	clientConfig.Debug = false
+	clientConfig.PeerID = nodeId[:20]
+	clientConfig.Debug = options.Debug
 	clientConfig.Seed = true
+	clientConfig.NoUpload = false
 	if len(options.Tracker) > 0 {
 		// server mode
 		clientConfig.DataDir = path.Dir(root)
@@ -94,8 +108,11 @@ func main() {
 		clientConfig.DataDir = root
 	}
 	clientConfig.DisableTrackers = false
-	clientConfig.DisablePEX = false
+	clientConfig.DisablePEX = true
 	clientConfig.NoDHT = true
+	clientConfig.NominalDialTimeout = 1 * time.Second
+	clientConfig.MinDialTimeout = 100 * time.Millisecond
+	clientConfig.HandshakesTimeout = 100 * time.Second
 
 	client, err := torrent.NewClient(clientConfig)
 	if err != nil {
@@ -135,6 +152,7 @@ func main() {
 		} else {
 			fmt.Printf("\rDownload: %.1f%%", float64(t.BytesCompleted())*100.0/float64(t.Info().TotalLength()))
 		}
+		// client.WriteStatus(os.Stdout)
 		time.Sleep(time.Second)
 	}
 }
