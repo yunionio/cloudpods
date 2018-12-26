@@ -6,6 +6,8 @@ import (
 )
 
 type SImageOptions struct {
+	cloudcommon.CommonOptions
+
 	cloudcommon.DBOptions
 
 	pending_delete.SPendingDeleteOptions

@@ -84,7 +84,7 @@ func ParseOptions(optStruct interface{}, args []string, configFileName string, s
 		log.Fatalf("Parse arguments error: %v", err)
 	}
 
-	var optionsRef *Options
+	var optionsRef *CommonOptions
 
 	err = reflectutils.FindAnonymouStructPointer(optStruct, &optionsRef)
 	if err != nil {

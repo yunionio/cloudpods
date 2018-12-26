@@ -170,7 +170,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	_, err = s3client.GetObject(&s3.GetObjectInput{Bucket: &bucketName, Key: &imageId})
 	if err != nil {
 		// first upload image to oss
-		meta, reader, err := modules.Images.Download(s, imageId)
+		meta, reader, err := modules.Images.Download(s, imageId, string(qemuimg.VMDK), false)
 		if err != nil {
 			return "", err
 		}
@@ -200,7 +200,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		}
 		defer s3client.DeleteObject(&s3.DeleteObjectInput{Bucket: &bucketName, Key: &imageId}) // remove object
 	} else {
-		meta, _, err := modules.Images.Download(s, imageId)
+		meta, _, err := modules.Images.Download(s, imageId, string(qemuimg.VMDK), false)
 		if err != nil {
 			return "", err
 		}

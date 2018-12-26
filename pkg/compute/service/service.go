@@ -30,7 +30,7 @@ func StartService() {
 	opts := &options.Options
 	commonOpts := &options.Options.CommonOptions
 	dbOpts := &options.Options.DBOptions
-	cloudcommon.ParseOptions(&options.Options, os.Args, "region.conf", "compute")
+	cloudcommon.ParseOptions(opts, os.Args, "region.conf", "compute")
 
 	if opts.PortV2 > 0 {
 		log.Infof("Port V2 %d is specified, use v2 port", opts.PortV2)
@@ -48,7 +48,7 @@ func StartService() {
 
 	InitHandlers(app)
 
-	if !db.CheckSync(options.Options.AutoSyncTable) {
+	if !db.CheckSync(opts.AutoSyncTable) {
 		log.Fatalf("database schema not in sync!")
 	}
 
@@ -70,5 +70,5 @@ func StartService() {
 	cron.Start()
 	defer cron.Stop()
 
-	cloudcommon.ServeForever(app, &options.Options.Options)
+	cloudcommon.ServeForever(app, commonOpts)
 }

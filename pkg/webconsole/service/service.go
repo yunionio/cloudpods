@@ -24,7 +24,6 @@ func ensureBinExists(binPath string) {
 }
 
 func StartService() {
-	consts.SetServiceType("webconsole")
 
 	opts := &o.Options
 	commonOpts := &o.Options.CommonOptions

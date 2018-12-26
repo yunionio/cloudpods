@@ -13,7 +13,7 @@ type CloudSyncOptions struct {
 
 	etcd.SEtcdOptions
 
-	cloudcommon.Options
+	cloudcommon.CommonOptions
 }
 
 var (

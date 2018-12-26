@@ -8,7 +8,7 @@ import (
 type SCloudirOptions struct {
 	etcd.SEtcdOptions
 
-	cloudcommon.Options
+	cloudcommon.CommonOptions
 }
 
 var (

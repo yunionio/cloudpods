@@ -23,21 +23,24 @@ const (
 )
 
 func StartService() {
-	cloudcommon.ParseOptions(&options.Options, os.Args, "glance-api.conf", SERVICE_TYPE)
+	opts := &options.Options
+	commonOpts := &opts.CommonOptions
+	dbOpts := &opts.DBOptions
+	cloudcommon.ParseOptions(opts, os.Args, "glance-api.conf", SERVICE_TYPE)
 
-	if options.Options.PortV2 > 0 {
-		log.Infof("Port V2 %d is specified, use v2 port", options.Options.PortV2)
-		options.Options.Port = options.Options.PortV2
+	if opts.PortV2 > 0 {
+		log.Infof("Port V2 %d is specified, use v2 port", opts.PortV2)
+		opts.Port = opts.PortV2
 	}
 
-	cloudcommon.InitAuth(&options.Options.Options, func() {
+	cloudcommon.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})
 
-	cloudcommon.InitDB(&options.Options.DBOptions)
+	cloudcommon.InitDB(dbOpts)
 	defer cloudcommon.CloseDB()
 
-	app := cloudcommon.InitApp(&options.Options.Options, true)
+	app := cloudcommon.InitApp(commonOpts, true)
 	initHandlers(app)
 
 	err := torrent.InitTorrentClient()
@@ -48,7 +51,7 @@ func StartService() {
 	torrent.InitTorrentHandler(app)
 	defer torrent.CloseTorrentClient()
 
-	if !db.CheckSync(options.Options.AutoSyncTable) {
+	if !db.CheckSync(opts.AutoSyncTable) {
 		log.Fatalf("database schema not in sync!")
 	}
 
@@ -62,5 +65,5 @@ func StartService() {
 	cron.Start()
 	defer cron.Stop()
 
-	cloudcommon.ServeForever(app, &options.Options.Options)
+	cloudcommon.ServeForever(app, commonOpts)
 }
