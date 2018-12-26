@@ -311,12 +311,12 @@ func SyncSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bo
 			return
 		}
 	}
-	skus := SkusZoneList{}
-	if e := skus.Refresh(nil); e != nil {
+	skulist := SkusZoneList{}
+	if e := skulist.Refresh(nil); e != nil {
 		log.Errorf("SyncSkus refresh failed, %s", e.Error())
 	}
 
-	if e := skus.SyncToLocalDB(); e != nil {
+	if e := skulist.SyncToLocalDB(); e != nil {
 		log.Errorf("SyncSkus sync to local db failed, %s", e.Error())
 	}
 
@@ -327,32 +327,32 @@ func SyncSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bo
 
 // 同步指定provider sku列表
 func SyncSkusByProviderIds(providerIds []string) error {
-	skus := SkusZoneList{}
+	skulist := SkusZoneList{}
 	log.Debugf("SyncSkusByProviderIds %s", providerIds)
-	if e := skus.Refresh(&providerIds); e != nil {
+	if e := skulist.Refresh(&providerIds); e != nil {
 		return fmt.Errorf("SyncSkus refresh failed, %s", e.Error())
 	}
 
-	if e := skus.SyncToLocalDB(); e != nil {
+	if e := skulist.SyncToLocalDB(); e != nil {
 		return fmt.Errorf("SyncSkus sync to local db failed, %s", e.Error())
 	}
 
 	return nil
 }
 
-// 同步指定zone sku列表
+// 同步指定region sku列表
 func SyncSkusByRegion(region *models.SCloudregion) error {
-	skus := SkusZoneList{}
+	skulist := SkusZoneList{}
 	zones, err := models.ZoneManager.GetZonesByRegion(region)
 	if err != nil {
 		return err
 	}
 
 	log.Debugf("SyncSkusByRegion %s", region.GetName())
-	skus.initData(region.Provider, *region, zones)
-	skus.refresh()
+	skulist.initData(region.Provider, *region, zones)
+	skulist.refresh()
 
-	if e := skus.SyncToLocalDB(); e != nil {
+	if e := skulist.SyncToLocalDB(); e != nil {
 		return fmt.Errorf("SyncSkus sync to local db failed, %s", e.Error())
 	}
 

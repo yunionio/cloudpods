@@ -432,9 +432,9 @@ func (self *SServerSku) AllowDeleteItem(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SServerSku) ValidateDeleteCondition(ctx context.Context) error {
-	serverCount := GuestManager.Query().Equals("instance_type", self.Id).Limit(1).Count()
+	serverCount := GuestManager.Query().Equals("instance_type", self.Id).Count()
 	if serverCount > 0 {
-		return httperrors.NewForbiddenError("now allow to delete inuse instance_type.please remove related server: %s", self.Name)
+		return httperrors.NewForbiddenError("now allow to delete inuse instance_type.please remove related servers first: %s", self.Name)
 	}
 
 	if !inWhiteList(self.Provider) {
