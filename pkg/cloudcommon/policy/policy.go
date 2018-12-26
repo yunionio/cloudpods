@@ -260,7 +260,8 @@ func unifyRbacResult(isAdmin bool, currentPriv rbacutils.TRbacResult) rbacutils.
 }
 
 func exportRbacResult(currentPriv rbacutils.TRbacResult) rbacutils.TRbacResult {
-	if currentPriv == rbacutils.AdminAllow || currentPriv == rbacutils.OwnerAllow {
+	// if currentPriv == rbacutils.AdminAllow || currentPriv == rbacutils.OwnerAllow {
+	if currentPriv == rbacutils.AdminAllow {
 		return rbacutils.Allow
 	}
 	return currentPriv
@@ -269,9 +270,10 @@ func exportRbacResult(currentPriv rbacutils.TRbacResult) rbacutils.TRbacResult {
 func (manager *SPolicyManager) explainPolicy(userCred mcclient.TokenCredential, policyReq jsonutils.JSONObject, name string) ([]string, rbacutils.TRbacResult, error) {
 	isAdmin, request, result, err := manager.explainPolicyInternal(userCred, policyReq, name)
 	log.Errorf("%v %s %s %s", isAdmin, request, result, err)
-	if !isAdmin && isAdminResource(request[0], request[1]) && result == rbacutils.Allow {
+	if !isAdmin && isAdminResource(request[0], request[1]) && result == rbacutils.OwnerAllow {
 		result = rbacutils.Deny
 	}
+	result = exportRbacResult(result)
 	return request, result, err
 }
 
@@ -316,7 +318,7 @@ func (manager *SPolicyManager) explainPolicyInternal(userCred mcclient.TokenCred
 		}
 	}
 	if len(name) == 0 {
-		return isAdmin, reqStrs, exportRbacResult(manager.allowWithoutCache(isAdmin, userCred, service, resource, action, extra...)), nil
+		return isAdmin, reqStrs, manager.allowWithoutCache(isAdmin, userCred, service, resource, action, extra...), nil
 	}
 	policy := manager.findPolicyByName(isAdmin, name)
 	if policy == nil {
@@ -327,7 +329,7 @@ func (manager *SPolicyManager) explainPolicyInternal(userCred mcclient.TokenCred
 	if rule != nil {
 		result = rule.Result
 	}
-	return isAdmin, reqStrs, exportRbacResult(unifyRbacResult(isAdmin, result)), nil
+	return isAdmin, reqStrs, unifyRbacResult(isAdmin, result), nil
 }
 
 func (manager *SPolicyManager) ExplainRpc(userCred mcclient.TokenCredential, params jsonutils.JSONObject, name string) (jsonutils.JSONObject, error) {
