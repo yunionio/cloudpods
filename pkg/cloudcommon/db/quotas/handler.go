@@ -25,23 +25,23 @@ func AddQuotaHandler(manager *SQuotaManager, prefix string, app *appsrv.Applicat
 	_manager = manager
 
 	app.AddHandler2("GET",
-		fmt.Sprintf("%s/quotas", prefix),
+		fmt.Sprintf("%s/%s", prefix, _manager.Keyword()),
 		auth.Authenticate(getQuotaHanlder), nil, "get_quota", nil)
 
 	app.AddHandler2("GET",
-		fmt.Sprintf("%s/quotas/<tenantid>", prefix),
+		fmt.Sprintf("%s/%s/<tenantid>", prefix, _manager.Keyword()),
 		auth.Authenticate(getQuotaHanlder), nil, "get_quota", nil)
 
 	app.AddHandler2("POST",
-		fmt.Sprintf("%s/quotas", prefix),
+		fmt.Sprintf("%s/%s", prefix, _manager.Keyword()),
 		auth.Authenticate(setQuotaHanlder), nil, "set_quota", nil)
 
 	app.AddHandler2("POST",
-		fmt.Sprintf("%s/quotas/<tenantid>", prefix),
+		fmt.Sprintf("%s/%s/<tenantid>", prefix, _manager.Keyword()),
 		auth.Authenticate(setQuotaHanlder), nil, "set_quota", nil)
 
 	app.AddHandler2("POST",
-		fmt.Sprintf("%s/quotas/<tenantid>/<action>", prefix),
+		fmt.Sprintf("%s/%s/<tenantid>/<action>", prefix, _manager.Keyword()),
 		auth.Authenticate(checkQuotaHanlder), nil, "check_quota", nil)
 }
 
@@ -80,7 +80,7 @@ func getQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 		projectId = userCred.GetProjectId()
 		if consts.IsRbacEnabled() {
 			result := policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
-				"quotas", policy.PolicyActionGet)
+				_manager.Keyword(), policy.PolicyActionGet)
 			if result == rbacutils.Deny {
 				httperrors.ForbiddenError(w, "not allow to get quota")
 				return
@@ -101,7 +101,7 @@ func getQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 		}
 		if consts.IsRbacEnabled() {
 			if policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
-				"quotas", policy.PolicyActionGet) != rbacutils.AdminAllow {
+				_manager.Keyword(), policy.PolicyActionGet) != rbacutils.AdminAllow {
 				httperrors.ForbiddenError(w, "not allow to query quota")
 				return
 			}
@@ -127,7 +127,7 @@ func getQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 	}
 
 	body := jsonutils.NewDict()
-	body.Add(quota, "quotas")
+	body.Add(quota, _manager.Keyword())
 
 	appsrv.SendJSON(w, body)
 }
@@ -138,10 +138,10 @@ func setQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 	var isAllow bool
 	if consts.IsRbacEnabled() {
 		isAllow = policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
-			"quotas", policy.PolicyActionUpdate) == rbacutils.AdminAllow
+			_manager.Keyword(), policy.PolicyActionUpdate) == rbacutils.AdminAllow
 	} else {
 		isAllow = userCred.IsAdminAllow(consts.GetServiceType(),
-			"quotas", policy.PolicyActionUpdate)
+			_manager.Keyword(), policy.PolicyActionUpdate)
 	}
 	if !isAllow {
 		httperrors.ForbiddenError(w, "not allow to set quota")
@@ -171,7 +171,7 @@ func setQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 		return
 	}
 	quota := _manager.newQuota()
-	err = body.Unmarshal(quota, "quotas")
+	err = body.Unmarshal(quota, _manager.Keyword())
 	if err != nil {
 		log.Errorf("Fail to decode JSON request body: %s", err)
 		httperrors.InvalidInputError(w, "fail to decode body")
@@ -192,7 +192,7 @@ func setQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 		return
 	}
 	rbody := jsonutils.NewDict()
-	rbody.Add(oquota.ToJSON(""), "quotas")
+	rbody.Add(oquota.ToJSON(""), _manager.Keyword())
 	appsrv.SendJSON(w, rbody)
 }
 
@@ -213,7 +213,7 @@ func checkQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Reque
 	}
 	if consts.IsRbacEnabled() {
 		if policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
-			"quotas", policy.PolicyActionGet) != rbacutils.AdminAllow {
+			_manager.Keyword(), policy.PolicyActionGet) != rbacutils.AdminAllow {
 			httperrors.ForbiddenError(w, "not allow to query quota")
 			return
 		}
@@ -238,7 +238,7 @@ func checkQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Reque
 	}
 	body, err := appsrv.FetchJSON(r)
 	quota := _manager.newQuota()
-	err = body.Unmarshal(quota, "quotas")
+	err = body.Unmarshal(quota, _manager.Keyword())
 	if err != nil {
 		log.Errorf("Fail to decode JSON request body: %s", err)
 		httperrors.InvalidInputError(w, "fail to decode body")
@@ -250,6 +250,6 @@ func checkQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Reque
 		return
 	}
 	rbody := jsonutils.NewDict()
-	rbody.Add(used.ToJSON(""), "quotas")
+	rbody.Add(used.ToJSON(""), _manager.Keyword())
 	appsrv.SendJSON(w, rbody)
 }

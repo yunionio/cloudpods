@@ -38,7 +38,7 @@ func (this *QuotaManager) DoQuotaSet(s *mcclient.ClientSession, params jsonutils
 	}
 	data := quotas.Copy("tenant", "user")
 	body := jsonutils.NewDict()
-	body.Add(data, "quotas")
+	body.Add(data, this.KeywordPlural)
 	return this._post(s, url, body, this.KeywordPlural)
 }
 
@@ -51,12 +51,13 @@ func (this *QuotaManager) DoQuotaCheck(s *mcclient.ClientSession, params jsonuti
 	}
 	data := quotas.Copy("tenant", "user")
 	body := jsonutils.NewDict()
-	body.Add(data, "quotas")
+	body.Add(data, this.KeywordPlural)
 	return this._post(s, url, body, this.KeywordPlural)
 }
 
 var (
-	Quotas QuotaManager
+	Quotas      QuotaManager
+	ImageQuotas QuotaManager
 )
 
 func init() {
@@ -64,4 +65,9 @@ func init() {
 		[]string{},
 		[]string{})}
 	registerCompute(&Quotas)
+
+	ImageQuotas = QuotaManager{NewImageManager("image-quota", "image-quotas",
+		[]string{},
+		[]string{})}
+	registerV2(&ImageQuotas)
 }

@@ -48,9 +48,12 @@ func (self *SGroupnetwork) GetCustomizeColumns(ctx context.Context, userCred mcc
 	return db.JointModelExtra(self, extra)
 }
 
-func (self *SGroupnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SGroupJointsBase.GetExtraDetails(ctx, userCred, query)
-	return db.JointModelExtra(self, extra)
+func (self *SGroupnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SGroupJointsBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return db.JointModelExtra(self, extra), nil
 }
 
 func (self *SGroupnetwork) getNetwork() *SNetwork {

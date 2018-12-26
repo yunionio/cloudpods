@@ -396,4 +396,35 @@ func init() {
 		return nil
 	})
 
+	R(&ImageShowOptions{}, "image-private", "Make a image private", func(s *mcclient.ClientSession, args *ImageShowOptions) error {
+		if len(args.ID) == 0 {
+			return fmt.Errorf("No image ID provided")
+		} else if len(args.ID) == 1 {
+			result, err := modules.Images.PerformAction(s, args.ID[0], "private", nil)
+			if err != nil {
+				return err
+			}
+			printObject(result)
+		} else {
+			results := modules.Images.BatchPerformAction(s, args.ID, "private", nil)
+			printBatchResults(results, modules.Images.GetColumns(s))
+		}
+		return nil
+	})
+
+	R(&ImageShowOptions{}, "image-public", "Make a image public", func(s *mcclient.ClientSession, args *ImageShowOptions) error {
+		if len(args.ID) == 0 {
+			return fmt.Errorf("No image ID provided")
+		} else if len(args.ID) == 1 {
+			result, err := modules.Images.PerformAction(s, args.ID[0], "public", nil)
+			if err != nil {
+				return err
+			}
+			printObject(result)
+		} else {
+			results := modules.Images.BatchPerformAction(s, args.ID, "public", nil)
+			printBatchResults(results, modules.Images.GetColumns(s))
+		}
+		return nil
+	})
 }

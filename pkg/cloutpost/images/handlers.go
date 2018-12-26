@@ -1,4 +1,5 @@
 package images
 
+func AddHandler() {
 
-func AddHandler()
+}

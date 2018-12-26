@@ -327,10 +327,10 @@ func (rt *SRouteTable) GetCustomizeColumns(ctx context.Context, userCred mcclien
 	return extra
 }
 
-func (rt *SRouteTable) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+func (rt *SRouteTable) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 	extra := rt.GetCustomizeColumns(ctx, userCred, query)
 	extra = rt.getMoreDetails(extra)
-	return extra
+	return extra, nil
 }
 
 func (man *SRouteTableManager) SyncRouteTables(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc, cloudRouteTables []cloudprovider.ICloudRouteTable) ([]SRouteTable, []cloudprovider.ICloudRouteTable, compare.SyncResult) {

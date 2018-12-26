@@ -191,9 +191,12 @@ func (model *SVirtualResourceBase) GetCustomizeColumns(ctx context.Context, user
 	return model.getMoreDetails(ctx, userCred, query, extra)
 }
 
-func (model *SVirtualResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := model.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	return model.getMoreDetails(ctx, userCred, query, extra)
+func (model *SVirtualResourceBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := model.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return model.getMoreDetails(ctx, userCred, query, extra), nil
 }
 
 func (model *SVirtualResourceBase) AllowPerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

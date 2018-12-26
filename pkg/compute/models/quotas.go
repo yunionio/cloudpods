@@ -8,8 +8,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/pkg/tristate"
 )
 
@@ -23,16 +21,16 @@ func init() {
 }
 
 var (
-	ErrOutOfCPU            = errors.New("out of CPU quota")
-	ErrOutOfMemory         = errors.New("out of memory quota")
-	ErrOutOfStorage        = errors.New("out of storage quota")
-	ErrOutOfPort           = errors.New("out of internal port quota")
-	ErrOutOfEip            = errors.New("out of eip quota")
-	ErrOutOfEport          = errors.New("out of external port quota")
-	ErrOutOfBw             = errors.New("out of internal bandwidth quota")
-	ErrOutOfEbw            = errors.New("out of external bandwidth quota")
-	ErrOutOfKeypair        = errors.New("out of keypair quota")
-	ErrOutOfImage          = errors.New("out of image quota")
+	ErrOutOfCPU     = errors.New("out of CPU quota")
+	ErrOutOfMemory  = errors.New("out of memory quota")
+	ErrOutOfStorage = errors.New("out of storage quota")
+	ErrOutOfPort    = errors.New("out of internal port quota")
+	ErrOutOfEip     = errors.New("out of eip quota")
+	ErrOutOfEport   = errors.New("out of external port quota")
+	ErrOutOfBw      = errors.New("out of internal bandwidth quota")
+	ErrOutOfEbw     = errors.New("out of external bandwidth quota")
+	ErrOutOfKeypair = errors.New("out of keypair quota")
+	// ErrOutOfImage          = errors.New("out of image quota")
 	ErrOutOfGroup          = errors.New("out of group quota")
 	ErrOutOfSecgroup       = errors.New("out of secgroup quota")
 	ErrOutOfIsolatedDevice = errors.New("out of isolated device quota")
@@ -40,16 +38,16 @@ var (
 )
 
 type SQuota struct {
-	Cpu            int
-	Memory         int
-	Storage        int
-	Port           int
-	Eip            int
-	Eport          int
-	Bw             int
-	Ebw            int
-	Keypair        int
-	Image          int
+	Cpu     int
+	Memory  int
+	Storage int
+	Port    int
+	Eip     int
+	Eport   int
+	Bw      int
+	Ebw     int
+	Keypair int
+	// Image          int
 	Group          int
 	Secgroup       int
 	IsolatedDevice int
@@ -66,7 +64,6 @@ func (self *SQuota) FetchSystemQuota() {
 	self.Bw = options.Options.DefaultBwQuota
 	self.Ebw = options.Options.DefaultEbwQuota
 	self.Keypair = options.Options.DefaultKeypairQuota
-	self.Image = options.Options.DefaultImageQuota
 	self.Group = options.Options.DefaultGroupQuota
 	self.Secgroup = options.Options.DefaultSecgroupQuota
 	self.IsolatedDevice = options.Options.DefaultIsolatedDeviceQuota
@@ -92,8 +89,6 @@ func (self *SQuota) FetchUsage(ctx context.Context, projectId string) error {
 	self.Bw = net.InternalBandwidth
 	self.Ebw = net.ExternalBandwidth
 	self.Keypair = 0 // keypair
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	self.Image, _ = modules.Images.GetPrivateImageCount(s, projectId, true)
 	self.Group = 0
 	self.Secgroup = totalSecurityGroupCount(projectId)
 	self.IsolatedDevice = guest.TotalIsolatedCount
@@ -129,9 +124,6 @@ func (self *SQuota) IsEmpty() bool {
 	if self.Keypair > 0 {
 		return false
 	}
-	if self.Image > 0 {
-		return false
-	}
 	if self.Group > 0 {
 		return false
 	}
@@ -158,7 +150,6 @@ func (self *SQuota) Add(quota quotas.IQuota) {
 	self.Bw = self.Bw + squota.Bw
 	self.Ebw = self.Ebw + squota.Ebw
 	self.Keypair = self.Keypair + squota.Keypair
-	self.Image = self.Image + squota.Image
 	self.Group = self.Group + squota.Group
 	self.Secgroup = self.Secgroup + squota.Secgroup
 	self.IsolatedDevice = self.IsolatedDevice + squota.IsolatedDevice
@@ -166,11 +157,7 @@ func (self *SQuota) Add(quota quotas.IQuota) {
 }
 
 func nonNegative(val int) int {
-	if val < 0 {
-		return 0
-	} else {
-		return val
-	}
+	return quotas.NonNegative(val)
 }
 
 func (self *SQuota) Sub(quota quotas.IQuota) {
@@ -184,7 +171,6 @@ func (self *SQuota) Sub(quota quotas.IQuota) {
 	self.Bw = nonNegative(self.Bw - squota.Bw)
 	self.Ebw = nonNegative(self.Ebw - squota.Ebw)
 	self.Keypair = nonNegative(self.Keypair - squota.Keypair)
-	self.Image = nonNegative(self.Image - squota.Image)
 	self.Group = nonNegative(self.Group - squota.Group)
 	self.Secgroup = nonNegative(self.Secgroup - squota.Secgroup)
 	self.IsolatedDevice = nonNegative(self.IsolatedDevice - squota.IsolatedDevice)
@@ -219,9 +205,6 @@ func (self *SQuota) Update(quota quotas.IQuota) {
 	}
 	if squota.Keypair > 0 {
 		self.Keypair = squota.Keypair
-	}
-	if squota.Image > 0 {
-		self.Image = squota.Image
 	}
 	if squota.Group > 0 {
 		self.Group = squota.Group
@@ -266,9 +249,6 @@ func (self *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
 	}
 	if sreq.Keypair > 0 && self.Keypair > squota.Keypair {
 		return ErrOutOfKeypair
-	}
-	if sreq.Image > 0 && self.Image > squota.Image {
-		return ErrOutOfImage
 	}
 	if sreq.Group > 0 && self.Group > squota.Group {
 		return ErrOutOfGroup
@@ -321,9 +301,6 @@ func (self *SQuota) ToJSON(prefix string) jsonutils.JSONObject {
 	}
 	if self.Keypair > 0 {
 		ret.Add(jsonutils.NewInt(int64(self.Keypair)), keyName(prefix, "keypair"))
-	}
-	if self.Image > 0 {
-		ret.Add(jsonutils.NewInt(int64(self.Image)), keyName(prefix, "image"))
 	}
 	if self.Group > 0 {
 		ret.Add(jsonutils.NewInt(int64(self.Group)), keyName(prefix, "group"))

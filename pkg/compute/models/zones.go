@@ -314,9 +314,12 @@ func (zone *SZone) GetCustomizeColumns(ctx context.Context, userCred mcclient.To
 	return zoneExtra(zone, extra)
 }
 
-func (zone *SZone) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := zone.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	return zoneExtra(zone, extra)
+func (zone *SZone) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := zone.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return zoneExtra(zone, extra), nil
 }
 
 func (zone *SZone) GetCloudRegionId() string {

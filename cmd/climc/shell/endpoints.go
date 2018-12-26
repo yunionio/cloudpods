@@ -11,7 +11,7 @@ func init() {
 		Limit     int64  `help:"Limit, default 0, i.e. no limit" default:"20"`
 		Offset    int64  `help:"Offset, default 0, i.e. no offset"`
 		Region    string `help:"Search by region"`
-		ServiceId string `help:"Search by service id"`
+		Service   string `help:"Search by service id or name"`
 		Interface string `help:"Search by interface"`
 	}
 	R(&EndpointListOptions{}, "endpoint-list", "List service endpoints", func(s *mcclient.ClientSession, args *EndpointListOptions) error {
@@ -29,8 +29,16 @@ func init() {
 		if len(args.Region) > 0 {
 			query.Add(jsonutils.NewString(args.Region), "region_id")
 		}
-		if len(args.ServiceId) > 0 {
-			query.Add(jsonutils.NewString(args.ServiceId), "service_id")
+		if len(args.Service) > 0 {
+			srvMod, err := modules.GetModule(s, "services")
+			if err != nil {
+				return err
+			}
+			srvId, err := srvMod.GetId(s, args.Service, nil)
+			if err != nil {
+				return err
+			}
+			query.Add(jsonutils.NewString(srvId), "service_id")
 		}
 		if len(args.Interface) > 0 {
 			query.Add(jsonutils.NewString(args.Interface), "interface")

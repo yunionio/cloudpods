@@ -67,7 +67,7 @@ func (this *BaseManager) versionedURL(path string) string {
 }
 
 func (this *BaseManager) jsonRequest(session *mcclient.ClientSession,
-	method string, path string,
+	method httputils.THttpMethod, path string,
 	header http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
 	return session.JSONVersionRequest(this.serviceType, this.endpointType,
 		method, this.versionedURL(path),
@@ -75,7 +75,7 @@ func (this *BaseManager) jsonRequest(session *mcclient.ClientSession,
 }
 
 func (this *BaseManager) rawRequest(session *mcclient.ClientSession,
-	method string, path string,
+	method httputils.THttpMethod, path string,
 	header http.Header, body io.Reader) (*http.Response, error) {
 	return session.RawVersionRequest(this.serviceType, this.endpointType,
 		method, this.versionedURL(path),
@@ -148,7 +148,7 @@ func (this *BaseManager) _list(session *mcclient.ClientSession, path, responseKe
 	return &ListResult{rets, int(total), int(limit), int(offset)}, nil
 }
 
-func (this *BaseManager) _submit(session *mcclient.ClientSession, method string, path string, body jsonutils.JSONObject, respKey string) (jsonutils.JSONObject, error) {
+func (this *BaseManager) _submit(session *mcclient.ClientSession, method httputils.THttpMethod, path string, body jsonutils.JSONObject, respKey string) (jsonutils.JSONObject, error) {
 	hdr, resp, e := this.jsonRequest(session, method, path, nil, body)
 	if e != nil {
 		return nil, e
@@ -211,7 +211,7 @@ func SubmitResults2ListResult(results []SubmitResult) *ListResult {
 	return &ListResult{Data: arr, Total: len(arr), Limit: 0, Offset: 0}
 }
 
-func (this *BaseManager) _batch(session *mcclient.ClientSession, method string, path string, ids []string, body jsonutils.JSONObject, respKey string) []SubmitResult {
+func (this *BaseManager) _batch(session *mcclient.ClientSession, method httputils.THttpMethod, path string, ids []string, body jsonutils.JSONObject, respKey string) []SubmitResult {
 	return BatchDo(ids, func(id string) (jsonutils.JSONObject, error) {
 		u := fmt.Sprintf(path, url.PathEscape(id))
 		return this._submit(session, method, u, body, respKey)

@@ -57,3 +57,17 @@ func Interface2String(val interface{}) string {
 		return json.String()
 	}
 }
+
+func SplitKeyValue(line string) (string, string) {
+	return SplitKeyValueBySep(line, ":")
+}
+
+func SplitKeyValueBySep(line string, sep string) (string, string) {
+	pos := strings.Index(line, sep)
+	if pos > 0 {
+		key := strings.TrimSpace(line[:pos])
+		val := strings.TrimSpace(line[pos+1:])
+		return key, val
+	}
+	return "", ""
+}

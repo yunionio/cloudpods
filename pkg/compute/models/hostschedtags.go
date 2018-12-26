@@ -49,9 +49,12 @@ func (self *SHostschedtag) GetCustomizeColumns(ctx context.Context, userCred mcc
 	return db.JointModelExtra(self, extra)
 }
 
-func (self *SHostschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SHostJointsBase.GetExtraDetails(ctx, userCred, query)
-	return db.JointModelExtra(self, extra)
+func (self *SHostschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SHostJointsBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return db.JointModelExtra(self, extra), nil
 }
 
 func (self *SHostschedtag) getHost() *SHost {

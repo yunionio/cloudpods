@@ -162,8 +162,12 @@ func (a *authManager) reAuth() {
 	time.AfterFunc(time.Duration(duration.Nanoseconds()/2), a.reAuth)
 }
 
-func (a *authManager) getServiceURL(service, region, zone, endpointType string) (string, error) {
+func (a *authManager) GetServiceURL(service, region, zone, endpointType string) (string, error) {
 	return a.adminCredential.GetServiceURL(service, region, zone, endpointType)
+}
+
+func (a *authManager) GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
+	return a.adminCredential.GetServiceURLs(service, region, zone, endpointType)
 }
 
 func (a *authManager) getTokenString() string {
@@ -203,7 +207,11 @@ func Verify(tokenId string) (mcclient.TokenCredential, error) {
 }
 
 func GetServiceURL(service, region, zone, endpointType string) (string, error) {
-	return manager.getServiceURL(service, region, zone, endpointType)
+	return manager.GetServiceURL(service, region, zone, endpointType)
+}
+
+func GetServiceURLs(service, region, zone, endpointType string) ([]string, error) {
+	return manager.GetServiceURLs(service, region, zone, endpointType)
 }
 
 func GetTokenString() string {

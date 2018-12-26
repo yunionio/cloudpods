@@ -13,17 +13,17 @@ import (
 )
 
 type CommonOptions struct {
-	Port    int    `help:"The port that the service runs on"`
-	Address string `help:"The IP address to serve on (set to 0.0.0.0 for all interfaces)" default:"0.0.0.0"`
+	Port    int    `help:"The port that the service runs on" alias:"bind-port"`
+	Address string `help:"The IP address to serve on (set to 0.0.0.0 for all interfaces)" default:"0.0.0.0" alias:"bind-host"`
 
 	LogLevel        string `help:"log level" default:"info" choices:"debug|info|warn|error"`
 	LogVerboseLevel int    `help:"log verbosity level" default:"0"`
 
-	Region             string   `help:"Region name or ID"`
+	Region             string   `help:"Region name or ID" alias:"auth-region"`
 	AuthURL            string   `help:"Keystone auth URL" alias:"auth-uri"`
 	AdminUser          string   `help:"Admin username"`
 	AdminDomain        string   `help:"Admin user domain"`
-	AdminPassword      string   `help:"Admin password"`
+	AdminPassword      string   `help:"Admin password" alias:"admin-passwd"`
 	AdminProject       string   `help:"Admin project" default:"system" alias:"admin-tenant-name"`
 	CorsHosts          []string `help:"List of hostname that allow CORS"`
 	AuthTokenCacheSize uint32   `help:"Auth token Cache Size" default:"2048"`

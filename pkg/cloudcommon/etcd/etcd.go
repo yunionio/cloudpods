@@ -5,11 +5,11 @@ import (
 	"errors"
 	"time"
 
-	"go.etcd.io/etcd/clientv3"
 	"crypto/tls"
+	"fmt"
+	"go.etcd.io/etcd/clientv3"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
-	"fmt"
 )
 
 var (
@@ -176,7 +176,7 @@ func (cli *SEtcdClient) Get(ctx context.Context, key string) ([]byte, error) {
 }
 
 type SEtcdKeyValue struct {
-	Key string
+	Key   string
 	Value []byte
 }
 
@@ -194,7 +194,7 @@ func (cli *SEtcdClient) List(ctx context.Context, prefix string) ([]SEtcdKeyValu
 	ret := make([]SEtcdKeyValue, len(resp.Kvs))
 	for i := 0; i < len(resp.Kvs); i += 1 {
 		ret[i] = SEtcdKeyValue{
-			Key: string(resp.Kvs[i].Key[len(cli.namespace):]),
+			Key:   string(resp.Kvs[i].Key[len(cli.namespace):]),
 			Value: resp.Kvs[i].Value,
 		}
 	}

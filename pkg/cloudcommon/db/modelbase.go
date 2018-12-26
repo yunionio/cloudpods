@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
+	"net/http"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/sqlchemy"
 )
@@ -170,6 +172,22 @@ func (manager *SModelBaseManager) GetExportExtraKeys(ctx context.Context, query 
 	return jsonutils.NewDict()
 }
 
+func (manager *SModelBaseManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
+	// do nothing
+}
+
+func (manager *SModelBaseManager) FetchCreateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
+func (manager *SModelBaseManager) FetchUpdateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
+func (manager *SModelBaseManager) IsCustomizedGetDetailsBody() bool {
+	return false
+}
+
 func (model *SModelBase) GetId() string {
 	return ""
 }
@@ -210,8 +228,12 @@ func (model *SModelBase) AllowGetDetails(ctx context.Context, userCred mcclient.
 	return false
 }
 
-func (model *SModelBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	return jsonutils.NewDict()
+func (model *SModelBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	return jsonutils.NewDict(), nil
+}
+
+func (model *SModelBase) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) map[string]string {
+	return nil
 }
 
 // create hooks
@@ -285,4 +307,8 @@ func (model *SModelBase) Delete(ctx context.Context, userCred mcclient.TokenCred
 
 func (model *SModelBase) GetOwnerProjectId() string {
 	return ""
+}
+
+func (model *SModelBase) CustomizedGetDetailsBody(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return nil, nil
 }

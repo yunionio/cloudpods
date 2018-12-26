@@ -21,8 +21,18 @@ import (
 	"yunion.io/x/pkg/trace"
 )
 
+type THttpMethod string
+
 const (
 	USER_AGENT = "yunioncloud-go/201708"
+
+	GET    = THttpMethod("GET")
+	HEAD   = THttpMethod("HEAD")
+	POST   = THttpMethod("POST")
+	PUT    = THttpMethod("PUT")
+	PATCH  = THttpMethod("PATCH")
+	DELETE = THttpMethod("DELETE")
+	OPTION = THttpMethod("OPTION")
 )
 
 var (
@@ -101,7 +111,10 @@ func GetDefaultClient() *http.Client {
 	return defaultHttpClient
 }
 
-func Request(client *http.Client, ctx context.Context, method string, urlStr string, header http.Header, body io.Reader, debug bool) (*http.Response, error) {
+func Request(client *http.Client, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body io.Reader, debug bool) (*http.Response, error) {
+	if client == nil {
+		client = defaultHttpClient
+	}
 	if header == nil {
 		header = http.Header{}
 	}
@@ -118,8 +131,7 @@ func Request(client *http.Client, ctx context.Context, method string, urlStr str
 	if len(ctxData.RequestId) > 0 {
 		header.Set("X-Request-Id", ctxData.RequestId)
 	}
-	method = strings.ToUpper(method)
-	req, err := http.NewRequest(method, urlStr, body)
+	req, err := http.NewRequest(string(method), urlStr, body)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +164,7 @@ func Request(client *http.Client, ctx context.Context, method string, urlStr str
 	return resp, err
 }
 
-func JSONRequest(client *http.Client, ctx context.Context, method string, urlStr string, header http.Header, body jsonutils.JSONObject, debug bool) (http.Header, jsonutils.JSONObject, error) {
+func JSONRequest(client *http.Client, ctx context.Context, method THttpMethod, urlStr string, header http.Header, body jsonutils.JSONObject, debug bool) (http.Header, jsonutils.JSONObject, error) {
 	bodystr := ""
 	if !gotypes.IsNil(body) {
 		bodystr = body.String()

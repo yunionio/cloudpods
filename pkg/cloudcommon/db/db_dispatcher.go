@@ -14,6 +14,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"net/http"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -62,6 +63,10 @@ func (dispatcher *DBModelDispatcher) Filter(f appsrv.FilterHandler) appsrv.Filte
 	} else {
 		return auth.Authenticate(f)
 	}
+}
+
+func (dispatcher *DBModelDispatcher) CustomizeHandlerInfo(handler *appsrv.SHandlerInfo) {
+	dispatcher.modelManager.CustomizeHandlerInfo(handler)
 }
 
 func fetchUserCredential(ctx context.Context) mcclient.TokenCredential {
@@ -130,7 +135,7 @@ func searchFields(manager IModelManager, userCred mcclient.TokenCredential) []st
 	return ret
 }
 
-func getDetailFields(manager IModelManager, userCred mcclient.TokenCredential) []string {
+func GetDetailFields(manager IModelManager, userCred mcclient.TokenCredential) []string {
 	ret := make([]string, 0)
 	for _, col := range manager.TableSpec().Columns() {
 		tags := col.Tags()
@@ -407,7 +412,7 @@ func fetchContextObjectId(manager IModelManager, ctx context.Context, userCred m
 	}
 }
 
-func listItems(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, ctxId string) (*modules.ListResult, error) {
+func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, ctxId string) (*modules.ListResult, error) {
 	var maxLimit int64 = 2048
 	limit, _ := query.Int("limit")
 	offset, _ := query.Int("offset")
@@ -539,7 +544,7 @@ func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.J
 		return nil, httperrors.NewForbiddenError("Not allow to list")
 	}
 
-	items, err := listItems(dispatcher.modelManager, ctx, userCred, query, ctxId)
+	items, err := ListItems(dispatcher.modelManager, ctx, userCred, query, ctxId)
 	if err != nil {
 		log.Errorf("Fail to list items: %s", err)
 		return nil, httperrors.NewGeneralError(err)
@@ -563,19 +568,48 @@ func getModelExtraDetails(item IModel, ctx context.Context, extra *jsonutils.JSO
 	return extra
 }
 
+func getModelItemDetails(manager IModelManager, item IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, isHead bool) (jsonutils.JSONObject, error) {
+	appParams := appsrv.AppContextGetParams(ctx)
+	if appParams == nil && isHead {
+		log.Errorf("fail to get http response writer???")
+		return nil, httperrors.NewInternalServerError("fail to get http response writer from context")
+	}
+	hdrs := item.GetExtraDetailsHeaders(ctx, userCred, query)
+	for k, v := range hdrs {
+		appParams.Response.Header().Add(k, v)
+	}
+
+	if isHead {
+		appParams.Response.Header().Add("Content-Length", "0")
+		appParams.Response.Write([]byte{})
+		return nil, nil
+	}
+
+	if manager.IsCustomizedGetDetailsBody() {
+		return item.CustomizedGetDetailsBody(ctx, userCred, query)
+	} else {
+		return getItemDetails(manager, item, ctx, userCred, query)
+	}
+}
+
 func getItemDetails(manager IModelManager, item IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	jsonData := jsonutils.Marshal(item)
-	jsonDict, ok := jsonData.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, fmt.Errorf("fail to convert model to json")
-	}
-	jsonDict = jsonDict.CopyIncludes(getDetailFields(manager, userCred)...)
-	extraDict := item.GetExtraDetails(ctx, userCred, query)
-	if extraDict != nil {
+	extraDict, err := item.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	} else if extraDict != nil {
+		jsonData := jsonutils.Marshal(item)
+		jsonDict, ok := jsonData.(*jsonutils.JSONDict)
+		if !ok {
+			return nil, fmt.Errorf("fail to convert model to json")
+		}
+		jsonDict = jsonDict.CopyIncludes(GetDetailFields(manager, userCred)...)
 		jsonDict.Update(extraDict)
+		jsonDict = getModelExtraDetails(item, ctx, jsonDict)
+		return jsonDict, nil
+	} else {
+		// override GetExtraDetails
+		return nil, nil
 	}
-	jsonDict = getModelExtraDetails(item, ctx, jsonDict)
-	return jsonDict, nil
 }
 
 func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, property string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -620,7 +654,7 @@ func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, pr
 	}
 }
 
-func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, query jsonutils.JSONObject, isHead bool) (jsonutils.JSONObject, error) {
 	// log.Debugf("Get %s", idStr)
 	userCred := fetchUserCredential(ctx)
 
@@ -647,7 +681,7 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 	if !isAllow {
 		return nil, httperrors.NewForbiddenError("Not allow to get details")
 	}
-	return getItemDetails(dispatcher.modelManager, model, ctx, userCred, query)
+	return getModelItemDetails(dispatcher.modelManager, model, ctx, userCred, query, isHead)
 }
 
 func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr string, spec string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -820,8 +854,11 @@ func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-	model.PostCreate(ctx, userCred, ownerProjId, query, dataDict)
 	return model, nil
+}
+
+func (dispatcher *DBModelDispatcher) FetchCreateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error) {
+	return dispatcher.modelManager.FetchCreateHeaderData(ctx, header)
 }
 
 func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, ctxId string) (jsonutils.JSONObject, error) {
@@ -845,9 +882,6 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		}
 	}
 
-	lockman.LockClass(ctx, dispatcher.modelManager, ownerProjId)
-	defer lockman.ReleaseClass(ctx, dispatcher.modelManager, ownerProjId)
-
 	var isAllow bool
 	if consts.IsRbacEnabled() {
 		isAllow = isClassActionRbacAllowed(dispatcher.modelManager, userCred, ownerProjId, policy.PolicyActionCreate)
@@ -858,11 +892,23 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		return nil, httperrors.NewForbiddenError("Not allow to create item")
 	}
 
-	model, err := doCreateItem(dispatcher.modelManager, ctx, userCred, ownerProjId, query, data)
+	model, err := func() (IModel, error) {
+		lockman.LockClass(ctx, dispatcher.modelManager, ownerProjId)
+		defer lockman.ReleaseClass(ctx, dispatcher.modelManager, ownerProjId)
+
+		return doCreateItem(dispatcher.modelManager, ctx, userCred, ownerProjId, query, data)
+	}()
+
 	if err != nil {
 		log.Errorf("fail to doCreateItem %s", err)
 		return nil, httperrors.NewGeneralError(err)
 	}
+
+	lockman.LockObject(ctx, model)
+	defer lockman.ReleaseObject(ctx, model)
+
+	model.PostCreate(ctx, userCred, ownerProjId, query, data)
+
 	OpsLog.LogEvent(model, ACT_CREATE, model.GetShortDesc(ctx), userCred)
 	logclient.AddActionLog(model, logclient.ACT_CREATE, "", userCred, true)
 	dispatcher.modelManager.OnCreateComplete(ctx, []IModel{model}, userCred, query, data)
@@ -909,9 +955,6 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		}
 	}
 
-	lockman.LockClass(ctx, dispatcher.modelManager, ownerProjId)
-	defer lockman.ReleaseClass(ctx, dispatcher.modelManager, ownerProjId)
-
 	var isAllow bool
 	if consts.IsRbacEnabled() {
 		isAllow = isClassActionRbacAllowed(dispatcher.modelManager, userCred, ownerProjId, policy.PolicyActionCreate)
@@ -922,27 +965,53 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		return nil, httperrors.NewForbiddenError("Not allow to create item")
 	}
 
-	multiData, err := expandMultiCreateParams(data, count)
+	type sCreateResult struct {
+		model IModel
+		err   error
+	}
+
+	var multiData []jsonutils.JSONObject
+
+	createResults, err := func() ([]sCreateResult, error) {
+		lockman.LockClass(ctx, dispatcher.modelManager, ownerProjId)
+		defer lockman.ReleaseClass(ctx, dispatcher.modelManager, ownerProjId)
+
+		multiData, err = expandMultiCreateParams(data, count)
+		if err != nil {
+			return nil, err
+		}
+		ret := make([]sCreateResult, len(multiData))
+		for i, cdata := range multiData {
+			model, err := doCreateItem(dispatcher.modelManager, ctx, userCred, ownerProjId, query, cdata)
+			ret[i] = sCreateResult{model: model, err: err}
+		}
+		return ret, nil
+	}()
+
 	if err != nil {
 		return nil, err
 	}
 	results := make([]modules.SubmitResult, count)
 	models := make([]IModel, 0)
-	for i, cdata := range multiData {
-		model, err := doCreateItem(dispatcher.modelManager, ctx, userCred, ownerProjId, query, cdata)
+	for i, res := range createResults {
 		result := modules.SubmitResult{}
-		if err != nil {
-			jsonErr, ok := err.(*httputils.JSONClientError)
+		if res.err != nil {
+			jsonErr, ok := res.err.(*httputils.JSONClientError)
 			if ok {
 				result.Status = jsonErr.Code
 				result.Data = jsonutils.Marshal(jsonErr)
 			} else {
 				result.Status = 500
-				result.Data = jsonutils.NewString(err.Error())
+				result.Data = jsonutils.NewString(res.err.Error())
 			}
 		} else {
-			models = append(models, model)
-			body, err := getItemDetails(dispatcher.modelManager, model, ctx, userCred, query)
+			lockman.LockObject(ctx, res.model)
+			defer lockman.ReleaseObject(ctx, res.model)
+
+			res.model.PostCreate(ctx, userCred, ownerProjId, query, data)
+
+			models = append(models, res.model)
+			body, err := getItemDetails(dispatcher.modelManager, res.model, ctx, userCred, query)
 			if err != nil {
 				result.Status = 500
 				result.Data = jsonutils.NewString(err.Error())
@@ -954,6 +1023,9 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		results[i] = result
 	}
 	if len(models) > 0 {
+		lockman.LockClass(ctx, dispatcher.modelManager, ownerProjId)
+		defer lockman.ReleaseClass(ctx, dispatcher.modelManager, ownerProjId)
+
 		dispatcher.modelManager.OnCreateComplete(ctx, models, userCred, query, multiData[0])
 	}
 	return results, nil
@@ -1145,7 +1217,9 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 		logclient.AddActionLog(item, logclient.ACT_UPDATE, errMsg, userCred, false)
 		return nil, httperrors.NewGeneralError(err)
 	}
+
 	item.PreUpdate(ctx, userCred, query, dataDict)
+
 	diff, err := manager.TableSpec().Update(item, func() error {
 		filterData := dataDict.CopyIncludes(updateFields(manager, userCred)...)
 		err = filterData.Unmarshal(item)
@@ -1172,7 +1246,14 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 	} else {
 		logclient.AddActionLog(item, logclient.ACT_UPDATE, "", userCred, true)
 	}
+
+	item.PostUpdate(ctx, userCred, query, data)
+
 	return getItemDetails(manager, item, ctx, userCred, query)
+}
+
+func (dispatcher *DBModelDispatcher) FetchUpdateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error) {
+	return dispatcher.modelManager.FetchUpdateHeaderData(ctx, header)
 }
 
 func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
