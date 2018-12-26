@@ -134,12 +134,11 @@ func (manager *SPolicyManager) start(refreshInterval time.Duration, retryInterva
 	manager.sync()
 }
 
-func (manager *SPolicyManager) SyncOnce() {
+func (manager *SPolicyManager) SyncOnce() error {
 	policies, adminPolicies, err := fetchPolicies()
 	if err != nil {
 		log.Errorf("sync rbac policy failed: %s", err)
-		time.AfterFunc(manager.failedRetryInterval, manager.sync)
-		return
+		return err
 	}
 
 	manager.lock.Lock()
@@ -149,11 +148,19 @@ func (manager *SPolicyManager) SyncOnce() {
 	manager.adminPolicies = adminPolicies
 
 	manager.lastSync = time.Now()
+
+	return nil
 }
 
 func (manager *SPolicyManager) sync() {
-	manager.SyncOnce()
-	time.AfterFunc(manager.refreshInterval, manager.sync)
+	err := manager.SyncOnce()
+	var interval time.Duration
+	if err != nil {
+		interval = manager.failedRetryInterval
+	} else {
+		interval = manager.refreshInterval
+	}
+	time.AfterFunc(interval, manager.sync)
 }
 
 func queryKey(isAdmin bool, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) string {
