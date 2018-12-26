@@ -5,7 +5,6 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd/models"
 	"yunion.io/x/onecloud/pkg/cloutpost/options"
@@ -16,9 +15,7 @@ const (
 )
 
 func StartService() {
-	consts.SetServiceType(SERVICE_TYPE)
-
-	cloudcommon.ParseOptions(&options.Options, &options.Options.Options, os.Args, "cloutpost.conf")
+	cloudcommon.ParseOptions(&options.Options, os.Args, "cloutpost.conf", SERVICE_TYPE)
 
 	cloudcommon.InitAuth(&options.Options.Options, func() {
 		log.Infof("Auth complete!!")
@@ -30,7 +27,7 @@ func StartService() {
 	}
 	defer etcd.CloseDefaultEtcdClient()
 
-	app := cloudcommon.InitApp(&options.Options.Options)
+	app := cloudcommon.InitApp(&options.Options.Options, false)
 
 	initHandlers(app)
 

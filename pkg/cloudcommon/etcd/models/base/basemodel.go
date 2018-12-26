@@ -1,5 +1,13 @@
 package base
 
+import (
+	"context"
+
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient"
+)
+
 type SEtcdBaseModel struct {
 	manager IEtcdModelManager
 
@@ -24,4 +32,8 @@ func (model *SEtcdBaseModel) GetId() string {
 
 func (model *SEtcdBaseModel) SetId(id string) {
 	model.ID = id
+}
+
+func (model *SEtcdBaseModel) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) map[string]string {
+	return nil
 }

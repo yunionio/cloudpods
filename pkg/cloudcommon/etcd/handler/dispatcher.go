@@ -3,15 +3,18 @@ package handler
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"reflect"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd/models/base"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -43,6 +46,18 @@ func (disp *SEtcdModelHandler) ContextKeywordPlural() []string {
 	return nil
 }
 
+func (disp *SEtcdModelHandler) CustomizeHandlerInfo(handler *appsrv.SHandlerInfo) {
+	disp.manager.CustomizeHandlerInfo(handler)
+}
+
+func (disp *SEtcdModelHandler) FetchCreateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error) {
+	return disp.manager.FetchCreateHeaderData(ctx, header)
+}
+
+func (disp *SEtcdModelHandler) FetchUpdateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error) {
+	return disp.manager.FetchUpdateHeaderData(ctx, header)
+}
+
 func (disp *SEtcdModelHandler) List(ctx context.Context, query jsonutils.JSONObject, ctxId string) (*modules.ListResult, error) {
 	objs, err := disp.manager.AllJson(ctx)
 	if err != nil {
@@ -56,8 +71,14 @@ func (disp *SEtcdModelHandler) List(ctx context.Context, query jsonutils.JSONObj
 	}, nil
 }
 
-func (disp *SEtcdModelHandler) Get(ctx context.Context, idstr string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	obj, err := disp.manager.GetJson(ctx, idstr)
+func (disp *SEtcdModelHandler) Get(ctx context.Context, idstr string, query jsonutils.JSONObject, isHead bool) (jsonutils.JSONObject, error) {
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
+
+	model := disp.manager.Allocate()
+
+	err := disp.manager.Get(ctx, idstr, model)
+
+	// obj, err := disp.manager.GetJson(ctx, idstr)
 	if err != nil {
 		if err != etcd.ErrNoSuchKey {
 			return nil, httperrors.NewGeneralError(err)
@@ -65,11 +86,27 @@ func (disp *SEtcdModelHandler) Get(ctx context.Context, idstr string, query json
 			return nil, httperrors.NewResourceNotFoundError("%s %s not found", disp.manager.Keyword(), idstr)
 		}
 	}
-	return obj, nil
+	appParams := appsrv.AppContextGetParams(ctx)
+	if appParams == nil && isHead {
+		log.Errorf("fail to get http response writer???")
+		return nil, httperrors.NewInternalServerError("fail to get http response writer from context")
+	}
+	hdrs := model.GetExtraDetailsHeaders(ctx, userCred, query)
+	for k, v := range hdrs {
+		appParams.Response.Header().Add(k, v)
+	}
+
+	if isHead {
+		appParams.Response.Header().Add("Content-Length", "0")
+		appParams.Response.Write([]byte{})
+		return nil, nil
+	}
+
+	return jsonutils.Marshal(model), nil
 }
 
 func (disp *SEtcdModelHandler) GetSpecific(ctx context.Context, idstr string, spec string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	userCred := auth.FetchUserCredential(ctx)
+	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 
 	model := disp.manager.Allocate()
 

@@ -11,6 +11,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/stringutils"
 
+	"net/http"
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
 )
 
@@ -43,6 +45,18 @@ func (manager *SEtcdBaseModelManager) Keyword() string {
 
 func (manager *SEtcdBaseModelManager) KeywordPlural() string {
 	return manager.keywordPlural
+}
+
+func (manager *SEtcdBaseModelManager) CustomizeHandlerInfo(handler *appsrv.SHandlerInfo) {
+	// do nothing
+}
+
+func (manager *SEtcdBaseModelManager) FetchCreateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
+func (manager *SEtcdBaseModelManager) FetchUpdateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error) {
+	return nil, nil
 }
 
 func path2key(segs []string) string {

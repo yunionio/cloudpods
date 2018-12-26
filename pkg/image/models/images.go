@@ -71,7 +71,7 @@ func init() {
 		),
 	}
 
-	imgStreamingWorkerMan = appsrv.NewWorkerManager("image_streaming_worker", 20, 1024)
+	imgStreamingWorkerMan = appsrv.NewWorkerManager("image_streaming_worker", 20, 1024, true)
 }
 
 /*

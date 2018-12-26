@@ -44,7 +44,7 @@ func RegisterTask(task interface{}) {
 	}
 	taskType := reflect.Indirect(reflect.ValueOf(task)).Type()
 	taskTable[taskName] = taskType
-	log.Infof("Task %s registerd", taskName)
+	// log.Infof("Task %s registerd", taskName)
 }
 
 func isTaskExist(taskName string) bool {

@@ -11,7 +11,6 @@ import (
 
 	"time"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/image/models"
@@ -24,9 +23,7 @@ const (
 )
 
 func StartService() {
-	consts.SetServiceType(SERVICE_TYPE)
-
-	cloudcommon.ParseOptions(&options.Options, &options.Options.Options, os.Args, "glance-api.conf")
+	cloudcommon.ParseOptions(&options.Options, os.Args, "glance-api.conf", SERVICE_TYPE)
 
 	if options.Options.PortV2 > 0 {
 		log.Infof("Port V2 %d is specified, use v2 port", options.Options.PortV2)
@@ -40,7 +37,7 @@ func StartService() {
 	cloudcommon.InitDB(&options.Options.DBOptions)
 	defer cloudcommon.CloseDB()
 
-	app := cloudcommon.InitApp(&options.Options.Options)
+	app := cloudcommon.InitApp(&options.Options.Options, true)
 	initHandlers(app)
 
 	err := torrent.InitTorrentClient()
@@ -51,8 +48,7 @@ func StartService() {
 	defer torrent.CloseTorrentClient()
 
 	if !db.CheckSync(options.Options.AutoSyncTable) {
-		log.Errorf("check sync failed")
-		return
+		log.Fatalf("database schema not in sync!")
 	}
 
 	models.InitDB()
@@ -60,7 +56,7 @@ func StartService() {
 	models.SeedTorrents()
 
 	cron := cronman.GetCronJobManager()
-	cron.AddJob1("CleanPendingDeleteServers", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.ImageManager.CleanPendingDeleteImages)
+	cron.AddJob1("CleanPendingDeleteImages", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.ImageManager.CleanPendingDeleteImages)
 
 	cron.Start()
 	defer cron.Stop()

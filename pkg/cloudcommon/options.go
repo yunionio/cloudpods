@@ -6,10 +6,12 @@ import (
 	"path"
 
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/structarg"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 )
 
 type CommonOptions struct {
@@ -60,16 +62,19 @@ func (this *DBOptions) GetDBConnection() (dialect, connstr string, err error) {
 	return utils.TransSQLAchemyURL(this.SqlConnection)
 }
 
-func ParseOptions(optStruct interface{}, optionsRef *CommonOptions, args []string, configFileName string) {
-	if len(consts.GetServiceType()) == 0 {
-		log.Fatalf("ServiceType not initialized!")
+func ParseOptions(optStruct interface{}, args []string, configFileName string, serviceType string) {
+	if len(serviceType) == 0 {
+		log.Fatalf("ServiceType must provided!")
 	}
 
+	consts.SetServiceType(serviceType)
+
 	serviceName := path.Base(args[0])
+
 	parser, err := structarg.NewArgumentParser(optStruct,
 		serviceName,
 		fmt.Sprintf(`Yunion cloud service - %s`, serviceName),
-		`Yunion Technology @ 2018`)
+		`Yunion Technology Co. Ltd. @ 2018-2019`)
 	if err != nil {
 		log.Fatalf("Error define argument parser: %v", err)
 	}
@@ -77,6 +82,23 @@ func ParseOptions(optStruct interface{}, optionsRef *CommonOptions, args []strin
 	err = parser.ParseArgs(args[1:], false)
 	if err != nil {
 		log.Fatalf("Parse arguments error: %v", err)
+	}
+
+	var optionsRef *Options
+
+	err = reflectutils.FindAnonymouStructPointer(optStruct, &optionsRef)
+	if err != nil {
+		log.Fatalf("Find common options fail %s", err)
+	}
+
+	if optionsRef.Help {
+		fmt.Println(parser.HelpString())
+		os.Exit(0)
+	}
+
+	if optionsRef.Version {
+		fmt.Printf("Yunion cloud version:\n%s", version.GetJsonString())
+		os.Exit(0)
 	}
 
 	if len(optionsRef.Config) == 0 {
@@ -96,16 +118,6 @@ func ParseOptions(optStruct interface{}, optionsRef *CommonOptions, args []strin
 		if err != nil {
 			log.Fatalf("Parse configuration file: %v", err)
 		}
-	}
-
-	if optionsRef.Help {
-		fmt.Println(parser.HelpString())
-		os.Exit(0)
-	}
-
-	if optionsRef.Version {
-		fmt.Printf("Yunion cloud version:\n%s", version.GetJsonString())
-		os.Exit(0)
 	}
 
 	if len(optionsRef.ApplicationID) == 0 {
