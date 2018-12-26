@@ -7,7 +7,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/compute/skus"
 )
 
 type CloudAccountSyncInfoTask struct {
@@ -83,20 +82,6 @@ func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncComplete(ctx context.Con
 		if account != nil {
 			account.SetStatus(self.UserCred, models.CLOUD_PROVIDER_CONNECTED, "")
 		}
-
-		if models.ServerSkuManager.GetSkuCountByProvider(cloudprovider.Provider) == 0 {
-			// sync skus
-			self.SetStage("OnSyncServerSkuComplete", nil)
-			taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
-				err := skus.SyncSkusByProviderIds([]string{cloudprovider.Provider})
-				return nil, err
-			})
-			return
-		}
 	}
-	self.SetStageComplete(ctx, nil)
-}
-
-func (self *CloudAccountSyncInfoTask) OnSyncServerSkuComplete(ctx context.Context, items []db.IStandaloneModel, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
 }

@@ -26,6 +26,11 @@ const (
 	SkuCategoryHighMemory          = "high_memory"          // 高内存型
 )
 
+const (
+	SkuStatusAvailable = "available"
+	SkuStatusSoldout   = "soldout"
+)
+
 var InstanceFamilies = map[string]string{
 	SkuCategoryGeneralPurpose:      "g1",
 	SkuCategoryBurstable:           "t1",
@@ -62,6 +67,9 @@ type SServerSku struct {
 	// SkuId       string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`                 // x2.large
 	InstanceTypeFamily   string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"` // x2
 	InstanceTypeCategory string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" update:"admin"`  // 通用型
+
+	PrepaidStatus  string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" update:"admin" default:"available"` // 预付费资源状态   available|soldout
+	PostpaidStatus string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" update:"admin" default:"available"` // 按需付费资源状态  available|soldout
 
 	CpuCoreCount int `nullable:"false" list:"user" create:"admin_required" update:"admin"`
 	MemorySizeMB int `nullable:"false" list:"user" create:"admin_required" update:"admin"`
@@ -351,50 +359,70 @@ func (self *SServerSku) ValidateUpdateData(
 		data.Add(jsonutils.NewString(zoneObj.GetId()), "zone_id")
 	}
 
-	// name 由服务器端生成
-	cpu, err := data.Int("cpu_core_count")
-	if err != nil {
-		cpu = int64(self.CpuCoreCount)
-	}
-	data.Set("cpu_core_count", jsonutils.NewInt(cpu))
-
-	mem, err := data.Int("memory_size_mb")
-	if err != nil {
-		mem = int64(self.MemorySizeMB)
-	}
-	data.Set("memory_size_mb", jsonutils.NewInt(mem))
-
-	category, err := data.GetString("instance_type_category")
-	family := ""
-	if err != nil {
-		family = self.InstanceTypeFamily
-	} else {
-		f, exists := InstanceFamilies[category]
-		if !exists {
-			return nil, httperrors.NewInputParameterError("instance_type_category %s is invalid", category)
+	// 可用资源状态
+	if postpaid, err := data.GetString("postpaid_status"); err != nil {
+		if postpaid == SkuStatusSoldout {
+			data.Set("postpaid_status", jsonutils.NewString(SkuStatusSoldout))
+		} else {
+			data.Set("postpaid_status", jsonutils.NewString(SkuStatusAvailable))
 		}
-
-		family = f
 	}
 
-	data.Set("instance_type_family", jsonutils.NewString(family))
-	// 格式 ecs.g1.c1m1
-	name, err := genInstanceType(family, cpu, mem)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError(err.Error())
+	prepaid, _ := data.GetString("prepaid_status")
+	if prepaid == SkuStatusSoldout {
+		data.Set("prepaid_status", jsonutils.NewString(SkuStatusSoldout))
+	} else {
+		data.Set("prepaid_status", jsonutils.NewString(SkuStatusAvailable))
 	}
 
-	data.Set("name", jsonutils.NewString(name))
-
-	q := self.GetModelManager().Query()
-	q = q.Equals("name", name).Filter(sqlchemy.OR(
-		sqlchemy.IsNull(q.Field("provider")),
-		sqlchemy.IsEmpty(q.Field("provider")),
-	))
-
-	if q.Count() > 0 {
-		return nil, httperrors.NewDuplicateResourceError("sku cpu %d mem %d(Mb) already exists", cpu, mem)
-	}
+	// name 由服务器端生成
+	// cpu, err := data.Int("cpu_core_count")
+	// if err != nil {
+	// 	cpu = int64(self.CpuCoreCount)
+	// }
+	// data.Set("cpu_core_count", jsonutils.NewInt(cpu))
+	//
+	// mem, err := data.Int("memory_size_mb")
+	// if err != nil {
+	// 	mem = int64(self.MemorySizeMB)
+	// }
+	// data.Set("memory_size_mb", jsonutils.NewInt(mem))
+	//
+	// category, err := data.GetString("instance_type_category")
+	// family := ""
+	// if err != nil {
+	// 	family = self.InstanceTypeFamily
+	// } else {
+	// 	f, exists := InstanceFamilies[category]
+	// 	if !exists {
+	// 		return nil, httperrors.NewInputParameterError("instance_type_category %s is invalid", category)
+	// 	}
+	//
+	// 	family = f
+	// }
+	//
+	// data.Set("instance_type_family", jsonutils.NewString(family))
+	// // 格式 ecs.g1.c1m1
+	// name, err := genInstanceType(family, cpu, mem)
+	// if err != nil {
+	// 	return nil, httperrors.NewInputParameterError(err.Error())
+	// }
+	//
+	// data.Set("name", jsonutils.NewString(name))
+	// 暂时不允许修改CPU、MEM值
+	data.Remove("cpu_core_count")
+	data.Remove("memory_size_mb")
+	data.Remove("name")
+	// 暂时不允许修改CPU、MEM值
+	// q := self.GetModelManager().Query()
+	// q = q.Equals("name", name).Filter(sqlchemy.OR(
+	// 	sqlchemy.IsNull(q.Field("provider")),
+	// 	sqlchemy.IsEmpty(q.Field("provider")),
+	// ))
+	//
+	// if q.Count() > 0 {
+	// 	return nil, httperrors.NewDuplicateResourceError("sku cpu %d mem %d(Mb) already exists", cpu, mem)
+	// }
 
 	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
@@ -404,6 +432,11 @@ func (self *SServerSku) AllowDeleteItem(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SServerSku) ValidateDeleteCondition(ctx context.Context) error {
+	serverCount := GuestManager.Query().Equals("instance_type", self.Id).Count()
+	if serverCount > 0 {
+		return httperrors.NewForbiddenError("now allow to delete inuse instance_type.please remove related servers first: %s", self.Name)
+	}
+
 	if !inWhiteList(self.Provider) {
 		return httperrors.NewForbiddenError("not allow to delete public cloud instance_type: %s", self.Name)
 	}
@@ -454,6 +487,17 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 			return nil, httperrors.NewGeneralError(err)
 		}
 		q = q.Equals("cloudregion_id", regionObj.GetId())
+	}
+
+	// 可用资源状态
+	postpaid, _ := query.GetString("postpaid_status")
+	if len(postpaid) > 0 {
+		q.Equals("postpaid_status", postpaid)
+	}
+
+	prepaid, _ := query.GetString("prepaid_status")
+	if len(prepaid) > 0 {
+		q.Equals("prepaid_status", postpaid)
 	}
 
 	// 当查询私有云时，需要忽略zone参数
@@ -525,6 +569,17 @@ func (manager *SServerSkuManager) GetSkuCountByProvider(provider string) int {
 		q = q.IsNotEmpty("provider")
 	} else {
 		q = q.Equals("provider", provider)
+	}
+
+	return q.Count()
+}
+
+func (manager *SServerSkuManager) GetSkuCountByRegion(regionId string) int {
+	q := manager.Query()
+	if len(regionId) == 0 {
+		q = q.IsNotEmpty("cloudregion_id")
+	} else {
+		q = q.Equals("cloudregion_id", regionId)
 	}
 
 	return q.Count()
