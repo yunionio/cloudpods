@@ -7,6 +7,10 @@ import (
 
 func InitDB() error {
 	for _, manager := range []db.IModelManager{
+		/*
+		 * Important!!!
+		 * initialization order matters, do not change the order
+		 */
 		CloudproviderManager,
 		CloudaccountManager,
 		CloudregionManager,

@@ -351,3 +351,7 @@ func FetchEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (map[
 	}
 	return params, query, body
 }
+
+func (app *Application) GetContext() context.Context {
+	return app.context
+}
