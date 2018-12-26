@@ -946,9 +946,6 @@ func (this *ArgumentParser) ParseFile(filepath string) error {
 		line = strings.TrimSpace(removeComments(line))
 		// line = removeCharacters(line, `"'`)
 		if len(line) > 0 {
-			if line[0] == '[' {
-				continue
-			}
 			key, val, e := line2KeyValue(line)
 			if e == nil {
 				this.parseKeyValue(key, val)
