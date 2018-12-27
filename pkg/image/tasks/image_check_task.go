@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/image/models"
@@ -15,7 +16,8 @@ type ImageCheckTask struct {
 }
 
 func init() {
-	taskman.RegisterTask(ImageCheckTask{})
+	checkWorker := appsrv.NewWorkerManager("ImageCheckTaskWorkerManager", 2, 1024, true)
+	taskman.RegisterTaskAndWorker(ImageCheckTask{}, checkWorker)
 }
 
 func (self *ImageCheckTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

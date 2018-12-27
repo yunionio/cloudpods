@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
 
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
@@ -37,7 +38,7 @@ func init() {
 	taskTable = make(map[string]reflect.Type)
 }
 
-func RegisterTask(task interface{}) {
+func RegisterTaskAndWorker(task interface{}, workerMan *appsrv.SWorkerManager) {
 	taskName := gotypes.GetInstanceTypeName(task)
 	if _, ok := taskTable[taskName]; ok {
 		log.Fatalf("Task %s already registered!", taskName)
@@ -45,6 +46,13 @@ func RegisterTask(task interface{}) {
 	taskType := reflect.Indirect(reflect.ValueOf(task)).Type()
 	taskTable[taskName] = taskType
 	// log.Infof("Task %s registerd", taskName)
+	if workerMan != nil {
+		taskWorkerTable[taskName] = workerMan
+	}
+}
+
+func RegisterTask(task interface{}) {
+	RegisterTaskAndWorker(task, nil)
 }
 
 func isTaskExist(taskName string) bool {

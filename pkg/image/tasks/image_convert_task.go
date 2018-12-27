@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/image/models"
@@ -15,7 +16,8 @@ type ImageConvertTask struct {
 }
 
 func init() {
-	taskman.RegisterTask(ImageConvertTask{})
+	convertWorker := appsrv.NewWorkerManager("ImageConvertTaskWorkerManager", 2, 512, true)
+	taskman.RegisterTaskAndWorker(ImageConvertTask{}, convertWorker)
 }
 
 func (self *ImageConvertTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
