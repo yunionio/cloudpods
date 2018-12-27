@@ -119,7 +119,7 @@ type SImage struct {
 	Owner      string `width:"255" charset:"ascii" nullable:"true" get:"user"`
 	MinDisk    int32  `nullable:"false" default:"0" get:"user" create:"optional" update:"user"`
 	MinRam     int32  `nullable:"false" default:"0" get:"user" create:"optional" update:"user"`
-	Protected  *bool  `nullable:"true" get:"user" create:"optional" update:"user"`
+	Protected  *bool  `nullable:"true" list:"user" get:"user" create:"optional" update:"user"`
 }
 
 func (manager *SImageManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
