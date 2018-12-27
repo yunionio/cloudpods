@@ -140,7 +140,7 @@ func genInstanceType(family string, cpu, mem_mb int64) (string, error) {
 	return fmt.Sprintf("ecs.%s.c%dm%d", family, cpu, mem_mb/1024), nil
 }
 
-func instanceRelatedGuestCount(self *SServerSku) int {
+func skuRelatedGuestCount(self *SServerSku) int {
 	var q *sqlchemy.SQuery
 	if len(self.ZoneId) > 0 {
 		hostTable := HostManager.Query().SubQuery()
@@ -165,14 +165,14 @@ func (self *SServerSku) AllowGetDetails(ctx context.Context, userCred mcclient.T
 
 func (self *SServerSku) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	count := instanceRelatedGuestCount(self)
+	count := skuRelatedGuestCount(self)
 	extra.Add(jsonutils.NewInt(int64(count)), "total_guest_count")
 	return extra
 }
 
 func (self *SServerSku) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	count := instanceRelatedGuestCount(self)
+	count := skuRelatedGuestCount(self)
 	extra.Add(jsonutils.NewInt(int64(count)), "total_guest_count")
 	return extra
 }
