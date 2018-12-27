@@ -2150,18 +2150,19 @@ func (self *SHost) AllowGetDetailsIpmi(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SHost) GetDetailsIpmi(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	ret := self.IpmiInfo.(*jsonutils.JSONDict)
-	if ret != nil {
-		password, err := ret.GetString("password")
-		if err == nil {
-			descryptedPassword, err := utils.DescryptAESBase64(self.Id, password)
-			if err != nil {
-				return nil, err
-			}
-			ret.Set("password", jsonutils.NewString(descryptedPassword))
-		}
+	ret, ok := self.IpmiInfo.(*jsonutils.JSONDict)
+	if !ok {
+		return nil, httperrors.NewNotFoundError("No ipmi information was found for host %s", self.Name)
 	}
-
+	password, err := ret.GetString("password")
+	if err != nil {
+		return nil, httperrors.NewNotFoundError("IPMI has no password information")
+	}
+	descryptedPassword, err := utils.DescryptAESBase64(self.Id, password)
+	if err != nil {
+		return nil, err
+	}
+	ret.Set("password", jsonutils.NewString(descryptedPassword))
 	return ret, nil
 }
 
