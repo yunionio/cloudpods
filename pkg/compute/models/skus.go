@@ -140,6 +140,21 @@ func genInstanceType(family string, cpu, mem_mb int64) (string, error) {
 	return fmt.Sprintf("ecs.%s.c%dm%d", family, cpu, mem_mb/1024), nil
 }
 
+func instanceRelatedGuestCount(self *SServerSku) int {
+	var q *sqlchemy.SQuery
+	if len(self.ZoneId) > 0 {
+		hostTable := HostManager.Query().SubQuery()
+		guestTable := GuestManager.Query().SubQuery()
+		q = guestTable.Query().LeftJoin(hostTable, sqlchemy.Equals(hostTable.Field("id"), guestTable.Field("host_id")))
+		q = q.Filter(sqlchemy.Equals(hostTable.Field("zone_id"), self.ZoneId))
+	} else {
+		q = GuestManager.Query()
+	}
+
+	q = q.Equals("instance_type", self.GetName())
+	return q.Count()
+}
+
 func (self *SServerSkuManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
 }
@@ -150,38 +165,14 @@ func (self *SServerSku) AllowGetDetails(ctx context.Context, userCred mcclient.T
 
 func (self *SServerSku) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-
-	var q *sqlchemy.SQuery
-	if len(self.ZoneId) > 0 {
-		hostTable := HostManager.Query().SubQuery()
-		guestTable := GuestManager.Query().SubQuery()
-		q = guestTable.Query().LeftJoin(hostTable, sqlchemy.Equals(hostTable.Field("id"), guestTable.Field("host_id")))
-		q = q.Filter(sqlchemy.Equals(hostTable.Field("zone_id"), self.ZoneId))
-	} else {
-		q = GuestManager.Query()
-	}
-
-	q = q.Equals("instance_type", self.GetName())
-	count := q.Count()
+	count := instanceRelatedGuestCount(self)
 	extra.Add(jsonutils.NewInt(int64(count)), "total_guest_count")
 	return extra
 }
 
 func (self *SServerSku) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-
-	var q *sqlchemy.SQuery
-	if len(self.ZoneId) > 0 {
-		hostTable := HostManager.Query().SubQuery()
-		guestTable := GuestManager.Query().SubQuery()
-		q = guestTable.Query().LeftJoin(hostTable, sqlchemy.Equals(hostTable.Field("id"), guestTable.Field("host_id")))
-		q = q.Filter(sqlchemy.Equals(hostTable.Field("zone_id"), self.ZoneId))
-	} else {
-		q = GuestManager.Query()
-	}
-
-	q = q.Equals("instance_type", self.GetName())
-	count := q.Count()
+	count := instanceRelatedGuestCount(self)
 	extra.Add(jsonutils.NewInt(int64(count)), "total_guest_count")
 	return extra
 }
