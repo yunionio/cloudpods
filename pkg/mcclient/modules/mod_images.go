@@ -210,7 +210,7 @@ func (this *ImageManager) countUsage(session *mcclient.ClientSession, deleted bo
 }
 
 func (this *ImageManager) GetUsage(session *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	body := jsonutils.NewDict()
+	/*body := jsonutils.NewDict()
 	pendingDelete := jsonutils.NewDict()
 	for deleted, data := range map[bool]*jsonutils.JSONDict{false: body, true: pendingDelete} {
 		if ret, err := this.countUsage(session, deleted); err != nil {
@@ -226,6 +226,8 @@ func (this *ImageManager) GetUsage(session *mcclient.ClientSession, params jsonu
 	}
 	body.Add(pendingDelete, "pending_delete")
 	return body, nil
+	*/
+	return ImageUsages.GetUsage(session, params)
 }
 
 func setImageMeta(params jsonutils.JSONObject) (http.Header, error) {

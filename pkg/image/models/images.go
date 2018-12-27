@@ -20,7 +20,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/image/options"
@@ -650,41 +649,79 @@ type SImageUsage struct {
 	Size  int64
 }
 
-func (manager *SImageManager) count(projectId string, isISO tristate.TriState, pendingDelete bool) SImageUsage {
-	images := manager.Query().SubQuery()
-	q := images.Query(sqlchemy.COUNT("count"), sqlchemy.SUM("size", images.Field("size")))
+func (manager *SImageManager) count(projectId string, status string, isISO tristate.TriState, pendingDelete bool) map[string]SImageUsage {
+	sq := manager.Query("id")
 	if len(projectId) > 0 {
-		q = q.Equals("tenant_id", projectId)
+		sq = sq.Equals("tenant_id", projectId)
+	}
+	if len(status) > 0 {
+		sq = sq.Equals("status", status)
 	}
 	if pendingDelete {
-		q = q.IsTrue("pending_deleted")
+		sq = sq.IsTrue("pending_deleted")
 	} else {
-		q = q.IsFalse("pending_deleted")
+		sq = sq.IsFalse("pending_deleted")
 	}
 	if isISO.IsTrue() {
-		q = q.Equals("disk_format", "iso")
+		sq = sq.Equals("disk_format", "iso")
 	} else if isISO.IsFalse() {
-		q = q.NotEquals("disk_format", "iso")
+		sq = sq.NotEquals("disk_format", "iso")
 	}
-	usage := SImageUsage{}
-	q.First(&usage)
-	return usage
+	subimages := ImageSubformatManager.Query().SubQuery()
+	q := subimages.Query(subimages.Field("format"),
+		sqlchemy.COUNT("count"),
+		sqlchemy.SUM("size", subimages.Field("size")))
+	q = q.In("image_id", sq.SubQuery())
+	q = q.GroupBy(subimages.Field("format"))
+	type sFormatImageUsage struct {
+		Format string
+		Count  int64
+		Size   int64
+	}
+	var usages []sFormatImageUsage
+	err := q.All(&usages)
+	if err != nil {
+		log.Errorf("query usage fail %s", err)
+		return nil
+	}
+	ret := make(map[string]SImageUsage)
+	totalSize := int64(0)
+	for _, u := range usages {
+		ret[u.Format] = SImageUsage{Count: u.Count, Size: u.Size}
+		totalSize += u.Size
+	}
+	ret["total"] = SImageUsage{Count: int64(sq.Count()), Size: totalSize}
+	return ret
+}
+
+func expandUsageCount(usages map[string]int64, prefix, imgType, state string, count map[string]SImageUsage) {
+	for k, u := range count {
+		key := []string{}
+		if len(prefix) > 0 {
+			key = append(key, prefix)
+		}
+		key = append(key, imgType)
+		if len(state) > 0 {
+			key = append(key, state)
+		}
+		key = append(key, k)
+		countKey := strings.Join(append(key, "count"), ".")
+		sizeKey := strings.Join(append(key, "size"), ".")
+		usages[countKey] = u.Count
+		usages[sizeKey] = u.Size
+	}
 }
 
 func (manager *SImageManager) Usage(projectId string, prefix string) map[string]int64 {
 	usages := make(map[string]int64)
-	count := manager.count(projectId, tristate.False, false)
-	usages[quotas.KeyName(prefix, "img.count")] = count.Count
-	usages[quotas.KeyName(prefix, "img.size")] = count.Size
-	count = manager.count(projectId, tristate.True, false)
-	usages[quotas.KeyName(prefix, "iso.count")] = count.Count
-	usages[quotas.KeyName(prefix, "iso.size")] = count.Size
-	count = manager.count(projectId, tristate.False, true)
-	usages[quotas.KeyName(prefix, "img.pending_delete.count")] = count.Count
-	usages[quotas.KeyName(prefix, "img.pending_delete.size")] = count.Size
-	count = manager.count(projectId, tristate.True, true)
-	usages[quotas.KeyName(prefix, "iso.pending_delete.count")] = count.Count
-	usages[quotas.KeyName(prefix, "iso.pending_delete.size")] = count.Size
+	count := manager.count(projectId, IMAGE_STATUS_ACTIVE, tristate.False, false)
+	expandUsageCount(usages, prefix, "img", "", count)
+	count = manager.count(projectId, IMAGE_STATUS_ACTIVE, tristate.True, false)
+	expandUsageCount(usages, prefix, "iso", "", count)
+	count = manager.count(projectId, "", tristate.False, true)
+	expandUsageCount(usages, prefix, "img", "pending_delete", count)
+	count = manager.count(projectId, "", tristate.True, true)
+	expandUsageCount(usages, prefix, "iso", "pending_delete", count)
 	return usages
 }
 

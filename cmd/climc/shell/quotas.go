@@ -7,7 +7,7 @@ import (
 )
 
 type QuotaBaseOptions struct {
-	Cpu            int64 `help:"CPU count" json:"cpu:omitzero"`
+	Cpu            int64 `help:"CPU count" json:"cpu,omitzero"`
 	Memory         int64 `help:"Memory size in MB" json:"memory,omitzero"`
 	Storage        int64 `help:"Storage size in MB" json:"storage,omitzero"`
 	Port           int64 `help:"Internal NIC count" json:"port,omitzero"`
@@ -17,10 +17,7 @@ type QuotaBaseOptions struct {
 	Ebw            int64 `help:"External bandwidth in Mbps" json:"ebw,omitzero"`
 	IsolatedDevice int64 `help:"Isolated device count" json:"isolated_device,omitzero"`
 	Snapshot       int64 `help:"Snapshot count" json:"snapshot,omitzero"`
-}
-
-type ImageQuotaBaseOptions struct {
-	Image int64 `help:"Template count" json:"image,omitzero"`
+	Image          int64 `help:"Template count" json:"image,omitzero"`
 }
 
 func init() {
@@ -60,20 +57,6 @@ func init() {
 		return nil
 	})
 
-	type ImageQuotaSetOptions struct {
-		Tenant string `help:"Tenant name or ID to set quota" json:"tenant,omitempty"`
-		ImageQuotaBaseOptions
-	}
-	R(&ImageQuotaSetOptions{}, "image-quota-set", "Set image quota for tenant", func(s *mcclient.ClientSession, args *ImageQuotaSetOptions) error {
-		params := jsonutils.Marshal(args)
-		result, e := modules.ImageQuotas.DoQuotaSet(s, params)
-		if e != nil {
-			return e
-		}
-		printObject(result)
-		return nil
-	})
-
 	type QuotaCheckOptions struct {
 		TENANT string `help:"Tenant name or ID to check quota" json:"tenant,omitempty"`
 		QuotaBaseOptions
@@ -81,20 +64,6 @@ func init() {
 	R(&QuotaCheckOptions{}, "quota-check", "Check quota for tenant", func(s *mcclient.ClientSession, args *QuotaCheckOptions) error {
 		params := jsonutils.Marshal(args)
 		result, e := modules.Quotas.DoQuotaCheck(s, params)
-		if e != nil {
-			return e
-		}
-		printObject(result)
-		return nil
-	})
-
-	type ImageQuotaCheckOptions struct {
-		TENANT string `help:"Tenant name or ID to check quota" json:"tenant,omitempty"`
-		ImageQuotaBaseOptions
-	}
-	R(&ImageQuotaCheckOptions{}, "image-quota-check", "Check quota for tenant", func(s *mcclient.ClientSession, args *ImageQuotaCheckOptions) error {
-		params := jsonutils.Marshal(args)
-		result, e := modules.ImageQuotas.DoQuotaCheck(s, params)
 		if e != nil {
 			return e
 		}

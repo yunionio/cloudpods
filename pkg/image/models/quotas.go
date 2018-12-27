@@ -17,7 +17,7 @@ func init() {
 	dbStore := quotas.NewDBQuotaStore()
 	pendingStore := quotas.NewMemoryQuotaStore()
 
-	QuotaManager = quotas.NewQuotaManager("image-quotas", SQuota{}, dbStore, pendingStore)
+	QuotaManager = quotas.NewQuotaManager("quotas", SQuota{}, dbStore, pendingStore)
 }
 
 var (
@@ -33,8 +33,8 @@ func (self *SQuota) FetchSystemQuota() {
 }
 
 func (self *SQuota) FetchUsage(ctx context.Context, projectId string) error {
-	count := ImageManager.count(projectId, tristate.None, false)
-	self.Image = int(count.Count)
+	count := ImageManager.count(projectId, "", tristate.None, false)
+	self.Image = int(count["total"].Count)
 	return nil
 }
 

@@ -61,7 +61,7 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	var adminUsage map[string]int64
 	var projectUsage map[string]int64
 	if isAdmin {
-		adminUsage = models.ImageManager.Usage(userCred.GetProjectId(), "all")
+		adminUsage = models.ImageManager.Usage("", "all")
 	}
 
 	isProject := false

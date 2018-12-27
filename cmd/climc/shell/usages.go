@@ -121,7 +121,7 @@ func init() {
 		if args.Project != "" {
 			params.Add(jsonutils.NewString(args.Project), "project")
 		}
-		result, err := modules.ImageUsages.GetUsage(s, params)
+		result, err := modules.Images.GetUsage(s, params)
 		if err != nil {
 			return err
 		}

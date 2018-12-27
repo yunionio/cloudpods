@@ -450,4 +450,29 @@ func init() {
 		return nil
 	})
 
+	type ImageChangeOwnerOptions struct {
+		ID      string `help:"Image to change owner"`
+		PROJECT string `help:"Project ID or change"`
+		RawId   bool   `help:"User raw ID, instead of name"`
+	}
+	R(&ImageChangeOwnerOptions{}, "image-change-owner", "Change owner project of an image", func(s *mcclient.ClientSession, opts *ImageChangeOwnerOptions) error {
+		params := jsonutils.NewDict()
+		if opts.RawId {
+			projid, err := modules.Projects.GetId(s, opts.PROJECT, nil)
+			if err != nil {
+				return err
+			}
+			params.Add(jsonutils.NewString(projid), "tenant")
+			params.Add(jsonutils.JSONTrue, "raw_id")
+		} else {
+			params.Add(jsonutils.NewString(opts.PROJECT), "tenant")
+		}
+		srv, err := modules.Images.PerformAction(s, opts.ID, "change-owner", params)
+		if err != nil {
+			return err
+		}
+		printObject(srv)
+		return nil
+	})
+
 }
