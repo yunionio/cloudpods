@@ -960,3 +960,33 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 		}
 	}
 }
+
+func (self *SImage) AllowPerformMarkPublicProtected(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return db.IsAdminAllowPerform(userCred, self, "mark-public-protected")
+}
+
+func (self *SImage) PerformMarkPublicProtected(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	isPublic := jsonutils.QueryBoolean(data, "is-public", false)
+	protected := jsonutils.QueryBoolean(data, "protected", false)
+	if isPublic != self.IsPublic || (self.Protected == nil && protected) || (self.Protected != nil && *self.Protected != protected) {
+		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+			self.IsPublic = isPublic
+			self.Protected = &protected
+			return nil
+		})
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+	}
+	return nil, nil
+}

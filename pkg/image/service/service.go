@@ -43,13 +43,15 @@ func StartService() {
 	app := cloudcommon.InitApp(commonOpts, true)
 	initHandlers(app)
 
-	err := torrent.InitTorrentClient()
-	if err != nil {
-		log.Errorf("fail to initialize torrent client: %s", err)
-		return
+	if opts.EnableTorrentService {
+		err := torrent.InitTorrentClient()
+		if err != nil {
+			log.Errorf("fail to initialize torrent client: %s", err)
+			return
+		}
+		torrent.InitTorrentHandler(app)
+		defer torrent.CloseTorrentClient()
 	}
-	torrent.InitTorrentHandler(app)
-	defer torrent.CloseTorrentClient()
 
 	if !db.CheckSync(opts.AutoSyncTable) {
 		log.Fatalf("database schema not in sync!")

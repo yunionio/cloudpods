@@ -84,6 +84,10 @@ func CloseTorrentClient() {
 }
 
 func AddTorrent(filepath string) error {
+	if torrentClient == nil {
+		return nil
+	}
+
 	mi, err := metainfo.LoadFromFile(filepath)
 	if err != nil {
 		log.Errorf("fail to open torrent file %s", err)
@@ -97,10 +101,8 @@ func AddTorrent(filepath string) error {
 
 	torrentTable[filepath] = t
 
-	go func() {
-		<-t.GotInfo()
-		t.DownloadAll()
-	}()
+	<-t.GotInfo()
+	t.DownloadAll()
 
 	return nil
 }

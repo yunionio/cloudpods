@@ -19,6 +19,8 @@ type SImageOptions struct {
 	FilesystemStoreDatadir string `help:"Directory that the Filesystem backend store writes image data to"`
 
 	TorrentStoreDir string `help:"directory to store image torrent files"`
+
+	EnableTorrentService bool `help:"Enable torrent service" default:"false"`
 }
 
 var (

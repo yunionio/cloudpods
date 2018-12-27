@@ -160,6 +160,10 @@ func init() {
 		return nil
 	})
 
+	type ImageOperationOptions struct {
+		ID []string `help:"Image id or name" metavar:"IMAGE"`
+	}
+
 	type ImageShowOptions struct {
 		ID      []string `help:"Image id or name" metavar:"IMAGE"`
 		Format  string   `help:"Image format"`
@@ -382,7 +386,7 @@ func init() {
 		return nil
 	})
 
-	R(&ImageShowOptions{}, "image-private", "Make a image private", func(s *mcclient.ClientSession, args *ImageShowOptions) error {
+	R(&ImageOperationOptions{}, "image-private", "Make a image private", func(s *mcclient.ClientSession, args *ImageOperationOptions) error {
 		if len(args.ID) == 0 {
 			return fmt.Errorf("No image ID provided")
 		} else if len(args.ID) == 1 {
@@ -398,7 +402,7 @@ func init() {
 		return nil
 	})
 
-	R(&ImageShowOptions{}, "image-public", "Make a image public", func(s *mcclient.ClientSession, args *ImageShowOptions) error {
+	R(&ImageOperationOptions{}, "image-public", "Make a image public", func(s *mcclient.ClientSession, args *ImageOperationOptions) error {
 		if len(args.ID) == 0 {
 			return fmt.Errorf("No image ID provided")
 		} else if len(args.ID) == 1 {
@@ -414,7 +418,7 @@ func init() {
 		return nil
 	})
 
-	R(&ImageShowOptions{}, "image-subformats", "Show all format status of a image", func(s *mcclient.ClientSession, args *ImageShowOptions) error {
+	R(&ImageOperationOptions{}, "image-subformats", "Show all format status of a image", func(s *mcclient.ClientSession, args *ImageOperationOptions) error {
 		for i := range args.ID {
 			result, err := modules.Images.GetSpecific(s, args.ID[i], "subformats", nil)
 			if err != nil {
@@ -427,4 +431,23 @@ func init() {
 		}
 		return nil
 	})
+
+	R(&ImageOperationOptions{}, "image-mark-standard", "Mark image standard", func(s *mcclient.ClientSession, args *ImageOperationOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.JSONTrue, "is-public")
+		params.Add(jsonutils.JSONTrue, "protected")
+		results := modules.Images.BatchPerformAction(s, args.ID, "mark-public-protected", params)
+		printBatchResults(results, modules.Images.GetColumns(s))
+		return nil
+	})
+
+	R(&ImageOperationOptions{}, "image-mark-unstandard", "Mark image not standard", func(s *mcclient.ClientSession, args *ImageOperationOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.JSONFalse, "is-public")
+		params.Add(jsonutils.JSONFalse, "protected")
+		results := modules.Images.BatchPerformAction(s, args.ID, "mark-public-protected", params)
+		printBatchResults(results, modules.Images.GetColumns(s))
+		return nil
+	})
+
 }
