@@ -145,7 +145,7 @@ func skuRelatedGuestCount(self *SServerSku) int {
 	if len(self.ZoneId) > 0 {
 		hostTable := HostManager.Query().SubQuery()
 		guestTable := GuestManager.Query().SubQuery()
-		q = guestTable.Query().LeftJoin(hostTable, sqlchemy.Equals(hostTable.Field("id"), guestTable.Field("host_id")))
+		q = guestTable.Query().Join(hostTable, sqlchemy.Equals(hostTable.Field("id"), guestTable.Field("host_id")))
 		q = q.Filter(sqlchemy.Equals(hostTable.Field("zone_id"), self.ZoneId))
 	} else {
 		q = GuestManager.Query()
