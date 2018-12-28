@@ -21,6 +21,8 @@ type SImageOptions struct {
 	TorrentStoreDir string `help:"directory to store image torrent files"`
 
 	EnableTorrentService bool `help:"Enable torrent service" default:"false"`
+
+	TargetImageFormats []string `help:"target image formats that the system will automatically convert to" default:"qcow2,vmdk,vhd"`
 }
 
 var (

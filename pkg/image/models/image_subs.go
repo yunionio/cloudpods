@@ -92,7 +92,7 @@ func (self *SImageSubformat) DoConvert(image *SImage) error {
 		log.Errorf("fail to seed torrent %s", err)
 		return err
 	}
-	log.Infof("Start seeding...")
+	// log.Infof("Start seeding...")
 	return nil
 }
 

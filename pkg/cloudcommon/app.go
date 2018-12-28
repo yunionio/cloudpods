@@ -2,10 +2,13 @@ package cloudcommon
 
 import (
 	"net"
+	"os"
 	"strconv"
 
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 func InitApp(options *CommonOptions, dbAccess bool) *appsrv.Application {
@@ -29,7 +32,22 @@ func ServeForever(app *appsrv.Application, options *CommonOptions) {
 	}
 	log.Infof("Start listen on %s://%s", proto, addr)
 	if options.EnableSsl {
-		app.ListenAndServeTLS(addr, options.SslCertfile, options.SslKeyfile)
+		certfile := options.SslCertfile
+		if len(options.SslCafile) > 0 {
+			var err error
+			certfile, err = seclib2.MergeCaCertFiles(options.SslCafile, options.SslCertfile)
+			if err != nil {
+				log.Fatalf("fail to merge ca+cert content: %s", err)
+			}
+			defer os.Remove(certfile)
+		}
+		if len(certfile) == 0 {
+			log.Fatalf("Missing ssl-certfile")
+		}
+		if len(options.SslKeyfile) == 0 {
+			log.Fatalf("Missing ssl-keyfile")
+		}
+		app.ListenAndServeTLS(addr, certfile, options.SslKeyfile)
 	} else {
 		app.ListenAndServe(addr)
 	}

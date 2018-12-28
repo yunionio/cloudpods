@@ -2,8 +2,7 @@ package qemuimg
 
 import (
 	"strings"
-
-	"yunion.io/x/log"
+	// "yunion.io/x/log"
 )
 
 type TImageFormat string
@@ -15,6 +14,19 @@ const (
 	ISO   = TImageFormat("iso")
 	RAW   = TImageFormat("raw")
 )
+
+var supportedImageFormats = []TImageFormat{
+	QCOW2, VMDK, VHD, ISO, RAW,
+}
+
+func IsSupportedImageFormat(fmtStr string) bool {
+	for i := 0; i < len(supportedImageFormats); i += 1 {
+		if fmtStr == string(supportedImageFormats[i]) {
+			return true
+		}
+	}
+	return false
+}
 
 func (fmt TImageFormat) String() string {
 	switch string(fmt) {
@@ -38,6 +50,6 @@ func String2ImageFormat(fmt string) TImageFormat {
 	case "raw":
 		return RAW
 	}
-	log.Fatalf("unknown image format!!! %s", fmt)
+	// log.Fatalf("unknown image format!!! %s", fmt)
 	return TImageFormat(fmt)
 }

@@ -39,8 +39,9 @@ type CommonOptions struct {
 	NotifyAdminUser string `default:"sysadmin" help:"System administrator user ID or name to notify"`
 
 	EnableSsl   bool   `help:"Enable https"`
-	SslCertfile string `help:"ssl certification file"`
-	SslKeyfile  string `help:"ssl certification key file"`
+	SslCafile   string `help:"ssl certificate ca root file, separating ca and cert file is not encouraged" alias:"ca-file"`
+	SslCertfile string `help:"ssl certification file, normally combines all the certificates in the chain" alias:"cert-file"`
+	SslKeyfile  string `help:"ssl certification private key file" alias:"key-file"`
 
 	EnableRbac                       bool `help:"Switch on Role-based Access Control" default:"true"`
 	RbacDebug                        bool `help:"turn on rbac debug log" default:"false"`

@@ -54,8 +54,6 @@ const (
 )
 
 var (
-	candidateSubImageFormats = []qemuimg.TImageFormat{qemuimg.QCOW2, qemuimg.VMDK, qemuimg.VHD}
-
 	imageDeadStatus = []string{IMAGE_STATUS_DEACTIVATED, IMAGE_STATUS_KILLED, IMAGE_STATUS_DELETED, IMAGE_STATUS_PENDING_DELETE}
 )
 
@@ -761,6 +759,11 @@ func (self *SImage) newSubformat(format qemuimg.TImageFormat, migrate bool) erro
 }
 
 func (self *SImage) MigrateSubImage() error {
+	if !qemuimg.IsSupportedImageFormat(self.DiskFormat) {
+		log.Warningf("Unsupported image format %s, no need to migrate", self.DiskFormat)
+		return nil
+	}
+
 	subimg := ImageSubformatManager.FetchSubImage(self.Id, self.DiskFormat)
 	if subimg != nil {
 		return nil
@@ -798,12 +801,15 @@ func (self *SImage) MakeSubImages() error {
 	if self.GetImageType() == ImageTypeISO {
 		return nil
 	}
-	for _, format := range candidateSubImageFormats {
-		if string(format) != self.DiskFormat {
+	for _, format := range options.Options.TargetImageFormats {
+		if !qemuimg.IsSupportedImageFormat(format) {
+			continue
+		}
+		if format != self.DiskFormat {
 			// need to create a record
-			subformat := ImageSubformatManager.FetchSubImage(self.Id, string(format))
+			subformat := ImageSubformatManager.FetchSubImage(self.Id, format)
 			if subformat == nil {
-				err := self.newSubformat(format, false)
+				err := self.newSubformat(qemuimg.String2ImageFormat(format), false)
 				if err != nil {
 					return err
 				}
@@ -984,7 +990,7 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 	}
 	for i := 0; i < len(subimgs); i += 1 {
 		subimgs[i].checkStatus(useFast)
-		if subimgs[i].Status != IMAGE_STATUS_ACTIVE || subimgs[i].Status != IMAGE_STATUS_ACTIVE {
+		if subimgs[i].Status != IMAGE_STATUS_ACTIVE {
 			needConvert = true
 		}
 	}

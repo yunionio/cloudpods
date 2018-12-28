@@ -30,8 +30,6 @@ func StreamPipe(reader io.Reader, writer io.Writer) (*SStreamProperty, error) {
 				}
 				offset += m
 			}
-		} else if n == 0 {
-			break
 		}
 		if err != nil {
 			if err == io.EOF {

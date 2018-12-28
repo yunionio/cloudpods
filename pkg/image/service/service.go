@@ -33,6 +33,8 @@ func StartService() {
 		opts.Port = opts.PortV2
 	}
 
+	log.Infof("Target image formats %#v", opts.TargetImageFormats)
+
 	cloudcommon.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})
