@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 	"strconv"
 
 	"yunion.io/x/jsonutils"
@@ -101,6 +102,23 @@ type SServerSku struct {
 	Provider      string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
 }
 
+func sliceToJsonObject(items []int) jsonutils.JSONObject {
+	sort.Slice(items, func(i, j int) bool {
+		if items[i] < items[j] {
+			return true
+		}
+
+		return false
+	})
+
+	ret := jsonutils.NewArray()
+	for _, item := range items {
+		ret.Add(jsonutils.NewInt(int64(item)))
+	}
+
+	return ret
+}
+
 func inWhiteList(provider string) bool {
 	// provider 字段为空时表示私有云套餐
 	if len(provider) == 0 {
@@ -122,12 +140,41 @@ func genInstanceType(family string, cpu, mem_mb int64) (string, error) {
 	return fmt.Sprintf("ecs.%s.c%dm%d", family, cpu, mem_mb/1024), nil
 }
 
+func skuRelatedGuestCount(self *SServerSku) int {
+	var q *sqlchemy.SQuery
+	if len(self.ZoneId) > 0 {
+		hostTable := HostManager.Query().SubQuery()
+		guestTable := GuestManager.Query().SubQuery()
+		q = guestTable.Query().Join(hostTable, sqlchemy.Equals(hostTable.Field("id"), guestTable.Field("host_id")))
+		q = q.Filter(sqlchemy.Equals(hostTable.Field("zone_id"), self.ZoneId))
+	} else {
+		q = GuestManager.Query()
+	}
+
+	q = q.Equals("instance_type", self.GetName())
+	return q.Count()
+}
+
 func (self *SServerSkuManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
 }
 
 func (self *SServerSku) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
+}
+
+func (self *SServerSku) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	count := skuRelatedGuestCount(self)
+	extra.Add(jsonutils.NewInt(int64(count)), "total_guest_count")
+	return extra
+}
+
+func (self *SServerSku) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	count := skuRelatedGuestCount(self)
+	extra.Add(jsonutils.NewInt(int64(count)), "total_guest_count")
+	return extra
 }
 
 func (manager *SServerSkuManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -282,6 +329,15 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 	}
 
 	skus := make([]SServerSku, 0)
+	postpaid, _ := query.GetString("postpaid_status")
+	if len(postpaid) > 0 {
+		q.Equals("postpaid_status", postpaid)
+	}
+
+	prepaid, _ := query.GetString("prepaid_status")
+	if len(prepaid) > 0 {
+		q.Equals("prepaid_status", prepaid)
+	}
 	q = q.GroupBy(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
 	q = q.Asc(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
 	err := q.All(&skus)
@@ -291,7 +347,7 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 	}
 
 	cpus := jsonutils.NewArray()
-	mems_mb := jsonutils.NewArray()
+	mems_mb := []int{}
 	cpu_mems_mb := map[string][]int{}
 
 	mems := map[int]bool{}
@@ -306,7 +362,7 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 		}
 
 		if _, exists := mems[nm]; !exists {
-			mems_mb.Add(jsonutils.NewInt(int64(nm)))
+			mems_mb = append(mems_mb, nm)
 			mems[nm] = true
 		}
 
@@ -320,7 +376,7 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 
 	ret := jsonutils.NewDict()
 	ret.Add(cpus, "cpus")
-	ret.Add(mems_mb, "mems_mb")
+	ret.Add(sliceToJsonObject(mems_mb), "mems_mb")
 
 	r_obj := jsonutils.Marshal(&cpu_mems_mb)
 	ret.Add(r_obj, "cpu_mems_mb")
@@ -497,7 +553,7 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 
 	prepaid, _ := query.GetString("prepaid_status")
 	if len(prepaid) > 0 {
-		q.Equals("prepaid_status", postpaid)
+		q.Equals("prepaid_status", prepaid)
 	}
 
 	// 当查询私有云时，需要忽略zone参数

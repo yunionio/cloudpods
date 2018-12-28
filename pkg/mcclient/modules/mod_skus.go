@@ -32,7 +32,7 @@ func init() {
 			"Attached_disk_size_gb", "Attached_disk_count", "Data_disk_types",
 			"Data_disk_max_count", "Nic_max_count", "Cloudregion_id", "Zone_id",
 			"Provider", "Postpaid_status", "Prepaid_status"},
-		[]string{})}
+		[]string{"Total_guest_count"})}
 
 	register(&CloudmetaSkus)
 	registerCompute(&ServerSkus)
