@@ -136,7 +136,7 @@ func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gues
 	header.Add("X-Task-Id", task.GetTaskId())
 	header.Add("X-Region-Version", "v2")
 
-	_, err = agent.Request(task.GetUserCred(), "POST", url, header, body)
+	_, err = agent.Request(ctx, task.GetUserCred(), "POST", url, header, body)
 	return err
 }
 

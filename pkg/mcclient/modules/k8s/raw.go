@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 var RawResource *RawResourceManager
@@ -49,7 +50,7 @@ type RawResourceManager struct {
 	serviceType string
 }
 
-func (m *RawResourceManager) request(s *mcclient.ClientSession, method string, path string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (m *RawResourceManager) request(s *mcclient.ClientSession, method httputils.THttpMethod, path string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	_, ret, err := s.JSONRequest(m.serviceType, "", method, path, nil, body)
 	return ret, err
 }

@@ -644,9 +644,12 @@ func (self *SCloudaccount) GetCustomizeColumns(ctx context.Context, userCred mcc
 	return self.getMoreDetails(extra)
 }
 
-func (self *SCloudaccount) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	return self.getMoreDetails(extra)
+func (self *SCloudaccount) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return self.getMoreDetails(extra), nil
 }
 
 func migrateCloudprovider(cloudprovider *SCloudprovider) error {

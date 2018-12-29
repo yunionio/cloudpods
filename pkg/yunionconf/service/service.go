@@ -16,12 +16,11 @@ import (
 )
 
 func StartService() {
-	consts.SetServiceType("yunionconf")
 
 	opts := &options.Options
 	commonOpts := &options.Options.CommonOptions
 	dbOpts := &options.Options.DBOptions
-	cloudcommon.ParseOptions(opts, commonOpts, os.Args, "yunionconf.conf")
+	cloudcommon.ParseOptions(opts, os.Args, "yunionconf.conf", "yunionconf")
 	cloudcommon.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})

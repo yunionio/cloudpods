@@ -2,6 +2,7 @@ package options
 
 import (
 	"yunion.io/x/onecloud/pkg/cloudcommon"
+	"yunion.io/x/onecloud/pkg/cloudcommon/pending_delete"
 )
 
 type ComputeOptions struct {
@@ -21,10 +22,7 @@ type ComputeOptions struct {
 
 	DefaultDiskSize int `default:"30720" help:"Default disk size in MB if not specified, default to 30GiB"`
 
-	EnablePendingDelete            bool `default:"true" help:"Turn on/off pending delete VM and disk, default is on"`
-	PendingDeleteCheckSeconds      int  `default:"3600" help:"How long to wait to scan pending delete VM or disks, default is 1 hour"`
-	PendingDeleteExpireSeconds     int  `default:"259200" help:"How long a pending delete VM/disks cleaned automatically, default 3 days"`
-	PendingDeleteMaxCleanBatchSize int  `default:"50" help:"How many pending delete servers can be clean in a batch"`
+	pending_delete.SPendingDeleteOptions
 
 	PrepaidExpireCheckSeconds       int `default:"600" help:"How long to wait to scan expired prepaid VM or disks, default is 10 minutes"`
 	ExpiredPrepaidMaxCleanBatchSize int `default:"50" help:"How many expired prepaid servers can be deleted in a batch"`
@@ -45,7 +43,6 @@ type ComputeOptions struct {
 	DefaultBwQuota             int `default:"2000000" help:"Common network port bandwidth in mbps quota per tenant, default 200*10Gbps"`
 	DefaultEbwQuota            int `default:"4000" help:"Common exit network port bandwidth quota per tenant, default 4Gbps"`
 	DefaultKeypairQuota        int `default:"50" help:"Common keypair quota per tenant, default 50"`
-	DefaultImageQuota          int `default:"5" help:"Common image quota per tenant, default 5"`
 	DefaultGroupQuota          int `default:"50" help:"Common group quota per tenant, default 50"`
 	DefaultSecgroupQuota       int `default:"50" help:"Common security group quota per tenant, default 50"`
 	DefaultIsolatedDeviceQuota int `default:"200" help:"Common isolated device quota per tenant, default 200"`

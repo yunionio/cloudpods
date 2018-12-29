@@ -19,6 +19,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 type SStoragecache struct {
@@ -128,7 +129,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	// first upload image to oss
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 
-	meta, reader, err := modules.Images.Download(s, imageId)
+	meta, reader, err := modules.Images.Download(s, imageId, string(qemuimg.QCOW2), false)
 	if err != nil {
 		return "", err
 	}

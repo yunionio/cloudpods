@@ -2125,9 +2125,12 @@ func (self *SHost) GetCustomizeColumns(ctx context.Context, userCred mcclient.To
 	return self.getMoreDetails(ctx, extra)
 }
 
-func (self *SHost) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	return self.getMoreDetails(ctx, extra)
+func (self *SHost) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return self.getMoreDetails(ctx, extra), nil
 }
 
 func (self *SHost) AllowGetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -2196,8 +2199,8 @@ func (manager *SHostManager) GetHostsByManagerAndRegion(managerId string, region
 	return nil
 }*/
 
-func (self *SHost) Request(userCred mcclient.TokenCredential, method string, url string, headers http.Header, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	s := auth.GetSession(nil, userCred, "", "")
+func (self *SHost) Request(ctx context.Context, userCred mcclient.TokenCredential, method httputils.THttpMethod, url string, headers http.Header, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	s := auth.GetSession(ctx, userCred, "", "")
 	_, ret, err := s.JSONRequest(self.ManagerUri, "", method, url, headers, body)
 	return ret, err
 }
@@ -2606,7 +2609,7 @@ func (self *SHost) StartBaremetalUnmaintenanceTask(ctx context.Context, userCred
 	return nil
 }
 
-func (self *SHost) BaremetalSyncRequest(ctx context.Context, method, url string, headers http.Header, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+func (self *SHost) BaremetalSyncRequest(ctx context.Context, method httputils.THttpMethod, url string, headers http.Header, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
 	serviceUrl, err := auth.GetServiceURL("baremetal", options.Options.Region, self.GetZone().GetName(), "")
 	if err != nil {
 		return nil, err

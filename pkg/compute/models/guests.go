@@ -1208,8 +1208,12 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 	return extra
 }
 
-func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
 	extra.Add(jsonutils.NewString(self.getNetworksDetails()), "networks")
 	extra.Add(jsonutils.NewString(self.getDisksDetails()), "disks")
 	extra.Add(self.getDisksInfoDetails(), "disks_info")
@@ -1261,7 +1265,7 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 		extra.Add(jsonutils.JSONFalse, "is_prepaid_recycle")
 	}
 
-	return self.moreExtraInfo(extra)
+	return self.moreExtraInfo(extra), nil
 }
 
 func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {

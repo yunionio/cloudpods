@@ -14,6 +14,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -560,13 +561,13 @@ func (self *SVirtualMachine) fetchHardwareInfo() {
 		vgaType := reflect.TypeOf((*types.VirtualMachineVideoCard)(nil)).Elem()
 		cdromType := reflect.TypeOf((*types.VirtualCdrom)(nil)).Elem()
 
-		if StructContains(devType, etherType) {
+		if reflectutils.StructContains(devType, etherType) {
 			self.vnics = append(self.vnics, NewVirtualNIC(self, dev, len(self.vnics)))
-		} else if StructContains(devType, diskType) {
+		} else if reflectutils.StructContains(devType, diskType) {
 			self.vdisks = append(self.vdisks, NewVirtualDisk(self, dev, len(self.vnics)))
-		} else if StructContains(devType, vgaType) {
+		} else if reflectutils.StructContains(devType, vgaType) {
 			self.vga = NewVirtualVGA(self, dev, 0)
-		} else if StructContains(devType, cdromType) {
+		} else if reflectutils.StructContains(devType, cdromType) {
 			self.cdroms = append(self.cdroms, NewVirtualCdrom(self, dev, len(self.cdroms)))
 		}
 		vdev := NewVirtualDevice(self, dev, 0)

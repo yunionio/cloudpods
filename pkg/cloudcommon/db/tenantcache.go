@@ -5,11 +5,12 @@ import (
 	"database/sql"
 
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 type STenantCacheManager struct {
@@ -126,4 +127,15 @@ func (manager *STenantCacheManager) Save(ctx context.Context, idStr string, name
 			return obj, nil
 		}
 	}
+}
+
+func (manager *STenantCacheManager) GenerateProjectUserCred(ctx context.Context, projectName string) (mcclient.TokenCredential, error) {
+	project, err := manager.FetchTenantByIdOrName(ctx, projectName)
+	if err != nil {
+		return nil, err
+	}
+	return &mcclient.SSimpleToken{
+		Project:   project.Name,
+		ProjectId: project.Id,
+	}, nil
 }

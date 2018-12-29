@@ -2,11 +2,13 @@ package db
 
 import (
 	"context"
+	"net/http"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 
@@ -63,6 +65,11 @@ type IModelManager interface {
 	DoCreate(ctx context.Context, userCred mcclient.TokenCredential, kwargs jsonutils.JSONObject, data jsonutils.JSONObject, realManager IModelManager) (IModel, error)
 
 	InitializeData() error
+
+	CustomizeHandlerInfo(info *appsrv.SHandlerInfo)
+	FetchCreateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error)
+	FetchUpdateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error)
+	IsCustomizedGetDetailsBody() bool
 }
 
 type IModel interface {
@@ -82,7 +89,8 @@ type IModel interface {
 
 	// get hooks
 	AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool
-	GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict
+	GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error)
+	GetExtraDetailsHeaders(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) map[string]string
 
 	// create hooks
 	CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error
@@ -110,6 +118,8 @@ type IModel interface {
 	PostDelete(ctx context.Context, userCred mcclient.TokenCredential)
 
 	GetOwnerProjectId() string
+
+	CustomizedGetDetailsBody(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error)
 }
 
 type IResourceModelManager interface {

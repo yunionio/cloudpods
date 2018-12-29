@@ -293,7 +293,7 @@ func (self *SBaremetalGuestDriver) GetJsonDescAtHost(ctx context.Context, guest 
 	return guest.GetJsonDescAtBaremetal(ctx, host)
 }
 
-func (self *SBaremetalGuestDriver) GetGuestVncInfo(userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
+func (self *SBaremetalGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewString(host.Id), "host_id")
 	zone := host.GetZone()

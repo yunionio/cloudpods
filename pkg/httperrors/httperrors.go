@@ -7,9 +7,13 @@ import (
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
-func HTTPError(w http.ResponseWriter, msg string, statusCode int, class string, error httputils.Error) {
+func SendHTTPErrorHeader(w http.ResponseWriter, statusCode int) {
 	w.WriteHeader(statusCode)
 	w.Header().Set("Content-Type", "application/json")
+}
+
+func HTTPError(w http.ResponseWriter, msg string, statusCode int, class string, error httputils.Error) {
+	SendHTTPErrorHeader(w, statusCode)
 	body := jsonutils.NewDict()
 	body.Add(jsonutils.NewInt(int64(statusCode)), "code")
 	body.Add(jsonutils.NewString(msg), "details")

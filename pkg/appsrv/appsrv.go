@@ -107,21 +107,25 @@ func (app *Application) AddReverseProxyHandler(prefix string, ef *proxy.SEndpoin
 	}
 }
 
-func (app *Application) AddHandler(method string, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request)) {
-	app.AddHandler2(method, prefix, handler, nil, "", nil)
+func (app *Application) AddHandler(method string, prefix string,
+	handler func(context.Context, http.ResponseWriter, *http.Request)) *SHandlerInfo {
+	return app.AddHandler2(method, prefix, handler, nil, "", nil)
 }
 
-func (app *Application) AddHandler2(method string, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request), metadata map[string]interface{}, name string, tags map[string]string) {
+func (app *Application) AddHandler2(method string, prefix string,
+	handler func(context.Context, http.ResponseWriter, *http.Request),
+	metadata map[string]interface{}, name string, tags map[string]string) *SHandlerInfo {
 	segs := SplitPath(prefix)
 	hi := newHandlerInfo(method, segs, handler, metadata, name, tags)
-	app.AddHandler3(hi)
+	return app.AddHandler3(hi)
 }
 
-func (app *Application) AddHandler3(hi *SHandlerInfo) {
+func (app *Application) AddHandler3(hi *SHandlerInfo) *SHandlerInfo {
 	e := app.getRoot(hi.method).Add(hi.path, hi)
 	if e != nil {
 		log.Fatalf("Fail to register %s %s: %s", hi.method, hi.path, e)
 	}
+	return hi
 }
 
 type loggingResponseWriter struct {
@@ -220,6 +224,7 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 			}
 			appParams := hand.GetAppParams(params, segs)
 			appParams.Request = r
+			appParams.Response = w
 			session.Run(
 				func() {
 					if ctx.Err() == nil {
@@ -336,18 +341,31 @@ func (app *Application) ListenAndServeTLS(addr string, certFile, keyFile string)
 	}
 }
 
-func FetchEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (map[string]string, jsonutils.JSONObject, jsonutils.JSONObject) {
-	params := appctx.AppContextParams(ctx)
-	query, e := jsonutils.ParseQueryString(r.URL.RawQuery)
-	if e != nil {
-		log.Errorf("Parse query string %s failed: %s", r.URL.RawQuery, e)
+func isJsonContentType(r *http.Request) bool {
+	contType := strings.ToLower(r.Header.Get("Content-Type"))
+	if strings.HasPrefix(contType, "application/json") {
+		return true
 	}
-	var body jsonutils.JSONObject = nil
-	if r.Method == "PUT" || r.Method == "POST" || r.Method == "DELETE" || r.Method == "PATCH" {
-		body, e = FetchJSON(r)
-		if e != nil {
-			log.Errorf("Fail to decode JSON request body: %s", e)
+	return false
+}
+
+func FetchEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (params map[string]string, query jsonutils.JSONObject, body jsonutils.JSONObject) {
+	var err error
+	params = appctx.AppContextParams(ctx)
+	query, err = jsonutils.ParseQueryString(r.URL.RawQuery)
+	if err != nil {
+		log.Errorf("Parse query string %s failed: %s", r.URL.RawQuery, err)
+	}
+	//var body jsonutils.JSONObject = nil
+	if (r.Method == "PUT" || r.Method == "POST" || r.Method == "DELETE" || r.Method == "PATCH") && r.ContentLength > 0 && isJsonContentType(r) {
+		body, err = FetchJSON(r)
+		if err != nil {
+			log.Errorf("Fail to decode JSON request body: %s", err)
 		}
 	}
 	return params, query, body
+}
+
+func (app *Application) GetContext() context.Context {
+	return app.context
 }

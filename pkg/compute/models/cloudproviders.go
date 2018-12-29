@@ -589,9 +589,12 @@ func (self *SCloudprovider) GetCustomizeColumns(ctx context.Context, userCred mc
 	return self.getMoreDetails(ctx, extra)
 }
 
-func (self *SCloudprovider) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	return self.getMoreDetails(ctx, extra)
+func (self *SCloudprovider) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return self.getMoreDetails(ctx, extra), nil
 }
 
 func (manager *SCloudproviderManager) InitializeData() error {

@@ -22,13 +22,13 @@ func (ts *STableSpec) prepareUpdate(dt interface{}) (*SUpdateSession, error) {
 		return nil, fmt.Errorf("Update input must be a Pointer")
 	}
 	dataValue := reflect.ValueOf(dt).Elem()
-	fields := reflectutils.FetchStructFieldNameValueInterfaces(dataValue) //  fetchStructFieldNameValue(dataType, dataValue)
+	fields := reflectutils.FetchStructFieldValueSet(dataValue) //  fetchStructFieldNameValue(dataType, dataValue)
 
 	zeroPrimary := make([]string, 0)
 	zeroKeyIndex := make([]string, 0)
 	for _, c := range ts.columns {
 		k := c.Name()
-		ov, ok := fields[k]
+		ov, ok := fields.GetInterface(k)
 		if !ok {
 			continue
 		}
@@ -73,8 +73,8 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (map[string]SUpdateDiff, er
 
 	// dataType := reflect.TypeOf(dt).Elem()
 	dataValue := reflect.ValueOf(dt).Elem()
-	ofields := reflectutils.FetchStructFieldNameValueInterfaces(us.oValue)
-	fields := reflectutils.FetchStructFieldNameValueInterfaces(dataValue)
+	ofields := reflectutils.FetchStructFieldValueSet(us.oValue)
+	fields := reflectutils.FetchStructFieldValueSet(dataValue)
 
 	versionFields := make([]string, 0)
 	updatedFields := make([]string, 0)
@@ -83,8 +83,8 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (map[string]SUpdateDiff, er
 	setters := make(map[string]SUpdateDiff)
 	for _, c := range us.tableSpec.columns {
 		k := c.Name()
-		of := ofields[k]
-		nf := fields[k]
+		of, _ := ofields.GetInterface(k)
+		nf, _ := fields.GetInterface(k)
 		if !gotypes.IsNil(of) {
 			if c.IsPrimary() && !c.IsZero(of) { // skip update primary key
 				primaries[k] = of

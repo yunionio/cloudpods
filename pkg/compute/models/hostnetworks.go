@@ -57,9 +57,12 @@ func (bn *SHostnetwork) GetCustomizeColumns(ctx context.Context, userCred mcclie
 	return extra
 }
 
-func (bn *SHostnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := bn.SHostJointsBase.GetExtraDetails(ctx, userCred, query)
-	return db.JointModelExtra(bn, extra)
+func (bn *SHostnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := bn.SHostJointsBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return db.JointModelExtra(bn, extra), nil
 }
 
 func (bn *SHostnetwork) GetHost() *SHost {
