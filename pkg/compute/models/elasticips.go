@@ -75,7 +75,7 @@ type SElasticip struct {
 
 	Bandwidth int `list:"user" create:"required"`
 
-	ChargeType string `list:"user" create:"required" default:"traffic"`
+	ChargeType string `list:"user" create:"required"`
 
 	AutoDellocate tristate.TriState `default:"false" get:"user" create:"optional"`
 
