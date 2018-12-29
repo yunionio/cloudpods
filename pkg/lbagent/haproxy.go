@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"yunion.io/x/log"
 	aggrerrors "yunion.io/x/pkg/util/errors"
@@ -242,21 +243,59 @@ func (h *HaproxyHelper) reloadHaproxy(ctx context.Context) error {
 		"-f", h.haproxyConfD(),
 	}
 	proc := agentutils.ReadPidFile(pidFile)
-	if proc != nil {
-		args = append(args, "-sf", fmt.Sprintf("%d", proc.Pid))
+	if proc == nil {
+		log.Infof("starting haproxy")
+		return h.runCmd(args)
+	}
+
+	{
+		// try reload
+		args_ := make([]string, len(args))
+		copy(args_, args)
+		args_ = append(args_, "-sf", fmt.Sprintf("%d", proc.Pid))
 		{
 			statsSocket := h.haproxyStatsSocketFile()
 			if fi, err := os.Stat(statsSocket); err == nil && fi.Mode()&os.ModeSocket != 0 {
-				args = append(args, "-x", statsSocket)
+				args_ = append(args_, "-x", statsSocket)
 			} else {
 				log.Warningf("stats socket %s not found", statsSocket)
 			}
 		}
 		log.Infof("reloading haproxy")
-	} else {
-		log.Infof("starting haproxy")
+		err := h.runCmd(args_)
+		if err == nil {
+			return nil
+		}
+		log.Errorf("reloading haproxy: %s", err)
 	}
-	return h.runCmd(args)
+	{
+		// reload failed
+		// kill the old
+		log.Errorf("killing old haproxy %d", proc.Pid)
+		proc.Signal(syscall.SIGKILL)
+		killed := false
+	loop:
+		for {
+			timeout := time.NewTimer(3 * time.Second)
+			ticker := time.NewTicker(10 * time.Millisecond)
+			defer ticker.Stop()
+			defer timeout.Stop()
+			select {
+			case <-ticker.C:
+				if err := proc.Signal(syscall.Signal(0)); err != nil {
+					killed = true
+					break loop
+				}
+			case <-timeout.C:
+				break loop
+			}
+		}
+		if !killed {
+			return fmt.Errorf("failed killing haproxy %d", proc.Pid)
+		}
+		log.Infof("restarting haproxy")
+		return h.runCmd(args)
+	}
 }
 
 func (h *HaproxyHelper) gobetweenConf() string {
