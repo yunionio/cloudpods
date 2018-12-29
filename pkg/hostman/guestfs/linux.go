@@ -170,7 +170,7 @@ func (l *SLinuxRootFs) DeployFstabScripts(disks []jsonutils.JSONObject) error {
 		}
 		dev := fmt.Sprintf("UUID=%s", diskId)
 		if !fstab.IsExists(dev) {
-			fs, err := disks[i].GetString("fs")
+			fs, _ := disks[i].GetString("fs")
 			if fs == "swap" {
 				rec = fmt.Sprintf("%s none %s sw 0 0", dev, fs)
 			} else {
@@ -320,7 +320,7 @@ func (l *SLinuxRootFs) PrepareFsForTemplate() error {
 }
 
 func (l *SLinuxRootFs) GetSerialPorts() []string {
-	var confpath = "/proc/tty/driver/serial"
+	// var confpath = "/proc/tty/driver/serial"
 	if l.rootFs.SupportOsPathExists() {
 		// TODO: with sshpart utils
 		return nil
@@ -363,7 +363,7 @@ func (d *SDebianLikeRootFs) DeployNetworkingScripts(nics []jsonutils.JSONObject)
 	}
 	var mainIp string
 	if mainNic != nil {
-		mainIp, _ := mainNic.GetString("ip")
+		mainIp, _ = mainNic.GetString("ip")
 	}
 	for _, nic := range nics {
 		var nicDesc = new(types.ServerNic)

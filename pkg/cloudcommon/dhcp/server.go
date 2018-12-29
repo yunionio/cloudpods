@@ -2,6 +2,7 @@ package dhcp
 
 import (
 	"fmt"
+	"net"
 
 	"yunion.io/x/log"
 )
@@ -19,8 +20,14 @@ func NewDHCPServer(address string, port int) *DHCPServer {
 	}
 }
 
+func NewDHCPServer2(conn *Conn) *DHCPServer {
+	return &DHCPServer{
+		conn: conn,
+	}
+}
+
 type DHCPHandler interface {
-	ServeDHCP(pkt *Packet) (*Packet, error)
+	ServeDHCP(pkt *Packet, intf *net.Interface) (*Packet, error)
 }
 
 func (s *DHCPServer) ListenAndServe(handler DHCPHandler) error {
@@ -43,8 +50,9 @@ func (s *DHCPServer) serveDHCP(handler DHCPHandler) error {
 		if intf == nil {
 			return fmt.Errorf("Received DHCP packet with no interface information (this is a violation of dhcp4.Conn's contract)")
 		}
+
 		go func() {
-			resp, err := handler.ServeDHCP(pkt)
+			resp, err := handler.ServeDHCP(pkt, intf)
 			if err != nil {
 				log.Warningf("[DHCP] handler serve error: %v", err)
 				return

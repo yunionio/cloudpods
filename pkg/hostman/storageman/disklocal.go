@@ -55,7 +55,7 @@ func (d *SLocalDisk) Delete() error {
 		return err
 	}
 	// TODO: PostCreateFromImageFuse umount fuse fs
-	d.UmountImageFuse()
+	// d.UmountImageFuse()
 	/* ????????????????
 	   files = os.listdir(self.storage.path)
 	   for f in files:

@@ -141,6 +141,17 @@ func (o Options) Copy() Options {
 	return ret
 }
 
+// one byte code, one byte len, less 255*byte val
+func (o Options) AddOption(optCode Option, val []byte) {
+	if p, ok := o[optCode]; ok {
+		p = append(p, []byte{byte(optCode), byte(len(val))}...)
+		p = append(p, val...)
+		o[optCode] = p
+	} else {
+		o[optCode] = val
+	}
+}
+
 // marshalLimited serializes o into w. If nBytes > 0, as many options
 // as possible are packed into that many bytes, inserting padding as
 // needed, and the remaining unwritten options are returned.

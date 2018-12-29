@@ -4,28 +4,35 @@ import (
 	"bufio"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/mem"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostdhcp"
+	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
 type SCPUInfo struct {
 	CpuCount    int
-	cpuFreq     float32 // MHZ
+	cpuFreq     int64 // MHZ
 	cpuFeatures []string
 
 	cpuInfoProc *types.CPUInfo
 	cpuInfoDmi  *types.DMICPUInfo
 }
 
-func DetectCpuInfo() (*SCPUInfo, err) {
+func DetectCpuInfo() (*SCPUInfo, error) {
 	cpuinfo := new(SCPUInfo)
 	cpuCount, _ := cpu.Counts(true)
 	cpuinfo.CpuCount = cpuCount
@@ -39,7 +46,9 @@ func DetectCpuInfo() (*SCPUInfo, err) {
 		log.Errorln(err)
 		return nil, err
 	}
-	cpu.Percent(interval, percpu)
+	cpuinfo.cpuFreq = freq
+
+	// cpu.Percent(interval, false)
 	ret, err := fileutils2.FileGetContents("/proc/cpuinfo")
 	if err != nil {
 		log.Errorln(err)
@@ -50,17 +59,17 @@ func DetectCpuInfo() (*SCPUInfo, err) {
 		log.Errorln(err)
 		return nil, err
 	}
-	ret, err = exec.Command("dmidecode", "-t", "4").Output()
+	bret, err := exec.Command("dmidecode", "-t", "4").Output()
 	if err != nil {
 		log.Errorln(err)
 		return nil, err
 	}
-	cpuinfo.cpuInfoDmi, err = sysutils.ParseDMICPUInfo(strings.Split(string(ret), "\n"))
+	cpuinfo.cpuInfoDmi = sysutils.ParseDMICPUInfo(strings.Split(string(bret), "\n"))
 	if err != nil {
 		log.Errorln(err)
 		return nil, err
 	}
-	return cpuinfo
+	return cpuinfo, nil
 }
 
 func (c *SCPUInfo) fetchCpuSpecs() (map[string]string, error) {
@@ -98,17 +107,159 @@ func (c *SCPUInfo) GetJsonDesc(percentInterval int) {
 	// os. ?????可能不需要要写
 }
 
-type SNIC struct {
-	inter  string
-	bridge string
+type SMemory struct {
+	Total   int
+	Free    int
+	Used    int
+	MemInfo *types.DMIMemInfo
 }
 
-func NewNIC(desc string) *SNIC {
+func DetectMemoryInfo() (*SMemory, error) {
+	var smem = new(SMemory)
+	info, err := mem.VirtualMemory()
+	if err != nil {
+		return nil, err
+	}
+	smem.Total = int(info.Total / 1024 / 1024)
+	smem.Free = int(info.Available / 1024 / 1024)
+	smem.Used = smem.Total - smem.Free
+	ret, err := exec.Command("dmidecode", "-t", "17").Output()
+	if err != nil {
+		return nil, err
+	}
+	smem.MemInfo = sysutils.ParseDMIMemInfo(strings.Split(string(ret), "\n"))
+	return smem, nil
+}
+
+func (m *SMemory) GetHugepagesizeMb() int {
+	file, err := os.Open("/proc/meminfo")
+	if err != nil {
+		log.Errorln(err)
+		return 0
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "Hugepagesize:") {
+			re := regexp.MustCompile(`\s+`)
+			segs := re.Split(line, -1)
+			v, err := strconv.Atoi(segs[1])
+			if err != nil {
+				log.Errorln(err)
+				return 0
+			}
+			return int(v) / 1024
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		log.Errorln(err)
+	}
+	return 0
+}
+
+type SNIC struct {
+	Inter   string
+	Bridge  string
+	Ip      string
+	Network string
+
+	Bandwidth  int
+	BridgeDev  IBridgeDriver
+	dhcpServer *hostdhcp.SGuestDHCPServer
+}
+
+func (n *SNIC) EnableDHCPRelay() bool {
+	v4Ip, err := netutils.NewIPV4Addr(n.Ip)
+	if err != nil {
+		log.Errorln(err)
+		return false
+	}
+	if options.HostOptions.DhcpRelay != nil && netutils.IsExitAddress(v4Ip) {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (n *SNIC) SetupDhcpRelay() {
+	if n.EnableDHCPRelay() {
+		n.dhcpServer.RelaySetup(n.Ip)
+	}
+}
+
+func NewNIC(desc string) (*SNIC, error) {
 	nic := new(SNIC)
 	data := strings.Split(desc, "/")
-	nic.inter = data[0]
-	nic.bridge = data[1]
+	nic.Inter = data[0]
+	nic.Bridge = data[1]
 	if regutils.MatchIP4Addr(data[2]) {
-		nic.ip = data[2]
+		nic.Ip = data[2]
+	} else {
+		nic.Network = data[2]
 	}
+	nic.Bandwidth = 1000
+
+	// 这是干啥呢 ？？？
+	if len(nic.Ip) > 0 {
+		var max, wait = 30, 0
+		for wait < max {
+			inf := netutils2.NewNetInterface(nic.Inter)
+			if inf.Addr == nic.Ip {
+				break
+			}
+			br := netutils2.NewNetInterface(nic.Bridge)
+			if br.Addr == nic.Ip {
+				break
+			}
+			time.Sleep(time.Second * 2)
+			wait += 1
+		}
+	}
+
+	// default openvswitch
+	var err error
+	nic.BridgeDev, err = NewDriver(options.HostOptions.BridgeDriver,
+		nic.Bridge, nic.Inter, nic.Ip)
+	if err != nil {
+		log.Errorln(err)
+		return nil, err
+	}
+
+	confirm, err := nic.BridgeDev.ConfirmToConfig(nic.BridgeDev.Exists(), nic.BridgeDev.Interfaces())
+	if err != nil {
+		log.Errorln(err)
+		return nil, err
+	}
+	if !confirm {
+		log.Infof("Not confirm to configuration")
+		if err = nic.BridgeDev.Setup(); err != nil {
+			log.Errorln(err)
+			return nil, err
+		}
+		time.Sleep(time.Second * 1)
+	} else {
+		log.Infof("Confirm to configuration!!")
+	}
+
+	var dhcpRelay []string
+	if nic.EnableDHCPRelay() {
+		dhcpRelay = options.HostOptions.DhcpRelay
+	}
+	nic.dhcpServer = hostdhcp.NewGuestDHCPServer(nic.Bridge, dhcpRelay)
+	nic.dhcpServer.Start()
+	return nic, nil
+}
+
+type SSysInfo struct {
+	*types.DMISystemInfo
+
+	Nest           string `json:"nest,omitempty"`
+	OsDistribution string `json:"os_distribution"`
+	OsVersion      string `json:"os_version"`
+	KernelVersion  string `json:"kernel_version"`
+	QemuVersion    string `json:"qemu_version"`
+	OvsVersion     string `json:"ovs_version"`
+
+	StorageType string `json:"storage_type"`
 }

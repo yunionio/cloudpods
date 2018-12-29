@@ -183,18 +183,20 @@ func doDriveMirror(ctx context.Context, sid string, body jsonutils.JSONObject) (
 }
 
 var actionFuncs = map[string]actionFunc{
-	"create":               doCreate,
-	"deploy":               doDeploy,
-	"start":                doStart,
-	"stop":                 doStop,
-	"monitor":              doMonitor,
-	"sync":                 doSync,
-	"suspend":              doSuspend,
-	"snapshot":             doSnapshot,
-	"delete-snapshot":      doDeleteSnapshot,
-	"reload-disk-snapshot": doReloadDiskSnapshot,
+	"create":  doCreate,
+	"deploy":  doDeploy,
+	"start":   doStart,
+	"stop":    doStop,
+	"monitor": doMonitor,
+	"sync":    doSync,
+	"suspend": doSuspend,
+
+	"snapshot": doSnapshot,
+	// "delete-snapshot":      doDeleteSnapshot,
+	// "reload-disk-snapshot": doReloadDiskSnapshot,
 	// "remove-statefile":     doRemoveStatefile,
 	// "io-throttle":          doIoThrottle,
+
 	"src-prepare-migrate":  doSrcPrepareMigrate,
 	"dest-prepare-migrate": doDestPrepareMigrate,
 	"live-migrate":         doLiveMigrate,

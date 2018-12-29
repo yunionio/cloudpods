@@ -50,10 +50,7 @@ func (p *SKVMGuestDiskPartition) Mount() bool {
 	}
 	if p.IsReadonly() {
 		log.Errorf("SKVMGuestDiskPartition %s is readonly, try mount as ro", p.partDev)
-		e := p.Umount() // TODO
-		if e != nil {
-			log.Errorln(e)
-		}
+		p.Umount()
 		err = p.mount(true)
 		if err != nil {
 			log.Errorf("SKVMGuestDiskPartition mount as ro error %s", err)

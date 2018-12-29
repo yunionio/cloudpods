@@ -1,7 +1,13 @@
 package netutils2
 
 import (
+	"fmt"
 	"net"
+	"os/exec"
+	"reflect"
+	"regexp"
+	"strconv"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -59,6 +65,7 @@ func Netlen2Mask(netmasklen int) string {
 			netmasklen -= 8
 		} else {
 			m = MASKS[netmasklen]
+			netmasklen = 0
 		}
 		if mask != "" {
 			mask += "."
@@ -121,33 +128,182 @@ func GetNicDns(nicdesc *types.ServerNic) []string {
 	return dnslist
 }
 
+func NetBytes2Mask(mask []byte) string {
+	if len(mask) != 4 {
+		return ""
+	}
+
+	var res string
+	for i := range mask {
+		res += strconv.Itoa(int(mask[i])) + "."
+	}
+	return res[:len(res)-1]
+}
+
 type SNetInterface struct {
 	name string
-	addr string
-	mask string
-	mac  string
+	Addr string
+	Mask net.IPMask
+	Mac  string
+
+	// Mtu int
 }
+
+var SECRET_PREFIX = "169.254"
+var SECRET_MASK = []byte{255, 255, 255, 255}
+var secretInterfaceIndex = 254
 
 func NewNetInterface(name string) *SNetInterface {
 	n := new(SNetInterface)
 	n.name = name
-	inter, err := net.InterfaceByName(name)
+	n.FetchConfig()
+	return n
+}
+
+func (n *SNetInterface) String() string {
+	return n.name
+}
+
+func (n *SNetInterface) FetchInter() *net.Interface {
+	inter, err := net.InterfaceByName(n.name)
 	if err != nil {
 		log.Errorln(err)
-		return n
+		return nil
 	}
-	n.mac = inter.HardwareAddr.String()
+	return inter
+}
+
+func (n *SNetInterface) FetchConfig() {
+	n.Addr = ""
+	n.Mask = nil
+	n.Mac = ""
+	// n.Mtu = 0
+	inter := n.FetchInter()
+	if inter == nil {
+		return
+	}
+
+	n.Mac = inter.HardwareAddr.String()
 	addrs, err := inter.Addrs()
 	if err != nil {
 		for _, addr := range addrs {
 			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 				if ipnet.IP.To4() != nil {
-					n.addr = ipnet.IP.String()
-					n.mask = ipnet.Mask.String()
+					n.Addr = ipnet.IP.String()
+					n.Mask = ipnet.Mask
 					break
 				}
 			}
 		}
 	}
-	return n
+
+	// mtuStr, err := fileutils2.FileGetContents(fmt.Sprintf("/sys/class/net/%s/mtu", n.name))
+	// if err != nil {
+	// 	log.Errorln("Fail to read MTU for %s: %s", n.name, err)
+	// }
+
+	// n.Mtu, err = strconv.Atoi(mtuStr)
+	// if err != nil {
+	// 	log.Errorln("Fail to read MTU for %s: %s", n.name, err)
+	// }
+}
+
+func (n *SNetInterface) DisableGso() {
+	err := exec.Command(
+		"ethtool", "-K", n.name,
+		"tso", "off", "gso", "off",
+		"gro", "off", "tx", "off",
+		"rx", "off", "sg", "off").Run()
+	if err != nil {
+		log.Errorln(err)
+	}
+}
+
+func (n *SNetInterface) IsSecretInterface() bool {
+	return n.IsSecretAddress(n.Addr, n.Mask)
+}
+
+func (n *SNetInterface) IsSecretAddress(addr string, mask []byte) bool {
+	log.Infof("MASK --- %s", mask)
+	if reflect.DeepEqual(mask, SECRET_MASK) && strings.HasPrefix(addr, SECRET_PREFIX) {
+		return true
+	} else {
+		return false
+	}
+}
+
+func GetSecretInterfaceAddress() (string, []byte) {
+	addr := fmt.Sprintf("%s.%d.1", SECRET_PREFIX, secretInterfaceIndex)
+	secretInterfaceIndex -= 1
+	return addr, SECRET_MASK
+}
+
+/**
+ * Parses url with the given regular expression and returns the
+ * group values defined in the expression.
+ */
+func getParams(compRegEx *regexp.Regexp, url string) map[string]string {
+	match := compRegEx.FindStringSubmatch(url)
+
+	paramsMap := make(map[string]string, 0)
+	for i, name := range compRegEx.SubexpNames() {
+		if i > 0 && i <= len(match) {
+			paramsMap[name] = match[i]
+		}
+	}
+	return paramsMap
+}
+
+func (n *SNetInterface) GetRoutes(gwOnly bool) [][]string {
+	output, err := exec.Command("route", "-n").Output()
+	if err != nil {
+		return nil
+	}
+	return n.getRoutes(gwOnly, strings.Split(string(output), "\n"))
+}
+
+func (n *SNetInterface) getRoutes(gwOnly bool, outputs []string) [][]string {
+	re := regexp.MustCompile(`(?P<dest>[0-9.]+)\s+(?P<gw>[0-9.]+)\s+(?P<mask>[0-9.]+)` +
+		`\s+[A-Z!]+\s+[0-9]+\s+[0-9]+\s+[0-9]+\s+` + n.name)
+
+	var res [][]string = make([][]string, 0)
+	for _, line := range outputs {
+		m := getParams(re, line)
+		if len(m) > 0 && (!gwOnly || m["gw"] != "0.0.0.0") {
+			res = append(res, []string{m["dest"], m["gw"], m["mask"]})
+		}
+	}
+	return res
+}
+
+func (n *SNetInterface) getAddresses(output []string) [][]string {
+	var addrs = make([][]string, 0)
+	re := regexp.MustCompile(`inet (?P<addr>[0-9.]+)/(?P<mask>[0-9]+) `)
+	for _, line := range output {
+		m := getParams(re, line)
+		if len(m) > 0 {
+			addrs = append(addrs, []string{m["addr"], m["mask"]})
+		}
+	}
+	return addrs
+}
+
+func (n *SNetInterface) GetAddresses() [][]string {
+	output, err := exec.Command("ip", "address", "show", "dev", n.name).Output()
+	if err != nil {
+		log.Errorln(err)
+		return nil
+	}
+	return n.getAddresses(strings.Split(string(output), "\n"))
+}
+
+func (n *SNetInterface) GetSlaveAddresses() [][]string {
+	addrs := n.GetAddresses()
+	var slaves = make([][]string, 0)
+	for _, addr := range addrs {
+		if addr[0] != n.Addr {
+			slaves = append(slaves, addr)
+		}
+	}
+	return slaves
 }

@@ -1,6 +1,7 @@
 package storageman
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -12,8 +13,8 @@ import (
 
 type IImageCacheManger interface {
 	// LoadCache() error ???
-	PrefetchImageCache(ctx, data jsonutils.JSONObject) error
-	DeleteImageCache(ctx, data jsonutils.JSONObject) error
+	PrefetchImageCache(ctx context.Context, data jsonutils.JSONObject) error
+	DeleteImageCache(ctx context.Context, data jsonutils.JSONObject) error
 }
 
 type SBaseImageCacheManager struct {
@@ -43,6 +44,7 @@ func NewLocalImageCacheManager(manager *SStorageManager, cachePath string, limit
 		exec.Command("mkdir", "-p", cachePath).Run()
 	}
 	imageCacheManager.loadCache()
+	return imageCacheManager
 }
 
 func (c *SLocalImageCacheManager) loadCache() {
@@ -54,7 +56,7 @@ func (c *SLocalImageCacheManager) loadCache() {
 	files, _ := ioutil.ReadDir(c.cachePath)
 	for _, f := range files {
 		if regutils.MatchUUIDExact(f.Name()) {
-			c.loadImageCache(f)
+			c.loadImageCache(f.Name())
 		}
 	}
 }
@@ -64,6 +66,10 @@ func (c *SLocalImageCacheManager) loadImageCache(file string) {
 	if err := imageCache.Load(); err != nil {
 		c.cachedImages[imageCache.GetImageId()] = imageCache
 	}
+}
+
+func DeleteImageCache(ctx context.Context, data jsonutils.JSONObject) error {
+
 }
 
 // TODO: AgentImageCacheManager
