@@ -13,6 +13,7 @@ import (
 
 type K8sAppBaseCreateOptions struct {
 	NamespaceWithClusterOptions
+	ServiceSpecOptions
 	NAME            string   `help:"Name of deployment"`
 	Image           string   `help:"The image for the container to run" required:"true"`
 	Replicas        int64    `help:"Number of replicas for pods in this deployment"`
@@ -20,7 +21,6 @@ type K8sAppBaseCreateOptions struct {
 	RegistrySecret  string   `help:"Docker registry secret"`
 	Label           []string `help:"Labels to apply to the pod(s), e.g. 'env=prod'"`
 	Env             []string `help:"Environment variables to set in container"`
-	Port            []string `help:"Port for the service that is created, format is <protocol>:<service_port>:<container_port> e.g. tcp:80:3000"`
 	Net             string   `help:"Network config, e.g. net1, net1:10.168.222.171"`
 	Mem             int      `help:"Memory request MB size"`
 	Cpu             float64  `help:"Cpu request cores"`
@@ -42,13 +42,13 @@ func (o K8sAppBaseCreateOptions) Params() (*jsonutils.JSONDict, error) {
 	if o.RunAsPrivileged {
 		params.Add(jsonutils.JSONTrue, "runAsPrivileged")
 	}
-	if len(o.Port) != 0 {
-		portMappings, err := parsePortMappings(o.Port)
-		if err != nil {
-			return nil, err
-		}
-		params.Add(portMappings, "portMappings")
+
+	svcSpec, err := o.ServiceSpecOptions.Params()
+	if err != nil {
+		return nil, err
 	}
+	params.Update(svcSpec)
+
 	envList := jsonutils.NewArray()
 	for _, env := range o.Env {
 		parts := strings.Split(env, "=")
