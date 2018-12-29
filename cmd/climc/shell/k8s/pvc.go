@@ -7,7 +7,7 @@ import (
 )
 
 func initPVC() {
-	cmdN := NewCmdNameFactory("persistentvolumeclaim")
+	cmdN := NewCmdNameFactory("pvc")
 	pvcCmd := NewShellCommands(cmdN.Do).AddR(
 		NewK8sNsResourceGetCmd(cmdN, k8s.PersistentVolumeClaims),
 		NewK8sNsResourceDeleteCmd(cmdN, k8s.PersistentVolumeClaims),
