@@ -170,11 +170,14 @@ func (self *SServerSku) GetCustomizeColumns(ctx context.Context, userCred mcclie
 	return extra
 }
 
-func (self *SServerSku) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SServerSku) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
 	count := skuRelatedGuestCount(self)
 	extra.Add(jsonutils.NewInt(int64(count)), "total_guest_count")
-	return extra
+	return extra, nil
 }
 
 func (manager *SServerSkuManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
