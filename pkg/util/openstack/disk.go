@@ -73,16 +73,16 @@ type SDisk struct {
 	Attachments     []Attachment
 	Links           []Link
 
-	AvailabilityZone string
-	//os-vol-host-attr:host difleming@lvmdriver-1#lvmdriver-1
+	AvailabilityZone  string
+	Host              string `json:"os-vol-host-attr:host"`
 	Encrypted         bool
 	ReplicationStatus string
 	SnapshotID        string
 	Size              int
 	UserID            string
-	//os-vol-tenant-attr:tenant_id bab7d5c60cd041a0a36f7c4b6e1dd978
-	//os-vol-mig-status-attr:migstat null,
-	Metadata Metadata
+	TenantID          string `json:"os-vol-tenant-attr:tenant_id"`
+	Migstat           string `json:"os-vol-mig-status-attr:migstat"`
+	Metadata          Metadata
 
 	Status              string
 	Description         string
@@ -90,8 +90,8 @@ type SDisk struct {
 	SourceVolid         string
 	ConsistencygroupID  string
 	VolumeImageMetadata VolumeImageMetadata
-	//os-vol-mig-status-attr:name_id null,
-	Bootable bool
+	NameID              string `json:"os-vol-mig-status-attr:name_id"`
+	Bootable            bool
 	//CreatedAt  time.Time
 	VolumeType string
 }

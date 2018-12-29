@@ -2,7 +2,6 @@ package openstack
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -151,11 +150,7 @@ func (region *SRegion) GetInstances(zoneName string, hostName string) ([]SInstan
 		return nil, err
 	}
 	instances, result := []SInstance{}, []SInstance{}
-	servers, err := resp.Get("servers")
-	if err != nil {
-		return nil, err
-	}
-	if err := json.Unmarshal([]byte(servers.String()), &instances); err != nil {
+	if err := resp.Unmarshal(&instances, "servers"); err != nil {
 		return nil, err
 	}
 	for i := 0; i < len(instances); i++ {
@@ -174,12 +169,8 @@ func (region *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	if err != nil {
 		return nil, err
 	}
-	server, err := resp.Get("server")
-	if err != nil {
-		return nil, err
-	}
 	instance := &SInstance{}
-	return instance, json.Unmarshal([]byte(server.String()), instance)
+	return instance, resp.Unmarshal(instance, "server")
 }
 
 func (instance *SInstance) GetMetadata() *jsonutils.JSONDict {
@@ -242,12 +233,7 @@ func (instance *SInstance) fetchFlavor() error {
 		return err
 	}
 	instance.flavor = &SFlavor{}
-	flavor, err := resp.Get("flavor")
-	if err != nil {
-		log.Errorf("fetch instance %s flavor error: %v", instance.Name, err)
-		return err
-	}
-	return json.Unmarshal([]byte(flavor.String()), instance.flavor)
+	return resp.Unmarshal(instance.flavor, "flavor")
 }
 
 func (instance *SInstance) GetInstanceType() string {
@@ -367,7 +353,7 @@ func (instance *SInstance) Refresh() error {
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal([]byte(jsonutils.Marshal(new).String()), instance)
+	return jsonutils.Update(instance, new)
 }
 
 func (instance *SInstance) UpdateVM(ctx context.Context, name string) error {

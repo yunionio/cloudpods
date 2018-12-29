@@ -1,6 +1,7 @@
 package openstack
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 const (
@@ -63,12 +65,14 @@ func (cli *SOpenStackClient) Request(region, service, method string, url string,
 	if len(microversion) > 0 {
 		header.Set("X-Openstack-Nova-API-Version", microversion)
 	}
-	session := cli.client.NewSession(region, "", "internal", cli.tokenCredential, "")
-	return session.JSONRequest(service, "", method, url, header, body)
+	ctx := context.Background()
+	session := cli.client.NewSession(ctx, region, "", "internal", cli.tokenCredential, "")
+	return session.JSONRequest(service, "", httputils.THttpMethod(method), url, header, body)
 }
 
 func (cli *SOpenStackClient) getVersion(region string, service string) (string, string, error) {
-	session := cli.client.NewSession(region, "", "internal", cli.tokenCredential, "")
+	ctx := context.Background()
+	session := cli.client.NewSession(ctx, region, "", "internal", cli.tokenCredential, "")
 	uri, err := session.GetServiceURL(service, "internal")
 	if err != nil {
 		return "", "", err

@@ -1,6 +1,7 @@
 package openstack
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -68,7 +69,7 @@ func (cache *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (cache *SStoragecache) UploadImage(userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
+func (cache *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }
 

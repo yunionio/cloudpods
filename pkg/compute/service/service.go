@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	"yunion.io/x/onecloud/pkg/compute/skus"
+	_ "github.com/go-sql-driver/mysql"
 
 	"yunion.io/x/log"
 

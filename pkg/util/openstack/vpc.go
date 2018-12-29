@@ -37,15 +37,15 @@ type SVpc struct {
 	ProjectID             string
 	QosPolicyID           string
 	RevisionNumber        int
-	//router:external bool
-	Shared          bool
-	Status          string
-	Subnets         []string
-	TenantID        string
-	UpdatedAt       time.Time
-	VlanTransparent bool
-	Fescription     string
-	IsDefault       bool
+	External              bool `json:"router:external"`
+	Shared                bool
+	Status                string
+	Subnets               []string
+	TenantID              string
+	UpdatedAt             time.Time
+	VlanTransparent       bool
+	Fescription           string
+	IsDefault             bool
 }
 
 func (vpc *SVpc) GetMetadata() *jsonutils.JSONDict {

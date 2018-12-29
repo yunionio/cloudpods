@@ -27,10 +27,10 @@ type SSnapshot struct {
 	Status   string
 	Metadata Metadata
 
-	//os-extended-snapshot-attributes:progress 100%
-	Name   string
-	UserID string
-	//os-extended-snapshot-attributes:project_id bab7d5c60cd041a0a36f7c4b6e1dd978
+	Progress  string `json:"os-extended-snapshot-attributes:progress"`
+	Name      string
+	UserID    string
+	ProjectID string `json:"os-extended-snapshot-attributes:project_id"`
 	//CreatedAt time.Time
 	Size int32
 
