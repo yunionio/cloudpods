@@ -4,12 +4,14 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	t "github.com/anacrolix/torrent"
 
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/image/torrent"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
@@ -156,7 +158,7 @@ func (self *SImageSubformat) SaveTorrent() error {
 		return nil // httperrors.NewInvalidStatusError("cannot save torrent in status %s", self.Status)
 	}
 	imgPath := self.getLocalLocation()
-	torrentPath := fmt.Sprintf("%s.torrent", imgPath)
+	torrentPath := filepath.Join(options.Options.TorrentStoreDir, fmt.Sprintf("%s.torrent", filepath.Base(imgPath)))
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.TorrentStatus = IMAGE_STATUS_SAVING
 		self.TorrentLocation = fmt.Sprintf("%s%s", LocalFilePrefix, torrentPath)

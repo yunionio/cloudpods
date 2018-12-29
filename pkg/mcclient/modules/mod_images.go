@@ -607,9 +607,9 @@ var (
 )
 
 func init() {
-	ImageUsages = SImageUsageManager{NewImageManager("image-usage", "image-usages",
+	ImageUsages = SImageUsageManager{NewImageManager("usage", "usages",
 		[]string{},
 		[]string{})}
 
-	register(&ImageUsages)
+	// register(&ImageUsages)
 }

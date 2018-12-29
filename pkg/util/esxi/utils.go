@@ -46,26 +46,6 @@ func fetchAnonymousFieldValue(value reflect.Value, target reflect.Value) bool {
 	return false
 }
 
-func StructContains(type1 reflect.Type, type2 reflect.Type) bool {
-	if type1.Kind() != reflect.Struct || type2.Kind() != reflect.Struct {
-		log.Errorf("types should be struct!")
-		return false
-	}
-	if type1 == type2 {
-		return true
-	}
-	for i := 0; i < type1.NumField(); i += 1 {
-		field := type1.Field(i)
-		if field.Anonymous && field.Type.Kind() == reflect.Struct {
-			contains := StructContains(field.Type, type2)
-			if contains {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func reverseArray(array interface{}) {
 	arrayValue := reflect.Indirect(reflect.ValueOf(array))
 	if arrayValue.Kind() != reflect.Slice && arrayValue.Kind() != reflect.Array {

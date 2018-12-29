@@ -990,7 +990,7 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 	}
 	for i := 0; i < len(subimgs); i += 1 {
 		subimgs[i].checkStatus(useFast)
-		if subimgs[i].Status != IMAGE_STATUS_ACTIVE {
+		if subimgs[i].Status != IMAGE_STATUS_ACTIVE || subimgs[i].TorrentStatus != IMAGE_STATUS_ACTIVE {
 			needConvert = true
 		}
 	}

@@ -23,7 +23,18 @@ func init() {
 func (self *ImageCheckTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	image := obj.(*models.SImage)
 
-	image.DoCheckStatus(ctx, self.UserCred, true)
+	self.SetStage("OnCheckComplete", nil)
 
+	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
+		image.DoCheckStatus(ctx, self.UserCred, true)
+		return nil, nil
+	})
+}
+
+func (self *ImageCheckTask) OnCheckComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *ImageCheckTask) OnCheckCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, data.String())
 }

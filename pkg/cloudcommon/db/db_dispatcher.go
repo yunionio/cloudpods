@@ -77,30 +77,6 @@ func fetchUserCredential(ctx context.Context) mcclient.TokenCredential {
 	return token
 }
 
-func listItemsQueryByColumn(manager IModelManager, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	if query == nil {
-		return q, nil
-	}
-	qdata, err := query.GetMap()
-	if err != nil {
-		return nil, err
-	}
-	listF := searchFields(manager, userCred)
-	for k, v := range qdata {
-		searchable, _ := utils.InStringArray(k, listF)
-		if searchable {
-			f := q.Field(k)
-			if f != nil {
-				strV, _ := v.GetString()
-				if len(strV) > 0 {
-					q = q.Equals(k, strV)
-				}
-			}
-		}
-	}
-	return q, nil
-}
-
 /**
  * Column metadata fields to control list, search, details, update, create
  *  list: user | admin
@@ -185,6 +161,31 @@ func updateFields(manager IModelManager, userCred mcclient.TokenCredential) []st
 		}
 	}
 	return ret
+}
+
+func listItemsQueryByColumn(manager IModelManager, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	if query == nil {
+		return q, nil
+	}
+	qdata, err := query.GetMap()
+	if err != nil {
+		return nil, err
+	}
+	listF := searchFields(manager, userCred)
+	for k, v := range qdata {
+		searchable, _ := utils.InStringArray(k, listF)
+		if searchable {
+			colSpec := manager.TableSpec().ColumnSpec(k)
+			if colSpec != nil {
+				strV, _ := v.GetString()
+				if len(strV) > 0 {
+					strV := colSpec.ConvertFromString(strV)
+					q = q.Equals(k, strV)
+				}
+			}
+		}
+	}
+	return q, nil
 }
 
 func applyListItemsSearchFilters(manager IModelManager, ctx context.Context, q *sqlchemy.SQuery,
