@@ -117,7 +117,7 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 	if len(netConfig.Wire) > 0 {
 		wirePattern = regexp.MustCompile(netConfig.Wire)
 	}
-	for _, netif := range netifs {
+	for idx, netif := range netifs {
 		if !netif.IsUsableServernic() {
 			continue
 		}
@@ -136,7 +136,7 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 		}
 		if net != nil {
 			netsAvaiable = append(netsAvaiable, *net)
-			netifIndexs[net.Id] = &netif
+			netifIndexs[net.Id] = &netifs[idx]
 		}
 	}
 	if len(netsAvaiable) == 0 {
