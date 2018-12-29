@@ -576,7 +576,7 @@ func (manager *SSnapshotManager) getProviderSnapshotsByRegion(region *SCloudregi
 		return nil, fmt.Errorf("Region is nil or provider is nil")
 	}
 	snapshots := make([]SSnapshot, 0)
-	q := manager.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id).NotEquals("status", SNAPSHOT_UNKNOWN)
+	q := manager.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id)
 	err := db.FetchModelObjects(manager, q, &snapshots)
 	if err != nil {
 		return nil, err
