@@ -60,7 +60,7 @@ type SLoadbalancerCertificate struct {
 	CommonName              string    `create:"optional" list:"user" update:"user"`
 	SubjectAlternativeNames string    `create:"optional" list:"user" update:"user"`
 
-	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"required"`
+	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default"`
 }
 
 func (man *SLoadbalancerCertificateManager) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
