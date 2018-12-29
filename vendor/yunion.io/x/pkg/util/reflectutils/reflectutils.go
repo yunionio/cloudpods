@@ -3,12 +3,11 @@ package reflectutils
 import (
 	"fmt"
 	"reflect"
-	"strings"
 
-	"yunion.io/x/pkg/gotypes"
-	"yunion.io/x/pkg/utils"
+	"yunion.io/x/log"
 )
 
+/*
 func GetStructFieldName(field *reflect.StructField) string {
 	tagMap := utils.TagMap(field.Tag)
 	// var name string
@@ -81,49 +80,20 @@ func fetchStructFieldNameValues(dataType reflect.Type, dataValue reflect.Value, 
 		}
 	}
 }
+*/
 
 func FindStructFieldValue(dataValue reflect.Value, name string) (reflect.Value, bool) {
-	dataType := dataValue.Type()
-	for i := 0; i < dataType.NumField(); i += 1 {
-		fieldType := dataType.Field(i)
-		if gotypes.IsFieldExportable(fieldType.Name) {
-			fieldValue := dataValue.Field(i)
-			if fieldType.Type.Kind() == reflect.Struct && fieldType.Type != gotypes.TimeType {
-				val, find := FindStructFieldValue(fieldValue, name)
-				if find {
-					return val, find
-				}
-			} else if fieldValue.CanSet() {
-				fName := GetStructFieldName(&fieldType)
-				if fName == name {
-					return fieldValue, true
-				}
-			}
-		}
+	set := FetchStructFieldValueSet(dataValue)
+	val, find := set.GetValue(name)
+	if find && val.CanSet() {
+		return val, true
 	}
 	return reflect.Value{}, false
 }
 
 func FindStructFieldInterface(dataValue reflect.Value, name string) (interface{}, bool) {
-	dataType := dataValue.Type()
-	for i := 0; i < dataType.NumField(); i += 1 {
-		fieldType := dataType.Field(i)
-		if gotypes.IsFieldExportable(fieldType.Name) {
-			fieldValue := dataValue.Field(i)
-			if fieldType.Type.Kind() == reflect.Struct && fieldType.Type != gotypes.TimeType {
-				val, find := FindStructFieldInterface(fieldValue, name)
-				if find {
-					return val, find
-				}
-			} else if fieldValue.CanInterface() {
-				fName := GetStructFieldName(&fieldType)
-				if fName == name {
-					return fieldValue.Interface(), true
-				}
-			}
-		}
-	}
-	return nil, false
+	set := FetchStructFieldValueSet(dataValue)
+	return set.GetInterface(name)
 }
 
 func FillEmbededStructValue(container reflect.Value, embed reflect.Value) bool {
@@ -148,19 +118,16 @@ func FillEmbededStructValue(container reflect.Value, embed reflect.Value) bool {
 }
 
 func SetStructFieldValue(structValue reflect.Value, fieldName string, val reflect.Value) bool {
-	dataType := structValue.Type()
-	for i := 0; i < dataType.NumField(); i += 1 {
-		fieldType := dataType.Field(i)
-		if gotypes.IsFieldExportable(fieldType.Name) {
-			fName := GetStructFieldName(&fieldType)
-			if fName == fieldName {
-				fieldValue := structValue.Field(i)
-				fieldValue.Set(val)
-				return true
-			}
-		}
+	set := FetchStructFieldValueSet(structValue)
+	target, find := set.GetValue(fieldName)
+	if !find {
+		return false
 	}
-	return false
+	if !target.CanSet() {
+		return false
+	}
+	target.Set(val)
+	return true
 }
 
 func ExpandInterface(val interface{}) []interface{} {
@@ -208,4 +175,24 @@ func FindAnonymouStructPointer(data interface{}, targetPtr interface{}) error {
 	}
 	targetValue.Set(reflect.ValueOf(ptr))
 	return nil
+}
+
+func StructContains(type1 reflect.Type, type2 reflect.Type) bool {
+	if type1.Kind() != reflect.Struct || type2.Kind() != reflect.Struct {
+		log.Errorf("types should be struct!")
+		return false
+	}
+	if type1 == type2 {
+		return true
+	}
+	for i := 0; i < type1.NumField(); i += 1 {
+		field := type1.Field(i)
+		if field.Anonymous && field.Type.Kind() == reflect.Struct {
+			contains := StructContains(field.Type, type2)
+			if contains {
+				return true
+			}
+		}
+	}
+	return false
 }

@@ -275,10 +275,22 @@ func (c *SBooleanColumn) ConvertFromString(str string) string {
 }
 
 func (c *SBooleanColumn) ConvertFromValue(val interface{}) interface{} {
-	bVal := val.(bool)
-	if bVal {
-		return 1
-	} else {
+	switch bVal := val.(type) {
+	case bool:
+		if bVal {
+			return 1
+		} else {
+			return 0
+		}
+	case *bool:
+		if gotypes.IsNil(bVal) {
+			return 0
+		} else if *bVal {
+			return 1
+		} else {
+			return 0
+		}
+	default:
 		return 0
 	}
 }
