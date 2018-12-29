@@ -3,7 +3,7 @@ package options
 import "yunion.io/x/onecloud/pkg/cloudcommon"
 
 type SHostOptions struct {
-	cloudcommon.Options
+	cloudcommon.CommonOptions
 
 	//host agent default disable rbac
 	EnableRbac bool `help:"Switch on Role-based Access Control" default:"false"`
@@ -53,6 +53,15 @@ type SHostOptions struct {
 	SharedStorages  []string `help:"Path of shared storages"`
 
 	DefaultQemuVersion string `help:"Default qemu version" default:"2.9.1"`
+
+	// dhcp_relay = ('10.168.222.236', 67) => dhcp_relay = ['10.168.222.236', '67']
+	DhcpRelay          []string `help:"DHCP relay upstream"`
+	TunnelPaddingBytes int64    `help:"Specify tunnel padding bytes" default:"0"`
+
+	CheckSystemServices bool `help:"Check system services (ntpd, telegraf) on startup" default:"true"`
+
+	DhcpServerPort int  `help:"Host dhcp server bind port" default:"167"`
+	DiskIsSsd      bool `default:"false"`
 }
 
 var HostOptions SHostOptions

@@ -43,7 +43,7 @@ type DHCPHandler struct {
 	netConfig *types.NetworkConfig
 }
 
-func (h *DHCPHandler) ServeDHCP(pkt *dhcp.Packet) (*dhcp.Packet, error) {
+func (h *DHCPHandler) ServeDHCP(pkt *dhcp.Packet, _ *net.Interface) (*dhcp.Packet, error) {
 	log.V(4).Debugf("[DHCP] request: %s", pkt.DebugString())
 	err := h.parsePacket(pkt)
 	if err != nil {

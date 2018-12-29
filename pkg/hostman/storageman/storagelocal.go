@@ -1,6 +1,13 @@
 package storageman
 
-import "yunion.io/x/log"
+import (
+	"os/exec"
+	"syscall"
+
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
+)
 
 type SLocalStorage struct {
 	SBaseStorage
@@ -41,4 +48,27 @@ func (s *SLocalStorage) CreateDisk(diskId string) IDisk {
 
 func (s *SLocalStorage) StartSnapshotRecycle() {
 	//TODO
+}
+
+func (s *SLocalStorage) Accessible() bool {
+	if !fileutils2.Exists(s.Path) {
+		if err := exec.Command("mkdir", "-p", s.Path).Run(); err != nil {
+			log.Errorln(err)
+		}
+	}
+	if fileutils2.IsDir(s.Path) && fileutils2.Writable(s.Path) {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (s *SLocalStorage) GetFreeSizeMb() int {
+	var stat syscall.Statfs_t
+	err := syscall.Statfs(s.Path, &stat)
+	if err != nil {
+		log.Errorln(err)
+		return -1
+	}
+	return int(stat.Bavail * uint64(stat.Bsize) / 1024 / 1024)
 }

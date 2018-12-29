@@ -177,6 +177,23 @@ func (m *SGuestManager) LoadServer(sid string) {
 	m.CandidateServers[sid] = guest
 }
 
+//isDeleted先不加，目测只是在ofp中用到了
+func (m *SGuestManager) GetGuestNicDesc(mac, ip, port, bridge string, isCandidate bool) (jsonutils.JSONObject, jsonutils.JSONObject) {
+	servers := m.Servers
+	if isCandidate {
+		servers = m.CandidateServers
+	}
+	for _, guest := range servers {
+		if guest.IsLoaded() {
+			nic := guest.GetNicDescMatch(mac, ip, port, bridge)
+			if nic != nil {
+				return guest.Desc, nic
+			}
+		}
+	}
+	return nil, nil
+}
+
 func (m *SGuestManager) PrepareCreate(sid string) error {
 	m.ServersLock.Lock()
 	defer m.ServersLock.Unlock()

@@ -71,6 +71,14 @@ type Packet struct {
 	Broadcast     bool
 	HardwareAddr  net.HardwareAddr // Only ethernet supported at the moment
 
+	/*
+		Addr order:
+			ciaddr  ClientAddr
+			yiaddr  YourAddr
+			siaddr  ServerAddr
+			giaddr  RelayAddr
+	*/
+
 	ClientAddr net.IP // Client's current IP address (it will respond to ARP for this IP)
 	YourAddr   net.IP // Client IP address offered/assigned by server
 	ServerAddr net.IP // Responding server's IP address

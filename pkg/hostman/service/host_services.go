@@ -15,12 +15,20 @@ import (
 
 type SHostService struct {
 	service.SServiceBase
+
+	guestmanager *guestman.SGuestManager
+	hostinstance *hostinfo.SHostInfo
 }
 
 func (host *SHostService) StartService() {
-	cloudcommon.ParseOptions(&options.HostOptions, &options.HostOptions.Options, os.Args, "host.conf")
+	cloudcommon.ParseOptions(&options.HostOptions, &options.HostOptions.CommonOptions, os.Args, "host.conf")
+
+	// TODO
 	// Hostinfo.Init()
+	// storageman.Init()
+	// isolateman.Init()
 	// Firewall.Init()
+	// hostman.Init()
 
 	var c = make(chan struct{})
 	cloudcommon.InitAuth(&options.HostOptions.Options, func() {

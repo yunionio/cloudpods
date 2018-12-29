@@ -28,7 +28,7 @@ func NewStorageManager() (*SStorageManager, error) {
 		// TODO Accessible GetFreeSizeMb
 		if s.Accessible() {
 			ret.storages = append(ret.storages, s)
-			if allFull && s.GetFreeSizeMb > MINIMAL_FREE_SPACE {
+			if allFull && s.GetFreeSizeMb() > MINIMAL_FREE_SPACE {
 				allFull = false
 			}
 		}

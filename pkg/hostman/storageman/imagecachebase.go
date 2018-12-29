@@ -22,7 +22,7 @@ type SImageCacheDesc struct {
 
 type SLocalImageCache struct {
 	imageId string
-	Manager IImagecacheManager
+	Manager IImageCacheManger
 	Size    int64
 	Desc    *SImageCacheDesc
 
@@ -38,9 +38,10 @@ func NewLocalImageCache(imageId string, imagecacheManager IImageCacheManger) *SL
 
 func (l *SLocalImageCache) Load() error {
 	// TODO
+	return nil
 }
 
 type SRbdImageCache struct {
 	imageId string
-	Manager IImagecacheManager
+	Manager IImageCacheManger
 }

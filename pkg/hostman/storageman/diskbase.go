@@ -7,6 +7,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 )
 
@@ -14,7 +15,8 @@ type IDisk interface {
 	GetId() string
 	Probe() bool
 
-	DeleteAllSnapshot() error
+	// TODO
+	// DeleteAllSnapshot() error
 	Delete() error
 
 	GetPath() string

@@ -15,6 +15,8 @@ type IStorage interface {
 	GetDiskById(diskId string) IDisk
 	CreateDisk(diskId string) IDisk
 	RemoveDisk(IDisk) error
+
+	// DeleteDiskfile(diskPath string) error
 }
 
 type SBaseStorage struct {

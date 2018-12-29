@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -12,6 +13,9 @@ import (
 
 const (
 	PXECLIENT = "PXEClient"
+
+	OptClasslessRouteLin Option = 121 //Classless Static Route Option
+	OptClasslessRouteWin Option = 249
 )
 
 type ResponseConfig struct {
@@ -26,7 +30,7 @@ type ResponseConfig struct {
 	Hostname      string        // OptHostname 12
 	SubnetMask    net.IP        // OptSubnetMask 1
 	DNSServer     net.IP        // OptDNSServers
-	Routes        interface{}   // TODO: 249 for windows, 121 for linux
+	Routes        [][]string    // TODO: 249 for windows, 121 for linux
 
 	// TFTP config
 	BootServer string
@@ -49,6 +53,25 @@ func GetOptTime(d time.Duration) []byte {
 	timeBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(timeBytes, uint32(d/time.Second))
 	return timeBytes
+}
+
+func GetClasslessRoutePack(route []string) []byte {
+	var snet, gw = route[0], route[1]
+	tmp := strings.Split(snet, "/")
+	netaddr := net.ParseIP(tmp[0])
+	masklen, _ := strconv.Atoi(tmp[1])
+	netlen := masklen / 8
+	if masklen%8 > 0 {
+		netlen += 1
+	}
+	if netlen < 4 {
+		netaddr = netaddr[0:netlen]
+	}
+	gwaddr := net.ParseIP(gw)
+
+	res := []byte{byte(masklen)}
+	res = append(res, netaddr...)
+	return append(res, gwaddr...)
 }
 
 func MakeReplyPacket(pkt *Packet, conf *ResponseConfig) (*Packet, error) {
@@ -125,8 +148,15 @@ func makeDHCPReplyPacket(pkt *Packet, conf *ResponseConfig, msgType MessageType)
 	if conf.RenewalTime > 0 {
 		resp.Options[OptRenewalTime] = GetOptTime(conf.RenewalTime)
 	}
-
-	// TODO: routes support
+	if conf.Routes != nil {
+		var optCode = OptClasslessRouteLin
+		if strings.HasPrefix(strings.ToLower(conf.OsName), "win") {
+			optCode = OptClasslessRouteWin
+		}
+		for _, route := range conf.Routes {
+			resp.Options.AddOption(optCode, GetClasslessRoutePack(route))
+		}
+	}
 	return resp
 }
 

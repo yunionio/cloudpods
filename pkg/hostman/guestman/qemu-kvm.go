@@ -19,7 +19,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
 	"yunion.io/x/onecloud/pkg/hostman"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
-	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -414,7 +413,7 @@ func (s *SKVMGuestInstance) DeployFs(deployInfo *guestfs.SDeployInfo) (jsonutils
 		storageId, _ := disks[0].GetString("storage_id")
 		diskId, _ := disks[0].GetString("disk_id")
 
-		disk := hostinfo.GetStorageManager().GetStorageDisk(storageId, diskId)
+		disk := hostman.StorageManager().GetStorageDisk(storageId, diskId)
 		return disk.DeployGuestFs(disk.GetPath, s.Desc, deployInfo)
 	} else {
 		return nil, fmt.Errorf("Guest dosen't have disk ??")
@@ -485,7 +484,7 @@ func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) {
 		if disk.Contains("path") {
 			diskPath, _ := disk.GetString("path")
 			// TODO GetDisksByPath, storagetypes, deleteallsnapshot, delete
-			d := hostinfo.GetStorageManager().GetDiskByPath(diskPath)
+			d := hostman.StorageManager().GetDiskByPath(diskPath)
 			if d != nil && d.GetType == storagetypes.STORAGE_LOCAL && migrated {
 				if err := d.DeleteAllSnapshot(); err != nil {
 					log.Errorln(err)
@@ -529,4 +528,26 @@ func (s *SKVMGuestInstance) ExecStopTask(ctx context.Context, timeout int64) {
 
 func (s *SKVMGuestInstance) ExecSuspendTask(ctx context.Context) {
 	// TODO
+}
+
+func (s *SKVMGuestInstance) GetNicDescMatch(mac, ip, port, bridge string) jsonutils.JSONObject {
+	nics, _ := s.Desc.GetArray("nics")
+	for _, nic := range nics {
+		nicMac, _ := nic.GetString("mac")
+		nicIp, _ := nic.GetString("ip")
+		nicPort, _ := nic.GetString("ifname")
+		nicBridge, _ := nic.GetString("bridge")
+		if (len(mac) == 0 || netutils2.MacEqual(nicMac, mac)) &&
+			(len(ip) == 0 || nicIp == ip) &&
+			(len(port) == 0 || nicPort == port) &&
+			(len(bridge) == 0 || nicBridge == bridge) {
+			return nic
+		}
+	}
+	return nil
+}
+
+// 目测sync_cgroup没有要用到，先不写
+func (s *SKVMGuestInstance) SyncConfig(ctx context.Context, desc jsonutils.JSONObject, fwOnly bool) (jsonutils.JSONObject, error) {
+
 }

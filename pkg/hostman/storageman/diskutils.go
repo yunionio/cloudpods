@@ -26,7 +26,7 @@ type SKVMGuestDisk struct {
 func NewKVMGuestDisk(imagePath string) *SKVMGuestDisk {
 	var ret = new(SKVMGuestDisk)
 	ret.imagePath = imagePath
-	ret.partitions = make([]string, 0)
+	ret.partitions = make([]*guestfs.SKVMGuestDiskPartition, 0)
 	return ret
 }
 
@@ -99,12 +99,13 @@ func (d *SKVMGuestDisk) findPartitions() error {
 
 func (d *SKVMGuestDisk) setupLVMS() error {
 	//TODO?? 可能不需要开发这里
+	return fmt.Errorf("not implement right now")
 }
 
-func (d *SKVMGuestDisk) DisConnect() bool {
+func (d *SKVMGuestDisk) Disconnect() bool {
 	if len(d.nbdDev) > 0 {
 		// TODO?? PutdownLVMS ??
-		_, err := exec.Command(qemutils.GetQemuNbd(), "-d", d.nbdDev)
+		err := exec.Command(qemutils.GetQemuNbd(), "-d", d.nbdDev).Run()
 		if err != nil {
 			log.Errorln(err.Error())
 			return false
@@ -119,7 +120,7 @@ func (d *SKVMGuestDisk) DisConnect() bool {
 }
 
 func (d *SKVMGuestDisk) Mount() guestfs.IRootFsDriver {
-	for i := 0; i < d.partitions; i++ {
+	for i := 0; i < len(d.partitions); i++ {
 		if d.partitions[i].Mount() {
 			if fs := guestfs.DetectRootFs(d.partitions[i]); fs != nil {
 				log.Infof("Use rootfs %s", fs)
