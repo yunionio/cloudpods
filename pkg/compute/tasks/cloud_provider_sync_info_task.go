@@ -6,13 +6,15 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/skus"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/pkg/utils"
 )
 
 type CloudProviderSyncInfoTask struct {
@@ -20,7 +22,8 @@ type CloudProviderSyncInfoTask struct {
 }
 
 func init() {
-	taskman.RegisterTask(CloudProviderSyncInfoTask{})
+	syncWorker := appsrv.NewWorkerManager("CloudProviderSyncInfoTaskWorkerManager", 2, 512, true)
+	taskman.RegisterTaskAndWorker(CloudProviderSyncInfoTask{}, syncWorker)
 }
 
 func getAction(params *jsonutils.JSONDict) string {

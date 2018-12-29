@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 type ImageOptionalOptions struct {
@@ -116,28 +117,19 @@ func addImageOptionalOptions(s *mcclient.ClientSession, params *jsonutils.JSONDi
 
 func init() {
 	type ImageListOptions struct {
-		Tenant        string   `help:"Tenant id of image owner"`
-		IsPublic      string   `help:"filter images public or not(True, False or None)" choices:"true|false|none"`
-		Admin         bool     `help:"Show images of all tenants, ADMIN only"`
-		PendingDelete bool     `help:"Show pending deleted images"`
-		Limit         int64    `help:"Max items show, 0 means no limit"`
-		Offset        int64    `help:"Pagination offset, default 0"`
-		Format        []string `help:"Disk formats"`
-		Search        string   `help:"Search text"`
-		Marker        string   `help:"The last Image ID of the previous page"`
-		Name          string   `help:"Name filter"`
-		Details       bool     `help:"Show details"`
+		options.BaseListOptions
+
+		IsPublic string   `help:"filter images public or not(True, False or None)" choices:"true|false|none"`
+		Format   []string `help:"Disk formats"`
+		Name     string   `help:"Name filter"`
 	}
 	R(&ImageListOptions{}, "image-list", "List images", func(s *mcclient.ClientSession, args *ImageListOptions) error {
-		params := jsonutils.NewDict()
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
 		if len(args.IsPublic) > 0 {
 			params.Add(jsonutils.NewString(args.IsPublic), "is_public")
-		}
-		if args.PendingDelete {
-			params.Add(jsonutils.JSONTrue, "pending_delete")
-		}
-		if args.Admin {
-			params.Add(jsonutils.JSONTrue, "admin")
 		}
 		if len(args.Tenant) > 0 {
 			tid, e := modules.Projects.GetId(s, args.Tenant, nil)
@@ -148,18 +140,6 @@ func init() {
 		}
 		if len(args.Name) > 0 {
 			params.Add(jsonutils.NewString(args.Name), "name")
-		}
-		if len(args.Marker) > 0 {
-			params.Add(jsonutils.NewString(args.Marker), "marker")
-		}
-		if args.Limit > 0 {
-			params.Add(jsonutils.NewInt(args.Limit), "limit")
-		}
-		if args.Offset > 0 {
-			params.Add(jsonutils.NewInt(args.Offset), "offset")
-		}
-		if len(args.Search) > 0 {
-			params.Add(jsonutils.NewString(args.Search), "search")
 		}
 		if len(args.Format) > 0 {
 			if len(args.Format) == 1 {
@@ -172,11 +152,6 @@ func init() {
 				params.Add(fs, "disk_formats")
 			}
 		}
-		if args.Details {
-			params.Add(jsonutils.JSONTrue, "details")
-		} else {
-			params.Add(jsonutils.JSONFalse, "details")
-		}
 		result, err := modules.Images.List(s, params)
 		if err != nil {
 			return err
@@ -185,20 +160,33 @@ func init() {
 		return nil
 	})
 
-	type ImageShowOptions struct {
+	type ImageOperationOptions struct {
 		ID []string `help:"Image id or name" metavar:"IMAGE"`
 	}
+
+	type ImageShowOptions struct {
+		ID      []string `help:"Image id or name" metavar:"IMAGE"`
+		Format  string   `help:"Image format"`
+		Torrent bool     `help:"show torrent information"`
+	}
 	R(&ImageShowOptions{}, "image-show", "Show details of a image", func(s *mcclient.ClientSession, args *ImageShowOptions) error {
+		params := jsonutils.NewDict()
+		if len(args.Format) > 0 {
+			params.Add(jsonutils.NewString(args.Format), "format")
+			if args.Torrent {
+				params.Add(jsonutils.JSONTrue, "torrent")
+			}
+		}
 		if len(args.ID) == 0 {
 			return fmt.Errorf("No image ID provided")
 		} else if len(args.ID) == 1 {
-			result, e := modules.Images.Get(s, args.ID[0], nil)
+			result, e := modules.Images.Get(s, args.ID[0], params)
 			if e != nil {
 				return e
 			}
 			printObject(result)
 		} else {
-			sr := modules.Images.BatchGet(s, args.ID, nil)
+			sr := modules.Images.BatchGet(s, args.ID, params)
 			printBatchResults(sr, modules.Images.GetColumns(s))
 		}
 		return nil
@@ -309,9 +297,9 @@ func init() {
 	R(&ImageUploadOptions{}, "image-upload", "Upload a local image", func(s *mcclient.ClientSession, args *ImageUploadOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.NAME), "name")
-		if len(args.Format) == 0 {
-			return fmt.Errorf("Please specify image format")
-		}
+		// if len(args.Format) == 0 {
+		// 	return fmt.Errorf("Please specify image format")
+		//}
 		if len(args.OsType) == 0 {
 			return fmt.Errorf("Please specify OS type")
 		}
@@ -363,8 +351,10 @@ func init() {
 	})
 
 	type ImageDownloadOptions struct {
-		ID     string `help:"ID or Name of image"`
-		Output string `help:"Destination file, if omitted, output to stdout"`
+		ID      string `help:"ID or Name of image"`
+		Output  string `help:"Destination file, if omitted, output to stdout"`
+		Format  string `help:"Image format"`
+		Torrent bool   `help:"show torrent information"`
 	}
 	R(&ImageDownloadOptions{}, "image-download", "Download image data to a file or stdout", func(s *mcclient.ClientSession, args *ImageDownloadOptions) error {
 		imgId, err := modules.Images.GetId(s, args.ID, nil)
@@ -382,7 +372,7 @@ func init() {
 		} else {
 			sink = os.Stdout
 		}
-		meta, src, err := modules.Images.Download(s, imgId)
+		meta, src, err := modules.Images.Download(s, imgId, args.Format, args.Torrent)
 		if err != nil {
 			return err
 		}
@@ -393,6 +383,95 @@ func init() {
 		if len(args.Output) > 0 {
 			printObject(meta)
 		}
+		return nil
+	})
+
+	R(&ImageOperationOptions{}, "image-private", "Make a image private", func(s *mcclient.ClientSession, args *ImageOperationOptions) error {
+		if len(args.ID) == 0 {
+			return fmt.Errorf("No image ID provided")
+		} else if len(args.ID) == 1 {
+			result, err := modules.Images.PerformAction(s, args.ID[0], "private", nil)
+			if err != nil {
+				return err
+			}
+			printObject(result)
+		} else {
+			results := modules.Images.BatchPerformAction(s, args.ID, "private", nil)
+			printBatchResults(results, modules.Images.GetColumns(s))
+		}
+		return nil
+	})
+
+	R(&ImageOperationOptions{}, "image-public", "Make a image public", func(s *mcclient.ClientSession, args *ImageOperationOptions) error {
+		if len(args.ID) == 0 {
+			return fmt.Errorf("No image ID provided")
+		} else if len(args.ID) == 1 {
+			result, err := modules.Images.PerformAction(s, args.ID[0], "public", nil)
+			if err != nil {
+				return err
+			}
+			printObject(result)
+		} else {
+			results := modules.Images.BatchPerformAction(s, args.ID, "public", nil)
+			printBatchResults(results, modules.Images.GetColumns(s))
+		}
+		return nil
+	})
+
+	R(&ImageOperationOptions{}, "image-subformats", "Show all format status of a image", func(s *mcclient.ClientSession, args *ImageOperationOptions) error {
+		for i := range args.ID {
+			result, err := modules.Images.GetSpecific(s, args.ID[i], "subformats", nil)
+			if err != nil {
+				fmt.Println("Fail to fetch subformats for", args.ID[i])
+				continue
+			}
+			arrays, _ := result.(*jsonutils.JSONArray).GetArray()
+			listResult := modules.ListResult{Data: arrays}
+			printList(&listResult, []string{})
+		}
+		return nil
+	})
+
+	R(&ImageOperationOptions{}, "image-mark-standard", "Mark image standard", func(s *mcclient.ClientSession, args *ImageOperationOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.JSONTrue, "is-public")
+		params.Add(jsonutils.JSONTrue, "protected")
+		results := modules.Images.BatchPerformAction(s, args.ID, "mark-public-protected", params)
+		printBatchResults(results, modules.Images.GetColumns(s))
+		return nil
+	})
+
+	R(&ImageOperationOptions{}, "image-mark-unstandard", "Mark image not standard", func(s *mcclient.ClientSession, args *ImageOperationOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.JSONFalse, "is-public")
+		params.Add(jsonutils.JSONFalse, "protected")
+		results := modules.Images.BatchPerformAction(s, args.ID, "mark-public-protected", params)
+		printBatchResults(results, modules.Images.GetColumns(s))
+		return nil
+	})
+
+	type ImageChangeOwnerOptions struct {
+		ID      string `help:"Image to change owner"`
+		PROJECT string `help:"Project ID or change"`
+		RawId   bool   `help:"User raw ID, instead of name"`
+	}
+	R(&ImageChangeOwnerOptions{}, "image-change-owner", "Change owner project of an image", func(s *mcclient.ClientSession, opts *ImageChangeOwnerOptions) error {
+		params := jsonutils.NewDict()
+		if opts.RawId {
+			projid, err := modules.Projects.GetId(s, opts.PROJECT, nil)
+			if err != nil {
+				return err
+			}
+			params.Add(jsonutils.NewString(projid), "tenant")
+			params.Add(jsonutils.JSONTrue, "raw_id")
+		} else {
+			params.Add(jsonutils.NewString(opts.PROJECT), "tenant")
+		}
+		srv, err := modules.Images.PerformAction(s, opts.ID, "change-owner", params)
+		if err != nil {
+			return err
+		}
+		printObject(srv)
 		return nil
 	})
 

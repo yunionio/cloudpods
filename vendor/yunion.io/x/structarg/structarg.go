@@ -11,6 +11,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -192,11 +193,12 @@ func (this *ArgumentParser) addStructArgument(prefix string, tp reflect.Type, va
 }
 
 func (this *ArgumentParser) addArgument(prefix string, f reflect.StructField, v reflect.Value) error {
-	tagMap := utils.TagMap(f.Tag)
+	info := reflectutils.ParseStructFieldJsonInfo(f)
+	tagMap := info.Tags
 	help := tagMap[TAG_HELP]
 	token, ok := tagMap[TAG_TOKEN]
 	if !ok {
-		token = f.Name
+		token = info.MarshalName()
 	}
 	token = prefix + token
 	shorttoken := tagMap[TAG_SHORT_TOKEN]
@@ -283,7 +285,9 @@ func (this *ArgumentParser) addArgument(prefix string, f reflect.StructField, v 
 	var arg Argument = nil
 	ovalue := reflect.New(v.Type()).Elem()
 	ovalue.Set(v)
-	sarg := SingleArgument{token: token, shortToken: shorttoken,
+	sarg := SingleArgument{
+		token:      token,
+		shortToken: shorttoken,
 		positional: positional,
 		required:   required,
 		metavar:    metavar,
@@ -294,7 +298,8 @@ func (this *ArgumentParser) addArgument(prefix string, f reflect.StructField, v 
 		defValue:   defval_t,
 		value:      v,
 		ovalue:     ovalue,
-		parser:     this}
+		parser:     this,
+	}
 	// fmt.Println(token, f.Type, f.Type.Kind())
 	if subcommand {
 		arg = &SubcommandArgument{SingleArgument: sarg,
@@ -946,6 +951,9 @@ func (this *ArgumentParser) ParseFile(filepath string) error {
 		line = strings.TrimSpace(removeComments(line))
 		// line = removeCharacters(line, `"'`)
 		if len(line) > 0 {
+			if line[0] == '[' {
+				continue
+			}
 			key, val, e := line2KeyValue(line)
 			if e == nil {
 				this.parseKeyValue(key, val)

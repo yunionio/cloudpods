@@ -84,15 +84,18 @@ func (self *SSecurityGroup) getDesc() jsonutils.JSONObject {
 	return desc
 }
 
-func (self *SSecurityGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SSecurityGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
 	extra.Add(jsonutils.NewInt(int64(len(self.GetGuests()))), "guest_cnt")
 	extra.Add(jsonutils.NewString(self.getSecurityRuleString("")), "rules")
-	return extra
+	return extra, nil
 }
 
 func (self *SSecurityGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	extra := self.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	extra.Add(jsonutils.NewInt(int64(len(self.GetGuests()))), "guest_cnt")
 	extra.Add(jsonutils.NewTimeString(self.CreatedAt), "created_at")
 	extra.Add(jsonutils.NewString(self.Description), "description")

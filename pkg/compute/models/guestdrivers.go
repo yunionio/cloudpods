@@ -86,7 +86,7 @@ type IGuestDriver interface {
 
 	CheckDiskTemplateOnStorage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, storageId string, task taskman.ITask) error
 
-	GetGuestVncInfo(userCred mcclient.TokenCredential, guest *SGuest, host *SHost) (*jsonutils.JSONDict, error)
+	GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, host *SHost) (*jsonutils.JSONDict, error)
 
 	RequestAttachDisk(ctx context.Context, guest *SGuest, task taskman.ITask) error
 	RequestDetachDisk(ctx context.Context, guest *SGuest, task taskman.ITask) error

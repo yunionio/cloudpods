@@ -25,7 +25,7 @@ func (self *GuestStartTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 }
 
 func (self *GuestStartTask) checkTemplate(ctx context.Context, guest *models.SGuest) {
-	diskCat := guest.CategorizeDisks()
+	/*diskCat := guest.CategorizeDisks()
 	if diskCat.Root != nil && len(diskCat.Root.GetTemplateId()) > 0 {
 		if len(guest.BackupHostId) > 0 {
 			self.SetStage("OnMasterHostTemplateReady", nil)
@@ -35,7 +35,8 @@ func (self *GuestStartTask) checkTemplate(ctx context.Context, guest *models.SGu
 		guest.GetDriver().CheckDiskTemplateOnStorage(ctx, self.UserCred, diskCat.Root.GetTemplateId(), diskCat.Root.StorageId, self)
 	} else {
 		self.startStart(ctx, guest)
-	}
+	}*/
+	self.startStart(ctx, guest)
 }
 
 func (self *GuestStartTask) OnMasterHostTemplateReady(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {

@@ -12,7 +12,6 @@ import (
 
 	"net/http"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/webconsole"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 	"yunion.io/x/onecloud/pkg/webconsole/server"
@@ -25,11 +24,10 @@ func ensureBinExists(binPath string) {
 }
 
 func StartService() {
-	consts.SetServiceType("webconsole")
 
 	opts := &o.Options
 	commonOpts := &o.Options.CommonOptions
-	cloudcommon.ParseOptions(opts, commonOpts, os.Args, "webconsole.conf")
+	cloudcommon.ParseOptions(opts, os.Args, "webconsole.conf", "webconsole")
 
 	if opts.ApiServer == "" {
 		log.Fatalf("--api-server must specified")

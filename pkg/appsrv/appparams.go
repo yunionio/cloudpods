@@ -17,7 +17,13 @@ type SAppParams struct {
 	SkipTrace bool
 	Params    map[string]string
 	Path      []string
-	Request   *http.Request
+
+	Request  *http.Request
+	Response http.ResponseWriter
+
+	OverrideResponseBodyWrapper bool
+
+	// Cancel context.CancelFunc
 }
 
 func AppContextGetParams(ctx context.Context) *SAppParams {

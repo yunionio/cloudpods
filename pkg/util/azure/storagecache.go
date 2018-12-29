@@ -17,6 +17,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 const (
@@ -149,7 +150,7 @@ func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
 
 func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool, tmpPath string) (string, error) {
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	meta, reader, err := modules.Images.Download(s, imageId)
+	meta, reader, err := modules.Images.Download(s, imageId, string(qemuimg.VHD), false)
 	if err != nil {
 		return "", err
 	}

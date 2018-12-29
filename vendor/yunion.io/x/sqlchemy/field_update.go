@@ -2,15 +2,16 @@ package sqlchemy
 
 import (
 	"bytes"
-	"errors"
+	// "errors"
 	"fmt"
 	"reflect"
 
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/gotypes"
+	// "yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
 )
 
+/*
 func (ts *STableSpec) GetUpdateColumnValue(dataType reflect.Type, dataValue reflect.Value, cv map[string]interface{}, fields map[string]interface{}) error {
 	for i := 0; i < dataType.NumField(); i++ {
 		fieldType := dataType.Field(i)
@@ -35,6 +36,7 @@ func (ts *STableSpec) GetUpdateColumnValue(dataType reflect.Type, dataValue refl
 	}
 	return nil
 }
+*/
 
 func (ts *STableSpec) UpdateFields(dt interface{}, fields map[string]interface{}) error {
 	return ts.updateFields(dt, fields, false)
@@ -45,28 +47,25 @@ func (ts *STableSpec) UpdateFields(dt interface{}, fields map[string]interface{}
 // find fields correlatively columns
 // joint sql and executed
 func (ts *STableSpec) updateFields(dt interface{}, fields map[string]interface{}, debug bool) error {
-	dataValue := reflect.ValueOf(dt)
-	if dataValue.Kind() == reflect.Ptr {
-		dataValue = dataValue.Elem()
-	}
+	dataValue := reflect.Indirect(reflect.ValueOf(dt))
 
-	//cv: {"column name": "update value"}
-	cv := make(map[string]interface{}, 0)
-	dataType := dataValue.Type()
-	ts.GetUpdateColumnValue(dataType, dataValue, cv, fields)
-	if len(cv) == 0 {
-		log.Infof("Nothing update")
-		return nil
-	}
+	// cv: {"column name": "update value"}
+	cv := make(map[string]interface{})
+	// dataType := dataValue.Type()
+	// ts.GetUpdateColumnValue(dataType, dataValue, cv, fields)
+	// if len(cv) == 0 {
+	// 	log.Infof("Nothing update")
+	// 	return nil
+	// }
 
-	fullFields := reflectutils.FetchStructFieldNameValueInterfaces(dataValue)
+	fullFields := reflectutils.FetchStructFieldValueSet(dataValue)
 	versionFields := make([]string, 0)
 	updatedFields := make([]string, 0)
 	primaryCols := make(map[string]interface{}, 0)
 	indexCols := make(map[string]interface{}, 0)
 	for _, col := range ts.Columns() {
 		name := col.Name()
-		colValue, ok := fullFields[name]
+		colValue, ok := fullFields.GetInterface(name)
 		if !ok {
 			continue
 		}
@@ -87,8 +86,8 @@ func (ts *STableSpec) updateFields(dt interface{}, fields map[string]interface{}
 			updatedFields = append(updatedFields, name)
 			continue
 		}
-		if _, exist := cv[name]; exist {
-			cv[name] = col.ConvertFromValue(cv[name])
+		if _, exist := fields[name]; exist {
+			cv[name] = col.ConvertFromValue(fields[name])
 		}
 	}
 

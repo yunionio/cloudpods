@@ -90,7 +90,7 @@ func findVNCPort2(results string) int {
 	return port
 }
 
-func (self *SKVMGuestDriver) GetGuestVncInfo(userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
+func (self *SKVMGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
 	url := fmt.Sprintf("/servers/%s/monitor", guest.Id)
 	body := jsonutils.NewDict()
 	var cmd string
@@ -100,7 +100,7 @@ func (self *SKVMGuestDriver) GetGuestVncInfo(userCred mcclient.TokenCredential, 
 		cmd = "info vnc"
 	}
 	body.Add(jsonutils.NewString(cmd), "cmd")
-	ret, err := host.Request(userCred, "POST", url, nil, body)
+	ret, err := host.Request(ctx, userCred, "POST", url, nil, body)
 	if err != nil {
 		err = fmt.Errorf("Fail to request VNC info %s", err)
 		log.Errorf(err.Error())

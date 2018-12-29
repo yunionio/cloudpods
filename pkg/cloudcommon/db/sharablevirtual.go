@@ -11,7 +11,7 @@ import (
 type SSharableVirtualResourceBase struct {
 	SVirtualResourceBase
 
-	IsPublic bool `default:"false" nullable:"false" create:"admin_optional" list:"user"`
+	IsPublic bool `default:"false" nullable:"false" index:"true" create:"admin_optional" list:"user"`
 }
 
 type SSharableVirtualResourceBaseManager struct {

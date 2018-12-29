@@ -42,7 +42,7 @@ func (self *SGuest) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCr
 		if host == nil {
 			return nil, httperrors.NewInternalServerError("Host missing")
 		}
-		retval, err := self.GetDriver().GetGuestVncInfo(userCred, self, host)
+		retval, err := self.GetDriver().GetGuestVncInfo(ctx, userCred, self, host)
 		if err != nil {
 			return nil, err
 		}
@@ -1069,7 +1069,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 	err := QuotaManager.CheckSetPendingQuota(ctx, userCred, self.ProjectId, pendingUsage)
 	if err != nil {
 		logclient.AddActionLog(self, logclient.ACT_CREATE, err.Error(), userCred, false)
-		return nil, httperrors.NewBadRequestError(err.Error())
+		return nil, httperrors.NewOutOfQuotaError(err.Error())
 	}
 
 	lockman.LockObject(ctx, host)
@@ -1500,7 +1500,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	if !pendingUsage.IsEmpty() {
 		err := QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), pendingUsage)
 		if err != nil {
-			return nil, httperrors.NewBadRequestError("Check set pending quota error %s", err)
+			return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
 		}
 	}
 	if newDisks.Length() > 0 {
@@ -1642,7 +1642,7 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 		pendingUsage := &SQuota{Snapshot: 1}
 		err = QuotaManager.CheckSetPendingQuota(ctx, userCred, self.ProjectId, pendingUsage)
 		if err != nil {
-			return nil, httperrors.NewBadRequestError("Check set pending quota error %s", err)
+			return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
 		}
 		snapshot, err := SnapshotManager.CreateSnapshot(ctx, userCred, MANUAL, diskId, self.Id, "", name)
 		QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
@@ -2078,7 +2078,7 @@ func (self *SGuest) PerformCreateBackup(ctx context.Context, userCred mcclient.T
 	req := self.getGuestBackupResourceRequirements(ctx, userCred)
 	err := QuotaManager.CheckSetPendingQuota(ctx, userCred, self.GetOwnerProjectId(), &req)
 	if err != nil {
-		return nil, err
+		return nil, httperrors.NewOutOfQuotaError(err.Error())
 	}
 
 	params := data.(*jsonutils.JSONDict)

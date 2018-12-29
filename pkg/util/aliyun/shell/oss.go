@@ -112,7 +112,7 @@ func init() {
 		if len(args.Acl) > 0 {
 			options = append(options, osslib.ACL(str2AclType(args.Acl)))
 		}
-		err = bucket.UploadFile(args.KEY, args.FILE, 1024*1024, options...)
+		err = bucket.UploadFile(args.KEY, args.FILE, 4*1024*1024, options...)
 		return err
 	})
 

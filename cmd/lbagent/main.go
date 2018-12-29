@@ -9,17 +9,14 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/lbagent"
 )
 
 func main() {
-	consts.SetServiceType("lbagent")
-
 	opts := &lbagent.Options{}
 	commonOpts := &opts.CommonOpts
 	{
-		cloudcommon.ParseOptions(opts, commonOpts, os.Args, "lbagent.conf")
+		cloudcommon.ParseOptions(opts, os.Args, "lbagent.conf", "lbagent")
 		cloudcommon.InitAuth(commonOpts, func() {
 			log.Infof("auth finished ok")
 		})

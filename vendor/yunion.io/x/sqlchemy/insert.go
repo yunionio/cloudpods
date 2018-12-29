@@ -13,7 +13,7 @@ func (t *STableSpec) Insert(dt interface{}) error {
 	return t.insert(dt, false)
 }
 
-func (t *STableSpec) insertSqlPrep(dataFields map[string]interface{}) (string, []interface{}, error) {
+func (t *STableSpec) insertSqlPrep(dataFields reflectutils.SStructFieldValueSet) (string, []interface{}, error) {
 	var autoIncField string
 	createdAtFields := make([]string, 0)
 
@@ -31,7 +31,11 @@ func (t *STableSpec) insertSqlPrep(dataFields map[string]interface{}) (string, [
 		k := c.Name()
 
 		dtc, ok := c.(*SDateTimeColumn)
-		ov := dataFields[k]
+		ov, find := dataFields.GetInterface(k)
+
+		if !find {
+			continue
+		}
 
 		if ok && (dtc.IsCreatedAt || dtc.IsUpdatedAt) {
 			createdAtFields = append(createdAtFields, k)
@@ -73,7 +77,7 @@ func (t *STableSpec) insert(data interface{}, debug bool) error {
 	}
 
 	dataValue := reflect.ValueOf(data).Elem()
-	dataFields := reflectutils.FetchStructFieldNameValueInterfaces(dataValue)
+	dataFields := reflectutils.FetchStructFieldValueSet(dataValue)
 	insertSql, values, err := t.insertSqlPrep(dataFields)
 	if err != nil {
 		return err
@@ -122,7 +126,8 @@ func (t *STableSpec) insert(data interface{}, debug bool) error {
 					q = q.Equals(c.Name(), lastId)
 				}
 			} else {
-				q = q.Equals(c.Name(), dataFields[c.Name()])
+				priVal, _ := dataFields.GetInterface(c.Name())
+				q = q.Equals(c.Name(), priVal)
 			}
 		}
 	}

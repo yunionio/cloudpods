@@ -96,10 +96,13 @@ func (self *SGuestdisk) GetCustomizeColumns(ctx context.Context, userCred mcclie
 	return self.getExtraInfo(extra)
 }
 
-func (self *SGuestdisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SGuestJointsBase.GetExtraDetails(ctx, userCred, query)
+func (self *SGuestdisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SGuestJointsBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
 	extra = db.JointModelExtra(self, extra)
-	return self.getExtraInfo(extra)
+	return self.getExtraInfo(extra), nil
 }
 
 func (self *SGuestdisk) DoSave(driver string, cache string, mountpoint string) error {

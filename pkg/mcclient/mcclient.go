@@ -93,11 +93,11 @@ func joinUrl(baseUrl, path string) string {
 	return fmt.Sprintf("%s%s", baseUrl, path)
 }
 
-func (this *Client) rawRequest(ctx context.Context, endpoint string, token string, method string, url string, header http.Header, body io.Reader) (*http.Response, error) {
+func (this *Client) rawRequest(ctx context.Context, endpoint string, token string, method httputils.THttpMethod, url string, header http.Header, body io.Reader) (*http.Response, error) {
 	return httputils.Request(this.httpconn, ctx, method, joinUrl(endpoint, url), getDefaultHeader(header, token), body, this.debug)
 }
 
-func (this *Client) jsonRequest(ctx context.Context, endpoint string, token string, method string, url string, header http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+func (this *Client) jsonRequest(ctx context.Context, endpoint string, token string, method httputils.THttpMethod, url string, header http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
 	/*bodystr := ""
 	if body != nil {
 		bodystr = body.String()

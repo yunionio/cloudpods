@@ -372,7 +372,7 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 	}
 	pendingUsage := SQuota{Storage: diskConfig.SizeMb}
 	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), &pendingUsage); err != nil {
-		return nil, err
+		return nil, httperrors.NewOutOfQuotaError("%s", err)
 	}
 	return data, nil
 }
@@ -719,10 +719,13 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 	} else if imageList.Total > 0 {
 		return "", httperrors.NewConflictError("Duplicate image name %s", name)
 	}
-	quota := SQuota{Image: 1}
-	if _, err := QuotaManager.CheckQuota(ctx, userCred, userCred.GetProjectId(), &quota); err != nil {
-		return "", err
-	}
+	/*
+		no need to check quota anymore
+		session := auth.GetSession(userCred, options.Options.Region, "v2")
+		quota := image_models.SQuota{Image: 1}
+		if _, err := modules.ImageQuotas.DoQuotaCheck(session, jsonutils.Marshal(&quota)); err != nil {
+			return "", err
+		}*/
 	data.Add(jsonutils.NewInt(int64(self.DiskSize)), "virtual_size")
 	if result, err := modules.Images.Create(s, data); err != nil {
 		return "", err
@@ -1354,9 +1357,12 @@ func (self *SDisk) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 	return extra
 }
 
-func (self *SDisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
-	return self.getMoreDetails(extra)
+func (self *SDisk) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return self.getMoreDetails(extra), nil
 }
 
 func (self *SDisk) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {

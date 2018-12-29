@@ -169,11 +169,14 @@ func (self *SBaremetalagent) GetZone() *SZone {
 	return nil
 }
 
-func (self *SBaremetalagent) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SBaremetalagent) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
 	zone := self.GetZone()
 	if zone != nil {
 		extra.Set("zone", jsonutils.NewString(zone.GetName()))
 	}
-	return extra
+	return extra, nil
 }

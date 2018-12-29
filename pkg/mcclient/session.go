@@ -157,7 +157,7 @@ func (this *ClientSession) getBaseUrl(service, endpointType, apiVersion string) 
 }
 
 func (this *ClientSession) RawVersionRequest(
-	service, endpointType, method, url string,
+	service, endpointType string, method httputils.THttpMethod, url string,
 	headers http.Header, body io.Reader,
 	apiVersion string,
 ) (*http.Response, error) {
@@ -179,12 +179,12 @@ func (this *ClientSession) RawVersionRequest(
 		method, url, tmpHeader, body)
 }
 
-func (this *ClientSession) RawRequest(service, endpointType, method, url string, headers http.Header, body io.Reader) (*http.Response, error) {
+func (this *ClientSession) RawRequest(service, endpointType string, method httputils.THttpMethod, url string, headers http.Header, body io.Reader) (*http.Response, error) {
 	return this.RawVersionRequest(service, endpointType, method, url, headers, body, "")
 }
 
 func (this *ClientSession) JSONVersionRequest(
-	service, endpointType, method, url string,
+	service, endpointType string, method httputils.THttpMethod, url string,
 	headers http.Header, body jsonutils.JSONObject,
 	apiVersion string,
 ) (http.Header, jsonutils.JSONObject, error) {
@@ -206,7 +206,7 @@ func (this *ClientSession) JSONVersionRequest(
 		method, url, tmpHeader, body)
 }
 
-func (this *ClientSession) JSONRequest(service, endpointType, method, url string, headers http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+func (this *ClientSession) JSONRequest(service, endpointType string, method httputils.THttpMethod, url string, headers http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
 	return this.JSONVersionRequest(service, endpointType, method, url, headers, body, "")
 }
 

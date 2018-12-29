@@ -459,14 +459,10 @@ func (this *JSONDict) unmarshalMap(val reflect.Value) error {
 }
 
 func (this *JSONDict) unmarshalStruct(val reflect.Value) error {
-	fieldValues := reflectutils.FetchStructFieldNameValues(val)
+	fieldValues := reflectutils.FetchStructFieldValueSet(val)
 	for k, v := range this.data {
-		fieldValue, ok := fieldValues[k] // first try original key
-		if !ok {                         // try kebab
-			k = utils.CamelSplit(k, "_")
-			fieldValue, ok = fieldValues[k]
-		}
-		if ok {
+		fieldValue, find := fieldValues.GetValue(k)
+		if find {
 			err := v.unmarshalValue(fieldValue)
 			if err != nil {
 				log.Debugf("unmarshalStruct field %s error %s", k, err)
