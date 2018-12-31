@@ -133,10 +133,13 @@ func (set SStructFieldValueSet) GetStructFieldIndex(name string) int {
 		if jsonInfo.MarshalName() == name {
 			return i
 		}
-		if utils.CamelSplit(jsonInfo.FieldName, "_") == name {
+		if utils.CamelSplit(jsonInfo.FieldName, "_") == utils.CamelSplit(name, "_") {
 			return i
 		}
 		if jsonInfo.FieldName == name {
+			return i
+		}
+		if jsonInfo.FieldName == utils.Capitalize(name) {
 			return i
 		}
 	}
