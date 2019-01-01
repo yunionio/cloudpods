@@ -3,8 +3,10 @@ package netutils
 import (
 	"fmt"
 	"math/rand"
+	"net"
 	"strconv"
 	"strings"
+
 	"yunion.io/x/pkg/util/regutils"
 )
 
@@ -148,6 +150,15 @@ func NewIPV4AddrRange(ip1 IPV4Addr, ip2 IPV4Addr) IPV4AddrRange {
 	}
 }
 
+// n.IP and n.Mask must be ipv4 type.  n.Mask must be canonical
+func NewIPV4AddrRangeFromIPNet(n *net.IPNet) IPV4AddrRange {
+	pref, err := NewIPV4Prefix(n.String())
+	if err != nil {
+		panic("unexpected IPNet: " + n.String())
+	}
+	return pref.ToIPRange()
+}
+
 func (ar IPV4AddrRange) Contains(ip IPV4Addr) bool {
 	return (ip >= ar.start) && (ip <= ar.end)
 }
@@ -182,6 +193,99 @@ func (ar IPV4AddrRange) IsOverlap(ar2 IPV4AddrRange) bool {
 	} else {
 		return true
 	}
+}
+
+func (ar IPV4AddrRange) ToIPNets() []*net.IPNet {
+	r := []*net.IPNet{}
+	mms := ar.ToMaskMatches()
+	for _, mm := range mms {
+		a := mm[0]
+		m := mm[1]
+		addr := net.IPv4(byte((a>>24)&0xff), byte((a>>16)&0xff), byte((a>>8)&0xff), byte(a&0xff))
+		mask := net.IPv4Mask(byte((m>>24)&0xff), byte((m>>16)&0xff), byte((m>>8)&0xff), byte(m&0xff))
+		r = append(r, &net.IPNet{
+			IP:   addr,
+			Mask: mask,
+		})
+	}
+	return r
+}
+
+func (ar IPV4AddrRange) ToMaskMatches() [][2]uint32 {
+	r := [][2]uint32{}
+	s := uint32(ar.start)
+	e := uint32(ar.end)
+	if s == e {
+		r = append(r, [2]uint32{s, ^uint32(0)})
+		return r
+	}
+	sp, ep := uint64(s), uint64(e)
+	ep = ep + 1
+	for sp < ep {
+		b := uint64(1)
+		for (sp+b) <= ep && (sp&(b-1)) == 0 {
+			b <<= 1
+		}
+		b >>= 1
+		r = append(r, [2]uint32{uint32(sp), uint32(^(b - 1))})
+		sp = sp + b
+	}
+	return r
+}
+
+func (ar IPV4AddrRange) Substract(ar2 IPV4AddrRange) (lefts []IPV4AddrRange, sub *IPV4AddrRange) {
+	lefts = []IPV4AddrRange{}
+	// no intersection, no substract
+	if ar.end < ar2.start || ar.start > ar2.end {
+		lefts = append(lefts, ar)
+		return
+	}
+
+	// ar contains ar2
+	if ar.ContainsRange(ar2) {
+		nns := [][2]int64{
+			[2]int64{int64(ar.start), int64(ar2.start) - 1},
+			[2]int64{int64(ar2.end) + 1, int64(ar.end)},
+		}
+		for _, nn := range nns {
+			if nn[0] <= nn[1] {
+				lefts = append(lefts, NewIPV4AddrRange(IPV4Addr(nn[0]), IPV4Addr(nn[1])))
+			}
+		}
+		ar2_ := ar2
+		sub = &ar2_
+		return
+	}
+
+	// ar contained by ar2
+	if ar2.ContainsRange(ar) {
+		ar_ := ar
+		sub = &ar_
+		return
+	}
+
+	// intersect, ar on the left
+	if ar.start < ar2.start && ar.end >= ar2.start {
+		lefts = append(lefts, NewIPV4AddrRange(ar.start, ar2.start-1))
+		sub_ := NewIPV4AddrRange(ar2.start, ar.end)
+		sub = &sub_
+		return
+	}
+
+	// intersect, ar on the right
+	if ar.start <= ar2.end && ar.end > ar2.end {
+		lefts = append(lefts, NewIPV4AddrRange(ar2.end+1, ar.end))
+		sub_ := NewIPV4AddrRange(ar.start, ar2.end)
+		sub = &sub_
+		return
+	}
+
+	// no intersection
+	return
+}
+
+func (ar IPV4AddrRange) equals(ar2 IPV4AddrRange) bool {
+	return ar.start == ar2.start && ar.end == ar2.end
 }
 
 func Masklen2Mask(maskLen int8) IPV4Addr {
