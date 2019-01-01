@@ -215,3 +215,7 @@ func (model *SParameter) Delete(ctx context.Context, userCred mcclient.TokenCred
 func (model *SParameter) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return model.IsOwner(userCred) || db.IsAdminAllowGet(userCred, model)
 }
+
+func (model *SParameter) GetOwnerProjectId() string {
+	return model.CreatedBy
+}
