@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"fmt"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -52,32 +53,31 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 		self.OnGuestDiskDeleteComplete(ctx, disk, nil)
 	} else {
 		if len(disk.BackupStorageId) > 0 {
-			self.SetStage("OnMasterStorageDeleteDiskSucc", nil)
+			self.SetStage("OnMasterStorageDeleteDiskComplete", nil)
 		} else {
-			self.SetStage("OnGuestDiskDeleteSucc", nil)
+			self.SetStage("OnGuestDiskDeleteComplete", nil)
 		}
 		if host == nil {
-			self.OnGuestDiskDeleteFailed(ctx, disk, httperrors.NewNotFoundError("fail to find master host"))
-		} else if err := host.GetHostDriver().RequestDeallocateDiskOnHost(ctx, host, storage, disk, self); err != nil {
-			self.OnGuestDiskDeleteFailed(ctx, disk, err)
-		self.SetStage("OnGuestDiskDeleteComplete", nil)
-		if host == nil {
 			self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString("fail to find master host"))
-		} else if err := host.GetHostDriver().RequestDeallocateDiskOnHost(host, storage, disk, self); err != nil {
+		} else if err := host.GetHostDriver().RequestDeallocateDiskOnHost(ctx, host, storage, disk, self); err != nil {
 			self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString(err.Error()))
 		}
 	}
 }
 
-func (self *DiskDeleteTask) OnMasterStorageDeleteDiskSucc(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	self.SetStage("OnGuestDiskDeleteSucc", nil)
+func (self *DiskDeleteTask) OnMasterStorageDeleteDiskComplete(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
+	self.SetStage("OnGuestDiskDeleteComplete", nil)
 	storage := models.StorageManager.FetchStorageById(disk.BackupStorageId)
 	host := storage.GetMasterHost()
 	if host == nil {
-		self.OnGuestDiskDeleteFailed(ctx, disk, httperrors.NewNotFoundError("backup storage %s fail to find master host", disk.BackupStorageId))
+		self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString(fmt.Sprintf("backup storage %s fail to find master host", disk.BackupStorageId)))
 	} else if err := host.GetHostDriver().RequestDeallocateDiskOnHost(ctx, host, storage, disk, self); err != nil {
-		self.OnGuestDiskDeleteFailed(ctx, disk, err)
+		self.OnGuestDiskDeleteCompleteFailed(ctx, disk, jsonutils.NewString(err.Error()))
 	}
+}
+
+func (self *DiskDeleteTask) OnMasterStorageDeleteDiskCompleteFailed(ctx context.Context, disk *models.SDisk, resion jsonutils.JSONObject) {
+	self.OnGuestDiskDeleteCompleteFailed(ctx, disk, resion)
 }
 
 func (self *DiskDeleteTask) startPendingDeleteDisk(ctx context.Context, disk *models.SDisk) {

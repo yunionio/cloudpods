@@ -84,6 +84,8 @@ func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonu
 	if err != nil {
 		return nil, err
 	}
+	return jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params)
+}
 
 func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	client, err := self.getSdkClient()

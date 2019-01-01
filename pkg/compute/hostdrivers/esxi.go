@@ -7,10 +7,10 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"github.com/golang-plus/errors"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/httputils"
-	"github.com/golang-plus/errors"
 )
 
 type SESXiHostDriver struct {

@@ -531,7 +531,6 @@ func (manager *SCloudaccountManager) FetchCloudaccountByIdOrName(accountId strin
 	return providerObj.(*SCloudaccount)
 }
 
-
 func (self *SCloudaccount) getProviderCount() int {
 	q := CloudproviderManager.Query().Equals("cloudaccount_id", self.Id)
 	return q.Count()

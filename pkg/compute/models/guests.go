@@ -127,12 +127,13 @@ const (
 	HYPERVISOR_BAREMETAL = "baremetal"
 	HYPERVISOR_ESXI      = "esxi"
 	HYPERVISOR_HYPERV    = "hyperv"
-	HYPERVISOR_ALIYUN    = "aliyun"
-	HYPERVISOR_QCLOUD    = "qcloud"
-	HYPERVISOR_AZURE     = "azure"
-	HYPERVISOR_AWS       = "aws"
-	HYPERVISOR_HUAWEI    = "huawei"
+	HYPERVISOR_XEN       = "xen"
 
+	HYPERVISOR_ALIYUN = "aliyun"
+	HYPERVISOR_QCLOUD = "qcloud"
+	HYPERVISOR_AZURE  = "azure"
+	HYPERVISOR_AWS    = "aws"
+	HYPERVISOR_HUAWEI = "huawei"
 
 	//	HYPERVISOR_DEFAULT = HYPERVISOR_KVM
 	HYPERVISOR_DEFAULT = HYPERVISOR_KVM
@@ -141,10 +142,24 @@ const (
 var VM_RUNNING_STATUS = []string{VM_START_START, VM_STARTING, VM_RUNNING, VM_BLOCK_STREAM}
 var VM_CREATING_STATUS = []string{VM_CREATE_NETWORK, VM_CREATE_DISK, VM_START_DEPLOY, VM_DEPLOYING}
 
-var HYPERVISORS = []string{HYPERVISOR_KVM, HYPERVISOR_BAREMETAL, HYPERVISOR_ESXI, HYPERVISOR_CONTAINER,
-	HYPERVISOR_ALIYUN, HYPERVISOR_AZURE, HYPERVISOR_AWS, HYPERVISOR_QCLOUD, HYPERVISOR_HUAWEI}
+var HYPERVISORS = []string{HYPERVISOR_KVM,
+	HYPERVISOR_BAREMETAL,
+	HYPERVISOR_ESXI,
+	HYPERVISOR_CONTAINER,
+	HYPERVISOR_ALIYUN,
+	HYPERVISOR_AZURE,
+	HYPERVISOR_AWS,
+	HYPERVISOR_QCLOUD,
+	HYPERVISOR_HUAWEI,
+}
 
-var PUBLIC_CLOUD_HYPERVISORS = []string{HYPERVISOR_ALIYUN, HYPERVISOR_AWS, HYPERVISOR_AZURE, HYPERVISOR_QCLOUD, HYPERVISOR_HUAWEI}
+var PUBLIC_CLOUD_HYPERVISORS = []string{
+	HYPERVISOR_ALIYUN,
+	HYPERVISOR_AWS,
+	HYPERVISOR_AZURE,
+	HYPERVISOR_QCLOUD,
+	HYPERVISOR_HUAWEI,
+}
 
 // var HYPERVISORS = []string{HYPERVISOR_ALIYUN}
 
@@ -219,7 +234,7 @@ type SGuest struct {
 	SecgrpId      string `width:"36" charset:"ascii" nullable:"true" get:"user" create:"optional"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
 	AdminSecgrpId string `width:"36" charset:"ascii" nullable:"true" get:"admin"`                  // Column(VARCHAR(36, charset='ascii'), nullable=True)
 
-	Hypervisor string `width:"16" charset:"ascii" nullable:"false" default:"kvm" list:"user" create:"required"` // Column(VARCHAR(16, charset='ascii'), nullable=False, default=HYPERVISOR_DEFAULT)
+	Hypervisor string `width:"16" charset:"ascii" nullable:"false" default:"kvm" list:"user"` // Column(VARCHAR(16, charset='ascii'), nullable=False, default=HYPERVISOR_DEFAULT)
 
 	InstanceType string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 }
@@ -1198,8 +1213,12 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 	return extra
 }
 
-func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
 	extra.Add(jsonutils.NewString(self.getNetworksDetails()), "networks")
 	extra.Add(jsonutils.NewString(self.getDisksDetails()), "disks")
 	extra.Add(self.getDisksInfoDetails(), "disks_info")
@@ -1251,7 +1270,7 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 		extra.Add(jsonutils.JSONFalse, "is_prepaid_recycle")
 	}
 
-	return self.moreExtraInfo(extra)
+	return self.moreExtraInfo(extra), nil
 }
 
 func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
@@ -3198,7 +3217,6 @@ func (self *SGuest) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 		desc.Add(jsonutils.NewString(self.OsType), "os_type")
 	}
 
-
 	if len(self.ExternalId) > 0 {
 		desc.Add(jsonutils.NewString(self.ExternalId), "externalId")
 	}
@@ -3229,11 +3247,7 @@ func (self *SGuest) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 		billingInfo.PriceKey = priceKey
 	}
 
-<<<<<<< HEAD
-	billingInfo.ChargeType = self.GetChargeType()
-=======
 	billingInfo.SBillingBaseInfo = self.getBillingBaseInfo()
->>>>>>> 8f11b765... 1.
 
 	desc.Update(jsonutils.Marshal(billingInfo))
 

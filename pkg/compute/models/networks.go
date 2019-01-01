@@ -617,8 +617,8 @@ func (manager *SNetworkManager) allNetworksQ(providers []string, rangeObj db.ISt
 	q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
 	q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 	q = q.Filter(sqlchemy.OR(
-				sqlchemy.Equals(hosts.Field("host_type"), HOST_TYPE_BAREMETAL),
-				sqlchemy.Equals(hosts.Field("host_status"), HOST_ONLINE)))
+		sqlchemy.Equals(hosts.Field("host_type"), HOST_TYPE_BAREMETAL),
+		sqlchemy.Equals(hosts.Field("host_status"), HOST_ONLINE)))
 	return AttachUsageQuery(q, hosts, nil, nil, providers, rangeObj)
 }
 
