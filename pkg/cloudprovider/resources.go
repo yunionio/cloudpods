@@ -1,13 +1,15 @@
 package cloudprovider
 
 import (
+	"context"
 	"time"
 
-	"context"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/secrules"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/pkg/util/secrules"
 )
 
 type ICloudResource interface {
@@ -367,7 +369,7 @@ type ICloudHostNetInterface interface {
 	GetDriver() string
 	GetMac() string
 	GetIndex() int8
-	IsLinkUp() bool
+	IsLinkUp() tristate.TriState
 	GetIpAddr() string
 	GetMtu() int16
 	GetNicType() string

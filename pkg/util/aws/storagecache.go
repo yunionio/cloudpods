@@ -3,10 +3,6 @@ package aws
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"strings"
 	"time"
 
@@ -23,6 +19,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 type SStoragecache struct {
@@ -173,7 +170,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	_, err = s3client.GetObject(&s3.GetObjectInput{Bucket: &bucketName, Key: &imageId})
 	if err != nil {
 		// first upload image to oss
-		meta, reader, err := modules.Images.Download(s, imageId)
+		meta, reader, err := modules.Images.Download(s, imageId, string(qemuimg.VMDK), false)
 		if err != nil {
 			return "", err
 		}
@@ -203,7 +200,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		}
 		defer s3client.DeleteObject(&s3.DeleteObjectInput{Bucket: &bucketName, Key: &imageId}) // remove object
 	} else {
-		meta, _, err := modules.Images.Download(s, imageId)
+		meta, _, err := modules.Images.Download(s, imageId, string(qemuimg.VMDK), false)
 		if err != nil {
 			return "", err
 		}

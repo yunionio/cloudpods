@@ -3,7 +3,6 @@ package models
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -64,10 +63,13 @@ func (self *SHoststorage) GetCustomizeColumns(ctx context.Context, userCred mccl
 	return self.getExtraDetails(extra)
 }
 
-func (self *SHoststorage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SHostJointsBase.GetExtraDetails(ctx, userCred, query)
+func (self *SHoststorage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SHostJointsBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
 	extra = db.JointModelExtra(self, extra)
-	return self.getExtraDetails(extra)
+	return self.getExtraDetails(extra), nil
 }
 
 func (self *SHoststorage) GetHost() *SHost {
@@ -110,8 +112,7 @@ func (self *SHoststorage) PostCreate(ctx context.Context, userCred mcclient.Toke
 		host := storage.GetMasterHost()
 		log.Infof("Attach SharedStorage[%s] on host %s ...", storage.Name, host.Name)
 		url := fmt.Sprintf("%s/storages/attach", host.ManagerUri)
-		headers := http.Header{}
-		headers.Set("X-Auth-Token", userCred.GetTokenString())
+		headers := mcclient.GetTokenHeaders(userCred)
 		body := jsonutils.NewDict()
 		body.Set("mount_point", jsonutils.NewString(self.MountPoint))
 		body.Set("name", jsonutils.NewString(storage.Name))
@@ -142,8 +143,7 @@ func (self *SHoststorage) PreDelete(ctx context.Context, userCred mcclient.Token
 		host := storage.GetMasterHost()
 		log.Infof("Attach SharedStorage[%s] on host %s ...", storage.Name, host.Name)
 		url := fmt.Sprintf("%s/storages/detach", host.ManagerUri)
-		headers := http.Header{}
-		headers.Set("X-Auth-Token", userCred.GetTokenString())
+		headers := mcclient.GetTokenHeaders(userCred)
 		body := jsonutils.NewDict()
 		body.Set("mount_point", jsonutils.NewString(self.MountPoint))
 		body.Set("name", jsonutils.NewString(storage.Name))

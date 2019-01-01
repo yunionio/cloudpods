@@ -64,6 +64,10 @@ func (self *SQcloudProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	return info, nil
 }
 
+func (self *SQcloudProvider) GetVersion() string {
+	return qcloud.QCLOUD_API_VERSION
+}
+
 func (self *SQcloudProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return self.client.GetSubAccounts()
 }

@@ -52,8 +52,13 @@ type SSecurityGroup struct {
 
 func (self *SSecurityGroup) GetGuestsQuery() *sqlchemy.SQuery {
 	guests := GuestManager.Query().SubQuery()
-	return guests.Query().Filter(sqlchemy.OR(sqlchemy.Equals(guests.Field("secgrp_id"), self.Id),
-		sqlchemy.Equals(guests.Field("admin_secgrp_id"), self.Id))).Filter(sqlchemy.NotIn(guests.Field("hypervisor"), []string{HYPERVISOR_CONTAINER, HYPERVISOR_BAREMETAL, HYPERVISOR_ESXI}))
+	return guests.Query().Filter(
+		sqlchemy.OR(
+			sqlchemy.Equals(guests.Field("secgrp_id"), self.Id),
+			sqlchemy.Equals(guests.Field("admin_secgrp_id"), self.Id),
+			sqlchemy.In(guests.Field("id"), GuestsecgroupManager.Query("guest_id").Equals("secgroup_id", self.Id).SubQuery()),
+		),
+	).Filter(sqlchemy.NotIn(guests.Field("hypervisor"), []string{HYPERVISOR_CONTAINER, HYPERVISOR_BAREMETAL, HYPERVISOR_ESXI}))
 }
 
 func (self *SSecurityGroup) GetGuestsCount() int {
@@ -79,15 +84,18 @@ func (self *SSecurityGroup) getDesc() jsonutils.JSONObject {
 	return desc
 }
 
-func (self *SSecurityGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SSecurityGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
 	extra.Add(jsonutils.NewInt(int64(len(self.GetGuests()))), "guest_cnt")
 	extra.Add(jsonutils.NewString(self.getSecurityRuleString("")), "rules")
-	return extra
+	return extra, nil
 }
 
 func (self *SSecurityGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	extra := self.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	extra.Add(jsonutils.NewInt(int64(len(self.GetGuests()))), "guest_cnt")
 	extra.Add(jsonutils.NewTimeString(self.CreatedAt), "created_at")
 	extra.Add(jsonutils.NewString(self.Description), "description")
@@ -237,7 +245,7 @@ func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCr
 	return nil
 }
 
-func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup, vpc *SVpc, projectId string) (*SSecurityGroup, error) {
+func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup, vpc *SVpc, projectId string) (*SSecurityGroup, bool, error) {
 	if secgroup, exist := SecurityGroupCacheManager.CheckExist(context.Background(), userCred, extSec.GetGlobalId(), extSec.GetVpcId(), vpc.CloudregionId, vpc.ManagerId); exist {
 		if secgroup.GetGuestsCount() == 0 {
 			return secgroup, true, nil
@@ -310,8 +318,7 @@ func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCre
 			syncResult.AddError(err)
 			continue
 		}
-
-		new, ruleSync, err := manager.newFromCloudVpc(userCred, added[i], vpc)
+		new, ruleSync, err := manager.newFromCloudVpc(userCred, added[i], vpc, projectId)
 		if err != nil {
 			syncResult.AddError(err)
 			continue

@@ -120,9 +120,12 @@ func (self *SSchedpolicy) GetCustomizeColumns(ctx context.Context, userCred mccl
 	return self.getMoreColumns(extra)
 }
 
-func (self *SSchedpolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	return self.getMoreColumns(extra)
+func (self *SSchedpolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return self.getMoreColumns(extra), nil
 }
 
 func (manager *SSchedpolicyManager) getAllEnabledPolicies() []SSchedpolicy {

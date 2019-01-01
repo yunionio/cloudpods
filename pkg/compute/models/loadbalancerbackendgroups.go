@@ -118,9 +118,9 @@ func (lbbg *SLoadbalancerBackendGroup) GetCustomizeColumns(ctx context.Context, 
 	return extra
 }
 
-func (lbbg *SLoadbalancerBackendGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+func (lbbg *SLoadbalancerBackendGroup) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 	extra := lbbg.GetCustomizeColumns(ctx, userCred, query)
-	return extra
+	return extra, nil
 }
 
 func (lbbg *SLoadbalancerBackendGroup) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {

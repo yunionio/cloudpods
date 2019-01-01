@@ -287,6 +287,14 @@ func (manager *STaskManager) fetchTask(idStr string) *STask {
 	return task
 }
 
+func (manager *STaskManager) getTaskName(taskId string) string {
+	baseTask := manager.fetchTask(taskId)
+	if baseTask == nil {
+		return ""
+	}
+	return baseTask.TaskName
+}
+
 func (manager *STaskManager) execTask(taskId string, data jsonutils.JSONObject) {
 	baseTask := manager.fetchTask(taskId)
 	if baseTask == nil {
@@ -661,9 +669,7 @@ func (self *STask) GetObjects() []db.IStandaloneModel {
 }
 
 func (task *STask) GetTaskRequestHeader() http.Header {
-	header := http.Header{}
-	header.Set(mcclient.AUTH_TOKEN, task.GetUserCred().GetTokenString())
+	header := mcclient.GetTokenHeaders(task.GetUserCred())
 	header.Set(mcclient.TASK_ID, task.GetTaskId())
-	header.Set(mcclient.REGION_VERSION, "v2")
 	return header
 }

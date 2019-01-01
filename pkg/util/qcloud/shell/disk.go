@@ -65,7 +65,8 @@ func init() {
 		SIZE int64  `help:"Disk Size GB"`
 	}
 	shellutils.R(&DiskResizeOptions{}, "disk-resize", "Resize disk", func(cli *qcloud.SRegion, args *DiskResizeOptions) error {
-		return cli.ResizeDisk(context.Background(), args.ID, args.SIZE)
+		ctx := context.Background()
+		return cli.ResizeDisk(ctx, args.ID, args.SIZE)
 	})
 
 	type DiskResetOptions struct {

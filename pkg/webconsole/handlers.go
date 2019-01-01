@@ -34,15 +34,7 @@ func InitHandlers(app *appsrv.Application) {
 	app.AddHandler("POST", ApiPathPrefix+"server/<id>", auth.Authenticate(handleServerRemoteConsole))
 }
 
-type K8sEnv struct {
-	Cluster    string
-	Namespace  string
-	Pod        string
-	Container  string
-	KubeConfig string
-}
-
-func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*K8sEnv, error) {
+func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*command.K8sEnv, error) {
 	params, _, body := appsrv.FetchEnv(ctx, w, r)
 	cluster, _ := body.GetString("cluster")
 	if cluster == "" {
@@ -84,12 +76,13 @@ func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*
 	f.WriteString(conf)
 	defer f.Close()
 
-	return &K8sEnv{
+	return &command.K8sEnv{
 		Cluster:    cluster,
 		Namespace:  namespace,
 		Pod:        podName,
 		Container:  container,
-		KubeConfig: f.Name(),
+		Kubeconfig: f.Name(),
+		Data:       body,
 	}, nil
 }
 
@@ -121,7 +114,7 @@ func handleK8sCommand(
 	ctx context.Context,
 	w http.ResponseWriter,
 	r *http.Request,
-	cmdFactory func(kubeconfig, namespace, pod, container string) command.ICommand,
+	cmdFactory func(*command.K8sEnv) command.ICommand,
 ) {
 	env, err := fetchK8sEnv(ctx, w, r)
 	if err != nil {
@@ -129,7 +122,7 @@ func handleK8sCommand(
 		return
 	}
 
-	cmd := cmdFactory(env.KubeConfig, env.Namespace, env.Pod, env.Container)
+	cmd := cmdFactory(env)
 	handleCommandSession(cmd, w)
 }
 

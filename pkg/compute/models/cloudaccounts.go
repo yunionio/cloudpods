@@ -51,9 +51,7 @@ type SCloudaccount struct {
 	BalanceKey string    `width:"256" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 	LastSync   time.Time `get:"admin" list:"admin"` // = Column(DateTime, nullable=True)
 
-	Version string `width:"32" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
-
-	Sysinfo jsonutils.JSONObject `get:"admin"` // Column(JSONEncodedDict, nullable=True)
+	// Sysinfo jsonutils.JSONObject `get:"admin"` // Column(JSONEncodedDict, nullable=True)
 
 	Provider string `width:"64" charset:"ascii" list:"admin" create:"admin_required"`
 }
@@ -504,12 +502,12 @@ func getSubAccounts(name, accessUrl, account, secret, provider string) ([]cloudp
 	return iprovider.GetSubAccounts()
 }
 
-func (self *SCloudaccount) SaveSysInfo(info jsonutils.JSONObject) {
+/*func (self *SCloudaccount) SaveSysInfo(info jsonutils.JSONObject) {
 	self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Sysinfo = info
 		return nil
 	})
-}
+}*/
 
 func (manager *SCloudaccountManager) FetchCloudaccountById(accountId string) *SCloudaccount {
 	providerObj, err := manager.FetchById(accountId)
@@ -619,8 +617,8 @@ func (self *SCloudaccount) getVersion() string {
 		if err != nil {
 			return ""
 		}
+		ret = append(ret, projId)
 	}
-
 	return strings.Join(ret, ",")
 }
 
@@ -631,9 +629,12 @@ func (self *SCloudaccount) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.
 	extra.Add(jsonutils.NewInt(int64(self.getDiskCount())), "disk_count")
 	extra.Add(jsonutils.NewString(self.getVersion()), "version")
 	projects := jsonutils.NewArray()
-	for _, projectId := range projectIds {
+	for _, projectId := range self.getProjectIds() {
 		if proj, _ := db.TenantCacheManager.FetchTenantById(context.Background(), projectId); proj != nil {
-			projects.Add(jsonutils.Marshal(map[string]string{"tenant_id": projectId, "telnet": proj.Name}))
+			projJson := jsonutils.NewDict()
+			projJson.Add(jsonutils.NewString(proj.Name), "tenant")
+			projJson.Add(jsonutils.NewString(proj.Id), "tenant_id")
+			projects.Add(projJson)
 		}
 	}
 	extra.Add(projects, "projects")
@@ -645,9 +646,12 @@ func (self *SCloudaccount) GetCustomizeColumns(ctx context.Context, userCred mcc
 	return self.getMoreDetails(extra)
 }
 
-func (self *SCloudaccount) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	return self.getMoreDetails(extra)
+func (self *SCloudaccount) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return self.getMoreDetails(extra), nil
 }
 
 func migrateCloudprovider(cloudprovider *SCloudprovider) error {
@@ -682,7 +686,7 @@ func migrateCloudprovider(cloudprovider *SCloudprovider) error {
 		account.AccessUrl = cloudprovider.AccessUrl
 		account.Account = mainAccount
 		account.LastSync = cloudprovider.LastSync
-		account.Sysinfo = cloudprovider.Sysinfo
+		// account.Sysinfo = cloudprovider.Sysinfo
 		account.Provider = cloudprovider.Provider
 		account.Name = providerName
 		account.Status = cloudprovider.Status
@@ -807,4 +811,19 @@ func (self *SCloudaccount) GetVCenterAccessInfo(privateId string) (SVCenterAcces
 	info.PrivateId = privateId
 
 	return info, nil
+}
+
+func (self *SCloudaccount) AllowPerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "change-project")
+}
+
+func (self *SCloudaccount) PerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	providers := self.GetCloudproviders()
+	if len(providers) > 1 {
+		return nil, httperrors.NewInvalidStatusError("multiple subaccounts")
+	}
+	if len(providers) == 0 {
+		return nil, httperrors.NewInvalidStatusError("no subaccount")
+	}
+	return providers[0].PerformChangeProject(ctx, userCred, query, data)
 }

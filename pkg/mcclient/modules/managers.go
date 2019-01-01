@@ -1,5 +1,14 @@
 package modules
 
+func NewResourceManager(serviceType string, keyword, keywordPlural string,
+	columns, adminColumns []string) ResourceManager {
+	return ResourceManager{
+		BaseManager: BaseManager{columns: columns,
+			adminColumns: adminColumns,
+			serviceType:  serviceType},
+		Keyword: keyword, KeywordPlural: keywordPlural}
+}
+
 func NewComputeManager(keyword, keywordPlural string, columns, adminColumns []string) ResourceManager {
 	return ResourceManager{
 		BaseManager: BaseManager{columns: columns,

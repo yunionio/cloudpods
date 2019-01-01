@@ -162,9 +162,12 @@ func (self *SSnapshot) GetCustomizeColumns(ctx context.Context, userCred mcclien
 	return self.getMoreDetails(extra)
 }
 
-func (self *SSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
-	return self.getMoreDetails(extra)
+func (self *SSnapshot) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return self.getMoreDetails(extra), nil
 }
 
 func (self *SSnapshot) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
@@ -576,7 +579,7 @@ func (manager *SSnapshotManager) getProviderSnapshotsByRegion(region *SCloudregi
 		return nil, fmt.Errorf("Region is nil or provider is nil")
 	}
 	snapshots := make([]SSnapshot, 0)
-	q := manager.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id).NotEquals("status", SNAPSHOT_UNKNOWN)
+	q := manager.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id)
 	err := db.FetchModelObjects(manager, q, &snapshots)
 	if err != nil {
 		return nil, err

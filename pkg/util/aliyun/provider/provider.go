@@ -79,6 +79,10 @@ func (self *SAliyunProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	return info, nil
 }
 
+func (self *SAliyunProvider) GetVersion() string {
+	return aliyun.ALIYUN_API_VERSION
+}
+
 func (self *SAliyunProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return self.client.GetSubAccounts()
 }

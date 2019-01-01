@@ -6,24 +6,26 @@ import (
 	"path"
 
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/structarg"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 )
 
 type CommonOptions struct {
-	Port    int    `help:"The port that the service runs on"`
-	Address string `help:"The IP address to serve on (set to 0.0.0.0 for all interfaces)" default:"0.0.0.0"`
+	Port    int    `help:"The port that the service runs on" alias:"bind-port"`
+	Address string `help:"The IP address to serve on (set to 0.0.0.0 for all interfaces)" default:"0.0.0.0" alias:"bind-host"`
 
 	LogLevel        string `help:"log level" default:"info" choices:"debug|info|warn|error"`
 	LogVerboseLevel int    `help:"log verbosity level" default:"0"`
 
-	Region             string   `help:"Region name or ID"`
+	Region             string   `help:"Region name or ID" alias:"auth-region"`
 	AuthURL            string   `help:"Keystone auth URL" alias:"auth-uri"`
 	AdminUser          string   `help:"Admin username"`
 	AdminDomain        string   `help:"Admin user domain"`
-	AdminPassword      string   `help:"Admin password"`
+	AdminPassword      string   `help:"Admin password" alias:"admin-passwd"`
 	AdminProject       string   `help:"Admin project" default:"system" alias:"admin-tenant-name"`
 	CorsHosts          []string `help:"List of hostname that allow CORS"`
 	AuthTokenCacheSize uint32   `help:"Auth token Cache Size" default:"2048"`
@@ -37,8 +39,9 @@ type CommonOptions struct {
 	NotifyAdminUser string `default:"sysadmin" help:"System administrator user ID or name to notify"`
 
 	EnableSsl   bool   `help:"Enable https"`
-	SslCertfile string `help:"ssl certification file"`
-	SslKeyfile  string `help:"ssl certification key file"`
+	SslCafile   string `help:"ssl certificate ca root file, separating ca and cert file is not encouraged" alias:"ca-file"`
+	SslCertfile string `help:"ssl certification file, normally combines all the certificates in the chain" alias:"cert-file"`
+	SslKeyfile  string `help:"ssl certification private key file" alias:"key-file"`
 
 	EnableRbac                       bool `help:"Switch on Role-based Access Control" default:"true"`
 	RbacDebug                        bool `help:"turn on rbac debug log" default:"false"`
@@ -60,16 +63,19 @@ func (this *DBOptions) GetDBConnection() (dialect, connstr string, err error) {
 	return utils.TransSQLAchemyURL(this.SqlConnection)
 }
 
-func ParseOptions(optStruct interface{}, optionsRef *CommonOptions, args []string, configFileName string) {
-	if len(consts.GetServiceType()) == 0 {
-		log.Fatalf("ServiceType not initialized!")
+func ParseOptions(optStruct interface{}, args []string, configFileName string, serviceType string) {
+	if len(serviceType) == 0 {
+		log.Fatalf("ServiceType must provided!")
 	}
 
+	consts.SetServiceType(serviceType)
+
 	serviceName := path.Base(args[0])
+
 	parser, err := structarg.NewArgumentParser(optStruct,
 		serviceName,
 		fmt.Sprintf(`Yunion cloud service - %s`, serviceName),
-		`Yunion Technology @ 2018`)
+		`Yunion Technology Co. Ltd. @ 2018-2019`)
 	if err != nil {
 		log.Fatalf("Error define argument parser: %v", err)
 	}
@@ -77,6 +83,23 @@ func ParseOptions(optStruct interface{}, optionsRef *CommonOptions, args []strin
 	err = parser.ParseArgs(args[1:], false)
 	if err != nil {
 		log.Fatalf("Parse arguments error: %v", err)
+	}
+
+	var optionsRef *CommonOptions
+
+	err = reflectutils.FindAnonymouStructPointer(optStruct, &optionsRef)
+	if err != nil {
+		log.Fatalf("Find common options fail %s", err)
+	}
+
+	if optionsRef.Help {
+		fmt.Println(parser.HelpString())
+		os.Exit(0)
+	}
+
+	if optionsRef.Version {
+		fmt.Printf("Yunion cloud version:\n%s", version.GetJsonString())
+		os.Exit(0)
 	}
 
 	if len(optionsRef.Config) == 0 {
@@ -96,16 +119,6 @@ func ParseOptions(optStruct interface{}, optionsRef *CommonOptions, args []strin
 		if err != nil {
 			log.Fatalf("Parse configuration file: %v", err)
 		}
-	}
-
-	if optionsRef.Help {
-		fmt.Println(parser.HelpString())
-		os.Exit(0)
-	}
-
-	if optionsRef.Version {
-		fmt.Printf("Yunion cloud version:\n%s", version.GetJsonString())
-		os.Exit(0)
 	}
 
 	if len(optionsRef.ApplicationID) == 0 {

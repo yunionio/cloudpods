@@ -151,6 +151,9 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 		data.Add(jsonutils.NewString(self.image.OsName), "os_distribution")
 	}
 
+	priceKey := fmt.Sprintf("%s::%s", self.host.zone.Zone, self.InstanceType)
+	data.Add(jsonutils.NewString(priceKey), "price_key")
+
 	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
 	priceKey := fmt.Sprintf("%s::%s", self.host.zone.Zone, self.InstanceType)
 	data.Add(jsonutils.NewString(priceKey), "price_key")

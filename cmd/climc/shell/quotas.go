@@ -7,71 +7,35 @@ import (
 )
 
 type QuotaBaseOptions struct {
-	Cpu            int64 `help:"CPU count"`
-	Memory         int64 `help:"Memory size in MB"`
-	Storage        int64 `help:"Storage size in MB"`
-	Port           int64 `help:"Internal NIC count"`
-	Eport          int64 `help:"External NIC count"`
-	Eip            int64 `help:"Elastic IP count"`
-	Bw             int64 `help:"Internal bandwidth in Mbps"`
-	Ebw            int64 `help:"External bandwidth in Mbps"`
-	Image          int64 `help:"Template count"`
-	IsolatedDevice int64 `help:"Isolated device count"`
-	Snapshot       int64 `help:"Snapshot count"`
-}
-
-func quotaArgs2Params(args *QuotaBaseOptions) *jsonutils.JSONDict {
-	params := jsonutils.NewDict()
-	if args.Cpu > 0 {
-		params.Add(jsonutils.NewInt(args.Cpu), "cpu")
-	}
-	if args.Memory > 0 {
-		params.Add(jsonutils.NewInt(args.Memory), "memory")
-	}
-	if args.Storage > 0 {
-		params.Add(jsonutils.NewInt(args.Storage), "storage")
-	}
-	if args.Image > 0 {
-		params.Add(jsonutils.NewInt(args.Image), "image")
-	}
-	if args.Port > 0 {
-		params.Add(jsonutils.NewInt(args.Port), "port")
-	}
-	if args.Eport > 0 {
-		params.Add(jsonutils.NewInt(args.Eport), "eport")
-	}
-	if args.Eip > 0 {
-		params.Add(jsonutils.NewInt(args.Eip), "eip")
-	}
-	if args.Bw > 0 {
-		params.Add(jsonutils.NewInt(args.Bw), "bw")
-	}
-	if args.Ebw > 0 {
-		params.Add(jsonutils.NewInt(args.Ebw), "ebw")
-	}
-	if args.IsolatedDevice > 0 {
-		params.Add(jsonutils.NewInt(args.IsolatedDevice), "isolated_device")
-	}
-	if args.Snapshot > 0 {
-		params.Add(jsonutils.NewInt(args.Snapshot), "snapshot")
-	}
-	return params
+	Cpu            int64 `help:"CPU count" json:"cpu,omitzero"`
+	Memory         int64 `help:"Memory size in MB" json:"memory,omitzero"`
+	Storage        int64 `help:"Storage size in MB" json:"storage,omitzero"`
+	Port           int64 `help:"Internal NIC count" json:"port,omitzero"`
+	Eport          int64 `help:"External NIC count" json:"eport,omitzero"`
+	Eip            int64 `help:"Elastic IP count" json:"eip,omitzero"`
+	Bw             int64 `help:"Internal bandwidth in Mbps" json:"bw,omitzero"`
+	Ebw            int64 `help:"External bandwidth in Mbps" json:"ebw,omitzero"`
+	IsolatedDevice int64 `help:"Isolated device count" json:"isolated_device,omitzero"`
+	Snapshot       int64 `help:"Snapshot count" json:"snapshot,omitzero"`
+	Image          int64 `help:"Template count" json:"image,omitzero"`
 }
 
 func init() {
 	type QuotaOptions struct {
 		Tenant string `help:"Tenant name of ID"`
-		User   string `help:"User name of ID"`
 	}
 	R(&QuotaOptions{}, "quota", "Show quota for current user or tenant", func(s *mcclient.ClientSession, args *QuotaOptions) error {
-		params := jsonutils.NewDict()
-		if len(args.Tenant) > 0 {
-			params.Add(jsonutils.NewString(args.Tenant), "tenant")
-		}
-		if len(args.User) > 0 {
-			params.Add(jsonutils.NewString(args.User), "user")
-		}
+		params := jsonutils.Marshal(args)
 		result, err := modules.Quotas.GetQuota(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+	R(&QuotaOptions{}, "image-quota", "Show image quota for current user or tenant", func(s *mcclient.ClientSession, args *QuotaOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.ImageQuotas.GetQuota(s, params)
 		if err != nil {
 			return err
 		}
@@ -80,18 +44,11 @@ func init() {
 	})
 
 	type QuotaSetOptions struct {
-		Tenant string `help:"Tenant name or ID to set quota"`
-		User   string `help:"User name of ID"`
+		Tenant string `help:"Tenant name or ID to set quota" json:"tenant,omitempty"`
 		QuotaBaseOptions
 	}
 	R(&QuotaSetOptions{}, "quota-set", "Set quota for tenant", func(s *mcclient.ClientSession, args *QuotaSetOptions) error {
-		params := quotaArgs2Params(&args.QuotaBaseOptions)
-		if len(args.Tenant) > 0 {
-			params.Add(jsonutils.NewString(args.Tenant), "tenant")
-		}
-		if len(args.User) > 0 {
-			params.Add(jsonutils.NewString(args.User), "user")
-		}
+		params := jsonutils.Marshal(args)
 		result, e := modules.Quotas.DoQuotaSet(s, params)
 		if e != nil {
 			return e
@@ -101,12 +58,11 @@ func init() {
 	})
 
 	type QuotaCheckOptions struct {
-		TENANT string `help:"Tenant name or ID to check quota"`
+		TENANT string `help:"Tenant name or ID to check quota" json:"tenant,omitempty"`
 		QuotaBaseOptions
 	}
 	R(&QuotaCheckOptions{}, "quota-check", "Check quota for tenant", func(s *mcclient.ClientSession, args *QuotaCheckOptions) error {
-		params := quotaArgs2Params(&args.QuotaBaseOptions)
-		params.Add(jsonutils.NewString(args.TENANT), "tenant")
+		params := jsonutils.Marshal(args)
 		result, e := modules.Quotas.DoQuotaCheck(s, params)
 		if e != nil {
 			return e

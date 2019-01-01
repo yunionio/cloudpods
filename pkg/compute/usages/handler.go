@@ -83,7 +83,19 @@ func rangeObjHandler(
 		}
 		projectName := json.GetAnyString(getQuery(r), []string{"project", "tenant"})
 		if projectName != "" {
-			userCred, err = generateProjectUserCred(ctx, userCred, projectName)
+			isAllow := false
+			if consts.IsRbacEnabled() {
+				result := policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
+					policy.PolicyDelegation, policy.PolicyActionGet)
+				isAllow = result == rbacutils.AdminAllow
+			} else {
+				isAllow = userCred.IsAdminAllow(consts.GetServiceType(), policy.PolicyDelegation, policy.PolicyActionGet)
+			}
+			if !isAllow {
+				httperrors.ForbiddenError(w, "not allow to delegate query usage")
+				return
+			}
+			userCred, err = db.TenantCacheManager.GenerateProjectUserCred(ctx, projectName)
 			if err != nil {
 				httperrors.GeneralServerError(w, err)
 				return
@@ -100,19 +112,6 @@ func rangeObjHandler(
 		}
 		response(w, usage)
 	}
-}
-
-func generateProjectUserCred(ctx context.Context, userCred mcclient.TokenCredential, projectName string) (mcclient.TokenCredential, error) {
-	project, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, projectName)
-	if err != nil {
-		return nil, err
-	}
-	return &mcclient.SSimpleToken{
-		Domain:    project.Domain,
-		DomainId:  project.DomainId,
-		Project:   project.Name,
-		ProjectId: project.Id,
-	}, nil
 }
 
 func addHandler(prefix, rangeObjKey string, hf appsrv.FilterHandler, app *appsrv.Application) {

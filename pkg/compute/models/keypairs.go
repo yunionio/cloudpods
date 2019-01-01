@@ -35,11 +35,11 @@ func init() {
 type SKeypair struct {
 	db.SStandaloneResourceBase
 
-	Scheme      string `width:"12" charset:"ascii" nullable:"true" default:"RSA" list:"user" create:"required"` // Column(VARCHAR(length=12, charset='ascii'), nullable=True, default='RSA')
-	Fingerprint string `width:"48" charset:"ascii" nullable:"false" list:"user" create:"required"`              // Column(VARCHAR(length=48, charset='ascii'), nullable=False)
-	PrivateKey  string `width:"2048" charset:"ascii" nullable:"false" create:"optional"`                        // Column(VARCHAR(length=2048, charset='ascii'), nullable=False)
-	PublicKey   string `width:"1024" charset:"ascii" nullable:"false" list:"user" create:"required"`            // Column(VARCHAR(length=1024, charset='ascii'), nullable=False)
-	OwnerId     string `width:"128" charset:"ascii" index:"true" nullable:"false" create:"required"`            // Column(VARCHAR(length=36, charset='ascii'), index=True, nullable=False)
+	Scheme      string `width:"12" charset:"ascii" nullable:"true" list:"user" create:"required"`    // Column(VARCHAR(length=12, charset='ascii'), nullable=True, default='RSA')
+	Fingerprint string `width:"48" charset:"ascii" nullable:"false" list:"user" create:"required"`   // Column(VARCHAR(length=48, charset='ascii'), nullable=False)
+	PrivateKey  string `width:"2048" charset:"ascii" nullable:"false" create:"optional"`             // Column(VARCHAR(length=2048, charset='ascii'), nullable=False)
+	PublicKey   string `width:"1024" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(length=1024, charset='ascii'), nullable=False)
+	OwnerId     string `width:"128" charset:"ascii" index:"true" nullable:"false" create:"required"` // Column(VARCHAR(length=36, charset='ascii'), index=True, nullable=False)
 }
 
 func (manager *SKeypairManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
@@ -81,8 +81,11 @@ func (self *SKeypair) GetCustomizeColumns(ctx context.Context, userCred mcclient
 	return extra
 }
 
-func (self *SKeypair) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SKeypair) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
 	extra.Add(jsonutils.NewInt(int64(len(self.PrivateKey))), "private_key_len")
 	extra.Add(jsonutils.NewInt(int64(self.GetLinkedGuestsCount())), "linked_guest_count")
 	if db.IsAdminAllowGet(userCred, self) {
@@ -92,7 +95,7 @@ func (self *SKeypair) GetExtraDetails(ctx context.Context, userCred mcclient.Tok
 			extra.Add(jsonutils.NewString(uc.Name), "owner_name")
 		}
 	}
-	return extra
+	return extra, nil
 }
 
 func (manager *SKeypairManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

@@ -389,9 +389,9 @@ func (lblis *SLoadbalancerListener) GetCustomizeColumns(ctx context.Context, use
 	return extra
 }
 
-func (lblis *SLoadbalancerListener) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+func (lblis *SLoadbalancerListener) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 	extra := lblis.GetCustomizeColumns(ctx, userCred, query)
-	return extra
+	return extra, nil
 }
 
 func (lblis *SLoadbalancerListener) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {

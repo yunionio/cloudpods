@@ -6,24 +6,24 @@ import (
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/reflectutils"
-	"yunion.io/x/pkg/utils"
 )
 
-func structField2ColumnSpec(field *reflect.StructField) IColumnSpec {
-	fieldname := reflectutils.GetStructFieldName(field)
-	tagmap := utils.TagMap(field.Tag)
+func structField2ColumnSpec(field *reflectutils.SStructFieldValue) IColumnSpec {
+	fieldname := field.Info.MarshalName()
+	tagmap := field.Info.Tags
 	if _, ok := tagmap[TAG_IGNORE]; ok {
 		return nil
 	}
-	var retCol = getFiledTypeCol(field.Type, fieldname, tagmap)
-	if retCol == nil && field.Type.Kind() == reflect.Ptr {
-		retCol = getFiledTypeCol(field.Type.Elem(), fieldname, tagmap)
+	fieldType := field.Value.Type()
+	var retCol = getFiledTypeCol(fieldType, fieldname, tagmap)
+	if retCol == nil && fieldType.Kind() == reflect.Ptr {
+		retCol = getFiledTypeCol(fieldType.Elem(), fieldname, tagmap)
 		if retCol != nil {
 			retCol.SetIsPointer()
 		}
 	}
 	if retCol == nil {
-		panic("not supported type %s" + field.Type.Name())
+		panic("unsupported colume data type %s" + fieldType.Name())
 	}
 	return retCol
 }
@@ -97,6 +97,7 @@ func getFiledTypeCol(fieldType reflect.Type, fieldname string, tagmap map[string
 	return nil
 }
 
+<<<<<<< HEAD
 func struct2TableSpec(st reflect.Type, table *STableSpec) {
 	for i := 0; i < st.NumField(); i++ {
 		f := st.Field(i)
@@ -109,7 +110,17 @@ func struct2TableSpec(st reflect.Type, table *STableSpec) {
 					table.AddIndex(column.IsUnique(), column.Name())
 				}
 				table.columns = append(table.columns, column)
+=======
+func struct2TableSpec(sv reflect.Value, table *STableSpec) {
+	fields := reflectutils.FetchStructFieldValueSet(sv)
+	for i := 0; i < len(fields); i += 1 {
+		column := structField2ColumnSpec(&fields[i])
+		if column != nil {
+			if column.IsIndex() {
+				table.AddIndex(column.IsUnique(), column.Name())
+>>>>>>> release/2.5.0
 			}
+			table.columns = append(table.columns, column)
 		}
 	}
 }

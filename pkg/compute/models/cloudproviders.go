@@ -46,6 +46,10 @@ var (
 	CLOUD_PROVIDER_VALID_STATUS = []string{CLOUD_PROVIDER_CONNECTED, CLOUD_PROVIDER_START_SYNC, CLOUD_PROVIDER_SYNCING}
 )
 
+var (
+	CLOUD_PROVIDER_VALID_STATUS = []string{CLOUD_PROVIDER_CONNECTED, CLOUD_PROVIDER_START_SYNC, CLOUD_PROVIDER_SYNCING}
+)
+
 type SCloudproviderManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
 }
@@ -494,9 +498,10 @@ func (self *SCloudprovider) GetCloudaccount() *SCloudaccount {
 	return CloudaccountManager.FetchCloudaccountById(self.CloudaccountId)
 }
 
-func (self *SCloudprovider) SaveSysInfo(info jsonutils.JSONObject) {
+func (self *SCloudprovider) SaveSysInfo(info jsonutils.JSONObject, version string) {
 	self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Sysinfo = info
+		self.Version = version
 		return nil
 	})
 }
@@ -595,9 +600,12 @@ func (self *SCloudprovider) GetCustomizeColumns(ctx context.Context, userCred mc
 	return self.getMoreDetails(ctx, extra)
 }
 
-func (self *SCloudprovider) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	return self.getMoreDetails(ctx, extra)
+func (self *SCloudprovider) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return self.getMoreDetails(ctx, extra), nil
 }
 
 func (manager *SCloudproviderManager) InitializeData() error {

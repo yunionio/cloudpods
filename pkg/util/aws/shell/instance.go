@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"context"
 	"yunion.io/x/onecloud/pkg/util/aws"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -136,7 +135,8 @@ func init() {
 	}
 
 	shellutils.R(&InstanceRebuildRootOptions{}, "instance-rebuild-root", "Reinstall virtual server system image", func(cli *aws.SRegion, args *InstanceRebuildRootOptions) error {
-		diskID, err := cli.ReplaceSystemDisk(context.Background(), args.ID, args.Image, args.Size)
+		ctx := context.Background()
+		diskID, err := cli.ReplaceSystemDisk(ctx, args.ID, args.Image, args.Size)
 		if err != nil {
 			return err
 		}

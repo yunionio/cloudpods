@@ -12,7 +12,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
-	"time"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -51,7 +50,7 @@ func NewAliyunClient(providerId string, providerName string, accessKey string, s
 
 func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	for i := 1; i < 4; i++ {
-		resp, err := _jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params)
+		resp, err := _jsonRequest(client, domain, apiVersion, apiName, params)
 		retry := false
 		if err != nil {
 			for _, code := range []string{"SignatureNonceUsed", "InvalidInstance.NotSupported"} {

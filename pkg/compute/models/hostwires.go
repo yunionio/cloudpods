@@ -56,10 +56,13 @@ func (self *SHostwire) GetCustomizeColumns(ctx context.Context, userCred mcclien
 	return self.getExtraDetails(extra)
 }
 
-func (self *SHostwire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SHostJointsBase.GetExtraDetails(ctx, userCred, query)
+func (self *SHostwire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SHostJointsBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
 	extra = db.JointModelExtra(self, extra)
-	return self.getExtraDetails(extra)
+	return self.getExtraDetails(extra), nil
 }
 
 func (hw *SHostwire) GetWire() *SWire {

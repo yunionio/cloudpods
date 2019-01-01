@@ -3,7 +3,6 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"regexp"
 	"strings"
 
@@ -118,7 +117,7 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 	if len(netConfig.Wire) > 0 {
 		wirePattern = regexp.MustCompile(netConfig.Wire)
 	}
-	for _, netif := range netifs {
+	for idx, netif := range netifs {
 		if !netif.IsUsableServernic() {
 			continue
 		}
@@ -137,7 +136,7 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 		}
 		if net != nil {
 			netsAvaiable = append(netsAvaiable, *net)
-			netifIndexs[net.Id] = &netif
+			netifIndexs[net.Id] = &netifs[idx]
 		}
 	}
 	if len(netsAvaiable) == 0 {
@@ -173,9 +172,7 @@ func (self *SBaremetalGuestDriver) RequestStartOnHost(ctx context.Context, guest
 	desc := guest.GetJsonDescAtBaremetal(ctx, host)
 	config := jsonutils.NewDict()
 	config.Set("desc", desc)
-	headers := http.Header{}
-	headers.Set("X-Auth-Token", task.GetUserCred().GetTokenString())
-	headers.Set("X-Task-Id", task.GetTaskId())
+	headers := task.GetTaskRequestHeader()
 	url := fmt.Sprintf("/baremetals/%s/servers/%s/start", host.Id, guest.Id)
 	return host.BaremetalSyncRequest(ctx, "POST", url, headers, config)
 }
@@ -213,9 +210,7 @@ func (self *SBaremetalGuestDriver) RequestStopOnHost(ctx context.Context, guest 
 		timeout = 0
 	}
 	body.Set("timeout", jsonutils.NewInt(timeout))
-	headers := http.Header{}
-	headers.Set("X-Auth-Token", task.GetUserCred().GetTokenString())
-	headers.Set("X-Task-Id", task.GetTaskId())
+	headers := task.GetTaskRequestHeader()
 	url := fmt.Sprintf("/baremetals/%s/servers/%s/stop", host.Id, guest.Id)
 	_, err = host.BaremetalSyncRequest(ctx, "POST", url, headers, body)
 	return err
@@ -232,9 +227,7 @@ func (self *SBaremetalGuestDriver) StartGuestStopTask(guest *models.SGuest, ctx 
 
 func (self *SBaremetalGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	url := fmt.Sprintf("/baremetals/%s/servers/%s", host.Id, guest.Id)
-	headers := http.Header{}
-	headers.Set("X-Auth-Token", task.GetUserCred().GetTokenString())
-	headers.Set("X-Task-Id", task.GetTaskId())
+	headers := task.GetTaskRequestHeader()
 	_, err := host.BaremetalSyncRequest(ctx, "DELETE", url, headers, nil)
 	return err
 }
@@ -300,7 +293,7 @@ func (self *SBaremetalGuestDriver) GetJsonDescAtHost(ctx context.Context, guest 
 	return guest.GetJsonDescAtBaremetal(ctx, host)
 }
 
-func (self *SBaremetalGuestDriver) GetGuestVncInfo(userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
+func (self *SBaremetalGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) (*jsonutils.JSONDict, error) {
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewString(host.Id), "host_id")
 	zone := host.GetZone()
@@ -368,9 +361,7 @@ func (self *SBaremetalGuestDriver) RequestDeployGuestOnHost(ctx context.Context,
 		config.Set("on_finish", jsonutils.NewString("restart"))
 	}
 	url := fmt.Sprintf("/baremetals/%s/servers/%s/%s", host.Id, guest.Id, val)
-	headers := http.Header{}
-	headers.Set("X-Auth-Token", task.GetUserCred().GetTokenString())
-	headers.Set("X-Task-Id", task.GetTaskId())
+	headers := task.GetTaskRequestHeader()
 	_, err := host.BaremetalSyncRequest(ctx, "POST", url, headers, config)
 	return err
 }

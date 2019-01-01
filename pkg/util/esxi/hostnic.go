@@ -1,5 +1,9 @@
 package esxi
 
+import (
+	"yunion.io/x/pkg/tristate"
+)
+
 type SHostNicInfo struct {
 	Dev     string
 	Driver  string
@@ -27,8 +31,11 @@ func (nic *SHostNicInfo) GetIndex() int8 {
 	return nic.Index
 }
 
-func (nic *SHostNicInfo) IsLinkUp() bool {
-	return nic.LinkUp
+func (nic *SHostNicInfo) IsLinkUp() tristate.TriState {
+	if nic.LinkUp {
+		return tristate.True
+	}
+	return tristate.False
 }
 
 func (nic *SHostNicInfo) GetIpAddr() string {

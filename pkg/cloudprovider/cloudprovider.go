@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"errors"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 )
@@ -22,6 +23,7 @@ type ICloudProvider interface {
 	GetId() string
 	GetName() string
 	GetSysInfo() (jsonutils.JSONObject, error)
+	GetVersion() string
 	IsPublicCloud() bool
 	IsOnPremiseInfrastructure() bool
 
@@ -59,15 +61,6 @@ func GetProviderDriver(provider string) (ICloudProviderFactory, error) {
 	return nil, fmt.Errorf("No such provider %s", provider)
 }
 
-func GetProvider(providerId, providerName, accessUrl, account, secret, provider string) (ICloudProvider, error) {
-	factory, ok := providerTable[provider]
-	if ok {
-		return factory, nil
-	}
-	log.Errorf("Provider %s not registerd", provider)
-	return nil, fmt.Errorf("No such provider %s", provider)
-}
-
 func GetRegistedProviderIds() []string {
 	providers := []string{}
 	for id := range providerTable {
@@ -75,6 +68,14 @@ func GetRegistedProviderIds() []string {
 	}
 
 	return providers
+}
+
+func GetProvider(providerId, providerName, accessUrl, account, secret, provider string) (ICloudProvider, error) {
+	driver, err := GetProviderDriver(provider)
+	if err != nil {
+		return nil, err
+	}
+	return driver.GetProvider(providerId, providerName, accessUrl, account, secret)
 }
 
 func IsSupported(provider string) bool {

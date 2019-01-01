@@ -869,10 +869,13 @@ func (self *SNetwork) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSOND
 	return extra
 }
 
-func (self *SNetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+func (self *SNetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
 	extra = self.getMoreDetails(extra)
-	return extra
+	return extra, nil
 }
 
 func (self *SNetwork) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {

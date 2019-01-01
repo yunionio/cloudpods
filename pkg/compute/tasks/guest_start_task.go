@@ -25,7 +25,7 @@ func (self *GuestStartTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 }
 
 func (self *GuestStartTask) checkTemplate(ctx context.Context, guest *models.SGuest) {
-	diskCat := guest.CategorizeDisks()
+	/*diskCat := guest.CategorizeDisks()
 	if diskCat.Root != nil && len(diskCat.Root.GetTemplateId()) > 0 {
 		if len(guest.BackupHostId) > 0 {
 			self.SetStage("OnMasterHostTemplateReady", nil)
@@ -35,7 +35,8 @@ func (self *GuestStartTask) checkTemplate(ctx context.Context, guest *models.SGu
 		guest.GetDriver().CheckDiskTemplateOnStorage(ctx, self.UserCred, diskCat.Root.GetTemplateId(), diskCat.Root.StorageId, self)
 	} else {
 		self.startStart(ctx, guest)
-	}
+	}*/
+	self.startStart(ctx, guest)
 }
 
 func (self *GuestStartTask) OnMasterHostTemplateReady(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -84,7 +85,7 @@ func (self *GuestStartTask) RequestStartBacking(ctx context.Context, guest *mode
 	guest.SetStatus(self.UserCred, models.VM_BACKUP_STARTING, "")
 	result, err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self)
 	if err != nil {
-		self.onStartGuestFailed(ctx, guest, err)
+		self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	} else {
 		if result != nil && jsonutils.QueryBoolean(result, "is_running", false) {
 			self.OnStartBackupGuestComplete(ctx, guest, nil)
@@ -100,11 +101,15 @@ func (self *GuestStartTask) OnStartBackupGuestComplete(ctx context.Context, gues
 			nbdServerUri := fmt.Sprintf("nbd:%s:%d", backupHost.AccessIp, nbdServerPort)
 			guest.SetMetadata(ctx, "backup_nbd_server_uri", nbdServerUri, self.UserCred)
 		} else {
-			self.onStartGuestFailed(ctx, guest, fmt.Errorf("Start backup guest result missing nbd_server_port"))
+			self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString("Start backup guest result missing nbd_server_port"))
 			return
 		}
 	}
 	self.RequestStart(ctx, guest)
+}
+
+func (self *GuestStartTask) OnStartBackupGuestCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.OnStartCompleteFailed(ctx, guest, data)
 }
 
 func (self *GuestStartTask) OnStartComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

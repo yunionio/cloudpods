@@ -75,7 +75,7 @@ type SElasticip struct {
 
 	Bandwidth int `list:"user" create:"required"`
 
-	ChargeType string `list:"user" create:"required" default:"traffic"`
+	ChargeType string `list:"user" create:"required"`
 
 	AutoDellocate tristate.TriState `default:"false" get:"user" create:"optional"`
 
@@ -704,9 +704,12 @@ func (self *SElasticip) StartEipSyncstatusTask(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (self *SElasticip) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
-	return self.getMoreDetails(extra)
+func (self *SElasticip) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return self.getMoreDetails(extra), nil
 }
 
 func (self *SElasticip) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
@@ -765,13 +768,6 @@ func (manager *SElasticipManager) allocateEipAndAssociateVM(ctx context.Context,
 
 func (self *SElasticip) AllowPerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "change-bandwidth")
-}
-
-func (self *SElasticip) GetProviderDriver() (cloudprovider.ICloudProviderFactory, error) {
-	if provider := self.GetCloudprovider(); provider != nil {
-		return provider.GetProviderDriver()
-	}
-	return nil, fmt.Errorf("failed to find provider for eip %s", self.Name)
 }
 
 func (self *SElasticip) GetProviderDriver() (cloudprovider.ICloudProviderFactory, error) {

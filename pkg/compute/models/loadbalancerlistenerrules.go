@@ -171,9 +171,9 @@ func (lbr *SLoadbalancerListenerRule) GetCustomizeColumns(ctx context.Context, u
 	return extra
 }
 
-func (lbr *SLoadbalancerListenerRule) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+func (lbr *SLoadbalancerListenerRule) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 	extra := lbr.GetCustomizeColumns(ctx, userCred, query)
-	return extra
+	return extra, nil
 }
 
 func (lbr *SLoadbalancerListenerRule) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {

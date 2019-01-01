@@ -23,34 +23,14 @@ func (self *SBillingResourceBase) GetChargeType() string {
 	}
 }
 
-type SCloudBillingInfo struct {
-	Provider           string    `json:",omitempty"`
-	Account            string    `json:",omitempty"`
-	AccountId          string    `json:",omitempty"`
-	Manager            string    `json:",omitempty"`
-	ManagerId          string    `json:",omitempty"`
-	ManagerProject     string    `json:",omitempty"`
-	ManagerProjectId   string    `json:",omitempty"`
-	Region             string    `json:",omitempty"`
-	RegionId           string    `json:",omitempty"`
-	RegionExtId        string    `json:",omitempty"`
-	Zone               string    `json:",omitempty"`
-	ZoneId             string    `json:",omitempty"`
-	ZoneExtId          string    `json:",omitempty"`
-	PriceKey           string    `json:",omitempty"`
-	ChargeType         string    `json:",omitempty"`
-	InternetChargeType string    `json:",omitempty"`
-	ExpiredAt          time.Time `json:",omitempty"`
-	BillingCycle       string    `json:",omitempty"`
-}
-
-type SCloudBillingInfo struct {
-	SCloudProviderInfo
-
-	SBillingBaseInfo
-
-	PriceKey           string `json:",omitempty"`
-	InternetChargeType string `json:",omitempty"`
+func (self *SBillingResourceBase) getBillingBaseInfo() SBillingBaseInfo {
+	info := SBillingBaseInfo{}
+	info.ChargeType = self.GetChargeType()
+	if self.GetChargeType() == BILLING_TYPE_PREPAID {
+		info.ExpiredAt = self.ExpiredAt
+		info.BillingCycle = self.BillingCycle
+	}
+	return info
 }
 
 func (self *SBillingResourceBase) IsValidPrePaid() bool {
@@ -61,4 +41,19 @@ func (self *SBillingResourceBase) IsValidPrePaid() bool {
 		}
 	}
 	return false
+}
+
+type SBillingBaseInfo struct {
+	ChargeType   string    `json:",omitempty"`
+	ExpiredAt    time.Time `json:",omitempty"`
+	BillingCycle string    `json:",omitempty"`
+}
+
+type SCloudBillingInfo struct {
+	SCloudProviderInfo
+
+	SBillingBaseInfo
+
+	PriceKey           string `json:",omitempty"`
+	InternetChargeType string `json:",omitempty"`
 }

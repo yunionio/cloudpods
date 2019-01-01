@@ -30,6 +30,7 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 	osArch, _ := params.GetString("os_arch")
 	osType, _ := params.GetString("os_type")
 	osDist, _ := params.GetString("os_distribution")
+	osVersion, _ := params.GetString("os_version")
 
 	isForce := jsonutils.QueryBoolean(params, "is_force", false)
 	userCred := task.GetUserCred()

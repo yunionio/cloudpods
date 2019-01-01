@@ -112,4 +112,20 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type ImageUsageOptions struct {
+		Project string `help:"check image usage of a project"`
+	}
+	R(&ImageUsageOptions{}, "image-usage", "Show general usage of images", func(s *mcclient.ClientSession, args *ImageUsageOptions) error {
+		params := jsonutils.NewDict()
+		if args.Project != "" {
+			params.Add(jsonutils.NewString(args.Project), "project")
+		}
+		result, err := modules.Images.GetUsage(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

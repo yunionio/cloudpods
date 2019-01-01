@@ -582,11 +582,14 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	// disk
 	blockDevices := []*ec2.BlockDeviceMapping{}
 	for i, disk := range disks {
+		var ebs ec2.EbsBlockDevice
+		var deviceName string
+
 		if i == 0 {
 			var size int64
 			deleteOnTermination := true
 			size = int64(disk.Size)
-			ebs := &ec2.EbsBlockDevice{
+			ebs = ec2.EbsBlockDevice{
 				DeleteOnTermination: &deleteOnTermination,
 				// The st1 volume type cannot be used for boot volumes. Please use a supported boot volume type: standard,io1,gp2.
 				// the encrypted flag cannot be specified since device /dev/sda1 has a snapshot specified.
@@ -595,17 +598,11 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 				VolumeType: &disk.Category,
 			}
 
-			divceName := fmt.Sprintf("/dev/sda1")
-			blockDevice := &ec2.BlockDeviceMapping{
-				DeviceName: &divceName,
-				Ebs:        ebs,
-			}
-
-			blockDevices = append(blockDevices, blockDevice)
+			deviceName = fmt.Sprintf("/dev/sda1")
 		} else {
 			var size int64
 			size = int64(disk.Size)
-			ebs := &ec2.EbsBlockDevice{
+			ebs = ec2.EbsBlockDevice{
 				DeleteOnTermination: &disk.DeleteWithInstance,
 				Encrypted:           &disk.Encrypted,
 				VolumeSize:          &size,
@@ -613,14 +610,26 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 			}
 			// todo: generator device name
 			// todo: 这里还需要测试预置硬盘的实例。deviceName是否会冲突。
-			deviceName := fmt.Sprintf("/dev/sd%s", string(98+i))
-			blockDevice := &ec2.BlockDeviceMapping{
-				DeviceName: &deviceName,
-				Ebs:        ebs,
-			}
-
-			blockDevices = append(blockDevices, blockDevice)
+			deviceName = fmt.Sprintf("/dev/sd%s", string(98+i))
 		}
+
+		// io1类型的卷需要指定IOPS参数。这里根据aws网站的建议值进行设置
+		// 卷每增加1G。IOPS增加50。最大不超过32000
+		if disk.Category == models.STORAGE_IO1_SSD {
+			iops := int64(disk.Size * 50)
+			if iops < 32000 {
+				ebs.SetIops(iops)
+			} else {
+				ebs.SetIops(32000)
+			}
+		}
+
+		blockDevice := &ec2.BlockDeviceMapping{
+			DeviceName: &deviceName,
+			Ebs:        &ebs,
+		}
+
+		blockDevices = append(blockDevices, blockDevice)
 	}
 
 	// tags

@@ -217,7 +217,7 @@ func _getModule(session *mcclient.ClientSession, name string) (BaseManagerInterf
 	}
 	mods, ok := modtable[name]
 	if !ok {
-		return nil, fmt.Errorf("No such module: %s", name)
+		return nil, fmt.Errorf("No such module %s for version %s", name, session.GetApiVersion())
 	}
 	for _, mod := range mods {
 		url, e := session.GetServiceURL(mod.ServiceType(), mod.EndpointType())

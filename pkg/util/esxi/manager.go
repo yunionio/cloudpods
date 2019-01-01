@@ -107,6 +107,10 @@ func (cli *SESXiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return []cloudprovider.SSubAccount{subAccount}, nil
 }
 
+func (cli *SESXiClient) GetVersion() string {
+	return cli.client.ServiceContent.About.Version
+}
+
 func (cli *SESXiClient) About() jsonutils.JSONObject {
 	about := jsonutils.Marshal(&cli.client.ServiceContent.About)
 	aboutDict := about.(*jsonutils.JSONDict)

@@ -158,7 +158,7 @@ func (self *SESXiHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, h
 
 	header := task.GetTaskRequestHeader()
 
-	_, err = agent.Request(task.GetUserCred(), "POST", url, header, body)
+	_, err = agent.Request(ctx, task.GetUserCred(), "POST", url, header, body)
 	return err
 }
 
@@ -218,7 +218,7 @@ func (self *SESXiHostDriver) RequestPrepareSaveDiskOnHost(ctx context.Context, h
 	url := fmt.Sprintf("/disks/agent/save-prepare/%s", disk.Id)
 	header := task.GetTaskRequestHeader()
 
-	_, err = agent.Request(task.GetUserCred(), "POST", url, header, body)
+	_, err = agent.Request(ctx, task.GetUserCred(), "POST", url, header, body)
 	return err
 }
 
@@ -262,6 +262,6 @@ func (self *SESXiHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, h
 
 	header := task.GetTaskRequestHeader()
 
-	_, err := agent.Request(task.GetUserCred(), "POST", url, header, body)
+	_, err := agent.Request(ctx, task.GetUserCred(), "POST", url, header, body)
 	return err
 }

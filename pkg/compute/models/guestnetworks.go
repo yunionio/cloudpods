@@ -73,9 +73,12 @@ func (self *SGuestnetwork) GetCustomizeColumns(ctx context.Context, userCred mcc
 	return db.JointModelExtra(self, extra)
 }
 
-func (self *SGuestnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SGuestJointsBase.GetExtraDetails(ctx, userCred, query)
-	return db.JointModelExtra(self, extra)
+func (self *SGuestnetwork) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SGuestJointsBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return db.JointModelExtra(self, extra), nil
 }
 
 func (manager *SGuestnetworkManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

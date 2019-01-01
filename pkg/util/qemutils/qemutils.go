@@ -1,0 +1,111 @@
+package qemutils
+
+import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+	"regexp"
+	"sort"
+	"strings"
+
+	"yunion.io/x/onecloud/pkg/util/version"
+)
+
+const (
+	USER_LOCAL_BIN = "/usr/local/bin"
+	USER_BIN       = "/usr/bin"
+)
+
+func GetQemu(version string) string {
+	return getQemuCmd("qemu-system-x86_64", version)
+}
+
+func GetQemuNbd() string {
+	return getQemuCmd("qemu-nbd", "")
+}
+
+func GetQemuImg() string {
+	return getQemuCmd("qemu-img", "")
+}
+
+func getQemuCmd(cmd, version string) string {
+	if len(version) > 0 {
+		return getQemuCmdByVersion(cmd, version)
+	} else {
+		return getQemuDefaultCmd(cmd)
+	}
+}
+
+func getQemuCmdByVersion(cmd, version string) string {
+	p := path.Join(fmt.Sprintf("/usr/local/qemu-%s/bin", version), cmd)
+	if _, err := os.Stat(p); !os.IsNotExist(err) {
+		return p
+	}
+	cmd = cmd + "_" + version
+	p = path.Join(USER_LOCAL_BIN, cmd)
+	if _, err := os.Stat(p); !os.IsNotExist(err) {
+		return p
+	}
+	p = path.Join(USER_BIN, cmd)
+	if _, err := os.Stat(p); !os.IsNotExist(err) {
+		return p
+	}
+	return ""
+}
+
+func getQemuVersion(verString string) string {
+	s := regexp.MustCompile(`qemu-(?P<ver>\d+(\.\d+)+)$`).FindString(verString)
+	if len(s) == 0 {
+		return ""
+	}
+	return s[len("qemu-"):]
+}
+
+func getCmdVersion(cmd string) string {
+	s := regexp.MustCompile(`_(?P<ver>\d+(\.\d+)+)$`).FindString(cmd)
+	if len(s) == 0 {
+		return ""
+	}
+	return s[1:]
+}
+
+func getQemuDefaultCmd(cmd string) string {
+	var qemus = make([]string, 0)
+	if files, err := ioutil.ReadDir("/usr/local"); err == nil {
+		for i := 0; i < len(files); i++ {
+			if strings.HasPrefix(files[i].Name(), "qemu-") {
+				qemus = append(qemus, files[i].Name())
+			}
+		}
+		if len(qemus) > 0 {
+			sort.Slice(qemus, func(i, j int) bool {
+				return version.LT(getQemuVersion(qemus[i]),
+					getQemuVersion(qemus[j]))
+			})
+			p := fmt.Sprintf("/usr/local/%s/bin/%s", qemus[len(qemus)-1], cmd)
+			if _, err := os.Stat(p); !os.IsNotExist(err) {
+				return p
+			}
+		}
+	}
+	cmds := make([]string, 0)
+	if files, err := ioutil.ReadDir(USER_LOCAL_BIN); err == nil {
+		for i := 0; i < len(files); i++ {
+			if strings.HasPrefix(files[i].Name(), cmd) {
+				cmds = append(cmds, files[i].Name())
+			}
+		}
+		if len(cmds) > 0 {
+			sort.Slice(cmds, func(i, j int) bool {
+				return version.LT(getCmdVersion(cmds[i]),
+					getCmdVersion(cmds[j]))
+			})
+			p := path.Join(USER_LOCAL_BIN, cmds[len(cmds)-1])
+			if _, err := os.Stat(p); !os.IsNotExist(err) {
+				return p
+			}
+		}
+	}
+	return ""
+}

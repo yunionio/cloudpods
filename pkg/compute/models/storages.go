@@ -125,7 +125,7 @@ type SStorage struct {
 
 	ZoneId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
 
-	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin"`
+	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin" update:"admin" create:"optional"`
 
 	Enabled bool   `nullable:"false" default:"true" list:"user" create:"optional"`
 	Status  string `width:"36" charset:"ascii" nullable:"false" default:"offline" list:"user" create:"optional"`
@@ -464,9 +464,12 @@ func (self *SStorage) GetCustomizeColumns(ctx context.Context, userCred mcclient
 	return self.getMoreDetails(extra)
 }
 
-func (self *SStorage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
-	return self.getMoreDetails(extra)
+func (self *SStorage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return self.getMoreDetails(extra), nil
 }
 
 func (self *SStorage) GetUsedCapacity(isReady tristate.TriState) int {

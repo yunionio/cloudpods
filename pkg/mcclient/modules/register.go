@@ -20,6 +20,10 @@ func register(mod BaseManagerInterface) {
 	_register("v1", mod)
 }
 
+func registerV2(mod BaseManagerInterface) {
+	_register("v2", mod)
+}
+
 func Register(mod BaseManagerInterface) {
 	register(mod)
 }
