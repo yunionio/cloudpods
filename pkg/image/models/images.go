@@ -716,10 +716,14 @@ func (manager *SImageManager) Usage(projectId string, prefix string) map[string]
 	expandUsageCount(usages, prefix, "img", "", count)
 	count = manager.count(projectId, IMAGE_STATUS_ACTIVE, tristate.True, false)
 	expandUsageCount(usages, prefix, "iso", "", count)
+	count = manager.count(projectId, IMAGE_STATUS_ACTIVE, tristate.None, false)
+	expandUsageCount(usages, prefix, "imgiso", "", count)
 	count = manager.count(projectId, "", tristate.False, true)
 	expandUsageCount(usages, prefix, "img", "pending_delete", count)
 	count = manager.count(projectId, "", tristate.True, true)
 	expandUsageCount(usages, prefix, "iso", "pending_delete", count)
+	count = manager.count(projectId, "", tristate.None, true)
+	expandUsageCount(usages, prefix, "imgiso", "pending_delete", count)
 	return usages
 }
 
