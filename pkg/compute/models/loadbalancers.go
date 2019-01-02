@@ -55,7 +55,7 @@ type SLoadbalancer struct {
 	NetworkId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	VpcId         string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	ZoneId        string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"required"`
+	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
 
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" update:"user" update:"user"`
 }
