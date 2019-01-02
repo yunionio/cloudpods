@@ -28,6 +28,8 @@ type SBaremetalagent struct {
 	AccessIp   string `width:"16" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
 	ManagerUri string `width:"256" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_required"`
 	ZoneId     string `width:"128" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"`
+
+	AgentType string `width:"32" charset:"ascii" nullable:"true" default:"baremetal" list:"admin" update:"admin" create:"admin_optional"`
 }
 
 var BaremetalagentManager *SBaremetalagentManager
@@ -94,11 +96,11 @@ func (manager *SBaremetalagentManager) ValidateCreateData(ctx context.Context, u
 	if count > 0 {
 		return nil, httperrors.NewDuplicateResourceError("Duplicate manager_uri %s", mangerUri)
 	}
-	accessIp, _ := data.GetString("access_ip")
-	count = manager.Query().Equals("access_ip", accessIp).Count()
-	if count > 0 {
-		return nil, httperrors.NewDuplicateResourceError("Duplicate access_ip %s", accessIp)
-	}
+	//accessIp, _ := data.GetString("access_ip")
+	//count = manager.Query().Equals("access_ip", accessIp).Count()
+	//if count > 0 {
+	//	return nil, httperrors.NewDuplicateResourceError("Duplicate access_ip %s", accessIp)
+	//}
 	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
 
@@ -137,7 +139,7 @@ func (self *SBaremetalagent) AllowPerformOnline(ctx context.Context, userCred mc
 }
 
 func (self *SBaremetalagent) PerformOnline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status != BAREMETAL_AGENT_OFFLINE {
+	if self.Status == BAREMETAL_AGENT_OFFLINE {
 		self.GetModelManager().TableSpec().Update(self, func() error {
 			self.Status = BAREMETAL_AGENT_ENABLED
 			return nil
@@ -152,7 +154,7 @@ func (self *SBaremetalagent) AllowPerformOffline(ctx context.Context, userCred m
 }
 
 func (self *SBaremetalagent) PerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status != BAREMETAL_AGENT_ENABLED {
+	if self.Status == BAREMETAL_AGENT_ENABLED {
 		self.GetModelManager().TableSpec().Update(self, func() error {
 			self.Status = BAREMETAL_AGENT_OFFLINE
 			return nil

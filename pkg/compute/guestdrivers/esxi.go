@@ -3,7 +3,6 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -13,6 +12,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SESXiGuestDriver struct {
@@ -101,11 +101,7 @@ func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gues
 	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
 
-	agent, err := host.GetEsxiAgentHost()
-	if err != nil {
-		return err
-	}
-	if agent == nil {
+	if !host.IsEsxiAgentReady() {
 		return fmt.Errorf("No ESXi agent host")
 	}
 
@@ -132,11 +128,9 @@ func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gues
 	body := jsonutils.NewDict()
 	body.Add(config, "disk")
 
-	header := http.Header{}
-	header.Add("X-Task-Id", task.GetTaskId())
-	header.Add("X-Region-Version", "v2")
+	header := task.GetTaskRequestHeader()
 
-	_, err = agent.Request(ctx, task.GetUserCred(), "POST", url, header, body)
+	_, err = host.EsxiRequest(ctx, httputils.POST, url, header, body)
 	return err
 }
 
