@@ -56,6 +56,9 @@ func optionsStructRvToParams(rv reflect.Value) (*jsonutils.JSONDict, error) {
 		if name == "" {
 			continue
 		}
+		if jsonInfo.Ignore {
+			continue
+		}
 		f := rv.Field(i)
 	begin:
 		switch f.Kind() {
