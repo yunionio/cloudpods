@@ -2,6 +2,8 @@ package hostman
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/hostman/storageman"
 )
 
 type IGuestManager interface {
@@ -11,18 +13,20 @@ type IGuestManager interface {
 type IHostInfo interface {
 }
 
-// type IStorageManager interface {
-// 	GetStorageDisk(storageId, diskId string) storageman.IDisk
-// 	GetDiskByPath(diskPath string) storageman.IDisk
-// }
+type IStorageManager interface {
+	GetStorageDisk(storageId, diskId string) storageman.IDisk
+	GetDiskByPath(diskPath string) storageman.IDisk
+
+	GetStorage(storageId string) Istorage
+}
 
 type IIsolatedDeviceManager interface {
 }
 
 var (
-	hostInstance IHostInfo
-	guestManager IGuestManager
-	// storageManager        IStorageManager
+	hostInstance          IHostInfo
+	guestManager          IGuestManager
+	storageManager        IStorageManager
 	isolatedDeviceManager IIsolatedDeviceManager
 )
 
@@ -34,18 +38,18 @@ func GuestManager() IGuestManager {
 	return guestManager
 }
 
-// func StorageManager() IStorageManager {
-// 	return storageManager
-// }
+func StorageManager() IStorageManager {
+	return storageManager
+}
 
 func IsolatedDeviceManager() IIsolatedDeviceManager {
 	return isolatedDeviceManager
 }
 
-// func Init(h IHostInfo, g IGuestManager, s IStorageManager, i IIsolatedDeviceManager) {
-// 	log.Infof("Hostman Init Managers ......")
-// 	hostInstance = h
-// 	guestManager = g
-// 	storageManager = s
-// 	isolatedDeviceManager = i
-// }
+func Init(h IHostInfo, g IGuestManager, s IStorageManager, i IIsolatedDeviceManager) {
+	log.Infof("Hostman Init Managers ......")
+	hostInstance = h
+	guestManager = g
+	storageManager = s
+	isolatedDeviceManager = i
+}
