@@ -58,13 +58,15 @@ var (
 			Result:   rbacutils.UserAllow,
 		},
 		{
-			Service:  "compute",
+			// quotas for any services
+			// Service:  "compute",
 			Resource: "quotas",
 			Action:   PolicyActionGet,
 			Result:   rbacutils.OwnerAllow,
 		},
 		{
-			Service:  "compute",
+			// usages for any services
+			// Service:  "compute",
 			Resource: "usages",
 			Action:   PolicyActionGet,
 			Result:   rbacutils.OwnerAllow,
@@ -102,6 +104,18 @@ var (
 		{
 			Service:  "yunionconf",
 			Resource: "parameters",
+			Action:   PolicyActionGet,
+			Result:   rbacutils.OwnerAllow,
+		},
+		{
+			Service:  "image",
+			Resource: "images",
+			Action:   PolicyActionList,
+			Result:   rbacutils.OwnerAllow,
+		},
+		{
+			Service:  "image",
+			Resource: "images",
 			Action:   PolicyActionGet,
 			Result:   rbacutils.OwnerAllow,
 		},

@@ -6,7 +6,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"fmt"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
