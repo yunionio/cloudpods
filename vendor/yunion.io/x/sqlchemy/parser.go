@@ -97,20 +97,6 @@ func getFiledTypeCol(fieldType reflect.Type, fieldname string, tagmap map[string
 	return nil
 }
 
-<<<<<<< HEAD
-func struct2TableSpec(st reflect.Type, table *STableSpec) {
-	for i := 0; i < st.NumField(); i++ {
-		f := st.Field(i)
-		if f.Type.Kind() == reflect.Struct && f.Type != gotypes.TimeType {
-			struct2TableSpec(f.Type, table)
-		} else {
-			column := structField2ColumnSpec(&f)
-			if column != nil {
-				if column.IsIndex() {
-					table.AddIndex(column.IsUnique(), column.Name())
-				}
-				table.columns = append(table.columns, column)
-=======
 func struct2TableSpec(sv reflect.Value, table *STableSpec) {
 	fields := reflectutils.FetchStructFieldValueSet(sv)
 	for i := 0; i < len(fields); i += 1 {
@@ -118,7 +104,6 @@ func struct2TableSpec(sv reflect.Value, table *STableSpec) {
 		if column != nil {
 			if column.IsIndex() {
 				table.AddIndex(column.IsUnique(), column.Name())
->>>>>>> release/2.5.0
 			}
 			table.columns = append(table.columns, column)
 		}
