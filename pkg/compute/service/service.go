@@ -15,8 +15,8 @@ import (
 	_ "yunion.io/x/onecloud/pkg/util/aws/provider"
 	_ "yunion.io/x/onecloud/pkg/util/azure/provider"
 	_ "yunion.io/x/onecloud/pkg/util/esxi/provider"
-	_ "yunion.io/x/onecloud/pkg/util/qcloud/provider"
 	_ "yunion.io/x/onecloud/pkg/util/huawei/provider"
+	_ "yunion.io/x/onecloud/pkg/util/qcloud/provider"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
