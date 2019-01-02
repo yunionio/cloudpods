@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
 )
 
@@ -41,12 +42,12 @@ func (t *STableSpec) insertSqlPrep(dataFields reflectutils.SStructFieldValueSet)
 			createdAtFields = append(createdAtFields, k)
 			names = append(names, fmt.Sprintf("`%s`", k))
 			format = append(format, "UTC_TIMESTAMP()")
-		} else if c.IsSupportDefault() && len(c.Default()) > 0 && ov != nil && c.IsZero(ov) { // empty text value
+		} else if c.IsSupportDefault() && len(c.Default()) > 0 && !gotypes.IsNil(ov) && c.IsZero(ov) { // empty text value
 			val := c.ConvertFromString(c.Default())
 			values = append(values, val)
 			names = append(names, fmt.Sprintf("`%s`", k))
 			format = append(format, "?")
-		} else if ov != nil && (!c.IsZero(ov) || (!c.IsPointer() && !c.IsText())) && !isAutoInc {
+		} else if !gotypes.IsNil(ov) && (!c.IsZero(ov) || (!c.IsPointer() && !c.IsText())) && !isAutoInc {
 			v := c.ConvertFromValue(ov)
 			values = append(values, v)
 			names = append(names, fmt.Sprintf("`%s`", k))
@@ -127,7 +128,9 @@ func (t *STableSpec) insert(data interface{}, debug bool) error {
 				}
 			} else {
 				priVal, _ := dataFields.GetInterface(c.Name())
-				q = q.Equals(c.Name(), priVal)
+				if !gotypes.IsNil(priVal) {
+					q = q.Equals(c.Name(), priVal)
+				}
 			}
 		}
 	}

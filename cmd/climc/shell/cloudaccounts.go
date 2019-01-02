@@ -34,7 +34,7 @@ func init() {
 		NAME      string `help:"Name of cloud account"`
 		ACCOUNT   string `help:"Account to access the cloud account"`
 		SECRET    string `help:"Secret to access the cloud account, clientId/clientScret for Azure"`
-		PROVIDER  string `help:"Driver for cloud account" choices:"VMware|Aliyun|Azure|Qcloud"`
+		PROVIDER  string `help:"Driver for cloud account" choices:"VMware|Aliyun|Azure|Qcloud|OpenStack"`
 		AccessURL string `helo:"hello" metavar:"Azure choices: <AzureGermanCloud、AzureChinaCloud、AzureUSGovernmentCloud、AzurePublicCloud>"`
 		Desc      string `help:"Description"`
 		Enabled   bool   `help:"Enabled the account automatically"`

@@ -10,11 +10,12 @@ import (
 )
 
 const (
-	VNC    = "vnc"
-	ALIYUN = "aliyun"
-	QCLOUD = "qcloud"
-	SPICE  = "spice"
-	WMKS   = "wmks"
+	VNC       = "vnc"
+	ALIYUN    = "aliyun"
+	QCLOUD    = "qcloud"
+	OPENSTACK = "openstack"
+	SPICE     = "spice"
+	WMKS      = "wmks"
 )
 
 type RemoteConsoleInfo struct {
@@ -80,18 +81,23 @@ func (info *RemoteConsoleInfo) ShowInfo() string {
 }
 
 func (info *RemoteConsoleInfo) GetConnectParams() (string, error) {
-	if info.Protocol == ALIYUN {
-		return info.getAliyunUrl()
+	switch info.Protocol {
+	case ALIYUN:
+		return info.getAliyunURL()
+	case QCLOUD:
+		return info.getQcloudURL()
+	case OPENSTACK:
+		return info.getOpenStackURL()
+	default:
+		return "", fmt.Errorf("Can't convert protocol %s to connect params", info.Protocol)
 	}
-
-	if info.Protocol == QCLOUD {
-		return info.getQcloudUrl()
-	}
-
-	return "", fmt.Errorf("Can't convert protocol %s to connect params", info.Protocol)
 }
 
-func (info *RemoteConsoleInfo) getQcloudUrl() (string, error) {
+func (info *RemoteConsoleInfo) getOpenStackURL() (string, error) {
+	return info.Url, nil
+}
+
+func (info *RemoteConsoleInfo) getQcloudURL() (string, error) {
 	base := "https://img.qcloud.com/qcloud/app/active_vnc/index.html"
 	params := url.Values{
 		"InstanceVncUrl": {info.Url},
@@ -99,7 +105,7 @@ func (info *RemoteConsoleInfo) getQcloudUrl() (string, error) {
 	return fmt.Sprintf("%s?%s", base, params.Encode()), nil
 }
 
-func (info *RemoteConsoleInfo) getAliyunUrl() (string, error) {
+func (info *RemoteConsoleInfo) getAliyunURL() (string, error) {
 	isWindows := "False"
 	if info.OsName == "Windows" {
 		isWindows = "True"
@@ -112,6 +118,6 @@ func (info *RemoteConsoleInfo) getAliyunUrl() (string, error) {
 		"password":   {info.Password},
 		"protocol":   {info.Protocol},
 	}
-	queryUrl := params.Encode()
-	return fmt.Sprintf("%s?%s", base, queryUrl), nil
+	queryURL := params.Encode()
+	return fmt.Sprintf("%s?%s", base, queryURL), nil
 }
