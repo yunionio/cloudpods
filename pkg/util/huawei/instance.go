@@ -17,9 +17,9 @@ import (
 type IpAddress struct {
 	Version            string `json:"version"`
 	Addr               string `json:"addr"`
-	OSEXTIPSMACMACAddr string `json:"OS-EXT-IPS-MAC.mac_addr"`
-	OSEXTIPSPortID     string `json:"OS-EXT-IPS.port_id"`
-	OSEXTIPSType       string `json:"OS-EXT-IPS.type"`
+	OSEXTIPSMACMACAddr string `json:"OS-EXT-IPS-MAC:mac_addr"`
+	OSEXTIPSPortID     string `json:"OS-EXT-IPS:port_id"`
+	OSEXTIPSType       string `json:"OS-EXT-IPS:type"`
 }
 
 type Flavor struct {
@@ -91,27 +91,27 @@ type SInstance struct {
 	TenantID                         string                             `json:"tenant_id"`
 	UserID                           string                             `json:"user_id"`
 	KeyName                          string                             `json:"key_name"`
-	OSExtendedVolumesVolumesAttached []OSExtendedVolumesVolumesAttached `json:"os-extended-volumes.volumes_attached"`
-	OSEXTSTSTaskState                string                             `json:"OS-EXT-STS.task_state"`
-	OSEXTSTSPowerState               int64                              `json:"OS-EXT-STS.power_state"`
-	OSEXTSTSVMState                  string                             `json:"OS-EXT-STS.vm_state"`
-	OSEXTSRVATTRHost                 string                             `json:"OS-EXT-SRV-ATTR.host"`
-	OSEXTSRVATTRInstanceName         string                             `json:"OS-EXT-SRV-ATTR.instance_name"`
-	OSEXTSRVATTRHypervisorHostname   string                             `json:"OS-EXT-SRV-ATTR.hypervisor_hostname"`
-	OSDCFDiskConfig                  string                             `json:"OS-DCF.diskConfig"`
-	OSEXTAZAvailabilityZone          string                             `json:"OS-EXT-AZ.availability_zone"`
-	OSSchedulerHints                 OSSchedulerHints                   `json:"os.scheduler_hints"`
-	OSEXTSRVATTRRootDeviceName       string                             `json:"OS-EXT-SRV-ATTR.root_device_name"`
-	OSEXTSRVATTRRamdiskID            string                             `json:"OS-EXT-SRV-ATTR.ramdisk_id"`
+	OSExtendedVolumesVolumesAttached []OSExtendedVolumesVolumesAttached `json:"os-extended-volumes:volumes_attached"`
+	OSEXTSTSTaskState                string                             `json:"OS-EXT-STS:task_state"`
+	OSEXTSTSPowerState               int64                              `json:"OS-EXT-STS:power_state"`
+	OSEXTSTSVMState                  string                             `json:"OS-EXT-STS:vm_state"`
+	OSEXTSRVATTRHost                 string                             `json:"OS-EXT-SRV-ATTR:host"`
+	OSEXTSRVATTRInstanceName         string                             `json:"OS-EXT-SRV-ATTR:instance_name"`
+	OSEXTSRVATTRHypervisorHostname   string                             `json:"OS-EXT-SRV-ATTR:hypervisor_hostname"`
+	OSDCFDiskConfig                  string                             `json:"OS-DCF:diskConfig"`
+	OSEXTAZAvailabilityZone          string                             `json:"OS-EXT-AZ:availability_zone"`
+	OSSchedulerHints                 OSSchedulerHints                   `json:"os:scheduler_hints"`
+	OSEXTSRVATTRRootDeviceName       string                             `json:"OS-EXT-SRV-ATTR:root_device_name"`
+	OSEXTSRVATTRRamdiskID            string                             `json:"OS-EXT-SRV-ATTR:ramdisk_id"`
 	EnterpriseProjectID              string                             `json:"enterprise_project_id"`
-	OSEXTSRVATTRUserData             string                             `json:"OS-EXT-SRV-ATTR.user_data"`
-	OSSRVUSGLaunchedAt               string                             `json:"OS-SRV-USG.launched_at"`
-	OSEXTSRVATTRKernelID             string                             `json:"OS-EXT-SRV-ATTR.kernel_id"`
-	OSEXTSRVATTRLaunchIndex          int64                              `json:"OS-EXT-SRV-ATTR.launch_index"`
+	OSEXTSRVATTRUserData             string                             `json:"OS-EXT-SRV-ATTR:user_data"`
+	OSSRVUSGLaunchedAt               string                             `json:"OS-SRV-USG:launched_at"`
+	OSEXTSRVATTRKernelID             string                             `json:"OS-EXT-SRV-ATTR:kernel_id"`
+	OSEXTSRVATTRLaunchIndex          int64                              `json:"OS-EXT-SRV-ATTR:launch_index"`
 	HostStatus                       string                             `json:"host_status"`
-	OSEXTSRVATTRReservationID        string                             `json:"OS-EXT-SRV-ATTR.reservation_id"`
-	OSEXTSRVATTRHostname             string                             `json:"OS-EXT-SRV-ATTR.hostname"`
-	OSSRVUSGTerminatedAt             string                             `json:"OS-SRV-USG.terminated_at"`
+	OSEXTSRVATTRReservationID        string                             `json:"OS-EXT-SRV-ATTR:reservation_id"`
+	OSEXTSRVATTRHostname             string                             `json:"OS-EXT-SRV-ATTR:hostname"`
+	OSSRVUSGTerminatedAt             string                             `json:"OS-SRV-USG:terminated_at"`
 	SysTags                          []SysTag                           `json:"sys_tags"`
 	SecurityGroups                   []SecurityGroup                    `json:"security_groups"`
 }

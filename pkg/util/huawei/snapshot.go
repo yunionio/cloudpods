@@ -39,8 +39,8 @@ type SSnapshot struct {
 	Description                           string   `json:"description"`
 	ID                                    string   `json:"id"`
 	Name                                  string   `json:"name"`
-	OSExtendedSnapshotAttributesProgress  string   `json:"os-extended-snapshot-attributes.progress"`
-	OSExtendedSnapshotAttributesProjectID string   `json:"os-extended-snapshot-attributes.project_id"`
+	OSExtendedSnapshotAttributesProgress  string   `json:"os-extended-snapshot-attributes:progress"`
+	OSExtendedSnapshotAttributesProjectID string   `json:"os-extended-snapshot-attributes:project_id"`
 	Size                                  int32    `json:"size"` // GB
 	Status                                string   `json:"status"`
 	UpdatedAt                             string   `json:"updated_at"`

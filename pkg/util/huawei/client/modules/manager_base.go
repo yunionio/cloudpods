@@ -110,15 +110,7 @@ func (self *BaseManager) jsonRequest(request requests.IRequest) (http.Header, js
 	}
 
 	// 发送 request。
-	header, body, err := httputils.JSONRequest(self.httpClient, ctx, httputils.THttpMethod(request.GetMethod()), request.BuildUrl(), header, jsonBody, self.debug)
-
-	nbody, err := responses.TransColonToDot(body)
-	if err != nil {
-		log.Infof("TransColonToDot failed, may cause some error")
-		return header, body, nil
-	}
-
-	return header, nbody, nil
+	return httputils.JSONRequest(self.httpClient, ctx, httputils.THttpMethod(request.GetMethod()), request.BuildUrl(), header, jsonBody, self.debug)
 }
 
 func (self *BaseManager) rawRequest(request requests.IRequest) (*http.Response, error) {

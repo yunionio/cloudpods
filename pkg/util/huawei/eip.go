@@ -26,7 +26,7 @@ type Port struct {
 	TenantID        string `json:"tenant_id"`
 	DeviceID        string `json:"device_id"`
 	DeviceOwner     string `json:"device_owner"`
-	BindingVnicType string `json:"binding.vnic_type"`
+	BindingVnicType string `json:"binding:vnic_type"`
 }
 
 type Bandwidth struct {
