@@ -103,7 +103,7 @@ type SLoadbalancerAcl struct {
 	db.SSharableVirtualResourceBase
 	SManagedResourceBase
 
-	CloudregionId string                   `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default"`
+	CloudregionId string                   `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
 	AclEntries    *SLoadbalancerAclEntries `list:"user" update:"user" create:"required"`
 }
 
