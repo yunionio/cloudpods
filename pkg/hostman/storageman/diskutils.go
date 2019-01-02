@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 )
 
@@ -137,4 +138,12 @@ func (d *SKVMGuestDisk) Umount(fd guestfs.IRootFsDriver) {
 	if part := fd.GetPartition(); part != nil {
 		part.Umount()
 	}
+}
+
+func (d *SKVMGuestDisk) MakePartition(fs string) error {
+	return fileutils2.Mkpartition(d.nbdDev, fs)
+}
+
+func (d *SKVMGuestDisk) FormatPartition(fs, uuid string) error {
+	return fileutils2.FormatPartition(fmt.Sprintf("%sp1", d.nbdDev), fs, uuid)
 }

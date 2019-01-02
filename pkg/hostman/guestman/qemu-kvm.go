@@ -17,10 +17,11 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
-	"yunion.io/x/onecloud/pkg/hostman"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
@@ -164,7 +165,7 @@ func (s *SKVMGuestInstance) DirtyServerRequestStart() {
 	body.Set("guest_id", jsonutils.NewString(s.Id))
 	body.Set("host_id", jsonutils.NewString(hostId))
 	_, err := modules.Servers.PerformClassAction(
-		hostman.GetComputeSession(context.Background()), "dirty-server-start", body)
+		hostutils.GetComputeSession(context.Background()), "dirty-server-start", body)
 	if err != nil {
 		log.Errorf("Dirty server request start error: %s", err)
 	}
@@ -328,7 +329,7 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 		migratePort, _ := s.Desc.Get("live_migrate_dest_port")
 		body := jsonutils.NewDict(
 			jsonutils.JSONPair{"live_migrate_dest_port", migratePort})
-		hostman.TaskComplete(ctx, body)
+		hostutils.TaskComplete(ctx, body)
 	} else if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
 		// TODO
 	} else if jsonutils.QueryBoolean(s.Desc, "is_master", false) && ctx == nil {
@@ -387,7 +388,7 @@ func (s *SKVMGuestInstance) SyncStatus() {
 		status = "suspend"
 	}
 
-	hostman.UpdateServerStatus(context.Background(), s.GetId(), status)
+	hostutils.UpdateServerStatus(context.Background(), s.GetId(), status)
 }
 
 func (s *SKVMGuestInstance) SaveDesc(desc jsonutils.JSONObject) error {
@@ -404,7 +405,7 @@ func (s *SKVMGuestInstance) SaveDesc(desc jsonutils.JSONObject) error {
 }
 
 func (s *SKVMGuestInstance) StartGuest(ctx context.Context, params jsonutils.JSONObject) {
-	wm.DelayTask(ctx, s.asyncScriptStart, params)
+	hostutils.DelayTask(ctx, s.asyncScriptStart, params)
 }
 
 func (s *SKVMGuestInstance) DeployFs(deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error) {
@@ -413,7 +414,7 @@ func (s *SKVMGuestInstance) DeployFs(deployInfo *guestfs.SDeployInfo) (jsonutils
 		storageId, _ := disks[0].GetString("storage_id")
 		diskId, _ := disks[0].GetString("disk_id")
 
-		disk := hostman.StorageManager().GetStorageDisk(storageId, diskId)
+		disk := storageman.GetManager().GetStorageDisk(storageId, diskId)
 		return disk.DeployGuestFs(disk.GetPath, s.Desc, deployInfo)
 	} else {
 		return nil, fmt.Errorf("Guest dosen't have disk ??")
@@ -484,7 +485,7 @@ func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) {
 		if disk.Contains("path") {
 			diskPath, _ := disk.GetString("path")
 			// TODO GetDisksByPath, storagetypes, deleteallsnapshot, delete
-			d := hostman.StorageManager().GetDiskByPath(diskPath)
+			d := storageman.GetManager().GetDiskByPath(diskPath)
 			if d != nil && d.GetType == storagetypes.STORAGE_LOCAL && migrated {
 				if err := d.DeleteAllSnapshot(); err != nil {
 					log.Errorln(err)

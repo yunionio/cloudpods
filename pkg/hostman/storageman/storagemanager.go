@@ -11,7 +11,15 @@ import (
 
 const MINIMAL_FREE_SPACE = 128
 
+var storageManager *SStorageManager
+
+func GetManager() *SStorageManager {
+	return storageManager
+}
+
 type SStorageManager struct {
+	zone string
+
 	storages                      []IStorage
 	AgentStorage                  IStorage
 	LocalStorageImagecacheManager IImageCacheManger
@@ -19,13 +27,13 @@ type SStorageManager struct {
 	NfsStorageImagecacheMangers   []IImageCacheManger
 }
 
-func NewStorageManager() (*SStorageManager, error) {
+func NewStorageManager(zone string) (*SStorageManager, error) {
 	var ret = new(SStorageManager)
+	ret.zone = zone
 	ret.storages = make([]IStorage, 0)
 	var allFull = true
 	for _, d := range options.HostOptions.LocalImagePath {
 		s := NewLocalStorage(ret, d)
-		// TODO Accessible GetFreeSizeMb
 		if s.Accessible() {
 			ret.storages = append(ret.storages, s)
 			if allFull && s.GetFreeSizeMb() > MINIMAL_FREE_SPACE {
@@ -49,6 +57,10 @@ func NewStorageManager() (*SStorageManager, error) {
 		return nil, fmt.Errorf("Init agent storage failed: %s", err)
 	}
 	return ret, nil
+}
+
+func (s *SStorageManager) GetZone() string {
+	return s.zone
 }
 
 func (s *SStorageManager) getLeasedUsedLocalStorage(cacheDir string, limit int) (string, error) {
@@ -130,6 +142,15 @@ func (s *SStorageManager) AddNfsStorage(storagecacheId, cachePath string) {
 	}
 	s.NfsStorageImagecacheMangers[storagecacheId] = NewLocalImageCacheManager(s, cachePath,
 		options.HostOptions.ImageCacheLimit, true, storagecacheId)
+}
+
+func (s *SStorageManager) GetStorage(storageId string) IStorage {
+	for _, storage := range s.storages {
+		if storage.GetId() == stroageId {
+			return storage
+		}
+	}
+	return nil
 }
 
 func (s *SStorageManager) GetStorageDisk(storageId, diskId string) IDisk {

@@ -1,12 +1,23 @@
 package storageman
 
 import (
+	"fmt"
 	"os/exec"
+	"path"
 	"syscall"
+	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
+	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/pkg/util/timeutils"
+)
+
+var (
+	_FUSE_MOUNT_PATH_ = "fusemnt"
+	_FUSE_TMP_PATH_   = "fusetmp"
+	_SNAPSHOT_PATH_   = "snapshots"
 )
 
 type SLocalStorage struct {
@@ -20,28 +31,45 @@ func NewLocalStorage(manager *SStorageManager, path string) *SLocalStorage {
 	return ret
 }
 
+func (s *SLocalStorage) GetFuseTmpPath() string {
+	return path.Join(s.Path, _FUSE_TMP_PATH_)
+}
+
+func (s *SLocalStorage) GetFuseMountPath() string {
+	return path.Join(s.Path, _FUSE_MOUNT_PATH_)
+}
+
 func (s *SLocalStorage) StorageType() string {
 	return storagetypes.STORAGE_LOCAL
 }
 
 func (s *SLocalStorage) GetDiskById(diskId string) IDisk {
+	s.DiskLock.Lock()
+	defer s.DiskLock.Unlock()
 	for i := 0; i < len(s.Disks); i++ {
 		if s.Disks[i].GetId() == diskId {
-			return s.Disks[i]
+			if s.Disks[i].Probe() == nil {
+				return s.Disks[i]
+			}
 		}
 	}
-	return s.CreateDisk(diskId)
+	var disk = NewLocalDisk(s, diskId)
+	if disk.Probe() == nil {
+		s.Disks = append(s.Disks, disk)
+		return disk
+	} else {
+		return nil
+	}
 }
 
 func (s *SLocalStorage) CreateDisk(diskId string) IDisk {
 	s.DiskLock.Lock()
 	defer s.DiskLock.Unlock()
-	var disk = NewLocalDisk(s, diskId)
-	if err := disk.Probe(); err != nil {
+	disk := NewLocalDisk(s, diskId)
+	if disk.Probe() == nil {
 		s.Disks = append(s.Disks, disk)
 		return disk
 	} else {
-		log.Errorln(err)
 		return nil
 	}
 }
@@ -71,4 +99,29 @@ func (s *SLocalStorage) GetFreeSizeMb() int {
 		return -1
 	}
 	return int(stat.Bavail * uint64(stat.Bsize) / 1024 / 1024)
+}
+
+func (s *SLocalStorage) DeleteDiskfile(diskpath string) error {
+	if options.HostOptions.RecycleDiskfile {
+		var (
+			destDir  = s.getRecyclePath()
+			destFile = fmt.Sprintf("%s.%d", path.Base(diskpath), time.Now().Unix())
+		)
+		if err := exec.Command("mkdir", "-p", destDir).Run(); err != nil {
+			return err
+		}
+		return exec.Command("mv", "-f", diskpath, path.Join(destDir, destFile)).Run()
+	} else {
+		return exec.Command("rm", "-rf", diskpath).Run()
+	}
+}
+
+func (s *SLocalStorage) getRecyclePath() string {
+	return s.getSubdirPath(_RECYCLE_BIN_)
+}
+
+func (s *SLocalStorage) getSubdirPath(subdir string) string {
+	spath := path.Join(s.Path, subdir)
+	today := timeutils.CompactTime(time.Now())
+	return path.Join(spath, today)
 }

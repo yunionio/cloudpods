@@ -15,6 +15,9 @@ type IImageCacheManger interface {
 	// LoadCache() error ???
 	PrefetchImageCache(ctx context.Context, data jsonutils.JSONObject) error
 	DeleteImageCache(ctx context.Context, data jsonutils.JSONObject) error
+
+	AcquireImage(ctx context.Context, imageId, zone, srcUrl string) IImageCache
+	ReleaseImage(imageId string)
 }
 
 type SBaseImageCacheManager struct {

@@ -10,7 +10,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/dhcp"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
-	"yunion.io/x/onecloud/pkg/hostman"
+	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
@@ -102,7 +102,7 @@ func (s *SGuestDHCPServer) getGuestConfig(guestDesc, guestNic jsonutils.JSONObje
 
 func (s *SGuestDHCPServer) getConfig(pkt *dhcp.Packet) *dhcp.ResponseConfig {
 	var (
-		guestmananger = hostman.GuestManager()
+		guestmananger = guestman.GetGuestManager()
 		mac           = pkt.HardwareAddr.String()
 		ip, port      = "", ""
 		isCandidate   = false

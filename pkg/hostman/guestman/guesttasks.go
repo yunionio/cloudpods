@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"yunion.io/x/onecloud/pkg/hostman"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
 )
 
@@ -42,7 +42,7 @@ func (s *SGuestStopTask) onPowerdownGuest(results string) {
 func (s *SGuestStopTask) checkGuestRunning() {
 	if !s.IsRunning() || time.Now().Sub(*s.startPowerdown) > (s.timeout*time.Duration) {
 		s.Stop() // force stop
-		hostman.TaskComplete(s.ctx, nil)
+		hostutils.TaskComplete(s.ctx, nil)
 	} else {
 		s.CheckGuestRunningLater()
 	}

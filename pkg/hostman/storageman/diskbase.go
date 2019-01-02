@@ -15,6 +15,8 @@ type IDisk interface {
 	GetId() string
 	Probe() bool
 
+	GetDiskDesc() jsonutils.JSONObject
+
 	// TODO
 	// DeleteAllSnapshot() error
 	Delete() error
@@ -22,7 +24,11 @@ type IDisk interface {
 	GetPath() string
 	CreateFromUrl(context.Context, string) error
 	// CreateFromSnapshot
-	CreateFromTemplate(context.Context, string, string, int64) error
+	CreateFromTemplate(context.Context, string, string, int64) (jsonutils.JSONObject, error)
+	CreateFromImageFuse(context.Context, string) error
+	CreateRaw(ctx context.Context, sizeMb int, diskFromat string, fsFormat string,
+		encryption bool, diskId string, back string) (jsonutils.JSONObject, error)
+
 	Resize(context.Context, int64) error
 
 	// @params: diskPath, guestDesc, deployInfo
@@ -61,12 +67,16 @@ func (d *SBaseDisk) CreateFromUrl(context.Context, string) error {
 	return fmt.Errorf("Not implemented")
 }
 
-func (d *SBaseDisk) CreateFromTemplate(context.Context, string, string, int64) error {
-	return fmt.Errorf("Not implemented")
+func (d *SBaseDisk) CreateFromTemplate(context.Context, string, string, int64) (jsonutils.JSONObject, error) {
+	return nil, fmt.Errorf("Not implemented")
 }
 
 func (d *SBaseDisk) Resize(context.Context, int64) error {
 	return fmt.Errorf("Not implemented")
+}
+
+func (d *SBaseDisk) GetZone() string {
+	return d.Storage.GetZone()
 }
 
 func (d *SBaseDisk) DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict,

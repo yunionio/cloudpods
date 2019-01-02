@@ -26,7 +26,7 @@ func (host *SHostService) StartService() {
 	// TODO
 	// Hostinfo.Init()
 	// storageman.Init()
-	// isolateman.Init()
+	// isolatedman.Init()
 	// Firewall.Init()
 	// hostman.Init()
 

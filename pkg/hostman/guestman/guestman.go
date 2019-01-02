@@ -17,9 +17,8 @@ import (
 	"yunion.io/x/pkg/util/seclib"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
-	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
-	"yunion.io/x/onecloud/pkg/hostman"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
@@ -78,7 +77,7 @@ func (m *SGuestManager) VerifyExistingGuests(pendingDelete bool) {
 		}
 		params.Set("filter.1", strings.Join(keys, ","))
 	}
-	res, err := modules.Servers.List(hostman.GetComputeSession(context.Background()), id, params)
+	res, err := modules.Servers.List(hostutils.GetComputeSession(context.Background()), id, params)
 	if err != nil {
 		m.OnVerifyExistingGuestsFail(err, pendingDelete)
 	} else {
@@ -389,7 +388,6 @@ func (m *SGuestManager) GetFreeVncPort() int64 {
 }
 
 var guestManger *SGuestManager
-var wm *workmanager.SWorkManager
 
 func Stop() {
 	// guestManger.ExitGuestCleanup()
@@ -403,12 +401,4 @@ func Init(serversPath string) {
 
 func GetGuestManager() *SGuestManager {
 	return guestManger
-}
-
-func GetWorkManager() *workmanager.SWorkManager {
-	return wm
-}
-
-func init() {
-	wm = workmanager.NewWorkManger(hostman.TaskFailed, hostman.TaskComplete)
 }
