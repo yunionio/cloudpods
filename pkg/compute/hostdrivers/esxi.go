@@ -2,12 +2,12 @@ package hostdrivers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	"github.com/golang-plus/errors"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -61,7 +61,8 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 	content.ImageId = imageId
 	content.HostId = host.Id
 	content.HostIp = host.AccessIp
-	content.Format = cacheImage.GetFormat()
+	// format force VMDK
+	content.Format = "vmdk" // cacheImage.GetFormat()
 
 	storage := host.GetStorageByFilePath(storageCache.Path)
 	if storage == nil {
@@ -95,17 +96,11 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 		content.SrcDatastore = accessInfo
 	}
 
-	agent, err := host.GetEsxiAgentHost()
-	if err != nil {
-		log.Errorf("find ESXi agent fail: %s", err)
-		return err
-	}
-
-	if agent == nil {
+	if !host.IsEsxiAgentReady() {
 		return fmt.Errorf("fail to find valid ESXi agent")
 	}
 
-	url := fmt.Sprintf("%s/disks/image_cache", agent.ManagerUri)
+	url := "/disks/image_cache"
 
 	if isForce {
 		content.IsForce = true
@@ -117,7 +112,7 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 
 	header := task.GetTaskRequestHeader()
 
-	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+	_, err = host.EsxiRequest(ctx, httputils.POST, url, header, body)
 	if err != nil {
 		return err
 	}
@@ -125,13 +120,7 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 }
 
 func (self *SESXiHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask, content *jsonutils.JSONDict) error {
-	agent, err := host.GetEsxiAgentHost()
-	if err != nil {
-		log.Errorf("find ESXi agent fail: %s", err)
-		return err
-	}
-
-	if agent == nil {
+	if !host.IsEsxiAgentReady() {
 		return fmt.Errorf("fail to find valid ESXi agent")
 	}
 
@@ -158,18 +147,12 @@ func (self *SESXiHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, h
 
 	header := task.GetTaskRequestHeader()
 
-	_, err = agent.Request(ctx, task.GetUserCred(), "POST", url, header, body)
+	_, err = host.EsxiRequest(ctx, httputils.POST, url, header, body)
 	return err
 }
 
 func (self *SESXiHostDriver) RequestPrepareSaveDiskOnHost(ctx context.Context, host *models.SHost, disk *models.SDisk, imageId string, task taskman.ITask) error {
-	agent, err := host.GetEsxiAgentHost()
-	if err != nil {
-		log.Errorf("find ESXi agent fail: %s", err)
-		return err
-	}
-
-	if agent == nil {
+	if !host.IsEsxiAgentReady() {
 		return fmt.Errorf("fail to find valid ESXi agent")
 	}
 
@@ -218,7 +201,7 @@ func (self *SESXiHostDriver) RequestPrepareSaveDiskOnHost(ctx context.Context, h
 	url := fmt.Sprintf("/disks/agent/save-prepare/%s", disk.Id)
 	header := task.GetTaskRequestHeader()
 
-	_, err = agent.Request(ctx, task.GetUserCred(), "POST", url, header, body)
+	_, err = host.EsxiRequest(ctx, httputils.POST, url, header, body)
 	return err
 }
 
@@ -228,15 +211,15 @@ func (self *SESXiHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, h
 	if len(imagePath) == 0 {
 		return fmt.Errorf("missing parameter backup")
 	}
-	agentId, _ := data.GetString("agent_id")
-	if len(agentId) == 0 {
-		return fmt.Errorf("missing parameter agent_id")
-	}
+	// agentId, _ := data.GetString("agent_id")
+	// if len(agentId) == 0 {
+	// 	return fmt.Errorf("missing parameter agent_id")
+	// }
 
-	agent := models.HostManager.FetchHostById(agentId)
-	if agent == nil {
-		return fmt.Errorf("cannot find host with id %s", agentId)
-	}
+	// agent := models.HostManager.FetchHostById(agentId)
+	// if agent == nil {
+	// 	return fmt.Errorf("cannot find host with id %s", agentId)
+	// }
 
 	storage := disk.GetStorage()
 
@@ -245,7 +228,7 @@ func (self *SESXiHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, h
 		ImageId        string
 		StorageId      string
 		StoragecacheId string
-		Compress       bool `json:",allowempty"`
+		Compress       bool `json:",allowfalse"`
 	}
 
 	spec := specStruct{}
@@ -262,6 +245,6 @@ func (self *SESXiHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, h
 
 	header := task.GetTaskRequestHeader()
 
-	_, err := agent.Request(ctx, task.GetUserCred(), "POST", url, header, body)
+	_, err := host.EsxiRequest(ctx, httputils.POST, url, header, body)
 	return err
 }

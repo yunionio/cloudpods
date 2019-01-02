@@ -11,8 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/serialx/hashring"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
@@ -2218,16 +2216,6 @@ func (self *SHost) GetLocalStoragecache() *SStoragecache {
 	return nil
 }
 
-func (self *SHost) IsBaremetalAgentReady() bool {
-	url, err := auth.GetServiceURL("baremetal", options.Options.Region, self.GetZone().GetName(), "")
-	if err != nil {
-		log.Errorln("is baremetal agent ready: false")
-		return false
-	}
-	log.Infof("baremetal url:%s", url)
-	return true
-}
-
 func (self *SHost) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 	kwargs := data.(*jsonutils.JSONDict)
@@ -2609,6 +2597,16 @@ func (self *SHost) StartBaremetalUnmaintenanceTask(ctx context.Context, userCred
 	}
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (self *SHost) IsBaremetalAgentReady() bool {
+	url, err := auth.GetServiceURL("baremetal", options.Options.Region, self.GetZone().GetName(), "")
+	if err != nil {
+		log.Errorln("is baremetal agent ready: false")
+		return false
+	}
+	log.Infof("baremetal url:%s", url)
+	return true
 }
 
 func (self *SHost) BaremetalSyncRequest(ctx context.Context, method httputils.THttpMethod, url string, headers http.Header, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
@@ -3508,43 +3506,63 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 	return result
 }
 
-func (manager *SHostManager) GetEsxiAgentHostId(key string) (string, error) {
-	q := HostManager.Query("id")
-	q = q.Equals("host_status", HOST_ONLINE)
-	q = q.Equals("host_type", HOST_TYPE_HYPERVISOR)
-	q = q.IsTrue("enabled")
+// func (manager *SHostManager) GetEsxiAgentHostId(key string) (string, error) {
+// 	q := HostManager.Query("id")
+// 	q = q.Equals("host_status", HOST_ONLINE)
+// 	q = q.Equals("host_type", HOST_TYPE_HYPERVISOR)
+// 	q = q.IsTrue("enabled")
+//
+// 	rows, err := q.Rows()
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	defer rows.Close()
+//
+// 	var hostId string
+// 	hostIds := make([]string, 0)
+// 	for rows.Next() {
+// 		err = rows.Scan(&hostId)
+// 		if err != nil {
+// 			return "", err
+// 		}
+// 		hostIds = append(hostIds, hostId)
+// 	}
+//
+// 	ring := hashring.New(hostIds)
+// 	ret, _ := ring.GetNode(key)
+// 	return ret, nil
+// }
+//
+// func (manager *SHostManager) GetEsxiAgentHost(key string) (*SHost, error) {
+// 	hostId, err := manager.GetEsxiAgentHostId(key)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return manager.FetchHostById(hostId), nil
+// }
+//
+// func (host *SHost) GetEsxiAgentHost() (*SHost, error) {
+// 	return HostManager.GetEsxiAgentHost(host.Id)
+// }
 
-	rows, err := q.Rows()
+func (self *SHost) IsEsxiAgentReady() bool {
+	url, err := auth.GetServiceURL("esxiagent", options.Options.Region, self.GetZone().GetName(), "")
 	if err != nil {
-		return "", err
+		log.Errorln("is esxi agent ready: false")
+		return false
 	}
-	defer rows.Close()
-
-	var hostId string
-	hostIds := make([]string, 0)
-	for rows.Next() {
-		err = rows.Scan(&hostId)
-		if err != nil {
-			return "", err
-		}
-		hostIds = append(hostIds, hostId)
-	}
-
-	ring := hashring.New(hostIds)
-	ret, _ := ring.GetNode(key)
-	return ret, nil
+	log.Infof("esxi agent url:%s", url)
+	return true
 }
 
-func (manager *SHostManager) GetEsxiAgentHost(key string) (*SHost, error) {
-	hostId, err := manager.GetEsxiAgentHostId(key)
+func (self *SHost) EsxiRequest(ctx context.Context, method httputils.THttpMethod, url string, headers http.Header, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+	serviceUrl, err := auth.GetServiceURL("esxiagent", options.Options.Region, self.GetZone().GetName(), "")
 	if err != nil {
 		return nil, err
 	}
-	return manager.FetchHostById(hostId), nil
-}
-
-func (host *SHost) GetEsxiAgentHost() (*SHost, error) {
-	return HostManager.GetEsxiAgentHost(host.Id)
+	url = serviceUrl + url
+	_, data, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, method, url, headers, body, false)
+	return data, err
 }
 
 func (manager *SHostManager) GetHostByIp(hostIp string) (*SHost, error) {
