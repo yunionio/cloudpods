@@ -69,6 +69,7 @@ func (self *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{}
 	subAccount.Name = self.providerName
 	subAccount.Account = self.accessKey
+	subAccount.HealthStatus = models.CLOUD_PROVIDER_HEALTH_NORMAL
 	return []cloudprovider.SSubAccount{subAccount}, nil
 }
 

@@ -198,6 +198,7 @@ func (client *SQcloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 	subAccount := cloudprovider.SSubAccount{}
 	subAccount.Name = client.providerName
 	subAccount.Account = client.SecretID
+	subAccount.HealthStatus = models.CLOUD_PROVIDER_HEALTH_NORMAL
 	if len(client.AppID) > 0 {
 		subAccount.Account = fmt.Sprintf("%s/%s", client.SecretID, client.AppID)
 	}

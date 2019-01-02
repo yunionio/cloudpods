@@ -35,6 +35,11 @@ const (
 	CLOUD_PROVIDER_QCLOUD = "Qcloud"
 	CLOUD_PROVIDER_AZURE  = "Azure"
 	CLOUD_PROVIDER_AWS    = "Aws"
+	CLOUD_PROVIDER_HUAWEI = "Huawei"
+
+	CLOUD_PROVIDER_HEALTH_NORMAL    = "normal"    // 远端处于健康状态
+	CLOUD_PROVIDER_HEALTH_SUSPENDED = "suspended" // 远端处于冻结状态
+	CLOUD_PROVIDER_HEALTH_ARREARS   = "arrears"   // 远端处于欠费状态
 )
 
 var (
@@ -60,6 +65,8 @@ func init() {
 
 type SCloudprovider struct {
 	db.SEnabledStatusStandaloneResourceBase
+
+	HealthStatus string `width:"64" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_optional"` // 云端服务健康状态。例如欠费、项目冻结都属于不健康状态。
 
 	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 	// Hostname string `width:"64" charset:"ascii" nullable:"true"` // Column(VARCHAR(64, charset='ascii'), nullable=False)

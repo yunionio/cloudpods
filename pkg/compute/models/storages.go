@@ -57,6 +57,11 @@ const (
 	STORAGE_LOCAL_SSD     = "local_ssd"
 	STORAGE_CLOUD_BASIC   = "cloud_basic"
 	STORAGE_CLOUD_PREMIUM = "cloud_premium"
+
+	// huawei storage type
+	STORAGE_HUAWEI_SSD  = "SSD"  // 超高IO云硬盘
+	STORAGE_HUAWEI_SAS  = "SAS"  // 高IO云硬盘
+	STORAGE_HUAWEI_SATA = "SATA" // 普通IO云硬盘
 )
 
 const (

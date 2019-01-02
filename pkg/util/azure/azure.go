@@ -679,6 +679,8 @@ func (self *SAzureClient) GetSubAccounts() (subAccounts []cloudprovider.SSubAcco
 		if err != nil {
 			return nil, err
 		}
+
+		subAccounts[i].HealthStatus = models.CLOUD_PROVIDER_HEALTH_NORMAL
 	}
 	return subAccounts, nil
 }
