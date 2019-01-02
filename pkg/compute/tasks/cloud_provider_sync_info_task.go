@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"strings"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
@@ -55,7 +56,7 @@ func (self *CloudProviderSyncInfoTask) OnInit(ctx context.Context, obj db.IStand
 	provider.MarkStartSync(self.UserCred)
 	// do sync
 
-	notes := fmt.Sprintf("Start sync cloud provider status ...")
+	notes := fmt.Sprintf("Start sync cloud provider %s status ...", provider.Name)
 	log.Infof(notes)
 	driver, err := provider.GetDriver()
 	if err != nil {
@@ -110,7 +111,13 @@ func syncCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider,
 func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, driver cloudprovider.ICloudProvider, syncRange *models.SSyncRange) {
 	regions := driver.GetIRegions()
 
-	localRegions, remoteRegions, result := models.CloudregionManager.SyncRegions(ctx, task.UserCred, provider.Provider, regions)
+	// 华为云有点特殊一个provider只对应一个region
+	providerPrefix := provider.Provider
+	if providerPrefix == models.CLOUD_PROVIDER_HUAWEI {
+		providerPrefix = providerPrefix + "/" + strings.Split(provider.Name, "_")[0]
+	}
+
+	localRegions, remoteRegions, result := models.CloudregionManager.SyncRegions(ctx, task.UserCred, providerPrefix, regions)
 	msg := result.Result()
 	log.Infof("SyncRegion result: %s", msg)
 	if result.IsError() {

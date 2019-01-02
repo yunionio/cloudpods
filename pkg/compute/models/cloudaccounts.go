@@ -411,6 +411,7 @@ func (self *SCloudaccount) ImportSubAccount(ctx context.Context, userCred mcclie
 		_, err = CloudproviderManager.TableSpec().Update(provider, func() error {
 			provider.Name = subAccount.Name
 			provider.Enabled = true
+			provider.HealthStatus = subAccount.HealthStatus
 			return nil
 		})
 
@@ -431,6 +432,7 @@ func (self *SCloudaccount) ImportSubAccount(ctx context.Context, userCred mcclie
 	newCloudprovider.AccessUrl = self.AccessUrl
 	newCloudprovider.Enabled = true
 	newCloudprovider.Status = CLOUD_PROVIDER_CONNECTED
+	newCloudprovider.HealthStatus = subAccount.HealthStatus
 	newCloudprovider.Name = subAccount.Name
 	if !autoCreateProject {
 		newCloudprovider.ProjectId = auth.AdminCredential().GetProjectId()
