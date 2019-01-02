@@ -461,6 +461,7 @@ func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 				}
 				self.OnSaveSuccess(ctx, userCred, "update upload success")
 				data.Remove("status")
+				self.StartImageConvertTask(ctx, userCred, "", true)
 			} else {
 				copyFrom := appParams.Request.Header.Get(modules.IMAGE_META_COPY_FROM)
 				if len(copyFrom) > 0 {

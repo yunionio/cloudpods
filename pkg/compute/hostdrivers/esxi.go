@@ -228,7 +228,7 @@ func (self *SESXiHostDriver) RequestSaveUploadImageOnHost(ctx context.Context, h
 		ImageId        string
 		StorageId      string
 		StoragecacheId string
-		Compress       bool `json:",allowempty"`
+		Compress       bool `json:",allowfalse"`
 	}
 
 	spec := specStruct{}
