@@ -232,3 +232,93 @@ func (hf HostsFile) String() string {
 func Writable(path string) bool {
 	return unix.Access(path, unix.W_OK) == nil
 }
+
+func FsFormatToDiskType(fsFormat string) string {
+	switch {
+	case fsFormat == "swap":
+		return "linux-swap"
+	case strings.HasPrefix(fsFormat, "ext") || fsFormat == "xfs":
+		return "ext2"
+	case strings.HasPrefix(fsFormat, "fat"):
+		return "fat32"
+	case fsFormat == "ntfs":
+		return fsFormat
+	default:
+		return ""
+	}
+}
+
+func Mkpartition(imagePath, fsFormat string) error {
+	var (
+		parted    = "/sbin/parted"
+		labelType = "gpt"
+		diskType  = FsFormatToDiskType(fsFormat)
+	)
+
+	if len(diskType) == 0 {
+		return fmt.Errorf("Unknown fsFormat %s", fsFormat)
+	}
+
+	// 创建一个新磁盘分区表类型, ex: mbr gpt msdos ...
+	err := exec.Command(parted, "-s", imagePath, "mklabel", labelType).Run()
+	if err != nil {
+		log.Errorf("mklabel %s %s error %s", imagePath, fsFormat, err)
+		return err
+	}
+
+	// 创建一个part-type类型的分区, part-type可以是："primary", "logical", "extended"
+	// 如果指定fs-type(即diskType)则在创建分区的同时进行格式化
+	err = exec.Command(parted, "-s", "-a", "cylinder",
+		imagePath, "mkpart", "primary", diskType, "0", "100%").Run()
+	if err != nil {
+		log.Errorf("mkpart %s %s error %s", imagePath, fsFormat, err)
+		return err
+	}
+	return nil
+}
+
+func FormatPartition(path, fs, uuid string) error {
+	var cmd, cmdUuid []string
+	switch {
+	case fs == "swap":
+		cmd = []string{"mkswap", "-U", uuid}
+	case fs == "ext2":
+		cmd = []string{"mkfs.ext2"}
+		cmdUuid = []string{"tune2fs", "-U", uuid}
+	case fs == "ext3":
+		cmd = []string{"mkfs.ext3"}
+		cmdUuid = []string{"tune2fs", "-U", uuid}
+	case fs == "ext4":
+		cmd = []string{"mkfs.ext4", "-E", "lazy_itable_init=1"}
+		cmdUuid = []string{"tune2fs", "-U", uuid}
+	case fs == "ext4dev":
+		cmd = []string{"mkfs.ext4dev", "-E", "lazy_itable_init=1"}
+		cmdUuid = []string{"tune2fs", "-U", uuid}
+	case strings.HasPrefix(fs, "fat"):
+		cmd = []string{"mkfs.msdos"}
+	// #case fs == "ntfs":
+	// #    cmd = []string{"/sbin/mkfs.ntfs"}
+	case fs == "xfs":
+		cmd = []string{"mkfs.xfs", "-f"}
+		cmdUuid = []string{"xfs_admin", "-U", uuid}
+	}
+
+	if len(cmd) > 0 {
+		var cmds = cmd
+		cmds = append(cmds, path)
+		if err := exec.Command(cmds[0], cmds[1:]...).Run(); err != nil {
+			log.Errorln(err)
+			return err
+		}
+		if len(cmdUuid) > 0 {
+			cmds = cmdUuid
+			cmds = append(cmds, path)
+			if err := exec.Command(cmds[0], cmds[1:]...).Run(); err != nil {
+				log.Errorln(err)
+				return err
+			}
+		}
+		return nil
+	}
+	return fmt.Errorf("Unknown fs %s", fs)
+}
