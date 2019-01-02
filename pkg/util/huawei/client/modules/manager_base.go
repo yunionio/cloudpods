@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/requests"
