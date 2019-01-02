@@ -110,7 +110,7 @@ func (self *BaseManager) jsonRequest(request requests.IRequest) (http.Header, js
 	}
 
 	// 发送 request。
-	header, body, err := httputils.JSONRequest(self.httpClient, ctx, request.GetMethod(), request.BuildUrl(), header, jsonBody, self.debug)
+	header, body, err := httputils.JSONRequest(self.httpClient, ctx, httputils.THttpMethod(request.GetMethod()), request.BuildUrl(), header, jsonBody, self.debug)
 
 	nbody, err := responses.TransColonToDot(body)
 	if err != nil {
@@ -128,7 +128,7 @@ func (self *BaseManager) rawRequest(request requests.IRequest) (*http.Response, 
 	for k, v := range request.GetHeaders() {
 		header.Set(k, v)
 	}
-	return httputils.Request(self.httpClient, ctx, request.GetMethod(), request.BuildUrl(), header, request.GetBodyReader(), self.debug)
+	return httputils.Request(self.httpClient, ctx, httputils.THttpMethod(request.GetMethod()), request.BuildUrl(), header, request.GetBodyReader(), self.debug)
 }
 
 func (self *BaseManager) buildRequestWithSigner(request requests.IRequest, signer auth.Signer) error {
