@@ -1441,10 +1441,10 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			localStorages = append(localStorages, *local)
+			remoteStorages = append(remoteStorages, added[i])
 			syncResult.Add()
 		}
-		localStorages = append(localStorages, *local)
-		remoteStorages = append(remoteStorages, added[i])
 	}
 	return localStorages, remoteStorages, syncResult
 }
