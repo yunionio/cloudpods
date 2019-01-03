@@ -51,8 +51,16 @@ func init() {
 		printObject(lbbackendgroup)
 		return nil
 	})
-	R(&options.LoadbalancerBackendGroupDeleteOptions{}, "lbbackendgroup-delete", "Show lbbackendgroup", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendGroupDeleteOptions) error {
+	R(&options.LoadbalancerBackendGroupDeleteOptions{}, "lbbackendgroup-delete", "Delete lbbackendgroup", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendGroupDeleteOptions) error {
 		lbbackendgroup, err := modules.LoadbalancerBackendGroups.Delete(s, opts.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(lbbackendgroup)
+		return nil
+	})
+	R(&options.LoadbalancerBackendGroupDeleteOptions{}, "lbbackendgroup-purge", "Purge lbbackendgroup", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendGroupDeleteOptions) error {
+		lbbackendgroup, err := modules.LoadbalancerBackendGroups.PerformAction(s, opts.ID, "purge", nil)
 		if err != nil {
 			return err
 		}

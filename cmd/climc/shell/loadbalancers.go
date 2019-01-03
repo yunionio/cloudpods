@@ -56,6 +56,14 @@ func init() {
 		printObject(lb)
 		return nil
 	})
+	R(&options.LoadbalancerPurgeOptions{}, "lb-purge", "Purge lb", func(s *mcclient.ClientSession, opts *options.LoadbalancerPurgeOptions) error {
+		lb, err := modules.Loadbalancers.PerformAction(s, opts.ID, "purge", nil)
+		if err != nil {
+			return err
+		}
+		printObject(lb)
+		return nil
+	})
 	R(&options.LoadbalancerActionStatusOptions{}, "lb-status", "Change lb status", func(s *mcclient.ClientSession, opts *options.LoadbalancerActionStatusOptions) error {
 		params, err := options.StructToParams(opts)
 		if err != nil {

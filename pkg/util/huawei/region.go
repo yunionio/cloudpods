@@ -133,6 +133,22 @@ func (self *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, er
 	return nil, cloudprovider.ErrNotImplemented
 }
 
+func (region *SRegion) GetILoadBalancerById(loadbalancerId string) (cloudprovider.ICloudLoadbalancer, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetILoadBalancerAclById(aclId string) (cloudprovider.ICloudLoadbalancerAcl, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) CreateILoadBalancerCertificate(name string, privateKey, certificate string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
 func (self *SRegion) GetILoadbalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
@@ -644,4 +660,12 @@ func (self *SRegion) addSecurityGroupRule(secGrpId, direction, portStart, portEn
 
 	rule := SecurityGroupRule{}
 	return DoCreate(self.ecsClient.SecurityGroupRules.Create, params, &rule)
+}
+
+func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }

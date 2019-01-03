@@ -66,6 +66,14 @@ type ICloudRegion interface {
 	GetILoadbalancerAcls() ([]ICloudLoadbalancerAcl, error)
 	GetILoadbalancerCertificates() ([]ICloudLoadbalancerCertificate, error)
 
+	GetILoadBalancerById(loadbalancerId string) (ICloudLoadbalancer, error)
+	GetILoadBalancerAclById(aclId string) (ICloudLoadbalancerAcl, error)
+	GetILoadBalancerCertificateById(certId string) (ICloudLoadbalancerCertificate, error)
+
+	CreateILoadBalancer(loadbalancer *SLoadbalancer) (ICloudLoadbalancer, error)
+	CreateILoadBalancerAcl(acl *SLoadbalancerAccessControlList) (ICloudLoadbalancerAcl, error)
+	CreateILoadBalancerCertificate(name string, privateKey, certificate string) (ICloudLoadbalancerCertificate, error)
+
 	GetProvider() string
 }
 
@@ -400,9 +408,16 @@ type ICloudLoadbalancer interface {
 	GetNetworkId() string
 	GetVpcId() string
 	GetZoneId() string
+	GetLoadbalancerSpec() string
+	GetChargeType() string
+
+	Delete() error
 
 	GetILoadbalancerListeners() ([]ICloudLoadbalancerListener, error)
 	GetILoadbalancerBackendGroups() ([]ICloudLoadbalancerBackendGroup, error)
+
+	CreateILoadBalancerBackendGroup(name string, groupType string, backends []SLoadbalancerBackend) (ICloudLoadbalancerBackendGroup, error)
+	GetILoadbalancerBackendGroupById(groupId string) (ICloudLoadbalancerBackendGroup, error)
 }
 
 type ICloudLoadbalancerListener interface {
@@ -459,6 +474,11 @@ type ICloudLoadbalancerBackendGroup interface {
 	IsDefault() bool
 	GetType() string
 	GetILoadbalancerBackends() ([]ICloudLoadbalancerBackend, error)
+	AddBackendServer(serverId string, weight int, port int) (ICloudLoadbalancerBackend, error)
+	RemoveBackendServer(serverId string) error
+
+	Delete() error
+	Sync(name string) error
 }
 
 type ICloudLoadbalancerBackend interface {
@@ -473,6 +493,9 @@ type ICloudLoadbalancerBackend interface {
 
 type ICloudLoadbalancerCertificate interface {
 	ICloudResource
+
+	Sync(name, privateKey, publickKey string) error
+	Delete() error
 
 	GetCommonName() string
 	GetSubjectAlternativeNames() string
@@ -495,4 +518,5 @@ type ICloudLoadbalancerAcl interface {
 	// 	}
 	// ]
 	GetAclEntries() *jsonutils.JSONArray
+	Delete() error
 }

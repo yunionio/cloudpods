@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net"
 	"reflect"
@@ -15,6 +16,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -103,7 +105,7 @@ type SLoadbalancerAcl struct {
 	db.SSharableVirtualResourceBase
 	SManagedResourceBase
 
-	CloudregionId string                   `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
+	CloudregionId string                   `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"required"`
 	AclEntries    *SLoadbalancerAclEntries `list:"user" update:"user" create:"required"`
 }
 
@@ -125,7 +127,23 @@ func (man *SLoadbalancerAclManager) ValidateCreateData(ctx context.Context, user
 	if err != nil {
 		return nil, err
 	}
-	return man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
+		return nil, err
+	}
+	regionID, err := data.GetString("cloudregion_id")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("cloudregion_id")
+	}
+	_region, err := CloudregionManager.FetchByIdOrName(userCred, regionID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError("failed to find cloudregion %s", regionID)
+		}
+		return nil, httperrors.NewGeneralError(err)
+	}
+	data.Set("cloudregion_id", jsonutils.NewString(_region.GetId()))
+	region := _region.(*SCloudregion)
+	return region.GetDriver().ValidateCreateLoadbalancerAclData(ctx, userCred, data)
 }
 
 func (lbacl *SLoadbalancerAcl) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -138,6 +156,44 @@ func (lbacl *SLoadbalancerAcl) ValidateUpdateData(ctx context.Context, userCred 
 		return nil, err
 	}
 	return lbacl.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+}
+
+func (lbacl *SLoadbalancerAcl) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	lbacl.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+
+	lbacl.SetStatus(userCred, LB_STATUS_CREATING, "")
+	if err := lbacl.StartLoadBalancerAclCreateTask(ctx, userCred, ""); err != nil {
+		log.Errorf("Failed to create loadbalanceracl error: %v", err)
+	}
+}
+
+func (lbacl *SLoadbalancerAcl) StartLoadBalancerAclCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerAclCreateTask", lbacl, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (lbacl *SLoadbalancerAcl) GetRegion() *SCloudregion {
+	region, err := CloudregionManager.FetchById(lbacl.CloudregionId)
+	if err != nil {
+		return nil
+	}
+	return region.(*SCloudregion)
+}
+
+func (lbacl *SLoadbalancerAcl) GetIRegion() (cloudprovider.ICloudRegion, error) {
+	provider, err := lbacl.GetDriver()
+	if err != nil {
+		return nil, fmt.Errorf("No cloudprovide for lb %s: %s", lbacl.Name, err)
+	}
+	region := lbacl.GetRegion()
+	if region == nil {
+		return nil, fmt.Errorf("failed to find region for lb %s", lbacl.Name)
+	}
+	return provider.GetIRegionById(region.ExternalId)
 }
 
 func (lbacl *SLoadbalancerAcl) AllowPerformPatch(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
@@ -214,8 +270,28 @@ func (lbacl *SLoadbalancerAcl) ValidateDeleteCondition(ctx context.Context) erro
 	return nil
 }
 
-func (lbacl *SLoadbalancerAcl) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	lbacl.DoPendingDelete(ctx, userCred)
+func (lbacl *SLoadbalancerAcl) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, lbacl, "purge")
+}
+
+func (lbacl *SLoadbalancerAcl) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	parasm := jsonutils.NewDict()
+	parasm.Add(jsonutils.JSONTrue, "purge")
+	return nil, lbacl.StartLoadBalancerAclDeleteTask(ctx, userCred, parasm, "")
+}
+
+func (lbacl *SLoadbalancerAcl) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	lbacl.SetStatus(userCred, LB_STATUS_DELETING, "")
+	return lbacl.StartLoadBalancerAclDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
+}
+
+func (lbacl *SLoadbalancerAcl) StartLoadBalancerAclDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerAclDeleteTask", lbacl, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (lbacl *SLoadbalancerAcl) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

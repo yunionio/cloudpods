@@ -12,6 +12,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -394,11 +395,48 @@ func (lblis *SLoadbalancerListener) GetExtraDetails(ctx context.Context, userCre
 	return extra, nil
 }
 
-func (lblis *SLoadbalancerListener) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	lblis.SetStatus(userCred, LB_STATUS_DISABLED, "preDelete")
-	lblis.DoPendingDelete(ctx, userCred)
-	lblis.PreDeleteSubs(ctx, userCred)
+func (lblis *SLoadbalancerListener) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	lblis.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+
+	lblis.SetStatus(userCred, LB_STATUS_CREATING, "")
+	if err := lblis.StartLoadBalancerListenerCreateTask(ctx, userCred, ""); err != nil {
+		log.Errorf("Failed to create loadbalancer listener error: %v", err)
+	}
 }
+
+func (lblis *SLoadbalancerListener) StartLoadBalancerListenerCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerListenerCreateTask", lblis, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (lblis *SLoadbalancerListener) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, lblis, "purge")
+}
+
+func (lblis *SLoadbalancerListener) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	parasm := jsonutils.NewDict()
+	parasm.Add(jsonutils.JSONTrue, "purge")
+	return nil, lblis.StartLoadBalancerListenerDeleteTask(ctx, userCred, parasm, "")
+}
+
+func (lblis *SLoadbalancerListener) StartLoadBalancerListenerDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerListenerDeleteTask", lblis, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+// func (lblis *SLoadbalancerListener) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+// 	lblis.SetStatus(userCred, LB_STATUS_DISABLED, "preDelete")
+// 	lblis.DoPendingDelete(ctx, userCred)
+// 	lblis.PreDeleteSubs(ctx, userCred)
+// }
 
 func (lblis *SLoadbalancerListener) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
 	subMan := LoadbalancerListenerRuleManager
@@ -408,9 +446,25 @@ func (lblis *SLoadbalancerListener) PreDeleteSubs(ctx context.Context, userCred 
 	defer lockman.ReleaseClass(ctx, subMan, ownerProjId)
 	q := subMan.Query().Equals("listener_id", lblis.Id)
 	subMan.PreDeleteSubs(ctx, userCred, q)
+	lblis.DoPendingDelete(ctx, userCred)
 }
 
 func (lblis *SLoadbalancerListener) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return nil
+}
+
+func (lblis *SLoadbalancerListener) GetLoadbalancer() *SLoadbalancer {
+	loadbalancer, err := LoadbalancerManager.FetchById(lblis.LoadbalancerId)
+	if err != nil {
+		return nil
+	}
+	return loadbalancer.(*SLoadbalancer)
+}
+
+func (lblis *SLoadbalancerListener) GetRegion() *SCloudregion {
+	if loadbalancer := lblis.GetLoadbalancer(); loadbalancer != nil {
+		return loadbalancer.GetRegion()
+	}
 	return nil
 }
 

@@ -59,7 +59,7 @@ type SLoadbalancer struct {
 	InternetChargeType       string //公网实例的计费方式。取值：paybybandwidth：按带宽计费 paybytraffic：按流量计费（默认值） 说明 当 PayType参数的值为PrePay时，只支持按带宽计费。
 	PayType                  string //实例的计费类型，取值：PayOnDemand：按量付费 PrePay：预付费
 	ResourceGroupId          string //企业资源组ID。
-
+	LoadBalancerSpec         string //负载均衡实例的的性能规格
 }
 
 func (lb *SLoadbalancer) GetName() string {
@@ -152,6 +152,14 @@ func (region *SRegion) GetLoadbalancerDetail(loadbalancerId string) (*SLoadbalan
 	return &lb, body.Unmarshal(&lb)
 }
 
+func (lb *SLoadbalancer) Delete() error {
+	params := map[string]string{}
+	params["RegionId"] = lb.region.RegionId
+	params["LoadBalancerId"] = lb.LoadBalancerId
+	_, err := lb.region.lbRequest("DeleteLoadBalancer", params)
+	return err
+}
+
 func (lb *SLoadbalancer) GetILoadbalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
 	ibackendgroups := []cloudprovider.ICloudLoadbalancerBackendGroup{}
 	{
@@ -181,6 +189,57 @@ func (lb *SLoadbalancer) GetILoadbalancerBackendGroups() ([]cloudprovider.ICloud
 		}
 	}
 	return ibackendgroups, nil
+}
+
+func (lb *SLoadbalancer) CreateILoadBalancerBackendGroup(name string, groupType string, backends []cloudprovider.SLoadbalancerBackend) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	switch groupType {
+	case models.LB_BACKENDGROUP_TYPE_NORMAL:
+		group, err := lb.region.CreateLoadbalancerBackendGroup(name, lb.LoadBalancerId, backends)
+		if err != nil {
+			return nil, err
+		}
+		group.lb = lb
+		return group, nil
+	case models.LB_BACKENDGROUP_TYPE_MASTER_SLAVE:
+		group, err := lb.region.CreateLoadbalancerMasterSlaveBackendGroup(name, lb.LoadBalancerId, backends)
+		if err != nil {
+			return nil, err
+		}
+		group.lb = lb
+		return group, nil
+	default:
+		return nil, fmt.Errorf("Unsupport backendgroup type %s", groupType)
+	}
+}
+
+func (lb *SLoadbalancer) GetLoadbalancerSpec() string {
+	if len(lb.LoadBalancerSpec) == 0 {
+		lb.Refresh()
+	}
+	return lb.LoadBalancerSpec
+}
+
+func (lb *SLoadbalancer) GetChargeType() string {
+	switch lb.InternetChargeType {
+	case "paybybandwidth":
+		return "bandwidth"
+	case "paybytraffic":
+		return "traffic"
+	}
+	return "unknown"
+}
+
+func (lb *SLoadbalancer) GetILoadbalancerBackendGroupById(groupId string) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	groups, err := lb.GetILoadbalancerBackendGroups()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(groups); i++ {
+		if groups[i].GetGlobalId() == groupId {
+			return groups[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (lb *SLoadbalancer) GetILoadbalancerListeners() ([]cloudprovider.ICloudLoadbalancerListener, error) {

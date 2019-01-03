@@ -48,8 +48,16 @@ func init() {
 		printObject(lbbackend)
 		return nil
 	})
-	R(&options.LoadbalancerBackendDeleteOptions{}, "lbbackend-delete", "Show lbbackend", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendDeleteOptions) error {
+	R(&options.LoadbalancerBackendDeleteOptions{}, "lbbackend-delete", "Delete lbbackend", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendDeleteOptions) error {
 		lbbackend, err := modules.LoadbalancerBackends.Delete(s, opts.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(lbbackend)
+		return nil
+	})
+	R(&options.LoadbalancerBackendDeleteOptions{}, "lbbackend-purge", "Purge lbbackend", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendDeleteOptions) error {
+		lbbackend, err := modules.LoadbalancerBackends.PerformAction(s, opts.ID, "purge", nil)
 		if err != nil {
 			return err
 		}

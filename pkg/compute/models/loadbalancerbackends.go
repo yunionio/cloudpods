@@ -5,10 +5,12 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -154,6 +156,36 @@ func (lbb *SLoadbalancerBackend) AllowPerformStatus(ctx context.Context, userCre
 	return false
 }
 
+func (lbb *SLoadbalancerBackend) GetLoadbalancerBackendGroup() *SLoadbalancerBackendGroup {
+	backendgroup, err := LoadbalancerBackendGroupManager.FetchById(lbb.BackendGroupId)
+	if err != nil {
+		return nil
+	}
+	return backendgroup.(*SLoadbalancerBackendGroup)
+}
+
+func (lbb *SLoadbalancerBackend) GetGuest() *SGuest {
+	guest, err := GuestManager.FetchById(lbb.BackendId)
+	if err != nil {
+		return nil
+	}
+	return guest.(*SGuest)
+}
+
+func (lbb *SLoadbalancerBackend) GetRegion() *SCloudregion {
+	if backendgroup := lbb.GetLoadbalancerBackendGroup(); backendgroup != nil {
+		return backendgroup.GetRegion()
+	}
+	return nil
+}
+
+func (lbb *SLoadbalancerBackend) GetIRegion() (cloudprovider.ICloudRegion, error) {
+	if backendgroup := lbb.GetLoadbalancerBackendGroup(); backendgroup != nil {
+		return backendgroup.GetIRegion()
+	}
+	return nil, fmt.Errorf("failed to find backendgroup for backend %s", lbb.Name)
+}
+
 func (man *SLoadbalancerBackendManager) getGuestAddress(guest *SGuest) (string, error) {
 	gns := guest.GetNetworks()
 	if len(gns) == 0 {
@@ -181,11 +213,52 @@ func (lbb *SLoadbalancerBackend) ValidateUpdateData(ctx context.Context, userCre
 	return lbb.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (lbb *SLoadbalancerBackend) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	lbb.DoPendingDelete(ctx, userCred)
+func (lbb *SLoadbalancerBackend) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	lbb.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+	lbb.SetStatus(userCred, LB_STATUS_CREATING, "")
+	if err := lbb.StartLoadBalancerBackendCreateTask(ctx, userCred, ""); err != nil {
+		log.Errorf("Failed to create loadbalancer backend error: %v", err)
+	}
 }
 
+func (lbb *SLoadbalancerBackend) StartLoadBalancerBackendCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerLoadbalancerBackendCreateTask", lbb, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+// func (lbb *SLoadbalancerBackend) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+// 	lbb.DoPendingDelete(ctx, userCred)
+// }
+
 func (lbb *SLoadbalancerBackend) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return nil
+}
+
+func (lbb *SLoadbalancerBackend) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, lbb, "purge")
+}
+
+func (lbb *SLoadbalancerBackend) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	parasm := jsonutils.NewDict()
+	parasm.Add(jsonutils.JSONTrue, "purge")
+	return nil, lbb.StartLoadBalancerBackendDeleteTask(ctx, userCred, parasm, "")
+}
+
+func (lbb *SLoadbalancerBackend) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	lbb.SetStatus(userCred, LB_STATUS_DELETING, "")
+	return lbb.StartLoadBalancerBackendDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
+}
+
+func (lbb *SLoadbalancerBackend) StartLoadBalancerBackendDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerBackendDeleteTask", lbb, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
 	return nil
 }
 
@@ -271,6 +344,7 @@ func (lbb *SLoadbalancerBackend) constructFieldsFromCloudLoadbalancerBackend(ext
 		return err
 	}
 	guest := instance.(*SGuest)
+	lbb.BackendId = guest.Id
 	address, err := LoadbalancerBackendManager.getGuestAddress(guest)
 	if err != nil {
 		return err

@@ -12,6 +12,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -35,6 +36,11 @@ func init() {
 	}
 }
 
+const (
+	LB_CHARGE_TYPE_BY_TRAFFIC   = "traffic"
+	LB_CHARGE_TYPE_BY_BANDWIDTH = "bandwidth"
+)
+
 // TODO build errors on pkg/httperrors/errors.go
 // NewGetManagerError
 // NewMissingArgumentError
@@ -49,15 +55,18 @@ type SLoadbalancer struct {
 	db.SVirtualResourceBase
 	SManagedResourceBase
 
-	Address       string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	AddressType   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	NetworkType   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	Address       string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	AddressType   string `width:"16" charset:"ascii" nullable:"false" default:"intranet" list:"user" create:"optional"`
+	NetworkType   string `width:"16" charset:"ascii" nullable:"false" default:"vpc" list:"user" create:"optional"`
 	NetworkId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	VpcId         string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	ZoneId        string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
 
-	BackendGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" update:"user" update:"user"`
+	ChargeType       string `list:"user" default:"traffic" create:"optional"`
+	LoadbalancerSpec string `list:"user" create:"optional"`
+
+	BackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" update:"user"`
 }
 
 func (man *SLoadbalancerManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
@@ -117,6 +126,14 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		if wire == nil {
 			return nil, fmt.Errorf("getting wire failed")
 		}
+		vpc := wire.getVpc()
+		if vpc == nil {
+			return nil, fmt.Errorf("getting vpc failed")
+		}
+		data.Set("vpc_id", jsonutils.NewString(vpc.Id))
+		if len(vpc.ManagerId) > 0 {
+			data.Set("manager_id", jsonutils.NewString(vpc.ManagerId))
+		}
 		zone := wire.GetZone()
 		if zone == nil {
 			return nil, fmt.Errorf("getting zone failed")
@@ -130,8 +147,11 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		// TODO validate network is of classic type
 		data.Set("network_type", jsonutils.NewString(LB_NETWORK_TYPE_CLASSIC))
 		data.Set("address_type", jsonutils.NewString(LB_ADDR_TYPE_INTRANET))
+		if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
+			return nil, err
+		}
+		return region.GetDriver().ValidateCreateLoadbalancerData(ctx, userCred, data)
 	}
-	return man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
 
 func (lb *SLoadbalancer) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -143,26 +163,91 @@ func (lb *SLoadbalancer) PostCreate(ctx context.Context, userCred mcclient.Token
 	// NOTE lb.Id will only be available after BeforeInsert happens
 	// NOTE this means lb.UpdateVersion will be 0, then 1 after creation
 	// NOTE need ways to notify error
-	LoadbalancerManager.TableSpec().Update(lb, func() error {
-		if lb.AddressType == LB_ADDR_TYPE_INTRANET {
-			// TODO support use reserved ip address
-			// TODO prefer ip address from server_type loadbalancer?
-			req := &SLoadbalancerNetworkRequestData{
-				loadbalancer: lb,
-				networkId:    lb.NetworkId,
-				address:      lb.Address,
-			}
-			// NOTE the small window when agents can see the ephemeral address
-			ln, err := LoadbalancernetworkManager.NewLoadbalancerNetwork(ctx, userCred, req)
-			if err != nil {
-				log.Errorf("allocating loadbalancer network failed: %v, req: %#v", err, req)
-				lb.Address = ""
-			} else {
-				lb.Address = ln.IpAddr
-			}
-		}
+
+	lb.SetStatus(userCred, LB_STATUS_CREATING, "")
+	if err := lb.StartLoadBalancerCreateTask(ctx, userCred, ""); err != nil {
+		log.Errorf("Failed to create loadbalancer error: %v", err)
+	}
+}
+
+func (lb *SLoadbalancer) GetCloudprovider() *SCloudprovider {
+	cloudprovider, err := CloudproviderManager.FetchById(lb.ManagerId)
+	if err != nil {
 		return nil
-	})
+	}
+	return cloudprovider.(*SCloudprovider)
+}
+
+func (lb *SLoadbalancer) GetRegion() *SCloudregion {
+	region, err := CloudregionManager.FetchById(lb.CloudregionId)
+	if err != nil {
+		return nil
+	}
+	return region.(*SCloudregion)
+}
+
+func (lb *SLoadbalancer) GetZone() *SZone {
+	zone, err := ZoneManager.FetchById(lb.ZoneId)
+	if err != nil {
+		return nil
+	}
+	return zone.(*SZone)
+}
+
+func (lb *SLoadbalancer) GetVpc() *SVpc {
+	vpc, err := VpcManager.FetchById(lb.VpcId)
+	if err != nil {
+		return nil
+	}
+	return vpc.(*SVpc)
+}
+
+func (lb *SLoadbalancer) GetNetwork() *SNetwork {
+	network, err := NetworkManager.FetchById(lb.NetworkId)
+	if err != nil {
+		return nil
+	}
+	return network.(*SNetwork)
+}
+
+func (lb *SLoadbalancer) GetIRegion() (cloudprovider.ICloudRegion, error) {
+	provider, err := lb.GetDriver()
+	if err != nil {
+		return nil, fmt.Errorf("No cloudprovide for lb %s: %s", lb.Name, err)
+	}
+	region := lb.GetRegion()
+	if region == nil {
+		return nil, fmt.Errorf("failed to find region for lb %s", lb.Name)
+	}
+	return provider.GetIRegionById(region.ExternalId)
+}
+
+func (lb *SLoadbalancer) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, lb, "purge")
+}
+
+func (lb *SLoadbalancer) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	parasm := jsonutils.NewDict()
+	parasm.Add(jsonutils.JSONTrue, "purge")
+	return nil, lb.StartLoadBalancerDeleteTask(ctx, userCred, parasm, "")
+}
+
+func (lb *SLoadbalancer) StartLoadBalancerDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerDeleteTask", lb, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (lb *SLoadbalancer) StartLoadBalancerCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerCreateTask", lb, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (lb *SLoadbalancer) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -200,23 +285,17 @@ func (lb *SLoadbalancer) GetExtraDetails(ctx context.Context, userCred mcclient.
 }
 
 func (lb *SLoadbalancer) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if len(lb.Address) > 0 {
-		// TODO reserve support
+	lb.SetStatus(userCred, LB_STATUS_DELETING, "")
+	return lb.StartLoadBalancerDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
+}
+
+func (lb *SLoadbalancer) PendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	if len(lb.NetworkId) > 0 {
 		req := &SLoadbalancerNetworkDeleteData{
 			loadbalancer: lb,
 		}
-		err := LoadbalancernetworkManager.DeleteLoadbalancerNetwork(ctx, userCred, req)
-		if err != nil {
-			return err
-		}
-		lb.Address = ""
+		LoadbalancernetworkManager.DeleteLoadbalancerNetwork(ctx, userCred, req)
 	}
-	// TODO How about mark pending delete and return
-	return nil
-}
-
-func (lb *SLoadbalancer) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	lb.SetStatus(userCred, LB_STATUS_DISABLED, "preDelete")
 	lb.DoPendingDelete(ctx, userCred)
 	lb.PreDeleteSubs(ctx, userCred)
 }
@@ -326,6 +405,8 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 	lb.NetworkType = extLb.GetNetworkType()
 	lb.Name = extLb.GetName()
 	lb.Status = extLb.GetStatus()
+	lb.LoadbalancerSpec = extLb.GetLoadbalancerSpec()
+	lb.ChargeType = extLb.GetChargeType()
 	lb.ExternalId = extLb.GetGlobalId()
 	if networkId := extLb.GetNetworkId(); len(networkId) > 0 {
 		if network, err := NetworkManager.FetchByExternalId(networkId); err == nil && network != nil {
@@ -359,9 +440,9 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 func (lb *SLoadbalancer) syncLoadbalancerNetwork(ctx context.Context, userCred mcclient.TokenCredential) {
 	if len(lb.NetworkId) > 0 {
 		lbNetReq := &SLoadbalancerNetworkRequestData{
-			loadbalancer: lb,
-			networkId:    lb.NetworkId,
-			address:      lb.Address,
+			Loadbalancer: lb,
+			NetworkId:    lb.NetworkId,
+			Address:      lb.Address,
 		}
 		err := LoadbalancernetworkManager.SyncLoadbalancerNetwork(ctx, userCred, lbNetReq)
 		if err != nil {
@@ -375,11 +456,9 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 		lb.Address = extLb.GetAddress()
 		lb.Status = extLb.GetStatus()
 		lb.Name = extLb.GetName()
-		if networkId := extLb.GetNetworkId(); len(networkId) > 0 {
-			if network, err := NetworkManager.FetchByExternalId(networkId); err == nil && network != nil {
-				lb.NetworkId = network.GetId()
-			}
-		}
+		lb.LoadbalancerSpec = extLb.GetLoadbalancerSpec()
+		lb.ChargeType = extLb.GetChargeType()
+
 		if projectSync && len(projectId) > 0 {
 			lb.ProjectId = projectId
 		}

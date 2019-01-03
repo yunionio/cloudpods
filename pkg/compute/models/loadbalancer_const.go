@@ -26,7 +26,17 @@ const (
 	LB_STATUS_ENABLED  = "enabled"
 	LB_STATUS_DISABLED = "disabled"
 
-	LB_STATUS_INIT           = "init"
+	LB_STATUS_INIT = "init"
+
+	LB_STATUS_CREATING      = "creating"
+	LB_STATUS_CREATE_FAILED = "create_failed"
+
+	LB_STATUS_SYNCING        = "syncing"
+	LB_STATUS_SYNCING_FAILED = "syncing_failed"
+
+	LB_STATUS_DELETING      = "deleting"
+	LB_STATUS_DELETE_FAILED = "delete_failed"
+
 	LB_STATUS_UNKNOWN        = "unknown"
 	LB_STATUS_RUNNING        = "running"
 	LB_STATUS_STOPPED        = "stopped"

@@ -1,9 +1,11 @@
 package options
 
 type LoadbalancerCreateOptions struct {
-	NAME    string
-	Network string
-	Address string
+	NAME             string
+	Network          string
+	Address          string
+	LoadbalancerSpec string `choices:"slb.s1.small|slb.s2.small|slb.s2.medium|slb.s3.small|slb.s3.medium|slb.s3.large"`
+	ChargeType       string `choices:"traffic|bandwidth"`
 }
 
 type LoadbalancerGetOptions struct {
@@ -18,6 +20,10 @@ type LoadbalancerUpdateOptions struct {
 }
 
 type LoadbalancerDeleteOptions struct {
+	ID string
+}
+
+type LoadbalancerPurgeOptions struct {
 	ID string
 }
 

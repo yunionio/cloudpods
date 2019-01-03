@@ -1,6 +1,8 @@
 package aliyun
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -84,4 +86,87 @@ func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetILoadbalancerBacken
 		ibackends = append(ibackends, &backends[i])
 	}
 	return ibackends, nil
+}
+
+func (region *SRegion) CreateLoadbalancerMasterSlaveBackendGroup(name, loadbalancerId string, backends []cloudprovider.SLoadbalancerBackend) (*SLoadbalancerMasterSlaveBackendGroup, error) {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["MasterSlaveServerGroupName"] = name
+	params["LoadBalancerId"] = loadbalancerId
+	if len(backends) != 2 {
+		return nil, fmt.Errorf("master slave backendgorup must contain two backend")
+	}
+	servers := jsonutils.NewArray()
+	for _, backend := range backends {
+		serverType := "Slave"
+		if backend.Index == 0 {
+			serverType = "Master"
+		}
+		servers.Add(
+			jsonutils.Marshal(
+				map[string]string{
+					"ServerId":   backend.ExternalID,
+					"Port":       fmt.Sprintf("%d", backend.Port),
+					"Weight":     fmt.Sprintf("%d", backend.Weight),
+					"ServerType": serverType,
+				},
+			))
+	}
+	body, err := region.lbRequest("CreateMasterSlaveVServerGroup", params)
+	if err != nil {
+		return nil, err
+	}
+	groupId, err := body.GetString("MasterSlaveServerGroupId")
+	if err != nil {
+		return nil, err
+	}
+	return region.GetLoadbalancerMasterSlaveBackendgroupById(groupId)
+}
+
+func (region *SRegion) GetLoadbalancerMasterSlaveBackendgroupById(groupId string) (*SLoadbalancerMasterSlaveBackendGroup, error) {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["MasterSlaveServerGroupId"] = groupId
+	body, err := region.lbRequest("DescribeMasterSlaveVServerGroupAttribute", params)
+	if err != nil {
+		return nil, err
+	}
+	group := &SLoadbalancerMasterSlaveBackendGroup{}
+	return group, body.Unmarshal(group)
+}
+
+func (region *SRegion) UpdateLoadbalancerMasterSlaveBackendgroupName(name, groupId string) error {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["MasterSlaveServerGroupId"] = groupId
+	params["MasterSlaveServerGroupName"] = name
+	_, err := region.lbRequest("SetMasterSlaveVServerGroupAttribute", params)
+	return err
+}
+
+func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) Sync(name string) error {
+	if backendgroup.MasterSlaveServerGroupName != name {
+		return backendgroup.lb.region.UpdateLoadbalancerMasterSlaveBackendgroupName(backendgroup.MasterSlaveServerGroupId, name)
+	}
+	return nil
+}
+
+func (region *SRegion) DeleteLoadbalancerMasterSlaveBackendgroup(groupId string) error {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["MasterSlaveServerGroupId"] = groupId
+	_, err := region.lbRequest("DeleteMasterSlaveServerGroup", params)
+	return err
+}
+
+func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) Delete() error {
+	return backendgroup.lb.region.DeleteLoadbalancerMasterSlaveBackendgroup(backendgroup.MasterSlaveServerGroupId)
+}
+
+func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) AddBackendServer(serverId string, weight, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) RemoveBackendServer(serverId string) error {
+	return cloudprovider.ErrNotSupported
 }

@@ -93,6 +93,14 @@ func init() {
 		printLbAcl(lbacl)
 		return nil
 	})
+	R(&options.LoadbalancerAclDeleteOptions{}, "lbacl-purge", "Purge lbacl", func(s *mcclient.ClientSession, opts *options.LoadbalancerAclDeleteOptions) error {
+		lbacl, err := modules.LoadbalancerAcls.PerformAction(s, opts.ID, "purge", nil)
+		if err != nil {
+			return err
+		}
+		printLbAcl(lbacl)
+		return nil
+	})
 	R(&options.LoadbalancerAclDeleteOptions{}, "lbacl-delete", "Show lbacl", func(s *mcclient.ClientSession, opts *options.LoadbalancerAclDeleteOptions) error {
 		lbacl, err := modules.LoadbalancerAcls.Delete(s, opts.ID, nil)
 		if err != nil {

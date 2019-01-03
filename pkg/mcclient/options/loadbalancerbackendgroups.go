@@ -2,7 +2,9 @@ package options
 
 type LoadbalancerBackendGroupCreateOptions struct {
 	NAME         string
-	Loadbalancer string
+	LOADBALANCER string
+	Type         string `choices:"default|normal|master_slave"`
+	Backend      []string
 }
 
 type LoadbalancerBackendGroupGetOptions struct {

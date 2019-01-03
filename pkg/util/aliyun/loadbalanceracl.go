@@ -68,6 +68,32 @@ func (acl *SLoadbalancerAcl) GetAclEntries() *jsonutils.JSONArray {
 	return result
 }
 
+func (region *SRegion) UpdateAclName(aclId, name string) error {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["AclId"] = aclId
+	params["AclName"] = name
+	_, err := region.lbRequest("SetAccessControlListAttribute", params)
+	return err
+}
+
+func (region *SRegion) RemoveAccessControlListEntry(aclId string, data jsonutils.JSONObject) error {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["AclId"] = aclId
+	params["AclEntrys"] = data.String()
+	_, err := region.lbRequest("RemoveAccessControlListEntry", params)
+	return err
+}
+
+func (acl *SLoadbalancerAcl) Delete() error {
+	params := map[string]string{}
+	params["RegionId"] = acl.region.RegionId
+	params["AclId"] = acl.AclId
+	_, err := acl.region.lbRequest("DeleteAccessControlList", params)
+	return err
+}
+
 func (region *SRegion) GetLoadbalancerAclDetail(aclId string) (*SLoadbalancerAcl, error) {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId

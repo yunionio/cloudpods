@@ -15,8 +15,10 @@ type Loadbalancer struct {
 	VpcId       string
 	ZoneId      string
 
-	BackendGroupId string
-	CloudregionId  string
+	BackendGroupId   string
+	CloudregionId    string
+	ChargeType       string
+	LoadbalancerSpec string
 }
 
 type LoadbalancerTCPListener struct{}
