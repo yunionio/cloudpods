@@ -20,12 +20,12 @@ import (
 )
 
 type SecurityGroupRule struct {
-	Direction       string  `json:"direction"`
-	Ethertype       string  `json:"ethertype"`
-	ID              string  `json:"id"`
-	Description     string  `json:"description"`
-	SecurityGroupID string  `json:"security_group_id"`
-	RemoteGroupID   *string `json:"remote_group_id,omitempty"`
+	Direction       string `json:"direction"`
+	Ethertype       string `json:"ethertype"`
+	ID              string `json:"id"`
+	Description     string `json:"description"`
+	SecurityGroupID string `json:"security_group_id"`
+	RemoteGroupID   string `json:"remote_group_id"`
 }
 
 type SecurityGroupRuleDetail struct {
@@ -59,6 +59,11 @@ func (self *SSecurityGroup) GetId() string {
 }
 
 func (self *SSecurityGroup) GetVpcId() string {
+	// 无vpc关联的安全组统一返回normal
+	if len(self.VpcID) == 0 {
+		return "normal"
+	}
+
 	return self.VpcID
 }
 
@@ -101,6 +106,11 @@ func (self *SSecurityGroup) GetDescription() string {
 func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 	rules := make([]secrules.SecurityRule, 0)
 	for _, r := range self.SecurityGroupRules {
+		// 忽略了源地址是安全组的规则
+		if len(r.RemoteGroupID) > 0 {
+			continue
+		}
+
 		rule, err := self.GetSecurityRule(r.ID)
 		if err != nil {
 			return rules, err
@@ -114,7 +124,7 @@ func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 
 func (self *SSecurityGroup) GetSecurityRule(ruleId string) (secrules.SecurityRule, error) {
 	remoteRule := SecurityGroupRuleDetail{}
-	err := DoGet(self.vpc.region.ecsClient.SecurityGroups.Get, ruleId, nil, &remoteRule)
+	err := DoGet(self.vpc.region.ecsClient.SecurityGroupRules.Get, ruleId, nil, &remoteRule)
 	if err != nil {
 		return secrules.SecurityRule{}, err
 	}
@@ -124,6 +134,11 @@ func (self *SSecurityGroup) GetSecurityRule(ruleId string) (secrules.SecurityRul
 		direction = secrules.SecurityRuleIngress
 	} else {
 		direction = secrules.SecurityRuleEgress
+	}
+
+	protocol := "any"
+	if remoteRule.Protocol != "" {
+		protocol = remoteRule.Protocol
 	}
 
 	// todo: 没考虑ipv6。可能报错
@@ -136,7 +151,7 @@ func (self *SSecurityGroup) GetSecurityRule(ruleId string) (secrules.SecurityRul
 		Priority:    0,
 		Action:      secrules.SecurityRuleAllow,
 		IPNet:       ipNet,
-		Protocol:    remoteRule.Protocol,
+		Protocol:    protocol,
 		Direction:   direction,
 		PortStart:   int(remoteRule.PortRangeMin),
 		PortEnd:     int(remoteRule.PortRangeMax),

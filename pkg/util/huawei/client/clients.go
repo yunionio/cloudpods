@@ -12,21 +12,22 @@ type Client struct {
 	domainId  string
 	projectId string
 
-	Bandwidths     *modules.SBandwidthManager
-	Disks          *modules.SDiskManager
-	Eips           *modules.SEipManager
-	Images         *modules.SImageManager
-	Interface      *modules.SInterfaceManager
-	Keypairs       *modules.SKeypairManager
-	Port           *modules.SPortManager
-	Projects       *modules.SProjectManager
-	Regions        *modules.SRegionManager
-	SecurityGroups *modules.SSecurityGroupManager
-	Servers        *modules.SServerManager
-	Snapshots      *modules.SSnapshotManager
-	Subnets        *modules.SSubnetManager
-	Vpcs           *modules.SVpcManager
-	Zones          *modules.SZoneManager
+	Bandwidths         *modules.SBandwidthManager
+	Disks              *modules.SDiskManager
+	Eips               *modules.SEipManager
+	Images             *modules.SImageManager
+	Interface          *modules.SInterfaceManager
+	Keypairs           *modules.SKeypairManager
+	Port               *modules.SPortManager
+	Projects           *modules.SProjectManager
+	Regions            *modules.SRegionManager
+	SecurityGroupRules *modules.SSecgroupRuleManager
+	SecurityGroups     *modules.SSecurityGroupManager
+	Servers            *modules.SServerManager
+	Snapshots          *modules.SSnapshotManager
+	Subnets            *modules.SSubnetManager
+	Vpcs               *modules.SVpcManager
+	Zones              *modules.SZoneManager
 }
 
 func (self *Client) Init() error {
@@ -99,6 +100,10 @@ func (self *Client) initManagers() {
 
 	if self.Keypairs == nil {
 		self.Keypairs = modules.NewKeypairManager(self.regionId, self.projectId, self.signer)
+	}
+
+	if self.SecurityGroupRules == nil {
+		self.SecurityGroupRules = modules.NewSecgroupRuleManager(self.regionId, self.projectId, self.signer)
 	}
 
 	if self.SecurityGroups == nil {
