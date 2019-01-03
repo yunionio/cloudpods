@@ -24,9 +24,9 @@ func (host *SHostService) StartService() {
 	cloudcommon.ParseOptions(&options.HostOptions, &options.HostOptions.CommonOptions, os.Args, "host.conf")
 
 	// TODO
-	// Hostinfo.Init()
 	// storageman.Init()
 	// isolatedman.Init()
+	// Hostinfo.Init()
 	// Firewall.Init()
 	// hostman.Init()
 
