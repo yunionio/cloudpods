@@ -68,7 +68,8 @@ func (m *SGuestManager) VerifyExistingGuests(pendingDelete bool) {
 		"system":         {"True"},
 		"pending_delete": {fmt.Sprintf("%s", pendingDelete)},
 	}
-	params.Set("filter.0", fmt.Sprintf("host_id.equals(%s)", "get host id //TODO"))
+	// TODO get host id
+	params.Set("filter.0", fmt.Sprintf("host_id.equals(%s)", "get host id "))
 	if len(m.CandidateServers) > 0 {
 		keys := make([]string, len(m.CandidateServers))
 		var index = 0

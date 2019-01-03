@@ -15,6 +15,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
@@ -546,7 +547,165 @@ func (s *SKVMGuestInstance) GetNicDescMatch(mac, ip, port, bridge string) jsonut
 	return nil
 }
 
+func pathEqual(disk, ndisk jsonutils.JSONObject) bool {
+	if disk.Contains("path") && ndisk.Contains("path") {
+		path1, _ := disk.GetString("path")
+		path2, _ := ndisk.GetString("path")
+		return path1 == path2
+	} else if disk.Contains("url") && ndisk.Contains("url") {
+		path1, _ := disk.GetString("assumed_path")
+		path2, _ := ndisk.GetString("assumed_path")
+		return path1 == path2
+	} else {
+		return false
+	}
+
+}
+
+func (s *SKVMGuestInstance) compareDescDisks(newDesc jsonutils.JSONObject) ([]jsonutils.JSONObject, []jsonutils.JSONObject) {
+	var delDisks, addDisks = []jsonutils.JSONObject{}, []jsonutils.JSONObject{}
+	newDisks, _ := newDesc.GetArray("disks")
+	for _, disk := range newDisks {
+		driver, _ := disk.GetString("driver")
+		if utils.IsInStringArray("driver", []string{"virtio", "scsi"}) {
+			addDisks = append(addDisks, disk)
+		}
+	}
+	oldDisks, _ := s.Desc.GetArray("disks")
+	for _, disk := range oldDisks {
+		driver, _ := disk.GetString("driver")
+		if utils.IsInStringArray("driver", []string{"virtio", "scsi"}) {
+			var find = false
+			for idx, ndisk := range addDisks {
+				diskIndex, _ := disk.Int("index")
+				nDiskIndex, _ := ndisk.Int("index")
+				if diskIndex == nDiskIndex && pathEqual(disk, ndisk) {
+					addDisks = append(addDisks[:idx], addDisks[idx+1:]...)
+					find = true
+					break
+				}
+			}
+			if !find {
+				delDisks = append(delDisks, disk)
+			}
+		}
+	}
+	return delDisks, addDisks
+}
+
+func (s *SKVMGuestInstance) compareDescCdrom(newDesc jsonutils.JSONObject) string {
+	if !s.Desc.Contains("cdrom") && !newDesc.Contains("cdrom") {
+		return ""
+	} else if !s.Desc.Contains("cdrom") && newDesc.Contains("cdrom") {
+		cdrom, _ := newDesc.GetString("cdrom", "path")
+		return cdrom
+	} else if s.Desc.Contains("cdrom") && !newDesc.Contains("cdrom") {
+		return ""
+	} else {
+		cdrom, _ := s.Desc.GetString("cdrom", "path")
+		ncdrom, _ := newDesc.GetString("cdrom", "path")
+		if cdrom == ncdrom {
+			return ""
+		} else {
+			return ncdrom
+		}
+	}
+}
+
+func (s *SKVMGuestInstance) compareDescNetworks(newDesc jsonutils.JSONObject) ([]jsonutils.JSONObject, []jsonutils.JSONObject) {
+	var isVaild = func(net jsonutils.JSONObject) bool {
+		driver, _ := net.GetString("driver")
+		return driver == "virtio"
+	}
+
+	var findNet = func(nets []jsonutils.JSONObject, net jsonutils.JSONObject) int {
+		mac1, _ := net.GetString("mac")
+		for i := 0; i < len(nets); i++ {
+			mac2, _ := nets[i].GetString("mac")
+			if mac1 == mac2 {
+				return i
+			}
+		}
+		return -1
+	}
+
+	var delNics, addNics = []jsonutils.JSONObject{}, []jsonutils.JSONObject{}
+	for _, n := range newDesc.GetArray("nics") {
+		if isValid(n) {
+			addNics = append(addNics, n)
+		}
+	}
+
+	for _, n := range s.Desc.GetArray("nics") {
+		if isValid(n) {
+			idx := findNet(addNics, n)
+			if idx >= 0 {
+				addNics = append(addNics[:idx], addNics[idx+1:])
+			} else {
+				delNics = append(delNics, n)
+			}
+		}
+	}
+	return delNics, addNics
+}
+
 // 目测sync_cgroup没有要用到，先不写
 func (s *SKVMGuestInstance) SyncConfig(ctx context.Context, desc jsonutils.JSONObject, fwOnly bool) (jsonutils.JSONObject, error) {
+	var delDisks, addDisks, delNetworks, addNetworks []jsonutils.JSONObject
+	var cdrom string
 
+	if !fwOnly {
+		delDisks, addDisks := s.compareDescDisks(desc)
+		cdrom := s.compareDescCdrom(desc)
+		delNetworks, addNetworks := s.compareDescNetworks(desc)
+	}
+	if err := s.SaveDesc(desc); err != nil {
+		return nil, err
+	}
+
+	if !s.IsRunning() {
+		return nil, nil
+	}
+
+	vncPort := s.GetVncPort()
+	data := jsonutils.NewDict()
+	data.Set("vnc_port", jsonutils.NewInt(int64(vncPort)))
+	s.saveScripts(data)
+
+	// if options.enable_openflow_controller: 不写
+
+	if fwOnly {
+		res := jsonutils.NewDict()
+		res.Set("task", jsonutils.NewArray(jsonutils.NewString("secgroupsync")))
+		return res, nil
+	}
+	var runTaskNames = []jsonutils.JSONObject{}
+	var tasks = []IGuestTasks{}
+
+	var callBack = func(errs []error) {
+		if len(err) > 0 {
+			hostutils.TaskComplete(ctx, nil)
+		} else {
+			var reason string
+			for _, err := range errs {
+				reason += "; " + err.Error()
+			}
+			hostutils.TaskFailed(ctx, reason[2:])
+		}
+	}
+
+	if len(delDisks)+len(addDisks) > 0 || len(cdrom) > 0 {
+		task := NewGuestDiskSyncTask(s, delDisks, addDisks, cdrom)
+		runTaskNames = append(runTaskNames, jsonutils.NewString("disksync"))
+		tasks = append(tasks, tasks)
+	}
+
+	if len(delNetworks)+len(addNetworks) > 0 {
+		task := NewGuestNetworkSyncTask(s, delNetworks, addNetworks)
+		runTaskNames = append(runTaskNames, jsonutils.NewString("networksync"))
+		tasks = append(tasks, tasks)
+	}
+
+	NewGuestSyncConfigTaskExecutor(ctx, s, tasks).Start(1)
+	return jsonutils.NewDict(jsonutils.JSONPair{"task", runTaskNames}), nil
 }
