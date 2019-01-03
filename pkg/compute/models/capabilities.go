@@ -52,6 +52,8 @@ func getHypervisors(zone *SZone) []string {
 		q = q.Equals("zone_id", zone.Id)
 	}
 	q = q.IsNotEmpty("host_type").IsNotNull("host_type")
+	q = q.Equals("host_status", HOST_ONLINE)
+	q = q.IsTrue("enabled")
 	q = q.Distinct()
 	rows, err := q.Rows()
 	if err != nil {
@@ -76,6 +78,8 @@ func getStorageTypes(zone *SZone) []string {
 	}
 	q = q.IsNotEmpty("storage_type").IsNotNull("storage_type")
 	q = q.IsNotEmpty("medium_type").IsNotNull("medium_type")
+	q = q.In("status", []string{STORAGE_ENABLED, STORAGE_ONLINE})
+	q = q.IsTrue("enabled")
 	q = q.Distinct()
 	rows, err := q.Rows()
 	if err != nil {
