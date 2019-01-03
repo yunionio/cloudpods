@@ -264,3 +264,12 @@ func (d *SLocalDisk) GetDiskDesc() jsonutils.JSONObject {
 	desc.Set("disk_path", jsonutils.NewString(d.getPath()))
 	return desc
 }
+
+func (d *SLocalDisk) GetDiskSetupScripts(diskIndex int) string {
+	cmd := ""
+	cmd += fmt.Sprintf("DISK_%s=%s\n", diskIndex, d.getPath())
+	cmd += fmt.Sprintf("if [ ! -f $DISK_%s ]; then\n", diskIndex)
+	cmd += fmt.Sprintf("    DISK_%s=$DISK_%s%s\n", diskIndex, diskIndex, _ALTER_SUFFIX_)
+	cmd += "fi\n"
+	return cmd
+}

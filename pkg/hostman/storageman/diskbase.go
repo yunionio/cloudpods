@@ -16,6 +16,7 @@ type IDisk interface {
 	Probe() error
 
 	GetDiskDesc() jsonutils.JSONObject
+	GetDiskSetupScripts(idx int) string
 
 	// TODO
 	// DeleteAllSnapshot() error
@@ -91,4 +92,8 @@ func (d *SBaseDisk) DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict
 		}
 	}
 	return nil, fmt.Errorf("Kvm disk connect or mount error")
+}
+
+func (d *SBaseDisk) GetDiskSetupScripts(diskIndex int) string {
+	return ""
 }
