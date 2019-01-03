@@ -50,7 +50,7 @@ func (self *ImageCopyFromUrlTask) OnInit(ctx context.Context, obj db.IStandalone
 
 	image.OnSaveSuccess(ctx, self.UserCred, "copy from success")
 
-	image.StartImageConvertTask(ctx, self.UserCred, "", true)
+	image.StartImageConvertTask(ctx, self.UserCred, "")
 
 	self.SetStageComplete(ctx, nil)
 }

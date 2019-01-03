@@ -434,7 +434,7 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 
 		self.OnSaveSuccess(ctx, userCred, "create upload success")
 
-		self.StartImageConvertTask(ctx, userCred, "", true)
+		self.StartImageConvertTask(ctx, userCred, "")
 	} else {
 		copyFrom := appParams.Request.Header.Get(modules.IMAGE_META_COPY_FROM)
 		if len(copyFrom) > 0 {
@@ -461,7 +461,7 @@ func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 				}
 				self.OnSaveSuccess(ctx, userCred, "update upload success")
 				data.Remove("status")
-				self.StartImageConvertTask(ctx, userCred, "", true)
+				self.StartImageConvertTask(ctx, userCred, "")
 			} else {
 				copyFrom := appParams.Request.Header.Get(modules.IMAGE_META_COPY_FROM)
 				if len(copyFrom) > 0 {
@@ -568,12 +568,17 @@ func (self *SImage) StartImageCheckTask(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
-func (self *SImage) StartImageConvertTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string, doPrepare bool) error {
-	params := jsonutils.NewDict()
-	if doPrepare {
-		params.Add(jsonutils.JSONTrue, "prepare")
+func (self *SImage) StartImageConvertTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	err := self.MigrateSubImage()
+	if err != nil {
+		return err
 	}
-	task, err := taskman.TaskManager.NewTask(ctx, "ImageConvertTask", self, userCred, params, parentTaskId, "", nil)
+	err = self.MakeSubImages()
+	if err != nil {
+		return err
+	}
+
+	task, err := taskman.TaskManager.NewTask(ctx, "ImageConvertTask", self, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
@@ -1002,7 +1007,7 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 	if self.Status == IMAGE_STATUS_ACTIVE {
 		if needConvert {
 			log.Infof("Image %s is active and need convert", self.Name)
-			self.StartImageConvertTask(ctx, userCred, "", true)
+			self.StartImageConvertTask(ctx, userCred, "")
 		} else {
 			self.seedTorrents()
 		}

@@ -94,7 +94,7 @@ func (img *SQemuImage) parse() error {
 			line = strings.TrimSpace(line)
 			switch {
 			case strings.HasPrefix(line, "file format:"):
-				img.Format = TImageFormat(line[strings.LastIndexByte(line, ' ')+1:])
+				img.Format = String2ImageFormat(line[strings.LastIndexByte(line, ' ')+1:])
 			case strings.HasPrefix(line, "virtual size:"):
 				if img.SizeBytes == 0 {
 					sizeStr := line[strings.LastIndexByte(line, '(')+1 : strings.LastIndexByte(line, ' ')]

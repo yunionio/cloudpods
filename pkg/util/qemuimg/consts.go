@@ -39,7 +39,7 @@ func (fmt TImageFormat) String() string {
 
 func String2ImageFormat(fmt string) TImageFormat {
 	switch strings.ToLower(fmt) {
-	case "vhd":
+	case "vhd", "vpc":
 		return VHD
 	case "qcow2":
 		return QCOW2
