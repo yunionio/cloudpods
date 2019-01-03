@@ -1550,7 +1550,7 @@ func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.Token
 
 	for _, guestdisk := range self.GetDisks() {
 		disk := guestdisk.GetDisk()
-		if ! disk.IsDetachable() {
+		if !disk.IsDetachable() {
 			disk.DoPendingDelete(ctx, userCred)
 		} else {
 			log.Warningf("detachable disk on pending delete guests!!! should be removed earlier")

@@ -106,7 +106,7 @@ func (self *GuestDeleteTask) OnDiskDetachComplete(ctx context.Context, obj db.IS
 	}
 	lastDisk := guestdisks[len(guestdisks)-1].GetDisk() // remove last detachable disk
 	log.Debugf("lastDisk IsDetachable?? %v", lastDisk.IsDetachable())
-	if ! lastDisk.IsDetachable() {
+	if !lastDisk.IsDetachable() {
 		self.doClearSecurityGroupComplete(ctx, guest)
 		return
 	}

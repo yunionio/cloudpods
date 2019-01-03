@@ -787,6 +787,19 @@ func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) er
 	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
 
+func (self *SDisk) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	overridePendingDelete := false
+	purge := false
+	if query != nil {
+		overridePendingDelete = jsonutils.QueryBoolean(query, "override_pending_delete", false)
+		purge = jsonutils.QueryBoolean(query, "purge", false)
+	}
+	if (overridePendingDelete || purge) && !db.IsAdminAllowDelete(userCred, self) {
+		return false
+	}
+	return self.IsOwner(userCred) || db.IsAdminAllowDelete(userCred, self)
+}
+
 func (self *SDisk) GetTemplateId() string {
 	return self.TemplateId
 }
