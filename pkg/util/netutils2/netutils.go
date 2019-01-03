@@ -14,6 +14,7 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/util/regutils2"
 )
 
 var PSEUDO_VIP = "169.254.169.231"
@@ -23,6 +24,17 @@ var PRIVATE_PREFIXES = []string{
 	"10.0.0.0/8",
 	"172.16.0.0/12",
 	"192.168.0.0/16",
+}
+
+func IsTcpPortUsed(addr string, port int) bool {
+	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", addr, port))
+	if conn != nil {
+		conn.Close()
+		return true
+	} else {
+		log.Infof("IsTcpPortUsed: %s %d %s", addr, port, err)
+		return false
+	}
 }
 
 func GetPrivatePrefixes(privatePrefixes []string) []string {
@@ -238,22 +250,6 @@ func GetSecretInterfaceAddress() (string, []byte) {
 	return addr, SECRET_MASK
 }
 
-/**
- * Parses url with the given regular expression and returns the
- * group values defined in the expression.
- */
-func getParams(compRegEx *regexp.Regexp, url string) map[string]string {
-	match := compRegEx.FindStringSubmatch(url)
-
-	paramsMap := make(map[string]string, 0)
-	for i, name := range compRegEx.SubexpNames() {
-		if i > 0 && i <= len(match) {
-			paramsMap[name] = match[i]
-		}
-	}
-	return paramsMap
-}
-
 func (n *SNetInterface) GetRoutes(gwOnly bool) [][]string {
 	output, err := exec.Command("route", "-n").Output()
 	if err != nil {
@@ -268,7 +264,7 @@ func (n *SNetInterface) getRoutes(gwOnly bool, outputs []string) [][]string {
 
 	var res [][]string = make([][]string, 0)
 	for _, line := range outputs {
-		m := getParams(re, line)
+		m := regutils2.GetParams(re, line)
 		if len(m) > 0 && (!gwOnly || m["gw"] != "0.0.0.0") {
 			res = append(res, []string{m["dest"], m["gw"], m["mask"]})
 		}
@@ -280,7 +276,7 @@ func (n *SNetInterface) getAddresses(output []string) [][]string {
 	var addrs = make([][]string, 0)
 	re := regexp.MustCompile(`inet (?P<addr>[0-9.]+)/(?P<mask>[0-9]+) `)
 	for _, line := range output {
-		m := getParams(re, line)
+		m := regutils2.GetParams(re, line)
 		if len(m) > 0 {
 			addrs = append(addrs, []string{m["addr"], m["mask"]})
 		}

@@ -86,11 +86,17 @@ func diskCreate(ctx context.Context, storage IStorage, diskId string, disk IDisk
 }
 
 func diskDelete(ctx context.Context, storage IStorage, diskId string, disk IDisk, body jsonutils.JSONObject) (interface{}, error) {
-	hostutils.DelayTask(ctx, storage.DeleteDisk, disk)
+	hostutils.DelayTask(ctx, disk.Delete, nil)
 	return nil, nil
 }
 
 func diskResize(ctx context.Context, storage IStorage, diskId string, disk IDisk, body jsonutils.JSONObject) (interface{}, error) {
+	diskInfo, err := body.Get("disk")
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("Missing disk")
+	}
+	hostutils.DelayTask(ctx, disk.Resize, diskInfo)
+	return nil, nil
 }
 
 var actionFuncs = map[string]actionFunc{

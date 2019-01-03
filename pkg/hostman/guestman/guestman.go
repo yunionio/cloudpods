@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
 )
 
@@ -376,7 +377,6 @@ func (m *SGuestManager) GetFreeVncPort() int64 {
 	}
 	var port = 1
 	for {
-		// TODO: IsTcpPortUsed
 		if _, ok := vncPorts[port]; !ok && !netutils2.IsTcpPortUsed("0.0.0.0", VNC_PORT_BASE+port) &&
 			!netutils2.IsTcpPortUsed("0.0.0.0", MONITOR_PORT_BASE+port) {
 			break

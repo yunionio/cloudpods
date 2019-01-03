@@ -3,16 +3,20 @@ package fileutils2
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"golang.org/x/sys/unix"
 
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/util/regutils2"
+	"yunion.io/x/pkg/utils"
 )
 
 func Cleandir(sPath string, keepdir bool) error {
@@ -321,4 +325,267 @@ func FormatPartition(path, fs, uuid string) error {
 		return nil
 	}
 	return fmt.Errorf("Unknown fs %s", fs)
+}
+
+func IsPartedFsString(fsstr string) bool {
+	return utils.IsInStringArray(strings.ToLower(fsstr), []string{
+		"ext2", "ext3", "ext4", "xfs",
+		"fat16", "fat32",
+		"hfs", "hfs+", "hfsx",
+		"linux-swap", "linux-swap(v1)",
+		"ntfs", "reiserfs", "ufs", "btrfs",
+	})
+}
+
+func ParseDiskPartition(dev string, lines []byte) ([][]string, string) {
+	var (
+		parts        = [][]string{}
+		label        string
+		labelPartten = regexp.MustCompile(`Partition Table:\s+(?P<label>\w+)`)
+		partten      = regexp.MustCompile(`(?P<idx>\d+)\s+(?P<start>\d+)s\s+(?P<end>\d+)s\s+(?P<count>\d+)s`)
+	)
+
+	for _, line := range strings.Split(string(lines), "\n") {
+		if len(label) == 0 {
+			m := regutils2.GetParams(labelPartten, line)
+			if len(m) > 0 {
+				label = m["label"]
+			}
+		}
+		m := regutils2.GetParams(partten, line)
+		if len(m) > 0 {
+			var (
+				idx     = m["idx"]
+				start   = m["start"]
+				end     = m["end"]
+				count   = m["count"]
+				devname = dev
+			)
+			if '0' <= dev[len(dev)-1] && dev[len(dev)-1] <= '9' {
+				devname += "p"
+			}
+			devname += idx
+			data := regexp.MustCompile(`\s+`).Split(strings.TrimSpace(line), -1)
+
+			var disktype, fs, flag string
+			var offset = 0
+			if len(data) > 4 {
+				if label == "msdos" {
+					disktype = data[4]
+					if len(data) > 5 && IsPartedFsString(data[5]) {
+						fs = data[5]
+						offset += 1
+					}
+					if len(data) > 5+offset {
+						flag = data[5+offset]
+					}
+				} else if label == "gpt" {
+					if IsPartedFsString(data[4]) {
+						fs = data[4]
+						offset += 1
+					}
+					if len(data) > 4+offset {
+						disktype = data[4+offset]
+					}
+					if len(data) > 4+offset+1 {
+						flag = data[4+offset+1]
+					}
+				}
+			}
+			var bootable = ""
+			if len(flag) > 0 && strings.Index(flag, "boot") >= 0 {
+				bootable = "true"
+			}
+			parts = append(parts, []string{idx, bootable, start, end, count, disktype, fs,
+				devname})
+		}
+	}
+	return parts, label
+}
+
+func GetDevSector512Count(dev string) int {
+	sizeStr, _ := FileGetContents(fmt.Sprintf("/sys/block/%s/size", dev))
+	size, _ := strconv.Atoi(sizeStr)
+	return size
+}
+
+// TODO test
+func ResizeDiskFs(diskPath string, sizeMb int) error {
+	var cmds = []string{"parted", "-a", "none", "-s", diskPath, "--", "unit", "s", "print"}
+	lines, err := exec.Command(cmds[0], cmds[1:]...).Output()
+	if err != nil {
+		log.Errorf("resize disk fs fail: %s", err)
+		return err
+	}
+	parts, label := ParseDiskPartition(diskPath, lines)
+	log.Infof("Parts: %v label: %s", parts, label)
+	maxSector := GetDevSector512Count(path.Base(diskPath))
+	if label == "gpt" {
+		proc := exec.Command("gdisk", diskPath)
+		stdin, err := proc.StdinPipe()
+		if err != nil {
+			return err
+		}
+		defer stdin.Close()
+
+		outb, err := proc.StdoutPipe()
+		if err != nil {
+			return err
+		}
+		defer outb.Close()
+
+		errb, err := proc.StderrPipe()
+		if err != nil {
+			return err
+		}
+		defer errb.Close()
+
+		if err := proc.Start(); err != nil {
+			return err
+		}
+		for _, s := range []string{"r", "e", "Y", "w", "Y", "Y"} {
+			io.WriteString(stdin, s)
+		}
+		stdoutPut, err := ioutil.ReadAll(outb)
+		if err != nil {
+			return err
+		}
+		stderrOutPut, err := ioutil.ReadAll(errb)
+		if err != nil {
+			return err
+		}
+		log.Infof("gdisk: %s %s", stdoutPut, stderrOutPut)
+		proc.Wait()
+	}
+	if len(parts) > 0 && (label == "gpt" ||
+		(label == "msdos" && parts[len(parts)-1][5] == "primary")) {
+		var (
+			part = parts[len(parts)]
+			end  int
+		)
+		if sizeMb > 0 {
+			end = sizeMb * 1024 * 2
+		} else if label == "gpt" {
+			end = maxSector - 35
+		} else {
+			end = maxSector - 1
+		}
+		if label == "msdos" && end >= 4294967296 {
+			end = 4294967295
+		}
+		cmds = []string{"parted", "-a", "none", "-s", diskPath, "--",
+			"unit", "s", "rm", part[0], "mkpart", part[5]}
+		if len(part[6]) > 0 {
+			cmds = append(cmds, part[6])
+		}
+		cmds = append(cmds, part[2], fmt.Sprintf("%ds", end))
+		if len(part[1]) > 0 {
+			cmds = append(cmds, "set", part[0], "boot", "on")
+		}
+		err := exec.Command(cmds[0], cmds[1:]...).Run()
+		if err != nil {
+			log.Errorln(err)
+			return err
+		}
+		if len(part[6]) > 0 {
+			err := ResizePartitionFs(part[7], part[6])
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func FsckExtFs(fpath string) bool {
+	cmd := []string{"e2fsck", "-f", "-p", fpath}
+	if err := exec.Command(cmd[0], cmd[1:]...).Run(); err != nil {
+		log.Errorln(err)
+		return false
+	}
+	return true
+}
+
+func FsckXfsFs(fpath string) bool {
+	if err := exec.Command("xfs_check", fpath).Run(); err != nil {
+		log.Errorln(err)
+		exec.Command("xfs_repair", fpath).Run()
+		return false
+	}
+	return true
+}
+
+func ResizePartitionFs(fpath, fs string) error {
+	if len(fs) == 0 {
+		return nil
+	}
+	var (
+		cmds  = [][]string{}
+		uuids = GetDevUuid(fpath)
+	)
+	if strings.HasPrefix(fs, "linux-swap") {
+		if v, ok := uuids["UUID"]; ok {
+			cmds = [][]string{[]string{"mkswap", "-U", v, fpath}}
+		} else {
+			cmds = [][]string{[]string{"mkswap", fpath}}
+		}
+	} else if strings.HasPrefix(fs, "ext") {
+		if !FsckExtFs(fpath) {
+			return fmt.Errorf("Failed to fsck ext fs %s", fpath)
+		}
+		cmds = [][]string{[]string{"resize2fs", fpath}}
+	} else if fs == "xfs" {
+		var tmpPoint = fmt.Sprintf("/tmp/%s", strings.Replace(fpath, "/", "_", -1))
+		if err := exec.Command("mountpoint", tmpPoint).Run(); err == nil {
+			err = exec.Command("umount", "-f", tmpPoint).Run()
+			if err != nil {
+				log.Errorln(err)
+				return err
+			}
+		}
+		FsckXfsFs(fpath)
+		cmds = [][]string{[]string{"mkdir", "-p", tmpPoint},
+			[]string{"mount", fpath, tmpPoint},
+			[]string{"sleep", "2"},
+			[]string{"xfs_growfs", tmpPoint},
+			[]string{"sleep", "2"},
+			[]string{"umount", tmpPoint},
+			[]string{"sleep", "2"},
+			[]string{"rm", "-fr", tmpPoint}}
+	}
+
+	if len(cmds) > 0 {
+		for _, cmd := range cmds {
+			err := exec.Command(cmd[0], cmd[1:]...).Run()
+			if err != nil {
+				log.Errorln(err)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func GetDevUuid(dev string) map[string]string {
+	lines, err := exec.Command("blkid", dev).Output()
+	if err != nil {
+		return nil
+	}
+	for _, l := range strings.Split(string(lines), "\n") {
+		if strings.HasPrefix(l, dev) {
+			var ret = map[string]string{}
+			for _, part := range strings.Split(l, " ") {
+				data := strings.Split(part, "=")
+				if len(data) == 2 && strings.HasSuffix(data[0], "UUID") {
+					if data[1][0] == '"' || data[1][0] == '\'' {
+						ret[data[0]] = data[1][1 : len(data[1])-1]
+					} else {
+						ret[data[0]] = data[1]
+					}
+				}
+			}
+			return ret
+		}
+	}
+	return nil
 }

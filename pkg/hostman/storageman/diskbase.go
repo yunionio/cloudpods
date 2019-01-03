@@ -13,13 +13,14 @@ import (
 
 type IDisk interface {
 	GetId() string
-	Probe() bool
+	Probe() error
 
 	GetDiskDesc() jsonutils.JSONObject
 
 	// TODO
 	// DeleteAllSnapshot() error
-	Delete() error
+	Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
+	Resize(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 
 	GetPath() string
 	CreateFromUrl(context.Context, string) error
@@ -28,8 +29,6 @@ type IDisk interface {
 	CreateFromImageFuse(context.Context, string) error
 	CreateRaw(ctx context.Context, sizeMb int, diskFromat string, fsFormat string,
 		encryption bool, diskId string, back string) (jsonutils.JSONObject, error)
-
-	Resize(context.Context, int64) error
 
 	// @params: diskPath, guestDesc, deployInfo
 	DeployGuestFs(string, *jsonutils.JSONDict, *guestfs.SDeployInfo) (jsonutils.JSONObject, error)
@@ -59,8 +58,8 @@ func (d *SBaseDisk) Probe() error {
 	return fmt.Errorf("Not implemented")
 }
 
-func (d *SBaseDisk) Delete() error {
-	return fmt.Errorf("Not implemented")
+func (d *SBaseDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	return nil, fmt.Errorf("Not implemented")
 }
 
 func (d *SBaseDisk) CreateFromUrl(context.Context, string) error {
@@ -71,8 +70,8 @@ func (d *SBaseDisk) CreateFromTemplate(context.Context, string, string, int64) (
 	return nil, fmt.Errorf("Not implemented")
 }
 
-func (d *SBaseDisk) Resize(context.Context, int64) error {
-	return fmt.Errorf("Not implemented")
+func (d *SBaseDisk) Resize(context.Context, interface{}) (jsonutils.JSONObject, error) {
+	return nil, fmt.Errorf("Not implemented")
 }
 
 func (d *SBaseDisk) GetZone() string {

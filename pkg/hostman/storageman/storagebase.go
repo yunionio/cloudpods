@@ -31,7 +31,7 @@ type IStorage interface {
 	// *SDiskCreateByDiskinfo
 	CreateDiskByDiskinfo(context.Context, interface{}) (jsonutils.JSONObject, error)
 
-	// DeleteDiskfile(diskPath string) error
+	DeleteDiskfile(diskPath string) error
 	GetFuseTmpPath() string
 	GetFuseMountPath() string
 }
@@ -78,6 +78,10 @@ func (s *SBaseStorage) RemoveDisk(d IDisk) {
 			s.Disks = append(s.Disks[:i], s.Disks[i+1:]...)
 		}
 	}
+}
+
+func (s *SBaseStorage) DeleteDiskfile(diskpath string) error {
+	return fmt.Sprintf("Not Implement")
 }
 
 func (s *SBaseStorage) CreateDiskByDiskinfo(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
@@ -158,12 +162,4 @@ func (s *SBaseStorage) CreateDiskFromSnpashot(ctx context.Context, disk IDisk, c
 		return nil, fmt.Errorf("Unkown protocol %s", transferProtocol)
 	}
 	return disk.GetDiskDesc(), nil
-}
-
-func (s *SBaseStorage) DeleteDisk(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	disk, ok := params.(IDisk)
-	if !ok {
-		return nil, fmt.Errorf("Storage DeleteDisk Unknown params")
-	}
-	return nil, disk.Delete()
 }

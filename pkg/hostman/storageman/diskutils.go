@@ -147,3 +147,7 @@ func (d *SKVMGuestDisk) MakePartition(fs string) error {
 func (d *SKVMGuestDisk) FormatPartition(fs, uuid string) error {
 	return fileutils2.FormatPartition(fmt.Sprintf("%sp1", d.nbdDev), fs, uuid)
 }
+
+func (d *SKVMGuestDisk) ResizePartition() error {
+	return fileutils2.ResizeDiskFs(d.nbdDev, 0)
+}

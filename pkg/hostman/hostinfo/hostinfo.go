@@ -47,6 +47,17 @@ type SHostInfo struct {
 	Nics []*SNIC
 }
 
+func (h *SHostInfo) IsKvmSupport() bool {
+	if h.kvmModuleSupport == KVM_MODULE_UNSUPPORT {
+		return false
+	}
+	return true
+}
+
+func (h *SHostInfo) IsNestedVirtualization() bool {
+	return utils.IsInStringArray("hypervisor", h.Cpu.cpuFeatures)
+}
+
 func (h *SHostInfo) Start() error {
 	if err := h.prepareEnv(); err != nil {
 		return err
@@ -65,7 +76,6 @@ func (h *SHostInfo) parseConfig() error {
 		return fmt.Errorf("Not enough memory!")
 	}
 	if len(options.HostOptions.ListenInterface) > 0 {
-		// TODO netutils.NetInterface netutils未实现
 		h.MasterNic = netutils2.NewNetInterface(options.HostOptions.ListenInterface)
 	} else {
 		h.MasterNic = nil
@@ -246,7 +256,6 @@ func (h *SHostInfo) fixPathEnv() error {
 		"/usr/sbin",
 		"/usr/bin",
 	}
-	// env := os.Getenv("PATH")
 	return os.Setenv("PATH", strings.Join(paths, ":"))
 }
 
@@ -607,9 +616,8 @@ func Init() error {
 }
 
 func Instance() *SHostInfo {
+	if hostInfo == nil {
+		panic("Get nil hostinfo, Init first")
+	}
 	return hostInfo
 }
-
-// func GetStorageManager() *storageman.SStorageManager {
-// 	return hostInfo.storageManager
-// }

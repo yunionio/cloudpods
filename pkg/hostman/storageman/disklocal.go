@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 
 	"yunion.io/x/jsonutils"
@@ -56,14 +57,23 @@ func (d *SLocalDisk) Probe() error {
 	return fmt.Errorf("Disk not found")
 }
 
-func (d *SLocalDisk) Delete() error {
+func (d *SLocalDisk) UmountFuseImage() {
+	mntPath := path.Join(d.Storage.GetFuseMountPath(), d.Id)
+	if err := exec.Command("umount", mntPath).Run(); err != nil {
+		log.Errorln(err)
+	}
+	if err := exec.Command("rm", "-rf", mntPath); err != nil {
+		log.Errorln(err)
+	}
+}
+
+func (d *SLocalDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	dpath := d.GetPath()
 	log.Infof("Delete guest disk %s", dpath)
 	if err := d.Storage.DeleteDiskfile(dpath); err != nil {
-		return err
+		return nil, err
 	}
-	// TODO: PostCreateFromImageFuse umount fuse fs
-	// d.UmountImageFuse()
+	d.UmountFuseImage()
 
 	/* ????????????????
 	   files = os.listdir(self.storage.path)
@@ -76,6 +86,44 @@ func (d *SLocalDisk) Delete() error {
 	*/
 
 	d.Storage.RemoveDisk(d)
+	return nil, nil
+}
+
+func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	diskInfo, ok := params.(*jsonutils.JSONDict)
+	if !ok {
+		return nil, fmt.Errorf("Disk Resize Unknown Params")
+	}
+
+	sizeMb, _ := diskInfo.Int("size")
+	disk, err := qemuimg.NewQemuImage(d.GetPath())
+	if err != nil {
+		log.Errorln(err)
+		return nil, err
+	}
+	if err := disk.Resize(int(sizeMb)); err != nil {
+		return nil, err
+	}
+	if options.HostOptions.EnableFallocateDisk {
+		// TODO
+		// d.Fallocate()
+	}
+
+	if err = d.ResizeFs(); err != nil {
+		return nil, err
+	}
+
+	return d.GetDiskDesc(), nil
+}
+
+func (d *SLocalDisk) ResizeFs() error {
+	disk := NewKVMGuestDisk(d.GetPath())
+	if disk.Connect() {
+		defer disk.Disconnect()
+		if err := disk.ResizePartition(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
