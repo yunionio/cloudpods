@@ -494,6 +494,19 @@ func (self *SImage) PostUpdate(ctx context.Context, userCred mcclient.TokenCrede
 	}
 }
 
+func (self *SImage) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	overridePendingDelete := false
+	purge := false
+	if query != nil {
+		overridePendingDelete = jsonutils.QueryBoolean(query, "override_pending_delete", false)
+		purge = jsonutils.QueryBoolean(query, "purge", false)
+	}
+	if (overridePendingDelete || purge) && !db.IsAdminAllowDelete(userCred, self) {
+		return false
+	}
+	return self.IsOwner(userCred) || db.IsAdminAllowDelete(userCred, self)
+}
+
 func (self *SImage) ValidateDeleteCondition(ctx context.Context) error {
 	if self.IsPublic {
 		return httperrors.NewInvalidStatusError("image is shared")
