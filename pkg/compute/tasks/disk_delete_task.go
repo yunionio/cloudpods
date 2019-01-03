@@ -29,7 +29,14 @@ func (self *DiskDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 		return
 	}
-	if options.Options.EnablePendingDelete && !disk.PendingDeleted && !jsonutils.QueryBoolean(self.Params, "purge", false) && !jsonutils.QueryBoolean(self.Params, "override_pending_delete", false) {
+
+	isPurge := jsonutils.QueryBoolean(self.Params, "purge", false)
+	overridePendingDelete := jsonutils.QueryBoolean(self.Params, "override_pending_delete", false)
+	if options.Options.EnablePendingDelete && !isPurge && !overridePendingDelete {
+		if disk.PendingDeleted {
+			self.SetStageComplete(ctx, nil)
+			return
+		}
 		self.startPendingDeleteDisk(ctx, disk)
 	} else {
 		self.startDeleteDisk(ctx, disk)

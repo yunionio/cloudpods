@@ -1609,3 +1609,23 @@ func (self *SDisk) SaveRenewInfo(ctx context.Context, userCred mcclient.TokenCre
 	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(ctx), userCred)
 	return nil
 }
+
+func (self *SDisk) IsDetachable() bool {
+	storage := self.GetStorage()
+	if storage == nil {
+		return true
+	}
+	if storage.IsLocal() {
+		return false
+	}
+	if self.BillingType == BILLING_TYPE_PREPAID {
+		return false
+	}
+	if utils.IsInStringArray(self.DiskType, []string{DISK_TYPE_SYS, DISK_TYPE_SWAP}) {
+		return false
+	}
+	if self.AutoDelete {
+		return false
+	}
+	return true
+}

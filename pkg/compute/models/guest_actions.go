@@ -129,6 +129,9 @@ func (self *SGuest) AllowPerformSync(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SGuest) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING}) {
+		return nil, httperrors.NewResourceBusyError("Cannot sync in status %s", self.Status)
+	}
 	if err := self.StartSyncTask(ctx, userCred, false, ""); err != nil {
 		return nil, err
 	}
@@ -422,9 +425,7 @@ func (self *SGuest) PerformAttachdisk(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SGuest) StartSyncTask(ctx context.Context, userCred mcclient.TokenCredential, fw_only bool, parentTaskId string) error {
-	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING}) {
-		return httperrors.NewResourceBusyError("Cannot sync in status %s", self.Status)
-	}
+
 	data := jsonutils.NewDict()
 	if fw_only {
 		data.Add(jsonutils.JSONTrue, "fw_only")
@@ -846,7 +847,7 @@ func (self *SGuest) PerformSetSecgroup(ctx context.Context, userCred mcclient.To
 		setSecgroupNames = append(setSecgroupNames, secgrp.GetName())
 	}
 
-	if err := self.revokeAllSecgroups(ctx, userCred); err != nil {
+	if err := self.RevokeAllSecgroups(ctx, userCred); err != nil {
 		return nil, err
 	}
 
@@ -1122,14 +1123,8 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 				return nil, httperrors.NewInputParameterError("Cannot keep detached disk")
 			}
 			if utils.IsInStringArray(self.Status, detachDiskStatus) {
-				if disk.Status == DISK_INIT {
-					disk.SetStatus(userCred, DISK_DETACHING, "")
-				}
-				taskData := jsonutils.NewDict()
-				taskData.Add(jsonutils.NewString(disk.Id), "disk_id")
-				taskData.Add(jsonutils.NewBool(keepDisk), "keep_disk")
-				self.GetDriver().StartGuestDetachdiskTask(ctx, userCred, self, taskData, "")
-				return nil, nil
+				err = self.StartGuestDetachdiskTask(ctx, userCred, disk, keepDisk, "")
+				return nil, err
 			} else {
 				return nil, httperrors.NewInvalidStatusError("Server in %s not able to detach disk", self.Status)
 			}
@@ -1138,6 +1133,16 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 		}
 	}
 	return nil, httperrors.NewResourceNotFoundError("Disk %s not found", diskId)
+}
+
+func (self *SGuest) StartGuestDetachdiskTask(ctx context.Context, userCred mcclient.TokenCredential, disk *SDisk, keepDisk bool, parentTaskId string) error {
+	if disk.Status == DISK_INIT {
+		disk.SetStatus(userCred, DISK_DETACHING, "")
+	}
+	taskData := jsonutils.NewDict()
+	taskData.Add(jsonutils.NewString(disk.Id), "disk_id")
+	taskData.Add(jsonutils.NewBool(keepDisk), "keep_disk")
+	return self.GetDriver().StartGuestDetachdiskTask(ctx, userCred, self, taskData, "")
 }
 
 func (self *SGuest) AllowPerformDetachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -1525,12 +1530,12 @@ func (self *SGuest) StartChangeConfigTask(ctx context.Context, userCred mcclient
 	return nil
 }
 
-func (self *SGuest) revokeAllSecgroups(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := self.revokeSecgroup(ctx, userCred, self.getSecgroup())
+func (self *SGuest) RevokeAllSecgroups(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := GuestsecgroupManager.DeleteGuestSecgroup(ctx, userCred, self, nil)
 	if err != nil {
 		return err
 	}
-	err = GuestsecgroupManager.DeleteGuestSecgroup(ctx, userCred, self, nil)
+	err = self.revokeSecgroup(ctx, userCred, self.getSecgroup())
 	if err != nil {
 		return err
 	}
@@ -1542,16 +1547,13 @@ func (self *SGuest) DoPendingDelete(ctx context.Context, userCred mcclient.Token
 	if eip != nil {
 		eip.DoPendingDelete(ctx, userCred)
 	}
-	// revoke all secgroups
-	// TODO: sync revoked secgroups to remote cloud
-	self.revokeAllSecgroups(ctx, userCred)
-	// remove detachable disks
+
 	for _, guestdisk := range self.GetDisks() {
 		disk := guestdisk.GetDisk()
-		storage := disk.GetStorage()
-		if storage.IsLocal() || disk.BillingType == BILLING_TYPE_PREPAID || utils.IsInStringArray(disk.DiskType, []string{DISK_TYPE_SYS, DISK_TYPE_SWAP}) || (utils.IsInStringArray(self.Hypervisor, PUBLIC_CLOUD_HYPERVISORS) && disk.AutoDelete) {
+		if ! disk.IsDetachable() {
 			disk.DoPendingDelete(ctx, userCred)
 		} else {
+			log.Warningf("detachable disk on pending delete guests!!! should be removed earlier")
 			self.DetachDisk(ctx, disk, userCred)
 		}
 	}

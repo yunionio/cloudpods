@@ -206,6 +206,11 @@ func (dispatcher *DBJointModelDispatcher) Update(ctx context.Context, id1 string
 	userCred := fetchUserCredential(ctx)
 	master, slave, item, err := fetchJointItem(dispatcher, ctx, userCred, id1, id2, query)
 	if err == sql.ErrNoRows {
+		if jsonutils.QueryBoolean(query, "auto_create", false) {
+			queryDict := query.(*jsonutils.JSONDict)
+			queryDict.Remove("auto_create")
+			return dispatcher.Attach(ctx, id1, id2, query, data)
+		}
 		return nil, httperrors.NewResourceNotFoundError2(dispatcher.modelManager.Keyword(), id1+"-"+id2)
 	} else if err != nil {
 		return nil, httperrors.NewGeneralError(err)

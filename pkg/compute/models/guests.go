@@ -2625,9 +2625,9 @@ func (self *SGuest) RealDelete(ctx context.Context, userCred mcclient.TokenCrede
 func (self *SGuest) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	overridePendingDelete := false
 	purge := false
-	if data != nil {
-		overridePendingDelete = jsonutils.QueryBoolean(data, "override_pending_delete", false)
-		purge = jsonutils.QueryBoolean(data, "purge", false)
+	if query != nil {
+		overridePendingDelete = jsonutils.QueryBoolean(query, "override_pending_delete", false)
+		purge = jsonutils.QueryBoolean(query, "purge", false)
 	}
 	if (overridePendingDelete || purge) && !db.IsAdminAllowDelete(userCred, self) {
 		return false
