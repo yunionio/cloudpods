@@ -15,7 +15,7 @@ func (self *SHuaweiProviderFactory) ValidateChangeBandwidth(instanceId string, b
 }
 
 func (self *SHuaweiProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	client, err := huawei.NewHuaweiClient(providerId, providerName, account, secret)
+	client, err := huawei.NewHuaweiClient(providerId, providerName, url, account, secret)
 	if err != nil {
 		return nil, err
 	}
