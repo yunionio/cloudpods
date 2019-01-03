@@ -94,11 +94,44 @@ func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {
 	return self.region
 }
 
+type SDiskConfigSet struct {
+	Available      bool
+	DeviceClass    string
+	DiskChargeType string
+	DiskType       string
+	DiskUsage      string
+	InstanceFamily string
+	MaxDiskSize    int
+	MinDiskSize    int
+	Zone           string
+}
+
+func (self *SRegion) GetDiskConfigSet(zoneName string) ([]SDiskConfigSet, error) {
+	params := map[string]string{}
+	params["Region"] = self.Region
+	params["Zones.0"] = zoneName
+	params["InquiryType"] = "INQUIRY_CBS_CONFIG"
+	body, err := self.cbsRequest("DescribeDiskConfigQuota", params)
+	if err != nil {
+		return nil, err
+	}
+	diskConfigSet := []SDiskConfigSet{}
+	return diskConfigSet, body.Unmarshal(&diskConfigSet, "DiskConfigSet")
+}
+
 func (self *SZone) fetchStorages() error {
 	self.istorages = []cloudprovider.ICloudStorage{}
-	for _, storageType := range []string{"CLOUD_BASIC", "CLOUD_PREMIUM", "CLOUD_SSD"} {
-		storage := SStorage{zone: self, storageType: storageType}
-		self.istorages = append(self.istorages, &storage)
+	diskConfigSet, err := self.region.GetDiskConfigSet(self.Zone)
+	if err != nil {
+		return err
+	}
+	storageTypes := []string{}
+	for _, diskConfig := range diskConfigSet {
+		if diskConfig.Available && !utils.IsInStringArray(diskConfig.DiskType, storageTypes) {
+			storageTypes = append(storageTypes, diskConfig.DiskType)
+			storage := SStorage{zone: self, storageType: diskConfig.DiskType}
+			self.istorages = append(self.istorages, &storage)
+		}
 	}
 	for _, localstorageType := range []string{"LOCAL_BASIC", "LOCAL_SSD"} {
 		storage := SLocalStorage{zone: self, storageType: localstorageType}
