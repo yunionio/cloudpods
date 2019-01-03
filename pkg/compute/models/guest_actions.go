@@ -65,7 +65,7 @@ func (self *SGuest) PerformMonitor(ctx context.Context, userCred mcclient.TokenC
 	if utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_BLOCK_STREAM}) {
 		cmd, err := data.GetString("command")
 		if err != nil {
-			return nil, err
+			return nil, httperrors.NewMissingParameterError("command")
 		}
 		return self.SendMonitorCommand(ctx, userCred, cmd)
 	}
@@ -399,10 +399,12 @@ func (self *SGuest) ValidateAttachDisk(ctx context.Context, disk *SDisk) error {
 func (self *SGuest) PerformAttachdisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	diskId, err := data.GetString("disk_id")
 	if err != nil {
-		return nil, err
+		log.Errorln(err)
+		return nil, httperrors.NewMissingParameterError("disk_id")
 	}
 	disk, err := DiskManager.FetchByIdOrName(userCred, diskId)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
+		log.Errorln(err)
 		return nil, err
 	}
 	if disk == nil {
@@ -1101,11 +1103,12 @@ func (self *SGuest) AllowPerformDetachdisk(ctx context.Context, userCred mcclien
 func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	diskId, err := data.GetString("disk_id")
 	if err != nil {
-		return nil, err
+		log.Errorln(err)
+		return nil, httperrors.NewMissingParameterError("disk_id")
 	}
 	keepDisk := jsonutils.QueryBoolean(data, "keep_disk", false)
 	iDisk, err := DiskManager.FetchByIdOrName(userCred, diskId)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
 	disk := iDisk.(*SDisk)
@@ -1750,7 +1753,8 @@ func (self *SGuest) PerformSendkeys(ctx context.Context, userCred mcclient.Token
 	}
 	keys, err := data.GetString("keys")
 	if err != nil {
-		return nil, err
+		log.Errorln(err)
+		return nil, httperrors.NewMissingParameterError("keys")
 	}
 	err = self.VerifySendKeys(keys)
 	if err != nil {

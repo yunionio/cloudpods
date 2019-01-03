@@ -333,7 +333,7 @@ func (self *SDisk) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	disk, err := data.Get("disk")
 	if err != nil {
-		return nil, err
+		return nil, httperrors.NewMissingParameterError("disk")
 	}
 
 	diskConfig, err := parseDiskInfo(ctx, userCred, disk)
@@ -598,7 +598,7 @@ func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.Token
 	}
 	snapshotId, err := data.GetString("snapshot_id")
 	if err != nil {
-		return nil, err
+		return nil, httperrors.NewMissingParameterError("snapshot_id")
 	}
 	guests := self.GetGuests()
 	if len(guests) > 1 {
@@ -642,7 +642,7 @@ func (self *SDisk) AllowPerformResize(ctx context.Context, userCred mcclient.Tok
 func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	sizeStr, err := data.GetString("size")
 	if err != nil {
-		return nil, err
+		return nil, httperrors.NewMissingParameterError("size")
 	}
 	sizeMb, err := fileutils.GetSizeMb(sizeStr, 'M', 1024)
 	if err != nil {
