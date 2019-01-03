@@ -15,6 +15,7 @@ import (
 1.同步的子账户中有一条空记录.需要查原因
 2.安全组同步需要进一步确认
 3.实例接口需要进一步确认
+4.BGP type 目前是hard code在代码中。需要考虑从cloudmeta服务中查询
 */
 
 const (
@@ -220,13 +221,59 @@ func (self *SHuaweiClient) GetIStorageById(id string) (cloudprovider.ICloudStora
 	return nil, cloudprovider.ErrNotFound
 }
 
+// 总账户余额
 type SAccountBalance struct {
 	AvailableAmount float64
 }
 
+// 账户余额
+// https://support.huaweicloud.com/api-oce/zh-cn_topic_0109685133.html
+type SBalance struct {
+	Amount           float64 `json:"amount"`
+	Currency         string  `json:"currency"`
+	AccountID        string  `json:"account_id"`
+	AccountType      int64   `json:"account_type"`
+	DesignatedAmount *int64  `json:"designated_amount,omitempty"`
+	CreditAmount     *int64  `json:"credit_amount,omitempty"`
+	MeasureUnit      int64   `json:"measure_unit"`
+}
+
+// 这里的余额指的是所有租户的总余额
 func (self *SHuaweiClient) QueryAccountBalance() (*SAccountBalance, error) {
-	// todo: implement me
-	return nil, nil
+	domains, err := self.getEnabledDomains()
+	if err != nil {
+		return nil, err
+	}
+
+	amount := float64(0)
+	for _, domain := range domains {
+		v, err := self.queryDomainBalance(domain.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		amount += v
+	}
+
+	return &SAccountBalance{AvailableAmount: amount}, nil
+}
+
+// https://support.huaweicloud.com/api-bpconsole/zh-cn_topic_0075213309.html
+func (self *SHuaweiClient) queryDomainBalance(domainId string) (float64, error) {
+	huawei, _ := client.NewClientWithAccessKey("", "", self.accessKey, self.secret)
+	huawei.Balances.SetDomainId(domainId)
+	balances := make([]SBalance, 0)
+	err := DoList(huawei.Balances.List, nil, &balances)
+	if err != nil {
+		return 0, err
+	}
+
+	amount := float64(0)
+	for _, balance := range balances {
+		amount += balance.Amount
+	}
+
+	return amount, nil
 }
 
 func (self *SHuaweiClient) GetVersion() string {

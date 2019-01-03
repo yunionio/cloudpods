@@ -26,5 +26,5 @@ func NewDiskManager(regionId string, projectId string, signer auth.Signer) *SDis
 }
 
 func (self *SDiskManager) List(querys map[string]string) (*responses.ListResult, error) {
-	return self.ListInContext(nil, "detail", querys)
+	return self.ListInContextWithSpec(nil, "detail", querys, self.KeywordPlural)
 }

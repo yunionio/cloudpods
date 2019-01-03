@@ -1045,7 +1045,19 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 				}
 				vpc := vpcObj.(*SVpc)
 				zone := zoneObj.(*SZone)
-				wires, err := WireManager.getWiresByVpcAndZone(vpc, zone)
+				region := zone.GetRegion()
+				if region == nil {
+					return nil, httperrors.NewInternalServerError("zone %s related region not found", zone.Id)
+				}
+
+				// 华为云wire zone_id 为空
+				var wires []SWire
+				if region.Provider == CLOUD_PROVIDER_HUAWEI {
+					wires, err = WireManager.getWiresByVpcAndZone(vpc, nil)
+				} else {
+					wires, err = WireManager.getWiresByVpcAndZone(vpc, zone)
+				}
+
 				if err != nil {
 					if err == sql.ErrNoRows {
 						return nil, httperrors.NewNotFoundError("wire not found for zone %s and vpc %s", zoneStr, vpcStr)

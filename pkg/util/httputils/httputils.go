@@ -248,8 +248,10 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 		}
 
 		err = jrbody.Unmarshal(&ce)
-		if err != nil {
-			return nil, nil, err
+		if err != nil || ce.Code == 0 {
+			ce.Code = resp.StatusCode
+			ce.Details = jrbody.String()
+			return nil, nil, &ce
 		} else {
 			return nil, nil, &ce
 		}

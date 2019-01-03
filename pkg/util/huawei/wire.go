@@ -2,20 +2,24 @@ package huawei
 
 import (
 	"fmt"
+	"net"
+	"time"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
+// 华为云的子网有点特殊。子网在整个region可用。
 type SWire struct {
-	zone *SZone
-	vpc  *SVpc
+	region *SRegion
+	vpc    *SVpc
 
 	inetworks []cloudprovider.ICloudNetwork
 }
 
 func (self *SWire) GetId() string {
-	return fmt.Sprintf("%s-%s", self.vpc.GetId(), self.zone.GetId())
+	return fmt.Sprintf("%s-%s", self.vpc.GetId(), self.region.GetId())
 }
 
 func (self *SWire) GetName() string {
@@ -23,7 +27,7 @@ func (self *SWire) GetName() string {
 }
 
 func (self *SWire) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s", self.vpc.GetGlobalId(), self.zone.GetGlobalId())
+	return fmt.Sprintf("%s-%s", self.vpc.GetGlobalId(), self.region.GetGlobalId())
 }
 
 func (self *SWire) GetStatus() string {
@@ -47,7 +51,7 @@ func (self *SWire) GetIVpc() cloudprovider.ICloudVpc {
 }
 
 func (self *SWire) GetIZone() cloudprovider.ICloudZone {
-	return self.zone
+	return nil
 }
 
 func (self *SWire) GetINetworks() ([]cloudprovider.ICloudNetwork, error) {
@@ -77,8 +81,35 @@ func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, e
 	return nil, cloudprovider.ErrNotFound
 }
 
+/*
+华为云子网可用区，类似一个zone标签。即使指定了zone子网在整个region依然是可用。
+通过华为web控制台创建子网需要指定可用区。这里是不指定的。
+*/
 func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	panic("implement me")
+	networkId, err := self.region.createNetwork(self.vpc.GetId(), name, cidr, desc)
+	if err != nil {
+		log.Errorf("createNetwork error %s", err)
+		return nil, err
+	}
+
+	var network *SNetwork
+	err = cloudprovider.WaitCreated(5*time.Second, 60*time.Second, func() bool {
+		self.inetworks = nil
+		network = self.getNetworkById(networkId)
+		if network == nil {
+			return false
+		} else {
+			return true
+		}
+	})
+
+	if err != nil {
+		log.Errorf("cannot find network after create????")
+		return nil, err
+	}
+
+	network.wire = self
+	return network, nil
 }
 
 func (self *SWire) addNetwork(network *SNetwork) {
@@ -111,4 +142,44 @@ func (self *SWire) getNetworkById(networkId string) *SNetwork {
 		}
 	}
 	return nil
+}
+
+func getDefaultGateWay(cidr string) (string, error) {
+	ip, _, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return "", err
+	}
+
+	ipv4 := ip.To4()
+	if ipv4 == nil || len(ip.String()) == net.IPv6len {
+		return "", fmt.Errorf("ipv6 is not supported currently")
+	}
+
+	if ipv4[3] != 0 {
+		return "", fmt.Errorf("the last byte of ip address must be zero. e.g 192.168.0.0/16")
+	}
+
+	ipv4[3] = 1
+	return ipv4.String(), nil
+}
+
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090590.html
+// cidr 掩码长度不能大于28
+func (self *SRegion) createNetwork(vpcId string, name string, cidr string, desc string) (string, error) {
+	gateway, err := getDefaultGateWay(cidr)
+	if err != nil {
+		return "", err
+	}
+
+	params := jsonutils.NewDict()
+	subnetObj := jsonutils.NewDict()
+	subnetObj.Add(jsonutils.NewString(name), "name")
+	subnetObj.Add(jsonutils.NewString(vpcId), "vpc_id")
+	subnetObj.Add(jsonutils.NewString(cidr), "cidr")
+	subnetObj.Add(jsonutils.NewString(gateway), "gateway_ip")
+	params.Add(subnetObj, "subnet")
+
+	subnet := SNetwork{}
+	err = DoCreate(self.ecsClient.Subnets.Create, params, &subnet)
+	return subnet.ID, err
 }

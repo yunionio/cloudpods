@@ -2,7 +2,7 @@ package huawei
 
 import (
 	"strconv"
-	"strings"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -50,13 +50,21 @@ func (self *SNetwork) GetGlobalId() string {
 	return self.ID
 }
 
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090591.html
 func (self *SNetwork) GetStatus() string {
-	return strings.ToLower(self.Status)
+	switch self.Status {
+	case "ACTIVE", "UNKNOWN":
+		return models.NETWORK_STATUS_AVAILABLE // ? todo: // UNKNOWN
+	case "ERROR":
+		return models.NETWORK_STATUS_UNKNOWN
+	default:
+		return models.NETWORK_STATUS_UNKNOWN
+	}
 }
 
 func (self *SNetwork) Refresh() error {
 	log.Debugf("network refresh %s", self.GetId())
-	new, err := self.wire.zone.region.getNetwork(self.GetId())
+	new, err := self.wire.region.getNetwork(self.GetId())
 	if err != nil {
 		return err
 	}
@@ -79,6 +87,7 @@ func (self *SNetwork) GetIpStart() string {
 	pref, _ := netutils.NewIPV4Prefix(self.CIDR)
 	startIp := pref.Address.NetAddr(pref.MaskLen) // 0
 	startIp = startIp.StepUp()                    // 1
+	startIp = startIp.StepUp()                    // 2
 	return startIp.String()
 }
 
@@ -112,8 +121,7 @@ func (self *SNetwork) GetIsPublic() bool {
 }
 
 func (self *SNetwork) Delete() error {
-	// todo: implement me
-	return nil
+	return self.wire.region.deleteNetwork(self.GetId())
 }
 
 func (self *SNetwork) GetAllocTimeoutSeconds() int {
@@ -140,4 +148,8 @@ func (self *SRegion) GetNetwroks(vpcId string, limit int, marker string) ([]SNet
 	networks := make([]SNetwork, 0)
 	err := DoList(self.ecsClient.Subnets.List, querys, &networks)
 	return networks, len(networks), err
+}
+
+func (self *SRegion) deleteNetwork(networkId string) error {
+	return DoDelete(self.ecsClient.Subnets.Delete, networkId, nil, nil)
 }

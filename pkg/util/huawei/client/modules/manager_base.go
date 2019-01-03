@@ -13,9 +13,14 @@ import (
 	"yunion.io/x/onecloud/pkg/util/huawei/client/responses"
 )
 
+type IRequestHook interface {
+	Process(r requests.IRequest)
+}
+
 type BaseManager struct {
-	signer     auth.Signer
-	httpClient *http.Client
+	signer      auth.Signer
+	httpClient  *http.Client
+	requestHook IRequestHook // 用于对request做特殊处理。非必要请不要使用！！！。目前只有port接口用到。
 
 	columns []string
 	debug   bool
@@ -90,6 +95,10 @@ func (self *BaseManager) _get(request requests.IRequest, responseKey string) (js
 
 func (self *BaseManager) jsonRequest(request requests.IRequest) (http.Header, jsonutils.JSONObject, error) {
 	ctx := context.Background()
+	// hook request
+	if self.requestHook != nil {
+		self.requestHook.Process(request)
+	}
 	// 拼接、编译、签名 requests here。
 	err := self.buildRequestWithSigner(request, self.signer)
 	if err != nil {
@@ -109,7 +118,7 @@ func (self *BaseManager) jsonRequest(request requests.IRequest) (http.Header, js
 		}
 	}
 
-	// 发送 request。
+	// 发送 request。todo: 支持debug
 	return httputils.JSONRequest(self.httpClient, ctx, httputils.THttpMethod(request.GetMethod()), request.BuildUrl(), header, jsonBody, self.debug)
 }
 

@@ -40,9 +40,9 @@ func init() {
 type SWire struct {
 	db.SStandaloneResourceBase
 
-	Bandwidth    int    `list:"admin" update:"admin" nullable:"false" create:"admin_required"`             // = Column(Integer, nullable=False) # bandwidth of network in Mbps
-	ScheduleRank int    `list:"admin" update:"admin"`                                                      // = Column(Integer, default=0, nullable=True)
-	ZoneId       string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // = Column(VARCHAR(36, charset='ascii'), nullable=False)
+	Bandwidth    int    `list:"admin" update:"admin" nullable:"false" create:"admin_required"`            // = Column(Integer, nullable=False) # bandwidth of network in Mbps
+	ScheduleRank int    `list:"admin" update:"admin"`                                                     // = Column(Integer, default=0, nullable=True)
+	ZoneId       string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"admin_required"` // = Column(VARCHAR(36, charset='ascii'), nullable=False)
 	VpcId        string `wdith:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
 }
 
@@ -259,16 +259,20 @@ func (manager *SWireManager) newFromCloudWire(extWire cloudprovider.ICloudWire, 
 	wire.ExternalId = extWire.GetGlobalId()
 	wire.Bandwidth = extWire.GetBandwidth()
 	wire.VpcId = vpc.Id
-	zoneObj, err := ZoneManager.FetchByExternalId(extWire.GetIZone().GetGlobalId())
-	if err != nil {
-		log.Errorf("cannot find zone for wire %s", err)
-		return nil, err
+	izone := extWire.GetIZone()
+	if izone != nil {
+		zoneObj, err := ZoneManager.FetchByExternalId(izone.GetGlobalId())
+		if err != nil {
+			log.Errorf("cannot find zone for wire %s", err)
+			return nil, err
+		}
+
+		wire.ZoneId = zoneObj.(*SZone).Id
 	}
-	wire.ZoneId = zoneObj.(*SZone).Id
 
 	wire.IsEmulated = extWire.IsEmulated()
 
-	err = manager.TableSpec().Insert(&wire)
+	err := manager.TableSpec().Insert(&wire)
 	if err != nil {
 		log.Errorf("newFromCloudWire fail %s", err)
 		return nil, err
