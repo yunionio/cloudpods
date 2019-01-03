@@ -37,11 +37,7 @@ func (self *SHuaweiClient) fetchProjects() ([]SProject, error) {
 	huawei, _ := clients.NewClientWithAccessKey("", "", self.accessKey, self.secret)
 	projects := make([]SProject, 0)
 	err := DoList(huawei.Projects.List, nil, &projects)
-	if err != nil {
-		return nil, err
-	}
-
-	return projects, nil
+	return projects, err
 }
 
 func (self *SHuaweiClient) GetProjectById(projectId string) (SProject, error) {

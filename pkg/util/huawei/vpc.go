@@ -69,12 +69,14 @@ func (self *SVpc) fetchNetworks() error {
 	return nil
 }
 
+// 华为云安全组可以被同region的VPC使用
 func (self *SVpc) fetchSecurityGroups() error {
 	limit := 100
 	marker := ""
 	secgroups := make([]SSecurityGroup, 0)
 	for {
-		parts, count, err := self.region.GetSecurityGroups(self.GetId(), limit, marker)
+		// todo： vpc 和 安全组的关联关系还需要进一步确认。
+		parts, count, err := self.region.GetSecurityGroups("", limit, marker)
 		if err != nil {
 			return err
 		}

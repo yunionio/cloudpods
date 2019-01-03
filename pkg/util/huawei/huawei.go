@@ -31,6 +31,7 @@ type SHuaweiClient struct {
 	providerId   string
 	providerName string
 	projectId    string // 华为云项目ID.
+	accessUrl    string // 服务区域 ChinaCloud | InternationalCloud
 	accessKey    string
 	secret       string
 	iregions     []cloudprovider.ICloudRegion
@@ -52,7 +53,8 @@ func parseAccount(account string) (accessKey string, projectId string) {
 // 进行资源操作时参数account 对应数据库cloudprovider表中的account字段,由accessKey和projectID两部分组成，通过"/"分割。
 // 初次导入Subaccount时，参数account对应cloudaccounts表中的account字段，即accesskey。此时projectID为空，
 // 只能进行同步子账号、查询region列表等projectId无关的操作。
-func NewHuaweiClient(providerId string, providerName string, account string, secret string) (*SHuaweiClient, error) {
+// todo: 通过accessurl支持国际站。目前暂时未支持国际站
+func NewHuaweiClient(providerId, providerName, accessurl, account, secret string) (*SHuaweiClient, error) {
 	accessKey, projectId := parseAccount(account)
 	client := SHuaweiClient{
 		providerId:   providerId,
@@ -137,9 +139,13 @@ func (self *SHuaweiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 	}
 
 	// https://support.huaweicloud.com/api-iam/zh-cn_topic_0074171149.html
-	subAccounts := make([]cloudprovider.SSubAccount, len(projects))
+	subAccounts := make([]cloudprovider.SSubAccount, 0)
 	for i := range projects {
 		project := projects[i]
+		// name 为MOS的project是华为云内部的一个特殊project。不需要同步到本地
+		if strings.ToLower(project.Name) == "mos" {
+			continue
+		}
 		s := cloudprovider.SSubAccount{
 			Name:         project.Name,
 			State:        models.CLOUD_PROVIDER_CONNECTED,

@@ -17,8 +17,8 @@ func NewSecgroupRuleManager(regionId string, projectId string, signer auth.Signe
 		Region:        regionId,
 		ProjectId:     projectId,
 		version:       "v1",
-		Keyword:       "security-group-rule",
-		KeywordPlural: "security-group-rules",
+		Keyword:       "security_group_rule",
+		KeywordPlural: "security_group_rules",
 
 		ResourceKeyword: "security-group-rules",
 	}}
