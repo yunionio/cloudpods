@@ -2,10 +2,12 @@ package tasks
 
 import (
 	"context"
-
 	"fmt"
 	"net/http"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/image/models"
@@ -25,8 +27,10 @@ func (self *ImageCopyFromUrlTask) OnInit(ctx context.Context, obj db.IStandalone
 
 	copyFrom, _ := self.Params.GetString("copy_from")
 
+	log.Infof("Copy image from %s", copyFrom)
+
 	header := http.Header{}
-	header.Set("Content-Type", "application/octet-stream")
+	// header.Set("Content-Type", "application/octet-stream")
 	resp, err := httputils.Request(nil, ctx, httputils.GET, copyFrom, header, nil, false)
 
 	if err != nil {
@@ -46,7 +50,7 @@ func (self *ImageCopyFromUrlTask) OnInit(ctx context.Context, obj db.IStandalone
 
 	image.OnSaveSuccess(ctx, self.UserCred, "copy from success")
 
-	image.StartImageConvertTask(ctx, self.UserCred, "", true)
+	image.StartImageConvertTask(ctx, self.UserCred, "")
 
 	self.SetStageComplete(ctx, nil)
 }
