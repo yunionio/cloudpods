@@ -28,9 +28,11 @@ import (
 )
 
 const (
-	STATE_FILE_PREFIX = "STATEFILE"
-	MONITOR_PORT_BASE = 55900
-	MAX_TRY           = 3
+	STATE_FILE_PREFIX             = "STATEFILE"
+	MONITOR_PORT_BASE             = 55900
+	LIVE_MIGRATE_PORT_BASE        = 4396
+	BUILT_IN_NBD_SERVER_PORT_BASE = 7777
+	MAX_TRY                       = 3
 )
 
 type SKVMGuestInstance struct {
@@ -222,17 +224,11 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 }
 
 func (s *SKVMGuestInstance) saveScripts(data *jsonutils.JSONDict) error {
-	startScript, err := s.generateStartScript(data)
-	if err != nil {
-		return err
-	}
+	startScript := s.generateStartScript(data)
 	if err := fileutils2.FilePutContents(s.GetStartScriptPath, startScript, false); err != nil {
 		return err
 	}
-	stopScript, err := s.generateStopScript(data)
-	if err != nil {
-		return err
-	}
+	stopScript := s.generateStopScript(data)
 	return fileutils2.FilePutContents(s.GetStopScriptPath, stopScript, false)
 }
 
@@ -308,10 +304,10 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 }
 
 func (s *SKVMGuestInstance) delayStartMonitor(ctx context.Context) {
-	if options.HostOptions.EnableQmpMonitor && s.GetQmpMonitorPort() > 0 {
+	if options.HostOptions.EnableQmpMonitor && s.GetQmpMonitorPort(-1) > 0 {
 		s.monitor = monitor.NewQmpMonitor(s.onMonitorDisConnect, s.onMonitorTimeout,
 			func() { s.onMonitorConnected(ctx) })
-		s.monitor.Connect("127.0.0.1", s.GetQmpMonitorPort())
+		s.monitor.Connect("127.0.0.1", s.GetQmpMonitorPort(-1))
 	}
 }
 
@@ -348,8 +344,10 @@ func (s *SKVMGuestInstance) onMonitorTimeout(err error) {
 	// TODO
 }
 
-func (s *SKVMGuestInstance) GetQmpMonitorPort() int {
-	var vncPort = s.GetVncPort()
+func (s *SKVMGuestInstance) GetQmpMonitorPort(vncPort int) int {
+	if vncPort <= 0 {
+		vncPort = s.GetVncPort()
+	}
 	if vncPort > 0 {
 		return vncPort + MONITOR_PORT_BASE + 200
 	} else {

@@ -367,6 +367,18 @@ func (m *SGuestManager) DoSnapshot(ctx context.Context, params interface{}) (jso
 	return nil, nil
 }
 
+func (m *SGuestManager) GetFreePortByBase(basePort int64) int64 {
+	var port = 1
+	for {
+		if netutils2.IsTcpPortUsed("0.0.0.0", basePort+port) ||
+			netutils2.IsTcpPortUsed("127.0.0.1", basePort+port) {
+			port += 1
+		} else {
+			return basePort + port
+		}
+	}
+}
+
 func (m *SGuestManager) GetFreeVncPort() int64 {
 	vncPorts := make(map[int]struct{}, 0)
 	for _, guest := range m.Servers {
@@ -378,7 +390,7 @@ func (m *SGuestManager) GetFreeVncPort() int64 {
 	var port = 1
 	for {
 		if _, ok := vncPorts[port]; !ok && !netutils2.IsTcpPortUsed("0.0.0.0", VNC_PORT_BASE+port) &&
-			!netutils2.IsTcpPortUsed("0.0.0.0", MONITOR_PORT_BASE+port) {
+			!netutils2.IsTcpPortUsed("127.0.0.1", MONITOR_PORT_BASE+port) {
 			break
 		} else {
 			port += 1
