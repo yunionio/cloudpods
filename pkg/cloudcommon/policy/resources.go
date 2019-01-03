@@ -41,6 +41,16 @@ var (
 	}
 	yunionconfAdminResources = []string{}
 	logAdminResources        = []string{}
+	identityAdminResources   = []string{
+		"users",
+		"groups",
+		"domains",
+		"projects",
+		"roles",
+		"policies",
+		"services",
+		"endpoints",
+	}
 
 	adminResources = map[string][]string{
 		"compute":     computeAdminResources,
@@ -50,6 +60,7 @@ var (
 		"yunionagent": yunionagentAdminResources,
 		"yunionconf":  yunionconfAdminResources,
 		"log":         logAdminResources,
+		"identity":    identityAdminResources,
 	}
 )
 
