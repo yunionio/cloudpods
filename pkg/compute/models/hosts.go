@@ -3235,15 +3235,16 @@ func (self *SHost) PerformCacheImage(ctx context.Context, userCred mcclient.Toke
 		return nil, httperrors.NewInvalidStatusError("Cannot cache image with no checksum")
 	}
 	isForce := jsonutils.QueryBoolean(data, "is_force", false)
-	return nil, self.StartImageCacheTask(ctx, userCred, img.Id, isForce)
+	format, _ := data.GetString("format")
+	return nil, self.StartImageCacheTask(ctx, userCred, img.Id, format, isForce)
 }
 
-func (self *SHost) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, isForce bool) error {
+func (self *SHost) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, format string, isForce bool) error {
 	sc := self.GetLocalStoragecache()
 	if sc == nil {
 		return fmt.Errorf("No local storage cache found")
 	}
-	return sc.StartImageCacheTask(ctx, userCred, imageId, isForce, "")
+	return sc.StartImageCacheTask(ctx, userCred, imageId, format, isForce, "")
 }
 
 func (self *SHost) AllowPerformConvertHypervisor(ctx context.Context,

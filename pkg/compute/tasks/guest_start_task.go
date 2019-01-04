@@ -32,7 +32,7 @@ func (self *GuestStartTask) checkTemplate(ctx context.Context, guest *models.SGu
 		} else {
 			self.SetStage("OnStartTemplateReady", nil)
 		}
-		guest.GetDriver().CheckDiskTemplateOnStorage(ctx, self.UserCred, diskCat.Root.GetTemplateId(), diskCat.Root.StorageId, self)
+		guest.GetDriver().CheckDiskTemplateOnStorage(ctx, self.UserCred, diskCat.Root.GetTemplateId(), diskCat.Root.DiskFormat, diskCat.Root.StorageId, self)
 	} else {
 		self.startStart(ctx, guest)
 	}*/
@@ -42,7 +42,7 @@ func (self *GuestStartTask) checkTemplate(ctx context.Context, guest *models.SGu
 func (self *GuestStartTask) OnMasterHostTemplateReady(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStage("OnStartTemplateReady", nil)
 	diskCat := guest.CategorizeDisks()
-	err := guest.GetDriver().CheckDiskTemplateOnStorage(ctx, self.UserCred, diskCat.Root.GetTemplateId(),
+	err := guest.GetDriver().CheckDiskTemplateOnStorage(ctx, self.UserCred, diskCat.Root.GetTemplateId(), diskCat.Root.DiskFormat,
 		diskCat.Root.BackupStorageId, self)
 	if err != nil {
 		self.SetStageFailed(ctx, err.Error())

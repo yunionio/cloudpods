@@ -221,11 +221,12 @@ func (self *ManagedGuestRebuildRootTask) OnInit(ctx context.Context, obj db.ISta
 
 	diskCat := guest.CategorizeDisks()
 	imageId := diskCat.Root.GetTemplateId()
+	format := diskCat.Root.DiskFormat
 	storage := diskCat.Root.GetStorage()
 	cache := storage.GetStoragecache()
 
 	self.SetStage("OnHostCacheImageComplete", nil)
-	cache.StartImageCacheTask(ctx, self.UserCred, imageId, false, self.GetTaskId())
+	cache.StartImageCacheTask(ctx, self.UserCred, imageId, format, false, self.GetTaskId())
 }
 
 func (self *ManagedGuestRebuildRootTask) OnHostCacheImageComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {

@@ -742,7 +742,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		}
 
 		if len(diskConfig.ImageId) == 0 && len(diskConfig.SnapshotId) == 0 && !data.Contains("cdrom") {
-			return nil, httperrors.NewBadRequestError("Miss operate system???")
+			return nil, httperrors.NewBadRequestError("Miss operating system???")
 		}
 
 		if len(diskConfig.Backend) == 0 {

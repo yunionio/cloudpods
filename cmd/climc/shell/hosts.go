@@ -419,9 +419,10 @@ func init() {
 	})
 
 	type HostCacheImageActionOptions struct {
-		ID    string `help:"ID or name of host"`
-		IMAGE string `help:"ID or name of image"`
-		Force bool   `help:"Force refresh cache, even if the image exists in cache"`
+		ID     string `help:"ID or name of host"`
+		IMAGE  string `help:"ID or name of image"`
+		Force  bool   `help:"Force refresh cache, even if the image exists in cache"`
+		Format string `help:"image format" choices:"iso|vmdk|qcow2|vhd"`
 	}
 	R(&HostCacheImageActionOptions{}, "host-cache-image", "Ask a host to cache a image", func(s *mcclient.ClientSession, args *HostCacheImageActionOptions) error {
 		params := jsonutils.NewDict()
