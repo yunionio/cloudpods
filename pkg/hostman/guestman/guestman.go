@@ -222,7 +222,7 @@ func (m *SGuestManager) PrepareDeploy(sid string) error {
 func (m *SGuestManager) Monitor(sid, cmd string, callback func(string)) error {
 	if guest, ok := m.Servers[sid]; ok {
 		if guest.IsRunning() {
-			guest.monitor.SimpleCommand(cmd, callback)
+			guest.Monitor.SimpleCommand(cmd, callback)
 			return nil
 		} else {
 			return httperrors.NewBadRequestError("Server stopped??")
@@ -331,7 +331,7 @@ func (m *SGuestManager) GuestStart(ctx context.Context, sid string, body jsonuti
 
 func (m *SGuestManager) GuestStop(ctx context.Context, sid string, timeout int64) error {
 	if guest, ok := m.Servers[sid]; !ok {
-		guest.ExecStopTask(ctx, timeout)
+		hostutils.DelayTaskWithoutReqctx(ctx, guest.ExecStopTask, timeout)
 		return nil
 	} else {
 		return httperrors.NewNotFoundError("Guest %s not found", sid)
@@ -359,7 +359,7 @@ func (m *SGuestManager) GuestSuspend(ctx context.Context, params interface{}) (j
 		return nil, fmt.Errorf("Unknown params")
 	}
 	guest := m.Servers[sid]
-	guest.ExecSuspendTask()
+	guest.ExecSuspendTask(ctx)
 	return nil, nil
 }
 

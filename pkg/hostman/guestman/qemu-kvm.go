@@ -41,7 +41,7 @@ type SKVMGuestInstance struct {
 	QemuVersion string
 
 	Desc    *jsonutils.JSONDict
-	monitor monitor.Monitor
+	Monitor monitor.Monitor
 	manager *SGuestManager
 }
 
@@ -283,7 +283,7 @@ func (s *SKVMGuestInstance) IsSuspend() bool {
 }
 
 func (s *SKVMGuestInstance) IsMonitorAlive() bool {
-	return s.monitor != nil && s.monitor.IsConnected()
+	return s.Monitor != nil && s.Monitor.IsConnected()
 }
 
 func (s *SKVMGuestInstance) ListStateFilePaths() []string {
@@ -306,15 +306,15 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 
 func (s *SKVMGuestInstance) delayStartMonitor(ctx context.Context) {
 	if options.HostOptions.EnableQmpMonitor && s.GetQmpMonitorPort(-1) > 0 {
-		s.monitor = monitor.NewQmpMonitor(s.onMonitorDisConnect, s.onMonitorTimeout,
+		s.Monitor = monitor.NewQmpMonitor(s.onMonitorDisConnect, s.onMonitorTimeout,
 			func() { s.onMonitorConnected(ctx) })
-		s.monitor.Connect("127.0.0.1", s.GetQmpMonitorPort(-1))
+		s.Monitor.Connect("127.0.0.1", s.GetQmpMonitorPort(-1))
 	}
 }
 
 func (s *SKVMGuestInstance) onMonitorConnected(ctx context.Context) {
 	log.Infof("Monitor connected ...")
-	s.monitor.GetVersion(func(v string) {
+	s.Monitor.GetVersion(func(v string) {
 		s.onGetQemuVersion(ctx, v)
 	})
 }
@@ -379,7 +379,7 @@ func (s *SKVMGuestInstance) saveVncPort(port int64) error {
 
 func (s *SKVMGuestInstance) SyncStatus() {
 	if s.IsRunning() {
-		s.monitor.GetBlockJobs(s.CheckBlockOrRunning)
+		s.Monitor.GetBlockJobs(s.CheckBlockOrRunning)
 		return
 	}
 	var status = "ready"
@@ -468,9 +468,9 @@ func (s *SKVMGuestInstance) ExitCleanup(clearCgroup bool) {
 			s.ClearCgroup(pid)
 		}
 	}
-	if s.monitor != nil {
-		s.monitor.Disconnect()
-		s.monitor = nil
+	if s.Monitor != nil {
+		s.Monitor.Disconnect()
+		s.Monitor = nil
 	}
 }
 
@@ -522,7 +522,8 @@ func (s *SKVMGuestInstance) scriptStop() bool {
 	return true
 }
 
-func (s *SKVMGuestInstance) ExecStopTask(ctx context.Context, timeout int64) {
+func (s *SKVMGuestInstance) ExecStopTask(ctx context.Context, params interface{}) {
+	timeout := params.(int64)
 	NewGuestStopTask(s, ctx, timeout).Start()
 }
 
@@ -593,9 +594,9 @@ func (s *SKVMGuestInstance) compareDescDisks(newDesc jsonutils.JSONObject) ([]js
 	return delDisks, addDisks
 }
 
-func (s *SKVMGuestInstance) compareDescCdrom(newDesc jsonutils.JSONObject) string {
+func (s *SKVMGuestInstance) compareDescCdrom(newDesc jsonutils.JSONObject) *string {
 	if !s.Desc.Contains("cdrom") && !newDesc.Contains("cdrom") {
-		return ""
+		return nil
 	} else if !s.Desc.Contains("cdrom") && newDesc.Contains("cdrom") {
 		cdrom, _ := newDesc.GetString("cdrom", "path")
 		return cdrom
@@ -605,7 +606,7 @@ func (s *SKVMGuestInstance) compareDescCdrom(newDesc jsonutils.JSONObject) strin
 		cdrom, _ := s.Desc.GetString("cdrom", "path")
 		ncdrom, _ := newDesc.GetString("cdrom", "path")
 		if cdrom == ncdrom {
-			return ""
+			return nil
 		} else {
 			return ncdrom
 		}
@@ -694,7 +695,7 @@ func (s *SKVMGuestInstance) SyncConfig(ctx context.Context, desc jsonutils.JSONO
 		}
 	}
 
-	if len(delDisks)+len(addDisks) > 0 || len(cdrom) > 0 {
+	if len(delDisks)+len(addDisks) > 0 || cdrom != nil {
 		task := NewGuestDiskSyncTask(s, delDisks, addDisks, cdrom)
 		runTaskNames = append(runTaskNames, jsonutils.NewString("disksync"))
 		tasks = append(tasks, tasks)
@@ -706,6 +707,6 @@ func (s *SKVMGuestInstance) SyncConfig(ctx context.Context, desc jsonutils.JSONO
 		tasks = append(tasks, tasks)
 	}
 
-	NewGuestSyncConfigTaskExecutor(ctx, s, tasks).Start(1)
+	NewGuestSyncConfigTaskExecutor(ctx, s, tasks, callBack).Start(1)
 	return jsonutils.NewDict(jsonutils.JSONPair{"task", runTaskNames}), nil
 }

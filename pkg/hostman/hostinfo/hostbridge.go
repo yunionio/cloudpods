@@ -18,7 +18,16 @@ type IBridgeDriver interface {
 	Setup() error
 	Exists() bool
 	Interfaces() []string
+
+	GetMac() string
 }
+
+/*
+   def get_mac(self):
+       if self._bridge.mac is None:
+           self._bridge.fetch_config()
+       return self._bridge.mac
+*/
 
 type SBaseBridgeDriver struct {
 	bridge *netutils2.SNetInterface
@@ -40,6 +49,13 @@ func NewBaseBridgeDriver(bridge, inter, ip string) (*SBaseBridgeDriver, error) {
 		return nil, fmt.Errorf("A bridge without interface must have no IP")
 	}
 	return bd, nil
+}
+
+func (d *SBaseBridgeDriver) GetMac() string {
+	if len(d.bridge.Mac) == 0 {
+		d.bridge.FetchConfig()
+	}
+	return d.bridge.Mac
 }
 
 func (d *SBaseBridgeDriver) BringupInterface() error {

@@ -2,6 +2,7 @@ package hostutils
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"yunion.io/x/jsonutils"
@@ -35,6 +36,24 @@ func TaskComplete(ctx context.Context, params jsonutils.JSONObject) {
 	} else {
 		log.Errorln("Reqeuest task complete missing task id")
 	}
+}
+
+func GetWireOfIp(ctx context.Context, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	res, err := modules.Networks.List(GetComputeSession(ctx), params)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(res.Data) == 1 {
+		wireId, _ := res.Data[0].GetString("wire_id")
+		return GetWireInfo(ctx, wireId)
+	} else {
+		return nil, fmt.Errorf("Fail to get network info: no networks")
+	}
+}
+
+func GetWireInfo(ctx context.Context, wireId string) (jsonutils.JSONObject, error) {
+	return modules.Wires.Get(GetComputeSession(ctx), wireId, nil)
 }
 
 func UpdateServerStatus(ctx context.Context, sid, status string) (jsonutils.JSONObject, error) {
@@ -75,8 +94,8 @@ func DelayTask(ctx context.Context, task workmanager.DelayTaskFunc, params inter
 	wm.DelayTask(ctx, task, params)
 }
 
-func DelayTaskWithoutTask(ctx context.Context, task workmanager.DelayTaskFunc, params interface{}) {
-	wm.DelayTaskWithoutTask(ctx, task, params)
+func DelayTaskWithoutReqctx(ctx context.Context, task workmanager.DelayTaskFunc, params interface{}) {
+	wm.DelayTaskWithoutReqctx(ctx, task, params)
 }
 
 func init() {

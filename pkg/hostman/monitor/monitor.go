@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 )
 
@@ -18,8 +19,18 @@ type Monitor interface {
 
 	// The callback function will be called in another goroutine
 	SimpleCommand(cmd string, callback StringCallback)
-	QueryStatus(callback StringCallback)
-	GetVersion(callback StringCallback)
+	QueryStatus(StringCallback)
+	GetVersion(StringCallback)
+
+	GetBlocks(callback func(*jsonutils.JSONArray))
+	EjectCdrom(dev string, callback StringCallback)
+	ChangeCdrom(dev string, path string, callback StringCallback)
+
+	DriveDel(idstr string, callback StringCallback)
+	DeviceDel(idstr string, callback StringCallback)
+
+	DriveAdd(bus string, params map[string]string, callback StringCallback)
+	DeviceAdd(dev string, params map[string]interface{}, callback StringCallback)
 }
 
 type MonitorErrorFunc func(error)

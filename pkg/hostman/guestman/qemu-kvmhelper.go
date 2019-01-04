@@ -80,7 +80,7 @@ func (s *SKVMGuestInstance) isQ35() bool {
 	return s.getMachine() == "q35"
 }
 
-func (s *SKVMGuestInstance) getPciBus() string {
+func (s *SKVMGuestInstance) GetPciBus() string {
 	if s.isQ35() {
 		return "pcie.0"
 	} else {
@@ -111,7 +111,7 @@ func (s *SKVMGuestInstance) getDriveDesc(disk jsonutils.JSONObject, format strin
 	return cmd
 }
 
-func (s *SKVMGuestInstance) getDiskAddr(idx int) int {
+func (s *SKVMGuestInstance) GetDiskAddr(idx int) int {
 	var base = 5
 	if s.IsVdiSpice() {
 		base += 10
@@ -120,7 +120,7 @@ func (s *SKVMGuestInstance) getDiskAddr(idx int) int {
 	return base + idx
 }
 
-func (s *SKVMGuestInstance) getDiskDeviceModel(driver string) string {
+func (s *SKVMGuestInstance) GetDiskDeviceModel(driver string) string {
 	if driver == DISK_DRIVER_VIRTIO {
 		return "virtio-blk-pci"
 	} else if utils.IsInStringArray(driver, []string{DISK_DRIVER_SCSI, DISK_DRIVER_PVSCSI}) {
@@ -139,10 +139,10 @@ func (s *SKVMGuestInstance) getDriveDesc(disk jsonutils.JSONObject) string {
 	diskDriver, _ := disk.GetString("driver")
 
 	var cmd = ""
-	cmd += fmt.Sprintf(" -device %s", s.getDiskDeviceModel(diskDriver))
+	cmd += fmt.Sprintf(" -device %s", s.GetDiskDeviceModel(diskDriver))
 	cmd += fmt.Sprintf(",drive=drive_%s", diskIndex)
 	if diskDriver == DISK_DRIVER_VIRTIO {
-		cmd += fmt.Sprintf(",bus=%s,addr=0x%x", s.getPciBus(), s.getDiskAddr(int(diskIndex)))
+		cmd += fmt.Sprintf(",bus=%s,addr=0x%x", s.GetPciBus(), s.GetDiskAddr(int(diskIndex)))
 	} else if utils.IsInStringArray(iskDriver, []string{DISK_DRIVER_SCSI, DISK_DRIVER_PVSCSI}) {
 		cmd += ",bus=scsi.0"
 	} else if diskDriver == DISK_DRIVER_IDE {
@@ -200,7 +200,7 @@ func (s *SKVMGuestInstance) getNicAddr(index int) string {
 	if len(disks) > 10 {
 		diskCnt = 20
 	}
-	return s.getDiskAddr(diskCnt + index)
+	return s.GetDiskAddr(diskCnt + index)
 }
 
 func (s *SKVMGuestInstance) getVnicDesc(nic jsonutils.JSONObject) string {
@@ -399,7 +399,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) string
 		cmd += " -device hda-duplex,id=sound0-codec0,bus=sound0.0,cad=0"
 		cmd += fmt.Sprintf(" -spice port=%d,password=87654312,seamless-migration=on", 5900+vncPort)
 		// # ,streaming-video=all,playback-compression=on,jpeg-wan-compression=always,zlib-glz-wan-compression=always,image-compression=glz" % (5900+vnc_port)
-		cmd += fmt.Sprintf(" -device virtio-serial-pci,id=virtio-serial0,max_ports=16,bus=%s", s.getPciBus())
+		cmd += fmt.Sprintf(" -device virtio-serial-pci,id=virtio-serial0,max_ports=16,bus=%s", s.GetPciBus())
 		cmd += " -chardev spicevmc,name=vdagent,id=vdagent"
 		cmd += " -device virtserialport,nr=1,bus=virtio-serial0.0,chardev=vdagent,name=com.redhat.spice.0"
 

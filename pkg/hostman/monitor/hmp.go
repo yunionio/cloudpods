@@ -3,10 +3,13 @@ package monitor
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
+	"regexp"
 	"strings"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 )
 
@@ -40,6 +43,10 @@ func (m *HmpMonitor) hmpSplitFunc(data []byte, atEOF bool) (advance int, token [
 	}
 	// Request more data.
 	return 0, nil, nil
+}
+
+func (m *HmpMonitor) actionResult(res string) string {
+	return res
 }
 
 func (m *HmpMonitor) read(r io.Reader) {
@@ -170,4 +177,85 @@ func (m *HmpMonitor) SimpleCommand(cmd string, callback StringCallback) {
 
 func (m *HmpMonitor) GetVersion(callback StringCallback) {
 	m.Query("info version", callback)
+}
+
+func (m *HmpMonitor) GetBlocks(callback func(*jsonutils.JSONArray)) {
+	var cb = func(res string) {
+		var lines = strings.Split(res, "\r\n")
+		var mergedOutput = []string{}
+
+		// merge output
+		for _, line := range lines {
+			parts := regexp.MustCompile(`\s+`).Split(line, -1)
+			if parts[0][len(parts[0])-1] == ':' {
+				mergedOutput = append(mergedOutput, "")
+			} else if regexp.MustCompile(`\(#block\d+\):`).MatchString(line) {
+				mergedOutput = append(mergedOutput, "")
+			}
+			mergedOutput[len(mergedOutput)-1] = mergedOutput[len(mergedOutput)-1] + " " + line
+			mergedOutput[len(mergedOutput)-1] = strings.TrimSpace(mergedOutput[len(mergedOutput)-1])
+		}
+
+		// parse to json
+		var outputJson = jsonutils.NewArray()
+		for _, line := range mergedOutput {
+			parts := regexp.MustCompile(`\s+`).Split(line, -1)
+			if parts[0][len(parts[0])-1] == ':' ||
+				regexp.MustCompile(`\(#block\d+\):`).MatchString(parts[1]) {
+
+				drv := jsonutils.NewDict()
+				drv.Set("device", jsonutils.NewString(parts[0]))
+				if parts[0][len(parts[0])-1] == ':' {
+					drv.Set("device", jsonutils.NewString(parts[0][:len(parts)-1]))
+				}
+				if regexp.MustCompile(`\(#block\d+\):`).MatchString(parts[1]) {
+					inserted := jsonutils.NewDict()
+					inserted.Set("file", jsonutils.NewString(parts[2]))
+					for i := 0; i < len(parts)-2; i++ {
+						if parts[i] == "Backing" && parts[i+1] == "file:" {
+							inserted.Set("backing_file", jsonutils.NewString(parts[i+2]))
+							break
+						}
+					}
+				}
+				outputJson.Add(drv)
+			}
+		}
+
+		callback(outputJson)
+	}
+
+	m.Query("info block", cb)
+}
+
+func (m *HmpMonitor) EjectCdrom(dev string, callback StringCallback) {
+	m.Query(fmt.Sprintf("eject -f %s", dev), callback)
+}
+
+func (m *HmpMonitor) ChangeCdrom(dev string, path string, callback StringCallback) {
+	m.Query(fmt.Sprintf("change %s %s", dev, path), callback)
+}
+
+func (m *HmpMonitor) DriveDel(idstr string, callback StringCallback) {
+	m.Query(fmt.Sprintf("drive_del %s", idstr), callback)
+}
+
+func (m *HmpMonitor) DeviceDel(idstr string, callback StringCallback) {
+	m.Query(fmt.Sprintf("device_del %s", idstr), callback)
+}
+
+func (m *HmpMonitor) DriveAdd(bus string, params map[string]string, callback StringCallback) {
+	var paramsKvs = []string{}
+	for k, v := range params {
+		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%s", k, v))
+	}
+	m.Query(fmt.Sprintf("drive_add %s %s", bus, strings.Join(paramsKvs, ",")), callback)
+}
+
+func (m *HmpMonitor) DeviceAdd(dev string, params map[string]interface{}, callback StringCallback) {
+	var paramsKvs = []string{}
+	for k, v := range params {
+		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%v", k, v))
+	}
+	m.Query(fmt.Sprintf("device_add %s,%s", dev, strings.Join(paramsKvs, ",")), callback)
 }

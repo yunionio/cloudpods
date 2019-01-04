@@ -32,10 +32,10 @@ func (w *SWorkManager) done() {
 
 // If delay task is not panic and task func return err is nil
 // task complete will be called, otherwise called task failed
-// Params is interface for receive any type, task func should do type assert
+// Params is interface for receive any type, task func should do type assertion
 func (w *SWorkManager) DelayTask(ctx context.Context, task DelayTaskFunc, params interface{}) {
 	if ctx == nil || ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID) == nil {
-		w.DelayTaskWithoutTask(ctx, task, params)
+		w.DelayTaskWithoutReqctx(ctx, task, params)
 		return
 	} else {
 		w.add()
@@ -67,17 +67,18 @@ func (w *SWorkManager) DelayTask(ctx context.Context, task DelayTaskFunc, params
 	}
 }
 
-func (w *SWorkManager) DelayTaskWithoutTask(ctx context.Context, task DelayTaskFunc, params interface{}) {
+// response task by self, did not depend on work manager
+func (w *SWorkManager) DelayTaskWithoutReqctx(ctx context.Context, task DelayTaskFunc, params interface{}) {
 	w.add()
 	go func() {
 		defer w.done()
 		defer func() {
 			if r := recover(); r != nil {
-				log.Errorln("DelayTaskWithoutTask panic: ", r)
+				log.Errorln("DelayTaskWithoutReqctx panic: ", r)
 			}
 		}()
 		if _, err := task(ctx, params); err != nil {
-			log.Errorln("DelayTaskWithoutTask error:", err)
+			log.Errorln("DelayTaskWithoutReqctx error:", err)
 		}
 	}()
 }

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 )
 
@@ -98,6 +99,14 @@ func NewQmpMonitor(OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc,
 	m.commandQueue = append(m.commandQueue, &Command{Execute: "qmp_capabilities"})
 	m.callbackQueue = append(m.callbackQueue, nil)
 	return m
+}
+
+func (m *QmpMonitor) actionResult(res *Response) string {
+	if res.ErrorVal != nil {
+		return res.ErrorVal.Error()
+	} else {
+		return ""
+	}
 }
 
 func (m *QmpMonitor) callBack(res *Response) {
@@ -307,4 +316,145 @@ func (m *QmpMonitor) parseVersion(callback StringCallback) qmpMonitorCallBack {
 			callback(version.String())
 		}
 	}
+}
+
+func (m *QmpMonitor) GetBlocks(callback func(*jsonutils.JSONArray)) {
+	var cb = func(res *Response) {
+		if res.ErrorVal != nil {
+			callback(nil)
+		}
+		jr, err := jsonutils.Parse(res.Return)
+		if err != nil {
+			log.Errorf("Get block error %s", err)
+			callback(nil)
+		}
+		callback(jr.(*jsonutils.JSONArray))
+	}
+
+	cmd := &Command{Execute: "query-block"}
+	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) ChangeCdrom(dev string, path string, callback StringCallback) {
+	var (
+		args = map[string]interface{}{
+			"arguments": map[string]interface{}{
+				"device": dev,
+				"target": path,
+			},
+		}
+		cmd = &Command{
+			Execute: "change",
+			Args:    args,
+		}
+
+		cb = func(res *Response) {
+			callback(m.actionResult(res))
+		}
+	)
+
+	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) EjectCdrom(dev string, callback StringCallback) {
+	var (
+		args = map[string]interface{}{
+			"arguments": map[string]interface{}{
+				"device": dev,
+				"force":  true,
+			},
+		}
+		cmd = &Command{
+			Execute: "eject",
+			Args:    args,
+		}
+
+		cb = func(res *Response) {
+			callback(m.actionResult(res))
+		}
+	)
+
+	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) DriveDel(idstr string, callback StringCallback) {
+	var (
+		args = map[string]interface{}{
+			"arguments": map[string]interface{}{
+				"device": idstr,
+			},
+		}
+		cmd = &Command{
+			Execute: "drive_del",
+			Args:    args,
+		}
+
+		cb = func(res *Response) {
+			callback(m.actionResult(res))
+		}
+	)
+
+	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) DeviceDel(idstr string, callback StringCallback) {
+	var (
+		args = map[string]interface{}{
+			"arguments": map[string]interface{}{
+				"device": idstr,
+			},
+		}
+		cmd = &Command{
+			Execute: "device_del",
+			Args:    args,
+		}
+
+		cb = func(res *Response) {
+			callback(m.actionResult(res))
+		}
+	)
+
+	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) DriveAdd(bus string, params map[string]string, callback StringCallback) {
+	var (
+		args = map[string]interface{}{
+			"arguments": map[string]interface{}{
+				"bus":    bus,
+				"params": params,
+			},
+		}
+		cmd = &Command{
+			Execute: "drive_add",
+			Args:    args,
+		}
+
+		cb = func(res *Response) {
+			callback(m.actionResult(res))
+		}
+	)
+
+	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) DeviceAdd(dev string, params map[string]interface{}, callback StringCallback) {
+	var (
+		args = map[string]interface{}{
+			"arguments": map[string]interface{}{
+				"device": dev,
+				"params": params,
+			},
+		}
+		cmd = &Command{
+			Execute: "device_add",
+			Args:    args,
+		}
+
+		cb = func(res *Response) {
+			callback(m.actionResult(res))
+		}
+	)
+
+	m.Query(cmd, cb)
 }
