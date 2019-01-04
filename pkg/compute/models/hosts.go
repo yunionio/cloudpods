@@ -140,9 +140,9 @@ type SHost struct {
 	CpuReserved int8    `nullable:"true" default:"0" list:"admin" update:"admin" create:"admin_optional"`               // Column(TINYINT, nullable=True, default=0)
 	CpuCmtbound float32 `nullable:"true" default:"8.0" list:"admin" update:"admin" create:"admin_optional"`             // = Column(Float, nullable=True)
 
-	MemSize     int     `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`             // Column(Integer, nullable=True) # memory size in MB
-	MemReserved int     `nullable:"true" default:"0" list:"admin" update:"admin" create:"admin_optional"` // Column(Integer, nullable=True, default=0) # memory reserved in MB
-	MemCmtbound float32 `nullable:"true" default:"1.0" update:"admin" create:"admin_optional"`            // = Column(Float, nullable=True)
+	MemSize     int     `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`               // Column(Integer, nullable=True) # memory size in MB
+	MemReserved int     `nullable:"true" default:"0" list:"admin" update:"admin" create:"admin_optional"`   // Column(Integer, nullable=True, default=0) # memory reserved in MB
+	MemCmtbound float32 `nullable:"true" default:"1.0" list:"admin" update:"admin" create:"admin_optional"` // = Column(Float, nullable=True)
 
 	StorageSize   int                  `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`                            // Column(Integer, nullable=True) # storage size in MB
 	StorageType   string               `width:"20" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(20, charset='ascii'), nullable=True)
