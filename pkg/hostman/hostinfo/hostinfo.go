@@ -1,6 +1,7 @@
 package hostinfo
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -8,12 +9,16 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
@@ -43,8 +48,13 @@ type SHostInfo struct {
 	// storageManager *storageman.SStorageManager
 
 	MasterNic *netutils2.SNetInterface
+	Nics      []*SNIC
 
-	Nics []*SNIC
+	Zone           string
+	ZoneId         string
+	Cloudregion    string
+	CloudregionId  string
+	ZoneManagerUri string
 }
 
 func (h *SHostInfo) IsKvmSupport() bool {
@@ -582,8 +592,110 @@ func (h *SHostInfo) detectiveOvsVersion() {
 	}
 }
 
-func (h *SHostInfo) StartRegister() {
-	// TODO
+func (h *SHostInfo) GetMasterIp() string {
+	if h.MasterNic != nil {
+		return h.MasterNic.Addr
+	}
+	for _, n := range h.Nics {
+		if len(n.Ip) > 0 {
+			return n.Ip
+		}
+	}
+	return ""
+}
+
+func (h *SHostInfo) GetMasterMac() string {
+	if h.MasterNic != nil {
+		return h.MasterNic.Mac
+	}
+	for _, n := range h.Nics {
+		if len(n.Ip) > 0 {
+			return n.BridgeDev.GetMac()
+		}
+	}
+}
+
+func (h *SHostInfo) StartRegister(delay int) {
+	timeutils2.AddTimeout(delay*time.Second, h.register)
+}
+
+func (h *SHostInfo) register() {
+	if !h.isRegistered {
+		h.fetch_access_network_info()
+	}
+}
+
+func (h *SHostInfo) onFail() {
+	log.Errorln("register failed, try 30 seconds later...")
+	h.StartRegister(30)
+}
+
+func (h *SHostInfo) fetchAccessNetworkInfo() {
+	masterIp := h.GetMasterIp()
+	if len(masterIp) == 0 {
+		panic("master ip not found")
+	}
+	params := jsonutils.NewDict()
+	params.Set("ip", jsonutils.NewString(masterIp))
+	params.Set("limit", jsonutils.NewInt(0))
+	wire, err := hostutils.GetWireOfIp(context.Background(), params)
+	if err != nil {
+		log.Errorln(err)
+		h.onFail()
+	} else {
+		h.ZoneId, err = wire.GetString("zone_id")
+		if err != nil {
+			log.Errorln(err)
+			h.onFail()
+		} else {
+			h.getZoneInfo(h.ZoneId, false)
+		}
+	}
+}
+
+func (h *SHostInfo) getZoneInfo(zoneId string, standalone bool) {
+	var params = jsonutils.NewDict()
+	params.Set("standalone", jsonutils.NewBool(standalone))
+	res, err := modules.Zones.Get(hostutils.GetComputeSession(context.Background()),
+		zoneId, params)
+	if err != nil {
+		log.Errorln(err)
+		h.onFail(err)
+	}
+
+	h.Zone, _ = res.GetString("name")
+	h.ZoneId, _ = res.GetString("id")
+	h.Cloudregion = res.GetString("cloudregion")
+	h.CloudregionId = res.GetString("cloudregion_id")
+	if res.Contains("manager_uri") {
+		h.ZoneManagerUri, _ = res.GetString("manager_uri")
+	}
+	if !standalone {
+		h.getHostInfo(h.ZoneId)
+	}
+}
+
+func (h *SHostInfo) getHostInfo(zoneId string) {
+	masterMac := h.GetMasterMac()
+	if len(masterMac) == 0 {
+		panic("master mac not found")
+	}
+	params := jsonutils.NewDict()
+	params.Set("any_mac", jsonutils.NewString(masterMac))
+	res, err := modules.Hosts.List(hostutils.GetComputeSession(context.Background()), params)
+	if err != nil {
+		log.Errorln(err)
+		h.onFail()
+	}
+	if len(res.Data) == 0 {
+		h.updateHostRecord()
+	} else {
+		host := res.Data[0]
+		name, _ := host.GetString("name")
+		id, _ := host.GetString("id")
+		h.setHostname(name)
+
+	}
 }
 
 func NewHostInfo() (*SHostInfo, error) {

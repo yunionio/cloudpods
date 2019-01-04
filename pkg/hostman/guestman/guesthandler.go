@@ -148,7 +148,7 @@ func guestSuspend(ctx context.Context, sid string, body jsonutils.JSONObject) (i
 	if !guestManger.IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
-	hostutils.DelayTaskWithoutTask(ctx, guestManger.GuestSuspend, sid)
+	hostutils.DelayTaskWithoutReqctx(ctx, guestManger.GuestSuspend, sid)
 	return nil, nil
 }
 
