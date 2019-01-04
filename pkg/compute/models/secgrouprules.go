@@ -166,40 +166,10 @@ func (manager *SSecurityGroupRuleManager) ValidateCreateData(ctx context.Context
 		PortEnd:   -1,
 	}
 	ports, _ := data.GetString("ports")
-	var err error
-	if len(ports) > 0 {
-		if strings.Index(ports, "-") > 0 {
-			portsInfo := strings.Split(ports, "-")
-			if len(portsInfo) != 2 {
-				return nil, httperrors.NewInputParameterError("invalid ports: %s", ports)
-			}
-			rule.PortStart, err = strconv.Atoi(portsInfo[0])
-			if err != nil {
-				return nil, httperrors.NewInputParameterError("invalid port start: %s", portsInfo[0])
-			}
-			rule.PortEnd, err = strconv.Atoi(portsInfo[1])
-			if err != nil {
-				return nil, httperrors.NewInputParameterError("invalid port end: %s", portsInfo[1])
-			}
-		} else if strings.Index(ports, ",") > 0 {
-			for _, port := range strings.Split(ports, ",") {
-				_port, err := strconv.Atoi(port)
-				if err != nil {
-					return nil, httperrors.NewInputParameterError("invalid port : %d", port)
-				}
-				rule.Ports = append(rule.Ports, _port)
-			}
-		} else {
-			port, err := strconv.Atoi(ports)
-			if err != nil {
-				return nil, httperrors.NewInputParameterError("invalid ports: %s", ports)
-			}
-			rule.Ports = append(rule.Ports, port)
-		}
+	if err := rule.ParsePorts(ports); err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
 	}
-
-	err = rule.ValidateRule()
-	if err != nil {
+	if err := rule.ValidateRule(); err != nil {
 		return nil, httperrors.NewInputParameterError(err.Error())
 	}
 	return manager.SResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)

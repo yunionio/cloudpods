@@ -149,42 +149,11 @@ func ParseSecurityRule(pattern string) (*SecurityRule, error) {
 			}
 			rule.Protocol = seg
 		} else if status == SEG_PORT {
-			if len(seg) == 0 {
-				status = SEG_END
-			} else if idx := strings.Index(seg, "-"); idx > -1 {
-				segs := strings.SplitN(seg, "-", 2)
-				var ps, pe int
-				var err error
-				if ps, err = parsePortString(segs[0]); err != nil {
-					return nil, ErrInvalidPortRange
-				}
-				if pe, err = parsePortString(segs[1]); err != nil {
-					return nil, ErrInvalidPortRange
-				}
-				if ps > pe {
-					ps, pe = pe, ps
-				}
-				rule.PortStart = ps
-				rule.PortEnd = pe
-			} else if idx := strings.Index(seg, ","); idx > -1 {
-				ports := make([]int, 0)
-				segs := strings.Split(seg, ",")
-				for _, seg := range segs {
-					p, err := parsePortString(seg)
-					if err != nil {
-						return nil, err
-					}
-					ports = append(ports, p)
-				}
-				rule.Ports = ports
-			} else {
-				p, err := parsePortString(seg)
-				if err != nil {
-					return nil, err
-				}
-				rule.PortStart, rule.PortEnd = p, p
-			}
 			status = SEG_END
+			if err := rule.ParsePorts(seg); err != nil {
+				return nil, err
+			}
+			return rule, nil
 		}
 	}
 	return rule, nil
@@ -196,6 +165,48 @@ func (rule *SecurityRule) IsWildMatch() bool {
 		len(rule.Ports) == 0 &&
 		rule.PortStart == 0 &&
 		rule.PortEnd == 0
+}
+
+func (rule *SecurityRule) ParsePorts(seg string) error {
+	if len(seg) == 0 {
+		rule.Ports = []int{}
+		rule.PortStart = -1
+		rule.PortEnd = -1
+		return nil
+	} else if idx := strings.Index(seg, "-"); idx > -1 {
+		segs := strings.SplitN(seg, "-", 2)
+		var ps, pe int
+		var err error
+		if ps, err = parsePortString(segs[0]); err != nil {
+			return ErrInvalidPortRange
+		}
+		if pe, err = parsePortString(segs[1]); err != nil {
+			return ErrInvalidPortRange
+		}
+		if ps > pe {
+			ps, pe = pe, ps
+		}
+		rule.PortStart = ps
+		rule.PortEnd = pe
+	} else if idx := strings.Index(seg, ","); idx > -1 {
+		ports := make([]int, 0)
+		segs := strings.Split(seg, ",")
+		for _, seg := range segs {
+			p, err := parsePortString(seg)
+			if err != nil {
+				return err
+			}
+			ports = append(ports, p)
+		}
+		rule.Ports = ports
+	} else {
+		p, err := parsePortString(seg)
+		if err != nil {
+			return err
+		}
+		rule.PortStart, rule.PortEnd = p, p
+	}
+	return nil
 }
 
 func (rule *SecurityRule) ValidateRule() error {
