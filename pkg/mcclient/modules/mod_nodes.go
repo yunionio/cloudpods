@@ -58,10 +58,13 @@ func (this *NodeManager) BatchPerformActionInContexts(s *mcclient.ClientSession,
 	}
 }
 
-func (this *NodeManager) NewNode(s *mcclient.ClientSession, name string, ip string) (jsonutils.JSONObject, error) {
+func (this *NodeManager) NewNode(s *mcclient.ClientSession, name string, ip string, res_type string) (jsonutils.JSONObject, error) {
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewString(name), "name")
 	data.Add(jsonutils.NewString(ip), "ip")
+	if len(res_type) > 0 {
+		data.Add(jsonutils.NewString(res_type), "res_type")
+	}
 	arr := jsonutils.NewArray()
 	arr.Add(data)
 	params := jsonutils.NewDict()
