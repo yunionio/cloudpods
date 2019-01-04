@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -164,6 +165,49 @@ func (self *SSecurityGroup) getSecurityRuleString(direction string) string {
 func totalSecurityGroupCount(projectId string) int {
 	q := SecurityGroupManager.Query().Equals("tenant_id", projectId)
 	return q.Count()
+}
+
+func (self *SSecurityGroup) AllowPerformAddRule(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "add-rule")
+}
+
+func (self *SSecurityGroup) PerformAddRule(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	secgrouprule := &SSecurityGroupRule{SecgroupID: self.Id}
+	secgrouprule.SetModelManager(SecurityGroupRuleManager)
+	secgrouprule.Direction, _ = data.GetString("direction")
+	secgrouprule.Action, _ = data.GetString("action")
+	secgrouprule.Priority, _ = data.Int("priority")
+	secgrouprule.Description, _ = data.GetString("description")
+	secgrouprule.Protocol, _ = data.GetString("protocol")
+	secgrouprule.CIDR, _ = data.GetString("cidr")
+	if len(secgrouprule.CIDR) > 0 {
+		if !regutils.MatchCIDR(secgrouprule.CIDR) && !regutils.MatchIPAddr(secgrouprule.CIDR) {
+			return nil, httperrors.NewInputParameterError("invalid ip address: %s", secgrouprule.CIDR)
+		}
+	} else {
+		secgrouprule.CIDR = "0.0.0.0/0"
+	}
+	rule := secrules.SecurityRule{
+		Priority:  int(secgrouprule.Priority),
+		Direction: secrules.TSecurityRuleDirection(secgrouprule.Direction),
+		Action:    secrules.TSecurityRuleAction(secgrouprule.Action),
+		Protocol:  secgrouprule.Protocol,
+		Ports:     []int{},
+		PortStart: -1,
+		PortEnd:   -1,
+	}
+	ports, _ := data.GetString("ports")
+	if err := rule.ParsePorts(ports); err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+	if err := rule.ValidateRule(); err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+	if err := SecurityGroupRuleManager.TableSpec().Insert(secgrouprule); err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+	self.DoSync(ctx, userCred)
+	return nil, nil
 }
 
 func (self *SSecurityGroup) AllowPerformClone(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

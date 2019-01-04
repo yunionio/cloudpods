@@ -99,6 +99,7 @@ func init() {
 		Name string `help:"Name of security group to update"`
 		Desc string `help:"Description of security groups"`
 	}
+
 	R(&SecGroupsUpdateOptions{}, "secgroup-update", "Update details of a security group", func(s *mcclient.ClientSession, args *SecGroupsUpdateOptions) error {
 		params := jsonutils.NewDict()
 		if len(args.Name) > 0 {
@@ -114,53 +115,25 @@ func init() {
 		printObject(secgroups)
 		return nil
 	})
-	type SecGroupsUpdateRulesOptions struct {
-		ID    string   `help:"ID or Name of security group"`
-		RULES []string `help:"security rule to create"`
+
+	type SecGroupsAddRuleOptions struct {
+		ID          string `help:"ID or Name of security group"`
+		DIRECTION   string `help:"Direction of rule" choices:"in|out"`
+		PROTOCOL    string `help:"Protocol of rule" choices:"any|tcp|udp|icmp"`
+		ACTION      string `help:"Actin of rule" choices:"allow|deny"`
+		PRIORITY    int    `help:"Priority for rule, range 1 ~ 100"`
+		Cidr        string `help:"IP or CIRD for rule"`
+		Description string `help:"Desciption for rule"`
+		Ports       string `help:"Port for rule"`
 	}
 
-	R(&SecGroupsUpdateRulesOptions{}, "secgroup-add-rules", "Add security rules to a security group", func(s *mcclient.ClientSession, args *SecGroupsUpdateRulesOptions) error {
-		params := jsonutils.NewDict()
-		if len(args.RULES) > 0 {
-			for i, a := range args.RULES {
-				params.Add(jsonutils.NewString(a), fmt.Sprintf("rule.%d", i))
-			}
-		}
-		result, err := modules.SecGroups.PerformAction(s, args.ID, "add-rules", params)
+	R(&SecGroupsAddRuleOptions{}, "secgroup-add-rule", "Add rule for a security group", func(s *mcclient.ClientSession, args *SecGroupsAddRuleOptions) error {
+		params, err := options.StructToParams(args)
+		secgroups, err := modules.SecGroups.PerformAction(s, args.ID, "add-rule", params)
 		if err != nil {
 			return err
 		}
-		printObject(result)
-		return nil
-	})
-
-	R(&SecGroupsUpdateRulesOptions{}, "secgroup-remove-rules", "Remove security rules from a security group", func(s *mcclient.ClientSession, args *SecGroupsUpdateRulesOptions) error {
-		params := jsonutils.NewDict()
-		if len(args.RULES) > 0 {
-			for i, a := range args.RULES {
-				params.Add(jsonutils.NewString(a), fmt.Sprintf("rule.%d", i))
-			}
-		}
-		result, err := modules.SecGroups.PerformAction(s, args.ID, "remove-rules", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
-		return nil
-	})
-
-	R(&SecGroupsUpdateRulesOptions{}, "secgroup-set-rules", "Set security rules from a security group", func(s *mcclient.ClientSession, args *SecGroupsUpdateRulesOptions) error {
-		params := jsonutils.NewDict()
-		if len(args.RULES) > 0 {
-			for i, a := range args.RULES {
-				params.Add(jsonutils.NewString(a), fmt.Sprintf("rule.%d", i))
-			}
-		}
-		result, err := modules.SecGroups.PerformAction(s, args.ID, "set-rules", params)
-		if err != nil {
-			return err
-		}
-		printObject(result)
+		printObject(secgroups)
 		return nil
 	})
 }
