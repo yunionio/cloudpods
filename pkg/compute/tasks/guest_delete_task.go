@@ -80,20 +80,69 @@ func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, obj db.ISt
 	}
 }
 
+func (self *GuestDeleteTask) OnGuestStopCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
+	self.OnGuestStopComplete(ctx, obj, err) // ignore stop error
+}
+
 func (self *GuestDeleteTask) OnEipDissociateCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	self.OnFailed(ctx, guest, err)
 }
 
 func (self *GuestDeleteTask) OnEipDissociateComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.SetStage("OnDiskDetachComplete", nil)
+	self.OnDiskDetachComplete(ctx, obj, data)
+}
+
+// remove detachable disks
+func (self *GuestDeleteTask) OnDiskDetachComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	log.Debugf("OnDiskDetachComplete")
 	guest := obj.(*models.SGuest)
 
-	if options.Options.EnablePendingDelete && !guest.PendingDeleted &&
-		!jsonutils.QueryBoolean(self.Params, "purge", false) &&
-		!jsonutils.QueryBoolean(self.Params, "override_pending_delete", false) {
+	guestdisks := guest.GetDisks()
+	if len(guestdisks) == 0 {
+		self.doClearSecurityGroupComplete(ctx, guest)
+		return
+	}
+	lastDisk := guestdisks[len(guestdisks)-1].GetDisk() // remove last detachable disk
+	log.Debugf("lastDisk IsDetachable?? %v", lastDisk.IsDetachable())
+	if !lastDisk.IsDetachable() {
+		self.doClearSecurityGroupComplete(ctx, guest)
+		return
+	}
+	guest.StartGuestDetachdiskTask(ctx, self.UserCred, lastDisk, true, self.GetTaskId())
+}
+
+func (self *GuestDeleteTask) OnDiskDetachCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	self.OnFailed(ctx, guest, err)
+}
+
+// revoke all secgroups
+func (self *GuestDeleteTask) doClearSecurityGroupComplete(ctx context.Context, guest *models.SGuest) {
+	log.Debugf("doClearSecurityGroupComplete")
+	models.IsolatedDeviceManager.ReleaseDevicesOfGuest(ctx, guest, self.UserCred)
+	guest.RevokeAllSecgroups(ctx, self.UserCred)
+	// sync revoked secgroups to remote cloud
+	self.SetStage("OnSyncConfigComplete", nil)
+	guest.StartSyncTask(ctx, self.UserCred, false, self.GetTaskId())
+}
+
+func (self *GuestDeleteTask) OnSyncConfigComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+
+	isPurge := jsonutils.QueryBoolean(self.Params, "purge", false)
+	overridePendingDelete := jsonutils.QueryBoolean(self.Params, "override_pending_delete", false)
+
+	if options.Options.EnablePendingDelete && !isPurge && !overridePendingDelete {
+		if guest.PendingDeleted {
+			self.SetStageComplete(ctx, nil)
+			return
+		}
 		log.Debugf("XXXXXXX Do guest pending delete... XXXXXXX")
 		guestStatus, _ := self.Params.GetString("guest_status")
-		if !utils.IsInStringArray(guestStatus, []string{models.VM_SCHEDULE_FAILED, models.VM_NETWORK_FAILED, models.VM_DISK_FAILED,
+		if !utils.IsInStringArray(guestStatus, []string{
+			models.VM_SCHEDULE_FAILED, models.VM_NETWORK_FAILED, models.VM_DISK_FAILED,
 			models.VM_CREATE_FAILED, models.VM_DEVICE_FAILED}) {
 			self.StartPendingDeleteGuest(ctx, guest)
 			return
@@ -103,8 +152,9 @@ func (self *GuestDeleteTask) OnEipDissociateComplete(ctx context.Context, obj db
 	self.doStartDeleteGuest(ctx, guest)
 }
 
-func (self *GuestDeleteTask) OnGuestStopCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
-	self.OnGuestStopComplete(ctx, obj, err) // ignore stop error
+func (self *GuestDeleteTask) OnSyncConfigCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	self.OnFailed(ctx, guest, err)
 }
 
 func (self *GuestDeleteTask) OnGuestDeleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
@@ -121,7 +171,6 @@ func (self *GuestDeleteTask) doStartDeleteGuest(ctx context.Context, obj db.ISta
 
 func (self *GuestDeleteTask) StartPendingDeleteGuest(ctx context.Context, guest *models.SGuest) {
 	guest.DoPendingDelete(ctx, self.UserCred)
-	models.IsolatedDeviceManager.ReleaseDevicesOfGuest(ctx, guest, self.UserCred)
 	self.SetStage("on_pending_delete_complete", nil)
 	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
 }
