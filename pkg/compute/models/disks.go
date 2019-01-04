@@ -1224,8 +1224,8 @@ func fillDiskConfigByImage(ctx context.Context, userCred mcclient.TokenCredentia
 	return nil
 }
 
-func parseIsoInfo(ctx context.Context, userCred mcclient.TokenCredential, info string) (*SImage, error) {
-	image, err := CachedimageManager.getImageInfo(ctx, userCred, info, false)
+func parseIsoInfo(ctx context.Context, userCred mcclient.TokenCredential, imageId string) (*SImage, error) {
+	image, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
 	if err != nil {
 		log.Errorf("getImageInfo fail %s", err)
 		return nil, err
