@@ -587,6 +587,66 @@ func (self *SGuest) GetDetailsIso(userCred mcclient.TokenCredential) jsonutils.J
 	return desc
 }
 
+func (self *SGuest) AllowPerformInsertiso(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformInsertiso(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	cdrom := self.getCdrom()
+	if cdrom == nil {
+		return nil, fmt.Errorf("Failed to get cdrom")
+	}
+
+	if len(cdrom.ImageId) > 0 {
+		return nil, httperrors.NewBadRequestError("CD-ROM not empty, please eject first")
+	}
+	imageId, _ := data.GetString("image_id")
+	image, err := parseIsoInfo(ctx, userCred, imageId)
+	if err != nil {
+		log.Errorln(err)
+		return nil, err
+	}
+
+	if utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_READY}) {
+		err = self.StartInsertIsoTask(ctx, image.Id, self.HostId, userCred, "")
+		return nil, err
+	} else {
+		return nil, httperrors.NewServerStatusError("Insert ISO not allowed in status %s", self.Status)
+	}
+}
+
+func (self *SGuest) AllowPerformEjectiso(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred)
+}
+
+func (self *SGuest) PerformEjectiso(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Hypervisor != HYPERVISOR_KVM {
+		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.Hypervisor)
+	}
+	cdrom := self.getCdrom()
+	if cdrom == nil {
+		return nil, fmt.Errorf("Failed to get cdrom")
+	}
+	if len(cdrom.ImageId) == 0 {
+		return nil, httperrors.NewBadRequestError("No ISO to eject")
+	}
+	if utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_READY}) {
+		err := self.StartEjectisoTask(ctx, userCred, "")
+		return nil, err
+	} else {
+		return nil, httperrors.NewServerStatusError("Eject ISO not allowed in status %s", self.Status)
+	}
+}
+
+func (self *SGuest) StartEjectisoTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestEjectISOTask", self, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
 func (self *SGuest) StartInsertIsoTask(ctx context.Context, imageId string, hostId string, userCred mcclient.TokenCredential, parentTaskId string) error {
 	self.insertIso(imageId)
 
