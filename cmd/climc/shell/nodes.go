@@ -161,11 +161,12 @@ func init() {
 	})
 
 	type NodeCreateOptions struct {
-		NAME string `help:"Node name"`
-		IP   string `help:"Node IP"`
+		NAME    string `help:"Node name"`
+		IP      string `help:"Node IP"`
+		ResType string `help:"Resource type" choices:"host|guest"`
 	}
 	R(&NodeCreateOptions{}, "node-create", "Create a monitor node record", func(s *mcclient.ClientSession, args *NodeCreateOptions) error {
-		data, err := modules.Nodes.NewNode(s, args.NAME, args.IP)
+		data, err := modules.Nodes.NewNode(s, args.NAME, args.IP, args.ResType)
 		if err != nil {
 			return err
 		}
