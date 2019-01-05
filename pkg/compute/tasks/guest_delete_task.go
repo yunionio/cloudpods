@@ -153,8 +153,9 @@ func (self *GuestDeleteTask) OnSyncConfigComplete(ctx context.Context, obj db.IS
 }
 
 func (self *GuestDeleteTask) OnSyncConfigCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
-	guest := obj.(*models.SGuest)
-	self.OnFailed(ctx, guest, err)
+	// guest := obj.(*models.SGuest)
+	// self.OnFailed(ctx, guest, err)
+	self.OnSyncConfigComplete(ctx, obj, err) // ignore sync config failed error
 }
 
 func (self *GuestDeleteTask) OnGuestDeleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {

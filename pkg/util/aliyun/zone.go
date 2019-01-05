@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -134,7 +135,7 @@ func (self *SZone) IsEmulated() bool {
 }
 
 func (self *SZone) GetStatus() string {
-	if len(self.AvailableResourceCreation.ResourceTypes) == 0 {
+	if len(self.AvailableResourceCreation.ResourceTypes) == 0 || !utils.IsInStringArray("Instance", self.AvailableResourceCreation.ResourceTypes) {
 		return models.ZONE_SOLDOUT
 	} else {
 		return models.ZONE_ENABLE
