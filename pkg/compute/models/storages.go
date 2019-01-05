@@ -120,7 +120,7 @@ type SStorage struct {
 	Reserved    int                  `nullable:"true" default:"0" list:"admin" update:"admin"`                                        // Column(Integer, nullable=True, default=0)
 	StorageType string               `width:"32" charset:"ascii" nullable:"false" list:"user" update:"admin" create:"admin_required"` // Column(VARCHAR(32, charset='ascii'), nullable=False)
 	MediumType  string               `width:"32" charset:"ascii" nullable:"false" list:"user" update:"admin" create:"admin_required"` // Column(VARCHAR(32, charset='ascii'), nullable=False)
-	Cmtbound    float32              `nullable:"true" default:"1" list:"admin" update:"admin"`                                      // Column(Float, nullable=True)
+	Cmtbound    float32              `nullable:"true" default:"1" list:"admin" update:"admin"`                                        // Column(Float, nullable=True)
 	StorageConf jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin"`                                                     // = Column(JSONEncodedDict, nullable=True)
 
 	ZoneId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
