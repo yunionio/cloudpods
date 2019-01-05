@@ -29,28 +29,30 @@ func (self *ImageCopyFromUrlTask) OnInit(ctx context.Context, obj db.IStandalone
 
 	log.Infof("Copy image from %s", copyFrom)
 
-	header := http.Header{}
-	// header.Set("Content-Type", "application/octet-stream")
-	resp, err := httputils.Request(nil, ctx, httputils.GET, copyFrom, header, nil, false)
+	self.SetStage("OnImageImportComplete", nil)
+	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
+		header := http.Header{}
+		resp, err := httputils.Request(nil, ctx, httputils.GET, copyFrom, header, nil, false)
+		if err != nil {
+			return nil, err
+		}
+		err = image.SaveImageFromStream(resp.Body)
+		if err != nil {
+		}
+		return nil, nil
+	})
+}
 
-	if err != nil {
-		msg := fmt.Sprintf("copy from url %s request fail %s", copyFrom, err)
-		image.OnSaveFailed(ctx, self.UserCred, msg)
-		self.SetStageFailed(ctx, msg)
-		return
-	}
-
-	err = image.SaveImageFromStream(resp.Body)
-	if err != nil {
-		msg := fmt.Sprintf(" copy from url %s stream fail %s", copyFrom, err)
-		image.OnSaveFailed(ctx, self.UserCred, msg)
-		self.SetStageFailed(ctx, msg)
-		return
-	}
-
-	image.OnSaveSuccess(ctx, self.UserCred, "copy from success")
-
+func (self *ImageCopyFromUrlTask) OnImageImportComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	image := obj.(*models.SImage)
 	image.StartImageConvertTask(ctx, self.UserCred, "")
-
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *ImageCopyFromUrlTask) OnImageImportCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
+	image := obj.(*models.SImage)
+	copyFrom, _ := self.Params.GetString("copy_from")
+	msg := fmt.Sprintf("copy from url %s request fail %s", copyFrom, err)
+	image.OnSaveFailed(ctx, self.UserCred, msg)
+	self.SetStageFailed(ctx, msg)
 }
