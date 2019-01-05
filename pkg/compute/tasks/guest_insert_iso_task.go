@@ -37,7 +37,7 @@ func (self *GuestInsertIsoTask) prepareIsoImage(ctx context.Context, obj db.ISta
 	storageCache := host.GetLocalStoragecache()
 	if storageCache != nil {
 		self.SetStage("OnIsoPrepareComplete", nil)
-		storageCache.StartImageCacheTask(ctx, self.UserCred, imageId, false, self.GetTaskId())
+		storageCache.StartImageCacheTask(ctx, self.UserCred, imageId, "iso", false, self.GetTaskId())
 	} else {
 		guest.EjectIso(self.UserCred)
 		db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARE_FAIL, imageId, self.UserCred)

@@ -205,7 +205,7 @@ func (self *SVirtualizedGuestDriver) PerformStart(ctx context.Context, userCred 
 	return guest.StartGueststartTask(ctx, userCred, data, "")
 }
 
-func (self *SVirtualizedGuestDriver) CheckDiskTemplateOnStorage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, storageId string, task taskman.ITask) error {
+func (self *SVirtualizedGuestDriver) CheckDiskTemplateOnStorage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, format string, storageId string, task taskman.ITask) error {
 	storage := models.StorageManager.FetchStorageById(storageId)
 	if storage == nil {
 		return fmt.Errorf("No such storage?? %s", storageId)
@@ -214,7 +214,7 @@ func (self *SVirtualizedGuestDriver) CheckDiskTemplateOnStorage(ctx context.Cont
 	if cache == nil {
 		return fmt.Errorf("Cache is missing from storage")
 	}
-	return cache.StartImageCacheTask(ctx, userCred, imageId, false, task.GetTaskId())
+	return cache.StartImageCacheTask(ctx, userCred, imageId, format, false, task.GetTaskId())
 }
 
 func (self *SVirtualizedGuestDriver) CanKeepDetachDisk() bool {

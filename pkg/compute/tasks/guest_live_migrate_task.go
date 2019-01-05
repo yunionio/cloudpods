@@ -85,7 +85,7 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 	if isLocalStorage {
 		targetStorageCache := targetHost.GetLocalStoragecache()
 		if targetStorageCache != nil {
-			targetStorageCache.StartImageCacheTask(ctx, self.UserCred, disk.TemplateId, false, self.GetTaskId())
+			targetStorageCache.StartImageCacheTask(ctx, self.UserCred, disk.TemplateId, disk.DiskFormat, false, self.GetTaskId())
 		}
 	} else {
 		self.OnSrcPrepareComplete(ctx, guest, nil)

@@ -305,7 +305,7 @@ func (self *SBaremetalGuestDriver) PerformStart(ctx context.Context, userCred mc
 	return guest.StartGueststartTask(ctx, userCred, data, "")
 }
 
-func (self *SBaremetalGuestDriver) CheckDiskTemplateOnStorage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, storageId string, task taskman.ITask) error {
+func (self *SBaremetalGuestDriver) CheckDiskTemplateOnStorage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, format string, storageId string, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
 }
