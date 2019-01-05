@@ -50,6 +50,10 @@ func (p *StatusPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core
 		h.Exclude2("enable_status", curEnableStatus, true)
 	}
 
+	if hc.Zone.Status != ExpectedEnableStatus {
+		h.Exclude2("zone_status", hc.Zone.Status, ExpectedEnableStatus)
+	}
+
 	if hc.Cloudprovider != nil {
 		if hc.Cloudprovider.Status != models.CLOUD_PROVIDER_CONNECTED {
 			h.Exclude2("cloud_provider_status", hc.Cloudprovider.Status, models.CLOUD_PROVIDER_CONNECTED)

@@ -6,6 +6,7 @@ import (
 
 type Zone struct {
 	StandaloneModel
+	Status        string `json:"status" gorm:"column:status;not null"`
 	Location      string `gorm:"column:location"`
 	ManagerUri    string `gorm:"column:manager_uri"`
 	CloudregionId string `gorm:"column:cloudregion_id"`

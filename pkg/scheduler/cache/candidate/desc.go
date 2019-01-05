@@ -40,7 +40,7 @@ type baseHostDesc struct {
 	NodeCount      int64                        `json:"node_count"`
 	Tenants        map[string]int64             `json:"tenants"`
 	ZoneID         string                       `json:"zone_id"`
-	Zone           string                       `json:"zone"`
+	Zone           *models.Zone                 `json:"zone"`
 	PoolID         string                       `json:"pool_id"`
 	ClusterID      string                       `json:"cluster_id"`
 	Aggregates     []*models.Aggregate          `json:"aggregates"`
@@ -110,7 +110,7 @@ func (b baseHostDesc) GetSchedDesc() *jsonutils.JSONDict {
 	desc.Add(jsonutils.NewInt(b.MemSize), "mem_size")
 	desc.Add(jsonutils.NewString(b.HostType), "host_type")
 	desc.Add(jsonutils.NewString(b.ZoneID), "zone_id")
-	desc.Add(jsonutils.NewString(b.Zone), "zone")
+	desc.Add(jsonutils.NewString(b.Zone.Name), "zone")
 	desc.Add(jsonutils.NewString(b.ResourceType), "resource_type")
 
 	if b.Cloudprovider != nil {
@@ -146,8 +146,7 @@ func (b *baseHostDesc) fillZone(host *models.Host) error {
 	if err != nil {
 		return err
 	}
-	b.ZoneID = zone.ID
-	b.Zone = zone.Name
+	b.Zone = zone
 	return nil
 }
 
