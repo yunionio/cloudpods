@@ -17,7 +17,7 @@ func isNameUnique(manager IModelManager, owner string, name string) bool {
 	return q.Count() == 0
 }
 
-func newNameValidator(manager IModelManager, ownerProjId string, name string) error {
+func NewNameValidator(manager IModelManager, ownerProjId string, name string) error {
 	err := manager.ValidateName(name)
 	if err != nil {
 		return err

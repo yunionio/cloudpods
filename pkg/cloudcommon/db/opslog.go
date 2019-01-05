@@ -50,6 +50,9 @@ const (
 	ACT_MIGRATE      = "migrate"
 	ACT_MIGRATE_FAIL = "migrate_fail"
 
+	ACT_SPLIT = "net_split"
+	ACT_MERGE = "net_merge"
+
 	ACT_SAVING    = "saving"
 	ACT_SAVE      = "save"
 	ACT_SAVE_FAIL = "save_fail"
@@ -131,8 +134,6 @@ const (
 	ACT_SYNC_CLOUD_DISK   = "sync_cloud_disk"
 	ACT_SYNC_CLOUD_SERVER = "sync_cloud_server"
 	ACT_SYNC_CLOUD_EIP    = "sync_cloud_eip"
-
-	ACT_SPLIT = "net_split"
 
 	ACT_PENDING_DELETE = "pending_delete"
 	ACT_CANCEL_DELETE  = "cancel_delete"
