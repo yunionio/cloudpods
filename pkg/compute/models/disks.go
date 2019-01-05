@@ -1353,12 +1353,14 @@ func (self *SDisk) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 		info := storage.getCloudProviderInfo()
 		extra.Update(jsonutils.Marshal(&info))
 	}
-
+	guestArray := jsonutils.NewArray()
 	guests, guest_status := []string{}, []string{}
 	for _, guest := range self.GetGuests() {
 		guests = append(guests, guest.Name)
 		guest_status = append(guest_status, guest.Status)
+		guestArray.Add(jsonutils.Marshal(map[string]string{"name": guest.Name, "id": guest.Id, "status": guest.Status}))
 	}
+	extra.Add(guestArray, "guests")
 	extra.Add(jsonutils.NewString(strings.Join(guests, ",")), "guest")
 	extra.Add(jsonutils.NewInt(int64(len(guests))), "guest_count")
 	extra.Add(jsonutils.NewString(strings.Join(guest_status, ",")), "guest_status")
