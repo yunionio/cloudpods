@@ -628,19 +628,8 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
-	for {
-		err := self.host.zone.region.DeleteVM(self.InstanceId)
-		if err != nil {
-			if isError(err, []string{"InvalidInstance.NotSupported", "MutexOperation.TaskRunning"}) {
-				log.Infof("The instance is initializing, try later ...")
-				time.Sleep(10 * time.Second)
-			} else {
-				log.Errorf("DeleteVM fail: %s", err)
-				return err
-			}
-		} else {
-			break
-		}
+	if err := self.host.zone.region.DeleteVM(self.InstanceId); err != nil {
+		return err
 	}
 	return cloudprovider.WaitDeleted(self, 10*time.Second, 300*time.Second) // 5minutes
 }
