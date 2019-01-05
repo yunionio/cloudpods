@@ -1201,12 +1201,18 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SGuest) StartGuestDetachdiskTask(ctx context.Context, userCred mcclient.TokenCredential, disk *SDisk, keepDisk bool, parentTaskId string) error {
-	if disk.Status == DISK_INIT {
-		disk.SetStatus(userCred, DISK_DETACHING, "")
-	}
 	taskData := jsonutils.NewDict()
 	taskData.Add(jsonutils.NewString(disk.Id), "disk_id")
 	taskData.Add(jsonutils.NewBool(keepDisk), "keep_disk")
+	if utils.IsInStringArray(disk.Status, []string{DISK_INIT, DISK_ALLOC_FAILED}) {
+		//删除非正常状态下的disk
+		taskData.Add(jsonutils.JSONFalse, "keep_disk")
+		disk.GetModelManager().TableSpec().Update(disk, func() error {
+			disk.AutoDelete = true
+			return nil
+		})
+	}
+	disk.SetStatus(userCred, DISK_DETACHING, "")
 	return self.GetDriver().StartGuestDetachdiskTask(ctx, userCred, self, taskData, "")
 }
 

@@ -44,12 +44,6 @@ func (self *GuestDetachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	}
 
 	guest.DetachDisk(ctx, disk, self.UserCred)
-	if disk.Status == models.DISK_INIT {
-		self.OnSyncConfigComplete(ctx, guest, nil)
-		return
-	}
-	disk.SetStatus(self.UserCred, models.DISK_DETACHING, "Disk detach")
-
 	host := guest.GetHost()
 	purge := false
 	if host != nil && host.Status == models.HOST_DISABLED && jsonutils.QueryBoolean(self.Params, "purge", false) {
@@ -87,11 +81,7 @@ func (self *GuestDetachDiskTask) OnSyncConfigComplete(ctx context.Context, guest
 	if host != nil && host.Status == models.HOST_DISABLED && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		purge = true
 	}
-	if disk.Status == models.DISK_INIT {
-		db.OpsLog.LogEvent(disk, db.ACT_DELETE, "", self.UserCred)
-		disk.RealDelete(ctx, self.UserCred)
-		self.SetStageComplete(ctx, nil)
-	} else if (disk.Status != models.DISK_READY || !keepDisk) && disk.GetGuestDiskCount() == 0 && disk.AutoDelete {
+	if !keepDisk && disk.GetGuestDiskCount() == 0 && disk.AutoDelete {
 		self.SetStage("on_disk_delete_complete", nil)
 		db.OpsLog.LogEvent(disk, db.ACT_DELETE, "", self.UserCred)
 		err := guest.GetDriver().RequestDeleteDetachedDisk(ctx, disk, self, purge)
