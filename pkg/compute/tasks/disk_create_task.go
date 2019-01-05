@@ -27,7 +27,7 @@ func (self *DiskCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		} else {
 			self.SetStage("OnStorageCacheImageComplete", nil)
 		}
-		storagecache.StartImageCacheTask(ctx, self.UserCred, imageId, false, self.GetTaskId())
+		storagecache.StartImageCacheTask(ctx, self.UserCred, imageId, disk.DiskFormat, false, self.GetTaskId())
 	} else {
 		self.OnStorageCacheImageComplete(ctx, disk, nil)
 	}
@@ -38,7 +38,7 @@ func (self *DiskCreateTask) OnMasterStorageCacheImageComplete(ctx context.Contex
 	storagecache := storage.GetStoragecache()
 	imageId := disk.GetTemplateId()
 	self.SetStage("OnStorageCacheImageComplete", nil)
-	storagecache.StartImageCacheTask(ctx, self.UserCred, imageId, false, self.GetTaskId())
+	storagecache.StartImageCacheTask(ctx, self.UserCred, imageId, disk.DiskFormat, false, self.GetTaskId())
 }
 
 func (self *DiskCreateTask) OnStorageCacheImageComplete(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
@@ -117,7 +117,7 @@ func (self *DiskCreateBackupTask) OnInit(ctx context.Context, obj db.IStandalone
 	imageId := disk.GetTemplateId()
 	if len(imageId) > 0 {
 		self.SetStage("OnMasterStorageCreateDiskComplete", nil)
-		storagecache.StartImageCacheTask(ctx, self.UserCred, imageId, false, self.GetTaskId())
+		storagecache.StartImageCacheTask(ctx, self.UserCred, imageId, disk.DiskFormat, false, self.GetTaskId())
 	} else {
 		self.OnMasterStorageCreateDiskComplete(ctx, disk, nil)
 	}

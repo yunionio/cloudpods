@@ -135,7 +135,7 @@ func (img *SQemuImage) parse() error {
 	if img.Format == RAW {
 		// test if it is an ISO
 		blkType := fileutils2.GetBlkidType(img.Path)
-		if blkType == "iso9660" {
+		if utils.IsInStringArray(blkType, []string{"iso9660", "udf"}) {
 			img.Format = ISO
 		}
 	}

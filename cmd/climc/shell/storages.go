@@ -172,15 +172,19 @@ func init() {
 	})
 
 	type StorageCacheImageActionOptions struct {
-		ID    string `help:"ID or name of storage"`
-		IMAGE string `help:"ID or name of image"`
-		Force bool   `help:"Force refresh cache, even if the image exists in cache"`
+		ID     string `help:"ID or name of storage"`
+		IMAGE  string `help:"ID or name of image"`
+		Force  bool   `help:"Force refresh cache, even if the image exists in cache"`
+		Format string `help:"Image force" choices:"iso|vmdk|qcow2|vhd"`
 	}
 	R(&StorageCacheImageActionOptions{}, "storage-cache-image", "Ask a storage to cache a image", func(s *mcclient.ClientSession, args *StorageCacheImageActionOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.IMAGE), "image")
 		if args.Force {
 			params.Add(jsonutils.JSONTrue, "is_force")
+		}
+		if len(args.Format) > 0 {
+			params.Add(jsonutils.NewString(args.Format), "format")
 		}
 		storage, err := modules.Storages.PerformAction(s, args.ID, "cache-image", params)
 		if err != nil {
