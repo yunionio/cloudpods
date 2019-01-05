@@ -497,4 +497,19 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type PrepaidRecycleHostRenewOptions struct {
+		ID       string `help:"ID or name of server to renew"`
+		DURATION string `help:"Duration of renew, ADMIN only command"`
+	}
+	R(&PrepaidRecycleHostRenewOptions{}, "host-renew-prepaid-recycle", "Renew a prepaid recycle host", func(s *mcclient.ClientSession, args *PrepaidRecycleHostRenewOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.DURATION), "duration")
+		result, err := modules.Hosts.PerformAction(s, args.ID, "renew-prepaid-recycle", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

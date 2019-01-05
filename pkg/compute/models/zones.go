@@ -20,7 +20,7 @@ const (
 	ZONE_ENABLE  = "enable"
 	ZONE_DISABLE = "disable"
 	ZONE_SOLDOUT = "soldout"
-	ZONE_LACK    = "lack"
+	// ZONE_LACK    = "lack"
 )
 
 type SZoneManager struct {
@@ -469,6 +469,12 @@ func (manager *SZoneManager) InitializeData() error {
 				return nil
 			})
 		}
+		if z.Status == "init" {
+			manager.TableSpec().Update(&z, func() error {
+				z.Status = ZONE_ENABLE
+				return nil
+			})
+		}
 	}
 	return nil
 }
@@ -529,6 +535,21 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 			sqlchemy.In(q.Field("id"), sq.SubQuery()),
 			sqlchemy.In(q.Field("id"), sq2.SubQuery()),
 		))
+		q = q.Equals("status", ZONE_ENABLE)
+	}
+	managerStr, _ := query.GetString("manager")
+	if len(managerStr) > 0 {
+		provider := CloudproviderManager.FetchCloudproviderByIdOrName(managerStr)
+		if provider == nil {
+			return nil, httperrors.NewResourceNotFoundError("Cloud provider/manager %s not found", managerStr)
+		}
+		subq := CloudregionManager.Query("id").Equals("provider", provider.Provider).SubQuery()
+		q = q.In("cloudregion_id", subq)
+	}
+	providerStr, _ := query.GetString("provider")
+	if len(providerStr) > 0 {
+		subq := CloudregionManager.Query("id").Equals("provider", providerStr).SubQuery()
+		q = q.In("cloudregion_id", subq)
 	}
 	return q, nil
 }
@@ -595,5 +616,6 @@ func (manager *SZoneManager) ValidateCreateData(ctx context.Context, userCred mc
 		regionId = "default"
 	}
 	data.Add(jsonutils.NewString(regionId), "cloudregion_id")
+	data.Set("status", jsonutils.NewString(ZONE_ENABLE))
 	return manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }

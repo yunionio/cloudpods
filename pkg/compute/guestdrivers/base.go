@@ -63,6 +63,14 @@ func (self *SBaseGuestDriver) OnGuestCreateTaskComplete(ctx context.Context, gue
 		if err == nil && guest.ExpiredAt.IsZero() {
 			guest.SaveRenewInfo(ctx, task.GetUserCred(), &bc, nil)
 		}
+		if jsonutils.QueryBoolean(task.GetParams(), "auto_prepaid_recycle", false) {
+			err := guest.CanPerformPrepaidRecycle()
+			if err == nil {
+				task.SetStageComplete(ctx, nil)
+				guest.DoPerformPrepaidRecycle(ctx, task.GetUserCred(), true)
+				return nil
+			}
+		}
 	}
 	if jsonutils.QueryBoolean(task.GetParams(), "auto_start", false) {
 		task.SetStage("on_auto_start_guest", nil)

@@ -52,7 +52,7 @@ func getHypervisors(zone *SZone) []string {
 		q = q.Equals("zone_id", zone.Id)
 	}
 	q = q.IsNotEmpty("host_type").IsNotNull("host_type")
-	q = q.Equals("host_status", HOST_ONLINE)
+	// q = q.Equals("host_status", HOST_ONLINE)
 	q = q.IsTrue("enabled")
 	q = q.Distinct()
 	rows, err := q.Rows()
