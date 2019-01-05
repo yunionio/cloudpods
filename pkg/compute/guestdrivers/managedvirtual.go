@@ -119,7 +119,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestGuestCreateAllDisks(ctx conte
 	if storageCache == nil {
 		return fmt.Errorf("no valid storage cache")
 	}
-	return storageCache.StartImageCacheTask(ctx, task.GetUserCred(), imageId, false, task.GetTaskId())
+	return storageCache.StartImageCacheTask(ctx, task.GetUserCred(), imageId, diskCat.Root.DiskFormat, false, task.GetTaskId())
 }
 
 func (self *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {

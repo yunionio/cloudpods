@@ -7,9 +7,11 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/sqlchemy"
+
+	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SModelBase struct {
@@ -149,7 +151,7 @@ func (manager *SModelBaseManager) AllowPerformAction(ctx context.Context, userCr
 }
 
 func (manager *SModelBaseManager) PerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return nil, nil
+	return nil, httperrors.NewActionNotFoundError("Action %s not found", action)
 }
 
 func (manager *SModelBaseManager) AllowPerformCheckCreateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -250,7 +252,7 @@ func (model *SModelBase) AllowPerformAction(ctx context.Context, userCred mcclie
 }
 
 func (model *SModelBase) PerformAction(ctx context.Context, userCred mcclient.TokenCredential, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return nil, nil
+	return nil, httperrors.NewActionNotFoundError("Action %s not found", action)
 }
 
 // update hooks

@@ -238,10 +238,13 @@ func (self *SStoragecache) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.
 	return extra
 }
 
-func (self *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, isForce bool, parentTaskId string) error {
+func (self *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, format string, isForce bool, parentTaskId string) error {
 	StoragecachedimageManager.Register(ctx, userCred, self.Id, imageId)
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewString(imageId), "image_id")
+	if len(format) > 0 {
+		data.Add(jsonutils.NewString(format), "format")
+	}
 
 	image, _ := CachedimageManager.GetImageById(ctx, userCred, imageId, false)
 
@@ -402,6 +405,8 @@ func (self *SStoragecache) PerformCacheImage(ctx context.Context, userCred mccli
 		return nil, httperrors.NewInvalidStatusError("Cannot cache image with no checksum")
 	}
 
-	err = self.StartImageCacheTask(ctx, userCred, image.Id, isForce, "")
+	format, _ := data.GetString("format")
+
+	err = self.StartImageCacheTask(ctx, userCred, image.Id, format, isForce, "")
 	return nil, err
 }

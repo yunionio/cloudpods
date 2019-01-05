@@ -88,7 +88,7 @@ func (self *GuestStartAndSyncToBackupTask) OnInit(ctx context.Context, obj db.IS
 func (self *GuestStartAndSyncToBackupTask) checkTemplete(ctx context.Context, guest *models.SGuest) {
 	diskCat := guest.CategorizeDisks()
 	if diskCat.Root != nil && len(diskCat.Root.GetTemplateId()) > 0 {
-		err := guest.GetDriver().CheckDiskTemplateOnStorage(ctx, self.UserCred, diskCat.Root.GetTemplateId(),
+		err := guest.GetDriver().CheckDiskTemplateOnStorage(ctx, self.UserCred, diskCat.Root.GetTemplateId(), diskCat.Root.DiskFormat,
 			diskCat.Root.BackupStorageId, self)
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
