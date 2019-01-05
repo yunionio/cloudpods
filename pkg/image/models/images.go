@@ -533,6 +533,9 @@ func (self *SImage) CustomizeDelete(ctx context.Context, userCred mcclient.Token
 		overridePendingDelete = jsonutils.QueryBoolean(query, "override_pending_delete", false)
 		purge = jsonutils.QueryBoolean(query, "purge", false)
 	}
+	if self.Status != IMAGE_STATUS_ACTIVE {
+		overridePendingDelete = true
+	}
 	return self.startDeleteImageTask(ctx, userCred, "", purge, overridePendingDelete)
 }
 
