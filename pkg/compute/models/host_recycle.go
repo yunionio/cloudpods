@@ -15,10 +15,12 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -56,7 +58,11 @@ func (self *SGuest) PerformPrepaidRecycle(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewInvalidStatusError(err.Error())
 	}
 
-	err = self.doPrepaidRecycle(ctx, userCred)
+	return self.DoPerformPrepaidRecycle(ctx, userCred, jsonutils.QueryBoolean(data, "auto_delete", false))
+}
+
+func (self *SGuest) DoPerformPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential, autoDelete bool) (jsonutils.JSONObject, error) {
+	err := self.doPrepaidRecycle(ctx, userCred)
 	if err != nil {
 		logclient.AddActionLog(self, logclient.ACT_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, false)
 		return nil, httperrors.NewGeneralError(err)
@@ -64,6 +70,10 @@ func (self *SGuest) PerformPrepaidRecycle(ctx context.Context, userCred mcclient
 
 	db.OpsLog.LogEvent(self, db.ACT_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred)
 	logclient.AddActionLog(self, logclient.ACT_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, true)
+
+	if autoDelete {
+		self.StartDeleteGuestTask(ctx, userCred, "", false, true)
+	}
 
 	return nil, nil
 }
@@ -655,4 +665,64 @@ func (manager *SHostManager) GetHostByRealExternalId(eid string) *SHost {
 	}
 
 	return &host
+}
+
+func (self *SHost) AllowPerformRenewPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "renew-prepaid-recycle")
+}
+
+func (self *SHost) PerformRenewPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	durationStr := jsonutils.GetAnyString(data, []string{"duration"})
+	if len(durationStr) == 0 {
+		return nil, httperrors.NewInputParameterError("missing duration")
+	}
+
+	bc, err := billing.ParseBillingCycle(durationStr)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("invalid duration %s: %s", durationStr, err)
+	}
+
+	if !GetDriver(HOSTTYPE_HYPERVISOR[self.HostType]).IsSupportedBillingCycle(bc) {
+		return nil, httperrors.NewInputParameterError("unsupported duration %s", durationStr)
+	}
+
+	err = self.startPrepaidRecycleHostRenewTask(ctx, userCred, durationStr, "")
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
+func (self *SHost) startPrepaidRecycleHostRenewTask(ctx context.Context, userCred mcclient.TokenCredential, duration string, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.NewString(duration), "duration")
+	task, err := taskman.TaskManager.NewTask(ctx, "PrepaidRecycleHostRenewTask", self, userCred, data, parentTaskId, "", nil)
+	if err != nil {
+		log.Errorf("fail to crate GuestRenewTask %s", err)
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SHost) DoSaveRenewInfo(ctx context.Context, userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
+	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		if self.BillingType != BILLING_TYPE_PREPAID {
+			self.BillingType = BILLING_TYPE_PREPAID
+		}
+		if expireAt != nil && !expireAt.IsZero() {
+			self.ExpiredAt = *expireAt
+		} else {
+			self.BillingCycle = bc.String()
+			self.ExpiredAt = bc.EndAt(self.ExpiredAt)
+		}
+		return nil
+	})
+	if err != nil {
+		log.Errorf("Update error %s", err)
+		return err
+	}
+	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(ctx), userCred)
+	return nil
 }

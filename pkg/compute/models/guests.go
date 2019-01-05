@@ -3429,7 +3429,8 @@ func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, u
 		return
 	}
 	for i := 0; i < len(guests); i += 1 {
-		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, true)
+		// fake delete expired prepaid servers
+		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, false)
 	}
 }
 

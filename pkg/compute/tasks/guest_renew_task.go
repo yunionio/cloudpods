@@ -19,6 +19,7 @@ type GuestRenewTask struct {
 
 func init() {
 	taskman.RegisterTask(GuestRenewTask{})
+	taskman.RegisterTask(PrepaidRecycleHostRenewTask{})
 }
 
 func (self *GuestRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -36,6 +37,53 @@ func (self *GuestRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	}
 
 	err = guest.SaveRenewInfo(ctx, self.UserCred, &bc, &exp)
+	if err != nil {
+		msg := fmt.Sprintf("SaveRenewInfo fail %s", err)
+		log.Errorf(msg)
+		self.SetStageFailed(ctx, msg)
+		return
+	}
+
+	self.SetStageComplete(ctx, nil)
+}
+
+type PrepaidRecycleHostRenewTask struct {
+	taskman.STask
+}
+
+func (self *PrepaidRecycleHostRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	host := obj.(*models.SHost)
+
+	durationStr, _ := self.GetParams().GetString("duration")
+	bc, _ := billing.ParseBillingCycle(durationStr)
+
+	ihost, err := host.GetIHost()
+	if err != nil {
+		msg := fmt.Sprintf("host.GetIHost fail %s", err)
+		log.Errorf(msg)
+		self.SetStageFailed(ctx, msg)
+		return
+	}
+
+	iVM, err := ihost.GetIVMById(host.RealExternalId)
+	if err != nil {
+		msg := fmt.Sprintf("ihost.GetIVMById fail %s", err)
+		log.Errorf(msg)
+		self.SetStageFailed(ctx, msg)
+		return
+	}
+
+	err = iVM.Renew(bc)
+	if err != nil {
+		msg := fmt.Sprintf("iVM.Renew fail %s", err)
+		log.Errorf(msg)
+		self.SetStageFailed(ctx, msg)
+		return
+	}
+
+	exp := iVM.GetExpiredAt()
+
+	err = host.DoSaveRenewInfo(ctx, self.UserCred, &bc, &exp)
 	if err != nil {
 		msg := fmt.Sprintf("SaveRenewInfo fail %s", err)
 		log.Errorf(msg)

@@ -634,10 +634,14 @@ func init() {
 	})
 
 	type ServerPrepaidRecycleOptions struct {
-		ID string `help:"ID or name of server to recycle"`
+		ID         string `help:"ID or name of server to recycle"`
+		AutoDelete bool   `help:"after joining the pool, remove the server automatically"`
 	}
 	R(&ServerPrepaidRecycleOptions{}, "server-enable-recycle", "Put a prepaid server into recycle pool, so that it can be shared", func(s *mcclient.ClientSession, args *ServerPrepaidRecycleOptions) error {
 		params := jsonutils.NewDict()
+		if args.AutoDelete {
+			params.Add(jsonutils.JSONTrue, "auto_delete")
+		}
 		result, err := modules.Servers.PerformAction(s, args.ID, "prepaid-recycle", params)
 		if err != nil {
 			return err
