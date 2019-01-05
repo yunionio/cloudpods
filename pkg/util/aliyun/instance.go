@@ -905,7 +905,13 @@ func (self *SInstance) GetBillingType() string {
 }
 
 func (self *SInstance) GetExpiredAt() time.Time {
-	return self.ExpiredTime
+	if !self.ExpiredTime.IsZero() {
+		now := time.Now()
+		if self.ExpiredTime.Sub(now) < time.Hour*24*365*6 {
+			return self.ExpiredTime
+		}
+	}
+	return time.Time{}
 }
 
 func (self *SInstance) UpdateUserData(userData string) error {
@@ -925,10 +931,10 @@ func (region *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle
 	params["InstanceId"] = instanceId
 	if bc.GetWeeks() <= 4 {
 		params["PeriodUnit"] = "Week"
-		params["Period"] = fmt.Sprintf("%s", bc.GetWeeks())
+		params["Period"] = fmt.Sprintf("%d", bc.GetWeeks())
 	} else {
 		params["PeriodUnit"] = "Month"
-		params["Period"] = fmt.Sprintf("%s", bc.GetMonths())
+		params["Period"] = fmt.Sprintf("%d", bc.GetMonths())
 	}
 	params["ClientToken"] = utils.GenRequestId(20)
 	_, err := region.ecsRequest("RenewInstance", params)

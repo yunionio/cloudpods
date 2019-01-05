@@ -15,6 +15,7 @@ type BaseEventListOptions struct {
 	Offset     int64    `help:"Offset"`
 	Ascending  bool     `help:"Ascending order"`
 	Descending bool     `help:"Descending order"`
+	OrderBy    string   `help:"order by specific field"`
 	Action     []string `help:"Log action"`
 }
 
@@ -61,6 +62,9 @@ func doEventList(man modules.ResourceManager, s *mcclient.ClientSession, args *E
 		params.Add(jsonutils.NewString("asc"), "order")
 	} else if !args.Ascending && args.Descending {
 		params.Add(jsonutils.NewString("desc"), "order")
+	}
+	if len(args.OrderBy) > 0 {
+		params.Add(jsonutils.NewString(args.OrderBy), "order_by")
 	}
 	if len(args.Action) > 0 {
 		params.Add(jsonutils.NewStringArray(args.Action), "action")

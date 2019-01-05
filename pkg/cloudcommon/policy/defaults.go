@@ -11,6 +11,12 @@ var (
 		},
 		{
 			Service:  "compute",
+			Resource: "hosts",
+			Action:   PolicyActionList,
+			Result:   rbacutils.UserAllow,
+		},
+		{
+			Service:  "compute",
 			Resource: "zones",
 			Action:   PolicyActionList,
 			Result:   rbacutils.UserAllow,

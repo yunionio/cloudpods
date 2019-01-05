@@ -126,4 +126,21 @@ func init() {
 		return nil
 	})
 
+	type ZoneStatusOptions struct {
+		ID     string `help:"ID or name of zone"`
+		STATUS string `help:"zone status" choices:"enable|disable|soldout"`
+		REASON string `help:"why update status"`
+	}
+	R(&ZoneStatusOptions{}, "zone-update-status", "Update zone status", func(s *mcclient.ClientSession, args *ZoneStatusOptions) error {
+		params := jsonutils.NewDict()
+		params.Set("status", jsonutils.NewString(args.STATUS))
+		params.Set("reason", jsonutils.NewString(args.REASON))
+		result, err := modules.Zones.PerformAction(s, args.ID, "status", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 }
