@@ -38,6 +38,7 @@ func (self *ImageCopyFromUrlTask) OnInit(ctx context.Context, obj db.IStandalone
 		}
 		err = image.SaveImageFromStream(resp.Body)
 		if err != nil {
+			return nil, err
 		}
 		return nil, nil
 	})
