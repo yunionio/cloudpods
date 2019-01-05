@@ -1164,13 +1164,15 @@ func (self *SGuest) AllowPerformDetachdisk(ctx context.Context, userCred mcclien
 func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	diskId, err := data.GetString("disk_id")
 	if err != nil {
-		log.Errorln(err)
 		return nil, httperrors.NewMissingParameterError("disk_id")
 	}
 	keepDisk := jsonutils.QueryBoolean(data, "keep_disk", false)
 	iDisk, err := DiskManager.FetchByIdOrName(userCred, diskId)
-	if err != nil && err != sql.ErrNoRows {
-		return nil, err
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewNotFoundError("failed to find disk %s", diskId)
+		}
+		return nil, httperrors.NewGeneralError(err)
 	}
 	disk := iDisk.(*SDisk)
 	if disk != nil {
