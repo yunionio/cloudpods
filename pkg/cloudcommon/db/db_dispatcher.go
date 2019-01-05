@@ -447,7 +447,6 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		limit = maxLimit
 	}
 	orderBy := jsonutils.GetQueryStringArray(queryDict, "order_by")
-	order := sqlchemy.SQL_ORDER_DESC
 	if len(orderBy) == 0 {
 		colSpec := manager.TableSpec().ColumnSpec("id")
 		if err == nil && colSpec != nil && colSpec.IsNumeric() {
@@ -455,11 +454,11 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		} else {
 			orderBy = []string{"created_at"}
 		}
-	} else {
-		orderStr, _ := queryDict.GetString("order")
-		if orderStr == "asc" {
-			order = sqlchemy.SQL_ORDER_ASC
-		}
+	}
+	order := sqlchemy.SQL_ORDER_DESC
+	orderStr, _ := queryDict.GetString("order")
+	if orderStr == "asc" {
+		order = sqlchemy.SQL_ORDER_ASC
 	}
 	if order == sqlchemy.SQL_ORDER_ASC {
 		for _, orderByField := range orderBy {

@@ -68,7 +68,7 @@ func (self *SBaseGuestDriver) OnGuestCreateTaskComplete(ctx context.Context, gue
 			if err == nil {
 				task.SetStageComplete(ctx, nil)
 				guest.DoPerformPrepaidRecycle(ctx, task.GetUserCred(), true)
-				return
+				return nil
 			}
 		}
 	}

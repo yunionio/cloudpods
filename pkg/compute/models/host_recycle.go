@@ -58,7 +58,11 @@ func (self *SGuest) PerformPrepaidRecycle(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewInvalidStatusError(err.Error())
 	}
 
-	err = self.doPrepaidRecycle(ctx, userCred)
+	return self.DoPerformPrepaidRecycle(ctx, userCred, jsonutils.QueryBoolean(data, "auto_delete", false))
+}
+
+func (self *SGuest) DoPerformPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential, autoDelete bool) (jsonutils.JSONObject, error) {
+	err := self.doPrepaidRecycle(ctx, userCred)
 	if err != nil {
 		logclient.AddActionLog(self, logclient.ACT_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, false)
 		return nil, httperrors.NewGeneralError(err)
@@ -67,10 +71,10 @@ func (self *SGuest) PerformPrepaidRecycle(ctx context.Context, userCred mcclient
 	db.OpsLog.LogEvent(self, db.ACT_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred)
 	logclient.AddActionLog(self, logclient.ACT_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, true)
 
-	autoDelete := jsonutils.QueryBoolean(data, "auto_delete", false)
 	if autoDelete {
 		self.StartDeleteGuestTask(ctx, userCred, "", false, true)
 	}
+
 	return nil, nil
 }
 
