@@ -1213,7 +1213,7 @@ func (self *SGuest) StartGuestDetachdiskTask(ctx context.Context, userCred mccli
 		})
 	}
 	disk.SetStatus(userCred, DISK_DETACHING, "")
-	return self.GetDriver().StartGuestDetachdiskTask(ctx, userCred, self, taskData, "")
+	return self.GetDriver().StartGuestDetachdiskTask(ctx, userCred, self, taskData, parentTaskId)
 }
 
 func (self *SGuest) AllowPerformDetachIsolatedDevice(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
