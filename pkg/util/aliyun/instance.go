@@ -512,7 +512,14 @@ func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
 }
 
 func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
-	return self.host.zone.region.DetachDisk(self.InstanceId, diskId)
+	return cloudprovider.RetryOnError(
+		func() error {
+			return self.host.zone.region.DetachDisk(self.InstanceId, diskId)
+		},
+		[]string{
+			`"Code":"InvalidOperation.Conflict"`,
+		},
+		4)
 }
 
 func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
