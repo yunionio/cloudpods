@@ -2984,7 +2984,7 @@ func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCrede
 				return fmt.Errorf("Network %s not reacheable on mac %s", network, netif.Mac)
 			}
 		} else {
-			net, err = wire.GetCandidatePrivateNetwork(userCred, false, SERVER_TYPE_GUEST)
+			net, err = wire.GetCandidatePrivateNetwork(userCred, false, SERVER_TYPE_BAREMETAL)
 			if err != nil || net == nil {
 				return fmt.Errorf("No network found")
 			}
