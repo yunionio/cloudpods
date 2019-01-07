@@ -83,7 +83,7 @@ func _jsonRequest(client *sdk.Client, domain string, version string, apiName str
 
 	resp, err := processCommonRequest(client, req)
 	if err != nil {
-		log.Errorf("request error %s parameters %s", err, params)
+		log.Errorf("request error %s with params %s", err, params)
 		return nil, err
 	}
 	body, err := jsonutils.Parse(resp.GetHttpContentBytes())
