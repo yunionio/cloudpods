@@ -1,21 +1,12 @@
 package qemuimg
 
 import (
-<<<<<<< HEAD
 	"fmt"
 	"os/exec"
 	"regexp"
 
 	"yunion.io/x/log"
 
-=======
-	"os/exec"
-
-	"fmt"
-	"regexp"
-
-	"yunion.io/x/log"
->>>>>>> move util to pkg/utils
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/onecloud/pkg/util/version"
 )
