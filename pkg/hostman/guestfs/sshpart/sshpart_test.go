@@ -7,7 +7,7 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
-	"yunion.io/x/onecloud/pkg/hostman/guestfs"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
@@ -36,7 +36,7 @@ func TestNewSSHPartition(t *testing.T) {
 	pubkeys := &sshkeys.SSHKeys{
 		PublicKey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCz0BLJD+xXYd3AP26uFs42mQSoznPew6gC84P9eUEAJHdkT/8WqTJV0z9M8ZU+8UbuR3iTSbblatrZepPkU2KkvE9ZkFftCIGCWCgvRWFfrDdMF1jwGYtKDg1xVxCmxzTgR+NCuE7HIyDsNL/IKbIVH6QMCxwAIdxHrAT4WdVvkDrD5ihSmIMgnmbCSidok8N7l9zECN54EccV3LGaABumtO5Y7Um7HRm+gdc6esg3HTkIXW402w92zaeHaqm4EGek/FB24WhIcwSErMhXnnHPoAATNzWD+3RQZo2po+95FE/oZw7QO7hG9lWmCDYpJNim+Ix35ftYs1j1S4hray3z lzx@lzx-t470p",
 	}
-	err := guestfs.DeployAuthorizedKeys(dev, "/home/cloudroot", pubkeys, true)
+	err := fsdriver.DeployAuthorizedKeys(dev, "/home/cloudroot", pubkeys, true)
 	if err != nil {
 		log.Errorf("Deploy keys error: %v", err)
 	}

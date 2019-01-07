@@ -63,6 +63,8 @@ type SHostOptions struct {
 	DhcpServerPort int    `help:"Host dhcp server bind port" default:"167"`
 	DiskIsSsd      bool   `default:"false"`
 	FetcherfsPath  string `default:"/opt/yunion/fetchclient/bin/fetcherfs" help:"Fuse fetcherfs path"`
+
+	DefaultImageSaveFormat string `default:"qcow2" help:"Default image save format, default is qcow2, canbe vmdk"`
 }
 
 var HostOptions SHostOptions

@@ -419,6 +419,8 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) string
 		// else:
 		//     cmd += ' -vga %s' % self.desc.get('vga', 'std')
 		// cmd += ' -vnc :%d' % (vnc_port)
+		//             if options.set_vnc_password:
+		// cmd += ',password'
 	}
 
 	var diskDrivers = []string{}

@@ -9,6 +9,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -92,7 +93,7 @@ func (d *SLocalDisk) Delete(ctx context.Context, params interface{}) (jsonutils.
 func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	diskInfo, ok := params.(*jsonutils.JSONDict)
 	if !ok {
-		return nil, fmt.Errorf("Disk Resize Unknown Params")
+		return nil, hostutils.ParamsError
 	}
 
 	sizeMb, _ := diskInfo.Int("size")

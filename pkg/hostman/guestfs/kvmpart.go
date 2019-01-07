@@ -8,8 +8,9 @@ import (
 	"time"
 
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 type SKVMGuestDiskPartition struct {
@@ -28,6 +29,10 @@ func NewKVMGuestDiskPartition(devPath string) *SKVMGuestDiskPartition {
 	mountPath := fmt.Sprintf("/tmp/%s", strings.Replace(devPath, "/", "_", -1))
 	res.SLocalGuestFS = NewLocalGuestFS(mountPath)
 	return res
+}
+
+func (p *SKVMGuestDiskPartition) IsReadonly() bool {
+	return IsPartitionReadonly(p)
 }
 
 func (p *SKVMGuestDiskPartition) getFsFormat() string {
@@ -63,7 +68,9 @@ func (p *SKVMGuestDiskPartition) Mount() bool {
 }
 
 func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
-	exec.Command("mkdir", "-p", p.mountPath)
+	if err := exec.Command("mkdir", "-p", p.mountPath).Run(); err != nil {
+		return err
+	}
 	var cmds = []string{"mount", "-t"}
 	var opt, fsType string
 	if readonly {
@@ -155,4 +162,52 @@ func (p *SKVMGuestDiskPartition) Umount() bool {
 		}
 	}
 	return false
+}
+
+func (p *SKVMGuestDiskPartition) Zerofree() {
+	if !p.IsMounted() {
+		switch p.fs {
+		case "swap":
+			p.zerofreeSwap()
+		case "ext2", "ext3", "ext4":
+			p.zerofreeExt()
+		case "ntfs":
+			p.zerofreeNtfs()
+		}
+	}
+}
+
+func (p *SKVMGuestDiskPartition) zerofreeSwap() {
+	uuids := fileutils2.GetDevUuid(p.partDev)
+	err := exec.Command("shred", "-n", "0", "-z", p.partDev).Run()
+	if err != nil {
+		log.Errorf("zerofree swap error: %s", err)
+		return
+	}
+	cmd := []string{"mkswap"}
+	if uuid, ok := uuids["UUID"]; ok {
+		cmd = append(cmd, "-U", uuid)
+	}
+	cmd = append(cmd, p.partDev)
+	err = exec.Command(cmd[0], cmd[1:]...).Run()
+	if err != nil {
+		log.Errorf("zerofree swap error: %s", err)
+	}
+}
+
+func (p *SKVMGuestDiskPartition) zerofreeExt() {
+	err := exec.Command("zerofree", p.partDev).Run()
+	if err != nil {
+		log.Errorf("zerofree ext error: %s", err)
+		return
+	}
+}
+
+func (p *SKVMGuestDiskPartition) zerofreeNtfs() {
+	err := exec.Command("ntfswipe", "-f", "-l", "-m", "-p", "-s", "-q",
+		p.partDev).Run()
+	if err != nil {
+		log.Errorf("zerofree ntfs error: %s", err)
+		return
+	}
 }

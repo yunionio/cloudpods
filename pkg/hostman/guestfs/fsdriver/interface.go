@@ -1,4 +1,4 @@
-package guestfs
+package fsdriver
 
 import (
 	"os"
@@ -24,6 +24,9 @@ type IDiskPartition interface {
 	Cleandir(dir string, keepdir, caseInsensitive bool) error
 	Zerofiles(dir string, caseInsensitive bool) error
 	SupportSerialPorts() bool
+
+	Mount() bool
+	Umount() bool
 }
 
 type IRootFsDriver interface {

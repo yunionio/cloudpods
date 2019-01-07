@@ -2,24 +2,29 @@ package storageman
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"sync"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/pkg/util/regutils"
 )
 
 type IImageCacheManger interface {
-	// LoadCache() error ???
-	PrefetchImageCache(ctx context.Context, data jsonutils.JSONObject) error
-	DeleteImageCache(ctx context.Context, data jsonutils.JSONObject) error
-
-	AcquireImage(ctx context.Context, imageId, zone, srcUrl string) IImageCache
-	ReleaseImage(imageId string)
-
+	GetId() string
 	GetPath() string
+	SetStoragecacheId(string)
+
+	// for diskhandler
+	PrefetchImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error)
+	DeleteImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error)
+
+	AcquireImage(ctx context.Context, imageId, zone, srcUrl, format string) IImageCache
+	ReleaseImage(imageId string)
+	// LoadCache() error ???
 }
 
 type SBaseImageCacheManager struct {
@@ -32,6 +37,14 @@ type SBaseImageCacheManager struct {
 
 func (c *SBaseImageCacheManager) GetPath() string {
 	return c.cachePath
+}
+
+func (c *SBaseImageCacheManager) GetId() string {
+	return c.storagecacaheId
+}
+
+func (c *SBaseImageCacheManager) SetStoragecacheId(scid string) {
+	c.storagecacaheId = scid
 }
 
 type SLocalImageCacheManager struct {
@@ -70,14 +83,90 @@ func (c *SLocalImageCacheManager) loadCache() {
 	}
 }
 
-func (c *SLocalImageCacheManager) loadImageCache(file string) {
-	imageCache := NewLocalImageCache(file, c)
+func (c *SLocalImageCacheManager) loadImageCache(imageId string) {
+	imageCache := NewLocalImageCache(imageId, c)
 	if err := imageCache.Load(); err != nil {
-		c.cachedImages[imageCache.GetImageId()] = imageCache
+		c.cachedImages[imageId] = imageCache
 	}
 }
 
-func DeleteImageCache(ctx context.Context, data jsonutils.JSONObject) error {
+func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, imageId, zone, srcUrl, format string) IImageCache {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	img, ok := c.cachedImages[imageId]
+	if !ok {
+		c.cachedImages[imageId] = NewLocalImageCache(imageId, c)
+	}
+	if img.Acquire(ctx, zone, srcUrl, format) {
+		return img
+	} else {
+		return false
+	}
+}
+
+func (c *SLocalImageCacheManager) DeleteImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error) {
+	body, ok := data.(*jsonutils.JSONDict)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+
+	imageId, _ := body.GetString("image_id")
+	c.removeImage(ctx, imageId)
+	return nil, nil
+}
+
+func (c *SLocalImageCacheManager) removeImage(ctx context.Context, imageId string) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if img, ok := c.cachedImages[imageId]; ok {
+		delete(c.cachedImages, imageId)
+		img.Remove(ctx)
+	}
+}
+
+func (c *SLocalImageCacheManager) PrefetchImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error) {
+	body, ok := data.(*jsonutils.JSONDict)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+
+	imageId, err := body.GetString("image_id")
+	if err != nil {
+		return nil, err
+	}
+	format, _ := body.GetString("format")
+	srcUrl, _ := body.GetString("src_url")
+
+	if imgCache := c.AcquireImage(ctx, imageId, storageManager.GetZone(),
+		srcUrl, format); imgCache != nil {
+		defer imgCache.Release()
+
+		res := jsonutils.NewDict()
+		res.Set("image_id", jsonutils.NewString(imageId))
+		res.Set("path", jsonutils.NewString(imgCache.GetPath()))
+
+		var name, size = "", 0
+		if desc := imgCache.GetDesc(); desc != nil {
+			name = desc.Name
+			size = desc.Size
+		}
+		if size == 0 {
+			if fi, err := os.Stat(imgCache.GetPath()); err != nil {
+				size = fi.Size()
+			}
+		}
+		if len(name) == 0 {
+			name = imageId
+		}
+
+		res.Set("name", jsonutils.NewString(name))
+		res.Set("size", jsonutils.NewInt(size))
+		return res, nil
+	} else {
+		return nil, fmt.Errorf("Failed to fetch image %s", imageId)
+	}
 
 }
 

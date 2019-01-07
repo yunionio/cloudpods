@@ -236,8 +236,9 @@ func (m *SGuestManager) Monitor(sid, cmd string, callback func(string)) error {
 func (m *SGuestManager) GuestDeploy(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	deployParams, ok := params.(*SGuestDeploy)
 	if !ok {
-		return nil, fmt.Errorf("Unknown params")
+		return nil, hostutils.ParamsError
 	}
+
 	guest, ok := m.Servers[deployParams.Sid]
 	if ok {
 		desc, _ := deployParams.Body.Get("desc")
@@ -341,7 +342,7 @@ func (m *SGuestManager) GuestStop(ctx context.Context, sid string, timeout int64
 func (m *SGuestManager) GuestSync(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	syncParams, ok := params.(*SBaseParms)
 	if !ok {
-		return nil, fmt.Errorf("Unknown params")
+		return nil, hostutils.ParamsError
 	}
 	guest := m.Servers[syncParams.Sid]
 	if syncParams.Body.Contains("desc") {
@@ -356,7 +357,7 @@ func (m *SGuestManager) GuestSync(ctx context.Context, params interface{}) (json
 func (m *SGuestManager) GuestSuspend(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	sid, ok := params.(string)
 	if !ok {
-		return nil, fmt.Errorf("Unknown params")
+		return nil, hostutils.ParamsError
 	}
 	guest := m.Servers[sid]
 	guest.ExecSuspendTask(ctx)

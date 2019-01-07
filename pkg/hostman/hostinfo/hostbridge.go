@@ -22,13 +22,6 @@ type IBridgeDriver interface {
 	GetMac() string
 }
 
-/*
-   def get_mac(self):
-       if self._bridge.mac is None:
-           self._bridge.fetch_config()
-       return self._bridge.mac
-*/
-
 type SBaseBridgeDriver struct {
 	bridge *netutils2.SNetInterface
 	ip     string

@@ -161,6 +161,7 @@ func guestSnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (
 }
 
 func guestSrcPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+
 }
 
 func guestDestPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {

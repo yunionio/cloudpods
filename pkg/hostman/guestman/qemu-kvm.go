@@ -178,8 +178,7 @@ func (s *SKVMGuestInstance) DirtyServerRequestStart() {
 func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	data, ok := params.(*jsonutils.JSONDict)
 	if !ok {
-		log.Errorln("asyncScriptStart params error")
-		return nil, fmt.Errorf("Unknown params")
+		return nil, hostutils.ParamsError
 	}
 
 	// TODO hostinof.instace().clean_deleted_ports
@@ -424,7 +423,7 @@ func (s *SKVMGuestInstance) DeployFs(deployInfo *guestfs.SDeployInfo) (jsonutils
 func (s *SKVMGuestInstance) CleanGuest(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	migrated, ok := params.(bool)
 	if !ok {
-		return nil, fmt.Errorf("Unknown params")
+		return nil, hostutils.ParamsError
 	}
 	if err := s.StartDelete(ctx, migrated); err != nil {
 		return nil, err

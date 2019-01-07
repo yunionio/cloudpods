@@ -151,3 +151,11 @@ func (d *SKVMGuestDisk) FormatPartition(fs, uuid string) error {
 func (d *SKVMGuestDisk) ResizePartition() error {
 	return fileutils2.ResizeDiskFs(d.nbdDev, 0)
 }
+
+func (d *SKVMGuestDisk) Zerofree() {
+	startTime := time.Now()
+	for _, part := range d.partitions {
+		part.Zerofree()
+	}
+	log.Infof("Zerofree takes %f seconds", time.Now().Sub(startTime).Seconds())
+}
