@@ -111,7 +111,7 @@ func IsBlockDeviceUsed(dev string) bool {
 	if strings.HasPrefix(dev, "/dev/") {
 		dev = dev[strings.LastIndex(dev, "/")+1:]
 	}
-	devStr := fmt.Sprint(" %s\n", dev)
+	devStr := fmt.Sprintf(" %s\n", dev)
 	devs, _ := exec.Command("cat", "/proc/partitions").Output()
 	if idx := strings.Index(string(devs), devStr); idx > 0 {
 		return false
@@ -525,15 +525,15 @@ func ResizePartitionFs(fpath, fs string) error {
 	)
 	if strings.HasPrefix(fs, "linux-swap") {
 		if v, ok := uuids["UUID"]; ok {
-			cmds = [][]string{[]string{"mkswap", "-U", v, fpath}}
+			cmds = [][]string{{"mkswap", "-U", v, fpath}}
 		} else {
-			cmds = [][]string{[]string{"mkswap", fpath}}
+			cmds = [][]string{{"mkswap", fpath}}
 		}
 	} else if strings.HasPrefix(fs, "ext") {
 		if !FsckExtFs(fpath) {
 			return fmt.Errorf("Failed to fsck ext fs %s", fpath)
 		}
-		cmds = [][]string{[]string{"resize2fs", fpath}}
+		cmds = [][]string{{"resize2fs", fpath}}
 	} else if fs == "xfs" {
 		var tmpPoint = fmt.Sprintf("/tmp/%s", strings.Replace(fpath, "/", "_", -1))
 		if err := exec.Command("mountpoint", tmpPoint).Run(); err == nil {
@@ -544,14 +544,14 @@ func ResizePartitionFs(fpath, fs string) error {
 			}
 		}
 		FsckXfsFs(fpath)
-		cmds = [][]string{[]string{"mkdir", "-p", tmpPoint},
-			[]string{"mount", fpath, tmpPoint},
-			[]string{"sleep", "2"},
-			[]string{"xfs_growfs", tmpPoint},
-			[]string{"sleep", "2"},
-			[]string{"umount", tmpPoint},
-			[]string{"sleep", "2"},
-			[]string{"rm", "-fr", tmpPoint}}
+		cmds = [][]string{{"mkdir", "-p", tmpPoint},
+			{"mount", fpath, tmpPoint},
+			{"sleep", "2"},
+			{"xfs_growfs", tmpPoint},
+			{"sleep", "2"},
+			{"umount", tmpPoint},
+			{"sleep", "2"},
+			{"rm", "-fr", tmpPoint}}
 	}
 
 	if len(cmds) > 0 {

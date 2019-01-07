@@ -13,12 +13,12 @@ func TestIsBlockDeviceUsed(t *testing.T) {
 	}{
 		{
 			name: "nbd1",
-			args: {"/dev/nbd1"},
+			args: args{"/dev/nbd1"},
 			want: false,
 		},
 		{
 			name: "sda",
-			args: {"/dev/sda"},
+			args: args{"/dev/sda"},
 			want: true,
 		},
 	}

@@ -1,4 +1,4 @@
-package fileutils
+package fileutils2
 
 import (
 	"reflect"
