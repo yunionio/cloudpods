@@ -1,4 +1,4 @@
-package regutils
+package regutils2
 
 import (
 	"reflect"

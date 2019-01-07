@@ -16,7 +16,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/ssh"
-	stage_stringutils "yunion.io/x/onecloud/pkg/util/stringutils"
+	stage_stringutils "yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 

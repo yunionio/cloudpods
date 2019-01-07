@@ -1,4 +1,4 @@
-package fileutils
+package fileutils2
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/util/regutils"
+	regutils "yunion.io/x/onecloud/pkg/util/regutils2"
 )
 
 type Partition struct {
@@ -110,17 +110,4 @@ func isPartedFsString(fs string) bool {
 			"linux-swap", "linux-swap(v1)",
 			"ntfs", "reiserfs", "ufs", "btrfs",
 		})
-}
-
-func FsFormatToDiskType(fsFormat string) string {
-	if fsFormat == "swap" {
-		return "linux-swap"
-	} else if strings.HasPrefix(fsFormat, "ext") || fsFormat == "xfs" {
-		return "ext2"
-	} else if strings.HasPrefix(fsFormat, "fat") {
-		return "fat32"
-	} else if fsFormat == "ntfs" {
-		return "ntfs"
-	}
-	return ""
 }

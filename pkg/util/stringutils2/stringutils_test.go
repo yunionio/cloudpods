@@ -1,4 +1,4 @@
-package stringutils
+package stringutils2
 
 import (
 	"reflect"

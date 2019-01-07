@@ -17,7 +17,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/util/ssh"
-	"yunion.io/x/onecloud/pkg/util/stringutils"
+	stringutils "yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SSHPartition struct {
