@@ -9,13 +9,10 @@ import (
 	"yunion.io/x/onecloud/pkg/baremetal/handler"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 )
 
 func StartService() {
-	consts.SetServiceType("baremetal")
-
-	cloudcommon.ParseOptions(&o.Options, &o.Options.CommonOptions, os.Args, "baremetal.conf")
+	cloudcommon.ParseOptions(&o.Options, os.Args, "baremetal.conf", "baremetal")
 	cloudcommon.InitAuth(&o.Options.CommonOptions, startAgent)
 
 	app := cloudcommon.InitApp(&o.Options.CommonOptions, false)
