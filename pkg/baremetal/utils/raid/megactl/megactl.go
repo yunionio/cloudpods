@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )
@@ -614,16 +615,12 @@ type MegaRaid struct {
 
 func GetCommand(args ...string) string {
 	bin := "/opt/MegaRAID/MegaCli/MegaCli64"
-	cmd := []string{bin}
-	cmd = append(cmd, args...)
-	return strings.Join(cmd, " ")
+	return raid.GetCommand(bin, args...)
 }
 
 func GetCommand2(args ...string) string {
 	bin := "/opt/MegaRAID/storcli/storcli64"
-	cmd := []string{bin}
-	cmd = append(cmd, args...)
-	return strings.Join(cmd, " ")
+	return raid.GetCommand(bin, args...)
 }
 
 func (raid *MegaRaid) GetModules() []string {
