@@ -78,7 +78,7 @@ func (w *SWorkManager) DelayTaskWithoutReqctx(ctx context.Context, task DelayTas
 			}
 		}()
 		if _, err := task(ctx, params); err != nil {
-			log.Errorln("DelayTaskWithoutReqctx error:", err)
+			log.Errorln("DelayTaskWithoutReqctx error: ", err)
 		}
 	}()
 }

@@ -1427,11 +1427,7 @@ func (s *SBaremetalServer) deployFs(term *ssh.Client, deployInfo *guestfs.SDeplo
 	if err != nil {
 		return nil, fmt.Errorf("Find rootfs error: %s", err)
 	}
-	defer func() {
-		if err := rootDev.Unmount(); err != nil {
-			log.Errorf("Unmount %s error: %v", rootDev.GetMountPath(), err)
-		}
-	}()
+	defer rootDev.Umount()
 	if strings.ToLower(rootfs.GetOs()) == "windows" {
 		return nil, fmt.Errorf("Unsupported OS: %s", rootfs.GetOs())
 	}

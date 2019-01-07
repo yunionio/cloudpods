@@ -18,10 +18,6 @@ type SLocalGuestFS struct {
 	mountPath string
 }
 
-func (f *SLocalGuestFS) IsReadonly() bool {
-	return IsPartitionReadonly(f)
-}
-
 func (f *SLocalGuestFS) SupportSerialPorts() bool {
 	return false
 }

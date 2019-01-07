@@ -9,12 +9,20 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
-var keyWords = []string{"disks"}
+var (
+	keyWords    = []string{"disks"}
+	actionFuncs = map[string]actionFunc{
+		"create": diskCreate,
+		"delete": diskDelete,
+		"resize": diskResize,
+	}
+)
 
 type actionFunc func(context.Context, IStorage, string, IDisk, jsonutils.JSONObject) (interface{}, error)
 
@@ -25,7 +33,7 @@ func AddDiskHandler(prefix string, app *appsrv.Application) {
 				fmt.Sprintf("%s/%s/%s", prefix, keyWord, seg),
 				auth.Authenticate(perfetchImageCache))
 
-			app.AddHandler("GET",
+			app.AddHandler("DELETE",
 				fmt.Sprintf("%s/%s/%s", prefix, keyWord, seg),
 				auth.Authenticate(deleteImageCache))
 		}
@@ -41,6 +49,70 @@ func AddDiskHandler(prefix string, app *appsrv.Application) {
 	}
 }
 
+func performImageCache(
+	ctx context.Context,
+	w http.ResponseWriter,
+	r *http.Request,
+	performAction string,
+) {
+	_, _, body := appsrv.FetchEnv(ctx, w, r)
+
+	disk, err := body.Get("disk")
+	if err != nil {
+		httperrors.MissingParameterError(w, "disk")
+		return
+	}
+	scId, err := disk.GetString("storagecache_id")
+	if err != nil {
+		httperrors.MissingParameterError(w, "disk")
+		return
+	}
+	storagecache := storageManager.GetStoragecacheById(scId)
+	if storagecache == nil {
+		httperrors.NotFoundError(w, "Storagecache %s not found", scId)
+		return
+	}
+
+	var performTask workmanager.DelayTaskFunc
+	if performAction == "perfetch" {
+		performTask = storagecache.PrefetchImageCache
+	} else {
+		performTask = storagecache.DeleteImageCache
+	}
+
+	hostutils.DelayTask(ctx, performTask, disk)
+	hostutils.ResponseOk(ctx, w)
+}
+
+func perfetchImageCache(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	performImageCache(ctx, w, r, "perfetch")
+}
+
+func deleteImageCache(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	performImageCache(ctx, w, r, "delete")
+
+}
+
+func saveToGlance(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	params, _, body := appsrv.FetchEnv(ctx, w, r)
+	var (
+		storageId   = params["<storageId>"]
+		diskInfo, _ = body.Get("disk")
+	)
+	storage := storageManager.GetStorage(storageId)
+	if storage == nil {
+		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Storage %s not found", storageId))
+		return
+	}
+	if diskInfo == nil {
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("disk"))
+		return
+	}
+
+	hostutils.DelayTaskWithoutReqctx(ctx, storage.SaveToGlance, diskInfo)
+	hostutils.ResponseOk(ctx, w)
+}
+
 func perfomrDiskActions(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, body := appsrv.FetchEnv(ctx, w, r)
 	if body == nil {
@@ -54,10 +126,12 @@ func perfomrDiskActions(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	)
 	if !regutils.MatchUUID(storageId) {
 		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Not found"))
+		return
 	}
 	storage := storageManager.GetStorage(storageId)
 	if storage == nil {
 		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Storage %s not found", storageId))
+		return
 	}
 	disk := storage.GetDiskById(diskId)
 
@@ -97,10 +171,4 @@ func diskResize(ctx context.Context, storage IStorage, diskId string, disk IDisk
 	}
 	hostutils.DelayTask(ctx, disk.Resize, diskInfo)
 	return nil, nil
-}
-
-var actionFuncs = map[string]actionFunc{
-	"create": diskCreate,
-	"delete": diskDelete,
-	"resize": diskResize,
 }
