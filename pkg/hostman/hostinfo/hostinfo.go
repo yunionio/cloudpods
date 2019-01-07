@@ -15,9 +15,12 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	bare2 "yunion.io/x/onecloud/pkg/baremetal"
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
+	bare1 "yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
@@ -50,11 +53,14 @@ type SHostInfo struct {
 	MasterNic *netutils2.SNetInterface
 	Nics      []*SNIC
 
+	HostId         string
 	Zone           string
 	ZoneId         string
 	Cloudregion    string
 	CloudregionId  string
 	ZoneManagerUri string
+
+	FullName string
 }
 
 func (h *SHostInfo) IsKvmSupport() bool {
@@ -615,6 +621,16 @@ func (h *SHostInfo) GetMasterMac() string {
 	}
 }
 
+func (h *SHostInfo) GetMatchNic(bridge, iface, mac string) *SNIC {
+	for _, nic := range h.Nics {
+		if nic.BridgeDev.GetMac() == mac ||
+			(nic.Bridge == bridge && nic.Inter == iface) {
+			return nic
+		}
+	}
+	return nil
+}
+
 func (h *SHostInfo) StartRegister(delay int) {
 	timeutils2.AddTimeout(delay*time.Second, h.register)
 }
@@ -626,8 +642,9 @@ func (h *SHostInfo) register() {
 }
 
 func (h *SHostInfo) onFail() {
-	log.Errorln("register failed, try 30 seconds later...")
+	// log.Errorln("register failed, try 30 seconds later...")
 	h.StartRegister(30)
+	panic("register failed, try 30 seconds later...")
 }
 
 func (h *SHostInfo) fetchAccessNetworkInfo() {
@@ -688,13 +705,259 @@ func (h *SHostInfo) getHostInfo(zoneId string) {
 		h.onFail()
 	}
 	if len(res.Data) == 0 {
-		h.updateHostRecord()
+		h.updateHostRecord("")
 	} else {
 		host := res.Data[0]
 		name, _ := host.GetString("name")
 		id, _ := host.GetString("id")
 		h.setHostname(name)
+		h.updateHostRecord(id)
+	}
+}
 
+func (h *SHostInfo) setHostname(name string) {
+	h.FullName = name
+	err := exec.Command("hostnamectl", "set-hostname", name).Run()
+	if err != nil {
+		log.Errorln("Fail to set system hostname: %s", err)
+	}
+}
+
+func (h *SHostInfo) fetchHostname() {
+	if len(options.HostOptions.Hostname) > 0 {
+		return options.HostOptions.Hostname
+	} else {
+		masterIp = h.GetMasterIp()
+		return "host-" + masterIp
+	}
+}
+
+func (h *SHostInfo) getSysInfo() *SSysInfo {
+	return h.sysinfo
+}
+
+func (h *SHostInfo) updateHostRecord(hostId string) {
+	var method, url string
+	if len(hostId) > 0 {
+		method = "POST"
+		url = fmt.Sprintf("/zones/%s/hosts", h.ZoneId)
+	} else {
+		method = "PUT"
+		url = fmt.Sprintf("/hosts/%s", hostId)
+	}
+	content := jsonutils.NewDict()
+	masterIp := h.GetMasterIp()
+	if len(masterIp) == 0 {
+		panic("master ip is none")
+	}
+
+	if len(hostId) == 0 {
+		content.Set("name", jsonutils.NewString(h.fetchHostname()))
+	}
+	content.Set("access_ip", jsonutils.NewString(masterIp))
+	content.Set("access_mac", jsonutils.NewString(h.GetMasterMac()))
+	var schema = "http"
+	if options.HostOptions.EnableSsl {
+		schema = "https"
+	}
+	content.Set("manager_uri", jsonutils.NewString(fmt.Sprintf("%s://%s:%d",
+		schema, masterIp, options.HostOptions.Port)))
+	content.Set("cpu_count", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Count)))
+	content.Set("node_count", jsonutils.NewInt(int64(h.Cpu.cpuInfoDmi.Nodes)))
+	content.Set("cpu_desc", jsonutils.NewString(h.Cpu.cpuInfoProc.Model))
+	content.Set("cpu_mhz", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Freq)))
+	content.Set("cpu_cache", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Cache)))
+	content.Set("mem_size", jsonutils.NewInt(int64(h.Mem.MemInfo.Total)))
+	content.Set("storage_driver", jsonutils.NewString(bare1.DISK_DRIVER_LINUX))
+	content.Set("storage_type", jsonutils.NewString(h.sysinfo.StorageType))
+	content.Set("storage_size", jsonutils.NewInt(storageman.GetManager().GetTotalCapacity()))
+
+	// TODO optimize content data struct
+	content.Set("sys_info", jsonutils.Marshal(h.sysinfo))
+	content.Set("sn", jsonutils.NewString(h.sysinfo.SN))
+	content.Set("host_type", jsonutils.NewString(options.HostOptions.HostType))
+	if len(options.HostOptions.Rack) > 0 {
+		content.Set("rack", jsonutils.NewString(options.HostOptions.Rack))
+	}
+	if len(options.HostOptions.Slots) > 0 {
+		content.Set("slots", jsonutils.NewString(options.HostOptions.Slots))
+	}
+	content.Set("__meta__", jsonutils.Marshal(h.getSysInfo()))
+	// content.Set("version", GetVersion())
+	body := jsonutils.NewDict()
+	body.Set("host", content)
+	session := hostutils.GetComputeSession(context.Background())
+	_, res, err := session.JSONVersionRequest("compute",
+		session.GetEndpointType(), method, url, nil, body, "v2")
+	if err != nil {
+		log.Errorln(err)
+		h.onFail()
+	} else {
+		hostbody, _ := res.Get("host")
+		h.HostId, _ = hostbody.GetString("id")
+		hostname, _ := hostbody.GetString("name")
+		h.setHostname(hostname)
+		h.putHostOffline()
+	}
+}
+
+func (h *SHostInfo) putHostOffline() {
+	res, err := modules.Hosts.PerformAction(
+		hostutils.GetComputeSession(context.Background()), h.HostId, "offline", nil)
+	if err != nil {
+		log.Errorln(err)
+		h.onFail()
+	} else {
+		h.getNetworkInfo()
+	}
+}
+
+func (h *SHostInfo) getNetworkInfo() {
+	params := jsonutils.NewDict()
+	params.Set("details", jsonutils.JSONTrue)
+	params.Set("limit", jsonutils.NewInt(0))
+	res, err := modules.Hostwires.ListDescendent(
+		hostutils.GetComputeSession(context.Background()),
+		h.HostId, params)
+	if err != nil {
+		log.Errorln(err)
+		h.onFail()
+	} else {
+		for _, hostwire := range res.Data {
+			bridge, _ := hostwire.GetString("bridge")
+			iface, _ := hostwire.GetString("interface")
+			macAddr, _ := hostwire.GetString("mac_addr")
+			nic := h.GetMatchNic(bridge, iface, macAddr)
+			if nic != nil {
+				wire, _ := hostwire.GetString("wire")
+				wireId, _ := hostwire.GetString("wire_id")
+				bandwidth, err := hostwire.GetString("bandwidth")
+				if err != nil {
+					bandwidth = 1000
+				}
+				nic.SetWireId(wire, wireId, bandwidth)
+			} else {
+				log.Warningf("NIC not present %s", hostwire.String())
+			}
+		}
+		h.uploadNetworkInfo()
+	}
+}
+
+func (h *SHostInfo) uploadNetworkInfo() {
+	for _, nic := range h.Nics {
+		if len(nic.WireId) == 0 {
+			if len(nic.Network) == 0 {
+				kwargs := jsonutils.NewDict()
+				kwargs.Set("ip", jsonutils.NewString(nic.Ip))
+				kwargs.Set("limit", jsonutils.NewInt(0))
+
+				wireInfo, err := hostutils.GetWireOfIp(context.Background(), kwargs)
+				if err != nil {
+					log.Errorln(err)
+					h.onFail()
+				} else {
+					nic.Network, _ = wireInfo.GetString("name")
+					h.doUploadNicInfo(nic)
+				}
+
+			} else {
+				h.doUploadNicInfo(nic)
+			}
+		} else {
+			h.doSyncNicInfo(nic)
+		}
+	}
+	h.getStoragecacheInfo()
+}
+
+func (h *SHostInfo) doUploadNicInfo(nic *SNIC) (jsonutils.JSONObject, error) {
+	log.Infof("Upload NIC br:%s if:%s", nic.Bridge, nic.Inter)
+	content := jsonutils.NewDict()
+	content.Set("mac", jsonutils.NewString(nic.BridgeDev.GetMac()))
+	content.Set("wire", jsonutils.NewString(nic.Network))
+	content.Set("bridge", jsonutils.NewString(nic.Bridge))
+	content.Set("interface", jsonutils.NewString(nic.Inter))
+	content.Set("link_up", jsonutils.JSONTrue)
+	if len(nic.Ip) > 0 {
+		content.Set("ip_addr", jsonutils.NewString(nic.Ip))
+		if nic.Ip == h.GetMasterIp() {
+			content.Set("nic_type", jsonutils.NewString(bare2.NIC_TYPE_ADMIN))
+		}
+	}
+	_, err := modules.Hosts.PerformAction(hostutils.GetComputeSession(context.Background()),
+		h.HostId, "add-netif", content)
+	if err != nil {
+		log.Errorln(err)
+		h.onFail()
+	} else {
+		h.onUploadNicInfoSucc(nic)
+	}
+}
+
+func (h *SHostInfo) doSyncNicInfo(nic *SNIC) {
+	content := jsonutils.NewDict()
+	content.Set("bridge", jsonutils.NewString(nic.Bridge))
+	content.Set("interface", jsonutils.NewString(nic.Inter))
+	_, err := modules.Hostwires.Patch(hostutils.GetComputeSession(context.Background()),
+		h.HostId, nic.Network, content)
+	if err != nil {
+		log.Errorln(err)
+		h.onFail()
+	}
+}
+
+func (h *SHostInfo) onUploadNicInfoSucc(nic *SNIC) {
+	res, err := modules.Hostwires.Get(hostutils.GetComputeSession(context.Background()), h.HostId, nic.Network, nil)
+	if err != nil {
+		log.Errorln(err)
+		h.onFail()
+	} else {
+		bridge, _ := res.GetString("bridge")
+		iface, _ := res.GetString("interface")
+		macAddr, _ := res.GetString("mac_addr")
+		nic = h.GetMatchNic(bridge, iface, macAddr)
+		if nic != nil {
+			wire, _ := hostwire.GetString("wire")
+			wireId, _ := hostwire.GetString("wire_id")
+			bandwidth, err := hostwire.GetString("bandwidth")
+			if err != nil {
+				bandwidth = 1000
+			}
+			nic.SetWireId(wire, wireId, bandwidth)
+		} else {
+			log.Errorln("GetMatchNic failed!!!")
+			h.onFail()
+		}
+	}
+}
+
+func (h *SHostInfo) getStoragecacheInfo() {
+	path := storageman.GetManager().LocalStorageImagecacheManager.GetPath()
+	params := jsonutils.NewDict()
+	params.Set("external_id", jsonutils.NewString(h.HostId))
+	params.Set("path", jsonutils.NewString(path))
+	res, err := modules.Storagecaches.List(
+		hostutils.GetComputeSession(context.Background()), params)
+	if err != nil {
+		log.Errorln(err)
+		h.onFail()
+	} else {
+		if len(res.Data) == 0 {
+			body := jsonutils.NewDict()
+			body.Set("name",
+				jsonutils.NewString(fmt.Sprintf(
+					"local-%s-%s", h.FullName, time.Now().String())))
+			body.Set("path", jsonutils.NewString(path))
+			body.Set("external_id", jsonutils.NewString(h.HostId))
+			sc, err := modules.Storagecaches.Create(hostutils.GetComputeSession(context.Background()), body)
+			if err != nil {
+				log.Errorln(err)
+				h.onFail()
+			} else {
+
+			}
+		}
 	}
 }
 

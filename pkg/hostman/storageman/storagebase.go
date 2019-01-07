@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"path"
 	"sync"
+	"syscall"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 )
 
 var (
@@ -21,6 +23,7 @@ type IStorage interface {
 	StorageType() string
 	GetPath() string
 	GetFreeSizeMb() int
+	GetCapacity() int
 
 	// Find owner disks first, if not found, call create disk
 	GetDiskById(diskId string) IDisk
@@ -69,6 +72,34 @@ func (s *SBaseStorage) GetZone() string {
 	return s.Manager.GetZone()
 }
 
+func (s *SBaseStorage) GetCapacity() int {
+	return s.GetAvailSizeMb()
+}
+
+func (s *SBaseStorage) GetAvailSizeMb() int {
+	return s.GetTotalSizeMb()
+}
+
+func (s *SBaseStorage) GetFreeSizeMb() int {
+	var stat syscall.Statfs_t
+	err := syscall.Statfs(s.Path, &stat)
+	if err != nil {
+		log.Errorln(err)
+		return -1
+	}
+	return int(stat.Bavail * uint64(stat.Bsize) / 1024 / 1024)
+}
+
+func (s *SBaseStorage) GetTotalSizeMb() int {
+	var stat syscall.Statfs_t
+	err := syscall.Statfs(s.Path, &stat)
+	if err != nil {
+		log.Errorln(err)
+		return -1
+	}
+	return int(stat.Blocks * uint64(stat.Bsize) / 1024 / 1024)
+}
+
 func (s *SBaseStorage) RemoveDisk(d IDisk) {
 	s.DiskLock.Lock()
 	defer s.DiskLock.Unlock()
@@ -81,7 +112,7 @@ func (s *SBaseStorage) RemoveDisk(d IDisk) {
 }
 
 func (s *SBaseStorage) DeleteDiskfile(diskpath string) error {
-	return fmt.Sprintf("Not Implement")
+	return fmt.Errorf("Not Implement")
 }
 
 func (s *SBaseStorage) CreateDiskByDiskinfo(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
@@ -94,7 +125,7 @@ func (s *SBaseStorage) CreateDiskByDiskinfo(ctx context.Context, params interfac
 		if !jsonutils.QueryBoolean(createParams.DiskInfo, "rebuild", false) {
 			return nil, fmt.Errorf("Disk exist")
 		}
-		if err := createParams.Disk.Delete(); err != nil {
+		if _, err := createParams.Disk.Delete(ctx, params); err != nil {
 			return nil, err
 		}
 	}
@@ -116,7 +147,7 @@ func (s *SBaseStorage) CreateDiskByDiskinfo(ctx context.Context, params interfac
 	}
 }
 
-func (s *SBaseStorage) CreateRawDisk(ctx, disk IDisk, createParams *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
+func (s *SBaseStorage) CreateRawDisk(ctx context.Context, disk IDisk, createParams *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
 	size, _ := createParams.DiskInfo.Int("size")
 	diskFromat, _ := createParams.DiskInfo.GetString("format")
 	fsFormat, _ := createParams.DiskInfo.GetString("fs_format")
@@ -125,7 +156,7 @@ func (s *SBaseStorage) CreateRawDisk(ctx, disk IDisk, createParams *SDiskCreateB
 	return disk.CreateRaw(ctx, int(size), diskFromat, fsFormat, encryption, createParams.DiskId, "")
 }
 
-func (s *SBaseStorage) CreateDiskFromTemplate(ctx, disk IDisk, createParams *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
+func (s *SBaseStorage) CreateDiskFromTemplate(ctx context.Context, disk IDisk, createParams *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
 	var (
 		imageId, _ = createParams.DiskInfo.GetString("image_id")
 		format     = "qcow2" // force qcow2
