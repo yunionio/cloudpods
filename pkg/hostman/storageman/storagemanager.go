@@ -183,3 +183,11 @@ func (s *SStorageManager) GetDiskByPath(diskPath string) IDisk {
 	}
 	return nil
 }
+
+func (s *SStorageManager) GetTotalCapacity() int {
+	var capa = 0
+	for _, s := range s.storages {
+		capa += s.GetCapacity()
+	}
+	return capa
+}

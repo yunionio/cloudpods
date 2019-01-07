@@ -163,6 +163,7 @@ type SNIC struct {
 	Bridge  string
 	Ip      string
 	Network string
+	WireId  string
 
 	Bandwidth  int
 	BridgeDev  IBridgeDriver
@@ -186,6 +187,12 @@ func (n *SNIC) SetupDhcpRelay() {
 	if n.EnableDHCPRelay() {
 		n.dhcpServer.RelaySetup(n.Ip)
 	}
+}
+
+func (n *SNIC) SetWireId(wire, wireId string, bandwidth int64) {
+	n.Network = wire
+	n.WireId = wireId
+	n.Bandwidth = int(bandwidth)
 }
 
 func NewNIC(desc string) (*SNIC, error) {

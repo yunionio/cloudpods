@@ -18,6 +18,8 @@ type IImageCacheManger interface {
 
 	AcquireImage(ctx context.Context, imageId, zone, srcUrl string) IImageCache
 	ReleaseImage(imageId string)
+
+	GetPath() string
 }
 
 type SBaseImageCacheManager struct {
@@ -26,6 +28,10 @@ type SBaseImageCacheManager struct {
 	cachePath       string
 	cachedImages    map[string]IImageCache
 	mutex           *sync.Mutex
+}
+
+func (c *SBaseImageCacheManager) GetPath() string {
+	return c.cachePath
 }
 
 type SLocalImageCacheManager struct {

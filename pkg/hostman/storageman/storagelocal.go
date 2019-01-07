@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os/exec"
 	"path"
-	"syscall"
 	"time"
 
 	"yunion.io/x/log"
@@ -89,16 +88,6 @@ func (s *SLocalStorage) Accessible() bool {
 	} else {
 		return false
 	}
-}
-
-func (s *SLocalStorage) GetFreeSizeMb() int {
-	var stat syscall.Statfs_t
-	err := syscall.Statfs(s.Path, &stat)
-	if err != nil {
-		log.Errorln(err)
-		return -1
-	}
-	return int(stat.Bavail * uint64(stat.Bsize) / 1024 / 1024)
 }
 
 func (s *SLocalStorage) DeleteDiskfile(diskpath string) error {
