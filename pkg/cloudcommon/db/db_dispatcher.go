@@ -822,7 +822,7 @@ func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.
 	} else {
 		name, _ := data.GetString("name")
 		if len(name) > 0 {
-			err = newNameValidator(manager, ownerProjId, name)
+			err = NewNameValidator(manager, ownerProjId, name)
 			if err != nil {
 				return nil, err
 			}

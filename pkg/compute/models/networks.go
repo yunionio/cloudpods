@@ -18,12 +18,14 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 const (
@@ -1482,4 +1484,280 @@ func (self *SNetwork) PerformPurge(ctx context.Context, userCred mcclient.TokenC
 	}
 	err = self.RealDelete(ctx, userCred)
 	return nil, err
+}
+
+func (self *SNetwork) AllowPerformSplit(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "split")
+}
+
+func (self *SNetwork) AllowPerformMerge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "merge")
+}
+
+func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	target, err := data.GetString("target")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("target")
+	}
+	iNet, err := NetworkManager.FetchByIdOrName(userCred, target)
+	if err == sql.ErrNoRows {
+		err = httperrors.NewNotFoundError("Network %s not found", target)
+		logclient.AddActionLog(self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		return nil, err
+	} else if err != nil {
+		logclient.AddActionLog(self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		return nil, err
+	}
+
+	net := iNet.(*SNetwork)
+	if net == nil {
+		err = fmt.Errorf("Network is nil")
+		logclient.AddActionLog(self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		return nil, err
+	}
+	if self.WireId != net.WireId || self.GuestGateway != net.GuestGateway {
+		err = httperrors.NewInputParameterError("Invalid Target Network: %s", target)
+		logclient.AddActionLog(self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		return nil, err
+	}
+
+	var startIp, endIp string
+	ipNE, _ := netutils.NewIPV4Addr(net.GuestIpEnd)
+	ipNS, _ := netutils.NewIPV4Addr(net.GuestIpStart)
+	ipSS, _ := netutils.NewIPV4Addr(self.GuestIpStart)
+	ipSE, _ := netutils.NewIPV4Addr(self.GuestIpEnd)
+
+	if ipNE.StepUp() == ipSS {
+		startIp, endIp = net.GuestIpStart, self.GuestIpEnd
+	} else if ipSE == ipNS {
+		startIp, endIp = self.GuestIpStart, net.GuestIpEnd
+	} else {
+		note := "Incontinuity Network for %s and %s"
+		logclient.AddActionLog(self, logclient.ACT_MERGE,
+			fmt.Sprintf(note, self.Name, net.Name), userCred, false)
+		return nil, httperrors.NewBadRequestError(note, self.Name, net.Name)
+	}
+
+	lockman.LockClass(ctx, NetworkManager, userCred.GetProjectId())
+	defer lockman.ReleaseClass(ctx, NetworkManager, userCred.GetProjectId())
+
+	_, err = NetworkManager.TableSpec().Update(net, func() error {
+		net.GuestIpStart = startIp
+		net.GuestIpEnd = endIp
+		return nil
+	})
+	if err != nil {
+		logclient.AddActionLog(self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		return nil, err
+	}
+
+	guestnetworks := make([]SGuestnetwork, 0)
+	err = GuestnetworkManager.Query().Equals("network_id", self.Id).All(&guestnetworks)
+	if err != nil {
+		logclient.AddActionLog(self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		return nil, err
+	}
+	for _, gn := range guestnetworks {
+		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
+		if self.isAddressInRange(addr) {
+			GuestnetworkManager.TableSpec().Update(gn, func() error {
+				gn.NetworkId = net.Id
+				return nil
+			})
+		}
+	}
+
+	hostnetworks := make([]SHostnetwork, 0)
+	err = HostnetworkManager.Query().Equals("network_id", self.Id).All(&hostnetworks)
+	if err != nil {
+		logclient.AddActionLog(self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		return nil, err
+	}
+	for _, gn := range hostnetworks {
+		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
+		if self.isAddressInRange(addr) {
+			HostnetworkManager.TableSpec().Update(gn, func() error {
+				gn.NetworkId = net.Id
+				return nil
+			})
+		}
+	}
+
+	reservedips := make([]SReservedip, 0)
+	err = ReservedipManager.Query().Equals("network_id", self.Id).All(&reservedips)
+	if err != nil {
+		logclient.AddActionLog(self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		return nil, err
+	}
+	for _, gn := range reservedips {
+		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
+		if self.isAddressInRange(addr) {
+			ReservedipManager.TableSpec().Update(gn, func() error {
+				gn.NetworkId = net.Id
+				return nil
+			})
+		}
+	}
+
+	groupnetwroks := make([]SGroupnetwork, 0)
+	err = GroupnetworkManager.Query().Equals("network_id", self.Id).All(&groupnetwroks)
+	if err != nil {
+		logclient.AddActionLog(self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		return nil, err
+	}
+	for _, gn := range groupnetwroks {
+		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
+		if self.isAddressInRange(addr) {
+			GroupnetworkManager.TableSpec().Update(gn, func() error {
+				gn.NetworkId = net.Id
+				return nil
+			})
+		}
+	}
+
+	note := map[string]string{"start_ip": startIp, "end_ip": endIp}
+	db.OpsLog.LogEvent(self, db.ACT_MERGE, note, userCred)
+	logclient.AddActionLog(self, logclient.ACT_MERGE, note, userCred, true)
+
+	if err = self.RealDelete(ctx, userCred); err != nil {
+		return nil, err
+	}
+	note = map[string]string{"network": self.Id}
+	db.OpsLog.LogEvent(self, db.ACT_DELETE, note, userCred)
+	logclient.AddActionLog(self, logclient.ACT_DELETE, note, userCred, true)
+	return nil, nil
+}
+
+func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	splitIp, err := data.GetString("split_ip")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("split_ip")
+	}
+	name, _ := data.GetString("name")
+
+	if !regutils.MatchIPAddr(splitIp) {
+		return nil, httperrors.NewInputParameterError("Invalid IP %s", splitIp)
+	}
+	if splitIp == self.GuestIpStart {
+		return nil, httperrors.NewInputParameterError("Split IP %s is the start ip", splitIp)
+	}
+
+	iSplitIp, err := netutils.NewIPV4Addr(splitIp)
+	if err != nil {
+		return nil, err
+	}
+	if !self.isAddressInRange(iSplitIp) {
+		return nil, httperrors.NewInputParameterError("Split IP %s out of range", splitIp)
+	}
+
+	lockman.LockClass(ctx, NetworkManager, userCred.GetProjectId())
+	defer lockman.ReleaseClass(ctx, NetworkManager, userCred.GetProjectId())
+
+	if len(name) > 0 {
+		if err := db.NewNameValidator(NetworkManager, userCred.GetProjectId(), name); err != nil {
+			return nil, httperrors.NewInputParameterError("Duplicate name %s", name)
+		} else {
+			name = db.GenerateName(NetworkManager, userCred.GetProjectId(), fmt.Sprintf("%s#", self.Name))
+		}
+	}
+
+	network := &SNetwork{}
+	network.Name = name
+	network.GuestIpStart = splitIp
+	network.GuestIpEnd = self.GuestIpEnd
+	network.GuestIpMask = self.GuestIpMask
+	network.GuestGateway = self.GuestGateway
+	network.GuestDns = self.GuestDns
+	network.GuestDhcp = self.GuestDhcp
+	network.GuestDomain = self.GuestDomain
+	network.VlanId = self.VlanId
+	network.WireId = self.WireId
+	network.ServerType = self.ServerType
+	network.IsPublic = self.IsPublic
+	network.Status = self.Status
+	network.ProjectId = self.ProjectId
+	// network.UserId = self.UserId
+	network.IsSystem = self.IsSystem
+	network.Description = self.Description
+
+	err = NetworkManager.TableSpec().Insert(network)
+	if err != nil {
+		return nil, err
+	}
+	network.SetModelManager(NetworkManager)
+
+	self.GetModelManager().TableSpec().Update(self, func() error {
+		self.GuestIpEnd = iSplitIp.StepUp().String()
+		return nil
+	})
+
+	guestnetworks := make([]SGuestnetwork, 0)
+	err = GuestnetworkManager.Query().Equals("network_id", self.Id).All(&guestnetworks)
+	if err != nil {
+		logclient.AddActionLog(self, logclient.ACT_SPLIT, err.Error(), userCred, false)
+		return nil, err
+	}
+	for _, gn := range guestnetworks {
+		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
+		if network.isAddressInRange(addr) {
+			GuestnetworkManager.TableSpec().Update(gn, func() error {
+				gn.NetworkId = network.Id
+				return nil
+			})
+		}
+	}
+
+	hostnetworks := make([]SHostnetwork, 0)
+	err = HostnetworkManager.Query().Equals("network_id", self.Id).All(&hostnetworks)
+	if err != nil {
+		logclient.AddActionLog(self, logclient.ACT_SPLIT, err.Error(), userCred, false)
+		return nil, err
+	}
+	for _, gn := range hostnetworks {
+		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
+		if network.isAddressInRange(addr) {
+			HostnetworkManager.TableSpec().Update(gn, func() error {
+				gn.NetworkId = network.Id
+				return nil
+			})
+		}
+	}
+
+	reservedips := make([]SReservedip, 0)
+	err = ReservedipManager.Query().Equals("network_id", self.Id).All(&reservedips)
+	if err != nil {
+		logclient.AddActionLog(self, logclient.ACT_SPLIT, err.Error(), userCred, false)
+		return nil, err
+	}
+	for _, gn := range reservedips {
+		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
+		if network.isAddressInRange(addr) {
+			ReservedipManager.TableSpec().Update(gn, func() error {
+				gn.NetworkId = network.Id
+				return nil
+			})
+		}
+	}
+
+	groupnetworks := make([]SGroupnetwork, 0)
+	err = GroupnetworkManager.Query().Equals("network_id", self.Id).All(&groupnetworks)
+	if err != nil {
+		logclient.AddActionLog(self, logclient.ACT_SPLIT, err.Error(), userCred, false)
+		return nil, err
+	}
+	for _, gn := range groupnetworks {
+		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
+		if network.isAddressInRange(addr) {
+			GroupnetworkManager.TableSpec().Update(gn, func() error {
+				gn.NetworkId = network.Id
+				return nil
+			})
+		}
+	}
+
+	note := map[string]string{"split_ip": splitIp, "end_ip": network.GuestIpEnd}
+	db.OpsLog.LogEvent(self, db.ACT_SPLIT, note, userCred)
+	logclient.AddActionLog(self, logclient.ACT_SPLIT, note, userCred, true)
+	db.OpsLog.LogEvent(network, db.ACT_CREATE, map[string]string{"network": self.Id}, userCred)
+	return nil, nil
 }
