@@ -18,6 +18,9 @@ func RetryOnError(tryFunc func() error, errs []string, maxTries int) error {
 	tried := 0
 	for tried < maxTries {
 		err := tryFunc()
+		if err == nil {
+			return nil
+		}
 		if err != nil && !IsError(err, errs) {
 			return err
 		}
