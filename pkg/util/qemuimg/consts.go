@@ -1,13 +1,10 @@
 package qemuimg
 
-<<<<<<< HEAD
 import (
 	"strings"
 	// "yunion.io/x/log"
 )
 
-=======
->>>>>>> move util to pkg/utils
 type TImageFormat string
 
 const (
@@ -18,7 +15,6 @@ const (
 	RAW   = TImageFormat("raw")
 )
 
-<<<<<<< HEAD
 var supportedImageFormats = []TImageFormat{
 	QCOW2, VMDK, VHD, ISO, RAW,
 }
@@ -32,8 +28,6 @@ func IsSupportedImageFormat(fmtStr string) bool {
 	return false
 }
 
-=======
->>>>>>> move util to pkg/utils
 func (fmt TImageFormat) String() string {
 	switch string(fmt) {
 	case "vhd":
@@ -42,7 +36,6 @@ func (fmt TImageFormat) String() string {
 		return string(fmt)
 	}
 }
-<<<<<<< HEAD
 
 func String2ImageFormat(fmt string) TImageFormat {
 	switch strings.ToLower(fmt) {
@@ -60,5 +53,3 @@ func String2ImageFormat(fmt string) TImageFormat {
 	// log.Fatalf("unknown image format!!! %s", fmt)
 	return TImageFormat(fmt)
 }
-=======
->>>>>>> move util to pkg/utils

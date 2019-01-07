@@ -110,7 +110,7 @@ func TestQcow2(t *testing.T) {
 	img4.Delete()
 	img.Delete()
 }
-<<<<<<< HEAD
+
 func TestVhd(t *testing.T) {
 	img, err := NewQemuImage("test")
 	if err != nil {
@@ -148,8 +148,6 @@ func TestVhd(t *testing.T) {
 	t.Logf("%s %v", img, img.IsSparse())
 	img.Delete()
 }
-=======
->>>>>>> move util to pkg/utils
 
 func TestVmdk(t *testing.T) {
 	img, err := NewQemuImage("test")
