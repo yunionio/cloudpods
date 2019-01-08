@@ -1105,6 +1105,8 @@ type SDiskConfig struct {
 	Backend         string // stroageType
 	Medium          string
 	ImageProperties map[string]string
+
+	DiskId string // import only
 }
 
 func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info jsonutils.JSONObject) (*SDiskConfig, error) {
@@ -1262,6 +1264,9 @@ func (self *SDisk) fetchDiskInfo(diskConfig *SDiskConfig) {
 			self.DiskType = diskType
 		}
 		self.Nonpersistent = false
+	}
+	if len(diskConfig.DiskId) > 0 && utils.IsMatchUUID(diskConfig.DiskId) {
+		self.Id = diskConfig.DiskId
 	}
 	self.DiskFormat = diskConfig.Format
 	self.DiskSize = diskConfig.SizeMb
