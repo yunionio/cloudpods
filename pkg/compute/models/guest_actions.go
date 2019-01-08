@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
@@ -2325,4 +2326,187 @@ func (self *SGuest) PerformStreamDisksComplete(ctx context.Context, userCred mcc
 		}
 	}
 	return nil, nil
+}
+
+func (man *SGuestManager) AllowPerformImport(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowClassPerform(userCred, man, "import")
+}
+
+type SImportNic struct {
+	Index     int    `json:"index"`
+	Bridge    string `json:"bridge"`
+	Domain    string `json:"domain"`
+	Ip        string `json:"ip"`
+	Vlan      int    `json:"vlan"`
+	Driver    string `json:"driver"`
+	Masklen   int    `json:"masklen"`
+	Virtual   bool   `json:"virtual"`
+	Manual    bool   `json:"manual"`
+	WireId    string `json:"wire_id"`
+	NetId     string `json:"net_id"`
+	Mac       string `json:"mac"`
+	BandWidth int    `json:"bw"`
+	Dns       string `json:"dns"`
+	Net       string `json:"net"`
+	Interface string `json:"interface"`
+	Gateway   string `json:"gateway"`
+	Ifname    string `json:"ifname"`
+}
+
+func (n SImportNic) ToNetConfig(net *SNetwork) *SNetworkConfig {
+	return &SNetworkConfig{
+		Network: net.Id,
+		Wire:    net.WireId,
+		Address: n.Ip,
+		Mac:     n.Mac,
+		Driver:  n.Driver,
+		BwLimit: n.BandWidth,
+	}
+}
+
+type SImportDisk struct {
+	Index      int    `json:"index"`
+	DiskId     string `json:"disk_id"`
+	Driver     string `json:"driver"`
+	CacheMode  string `json:"cache_mode"`
+	AioMode    string `json:"aio_mode"`
+	SizeMb     int    `json:"size"`
+	Format     string `json:"format"`
+	Fs         string `json:"fs"`
+	Mountpoint string `json:"mountpoint"`
+	Dev        string `json:"dev"`
+	TemplateId string `json:"template_id"`
+}
+
+func (d SImportDisk) ToDiskConfig() *SDiskConfig {
+	ret := &SDiskConfig{
+		SizeMb:  d.SizeMb,
+		ImageId: d.TemplateId,
+		Format:  d.Format,
+		Driver:  d.Driver,
+		DiskId:  d.DiskId,
+		Cache:   d.CacheMode,
+	}
+	if len(d.Mountpoint) > 0 {
+		ret.Mountpoint = d.Mountpoint
+	}
+	if len(d.Fs) > 0 {
+		ret.Fs = d.Fs
+	}
+	return ret
+}
+
+type SImportGuestDesc struct {
+	Id          string            `json:"uuid"`
+	Name        string            `json:"name"`
+	Nics        []SImportNic      `json:"nics"`
+	Disks       []SImportDisk     `json:"disks"`
+	Metadata    map[string]string `json:"metadata"`
+	MemSizeMb   int               `json:"mem"`
+	Cpu         int               `json:"cpu"`
+	TemplateId  string            `json:"template_id"`
+	ImagePath   string            `json:"image_path"`
+	Vdi         string            `json:"vdi"`
+	Hypervisor  string            `json:"hypervisor"`
+	HostId      string            `json:"host"`
+	BootOrder   string            `json:"boot_order"`
+	IsSystem    bool              `json:"is_system"`
+	Description string            `json:"description"`
+}
+
+func (man *SGuestManager) PerformImport(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	desc := SImportGuestDesc{}
+	if err := data.Unmarshal(&desc); err != nil {
+		return nil, httperrors.NewInputParameterError("Invalid desc: %s", data.String())
+	}
+	if len(desc.Id) == 0 {
+		return nil, httperrors.NewInputParameterError("Server Id is empty")
+	}
+	if len(desc.Name) == 0 {
+		return nil, httperrors.NewInputParameterError("Server Name is empty")
+	}
+	if obj, _ := man.FetchByIdOrName(userCred, desc.Id); obj != nil {
+		return nil, httperrors.NewInputParameterError("Server %s already exists", desc.Id)
+	}
+	if err := db.NewNameValidator(man, userCred.GetProjectId(), desc.Name); err != nil {
+		return nil, err
+	}
+	if hostObj, _ := HostManager.FetchByIdOrName(userCred, desc.HostId); hostObj == nil {
+		return nil, httperrors.NewNotFoundError("Host %s not found", desc.HostId)
+	} else {
+		desc.HostId = hostObj.GetId()
+	}
+	// 1. create import guest on host
+	gst, err := man.createImportGuest(ctx, userCred, desc)
+	if err != nil {
+		return nil, err
+	}
+	// 2. import networks
+	if err := gst.importNics(ctx, userCred, desc.Nics); err != nil {
+		return nil, err
+	}
+	// 3. import disks
+	if err := gst.importDisks(ctx, userCred, desc.Disks); err != nil {
+		return nil, err
+	}
+	// 4. set metadata
+	for k, v := range desc.Metadata {
+		gst.SetMetadata(ctx, k, v, userCred)
+	}
+	return jsonutils.Marshal(gst), nil
+}
+
+func (man *SGuestManager) createImportGuest(ctx context.Context, userCred mcclient.TokenCredential, desc SImportGuestDesc) (*SGuest, error) {
+	model, err := db.NewModelObject(man)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	gst, ok := model.(*SGuest)
+	if !ok {
+		return nil, httperrors.NewGeneralError(fmt.Errorf("Can't convert %#v to *SGuest model", model))
+	}
+	gst.ProjectId = userCred.GetProjectId()
+	gst.IsSystem = desc.IsSystem
+	gst.Id = desc.Id
+	gst.Name = desc.Name
+	gst.HostId = desc.HostId
+	gst.Status = "import"
+	gst.Hypervisor = desc.Hypervisor
+	gst.VmemSize = desc.MemSizeMb
+	gst.VcpuCount = int8(desc.Cpu)
+	gst.BootOrder = desc.BootOrder
+	gst.Description = desc.Description
+	err = man.TableSpec().Insert(gst)
+	return gst, err
+}
+
+func (self *SGuest) importNics(ctx context.Context, userCred mcclient.TokenCredential, nics []SImportNic) error {
+	if len(nics) == 0 {
+		return httperrors.NewInputParameterError("Empty import nics")
+	}
+	for _, nic := range nics {
+		net, err := NetworkManager.GetNetworkOfIP(nic.Ip, "", tristate.None)
+		if err != nil {
+			return httperrors.NewNotFoundError("Not found network by ip %s", nic.Ip)
+		}
+		err = self.attach2NetworkDesc(ctx, userCred, self.GetHost(), nic.ToNetConfig(net), nil)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (self *SGuest) importDisks(ctx context.Context, userCred mcclient.TokenCredential, disks []SImportDisk) error {
+	if len(disks) == 0 {
+		return httperrors.NewInputParameterError("Empty import disks")
+	}
+	for _, disk := range disks {
+		disk, err := self.createDiskOnHost(ctx, userCred, self.GetHost(), disk.ToDiskConfig(), nil, true)
+		if err != nil {
+			return err
+		}
+		disk.SetStatus(userCred, DISK_READY, "")
+	}
+	return nil
 }
