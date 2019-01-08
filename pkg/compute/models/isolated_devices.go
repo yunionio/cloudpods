@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -93,6 +94,19 @@ func (manager *SIsolatedDeviceManager) ExtraSearchConditions(ctx context.Context
 
 func (manager *SIsolatedDeviceManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowCreate(userCred, manager)
+}
+
+func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	hostId, _ := data.GetString("host_id")
+	host := HostManager.FetchHostById(hostId)
+	if host == nil {
+		return nil, httperrors.NewNotFoundError("Host %s not found", hostId)
+	}
+	if name, _ := data.GetString("name"); len(name) == 0 {
+		name = fmt.Sprintf("dev_%s_%d", host.GetName(), time.Now().UnixNano())
+		data.Set("name", jsonutils.NewString(name))
+	}
+	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
 
 func (self *SIsolatedDevice) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {

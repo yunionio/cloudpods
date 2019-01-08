@@ -2,14 +2,17 @@ package shell
 
 import (
 	"fmt"
-
 	"io/ioutil"
+	"os"
+	"path/filepath"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/regutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
-	"yunion.io/x/pkg/util/regutils"
 )
 
 func init() {
@@ -660,4 +663,59 @@ func init() {
 		return nil
 	})
 
+	type ServerImportOptions struct {
+		LOCATION string `help:"Server desc file location, should be desc file or workspace directory"`
+		HOST     string `help:"Host id or name for this server"`
+	}
+	R(&ServerImportOptions{}, "server-import", "Import a server by desc file", func(s *mcclient.ClientSession, args *ServerImportOptions) error {
+		var descFiles []string
+		err := filepath.Walk(args.LOCATION, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+			if info.Name() == "desc" {
+				descFiles = append(descFiles, path)
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("Find desc files: %v", err)
+		}
+
+		importF := func(desc string) error {
+			ret, err := ioutil.ReadFile(desc)
+			if err != nil {
+				return fmt.Errorf("Read file %s: %v", desc, err)
+			}
+			jsonObj, err := jsonutils.Parse(ret)
+			if err != nil {
+				return fmt.Errorf("Parse %s to json: %v", string(ret), err)
+			}
+			params := jsonObj.(*jsonutils.JSONDict)
+			disks, err := params.GetArray("disks")
+			if err != nil || len(disks) == 0 {
+				return fmt.Errorf("Desc %s not have disks, skip it", desc)
+			}
+			params.Add(jsonutils.NewString(args.HOST), "host_id")
+			// project may not exists
+			params.Remove("tenant")
+			params.Remove("tenant_id")
+			_, err = modules.Servers.PerformClassAction(s, "import", params)
+			if err != nil {
+				return err
+			}
+			//printObject(result)
+			return nil
+		}
+
+		for _, descFile := range descFiles {
+			if err := importF(descFile); err != nil {
+				log.Errorf("Import %s error: %v", descFile, err)
+			}
+		}
+		return nil
+	})
 }
