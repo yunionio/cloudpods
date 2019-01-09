@@ -319,7 +319,7 @@ func (acl *SLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, u
 		if projectSync && len(projectId) > 0 {
 			acl.ProjectId = projectId
 		}
-
+		acl.AclEntries = &SLoadbalancerAclEntries{}
 		return aclEntries.Unmarshal(acl.AclEntries)
 	})
 	return err
