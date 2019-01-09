@@ -425,6 +425,7 @@ func (self *SCloudaccount) ImportSubAccount(ctx context.Context, userCred mcclie
 
 	newCloudprovider := SCloudprovider{}
 	newCloudprovider.Account = subAccount.Account
+	newCloudprovider.Secret = self.Secret
 	newCloudprovider.CloudaccountId = self.Id
 	newCloudprovider.Provider = self.Provider
 	newCloudprovider.AccessUrl = self.AccessUrl
@@ -586,6 +587,7 @@ func migrateCloudprovider(cloudprovider *SCloudprovider) error {
 	if err == sql.ErrNoRows {
 		account.AccessUrl = cloudprovider.AccessUrl
 		account.Account = mainAccount
+		account.Secret = cloudprovider.Secret
 		account.LastSync = cloudprovider.LastSync
 		account.Sysinfo = cloudprovider.Sysinfo
 		account.Provider = cloudprovider.Provider
