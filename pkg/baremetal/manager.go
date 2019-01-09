@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/baremetal/utils/detect_storages"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/disktool"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
+	raiddrivers "yunion.io/x/onecloud/pkg/baremetal/utils/raid/drivers"
 	"yunion.io/x/onecloud/pkg/cloudcommon/dhcp"
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
@@ -1177,15 +1178,33 @@ func (s *SBaremetalServer) DoDiskConfig(term *ssh.Client) error {
 	}
 	layouts, err := baremetal.CalculateLayout(confs, storages)
 	if err != nil {
-		return err
+		return fmt.Errorf("CalculateLayout: %v", err)
 	}
 	diskConfs := baremetal.GroupLayoutResultsByDriverAdapter(layouts)
 	for _, dConf := range diskConfs {
 		driver := dConf.Driver
+		raidDrv := raiddrivers.GetDriver(driver, term)
+		if raidDrv != nil {
+			if err := raidDrv.ParsePhyDevs(); err != nil {
+				return fmt.Errorf("RaidDriver %s parse physical devices: %v", raidDrv.GetName(), err)
+			}
+			raidDrv.CleanRaid()
+		}
+	}
+
+	for _, dConf := range diskConfs {
+		driver := dConf.Driver
 		adapter := dConf.Adapter
-		//TODO: build raid here
-		log.Errorf("=== driver: %s, adapter: %d", driver, adapter)
-		time.Sleep(10 * time.Second) // wait 10 seconds for raid status OK
+		raidDrv := raiddrivers.GetDriver(driver, term)
+		if raidDrv != nil {
+			if err := raidDrv.ParsePhyDevs(); err != nil {
+				return fmt.Errorf("RaidDriver %s parse physical devices: %v", raidDrv.GetName(), err)
+			}
+			if err := raiddrivers.BuildRaid(raidDrv, dConf.Configs, adapter); err != nil {
+				return fmt.Errorf("Build %s raid failed: %v", raidDrv.GetName(), err)
+			}
+			time.Sleep(10 * time.Second) // wait 10 seconds for raid status OK
+		}
 	}
 
 	tool := disktool.NewSSHPartitionTool(term)
@@ -1209,11 +1228,14 @@ func (s *SBaremetalServer) DoDiskConfig(term *ssh.Client) error {
 
 func (s *SBaremetalServer) DoDiskUnconfig(term *ssh.Client) error {
 	// tear down raid
-	//driver := s.baremetal.GetStorageDriver()
-	//util := raidutil.GetDriver(driver, term)
-	//if util  !=  nil {
-	//}
-	// TODO:
+	driver := s.baremetal.GetStorageDriver()
+	raidDrv := raiddrivers.GetDriver(driver, term)
+	if raidDrv != nil {
+		if err := raidDrv.ParsePhyDevs(); err != nil {
+			return err
+		}
+		raidDrv.CleanRaid()
+	}
 	return nil
 }
 
