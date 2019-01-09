@@ -1637,6 +1637,10 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 			vhost := HostManager.GetHostByRealExternalId(added[i].GetGlobalId())
 			if vhost != nil {
 				// this recycle vm is not build yet, skip synchronize
+				err = vhost.SyncWithRealPrepaidVM(ctx, userCred, added[i])
+				if err != nil {
+					syncResult.AddError(err)
+				}
 				continue
 			}
 		}

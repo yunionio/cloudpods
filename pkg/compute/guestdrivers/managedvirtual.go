@@ -580,5 +580,9 @@ func (self *SManagedVirtualizedGuestDriver) RequestRenewInstance(guest *models.S
 	if err != nil {
 		return time.Time{}, err
 	}
+	err = iVM.Refresh()
+	if err != nil {
+		return time.Time{}, err
+	}
 	return iVM.GetExpiredAt(), nil
 }
