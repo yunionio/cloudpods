@@ -29,7 +29,7 @@ type BaseOptions struct {
 	Debug    bool `help:"Show debug information"`
 	Version  bool `help:"Show version"`
 	Timeout  int  `default:"600" help:"Number of seconds to wait for a response"`
-	Insecure bool `default:"false" help:"Allow skip server cert verification if URL is https" short-token:"k"`
+	Insecure bool `default:"$YUNION_INSECURE|false" help:"Allow skip server cert verification if URL is https" short-token:"k"`
 
 	CertFile string `default:"$YUNION_CERT_FILE" help:"certificate file"`
 	KeyFile  string `default:"$YUNION_KEY_FILE" help:"private key file"`

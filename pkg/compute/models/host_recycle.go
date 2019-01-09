@@ -726,3 +726,11 @@ func (self *SHost) DoSaveRenewInfo(ctx context.Context, userCred mcclient.TokenC
 	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(ctx), userCred)
 	return nil
 }
+
+func (self *SHost) SyncWithRealPrepaidVM(ctx context.Context, userCred mcclient.TokenCredential, iVM cloudprovider.ICloudVM) error {
+	exp := iVM.GetExpiredAt()
+	if self.ExpiredAt != exp {
+		return self.DoSaveRenewInfo(ctx, userCred, nil, &exp)
+	}
+	return nil
+}
