@@ -110,11 +110,17 @@ type Manager interface {
 	BatchPerformActionInContext(session *mcclient.ClientSession, idlist []string, action string, params jsonutils.JSONObject, ctx Manager, ctxid string) []SubmitResult
 	BatchPerformActionInContexts(session *mcclient.ClientSession, idlist []string, action string, params jsonutils.JSONObject, ctxs []ManagerContext) []SubmitResult
 	Delete(session *mcclient.ClientSession, id string, body jsonutils.JSONObject) (jsonutils.JSONObject, error)
+	DeleteWithParam(session *mcclient.ClientSession, id string, query jsonutils.JSONObject, body jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	DeleteInContext(session *mcclient.ClientSession, id string, body jsonutils.JSONObject, ctx Manager, ctxid string) (jsonutils.JSONObject, error)
+	DeleteInContextWithParam(session *mcclient.ClientSession, id string, query jsonutils.JSONObject, body jsonutils.JSONObject, ctx Manager, ctxid string) (jsonutils.JSONObject, error)
 	DeleteInContexts(session *mcclient.ClientSession, id string, body jsonutils.JSONObject, ctxs []ManagerContext) (jsonutils.JSONObject, error)
+	DeleteInContextsWithParam(session *mcclient.ClientSession, id string, query jsonutils.JSONObject, body jsonutils.JSONObject, ctxs []ManagerContext) (jsonutils.JSONObject, error)
 	BatchDelete(session *mcclient.ClientSession, idlist []string, body jsonutils.JSONObject) []SubmitResult
+	BatchDeleteWithParam(session *mcclient.ClientSession, idlist []string, query jsonutils.JSONObject, body jsonutils.JSONObject) []SubmitResult
 	BatchDeleteInContext(session *mcclient.ClientSession, idlist []string, body jsonutils.JSONObject, ctx Manager, ctxid string) []SubmitResult
+	BatchDeleteInContextWithParam(session *mcclient.ClientSession, idlist []string, query jsonutils.JSONObject, body jsonutils.JSONObject, ctx Manager, ctxid string) []SubmitResult
 	BatchDeleteInContexts(session *mcclient.ClientSession, idlist []string, body jsonutils.JSONObject, ctxs []ManagerContext) []SubmitResult
+	BatchDeleteInContextsWithParam(session *mcclient.ClientSession, idlist []string, query jsonutils.JSONObject, body jsonutils.JSONObject, ctxs []ManagerContext) []SubmitResult
 }
 
 type JointManager interface {
