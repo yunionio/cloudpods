@@ -2,11 +2,11 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
-
-	"fmt"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -73,6 +73,8 @@ func (self *PrepaidRecycleHostRenewTask) OnInit(ctx context.Context, obj db.ISta
 		return
 	}
 
+	log.Debugf("expire before %s", iVM.GetExpiredAt())
+
 	err = iVM.Renew(bc)
 	if err != nil {
 		msg := fmt.Sprintf("iVM.Renew fail %s", err)
@@ -80,6 +82,16 @@ func (self *PrepaidRecycleHostRenewTask) OnInit(ctx context.Context, obj db.ISta
 		self.SetStageFailed(ctx, msg)
 		return
 	}
+
+	err = iVM.Refresh()
+	if err != nil {
+		msg := fmt.Sprintf("refresh after renew fail %s", err)
+		log.Errorf(msg)
+		self.SetStageFailed(ctx, msg)
+		return
+	}
+
+	log.Debugf("expire after %s", iVM.GetExpiredAt())
 
 	exp := iVM.GetExpiredAt()
 
