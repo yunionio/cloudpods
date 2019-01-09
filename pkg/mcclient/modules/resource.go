@@ -485,6 +485,10 @@ func (this *ResourceManager) DeleteInContext(session *mcclient.ClientSession, id
 	return this.DeleteInContexts(session, id, body, []ManagerContext{{ctx, ctxid}})
 }
 
+func (this *ResourceManager) DeleteInContextWithParam(session *mcclient.ClientSession, id string, query jsonutils.JSONObject, body jsonutils.JSONObject, ctx Manager, ctxid string) (jsonutils.JSONObject, error) {
+	return this.DeleteInContextsWithParam(session, id, query, body, []ManagerContext{{ctx, ctxid}})
+}
+
 func (this *ResourceManager) DeleteInContexts(session *mcclient.ClientSession, id string, body jsonutils.JSONObject, ctxs []ManagerContext) (jsonutils.JSONObject, error) {
 	return this.deleteInContexts(session, id, nil, body, ctxs)
 }
