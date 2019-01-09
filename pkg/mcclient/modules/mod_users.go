@@ -160,7 +160,7 @@ func init() {
 
 	UsersV3 = UserManagerV3{NewIdentityV3Manager("user", "users",
 		[]string{},
-		[]string{"ID", "Name", "Domain_Id",
+		[]string{"ID", "Name", "Domain_Id", "default_project_id",
 			"Enabled", "Email", "Mobile"})}
 
 	register(&UsersV3)

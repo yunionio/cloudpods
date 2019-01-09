@@ -156,7 +156,8 @@ func (dispatcher *DBJointModelDispatcher) Get(ctx context.Context, id1 string, i
 func attachItems(dispatcher *DBJointModelDispatcher, master IStandaloneModel, slave IStandaloneModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isObjectRbacAllowed(master.GetModelManager(), master, userCred, policy.PolicyActionPerform, "attach")
+		isAllow = isObjectRbacAllowed(master.GetModelManager(), master, userCred, policy.PolicyActionPerform, "attach") &&
+			isObjectRbacAllowed(slave.GetModelManager(), slave, userCred, policy.PolicyActionPerform, "attach")
 	} else {
 		isAllow = dispatcher.JointModelManager().AllowAttach(ctx, userCred, master, slave)
 	}
