@@ -787,6 +787,9 @@ func (self *SHost) ClearSchedDescCache() error {
 
 func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 	if statusCheck {
+		if !self.Enabled {
+			return nil
+		}
 		if utils.IsInStringArray(self.Status, []string{BAREMETAL_INIT, BAREMETAL_PREPARE_FAIL, BAREMETAL_PREPARE}) ||
 			self.GetBaremetalServer() != nil {
 			return nil
