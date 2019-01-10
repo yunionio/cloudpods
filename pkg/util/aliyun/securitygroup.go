@@ -248,7 +248,7 @@ func (self *SRegion) modifySecurityGroupRule(secGrpId string, rule *secrules.Sec
 		protocol = "all"
 	}
 	params["IpProtocol"] = protocol
-	if rule.PortStart == 0 && rule.PortEnd == 0 {
+	if rule.PortStart < 1 && rule.PortEnd < 1 {
 		if protocol == "udp" || protocol == "tcp" {
 			params["PortRange"] = "1/65535"
 		} else {
@@ -320,7 +320,7 @@ func (self *SRegion) addSecurityGroupRule(secGrpId string, rule *secrules.Securi
 		protocol = "all"
 	}
 	params["IpProtocol"] = protocol
-	if rule.PortStart == 0 && rule.PortEnd == 0 {
+	if rule.PortStart < 1 && rule.PortEnd < 1 {
 		if protocol == "udp" || protocol == "tcp" {
 			params["PortRange"] = "1/65535"
 		} else {
@@ -363,7 +363,7 @@ func (self *SRegion) delSecurityGroupRule(secGrpId string, rule *secrules.Securi
 		protocol = "all"
 	}
 	params["IpProtocol"] = protocol
-	if rule.PortStart == 0 && rule.PortEnd == 0 {
+	if rule.PortStart < 1 && rule.PortEnd < 1 {
 		if protocol == "udp" || protocol == "tcp" {
 			params["PortRange"] = "1/65535"
 		} else {
