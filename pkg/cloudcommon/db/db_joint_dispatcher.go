@@ -154,7 +154,14 @@ func (dispatcher *DBJointModelDispatcher) Get(ctx context.Context, id1 string, i
 }
 
 func attachItems(dispatcher *DBJointModelDispatcher, master IStandaloneModel, slave IStandaloneModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !dispatcher.JointModelManager().AllowAttach(ctx, userCred, master, slave) {
+	var isAllow bool
+	if consts.IsRbacEnabled() {
+		isAllow = isObjectRbacAllowed(master.GetModelManager(), master, userCred, policy.PolicyActionPerform, "attach") &&
+			isObjectRbacAllowed(slave.GetModelManager(), slave, userCred, policy.PolicyActionPerform, "attach")
+	} else {
+		isAllow = dispatcher.JointModelManager().AllowAttach(ctx, userCred, master, slave)
+	}
+	if !isAllow {
 		return nil, httperrors.NewForbiddenError("Not allow to attach")
 	}
 	ownerProjId, err := fetchOwnerProjectId(ctx, dispatcher.JointModelManager(), userCred, data)
