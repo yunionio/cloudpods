@@ -530,6 +530,14 @@ func (self *SIsolatedDevice) RealDelete(ctx context.Context, userCred mcclient.T
 	return self.ClearSchedDescCache()
 }
 
+func (self *SIsolatedDevice) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "purge")
+}
+
+func (self *SIsolatedDevice) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return nil, self.CustomizeDelete(ctx, userCred, query, data)
+}
+
 func (self *SIsolatedDevice) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if len(self.GuestId) > 0 {
 		if !jsonutils.QueryBoolean(data, "purge", false) {
