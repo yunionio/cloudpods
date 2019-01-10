@@ -103,11 +103,11 @@ func (manager *SJointResourceBaseManager) FetchByIds(masterId string, slaveId st
 }
 
 func (manager *SJointResourceBaseManager) AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, model IStandaloneModel, query jsonutils.JSONObject) bool {
-	return false
+	return IsAdminAllowList(userCred, manager)
 }
 
 func (manager *SJointResourceBaseManager) AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, master IStandaloneModel, slave IStandaloneModel) bool {
-	return false
+	return IsAdminAllowCreate(userCred, manager)
 }
 
 func JointModelExtra(jointModel IJointModel, extra *jsonutils.JSONDict) *jsonutils.JSONDict {

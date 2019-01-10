@@ -313,7 +313,7 @@ func (self *SKVMGuestDriver) RequestGuestCreateAllDisks(ctx context.Context, gue
 }
 
 func (self *SKVMGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, task taskman.ITask) error {
-	return guest.StartSyncstatus(ctx, task.GetUserCred(), task.GetTaskId())
+	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
 func (self *SKVMGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
