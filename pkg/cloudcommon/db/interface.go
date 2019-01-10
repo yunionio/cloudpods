@@ -118,6 +118,7 @@ type IModel interface {
 	PostDelete(ctx context.Context, userCred mcclient.TokenCredential)
 
 	GetOwnerProjectId() string
+	IsSharable() bool
 
 	CustomizedGetDetailsBody(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error)
 }
@@ -186,7 +187,7 @@ type ISharableVirtualModelManager interface {
 
 type ISharableVirtualModel interface {
 	IVirtualModel
-	IsSharable() bool
+	// IsSharable() bool
 }
 
 type IAdminSharableVirtualModelManager interface {

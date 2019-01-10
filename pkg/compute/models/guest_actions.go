@@ -104,7 +104,11 @@ func (self *SGuest) PerformSaveImage(ctx context.Context, userCred mcclient.Toke
 		if notes, err := data.GetString("notes"); err != nil && len(notes) > 0 {
 			properties.Add(jsonutils.NewString(notes), "notes")
 		}
-		properties.Add(jsonutils.NewString(self.OsType), "os_type")
+		osType := self.OsType
+		if len(osType) == 0 {
+			osType = "Linux"
+		}
+		properties.Add(jsonutils.NewString(osType), "os_type")
 		kwargs.Add(properties, "properties")
 		kwargs.Add(jsonutils.NewBool(restart), "restart")
 

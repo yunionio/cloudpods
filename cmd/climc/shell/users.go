@@ -8,11 +8,13 @@ import (
 
 func init() {
 	type UserListOptions struct {
-		Domain string `help:"Filter by domain"`
-		Name   string `help:"Filter by name"`
-		Limit  int64  `help:"Limit, default 0, i.e. no limit"`
-		Offset int64  `help:"Offset, default 0, i.e. no offset"`
-		Search string `help:"Search by name"`
+		Domain           string `help:"Filter by domain"`
+		Name             string `help:"Filter by name"`
+		Limit            int64  `help:"Limit, default 0, i.e. no limit"`
+		Offset           int64  `help:"Offset, default 0, i.e. no offset"`
+		Search           string `help:"Search by name"`
+		DefaultProject   string `help:"Filter by default_project_id"`
+		NoDefaultProject bool   `help:"Filter users without valid default_project_id"`
 	}
 	R(&UserListOptions{}, "user-list", "List users", func(s *mcclient.ClientSession, args *UserListOptions) error {
 		mod, err := modules.GetModule(s, "users")
@@ -38,6 +40,15 @@ func init() {
 		}
 		if args.Offset > 0 {
 			params.Add(jsonutils.NewInt(args.Offset), "offset")
+		}
+		if len(args.DefaultProject) > 0 {
+			projId, err := modules.Projects.GetId(s, args.DefaultProject, nil)
+			if err != nil {
+				return err
+			}
+			params.Add(jsonutils.NewString(projId), "default_project_id")
+		} else if args.NoDefaultProject {
+			params.Add(jsonutils.NewString(""), "default_project_id__iempty")
 		}
 		result, err := mod.List(s, params)
 		if err != nil {
@@ -219,6 +230,8 @@ func init() {
 		Mobile      string `help:"Mobile"`
 		Enabled     bool   `help:"Enabled"`
 		Disabled    bool   `help:"Disabled"`
+
+		DefaultProject string `help:"Default project"`
 		// Option []string `help:"User options"`
 	}
 	R(&UserUpdateOptions{}, "user-update", "Update a user", func(s *mcclient.ClientSession, args *UserUpdateOptions) error {
@@ -257,6 +270,13 @@ func init() {
 			params.Add(jsonutils.JSONTrue, "enabled")
 		} else if !args.Enabled && args.Disabled {
 			params.Add(jsonutils.JSONFalse, "enabled")
+		}
+		if len(args.DefaultProject) > 0 {
+			projId, err := modules.Projects.GetId(s, args.DefaultProject, nil)
+			if err != nil {
+				return err
+			}
+			params.Add(jsonutils.NewString(projId), "default_project_id")
 		}
 		/*
 		   if len(args.Option) > 0 {

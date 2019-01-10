@@ -92,7 +92,7 @@ func isObjectRbacAllowed(manager IModelManager, model IModel, userCred mcclient.
 
 	if len(ownerId) > 0 {
 		objOwnerId := model.GetOwnerProjectId()
-		if ownerId == objOwnerId {
+		if ownerId == objOwnerId || model.IsSharable() {
 			isOwner = true
 			requireAdmin = false
 		} else {
