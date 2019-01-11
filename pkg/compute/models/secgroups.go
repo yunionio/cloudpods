@@ -174,12 +174,9 @@ func (self *SSecurityGroup) AllowPerformAddRule(ctx context.Context, userCred mc
 func (self *SSecurityGroup) PerformAddRule(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	secgrouprule := &SSecurityGroupRule{SecgroupID: self.Id}
 	secgrouprule.SetModelManager(SecurityGroupRuleManager)
-	secgrouprule.Direction, _ = data.GetString("direction")
-	secgrouprule.Action, _ = data.GetString("action")
-	secgrouprule.Priority, _ = data.Int("priority")
-	secgrouprule.Description, _ = data.GetString("description")
-	secgrouprule.Protocol, _ = data.GetString("protocol")
-	secgrouprule.CIDR, _ = data.GetString("cidr")
+	if err := data.Unmarshal(secgrouprule); err != nil {
+		return nil, err
+	}
 	if len(secgrouprule.CIDR) > 0 {
 		if !regutils.MatchCIDR(secgrouprule.CIDR) && !regutils.MatchIPAddr(secgrouprule.CIDR) {
 			return nil, httperrors.NewInputParameterError("invalid ip address: %s", secgrouprule.CIDR)
@@ -196,8 +193,7 @@ func (self *SSecurityGroup) PerformAddRule(ctx context.Context, userCred mcclien
 		PortStart: -1,
 		PortEnd:   -1,
 	}
-	ports, _ := data.GetString("ports")
-	if err := rule.ParsePorts(ports); err != nil {
+	if err := rule.ParsePorts(secgrouprule.Ports); err != nil {
 		return nil, httperrors.NewInputParameterError(err.Error())
 	}
 	if err := rule.ValidateRule(); err != nil {
