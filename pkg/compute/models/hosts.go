@@ -1217,6 +1217,9 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 	}
 
 	for i := 0; i < len(removed); i += 1 {
+		if removed[i].IsPrepaidRecycleResource() {
+			continue
+		}
 		err = removed[i].ValidateDeleteCondition(ctx)
 		if err != nil { // cannot delete
 			err = removed[i].SetStatus(userCred, HOST_OFFLINE, "sync to delete")
@@ -3635,4 +3638,8 @@ func (manager *SHostManager) PingDetectionTask(ctx context.Context, userCred mcc
 		host.PerformOffline(ctx, userCred, nil, nil)
 		host.MarkGuestUnknown(userCred)
 	}
+}
+
+func (self *SHost) IsPrepaidRecycleResource() bool {
+	return self.ResourceType == HostResourceTypePrepaidRecycle
 }
