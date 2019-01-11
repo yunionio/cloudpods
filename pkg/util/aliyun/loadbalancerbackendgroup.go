@@ -181,35 +181,37 @@ func (backendgroup *SLoadbalancerBackendGroup) Delete() error {
 	return backendgroup.lb.region.DeleteLoadBalancerBackendGroup(backendgroup.VServerGroupId)
 }
 
-func (region *SRegion) AddBackendVServer(loadbalancerId, serverId string, weight, port int) error {
+func (region *SRegion) AddBackendVServer(loadbalancerId, backendGroupId, serverId string, weight, port int) error {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
 	params["LoadBalancerId"] = loadbalancerId
+	params["VServerGroupId"] = backendGroupId
 	servers := jsonutils.NewArray()
-	servers.Add(jsonutils.Marshal(map[string]string{"ServerId": serverId, "Weight": fmt.Sprintf("%d", weight*100/256), "Port": fmt.Sprintf("%d", port)}))
+	servers.Add(jsonutils.Marshal(map[string]string{"ServerId": serverId, "Weight": fmt.Sprintf("%d", weight), "Port": fmt.Sprintf("%d", port)}))
 	params["BackendServers"] = servers.String()
 	_, err := region.lbRequest("AddVServerGroupBackendServers", params)
 	return err
 }
 
-func (region *SRegion) RemoveBackendVServer(loadbalancerId, serverId string) error {
+func (region *SRegion) RemoveBackendVServer(loadbalancerId, backendgroupId, serverId string, port int) error {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
 	params["LoadBalancerId"] = loadbalancerId
+	params["VServerGroupId"] = backendgroupId
 	servers := jsonutils.NewArray()
-	servers.Add(jsonutils.NewString(serverId))
+	servers.Add(jsonutils.Marshal(map[string]string{"ServerId": serverId, "Port": fmt.Sprintf("%d", port)}))
 	params["BackendServers"] = servers.String()
 	_, err := region.lbRequest("RemoveVServerGroupBackendServers", params)
 	return err
 }
 
 func (backendgroup *SLoadbalancerBackendGroup) AddBackendServer(serverId string, weight, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
-	if err := backendgroup.lb.region.AddBackendVServer(backendgroup.lb.LoadBalancerId, serverId, weight, port); err != nil {
+	if err := backendgroup.lb.region.AddBackendVServer(backendgroup.lb.LoadBalancerId, backendgroup.VServerGroupId, serverId, weight, port); err != nil {
 		return nil, err
 	}
 	return &SLoadbalancerBackend{lbbg: backendgroup, ServerId: serverId, Weight: weight, Port: port}, nil
 }
 
-func (backendgroup *SLoadbalancerBackendGroup) RemoveBackendServer(serverId string) error {
-	return backendgroup.lb.region.RemoveBackendVServer(backendgroup.lb.LoadBalancerId, serverId)
+func (backendgroup *SLoadbalancerBackendGroup) RemoveBackendServer(serverId string, weight, port int) error {
+	return backendgroup.lb.region.RemoveBackendVServer(backendgroup.lb.LoadBalancerId, backendgroup.VServerGroupId, serverId, port)
 }

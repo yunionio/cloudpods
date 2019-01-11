@@ -158,6 +158,21 @@ func (lbacl *SLoadbalancerAcl) ValidateUpdateData(ctx context.Context, userCred 
 	return lbacl.SSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
+func (lbacl *SLoadbalancerAcl) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	lbacl.SSharableVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+	lbacl.SetStatus(userCred, LB_STATUS_SYNCING, "")
+	lbacl.StartLoadBalancerAclSyncTask(ctx, userCred, "")
+}
+
+func (lbacl *SLoadbalancerAcl) StartLoadBalancerAclSyncTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerAclSyncTask", lbacl, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
 func (lbacl *SLoadbalancerAcl) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lbacl.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 
@@ -379,10 +394,9 @@ func (man *SLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx context.Cont
 		acl.ProjectId = provider.ProjectId
 	}
 
-	aclEntries := extAcl.GetAclEntries()
 	acl.AclEntries = &SLoadbalancerAclEntries{}
-	if err := aclEntries.Unmarshal(acl.AclEntries); err != nil {
-		return nil, err
+	for _, entry := range extAcl.GetAclEntries() {
+		*acl.AclEntries = append(*acl.AclEntries, &SLoadbalancerAclEntry{Cidr: entry.CIDR, Comment: entry.Comment})
 	}
 	return &acl, man.TableSpec().Insert(&acl)
 }
@@ -390,13 +404,14 @@ func (man *SLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx context.Cont
 func (acl *SLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, extAcl cloudprovider.ICloudLoadbalancerAcl, projectId string, projectSync bool) error {
 	_, err := acl.GetModelManager().TableSpec().Update(acl, func() error {
 		acl.Name = extAcl.GetName()
-		aclEntries := extAcl.GetAclEntries()
-
+		acl.AclEntries = &SLoadbalancerAclEntries{}
+		for _, entry := range extAcl.GetAclEntries() {
+			*acl.AclEntries = append(*acl.AclEntries, &SLoadbalancerAclEntry{Cidr: entry.CIDR, Comment: entry.Comment})
+		}
 		if projectSync && len(projectId) > 0 {
 			acl.ProjectId = projectId
 		}
-		acl.AclEntries = &SLoadbalancerAclEntries{}
-		return aclEntries.Unmarshal(acl.AclEntries)
+		return nil
 	})
 	return err
 }

@@ -125,9 +125,9 @@ type SHost struct {
 	Rack  string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
 	Slots string `width:"16" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
 
-	AccessMac  string `width:"32" charset:"ascii" nullable:"false" index:"true" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(32, charset='ascii'), nullable=False, index=True)
-	AccessIp   string `width:"16" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`               // Column(VARCHAR(16, charset='ascii'), nullable=True)
-	ManagerUri string `width:"256" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`              // Column(VARCHAR(256, charset='ascii'), nullable=True)
+	AccessMac  string `width:"32" charset:"ascii" nullable:"true" index:"true" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(32, charset='ascii'), nullable=False, index=True)
+	AccessIp   string `width:"16" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`              // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	ManagerUri string `width:"256" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`             // Column(VARCHAR(256, charset='ascii'), nullable=True)
 
 	SysInfo jsonutils.JSONObject `nullable:"true" search:"admin" get:"admin" update:"admin" create:"admin_optional"`               // Column(JSONEncodedDict, nullable=True)
 	SN      string               `width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(128, charset='ascii'), nullable=True)

@@ -134,7 +134,7 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 			backend.ID = guest.Id
 			backend.Name = guest.Name
 			backend.ExternalID = guest.ExternalId
-			address, err := LoadbalancerBackendManager.getGuestAddress(guest)
+			address, err := LoadbalancerBackendManager.GetGuestAddress(guest)
 			if err != nil {
 				return nil, err
 			}
@@ -209,7 +209,8 @@ func (lbbg *SLoadbalancerBackendGroup) ValidateDeleteCondition(ctx context.Conte
 				lbbgId, n, man.KeywordPlural())
 		}
 	}
-	return nil
+
+	return lbbg.GetRegion().GetDriver().ValidateDeleteLoadbalancerBackendGroupCondition(ctx, lbbg)
 }
 
 func (lbbg *SLoadbalancerBackendGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
@@ -253,13 +254,8 @@ func (lbbg *SLoadbalancerBackendGroup) StartLoadBalancerBackendGroupCreateTask(c
 	return nil
 }
 
-// func (lbbg *SLoadbalancerBackendGroup) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-// 	lbbg.DoPendingDelete(ctx, userCred)
-// 	lbbg.PreDeleteSubs(ctx, userCred)
-// }
-
 func (lbbg *SLoadbalancerBackendGroup) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
-	lbbg.DoCancelPendingDelete(ctx, userCred)
+	lbbg.DoPendingDelete(ctx, userCred)
 	subMan := LoadbalancerBackendManager
 	ownerProjId := lbbg.GetOwnerProjectId()
 
@@ -373,6 +369,7 @@ func (man *SLoadbalancerBackendGroupManager) SyncLoadbalancerBackendgroups(ctx c
 func (lbbg *SLoadbalancerBackendGroup) constructFieldsFromCloudBackendgroup(lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup) {
 	lbbg.Name = extLoadbalancerBackendgroup.GetName()
 	lbbg.Type = extLoadbalancerBackendgroup.GetType()
+	lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
 }
 
 func (lbbg *SLoadbalancerBackendGroup) SyncWithCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup, projectId string, projectSync bool) error {

@@ -58,7 +58,7 @@ type SLoadbalancer struct {
 	Address       string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	AddressType   string `width:"16" charset:"ascii" nullable:"false" default:"intranet" list:"user" create:"optional"`
 	NetworkType   string `width:"16" charset:"ascii" nullable:"false" default:"vpc" list:"user" create:"optional"`
-	NetworkId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	NetworkId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	VpcId         string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	ZoneId        string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
@@ -88,13 +88,26 @@ func (man *SLoadbalancerManager) ListItemFilter(ctx context.Context, q *sqlchemy
 
 func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerProjId)
+	addressType, _ := data.GetString("address_type")
+	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", "")
+	managerIdV := validators.NewModelIdOrNameValidator("manager_id", "cloudprovider", "")
+	if addressType == LB_ADDR_TYPE_INTERNET {
+		networkV.Optional(true)
+	} else {
+		zoneV.Optional(true)
+		managerIdV.Optional(true)
+	}
 	addressV := validators.NewIPv4AddrValidator("address")
+	addressTypeV := validators.NewStringChoicesValidator("address_type", LB_ADDR_TYPES)
 	{
 		keyV := map[string]validators.IValidator{
 			"status": validators.NewStringChoicesValidator("status", LB_STATUS_SPEC).Default(LB_STATUS_ENABLED),
 
-			"address": addressV.Optional(true),
-			"network": networkV,
+			"address":      addressV.Optional(true),
+			"address_type": addressTypeV.Default(LB_ADDR_TYPE_INTRANET),
+			"network":      networkV,
+			"zone":         zoneV,
+			"manager_id":   managerIdV,
 		}
 		for _, v := range keyV {
 			if err := v.Validate(data); err != nil {
@@ -102,7 +115,8 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 			}
 		}
 	}
-	{
+	var region *SCloudregion
+	if addressTypeV.Value == LB_ADDR_TYPE_INTRANET {
 		network := networkV.Model.(*SNetwork)
 		if ipAddr := addressV.IP; ipAddr != nil {
 			ipS := ipAddr.String()
@@ -139,7 +153,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 			return nil, fmt.Errorf("getting zone failed")
 		}
 		data.Set("zone_id", jsonutils.NewString(zone.GetId()))
-		region := zone.GetRegion()
+		region = zone.GetRegion()
 		if region == nil {
 			return nil, fmt.Errorf("getting region failed")
 		}
@@ -147,15 +161,74 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		// TODO validate network is of classic type
 		data.Set("network_type", jsonutils.NewString(LB_NETWORK_TYPE_CLASSIC))
 		data.Set("address_type", jsonutils.NewString(LB_ADDR_TYPE_INTRANET))
-		if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
-			return nil, err
+	} else {
+		zone := zoneV.Model.(*SZone)
+		data.Set("zone_id", jsonutils.NewString(zone.GetId()))
+		region = zone.GetRegion()
+		if region == nil {
+			return nil, fmt.Errorf("getting region failed")
 		}
-		return region.GetDriver().ValidateCreateLoadbalancerData(ctx, userCred, data)
+		data.Set("vpc_id", jsonutils.NewString(""))
+		data.Set("address", jsonutils.NewString(""))
+		data.Set("network_id", jsonutils.NewString(""))
+		data.Set("manager_id", jsonutils.NewString(managerIdV.Model.GetId()))
+		data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
+		data.Set("network_type", jsonutils.NewString(LB_NETWORK_TYPE_VPC))
+		data.Set("address_type", jsonutils.NewString(LB_ADDR_TYPE_INTERNET))
 	}
+	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
+		return nil, err
+	}
+	return region.GetDriver().ValidateCreateLoadbalancerData(ctx, userCred, data)
 }
 
 func (lb *SLoadbalancer) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return lb.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, lb, "status")
+}
+
+func (lb *SLoadbalancer) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if _, err := lb.SVirtualResourceBase.PerformStatus(ctx, userCred, query, data); err != nil {
+		return nil, err
+	}
+	if lb.Status == LB_STATUS_ENABLED {
+		return nil, lb.StartLoadBalancerStartTask(ctx, userCred, "")
+	}
+	return nil, lb.StartLoadBalancerStopTask(ctx, userCred, "")
+}
+
+func (lb *SLoadbalancer) StartLoadBalancerStartTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerStartTask", lb, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (lb *SLoadbalancer) StartLoadBalancerStopTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerStopTask", lb, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (lb *SLoadbalancer) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, lb, "syncstatus")
+}
+
+func (lb *SLoadbalancer) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return nil, lb.StartLoadBalancerSyncstatusTask(ctx, userCred, "")
+}
+
+func (lb *SLoadbalancer) StartLoadBalancerSyncstatusTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerSyncstatusTask", lb, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (lb *SLoadbalancer) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -220,6 +293,52 @@ func (lb *SLoadbalancer) GetIRegion() (cloudprovider.ICloudRegion, error) {
 		return nil, fmt.Errorf("failed to find region for lb %s", lb.Name)
 	}
 	return provider.GetIRegionById(region.ExternalId)
+}
+
+func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.ICloudRegion) (*cloudprovider.SLoadbalancer, error) {
+	params := &cloudprovider.SLoadbalancer{
+		Name:             lb.Name,
+		Address:          lb.Address,
+		AddressType:      lb.AddressType,
+		ChargeType:       lb.ChargeType,
+		LoadbalancerSpec: lb.LoadbalancerSpec,
+	}
+	iRegion, err := lb.GetIRegion()
+	if err != nil {
+		return nil, err
+	}
+	if len(lb.ZoneId) > 0 {
+		zone := lb.GetZone()
+		if zone == nil {
+			return nil, fmt.Errorf("failed to find zone for lb %s", lb.Name)
+		}
+		iZone, err := iRegion.GetIZoneById(zone.ExternalId)
+		if err != nil {
+			return nil, err
+		}
+		params.ZoneID = iZone.GetId()
+	}
+	if lb.AddressType == LB_ADDR_TYPE_INTRANET {
+		vpc := lb.GetVpc()
+		if vpc == nil {
+			return nil, fmt.Errorf("failed to find vpc for lb %s", lb.Name)
+		}
+		iVpc, err := iRegion.GetIVpcById(vpc.ExternalId)
+		if err != nil {
+			return nil, err
+		}
+		params.VpcID = iVpc.GetId()
+		network := lb.GetNetwork()
+		if network == nil {
+			return nil, fmt.Errorf("failed to find network for lb %s", lb.Name)
+		}
+		iNetwork, err := network.GetINetwork()
+		if err != nil {
+			return nil, err
+		}
+		params.NetworkID = iNetwork.GetId()
+	}
+	return params, nil
 }
 
 func (lb *SLoadbalancer) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

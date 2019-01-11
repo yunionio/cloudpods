@@ -85,47 +85,24 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 		}
 	}
 	backendGroup := backendGroupV.Model.(*SLoadbalancerBackendGroup)
+	lb := backendGroup.GetLoadbalancer()
 	backendType := backendTypeV.Value
 	var baseName string
+	var backendV *validators.ValidatorModelIdOrName
 	switch backendType {
 	case LB_BACKEND_GUEST:
-		backendV := validators.NewModelIdOrNameValidator("backend", "server", ownerProjId)
+		backendV = validators.NewModelIdOrNameValidator("backend", "server", ownerProjId)
 		err := backendV.Validate(data)
 		if err != nil {
 			return nil, err
 		}
 		guest := backendV.Model.(*SGuest)
-		{
-			// guest zone must match that of loadbalancer's
-			host := guest.GetHost()
-			if host == nil {
-				return nil, fmt.Errorf("error getting host of guest %s", guest.GetId())
-			}
-			lb := backendGroup.GetLoadbalancer()
-			if lb == nil {
-				return nil, fmt.Errorf("error loadbalancer of backend group %s", backendGroup.GetId())
-			}
-			if host.ZoneId != lb.ZoneId {
-				return nil, fmt.Errorf("zone of host %q (%s) != zone of loadbalancer %q (%s)",
-					host.Name, host.ZoneId, lb.Name, lb.ZoneId)
-			}
-		}
-		{
-			// get guest intranet address
-			//
-			// NOTE add address hint (cidr) if needed
-			address, err := man.getGuestAddress(guest)
-			if err != nil {
-				return nil, err
-			}
-			data.Set("address", jsonutils.NewString(address))
-		}
 		baseName = guest.Name
 	case LB_BACKEND_HOST:
 		if !db.IsAdminAllowCreate(userCred, man) {
 			return nil, fmt.Errorf("only sysadmin can specify host as backend")
 		}
-		backendV := validators.NewModelIdOrNameValidator("backend", "host", userCred.GetProjectId())
+		backendV = validators.NewModelIdOrNameValidator("backend", "host", userCred.GetProjectId())
 		err := backendV.Validate(data)
 		if err != nil {
 			return nil, err
@@ -149,7 +126,10 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 	//  - Use name from input query
 	name := fmt.Sprintf("%s-%s-%s", backendGroup.Name, backendType, baseName)
 	data.Set("name", jsonutils.NewString(name))
-	return man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
+		return nil, err
+	}
+	return backendGroup.GetLoadbalancer().GetRegion().GetDriver().ValidateCreateLoadbalancerBackendData(ctx, userCred, data, backendType, lb, backendGroup, backendV.Model)
 }
 
 func (lbb *SLoadbalancerBackend) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -186,7 +166,7 @@ func (lbb *SLoadbalancerBackend) GetIRegion() (cloudprovider.ICloudRegion, error
 	return nil, fmt.Errorf("failed to find backendgroup for backend %s", lbb.Name)
 }
 
-func (man *SLoadbalancerBackendManager) getGuestAddress(guest *SGuest) (string, error) {
+func (man *SLoadbalancerBackendManager) GetGuestAddress(guest *SGuest) (string, error) {
 	gns := guest.GetNetworks()
 	if len(gns) == 0 {
 		return "", fmt.Errorf("guest %s has no network attached", guest.GetId())
@@ -222,7 +202,7 @@ func (lbb *SLoadbalancerBackend) PostCreate(ctx context.Context, userCred mcclie
 }
 
 func (lbb *SLoadbalancerBackend) StartLoadBalancerBackendCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerLoadbalancerBackendCreateTask", lbb, userCred, nil, parentTaskId, "", nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerBackendCreateTask", lbb, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
@@ -269,6 +249,13 @@ func (man *SLoadbalancerBackendManager) getLoadbalancerBackendsByLoadbalancerBac
 		return nil, err
 	}
 	return loadbalancerBackends, nil
+}
+
+func (lbb *SLoadbalancerBackend) ValidateDeleteCondition(ctx context.Context) error {
+	if err := lbb.SVirtualResourceBase.ValidateDeleteCondition(ctx); err != nil {
+		return err
+	}
+	return lbb.GetRegion().GetDriver().ValidateDeleteLoadbalancerBackendCondition(ctx, lbb)
 }
 
 func (man *SLoadbalancerBackendManager) SyncLoadbalancerBackends(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, loadbalancerBackendgroup *SLoadbalancerBackendGroup, lbbs []cloudprovider.ICloudLoadbalancerBackend, syncRange *SSyncRange) compare.SyncResult {
@@ -345,7 +332,7 @@ func (lbb *SLoadbalancerBackend) constructFieldsFromCloudLoadbalancerBackend(ext
 	}
 	guest := instance.(*SGuest)
 	lbb.BackendId = guest.Id
-	address, err := LoadbalancerBackendManager.getGuestAddress(guest)
+	address, err := LoadbalancerBackendManager.GetGuestAddress(guest)
 	if err != nil {
 		return err
 	}

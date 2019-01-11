@@ -698,12 +698,12 @@ func (region *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprov
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (region *SRegion) CreateILoadBalancerCertificate(name string, privateKey, certificate string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+func (region *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
-	params["ServerCertificateName"] = name
-	params["PrivateKey"] = privateKey
-	params["ServerCertificate"] = certificate
+	params["ServerCertificateName"] = cert.Name
+	params["PrivateKey"] = cert.PrivateKey
+	params["ServerCertificate"] = cert.Certificate
 	body, err := region.lbRequest("UploadServerCertificate", params)
 	if err != nil {
 		return nil, err
@@ -719,8 +719,8 @@ func (region *SRegion) GetILoadBalancerAclById(aclId string) (cloudprovider.IClo
 	return region.GetLoadbalancerAclDetail(aclId)
 }
 
-func (region *SRegion) GetILoadbalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
-	acls, err := region.GetLoadbalancerAcls()
+func (region *SRegion) GetILoadBalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
+	acls, err := region.GetLoadBalancerAcls()
 	if err != nil {
 		return nil, err
 	}
@@ -732,7 +732,7 @@ func (region *SRegion) GetILoadbalancerAcls() ([]cloudprovider.ICloudLoadbalance
 	return iAcls, nil
 }
 
-func (region *SRegion) GetILoadbalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
+func (region *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
 	certificates, err := region.GetLoadbalancerServerCertificates()
 	if err != nil {
 		return nil, err

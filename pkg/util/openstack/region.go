@@ -297,15 +297,15 @@ func (region *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprov
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (region *SRegion) CreateILoadBalancerCertificate(name string, privateKey, certificate string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+func (region *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (region *SRegion) GetILoadbalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
+func (region *SRegion) GetILoadBalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (region *SRegion) GetILoadbalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
+func (region *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 

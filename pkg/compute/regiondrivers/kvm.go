@@ -6,6 +6,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -45,6 +46,47 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendGroupData(ctx con
 	return data, nil
 }
 
+func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendType string, lb *models.SLoadbalancer, backendGroup *models.SLoadbalancerBackendGroup, backend db.IModel) (*jsonutils.JSONDict, error) {
+	switch backendType {
+	case models.LB_BACKEND_GUEST:
+		guest := backend.(*models.SGuest)
+		{
+			// guest zone must match that of loadbalancer's
+			host := guest.GetHost()
+			if host == nil {
+				return nil, fmt.Errorf("error getting host of guest %s", guest.GetId())
+			}
+
+			if lb == nil {
+				return nil, fmt.Errorf("error loadbalancer of backend group %s", backendGroup.GetId())
+			}
+			if host.ZoneId != lb.ZoneId {
+				return nil, fmt.Errorf("zone of host %q (%s) != zone of loadbalancer %q (%s)",
+					host.Name, host.ZoneId, lb.Name, lb.ZoneId)
+			}
+		}
+		{
+			// get guest intranet address
+			//
+			// NOTE add address hint (cidr) if needed
+			address, err := models.LoadbalancerBackendManager.GetGuestAddress(guest)
+			if err != nil {
+				return nil, err
+			}
+			data.Set("address", jsonutils.NewString(address))
+		}
+	}
+	return data, nil
+}
+
+func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
+	return data, nil
+}
+
+func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
+	return data, nil
+}
+
 func (self *SKVMRegionDriver) RequestCreateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		_, err := models.LoadbalancerManager.TableSpec().Update(lb, func() error {
@@ -72,12 +114,32 @@ func (self *SKVMRegionDriver) RequestCreateLoadbalancer(ctx context.Context, use
 	return nil
 }
 
+func (self *SKVMRegionDriver) RequestStartLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestStopLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestSyncstatusLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
 func (self *SKVMRegionDriver) RequestDeleteLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
 }
 
 func (self *SKVMRegionDriver) RequestCreateLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SLoadbalancerAcl, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestSyncLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SLoadbalancerAcl, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -131,6 +193,14 @@ func (self *SKVMRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Conte
 	return nil
 }
 
+func (self *SKVMRegionDriver) ValidateDeleteLoadbalancerBackendCondition(ctx context.Context, lbb *models.SLoadbalancerBackend) error {
+	return nil
+}
+
+func (self *SKVMRegionDriver) ValidateDeleteLoadbalancerBackendGroupCondition(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup) error {
+	return nil
+}
+
 func (self *SKVMRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
@@ -142,6 +212,31 @@ func (self *SKVMRegionDriver) RequestCreateLoadbalancerListener(ctx context.Cont
 }
 
 func (self *SKVMRegionDriver) RequestDeleteLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestStartLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestStopLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestSyncstatusLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestCreateLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, lbr *models.SLoadbalancerListenerRule, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestDeleteLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, lbr *models.SLoadbalancerListenerRule, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
 }

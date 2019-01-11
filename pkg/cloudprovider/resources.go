@@ -63,8 +63,8 @@ type ICloudRegion interface {
 	GetIStoragecacheById(id string) (ICloudStoragecache, error)
 
 	GetILoadBalancers() ([]ICloudLoadbalancer, error)
-	GetILoadbalancerAcls() ([]ICloudLoadbalancerAcl, error)
-	GetILoadbalancerCertificates() ([]ICloudLoadbalancerCertificate, error)
+	GetILoadBalancerAcls() ([]ICloudLoadbalancerAcl, error)
+	GetILoadBalancerCertificates() ([]ICloudLoadbalancerCertificate, error)
 
 	GetILoadBalancerById(loadbalancerId string) (ICloudLoadbalancer, error)
 	GetILoadBalancerAclById(aclId string) (ICloudLoadbalancerAcl, error)
@@ -72,7 +72,7 @@ type ICloudRegion interface {
 
 	CreateILoadBalancer(loadbalancer *SLoadbalancer) (ICloudLoadbalancer, error)
 	CreateILoadBalancerAcl(acl *SLoadbalancerAccessControlList) (ICloudLoadbalancerAcl, error)
-	CreateILoadBalancerCertificate(name string, privateKey, certificate string) (ICloudLoadbalancerCertificate, error)
+	CreateILoadBalancerCertificate(cert *SLoadbalancerCertificate) (ICloudLoadbalancerCertificate, error)
 
 	GetProvider() string
 }
@@ -413,11 +413,17 @@ type ICloudLoadbalancer interface {
 
 	Delete() error
 
-	GetILoadbalancerListeners() ([]ICloudLoadbalancerListener, error)
-	GetILoadbalancerBackendGroups() ([]ICloudLoadbalancerBackendGroup, error)
+	Start() error
+	Stop() error
 
-	CreateILoadBalancerBackendGroup(name string, groupType string, backends []SLoadbalancerBackend) (ICloudLoadbalancerBackendGroup, error)
-	GetILoadbalancerBackendGroupById(groupId string) (ICloudLoadbalancerBackendGroup, error)
+	GetILoadBalancerListeners() ([]ICloudLoadbalancerListener, error)
+	GetILoadBalancerBackendGroups() ([]ICloudLoadbalancerBackendGroup, error)
+
+	CreateILoadBalancerBackendGroup(group *SLoadbalancerBackendGroup) (ICloudLoadbalancerBackendGroup, error)
+	GetILoadBalancerBackendGroupById(groupId string) (ICloudLoadbalancerBackendGroup, error)
+
+	CreateILoadBalancerListener(listener *SLoadbalancerListener) (ICloudLoadbalancerListener, error)
+	GetILoadBalancerListenerById(listenerId string) (ICloudLoadbalancerListener, error)
 }
 
 type ICloudLoadbalancerListener interface {
@@ -446,6 +452,8 @@ type ICloudLoadbalancerListener interface {
 	GetHealthCheckDomain() string
 	GetHealthCheckURI() string
 	GetHealthCheckCode() string
+	CreateILoadBalancerListenerRule(rule *SLoadbalancerListenerRule) (ICloudLoadbalancerListenerRule, error)
+	GetILoadBalancerListenerRuleById(ruleId string) (ICloudLoadbalancerListenerRule, error)
 	GetILoadbalancerListenerRules() ([]ICloudLoadbalancerListenerRule, error)
 	GetStickySession() string
 	GetStickySessionType() string
@@ -458,6 +466,11 @@ type ICloudLoadbalancerListener interface {
 	GetCertificateId() string
 	GetTLSCipherPolicy() string
 	HTTP2Enabled() bool
+
+	Start() error
+	Stop() error
+
+	Delete() error
 }
 
 type ICloudLoadbalancerListenerRule interface {
@@ -466,6 +479,8 @@ type ICloudLoadbalancerListenerRule interface {
 	GetDomain() string
 	GetPath() string
 	GetBackendGroupId() string
+
+	Delete() error
 }
 
 type ICloudLoadbalancerBackendGroup interface {
@@ -475,7 +490,7 @@ type ICloudLoadbalancerBackendGroup interface {
 	GetType() string
 	GetILoadbalancerBackends() ([]ICloudLoadbalancerBackend, error)
 	AddBackendServer(serverId string, weight int, port int) (ICloudLoadbalancerBackend, error)
-	RemoveBackendServer(serverId string) error
+	RemoveBackendServer(serverId string, weight int, port int) error
 
 	Delete() error
 	Sync(name string) error
@@ -506,17 +521,7 @@ type ICloudLoadbalancerCertificate interface {
 type ICloudLoadbalancerAcl interface {
 	ICloudResource
 
-	// return array data like this:
-	// [
-	// 	{
-	// 		"cidr":"10.10.12.0/24",
-	// 		"comment":"test data"
-	// 	},
-	// 	{
-	// 		"cidr":"192.168.10.12",
-	// 		"comment":"test data2"
-	// 	}
-	// ]
-	GetAclEntries() *jsonutils.JSONArray
+	GetAclEntries() []SLoadbalancerAccessControlListEntry
+	Sync(acl *SLoadbalancerAccessControlList) error
 	Delete() error
 }

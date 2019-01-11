@@ -74,7 +74,7 @@ func (region *SRegion) AddBackendServer(loadbalancerId, serverId string, weight,
 	params["RegionId"] = region.RegionId
 	params["LoadBalancerId"] = loadbalancerId
 	servers := jsonutils.NewArray()
-	servers.Add(jsonutils.Marshal(map[string]string{"ServerId": serverId, "Weight": fmt.Sprintf("%d", weight*100/256)}))
+	servers.Add(jsonutils.Marshal(map[string]string{"ServerId": serverId, "Weight": fmt.Sprintf("%d", weight)}))
 	params["BackendServers"] = servers.String()
 	_, err := region.lbRequest("AddBackendServers", params)
 	return err
@@ -84,7 +84,7 @@ func (backendgroup *SLoadbalancerDefaultBackendGroup) AddBackendServer(serverId 
 	if err := backendgroup.lb.region.AddBackendServer(backendgroup.lb.LoadBalancerId, serverId, weight, port); err != nil {
 		return nil, err
 	}
-	return &SLoadbalancerDefaultBackend{lbbg: backendgroup, ServerId: serverId}, nil
+	return &SLoadbalancerDefaultBackend{lbbg: backendgroup, ServerId: serverId, Weight: weight}, nil
 }
 
 func (region *SRegion) RemoveBackendServer(loadbalancerId, serverId string) error {
@@ -98,6 +98,6 @@ func (region *SRegion) RemoveBackendServer(loadbalancerId, serverId string) erro
 	return err
 }
 
-func (backendgroup *SLoadbalancerDefaultBackendGroup) RemoveBackendServer(serverId string) error {
+func (backendgroup *SLoadbalancerDefaultBackendGroup) RemoveBackendServer(serverId string, weight, port int) error {
 	return backendgroup.lb.region.RemoveBackendServer(backendgroup.lb.LoadBalancerId, serverId)
 }

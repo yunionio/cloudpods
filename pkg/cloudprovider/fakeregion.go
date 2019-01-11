@@ -96,15 +96,15 @@ func (region *SFakeOnPremiseRegion) GetILoadBalancerCertificateById(certId strin
 	return nil, ErrNotSupported
 }
 
-func (region *SFakeOnPremiseRegion) CreateILoadBalancerCertificate(name string, privateKey, certificate string) (ICloudLoadbalancerCertificate, error) {
+func (region *SFakeOnPremiseRegion) CreateILoadBalancerCertificate(cert *SLoadbalancerCertificate) (ICloudLoadbalancerCertificate, error) {
 	return nil, ErrNotImplemented
 }
 
-func (region *SFakeOnPremiseRegion) GetILoadbalancerAcls() ([]ICloudLoadbalancerAcl, error) {
+func (region *SFakeOnPremiseRegion) GetILoadBalancerAcls() ([]ICloudLoadbalancerAcl, error) {
 	return nil, ErrNotSupported
 }
 
-func (region *SFakeOnPremiseRegion) GetILoadbalancerCertificates() ([]ICloudLoadbalancerCertificate, error) {
+func (region *SFakeOnPremiseRegion) GetILoadBalancerCertificates() ([]ICloudLoadbalancerCertificate, error) {
 	return nil, ErrNotSupported
 }
 

@@ -48,7 +48,7 @@ func init() {
 		printObject(lb)
 		return nil
 	})
-	R(&options.LoadbalancerDeleteOptions{}, "lb-delete", "Show lb", func(s *mcclient.ClientSession, opts *options.LoadbalancerDeleteOptions) error {
+	R(&options.LoadbalancerDeleteOptions{}, "lb-delete", "Delete lb", func(s *mcclient.ClientSession, opts *options.LoadbalancerDeleteOptions) error {
 		lb, err := modules.Loadbalancers.Delete(s, opts.ID, nil)
 		if err != nil {
 			return err

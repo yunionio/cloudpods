@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -241,4 +242,93 @@ func (region *SRegion) GetLoadbalancerHTTPSListener(loadbalancerId string, liste
 	}
 	listener := SLoadbalancerHTTPSListener{}
 	return &listener, body.Unmarshal(&listener)
+}
+
+func (region *SRegion) constructHTTPCreateListenerParams(params map[string]string, listener *cloudprovider.SLoadbalancerListener) map[string]string {
+	log.Errorf("listener: %s", jsonutils.Marshal(listener).PrettyString())
+	params["HealthCheck"] = listener.HealthCheck
+	if listener.HealthCheck == "on" {
+		if len(listener.HealthCheckURI) == 0 {
+			params["HealthCheckURI"] = "/"
+		}
+		//The HealthCheckTimeout parameter is required.
+		if listener.HealthCheckTimeout < 1 || listener.HealthCheckTimeout > 300 {
+			listener.HealthCheckTimeout = 5
+		}
+		params["HealthCheckTimeout"] = fmt.Sprintf("%d", listener.HealthCheckTimeout)
+	}
+	params["StickySession"] = listener.StickySession
+	params["StickySessionType"] = listener.StickySessionType
+	params["Cookie"] = listener.StickySessionCookie
+	if listener.StickySessionCookieTimeout < 1 || listener.StickySessionCookieTimeout > 86400 {
+		listener.StickySessionCookieTimeout = 500
+	}
+	params["CookieTimeout"] = fmt.Sprintf("%d", listener.StickySessionCookieTimeout)
+	params["ForwardPort"] = fmt.Sprintf("%d", listener.ForwardPort)
+	params["Gzip"] = "off"
+	if listener.Gzip {
+		params["Gzip"] = "on"
+	}
+	params["XForwardedFor"] = "off"
+	if listener.XForwardedFor {
+		params["XForwardedFor"] = "on"
+	}
+	return params
+}
+
+func (region *SRegion) CreateLoadbalancerHTTPSListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+	params := region.constructBaseCreateListenerParams(lb, listener)
+	params = region.constructHTTPCreateListenerParams(params, listener)
+	params["ServerCertificateId"] = listener.CertificateID
+	if len(listener.TLSCipherPolicy) > 0 {
+		params["TLSCipherPolicy"] = listener.TLSCipherPolicy
+	}
+	_, err := region.lbRequest("CreateLoadBalancerHTTPSListener", params)
+	if err != nil {
+		return nil, err
+	}
+	iListener, err := region.GetLoadbalancerHTTPSListener(lb.LoadBalancerId, listener.ListenerPort)
+	if err != nil {
+		return nil, err
+	}
+	iListener.lb = lb
+	return iListener, nil
+}
+
+func (listerner *SLoadbalancerHTTPSListener) Delete() error {
+	return listerner.lb.region.DeleteLoadbalancerListener(listerner.lb.LoadBalancerId, listerner.ListenerPort)
+}
+
+func (listerner *SLoadbalancerHTTPSListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SLoadbalancerListenerRule) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
+	_rule := &SLoadbalancerListenerRule{
+		Domain:   rule.Domain,
+		Url:      rule.Path,
+		RuleName: rule.Name,
+	}
+	if len(rule.BackendGroupID) > 0 { //&& rule.BackendGroupType == models.LB_BACKENDGROUP_TYPE_NORMAL {
+		_rule.VServerGroupId = rule.BackendGroupID
+	}
+	listenerRule, err := listerner.lb.region.CreateLoadbalancerListenerRule(listerner.ListenerPort, listerner.lb.LoadBalancerId, _rule)
+	if err != nil {
+		return nil, err
+	}
+	listenerRule.httpsListener = listerner
+	return listenerRule, nil
+}
+
+func (listerner *SLoadbalancerHTTPSListener) GetILoadBalancerListenerRuleById(ruleId string) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
+	rule, err := listerner.lb.region.GetLoadbalancerListenerRule(ruleId)
+	if err != nil {
+		return nil, err
+	}
+	rule.httpsListener = listerner
+	return rule, nil
+}
+
+func (listerner *SLoadbalancerHTTPSListener) Start() error {
+	return listerner.lb.region.startListener(listerner.ListenerPort, listerner.lb.LoadBalancerId)
+}
+
+func (listerner *SLoadbalancerHTTPSListener) Stop() error {
+	return listerner.lb.region.stopListener(listerner.ListenerPort, listerner.lb.LoadBalancerId)
 }

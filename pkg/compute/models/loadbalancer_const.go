@@ -40,10 +40,13 @@ const (
 	LB_STATUS_UNKNOWN        = "unknown"
 	LB_STATUS_RUNNING        = "running"
 	LB_STATUS_STOPPED        = "stopped"
+	LB_STATUS_START_FAILED   = "start_failed"
+	LB_STATUS_STOP_FAILED    = "stop_failed"
 	LB_STATUS_CONFIGURING    = "configuring" // config changes pending
 	LB_STATUS_STOPPING       = "stopping"
 	LB_STATUS_DELETE_PENDING = "delete_pending"
 	LB_STATUS_ERROR          = "error" // bad things happen
+
 )
 
 var LB_STATUS_SPEC = validators.NewChoices(

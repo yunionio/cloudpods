@@ -17,12 +17,28 @@ func (self *SBaseRegionDriver) RequestCreateLoadbalancer(ctx context.Context, us
 	return fmt.Errorf("Not Implement RequestCreateLoadbalancer")
 }
 
+func (self *SBaseRegionDriver) RequestStartLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestStartLoadbalancer")
+}
+
+func (self *SBaseRegionDriver) RequestStopLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestStopLoadbalancer")
+}
+
+func (self *SBaseRegionDriver) RequestSyncstatusLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestSyncstatusLoadbalancer")
+}
+
 func (self *SBaseRegionDriver) RequestDeleteLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestDeleteLoadbalancer")
 }
 
 func (self *SBaseRegionDriver) RequestCreateLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SLoadbalancerAcl, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestCreateLoadbalancerAcl")
+}
+
+func (self *SBaseRegionDriver) RequestSyncLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SLoadbalancerAcl, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestSyncLoadbalancerAcl")
 }
 
 func (self *SBaseRegionDriver) RequestDeleteLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SLoadbalancerAcl, task taskman.ITask) error {
@@ -59,4 +75,24 @@ func (self *SBaseRegionDriver) RequestCreateLoadbalancerListener(ctx context.Con
 
 func (self *SBaseRegionDriver) RequestDeleteLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestDeleteLoadbalancerListener")
+}
+
+func (self *SBaseRegionDriver) RequestStartLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestStartLoadbalancerListener")
+}
+
+func (self *SBaseRegionDriver) RequestStopLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestStopLoadbalancerListener")
+}
+
+func (self *SBaseRegionDriver) RequestSyncstatusLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestSyncstatusLoadbalancerListener")
+}
+
+func (self *SBaseRegionDriver) RequestCreateLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, lbr *models.SLoadbalancerListenerRule, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestCreateLoadbalancerListenerRule")
+}
+
+func (self *SBaseRegionDriver) RequestDeleteLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, lbr *models.SLoadbalancerListenerRule, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestDeleteLoadbalancerListenerRule")
 }

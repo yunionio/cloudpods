@@ -3,6 +3,7 @@ package aliyun
 import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type AclEntrys struct {
@@ -55,17 +56,17 @@ func (acl *SLoadbalancerAcl) Refresh() error {
 	return jsonutils.Update(acl, loadbalancerAcl)
 }
 
-func (acl *SLoadbalancerAcl) GetAclEntries() *jsonutils.JSONArray {
-	result := jsonutils.NewArray()
+func (acl *SLoadbalancerAcl) GetAclEntries() []cloudprovider.SLoadbalancerAccessControlListEntry {
 	detail, err := acl.region.GetLoadbalancerAclDetail(acl.AclId)
 	if err != nil {
 		log.Errorf("GetLoadbalancerAclDetail %s failed: %v", acl.AclId, err)
-		return result
+		return nil
 	}
+	entrys := []cloudprovider.SLoadbalancerAccessControlListEntry{}
 	for _, entry := range detail.AclEntrys.AclEntry {
-		result.Add(jsonutils.Marshal(map[string]string{"cidr": entry.AclEntryIP, "comment": entry.AclEntryComment}))
+		entrys = append(entrys, cloudprovider.SLoadbalancerAccessControlListEntry{CIDR: entry.AclEntryIP, Comment: entry.AclEntryComment})
 	}
-	return result
+	return entrys
 }
 
 func (region *SRegion) UpdateAclName(aclId, name string) error {
@@ -106,7 +107,7 @@ func (region *SRegion) GetLoadbalancerAclDetail(aclId string) (*SLoadbalancerAcl
 	return &detail, body.Unmarshal(&detail)
 }
 
-func (region *SRegion) GetLoadbalancerAcls() ([]SLoadbalancerAcl, error) {
+func (region *SRegion) GetLoadBalancerAcls() ([]SLoadbalancerAcl, error) {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
 	body, err := region.lbRequest("DescribeAccessControlLists", params)
@@ -115,4 +116,25 @@ func (region *SRegion) GetLoadbalancerAcls() ([]SLoadbalancerAcl, error) {
 	}
 	acls := []SLoadbalancerAcl{}
 	return acls, body.Unmarshal(&acls, "Acls", "Acl")
+}
+
+func (acl *SLoadbalancerAcl) Sync(_acl *cloudprovider.SLoadbalancerAccessControlList) error {
+	if acl.AclName != _acl.Name {
+		if err := acl.region.UpdateAclName(acl.AclId, _acl.Name); err != nil {
+			return err
+		}
+	}
+	entrys := jsonutils.NewArray()
+	for _, entry := range acl.AclEntrys.AclEntry {
+		entrys.Add(jsonutils.Marshal(map[string]string{"entry": entry.AclEntryIP, "comment": entry.AclEntryComment}))
+	}
+	if entrys.Length() > 0 {
+		if err := acl.region.RemoveAccessControlListEntry(acl.AclId, entrys); err != nil && !isError(err, "Acl does not have any entry") {
+			return err
+		}
+	}
+	if len(_acl.Entrys) > 0 {
+		return acl.region.AddAccessControlListEntry(acl.AclId, _acl.Entrys)
+	}
+	return nil
 }
