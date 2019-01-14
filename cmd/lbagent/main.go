@@ -17,7 +17,7 @@ func main() {
 	consts.SetServiceType("lbagent")
 
 	opts := &lbagent.Options{}
-	commonOpts := &opts.CommonOpts
+	commonOpts := &opts.CommonOptions
 	{
 		cloudcommon.ParseOptions(opts, commonOpts, os.Args, "lbagent.conf")
 		cloudcommon.InitAuth(commonOpts, func() {
