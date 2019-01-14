@@ -15,17 +15,21 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
+	"yunion.io/x/onecloud/pkg/util/version"
 )
 
 const (
@@ -38,11 +42,15 @@ const (
 
 type SKVMGuestInstance struct {
 	Id          string
+	cgroupId    string
 	QemuVersion string
+	VncPassword string
 
 	Desc    *jsonutils.JSONDict
 	Monitor monitor.Monitor
 	manager *SGuestManager
+
+	startupTask *SGuestResumeTask
 }
 
 func NewKVMGuestInstance(id string, manager *SGuestManager) *SKVMGuestInstance {
@@ -68,8 +76,7 @@ func (s *SKVMGuestInstance) HomeDir() string {
 }
 
 func (s *SKVMGuestInstance) PrepareDir() error {
-	_, err := exec.Command("mkdir", "-p", s.HomeDir()).Output()
-	return err
+	return exec.Command("mkdir", "-p", s.HomeDir()).Run()
 }
 
 func (s *SKVMGuestInstance) GetPidFilePath() string {
@@ -178,11 +185,10 @@ func (s *SKVMGuestInstance) DirtyServerRequestStart() {
 func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	data, ok := params.(*jsonutils.JSONDict)
 	if !ok {
-		log.Errorln("asyncScriptStart params error")
-		return nil, fmt.Errorf("Unknown params")
+		return nil, hostutils.ParamsError
 	}
 
-	// TODO hostinof.instace().clean_deleted_ports
+	hostbridge.CleanDeletedPorts()
 
 	time.Sleep(100 * time.Millisecond)
 	var isStarted, tried = false, 0
@@ -306,8 +312,11 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 
 func (s *SKVMGuestInstance) delayStartMonitor(ctx context.Context) {
 	if options.HostOptions.EnableQmpMonitor && s.GetQmpMonitorPort(-1) > 0 {
-		s.Monitor = monitor.NewQmpMonitor(s.onMonitorDisConnect, s.onMonitorTimeout,
-			func() { s.onMonitorConnected(ctx) })
+		s.Monitor = monitor.NewQmpMonitor(
+			s.onMonitorDisConnect,
+			func(err error) { s.onMonitorTimeout(ctx, err) },
+			func() { s.onMonitorConnected(ctx) },
+		)
 		s.Monitor.Connect("127.0.0.1", s.GetQmpMonitorPort(-1))
 	}
 }
@@ -338,11 +347,32 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 }
 
 func (s *SKVMGuestInstance) onMonitorDisConnect(err error) {
+	s.CleanStartupTask()
+	s.scriptStop()
+	if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
+		// TODO
+		// sync slave status
+	} else {
+		s.SyncStatus()
+	}
 	// TODO
+	// s.clearCgroup()
+	s.Monitor = nil
 }
 
-func (s *SKVMGuestInstance) onMonitorTimeout(err error) {
-	// TODO
+func (s *SKVMGuestInstance) CleanStartupTask() {
+	log.Infof("Clean startup task ...")
+	if s.startupTask != nil {
+		s.startupTask.Stop()
+		s.startupTask = nil
+	}
+}
+
+func (s *SKVMGuestInstance) onMonitorTimeout(ctx context.Context, err error) {
+	log.Errorf("Monitor connect timeout, VM %s frozen!! force restart!!!!", s.GetId())
+	s.ForceStop()
+	timeutils2.AddTimeout(time.Second*3,
+		func() { s.asyncScriptStart(ctx, jsonutils.NewDict()) })
 }
 
 func (s *SKVMGuestInstance) GetQmpMonitorPort(vncPort int) int {
@@ -390,17 +420,22 @@ func (s *SKVMGuestInstance) SyncStatus() {
 	hostutils.UpdateServerStatus(context.Background(), s.GetId(), status)
 }
 
+func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
+	var status = "running"
+	if jobs > 0 {
+		status = "block_stream"
+	}
+	_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), status)
+	if err != nil {
+		log.Errorln(err)
+	}
+}
+
 func (s *SKVMGuestInstance) SaveDesc(desc jsonutils.JSONObject) error {
-	// TODO
-	// bw_info = self._get_bw_info()
-	// netmon_info = self._get_netmon_info()
 	s.Desc = desc.(*jsonutils.JSONDict)
 	if err := fileutils2.FilePutContents(s.GetDescFilePath(), desc.String()); err != nil {
 		log.Errorln(err)
 	}
-	// TODO
-	// self._update_bw_limit(bw_info)
-	// self._update_netmon_nic(netmon_info)
 }
 
 func (s *SKVMGuestInstance) StartGuest(ctx context.Context, params jsonutils.JSONObject) {
@@ -424,7 +459,7 @@ func (s *SKVMGuestInstance) DeployFs(deployInfo *guestfs.SDeployInfo) (jsonutils
 func (s *SKVMGuestInstance) CleanGuest(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	migrated, ok := params.(bool)
 	if !ok {
-		return nil, fmt.Errorf("Unknown params")
+		return nil, hostutils.ParamsError
 	}
 	if err := s.StartDelete(ctx, migrated); err != nil {
 		return nil, err
@@ -709,4 +744,269 @@ func (s *SKVMGuestInstance) SyncConfig(ctx context.Context, desc jsonutils.JSONO
 
 	NewGuestSyncConfigTaskExecutor(ctx, s, tasks, callBack).Start(1)
 	return jsonutils.NewDict(jsonutils.JSONPair{"task", runTaskNames}), nil
+}
+
+func (s *SKVMGuestInstance) getApptags() []string {
+	var tags []string
+	meta, _ := s.Desc.Get("metadata")
+	if meta != nil && meta.Contains("app_tags") {
+		tagsStr, _ := meta.GetString("app_tags")
+		if len(tagsStr) > 0 {
+			return strings.Split(tagsStr, ",")
+		}
+	}
+	return tags
+}
+
+func (s *SKVMGuestInstance) getStorageDeviceId() string {
+	disks, _ := s.Desc.GetArray("disks")
+	if len(disks) > 0 {
+		diskPath, _ := disks[0].GetString("path")
+		if len(diskPath) > 0 {
+			return fileutils2.GetDevId(diskPath)
+		}
+	}
+	return ""
+}
+
+func (s *SKVMGuestInstance) SetCgroup() {
+	s.cgroupId = s.GetPid()
+	s.setCgroupIo()
+	s.setCgroupCpu()
+}
+
+func (s *SKVMGuestInstance) setCgroupIo() {
+	appTags := s.getApptags()
+	params := map[string]int{}
+	if utils.IsInStringArray("io_hardlimit", appTags) {
+		devId := s.getStorageDeviceId()
+		if len(devId) == 0 {
+			log.Errorln("failed to get device ID (MAJOR:MINOR)")
+			return
+		}
+		params["blkio.throttle.read_bps_device"] = options.HostOptions.DefaultReadBpsPerCpu
+		params["blkio.throttle.read_iops_device"] = options.HostOptions.DefaultReadIopsPerCpu
+		params["blkio.throttle.write_bps_device"] = options.HostOptions.DefaultWriteBpsPerCpu
+		params["blkio.throttle.write_iops_device"] = options.HostOptions.DefaultWriteIopsPerCpu
+		cpu, _ := s.Desc.Int("cpu")
+		cgrouputils.CgroupIoHardlimitSet(s.cgroupId, int(cpu), params, devId)
+	}
+}
+
+func (s *SKVMGuestInstance) setCgroupCpu() {
+	cpu, _ := s.Desc.Int("cpu")
+	cgrouputils.CgroupSet(s.cgroupId, int(cpu))
+
+	// TODO XXX
+	/*
+		var (
+			cpuWeight = 1024
+			cpuPeriod = 0
+			cpuQuota  = 0
+			appTags   = s.getApptags()
+			meta, _   = s.Desc.Get("metadata")
+		)
+
+		if meta != nil {
+			if meta.Contains("__cpu_weight") {
+				cpuWeight, _ = meta.Int("__cpu_weight")
+			}
+			if meta.Contains("__cpu_period") {
+				cpuPeriod, _ = meta.Int("__cpu_period")
+			} else {
+				cpuPeriod = -1
+			}
+			if meta.Contains("__cpu_quota") {
+				cpuQuota, _ = meta.Int("__cpu_quota")
+			} else {
+				cpuQuota = -1
+			}
+		}
+	*/
+}
+
+func (s *SKVMGuestInstance) CreateFromDesc(desc jsonutils.JSONObject) error {
+	if !s.PrepareDir() {
+		uuid, _ := desc.GetString("uuid")
+		return fmt.Errorf("Failed to create server dir %s", uuid)
+	}
+	return s.SaveDesc(desc)
+}
+
+func (s *SKVMGuestInstance) GetNeedMergeBackingFileDiskIndexs() []int {
+	res := make([]int, 0)
+	disks, _ := s.Desc.GetArray("disks")
+	for _, disk := range disks {
+		if jsonutils.QueryBoolean(disk, "merge_snapshot", false) {
+			diskIdx, _ := disk.Int("index")
+			res = append(res, int(diskIdx))
+		}
+	}
+	return res
+}
+
+func (s *SKVMGuestInstance) streamDisksComplete(ctx context.Context) {
+	disks, _ := s.Desc.GetArray("disks")
+	for i, disk := range disks {
+		diskpath, _ := disk.GetString("path")
+		d := storageman.GetManager().GetDiskByPath(diskPath)
+		if d != nil {
+			d.PostCreateFromImageFuse()
+		}
+		if jsonutils.QueryBoolean(disk, "merge_snapshot", false) {
+			d := disks[i].(*jsonutils.JSONDict)
+			d.Set("merge_snapshot", jsonutils.JSONFalse)
+		}
+	}
+	s.SaveDesc(s.Desc)
+	_, err := modules.Servers.PerformAction(ctx, s.GetId(), "stream-disks-complete", nil)
+	if err != nil {
+		log.Infof("stream disks complete sync error %s", err)
+	}
+}
+
+func (s *SKVMGuestInstance) GetQemuVersionStr() string {
+	return s.QemuVersion
+}
+
+func (s *SKVMGuestInstance) SyncMetadata(meta *jsonutils.JSONDict) {
+	_, err := modules.Servers.SetMetadata(hostutils.GetComputeSession(context.Background()),
+		s.GetId(), meta)
+	if err != nil {
+		log.Errorln(err)
+	}
+}
+
+func (s *SKVMGuestInstance) SetVncPassword() {
+	password := seclib.RandomPassword(8)
+	s.VncPassword = password
+	timeutils2.AddTimeout(time.Second*3,
+		func() { s.Monitor.SetVncPassword(s.GetVdiProtocol(), password, nil) })
+}
+
+func (s *SKVMGuestInstance) ListStateFilePaths() []string {
+	var ret = []string{}
+	if fileutils2.Exists(s.HomeDir()) {
+		files, err := ioutil.ReadDir(s.HomeDir())
+		if err != nil {
+			log.Errorln(err)
+			return nil
+		}
+		for _, f := range files {
+			if strings.HasPrefix(f.Name(), STATE_FILE_PREFIX) {
+				ret = append(ret, path.Join(s.HomeDir(), f.Name()))
+			}
+		}
+	}
+	return ret
+}
+
+// 好像不用了
+func (s *SKVMGuestInstance) CleanStatefiles() {
+	for _, stateFile := range s.ListStateFilePaths() {
+		if err := exec.Command("mountpoint", stateFile).Run(); err == nil {
+			if err = exec.Command("umount", stateFile).Run(); err != nil {
+				log.Errorln(err)
+			}
+		}
+		if err := exec.Command("rm", "-rf", stateFile).Run(); err != nil {
+			log.Errorln(err)
+		}
+	}
+	if err := exec.Command("rm", "-rf", s.GetFuseTmpPath()); err != nil {
+		log.Errorln(err)
+	}
+}
+
+func (s *SKVMGuestInstance) GetFuseTmpPath() string {
+	return path.Join(s.HomeDir(), "tmp")
+}
+
+func (s *SKVMGuestInstance) StreamDisks(ctx context.Context, callback func(), disksIdx []int) {
+	log.Infof("Start guest block stream task ...")
+	task := NewGuestStreamDisksTask(ctx, s, callback, disksIdx)
+	task.Start()
+}
+
+func (s *SKVMGuestInstance) isLiveSnapshotEnabled() bool {
+	if version.GE(s.QemuVersion, "2.12.1") {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (s *SKVMGuestInstance) ExecReloadDiskTask(ctx context.Context, disk storageman.IDisk) (jsonutils.JSONObject, error) {
+	if s.IsRunning() {
+		if s.isLiveSnapshotEnabled() {
+			task := NewGuestReloadDiskTask(ctx, s, disk)
+			task.WaitSnapshotReplaced(task.Start)
+			return nil, nil
+		} else {
+			return nil, fmt.Errorf("Guest dosen't support reload disk")
+		}
+	} else {
+		return jsonutils.NewDict(jsonutils.JSONPair{"reopen", jsonutils.JSONTrue}), nil
+	}
+}
+
+func (s *SKVMGuestInstance) ExecDiskSnapshotTask(
+	ctx context.Context, disk storageman.IDisk, snapshotId string,
+) (jsonutils.JSONObject, error) {
+	if s.IsRunning() {
+		if !s.isLiveSnapshotEnabled() {
+			return nil, fmt.Errorf("Guest dosen't support live snapshot")
+		}
+		err := disk.CreateSnapshot(snapshotId)
+		if err != nil {
+			return nil, err
+		}
+		task := NewGuestDiskSnapshotTask(ctx, s, disk, snapshotId)
+		task.Start()
+		return nil, nil
+	} else {
+		return s.StaticSaveSnapshot(ctx, disk, snapshotId)
+	}
+}
+
+func (s *SKVMGuestInstance) StaticSaveSnapshot(
+	ctx context.Context, disk storageman.IDisk, snapshotId string,
+) (jsonutils.JSONObject, error) {
+	err := disk.CreateSnapshot(snapshotId)
+	if err != nil {
+		return nil, err
+	}
+	location := path.Join(disk.GetSnapshotDir(), snapshotId)
+	return jsonutils.NewDict(jsonutils.JSONPair{"localtion",
+		jsonutils.NewString(snapshotLocation)}), nil
+}
+
+func (s *SKVMGuestInstance) ExecDeleteSnapshotTask(
+	ctx context.Context, disk storageman.IDisk,
+	deleteSnapshot string, convertSnapshot string, pendingDelete bool,
+) (jsonutils.JSONObject, error) {
+	if s.IsRunning() {
+		if s.isLiveSnapshotEnabled() {
+			task := NewGuestSnapshotDeleteTask(ctx, s, disk,
+				deleteSnapshot, convertSnapshot, pendingDelete)
+			task.Start()
+			return nil, nil
+		} else {
+			return nil, fmt.Errorf("Guest dosen't support live snapshot delete")
+		}
+	} else {
+		return s.deleteStaticSnapshotFile(ctx, disk, deleteSnapshot,
+			convertSnapshot, pendingDelete)
+	}
+}
+
+func (s *SKVMGuestInstance) deleteStaticSnapshotFile(
+	ctx context.Context, disk storageman.IDisk,
+	deleteSnapshot string, convertSnapshot string, pendingDelete bool,
+) (jsonutils.JSONObject, error) {
+	if err := disk.DeleteSnapshot(deleteSnapshot, convertSnapshot, pendingDelete); err != nil {
+		log.Errorln(err)
+		return nil, err
+	}
+	return jsonutils.NewDict(jsonutils.JSONPair{"localtion", jsonutils.JSONTrue}), nil
 }

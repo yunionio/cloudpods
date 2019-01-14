@@ -12,6 +12,8 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/nbd"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 )
@@ -32,7 +34,7 @@ func NewKVMGuestDisk(imagePath string) *SKVMGuestDisk {
 }
 
 func (d *SKVMGuestDisk) Connect() bool {
-	d.nbdDev = nbdManager.AcquireNbddev()
+	d.nbdDev = nbd.GetNBDManager().AcquireNbddev()
 	if len(d.nbdDev) == 0 {
 		log.Errorln("Cannot get nbd device")
 		return false
@@ -111,7 +113,7 @@ func (d *SKVMGuestDisk) Disconnect() bool {
 			log.Errorln(err.Error())
 			return false
 		}
-		nbdManager.ReleaseNbddev(d.nbdDev)
+		nbd.GetNBDManager().ReleaseNbddev(d.nbdDev)
 		d.nbdDev = ""
 		d.partitions = d.partitions[len(d.partitions):]
 		return true
@@ -120,7 +122,7 @@ func (d *SKVMGuestDisk) Disconnect() bool {
 	}
 }
 
-func (d *SKVMGuestDisk) Mount() guestfs.IRootFsDriver {
+func (d *SKVMGuestDisk) Mount() fsdriver.IRootFsDriver {
 	for i := 0; i < len(d.partitions); i++ {
 		if d.partitions[i].Mount() {
 			if fs := guestfs.DetectRootFs(d.partitions[i]); fs != nil {
@@ -134,7 +136,7 @@ func (d *SKVMGuestDisk) Mount() guestfs.IRootFsDriver {
 	return nil
 }
 
-func (d *SKVMGuestDisk) Umount(fd guestfs.IRootFsDriver) {
+func (d *SKVMGuestDisk) Umount(fd fsdriver.IRootFsDriver) {
 	if part := fd.GetPartition(); part != nil {
 		part.Umount()
 	}
@@ -150,4 +152,12 @@ func (d *SKVMGuestDisk) FormatPartition(fs, uuid string) error {
 
 func (d *SKVMGuestDisk) ResizePartition() error {
 	return fileutils2.ResizeDiskFs(d.nbdDev, 0)
+}
+
+func (d *SKVMGuestDisk) Zerofree() {
+	startTime := time.Now()
+	for _, part := range d.partitions {
+		part.Zerofree()
+	}
+	log.Infof("Zerofree takes %f seconds", time.Now().Sub(startTime).Seconds())
 }

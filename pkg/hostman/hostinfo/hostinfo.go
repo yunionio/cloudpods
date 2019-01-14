@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
@@ -41,6 +42,7 @@ var (
 
 type SHostInfo struct {
 	isRegistered bool
+	IsRegistered chan struct{}
 
 	kvmModuleSupport string
 	nestStatus       string
@@ -63,6 +65,21 @@ type SHostInfo struct {
 	FullName string
 }
 
+func (h *SHostInfo) GetZone() string {
+	return h.Zone
+}
+
+func (h *SHostInfo) GetHostInd() string {
+	return h.HostId
+}
+
+func (h *SHostInfo) GetMediumType() string {
+	if h.sysinfo != nil {
+		return h.sysinfo.StorageType
+	}
+	return ""
+}
+
 func (h *SHostInfo) IsKvmSupport() bool {
 	if h.kvmModuleSupport == KVM_MODULE_UNSUPPORT {
 		return false
@@ -74,7 +91,7 @@ func (h *SHostInfo) IsNestedVirtualization() bool {
 	return utils.IsInStringArray("hypervisor", h.Cpu.cpuFeatures)
 }
 
-func (h *SHostInfo) Start() error {
+func (h *SHostInfo) Init() error {
 	if err := h.prepareEnv(); err != nil {
 		return err
 	}
@@ -110,13 +127,10 @@ func (h *SHostInfo) parseConfig() error {
 		h.Nics[i].SetupDhcpRelay()
 	}
 
-	// if err := storageman.Init(); err != nil {
-	// 	return err
-	// }
-	// h.storageManager, err = storageman.NewStorageManager()
-	// if err != nil {
-	// 	return err
-	// }
+	if err := storageman.Init(h); err != nil {
+		return err
+	}
+
 	// TODO
 	// h.IsolatedDeviceMan = IsolatedDeviceManager()
 
@@ -165,10 +179,9 @@ func (h *SHostInfo) prepareEnv() error {
 		e := err.(*exec.ExitError)
 		log.Errorln(e.Stderr)
 	}
-	// TODO: cgrouputils 还未实现
-	// if !cgrouputils.Init() {
-	// 	return fmt.Errorf("Cannot initialize control group subsystem")
-	// }
+	if !cgrouputils.Init() {
+		return fmt.Errorf("Cannot initialize control group subsystem")
+	}
 
 	_, err = exec.Command("rmmod", "nbd").Output()
 	if err != nil {
@@ -642,7 +655,6 @@ func (h *SHostInfo) register() {
 }
 
 func (h *SHostInfo) onFail() {
-	// log.Errorln("register failed, try 30 seconds later...")
 	h.StartRegister(30)
 	panic("register failed, try 30 seconds later...")
 }
@@ -793,12 +805,41 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 		log.Errorln(err)
 		h.onFail()
 	} else {
-		hostbody, _ := res.Get("host")
-		h.HostId, _ = hostbody.GetString("id")
-		hostname, _ := hostbody.GetString("name")
-		h.setHostname(hostname)
+		h.onUpdateHostInfoSucc(res)
+	}
+}
+
+func (h *SHostInfo) onUpdateHostInfoSucc(body jsonutils.JSONObject) {
+	hostbody, _ := body.Get("host")
+	h.HostId, _ = hostbody.GetString("id")
+	hostname, _ := hostbody.GetString("name")
+	h.setHostname(hostname)
+	if memReserved, _ := hostbody.Int("mem_reserved"); memReserved == 0 {
+		h.updateHostReservedMem()
+	} else {
 		h.putHostOffline()
 	}
+}
+
+func (h *SHostInfo) updateHostReservedMem() {
+	content := jsonutils.NewDict()
+	content.Set("mem_reserved", jsonutils.NewInt(h.getReservedMem()))
+	res, err := modules.Hosts.Update(hostutils.GetComputeSession(context.Background()),
+		h.HostId, content)
+	if err != nil {
+		log.Errorln(err)
+		h.onFail()
+	} else {
+		h.onUpdateHostInfoSucc(res)
+	}
+}
+
+func (h *SHostInfo) getReservedMem() int64 {
+	reserved := h.Mem.MemInfo.Total / 10
+	if reserved > 4096 {
+		return 4096
+	}
+	return int64(reserved)
 }
 
 func (h *SHostInfo) putHostOffline() {
@@ -955,9 +996,115 @@ func (h *SHostInfo) getStoragecacheInfo() {
 				log.Errorln(err)
 				h.onFail()
 			} else {
-
+				scid, _ := sc.GetString("id")
+				storageman.GetManager().
+					LocalStorageImagecacheManager.SetStoragecacheId(scid)
+				h.getStorageInfo()
 			}
+		} else {
+			scid, _ := res.Data[0].GetString("id")
+			storageman.GetManager().
+				LocalStorageImagecacheManager.SetStoragecacheId(scid)
+			h.getStorageInfo()
 		}
+	}
+}
+
+func (h *SHostInfo) getStorageInfo() {
+	params := jsonutils.NewDict()
+	params.Set("details", jsonutils.JSONTrue)
+	params.Set("limit", jsonutils.NewInt(0))
+	res, err := modules.Hoststorages.ListAscendent(
+		hostutils.GetComputeSession(context.Background()),
+		h.HostId, params)
+	if err != nil {
+		log.Errorln(err)
+		h.onFail()
+	} else {
+		h.onGetStorageInfoSucc(res.Data)
+	}
+}
+
+func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
+	var detachStorages = []jsonutils.JSONObject{}
+	for _, hs := range hoststorages {
+		mountPoint, _ := hs.GetString("mount_point")
+		storagecacheId, _ := hs.GetString("storagecache_id")
+		storagetype, _ := hs.GetString("storage_type")
+		storageManager := storageman.GetManager()
+		imagecachePath, _ := hs.GetString("imagecache_path")
+		storageId, _ := hs.GetString("storage_id")
+		storageName, _ := hs.GetString("storage")
+		storageConf, _ := hs.Get("storage_conf")
+
+		storage := storageManager.NewSharedStorageInstance(mountPoint, storagetype)
+		if s != nil {
+			storageManager.Storages = append(storageManager.Storages, s)
+		}
+		storageManager.InitStorageImageCache(storagetype, storagecacheId, imagecachePath, s)
+		storage = storageManager.GetStorageByPath(mountPoint)
+		if storage != nil {
+			storage.SetStorageInfo(storageId, storageName, storageConf)
+		} else if storagetype != storagetypes.STORAGE_BAREMETAL {
+			detachStorages = append(detachStorages, hs)
+		}
+	}
+
+	if len(detachStorages) > 0 {
+		go StartDetachStorages(detachStorages)
+	}
+
+	h.uploadStorageInfo()
+}
+
+func (h *SHostInfo) uploadStorageInfo() {
+	for _, s := range storageman.GetManager().Storages {
+		res, err := s.SyncStorageInfo()
+		if err != nil {
+			log.Errorln(err)
+			h.onFail()
+		} else {
+			h.onSyncStorageInfoSucc(s, res)
+		}
+	}
+	// TODO
+	h.getIsolatedDevices()
+}
+
+func (h *SHostInfo) onSyncStorageInfoSucc(storage storageman.IStorage, storageInfo jsonutils.JSONObject) {
+	if len(storage.GetId()) > 0 {
+		id, _ := storageInfo.GetString("id")
+		name, _ := storageInfo.GetString("name")
+		storageConf, _ := storageInfo.Get("storage_conf")
+		storage.SetStorageInfo(id, name, storageConf)
+		h.attachStorage(storage)
+	}
+}
+
+func (h *SHostInfo) attachStorage(storage storageman.IStorage) {
+	content := jsonutils.NewDict()
+	content.Set("mount_point", jsonutils.NewString(storage.GetPath()))
+	_, err := modules.Hoststorages.Attach(hostutils.GetComputeSession(context.Background()),
+		h.HostId, storage.GetId(), content)
+	if err != nil {
+		log.Errorln(err)
+		h.onFail()
+	}
+}
+
+func (h *SHostInfo) onSucc() {
+	if !h.isRegistered {
+		log.Infof("Host registration process success....")
+		h.isRegistered = true
+
+		// TODO
+		h.save()
+
+		// TODO
+		h.StartPinger()
+
+		// To notify caller, host register is success
+		close(h.IsRegistered)
 	}
 }
 
@@ -977,22 +1124,20 @@ func NewHostInfo() (*SHostInfo, error) {
 	} else {
 		res.Mem = mem
 	}
+
+	res.Nics = make([]*SNIC, 0)
+	res.IsRegistered = make(chan struct{})
 	return res, nil
 }
 
 var hostInfo *SHostInfo
 
-func Init() error {
-	hostInfo, err := NewHostInfo()
-	if err != nil {
-		return err
-	}
-	return hostInfo.Start()
-}
-
 func Instance() *SHostInfo {
 	if hostInfo == nil {
-		panic("Get nil hostinfo, Init first")
+		hostInfo, err := NewHostInfo()
+		if err != nil {
+			log.Fatalf(err)
+		}
 	}
 	return hostInfo
 }

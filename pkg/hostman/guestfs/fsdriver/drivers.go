@@ -1,8 +1,12 @@
-package guestfs
+package fsdriver
 
 type newRootFsDriverFunc func(part IDiskPartition) IRootFsDriver
 
 var rootfsDrivers = make([]newRootFsDriverFunc, 0)
+
+func GetRootfsDrivers() []newRootFsDriverFunc {
+	return rootfsDrivers
+}
 
 func init() {
 	linuxFsDrivers := []newRootFsDriverFunc{

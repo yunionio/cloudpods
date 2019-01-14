@@ -2,6 +2,7 @@ package hostinfo
 
 import (
 	"bufio"
+	"context"
 	"os"
 	"os/exec"
 	"regexp"
@@ -11,13 +12,17 @@ import (
 
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostdhcp"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
@@ -166,7 +171,7 @@ type SNIC struct {
 	WireId  string
 
 	Bandwidth  int
-	BridgeDev  IBridgeDriver
+	BridgeDev  hostbridge.IBridgeDriver
 	dhcpServer *hostdhcp.SGuestDHCPServer
 }
 
@@ -224,9 +229,9 @@ func NewNIC(desc string) (*SNIC, error) {
 		}
 	}
 
-	// default openvswitch
 	var err error
-	nic.BridgeDev, err = NewDriver(options.HostOptions.BridgeDriver,
+
+	nic.BridgeDev, err = hostbridge.NewDriver(options.HostOptions.BridgeDriver,
 		nic.Bridge, nic.Inter, nic.Ip)
 	if err != nil {
 		log.Errorln(err)
@@ -269,4 +274,21 @@ type SSysInfo struct {
 	OvsVersion     string `json:"ovs_version"`
 
 	StorageType string `json:"storage_type"`
+}
+
+func StartDetachStorages(hs []jsonutils.JSONObject) {
+	for len(hs) > 0 {
+		hostId, _ := hs[0].GetString("host_id")
+		storageId, _ := hs[0].GetString("storage_id")
+		_, err := modules.Hoststorages.Detach(
+			hostutils.GetComputeSession(context.Background()),
+			hostId, storageId)
+		if err != nil {
+			log.Errorf("Host %s detach storage %s failed: %s",
+				hostId, storageId, err)
+			time.Sleep(30 * time.Second)
+		} else {
+			hs = hs[1:]
+		}
+	}
 }

@@ -80,6 +80,14 @@ func (s *SKVMGuestInstance) isQ35() bool {
 	return s.getMachine() == "q35"
 }
 
+func (s *SKVMGuestInstance) GetVdiProtocol() string {
+	vdi, err := s.Desc.GetString("vdi")
+	if err != nil {
+		vdi = "vnc"
+	}
+	return vdi
+}
+
 func (s *SKVMGuestInstance) GetPciBus() string {
 	if s.isQ35() {
 		return "pcie.0"
@@ -419,6 +427,8 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) string
 		// else:
 		//     cmd += ' -vga %s' % self.desc.get('vga', 'std')
 		// cmd += ' -vnc :%d' % (vnc_port)
+		//             if options.set_vnc_password:
+		// cmd += ',password'
 	}
 
 	var diskDrivers = []string{}
@@ -510,7 +520,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) string
 	return cmd
 }
 
-func generateStartScript(data *jsonutils.JSONDict) string {
+func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string {
 	var (
 		uuid, _ = s.Desc.GetString("uuid")
 		nics, _ = s.Desc.GetArray("nics")

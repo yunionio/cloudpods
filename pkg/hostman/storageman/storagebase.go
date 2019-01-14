@@ -9,6 +9,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 )
 
 var (
@@ -20,8 +21,13 @@ type IStorage interface {
 	GetId() string
 	GetZone() string
 
+	SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject)
+	SyncStorageInfo()
 	StorageType() string
+
+	SetPath(string)
 	GetPath() string
+	GetSnapshotDir() string
 	GetFreeSizeMb() int
 	GetCapacity() int
 
@@ -30,9 +36,13 @@ type IStorage interface {
 	CreateDisk(diskId string) IDisk
 	RemoveDisk(IDisk)
 
-	DeleteDisk(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
+	// DeleteDisk(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
+
 	// *SDiskCreateByDiskinfo
 	CreateDiskByDiskinfo(context.Context, interface{}) (jsonutils.JSONObject, error)
+	SaveToGlance(context.Context, interface{}) (jsonutils.JSONObject, error)
+
+	CreateSnapshotFormUrl(ctx context.Context, snapshotUrl, diskId, snapshotPath string) error
 
 	DeleteDiskfile(diskPath string) error
 	GetFuseTmpPath() string
@@ -68,6 +78,10 @@ func (s *SBaseStorage) GetPath() string {
 	return s.Path
 }
 
+func (s *SBaseStorage) SetPath(p string) {
+	s.Path = p
+}
+
 func (s *SBaseStorage) GetZone() string {
 	return s.Manager.GetZone()
 }
@@ -78,6 +92,10 @@ func (s *SBaseStorage) GetCapacity() int {
 
 func (s *SBaseStorage) GetAvailSizeMb() int {
 	return s.GetTotalSizeMb()
+}
+
+func (s *SBaseStorage) GetMediumType() string {
+	return s.Manager.GetMediumType()
 }
 
 func (s *SBaseStorage) GetFreeSizeMb() int {
@@ -100,6 +118,12 @@ func (s *SBaseStorage) GetTotalSizeMb() int {
 	return int(stat.Blocks * uint64(stat.Bsize) / 1024 / 1024)
 }
 
+func (s *SBaseStorage) SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject) {
+	s.StorageId = storageId
+	s.StorageName = storageName
+	s.StorageConf = conf.(*jsonutils.JSONDict)
+}
+
 func (s *SBaseStorage) RemoveDisk(d IDisk) {
 	s.DiskLock.Lock()
 	defer s.DiskLock.Unlock()
@@ -107,6 +131,7 @@ func (s *SBaseStorage) RemoveDisk(d IDisk) {
 	for i := 0; i < len(s.Disks); i++ {
 		if s.Disks[i].GetId() == d.GetId() {
 			s.Disks = append(s.Disks[:i], s.Disks[i+1:]...)
+			break
 		}
 	}
 }
@@ -118,7 +143,7 @@ func (s *SBaseStorage) DeleteDiskfile(diskpath string) error {
 func (s *SBaseStorage) CreateDiskByDiskinfo(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	createParams, ok := params.(*SDiskCreateByDiskinfo)
 	if !ok {
-		return nil, fmt.Errorf("Unknown params")
+		return nil, hostutils.ParamsError
 	}
 
 	if createParams.Disk != nil {

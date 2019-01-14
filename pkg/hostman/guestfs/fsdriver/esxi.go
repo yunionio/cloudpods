@@ -1,4 +1,4 @@
-package guestfs
+package fsdriver
 
 type SEsxiRootFs struct {
 	*sGuestRootFsDriver

@@ -1,4 +1,4 @@
-package hostinfo
+package hostbridge
 
 import (
 	"fmt"
@@ -11,6 +11,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
+	"yunion.io/x/onecloud/pkg/util/ovsutils"
 )
 
 type IBridgeDriver interface {
@@ -21,13 +22,6 @@ type IBridgeDriver interface {
 
 	GetMac() string
 }
-
-/*
-   def get_mac(self):
-       if self._bridge.mac is None:
-           self._bridge.fetch_config()
-       return self._bridge.mac
-*/
 
 type SBaseBridgeDriver struct {
 	bridge *netutils2.SNetInterface
@@ -261,6 +255,10 @@ func (o *SOVSBridgeDriver) SetupBridgeDev() error {
 	return nil
 }
 
+func CleanOvsBridge() {
+	ovsutils.CleanAllHiddenPorts()
+}
+
 func NewOVSBridgeDriver(bridge, inter, ip string) (*SOVSBridgeDriver, error) {
 	base, err := NewBaseBridgeDriver(bridge, inter, ip)
 	if err != nil {
@@ -274,5 +272,11 @@ func NewDriver(bridgeDriver, bridge, inter, ip string) (IBridgeDriver, error) {
 		return NewOVSBridgeDriver(bridge, inter, ip)
 	} else {
 		return nil, fmt.Errorf("Not Implentment")
+	}
+}
+
+func CleanDeletedPorts() {
+	if options.HostOptions.BridgeDriver == "openvswitch" {
+		CleanOvsBridge()
 	}
 }

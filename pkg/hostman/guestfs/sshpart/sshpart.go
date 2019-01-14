@@ -16,6 +16,7 @@ import (
 	"yunion.io/x/onecloud/pkg/baremetal/utils/disktool"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 	stringutils "yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -98,13 +99,15 @@ func (p *SSHPartition) osPathExists(path string) bool {
 	return true
 }
 
-func (p *SSHPartition) Mount() error {
+func (p *SSHPartition) Mount() bool {
 	if err := p.osMkdirP(p.mountPath, 0); err != nil {
-		return err
+		log.Errorf("SSHPartition mount error: %s", err)
+		return false
 	}
 	fs, err := p.GetFsFormat()
 	if err != nil {
-		return err
+		log.Errorf("SSHPartition mount error: %s", err)
+		return false
 	}
 	fstr := ""
 	if fs == "ntfs" {
@@ -115,14 +118,16 @@ func (p *SSHPartition) Mount() error {
 	_, err = p.term.Run(cmd)
 	if err != nil {
 		p.osRmDir(p.mountPath)
-		return err
+		log.Errorf("SSHPartition mount error: %s", err)
+		return false
 	}
-	return nil
+	return true
 }
 
-func (p *SSHPartition) Unmount() error {
+func (p *SSHPartition) Umount() bool {
 	if !p.IsMounted() {
-		return fmt.Errorf("%s is not mounted", p.mountPath)
+		log.Errorf("%s is not mounted", p.mountPath)
+		return false
 	}
 	var err error
 	for tries := 0; tries < 10; tries++ {
@@ -137,10 +142,10 @@ func (p *SSHPartition) Unmount() error {
 			log.Errorf("umount %s error: %v", p.mountPath, err)
 			time.Sleep(1 * time.Second)
 		} else {
-			return nil
+			return true
 		}
 	}
-	return err
+	return err == nil
 }
 
 func (p *SSHPartition) IsMounted() bool {
@@ -468,7 +473,7 @@ func (p *SSHPartition) Cleandir(dir string, keepdir, caseInsensitive bool) error
 	return nil
 }
 
-func MountSSHRootfs(term *ssh.Client, layouts []baremetal.Layout) (*SSHPartition, guestfs.IRootFsDriver, error) {
+func MountSSHRootfs(term *ssh.Client, layouts []baremetal.Layout) (*SSHPartition, fsdriver.IRootFsDriver, error) {
 	tool := disktool.NewSSHPartitionTool(term)
 	tool.FetchDiskConfs(baremetal.GetDiskConfigurations(layouts))
 	if err := tool.RetrieveDiskInfo(); err != nil {
@@ -483,14 +488,14 @@ func MountSSHRootfs(term *ssh.Client, layouts []baremetal.Layout) (*SSHPartition
 	}
 	for _, part := range parts {
 		dev := NewSSHPartition(term, part.GetDev())
-		if err := dev.Mount(); err != nil {
+		if dev.Mount() {
 			continue
 		}
 		if rootFs := guestfs.DetectRootFs(dev); rootFs != nil {
 			log.Infof("Use class %#v", rootFs)
 			return dev, rootFs, nil
 		} else {
-			dev.Unmount()
+			dev.Umount()
 		}
 	}
 	return nil, nil, fmt.Errorf("Fail to find rootfs")

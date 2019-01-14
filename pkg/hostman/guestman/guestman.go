@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"strings"
 	"sync"
@@ -19,8 +20,11 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/cgrouputils"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
 )
@@ -236,8 +240,9 @@ func (m *SGuestManager) Monitor(sid, cmd string, callback func(string)) error {
 func (m *SGuestManager) GuestDeploy(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	deployParams, ok := params.(*SGuestDeploy)
 	if !ok {
-		return nil, fmt.Errorf("Unknown params")
+		return nil, hostutils.ParamsError
 	}
+
 	guest, ok := m.Servers[deployParams.Sid]
 	if ok {
 		desc, _ := deployParams.Body.Get("desc")
@@ -341,13 +346,12 @@ func (m *SGuestManager) GuestStop(ctx context.Context, sid string, timeout int64
 func (m *SGuestManager) GuestSync(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	syncParams, ok := params.(*SBaseParms)
 	if !ok {
-		return nil, fmt.Errorf("Unknown params")
+		return nil, hostutils.ParamsError
 	}
 	guest := m.Servers[syncParams.Sid]
 	if syncParams.Body.Contains("desc") {
 		desc, _ := syncParams.Body.Get("desc")
 		fwOnly := jsonutils.QueryBoolean(syncParams.Body, "fw_only", false)
-		// TODO :SyncConfig
 		return guest.SyncConfig(ctx, desc, fwOnly)
 	}
 	return nil, nil
@@ -356,16 +360,136 @@ func (m *SGuestManager) GuestSync(ctx context.Context, params interface{}) (json
 func (m *SGuestManager) GuestSuspend(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	sid, ok := params.(string)
 	if !ok {
-		return nil, fmt.Errorf("Unknown params")
+		return nil, hostutils.ParamsError
 	}
 	guest := m.Servers[sid]
 	guest.ExecSuspendTask(ctx)
 	return nil, nil
 }
 
-func (m *SGuestManager) DoSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	// TODO
+func (m *SGuestManager) SrcPrepareMigrate(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	migParams, ok := params.(*SSrcPrepareMigrate)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	guest := m.Servers[migParams.Sid]
+	disksPrepare := guest.PrepareMigrate(migParams.LiveMigrate)
+	if len(disksPrepare) > 0 {
+		return map[string]interface{}{"disks_back": disksPrepare}, nil
+	}
 	return nil, nil
+}
+
+func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	migParams, ok := params.(*SDestPrepareMigrate)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+
+	guest := m.Servers[migParams.Sid]
+	if err := guest.CreateFromDesc(desc); err != nil {
+		return nil, err
+	}
+
+	if len(migParams.TargetStorageId) > 0 {
+		iStorage := storageman.GetManager().GetStorage(migParams.TargetStorageId)
+		if iStorage == nil {
+			return nil, fmt.Errorf("Target storage %s not found", migParams.TargetStorageId)
+		}
+
+		// 可能可以不用?
+		// guest.CreateFromUrl(ctx, migParams.ServerUrl, migParams.Desc)
+
+		disks, _ := migParams.Desc.GetArray("disks")
+		for _, diskinfo := range disks {
+			var (
+				diskId, _    = diskinfo.GetString("disk_id")
+				snapshots, _ = migParams.SrcSnapshots.GetArray(diskId)
+				disk         = iStorage.CreateDisk(diskId)
+			)
+
+			if disk == nil {
+				return nil, fmt.Errorf(
+					"Storage %s create disk %s failed", iStorage.GetId(), diskId)
+			}
+
+			// prepare disk snapshot dir
+			if len(snapshots) > 0 && !fileutils2.Exists(disk.GetSnapshotDir()) {
+				err := exec.Command("mkdir", "-p", disk.GetSnapshotDir()).Run()
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			// create snapshots form remote url
+			diskStorageId, _ := diskinfo.GetString("storage_id")
+			for _, snapshotId := range snapshots {
+				snapshotUrl := path.Join(migParams.SnapshotsUri, diskStorageId, diskId, snapshotId)
+				snapshotPath := path.Join(disk.GetSnapshotDir(), snapshotId)
+				log.Infof("Disk %s snapshot %s url: %s", diskId, snapshotId, snapshotUrl)
+				iStorage.CreateSnapshotFormUrl(ctx, snapshotUrl, diskId, snapshotPath)
+			}
+
+			if migParams.LiveMigrate {
+				// create local disk
+				backingFile, _ := migParams.DisksBackingFile.GetString(diskId)
+				size, _ := diskinfo.Int("size")
+				_, err := disk.CreateRaw(ctx, size, "qcow2", "", false, "", backingFile)
+				if err != nil {
+					log.Errorln(err)
+					return nil, err
+				}
+			} else {
+				// download disk form remote url
+				diskUrl := path.Join(migParams.DisksUri, diskStorageId, diskId)
+				if err := disk.CreateFromUrl(); err != nil {
+					log.Errorln(err)
+					return nil, err
+				}
+			}
+		}
+
+		// 可能可以不要
+		if err := guest.SaveDesc(migParams.Desc); err != nil {
+			log.Errorln(err)
+			return nil, err
+		}
+	}
+
+	if migParams.LiveMigrate {
+		startParams := jsonutils.NewDict()
+		startParams.Set("qemu_version", jsonutils.NewString(migParams.QemuVersion))
+		startParams.Set("need_migrate", jsonutils.JSONTrue)
+		guest.StartGuest(ctx, params)
+	}
+
+	return nil, nil
+}
+
+func (m *SGuestManager) LiveMigrate(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	migParams, ok := params.(*SLiveMigrate)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+
+	guest := m.Servers[migParams.Sid]
+	task := NewGuestLiveMigrateTask(ctx, guest, migParams)
+	task.Start()
+	return nil, nil
+}
+
+func (m *SGuestManager) CanMigrate(sid string) bool {
+	m.ServersLock.Lock()
+	defer m.ServersLock.Unlock()
+
+	if _, ok := m.Servers[sid]; ok {
+		log.Infof("Guest %s exists", sid)
+		return false
+	}
+
+	guest := NewKVMGuestInstance(sid, m)
+	m.Servers[sid] = guest
+	return true
 }
 
 func (m *SGuestManager) GetFreePortByBase(basePort int64) int64 {
@@ -400,10 +524,57 @@ func (m *SGuestManager) GetFreeVncPort() int64 {
 	return port
 }
 
+func (m *SGuestManager) ReloadDiskSnapshot(
+	ctx context.Context, params interface{},
+) (jsonutils.JSONObject, error) {
+	reloadParams, ok := params.(*SReloadDisk)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	guest := guestManger.Servers[reloadParams.Sid]
+	return guest.ExecReloadDiskTask(ctx, reloadParams.Disk)
+}
+
+func (m *SGuestManager) DoSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	snapshotParams, ok := params.(*SDiskSnapshot)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	guest := guestManger.Servers[snapshotParams.Sid]
+	return guest.ExecDiskSnapshotTask(ctx, snapshotParams.Disk, snapshotParams.SnapshotId)
+}
+
+func (m *SGuestManager) DeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	delParams, ok := params.(*SDeleteDiskSnapshot)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+
+	if len(delParams.ConvertSnapshot) > 0 {
+		guest := guestManger.Servers[delParams.Sid]
+		return guest.ExecDeleteSnapshotTask(ctx, delParams.Disk, delParams.DeleteSnapshot,
+			delParams.ConvertSnapshot, delParams.PendingDelete)
+	} else {
+		return nil, delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot)
+	}
+}
+
+func (m *SGuestManager) ExitGuestCleanup() {
+	for _, guest := range m.Servers {
+		guest.ExitCleanup(false)
+	}
+
+	// TODO
+	m.StopCpusetBalancer()
+	cgrouputils.CgroupCleanAll()
+	// TODO
+	// hostmetrics?
+}
+
 var guestManger *SGuestManager
 
 func Stop() {
-	// guestManger.ExitGuestCleanup()
+	guestManger.ExitGuestCleanup()
 }
 
 func Init(serversPath string) {
