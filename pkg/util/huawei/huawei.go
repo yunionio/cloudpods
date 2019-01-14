@@ -77,7 +77,7 @@ func NewHuaweiClient(providerId, providerName, accessurl, account, secret string
 }
 
 func (self *SHuaweiClient) fetchRegions() error {
-	huawei, _ := clients.NewClientWithAccessKey("", "", self.accessKey, self.secret)
+	huawei, _ := client.NewClientWithAccessKey("", "", self.accessKey, self.secret)
 	regions := make([]SRegion, 0)
 	err := DoList(huawei.Regions.List, nil, &regions)
 	if err != nil {

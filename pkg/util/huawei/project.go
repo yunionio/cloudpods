@@ -34,7 +34,7 @@ func (self *SProject) GetHealthStatus() string {
 }
 
 func (self *SHuaweiClient) fetchProjects() ([]SProject, error) {
-	huawei, _ := clients.NewClientWithAccessKey("", "", self.accessKey, self.secret)
+	huawei, _ := client.NewClientWithAccessKey("", "", self.accessKey, self.secret)
 	projects := make([]SProject, 0)
 	err := DoList(huawei.Projects.List, nil, &projects)
 	return projects, err
