@@ -3643,3 +3643,63 @@ func (manager *SHostManager) PingDetectionTask(ctx context.Context, userCred mcc
 func (self *SHost) IsPrepaidRecycleResource() bool {
 	return self.ResourceType == HostResourceTypePrepaidRecycle
 }
+
+func (host *SHost) AllowPerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, host, "set-schedtag")
+}
+
+func (host *SHost) getHostschedtags() []SHostschedtag {
+	tags := make([]SHostschedtag, 0)
+	hostschedtags := HostschedtagManager.Query().SubQuery()
+	q := hostschedtags.Query().Equals("host_id", host.Id)
+	err := db.FetchModelObjects(HostschedtagManager, q, &tags)
+	if err != nil {
+		log.Errorf("Get hostschedtags: %v", err)
+		return nil
+	}
+	return tags
+}
+
+func (host *SHost) PerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	schedtags := jsonutils.GetArrayOfPrefix(data, "schedtag")
+	setTagsId := []string{}
+	for idx := 0; idx < len(schedtags); idx++ {
+		schedtagIdent, _ := schedtags[idx].GetString()
+		tag, err := SchedtagManager.FetchByIdOrName(userCred, schedtagIdent)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewNotFoundError("Schedtag %s not found", schedtagIdent)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		setTagsId = append(setTagsId, tag.GetId())
+	}
+	oldTags := host.getHostschedtags()
+	for _, oldTag := range oldTags {
+		if !utils.IsInStringArray(oldTag.SchedtagId, setTagsId) {
+			if err := oldTag.Detach(ctx, userCred); err != nil {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+	}
+	var oldTagIds []string
+	for _, tag := range oldTags {
+		oldTagIds = append(oldTagIds, tag.SchedtagId)
+	}
+	for _, setTagId := range setTagsId {
+		if !utils.IsInStringArray(setTagId, oldTagIds) {
+			if newTagObj, err := db.NewModelObject(HostschedtagManager); err != nil {
+				return nil, httperrors.NewGeneralError(err)
+			} else {
+				newTag := newTagObj.(*SHostschedtag)
+				newTag.HostId = host.Id
+				newTag.SchedtagId = setTagId
+				if err := newTag.GetModelManager().TableSpec().Insert(newTag); err != nil {
+					return nil, httperrors.NewGeneralError(err)
+				}
+			}
+		}
+	}
+	host.ClearSchedDescCache()
+	return nil, nil
+}
