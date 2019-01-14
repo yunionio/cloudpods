@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostdhcp"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -170,7 +171,7 @@ type SNIC struct {
 	WireId  string
 
 	Bandwidth  int
-	BridgeDev  IBridgeDriver
+	BridgeDev  hostbridge.IBridgeDriver
 	dhcpServer *hostdhcp.SGuestDHCPServer
 }
 
@@ -228,9 +229,9 @@ func NewNIC(desc string) (*SNIC, error) {
 		}
 	}
 
-	// default openvswitch
 	var err error
-	nic.BridgeDev, err = NewDriver(options.HostOptions.BridgeDriver,
+
+	nic.BridgeDev, err = hostbridge.NewDriver(options.HostOptions.BridgeDriver,
 		nic.Bridge, nic.Inter, nic.Ip)
 	if err != nil {
 		log.Errorln(err)

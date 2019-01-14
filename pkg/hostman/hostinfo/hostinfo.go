@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
@@ -178,10 +179,9 @@ func (h *SHostInfo) prepareEnv() error {
 		e := err.(*exec.ExitError)
 		log.Errorln(e.Stderr)
 	}
-	// TODO: cgrouputils 还未实现
-	// if !cgrouputils.Init() {
-	// 	return fmt.Errorf("Cannot initialize control group subsystem")
-	// }
+	if !cgrouputils.Init() {
+		return fmt.Errorf("Cannot initialize control group subsystem")
+	}
 
 	_, err = exec.Command("rmmod", "nbd").Output()
 	if err != nil {

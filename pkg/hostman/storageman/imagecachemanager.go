@@ -85,7 +85,7 @@ func (c *SLocalImageCacheManager) loadCache() {
 
 func (c *SLocalImageCacheManager) loadImageCache(imageId string) {
 	imageCache := NewLocalImageCache(imageId, c)
-	if err := imageCache.Load(); err != nil {
+	if imageCache.Load() {
 		c.cachedImages[imageId] = imageCache
 	}
 }
@@ -101,7 +101,15 @@ func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, imageId, zon
 	if img.Acquire(ctx, zone, srcUrl, format) {
 		return img
 	} else {
-		return false
+		return nil
+	}
+}
+
+func (c *SLocalImageCacheManager) ReleaseImage(imageId string) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	if img, ok := c.cachedImages[imageId]; ok {
+		img.Release()
 	}
 }
 
@@ -112,18 +120,18 @@ func (c *SLocalImageCacheManager) DeleteImageCache(ctx context.Context, data int
 	}
 
 	imageId, _ := body.GetString("image_id")
-	c.removeImage(ctx, imageId)
-	return nil, nil
+	return nil, c.removeImage(ctx, imageId)
 }
 
-func (c *SLocalImageCacheManager) removeImage(ctx context.Context, imageId string) {
+func (c *SLocalImageCacheManager) removeImage(ctx context.Context, imageId string) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	if img, ok := c.cachedImages[imageId]; ok {
 		delete(c.cachedImages, imageId)
-		img.Remove(ctx)
+		return img.Remove(ctx)
 	}
+	return nil
 }
 
 func (c *SLocalImageCacheManager) PrefetchImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error) {

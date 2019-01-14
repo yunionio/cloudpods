@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/fuseutils"
@@ -45,6 +46,10 @@ func (d *SLocalDisk) GetPath() string {
 	} else {
 		return d.getPath()
 	}
+}
+
+func (d *SLocalDisk) GetSnapshotDir() string {
+	return path.Join(d.Storage.GetSnapshotDir(), d.Id+"_snap")
 }
 
 func (d *SLocalDisk) Probe() error {
@@ -168,7 +173,7 @@ func (d *SLocalDisk) CreateFromImageFuse(ctx context.Context, url string) error 
 
 func (d *SLocalDisk) CreateFromTemplate(ctx context.Context, imageId, format string, size int64) (jsonutils.JSONObject, error) {
 	var imageCacheManager = storageManager.LocalStorageImagecacheManager
-	imageCache := imageCacheManager.AcquireImage(ctx, imageId, d.GetZone(), "")
+	imageCache := imageCacheManager.AcquireImage(ctx, imageId, d.GetZone(), "", "")
 	if imageCache != nil {
 		defer imageCacheManager.ReleaseImage(imageId)
 		cacheImagePath := imageCache.GetPath()
@@ -197,8 +202,21 @@ func (d *SLocalDisk) CreateFromTemplate(ctx context.Context, imageId, format str
 	}
 }
 
+func (d *SLocalDisk) CreateFromUrl(ctx context.Context, url string) error {
+	remoteFile := remotefile.NewRemoteFile(ctx, url, d.getPath(), false, "", -1, nil, "", "")
+	if remoteFile.Fetch() {
+		if options.HostOptions.EnableFallocateDisk {
+			//TODO
+			// d.fallocate()
+		}
+		return nil
+	} else {
+		return fmt.Errorf("Fail to fetch image from %s", url)
+	}
+}
+
 func (d *SLocalDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat, fsFormat string,
-	encryption bool, diskId string, back string) (jsonutils.JSONObject, error) {
+	encryption bool, uuid string, back string) (jsonutils.JSONObject, error) {
 	if fileutils2.Exists(d.GetPath()) {
 		os.Remove(d.GetPath())
 	}
@@ -229,19 +247,19 @@ func (d *SLocalDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat, fsFo
 	}
 
 	if utils.IsInStringArray(fsFormat, []string{"swap", "ext2", "ext3", "ext4", "xfs"}) {
-		d.FormatFs(fsFormat, diskId)
+		d.FormatFs(fsFormat, uuid)
 	}
 
 	return d.GetDiskDesc(), nil
 }
 
-func (d *SLocalDisk) FormatFs(fsFormat, diskId string) {
-	log.Infof("Make disk %s fs %s", diskId, fsFormat)
+func (d *SLocalDisk) FormatFs(fsFormat, uuid string) {
+	log.Infof("Make disk %s fs %s", uuid, fsFormat)
 	gd := NewKVMGuestDisk(d.GetPath())
 	if gd.Connect() {
 		defer gd.Disconnect()
 		if err := gd.MakePartition(fsFormat); err == nil {
-			err = gd.FormatPartition(fsFormat, diskId)
+			err = gd.FormatPartition(fsFormat, uuid)
 			if err != nil {
 				log.Errorln(err)
 			}
@@ -273,4 +291,14 @@ func (d *SLocalDisk) GetDiskSetupScripts(diskIndex int) string {
 	cmd += fmt.Sprintf("    DISK_%s=$DISK_%s%s\n", diskIndex, diskIndex, _ALTER_SUFFIX_)
 	cmd += "fi\n"
 	return cmd
+}
+
+func (d *SLocalDisk) PostCreateFromImageFuse() {
+	mntPath := path.Join(d.Storage.GetFuseMountPath(), d.Id)
+	if err := exec.Command("umount", mntPath).Run(); err != nil {
+		log.Errorln(err)
+	}
+	if err := exec.Command("rm", "-rf", mntPath).Run(); err != nil {
+		log.Errorln(err)
+	}
 }

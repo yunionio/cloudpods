@@ -21,6 +21,7 @@ type Monitor interface {
 	SimpleCommand(cmd string, callback StringCallback)
 	QueryStatus(StringCallback)
 	GetVersion(StringCallback)
+	GetBlockJobs(func(jobs int))
 
 	GetBlocks(callback func(*jsonutils.JSONArray))
 	EjectCdrom(dev string, callback StringCallback)
@@ -31,6 +32,12 @@ type Monitor interface {
 
 	DriveAdd(bus string, params map[string]string, callback StringCallback)
 	DeviceAdd(dev string, params map[string]interface{}, callback StringCallback)
+
+	MigrateSetCapability(capability, state string, callback StringCallback)
+	Migrate(destStr string, copyIncremental, copyFull bool, callback StringCallback)
+	GetMigrateStatus(callback StringCallback)
+
+	ReloadDiskBlkdev(device, path string, callback StringCallback)
 }
 
 type MonitorErrorFunc func(error)

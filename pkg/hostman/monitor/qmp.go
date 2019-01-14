@@ -458,3 +458,108 @@ func (m *QmpMonitor) DeviceAdd(dev string, params map[string]interface{}, callba
 
 	m.Query(cmd, cb)
 }
+
+func (m *QmpMonitor) MigrateSetCapability(capability, state string, callback StringCallback) {
+	var (
+		cb = func(res *Response) {
+			callback(m.actionResult(res))
+		}
+		st = false
+	)
+	if state == "on" {
+		st = true
+	}
+
+	cmd := &Command{
+		Execute: "query-migrate-capabilities",
+		Args: map[string]interface{}{
+			"capabilities": []interface{}{
+				map[string]interface{}{
+					"capability": capability,
+					"state":      st,
+				},
+			},
+		},
+	}
+
+	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) Migrate(
+	destStr string, copyIncremental, copyFull bool, callback StringCallback,
+) {
+	var (
+		cb = func(res *Response) {
+			callback(m.actionResult(res))
+		}
+		cmd = &Command{
+			Execute: "migrate",
+			Args: map[string]interface{}{
+				"uri": destStr,
+				"blk": copyFull,
+				"inc": copyIncremental,
+			},
+		}
+	)
+
+	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) GetMigrateStatus(callback StringCallback) {
+	var (
+		cmd = &Command{Execute: "query-migrate"}
+		cb  = func(res *Response) {
+			if res.ErrorVal != nil {
+				callback(res.ErrorVal.Error())
+			} else {
+				ret, err := jsonutils.Parse(res.Return)
+				if err != nil {
+					log.Errorf("Parse qmp res error: %s", err)
+					callback("")
+				} else {
+					log.Infof("Query migrate status: %s", ret.String())
+					status, _ := ret.GetString("status")
+					callback(status)
+				}
+			}
+		}
+	)
+	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) GetBlockJobs(callback func(jobs int)) {
+	var cb = func(res *Response) {
+		if res.ErrorVal != nil {
+			log.Errorln(res.ErrorVal.Error())
+			callback(-1)
+		} else {
+			ret, err := jsonutils.Parse(res.Return)
+			if err != nil {
+				log.Errorf("Parse qmp res error: %s", err)
+				callback(-1)
+			} else {
+				jobs, _ := ret.GetArray()
+				callback(len(jobs))
+			}
+		}
+	}
+	m.Query(&Command{Execute: "query-block-jobs"}, cb)
+}
+
+func (m *QmpMonitor) ReloadDiskBlkdev(device, path string, callback StringCallback) {
+	var (
+		cb = func(res *Response) {
+			callback(m.actionResult(res))
+		}
+		cmd = &Command{
+			Execute: "reload-disk-snapshot-blkdev-sync",
+			Args: map[string]string{
+				"device":        device,
+				"snapshot-file": path,
+				"mode":          "existing",
+				"format":        "qcow2",
+			},
+		}
+	)
+	m.Query(cmd, cb)
+}

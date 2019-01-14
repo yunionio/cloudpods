@@ -1,4 +1,4 @@
-package storageman
+package nbd
 
 import (
 	"fmt"

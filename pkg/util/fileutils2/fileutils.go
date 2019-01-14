@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -588,4 +589,54 @@ func GetDevUuid(dev string) map[string]string {
 		}
 	}
 	return nil
+}
+
+func GetDevOfPath(spath string) string {
+	spath, err := filepath.Abs(spath)
+	if err != nil {
+		log.Errorln(err)
+		return ""
+	}
+	lines, err := exec.Command("mount").Output()
+	if err != nil {
+		log.Errorln(err)
+		return ""
+	}
+	var (
+		maxMatchLen int
+		matchDev    string
+	)
+
+	for _, line := range strings.Split(string(lines), "\n") {
+		segs := strings.Split(line, " ")
+		if len(segs) < 3 {
+			continue
+		}
+		if strings.HasPrefix(segs[0], "/dev/") {
+			if strings.HasPrefix(spath, segs[2]) {
+				matchLen := len(segs[2])
+				if maxMatchLen < matchLen {
+					maxMatchLen = matchLen
+					matchDev = segs[0]
+				}
+			}
+		}
+	}
+	return matchDev
+}
+
+func GetDevId(spath string) string {
+	dev := GetDevOfPath(spath)
+	if len(dev) == 0 {
+		return ""
+	}
+	devInfo, err := exec.Command("ls", "-l", dev).Output()
+	if err != nil {
+		log.Errorln(err)
+		return ""
+	}
+	devInfos := strings.Split(string(devInfo), "\n")
+	data := strings.Split(string(devInfos[0]), " ")
+	data[4] = data[4][:len(data[4])-1]
+	return strings.Join(data, ":")
 }
