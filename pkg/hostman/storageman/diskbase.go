@@ -24,6 +24,8 @@ type IDisk interface {
 	Resize(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 
 	GetPath() string
+	GetSnapshotDir() string
+
 	CreateFromUrl(context.Context, string) error
 	// CreateFromSnapshot
 	CreateFromTemplate(context.Context, string, string, int64) (jsonutils.JSONObject, error)
@@ -31,8 +33,13 @@ type IDisk interface {
 	CreateRaw(ctx context.Context, sizeMb int, diskFromat string, fsFormat string,
 		encryption bool, diskId string, back string) (jsonutils.JSONObject, error)
 
+	CreateSnapshot(snapshotId string) error
+	DeleteSnapshot(snapshotId string) error
+
 	// @params: diskPath, guestDesc, deployInfo
 	DeployGuestFs(string, *jsonutils.JSONDict, *guestfs.SDeployInfo) (jsonutils.JSONObject, error)
+
+	PostCreateFromImageFuse()
 }
 
 type SBaseDisk struct {
@@ -88,7 +95,7 @@ func (d *SBaseDisk) DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict
 
 		if root := kvmDisk.Mount(); root != nil {
 			defer kvmDisk.Umount(root)
-			return root.DeployGuestFs(root, guestDesc, deployInfo)
+			return guestfs.DeployGuestFs(root, guestDesc, deployInfo)
 		}
 	}
 	return nil, fmt.Errorf("Kvm disk connect or mount error")

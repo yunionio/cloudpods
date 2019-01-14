@@ -14,6 +14,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
@@ -47,6 +48,10 @@ func (s *SLocalStorage) GetFuseMountPath() string {
 
 func (s *SLocalStorage) StorageType() string {
 	return storagetypes.STORAGE_LOCAL
+}
+
+func (s *SLocalStorage) GetSnapshotDir() string {
+	return path.Join(s.Path, _SNAPSHOT_PATH_)
 }
 
 func (s *SLocalStorage) SyncStorageInfo() {
@@ -287,5 +292,17 @@ func (s *SLocalStorage) onSaveToGlanceFailed(ctx context.Context, imageId string
 		imageId, params)
 	if err != nil {
 		log.Errorln(err)
+	}
+}
+
+func (s *SLocalStorage) CreateSnapshotFormUrl(
+	ctx context.Context, snapshotUrl, diskId, snapshotPath string,
+) error {
+	remoteFile := remotefile.NewRemoteFile(ctx, snapshotUrl, snapshotPath,
+		false, "", -1, nil, "", "")
+	if remoteFile.Fetch() {
+		return nil
+	} else {
+		return fmt.Errorf("Fail to fetch snapshot from %s", snapshotUrl)
 	}
 }

@@ -65,6 +65,12 @@ type SHostOptions struct {
 	FetcherfsPath  string `default:"/opt/yunion/fetchclient/bin/fetcherfs" help:"Fuse fetcherfs path"`
 
 	DefaultImageSaveFormat string `default:"qcow2" help:"Default image save format, default is qcow2, canbe vmdk"`
+
+	DefaultReadBpsPerCpu   int  `default:"163840000" help:"Default read bps per cpu for hard IO limit"`
+	DefaultReadIopsPerCpu  int  `default:"1250" help:"Default read iops per cpu for hard IO limit"`
+	DefaultWriteBpsPerCpu  int  `default:"54525952" help:"Default write bps per cpu for hard IO limit"`
+	DefaultWriteIopsPerCpu int  `default:"416" help:"Default write iops per cpu for hard IO limit"`
+	SetVncPassword         bool `default:"true" help:"Auto set vnc password after monitor connected"`
 }
 
 var HostOptions SHostOptions

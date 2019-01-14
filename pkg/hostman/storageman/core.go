@@ -10,30 +10,13 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/options"
 )
 
+const MINIMAL_FREE_SPACE = 128
+
 type IHost interface {
 	GetZone() string
 	GetHostId() string
 
 	GetMediumType() string
-}
-
-const MINIMAL_FREE_SPACE = 128
-
-var storageManager *SStorageManager
-
-func Init(host IHost) error {
-	var (
-		err    error
-		zone   = host.GetZone()
-		hostId = host.GetHostId()
-	)
-
-	storageManager, err = NewStorageManager(host)
-	return err
-}
-
-func GetManager() *SStorageManager {
-	return storageManager
 }
 
 type SStorageManager struct {
@@ -186,16 +169,16 @@ func (s *SStorageManager) initLocalStorageImagecache() error {
 // 	}
 // }
 
-func (s *SStorageManager) AddNfsStorage(storagecacheId, cachePath string) {
-	if len(cachePath) == 0 {
-		return
-	}
-	if s.NfsStorageImagecacheManagers == nil {
-		s.NfsStorageImagecacheManagers = make(map[string]IImageCacheManger, 0)
-	}
-	s.NfsStorageImagecacheManagers[storagecacheId] = NewLocalImageCacheManager(s, cachePath,
-		options.HostOptions.ImageCacheLimit, true, storagecacheId)
-}
+// func (s *SStorageManager) AddNfsStorage(storagecacheId, cachePath string) {
+// 	if len(cachePath) == 0 {
+// 		return
+// 	}
+// 	if s.NfsStorageImagecacheManagers == nil {
+// 		s.NfsStorageImagecacheManagers = make(map[string]IImageCacheManger, 0)
+// 	}
+// 	s.NfsStorageImagecacheManagers[storagecacheId] = NewLocalImageCacheManager(s, cachePath,
+// 		options.HostOptions.ImageCacheLimit, true, storagecacheId)
+// }
 
 func (s *SStorageManager) GetStorage(storageId string) IStorage {
 	for _, storage := range s.Storages {
@@ -281,4 +264,25 @@ func (s *SStorageManager) InitSharedStorageImageCache(storageType, storagecacheI
 		}
 	}
 
+}
+
+var storageManager *SStorageManager
+
+func GetManager() *SStorageManager {
+	return storageManager
+}
+
+func Manager() *SStorageManager {
+	return storageManager
+}
+
+func Init(host IHost) error {
+	var (
+		err    error
+		zone   = host.GetZone()
+		hostId = host.GetHostId()
+	)
+
+	storageManager, err = NewStorageManager(host)
+	return err
 }

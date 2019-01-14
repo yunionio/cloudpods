@@ -27,6 +27,7 @@ type IStorage interface {
 
 	SetPath(string)
 	GetPath() string
+	GetSnapshotDir() string
 	GetFreeSizeMb() int
 	GetCapacity() int
 
@@ -40,6 +41,8 @@ type IStorage interface {
 	// *SDiskCreateByDiskinfo
 	CreateDiskByDiskinfo(context.Context, interface{}) (jsonutils.JSONObject, error)
 	SaveToGlance(context.Context, interface{}) (jsonutils.JSONObject, error)
+
+	CreateSnapshotFormUrl(ctx context.Context, snapshotUrl, diskId, snapshotPath string) error
 
 	DeleteDiskfile(diskPath string) error
 	GetFuseTmpPath() string

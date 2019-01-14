@@ -217,6 +217,7 @@ func (m *HmpMonitor) GetBlocks(callback func(*jsonutils.JSONArray)) {
 							break
 						}
 					}
+					drv.Set("inserted", inserted)
 				}
 				outputJson.Add(drv)
 			}
@@ -258,4 +259,55 @@ func (m *HmpMonitor) DeviceAdd(dev string, params map[string]interface{}, callba
 		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%v", k, v))
 	}
 	m.Query(fmt.Sprintf("device_add %s,%s", dev, strings.Join(paramsKvs, ",")), callback)
+}
+
+func (m *HmpMonitor) MigrateSetCapability(capability, state string, callback StringCallback) {
+	m.Query(fmt.Sprintf("migrate_set_capability %s %s", capability, state), callback)
+}
+
+func (m *HmpMonitor) Migrate(
+	destStr string, copyIncremental, copyFull bool, callback StringCallback,
+) {
+	cmd := "migrate -d"
+	if copyIncremental {
+		cmd += " -i"
+	} else if copyIncremental {
+		cmd += " -b"
+	}
+	cmd += " " + destStr
+	m.Query(cmd, callback)
+}
+
+func (m *HmpMonitor) GetMigrateStatus(callback StringCallback) {
+	cb := func(output string) {
+		log.Infof("Query migrate status: %s", output)
+
+		var status string
+		for _, line := range strings.Split(output, "\n") {
+			if strings.HasPrefix(line, "Migration status") {
+				status = line[strings.LastIndex(line, " ")+1:]
+				break
+			}
+		}
+		callback(status)
+	}
+
+	m.Query("info migrate", cb)
+}
+
+func (m *HmpMonitor) GetBlockJobs(callback func(jobs int)) {
+	cb := func(output string) {
+		lines := strings.Split(output, "\n")
+		if lines[0] == "No active jobs" {
+			callback(0)
+		} else {
+			callback(len(lines))
+		}
+	}
+
+	m.Query("info block-jobs", cb)
+}
+
+func (m *HmpMonitor) ReloadDiskBlkdev(device, path string, callback StringCallback) {
+	m.Query(fmt.Sprintf("reload_disk_snapshot_blkdev -n %s %s", device, path), callback)
 }

@@ -38,7 +38,6 @@ func AddDiskHandler(prefix string, app *appsrv.Application) {
 				auth.Authenticate(deleteImageCache))
 		}
 
-		// excuse me ？
 		app.AddHandler("POST",
 			fmt.Sprintf("%s/%s/<storageId>/upload", prefix, keyWord),
 			auth.Authenticate(saveToGlance))

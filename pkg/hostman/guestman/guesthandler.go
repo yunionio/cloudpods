@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
@@ -152,31 +153,241 @@ func guestSuspend(ctx context.Context, sid string, body jsonutils.JSONObject) (i
 	return nil, nil
 }
 
-// snapshot 相关的有待重构，放入diskhandler中去，先不写
+func guestSrcPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	if !guestManger.IsGuestExist(sid) {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
+	}
+	liveMigrate := jsonutils.QueryBoolean(body, "live_migrate", false)
+	hostutils.DelayTask(ctx, guestManger.SrcPrepareMigrate,
+		&SSrcPrepareMigrate{sid, liveMigrate})
+	return nil, nil
+}
+
+func guestDestPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	if !guestManger.CanMigrate(sid) {
+		return nil, httperrors.NewBadRequestError("Guest exist")
+	}
+	desc, err := body.Get("desc")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("desc")
+	}
+	qemuVersion, err := body.GetString("qemu_version")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("qemu_version")
+	}
+	liveMigrate := jsonutils.QueryBoolean(body, "live_migrate", false)
+	isLocal, err := body.Bool("is_local_storage")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("is_local_storage")
+	}
+	var params = &SDestPrepareMigrate{}
+	params.Sid = sid
+	params.Desc = desc
+	params.QemuVersion = qemuVersion
+	params.LiveMigrate = liveMigrate
+	if isLocal {
+		serverUrl, err := body.GetString("server_url")
+		if err != nil {
+			return nil, httperrors.NewMissingParameterError("server_url")
+		} else {
+			params.ServerUrl = serverUrl
+		}
+		snapshotsUri, err := body.GetString("snapshots_uri")
+		if err != nil {
+			return nil, httperrors.NewMissingParameterError("snapshots_uri")
+		} else {
+			params.SnapshotsUri = snapshotsUri
+		}
+		disksUri, err := body.GetString("disks_uri")
+		if err != nil {
+			return nil, httperrors.NewMissingParameterError("disks_uri")
+		} else {
+			params.DisksUri = disksUri
+		}
+		srcSnapshots, err := body.Get("src_snapshots")
+		if err != nil {
+			return nil, httperrors.NewMissingParameterError("src_snapshots")
+		} else {
+			params.SrcSnapshots = srcSnapshots
+		}
+		disksBack, err := body.Get("disks_back")
+		if err != nil {
+			return nil, httperrors.NewMissingParameterError("disks_back")
+		} else {
+			params.DisksBackingFile = disksBack
+		}
+		disks, err := desc.GetArray("disks")
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("Get desc disks error")
+		} else {
+			targetStorageId, _ := disks[0].GetString("target_storage_id")
+			if len(targetStorageId) == 0 {
+				return nil, httperrors.NewInputParameterError("Disk desc missing target storage id")
+			}
+			params.TargetStorageId = targetStorageId
+		}
+	}
+	hostutils.DelayTask(ctx, guestManger.DestPrepareMigrate, params)
+	return nil, nil
+}
+
+func guestLiveMigrate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	if !guestManger.IsGuestExist(sid) {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
+	}
+	destPort, err := body.Int("live_migrate_dest_port")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("live_migrate_dest_port")
+	}
+	destIp, err := body.GetString("dest_ip")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("dest_ip")
+	}
+	isLocal, err := body.Bool("is_local_storage")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("is_local_storage")
+	}
+	hostutils.DelayTaskWithoutReqctx(ctx, guestManger.LiveMigrate, &SLiveMigrate{
+		Sid: sid, DestPort: int(destPort), DestIp: destIp, IsLocal: isLocal,
+	})
+	return nil, nil
+}
+
+func guestResume(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	if !guestManger.IsGuestExist(sid) {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
+	}
+	isLiveMigrate := jsonutils.QueryBoolean(body, "live_migrate", false)
+	guestManger.Resume(ctx, sid, isLiveMigrate)
+	return nil, nil
+}
+
+func guestStartNbdServer(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	if !guestManger.IsGuestExist(sid) {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
+	}
+	hostutils.DelayTask(ctx, guestManger.StartNbdServer, sid)
+	return nil, nil
+}
+
+func guestDriveMirror(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	if !guestManger.IsGuestExist(sid) {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
+	}
+	backupNbdServerUri, err := body.GetString("backup_ndb_server_uri")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("backup_ndb_server_uri")
+	}
+	hostutils.DelayTask(ctx, guestManger.StartDriveMirror,
+		&SDriverMirror{sid, backupNbdServerUri})
+	return nil, nil
+}
+
+func guestReloadDiskSnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	if !guestManger.IsGuestExist(sid) {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
+	}
+	diskId, err := body.GetString("disk_id")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("disk_id")
+	}
+
+	var disk storageman.IDisk
+	guest := guestManger.Servers[sid]
+	disks, _ := guest.Desc.GetArray("disks")
+	for _, disk := range disks {
+		id, _ := disk.GetString("disk_id")
+		if diskId == id {
+			diskPath, _ := disk.GetString("path")
+			disk := storageman.GetManager().GetDiskByPath(diskPath)
+			break
+		}
+	}
+	if disk == nil {
+		return nil, httperrors.NewNotFoundError("Disk not found")
+	}
+
+	hostutils.DelayTaskWithoutReqctx(ctx, guestManger.ReloadDiskSnapshot, &SReloadDisk{sid, disk})
+	return nil, nil
+}
+
 func guestSnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	if !guestManger.IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
-	hostutils.DelayTask(ctx, guestManger.DoSnapshot, params)
+	snapshotId, err := body.GetString("snapshot_id")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("snapshot_id")
+	}
+	diskId, err := body.GetString("disk_id")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("disk_id")
+	}
+
+	var disk storageman.IDisk
+	guest := guestManger.Servers[sid]
+	disks, _ := guest.Desc.GetArray("disks")
+	for _, disk := range disks {
+		id, _ := disk.GetString("disk_id")
+		if diskId == id {
+			diskPath, _ := disk.GetString("path")
+			disk := storageman.GetManager().GetDiskByPath(diskPath)
+			break
+		}
+	}
+	if disk == nil {
+		return nil, httperrors.NewNotFoundError("Disk not found")
+	}
+
+	hostutils.DelayTask(ctx, guestManger.DoSnapshot, &SDiskSnapshot{sid, snapshotId, disk})
+	return nil, nil
 }
 
-func guestSrcPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+func guestDeleteSnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	deleteSnapshot, err := body.GetString("delete_snapshot")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("delete_snapshot")
+	}
+	diskId, err := body.GetString("disk_id")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("disk_id")
+	}
 
-}
+	var disk storageman.IDisk
+	guest := guestManger.Servers[sid]
+	disks, _ := guest.Desc.GetArray("disks")
+	for _, disk := range disks {
+		id, _ := disk.GetString("disk_id")
+		if diskId == id {
+			diskPath, _ := disk.GetString("path")
+			disk := storageman.GetManager().GetDiskByPath(diskPath)
+			break
+		}
+	}
+	if disk == nil {
+		return nil, httperrors.NewNotFoundError("Disk not found")
+	}
 
-func guestDestPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-}
+	params := &SDeleteDiskSnapshot{
+		Sid:            sid,
+		DeleteSnapshot: deleteSnapshot,
+		Disk:           disk,
+	}
 
-func guestLiveMigrate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-}
-
-func guestResume(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-}
-
-func guestStartNbdServer(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-}
-
-func guestDriveMirror(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	if !jsonutils.QueryBoolean(body, "auto_delete", false) {
+		convertSnapshot, err := body.GetString("convert_snapshot")
+		if err != nil {
+			return nil, httperrors.NewMissingParameterError("convert_snapshot")
+		}
+		params.ConvertSnapshot = convertSnapshot
+		pendingDelete, err := body.Bool("pending_delete")
+		if err != nil {
+			return nil, httperrors.NewMissingParameterError("pending_delete")
+		}
+		params.PendingDelete = pendingDelete
+	}
+	hostutils.DelayTask(ctx, guestManger.DeleteSnapshot, params)
+	return nil, nil
 }
 
 var actionFuncs = map[string]actionFunc{
@@ -188,9 +399,9 @@ var actionFuncs = map[string]actionFunc{
 	"sync":    guestSync,
 	"suspend": guestSuspend,
 
-	"snapshot": guestSnapshot,
-	// "delete-snapshot":      guestDeleteSnapshot,
-	// "reload-disk-snapshot": guestReloadDiskSnapshot,
+	"snapshot":             guestSnapshot,
+	"delete-snapshot":      guestDeleteSnapshot,
+	"reload-disk-snapshot": guestReloadDiskSnapshot,
 	// "remove-statefile":     guestRemoveStatefile,
 	// "io-throttle":          guestIoThrottle,
 

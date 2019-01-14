@@ -31,7 +31,7 @@ type IImageCache interface {
 	Load() bool
 	Acquire(ctx context.Context, zone, srcUrl, format string) bool
 	Release()
-	Remove() error
+	Remove(ctx context.Context) error
 	GetImageId() string
 
 	GetDesc() *remotefile.SImageDesc
@@ -60,6 +60,10 @@ func NewLocalImageCache(imageId string, imagecacheManager IImageCacheManger) *SL
 
 func (l *SLocalImageCache) GetDesc() *remotefile.SImageDesc {
 	return l.Desc
+}
+
+func (l *SLocalImageCache) GetImageId() string {
+	return l.imageId
 }
 
 func (l *SLocalImageCache) Load() bool {
@@ -218,15 +222,21 @@ func (l *SLocalImageCache) fetch(ctx context.Context, zone, srcUrl, format strin
 	}
 }
 
-func (l *SLocalImageCache) Remove(ctx context.Context) {
+func (l *SLocalImageCache) Remove(ctx context.Context) error {
 	if fileutils2.Exists(l.GetPath()) {
-		syscall.Unlink(l.GetPath())
+		if err := syscall.Unlink(l.GetPath()); err != nil {
+			return err
+		}
 	}
 	if fileutils2.Exists(l.GetInfPath()) {
-		syscall.Unlink(l.GetInfPath())
+		if err := syscall.Unlink(l.GetInfPath()); err != nil {
+			return err
+		}
 	}
 	if fileutils2.Exists(l.GetTmpPath()) {
-		syscall.Unlink(l.GetTmpPath())
+		if err := syscall.Unlink(l.GetTmpPath()); err != nil {
+			return err
+		}
 	}
 
 	go func() {
@@ -236,6 +246,8 @@ func (l *SLocalImageCache) Remove(ctx context.Context) {
 			log.Errorf("Fail to delete host cached image: %s", err)
 		}
 	}()
+
+	return nil
 }
 
 func (l *SLocalImageCache) GetPath() string {
