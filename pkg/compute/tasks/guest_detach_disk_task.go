@@ -6,11 +6,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/pkg/utils"
 )
 
 type GuestDetachDiskTask struct {
@@ -91,6 +92,7 @@ func (self *GuestDetachDiskTask) OnSyncConfigComplete(ctx context.Context, guest
 	} else {
 		self.SetStageComplete(ctx, nil)
 	}
+	logclient.AddActionLog(guest, logclient.ACT_VM_DETACH_DISK, nil, self.UserCred, true)
 }
 
 func (self *GuestDetachDiskTask) OnSyncConfigCompleteFailed(ctx context.Context, obj db.IStandaloneModel, resion jsonutils.JSONObject) {
@@ -121,6 +123,7 @@ func (self *GuestDetachDiskTask) OnTaskFail(ctx context.Context, guest *models.S
 	guest.SetStatus(self.UserCred, models.VM_DETACH_DISK_FAILED, err.Error())
 	self.SetStageFailed(ctx, err.Error())
 	log.Errorf("Guest %s GuestDetachDiskTask failed %s", guest.Id, err.Error())
+	logclient.AddActionLog(guest, logclient.ACT_VM_DETACH_DISK, err.Error(), self.UserCred, false)
 }
 
 func (self *GuestDetachDiskTask) OnDiskDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
