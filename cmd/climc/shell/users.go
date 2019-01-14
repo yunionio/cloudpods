@@ -176,6 +176,8 @@ func init() {
 		Mobile      string `help:"Mobile"`
 		Enabled     bool   `help:"Enabled"`
 		Disabled    bool   `help:"Disabled"`
+
+		DefaultProject string `help:"Default project"`
 	}
 	R(&UserCreateOptions{}, "user-create", "Create a user", func(s *mcclient.ClientSession, args *UserCreateOptions) error {
 		mod, err := modules.GetModule(s, "users")
@@ -211,6 +213,15 @@ func init() {
 		} else if !args.Enabled && args.Disabled {
 			params.Add(jsonutils.JSONFalse, "enabled")
 		}
+
+		if len(args.DefaultProject) > 0 {
+			projId, err := modules.Projects.GetId(s, args.DefaultProject, nil)
+			if err != nil {
+				return err
+			}
+			params.Add(jsonutils.NewString(projId), "default_project_id")
+		}
+
 		user, err := mod.Create(s, params)
 		if err != nil {
 			return err

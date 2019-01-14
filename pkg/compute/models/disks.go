@@ -1061,9 +1061,9 @@ func totalDiskSize(projectId string, active tristate.TriState, ready tristate.Tr
 		q = q.Join(storages, sqlchemy.AND(sqlchemy.IsFalse(storages.Field("deleted")),
 			sqlchemy.Equals(storages.Field("id"), disks.Field("storage_id"))))
 		if active.IsTrue() {
-			q = q.Filter(sqlchemy.Equals(storages.Field("status"), STORAGE_ENABLED))
+			q = q.Filter(sqlchemy.In(storages.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE}))
 		} else {
-			q = q.Filter(sqlchemy.NotEquals(storages.Field("status"), STORAGE_ENABLED))
+			q = q.Filter(sqlchemy.NotIn(storages.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE}))
 		}
 	}
 	if len(projectId) > 0 {
