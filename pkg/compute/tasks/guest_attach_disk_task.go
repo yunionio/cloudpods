@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type GuestAttachDiskTask struct {
@@ -62,6 +63,7 @@ func (self *GuestAttachDiskTask) OnSyncConfigComplete(ctx context.Context, guest
 	}
 	disk.SetStatus(self.UserCred, models.DISK_READY, "")
 	self.SetStageComplete(ctx, nil)
+	logclient.AddActionLog(guest, logclient.ACT_VM_ATTACH_DISK, nil, self.UserCred, true)
 }
 
 func (self *GuestAttachDiskTask) OnSyncConfigCompleteFailed(ctx context.Context, obj db.IStandaloneModel, resion jsonutils.JSONObject) {
@@ -86,4 +88,5 @@ func (self *GuestAttachDiskTask) OnTaskFail(ctx context.Context, guest *models.S
 	guest.SetStatus(self.UserCred, models.VM_ATTACH_DISK_FAILED, err.Error())
 	self.SetStageFailed(ctx, err.Error())
 	log.Errorf("Guest %s GuestAttachDiskTask failed %s", guest.Name, err.Error())
+	logclient.AddActionLog(guest, logclient.ACT_VM_ATTACH_DISK, err.Error(), self.UserCred, false)
 }
