@@ -7,30 +7,57 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
+	"yunion.io/x/onecloud/pkg/baremetal/utils/raid/drivers"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
+func GetRaidDevices(drv raid.IRaidDriver) []*baremetal.BaremetalStorage {
+	devs := make([]*baremetal.BaremetalStorage, 0)
+	for _, ada := range drv.GetAdapters() {
+		devs = append(devs, ada.GetDevices()...)
+	}
+	return devs
+}
+
+func GetRaidLogicVolumes(drv raid.IRaidDriver) ([]int, error) {
+	lvs := []int{}
+	for _, adapter := range drv.GetAdapters() {
+		lv, err := adapter.GetLogicVolumes()
+		if err != nil {
+			return nil, err
+		}
+		lvs = append(lvs, lv...)
+	}
+	return lvs, nil
+}
+
 func DetectStorageInfo(term *ssh.Client, wait bool) ([]*baremetal.BaremetalStorage, []*baremetal.BaremetalStorage, []*baremetal.BaremetalStorage, error) {
 	raidDiskInfo := make([]*baremetal.BaremetalStorage, 0)
 	lvDiskInfo := make([]int, 0)
 
 	raidDrivers := []string{}
-	for _, drv := range []raid.IRaidDriver{} {
-		if drv.ParsePhyDevs() {
-			raidDiskInfo = append(raidDiskInfo, drv.GetPhyDevs()...)
-			raidDrivers = append(raidDrivers, drv.GetName())
+	for _, drv := range drivers.GetDrivers(term) {
+		if err := drv.ParsePhyDevs(); err != nil {
+			return nil, nil, nil, fmt.Errorf("ParsePhyDevs: %v", err)
 		}
+		raidDiskInfo = append(raidDiskInfo, GetRaidDevices(drv)...)
+		raidDrivers = append(raidDrivers, drv.GetName())
 	}
 
-	for _, drv := range []raid.IRaidDriver{} {
-		if drv.ParsePhyDevs() {
-			raidDiskInfo = append(raidDiskInfo, drv.GetPhyDevs()...)
-			lvDiskInfo = append(lvDiskInfo, drv.GetLogicVolumes()...)
-			raidDrivers = append(raidDrivers, drv.GetName())
+	for _, drv := range drivers.GetDrivers(term) {
+		if err := drv.ParsePhyDevs(); err != nil {
+			return nil, nil, nil, fmt.Errorf("ParsePhyDevs: %v", err)
 		}
+		raidDiskInfo = append(raidDiskInfo, GetRaidDevices(drv)...)
+		lvs, err := GetRaidLogicVolumes(drv)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("GetRaidLogicVolumes: %v", err)
+		}
+		lvDiskInfo = append(lvDiskInfo, lvs...)
+		raidDrivers = append(raidDrivers, drv.GetName())
 	}
 
 	log.Infof("Get Raid drivers: %v", raidDrivers)

@@ -89,6 +89,7 @@ type BaremetalStorage struct {
 	MinStripSize int64  `json:"min_strip_size,omitempty"`
 	MaxStripSize int64  `json:"max_strip_size,omitempty"`
 	Index        int64  `json:"index,omitempty"`
+	Addr         string `json:"addr,omitempty"`
 }
 
 func (s BaremetalStorage) GetBlock() int {
