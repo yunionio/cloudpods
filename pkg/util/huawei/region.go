@@ -21,7 +21,7 @@ type Locales struct {
 // https://support.huaweicloud.com/api-iam/zh-cn_topic_0067148043.html
 type SRegion struct {
 	client    *SHuaweiClient
-	ecsClient *clients.Client
+	ecsClient *client.Client
 
 	Description    string  `json:"description"`
 	ID             string  `json:"id"`
@@ -35,7 +35,7 @@ type SRegion struct {
 	storageCache *SStoragecache
 }
 
-func (self *SRegion) getECSClient() (*clients.Client, error) {
+func (self *SRegion) getECSClient() (*client.Client, error) {
 	var err error
 
 	if len(self.client.projectId) > 0 {
@@ -52,7 +52,7 @@ func (self *SRegion) getECSClient() (*clients.Client, error) {
 	}
 
 	if self.ecsClient == nil {
-		self.ecsClient, err = clients.NewClientWithAccessKey(self.ID, self.client.projectId, self.client.accessKey, self.client.secret)
+		self.ecsClient, err = client.NewClientWithAccessKey(self.ID, self.client.projectId, self.client.accessKey, self.client.secret)
 		if err != nil {
 			return nil, err
 		}
