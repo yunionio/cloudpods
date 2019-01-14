@@ -504,4 +504,21 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type HostSetSchedtagOptions struct {
+		ID       string   `help:"ID or Name of host"`
+		Schedtag []string `help:"Ids of schedtag"`
+	}
+	R(&HostSetSchedtagOptions{}, "host-set-schedtag", "Set schedtags to a host", func(s *mcclient.ClientSession, args *HostSetSchedtagOptions) error {
+		params := jsonutils.NewDict()
+		for idx, tag := range args.Schedtag {
+			params.Add(jsonutils.NewString(tag), fmt.Sprintf("schedtag.%d", idx))
+		}
+		result, err := modules.Hosts.PerformAction(s, args.ID, "set-schedtag", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }
