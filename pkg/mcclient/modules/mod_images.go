@@ -463,7 +463,7 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 		if err != nil {
 			return nil, httperrors.NewMissingParameterError("os_type")
 		}
-		if !utils.IsInStringArray(osType, []string{"Windows", "Linux", "Freebsd", "Android", "macOS", "VMWare"}) {
+		if !utils.IsInStringArray(strings.ToLower(osType), []string{"windows", "linux", "freebsd", "android", "macos", "vmware"}) {
 			return nil, fmt.Errorf("OS type must be specified")
 		}
 		name, _ := params.GetString("name")
