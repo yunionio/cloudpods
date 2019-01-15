@@ -641,8 +641,13 @@ func (self *SElasticip) AllowPerformDissociate(ctx context.Context, userCred mcc
 }
 
 func (self *SElasticip) PerformDissociate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if len(self.AssociateId) == 0 {
+		return nil, nil // success
+	}
+
+	// associate with an invalid vm
 	if !self.IsAssociated() {
-		return nil, httperrors.NewConflictError("eip is not associated with instance")
+		return nil, self.Dissociate(ctx, userCred)
 	}
 
 	if self.Status != EIP_STATUS_READY {
