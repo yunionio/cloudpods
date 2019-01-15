@@ -18,9 +18,13 @@ import (
 var (
 	keyWords    = []string{"disks"}
 	actionFuncs = map[string]actionFunc{
-		"create": diskCreate,
-		"delete": diskDelete,
-		"resize": diskResize,
+		"create":       diskCreate,
+		"delete":       diskDelete,
+		"resize":       diskResize,
+		"save-prepare": diskSavePrepare,
+		"reset":        diskReset,
+		// "snapshot":     diskSnapshot,
+		"cleanup-snapshots": diskCleanupSnapshots,
 	}
 )
 
@@ -151,7 +155,7 @@ func perfomrDiskActions(ctx context.Context, w http.ResponseWriter, r *http.Requ
 func diskCreate(ctx context.Context, storage IStorage, diskId string, disk IDisk, body jsonutils.JSONObject) (interface{}, error) {
 	diskInfo, err := body.Get("disk")
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("Missing disk")
+		return nil, httperrors.NewMissingParameterError("disk")
 	}
 	hostutils.DelayTask(ctx, storage.CreateDiskByDiskinfo,
 		&SDiskCreateByDiskinfo{diskId, disk, diskInfo, storage})
@@ -166,8 +170,52 @@ func diskDelete(ctx context.Context, storage IStorage, diskId string, disk IDisk
 func diskResize(ctx context.Context, storage IStorage, diskId string, disk IDisk, body jsonutils.JSONObject) (interface{}, error) {
 	diskInfo, err := body.Get("disk")
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("Missing disk")
+		return nil, httperrors.NewMissingParameterError("disk")
 	}
 	hostutils.DelayTask(ctx, disk.Resize, diskInfo)
+	return nil, nil
+}
+
+func diskSavePrepare(ctx context.Context, storage IStorage, diskId string, disk IDisk, body jsonutils.JSONObject) (interface{}, error) {
+	diskInfo, err := body.Get("disk")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("disk")
+	}
+	hostutils.DelayTask(ctx, disk.PrepareSaveToGlance, diskInfo)
+	return nil, nil
+}
+
+func diskReset(ctx context.Context, storage IStorage, diskId string, disk IDisk, body jsonutils.JSONObject) (interface{}, error) {
+	snapshotId, err := body.GetString("snapshot_id")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("snapshot_id")
+	}
+	outOfChain, err := body.Bool("out_of_chain")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("out_of_chain")
+	}
+	hostutils.DelayTask(ctx, disk.ResetFromSnapshot, &SDiskReset{snapshotId, outOfChain})
+	return nil, nil
+}
+
+// func diskSnapshot(ctx context.Context, storage IStorage, diskId string, disk IDisk, body jsonutils.JSONObject) (interface{}, error) {
+// 	snapshotId, err := body.GetString("snapshot_id")
+// 	if err != nil {
+// 		return nil, httperrors.NewMissingParameterError("snapshot_id")
+// 	}
+// 	hostutils.DelayTask(ctx, disk.CreateSnapshot(snapshotId), snapshotId)
+// 	return nil, nil
+// }
+
+func diskCleanupSnapshots(ctx context.Context, storage IStorage, diskId string, disk IDisk, body jsonutils.JSONObject) (interface{}, error) {
+	convertSnapshots, err := body.GetArray("convert_snapshots")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("convert_snapshots")
+	}
+	deleteSnapshots, err := body.GetArray("delete_snapshots")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("delete_snapshots")
+	}
+	hostutils.DelayTask(ctx, disk.CleanupSnapshots, &SDiskCleanupSnapshots{convertSnapshots, deleteSnapshots})
 	return nil, nil
 }

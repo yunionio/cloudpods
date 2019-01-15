@@ -41,8 +41,9 @@ var (
 )
 
 type SHostInfo struct {
-	isRegistered bool
-	IsRegistered chan struct{}
+	isRegistered     bool
+	IsRegistered     chan struct{}
+	registerCallback func()
 
 	kvmModuleSupport string
 	nestStatus       string
@@ -644,7 +645,8 @@ func (h *SHostInfo) GetMatchNic(bridge, iface, mac string) *SNIC {
 	return nil
 }
 
-func (h *SHostInfo) StartRegister(delay int) {
+func (h *SHostInfo) StartRegister(delay int, callback func()) {
+	h.registerCallback = callback
 	timeutils2.AddTimeout(delay*time.Second, h.register)
 }
 
@@ -851,6 +853,13 @@ func (h *SHostInfo) putHostOffline() {
 	} else {
 		h.getNetworkInfo()
 	}
+}
+
+func (h *SHostInfo) PutHostOnline() error {
+	_, err := modules.Hosts.PerformAction(
+		hostutils.GetComputeSession(context.Background()),
+		h.HostId, "online", nil)
+	return err
 }
 
 func (h *SHostInfo) getNetworkInfo() {
@@ -1102,6 +1111,10 @@ func (h *SHostInfo) onSucc() {
 
 		// TODO
 		h.StartPinger()
+
+		if h.registerCallback != nil {
+			h.registerCallback()
+		}
 
 		// To notify caller, host register is success
 		close(h.IsRegistered)

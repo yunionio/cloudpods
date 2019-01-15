@@ -346,7 +346,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) string
 	cmd += fmt.Sprintf(" -cpu %s", cpu_type)
 
 	// TODO hmp - -
-	// cmd += s.getMonitorDesc("hmqmon", s.GetQmpMonitorPort(int(vncPort)), MODE_READLINE)
+	cmd += s.getMonitorDesc("hmqmon", s.GetQmpMonitorPort(int(vncPort)), MODE_READLINE)
 	if options.HostOptions.EnableQmpMonitor {
 		cmd += s.getMonitorDesc("qmqmon", s.GetQmpMonitorPort(int(vncPort)), MODE_CONTROL)
 	}

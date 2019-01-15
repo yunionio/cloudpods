@@ -14,32 +14,31 @@ import (
 type IDisk interface {
 	GetId() string
 	Probe() error
-
+	GetPath() string
+	GetSnapshotDir() string
 	GetDiskDesc() jsonutils.JSONObject
 	GetDiskSetupScripts(idx int) string
 
-	// TODO
-	// DeleteAllSnapshot() error
+	// TODO DeleteAllSnapshot() error
 	Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	Resize(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
-
-	GetPath() string
-	GetSnapshotDir() string
+	PrepareSaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
+	ResetFromSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
+	CleanupSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 
 	CreateFromUrl(context.Context, string) error
-	// CreateFromSnapshot
+	// TODO CreateFromSnapshot
 	CreateFromTemplate(context.Context, string, string, int64) (jsonutils.JSONObject, error)
 	CreateFromImageFuse(context.Context, string) error
 	CreateRaw(ctx context.Context, sizeMb int, diskFromat string, fsFormat string,
 		encryption bool, diskId string, back string) (jsonutils.JSONObject, error)
+	PostCreateFromImageFuse()
 
 	CreateSnapshot(snapshotId string) error
-	DeleteSnapshot(snapshotId string) error
+	DeleteSnapshot(snapshotId, convertSnapshot string, pendingDelete bool) error
 
-	// @params: diskPath, guestDesc, deployInfo
-	DeployGuestFs(string, *jsonutils.JSONDict, *guestfs.SDeployInfo) (jsonutils.JSONObject, error)
-
-	PostCreateFromImageFuse()
+	DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict,
+		deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error)
 }
 
 type SBaseDisk struct {

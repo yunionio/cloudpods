@@ -102,7 +102,6 @@ func (f *SLocalGuestFS) Cleandir(dir string, keepdir, caseInsensitive bool) erro
 	return fmt.Errorf("No such file %s", sPath)
 }
 
-// TODO
 func (f *SLocalGuestFS) Zerofiles(dir string, caseInsensitive bool) error {
 	sPath := f.getLocalPath(dir, caseInsensitive)
 	if len(sPath) > 0 {

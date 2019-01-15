@@ -106,7 +106,7 @@ func storageUpdate(ctx context.Context, body jsonutils.JSONObject) (interface{},
 	storage := storageManager.GetStorage(storageId)
 	ret, err := modules.Hoststorages.Get(hostutils.GetComputeSession(context.Background()),
 		storageManager.GetHostId(), storageId,
-		jsonutils.NewDict(jsonutils.JSONPair{"details", jsonutils.JSONTrue}))
+		jsonutils.NewDict(jsonutils.NewPair("details", jsonutils.JSONTrue)))
 	if err != nil {
 		log.Errorln(err)
 		return nil, err
