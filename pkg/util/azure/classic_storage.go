@@ -130,3 +130,7 @@ func (self *SClassicStorage) Refresh() error {
 func (self *SClassicStorage) GetMountPoint() string {
 	return ""
 }
+
+func (self *SClassicStorage) IsSysDiskStore() bool {
+	return true
+}

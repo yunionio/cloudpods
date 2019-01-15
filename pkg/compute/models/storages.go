@@ -129,6 +129,9 @@ type SStorage struct {
 
 	Enabled bool   `nullable:"false" default:"true" list:"user" create:"optional"`
 	Status  string `width:"36" charset:"ascii" nullable:"false" default:"offline" list:"user" create:"optional"`
+
+	// indicating whether system disk can be allocated in this storage
+	IsSysDiskStore bool `nullable:"false" default:"true" list:"user" create:"optional" update:"admin"`
 }
 
 func (manager *SStorageManager) GetContextManager() []db.IModelManager {
@@ -741,6 +744,8 @@ func (self *SStorage) syncWithCloudStorage(extStorage cloudprovider.ICloudStorag
 		self.IsEmulated = extStorage.IsEmulated()
 		self.ManagerId = extStorage.GetManagerId()
 
+		self.IsSysDiskStore = extStorage.IsSysDiskStore()
+
 		return nil
 	})
 	if err != nil {
@@ -767,6 +772,8 @@ func (manager *SStorageManager) newFromCloudStorage(extStorage cloudprovider.ICl
 
 	storage.IsEmulated = extStorage.IsEmulated()
 	storage.ManagerId = extStorage.GetManagerId()
+
+	storage.IsSysDiskStore = extStorage.IsSysDiskStore()
 
 	err := manager.TableSpec().Insert(&storage)
 	if err != nil {

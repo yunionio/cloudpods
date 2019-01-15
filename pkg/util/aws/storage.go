@@ -128,3 +128,7 @@ func (self *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, erro
 func (self *SStorage) GetMountPoint() string {
 	return ""
 }
+
+func (self *SStorage) IsSysDiskStore() bool {
+	return true
+}

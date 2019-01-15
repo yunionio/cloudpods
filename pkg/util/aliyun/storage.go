@@ -6,6 +6,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -130,4 +131,11 @@ func (self *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, erro
 
 func (self *SStorage) GetMountPoint() string {
 	return ""
+}
+
+func (self *SStorage) IsSysDiskStore() bool {
+	if utils.IsInStringArray(self.storageType, self.zone.getSysDiskCategories()) {
+		return true
+	}
+	return false
 }

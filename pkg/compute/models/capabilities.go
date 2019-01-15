@@ -14,6 +14,7 @@ type SCapabilities struct {
 	Hypervisors        []string `json:",allowempty"`
 	ResourceTypes      []string `json:",allowempty"`
 	StorageTypes       []string `json:",allowempty"`
+	DataStorageTypes   []string `json:",allowempty"`
 	GPUModels          []string `json:",allowempty"`
 	MinNicCount        int
 	MaxNicCount        int
@@ -28,7 +29,8 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	capa := SCapabilities{}
 	capa.Hypervisors = getHypervisors(zone)
 	capa.ResourceTypes = getResourceTypes(zone)
-	capa.StorageTypes = getStorageTypes(zone)
+	capa.StorageTypes = getStorageTypes(zone, true)
+	capa.DataStorageTypes = getStorageTypes(zone, false)
 	capa.GPUModels = getGPUs(zone)
 	capa.SchedPolicySupport = isSchedPolicySupported(zone)
 	capa.MinNicCount = getMinNicCount(zone)
@@ -97,7 +99,7 @@ func getResourceTypes(zone *SZone) []string {
 	return resourceTypes
 }
 
-func getStorageTypes(zone *SZone) []string {
+func getStorageTypes(zone *SZone, isSysDisk bool) []string {
 	storages := StorageManager.Query().SubQuery()
 	hostStorages := HoststorageManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
@@ -121,6 +123,9 @@ func getStorageTypes(zone *SZone) []string {
 	q = q.Filter(sqlchemy.IsNotNull(storages.Field("medium_type")))
 	q = q.Filter(sqlchemy.In(storages.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE}))
 	q = q.Filter(sqlchemy.IsTrue(storages.Field("enabled")))
+	if isSysDisk {
+		q = q.Filter(sqlchemy.IsTrue(storages.Field("is_sys_disk_store")))
+	}
 	q = q.Distinct()
 	rows, err := q.Rows()
 	if err != nil {
