@@ -35,7 +35,9 @@ func init() {
 
 type SLoadbalancerBackend struct {
 	db.SVirtualResourceBase
+	SManagedResourceBase
 
+	CloudregionId  string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	BackendId      string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	BackendType    string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
@@ -49,7 +51,7 @@ func (man *SLoadbalancerBackendManager) PreDeleteSubs(ctx context.Context, userC
 	subs := []SLoadbalancerBackend{}
 	db.FetchModelObjects(man, q, &subs)
 	for _, sub := range subs {
-		sub.PreDelete(ctx, userCred)
+		sub.DoPendingDelete(ctx, userCred)
 	}
 }
 
@@ -86,6 +88,8 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 	}
 	backendGroup := backendGroupV.Model.(*SLoadbalancerBackendGroup)
 	lb := backendGroup.GetLoadbalancer()
+	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
+	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
 	backendType := backendTypeV.Value
 	var baseName string
 	var backendV *validators.ValidatorModelIdOrName
@@ -195,7 +199,7 @@ func (lbb *SLoadbalancerBackend) ValidateUpdateData(ctx context.Context, userCre
 
 func (lbb *SLoadbalancerBackend) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lbb.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
-	lbb.SetStatus(userCred, LB_STATUS_CREATING, "")
+	lbb.SetStatus(userCred, LB_CREATING, "")
 	if err := lbb.StartLoadBalancerBackendCreateTask(ctx, userCred, ""); err != nil {
 		log.Errorf("Failed to create loadbalancer backend error: %v", err)
 	}
@@ -366,4 +370,27 @@ func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx cont
 		lbb.ProjectId = projectId
 	}
 	return lbb, man.TableSpec().Insert(lbb)
+}
+
+func (manager *SLoadbalancerBackendManager) InitializeData() error {
+	backends := []SLoadbalancerBackend{}
+	q := manager.Query()
+	q = q.Filter(sqlchemy.IsNotEmpty(q.Field("cloudregion_id")))
+	if err := db.FetchModelObjects(manager, q, &backends); err != nil {
+		return err
+	}
+	for i := 0; i < len(backends); i++ {
+		backend := &backends[i]
+		if group := backend.GetLoadbalancerBackendGroup(); group != nil && len(group.CloudregionId) > 0 {
+			_, err := backend.GetModelManager().TableSpec().Update(backend, func() error {
+				backend.CloudregionId = group.CloudregionId
+				backend.ManagerId = group.ManagerId
+				return nil
+			})
+			if err != nil {
+				log.Errorf("failed to update loadbalancer backend %s cloudregion_id", group.Name)
+			}
+		}
+	}
+	return nil
 }

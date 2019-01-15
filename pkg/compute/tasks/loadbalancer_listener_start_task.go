@@ -8,7 +8,9 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type LoadbalancerListenerStartTask struct {
@@ -20,7 +22,10 @@ func init() {
 }
 
 func (self *LoadbalancerListenerStartTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason string) {
-	lblis.SetStatus(self.GetUserCred(), models.LB_STATUS_UNKNOWN, reason)
+	lblis.SetStatus(self.GetUserCred(), models.LB_STATUS_DISABLED, reason)
+	db.OpsLog.LogEvent(lblis, db.ACT_ENABLE, reason, self.UserCred)
+	logclient.AddActionLog(lblis, logclient.ACT_ENABLE, reason, self.UserCred, false)
+	notifyclient.NotifySystemError(lblis.Id, lblis.Name, models.LB_STATUS_DISABLED, reason)
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -39,19 +44,11 @@ func (self *LoadbalancerListenerStartTask) OnInit(ctx context.Context, obj db.IS
 
 func (self *LoadbalancerListenerStartTask) OnLoadbalancerListenerStartComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
 	lblis.SetStatus(self.GetUserCred(), models.LB_STATUS_ENABLED, "")
+	db.OpsLog.LogEvent(lblis, db.ACT_ENABLE, lblis.GetShortDesc(ctx), self.UserCred)
+	logclient.AddActionLog(lblis, logclient.ACT_ENABLE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *LoadbalancerListenerStartTask) OnLoadbalancerListenerStartCompleteFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
-	lblis.SetStatus(self.GetUserCred(), models.LB_STATUS_START_FAILED, reason.String())
-	self.SetStage("OnLoadbalancerListenerSyncStatusComplete", nil)
-	lblis.StartLoadBalancerListenerSyncstatusTask(ctx, self.GetUserCred(), self.GetTaskId())
-}
-
-func (self *LoadbalancerListenerStartTask) OnLoadbalancerListenerSyncStatusComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
-	self.SetStageComplete(ctx, nil)
-}
-
-func (self *LoadbalancerListenerStartTask) OnLoadbalancerListenerSyncStatusCompleteFailed(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
-	self.taskFail(ctx, lblis, data.String())
+	self.taskFail(ctx, lblis, reason.String())
 }

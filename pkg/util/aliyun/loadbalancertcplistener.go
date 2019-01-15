@@ -211,9 +211,9 @@ func (region *SRegion) constructBaseCreateListenerParams(lb *SLoadbalancer, list
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
 	switch lb.InternetChargeType {
-	case "paybybandwidth":
-		params["Bandwidth"] = "-1"
 	case "paybytraffic":
+		params["Bandwidth"] = "-1"
+	case "paybybandwidth":
 		if lb.Bandwidth > 5000 {
 			lb.Bandwidth = 5000
 		}
@@ -243,8 +243,8 @@ func (region *SRegion) constructBaseCreateListenerParams(lb *SLoadbalancer, list
 		//TODO
 		params["BackendServerPort"] = ""
 	}
-	if len(listener.Description) > 0 {
-		params["Description"] = listener.Description
+	if len(listener.Name) > 0 {
+		params["Description"] = listener.Name
 	}
 	if listener.EstablishedTimeout >= 10 && listener.EstablishedTimeout <= 900 {
 		params["EstablishedTimeout"] = fmt.Sprintf("%d", listener.EstablishedTimeout)
@@ -316,4 +316,14 @@ func (listerner *SLoadbalancerTCPListener) Start() error {
 
 func (listerner *SLoadbalancerTCPListener) Stop() error {
 	return listerner.lb.region.stopListener(listerner.ListenerPort, listerner.lb.LoadBalancerId)
+}
+
+func (region *SRegion) SyncLoadbalancerTCPListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListener) error {
+	params := region.constructBaseCreateListenerParams(lb, listener)
+	_, err := region.lbRequest("SetLoadBalancerTCPListenerAttribute", params)
+	return err
+}
+
+func (listerner *SLoadbalancerTCPListener) Sync(lblis *cloudprovider.SLoadbalancerListener) error {
+	return listerner.lb.region.SyncLoadbalancerTCPListener(listerner.lb, lblis)
 }

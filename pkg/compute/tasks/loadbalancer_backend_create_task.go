@@ -8,7 +8,9 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type LoadbalancerBackendCreateTask struct {
@@ -20,7 +22,10 @@ func init() {
 }
 
 func (self *LoadbalancerBackendCreateTask) taskFail(ctx context.Context, lbb *models.SLoadbalancerBackend, reason string) {
-	lbb.SetStatus(self.GetUserCred(), models.LB_STATUS_CREATE_FAILED, reason)
+	lbb.SetStatus(self.GetUserCred(), models.LB_CREATE_FAILED, reason)
+	db.OpsLog.LogEvent(lbb, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
+	logclient.AddActionLog(lbb, logclient.ACT_CREATE, reason, self.UserCred, false)
+	notifyclient.NotifySystemError(lbb.Id, lbb.Name, models.LB_CREATE_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -39,6 +44,8 @@ func (self *LoadbalancerBackendCreateTask) OnInit(ctx context.Context, obj db.IS
 
 func (self *LoadbalancerBackendCreateTask) OnLoadbalancerBackendCreateComplete(ctx context.Context, lbb *models.SLoadbalancerBackend, data jsonutils.JSONObject) {
 	lbb.SetStatus(self.GetUserCred(), models.LB_STATUS_ENABLED, "")
+	db.OpsLog.LogEvent(lbb, db.ACT_ALLOCATE, lbb.GetShortDesc(ctx), self.UserCred)
+	logclient.AddActionLog(lbb, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 

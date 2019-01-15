@@ -327,3 +327,14 @@ func (listerner *SLoadbalancerHTTPListener) Start() error {
 func (listerner *SLoadbalancerHTTPListener) Stop() error {
 	return listerner.lb.region.stopListener(listerner.ListenerPort, listerner.lb.LoadBalancerId)
 }
+
+func (region *SRegion) SyncLoadbalancerHTTPListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListener) error {
+	params := region.constructBaseCreateListenerParams(lb, listener)
+	params = region.constructHTTPCreateListenerParams(params, listener)
+	_, err := region.lbRequest("SetLoadBalancerHTTPListenerAttribute", params)
+	return err
+}
+
+func (listerner *SLoadbalancerHTTPListener) Sync(lblis *cloudprovider.SLoadbalancerListener) error {
+	return listerner.lb.region.SyncLoadbalancerHTTPListener(listerner.lb, lblis)
+}

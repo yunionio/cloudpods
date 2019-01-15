@@ -112,7 +112,8 @@ func (region *SRegion) CreateLoadbalancerMasterSlaveBackendGroup(name, loadbalan
 				},
 			))
 	}
-	body, err := region.lbRequest("CreateMasterSlaveVServerGroup", params)
+	params["MasterSlaveBackendServers"] = servers.String()
+	body, err := region.lbRequest("CreateMasterSlaveServerGroup", params)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +128,8 @@ func (region *SRegion) GetLoadbalancerMasterSlaveBackendgroupById(groupId string
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
 	params["MasterSlaveServerGroupId"] = groupId
-	body, err := region.lbRequest("DescribeMasterSlaveVServerGroupAttribute", params)
+	params["NeedInstanceDetail"] = "true"
+	body, err := region.lbRequest("DescribeMasterSlaveServerGroupAttribute", params)
 	if err != nil {
 		return nil, err
 	}
@@ -135,19 +137,7 @@ func (region *SRegion) GetLoadbalancerMasterSlaveBackendgroupById(groupId string
 	return group, body.Unmarshal(group)
 }
 
-func (region *SRegion) UpdateLoadbalancerMasterSlaveBackendgroupName(name, groupId string) error {
-	params := map[string]string{}
-	params["RegionId"] = region.RegionId
-	params["MasterSlaveServerGroupId"] = groupId
-	params["MasterSlaveServerGroupName"] = name
-	_, err := region.lbRequest("SetMasterSlaveVServerGroupAttribute", params)
-	return err
-}
-
 func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) Sync(name string) error {
-	if backendgroup.MasterSlaveServerGroupName != name {
-		return backendgroup.lb.region.UpdateLoadbalancerMasterSlaveBackendgroupName(backendgroup.MasterSlaveServerGroupId, name)
-	}
 	return nil
 }
 

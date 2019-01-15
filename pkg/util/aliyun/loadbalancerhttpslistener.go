@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -245,7 +244,6 @@ func (region *SRegion) GetLoadbalancerHTTPSListener(loadbalancerId string, liste
 }
 
 func (region *SRegion) constructHTTPCreateListenerParams(params map[string]string, listener *cloudprovider.SLoadbalancerListener) map[string]string {
-	log.Errorf("listener: %s", jsonutils.Marshal(listener).PrettyString())
 	params["HealthCheck"] = listener.HealthCheck
 	if listener.HealthCheck == "on" {
 		if len(listener.HealthCheckURI) == 0 {
@@ -264,7 +262,7 @@ func (region *SRegion) constructHTTPCreateListenerParams(params map[string]strin
 		listener.StickySessionCookieTimeout = 500
 	}
 	params["CookieTimeout"] = fmt.Sprintf("%d", listener.StickySessionCookieTimeout)
-	params["ForwardPort"] = fmt.Sprintf("%d", listener.ForwardPort)
+	//params["ForwardPort"] = fmt.Sprintf("%d", listener.ForwardPort) //暂不支持
 	params["Gzip"] = "off"
 	if listener.Gzip {
 		params["Gzip"] = "on"
@@ -331,4 +329,19 @@ func (listerner *SLoadbalancerHTTPSListener) Start() error {
 
 func (listerner *SLoadbalancerHTTPSListener) Stop() error {
 	return listerner.lb.region.stopListener(listerner.ListenerPort, listerner.lb.LoadBalancerId)
+}
+
+func (region *SRegion) SyncLoadbalancerHTTPSListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListener) error {
+	params := region.constructBaseCreateListenerParams(lb, listener)
+	params = region.constructHTTPCreateListenerParams(params, listener)
+	params["ServerCertificateId"] = listener.CertificateID
+	if len(lb.LoadBalancerSpec) > 0 && len(listener.TLSCipherPolicy) > 0 {
+		params["TLSCipherPolicy"] = listener.TLSCipherPolicy
+	}
+	_, err := region.lbRequest("SetLoadBalancerHTTPSListenerAttribute", params)
+	return err
+}
+
+func (listerner *SLoadbalancerHTTPSListener) Sync(lblis *cloudprovider.SLoadbalancerListener) error {
+	return listerner.lb.region.SyncLoadbalancerHTTPSListener(listerner.lb, lblis)
 }

@@ -76,4 +76,12 @@ func init() {
 		printObject(lb)
 		return nil
 	})
+	R(&options.LoadbalancerActionSyncStatusOptions{}, "lb-syncstatus", "Sync lb status", func(s *mcclient.ClientSession, opts *options.LoadbalancerActionSyncStatusOptions) error {
+		lb, err := modules.Loadbalancers.PerformAction(s, opts.ID, "syncstatus", nil)
+		if err != nil {
+			return err
+		}
+		printObject(lb)
+		return nil
+	})
 }

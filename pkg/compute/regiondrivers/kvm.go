@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/utils"
 )
 
 type SKVMRegionDriver struct {
@@ -42,7 +43,16 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerCertificateData(ctx cont
 	return data, nil
 }
 
-func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendGroupData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backends []cloudprovider.SLoadbalancerBackend) (*jsonutils.JSONDict, error) {
+func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendGroupData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lb *models.SLoadbalancer, backends []cloudprovider.SLoadbalancerBackend) (*jsonutils.JSONDict, error) {
+	for _, backend := range backends {
+		switch backend.BackendType {
+		case models.LB_BACKEND_GUEST:
+			if backend.ZoneId != lb.ZoneId {
+				return nil, fmt.Errorf("zone of host %q (%s) != zone of loadbalancer %q (%s)",
+					backend.HostName, backend.ZoneId, lb.Name, lb.ZoneId)
+			}
+		}
+	}
 	return data, nil
 }
 
@@ -87,6 +97,10 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context
 	return data, nil
 }
 
+func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
+	return data, nil
+}
+
 func (self *SKVMRegionDriver) RequestCreateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		_, err := models.LoadbalancerManager.TableSpec().Update(lb, func() error {
@@ -125,6 +139,12 @@ func (self *SKVMRegionDriver) RequestStopLoadbalancer(ctx context.Context, userC
 }
 
 func (self *SKVMRegionDriver) RequestSyncstatusLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
+	originStatus, _ := task.GetParams().GetString("origin_status")
+	if utils.IsInStringArray(originStatus, []string{models.LB_STATUS_ENABLED, models.LB_STATUS_DISABLED}) {
+		lb.SetStatus(userCred, originStatus, "")
+	} else {
+		lb.SetStatus(userCred, models.LB_STATUS_ENABLED, "")
+	}
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -227,6 +247,17 @@ func (self *SKVMRegionDriver) RequestStopLoadbalancerListener(ctx context.Contex
 }
 
 func (self *SKVMRegionDriver) RequestSyncstatusLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
+	originStatus, _ := task.GetParams().GetString("origin_status")
+	if utils.IsInStringArray(originStatus, []string{models.LB_STATUS_ENABLED, models.LB_STATUS_DISABLED}) {
+		lblis.SetStatus(userCred, originStatus, "")
+	} else {
+		lblis.SetStatus(userCred, models.LB_STATUS_ENABLED, "")
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestSyncLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
 }

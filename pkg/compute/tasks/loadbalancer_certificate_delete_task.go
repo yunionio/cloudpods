@@ -8,7 +8,9 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type LoadbalancerCertificateDeleteTask struct {
@@ -21,6 +23,9 @@ func init() {
 
 func (self *LoadbalancerCertificateDeleteTask) taskFail(ctx context.Context, lbcert *models.SLoadbalancerCertificate, reason string) {
 	lbcert.SetStatus(self.GetUserCred(), models.LB_STATUS_DELETE_FAILED, reason)
+	db.OpsLog.LogEvent(lbcert, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
+	logclient.AddActionLog(lbcert, logclient.ACT_DELETE, reason, self.UserCred, false)
+	notifyclient.NotifySystemError(lbcert.Id, lbcert.Name, models.LB_STATUS_DELETE_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -38,6 +43,8 @@ func (self *LoadbalancerCertificateDeleteTask) OnInit(ctx context.Context, obj d
 }
 
 func (self *LoadbalancerCertificateDeleteTask) OnLoadbalancerCertificateDeleteComplete(ctx context.Context, lbcert *models.SLoadbalancerCertificate, data jsonutils.JSONObject) {
+	db.OpsLog.LogEvent(lbcert, db.ACT_DELETE, lbcert.GetShortDesc(ctx), self.UserCred)
+	logclient.AddActionLog(lbcert, logclient.ACT_DELETE, nil, self.UserCred, true)
 	lbcert.DoPendingDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }

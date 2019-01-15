@@ -89,6 +89,10 @@ func (self *SBaseRegionDriver) RequestSyncstatusLoadbalancerListener(ctx context
 	return fmt.Errorf("Not Implement RequestSyncstatusLoadbalancerListener")
 }
 
+func (self *SBaseRegionDriver) RequestSyncLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestSyncLoadbalancerListener")
+}
+
 func (self *SBaseRegionDriver) RequestCreateLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, lbr *models.SLoadbalancerListenerRule, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestCreateLoadbalancerListenerRule")
 }

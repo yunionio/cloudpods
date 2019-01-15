@@ -223,7 +223,10 @@ func (lb *SLoadbalancer) PerformSyncstatus(ctx context.Context, userCred mcclien
 }
 
 func (lb *SLoadbalancer) StartLoadBalancerSyncstatusTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerSyncstatusTask", lb, userCred, nil, parentTaskId, "", nil)
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(lb.Status), "origin_status")
+	lb.SetStatus(userCred, LB_SYNC_STATUS, "")
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerSyncstatusTask", lb, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
@@ -237,7 +240,7 @@ func (lb *SLoadbalancer) PostCreate(ctx context.Context, userCred mcclient.Token
 	// NOTE this means lb.UpdateVersion will be 0, then 1 after creation
 	// NOTE need ways to notify error
 
-	lb.SetStatus(userCred, LB_STATUS_CREATING, "")
+	lb.SetStatus(userCred, LB_CREATING, "")
 	if err := lb.StartLoadBalancerCreateTask(ctx, userCred, ""); err != nil {
 		log.Errorf("Failed to create loadbalancer error: %v", err)
 	}

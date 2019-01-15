@@ -469,6 +469,7 @@ type ICloudLoadbalancerListener interface {
 
 	Start() error
 	Stop() error
+	Sync(listener *SLoadbalancerListener) error
 
 	Delete() error
 }

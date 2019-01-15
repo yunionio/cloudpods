@@ -28,11 +28,14 @@ const (
 
 	LB_STATUS_INIT = "init"
 
-	LB_STATUS_CREATING      = "creating"
-	LB_STATUS_CREATE_FAILED = "create_failed"
+	LB_CREATING      = "creating"
+	LB_CREATE_FAILED = "create_failed"
 
-	LB_STATUS_SYNCING        = "syncing"
-	LB_STATUS_SYNCING_FAILED = "syncing_failed"
+	LB_SYNC_CONF        = "sync_conf"
+	LB_SYNC_CONF_FAILED = "sync_conf_failed"
+
+	LB_SYNC_STATUS        = "sync_status"
+	LB_SYNC_STATUS_FAILED = "sync_status_failed"
 
 	LB_STATUS_DELETING      = "deleting"
 	LB_STATUS_DELETE_FAILED = "delete_failed"
@@ -46,7 +49,6 @@ const (
 	LB_STATUS_STOPPING       = "stopping"
 	LB_STATUS_DELETE_PENDING = "delete_pending"
 	LB_STATUS_ERROR          = "error" // bad things happen
-
 )
 
 var LB_STATUS_SPEC = validators.NewChoices(

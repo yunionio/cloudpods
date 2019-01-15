@@ -160,3 +160,7 @@ type LoadbalancerListenerActionStatusOptions struct {
 	ID     string
 	Status string `choices:"enabled|disabled"`
 }
+
+type LoadbalancerListenerActionSyncStatusOptions struct {
+	ID string
+}

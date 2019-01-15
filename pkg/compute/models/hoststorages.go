@@ -40,7 +40,7 @@ func init() {
 type SHoststorage struct {
 	SHostJointsBase
 
-	MountPoint string `width:"256" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
+	MountPoint string `width:"256" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
 
 	HostId    string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 	StorageId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)

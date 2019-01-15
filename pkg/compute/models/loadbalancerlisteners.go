@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -137,7 +138,7 @@ func (man *SLoadbalancerListenerManager) PreDeleteSubs(ctx context.Context, user
 	subs := []SLoadbalancerListener{}
 	db.FetchModelObjects(man, q, &subs)
 	for _, sub := range subs {
-		sub.PreDelete(ctx, userCred)
+		sub.DoPendingDelete(ctx, userCred)
 	}
 }
 
@@ -336,11 +337,15 @@ func (lblis *SLoadbalancerListener) AllowPerformSyncstatus(ctx context.Context, 
 }
 
 func (lblis *SLoadbalancerListener) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return nil, lblis.StartLoadBalancerListenerSyncstatusTask(ctx, userCred, "")
+	params := jsonutils.NewDict()
+	if utils.IsInStringArray(lblis.Status, []string{LB_STATUS_ENABLED, LB_STATUS_DISABLED}) {
+		params.Add(jsonutils.NewString(lblis.Status), "origin_status")
+	}
+	return nil, lblis.StartLoadBalancerListenerSyncstatusTask(ctx, userCred, params, "")
 }
 
-func (lblis *SLoadbalancerListener) StartLoadBalancerListenerSyncstatusTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerListenerSyncstatusTask", lblis, userCred, nil, parentTaskId, "", nil)
+func (lblis *SLoadbalancerListener) StartLoadBalancerListenerSyncstatusTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerListenerSyncstatusTask", lblis, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
@@ -417,7 +422,29 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 				backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, lblis.LoadbalancerId)
 		}
 	}
-	return lblis.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	if _, err := lblis.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data); err != nil {
+		return nil, err
+	}
+	return lblis.GetRegion().GetDriver().ValidateUpdateLoadbalancerListenerData(ctx, userCred, data, backendGroupV.Model)
+}
+
+func (lblis *SLoadbalancerListener) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	lblis.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+	lblis.StartLoadBalancerListenerSyncTask(ctx, userCred, "")
+}
+
+func (lblis *SLoadbalancerListener) StartLoadBalancerListenerSyncTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	if utils.IsInStringArray(lblis.Status, []string{LB_STATUS_ENABLED, LB_STATUS_DISABLED}) {
+		params.Add(jsonutils.NewString(lblis.Status), "origin_status")
+	}
+	lblis.SetStatus(userCred, LB_SYNC_CONF, "")
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerListenerSyncTask", lblis, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (lblis *SLoadbalancerListener) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
@@ -454,7 +481,7 @@ func (lblis *SLoadbalancerListener) GetExtraDetails(ctx context.Context, userCre
 func (lblis *SLoadbalancerListener) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lblis.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 
-	lblis.SetStatus(userCred, LB_STATUS_CREATING, "")
+	lblis.SetStatus(userCred, LB_CREATING, "")
 	if err := lblis.StartLoadBalancerListenerCreateTask(ctx, userCred, ""); err != nil {
 		log.Errorf("Failed to create loadbalancer listener error: %v", err)
 	}
@@ -477,6 +504,14 @@ func (lblis *SLoadbalancerListener) PerformPurge(ctx context.Context, userCred m
 	parasm := jsonutils.NewDict()
 	parasm.Add(jsonutils.JSONTrue, "purge")
 	return nil, lblis.StartLoadBalancerListenerDeleteTask(ctx, userCred, parasm, "")
+}
+
+func (lblis *SLoadbalancerListener) AllowPerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, lblis, "sync")
+}
+
+func (lblis *SLoadbalancerListener) PerformSync(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return nil, lblis.StartLoadBalancerListenerSyncTask(ctx, userCred, "")
 }
 
 func (lblis *SLoadbalancerListener) StartLoadBalancerListenerDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
@@ -508,7 +543,7 @@ func (lblis *SLoadbalancerListener) Delete(ctx context.Context, userCred mcclien
 	return nil
 }
 
-func (lblis *SLoadbalancerListener) GetLoadbalancerListenerCreateParams() (*cloudprovider.SLoadbalancerListener, error) {
+func (lblis *SLoadbalancerListener) GetLoadbalancerListenerParams() (*cloudprovider.SLoadbalancerListener, error) {
 	listener := &cloudprovider.SLoadbalancerListener{
 		Name:               lblis.Name,
 		Description:        lblis.Description,
@@ -746,4 +781,27 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 		lblis.ProjectId = projectId
 	}
 	return lblis, man.TableSpec().Insert(lblis)
+}
+
+func (manager *SLoadbalancerListenerManager) InitializeData() error {
+	listeners := []SLoadbalancerListener{}
+	q := manager.Query()
+	q = q.Filter(sqlchemy.IsNotEmpty(q.Field("cloudregion_id")))
+	if err := db.FetchModelObjects(manager, q, &listeners); err != nil {
+		return err
+	}
+	for i := 0; i < len(listeners); i++ {
+		listener := &listeners[i]
+		if lb := listener.GetLoadbalancer(); lb != nil && len(lb.CloudregionId) > 0 {
+			_, err := listener.GetModelManager().TableSpec().Update(listener, func() error {
+				listener.CloudregionId = lb.CloudregionId
+				listener.ManagerId = lb.ManagerId
+				return nil
+			})
+			if err != nil {
+				log.Errorf("failed to update loadbalancer listener %s cloudregion_id", listener.Name)
+			}
+		}
+	}
+	return nil
 }

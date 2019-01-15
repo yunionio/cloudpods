@@ -76,4 +76,12 @@ func init() {
 		printObject(lblistener)
 		return nil
 	})
+	R(&options.LoadbalancerListenerActionSyncStatusOptions{}, "lblistener-syncstatus", "Sync lblistener status", func(s *mcclient.ClientSession, opts *options.LoadbalancerListenerActionSyncStatusOptions) error {
+		lblistener, err := modules.LoadbalancerListeners.PerformAction(s, opts.ID, "syncstatus", nil)
+		if err != nil {
+			return err
+		}
+		printObject(lblistener)
+		return nil
+	})
 }

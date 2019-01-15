@@ -160,7 +160,7 @@ func (lbacl *SLoadbalancerAcl) ValidateUpdateData(ctx context.Context, userCred 
 
 func (lbacl *SLoadbalancerAcl) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lbacl.SSharableVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
-	lbacl.SetStatus(userCred, LB_STATUS_SYNCING, "")
+	lbacl.SetStatus(userCred, LB_SYNC_CONF, "")
 	lbacl.StartLoadBalancerAclSyncTask(ctx, userCred, "")
 }
 
@@ -176,7 +176,7 @@ func (lbacl *SLoadbalancerAcl) StartLoadBalancerAclSyncTask(ctx context.Context,
 func (lbacl *SLoadbalancerAcl) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lbacl.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 
-	lbacl.SetStatus(userCred, LB_STATUS_CREATING, "")
+	lbacl.SetStatus(userCred, LB_CREATING, "")
 	if err := lbacl.StartLoadBalancerAclCreateTask(ctx, userCred, ""); err != nil {
 		log.Errorf("Failed to create loadbalanceracl error: %v", err)
 	}

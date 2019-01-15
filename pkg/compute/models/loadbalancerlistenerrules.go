@@ -36,7 +36,9 @@ func init() {
 
 type SLoadbalancerListenerRule struct {
 	db.SVirtualResourceBase
+	SManagedResourceBase
 
+	CloudregionId  string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
 	ListenerId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 
@@ -64,7 +66,7 @@ func (man *SLoadbalancerListenerRuleManager) PreDeleteSubs(ctx context.Context, 
 	subs := []SLoadbalancerListenerRule{}
 	db.FetchModelObjects(man, q, &subs)
 	for _, sub := range subs {
-		sub.PreDelete(ctx, userCred)
+		sub.DoPendingDelete(ctx, userCred)
 	}
 }
 
@@ -107,6 +109,8 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 		}
 	}
 	listener := listenerV.Model.(*SLoadbalancerListener)
+	data.Set("cloudregion_id", jsonutils.NewString(listener.CloudregionId))
+	data.Set("manager_id", jsonutils.NewString(listener.ManagerId))
 	listenerType := listener.ListenerType
 	if listenerType != LB_LISTENER_TYPE_HTTP && listenerType != LB_LISTENER_TYPE_HTTPS {
 		return nil, fmt.Errorf("listener type must be http/https, got %s", listenerType)
@@ -130,7 +134,7 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 func (lbr *SLoadbalancerListenerRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lbr.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 
-	lbr.SetStatus(userCred, LB_STATUS_CREATING, "")
+	lbr.SetStatus(userCred, LB_CREATING, "")
 	if err := lbr.StartLoadBalancerListenerRuleCreateTask(ctx, userCred, ""); err != nil {
 		log.Errorf("Failed to create loadbalancer listener rule error: %v", err)
 	}
@@ -356,4 +360,27 @@ func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(ctx 
 		return nil
 	})
 	return err
+}
+
+func (manager *SLoadbalancerListenerRuleManager) InitializeData() error {
+	rules := []SLoadbalancerListenerRule{}
+	q := manager.Query()
+	q = q.Filter(sqlchemy.IsNotEmpty(q.Field("cloudregion_id")))
+	if err := db.FetchModelObjects(manager, q, &rules); err != nil {
+		return err
+	}
+	for i := 0; i < len(rules); i++ {
+		rule := &rules[i]
+		if listener := rule.GetLoadbalancerListener(); listener != nil && len(listener.CloudregionId) > 0 {
+			_, err := listener.GetModelManager().TableSpec().Update(rule, func() error {
+				rule.CloudregionId = listener.CloudregionId
+				rule.ManagerId = listener.ManagerId
+				return nil
+			})
+			if err != nil {
+				log.Errorf("failed to update loadbalancer listener rule %s cloudregion_id", rule.Name)
+			}
+		}
+	}
+	return nil
 }

@@ -44,3 +44,7 @@ type LoadbalancerActionStatusOptions struct {
 	ID     string
 	Status string `choices:"enabled|disabled"`
 }
+
+type LoadbalancerActionSyncStatusOptions struct {
+	ID string
+}

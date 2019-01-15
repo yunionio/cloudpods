@@ -8,7 +8,9 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type LoadbalancerAclDeleteTask struct {
@@ -21,6 +23,9 @@ func init() {
 
 func (self *LoadbalancerAclDeleteTask) taskFail(ctx context.Context, lbacl *models.SLoadbalancerAcl, reason string) {
 	lbacl.SetStatus(self.GetUserCred(), models.LB_STATUS_DELETE_FAILED, reason)
+	db.OpsLog.LogEvent(lbacl, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
+	logclient.AddActionLog(lbacl, logclient.ACT_DELETE, reason, self.UserCred, false)
+	notifyclient.NotifySystemError(lbacl.Id, lbacl.Name, models.LB_STATUS_DELETE_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -38,6 +43,8 @@ func (self *LoadbalancerAclDeleteTask) OnInit(ctx context.Context, obj db.IStand
 }
 
 func (self *LoadbalancerAclDeleteTask) OnLoadbalancerAclDeleteComplete(ctx context.Context, lbacl *models.SLoadbalancerAcl, data jsonutils.JSONObject) {
+	db.OpsLog.LogEvent(lbacl, db.ACT_DELETE, lbacl.GetShortDesc(ctx), self.UserCred)
+	logclient.AddActionLog(lbacl, logclient.ACT_DELETE, nil, self.UserCred, true)
 	lbacl.DoPendingDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }

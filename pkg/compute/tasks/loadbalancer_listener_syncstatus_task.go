@@ -8,7 +8,9 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type LoadbalancerListenerSyncstatusTask struct {
@@ -21,6 +23,9 @@ func init() {
 
 func (self *LoadbalancerListenerSyncstatusTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason string) {
 	lblis.SetStatus(self.GetUserCred(), models.LB_STATUS_UNKNOWN, reason)
+	db.OpsLog.LogEvent(lblis, db.ACT_SYNC_STATUS, reason, self.UserCred)
+	logclient.AddActionLog(lblis, logclient.ACT_SYNC_STATUS, reason, self.UserCred, false)
+	notifyclient.NotifySystemError(lblis.Id, lblis.Name, models.LB_SYNC_CONF_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -38,6 +43,8 @@ func (self *LoadbalancerListenerSyncstatusTask) OnInit(ctx context.Context, obj 
 }
 
 func (self *LoadbalancerListenerSyncstatusTask) OnLoadbalancerListenerSyncstatusComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
+	db.OpsLog.LogEvent(lblis, db.ACT_SYNC_STATUS, lblis.GetShortDesc(ctx), self.UserCred)
+	logclient.AddActionLog(lblis, logclient.ACT_SYNC_STATUS, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 

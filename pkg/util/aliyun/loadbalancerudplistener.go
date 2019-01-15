@@ -240,3 +240,13 @@ func (listerner *SLoadbalancerUDPListener) Start() error {
 func (listerner *SLoadbalancerUDPListener) Stop() error {
 	return listerner.lb.region.stopListener(listerner.ListenerPort, listerner.lb.LoadBalancerId)
 }
+
+func (region *SRegion) SyncLoadbalancerUDPListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListener) error {
+	params := region.constructBaseCreateListenerParams(lb, listener)
+	_, err := region.lbRequest("SetLoadBalancerUDPListenerAttribute", params)
+	return err
+}
+
+func (listerner *SLoadbalancerUDPListener) Sync(lblis *cloudprovider.SLoadbalancerListener) error {
+	return listerner.lb.region.SyncLoadbalancerUDPListener(listerner.lb, lblis)
+}

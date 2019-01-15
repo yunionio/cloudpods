@@ -78,7 +78,7 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerBacken
 	return data, nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerBackendGroupData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backends []cloudprovider.SLoadbalancerBackend) (*jsonutils.JSONDict, error) {
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerBackendGroupData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lb *models.SLoadbalancer, backends []cloudprovider.SLoadbalancerBackend) (*jsonutils.JSONDict, error) {
 	for _, backend := range backends {
 		if len(backend.ExternalID) == 0 {
 			return nil, httperrors.NewInputParameterError("invalid guest %s", backend.Name)
@@ -92,6 +92,10 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerListen
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
+	return data, nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
 	return data, nil
 }
 
@@ -478,7 +482,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 
 func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		params, err := lblis.GetLoadbalancerListenerCreateParams()
+		params, err := lblis.GetLoadbalancerListenerParams()
 		if err != nil {
 			return nil, err
 		}
@@ -554,6 +558,39 @@ func (self *SManagedVirtualizationRegionDriver) RequestStartLoadbalancerListener
 			return nil, err
 		}
 		return nil, iListener.Start()
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		params, err := lblis.GetLoadbalancerListenerParams()
+		if err != nil {
+			return nil, err
+		}
+		loadbalancer := lblis.GetLoadbalancer()
+		if loadbalancer == nil {
+			return nil, fmt.Errorf("failed to find loadbalancer for lblis %s", lblis.Name)
+		}
+		iRegion, err := loadbalancer.GetIRegion()
+		if err != nil {
+			return nil, err
+		}
+		iLoadbalancer, err := iRegion.GetILoadBalancerById(loadbalancer.ExternalId)
+		if err != nil {
+			return nil, err
+		}
+		iListener, err := iLoadbalancer.GetILoadBalancerListenerById(lblis.ExternalId)
+		if err != nil {
+			return nil, err
+		}
+		if err := iListener.Sync(params); err != nil {
+			return nil, err
+		}
+		if err := iListener.Refresh(); err != nil {
+			return nil, err
+		}
+		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, "", false)
 	})
 	return nil
 }

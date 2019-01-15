@@ -10,4 +10,6 @@ type SLoadbalancerBackend struct {
 	BackendType string
 	BackendRole string
 	Address     string
+	ZoneId      string
+	HostName    string
 }

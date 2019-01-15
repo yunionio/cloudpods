@@ -60,7 +60,7 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 					return nil, cloudprovider.ErrNotFound
 				}
 			}
-			for _, code := range []string{"SignatureNonceUsed", "InvalidInstance.NotSupported", "try later"} {
+			for _, code := range []string{"SignatureNonceUsed", "InvalidInstance.NotSupported", "try later", "BackendServer.configuring"} {
 				if strings.Contains(err.Error(), code) {
 					retry = true
 					break

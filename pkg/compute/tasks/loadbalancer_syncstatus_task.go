@@ -8,7 +8,9 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type LoadbalancerSyncstatusTask struct {
@@ -21,6 +23,9 @@ func init() {
 
 func (self *LoadbalancerSyncstatusTask) taskFail(ctx context.Context, lb *models.SLoadbalancer, reason string) {
 	lb.SetStatus(self.GetUserCred(), models.LB_STATUS_UNKNOWN, reason)
+	db.OpsLog.LogEvent(lb, db.ACT_SYNC_STATUS, reason, self.UserCred)
+	logclient.AddActionLog(lb, logclient.ACT_SYNC_STATUS, reason, self.UserCred, false)
+	notifyclient.NotifySystemError(lb.Id, lb.Name, models.LB_SYNC_CONF_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -38,6 +43,8 @@ func (self *LoadbalancerSyncstatusTask) OnInit(ctx context.Context, obj db.IStan
 }
 
 func (self *LoadbalancerSyncstatusTask) OnLoadbalancerSyncstatusComplete(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
+	db.OpsLog.LogEvent(lb, db.ACT_SYNC_STATUS, lb.GetShortDesc(ctx), self.UserCred)
+	logclient.AddActionLog(lb, logclient.ACT_SYNC_STATUS, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 

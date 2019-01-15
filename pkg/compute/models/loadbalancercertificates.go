@@ -69,7 +69,7 @@ func (man *SLoadbalancerCertificateManager) PreDeleteSubs(ctx context.Context, u
 	subs := []SLoadbalancerCertificate{}
 	db.FetchModelObjects(man, q, &subs)
 	for _, sub := range subs {
-		sub.PreDelete(ctx, userCred)
+		sub.DoPendingDelete(ctx, userCred)
 	}
 }
 
@@ -207,7 +207,7 @@ func (lbcert *SLoadbalancerCertificate) ValidateUpdateData(ctx context.Context, 
 func (lbcert *SLoadbalancerCertificate) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lbcert.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 
-	lbcert.SetStatus(userCred, LB_STATUS_CREATING, "")
+	lbcert.SetStatus(userCred, LB_CREATING, "")
 	if err := lbcert.StartLoadBalancerCertificateCreateTask(ctx, userCred, ""); err != nil {
 		log.Errorf("Failed to create loadbalancercertificate error: %v", err)
 	}
