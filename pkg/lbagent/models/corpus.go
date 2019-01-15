@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -11,7 +12,12 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
+const (
+	CORPUS_VERSION = "v1"
+)
+
 type LoadbalancerCorpus struct {
+	CorpusVersion string
 	*ModelSets
 	ModelSetsMaxUpdatedAt *ModelSetsMaxUpdatedAt
 }
@@ -50,10 +56,12 @@ func (b *LoadbalancerCorpus) MaxSeenUpdatedAtParams() *jsonutils.JSONDict {
 }
 
 func (b *LoadbalancerCorpus) SaveDir(dir string) error {
-	j := jsonutils.Marshal(b)
-	d := j.String()
+	d, err := json.Marshal(b)
+	if err != nil {
+		return err
+	}
 	p := filepath.Join(dir, "corpus")
-	err := ioutil.WriteFile(p, []byte(d), agentutils.FileModeFileSensitive)
+	err = ioutil.WriteFile(p, d, agentutils.FileModeFileSensitive)
 	return err
 }
 
@@ -63,17 +71,23 @@ func (b *LoadbalancerCorpus) LoadDir(dir string) error {
 	if err != nil {
 		return err
 	}
-	jd, err := jsonutils.Parse(d)
+	err = json.Unmarshal(d, b)
 	if err != nil {
-		return fmt.Errorf("%s: json parse failed: %s", p, err)
+		return err
 	}
-	err = jd.Unmarshal(b)
-	if err != nil {
-		return fmt.Errorf("%s: json unmarshal failed: %s", p, err)
+	// version for updating
+	if ver := b.CorpusVersion; ver != CORPUS_VERSION {
+		b.Reset()
+		return fmt.Errorf("%s: corpus version %s != %s", p, ver, CORPUS_VERSION)
 	}
 	correct := b.join()
 	if !correct {
 		return fmt.Errorf("%s: corpus data has inconsistencies", p)
 	}
 	return nil
+}
+
+func (b *LoadbalancerCorpus) Reset() {
+	bb := NewEmptyLoadbalancerCorpus()
+	*b = *bb
 }

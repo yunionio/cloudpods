@@ -136,7 +136,7 @@ func (ms LoadbalancerListeners) JoinCertificates(subEntries LoadbalancerCertific
 		if m.CertificateId != "" {
 			subEntry, ok := subEntries[m.CertificateId]
 			if !ok {
-				log.Warningf("loadbalancer m id %s: cannot find certificate id %s",
+				log.Warningf("loadbalancerlistener id %s: cannot find certificate id %s",
 					m.Id, m.CertificateId)
 				correct = false
 				continue
