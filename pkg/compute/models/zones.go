@@ -44,9 +44,9 @@ func init() {
 type SZone struct {
 	db.SStatusStandaloneResourceBase
 
-	Location string `width:"256" charset:"utf8" get:"user" update:"admin"` // = Column(VARCHAR(256, charset='utf8'))
-	Contacts string `width:"256" charset:"utf8" get:"user" update:"admin"` // = Column(VARCHAR(256, charset='utf8'))
-	NameCn   string `width:"256" charset:"utf8"`                           // = Column(VARCHAR(256, charset='utf8'))
+	Location string `width:"256" charset:"utf8" get:"user" list:"user" update:"admin"` // = Column(VARCHAR(256, charset='utf8'))
+	Contacts string `width:"256" charset:"utf8" get:"user" update:"admin"`             // = Column(VARCHAR(256, charset='utf8'))
+	NameCn   string `width:"256" charset:"utf8"`                                       // = Column(VARCHAR(256, charset='utf8'))
 	// status = Column(VARCHAR(36, charset='ascii'), nullable=False, default=ZONE_DISABLE)
 	ManagerUri string `width:"256" charset:"ascii" list:"admin" update:"admin"` // = Column(VARCHAR(256, charset='ascii'), nullable=True)
 	// admin_id = Column(VARCHAR(36, charset='ascii'), nullable=False)
