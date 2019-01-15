@@ -339,7 +339,7 @@ func (self *SHost) PerformUndoPrepaidRecycle(ctx context.Context, userCred mccli
 	}
 
 	if !guests[0].IsInStatus(VM_READY, VM_RUNNING) {
-		return nil, httperrors.NewInvalidStatusError("cannot undo recycle in status %s", self.Status)
+		return nil, httperrors.NewInvalidStatusError("cannot undo recycle in status %s", guests[0].Status)
 	}
 
 	if guests[0].PendingDeleted {
