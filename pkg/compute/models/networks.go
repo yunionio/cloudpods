@@ -1656,9 +1656,9 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	if len(name) > 0 {
 		if err := db.NewNameValidator(NetworkManager, userCred.GetProjectId(), name); err != nil {
 			return nil, httperrors.NewInputParameterError("Duplicate name %s", name)
-		} else {
-			name = db.GenerateName(NetworkManager, userCred.GetProjectId(), fmt.Sprintf("%s#", self.Name))
 		}
+	} else {
+		name = db.GenerateName(NetworkManager, userCred.GetProjectId(), fmt.Sprintf("%s#", self.Name))
 	}
 
 	network := &SNetwork{}
@@ -1687,7 +1687,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	network.SetModelManager(NetworkManager)
 
 	self.GetModelManager().TableSpec().Update(self, func() error {
-		self.GuestIpEnd = iSplitIp.StepUp().String()
+		self.GuestIpEnd = iSplitIp.StepDown().String()
 		return nil
 	})
 
