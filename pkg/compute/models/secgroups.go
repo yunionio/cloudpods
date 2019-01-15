@@ -92,6 +92,8 @@ func (self *SSecurityGroup) GetExtraDetails(ctx context.Context, userCred mcclie
 	}
 	extra.Add(jsonutils.NewInt(int64(len(self.GetGuests()))), "guest_cnt")
 	extra.Add(jsonutils.NewString(self.getSecurityRuleString("")), "rules")
+	extra.Add(jsonutils.NewString(self.getSecurityRuleString("in")), "in_rules")
+	extra.Add(jsonutils.NewString(self.getSecurityRuleString("out")), "out_rules")
 	return extra, nil
 }
 
