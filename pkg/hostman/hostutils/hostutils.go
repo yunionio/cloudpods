@@ -18,6 +18,14 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
+type IHost interface {
+	GetZone() string
+	GetHostId() string
+	GetMediumType() string
+
+	PutHostOnline() error
+}
+
 func GetComputeSession(ctx context.Context) *mcclient.ClientSession {
 	return auth.GetAdminSession(ctx, options.HostOptions.Region, "v2")
 }

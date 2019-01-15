@@ -32,22 +32,18 @@ func (host *SHostService) StartService() {
 		log.Fatalf(err)
 	}
 
-	if err := storageman.Init(hostInstance.HostId, hostInstance.Zone); err != nil {
+	if err := storageman.Init(hostInstance); err != nil {
 		log.Fatalf(err)
 	}
-	// wait host registerd
 
-	// Firewall.Init()
+	guestman.Init(hostInstance, options.HostOptions.ServersPath)
 
 	var c = make(chan struct{})
 	cloudcommon.InitAuth(&options.HostOptions.Options, func() {
 		log.Infof("Auth complete!!")
 
-		hostinfo.Instance().StartRegister()
+		hostInstance.StartRegister(5, guestman.GetGuestManager().Bootstrap)
 		<-hostinfo.Instance().IsRegistered
-
-		guestman.Init(options.HostOptions.ServersPath)
-		guestman.GetGuestManager().Bootstrap()
 
 		close(c)
 	})

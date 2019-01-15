@@ -311,6 +311,10 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 }
 
 func (s *SKVMGuestInstance) delayStartMonitor(ctx context.Context) {
+	if s.GetQmpMonitorPort(-1) > 0 {
+		// TODO enable hmp?
+	}
+
 	if options.HostOptions.EnableQmpMonitor && s.GetQmpMonitorPort(-1) > 0 {
 		s.Monitor = monitor.NewQmpMonitor(
 			s.onMonitorDisConnect,
@@ -333,8 +337,7 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 	log.Infof("Guest(%s) qemu version %s", s.Id, s.QemuVersion)
 	if s.Desc.Contains("live_migrate_dest_port") && ctx != nil {
 		migratePort, _ := s.Desc.Get("live_migrate_dest_port")
-		body := jsonutils.NewDict(
-			jsonutils.JSONPair{"live_migrate_dest_port", migratePort})
+		body := jsonutils.NewDict(jsonutils.NewPair("live_migrate_dest_port", migratePort))
 		hostutils.TaskComplete(ctx, body)
 	} else if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
 		// TODO
@@ -373,6 +376,17 @@ func (s *SKVMGuestInstance) onMonitorTimeout(ctx context.Context, err error) {
 	s.ForceStop()
 	timeutils2.AddTimeout(time.Second*3,
 		func() { s.asyncScriptStart(ctx, jsonutils.NewDict()) })
+}
+
+func (s *SKVMGuestInstance) GetHmpMonitorPort(vncPort int) int {
+	if vncPort <= 0 {
+		vncPort = s.GetVncPort()
+	}
+	if vncPort > 0 {
+		return vncPort + MONITOR_PORT_BASE
+	} else {
+		return -1
+	}
 }
 
 func (s *SKVMGuestInstance) GetQmpMonitorPort(vncPort int) int {
@@ -518,7 +532,6 @@ func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) {
 	for _, disk := range disks {
 		if disk.Contains("path") {
 			diskPath, _ := disk.GetString("path")
-			// TODO GetDisksByPath, storagetypes, deleteallsnapshot, delete
 			d := storageman.GetManager().GetDiskByPath(diskPath)
 			if d != nil && d.GetType == storagetypes.STORAGE_LOCAL && migrated {
 				if err := d.DeleteAllSnapshot(); err != nil {
@@ -1008,5 +1021,5 @@ func (s *SKVMGuestInstance) deleteStaticSnapshotFile(
 		log.Errorln(err)
 		return nil, err
 	}
-	return jsonutils.NewDict(jsonutils.JSONPair{"localtion", jsonutils.JSONTrue}), nil
+	return jsonutils.NewDict(jsonutils.JSONPair{"deleted", jsonutils.JSONTrue}), nil
 }

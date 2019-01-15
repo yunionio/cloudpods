@@ -47,6 +47,7 @@ type IStorage interface {
 	DeleteDiskfile(diskPath string) error
 	GetFuseTmpPath() string
 	GetFuseMountPath() string
+	GetImgsaveBackupPath() string
 }
 
 type SBaseStorage struct {
@@ -218,4 +219,8 @@ func (s *SBaseStorage) CreateDiskFromSnpashot(ctx context.Context, disk IDisk, c
 		return nil, fmt.Errorf("Unkown protocol %s", transferProtocol)
 	}
 	return disk.GetDiskDesc(), nil
+}
+
+func (s *SLocalStorage) GetImgsaveBackupPath() string {
+	return s.getSubdirPath(_IMGSAVE_BACKUPS_)
 }

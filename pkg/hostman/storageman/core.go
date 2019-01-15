@@ -7,20 +7,14 @@ import (
 	"strings"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 )
 
 const MINIMAL_FREE_SPACE = 128
 
-type IHost interface {
-	GetZone() string
-	GetHostId() string
-
-	GetMediumType() string
-}
-
 type SStorageManager struct {
-	host IHost
+	host hostutils.IHost
 
 	Storages     []IStorage
 	AgentStorage IStorage
@@ -32,7 +26,7 @@ type SStorageManager struct {
 	NfsStorageImagecacheManagers map[string]IImageCacheManger
 }
 
-func NewStorageManager(host IHost) (*SStorageManager, error) {
+func NewStorageManager(host hostutils.IHost) (*SStorageManager, error) {
 	var (
 		ret = &SStorageManager{
 			host:     host,
@@ -276,7 +270,7 @@ func Manager() *SStorageManager {
 	return storageManager
 }
 
-func Init(host IHost) error {
+func Init(host hostutils.IHost) error {
 	var (
 		err    error
 		zone   = host.GetZone()

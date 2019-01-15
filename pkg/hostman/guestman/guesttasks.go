@@ -716,9 +716,7 @@ func (s *SGuestReloadDiskTask) onResumeSucc(results string) {
 
 func (s *SGuestReloadDiskTask) taskFailed(reason string) {
 	log.Errorf("SGuestReloadDiskTask error: %s", reason)
-	if _, err := hostutils.TaskFailed(s.ctx, reason); err != nil {
-		log.Errorln(err)
-	}
+	hostutils.TaskFailed(s.ctx, reason)
 }
 
 /**
@@ -764,10 +762,7 @@ func (s *SGuestDiskSnapshotTask) onSnapshotBlkdevFail(string) {
 	if err != nil {
 		log.Errorln(err)
 	}
-	_, err = hostutils.TaskFailed(s.ctx, "Reload blkdev error")
-	if err != nil {
-		log.Errorln(err)
-	}
+	hostutils.TaskFailed(s.ctx, "Reload blkdev error")
 }
 
 func (s *SGuestDiskSnapshotTask) onResumeSucc(res string) {
@@ -775,7 +770,7 @@ func (s *SGuestDiskSnapshotTask) onResumeSucc(res string) {
 	snapshotDir := s.disk.GetSnapshotDir()
 	snapshotLocation := path.Join(snapshotDir, s.snapshotId)
 	_, err := hostutils.TaskComplete(s.ctx, jsonutils.NewDict(
-		jsonutils.JSONPair{"localtion", jsonutils.NewString(snapshotLocation)}))
+		jsonutils.NewPair("localtion", jsonutils.NewString(snapshotLocation))))
 	if err != nil {
 		log.Errorln(err)
 	}
@@ -882,7 +877,7 @@ func (s *SGuestSnapshotDeleteTask) onResumeSucc(res string) {
 		exec.Command("rm", "-f", path.Join(snapshotDir, s.deleteSnapshot))
 	}
 	_, err := hostutils.TaskComplete(s.ctx,
-		jsonutils.NewDict(jsonutils.JSONPair{"localtion", jsonutils.JSONTrue}))
+		jsonutils.NewDict(jsonutils.NewPair("deleted", jsonutils.JSONTrue)))
 	if err != nil {
 		log.Errorln(err)
 	}

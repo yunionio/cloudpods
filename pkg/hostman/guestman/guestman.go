@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"os/exec"
 	"path"
@@ -20,6 +19,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -32,6 +32,7 @@ import (
 const VNC_PORT_BASE = 5900
 
 type SGuestManager struct {
+	host             hostutils.IHost
 	ServersPath      string
 	Servers          map[string]*SKVMGuestInstance
 	CandidateServers map[string]*SKVMGuestInstance
@@ -40,8 +41,9 @@ type SGuestManager struct {
 	isLoaded bool
 }
 
-func NewGuestManager(serversPath string) *SGuestManager {
+func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
 	manager := &SGuestManager{}
+	manager.host = host
 	manager.ServersPath = serversPath
 	manager.Servers = make(map[string]*SKVMGuestInstance, 0)
 	manager.CandidateServers = make(map[string]*SKVMGuestInstance, 0)
@@ -66,14 +68,13 @@ func (m *SGuestManager) Bootstrap() {
 }
 
 func (m *SGuestManager) VerifyExistingGuests(pendingDelete bool) {
-	params := url.Values{
-		"limit":          {"0"},
-		"admin":          {"True"},
-		"system":         {"True"},
-		"pending_delete": {fmt.Sprintf("%s", pendingDelete)},
-	}
-	// TODO get host id
-	params.Set("filter.0", fmt.Sprintf("host_id.equals(%s)", "get host id "))
+	params := jsonutils.NewDict()
+	params.Set("limit", jsonutils.NewInt(0))
+	params.Set("admin", jsonutils.JSONTrue)
+	params.Set("system", jsonutils.JSONTrue)
+	params.Set("pending_delete", jsonutils.NewBool(pendingDelete))
+	params.Set("filter.0", jsonutils.NewString(
+		fmt.Sprintf("host_id.equals(%s)", m.host.GetHostId())))
 	if len(m.CandidateServers) > 0 {
 		keys := make([]string, len(m.CandidateServers))
 		var index = 0
@@ -81,9 +82,9 @@ func (m *SGuestManager) VerifyExistingGuests(pendingDelete bool) {
 			keys[index] = k
 			index++
 		}
-		params.Set("filter.1", strings.Join(keys, ","))
+		params.Set("filter.1", jsonutils.NewString(strings.Join(keys, ",")))
 	}
-	res, err := modules.Servers.List(hostutils.GetComputeSession(context.Background()), id, params)
+	res, err := modules.Servers.List(hostutils.GetComputeSession(context.Background()), params)
 	if err != nil {
 		m.OnVerifyExistingGuestsFail(err, pendingDelete)
 	} else {
@@ -130,7 +131,19 @@ func (m *SGuestManager) RemoveCandidateServer(server *SKVMGuestInstance) {
 }
 
 func (m *SGuestManager) OnLoadExistingGuestsComplete() {
+	log.Infof("Load existing guests complete...")
+	err := m.host.PutHostOnline()
+	if err != nil {
+		log.Errorln(err)
+	}
+
 	// TODO
+	// hostmetrics.Init()
+
+	if !options.HostOptions.EnableCpuBinding {
+		// TODO
+		// m.cleanupCpuset()
+	}
 }
 
 func (m *SGuestManager) StartCpusetBalancer() {
@@ -316,7 +329,7 @@ func (m *SGuestManager) GuestStart(ctx context.Context, sid string, body jsonuti
 			if err := guest.StartGuest(ctx, params); err != nil {
 				return nil, httperrors.NewBadRequestError("Failed to start server")
 			} else {
-				return jsonutils.NewDict(jsonutils.JSONPair{"vnc_port", jsonutils.NewInt(0)}), nil
+				return jsonutils.NewDict(jsonutils.NewPair("vnc_port", jsonutils.NewInt(0))), nil
 			}
 		} else {
 			vncPort := guest.GetVncPort()
@@ -555,7 +568,8 @@ func (m *SGuestManager) DeleteSnapshot(ctx context.Context, params interface{}) 
 		return guest.ExecDeleteSnapshotTask(ctx, delParams.Disk, delParams.DeleteSnapshot,
 			delParams.ConvertSnapshot, delParams.PendingDelete)
 	} else {
-		return nil, delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot)
+		return jsonutils.NewDict(jsonutils.NewPair("deleted", jsonutils.JSONTrue)),
+			delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot)
 	}
 }
 
@@ -577,9 +591,9 @@ func Stop() {
 	guestManger.ExitGuestCleanup()
 }
 
-func Init(serversPath string) {
+func Init(host hostutils.IHost, serversPath string) {
 	if guestManger == nil {
-		guestManger = NewGuestManager(serversPath)
+		guestManger = NewGuestManager(host, serversPath)
 	}
 }
 
