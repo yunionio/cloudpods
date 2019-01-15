@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
@@ -351,6 +352,16 @@ func (manager *SElasticipManager) getEipForInstance(instanceType string, instanc
 	return &eip, nil
 }
 
+func (self *SElasticip) IsAssociated() bool {
+	if len(self.AssociateId) == 0 {
+		return false
+	}
+	if self.GetAssociateVM() != nil {
+		return true
+	}
+	return false
+}
+
 func (self *SElasticip) GetAssociateVM() *SGuest {
 	if self.AssociateType == "server" && len(self.AssociateId) > 0 {
 		return GuestManager.FetchGuestById(self.AssociateId)
@@ -386,6 +397,9 @@ func (self *SElasticip) Dissociate(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SElasticip) AssociateVM(ctx context.Context, userCred mcclient.TokenCredential, vm *SGuest) error {
+	if vm.PendingDeleted || vm.Deleted {
+		return fmt.Errorf("vm is deleted")
+	}
 	if len(self.AssociateType) > 0 {
 		return fmt.Errorf("EIP has been associated!!")
 	}
@@ -505,7 +519,7 @@ func (self *SElasticip) CustomizeDelete(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SElasticip) ValidateDeleteCondition(ctx context.Context) error {
-	if len(self.AssociateId) > 0 {
+	if self.IsAssociated() {
 		return fmt.Errorf("eip is associated with instance")
 	}
 	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx)
@@ -527,7 +541,7 @@ func (self *SElasticip) AllowPerformAssociate(ctx context.Context, userCred mccl
 }
 
 func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if len(self.AssociateId) > 0 {
+	if self.IsAssociated() {
 		return nil, httperrors.NewConflictError("eip has been associated with instance")
 	}
 
@@ -627,7 +641,7 @@ func (self *SElasticip) AllowPerformDissociate(ctx context.Context, userCred mcc
 }
 
 func (self *SElasticip) PerformDissociate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if len(self.AssociateId) == 0 {
+	if !self.IsAssociated() {
 		return nil, httperrors.NewConflictError("eip is not associated with instance")
 	}
 
