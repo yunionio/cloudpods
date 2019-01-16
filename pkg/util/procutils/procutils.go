@@ -26,6 +26,22 @@ func NewCommand(name string, args ...string) *Command {
 	}
 }
 
+func ParseOutput(output []byte) []string {
+	lines := make([]string, 0)
+	for _, line := range strings.Split(string(output), "\n") {
+		lines = append(lines, strings.TrimSpace(line))
+	}
+	return lines
+}
+
+func Run(name string, args ...string) ([]string, error) {
+	ret, err := NewCommand(name, args...).Run()
+	if err != nil {
+		return nil, err
+	}
+	return ParseOutput(ret), nil
+}
+
 func (c *Command) Run() ([]byte, error) {
 	output, err := RunCommand(c.Path, c.Args...)
 	if err != nil {

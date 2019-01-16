@@ -20,8 +20,10 @@ import (
 	bare1 "yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -56,6 +58,7 @@ type SHostInfo struct {
 	Mem     *SMemory
 	sysinfo *SSysInfo
 	// storageManager *storageman.SStorageManager
+	IsolatedDeviceMan *isolated_device.IsolatedDeviceManager
 
 	MasterNic *netutils2.SNetInterface
 	Nics      []*SNIC
@@ -85,10 +88,6 @@ func (h *SHostInfo) GetHostId() string {
 
 func (h *SHostInfo) GetZone() string {
 	return h.Zone
-}
-
-func (h *SHostInfo) GetHostInd() string {
-	return h.HostId
 }
 
 func (h *SHostInfo) GetMediumType() string {
@@ -149,8 +148,11 @@ func (h *SHostInfo) parseConfig() error {
 		return err
 	}
 
-	// TODO
-	// h.IsolatedDeviceMan = IsolatedDeviceManager()
+	if man, err := isolated_device.NewManager(h); err != nil {
+		return fmt.Errorf("NewIsolatedManager: %v", err)
+	} else {
+		h.IsolatedDeviceMan = man
+	}
 
 	return nil
 }
@@ -705,10 +707,14 @@ func (h *SHostInfo) fetchAccessNetworkInfo() {
 	}
 }
 
+func (h *SHostInfo) GetSession() *mcclient.ClientSession {
+	return hostutils.GetComputeSession(context.Background())
+}
+
 func (h *SHostInfo) getZoneInfo(zoneId string, standalone bool) {
 	var params = jsonutils.NewDict()
 	params.Set("standalone", jsonutils.NewBool(standalone))
-	res, err := modules.Zones.Get(hostutils.GetComputeSession(context.Background()),
+	res, err := modules.Zones.Get(h.GetSession(),
 		zoneId, params)
 	if err != nil {
 		log.Errorln(err)
@@ -734,7 +740,7 @@ func (h *SHostInfo) getHostInfo(zoneId string) {
 	}
 	params := jsonutils.NewDict()
 	params.Set("any_mac", jsonutils.NewString(masterMac))
-	res, err := modules.Hosts.List(hostutils.GetComputeSession(context.Background()), params)
+	res, err := modules.Hosts.List(h.GetSession(), params)
 	if err != nil {
 		log.Errorln(err)
 		h.onFail()
@@ -821,7 +827,7 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	// content.Set("version", GetVersion())
 	body := jsonutils.NewDict()
 	body.Set("host", content)
-	session := hostutils.GetComputeSession(context.Background())
+	session := h.GetSession()
 	_, res, err := session.JSONVersionRequest("compute",
 		session.GetEndpointType(), httputils.THttpMethod(method), url, nil, body, "v2")
 	if err != nil {
@@ -847,7 +853,7 @@ func (h *SHostInfo) onUpdateHostInfoSucc(body jsonutils.JSONObject) {
 func (h *SHostInfo) updateHostReservedMem() {
 	content := jsonutils.NewDict()
 	content.Set("mem_reserved", jsonutils.NewInt(h.getReservedMem()))
-	res, err := modules.Hosts.Update(hostutils.GetComputeSession(context.Background()),
+	res, err := modules.Hosts.Update(h.GetSession(),
 		h.HostId, content)
 	if err != nil {
 		log.Errorln(err)
@@ -867,7 +873,7 @@ func (h *SHostInfo) getReservedMem() int64 {
 
 func (h *SHostInfo) putHostOffline() {
 	_, err := modules.Hosts.PerformAction(
-		hostutils.GetComputeSession(context.Background()), h.HostId, "offline", nil)
+		h.GetSession(), h.HostId, "offline", nil)
 	if err != nil {
 		log.Errorln(err)
 		h.onFail()
@@ -878,7 +884,7 @@ func (h *SHostInfo) putHostOffline() {
 
 func (h *SHostInfo) PutHostOnline() error {
 	_, err := modules.Hosts.PerformAction(
-		hostutils.GetComputeSession(context.Background()),
+		h.GetSession(),
 		h.HostId, "online", nil)
 	return err
 }
@@ -888,7 +894,7 @@ func (h *SHostInfo) getNetworkInfo() {
 	params.Set("details", jsonutils.JSONTrue)
 	params.Set("limit", jsonutils.NewInt(0))
 	res, err := modules.Hostwires.ListDescendent(
-		hostutils.GetComputeSession(context.Background()),
+		h.GetSession(),
 		h.HostId, params)
 	if err != nil {
 		log.Errorln(err)
@@ -956,7 +962,7 @@ func (h *SHostInfo) doUploadNicInfo(nic *SNIC) {
 			content.Set("nic_type", jsonutils.NewString(bare2.NIC_TYPE_ADMIN))
 		}
 	}
-	_, err := modules.Hosts.PerformAction(hostutils.GetComputeSession(context.Background()),
+	_, err := modules.Hosts.PerformAction(h.GetSession(),
 		h.HostId, "add-netif", content)
 	if err != nil {
 		log.Errorln(err)
@@ -970,7 +976,7 @@ func (h *SHostInfo) doSyncNicInfo(nic *SNIC) {
 	content := jsonutils.NewDict()
 	content.Set("bridge", jsonutils.NewString(nic.Bridge))
 	content.Set("interface", jsonutils.NewString(nic.Inter))
-	_, err := modules.Hostwires.Patch(hostutils.GetComputeSession(context.Background()),
+	_, err := modules.Hostwires.Patch(h.GetSession(),
 		h.HostId, nic.Network, content)
 	if err != nil {
 		log.Errorln(err)
@@ -979,7 +985,7 @@ func (h *SHostInfo) doSyncNicInfo(nic *SNIC) {
 }
 
 func (h *SHostInfo) onUploadNicInfoSucc(nic *SNIC) {
-	res, err := modules.Hostwires.Get(hostutils.GetComputeSession(context.Background()), h.HostId, nic.Network, nil)
+	res, err := modules.Hostwires.Get(h.GetSession(), h.HostId, nic.Network, nil)
 	if err != nil {
 		log.Errorln(err)
 		h.onFail()
@@ -1009,7 +1015,7 @@ func (h *SHostInfo) getStoragecacheInfo() {
 	params.Set("external_id", jsonutils.NewString(h.HostId))
 	params.Set("path", jsonutils.NewString(path))
 	res, err := modules.Storagecaches.List(
-		hostutils.GetComputeSession(context.Background()), params)
+		h.GetSession(), params)
 	if err != nil {
 		log.Errorln(err)
 		h.onFail()
@@ -1021,7 +1027,7 @@ func (h *SHostInfo) getStoragecacheInfo() {
 					"local-%s-%s", h.FullName, time.Now().String())))
 			body.Set("path", jsonutils.NewString(path))
 			body.Set("external_id", jsonutils.NewString(h.HostId))
-			sc, err := modules.Storagecaches.Create(hostutils.GetComputeSession(context.Background()), body)
+			sc, err := modules.Storagecaches.Create(h.GetSession(), body)
 			if err != nil {
 				log.Errorln(err)
 				h.onFail()
@@ -1045,7 +1051,7 @@ func (h *SHostInfo) getStorageInfo() {
 	params.Set("details", jsonutils.JSONTrue)
 	params.Set("limit", jsonutils.NewInt(0))
 	res, err := modules.Hoststorages.ListAscendent(
-		hostutils.GetComputeSession(context.Background()),
+		h.GetSession(),
 		h.HostId, params)
 	if err != nil {
 		log.Errorln(err)
@@ -1098,8 +1104,7 @@ func (h *SHostInfo) uploadStorageInfo() {
 			h.onSyncStorageInfoSucc(s, res)
 		}
 	}
-	// TODO
-	// h.getIsolatedDevices()
+	h.getIsolatedDevices()
 }
 
 func (h *SHostInfo) onSyncStorageInfoSucc(storage storageman.IStorage, storageInfo jsonutils.JSONObject) {
@@ -1115,12 +1120,58 @@ func (h *SHostInfo) onSyncStorageInfoSucc(storage storageman.IStorage, storageIn
 func (h *SHostInfo) attachStorage(storage storageman.IStorage) {
 	content := jsonutils.NewDict()
 	content.Set("mount_point", jsonutils.NewString(storage.GetPath()))
-	_, err := modules.Hoststorages.Attach(hostutils.GetComputeSession(context.Background()),
+	_, err := modules.Hoststorages.Attach(h.GetSession(),
 		h.HostId, storage.GetId(), content)
 	if err != nil {
 		log.Errorln(err)
 		h.onFail()
 	}
+}
+
+func (h *SHostInfo) getIsolatedDevices() {
+	params := jsonutils.NewDict()
+	params.Set("details", jsonutils.JSONTrue)
+	params.Set("limit", jsonutils.NewInt(0))
+	params.Set("host", jsonutils.NewString(h.GetHostId()))
+	res, err := modules.IsolatedDevices.List(h.GetSession(), params)
+	if err != nil {
+		log.Errorf("getIsolatedDevices: %v", err)
+		h.onFail()
+		return
+	}
+	h.onGetIsolatedDeviceSucc(res.Data)
+}
+
+func (h *SHostInfo) onGetIsolatedDeviceSucc(objs []jsonutils.JSONObject) {
+	for _, obj := range objs {
+		info := isolated_device.CloudDeviceInfo{}
+		obj.Unmarshal(&info)
+		dev := h.IsolatedDeviceMan.GetDeviceByIdent(info.VendorDeviceId, info.Addr)
+		if dev != nil {
+			dev.SetDeviceInfo(info)
+		} else {
+			// detach device
+			h.IsolatedDeviceMan.AppendDetachedDevice(&info)
+		}
+	}
+	h.IsolatedDeviceMan.StartDetachTask()
+	if err := h.IsolatedDeviceMan.BatchCustomProbe(); err != nil {
+		log.Errorf("Device probe error: %v", err)
+		h.onFail()
+		return
+	}
+	h.uploadIsolatedDevices()
+}
+
+func (h *SHostInfo) uploadIsolatedDevices() {
+	for _, dev := range h.IsolatedDeviceMan.Devices {
+		if err := dev.SyncDeviceInfo(h); err != nil {
+			log.Errorf("Sync device %s: %v", dev.String(), err)
+			h.onFail()
+			return
+		}
+	}
+	h.onSucc()
 }
 
 func (h *SHostInfo) onSucc() {
