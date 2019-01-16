@@ -9,6 +9,7 @@ var (
 		"storages",
 		"wires",
 		"vpcs",
+		"networks",
 		"cloudregions",
 		"recyclebins",
 		"schedtags",

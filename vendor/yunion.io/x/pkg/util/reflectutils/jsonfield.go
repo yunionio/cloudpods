@@ -82,10 +82,14 @@ type SStructFieldValue struct {
 type SStructFieldValueSet []SStructFieldValue
 
 func FetchStructFieldValueSet(dataValue reflect.Value) SStructFieldValueSet {
-	return fetchStructFieldValueSet(dataValue)
+	return fetchStructFieldValueSet(dataValue, false)
 }
 
-func fetchStructFieldValueSet(dataValue reflect.Value) SStructFieldValueSet {
+func FetchStructFieldValueSetForWrite(dataValue reflect.Value) SStructFieldValueSet {
+	return fetchStructFieldValueSet(dataValue, true)
+}
+
+func fetchStructFieldValueSet(dataValue reflect.Value, allocatePtr bool) SStructFieldValueSet {
 	fields := SStructFieldValueSet{}
 	dataType := dataValue.Type()
 	for i := 0; i < dataType.NumField(); i += 1 {
@@ -103,8 +107,15 @@ func fetchStructFieldValueSet(dataValue reflect.Value) SStructFieldValueSet {
 			// T, *T
 			switch fv.Kind() {
 			case reflect.Ptr, reflect.Interface:
-				if !fv.IsValid() || fv.IsNil() {
+				if !fv.IsValid() {
 					continue
+				}
+				if fv.IsNil() {
+					if fv.Kind() == reflect.Ptr && allocatePtr {
+						fv.Set(reflect.New(fv.Type().Elem()))
+					} else {
+						continue
+					}
 				}
 				fv = fv.Elem()
 			}
@@ -113,7 +124,7 @@ func fetchStructFieldValueSet(dataValue reflect.Value) SStructFieldValueSet {
 			// different from how encoding/json handles struct
 			// field of interface type.
 			if fv.Kind() == reflect.Struct && sf.Type != gotypes.TimeType {
-				subfields := fetchStructFieldValueSet(fv)
+				subfields := fetchStructFieldValueSet(fv, allocatePtr)
 				fields = append(fields, subfields...)
 				continue
 			}
