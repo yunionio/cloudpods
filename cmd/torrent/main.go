@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path"
 	"path/filepath"
 	"syscall"
 	"time"
@@ -16,6 +15,9 @@ import (
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/structarg"
 
+	"github.com/anacrolix/torrent/storage"
+	"io/ioutil"
+	"net/http"
 	"yunion.io/x/onecloud/pkg/util/nodeid"
 	"yunion.io/x/onecloud/pkg/util/torrentutils"
 )
@@ -29,6 +31,8 @@ type Options struct {
 	Tracker []string `help:"Tracker urls, e.g. http://10.168.222.252:6969/announce or udp://tracker.istole.it:6969"`
 
 	Debug bool `help:"turn on debug"`
+
+	CallbackURL string `help:"callback notification URL"`
 }
 
 func exitSignalHandlers(client *torrent.Client) {
@@ -71,6 +75,7 @@ func main() {
 	}
 
 	var mi *metainfo.MetaInfo
+	var rootDir string
 
 	if len(options.Tracker) > 0 {
 		// server mode
@@ -78,6 +83,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("fail to save torrent file %s", err)
 		}
+		rootDir = filepath.Dir(root)
 
 	} else {
 		// client mode, load mi from torrent file
@@ -85,6 +91,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("fail to open torrent file %s", err)
 		}
+		rootDir = root
 	}
 
 	nodeId, err := nodeid.GetNodeId()
@@ -100,13 +107,25 @@ func main() {
 	clientConfig.Debug = options.Debug
 	clientConfig.Seed = true
 	clientConfig.NoUpload = false
-	if len(options.Tracker) > 0 {
-		// server mode
-		clientConfig.DataDir = path.Dir(root)
-	} else {
-		// client mode
-		clientConfig.DataDir = root
+
+	info, err := mi.UnmarshalInfo()
+	if err != nil {
+		log.Errorf("fail to unmarshalinfo %s", err)
+		return
 	}
+	log.Infof("To download file %s", info.Name)
+	tmpDir := filepath.Join(rootDir, fmt.Sprintf("%s%s", info.Name, ".tmp"))
+
+	os.RemoveAll(tmpDir)
+	os.MkdirAll(tmpDir, 0755)
+	defer os.RemoveAll(tmpDir)
+
+	clientConfig.DefaultStorage = storage.NewFileWithCustomPathMaker(tmpDir,
+		func(baseDir string, info *metainfo.Info, infoHash metainfo.Hash) string {
+			return filepath.Dir(baseDir)
+		},
+	)
+
 	clientConfig.DisableTrackers = false
 	clientConfig.DisablePEX = true
 	clientConfig.NoDHT = true
@@ -149,6 +168,21 @@ func main() {
 	for {
 		if t.BytesCompleted() == t.Info().TotalLength() {
 			fmt.Printf("\rSeeding.............")
+			if len(options.CallbackURL) > 0 {
+				for tried := 0; tried < 10; tried += 1 {
+					resp, err := http.Get(options.CallbackURL)
+					if err == nil && resp.StatusCode < 300 {
+						break
+					}
+					if err != nil {
+						log.Errorf("callback fail %s", err)
+					} else {
+						respBody, _ := ioutil.ReadAll(resp.Body)
+						log.Errorf("callback response error %s", string(respBody))
+					}
+					time.Sleep(time.Duration(tried+1) * 10 * time.Second)
+				}
+			}
 		} else {
 			fmt.Printf("\rDownload: %.1f%%", float64(t.BytesCompleted())*100.0/float64(t.Info().TotalLength()))
 		}
