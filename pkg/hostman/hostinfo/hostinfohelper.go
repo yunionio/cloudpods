@@ -46,12 +46,13 @@ func DetectCpuInfo() (*SCPUInfo, error) {
 		return nil, err
 	}
 	strCpuFreq := spec["cpu_freq"]
-	freq, err := strconv.ParseInt(strCpuFreq, 10, 0)
+	freq, err := strconv.ParseFloat(strCpuFreq, 64)
 	if err != nil {
 		log.Errorln(err)
 		return nil, err
 	}
-	cpuinfo.cpuFreq = freq
+	cpuinfo.cpuFreq = int64(freq)
+	log.Infof("cpuinfo freq %d", cpuinfo.cpuFreq)
 
 	// cpu.Percent(interval, false)
 	ret, err := fileutils2.FileGetContents("/proc/cpuinfo")

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -75,7 +76,7 @@ func ModuleIsMounted(module string) bool {
 		return false
 	} else if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
 		// is link
-		fullPath, err = os.Readlink(fullPath)
+		fullPath, err = filepath.EvalSymlinks(fullPath)
 		if err != nil {
 			log.Errorln(err)
 		}
@@ -330,6 +331,7 @@ func (c *CGroupTask) init() bool {
 						return false
 					}
 				}
+				log.Errorln(module)
 				if err := exec.Command("mount", "-t", "cgroup", "-o",
 					module, module, moduleDir).Run(); err != nil {
 					log.Errorln(err)

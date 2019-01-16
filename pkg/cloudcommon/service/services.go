@@ -25,6 +25,7 @@ func (s *SServiceBase) TrapSignals(quitHandler signalutils.Trap) {
 		utils.DumpAllGoroutineStack(log.Logger().Out)
 	}
 	signalutils.RegisterSignal(dumpStack, syscall.SIGUSR1)
+	signalutils.StartTrap()
 }
 
 func (s *SServiceBase) StartService() {

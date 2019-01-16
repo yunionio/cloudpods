@@ -25,6 +25,9 @@ type SHostService struct {
 func (host *SHostService) StartService() {
 	cloudcommon.ParseOptions(&options.HostOptions, os.Args, "host.conf", "host")
 
+	app := cloudcommon.InitApp(&options.HostOptions.CommonOptions, false)
+	host.TrapSignals(func() { host.quitSignalHandler(app) })
+
 	// isolatedman.Init()
 
 	hostInstance := hostinfo.Instance()
@@ -48,8 +51,6 @@ func (host *SHostService) StartService() {
 		close(c)
 	})
 
-	app := cloudcommon.InitApp(&options.HostOptions.CommonOptions, false)
-	host.TrapSignals(func() { host.quitSignalHandler(app) })
 	host.initHandlers(app)
 
 	<-c // wait host and guest init
@@ -58,6 +59,7 @@ func (host *SHostService) StartService() {
 }
 
 func (host *SHostService) quitSignalHandler(app *appsrv.Application) {
+	log.Infof("Received quit signal")
 	err := app.ShowDown(context.Background())
 	if err != nil {
 		log.Errorln(err.Error())

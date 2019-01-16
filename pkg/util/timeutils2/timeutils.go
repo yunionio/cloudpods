@@ -4,10 +4,18 @@ import (
 	"fmt"
 	"os/exec"
 	"time"
+
+	"yunion.io/x/log"
 )
 
 func AddTimeout(second time.Duration, callback func()) {
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Errorln(r)
+			}
+		}()
+
 		<-time.NewTimer(second).C
 		callback()
 	}()
