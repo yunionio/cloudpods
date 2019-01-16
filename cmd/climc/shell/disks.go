@@ -230,4 +230,41 @@ func init() {
 		printObject(disk)
 		return nil
 	})
+
+	type DiskSaveOptions struct {
+		ID     string `help:"ID or name of the disk" json:"-"`
+		NAME   string `help:"Image name"`
+		OSTYPE string `help:"Os type" choices:"Linux|Windows|VMware" json:"-"`
+		Public *bool  `help:"Make the image public available" json:"is_public"`
+		Format string `help:"image format" choices:"vmdk|qcow2"`
+		Notes  string `help:"Notes about the image"`
+	}
+	R(&DiskSaveOptions{}, "disk-save", "Disk save image", func(s *mcclient.ClientSession, args *DiskSaveOptions) error {
+		params, err := options.StructToParams(args)
+		if err != nil {
+			return err
+		}
+		params.Add(jsonutils.NewString(args.OSTYPE), "properties", "os_type")
+		disk, err := modules.Disks.PerformAction(s, args.ID, "save", params)
+		if err != nil {
+			return err
+		}
+		printObject(disk)
+		return nil
+	})
+
+	type DiskUpdateStatusOptions struct {
+		ID     string `help:"ID or name of disk"`
+		STATUS string `help:"Disk status" choices:"ready"`
+	}
+	R(&DiskUpdateStatusOptions{}, "disk-update-status", "Set disk status", func(s *mcclient.ClientSession, args *DiskUpdateStatusOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.STATUS), "status")
+		disk, err := modules.Disks.PerformAction(s, args.ID, "status", params)
+		if err != nil {
+			return err
+		}
+		printObject(disk)
+		return nil
+	})
 }
