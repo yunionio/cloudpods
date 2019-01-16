@@ -239,8 +239,8 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 			"health_check":      validators.NewStringChoicesValidator("health_check", LB_BOOL_VALUES).Default(LB_BOOL_ON),
 			"health_check_type": checkTypeV,
 
-			"health_check_domain":    validators.NewDomainNameValidator("domain").AllowEmpty(true).Default(""),
-			"health_check_path":      validators.NewURLPathValidator("path").Default(""),
+			"health_check_domain":    validators.NewDomainNameValidator("health_check_domain").AllowEmpty(true).Default(""),
+			"health_check_path":      validators.NewURLPathValidator("health_check_path").Default(""),
 			"health_check_http_code": validators.NewStringMultiChoicesValidator("health_check_http_code", LB_HEALTH_CHECK_HTTP_CODES).Sep(",").Default(LB_HEALTH_CHECK_HTTP_CODE_DEFAULT),
 
 			"health_check_rise":     validators.NewRangeValidator("health_check_rise", 1, 1000).Default(3),
@@ -326,8 +326,8 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 		"health_check":      validators.NewStringChoicesValidator("health_check", LB_BOOL_VALUES),
 		"health_check_type": LoadbalancerListenerManager.checkTypeV(lblis.ListenerType),
 
-		"health_check_domain":    validators.NewDomainNameValidator("domain").AllowEmpty(true),
-		"health_check_path":      validators.NewURLPathValidator("path"),
+		"health_check_domain":    validators.NewDomainNameValidator("health_check_domain").AllowEmpty(true),
+		"health_check_path":      validators.NewURLPathValidator("health_check_path"),
 		"health_check_http_code": validators.NewStringMultiChoicesValidator("health_check_http_code", LB_HEALTH_CHECK_HTTP_CODES).Sep(","),
 
 		"health_check_rise":     validators.NewRangeValidator("health_check_rise", 1, 1000),
