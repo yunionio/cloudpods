@@ -671,3 +671,7 @@ func (self *SDatastore) RemoveDir(ctx context.Context, remotePath string) error 
 
 	return dnm.DeleteDirectory(ctx, dcObj, remotePath)
 }
+
+func (self *SDatastore) IsSysDiskStore() bool {
+	return true
+}
