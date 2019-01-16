@@ -152,9 +152,13 @@ func (self *SZone) GetIRegion() cloudprovider.ICloudRegion {
 }
 
 func (self *SZone) fetchStorages() error {
-	self.istorages = make([]cloudprovider.ICloudStorage, len(self.AvailableDiskCategories.DiskCategories))
+	categories := self.AvailableDiskCategories.DiskCategories
+	// if len(self.AvailableResources.ResourcesInfo) > 0 {
+	// 	categories = self.AvailableResources.ResourcesInfo[0].SystemDiskCategories.SupportedSystemDiskCategory
+	// }
+	self.istorages = make([]cloudprovider.ICloudStorage, len(categories))
 
-	for i, sc := range self.AvailableDiskCategories.DiskCategories {
+	for i, sc := range categories {
 		storage := SStorage{zone: self, storageType: sc}
 		self.istorages[i] = &storage
 	}
@@ -233,6 +237,13 @@ func (self *SZone) getNetworkById(vswitchId string) *SVSwitch {
 		if net != nil {
 			return net
 		}
+	}
+	return nil
+}
+
+func (self *SZone) getSysDiskCategories() []string {
+	if len(self.AvailableResources.ResourcesInfo) > 0 {
+		return self.AvailableResources.ResourcesInfo[0].SystemDiskCategories.SupportedSystemDiskCategory
 	}
 	return nil
 }
