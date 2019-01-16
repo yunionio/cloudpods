@@ -146,26 +146,19 @@ func main() {
 		log.Fatalf("%s", err)
 	}
 
-	go func() {
-		<-t.GotInfo()
+	<-t.GotInfo()
+	t.DownloadAll()
 
-		files := t.Info().Files
-		log.Debugf("Got Info, start download %d files", len(files))
-		for i := 0; i < len(files); i += 1 {
-			log.Debugf("%d: %s", i, files[i].Path)
-		}
-
-		t.DownloadAll()
-	}()
+	stop := false
 
 	go func() {
 		<-client.Closed()
 		log.Debugf("client closed, exit!")
 
-		os.Exit(0)
+		stop = true
 	}()
 
-	for {
+	for !stop {
 		if t.BytesCompleted() == t.Info().TotalLength() {
 			fmt.Printf("\rSeeding.............")
 			if len(options.CallbackURL) > 0 {
