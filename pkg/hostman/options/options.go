@@ -5,9 +5,6 @@ import "yunion.io/x/onecloud/pkg/cloudcommon"
 type SHostOptions struct {
 	cloudcommon.CommonOptions
 
-	//host agent default disable rbac
-	EnableRbac bool `help:"Switch on Role-based Access Control" default:"false"`
-
 	HostType        string   `help:"Host server type, either hypervisor or kubelet" default:"hypervisor"`
 	ListenInterface string   `help:"Master address of host server"`
 	BridgeDriver    string   `help:"Bridge driver, bridge or openvswitch" default: "openvswitch"`

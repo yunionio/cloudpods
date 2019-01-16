@@ -193,7 +193,6 @@ func (s *SKVMGuestInstance) getNetdevDesc(nic jsonutils.JSONObject) (string, err
 	ifname, _ := nic.GetString("ifname")
 	driver, _ := nic.GetString("driver")
 
-	// TODO
 	if err := s.generateNicScripts(nic); err != nil {
 		return "", err
 	}

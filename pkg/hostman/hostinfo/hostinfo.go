@@ -112,9 +112,11 @@ func (h *SHostInfo) Init() error {
 	if err := h.prepareEnv(); err != nil {
 		return err
 	}
+	log.Infof("Start parseConfig")
 	if err := h.parseConfig(); err != nil {
 		return err
 	}
+	log.Infof("Start detectHostInfo")
 	if err := h.detectHostInfo(); err != nil {
 		return err
 	}
@@ -144,9 +146,9 @@ func (h *SHostInfo) parseConfig() error {
 		h.Nics[i].SetupDhcpRelay()
 	}
 
-	if err := storageman.Init(h); err != nil {
-		return err
-	}
+	// if err := storageman.Init(h); err != nil {
+	// 	return err
+	// }
 
 	if man, err := isolated_device.NewManager(h); err != nil {
 		return fmt.Errorf("NewIsolatedManager: %v", err)
@@ -404,10 +406,9 @@ func (h *SHostInfo) TuneSystem() {
 
 func (h *SHostInfo) resetIptables() error {
 	for _, tbl := range []string{"filter", "nat", "mangle"} {
-		_, err := exec.Command(fmt.Sprintf("iptables -t %s -F", tbl)).Output()
+		err := exec.Command("iptables", "-t", tbl, "-F").Run()
 		if err != nil {
-			e := err.(*exec.ExitError)
-			return fmt.Errorf("Fail to clean NAT iptable: %s", e.Stderr)
+			return fmt.Errorf("Fail to clean NAT iptable: %s", err)
 		}
 	}
 	return nil
