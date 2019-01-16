@@ -86,7 +86,7 @@ func parsePortString(ps string) (int, error) {
 func MustParseSecurityRule(s string) *SecurityRule {
 	r, err := ParseSecurityRule(s)
 	if err != nil {
-		msg := fmt.Sprintf("parse security rule %q: %s", s, err)
+		msg := fmt.Sprintf("parse security rule %q: %v", s, err)
 		panic(msg)
 	}
 	return r
