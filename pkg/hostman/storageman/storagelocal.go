@@ -54,10 +54,10 @@ func (s *SLocalStorage) GetSnapshotDir() string {
 	return path.Join(s.Path, _SNAPSHOT_PATH_)
 }
 
-func (s *SLocalStorage) SyncStorageInfo() {
+func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	content := jsonutils.NewDict()
 	content.Set("name", jsonutils.NewString(s.StorageName))
-	content.Set("capacity", jsonutils.NewInt(s.GetAvailSizeMb()))
+	content.Set("capacity", jsonutils.NewInt(int64(s.GetAvailSizeMb())))
 	content.Set("storage_type", jsonutils.NewString(s.StorageType()))
 	content.Set("medium_type", jsonutils.NewString(s.GetMediumType()))
 	content.Set("zone", jsonutils.NewString(s.GetZone()))
@@ -172,7 +172,7 @@ func (s *SLocalStorage) SaveToGlance(ctx context.Context, params interface{}) (j
 
 	if err := s.saveToGlance(ctx, imageId, imagePath, compress, format); err != nil {
 		log.Errorf("Save to glance failed: %s", err)
-		s.onSaveToGlanceFailed(ctx, imageId, imagePath, compress, format)
+		s.onSaveToGlanceFailed(ctx, imageId)
 	}
 
 	imagecacheManager := s.Manager.LocalStorageImagecacheManager
@@ -209,9 +209,9 @@ func (s *SLocalStorage) saveToGlance(ctx context.Context, imageId, imagePath str
 				defer kvmDisk.Umount(root)
 
 				osInfo = root.GetOs()
-				relInfo = root.GetReleaseInfo()
+				relInfo = root.GetReleaseInfo(root.GetPartition())
 				if compress {
-					if err := root.PrepareFsForTemplate(); err != nil {
+					if err := root.PrepareFsForTemplate(root.GetPartition()); err != nil {
 						log.Errorln(err)
 						return err
 					}
