@@ -9,3 +9,13 @@ type SDiskCreateByDiskinfo struct {
 
 	Storage IStorage
 }
+
+type SDiskReset struct {
+	SnapshotId string
+	OutOfChain bool
+}
+
+type SDiskCleanupSnapshots struct {
+	ConvertSnapshots []jsonutils.JSONObject
+	DeleteSnapshots  []jsonutils.JSONObject
+}

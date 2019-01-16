@@ -14,7 +14,7 @@ type StringCallback func(string)
 
 type Monitor interface {
 	Connect(host string, port int) error
-	Dicconnect()
+	Disconnect()
 	IsConnected() bool
 
 	// The callback function will be called in another goroutine
@@ -33,11 +33,15 @@ type Monitor interface {
 	DriveAdd(bus string, params map[string]string, callback StringCallback)
 	DeviceAdd(dev string, params map[string]interface{}, callback StringCallback)
 
+	BlockStream(drive string, callback StringCallback)
+	DriveMirror(callback StringCallback, drive, target, syncMode string, unmap bool)
+
 	MigrateSetCapability(capability, state string, callback StringCallback)
 	Migrate(destStr string, copyIncremental, copyFull bool, callback StringCallback)
 	GetMigrateStatus(callback StringCallback)
 
 	ReloadDiskBlkdev(device, path string, callback StringCallback)
+	SetVncPassword(proto, password string, callback StringCallback)
 }
 
 type MonitorErrorFunc func(error)

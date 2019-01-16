@@ -11,12 +11,26 @@ import (
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
+
+type IHost interface {
+	GetZone() string
+	GetHostId() string
+	GetMediumType() string
+
+	IsKvmSupport() bool
+	IsNestedVirtualization() bool
+
+	PutHostOnline() error
+
+	GetBridgeDev(bridge string) hostbridge.IBridgeDriver
+}
 
 func GetComputeSession(ctx context.Context) *mcclient.ClientSession {
 	return auth.GetAdminSession(ctx, options.HostOptions.Region, "v2")

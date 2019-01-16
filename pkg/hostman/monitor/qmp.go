@@ -563,3 +563,58 @@ func (m *QmpMonitor) ReloadDiskBlkdev(device, path string, callback StringCallba
 	)
 	m.Query(cmd, cb)
 }
+
+func (m *QmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMode string, unmap bool) {
+	var (
+		cb = func(res *Response) {
+			callback(m.actionResult(res))
+		}
+		cmd = &Command{
+			Execute: "drive-mirror",
+			Args: map[string]interface{}{
+				"device": drive,
+				"target": target,
+				"mode":   "existing",
+				"sync":   syncMode,
+				"unmap":  unmap,
+			},
+		}
+	)
+	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) BlockStream(drive string, callback StringCallback) {
+	var (
+		speed = 30 // MB/s
+		cb    = func(res *Response) {
+			callback(m.actionResult(res))
+		}
+		cmd = &Command{
+			Execute: "block-stream",
+			Args: map[string]interface{}{
+				"device": drive,
+				"speed":  speed,
+			},
+		}
+	)
+	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) SetVncPassword(proto, password string, callback StringCallback) {
+	if len(password) > 8 {
+		password = password[:8]
+	}
+	var (
+		cb = func(res *Response) {
+			callback(m.actionResult(res))
+		}
+		cmd = &Command{
+			Execute: "set_password",
+			Args: map[string]interface{}{
+				"protocol": proto,
+				"password": password,
+			},
+		}
+	)
+	m.Query(cmd, cb)
+}

@@ -1,6 +1,7 @@
 package netutils2
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"os/exec"
@@ -8,10 +9,12 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
+	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
@@ -302,4 +305,78 @@ func (n *SNetInterface) GetSlaveAddresses() [][]string {
 		}
 	}
 	return slaves
+}
+
+func FormatMac(macStr string) string {
+	var ret = []byte{}
+	for i := 0; i < len(macStr); i++ {
+		if bytes.IndexByte([]byte("0123456789abcdef"), macStr[i]) >= 0 {
+			ret = append(ret, macStr[i])
+		} else if bytes.IndexByte([]byte("ABCDEF"), macStr[i]) >= 0 {
+			ret = append(ret, byte(unicode.ToLower(rune(macStr[i]))))
+		}
+	}
+	if len(ret) == 12 {
+		var res string
+		for i := 0; i < 12; i += 2 {
+			res += string(ret[i:i+2]) + ":"
+		}
+		return res[:len(res)-1]
+	}
+	return ""
+}
+
+func MacEqual(mac1, mac2 string) bool {
+	mac1 = FormatMac(mac1)
+	mac2 = FormatMac(mac2)
+	if len(mac1) > 0 && len(mac2) > 0 && mac1 == mac2 {
+		return true
+	}
+	return false
+}
+
+func netmask2len(mask string) int {
+	masks := []string{"0", "128", "192", "224", "240", "248", "252", "254", "255"}
+	for i := 0; i < len(masks); i++ {
+		if masks[i] == mask {
+			return i
+		}
+	}
+	return -1
+}
+
+func Netmask2Len(mask string) int {
+	data := strings.Split(mask, ".")
+	mlen := 0
+	for _, d := range data {
+		if d != "0" {
+			nle := netmask2len(d)
+			if nle < 0 {
+				return -1
+			}
+			mlen += nle
+		}
+	}
+	return mlen
+}
+
+func PrefixSplit(pref string) (string, int, error) {
+	slash := strings.Index(pref, "/")
+	var intMask int
+	var err error
+	if slash > 0 {
+		ip := pref[:slash]
+		mask := pref[slash+1:]
+		if regutils.MatchIPAddr(ip) {
+			intMask = Netmask2Len(mask)
+		} else {
+			intMask, err = strconv.Atoi(mask)
+			if err != nil {
+				return "", 0, err
+			}
+		}
+		return ip, intMask, nil
+	} else {
+		return pref, 32, nil
+	}
 }

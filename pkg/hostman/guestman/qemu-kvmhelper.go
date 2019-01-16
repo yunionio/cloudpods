@@ -3,10 +3,9 @@ package guestman
 import (
 	"fmt"
 	"path"
-	"strconv"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -32,7 +31,7 @@ const (
 )
 
 func (s *SKVMGuestInstance) IsKvmSupport() bool {
-	return hostinfo.Instance().IsKvmSupport()
+	return guestManger.GetHost().IsKvmSupport()
 }
 
 func (s *SKVMGuestInstance) IsVdiSpice() bool {
@@ -40,7 +39,7 @@ func (s *SKVMGuestInstance) IsVdiSpice() bool {
 	return vdi == "spice"
 }
 
-func (s *SKVMGuestInstance) getMonitorDesc(idstr, port, mode string) string {
+func (s *SKVMGuestInstance) getMonitorDesc(idstr string, port int, mode string) string {
 	var cmd = ""
 	cmd += fmt.Sprintf(" -chardev socket,id=%sdev", idstr)
 	cmd += fmt.Sprintf(",port=%d", port)
@@ -124,7 +123,6 @@ func (s *SKVMGuestInstance) GetDiskAddr(idx int) int {
 	if s.IsVdiSpice() {
 		base += 10
 	}
-	idxNum, _ := strconv.Atoi(idx)
 	return base + idx
 }
 
@@ -142,7 +140,7 @@ func (s *SKVMGuestInstance) GetDiskDeviceModel(driver string) string {
 	}
 }
 
-func (s *SKVMGuestInstance) getDriveDesc(disk jsonutils.JSONObject) string {
+func (s *SKVMGuestInstance) getVdiskDesc(disk jsonutils.JSONObject) string {
 	diskIndex, _ := disk.Int("index")
 	diskDriver, _ := disk.GetString("driver")
 
@@ -151,7 +149,7 @@ func (s *SKVMGuestInstance) getDriveDesc(disk jsonutils.JSONObject) string {
 	cmd += fmt.Sprintf(",drive=drive_%s", diskIndex)
 	if diskDriver == DISK_DRIVER_VIRTIO {
 		cmd += fmt.Sprintf(",bus=%s,addr=0x%x", s.GetPciBus(), s.GetDiskAddr(int(diskIndex)))
-	} else if utils.IsInStringArray(iskDriver, []string{DISK_DRIVER_SCSI, DISK_DRIVER_PVSCSI}) {
+	} else if utils.IsInStringArray(diskDriver, []string{DISK_DRIVER_SCSI, DISK_DRIVER_PVSCSI}) {
 		cmd += ",bus=scsi.0"
 	} else if diskDriver == DISK_DRIVER_IDE {
 		cmd += fmt.Sprintf(",bus=ide.%d,unit=%d", diskIndex/2, diskIndex%2)
@@ -174,11 +172,31 @@ func (s *SKVMGuestInstance) getNicDownScriptPath(nic jsonutils.JSONObject) strin
 	return path.Join(s.HomeDir(), fmt.Sprintf("if-down-%s-%s.sh", bridge, ifname))
 }
 
-func (s *SKVMGuestInstance) getNetdevDesc(nic jsonutils.JSONObject) string {
+func (s *SKVMGuestInstance) generateNicScripts(nic jsonutils.JSONObject) error {
+	bridge, _ := nic.GetString("bridge")
+	dev := guestManger.GetHost().GetBridgeDev(bridge)
+	if dev == nil {
+		return fmt.Errorf("Can't find bridge %s", bridge)
+	}
+	if err := dev.GenerateIfupScripts(s.getNicUpScriptPath(nic), nic); err != nil {
+		log.Errorln(err)
+		return err
+	}
+	if err := dev.GenerateIfdownScripts(s.getNicDownScriptPath(nic), nic); err != nil {
+		log.Errorln(err)
+		return err
+	}
+	return nil
+}
+
+func (s *SKVMGuestInstance) getNetdevDesc(nic jsonutils.JSONObject) (string, error) {
 	ifname, _ := nic.GetString("ifname")
 	driver, _ := nic.GetString("driver")
 
-	s.generateNicScripts(nic)
+	// TODO
+	if err := s.generateNicScripts(nic); err != nil {
+		return "", err
+	}
 	upscript := s.getNicUpScriptPath(nic)
 	downscript := s.getNicDownScriptPath(nic)
 	cmd := " -netdev type=tap"
@@ -189,7 +207,7 @@ func (s *SKVMGuestInstance) getNetdevDesc(nic jsonutils.JSONObject) string {
 	}
 	cmd += fmt.Sprintf(",script=%s", upscript)
 	cmd += fmt.Sprintf(",downscript=%s", downscript)
-	return cmd
+	return cmd, nil
 }
 
 func (s *SKVMGuestInstance) getNicDeviceModel(name string) string {
@@ -202,7 +220,7 @@ func (s *SKVMGuestInstance) getNicDeviceModel(name string) string {
 	}
 }
 
-func (s *SKVMGuestInstance) getNicAddr(index int) string {
+func (s *SKVMGuestInstance) getNicAddr(index int) int {
 	var diskCnt = 10
 	disks, _ := s.Desc.GetArray("disks")
 	if len(disks) > 10 {
@@ -241,7 +259,7 @@ func (s *SKVMGuestInstance) getQgaDesc() string {
 	return cmd
 }
 
-func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) string {
+func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (string, error) {
 	var (
 		uuid, _  = s.Desc.GetString("uuid")
 		mem, _   = s.Desc.Int("mem")
@@ -249,7 +267,8 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) string
 		name, _  = s.Desc.GetString("name")
 		nics, _  = s.Desc.GetArray("nics")
 		disks, _ = s.Desc.GetArray("disks")
-		osname   = s.GetOsname()
+		osname   = s.getOsname()
+		cmd      = ""
 	)
 
 	if osname == OS_NAME_MACOS {
@@ -261,7 +280,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) string
 
 	qemuVersion := options.HostOptions.DefaultQemuVersion
 	if data.Contains("qemu_version") {
-		qemuVersion, _ := data.GetString("qemu_version")
+		qemuVersion, _ = data.GetString("qemu_version")
 	}
 	if qemuVersion == "latest" {
 		qemuVersion = ""
@@ -288,17 +307,17 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) string
 		diskPath, _ := disk.GetString("path")
 		d := storageman.GetManager().GetDiskByPath(diskPath)
 		if d == nil {
-			return fmt.Errorf("get disk %s by storage error", diskPath)
+			return "", fmt.Errorf("get disk %s by storage error", diskPath)
 		}
 
 		diskIndex, _ := disk.Int("index")
-		cmd += d.GetDiskSetupScripts(diskIndex)
+		cmd += d.GetDiskSetupScripts(int(diskIndex))
 	}
 
 	cmd += fmt.Sprintf("STATE_FILE=`ls -d %s* | head -n 1`\n", s.getStateFilePathRootPrefix())
 
 	var qemuCmd = qemutils.GetQemu(qemuVersion)
-	cmd += fmt.Sprintf("DEFAULT_QEMU_CMD='%s'\n", qemu_cmd)
+	cmd += fmt.Sprintf("DEFAULT_QEMU_CMD='%s'\n", qemuCmd)
 	cmd += `if [ -n "$STATE_FILE" ]; then\n`
 	cmd += "    QEMU_VER=`echo $STATE_FILE" +
 		` | grep -o '_[[:digit:]]\+\.[[:digit:]]\+.*'` + "`\n"
@@ -330,8 +349,8 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) string
 			cpuType = "host"
 		}
 
-		if !hostinfo.Instance().IsNestedVirtualization() {
-			cpu_type += ",kvm=off"
+		if !guestManger.GetHost().IsNestedVirtualization() {
+			cpuType += ",kvm=off"
 		}
 
 		// TODO
@@ -340,13 +359,13 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) string
 	} else {
 		cmd += " -no-kvm"
 		accel = "tcg"
-		cpu_type = "qemu64"
+		cpuType = "qemu64"
 	}
 
-	cmd += fmt.Sprintf(" -cpu %s", cpu_type)
+	cmd += fmt.Sprintf(" -cpu %s", cpuType)
 
 	// TODO hmp - -
-	// cmd += s.getMonitorDesc("hmqmon", s.GetQmpMonitorPort(int(vncPort)), MODE_READLINE)
+	cmd += s.getMonitorDesc("hmqmon", s.GetQmpMonitorPort(int(vncPort)), MODE_READLINE)
 	if options.HostOptions.EnableQmpMonitor {
 		cmd += s.getMonitorDesc("qmqmon", s.GetQmpMonitorPort(int(vncPort)), MODE_CONTROL)
 	}
@@ -437,15 +456,15 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) string
 		diskDrivers = append(diskDrivers, driver)
 	}
 
-	if utils.IsInStringArray(DISK_DRIVER_SCSI, disk_drivers) {
+	if utils.IsInStringArray(DISK_DRIVER_SCSI, diskDrivers) {
 		cmd += " -device virtio-scsi-pci,id=scsi"
-	} else if utils.IsInStringArray(DISK_DRIVER_PVSCSI, disk_drivers) {
+	} else if utils.IsInStringArray(DISK_DRIVER_PVSCSI, diskDrivers) {
 		cmd += " -device pvscsi,id=scsi"
 	}
 
 	for _, disk := range disks {
 		format, _ := disk.GetString("format")
-		cmd += s.getDriveDesc(disk, disk["format"])
+		cmd += s.getDriveDesc(disk, format)
 		cmd += s.getVdiskDesc(disk)
 	}
 
@@ -479,19 +498,24 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) string
 
 	for _, nic := range nics {
 		if osname == OS_NAME_VMWARE {
-			nic.(jsonutils.JSONDict).Set("driver", jsonutils.NewString("vmxnet3"))
+			nic.(*jsonutils.JSONDict).Set("driver", jsonutils.NewString("vmxnet3"))
 		}
-		cmd += s.getNetdevDesc(nic)
+		nicCmd, err := s.getNetdevDesc(nic)
+		if err != nil {
+			return "", err
+		} else {
+			cmd += nicCmd
+		}
 		cmd += s.getVnicDesc(nic)
 	}
 
-	cmd += fmt.Sprintf(" -pidfile %s", S.GetPidFilePath())
+	cmd += fmt.Sprintf(" -pidfile %s", s.GetPidFilePath())
 	extraOptions, _ := s.Desc.GetMap("extra_options")
 	for k, v := range extraOptions {
 		cmd += fmt.Sprintf(" -%s %s", k, v.String())
 	}
 
-	cmd += self.getQgaDesc()
+	cmd += s.getQgaDesc()
 	if fileutils2.Exists("/dev/random") {
 		cmd += " -object rng-random,filename=/dev/random,id=rng0"
 		cmd += " -device virtio-rng-pci,rng=rng0,max-bytes=1024,period=1000"
@@ -499,7 +523,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) string
 
 	if jsonutils.QueryBoolean(data, "need_migrate", false) {
 		migratePort := s.manager.GetFreePortByBase(LIVE_MIGRATE_PORT_BASE)
-		s.Desc.Set("live_migrate_dest_port", jsonutils.NewInt(migratePort))
+		s.Desc.Set("live_migrate_dest_port", jsonutils.NewInt(int64(migratePort)))
 		cmd += fmt.Sprintf(" -incoming tcp:0:%d", migratePort)
 	} else if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
 		cmd += fmt.Sprintf(" -incoming tcp:0:%d",
@@ -517,7 +541,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) string
 	cmd += `    $CMD\n`
 	cmd += `fi\n`
 
-	return cmd
+	return cmd, nil
 }
 
 func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string {
@@ -526,9 +550,9 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 		nics, _ = s.Desc.GetArray("nics")
 	)
 
-	cmd = ""
-	cmd += fmt.Sprintf("VNC_FILE=%s\n", self.GetVncFilePath())
-	cmd += fmt.Sprintf("PID_FILE=%s\n", self.GetPidFilePath())
+	cmd := ""
+	cmd += fmt.Sprintf("VNC_FILE=%s\n", s.GetVncFilePath())
+	cmd += fmt.Sprintf("PID_FILE=%s\n", s.GetPidFilePath())
 	cmd += "if [ -f $VNC_FILE ]; then\n"
 	cmd += "  VNC=`cat $VNC_FILE`\n"
 
@@ -558,8 +582,12 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 	}
 	for _, nic := range nics {
 		ifname, _ := nic.GetString("ifname")
-		downscript := self.getNicDownScriptPath(nic)
+		downscript := s.getNicDownScriptPath(nic)
 		cmd += fmt.Sprintf("%s %s\n", downscript, ifname)
 	}
 	return cmd
+}
+
+func (s *SKVMGuestInstance) StartPresendArp() {
+	// TODO go func
 }

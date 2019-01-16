@@ -9,6 +9,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
@@ -30,6 +32,10 @@ func NewLocalDisk(storage IStorage, id string) *SLocalDisk {
 	var ret = new(SLocalDisk)
 	ret.SBaseDisk = *NewBaseDisk(storage, id)
 	return ret
+}
+
+func (d *SBaseDisk) GetType() string {
+	return storagetypes.STORAGE_LOCAL
 }
 
 func (d *SLocalDisk) getPath() string {
@@ -301,4 +307,203 @@ func (d *SLocalDisk) PostCreateFromImageFuse() {
 	if err := exec.Command("rm", "-rf", mntPath).Run(); err != nil {
 		log.Errorln(err)
 	}
+}
+
+func (d *SLocalDisk) CreateSnapshot(snapshotId string) error {
+	snapshotDir := d.GetSnapshotDir()
+	if !fileutils2.Exists(snapshotDir) {
+		err := exec.Command("mkdir", "-p", snapshotDir).Run()
+		if err != nil {
+			log.Errorln(err)
+			return err
+		}
+	}
+	snapshotPath := path.Join(snapshotDir, snapshotId)
+	err := exec.Command("mv", "-f", d.getPath(), snapshotPath).Run()
+	if err != nil {
+		log.Errorln(err)
+		return err
+	}
+	img, err := qemuimg.NewQemuImage(d.getPath())
+	if err != nil {
+		log.Errorln(err)
+		exec.Command("mv", "-f", snapshotPath, d.getPath()).Run()
+		return err
+	}
+	if err := img.CreateQcow2(0, false, snapshotPath); err != nil {
+		log.Errorf("Snapshot create image error %s", err)
+		exec.Command("mv", "-f", snapshotPath, d.getPath()).Run()
+		return err
+	}
+	return nil
+}
+
+func (d *SLocalDisk) DeleteSnapshot(snapshotId, convertSnapshot string, pendingDelete bool) error {
+	snapshotDir := d.GetSnapshotDir()
+	if len(convertSnapshot) > 0 {
+		if !fileutils2.Exists(snapshotDir) {
+			err := exec.Command("mkdir", "-p", snapshotDir).Run()
+			if err != nil {
+				log.Errorln(err)
+				return err
+			}
+		}
+		convertSnapshotPath := path.Join(snapshotDir, convertSnapshot)
+		output := convertSnapshotPath + ".tmp"
+		if fileutils2.Exists(output) {
+			exec.Command("rm", "-f", output).Run()
+		}
+		img, err := qemuimg.NewQemuImage(convertSnapshotPath)
+		if err != nil {
+			log.Errorln(err)
+			return err
+		}
+		if err = img.Convert2Qcow2To(output, true); err != nil {
+			log.Errorln(err)
+			exec.Command("rm", "-f", output).Run()
+			return err
+		}
+		if err = exec.Command("rm", "-f", convertSnapshotPath).Run(); err != nil {
+			log.Errorln(err)
+			return err
+		}
+		if err = exec.Command("mv", "-f", output, convertSnapshotPath).Run(); err != nil {
+			log.Errorln(err)
+			return err
+		}
+		if !pendingDelete {
+			err = exec.Command("rm", "-f", path.Join(snapshotDir, snapshotId)).Run()
+			if err != nil {
+				log.Errorln(err)
+				return err
+			}
+		}
+		return nil
+	} else {
+		err := exec.Command("rm", "-f", path.Join(snapshotDir, snapshotId)).Run()
+		if err != nil {
+			log.Errorln(err)
+			return err
+		}
+		return nil
+	}
+}
+
+func (d *SLocalDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	// diskInfo, ok := params.(*jsonutils.JSONDict)
+	// if !ok {
+	// 	return nil, hostutils.ParamsError
+	// }
+	if err := d.Probe(); err != nil {
+		return nil, err
+	}
+	destDir := d.Storage.GetImgsaveBackupPath()
+	if err := exec.Command("mkdir", "-p", destDir).Run(); err != nil {
+		log.Errorln(err)
+		return nil, err
+	}
+	backupPath := path.Join(destDir, fmt.Sprintf("%s.%s", d.Id, appctx.AppContextTaskId(ctx)))
+	if err := exec.Command("cp", "--sparse=always", "-f", d.GetPath(), backupPath).Run(); err != nil {
+		log.Errorln(err)
+		exec.Command("rm", "-f", backupPath).Run()
+		return nil, err
+	}
+	return jsonutils.NewDict(jsonutils.NewPair("backup", jsonutils.NewString(backupPath))), nil
+}
+
+func (d *SLocalDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	resetParams, ok := params.(*SDiskReset)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+
+	snapshotDir := d.GetSnapshotDir()
+	snapshotPath := path.Join(snapshotDir, resetParams.SnapshotId)
+	diskTmpPath := d.GetPath() + "_reset.tmp"
+	if err := exec.Command("mv", "-f", d.GetPath(), diskTmpPath).Run(); err != nil {
+		log.Errorln(err)
+		return nil, err
+	}
+	if !resetParams.OutOfChain {
+		img, err := qemuimg.NewQemuImage(d.GetPath())
+		if err != nil {
+			log.Errorln(err)
+			exec.Command("mv", "-f", diskTmpPath, d.GetPath()).Run()
+			return nil, err
+		}
+		if err := img.CreateQcow2(0, false, snapshotPath); err != nil {
+			log.Errorln(err)
+			exec.Command("mv", "-f", diskTmpPath, d.GetPath()).Run()
+			return nil, err
+		}
+	} else {
+		if err := exec.Command("cp", "-f", snapshotPath, d.GetPath()).Run(); err != nil {
+			log.Errorln(err)
+			exec.Command("mv", "-f", diskTmpPath, d.GetPath()).Run()
+			return nil, err
+		}
+	}
+	return nil, exec.Command("rm", "-f", diskTmpPath).Run()
+}
+
+func (d *SLocalDisk) CleanupSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	cleanupParams, ok := params.(*SDiskCleanupSnapshots)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	snapshotDir := d.GetSnapshotDir()
+	for _, snapshotId := range cleanupParams.ConvertSnapshots {
+		snapId, _ := snapshotId.GetString()
+		snapshotPath := path.Join(snapshotDir, snapId)
+		output := snapshotPath + "_convert.tmp"
+		img, err := qemuimg.NewQemuImage(snapshotPath)
+		if err != nil {
+			log.Errorln(err)
+			return nil, err
+		}
+		if err = img.Convert2Qcow2To(output, true); err != nil {
+			log.Errorln(err)
+			return nil, err
+		}
+		if exec.Command("mv", "-f", output, snapshotPath).Run(); err != nil {
+			exec.Command("rm", "-f", output).Run()
+			log.Errorln(err)
+			return nil, err
+		}
+	}
+
+	for _, snapshotId := range cleanupParams.DeleteSnapshots {
+		snapId, _ := snapshotId.GetString()
+		if err := exec.Command("rm", "-f", path.Join(snapshotDir, snapId)).Run(); err != nil {
+			log.Errorln(err)
+			return nil, err
+		}
+	}
+	return nil, nil
+}
+
+func (d *SLocalDisk) DeleteAllSnapshot() error {
+	snapshotDir := d.GetSnapshotDir()
+	log.Infof("Delete disk(%s) snapshot dir %s", d.Id, snapshotDir)
+	return exec.Command("rm", "-rf", snapshotDir).Run()
+}
+
+func (d *SLocalDisk) PrepareMigrate(liveMigrate bool) (string, error) {
+	disk, err := qemuimg.NewQemuImage(d.getPath())
+	if err != nil {
+		log.Errorln(err)
+		return "", err
+	}
+	ret, err := disk.WholeChainFormatIs("qcow2")
+	if err != nil {
+		log.Errorln(err)
+		return "", err
+	}
+	if liveMigrate && !ret {
+		return "", fmt.Errorf("Disk format doesn't support live migrate")
+	}
+	if disk.IsChained() {
+		return disk.BackFilePath, nil
+	}
+	return "", nil
 }

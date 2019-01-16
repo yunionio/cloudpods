@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"os/exec"
 	"path"
@@ -20,6 +19,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -29,9 +29,12 @@ import (
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
 )
 
-const VNC_PORT_BASE = 5900
+const (
+	VNC_PORT_BASE = 5900
+)
 
 type SGuestManager struct {
+	host             hostutils.IHost
 	ServersPath      string
 	Servers          map[string]*SKVMGuestInstance
 	CandidateServers map[string]*SKVMGuestInstance
@@ -40,8 +43,9 @@ type SGuestManager struct {
 	isLoaded bool
 }
 
-func NewGuestManager(serversPath string) *SGuestManager {
+func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
 	manager := &SGuestManager{}
+	manager.host = host
 	manager.ServersPath = serversPath
 	manager.Servers = make(map[string]*SKVMGuestInstance, 0)
 	manager.CandidateServers = make(map[string]*SKVMGuestInstance, 0)
@@ -66,14 +70,13 @@ func (m *SGuestManager) Bootstrap() {
 }
 
 func (m *SGuestManager) VerifyExistingGuests(pendingDelete bool) {
-	params := url.Values{
-		"limit":          {"0"},
-		"admin":          {"True"},
-		"system":         {"True"},
-		"pending_delete": {fmt.Sprintf("%s", pendingDelete)},
-	}
-	// TODO get host id
-	params.Set("filter.0", fmt.Sprintf("host_id.equals(%s)", "get host id "))
+	params := jsonutils.NewDict()
+	params.Set("limit", jsonutils.NewInt(0))
+	params.Set("admin", jsonutils.JSONTrue)
+	params.Set("system", jsonutils.JSONTrue)
+	params.Set("pending_delete", jsonutils.NewBool(pendingDelete))
+	params.Set("filter.0", jsonutils.NewString(
+		fmt.Sprintf("host_id.equals(%s)", m.host.GetHostId())))
 	if len(m.CandidateServers) > 0 {
 		keys := make([]string, len(m.CandidateServers))
 		var index = 0
@@ -81,9 +84,9 @@ func (m *SGuestManager) VerifyExistingGuests(pendingDelete bool) {
 			keys[index] = k
 			index++
 		}
-		params.Set("filter.1", strings.Join(keys, ","))
+		params.Set("filter.1", jsonutils.NewString(strings.Join(keys, ",")))
 	}
-	res, err := modules.Servers.List(hostutils.GetComputeSession(context.Background()), id, params)
+	res, err := modules.Servers.List(hostutils.GetComputeSession(context.Background()), params)
 	if err != nil {
 		m.OnVerifyExistingGuestsFail(err, pendingDelete)
 	} else {
@@ -130,7 +133,19 @@ func (m *SGuestManager) RemoveCandidateServer(server *SKVMGuestInstance) {
 }
 
 func (m *SGuestManager) OnLoadExistingGuestsComplete() {
+	log.Infof("Load existing guests complete...")
+	err := m.host.PutHostOnline()
+	if err != nil {
+		log.Errorln(err)
+	}
+
 	// TODO
+	// hostmetrics.Init()
+
+	if !options.HostOptions.EnableCpuBinding {
+		// TODO
+		// m.cleanupCpuset()
+	}
 }
 
 func (m *SGuestManager) StartCpusetBalancer() {
@@ -260,8 +275,7 @@ func (m *SGuestManager) GuestDeploy(ctx context.Context, params interface{}) (js
 			password = seclib.RandomPassword(12)
 		}
 
-		guestInfo, err := guest.DeployFs(&guestfs.SDeployInfo{
-			publicKey, deploys, password, deployParams.IsInit})
+		guestInfo, err := guest.DeployFs(guestfs.NewDeployInfo(publicKey, deploys, password, deployParams.IsInit, false))
 		if err != nil {
 			log.Errorf("Deploy guest fs error: %s", err)
 			return nil, err
@@ -269,13 +283,14 @@ func (m *SGuestManager) GuestDeploy(ctx context.Context, params interface{}) (js
 			return guestInfo, nil
 		}
 	} else {
-		return nil, fmt.Errorf("Guest %s not found", sid)
+		return nil, fmt.Errorf("Guest %s not found", deployParams.Sid)
 	}
 }
 
 // delay cpuset balance
 func (m *SGuestManager) CpusetBalance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	// TODO
+	return nil, fmt.Errorf("not implement")
 }
 
 func (m *SGuestManager) Status(sid string) string {
@@ -313,11 +328,8 @@ func (m *SGuestManager) GuestStart(ctx context.Context, sid string, body jsonuti
 		}
 		if guest.IsStopped() {
 			params, _ := body.Get("params")
-			if err := guest.StartGuest(ctx, params); err != nil {
-				return nil, httperrors.NewBadRequestError("Failed to start server")
-			} else {
-				return jsonutils.NewDict(jsonutils.JSONPair{"vnc_port", jsonutils.NewInt(0)}), nil
-			}
+			guest.StartGuest(ctx, params)
+			return jsonutils.NewDict(jsonutils.NewPair("vnc_port", jsonutils.NewInt(0))), nil
 		} else {
 			vncPort := guest.GetVncPort()
 			if vncPort > 0 {
@@ -373,9 +385,14 @@ func (m *SGuestManager) SrcPrepareMigrate(ctx context.Context, params interface{
 		return nil, hostutils.ParamsError
 	}
 	guest := m.Servers[migParams.Sid]
-	disksPrepare := guest.PrepareMigrate(migParams.LiveMigrate)
-	if len(disksPrepare) > 0 {
-		return map[string]interface{}{"disks_back": disksPrepare}, nil
+	disksPrepare, err := guest.PrepareMigrate(migParams.LiveMigrate)
+	if err != nil {
+		return nil, err
+	}
+	if disksPrepare.Length() > 0 {
+		ret := jsonutils.NewDict()
+		ret.Set("disks_back", disksPrepare)
+		return ret, nil
 	}
 	return nil, nil
 }
@@ -387,7 +404,7 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 	}
 
 	guest := m.Servers[migParams.Sid]
-	if err := guest.CreateFromDesc(desc); err != nil {
+	if err := guest.CreateFromDesc(migParams.Desc); err != nil {
 		return nil, err
 	}
 
@@ -424,9 +441,10 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 			// create snapshots form remote url
 			diskStorageId, _ := diskinfo.GetString("storage_id")
 			for _, snapshotId := range snapshots {
-				snapshotUrl := path.Join(migParams.SnapshotsUri, diskStorageId, diskId, snapshotId)
-				snapshotPath := path.Join(disk.GetSnapshotDir(), snapshotId)
-				log.Infof("Disk %s snapshot %s url: %s", diskId, snapshotId, snapshotUrl)
+				snapId, _ := snapshotId.GetString()
+				snapshotUrl := path.Join(migParams.SnapshotsUri, diskStorageId, diskId, snapId)
+				snapshotPath := path.Join(disk.GetSnapshotDir(), snapId)
+				log.Infof("Disk %s snapshot %s url: %s", diskId, snapId, snapshotUrl)
 				iStorage.CreateSnapshotFormUrl(ctx, snapshotUrl, diskId, snapshotPath)
 			}
 
@@ -434,7 +452,7 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 				// create local disk
 				backingFile, _ := migParams.DisksBackingFile.GetString(diskId)
 				size, _ := diskinfo.Int("size")
-				_, err := disk.CreateRaw(ctx, size, "qcow2", "", false, "", backingFile)
+				_, err := disk.CreateRaw(ctx, int(size), "qcow2", "", false, "", backingFile)
 				if err != nil {
 					log.Errorln(err)
 					return nil, err
@@ -442,7 +460,7 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 			} else {
 				// download disk form remote url
 				diskUrl := path.Join(migParams.DisksUri, diskStorageId, diskId)
-				if err := disk.CreateFromUrl(); err != nil {
+				if err := disk.CreateFromUrl(ctx, diskUrl); err != nil {
 					log.Errorln(err)
 					return nil, err
 				}
@@ -460,7 +478,7 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 		startParams := jsonutils.NewDict()
 		startParams.Set("qemu_version", jsonutils.NewString(migParams.QemuVersion))
 		startParams.Set("need_migrate", jsonutils.JSONTrue)
-		guest.StartGuest(ctx, params)
+		guest.StartGuest(ctx, startParams)
 	}
 
 	return nil, nil
@@ -492,7 +510,7 @@ func (m *SGuestManager) CanMigrate(sid string) bool {
 	return true
 }
 
-func (m *SGuestManager) GetFreePortByBase(basePort int64) int64 {
+func (m *SGuestManager) GetFreePortByBase(basePort int) int {
 	var port = 1
 	for {
 		if netutils2.IsTcpPortUsed("0.0.0.0", basePort+port) ||
@@ -504,7 +522,7 @@ func (m *SGuestManager) GetFreePortByBase(basePort int64) int64 {
 	}
 }
 
-func (m *SGuestManager) GetFreeVncPort() int64 {
+func (m *SGuestManager) GetFreeVncPort() int {
 	vncPorts := make(map[int]struct{}, 0)
 	for _, guest := range m.Servers {
 		inUsePort := guest.GetVncPort()
@@ -555,8 +573,40 @@ func (m *SGuestManager) DeleteSnapshot(ctx context.Context, params interface{}) 
 		return guest.ExecDeleteSnapshotTask(ctx, delParams.Disk, delParams.DeleteSnapshot,
 			delParams.ConvertSnapshot, delParams.PendingDelete)
 	} else {
-		return nil, delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot)
+		return jsonutils.NewDict(jsonutils.NewPair("deleted", jsonutils.JSONTrue)),
+			delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot, "", false)
 	}
+}
+
+func (m *SGuestManager) Resume(ctx context.Context, sid string, isLiveMigrate bool) (jsonutils.JSONObject, error) {
+	guest := guestManger.Servers[sid]
+	resumeTask := NewGuestResumeTask(ctx, guest)
+	if isLiveMigrate {
+		guest.StartPresendArp()
+	}
+	resumeTask.Start()
+	return nil, nil
+}
+
+// func (m *SGuestManager) StartNbdServer(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+// 	sid, ok := params.(string)
+// 	if !ok {
+// 		return nil, hostutils.ParamsError
+// 	}
+// 	guest := guestManger.Servers[sid]
+// 	port := m.GetFreePortByBase(BUILT_IN_NBD_SERVER_PORT_BASE)
+
+// }
+
+func (m *SGuestManager) StartDriveMirror(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	mirrorParams, ok := params.(*SDriverMirror)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	guest := guestManger.Servers[mirrorParams.Sid]
+	task := NewDriveMirrorTask(ctx, guest, mirrorParams.NbdServerUri, "top", nil)
+	task.Start()
+	return nil, nil
 }
 
 func (m *SGuestManager) ExitGuestCleanup() {
@@ -565,10 +615,14 @@ func (m *SGuestManager) ExitGuestCleanup() {
 	}
 
 	// TODO
-	m.StopCpusetBalancer()
+	// m.StopCpusetBalancer()
 	cgrouputils.CgroupCleanAll()
 	// TODO
 	// hostmetrics?
+}
+
+func (m *SGuestManager) GetHost() hostutils.IHost {
+	return m.host
 }
 
 var guestManger *SGuestManager
@@ -577,9 +631,9 @@ func Stop() {
 	guestManger.ExitGuestCleanup()
 }
 
-func Init(serversPath string) {
+func Init(host hostutils.IHost, serversPath string) {
 	if guestManger == nil {
-		guestManger = NewGuestManager(serversPath)
+		guestManger = NewGuestManager(host, serversPath)
 	}
 }
 
