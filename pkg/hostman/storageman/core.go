@@ -271,12 +271,7 @@ func Manager() *SStorageManager {
 }
 
 func Init(host hostutils.IHost) error {
-	var (
-		err    error
-		zone   = host.GetZone()
-		hostId = host.GetHostId()
-	)
-
+	var err error
 	storageManager, err = NewStorageManager(host)
 	return err
 }

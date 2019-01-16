@@ -3,7 +3,6 @@ package storageman
 import (
 	"context"
 	"fmt"
-	"path"
 	"sync"
 	"syscall"
 
@@ -22,7 +21,7 @@ type IStorage interface {
 	GetZone() string
 
 	SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject)
-	SyncStorageInfo()
+	SyncStorageInfo() (jsonutils.JSONObject, error)
 	StorageType() string
 
 	SetPath(string)
@@ -163,11 +162,11 @@ func (s *SBaseStorage) CreateDiskByDiskinfo(ctx context.Context, params interfac
 
 	switch {
 	case createParams.DiskInfo.Contains("snapshot"):
-		return s.CreateDiskFromSnpashot(ctx, disk, createParams) // TODO
+		return s.CreateDiskFromSnpashot(ctx, disk, createParams)
 	case createParams.DiskInfo.Contains("image_id"):
-		return s.CreateDiskFromTemplate(ctx, disk, createParams) // TODO
+		return s.CreateDiskFromTemplate(ctx, disk, createParams)
 	case createParams.DiskInfo.Contains("size"):
-		return s.CreateRawDisk(ctx, disk, createParams) // TODO
+		return s.CreateRawDisk(ctx, disk, createParams)
 	default:
 		return nil, fmt.Errorf("Not fount")
 	}
@@ -194,7 +193,7 @@ func (s *SBaseStorage) CreateDiskFromTemplate(ctx context.Context, disk IDisk, c
 
 func (s *SBaseStorage) CreateDiskFromSnpashot(ctx context.Context, disk IDisk, createParams *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
 	var (
-		diskPath            = path.Join(s.Path, createParams.DiskId)
+		// diskPath            = path.Join(s.Path, createParams.DiskId)
 		snapshotUrl, _      = createParams.DiskInfo.GetString("snapshot_url")
 		transferProtocol, _ = createParams.DiskInfo.GetString("url")
 	)

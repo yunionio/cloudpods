@@ -141,7 +141,7 @@ func guestSync(ctx context.Context, sid string, body jsonutils.JSONObject) (inte
 	if !guestManger.IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
-	hostutils.DelayTask(ctx, guestManger.GuestSync, &SGuestSync{sid, body})
+	hostutils.DelayTask(ctx, guestManger.GuestSync, &SBaseParms{sid, body})
 	return nil, nil
 }
 
@@ -262,13 +262,13 @@ func guestResume(ctx context.Context, sid string, body jsonutils.JSONObject) (in
 	return nil, nil
 }
 
-func guestStartNbdServer(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	if !guestManger.IsGuestExist(sid) {
-		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
-	}
-	hostutils.DelayTask(ctx, guestManger.StartNbdServer, sid)
-	return nil, nil
-}
+// func guestStartNbdServer(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+// 	if !guestManger.IsGuestExist(sid) {
+// 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
+// 	}
+// 	hostutils.DelayTask(ctx, guestManger.StartNbdServer, sid)
+// 	return nil, nil
+// }
 
 func guestDriveMirror(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
 	if !guestManger.IsGuestExist(sid) {
@@ -278,7 +278,7 @@ func guestDriveMirror(ctx context.Context, sid string, body jsonutils.JSONObject
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("backup_ndb_server_uri")
 	}
-	hostutils.DelayTask(ctx, guestManger.StartDriveMirror,
+	hostutils.DelayTaskWithoutReqctx(ctx, guestManger.StartDriveMirror,
 		&SDriverMirror{sid, backupNbdServerUri})
 	return nil, nil
 }
@@ -295,11 +295,11 @@ func guestReloadDiskSnapshot(ctx context.Context, sid string, body jsonutils.JSO
 	var disk storageman.IDisk
 	guest := guestManger.Servers[sid]
 	disks, _ := guest.Desc.GetArray("disks")
-	for _, disk := range disks {
-		id, _ := disk.GetString("disk_id")
+	for _, d := range disks {
+		id, _ := d.GetString("disk_id")
 		if diskId == id {
-			diskPath, _ := disk.GetString("path")
-			disk := storageman.GetManager().GetDiskByPath(diskPath)
+			diskPath, _ := d.GetString("path")
+			disk = storageman.GetManager().GetDiskByPath(diskPath)
 			break
 		}
 	}
@@ -327,11 +327,11 @@ func guestSnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (
 	var disk storageman.IDisk
 	guest := guestManger.Servers[sid]
 	disks, _ := guest.Desc.GetArray("disks")
-	for _, disk := range disks {
-		id, _ := disk.GetString("disk_id")
+	for _, d := range disks {
+		id, _ := d.GetString("disk_id")
 		if diskId == id {
-			diskPath, _ := disk.GetString("path")
-			disk := storageman.GetManager().GetDiskByPath(diskPath)
+			diskPath, _ := d.GetString("path")
+			disk = storageman.GetManager().GetDiskByPath(diskPath)
 			break
 		}
 	}
@@ -356,11 +356,11 @@ func guestDeleteSnapshot(ctx context.Context, sid string, body jsonutils.JSONObj
 	var disk storageman.IDisk
 	guest := guestManger.Servers[sid]
 	disks, _ := guest.Desc.GetArray("disks")
-	for _, disk := range disks {
-		id, _ := disk.GetString("disk_id")
+	for _, d := range disks {
+		id, _ := d.GetString("disk_id")
 		if diskId == id {
-			diskPath, _ := disk.GetString("path")
-			disk := storageman.GetManager().GetDiskByPath(diskPath)
+			diskPath, _ := d.GetString("path")
+			disk = storageman.GetManager().GetDiskByPath(diskPath)
 			break
 		}
 	}
@@ -409,6 +409,6 @@ var actionFuncs = map[string]actionFunc{
 	"dest-prepare-migrate": guestDestPrepareMigrate,
 	"live-migrate":         guestLiveMigrate,
 	"resume":               guestResume,
-	"start-nbd-server":     guestStartNbdServer,
-	"drive-mirror":         guestDriveMirror,
+	// "start-nbd-server":     guestStartNbdServer,
+	"drive-mirror": guestDriveMirror,
 }

@@ -124,3 +124,37 @@ func TestNetBytes2Mask(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatMac(t *testing.T) {
+	type args struct {
+		macStr string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "test-format-mac-1",
+			args: args{"FFFFFFFFFFFF"},
+			want: "ff:ff:ff:ff:ff:ff",
+		},
+		{
+			name: "test-format-mac-2",
+			args: args{"FFFFFFFFFF"},
+			want: "",
+		},
+		{
+			name: "test-format-mac-3",
+			args: args{"FFDDEECCBBAA"},
+			want: "ff:dd:ee:cc:bb:aa",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := FormatMac(tt.args.macStr); got != tt.want {
+				t.Errorf("FormatMac() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

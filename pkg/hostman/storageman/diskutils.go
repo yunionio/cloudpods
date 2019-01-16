@@ -90,7 +90,6 @@ func (d *SKVMGuestDisk) findPartitions() error {
 	if err != nil {
 		return err
 	}
-	var partitions []*guestfs.SKVMGuestDiskPartition
 	for i := 0; i < len(files); i++ {
 		if files[i].Name() != dev && strings.HasPrefix(files[i].Name(), dev+"p") {
 			var part = guestfs.NewKVMGuestDiskPartition(path.Join(devpath, files[i].Name()))

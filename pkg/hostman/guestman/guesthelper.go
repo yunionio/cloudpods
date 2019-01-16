@@ -11,7 +11,8 @@ type SBaseParms struct {
 }
 
 type SGuestDeploy struct {
-	SGuestBaseParms
+	Sid    string
+	Body   jsonutils.JSONObject
 	IsInit bool
 }
 

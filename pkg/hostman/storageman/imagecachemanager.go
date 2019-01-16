@@ -24,7 +24,7 @@ type IImageCacheManger interface {
 
 	AcquireImage(ctx context.Context, imageId, zone, srcUrl, format string) IImageCache
 	ReleaseImage(imageId string)
-	// LoadCache() error ???
+	LoadImageCache(imageId string)
 }
 
 type SBaseImageCacheManager struct {
@@ -78,12 +78,12 @@ func (c *SLocalImageCacheManager) loadCache() {
 	files, _ := ioutil.ReadDir(c.cachePath)
 	for _, f := range files {
 		if regutils.MatchUUIDExact(f.Name()) {
-			c.loadImageCache(f.Name())
+			c.LoadImageCache(f.Name())
 		}
 	}
 }
 
-func (c *SLocalImageCacheManager) loadImageCache(imageId string) {
+func (c *SLocalImageCacheManager) LoadImageCache(imageId string) {
 	imageCache := NewLocalImageCache(imageId, c)
 	if imageCache.Load() {
 		c.cachedImages[imageId] = imageCache
@@ -155,7 +155,10 @@ func (c *SLocalImageCacheManager) PrefetchImageCache(ctx context.Context, data i
 		res.Set("image_id", jsonutils.NewString(imageId))
 		res.Set("path", jsonutils.NewString(imgCache.GetPath()))
 
-		var name, size = "", 0
+		var (
+			name string
+			size int64
+		)
 		if desc := imgCache.GetDesc(); desc != nil {
 			name = desc.Name
 			size = desc.Size
@@ -175,7 +178,6 @@ func (c *SLocalImageCacheManager) PrefetchImageCache(ctx context.Context, data i
 	} else {
 		return nil, fmt.Errorf("Failed to fetch image %s", imageId)
 	}
-
 }
 
 // TODO: AgentImageCacheManager
@@ -195,4 +197,5 @@ type SRbdImageCacheManager struct {
 
 func NewRbdImageCacheManager() *SRbdImageCacheManager {
 	// TODO
+	return nil
 }

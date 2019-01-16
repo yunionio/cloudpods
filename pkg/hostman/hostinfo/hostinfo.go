@@ -18,12 +18,14 @@ import (
 	bare2 "yunion.io/x/onecloud/pkg/baremetal"
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
 	bare1 "yunion.io/x/onecloud/pkg/compute/baremetal"
+	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
@@ -44,6 +46,8 @@ type SHostInfo struct {
 	isRegistered     bool
 	IsRegistered     chan struct{}
 	registerCallback func()
+	saved            bool
+	pinger           *SHostPingTask
 
 	kvmModuleSupport string
 	nestStatus       string
@@ -64,6 +68,19 @@ type SHostInfo struct {
 	ZoneManagerUri string
 
 	FullName string
+}
+
+func (h *SHostInfo) GetBridgeDev(bridge string) hostbridge.IBridgeDriver {
+	for _, n := range h.Nics {
+		if bridge == n.Bridge {
+			return n.BridgeDev
+		}
+	}
+	return nil
+}
+
+func (h *SHostInfo) GetHostId() string {
+	return h.HostId
 }
 
 func (h *SHostInfo) GetZone() string {
@@ -633,6 +650,7 @@ func (h *SHostInfo) GetMasterMac() string {
 			return n.BridgeDev.GetMac()
 		}
 	}
+	return ""
 }
 
 func (h *SHostInfo) GetMatchNic(bridge, iface, mac string) *SNIC {
@@ -646,18 +664,21 @@ func (h *SHostInfo) GetMatchNic(bridge, iface, mac string) *SNIC {
 }
 
 func (h *SHostInfo) StartRegister(delay int, callback func()) {
-	h.registerCallback = callback
-	timeutils2.AddTimeout(delay*time.Second, h.register)
+	if callback != nil {
+		h.registerCallback = callback
+	}
+
+	timeutils2.AddTimeout(time.Duration(delay)*time.Second, h.register)
 }
 
 func (h *SHostInfo) register() {
 	if !h.isRegistered {
-		h.fetch_access_network_info()
+		h.fetchAccessNetworkInfo()
 	}
 }
 
 func (h *SHostInfo) onFail() {
-	h.StartRegister(30)
+	h.StartRegister(30, nil)
 	panic("register failed, try 30 seconds later...")
 }
 
@@ -691,13 +712,13 @@ func (h *SHostInfo) getZoneInfo(zoneId string, standalone bool) {
 		zoneId, params)
 	if err != nil {
 		log.Errorln(err)
-		h.onFail(err)
+		h.onFail()
 	}
 
 	h.Zone, _ = res.GetString("name")
 	h.ZoneId, _ = res.GetString("id")
-	h.Cloudregion = res.GetString("cloudregion")
-	h.CloudregionId = res.GetString("cloudregion_id")
+	h.Cloudregion, _ = res.GetString("cloudregion")
+	h.CloudregionId, _ = res.GetString("cloudregion_id")
 	if res.Contains("manager_uri") {
 		h.ZoneManagerUri, _ = res.GetString("manager_uri")
 	}
@@ -737,11 +758,11 @@ func (h *SHostInfo) setHostname(name string) {
 	}
 }
 
-func (h *SHostInfo) fetchHostname() {
+func (h *SHostInfo) fetchHostname() string {
 	if len(options.HostOptions.Hostname) > 0 {
 		return options.HostOptions.Hostname
 	} else {
-		masterIp = h.GetMasterIp()
+		masterIp := h.GetMasterIp()
 		return "host-" + masterIp
 	}
 }
@@ -784,7 +805,7 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	content.Set("mem_size", jsonutils.NewInt(int64(h.Mem.MemInfo.Total)))
 	content.Set("storage_driver", jsonutils.NewString(bare1.DISK_DRIVER_LINUX))
 	content.Set("storage_type", jsonutils.NewString(h.sysinfo.StorageType))
-	content.Set("storage_size", jsonutils.NewInt(storageman.GetManager().GetTotalCapacity()))
+	content.Set("storage_size", jsonutils.NewInt(int64(storageman.GetManager().GetTotalCapacity())))
 
 	// TODO optimize content data struct
 	content.Set("sys_info", jsonutils.Marshal(h.sysinfo))
@@ -802,7 +823,7 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	body.Set("host", content)
 	session := hostutils.GetComputeSession(context.Background())
 	_, res, err := session.JSONVersionRequest("compute",
-		session.GetEndpointType(), method, url, nil, body, "v2")
+		session.GetEndpointType(), httputils.THttpMethod(method), url, nil, body, "v2")
 	if err != nil {
 		log.Errorln(err)
 		h.onFail()
@@ -845,7 +866,7 @@ func (h *SHostInfo) getReservedMem() int64 {
 }
 
 func (h *SHostInfo) putHostOffline() {
-	res, err := modules.Hosts.PerformAction(
+	_, err := modules.Hosts.PerformAction(
 		hostutils.GetComputeSession(context.Background()), h.HostId, "offline", nil)
 	if err != nil {
 		log.Errorln(err)
@@ -881,7 +902,7 @@ func (h *SHostInfo) getNetworkInfo() {
 			if nic != nil {
 				wire, _ := hostwire.GetString("wire")
 				wireId, _ := hostwire.GetString("wire_id")
-				bandwidth, err := hostwire.GetString("bandwidth")
+				bandwidth, err := hostwire.Int("bandwidth")
 				if err != nil {
 					bandwidth = 1000
 				}
@@ -921,7 +942,7 @@ func (h *SHostInfo) uploadNetworkInfo() {
 	h.getStoragecacheInfo()
 }
 
-func (h *SHostInfo) doUploadNicInfo(nic *SNIC) (jsonutils.JSONObject, error) {
+func (h *SHostInfo) doUploadNicInfo(nic *SNIC) {
 	log.Infof("Upload NIC br:%s if:%s", nic.Bridge, nic.Inter)
 	content := jsonutils.NewDict()
 	content.Set("mac", jsonutils.NewString(nic.BridgeDev.GetMac()))
@@ -968,9 +989,9 @@ func (h *SHostInfo) onUploadNicInfoSucc(nic *SNIC) {
 		macAddr, _ := res.GetString("mac_addr")
 		nic = h.GetMatchNic(bridge, iface, macAddr)
 		if nic != nil {
-			wire, _ := hostwire.GetString("wire")
-			wireId, _ := hostwire.GetString("wire_id")
-			bandwidth, err := hostwire.GetString("bandwidth")
+			wire, _ := res.GetString("wire")
+			wireId, _ := res.GetString("wire_id")
+			bandwidth, err := res.Int("bandwidth")
 			if err != nil {
 				bandwidth = 1000
 			}
@@ -1036,21 +1057,22 @@ func (h *SHostInfo) getStorageInfo() {
 
 func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 	var detachStorages = []jsonutils.JSONObject{}
+	storageManager := storageman.GetManager()
 	for _, hs := range hoststorages {
 		mountPoint, _ := hs.GetString("mount_point")
 		storagecacheId, _ := hs.GetString("storagecache_id")
 		storagetype, _ := hs.GetString("storage_type")
-		storageManager := storageman.GetManager()
 		imagecachePath, _ := hs.GetString("imagecache_path")
 		storageId, _ := hs.GetString("storage_id")
 		storageName, _ := hs.GetString("storage")
 		storageConf, _ := hs.Get("storage_conf")
 
 		storage := storageManager.NewSharedStorageInstance(mountPoint, storagetype)
-		if s != nil {
-			storageManager.Storages = append(storageManager.Storages, s)
+		if storage != nil {
+			storageManager.Storages = append(storageManager.Storages, storage)
 		}
-		storageManager.InitStorageImageCache(storagetype, storagecacheId, imagecachePath, s)
+		storageManager.InitSharedStorageImageCache(storagetype,
+			storagecacheId, imagecachePath, storage)
 		storage = storageManager.GetStorageByPath(mountPoint)
 		if storage != nil {
 			storage.SetStorageInfo(storageId, storageName, storageConf)
@@ -1077,7 +1099,7 @@ func (h *SHostInfo) uploadStorageInfo() {
 		}
 	}
 	// TODO
-	h.getIsolatedDevices()
+	// h.getIsolatedDevices()
 }
 
 func (h *SHostInfo) onSyncStorageInfoSucc(storage storageman.IStorage, storageInfo jsonutils.JSONObject) {
@@ -1106,8 +1128,9 @@ func (h *SHostInfo) onSucc() {
 		log.Infof("Host registration process success....")
 		h.isRegistered = true
 
-		// TODO
-		h.save()
+		if err := h.save(); err != nil {
+			panic(err.Error())
+		}
 
 		// TODO
 		h.StartPinger()
@@ -1119,6 +1142,53 @@ func (h *SHostInfo) onSucc() {
 		// To notify caller, host register is success
 		close(h.IsRegistered)
 	}
+}
+
+func (h *SHostInfo) StartPinger() {
+	h.pinger = NewHostPingTask(options.HostOptions.PingRegionInterval)
+	go h.pinger.Start()
+}
+
+func (h *SHostInfo) save() error {
+	if h.saved {
+		return nil
+	}
+	h.saved = true
+	if err := h.registerHostlocalServer(); err != nil {
+		return err
+	}
+	// TODO XXX >>> ???
+	// file put content
+	return h.setupBridges()
+}
+
+func (h *SHostInfo) setupBridges() error {
+	for _, n := range h.Nics {
+		if err := n.BridgeDev.WarmupConfig(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (h *SHostInfo) registerHostlocalServer() error {
+	for _, n := range h.Nics {
+		mac := h.GetMasterMac()
+		if len(mac) == 0 {
+			panic("len mac == 0")
+		}
+		ip := h.GetMasterIp()
+		if len(ip) == 0 {
+			panic("len ip == 0")
+		}
+
+		err := n.BridgeDev.RegisterHostlocalServer(mac, ip)
+		if err != nil {
+			log.Errorln(err)
+			return err
+		}
+	}
+	return nil
 }
 
 func NewHostInfo() (*SHostInfo, error) {
@@ -1147,9 +1217,10 @@ var hostInfo *SHostInfo
 
 func Instance() *SHostInfo {
 	if hostInfo == nil {
-		hostInfo, err := NewHostInfo()
+		var err error
+		hostInfo, err = NewHostInfo()
 		if err != nil {
-			log.Fatalf(err)
+			log.Fatalf(err.Error())
 		}
 	}
 	return hostInfo

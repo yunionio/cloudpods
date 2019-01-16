@@ -72,7 +72,11 @@ type SHostOptions struct {
 	DefaultWriteIopsPerCpu int  `default:"416" help:"Default write iops per cpu for hard IO limit"`
 	SetVncPassword         bool `default:"true" help:"Auto set vnc password after monitor connected"`
 
-	EnableCpuBinding bool `default:"true" help:"Enable cpu binding and rebalance"`
+	EnableCpuBinding         bool   `default:"true" help:"Enable cpu binding and rebalance"`
+	EnableOpenflowController bool   `default:"false"`
+	K8sClusterCidr           string `default:"10.43.0.0/16" help:"Kubernetes cluster IP range"`
+
+	PingRegionInterval int `default:"60" help:"interval to ping region, deefault is 1 minute"`
 }
 
 var HostOptions SHostOptions

@@ -466,3 +466,17 @@ func (img *SQemuImage) Fallocate() error {
 func (img *SQemuImage) String() string {
 	return fmt.Sprintf("Qemu %s %d(%d) %s", img.Format, img.GetSizeMB(), img.GetActualSizeMB(), img.Path)
 }
+
+func (img *SQemuImage) WholeChainFormatIs(format string) (bool, error) {
+	if img.Format.String() != format {
+		return false, nil
+	}
+	if len(img.BackFilePath) > 0 {
+		backImg, err := NewQemuImage(img.BackFilePath)
+		if err != nil {
+			return false, err
+		}
+		return backImg.WholeChainFormatIs(format)
+	}
+	return true, nil
+}

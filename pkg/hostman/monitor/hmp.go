@@ -311,3 +311,27 @@ func (m *HmpMonitor) GetBlockJobs(callback func(jobs int)) {
 func (m *HmpMonitor) ReloadDiskBlkdev(device, path string, callback StringCallback) {
 	m.Query(fmt.Sprintf("reload_disk_snapshot_blkdev -n %s %s", device, path), callback)
 }
+
+func (m *HmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMode string, unmap bool) {
+	cmd := "drive_mirror -n"
+	if syncMode == "full" {
+		cmd += " -f"
+	}
+	cmd += fmt.Sprintf(" %s %s", drive, target)
+	m.Query(cmd, callback)
+}
+
+func (m *HmpMonitor) BlockStream(drive string, callback StringCallback) {
+	var (
+		speed = 30 // MB/s
+		cmd   = fmt.Sprintf("block_stream %s %d", drive, speed)
+	)
+	m.Query(cmd, callback)
+}
+
+func (m *HmpMonitor) SetVncPassword(proto, password string, callback StringCallback) {
+	if len(password) > 8 {
+		password = password[:8]
+	}
+	m.Query(fmt.Sprintf("set_password %s %s", proto, password), callback)
+}

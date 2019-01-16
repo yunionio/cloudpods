@@ -12,6 +12,7 @@ import (
 )
 
 type IDisk interface {
+	GetType() string
 	GetId() string
 	Probe() error
 	GetPath() string
@@ -19,24 +20,22 @@ type IDisk interface {
 	GetDiskDesc() jsonutils.JSONObject
 	GetDiskSetupScripts(idx int) string
 
-	// TODO DeleteAllSnapshot() error
+	DeleteAllSnapshot() error
 	Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	Resize(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	PrepareSaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	ResetFromSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	CleanupSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 
+	PrepareMigrate(liveMigrate bool) (string, error)
 	CreateFromUrl(context.Context, string) error
-	// TODO CreateFromSnapshot
 	CreateFromTemplate(context.Context, string, string, int64) (jsonutils.JSONObject, error)
 	CreateFromImageFuse(context.Context, string) error
 	CreateRaw(ctx context.Context, sizeMb int, diskFromat string, fsFormat string,
 		encryption bool, diskId string, back string) (jsonutils.JSONObject, error)
 	PostCreateFromImageFuse()
-
 	CreateSnapshot(snapshotId string) error
 	DeleteSnapshot(snapshotId, convertSnapshot string, pendingDelete bool) error
-
 	DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict,
 		deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error)
 }

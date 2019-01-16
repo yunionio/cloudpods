@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
@@ -31,6 +32,10 @@ func NewLocalDisk(storage IStorage, id string) *SLocalDisk {
 	var ret = new(SLocalDisk)
 	ret.SBaseDisk = *NewBaseDisk(storage, id)
 	return ret
+}
+
+func (d *SBaseDisk) GetType() string {
+	return storagetypes.STORAGE_LOCAL
 }
 
 func (d *SLocalDisk) getPath() string {
@@ -385,10 +390,10 @@ func (d *SLocalDisk) DeleteSnapshot(snapshotId, convertSnapshot string, pendingD
 }
 
 func (d *SLocalDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	diskInfo, ok := params.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, hostutils.ParamsError
-	}
+	// diskInfo, ok := params.(*jsonutils.JSONDict)
+	// if !ok {
+	// 	return nil, hostutils.ParamsError
+	// }
 	if err := d.Probe(); err != nil {
 		return nil, err
 	}
@@ -475,4 +480,30 @@ func (d *SLocalDisk) CleanupSnapshots(ctx context.Context, params interface{}) (
 		}
 	}
 	return nil, nil
+}
+
+func (d *SLocalDisk) DeleteAllSnapshot() error {
+	snapshotDir := d.GetSnapshotDir()
+	log.Infof("Delete disk(%s) snapshot dir %s", d.Id, snapshotDir)
+	return exec.Command("rm", "-rf", snapshotDir).Run()
+}
+
+func (d *SLocalDisk) PrepareMigrate(liveMigrate bool) (string, error) {
+	disk, err := qemuimg.NewQemuImage(d.getPath())
+	if err != nil {
+		log.Errorln(err)
+		return "", err
+	}
+	ret, err := disk.WholeChainFormatIs("qcow2")
+	if err != nil {
+		log.Errorln(err)
+		return "", err
+	}
+	if liveMigrate && !ret {
+		return "", fmt.Errorf("Disk format doesn't support live migrate")
+	}
+	if disk.IsChained() {
+		return disk.BackFilePath, nil
+	}
+	return "", nil
 }

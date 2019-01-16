@@ -32,9 +32,9 @@ func AddStorageHandler(prefix string, app *appsrv.Application) {
 			auth.Authenticate(storageActions))
 
 		// TODO
-		app.AddHandler("POST",
-			fmt.Sprintf("%s/%s/<storageId>/delete-snapshots", prefix, keyWords),
-			auth.Authenticate(storageDeleteSnapshots))
+		// app.AddHandler("POST",
+		// 	fmt.Sprintf("%s/%s/<storageId>/delete-snapshots", prefix, keyWords),
+		// 	auth.Authenticate(storageDeleteSnapshots))
 	}
 }
 
@@ -42,7 +42,7 @@ func storageActions(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	params, _, body := appsrv.FetchEnv(ctx, w, r)
 	var action = params["<action>"]
 
-	if f, ok := storageActionFunc[action]; !ok {
+	if f, ok := storageActionFuncs[action]; !ok {
 		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Not found"))
 	} else {
 		res, err := f(ctx, body)

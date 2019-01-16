@@ -34,7 +34,7 @@ type SGuestStopTask struct {
 	*SKVMGuestInstance
 	ctx            context.Context
 	timeout        int64
-	startPowerdown *time.Time
+	startPowerdown time.Time
 }
 
 func NewGuestStopTask(guest *SKVMGuestInstance, ctx context.Context, timeout int64) *SGuestStopTask {
@@ -42,7 +42,7 @@ func NewGuestStopTask(guest *SKVMGuestInstance, ctx context.Context, timeout int
 		SKVMGuestInstance: guest,
 		ctx:               ctx,
 		timeout:           timeout,
-		startPowerdown:    nil,
+		startPowerdown:    time.Time{},
 	}
 }
 
@@ -57,12 +57,13 @@ func (s *SGuestStopTask) Start() {
 
 func (s *SGuestStopTask) onPowerdownGuest(results string) {
 	s.ExitCleanup(true)
-	s.startPowerdown = &time.Now()
+	s.startPowerdown = time.Now()
 	s.checkGuestRunning()
 }
 
 func (s *SGuestStopTask) checkGuestRunning() {
-	if !s.IsRunning() || time.Now().Sub(*s.startPowerdown) > (s.timeout*time.Second) {
+	if !s.IsRunning() ||
+		time.Now().Sub(s.startPowerdown) > time.Duration(s.timeout)*time.Second {
 		s.Stop() // force stop
 		hostutils.TaskComplete(s.ctx, nil)
 	} else {
@@ -82,13 +83,13 @@ func (s *SGuestStopTask) CheckGuestRunningLater() {
 type SGuestSyncConfigTaskExecutor struct {
 	ctx   context.Context
 	guest *SKVMGuestInstance
-	tasks IGuestTasks
+	tasks []IGuestTasks
 
 	errors   []error
 	callback func([]error)
 }
 
-func NewGuestSyncConfigTaskExecutor(ctx context.Context, guest *SKVMGuestInstance, tasks []IGuestTasks, callback func(error)) *SGuestSyncConfigTaskExecutor {
+func NewGuestSyncConfigTaskExecutor(ctx context.Context, guest *SKVMGuestInstance, tasks []IGuestTasks, callback func([]error)) *SGuestSyncConfigTaskExecutor {
 	return &SGuestSyncConfigTaskExecutor{ctx, guest, tasks, make([]error, 0), callback}
 }
 
@@ -98,7 +99,7 @@ func (t *SGuestSyncConfigTaskExecutor) Start(delay int) {
 
 func (t *SGuestSyncConfigTaskExecutor) runNextTask() {
 	if len(t.tasks) > 0 {
-		task := t.tasks[len(t.tasks-1)]
+		task := t.tasks[len(t.tasks)-1]
 		t.tasks = t.tasks[:len(t.tasks)-1]
 		task.Start(t.runNextTaskCallback)
 	} else {
@@ -130,27 +131,27 @@ type SGuestDiskSyncTask struct {
 	addDisks []jsonutils.JSONObject
 	cdrom    *string
 
-	callback func(error)
+	callback func(...error)
 }
 
 func NewGuestDiskSyncTask(guest *SKVMGuestInstance, delDisks, addDisks []jsonutils.JSONObject, cdrom *string) *SGuestDiskSyncTask {
-	return &SGuestDiskSyncTask{guest, delDisks, addDisks, cdrom}
+	return &SGuestDiskSyncTask{guest, delDisks, addDisks, cdrom, nil}
 }
 
-func (d *SGuestDiskSyncTask) Start(callback func(error)) {
+func (d *SGuestDiskSyncTask) Start(callback func(...error)) {
 	d.callback = callback
 	d.syncDisksConf()
 }
 
 func (d *SGuestDiskSyncTask) syncDisksConf() {
 	if len(d.delDisks) > 0 {
-		disk = d.delDisks[len(d.delDisks)-1]
+		disk := d.delDisks[len(d.delDisks)-1]
 		d.delDisks = d.delDisks[:len(d.delDisks)-1]
 		d.removeDisk(disk)
 		return
 	}
 	if len(d.addDisks) > 0 {
-		disk = d.addDisks[len(d.addDisks)-1]
+		disk := d.addDisks[len(d.addDisks)-1]
 		d.addDisks = d.addDisks[:len(d.addDisks)-1]
 		d.addDisk(disk)
 		return
@@ -159,7 +160,7 @@ func (d *SGuestDiskSyncTask) syncDisksConf() {
 		d.changeCdrom()
 		return
 	}
-	d.callback(nil)
+	d.callback()
 }
 
 func (d *SGuestDiskSyncTask) changeCdrom() {
@@ -170,7 +171,7 @@ func (d *SGuestDiskSyncTask) onGetBlockInfo(results *jsonutils.JSONArray) {
 	var cdName string
 	for _, r := range results.Value() {
 		device, _ := r.GetString("device")
-		if regexp.MustCompile(`^ide\d+-cd\d+$`, device) {
+		if regexp.MustCompile(`^ide\d+-cd\d+$`).MatchString(device) {
 			cdName = device
 			break
 		}
@@ -195,7 +196,7 @@ func (d *SGuestDiskSyncTask) OnChangeCdromContentSucc(results string) {
 
 func (d *SGuestDiskSyncTask) removeDisk(disk jsonutils.JSONObject) {
 	index, _ := disk.Int("index")
-	devId = fmt.Sprintf("drive_%s", index)
+	devId := fmt.Sprintf("drive_%d", index)
 	d.guest.Monitor.DriveDel(devId,
 		func(results string) { d.onRemoveDriveSucc(devId, results) })
 }
@@ -258,7 +259,7 @@ func (d *SGuestDiskSyncTask) onAddDiskSucc(disk jsonutils.JSONObject, results st
 	}
 
 	if diskDirver == DISK_DRIVER_VIRTIO {
-		params["addr"] = fmt.Sprintf("0x%x", d.guest.GetDiskAddr(diskIndex))
+		params["addr"] = fmt.Sprintf("0x%x", d.guest.GetDiskAddr(int(diskIndex)))
 	} else if DISK_DRIVER_IDE == diskDirver {
 		params["unit"] = diskIndex % 2
 	}
@@ -289,12 +290,12 @@ func (n *SGuestNetworkSyncTask) Start(callback func(...error)) {
 
 func (n *SGuestNetworkSyncTask) syncNetworkConf() {
 	if len(n.delNics) > 0 {
-		nic = n.delNics[len(n.delNics)-1]
+		nic := n.delNics[len(n.delNics)-1]
 		n.delNics = n.delNics[:len(n.delNics)-1]
 		n.removeNic(nic)
 		return
 	} else if len(n.addNics) > 0 {
-		nic = n.addNics[len(n.addNics)-1]
+		nic := n.addNics[len(n.addNics)-1]
 		n.addNics = n.addNics[:len(n.addNics)-1]
 		n.addNic(nic)
 		return
@@ -311,8 +312,8 @@ func (n *SGuestNetworkSyncTask) addNic(nic jsonutils.JSONObject) {
 	// pass not implement
 }
 
-func NewGuestNetworkSyncTask(guest *SKVMGuestInstance, delNics, addNics jsonutils.JSONObject) *SGuestNetworkSyncTask {
-	return &SGuestNetworkSyncTask{guest, delNics, addNics, make(error, 0)}
+func NewGuestNetworkSyncTask(guest *SKVMGuestInstance, delNics, addNics []jsonutils.JSONObject) *SGuestNetworkSyncTask {
+	return &SGuestNetworkSyncTask{guest, delNics, addNics, make([]error, 0), nil}
 }
 
 /**
@@ -351,10 +352,10 @@ func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(string) {
 	s.c = make(chan struct{})
 	for {
 		select {
-		case <-c: // on c close
+		case <-s.c: // on c close
 			break
 		case <-time.After(time.Second * 1):
-			s.Monitor.getMigrateStatus(s.onGetMigrateStatus)
+			s.Monitor.GetMigrateStatus(s.onGetMigrateStatus)
 		}
 	}
 }
@@ -362,10 +363,10 @@ func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(string) {
 func (s *SGuestLiveMigrateTask) onGetMigrateStatus(status string) {
 	if status == "completed" {
 		close(s.c)
-		hostutils.TaskComplete(ctx, nil)
+		hostutils.TaskComplete(s.ctx, nil)
 	} else if status == "failed" {
-		close(c)
-		hostutils.TaskFailed(ctx, fmt.Sprintf("Query migrate got status: %s", status))
+		close(s.c)
+		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Query migrate got status: %s", status))
 	}
 }
 
@@ -378,6 +379,13 @@ type SGuestResumeTask struct {
 
 	ctx       context.Context
 	startTime time.Time
+}
+
+func NewGuestResumeTask(ctx context.Context, s *SKVMGuestInstance) *SGuestResumeTask {
+	return &SGuestResumeTask{
+		SKVMGuestInstance: s,
+		ctx:               ctx,
+	}
 }
 
 func (s *SGuestResumeTask) Start() {
@@ -409,8 +417,8 @@ func (s *SGuestResumeTask) onConfirmRunning(status string) {
 func (s *SGuestResumeTask) taskFailed(reason string) {
 	log.Infof("Start guest %s failed: %s", s.GetId(), reason)
 	s.ForceStop()
-	if len(appctx.AppContextTaskId(ctx)) > 0 {
-		hostutils.TaskFailed(ctx, reason)
+	if len(appctx.AppContextTaskId(s.ctx)) > 0 {
+		hostutils.TaskFailed(s.ctx, reason)
 	} else {
 		s.SyncStatus()
 	}
@@ -426,7 +434,7 @@ func (s *SGuestResumeTask) onGetBlockInfo(results *jsonutils.JSONArray) {
 
 func (s *SGuestResumeTask) resumeGuest() {
 	s.startTime = time.Now()
-	s.Monitor.Cont(s.onResumeSucc)
+	s.Monitor.SimpleCommand("cont", s.onResumeSucc)
 }
 
 func (s *SGuestResumeTask) onResumeSucc(res string) {
@@ -435,8 +443,8 @@ func (s *SGuestResumeTask) onResumeSucc(res string) {
 
 func (s *SGuestResumeTask) onStartRunning() {
 	s.removeStatefile()
-	if len(appctx.AppContextTaskId(ctx)) > 0 {
-		hostutils.TaskComplete(ctx, nil)
+	if len(appctx.AppContextTaskId(s.ctx)) > 0 {
+		hostutils.TaskComplete(s.ctx, nil)
 	}
 	if options.HostOptions.SetVncPassword {
 		s.SetVncPassword()
@@ -448,13 +456,14 @@ func (s *SGuestResumeTask) onStartRunning() {
 	if len(disksIdx) > 0 {
 		timeutils2.AddTimeout(time.Second*5, func() { s.startStreamDisks(disksIdx) })
 	} else if options.HostOptions.AutoMergeBackingTemplate {
-		timeutils2.AddTimeout(time.Second*options.HostOptions.AutoMergeDelaySeconds,
+		timeutils2.AddTimeout(
+			time.Second*time.Duration(options.HostOptions.AutoMergeDelaySeconds),
 			func() { s.startStreamDisks(nil) })
 	}
 }
 
 func (s *SGuestResumeTask) startStreamDisks(disksIdx []int) {
-	s.startTime = nil
+	s.startTime = time.Time{}
 	s.CleanStartupTask()
 	if s.IsMonitorAlive() {
 		s.StreamDisks(s.ctx, func() { s.onStreamComplete(disksIdx) }, disksIdx)
@@ -500,7 +509,7 @@ type SGuestStreamDisksTask struct {
 	streamDevs []string
 }
 
-func NewGuestStreamDisksTask(ctx context.Context, guest *SKVMGuestInstance, callback func(), disksIdx []int) {
+func NewGuestStreamDisksTask(ctx context.Context, guest *SKVMGuestInstance, callback func(), disksIdx []int) *SGuestStreamDisksTask {
 	return &SGuestStreamDisksTask{
 		SKVMGuestInstance: guest,
 		ctx:               ctx,
@@ -516,7 +525,7 @@ func (s *SGuestStreamDisksTask) Start() {
 func (s *SGuestStreamDisksTask) onInitCheckStreamJobs(jobs int) {
 	if jobs > 0 {
 		log.Warningf("GuestStreamDisksTask: duplicate block streaming???")
-		s.startWaitBlockStream()
+		s.startWaitBlockStream("")
 	} else if jobs == 0 {
 		s.startBlockStreaming()
 	}
@@ -565,13 +574,13 @@ func (s *SGuestStreamDisksTask) onBlockDrivesSucc(res *jsonutils.JSONArray) {
 
 func (s *SGuestStreamDisksTask) startDoBlockStream() {
 	if len(s.streamDevs) > 0 {
-		dev = s.streamDevs[0]
+		dev := s.streamDevs[0]
 		s.streamDevs = s.streamDevs[1:]
 		s.Monitor.BlockStream(dev, s.startWaitBlockStream)
 	}
 }
 
-func (s *SGuestStreamDisksTask) startWaitBlockStream() {
+func (s *SGuestStreamDisksTask) startWaitBlockStream(res string) {
 	if s.c == nil {
 		s.c = make(chan struct{})
 		for {
@@ -636,7 +645,7 @@ type SGuestReloadDiskTask struct {
 }
 
 func NewGuestReloadDiskTask(
-	ctx context.Context, s *SKVMGuestInstance, disk *storageman.IDisk,
+	ctx context.Context, s *SKVMGuestInstance, disk storageman.IDisk,
 ) *SGuestReloadDiskTask {
 	return &SGuestReloadDiskTask{
 		SKVMGuestInstance: s,
@@ -704,14 +713,12 @@ func (s *SGuestReloadDiskTask) onReloadSucc(err string) {
 	if len(err) > 0 {
 		log.Errorf("monitor new snapshot blkdev error: %s", err)
 	}
-	s.Monitor.SimpleCommand(cont, s.onResumeSucc)
+	s.Monitor.SimpleCommand("cont", s.onResumeSucc)
 }
 
 func (s *SGuestReloadDiskTask) onResumeSucc(results string) {
 	log.Infof("guest reload disk task resume succ %s", results)
-	if _, err := hostutils.TaskComplete(ctx, nil); err != nil {
-		log.Errorln(err)
-	}
+	hostutils.TaskComplete(s.ctx, nil)
 }
 
 func (s *SGuestReloadDiskTask) taskFailed(reason string) {
@@ -730,7 +737,7 @@ type SGuestDiskSnapshotTask struct {
 }
 
 func NewGuestDiskSnapshotTask(
-	ctx context.Context, s *SKVMGuestInstance, disk *storageman.IDisk, snapshotId string,
+	ctx context.Context, s *SKVMGuestInstance, disk storageman.IDisk, snapshotId string,
 ) *SGuestDiskSnapshotTask {
 	return &SGuestDiskSnapshotTask{
 		SGuestReloadDiskTask: NewGuestReloadDiskTask(ctx, s, disk),
@@ -769,11 +776,9 @@ func (s *SGuestDiskSnapshotTask) onResumeSucc(res string) {
 	log.Infof("guest disk snapshot task resume succ %s", res)
 	snapshotDir := s.disk.GetSnapshotDir()
 	snapshotLocation := path.Join(snapshotDir, s.snapshotId)
-	_, err := hostutils.TaskComplete(s.ctx, jsonutils.NewDict(
+	hostutils.TaskComplete(s.ctx, jsonutils.NewDict(
 		jsonutils.NewPair("localtion", jsonutils.NewString(snapshotLocation))))
-	if err != nil {
-		log.Errorln(err)
-	}
+
 }
 
 /**
@@ -790,8 +795,8 @@ type SGuestSnapshotDeleteTask struct {
 }
 
 func NewGuestSnapshotDeleteTask(
-	ctx context.Context, s *SKVMGuestInstance, disk *storageman.IDisk,
-	deleteSnapshot, convertSnapshot string, pendingDelete string,
+	ctx context.Context, s *SKVMGuestInstance, disk storageman.IDisk,
+	deleteSnapshot, convertSnapshot string, pendingDelete bool,
 ) *SGuestSnapshotDeleteTask {
 	return &SGuestSnapshotDeleteTask{
 		SGuestReloadDiskTask: NewGuestReloadDiskTask(ctx, s, disk),
@@ -876,9 +881,60 @@ func (s *SGuestSnapshotDeleteTask) onResumeSucc(res string) {
 		snapshotDir := s.disk.GetSnapshotDir()
 		exec.Command("rm", "-f", path.Join(snapshotDir, s.deleteSnapshot))
 	}
-	_, err := hostutils.TaskComplete(s.ctx,
+	hostutils.TaskComplete(s.ctx,
 		jsonutils.NewDict(jsonutils.NewPair("deleted", jsonutils.JSONTrue)))
-	if err != nil {
-		log.Errorln(err)
+}
+
+/**
+ *  GuestDriveMirrorTask
+**/
+
+type SDriveMirrorTask struct {
+	*SKVMGuestInstance
+
+	ctx      context.Context
+	nbdUri   string
+	onSucc   func()
+	syncMode string
+	index    int
+}
+
+func NewDriveMirrorTask(
+	ctx context.Context, s *SKVMGuestInstance, nbdUri, syncMode string, onSucc func(),
+) *SDriveMirrorTask {
+	return &SDriveMirrorTask{
+		SKVMGuestInstance: s,
+		ctx:               ctx,
+		nbdUri:            nbdUri,
+		syncMode:          syncMode,
+		onSucc:            onSucc,
+	}
+}
+
+func (s *SDriveMirrorTask) Start() {
+	s.startMirror("")
+}
+
+func (s *SDriveMirrorTask) startMirror(res string) {
+	log.Infof("drive mirror results:%s", res)
+	if len(res) > 0 {
+		hostutils.TaskFailed(s.ctx, res)
+		return
+	}
+	disks, _ := s.Desc.GetArray("disks")
+	if s.index < len(disks) {
+		if s.index >= 1 { // data disk
+			s.syncMode = "none"
+		}
+		target := fmt.Sprintf("%s:exportname=drive_%d", s.nbdUri, s.index)
+		s.Monitor.DriveMirror(s.startMirror, fmt.Sprintf("drive_%d", s.index),
+			target, s.syncMode, true)
+		s.index += 1
+	} else {
+		if s.onSucc != nil {
+			s.onSucc()
+		} else {
+			hostutils.TaskComplete(s.ctx, nil)
+		}
 	}
 }
