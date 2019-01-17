@@ -40,7 +40,7 @@ type SSnapshot struct {
 	db.SVirtualResourceBase
 	SManagedResourceBase
 
-	DiskId      string `width:"36" charset:"ascii" nullable:"true" create:"required" key_index:"true" list:"user"`
+	DiskId      string `width:"36" charset:"ascii" nullable:"true" create:"required" list:"user"`
 	StorageId   string `width:"36" charset:"ascii" nullable:"true" list:"admin"`
 	CreatedBy   string `width:"36" charset:"ascii" nullable:"false" default:"manual" list:"admin"`
 	Location    string `charset:"ascii" nullable:"true" list:"admin"`

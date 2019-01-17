@@ -53,8 +53,8 @@ func init() {
 type SStoragecachedimage struct {
 	db.SJointResourceBase
 
-	StoragecacheId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required" key_index:"true"`
-	CachedimageId  string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required" key_index:"true"`
+	StoragecacheId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
+	CachedimageId  string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
 
 	ExternalId string `width:"256" charset:"utf8" nullable:"false" get:"admin"`
 
