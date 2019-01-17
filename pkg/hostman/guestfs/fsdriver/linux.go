@@ -224,7 +224,7 @@ func (l *sLinuxRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jso
 			mac, _ := nic.GetString("mac")
 			nicRules += fmt.Sprintf(`ATTR{address}=="%s", ATTR{type}=="1", `, strings.ToLower(mac))
 			idx, _ := nic.Int("index")
-			nicRules += fmt.Sprintf(`NAME="eth%d"\n`, idx)
+			nicRules += fmt.Sprintf("NAME=\"eth%d\"\n", idx)
 		}
 		if err := rootFs.FilePutContents(path.Join(udevPath, "70-persistent-net.rules"), nicRules, false, false); err != nil {
 			return err
@@ -232,7 +232,7 @@ func (l *sLinuxRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jso
 
 		var usbRules string
 		usbRules = `SUBSYSTEM=="usb", ATTRS{idVendor}=="1d6b", ATTRS{idProduct}=="0001", `
-		usbRules += `RUN+="/bin/sh -c \'echo enabled > /sys$env{DEVPATH}/../power/wakeup\'"\n`
+		usbRules += "RUN+=" + `"/bin/sh -c \'echo enabled > /sys$env{DEVPATH}/../power/wakeup\'"` + "\n"
 		if err := rootFs.FilePutContents(path.Join(udevPath,
 			"90-usb-tablet-remote-wakeup.rules"), usbRules, false, false); err != nil {
 			return err
@@ -252,7 +252,7 @@ func (l *sLinuxRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition, nic
 			mac, _ := nic.GetString("mac")
 			nicRules += fmt.Sprintf(`ATTR{address}=="%s", ATTR{type}=="1", `, strings.ToLower(mac))
 			idx, _ := nic.Int("index")
-			nicRules += fmt.Sprintf(`NAME="eth%d"\n`, idx)
+			nicRules += fmt.Sprintf("NAME=\"eth%d\"\n", idx)
 		}
 	}
 	if err := rootFs.FilePutContents(path.Join(udevPath, "70-persistent-net.rules"), nicRules, false, false); err != nil {
@@ -704,9 +704,10 @@ func (r *sRedhatLikeRootFs) Centos5DeployNetworkingScripts(rootFs IDiskPartition
 			}
 			nicRules += `KERNEL=="eth*", `
 			nicRules += fmt.Sprintf(`SYSFS{address}=="%s", `, strings.ToLower(nicdesc.Mac))
-			nicRules += fmt.Sprintf(`NAME="eth%d"\`, nicdesc.Index)
+			nicRules += fmt.Sprintf("NAME=\"eth%d\"\n", nicdesc.Index)
 		}
-		return rootFs.FilePutContents(udevPath, nicRules, false, false)
+		return rootFs.FilePutContents(path.Join(udevPath, "60-net.rules"),
+			nicRules, false, false)
 	}
 	return nil
 }

@@ -332,14 +332,14 @@ func (o *SOVSBridgeDriver) getUpScripts(nic jsonutils.JSONObject) (string, error
 	s += "PORT=$(ovs-ofctl show $SWITCH | grep -w $IF)\n"
 	s += "PORT=$(echo $PORT | awk 'BEGIN{FS=\"(\"}{print $1}')\n"
 	s += "OFCTL=$(ovs-vsctl get-controller $SWITCH)\n"
-	s += `if [ -z "$OFCTL" ]; then\n`
+	s += "if [ -z \"$OFCTL\" ]; then\n"
 	s += "    ovs-vsctl set Interface $IF ingress_policing_rate=$LIMIT\n"
 	s += "    ovs-vsctl set Interface $IF ingress_policing_burst=$BURST\n"
 	for _, r := range o.GetOfRules(nic) {
 		s += "    " + o.AddFlow(r.cond, r.priority, r.actions)
 	}
 	s += "fi\n"
-	s += `if [ $LIMIT_DOWNLOAD != "0mbit" ]; then\n`
+	s += "if [ $LIMIT_DOWNLOAD != \"0mbit\" ]; then\n"
 	s += "    tc qdisc del dev $IF root 2>/dev/null\n"
 	s += "    tc qdisc add dev $IF root handle 1: htb default 10\n"
 	s += "    tc class add dev $IF parent 1: classid 1:1 htb " +
@@ -371,7 +371,7 @@ func (o *SOVSBridgeDriver) getDownScripts(nic jsonutils.JSONObject) (string, err
 	s += "fi\n"
 	s += "OFCTL=$(ovs-vsctl get-controller $SWITCH)\n"
 	s += "PORT=$(echo $PORT | awk 'BEGIN{FS=\"(\"}{print $1}')\n"
-	s += `if [ -z "$OFCTL" ]; then\n`
+	s += "if [ -z \"$OFCTL\" ]; then\n"
 	for _, r := range o.GetOfRules(nic) {
 		s += "    " + o.DelFlow(r.cond)
 	}
