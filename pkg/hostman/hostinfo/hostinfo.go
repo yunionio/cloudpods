@@ -49,8 +49,10 @@ type SHostInfo struct {
 	isRegistered     bool
 	IsRegistered     chan struct{}
 	registerCallback func()
-	saved            bool
-	pinger           *SHostPingTask
+	stopped          bool
+
+	saved  bool
+	pinger *SHostPingTask
 
 	kvmModuleSupport string
 	nestStatus       string
@@ -58,7 +60,7 @@ type SHostInfo struct {
 	Cpu     *SCPUInfo
 	Mem     *SMemory
 	sysinfo *SSysInfo
-	// storageManager *storageman.SStorageManager
+
 	IsolatedDeviceMan *isolated_device.IsolatedDeviceManager
 
 	MasterNic *netutils2.SNetInterface
@@ -278,18 +280,18 @@ func (h *SHostInfo) detectHostInfo() error {
 
 	h.detectiveStorageSystem()
 
-	// TODO
-	// if options.HostOptions.CheckSystemServices {
-	// 	if err := h.checkSystemServices(); err != nil {
-	// 		return err
-	// 	}
-	// }
+	if options.HostOptions.CheckSystemServices {
+		if err := h.checkSystemServices(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (h *SHostInfo) checkSystemServices() error {
-	// TOOD
-	return fmt.Errorf("not implement so far")
+	for _, srv := range []string{"ntpd", "telegraf"} {
+		srvinst := system_service.GetService(srv)
+	}
 }
 
 func (h *SHostInfo) detectiveStorageSystem() {
@@ -853,7 +855,7 @@ func (h *SHostInfo) onUpdateHostInfoSucc(body jsonutils.JSONObject) {
 	if memReserved, _ := hostbody.Int("mem_reserved"); memReserved == 0 {
 		h.updateHostReservedMem()
 	} else {
-		h.putHostOffline()
+		h.PutHostOffline()
 	}
 }
 
@@ -878,7 +880,7 @@ func (h *SHostInfo) getReservedMem() int64 {
 	return int64(reserved)
 }
 
-func (h *SHostInfo) putHostOffline() {
+func (h *SHostInfo) PutHostOffline() {
 	_, err := modules.Hosts.PerformAction(
 		h.GetSession(), h.HostId, "offline", nil)
 	if err != nil {
@@ -1081,6 +1083,8 @@ func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 		storageName, _ := hs.GetString("storage")
 		storageConf, _ := hs.Get("storage_conf")
 
+		log.Infof("Storage %s(%s) mountpoint %s", storageName, storagetype, mountPoint)
+
 		if !utils.IsInStringArray(storagetype, storagetypes.Local) {
 			storage := storageManager.NewSharedStorageInstance(mountPoint, storagetype)
 			if storage != nil {
@@ -1124,7 +1128,7 @@ func (h *SHostInfo) uploadStorageInfo() {
 }
 
 func (h *SHostInfo) onSyncStorageInfoSucc(storage storageman.IStorage, storageInfo jsonutils.JSONObject) {
-	if len(storage.GetId()) > 0 {
+	if len(storage.GetId()) == 0 {
 		id, _ := storageInfo.GetString("id")
 		name, _ := storageInfo.GetString("name")
 		storageConf, _ := storageInfo.Get("storage_conf")
@@ -1191,10 +1195,8 @@ func (h *SHostInfo) uploadIsolatedDevices() {
 }
 
 func (h *SHostInfo) onSucc() {
-	if !h.isRegistered {
+	if !h.stopped && !h.isRegistered {
 		log.Infof("Host registration process success....")
-		h.isRegistered = true
-
 		if err := h.save(); err != nil {
 			panic(err.Error())
 		}
@@ -1206,6 +1208,7 @@ func (h *SHostInfo) onSucc() {
 			h.registerCallback()
 		}
 
+		h.isRegistered = true
 		// To notify caller, host register is success
 		close(h.IsRegistered)
 	}
@@ -1213,7 +1216,9 @@ func (h *SHostInfo) onSucc() {
 
 func (h *SHostInfo) StartPinger() {
 	h.pinger = NewHostPingTask(options.HostOptions.PingRegionInterval)
-	go h.pinger.Start()
+	if h.pinger != nil {
+		go h.pinger.Start()
+	}
 }
 
 func (h *SHostInfo) save() error {
@@ -1263,6 +1268,32 @@ func (h *SHostInfo) registerHostlocalServer() error {
 	return nil
 }
 
+func (h *SHostInfo) stop() {
+	log.Infof("Host Info stop ...")
+	h.unregister()
+	if h.pinger != nil {
+		h.pinger.Stop()
+	}
+	for _, nic := range h.Nics {
+		nic.ExitCleanup()
+	}
+}
+
+func (h *SHostInfo) unregister() {
+	h.stopped = true
+	_, err := modules.Hosts.PerformAction(
+		h.GetSession(), h.HostId, "offline", nil)
+	if err != nil {
+		log.Errorln(err)
+	}
+}
+
+func (h *SHostInfo) OnCatalogChanged(catalog map[string]interface{}) {
+	if options.HostOptions.ManageNtpConfiguration {
+
+	}
+}
+
 func NewHostInfo() (*SHostInfo, error) {
 	var res = new(SHostInfo)
 	res.sysinfo = &SSysInfo{}
@@ -1296,4 +1327,8 @@ func Instance() *SHostInfo {
 		}
 	}
 	return hostInfo
+}
+
+func Stop() {
+	hostInfo.stop()
 }

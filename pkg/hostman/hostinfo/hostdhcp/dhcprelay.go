@@ -54,7 +54,7 @@ func NewDHCPRelay(addrs []string) *SDHCPRelay {
 
 func (r *SDHCPRelay) Start() {
 	log.Infof("DHCPRelay starting ...")
-	go r.server.ListenAndServe(r)
+	r.server.ListenAndServe(r)
 }
 
 func (r *SDHCPRelay) Setup(addr string) {

@@ -124,8 +124,8 @@ func (m *SGuestManager) OnVerifyExistingGuestsSucc(servers []jsonutils.JSONObjec
 }
 
 func (m *SGuestManager) RemoveCandidateServer(server *SKVMGuestInstance) {
-	if _, ok := m.CandidateServers[server.GetId()]; ok {
-		delete(m.CandidateServers, server.GetId())
+	if _, ok := m.CandidateServers[server.Id]; ok {
+		delete(m.CandidateServers, server.Id)
 		if len(m.CandidateServers) == 0 {
 			m.OnLoadExistingGuestsComplete()
 		}
@@ -347,7 +347,7 @@ func (m *SGuestManager) GuestStart(ctx context.Context, sid string, body jsonuti
 }
 
 func (m *SGuestManager) GuestStop(ctx context.Context, sid string, timeout int64) error {
-	if guest, ok := m.Servers[sid]; !ok {
+	if guest, ok := m.Servers[sid]; ok {
 		hostutils.DelayTaskWithoutReqctx(ctx, guest.ExecStopTask, timeout)
 		return nil
 	} else {

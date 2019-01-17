@@ -74,7 +74,8 @@ type SHostOptions struct {
 	EnableOpenflowController bool   `default:"false"`
 	K8sClusterCidr           string `default:"10.43.0.0/16" help:"Kubernetes cluster IP range"`
 
-	PingRegionInterval int `default:"60" help:"interval to ping region, deefault is 1 minute"`
+	PingRegionInterval     int  `default:"60" help:"interval to ping region, deefault is 1 minute"`
+	ManageNtpConfiguration bool `default:"true"`
 }
 
 var HostOptions SHostOptions

@@ -227,7 +227,7 @@ func (d *SGuestDiskSyncTask) addDisk(disk jsonutils.JSONObject) {
 	var params = map[string]string{
 		"file":  iDisk.GetPath(),
 		"if":    "none",
-		"id":    fmt.Sprintf("drive_%s", diskIndex),
+		"id":    fmt.Sprintf("drive_%d", diskIndex),
 		"cache": cacheMode,
 		"aio":   aio,
 	}
@@ -254,8 +254,8 @@ func (d *SGuestDiskSyncTask) onAddDiskSucc(disk jsonutils.JSONObject, results st
 	)
 
 	var params = map[string]interface{}{
-		"drive": fmt.Sprintf("drive_%s", diskIndex),
-		"id":    fmt.Sprintf("drive_%s", diskIndex),
+		"drive": fmt.Sprintf("drive_%d", diskIndex),
+		"id":    fmt.Sprintf("drive_%d", diskIndex),
 	}
 
 	if diskDirver == DISK_DRIVER_VIRTIO {
@@ -415,9 +415,9 @@ func (s *SGuestResumeTask) onConfirmRunning(status string) {
 }
 
 func (s *SGuestResumeTask) taskFailed(reason string) {
-	log.Infof("Start guest %s failed: %s", s.GetId(), reason)
+	log.Infof("Start guest %s failed: %s", s.Id, reason)
 	s.ForceStop()
-	if len(appctx.AppContextTaskId(s.ctx)) > 0 {
+	if s.ctx != nil && len(appctx.AppContextTaskId(s.ctx)) > 0 {
 		hostutils.TaskFailed(s.ctx, reason)
 	} else {
 		s.SyncStatus()
@@ -443,7 +443,7 @@ func (s *SGuestResumeTask) onResumeSucc(res string) {
 
 func (s *SGuestResumeTask) onStartRunning() {
 	s.removeStatefile()
-	if len(appctx.AppContextTaskId(s.ctx)) > 0 {
+	if s.ctx != nil && len(appctx.AppContextTaskId(s.ctx)) > 0 {
 		hostutils.TaskComplete(s.ctx, nil)
 	}
 	if options.HostOptions.SetVncPassword {

@@ -7,6 +7,7 @@ import (
 	"path"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
@@ -47,8 +48,9 @@ func guestActions(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	var sid = params["<sid>"]
 	var action = params["<action>"]
 	if f, ok := actionFuncs[action]; !ok {
-		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Not found"))
+		hostutils.Response(ctx, w, httperrors.NewNotFoundError("%s Not found", action))
 	} else {
+		log.Infof("Guest %s Do %s", sid, action)
 		res, err := f(ctx, sid, body)
 		if err != nil {
 			hostutils.Response(ctx, w, err)
@@ -130,6 +132,7 @@ func guestMonitor(ctx context.Context, sid string, body jsonutils.JSONObject) (i
 			return nil, err
 		} else {
 			var res = <-c
+			log.Errorln(res)
 			return strDict{"results": path.Join("\n", res)}, nil
 		}
 	} else {

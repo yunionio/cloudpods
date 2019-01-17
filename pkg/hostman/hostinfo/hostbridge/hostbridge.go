@@ -30,6 +30,7 @@ type IBridgeDriver interface {
 	GenerateIfdownScripts(scriptPath string, nic jsonutils.JSONObject) error
 	RegisterHostlocalServer(mac, ip string) error
 	WarmupConfig() error
+	CleanupConfig()
 }
 
 type SBaseBridgeDriver struct {
@@ -187,6 +188,11 @@ func (d *SBaseBridgeDriver) SetupRoutes(routes [][]string) error {
 
 type SOVSBridgeDriver struct {
 	SBaseBridgeDriver
+}
+
+func (o *SOVSBridgeDriver) CleanupConfig() {
+	ovsutils.CleanAllHiddenPorts()
+	// if enableopenflowcontroller ...
 }
 
 func (o *SOVSBridgeDriver) Exists() bool {
