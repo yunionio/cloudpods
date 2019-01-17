@@ -1,10 +1,13 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/qcloud"
 )
 
@@ -20,6 +23,24 @@ func (self *SQcloudProviderFactory) ValidateChangeBandwidth(instanceId string, b
 	if len(instanceId) == 0 {
 		return fmt.Errorf("Only changes to the binding machine's EIP bandwidth are supported")
 	}
+	return nil
+}
+
+func (self *SQcloudProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
+	appID, _ := data.GetString("app_id")
+	if len(appID) == 0 {
+		return httperrors.NewMissingParameterError("app_id")
+	}
+	secretID, _ := data.GetString("secret_id")
+	if len(secretID) == 0 {
+		return httperrors.NewMissingParameterError("secret_id")
+	}
+	secretKey, _ := data.GetString("secret_key")
+	if len(secretKey) == 0 {
+		return httperrors.NewMissingParameterError("secret_key")
+	}
+	data.Set("account", jsonutils.NewString(appID))
+	data.Set("secret", jsonutils.NewString(fmt.Sprintf("%s/%s", secretID, secretKey)))
 	return nil
 }
 

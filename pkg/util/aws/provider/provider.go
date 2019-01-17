@@ -1,8 +1,11 @@
 package provider
 
 import (
+	"context"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/aws"
 )
 
@@ -14,6 +17,10 @@ func (self *SAwsProviderFactory) GetId() string {
 }
 
 func (self *SAwsProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
+	return nil
+}
+
+func (self *SAwsProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	return nil
 }
 

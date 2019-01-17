@@ -1,9 +1,13 @@
 package provider
 
 import (
+	"context"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/aliyun"
 )
 
@@ -16,6 +20,20 @@ func (self *SAliyunProviderFactory) GetId() string {
 }
 
 func (self *SAliyunProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
+	return nil
+}
+
+func (self *SAliyunProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
+	accessKeyID, _ := data.GetString("access_key_id")
+	if len(accessKeyID) == 0 {
+		return httperrors.NewMissingParameterError("access_key_id")
+	}
+	accessKeySecret, _ := data.GetString("access_key_secret")
+	if len(accessKeySecret) == 0 {
+		return httperrors.NewMissingParameterError("access_key_secret")
+	}
+	data.Set("account", jsonutils.NewString(accessKeyID))
+	data.Set("secret", jsonutils.NewString(accessKeySecret))
 	return nil
 }
 

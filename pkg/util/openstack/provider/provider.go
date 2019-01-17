@@ -1,11 +1,13 @@
 package provider
 
 import (
+	"context"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/openstack"
 )
 
@@ -18,6 +20,10 @@ func (self *SOpenStackProviderFactory) GetId() string {
 }
 
 func (self *SOpenStackProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
+	return nil
+}
+
+func (self *SOpenStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	return nil
 }
 

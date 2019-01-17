@@ -142,6 +142,10 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 	if !cloudprovider.IsSupported(provider) {
 		return nil, httperrors.NewInputParameterError("Unsupported provider %s", provider)
 	}
+	providerDriver, _ := cloudprovider.GetProviderDriver(provider)
+	if err := providerDriver.ValidateCreateCloudaccountData(ctx, userCred, data); err != nil {
+		return nil, err
+	}
 	// check duplication
 	// url, account, provider must be unique
 	account, _ := data.GetString("account")

@@ -1,10 +1,13 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/azure"
 	// "yunion.io/x/log"
 )
@@ -18,6 +21,29 @@ func (self *SAzureProviderFactory) GetId() string {
 
 func (self *SAzureProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
 	return fmt.Errorf("Changing %s bandwidth is not supported", azure.CLOUD_PROVIDER_AZURE)
+}
+
+func (self *SAzureProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
+	tenantID, _ := data.GetString("tenant_id")
+	if len(tenantID) == 0 {
+		return httperrors.NewMissingParameterError("tenant_id")
+	}
+	clientID, _ := data.GetString("client_id")
+	if len(clientID) == 0 {
+		return httperrors.NewMissingParameterError("client_id")
+	}
+	clientSecret, _ := data.GetString("client_secret")
+	if len(clientSecret) == 0 {
+		return httperrors.NewMissingParameterError("client_secret")
+	}
+	environment, _ := data.GetString("environment")
+	if len(environment) == 0 {
+		return httperrors.NewMissingParameterError("environment")
+	}
+	data.Set("account", jsonutils.NewString(tenantID))
+	data.Set("secret", jsonutils.NewString(fmt.Sprintf("%s/%s", clientID, clientSecret)))
+	data.Set("access_url", jsonutils.NewString(environment))
+	return nil
 }
 
 func (self *SAzureProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {

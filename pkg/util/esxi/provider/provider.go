@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -10,6 +11,8 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/esxi"
 )
 
@@ -22,6 +25,25 @@ func (self *SESXiProviderFactory) GetId() string {
 
 func (self *SESXiProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
 	return fmt.Errorf("Changing %s bandwidth is not supported", esxi.CLOUD_PROVIDER_VMWARE)
+}
+
+func (self *SESXiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
+	username, _ := data.GetString("username")
+	if len(username) == 0 {
+		return httperrors.NewMissingParameterError("username")
+	}
+	password, _ := data.GetString("password")
+	if len(password) == 0 {
+		return httperrors.NewMissingParameterError("password")
+	}
+	host, _ := data.GetString("host")
+	if len(host) == 0 {
+		return httperrors.NewMissingParameterError("host")
+	}
+	data.Set("account", jsonutils.NewString(username))
+	data.Set("secret", jsonutils.NewString(password))
+	data.Set("access_url", jsonutils.NewString(host))
+	return nil
 }
 
 func parseHostPort(host string, defPort int) (string, int, error) {

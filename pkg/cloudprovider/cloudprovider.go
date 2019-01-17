@@ -1,12 +1,14 @@
 package cloudprovider
 
 import (
+	"context"
 	"fmt"
 
 	"errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 var (
@@ -17,6 +19,7 @@ type ICloudProviderFactory interface {
 	GetProvider(providerId, providerName, url, account, secret string) (ICloudProvider, error)
 	GetId() string
 	ValidateChangeBandwidth(instanceId string, bandwidth int64) error
+	ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error
 }
 
 type ICloudProvider interface {

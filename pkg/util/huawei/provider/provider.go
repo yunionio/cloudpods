@@ -1,8 +1,11 @@
 package provider
 
 import (
+	"context"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/huawei"
 )
 
@@ -11,6 +14,10 @@ type SHuaweiProviderFactory struct {
 
 func (self *SHuaweiProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
 	// todo: implement me
+	return nil
+}
+
+func (self *SHuaweiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	return nil
 }
 
