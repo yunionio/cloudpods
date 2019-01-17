@@ -30,7 +30,7 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			auth.Authenticate(cpusetBalance))
 
 		app.AddHandler("POST",
-			fmt.Sprintf("%s/%s/servers/<sid>/<action>", prefix, keyWord),
+			fmt.Sprintf("%s/%s/<sid>/<action>", prefix, keyWord),
 			auth.Authenticate(guestActions))
 
 		app.AddHandler("DELETE",

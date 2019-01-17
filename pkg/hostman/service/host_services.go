@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
@@ -25,10 +26,11 @@ type SHostService struct {
 func (host *SHostService) StartService() {
 	cloudcommon.ParseOptions(&options.HostOptions, os.Args, "host.conf", "host")
 
+	// disable rbac
+	options.HostOptions.EnableRbac = false
+
 	app := cloudcommon.InitApp(&options.HostOptions.CommonOptions, false)
 	host.TrapSignals(func() { host.quitSignalHandler(app) })
-
-	// isolatedman.Init()
 
 	hostInstance := hostinfo.Instance()
 	if err := hostInstance.Init(); err != nil {
@@ -59,12 +61,15 @@ func (host *SHostService) StartService() {
 }
 
 func (host *SHostService) quitSignalHandler(app *appsrv.Application) {
-	log.Infof("Received quit signal")
-	err := app.ShowDown(context.Background())
-	if err != nil {
-		log.Errorln(err.Error())
+	if app.IsInServe() {
+		err := app.ShowDown(context.Background())
+		if err != nil {
+			log.Errorln(err.Error())
+		}
 	}
+
 	hostutils.GetWorkManager().Stop()
+	os.Exit(0)
 }
 
 func (host *SHostService) initHandlers(app *appsrv.Application) {

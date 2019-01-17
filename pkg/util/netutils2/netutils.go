@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"net"
-	"os/exec"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -17,6 +16,7 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
 )
 
@@ -200,7 +200,7 @@ func (n *SNetInterface) FetchConfig() {
 
 	n.Mac = inter.HardwareAddr.String()
 	addrs, err := inter.Addrs()
-	if err != nil {
+	if err == nil {
 		for _, addr := range addrs {
 			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 				if ipnet.IP.To4() != nil {
@@ -224,13 +224,13 @@ func (n *SNetInterface) FetchConfig() {
 }
 
 func (n *SNetInterface) DisableGso() {
-	err := exec.Command(
+	_, err := procutils.NewCommand(
 		"ethtool", "-K", n.name,
 		"tso", "off", "gso", "off",
 		"gro", "off", "tx", "off",
 		"rx", "off", "sg", "off").Run()
 	if err != nil {
-		log.Errorln(err)
+		log.Errorln("DisableGso: ", err)
 	}
 }
 
@@ -254,7 +254,7 @@ func GetSecretInterfaceAddress() (string, []byte) {
 }
 
 func (n *SNetInterface) GetRoutes(gwOnly bool) [][]string {
-	output, err := exec.Command("route", "-n").Output()
+	output, err := procutils.NewCommand("route", "-n").Run()
 	if err != nil {
 		return nil
 	}
@@ -288,7 +288,7 @@ func (n *SNetInterface) getAddresses(output []string) [][]string {
 }
 
 func (n *SNetInterface) GetAddresses() [][]string {
-	output, err := exec.Command("ip", "address", "show", "dev", n.name).Output()
+	output, err := procutils.NewCommand("ip", "address", "show", "dev", n.name).Run()
 	if err != nil {
 		log.Errorln(err)
 		return nil
@@ -351,6 +351,7 @@ func Netmask2Len(mask string) int {
 	for _, d := range data {
 		if d != "0" {
 			nle := netmask2len(d)
+			log.Errorln(d)
 			if nle < 0 {
 				return -1
 			}
@@ -367,7 +368,7 @@ func PrefixSplit(pref string) (string, int, error) {
 	if slash > 0 {
 		ip := pref[:slash]
 		mask := pref[slash+1:]
-		if regutils.MatchIPAddr(ip) {
+		if regutils.MatchIPAddr(mask) {
 			intMask = Netmask2Len(mask)
 		} else {
 			intMask, err = strconv.Atoi(mask)

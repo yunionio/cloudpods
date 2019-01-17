@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path"
 	"strconv"
 	"strings"
@@ -29,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
 	"yunion.io/x/onecloud/pkg/util/version"
 )
@@ -85,7 +85,8 @@ func (s *SKVMGuestInstance) HomeDir() string {
 }
 
 func (s *SKVMGuestInstance) PrepareDir() error {
-	return exec.Command("mkdir", "-p", s.HomeDir()).Run()
+	_, err := procutils.NewCommand("mkdir", "-p", s.HomeDir()).Run()
+	return err
 }
 
 func (s *SKVMGuestInstance) GetPidFilePath() string {
@@ -263,6 +264,9 @@ func (s *SKVMGuestInstance) GetStopScriptPath() string {
 }
 
 func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
+	s.manager.Servers[s.GetId()] = s
+	delete(s.manager.CandidateServers, s.GetId())
+
 	if s.IsDirtyShotdown() && !pendingDelete {
 		log.Infof("Server dirty shotdown %s", s.GetName())
 		if jsonutils.QueryBoolean(s.Desc, "is_master", false) ||
@@ -513,13 +517,13 @@ func (s *SKVMGuestInstance) StartDelete(ctx context.Context, migrated bool) erro
 func (s *SKVMGuestInstance) ForceStop() bool {
 	s.ExitCleanup(true)
 	if s.IsRunning() {
-		err := exec.Command("kill", "-9", fmt.Sprintf("%d", s.GetPid())).Run()
+		_, err := procutils.NewCommand("kill", "-9", fmt.Sprintf("%d", s.GetPid())).Run()
 		if err != nil {
 			log.Errorln(err)
 			return false
 		}
 		for _, f := range s.GetCleanFiles() {
-			err := exec.Command("rm", "-f", f).Run()
+			_, err := procutils.NewCommand("rm", "-f", f).Run()
 			if err != nil {
 				log.Errorln(err)
 				return false
@@ -575,7 +579,8 @@ func (s *SKVMGuestInstance) Delete(ctx context.Context, migrated bool) error {
 	if err := s.delTmpDisks(ctx, migrated); err != nil {
 		return err
 	}
-	return exec.Command("rm", "-rf", s.HomeDir()).Run()
+	_, err := procutils.NewCommand("rm", "-rf", s.HomeDir()).Run()
+	return err
 }
 
 func (s *SKVMGuestInstance) Stop() bool {
@@ -588,7 +593,7 @@ func (s *SKVMGuestInstance) Stop() bool {
 }
 
 func (s *SKVMGuestInstance) scriptStart() error {
-	err := exec.Command("sh", s.GetStartScriptPath()).Run()
+	_, err := procutils.NewCommand("sh", s.GetStartScriptPath()).Run()
 	if err != nil {
 		s.scriptStop()
 		return err
@@ -597,7 +602,7 @@ func (s *SKVMGuestInstance) scriptStart() error {
 }
 
 func (s *SKVMGuestInstance) scriptStop() bool {
-	err := exec.Command("sh", s.GetStopScriptPath()).Run()
+	_, err := procutils.NewCommand("sh", s.GetStopScriptPath()).Run()
 	if err != nil {
 		log.Errorln(err)
 		return false
@@ -968,16 +973,16 @@ func (s *SKVMGuestInstance) ListStateFilePaths() []string {
 // 好像不用了
 func (s *SKVMGuestInstance) CleanStatefiles() {
 	for _, stateFile := range s.ListStateFilePaths() {
-		if err := exec.Command("mountpoint", stateFile).Run(); err == nil {
-			if err = exec.Command("umount", stateFile).Run(); err != nil {
+		if _, err := procutils.NewCommand("mountpoint", stateFile).Run(); err == nil {
+			if _, err = procutils.NewCommand("umount", stateFile).Run(); err != nil {
 				log.Errorln(err)
 			}
 		}
-		if err := exec.Command("rm", "-rf", stateFile).Run(); err != nil {
+		if _, err := procutils.NewCommand("rm", "-rf", stateFile).Run(); err != nil {
 			log.Errorln(err)
 		}
 	}
-	if err := exec.Command("rm", "-rf", s.GetFuseTmpPath()); err != nil {
+	if _, err := procutils.NewCommand("rm", "-rf", s.GetFuseTmpPath()).Run(); err != nil {
 		log.Errorln(err)
 	}
 }

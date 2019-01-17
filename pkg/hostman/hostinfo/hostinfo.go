@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
@@ -167,12 +168,12 @@ func (h *SHostInfo) prepareEnv() error {
 		return fmt.Errorf("Option report_interval must no longer than 5 min")
 	}
 
-	_, err := exec.Command("mkdir", "-p", options.HostOptions.ServersPath).Output()
+	_, err := procutils.NewCommand("mkdir", "-p", options.HostOptions.ServersPath).Run()
 	if err != nil {
 		return fmt.Errorf("Failed to create path %s", options.HostOptions.ServersPath)
 	}
 
-	_, err = exec.Command(qemutils.GetQemu(""), "-version").Output()
+	_, err = procutils.NewCommand(qemutils.GetQemu(""), "-version").Run()
 	if err != nil {
 		return fmt.Errorf("Qemu/Kvm not installed")
 	}
@@ -192,11 +193,11 @@ func (h *SHostInfo) prepareEnv() error {
 		ioParams["queue/iosched/quantum"] = "32"
 	}
 	fileutils2.ChangeAllBlkdevsParams(ioParams)
-	_, err = exec.Command("modprobe", "tun").Output()
+	_, err = procutils.NewCommand("modprobe", "tun").Run()
 	if err != nil {
 		return fmt.Errorf("Failed to activate tun/tap device")
 	}
-	_, err = exec.Command("modprobe", "vhost_net").Output()
+	_, err = procutils.NewCommand("modprobe", "vhost_net").Run()
 	if err != nil {
 		e := err.(*exec.ExitError)
 		log.Errorln(e.Stderr)
@@ -205,12 +206,12 @@ func (h *SHostInfo) prepareEnv() error {
 		return fmt.Errorf("Cannot initialize control group subsystem")
 	}
 
-	_, err = exec.Command("rmmod", "nbd").Output()
+	_, err = procutils.NewCommand("rmmod", "nbd").Run()
 	if err != nil {
 		e := err.(*exec.ExitError)
 		log.Errorln(e.Stderr)
 	}
-	_, err = exec.Command("modprobe", "nbd", "max_part=16").Output()
+	_, err = procutils.NewCommand("modprobe", "nbd", "max_part=16").Run()
 	if err != nil {
 		e := err.(*exec.ExitError)
 		log.Errorf("Failed to activate nbd device: %s", e.Stderr)
@@ -256,7 +257,7 @@ func (h *SHostInfo) prepareEnv() error {
 }
 
 func (h *SHostInfo) detectHostInfo() error {
-	output, err := exec.Command("dmidecode", "-t", "1").Output()
+	output, err := procutils.NewCommand("dmidecode", "-t", "1").Run()
 	if err != nil {
 		return err
 	}
@@ -277,11 +278,12 @@ func (h *SHostInfo) detectHostInfo() error {
 
 	h.detectiveStorageSystem()
 
-	if options.HostOptions.CheckSystemServices {
-		if err := h.checkSystemServices(); err != nil {
-			return err
-		}
-	}
+	// TODO
+	// if options.HostOptions.CheckSystemServices {
+	// 	if err := h.checkSystemServices(); err != nil {
+	// 		return err
+	// 	}
+	// }
 	return nil
 }
 
@@ -350,11 +352,10 @@ func (h *SHostInfo) EnableNativeHugepages() error {
 			h.setSysConfig(k, v)
 		}
 		preAllocPagesNum := h.GetMemory()/h.Mem.GetHugepagesizeMb() + 1
-		cmd := timeutils2.CommandWithTimeout(1, "sh", "-c", fmt.Sprintf("echo %d > /proc/sys/vm/nr_hugepages", preAllocPagesNum))
-		_, err := cmd.Output()
+		err := timeutils2.CommandWithTimeout(1, "sh", "-c", fmt.Sprintf("echo %d > /proc/sys/vm/nr_hugepages", preAllocPagesNum)).Run()
 		if err != nil {
 			log.Errorln(err)
-			_, err = exec.Command("sh", "-c", "echo 0 > /proc/sys/vm/nr_hugepages").Output()
+			_, err = procutils.NewCommand("sh", "-c", "echo 0 > /proc/sys/vm/nr_hugepages").Run()
 			if err != nil {
 				log.Warningf(err.Error())
 			}
@@ -406,7 +407,7 @@ func (h *SHostInfo) TuneSystem() {
 
 func (h *SHostInfo) resetIptables() error {
 	for _, tbl := range []string{"filter", "nat", "mangle"} {
-		err := exec.Command("iptables", "-t", tbl, "-F").Run()
+		_, err := procutils.NewCommand("iptables", "-t", tbl, "-F").Run()
 		if err != nil {
 			return fmt.Errorf("Fail to clean NAT iptable: %s", err)
 		}
@@ -439,7 +440,7 @@ func (h *SHostInfo) modprobeKvmModule(name string, remove, nest bool) bool {
 	if nest {
 		params = append(params, "nested=1")
 	}
-	if err := exec.Command(params[0], params[1:]...).Run(); err != nil {
+	if _, err := procutils.NewCommand(params[0], params[1:]...).Run(); err != nil {
 		return false
 	}
 	return true
@@ -472,7 +473,7 @@ func (h *SHostInfo) _detectiveNestSupport() string {
 }
 
 func (h *SHostInfo) _isNestSupport(name string) bool {
-	output, err := exec.Command("modinfo", name).Output()
+	output, err := procutils.NewCommand("modinfo", name).Run()
 	if err != nil {
 		log.Errorln(err)
 		return false
@@ -543,7 +544,7 @@ func (h *SHostInfo) getModuleParameter(name, moduel string) string {
 }
 
 func (h *SHostInfo) checkKvmModuleInstall(name string) bool {
-	output, err := exec.Command("lsmod").Output()
+	output, err := procutils.NewCommand("lsmod").Run()
 	if err != nil {
 		log.Errorln(err)
 		return false
@@ -558,14 +559,14 @@ func (h *SHostInfo) checkKvmModuleInstall(name string) bool {
 }
 
 func (h *SHostInfo) detectiveOsDist() {
-	files, err := exec.Command("ls", "/etc/*elease").Output()
+	files, err := procutils.NewCommand("sh", "-c", "ls /etc/*elease").Run()
 	if err != nil {
 		log.Errorln(err)
 		return
 	}
 	re := regexp.MustCompile(`(.+) release ([\d.]+)[^(]*(?:\((.+)\))?`)
-	for _, file := range strings.Split(string(files), " ") {
-		content, err := fileutils2.FileGetContents(path.Join("/etc", file))
+	for _, file := range strings.Split(string(files), "\n") {
+		content, err := fileutils2.FileGetContents(file)
 		if err != nil {
 			continue
 		}
@@ -576,13 +577,14 @@ func (h *SHostInfo) detectiveOsDist() {
 			break
 		}
 	}
+	log.Infof("DetectiveOsDist %s %s", h.sysinfo.OsDistribution, h.sysinfo.OsVersion)
 	if len(h.sysinfo.OsDistribution) == 0 {
 		log.Errorln("Failed to detect distribution info")
 	}
 }
 
 func (h *SHostInfo) detectiveKernelVersion() {
-	out, err := exec.Command("uname", "-r").Output()
+	out, err := procutils.NewCommand("uname", "-r").Run()
 	if err != nil {
 		log.Errorln(err)
 	}
@@ -601,15 +603,17 @@ func (h *SHostInfo) detectiveSyssoftwareInfo() error {
 
 func (h *SHostInfo) detectiveQemuVersion() error {
 	cmd := qemutils.GetQemu(options.HostOptions.DefaultQemuVersion)
-	version, err := exec.Command(cmd, "--version").Output()
+	version, err := procutils.NewCommand(cmd, "--version").Run()
 	if err != nil {
 		log.Errorln(err)
 		return err
 	} else {
-		re := regexp.MustCompile(`(?i)(?<=version\s)[\d.]+`)
-		v := re.FindStringSubmatch(string(version))
+		versions := strings.Split(string(version), "\n")
+		parts := strings.Split(versions[0], " ")
+		v := parts[len(parts)-1]
 		if len(v) > 0 {
-			h.sysinfo.QemuVersion = v[0]
+			log.Infof("Detect qemu version is %s", v)
+			h.sysinfo.QemuVersion = v
 		} else {
 			return fmt.Errorf("Failed to detect qemu version")
 		}
@@ -618,14 +622,16 @@ func (h *SHostInfo) detectiveQemuVersion() error {
 }
 
 func (h *SHostInfo) detectiveOvsVersion() {
-	version, err := exec.Command("ovs-vsctl", "--version").Output()
+	version, err := procutils.NewCommand("ovs-vsctl", "--version").Run()
 	if err != nil {
 		log.Errorln(err)
 	} else {
-		re := regexp.MustCompile(`'(?i)(?<=\(open vswitch\)\s)[\d.]+'`)
-		v := re.FindStringSubmatch(string(version))
+		versions := strings.Split(string(version), "\n")
+		parts := strings.Split(versions[0], " ")
+		v := parts[len(parts)-1]
 		if len(v) > 0 {
-			h.sysinfo.OvsVersion = v[0]
+			log.Infof("Detect OVS version is %s", v)
+			h.sysinfo.OvsVersion = v
 		} else {
 			log.Errorln("Failed to detect ovs version")
 		}
@@ -759,7 +765,7 @@ func (h *SHostInfo) getHostInfo(zoneId string) {
 
 func (h *SHostInfo) setHostname(name string) {
 	h.FullName = name
-	err := exec.Command("hostnamectl", "set-hostname", name).Run()
+	_, err := procutils.NewCommand("hostnamectl", "set-hostname", name).Run()
 	if err != nil {
 		log.Errorln("Fail to set system hostname: %s", err)
 	}
@@ -780,7 +786,7 @@ func (h *SHostInfo) getSysInfo() *SSysInfo {
 
 func (h *SHostInfo) updateHostRecord(hostId string) {
 	var method, url string
-	if len(hostId) > 0 {
+	if len(hostId) == 0 {
 		method = "POST"
 		url = fmt.Sprintf("/zones/%s/hosts", h.ZoneId)
 	} else {
@@ -977,7 +983,7 @@ func (h *SHostInfo) doSyncNicInfo(nic *SNIC) {
 	content := jsonutils.NewDict()
 	content.Set("bridge", jsonutils.NewString(nic.Bridge))
 	content.Set("interface", jsonutils.NewString(nic.Inter))
-	_, err := modules.Hostwires.Patch(h.GetSession(),
+	_, err := modules.Hostwires.Update(h.GetSession(),
 		h.HostId, nic.Network, content)
 	if err != nil {
 		log.Errorln(err)
@@ -1051,7 +1057,7 @@ func (h *SHostInfo) getStorageInfo() {
 	params := jsonutils.NewDict()
 	params.Set("details", jsonutils.JSONTrue)
 	params.Set("limit", jsonutils.NewInt(0))
-	res, err := modules.Hoststorages.ListAscendent(
+	res, err := modules.Hoststorages.ListDescendent(
 		h.GetSession(),
 		h.HostId, params)
 	if err != nil {
@@ -1065,26 +1071,35 @@ func (h *SHostInfo) getStorageInfo() {
 func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 	var detachStorages = []jsonutils.JSONObject{}
 	storageManager := storageman.GetManager()
+
 	for _, hs := range hoststorages {
+		storagetype, _ := hs.GetString("storage_type")
 		mountPoint, _ := hs.GetString("mount_point")
 		storagecacheId, _ := hs.GetString("storagecache_id")
-		storagetype, _ := hs.GetString("storage_type")
 		imagecachePath, _ := hs.GetString("imagecache_path")
 		storageId, _ := hs.GetString("storage_id")
 		storageName, _ := hs.GetString("storage")
 		storageConf, _ := hs.Get("storage_conf")
 
-		storage := storageManager.NewSharedStorageInstance(mountPoint, storagetype)
-		if storage != nil {
-			storageManager.Storages = append(storageManager.Storages, storage)
-		}
-		storageManager.InitSharedStorageImageCache(storagetype,
-			storagecacheId, imagecachePath, storage)
-		storage = storageManager.GetStorageByPath(mountPoint)
-		if storage != nil {
-			storage.SetStorageInfo(storageId, storageName, storageConf)
-		} else if storagetype != storagetypes.STORAGE_BAREMETAL {
-			detachStorages = append(detachStorages, hs)
+		if !utils.IsInStringArray(storagetype, storagetypes.Local) {
+			storage := storageManager.NewSharedStorageInstance(mountPoint, storagetype)
+			if storage != nil {
+				storageManager.Storages = append(storageManager.Storages, storage)
+				storageManager.InitSharedStorageImageCache(
+					storagetype, storagecacheId, imagecachePath, storage)
+				storage.SetStorageInfo(storageId, storageName, storageConf)
+			}
+		} else {
+			// Storage type local
+			storage := storageManager.GetStorageByPath(mountPoint)
+			if storage != nil {
+				storage.SetStorageInfo(storageId, storageName, storageConf)
+			} else {
+				// XXX hack: storage type baremetal is a converted host，reserve storage
+				if storagetype != storagetypes.STORAGE_BAREMETAL {
+					detachStorages = append(detachStorages, hs)
+				}
+			}
 		}
 	}
 
@@ -1204,19 +1219,25 @@ func (h *SHostInfo) StartPinger() {
 func (h *SHostInfo) save() error {
 	if h.saved {
 		return nil
+	} else {
+		h.saved = true
 	}
-	h.saved = true
+
 	if err := h.registerHostlocalServer(); err != nil {
 		return err
 	}
 	// TODO XXX >>> ???
 	// file put content
-	return h.setupBridges()
+	if err := h.setupBridges(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (h *SHostInfo) setupBridges() error {
 	for _, n := range h.Nics {
 		if err := n.BridgeDev.WarmupConfig(); err != nil {
+			log.Errorln(err)
 			return err
 		}
 	}
@@ -1236,7 +1257,6 @@ func (h *SHostInfo) registerHostlocalServer() error {
 
 		err := n.BridgeDev.RegisterHostlocalServer(mac, ip)
 		if err != nil {
-			log.Errorln(err)
 			return err
 		}
 	}

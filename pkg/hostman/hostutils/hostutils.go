@@ -87,11 +87,9 @@ func RemoteStoragecacheCacheImage(ctx context.Context, storagecacheId, imageId, 
 }
 
 func UpdateServerStatus(ctx context.Context, sid, status string) (jsonutils.JSONObject, error) {
-	var body = jsonutils.NewDict()
 	var stats = jsonutils.NewDict()
 	stats.Set("status", jsonutils.NewString(status))
-	body.Set("server", stats)
-	return modules.Servers.PerformAction(GetComputeSession(ctx), sid, "status", body)
+	return modules.Servers.PerformAction(GetComputeSession(ctx), sid, "status", stats)
 }
 
 func ResponseOk(ctx context.Context, w http.ResponseWriter) {

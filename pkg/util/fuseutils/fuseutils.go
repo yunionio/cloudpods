@@ -3,13 +3,13 @@ package fuseutils
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path"
 	"strings"
 	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 const DEFAULT_BLOCKSIZE = 8
@@ -23,18 +23,18 @@ func MountFusefs(fetcherfsPath, url, tmpdir, token, mntpath string, blocksize in
 	}
 
 	// is mounted
-	if err := exec.Command("mountpoint", mntpath).Run(); err == nil {
-		exec.Command("umount", mntpath).Run()
+	if _, err := procutils.NewCommand("mountpoint", mntpath).Run(); err == nil {
+		procutils.NewCommand("umount", mntpath).Run()
 	}
 
 	if !fileutils2.Exists(tmpdir) {
-		if err := exec.Command("mkdir", "-p", tmpdir).Run(); err != nil {
+		if _, err := procutils.NewCommand("mkdir", "-p", tmpdir).Run(); err != nil {
 			return err
 		}
 	}
 
 	if !fileutils2.Exists(mntpath) {
-		if err := exec.Command("mkdir", "-p", mntpath).Run(); err != nil {
+		if _, err := procutils.NewCommand("mkdir", "-p", mntpath).Run(); err != nil {
 			return err
 		}
 	}
@@ -46,10 +46,10 @@ func MountFusefs(fetcherfsPath, url, tmpdir, token, mntpath string, blocksize in
 
 	var cmd = []string{fetcherfsPath, "-s", "-p", opts, mntpath}
 	log.Infof("%s", strings.Join(cmd, " "))
-	err := exec.Command(cmd[0], cmd[1:]...).Run()
+	_, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run()
 	if err != nil {
 		log.Errorf("Mount fetcherfs filed: %s", err)
-		exec.Command("umount", mntpath).Run()
+		procutils.NewCommand("umount", mntpath).Run()
 		return err
 	}
 

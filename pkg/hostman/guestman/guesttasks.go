@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path"
 	"regexp"
 	"strings"
@@ -18,6 +17,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
 )
@@ -765,7 +765,7 @@ func (s *SGuestDiskSnapshotTask) onReloadBlkdevSucc(res string) {
 func (s *SGuestDiskSnapshotTask) onSnapshotBlkdevFail(string) {
 	snapshotDir := s.disk.GetSnapshotDir()
 	snapshotPath := path.Join(snapshotDir, s.snapshotId)
-	err := exec.Command("rm", "-rf", snapshotPath).Run()
+	_, err := procutils.NewCommand("rm", "-rf", snapshotPath).Run()
 	if err != nil {
 		log.Errorln(err)
 	}
@@ -831,17 +831,17 @@ func (s *SGuestSnapshotDeleteTask) doDiskConvert() error {
 	}
 
 	s.tmpPath = snapshotPath + ".swap"
-	if err := exec.Command("mv", "-f", snapshotPath, s.tmpPath).Run(); err != nil {
+	if _, err := procutils.NewCommand("mv", "-f", snapshotPath, s.tmpPath).Run(); err != nil {
 		log.Errorln(err)
 		if fileutils2.Exists(s.tmpPath) {
-			exec.Command("mv", "-f", s.tmpPath, snapshotPath).Run()
+			procutils.NewCommand("mv", "-f", s.tmpPath, snapshotPath).Run()
 		}
 		return err
 	}
-	if err := exec.Command("mv", "-f", convertedDisk, snapshotPath).Run(); err != nil {
+	if _, err := procutils.NewCommand("mv", "-f", convertedDisk, snapshotPath).Run(); err != nil {
 		log.Errorln(err)
 		if fileutils2.Exists(s.tmpPath) {
-			exec.Command("mv", "-f", s.tmpPath, snapshotPath).Run()
+			procutils.NewCommand("mv", "-f", s.tmpPath, snapshotPath).Run()
 		}
 		return err
 	}
@@ -863,7 +863,7 @@ func (s *SGuestSnapshotDeleteTask) onReloadBlkdevSucc(err string) {
 
 func (s *SGuestSnapshotDeleteTask) onSnapshotBlkdevFail(res string) {
 	snapshotPath := path.Join(s.disk.GetSnapshotDir(), s.convertSnapshot)
-	if err := exec.Command("rm", "-f", s.tmpPath, snapshotPath).Run(); err != nil {
+	if _, err := procutils.NewCommand("rm", "-f", s.tmpPath, snapshotPath).Run(); err != nil {
 		log.Errorln(err)
 	}
 	s.taskFailed("Reload blkdev failed")
@@ -872,14 +872,14 @@ func (s *SGuestSnapshotDeleteTask) onSnapshotBlkdevFail(res string) {
 func (s *SGuestSnapshotDeleteTask) onResumeSucc(res string) {
 	log.Infof("guest do new snapshot task resume succ %s", res)
 	if len(s.tmpPath) > 0 {
-		err := exec.Command("rm", "-f", s.tmpPath).Run()
+		_, err := procutils.NewCommand("rm", "-f", s.tmpPath).Run()
 		if err != nil {
 			log.Errorln(err)
 		}
 	}
 	if !s.pendingDelete {
 		snapshotDir := s.disk.GetSnapshotDir()
-		exec.Command("rm", "-f", path.Join(snapshotDir, s.deleteSnapshot))
+		procutils.NewCommand("rm", "-f", path.Join(snapshotDir, s.deleteSnapshot))
 	}
 	hostutils.TaskComplete(s.ctx,
 		jsonutils.NewDict(jsonutils.NewPair("deleted", jsonutils.JSONTrue)))

@@ -121,7 +121,9 @@ func (s *SBaseStorage) GetTotalSizeMb() int {
 func (s *SBaseStorage) SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject) {
 	s.StorageId = storageId
 	s.StorageName = storageName
-	s.StorageConf = conf.(*jsonutils.JSONDict)
+	if dconf, ok := conf.(*jsonutils.JSONDict); ok {
+		s.StorageConf = dconf
+	}
 }
 
 func (s *SBaseStorage) RemoveDisk(d IDisk) {

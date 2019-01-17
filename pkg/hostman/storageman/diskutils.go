@@ -3,7 +3,6 @@ package storageman
 import (
 	"fmt"
 	"io/ioutil"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -15,6 +14,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/nbd"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 )
 
@@ -46,7 +46,7 @@ func (d *SKVMGuestDisk) Connect() bool {
 	} else {
 		cmd = []string{qemutils.GetQemuNbd(), "-c", d.nbdDev, d.imagePath}
 	}
-	_, err := exec.Command(cmd[0], cmd[1:]...).Output()
+	_, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run()
 	if err != nil {
 		log.Errorln(err.Error())
 		return false
@@ -67,7 +67,7 @@ func (d *SKVMGuestDisk) Connect() bool {
 }
 
 func (d *SKVMGuestDisk) getImageFormat() string {
-	lines, err := exec.Command(qemutils.GetQemuImg(), "info", d.imagePath).Output()
+	lines, err := procutils.NewCommand(qemutils.GetQemuImg(), "info", d.imagePath).Run()
 	if err != nil {
 		return ""
 	}
@@ -107,7 +107,7 @@ func (d *SKVMGuestDisk) setupLVMS() error {
 func (d *SKVMGuestDisk) Disconnect() bool {
 	if len(d.nbdDev) > 0 {
 		// TODO?? PutdownLVMS ??
-		err := exec.Command(qemutils.GetQemuNbd(), "-d", d.nbdDev).Run()
+		_, err := procutils.NewCommand(qemutils.GetQemuNbd(), "-d", d.nbdDev).Run()
 		if err != nil {
 			log.Errorln(err.Error())
 			return false
