@@ -70,6 +70,8 @@ func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 		res jsonutils.JSONObject
 	)
 
+	log.Infof("Sync storage info %s", s.StorageId)
+
 	if len(s.StorageId) > 0 {
 		res, err = modules.Storages.Put(
 			hostutils.GetComputeSession(context.Background()),

@@ -9,29 +9,16 @@ import (
 	"yunion.io/x/pkg/utils"
 )
 
-type IServiceBase interface {
-	StartService()
-	ExitService()
-	TrapSignals(signalutils.Trap)
-}
+type SServiceBase struct{}
 
-type SServiceBase struct {
-}
-
-func (s *SServiceBase) TrapSignals(quitHandler signalutils.Trap) {
+func (s *SServiceBase) RegisterSignals(quitHandler signalutils.Trap) {
 	quitSignals := []os.Signal{syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM}
 	signalutils.RegisterSignal(quitHandler, quitSignals...)
-	dumpStack := func() {
+
+	// dump goroutine stack
+	signalutils.RegisterSignal(func() {
 		utils.DumpAllGoroutineStack(log.Logger().Out)
-	}
-	signalutils.RegisterSignal(dumpStack, syscall.SIGUSR1)
+	}, syscall.SIGUSR1)
+
 	signalutils.StartTrap()
-}
-
-func (s *SServiceBase) StartService() {
-	log.Infof("Base Start Service ...")
-}
-
-func (s *SServiceBase) ExitService() {
-	log.Infof("Base Exit Service ...")
 }

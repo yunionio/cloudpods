@@ -44,6 +44,7 @@ func Run(name string, args ...string) ([]string, error) {
 
 // Doesn't have timeout
 func (c *Command) Run() ([]byte, error) {
+	log.Infof("Exec command: %s %v", c.Path, c.Args)
 	output, err := RunCommandWithoutTimeout(c.Path, c.Args...)
 	if err != nil {
 		log.Errorf("Execute command %q , error: %v , output: %s", c, err, string(output))

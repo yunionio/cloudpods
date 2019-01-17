@@ -332,7 +332,7 @@ func (app *Application) ListenAndServe(addr string) {
 	app.server = app.initServer(addr)
 	err := app.server.ListenAndServe()
 	if err != nil {
-		log.Fatalf("ListAndServer fail: %s", err)
+		log.Infof("ListAndServer: %s", err)
 	}
 }
 

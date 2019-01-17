@@ -16,13 +16,12 @@ import (
 )
 
 type SImageDesc struct {
-	Name     string
-	Format   string
-	Id       string
-	Chksum   string
-	Path     string
-	ParentId string
-	Size     int64
+	Name   string
+	Format string
+	Id     string
+	Chksum string
+	Path   string
+	Size   int64
 }
 
 type SRemoteFile struct {
@@ -36,10 +35,9 @@ type SRemoteFile struct {
 	timeout      time.Duration
 	extraHeaders map[string]string
 
-	chksum   string
-	format   string
-	parentId string
-	name     string
+	chksum string
+	format string
+	name   string
 }
 
 func NewRemoteFile(
@@ -89,12 +87,11 @@ func (r *SRemoteFile) GetInfo() *SImageDesc {
 	}
 
 	return &SImageDesc{
-		Name:     r.name,
-		Format:   r.format,
-		Chksum:   r.chksum,
-		Path:     r.localPath,
-		ParentId: r.parentId,
-		Size:     fi.Size(),
+		Name:   r.name,
+		Format: r.format,
+		Chksum: r.chksum,
+		Path:   r.localPath,
+		Size:   fi.Size(),
 	}
 }
 
@@ -226,10 +223,5 @@ func (r *SRemoteFile) download(getData bool, preChksum string) bool {
 func (r *SRemoteFile) setProperties(header http.Header) {
 	r.chksum = header.Get("X-Image-Meta-Checksum")
 	r.format = header.Get("X-Image-Meta-Disk_format")
-	r.parentId = header.Get("X-Image-Meta-Parent_id")
-	if len(r.parentId) == 0 {
-		r.name = ""
-	} else {
-		r.name = header.Get("X-Image-Meta-Name")
-	}
+	r.name = header.Get("X-Image-Meta-Name")
 }

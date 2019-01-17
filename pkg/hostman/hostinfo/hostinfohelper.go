@@ -201,6 +201,12 @@ func (n *SNIC) SetWireId(wire, wireId string, bandwidth int64) {
 	n.Bandwidth = int(bandwidth)
 }
 
+func (n *SNIC) ExitCleanup() {
+	n.BridgeDev.CleanupConfig()
+	log.Infof("Stop DHCP Server")
+	// TODO stop dhcp server
+}
+
 func NewNIC(desc string) (*SNIC, error) {
 	nic := new(SNIC)
 	data := strings.Split(desc, "/")

@@ -337,6 +337,20 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	cmd += "function nic_speed() {\n"
 	cmd += "    $QEMU_CMD "
 
+	if s.IsKvmSupport() {
+		cmd += "-enable-kvm"
+	} else {
+		cmd += "-no-kvm"
+	}
+
+	cmd += " -device virtio-net-pci,? 2>&1 | grep .speed= > /dev/null\n"
+	cmd += "    if [ \"$?\" -eq \"0\" ]; then\n"
+	cmd += "        echo \",speed=$1\"\n"
+	cmd += "    fi\n"
+	cmd += "}\n"
+
+	// Generate Start VM script
+	cmd += `CMD="$QEMU_CMD`
 	var accel, cpuType string
 	if s.IsKvmSupport() {
 		cmd += " -enable-kvm"
@@ -364,7 +378,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	cmd += fmt.Sprintf(" -cpu %s", cpuType)
 
 	// TODO hmp - -
-	cmd += s.getMonitorDesc("hmqmon", s.GetQmpMonitorPort(int(vncPort)), MODE_READLINE)
+	cmd += s.getMonitorDesc("hmqmon", s.GetHmpMonitorPort(int(vncPort)), MODE_READLINE)
 	if options.HostOptions.EnableQmpMonitor {
 		cmd += s.getMonitorDesc("qmqmon", s.GetQmpMonitorPort(int(vncPort)), MODE_CONTROL)
 	}
@@ -444,9 +458,10 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		//     cmd += isolated_devs_params['vga']
 		// else:
 		//     cmd += ' -vga %s' % self.desc.get('vga', 'std')
-		// cmd += ' -vnc :%d' % (vnc_port)
-		//             if options.set_vnc_password:
-		// cmd += ',password'
+		cmd += fmt.Sprintf(" -vnc :%d", vncPort)
+		if options.HostOptions.SetVncPassword {
+			cmd += ",password"
+		}
 	}
 
 	var diskDrivers = []string{}
@@ -530,6 +545,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	} else if jsonutils.QueryBoolean(s.Desc, "is_master", false) {
 		cmd += " -S"
 	}
+	cmd += fmt.Sprintf(" -D %s", path.Join(s.HomeDir(), "log"))
 
 	cmd += "\"\n"
 	cmd += "if [ ! -z \"$STATE_FILE\" ] && [ -d \"$STATE_FILE\" ] && [ -f \"$STATE_FILE/content\" ]; then\n"
@@ -539,6 +555,13 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	cmd += "else\n"
 	cmd += "    $CMD\n"
 	cmd += "fi\n"
+
+	/*
+	   # cmd += 'sleep 1\n'
+	   # cmd += 'PID_NUM=$(cat $PID_FILE)\n'
+	   # cmd += 'echo -17 > /proc/$PID_NUM/oom_adj\n'
+	   # cmd += 'echo "qemu started"\n'
+	*/
 
 	return cmd, nil
 }

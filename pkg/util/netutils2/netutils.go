@@ -30,12 +30,12 @@ var PRIVATE_PREFIXES = []string{
 }
 
 func IsTcpPortUsed(addr string, port int) bool {
-	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", addr, port))
+	conn, _ := net.Dial("tcp", fmt.Sprintf("%s:%d", addr, port))
 	if conn != nil {
 		conn.Close()
+		log.Infof("Tcp port in use: %s %d", addr, port)
 		return true
 	} else {
-		log.Infof("IsTcpPortUsed: %s %d %s", addr, port, err)
 		return false
 	}
 }

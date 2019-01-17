@@ -275,3 +275,7 @@ func Init(host hostutils.IHost) error {
 	storageManager, err = NewStorageManager(host)
 	return err
 }
+
+func Stop() {
+	// pass do nothing
+}

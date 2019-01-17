@@ -1,8 +1,8 @@
 package main
 
-import "yunion.io/x/onecloud/pkg/hostman/service"
+import "yunion.io/x/onecloud/pkg/hostman"
 
 func main() {
-	var srv = service.SHostService{}
+	var srv = hostman.SHostService{}
 	srv.StartService()
 }
