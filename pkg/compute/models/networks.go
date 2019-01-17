@@ -1529,7 +1529,7 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 
 	if ipNE.StepUp() == ipSS {
 		startIp, endIp = net.GuestIpStart, self.GuestIpEnd
-	} else if ipSE == ipNS {
+	} else if ipSE.StepUp() == ipNS {
 		startIp, endIp = self.GuestIpStart, net.GuestIpEnd
 	} else {
 		note := "Incontinuity Network for %s and %s"
