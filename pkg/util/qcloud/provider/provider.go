@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -39,9 +40,33 @@ func (self *SQcloudProviderFactory) ValidateCreateCloudaccountData(ctx context.C
 	if len(secretKey) == 0 {
 		return httperrors.NewMissingParameterError("secret_key")
 	}
-	data.Set("account", jsonutils.NewString(appID))
-	data.Set("secret", jsonutils.NewString(fmt.Sprintf("%s/%s", secretID, secretKey)))
+	data.Set("account", jsonutils.NewString(fmt.Sprintf("%s/%s", secretID, appID)))
+	data.Set("secret", jsonutils.NewString(secretKey))
 	return nil
+}
+
+func (self *SQcloudProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
+	appID, _ := data.GetString("app_id")
+	if len(appID) == 0 {
+		accountInfo := strings.Split(cloudaccount, "/")
+		if len(accountInfo) < 2 {
+			return nil, httperrors.NewMissingParameterError("app_id")
+		}
+		appID = accountInfo[1]
+	}
+	secretID, _ := data.GetString("secret_id")
+	if len(secretID) == 0 {
+		return nil, httperrors.NewMissingParameterError("secret_id")
+	}
+	secretKey, _ := data.GetString("secret_key")
+	if len(secretKey) == 0 {
+		return nil, httperrors.NewMissingParameterError("secret_key")
+	}
+	account := &cloudprovider.SCloudaccount{
+		Account: fmt.Sprintf("%s/%s", secretID, appID),
+		Secret:  secretKey,
+	}
+	return account, nil
 }
 
 func (self *SQcloudProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {

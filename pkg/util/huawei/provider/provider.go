@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/huawei"
 )
@@ -18,7 +19,38 @@ func (self *SHuaweiProviderFactory) ValidateChangeBandwidth(instanceId string, b
 }
 
 func (self *SHuaweiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
+	accessKeyID, _ := data.GetString("access_key_id")
+	if len(accessKeyID) == 0 {
+		return httperrors.NewMissingParameterError("access_key_id")
+	}
+	accessKeySecret, _ := data.GetString("access_key_secret")
+	if len(accessKeySecret) == 0 {
+		return httperrors.NewMissingParameterError("access_key_secret")
+	}
+	environment, _ := data.GetString("environment")
+	if len(environment) == 0 {
+		return httperrors.NewMissingParameterError("environment")
+	}
+	data.Set("account", jsonutils.NewString(accessKeyID))
+	data.Set("secret", jsonutils.NewString(accessKeySecret))
+	data.Set("access_url", jsonutils.NewString(environment))
 	return nil
+}
+
+func (self *SHuaweiProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
+	accessKeyID, _ := data.GetString("access_key_id")
+	if len(accessKeyID) == 0 {
+		return nil, httperrors.NewMissingParameterError("access_key_id")
+	}
+	accessKeySecret, _ := data.GetString("access_key_secret")
+	if len(accessKeySecret) == 0 {
+		return nil, httperrors.NewMissingParameterError("access_key_secret")
+	}
+	account := &cloudprovider.SCloudaccount{
+		Account: accessKeyID,
+		Secret:  accessKeySecret,
+	}
+	return account, nil
 }
 
 func (self *SHuaweiProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {

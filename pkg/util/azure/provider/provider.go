@@ -46,6 +46,22 @@ func (self *SAzureProviderFactory) ValidateCreateCloudaccountData(ctx context.Co
 	return nil
 }
 
+func (self *SAzureProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
+	clientID, _ := data.GetString("client_id")
+	if len(clientID) == 0 {
+		return nil, httperrors.NewMissingParameterError("client_id")
+	}
+	clientSecret, _ := data.GetString("client_secret")
+	if len(clientSecret) == 0 {
+		return nil, httperrors.NewMissingParameterError("client_secret")
+	}
+	account := &cloudprovider.SCloudaccount{
+		Account: cloudaccount,
+		Secret:  fmt.Sprintf("%s/%s", clientID, clientSecret),
+	}
+	return account, nil
+}
+
 func (self *SAzureProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
 	if client, err := azure.NewAzureClient(providerId, providerName, account, secret, url); err != nil {
 		return nil, err

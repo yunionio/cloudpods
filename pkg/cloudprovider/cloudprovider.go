@@ -15,11 +15,17 @@ var (
 	ErrNoSuchProvder = errors.New("no such provider")
 )
 
+type SCloudaccount struct {
+	Account string
+	Secret  string
+}
+
 type ICloudProviderFactory interface {
 	GetProvider(providerId, providerName, url, account, secret string) (ICloudProvider, error)
 	GetId() string
 	ValidateChangeBandwidth(instanceId string, bandwidth int64) error
 	ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error
+	ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*SCloudaccount, error)
 }
 
 type ICloudProvider interface {

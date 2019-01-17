@@ -37,6 +37,23 @@ func (self *SAliyunProviderFactory) ValidateCreateCloudaccountData(ctx context.C
 	return nil
 }
 
+func (self *SAliyunProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
+
+	accessKeyID, _ := data.GetString("access_key_id")
+	if len(accessKeyID) == 0 {
+		return nil, httperrors.NewMissingParameterError("access_key_id")
+	}
+	accessKeySecret, _ := data.GetString("access_key_secret")
+	if len(accessKeySecret) == 0 {
+		return nil, httperrors.NewMissingParameterError("access_key_secret")
+	}
+	account := &cloudprovider.SCloudaccount{
+		Account: accessKeyID,
+		Secret:  accessKeySecret,
+	}
+	return account, nil
+}
+
 func (self *SAliyunProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
 	/*	provider, ok := self.providerTable[providerId]
 		if ok {
