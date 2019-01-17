@@ -365,7 +365,7 @@ func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(ctx 
 func (manager *SLoadbalancerListenerRuleManager) InitializeData() error {
 	rules := []SLoadbalancerListenerRule{}
 	q := manager.Query()
-	q = q.Filter(sqlchemy.IsNotEmpty(q.Field("cloudregion_id")))
+	q = q.Filter(sqlchemy.IsNullOrEmpty(q.Field("cloudregion_id")))
 	if err := db.FetchModelObjects(manager, q, &rules); err != nil {
 		return err
 	}

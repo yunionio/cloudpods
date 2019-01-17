@@ -56,15 +56,15 @@ type SLoadbalancer struct {
 	SManagedResourceBase
 
 	Address       string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	AddressType   string `width:"16" charset:"ascii" nullable:"false" default:"intranet" list:"user" create:"optional"`
-	NetworkType   string `width:"16" charset:"ascii" nullable:"false" default:"vpc" list:"user" create:"optional"`
+	AddressType   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	NetworkType   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	NetworkId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	VpcId         string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	ZoneId        string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
 
-	ChargeType       string `list:"user" default:"traffic" create:"optional"`
-	LoadbalancerSpec string `list:"user" create:"optional"`
+	ChargeType       string `list:"user" get:"user" create:"optional"`
+	LoadbalancerSpec string `list:"user" get:"user" create:"optional"`
 
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" update:"user"`
 }
@@ -163,15 +163,14 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		data.Set("address_type", jsonutils.NewString(LB_ADDR_TYPE_INTRANET))
 	} else {
 		zone := zoneV.Model.(*SZone)
-		data.Set("zone_id", jsonutils.NewString(zone.GetId()))
 		region = zone.GetRegion()
 		if region == nil {
 			return nil, fmt.Errorf("getting region failed")
 		}
+		// 公网 lb 实例和vpc、network无关联
 		data.Set("vpc_id", jsonutils.NewString(""))
 		data.Set("address", jsonutils.NewString(""))
 		data.Set("network_id", jsonutils.NewString(""))
-		data.Set("manager_id", jsonutils.NewString(managerIdV.Model.GetId()))
 		data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
 		data.Set("network_type", jsonutils.NewString(LB_NETWORK_TYPE_VPC))
 		data.Set("address_type", jsonutils.NewString(LB_ADDR_TYPE_INTERNET))

@@ -94,6 +94,10 @@ func (listerner *SLoadbalancerUDPListener) GetBackendGroupId() string {
 	return listerner.MasterSlaveServerGroupId
 }
 
+func (listerner *SLoadbalancerUDPListener) GetBackendServerPort() int {
+	return listerner.BackendServerPort
+}
+
 func (listerner *SLoadbalancerUDPListener) GetScheduler() string {
 	return listerner.Scheduler
 }

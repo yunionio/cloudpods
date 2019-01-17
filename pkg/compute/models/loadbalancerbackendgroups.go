@@ -4,8 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -84,84 +82,69 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
 	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
 	backends := []cloudprovider.SLoadbalancerBackend{}
-	for idx := 0; data.Contains(fmt.Sprintf("backend.%d", idx)); idx++ {
-		_backend, _ := data.GetString(fmt.Sprintf("backend.%d", idx))
-		backend := cloudprovider.SLoadbalancerBackend{BackendType: LB_BACKEND_GUEST, Index: idx, BackendRole: "default"}
-		for _, info := range strings.Split(_backend, ",") {
-			value := strings.Split(info, ":")
-			if len(value) != 2 {
-				return nil, httperrors.NewInputParameterError("Unknown backend info %s", info)
-			}
-			switch strings.ToLower(value[0]) {
-			case "id", "name":
-				backend.ID = value[1]
-			case "backend_type", "backendtype", "type":
-				backend.BackendType = value[1]
-			case "weight":
-				v, err := strconv.Atoi(value[1])
-				if err != nil || v < 0 || v > 256 {
-					return nil, httperrors.NewInputParameterError("weight %s not support, only support range 0 ~ 100")
-				}
-				backend.Weight = v
-			case "port":
-				v, err := strconv.Atoi(value[1])
-				if err != nil || v < 1 || v > 65535 {
-					return nil, httperrors.NewInputParameterError("port %s not support, only support range 1 ~ 65535")
-				}
-				backend.Port = v
-			}
+	if data.Contains("backends") {
+		if err := data.Unmarshal(&backends, "backends"); err != nil {
+			return nil, err
 		}
-		if len(backend.ID) == 0 {
-			return nil, httperrors.NewMissingParameterError("Missing backend id or name params")
-		}
-		if backend.Port < 1 || backend.Port > 65535 {
-			return nil, httperrors.NewInputParameterError("port %s not support, only support range 1 ~ 65535")
-		}
-		switch backend.BackendType {
-		case LB_BACKEND_GUEST:
-			_guest, err := GuestManager.FetchByIdOrName(userCred, backend.ID)
-			if err != nil {
-				if err == sql.ErrNoRows {
-					return nil, httperrors.NewResourceNotFoundError("failed to find guest %s", backend.ID)
-				}
-				return nil, httperrors.NewGeneralError(err)
+		for i := 0; i < len(backends); i++ {
+			if len(backends[i].BackendType) == 0 {
+				backends[i].BackendType = LB_BACKEND_GUEST
 			}
-			guest := _guest.(*SGuest)
-			host := guest.GetHost()
-			if host == nil {
-				return nil, fmt.Errorf("error getting host of guest %s", guest.Name)
+			if backends[i].Weight < 0 || backends[i].Weight > 256 {
+				return nil, httperrors.NewInputParameterError("weight %s not support, only support range 0 ~ 256")
 			}
-			backend.ZoneId = host.ZoneId
-			backend.HostName = host.Name
-			backend.ID = guest.Id
-			backend.Name = guest.Name
-			backend.ExternalID = guest.ExternalId
+			if backends[i].Port < 1 || backends[i].Port > 65535 {
+				return nil, httperrors.NewInputParameterError("port %s not support, only support range 1 ~ 65535")
+			}
+			if len(backends[i].ID) == 0 {
+				return nil, httperrors.NewMissingParameterError("Missing backend id")
+			}
 
-			address, err := LoadbalancerBackendManager.GetGuestAddress(guest)
-			if err != nil {
-				return nil, err
-			}
-			backend.Address = address
-		case LB_BACKEND_HOST:
-			if !db.IsAdminAllowCreate(userCred, man) {
-				return nil, httperrors.NewForbiddenError("only sysadmin can specify host as backend")
-			}
-			_host, err := HostManager.FetchByIdOrName(userCred, backend.ID)
-			if err != nil {
-				if err == sql.ErrNoRows {
-					return nil, httperrors.NewResourceNotFoundError("failed to find host %s", backend.ID)
+			switch backends[i].BackendType {
+			case LB_BACKEND_GUEST:
+				_guest, err := GuestManager.FetchByIdOrName(userCred, backends[i].ID)
+				if err != nil {
+					if err == sql.ErrNoRows {
+						return nil, httperrors.NewResourceNotFoundError("failed to find guest %s", backends[i].ID)
+					}
+					return nil, httperrors.NewGeneralError(err)
 				}
-				return nil, httperrors.NewGeneralError(err)
+				guest := _guest.(*SGuest)
+				host := guest.GetHost()
+				if host == nil {
+					return nil, fmt.Errorf("error getting host of guest %s", guest.Name)
+				}
+				backends[i].ZoneId = host.ZoneId
+				backends[i].HostName = host.Name
+				backends[i].ID = guest.Id
+				backends[i].Name = guest.Name
+				backends[i].ExternalID = guest.ExternalId
+
+				address, err := LoadbalancerBackendManager.GetGuestAddress(guest)
+				if err != nil {
+					return nil, err
+				}
+				backends[i].Address = address
+			case LB_BACKEND_HOST:
+				if !db.IsAdminAllowCreate(userCred, man) {
+					return nil, httperrors.NewForbiddenError("only sysadmin can specify host as backend")
+				}
+				_host, err := HostManager.FetchByIdOrName(userCred, backends[i].ID)
+				if err != nil {
+					if err == sql.ErrNoRows {
+						return nil, httperrors.NewResourceNotFoundError("failed to find host %s", backends[i].ID)
+					}
+					return nil, httperrors.NewGeneralError(err)
+				}
+				host := _host.(*SHost)
+				backends[i].ID = host.Id
+				backends[i].Name = host.Name
+				backends[i].ExternalID = host.ExternalId
+				backends[i].Address = host.AccessIp
+			default:
+				return nil, httperrors.NewInputParameterError("unexpected backend type %s", backends[i].BackendType)
 			}
-			host := _host.(*SHost)
-			backend.ID = host.Id
-			backend.Name = host.Name
-			backend.ExternalID = host.ExternalId
-			backend.Address = host.AccessIp
-		default:
-			return nil, httperrors.NewInputParameterError("unexpected backend type %s", backend.BackendType)
 		}
-		backends = append(backends, backend)
 	}
 	data.Set("backends", jsonutils.Marshal(backends))
 	return lb.GetRegion().GetDriver().ValidateCreateLoadbalancerBackendGroupData(ctx, userCred, data, lb, backends)
@@ -458,7 +441,7 @@ func (man *SLoadbalancerBackendGroupManager) InitializeData() error {
 func (manager *SLoadbalancerBackendGroupManager) initBackendGroupRegion() error {
 	groups := []SLoadbalancerBackendGroup{}
 	q := manager.Query()
-	q = q.Filter(sqlchemy.IsNotEmpty(q.Field("cloudregion_id")))
+	q = q.Filter(sqlchemy.IsNullOrEmpty(q.Field("cloudregion_id")))
 	if err := db.FetchModelObjects(manager, q, &groups); err != nil {
 		return err
 	}

@@ -167,7 +167,7 @@ func (lbb *SLoadbalancerBackend) GetIRegion() (cloudprovider.ICloudRegion, error
 	if backendgroup := lbb.GetLoadbalancerBackendGroup(); backendgroup != nil {
 		return backendgroup.GetIRegion()
 	}
-	return nil, fmt.Errorf("failed to find backendgroup for backend %s", lbb.Name)
+	return nil, fmt.Errorf("failed to find region for backend %s", lbb.Name)
 }
 
 func (man *SLoadbalancerBackendManager) GetGuestAddress(guest *SGuest) (string, error) {
@@ -213,10 +213,6 @@ func (lbb *SLoadbalancerBackend) StartLoadBalancerBackendCreateTask(ctx context.
 	task.ScheduleRun(nil)
 	return nil
 }
-
-// func (lbb *SLoadbalancerBackend) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-// 	lbb.DoPendingDelete(ctx, userCred)
-// }
 
 func (lbb *SLoadbalancerBackend) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
@@ -375,7 +371,7 @@ func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx cont
 func (manager *SLoadbalancerBackendManager) InitializeData() error {
 	backends := []SLoadbalancerBackend{}
 	q := manager.Query()
-	q = q.Filter(sqlchemy.IsNotEmpty(q.Field("cloudregion_id")))
+	q = q.Filter(sqlchemy.IsNullOrEmpty(q.Field("cloudregion_id")))
 	if err := db.FetchModelObjects(manager, q, &backends); err != nil {
 		return err
 	}

@@ -130,12 +130,10 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 		return nil, httperrors.NewMissingParameterError("backend_group")
 	}
 	listenerType, _ := data.GetString("listener_type")
-	if utils.IsInStringArray(listenerType, []string{models.LB_LISTENER_TYPE_UDP, models.LB_LISTENER_TYPE_TCP}) && !utils.IsInStringArray(backendgroup.Type, []string{models.LB_BACKENDGROUP_TYPE_MASTER_SLAVE, models.LB_BACKENDGROUP_TYPE_NORMAL}) {
-		return nil, httperrors.NewUnsupportOperationError("udp or tcp listener only support normal or master_slave backendgroup")
+	if utils.IsInStringArray(listenerType, []string{models.LB_LISTENER_TYPE_HTTP, models.LB_LISTENER_TYPE_HTTPS}) && !utils.IsInStringArray(backendgroup.Type, []string{models.LB_BACKENDGROUP_TYPE_DEFAULT, models.LB_BACKENDGROUP_TYPE_MASTER_SLAVE}) {
+		return nil, httperrors.NewUnsupportOperationError("http or https listener only supportd default or master_slave backendgroup")
 	}
-	if utils.IsInStringArray(listenerType, []string{models.LB_LISTENER_TYPE_HTTP, models.LB_LISTENER_TYPE_HTTPS}) && backendgroup.Type != models.LB_BACKENDGROUP_TYPE_NORMAL {
-		return nil, httperrors.NewUnsupportOperationError("http or https listener only support normal or master_slave backendgroup")
-	}
+
 	lb := backendgroup.GetLoadbalancer()
 	if tlsCipherPolicy, _ := data.GetString("tls_cipher_policy"); len(tlsCipherPolicy) > 0 && len(lb.LoadbalancerSpec) == 0 {
 		data.Set("tls_cipher_policy", jsonutils.NewString(""))
@@ -159,8 +157,12 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 	if !utils.IsInStringArray(listenerType, []string{models.LB_LISTENER_TYPE_UDP, models.LB_LISTENER_TYPE_TCP}) {
 		keyV["client_idle_timeout"] = validators.NewRangeValidator("client_idle_timeout", 1, 60)
 	}
+
+	if backendgroup.Type == models.LB_BACKENDGROUP_TYPE_DEFAULT {
+		keyV["backend_server_port"] = validators.NewPortValidator("backend_server_port")
+	}
+
 	for _, v := range keyV {
-		v.Optional(true)
 		if err := v.Validate(data); err != nil {
 			return nil, err
 		}
@@ -169,5 +171,50 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 }
 
 func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
-	return self.ValidateCreateLoadbalancerListenerData(ctx, userCred, data, backendGroup)
+	listenerType, _ := data.GetString("listener_type")
+
+	keyV := map[string]validators.IValidator{
+		"bandwidth": validators.NewRangeValidator("bandwidth", 1, 5000),
+
+		"client_request_timeout": validators.NewRangeValidator("client_request_timeout", 1, 180),
+
+		"sticky_session_cookie_timeout": validators.NewRangeValidator("sticky_session_cookie_timeout", 1, 86400),
+
+		"health_check_rise":     validators.NewRangeValidator("health_check_rise", 2, 10),
+		"health_check_fall":     validators.NewRangeValidator("health_check_fall", 2, 10),
+		"health_check_timeout":  validators.NewRangeValidator("health_check_timeout", 1, 300),
+		"health_check_interval": validators.NewRangeValidator("health_check_interval", 1, 50),
+	}
+
+	if healthCheckDomain, _ := data.GetString("health_check_domain"); len(healthCheckDomain) > 80 {
+		return nil, httperrors.NewInputParameterError("health_check_domain must be in the range of 1 ~ 80")
+	}
+
+	backendgroup, ok := backendGroup.(*models.SLoadbalancerBackendGroup)
+	if ok {
+		if utils.IsInStringArray(listenerType, []string{models.LB_LISTENER_TYPE_HTTP, models.LB_LISTENER_TYPE_HTTPS}) && !utils.IsInStringArray(backendgroup.Type, []string{models.LB_BACKENDGROUP_TYPE_DEFAULT, models.LB_BACKENDGROUP_TYPE_MASTER_SLAVE}) {
+			return nil, httperrors.NewUnsupportOperationError("http or https listener only supportd default or master_slave backendgroup")
+		}
+
+		if backendgroup.Type == models.LB_BACKENDGROUP_TYPE_DEFAULT {
+			keyV["backend_server_port"] = validators.NewPortValidator("backend_server_port")
+		}
+
+		lb := backendgroup.GetLoadbalancer()
+		if tlsCipherPolicy, _ := data.GetString("tls_cipher_policy"); len(tlsCipherPolicy) > 0 && len(lb.LoadbalancerSpec) == 0 {
+			data.Set("tls_cipher_policy", jsonutils.NewString(""))
+		}
+	}
+
+	if !utils.IsInStringArray(listenerType, []string{models.LB_LISTENER_TYPE_UDP, models.LB_LISTENER_TYPE_TCP}) {
+		keyV["client_idle_timeout"] = validators.NewRangeValidator("client_idle_timeout", 1, 60)
+	}
+
+	for _, v := range keyV {
+		v.Optional(true)
+		if err := v.Validate(data); err != nil {
+			return nil, err
+		}
+	}
+	return data, nil
 }

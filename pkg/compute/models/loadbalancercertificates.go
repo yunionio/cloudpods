@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/x509"
-	"database/sql"
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
@@ -130,19 +129,13 @@ func (man *SLoadbalancerCertificateManager) ValidateCreateData(ctx context.Conte
 	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
 		return nil, err
 	}
-	regionID, err := data.GetString("cloudregion_id")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("cloudregion_id")
+
+	regionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerProjId)
+	regionV.Default("default")
+	if err := regionV.Validate(data); err != nil {
+		return nil, err
 	}
-	_region, err := CloudregionManager.FetchByIdOrName(userCred, regionID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError("failed to find cloudregion %s", regionID)
-		}
-		return nil, httperrors.NewGeneralError(err)
-	}
-	data.Set("cloudregion_id", jsonutils.NewString(_region.GetId()))
-	region := _region.(*SCloudregion)
+	region := regionV.Model.(*SCloudregion)
 	return region.GetDriver().ValidateCreateLoadbalancerCertificateData(ctx, userCred, data)
 }
 

@@ -48,7 +48,9 @@ type LoadbalancerHTTPRateLimiter struct {
 
 type LoadbalancerListener struct {
 	VirtualResource
+	ManagedResource
 
+	CloudregionId  string
 	LoadbalancerId string
 	ListenerType   string
 	ListenerPort   int
@@ -60,7 +62,8 @@ type LoadbalancerListener struct {
 	BackendConnectTimeout int
 	BackendIdleTimeout    int
 
-	BackendGroupId string
+	BackendGroupId    string
+	BackendServerPort int
 
 	AclStatus string
 	AclType   string
@@ -91,7 +94,9 @@ type LoadbalancerListener struct {
 
 type LoadbalancerListenerRule struct {
 	VirtualResource
+	ManagedResource
 
+	CloudregionId  string
 	ListenerId     string
 	BackendGroupId string
 
@@ -103,14 +108,18 @@ type LoadbalancerListenerRule struct {
 
 type LoadbalancerBackendGroup struct {
 	VirtualResource
+	ManagedResource
 
 	Type           string
 	LoadbalancerId string
+	CloudregionId  string
 }
 
 type LoadbalancerBackend struct {
 	VirtualResource
+	ManagedResource
 
+	CloudregionId  string
 	BackendGroupId string
 	BackendId      string
 	BackendType    string

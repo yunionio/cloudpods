@@ -8,7 +8,7 @@ import (
 
 func init() {
 	R(&options.LoadbalancerBackendGroupCreateOptions{}, "lbbackendgroup-create", "Create lbbackendgroup", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendGroupCreateOptions) error {
-		params, err := options.StructToParams(opts)
+		params, err := opts.Params()
 		if err != nil {
 			return err
 		}

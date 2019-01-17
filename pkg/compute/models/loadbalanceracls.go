@@ -2,7 +2,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"net"
 	"reflect"
@@ -130,19 +129,13 @@ func (man *SLoadbalancerAclManager) ValidateCreateData(ctx context.Context, user
 	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
 		return nil, err
 	}
-	regionID, err := data.GetString("cloudregion_id")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("cloudregion_id")
+
+	regionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerProjId)
+	regionV.Default("default")
+	if err := regionV.Validate(data); err != nil {
+		return nil, err
 	}
-	_region, err := CloudregionManager.FetchByIdOrName(userCred, regionID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError("failed to find cloudregion %s", regionID)
-		}
-		return nil, httperrors.NewGeneralError(err)
-	}
-	data.Set("cloudregion_id", jsonutils.NewString(_region.GetId()))
-	region := _region.(*SCloudregion)
+	region := regionV.Model.(*SCloudregion)
 	return region.GetDriver().ValidateCreateLoadbalancerAclData(ctx, userCred, data)
 }
 

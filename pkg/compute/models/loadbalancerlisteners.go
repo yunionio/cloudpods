@@ -72,11 +72,12 @@ type SLoadbalancerListener struct {
 	db.SVirtualResourceBase
 	SManagedResourceBase
 
-	CloudregionId  string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
-	LoadbalancerId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	ListenerType   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
-	ListenerPort   int    `nullable:"false" list:"user" create:"required"`
-	BackendGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	CloudregionId     string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
+	LoadbalancerId    string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	ListenerType      string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	ListenerPort      int    `nullable:"false" list:"user" create:"required"`
+	BackendGroupId    string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	BackendServerPort int    `nullable:"false" get:"user" list:"user" default:"0" create:"optional"`
 
 	Scheduler string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
 
@@ -569,10 +570,10 @@ func (lblis *SLoadbalancerListener) GetLoadbalancerListenerParams() (*cloudprovi
 		StickySessionCookie:        lblis.StickySessionCookie,
 		StickySessionCookieTimeout: lblis.StickySessionCookieTimeout,
 
-		//ForwardPort:     lblis.ForwardPort,
-		XForwardedFor:   lblis.XForwardedFor,
-		TLSCipherPolicy: lblis.TLSCipherPolicy,
-		Gzip:            lblis.Gzip,
+		BackendServerPort: lblis.BackendServerPort,
+		XForwardedFor:     lblis.XForwardedFor,
+		TLSCipherPolicy:   lblis.TLSCipherPolicy,
+		Gzip:              lblis.Gzip,
 	}
 	if acl := lblis.GetLoadbalancerAcl(); acl != nil {
 		listener.AccessControlListID = acl.ExternalId
@@ -730,6 +731,7 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(lb *SLoadba
 	lblis.HealthCheckType = extListener.GetHealthCheckType()
 	lblis.HealthCheckTimeout = extListener.GetHealthCheckTimeout()
 	lblis.HealthCheckInterval = extListener.GetHealthCheckInterval()
+	lblis.BackendServerPort = extListener.GetBackendServerPort()
 
 	switch lblis.ListenerType {
 	case LB_LISTENER_TYPE_HTTPS:
@@ -786,7 +788,7 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 func (manager *SLoadbalancerListenerManager) InitializeData() error {
 	listeners := []SLoadbalancerListener{}
 	q := manager.Query()
-	q = q.Filter(sqlchemy.IsNotEmpty(q.Field("cloudregion_id")))
+	q = q.Filter(sqlchemy.IsNullOrEmpty(q.Field("cloudregion_id")))
 	if err := db.FetchModelObjects(manager, q, &listeners); err != nil {
 		return err
 	}

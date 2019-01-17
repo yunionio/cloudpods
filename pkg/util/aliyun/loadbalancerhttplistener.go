@@ -117,6 +117,10 @@ func (listerner *SLoadbalancerHTTPListener) GetBackendGroupId() string {
 	return listerner.VServerGroupId
 }
 
+func (listerner *SLoadbalancerHTTPListener) GetBackendServerPort() int {
+	return listerner.BackendServerPort
+}
+
 func (listerner *SLoadbalancerHTTPListener) GetScheduler() string {
 	return listerner.Scheduler
 }

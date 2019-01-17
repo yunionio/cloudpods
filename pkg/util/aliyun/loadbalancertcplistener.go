@@ -190,6 +190,10 @@ func (listerner *SLoadbalancerTCPListener) HTTP2Enabled() bool {
 	return false
 }
 
+func (listerner *SLoadbalancerTCPListener) GetBackendServerPort() int {
+	return listerner.BackendServerPort
+}
+
 func (listerner *SLoadbalancerTCPListener) GetILoadbalancerListenerRules() ([]cloudprovider.ICloudLoadbalancerListenerRule, error) {
 	return []cloudprovider.ICloudLoadbalancerListenerRule{}, nil
 }
@@ -232,16 +236,13 @@ func (region *SRegion) constructBaseCreateListenerParams(lb *SLoadbalancer, list
 	if utils.IsInStringArray(listener.AccessControlListType, []string{"white", "black"}) {
 		params["AclType"] = listener.AccessControlListType
 	}
-	if len(listener.BackendGroupID) > 0 {
-		switch listener.BackendGroupType {
-		case models.LB_BACKENDGROUP_TYPE_NORMAL:
-			params["VServerGroupId"] = listener.BackendGroupID
-		case models.LB_BACKENDGROUP_TYPE_MASTER_SLAVE:
-			params["MasterSlaveServerGroupId"] = listener.BackendGroupID
-		}
-	} else {
-		//TODO
-		params["BackendServerPort"] = ""
+	switch listener.BackendGroupType {
+	case models.LB_BACKENDGROUP_TYPE_NORMAL:
+		params["VServerGroupId"] = listener.BackendGroupID
+	case models.LB_BACKENDGROUP_TYPE_MASTER_SLAVE:
+		params["MasterSlaveServerGroupId"] = listener.BackendGroupID
+	case models.LB_BACKENDGROUP_TYPE_DEFAULT:
+		params["BackendServerPort"] = fmt.Sprintf("%d", listener.BackendServerPort)
 	}
 	if len(listener.Name) > 0 {
 		params["Description"] = listener.Name

@@ -447,6 +447,7 @@ type ICloudLoadbalancerListener interface {
 	GetHealthCheckExp() string
 
 	GetBackendGroupId() string
+	GetBackendServerPort() int
 
 	// HTTP && HTTPS
 	GetHealthCheckDomain() string

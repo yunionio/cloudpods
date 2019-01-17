@@ -32,9 +32,9 @@ type SLoadbalancerListener struct {
 	StickySessionType          string
 	StickySessionCookieTimeout int
 
-	ForwardPort   int
-	XForwardedFor bool
-	Gzip          bool
+	BackendServerPort int
+	XForwardedFor     bool
+	Gzip              bool
 
 	TLSCipherPolicy string
 }

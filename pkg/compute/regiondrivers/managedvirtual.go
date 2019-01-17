@@ -127,17 +127,6 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancer(ctx co
 		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, "", false); err != nil {
 			return nil, err
 		}
-		if lb.AddressType == models.LB_ADDR_TYPE_INTRANET {
-			req := &models.SLoadbalancerNetworkRequestData{
-				Loadbalancer: lb,
-				NetworkId:    lb.NetworkId,
-				Address:      lb.Address,
-			}
-			if _, err := models.LoadbalancernetworkManager.NewLoadbalancerNetwork(ctx, userCred, req); err != nil {
-				return nil, err
-			}
-		}
-
 		lbbgs, err := iLoadbalancer.GetILoadBalancerBackendGroups()
 		if err != nil {
 			return nil, err

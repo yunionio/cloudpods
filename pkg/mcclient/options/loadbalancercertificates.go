@@ -38,7 +38,7 @@ type LoadbalancerCertificateCreateOptions struct {
 
 	Cert      string `required:"true" json:"-" help:"path to certificate file"`
 	Pkey      string `required:"true" json:"-" help:"path to private key file"`
-	Region    string `required:"true" json:"cloudregion_id"`
+	Region    string `json:"cloudregion"`
 	ManagerId string
 }
 
