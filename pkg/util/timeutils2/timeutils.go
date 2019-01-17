@@ -3,6 +3,7 @@ package timeutils2
 import (
 	"fmt"
 	"os/exec"
+	"runtime/debug"
 	"time"
 
 	"yunion.io/x/log"
@@ -13,6 +14,7 @@ func AddTimeout(second time.Duration, callback func()) {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Errorln(r)
+				debug.PrintStack()
 			}
 		}()
 

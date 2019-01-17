@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 type SLocalGuestFS struct {
@@ -187,7 +188,7 @@ func (f *SLocalGuestFS) Chmod(sPath string, mode uint32, caseInsensitive bool) e
 }
 
 func (f *SLocalGuestFS) UserAdd(user string, caseInsensitive bool) error {
-	output, err := exec.Command("chroot", f.mountPath, "useradd", "-m", "-s", "/bin/bash", user).Output()
+	output, err := procutils.NewCommand("chroot", f.mountPath, "useradd", "-m", "-s", "/bin/bash", user).Run()
 	if err != nil {
 		log.Errorf("Useradd fail: %s", err)
 		return err

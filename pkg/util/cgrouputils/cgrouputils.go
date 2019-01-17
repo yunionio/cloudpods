@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -14,6 +13,7 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 const (
@@ -66,7 +66,8 @@ func getGroupPath() string {
 }
 
 func CgroupIsMounted() bool {
-	return exec.Command("mountpoint", cgroupsPath).Run() == nil
+	_, err := procutils.NewCommand("mountpoint", cgroupsPath).Run()
+	return err == nil
 }
 
 func ModuleIsMounted(module string) bool {
@@ -81,7 +82,8 @@ func ModuleIsMounted(module string) bool {
 			log.Errorln(err)
 		}
 	}
-	return exec.Command("mountpoint", fullPath).Run() == nil
+	_, err := procutils.NewCommand("mountpoint", fullPath).Run()
+	return err == nil
 }
 
 func RootTaskPath(module string) string {
@@ -299,11 +301,11 @@ func (c *CGroupTask) PushPid(pid string, isRoot bool) {
 func (c *CGroupTask) init() bool {
 	if !CgroupIsMounted() {
 		if !fileutils2.Exists(cgroupsPath) {
-			if err := exec.Command("mkdir", "-p", cgroupsPath).Run(); err != nil {
+			if _, err := procutils.NewCommand("mkdir", "-p", cgroupsPath).Run(); err != nil {
 				log.Errorln(err)
 			}
 		}
-		if err := exec.Command("mount", "-t", "tmpfs", "-o", "uid=0,gid=0,mode=0755",
+		if _, err := procutils.NewCommand("mount", "-t", "tmpfs", "-o", "uid=0,gid=0,mode=0755",
 			"cgroup", cgroupsPath).Run(); err != nil {
 			log.Errorln(err)
 			return false
@@ -326,13 +328,13 @@ func (c *CGroupTask) init() bool {
 			if !ModuleIsMounted(module) {
 				moduleDir := path.Join(cgroupsPath, module)
 				if !fileutils2.Exists(moduleDir) {
-					if err := exec.Command("mkdir", moduleDir).Run(); err != nil {
+					if _, err := procutils.NewCommand("mkdir", moduleDir).Run(); err != nil {
 						log.Errorln(err)
 						return false
 					}
 				}
 				log.Errorln(module)
-				if err := exec.Command("mount", "-t", "cgroup", "-o",
+				if _, err := procutils.NewCommand("mount", "-t", "cgroup", "-o",
 					module, module, moduleDir).Run(); err != nil {
 					log.Errorln(err)
 					return false

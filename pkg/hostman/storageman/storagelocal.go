@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/pkg/util/timeutils"
 )
@@ -121,7 +121,7 @@ func (s *SLocalStorage) StartSnapshotRecycle() {
 
 func (s *SLocalStorage) Accessible() bool {
 	if !fileutils2.Exists(s.Path) {
-		if err := exec.Command("mkdir", "-p", s.Path).Run(); err != nil {
+		if _, err := procutils.NewCommand("mkdir", "-p", s.Path).Run(); err != nil {
 			log.Errorln(err)
 		}
 	}
@@ -138,12 +138,14 @@ func (s *SLocalStorage) DeleteDiskfile(diskpath string) error {
 			destDir  = s.getRecyclePath()
 			destFile = fmt.Sprintf("%s.%d", path.Base(diskpath), time.Now().Unix())
 		)
-		if err := exec.Command("mkdir", "-p", destDir).Run(); err != nil {
+		if _, err := procutils.NewCommand("mkdir", "-p", destDir).Run(); err != nil {
 			return err
 		}
-		return exec.Command("mv", "-f", diskpath, path.Join(destDir, destFile)).Run()
+		_, err := procutils.NewCommand("mv", "-f", diskpath, path.Join(destDir, destFile)).Run()
+		return err
 	} else {
-		return exec.Command("rm", "-rf", diskpath).Run()
+		_, err := procutils.NewCommand("rm", "-rf", diskpath).Run()
+		return err
 	}
 }
 
@@ -177,10 +179,11 @@ func (s *SLocalStorage) SaveToGlance(ctx context.Context, params interface{}) (j
 
 	imagecacheManager := s.Manager.LocalStorageImagecacheManager
 	if len(imagecacheManager.GetId()) > 0 {
-		return nil, exec.Command("rm", "-f", imagePath).Run()
+		_, err := procutils.NewCommand("rm", "-f", imagePath).Run()
+		return nil, err
 	} else {
 		dstPath := path.Join(imagecacheManager.GetPath(), imageId)
-		if err := exec.Command("mv", imagePath, dstPath).Run(); err != nil {
+		if _, err := procutils.NewCommand("mv", imagePath, dstPath).Run(); err != nil {
 			log.Errorf("Fail to move saved image to cache: %s", err)
 		}
 		imagecacheManager.LoadImageCache(imageId)

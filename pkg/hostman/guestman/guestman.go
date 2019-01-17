@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path"
 	"strings"
 	"sync"
@@ -26,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
 )
 
@@ -432,7 +432,7 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 
 			// prepare disk snapshot dir
 			if len(snapshots) > 0 && !fileutils2.Exists(disk.GetSnapshotDir()) {
-				err := exec.Command("mkdir", "-p", disk.GetSnapshotDir()).Run()
+				_, err := procutils.NewCommand("mkdir", "-p", disk.GetSnapshotDir()).Run()
 				if err != nil {
 					return nil, err
 				}

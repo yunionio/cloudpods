@@ -52,7 +52,7 @@ type SHostOptions struct {
 	DefaultQemuVersion string `help:"Default qemu version" default:"2.9.1"`
 
 	// dhcp_relay = ('10.168.222.236', 67) => dhcp_relay = ['10.168.222.236', '67']
-	DhcpRelay          []string `help:"DHCP relay upstream"`
+	GoDhcpRelay        []string `help:"DHCP relay upstream"`
 	TunnelPaddingBytes int64    `help:"Specify tunnel padding bytes" default:"0"`
 
 	CheckSystemServices bool `help:"Check system services (ntpd, telegraf) on startup" default:"true"`

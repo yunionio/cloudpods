@@ -42,8 +42,18 @@ func Run(name string, args ...string) ([]string, error) {
 	return ParseOutput(ret), nil
 }
 
+// Doesn't have timeout
 func (c *Command) Run() ([]byte, error) {
-	output, err := RunCommand(c.Path, c.Args...)
+	output, err := RunCommandWithoutTimeout(c.Path, c.Args...)
+	if err != nil {
+		log.Errorf("Execute command %q , error: %v , output: %s", c, err, string(output))
+	}
+	return output, err
+}
+
+// Have default timeout 3 * time.Second
+func (c *Command) RunWithTimeout() ([]byte, error) {
+	output, err := RunCommandWithTimeout(c.Path, c.Args...)
 	if err != nil {
 		log.Errorf("Execute command %q , error: %v , output: %s", c, err, string(output))
 	}
@@ -64,7 +74,11 @@ func (c *Command) String() string {
 	return strings.Join(ss, " ")
 }
 
-func RunCommand(name string, args ...string) ([]byte, error) {
+func RunCommandWithoutTimeout(name string, args ...string) ([]byte, error) {
+	return RunCommandWithContext(context.Background(), name, args...)
+}
+
+func RunCommandWithTimeout(name string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), Timeout)
 	defer cancel()
 	return RunCommandWithContext(ctx, name, args...)
