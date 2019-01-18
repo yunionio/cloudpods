@@ -35,8 +35,8 @@ func init() {
 type SLoadbalancerNetwork struct {
 	db.SVirtualJointResourceBase
 
-	LoadbalancerId string `width:"36" charset:"ascii" nullable:"false" key_index:"true" list:"admin"`
-	NetworkId      string `width:"36" charset:"ascii" nullable:"false" key_index:"true" list:"admin"`
+	LoadbalancerId string `width:"36" charset:"ascii" nullable:"false" list:"admin"`
+	NetworkId      string `width:"36" charset:"ascii" nullable:"false" list:"admin"`
 	IpAddr         string `width:"16" charset:"ascii" list:"admin"`
 }
 

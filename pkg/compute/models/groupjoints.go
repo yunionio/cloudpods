@@ -22,7 +22,7 @@ func NewGroupJointsManager(dt interface{}, tableName string, keyword string, key
 type SGroupJointsBase struct {
 	db.SVirtualJointResourceBase
 
-	SrvtagId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" key_index:"true"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	SrvtagId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
 func (self *SGroupJointsBase) GetGroup() *SGuest {

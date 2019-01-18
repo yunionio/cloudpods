@@ -49,15 +49,15 @@ func init() {
 type SGuestnetwork struct {
 	SGuestJointsBase
 
-	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"user"  key_index:"true"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
-	MacAddr   string `width:"32" charset:"ascii" nullable:"false" list:"user"`                   // Column(VARCHAR(32, charset='ascii'), nullable=False)
-	IpAddr    string `width:"16" charset:"ascii" nullable:"false" list:"user"`                   // Column(VARCHAR(16, charset='ascii'), nullable=True)
-	Ip6Addr   string `width:"64" charset:"ascii" nullable:"true" list:"user"`                    // Column(VARCHAR(64, charset='ascii'), nullable=True)
-	Driver    string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user"`      // Column(VARCHAR(16, charset='ascii'), nullable=True)
-	BwLimit   int    `nullable:"false" default:"0" list:"user"`                                  // Column(Integer, nullable=False, default=0) # Mbps
-	Index     int8   `nullable:"false" default:"0" list:"user" update:"user"`                    // Column(TINYINT, nullable=False, default=0)
-	Virtual   bool   `default:"false" list:"user"`                                               // Column(Boolean, default=False)
-	Ifname    string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user"`      // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"user" `             // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	MacAddr   string `width:"32" charset:"ascii" nullable:"false" list:"user"`              // Column(VARCHAR(32, charset='ascii'), nullable=False)
+	IpAddr    string `width:"16" charset:"ascii" nullable:"false" list:"user"`              // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	Ip6Addr   string `width:"64" charset:"ascii" nullable:"true" list:"user"`               // Column(VARCHAR(64, charset='ascii'), nullable=True)
+	Driver    string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	BwLimit   int    `nullable:"false" default:"0" list:"user"`                             // Column(Integer, nullable=False, default=0) # Mbps
+	Index     int8   `nullable:"false" default:"0" list:"user" update:"user"`               // Column(TINYINT, nullable=False, default=0)
+	Virtual   bool   `default:"false" list:"user"`                                          // Column(Boolean, default=False)
+	Ifname    string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
 }
 
 func (joint *SGuestnetwork) Master() db.IStandaloneModel {
