@@ -743,11 +743,6 @@ func (self *SElasticip) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSO
 	if vm != nil {
 		extra.Add(jsonutils.NewString(vm.GetName()), "associate_name")
 	}
-	region := self.GetRegion()
-	if region != nil {
-		extra.Add(jsonutils.NewString(region.GetName()), "cloudregion")
-		extra.Add(jsonutils.NewString(region.GetName()), "region")
-	}
 	return extra
 }
 
