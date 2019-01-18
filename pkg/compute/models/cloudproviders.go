@@ -75,7 +75,7 @@ type SCloudprovider struct {
 	Account string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
 	Secret  string `width:"256" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
 
-	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" key_index:"true"`
+	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 
 	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"true" list:"admin"`
 
