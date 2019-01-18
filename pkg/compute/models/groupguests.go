@@ -32,8 +32,8 @@ func init() {
 type SGroupguest struct {
 	SGroupJointsBase
 
-	Tag     string `width:"256" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"`    // Column(VARCHAR(256, charset='ascii'), nullable=True)
-	GuestId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" key_index:"true"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	Tag     string `width:"256" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"` // Column(VARCHAR(256, charset='ascii'), nullable=True)
+	GuestId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`               // Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
 func (joint *SGroupguest) Master() db.IStandaloneModel {

@@ -33,7 +33,7 @@ func init() {
 type SGuestsecgroup struct {
 	SGuestJointsBase
 
-	SecgroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" key_index:"true"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	SecgroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
 func (self *SGuestsecgroup) getSecgroup() *SSecurityGroup {

@@ -62,7 +62,6 @@ func (ts *STableSpec) updateFields(dt interface{}, fields map[string]interface{}
 	versionFields := make([]string, 0)
 	updatedFields := make([]string, 0)
 	primaryCols := make(map[string]interface{}, 0)
-	indexCols := make(map[string]interface{}, 0)
 	for _, col := range ts.Columns() {
 		name := col.Name()
 		colValue, ok := fullFields.GetInterface(name)
@@ -71,9 +70,6 @@ func (ts *STableSpec) updateFields(dt interface{}, fields map[string]interface{}
 		}
 		if col.IsPrimary() && !col.IsZero(colValue) {
 			primaryCols[name] = colValue
-			continue
-		} else if col.IsKeyIndex() && !col.IsZero(colValue) {
-			indexCols[name] = colValue
 			continue
 		}
 		intCol, ok := col.(*SIntegerColumn)
@@ -112,16 +108,11 @@ func (ts *STableSpec) updateFields(dt interface{}, fields map[string]interface{}
 	}
 	buf.WriteString(" WHERE ")
 	first = true
-	var indexFilter map[string]interface{}
-	if len(primaryCols) > 0 {
-		indexFilter = primaryCols
-	} else if len(indexCols) > 0 {
-		indexFilter = indexCols
-	} else {
-		return fmt.Errorf("neither primary key nor key indexes empty???")
+	if len(primaryCols) == 0 {
+		return fmt.Errorf("primary key empty???")
 	}
 
-	for k, v := range indexFilter {
+	for k, v := range primaryCols {
 		if first {
 			first = false
 		} else {

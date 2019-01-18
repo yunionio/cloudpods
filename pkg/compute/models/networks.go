@@ -1560,10 +1560,13 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range guestnetworks {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if self.isAddressInRange(addr) {
-			GuestnetworkManager.TableSpec().Update(gn, func() error {
+			_, err = GuestnetworkManager.TableSpec().Update(&gn, func() error {
 				gn.NetworkId = net.Id
 				return nil
 			})
+			if err != nil {
+				log.Errorln(err)
+			}
 		}
 	}
 
@@ -1576,10 +1579,13 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range hostnetworks {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if self.isAddressInRange(addr) {
-			HostnetworkManager.TableSpec().Update(gn, func() error {
+			_, err = HostnetworkManager.TableSpec().Update(&gn, func() error {
 				gn.NetworkId = net.Id
 				return nil
 			})
+			if err != nil {
+				log.Errorln(err)
+			}
 		}
 	}
 
@@ -1592,10 +1598,13 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range reservedips {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if self.isAddressInRange(addr) {
-			ReservedipManager.TableSpec().Update(gn, func() error {
+			_, err = ReservedipManager.TableSpec().Update(&gn, func() error {
 				gn.NetworkId = net.Id
 				return nil
 			})
+			if err != nil {
+				log.Errorln(err)
+			}
 		}
 	}
 
@@ -1608,10 +1617,13 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range groupnetwroks {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if self.isAddressInRange(addr) {
-			GroupnetworkManager.TableSpec().Update(gn, func() error {
+			_, err = GroupnetworkManager.TableSpec().Update(&gn, func() error {
 				gn.NetworkId = net.Id
 				return nil
 			})
+			if err != nil {
+				log.Errorln(err)
+			}
 		}
 	}
 
@@ -1700,10 +1712,13 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range guestnetworks {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if network.isAddressInRange(addr) {
-			GuestnetworkManager.TableSpec().Update(gn, func() error {
+			_, err := GuestnetworkManager.TableSpec().Update(&gn, func() error {
 				gn.NetworkId = network.Id
 				return nil
 			})
+			if err != nil {
+				log.Errorln(err)
+			}
 		}
 	}
 
@@ -1716,10 +1731,13 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range hostnetworks {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if network.isAddressInRange(addr) {
-			HostnetworkManager.TableSpec().Update(gn, func() error {
+			_, err = HostnetworkManager.TableSpec().Update(&gn, func() error {
 				gn.NetworkId = network.Id
 				return nil
 			})
+			if err != nil {
+				log.Errorln(err)
+			}
 		}
 	}
 
@@ -1732,10 +1750,13 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range reservedips {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if network.isAddressInRange(addr) {
-			ReservedipManager.TableSpec().Update(gn, func() error {
+			_, err = ReservedipManager.TableSpec().Update(&gn, func() error {
 				gn.NetworkId = network.Id
 				return nil
 			})
+			if err != nil {
+				log.Errorln(err)
+			}
 		}
 	}
 
@@ -1748,10 +1769,13 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range groupnetworks {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if network.isAddressInRange(addr) {
-			GroupnetworkManager.TableSpec().Update(gn, func() error {
+			_, err = GroupnetworkManager.TableSpec().Update(&gn, func() error {
 				gn.NetworkId = network.Id
 				return nil
 			})
+			if err != nil {
+				log.Errorln(err)
+			}
 		}
 	}
 
