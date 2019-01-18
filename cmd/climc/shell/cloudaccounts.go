@@ -44,6 +44,7 @@ func init() {
 		Password        string `help:"OpenStack|VMware password"`
 		AuthURL         string `help:"OpenStack auth_url"`
 		Host            string `help:"VMware host"`
+		Port            string `help:"VMware host port" default:"443"`
 		TenantID        string `help:"Azure tenant_id"`
 		ClientID        string `help:"Azure tenant_id"`
 		ClientSecret    string `help:"Azure clinet_secret"`
@@ -63,11 +64,11 @@ func init() {
 		data := jsonutils.Marshal(args)
 
 		requireParamsMap := map[string][]string{
-			"VMware":    {"username", "password", "host"},
+			"VMware":    {"username", "password", "host", "port"},
 			"Aliyun":    {"access_key_id", "access_key_secret"},
 			"Azure":     {"tenant_id", "client_id", "client_secret", "environment"},
 			"Qcloud":    {"app_id", "secret_id", "secret_key"},
-			"OpenStack": {"project_name", "username", "password"},
+			"OpenStack": {"project_name", "username", "password", "auth_url"},
 			"Huawei":    {"access_key_id", "access_key_secret", "environment"},
 			"Aws":       {"access_key_id", "access_key_secret", "environment"},
 		}
