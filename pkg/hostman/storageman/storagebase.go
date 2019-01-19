@@ -27,6 +27,7 @@ type IStorage interface {
 	SetPath(string)
 	GetPath() string
 	GetSnapshotDir() string
+	GetSnapshotPathByIds(diskId, snapshotId string) string
 	GetFreeSizeMb() int
 	GetCapacity() int
 
