@@ -16,6 +16,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
 	"yunion.io/x/pkg/utils"
 )
@@ -96,7 +97,7 @@ func FilePutContents(filename string, content string, modAppend bool) error {
 
 func IsBlockDevMounted(dev string) bool {
 	devPath := "/dev/" + dev
-	mounts, err := exec.Command("mount").Output()
+	mounts, err := procutils.NewCommand("mount").Run()
 	if err != nil {
 		return false
 	}
@@ -413,7 +414,7 @@ func GetDevSector512Count(dev string) int {
 // TODO test
 func ResizeDiskFs(diskPath string, sizeMb int) error {
 	var cmds = []string{"parted", "-a", "none", "-s", diskPath, "--", "unit", "s", "print"}
-	lines, err := exec.Command(cmds[0], cmds[1:]...).Output()
+	lines, err := procutils.NewCommand(cmds[0], cmds[1:]...).Run()
 	if err != nil {
 		log.Errorf("resize disk fs fail: %s", err)
 		return err
@@ -483,7 +484,7 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 		if len(part[1]) > 0 {
 			cmds = append(cmds, "set", part[0], "boot", "on")
 		}
-		err := exec.Command(cmds[0], cmds[1:]...).Run()
+		_, err := procutils.NewCommand(cmds[0], cmds[1:]...).Run()
 		if err != nil {
 			log.Errorln(err)
 			return err
@@ -500,7 +501,7 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 
 func FsckExtFs(fpath string) bool {
 	cmd := []string{"e2fsck", "-f", "-p", fpath}
-	if err := exec.Command(cmd[0], cmd[1:]...).Run(); err != nil {
+	if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run(); err != nil {
 		log.Errorln(err)
 		return false
 	}
@@ -508,7 +509,7 @@ func FsckExtFs(fpath string) bool {
 }
 
 func FsckXfsFs(fpath string) bool {
-	if err := exec.Command("xfs_check", fpath).Run(); err != nil {
+	if _, err := procutils.NewCommand("xfs_check", fpath).Run(); err != nil {
 		log.Errorln(err)
 		exec.Command("xfs_repair", fpath).Run()
 		return false
@@ -537,7 +538,7 @@ func ResizePartitionFs(fpath, fs string) error {
 		cmds = [][]string{{"resize2fs", fpath}}
 	} else if fs == "xfs" {
 		var tmpPoint = fmt.Sprintf("/tmp/%s", strings.Replace(fpath, "/", "_", -1))
-		if err := exec.Command("mountpoint", tmpPoint).Run(); err == nil {
+		if _, err := procutils.NewCommand("mountpoint", tmpPoint).Run(); err == nil {
 			err = exec.Command("umount", "-f", tmpPoint).Run()
 			if err != nil {
 				log.Errorln(err)
@@ -557,7 +558,7 @@ func ResizePartitionFs(fpath, fs string) error {
 
 	if len(cmds) > 0 {
 		for _, cmd := range cmds {
-			err := exec.Command(cmd[0], cmd[1:]...).Run()
+			_, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run()
 			if err != nil {
 				log.Errorln(err)
 				return err
@@ -568,7 +569,7 @@ func ResizePartitionFs(fpath, fs string) error {
 }
 
 func GetDevUuid(dev string) map[string]string {
-	lines, err := exec.Command("blkid", dev).Output()
+	lines, err := procutils.NewCommand("blkid", dev).Run()
 	if err != nil {
 		return nil
 	}
@@ -597,7 +598,7 @@ func GetDevOfPath(spath string) string {
 		log.Errorln(err)
 		return ""
 	}
-	lines, err := exec.Command("mount").Output()
+	lines, err := procutils.NewCommand("mount").Run()
 	if err != nil {
 		log.Errorln(err)
 		return ""
@@ -630,7 +631,7 @@ func GetDevId(spath string) string {
 	if len(dev) == 0 {
 		return ""
 	}
-	devInfo, err := exec.Command("ls", "-l", dev).Output()
+	devInfo, err := procutils.NewCommand("ls", "-l", dev).Run()
 	if err != nil {
 		log.Errorln(err)
 		return ""

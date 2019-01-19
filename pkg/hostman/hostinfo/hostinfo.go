@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -23,12 +24,14 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/hostman/system_service"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
@@ -48,8 +51,10 @@ type SHostInfo struct {
 	isRegistered     bool
 	IsRegistered     chan struct{}
 	registerCallback func()
-	saved            bool
-	pinger           *SHostPingTask
+	stopped          bool
+
+	saved  bool
+	pinger *SHostPingTask
 
 	kvmModuleSupport string
 	nestStatus       string
@@ -57,7 +62,7 @@ type SHostInfo struct {
 	Cpu     *SCPUInfo
 	Mem     *SMemory
 	sysinfo *SSysInfo
-	// storageManager *storageman.SStorageManager
+
 	IsolatedDeviceMan *isolated_device.IsolatedDeviceManager
 
 	MasterNic *netutils2.SNetInterface
@@ -112,9 +117,11 @@ func (h *SHostInfo) Init() error {
 	if err := h.prepareEnv(); err != nil {
 		return err
 	}
+	log.Infof("Start parseConfig")
 	if err := h.parseConfig(); err != nil {
 		return err
 	}
+	log.Infof("Start detectHostInfo")
 	if err := h.detectHostInfo(); err != nil {
 		return err
 	}
@@ -144,9 +151,9 @@ func (h *SHostInfo) parseConfig() error {
 		h.Nics[i].SetupDhcpRelay()
 	}
 
-	if err := storageman.Init(h); err != nil {
-		return err
-	}
+	// if err := storageman.Init(h); err != nil {
+	// 	return err
+	// }
 
 	if man, err := isolated_device.NewManager(h); err != nil {
 		return fmt.Errorf("NewIsolatedManager: %v", err)
@@ -165,12 +172,12 @@ func (h *SHostInfo) prepareEnv() error {
 		return fmt.Errorf("Option report_interval must no longer than 5 min")
 	}
 
-	_, err := exec.Command("mkdir", "-p", options.HostOptions.ServersPath).Output()
+	_, err := procutils.NewCommand("mkdir", "-p", options.HostOptions.ServersPath).Run()
 	if err != nil {
 		return fmt.Errorf("Failed to create path %s", options.HostOptions.ServersPath)
 	}
 
-	_, err = exec.Command(qemutils.GetQemu(""), "-version").Output()
+	_, err = procutils.NewCommand(qemutils.GetQemu(""), "-version").Run()
 	if err != nil {
 		return fmt.Errorf("Qemu/Kvm not installed")
 	}
@@ -190,11 +197,11 @@ func (h *SHostInfo) prepareEnv() error {
 		ioParams["queue/iosched/quantum"] = "32"
 	}
 	fileutils2.ChangeAllBlkdevsParams(ioParams)
-	_, err = exec.Command("modprobe", "tun").Output()
+	_, err = procutils.NewCommand("modprobe", "tun").Run()
 	if err != nil {
 		return fmt.Errorf("Failed to activate tun/tap device")
 	}
-	_, err = exec.Command("modprobe", "vhost_net").Output()
+	_, err = procutils.NewCommand("modprobe", "vhost_net").Run()
 	if err != nil {
 		e := err.(*exec.ExitError)
 		log.Errorln(e.Stderr)
@@ -203,12 +210,12 @@ func (h *SHostInfo) prepareEnv() error {
 		return fmt.Errorf("Cannot initialize control group subsystem")
 	}
 
-	_, err = exec.Command("rmmod", "nbd").Output()
+	_, err = procutils.NewCommand("rmmod", "nbd").Run()
 	if err != nil {
 		e := err.(*exec.ExitError)
 		log.Errorln(e.Stderr)
 	}
-	_, err = exec.Command("modprobe", "nbd", "max_part=16").Output()
+	_, err = procutils.NewCommand("modprobe", "nbd", "max_part=16").Run()
 	if err != nil {
 		e := err.(*exec.ExitError)
 		log.Errorf("Failed to activate nbd device: %s", e.Stderr)
@@ -254,7 +261,7 @@ func (h *SHostInfo) prepareEnv() error {
 }
 
 func (h *SHostInfo) detectHostInfo() error {
-	output, err := exec.Command("dmidecode", "-t", "1").Output()
+	output, err := procutils.NewCommand("dmidecode", "-t", "1").Run()
 	if err != nil {
 		return err
 	}
@@ -284,8 +291,26 @@ func (h *SHostInfo) detectHostInfo() error {
 }
 
 func (h *SHostInfo) checkSystemServices() error {
-	// TOOD
-	return fmt.Errorf("not implement so far")
+	for _, srv := range []string{"ntpd", "telegraf"} {
+		srvinst := system_service.GetService(srv)
+		if srvinst == nil {
+			return fmt.Errorf("service %s not found", srv)
+		} else {
+			if !srvinst.IsInstalled() {
+				return fmt.Errorf("Service %s not installed", srv)
+			}
+		}
+	}
+
+	for _, srv := range []string{"host_sdnagent"} {
+		srvinst := system_service.GetService(srv)
+		if !srvinst.IsInstalled() {
+			log.Warningf("Service %s not installed", srv)
+		} else if !srvinst.IsActive() {
+			srvinst.Start(false)
+		}
+	}
+	return nil
 }
 
 func (h *SHostInfo) detectiveStorageSystem() {
@@ -348,11 +373,10 @@ func (h *SHostInfo) EnableNativeHugepages() error {
 			h.setSysConfig(k, v)
 		}
 		preAllocPagesNum := h.GetMemory()/h.Mem.GetHugepagesizeMb() + 1
-		cmd := timeutils2.CommandWithTimeout(1, "sh", "-c", fmt.Sprintf("echo %d > /proc/sys/vm/nr_hugepages", preAllocPagesNum))
-		_, err := cmd.Output()
+		err := timeutils2.CommandWithTimeout(1, "sh", "-c", fmt.Sprintf("echo %d > /proc/sys/vm/nr_hugepages", preAllocPagesNum)).Run()
 		if err != nil {
 			log.Errorln(err)
-			_, err = exec.Command("sh", "-c", "echo 0 > /proc/sys/vm/nr_hugepages").Output()
+			_, err = procutils.NewCommand("sh", "-c", "echo 0 > /proc/sys/vm/nr_hugepages").Run()
 			if err != nil {
 				log.Warningf(err.Error())
 			}
@@ -404,10 +428,9 @@ func (h *SHostInfo) TuneSystem() {
 
 func (h *SHostInfo) resetIptables() error {
 	for _, tbl := range []string{"filter", "nat", "mangle"} {
-		_, err := exec.Command(fmt.Sprintf("iptables -t %s -F", tbl)).Output()
+		_, err := procutils.NewCommand("iptables", "-t", tbl, "-F").Run()
 		if err != nil {
-			e := err.(*exec.ExitError)
-			return fmt.Errorf("Fail to clean NAT iptable: %s", e.Stderr)
+			return fmt.Errorf("Fail to clean NAT iptable: %s", err)
 		}
 	}
 	return nil
@@ -438,7 +461,7 @@ func (h *SHostInfo) modprobeKvmModule(name string, remove, nest bool) bool {
 	if nest {
 		params = append(params, "nested=1")
 	}
-	if err := exec.Command(params[0], params[1:]...).Run(); err != nil {
+	if _, err := procutils.NewCommand(params[0], params[1:]...).Run(); err != nil {
 		return false
 	}
 	return true
@@ -471,7 +494,7 @@ func (h *SHostInfo) _detectiveNestSupport() string {
 }
 
 func (h *SHostInfo) _isNestSupport(name string) bool {
-	output, err := exec.Command("modinfo", name).Output()
+	output, err := procutils.NewCommand("modinfo", name).Run()
 	if err != nil {
 		log.Errorln(err)
 		return false
@@ -542,7 +565,7 @@ func (h *SHostInfo) getModuleParameter(name, moduel string) string {
 }
 
 func (h *SHostInfo) checkKvmModuleInstall(name string) bool {
-	output, err := exec.Command("lsmod").Output()
+	output, err := procutils.NewCommand("lsmod").Run()
 	if err != nil {
 		log.Errorln(err)
 		return false
@@ -557,14 +580,14 @@ func (h *SHostInfo) checkKvmModuleInstall(name string) bool {
 }
 
 func (h *SHostInfo) detectiveOsDist() {
-	files, err := exec.Command("ls", "/etc/*elease").Output()
+	files, err := procutils.NewCommand("sh", "-c", "ls /etc/*elease").Run()
 	if err != nil {
 		log.Errorln(err)
 		return
 	}
 	re := regexp.MustCompile(`(.+) release ([\d.]+)[^(]*(?:\((.+)\))?`)
-	for _, file := range strings.Split(string(files), " ") {
-		content, err := fileutils2.FileGetContents(path.Join("/etc", file))
+	for _, file := range strings.Split(string(files), "\n") {
+		content, err := fileutils2.FileGetContents(file)
 		if err != nil {
 			continue
 		}
@@ -575,13 +598,14 @@ func (h *SHostInfo) detectiveOsDist() {
 			break
 		}
 	}
+	log.Infof("DetectiveOsDist %s %s", h.sysinfo.OsDistribution, h.sysinfo.OsVersion)
 	if len(h.sysinfo.OsDistribution) == 0 {
 		log.Errorln("Failed to detect distribution info")
 	}
 }
 
 func (h *SHostInfo) detectiveKernelVersion() {
-	out, err := exec.Command("uname", "-r").Output()
+	out, err := procutils.NewCommand("uname", "-r").Run()
 	if err != nil {
 		log.Errorln(err)
 	}
@@ -600,15 +624,17 @@ func (h *SHostInfo) detectiveSyssoftwareInfo() error {
 
 func (h *SHostInfo) detectiveQemuVersion() error {
 	cmd := qemutils.GetQemu(options.HostOptions.DefaultQemuVersion)
-	version, err := exec.Command(cmd, "--version").Output()
+	version, err := procutils.NewCommand(cmd, "--version").Run()
 	if err != nil {
 		log.Errorln(err)
 		return err
 	} else {
-		re := regexp.MustCompile(`(?i)(?<=version\s)[\d.]+`)
-		v := re.FindStringSubmatch(string(version))
+		versions := strings.Split(string(version), "\n")
+		parts := strings.Split(versions[0], " ")
+		v := parts[len(parts)-1]
 		if len(v) > 0 {
-			h.sysinfo.QemuVersion = v[0]
+			log.Infof("Detect qemu version is %s", v)
+			h.sysinfo.QemuVersion = v
 		} else {
 			return fmt.Errorf("Failed to detect qemu version")
 		}
@@ -617,14 +643,16 @@ func (h *SHostInfo) detectiveQemuVersion() error {
 }
 
 func (h *SHostInfo) detectiveOvsVersion() {
-	version, err := exec.Command("ovs-vsctl", "--version").Output()
+	version, err := procutils.NewCommand("ovs-vsctl", "--version").Run()
 	if err != nil {
 		log.Errorln(err)
 	} else {
-		re := regexp.MustCompile(`'(?i)(?<=\(open vswitch\)\s)[\d.]+'`)
-		v := re.FindStringSubmatch(string(version))
+		versions := strings.Split(string(version), "\n")
+		parts := strings.Split(versions[0], " ")
+		v := parts[len(parts)-1]
 		if len(v) > 0 {
-			h.sysinfo.OvsVersion = v[0]
+			log.Infof("Detect OVS version is %s", v)
+			h.sysinfo.OvsVersion = v
 		} else {
 			log.Errorln("Failed to detect ovs version")
 		}
@@ -758,7 +786,7 @@ func (h *SHostInfo) getHostInfo(zoneId string) {
 
 func (h *SHostInfo) setHostname(name string) {
 	h.FullName = name
-	err := exec.Command("hostnamectl", "set-hostname", name).Run()
+	_, err := procutils.NewCommand("hostnamectl", "set-hostname", name).Run()
 	if err != nil {
 		log.Errorln("Fail to set system hostname: %s", err)
 	}
@@ -779,7 +807,7 @@ func (h *SHostInfo) getSysInfo() *SSysInfo {
 
 func (h *SHostInfo) updateHostRecord(hostId string) {
 	var method, url string
-	if len(hostId) > 0 {
+	if len(hostId) == 0 {
 		method = "POST"
 		url = fmt.Sprintf("/zones/%s/hosts", h.ZoneId)
 	} else {
@@ -846,7 +874,7 @@ func (h *SHostInfo) onUpdateHostInfoSucc(body jsonutils.JSONObject) {
 	if memReserved, _ := hostbody.Int("mem_reserved"); memReserved == 0 {
 		h.updateHostReservedMem()
 	} else {
-		h.putHostOffline()
+		h.PutHostOffline()
 	}
 }
 
@@ -871,7 +899,7 @@ func (h *SHostInfo) getReservedMem() int64 {
 	return int64(reserved)
 }
 
-func (h *SHostInfo) putHostOffline() {
+func (h *SHostInfo) PutHostOffline() {
 	_, err := modules.Hosts.PerformAction(
 		h.GetSession(), h.HostId, "offline", nil)
 	if err != nil {
@@ -976,7 +1004,7 @@ func (h *SHostInfo) doSyncNicInfo(nic *SNIC) {
 	content := jsonutils.NewDict()
 	content.Set("bridge", jsonutils.NewString(nic.Bridge))
 	content.Set("interface", jsonutils.NewString(nic.Inter))
-	_, err := modules.Hostwires.Patch(h.GetSession(),
+	_, err := modules.Hostwires.Update(h.GetSession(),
 		h.HostId, nic.Network, content)
 	if err != nil {
 		log.Errorln(err)
@@ -1050,7 +1078,7 @@ func (h *SHostInfo) getStorageInfo() {
 	params := jsonutils.NewDict()
 	params.Set("details", jsonutils.JSONTrue)
 	params.Set("limit", jsonutils.NewInt(0))
-	res, err := modules.Hoststorages.ListAscendent(
+	res, err := modules.Hoststorages.ListDescendent(
 		h.GetSession(),
 		h.HostId, params)
 	if err != nil {
@@ -1064,26 +1092,37 @@ func (h *SHostInfo) getStorageInfo() {
 func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 	var detachStorages = []jsonutils.JSONObject{}
 	storageManager := storageman.GetManager()
+
 	for _, hs := range hoststorages {
+		storagetype, _ := hs.GetString("storage_type")
 		mountPoint, _ := hs.GetString("mount_point")
 		storagecacheId, _ := hs.GetString("storagecache_id")
-		storagetype, _ := hs.GetString("storage_type")
 		imagecachePath, _ := hs.GetString("imagecache_path")
 		storageId, _ := hs.GetString("storage_id")
 		storageName, _ := hs.GetString("storage")
 		storageConf, _ := hs.Get("storage_conf")
 
-		storage := storageManager.NewSharedStorageInstance(mountPoint, storagetype)
-		if storage != nil {
-			storageManager.Storages = append(storageManager.Storages, storage)
-		}
-		storageManager.InitSharedStorageImageCache(storagetype,
-			storagecacheId, imagecachePath, storage)
-		storage = storageManager.GetStorageByPath(mountPoint)
-		if storage != nil {
-			storage.SetStorageInfo(storageId, storageName, storageConf)
-		} else if storagetype != storagetypes.STORAGE_BAREMETAL {
-			detachStorages = append(detachStorages, hs)
+		log.Infof("Storage %s(%s) mountpoint %s", storageName, storagetype, mountPoint)
+
+		if !utils.IsInStringArray(storagetype, storagetypes.Local) {
+			storage := storageManager.NewSharedStorageInstance(mountPoint, storagetype)
+			if storage != nil {
+				storageManager.Storages = append(storageManager.Storages, storage)
+				storageManager.InitSharedStorageImageCache(
+					storagetype, storagecacheId, imagecachePath, storage)
+				storage.SetStorageInfo(storageId, storageName, storageConf)
+			}
+		} else {
+			// Storage type local
+			storage := storageManager.GetStorageByPath(mountPoint)
+			if storage != nil {
+				storage.SetStorageInfo(storageId, storageName, storageConf)
+			} else {
+				// XXX hack: storage type baremetal is a converted host，reserve storage
+				if storagetype != storagetypes.STORAGE_BAREMETAL {
+					detachStorages = append(detachStorages, hs)
+				}
+			}
 		}
 	}
 
@@ -1108,7 +1147,7 @@ func (h *SHostInfo) uploadStorageInfo() {
 }
 
 func (h *SHostInfo) onSyncStorageInfoSucc(storage storageman.IStorage, storageInfo jsonutils.JSONObject) {
-	if len(storage.GetId()) > 0 {
+	if len(storage.GetId()) == 0 {
 		id, _ := storageInfo.GetString("id")
 		name, _ := storageInfo.GetString("name")
 		storageConf, _ := storageInfo.Get("storage_conf")
@@ -1175,10 +1214,8 @@ func (h *SHostInfo) uploadIsolatedDevices() {
 }
 
 func (h *SHostInfo) onSucc() {
-	if !h.isRegistered {
+	if !h.stopped && !h.isRegistered {
 		log.Infof("Host registration process success....")
-		h.isRegistered = true
-
 		if err := h.save(); err != nil {
 			panic(err.Error())
 		}
@@ -1190,6 +1227,7 @@ func (h *SHostInfo) onSucc() {
 			h.registerCallback()
 		}
 
+		h.isRegistered = true
 		// To notify caller, host register is success
 		close(h.IsRegistered)
 	}
@@ -1197,25 +1235,33 @@ func (h *SHostInfo) onSucc() {
 
 func (h *SHostInfo) StartPinger() {
 	h.pinger = NewHostPingTask(options.HostOptions.PingRegionInterval)
-	go h.pinger.Start()
+	if h.pinger != nil {
+		go h.pinger.Start()
+	}
 }
 
 func (h *SHostInfo) save() error {
 	if h.saved {
 		return nil
+	} else {
+		h.saved = true
 	}
-	h.saved = true
+
 	if err := h.registerHostlocalServer(); err != nil {
 		return err
 	}
 	// TODO XXX >>> ???
 	// file put content
-	return h.setupBridges()
+	if err := h.setupBridges(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (h *SHostInfo) setupBridges() error {
 	for _, n := range h.Nics {
 		if err := n.BridgeDev.WarmupConfig(); err != nil {
+			log.Errorln(err)
 			return err
 		}
 	}
@@ -1235,11 +1281,108 @@ func (h *SHostInfo) registerHostlocalServer() error {
 
 		err := n.BridgeDev.RegisterHostlocalServer(mac, ip)
 		if err != nil {
-			log.Errorln(err)
 			return err
 		}
 	}
 	return nil
+}
+
+func (h *SHostInfo) stop() {
+	log.Infof("Host Info stop ...")
+	h.unregister()
+	if h.pinger != nil {
+		h.pinger.Stop()
+	}
+	for _, nic := range h.Nics {
+		nic.ExitCleanup()
+	}
+}
+
+func (h *SHostInfo) unregister() {
+	h.stopped = true
+	_, err := modules.Hosts.PerformAction(
+		h.GetSession(), h.HostId, "offline", nil)
+	if err != nil {
+		log.Errorln(err)
+	}
+}
+
+func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) {
+	if options.HostOptions.ManageNtpConfiguration {
+		ntpd := system_service.GetService("ntpd")
+		urls, _ := catalog.GetServiceURLs("ntp", options.HostOptions.Region, "", "internalURL")
+		if len(urls) > 0 {
+			log.Infof("Get Ntp urls: %v", urls)
+		} else {
+			urls = []string{"ntp://cn.pool.ntp.org",
+				"ntp://0.cn.pool.ntp.org",
+				"ntp://1.cn.pool.ntp.org",
+				"ntp://2.cn.pool.ntp.org",
+				"ntp://3.cn.pool.ntp.org"}
+		}
+		if !reflect.DeepEqual(ntpd.GetConf(), urls) && !ntpd.IsActive() {
+			ntpd.SetConf(urls)
+			ntpd.BgReload(map[string]interface{}{"servers": urls})
+		}
+	}
+	telegraf := system_service.GetService("telegraf")
+	conf := map[string]interface{}{}
+	conf["hostname"] = h.getHostname()
+	conf["tags"] = map[string]string{
+		"host_id":        h.HostId,
+		"zone_id":        h.ZoneId,
+		"zone":           h.Zone,
+		"cloudregion_id": h.CloudregionId,
+		"cloudregion":    h.Cloudregion,
+		"region":         options.HostOptions.Region,
+		"host_ip":        h.GetMasterIp(),
+		"platform":       "kvm",
+		"res_type":       "host",
+	}
+	conf["nics"] = h.getNicsTelegrafConf()
+	urls, _ := catalog.GetServiceURLs("kafka", options.HostOptions.Region, "", "internalURL")
+	if len(urls) > 0 {
+		conf["influxdb"] = map[string]interface{}{"url": urls, "database": "telegraf"}
+	}
+	if !reflect.DeepEqual(telegraf.GetConf(), conf) || !telegraf.IsActive() {
+		telegraf.SetConf(conf)
+		telegraf.BgReload(conf)
+	}
+
+	urls, _ = catalog.GetServiceURLs("elasticsearch",
+		options.HostOptions.Region, "zone", "internalURL")
+	if len(urls) > 0 {
+		conf["elasticsearch"] = map[string]interface{}{"url": urls[0]}
+		fluentbit := system_service.GetService("fluentbit")
+		if !reflect.DeepEqual(fluentbit.GetConf(), conf) || !fluentbit.IsActive() {
+			fluentbit.SetConf(conf)
+			fluentbit.BgReload(conf)
+		}
+	}
+}
+
+func (h *SHostInfo) getNicsTelegrafConf() []map[string]interface{} {
+	var ret = make([]map[string]interface{}, 0)
+	for i, n := range h.Nics {
+		ret = append(ret, map[string]interface{}{
+			"name":  n.Inter,
+			"alias": fmt.Sprintf("eth%d", i),
+			"speed": n.Bandwidth,
+		})
+		ret = append(ret, map[string]interface{}{
+			"name":  n.Inter,
+			"alias": fmt.Sprintf("br%d", i),
+			"speed": n.Bandwidth,
+		})
+	}
+	return ret
+}
+
+func (h *SHostInfo) getHostname() string {
+	if len(h.FullName) > 0 {
+		return h.FullName
+	}
+	return h.fetchHostname()
 }
 
 func NewHostInfo() (*SHostInfo, error) {
@@ -1275,4 +1418,8 @@ func Instance() *SHostInfo {
 		}
 	}
 	return hostInfo
+}
+
+func Stop() {
+	hostInfo.stop()
 }

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"sync"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/pkg/util/regutils"
 )
 
@@ -63,7 +63,7 @@ func NewLocalImageCacheManager(manager *SStorageManager, cachePath string, limit
 	imageCacheManager.cachedImages = make(map[string]IImageCache, 0)
 	imageCacheManager.mutex = new(sync.Mutex)
 	if _, err := os.Stat(cachePath); os.IsNotExist(err) {
-		exec.Command("mkdir", "-p", cachePath).Run()
+		procutils.NewCommand("mkdir", "-p", cachePath).Run()
 	}
 	imageCacheManager.loadCache()
 	return imageCacheManager

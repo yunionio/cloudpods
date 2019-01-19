@@ -54,6 +54,7 @@ type SBaseMonitor struct {
 
 	QemuVersion string
 	connected   bool
+	timeout     bool
 	rwc         net.Conn
 
 	mutex   *sync.Mutex
@@ -66,6 +67,7 @@ func NewBaseMonitor(OnMonitorConnected MonitorSuccFunc, OnMonitorDisConnect, OnM
 		OnMonitorConnected:  OnMonitorConnected,
 		OnMonitorDisConnect: OnMonitorDisConnect,
 		OnMonitorTimeout:    OnMonitorTimeout,
+		timeout:             true,
 		mutex:               &sync.Mutex{},
 	}
 }

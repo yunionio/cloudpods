@@ -1,17 +1,18 @@
 package ovsutils
 
 import (
-	"os/exec"
 	"regexp"
 	"strings"
 
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/util/regutils2"
 	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/regutils2"
 )
 
 func GetDbPorts(brname string) []string {
-	output, err := exec.Command("ovs-vsctl", "list-ifaces", brname).Output()
+	output, err := procutils.NewCommand("ovs-vsctl", "list-ifaces", brname).Run()
 	if err != nil {
 		log.Errorln(err)
 		return nil
@@ -28,7 +29,7 @@ func GetDbPorts(brname string) []string {
 }
 
 func GetDpPorts(brname string) []string {
-	output, err := exec.Command("ovs-dpctl", "show").Output()
+	output, err := procutils.NewCommand("ovs-dpctl", "show").Run()
 	if err != nil {
 		log.Errorln(err)
 		return nil
@@ -49,7 +50,7 @@ func GetDpPorts(brname string) []string {
 }
 
 func GetBridges() []string {
-	output, err := exec.Command("ovs_vsctl", "list-br").Output()
+	output, err := procutils.NewCommand("ovs-vsctl", "list-br").Run()
 	if err != nil {
 		log.Errorln(err)
 		return nil
@@ -67,7 +68,7 @@ func GetBridges() []string {
 
 func RemovePortFromBridge(brname, port string) {
 	log.Infof("remove_port_from_bridge %s %s", brname, port)
-	if err := exec.Command("ovs-vsctl", "del-port", brname, port).Run(); err != nil {
+	if _, err := procutils.NewCommand("ovs-vsctl", "del-port", brname, port).Run(); err != nil {
 		log.Errorln(err)
 	}
 }

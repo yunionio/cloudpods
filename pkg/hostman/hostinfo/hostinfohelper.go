@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"os"
-	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -25,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
@@ -46,12 +46,13 @@ func DetectCpuInfo() (*SCPUInfo, error) {
 		return nil, err
 	}
 	strCpuFreq := spec["cpu_freq"]
-	freq, err := strconv.ParseInt(strCpuFreq, 10, 0)
+	freq, err := strconv.ParseFloat(strCpuFreq, 64)
 	if err != nil {
 		log.Errorln(err)
 		return nil, err
 	}
-	cpuinfo.cpuFreq = freq
+	cpuinfo.cpuFreq = int64(freq)
+	log.Infof("cpuinfo freq %d", cpuinfo.cpuFreq)
 
 	// cpu.Percent(interval, false)
 	ret, err := fileutils2.FileGetContents("/proc/cpuinfo")
@@ -64,7 +65,7 @@ func DetectCpuInfo() (*SCPUInfo, error) {
 		log.Errorln(err)
 		return nil, err
 	}
-	bret, err := exec.Command("dmidecode", "-t", "4").Output()
+	bret, err := procutils.NewCommand("dmidecode", "-t", "4").Run()
 	if err != nil {
 		log.Errorln(err)
 		return nil, err
@@ -128,7 +129,7 @@ func DetectMemoryInfo() (*SMemory, error) {
 	smem.Total = int(info.Total / 1024 / 1024)
 	smem.Free = int(info.Available / 1024 / 1024)
 	smem.Used = smem.Total - smem.Free
-	ret, err := exec.Command("dmidecode", "-t", "17").Output()
+	ret, err := procutils.NewCommand("dmidecode", "-t", "17").Run()
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +182,7 @@ func (n *SNIC) EnableDHCPRelay() bool {
 		log.Errorln(err)
 		return false
 	}
-	if options.HostOptions.DhcpRelay != nil && netutils.IsExitAddress(v4Ip) {
+	if len(options.HostOptions.GoDhcpRelay) > 0 && !netutils.IsExitAddress(v4Ip) {
 		return true
 	} else {
 		return false
@@ -200,6 +201,12 @@ func (n *SNIC) SetWireId(wire, wireId string, bandwidth int64) {
 	n.Bandwidth = int(bandwidth)
 }
 
+func (n *SNIC) ExitCleanup() {
+	n.BridgeDev.CleanupConfig()
+	log.Infof("Stop DHCP Server")
+	// TODO stop dhcp server
+}
+
 func NewNIC(desc string) (*SNIC, error) {
 	nic := new(SNIC)
 	data := strings.Split(desc, "/")
@@ -212,6 +219,7 @@ func NewNIC(desc string) (*SNIC, error) {
 	}
 	nic.Bandwidth = 1000
 
+	log.Infof("IP %s/%s/%s", nic.Ip, nic.Bridge, nic.Inter)
 	// 这是干啥呢 ？？？
 	if len(nic.Ip) > 0 {
 		var max, wait = 30, 0
@@ -256,10 +264,10 @@ func NewNIC(desc string) (*SNIC, error) {
 
 	var dhcpRelay []string
 	if nic.EnableDHCPRelay() {
-		dhcpRelay = options.HostOptions.DhcpRelay
+		dhcpRelay = options.HostOptions.GoDhcpRelay
 	}
 	nic.dhcpServer = hostdhcp.NewGuestDHCPServer(nic.Bridge, dhcpRelay)
-	nic.dhcpServer.Start()
+	go nic.dhcpServer.Start()
 	return nic, nil
 }
 

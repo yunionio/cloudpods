@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 	"strings"
 	"syscall"
 
@@ -17,6 +16,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/ovsutils"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 type IBridgeDriver interface {
@@ -30,6 +30,7 @@ type IBridgeDriver interface {
 	GenerateIfdownScripts(scriptPath string, nic jsonutils.JSONObject) error
 	RegisterHostlocalServer(mac, ip string) error
 	WarmupConfig() error
+	CleanupConfig()
 }
 
 type SBaseBridgeDriver struct {
@@ -71,7 +72,7 @@ func (d *SBaseBridgeDriver) BringupInterface() error {
 		if options.HostOptions.TunnelPaddingBytes > 0 {
 			cmd = append(cmd, "mtu", fmt.Sprintf("%d", options.HostOptions.TunnelPaddingBytes))
 		}
-		if err := exec.Command(cmd[0], cmd[1:]...).Run(); err != nil {
+		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run(); err != nil {
 			return err
 		}
 	}
@@ -139,12 +140,12 @@ func (d *SBaseBridgeDriver) SetupAddresses(mask net.IPMask) error {
 	if options.HostOptions.TunnelPaddingBytes > 0 {
 		cmd = append(cmd, "mtu", fmt.Sprintf("%d", options.HostOptions.TunnelPaddingBytes+1500))
 	}
-	if err := exec.Command(cmd[0], cmd[1:]...).Run(); err != nil {
+	if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run(); err != nil {
 		log.Errorln(err)
 		return fmt.Errorf("Failed to bring up bridge %s", d.bridge)
 	}
 	if d.inter != nil {
-		if err := exec.Command("ifconfig", d.inter.String(), "0", "up").Run(); err != nil {
+		if _, err := procutils.NewCommand("ifconfig", d.inter.String(), "0", "up").Run(); err != nil {
 			log.Errorln(err)
 			return fmt.Errorf("Failed to bring up interface %s", d.inter)
 		}
@@ -156,13 +157,13 @@ func (d *SBaseBridgeDriver) SetupSlaveAddresses(slaveAddrs [][]string) error {
 	for _, slaveAddr := range slaveAddrs {
 		cmd := []string{"ip", "address", "del",
 			fmt.Sprintf("%s/%s", slaveAddr[0], slaveAddr[1]), "dev", d.inter.String()}
-		if err := exec.Command(cmd[0], cmd[1:]...).Run(); err != nil {
+		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run(); err != nil {
 			log.Errorln("Failed to remove slave address from interface %s: %s", d.inter, err)
 		}
 
 		cmd = []string{"ip", "address", "add",
 			fmt.Sprintf("%s/%s", slaveAddr[0], slaveAddr[1]), "dev", d.bridge.String()}
-		if err := exec.Command(cmd[0], cmd[1:]...).Run(); err != nil {
+		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run(); err != nil {
 			return fmt.Errorf("Failed to remove slave address from interface %s: %s", d.bridge, err)
 		}
 	}
@@ -177,7 +178,7 @@ func (d *SBaseBridgeDriver) SetupRoutes(routes [][]string) error {
 		} else {
 			cmd = []string{"route", "add", "-net", r[0], "netmask", r[2], "gw", r[1], "dev", d.bridge.String()}
 		}
-		if err := exec.Command(cmd[0], cmd[1:]...).Run(); err != nil {
+		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run(); err != nil {
 			log.Errorln(err)
 			return fmt.Errorf("Failed to add slave address to bridge %s", d.bridge)
 		}
@@ -189,8 +190,13 @@ type SOVSBridgeDriver struct {
 	SBaseBridgeDriver
 }
 
+func (o *SOVSBridgeDriver) CleanupConfig() {
+	ovsutils.CleanAllHiddenPorts()
+	// if enableopenflowcontroller ...
+}
+
 func (o *SOVSBridgeDriver) Exists() bool {
-	data, err := exec.Command("ovs-vsctl", "list-br").Output()
+	data, err := procutils.NewCommand("ovs-vsctl", "list-br").Run()
 	if err != nil {
 		log.Errorln(err)
 		return false
@@ -204,7 +210,7 @@ func (o *SOVSBridgeDriver) Exists() bool {
 }
 
 func (o *SOVSBridgeDriver) Interfaces() []string {
-	data, err := exec.Command("ovs-vsctl", "list-ifaces", o.bridge.String()).Output()
+	data, err := procutils.NewCommand("ovs-vsctl", "list-ifaces", o.bridge.String()).Run()
 	if err != nil {
 		log.Errorln(err)
 		return nil
@@ -259,7 +265,8 @@ func (o *SOVSBridgeDriver) Setup() error {
 
 func (o *SOVSBridgeDriver) SetupBridgeDev() error {
 	if !o.Exists() {
-		return exec.Command("ovs-vsctl", "--", "--may-exist", "add-br", o.bridge.String()).Run()
+		_, err := procutils.NewCommand("ovs-vsctl", "--", "--may-exist", "add-br", o.bridge.String()).Run()
+		return err
 	}
 	return nil
 }
@@ -331,14 +338,14 @@ func (o *SOVSBridgeDriver) getUpScripts(nic jsonutils.JSONObject) (string, error
 	s += "PORT=$(ovs-ofctl show $SWITCH | grep -w $IF)\n"
 	s += "PORT=$(echo $PORT | awk 'BEGIN{FS=\"(\"}{print $1}')\n"
 	s += "OFCTL=$(ovs-vsctl get-controller $SWITCH)\n"
-	s += `if [ -z "$OFCTL" ]; then\n`
+	s += "if [ -z \"$OFCTL\" ]; then\n"
 	s += "    ovs-vsctl set Interface $IF ingress_policing_rate=$LIMIT\n"
 	s += "    ovs-vsctl set Interface $IF ingress_policing_burst=$BURST\n"
 	for _, r := range o.GetOfRules(nic) {
 		s += "    " + o.AddFlow(r.cond, r.priority, r.actions)
 	}
 	s += "fi\n"
-	s += `if [ $LIMIT_DOWNLOAD != "0mbit" ]; then\n`
+	s += "if [ $LIMIT_DOWNLOAD != \"0mbit\" ]; then\n"
 	s += "    tc qdisc del dev $IF root 2>/dev/null\n"
 	s += "    tc qdisc add dev $IF root handle 1: htb default 10\n"
 	s += "    tc class add dev $IF parent 1: classid 1:1 htb " +
@@ -370,7 +377,7 @@ func (o *SOVSBridgeDriver) getDownScripts(nic jsonutils.JSONObject) (string, err
 	s += "fi\n"
 	s += "OFCTL=$(ovs-vsctl get-controller $SWITCH)\n"
 	s += "PORT=$(echo $PORT | awk 'BEGIN{FS=\"(\"}{print $1}')\n"
-	s += `if [ -z "$OFCTL" ]; then\n`
+	s += "if [ -z \"$OFCTL\" ]; then\n"
 	for _, r := range o.GetOfRules(nic) {
 		s += "    " + o.DelFlow(r.cond)
 	}
@@ -395,8 +402,9 @@ func (o *SOVSBridgeDriver) AddFlow(cond string, priority int, actions string) st
 }
 
 func (o *SOVSBridgeDriver) DoAddFlow(cond string, pri int, actions, swt string) error {
-	return exec.Command("ovs-ofctl", "add-flow", swt,
+	_, err := procutils.NewCommand("ovs-ofctl", "add-flow", swt,
 		fmt.Sprintf("%s priority=%d actions=%s", cond, pri, actions)).Run()
+	return err
 }
 
 func (o *SOVSBridgeDriver) DelFlow(cond string) string {
@@ -429,12 +437,14 @@ func (o *SOVSBridgeDriver) RegisterHostlocalServer(mac, ip string) error {
 	if !options.HostOptions.EnableOpenflowController {
 		metadataPort := o.GetMetadataServerPort()
 		if err := o.DoAddFlow("table=0 ipv6", 20000, "drop", o.bridge.String()); err != nil {
+			log.Errorln(err)
 			return err
 		}
 		if err := o.DoAddFlow("table=0 tcp nw_dst=169.254.169.254 tp_dst=80", 10000,
 			fmt.Sprintf("mod_dl_dst:%s,mod_nw_dst:%s,mod_tp_dst:%d,local",
 				mac, ip, metadataPort),
 			o.bridge.String()); err != nil {
+			log.Errorln(err)
 			return err
 		}
 		log.Infof("OVS: metadata server %s:%d", ip, metadataPort)
@@ -447,19 +457,24 @@ func (o *SOVSBridgeDriver) RegisterHostlocalServer(mac, ip string) error {
 				return err
 			}
 			k8sCidr = fmt.Sprintf("%s/%d", addr, mask)
+			log.Infof("OVS: Kubernetes cluster IP range: %s", k8sCidr)
 			err = o.DoAddFlow(fmt.Sprintf("table=0 ip,nw_dst=%s", k8sCidr),
 				10050, fmt.Sprintf("mod_dl_dst:%s,local", mac), o.bridge.String())
 			if err != nil {
+				log.Errorln(err)
 				return err
 			}
-			err = o.DoAddFlow("table=0", 0, "resubmit(,1)", o.bridge.String())
-			if err != nil {
-				return err
-			}
-			err = o.DoAddFlow("table=1", 0, "normal", o.bridge.String())
-			if err != nil {
-				return err
-			}
+		}
+
+		err := o.DoAddFlow("table=0", 0, "resubmit(,1)", o.bridge.String())
+		if err != nil {
+			log.Errorln(err)
+			return err
+		}
+		err = o.DoAddFlow("table=1", 0, "normal", o.bridge.String())
+		if err != nil {
+			log.Errorln(err)
+			return err
 		}
 	}
 	return nil
@@ -468,7 +483,7 @@ func (o *SOVSBridgeDriver) RegisterHostlocalServer(mac, ip string) error {
 func (o *SOVSBridgeDriver) ovsSetParams(params map[string]map[string]string) {
 	for tbl, tblval := range params {
 		for k, v := range tblval {
-			exec.Command("ovs-vsctl", "set", tbl, o.bridge.String(),
+			procutils.NewCommand("ovs-vsctl", "set", tbl, o.bridge.String(),
 				fmt.Sprintf("%s=%s", k, v)).Run()
 		}
 	}

@@ -5,9 +5,6 @@ import "yunion.io/x/onecloud/pkg/cloudcommon"
 type SHostOptions struct {
 	cloudcommon.CommonOptions
 
-	//host agent default disable rbac
-	EnableRbac bool `help:"Switch on Role-based Access Control" default:"false"`
-
 	HostType        string   `help:"Host server type, either hypervisor or kubelet" default:"hypervisor"`
 	ListenInterface string   `help:"Master address of host server"`
 	BridgeDriver    string   `help:"Bridge driver, bridge or openvswitch" default: "openvswitch"`
@@ -55,7 +52,7 @@ type SHostOptions struct {
 	DefaultQemuVersion string `help:"Default qemu version" default:"2.9.1"`
 
 	// dhcp_relay = ('10.168.222.236', 67) => dhcp_relay = ['10.168.222.236', '67']
-	DhcpRelay          []string `help:"DHCP relay upstream"`
+	GoDhcpRelay        []string `help:"DHCP relay upstream"`
 	TunnelPaddingBytes int64    `help:"Specify tunnel padding bytes" default:"0"`
 
 	CheckSystemServices bool `help:"Check system services (ntpd, telegraf) on startup" default:"true"`
@@ -77,7 +74,10 @@ type SHostOptions struct {
 	EnableOpenflowController bool   `default:"false"`
 	K8sClusterCidr           string `default:"10.43.0.0/16" help:"Kubernetes cluster IP range"`
 
-	PingRegionInterval int `default:"60" help:"interval to ping region, deefault is 1 minute"`
+	PingRegionInterval     int      `default:"60" help:"interval to ping region, deefault is 1 minute"`
+	ManageNtpConfiguration bool     `default:"true"`
+	LogSystemdUnits        []string `help:"Systemd units log collected by fluent-bit"`
+	BandwidthLimit         int      `default:"50" help:"Bandwidth upper bound when migrating disk image in MB/sec"`
 }
 
 var HostOptions SHostOptions

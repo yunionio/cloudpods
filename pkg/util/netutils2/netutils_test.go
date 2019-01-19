@@ -158,3 +158,8 @@ func TestFormatMac(t *testing.T) {
 		})
 	}
 }
+
+func TestNewNetInterface(t *testing.T) {
+	n := NewNetInterface("br0")
+	t.Logf("NetInterface: %s %s %s %s", n.name, n.Addr, n.Mask.String(), n.Mac)
+}

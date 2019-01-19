@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 const (
@@ -49,8 +50,8 @@ type CGroupTask struct {
 	hand ICGroupTask
 }
 
-func NewCGroupTask(pid string, coreNum int) *CGroupTask {
-	return &CGroupTask{
+func NewCGroupTask(pid string, coreNum int) CGroupTask {
+	return CGroupTask{
 		pid:    pid,
 		weight: float64(coreNum) / normalizeBase,
 	}
@@ -65,7 +66,8 @@ func getGroupPath() string {
 }
 
 func CgroupIsMounted() bool {
-	return exec.Command("mountpoint", cgroupsPath).Run() == nil
+	_, err := procutils.NewCommand("mountpoint", cgroupsPath).Run()
+	return err == nil
 }
 
 func ModuleIsMounted(module string) bool {
@@ -75,12 +77,13 @@ func ModuleIsMounted(module string) bool {
 		return false
 	} else if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
 		// is link
-		fullPath, err = os.Readlink(fullPath)
+		fullPath, err = filepath.EvalSymlinks(fullPath)
 		if err != nil {
 			log.Errorln(err)
 		}
 	}
-	return exec.Command("mountpoint", fullPath).Run() == nil
+	_, err := procutils.NewCommand("mountpoint", fullPath).Run()
+	return err == nil
 }
 
 func RootTaskPath(module string) string {
@@ -108,10 +111,15 @@ func SetRootParam(module, name, value, pid string) bool {
 	if param := GetRootParam(module, name, pid); param != value {
 		fi, err := os.Open(GetTaskParamPath(module, name, pid))
 		if err == nil {
-			fi.Write([]byte(value))
-			err = fi.Sync()
+			_, err = fi.Write([]byte(value))
+			if err != nil {
+				err = fi.Close()
+			} else {
+				log.Errorln(err)
+			}
+		} else {
+			log.Errorln(err)
 		}
-		defer fi.Close()
 
 		if err != nil {
 			if len(pid) == 0 {
@@ -298,11 +306,11 @@ func (c *CGroupTask) PushPid(pid string, isRoot bool) {
 func (c *CGroupTask) init() bool {
 	if !CgroupIsMounted() {
 		if !fileutils2.Exists(cgroupsPath) {
-			if err := exec.Command("mkdir", "-p", cgroupsPath).Run(); err != nil {
+			if _, err := procutils.NewCommand("mkdir", "-p", cgroupsPath).Run(); err != nil {
 				log.Errorln(err)
 			}
 		}
-		if err := exec.Command("mount", "-t", "tmpfs", "-o", "uid=0,gid=0,mode=0755",
+		if _, err := procutils.NewCommand("mount", "-t", "tmpfs", "-o", "uid=0,gid=0,mode=0755",
 			"cgroup", cgroupsPath).Run(); err != nil {
 			log.Errorln(err)
 			return false
@@ -325,12 +333,13 @@ func (c *CGroupTask) init() bool {
 			if !ModuleIsMounted(module) {
 				moduleDir := path.Join(cgroupsPath, module)
 				if !fileutils2.Exists(moduleDir) {
-					if err := exec.Command("mkdir", moduleDir).Run(); err != nil {
+					if _, err := procutils.NewCommand("mkdir", moduleDir).Run(); err != nil {
 						log.Errorln(err)
 						return false
 					}
 				}
-				if err := exec.Command("mount", "-t", "cgroup", "-o",
+				log.Errorln(module)
+				if _, err := procutils.NewCommand("mount", "-t", "cgroup", "-o",
 					module, module, moduleDir).Run(); err != nil {
 					log.Errorln(err)
 					return false
@@ -352,7 +361,7 @@ func (c *CGroupTask) init() bool {
  */
 
 type CGroupCPUTask struct {
-	*CGroupTask
+	CGroupTask
 }
 
 const (
@@ -374,9 +383,9 @@ func (c *CGroupCPUTask) init() bool {
 		fmt.Sprintf("%d", CgroupsSharesWeight), "")
 }
 
-func NewCGroupCPUTask(pid string, coreNum int) *CGroupCPUTask {
-	cgroup := &CGroupCPUTask{NewCGroupTask(pid, coreNum)}
-	cgroup.hand = cgroup
+func NewCGroupCPUTask(pid string, coreNum int) CGroupCPUTask {
+	cgroup := CGroupCPUTask{NewCGroupTask(pid, coreNum)}
+	cgroup.hand = &cgroup
 	return cgroup
 }
 
@@ -385,7 +394,7 @@ func NewCGroupCPUTask(pid string, coreNum int) *CGroupCPUTask {
  */
 
 type CGroupIOTask struct {
-	*CGroupTask
+	CGroupTask
 }
 
 const (
@@ -413,8 +422,8 @@ func (c *CGroupIOTask) init() bool {
 	return SetRootParam(c.Module(), BLOCK_IO_WEIGHT, fmt.Sprintf("%d", IoWeightMax), "")
 }
 
-func NewCGroupIOTask(pid string, coreNum int) *CGroupIOTask {
-	return &CGroupIOTask{NewCGroupTask(pid, coreNum)}
+func NewCGroupIOTask(pid string, coreNum int) CGroupIOTask {
+	return CGroupIOTask{NewCGroupTask(pid, coreNum)}
 }
 
 /**
@@ -422,7 +431,7 @@ func NewCGroupIOTask(pid string, coreNum int) *CGroupIOTask {
  */
 
 type CGroupIOHardlimitTask struct {
-	*CGroupIOTask
+	CGroupIOTask
 
 	cpuNum int
 	params map[string]int
@@ -439,8 +448,8 @@ func (c *CGroupIOHardlimitTask) GetConfig() map[string]string {
 	return config
 }
 
-func NewCGroupIOHardlimitTask(pid string, mem int, params map[string]int, devId string) *CGroupIOHardlimitTask {
-	return &CGroupIOHardlimitTask{
+func NewCGroupIOHardlimitTask(pid string, mem int, params map[string]int, devId string) CGroupIOHardlimitTask {
+	return CGroupIOHardlimitTask{
 		CGroupIOTask: NewCGroupIOTask(pid, 0),
 		cpuNum:       mem,
 		params:       params,
@@ -453,7 +462,7 @@ func NewCGroupIOHardlimitTask(pid string, mem int, params map[string]int, devId 
  */
 
 type CGroupMemoryTask struct {
-	*CGroupTask
+	CGroupTask
 }
 
 const (
@@ -470,8 +479,8 @@ func (c *CGroupMemoryTask) GetConfig() map[string]string {
 	return map[string]string{MEMORY_SWAPPINESS: fmt.Sprintf("%d", vm_swappiness)}
 }
 
-func NewCGroupMemoryTask(pid string, coreNum int) *CGroupMemoryTask {
-	return &CGroupMemoryTask{
+func NewCGroupMemoryTask(pid string, coreNum int) CGroupMemoryTask {
+	return CGroupMemoryTask{
 		CGroupTask: NewCGroupTask(pid, coreNum),
 	}
 }
@@ -481,7 +490,7 @@ func NewCGroupMemoryTask(pid string, coreNum int) *CGroupMemoryTask {
  */
 
 type CGroupCPUSetTask struct {
-	*CGroupTask
+	CGroupTask
 
 	cpuset string
 }
@@ -503,8 +512,8 @@ func (c *CGroupCPUSetTask) GetConfig() map[string]string {
 	return map[string]string{CPUSET_CPUS: c.cpuset}
 }
 
-func NewCGroupCPUSetTask(pid string, coreNum int, cpuset string) *CGroupCPUSetTask {
-	return &CGroupCPUSetTask{
+func NewCGroupCPUSetTask(pid string, coreNum int, cpuset string) CGroupCPUSetTask {
+	return CGroupCPUSetTask{
 		CGroupTask: NewCGroupTask(pid, coreNum),
 		cpuset:     cpuset,
 	}
@@ -520,7 +529,8 @@ func Init() bool {
 }
 
 func CgroupSet(pid string, coreNum int) bool {
-	for _, hand := range []ICGroupTask{&CGroupCPUTask{}, &CGroupIOTask{}, &CGroupMemoryTask{}} {
+	tasks := []ICGroupTask{&CGroupCPUTask{}, &CGroupIOTask{}, &CGroupMemoryTask{}}
+	for _, hand := range tasks {
 		hand.SetHand(hand)
 		hand.SetPid(pid)
 		hand.SetWeight(coreNum)
@@ -540,7 +550,9 @@ func CgroupIoHardlimitSet(
 }
 
 func CgroupDestroy(pid string) bool {
-	for _, hand := range []ICGroupTask{&CGroupCPUTask{}, &CGroupIOTask{}, &CGroupMemoryTask{}, &CGroupCPUSetTask{}, &CGroupIOHardlimitTask{}} {
+	tasks := []ICGroupTask{&CGroupCPUTask{}, &CGroupIOTask{}, &CGroupMemoryTask{},
+		&CGroupCPUSetTask{}, &CGroupIOHardlimitTask{}}
+	for _, hand := range tasks {
 		hand.SetHand(hand)
 		hand.SetPid(pid)
 		if !hand.RemoveTask() {
@@ -551,7 +563,8 @@ func CgroupDestroy(pid string) bool {
 }
 
 func CgroupCleanAll() {
-	for _, hand := range []ICGroupTask{&CGroupCPUTask{}, &CGroupIOTask{}, &CGroupMemoryTask{}, &CGroupCPUSetTask{}, &CGroupIOHardlimitTask{}} {
+	tasks := []ICGroupTask{&CGroupCPUTask{}, &CGroupIOTask{}, &CGroupMemoryTask{}, &CGroupCPUSetTask{}, &CGroupIOHardlimitTask{}}
+	for _, hand := range tasks {
 		hand.SetHand(hand)
 		CleanupNonexistPids(hand.Module())
 	}

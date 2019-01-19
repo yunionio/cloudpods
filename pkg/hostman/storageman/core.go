@@ -132,7 +132,7 @@ func (s *SStorageManager) initLocalStorageImagecache() error {
 			return err
 		}
 	}
-	if len(cachePath) == 0 {
+	if len(cachePath) > 0 {
 		s.LocalStorageImagecacheManager = NewLocalImageCacheManager(s, cachePath, limit, true, "")
 		return nil
 	} else {
@@ -274,4 +274,8 @@ func Init(host hostutils.IHost) error {
 	var err error
 	storageManager, err = NewStorageManager(host)
 	return err
+}
+
+func Stop() {
+	// pass do nothing
 }

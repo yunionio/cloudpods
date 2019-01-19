@@ -57,10 +57,10 @@ func (w *SWorkManager) DelayTask(ctx context.Context, task DelayTaskFunc, params
 
 			res, err := task(ctx, params)
 			if err != nil {
-				log.Debugf("DelayTask failed: %s", err)
+				log.Infof("DelayTask failed: %s", err)
 				w.onFailed(ctx, err.Error())
 			} else {
-				log.Debugf("DelayTask complete: %v", res)
+				log.Infof("DelayTask complete: %v", res)
 				w.onCompleted(ctx, res)
 			}
 		}()

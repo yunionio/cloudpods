@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path"
 	"strconv"
 	"strings"
@@ -29,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
 	"yunion.io/x/onecloud/pkg/util/version"
 )
@@ -85,7 +85,8 @@ func (s *SKVMGuestInstance) HomeDir() string {
 }
 
 func (s *SKVMGuestInstance) PrepareDir() error {
-	return exec.Command("mkdir", "-p", s.HomeDir()).Run()
+	_, err := procutils.NewCommand("mkdir", "-p", s.HomeDir()).Run()
+	return err
 }
 
 func (s *SKVMGuestInstance) GetPidFilePath() string {
@@ -97,19 +98,20 @@ func (s *SKVMGuestInstance) GetVncFilePath() string {
 }
 
 func (s *SKVMGuestInstance) GetPid() int {
-	pidFile := s.GetPidFilePath()
-	fi, err := os.Stat(pidFile)
+	return s.getPid(s.GetPidFilePath(), s.Id)
+}
+
+func (s *SKVMGuestInstance) getPid(pidFile, uuid string) int {
+	_, err := os.Stat(pidFile)
 	if os.IsNotExist(err) {
 		return -1
 	}
-	if fi.Mode().IsRegular() {
-		return -1
-	}
-	content, err := ioutil.ReadFile(pidFile)
+	pidStr, err := fileutils2.FileGetContents(pidFile)
 	if err != nil {
+		log.Errorln(err)
 		return -2
 	}
-	pid := s.findPid(strings.Split(string(content), "\n"))
+	pid := s.findPid(strings.Split(pidStr, "\n"), uuid)
 	if len(pid) > 0 && regutils.MatchInteger(pid) {
 		v, _ := strconv.ParseInt(pid, 10, 0)
 		return int(v)
@@ -117,20 +119,20 @@ func (s *SKVMGuestInstance) GetPid() int {
 	return -2
 }
 
-func (s *SKVMGuestInstance) findPid(pids []string) string {
+func (s *SKVMGuestInstance) findPid(pids []string, uuid string) string {
 	if len(pids) == 0 {
 		return ""
 	}
 	for _, pid := range pids {
 		pid := strings.TrimSpace(pid)
-		if s.isSelfQemuPid(pid) {
+		if s.isSelfQemuPid(pid, uuid) {
 			return pid
 		}
 	}
 	return ""
 }
 
-func (s *SKVMGuestInstance) isSelfQemuPid(pid string) bool {
+func (s *SKVMGuestInstance) isSelfQemuPid(pid, uuid string) bool {
 	if len(pid) == 0 {
 		return false
 	}
@@ -149,7 +151,7 @@ func (s *SKVMGuestInstance) isSelfQemuPid(pid string) bool {
 		return false
 	}
 	return bytes.Index(cmdline, []byte("qemu-system")) >= 0 &&
-		bytes.Index(cmdline, []byte(s.Id)) >= 0
+		bytes.Index(cmdline, []byte(uuid)) >= 0
 }
 
 func (s *SKVMGuestInstance) GetDescFilePath() string {
@@ -247,10 +249,16 @@ func (s *SKVMGuestInstance) saveScripts(data *jsonutils.JSONDict) error {
 	if err != nil {
 		return err
 	}
+	if fileutils2.Exists(s.GetStartScriptPath()) {
+		os.Remove(s.GetStartScriptPath())
+	}
 	if err = fileutils2.FilePutContents(s.GetStartScriptPath(), startScript, false); err != nil {
 		return err
 	}
 	stopScript := s.generateStopScript(data)
+	if fileutils2.Exists(s.GetStartScriptPath()) {
+		os.Remove(s.GetStopScriptPath())
+	}
 	return fileutils2.FilePutContents(s.GetStopScriptPath(), stopScript, false)
 }
 
@@ -263,18 +271,21 @@ func (s *SKVMGuestInstance) GetStopScriptPath() string {
 }
 
 func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
+	s.manager.Servers[s.Id] = s
+	s.manager.RemoveCandidateServer(s)
+
 	if s.IsDirtyShotdown() && !pendingDelete {
 		log.Infof("Server dirty shotdown %s", s.GetName())
 		if jsonutils.QueryBoolean(s.Desc, "is_master", false) ||
 			jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
 			s.DirtyServerRequestStart()
 		} else {
-			s.StartGuest(nil, nil)
+			s.StartGuest(context.Background(), jsonutils.NewDict())
 		}
 		return
 	}
 	if s.IsRunning() {
-		log.Infof("%s is running, pending_delete=%s", s.GetName(), pendingDelete)
+		log.Infof("%s is running, pending_delete=%t", s.GetName(), pendingDelete)
 		if !pendingDelete {
 			s.StartMonitor(nil)
 		}
@@ -283,7 +294,7 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 		if s.IsSuspend() {
 			action = "suspend"
 		}
-		log.Infof("%s is %s, pending_delete=%s", s.GetName(), action, pendingDelete)
+		log.Infof("%s is %s, pending_delete=%t", s.GetName(), action, pendingDelete)
 		s.SyncStatus()
 	}
 }
@@ -326,10 +337,6 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 }
 
 func (s *SKVMGuestInstance) delayStartMonitor(ctx context.Context) {
-	if s.GetQmpMonitorPort(-1) > 0 {
-		// TODO enable hmp?
-	}
-
 	if options.HostOptions.EnableQmpMonitor && s.GetQmpMonitorPort(-1) > 0 {
 		s.Monitor = monitor.NewQmpMonitor(
 			s.onMonitorDisConnect,
@@ -337,6 +344,8 @@ func (s *SKVMGuestInstance) delayStartMonitor(ctx context.Context) {
 			func() { s.onMonitorConnected(ctx) },
 		)
 		s.Monitor.Connect("127.0.0.1", s.GetQmpMonitorPort(-1))
+	} else {
+		// TODO HMP Monitor
 	}
 }
 
@@ -387,7 +396,7 @@ func (s *SKVMGuestInstance) CleanStartupTask() {
 }
 
 func (s *SKVMGuestInstance) onMonitorTimeout(ctx context.Context, err error) {
-	log.Errorf("Monitor connect timeout, VM %s frozen!! force restart!!!!", s.GetId())
+	log.Errorf("Monitor connect timeout, VM %s frozen!! force restart!!!!", s.Id)
 	s.ForceStop()
 	timeutils2.AddTimeout(time.Second*3,
 		func() { s.asyncScriptStart(ctx, jsonutils.NewDict()) })
@@ -451,7 +460,7 @@ func (s *SKVMGuestInstance) SyncStatus() {
 		status = "suspend"
 	}
 
-	hostutils.UpdateServerStatus(context.Background(), s.GetId(), status)
+	hostutils.UpdateServerStatus(context.Background(), s.Id, status)
 }
 
 func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
@@ -459,7 +468,7 @@ func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
 	if jobs > 0 {
 		status = "block_stream"
 	}
-	_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), status)
+	_, err := hostutils.UpdateServerStatus(context.Background(), s.Id, status)
 	if err != nil {
 		log.Errorln(err)
 	}
@@ -513,13 +522,13 @@ func (s *SKVMGuestInstance) StartDelete(ctx context.Context, migrated bool) erro
 func (s *SKVMGuestInstance) ForceStop() bool {
 	s.ExitCleanup(true)
 	if s.IsRunning() {
-		err := exec.Command("kill", "-9", fmt.Sprintf("%d", s.GetPid())).Run()
+		_, err := procutils.NewCommand("kill", "-9", fmt.Sprintf("%d", s.GetPid())).Run()
 		if err != nil {
 			log.Errorln(err)
 			return false
 		}
 		for _, f := range s.GetCleanFiles() {
-			err := exec.Command("rm", "-f", f).Run()
+			_, err := procutils.NewCommand("rm", "-f", f).Run()
 			if err != nil {
 				log.Errorln(err)
 				return false
@@ -575,7 +584,8 @@ func (s *SKVMGuestInstance) Delete(ctx context.Context, migrated bool) error {
 	if err := s.delTmpDisks(ctx, migrated); err != nil {
 		return err
 	}
-	return exec.Command("rm", "-rf", s.HomeDir()).Run()
+	_, err := procutils.NewCommand("rm", "-rf", s.HomeDir()).Run()
+	return err
 }
 
 func (s *SKVMGuestInstance) Stop() bool {
@@ -588,7 +598,7 @@ func (s *SKVMGuestInstance) Stop() bool {
 }
 
 func (s *SKVMGuestInstance) scriptStart() error {
-	err := exec.Command("sh", s.GetStartScriptPath()).Run()
+	_, err := procutils.NewCommand("sh", s.GetStartScriptPath()).Run()
 	if err != nil {
 		s.scriptStop()
 		return err
@@ -597,7 +607,7 @@ func (s *SKVMGuestInstance) scriptStart() error {
 }
 
 func (s *SKVMGuestInstance) scriptStop() bool {
-	err := exec.Command("sh", s.GetStopScriptPath()).Run()
+	_, err := procutils.NewCommand("sh", s.GetStopScriptPath()).Run()
 	if err != nil {
 		log.Errorln(err)
 		return false
@@ -918,7 +928,7 @@ func (s *SKVMGuestInstance) streamDisksComplete(ctx context.Context) {
 	}
 	s.SaveDesc(s.Desc)
 	_, err := modules.Servers.PerformAction(hostutils.GetComputeSession(ctx),
-		s.GetId(), "stream-disks-complete", nil)
+		s.Id, "stream-disks-complete", nil)
 	if err != nil {
 		log.Infof("stream disks complete sync error %s", err)
 	}
@@ -930,7 +940,7 @@ func (s *SKVMGuestInstance) GetQemuVersionStr() string {
 
 func (s *SKVMGuestInstance) SyncMetadata(meta *jsonutils.JSONDict) {
 	_, err := modules.Servers.SetMetadata(hostutils.GetComputeSession(context.Background()),
-		s.GetId(), meta)
+		s.Id, meta)
 	if err != nil {
 		log.Errorln(err)
 	}
@@ -941,7 +951,7 @@ func (s *SKVMGuestInstance) SetVncPassword() {
 	s.VncPassword = password
 	var callback = func(res string) {
 		if len(res) > 0 {
-			log.Errorln("Set vnc password failed: %s", res)
+			log.Errorf("Set vnc password failed: %s", res)
 		}
 	}
 	timeutils2.AddTimeout(time.Second*3,
@@ -968,16 +978,16 @@ func (s *SKVMGuestInstance) ListStateFilePaths() []string {
 // 好像不用了
 func (s *SKVMGuestInstance) CleanStatefiles() {
 	for _, stateFile := range s.ListStateFilePaths() {
-		if err := exec.Command("mountpoint", stateFile).Run(); err == nil {
-			if err = exec.Command("umount", stateFile).Run(); err != nil {
+		if _, err := procutils.NewCommand("mountpoint", stateFile).Run(); err == nil {
+			if _, err = procutils.NewCommand("umount", stateFile).Run(); err != nil {
 				log.Errorln(err)
 			}
 		}
-		if err := exec.Command("rm", "-rf", stateFile).Run(); err != nil {
+		if _, err := procutils.NewCommand("rm", "-rf", stateFile).Run(); err != nil {
 			log.Errorln(err)
 		}
 	}
-	if err := exec.Command("rm", "-rf", s.GetFuseTmpPath()); err != nil {
+	if _, err := procutils.NewCommand("rm", "-rf", s.GetFuseTmpPath()).Run(); err != nil {
 		log.Errorln(err)
 	}
 }

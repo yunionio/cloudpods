@@ -13,4 +13,6 @@ var (
 
 	DISK_TYPE_ROTATE = "rotate"
 	DISK_TYPE_SSD    = "ssd"
+
+	Local = []string{STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_NAS}
 )

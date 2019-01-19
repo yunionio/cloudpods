@@ -95,14 +95,16 @@ func NewQmpMonitor(OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc,
 		callbackQueue: make([]qmpMonitorCallBack, 0),
 	}
 
-	// qmp init must set capabilities
+	// On qmp init must set capabilities
 	m.commandQueue = append(m.commandQueue, &Command{Execute: "qmp_capabilities"})
 	m.callbackQueue = append(m.callbackQueue, nil)
+
 	return m
 }
 
 func (m *QmpMonitor) actionResult(res *Response) string {
 	if res.ErrorVal != nil {
+		log.Infof("Qmp Monitor action result %s", res.ErrorVal.Error())
 		return res.ErrorVal.Error()
 	} else {
 		return ""
@@ -150,31 +152,44 @@ func (m *QmpMonitor) read(r io.Reader) {
 			}
 			m.callBack(res)
 		} else if val, ok := objmap["event"]; ok {
-			var event = &Event{}
-			event.Event = string(*val)
-			json.Unmarshal(*objmap["data"], &event.Data)
-			json.Unmarshal(*objmap["timestamp"], event.Timestamp)
+			var event = &Event{
+				Event:     string(*val),
+				Data:      make(map[string]interface{}, 0),
+				Timestamp: new(Timestamp),
+			}
+			if data, ok := objmap["data"]; ok {
+				json.Unmarshal(*data, &event.Data)
+			}
+			if timestamp, ok := objmap["timestamp"]; ok {
+				json.Unmarshal(*timestamp, event.Timestamp)
+			}
 			m.watchEvent(event)
 		} else if val, ok := objmap["QMP"]; ok {
-			var version Version
-			json.Unmarshal(*val, &version)
-			m.QemuVersion = version.String()
-			m.connected = true
+			json.Unmarshal(*val, &objmap)
+			if val, ok = objmap["version"]; ok {
+				var version Version
+				json.Unmarshal(*val, &version)
+				m.QemuVersion = version.String()
+			}
+
 			// remove reader timeout
 			m.rwc.SetReadDeadline(time.Time{})
+			log.Infof("Qmp Connected")
+			m.connected = true
+			m.timeout = false
 			go m.query()
 			go m.OnMonitorConnected()
 		}
 	}
 
-	log.Errorln("Scan over ...")
+	log.Infof("Scan over ...")
 	if err := scanner.Err(); err != nil {
 		log.Errorln(err)
-		if m.connected {
+		if m.timeout {
+			m.OnMonitorTimeout(err)
+		} else if m.connected {
 			m.connected = false
 			m.OnMonitorDisConnect(err)
-		} else {
-			m.OnMonitorTimeout(err)
 		}
 	}
 	m.reading = false
@@ -185,6 +200,7 @@ func (m QmpMonitor) watchEvent(event *Event) {
 }
 
 func (m *QmpMonitor) write(cmd []byte) error {
+	log.Infof("QMP Write: %s", string(cmd))
 	length, index := len(cmd), 0
 	for index < length {
 		i, err := m.rwc.Write(cmd)

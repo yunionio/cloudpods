@@ -1,10 +1,11 @@
-package service
+package hostman
 
 import (
 	"context"
 	"os"
 
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
@@ -18,19 +19,44 @@ import (
 type SHostService struct {
 	service.SServiceBase
 
-	guestmanager *guestman.SGuestManager
-	hostinstance *hostinfo.SHostInfo
+	isExiting bool
 }
 
 func (host *SHostService) StartService() {
 	cloudcommon.ParseOptions(&options.HostOptions, os.Args, "host.conf", "host")
 
-	// isolatedman.Init()
+	// disable rbac
+	options.HostOptions.EnableRbac = false
+
+	app := cloudcommon.InitApp(&options.HostOptions.CommonOptions, false)
 
 	hostInstance := hostinfo.Instance()
 	if err := hostInstance.Init(); err != nil {
 		log.Fatalf(err.Error())
 	}
+
+	// register quit handler
+	host.RegisterSignals(func() {
+		if host.isExiting {
+			return
+		} else {
+			host.isExiting = true
+		}
+
+		if app.IsInServe() {
+			err := app.ShowDown(context.Background())
+			if err != nil {
+				log.Errorln(err.Error())
+			}
+		}
+
+		hostinfo.Stop()
+		storageman.Stop()
+		guestman.Stop()
+		hostutils.GetWorkManager().Stop()
+
+		os.Exit(0)
+	})
 
 	if err := storageman.Init(hostInstance); err != nil {
 		log.Fatalf(err.Error())
@@ -38,31 +64,15 @@ func (host *SHostService) StartService() {
 
 	guestman.Init(hostInstance, options.HostOptions.ServersPath)
 
-	var c = make(chan struct{})
 	cloudcommon.InitAuth(&options.HostOptions.CommonOptions, func() {
 		log.Infof("Auth complete!!")
-
 		hostInstance.StartRegister(5, guestman.GetGuestManager().Bootstrap)
-		<-hostinfo.Instance().IsRegistered
-
-		close(c)
 	})
 
-	app := cloudcommon.InitApp(&options.HostOptions.CommonOptions, false)
-	host.TrapSignals(func() { host.quitSignalHandler(app) })
 	host.initHandlers(app)
-
-	<-c // wait host and guest init
+	<-hostinfo.Instance().IsRegistered // wait host and guest init
 
 	cloudcommon.ServeForever(app, &options.HostOptions.CommonOptions)
-}
-
-func (host *SHostService) quitSignalHandler(app *appsrv.Application) {
-	err := app.ShowDown(context.Background())
-	if err != nil {
-		log.Errorln(err.Error())
-	}
-	hostutils.GetWorkManager().Stop()
 }
 
 func (host *SHostService) initHandlers(app *appsrv.Application) {

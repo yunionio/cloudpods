@@ -101,9 +101,9 @@ func (s *SKVMGuestInstance) getDriveDesc(disk jsonutils.JSONObject, format strin
 	aioMode, _ := disk.GetString("aio_mode")
 
 	cmd := " -drive"
-	cmd += fmt.Sprintf(" file=$DISK_%s", diskIndex)
+	cmd += fmt.Sprintf(" file=$DISK_%d", diskIndex)
 	cmd += ",if=none"
-	cmd += fmt.Sprintf(",id=drive_%s", diskIndex)
+	cmd += fmt.Sprintf(",id=drive_%d", diskIndex)
 	if len(format) == 0 || format == "qcow2" {
 		// pass    # qemu will automatically detect image format
 	} else if format == "raw" {
@@ -146,7 +146,7 @@ func (s *SKVMGuestInstance) getVdiskDesc(disk jsonutils.JSONObject) string {
 
 	var cmd = ""
 	cmd += fmt.Sprintf(" -device %s", s.GetDiskDeviceModel(diskDriver))
-	cmd += fmt.Sprintf(",drive=drive_%s", diskIndex)
+	cmd += fmt.Sprintf(",drive=drive_%d", diskIndex)
 	if diskDriver == DISK_DRIVER_VIRTIO {
 		cmd += fmt.Sprintf(",bus=%s,addr=0x%x", s.GetPciBus(), s.GetDiskAddr(int(diskIndex)))
 	} else if utils.IsInStringArray(diskDriver, []string{DISK_DRIVER_SCSI, DISK_DRIVER_PVSCSI}) {
@@ -193,7 +193,6 @@ func (s *SKVMGuestInstance) getNetdevDesc(nic jsonutils.JSONObject) (string, err
 	ifname, _ := nic.GetString("ifname")
 	driver, _ := nic.GetString("driver")
 
-	// TODO
 	if err := s.generateNicScripts(nic); err != nil {
 		return "", err
 	}
@@ -318,26 +317,40 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 
 	var qemuCmd = qemutils.GetQemu(qemuVersion)
 	cmd += fmt.Sprintf("DEFAULT_QEMU_CMD='%s'\n", qemuCmd)
-	cmd += `if [ -n "$STATE_FILE" ]; then\n`
+	cmd += "if [ -n \"$STATE_FILE\" ]; then\n"
 	cmd += "    QEMU_VER=`echo $STATE_FILE" +
 		` | grep -o '_[[:digit:]]\+\.[[:digit:]]\+.*'` + "`\n"
-	cmd += `    QEMU_CMD="qemu-system-x86_64"\n`
-	cmd += `    QEMU_LOCAL_PATH="/usr/local/bin/$QEMU_CMD"\n`
-	cmd += `    QEMU_LOCAL_PATH_VER="/usr/local/qemu-$QEMU_VER/bin/$QEMU_CMD"\n`
-	cmd += `    QEMU_BIN_PATH="/usr/bin/$QEMU_CMD"\n`
-	cmd += `    if [ -f "$QEMU_LOCAL_PATH_VER" ]; then\n`
-	cmd += `        QEMU_CMD=$QEMU_LOCAL_PATH_VER\n`
-	cmd += `    elif [ -f "$QEMU_LOCAL_PATH" ]; then\n`
-	cmd += `        QEMU_CMD=$QEMU_LOCAL_PATH\n`
-	cmd += `    elif [ -f "$QEMU_BIN_PATH" ]; then\n`
-	cmd += `        QEMU_CMD=$QEMU_BIN_PATH\n`
-	cmd += `    fi\n`
-	cmd += `else\n`
-	cmd += `    QEMU_CMD=$DEFAULT_QEMU_CMD\n`
-	cmd += `fi\n`
-	cmd += `function nic_speed() {\n`
-	cmd += `    $QEMU_CMD `
+	cmd += "    QEMU_CMD=\"qemu-system-x86_64\"\n"
+	cmd += "    QEMU_LOCAL_PATH=\"/usr/local/bin/$QEMU_CMD\"\n"
+	cmd += "    QEMU_LOCAL_PATH_VER=\"/usr/local/qemu-$QEMU_VER/bin/$QEMU_CMD\"\n"
+	cmd += "    QEMU_BIN_PATH=\"/usr/bin/$QEMU_CMD\"\n"
+	cmd += "    if [ -f \"$QEMU_LOCAL_PATH_VER\" ]; then\n"
+	cmd += "        QEMU_CMD=$QEMU_LOCAL_PATH_VER\n"
+	cmd += "    elif [ -f \"$QEMU_LOCAL_PATH\" ]; then\n"
+	cmd += "        QEMU_CMD=$QEMU_LOCAL_PATH\n"
+	cmd += "    elif [ -f \"$QEMU_BIN_PATH\" ]; then\n"
+	cmd += "        QEMU_CMD=$QEMU_BIN_PATH\n"
+	cmd += "    fi\n"
+	cmd += "else\n"
+	cmd += "    QEMU_CMD=$DEFAULT_QEMU_CMD\n"
+	cmd += "fi\n"
+	cmd += "function nic_speed() {\n"
+	cmd += "    $QEMU_CMD "
 
+	if s.IsKvmSupport() {
+		cmd += "-enable-kvm"
+	} else {
+		cmd += "-no-kvm"
+	}
+
+	cmd += " -device virtio-net-pci,? 2>&1 | grep .speed= > /dev/null\n"
+	cmd += "    if [ \"$?\" -eq \"0\" ]; then\n"
+	cmd += "        echo \",speed=$1\"\n"
+	cmd += "    fi\n"
+	cmd += "}\n"
+
+	// Generate Start VM script
+	cmd += `CMD="$QEMU_CMD`
 	var accel, cpuType string
 	if s.IsKvmSupport() {
 		cmd += " -enable-kvm"
@@ -365,7 +378,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	cmd += fmt.Sprintf(" -cpu %s", cpuType)
 
 	// TODO hmp - -
-	cmd += s.getMonitorDesc("hmqmon", s.GetQmpMonitorPort(int(vncPort)), MODE_READLINE)
+	cmd += s.getMonitorDesc("hmqmon", s.GetHmpMonitorPort(int(vncPort)), MODE_READLINE)
 	if options.HostOptions.EnableQmpMonitor {
 		cmd += s.getMonitorDesc("qmqmon", s.GetQmpMonitorPort(int(vncPort)), MODE_CONTROL)
 	}
@@ -445,9 +458,10 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		//     cmd += isolated_devs_params['vga']
 		// else:
 		//     cmd += ' -vga %s' % self.desc.get('vga', 'std')
-		// cmd += ' -vnc :%d' % (vnc_port)
-		//             if options.set_vnc_password:
-		// cmd += ',password'
+		cmd += fmt.Sprintf(" -vnc :%d", vncPort)
+		if options.HostOptions.SetVncPassword {
+			cmd += ",password"
+		}
 	}
 
 	var diskDrivers = []string{}
@@ -531,15 +545,23 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	} else if jsonutils.QueryBoolean(s.Desc, "is_master", false) {
 		cmd += " -S"
 	}
+	cmd += fmt.Sprintf(" -D %s", path.Join(s.HomeDir(), "log"))
 
-	cmd += `"\n`
-	cmd += `if [ ! -z "$STATE_FILE" ] && [ -d "$STATE_FILE" ] && [ -f "$STATE_FILE/content" ]; then\n`
-	cmd += `    $CMD --incoming "exec: cat $STATE_FILE/content"\n`
-	cmd += `elif [ ! -z "$STATE_FILE" ] && [ -f $STATE_FILE ]; then\n`
-	cmd += `    $CMD --incoming "exec: cat $STATE_FILE"\n`
-	cmd += `else\n`
-	cmd += `    $CMD\n`
-	cmd += `fi\n`
+	cmd += "\"\n"
+	cmd += "if [ ! -z \"$STATE_FILE\" ] && [ -d \"$STATE_FILE\" ] && [ -f \"$STATE_FILE/content\" ]; then\n"
+	cmd += "    $CMD --incoming \"exec: cat $STATE_FILE/content\"\n"
+	cmd += "elif [ ! -z \"$STATE_FILE\" ] && [ -f $STATE_FILE ]; then\n"
+	cmd += "    $CMD --incoming \"exec: cat $STATE_FILE\"\n"
+	cmd += "else\n"
+	cmd += "    $CMD\n"
+	cmd += "fi\n"
+
+	/*
+	   # cmd += 'sleep 1\n'
+	   # cmd += 'PID_NUM=$(cat $PID_FILE)\n'
+	   # cmd += 'echo -17 > /proc/$PID_NUM/oom_adj\n'
+	   # cmd += 'echo "qemu started"\n'
+	*/
 
 	return cmd, nil
 }
@@ -564,13 +586,13 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 	cmd += "    PID=`cat $PID_FILE`\n"
 	cmd += "    ps -p $PID > /dev/null\n"
 	cmd += "    if [ $? -eq 0 ]; then\n"
-	cmd += `      echo "Kill process $PID"\n`
+	cmd += "      echo \"Kill process $PID\"\n"
 	cmd += "      kill -9 $PID > /dev/null 2>&1\n"
 	cmd += "    fi\n"
-	cmd += `    echo "Remove PID $PID_FILE"\n`
+	cmd += "    echo \"Remove PID $PID_FILE\"\n"
 	cmd += "    rm -f $PID_FILE\n"
 	cmd += "  fi\n"
-	cmd += `  echo "Remove VNC $VNC_FILE"\n`
+	cmd += "  echo \"Remove VNC $VNC_FILE\"\n"
 	cmd += "  rm -f $VNC_FILE\n"
 	cmd += "fi\n"
 
