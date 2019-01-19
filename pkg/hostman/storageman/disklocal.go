@@ -55,7 +55,7 @@ func (d *SLocalDisk) GetPath() string {
 }
 
 func (d *SLocalDisk) GetSnapshotDir() string {
-	return path.Join(d.Storage.GetSnapshotDir(), d.Id+"_snap")
+	return path.Join(d.Storage.GetSnapshotDir(), d.Id+options.HostOptions.SnapshotDirSuffix)
 }
 
 func (d *SLocalDisk) Probe() error {

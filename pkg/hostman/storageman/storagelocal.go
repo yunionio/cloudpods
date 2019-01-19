@@ -54,6 +54,11 @@ func (s *SLocalStorage) GetSnapshotDir() string {
 	return path.Join(s.Path, _SNAPSHOT_PATH_)
 }
 
+func (s *SLocalStorage) GetSnapshotPathByIds(diskId, snapshotId string) string {
+	return path.Join(s.GetSnapshotDir(),
+		diskId+options.HostOptions.SnapshotDirSuffix, snapshotId)
+}
+
 func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	content := jsonutils.NewDict()
 	content.Set("name", jsonutils.NewString(s.StorageName))
