@@ -143,17 +143,10 @@ func (h *SHostInfo) parseConfig() error {
 			return err
 		}
 		h.Nics = append(h.Nics, nic)
-		// XXX ???
-		// if options.enable_tc_bwlimit:
-		// tcman.init_manager(nic.interface, nic.ip)
 	}
 	for i := 0; i < len(h.Nics); i++ {
 		h.Nics[i].SetupDhcpRelay()
 	}
-
-	// if err := storageman.Init(h); err != nil {
-	// 	return err
-	// }
 
 	if man, err := isolated_device.NewManager(h); err != nil {
 		return fmt.Errorf("NewIsolatedManager: %v", err)
@@ -224,9 +217,10 @@ func (h *SHostInfo) prepareEnv() error {
 	// TODO: winRegTool还未实现
 	// if not WinRegTool.check_tool(options.chntpw_path)...
 
-	// TODO: BriggeDriver 还未实现
-	// driver := GetBridgeDriverClass ..
-	// driver.Prepareenv()...
+	if err := hostbridge.Prepare(options.HostOptions.BridgeDriver); err != nil {
+		log.Errorln(err)
+		return err
+	}
 
 	err = h.resetIptables()
 	if err != nil {
@@ -241,8 +235,7 @@ func (h *SHostInfo) prepareEnv() error {
 	case "disable":
 		h.DisableHugepages()
 	case "native":
-		err := h.EnableNativeHugepages()
-		if err != nil {
+		if err := h.EnableNativeHugepages(); err != nil {
 			return err
 		}
 	case "transparent":
@@ -1219,16 +1212,13 @@ func (h *SHostInfo) onSucc() {
 		if err := h.save(); err != nil {
 			panic(err.Error())
 		}
-
-		// TODO
 		h.StartPinger()
-
 		if h.registerCallback != nil {
 			h.registerCallback()
 		}
-
 		h.isRegistered = true
-		// To notify caller, host register is success
+
+		// Notify caller, host register is success
 		close(h.IsRegistered)
 	}
 }

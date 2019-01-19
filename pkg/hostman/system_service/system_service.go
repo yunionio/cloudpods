@@ -11,6 +11,7 @@ import (
 type ISystemService interface {
 	IsInstalled() bool
 	Start(enable bool) error
+	Stop(disable bool) error
 	IsActive() bool
 	GetConfig(map[string]interface{}) string
 	SetConf(interface{})
@@ -30,6 +31,7 @@ var serviceMap = map[string]ISystemService{
 	"host_sdnagent": NewHostSdnagentService(),
 	"openvswitch":   NewOpenvswitchService(),
 	"fluentbit":     NewFluentbitService(),
+	"kube_agent":    NewKubeAgentService(),
 }
 
 func GetService(name string) ISystemService {
@@ -98,6 +100,16 @@ func (s *SBaseSystemService) Start(enable bool) error {
 		}
 	}
 	_, err := procutils.NewCommand("systemctl", "restart", s.name).Run()
+	return err
+}
+
+func (s *SBaseSystemService) Stop(disable bool) error {
+	if disable {
+		if err := s.Disable(); err != nil {
+			return err
+		}
+	}
+	_, err := procutils.NewCommand("systemctl", "stop", s.name).Run()
 	return err
 }
 
