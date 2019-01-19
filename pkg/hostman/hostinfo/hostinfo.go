@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/hostman/system_service"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
@@ -291,7 +293,24 @@ func (h *SHostInfo) detectHostInfo() error {
 func (h *SHostInfo) checkSystemServices() error {
 	for _, srv := range []string{"ntpd", "telegraf"} {
 		srvinst := system_service.GetService(srv)
+		if srvinst == nil {
+			return fmt.Errorf("service %s not found", srv)
+		} else {
+			if !srvinst.IsInstalled() {
+				return fmt.Errorf("Service %s not installed", srv)
+			}
+		}
 	}
+
+	for _, srv := range []string{"host_sdnagent"} {
+		srvinst := system_service.GetService(srv)
+		if !srvinst.IsInstalled() {
+			log.Warningf("Service %s not installed", srv)
+		} else if !srvinst.IsActive() {
+			srvinst.Start(false)
+		}
+	}
+	return nil
 }
 
 func (h *SHostInfo) detectiveStorageSystem() {
@@ -1288,10 +1307,82 @@ func (h *SHostInfo) unregister() {
 	}
 }
 
-func (h *SHostInfo) OnCatalogChanged(catalog map[string]interface{}) {
+func (h *SHostInfo) OnCatalogChanged(catalog mcclient.KeystoneServiceCatalogV3) {
 	if options.HostOptions.ManageNtpConfiguration {
-
+		ntpd := system_service.GetService("ntpd")
+		urls, _ := catalog.GetServiceURLs("ntp", options.HostOptions.Region, "", "internalURL")
+		if len(urls) > 0 {
+			log.Infof("Get Ntp urls: %v", urls)
+		} else {
+			urls = []string{"ntp://cn.pool.ntp.org",
+				"ntp://0.cn.pool.ntp.org",
+				"ntp://1.cn.pool.ntp.org",
+				"ntp://2.cn.pool.ntp.org",
+				"ntp://3.cn.pool.ntp.org"}
+		}
+		if !reflect.DeepEqual(ntpd.GetConf(), urls) && !ntpd.IsActive() {
+			ntpd.SetConf(urls)
+			ntpd.BgReload(map[string]interface{}{"servers": urls})
+		}
 	}
+	telegraf := system_service.GetService("telegraf")
+	conf := map[string]interface{}{}
+	conf["hostname"] = h.getHostname()
+	conf["tags"] = map[string]string{
+		"host_id":        h.HostId,
+		"zone_id":        h.ZoneId,
+		"zone":           h.Zone,
+		"cloudregion_id": h.CloudregionId,
+		"cloudregion":    h.Cloudregion,
+		"region":         options.HostOptions.Region,
+		"host_ip":        h.GetMasterIp(),
+		"platform":       "kvm",
+		"res_type":       "host",
+	}
+	conf["nics"] = h.getNicsTelegrafConf()
+	urls, _ := catalog.GetServiceURLs("kafka", options.HostOptions.Region, "", "internalURL")
+	if len(urls) > 0 {
+		conf["influxdb"] = map[string]interface{}{"url": urls, "database": "telegraf"}
+	}
+	if !reflect.DeepEqual(telegraf.GetConf(), conf) || !telegraf.IsActive() {
+		telegraf.SetConf(conf)
+		telegraf.BgReload(conf)
+	}
+
+	urls, _ = catalog.GetServiceURLs("elasticsearch",
+		options.HostOptions.Region, "zone", "internalURL")
+	if len(urls) > 0 {
+		conf["elasticsearch"] = map[string]interface{}{"url": urls[0]}
+		fluentbit := system_service.GetService("fluentbit")
+		if !reflect.DeepEqual(fluentbit.GetConf(), conf) || !fluentbit.IsActive() {
+			fluentbit.SetConf(conf)
+			fluentbit.BgReload(conf)
+		}
+	}
+}
+
+func (h *SHostInfo) getNicsTelegrafConf() []map[string]interface{} {
+	var ret = make([]map[string]interface{}, 0)
+	for i, n := range h.Nics {
+		ret = append(ret, map[string]interface{}{
+			"name":  n.Inter,
+			"alias": fmt.Sprintf("eth%d", i),
+			"speed": n.Bandwidth,
+		})
+		ret = append(ret, map[string]interface{}{
+			"name":  n.Inter,
+			"alias": fmt.Sprintf("br%d", i),
+			"speed": n.Bandwidth,
+		})
+	}
+	return ret
+}
+
+func (h *SHostInfo) getHostname() string {
+	if len(h.FullName) > 0 {
+		return h.FullName
+	}
+	return h.fetchHostname()
 }
 
 func NewHostInfo() (*SHostInfo, error) {

@@ -74,8 +74,10 @@ type SHostOptions struct {
 	EnableOpenflowController bool   `default:"false"`
 	K8sClusterCidr           string `default:"10.43.0.0/16" help:"Kubernetes cluster IP range"`
 
-	PingRegionInterval     int  `default:"60" help:"interval to ping region, deefault is 1 minute"`
-	ManageNtpConfiguration bool `default:"true"`
+	PingRegionInterval     int      `default:"60" help:"interval to ping region, deefault is 1 minute"`
+	ManageNtpConfiguration bool     `default:"true"`
+	LogSystemdUnits        []string `help:"Systemd units log collected by fluent-bit"`
+	BandwidthLimit         int      `default:"50" help:"Bandwidth upper bound when migrating disk image in MB/sec"`
 }
 
 var HostOptions SHostOptions
