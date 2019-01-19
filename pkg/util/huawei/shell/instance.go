@@ -137,4 +137,22 @@ func init() {
 		}
 		return nil
 	})
+
+	type InstanceOrderUnsubscribeOptions struct {
+		ID     string `help:"instance ID"`
+		DOMAIN string `help:"domain ID"`
+	}
+
+	shellutils.R(&InstanceOrderUnsubscribeOptions{}, "instance-order-unsubscribe", "Unsubscribe a prepaid server", func(cli *huawei.SRegion, args *InstanceOrderUnsubscribeOptions) error {
+		instance, e := cli.GetInstanceByID(args.ID)
+		if e != nil {
+			return e
+		}
+
+		_, err := cli.UnsubscribeInstance(instance.GetId(), args.DOMAIN)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 }

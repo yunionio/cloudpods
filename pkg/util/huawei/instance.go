@@ -658,11 +658,12 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		return "", err
 	}
 
-	// 按需计费
 	var ids []string
 	if params.Extendparam.ChargingMode == POST_PAID {
+		// 按需计费
 		ids, err = self.GetAllSubTaskEntityIDs(self.ecsClient.Servers.ServiceType(), _id, "server_id")
 	} else {
+		// 包年包月
 		err = cloudprovider.WaitCreated(10*time.Second, 180*time.Second, func() bool {
 			ids, err = self.getAllResIdsByType(_id, RESOURCE_TYPE_VM)
 			if err != nil {
@@ -996,4 +997,18 @@ func (self *SRegion) GetInstanceSecrityGroupIds(instanceId string) ([]string, er
 	}
 
 	return securitygroupIds, nil
+}
+
+// https://support.huaweicloud.com/api-oce/zh-cn_topic_0082522030.html
+func (self *SRegion) UnsubscribeInstance(instanceId string, domianId string) (jsonutils.JSONObject, error) {
+	unsubObj := jsonutils.NewDict()
+	unsubObj.Add(jsonutils.NewInt(1), "unSubType")
+	unsubObj.Add(jsonutils.NewInt(5), "unsubscribeReasonType")
+	unsubObj.Add(jsonutils.NewString("no reason"), "unsubscribeReason")
+	resList := jsonutils.NewArray()
+	resList.Add(jsonutils.NewString(instanceId))
+	unsubObj.Add(resList, "resourceIds")
+
+	self.ecsClient.Orders.SetDomainId(domianId)
+	return self.ecsClient.Orders.PerformAction("resources/delete", "", unsubObj)
 }

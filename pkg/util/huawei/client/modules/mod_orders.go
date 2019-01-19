@@ -68,3 +68,10 @@ func (self *SOrderManager) Get(id string, querys map[string]string) (jsonutils.J
 	// ！！！特殊调用
 	return self.GetInContextWithSpec(self.orderCtx, "orders-resource", id, querys, "")
 }
+
+func (self *SOrderManager) PerformAction(action string, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	request := self.newRequest("POST", id, action, self.orderCtx)
+	request.SetContent([]byte(getContent(params)))
+
+	return self._do(request, "")
+}
