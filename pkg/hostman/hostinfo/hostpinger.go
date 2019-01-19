@@ -6,12 +6,35 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 type SHostPingTask struct {
 	interval int // second
 	running  bool
+}
+
+type SEndpoint struct {
+	Id        string `json:"id"`
+	Interface string `json:"interface"`
+	Region    string `json:"region"`
+	Region_id string `json:"region_id"`
+	Url       string `json:"url"`
+	Name      string `json:"name"`
+}
+
+type SCatalog struct {
+	Id        string      `json:"id"`
+	Name      string      `json:"name"`
+	Type      string      `json:"type"`
+	Endpoints []SEndpoint `json:"endpoint"`
+}
+
+func NewCatalog() *SCatalog {
+	return &SCatalog{
+		Endpoints: make([]SEndpoint, 0),
+	}
 }
 
 func NewHostPingTask(interval int) *SHostPingTask {
@@ -42,12 +65,13 @@ func (p *SHostPingTask) Start() {
 			}
 			catalog, err := res.Get("catalog")
 			if err != nil {
-				var cl = make(map[string]interface{}, 0)
+				cl := make(mcclient.KeystoneServiceCatalogV3, 0)
 				err = catalog.Unmarshal(&cl)
 				if err != nil {
 					log.Errorln(err)
 					continue
 				}
+
 				Instance().OnCatalogChanged(cl)
 			}
 		}
