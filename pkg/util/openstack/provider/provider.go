@@ -74,10 +74,10 @@ func (self *SOpenStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx 
 
 func (self *SOpenStackProviderFactory) GetProvider(providerId, providerName, url, account, password string) (cloudprovider.ICloudProvider, error) {
 	accountInfo := strings.Split(account, "/")
-	username, project := accountInfo[0], ""
-	if len(accountInfo) > 1 {
-		project = accountInfo[1]
+	if len(accountInfo) < 2 {
+		return nil, fmt.Errorf("Missing username or project name %s", account)
 	}
+	project, username := accountInfo[0], accountInfo[1]
 	client, err := openstack.NewOpenStackClient(providerId, providerName, url, username, password, project)
 	if err != nil {
 		return nil, err
