@@ -323,10 +323,10 @@ func MeetConfig(
 	if driver == DISK_DRIVER_MEGARAID && conf.Strip != nil {
 		minStripSize := storages[0].MinStripSize
 		maxStripSize := storages[0].MaxStripSize
-		if maxStripSize != 0 && minStripSize != 0 {
+		if maxStripSize != -1 && minStripSize != -1 {
 			size := *conf.Strip
 			if size > maxStripSize || size < minStripSize {
-				return fmt.Errorf("%q input strip size out of range(%d, %d)", DISK_DRIVER_MEGARAID, minStripSize, maxStripSize)
+				return fmt.Errorf("%q input strip size out of range(%d, %d), input: %d", DISK_DRIVER_MEGARAID, minStripSize, maxStripSize, size)
 			}
 		}
 	}

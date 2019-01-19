@@ -41,22 +41,18 @@ func DetectStorageInfo(term *ssh.Client, wait bool) ([]*baremetal.BaremetalStora
 	raidDrivers := []string{}
 	for _, drv := range drivers.GetDrivers(term) {
 		if err := drv.ParsePhyDevs(); err != nil {
-			return nil, nil, nil, fmt.Errorf("ParsePhyDevs: %v", err)
+			log.V(2).Warningf("ParsePhyDevs: %v", err)
+			continue
 		}
 		raidDiskInfo = append(raidDiskInfo, GetRaidDevices(drv)...)
-		raidDrivers = append(raidDrivers, drv.GetName())
-	}
-
-	for _, drv := range drivers.GetDrivers(term) {
-		if err := drv.ParsePhyDevs(); err != nil {
-			return nil, nil, nil, fmt.Errorf("ParsePhyDevs: %v", err)
+		if drv.GetName() == baremetal.DISK_DRIVER_MARVELRAID {
+			lvs, err := GetRaidLogicVolumes(drv)
+			if err != nil {
+				log.Errorf("GetRaidLogicVolumes: %v", err)
+			} else {
+				lvDiskInfo = append(lvDiskInfo, lvs...)
+			}
 		}
-		raidDiskInfo = append(raidDiskInfo, GetRaidDevices(drv)...)
-		lvs, err := GetRaidLogicVolumes(drv)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("GetRaidLogicVolumes: %v", err)
-		}
-		lvDiskInfo = append(lvDiskInfo, lvs...)
 		raidDrivers = append(raidDrivers, drv.GetName())
 	}
 

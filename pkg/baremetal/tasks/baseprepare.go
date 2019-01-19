@@ -357,7 +357,7 @@ func (task *sBaremetalPrepareTask) getIPMIIPConfig(ipAddr string) (*ipmiIPConfig
 	}
 	netObj := listRet.Data[0]
 	config := &ipmiIPConfig{}
-	config.IPAddr, _ = netObj.GetString("ipaddr")
+	config.IPAddr = ipAddr
 	maskLen, _ := netObj.Int("guest_ip_mask")
 	config.Netmask = netutils.Masklen2Mask(int8(maskLen)).String()
 	config.Gateway, _ = netObj.GetString("guest_gateway")

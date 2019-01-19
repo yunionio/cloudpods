@@ -28,7 +28,7 @@ func NewDHCPServer2(conn *Conn) *DHCPServer {
 }
 
 type DHCPHandler interface {
-	ServeDHCP(pkt *Packet, intf *net.Interface) (*Packet, error)
+	ServeDHCP(pkt Packet, intf *net.Interface) (Packet, error)
 }
 
 func (s *DHCPServer) ListenAndServe(handler DHCPHandler) error {
@@ -44,7 +44,7 @@ func (s *DHCPServer) ListenAndServe(handler DHCPHandler) error {
 
 func (s *DHCPServer) serveDHCP(handler DHCPHandler) error {
 	for {
-		pkt, intf, err := s.conn.RecvDHCP()
+		pkt, addr, intf, err := s.conn.RecvDHCP()
 		if err != nil {
 			return fmt.Errorf("Receiving DHCP packet: %s", err)
 		}
@@ -69,9 +69,9 @@ func (s *DHCPServer) serveDHCP(handler DHCPHandler) error {
 				log.Warningf("[DHCP] hander response null packet")
 				return
 			}
-			log.Debugf("[DHCP] send response packet: %s to interface: %#v", resp.DebugString(), intf)
-			if err = s.conn.SendDHCP(resp, intf); err != nil {
-				log.Errorf("[DHCP] failed to response packet for %s: %v", pkt.HardwareAddr, err)
+			//log.Debugf("[DHCP] send response packet: %s to interface: %#v", resp.DebugString(), intf)
+			if err = s.conn.SendDHCP(resp, addr, intf); err != nil {
+				log.Errorf("[DHCP] failed to response packet for %s: %v", pkt.CHAddr(), err)
 				return
 			}
 		}()

@@ -75,13 +75,13 @@ func (r *SDHCPRelay) Setup(addr string) {
        self.send_packet(rep)
 */
 
-func (r *SDHCPRelay) ServeDHCP(pkt *dhcp.Packet, intf *net.Interface) (*dhcp.Packet, error) {
-	if v, ok := r.cache[string(pkt.TransactionID)]; ok {
-		delete(r.cache, string(pkt.TransactionID))
-		pkt.HardwareAddr = v.mac
+func (r *SDHCPRelay) ServeDHCP(pkt dhcp.Packet, intf *net.Interface) (dhcp.Packet, error) {
+	if v, ok := r.cache[string(pkt.TransactionID())]; ok {
+		delete(r.cache, string(pkt.TransactionID()))
+		pkt.SetCHAddr(v.mac)
 		// pkt.ClientAddr 不变
-		log.Errorln("XXXXX:", pkt.ClientAddr)
-		pkt.RelayAddr = nil
+		log.Errorln("XXXXX:", pkt.CIAddr())
+		pkt.SetGIAddr(nil)
 	}
 	return pkt, nil
 }
@@ -97,7 +97,7 @@ func (r *SDHCPRelay) ServeDHCP(pkt *dhcp.Packet, intf *net.Interface) (*dhcp.Pac
    self.relay.relay(msg)
 */
 
-func (r *SDHCPRelay) Relay(pkt *dhcp.Packet, intf *net.Interface) (*dhcp.Packet, error) {
+func (r *SDHCPRelay) Relay(pkt dhcp.Packet, intf *net.Interface) (dhcp.Packet, error) {
 	// clean cache first
 	var now = time.Now().Add(time.Second * -30)
 	for k, v := range r.cache {
@@ -107,8 +107,8 @@ func (r *SDHCPRelay) Relay(pkt *dhcp.Packet, intf *net.Interface) (*dhcp.Packet,
 	}
 
 	// cache pkt
-	r.cache[string(pkt.TransactionID)] = &SRelayCache{
-		mac:   pkt.HardwareAddr,
+	r.cache[string(pkt.TransactionID())] = &SRelayCache{
+		mac:   pkt.CHAddr(),
 		timer: time.Now(),
 	}
 
@@ -120,8 +120,9 @@ func (r *SDHCPRelay) Relay(pkt *dhcp.Packet, intf *net.Interface) (*dhcp.Packet,
 	       }
 	       return c.conn.Send(b, &addr, 0)
 	*/
-	// euqal sendto addr
-	pkt.RelayAddr = r.destaddr
-	err := r.conn.SendDHCP(pkt, intf)
+	// euqal sendto addr ??? GIAddr should self address
+	pkt.SetGIAddr(r.destaddr)
+	// transport to upstream
+	err := r.conn.SendDHCP(pkt, &net.UDPAddr{IP: r.destaddr, Port: r.destport}, intf)
 	return nil, err
 }
