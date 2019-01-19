@@ -108,13 +108,13 @@ type BaremetalDiskConfig struct {
 	Range        []int64 `json:"range"`
 	Splits       string  `json:"splits"`
 	Size         []int64 `json:"size"`
-	Adapter      *int    `json:"adapter"`
+	Adapter      *int    `json:"adapter,omitempty"`
 	Driver       string  `json:"driver"`
-	Cachedbadbbu *bool   `json:"cachedbadbbu"`
-	Strip        *int64  `json:"strip"`
-	RA           *bool   `json:"ra"`
-	WT           *bool   `json:"wt"`
-	Direct       *bool   `json:"direct"`
+	Cachedbadbbu *bool   `json:"cachedbadbbu,omitempty"`
+	Strip        *int64  `json:"strip,omitempty"`
+	RA           *bool   `json:"ra,omitempty"`
+	WT           *bool   `json:"wt,omitempty"`
+	Direct       *bool   `json:"direct,omitempty"`
 }
 
 type Disk struct {

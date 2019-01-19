@@ -123,7 +123,14 @@ func (dev *MegaRaidPhyDev) parseLine(line string) bool {
 
 func (dev *MegaRaidPhyDev) parseStripSize(lines []string) error {
 	size2Int := func(sizeStr string) int {
-		// TODO
+		sz, _ := strconv.ParseFloat(strings.Fields(sizeStr)[0], 32)
+		szInt := int(sz)
+		if strings.Contains(sizeStr, "KB") {
+			return szInt
+		}
+		if strings.Contains(sizeStr, "MB") {
+			return szInt * 1024
+		}
 		return -1
 	}
 	for _, line := range lines {

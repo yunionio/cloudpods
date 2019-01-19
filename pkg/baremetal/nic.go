@@ -3,6 +3,8 @@ package baremetal
 import (
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"time"
 
 	"yunion.io/x/pkg/util/netutils"
@@ -62,7 +64,21 @@ func GetNicDHCPConfig(
 		default:
 			conf.BootFile = "pxelinux.0"
 		}
-		// TODO: pxeblk bootblock
+		pxePath := filepath.Join(o.Options.TftpRoot, conf.BootFile)
+		if f, err := os.Open(pxePath); err != nil {
+			return nil, err
+		} else {
+			if info, err := f.Stat(); err != nil {
+				return nil, err
+			} else {
+				pxeSize := info.Size()
+				pxeBlk := pxeSize / 512
+				if pxeSize > pxeBlk*512 {
+					pxeBlk += 1
+				}
+				conf.BootBlock = uint16(pxeBlk)
+			}
+		}
 	}
 	return conf, nil
 }

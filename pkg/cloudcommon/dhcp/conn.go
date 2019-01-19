@@ -15,15 +15,14 @@
 package dhcp
 
 import (
-	"errors"
+	//"errors"
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"time"
 
 	"golang.org/x/net/ipv4"
-
-	"yunion.io/x/log"
 )
 
 // defined as a var so tests can override it.
@@ -135,31 +134,26 @@ func (c *Conn) Close() error {
 
 // RecvDHCP reads a Packet from the connection. It returns the
 // packet and the interface it was received on.
-func (c *Conn) RecvDHCP() (*Packet, *net.Interface, error) {
+func (c *Conn) RecvDHCP() (Packet, *net.UDPAddr, *net.Interface, error) {
 	var buf [1500]byte
 	for {
-		b, _, ifidx, err := c.conn.Recv(buf[:])
+		b, addr, ifidx, err := c.conn.Recv(buf[:])
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		/*if c.ifIndex != 0 && ifidx != c.ifIndex {
 			log.Errorf("======= ifIndex continue, c.ifIndex: %d, ifidx: %d", c.ifIndex, ifidx)
 			continue
 		}*/
-		pkt, err := Unmarshal(b)
-		if err != nil {
-			log.Errorf("======= pkt Unmarshal error: %v", err)
-			continue
-		}
+		pkt := Unmarshal(b)
 		intf, err := net.InterfaceByIndex(ifidx)
 		if err != nil {
-			log.Errorf("======= intf error: %v", err)
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 
 		// TODO: possibly more validation that the source lines up
 		// with what the packet says.
-		return pkt, intf, nil
+		return pkt, addr, intf, nil
 	}
 }
 
@@ -167,34 +161,44 @@ func (c *Conn) RecvDHCP() (*Packet, *net.Interface, error) {
 // on pkt.txType(). intf should be the net.Interface returned by
 // RecvDHCP if responding to a DHCP client, or the interface for
 // which configuration is desired if acting as a client.
-func (c *Conn) SendDHCP(pkt *Packet, intf *net.Interface) error {
-	b, err := pkt.Marshal()
+func (c *Conn) SendDHCP(pkt Packet, addr *net.UDPAddr, intf *net.Interface) error {
+	b := pkt.Marshal()
+
+	ipStr, portStr, err := net.SplitHostPort(addr.String())
 	if err != nil {
 		return err
 	}
 
-	switch pkt.txType() {
-	case txBroadcast, txHardwareAddr:
-		addr := net.UDPAddr{
-			IP:   net.IPv4bcast,
-			Port: dhcpClientPort,
-		}
-		return c.conn.Send(b, &addr, intf.Index)
-	case txRelayAddr:
-		addr := net.UDPAddr{
-			IP:   pkt.RelayAddr,
-			Port: dhcpClientPort,
-		}
-		return c.conn.Send(b, &addr, 0)
-	case txClientAddr:
-		addr := net.UDPAddr{
-			IP:   pkt.ClientAddr,
-			Port: dhcpClientPort,
-		}
-		return c.conn.Send(b, &addr, 0)
-	default:
-		return errors.New("unknown TX type for packet")
+	if net.ParseIP(ipStr).Equal(net.IPv4zero) || pkt.txType() == txBroadcast {
+		port, _ := strconv.Atoi(portStr)
+		addr = &net.UDPAddr{IP: net.IPv4bcast, Port: port}
 	}
+	return c.conn.Send(b, addr, 0)
+
+	/*
+		switch pkt.txType() {
+		case txBroadcast, txHardwareAddr:
+			addr := net.UDPAddr{
+				IP:   net.IPv4bcast,
+				Port: dhcpClientPort,
+			}
+			return c.conn.Send(b, &addr, intf.Index)
+		case txRelayAddr:
+			addr := net.UDPAddr{
+				IP:   pkt.RelayAddr(),
+				Port: dhcpClientPort,
+			}
+			log.Errorf("===============relay type pkt, addr: %#v", addr)
+			return c.conn.Send(b, &addr, 0)
+		case txClientAddr:
+			addr := net.UDPAddr{
+				IP:   pkt.CIAddr(),
+				Port: dhcpClientPort,
+			}
+			return c.conn.Send(b, &addr, 0)
+		default:
+			return errors.New("unknown TX type for packet")
+		}*/
 }
 
 // SetReadDeadline sets the deadline for future Read calls.  If the

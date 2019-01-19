@@ -14,8 +14,8 @@ import (
 const (
 	PXECLIENT = "PXEClient"
 
-	OptClasslessRouteLin Option = 121 //Classless Static Route Option
-	OptClasslessRouteWin Option = 249
+	OptClasslessRouteLin OptionCode = OptionClasslessRouteFormat //Classless Static Route Option
+	OptClasslessRouteWin OptionCode = 249
 )
 
 type ResponseConfig struct {
@@ -35,6 +35,7 @@ type ResponseConfig struct {
 	// TFTP config
 	BootServer string
 	BootFile   string
+	BootBlock  uint16
 }
 
 func (conf ResponseConfig) GetHostname() string {
@@ -74,101 +75,90 @@ func GetClasslessRoutePack(route []string) []byte {
 	return append(res, []byte(gwaddr.To4())...)
 }
 
-func MakeReplyPacket(pkt *Packet, conf *ResponseConfig) (*Packet, error) {
-	msgType := MsgOffer
-	if pkt.Type == MsgRequest {
-		reqAddr, _ := pkt.Options.IP(OptRequestedIP)
+func MakeReplyPacket(pkt Packet, conf *ResponseConfig) (Packet, error) {
+	msgType := Offer
+	if pkt.Type() == Request {
+		reqAddr, _ := pkt.ParseOptions().IP(OptionRequestedIPAddress)
 		if reqAddr != nil && !conf.ClientIP.Equal(reqAddr) {
-			msgType = MsgNack
+			msgType = NAK
 		} else {
-			msgType = MsgAck
+			msgType = ACK
 		}
 	}
 	return makeDHCPReplyPacket(pkt, conf, msgType), nil
 }
 
-func getPacketVendorClassId(pkt *Packet) string {
-	vendorClsId, _ := pkt.Options.String(OptVendorIdentifier)
+func getPacketVendorClassId(pkt Packet) string {
+	bs := pkt.ParseOptions()[OptionVendorClassIdentifier]
+	vendorClsId := string(bs)
 	return vendorClsId
 }
 
-func makeDHCPReplyPacket(pkt *Packet, conf *ResponseConfig, msgType MessageType) *Packet {
+func makeDHCPReplyPacket(req Packet, conf *ResponseConfig, msgType MessageType) Packet {
 	if conf.OsName == "" {
-		if vendorClsId := getPacketVendorClassId(pkt); vendorClsId != "" && strings.HasPrefix(vendorClsId, "MSFT ") {
+		if vendorClsId := getPacketVendorClassId(req); vendorClsId != "" && strings.HasPrefix(vendorClsId, "MSFT ") {
 			conf.OsName = "win"
 		}
 	}
-	resp := &Packet{
-		Type:          msgType,
-		TransactionID: pkt.TransactionID,
-		HardwareAddr:  pkt.HardwareAddr,
-		RelayAddr:     pkt.RelayAddr,
-		ClientAddr:    pkt.ClientAddr,
-		ServerAddr:    conf.ServerIP,
-		Options:       make(Options),
-	}
-	if msgType == MsgNack {
-		return resp
-	}
-	resp.YourAddr = conf.ClientIP
-	resp.Options[OptServerIdentifier] = GetOptIP(conf.ServerIP)
+
+	opts := make([]Option, 0)
+
 	if conf.SubnetMask != nil {
-		resp.Options[OptSubnetMask] = GetOptIP(conf.SubnetMask)
+		opts = append(opts, Option{OptionSubnetMask, GetOptIP(conf.SubnetMask)})
 	}
 	if conf.Gateway != nil {
-		resp.Options[OptRouters] = GetOptIP(conf.Gateway)
+		opts = append(opts, Option{OptionRouter, GetOptIP(conf.Gateway)})
 	}
 	if conf.Domain != "" {
-		resp.Options[OptDomainName] = []byte(conf.Domain)
+		opts = append(opts, Option{OptionDomainName, []byte(conf.Domain)})
 	}
 	if conf.BroadcastAddr != nil {
-		resp.Options[OptBroadcastAddr] = GetOptIP(conf.BroadcastAddr)
+		opts = append(opts, Option{OptionBroadcastAddress, GetOptIP(conf.BroadcastAddr)})
 	}
 	if conf.Hostname != "" {
-		resp.Options[OptHostname] = []byte(conf.GetHostname())
+		opts = append(opts, Option{OptionHostName, []byte(conf.GetHostname())})
 	}
 	if conf.DNSServer != nil {
-		resp.Options[OptDNSServers] = GetOptIP(conf.DNSServer)
+		opts = append(opts, Option{OptionDomainNameServer, GetOptIP(conf.DNSServer)})
 	}
+	resp := ReplyPacket(req, msgType, conf.ServerIP, conf.ClientIP, conf.LeaseTime, opts)
 	if conf.BootServer != "" {
-		resp.BootServerName = conf.BootServer
+		//resp.Options[OptOverload] = []byte{3}
+		resp.SetSIAddr(net.ParseIP(conf.BootServer))
+		resp.AddOption(OptionTFTPServerName, []byte(fmt.Sprintf("%s\x00", conf.BootServer)))
 	}
 	if conf.BootFile != "" {
-		resp.BootFilename = conf.BootFile
-		// says the server should identify itself as a PXEClient vendor
-		// type, even though it's a server. Strange.
-		resp.Options[OptVendorIdentifier] = []byte(PXECLIENT)
+		resp.AddOption(OptionBootFileName, []byte(fmt.Sprintf("%s\x00", conf.BootFile)))
+		sz := make([]byte, 2)
+		binary.BigEndian.PutUint16(sz, conf.BootBlock)
+		resp.AddOption(OptionBootFileSize, sz)
 	}
-	if pkt.Options[OptClientMachineIdentifier] != nil {
-		resp.Options[OptClientMachineIdentifier] = pkt.Options[OptClientMachineIdentifier]
-	}
-	if conf.LeaseTime > 0 {
-		resp.Options[OptLeaseTime] = GetOptTime(conf.LeaseTime)
-	}
+	//if bs, _ := req.ParseOptions().Bytes(OptionClientMachineIdentifier); bs != nil {
+	//resp.AddOption(OptionClientMachineIdentifier, bs)
+	//}
 	if conf.RenewalTime > 0 {
-		resp.Options[OptRenewalTime] = GetOptTime(conf.RenewalTime)
+		resp.AddOption(OptionRenewalTimeValue, GetOptTime(conf.RenewalTime))
 	}
 	if conf.Routes != nil {
 		var optCode = OptClasslessRouteLin
 		if strings.HasPrefix(strings.ToLower(conf.OsName), "win") {
 			optCode = OptClasslessRouteWin
 		}
-		routeBytes := []byte{}
 		for _, route := range conf.Routes {
-			routeBytes = append(routeBytes, GetClasslessRoutePack(route)...)
+			routeBytes := GetClasslessRoutePack(route)
+			resp.AddOption(optCode, routeBytes)
 		}
-		resp.Options.AddOption(optCode, routeBytes)
 	}
 	return resp
 }
 
-func IsPXERequest(pkt *Packet) bool {
+func IsPXERequest(pkt Packet) bool {
 	//if pkt.Type != MsgDiscover {
 	//log.Warningf("packet is %s, not %s", pkt.Type, MsgDiscover)
 	//return false
 	//}
 
-	if pkt.Options[OptClientArchitecture] == nil {
+	if pkt.GetOptionValue(OptionClientArchitecture) == nil {
 		log.Warningf("not a PXE boot request (missing option 93)")
 		return false
 	}
