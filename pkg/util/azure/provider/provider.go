@@ -24,9 +24,9 @@ func (self *SAzureProviderFactory) ValidateChangeBandwidth(instanceId string, ba
 }
 
 func (self *SAzureProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
-	tenantID, _ := data.GetString("tenant_id")
-	if len(tenantID) == 0 {
-		return httperrors.NewMissingParameterError("tenant_id")
+	directoryID, _ := data.GetString("directory_id")
+	if len(directoryID) == 0 {
+		return httperrors.NewMissingParameterError("directory_id")
 	}
 	clientID, _ := data.GetString("client_id")
 	if len(clientID) == 0 {
@@ -40,7 +40,7 @@ func (self *SAzureProviderFactory) ValidateCreateCloudaccountData(ctx context.Co
 	if len(environment) == 0 {
 		return httperrors.NewMissingParameterError("environment")
 	}
-	data.Set("account", jsonutils.NewString(tenantID))
+	data.Set("account", jsonutils.NewString(directoryID))
 	data.Set("secret", jsonutils.NewString(fmt.Sprintf("%s/%s", clientID, clientSecret)))
 	data.Set("access_url", jsonutils.NewString(environment))
 	return nil
