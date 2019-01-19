@@ -256,12 +256,11 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 	}
 
 	changed := false
-	// secret, _ := data.GetString("secret")
-	// account, _ := data.GetString("account")
 	if len(account.Secret) > 0 || len(account.Account) > 0 {
 		// check duplication
 		q := self.GetModelManager().Query()
 		q = q.Equals("account", account.Account)
+		q = q.Equals("access_url", self.AccessUrl)
 		q = q.NotEquals("id", self.Id)
 		if q.Count() > 0 {
 			return nil, httperrors.NewConflictError("account %s conflict", account.Account)
