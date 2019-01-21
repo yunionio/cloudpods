@@ -131,7 +131,9 @@ func (self *SHost) CreateVM2(name string, imgId string, sysDiskSize int, instanc
 }
 
 func (self *SHost) _createVM(name string, imgId string, sysDiskSize int32, cpu int, memMB int, instanceType string, nicId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, userData string) (string, error) {
-	image, err := self.zone.region.GetImage(imgId)
+	// TODO: need to fix scenarios where image is a public image
+	// XXX Qiu Jian
+	image, err := self.zone.region.GetImageById(imgId)
 	if err != nil {
 		log.Errorf("Get Image %s fail %s", imgId, err)
 		return "", err

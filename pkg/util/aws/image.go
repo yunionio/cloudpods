@@ -375,3 +375,17 @@ func (self *SRegion) DeleteImage(imageId string) error {
 	_, err := self.ec2Client.DeregisterImage(params)
 	return err
 }
+
+func (self *SRegion) addTags(resId string, key string, value string) error {
+	input := &ec2.CreateTagsInput{}
+	input.SetResources([]*string{&resId})
+	tag := ec2.Tag{}
+	tag.Key = &key
+	tag.Value = &value
+	input.SetTags([]*ec2.Tag{&tag})
+	_, err := self.ec2Client.CreateTags(input)
+	if err != nil {
+		return err
+	}
+	return nil
+}

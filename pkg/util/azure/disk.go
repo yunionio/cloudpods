@@ -71,7 +71,9 @@ func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, d
 		Type: "Microsoft.Compute/disks",
 	}
 	if len(imageId) > 0 {
-		image, err := self.GetImage(imageId)
+		// TODO: need to fix scenarios where image is a public image
+		// XXX Qiu Jian
+		image, err := self.getPrivateImage(imageId)
 		if err != nil {
 			return nil, err
 		}

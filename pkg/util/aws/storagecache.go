@@ -250,6 +250,8 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		log.Debugf("DescribeImportImage Task %s", ret.String())
 		for _, item := range ret.ImportImageTasks {
 			if *item.Status == "completed" {
+				// add name tag
+				self.region.addTags(*item.ImageId, "Name", imageId)
 				return *item.ImageId, nil
 			}
 		}

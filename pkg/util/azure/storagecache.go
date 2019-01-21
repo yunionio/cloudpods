@@ -66,7 +66,7 @@ func (self *SStoragecache) GetManagerId() string {
 }
 
 func (self *SStoragecache) fetchImages() error {
-	if images, err := self.region.GetImages(); err != nil {
+	if images, err := self.region.GetImages(""); err != nil {
 		return err
 	} else {
 		self.iimages = make([]cloudprovider.ICloudImage, len(images))
@@ -93,7 +93,7 @@ func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImag
 		return nil, err
 	}
 	img.storageCache = self
-	return img, nil
+	return &img, nil
 }
 
 func (self *SStoragecache) GetPath() string {
@@ -227,7 +227,9 @@ func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imag
 }
 
 func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
-	if image, err := self.region.GetImage(extId); err != nil {
+	// TODO: need to fix scenarios where image is a public image
+	// XXX Qiu Jian
+	if image, err := self.region.getPrivateImage(extId); err != nil {
 		return nil, err
 	} else if snapshotId := image.Properties.StorageProfile.OsDisk.Snapshot.ID; len(snapshotId) == 0 {
 		return nil, cloudprovider.ErrNotFound

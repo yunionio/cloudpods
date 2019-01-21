@@ -696,7 +696,9 @@ func (region *SRegion) ReplaceSystemDisk(instanceId, imageId, passwd, publicKey 
 	if err != nil {
 		return "", err
 	}
-	image, err := region.GetImage(imageId)
+	// TODO: need to fix scenarios where image is a public image
+	// XXX Qiu Jian
+	image, err := region.getPrivateImage(imageId)
 	if err != nil {
 		return "", err
 	}

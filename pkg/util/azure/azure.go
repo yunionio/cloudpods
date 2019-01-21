@@ -68,6 +68,7 @@ var DEFAULT_API_VERSION = map[string]string{
 	"Microsoft.ClassicNetwork/reservedIps":           "2016-04-01", //2014-01-01,2014-06-01,2015-06-01,2015-12-01,2016-04-01,2016-11-01
 	"Microsoft.ClassicNetwork/networkSecurityGroups": "2016-11-01", //2015-06-01,2015-12-01,2016-04-01,2016-11-01
 	"Microsoft.ClassicCompute/domainNames":           "2015-12-01", //2014-01-01, 2014-06-01, 2015-06-01, 2015-10-01, 2015-12-01, 2016-04-01, 2016-11-01, 2017-11-01, 2017-11-15
+	"Microsoft.Compute/locations":                    "2018-06-01",
 }
 
 func NewAzureClient(providerId string, providerName string, accessKey string, secret string, envName string) (*SAzureClient, error) {
@@ -140,6 +141,7 @@ func (self *SAzureClient) Get(resourceId string, params []string, retVal interfa
 	if err != nil {
 		return err
 	}
+	fmt.Println(body)
 	err = body.Unmarshal(retVal)
 	if err != nil {
 		return err
@@ -172,6 +174,10 @@ func (self *SAzureClient) ListClassicDisks() (jsonutils.JSONObject, error) {
 }
 
 func (self *SAzureClient) ListAll(resourceType string, retVal interface{}) error {
+	return self.ListResources(resourceType, retVal, []string{"value"})
+}
+
+func (self *SAzureClient) ListResources(resourceType string, retVal interface{}, keys []string) error {
 	cli, err := self.getDefaultClient()
 	if err != nil {
 		return err
@@ -183,14 +189,13 @@ func (self *SAzureClient) ListAll(resourceType string, retVal interface{}) error
 	if len(resourceType) > 0 {
 		url += fmt.Sprintf("/providers/%s", resourceType)
 	}
-	url += "?api-version=2018-06-01"
 	body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "")
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s", body)
+	// fmt.Printf("%s: %s\n", resourceType, body)
 	if retVal != nil {
-		body.Unmarshal(retVal, "value")
+		return body.Unmarshal(retVal, keys...)
 	}
 	return nil
 }
