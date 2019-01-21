@@ -31,5 +31,4 @@ const (
 	TAG_AUTOVERSION      = "auto_version"
 	TAG_UPDATE_TIMESTAMP = "updated_at"
 	TAG_CREATE_TIMESTAMP = "created_at"
-	TAG_KEY_INDEX        = "key_index"
 )
