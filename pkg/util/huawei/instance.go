@@ -202,7 +202,13 @@ func (self *SInstance) GetInstanceType() string {
 
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
-	// todo: add price_key here
+	// cn-north-1::et2.2xlarge.16::win
+	lowerOs := self.GetOSType()
+	if strings.HasPrefix(lowerOs, "win") {
+		lowerOs = "win"
+	}
+	priceKey := fmt.Sprintf("%s::%s::%s", self.host.zone.region.GetId(), self.GetInstanceType(), lowerOs)
+	data.Add(jsonutils.NewString(priceKey), "price_key")
 	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
 	if len(self.Image.ID) > 0 {
 		if image, err := self.host.zone.region.GetImage(self.Image.ID); err != nil {
