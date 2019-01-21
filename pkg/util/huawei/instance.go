@@ -867,6 +867,7 @@ func (self *SRegion) ChangeRoot(ctx context.Context, instanceId, imageId, passwd
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212692.html
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0110109377.html
+// 一键式重置密码 需要安装安装一键式重置密码插件 https://support.huaweicloud.com/usermanual-ecs/zh-cn_topic_0068095385.html
 // 目前不支持直接重置密钥
 func (self *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, deleteKeypair bool, description string) error {
 	serverObj := jsonutils.NewDict()
