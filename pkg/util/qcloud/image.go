@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type ImageStatusType string
@@ -113,7 +114,33 @@ func (self *SImage) Delete(ctx context.Context) error {
 }
 
 func (self *SImage) GetStatus() string {
-	return string(self.ImageState)
+	switch self.ImageState {
+	case ImageStatusCreating:
+		return models.CACHED_IMAGE_STATUS_CACHING
+	case ImageStatusAvailable:
+		return models.CACHED_IMAGE_STATUS_READY
+	case ImageStatusUnAvailable:
+		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+	case ImageStatusCreateFailed:
+		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+	default:
+		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+	}
+}
+
+func (self *SImage) GetImageStatus() string {
+	switch self.ImageState {
+	case ImageStatusCreating:
+		return cloudprovider.IMAGE_STATUS_SAVING
+	case ImageStatusAvailable:
+		return cloudprovider.IMAGE_STATUS_ACTIVE
+	case ImageStatusUnAvailable:
+		return cloudprovider.IMAGE_STATUS_DELETED
+	case ImageStatusCreateFailed:
+		return cloudprovider.IMAGE_STATUS_KILLED
+	default:
+		return cloudprovider.IMAGE_STATUS_DELETED
+	}
 }
 
 func (self *SImage) Refresh() error {
@@ -122,6 +149,54 @@ func (self *SImage) Refresh() error {
 		return err
 	}
 	return jsonutils.Update(self, new)
+}
+
+func (self *SImage) GetImageType() string {
+	switch self.ImageType {
+	case "PUBLIC_IMAGE":
+		return cloudprovider.CachedImageTypeSystem
+	case "PRIVATE_IMAGE":
+		return cloudprovider.CachedImageTypeCustomized
+	default:
+		return cloudprovider.CachedImageTypeCustomized
+	}
+}
+
+func (self *SImage) GetSize() int64 {
+	return int64(self.ImageSize) * 1024 * 1024 * 1024
+}
+
+func (self *SImage) GetOsType() string {
+	switch self.Platform {
+	case "Windows", "FreeBSD":
+		return self.Platform
+	default:
+		return "Linux"
+	}
+}
+
+func (self *SImage) GetOsDist() string {
+	return self.Platform
+}
+
+func (self *SImage) GetOsVersion() string {
+	return ""
+}
+
+func (self *SImage) GetOsArch() string {
+	return self.Architecture
+}
+
+func (self *SImage) GetMinOsDiskSizeGb() int {
+	return 50
+}
+
+func (self *SImage) GetImageFormat() string {
+	return "qcow2"
+}
+
+func (self *SImage) GetCreateTime() time.Time {
+	return self.CreatedTime
 }
 
 func (self *SRegion) GetImage(imageId string) (*SImage, error) {

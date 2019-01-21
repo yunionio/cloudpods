@@ -36,6 +36,9 @@ type IHostDriver interface {
 	FinishConvert(userCred mcclient.TokenCredential, host *SHost, guest *SGuest, hostType string) error
 	ConvertFailed(host *SHost) error
 	GetRaidScheme(host *SHost, raid string) (string, error)
+
+	IsReachStoragecacheCapacityLimit(host *SHost, cachedImages []SCachedimage) bool
+	GetStoragecacheQuota(host *SHost) int
 }
 
 var hostDrivers map[string]IHostDriver

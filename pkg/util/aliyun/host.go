@@ -226,7 +226,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 
 	img, err := self.zone.region.GetImage(imgId)
 	if err != nil {
-		log.Errorf("getiamge fail %s", err)
+		log.Errorf("GetImage fail %s", err)
 		return "", err
 	}
 	if img.Status != ImageStatusAvailable {

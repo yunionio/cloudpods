@@ -292,3 +292,8 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 
 	}
 }
+
+func (region *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
+	storageCache := region.getStoragecache()
+	return []cloudprovider.ICloudStoragecache{storageCache}, nil
+}

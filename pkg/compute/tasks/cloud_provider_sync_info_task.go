@@ -15,7 +15,9 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/skus"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/pkg/util/compare"
 )
 
 type CloudProviderSyncInfoTask struct {
@@ -108,6 +110,25 @@ func syncCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider,
 	}
 }
 
+type sStoragecacheSyncPair struct {
+	local  *models.SStoragecache
+	remote cloudprovider.ICloudStoragecache
+}
+
+func (pair *sStoragecacheSyncPair) syncCloudImages(ctx context.Context, userCred mcclient.TokenCredential) compare.SyncResult {
+	return pair.local.SyncCloudImages(ctx, userCred, pair.remote)
+}
+
+func isInCache(pairs []sStoragecacheSyncPair, localCacheId string) bool {
+	log.Debugf("isInCache %d %s", len(pairs), localCacheId)
+	for i := range pairs {
+		if pairs[i].local.Id == localCacheId {
+			return true
+		}
+	}
+	return false
+}
+
 func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, driver cloudprovider.ICloudProvider, syncRange *models.SSyncRange) {
 	regions := driver.GetIRegions()
 
@@ -125,6 +146,8 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 		return
 	}
 
+	storageCachePairs := make([]sStoragecacheSyncPair, 0)
+
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
 	logclient.AddActionLog(provider, getAction(task.Params), "", task.UserCred, true)
 	for i := 0; i < len(localRegions); i += 1 {
@@ -136,6 +159,7 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 		localZones, remoteZones := syncRegionZones(ctx, provider, task, &localRegions[i], remoteRegions[i])
 
 		syncRegionSkus(ctx, provider, task, &localRegions[i])
+
 		syncRegionVPCs(ctx, provider, task, &localRegions[i], remoteRegions[i], syncRange)
 
 		if localZones != nil && remoteZones != nil {
@@ -144,14 +168,30 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 				if len(syncRange.Zone) > 0 && !utils.IsInStringArray(localZones[j].Id, syncRange.Zone) {
 					continue
 				}
-				syncZoneStorages(ctx, provider, task, &localZones[j], remoteZones[j], syncRange)
+				newPairs := syncZoneStorages(ctx, provider, task, &localZones[j], remoteZones[j], syncRange, storageCachePairs)
+				if len(newPairs) > 0 {
+					storageCachePairs = append(storageCachePairs, newPairs...)
+				}
 				syncZoneHosts(ctx, provider, task, &localZones[j], remoteZones[j], syncRange)
 			}
 		}
 		syncRegionSnapshots(ctx, provider, task, &localRegions[i], remoteRegions[i], syncRange)
+
 		syncRegionLoadbalancerAcls(ctx, provider, task, &localRegions[i], remoteRegions[i], syncRange)
 		syncRegionLoadbalancerCertificates(ctx, provider, task, &localRegions[i], remoteRegions[i], syncRange)
 		syncRegionLoadbalancers(ctx, provider, task, &localRegions[i], remoteRegions[i], syncRange)
+	}
+
+	log.Debugf("storageCachePairs count %d", len(storageCachePairs))
+	for i := range storageCachePairs {
+		log.Debugf("storagecache %s %s %s", storageCachePairs[i].local.Id, storageCachePairs[i].local.ExternalId, storageCachePairs[i].remote.GetGlobalId())
+		result := storageCachePairs[i].syncCloudImages(ctx, task.GetUserCred())
+		msg := result.Result()
+		log.Infof("syncCloudImages result: %s", msg)
+		if result.IsError() {
+			logSyncFailed(provider, task, msg)
+			return
+		}
 	}
 }
 
@@ -468,13 +508,13 @@ func syncWireNetworks(ctx context.Context, provider *models.SCloudprovider, task
 	logclient.AddActionLog(provider, getAction(task.GetParams()), notes, task.GetUserCred(), true)
 }
 
-func syncZoneStorages(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localZone *models.SZone, remoteZone cloudprovider.ICloudZone, syncRange *models.SSyncRange) {
+func syncZoneStorages(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localZone *models.SZone, remoteZone cloudprovider.ICloudZone, syncRange *models.SSyncRange, storageCachePairs []sStoragecacheSyncPair) []sStoragecacheSyncPair {
 	storages, err := remoteZone.GetIStorages()
 	if err != nil {
 		msg := fmt.Sprintf("GetIStorages for zone %s failed %s", remoteZone.GetName(), err)
 		log.Errorf(msg)
 		logSyncFailed(provider, task, msg)
-		return
+		return nil
 	}
 	localStorages, remoteStorages, result := models.StorageManager.SyncStorages(ctx, task.UserCred, provider, localZone, storages)
 	msg := result.Result()
@@ -482,18 +522,25 @@ func syncZoneStorages(ctx context.Context, provider *models.SCloudprovider, task
 	log.Infof(notes)
 	if result.IsError() {
 		logSyncFailed(provider, task, msg)
-		return
+		return nil
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
 	logclient.AddActionLog(provider, getAction(task.GetParams()), notes, task.GetUserCred(), true)
 
+	newCacheIds := make([]sStoragecacheSyncPair, 0)
 	for i := 0; i < len(localStorages); i += 1 {
-		syncStorageCaches(ctx, provider, task, &localStorages[i], remoteStorages[i])
+		if !isInCache(storageCachePairs, localStorages[i].StoragecacheId) && !isInCache(newCacheIds, localStorages[i].StoragecacheId) {
+			cachePair := syncStorageCaches(ctx, provider, task, &localStorages[i], remoteStorages[i])
+			if cachePair.remote != nil && cachePair.local != nil {
+				newCacheIds = append(newCacheIds, cachePair)
+			}
+		}
 		syncStorageDisks(ctx, provider, task, &localStorages[i], remoteStorages[i], syncRange)
 	}
+	return newCacheIds
 }
 
-func syncStorageCaches(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localStorage *models.SStorage, remoteStorage cloudprovider.ICloudStorage) {
+func syncStorageCaches(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localStorage *models.SStorage, remoteStorage cloudprovider.ICloudStorage) (cachePair sStoragecacheSyncPair) {
 	remoteCache := remoteStorage.GetIStoragecache()
 	localCache, err := models.StoragecacheManager.SyncWithCloudStoragecache(remoteCache)
 	if err != nil {
@@ -508,6 +555,9 @@ func syncStorageCaches(ctx context.Context, provider *models.SCloudprovider, tas
 		log.Errorf(msg)
 		logSyncFailed(provider, task, msg)
 	}
+	cachePair.local = localCache
+	cachePair.remote = remoteCache
+	return
 }
 
 func syncStorageDisks(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localStorage *models.SStorage, remoteStorage cloudprovider.ICloudStorage, syncRange *models.SSyncRange) {

@@ -172,3 +172,11 @@ func (self *SBaseHostDriver) GetRaidScheme(host *models.SHost, raid string) (str
 	}
 	return raid, nil
 }
+
+func (driver *SBaseHostDriver) IsReachStoragecacheCapacityLimit(host *models.SHost, cachedImages []models.SCachedimage) bool {
+	return false
+}
+
+func (driver *SBaseHostDriver) GetStoragecacheQuota(host *models.SHost) int {
+	return -1
+}

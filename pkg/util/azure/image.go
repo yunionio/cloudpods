@@ -7,6 +7,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"fmt"
+	"time"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -95,12 +97,24 @@ func (self *SImage) GetGlobalId() string {
 func (self *SImage) GetStatus() string {
 	switch self.Properties.ProvisioningState {
 	case "created":
-		return models.IMAGE_STATUS_QUEUED
+		return models.CACHED_IMAGE_STATUS_CACHING
 	case "Succeeded":
-		return models.IMAGE_STATUS_ACTIVE
+		return models.CACHED_IMAGE_STATUS_READY
 	default:
 		log.Errorf("Unknow image status: %s", self.Properties.ProvisioningState)
-		return models.IMAGE_STATUS_KILLED
+		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+	}
+}
+
+func (self *SImage) GetImageStatus() string {
+	switch self.Properties.ProvisioningState {
+	case "created":
+		return cloudprovider.IMAGE_STATUS_QUEUED
+	case "Succeeded":
+		return cloudprovider.IMAGE_STATUS_ACTIVE
+	default:
+		log.Errorf("Unknow image status: %s", self.Properties.ProvisioningState)
+		return cloudprovider.IMAGE_STATUS_KILLED
 	}
 }
 
@@ -110,6 +124,42 @@ func (self *SImage) Refresh() error {
 		return err
 	}
 	return jsonutils.Update(self, new)
+}
+
+func (self *SImage) GetImageType() string {
+	return ""
+}
+
+func (self *SImage) GetSize() int64 {
+	return int64(self.Properties.StorageProfile.OsDisk.DiskSizeGB) * 1024 * 1024 * 1024
+}
+
+func (self *SImage) isPublic() bool {
+	return true
+}
+
+func (self *SImage) GetOsArch() string {
+	return "x86_64"
+}
+
+func (self *SImage) GetOsDist() string {
+	return "CentOS"
+}
+
+func (self *SImage) GetOsVersion() string {
+	return ""
+}
+
+func (self *SImage) GetMinOsDiskSizeGb() int {
+	return 10
+}
+
+func (self *SImage) GetImageFormat() string {
+	return "vhd"
+}
+
+func (self *SImage) GetCreateTime() time.Time {
+	return time.Time{}
 }
 
 func (self *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
@@ -206,6 +256,7 @@ func (self *SRegion) GetImages() ([]SImage, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("%s", images)
 	for i := 0; i < len(images); i++ {
 		if images[i].Location == self.Name {
 			result = append(result, images[i])

@@ -183,10 +183,12 @@ func (self *SAzureClient) ListAll(resourceType string, retVal interface{}) error
 	if len(resourceType) > 0 {
 		url += fmt.Sprintf("/providers/%s", resourceType)
 	}
+	url += "?api-version=2018-06-01"
 	body, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, "")
 	if err != nil {
 		return err
 	}
+	fmt.Printf("%s", body)
 	if retVal != nil {
 		body.Unmarshal(retVal, "value")
 	}

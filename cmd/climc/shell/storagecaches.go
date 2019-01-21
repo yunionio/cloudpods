@@ -71,7 +71,7 @@ func init() {
 	type StorageUncacheImageActionOptions struct {
 		ID    string `help:"ID or name of storage"`
 		IMAGE string `help:"ID or name of image"`
-		Force bool   `help:"Force uncache, even if the image exists in cache"`
+		Force bool   `help:"Force uncache, even if the image exists in cache is invalid"`
 	}
 	R(&StorageUncacheImageActionOptions{}, "storagecache-uncache-image", "Ask a storage cache to remove image from its cache", func(s *mcclient.ClientSession, args *StorageUncacheImageActionOptions) error {
 		params := jsonutils.NewDict()
