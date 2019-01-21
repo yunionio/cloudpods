@@ -87,12 +87,13 @@ type SSession struct {
 	AccessedAt  time.Time
 }
 
-func (s SSession) GetConnectParams() (string, error) {
-	params := url.Values{
-		"api_server":   {o.Options.ApiServer},
-		"access_token": {s.AccessToken},
-		"protocol":     {s.GetProtocol()},
+func (s SSession) GetConnectParams(params url.Values) (string, error) {
+	if params == nil {
+		params = url.Values(make(map[string][]string))
 	}
+	params.Set("api_server", o.Options.ApiServer)
+	params.Set("access_token", s.AccessToken)
+	params.Set("protocol", s.GetProtocol())
 	return params.Encode(), nil
 }
 
