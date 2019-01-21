@@ -19,11 +19,12 @@ const (
 )
 
 type RemoteConsoleInfo struct {
-	Host     string `json:"host"`
-	Port     int64  `json:"port"`
-	Protocol string `json:"protocol"`
-	Id       string `json:"id"`
-	OsName   string `json:"osName"`
+	Host        string `json:"host"`
+	Port        int64  `json:"port"`
+	Protocol    string `json:"protocol"`
+	Id          string `json:"id"`
+	OsName      string `json:"osName"`
+	VncPassword string `json:"vncPassword"`
 
 	// used by aliyun server
 	InstanceId string `json:"instance_id"`
@@ -37,6 +38,7 @@ func NewRemoteConsoleInfoByCloud(s *mcclient.ClientSession, serverId string) (*R
 		return nil, err
 	}
 	osName, _ := metadata.GetString("os_name")
+	vncPasswd, _ := metadata.GetString("__vnc_password")
 	ret, err := modules.Servers.GetSpecific(s, serverId, "vnc", nil)
 	if err != nil {
 		return nil, err
@@ -47,6 +49,7 @@ func NewRemoteConsoleInfoByCloud(s *mcclient.ClientSession, serverId string) (*R
 		return nil, err
 	}
 	vncInfo.OsName = osName
+	vncInfo.VncPassword = vncPasswd
 	return &vncInfo, nil
 }
 
@@ -91,6 +94,13 @@ func (info *RemoteConsoleInfo) GetConnectParams() (string, error) {
 	default:
 		return "", fmt.Errorf("Can't convert protocol %s to connect params", info.Protocol)
 	}
+}
+
+func (info *RemoteConsoleInfo) GetPassword() string {
+	if len(info.Password) != 0 {
+		return info.Password
+	}
+	return info.VncPassword
 }
 
 func (info *RemoteConsoleInfo) getOpenStackURL() (string, error) {
