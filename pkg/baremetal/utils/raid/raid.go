@@ -79,6 +79,9 @@ func GetModules(term *ssh.Client) []string {
 		return ret
 	}
 	for _, line := range lines {
+		if len(line) == 0 {
+			continue
+		}
 		mod := line[:strings.Index(line, " ")]
 		if mod != "Module" {
 			ret = append(ret, mod)

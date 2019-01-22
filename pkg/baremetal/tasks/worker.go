@@ -2,6 +2,8 @@ package tasks
 
 import (
 	"context"
+	"fmt"
+	"runtime/debug"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -30,6 +32,13 @@ func executeTask(task ITask, args interface{}) {
 	if curStage == nil {
 		return
 	}
+	defer func() {
+		if err := recover(); err != nil {
+			log.Errorf("Execute task panic: %v", err)
+			debug.PrintStack()
+			SetTaskFail(task, fmt.Errorf("%v", err))
+		}
+	}()
 	err := curStage(context.Background(), args)
 	if err != nil {
 		log.Errorf("Execute task %s error: %v", task.GetName(), err)

@@ -251,11 +251,14 @@ func (self *SBaremetalTaskBase) EnsurePowerShutdown(soft bool) error {
 		if time.Since(startTime).Seconds() >= maxWait.Seconds() && soft {
 			soft = false
 		}
-		self.Baremetal.DoPowerShutdown(soft)
+		err = self.Baremetal.DoPowerShutdown(soft)
+		if err != nil {
+			log.Errorf("DoPowerShutdown: %v", err)
+		}
 		time.Sleep(20 * time.Second)
 		status, err = self.Baremetal.GetPowerStatus()
 		if err != nil {
-			return err
+			log.Errorf("GetPowerStatus: %v", err)
 		}
 	}
 	if status != types.POWER_STATUS_OFF {

@@ -33,7 +33,7 @@ type DHCPHandler struct {
 	ClientArch            uint16
 	NetworkInterfaceIdent NetworkInterfaceIdent
 	ClientGuid            string
-	packet                *dhcp.Packet
+	packet                dhcp.Packet
 
 	// baremetal manager
 	baremetalManager IBaremetalManager
@@ -43,8 +43,8 @@ type DHCPHandler struct {
 	netConfig *types.NetworkConfig
 }
 
-func (h *DHCPHandler) ServeDHCP(pkt *dhcp.Packet, _ *net.Interface) (*dhcp.Packet, error) {
-	log.V(4).Debugf("[DHCP] request: %s", pkt.DebugString())
+func (h *DHCPHandler) ServeDHCP(pkt dhcp.Packet, _ *net.Interface) (dhcp.Packet, error) {
+	//log.V(4).Debugf("[DHCP] request: %s", pkt.DebugString())
 	err := h.parsePacket(pkt)
 	if err != nil {
 		log.Errorf("[DHCP] parse packet error: %v", err)
@@ -64,12 +64,12 @@ func (h *DHCPHandler) ServeDHCP(pkt *dhcp.Packet, _ *net.Interface) (*dhcp.Packe
 	return dhcp.MakeReplyPacket(pkt, conf)
 }
 
-func (h *DHCPHandler) parsePacket(pkt *dhcp.Packet) error {
+func (h *DHCPHandler) parsePacket(pkt dhcp.Packet) error {
 	h.packet = pkt
-	h.ClientAddr = pkt.ClientAddr
-	h.ClientMac = pkt.HardwareAddr
-	h.RelayAddr = pkt.RelayAddr
-	h.Options = pkt.Options
+	h.ClientAddr = pkt.CIAddr()
+	h.ClientMac = pkt.CHAddr()
+	h.RelayAddr = pkt.RelayAddr()
+	h.Options = pkt.ParseOptions()
 
 	var (
 		vendorClsId string
@@ -81,11 +81,11 @@ func (h *DHCPHandler) parsePacket(pkt *dhcp.Packet) error {
 
 	for optCode, data := range h.Options {
 		switch optCode {
-		case dhcp.OptVendorIdentifier:
+		case dhcp.OptionVendorClassIdentifier:
 			vendorClsId, err = h.Options.String(optCode)
-		case dhcp.OptClientArchitecture:
+		case dhcp.OptionClientArchitecture:
 			cliArch, err = h.Options.Uint16(optCode)
-		case dhcp.OptClientNetworkInterfaceIdentifier:
+		case dhcp.OptionClientNetworkInterfaceIdentifier:
 			netIfIdentBs, err := h.Options.Bytes(optCode)
 			if err != nil {
 				break
@@ -96,7 +96,7 @@ func (h *DHCPHandler) parsePacket(pkt *dhcp.Packet) error {
 				Minior: uint16(netIfIdentBs[2]),
 			}
 			log.Debugf("[DHCP] get network iface identifier: %#v", netIfIdent)
-		case dhcp.OptClientMachineIdentifier:
+		case dhcp.OptionClientMachineIdentifier:
 			switch len(data) {
 			case 0:
 				// A missing GUID is invalid according to the spec, however
@@ -282,10 +282,10 @@ func (h *DHCPHandler) isPXERequest() bool {
 	return dhcp.IsPXERequest(pkt)
 }
 
-func (s *Server) validateDHCP(pkt *dhcp.Packet) (Machine, Firmware, error) {
+func (s *Server) validateDHCP(pkt dhcp.Packet) (Machine, Firmware, error) {
 	var mach Machine
 	var fwtype Firmware
-	fwt, err := pkt.Options.Uint16(93)
+	fwt, err := pkt.ParseOptions().Uint16(dhcp.OptionClientArchitecture)
 	if err != nil {
 		return mach, fwtype, fmt.Errorf("malformed DHCP option 93 (required for PXE): %s", err)
 	}
@@ -338,7 +338,7 @@ func (s *Server) validateDHCP(pkt *dhcp.Packet) (Machine, Firmware, error) {
 		return mach, 0, fmt.Errorf("unsupported client firmware type '%d'", fwtype)
 	}
 
-	guid := pkt.Options[97]
+	guid, _ := pkt.ParseOptions().Bytes(dhcp.OptionClientMachineIdentifier)
 	switch len(guid) {
 	case 0:
 		// A missing GUID is invalid according to the spec, however
@@ -354,6 +354,6 @@ func (s *Server) validateDHCP(pkt *dhcp.Packet) (Machine, Firmware, error) {
 		return mach, 0, errors.New("malformed client GUID (option 97), wrong size")
 	}
 
-	mach.MAC = pkt.HardwareAddr
+	mach.MAC = pkt.CHAddr()
 	return mach, fwtype, nil
 }

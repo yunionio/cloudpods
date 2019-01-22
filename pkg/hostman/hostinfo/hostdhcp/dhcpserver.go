@@ -100,10 +100,10 @@ func (s *SGuestDHCPServer) getGuestConfig(guestDesc, guestNic jsonutils.JSONObje
 	return conf
 }
 
-func (s *SGuestDHCPServer) getConfig(pkt *dhcp.Packet) *dhcp.ResponseConfig {
+func (s *SGuestDHCPServer) getConfig(pkt dhcp.Packet) *dhcp.ResponseConfig {
 	var (
 		guestmananger = guestman.GetGuestManager()
-		mac           = pkt.HardwareAddr.String()
+		mac           = pkt.CHAddr().String()
 		ip, port      = "", ""
 		isCandidate   = false
 	)
@@ -117,7 +117,7 @@ func (s *SGuestDHCPServer) getConfig(pkt *dhcp.Packet) *dhcp.ResponseConfig {
 	return nil
 }
 
-func (s *SGuestDHCPServer) ServeDHCP(pkt *dhcp.Packet, intf *net.Interface) (*dhcp.Packet, error) {
+func (s *SGuestDHCPServer) ServeDHCP(pkt dhcp.Packet, intf *net.Interface) (dhcp.Packet, error) {
 	var conf = s.getConfig(pkt)
 	if conf != nil {
 		return dhcp.MakeReplyPacket(pkt, conf)

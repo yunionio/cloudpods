@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	//"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )
@@ -60,9 +60,9 @@ func (self *SBaremetalServerCreateTask) DoDeploys(term *ssh.Client) (jsonutils.J
 }
 
 func (self *SBaremetalServerCreateTask) onError(term *ssh.Client, err error) error {
-	if err1 := self.Baremetal.GetServer().DoEraseDisk(term); err1 != nil {
-		log.Warningf("EraseDisk error: %v", err1)
-	}
+	//if err1 := self.Baremetal.GetServer().DoEraseDisk(term); err1 != nil {
+	//log.Warningf("EraseDisk error: %v", err1)
+	//}
 	self.Baremetal.AutoSyncStatus()
 	return err
 }

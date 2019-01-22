@@ -636,7 +636,7 @@ func (b *SBaremetalInstance) GetDHCPConfig(cliMac net.HardwareAddr) (*dhcp.Respo
 		nic = b.GetNicByMac(cliMac)
 	}
 	if nic == nil {
-		return nil, fmt.Errorf("GetNicDHCPConfig no nic found")
+		return nil, fmt.Errorf("GetNicDHCPConfig no nic found by mac: %s", cliMac)
 	}
 	return b.getDHCPConfig(nic, hostname, false, 0)
 }
@@ -688,7 +688,7 @@ func (b *SBaremetalInstance) GetTask() tasks.ITask {
 func (b *SBaremetalInstance) SetTask(task tasks.ITask) {
 	b.taskQueue.AppendTask(task)
 	if reflect.DeepEqual(task, b.taskQueue.GetTask()) {
-		log.Infof("Set task equal")
+		log.Infof("Set task equal, ExecuteTask %s", task.GetName())
 		tasks.ExecuteTask(task, nil)
 	}
 }
@@ -1298,10 +1298,7 @@ func (s *SBaremetalServer) DoPartitionDisk(term *ssh.Client) ([]*disktool.Partit
 		return nil, fmt.Errorf("Failed to create root: %v", err)
 	}
 
-	err = tool.RetrievePartitionInfo()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to retrieve diskInfo after root created: %v", err)
-	}
+	tool.RetrievePartitionInfo()
 	parts := tool.GetPartitions()
 	if len(parts) == 0 {
 		return nil, fmt.Errorf("Root disk create failed, no partitions")
@@ -1366,10 +1363,7 @@ func (s *SBaremetalServer) DoRebuildRootDisk(term *ssh.Client) ([]*disktool.Part
 		return nil, fmt.Errorf("Failed to create root: %v", err)
 	}
 
-	err = tool.RetrievePartitionInfo()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to retrieve diskInfo after root created: %v", err)
-	}
+	tool.RetrievePartitionInfo()
 
 	log.Infof("Resize root to %d MB", rootSize)
 	if err := tool.ResizePartition(0, int(rootSize)); err != nil {

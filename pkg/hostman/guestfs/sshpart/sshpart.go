@@ -479,16 +479,14 @@ func MountSSHRootfs(term *ssh.Client, layouts []baremetal.Layout) (*SSHPartition
 	if err := tool.RetrieveDiskInfo(); err != nil {
 		return nil, nil, err
 	}
-	if err := tool.RetrievePartitionInfo(); err != nil {
-		return nil, nil, err
-	}
+	tool.RetrievePartitionInfo()
 	parts := tool.GetPartitions()
 	if len(parts) == 0 {
 		return nil, nil, fmt.Errorf("Not found partitions")
 	}
 	for _, part := range parts {
 		dev := NewSSHPartition(term, part.GetDev())
-		if dev.Mount() {
+		if !dev.Mount() {
 			continue
 		}
 		if rootFs := guestfs.DetectRootFs(dev); rootFs != nil {
