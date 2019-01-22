@@ -131,8 +131,6 @@ func (self *SHost) CreateVM2(name string, imgId string, sysDiskSize int, instanc
 }
 
 func (self *SHost) _createVM(name string, imgId string, sysDiskSize int32, cpu int, memMB int, instanceType string, nicId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, userData string) (string, error) {
-	// TODO: need to fix scenarios where image is a public image
-	// XXX Qiu Jian
 	image, err := self.zone.region.GetImageById(imgId)
 	if err != nil {
 		log.Errorf("Get Image %s fail %s", imgId, err)
@@ -169,9 +167,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int32, cpu i
 				},
 			},
 			StorageProfile: StorageProfile{
-				ImageReference: ImageReference{
-					ID: image.ID,
-				},
+				ImageReference: image.getImageReference(),
 				OsDisk: OSDisk{
 					Name:    fmt.Sprintf("vdisk_%s_%d", name, time.Now().UnixNano()),
 					Caching: "ReadWrite",

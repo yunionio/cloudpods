@@ -119,7 +119,7 @@ func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImag
 	if len(parts) == 0 {
 		return nil, cloudprovider.ErrNotFound
 	}
-	parts[1].storageCache = self
+	parts[0].storageCache = self
 	return &parts[0], nil
 }
 

@@ -202,8 +202,12 @@ func (self *SRegion) GetImageStatus(imageId string) (ImageStatusType, error) {
 	}
 }
 
+func isPrivateImageID(imageId string) bool {
+	return strings.HasPrefix(strings.ToLower(imageId), "/subscriptions/")
+}
+
 func (self *SRegion) GetImageById(imageId string) (SImage, error) {
-	if strings.HasPrefix(strings.ToLower(imageId), "/subscriptions/") {
+	if isPrivateImageID(imageId) {
 		return self.getPrivateImage(imageId)
 	} else {
 		return self.getOfferedImage(imageId)
@@ -490,4 +494,19 @@ func (region *SRegion) getOfferedImage(offerId string) (SImage, error) {
 	image.Version = version
 	image.Properties.ProvisioningState = ImageStatusAvailable
 	return image, nil
+}
+
+func (image *SImage) getImageReference() ImageReference {
+	if isPrivateImageID(image.ID) {
+		return ImageReference{
+			ID: image.ID,
+		}
+	} else {
+		return ImageReference{
+			Sku:       image.Sku,
+			Publisher: image.Publisher,
+			Version:   image.Version,
+			Offer:     image.Offer,
+		}
+	}
 }

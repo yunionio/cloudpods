@@ -106,7 +106,7 @@ func (self *SImage) IsEmulated() bool {
 }
 
 func (self *SImage) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s")
+	return self.ImageId
 }
 
 func (self *SImage) Delete(ctx context.Context) error {

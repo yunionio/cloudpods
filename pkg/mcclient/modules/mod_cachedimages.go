@@ -10,6 +10,7 @@ func init() {
 			"OS_Type", "OS_Distribution", "OS_version",
 			"Hypervisor", "Host_count", "Status",
 			"Ref_Count", "cached_count", "image_type",
+			"External_Id",
 		},
 		[]string{})
 

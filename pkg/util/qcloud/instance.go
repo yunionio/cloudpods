@@ -199,23 +199,8 @@ func (self *SInstance) getVpc() (*SVpc, error) {
 }
 
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	disks, total, err := self.host.zone.region.GetDisks(self.InstanceId, "", "", nil, 0, 50)
-	if err != nil {
-		log.Errorf("fetchDisks fail %s", err)
-		return nil, err
-	}
-	if total > len(disks) {
-		disks, _, err = self.host.zone.region.GetDisks(self.InstanceId, "", "", nil, 0, total)
-	}
-	idisks := make([]cloudprovider.ICloudDisk, len(disks))
-	for i := 0; i < len(disks); i += 1 {
-		store, err := self.host.zone.getStorageByCategory(disks[i].DiskType)
-		if err != nil {
-			return nil, err
-		}
-		disks[i].storage = store
-		idisks[i] = &disks[i]
-	}
+	idisks := make([]cloudprovider.ICloudDisk, 0)
+
 	if utils.IsInStringArray(self.SystemDisk.DiskType, []string{"LOCAL_BASIC", "LOCAL_SSD"}) {
 		storage := SLocalStorage{zone: self.host.zone, storageType: self.SystemDisk.DiskType}
 		disk := SLocalDisk{
@@ -240,6 +225,29 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 			}
 			idisks = append(idisks, &disk)
 		}
+	}
+
+	disks := make([]SDisk, 0)
+	totalDisk := -1
+	for totalDisk < 0 || len(disks) < totalDisk {
+		parts, total, err := self.host.zone.region.GetDisks(self.InstanceId, "", "", nil, len(disks), 50)
+		if err != nil {
+			log.Errorf("fetchDisks fail %s", err)
+			return nil, err
+		}
+		if len(parts) > 0 {
+			disks = append(disks, parts...)
+		}
+		totalDisk = total
+	}
+
+	for i := 0; i < len(disks); i += 1 {
+		store, err := self.host.zone.getStorageByCategory(disks[i].DiskType)
+		if err != nil {
+			return nil, err
+		}
+		disks[i].storage = store
+		idisks = append(idisks, &disks[i])
 	}
 
 	return idisks, nil
@@ -453,6 +461,13 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	if len(instances) == 0 {
 		return nil, cloudprovider.ErrNotFound
 	}
+	if len(instances) > 1 {
+		return nil, cloudprovider.ErrDuplicateId
+	}
+	if instances[0].InstanceState == "LAUNCH_FAILED" {
+		return nil, cloudprovider.ErrNotFound
+	}
+	log.Debugf("%s", instances)
 	return &instances[0], nil
 }
 
@@ -542,7 +557,11 @@ func (self *SRegion) doStopVM(instanceId string, isForce bool) error {
 
 func (self *SRegion) doDeleteVM(instanceId string) error {
 	params := make(map[string]string)
-	return self.instanceOperation(instanceId, "TerminateInstances", params)
+	err := self.instanceOperation(instanceId, "TerminateInstances", params)
+	if err != nil && cloudprovider.IsError(err, []string{"InvalidInstanceId.NotFound"}) {
+		return nil
+	}
+	return err
 }
 
 func (self *SRegion) StartVM(instanceId string) error {
