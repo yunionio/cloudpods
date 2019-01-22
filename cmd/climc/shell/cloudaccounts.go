@@ -45,7 +45,7 @@ func init() {
 		AuthURL         string `help:"OpenStack auth_url"`
 		Host            string `help:"VMware host"`
 		Port            string `help:"VMware host port" default:"443"`
-		directoryID     string `help:"Azure directory_id"`
+		DirectoryID     string `help:"Azure directory_id"`
 		ClientID        string `help:"Azure client_id"`
 		ClientSecret    string `help:"Azure clinet_secret"`
 		Environment     string `help:"Azure|Huawei|Aws environment" choices:"AzureGermanCloud|AzureChinaCloud|AzureUSGovernmentCloud|AzurePublicCloud|InternationalCloud|ChinaCloud|"`
