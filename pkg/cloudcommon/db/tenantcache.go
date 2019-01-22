@@ -10,6 +10,8 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type STenantCacheManager struct {
@@ -81,6 +83,9 @@ func (manager *STenantCacheManager) fetchTenantFromKeystone(ctx context.Context,
 	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
 	tenant, err := modules.Projects.Get(s, idStr, nil)
 	if err != nil {
+		if je, ok := err.(*httputils.JSONClientError); ok && je.Code == 404 {
+			return nil, sql.ErrNoRows
+		}
 		log.Errorf("fetch project fail %s", err)
 		return nil, err
 	}
