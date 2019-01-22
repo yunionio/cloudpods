@@ -65,10 +65,10 @@ const (
 )
 
 const (
-	STORAGE_ENABLED  = "enabled"
-	STORAGE_DISABLED = "disabled"
-	STORAGE_OFFLINE  = "offline"
-	STORAGE_ONLINE   = "online"
+	STORAGE_ENABLED = "enabled"
+	// STORAGE_DISABLED = "disabled"
+	STORAGE_OFFLINE = "offline"
+	STORAGE_ONLINE  = "online"
 
 	DISK_TYPE_ROTATE = "rotate"
 	DISK_TYPE_SSD    = "ssd"
@@ -129,6 +129,9 @@ type SStorage struct {
 
 	Enabled bool   `nullable:"false" default:"true" list:"user" create:"optional"`
 	Status  string `width:"36" charset:"ascii" nullable:"false" default:"offline" list:"user" create:"optional"`
+
+	// indicating whether system disk can be allocated in this storage
+	IsSysDiskStore bool `nullable:"false" default:"true" list:"user" create:"optional" update:"admin"`
 }
 
 func (manager *SStorageManager) GetContextManager() []db.IModelManager {
@@ -679,9 +682,13 @@ func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mccli
 	}
 
 	for i := 0; i < len(removed); i += 1 {
+		// may be a fake storage for prepaid recycle host
+		if removed[i].IsPrepaidRecycleResource() {
+			continue
+		}
 		err = removed[i].ValidateDeleteCondition(ctx)
 		if err != nil { // cannot delete
-			err = removed[i].SetStatus(userCred, STORAGE_DISABLED, "sync to delete")
+			err = removed[i].SetStatus(userCred, STORAGE_OFFLINE, "sync to delete")
 			if err == nil {
 				_, err = removed[i].PerformDisable(ctx, userCred, nil, nil)
 			}
@@ -737,6 +744,8 @@ func (self *SStorage) syncWithCloudStorage(extStorage cloudprovider.ICloudStorag
 		self.IsEmulated = extStorage.IsEmulated()
 		self.ManagerId = extStorage.GetManagerId()
 
+		self.IsSysDiskStore = extStorage.IsSysDiskStore()
+
 		return nil
 	})
 	if err != nil {
@@ -763,6 +772,8 @@ func (manager *SStorageManager) newFromCloudStorage(extStorage cloudprovider.ICl
 
 	storage.IsEmulated = extStorage.IsEmulated()
 	storage.ManagerId = extStorage.GetManagerId()
+
+	storage.IsSysDiskStore = extStorage.IsSysDiskStore()
 
 	err := manager.TableSpec().Insert(&storage)
 	if err != nil {
@@ -1200,4 +1211,15 @@ func (self *SStorage) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	info := self.getCloudProviderInfo()
 	desc.Update(jsonutils.Marshal(&info))
 	return desc
+}
+
+func (self *SStorage) IsPrepaidRecycleResource() bool {
+	if !self.IsLocal() {
+		return false
+	}
+	hosts := self.GetAttachedHosts()
+	if len(hosts) != 1 {
+		return false
+	}
+	return hosts[0].IsPrepaidRecycleResource()
 }

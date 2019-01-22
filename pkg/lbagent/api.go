@@ -63,7 +63,7 @@ func (h *ApiHelper) Run(ctx context.Context) {
 }
 
 func (h *ApiHelper) adminClientSession(ctx context.Context) *mcclient.ClientSession {
-	region := h.opts.CommonOpts.Region
+	region := h.opts.CommonOptions.Region
 	apiVersion := "v2"
 	s := auth.GetAdminSession(ctx, region, apiVersion)
 	return s

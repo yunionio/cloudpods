@@ -36,7 +36,7 @@ func syncOnPremiseCloudProviderInfo(ctx context.Context, provider *models.SCloud
 	log.Infof(notes)
 	if result.IsError() {
 		logSyncFailed(provider, task, msg)
-		return
+		// return
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
 	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)

@@ -14,7 +14,7 @@ import (
 
 func main() {
 	opts := &lbagent.Options{}
-	commonOpts := &opts.CommonOpts
+	commonOpts := &opts.CommonOptions
 	{
 		cloudcommon.ParseOptions(opts, os.Args, "lbagent.conf", "lbagent")
 		cloudcommon.InitAuth(commonOpts, func() {

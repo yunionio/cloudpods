@@ -145,10 +145,10 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		errMsgs := make([]string, 0)
 
 		for _, net := range hc.Networks {
-			if !isMatchServerType(net) {
+			/*if !isMatchServerType(net) {
 				errMsgs = append(errMsgs, fmt.Sprintf("%v(%v): server type not matched", net.Name, net.ID))
 				continue
-			}
+			}*/
 			if !(n.Idx == net.ID || n.Idx == net.Name) {
 				errMsgs = append(errMsgs, fmt.Sprintf("%v(%v): id/name not matched", net.Name, net.ID))
 			} else if !(net.IsPublic || net.TenantID == d.OwnerTenantID) {

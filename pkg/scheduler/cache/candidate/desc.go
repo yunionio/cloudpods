@@ -147,6 +147,7 @@ func (b *baseHostDesc) fillZone(host *models.Host) error {
 		return err
 	}
 	b.Zone = zone
+	b.ZoneID = host.ZoneID
 	return nil
 }
 

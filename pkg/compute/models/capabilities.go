@@ -12,7 +12,9 @@ import (
 
 type SCapabilities struct {
 	Hypervisors        []string `json:",allowempty"`
+	ResourceTypes      []string `json:",allowempty"`
 	StorageTypes       []string `json:",allowempty"`
+	DataStorageTypes   []string `json:",allowempty"`
 	GPUModels          []string `json:",allowempty"`
 	MinNicCount        int
 	MaxNicCount        int
@@ -26,7 +28,9 @@ type SCapabilities struct {
 func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, zone *SZone) (SCapabilities, error) {
 	capa := SCapabilities{}
 	capa.Hypervisors = getHypervisors(zone)
-	capa.StorageTypes = getStorageTypes(zone)
+	capa.ResourceTypes = getResourceTypes(zone)
+	capa.StorageTypes = getStorageTypes(zone, true)
+	capa.DataStorageTypes = getStorageTypes(zone, false)
 	capa.GPUModels = getGPUs(zone)
 	capa.SchedPolicySupport = isSchedPolicySupported(zone)
 	capa.MinNicCount = getMinNicCount(zone)
@@ -71,15 +75,57 @@ func getHypervisors(zone *SZone) []string {
 	return hypervisors
 }
 
-func getStorageTypes(zone *SZone) []string {
-	q := StorageManager.Query("storage_type", "medium_type")
+func getResourceTypes(zone *SZone) []string {
+	q := HostManager.Query("resource_type")
 	if zone != nil {
 		q = q.Equals("zone_id", zone.Id)
 	}
-	q = q.IsNotEmpty("storage_type").IsNotNull("storage_type")
-	q = q.IsNotEmpty("medium_type").IsNotNull("medium_type")
-	q = q.In("status", []string{STORAGE_ENABLED, STORAGE_ONLINE})
+	q = q.IsNotEmpty("resource_type").IsNotNull("resource_type")
 	q = q.IsTrue("enabled")
+	q = q.Distinct()
+	rows, err := q.Rows()
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	resourceTypes := make([]string, 0)
+	for rows.Next() {
+		var resType string
+		rows.Scan(&resType)
+		if len(resType) > 0 {
+			resourceTypes = append(resourceTypes, resType)
+		}
+	}
+	return resourceTypes
+}
+
+func getStorageTypes(zone *SZone, isSysDisk bool) []string {
+	storages := StorageManager.Query().SubQuery()
+	hostStorages := HoststorageManager.Query().SubQuery()
+	hosts := HostManager.Query().SubQuery()
+
+	q := storages.Query(storages.Field("storage_type"), storages.Field("medium_type"))
+	q = q.Join(hostStorages, sqlchemy.Equals(
+		hostStorages.Field("storage_id"),
+		storages.Field("id"),
+	))
+	q = q.Join(hosts, sqlchemy.Equals(
+		hosts.Field("id"),
+		hostStorages.Field("host_id"),
+	))
+	if zone != nil {
+		q = q.Filter(sqlchemy.Equals(storages.Field("zone_id"), zone.Id))
+	}
+	q = q.Filter(sqlchemy.Equals(hosts.Field("resource_type"), HostResourceTypeShared))
+	q = q.Filter(sqlchemy.IsNotEmpty(storages.Field("storage_type")))
+	q = q.Filter(sqlchemy.IsNotNull(storages.Field("storage_type")))
+	q = q.Filter(sqlchemy.IsNotEmpty(storages.Field("medium_type")))
+	q = q.Filter(sqlchemy.IsNotNull(storages.Field("medium_type")))
+	q = q.Filter(sqlchemy.In(storages.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE}))
+	q = q.Filter(sqlchemy.IsTrue(storages.Field("enabled")))
+	if isSysDisk {
+		q = q.Filter(sqlchemy.IsTrue(storages.Field("is_sys_disk_store")))
+	}
 	q = q.Distinct()
 	rows, err := q.Rows()
 	if err != nil {

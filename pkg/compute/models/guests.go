@@ -1201,6 +1201,9 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 		}
 	}*/
 
+	extra.Add(self.getDisksInfoDetails(), "disks_info")
+	extra.Add(jsonutils.NewString(self.getIsolatedDeviceDetails()), "isolated_devices")
+
 	host := self.GetHost()
 	if host != nil {
 		info := host.getCloudProviderInfo()
@@ -1225,7 +1228,6 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 
 	extra.Add(jsonutils.NewString(self.getNetworksDetails()), "networks")
 	extra.Add(jsonutils.NewString(self.getDisksDetails()), "disks")
-	extra.Add(self.getDisksInfoDetails(), "disks_info")
 	extra.Add(jsonutils.NewInt(int64(self.getDiskSize())), "disk")
 	cdrom := self.getCdrom()
 	if cdrom != nil {
@@ -1241,7 +1243,6 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 
 	extra.Add(jsonutils.NewString(strings.Join(self.getIPs(), ",")), "ips")
 	extra.Add(jsonutils.NewString(self.getSecurityGroupsRules()), "security_rules")
-	extra.Add(jsonutils.NewString(self.getIsolatedDeviceDetails()), "isolated_devices")
 	osName := self.GetOS()
 	if len(osName) > 0 {
 		extra.Add(jsonutils.NewString(osName), "os_name")
@@ -3431,6 +3432,7 @@ func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, u
 	}
 	for i := 0; i < len(guests); i += 1 {
 		// fake delete expired prepaid servers
+		guests[i].SetDisableDelete(false)
 		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, false)
 	}
 }

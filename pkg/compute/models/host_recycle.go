@@ -53,6 +53,9 @@ func (self *SGuest) CanPerformPrepaidRecycle() error {
 }
 
 func (self *SGuest) PerformPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !self.IsInStatus(VM_READY, VM_RUNNING) {
+		return nil, httperrors.NewInvalidStatusError("cannot recycle in status %s", self.Status)
+	}
 	err := self.CanPerformPrepaidRecycle()
 	if err != nil {
 		return nil, httperrors.NewInvalidStatusError(err.Error())
@@ -282,6 +285,10 @@ func (self *SGuest) AllowPerformUndoPrepaidRecycle(ctx context.Context, userCred
 }
 
 func (self *SGuest) PerformUndoPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !self.IsInStatus(VM_READY, VM_RUNNING) {
+		return nil, httperrors.NewInvalidStatusError("cannot undo recycle in status %s", self.Status)
+	}
+
 	host := self.GetHost()
 
 	if host == nil {
@@ -296,7 +303,7 @@ func (self *SGuest) PerformUndoPrepaidRecycle(ctx context.Context, userCred mccl
 		return nil, httperrors.NewInvalidStatusError("host is not a prepaid recycle host")
 	}
 
-	err := doUndoPrepaidRecycle(ctx, userCred, host, self)
+	err := doUndoPrepaidRecycleLockHost(ctx, userCred, host, self)
 	if err != nil {
 		logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, false)
 		return nil, httperrors.NewGeneralError(err)
@@ -331,11 +338,15 @@ func (self *SHost) PerformUndoPrepaidRecycle(ctx context.Context, userCred mccli
 		return nil, httperrors.NewInvalidStatusError("a recycle host shoud not allocate more than 1 guest")
 	}
 
+	if !guests[0].IsInStatus(VM_READY, VM_RUNNING) {
+		return nil, httperrors.NewInvalidStatusError("cannot undo recycle in status %s", guests[0].Status)
+	}
+
 	if guests[0].PendingDeleted {
 		return nil, httperrors.NewInvalidStatusError("cannot undo a recycle host with pending_deleted guest")
 	}
 
-	err := doUndoPrepaidRecycle(ctx, userCred, self, &guests[0])
+	err := doUndoPrepaidRecycleLockGuest(ctx, userCred, self, &guests[0])
 	if err != nil {
 		logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, false)
 		return nil, httperrors.NewGeneralError(err)
@@ -356,7 +367,21 @@ func findIdiskById(idisks []cloudprovider.ICloudDisk, uuid string) cloudprovider
 	return nil
 }
 
-func doUndoPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, server *SGuest) error {
+func doUndoPrepaidRecycleLockGuest(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, server *SGuest) error {
+	lockman.LockObject(ctx, server)
+	defer lockman.ReleaseObject(ctx, server)
+
+	return doUndoPrepaidRecycleNoLock(ctx, userCred, host, server)
+}
+
+func doUndoPrepaidRecycleLockHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, server *SGuest) error {
+	lockman.LockObject(ctx, host)
+	defer lockman.ReleaseObject(ctx, host)
+
+	return doUndoPrepaidRecycleNoLock(ctx, userCred, host, server)
+}
+
+func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, server *SGuest) error {
 	if host.RealExternalId != server.ExternalId {
 		msg := "host and server external id not match!!!!"
 		log.Errorf(msg)
@@ -724,5 +749,13 @@ func (self *SHost) DoSaveRenewInfo(ctx context.Context, userCred mcclient.TokenC
 		return err
 	}
 	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(ctx), userCred)
+	return nil
+}
+
+func (self *SHost) SyncWithRealPrepaidVM(ctx context.Context, userCred mcclient.TokenCredential, iVM cloudprovider.ICloudVM) error {
+	exp := iVM.GetExpiredAt()
+	if self.ExpiredAt != exp {
+		return self.DoSaveRenewInfo(ctx, userCred, nil, &exp)
+	}
 	return nil
 }

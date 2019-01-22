@@ -123,6 +123,8 @@ type ICloudStorage interface {
 	GetIDiskById(idStr string) (ICloudDisk, error)
 
 	GetMountPoint() string
+
+	IsSysDiskStore() bool
 }
 
 type ICloudHost interface {

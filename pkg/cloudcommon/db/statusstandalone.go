@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -61,4 +63,8 @@ func (model *SStatusStandaloneResourceBase) PerformStatus(ctx context.Context, u
 	reason, _ := data.GetString("reason")
 	err = model.SetStatus(userCred, status, reason)
 	return nil, err
+}
+
+func (model *SStatusStandaloneResourceBase) IsInStatus(status ...string) bool {
+	return utils.IsInStringArray(model.Status, status)
 }

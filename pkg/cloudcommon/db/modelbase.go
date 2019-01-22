@@ -311,6 +311,10 @@ func (model *SModelBase) GetOwnerProjectId() string {
 	return ""
 }
 
+func (model *SModelBase) IsSharable() bool {
+	return false
+}
+
 func (model *SModelBase) CustomizedGetDetailsBody(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return nil, nil
 }

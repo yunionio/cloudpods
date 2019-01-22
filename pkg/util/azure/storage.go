@@ -164,3 +164,7 @@ func (self *SStorage) Refresh() error {
 func (self *SStorage) GetMountPoint() string {
 	return ""
 }
+
+func (self *SStorage) IsSysDiskStore() bool {
+	return true
+}

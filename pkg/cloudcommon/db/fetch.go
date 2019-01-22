@@ -38,8 +38,11 @@ func FetchByName(manager IModelManager, userCred mcclient.IIdentityProvider, idS
 	}
 	q := manager.Query()
 	q = manager.FilterByName(q, idStr)
-	q = manager.FilterByOwner(q, owner)
 	count := q.Count()
+	if count > 1 {
+		q = manager.FilterByOwner(q, owner)
+		count = q.Count()
+	}
 	if count == 1 {
 		obj, err := NewModelObject(manager)
 		if err != nil {
@@ -105,8 +108,11 @@ func fetchItemByName(manager IModelManager, ctx context.Context, userCred mcclie
 		}
 	}
 	q = manager.FilterByName(q, idStr)
-	q = manager.FilterByOwner(q, manager.GetOwnerId(userCred))
 	count := q.Count()
+	if count > 1 {
+		q = manager.FilterByOwner(q, manager.GetOwnerId(userCred))
+		count = q.Count()
+	}
 	if count == 1 {
 		item, err := NewModelObject(manager)
 		if err != nil {

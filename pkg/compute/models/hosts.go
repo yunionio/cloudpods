@@ -787,6 +787,9 @@ func (self *SHost) ClearSchedDescCache() error {
 
 func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 	if statusCheck {
+		if !self.Enabled {
+			return nil
+		}
 		if utils.IsInStringArray(self.Status, []string{BAREMETAL_INIT, BAREMETAL_PREPARE_FAIL, BAREMETAL_PREPARE}) ||
 			self.GetBaremetalServer() != nil {
 			return nil
@@ -1078,6 +1081,12 @@ func (self *SHost) GetGuestCount() int {
 	return q.Count()
 }
 
+func (self *SHost) GetContainerCount() int {
+	q := self.GetGuestsQuery()
+	q = q.Filter(sqlchemy.Equals(q.Field("hypervisor"), HYPERVISOR_CONTAINER))
+	return q.Count()
+}
+
 func (self *SHost) GetNonsystemGuestCount() int {
 	q := self.GetGuestsQuery()
 	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("is_system")), sqlchemy.IsFalse(q.Field("is_system"))))
@@ -1214,6 +1223,9 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 	}
 
 	for i := 0; i < len(removed); i += 1 {
+		if removed[i].IsPrepaidRecycleResource() {
+			continue
+		}
 		err = removed[i].ValidateDeleteCondition(ctx)
 		if err != nil { // cannot delete
 			err = removed[i].SetStatus(userCred, HOST_OFFLINE, "sync to delete")
@@ -1637,6 +1649,10 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 			vhost := HostManager.GetHostByRealExternalId(added[i].GetGlobalId())
 			if vhost != nil {
 				// this recycle vm is not build yet, skip synchronize
+				err = vhost.SyncWithRealPrepaidVM(ctx, userCred, added[i])
+				if err != nil {
+					syncResult.AddError(err)
+				}
 				continue
 			}
 		}
@@ -2086,9 +2102,10 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 		extra.Add(jsonutils.NewInt(int64(usage.GuestVcpuCount)), "cpu_commit")
 		extra.Add(jsonutils.NewInt(int64(usage.GuestVmemSize)), "mem_commit")
 	}
-	extra.Add(jsonutils.NewInt(int64(self.GetGuestCount())), "guests")
-	extra.Add(jsonutils.NewInt(int64(self.GetNonsystemGuestCount())), "nonsystem_guests")
-	extra.Add(jsonutils.NewInt(int64(self.GetRunningGuestCount())), "running_guests")
+	containerCount := self.GetContainerCount()
+	extra.Add(jsonutils.NewInt(int64(self.GetGuestCount()-containerCount)), "guests")
+	extra.Add(jsonutils.NewInt(int64(self.GetNonsystemGuestCount()-containerCount)), "nonsystem_guests")
+	extra.Add(jsonutils.NewInt(int64(self.GetRunningGuestCount()-containerCount)), "running_guests")
 	totalCpu := self.GetCpuCount()
 	cpuCommitRate := 0.0
 	if totalCpu > 0 && usage.GuestVcpuCount > 0 {
@@ -3630,4 +3647,68 @@ func (manager *SHostManager) PingDetectionTask(ctx context.Context, userCred mcc
 		host.PerformOffline(ctx, userCred, nil, nil)
 		host.MarkGuestUnknown(userCred)
 	}
+}
+
+func (self *SHost) IsPrepaidRecycleResource() bool {
+	return self.ResourceType == HostResourceTypePrepaidRecycle
+}
+
+func (host *SHost) AllowPerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, host, "set-schedtag")
+}
+
+func (host *SHost) getHostschedtags() []SHostschedtag {
+	tags := make([]SHostschedtag, 0)
+	hostschedtags := HostschedtagManager.Query().SubQuery()
+	q := hostschedtags.Query().Equals("host_id", host.Id)
+	err := db.FetchModelObjects(HostschedtagManager, q, &tags)
+	if err != nil {
+		log.Errorf("Get hostschedtags: %v", err)
+		return nil
+	}
+	return tags
+}
+
+func (host *SHost) PerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	schedtags := jsonutils.GetArrayOfPrefix(data, "schedtag")
+	setTagsId := []string{}
+	for idx := 0; idx < len(schedtags); idx++ {
+		schedtagIdent, _ := schedtags[idx].GetString()
+		tag, err := SchedtagManager.FetchByIdOrName(userCred, schedtagIdent)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewNotFoundError("Schedtag %s not found", schedtagIdent)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		setTagsId = append(setTagsId, tag.GetId())
+	}
+	oldTags := host.getHostschedtags()
+	for _, oldTag := range oldTags {
+		if !utils.IsInStringArray(oldTag.SchedtagId, setTagsId) {
+			if err := oldTag.Detach(ctx, userCred); err != nil {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+	}
+	var oldTagIds []string
+	for _, tag := range oldTags {
+		oldTagIds = append(oldTagIds, tag.SchedtagId)
+	}
+	for _, setTagId := range setTagsId {
+		if !utils.IsInStringArray(setTagId, oldTagIds) {
+			if newTagObj, err := db.NewModelObject(HostschedtagManager); err != nil {
+				return nil, httperrors.NewGeneralError(err)
+			} else {
+				newTag := newTagObj.(*SHostschedtag)
+				newTag.HostId = host.Id
+				newTag.SchedtagId = setTagId
+				if err := newTag.GetModelManager().TableSpec().Insert(newTag); err != nil {
+					return nil, httperrors.NewGeneralError(err)
+				}
+			}
+		}
+	}
+	host.ClearSchedDescCache()
+	return nil, nil
 }

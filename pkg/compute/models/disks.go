@@ -1061,9 +1061,9 @@ func totalDiskSize(projectId string, active tristate.TriState, ready tristate.Tr
 		q = q.Join(storages, sqlchemy.AND(sqlchemy.IsFalse(storages.Field("deleted")),
 			sqlchemy.Equals(storages.Field("id"), disks.Field("storage_id"))))
 		if active.IsTrue() {
-			q = q.Filter(sqlchemy.Equals(storages.Field("status"), STORAGE_ENABLED))
+			q = q.Filter(sqlchemy.In(storages.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE}))
 		} else {
-			q = q.Filter(sqlchemy.NotEquals(storages.Field("status"), STORAGE_ENABLED))
+			q = q.Filter(sqlchemy.NotIn(storages.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE}))
 		}
 	}
 	if len(projectId) > 0 {
@@ -1105,6 +1105,8 @@ type SDiskConfig struct {
 	Backend         string // stroageType
 	Medium          string
 	ImageProperties map[string]string
+
+	DiskId string // import only
 }
 
 func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info jsonutils.JSONObject) (*SDiskConfig, error) {
@@ -1262,6 +1264,9 @@ func (self *SDisk) fetchDiskInfo(diskConfig *SDiskConfig) {
 			self.DiskType = diskType
 		}
 		self.Nonpersistent = false
+	}
+	if len(diskConfig.DiskId) > 0 && utils.IsMatchUUID(diskConfig.DiskId) {
+		self.Id = diskConfig.DiskId
 	}
 	self.DiskFormat = diskConfig.Format
 	self.DiskSize = diskConfig.SizeMb

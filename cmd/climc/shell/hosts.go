@@ -85,39 +85,30 @@ func init() {
 		return nil
 	})
 
-	R(&HostDetailOptions{}, "host-enable", "Enable a host", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
-		result, err := modules.Hosts.PerformAction(s, args.ID, "enable", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
+	type HostOpsOptions struct {
+		ID []string `help:"ID or name of hosts"`
+	}
+	R(&HostOpsOptions{}, "host-enable", "Enable a host", func(s *mcclient.ClientSession, args *HostOpsOptions) error {
+		results := modules.Hosts.BatchPerformAction(s, args.ID, "enable", nil)
+		printBatchResults(results, modules.Hosts.GetColumns(s))
 		return nil
 	})
 
-	R(&HostDetailOptions{}, "host-disable", "Disable a host", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
-		result, err := modules.Hosts.PerformAction(s, args.ID, "disable", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
+	R(&HostOpsOptions{}, "host-disable", "Disable a host", func(s *mcclient.ClientSession, args *HostOpsOptions) error {
+		results := modules.Hosts.BatchPerformAction(s, args.ID, "disable", nil)
+		printBatchResults(results, modules.Hosts.GetColumns(s))
 		return nil
 	})
 
-	R(&HostDetailOptions{}, "host-syncstatus", "Synchronize status of a host", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
-		result, err := modules.Hosts.PerformAction(s, args.ID, "syncstatus", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
+	R(&HostOpsOptions{}, "host-syncstatus", "Synchronize status of a host", func(s *mcclient.ClientSession, args *HostOpsOptions) error {
+		results := modules.Hosts.BatchPerformAction(s, args.ID, "syncstatus", nil)
+		printBatchResults(results, modules.Hosts.GetColumns(s))
 		return nil
 	})
 
-	R(&HostDetailOptions{}, "host-prepare", "Prepare a host for installation", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
-		result, err := modules.Hosts.PerformAction(s, args.ID, "prepare", nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
+	R(&HostOpsOptions{}, "host-prepare", "Prepare a host for installation", func(s *mcclient.ClientSession, args *HostOpsOptions) error {
+		results := modules.Hosts.BatchPerformAction(s, args.ID, "prepare", nil)
+		printBatchResults(results, modules.Hosts.GetColumns(s))
 		return nil
 	})
 
@@ -507,6 +498,23 @@ func init() {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.DURATION), "duration")
 		result, err := modules.Hosts.PerformAction(s, args.ID, "renew-prepaid-recycle", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type HostSetSchedtagOptions struct {
+		ID       string   `help:"ID or Name of host"`
+		Schedtag []string `help:"Ids of schedtag"`
+	}
+	R(&HostSetSchedtagOptions{}, "host-set-schedtag", "Set schedtags to a host", func(s *mcclient.ClientSession, args *HostSetSchedtagOptions) error {
+		params := jsonutils.NewDict()
+		for idx, tag := range args.Schedtag {
+			params.Add(jsonutils.NewString(tag), fmt.Sprintf("schedtag.%d", idx))
+		}
+		result, err := modules.Hosts.PerformAction(s, args.ID, "set-schedtag", params)
 		if err != nil {
 			return err
 		}
