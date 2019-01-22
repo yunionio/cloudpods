@@ -172,7 +172,10 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 				if len(newPairs) > 0 {
 					storageCachePairs = append(storageCachePairs, newPairs...)
 				}
-				syncZoneHosts(ctx, provider, task, &localZones[j], remoteZones[j], syncRange)
+				newPairs = syncZoneHosts(ctx, provider, task, &localZones[j], remoteZones[j], syncRange, storageCachePairs)
+				if len(newPairs) > 0 {
+					storageCachePairs = append(storageCachePairs, newPairs...)
+				}
 			}
 		}
 		syncRegionSnapshots(ctx, provider, task, &localRegions[i], remoteRegions[i], syncRange)
@@ -184,7 +187,6 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 
 	log.Debugf("storageCachePairs count %d", len(storageCachePairs))
 	for i := range storageCachePairs {
-		log.Debugf("storagecache %s %s %s", storageCachePairs[i].local.Id, storageCachePairs[i].local.ExternalId, storageCachePairs[i].remote.GetGlobalId())
 		result := storageCachePairs[i].syncCloudImages(ctx, task.GetUserCred())
 		msg := result.Result()
 		log.Infof("syncCloudImages result: %s", msg)
@@ -580,13 +582,13 @@ func syncStorageDisks(ctx context.Context, provider *models.SCloudprovider, task
 	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
 }
 
-func syncZoneHosts(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localZone *models.SZone, remoteZone cloudprovider.ICloudZone, syncRange *models.SSyncRange) {
+func syncZoneHosts(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localZone *models.SZone, remoteZone cloudprovider.ICloudZone, syncRange *models.SSyncRange, storageCachePairs []sStoragecacheSyncPair) []sStoragecacheSyncPair {
 	hosts, err := remoteZone.GetIHosts()
 	if err != nil {
 		msg := fmt.Sprintf("GetIHosts for zone %s failed %s", remoteZone.GetName(), err)
 		log.Errorf(msg)
 		logSyncFailed(provider, task, msg)
-		return
+		return nil
 	}
 	localHosts, remoteHosts, result := models.HostManager.SyncHosts(ctx, task.UserCred, provider, localZone, hosts, syncRange.ProjectSync)
 	msg := result.Result()
@@ -594,27 +596,29 @@ func syncZoneHosts(ctx context.Context, provider *models.SCloudprovider, task *C
 	log.Infof(notes)
 	if result.IsError() {
 		logSyncFailed(provider, task, msg)
-		return
+		return nil
 	}
+	var newCachePairs []sStoragecacheSyncPair
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
 	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
 	for i := 0; i < len(localHosts); i += 1 {
 		if len(syncRange.Host) > 0 && !utils.IsInStringArray(localHosts[i].Id, syncRange.Host) {
 			continue
 		}
-		syncHostStorages(ctx, provider, task, &localHosts[i], remoteHosts[i])
+		newCachePairs = syncHostStorages(ctx, provider, task, &localHosts[i], remoteHosts[i], storageCachePairs)
 		syncHostWires(ctx, provider, task, &localHosts[i], remoteHosts[i])
 		syncHostVMs(ctx, provider, task, &localHosts[i], remoteHosts[i], syncRange)
 	}
+	return newCachePairs
 }
 
-func syncHostStorages(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localHost *models.SHost, remoteHost cloudprovider.ICloudHost) {
+func syncHostStorages(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localHost *models.SHost, remoteHost cloudprovider.ICloudHost, storageCachePairs []sStoragecacheSyncPair) []sStoragecacheSyncPair {
 	storages, err := remoteHost.GetIStorages()
 	if err != nil {
 		msg := fmt.Sprintf("GetIStorages for host %s failed %s", remoteHost.GetName(), err)
 		log.Errorf(msg)
 		logSyncFailed(provider, task, msg)
-		return
+		return nil
 	}
 	localStorages, remoteStorages, result := localHost.SyncHostStorages(ctx, task.UserCred, storages)
 	msg := result.Result()
@@ -622,14 +626,21 @@ func syncHostStorages(ctx context.Context, provider *models.SCloudprovider, task
 	log.Infof(notes)
 	if result.IsError() {
 		logSyncFailed(provider, task, msg)
-		return
+		return nil
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
 	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
 
+	newCacheIds := make([]sStoragecacheSyncPair, 0)
 	for i := 0; i < len(localStorages); i += 1 {
-		syncStorageCaches(ctx, provider, task, &localStorages[i], remoteStorages[i])
+		if !isInCache(storageCachePairs, localStorages[i].StoragecacheId) && !isInCache(newCacheIds, localStorages[i].StoragecacheId) {
+			cachePair := syncStorageCaches(ctx, provider, task, &localStorages[i], remoteStorages[i])
+			if cachePair.remote != nil && cachePair.local != nil {
+				newCacheIds = append(newCacheIds, cachePair)
+			}
+		}
 	}
+	return newCacheIds
 }
 
 func syncHostWires(ctx context.Context, provider *models.SCloudprovider, task taskman.ITask, localHost *models.SHost, remoteHost cloudprovider.ICloudHost) {

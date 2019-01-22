@@ -38,7 +38,7 @@ func (self *SImage) GetId() string {
 }
 
 func (self *SImage) GetName() string {
-	return path.Base(self.filename)
+	return self.GetId()
 }
 
 func (self *SImage) GetGlobalId() string {
@@ -108,7 +108,7 @@ func (self *SImage) GetOsArch() string {
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {
-	return 0
+	return int(self.GetSize()/1024/1024/1024)
 }
 
 func (self *SImage) GetImageFormat() string {

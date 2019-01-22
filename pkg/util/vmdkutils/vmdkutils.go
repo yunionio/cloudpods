@@ -24,7 +24,7 @@ type SVMDKInfo struct {
 }
 
 func (info SVMDKInfo) Size() int64 {
-	return info.Heads * info.Sectors * info.Cylinders
+	return info.Heads * info.Sectors * info.Cylinders * 512
 }
 
 const (
