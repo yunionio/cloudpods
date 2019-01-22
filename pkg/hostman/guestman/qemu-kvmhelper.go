@@ -285,7 +285,15 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		qemuVersion = ""
 	}
 
-	// TODO: isolatedDevsParams := hostinfo.Instance()...
+	var devAddrs = []string{}
+	isolatedParams, err := s.Desc.GetArray("isolated_devices")
+	if err != nil {
+		for _, params := range isolatedParams {
+			devAddr, _ := params.GetString("addr")
+			devAddrs = append(devAddrs, devAddr)
+		}
+	}
+	isolatedDevsParams := s.manager.GetHost().GetIsolatedDeviceManager().GetQemuParams(devAddrs)
 
 	for _, nic := range nics {
 		downscript := s.getNicDownScriptPath(nic)
@@ -366,9 +374,9 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 			cpuType += ",kvm=off"
 		}
 
-		// TODO
-		// if isolated_devs_params.get('cpu', None):
-		//   cpu_type = isolated_devs_params['cpu']
+		if isolatedDevsParams != nil && len(isolatedDevsParams.Cpu) > 0 {
+			cpuType = isolatedDevsParams.Cpu
+		}
 	} else {
 		cmd += " -no-kvm"
 		accel = "tcg"
@@ -453,11 +461,15 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		cmd += " -chardev spicevmc,name=usbredir,id=usbredirchardev2"
 		cmd += " -device usb-redir,chardev=usbredirchardev2,id=usbredirdev2"
 	} else {
-		// TODO isolated_devs_params
-		//   if isolated_devs_params.get('vga', None):
-		//     cmd += isolated_devs_params['vga']
-		// else:
-		//     cmd += ' -vga %s' % self.desc.get('vga', 'std')
+		if isolatedDevsParams != nil && len(isolatedDevsParams.Vga) > 0 {
+			cmd += isolatedDevsParams.Vga
+		} else {
+			vga, err := s.Desc.GetString("vga")
+			if err != nil {
+				vga = "std"
+			}
+			cmd += fmt.Sprintf(" -vga %s", vga)
+		}
 		cmd += fmt.Sprintf(" -vnc :%d", vncPort)
 		if options.HostOptions.SetVncPassword {
 			cmd += ",password"
@@ -482,10 +494,11 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		cmd += s.getVdiskDesc(disk)
 	}
 
-	// TODO
-	// # isolated devices
-	// for each in isolated_devs_params.get('devices', []):
-	//     cmd += each
+	if isolatedDevsParams != nil {
+		for _, each := range isolatedDevsParams.Devices {
+			cmd += each
+		}
+	}
 
 	if osname != OS_NAME_MACOS {
 		cmd += " -device ide-cd,drive=ide0-cd0,bus=ide.1"

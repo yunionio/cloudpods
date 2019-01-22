@@ -38,6 +38,11 @@ func NewDeployInfo(
 	}
 }
 
+func (d *SDeployInfo) String() string {
+	return fmt.Sprintf("deplys: %s, password %s, isInit: %b",
+		d.deploys, d.password, d.isInit)
+}
+
 func DetectRootFs(part fsdriver.IDiskPartition) fsdriver.IRootFsDriver {
 	for _, newDriverFunc := range fsdriver.GetRootfsDrivers() {
 		d := newDriverFunc(part)
@@ -99,6 +104,8 @@ func DeployGuestFs(
 	guestDesc *jsonutils.JSONDict,
 	deployInfo *SDeployInfo,
 ) (jsonutils.JSONObject, error) {
+	log.Errorf("DeployGuestFs %v", deployInfo)
+
 	var ret = jsonutils.NewDict()
 	var ips = make([]string, 0)
 	var err error
@@ -134,69 +141,74 @@ func DeployGuestFs(
 		}
 	}
 	ret.Set("os", jsonutils.NewString(rootfs.GetOs()))
-	if !IsPartitionReadonly(partition) {
-		if len(deployInfo.deploys) > 0 {
-			if err = DeployFiles(rootfs, deployInfo.deploys); err != nil {
-				return nil, fmt.Errorf("DeployFiles: %v", err)
+
+	if IsPartitionReadonly(partition) {
+		return ret, nil
+	}
+
+	if len(deployInfo.deploys) > 0 {
+		if err = DeployFiles(rootfs, deployInfo.deploys); err != nil {
+			return nil, fmt.Errorf("DeployFiles: %v", err)
+		}
+	}
+	if err = rootfs.DeployHostname(partition, hn, domain); err != nil {
+		return nil, fmt.Errorf("DeployHostname: %v", err)
+	}
+	if err = rootfs.DeployHosts(partition, hn, domain, ips); err != nil {
+		return nil, fmt.Errorf("DeployHosts: %v", err)
+	}
+	if err = rootfs.DeployNetworkingScripts(partition, nics); err != nil {
+		return nil, fmt.Errorf("DeployNetworkingScripts: %v", err)
+	}
+	if nicsStandby, e := guestDesc.GetArray("nics_standby"); e == nil {
+		if err = rootfs.DeployStandbyNetworkingScripts(partition, nics, nicsStandby); err != nil {
+			return nil, fmt.Errorf("DeployStandbyNetworkingScripts: %v", err)
+		}
+	}
+	if err = rootfs.DeployUdevSubsystemScripts(partition); err != nil {
+		return nil, fmt.Errorf("DeployUdevSubsystemScripts: %v", err)
+	}
+	if deployInfo.isInit {
+		disks, _ := guestDesc.GetArray("disks")
+		if err = rootfs.DeployFstabScripts(partition, disks); err != nil {
+			return nil, fmt.Errorf("DeployFstabScripts: %v", err)
+		}
+	}
+	if len(deployInfo.password) > 0 {
+		if account := rootfs.GetLoginAccount(partition); len(account) > 0 {
+			ret.Set("account", jsonutils.NewString(account))
+			if err = rootfs.DeployPublicKey(partition, account, deployInfo.publicKey); err != nil {
+				return nil, fmt.Errorf("DeployPublicKey: %v", err)
 			}
-		}
-		if err = rootfs.DeployHostname(partition, hn, domain); err != nil {
-			return nil, fmt.Errorf("DeployHostname: %v", err)
-		}
-		if err = rootfs.DeployHosts(partition, hn, domain, ips); err != nil {
-			return nil, fmt.Errorf("DeployHosts: %v", err)
-		}
-		if err = rootfs.DeployNetworkingScripts(partition, nics); err != nil {
-			return nil, fmt.Errorf("DeployNetworkingScripts: %v", err)
-		}
-		if nicsStandby, e := guestDesc.GetArray("nics_standby"); e == nil {
-			if err = rootfs.DeployStandbyNetworkingScripts(partition, nics, nicsStandby); err != nil {
-				return nil, fmt.Errorf("DeployStandbyNetworkingScripts: %v", err)
+			var secret string
+			if secret, err = rootfs.ChangeUserPasswd(partition, account, gid,
+				deployInfo.publicKey.PublicKey, deployInfo.password); err != nil {
+				return nil, fmt.Errorf("ChangeUserPasswd: %v", err)
 			}
-		}
-		if err = rootfs.DeployUdevSubsystemScripts(partition); err != nil {
-			return nil, fmt.Errorf("DeployUdevSubsystemScripts: %v", err)
-		}
-		if deployInfo.isInit {
-			disks, _ := guestDesc.GetArray("disks")
-			if err = rootfs.DeployFstabScripts(partition, disks); err != nil {
-				return nil, fmt.Errorf("DeployFstabScripts: %v", err)
-			}
-		}
-		if len(deployInfo.password) > 0 {
-			if account := rootfs.GetLoginAccount(partition); len(account) > 0 {
-				ret.Set("account", jsonutils.NewString(account))
-				if err = rootfs.DeployPublicKey(partition, account, deployInfo.publicKey); err != nil {
-					return nil, fmt.Errorf("DeployPublicKey: %v", err)
-				}
-				var secret string
-				if secret, err = rootfs.ChangeUserPasswd(partition, account, gid,
-					deployInfo.publicKey.PublicKey, deployInfo.password); err != nil {
-					return nil, fmt.Errorf("ChangeUserPasswd: %v", err)
-				}
-				if len(secret) > 0 {
-					ret.Set("key", jsonutils.NewString(secret))
-				}
-			}
-		}
-		if err = rootfs.DeployYunionroot(partition, deployInfo.publicKey); err != nil {
-			return nil, fmt.Errorf("DeployYunionroot: %v", err)
-		}
-		if partition.SupportSerialPorts() {
-			if deployInfo.enableTty {
-				if err = rootfs.EnableSerialConsole(partition, ret); err != nil {
-					return nil, fmt.Errorf("EnableSerialConsole: %v", err)
-				}
-			} else {
-				if err = rootfs.DisableSerialConsole(partition); err != nil {
-					return nil, fmt.Errorf("DisableSerialConsole: %v", err)
-				}
-			}
-			if err = rootfs.CommitChanges(partition); err != nil {
-				return nil, fmt.Errorf("CommitChanges: %v", err)
+			if len(secret) > 0 {
+				ret.Set("key", jsonutils.NewString(secret))
 			}
 		}
 	}
+	if err = rootfs.DeployYunionroot(partition, deployInfo.publicKey); err != nil {
+		return nil, fmt.Errorf("DeployYunionroot: %v", err)
+	}
+	if partition.SupportSerialPorts() {
+		if deployInfo.enableTty {
+			if err = rootfs.EnableSerialConsole(partition, ret); err != nil {
+				return nil, fmt.Errorf("EnableSerialConsole: %v", err)
+			}
+		} else {
+			if err = rootfs.DisableSerialConsole(partition); err != nil {
+				return nil, fmt.Errorf("DisableSerialConsole: %v", err)
+			}
+		}
+		if err = rootfs.CommitChanges(partition); err != nil {
+			return nil, fmt.Errorf("CommitChanges: %v", err)
+		}
+	}
+
+	log.Errorf("Deploy ret %s", ret)
 	return ret, nil
 }
 

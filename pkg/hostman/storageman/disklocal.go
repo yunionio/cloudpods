@@ -63,6 +63,7 @@ func (d *SLocalDisk) Probe() error {
 		d.isAlter = false
 		return nil
 	} else if _, err := os.Stat(d.getAlterPath()); !os.IsNotExist(err) {
+		log.Errorln(err)
 		d.isAlter = true
 		return nil
 	}
@@ -71,12 +72,8 @@ func (d *SLocalDisk) Probe() error {
 
 func (d *SLocalDisk) UmountFuseImage() {
 	mntPath := path.Join(d.Storage.GetFuseMountPath(), d.Id)
-	if _, err := procutils.NewCommand("umount", mntPath).Run(); err != nil {
-		log.Errorln(err)
-	}
-	if _, err := procutils.NewCommand("rm", "-rf", mntPath).Run(); err != nil {
-		log.Errorln(err)
-	}
+	procutils.NewCommand("umount", mntPath).Run()
+	procutils.NewCommand("rm", "-rf", mntPath).Run()
 }
 
 func (d *SLocalDisk) Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {

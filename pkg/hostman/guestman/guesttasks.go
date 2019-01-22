@@ -393,6 +393,11 @@ func (s *SGuestResumeTask) Start() {
 	s.confirmRunning()
 }
 
+func (s *SGuestResumeTask) Stop() {
+	// TODO
+	// stop stream disk
+}
+
 func (s *SGuestResumeTask) confirmRunning() {
 	s.Monitor.QueryStatus(s.onConfirmRunning)
 }
