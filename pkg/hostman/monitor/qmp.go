@@ -183,14 +183,15 @@ func (m *QmpMonitor) read(r io.Reader) {
 	}
 
 	log.Infof("Scan over ...")
-	if err := scanner.Err(); err != nil {
+	err := scanner.Err()
+	if err != nil {
 		log.Errorln(err)
-		if m.timeout {
-			m.OnMonitorTimeout(err)
-		} else if m.connected {
-			m.connected = false
-			m.OnMonitorDisConnect(err)
-		}
+	}
+	if m.timeout {
+		m.OnMonitorTimeout(err)
+	} else if m.connected {
+		m.connected = false
+		m.OnMonitorDisConnect(err)
 	}
 	m.reading = false
 }
@@ -284,6 +285,23 @@ func (m *QmpMonitor) SimpleCommand(cmd string, callback StringCallback) {
 		}
 	}
 	c := &Command{Execute: cmd}
+	m.Query(c, cb)
+}
+
+func (m *QmpMonitor) HumanMonirotCommand(cmd string, callback StringCallback) {
+	var (
+		c = &Command{
+			Execute: "human-monitor-command",
+			Args:    map[string]string{"command-line": cmd},
+		}
+		cb = func(res *Response) {
+			if res.ErrorVal != nil {
+				callback(res.ErrorVal.Error())
+			} else {
+				callback(string(res.Return))
+			}
+		}
+	)
 	m.Query(c, cb)
 }
 

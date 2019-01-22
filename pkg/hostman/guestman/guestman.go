@@ -241,7 +241,7 @@ func (m *SGuestManager) PrepareDeploy(sid string) error {
 func (m *SGuestManager) Monitor(sid, cmd string, callback func(string)) error {
 	if guest, ok := m.Servers[sid]; ok {
 		if guest.IsRunning() {
-			guest.Monitor.SimpleCommand(cmd, callback)
+			guest.Monitor.HumanMonirotCommand(cmd, callback)
 			return nil
 		} else {
 			return httperrors.NewBadRequestError("Server stopped??")

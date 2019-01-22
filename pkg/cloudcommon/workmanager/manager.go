@@ -2,6 +2,7 @@ package workmanager
 
 import (
 	"context"
+	"runtime/debug"
 	"sync/atomic"
 	"time"
 
@@ -43,7 +44,8 @@ func (w *SWorkManager) DelayTask(ctx context.Context, task DelayTaskFunc, params
 			defer w.done()
 			defer func() {
 				if r := recover(); r != nil {
-					log.Errorln("DelayTask panic: ", r)
+					log.Errorf("DelayTask panic: %s", r)
+					debug.PrintStack()
 					switch val := r.(type) {
 					case string:
 						w.onFailed(ctx, val)
@@ -54,6 +56,12 @@ func (w *SWorkManager) DelayTask(ctx context.Context, task DelayTaskFunc, params
 					}
 				}
 			}()
+
+			// HACK: callback only
+			if task == nil {
+				w.onCompleted(ctx, nil)
+				return
+			}
 
 			res, err := task(ctx, params)
 			if err != nil {
@@ -67,7 +75,7 @@ func (w *SWorkManager) DelayTask(ctx context.Context, task DelayTaskFunc, params
 	}
 }
 
-// response task by self, did not depend on work manager
+// response task by self, did not callback
 func (w *SWorkManager) DelayTaskWithoutReqctx(ctx context.Context, task DelayTaskFunc, params interface{}) {
 	w.add()
 	go func() {
@@ -75,8 +83,14 @@ func (w *SWorkManager) DelayTaskWithoutReqctx(ctx context.Context, task DelayTas
 		defer func() {
 			if r := recover(); r != nil {
 				log.Errorln("DelayTaskWithoutReqctx panic: ", r)
+				debug.PrintStack()
 			}
 		}()
+
+		if task == nil {
+			return
+		}
+
 		if _, err := task(ctx, params); err != nil {
 			log.Errorln("DelayTaskWithoutReqctx error: ", err)
 			w.onFailed(ctx, err.Error())

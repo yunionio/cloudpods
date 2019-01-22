@@ -173,8 +173,8 @@ func (man *IsolatedDeviceManager) StartDetachTask() {
 	}()
 }
 
-func (man *IsolatedDeviceManager) GetQemuParams(devs []IDevice) *QemuParams {
-	return getQemuParams(man, devs)
+func (man *IsolatedDeviceManager) GetQemuParams(devAddrs []string) *QemuParams {
+	return getQemuParams(man, devAddrs)
 }
 
 type sBaseDevice struct {
@@ -749,18 +749,17 @@ func GetDeviceCmd(dev IDevice, index int) string {
 	return passthroughCmd
 }
 
-func getQemuParams(man *IsolatedDeviceManager, devs []IDevice) *QemuParams {
-	if len(devs) == 0 {
+func getQemuParams(man *IsolatedDeviceManager, devAddrs []string) *QemuParams {
+	if len(devAddrs) == 0 {
 		return nil
 	}
 	devCmds := []string{}
 	cpuCmd := DEFAULT_CPU_CMD
 	vgaCmd := DEFAULT_VGA_CMD
-	for idx, desc := range devs {
-		addr := desc.GetAddr()
+	for idx, addr := range devAddrs {
 		dev := man.GetDeviceByAddr(addr)
 		if dev == nil {
-			log.Warningf("IsolatedDeviceManager not found dev %#v, ignore it!", desc)
+			log.Warningf("IsolatedDeviceManager not found dev %#v, ignore it!", addr)
 			continue
 		}
 		devCmds = append(devCmds, GetDeviceCmd(dev, idx))

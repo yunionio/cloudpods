@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"path"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -35,7 +35,7 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 			auth.Authenticate(guestActions))
 
 		app.AddHandler("DELETE",
-			fmt.Sprintf("%s/%s/servers/<sid>", prefix, keyWord),
+			fmt.Sprintf("%s/%s/<sid>", prefix, keyWord),
 			auth.Authenticate(deleteGuest))
 	}
 }
@@ -132,8 +132,12 @@ func guestMonitor(ctx context.Context, sid string, body jsonutils.JSONObject) (i
 			return nil, err
 		} else {
 			var res = <-c
-			log.Errorln(res)
-			return strDict{"results": path.Join("\n", res)}, nil
+			if len(res) > 1 {
+				res = res[1 : len(res)-1]
+			}
+			lines := strings.Split(res, "\\r\\n")
+
+			return strDict{"results": strings.Join(lines, "\n")}, nil
 		}
 	} else {
 		return nil, httperrors.NewMissingParameterError("cmd")

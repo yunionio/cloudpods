@@ -11,7 +11,6 @@ import (
 )
 
 type SNBDManager struct {
-	// find local /dev/nbdx device, map key is devs, value is it in use
 	nbdDevs map[string]bool
 	nbdLock *sync.Mutex
 }

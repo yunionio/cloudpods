@@ -111,6 +111,7 @@ func (s *SKVMGuestInstance) getPid(pidFile, uuid string) int {
 		log.Errorln(err)
 		return -2
 	}
+	pidStr = strings.TrimSpace(pidStr)
 	pid := s.findPid(strings.Split(pidStr, "\n"), uuid)
 	if len(pid) > 0 && regutils.MatchInteger(pid) {
 		v, _ := strconv.ParseInt(pid, 10, 0)
@@ -374,6 +375,7 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 }
 
 func (s *SKVMGuestInstance) onMonitorDisConnect(err error) {
+	log.Infof("On Monitor Disconnect")
 	s.CleanStartupTask()
 	s.scriptStop()
 	if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {

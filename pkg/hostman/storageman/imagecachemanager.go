@@ -96,7 +96,8 @@ func (c *SLocalImageCacheManager) AcquireImage(ctx context.Context, imageId, zon
 
 	img, ok := c.cachedImages[imageId]
 	if !ok {
-		c.cachedImages[imageId] = NewLocalImageCache(imageId, c)
+		img = NewLocalImageCache(imageId, c)
+		c.cachedImages[imageId] = img
 	}
 	if img.Acquire(ctx, zone, srcUrl, format) {
 		return img

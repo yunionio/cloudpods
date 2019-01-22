@@ -175,6 +175,10 @@ func (m *HmpMonitor) SimpleCommand(cmd string, callback StringCallback) {
 	m.Query(cmd, callback)
 }
 
+func (m *HmpMonitor) HumanMonirotCommand(cmd string, callback StringCallback) {
+	m.Query(cmd, callback)
+}
+
 func (m *HmpMonitor) GetVersion(callback StringCallback) {
 	m.Query("info version", callback)
 }

@@ -78,6 +78,10 @@ type SHostInfo struct {
 	FullName string
 }
 
+func (h *SHostInfo) GetIsolatedDeviceManager() *isolated_device.IsolatedDeviceManager {
+	return h.IsolatedDeviceMan
+}
+
 func (h *SHostInfo) GetBridgeDev(bridge string) hostbridge.IBridgeDriver {
 	for _, n := range h.Nics {
 		if bridge == n.Bridge {
@@ -226,11 +230,13 @@ func (h *SHostInfo) prepareEnv() error {
 	if err != nil {
 		return err
 	}
+
 	if options.HostOptions.EnableKsm {
 		h.EnableKsm(900)
 	} else {
 		h.DisableKsm()
 	}
+
 	switch options.HostOptions.HugepagesOption {
 	case "disable":
 		h.DisableHugepages()
