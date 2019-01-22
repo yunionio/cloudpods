@@ -352,7 +352,22 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 		log.Errorf("newFromCloudRegion fail %s", err)
 		return nil, err
 	}
+	lb.syncLoadbalancerNetwork(ctx, userCred)
 	return &lb, nil
+}
+
+func (lb *SLoadbalancer) syncLoadbalancerNetwork(ctx context.Context, userCred mcclient.TokenCredential) {
+	if len(lb.NetworkId) > 0 {
+		lbNetReq := &SLoadbalancerNetworkRequestData{
+			loadbalancer: lb,
+			networkId:    lb.NetworkId,
+			address:      lb.Address,
+		}
+		_, err := LoadbalancernetworkManager.NewLoadbalancerNetwork(ctx, userCred, lbNetReq)
+		if err != nil {
+			log.Errorf("failed to create loadbalancer network: %v", err)
+		}
+	}
 }
 
 func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, extLb cloudprovider.ICloudLoadbalancer, projectId string, projectSync bool) error {
@@ -360,13 +375,17 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 		lb.Address = extLb.GetAddress()
 		lb.Status = extLb.GetStatus()
 		lb.Name = extLb.GetName()
-
+		if networkId := extLb.GetNetworkId(); len(networkId) > 0 {
+			if network, err := NetworkManager.FetchByExternalId(networkId); err == nil && network != nil {
+				lb.NetworkId = network.GetId()
+			}
+		}
 		if projectSync && len(projectId) > 0 {
 			lb.ProjectId = projectId
 		}
-
 		return nil
 	})
+	lb.syncLoadbalancerNetwork(ctx, userCred)
 	return err
 }
 
