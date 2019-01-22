@@ -23,6 +23,10 @@ type SVMDKInfo struct {
 	VirtualHWVersion string
 }
 
+func (info SVMDKInfo) Size() int64 {
+	return info.Heads * info.Sectors * info.Cylinders
+}
+
 const (
 	extentPatternString = `^RW \d+ VMFS\w* \"(?P<fn>[^"]+)`
 )

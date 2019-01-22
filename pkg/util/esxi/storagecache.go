@@ -79,9 +79,15 @@ func (self *SDatastoreImageCache) GetIImages() ([]cloudprovider.ICloudImage, err
 		if err := self.datastore.CheckVmdk(ctx, filename); err != nil {
 			continue
 		}
+		vmdkInfo, err := self.datastore.GetVmdkInfo(ctx, filename)
+		if err != nil {
+			continue
+		}
 		image := SImage{
 			cache:    self,
 			filename: filename,
+			size:     vmdkInfo.Size(),
+			createAt: files[i].Date,
 		}
 		ret = append(ret, &image)
 		vmdkName := files[i].Name

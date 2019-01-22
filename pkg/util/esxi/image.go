@@ -17,6 +17,8 @@ import (
 type SImage struct {
 	cache    *SDatastoreImageCache
 	filename string
+	size     int64
+	createAt time.Time
 }
 
 func (self *SImage) getDatacenter() *object.Datacenter {
@@ -86,7 +88,7 @@ func (self *SImage) GetImageType() string {
 }
 
 func (self *SImage) GetSize() int64 {
-	return 0
+	return self.size
 }
 
 func (self *SImage) GetOsType() string {
@@ -114,5 +116,5 @@ func (self *SImage) GetImageFormat() string {
 }
 
 func (self *SImage) GetCreateTime() time.Time {
-	return time.Time{}
+	return self.createAt
 }
