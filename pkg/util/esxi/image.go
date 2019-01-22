@@ -4,12 +4,12 @@ import (
 	"context"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/vmware/govmomi/object"
 
 	"yunion.io/x/jsonutils"
 
-	"time"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -108,7 +108,7 @@ func (self *SImage) GetOsArch() string {
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {
-	return int(self.GetSize()/1024/1024/1024)
+	return int(self.GetSize() / 1024 / 1024 / 1024)
 }
 
 func (self *SImage) GetImageFormat() string {

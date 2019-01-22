@@ -1,9 +1,10 @@
 package esxi
 
 import (
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/pkg/utils"
 )
 
 func (cli *SESXiClient) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {

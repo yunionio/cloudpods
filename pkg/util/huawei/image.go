@@ -2,9 +2,10 @@ package huawei
 
 import (
 	"context"
-
 	"time"
+
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )

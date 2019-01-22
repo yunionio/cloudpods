@@ -2,7 +2,9 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/serialx/hashring"
@@ -12,8 +14,6 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"database/sql"
-	"strings"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
