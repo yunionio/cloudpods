@@ -88,10 +88,12 @@ func DeployAuthorizedKeys(rootFs IDiskPartition, usrDir string, pubkeys *sshkeys
 		if !rootFs.Exists(sshDir, false) {
 			err := rootFs.Mkdir(sshDir, modeRwxOwner, false)
 			if err != nil {
+				log.Errorln(err)
 				return err
 			}
 			err = rootFs.Chown(sshDir, int(fStat.Uid), int(fStat.Gid), false)
 			if err != nil {
+				log.Errorln(err)
 				return err
 			}
 		}

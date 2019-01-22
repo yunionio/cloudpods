@@ -147,17 +147,7 @@ func (this *JointResourceManager) Update(s *mcclient.ClientSession, mid, sid str
 }
 
 func (this *JointResourceManager) Patch(s *mcclient.ClientSession, mid, sid string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return this.Patch2(s, mid, sid, nil, params)
-}
-
-func (this *JointResourceManager) Patch2(s *mcclient.ClientSession, mid, sid string, query, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s/%s/%s/%s", this.Master.KeyString(), url.PathEscape(mid), this.Slave.KeyString(), url.PathEscape(sid))
-	if query != nil {
-		qs := query.QueryString()
-		if len(qs) > 0 {
-			path = fmt.Sprintf("%s?%s", path, qs)
-		}
-	}
 	result, err := this._patch(s, path, this.params2Body(s, params), this.Keyword)
 	if err != nil {
 		return nil, err

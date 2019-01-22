@@ -163,7 +163,11 @@ func diskCreate(ctx context.Context, storage IStorage, diskId string, disk IDisk
 }
 
 func diskDelete(ctx context.Context, storage IStorage, diskId string, disk IDisk, body jsonutils.JSONObject) (interface{}, error) {
-	hostutils.DelayTask(ctx, disk.Delete, nil)
+	if disk != nil {
+		hostutils.DelayTask(ctx, disk.Delete, nil)
+	} else {
+		hostutils.DelayTask(ctx, nil, nil)
+	}
 	return nil, nil
 }
 

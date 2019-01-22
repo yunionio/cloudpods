@@ -54,6 +54,8 @@ func DetectCpuInfo() (*SCPUInfo, error) {
 	cpuinfo.cpuFreq = int64(freq)
 	log.Infof("cpuinfo freq %d", cpuinfo.cpuFreq)
 
+	cpuinfo.cpuFeatures = strings.Split(spec["flags"], " ")
+
 	// cpu.Percent(interval, false)
 	ret, err := fileutils2.FileGetContents("/proc/cpuinfo")
 	if err != nil {

@@ -114,11 +114,11 @@ func IsBlockDeviceUsed(dev string) bool {
 		dev = dev[strings.LastIndex(dev, "/")+1:]
 	}
 	devStr := fmt.Sprintf(" %s\n", dev)
-	devs, _ := exec.Command("cat", "/proc/partitions").Output()
+	devs, _ := procutils.NewCommand("cat", "/proc/partitions").Run()
 	if idx := strings.Index(string(devs), devStr); idx > 0 {
-		return false
+		return true
 	}
-	return true
+	return false
 }
 
 func ChangeAllBlkdevsParams(params map[string]string) {
@@ -172,7 +172,7 @@ func FileGetContents(file string) (string, error) {
 }
 
 func GetFsFormat(diskPath string) string {
-	ret, err := exec.Command("blkid", "-o", "value", "-s", "TYPE", diskPath).Output()
+	ret, err := procutils.NewCommand("blkid", "-o", "value", "-s", "TYPE", diskPath).Run()
 	if err != nil {
 		return ""
 	}
@@ -201,7 +201,7 @@ func CleanFailedMountpoints() {
 			if _, err := os.Stat(mp); os.IsNotExist(err) {
 				log.Warningf("Mount point %s not exists", mp)
 			}
-			exec.Command("umount", mp).Run()
+			procutils.NewCommand("umount", mp).Run()
 		}
 	}
 }
@@ -266,7 +266,7 @@ func Mkpartition(imagePath, fsFormat string) error {
 	}
 
 	// 创建一个新磁盘分区表类型, ex: mbr gpt msdos ...
-	err := exec.Command(parted, "-s", imagePath, "mklabel", labelType).Run()
+	_, err := procutils.NewCommand(parted, "-s", imagePath, "mklabel", labelType).Run()
 	if err != nil {
 		log.Errorf("mklabel %s %s error %s", imagePath, fsFormat, err)
 		return err
@@ -274,7 +274,7 @@ func Mkpartition(imagePath, fsFormat string) error {
 
 	// 创建一个part-type类型的分区, part-type可以是："primary", "logical", "extended"
 	// 如果指定fs-type(即diskType)则在创建分区的同时进行格式化
-	err = exec.Command(parted, "-s", "-a", "cylinder",
+	_, err = procutils.NewCommand(parted, "-s", "-a", "cylinder",
 		imagePath, "mkpart", "primary", diskType, "0", "100%").Run()
 	if err != nil {
 		log.Errorf("mkpart %s %s error %s", imagePath, fsFormat, err)
@@ -312,14 +312,14 @@ func FormatPartition(path, fs, uuid string) error {
 	if len(cmd) > 0 {
 		var cmds = cmd
 		cmds = append(cmds, path)
-		if err := exec.Command(cmds[0], cmds[1:]...).Run(); err != nil {
+		if _, err := procutils.NewCommand(cmds[0], cmds[1:]...).Run(); err != nil {
 			log.Errorln(err)
 			return err
 		}
 		if len(cmdUuid) > 0 {
 			cmds = cmdUuid
 			cmds = append(cmds, path)
-			if err := exec.Command(cmds[0], cmds[1:]...).Run(); err != nil {
+			if _, err := procutils.NewCommand(cmds[0], cmds[1:]...).Run(); err != nil {
 				log.Errorln(err)
 				return err
 			}
@@ -511,7 +511,7 @@ func FsckExtFs(fpath string) bool {
 func FsckXfsFs(fpath string) bool {
 	if _, err := procutils.NewCommand("xfs_check", fpath).Run(); err != nil {
 		log.Errorln(err)
-		exec.Command("xfs_repair", fpath).Run()
+		procutils.NewCommand("xfs_repair", fpath).Run()
 		return false
 	}
 	return true
@@ -539,7 +539,7 @@ func ResizePartitionFs(fpath, fs string) error {
 	} else if fs == "xfs" {
 		var tmpPoint = fmt.Sprintf("/tmp/%s", strings.Replace(fpath, "/", "_", -1))
 		if _, err := procutils.NewCommand("mountpoint", tmpPoint).Run(); err == nil {
-			err = exec.Command("umount", "-f", tmpPoint).Run()
+			_, err = procutils.NewCommand("umount", "-f", tmpPoint).Run()
 			if err != nil {
 				log.Errorln(err)
 				return err

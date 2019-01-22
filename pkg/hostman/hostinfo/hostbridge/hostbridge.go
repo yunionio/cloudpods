@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/hostman/system_service"
 	"yunion.io/x/onecloud/pkg/util/bwutils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
@@ -506,6 +507,17 @@ func (o *SOVSBridgeDriver) WarmupConfig() error {
 	return nil
 }
 
+func OVSPrepare() error {
+	ovs := system_service.GetService("openvswitch")
+	if !ovs.IsInstalled() {
+		return fmt.Errorf("Service openvswitch not installed!")
+	}
+	if !ovs.IsActive() {
+		return ovs.Start(false)
+	}
+	return nil
+}
+
 func CleanOvsBridge() {
 	ovsutils.CleanAllHiddenPorts()
 }
@@ -523,6 +535,14 @@ func NewDriver(bridgeDriver, bridge, inter, ip string) (IBridgeDriver, error) {
 		return NewOVSBridgeDriver(bridge, inter, ip)
 	} else {
 		return nil, fmt.Errorf("Not Implentment")
+	}
+}
+
+func Prepare(bridgeDriver string) error {
+	if bridgeDriver == "openvswitch" {
+		return OVSPrepare()
+	} else {
+		return fmt.Errorf("Not Implentment")
 	}
 }
 

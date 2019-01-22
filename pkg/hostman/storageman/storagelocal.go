@@ -54,6 +54,11 @@ func (s *SLocalStorage) GetSnapshotDir() string {
 	return path.Join(s.Path, _SNAPSHOT_PATH_)
 }
 
+func (s *SLocalStorage) GetSnapshotPathByIds(diskId, snapshotId string) string {
+	return path.Join(s.GetSnapshotDir(),
+		diskId+options.HostOptions.SnapshotDirSuffix, snapshotId)
+}
+
 func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	content := jsonutils.NewDict()
 	content.Set("name", jsonutils.NewString(s.StorageName))
@@ -108,13 +113,7 @@ func (s *SLocalStorage) GetDiskById(diskId string) IDisk {
 func (s *SLocalStorage) CreateDisk(diskId string) IDisk {
 	s.DiskLock.Lock()
 	defer s.DiskLock.Unlock()
-	disk := NewLocalDisk(s, diskId)
-	if disk.Probe() == nil {
-		s.Disks = append(s.Disks, disk)
-		return disk
-	} else {
-		return nil
-	}
+	return NewLocalDisk(s, diskId)
 }
 
 func (s *SLocalStorage) StartSnapshotRecycle() {

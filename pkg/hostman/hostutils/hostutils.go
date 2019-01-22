@@ -12,11 +12,13 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
+	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type IHost interface {
@@ -30,6 +32,7 @@ type IHost interface {
 	PutHostOnline() error
 
 	GetBridgeDev(bridge string) hostbridge.IBridgeDriver
+	GetIsolatedDeviceManager() *isolated_device.IsolatedDeviceManager
 }
 
 func GetComputeSession(ctx context.Context) *mcclient.ClientSession {
@@ -77,13 +80,22 @@ func GetWireInfo(ctx context.Context, wireId string) (jsonutils.JSONObject, erro
 func RemoteStoragecacheCacheImage(ctx context.Context, storagecacheId, imageId, status, spath string) (jsonutils.JSONObject, error) {
 	var query = jsonutils.NewDict()
 	query.Set("auto_create", jsonutils.JSONTrue)
-
 	var params = jsonutils.NewDict()
 	params.Set("status", jsonutils.NewString(status))
 	params.Set("path", jsonutils.NewString(spath))
+	body := jsonutils.NewDict()
+	body.Set("storagecachedimage", params)
 
-	return modules.Storagecachedimages.Patch2(GetComputeSession(ctx),
-		storagecacheId, imageId, query, params)
+	uri, err := auth.GetServiceURL("compute_v2", options.HostOptions.Region, "", "internal")
+	if err != nil {
+		return nil, err
+	}
+	urlStr := fmt.Sprintf("%s/storagecaches/%s/cachedimages/%s?%s",
+		uri, storagecacheId, imageId, query.QueryString())
+
+	_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(),
+		ctx, "PUT", urlStr, nil, body, false)
+	return res, err
 }
 
 func UpdateServerStatus(ctx context.Context, sid, status string) (jsonutils.JSONObject, error) {

@@ -19,6 +19,8 @@ type Monitor interface {
 
 	// The callback function will be called in another goroutine
 	SimpleCommand(cmd string, callback StringCallback)
+	HumanMonirotCommand(cmd string, callback StringCallback)
+
 	QueryStatus(StringCallback)
 	GetVersion(StringCallback)
 	GetBlockJobs(func(jobs int))

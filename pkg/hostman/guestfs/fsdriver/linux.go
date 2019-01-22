@@ -22,6 +22,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
+const YUNIONROOT = "cloudroot"
+
 type sLinuxRootFs struct {
 	*sGuestRootFsDriver
 }
@@ -62,11 +64,14 @@ func (l *sLinuxRootFs) GetLoginAccount(rootFs IDiskPartition) string {
 	} else {
 		usrs := rootFs.ListDir("/home", false)
 		for _, usr := range usrs {
+			if usr == YUNIONROOT {
+				continue
+			}
 			if len(selUsr) == 0 || len(selUsr) > len(usr) {
 				selUsr = usr
 			}
 		}
-		if len(selUsr) > 0 && rootFs.Exists("/root", false) {
+		if len(selUsr) == 0 && rootFs.Exists("/root", false) {
 			selUsr = "root"
 		}
 	}
@@ -102,9 +107,9 @@ func (l *sLinuxRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pub
 func (l *sLinuxRootFs) DeployYunionroot(rootFs IDiskPartition, pubkeys *sshkeys.SSHKeys) error {
 	l.DisableSelinux(rootFs)
 	l.DisableCloudinit(rootFs)
-	var yunionroot = "cloudroot"
+	var yunionroot = YUNIONROOT
 	if err := rootFs.UserAdd(yunionroot, false); err != nil && !strings.Contains(err.Error(), "already exists") {
-		return fmt.Errorf("UserAdd %s: %v", yunionroot, err)
+		log.Errorf("UserAdd %s: %v", yunionroot, err)
 	}
 	err := DeployAuthorizedKeys(rootFs, path.Join("/home", yunionroot), pubkeys, true)
 	if err != nil {
