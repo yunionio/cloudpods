@@ -587,7 +587,7 @@ func (self *SCloudprovider) getMoreDetails(ctx context.Context, extra *jsonutils
 	}
 	account := self.GetCloudaccount()
 	if account != nil {
-		extra.Add(jsonutils.NewString(account.GetName()), "account")
+		extra.Add(jsonutils.NewString(account.GetName()), "cloudaccount")
 	}
 	return extra
 }
