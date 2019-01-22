@@ -251,8 +251,8 @@ func (self *SHost) _createVM(name, imgId string, sysDiskSize int, cpu, memMB int
 	}
 
 	disks := make([]SDisk, len(diskSizes)+1)
-	disks[0].Size = img.Size
-	if sysDiskSize > 0 && sysDiskSize > img.Size {
+	disks[0].Size = img.SizeGB
+	if sysDiskSize > 0 && sysDiskSize > img.SizeGB {
 		disks[0].Size = sysDiskSize
 	}
 	disks[0].Category = storageType

@@ -1,7 +1,6 @@
 package shell
 
 import (
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -10,16 +9,15 @@ import (
 func init() {
 	type CachedImageListOptions struct {
 		options.BaseListOptions
+		ImageType string `help:"image type" choices:"system|customized|shared|market"`
+
+		Region string `help:"show images cached at cloud region"`
+		Zone   string `help:"show images cached at zone"`
 	}
 	R(&CachedImageListOptions{}, "cached-image-list", "List cached images", func(s *mcclient.ClientSession, args *CachedImageListOptions) error {
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = args.BaseListOptions.Params()
-			if err != nil {
-				return err
-
-			}
+		params, err := options.ListStructToParams(args)
+		if err != nil {
+			return err
 		}
 		result, err := modules.Cachedimages.List(s, params)
 		if err != nil {
@@ -50,12 +48,12 @@ func init() {
 		return nil
 	})
 
-	R(&CachedImageShowOptions{}, "cached-image-delete", "Remove cached image information", func(s *mcclient.ClientSession, args *CachedImageShowOptions) error {
-		result, err := modules.Cachedimages.Delete(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
+	type CachedImageDeleteOptions struct {
+		ID []string `help:"ID or Name of the cached image to show"`
+	}
+	R(&CachedImageDeleteOptions{}, "cached-image-delete", "Remove cached image information", func(s *mcclient.ClientSession, args *CachedImageDeleteOptions) error {
+		results := modules.Cachedimages.BatchDelete(s, args.ID, nil)
+		printBatchResults(results, modules.Cachedimages.GetColumns(s))
 		return nil
 	})
 }

@@ -23,20 +23,21 @@ func init() {
 
 func (self *StorageUncacheImageTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	imageId, _ := self.Params.GetString("image_id")
-	isForce := jsonutils.QueryBoolean(self.Params, "is_force", false)
+	// isForce := jsonutils.QueryBoolean(self.Params, "is_force", false)
+	isPurge := jsonutils.QueryBoolean(self.Params, "is_purge", false)
 
 	storageCache := obj.(*models.SStoragecache)
 
 	db.OpsLog.LogEvent(storageCache, db.ACT_UNCACHING_IMAGE, imageId, self.UserCred)
 
-	scimg := models.StoragecachedimageManager.Register(ctx, self.UserCred, storageCache.Id, imageId)
+	scimg := models.StoragecachedimageManager.Register(ctx, self.UserCred, storageCache.Id, imageId, "")
 
 	if scimg == nil || len(scimg.Path) == 0 {
 		// "image is not cached on this storage"
 		self.OnImageUncacheComplete(ctx, storageCache, nil)
 	}
 
-	if isForce {
+	if isPurge {
 		self.OnImageUncacheComplete(ctx, obj, data)
 		return
 	}
@@ -85,7 +86,7 @@ func (self *StorageUncacheImageTask) OnImageUncacheComplete(ctx context.Context,
 	storageCache := obj.(*models.SStoragecache)
 
 	imageId, _ := self.Params.GetString("image_id")
-	scimg := models.StoragecachedimageManager.Register(ctx, self.UserCred, storageCache.Id, imageId)
+	scimg := models.StoragecachedimageManager.Register(ctx, self.UserCred, storageCache.Id, imageId, "")
 	if scimg != nil {
 		scimg.Detach(ctx, self.UserCred)
 	}

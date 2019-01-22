@@ -696,7 +696,7 @@ func (region *SRegion) ReplaceSystemDisk(instanceId, imageId, passwd, publicKey 
 	if err != nil {
 		return "", err
 	}
-	image, err := region.GetImage(imageId)
+	image, err := region.GetImageById(imageId)
 	if err != nil {
 		return "", err
 	}

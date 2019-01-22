@@ -1212,7 +1212,7 @@ func fillDiskConfigByImage(ctx context.Context, userCred mcclient.TokenCredentia
 			log.Errorf("getImageInfo fail %s", err)
 			return err
 		}
-		if image.Status != IMAGE_STATUS_ACTIVE {
+		if image.Status != cloudprovider.IMAGE_STATUS_ACTIVE {
 			return httperrors.NewInvalidStatusError("Image status is not active")
 		}
 		diskConfig.ImageId = image.Id
@@ -1229,13 +1229,13 @@ func fillDiskConfigByImage(ctx context.Context, userCred mcclient.TokenCredentia
 	return nil
 }
 
-func parseIsoInfo(ctx context.Context, userCred mcclient.TokenCredential, imageId string) (*SImage, error) {
+func parseIsoInfo(ctx context.Context, userCred mcclient.TokenCredential, imageId string) (*cloudprovider.SImage, error) {
 	image, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
 	if err != nil {
 		log.Errorf("getImageInfo fail %s", err)
 		return nil, err
 	}
-	if image.Status != IMAGE_STATUS_ACTIVE {
+	if image.Status != cloudprovider.IMAGE_STATUS_ACTIVE {
 		return nil, httperrors.NewInvalidStatusError("Image status is not active")
 	}
 	return image, nil

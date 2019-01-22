@@ -26,9 +26,10 @@ type ImageDiskReference struct {
 type CreationData struct {
 	CreateOption     string `json:"createOption,omitempty"`
 	StorageAccountID string
-	ImageReference   *ImageDiskReference `json:"imageReference,omitempty"`
-	SourceURI        string              `json:"sourceUri,omitempty"`
-	SourceResourceID string              `json:"sourceResourceId,omitempty"`
+	// ImageReference   *ImageDiskReference `json:"imageReference,omitempty"`
+	ImageReference   *ImageReference `json:"imageReference,omitempty"`
+	SourceURI        string          `json:"sourceUri,omitempty"`
+	SourceResourceID string          `json:"sourceResourceId,omitempty"`
 }
 
 type DiskProperties struct {
@@ -71,17 +72,25 @@ func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, d
 		Type: "Microsoft.Compute/disks",
 	}
 	if len(imageId) > 0 {
-		image, err := self.GetImage(imageId)
+		image, err := self.GetImageById(imageId)
 		if err != nil {
 			return nil, err
 		}
-		blobUrl := image.GetBlobUri()
-		if len(blobUrl) == 0 {
-			return nil, fmt.Errorf("failed to find blobUri for image %s", image.Name)
-		}
-		disk.Properties.CreationData = CreationData{
-			CreateOption: "Import",
-			SourceURI:    blobUrl,
+		if isPrivateImageID(image.ID) {
+			blobUrl := image.GetBlobUri()
+			if len(blobUrl) == 0 {
+				return nil, fmt.Errorf("failed to find blobUri for image %s", image.Name)
+			}
+			disk.Properties.CreationData = CreationData{
+				CreateOption: "Import",
+				SourceURI:    blobUrl,
+			}
+		} else {
+			imgRef := image.getImageReference()
+			disk.Properties.CreationData = CreationData{
+				CreateOption:   "FromImage",
+				ImageReference: &imgRef,
+			}
 		}
 		disk.Properties.OsType = image.GetOsType()
 	}

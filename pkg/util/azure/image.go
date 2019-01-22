@@ -2,10 +2,13 @@ package azure
 
 import (
 	"context"
+	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -29,8 +32,9 @@ type ImageOSDisk struct {
 	ManagedDisk        *SubResource
 	BlobURI            string `json:"blobUri,omitempty"`
 	Caching            string `json:"caching,omitempty"`
-	DiskSizeGB         int32  `json:"diskSizeGB,omitempty"`
+	DiskSizeGB         int32  `json:"diskSizeGB,omitzero"`
 	StorageAccountType string `json:"storageAccountType,omitempty"`
+	OperatingSystem    string `json:"operatingSystem,omitempty"`
 }
 
 type ImageDataDisk struct {
@@ -39,16 +43,18 @@ type ImageDataDisk struct {
 	ManagedDisk        SubResource
 	BlobURI            string
 	Caching            string
-	DiskSizeGB         int32
+	DiskSizeGB         int32 `json:"diskSizeGB,omitzero"`
 	StorageAccountType string
 }
 
-type DataDisks []ImageDataDisk
-
 type ImageStorageProfile struct {
-	OsDisk        ImageOSDisk `json:"osDisk,omitempty"`
-	DataDisks     *DataDisks
-	ZoneResilient *bool
+	OsDisk        ImageOSDisk     `json:"osDisk,omitempty"`
+	DataDisks     []ImageDataDisk `json:"dataDisks,omitempty"`
+	ZoneResilient bool            `json:"zoneResilient,omitfalse"`
+}
+
+type SAutomaticOSUpgradeProperties struct {
+	AutomaticOSUpgradeSupported bool
 }
 
 type ImageProperties struct {
@@ -61,10 +67,17 @@ type SImage struct {
 	storageCache *SStoragecache
 
 	Properties ImageProperties `json:"properties,omitempty"`
-	ID         string
+	ID         string          `json:"id,omitempty"`
 	Name       string
-	Type       string ``
+	Type       string
 	Location   string
+
+	Publisher string
+	Offer     string
+	Sku       string
+	Version   string
+
+	ImageType string
 }
 
 func (self *SImage) GetMetadata() *jsonutils.JSONDict {
@@ -95,21 +108,86 @@ func (self *SImage) GetGlobalId() string {
 func (self *SImage) GetStatus() string {
 	switch self.Properties.ProvisioningState {
 	case "created":
-		return models.IMAGE_STATUS_QUEUED
+		return models.CACHED_IMAGE_STATUS_CACHING
 	case "Succeeded":
-		return models.IMAGE_STATUS_ACTIVE
+		return models.CACHED_IMAGE_STATUS_READY
 	default:
 		log.Errorf("Unknow image status: %s", self.Properties.ProvisioningState)
-		return models.IMAGE_STATUS_KILLED
+		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+	}
+}
+
+func (self *SImage) GetImageStatus() string {
+	switch self.Properties.ProvisioningState {
+	case "created":
+		return cloudprovider.IMAGE_STATUS_QUEUED
+	case "Succeeded":
+		return cloudprovider.IMAGE_STATUS_ACTIVE
+	default:
+		log.Errorf("Unknow image status: %s", self.Properties.ProvisioningState)
+		return cloudprovider.IMAGE_STATUS_KILLED
 	}
 }
 
 func (self *SImage) Refresh() error {
-	new, err := self.storageCache.region.GetImage(self.Name)
+	new, err := self.storageCache.region.GetImageById(self.ID)
 	if err != nil {
 		return err
 	}
 	return jsonutils.Update(self, new)
+}
+
+func (self *SImage) GetImageType() string {
+	return self.ImageType
+}
+
+func (self *SImage) GetSize() int64 {
+	return int64(self.Properties.StorageProfile.OsDisk.DiskSizeGB) * 1024 * 1024 * 1024
+}
+
+func (self *SImage) isPublic() bool {
+	if self.ImageType == cloudprovider.CachedImageTypeCustomized {
+		return false
+	}
+	return true
+}
+
+func (self *SImage) GetOsType() string {
+	osType := self.Properties.StorageProfile.OsDisk.OsType
+	if len(osType) == 0 {
+		osType = publisherGetOsType(self.Publisher)
+	}
+	return osType
+}
+
+func (self *SImage) GetOsArch() string {
+	if self.ImageType == cloudprovider.CachedImageTypeCustomized {
+		return "x86_64"
+	}
+	return publisherGetOsArch(self.Publisher, self.Offer, self.Sku, self.Version)
+}
+
+func (self *SImage) GetOsDist() string {
+	if self.ImageType == cloudprovider.CachedImageTypeCustomized {
+		return ""
+	}
+	return publisherGetOsDist(self.Publisher, self.Offer, self.Sku, self.Version)
+}
+
+func (self *SImage) GetOsVersion() string {
+	return publisherGetOsVersion(self.Publisher, self.Offer, self.Sku, self.Version)
+}
+
+func (self *SImage) GetMinOsDiskSizeGb() int {
+	return 10
+}
+
+func (self *SImage) GetImageFormat() string {
+	return "vhd"
+}
+
+func (self *SImage) GetCreateTime() time.Time {
+	return time.Time{}
 }
 
 func (self *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
@@ -117,19 +195,35 @@ func (self *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 }
 
 func (self *SRegion) GetImageStatus(imageId string) (ImageStatusType, error) {
-	if image, err := self.GetImage(imageId); err != nil {
+	if image, err := self.GetImageById(imageId); err != nil {
 		return "", err
 	} else {
 		return image.Properties.ProvisioningState, nil
 	}
 }
 
-func (self *SRegion) GetImage(imageId string) (*SImage, error) {
-	image := SImage{}
-	return &image, self.client.Get(imageId, []string{}, &image)
+func isPrivateImageID(imageId string) bool {
+	return strings.HasPrefix(strings.ToLower(imageId), "/subscriptions/")
 }
 
-func (self *SRegion) GetImageByName(name string) (*SImage, error) {
+func (self *SRegion) GetImageById(imageId string) (SImage, error) {
+	if isPrivateImageID(imageId) {
+		return self.getPrivateImage(imageId)
+	} else {
+		return self.getOfferedImage(imageId)
+	}
+}
+
+func (self *SRegion) getPrivateImage(imageId string) (SImage, error) {
+	image := SImage{}
+	err := self.client.Get(imageId, []string{}, &image)
+	if err != nil {
+		return image, err
+	}
+	return image, nil
+}
+
+/* func (self *SRegion) GetImageByName(name string) (*SImage, error) {
 	images := []SImage{}
 	err := self.client.ListAll("Microsoft.Compute/images", &images)
 	if err != nil {
@@ -155,7 +249,7 @@ func (self *SRegion) GetImageById(idstr string) (*SImage, error) {
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
-}
+}*/
 
 func (self *SRegion) CreateImageByBlob(imageName, osType, blobURI string, diskSizeGB int32) (*SImage, error) {
 	if diskSizeGB < 1 || diskSizeGB > 4095 {
@@ -199,7 +293,58 @@ func (self *SRegion) CreateImage(snapshotId, imageName, osType, imageDesc string
 	return &image, self.client.Create(jsonutils.Marshal(image), &image)
 }
 
-func (self *SRegion) GetImages() ([]SImage, error) {
+func (self *SRegion) getOfferedImages(publishersFilter []string, offersFilter []string, skusFilter []string, verFilter []string, imageType string, latestVer bool) ([]SImage, error) {
+	images := make([]SImage, 0)
+	idList, err := self.GetOfferedImageIDs(publishersFilter, offersFilter, skusFilter, verFilter, latestVer)
+	if err != nil {
+		return nil, err
+	}
+	for _, id := range idList {
+		image, err := self.getOfferedImage(id)
+		image.ImageType = imageType
+		if err == nil {
+			images = append(images, image)
+		}
+	}
+	return images, nil
+}
+
+func (self *SRegion) GetOfferedImageIDs(publishersFilter []string, offersFilter []string, skusFilter []string, verFilter []string, latestVer bool) ([]string, error) {
+	idList := make([]string, 0)
+	publishers, err := self.GetImagePublishers(toLowerStringArray(publishersFilter))
+	if err != nil {
+		return nil, err
+	}
+	for _, publisher := range publishers {
+		offers, err := self.getImageOffers(publisher, toLowerStringArray(offersFilter))
+		if err != nil {
+			return nil, err
+		}
+		for _, offer := range offers {
+			skus, err := self.getImageSkus(publisher, offer, toLowerStringArray(skusFilter))
+			if err != nil {
+				return nil, err
+			}
+			for _, sku := range skus {
+				verFilter = toLowerStringArray(verFilter)
+				vers, err := self.getImageVersions(publisher, offer, sku, verFilter)
+				if err != nil {
+					return nil, err
+				}
+				if latestVer && len(vers) > 0 {
+					vers = []string{vers[len(vers)-1]}
+				}
+				for _, ver := range vers {
+					idStr := strings.Join([]string{publisher, offer, sku, ver}, "/")
+					idList = append(idList, idStr)
+				}
+			}
+		}
+	}
+	return idList, nil
+}
+
+func (self *SRegion) getPrivateImages() ([]SImage, error) {
 	result := []SImage{}
 	images := []SImage{}
 	err := self.client.ListAll("Microsoft.Compute/images", &images)
@@ -208,10 +353,42 @@ func (self *SRegion) GetImages() ([]SImage, error) {
 	}
 	for i := 0; i < len(images); i++ {
 		if images[i].Location == self.Name {
+			images[i].ImageType = cloudprovider.CachedImageTypeCustomized
 			result = append(result, images[i])
 		}
 	}
 	return result, nil
+}
+
+func toLowerStringArray(input []string) []string {
+	output := make([]string, len(input))
+	for i := range input {
+		output[i] = strings.ToLower(input[i])
+	}
+	return output
+}
+
+func (self *SRegion) GetImages(imageType string) ([]SImage, error) {
+	images := make([]SImage, 0)
+	if len(imageType) == 0 {
+		ret, _ := self.getPrivateImages()
+		if len(ret) > 0 {
+			images = append(images, ret...)
+		}
+		ret, _ = self.getOfferedImages(knownPublishers, nil, nil, nil, cloudprovider.CachedImageTypeSystem, true)
+		if len(ret) > 0 {
+			images = append(images, ret...)
+		}
+		return images, nil
+	}
+	switch imageType {
+	case cloudprovider.CachedImageTypeCustomized:
+		return self.getPrivateImages()
+	case cloudprovider.CachedImageTypeSystem:
+		return self.getOfferedImages(knownPublishers, nil, nil, nil, cloudprovider.CachedImageTypeSystem, true)
+	default:
+		return self.getOfferedImages(nil, nil, nil, nil, cloudprovider.CachedImageTypeMarket, true)
+	}
 }
 
 func (self *SRegion) DeleteImage(imageId string) error {
@@ -219,7 +396,6 @@ func (self *SRegion) DeleteImage(imageId string) error {
 }
 
 func (self *SImage) GetBlobUri() string {
-
 	return self.Properties.StorageProfile.OsDisk.BlobURI
 }
 
@@ -227,6 +403,110 @@ func (self *SImage) Delete(ctx context.Context) error {
 	return self.storageCache.region.DeleteImage(self.ID)
 }
 
-func (self *SImage) GetOsType() string {
-	return string(self.Properties.StorageProfile.OsDisk.OsType)
+type SAzureImageResource struct {
+	Id       string
+	Name     string
+	Location string
+}
+
+func (region *SRegion) GetImagePublishers(filter []string) ([]string, error) {
+	publishers := make([]SAzureImageResource, 0)
+	err := region.client.ListResources(fmt.Sprintf("Microsoft.Compute/locations/%s/publishers", region.Name), &publishers, nil)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]string, 0)
+	for i := range publishers {
+		if len(filter) == 0 || utils.IsInStringArray(strings.ToLower(publishers[i].Name), filter) {
+			ret = append(ret, publishers[i].Name)
+		}
+	}
+	return ret, nil
+}
+
+func (region *SRegion) getImageOffers(publisher string, filter []string) ([]string, error) {
+	offsers := make([]SAzureImageResource, 0)
+	err := region.client.ListResources(fmt.Sprintf("Microsoft.Compute/locations/%s/publishers/%s/artifacttypes/vmimage/offers", region.Name, publisher), &offsers, nil)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]string, 0)
+	for i := range offsers {
+		if len(filter) == 0 || utils.IsInStringArray(strings.ToLower(offsers[i].Name), filter) {
+			ret = append(ret, offsers[i].Name)
+		}
+	}
+	return ret, nil
+}
+
+func (region *SRegion) getImageSkus(publisher string, offser string, filter []string) ([]string, error) {
+	skus := make([]SAzureImageResource, 0)
+	err := region.client.ListResources(fmt.Sprintf("Microsoft.Compute/locations/%s/publishers/%s/artifacttypes/vmimage/offers/%s/skus", region.Name, publisher, offser), &skus, nil)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]string, 0)
+	for i := range skus {
+		if len(filter) == 0 || utils.IsInStringArray(strings.ToLower(skus[i].Name), filter) {
+			ret = append(ret, skus[i].Name)
+		}
+	}
+	return ret, nil
+}
+
+func (region *SRegion) getImageVersions(publisher string, offer string, sku string, filter []string) ([]string, error) {
+	vers := make([]SAzureImageResource, 0)
+	err := region.client.ListResources(fmt.Sprintf("Microsoft.Compute/locations/%s/publishers/%s/artifacttypes/vmimage/offers/%s/skus/%s/versions", region.Name, publisher, offer, sku), &vers, nil)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]string, 0)
+	for i := range vers {
+		if len(filter) == 0 || utils.IsInStringArray(strings.ToLower(vers[i].Name), filter) {
+			ret = append(ret, vers[i].Name)
+		}
+	}
+	return ret, nil
+}
+
+func (region *SRegion) getOfferedImage(offerId string) (SImage, error) {
+	image := SImage{}
+
+	parts := strings.Split(offerId, "/")
+	if len(parts) < 4 {
+		return image, fmt.Errorf("invalid image ID %s", offerId)
+	}
+	publisher := parts[0]
+	offer := parts[1]
+	sku := parts[2]
+	version := parts[3]
+	//err := region.client.Get(fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Compute/locations/%s/publishers/%s/artifacttypes/vmimage/offers/%s/skus/%s/versions/%s", region.client.subscriptionId, region.Name, publisher, offer, sku, version), nil, &image)
+	//if err != nil {
+	//	return image, err
+	//}
+	image.ID = offerId
+	image.Location = region.Name
+	image.Type = "Microsoft.Compute/vmimage"
+	image.Name = publisherGetName(publisher, offer, sku, version)
+	image.Publisher = publisher
+	image.Offer = offer
+	image.Sku = sku
+	image.Version = version
+	image.Properties.ProvisioningState = ImageStatusAvailable
+	return image, nil
+}
+
+func (image *SImage) getImageReference() ImageReference {
+	if isPrivateImageID(image.ID) {
+		return ImageReference{
+			ID: image.ID,
+		}
+	} else {
+		return ImageReference{
+			Sku:       image.Sku,
+			Publisher: image.Publisher,
+			Version:   image.Version,
+			Offer:     image.Offer,
+		}
+	}
 }

@@ -586,14 +586,6 @@ func (self *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	return iStores, nil
 }
 
-func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
-	storageCache := self.getStoragecache()
-	if storageCache.GetGlobalId() == id {
-		return self.storageCache, nil
-	}
-	return nil, cloudprovider.ErrNotFound
-}
-
 func (self *SRegion) updateInstance(instId string, name, desc, passwd, hostname, userData string) error {
 	params := make(map[string]string)
 	params["InstanceId"] = instId
