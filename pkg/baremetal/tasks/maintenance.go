@@ -16,12 +16,12 @@ func NewBaremetalMaintenanceTask(
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
-) *SBaremetalMaintenanceTask {
+) (ITask, error) {
 	task := new(SBaremetalMaintenanceTask)
 	baseTask := newBaremetalPXEBootTaskBase(baremetal, taskId, data)
 	task.SBaremetalPXEBootTaskBase = baseTask
-	baseTask.InitPXEBootTask(task, data)
-	return task
+	_, err := baseTask.InitPXEBootTask(task, data)
+	return task, err
 }
 
 func (self *SBaremetalMaintenanceTask) OnPXEBoot(ctx context.Context, term *ssh.Client, args interface{}) error {

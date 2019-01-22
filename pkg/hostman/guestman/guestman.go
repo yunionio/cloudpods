@@ -275,7 +275,7 @@ func (m *SGuestManager) GuestDeploy(ctx context.Context, params interface{}) (js
 			password = seclib.RandomPassword(12)
 		}
 
-		guestInfo, err := guest.DeployFs(guestfs.NewDeployInfo(publicKey, deploys, password, deployParams.IsInit, false))
+		guestInfo, err := guest.DeployFs(guestfs.NewDeployInfo(publicKey, deploys, password, deployParams.IsInit, false, options.HostOptions.LinuxDefaultRootUser))
 		if err != nil {
 			log.Errorf("Deploy guest fs error: %s", err)
 			return nil, err

@@ -104,8 +104,8 @@ func (dev *Mpt2SASRaidPhyDev) ToBaremetalStorage() *baremetal.BaremetalStorage {
 	s := dev.RaidBasePhyDev.ToBaremetalStorage()
 	s.Slot = dev.slot
 	s.Enclosure = dev.enclosure
-	s.Block = dev.block
-	s.Sector = dev.sector
+	s.Block = int64(dev.block)
+	s.Sector = int64(dev.sector)
 	return s
 }
 
@@ -272,7 +272,7 @@ func (adapter *Mpt2SASRaidAdaptor) BuildRaid10(devs []*baremetal.BaremetalStorag
 	return adapter.buildRaid("RAID10", devs, conf)
 }
 
-func (adapter *Mpt2SASRaidAdaptor) BuildNoneRaid(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *Mpt2SASRaidAdaptor) BuildNoneRaid(devs []*baremetal.BaremetalStorage) error {
 	return fmt.Errorf("Not impl")
 }
 

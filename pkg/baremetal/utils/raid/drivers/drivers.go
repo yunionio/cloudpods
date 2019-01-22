@@ -89,10 +89,10 @@ func buildRaid(adapter raid.IRaidAdapter, confs []*baremetal.BaremetalDiskConfig
 		if err != nil {
 			return fmt.Errorf("Build raid %s: %v", conf.Conf, err)
 		}
-		if len(nonDisks) > 0 {
-			if err := adapter.BuildNoneRaid(nonDisks, conf); err != nil {
-				return fmt.Errorf("Build raw disks: %v", err)
-			}
+	}
+	if len(nonDisks) > 0 {
+		if err := adapter.BuildNoneRaid(nonDisks); err != nil {
+			return fmt.Errorf("Build raw disks: %v", err)
 		}
 	}
 	return nil

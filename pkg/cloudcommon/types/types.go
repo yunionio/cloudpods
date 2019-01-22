@@ -54,9 +54,9 @@ func getMac(macStr string) net.HardwareAddr {
 
 type DiskInfo struct {
 	Dev        string `json:"dev"`
-	Sector     int    `json:"sector"`
-	Block      int    `json:"block"`
-	Size       int    `json:"size"`
+	Sector     int64  `json:"sector"`
+	Block      int64  `json:"block"`
+	Size       int64  `json:"size"`
 	Rotate     bool   `json:"rotate"`
 	ModuleInfo string `json:"module"`
 	Kernel     string `json:"kernel"`

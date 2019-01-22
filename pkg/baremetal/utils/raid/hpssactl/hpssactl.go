@@ -251,7 +251,7 @@ func (adapter *HPSARaidAdaptor) BuildRaid10(devs []*baremetal.BaremetalStorage, 
 	return adapter.buildRaid("10", devs, conf)
 }
 
-func (adapter *HPSARaidAdaptor) BuildNoneRaid(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *HPSARaidAdaptor) BuildNoneRaid(devs []*baremetal.BaremetalStorage) error {
 	for _, d := range devs {
 		// WT|WB] [NORA|RA] [Direct|Cached] [CachedBadBBU|NoCachedBadBBU]
 		useWT := true

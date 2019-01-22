@@ -13,6 +13,7 @@ import (
 
 	raiddrivers "yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
+	"yunion.io/x/onecloud/pkg/util/regutils2"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )
 
@@ -28,8 +29,8 @@ type MegaRaidPhyDev struct {
 	slot         int
 	minStripSize int
 	maxStripSize int
-	sector       int
-	block        int
+	sector       int64
+	block        int64
 }
 
 func NewMegaRaidPhyDev() *MegaRaidPhyDev {
@@ -57,7 +58,7 @@ func (dev *MegaRaidPhyDev) ToBaremetalStorage() *baremetal.BaremetalStorage {
 }
 
 func (dev *MegaRaidPhyDev) GetSize() int64 {
-	return int64(dev.sector * dev.block / 1024 / 1024) // MB
+	return dev.sector * int64(dev.block) / 1024 / 1024 // MB
 }
 
 func (dev *MegaRaidPhyDev) parseLine(line string) bool {
@@ -80,20 +81,14 @@ func (dev *MegaRaidPhyDev) parseLine(line string) bool {
 	case "Slot Number":
 		dev.slot, _ = strconv.Atoi(val)
 	case "Coerced Size":
-		matches := sizePattern.FindStringSubmatch(val)
-		if len(matches) != 0 {
-			paramsMap := make(map[string]string)
-			for i, name := range sizePattern.SubexpNames() {
-				if i > 0 && i <= len(matches) {
-					paramsMap[name] = matches[i]
-				}
-			}
-			sizeStr := paramsMap["sector"]
-			sector, err := strconv.ParseInt(sizeStr, 16, 32)
+		sizeStr := regutils2.GetParams(sizePattern, val)["sector"]
+		if len(sizeStr) != 0 {
+			sizeStr = strings.Replace(sizeStr, "0x", "", -1)
+			sector, err := strconv.ParseInt(sizeStr, 16, 64)
 			if err != nil {
-				dev.sector = 0
+				log.Errorf("Parse sector %q to Int error: %v", sizeStr, err)
 			}
-			dev.sector = int(sector)
+			dev.sector = sector
 		} else {
 			dev.sector = 0
 		}
@@ -113,7 +108,7 @@ func (dev *MegaRaidPhyDev) parseLine(line string) bool {
 			log.Errorf("parse logical sector size error: %v", err)
 			dev.block = 512
 		} else {
-			dev.block = block
+			dev.block = int64(block)
 		}
 	default:
 		return false
@@ -437,8 +432,8 @@ func (adapter *MegaRaidAdaptor) BuildRaid10(devs []*baremetal.BaremetalStorage, 
 	return cliBuildRaid(devs, conf, adapter.megacliBuildRaid10, adapter.storcliBuildRaid10)
 }
 
-func (adapter *MegaRaidAdaptor) BuildNoneRaid(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
-	return cliBuildRaid(devs, conf, adapter.megacliBuildNoRaid, adapter.storcliBuildNoRaid)
+func (adapter *MegaRaidAdaptor) BuildNoneRaid(devs []*baremetal.BaremetalStorage) error {
+	return cliBuildRaid(devs, nil, adapter.megacliBuildNoRaid, adapter.storcliBuildNoRaid)
 }
 
 func (adapter *MegaRaidAdaptor) storcliIsJBODEnabled() bool {
@@ -497,7 +492,7 @@ func (adapter *MegaRaidAdaptor) storcliBuildJBOD(devs []*baremetal.BaremetalStor
 	return nil
 }
 
-func (adapter *MegaRaidAdaptor) storcliBuildNoRaid(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *MegaRaidAdaptor) storcliBuildNoRaid(devs []*baremetal.BaremetalStorage, _ *baremetal.BaremetalDiskConfig) error {
 	err := adapter.storcliBuildJBOD(devs)
 	if err == nil {
 		return nil
@@ -518,7 +513,7 @@ func (adapter *MegaRaidAdaptor) storcliBuildNoRaid(devs []*baremetal.BaremetalSt
 	return err
 }
 
-func (adapter *MegaRaidAdaptor) megacliBuildNoRaid(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *MegaRaidAdaptor) megacliBuildNoRaid(devs []*baremetal.BaremetalStorage, _ *baremetal.BaremetalDiskConfig) error {
 	err := adapter.megacliBuildJBOD(devs)
 	if err == nil {
 		return nil

@@ -20,12 +20,12 @@ func NewBaremetalResetBMCTask(
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
-) *SBaremetalResetBMCTask {
+) (ITask, error) {
 	task := new(SBaremetalResetBMCTask)
 	baseTask := newBaremetalPXEBootTaskBase(baremetal, taskId, data)
 	task.SBaremetalPXEBootTaskBase = baseTask
-	baseTask.InitPXEBootTask(task, data)
-	return task
+	_, err := baseTask.InitPXEBootTask(task, data)
+	return task, err
 }
 
 func (self *SBaremetalResetBMCTask) GetName() string {

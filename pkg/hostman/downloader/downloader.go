@@ -42,7 +42,7 @@ func (d *SDownloadProvider) Start(
 	if headers.Get("Content-Type") == "" {
 		headers.Set("Content-Type", "application/octet-stream")
 	}
-	for k, _ := range headers {
+	for k := range headers {
 		d.w.Header().Add(k, headers.Get(k))
 	}
 

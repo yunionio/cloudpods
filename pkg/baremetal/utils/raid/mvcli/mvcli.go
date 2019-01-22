@@ -217,7 +217,7 @@ func (adapter *MarvelRaidAdaptor) BuildRaid10(devs []*baremetal.BaremetalStorage
 	return adapter.buildRaid("-r10", devs, conf)
 }
 
-func (adapter *MarvelRaidAdaptor) BuildNoneRaid(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *MarvelRaidAdaptor) BuildNoneRaid(devs []*baremetal.BaremetalStorage) error {
 	return fmt.Errorf("BuildNoneRaid not impl")
 }
 

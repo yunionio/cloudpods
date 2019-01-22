@@ -15,11 +15,12 @@ import (
 )
 
 type SDeployInfo struct {
-	publicKey *sshkeys.SSHKeys
-	deploys   []jsonutils.JSONObject
-	password  string
-	isInit    bool
-	enableTty bool
+	publicKey       *sshkeys.SSHKeys
+	deploys         []jsonutils.JSONObject
+	password        string
+	isInit          bool
+	enableTty       bool
+	defaultRootUser bool
 }
 
 func NewDeployInfo(
@@ -28,19 +29,21 @@ func NewDeployInfo(
 	password string,
 	isInit bool,
 	enableTty bool,
+	defaultRootUser bool,
 ) *SDeployInfo {
 	return &SDeployInfo{
-		publicKey: publicKey,
-		deploys:   deploys,
-		password:  password,
-		isInit:    isInit,
-		enableTty: enableTty,
+		publicKey:       publicKey,
+		deploys:         deploys,
+		password:        password,
+		isInit:          isInit,
+		enableTty:       enableTty,
+		defaultRootUser: defaultRootUser,
 	}
 }
 
 func (d *SDeployInfo) String() string {
-	return fmt.Sprintf("deplys: %s, password %s, isInit: %b",
-		d.deploys, d.password, d.isInit)
+	return fmt.Sprintf("deplys: %s, password %s, isInit: %v, enableTty: %v, defaultRootUser: %v",
+		d.deploys, d.password, d.isInit, d.enableTty, d.defaultRootUser)
 }
 
 func DetectRootFs(part fsdriver.IDiskPartition) fsdriver.IRootFsDriver {
@@ -104,8 +107,6 @@ func DeployGuestFs(
 	guestDesc *jsonutils.JSONDict,
 	deployInfo *SDeployInfo,
 ) (jsonutils.JSONObject, error) {
-	log.Errorf("DeployGuestFs %v", deployInfo)
-
 	var ret = jsonutils.NewDict()
 	var ips = make([]string, 0)
 	var err error
@@ -175,7 +176,7 @@ func DeployGuestFs(
 		}
 	}
 	if len(deployInfo.password) > 0 {
-		if account := rootfs.GetLoginAccount(partition); len(account) > 0 {
+		if account := rootfs.GetLoginAccount(partition, deployInfo.defaultRootUser); len(account) > 0 {
 			ret.Set("account", jsonutils.NewString(account))
 			if err = rootfs.DeployPublicKey(partition, account, deployInfo.publicKey); err != nil {
 				return nil, fmt.Errorf("DeployPublicKey: %v", err)
@@ -208,14 +209,14 @@ func DeployGuestFs(
 		}
 	}
 
-	log.Errorf("Deploy ret %s", ret)
+	log.Debugf("Deploy finished, return: %s", ret.String())
 	return ret, nil
 }
 
 func IsPartitionReadonly(rootfs fsdriver.IDiskPartition) bool {
 	log.Infof("Test if read-only fs ...")
-	var filename = fmt.Sprint("./%f", rand.Float32())
-	if err := rootfs.FilePutContents(filename, fmt.Sprint("%f", rand.Float32()), false, false); err == nil {
+	var filename = fmt.Sprintf("./%f", rand.Float32())
+	if err := rootfs.FilePutContents(filename, fmt.Sprintf("%f", rand.Float32()), false, false); err == nil {
 		rootfs.Remove(filename, false)
 		return false
 	} else {

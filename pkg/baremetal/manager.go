@@ -421,7 +421,7 @@ func (b *SBaremetalInstance) ClearSSHConfig() {
 	path := b.GetSSHConfigFilePath()
 	err := os.Remove(path)
 	if err != nil {
-		log.Errorf("Clear ssh config %s error: %v", path, err)
+		log.V(2).Warningf("Clear ssh config %s error: %v", path, err)
 	}
 	emptyConfig := types.SSHConfig{
 		Username: "None",
@@ -954,6 +954,17 @@ func (b *SBaremetalInstance) remove() {
 	b.desc = nil
 }
 
+func (b *SBaremetalInstance) StartNewTask(factory tasks.TaskFactory, taskId string, data jsonutils.JSONObject) {
+	go func() {
+		task, err := factory(b, taskId, data)
+		if err != nil {
+			tasks.SetTaskFail(task, err)
+			return
+		}
+		b.SetTask(task)
+	}()
+}
+
 func (b *SBaremetalInstance) StartBaremetalMaintenanceTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) {
 	if jsonutils.QueryBoolean(data, "force_reboot", false) {
 		b.ClearSSHConfig()
@@ -961,23 +972,20 @@ func (b *SBaremetalInstance) StartBaremetalMaintenanceTask(userCred mcclient.Tok
 	if jsonutils.QueryBoolean(data, "guest_running", false) {
 		data.(*jsonutils.JSONDict).Set("soft_reboot", jsonutils.JSONTrue)
 	}
-	task := tasks.NewBaremetalMaintenanceTask(b, taskId, data)
-	b.SetTask(task)
+	b.StartNewTask(tasks.NewBaremetalMaintenanceTask, taskId, data)
 }
 
 func (b *SBaremetalInstance) StartBaremetalUnmaintenanceTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) {
-	task := tasks.NewBaremetalUnmaintenanceTask(b, taskId, data)
-	b.SetTask(task)
+	b.StartNewTask(tasks.NewBaremetalUnmaintenanceTask, taskId, data)
 }
 
 func (b *SBaremetalInstance) StartBaremetalReprepareTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) {
-	task := tasks.NewBaremetalReprepareTask(b, taskId, data)
-	b.SetTask(task)
+	b.StartNewTask(tasks.NewBaremetalReprepareTask, taskId, data)
 }
 
-func (b *SBaremetalInstance) StartBaremetalResetBMCTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) {
-	task := tasks.NewBaremetalResetBMCTask(b, taskId, data)
-	b.SetTask(task)
+func (b *SBaremetalInstance) StartBaremetalResetBMCTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
+	b.StartNewTask(tasks.NewBaremetalResetBMCTask, taskId, data)
+	return nil
 }
 
 func (b *SBaremetalInstance) DelayedServerReset(_ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1001,9 +1009,10 @@ func (b *SBaremetalInstance) StartServerCreateTask(userCred mcclient.TokenCreden
 	}
 	b.server = server
 	b.desc.Set("server_id", jsonutils.NewString(b.server.GetId()))
-	b.AutoSaveDesc()
-	task := tasks.NewBaremetalServerCreateTask(b, taskId, data)
-	b.SetTask(task)
+	if err := b.AutoSaveDesc(); err != nil {
+		return err
+	}
+	b.StartNewTask(tasks.NewBaremetalServerCreateTask, taskId, data)
 	return nil
 }
 
@@ -1015,8 +1024,7 @@ func (b *SBaremetalInstance) StartServerDeployTask(userCred mcclient.TokenCreden
 	if err := b.GetServer().SaveDesc(desc); err != nil {
 		return fmt.Errorf("Save server desc: %v", err)
 	}
-	task := tasks.NewBaremetalServerDeployTask(b, taskId, data)
-	b.SetTask(task)
+	b.StartNewTask(tasks.NewBaremetalServerDeployTask, taskId, data)
 	return nil
 }
 
@@ -1028,32 +1036,22 @@ func (b *SBaremetalInstance) StartServerRebuildTask(userCred mcclient.TokenCrede
 	if err := b.GetServer().SaveDesc(desc); err != nil {
 		return fmt.Errorf("Save server desc: %v", err)
 	}
-	task := tasks.NewBaremetalServerRebuildTask(b, taskId, data)
-	b.SetTask(task)
+	b.StartNewTask(tasks.NewBaremetalServerRebuildTask, taskId, data)
 	return nil
 }
 
 func (b *SBaremetalInstance) StartServerStartTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
-	task, err := tasks.NewBaremetalServerStartTask(b, taskId, data)
-	if err != nil {
-		return err
-	}
-	b.SetTask(task)
+	b.StartNewTask(tasks.NewBaremetalServerStartTask, taskId, data)
 	return nil
 }
 
 func (b *SBaremetalInstance) StartServerStopTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) error {
-	task, err := tasks.NewBaremetalServerStopTask(b, taskId, data)
-	if err != nil {
-		return err
-	}
-	b.SetTask(task)
+	b.StartNewTask(tasks.NewBaremetalServerStopTask, taskId, data)
 	return nil
 }
 
 func (b *SBaremetalInstance) StartServerDestroyTask(userCred mcclient.TokenCredential, taskId string, data jsonutils.JSONObject) {
-	task := tasks.NewBaremetalServerDestroyTask(b, taskId, data)
-	b.SetTask(task)
+	b.StartNewTask(tasks.NewBaremetalServerDestroyTask, taskId, data)
 }
 
 func (b *SBaremetalInstance) DelayedSyncIPMIInfo(data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -1254,7 +1252,7 @@ func (s *SBaremetalServer) doCreateRoot(term *ssh.Client, devName string) error 
 	}
 	imageId := s.GetRootTemplateId()
 	cmd := fmt.Sprintf("/lib/mos/rootcreate.sh %s %s %s %s", token, url, imageId, devName)
-	log.Errorf("====rootcreate cmd: %q", cmd)
+	log.Infof("rootcreate cmd: %q", cmd)
 	if _, err := term.Run(cmd); err != nil {
 		return fmt.Errorf("Root create fail: %v", err)
 	}
@@ -1262,7 +1260,7 @@ func (s *SBaremetalServer) doCreateRoot(term *ssh.Client, devName string) error 
 }
 
 func (s *SBaremetalServer) DoPartitionDisk(term *ssh.Client) ([]*disktool.Partition, error) {
-	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, true)
+	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, false)
 	if err != nil {
 		return nil, err
 	}
@@ -1303,7 +1301,8 @@ func (s *SBaremetalServer) DoPartitionDisk(term *ssh.Client) ([]*disktool.Partit
 	if len(parts) == 0 {
 		return nil, fmt.Errorf("Root disk create failed, no partitions")
 	}
-	if err := tool.ResizePartition(0, int(rootSize)); err != nil {
+	log.Infof("Resize root to %d MB", rootSize)
+	if err := tool.ResizePartition(0, rootSize); err != nil {
 		return nil, fmt.Errorf("Fail to resize root to %d, err: %v", rootSize, err)
 	}
 	if len(disks) > 1 {
@@ -1316,7 +1315,7 @@ func (s *SBaremetalServer) DoPartitionDisk(term *ssh.Client) ([]*disktool.Partit
 			uuid, _ := disk.GetString("disk_id")
 			driver, _ := disk.GetString("driver")
 			log.Infof("Create partition %d %s", sz, fs)
-			if err := tool.CreatePartition(-1, int(sz), fs, true, driver, uuid); err != nil {
+			if err := tool.CreatePartition(-1, sz, fs, true, driver, uuid); err != nil {
 				return nil, fmt.Errorf("Fail to create disk %s: %v", disk.String(), err)
 			}
 		}
@@ -1327,7 +1326,7 @@ func (s *SBaremetalServer) DoPartitionDisk(term *ssh.Client) ([]*disktool.Partit
 }
 
 func (s *SBaremetalServer) DoRebuildRootDisk(term *ssh.Client) ([]*disktool.Partition, error) {
-	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, true)
+	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, false)
 	if err != nil {
 		return nil, err
 	}
@@ -1366,7 +1365,7 @@ func (s *SBaremetalServer) DoRebuildRootDisk(term *ssh.Client) ([]*disktool.Part
 	tool.RetrievePartitionInfo()
 
 	log.Infof("Resize root to %d MB", rootSize)
-	if err := tool.ResizePartition(0, int(rootSize)); err != nil {
+	if err := tool.ResizePartition(0, rootSize); err != nil {
 		return nil, fmt.Errorf("Fail to resize root to %d, err: %v", rootSize, err)
 	}
 	if len(disks) > 1 {
@@ -1379,7 +1378,7 @@ func (s *SBaremetalServer) DoRebuildRootDisk(term *ssh.Client) ([]*disktool.Part
 			uuid, _ := disk.GetString("disk_id")
 			driver, _ := disk.GetString("driver")
 			log.Infof("Create partition %d %s", sz, fs)
-			if err := tool.CreatePartition(0, int(sz), fs, false, driver, uuid); err != nil {
+			if err := tool.CreatePartition(0, sz, fs, false, driver, uuid); err != nil {
 				log.Errorf("Rebuild root create (%s, %d, %s, %s) partition error: %v", uuid, sz, fs, driver, err)
 				break
 			}
@@ -1419,11 +1418,12 @@ func (s *SBaremetalServer) DoDeploy(term *ssh.Client, data jsonutils.JSONObject,
 	if resetPassword && len(password) == 0 {
 		password = seclib.RandomPassword(12)
 	}
-	return s.deployFs(term, guestfs.NewDeployInfo(publicKey, deploys, password, isInit, false))
+	deployInfo := guestfs.NewDeployInfo(publicKey, deploys, password, isInit, true, o.Options.LinuxDefaultRootUser)
+	return s.deployFs(term, deployInfo)
 }
 
 func (s *SBaremetalServer) deployFs(term *ssh.Client, deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error) {
-	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, true)
+	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, false)
 	if err != nil {
 		return nil, err
 	}

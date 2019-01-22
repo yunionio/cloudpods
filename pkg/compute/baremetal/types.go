@@ -76,8 +76,8 @@ type BaremetalStorage struct {
 	Driver       string `json:"driver"`
 	Rotate       bool   `json:"rotate"`
 	Dev          string `json:"dev,omitempty"`
-	Sector       int    `json:"sector,omitempty"`
-	Block        int    `json:"block,omitempty"`
+	Sector       int64  `json:"sector,omitempty"`
+	Block        int64  `json:"block,omitempty"`
 	ModuleInfo   string `json:"module,omitempty"`
 	Kernel       string `json:"kernel,omitempty"`
 	PCIClass     string `json:"pci_class,omitempty"`
@@ -88,11 +88,11 @@ type BaremetalStorage struct {
 	Enclosure    int    `json:"enclousure,omitempty"`
 	MinStripSize int64  `json:"min_strip_size,omitempty"`
 	MaxStripSize int64  `json:"max_strip_size,omitempty"`
-	Index        int64  `json:"index,omitempty"`
+	Index        int64  `json:"index"`
 	Addr         string `json:"addr,omitempty"`
 }
 
-func (s BaremetalStorage) GetBlock() int {
+func (s BaremetalStorage) GetBlock() int64 {
 	if s.Block <= 0 {
 		return 512
 	}

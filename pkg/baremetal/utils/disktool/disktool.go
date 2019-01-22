@@ -21,15 +21,18 @@ const (
 	RAID_DRVIER    = "raid"
 	NONRAID_DRIVER = "nonraid"
 	PCIE_DRIVER    = "pcie"
+
+	LABEL_MSDOS = "msdos"
+	LABEL_GPT   = "gpt"
 )
 
 type Partition struct {
 	disk     *DiskPartitions
 	index    int
 	bootable bool
-	start    int
-	end      int
-	count    int
+	start    int64
+	end      int64
+	count    int64
 	diskType string
 	fs       string
 	dev      string
@@ -38,7 +41,7 @@ type Partition struct {
 func NewPartition(
 	disk *DiskPartitions,
 	index int, bootable bool,
-	start int, end int, count int,
+	start int64, end int64, count int64,
 	diskType string, fs string, dev string,
 ) *Partition {
 	return &Partition{
@@ -54,11 +57,11 @@ func NewPartition(
 	}
 }
 
-func (p *Partition) GetStart() int {
+func (p *Partition) GetStart() int64 {
 	return p.start
 }
 
-func (p *Partition) GetEnd() int {
+func (p *Partition) GetEnd() int64 {
 	return p.end
 }
 
@@ -176,7 +179,7 @@ func (p *Partition) ResizeXfs() error {
 	return nil
 }
 
-func (p *Partition) GetSizeMB() (int, error) {
+func (p *Partition) GetSizeMB() (int64, error) {
 	log.Infof("GetSizeMB: start %d, end: %d, count: %d", p.start, p.end, p.count)
 	if p.count != (p.end - p.start + 1) {
 		return 0, fmt.Errorf("Count(%d) != End(%d)-Start(%d)+1", p.count, p.end, p.start)
@@ -191,15 +194,15 @@ type DiskPartitions struct {
 	tool       *PartitionTool
 	dev        string
 	devName    string
-	sectors    int
-	blockSize  int
+	sectors    int64
+	blockSize  int64
 	rotate     bool
 	desc       string
 	label      string
 	partitions []*Partition
 }
 
-func newDiskPartitions(driver string, adapter int, sizeMB int64, blockSize int, tool *PartitionTool) *DiskPartitions {
+func newDiskPartitions(driver string, adapter int, sizeMB int64, blockSize int64, tool *PartitionTool) *DiskPartitions {
 	ps := new(DiskPartitions)
 	ps.driver = driver
 	ps.adapter = adapter
@@ -222,8 +225,8 @@ func (p *DiskPartitions) SetInfo(info *types.DiskInfo) *DiskPartitions {
 	return p
 }
 
-func (ps *DiskPartitions) MBSectors() int {
-	return 1024 * 1024 / ps.blockSize
+func (ps *DiskPartitions) MBSectors() int64 {
+	return int64(1024 * 1024 / ps.blockSize)
 }
 
 func (ps *DiskPartitions) String() string {
@@ -269,8 +272,8 @@ func (ps *DiskPartitions) addPartition(p fileutils.Partition) {
 	ps.partitions = append(ps.partitions, part)
 }
 
-func (ps *DiskPartitions) GPTEndSector() int {
-	return ps.sectors - GPT_SECTORS
+func (ps *DiskPartitions) GPTEndSector() int64 {
+	return ps.sectors - int64(GPT_SECTORS)
 }
 
 func (ps *DiskPartitions) FsToTypeCode(fs string) string {
@@ -294,24 +297,23 @@ func (ps *DiskPartitions) doResize(dev string, cmd string) error {
 	return ps.RetrievePartitionInfo()
 }
 
-func (ps *DiskPartitions) ResizePartition(offsetMB int) error {
-	if len(ps.partitions) <= 0 {
+func (ps *DiskPartitions) ResizePartition(offsetMB int64) error {
+	if len(ps.partitions) == 0 {
 		return fmt.Errorf("ResizePartitions error: total %d partitions", len(ps.partitions))
 	}
 	var cmd string
-	if ps.label == "msdos" {
+	if ps.label == LABEL_MSDOS {
 		part := ps.partitions[len(ps.partitions)-1]
 		if part.diskType == "extended" {
 			log.Infof("Find last partition an empty extended partition, removed it")
 			cmd := fmt.Sprintf("/usr/sbin/parted -a none -s %s -- rm %d", part.disk.dev, part.index)
 			if err := ps.doResize(part.disk.dev, cmd); err != nil {
-				log.Errorf("Fail to remove empty extended partition")
-				return err
+				return fmt.Errorf("Fail to remove empty extended partition: %v", err)
 			}
 		}
 	}
 	part := ps.partitions[len(ps.partitions)-1]
-	var end int
+	var end int64
 	if offsetMB <= 0 {
 		end = ps.GPTEndSector()
 	} else {
@@ -324,7 +326,7 @@ func (ps *DiskPartitions) ResizePartition(offsetMB int) error {
 		log.Warningf("Cannot reduce size %d %d, no need to resize", end, part.end)
 		end = part.end
 	}
-	if ps.label == "msdos" {
+	if ps.label == LABEL_MSDOS {
 		if part.diskType == "logical" {
 			extendIdx := -1
 			for i := range ps.partitions {
@@ -363,7 +365,7 @@ func (ps *DiskPartitions) ResizePartition(offsetMB int) error {
 	} else {
 		// gpt
 		cmd = fmt.Sprintf("/usr/sbin/sgdisk --set-alignment=1 --delete=%d", part.index)
-		cmd = fmt.Sprintf("%s --new=%d:%d:%d", cmd, part.index, part.start, part.end)
+		cmd = fmt.Sprintf("%s --new=%d:%d:%d", cmd, part.index, part.start, end)
 		if len(part.diskType) != 0 {
 			cmd = fmt.Sprintf("%s --change-name=%d:\"%s\"", cmd, part.index, part.diskType)
 		}
@@ -379,7 +381,7 @@ func (ps *DiskPartitions) ResizePartition(offsetMB int) error {
 	return ps.partitions[len(ps.partitions)-1].ResizeFs()
 }
 
-func (ps *DiskPartitions) IsSpaceAvailable(sizeMB int) bool {
+func (ps *DiskPartitions) IsSpaceAvailable(sizeMB int64) bool {
 	start := ps.getNextPartStart()
 	freeSect := ps.GPTEndSector() - start
 	if sizeMB <= 0 {
@@ -394,9 +396,9 @@ func (ps *DiskPartitions) IsSpaceAvailable(sizeMB int) bool {
 }
 
 func (ps *DiskPartitions) MakeLabel() error {
-	label := "gpt"
+	label := LABEL_GPT
 	if ps.sizeMB <= 1024*1024*2 {
-		label = "msdos"
+		label = LABEL_MSDOS
 	}
 	return ps.makeLabel(label)
 }
@@ -419,12 +421,12 @@ func (ps *DiskPartitions) getNextPartIndex() int {
 	return max + 1
 }
 
-func (ps *DiskPartitions) getNextPartStart() int {
-	var start int
+func (ps *DiskPartitions) getNextPartStart() int64 {
+	var start int64
 	if len(ps.partitions) == 0 {
 		start = ps.MBSectors() // 1MB
 	} else {
-		gap := 2
+		var gap int64 = 2
 		lastPart := ps.partitions[len(ps.partitions)-1]
 		start = ((lastPart.end + gap) / ps.MBSectors()) * ps.MBSectors()
 		if start < lastPart.end+gap {
@@ -438,23 +440,23 @@ func (ps *DiskPartitions) Run(cmd ...string) ([]string, error) {
 	return ps.tool.Run(cmd...)
 }
 
-func (ps *DiskPartitions) CreatePartition(sizeMB int, fs string, doformat bool, uuid string) error {
+func (ps *DiskPartitions) CreatePartition(sizeMB int64, fs string, doformat bool, uuid string) error {
 	if len(ps.partitions) == 0 {
 		if err := ps.MakeLabel(); err != nil {
 			return err
 		}
 	}
 	start := ps.getNextPartStart()
-	var end int
+	var end int64
 	if sizeMB <= 0 {
-		end = start + int((ps.GPTEndSector()-start)/ps.MBSectors())*ps.MBSectors() - 1
+		end = start + (ps.GPTEndSector()-start)/ps.MBSectors()*ps.MBSectors() - 1
 	} else {
 		end = start + sizeMB*ps.MBSectors() - 1
 	}
 	partIdx := ps.getNextPartIndex()
 	var cmd string
 	var diskType string
-	if ps.label == "msdos" {
+	if ps.label == LABEL_MSDOS {
 		if partIdx < 5 {
 			diskType = "primary"
 		} else if partIdx < 9 {
@@ -470,7 +472,7 @@ func (ps *DiskPartitions) CreatePartition(sizeMB int, fs string, doformat bool, 
 	} else {
 		cmd = fmt.Sprintf("/usr/sbin/sgdisk --set-alignment=1 --new=%d:%d:%d", partIdx, start, end)
 		if len(fs) != 0 {
-			cmd = fmt.Sprintf("%s --typecode=%d:%s", cmd, partIdx, fileutils.FsFormatToDiskType(fs))
+			cmd = fmt.Sprintf("%s --typecode=%d:%s", cmd, partIdx, ps.FsToTypeCode(fs))
 		}
 		cmd = fmt.Sprintf("%s %s", cmd, ps.dev)
 	}
@@ -560,6 +562,7 @@ func (tool *PartitionTool) FetchDiskConfs(diskConfs []baremetal.DiskConfiguratio
 func (tool *PartitionTool) IsAllDisksReady() bool {
 	for _, d := range tool.disks {
 		if !d.IsReady() {
+			log.Errorf("disk %#v not ready", d)
 			return false
 		}
 	}
@@ -587,7 +590,7 @@ func (tool *PartitionTool) RetrievePartitionInfo() error {
 	return nil
 }
 
-func (tool *PartitionTool) ResizePartition(diskIdx int, sizeMB int) error {
+func (tool *PartitionTool) ResizePartition(diskIdx int, sizeMB int64) error {
 	if diskIdx >= 0 && diskIdx < len(tool.disks) {
 		return tool.disks[diskIdx].ResizePartition(sizeMB)
 	}
@@ -615,7 +618,7 @@ func (tool *PartitionTool) GetPCIEDisks() []*DiskPartitions {
 	return disks
 }
 
-func (tool *PartitionTool) CreatePartition(diskIdx int, sizeMB int, fs string, doformat bool, driver string, uuid string) error {
+func (tool *PartitionTool) CreatePartition(diskIdx int, sizeMB int64, fs string, doformat bool, driver string, uuid string) error {
 	disks := tool.disks
 	if driver == PCIE_DRIVER {
 		disks = tool.GetPCIEDisks()

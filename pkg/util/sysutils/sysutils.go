@@ -196,9 +196,9 @@ func ParseDiskInfo(lines []string, driver string) []*types.DiskInfo {
 		modinfo := strings.Join(data[6:], " ")
 		ret = append(ret, &types.DiskInfo{
 			Dev:        dev,
-			Sector:     sector,
-			Block:      block,
-			Size:       size,
+			Sector:     int64(sector),
+			Block:      int64(block),
+			Size:       int64(size),
 			Rotate:     rotate,
 			ModuleInfo: modinfo,
 			Kernel:     kernel,

@@ -86,7 +86,7 @@ func (i *SImageDownloadProvider) HandlerHead() error {
 		}
 		headers.Set("X-Image-Meta-Checksum", checksum)
 	}
-	for k, _ := range headers {
+	for k := range headers {
 		i.w.Header().Add(k, headers.Get(k))
 	}
 	i.w.WriteHeader(200)
