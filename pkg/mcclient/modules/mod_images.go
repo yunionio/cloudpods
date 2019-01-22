@@ -73,25 +73,7 @@ func (this *ImageManager) GetById(session *mcclient.ClientSession, id string, pa
 }
 
 func (this *ImageManager) GetByName(session *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	var dict *jsonutils.JSONDict
-	if params == nil {
-		dict = jsonutils.NewDict()
-	} else {
-		dict, _ = params.(*jsonutils.JSONDict)
-	}
-	dict.Add(jsonutils.NewString(id), "name")
-	dict.Add(jsonutils.JSONTrue, "details")
-	listresults, e := this.List(session, dict)
-	if e != nil {
-		return nil, e
-	}
-	if len(listresults.Data) == 0 {
-		return nil, httperrors.NewImageNotFoundError(id)
-	} else if len(listresults.Data) == 1 {
-		return listresults.Data[0], nil
-	} else {
-		return nil, httperrors.NewDuplicateNameError("image name", id)
-	}
+	return this.GetById(session, id, params)
 }
 
 func (this *ImageManager) Get(session *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {

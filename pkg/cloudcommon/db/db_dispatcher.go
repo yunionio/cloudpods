@@ -1283,7 +1283,7 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 
 func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IModel) error {
 	manager := item.GetModelManager()
-	log.Debugf("Ready to delete %s %s %#v", jsonutils.Marshal(item), item, manager)
+	// log.Debugf("Ready to delete %s %s %#v", jsonutils.Marshal(item), item, manager)
 	_, err := manager.TableSpec().Update(item, func() error {
 		return item.MarkDelete()
 	})

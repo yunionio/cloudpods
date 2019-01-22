@@ -353,6 +353,11 @@ func (self *SManagedVirtualizedGuestDriver) RequestDiskSnapshot(ctx context.Cont
 
 func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
 
+	uuid, _ := data.GetString("uuid")
+	if len(uuid) > 0 {
+		guest.SetExternalId(uuid)
+	}
+
 	recycle := false
 	if guest.IsPrepaidRecycle() {
 		recycle = true
@@ -367,7 +372,7 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 
 		disks := guest.GetDisks()
 		if len(disks) != len(diskInfo) {
-			msg := fmt.Sprintf("inconsistent disk number: have %d want %d", len(disks), len(diskInfo))
+			msg := fmt.Sprintf("inconsistent disk number: guest have %d disks, data contains %d disks", len(disks), len(diskInfo))
 			log.Errorf(msg)
 			return fmt.Errorf(msg)
 		}
@@ -418,10 +423,6 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 				break
 			}
 		}
-	}
-	uuid, _ := data.GetString("uuid")
-	if len(uuid) > 0 {
-		guest.SetExternalId(uuid)
 	}
 
 	if metaData, _ := data.Get("metadata"); metaData != nil {

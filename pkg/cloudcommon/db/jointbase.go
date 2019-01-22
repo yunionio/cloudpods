@@ -160,7 +160,7 @@ func JointSlaveID(joint IJointModel) string { // need override
 func JointMaster(joint IJointModel) IStandaloneModel { // need override
 	masterMan := joint.GetJointModelManager().GetMasterManager()
 	masterId := JointMasterID(joint)
-	log.Debugf("MasterID: %s %s", masterId, masterMan.KeywordPlural())
+	//log.Debugf("MasterID: %s %s", masterId, masterMan.KeywordPlural())
 	if len(masterId) > 0 {
 		master, _ := masterMan.FetchById(masterId)
 		return master
@@ -171,7 +171,7 @@ func JointMaster(joint IJointModel) IStandaloneModel { // need override
 func JointSlave(joint IJointModel) IStandaloneModel { // need override
 	slaveMan := joint.GetJointModelManager().GetSlaveManager()
 	slaveId := JointSlaveID(joint)
-	log.Debugf("SlaveID: %s %s", slaveId, slaveMan.KeywordPlural())
+	//log.Debugf("SlaveID: %s %s", slaveId, slaveMan.KeywordPlural())
 	if len(slaveId) > 0 {
 		slave, _ := slaveMan.FetchById(slaveId)
 		return slave

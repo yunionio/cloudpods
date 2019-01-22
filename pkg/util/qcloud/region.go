@@ -203,6 +203,11 @@ func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStorag
 	return nil, cloudprovider.ErrNotFound
 }
 
+func (self *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
+	storageCache := self.getStoragecache()
+	return []cloudprovider.ICloudStoragecache{storageCache}, nil
+}
+
 func (self *SRegion) updateInstance(instId string, name, desc, passwd, hostname string) error {
 	params := make(map[string]string)
 	params["InstanceId"] = instId

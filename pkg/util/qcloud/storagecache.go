@@ -84,7 +84,7 @@ func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imag
 func (self *SStoragecache) fetchImages() error {
 	images := make([]SImage, 0)
 	for {
-		parts, total, err := self.region.GetImages("", "PRIVATE_IMAGE", nil, "", len(images), 50)
+		parts, total, err := self.region.GetImages("", "", nil, "", len(images), 50)
 		if err != nil {
 			return err
 		}
@@ -112,14 +112,14 @@ func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 }
 
 func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {
-	parts, _, err := self.region.GetImages("", "PRIVATE_IMAGE", []string{extId}, "", 0, 1)
+	parts, _, err := self.region.GetImages("", "", []string{extId}, "", 0, 1)
 	if err != nil {
 		return nil, err
 	}
 	if len(parts) == 0 {
 		return nil, cloudprovider.ErrNotFound
 	}
-	parts[1].storageCache = self
+	parts[0].storageCache = self
 	return &parts[0], nil
 }
 

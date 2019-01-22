@@ -200,13 +200,30 @@ func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			if err != nil {
 				return nil, err
 			}
-			log.Debugf("VMcreated %s, and status is ready", iVM.GetGlobalId())
+			log.Debugf("VMcreated %s, and status is running", iVM.GetGlobalId())
 
 			iVM, err = ihost.GetIVMById(iVM.GetGlobalId())
 			if err != nil {
 				log.Errorf("cannot find vm %s", err)
 				return nil, err
 			}
+
+			err = cloudprovider.RetryUntil(func() (bool, error) {
+				idisks, err := iVM.GetIDisks()
+				if err != nil {
+					log.Errorf("cannot find vm disks %s", err)
+					return false, err
+				}
+				if len(idisks) == len(desc.DataDisks)+1 {
+					return true, nil
+				} else {
+					return false, nil
+				}
+			}, 10)
+			if err != nil {
+				return nil, err
+			}
+
 			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd, action)
 			return data, nil
 		})
