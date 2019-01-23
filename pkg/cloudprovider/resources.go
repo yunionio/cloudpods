@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/secrules"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
@@ -172,11 +173,10 @@ type ICloudHost interface {
 
 	GetManagerId() string
 
-	CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, vswitchId string, ipAddr string, desc string,
-		passwd string, storageType string, diskSizes []int, publicKey string, extSecGrpId string, userData string, billingCycle *billing.SBillingCycle) (ICloudVM, error)
+	CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (ICloudVM, error)
 	// 使用instanceType创建实例。
-	CreateVM2(name string, imgId string, sysDiskSize int, instanceType string, vswitchId string, ipAddr string, desc string,
-		passwd string, storageType string, diskSizes []int, publicKey string, extSecGrpId string, userData string, billingCycle *billing.SBillingCycle) (ICloudVM, error)
+	// CreateVM2(name string, imgId string, sysDiskSize int, instanceType string, vswitchId string, ipAddr string, desc string,
+	// 	passwd string, storageType string, diskSizes []int, publicKey string, extSecGrpId string, userData string, billingCycle *billing.SBillingCycle) (ICloudVM, error)
 
 	GetIHostNics() ([]ICloudHostNetInterface, error)
 }

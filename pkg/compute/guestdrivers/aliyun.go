@@ -124,7 +124,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		return err
 	}
 
-	desc := SManagedVMCreateConfig{}
+	desc := cloudprovider.SManagedVMCreateConfig{}
 	err = config.Unmarshal(&desc, "desc")
 	if err != nil {
 		return err
@@ -155,21 +155,23 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				return nil, fmt.Errorf("failed to set externalId for secgroup %s externalId %s: error: %v", desc.SecGroupId, secgroupExtId, err)
 			}
 
-			var createErr error
-			var iVM cloudprovider.ICloudVM
+			// var createErr error
+			// var iVM cloudprovider.ICloudVM
 
 			var bc *billing.SBillingCycle
 			if desc.BillingCycle.IsValid() {
 				bc = &desc.BillingCycle
 			}
 
-			if len(desc.InstanceType) > 0 {
-				iVM, createErr = ihost.CreateVM2(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.InstanceType, desc.ExternalNetworkId,
-					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData, bc)
-			} else {
-				iVM, createErr = ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData, bc)
-			}
+			iVM, createErr := ihost.CreateVM(&desc)
+
+			// if len(desc.InstanceType) > 0 {
+			// 	iVM, createErr = ihost.CreateVM2(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.InstanceType, desc.ExternalNetworkId,
+			// 		desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData, bc)
+			// } else {
+			// 	iVM, createErr = ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
+			// 		desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData, bc)
+			// }
 
 			if createErr != nil {
 				return nil, createErr

@@ -103,7 +103,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 		return err
 	}
 
-	desc := SManagedVMCreateConfig{}
+	desc := cloudprovider.SManagedVMCreateConfig{}
 	err = config.Unmarshal(&desc, "desc")
 	if err != nil {
 		return err

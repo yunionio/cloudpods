@@ -130,7 +130,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 
 	userData := generateUserData(adminPublicKey, projectPublicKey, oUserData)
 
-	desc := SManagedVMCreateConfig{}
+	desc := cloudprovider.SManagedVMCreateConfig{}
 	if err := config.Unmarshal(&desc, "desc"); err != nil {
 		return err
 	}

@@ -46,7 +46,7 @@ type SManagedVMCreateConfig struct {
 }
 
 func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
-	config := SManagedVMCreateConfig{}
+	config := cloudprovider.SManagedVMCreateConfig{}
 	config.Name = guest.Name
 	config.Cpu = int(guest.VcpuCount)
 	config.Memory = guest.VmemSize

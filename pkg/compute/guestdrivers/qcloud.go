@@ -145,7 +145,7 @@ func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		return err
 	}
 
-	desc := SManagedVMCreateConfig{}
+	desc := cloudprovider.SManagedVMCreateConfig{}
 	err = config.Unmarshal(&desc, "desc")
 	if err != nil {
 		return err
