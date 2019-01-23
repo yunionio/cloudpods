@@ -159,7 +159,7 @@ func IsPXERequest(pkt Packet) bool {
 	//}
 
 	if pkt.GetOptionValue(OptionClientArchitecture) == nil {
-		log.Warningf("not a PXE boot request (missing option 93)")
+		log.Debugf("not a PXE boot request (missing option 93)")
 		return false
 	}
 	return true

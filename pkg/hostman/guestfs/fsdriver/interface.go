@@ -44,7 +44,7 @@ type IRootFsDriver interface {
 	DeployStandbyNetworkingScripts(part IDiskPartition, nics, nicsStandby []jsonutils.JSONObject) error
 	DeployUdevSubsystemScripts(IDiskPartition) error
 	DeployFstabScripts(IDiskPartition, []jsonutils.JSONObject) error
-	GetLoginAccount(IDiskPartition) string
+	GetLoginAccount(IDiskPartition, bool) string
 	DeployPublicKey(IDiskPartition, string, *sshkeys.SSHKeys) error
 	ChangeUserPasswd(part IDiskPartition, account, gid, publicKey, password string) (string, error)
 	DeployYunionroot(IDiskPartition, *sshkeys.SSHKeys) error

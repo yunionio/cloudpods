@@ -14,11 +14,11 @@ func NewBaremetalServerDeployTask(
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
-) *SBaremetalServerDeployTask {
+) (ITask, error) {
 	task := new(SBaremetalServerDeployTask)
-	baseTask := newBaremetalServerBaseDeployTask(baremetal, taskId, data, task)
+	baseTask, err := newBaremetalServerBaseDeployTask(baremetal, taskId, data, task)
 	task.SBaremetalServerBaseDeployTask = baseTask
-	return task
+	return task, err
 }
 
 func (self *SBaremetalServerDeployTask) GetName() string {

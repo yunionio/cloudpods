@@ -108,10 +108,10 @@ func (s *Client) Run(cmds ...string) ([]string, error) {
 		session.Stdout = &stdOut
 		session.Stderr = &stdErr
 		err = session.Run(cmd)
-		//out, err := session.CombinedOutput(cmd)
 		if err != nil {
-			log.Errorf("Command: %q, Error output: %s", cmd, stdErr.String())
-			return nil, fmt.Errorf("%q error: %v, Stderr: %s", cmd, err, stdErr.Bytes())
+			err = fmt.Errorf("%q error: %v, Stderr: %s", cmd, err, stdErr.String())
+			log.Errorf("%v", err)
+			return nil, err
 		}
 		ret = append(ret, ParseOutput(stdOut.Bytes())...)
 	}

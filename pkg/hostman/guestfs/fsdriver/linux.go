@@ -22,7 +22,10 @@ import (
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
-const YUNIONROOT = "cloudroot"
+const (
+	ROOT_USER       = "root"
+	YUNIONROOT_USER = "cloudroot"
+)
 
 type sLinuxRootFs struct {
 	*sGuestRootFsDriver
@@ -57,14 +60,14 @@ func (l *sLinuxRootFs) DeployHosts(rootFs IDiskPartition, hostname, domain strin
 	return rootFs.FilePutContents(etcHosts, hf.String(), false, false)
 }
 
-func (l *sLinuxRootFs) GetLoginAccount(rootFs IDiskPartition) string {
+func (l *sLinuxRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser bool) string {
 	var selUsr string
-	if options.HostOptions.LinuxDefaultRootUser && rootFs.Exists("/root", false) {
-		selUsr = "root"
+	if defaultRootUser && rootFs.Exists("/root", false) {
+		selUsr = ROOT_USER
 	} else {
 		usrs := rootFs.ListDir("/home", false)
 		for _, usr := range usrs {
-			if usr == YUNIONROOT {
+			if usr == YUNIONROOT_USER {
 				continue
 			}
 			if len(selUsr) == 0 || len(selUsr) > len(usr) {
@@ -72,7 +75,7 @@ func (l *sLinuxRootFs) GetLoginAccount(rootFs IDiskPartition) string {
 			}
 		}
 		if len(selUsr) == 0 && rootFs.Exists("/root", false) {
-			selUsr = "root"
+			selUsr = ROOT_USER
 		}
 	}
 	return selUsr
@@ -107,7 +110,7 @@ func (l *sLinuxRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pub
 func (l *sLinuxRootFs) DeployYunionroot(rootFs IDiskPartition, pubkeys *sshkeys.SSHKeys) error {
 	l.DisableSelinux(rootFs)
 	l.DisableCloudinit(rootFs)
-	var yunionroot = YUNIONROOT
+	var yunionroot = YUNIONROOT_USER
 	if err := rootFs.UserAdd(yunionroot, false); err != nil && !strings.Contains(err.Error(), "already exists") {
 		log.Errorf("UserAdd %s: %v", yunionroot, err)
 	}

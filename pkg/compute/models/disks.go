@@ -1090,23 +1090,23 @@ func totalDiskSize(projectId string, active tristate.TriState, ready tristate.Tr
 }
 
 type SDiskConfig struct {
-	ImageId string
+	ImageId string `json:"image_id"`
 
-	SnapshotId string
-	DiskType   string // sys, data, swap, volume
+	SnapshotId string `json:"snapshot_id"`
+	DiskType   string `json:"disk_type"` // sys, data, swap, volume
 
 	// ImageDiskFormat string
-	SizeMb          int    // MB
-	Fs              string // file system
-	Format          string //
-	Driver          string //
-	Cache           string //
-	Mountpoint      string //
-	Backend         string // stroageType
-	Medium          string
-	ImageProperties map[string]string
+	SizeMb          int               `json:"size"`       // MB
+	Fs              string            `json:"fs"`         // file system
+	Format          string            `json:"format"`     //
+	Driver          string            `json:"driver"`     //
+	Cache           string            `json:"cache"`      //
+	Mountpoint      string            `json:"mountpoint"` //
+	Backend         string            `json:"backend"`    // stroageType
+	Medium          string            `json:"medium"`
+	ImageProperties map[string]string `json:"image_properties"`
 
-	DiskId string // import only
+	DiskId string `json:"-"` // import only
 }
 
 func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info jsonutils.JSONObject) (*SDiskConfig, error) {

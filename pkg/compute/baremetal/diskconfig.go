@@ -452,7 +452,7 @@ func CalculateLayout(confs []*BaremetalDiskConfig, storages []*BaremetalStorage)
 			conf = confs[confIdx]
 			confIdx += 1
 		} else {
-			noneConf, _ := ParseDiskConfig("none")
+			noneConf, _ := ParseDiskConfig(DISK_CONF_NONE)
 			conf = &noneConf
 		}
 		selected, storage1 := RetrieveStorages(conf, storages)
@@ -640,7 +640,7 @@ func GetDiskSpecV2(storages []*BaremetalStorage) DiskDriverSpecs {
 type DiskConfiguration struct {
 	Driver  string
 	Adapter int
-	Block   int
+	Block   int64
 	Size    int64
 }
 

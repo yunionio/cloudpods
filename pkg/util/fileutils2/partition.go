@@ -14,15 +14,15 @@ import (
 type Partition struct {
 	Index    int
 	Bootable bool
-	Start    int
-	End      int
-	Count    int
+	Start    int64
+	End      int64
+	Count    int64
 	DiskType string
 	Fs       string
 	DevName  string
 }
 
-func NewPartition(idx int, bootable bool, start int, end int, count int, diskType string, fs string, devName string) Partition {
+func NewPartition(idx int, bootable bool, start int64, end int64, count int64, diskType string, fs string, devName string) Partition {
 	return Partition{
 		Index:    idx,
 		Bootable: bootable,
@@ -95,7 +95,7 @@ func ParseDiskPartitions(dev string, lines []string) ([]Partition, string) {
 			startI, _ := strconv.Atoi(start)
 			endI, _ := strconv.Atoi(end)
 			countI, _ := strconv.Atoi(count)
-			parts = append(parts, NewPartition(index, bootable, startI, endI, countI, diskType, fs, devName))
+			parts = append(parts, NewPartition(index, bootable, int64(startI), int64(endI), int64(countI), diskType, fs, devName))
 		}
 	}
 	return parts, label

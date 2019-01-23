@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 
@@ -17,7 +18,7 @@ func NewBaremetalUnmaintenanceTask(
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
-) *SBaremetalUnmaintenanceTask {
+) (ITask, error) {
 	task := new(SBaremetalUnmaintenanceTask)
 	baseTask := newBaremetalTaskBase(baremetal, taskId, data)
 	task.SBaremetalTaskBase = baseTask
@@ -25,26 +26,23 @@ func NewBaremetalUnmaintenanceTask(
 	if jsonutils.QueryBoolean(task.data, "guest_running", false) {
 		err = task.EnsurePowerShutdown(false)
 		if err != nil {
-			SetTaskFail(task, err)
-			return task
+			return task, fmt.Errorf("EnsurePowerShutdown hard: %v", err)
 		}
 		err = task.EnsurePowerUp("disk")
 		if err != nil {
-			SetTaskFail(task, err)
-			return task
+			return task, fmt.Errorf("EnsurePowerUp disk: %v", err)
 		}
 		task.Baremetal.SyncStatus(baremetalstatus.RUNNING, "")
 		SetTaskComplete(task, nil)
-		return task
+		return task, nil
 	}
 	task.SetStage(task.WaitForStop)
 	err = task.EnsurePowerShutdown(true)
 	if err != nil {
-		SetTaskFail(task, err)
-		return task
+		return task, fmt.Errorf("EnsurePowerShutdown soft: %v", err)
 	}
 	ExecuteTask(task, nil)
-	return task
+	return task, nil
 }
 
 func (self *SBaremetalUnmaintenanceTask) WaitForStop(ctx context.Context, args interface{}) error {

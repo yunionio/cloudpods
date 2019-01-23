@@ -18,7 +18,7 @@ func NewBaremetalServerStartTask(
 	baremetal IBaremetal,
 	taskId string,
 	data jsonutils.JSONObject,
-) (*SBaremetalServerStartTask, error) {
+) (ITask, error) {
 	baseTask := newBaremetalTaskBase(baremetal, taskId, data)
 	self := &SBaremetalServerStartTask{
 		SBaremetalTaskBase: baseTask,

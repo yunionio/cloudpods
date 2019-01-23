@@ -25,13 +25,13 @@ func newBaremetalServerBaseDeployTask(
 	taskId string,
 	data jsonutils.JSONObject,
 	deployTask IServerBaseDeployTask,
-) *SBaremetalServerBaseDeployTask {
+) (*SBaremetalServerBaseDeployTask, error) {
 	task := new(SBaremetalServerBaseDeployTask)
 	baseTask := newBaremetalPXEBootTaskBase(baremetal, taskId, data)
 	task.SBaremetalPXEBootTaskBase = baseTask
-	baseTask.InitPXEBootTask(task, data)
+	_, err := baseTask.InitPXEBootTask(task, data)
 	task.serverDeployTask = deployTask
-	return task
+	return task, err
 }
 
 func (self *SBaremetalServerBaseDeployTask) GetName() string {
