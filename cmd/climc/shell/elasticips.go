@@ -113,11 +113,11 @@ func init() {
 		return nil
 	})
 
-	type EipSingleOptions struct {
+	type EipDissociateOptions struct {
 		ID         string `help:"ID or name of EIP"`
 		AutoDelete bool   `help:"automatically delete the dissociate EIP" json:"auto_delete,omitfalse"`
 	}
-	R(&EipSingleOptions{}, "eip-dissociate", "Dissociate an EIP from an instance", func(s *mcclient.ClientSession, args *EipSingleOptions) error {
+	R(&EipDissociateOptions{}, "eip-dissociate", "Dissociate an EIP from an instance", func(s *mcclient.ClientSession, args *EipDissociateOptions) error {
 		params, err := options.StructToParams(args)
 		if err != nil {
 			return err
@@ -130,6 +130,9 @@ func init() {
 		return nil
 	})
 
+	type EipSingleOptions struct {
+		ID string `help:"ID or name of EIP"`
+	}
 	R(&EipSingleOptions{}, "eip-sync", "Synchronize status of an EIP", func(s *mcclient.ClientSession, args *EipSingleOptions) error {
 		result, err := modules.Elasticips.PerformAction(s, args.ID, "sync", nil)
 		if err != nil {
