@@ -1953,7 +1953,7 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 	params.Add(jsonutils.NewString(self.Id), "instance_id")
 	params.Add(jsonutils.NewString(EIP_ASSOCIATE_TYPE_SERVER), "instance_type")
 
-	err = eip.StartEipAssociateTask(ctx, userCred, params)
+	err = eip.StartEipAssociateTask(ctx, userCred, params, "")
 
 	return nil, err
 }
@@ -1974,7 +1974,9 @@ func (self *SGuest) PerformDissociateEip(ctx context.Context, userCred mcclient.
 
 	self.SetStatus(userCred, VM_DISSOCIATE_EIP, "associate eip")
 
-	err = eip.StartEipDissociateTask(ctx, userCred, "")
+	autoDelete := jsonutils.QueryBoolean(data, "auto_delete", false)
+
+	err = eip.StartEipDissociateTask(ctx, userCred, autoDelete, "")
 	if err != nil {
 		log.Errorf("fail to start dissociate task %s", err)
 		return nil, httperrors.NewGeneralError(err)
@@ -2015,12 +2017,17 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 		return nil, httperrors.NewInvalidStatusError("No cloudregion???")
 	}
 
-	err = ElasticipManager.allocateEipAndAssociateVM(ctx, userCred, self, int(bw), chargeType, host.ManagerId, region.Id)
+	eipPendingUsage := &SQuota{Eip: 1}
+	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), eipPendingUsage)
 	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
+		return nil, httperrors.NewOutOfQuotaError("Out of eip quota: %s", err)
 	}
 
-	self.SetStatus(userCred, VM_ASSOCIATE_EIP, "allocate and associate EIP")
+	err = ElasticipManager.AllocateEipAndAssociateVM(ctx, userCred, self, int(bw), chargeType, eipPendingUsage)
+	if err != nil {
+		QuotaManager.CancelPendingUsage(ctx, userCred, userCred.GetProjectId(), eipPendingUsage, eipPendingUsage)
+		return nil, httperrors.NewGeneralError(err)
+	}
 
 	return nil, nil
 }

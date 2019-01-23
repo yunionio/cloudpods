@@ -220,3 +220,7 @@ func (self *SBaseGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) 
 func (self *SBaseGuestDriver) RequestRenewInstance(guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
 	return time.Time{}, nil
 }
+
+func (self *SBaseGuestDriver) IsSupportEip() bool {
+	return false
+}

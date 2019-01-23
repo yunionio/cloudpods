@@ -488,7 +488,7 @@ func (cache *SStoragecache) SyncCloudImages(
 			syncResult.DeleteError(err)
 		} else {
 			syncResult.Delete()
-			if image.getStoragecacheCount() == 0 {
+			if image != nil && image.getStoragecacheCount() == 0 {
 				err = image.Delete(ctx, userCred)
 				if err != nil {
 					log.Errorf("image delete error %s", err)

@@ -16,3 +16,7 @@ func init() {
 func (self *SOpenStackGuestDriver) GetHypervisor() string {
 	return models.HYPERVISOR_OPENSTACK
 }
+
+func (self *SOpenStackGuestDriver) IsSupportEip() bool {
+	return false
+}

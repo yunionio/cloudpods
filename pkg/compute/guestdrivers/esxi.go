@@ -169,3 +169,7 @@ func (self *SESXiGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest 
 func (self *SESXiGuestDriver) RequestRenewInstance(guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
 	return time.Time{}, nil
 }
+
+func (self *SESXiGuestDriver) IsSupportEip() bool {
+	return false
+}

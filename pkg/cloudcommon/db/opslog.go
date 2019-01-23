@@ -272,13 +272,20 @@ func combineNotes(ctx context.Context, m2 IModel, notes jsonutils.JSONObject) *j
 }
 
 func (manager *SOpsLogManager) logOneJointEvent(ctx context.Context, m1, m2 IModel, event string, userCred mcclient.TokenCredential, notes jsonutils.JSONObject) {
-	nn := combineNotes(ctx, m2, notes)
+	nn := notes
+	if m2 != nil {
+		nn = combineNotes(ctx, m2, notes)
+	}
 	manager.LogEvent(m1, event, nn, userCred)
 }
 
 func (manager *SOpsLogManager) logJoinEvent(ctx context.Context, m1, m2 IModel, event string, userCred mcclient.TokenCredential, notes jsonutils.JSONObject) {
-	manager.logOneJointEvent(ctx, m1, m2, event, userCred, notes)
-	manager.logOneJointEvent(ctx, m2, m1, event, userCred, notes)
+	if m1 != nil {
+		manager.logOneJointEvent(ctx, m1, m2, event, userCred, notes)
+	}
+	if m2 != nil {
+		manager.logOneJointEvent(ctx, m2, m1, event, userCred, notes)
+	}
 }
 
 func (manager *SOpsLogManager) LogAttachEvent(ctx context.Context, m1, m2 IModel, userCred mcclient.TokenCredential, notes jsonutils.JSONObject) {
