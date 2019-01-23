@@ -1348,11 +1348,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9c30ecaff00e904c298f8bf113f52942dc0067385eaebaec62f09b96301eb8b2"
+  digest = "1:9a92b34083e218c123d21a4b0d74228df6b186de9dcd6489e5b4cf68f4e90104"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "77c73104d4d728207b7f389a5f4ef480e97c2d44"
+  revision = "c40afc81cccc4618168f722c64deba7cfbb1f8bd"
 
 [[projects]]
   branch = "master"
@@ -1367,7 +1367,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:3415345332af51147fa83d11c5e1ec32bcdf5f153a947891d5cd19ef98ea93ae"
+  digest = "1:f7e6b859716c65473233390b3c69c919d0d6c2d9bd25ee599c29d0e8e3419d35"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1400,23 +1400,23 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "6918b664c6710b0736ad1c7272f6a24ff15df327"
+  revision = "4d8dfcd77e8817d5dc37eacf4b6b098429c7d259"
 
 [[projects]]
   branch = "master"
-  digest = "1:42e452d5282f9b5e95d8806f601dba1e9846401c0fb1c328f2fd787195fe40e0"
+  digest = "1:0e3c8da76b7b7ba0f67ef0737d361e117b65bd328bfbcb28fb030268df587ca9"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "6fdedc07ce571d9789f21bc63d35479a5c2df717"
+  revision = "0b1ca973f3e5140dee7e773fc51cfc8c07ce0f69"
 
 [[projects]]
   branch = "master"
-  digest = "1:428cc9d6e84fe526b606d57ca4c18aa0433e310ab25c6c1106607c0c64c9c4c2"
+  digest = "1:6ea9ac8f317e7dd79309bb1633642bc9d1822011c5175bd241552534d216ac6d"
   name = "yunion.io/x/structarg"
   packages = ["."]
   pruneopts = "UT"
-  revision = "28def21ba4844dc7a92bfc8833a3f9af157a6c52"
+  revision = "e4f0f5201b4acad185ebfb76e65905fe5ae7c1b1"
 
 [solve-meta]
   analyzer-name = "dep"

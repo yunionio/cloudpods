@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/pkg/utils"
 )
 
 const (
@@ -129,6 +130,17 @@ func ParseValue(val string, tp reflect.Type) (reflect.Value, error) {
 		rvv := reflect.New(tpElem)
 		rvv.Elem().Set(rv)
 		return rvv, nil
+	case reflect.Slice, reflect.Array:
+		values := utils.FindWords([]byte(val), 0)
+		sliceVal := reflect.MakeSlice(reflect.SliceOf(tp.Elem()), len(values), len(values))
+		for i, vv := range values {
+			vvv, err := ParseValue(vv, tp.Elem())
+			if err != nil {
+				return sliceVal, fmt.Errorf("Cannot parse %s to %s", vv, tp.Elem())
+			}
+			sliceVal.Index(i).Set(vvv)
+		}
+		return sliceVal, nil
 	default:
 		if tp == TimeType {
 			tm, e := timeutils.ParseTimeStr(val)
@@ -143,55 +155,15 @@ func SetValue(value reflect.Value, valStr string) error {
 	if !value.CanSet() {
 		return fmt.Errorf("Value is not settable")
 	}
-	switch value.Type() {
-	case BoolType:
-		val_bool, e := strconv.ParseBool(valStr)
-		if e != nil {
-			return e
-		}
-		value.SetBool(val_bool)
-	case IntType, Int8Type, Int16Type, Int32Type, Int64Type:
-		val_int, e := strconv.ParseInt(valStr, 10, 64)
-		if e != nil {
-			return e
-		}
-		value.SetInt(val_int)
-	case UintType, Uint8Type, Uint16Type, Uint32Type, Uint64Type:
-		val_uint, e := strconv.ParseUint(valStr, 10, 64)
-		if e != nil {
-			return e
-		}
-		value.SetUint(val_uint)
-	case Float32Type, Float64Type:
-		val_float, e := strconv.ParseFloat(valStr, 64)
-		if e != nil {
-			return e
-		}
-		value.SetFloat(val_float)
-	case StringType:
-		value.SetString(valStr)
-	case TimeType:
-		tm, e := timeutils.ParseTimeStr(valStr)
-		if e != nil {
-			return e
-		}
-		value.Set(reflect.ValueOf(tm))
-	case BoolSliceType, IntSliceType, Int8SliceType, Int16SliceType,
-		Int32SliceType, Int64SliceType, UintSliceType, Uint8SliceType,
-		Uint16SliceType, Uint32SliceType, Uint64SliceType,
-		Float32SliceType, Float64SliceType, StringSliceType:
-		reflect.Append(value, reflect.ValueOf(valStr))
+	parseValue, err := ParseValue(valStr, value.Type())
+	if err != nil {
+		return err
+	}
+	switch value.Kind() {
+	case reflect.Slice, reflect.Array:
+		value.Set(reflect.AppendSlice(value, parseValue))
 	default:
-		if value.Kind() == reflect.Ptr && value.Elem().Kind() != reflect.Slice {
-			newVal := reflect.New(value.Type().Elem())
-			newValElem := newVal.Elem()
-			if err := SetValue(newValElem, valStr); err != nil {
-				return err
-			}
-			value.Set(newVal)
-		} else {
-			return fmt.Errorf("Unsupported type: %v", value.Type())
-		}
+		value.Set(parseValue)
 	}
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"net"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -155,6 +156,34 @@ func IntVal(s *int64) int64 {
 	}
 
 	return 0
+}
+
+// SecurityRuleSet to  allow list
+// 将安全组规则全部转换为等价的allow规则
+func SecurityRuleSetToAllowSet(srs secrules.SecurityRuleSet) secrules.SecurityRuleSet {
+	inRuleSet := secrules.SecurityRuleSet{}
+	outRuleSet := secrules.SecurityRuleSet{}
+
+	for _, rule := range srs {
+		if rule.Direction == secrules.SecurityRuleIngress {
+			inRuleSet = append(inRuleSet, rule)
+		}
+
+		if rule.Direction == secrules.SecurityRuleEgress {
+			outRuleSet = append(outRuleSet, rule)
+		}
+	}
+
+	sort.Sort(inRuleSet)
+	sort.Sort(outRuleSet)
+
+	inRuleSet = inRuleSet.AllowList()
+	outRuleSet = outRuleSet.AllowList()
+
+	ret := secrules.SecurityRuleSet{}
+	ret = append(ret, inRuleSet...)
+	ret = append(ret, outRuleSet...)
+	return ret
 }
 
 func isAwsPermissionAllPorts(p ec2.IpPermission) bool {

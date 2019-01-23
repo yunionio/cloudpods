@@ -55,6 +55,13 @@ const PROTO_TCP = "tcp"
 const PROTO_UDP = "udp"
 const PROTO_ICMP = "icmp"
 
+// non-wild protocols
+var protocolsSupported = []string{
+	PROTO_TCP,
+	PROTO_UDP,
+	PROTO_ICMP,
+}
+
 var (
 	ErrInvalidProtocolAny  = errors.New("invalid protocol any with port option")
 	ErrInvalidProtocolICMP = errors.New("invalid protocol icmp with port option")
@@ -68,31 +75,21 @@ var (
 	ErrInvalidPort         = errors.New("invalid port")
 )
 
-type SecurityRuleSet []SecurityRule
-
-func (v SecurityRuleSet) Len() int {
-	return len(v)
-}
-
-func (v SecurityRuleSet) Swap(i, j int) {
-	v[i], v[j] = v[j], v[i]
-}
-
-func (v SecurityRuleSet) Less(i, j int) bool {
-	if v[i].Priority > v[j].Priority {
-		return true
-	} else if v[i].Priority == v[j].Priority {
-		return strings.Compare(v[i].String(), v[j].String()) <= 0
-	}
-	return false
-}
-
 func parsePortString(ps string) (int, error) {
 	p, err := strconv.ParseUint(ps, 10, 16)
 	if err != nil || p == 0 {
 		return 0, ErrInvalidPort
 	}
 	return int(p), nil
+}
+
+func MustParseSecurityRule(s string) *SecurityRule {
+	r, err := ParseSecurityRule(s)
+	if err != nil {
+		msg := fmt.Sprintf("parse security rule %q: %v", s, err)
+		panic(msg)
+	}
+	return r
 }
 
 func ParseSecurityRule(pattern string) (*SecurityRule, error) {
@@ -152,42 +149,11 @@ func ParseSecurityRule(pattern string) (*SecurityRule, error) {
 			}
 			rule.Protocol = seg
 		} else if status == SEG_PORT {
-			if len(seg) == 0 {
-				status = SEG_END
-			} else if idx := strings.Index(seg, "-"); idx > -1 {
-				segs := strings.SplitN(seg, "-", 2)
-				var ps, pe int
-				var err error
-				if ps, err = parsePortString(segs[0]); err != nil {
-					return nil, ErrInvalidPortRange
-				}
-				if pe, err = parsePortString(segs[1]); err != nil {
-					return nil, ErrInvalidPortRange
-				}
-				if ps > pe {
-					ps, pe = pe, ps
-				}
-				rule.PortStart = ps
-				rule.PortEnd = pe
-			} else if idx := strings.Index(seg, ","); idx > -1 {
-				ports := make([]int, 0)
-				segs := strings.Split(seg, ",")
-				for _, seg := range segs {
-					p, err := parsePortString(seg)
-					if err != nil {
-						return nil, err
-					}
-					ports = append(ports, p)
-				}
-				rule.Ports = ports
-			} else {
-				p, err := parsePortString(seg)
-				if err != nil {
-					return nil, err
-				}
-				rule.PortStart, rule.PortEnd = p, p
-			}
 			status = SEG_END
+			if err := rule.ParsePorts(seg); err != nil {
+				return nil, err
+			}
+			return rule, nil
 		}
 	}
 	return rule, nil
@@ -199,6 +165,48 @@ func (rule *SecurityRule) IsWildMatch() bool {
 		len(rule.Ports) == 0 &&
 		rule.PortStart == 0 &&
 		rule.PortEnd == 0
+}
+
+func (rule *SecurityRule) ParsePorts(seg string) error {
+	if len(seg) == 0 {
+		rule.Ports = []int{}
+		rule.PortStart = -1
+		rule.PortEnd = -1
+		return nil
+	} else if idx := strings.Index(seg, "-"); idx > -1 {
+		segs := strings.SplitN(seg, "-", 2)
+		var ps, pe int
+		var err error
+		if ps, err = parsePortString(segs[0]); err != nil {
+			return ErrInvalidPortRange
+		}
+		if pe, err = parsePortString(segs[1]); err != nil {
+			return ErrInvalidPortRange
+		}
+		if ps > pe {
+			ps, pe = pe, ps
+		}
+		rule.PortStart = ps
+		rule.PortEnd = pe
+	} else if idx := strings.Index(seg, ","); idx > -1 {
+		ports := make([]int, 0)
+		segs := strings.Split(seg, ",")
+		for _, seg := range segs {
+			p, err := parsePortString(seg)
+			if err != nil {
+				return err
+			}
+			ports = append(ports, p)
+		}
+		rule.Ports = ports
+	} else {
+		p, err := parsePortString(seg)
+		if err != nil {
+			return err
+		}
+		rule.PortStart, rule.PortEnd = p, p
+	}
+	return nil
 }
 
 func (rule *SecurityRule) ValidateRule() error {
@@ -291,4 +299,35 @@ func (rule *SecurityRule) String() (result string) {
 		}
 	}
 	return strings.Join(s, " ")
+}
+
+func (rule *SecurityRule) equals(r *SecurityRule) bool {
+	// essence of String, bom
+	s0 := rule.String()
+	s1 := r.String()
+	return s0 == s1
+}
+
+func (rule *SecurityRule) netEquals(r *SecurityRule) bool {
+	net0 := rule.IPNet.String()
+	net1 := r.IPNet.String()
+	return net0 == net1
+}
+
+func (rule *SecurityRule) cutOut(r *SecurityRule) SecurityRuleSet {
+	srcs := securityRuleCuts{securityRuleCut{r: *rule}}
+	//a := srcs
+	srcs = srcs.cutOutProtocol(r.Protocol)
+	srcs = srcs.cutOutIPNet(r.IPNet)
+	if len(r.Ports) > 0 {
+		srcs = srcs.cutOutPorts([]uint16(newPortsFromInts(r.Ports...)))
+	} else if r.PortStart > 0 && r.PortEnd > 0 {
+		srcs = srcs.cutOutPortRange(uint16(r.PortStart), uint16(r.PortEnd))
+	} else {
+		srcs = srcs.cutOutPortsAll()
+	}
+	//fmt.Printf("a %s\n", a)
+	//fmt.Printf("b %s\n", srcs)
+	srs := srcs.securityRuleSet()
+	return srs
 }
