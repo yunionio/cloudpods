@@ -3,6 +3,7 @@ package aliyun
 import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type Rule struct {
@@ -51,15 +52,15 @@ func (backendgroup *SLoadbalancerBackendGroup) GetGlobalId() string {
 }
 
 func (backendgroup *SLoadbalancerBackendGroup) GetStatus() string {
-	return ""
+	return models.LB_STATUS_ENABLED
 }
 
 func (backendgroup *SLoadbalancerBackendGroup) IsDefault() bool {
-	return true
+	return false
 }
 
 func (backendgroup *SLoadbalancerBackendGroup) GetType() string {
-	return "standard"
+	return models.LB_BACKENDGROUP_TYPE_NORMAL
 }
 
 func (backendgroup *SLoadbalancerBackendGroup) GetMetadata() *jsonutils.JSONDict {

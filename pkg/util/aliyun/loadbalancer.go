@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -101,7 +102,12 @@ func (lb *SLoadbalancer) GetNetworkId() string {
 }
 
 func (lb *SLoadbalancer) GetZoneId() string {
-	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_ALIYUN, lb.MasterZoneId)
+	zone, err := lb.region.getZoneById(lb.MasterZoneId)
+	if err != nil {
+		log.Errorf("failed to find zone for lb %s error: %v", lb.LoadBalancerName, err)
+		return ""
+	}
+	return zone.GetGlobalId()
 }
 
 func (lb *SLoadbalancer) IsEmulated() bool {
@@ -142,7 +148,7 @@ func (region *SRegion) GetLoadbalancerDetail(loadbalancerId string) (*SLoadbalan
 	if err != nil {
 		return nil, err
 	}
-	lb := SLoadbalancer{}
+	lb := SLoadbalancer{region: region}
 	return &lb, body.Unmarshal(&lb)
 }
 

@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SLoadbalancerUDPListener struct {
@@ -14,11 +15,12 @@ type SLoadbalancerUDPListener struct {
 	BackendServerPort int    //	负载均衡实例后端使用的端口。
 	Bandwidth         int    //	监听的带宽峰值。
 	Status            string //	当前监听的状态，取值：starting | running | configuring | stopping | stopped
+	Description       string
 
-	Scheduler               string //	调度算法
-	VServerGroupId          string //	绑定的服务器组ID。
-	MaterSlaveServerGroupId string //	绑定的主备服务器组ID。
-	AclStatus               string //	是否开启访问控制功能。取值：on | off（默认值）
+	Scheduler                string //	调度算法
+	VServerGroupId           string //	绑定的服务器组ID。
+	MasterSlaveServerGroupId string //	绑定的主备服务器组ID。
+	AclStatus                string //	是否开启访问控制功能。取值：on | off（默认值）
 
 	AclType string //	访问控制类型：
 
@@ -33,6 +35,12 @@ type SLoadbalancerUDPListener struct {
 }
 
 func (listener *SLoadbalancerUDPListener) GetName() string {
+	if len(listener.Description) == 0 {
+		listener.Refresh()
+	}
+	if len(listener.Description) > 0 {
+		return listener.Description
+	}
 	return fmt.Sprintf("UDP:%d", listener.ListenerPort)
 }
 
@@ -45,7 +53,14 @@ func (listerner *SLoadbalancerUDPListener) GetGlobalId() string {
 }
 
 func (listerner *SLoadbalancerUDPListener) GetStatus() string {
-	return listerner.Status
+	switch listerner.Status {
+	case "starting", "running":
+		return models.LB_STATUS_ENABLED
+	case "configuring", "stopping", "stopped":
+		return models.LB_STATUS_DISABLED
+	default:
+		return models.LB_STATUS_UNKNOWN
+	}
 }
 
 func (listerner *SLoadbalancerUDPListener) GetMetadata() *jsonutils.JSONDict {
@@ -57,7 +72,11 @@ func (listerner *SLoadbalancerUDPListener) IsEmulated() bool {
 }
 
 func (listerner *SLoadbalancerUDPListener) Refresh() error {
-	return nil
+	lis, err := listerner.lb.region.GetLoadbalancerUDPListener(listerner.lb.LoadBalancerId, listerner.ListenerPort)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(listerner, lis)
 }
 
 func (listerner *SLoadbalancerUDPListener) GetListenerType() string {
@@ -72,7 +91,7 @@ func (listerner *SLoadbalancerUDPListener) GetBackendGroupId() string {
 	if len(listerner.VServerGroupId) > 0 {
 		return listerner.VServerGroupId
 	}
-	return listerner.MaterSlaveServerGroupId
+	return listerner.MasterSlaveServerGroupId
 }
 
 func (listerner *SLoadbalancerUDPListener) GetScheduler() string {

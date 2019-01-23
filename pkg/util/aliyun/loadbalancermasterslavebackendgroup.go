@@ -3,6 +3,7 @@ package aliyun
 import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SLoadbalancerMasterSlaveBackendGroup struct {
@@ -25,7 +26,7 @@ func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetGlobalId() string {
 }
 
 func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetStatus() string {
-	return ""
+	return models.LB_STATUS_ENABLED
 }
 
 func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetMetadata() *jsonutils.JSONDict {
@@ -45,7 +46,7 @@ func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) IsDefault() bool {
 }
 
 func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetType() string {
-	return "master_slave"
+	return models.LB_BACKENDGROUP_TYPE_MASTER_SLAVE
 }
 
 func (region *SRegion) GetLoadbalancerMasterSlaveBackendgroups(loadbalancerId string) ([]SLoadbalancerMasterSlaveBackendGroup, error) {
