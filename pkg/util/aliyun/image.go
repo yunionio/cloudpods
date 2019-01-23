@@ -13,6 +13,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/pkg/utils"
 )
 
 type ImageStatusType string
@@ -65,7 +66,7 @@ func (self *SImage) GetMetadata() *jsonutils.JSONDict {
 		data.Add(jsonutils.NewString(self.Architecture), "os_arch")
 	}
 	if len(self.OSType) > 0 {
-		data.Add(jsonutils.NewString(self.OSType), "os_name")
+		data.Add(jsonutils.NewString(self.GetOsType()), "os_name")
 	}
 	if len(self.Platform) > 0 {
 		data.Add(jsonutils.NewString(self.Platform), "os_distribution")
@@ -81,7 +82,11 @@ func (self *SImage) GetId() string {
 }
 
 func (self *SImage) GetName() string {
-	return self.ImageName
+	if self.ImageOwnerAlias == ImageOwnerSystem {
+		return self.OSName
+	} else {
+		return self.ImageName
+	}
 }
 
 func (self *SImage) IsEmulated() bool {
@@ -93,7 +98,7 @@ func (self *SImage) Delete(ctx context.Context) error {
 }
 
 func (self *SImage) GetGlobalId() string {
-	panic("not implemented")
+	return self.ImageId
 }
 
 func (self *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
@@ -103,15 +108,30 @@ func (self *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 func (self *SImage) GetStatus() string {
 	switch self.Status {
 	case ImageStatusCreating:
-		return models.IMAGE_STATUS_QUEUED
+		return models.CACHED_IMAGE_STATUS_SAVING
 	case ImageStatusAvailable:
-		return models.IMAGE_STATUS_ACTIVE
+		return models.CACHED_IMAGE_STATUS_READY
 	case ImageStatusUnAvailable:
-		return models.IMAGE_STATUS_DELETED
+		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
 	case ImageStatusCreateFailed:
-		return models.IMAGE_STATUS_KILLED
+		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
 	default:
-		return models.IMAGE_STATUS_KILLED
+		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+	}
+}
+
+func (self *SImage) GetImageStatus() string {
+	switch self.Status {
+	case ImageStatusCreating:
+		return cloudprovider.IMAGE_STATUS_QUEUED
+	case ImageStatusAvailable:
+		return cloudprovider.IMAGE_STATUS_ACTIVE
+	case ImageStatusUnAvailable:
+		return cloudprovider.IMAGE_STATUS_DELETED
+	case ImageStatusCreateFailed:
+		return cloudprovider.IMAGE_STATUS_KILLED
+	default:
+		return cloudprovider.IMAGE_STATUS_KILLED
 	}
 }
 
@@ -121,6 +141,53 @@ func (self *SImage) Refresh() error {
 		return err
 	}
 	return jsonutils.Update(self, new)
+}
+
+func (self *SImage) GetImageType() string {
+	switch self.ImageOwnerAlias {
+	case ImageOwnerSystem:
+		return cloudprovider.CachedImageTypeSystem
+	case ImageOwnerSelf:
+		return cloudprovider.CachedImageTypeCustomized
+	case ImageOwnerMarketplace:
+		return cloudprovider.CachedImageTypeMarket
+	case ImageOwnerOthers:
+		return cloudprovider.CachedImageTypeShared
+	default:
+		return cloudprovider.CachedImageTypeCustomized
+	}
+}
+
+func (self *SImage) GetSize() int64 {
+	return int64(self.Size) * 1024 * 1024 * 1024
+}
+
+func (self *SImage) GetOsType() string {
+	return utils.Capitalize(self.OSType)
+}
+
+func (self *SImage) GetOsDist() string {
+	return self.Platform
+}
+
+func (self *SImage) GetOsVersion() string {
+	return ""
+}
+
+func (self *SImage) GetOsArch() string {
+	return self.Architecture
+}
+
+func (self *SImage) GetMinOsDiskSizeGb() int {
+	return 40
+}
+
+func (self *SImage) GetImageFormat() string {
+	return "vhd"
+}
+
+func (self *SImage) GetCreateTime() time.Time {
+	return self.CreationTime
 }
 
 type ImageExportTask struct {
@@ -188,7 +255,7 @@ func (self *SRegion) ImportImage(name string, osArch string, osType string, osDi
 }
 
 func (self *SRegion) GetImage(imageId string) (*SImage, error) {
-	images, _, err := self.GetImages("", ImageOwnerSelf, []string{imageId}, "", 0, 1)
+	images, _, err := self.GetImages("", "", []string{imageId}, "", 0, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +266,7 @@ func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 }
 
 func (self *SRegion) GetImageByName(name string) (*SImage, error) {
-	images, _, err := self.GetImages("", ImageOwnerSelf, nil, name, 0, 1)
+	images, _, err := self.GetImages("", "", nil, name, 0, 1)
 	if err != nil {
 		return nil, err
 	}

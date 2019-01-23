@@ -47,3 +47,7 @@ func (self *SQcloudHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb
 func (self *SQcloudHostDriver) RequestDeleteSnapshotWithStorage(ctx context.Context, host *models.SHost, snapshot *models.SSnapshot, task taskman.ITask) error {
 	return httperrors.NewNotImplementedError("not implement")
 }
+
+func (driver *SQcloudHostDriver) GetStoragecacheQuota(host *models.SHost) int {
+	return 10
+}

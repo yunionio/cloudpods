@@ -59,6 +59,9 @@ type ICloudRegion interface {
 	GetIStorages() ([]ICloudStorage, error)
 	GetIStorageById(id string) (ICloudStorage, error)
 
+	GetIStoragecaches() ([]ICloudStoragecache, error)
+	GetIStoragecacheById(id string) (ICloudStoragecache, error)
+
 	GetILoadBalancers() ([]ICloudLoadbalancer, error)
 	GetILoadbalancerAcls() ([]ICloudLoadbalancerAcl, error)
 	GetILoadbalancerCertificates() ([]ICloudLoadbalancerCertificate, error)
@@ -83,6 +86,17 @@ type ICloudImage interface {
 
 	Delete(ctx context.Context) error
 	GetIStoragecache() ICloudStoragecache
+
+	GetSize() int64
+	GetImageType() string
+	GetImageStatus() string
+	GetOsType() string
+	GetOsDist() string
+	GetOsVersion() string
+	GetOsArch() string
+	GetMinOsDiskSizeGb() int
+	GetImageFormat() string
+	GetCreateTime() time.Time
 }
 
 type ICloudStoragecache interface {

@@ -309,3 +309,16 @@ func (self *SRegion) createIImage(snapshotId, imageName, imageDesc string) (stri
 	}
 
 }
+
+func (self *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
+	storageCache := self.getStoragecache()
+	return []cloudprovider.ICloudStoragecache{storageCache}, nil
+}
+
+func (self *SRegion) GetIStoragecacheById(idstr string) (cloudprovider.ICloudStoragecache, error) {
+	storageCache := self.getStoragecache()
+	if storageCache.GetGlobalId() == idstr {
+		return storageCache, nil
+	}
+	return nil, cloudprovider.ErrNotFound
+}

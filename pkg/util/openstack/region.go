@@ -145,6 +145,11 @@ func (region *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStor
 	return nil, cloudprovider.ErrNotFound
 }
 
+func (region *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
+	storageCache := region.getStoragecache()
+	return []cloudprovider.ICloudStoragecache{storageCache}, nil
+}
+
 func (region *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
 	vpc, err := region.GetVpc(id)
 	if err != nil {

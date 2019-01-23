@@ -1,6 +1,8 @@
 package esxi
 
 import (
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -66,4 +68,34 @@ func (cli *SESXiClient) GetIStorageById(id string) (cloudprovider.ICloudStorage,
 
 func (cli *SESXiClient) GetProvider() string {
 	return models.CLOUD_PROVIDER_VMWARE
+}
+
+func (cli *SESXiClient) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
+	storages, err := cli.GetIStorages()
+	if err != nil {
+		return nil, err
+	}
+	caches := make([]cloudprovider.ICloudStoragecache, 0)
+	cacheIds := make([]string, 0)
+	for i := range storages {
+		iCache := storages[i].GetIStoragecache()
+		if !utils.IsInStringArray(iCache.GetGlobalId(), cacheIds) {
+			caches = append(caches, iCache)
+			cacheIds = append(cacheIds, iCache.GetGlobalId())
+		}
+	}
+	return caches, nil
+}
+
+func (cli *SESXiClient) GetIStoragecacheById(idstr string) (cloudprovider.ICloudStoragecache, error) {
+	caches, err := cli.GetIStoragecaches()
+	if err != nil {
+		return nil, err
+	}
+	for i := range caches {
+		if caches[i].GetGlobalId() == idstr {
+			return caches[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }

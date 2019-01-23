@@ -30,12 +30,12 @@ func init() {
 	})
 
 	shellutils.R(&StorageAccountOptions{}, "storage-account-show", "Show storage account detail", func(cli *azure.SRegion, args *StorageAccountOptions) error {
-		if account, err := cli.GetStorageAccountDetail(args.ID); err != nil {
+		account, err := cli.GetStorageAccountDetail(args.ID)
+		if err != nil {
 			return err
-		} else {
-			printObject(account)
-			return nil
 		}
+		printObject(account)
+		return nil
 	})
 
 	shellutils.R(&StorageAccountOptions{}, "storage-account-key", "Get storage account key", func(cli *azure.SRegion, args *StorageAccountOptions) error {
@@ -45,6 +45,75 @@ func init() {
 			fmt.Printf("Key: %s", key)
 			return nil
 		}
+	})
+
+	shellutils.R(&StorageAccountOptions{}, "storage-container-list", "Get list of containers of a storage account", func(cli *azure.SRegion, args *StorageAccountOptions) error {
+		account, err := cli.GetStorageAccountDetail(args.ID)
+		if err != nil {
+			return err
+		}
+		containers, err := account.GetContainers()
+		if err != nil {
+			return err
+		}
+		printList(containers, len(containers), 0, 0, nil)
+		return nil
+	})
+
+	type StorageAccountCreateContainerOptions struct {
+		ACCOUNT   string `help:"storage account ID"`
+		CONTAINER string `help:"name of container to create"`
+	}
+	shellutils.R(&StorageAccountCreateContainerOptions{}, "storage-container-create", "Create a container in a storage account", func(cli *azure.SRegion, args *StorageAccountCreateContainerOptions) error {
+		account, err := cli.GetStorageAccountDetail(args.ACCOUNT)
+		if err != nil {
+			return err
+		}
+		container, err := account.CreateContainer(args.CONTAINER)
+		if err != nil {
+			return err
+		}
+		printObject(container)
+		return nil
+	})
+
+	shellutils.R(&StorageAccountCreateContainerOptions{}, "storage-container-list-objects", "Create a container in a storage account", func(cli *azure.SRegion, args *StorageAccountCreateContainerOptions) error {
+		account, err := cli.GetStorageAccountDetail(args.ACCOUNT)
+		if err != nil {
+			return err
+		}
+		container, err := account.GetContainer(args.CONTAINER)
+		if err != nil {
+			return err
+		}
+		blobs, err := container.ListFiles()
+		if err != nil {
+			return err
+		}
+		printList(blobs, len(blobs), 0, 0, nil)
+		return nil
+	})
+
+	type StorageAccountUploadOptions struct {
+		ACCOUNT   string `help:"storage account ID"`
+		CONTAINER string `help:"name of container to create"`
+		FILE      string `help:"local file to upload"`
+	}
+	shellutils.R(&StorageAccountUploadOptions{}, "storage-container-upload", "Upload a container in a storage account", func(cli *azure.SRegion, args *StorageAccountUploadOptions) error {
+		account, err := cli.GetStorageAccountDetail(args.ACCOUNT)
+		if err != nil {
+			return err
+		}
+		container, err := account.GetContainer(args.CONTAINER)
+		if err != nil {
+			return err
+		}
+		url, err := container.UploadFile(args.FILE)
+		if err != nil {
+			return err
+		}
+		fmt.Println(url)
+		return nil
 	})
 
 	type StorageAccountCreateOptions struct {

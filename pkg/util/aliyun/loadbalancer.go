@@ -97,7 +97,7 @@ func (lb *SLoadbalancer) GetNetworkType() string {
 }
 
 func (lb *SLoadbalancer) GetNetworkId() string {
-	return ""
+	return lb.VSwitchId
 }
 
 func (lb *SLoadbalancer) GetZoneId() string {

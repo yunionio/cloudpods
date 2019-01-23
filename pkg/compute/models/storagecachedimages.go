@@ -2,7 +2,9 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/serialx/hashring"
@@ -14,6 +16,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -211,7 +214,9 @@ func (self *SStoragecachedimage) getReferenceCount() int {
 func (manager *SStoragecachedimageManager) GetStoragecachedimage(cacheId string, imageId string) *SStoragecachedimage {
 	obj, err := manager.FetchByIds(cacheId, imageId)
 	if err != nil {
-		log.Errorf("%s", err)
+		if err != sql.ErrNoRows {
+			log.Errorf("manager.FetchByIds %s %s error %s", cacheId, imageId, err)
+		}
 		return nil
 	}
 	return obj.(*SStoragecachedimage)
@@ -272,7 +277,7 @@ func (self *SStoragecachedimage) markDeleting(ctx context.Context, userCred mccl
 	return err
 }
 
-func (manager *SStoragecachedimageManager) Register(ctx context.Context, userCred mcclient.TokenCredential, cacheId, imageId string) *SStoragecachedimage {
+func (manager *SStoragecachedimageManager) Register(ctx context.Context, userCred mcclient.TokenCredential, cacheId, imageId string, status string) *SStoragecachedimage {
 	lockman.LockClass(ctx, manager, userCred.GetProjectId())
 	defer lockman.ReleaseClass(ctx, manager, userCred.GetProjectId())
 
@@ -286,7 +291,10 @@ func (manager *SStoragecachedimageManager) Register(ctx context.Context, userCre
 
 	cachedimage.StoragecacheId = cacheId
 	cachedimage.CachedimageId = imageId
-	cachedimage.Status = CACHED_IMAGE_STATUS_INIT
+	if len(status) == 0 {
+		status = CACHED_IMAGE_STATUS_INIT
+	}
+	cachedimage.Status = status
 
 	err := manager.TableSpec().Insert(cachedimage)
 
@@ -335,4 +343,59 @@ func (self *SStoragecachedimage) SetExternalId(externalId string) error {
 		return nil
 	})
 	return err
+}
+
+func (self SStoragecachedimage) GetExternalId() string {
+	return self.ExternalId
+}
+
+func (self *SStoragecachedimage) syncWithCloudImage(ctx context.Context, userCred mcclient.TokenCredential, image cloudprovider.ICloudImage) error {
+	cachedImage := self.GetCachedimage()
+	if len(cachedImage.ExternalId) > 0 {
+		return cachedImage.syncWithCloudImage(ctx, userCred, image)
+	} else {
+		return nil
+	}
+}
+
+func (manager *SStoragecachedimageManager) newFromCloudImage(ctx context.Context, userCred mcclient.TokenCredential, image cloudprovider.ICloudImage, cache *SStoragecache) error {
+	var cachedImage *SCachedimage
+	imgObj, err := CachedimageManager.FetchByExternalId(image.GetGlobalId())
+	if err != nil {
+		if err != sql.ErrNoRows {
+			// unhandled error
+			log.Errorf("CachedimageManager.FetchByExternalId error %s", err)
+			return err
+		}
+		// not found
+		// first test if this image is uploaded by onecloud, if true, image name should be ID of onecloud image
+		name := image.GetName()
+		if utils.IsAscii(name) {
+			if strings.HasPrefix(name, "img") {
+				name = name[3:]
+			}
+			imgObj, err = CachedimageManager.FetchById(name)
+			if err == nil && imgObj != nil {
+				cachedImage = imgObj.(*SCachedimage)
+			}
+		}
+		if cachedImage == nil {
+			// no such image
+			cachedImage, err = CachedimageManager.newFromCloudImage(ctx, userCred, image)
+			if err != nil {
+				log.Errorf("CachedimageManager.newFromCloudImage fail %s", err)
+				return err
+			}
+		}
+	} else {
+		cachedImage = imgObj.(*SCachedimage)
+	}
+	if len(cachedImage.ExternalId) > 0 {
+		cachedImage.syncWithCloudImage(ctx, userCred, image)
+	}
+	scimg := manager.Register(ctx, userCred, cache.GetId(), cachedImage.GetId(), image.GetStatus())
+	if scimg == nil {
+		return fmt.Errorf("register cached image fail")
+	}
+	return scimg.SetExternalId(image.GetGlobalId())
 }

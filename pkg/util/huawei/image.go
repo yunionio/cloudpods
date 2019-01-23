@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -31,33 +33,34 @@ const (
 type SImage struct {
 	storageCache *SStoragecache
 
-	Schema             string `json:"schema"`
-	MinDisk            int64  `json:"min_disk"`
-	CreatedAt          string `json:"created_at"`
-	ImageSourceType    string `json:"__image_source_type"`
-	ContainerFormat    string `json:"container_format"`
-	File               string `json:"file"`
-	UpdatedAt          string `json:"updated_at"`
-	Protected          bool   `json:"protected"`
-	Checksum           string `json:"checksum"`
-	SupportKVMFPGAType string `json:"__support_kvm_fpga_type"`
-	ID                 string `json:"id"`
-	Isregistered       string `json:"__isregistered"`
-	MinRAM             int64  `json:"min_ram"`
-	Lazyloading        string `json:"__lazyloading"`
-	Owner              string `json:"owner"`
-	OSType             string `json:"__os_type"`
-	Imagetype          string `json:"__imagetype"`
-	Visibility         string `json:"visibility"`
-	VirtualEnvType     string `json:"virtual_env_type"`
-	Platform           string `json:"__platform"`
-	SizeGB             int    `json:"size"`
-	OSBit              string `json:"__os_bit"`
-	OSVersion          string `json:"__os_version"`
-	Name               string `json:"name"`
-	Self               string `json:"self"`
-	DiskFormat         string `json:"disk_format"`
-	Status             string `json:"status"`
+	Schema             string    `json:"schema"`
+	MinDisk            int64     `json:"min_disk"`
+	CreatedAt          time.Time `json:"created_at"`
+	ImageSourceType    string    `json:"__image_source_type"`
+	ContainerFormat    string    `json:"container_format"`
+	File               string    `json:"file"`
+	UpdatedAt          time.Time `json:"updated_at"`
+	Protected          bool      `json:"protected"`
+	Checksum           string    `json:"checksum"`
+	SupportKVMFPGAType string    `json:"__support_kvm_fpga_type"`
+	ID                 string    `json:"id"`
+	Isregistered       string    `json:"__isregistered"`
+	MinRAM             int64     `json:"min_ram"`
+	Lazyloading        string    `json:"__lazyloading"`
+	Owner              string    `json:"owner"`
+	OSType             string    `json:"__os_type"`
+	Imagetype          string    `json:"__imagetype"`
+	Visibility         string    `json:"visibility"`
+	VirtualEnvType     string    `json:"virtual_env_type"`
+	Platform           string    `json:"__platform"`
+	SizeGB             int       `json:"size"`
+	ImageSize          int64     `json:"__image_size"`
+	OSBit              string    `json:"__os_bit"`
+	OSVersion          string    `json:"__os_version"`
+	Name               string    `json:"name"`
+	Self               string    `json:"self"`
+	DiskFormat         string    `json:"disk_format"`
+	Status             string    `json:"status"`
 }
 
 func (self *SImage) GetId() string {
@@ -75,13 +78,26 @@ func (self *SImage) GetGlobalId() string {
 func (self *SImage) GetStatus() string {
 	switch self.Status {
 	case ImageStatusQueued:
-		return models.IMAGE_STATUS_QUEUED
+		return models.CACHED_IMAGE_STATUS_CACHING
 	case ImageStatusActive:
-		return models.IMAGE_STATUS_ACTIVE
+		return models.CACHED_IMAGE_STATUS_READY
 	case ImageStatusKilled:
-		return models.IMAGE_STATUS_KILLED
+		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
 	default:
-		return models.IMAGE_STATUS_KILLED
+		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+	}
+}
+
+func (self *SImage) GetImageStatus() string {
+	switch self.Status {
+	case ImageStatusQueued:
+		return cloudprovider.IMAGE_STATUS_QUEUED
+	case ImageStatusActive:
+		return cloudprovider.IMAGE_STATUS_ACTIVE
+	case ImageStatusKilled:
+		return cloudprovider.IMAGE_STATUS_KILLED
+	default:
+		return cloudprovider.IMAGE_STATUS_KILLED
 	}
 }
 
@@ -93,6 +109,55 @@ func (self *SImage) Refresh() error {
 	return jsonutils.Update(self, new)
 }
 
+func (self *SImage) GetImageType() string {
+	switch self.Imagetype {
+	case "gold":
+		return cloudprovider.CachedImageTypeSystem
+	case "private":
+		return cloudprovider.CachedImageTypeCustomized
+	case "shared":
+		return cloudprovider.CachedImageTypeShared
+	default:
+		return cloudprovider.CachedImageTypeCustomized
+	}
+}
+
+func (self *SImage) GetSize() int64 {
+	return int64(self.ImageSize) * 1024 * 1024 * 1024
+}
+
+func (self *SImage) GetOsType() string {
+	return self.OSType
+}
+
+func (self *SImage) GetOsDist() string {
+	return self.Platform
+}
+
+func (self *SImage) GetOsVersion() string {
+	return self.OSVersion
+}
+
+func (self *SImage) GetOsArch() string {
+	if self.OSType == "32" {
+		return "x86"
+	} else {
+		return "x86_64"
+	}
+}
+
+func (self *SImage) GetMinOsDiskSizeGb() int {
+	return int(self.MinDisk)
+}
+
+func (self *SImage) GetImageFormat() string {
+	return self.DiskFormat
+}
+
+func (self *SImage) GetCreateTime() time.Time {
+	return self.CreatedAt
+}
+
 func (self *SImage) IsEmulated() bool {
 	return false
 }
@@ -100,16 +165,16 @@ func (self *SImage) IsEmulated() bool {
 func (self *SImage) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 	if len(self.OSBit) > 0 {
-		data.Add(jsonutils.NewString(self.OSBit), "os_arch")
+		data.Add(jsonutils.NewString(self.GetOsArch()), "os_arch")
 	}
 	if len(self.OSType) > 0 {
-		data.Add(jsonutils.NewString(self.OSType), "os_name")
+		data.Add(jsonutils.NewString(self.GetOsType()), "os_name")
 	}
 	if len(self.Platform) > 0 {
-		data.Add(jsonutils.NewString(self.Platform), "os_distribution")
+		data.Add(jsonutils.NewString(self.GetOsDist()), "os_distribution")
 	}
 	if len(self.OSVersion) > 0 {
-		data.Add(jsonutils.NewString(self.OSVersion), "os_version")
+		data.Add(jsonutils.NewString(self.GetOsVersion()), "os_version")
 	}
 	return data
 }

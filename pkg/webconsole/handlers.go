@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 
 	"yunion.io/x/jsonutils"
 
@@ -191,7 +192,7 @@ func handleServerRemoteConsole(ctx context.Context, w http.ResponseWriter, r *ht
 	case session.ALIYUN, session.QCLOUD:
 		responsePublicCloudConsole(info, w)
 	case session.VNC, session.SPICE, session.WMKS:
-		handleDataSession(info, w)
+		handleDataSession(info, w, url.Values{"password": {info.GetPassword()}})
 	default:
 		httperrors.NotAcceptableError(w, "Unspported remote console protocol: %s", info.Protocol)
 	}
@@ -208,14 +209,14 @@ func responsePublicCloudConsole(info *session.RemoteConsoleInfo, w http.Response
 	sendJSON(w, data)
 }
 
-func handleDataSession(sData session.ISessionData, w http.ResponseWriter) {
+func handleDataSession(sData session.ISessionData, w http.ResponseWriter, connParams url.Values) {
 	s, err := session.Manager.Save(sData)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
 	data := jsonutils.NewDict()
-	params, err := s.GetConnectParams()
+	params, err := s.GetConnectParams(connParams)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -226,7 +227,7 @@ func handleDataSession(sData session.ISessionData, w http.ResponseWriter) {
 }
 
 func handleCommandSession(cmd command.ICommand, w http.ResponseWriter) {
-	handleDataSession(cmd, w)
+	handleDataSession(cmd, w, nil)
 }
 
 func sendJSON(w http.ResponseWriter, body jsonutils.JSONObject) {
