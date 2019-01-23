@@ -158,9 +158,11 @@ func (m *SGuestManager) StartCpusetBalancer() {
 		return
 	}
 	go func() {
-		time.Sleep(time.Second * 120)
-		if options.HostOptions.EnableCpuBinding {
-			m.cpusetBalance()
+		for {
+			if options.HostOptions.EnableCpuBinding {
+				m.cpusetBalance()
+			}
+			time.Sleep(time.Second * 120)
 		}
 	}()
 }

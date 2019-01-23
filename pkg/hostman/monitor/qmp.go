@@ -30,6 +30,7 @@ Not support oob yet
 */
 
 type qmpMonitorCallBack func(*Response)
+type qmpEventCallback func(*Event)
 
 type Response struct {
 	Return   []byte
@@ -83,14 +84,16 @@ func (e *Error) Error() string {
 type QmpMonitor struct {
 	SBaseMonitor
 
+	qmpEventFunc  qmpEventCallback
 	commandQueue  []*Command
 	callbackQueue []qmpMonitorCallBack
 }
 
 func NewQmpMonitor(OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc,
-	OnMonitorConnected MonitorSuccFunc) *QmpMonitor {
+	OnMonitorConnected MonitorSuccFunc, qmpEventFunc qmpEventCallback) *QmpMonitor {
 	m := &QmpMonitor{
 		SBaseMonitor:  *NewBaseMonitor(OnMonitorConnected, OnMonitorDisConnect, OnMonitorTimeout),
+		qmpEventFunc:  qmpEventFunc,
 		commandQueue:  make([]*Command, 0),
 		callbackQueue: make([]qmpMonitorCallBack, 0),
 	}
@@ -197,8 +200,11 @@ func (m *QmpMonitor) read(r io.Reader) {
 	m.reading = false
 }
 
-func (m QmpMonitor) watchEvent(event *Event) {
+func (m *QmpMonitor) watchEvent(event *Event) {
 	log.Infof(event.String())
+	if m.qmpEventFunc != nil {
+		go m.qmpEventFunc(event)
+	}
 }
 
 func (m *QmpMonitor) write(cmd []byte) error {

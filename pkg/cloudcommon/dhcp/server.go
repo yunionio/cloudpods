@@ -53,7 +53,6 @@ func (s *DHCPServer) ListenAndServe(handler DHCPHandler) error {
 func (s *DHCPServer) serveDHCP(handler DHCPHandler) error {
 	for {
 		pkt, addr, intf, err := s.conn.RecvDHCP()
-		log.Errorf("DHCP Receive from %s", addr.String())
 		if err != nil {
 			return fmt.Errorf("Receiving DHCP packet: %s", err)
 		}

@@ -210,7 +210,7 @@ func FetchHistoryUtil() map[string][]float64 {
 				return utilHistory
 			}
 			var objmap map[string]*json.RawMessage
-			if err := json.Unmarshal([]byte(contents), objmap); err != nil {
+			if err := json.Unmarshal([]byte(contents), &objmap); err != nil {
 				log.Errorf("FetchHistoryUtil error: %s", err)
 				return utilHistory
 			}

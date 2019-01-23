@@ -228,7 +228,7 @@ func (c *CGroupTask) MoveTasksToRoot() {
 func (c *CGroupTask) RemoveTask() bool {
 	if c.taskIsExist() {
 		c.MoveTasksToRoot()
-		if err := os.RemoveAll(c.TaskPath()); err != nil {
+		if err := os.Remove(c.TaskPath()); err != nil {
 			log.Errorf("Remove task %s", err)
 			return false
 		}
@@ -529,8 +529,11 @@ func Init() bool {
 }
 
 func CgroupSet(pid string, coreNum int) bool {
-	tasks := []ICGroupTask{&CGroupCPUTask{&CGroupTask{}}, &CGroupIOTask{&CGroupTask{}},
-		&CGroupMemoryTask{&CGroupTask{}}}
+	tasks := []ICGroupTask{
+		&CGroupCPUTask{&CGroupTask{}},
+		&CGroupIOTask{&CGroupTask{}},
+		&CGroupMemoryTask{&CGroupTask{}},
+	}
 	for _, hand := range tasks {
 		hand.SetHand(hand)
 		hand.SetPid(pid)
@@ -551,9 +554,13 @@ func CgroupIoHardlimitSet(
 }
 
 func CgroupDestroy(pid string) bool {
-	tasks := []ICGroupTask{&CGroupCPUTask{&CGroupTask{}}, &CGroupIOTask{&CGroupTask{}},
-		&CGroupMemoryTask{&CGroupTask{}}, &CGroupCPUSetTask{&CGroupTask{}, ""},
-		&CGroupIOHardlimitTask{CGroupIOTask: &CGroupIOTask{&CGroupTask{}}}}
+	tasks := []ICGroupTask{
+		&CGroupCPUTask{&CGroupTask{}},
+		&CGroupIOTask{&CGroupTask{}},
+		&CGroupMemoryTask{&CGroupTask{}},
+		&CGroupCPUSetTask{&CGroupTask{}, ""},
+		&CGroupIOHardlimitTask{CGroupIOTask: &CGroupIOTask{&CGroupTask{}}},
+	}
 	for _, hand := range tasks {
 		hand.SetHand(hand)
 		hand.SetPid(pid)
@@ -565,9 +572,13 @@ func CgroupDestroy(pid string) bool {
 }
 
 func CgroupCleanAll() {
-	tasks := []ICGroupTask{&CGroupCPUTask{&CGroupTask{}}, &CGroupIOTask{&CGroupTask{}},
-		&CGroupMemoryTask{&CGroupTask{}}, &CGroupCPUSetTask{CGroupTask: &CGroupTask{}},
-		&CGroupIOHardlimitTask{CGroupIOTask: &CGroupIOTask{&CGroupTask{}}}}
+	tasks := []ICGroupTask{
+		&CGroupCPUTask{&CGroupTask{}},
+		&CGroupIOTask{&CGroupTask{}},
+		&CGroupMemoryTask{&CGroupTask{}},
+		&CGroupCPUSetTask{CGroupTask: &CGroupTask{}},
+		&CGroupIOHardlimitTask{CGroupIOTask: &CGroupIOTask{&CGroupTask{}}},
+	}
 	for _, hand := range tasks {
 		hand.SetHand(hand)
 		CleanupNonexistPids(hand.Module())

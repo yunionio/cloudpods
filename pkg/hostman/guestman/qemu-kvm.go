@@ -336,11 +336,33 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 func (s *SKVMGuestInstance) delayStartMonitor(ctx context.Context) {
 	if options.HostOptions.EnableQmpMonitor && s.GetQmpMonitorPort(-1) > 0 {
 		s.Monitor = monitor.NewQmpMonitor(
-			s.onMonitorDisConnect,
-			func(err error) { s.onMonitorTimeout(ctx, err) },
-			func() { s.onMonitorConnected(ctx) },
+			s.onMonitorDisConnect,                            // on monitor disconnect
+			func(err error) { s.onMonitorTimeout(ctx, err) }, // on monitor timeout
+			func() { s.onMonitorConnected(ctx) },             // on monitor connected
+			s.onReceiveQMPEvent,                              // on reveive qmp event
 		)
 		s.Monitor.Connect("127.0.0.1", s.GetQmpMonitorPort(-1))
+	}
+}
+
+func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
+	if event.Event == "BLOCK_JOB_READY" && s.IsMaster() {
+		if itype, ok := event.Data["type"]; ok {
+			stype, _ := itype.(string)
+			if stype == "mirror" {
+				if s.mirrorJobSuccCount != nil {
+					*s.mirrorJobSuccCount += 1
+				} else {
+					s.mirrorJobSuccCount = new(int)
+					*s.mirrorJobSuccCount = 1
+				}
+				if *s.mirrorJobSuccCount == s.DiskCount() {
+					hostutils.UpdateServerStatus(context.Background(), s.GetId(), "running")
+				}
+			}
+		}
+	} else if event.Event == "BLOCK_JOB_ERROR" && s.IsMaster() {
+		hostutils.UpdateServerStatus(context.Background(), s.GetId(), "mirror_failed")
 	}
 }
 

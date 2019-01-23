@@ -3,6 +3,7 @@ package guestman
 import (
 	"fmt"
 	"path"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -623,6 +624,18 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 	return cmd
 }
 
+func (s *SKVMGuestInstance) presendArpForNic(nic jsonutils.JSONObject) {
+
+}
+
 func (s *SKVMGuestInstance) StartPresendArp() {
-	// TODO go func
+	go func() {
+		for i := 0; i < 5; i++ {
+			nics, _ := s.Desc.GetArray("nics")
+			for _, nic := range nics {
+				s.presendArpForNic(nic)
+			}
+			time.Sleep(1 * time.Second)
+		}
+	}()
 }

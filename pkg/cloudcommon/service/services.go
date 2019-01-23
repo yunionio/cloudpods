@@ -11,14 +11,16 @@ import (
 
 type SServiceBase struct{}
 
-func (s *SServiceBase) RegisterSignals(quitHandler signalutils.Trap) {
+func (s *SServiceBase) RegisterQuitSignals(quitHandler signalutils.Trap) {
 	quitSignals := []os.Signal{syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM}
 	signalutils.RegisterSignal(quitHandler, quitSignals...)
 
+	signalutils.StartTrap()
+}
+
+func (s *SServiceBase) RegisterSIGUSR1() {
 	// dump goroutine stack
 	signalutils.RegisterSignal(func() {
 		utils.DumpAllGoroutineStack(log.Logger().Out)
 	}, syscall.SIGUSR1)
-
-	signalutils.StartTrap()
 }

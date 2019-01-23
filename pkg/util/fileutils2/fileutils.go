@@ -399,7 +399,6 @@ func GetDevSector512Count(dev string) int {
 	return size
 }
 
-// TODO test
 func ResizeDiskFs(diskPath string, sizeMb int) error {
 	var cmds = []string{"parted", "-a", "none", "-s", diskPath, "--", "unit", "s", "print"}
 	lines, err := procutils.NewCommand(cmds[0], cmds[1:]...).Run()
@@ -434,7 +433,7 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 			return err
 		}
 		for _, s := range []string{"r", "e", "Y", "w", "Y", "Y"} {
-			io.WriteString(stdin, s)
+			io.WriteString(stdin, fmt.Sprintf("%s\n", s))
 		}
 		stdoutPut, err := ioutil.ReadAll(outb)
 		if err != nil {
@@ -445,12 +444,15 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 			return err
 		}
 		log.Infof("gdisk: %s %s", stdoutPut, stderrOutPut)
-		proc.Wait()
+		if err = proc.Wait(); err != nil {
+			log.Errorln(err)
+			return err
+		}
 	}
 	if len(parts) > 0 && (label == "gpt" ||
 		(label == "msdos" && parts[len(parts)-1][5] == "primary")) {
 		var (
-			part = parts[len(parts)]
+			part = parts[len(parts)-1]
 			end  int
 		)
 		if sizeMb > 0 {
@@ -472,10 +474,10 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 		if len(part[1]) > 0 {
 			cmds = append(cmds, "set", part[0], "boot", "on")
 		}
-		_, err := procutils.NewCommand(cmds[0], cmds[1:]...).Run()
+		output, err := procutils.NewCommand(cmds[0], cmds[1:]...).Run()
 		if err != nil {
-			log.Errorln(err)
-			return err
+			log.Errorln(output)
+			return fmt.Errorf("%s", output)
 		}
 		if len(part[6]) > 0 {
 			err := ResizePartitionFs(part[7], part[6])
