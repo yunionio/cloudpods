@@ -21,6 +21,8 @@ type SRegion struct {
 	sdkClient *sdk.Client
 	ossClient *oss.Client
 
+	Debug bool
+
 	RegionId  string
 	LocalName string
 
@@ -85,6 +87,14 @@ func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonu
 		return nil, err
 	}
 	return jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params)
+}
+
+func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
+	client, err := self.getSdkClient()
+	if err != nil {
+		return nil, err
+	}
+	return jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params)
 }
 
 func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -363,37 +373,6 @@ func (self *SRegion) GetRouteTables(ids []string, offset int, limit int) ([]SRou
 	}
 	total, _ := body.Int("TotalCount")
 	return routetables, int(total), nil
-}
-
-func (self *SRegion) GetVSwitches(ids []string, vpcId string, offset int, limit int) ([]SVSwitch, int, error) {
-	if limit > 50 || limit <= 0 {
-		limit = 50
-	}
-	params := make(map[string]string)
-	params["RegionId"] = self.RegionId
-	params["PageSize"] = fmt.Sprintf("%d", limit)
-	params["PageNumber"] = fmt.Sprintf("%d", (offset/limit)+1)
-	if ids != nil && len(ids) > 0 {
-		params["VSwitchId"] = strings.Join(ids, ",")
-	}
-	if len(vpcId) > 0 {
-		params["VpcId"] = vpcId
-	}
-
-	body, err := self.ecsRequest("DescribeVSwitches", params)
-	if err != nil {
-		log.Errorf("GetVSwitches fail %s", err)
-		return nil, 0, err
-	}
-
-	switches := make([]SVSwitch, 0)
-	err = body.Unmarshal(&switches, "VSwitches", "VSwitch")
-	if err != nil {
-		log.Errorf("Unmarshal vswitches fail %s", err)
-		return nil, 0, err
-	}
-	total, _ := body.Int("TotalCount")
-	return switches, int(total), nil
 }
 
 func (self *SRegion) GetMatchInstanceTypes(cpu int, memMB int, gpu int, zoneId string) ([]SInstanceType, error) {

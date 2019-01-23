@@ -72,7 +72,7 @@ func (self *SAliyunProviderFactory) GetProvider(providerId, providerName, url, a
 		return self.providerTable[providerId], nil
 	*/
 
-	client, err := aliyun.NewAliyunClient(providerId, providerName, account, secret)
+	client, err := aliyun.NewAliyunClient(providerId, providerName, account, secret, false)
 	if err != nil {
 		return nil, err
 	}
