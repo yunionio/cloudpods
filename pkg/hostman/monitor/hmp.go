@@ -339,3 +339,15 @@ func (m *HmpMonitor) SetVncPassword(proto, password string, callback StringCallb
 	}
 	m.Query(fmt.Sprintf("set_password %s %s", proto, password), callback)
 }
+
+func (m *HmpMonitor) StartNbdServer(port int, exportAllDevice, writable bool, callback StringCallback) {
+	var cmd = "nbd_server_start"
+	if exportAllDevice {
+		cmd += " -a"
+	}
+	if writable {
+		cmd += " -w"
+	}
+	cmd += fmt.Sprintf(" 0.0.0.0:%d", port)
+	m.Query(cmd, callback)
+}

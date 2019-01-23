@@ -9,6 +9,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/pkg/util/regutils"
 )
@@ -62,7 +63,7 @@ func NewLocalImageCacheManager(manager *SStorageManager, cachePath string, limit
 	imageCacheManager.isTemplate = isTemplete
 	imageCacheManager.cachedImages = make(map[string]IImageCache, 0)
 	imageCacheManager.mutex = new(sync.Mutex)
-	if _, err := os.Stat(cachePath); os.IsNotExist(err) {
+	if !fileutils2.Exists(cachePath) {
 		procutils.NewCommand("mkdir", "-p", cachePath).Run()
 	}
 	imageCacheManager.loadCache()

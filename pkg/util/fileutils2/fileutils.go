@@ -85,6 +85,8 @@ func FilePutContents(filename string, content string, modAppend bool) error {
 	var mode = os.O_WRONLY | os.O_CREATE
 	if modAppend {
 		mode = mode | os.O_APPEND
+	} else {
+		mode = mode | os.O_TRUNC
 	}
 	fd, err := os.OpenFile(filename, mode, 0644)
 	if err != nil {
@@ -147,20 +149,6 @@ func ChangeBlkdevParameter(dev, key, value string) {
 		}
 		log.Infof("Set %s of %s to %s", key, dev, value)
 	}
-}
-
-func PathNotExists(path string) bool {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return true
-	}
-	return false
-}
-
-func PathExists(path string) bool {
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		return true
-	}
-	return false
 }
 
 func FileGetContents(file string) (string, error) {

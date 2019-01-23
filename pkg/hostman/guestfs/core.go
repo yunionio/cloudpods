@@ -104,8 +104,6 @@ func DeployGuestFs(
 	guestDesc *jsonutils.JSONDict,
 	deployInfo *SDeployInfo,
 ) (jsonutils.JSONObject, error) {
-	log.Errorf("DeployGuestFs %v", deployInfo)
-
 	var ret = jsonutils.NewDict()
 	var ips = make([]string, 0)
 	var err error

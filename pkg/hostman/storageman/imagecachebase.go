@@ -112,7 +112,7 @@ func (l *SLocalImageCache) Load() bool {
 			}
 			err = json.Unmarshal([]byte(sdesc), desc)
 			if err != nil {
-				log.Errorf("Unmarshal desc error %s", err)
+				log.Errorf("Unmarshal desc %s error %s", sdesc, err)
 				return false
 			}
 		}

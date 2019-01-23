@@ -3,6 +3,7 @@ package hostdhcp
 import (
 	"net"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -17,8 +18,6 @@ import (
 
 var DEFAULT_DHCP_LISTEN_ADDR = "0.0.0.0"
 
-const DEFAULT_DHCP_SERVER_PORT = 67
-
 type SGuestDHCPServer struct {
 	server *dhcp.DHCPServer
 	relay  *SDHCPRelay
@@ -26,12 +25,19 @@ type SGuestDHCPServer struct {
 	iface string
 }
 
-func NewGuestDHCPServer(iface string, relay []string) *SGuestDHCPServer {
-	guestdhcp := new(SGuestDHCPServer)
-	guestdhcp.relay = NewDHCPRelay(relay)
+func NewGuestDHCPServer(iface string, relay []string) (*SGuestDHCPServer, error) {
+	var (
+		err       error
+		guestdhcp = new(SGuestDHCPServer)
+	)
+
+	guestdhcp.relay, err = NewDHCPRelay(relay)
+	if err != nil {
+		return nil, err
+	}
 	guestdhcp.server = dhcp.NewDHCPServer(DEFAULT_DHCP_LISTEN_ADDR, options.HostOptions.DhcpServerPort)
 	guestdhcp.iface = iface
-	return guestdhcp
+	return guestdhcp, nil
 }
 
 func (s *SGuestDHCPServer) Start() {
@@ -39,7 +45,12 @@ func (s *SGuestDHCPServer) Start() {
 	if s.relay != nil {
 		s.relay.Start()
 	}
-	s.server.ListenAndServe(s)
+	go func() {
+		err := s.server.ListenAndServe(s)
+		if err != nil {
+			log.Errorf("DHCP error %s", err)
+		}
+	}()
 }
 
 func (s *SGuestDHCPServer) RelaySetup(addr string) {
@@ -56,11 +67,10 @@ func (s *SGuestDHCPServer) getGuestConfig(guestDesc, guestNic jsonutils.JSONObje
 	var conf = new(dhcp.ResponseConfig)
 	nicIp := nicdesc.Ip
 	v4Ip, _ := netutils.NewIPV4Addr(nicIp)
-	conf.ClientIP = v4Ip.ToBytes()
+	conf.ClientIP = net.ParseIP(nicdesc.Ip)
 
 	masklen := nicdesc.Masklen
-
-	conf.ServerIP = v4Ip.NetAddr(int8(masklen)).ToBytes()
+	conf.ServerIP = net.ParseIP(v4Ip.NetAddr(int8(masklen)).String())
 	conf.SubnetMask = net.ParseIP(netutils2.Netlen2Mask(masklen))
 	conf.BroadcastAddr = v4Ip.BroadcastAddr(int8(masklen)).ToBytes()
 	conf.Hostname, _ = guestDesc.GetString("name")
@@ -90,13 +100,14 @@ func (s *SGuestDHCPServer) getGuestConfig(guestDesc, guestNic jsonutils.JSONObje
 	}
 	netutils2.AddNicRoutes(
 		&route, nicdesc, mainIp, len(guestNics), options.HostOptions.PrivatePrefixes)
-	// 有问题？
 	conf.Routes = route
 
 	if len(nicdesc.Dns) > 0 {
 		conf.DNSServer = net.ParseIP(nicdesc.Dns)
 	}
 	conf.OsName, _ = guestDesc.GetString("os_name")
+	conf.LeaseTime = time.Duration(options.HostOptions.DhcpLeaseTime) * time.Second
+	conf.RenewalTime = time.Duration(options.HostOptions.DhcpRenewalTime) * time.Second
 	return conf
 }
 
@@ -111,18 +122,22 @@ func (s *SGuestDHCPServer) getConfig(pkt dhcp.Packet) *dhcp.ResponseConfig {
 	if guestNic == nil {
 		guestDesc, guestNic = guestmananger.GetGuestNicDesc(mac, ip, port, s.iface, !isCandidate)
 	}
-	if guestNic != nil && jsonutils.QueryBoolean(guestNic, "virtual", false) {
+	if guestNic != nil && !jsonutils.QueryBoolean(guestNic, "virtual", false) {
 		return s.getGuestConfig(guestDesc, guestNic)
 	}
 	return nil
 }
 
-func (s *SGuestDHCPServer) ServeDHCP(pkt dhcp.Packet, intf *net.Interface) (dhcp.Packet, error) {
+func (s *SGuestDHCPServer) ServeDHCP(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
 	var conf = s.getConfig(pkt)
 	if conf != nil {
+		log.Infof("Make DHCP Reply %s TO %s", conf.ClientIP, pkt.CHAddr())
+
+		// Guest request ip
 		return dhcp.MakeReplyPacket(pkt, conf)
 	} else if s.relay != nil {
-		return s.relay.Relay(pkt, intf)
+		// Host agent as dhcp relay, relay to baremetal
+		return s.relay.Relay(pkt, addr, intf)
 	}
 	return nil, nil
 }

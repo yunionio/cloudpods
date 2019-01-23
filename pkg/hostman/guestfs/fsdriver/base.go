@@ -84,7 +84,7 @@ func DeployAuthorizedKeys(rootFs IDiskPartition, usrDir string, pubkeys *sshkeys
 		authFile := path.Join(sshDir, "authorized_keys")
 		modeRwxOwner := syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
 		modeRwOwner := syscall.S_IRUSR | syscall.S_IWUSR
-		fStat := usrStat.Sys().(*syscall.Stat_t)
+		fStat, _ := usrStat.Sys().(*syscall.Stat_t)
 		if !rootFs.Exists(sshDir, false) {
 			err := rootFs.Mkdir(sshDir, modeRwxOwner, false)
 			if err != nil {

@@ -523,17 +523,17 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		}
 	}
 
-	for _, nic := range nics {
+	for i := 0; i < len(nics); i++ {
 		if osname == OS_NAME_VMWARE {
-			nic.(*jsonutils.JSONDict).Set("driver", jsonutils.NewString("vmxnet3"))
+			nics[i].(*jsonutils.JSONDict).Set("driver", jsonutils.NewString("vmxnet3"))
 		}
-		nicCmd, err := s.getNetdevDesc(nic)
+		nicCmd, err := s.getNetdevDesc(nics[i])
 		if err != nil {
 			return "", err
 		} else {
 			cmd += nicCmd
 		}
-		cmd += s.getVnicDesc(nic)
+		cmd += s.getVnicDesc(nics[i])
 	}
 
 	cmd += fmt.Sprintf(" -pidfile %s", s.GetPidFilePath())
@@ -558,7 +558,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	} else if jsonutils.QueryBoolean(s.Desc, "is_master", false) {
 		cmd += " -S"
 	}
-	cmd += fmt.Sprintf(" -D %s", path.Join(s.HomeDir(), "log"))
+	// cmd += fmt.Sprintf(" -D %s", path.Join(s.HomeDir(), "log"))
 
 	cmd += "\"\n"
 	cmd += "if [ ! -z \"$STATE_FILE\" ] && [ -d \"$STATE_FILE\" ] && [ -f \"$STATE_FILE/content\" ]; then\n"

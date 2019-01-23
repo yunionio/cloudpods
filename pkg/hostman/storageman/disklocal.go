@@ -59,11 +59,10 @@ func (d *SLocalDisk) GetSnapshotDir() string {
 }
 
 func (d *SLocalDisk) Probe() error {
-	if _, err := os.Stat(d.getPath()); !os.IsNotExist(err) {
+	if fileutils2.Exists(d.getPath()) {
 		d.isAlter = false
 		return nil
-	} else if _, err := os.Stat(d.getAlterPath()); !os.IsNotExist(err) {
-		log.Errorln(err)
+	} else if fileutils2.Exists(d.getAlterPath()) {
 		d.isAlter = true
 		return nil
 	}

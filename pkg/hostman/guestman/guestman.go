@@ -143,13 +143,30 @@ func (m *SGuestManager) OnLoadExistingGuestsComplete() {
 	// hostmetrics.Init()
 
 	if !options.HostOptions.EnableCpuBinding {
-		// TODO
-		// m.cleanupCpuset()
+		m.ClenaupCpuset()
+	}
+}
+
+func (m *SGuestManager) ClenaupCpuset() {
+	for _, guest := range m.Servers {
+		guest.CleanupCpuset()
 	}
 }
 
 func (m *SGuestManager) StartCpusetBalancer() {
-	// TODO
+	if !options.HostOptions.EnableCpuBinding {
+		return
+	}
+	go func() {
+		time.Sleep(time.Second * 120)
+		if options.HostOptions.EnableCpuBinding {
+			m.cpusetBalance()
+		}
+	}()
+}
+
+func (m *SGuestManager) cpusetBalance() {
+	cgrouputils.RebalanceProcesses(nil)
 }
 
 func (m *SGuestManager) IsGuestDir(f os.FileInfo) bool {
@@ -160,7 +177,7 @@ func (m *SGuestManager) IsGuestDir(f os.FileInfo) bool {
 		return false
 	}
 	descFile := path.Join(m.ServersPath, f.Name(), "desc")
-	if _, err := os.Stat(descFile); os.IsNotExist(err) {
+	if !fileutils2.Exists(descFile) {
 		return false
 	}
 	return true
@@ -289,16 +306,15 @@ func (m *SGuestManager) GuestDeploy(ctx context.Context, params interface{}) (js
 
 // delay cpuset balance
 func (m *SGuestManager) CpusetBalance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	// TODO
-	return nil, fmt.Errorf("not implement")
+	m.cpusetBalance()
+	return nil, nil
 }
 
 func (m *SGuestManager) Status(sid string) string {
 	if guest, ok := m.Servers[sid]; ok {
-		// TODO
-		// if guest.IsMaster() && !guest.IsMirrorJobSucc() {
-		// 	return "block_stream"
-		// }
+		if guest.IsMaster() && !guest.IsMirrorJobSucc() {
+			return "block_stream"
+		}
 		if guest.IsRunning() {
 			return "running"
 		} else if guest.IsSuspend() {
@@ -314,7 +330,8 @@ func (m *SGuestManager) Status(sid string) string {
 func (m *SGuestManager) Delete(sid string) (*SKVMGuestInstance, error) {
 	if guest, ok := m.Servers[sid]; ok {
 		delete(m.Servers, sid)
-		// 这里应该不需要append到deleted servers, 据观察 deleted servers没有用到
+		// 这里应该不需要append到deleted servers
+		// 据观察 deleted servers 目的是为了给ofp_delegate使用，ofp已经不用了
 		return guest, nil
 	} else {
 		return nil, httperrors.NewNotFoundError("Not found")
@@ -323,7 +340,7 @@ func (m *SGuestManager) Delete(sid string) (*SKVMGuestInstance, error) {
 
 func (m *SGuestManager) GuestStart(ctx context.Context, sid string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if guest, ok := m.Servers[sid]; ok {
-		if desc, err := body.Get("desc"); err != nil {
+		if desc, err := body.Get("desc"); err == nil {
 			guest.SaveDesc(desc)
 		}
 		if guest.IsStopped() {

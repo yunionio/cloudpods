@@ -310,3 +310,16 @@ func (s *SLocalStorage) CreateSnapshotFormUrl(
 		return fmt.Errorf("Fail to fetch snapshot from %s", snapshotUrl)
 	}
 }
+
+func (s *SLocalStorage) DeleteSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	diskId, ok := params.(string)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	snapshotDir := path.Join(s.GetSnapshotDir(), diskId+options.HostOptions.SnapshotDirSuffix)
+	output, err := procutils.NewCommand("rm", "-rf", snapshotDir).Run()
+	if err != nil {
+		return nil, fmt.Errorf("Delete snapshot dir failed: %s", output)
+	}
+	return nil, nil
+}
