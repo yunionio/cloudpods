@@ -17,6 +17,7 @@ import (
 )
 
 const (
+	ZONE_INIT    = "init"
 	ZONE_ENABLE  = "enable"
 	ZONE_DISABLE = "disable"
 	ZONE_SOLDOUT = "soldout"
@@ -469,7 +470,7 @@ func (manager *SZoneManager) InitializeData() error {
 				return nil
 			})
 		}
-		if z.Status == "init" {
+		if z.Status == ZONE_INIT || z.Status == ZONE_DISABLE {
 			manager.TableSpec().Update(&z, func() error {
 				z.Status = ZONE_ENABLE
 				return nil
