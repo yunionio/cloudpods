@@ -37,10 +37,12 @@ type SAliyunClient struct {
 	accessKey    string
 	secret       string
 	iregions     []cloudprovider.ICloudRegion
+
+	Debug bool
 }
 
-func NewAliyunClient(providerId string, providerName string, accessKey string, secret string) (*SAliyunClient, error) {
-	client := SAliyunClient{providerId: providerId, providerName: providerName, accessKey: accessKey, secret: secret}
+func NewAliyunClient(providerId string, providerName string, accessKey string, secret string, isDebug bool) (*SAliyunClient, error) {
+	client := SAliyunClient{providerId: providerId, providerName: providerName, accessKey: accessKey, secret: secret, Debug: isDebug}
 	err := client.fetchRegions()
 	if err != nil {
 		return nil, err

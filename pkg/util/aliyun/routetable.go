@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"strings"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -195,7 +196,7 @@ func (self *SVpc) RemoteGetRouteTableList(offset int, limit int) ([]*SRouteTable
 	params["PageSize"] = fmt.Sprintf("%d", limit)
 	params["PageNumber"] = fmt.Sprintf("%d", (offset/limit)+1)
 
-	body, err := self.apiRequest("DescribeRouteTableList", params)
+	body, err := self.region.vpcRequest("DescribeRouteTableList", params)
 	if err != nil {
 		log.Errorf("RemoteGetRouteTableList fail %s", err)
 		return nil, 0, err
@@ -212,4 +213,26 @@ func (self *SVpc) RemoteGetRouteTableList(offset int, limit int) ([]*SRouteTable
 	}
 	total, _ := body.Int("TotalCount")
 	return routeTables, int(total), nil
+}
+
+func (region *SRegion) AssociateRouteTable(rtableId string, vswitchId string) error {
+	params := make(map[string]string)
+	params["RegionId"] = region.RegionId
+	params["RouteTableId"] = rtableId
+	params["VSwitchId"] = vswitchId
+	_, err := region.vpcRequest("AssociateRouteTable", params)
+	return err
+}
+
+func (region *SRegion) UnassociateRouteTable(rtableId string, vswitchId string) error {
+	params := make(map[string]string)
+	params["RegionId"] = region.RegionId
+	params["RouteTableId"] = rtableId
+	params["VSwitchId"] = vswitchId
+	_, err := region.vpcRequest("UnassociateRouteTable", params)
+	return err
+}
+
+func (routeTable *SRouteTable) IsSystem() bool {
+	return strings.ToLower(routeTable.RouteTableType) == "system"
 }

@@ -831,6 +831,7 @@ func (self *SNetwork) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSOND
 	extra.Add(jsonutils.NewInt(int64(self.GetTotalNicCount())), "ports_used")
 	extra.Add(jsonutils.NewInt(int64(self.GetGuestnicsCount())), "vnics")
 	extra.Add(jsonutils.NewInt(int64(self.GetBaremetalNicsCount())), "bm_vnics")
+	extra.Add(jsonutils.NewInt(int64(self.GetLoadbalancerIpsCount())), "lb_vnics")
 	extra.Add(jsonutils.NewInt(int64(self.GetGroupNicsCount())), "group_vnics")
 	extra.Add(jsonutils.NewInt(int64(self.GetReservedNicsCount())), "reserve_vnics")
 
