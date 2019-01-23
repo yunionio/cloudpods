@@ -18,4 +18,24 @@ func init() {
 		printList(vswitches, total, args.Offset, args.Limit, []string{})
 		return nil
 	})
+
+	type VSwitchShowOptions struct {
+		ID string `help:"show vswitch details"`
+	}
+	shellutils.R(&VSwitchShowOptions{}, "vswitch-show", "Show vswitch details", func(cli *aliyun.SRegion, args *VSwitchShowOptions) error {
+		vswitch, e := cli.GetVSwitchAttributes(args.ID)
+		if e != nil {
+			return e
+		}
+		printObject(vswitch)
+		return nil
+	})
+
+	shellutils.R(&VSwitchShowOptions{}, "vswitch-delete", "Show vswitch details", func(cli *aliyun.SRegion, args *VSwitchShowOptions) error {
+		e := cli.DeleteVSwitch(args.ID)
+		if e != nil {
+			return e
+		}
+		return nil
+	})
 }

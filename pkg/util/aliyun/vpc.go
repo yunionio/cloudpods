@@ -46,14 +46,6 @@ type SVpc struct {
 	VpcName      string
 }
 
-func (self *SVpc) apiRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
-	client, err := self.region.getSdkClient()
-	if err != nil {
-		return nil, err
-	}
-	return jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params)
-}
-
 func (self *SVpc) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
@@ -241,4 +233,23 @@ func (self *SVpc) Delete() error {
 		}
 	}
 	return self.region.DeleteVpc(self.VpcId)
+}
+
+func (self *SVpc) getNatGateways() ([]SNatGetway, error) {
+	natgatways := make([]SNatGetway, 0)
+	gwTotal := -1
+	for gwTotal < 0 || len(natgatways) < gwTotal {
+		parts, total, err := self.region.GetNatGateways(self.VpcId, "", len(natgatways), 50)
+		if err != nil {
+			return nil, err
+		}
+		if len(parts) > 0 {
+			natgatways = append(natgatways, parts...)
+		}
+		gwTotal = total
+	}
+	for i := 0; i < len(natgatways); i += 1 {
+		natgatways[i].vpc = self
+	}
+	return natgatways, nil
 }
