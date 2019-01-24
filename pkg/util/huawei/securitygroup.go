@@ -183,6 +183,10 @@ func (self *SSecurityGroup) GetSecurityRule(ruleId string, withRuleId bool) (sec
 		_, ipNet, err = net.ParseCIDR("0.0.0.0/0")
 	}
 
+	if err != nil {
+		return secrules.SecurityRule{}, err
+	}
+
 	// withRuleId.将ruleId附加到description字段。该hook有特殊目的，仅在同步安全组时使用。
 	desc := ""
 	if withRuleId {
@@ -202,6 +206,8 @@ func (self *SSecurityGroup) GetSecurityRule(ruleId string, withRuleId bool) (sec
 		Ports:       nil,
 		Description: desc,
 	}
+
+	err = rule.ValidateRule()
 	return rule, err
 }
 

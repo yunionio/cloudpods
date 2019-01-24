@@ -45,7 +45,7 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 		return
 	}
 
-	extEip, err := iregion.CreateEIP(eip.Name, eip.Bandwidth, eip.ChargeType, "")
+	extEip, err := iregion.CreateEIP(eip.Name, eip.Bandwidth, eip.ChargeType, eip.BgpType)
 	if err != nil {
 		msg := fmt.Sprintf("create eip fail %s", err)
 		eip.SetStatus(self.UserCred, models.EIP_STATUS_ALLOCATE_FAIL, msg)
