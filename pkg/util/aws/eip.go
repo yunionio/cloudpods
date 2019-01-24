@@ -236,7 +236,7 @@ func (self *SRegion) AllocateEIP(domainType string) (*SEipAddress, error) {
 	return self.GetEip(*eip.AllocationId)
 }
 
-func (self *SRegion) CreateEIP(name string, bwMbps int, chargeType string) (cloudprovider.ICloudEIP, error) {
+func (self *SRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpType string) (cloudprovider.ICloudEIP, error) {
 	// todo: aws 不支持指定bwMbps, chargeType ？
 	log.Debugf("CreateEip: aws not support specific params name/bwMbps/chargeType.")
 	ieip, err := self.AllocateEIP("vpc")

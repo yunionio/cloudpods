@@ -37,3 +37,15 @@ func WaitDeleted(res ICloudResource, interval time.Duration, timeout time.Durati
 	}
 	return ErrTimeout
 }
+
+func WaitCreated(interval time.Duration, timeout time.Duration, callback func() bool) error {
+	startTime := time.Now()
+	for time.Now().Sub(startTime) < timeout {
+		ok := callback()
+		if ok {
+			return nil
+		}
+		time.Sleep(interval)
+	}
+	return ErrTimeout
+}

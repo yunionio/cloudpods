@@ -77,6 +77,7 @@ type SElasticip struct {
 	Bandwidth int `list:"user" create:"required"`
 
 	ChargeType string `list:"user" create:"required"`
+	BgpType    string `list:"user" create:"optional"` // 目前只有华为云此字段是必需填写的。
 
 	AutoDellocate tristate.TriState `default:"false" get:"user" create:"optional"`
 

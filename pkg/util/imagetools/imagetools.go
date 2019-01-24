@@ -97,11 +97,12 @@ func normalizeOsVersion(imageName string, osDist string, osVersion string) strin
 }
 
 type ImageInfo struct {
-	Name      string
-	OsArch    string
-	OsType    string
-	OsDistro  string
-	OsVersion string
+	Name          string
+	OsArch        string
+	OsType        string
+	OsDistro      string
+	OsVersion     string
+	OsFullVersion string
 }
 
 func NormalizeImageInfo(imageName, osArch, osType, osDist, osVersion string) ImageInfo {
@@ -111,5 +112,6 @@ func NormalizeImageInfo(imageName, osArch, osType, osDist, osVersion string) Ima
 	info.OsType = normalizeOsType(osType, info.OsDistro)
 	info.OsArch = normalizeOsArch(osArch, info.OsType, info.OsDistro)
 	info.OsVersion = normalizeOsVersion(imageName, info.OsDistro, osVersion)
+	info.OsFullVersion = osVersion
 	return info
 }

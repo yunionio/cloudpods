@@ -1,6 +1,7 @@
 package huawei
 
 import (
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -11,8 +12,8 @@ import (
 type TInternetChargeType string
 
 const (
-	InternetChargeByTraffic   = TInternetChargeType("PayByTraffic")
-	InternetChargeByBandwidth = TInternetChargeType("PayByBandwidth")
+	InternetChargeByTraffic   = TInternetChargeType("traffic")
+	InternetChargeByBandwidth = TInternetChargeType("bandwidth")
 )
 
 type Port struct {
@@ -143,7 +144,6 @@ func (self *SEipAddress) GetAssociationType() string {
 }
 
 func (self *SEipAddress) GetAssociationExternalId() string {
-	// todo： implement me返回关联的实例
 	// network/0273a359d61847fc83405926c958c746/ext-floatingips?tenantId=0273a359d61847fc83405926c958c746&limit=2000
 	// 只能通过 port id 反查device id.
 	if len(self.PortId) > 0 {
@@ -185,17 +185,35 @@ func (self *SEipAddress) Delete() error {
 }
 
 func (self *SEipAddress) Associate(instanceId string) error {
-	err := self.region.AssociateEip(self.ID, instanceId)
+	portId, err := self.region.GetInstancePortId(instanceId)
 	if err != nil {
 		return err
 	}
+
+	if len(self.PortId) > 0 {
+		if self.PortId == portId {
+			return nil
+		}
+
+		return fmt.Errorf("eip %s aready associate with port %s", self.GetId(), self.PortId)
+	}
+
+	err = self.region.AssociateEipWithPortId(self.ID, portId)
+	if err != nil {
+		return err
+	}
+
 	err = cloudprovider.WaitStatus(self, models.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
 	return err
 }
 
 func (self *SEipAddress) Dissociate() error {
-	// todo : implement me
-	err := self.region.DissociateEip(self.ID, "")
+	port, err := self.region.GetPort(self.PortId)
+	if err != nil {
+		return err
+	}
+
+	err = self.region.DissociateEip(self.ID, port.DeviceID)
 	if err != nil {
 		return err
 	}
@@ -204,13 +222,48 @@ func (self *SEipAddress) Dissociate() error {
 }
 
 func (self *SEipAddress) ChangeBandwidth(bw int) error {
-	return self.region.UpdateEipBandwidth(self.ID, bw)
+	return self.region.UpdateEipBandwidth(self.BandwidthID, bw)
+}
+
+func (self *SRegion) GetInstancePortId(instanceId string) (string, error) {
+	// 目前只绑定一个网卡
+	// todo: 还需要按照ports状态进行过滤
+	ports, err := self.GetPorts(instanceId)
+	if err != nil {
+		return "", err
+	}
+
+	if len(ports) == 0 {
+		return "", fmt.Errorf("AssociateEip instance %s port is empty", instanceId)
+	}
+
+	return ports[0].ID, nil
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090596.html
-func (region *SRegion) AllocateEIP(bwMbps int, chargeType TInternetChargeType) (*SEipAddress, error) {
-	// todo: implement me
-	return &SEipAddress{}, nil
+func (self *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternetChargeType, bgpType string) (*SEipAddress, error) {
+	paramsStr := `
+{
+    "publicip": {
+        "type": "%s",
+   "ip_version": 4
+    },
+    "bandwidth": {
+        "name": "%s",
+        "size": %d,
+        "share_type": "PER",
+        "charge_mode": "%s"
+    }
+}
+`
+	if len(bgpType) == 0 {
+		return nil, fmt.Errorf("AllocateEIP bgp type should not be empty")
+	}
+	paramsStr = fmt.Sprintf(paramsStr, bgpType, name, bwMbps, chargeType)
+	params, _ := jsonutils.ParseString(paramsStr)
+	eip := SEipAddress{}
+	err := DoCreate(self.ecsClient.Eips.Create, params, &eip)
+	return &eip, err
 }
 
 func (self *SRegion) GetEip(eipId string) (*SEipAddress, error) {
@@ -221,23 +274,62 @@ func (self *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 }
 
 func (self *SRegion) DeallocateEIP(eipId string) error {
-	// todo : implement me
-	return cloudprovider.ErrNotSupported
+	_, err := self.ecsClient.Eips.Delete(eipId, nil)
+	return err
 }
 
 func (self *SRegion) AssociateEip(eipId string, instanceId string) error {
-	// todo : implement me
-	return cloudprovider.ErrNotSupported
+	portId, err := self.GetInstancePortId(instanceId)
+	if err != nil {
+		return err
+	}
+	return self.AssociateEipWithPortId(eipId, portId)
+}
+
+func (self *SRegion) AssociateEipWithPortId(eipId string, portId string) error {
+	params := jsonutils.NewDict()
+	publicIPObj := jsonutils.NewDict()
+	publicIPObj.Add(jsonutils.NewString(portId), "port_id")
+	params.Add(publicIPObj, "publicip")
+
+	_, err := self.ecsClient.Eips.Update(eipId, params)
+	return err
 }
 
 func (self *SRegion) DissociateEip(eipId string, instanceId string) error {
-	// todo : implement me
-	return cloudprovider.ErrNotSupported
+	eip, err := self.GetEip(eipId)
+	if err != nil {
+		return err
+	}
+
+	// 已经是解绑状态
+	if eip.Status == "DOWN" {
+		return nil
+	}
+
+	remoteInstanceId := eip.GetAssociationExternalId()
+	if remoteInstanceId != instanceId {
+		return fmt.Errorf("eip %s associate with another instance %s", eipId, remoteInstanceId)
+	}
+
+	paramsStr := `{"publicip":{"port_id":null}}`
+	params, _ := jsonutils.ParseString(paramsStr)
+	_, err = self.ecsClient.Eips.Update(eipId, params)
+	return err
 }
 
-func (self *SRegion) UpdateEipBandwidth(eipId string, bw int) error {
-	// todo : implement me
-	return cloudprovider.ErrNotSupported
+func (self *SRegion) UpdateEipBandwidth(bandwidthId string, bw int) error {
+	paramStr := `{
+		"bandwidth":
+		{
+           "size": %d
+		}
+	}`
+
+	paramStr = fmt.Sprintf(paramStr, bw)
+	params, _ := jsonutils.ParseString(paramStr)
+	_, err := self.ecsClient.Bandwidths.Update(bandwidthId, params)
+	return err
 }
 
 func (self *SRegion) GetEipBandwidth(bandwidthId string) (Bandwidth, error) {
@@ -248,6 +340,18 @@ func (self *SRegion) GetEipBandwidth(bandwidthId string) (Bandwidth, error) {
 
 func (self *SRegion) GetPort(portId string) (Port, error) {
 	port := Port{}
-	err := DoGet(self.ecsClient.Bandwidths.Get, portId, nil, &port)
+	err := DoGet(self.ecsClient.Port.Get, portId, nil, &port)
 	return port, err
+}
+
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0030591299.html
+func (self *SRegion) GetPorts(instanceId string) ([]Port, error) {
+	ports := make([]Port, 0)
+	querys := map[string]string{}
+	if len(instanceId) > 0 {
+		querys["device_id"] = instanceId
+	}
+
+	err := DoList(self.ecsClient.Port.List, querys, &ports)
+	return ports, err
 }

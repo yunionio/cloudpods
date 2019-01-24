@@ -2,14 +2,18 @@ package huawei
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
+	"time"
 
 	"strings"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/huawei/client"
+	"yunion.io/x/onecloud/pkg/util/huawei/obs"
 	"yunion.io/x/pkg/util/secrules"
 )
 
@@ -22,6 +26,7 @@ type Locales struct {
 type SRegion struct {
 	client    *SHuaweiClient
 	ecsClient *client.Client
+	obsClient *obs.ObsClient // 对象存储client.请勿直接引用。
 
 	Description    string  `json:"description"`
 	ID             string  `json:"id"`
@@ -33,6 +38,10 @@ type SRegion struct {
 	ivpcs  []cloudprovider.ICloudVpc
 
 	storageCache *SStoragecache
+}
+
+func (self *SRegion) GetClient() *SHuaweiClient {
+	return self.client
 }
 
 func (self *SRegion) getECSClient() (*client.Client, error) {
@@ -61,6 +70,20 @@ func (self *SRegion) getECSClient() (*client.Client, error) {
 	}
 
 	return self.ecsClient, err
+}
+
+func (self *SRegion) getOBSClient() (*obs.ObsClient, error) {
+	if self.obsClient == nil {
+		endpoint := fmt.Sprintf("obs.%s.myhuaweicloud.com", self.GetId())
+		obsClient, err := obs.New(self.client.accessKey, self.client.secret, endpoint)
+		if err != nil {
+			return nil, err
+		}
+
+		self.obsClient = obsClient
+	}
+
+	return self.obsClient, nil
 }
 
 func (self *SRegion) fetchZones() error {
@@ -176,12 +199,13 @@ func (self *SRegion) fetchInfrastructure() error {
 	}
 
 	for i := 0; i < len(self.ivpcs); i += 1 {
+		vpc := self.ivpcs[i].(*SVpc)
+		wire := SWire{region: self, vpc: vpc}
+		vpc.addWire(&wire)
+
 		for j := 0; j < len(self.izones); j += 1 {
 			zone := self.izones[j].(*SZone)
-			vpc := self.ivpcs[i].(*SVpc)
-			wire := SWire{zone: zone, vpc: vpc}
 			zone.addWire(&wire)
-			vpc.addWire(&wire)
 		}
 	}
 	return nil
@@ -295,40 +319,55 @@ func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) 
 	return &eip, err
 }
 
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0060595555.html
 func (self *SRegion) DeleteSecurityGroup(vpcId, secgroupId string) error {
-	// todo: implement me
-	return nil
+	return DoDelete(self.ecsClient.SecurityGroups.Delete, secgroupId, nil, nil)
 }
 
 func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
-	//if len(secgroupId) > 0 {
-	//	_, total, err := self.GetSecurityGroups("", []string{secgroupId}, 0, 1)
-	//	if err != nil {
-	//		return "", err
-	//	}
-	//	if total == 0 {
-	//		secgroupId = ""
-	//	}
-	//}
-	//if len(secgroupId) == 0 {
-	//	extID, err := self.CreateSecurityGroup(vpcId, name, desc)
-	//	if err != nil {
-	//		return "", err
-	//	}
-	//	secgroupId = extID
-	//}
-	//return secgroupId, self.syncSecgroupRules(secgroupId, rules)
-	// todo: implement me
-	return "", nil
+	if len(secgroupId) > 0 {
+		_, err := self.GetSecurityGroupDetails(secgroupId)
+		if err == cloudprovider.ErrNotSupported {
+			secgroupId = ""
+		} else if err != nil {
+			return "", err
+		}
+	}
+
+	if len(secgroupId) == 0 {
+		extID, err := self.CreateSecurityGroup(vpcId, name, desc)
+		if err != nil {
+			return "", err
+		}
+		secgroupId = extID
+	}
+
+	return secgroupId, self.syncSecgroupRules(secgroupId, rules)
 }
 
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090608.html
 func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
-	// todo: implement me
-	return self.GetIVpcById("")
+	params := jsonutils.NewDict()
+	vpcObj := jsonutils.NewDict()
+	vpcObj.Add(jsonutils.NewString(name), "name")
+	vpcObj.Add(jsonutils.NewString(cidr), "cidr")
+	params.Add(vpcObj, "vpc")
+
+	vpc := SVpc{}
+	err := DoCreate(self.ecsClient.Vpcs.Create, params, &vpc)
+	vpc.region = self
+	return &vpc, err
 }
 
-func (self *SRegion) CreateEIP(name string, bwMbps int, chargeType string) (cloudprovider.ICloudEIP, error) {
-	// todo: implement me
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090596.html
+// size: 1Mbit/s~2000Mbit/s
+// bgpType: 5_telcom，5_union，5_bgp，5_sbgp.
+// 东北-大连：5_telcom、5_union
+// 华南-广州：5_sbgp
+// 华东-上海二：5_sbgp
+// 华北-北京一：5_bgp、5_sbgp
+// 亚太-香港：5_bgp
+func (self *SRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpType string) (cloudprovider.ICloudEIP, error) {
 	var ctype TInternetChargeType
 	switch chargeType {
 	case models.EIP_CHARGE_TYPE_BY_TRAFFIC:
@@ -337,7 +376,27 @@ func (self *SRegion) CreateEIP(name string, bwMbps int, chargeType string) (clou
 		ctype = InternetChargeByBandwidth
 	}
 
-	eip, err := self.AllocateEIP(bwMbps, ctype)
+	// todo: 如何避免hardcode。集成到cloudmeta服务中？
+	if len(bgpType) == 0 {
+		switch self.GetId() {
+		case "cn-north-1", "cn-east-2", "cn-south-1":
+			bgpType = "5_sbgp"
+		case "cn-northeast-1":
+			bgpType = "5_telcom"
+		case "ap-southeast-1", "ap-southeast-2", "eu-west-0":
+			bgpType = "5_bgp"
+		default:
+			bgpType = ""
+		}
+	}
+
+	eip, err := self.AllocateEIP(name, bwMbps, ctype, bgpType)
+	eip.region = self
+	if err != nil {
+		return nil, err
+	}
+
+	err = cloudprovider.WaitStatus(eip, models.EIP_STATUS_READY, 5*time.Second, 60*time.Second)
 	return eip, err
 }
 
@@ -441,4 +500,148 @@ func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, er
 
 func (self *SRegion) GetProvider() string {
 	return CLOUD_PROVIDER_HUAWEI
+}
+
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090615.html
+// 目前desc字段并没有用到
+func (self *SRegion) CreateSecurityGroup(vpcId string, name string, desc string) (string, error) {
+	// 华为不允许创建名称为default的安全组
+	if strings.ToLower(name) == "default" {
+		name = fmt.Sprintf("%s-%s", vpcId, name)
+	}
+
+	params := jsonutils.NewDict()
+	secgroupObj := jsonutils.NewDict()
+	secgroupObj.Add(jsonutils.NewString(name), "name")
+	if len(vpcId) > 0 {
+		secgroupObj.Add(jsonutils.NewString(vpcId), "vpc_id")
+	}
+	params.Add(secgroupObj, "security_group")
+
+	secgroup := SSecurityGroup{}
+	err := DoCreate(self.ecsClient.SecurityGroups.Create, params, &secgroup)
+	return secgroup.GetId(), err
+}
+
+func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.SecurityRule) error {
+	var DeleteRules []secrules.SecurityRule
+	var AddRules []secrules.SecurityRule
+
+	if secgroup, err := self.GetSecurityGroupDetails(secgroupId); err != nil {
+		return err
+	} else {
+		remoteRules, err := secgroup.GetRulesWithExtId()
+		if err != nil {
+			return err
+		}
+
+		sort.Sort(secrules.SecurityRuleSet(rules))
+		sort.Sort(secrules.SecurityRuleSet(remoteRules))
+
+		i, j := 0, 0
+		for i < len(rules) || j < len(remoteRules) {
+			if i < len(rules) && j < len(remoteRules) {
+				permissionStr := remoteRules[j].String()
+				ruleStr := rules[i].String()
+				cmp := strings.Compare(permissionStr, ruleStr)
+				if cmp == 0 {
+					// DeleteRules = append(DeleteRules, remoteRules[j])
+					// AddRules = append(AddRules, rules[i])
+					i += 1
+					j += 1
+				} else if cmp > 0 {
+					DeleteRules = append(DeleteRules, remoteRules[j])
+					j += 1
+				} else {
+					AddRules = append(AddRules, rules[i])
+					i += 1
+				}
+			} else if i >= len(rules) {
+				DeleteRules = append(DeleteRules, remoteRules[j])
+				j += 1
+			} else if j >= len(remoteRules) {
+				AddRules = append(AddRules, rules[i])
+				i += 1
+			}
+		}
+	}
+
+	for _, r := range DeleteRules {
+		// r.Description 实际存储的是ruleId
+		if err := self.delSecurityGroupRule(r.Description); err != nil {
+			log.Errorf("delSecurityGroupRule %v error: %s", r, err.Error())
+			return err
+		}
+	}
+
+	for _, r := range AddRules {
+		if err := self.addSecurityGroupRules(secgroupId, &r); err != nil {
+			log.Errorf("addSecurityGroupRule %v error: %s", r, err.Error())
+			return err
+		}
+	}
+
+	return nil
+}
+
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0087467071.html
+func (self *SRegion) delSecurityGroupRule(secGrpRuleId string) error {
+	return DoDelete(self.ecsClient.SecurityGroupRules.Delete, secGrpRuleId, nil, nil)
+}
+
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0087451723.html
+// icmp port对应关系：https://support.huaweicloud.com/api-vpc/zh-cn_topic_0024109590.html
+func (self *SRegion) addSecurityGroupRules(secGrpId string, rule *secrules.SecurityRule) error {
+	direction := ""
+	if rule.Direction == secrules.SecurityRuleIngress {
+		direction = "ingress"
+	} else {
+		direction = "egress"
+	}
+
+	protocal := rule.Protocol
+	if rule.Protocol == secrules.PROTO_ANY {
+		protocal = ""
+	}
+
+	if len(rule.Ports) > 0 {
+		for _, port := range rule.Ports {
+			portStr := fmt.Sprintf("%d", port)
+			err := self.addSecurityGroupRule(secGrpId, direction, portStr, portStr, protocal, rule.IPNet.String())
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		portStart := fmt.Sprintf("%d", rule.PortStart)
+		portEnd := fmt.Sprintf("%d", rule.PortEnd)
+		err := self.addSecurityGroupRule(secGrpId, direction, portStart, portEnd, protocal, rule.IPNet.String())
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (self *SRegion) addSecurityGroupRule(secGrpId, direction, portStart, portEnd, protocol, ipNet string) error {
+	params := jsonutils.NewDict()
+	secgroupObj := jsonutils.NewDict()
+	secgroupObj.Add(jsonutils.NewString(secGrpId), "security_group_id")
+	secgroupObj.Add(jsonutils.NewString(direction), "direction")
+	secgroupObj.Add(jsonutils.NewString(ipNet), "remote_ip_prefix")
+	secgroupObj.Add(jsonutils.NewString("IPV4"), "ethertype")
+	if len(portStart) > 0 && portStart != "0" {
+		secgroupObj.Add(jsonutils.NewString(portStart), "port_range_min")
+	}
+	if len(portEnd) > 0 && portEnd != "0" {
+		secgroupObj.Add(jsonutils.NewString(portEnd), "port_range_max")
+	}
+	if len(protocol) > 0 {
+		secgroupObj.Add(jsonutils.NewString(protocol), "protocol")
+	}
+	params.Add(secgroupObj, "security_group_rule")
+
+	rule := SecurityGroupRule{}
+	return DoCreate(self.ecsClient.SecurityGroupRules.Create, params, &rule)
 }
