@@ -11,13 +11,13 @@ import (
 func init() {
 	type DiskListOptions struct {
 		options.BaseListOptions
-
-		Unused  *bool  `help:"Show unused disks"`
-		Share   *bool  `help:"Show Share storage disks"`
-		Local   *bool  `help:"Show Local storage disks"`
-		Guest   string `help:"Guest ID or name"`
-		Storage string `help:"Storage ID or name"`
-		Type    string `help:"Disk type" choices:"sys|data|swap|volume"`
+		Unused    *bool  `help:"Show unused disks"`
+		Share     *bool  `help:"Show Share storage disks"`
+		Local     *bool  `help:"Show Local storage disks"`
+		Guest     string `help:"Guest ID or name"`
+		Storage   string `help:"Storage ID or name"`
+		Type      string `help:"Disk type" choices:"sys|data|swap|volume"`
+		CloudType string `help:"Public cloud or private cloud" choices:"Public|Private"`
 
 		BillingType string `help:"billing type" choices:"postpaid|prepaid"`
 	}
@@ -26,6 +26,14 @@ func init() {
 		if err != nil {
 			return err
 		}
+		if len(suboptions.CloudType) > 0 {
+			if suboptions.CloudType == "Public" {
+				params.Add(jsonutils.JSONTrue, "public_cloud")
+			} else if suboptions.CloudType == "Private" {
+				params.Add(jsonutils.JSONTrue, "private_cloud")
+			}
+		}
+
 		result, err := modules.Disks.List(s, params)
 		if err != nil {
 			return err
