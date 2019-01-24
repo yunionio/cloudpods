@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -117,6 +119,46 @@ func (m *SLoadbalancernetworkManager) DeleteLoadbalancerNetwork(ctx context.Cont
 			if err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+func (m *SLoadbalancernetworkManager) SyncLoadbalancerNetwork(ctx context.Context, userCred mcclient.TokenCredential, req *SLoadbalancerNetworkRequestData) error {
+	_network, err := NetworkManager.FetchById(req.networkId)
+	if err != nil {
+		return err
+	}
+	network := _network.(*SNetwork)
+	ip, err := netutils.NewIPV4Addr(req.address)
+	if err != nil {
+		return err
+	}
+	if !network.isAddressInRange(ip) {
+		return fmt.Errorf("address %s is not in the range of network %s(%s)", req.address, network.Id, network.Name)
+	}
+	q := m.Query().Equals("loadbalancer_id", req.loadbalancer.Id).Equals("network_id", req.networkId)
+	lns := []SLoadbalancerNetwork{}
+	if err := db.FetchModelObjects(m, q, &lns); err != nil {
+		return err
+	}
+	if len(lns) == 0 {
+		ln := &SLoadbalancerNetwork{LoadbalancerId: req.loadbalancer.Id, NetworkId: req.networkId, IpAddr: req.address}
+		return m.TableSpec().Insert(ln)
+	}
+	for i := 0; i < len(lns); i++ {
+		if i == 0 {
+			if lns[i].IpAddr != req.address {
+				_, err := lns[i].GetModelManager().TableSpec().Update(&lns[i], func() error {
+					lns[i].IpAddr = req.address
+					return nil
+				})
+				if err != nil {
+					log.Errorf("update loadbalancer network ipaddr %s error: %v", lns[i].LoadbalancerId, err)
+				}
+			}
+		} else {
+			lns[i].Delete(ctx, userCred)
 		}
 	}
 	return nil
