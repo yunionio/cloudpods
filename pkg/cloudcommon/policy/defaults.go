@@ -64,6 +64,18 @@ var (
 			Result:   rbacutils.UserAllow,
 		},
 		{
+			Service:  "compute",
+			Resource: "cachedimages",
+			Action:   PolicyActionList,
+			Result:   rbacutils.UserAllow,
+		},
+		{
+			Service:  "compute",
+			Resource: "cachedimages",
+			Action:   PolicyActionGet,
+			Result:   rbacutils.UserAllow,
+		},
+		{
 			// quotas for any services
 			// Service:  "compute",
 			Resource: "quotas",
