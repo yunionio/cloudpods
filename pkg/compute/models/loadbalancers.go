@@ -363,7 +363,7 @@ func (lb *SLoadbalancer) syncLoadbalancerNetwork(ctx context.Context, userCred m
 			networkId:    lb.NetworkId,
 			address:      lb.Address,
 		}
-		_, err := LoadbalancernetworkManager.NewLoadbalancerNetwork(ctx, userCred, lbNetReq)
+		err := LoadbalancernetworkManager.SyncLoadbalancerNetwork(ctx, userCred, lbNetReq)
 		if err != nil {
 			log.Errorf("failed to create loadbalancer network: %v", err)
 		}
