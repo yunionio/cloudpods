@@ -90,7 +90,7 @@ func (self *SStorage) GetStorageType() string {
 }
 
 func (self *SStorage) GetMediumType() string {
-	if self.storageType == models.STORAGE_GP2_SSD || self.storageType == models.STORAGE_IO1_SSD {
+	if self.storageType == models.STORAGE_HUAWEI_SSD {
 		return models.DISK_TYPE_SSD
 	} else {
 		return models.DISK_TYPE_ROTATE
@@ -115,8 +115,18 @@ func (self *SStorage) GetManagerId() string {
 }
 
 func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
-	// todo: implement me
-	return nil, nil
+	diskId, err := self.zone.region.CreateDisk(self.zone.GetId(), self.storageType, name, sizeGb, "", desc)
+	if err != nil {
+		log.Errorf("createDisk fail %s", err)
+		return nil, err
+	}
+	disk, err := self.zone.region.GetDisk(diskId)
+	if err != nil {
+		log.Errorf("getDisk fail %s", err)
+		return nil, err
+	}
+	disk.storage = self
+	return disk, nil
 }
 
 func (self *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {

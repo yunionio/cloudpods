@@ -14,7 +14,6 @@ type SHuaweiProviderFactory struct {
 }
 
 func (self *SHuaweiProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
-	// todo: implement me
 	return nil
 }
 
@@ -111,7 +110,7 @@ func (self *SHuaweiProvider) GetIRegionById(extId string) (cloudprovider.ICloudR
 }
 
 func (self *SHuaweiProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
-	panic("implement me")
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SHuaweiProvider) GetBalance() (float64, error) {

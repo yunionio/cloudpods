@@ -23,3 +23,17 @@ func NewSecurityGroupManager(regionId string, projectId string, signer auth.Sign
 		ResourceKeyword: "security-groups",
 	}}
 }
+
+func NewNovaSecurityGroupManager(regionId string, projectId string, signer auth.Signer) *SSecurityGroupManager {
+	return &SSecurityGroupManager{ResourceManager: ResourceManager{
+		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}},
+		ServiceName:   ServiceNameECS,
+		Region:        regionId,
+		ProjectId:     projectId,
+		version:       "v2.1",
+		Keyword:       "security_group",
+		KeywordPlural: "security_groups",
+
+		ResourceKeyword: "os-security-groups",
+	}}
+}

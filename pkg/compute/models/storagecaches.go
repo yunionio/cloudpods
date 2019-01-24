@@ -283,6 +283,7 @@ func (self *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcc
 		data.Add(jsonutils.NewString(imgInfo.OsArch), "os_arch")
 		data.Add(jsonutils.NewString(imgInfo.OsDistro), "os_distribution")
 		data.Add(jsonutils.NewString(imgInfo.OsVersion), "os_version")
+		data.Add(jsonutils.NewString(imgInfo.OsFullVersion), "os_full_version")
 	}
 
 	if isForce {

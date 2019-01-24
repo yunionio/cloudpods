@@ -30,7 +30,13 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 	osArch, _ := params.GetString("os_arch")
 	osType, _ := params.GetString("os_type")
 	osDist, _ := params.GetString("os_distribution")
-	osVersion, _ := params.GetString("os_version")
+	var osVersion string
+	providerName := storageCache.GetProviderName()
+	if providerName == models.CLOUD_PROVIDER_HUAWEI {
+		osVersion, _ = params.GetString("os_full_version")
+	} else {
+		osVersion, _ = params.GetString("os_version")
+	}
 
 	isForce := jsonutils.QueryBoolean(params, "is_force", false)
 	userCred := task.GetUserCred()

@@ -68,7 +68,7 @@ func (region *SRegion) AllocateEIP(eipName string) (*SEipAddress, error) {
 	return &eip, cloudprovider.WaitStatus(&eip, models.EIP_STATUS_READY, 10*time.Second, 300*time.Second)
 }
 
-func (region *SRegion) CreateEIP(eipName string, bwMbps int, chargeType string) (cloudprovider.ICloudEIP, error) {
+func (region *SRegion) CreateEIP(eipName string, bwMbps int, chargeType string, bgpType string) (cloudprovider.ICloudEIP, error) {
 	return region.AllocateEIP(eipName)
 }
 
