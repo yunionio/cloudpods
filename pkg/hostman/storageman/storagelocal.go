@@ -112,7 +112,9 @@ func (s *SLocalStorage) GetDiskById(diskId string) IDisk {
 func (s *SLocalStorage) CreateDisk(diskId string) IDisk {
 	s.DiskLock.Lock()
 	defer s.DiskLock.Unlock()
-	return NewLocalDisk(s, diskId)
+	disk := NewLocalDisk(s, diskId)
+	s.Disks = append(s.Disks, disk)
+	return disk
 }
 
 func (s *SLocalStorage) StartSnapshotRecycle() {

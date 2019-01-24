@@ -630,25 +630,34 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 
 func (s *SKVMGuestInstance) presendArpForNic(nic jsonutils.JSONObject) {
 	ifname, _ := nic.GetString("ifname")
-	if ifi, err := net.InterfaceByName(ifname); err != nil {
+	ifi, err := net.InterfaceByName(ifname)
+	if err != nil {
 		log.Errorf("InterfaceByName error %s", ifname)
 		return
 	}
 
-	if cli, err := arp.Dial(ifi); err != nil {
+	cli, err := arp.Dial(ifi)
+	if err != nil {
 		log.Errorf("arp Dial error %s", err)
 		return
 	}
 	defer cli.Close()
 
 	var (
-		srcMac, _ = nic.GetString("mac")
-		scrIp, _  = nic.GetString("ip")
-		dstMac, _ = net.ParseMAC("00:00:00:00:00:00")
-		dstIp, _  = net.ParseIP("255.255.255.255")
+		sSrcMac, _ = nic.GetString("mac")
+		sScrIp, _  = nic.GetString("ip")
+		srcIp      = net.ParseIP(sScrIp)
+		dstMac, _  = net.ParseMAC("00:00:00:00:00:00")
+		dstIp      = net.ParseIP("255.255.255.255")
 	)
+	srcMac, err := net.ParseMAC(sSrcMac)
+	if err != nil {
+		log.Errorf("Send arp parse mac error: %s", err)
+		return
+	}
 
-	if pkt, err := arp.NewPacket(arp.OperationRequest, srcMac, scrIp, dstHW, dstIP); err != nil {
+	pkt, err := arp.NewPacket(arp.OperationRequest, srcMac, srcIp, dstMac, dstIp)
+	if err != nil {
 		log.Errorf("New arp packet error %s", err)
 		return
 	}

@@ -676,7 +676,7 @@ func (s *SGuestReloadDiskTask) onGetBlocksSucc(res *jsonutils.JSONArray, callbac
 	var device string
 	devs, _ := res.GetArray()
 	for _, d := range devs {
-		device := s.getDiskOfDrive(d)
+		device = s.getDiskOfDrive(d)
 		if len(device) > 0 {
 			callback(device)
 			break
@@ -782,8 +782,7 @@ func (s *SGuestDiskSnapshotTask) onResumeSucc(res string) {
 	snapshotDir := s.disk.GetSnapshotDir()
 	snapshotLocation := path.Join(snapshotDir, s.snapshotId)
 	hostutils.TaskComplete(s.ctx, jsonutils.NewDict(
-		jsonutils.NewPair("localtion", jsonutils.NewString(snapshotLocation))))
-
+		jsonutils.NewPair("location", jsonutils.NewString(snapshotLocation))))
 }
 
 /**

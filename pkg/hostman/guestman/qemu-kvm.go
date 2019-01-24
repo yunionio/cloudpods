@@ -378,7 +378,8 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 	log.Infof("Guest(%s) qemu version %s", s.Id, s.QemuVersion)
 	if s.Desc.Contains("live_migrate_dest_port") && ctx != nil {
 		migratePort, _ := s.Desc.Get("live_migrate_dest_port")
-		body := jsonutils.NewDict(jsonutils.NewPair("live_migrate_dest_port", migratePort))
+		body := jsonutils.NewDict()
+		body.Set("live_migrate_dest_port", migratePort)
 		hostutils.TaskComplete(ctx, body)
 	} else if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
 		if len(appctx.AppContextTaskId(ctx)) > 0 {

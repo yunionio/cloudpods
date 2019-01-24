@@ -149,9 +149,9 @@ func MergeAuthorizedKeys(oldKeys string, pubkeys *sshkeys.SSHKeys) string {
 			}
 		}
 	}
-	var keys = make([]string, len(allkeys))
-	for key := range allkeys {
-		keys = append(keys, key)
+	var keys = make([]string, 0)
+	for _, val := range allkeys {
+		keys = append(keys, val)
 	}
 	return strings.Join(keys, "\n")
 }

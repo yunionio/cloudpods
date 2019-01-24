@@ -188,6 +188,7 @@ func DeployGuestFs(
 			}
 		}
 	}
+
 	if err = rootfs.DeployYunionroot(partition, deployInfo.publicKey); err != nil {
 		return nil, fmt.Errorf("DeployYunionroot: %v", err)
 	}

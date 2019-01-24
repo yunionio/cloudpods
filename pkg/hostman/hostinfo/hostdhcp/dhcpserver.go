@@ -31,9 +31,11 @@ func NewGuestDHCPServer(iface string, relay []string) (*SGuestDHCPServer, error)
 		guestdhcp = new(SGuestDHCPServer)
 	)
 
-	guestdhcp.relay, err = NewDHCPRelay(relay)
-	if err != nil {
-		return nil, err
+	if len(relay) == 2 {
+		guestdhcp.relay, err = NewDHCPRelay(relay)
+		if err != nil {
+			return nil, err
+		}
 	}
 	guestdhcp.server = dhcp.NewDHCPServer(DEFAULT_DHCP_LISTEN_ADDR, options.HostOptions.DhcpServerPort)
 	guestdhcp.iface = iface
@@ -54,7 +56,9 @@ func (s *SGuestDHCPServer) Start() {
 }
 
 func (s *SGuestDHCPServer) RelaySetup(addr string) {
-	s.relay.Setup(addr)
+	if s.relay != nil {
+		s.relay.Setup(addr)
+	}
 }
 
 func (s *SGuestDHCPServer) getGuestConfig(guestDesc, guestNic jsonutils.JSONObject) *dhcp.ResponseConfig {

@@ -437,7 +437,7 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 		// guest.CreateFromUrl(ctx, migParams.ServerUrl, migParams.Desc)
 
 		disks, _ := migParams.Desc.GetArray("disks")
-		for _, diskinfo := range disks {
+		for i, diskinfo := range disks {
 			var (
 				diskId, _    = diskinfo.GetString("disk_id")
 				snapshots, _ = migParams.SrcSnapshots.GetArray(diskId)
@@ -461,7 +461,9 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 			diskStorageId, _ := diskinfo.GetString("storage_id")
 			for _, snapshotId := range snapshots {
 				snapId, _ := snapshotId.GetString()
-				snapshotUrl := path.Join(migParams.SnapshotsUri, diskStorageId, diskId, snapId)
+
+				snapshotUrl := fmt.Sprintf("%s/%s/%s/%s",
+					migParams.SnapshotsUri, diskStorageId, diskId, snapId)
 				snapshotPath := path.Join(disk.GetSnapshotDir(), snapId)
 				log.Infof("Disk %s snapshot %s url: %s", diskId, snapId, snapshotUrl)
 				iStorage.CreateSnapshotFormUrl(ctx, snapshotUrl, diskId, snapshotPath)
@@ -478,12 +480,14 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 				}
 			} else {
 				// download disk form remote url
-				diskUrl := path.Join(migParams.DisksUri, diskStorageId, diskId)
+				diskUrl := fmt.Sprintf("%s/%s/%s", migParams.DisksUri, diskStorageId, diskId)
 				if err := disk.CreateFromUrl(ctx, diskUrl); err != nil {
 					log.Errorln(err)
 					return nil, err
 				}
 			}
+			diskDesc, _ := disks[i].(*jsonutils.JSONDict)
+			diskDesc.Set("path", jsonutils.NewString(disk.GetPath()))
 		}
 
 		// 可能可以不要
@@ -497,7 +501,7 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 		startParams := jsonutils.NewDict()
 		startParams.Set("qemu_version", jsonutils.NewString(migParams.QemuVersion))
 		startParams.Set("need_migrate", jsonutils.JSONTrue)
-		guest.StartGuest(ctx, startParams)
+		hostutils.DelayTaskWithoutReqctx(ctx, guest.asyncScriptStart, startParams)
 	}
 
 	return nil, nil
