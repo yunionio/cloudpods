@@ -82,7 +82,7 @@ func (self *SGuest) GetDetailsDesc(ctx context.Context, userCred mcclient.TokenC
 	if host == nil {
 		return nil, httperrors.NewInvalidStatusError("No host for server")
 	}
-	desc := self.GetDriver().GetJsonDescAtHost(ctx, self, host)
+	desc := self.GetDriver().GetJsonDescAtHost(ctx, userCred, self, host)
 	return desc, nil
 }
 

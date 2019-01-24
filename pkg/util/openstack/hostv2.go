@@ -6,7 +6,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SResource struct {
@@ -75,17 +74,7 @@ func (host *SHostV2) GetIVMById(gid string) (cloudprovider.ICloudVM, error) {
 	return instance, nil
 }
 
-func (host *SHostV2) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int,
-	vswitchId string, ipAddr string, desc string, passwd string,
-	storageType string, diskSizes []int, publicKey string, secgroupId string, userData string,
-	bc *billing.SBillingCycle) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (host *SHostV2) CreateVM2(name string, imgId string, sysDiskSize int, instanceType string,
-	vswitchId string, ipAddr string, desc string, passwd string,
-	storageType string, diskSizes []int, publicKey string, secgroupId string,
-	userData string, bc *billing.SBillingCycle) (cloudprovider.ICloudVM, error) {
+func (host *SHostV2) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 

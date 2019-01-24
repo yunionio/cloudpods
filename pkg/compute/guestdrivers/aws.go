@@ -90,9 +90,16 @@ func (self *SAwsGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mode
 }
 
 func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
+	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
+	if err != nil {
+		log.Errorf("GetDeployConfigOnHost error: %v", err)
+		return err
+	}
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
-
+	desc := cloudprovider.SManagedVMCreateConfig{}
+	if err := desc.GetConfig(config); err != nil {
+		return err
+	}
 	action, err := config.GetString("action")
 	if err != nil {
 		return err
@@ -103,56 +110,11 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 		return err
 	}
 
-	desc := cloudprovider.SManagedVMCreateConfig{}
-	err = config.Unmarshal(&desc, "desc")
-	if err != nil {
-		return err
-	}
-	publicKey, _ := config.GetString("public_key")
-	passwd, _ := config.GetString("password")
-
-	adminPublicKey, _ := config.GetString("admin_public_key")
-	projectPublicKey, _ := config.GetString("project_public_key")
-	oUserData, _ := config.GetString("user_data")
-
-	userData := generateUserData(adminPublicKey, projectPublicKey, oUserData)
-
 	switch action {
 	case "create":
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			nets := guest.GetNetworks()
-			net := nets[0].GetNetwork()
-			vpc := net.GetVpc()
 
-			iregion, err := host.GetIRegion()
-			if err != nil {
-				return nil, err
-			}
-
-			secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), desc.SecGroupId, vpc.Id, vpc.CloudregionId, vpc.ManagerId)
-			if secgroupCache == nil {
-				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s, vpc: %s", desc.SecGroupId, vpc.Name)
-			}
-
-			secgroupExtId, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpc.ExternalId, desc.SecGroupName, "", desc.SecRules)
-			if err != nil {
-				log.Errorf("SyncSecurityGroup fail %s", err)
-				return nil, err
-			}
-			if err := secgroupCache.SetExternalId(secgroupExtId); err != nil {
-				return nil, fmt.Errorf("failed to set externalId for secgroup %s externalId %s: error: %v", desc.SecGroupId, secgroupExtId, err)
-			}
-
-			var createErr error
-			var iVM cloudprovider.ICloudVM
-			if len(desc.InstanceType) > 0 {
-				iVM, createErr = ihost.CreateVM2(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.InstanceType, desc.ExternalNetworkId,
-					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData, nil)
-			} else {
-				iVM, createErr = ihost.CreateVM(desc.Name, desc.ExternalImageId, desc.SysDiskSize, desc.Cpu, desc.Memory, desc.ExternalNetworkId,
-					desc.IpAddr, desc.Description, passwd, desc.StorageType, desc.DataDisks, publicKey, secgroupExtId, userData, nil)
-			}
-
+			iVM, createErr := ihost.CreateVM(&desc)
 			if createErr != nil {
 				return nil, createErr
 			}
@@ -170,7 +132,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", passwd, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, "root", desc.Password, action)
 			return data, nil
 		})
 	case "deploy":
@@ -182,19 +144,15 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 
 		params := task.GetParams()
 		log.Debugf("Deploy VM params %s", params.String())
-
-		name, _ := params.GetString("name")
-		description, _ := params.GetString("description")
-		publicKey, _ := config.GetString("public_key")
 		deleteKeypair := jsonutils.QueryBoolean(params, "__delete_keypair__", false)
 
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			err := iVM.DeployVM(ctx, name, passwd, publicKey, deleteKeypair, description)
+			err := iVM.DeployVM(ctx, desc.Name, desc.Password, desc.PublicKey, deleteKeypair, desc.Description)
 			if err != nil {
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, desc.Password, action)
 			return data, nil
 		})
 	case "rebuild":
@@ -205,7 +163,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 		}
 
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-			diskId, err := iVM.RebuildRoot(ctx, desc.ExternalImageId, passwd, publicKey, desc.SysDiskSize)
+			diskId, err := iVM.RebuildRoot(ctx, desc.ExternalImageId, desc.Password, desc.PublicKey, desc.SysDisk.SizeGB)
 			if err != nil {
 				return nil, err
 			}
@@ -246,7 +204,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 				}
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, passwd, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, desc.Password, action)
 
 			return data, nil
 		})

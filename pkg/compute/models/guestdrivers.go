@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"time"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -23,7 +24,7 @@ type IGuestDriver interface {
 
 	RequestRenewInstance(guest *SGuest, bc billing.SBillingCycle) (time.Time, error)
 
-	GetJsonDescAtHost(ctx context.Context, guest *SGuest, host *SHost) jsonutils.JSONObject
+	GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, host *SHost) jsonutils.JSONObject
 
 	ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
 

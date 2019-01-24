@@ -11,6 +11,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -93,12 +94,16 @@ func (self *SESXiGuestDriver) RequestDetachDisk(ctx context.Context, guest *mode
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
-func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
+func (self *SESXiGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
 	return guest.GetJsonDescAtHypervisor(ctx, host)
 }
 
 func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
+	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
+	if err != nil {
+		log.Errorf("GetDeployConfigOnHost error: %v", err)
+		return err
+	}
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
 
 	if !host.IsEsxiAgentReady() {

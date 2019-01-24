@@ -2682,10 +2682,10 @@ type SDeployConfig struct {
 	Content string
 }
 
-func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, host *SHost, params *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, params *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	config := jsonutils.NewDict()
 
-	desc := self.GetDriver().GetJsonDescAtHost(ctx, self, host)
+	desc := self.GetDriver().GetJsonDescAtHost(ctx, userCred, self, host)
 	config.Add(desc, "desc")
 
 	deploys := make([]SDeployConfig, 0)
@@ -2754,7 +2754,55 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, host *SHost, para
 
 	config.Add(jsonutils.NewString(onFinish), "on_finish")
 
-	return config
+	if deployAction == "create" && !utils.IsInStringArray(self.Hypervisor, []string{HYPERVISOR_KVM, HYPERVISOR_BAREMETAL, HYPERVISOR_CONTAINER, HYPERVISOR_ESXI, HYPERVISOR_XEN}) {
+		nets := self.GetNetworks()
+		if len(nets) == 0 {
+			return nil, fmt.Errorf("failed to find network for guest %s", self.Name)
+		}
+		net := nets[0].GetNetwork()
+		vpc := net.GetVpc()
+		registerVpcId := vpc.ExternalId
+		externalVpcId := vpc.ExternalId
+		switch self.Hypervisor {
+		case HYPERVISOR_ALIYUN, HYPERVISOR_AWS, HYPERVISOR_OPENSTACK, HYPERVISOR_HUAWEI:
+			break
+		case HYPERVISOR_QCLOUD:
+			registerVpcId = "normal"
+		case HYPERVISOR_AZURE:
+			registerVpcId, externalVpcId = "normal", "normal"
+			if strings.HasSuffix(host.Name, "-classic") {
+				registerVpcId, externalVpcId = "classic", "classic"
+			}
+		default:
+			return nil, fmt.Errorf("Unknown guest %s hypervisor %s for sync secgroup", self.Name, self.Hypervisor)
+		}
+		iregion, err := host.GetIRegion()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get iregion for host %s error: %v", host.Name, err)
+		}
+		secgroupIds := jsonutils.NewArray()
+		secgroups := self.GetSecgroups()
+		for i, secgroup := range secgroups {
+			secgroupCache := SecurityGroupCacheManager.Register(ctx, userCred, secgroup.Id, registerVpcId, vpc.CloudregionId, vpc.ManagerId)
+			if secgroupCache == nil {
+				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s(%s), vpc: %s", secgroup.Name, secgroup.Id, vpc.Name)
+			}
+
+			externalSecgroupId, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, externalVpcId, secgroup.Name, secgroup.Description, secgroup.GetSecRules(""))
+			if err != nil {
+				return nil, fmt.Errorf("SyncSecurityGroup fail %s", err)
+			}
+			if err := secgroupCache.SetExternalId(externalSecgroupId); err != nil {
+				return nil, fmt.Errorf("failed to set externalId for secgroup %s(%s) externalId %s: error: %v", secgroup.Name, secgroup.Id, externalSecgroupId, err)
+			}
+			secgroupIds.Add(jsonutils.NewString(externalSecgroupId))
+			if i == 0 {
+				config.Add(jsonutils.NewString(externalSecgroupId), "desc", "external_secgroup_id")
+			}
+		}
+		config.Add(secgroupIds, "desc", "external_secgroup_ids")
+	}
+	return config, nil
 }
 
 func (self *SGuest) getVga() string {

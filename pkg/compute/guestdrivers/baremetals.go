@@ -289,7 +289,7 @@ func (self *SBaremetalGuestDriver) ValidateCreateHostData(ctx context.Context, u
 	return data, nil
 }
 
-func (self *SBaremetalGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
+func (self *SBaremetalGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
 	return guest.GetJsonDescAtBaremetal(ctx, host)
 }
 
@@ -352,7 +352,11 @@ func (self *SBaremetalGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Con
 }
 
 func (self *SBaremetalGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
+	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
+	if err != nil {
+		log.Errorf("GetDeployConfigOnHost error: %v", err)
+		return err
+	}
 	val, _ := config.GetString("action")
 	if len(val) == 0 {
 		val = "deploy"
@@ -362,7 +366,7 @@ func (self *SBaremetalGuestDriver) RequestDeployGuestOnHost(ctx context.Context,
 	}
 	url := fmt.Sprintf("/baremetals/%s/servers/%s/%s", host.Id, guest.Id, val)
 	headers := task.GetTaskRequestHeader()
-	_, err := host.BaremetalSyncRequest(ctx, "POST", url, headers, config)
+	_, err = host.BaremetalSyncRequest(ctx, "POST", url, headers, config)
 	return err
 }
 

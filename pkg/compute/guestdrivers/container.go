@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -126,12 +127,16 @@ func (self *SContainerDriver) OnGuestDeployTaskComplete(ctx context.Context, gue
 	return nil
 }
 
-func (self *SContainerDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
+func (self *SContainerDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
 	return guest.GetJsonDescAtHypervisor(ctx, host)
 }
 
 func (self *SContainerDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
+	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
+	if err != nil {
+		log.Errorf("GetDeployConfigOnHost error: %v", err)
+		return err
+	}
 	config.Add(jsonutils.JSONTrue, "k8s_pod")
 	action, err := config.GetString("action")
 	if err != nil {
