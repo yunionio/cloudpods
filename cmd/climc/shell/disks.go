@@ -11,12 +11,13 @@ import (
 func init() {
 	type DiskListOptions struct {
 		options.BaseListOptions
-		Unused   bool   `help:"Show unused disks"`
-		Share    bool   `help:"Show Share storage disks"`
-		Local    bool   `help:"Show Local storage disks"`
-		Guest    string `help:"Guest ID or name"`
-		Storage  string `help:"Storage ID or name"`
-		Provider string `help:"Provider for disk" choices:"Aliyun|VMware|Azure"`
+		Unused    bool   `help:"Show unused disks"`
+		Share     bool   `help:"Show Share storage disks"`
+		Local     bool   `help:"Show Local storage disks"`
+		Guest     string `help:"Guest ID or name"`
+		Storage   string `help:"Storage ID or name"`
+		Provider  string `help:"Provider for disk" choices:"Aliyun|VMware|Azure"`
+		CloudType string `help:"Public cloud or private cloud" choices:"Public|Private"`
 	}
 	R(&DiskListOptions{}, "disk-list", "List virtual disks", func(s *mcclient.ClientSession, suboptions *DiskListOptions) error {
 		var params *jsonutils.JSONDict
@@ -46,6 +47,14 @@ func init() {
 		if len(suboptions.Provider) > 0 {
 			params.Add(jsonutils.NewString(suboptions.Provider), "provider")
 		}
+		if len(suboptions.CloudType) > 0 {
+			if suboptions.CloudType == "Public" {
+				params.Add(jsonutils.JSONTrue, "public_cloud")
+			} else if suboptions.CloudType == "Private" {
+				params.Add(jsonutils.JSONTrue, "private_cloud")
+			}
+		}
+
 		result, err := modules.Disks.List(s, params)
 		if err != nil {
 			return err
