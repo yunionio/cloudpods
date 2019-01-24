@@ -2,16 +2,20 @@ package guestman
 
 import (
 	"fmt"
+	"net"
 	"path"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/ethernet"
+	"yunion.io/x/onecloud/pkg/cloudcommon/ethernet/arp"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
-	"yunion.io/x/pkg/utils"
 )
 
 const (
@@ -625,7 +629,33 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 }
 
 func (s *SKVMGuestInstance) presendArpForNic(nic jsonutils.JSONObject) {
+	ifname, _ := nic.GetString("ifname")
+	if ifi, err := net.InterfaceByName(ifname); err != nil {
+		log.Errorf("InterfaceByName error %s", ifname)
+		return
+	}
 
+	if cli, err := arp.Dial(ifi); err != nil {
+		log.Errorf("arp Dial error %s", err)
+		return
+	}
+	defer cli.Close()
+
+	var (
+		srcMac, _ = nic.GetString("mac")
+		scrIp, _  = nic.GetString("ip")
+		dstMac, _ = net.ParseMAC("00:00:00:00:00:00")
+		dstIp, _  = net.ParseIP("255.255.255.255")
+	)
+
+	if pkt, err := arp.NewPacket(arp.OperationRequest, srcMac, scrIp, dstHW, dstIP); err != nil {
+		log.Errorf("New arp packet error %s", err)
+		return
+	}
+	if err := cli.WriteTo(pkt, ethernet.Broadcast); err != nil {
+		log.Errorf("Send arp packet error %s ", err)
+		return
+	}
 }
 
 func (s *SKVMGuestInstance) StartPresendArp() {

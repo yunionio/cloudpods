@@ -9,148 +9,15 @@
 
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-package ethernet
+package arp
 
 import (
 	"errors"
 	"net"
 	"time"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/ethernet"
 )
-
-/*
-https://tools.ietf.org/html/rfc826
-
-Ethernet transmission layer (not necessarily accessible to the user):
-        48.bit: Ethernet address of destination
-        48.bit: Ethernet address of sender
-        16.bit: Protocol type = ether_type$ADDRESS_RESOLUTION
-    Ethernet packet data:
-        16.bit: (ar$hrd) Hardware address space (e.g., Ethernet,
-                         Packet Radio Net.)
-        16.bit: (ar$pro) Protocol address space.  For Ethernet
-                         hardware, this is from the set of type
-                         fields ether_typ$<protocol>.
-         8.bit: (ar$hln) byte length of each hardware address
-         8.bit: (ar$pln) byte length of each protocol address
-        16.bit: (ar$op)  opcode (ares_op$REQUEST | ares_op$REPLY)
-        nbytes: (ar$sha) Hardware address of sender of this
-                         packet, n from the ar$hln field.
-        mbytes: (ar$spa) Protocol address of sender of this
-                         packet, m from the ar$pln field.
-        nbytes: (ar$tha) Hardware address of target of this
-                         packet (if known).
-        mbytes: (ar$tpa) Protocol address of target.
-
-
-Define the following for referring to the values put in the TYPE
-field of the Ethernet packet header:
-        ether_type$XEROX_PUP,
-        ether_type$DOD_INTERNET,
-        ether_type$CHAOS,
-and a new one:
-        ether_type$ADDRESS_RESOLUTION.
-Also define the following values (to be discussed later):
-        ares_op$REQUEST (= 1, high byte transmitted first) and
-        ares_op$REPLY   (= 2),
-and
-        ares_hrd$Ethernet (= 1).
-*/
-
-// An Operation is an ARP operation, such as request or reply.
-type Operation uint16
-
-// Operation constants which indicate an ARP request or reply.
-const (
-	OperationRequest Operation = 1
-	OperationReply   Operation = 2
-)
-
-// A Packet is a raw ARP packet, as described in RFC 826.
-type Packet struct {
-	// HardwareType specifies an IANA-assigned hardware type, as described
-	// in RFC 826.
-	HardwareType uint16
-
-	// ProtocolType specifies the internetwork protocol for which the ARP
-	// request is intended.  Typically, this is the IPv4 EtherType.
-	ProtocolType uint16
-
-	// HardwareAddrLength specifies the length of the sender and target
-	// hardware addresses included in a Packet.
-	HardwareAddrLength uint8
-
-	// IPLength specifies the length of the sender and target IPv4 addresses
-	// included in a Packet.
-	IPLength uint8
-
-	// Operation specifies the ARP operation being performed, such as request
-	// or reply.
-	Operation Operation
-
-	// SenderHardwareAddr specifies the hardware address of the sender of this
-	// Packet.
-	SenderHardwareAddr net.HardwareAddr
-
-	// SenderIP specifies the IPv4 address of the sender of this Packet.
-	SenderIP net.IP
-
-	// TargetHardwareAddr specifies the hardware address of the target of this
-	// Packet.
-	TargetHardwareAddr net.HardwareAddr
-
-	// TargetIP specifies the IPv4 address of the target of this Packet.
-	TargetIP net.IP
-}
-
-// NewPacket creates a new Packet from an input Operation and hardware/IPv4
-// address values for both a sender and target.
-//
-// If either hardware address is less than 6 bytes in length, or there is a
-// length mismatch between the two, ErrInvalidHardwareAddr is returned.
-//
-// If either IP address is not an IPv4 address, or there is a length mismatch
-// between the two, ErrInvalidIP is returned.
-func NewPacket(op Operation, srcHW net.HardwareAddr, srcIP net.IP, dstHW net.HardwareAddr, dstIP net.IP) (*Packet, error) {
-	// Validate hardware addresses for minimum length, and matching length
-	if len(srcHW) < 6 {
-		return nil, ErrInvalidHardwareAddr
-	}
-	if len(dstHW) < 6 {
-		return nil, ErrInvalidHardwareAddr
-	}
-	if len(srcHW) != len(dstHW) {
-		return nil, ErrInvalidHardwareAddr
-	}
-
-	// Validate IP addresses to ensure they are IPv4 addresses, and
-	// correct length
-	srcIP = srcIP.To4()
-	if srcIP == nil {
-		return nil, ErrInvalidIP
-	}
-	dstIP = dstIP.To4()
-	if dstIP == nil {
-		return nil, ErrInvalidIP
-	}
-
-	return &Packet{
-		// There is no Go-native way to detect hardware type of a network
-		// interface, so default to 1 (ethernet 10Mb) for now
-		HardwareType: 1,
-
-		// Default to EtherType for IPv4
-		ProtocolType: uint16(EtherTypeIPv4),
-
-		// Populate other fields using input data
-		HardwareAddrLength: uint8(len(srcHW)),
-		IPLength:           uint8(len(srcIP)),
-		Operation:          op,
-		SenderHardwareAddr: srcHW,
-		SenderIP:           srcIP,
-		TargetHardwareAddr: dstHW,
-		TargetIP:           dstIP,
-	}, nil
-}
 
 var (
 	// errNoIPv4Addr is returned when an interface does not have an IPv4
@@ -176,7 +43,7 @@ type Client struct {
 func Dial(ifi *net.Interface) (*Client, error) {
 	// Open raw socket to send and receive ARP packets using ethernet frames
 	// we build ourselves.
-	p, err := ListenPacket(ifi, protocolARP, nil)
+	p, err := ethernet.ListenPacket(ifi, protocolARP, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +55,7 @@ func Dial(ifi *net.Interface) (*Client, error) {
 // net.PacketConn. This is most useful to define what protocol to pass to socket(7).
 //
 // In most cases, callers would be better off calling Dial.
-func NewArpClient(ifi *net.Interface, p net.PacketConn) (*Client, error) {
+func New(ifi *net.Interface, p net.PacketConn) (*Client, error) {
 	// Check for usable IPv4 addresses for the Client
 	addrs, err := ifi.Addrs()
 	if err != nil {
@@ -234,11 +101,11 @@ func (c *Client) Request(ip net.IP) error {
 
 	// Create ARP packet for broadcast address to attempt to find the
 	// hardware address of the input IP address
-	arp, err := NewPacket(OperationRequest, c.ifi.HardwareAddr, c.ip, Broadcast, ip)
+	arp, err := NewPacket(OperationRequest, c.ifi.HardwareAddr, c.ip, ethernet.Broadcast, ip)
 	if err != nil {
 		return err
 	}
-	return c.WriteTo(arp, Broadcast)
+	return c.WriteTo(arp, ethernet.Broadcast)
 }
 
 // Resolve performs an ARP request, attempting to retrieve the
@@ -269,7 +136,7 @@ func (c *Client) Resolve(ip net.IP) (net.HardwareAddr, error) {
 
 // Read reads a single ARP packet and returns it, together with its
 // ethernet frame.
-func (c *Client) Read() (*Packet, *Frame, error) {
+func (c *Client) Read() (*Packet, *ethernet.Frame, error) {
 	buf := make([]byte, 128)
 	for {
 		n, _, err := c.p.ReadFrom(buf)
@@ -297,10 +164,10 @@ func (c *Client) WriteTo(p *Packet, addr net.HardwareAddr) error {
 		return err
 	}
 
-	f := &Frame{
+	f := &ethernet.Frame{
 		Destination: p.TargetHardwareAddr,
 		Source:      p.SenderHardwareAddr,
-		EtherType:   EtherTypeARP,
+		EtherType:   ethernet.EtherTypeARP,
 		Payload:     pb,
 	}
 
@@ -309,7 +176,7 @@ func (c *Client) WriteTo(p *Packet, addr net.HardwareAddr) error {
 		return err
 	}
 
-	_, err = c.p.WriteTo(fb, &Addr{HardwareAddr: addr})
+	_, err = c.p.WriteTo(fb, &ethernet.Addr{HardwareAddr: addr})
 	return err
 }
 

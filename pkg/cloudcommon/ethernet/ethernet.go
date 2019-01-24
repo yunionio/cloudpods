@@ -9,13 +9,20 @@
 
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+// Package ethernet implements marshaling and unmarshaling of IEEE 802.3
+// Ethernet II frames and IEEE 802.1Q VLAN tags.
 package ethernet
 
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"hash/crc32"
+	"io"
 	"net"
 )
+
+//go:generate stringer -output=string.go -type=EtherType
 
 const (
 	// minPayload is the minimum payload size for an Ethernet frame, assuming
@@ -90,6 +97,33 @@ type Frame struct {
 	Payload []byte
 }
 
+// MarshalBinary allocates a byte slice and marshals a Frame into binary form.
+func (f *Frame) MarshalBinary() ([]byte, error) {
+	b := make([]byte, f.length())
+	_, err := f.read(b)
+	return b, err
+}
+
+// MarshalFCS allocates a byte slice, marshals a Frame into binary form, and
+// finally calculates and places a 4-byte IEEE CRC32 frame check sequence at
+// the end of the slice.
+//
+// Most users should use MarshalBinary instead.  MarshalFCS is provided as a
+// convenience for rare occasions when the operating system cannot
+// automatically generate a frame check sequence for an Ethernet frame.
+func (f *Frame) MarshalFCS() ([]byte, error) {
+	// Frame length with 4 extra bytes for frame check sequence
+	b := make([]byte, f.length()+4)
+	if _, err := f.read(b); err != nil {
+		return nil, err
+	}
+
+	// Compute IEEE CRC32 checksum of frame bytes and place it directly
+	// in the last four bytes of the slice
+	binary.BigEndian.PutUint32(b[len(b)-4:], crc32.ChecksumIEEE(b[0:len(b)-4]))
+	return b, nil
+}
+
 // read reads data from a Frame into b.  read is used to marshal a Frame
 // into binary form, but does not allocate on its own.
 func (f *Frame) read(b []byte) (int, error) {
@@ -132,4 +166,147 @@ func (f *Frame) read(b []byte) (int, error) {
 	copy(b[n+2:], f.Payload)
 
 	return len(b), nil
+}
+
+// UnmarshalBinary unmarshals a byte slice into a Frame.
+func (f *Frame) UnmarshalBinary(b []byte) error {
+	// Verify that both hardware addresses and a single EtherType are present
+	if len(b) < 14 {
+		return io.ErrUnexpectedEOF
+	}
+
+	// Track offset in packet for reading data
+	n := 14
+
+	// Continue looping and parsing VLAN tags until no more VLAN EtherType
+	// values are detected
+	et := EtherType(binary.BigEndian.Uint16(b[n-2 : n]))
+	switch et {
+	case EtherTypeServiceVLAN, EtherTypeVLAN:
+		// VLAN type is hinted for further parsing.  An index is returned which
+		// indicates how many bytes were consumed by VLAN tags.
+		nn, err := f.unmarshalVLANs(et, b[n:])
+		if err != nil {
+			return err
+		}
+
+		n += nn
+	default:
+		// No VLANs detected.
+		f.EtherType = et
+	}
+
+	// Allocate single byte slice to store destination and source hardware
+	// addresses, and payload
+	bb := make([]byte, 6+6+len(b[n:]))
+	copy(bb[0:6], b[0:6])
+	f.Destination = bb[0:6]
+	copy(bb[6:12], b[6:12])
+	f.Source = bb[6:12]
+
+	// There used to be a minimum payload length restriction here, but as
+	// long as two hardware addresses and an EtherType are present, it
+	// doesn't really matter what is contained in the payload.  We will
+	// follow the "robustness principle".
+	copy(bb[12:], b[n:])
+	f.Payload = bb[12:]
+
+	return nil
+}
+
+// UnmarshalFCS computes the IEEE CRC32 frame check sequence of a Frame,
+// verifies it against the checksum present in the byte slice, and finally,
+// unmarshals a byte slice into a Frame.
+//
+// Most users should use UnmarshalBinary instead.  UnmarshalFCS is provided as
+// a convenience for rare occasions when the operating system cannot
+// automatically verify a frame check sequence for an Ethernet frame.
+func (f *Frame) UnmarshalFCS(b []byte) error {
+	// Must contain enough data for FCS, to avoid panics
+	if len(b) < 4 {
+		return io.ErrUnexpectedEOF
+	}
+
+	// Verify checksum in slice versus newly computed checksum
+	want := binary.BigEndian.Uint32(b[len(b)-4:])
+	got := crc32.ChecksumIEEE(b[0 : len(b)-4])
+	if want != got {
+		return ErrInvalidFCS
+	}
+
+	return f.UnmarshalBinary(b[0 : len(b)-4])
+}
+
+// length calculates the number of bytes required to store a Frame.
+func (f *Frame) length() int {
+	// If payload is less than the required minimum length, we zero-pad up to
+	// the required minimum length
+	pl := len(f.Payload)
+	if pl < minPayload {
+		pl = minPayload
+	}
+
+	// Add additional length if VLAN tags are needed.
+	var vlanLen int
+	switch {
+	case f.ServiceVLAN != nil && f.VLAN != nil:
+		vlanLen = 8
+	case f.VLAN != nil:
+		vlanLen = 4
+	}
+
+	// 6 bytes: destination hardware address
+	// 6 bytes: source hardware address
+	// N bytes: VLAN tags (if present)
+	// 2 bytes: EtherType
+	// N bytes: payload length (may be padded)
+	return 6 + 6 + vlanLen + 2 + pl
+}
+
+// unmarshalVLANs unmarshals S/C-VLAN tags.  It is assumed that tpid
+// is a valid S/C-VLAN TPID.
+func (f *Frame) unmarshalVLANs(tpid EtherType, b []byte) (int, error) {
+	// 4 or more bytes must remain for valid S/C-VLAN tag and EtherType.
+	if len(b) < 4 {
+		return 0, io.ErrUnexpectedEOF
+	}
+
+	// Track how many bytes are consumed by VLAN tags.
+	var n int
+
+	switch tpid {
+	case EtherTypeServiceVLAN:
+		vlan := new(VLAN)
+		if err := vlan.UnmarshalBinary(b[n : n+2]); err != nil {
+			return 0, err
+		}
+		f.ServiceVLAN = vlan
+
+		// Assume that a C-VLAN immediately trails an S-VLAN.
+		if EtherType(binary.BigEndian.Uint16(b[n+2:n+4])) != EtherTypeVLAN {
+			return 0, ErrInvalidVLAN
+		}
+
+		// 4 or more bytes must remain for valid C-VLAN tag and EtherType.
+		n += 4
+		if len(b[n:]) < 4 {
+			return 0, io.ErrUnexpectedEOF
+		}
+
+		// Continue to parse the C-VLAN.
+		fallthrough
+	case EtherTypeVLAN:
+		vlan := new(VLAN)
+		if err := vlan.UnmarshalBinary(b[n : n+2]); err != nil {
+			return 0, err
+		}
+
+		f.VLAN = vlan
+		f.EtherType = EtherType(binary.BigEndian.Uint16(b[n+2 : n+4]))
+		n += 4
+	default:
+		panic(fmt.Sprintf("unknown VLAN TPID: %04x", tpid))
+	}
+
+	return n, nil
 }

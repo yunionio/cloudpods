@@ -347,3 +347,15 @@ func (s *sysSocket) SetTimeout(timeout time.Duration) error {
 	}
 	return unix.SetsockoptTimeval(s.fd, unix.SOL_SOCKET, unix.SO_RCVTIMEO, tv)
 }
+
+// newTimeval transforms a duration into a unix.Timeval struct.
+// An error is returned in case of zero time value.
+func newTimeval(timeout time.Duration) (*unix.Timeval, error) {
+	if timeout < time.Microsecond {
+		return nil, &timeoutError{}
+	}
+	return &unix.Timeval{
+		Sec:  int64(timeout / time.Second),
+		Usec: int64(timeout % time.Second / time.Microsecond),
+	}, nil
+}
