@@ -93,6 +93,31 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 	if data.Contains("net.0") && data.Contains("net.1") {
 		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
 	}
+	for i := 0; data.Contains(fmt.Sprintf("disk.%d", i)); i++ {
+		disk := models.SDiskConfig{}
+		if err := data.Unmarshal(&disk, fmt.Sprintf("disk.%d", i)); err != nil {
+			return nil, httperrors.NewInputParameterError("invalid diskinfo of index %d", i)
+		}
+		if i == 0 && (disk.SizeMb < 20*1024 || disk.SizeMb > 500*1024) {
+			return nil, httperrors.NewInputParameterError("The system disk size must be in the range of 20GB ~ 500Gb")
+		}
+		switch disk.Backend {
+		case models.STORAGE_CLOUD_EFFICIENCY, models.STORAGE_CLOUD_SSD, models.STORAGE_CLOUD_ESSD:
+			if disk.SizeMb < 20*1024 || disk.SizeMb > 32768*1024 {
+				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 20GB ~ 32768GB", disk.Backend)
+			}
+		case models.STORAGE_PUBLIC_CLOUD:
+			if disk.SizeMb < 5*1024 || disk.SizeMb > 2000*1024 {
+				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 5GB ~ 2000GB", disk.Backend)
+			}
+		case models.STORAGE_EPHEMERAL_SSD:
+			if disk.SizeMb < 5*1024 || disk.SizeMb > 800*1024 {
+				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 5GB ~ 800GB", disk.Backend)
+			}
+		default:
+			return nil, httperrors.NewInputParameterError("Unkonwn disk type %s", disk.Backend)
+		}
+	}
 	return data, nil
 }
 
