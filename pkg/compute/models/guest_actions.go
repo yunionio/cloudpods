@@ -1055,6 +1055,7 @@ func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.
 	} else {
 		data.Set("all_disks", jsonutils.JSONFalse)
 	}
+	self.SetStatus(userCred, VM_REBUILD_ROOT, "request start rebuild root")
 	if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
 		task, err := taskman.TaskManager.NewTask(ctx, "BaremetalServerRebuildRootTask", self, userCred, data, "", "", nil)
 		if err != nil {
