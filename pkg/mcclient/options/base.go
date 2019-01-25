@@ -51,8 +51,12 @@ func optionsStructRvToParams(rv reflect.Value) (*jsonutils.JSONDict, error) {
 	rvType := rv.Type()
 	for i := 0; i < rvType.NumField(); i++ {
 		ft := rvType.Field(i)
-		name := reflectutils.GetStructFieldName(&ft)
+		jsonInfo := reflectutils.ParseStructFieldJsonInfo(ft)
+		name := jsonInfo.MarshalName()
 		if name == "" {
+			continue
+		}
+		if jsonInfo.Ignore {
 			continue
 		}
 		f := rv.Field(i)
