@@ -1255,7 +1255,7 @@ func (self *SGuest) detachIsolateDevice(ctx context.Context, userCred mcclient.T
 		logclient.AddActionLog(self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
 		return httperrors.NewBadRequestError(msg)
 	}
-	_, err := self.GetModelManager().TableSpec().Update(dev, func() error {
+	_, err := dev.GetModelManager().TableSpec().Update(dev, func() error {
 		dev.GuestId = ""
 		return nil
 	})
