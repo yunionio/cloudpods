@@ -108,7 +108,7 @@ type IGuestDriver interface {
 
 	AllowReconfigGuest() bool
 	DoGuestCreateDisksTask(ctx context.Context, guest *SGuest, task taskman.ITask) error
-	RequestChangeVmConfig(ctx context.Context, guest *SGuest, task taskman.ITask, vcpuCount, vmemSize int64) error
+	RequestChangeVmConfig(ctx context.Context, guest *SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error
 
 	RequestGuestHotAddIso(ctx context.Context, guest *SGuest, path string, task taskman.ITask) error
 	RequestRebuildRootDisk(ctx context.Context, guest *SGuest, task taskman.ITask) error
@@ -120,6 +120,8 @@ type IGuestDriver interface {
 	RequestSyncToBackup(ctx context.Context, guest *SGuest, task taskman.ITask) error
 
 	IsSupportEip() bool
+
+	NeedStopForChangeSpec() bool
 }
 
 var guestDrivers map[string]IGuestDriver

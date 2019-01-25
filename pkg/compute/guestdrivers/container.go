@@ -158,7 +158,7 @@ func (self *SContainerDriver) DoGuestCreateDisksTask(ctx context.Context, guest 
 	return self.newUnsupportOperationError("create disk")
 }
 
-func (self *SContainerDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, vcpuCount, vmemSize int64) error {
+func (self *SContainerDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
 	return self.newUnsupportOperationError("change config")
 }
 

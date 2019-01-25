@@ -9,11 +9,11 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/compute/baremetal"
 )
 
 type SKVMHostDriver struct {
@@ -163,33 +163,47 @@ func (self *SKVMHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, hos
 	return err
 }
 
-func (self *SKVMHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, sizeMb int64, task taskman.ITask) error {
+func (self *SKVMHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, guest *models.SGuest, sizeMb int64, task taskman.ITask) error {
 	header := task.GetTaskRequestHeader()
 
 	url := fmt.Sprintf("/disks/%s/resize/%s", storage.Id, disk.Id)
 	body := jsonutils.NewDict()
 	content := jsonutils.NewDict()
 	content.Add(jsonutils.NewInt(sizeMb), "size")
+	if guest != nil {
+		content.Add(jsonutils.NewString(guest.Id), "server_id")
+	}
 	body.Add(content, "disk")
 	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, body)
 	return err
 }
 
+/*
 func (self *SKVMHostDriver) RequestResizeDiskOnHostOnline(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, sizeMb int64, task taskman.ITask) error {
-	self.RequestResizeDiskOnHost(ctx, host, storage, disk, sizeMb, task)
-
 	header := task.GetTaskRequestHeader()
 
-	for _, guest := range disk.GetAttachedGuests() {
-		guestdisk := guest.GetGuestDisk(disk.GetId())
-		url := fmt.Sprintf("/servers/%s/monitor", guest.GetId())
-		body := jsonutils.NewDict()
-		cmd := fmt.Sprintf("block_resize drive_%d %dM", guestdisk.Index, sizeMb)
-		body.Add(jsonutils.NewString(cmd), "cmd")
-		host.Request(ctx, task.GetUserCred(), "POST", url, header, body)
+	guests := disk.GetAttachedGuests()
+	if len(guests) == 0 {
+		return fmt.Errorf("no valid guest")
 	}
+	if len(guests) > 1 {
+		return fmt.Errorf("cannot resize across more than 1 guest")
+	}
+	guest := guests[0]
+
+	guestdisk := guest.GetGuestDisk(disk.GetId())
+	url := fmt.Sprintf("/servers/%s/monitor", guest.GetId())
+	body := jsonutils.NewDict()
+	cmd := fmt.Sprintf("block_resize drive_%d %dM", guestdisk.Index, sizeMb)
+	body.Add(jsonutils.NewString(cmd), "cmd")
+
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		return host.Request(ctx, task.GetUserCred(), "POST", url, header, body)
+	})
+
 	return nil
 }
+*/
 
 func (self *SKVMHostDriver) RequestPrepareSaveDiskOnHost(ctx context.Context, host *models.SHost, disk *models.SDisk, imageId string, task taskman.ITask) error {
 	body := jsonutils.NewDict()

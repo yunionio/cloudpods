@@ -1421,6 +1421,10 @@ func (self *SGuest) AllowPerformChangeConfig(ctx context.Context, userCred mccli
 }
 
 func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !self.GetDriver().AllowReconfigGuest() {
+		return nil, httperrors.NewInvalidStatusError("Not allow to change config")
+	}
+
 	changeStatus, err := self.GetDriver().GetChangeConfigStatus()
 	if err != nil {
 		return nil, httperrors.NewInputParameterError(err.Error())
@@ -1428,15 +1432,15 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	if !utils.IsInStringArray(self.Status, changeStatus) {
 		return nil, httperrors.NewInvalidStatusError("Cannot change config in %s", self.Status)
 	}
-	if !self.GetDriver().AllowReconfigGuest() {
-		return nil, httperrors.NewInvalidStatusError("Not allow to change config")
-	}
+
 	host := self.GetHost()
 	if host == nil {
 		return nil, httperrors.NewInvalidStatusError("No valid host")
 	}
 
 	var addCpu, addMem int
+	var cpuChanged, memChanged bool
+
 	confs := jsonutils.NewDict()
 	skuId := jsonutils.GetAnyString(data, []string{"instance_type", "sku", "flavor"})
 	if len(skuId) > 0 {
@@ -1444,11 +1448,22 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		if err != nil {
 			return nil, err
 		}
-		addCpu = sku.CpuCoreCount - int(self.VcpuCount)
-		addMem = sku.MemorySizeMB - self.VmemSize
-		confs.Add(jsonutils.NewString(sku.ExternalId), "sku_id")
-		confs.Add(jsonutils.NewInt(int64(sku.CpuCoreCount)), "vcpu_count")
-		confs.Add(jsonutils.NewInt(int64(sku.MemorySizeMB)), "vmem_size")
+
+		if sku.GetName() != self.InstanceType {
+			confs.Add(jsonutils.NewString(sku.GetName()), "instance_type")
+			confs.Add(jsonutils.NewInt(int64(sku.CpuCoreCount)), "vcpu_count")
+			confs.Add(jsonutils.NewInt(int64(sku.MemorySizeMB)), "vmem_size")
+
+			if sku.CpuCoreCount != int(self.VcpuCount) {
+				cpuChanged = true
+				addCpu = sku.CpuCoreCount - int(self.VcpuCount)
+			}
+			if sku.MemorySizeMB != self.VmemSize {
+				memChanged = true
+				addMem = sku.MemorySizeMB - self.VmemSize
+			}
+		}
+
 	} else {
 		vcpuCount, err := data.GetString("vcpu_count")
 		if err == nil {
@@ -1456,13 +1471,14 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 			if err != nil {
 				return nil, httperrors.NewBadRequestError("Params vcpu_count parse error")
 			}
-			err = confs.Add(jsonutils.NewInt(nVcpu), "vcpu_count")
-			if err != nil {
-				return nil, httperrors.NewBadRequestError("Params vcpu_count parse error")
-			}
-			addCpu = int(nVcpu - int64(self.VcpuCount))
-			if addCpu < 0 {
-				addCpu = 0
+
+			if nVcpu != int64(self.VcpuCount) {
+				cpuChanged = true
+				addCpu = int(nVcpu - int64(self.VcpuCount))
+				err = confs.Add(jsonutils.NewInt(nVcpu), "vcpu_count")
+				if err != nil {
+					return nil, httperrors.NewBadRequestError("Params vcpu_count parse error")
+				}
 			}
 		}
 		vmemSize, err := data.GetString("vmem_size")
@@ -1474,15 +1490,26 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 			if err != nil {
 				httperrors.NewBadRequestError("Params vmem_size parse error")
 			}
-			err = confs.Add(jsonutils.NewInt(int64(nVmem)), "vmem_size")
-			if err != nil {
-				return nil, httperrors.NewBadRequestError("Params vmem_size parse error")
-			}
-			addMem = nVmem - self.VmemSize
-			if addMem < 0 {
-				addMem = 0
+			if nVmem != self.VmemSize {
+				memChanged = true
+				addMem = nVmem - self.VmemSize
+				err = confs.Add(jsonutils.NewInt(int64(nVmem)), "vmem_size")
+				if err != nil {
+					return nil, httperrors.NewBadRequestError("Params vmem_size parse error")
+				}
 			}
 		}
+	}
+
+	if self.Status == VM_RUNNING && (cpuChanged || memChanged) && self.GetDriver().NeedStopForChangeSpec() {
+		return nil, httperrors.NewInvalidStatusError("cannot change CPU/Memory spec in status %s", self.Status)
+	}
+
+	if addCpu < 0 {
+		addCpu = 0
+	}
+	if addMem < 0 {
+		addMem = 0
 	}
 
 	disks := self.GetDisks()
@@ -1562,7 +1589,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	if resizeDisks.Length() > 0 {
 		confs.Add(resizeDisks, "resize")
 	}
-	if jsonutils.QueryBoolean(data, "auto_start", false) {
+	if self.Status == VM_RUNNING && jsonutils.QueryBoolean(data, "auto_start", false) {
 		confs.Add(jsonutils.NewBool(true), "auto_start")
 	}
 
@@ -1584,6 +1611,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 			return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
 		}
 	}
+
 	if newDisks.Length() > 0 {
 		err := self.CreateDisksOnHost(ctx, userCred, host, newDisks, pendingUsage, false)
 		if err != nil {
