@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SLoadbalancerHTTPSListener struct {
@@ -14,6 +15,7 @@ type SLoadbalancerHTTPSListener struct {
 	BackendServerPort int    //	负载均衡实例后端使用的端口。
 	Bandwidth         int    //	监听的带宽峰值。
 	Status            string //	当前监听的状态。取值：starting | running | configuring | stopping | stopped
+	Description       string
 
 	XForwardedFor       string //	是否开启通过X-Forwarded-For头字段获取访者真实IP。
 	XForwardedFor_SLBIP string //	是否通过SLB-IP头字段获取客户端请求的真实IP。
@@ -51,6 +53,12 @@ type SLoadbalancerHTTPSListener struct {
 }
 
 func (listener *SLoadbalancerHTTPSListener) GetName() string {
+	if len(listener.Description) == 0 {
+		listener.Refresh()
+	}
+	if len(listener.Description) > 0 {
+		return listener.Description
+	}
 	return fmt.Sprintf("HTTPS:%d", listener.ListenerPort)
 }
 
@@ -63,7 +71,14 @@ func (listerner *SLoadbalancerHTTPSListener) GetGlobalId() string {
 }
 
 func (listerner *SLoadbalancerHTTPSListener) GetStatus() string {
-	return listerner.Status
+	switch listerner.Status {
+	case "starting", "running":
+		return models.LB_STATUS_ENABLED
+	case "configuring", "stopping", "stopped":
+		return models.LB_STATUS_DISABLED
+	default:
+		return models.LB_STATUS_UNKNOWN
+	}
 }
 
 func (listerner *SLoadbalancerHTTPSListener) GetMetadata() *jsonutils.JSONDict {
@@ -75,7 +90,11 @@ func (listerner *SLoadbalancerHTTPSListener) IsEmulated() bool {
 }
 
 func (listerner *SLoadbalancerHTTPSListener) Refresh() error {
-	return nil
+	lis, err := listerner.lb.region.GetLoadbalancerHTTPSListener(listerner.lb.LoadBalancerId, listerner.ListenerPort)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(listerner, lis)
 }
 
 func (listerner *SLoadbalancerHTTPSListener) GetListenerType() string {
@@ -87,7 +106,10 @@ func (listerner *SLoadbalancerHTTPSListener) GetListenerPort() int {
 }
 
 func (listerner *SLoadbalancerHTTPSListener) GetBackendGroupId() string {
-	return ""
+	if len(listerner.VServerGroupId) == 0 {
+		listerner.Refresh()
+	}
+	return listerner.VServerGroupId
 }
 
 func (listerner *SLoadbalancerHTTPSListener) GetScheduler() string {

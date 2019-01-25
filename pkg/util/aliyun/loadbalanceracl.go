@@ -76,7 +76,7 @@ func (region *SRegion) GetLoadbalancerAclDetail(aclId string) (*SLoadbalancerAcl
 	if err != nil {
 		return nil, err
 	}
-	detail := SLoadbalancerAcl{}
+	detail := SLoadbalancerAcl{region: region}
 	return &detail, body.Unmarshal(&detail)
 }
 
