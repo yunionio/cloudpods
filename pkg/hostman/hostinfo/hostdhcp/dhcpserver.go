@@ -16,7 +16,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
-var DEFAULT_DHCP_LISTEN_ADDR = "0.0.0.0"
+var DEFAULT_DHCP_BIND_ADDR = "0.0.0.0"
 
 type SGuestDHCPServer struct {
 	server *dhcp.DHCPServer
@@ -37,16 +37,13 @@ func NewGuestDHCPServer(iface string, relay []string) (*SGuestDHCPServer, error)
 			return nil, err
 		}
 	}
-	guestdhcp.server = dhcp.NewDHCPServer(DEFAULT_DHCP_LISTEN_ADDR, options.HostOptions.DhcpServerPort)
+	guestdhcp.server = dhcp.NewDHCPServer(DEFAULT_DHCP_BIND_ADDR, options.HostOptions.DhcpServerPort)
 	guestdhcp.iface = iface
 	return guestdhcp, nil
 }
 
 func (s *SGuestDHCPServer) Start() {
 	log.Infof("SGuestDHCPServer starting ...")
-	if s.relay != nil {
-		s.relay.Start()
-	}
 	go func() {
 		err := s.server.ListenAndServe(s)
 		if err != nil {
@@ -55,10 +52,11 @@ func (s *SGuestDHCPServer) Start() {
 	}()
 }
 
-func (s *SGuestDHCPServer) RelaySetup(addr string) {
+func (s *SGuestDHCPServer) RelaySetup(addr string) error {
 	if s.relay != nil {
-		s.relay.Setup(addr)
+		return s.relay.Setup(addr)
 	}
+	return nil
 }
 
 func (s *SGuestDHCPServer) getGuestConfig(guestDesc, guestNic jsonutils.JSONObject) *dhcp.ResponseConfig {

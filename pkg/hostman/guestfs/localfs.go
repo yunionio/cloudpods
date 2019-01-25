@@ -111,7 +111,6 @@ func (f *SLocalGuestFS) Zerofiles(dir string, caseInsensitive bool) error {
 	return fmt.Errorf("No such file %s", sPath)
 }
 
-// TODO: test
 func (f *SLocalGuestFS) Passwd(account, password string, caseInsensitive bool) error {
 	var proc = exec.Command("chroot", f.mountPath, "passwd", account)
 	stdin, err := proc.StdinPipe()

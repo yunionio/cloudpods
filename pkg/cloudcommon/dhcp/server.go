@@ -22,7 +22,7 @@ func NewDHCPServer(address string, port int) *DHCPServer {
 }
 
 func NewDHCPServer2(address string, port int) (*DHCPServer, *Conn, error) {
-	conn, err := NewConn(fmt.Sprintf("%s:%d", address, port))
+	conn, err := NewSocketConn(fmt.Sprintf("%s:%d", address, port))
 	if err != nil {
 		return nil, nil, err
 	}

@@ -228,8 +228,9 @@ func (c *CGroupTask) MoveTasksToRoot() {
 func (c *CGroupTask) RemoveTask() bool {
 	if c.taskIsExist() {
 		c.MoveTasksToRoot()
+		log.Infof("Remove task path %s", c.TaskPath())
 		if err := os.Remove(c.TaskPath()); err != nil {
-			log.Errorf("Remove task %s", err)
+			log.Errorf("Remove task path failed %s", err)
 			return false
 		}
 	}

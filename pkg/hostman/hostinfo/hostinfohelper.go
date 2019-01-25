@@ -191,10 +191,13 @@ func (n *SNIC) EnableDHCPRelay() bool {
 	}
 }
 
-func (n *SNIC) SetupDhcpRelay() {
+func (n *SNIC) SetupDhcpRelay() error {
 	if n.EnableDHCPRelay() {
-		n.dhcpServer.RelaySetup(n.Ip)
+		if err := n.dhcpServer.RelaySetup(n.Ip); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func (n *SNIC) SetWireId(wire, wireId string, bandwidth int64) {

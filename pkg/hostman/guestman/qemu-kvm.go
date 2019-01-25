@@ -142,7 +142,6 @@ func (s *SKVMGuestInstance) isSelfQemuPid(pid, uuid string) bool {
 	cmdlineFile := fmt.Sprintf("/proc/%s/cmdline", pid)
 	fi, err := os.Stat(cmdlineFile)
 	if err != nil {
-		log.Warningf("IsSelfQemuPid Stat File %s error %s", cmdlineFile, err)
 		return false
 	}
 	if !fi.Mode().IsRegular() {
@@ -641,8 +640,6 @@ func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) erro
 }
 
 func (s *SKVMGuestInstance) Delete(ctx context.Context, migrated bool) error {
-	// self._del_bw_limit()
-	// self._del_netmon_nic() ?? 需要开发？
 	if err := s.delTmpDisks(ctx, migrated); err != nil {
 		return err
 	}
@@ -1076,8 +1073,7 @@ func (s *SKVMGuestInstance) ExecReloadDiskTask(ctx context.Context, disk storage
 	if s.IsRunning() {
 		if s.isLiveSnapshotEnabled() {
 			task := NewGuestReloadDiskTask(ctx, s, disk)
-			task.WaitSnapshotReplaced(task.Start)
-			return nil, nil
+			return nil, task.WaitSnapshotReplaced(task.Start)
 		} else {
 			return nil, fmt.Errorf("Guest dosen't support reload disk")
 		}

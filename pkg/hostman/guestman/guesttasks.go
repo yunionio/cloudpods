@@ -48,10 +48,9 @@ func NewGuestStopTask(guest *SKVMGuestInstance, ctx context.Context, timeout int
 
 func (s *SGuestStopTask) Start() {
 	if s.IsRunning() && s.IsMonitorAlive() {
-		// Do Powerdown,
 		s.Monitor.SimpleCommand("system_powerdown", s.onPowerdownGuest)
 	} else {
-		s.CheckGuestRunningLater()
+		s.checkGuestRunning()
 	}
 }
 
@@ -62,8 +61,7 @@ func (s *SGuestStopTask) onPowerdownGuest(results string) {
 }
 
 func (s *SGuestStopTask) checkGuestRunning() {
-	if !s.IsRunning() ||
-		time.Now().Sub(s.startPowerdown) > time.Duration(s.timeout)*time.Second {
+	if !s.IsRunning() || time.Now().Sub(s.startPowerdown) > time.Duration(s.timeout)*time.Second {
 		s.Stop() // force stop
 		hostutils.TaskComplete(s.ctx, nil)
 	} else {
@@ -447,7 +445,7 @@ func (s *SGuestResumeTask) onResumeSucc(res string) {
 }
 
 func (s *SGuestResumeTask) onStartRunning() {
-	s.removeStatefile()
+	// s.removeStatefile() XXX 可能不用了，先注释了
 	if s.ctx != nil && len(appctx.AppContextTaskId(s.ctx)) > 0 {
 		hostutils.TaskComplete(s.ctx, nil)
 	}
@@ -659,9 +657,21 @@ func NewGuestReloadDiskTask(
 	}
 }
 
-func (s *SGuestReloadDiskTask) WaitSnapshotReplaced(callback func()) {
-	// TODO
+func (s *SGuestReloadDiskTask) WaitSnapshotReplaced(callback func()) error {
+	var retry = 0
+	for {
+		retry += 1
+		if retry == 300 {
+			return fmt.Errorf(
+				"SnapshotDeleteJob.deleting_disk_snapshot always has %s", s.disk.GetId())
+		}
+		if _, ok := storageman.DELETEING_SNAPSHOTS[s.disk.GetId()]; ok {
+			time.Sleep(time.Second * 1)
+		}
+	}
+
 	callback()
+	return nil
 }
 
 func (s *SGuestReloadDiskTask) Start() {

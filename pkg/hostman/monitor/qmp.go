@@ -178,7 +178,6 @@ func (m *QmpMonitor) read(r io.Reader) {
 
 			// remove reader timeout
 			m.rwc.SetReadDeadline(time.Time{})
-			log.Infof("Qmp Connected")
 			m.connected = true
 			m.timeout = false
 			go m.query()
@@ -189,7 +188,7 @@ func (m *QmpMonitor) read(r io.Reader) {
 	log.Infof("Scan over ...")
 	err := scanner.Err()
 	if err != nil {
-		log.Errorln(err)
+		log.Infof("QMP Disconnected: %s", err)
 	}
 	if m.timeout {
 		m.OnMonitorTimeout(err)

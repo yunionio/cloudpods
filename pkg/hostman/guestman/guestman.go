@@ -637,8 +637,6 @@ func (m *SGuestManager) ExitGuestCleanup() {
 		guest.ExitCleanup(false)
 	}
 
-	// TODO
-	// m.StopCpusetBalancer()
 	cgrouputils.CgroupCleanAll()
 	// TODO
 	// hostmetrics?
