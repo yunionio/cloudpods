@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SLoadbalancerHTTPListener struct {
@@ -14,6 +15,7 @@ type SLoadbalancerHTTPListener struct {
 	BackendServerPort int    //	负载均衡实例后端使用的端口。
 	Bandwidth         int    //	监听的带宽峰值。
 	Status            string //	当前监听的状态。取值：starting | running | configuring | stopping | stopped
+	Description       string
 
 	XForwardedFor       string //	是否开启通过X-Forwarded-For头字段获取访者真实IP。
 	XForwardedFor_SLBIP string //	是否通过SLB-IP头字段获取客户端请求的真实IP。
@@ -52,9 +54,16 @@ type SLoadbalancerHTTPListener struct {
 	Rules           Rules  //监听下的转发规则列表，具体请参见RuleList。
 	ForwardPort     int    //	HTTP至HTTPS的监听转发端口。暂时只支持将HTTP 80访问重定向转发至HTTPS 443。 说明 如果 ListenerForward的值为 off，该参数不显示。
 	ListenerForward string //	表示是否开启HTTP至HTTPS的监听转发。on：表示开启 off：表示未开启
+	VServerGroupId  string // 绑定的服务器组ID
 }
 
 func (listener *SLoadbalancerHTTPListener) GetName() string {
+	if len(listener.Description) == 0 {
+		listener.Refresh()
+	}
+	if len(listener.Description) > 0 {
+		return listener.Description
+	}
 	return fmt.Sprintf("HTTP:%d", listener.ListenerPort)
 }
 
@@ -67,7 +76,14 @@ func (listerner *SLoadbalancerHTTPListener) GetGlobalId() string {
 }
 
 func (listerner *SLoadbalancerHTTPListener) GetStatus() string {
-	return listerner.Status
+	switch listerner.Status {
+	case "starting", "running":
+		return models.LB_STATUS_ENABLED
+	case "configuring", "stopping", "stopped":
+		return models.LB_STATUS_DISABLED
+	default:
+		return models.LB_STATUS_UNKNOWN
+	}
 }
 
 func (listerner *SLoadbalancerHTTPListener) GetMetadata() *jsonutils.JSONDict {
@@ -79,7 +95,11 @@ func (listerner *SLoadbalancerHTTPListener) IsEmulated() bool {
 }
 
 func (listerner *SLoadbalancerHTTPListener) Refresh() error {
-	return nil
+	lis, err := listerner.lb.region.GetLoadbalancerHTTPListener(listerner.lb.LoadBalancerId, listerner.ListenerPort)
+	if err != nil {
+		return err
+	}
+	return jsonutils.Update(listerner, lis)
 }
 
 func (listerner *SLoadbalancerHTTPListener) GetListenerType() string {
@@ -91,7 +111,10 @@ func (listerner *SLoadbalancerHTTPListener) GetListenerPort() int {
 }
 
 func (listerner *SLoadbalancerHTTPListener) GetBackendGroupId() string {
-	return ""
+	if len(listerner.VServerGroupId) == 0 {
+		listerner.Refresh()
+	}
+	return listerner.VServerGroupId
 }
 
 func (listerner *SLoadbalancerHTTPListener) GetScheduler() string {

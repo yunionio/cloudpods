@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SLoadbalancerDefaultBackendGroup struct {
@@ -24,15 +25,15 @@ func (backendgroup *SLoadbalancerDefaultBackendGroup) GetGlobalId() string {
 }
 
 func (backendgroup *SLoadbalancerDefaultBackendGroup) GetStatus() string {
-	return ""
+	return models.LB_STATUS_ENABLED
 }
 
 func (backendgroup *SLoadbalancerDefaultBackendGroup) IsDefault() bool {
-	return false
+	return true
 }
 
 func (backendgroup *SLoadbalancerDefaultBackendGroup) GetType() string {
-	return "default"
+	return models.LB_BACKENDGROUP_TYPE_DEFAULT
 }
 
 func (backendgroup *SLoadbalancerDefaultBackendGroup) GetMetadata() *jsonutils.JSONDict {
