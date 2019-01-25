@@ -190,10 +190,11 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 		result := storageCachePairs[i].syncCloudImages(ctx, task.GetUserCred())
 		msg := result.Result()
 		log.Infof("syncCloudImages result: %s", msg)
-		if result.IsError() {
-			logSyncFailed(provider, task, msg)
-			return
-		}
+		// skip errors
+		// if result.IsError() {
+		//	logSyncFailed(provider, task, msg)
+		//	return
+		// }
 	}
 }
 
