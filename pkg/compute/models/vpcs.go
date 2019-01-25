@@ -102,7 +102,7 @@ func (self *SVpc) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetNetworkCount() > 0 || self.GetRouteTableCount() > 0 {
+	if self.GetNetworkCount() > 0 {
 		return httperrors.NewNotEmptyError("VPC not empty")
 	}
 	if self.Id == DEFAULT_VPC_ID {
@@ -150,8 +150,19 @@ func (self *SVpc) GetNetworkCount() int {
 	return q.Count()
 }
 
+func (self *SVpc) GetRouteTableQuery() *sqlchemy.SQuery {
+	return RouteTableManager.Query().Equals("vpc_id", self.Id)
+}
+
+func (self *SVpc) GetRouteTables() []SRouteTable {
+	q := self.GetRouteTableQuery()
+	routes := []SRouteTable{}
+	db.FetchModelObjects(RouteTableManager, q, &routes)
+	return routes
+}
+
 func (self *SVpc) GetRouteTableCount() int {
-	return RouteTableManager.Query().Equals("vpc_id", self.Id).Count()
+	return self.GetRouteTableQuery().Count()
 }
 
 func (self *SVpc) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
@@ -479,6 +490,10 @@ func (self *SVpc) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCr
 func (self *SVpc) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(ctx), userCred)
 	self.SetStatus(userCred, VPC_STATUS_DELETED, "real delete")
+	routes := self.GetRouteTables()
+	for i := 0; i < len(routes); i++ {
+		routes[i].RealDelete(ctx, userCred)
+	}
 	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
 }
 
