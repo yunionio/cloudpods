@@ -110,6 +110,29 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 			return nil, fmt.Errorf("The %s system disk size must be less than 1024GB", sysDisk.Backend)
 		}
 	}
+
+	for i := 1; data.Contains(fmt.Sprintf("disk.%d", i)); i++ {
+		disk := models.SDiskConfig{}
+		if err := data.Unmarshal(&disk, fmt.Sprintf("disk.%d", i)); err != nil {
+			return nil, httperrors.NewInputParameterError("invalid diskinfo of index %d", i)
+		}
+		switch disk.Backend {
+		case models.STORAGE_CLOUD_BASIC:
+			if disk.SizeMb < 10*1024 || disk.SizeMb > 16000*1024 {
+				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 10GB ~ 16000GB", disk.Backend)
+			}
+		case models.STORAGE_CLOUD_PREMIUM:
+			if disk.SizeMb < 50*1024 || disk.SizeMb > 16000*1024 {
+				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 50GB ~ 16000GB", disk.Backend)
+			}
+		case models.STORAGE_CLOUD_SSD:
+			if disk.SizeMb < 100*1024 || disk.SizeMb > 16000*1024 {
+				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 100GB ~ 16000GB", disk.Backend)
+			}
+		default:
+			return nil, httperrors.NewInputParameterError("Unkonwn disk type %s", disk.Backend)
+		}
+	}
 	return data, nil
 }
 
