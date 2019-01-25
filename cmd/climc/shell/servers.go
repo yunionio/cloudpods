@@ -560,10 +560,15 @@ func init() {
 	})
 
 	type ServerDissociateEipOptions struct {
-		ID string `help:"ID or name of server"`
+		ID         string `help:"ID or name of server" json:"-"`
+		AutoDelete bool   `help:"automatically delete the dissociate EIP" json:"auto_delete,omitfalse"`
 	}
 	R(&ServerDissociateEipOptions{}, "server-dissociate-eip", "Dissociate an eip from a server", func(s *mcclient.ClientSession, args *ServerDissociateEipOptions) error {
-		result, err := modules.Servers.PerformAction(s, args.ID, "dissociate-eip", nil)
+		params, err := options.StructToParams(args)
+		if err != nil {
+			return err
+		}
+		result, err := modules.Servers.PerformAction(s, args.ID, "dissociate-eip", params)
 		if err != nil {
 			return nil
 		}

@@ -283,7 +283,6 @@ func (self *SBaremetalGuestDriver) ValidateCreateHostData(ctx context.Context, u
 	if host.GetBaremetalServer() != nil {
 		return nil, httperrors.NewInsufficientResourceError("Baremetal %s is occupied", bmName)
 	}
-	data.Set("prefer_baremetal_id", jsonutils.NewString(host.Id))
 	data.Set("vmem_size", jsonutils.NewInt(int64(host.MemSize)))
 	data.Set("vcpu_count", jsonutils.NewInt(int64(host.CpuCount)))
 	return data, nil

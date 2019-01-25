@@ -73,7 +73,7 @@ func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, obj db.ISt
 			self.OnEipDissociateComplete(ctx, guest, nil)
 		} else {
 			self.SetStage("on_eip_dissociate_complete", nil)
-			eip.StartEipDissociateTask(ctx, self.UserCred, self.GetTaskId())
+			eip.StartEipDissociateTask(ctx, self.UserCred, false, self.GetTaskId())
 		}
 	} else {
 		self.OnEipDissociateComplete(ctx, obj, nil)

@@ -587,3 +587,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestRenewInstance(guest *models.S
 	}
 	return iVM.GetExpiredAt(), nil
 }
+
+func (self *SManagedVirtualizedGuestDriver) IsSupportEip() bool {
+	return true
+}
