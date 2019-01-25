@@ -116,9 +116,36 @@ func (self *GuestCreateTask) OnDeployGuestDescCompleteFailed(ctx context.Context
 func (self *GuestCreateTask) OnAutoStartGuest(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
+	self.StartEipSubTask(ctx, guest)
 }
 
 func (self *GuestCreateTask) OnSyncStatusComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
+	self.StartEipSubTask(ctx, guest)
+}
+
+func (self *GuestCreateTask) StartEipSubTask(ctx context.Context, guest *models.SGuest) {
+	eipId, _ := self.Params.GetString("eip_id")
+	if len(eipId) > 0 {
+		eipObj, err := models.ElasticipManager.FetchById(eipId)
+		if err != nil {
+			log.Errorf("fail to get eip %s %s", eipId, err)
+			return
+		}
+		eip := eipObj.(*models.SElasticip)
+		eip.StartEipAssociateInstanceTask(ctx, self.UserCred, guest, "")
+		return
+	}
+	eipBw, _ := self.Params.Int("eip_bw")
+	if eipBw > 0 {
+		pendingUsage := models.SQuota{}
+		err := self.GetPendingUsage(&pendingUsage)
+		if err != nil {
+			log.Errorf("GetPendingUsage fail %s", err)
+		}
+		eipChargeType, _ := self.Params.GetString("eip_charge_type")
+		models.ElasticipManager.AllocateEipAndAssociateVM(ctx, self.UserCred, guest, int(eipBw), eipChargeType, &pendingUsage)
+		self.SetPendingUsage(&pendingUsage)
+	}
 }

@@ -71,6 +71,9 @@ func init() {
 		ID   string `help:"ID or name of EIP"`
 		Name string `help:"New name of EIP"`
 		Desc string `help:"New description of EIP"`
+
+		EnableAutoDellocate  bool `help:"enable automatically dellocate when dissociate from instance"`
+		DisableAutoDellocate bool `help:"disable automatically dellocate when dissociate from instance"`
 	}
 	R(&EipUpdateOptions{}, "eip-update", "Update EIP properties", func(s *mcclient.ClientSession, args *EipUpdateOptions) error {
 		params := jsonutils.NewDict()
@@ -79,6 +82,11 @@ func init() {
 		}
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
+		}
+		if args.EnableAutoDellocate {
+			params.Add(jsonutils.JSONTrue, "auto_dellocate")
+		} else if args.DisableAutoDellocate {
+			params.Add(jsonutils.JSONFalse, "auto_dellocate")
 		}
 		result, err := modules.Elasticips.Update(s, args.ID, params)
 		if err != nil {
@@ -105,11 +113,16 @@ func init() {
 		return nil
 	})
 
-	type EipSingleOptions struct {
-		ID string `help:"ID or name of EIP"`
+	type EipDissociateOptions struct {
+		ID         string `help:"ID or name of EIP"`
+		AutoDelete bool   `help:"automatically delete the dissociate EIP" json:"auto_delete,omitfalse"`
 	}
-	R(&EipSingleOptions{}, "eip-dissociate", "Dissociate an EIP from an instance", func(s *mcclient.ClientSession, args *EipSingleOptions) error {
-		result, err := modules.Elasticips.PerformAction(s, args.ID, "dissociate", nil)
+	R(&EipDissociateOptions{}, "eip-dissociate", "Dissociate an EIP from an instance", func(s *mcclient.ClientSession, args *EipDissociateOptions) error {
+		params, err := options.StructToParams(args)
+		if err != nil {
+			return err
+		}
+		result, err := modules.Elasticips.PerformAction(s, args.ID, "dissociate", params)
 		if err != nil {
 			return err
 		}
@@ -117,6 +130,9 @@ func init() {
 		return nil
 	})
 
+	type EipSingleOptions struct {
+		ID string `help:"ID or name of EIP"`
+	}
 	R(&EipSingleOptions{}, "eip-sync", "Synchronize status of an EIP", func(s *mcclient.ClientSession, args *EipSingleOptions) error {
 		result, err := modules.Elasticips.PerformAction(s, args.ID, "sync", nil)
 		if err != nil {

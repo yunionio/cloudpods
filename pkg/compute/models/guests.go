@@ -946,6 +946,41 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		data.Add(jsonutils.NewString("default"), "secgrp_id")
 	}
 
+	if data.Contains("eip") || data.Contains("eip_bw") {
+		if !GetDriver(hypervisor).IsSupportEip() {
+			return nil, httperrors.NewNotImplementedError("eip not supported for %s", hypervisor)
+		}
+		if data.Contains("eip") {
+			eipStr, _ := data.GetString("eip")
+			eipObj, err := ElasticipManager.FetchByIdOrName(userCred, eipStr)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError2(ElasticipManager.Keyword(), eipStr)
+				} else {
+					return nil, httperrors.NewGeneralError(err)
+				}
+			}
+
+			eip := eipObj.(*SElasticip)
+			if eip.Status != EIP_STATUS_READY {
+				return nil, httperrors.NewInvalidStatusError("eip %s status invalid %s", eipStr, eip.Status)
+			}
+			if eip.IsAssociated() {
+				return nil, httperrors.NewResourceBusyError("eip %s has been associated", eipStr)
+			}
+			data.Set("eip_id", jsonutils.NewString(eipObj.GetId()))
+
+			eipRegion := eip.GetRegion()
+			preferRegionId, _ := data.GetString("prefer_region_id")
+			if len(preferRegionId) > 0 && preferRegionId != eipRegion.Id {
+				return nil, httperrors.NewConflictError("cannot assoicate with eip %s: different region", eipStr)
+			}
+			data.Set("prefer_region_id", jsonutils.NewString(eipRegion.Id))
+		} else {
+			// create new eip
+		}
+	}
+
 	/*
 		TODO
 		group
@@ -1043,6 +1078,13 @@ func getGuestResourceRequirements(ctx context.Context, userCred mcclient.TokenCr
 		vmemSize = vmemSize * 2
 		diskSize = diskSize * 2
 	}
+
+	eipCnt := 0
+	eipBw, _ := data.Int("eip_bw")
+	if eipBw > 0 {
+		eipCnt = 1
+	}
+
 	return SQuota{
 		Cpu:            int(vcpuCount) * count,
 		Memory:         int(vmemSize) * count,
@@ -1052,6 +1094,7 @@ func getGuestResourceRequirements(ctx context.Context, userCred mcclient.TokenCr
 		Bw:             iBw * count,
 		Ebw:            eBw * count,
 		IsolatedDevice: devCount * count,
+		Eip:            eipCnt * count,
 	}
 }
 

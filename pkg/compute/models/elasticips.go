@@ -79,7 +79,7 @@ type SElasticip struct {
 	ChargeType string `list:"user" create:"required"`
 	BgpType    string `list:"user" create:"optional"` // 目前只有华为云此字段是必需填写的。
 
-	AutoDellocate tristate.TriState `default:"false" get:"user" create:"optional"`
+	AutoDellocate tristate.TriState `default:"false" get:"user" create:"optional" update:"user"`
 
 	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
@@ -617,17 +617,21 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 		return nil, httperrors.NewInputParameterError("server and eip are not managed by the same provider")
 	}
 
+	err = self.StartEipAssociateInstanceTask(ctx, userCred, server, "")
+	return nil, err
+}
+
+func (self *SElasticip) StartEipAssociateInstanceTask(ctx context.Context, userCred mcclient.TokenCredential, server *SGuest, parentTaskId string) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(server.ExternalId), "instance_external_id")
 	params.Add(jsonutils.NewString(server.Id), "instance_id")
 	params.Add(jsonutils.NewString(EIP_ASSOCIATE_TYPE_SERVER), "instance_type")
 
-	err = self.StartEipAssociateTask(ctx, userCred, params)
-	return nil, err
+	return self.StartEipAssociateTask(ctx, userCred, params, parentTaskId)
 }
 
-func (self *SElasticip) StartEipAssociateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "EipAssociateTask", self, userCred, params, "", "", nil)
+func (self *SElasticip) StartEipAssociateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "EipAssociateTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		log.Errorf("create EipAssociateTask task fail %s", err)
 		return err
@@ -659,12 +663,18 @@ func (self *SElasticip) PerformDissociate(ctx context.Context, userCred mcclient
 		return nil, httperrors.NewUnsupportOperationError("fixed public eip cannot be dissociated")
 	}
 
-	err := self.StartEipDissociateTask(ctx, userCred, "")
+	autoDelete := jsonutils.QueryBoolean(data, "auto_delete", false)
+
+	err := self.StartEipDissociateTask(ctx, userCred, autoDelete, "")
 	return nil, err
 }
 
-func (self *SElasticip) StartEipDissociateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "EipDissociateTask", self, userCred, nil, parentTaskId, "", nil)
+func (self *SElasticip) StartEipDissociateTask(ctx context.Context, userCred mcclient.TokenCredential, autoDelete bool, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	if autoDelete {
+		params.Add(jsonutils.JSONTrue, "auto_delete")
+	}
+	task, err := taskman.TaskManager.NewTask(ctx, "EipDissociateTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		log.Errorf("create EipDissociateTask fail %s", err)
 		return nil
@@ -747,11 +757,13 @@ func (self *SElasticip) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSO
 	return extra
 }
 
-func (manager *SElasticipManager) allocateEipAndAssociateVM(ctx context.Context, userCred mcclient.TokenCredential, vm *SGuest, bw int, chargeType string, managerId string, regionId string) error {
-	eipPendingUsage := &SQuota{Eip: 1}
-	err := QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), eipPendingUsage)
-	if err != nil {
-		return httperrors.NewOutOfQuotaError("Out of eip quota: %s", err)
+func (manager *SElasticipManager) AllocateEipAndAssociateVM(ctx context.Context, userCred mcclient.TokenCredential, vm *SGuest, bw int, chargeType string, eipPendingUsage quotas.IQuota) error {
+
+	host := vm.GetHost()
+	region := host.GetRegion()
+
+	if len(chargeType) == 0 {
+		chargeType = EIP_CHARGE_TYPE_BY_TRAFFIC
 	}
 
 	eip := SElasticip{}
@@ -762,11 +774,11 @@ func (manager *SElasticipManager) allocateEipAndAssociateVM(ctx context.Context,
 	eip.Bandwidth = bw
 	eip.ChargeType = chargeType
 	eip.ProjectId = vm.ProjectId
-	eip.ManagerId = managerId
-	eip.CloudregionId = regionId
+	eip.ManagerId = host.ManagerId
+	eip.CloudregionId = region.Id
 	eip.Name = fmt.Sprintf("eip-for-%s", vm.GetName())
 
-	err = manager.TableSpec().Insert(&eip)
+	err := manager.TableSpec().Insert(&eip)
 	if err != nil {
 		log.Errorf("create EIP record fail %s", err)
 		return err
@@ -776,6 +788,8 @@ func (manager *SElasticipManager) allocateEipAndAssociateVM(ctx context.Context,
 	params.Add(jsonutils.NewString(vm.ExternalId), "instance_external_id")
 	params.Add(jsonutils.NewString(vm.Id), "instance_id")
 	params.Add(jsonutils.NewString(EIP_ASSOCIATE_TYPE_SERVER), "instance_type")
+
+	vm.SetStatus(userCred, VM_ASSOCIATE_EIP, "allocate and associate EIP")
 
 	return eip.startEipAllocateTask(ctx, userCred, params, eipPendingUsage)
 }
