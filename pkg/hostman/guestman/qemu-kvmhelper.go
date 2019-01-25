@@ -2,15 +2,20 @@ package guestman
 
 import (
 	"fmt"
+	"net"
 	"path"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/ethernet"
+	"yunion.io/x/onecloud/pkg/cloudcommon/ethernet/arp"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
-	"yunion.io/x/pkg/utils"
 )
 
 const (
@@ -523,17 +528,17 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		}
 	}
 
-	for _, nic := range nics {
+	for i := 0; i < len(nics); i++ {
 		if osname == OS_NAME_VMWARE {
-			nic.(*jsonutils.JSONDict).Set("driver", jsonutils.NewString("vmxnet3"))
+			nics[i].(*jsonutils.JSONDict).Set("driver", jsonutils.NewString("vmxnet3"))
 		}
-		nicCmd, err := s.getNetdevDesc(nic)
+		nicCmd, err := s.getNetdevDesc(nics[i])
 		if err != nil {
 			return "", err
 		} else {
 			cmd += nicCmd
 		}
-		cmd += s.getVnicDesc(nic)
+		cmd += s.getVnicDesc(nics[i])
 	}
 
 	cmd += fmt.Sprintf(" -pidfile %s", s.GetPidFilePath())
@@ -558,7 +563,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	} else if jsonutils.QueryBoolean(s.Desc, "is_master", false) {
 		cmd += " -S"
 	}
-	cmd += fmt.Sprintf(" -D %s", path.Join(s.HomeDir(), "log"))
+	// cmd += fmt.Sprintf(" -D %s", path.Join(s.HomeDir(), "log"))
 
 	cmd += "\"\n"
 	cmd += "if [ ! -z \"$STATE_FILE\" ] && [ -d \"$STATE_FILE\" ] && [ -f \"$STATE_FILE/content\" ]; then\n"
@@ -623,6 +628,53 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 	return cmd
 }
 
+func (s *SKVMGuestInstance) presendArpForNic(nic jsonutils.JSONObject) {
+	ifname, _ := nic.GetString("ifname")
+	ifi, err := net.InterfaceByName(ifname)
+	if err != nil {
+		log.Errorf("InterfaceByName error %s", ifname)
+		return
+	}
+
+	cli, err := arp.Dial(ifi)
+	if err != nil {
+		log.Errorf("arp Dial error %s", err)
+		return
+	}
+	defer cli.Close()
+
+	var (
+		sSrcMac, _ = nic.GetString("mac")
+		sScrIp, _  = nic.GetString("ip")
+		srcIp      = net.ParseIP(sScrIp)
+		dstMac, _  = net.ParseMAC("00:00:00:00:00:00")
+		dstIp      = net.ParseIP("255.255.255.255")
+	)
+	srcMac, err := net.ParseMAC(sSrcMac)
+	if err != nil {
+		log.Errorf("Send arp parse mac error: %s", err)
+		return
+	}
+
+	pkt, err := arp.NewPacket(arp.OperationRequest, srcMac, srcIp, dstMac, dstIp)
+	if err != nil {
+		log.Errorf("New arp packet error %s", err)
+		return
+	}
+	if err := cli.WriteTo(pkt, ethernet.Broadcast); err != nil {
+		log.Errorf("Send arp packet error %s ", err)
+		return
+	}
+}
+
 func (s *SKVMGuestInstance) StartPresendArp() {
-	// TODO go func
+	go func() {
+		for i := 0; i < 5; i++ {
+			nics, _ := s.Desc.GetArray("nics")
+			for _, nic := range nics {
+				s.presendArpForNic(nic)
+			}
+			time.Sleep(1 * time.Second)
+		}
+	}()
 }

@@ -1,7 +1,6 @@
 package downloader
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 
@@ -40,7 +39,10 @@ func (i *SImageDownloadProvider) downloadFilePath() string {
 }
 
 func (i *SImageDownloadProvider) prepareDownload() error {
-	log.Infof(fmt.Sprintf("Compress %s to %s", i.fullPath(), i.downloadFilePath()))
+	if i.fullPath() != i.downloadFilePath() {
+		log.Infof("Compress %s %s to %s", i.compressFormat, i.fullPath(), i.downloadFilePath())
+	}
+
 	switch i.compressFormat {
 	case "qcow2":
 		img, err := qemuimg.NewQemuImage(i.fullPath())

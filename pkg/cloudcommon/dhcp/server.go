@@ -21,23 +21,31 @@ func NewDHCPServer(address string, port int) *DHCPServer {
 	}
 }
 
-func NewDHCPServer2(conn *Conn) *DHCPServer {
-	return &DHCPServer{
-		conn: conn,
+func NewDHCPServer2(address string, port int) (*DHCPServer, *Conn, error) {
+	conn, err := NewConn(fmt.Sprintf("%s:%d", address, port))
+	if err != nil {
+		return nil, nil, err
 	}
+	return &DHCPServer{
+		Address: address,
+		Port:    port,
+		conn:    conn,
+	}, conn, nil
 }
 
 type DHCPHandler interface {
-	ServeDHCP(pkt Packet, intf *net.Interface) (Packet, error)
+	ServeDHCP(pkt Packet, addr *net.UDPAddr, intf *net.Interface) (Packet, error)
 }
 
 func (s *DHCPServer) ListenAndServe(handler DHCPHandler) error {
-	dhcpAddr := fmt.Sprintf("%s:%d", s.Address, s.Port)
-	dhcpConn, err := NewConn(dhcpAddr)
-	if err != nil {
-		return fmt.Errorf("Listen DHCP connection error: %v", err)
+	if s.conn == nil {
+		dhcpAddr := fmt.Sprintf("%s:%d", s.Address, s.Port)
+		dhcpConn, err := NewConn(dhcpAddr)
+		if err != nil {
+			return fmt.Errorf("Listen DHCP connection error: %v", err)
+		}
+		s.conn = dhcpConn
 	}
-	s.conn = dhcpConn
 	defer s.conn.Close()
 	return s.serveDHCP(handler)
 }
@@ -60,13 +68,13 @@ func (s *DHCPServer) serveDHCP(handler DHCPHandler) error {
 				}
 			}()
 
-			resp, err := handler.ServeDHCP(pkt, intf)
+			resp, err := handler.ServeDHCP(pkt, addr, intf)
 			if err != nil {
 				log.Warningf("[DHCP] handler serve error: %v", err)
 				return
 			}
 			if resp == nil {
-				log.Warningf("[DHCP] hander response null packet")
+				// log.Warningf("[DHCP] hander response null packet")
 				return
 			}
 			//log.Debugf("[DHCP] send response packet: %s to interface: %#v", resp.DebugString(), intf)

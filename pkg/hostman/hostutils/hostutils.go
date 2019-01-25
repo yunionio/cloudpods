@@ -18,7 +18,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type IHost interface {
@@ -47,7 +46,7 @@ func TaskFailed(ctx context.Context, reason string) {
 	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
 		modules.ComputeTasks.TaskFailed2(GetComputeSession(ctx), taskId.(string), reason)
 	} else {
-		log.Errorln("Reqeuest task failed missing task id, with reason(%s)", reason)
+		log.Errorln("Reqeuest task failed missing task id, with reason(%v)", reason)
 	}
 }
 
@@ -83,19 +82,8 @@ func RemoteStoragecacheCacheImage(ctx context.Context, storagecacheId, imageId, 
 	var params = jsonutils.NewDict()
 	params.Set("status", jsonutils.NewString(status))
 	params.Set("path", jsonutils.NewString(spath))
-	body := jsonutils.NewDict()
-	body.Set("storagecachedimage", params)
-
-	uri, err := auth.GetServiceURL("compute_v2", options.HostOptions.Region, "", "internal")
-	if err != nil {
-		return nil, err
-	}
-	urlStr := fmt.Sprintf("%s/storagecaches/%s/cachedimages/%s?%s",
-		uri, storagecacheId, imageId, query.QueryString())
-
-	_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(),
-		ctx, "PUT", urlStr, nil, body, false)
-	return res, err
+	return modules.Storagecachedimages.Update2(GetComputeSession(ctx),
+		storagecacheId, imageId, params, query)
 }
 
 func UpdateServerStatus(ctx context.Context, sid, status string) (jsonutils.JSONObject, error) {

@@ -74,7 +74,9 @@ func download(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		if !fileutils2.Exists(hand.downloadFilePath()) {
 			httperrors.NotFoundError(w, "Image cache %s not found", id)
 		} else {
-			hand.Start()
+			if err := hand.Start(); err != nil {
+				hostutils.Response(ctx, w, err)
+			}
 		}
 	case "servers":
 		hand := NewGuestDownloadProvider(w, compress, rateLimit, id)
@@ -144,7 +146,7 @@ func snapshotPrecheck(
 		params, _, _ = appsrv.FetchEnv(ctx, w, r)
 		storageId    = params["<storageId>"]
 		diskId       = params["<diskId>"]
-		snapshotId   = params["snapshotId"]
+		snapshotId   = params["<snapshotId>"]
 	)
 
 	storage := storageman.GetManager().GetStorage(storageId)

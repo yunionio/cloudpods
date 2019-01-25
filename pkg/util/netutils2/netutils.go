@@ -58,7 +58,7 @@ func GetMainNic(nics []jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 			if err != nil {
 				return nil, err
 			}
-			if mainIp > 0 {
+			if mainIp == 0 {
 				mainIp = ipInt
 				mainNic = n
 			} else if !netutils.IsPrivate(ipInt) && netutils.IsPrivate(mainIp) {
@@ -224,14 +224,11 @@ func (n *SNetInterface) FetchConfig() {
 }
 
 func (n *SNetInterface) DisableGso() {
-	_, err := procutils.NewCommand(
+	procutils.NewCommand(
 		"ethtool", "-K", n.name,
 		"tso", "off", "gso", "off",
 		"gro", "off", "tx", "off",
 		"rx", "off", "sg", "off").Run()
-	if err != nil {
-		log.Errorln("DisableGso: ", err)
-	}
 }
 
 func (n *SNetInterface) IsSecretInterface() bool {

@@ -164,9 +164,7 @@ func (f *SLocalGuestFS) Stat(usrDir string, caseInsensitive bool) os.FileInfo {
 func (f *SLocalGuestFS) Exists(sPath string, caseInsensitive bool) bool {
 	sPath = f.getLocalPath(sPath, caseInsensitive)
 	if len(sPath) > 0 {
-		if _, err := os.Stat(sPath); !os.IsNotExist(err) {
-			return true
-		}
+		return fileutils2.Exists(sPath)
 	}
 	return false
 }

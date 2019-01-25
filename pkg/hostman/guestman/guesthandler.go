@@ -15,10 +15,34 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
-var keyWords = []string{"servers"}
-
 type strDict map[string]string
 type actionFunc func(context.Context, string, jsonutils.JSONObject) (interface{}, error)
+
+var (
+	keyWords    = []string{"servers"}
+	actionFuncs = map[string]actionFunc{
+		"create":  guestCreate,
+		"deploy":  guestDeploy,
+		"start":   guestStart,
+		"stop":    guestStop,
+		"monitor": guestMonitor,
+		"sync":    guestSync,
+		"suspend": guestSuspend,
+
+		"snapshot":             guestSnapshot,
+		"delete-snapshot":      guestDeleteSnapshot,
+		"reload-disk-snapshot": guestReloadDiskSnapshot,
+		// "remove-statefile":     guestRemoveStatefile,
+		// "io-throttle":          guestIoThrottle,
+
+		"src-prepare-migrate":  guestSrcPrepareMigrate,
+		"dest-prepare-migrate": guestDestPrepareMigrate,
+		"live-migrate":         guestLiveMigrate,
+		"resume":               guestResume,
+		// "start-nbd-server":     guestStartNbdServer,
+		"drive-mirror": guestDriveMirror,
+	}
+)
 
 func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 	for _, keyWord := range keyWords {
@@ -395,27 +419,4 @@ func guestDeleteSnapshot(ctx context.Context, sid string, body jsonutils.JSONObj
 	}
 	hostutils.DelayTask(ctx, guestManger.DeleteSnapshot, params)
 	return nil, nil
-}
-
-var actionFuncs = map[string]actionFunc{
-	"create":  guestCreate,
-	"deploy":  guestDeploy,
-	"start":   guestStart,
-	"stop":    guestStop,
-	"monitor": guestMonitor,
-	"sync":    guestSync,
-	"suspend": guestSuspend,
-
-	"snapshot":             guestSnapshot,
-	"delete-snapshot":      guestDeleteSnapshot,
-	"reload-disk-snapshot": guestReloadDiskSnapshot,
-	// "remove-statefile":     guestRemoveStatefile,
-	// "io-throttle":          guestIoThrottle,
-
-	"src-prepare-migrate":  guestSrcPrepareMigrate,
-	"dest-prepare-migrate": guestDestPrepareMigrate,
-	"live-migrate":         guestLiveMigrate,
-	"resume":               guestResume,
-	// "start-nbd-server":     guestStartNbdServer,
-	"drive-mirror": guestDriveMirror,
 }

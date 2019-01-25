@@ -2,13 +2,13 @@ package storageman
 
 import (
 	"fmt"
-	"os"
 	"path"
 	"strings"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 const MINIMAL_FREE_SPACE = 128
@@ -96,7 +96,7 @@ func (s *SStorageManager) getLeasedUsedLocalStorage(cacheDir string, limit int) 
 
 		if _, ok := storage.(*SLocalStorage); ok {
 			cachePath := path.Join(storage.GetPath(), cacheDir)
-			if _, err := os.Stat(cachePath); !os.IsNotExist(err) {
+			if fileutils2.Exists(cachePath) {
 				spath = cachePath
 				break
 			}

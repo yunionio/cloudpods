@@ -55,8 +55,7 @@ func (s *SLocalStorage) GetSnapshotDir() string {
 }
 
 func (s *SLocalStorage) GetSnapshotPathByIds(diskId, snapshotId string) string {
-	return path.Join(s.GetSnapshotDir(),
-		diskId+options.HostOptions.SnapshotDirSuffix, snapshotId)
+	return path.Join(s.GetSnapshotDir(), diskId+options.HostOptions.SnapshotDirSuffix, snapshotId)
 }
 
 func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
@@ -113,7 +112,9 @@ func (s *SLocalStorage) GetDiskById(diskId string) IDisk {
 func (s *SLocalStorage) CreateDisk(diskId string) IDisk {
 	s.DiskLock.Lock()
 	defer s.DiskLock.Unlock()
-	return NewLocalDisk(s, diskId)
+	disk := NewLocalDisk(s, diskId)
+	s.Disks = append(s.Disks, disk)
+	return disk
 }
 
 func (s *SLocalStorage) StartSnapshotRecycle() {
@@ -309,4 +310,17 @@ func (s *SLocalStorage) CreateSnapshotFormUrl(
 	} else {
 		return fmt.Errorf("Fail to fetch snapshot from %s", snapshotUrl)
 	}
+}
+
+func (s *SLocalStorage) DeleteSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	diskId, ok := params.(string)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	snapshotDir := path.Join(s.GetSnapshotDir(), diskId+options.HostOptions.SnapshotDirSuffix)
+	output, err := procutils.NewCommand("rm", "-rf", snapshotDir).Run()
+	if err != nil {
+		return nil, fmt.Errorf("Delete snapshot dir failed: %s", output)
+	}
+	return nil, nil
 }

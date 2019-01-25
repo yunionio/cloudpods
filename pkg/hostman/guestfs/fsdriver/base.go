@@ -84,7 +84,7 @@ func DeployAuthorizedKeys(rootFs IDiskPartition, usrDir string, pubkeys *sshkeys
 		authFile := path.Join(sshDir, "authorized_keys")
 		modeRwxOwner := syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
 		modeRwOwner := syscall.S_IRUSR | syscall.S_IWUSR
-		fStat := usrStat.Sys().(*syscall.Stat_t)
+		fStat, _ := usrStat.Sys().(*syscall.Stat_t)
 		if !rootFs.Exists(sshDir, false) {
 			err := rootFs.Mkdir(sshDir, modeRwxOwner, false)
 			if err != nil {
@@ -149,9 +149,9 @@ func MergeAuthorizedKeys(oldKeys string, pubkeys *sshkeys.SSHKeys) string {
 			}
 		}
 	}
-	var keys = make([]string, len(allkeys))
-	for key := range allkeys {
-		keys = append(keys, key)
+	var keys = make([]string, 0)
+	for _, val := range allkeys {
+		keys = append(keys, val)
 	}
 	return strings.Join(keys, "\n")
 }

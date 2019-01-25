@@ -30,11 +30,9 @@ func AddStorageHandler(prefix string, app *appsrv.Application) {
 		app.AddHandler("POST",
 			fmt.Sprintf("%s/%s/<action>", prefix, keyWords),
 			auth.Authenticate(storageActions))
-
-		// TODO
-		// app.AddHandler("POST",
-		// 	fmt.Sprintf("%s/%s/<storageId>/delete-snapshots", prefix, keyWords),
-		// 	auth.Authenticate(storageDeleteSnapshots))
+		app.AddHandler("POST",
+			fmt.Sprintf("%s/%s/<storageId>/delete-snapshots", prefix, keyWords),
+			auth.Authenticate(storageDeleteSnapshots))
 	}
 }
 
@@ -119,4 +117,21 @@ func storageUpdate(ctx context.Context, body jsonutils.JSONObject) (interface{},
 	mountPoint, _ := ret.GetString("mount_point")
 	storage.SetPath(mountPoint)
 	return nil, nil
+}
+
+func storageDeleteSnapshots(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	params, _, body := appsrv.FetchEnv(ctx, w, r)
+	var storageId = params["<storageId>"]
+	storage := storageManager.GetStorage(storageId)
+	if storage == nil {
+		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Stroage Not found"))
+		return
+	}
+	diskId, err := body.GetString("disk_id")
+	if err != nil {
+		hostutils.Response(ctx, w, httperrors.NewImageNotFoundError("disk_id"))
+		return
+	}
+	hostutils.DelayTask(ctx, storage.DeleteSnapshots, diskId)
+	hostutils.ResponseOk(ctx, w)
 }

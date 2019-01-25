@@ -268,8 +268,11 @@ func NewNIC(desc string) (*SNIC, error) {
 	if nic.EnableDHCPRelay() {
 		dhcpRelay = options.HostOptions.GoDhcpRelay
 	}
-	nic.dhcpServer = hostdhcp.NewGuestDHCPServer(nic.Bridge, dhcpRelay)
-	go nic.dhcpServer.Start()
+	nic.dhcpServer, err = hostdhcp.NewGuestDHCPServer(nic.Bridge, dhcpRelay)
+	if err != nil {
+		return nil, err
+	}
+	nic.dhcpServer.Start()
 	return nic, nil
 }
 

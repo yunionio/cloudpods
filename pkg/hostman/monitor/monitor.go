@@ -44,6 +44,7 @@ type Monitor interface {
 
 	ReloadDiskBlkdev(device, path string, callback StringCallback)
 	SetVncPassword(proto, password string, callback StringCallback)
+	StartNbdServer(port int, exportAllDevice, writable bool, callback StringCallback)
 }
 
 type MonitorErrorFunc func(error)

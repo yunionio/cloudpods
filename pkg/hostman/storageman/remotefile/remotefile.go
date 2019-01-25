@@ -16,12 +16,12 @@ import (
 )
 
 type SImageDesc struct {
-	Name   string
-	Format string
-	Id     string
-	Chksum string
-	Path   string
-	Size   int64
+	Name   string `json:"name"`
+	Format string `json:"format"`
+	Id     string `json:"id:`
+	Chksum string `json:"chksum"`
+	Path   string `json:"path"`
+	Size   int64  `json:"size"`
 }
 
 type SRemoteFile struct {

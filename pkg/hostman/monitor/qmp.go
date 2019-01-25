@@ -30,6 +30,7 @@ Not support oob yet
 */
 
 type qmpMonitorCallBack func(*Response)
+type qmpEventCallback func(*Event)
 
 type Response struct {
 	Return   []byte
@@ -83,14 +84,16 @@ func (e *Error) Error() string {
 type QmpMonitor struct {
 	SBaseMonitor
 
+	qmpEventFunc  qmpEventCallback
 	commandQueue  []*Command
 	callbackQueue []qmpMonitorCallBack
 }
 
 func NewQmpMonitor(OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc,
-	OnMonitorConnected MonitorSuccFunc) *QmpMonitor {
+	OnMonitorConnected MonitorSuccFunc, qmpEventFunc qmpEventCallback) *QmpMonitor {
 	m := &QmpMonitor{
 		SBaseMonitor:  *NewBaseMonitor(OnMonitorConnected, OnMonitorDisConnect, OnMonitorTimeout),
+		qmpEventFunc:  qmpEventFunc,
 		commandQueue:  make([]*Command, 0),
 		callbackQueue: make([]qmpMonitorCallBack, 0),
 	}
@@ -165,6 +168,7 @@ func (m *QmpMonitor) read(r io.Reader) {
 			}
 			m.watchEvent(event)
 		} else if val, ok := objmap["QMP"]; ok {
+			// On qmp connected
 			json.Unmarshal(*val, &objmap)
 			if val, ok = objmap["version"]; ok {
 				var version Version
@@ -196,8 +200,11 @@ func (m *QmpMonitor) read(r io.Reader) {
 	m.reading = false
 }
 
-func (m QmpMonitor) watchEvent(event *Event) {
+func (m *QmpMonitor) watchEvent(event *Event) {
 	log.Infof(event.String())
+	if m.qmpEventFunc != nil {
+		go m.qmpEventFunc(event)
+	}
 }
 
 func (m *QmpMonitor) write(cmd []byte) error {
@@ -221,10 +228,12 @@ func (m *QmpMonitor) query() {
 		if len(m.commandQueue) == 0 {
 			break
 		}
-		//pop
+
+		// pop cmd
 		m.mutex.Lock()
 		cmd := m.commandQueue[0]
 		m.commandQueue = m.commandQueue[1:]
+
 		c, _ := json.Marshal(cmd)
 		err := m.write(c)
 		m.mutex.Unlock()
@@ -237,11 +246,12 @@ func (m *QmpMonitor) query() {
 }
 
 func (m *QmpMonitor) Query(cmd *Command, cb qmpMonitorCallBack) {
-	// push
+	// push cmd
 	m.mutex.Lock()
 	m.commandQueue = append(m.commandQueue, cmd)
 	m.callbackQueue = append(m.callbackQueue, cb)
 	m.mutex.Unlock()
+
 	if m.connected {
 		if !m.writing {
 			go m.query()
@@ -325,7 +335,8 @@ func (m *QmpMonitor) parseStatus(callback StringCallback) qmpMonitorCallBack {
 		if status, ok := val["status"]; !ok {
 			callback("unknown")
 		} else {
-			callback(status.(string))
+			str, _ := status.(string)
+			callback(str)
 		}
 	}
 }
@@ -362,7 +373,8 @@ func (m *QmpMonitor) GetBlocks(callback func(*jsonutils.JSONArray)) {
 			log.Errorf("Get block error %s", err)
 			callback(nil)
 		}
-		callback(jr.(*jsonutils.JSONArray))
+		jra, _ := jr.(*jsonutils.JSONArray)
+		callback(jra)
 	}
 
 	cmd := &Command{Execute: "query-block"}
@@ -651,4 +663,16 @@ func (m *QmpMonitor) SetVncPassword(proto, password string, callback StringCallb
 		}
 	)
 	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) StartNbdServer(port int, exportAllDevice, writable bool, callback StringCallback) {
+	var cmd = "nbd_server_start"
+	if exportAllDevice {
+		cmd += " -a"
+	}
+	if writable {
+		cmd += " -w"
+	}
+	cmd += fmt.Sprintf(" 0.0.0.0:%d", port)
+	m.HumanMonirotCommand(cmd, callback)
 }

@@ -1,22 +1,22 @@
 package hostdhcp
 
 import (
-	"fmt"
 	"net"
 	"strconv"
+	"sync"
 	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/dhcp"
 )
 
-const DEFAULT_DHCP_RELAY_PORT = 68
+const DEFAULT_DHCP_RELAY_PORT = 168
 
 type recvFunc func(pkt *dhcp.Packet)
 
 type SRelayCache struct {
-	mac net.HardwareAddr
-	// srcPort int
+	mac     net.HardwareAddr
+	srcPort int
 	// dstPort int
 
 	timer time.Time
@@ -32,97 +32,83 @@ type SDHCPRelay struct {
 	destaddr net.IP
 	destport int
 
-	cache map[string]*SRelayCache
+	cache sync.Map
+	// cache map[string]*SRelayCache
 }
 
-func NewDHCPRelay(addrs []string) *SDHCPRelay {
+func NewDHCPRelay(addrs []string) (*SDHCPRelay, error) {
 	relay := new(SDHCPRelay)
 	addr := addrs[0]
 	port, err := strconv.Atoi(addrs[1])
 	if err != nil {
 		log.Errorln(err)
-		return nil
+		return nil, err
 	}
 	relay.destaddr = net.ParseIP(addr)
 	relay.destport = port
+	relay.cache = sync.Map{}
+	// relay.cache = make(map[string]*SRelayCache, 0)
 
-	relay.conn, err = dhcp.NewConn(
-		fmt.Sprintf("%s:%d", DEFAULT_DHCP_LISTEN_ADDR, DEFAULT_DHCP_RELAY_PORT))
-	relay.server = dhcp.NewDHCPServer2(relay.conn)
-	return relay
+	log.Infof("DHCP Relay Bind addr %s port %d",
+		DEFAULT_DHCP_LISTEN_ADDR, DEFAULT_DHCP_RELAY_PORT)
+	relay.server, relay.conn, err = dhcp.NewDHCPServer2(DEFAULT_DHCP_LISTEN_ADDR, DEFAULT_DHCP_RELAY_PORT)
+	if err != nil {
+		log.Errorln(err)
+		return nil, err
+	}
+	return relay, nil
 }
 
 func (r *SDHCPRelay) Start() {
 	log.Infof("DHCPRelay starting ...")
-	r.server.ListenAndServe(r)
+	go func() {
+		err := r.server.ListenAndServe(r)
+		if err != nil {
+			log.Errorf("DHCP Relay error %s", err)
+		}
+	}()
 }
 
 func (r *SDHCPRelay) Setup(addr string) {
 	r.srcaddr = addr
 }
 
-/*
-   xid = pkt[BOOTP].xid
-   if xid in self.relay_packets:
-       (mac, sport, dport, tm) = self.relay_packets.pop(xid)
-       src_ip = pkt[BOOTP].giaddr
-       cli_ip = pkt[BOOTP].ciaddr
-       print mac, src_ip, cli_ip, dport, sport
-       rep = Ether(dst=mac)
-       rep /= IP(src=src_ip, dst=cli_ip)
-       rep /= UDP(sport=dport, dport=sport)
-       rep /= pkt
-       self.send_packet(rep)
-*/
+func (r *SDHCPRelay) ServeDHCP(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
+	log.Infof("Receive DHCP Relay Reply TO %s", pkt.CHAddr())
+	if v, ok := r.cache.Load(pkt.TransactionID()); ok {
+		r.cache.Delete(pkt.TransactionID())
+		val := v.(*SRelayCache)
+		udpAddr := &net.UDPAddr{
+			IP:   pkt.CIAddr(),
+			Port: val.srcPort,
+		}
 
-func (r *SDHCPRelay) ServeDHCP(pkt dhcp.Packet, intf *net.Interface) (dhcp.Packet, error) {
-	if v, ok := r.cache[string(pkt.TransactionID())]; ok {
-		delete(r.cache, string(pkt.TransactionID()))
-		pkt.SetCHAddr(v.mac)
-		// pkt.ClientAddr 不变
-		log.Errorln("XXXXX:", pkt.CIAddr())
-		pkt.SetGIAddr(nil)
+		r.conn.SendDHCP(pkt, udpAddr, intf)
 	}
-	return pkt, nil
+	return nil, nil
 }
 
-/*
-   xid = pkt[BOOTP].xid
-   mac = pkt[Ether].src
-   sport = pkt[UDP].sport   // must be 68
-   dport = pkt[UDP].dport   // must be 67
-   print 'do_relay', xid, mac, sport, dport
-   self.relay_packets[xid] = (mac, sport, dport, time.time())
-   msg = pkt.getlayer(BOOTP).copy()
-   self.relay.relay(msg)
-*/
+func (r *SDHCPRelay) Relay(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
+	log.Infof("Receive DHCP Relay Rquest FROM %s", pkt.CHAddr())
 
-func (r *SDHCPRelay) Relay(pkt dhcp.Packet, intf *net.Interface) (dhcp.Packet, error) {
 	// clean cache first
 	var now = time.Now().Add(time.Second * -30)
-	for k, v := range r.cache {
+	r.cache.Range(func(key, value interface{}) bool {
+		v := value.(*SRelayCache)
 		if v.timer.Before(now) {
-			delete(r.cache, k)
+			r.cache.Delete(key)
 		}
-	}
+		return true
+	})
 
-	// cache pkt
-	r.cache[string(pkt.TransactionID())] = &SRelayCache{
-		mac:   pkt.CHAddr(),
-		timer: time.Now(),
-	}
+	// cache pkt info
+	r.cache.Store(pkt.TransactionID(), &SRelayCache{
+		mac:     pkt.CHAddr(),
+		srcPort: addr.Port,
+		timer:   time.Now(),
+	})
 
-	/*
-	   case txRelayAddr:
-	       addr := net.UDPAddr{
-	           IP:   pkt.RelayAddr,
-	           Port: dhcpClientPort,
-	       }
-	       return c.conn.Send(b, &addr, 0)
-	*/
-	// euqal sendto addr ??? GIAddr should self address
 	pkt.SetGIAddr(r.destaddr)
-	// transport to upstream
 	err := r.conn.SendDHCP(pkt, &net.UDPAddr{IP: r.destaddr, Port: r.destport}, intf)
 	return nil, err
 }

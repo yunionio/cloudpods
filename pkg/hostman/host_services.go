@@ -25,19 +25,16 @@ type SHostService struct {
 
 func (host *SHostService) StartService() {
 	cloudcommon.ParseOptions(&options.HostOptions, os.Args, "host.conf", "host")
-
-	// disable rbac
-	options.HostOptions.EnableRbac = false
+	options.HostOptions.EnableRbac = false // disable rbac
 
 	app := cloudcommon.InitApp(&options.HostOptions.CommonOptions, false)
-
 	hostInstance := hostinfo.Instance()
 	if err := hostInstance.Init(); err != nil {
 		log.Fatalf(err.Error())
 	}
 
-	// register quit handler
-	host.RegisterSignals(func() {
+	host.RegisterSIGUSR1()
+	host.RegisterQuitSignals(func() { // register quit handler
 		if host.isExiting {
 			return
 		} else {
@@ -64,15 +61,14 @@ func (host *SHostService) StartService() {
 	}
 
 	guestman.Init(hostInstance, options.HostOptions.ServersPath)
-
 	cloudcommon.InitAuth(&options.HostOptions.CommonOptions, func() {
 		log.Infof("Auth complete!!")
-		hostInstance.StartRegister(5, guestman.GetGuestManager().Bootstrap)
+		// ??? Why wait 5 seconds
+		hostInstance.StartRegister(2, guestman.GetGuestManager().Bootstrap)
 	})
-
 	host.initHandlers(app)
-	<-hostinfo.Instance().IsRegistered // wait host and guest init
 
+	<-hostinfo.Instance().IsRegistered // wait host and guest init
 	cloudcommon.ServeForever(app, &options.HostOptions.CommonOptions)
 }
 

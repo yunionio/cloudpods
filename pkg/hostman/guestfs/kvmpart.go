@@ -127,15 +127,13 @@ func (p *SKVMGuestDiskPartition) fsck() error {
 func (p *SKVMGuestDiskPartition) Exists(sPath string, caseInsensitive bool) bool {
 	sPath = p.getLocalPath(sPath, caseInsensitive)
 	if len(sPath) > 0 {
-		if _, err := os.Stat(sPath); !os.IsNotExist(err) {
-			return true
-		}
+		return fileutils2.Exists(sPath)
 	}
 	return false
 }
 
 func (p *SKVMGuestDiskPartition) IsMounted() bool {
-	if _, err := os.Stat(p.mountPath); os.IsNotExist(err) {
+	if !fileutils2.Exists(p.mountPath) {
 		return false
 	}
 	_, err := procutils.NewCommand("mountpoint", p.mountPath).Run()

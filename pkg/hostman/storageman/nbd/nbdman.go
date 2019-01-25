@@ -2,7 +2,6 @@ package nbd
 
 import (
 	"fmt"
-	"os"
 	"sync"
 
 	"yunion.io/x/log"
@@ -36,8 +35,7 @@ func NewNBDManager() *SNBDManager {
 func (m *SNBDManager) findNbdDevices() {
 	var i = 0
 	for {
-		_, err := os.Stat(fmt.Sprintf("/dev/nbd%d", i))
-		if !os.IsNotExist(err) {
+		if fileutils2.Exists(fmt.Sprintf("/dev/nbd%d", i)) {
 			m.nbdDevs[fmt.Sprintf("/dev/nbd%d", i)] = false
 			i++
 		} else {

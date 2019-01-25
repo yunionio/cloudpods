@@ -11,7 +11,7 @@ func TestQmpMonitor_Connect(t *testing.T) {
 	onConnected := func() { log.Infof("Monitor Connected") }
 	onDisConnect := func(error) { log.Infof("Monitor DisConnect") }
 	onTimeout := func(error) { log.Infof("Monitor Timeout") }
-	m := NewQmpMonitor(onDisConnect, onTimeout, onConnected)
+	m := NewQmpMonitor(onDisConnect, onTimeout, onConnected, nil)
 	var host = "127.0.0.1"
 	var port = 56101
 	m.Connect(host, port)

@@ -46,6 +46,7 @@ func (d *SDownloadProvider) Start(
 		d.w.Header().Add(k, headers.Get(k))
 	}
 
+	log.Infof("Downloader Start Transfer %s, compress %t", downloadFilePath, d.compress)
 	fi, err := os.Open(downloadFilePath)
 	if err != nil {
 		log.Errorln(err)
@@ -54,11 +55,12 @@ func (d *SDownloadProvider) Start(
 	defer fi.Close()
 
 	var (
-		end                 = false
-		chunk               = make([]byte, CHUNK_SIZE)
-		writer    io.Writer = d.w
-		startTime           = time.Now()
-		sendBytes           = 0
+		end                  = false
+		chunk                = make([]byte, CHUNK_SIZE)
+		writer     io.Writer = d.w
+		startTime            = time.Now()
+		sendBytes            = 0
+		writeChunk []byte
 	)
 
 	if d.compress {
@@ -68,19 +70,23 @@ func (d *SDownloadProvider) Start(
 			return err
 		}
 		writer = zw
-		defer zw.Flush() // it's cool
 		defer zw.Close()
+		defer zw.Flush() // it's cool
 	}
 
 	for !end {
-		if _, err := fi.Read(chunk); err == io.EOF {
-			end = true
-		} else if err != nil && err != io.EOF {
-			log.Errorln(err)
-			return err
+		size, err := fi.Read(chunk)
+		if err != nil {
+			if err != io.EOF {
+				log.Errorln(err)
+				return err
+			} else {
+				end = true
+			}
 		}
 
-		if size, err := writer.Write(chunk); err != nil {
+		writeChunk = chunk[:size]
+		if size, err = writer.Write(writeChunk); err != nil {
 			log.Errorln(err)
 			return err
 		} else {
@@ -100,7 +106,7 @@ func (d *SDownloadProvider) Start(
 
 	sendMb := float64(sendBytes) / 1000.0 / 1000.0
 	timeDur := time.Now().Sub(startTime)
-	log.Infof("Send data: %fMB rate: %fMB/sec", sendMb/timeDur.Seconds())
+	log.Infof("Send data: %fMB rate: %fMB/sec", sendMb, sendMb/timeDur.Seconds())
 
 	if onDownloadComplete != nil {
 		onDownloadComplete()

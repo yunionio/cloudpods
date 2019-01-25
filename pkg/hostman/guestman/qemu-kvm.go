@@ -17,6 +17,7 @@ import (
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
@@ -42,8 +43,9 @@ const (
 )
 
 type SKVMGuestInstance struct {
-	Id          string
-	cgroupId    string
+	Id string
+
+	cgroupPid   int
 	QemuVersion string
 	VncPassword string
 
@@ -51,7 +53,8 @@ type SKVMGuestInstance struct {
 	Monitor monitor.Monitor
 	manager *SGuestManager
 
-	startupTask *SGuestResumeTask
+	startupTask        *SGuestResumeTask
+	mirrorJobSuccCount *int
 }
 
 func NewKVMGuestInstance(id string, manager *SGuestManager) *SKVMGuestInstance {
@@ -102,8 +105,7 @@ func (s *SKVMGuestInstance) GetPid() int {
 }
 
 func (s *SKVMGuestInstance) getPid(pidFile, uuid string) int {
-	_, err := os.Stat(pidFile)
-	if os.IsNotExist(err) {
+	if !fileutils2.Exists(pidFile) {
 		return -1
 	}
 	pidStr, err := fileutils2.FileGetContents(pidFile)
@@ -250,16 +252,10 @@ func (s *SKVMGuestInstance) saveScripts(data *jsonutils.JSONDict) error {
 	if err != nil {
 		return err
 	}
-	if fileutils2.Exists(s.GetStartScriptPath()) {
-		os.Remove(s.GetStartScriptPath())
-	}
 	if err = fileutils2.FilePutContents(s.GetStartScriptPath(), startScript, false); err != nil {
 		return err
 	}
 	stopScript := s.generateStopScript(data)
-	if fileutils2.Exists(s.GetStartScriptPath()) {
-		os.Remove(s.GetStopScriptPath())
-	}
 	return fileutils2.FilePutContents(s.GetStopScriptPath(), stopScript, false)
 }
 
@@ -340,13 +336,33 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 func (s *SKVMGuestInstance) delayStartMonitor(ctx context.Context) {
 	if options.HostOptions.EnableQmpMonitor && s.GetQmpMonitorPort(-1) > 0 {
 		s.Monitor = monitor.NewQmpMonitor(
-			s.onMonitorDisConnect,
-			func(err error) { s.onMonitorTimeout(ctx, err) },
-			func() { s.onMonitorConnected(ctx) },
+			s.onMonitorDisConnect,                            // on monitor disconnect
+			func(err error) { s.onMonitorTimeout(ctx, err) }, // on monitor timeout
+			func() { s.onMonitorConnected(ctx) },             // on monitor connected
+			s.onReceiveQMPEvent,                              // on reveive qmp event
 		)
 		s.Monitor.Connect("127.0.0.1", s.GetQmpMonitorPort(-1))
-	} else {
-		// TODO HMP Monitor
+	}
+}
+
+func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
+	if event.Event == "BLOCK_JOB_READY" && s.IsMaster() {
+		if itype, ok := event.Data["type"]; ok {
+			stype, _ := itype.(string)
+			if stype == "mirror" {
+				if s.mirrorJobSuccCount != nil {
+					*s.mirrorJobSuccCount += 1
+				} else {
+					s.mirrorJobSuccCount = new(int)
+					*s.mirrorJobSuccCount = 1
+				}
+				if *s.mirrorJobSuccCount == s.DiskCount() {
+					hostutils.UpdateServerStatus(context.Background(), s.GetId(), "running")
+				}
+			}
+		}
+	} else if event.Event == "BLOCK_JOB_ERROR" && s.IsMaster() {
+		hostutils.UpdateServerStatus(context.Background(), s.GetId(), "mirror_failed")
 	}
 }
 
@@ -362,14 +378,16 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 	log.Infof("Guest(%s) qemu version %s", s.Id, s.QemuVersion)
 	if s.Desc.Contains("live_migrate_dest_port") && ctx != nil {
 		migratePort, _ := s.Desc.Get("live_migrate_dest_port")
-		body := jsonutils.NewDict(jsonutils.NewPair("live_migrate_dest_port", migratePort))
+		body := jsonutils.NewDict()
+		body.Set("live_migrate_dest_port", migratePort)
 		hostutils.TaskComplete(ctx, body)
 	} else if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
-		// TODO
+		if len(appctx.AppContextTaskId(ctx)) > 0 {
+			s.startQemuBuiltInNbdServer(ctx)
+		}
 	} else if jsonutils.QueryBoolean(s.Desc, "is_master", false) && ctx == nil {
-		// TODO
+		return
 	} else {
-		// TODO
 		s.DoResumeTask(ctx)
 	}
 }
@@ -378,15 +396,47 @@ func (s *SKVMGuestInstance) onMonitorDisConnect(err error) {
 	log.Infof("On Monitor Disconnect")
 	s.CleanStartupTask()
 	s.scriptStop()
-	if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
-		// TODO
-		// sync slave status
-	} else {
+	if !jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
 		s.SyncStatus()
 	}
-	// TODO
-	// s.clearCgroup()
+	s.clearCgroup(0)
 	s.Monitor = nil
+}
+
+func (s *SKVMGuestInstance) startQemuBuiltInNbdServer(ctx context.Context) {
+	nbdServerPort := s.manager.GetFreePortByBase(BUILT_IN_NBD_SERVER_PORT_BASE)
+	var onNbdServerStarted = func(res string) {
+		if len(res) > 0 {
+			log.Errorln("Start Qemu Builtin nbd server error %s", res)
+			hostutils.TaskFailed(ctx, res)
+		} else {
+			hostutils.TaskComplete(ctx, nil)
+		}
+	}
+	s.Monitor.StartNbdServer(nbdServerPort, true, true, onNbdServerStarted)
+}
+
+func (s *SKVMGuestInstance) clearCgroup(pid int) {
+	if pid == 0 && s.cgroupPid > 0 {
+		pid = s.cgroupPid
+	}
+	log.Infof("cgroup destroy %d", pid)
+	if pid > 0 {
+		cgrouputils.CgroupDestroy(strconv.Itoa(pid))
+	}
+}
+
+func (s *SKVMGuestInstance) IsMaster() bool {
+	return jsonutils.QueryBoolean(s.Desc, "is_master", false)
+}
+
+func (s *SKVMGuestInstance) DiskCount() int {
+	disks, _ := s.Desc.GetArray("disks")
+	return len(disks)
+}
+
+func (s *SKVMGuestInstance) IsMirrorJobSucc() bool {
+	return s.mirrorJobSuccCount != nil && *s.mirrorJobSuccCount == s.DiskCount()
 }
 
 func (s *SKVMGuestInstance) CleanStartupTask() {
@@ -477,7 +527,11 @@ func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
 }
 
 func (s *SKVMGuestInstance) SaveDesc(desc jsonutils.JSONObject) error {
-	s.Desc = desc.(*jsonutils.JSONDict)
+	var ok bool
+	s.Desc, ok = desc.(*jsonutils.JSONDict)
+	if !ok {
+		return fmt.Errorf("Unknown desc format, not JSONDict")
+	}
 	if err := fileutils2.FilePutContents(s.GetDescFilePath(), desc.String(), false); err != nil {
 		log.Errorln(err)
 	}
@@ -541,17 +595,23 @@ func (s *SKVMGuestInstance) ForceStop() bool {
 	return false
 }
 
-func (s *SKVMGuestInstance) ExitCleanup(clearCgroup bool) {
-	if clearCgroup {
+func (s *SKVMGuestInstance) ExitCleanup(clear bool) {
+	if clear {
 		pid := s.GetPid()
 		if pid > 0 {
-			// TODO: ClearCgroup
-			// s.ClearCgroup(pid)
+			s.clearCgroup(pid)
 		}
 	}
 	if s.Monitor != nil {
 		s.Monitor.Disconnect()
 		s.Monitor = nil
+	}
+}
+
+func (s *SKVMGuestInstance) CleanupCpuset() {
+	task := cgrouputils.NewCGroupCPUSetTask(strconv.Itoa(s.GetPid()), 0, "")
+	if !task.RemoveTask() {
+		log.Warningf("remove cpuset cgroup error: %s %s", s.Id, s.GetPid())
 	}
 }
 
@@ -840,7 +900,7 @@ func (s *SKVMGuestInstance) getStorageDeviceId() string {
 }
 
 func (s *SKVMGuestInstance) SetCgroup() {
-	s.cgroupId = fmt.Sprintf("%d", s.GetPid())
+	s.cgroupPid = s.GetPid()
 	s.setCgroupIo()
 	s.setCgroupCpu()
 }
@@ -859,13 +919,13 @@ func (s *SKVMGuestInstance) setCgroupIo() {
 		params["blkio.throttle.write_bps_device"] = options.HostOptions.DefaultWriteBpsPerCpu
 		params["blkio.throttle.write_iops_device"] = options.HostOptions.DefaultWriteIopsPerCpu
 		cpu, _ := s.Desc.Int("cpu")
-		cgrouputils.CgroupIoHardlimitSet(s.cgroupId, int(cpu), params, devId)
+		cgrouputils.CgroupIoHardlimitSet(strconv.Itoa(s.cgroupPid), int(cpu), params, devId)
 	}
 }
 
 func (s *SKVMGuestInstance) setCgroupCpu() {
 	cpu, _ := s.Desc.Int("cpu")
-	cgrouputils.CgroupSet(s.cgroupId, int(cpu))
+	cgrouputils.CgroupSet(strconv.Itoa(s.cgroupPid), int(cpu))
 
 	// TODO XXX
 	/*

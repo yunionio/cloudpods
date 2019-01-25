@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path"
 	"reflect"
 	"regexp"
@@ -179,7 +178,7 @@ func (h *SHostInfo) prepareEnv() error {
 		return fmt.Errorf("Qemu/Kvm not installed")
 	}
 
-	if _, err := os.Stat("/sbin/ethtool"); os.IsNotExist(err) {
+	if !fileutils2.Exists("/sbin/ethtool") {
 		return fmt.Errorf("Ethtool not installed")
 	}
 
@@ -198,24 +197,21 @@ func (h *SHostInfo) prepareEnv() error {
 	if err != nil {
 		return fmt.Errorf("Failed to activate tun/tap device")
 	}
-	_, err = procutils.NewCommand("modprobe", "vhost_net").Run()
+	output, err := procutils.NewCommand("modprobe", "vhost_net").Run()
 	if err != nil {
-		e := err.(*exec.ExitError)
-		log.Errorln(e.Stderr)
+		log.Errorf("modprobe error: %s", output)
 	}
 	if !cgrouputils.Init() {
 		return fmt.Errorf("Cannot initialize control group subsystem")
 	}
 
-	_, err = procutils.NewCommand("rmmod", "nbd").Run()
+	output, err = procutils.NewCommand("rmmod", "nbd").Run()
 	if err != nil {
-		e := err.(*exec.ExitError)
-		log.Errorln(e.Stderr)
+		log.Errorf("rmmod error: %s", output)
 	}
-	_, err = procutils.NewCommand("modprobe", "nbd", "max_part=16").Run()
+	output, err = procutils.NewCommand("modprobe", "nbd", "max_part=16").Run()
 	if err != nil {
-		e := err.(*exec.ExitError)
-		log.Errorf("Failed to activate nbd device: %s", e.Stderr)
+		log.Errorf("Failed to activate nbd device: %s", output)
 	}
 
 	// TODO: winRegTool还未实现
@@ -386,11 +382,15 @@ func (h *SHostInfo) EnableNativeHugepages() error {
 	return nil
 }
 
-func (h *SHostInfo) setSysConfig(path, val string) bool {
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		oval, _ := ioutil.ReadFile(path)
+func (h *SHostInfo) setSysConfig(cpath, val string) bool {
+	if fileutils2.Exists(cpath) {
+		oval, err := ioutil.ReadFile(cpath)
+		if err != nil {
+			log.Errorln(err)
+			return false
+		}
 		if string(oval) != val {
-			err = fileutils2.FilePutContents(path, val, false)
+			err = fileutils2.FilePutContents(cpath, val, false)
 			if err == nil {
 				return true
 			}
@@ -549,7 +549,7 @@ func (h *SHostInfo) unloadKvmModule(name string) bool {
 
 func (h *SHostInfo) getModuleParameter(name, moduel string) string {
 	pa := path.Join("/sys/module/", strings.Replace(name, "-", "_", -1), "/parameters/", moduel)
-	if f, err := os.Stat(pa); err != nil {
+	if f, err := os.Stat(pa); err == nil {
 		if f.IsDir() {
 			return ""
 		}
