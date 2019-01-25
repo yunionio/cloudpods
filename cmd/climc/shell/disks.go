@@ -26,10 +26,10 @@ func init() {
 		if err != nil {
 			return err
 		}
-		if len(suboptions.CloudType) > 0 {
-			if suboptions.CloudType == "Public" {
+		if len(opts.CloudType) > 0 {
+			if opts.CloudType == "Public" {
 				params.Add(jsonutils.JSONTrue, "public_cloud")
-			} else if suboptions.CloudType == "Private" {
+			} else if opts.CloudType == "Private" {
 				params.Add(jsonutils.JSONTrue, "private_cloud")
 			}
 		}
