@@ -1,14 +1,22 @@
 package storageman
 
 import (
+	"context"
 	"fmt"
+	"io/ioutil"
 	"path"
 	"strings"
+	"time"
+
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 const MINIMAL_FREE_SPACE = 128
@@ -278,4 +286,39 @@ func Init(host hostutils.IHost) error {
 
 func Stop() {
 	// pass do nothing
+}
+
+func cleanDailyFiles(storagePath, subDir string, keepDay int) {
+	recycleDir := path.Join(storagePath, subDir)
+	if !fileutils2.Exists(recycleDir) {
+		return
+	}
+
+	// before mark should be deleted
+	markTime := timeutils.UtcNow().Add(time.Hour * 24 * -1 * time.Duration(keepDay))
+	files, err := ioutil.ReadDir(recycleDir)
+	if err != nil {
+		log.Errorln(err)
+		return
+	}
+
+	for _, file := range files {
+		date, err := timeutils.ParseTimeStr(file.Name())
+		if err != nil {
+			log.Errorln(err)
+			continue
+		}
+		if date.Before(markTime) {
+			log.Infof("Real delete %s", file)
+			subDirPath := path.Join(recycleDir, file.Name())
+			procutils.NewCommand("rm", "-rf", subDirPath)
+		}
+	}
+}
+
+func CleanRecycleDiskfiles(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
+	for _, d := range options.HostOptions.LocalImagePath {
+		cleanDailyFiles(d, _RECYCLE_BIN_, options.HostOptions.RecycleDiskfileKeepDays)
+		cleanDailyFiles(d, _IMGSAVE_BACKUPS_, options.HostOptions.RecycleDiskfileKeepDays)
+	}
 }

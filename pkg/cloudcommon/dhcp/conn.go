@@ -15,11 +15,12 @@
 package dhcp
 
 import (
-	//"errors"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"strconv"
+	"syscall"
 	"time"
 
 	"golang.org/x/net/ipv4"
@@ -73,7 +74,11 @@ func NewConn(addr string) (*Conn, error) {
 	return newConn(addr, newPortableConn)
 }
 
-func newConn(addr string, n func(int) (conn, error)) (*Conn, error) {
+func NewSocketConn(addr string) (*Conn, error) {
+	return newConn(addr, newSocketConn)
+}
+
+func newConn(addr string, n func(net.IP, int) (conn, error)) (*Conn, error) {
 	if addr == "" {
 		addr = "0.0.0.0:67"
 	}
@@ -95,7 +100,7 @@ func newConn(addr string, n func(int) (conn, error)) (*Conn, error) {
 		}
 	}
 
-	c, err := n(udpAddr.Port)
+	c, err := n(udpAddr.IP, udpAddr.Port)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +226,7 @@ type portableConn struct {
 	conn *ipv4.PacketConn
 }
 
-func newPortableConn(port int) (conn, error) {
+func newPortableConn(_ net.IP, port int) (conn, error) {
 	c, err := net.ListenPacket("udp4", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return nil, err
@@ -264,4 +269,71 @@ func (c *portableConn) SetReadDeadline(t time.Time) error {
 
 func (c *portableConn) SetWriteDeadline(t time.Time) error {
 	return c.conn.SetWriteDeadline(t)
+}
+
+type socketConn struct {
+	sock int
+}
+
+func newSocketConn(addr net.IP, port int) (conn, error) {
+	sock, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_DGRAM, 0)
+	if err != nil {
+		return nil, err
+	}
+	if err = syscall.SetsockoptInt(sock, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1); err != nil {
+		return nil, err
+	}
+	byteAddr := [4]byte{}
+	copy(byteAddr[:], addr.To4()[:4])
+	lsa := &syscall.SockaddrInet4{
+		Port: port,
+		Addr: byteAddr,
+	}
+	if err = syscall.Bind(sock, lsa); err != nil {
+		return nil, err
+	}
+	if err = syscall.SetNonblock(sock, false); err != nil {
+		return nil, err
+	}
+	return &socketConn{sock}, nil
+}
+
+func (s *socketConn) Close() error {
+	return syscall.Close(s.sock)
+}
+
+func (s *socketConn) Recv(b []byte) (rb []byte, addr *net.UDPAddr, ifidx int, err error) {
+	n, a, err := syscall.Recvfrom(s.sock, b, 0)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	if addr, ok := a.(*syscall.SockaddrInet4); !ok {
+		return nil, nil, 0, errors.New("Recvfrom recevice address is not famliy Inet4")
+	} else {
+		ip := net.IP{addr.Addr[0], addr.Addr[1], addr.Addr[2], addr.Addr[3]}
+		udpAddr := &net.UDPAddr{
+			IP:   ip,
+			Port: addr.Port,
+		}
+		// there is no interface index info
+		return b[:n], udpAddr, 0, nil
+	}
+}
+
+func (s *socketConn) Send(b []byte, addr *net.UDPAddr, ifidx int) error {
+	destIp := [4]byte{}
+	copy(destIp[:], addr.IP.To4()[:4])
+	destAddr := &syscall.SockaddrInet4{
+		Addr: destIp,
+		Port: addr.Port,
+	}
+	return syscall.Sendto(s.sock, b, 0, destAddr)
+}
+
+func (s *socketConn) SetReadDeadline(t time.Time) error {
+	return errors.New("Not Implement")
+}
+
+func (s *socketConn) SetWriteDeadline(t time.Time) error {
+	return errors.New("Not Implement")
 }

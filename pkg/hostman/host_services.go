@@ -8,6 +8,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman/downloader"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
@@ -42,8 +43,7 @@ func (host *SHostService) StartService() {
 		}
 
 		if app.IsInServe() {
-			err := app.ShowDown(context.Background())
-			if err != nil {
+			if err := app.ShowDown(context.Background()); err != nil {
 				log.Errorln(err.Error())
 			}
 		}
@@ -52,7 +52,6 @@ func (host *SHostService) StartService() {
 		storageman.Stop()
 		guestman.Stop()
 		hostutils.GetWorkManager().Stop()
-
 		os.Exit(0)
 	})
 
@@ -67,8 +66,12 @@ func (host *SHostService) StartService() {
 		hostInstance.StartRegister(2, guestman.GetGuestManager().Bootstrap)
 	})
 	host.initHandlers(app)
-
 	<-hostinfo.Instance().IsRegistered // wait host and guest init
+
+	cronManager := cronman.GetCronJobManager(false)
+	cronManager.AddJob2(
+		"CleanRecycleDiskFiles", 1, 3, 0, 0, storageman.CleanRecycleDiskfiles, false)
+
 	cloudcommon.ServeForever(app, &options.HostOptions.CommonOptions)
 }
 

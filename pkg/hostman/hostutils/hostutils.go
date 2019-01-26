@@ -46,7 +46,7 @@ func TaskFailed(ctx context.Context, reason string) {
 	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
 		modules.ComputeTasks.TaskFailed2(GetComputeSession(ctx), taskId.(string), reason)
 	} else {
-		log.Errorln("Reqeuest task failed missing task id, with reason(%v)", reason)
+		log.Errorf("Reqeuest task failed missing task id, with reason(%s)", reason)
 	}
 }
 

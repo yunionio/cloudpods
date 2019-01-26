@@ -82,7 +82,9 @@ type SHostOptions struct {
 	ManageNtpConfiguration bool     `default:"true"`
 	LogSystemdUnits        []string `help:"Systemd units log collected by fluent-bit"`
 	BandwidthLimit         int      `default:"50" help:"Bandwidth upper bound when migrating disk image in MB/sec"`
-	SnapshotDirSuffix      string   `help:"Snapshot dir name equal diskId concat snapshot dir suffix" default:"_snap"`
+
+	SnapshotDirSuffix  string `help:"Snapshot dir name equal diskId concat snapshot dir suffix" default:"_snap"`
+	SnapshotRecycleDay int    `default:"1" help:"Snapshot Recycle delete Duration day"`
 }
 
 var HostOptions SHostOptions

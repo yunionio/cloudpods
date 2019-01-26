@@ -148,7 +148,9 @@ func (h *SHostInfo) parseConfig() error {
 		h.Nics = append(h.Nics, nic)
 	}
 	for i := 0; i < len(h.Nics); i++ {
-		h.Nics[i].SetupDhcpRelay()
+		if err := h.Nics[i].SetupDhcpRelay(); err != nil {
+			return err
+		}
 	}
 
 	if man, err := isolated_device.NewManager(h); err != nil {

@@ -10,7 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/dhcp"
 )
 
-const DEFAULT_DHCP_RELAY_PORT = 168
+const DEFAULT_DHCP_RELAY_PORT = 68
 
 type recvFunc func(pkt *dhcp.Packet)
 
@@ -33,7 +33,6 @@ type SDHCPRelay struct {
 	destport int
 
 	cache sync.Map
-	// cache map[string]*SRelayCache
 }
 
 func NewDHCPRelay(addrs []string) (*SDHCPRelay, error) {
@@ -47,15 +46,7 @@ func NewDHCPRelay(addrs []string) (*SDHCPRelay, error) {
 	relay.destaddr = net.ParseIP(addr)
 	relay.destport = port
 	relay.cache = sync.Map{}
-	// relay.cache = make(map[string]*SRelayCache, 0)
 
-	log.Infof("DHCP Relay Bind addr %s port %d",
-		DEFAULT_DHCP_LISTEN_ADDR, DEFAULT_DHCP_RELAY_PORT)
-	relay.server, relay.conn, err = dhcp.NewDHCPServer2(DEFAULT_DHCP_LISTEN_ADDR, DEFAULT_DHCP_RELAY_PORT)
-	if err != nil {
-		log.Errorln(err)
-		return nil, err
-	}
 	return relay, nil
 }
 
@@ -69,8 +60,17 @@ func (r *SDHCPRelay) Start() {
 	}()
 }
 
-func (r *SDHCPRelay) Setup(addr string) {
+func (r *SDHCPRelay) Setup(addr string) error {
+	var err error
 	r.srcaddr = addr
+	log.Infof("DHCP Relay Bind addr %s port %d", r.srcaddr, DEFAULT_DHCP_RELAY_PORT)
+	r.server, r.conn, err = dhcp.NewDHCPServer2(r.srcaddr, DEFAULT_DHCP_RELAY_PORT)
+	if err != nil {
+		log.Errorln(err)
+		return err
+	}
+	r.Start()
+	return nil
 }
 
 func (r *SDHCPRelay) ServeDHCP(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {

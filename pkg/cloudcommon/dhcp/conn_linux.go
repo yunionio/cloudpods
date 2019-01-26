@@ -40,7 +40,7 @@ func NewSnooperConn(addr string) (*Conn, error) {
 	return newConn(addr, newLinuxConn)
 }
 
-func newLinuxConn(port int) (conn, error) {
+func newLinuxConn(_ net.IP, port int) (conn, error) {
 	if port == 0 {
 		return nil, errors.New("must specify a listen port")
 	}
