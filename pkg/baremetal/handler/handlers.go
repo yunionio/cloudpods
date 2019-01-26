@@ -50,7 +50,6 @@ func handleBaremetalNotify(ctx *Context, bm *baremetal.SBaremetalInstance) {
 
 	// execute BaremetalServerPrepareTask
 	task := bm.GetTask()
-	log.Errorf("====== get task %#v", task)
 	if task != nil {
 		task.SSHExecute(task, remoteAddr, key, nil)
 	}
