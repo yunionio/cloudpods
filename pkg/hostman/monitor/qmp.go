@@ -107,7 +107,7 @@ func NewQmpMonitor(OnMonitorDisConnect, OnMonitorTimeout MonitorErrorFunc,
 
 func (m *QmpMonitor) actionResult(res *Response) string {
 	if res.ErrorVal != nil {
-		log.Infof("Qmp Monitor action result %s", res.ErrorVal.Error())
+		log.Errorf("Qmp Monitor action result %s", res.ErrorVal.Error())
 		return res.ErrorVal.Error()
 	} else {
 		return ""
@@ -303,6 +303,7 @@ func (m *QmpMonitor) HumanMonirotCommand(cmd string, callback StringCallback) {
 			Execute: "human-monitor-command",
 			Args:    map[string]string{"command-line": cmd},
 		}
+
 		cb = func(res *Response) {
 			if res.ErrorVal != nil {
 				callback(res.ErrorVal.Error())
@@ -381,127 +382,149 @@ func (m *QmpMonitor) GetBlocks(callback func(*jsonutils.JSONArray)) {
 }
 
 func (m *QmpMonitor) ChangeCdrom(dev string, path string, callback StringCallback) {
-	var (
-		args = map[string]interface{}{
-			"arguments": map[string]interface{}{
-				"device": dev,
-				"target": path,
-			},
-		}
-		cmd = &Command{
-			Execute: "change",
-			Args:    args,
-		}
+	m.HumanMonirotCommand(fmt.Sprintf("change %s %s", dev, path), callback)
+	// var (
+	// 	args = map[string]interface{}{
+	// 		"arguments": map[string]interface{}{
+	// 			"device": dev,
+	// 			"target": path,
+	// 		},
+	// 	}
+	// 	cmd = &Command{
+	// 		Execute: "change",
+	// 		Args:    args,
+	// 	}
 
-		cb = func(res *Response) {
-			callback(m.actionResult(res))
-		}
-	)
+	// 	cb = func(res *Response) {
+	// 		callback(m.actionResult(res))
+	// 	}
+	// )
 
-	m.Query(cmd, cb)
+	// m.Query(cmd, cb)
 }
 
 func (m *QmpMonitor) EjectCdrom(dev string, callback StringCallback) {
-	var (
-		args = map[string]interface{}{
-			"arguments": map[string]interface{}{
-				"device": dev,
-				"force":  true,
-			},
-		}
-		cmd = &Command{
-			Execute: "eject",
-			Args:    args,
-		}
+	m.HumanMonirotCommand(fmt.Sprintf("eject -f %s", dev), callback)
+	// XXX: 同下
+	// var (
+	// 	args = map[string]interface{}{
+	// 		"arguments": map[string]interface{}{
+	// 			"device": dev,
+	// 			"force":  true,
+	// 		},
+	// 	}
+	// 	cmd = &Command{
+	// 		Execute: "eject",
+	// 		Args:    args,
+	// 	}
 
-		cb = func(res *Response) {
-			callback(m.actionResult(res))
-		}
-	)
+	// 	cb = func(res *Response) {
+	// 		callback(m.actionResult(res))
+	// 	}
+	// )
 
-	m.Query(cmd, cb)
+	// m.Query(cmd, cb)
 }
 
 func (m *QmpMonitor) DriveDel(idstr string, callback StringCallback) {
-	var (
-		args = map[string]interface{}{
-			"arguments": map[string]interface{}{
-				"device": idstr,
-			},
-		}
-		cmd = &Command{
-			Execute: "drive_del",
-			Args:    args,
-		}
+	m.HumanMonirotCommand(fmt.Sprintf("drive_del %s", idstr), callback)
+	// XXX: 同下
+	// var (
+	// 	args = map[string]interface{}{
+	// 		"arguments": map[string]interface{}{
+	// 			"device": idstr,
+	// 		},
+	// 	}
+	// 	cmd = &Command{
+	// 		Execute: "drive_del",
+	// 		Args:    args,
+	// 	}
 
-		cb = func(res *Response) {
-			callback(m.actionResult(res))
-		}
-	)
+	// 	cb = func(res *Response) {
+	// 		callback(m.actionResult(res))
+	// 	}
+	// )
 
-	m.Query(cmd, cb)
+	// m.Query(cmd, cb)
 }
 
 func (m *QmpMonitor) DeviceDel(idstr string, callback StringCallback) {
-	var (
-		args = map[string]interface{}{
-			"arguments": map[string]interface{}{
-				"device": idstr,
-			},
-		}
-		cmd = &Command{
-			Execute: "device_del",
-			Args:    args,
-		}
+	m.HumanMonirotCommand(fmt.Sprintf("device_del %s", idstr), callback)
+	// XXX: 同下
+	// var (
+	// 	args = map[string]interface{}{
+	// 		"arguments": map[string]interface{}{
+	// 			"device": idstr,
+	// 		},
+	// 	}
+	// 	cmd = &Command{
+	// 		Execute: "device_del",
+	// 		Args:    args,
+	// 	}
 
-		cb = func(res *Response) {
-			callback(m.actionResult(res))
-		}
-	)
+	// 	cb = func(res *Response) {
+	// 		callback(m.actionResult(res))
+	// 	}
+	// )
 
-	m.Query(cmd, cb)
+	// m.Query(cmd, cb)
 }
 
 func (m *QmpMonitor) DriveAdd(bus string, params map[string]string, callback StringCallback) {
-	var (
-		args = map[string]interface{}{
-			"arguments": map[string]interface{}{
-				"bus":    bus,
-				"params": params,
-			},
-		}
-		cmd = &Command{
-			Execute: "drive_add",
-			Args:    args,
-		}
+	var paramsKvs = []string{}
+	for k, v := range params {
+		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%s", k, v))
+	}
+	cmd := fmt.Sprintf("drive_add %s %s", bus, strings.Join(paramsKvs, ","))
+	m.HumanMonirotCommand(cmd, callback)
+	// XXX: 同下
+	// var (
+	// 	args = map[string]interface{}{
+	// 		"arguments": map[string]interface{}{
+	// 			"bus":    bus,
+	// 			"params": params,
+	// 		},
+	// 	}
+	// 	cmd = &Command{
+	// 		Execute: "drive_add",
+	// 		Args:    args,
+	// 	}
 
-		cb = func(res *Response) {
-			callback(m.actionResult(res))
-		}
-	)
+	// 	cb = func(res *Response) {
+	// 		callback(m.actionResult(res))
+	// 	}
+	// )
 
-	m.Query(cmd, cb)
+	// m.Query(cmd, cb)
 }
 
 func (m *QmpMonitor) DeviceAdd(dev string, params map[string]interface{}, callback StringCallback) {
-	var (
-		args = map[string]interface{}{
-			"arguments": map[string]interface{}{
-				"device": dev,
-				"params": params,
-			},
-		}
-		cmd = &Command{
-			Execute: "device_add",
-			Args:    args,
-		}
+	var paramsKvs = []string{}
+	for k, v := range params {
+		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%v", k, v))
+	}
+	cmd := fmt.Sprintf("device_add %s,%s", dev, strings.Join(paramsKvs, ","))
+	m.HumanMonirotCommand(cmd, callback)
 
-		cb = func(res *Response) {
-			callback(m.actionResult(res))
-		}
-	)
+	// XXX: 参数不对，之后再调，先用着hmp的参数
+	// var (
+	// 	args = map[string]interface{}{
+	// 		"arguments": map[string]interface{}{
+	// 			"driver": dev,
+	// 			"params": params,
+	// 		},
+	// 	}
+	// 	cmd = &Command{
+	// 		Execute: "device_add",
+	// 		Args:    args,
+	// 	}
 
-	m.Query(cmd, cb)
+	// 	cb = func(res *Response) {
+	// 		callback(m.actionResult(res))
+	// 	}
+	// )
+
+	// m.Query(cmd, cb)
 }
 
 func (m *QmpMonitor) MigrateSetCapability(capability, state string, callback StringCallback) {
