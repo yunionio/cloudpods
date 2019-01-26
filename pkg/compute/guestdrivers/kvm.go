@@ -179,12 +179,16 @@ func (self *SKVMGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, gue
 	return nil
 }
 
-func (self *SKVMGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
+func (self *SKVMGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
 	return guest.GetJsonDescAtHypervisor(ctx, host)
 }
 
 func (self *SKVMGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
+	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
+	if err != nil {
+		log.Errorf("GetDeployConfigOnHost error: %v", err)
+		return err
+	}
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
 	if config.Contains("container") {
 		// ...
@@ -211,7 +215,7 @@ func (self *SKVMGuestDriver) RequestStartOnHost(ctx context.Context, guest *mode
 	header := self.getTaskRequestHeader(task)
 
 	config := jsonutils.NewDict()
-	desc := guest.GetDriver().GetJsonDescAtHost(ctx, guest, host)
+	desc := guest.GetDriver().GetJsonDescAtHost(ctx, userCred, guest, host)
 	config.Add(desc, "desc")
 	params := task.GetParams()
 	if params.Length() > 0 {
@@ -288,7 +292,7 @@ func (self *SKVMGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mode
 }
 
 func (self *SKVMGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	desc := guest.GetDriver().GetJsonDescAtHost(ctx, guest, host)
+	desc := guest.GetDriver().GetJsonDescAtHost(ctx, task.GetUserCred(), guest, host)
 	body := jsonutils.NewDict()
 	body.Add(desc, "desc")
 	if fw_only, _ := task.GetParams().Bool("fw_only"); fw_only {
