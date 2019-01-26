@@ -71,22 +71,30 @@ func optionsStructRvToParams(rv reflect.Value) (*jsonutils.JSONDict, error) {
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			rv64 := f.Convert(gotypes.Int64Type)
 			i64 := rv64.Interface().(int64)
-			p.Set(name, jsonutils.NewInt(i64))
+			if i64 != 0 || !jsonInfo.OmitZero {
+				p.Set(name, jsonutils.NewInt(i64))
+			}
 		case reflect.Bool:
 			b := f.Interface().(bool)
-			p.Set(name, jsonutils.NewBool(b))
+			if b || !jsonInfo.OmitFalse {
+				p.Set(name, jsonutils.NewBool(b))
+			}
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 			// NOTE uint64 converted to int64
 			rv64 := f.Convert(gotypes.Uint64Type)
 			i64 := rv64.Interface().(uint64)
-			p.Set(name, jsonutils.NewInt(int64(i64)))
+			if i64 != 0 || !jsonInfo.OmitZero {
+				p.Set(name, jsonutils.NewInt(int64(i64)))
+			}
 		case reflect.Float32, reflect.Float64:
 			rv64 := f.Convert(gotypes.Float64Type)
 			f64 := rv64.Interface().(float64)
-			p.Set(name, jsonutils.NewFloat(f64))
+			if f64 != 0 || !jsonInfo.OmitZero {
+				p.Set(name, jsonutils.NewFloat(f64))
+			}
 		case reflect.String:
 			s := f.Interface().(string)
-			if len(s) > 0 {
+			if len(s) > 0 || !jsonInfo.OmitEmpty {
 				p.Set(name, jsonutils.NewString(s))
 			}
 		case reflect.Struct:

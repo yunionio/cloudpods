@@ -173,7 +173,7 @@ func (self *SBaseGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest 
 	return fmt.Errorf("Not Implement")
 }
 
-func (self *SBaseGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, vcpuCount, vmemSize int64) error {
+func (self *SBaseGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
 	return fmt.Errorf("Not Implement")
 }
 
@@ -223,4 +223,8 @@ func (self *SBaseGuestDriver) RequestRenewInstance(guest *models.SGuest, bc bill
 
 func (self *SBaseGuestDriver) IsSupportEip() bool {
 	return false
+}
+
+func (self *SBaseGuestDriver) NeedStopForChangeSpec() bool {
+	return true
 }

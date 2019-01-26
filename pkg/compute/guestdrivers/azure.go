@@ -276,3 +276,7 @@ func (self *SAzureGuestDriver) RequestSyncConfigOnHost(ctx context.Context, gues
 func (self *SAzureGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {
 	return false
 }
+
+func (self *SAzureGuestDriver) NeedStopForChangeSpec() bool {
+	return false
+}
