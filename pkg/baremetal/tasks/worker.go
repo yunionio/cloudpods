@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -16,6 +17,17 @@ var baremetalTaskWorkerMan *appsrv.SWorkerManager
 
 func init() {
 	baremetalTaskWorkerMan = appsrv.NewWorkerManager("BaremetalTaskWorkerManager", 8, 1024, false)
+}
+
+func GetWorkManager() *appsrv.SWorkerManager {
+	return baremetalTaskWorkerMan
+}
+
+func OnStop() {
+	for GetWorkManager().ActiveWorkerCount() > 0 {
+		log.Warningf("Busy workers count %d, waiting them finish", GetWorkManager().ActiveWorkerCount())
+		time.Sleep(5 * time.Second)
+	}
 }
 
 func ExecuteTask(task ITask, args interface{}) {
