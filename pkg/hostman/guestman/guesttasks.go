@@ -791,8 +791,9 @@ func (s *SGuestDiskSnapshotTask) onResumeSucc(res string) {
 	log.Infof("guest disk snapshot task resume succ %s", res)
 	snapshotDir := s.disk.GetSnapshotDir()
 	snapshotLocation := path.Join(snapshotDir, s.snapshotId)
-	hostutils.TaskComplete(s.ctx, jsonutils.NewDict(
-		jsonutils.NewPair("location", jsonutils.NewString(snapshotLocation))))
+	body := jsonutils.NewDict()
+	body.Set("location", jsonutils.NewString(snapshotLocation))
+	hostutils.TaskComplete(s.ctx, body)
 }
 
 /**
@@ -895,8 +896,9 @@ func (s *SGuestSnapshotDeleteTask) onResumeSucc(res string) {
 		snapshotDir := s.disk.GetSnapshotDir()
 		procutils.NewCommand("rm", "-f", path.Join(snapshotDir, s.deleteSnapshot))
 	}
-	hostutils.TaskComplete(s.ctx,
-		jsonutils.NewDict(jsonutils.NewPair("deleted", jsonutils.JSONTrue)))
+	body := jsonutils.NewDict()
+	body.Set("deleted", jsonutils.JSONTrue)
+	hostutils.TaskComplete(s.ctx, body)
 }
 
 /**

@@ -14,10 +14,6 @@ type JSONPair struct {
 	val JSONObject
 }
 
-func NewPair(key string, val JSONObject) JSONPair {
-	return JSONPair{key, val}
-}
-
 func NewDict(objs ...JSONPair) *JSONDict {
 	dict := JSONDict{data: make(map[string]JSONObject)}
 	for _, o := range objs {

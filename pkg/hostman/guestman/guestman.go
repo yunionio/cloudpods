@@ -348,7 +348,9 @@ func (m *SGuestManager) GuestStart(ctx context.Context, sid string, body jsonuti
 		if guest.IsStopped() {
 			params, _ := body.Get("params")
 			guest.StartGuest(ctx, params)
-			return jsonutils.NewDict(jsonutils.NewPair("vnc_port", jsonutils.NewInt(0))), nil
+			res := jsonutils.NewDict()
+			res.Set("vnc_port", jsonutils.NewInt(0))
+			return res, nil
 		} else {
 			vncPort := guest.GetVncPort()
 			if vncPort > 0 {
@@ -596,8 +598,9 @@ func (m *SGuestManager) DeleteSnapshot(ctx context.Context, params interface{}) 
 		return guest.ExecDeleteSnapshotTask(ctx, delParams.Disk, delParams.DeleteSnapshot,
 			delParams.ConvertSnapshot, delParams.PendingDelete)
 	} else {
-		return jsonutils.NewDict(jsonutils.NewPair("deleted", jsonutils.JSONTrue)),
-			delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot, "", false)
+		res := jsonutils.NewDict()
+		res.Set("deleted", jsonutils.JSONTrue)
+		return res, delParams.Disk.DeleteSnapshot(delParams.DeleteSnapshot, "", false)
 	}
 }
 

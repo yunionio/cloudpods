@@ -102,9 +102,10 @@ func storageUpdate(ctx context.Context, body jsonutils.JSONObject) (interface{},
 		return nil, httperrors.NewMissingParameterError("storage_conf")
 	}
 	storage := storageManager.GetStorage(storageId)
+	params := jsonutils.NewDict()
+	params.Set("details", jsonutils.JSONTrue)
 	ret, err := modules.Hoststorages.Get(hostutils.GetComputeSession(context.Background()),
-		storageManager.GetHostId(), storageId,
-		jsonutils.NewDict(jsonutils.NewPair("details", jsonutils.JSONTrue)))
+		storageManager.GetHostId(), storageId, params)
 	if err != nil {
 		log.Errorln(err)
 		return nil, err

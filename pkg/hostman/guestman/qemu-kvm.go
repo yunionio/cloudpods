@@ -1078,7 +1078,9 @@ func (s *SKVMGuestInstance) ExecReloadDiskTask(ctx context.Context, disk storage
 			return nil, fmt.Errorf("Guest dosen't support reload disk")
 		}
 	} else {
-		return jsonutils.NewDict(jsonutils.NewPair("reopen", jsonutils.JSONTrue)), nil
+		res := jsonutils.NewDict()
+		res.Set("reopen", jsonutils.JSONTrue)
+		return res, nil
 	}
 }
 
@@ -1109,8 +1111,9 @@ func (s *SKVMGuestInstance) StaticSaveSnapshot(
 		return nil, err
 	}
 	location := path.Join(disk.GetSnapshotDir(), snapshotId)
-	return jsonutils.NewDict(jsonutils.NewPair("localtion",
-		jsonutils.NewString(location))), nil
+	res := jsonutils.NewDict()
+	res.Set("localtion", jsonutils.NewString(location))
+	return res, nil
 }
 
 func (s *SKVMGuestInstance) ExecDeleteSnapshotTask(
@@ -1140,7 +1143,9 @@ func (s *SKVMGuestInstance) deleteStaticSnapshotFile(
 		log.Errorln(err)
 		return nil, err
 	}
-	return jsonutils.NewDict(jsonutils.NewPair("deleted", jsonutils.JSONTrue)), nil
+	res := jsonutils.NewDict()
+	res.Set("deleted", jsonutils.JSONTrue)
+	return res, nil
 }
 
 func (s *SKVMGuestInstance) PrepareMigrate(liveMigrage bool) (*jsonutils.JSONDict, error) {
