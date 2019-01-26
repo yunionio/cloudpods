@@ -10,6 +10,8 @@ import (
 func init() {
 	type StoragecacheListOptions struct {
 		options.BaseListOptions
+
+		CloudregionId string `help:"cloudregion id"`
 	}
 	R(&StoragecacheListOptions{}, "storage-cache-list", "List storage caches", func(s *mcclient.ClientSession, opts *StoragecacheListOptions) error {
 		params, err := options.ListStructToParams(opts)

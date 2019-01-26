@@ -168,9 +168,12 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 
 	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
 	if len(self.ImageId) > 0 {
-		if image, err := self.host.zone.region.GetImage(self.ImageId); err != nil {
+		image, err := self.host.zone.region.GetImage(self.ImageId)
+		if err != nil {
 			log.Errorf("Failed to find image %s for instance %s zone %s", self.ImageId, self.GetId(), self.ZoneId)
-		} else if meta := image.GetMetadata(); meta != nil {
+		}
+		meta := image.GetMetadata()
+		if meta != nil {
 			data.Update(meta)
 		}
 	}
@@ -528,7 +531,7 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				NetworkInterfaces: networkInterfaces,
 				VpcAttributes:     vpcattr,
 				ProductCodes:      productCodes,
-				OSName:            image.OSName, // todo: 这里在model层回写OSName信息
+				OSName:            image.OSType, // todo: 这里在model层回写OSName信息
 				OSType:            image.OSType,
 				// ExpiredTime:
 				// VlanId:
