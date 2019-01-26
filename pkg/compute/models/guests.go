@@ -1246,6 +1246,9 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 	osName := self.GetOS()
 	if len(osName) > 0 {
 		extra.Add(jsonutils.NewString(osName), "os_name")
+		if len(self.OsType) == 0 {
+			extra.Add(jsonutils.NewString(osName), "os_type")
+		}
 	}
 	if metaData, err := self.GetAllMetadata(userCred); err == nil {
 		extra.Add(jsonutils.Marshal(metaData), "metadata")
