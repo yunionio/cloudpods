@@ -340,7 +340,7 @@ func (app *Application) IsInServe() bool {
 	return app.server != nil
 }
 
-func (app *Application) ShowDown(ctx context.Context) error {
+func (app *Application) ShutDown(ctx context.Context) error {
 	if app.server != nil {
 		return app.server.Shutdown(ctx)
 	}
