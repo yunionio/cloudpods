@@ -90,13 +90,13 @@ func (p *Partition) Format(fs string, uuid string) error {
 		cmd = []string{"/usr/sbin/mkfs.ext3"}
 		cmdUUID = []string{"/usr/sbin/tune2fs", "-U", uuid}
 	case "ext4":
-		cmd = []string{"/usr/sbin/mkfs.ext4", "-E", "lazy_itable_init=1"}
+		cmd = []string{"/usr/sbin/mkfs.ext4", "-O", "^64bit", "-E", "lazy_itable_init=1"}
 		cmdUUID = []string{"/usr/sbin/tune2fs", "-U", uuid}
 	case "ext4dev":
 		cmd = []string{"/usr/sbin/mkfs.ext4dev", "-E", "lazy_itable_init=1"}
 		cmdUUID = []string{"/usr/sbin/tune2fs", "-U", uuid}
 	case "xfs":
-		cmd = []string{"/sbin/mkfs.xfs", "-f"}
+		cmd = []string{"/sbin/mkfs.xfs", "-f", "-m", "crc=0", "-i", "projid32bit=0", "-n", "ftype=0"}
 		cmdUUID = []string{"PATH=/bin:/sbin:/usr/bin:/usr/sbin /usr/sbin/xfs_admin", "-U", uuid}
 	default:
 		return fmt.Errorf("Unsupported filesystem %s", fs)

@@ -283,7 +283,7 @@ func FormatPartition(path, fs, uuid string) error {
 		cmd = []string{"mkfs.ext3"}
 		cmdUuid = []string{"tune2fs", "-U", uuid}
 	case fs == "ext4":
-		cmd = []string{"mkfs.ext4", "-E", "lazy_itable_init=1"}
+		cmd = []string{"mkfs.ext4", "-O", "^64bit", "-E", "lazy_itable_init=1"}
 		cmdUuid = []string{"tune2fs", "-U", uuid}
 	case fs == "ext4dev":
 		cmd = []string{"mkfs.ext4dev", "-E", "lazy_itable_init=1"}
@@ -293,7 +293,7 @@ func FormatPartition(path, fs, uuid string) error {
 	// #case fs == "ntfs":
 	// #    cmd = []string{"/sbin/mkfs.ntfs"}
 	case fs == "xfs":
-		cmd = []string{"mkfs.xfs", "-f"}
+		cmd = []string{"/sbin/mkfs.xfs", "-f", "-m", "crc=0", "-i", "projid32bit=0", "-n", "ftype=0"}
 		cmdUuid = []string{"xfs_admin", "-U", uuid}
 	}
 
