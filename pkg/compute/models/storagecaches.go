@@ -485,7 +485,7 @@ func (cache *SStoragecache) SyncCloudImages(
 		image := removed[i].GetCachedimage()
 		err := removed[i].Detach(ctx, userCred)
 		if err != nil {
-			log.Errorf("storagecachedimage detach fail %s", err)
+			log.Errorf("storagecachedimage %s %s detach fail %s", removed[i].StoragecacheId, removed[i].CachedimageId, err)
 			syncResult.DeleteError(err)
 		} else {
 			syncResult.Delete()
