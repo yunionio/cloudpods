@@ -61,6 +61,8 @@ const (
 	ACT_VM_REVOKESECGROUP            = "取消关联安全组"
 	ACT_VM_SETSECGROUP               = "设置安全组"
 	ACT_RESET_DISK                   = "回滚磁盘"
+	ACT_SYNC_STATUS                  = "同步状态"
+	ACT_SYNC_CONF                    = "同步配置"
 
 	ACT_IMAGE_SAVE = "上传镜像"
 

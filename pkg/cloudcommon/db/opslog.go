@@ -107,6 +107,7 @@ const (
 	ACT_SYNCING_CONF   = "syncing_conf"
 	ACT_SYNC_CONF      = "sync_conf"
 	ACT_SYNC_CONF_FAIL = "sync_conf_fail"
+	ACT_SYNC_STATUS    = "sync_status"
 
 	ACT_CHANGE_OWNER = "change_owner"
 

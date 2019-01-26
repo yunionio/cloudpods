@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -125,6 +126,17 @@ func (self *SCloudregion) GetVpcCount() int {
 	} else {
 		return vpcs.Equals("cloudregion_id", self.Id).Count()
 	}
+}
+
+func (self *SCloudregion) GetDriver() IRegionDriver {
+	provider := self.Provider
+	if len(provider) == 0 {
+		provider = CLOUD_PROVIDER_KVM
+	}
+	if !utils.IsInStringArray(provider, CLOUD_PROVIDERS) {
+		log.Fatalf("Unsupported region provider %s", provider)
+	}
+	return GetRegionDriver(provider)
 }
 
 func (self *SCloudregion) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {

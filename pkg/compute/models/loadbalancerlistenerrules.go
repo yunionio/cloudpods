@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -35,7 +36,9 @@ func init() {
 
 type SLoadbalancerListenerRule struct {
 	db.SVirtualResourceBase
+	SManagedResourceBase
 
+	CloudregionId  string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
 	ListenerId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 
@@ -63,7 +66,7 @@ func (man *SLoadbalancerListenerRuleManager) PreDeleteSubs(ctx context.Context, 
 	subs := []SLoadbalancerListenerRule{}
 	db.FetchModelObjects(man, q, &subs)
 	for _, sub := range subs {
-		sub.PreDelete(ctx, userCred)
+		sub.DoPendingDelete(ctx, userCred)
 	}
 }
 
@@ -106,6 +109,8 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 		}
 	}
 	listener := listenerV.Model.(*SLoadbalancerListener)
+	data.Set("cloudregion_id", jsonutils.NewString(listener.CloudregionId))
+	data.Set("manager_id", jsonutils.NewString(listener.ManagerId))
 	listenerType := listener.ListenerType
 	if listenerType != LB_LISTENER_TYPE_HTTP && listenerType != LB_LISTENER_TYPE_HTTPS {
 		return nil, fmt.Errorf("listener type must be http/https, got %s", listenerType)
@@ -120,7 +125,52 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 	if err != nil {
 		return nil, err
 	}
-	return man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
+		return nil, err
+	}
+	return listener.GetRegion().GetDriver().ValidateCreateLoadbalancerListenerRuleData(ctx, userCred, data, backendGroupV.Model)
+}
+
+func (lbr *SLoadbalancerListenerRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	lbr.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+
+	lbr.SetStatus(userCred, LB_CREATING, "")
+	if err := lbr.StartLoadBalancerListenerRuleCreateTask(ctx, userCred, ""); err != nil {
+		log.Errorf("Failed to create loadbalancer listener rule error: %v", err)
+	}
+}
+
+func (lbr *SLoadbalancerListenerRule) StartLoadBalancerListenerRuleCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerListenerRuleCreateTask", lbr, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (lbr *SLoadbalancerListenerRule) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, lbr, "purge")
+}
+
+func (lbr *SLoadbalancerListenerRule) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	parasm := jsonutils.NewDict()
+	parasm.Add(jsonutils.JSONTrue, "purge")
+	return nil, lbr.StartLoadBalancerListenerRuleDeleteTask(ctx, userCred, parasm, "")
+}
+
+func (lbr *SLoadbalancerListenerRule) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	lbr.SetStatus(userCred, LB_STATUS_DELETING, "")
+	return lbr.StartLoadBalancerListenerRuleDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
+}
+
+func (lbr *SLoadbalancerListenerRule) StartLoadBalancerListenerRuleDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerListenerRuleDeleteTask", lbr, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (lbr *SLoadbalancerListenerRule) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -176,9 +226,27 @@ func (lbr *SLoadbalancerListenerRule) GetExtraDetails(ctx context.Context, userC
 	return extra, nil
 }
 
-func (lbr *SLoadbalancerListenerRule) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	lbr.SetStatus(userCred, LB_STATUS_DISABLED, "preDelete")
-	lbr.DoPendingDelete(ctx, userCred)
+func (lbr *SLoadbalancerListenerRule) GetLoadbalancerListener() *SLoadbalancerListener {
+	listener, err := LoadbalancerListenerManager.FetchById(lbr.ListenerId)
+	if err != nil {
+		return nil
+	}
+	return listener.(*SLoadbalancerListener)
+}
+
+func (lbr *SLoadbalancerListenerRule) GetRegion() *SCloudregion {
+	if listener := lbr.GetLoadbalancerListener(); listener != nil {
+		return listener.GetRegion()
+	}
+	return nil
+}
+
+func (lbr *SLoadbalancerListenerRule) GetLoadbalancerBackendGroup() *SLoadbalancerBackendGroup {
+	group, err := LoadbalancerBackendGroupManager.FetchById(lbr.BackendGroupId)
+	if err != nil {
+		return nil
+	}
+	return group.(*SLoadbalancerBackendGroup)
 }
 
 func (lbr *SLoadbalancerListenerRule) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -292,4 +360,27 @@ func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(ctx 
 		return nil
 	})
 	return err
+}
+
+func (manager *SLoadbalancerListenerRuleManager) InitializeData() error {
+	rules := []SLoadbalancerListenerRule{}
+	q := manager.Query()
+	q = q.Filter(sqlchemy.IsNullOrEmpty(q.Field("cloudregion_id")))
+	if err := db.FetchModelObjects(manager, q, &rules); err != nil {
+		return err
+	}
+	for i := 0; i < len(rules); i++ {
+		rule := &rules[i]
+		if listener := rule.GetLoadbalancerListener(); listener != nil && len(listener.CloudregionId) > 0 {
+			_, err := listener.GetModelManager().TableSpec().Update(rule, func() error {
+				rule.CloudregionId = listener.CloudregionId
+				rule.ManagerId = listener.ManagerId
+				return nil
+			})
+			if err != nil {
+				log.Errorf("failed to update loadbalancer listener rule %s cloudregion_id", rule.Name)
+			}
+		}
+	}
+	return nil
 }

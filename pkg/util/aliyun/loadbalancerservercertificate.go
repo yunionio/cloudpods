@@ -75,6 +75,34 @@ func (certificate *SLoadbalancerServerCertificate) Refresh() error {
 	return nil
 }
 
+func (region *SRegion) UpdateServerCertificateName(certId, name string) error {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["ServerCertificateId"] = certId
+	params["ServerCertificateName"] = name
+	_, err := region.lbRequest("SetServerCertificateName", params)
+	return err
+}
+
+func (certificate *SLoadbalancerServerCertificate) Sync(name string, privateKey string, publicKey string) error {
+	if certificate.ServerCertificateName != name {
+		return certificate.region.UpdateServerCertificateName(certificate.ServerCertificateId, name)
+	}
+	return nil
+}
+
+func (certificate *SLoadbalancerServerCertificate) Delete() error {
+	return certificate.region.DeleteServerCertificate(certificate.ServerCertificateId)
+}
+
+func (region *SRegion) DeleteServerCertificate(certId string) error {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["ServerCertificateId"] = certId
+	_, err := region.lbRequest("DeleteServerCertificate", params)
+	return err
+}
+
 func (region *SRegion) GetLoadbalancerServerCertificates() ([]SLoadbalancerServerCertificate, error) {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId

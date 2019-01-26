@@ -94,6 +94,10 @@ func (listerner *SLoadbalancerUDPListener) GetBackendGroupId() string {
 	return listerner.MasterSlaveServerGroupId
 }
 
+func (listerner *SLoadbalancerUDPListener) GetBackendServerPort() int {
+	return listerner.BackendServerPort
+}
+
 func (listerner *SLoadbalancerUDPListener) GetScheduler() string {
 	return listerner.Scheduler
 }
@@ -205,4 +209,48 @@ func (region *SRegion) GetLoadbalancerUDPListener(loadbalancerId string, listene
 	}
 	listener := SLoadbalancerUDPListener{}
 	return &listener, body.Unmarshal(&listener)
+}
+
+func (region *SRegion) CreateLoadbalancerUDPListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+	params := region.constructBaseCreateListenerParams(lb, listener)
+	_, err := region.lbRequest("CreateLoadBalancerUDPListener", params)
+	if err != nil {
+		return nil, err
+	}
+	iListener, err := region.GetLoadbalancerUDPListener(lb.LoadBalancerId, listener.ListenerPort)
+	if err != nil {
+		return nil, err
+	}
+	iListener.lb = lb
+	return iListener, nil
+}
+
+func (listerner *SLoadbalancerUDPListener) Delete() error {
+	return listerner.lb.region.DeleteLoadbalancerListener(listerner.lb.LoadBalancerId, listerner.ListenerPort)
+}
+
+func (listerner *SLoadbalancerUDPListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SLoadbalancerListenerRule) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+func (listerner *SLoadbalancerUDPListener) GetILoadBalancerListenerRuleById(ruleId string) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+func (listerner *SLoadbalancerUDPListener) Start() error {
+	return listerner.lb.region.startListener(listerner.ListenerPort, listerner.lb.LoadBalancerId)
+}
+
+func (listerner *SLoadbalancerUDPListener) Stop() error {
+	return listerner.lb.region.stopListener(listerner.ListenerPort, listerner.lb.LoadBalancerId)
+}
+
+func (region *SRegion) SyncLoadbalancerUDPListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListener) error {
+	params := region.constructBaseCreateListenerParams(lb, listener)
+	_, err := region.lbRequest("SetLoadBalancerUDPListenerAttribute", params)
+	return err
+}
+
+func (listerner *SLoadbalancerUDPListener) Sync(lblis *cloudprovider.SLoadbalancerListener) error {
+	return listerner.lb.region.SyncLoadbalancerUDPListener(listerner.lb, lblis)
 }

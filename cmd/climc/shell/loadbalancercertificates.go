@@ -51,8 +51,16 @@ func init() {
 		printObject(lbcert)
 		return nil
 	})
-	R(&options.LoadbalancerCertificateDeleteOptions{}, "lbcert-delete", "Show lbcert", func(s *mcclient.ClientSession, opts *options.LoadbalancerCertificateDeleteOptions) error {
+	R(&options.LoadbalancerCertificateDeleteOptions{}, "lbcert-delete", "Delete lbcert", func(s *mcclient.ClientSession, opts *options.LoadbalancerCertificateDeleteOptions) error {
 		lbcert, err := modules.LoadbalancerCertificates.Delete(s, opts.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(lbcert)
+		return nil
+	})
+	R(&options.LoadbalancerCertificateDeleteOptions{}, "lbcert-purge", "Purge lbcert", func(s *mcclient.ClientSession, opts *options.LoadbalancerCertificateDeleteOptions) error {
+		lbcert, err := modules.LoadbalancerCertificates.PerformAction(s, opts.ID, "purge", nil)
 		if err != nil {
 			return err
 		}
