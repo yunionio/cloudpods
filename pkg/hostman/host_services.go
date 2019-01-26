@@ -43,7 +43,7 @@ func (host *SHostService) StartService() {
 		}
 
 		if app.IsInServe() {
-			if err := app.ShotDown(context.Background()); err != nil {
+			if err := app.ShutDown(context.Background()); err != nil {
 				log.Errorln(err.Error())
 			}
 		}
