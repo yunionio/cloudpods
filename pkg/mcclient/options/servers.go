@@ -104,7 +104,7 @@ type ServerCreateOptions struct {
 	Keypair          string   `help:"SSH Keypair"`
 	Password         string   `help:"Default user password"`
 	Iso              string   `help:"ISO image ID" metavar:"IMAGE_ID" json:"cdrom"`
-	Ncpu             *int     `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count"`
+	VcpuCount        *int     `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count" token:"ncpu"`
 	Vga              string   `help:"VGA driver" choices:"std|vmware|cirrus|qxl"`
 	Vdi              string   `help:"VDI protocool" choices:"vnc|spice"`
 	Bios             string   `help:"BIOS" choices:"BIOS|UEFI"`
@@ -295,7 +295,7 @@ type ServerSaveImageOptions struct {
 
 type ServerRebuildRootOptions struct {
 	ID            string `help:"Server to rebuild root" json:"-"`
-	Image         string `help:"New root Image template ID" json:"image_id"`
+	ImageId       string `help:"New root Image template ID" json:"image_id" token:"image"`
 	Keypair       string `help:"ssh Keypair used for login"`
 	Password      string `help:"Default user password"`
 	NoAccountInit *bool  `help:"Not reset account password"`
@@ -304,10 +304,10 @@ type ServerRebuildRootOptions struct {
 }
 
 type ServerChangeConfigOptions struct {
-	ID   string   `help:"Server to rebuild root" json:"-"`
-	Ncpu *int     `help:"New number of Virtual CPU cores" json:"vcpu_count"`
-	Vmem string   `help:"New memory size" json:"vmem_size"`
-	Disk []string `help:"Data disk description, from the 1st data disk to the last one, empty string if no change for this data disk"`
+	ID        string   `help:"Server to rebuild root" json:"-"`
+	VcpuCount *int     `help:"New number of Virtual CPU cores" json:"vcpu_count" token:"ncpu"`
+	VmemSize  string   `help:"New memory size" json:"vmem_size" token:"vmem"`
+	Disk      []string `help:"Data disk description, from the 1st data disk to the last one, empty string if no change for this data disk"`
 
 	InstanceType string `help:"Instance Type, e.g. S2.SMALL2 for qcloud"`
 }
