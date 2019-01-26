@@ -946,12 +946,13 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		data.Add(jsonutils.NewString("default"), "secgrp_id")
 	}
 
-	if data.Contains("eip") || data.Contains("eip_bw") {
+	eipStr, _ := data.GetString("eip")
+	eipBw, _ := data.Int("eip_bw")
+	if len(eipStr) > 0 || eipBw > 0 {
 		if !GetDriver(hypervisor).IsSupportEip() {
 			return nil, httperrors.NewNotImplementedError("eip not supported for %s", hypervisor)
 		}
-		if data.Contains("eip") {
-			eipStr, _ := data.GetString("eip")
+		if len(eipStr) > 0 {
 			eipObj, err := ElasticipManager.FetchByIdOrName(userCred, eipStr)
 			if err != nil {
 				if err == sql.ErrNoRows {

@@ -274,38 +274,25 @@ type SManagedVMChangeConfig struct {
 	Memory       int
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, vcpuCount, vmemSize int64) error {
-	config := SManagedVMChangeConfig{}
-	config.InstanceId = guest.GetExternalId()
-	if instanceType, err := task.GetParams().GetString("instance_type"); err == nil {
-		config.InstanceType = instanceType
-	}
-
-	config.Cpu = int(vcpuCount)
-	config.Memory = int(vmemSize)
+func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
 	ihost, err := guest.GetHost().GetIHost()
 	if err != nil {
 		return err
 	}
 
-	iVM, err := ihost.GetIVMById(config.InstanceId)
+	iVM, err := ihost.GetIVMById(guest.GetExternalId())
 	if err != nil {
 		return err
 	}
 
-	if int(guest.VcpuCount) != config.Cpu || guest.VmemSize != config.Memory {
-		if len(config.InstanceType) > 0 {
-			err = iVM.ChangeConfig2(ctx, config.InstanceType)
-			if err != nil {
-				return err
-			}
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		if len(instanceType) > 0 {
+			return nil, iVM.ChangeConfig2(ctx, instanceType)
 		} else {
-			err = iVM.ChangeConfig(ctx, config.Cpu, config.Memory)
-			if err != nil {
-				return err
-			}
+			return nil, iVM.ChangeConfig(ctx, int(vcpuCount), int(vmemSize))
 		}
-	}
+	})
+
 	return nil
 }
 

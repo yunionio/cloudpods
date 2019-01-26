@@ -12,7 +12,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
@@ -20,6 +19,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 const (

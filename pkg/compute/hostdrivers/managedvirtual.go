@@ -190,11 +190,7 @@ func (self *SManagedVirtualizationHostDriver) RequestSaveUploadImageOnHost(ctx c
 	return nil
 }
 
-func (self *SManagedVirtualizationHostDriver) RequestResizeDiskOnHostOnline(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
-	return self.RequestResizeDiskOnHost(ctx, host, storage, disk, size, task)
-}
-
-func (self *SManagedVirtualizationHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, sizeMb int64, task taskman.ITask) error {
+func (self *SManagedVirtualizationHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, guest *models.SGuest, sizeMb int64, task taskman.ITask) error {
 	iCloudStorage, err := storage.GetIStorage()
 	if err != nil {
 		log.Errorf("storage.GetIStorage fail %s", err)
