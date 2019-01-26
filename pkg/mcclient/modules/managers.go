@@ -126,6 +126,14 @@ func NewMeterManager(keyword, keywordPlural string, columns, adminColumns []stri
 		Keyword: keyword, KeywordPlural: keywordPlural}
 }
 
+func NewMeterAlertManager(keyword, keywordPlural string, columns, adminColumns []string) ResourceManager {
+	return ResourceManager{
+		BaseManager: BaseManager{columns: columns,
+			adminColumns: adminColumns,
+			serviceType:  "meteralert"},
+		Keyword: keyword, KeywordPlural: keywordPlural}
+}
+
 func NewYunionAgentManager(keyword, keywordPlural string, columns, adminColumns []string) ResourceManager {
 	return ResourceManager{
 		BaseManager: BaseManager{columns: columns,
