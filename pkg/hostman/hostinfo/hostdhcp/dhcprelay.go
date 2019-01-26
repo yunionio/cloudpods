@@ -78,9 +78,7 @@ func (r *SDHCPRelay) Setup(addr string) error {
 
 func (r *SDHCPRelay) ServeDHCP(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
 	log.Infof("Receive DHCP Relay Reply TO %s", pkt.CHAddr())
-
 	v, ok := r.cache.Load(pkt.TransactionID())
-	log.Infof("DHCPcache %s, %v", r.cache, ok)
 	if ok {
 		r.cache.Delete(pkt.TransactionID())
 		val := v.(*SRelayCache)
@@ -88,8 +86,6 @@ func (r *SDHCPRelay) ServeDHCP(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Int
 			IP:   pkt.CIAddr(),
 			Port: val.srcPort,
 		}
-		log.Infof("DHCPReply %s %s", pkt.CIAddr(), val.srcPort)
-
 		if err := r.guestDHCPConn.SendDHCP(pkt, udpAddr, intf); err != nil {
 			log.Errorln(err)
 		}
