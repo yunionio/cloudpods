@@ -212,7 +212,7 @@ func (self *SStoragecachedimage) getReferenceCount() int {
 }
 
 func (manager *SStoragecachedimageManager) GetStoragecachedimage(cacheId string, imageId string) *SStoragecachedimage {
-	obj, err := manager.FetchByIds(cacheId, imageId)
+	obj, err := db.FetchJointByIds(manager, cacheId, imageId, nil)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			log.Errorf("manager.FetchByIds %s %s error %s", cacheId, imageId, err)

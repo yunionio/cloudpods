@@ -145,7 +145,7 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 	net := models.ChooseCandidateNetworks(netsAvaiable, netConfig.Exit, models.SERVER_TYPE_BAREMETAL)
 	if net != nil {
 		netif := netifIndexs[net.Id]
-		return guest.Attach2Network(ctx, userCred, net, pendingUsage, "", netif.Mac, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, netif.Index, false, models.IPAllocationStepup, false)
+		return guest.Attach2Network(ctx, userCred, net, pendingUsage, "", netif.Mac, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, netif.Index, false, models.IPAllocationStepup, false, "")
 	}
 	return fmt.Errorf("No appropriate host virtual network...")
 }

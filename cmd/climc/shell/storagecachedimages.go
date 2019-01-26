@@ -52,7 +52,7 @@ func init() {
 		if params.Size() == 0 {
 			return InvalidUpdateError()
 		}
-		result, err := modules.Storagecachedimages.Update(s, args.STORAGECACHE, args.IMAGE, params)
+		result, err := modules.Storagecachedimages.Update(s, args.STORAGECACHE, args.IMAGE, nil, params)
 		if err != nil {
 			return err
 		}

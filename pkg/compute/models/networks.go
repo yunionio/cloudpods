@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"time"
 )
 
 const (
@@ -671,6 +672,7 @@ type SNetworkConfig struct {
 	BwLimit  int
 	Vip      bool
 	Reserved bool
+	Ifname   string
 }
 
 func parseNetworkInfo(userCred mcclient.TokenCredential, info jsonutils.JSONObject) (*SNetworkConfig, error) {
@@ -1389,8 +1391,8 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		vpcs := VpcManager.Query().SubQuery()
 		sq := wires.Query(wires.Field("id")).
 			Join(vpcs, sqlchemy.AND(
-				sqlchemy.Equals(vpcs.Field("cloudregion_id"), region.GetId()),
-				sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))))
+			sqlchemy.Equals(vpcs.Field("cloudregion_id"), region.GetId()),
+			sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))))
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
 	}
 
@@ -1797,4 +1799,12 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	logclient.AddActionLog(self, logclient.ACT_SPLIT, note, userCred, true)
 	db.OpsLog.LogEvent(network, db.ACT_CREATE, map[string]string{"network": self.Id}, userCred)
 	return nil, nil
+}
+
+func (network *SNetwork) getAllocTimoutDuration() time.Duration {
+	tos := network.AllocTimoutSeconds
+	if tos < options.Options.MinimalIpAddrReusedIntervalSeconds {
+		tos = options.Options.MinimalIpAddrReusedIntervalSeconds
+	}
+	return time.Duration(tos) * time.Second
 }

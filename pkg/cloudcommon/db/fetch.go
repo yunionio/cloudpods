@@ -3,11 +3,47 @@ package db
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/sqlchemy"
+
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
+
+func FetchJointByIds(manager IJointModelManager, masterId, slaveId string, query jsonutils.JSONObject) (IJointModel, error) {
+	obj, err := NewModelObject(manager)
+	if err != nil {
+		return nil, err
+	}
+	jointObj, ok := obj.(IJointModel)
+	if !ok {
+		return nil, fmt.Errorf("FetchByIds not a IJointModel")
+	}
+	q := manager.Query()
+	masterField := queryField(q, manager.GetMasterManager())
+	if masterField == nil {
+		return nil, fmt.Errorf("cannot find master id")
+	}
+	slaveField := queryField(q, manager.GetSlaveManager())
+	if slaveField == nil {
+		return nil, fmt.Errorf("cannot find slave id")
+	}
+	cond := sqlchemy.AND(sqlchemy.Equals(masterField, masterId), sqlchemy.Equals(slaveField, slaveId))
+	q = q.Filter(cond)
+	q = manager.FilterByParams(q, query)
+	count := q.Count()
+	if count > 1 {
+		return nil, sqlchemy.ErrDuplicateEntry
+	} else if count == 0 {
+		return nil, sql.ErrNoRows
+	}
+	err = q.First(jointObj)
+	if err != nil {
+		return nil, err
+	}
+	return jointObj, nil
+}
 
 func FetchById(manager IModelManager, idStr string) (IModel, error) {
 	q := manager.Query()

@@ -572,26 +572,60 @@ func (guest *SGuest) GetGuestDisk(diskId string) *SGuestdisk {
 	return guestdisk.(*SGuestdisk)
 }
 
-func (guest *SGuest) GetNetworksQuery() *sqlchemy.SQuery {
-	return GuestnetworkManager.Query().Equals("guest_id", guest.Id)
+func (guest *SGuest) GetNetworksQuery(netId string) *sqlchemy.SQuery {
+	q := GuestnetworkManager.Query().Equals("guest_id", guest.Id)
+	if len(netId) > 0 {
+		q = q.Equals("network_id", netId)
+	}
+	return q
 }
 
 func (guest *SGuest) NetworkCount() int {
-	return guest.GetNetworksQuery().Count()
+	return guest.GetNetworksQuery("").Count()
 }
 
-func (guest *SGuest) GetNetworks() []SGuestnetwork {
+func (guest *SGuest) GetNetworks(netId string) ([]SGuestnetwork, error) {
 	guestnics := make([]SGuestnetwork, 0)
-	q := guest.GetNetworksQuery().Asc("index")
+	q := guest.GetNetworksQuery(netId).Asc("index")
 	err := db.FetchModelObjects(GuestnetworkManager, q, &guestnics)
 	if err != nil {
 		log.Errorf("GetNetworks error: %s", err)
+		return nil, err
 	}
-	return guestnics
+	return guestnics, nil
+}
+
+func (guest *SGuest) getNetworkByIpOrMac(ipAddr string, macAddr string) (*SGuestnetwork, error) {
+	q := guest.GetNetworksQuery("")
+	if len(ipAddr) > 0 {
+		q = q.Equals("ip_addr", ipAddr)
+	}
+	if len(macAddr) > 0 {
+		q = q.Equals("mac_addr", macAddr)
+	}
+
+	guestnic := SGuestnetwork{}
+	err := q.First(&guestnic)
+	if err != nil {
+		return nil, err
+	}
+	guestnic.SetModelManager(GuestnetworkManager)
+	return &guestnic, nil
+}
+
+func (guest *SGuest) GetNetworkByIp(ipAddr string) (*SGuestnetwork, error) {
+	return guest.getNetworkByIpOrMac(ipAddr, "")
+}
+
+func (guest *SGuest) GetNetworkByMac(macAddr string) (*SGuestnetwork, error) {
+	return guest.getNetworkByIpOrMac("", macAddr)
 }
 
 func (guest *SGuest) IsNetworkAllocated() bool {
-	guestnics := guest.GetNetworks()
+	guestnics, err := guest.GetNetworks("")
+	if err != nil {
+		return false
+	}
 	for _, gn := range guestnics {
 		if !gn.IsAllocated() {
 			return false
@@ -1154,7 +1188,10 @@ func (guest *SGuest) GetGroups() []SGroupguest {
 
 func (self *SGuest) getBandwidth(isExit bool) int {
 	bw := 0
-	networks := self.GetNetworks()
+	networks, err := self.GetNetworks("")
+	if err != nil {
+		return bw
+	}
 	if networks != nil && len(networks) > 0 {
 		for i := 0; i < len(networks); i += 1 {
 			if networks[i].IsExit() == isExit {
@@ -1418,8 +1455,12 @@ func (manager *SGuestManager) GetExportExtraKeys(ctx context.Context, query json
 }
 
 func (self *SGuest) getNetworksDetails() string {
+	guestnets, err := self.GetNetworks("")
+	if err != nil {
+		return ""
+	}
 	var buf bytes.Buffer
-	for _, nic := range self.GetNetworks() {
+	for _, nic := range guestnets {
 		buf.WriteString(nic.GetDetailedString())
 		buf.WriteString("\n")
 	}
@@ -1511,8 +1552,12 @@ func (self *SGuest) getNotifyIps() []string {
 }
 
 func (self *SGuest) getRealIPs() []string {
+	guestnets, err := self.GetNetworks("")
+	if err != nil {
+		return nil
+	}
 	ips := make([]string, 0)
-	for _, nic := range self.GetNetworks() {
+	for _, nic := range guestnets {
 		if !nic.Virtual {
 			ips = append(ips, nic.IpAddr)
 		}
@@ -1534,7 +1579,11 @@ func (self *SGuest) getVirtualIPs() []string {
 	ips := make([]string, 0)
 	for _, guestgroup := range self.GetGroups() {
 		group := guestgroup.GetGroup()
-		for _, groupnetwork := range group.GetNetworks() {
+		groupnets, err := group.GetNetworks()
+		if err != nil {
+			continue
+		}
+		for _, groupnetwork := range groupnets {
 			ips = append(ips, groupnetwork.IpAddr)
 		}
 	}
@@ -1931,10 +1980,8 @@ func (manager *SGuestManager) TotalCount(
 	return totalGuestResourceCount(projectId, rangeObj, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers)
 }
 
-func (self *SGuest) detachNetwork(ctx context.Context, userCred mcclient.TokenCredential, network *SNetwork, reserve bool, deploy bool) error {
-	// Portmaps.delete_guest_network_portmaps(self, user_cred,
-	//                                                    network_id=net.id)
-	err := GuestnetworkManager.DeleteGuestNics(ctx, self, userCred, network, reserve)
+func (self *SGuest) detachNetworks(ctx context.Context, userCred mcclient.TokenCredential, gns []SGuestnetwork, reserve bool, deploy bool) error {
+	err := GuestnetworkManager.DeleteGuestNics(ctx, userCred, gns, reserve)
 	if err != nil {
 		return err
 	}
@@ -1948,14 +1995,17 @@ func (self *SGuest) detachNetwork(ctx context.Context, userCred mcclient.TokenCr
 	return nil
 }
 
-func (self *SGuest) isAttach2Network(net *SNetwork) bool {
+func (self *SGuest) getAttach2NetworkCount(net *SNetwork) int {
 	q := GuestnetworkManager.Query()
 	q = q.Equals("guest_id", self.Id).Equals("network_id", net.Id)
-	return q.Count() > 0
+	return q.Count()
 }
 
 func (self *SGuest) getMaxNicIndex() int8 {
-	nics := self.GetNetworks()
+	nics, err := self.GetNetworks("")
+	if err != nil {
+		return -1
+	}
 	return int8(len(nics))
 }
 
@@ -1976,9 +2026,14 @@ func (self *SGuest) getOSProfile() osprofile.SOSProfile {
 	return osProf
 }
 
-func (self *SGuest) Attach2Network(ctx context.Context, userCred mcclient.TokenCredential, network *SNetwork, pendingUsage quotas.IQuota,
-	address string, mac string, driver string, bwLimit int, virtual bool, index int8, reserved bool, allocDir IPAddlocationDirection, requireDesignatedIP bool) error {
-	if self.isAttach2Network(network) {
+func (self *SGuest) Attach2Network(ctx context.Context, userCred mcclient.TokenCredential, network *SNetwork,
+	pendingUsage quotas.IQuota,
+	address string, mac string, driver string, bwLimit int, virtual bool, index int8,
+	reserved bool, allocDir IPAddlocationDirection, requireDesignatedIP bool, ifName string) error {
+	/*
+		allow a guest attach to a network 2 times
+	*/
+	if self.getAttach2NetworkCount(network) > MAX_GUESTNIC_TO_SAME_NETWORK {
 		return fmt.Errorf("Guest has been attached to network %s", network.Name)
 	}
 	if index < 0 {
@@ -1993,7 +2048,7 @@ func (self *SGuest) Attach2Network(ctx context.Context, userCred mcclient.TokenC
 
 	guestnic, err := GuestnetworkManager.newGuestNetwork(ctx, userCred, self, network,
 		index, address, mac, driver, bwLimit, virtual, reserved,
-		allocDir, requireDesignatedIP)
+		allocDir, requireDesignatedIP, ifName)
 	if err != nil {
 		return err
 	}
@@ -2056,7 +2111,12 @@ func getCloudNicNetwork(vnic cloudprovider.ICloudNic, host *SHost) (*SNetwork, e
 func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, vnics []cloudprovider.ICloudNic) compare.SyncResult {
 	result := compare.SyncResult{}
 
-	guestnics := self.GetNetworks()
+	guestnics, err := self.GetNetworks("")
+	if err != nil {
+		result.Error(err)
+		return result
+	}
+
 	removed := make([]sRemoveGuestnic, 0)
 	adds := make([]sAddGuestnic, 0)
 
@@ -2106,7 +2166,7 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for _, remove := range removed {
-		err := self.detachNetwork(ctx, userCred, remove.nic.GetNetwork(), remove.reserve, false)
+		err := self.detachNetworks(ctx, userCred, []SGuestnetwork{*remove.nic}, remove.reserve, false)
 		if err != nil {
 			result.DeleteError(err)
 		} else {
@@ -2135,7 +2195,7 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 			}
 		}
 		err = self.Attach2Network(ctx, userCred, add.net, nil, add.nic.GetIP(),
-			add.nic.GetMAC(), add.nic.GetDriver(), 0, false, -1, add.reserve, IPAllocationDefault, true)
+			add.nic.GetMAC(), add.nic.GetDriver(), 0, false, -1, add.reserve, IPAllocationDefault, true, "")
 		if err != nil {
 			result.AddError(err)
 		} else {
@@ -2432,7 +2492,7 @@ func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclie
 	driver := self.GetDriver()
 	net, mac, idx, allocDir := driver.GetNamedNetworkConfiguration(self, userCred, host, netConfig)
 	if net != nil {
-		err := self.Attach2Network(ctx, userCred, net, pendingUsage, netConfig.Address, mac, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, idx, netConfig.Reserved, allocDir, false)
+		err := self.Attach2Network(ctx, userCred, net, pendingUsage, netConfig.Address, mac, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, idx, netConfig.Reserved, allocDir, false, netConfig.Ifname)
 		if err != nil {
 			return err
 		} else {
@@ -2616,9 +2676,9 @@ type SGuestNicCategory struct {
 func (self *SGuest) CategorizeNics() SGuestNicCategory {
 	netCat := SGuestNicCategory{}
 
-	guestnics := self.GetNetworks()
-	if guestnics == nil {
-		log.Errorf("no nics for this server!!!")
+	guestnics, err := self.GetNetworks("")
+	if err != nil {
+		log.Errorf("no nics for this server!!! %s", err)
 		return netCat
 	}
 
@@ -2656,7 +2716,11 @@ func (self *SGuest) LeaveAllGroups(ctx context.Context, userCred mcclient.TokenC
 func (self *SGuest) DetachAllNetworks(ctx context.Context, userCred mcclient.TokenCredential) error {
 	// from clouds.models.portmaps import Portmaps
 	// Portmaps.delete_guest_network_portmaps(self, user_cred)
-	return GuestnetworkManager.DeleteGuestNics(ctx, self, userCred, nil, false)
+	gns, err := self.GetNetworks("")
+	if err != nil {
+		return err
+	}
+	return GuestnetworkManager.DeleteGuestNics(ctx, userCred, gns, false)
 }
 
 func (self *SGuest) EjectIso(userCred mcclient.TokenCredential) bool {
@@ -2801,9 +2865,9 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 	config.Add(jsonutils.NewString(onFinish), "on_finish")
 
 	if deployAction == "create" && !utils.IsInStringArray(self.Hypervisor, []string{HYPERVISOR_KVM, HYPERVISOR_BAREMETAL, HYPERVISOR_CONTAINER, HYPERVISOR_ESXI, HYPERVISOR_XEN}) {
-		nets := self.GetNetworks()
-		if len(nets) == 0 {
-			return nil, fmt.Errorf("failed to find network for guest %s", self.Name)
+		nets, err := self.GetNetworks("")
+		if err != nil || len(nets) == 0 {
+			return nil, fmt.Errorf("failed to find network for guest %s: %s", self.Name, err)
 		}
 		net := nets[0].GetNetwork()
 		vpc := net.GetVpc()
@@ -2919,7 +2983,9 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 
 	// nics, domain
 	jsonNics := make([]jsonutils.JSONObject, 0)
-	nics := self.GetNetworks()
+
+	nics, _ := self.GetNetworks("")
+
 	domain := options.Options.DNSDomain
 	if nics != nil && len(nics) > 0 {
 		for _, nic := range nics {
@@ -3181,7 +3247,8 @@ func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 	spec.Set("disk", diskSpecs)
 
 	// get nic spec
-	guestnics := self.GetNetworks()
+	guestnics, _ := self.GetNetworks("")
+
 	nicSpecs := jsonutils.NewArray()
 	for _, guestnic := range guestnics {
 		nicSpec := jsonutils.NewDict()
@@ -3692,7 +3759,7 @@ func (self *SGuest) getSchedDesc() jsonutils.JSONObject {
 		}
 	}
 
-	gns := self.GetNetworks()
+	gns, _ := self.GetNetworks("")
 	if gns != nil {
 		for i := 0; i < len(gns); i += 1 {
 			desc.Add(jsonutils.NewString(fmt.Sprintf("%s:%s", gns[i].NetworkId, gns[i].IpAddr)), fmt.Sprintf("net.%d", i))

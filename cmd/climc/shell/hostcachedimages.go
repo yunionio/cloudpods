@@ -50,7 +50,7 @@ func init() {
 		if params.Size() == 0 {
 			return InvalidUpdateError()
 		}
-		result, err := modules.Hostcachedimages.Update(s, args.HOST, args.IMAGE, params)
+		result, err := modules.Hostcachedimages.Update(s, args.HOST, args.IMAGE, nil, params)
 		if err != nil {
 			return err
 		}

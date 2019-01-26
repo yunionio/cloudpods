@@ -78,7 +78,7 @@ func init() {
 				params.Add(jsonutils.JSONFalse, "is_master")
 			}
 		}
-		result, err := modules.Hostwires.Update(s, args.HOST, args.WIRE, params)
+		result, err := modules.Hostwires.Update(s, args.HOST, args.WIRE, nil, params)
 		if err != nil {
 			return err
 		}

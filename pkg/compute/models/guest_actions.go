@@ -1310,6 +1310,115 @@ func (self *SGuest) PerformAttachIsolatedDevice(ctx context.Context, userCred mc
 	return nil, err
 }
 
+func (self *SGuest) AllowPerformChangeIpaddr(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "change-ipaddr")
+}
+
+func (self *SGuest) findGuestnetworkByInfo(ipStr string, macStr string, index int64) (*SGuestnetwork, error) {
+	if len(ipStr) > 0 {
+		gn, err := self.GetNetworkByIp(ipStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewNotFoundError("ip %s not found", ipStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		return gn, nil
+	} else if len(macStr) > 0 {
+		gn, err := self.GetNetworkByMac(macStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewNotFoundError("mac %s not found", macStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		return gn, nil
+	} else {
+		gns, err := self.GetNetworks("")
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+		if index >= 0 && index < int64(len(gns)) {
+			return &gns[index], nil
+		}
+		return nil, httperrors.NewInputParameterError("no either ip_addr or mac specified")
+	}
+}
+
+func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Status != VM_READY && self.Status != VM_RUNNING {
+		return nil, httperrors.NewInvalidStatusError("Cannot change network ip_addr in status %s", self.Status)
+	}
+
+	reserve := jsonutils.QueryBoolean(data, "reserve", false)
+
+	ipStr, _ := data.GetString("ip_addr")
+	macStr, _ := data.GetString("mac")
+	index, _ := data.Int("index")
+
+	gn, err := self.findGuestnetworkByInfo(ipStr, macStr, index)
+	if err != nil {
+		return nil, err
+	}
+
+	netDesc, err := data.Get("net_desc")
+	if err != nil {
+		return nil, httperrors.NewBadRequestError(err.Error())
+	}
+	conf, err := parseNetworkInfo(userCred, netDesc)
+	if err != nil {
+		return nil, err
+	}
+	err = isValidNetworkInfo(userCred, conf)
+	if err != nil {
+		return nil, httperrors.NewBadRequestError(err.Error())
+	}
+	host := self.GetHost()
+
+	_, err = func() (jsonutils.JSONObject, error) {
+		lockman.LockRawObject(ctx, GuestnetworkManager.KeywordPlural(), "")
+		defer lockman.ReleaseRawObject(ctx, GuestnetworkManager.KeywordPlural(), "")
+
+		if len(conf.Mac) > 0 {
+			if conf.Mac != gn.MacAddr {
+				if self.Status != VM_READY {
+					// change mac
+					return nil, httperrors.NewInvalidStatusError("cannot change mac when guest is running")
+				}
+				// check mac duplication
+				if GuestnetworkManager.Query().Equals("mac_addr", conf.Mac).Count() > 0 {
+					return nil, httperrors.NewConflictError("mac addr %s has been occupied", conf.Mac)
+				}
+			} else {
+				if conf.Address == gn.IpAddr { // ip addr is the same, noop
+					return nil, nil
+				}
+			}
+		} else {
+			conf.Mac = gn.MacAddr
+		}
+
+		err = self.detachNetworks(ctx, userCred, []SGuestnetwork{*gn}, reserve, false)
+		if err != nil {
+			return nil, err
+		}
+		conf.Ifname = gn.Ifname
+		err = self.attach2NetworkDesc(ctx, userCred, host, conf, nil)
+		if err != nil {
+			return nil, httperrors.NewBadRequestError(err.Error())
+		}
+
+		return nil, nil
+	}()
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = self.StartSyncTask(ctx, userCred, true, "")
+	return nil, err
+}
+
 func (self *SGuest) AllowPerformDetachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "detachnetwork")
 }
@@ -1319,17 +1428,48 @@ func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.
 		return nil, httperrors.NewInvalidStatusError("Cannot detach network in status %s", self.Status)
 	}
 	reserve := jsonutils.QueryBoolean(data, "reserve", false)
-	netId, err := data.GetString("net_id")
-	if err != nil {
-		return nil, httperrors.NewBadRequestError(err.Error())
+
+	netStr, _ := data.GetString("net_id")
+	if len(netStr) > 0 {
+		netObj, err := NetworkManager.FetchById(netStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(NetworkManager.Keyword(), netStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		gns, err := self.GetNetworks(netObj.GetId())
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+		err = self.detachNetworks(ctx, userCred, gns, reserve, true)
+		return nil, err
 	}
-	iNetwork, err := NetworkManager.FetchById(netId)
-	if err != nil {
-		return nil, httperrors.NewNotFoundError("Network %s not found", netId)
+	ipStr, _ := data.GetString("ip_addr")
+	if len(ipStr) > 0 {
+		gn, err := self.GetNetworkByIp(ipStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewNotFoundError("ip %s not found", ipStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		err = self.detachNetworks(ctx, userCred, []SGuestnetwork{*gn}, reserve, true)
+		return nil, err
 	}
-	network := iNetwork.(*SNetwork)
-	err = self.detachNetwork(ctx, userCred, network, reserve, true)
-	return nil, err
+	macStr, _ := data.GetString("mac")
+	if len(macStr) > 0 {
+		gn, err := self.GetNetworkByMac(macStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewNotFoundError("mac %s not found", macStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		err = self.detachNetworks(ctx, userCred, []SGuestnetwork{*gn}, reserve, true)
+		return nil, err
+	}
+	return nil, httperrors.NewInputParameterError("no either ip_addr, mac or network specified")
 }
 
 func (self *SGuest) AllowPerformAttachnetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -1388,33 +1528,34 @@ func (self *SGuest) AllowPerformChangeBandwidth(ctx context.Context, userCred mc
 }
 
 func (self *SGuest) PerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING}) {
-		guestnics := self.GetNetworks()
-		index, err := data.Int("index")
-		if err != nil || index > int64(len(guestnics)) {
-			logclient.AddActionLog(self, logclient.ACT_VM_CHANGE_BANDWIDTH, "Index Not fount or out of NIC index", userCred, false)
-			return nil, httperrors.NewBadRequestError("Index Not fount or out of NIC index")
-		}
-		bandwidth, err := data.Int("bandwidth")
-		if err != nil || bandwidth < 0 {
-			logclient.AddActionLog(self, logclient.ACT_VM_CHANGE_BANDWIDTH, "Bandwidth must non-negative", userCred, false)
-			return nil, httperrors.NewBadRequestError("Bandwidth must be non-negative")
-		}
-		guestnic := &guestnics[index]
-		if guestnic.BwLimit != int(bandwidth) {
-			GuestnetworkManager.TableSpec().Update(guestnic, func() error {
-				guestnic.BwLimit = int(bandwidth)
-				return nil
-			})
-			err := self.StartSyncTask(ctx, userCred, false, "")
-			logclient.AddActionLog(self, logclient.ACT_VM_CHANGE_BANDWIDTH, err, userCred, err == nil)
-			return nil, err
-		}
-		return nil, nil
+	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING}) {
+		msg := fmt.Sprintf("Cannot change bandwidth in status %s", self.Status)
+		return nil, httperrors.NewBadRequestError(msg)
 	}
-	msg := fmt.Sprintf("Cannot change bandwidth in status %s", self.Status)
-	logclient.AddActionLog(self, logclient.ACT_VM_CHANGE_BANDWIDTH, msg, userCred, false)
-	return nil, httperrors.NewBadRequestError(msg)
+
+	bandwidth, err := data.Int("bandwidth")
+	if err != nil || bandwidth < 0 {
+		return nil, httperrors.NewBadRequestError("Bandwidth must be non-negative")
+	}
+
+	ipStr, _ := data.GetString("ip_addr")
+	macStr, _ := data.GetString("mac")
+	index, _ := data.Int("index")
+	guestnic, err := self.findGuestnetworkByInfo(ipStr, macStr, index)
+	if err != nil {
+		return nil, err
+	}
+
+	if guestnic.BwLimit != int(bandwidth) {
+		GuestnetworkManager.TableSpec().Update(guestnic, func() error {
+			guestnic.BwLimit = int(bandwidth)
+			return nil
+		})
+		err := self.StartSyncTask(ctx, userCred, false, "")
+		logclient.AddActionLog(self, logclient.ACT_VM_CHANGE_BANDWIDTH, err, userCred, err == nil)
+		return nil, err
+	}
+	return nil, nil
 }
 
 func (self *SGuest) AllowPerformChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

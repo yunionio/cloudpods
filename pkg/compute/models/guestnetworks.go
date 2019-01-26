@@ -12,7 +12,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
@@ -20,10 +19,13 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 const (
 	MAX_IFNAME_SIZE = 13
+
+	MAX_GUESTNIC_TO_SAME_NETWORK = 2
 )
 
 type SGuestnetworkManager struct {
@@ -119,7 +121,7 @@ func (manager *SGuestnetworkManager) GenerateMac(netId string, suggestion string
 
 func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, network *SNetwork,
 	index int8, address string, mac string, driver string, bwLimit int, virtual bool, reserved bool,
-	allocDir IPAddlocationDirection, requiredDesignatedIp bool) (*SGuestnetwork, error) {
+	allocDir IPAddlocationDirection, requiredDesignatedIp bool, ifName string) (*SGuestnetwork, error) {
 
 	gn := SGuestnetwork{}
 	gn.SetModelManager(GuestnetworkManager)
@@ -147,7 +149,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCr
 	gn.MacAddr = macAddr
 	if !virtual {
 		addrTable := network.GetUsedAddresses()
-		recentAddrTable := manager.getRecentlyReleasedIPAddresses(network.Id, time.Duration(network.AllocTimoutSeconds)*time.Second)
+		recentAddrTable := manager.getRecentlyReleasedIPAddresses(network.Id, network.getAllocTimoutDuration())
 		ipAddr, err := network.GetFreeIP(ctx, userCred, addrTable, recentAddrTable, address, allocDir, reserved)
 		if err != nil {
 			return nil, err
@@ -158,7 +160,15 @@ func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCr
 		gn.IpAddr = ipAddr
 	}
 	ifTable := network.GetUsedIfnames()
-	ifName := gn.GetFreeIfname(network, ifTable)
+	if len(ifName) > 0 {
+		if _, ok := ifTable[ifName]; ok {
+			ifName = ""
+			log.Infof("ifname %s has been used, to release ...", ifName)
+		}
+	}
+	if len(ifName) == 0 {
+		ifName = gn.GetFreeIfname(network, ifTable)
+	}
 	gn.Ifname = ifName
 	err := manager.TableSpec().Insert(&gn)
 	if err != nil {
@@ -314,18 +324,10 @@ func (self *SGuestnetwork) ValidateUpdateData(ctx context.Context, userCred mccl
 	return self.SJointResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (manager *SGuestnetworkManager) DeleteGuestNics(ctx context.Context, guest *SGuest, userCred mcclient.TokenCredential, network *SNetwork, reserve bool) error {
-	q := manager.Query().Equals("guest_id", guest.Id)
-	if network != nil {
-		q = q.Equals("network_id", network.Id)
-	}
-	gns := make([]SGuestnetwork, 0)
-	err := db.FetchModelObjects(manager, q, &gns)
-	if err != nil {
-		log.Errorf("%s", err)
-		return err
-	}
-	for _, gn := range gns {
+func (manager *SGuestnetworkManager) DeleteGuestNics(ctx context.Context, userCred mcclient.TokenCredential, gns []SGuestnetwork, reserve bool) error {
+	for i := range gns {
+		gn := gns[i]
+		guest := gn.GetGuest()
 		net := gn.GetNetwork()
 		if regutils.MatchIP4Addr(gn.IpAddr) || regutils.MatchIP6Addr(gn.Ip6Addr) {
 			net.updateDnsRecord(&gn, false)
@@ -336,7 +338,7 @@ func (manager *SGuestnetworkManager) DeleteGuestNics(ctx context.Context, guest 
 		}
 		// ??
 		// gn.Delete(ctx, userCred)
-		err = gn.Delete(ctx, userCred)
+		err := gn.Delete(ctx, userCred)
 		if err != nil {
 			log.Errorf("%s", err)
 		}
@@ -500,7 +502,11 @@ func (self *SGuestnetwork) GetVirtualIPs() []string {
 	net := self.GetNetwork()
 	for _, guestgroup := range guest.GetGroups() {
 		group := guestgroup.GetGroup()
-		for _, groupnetwork := range group.GetNetworks() {
+		groupnets, err := group.GetNetworks()
+		if err != nil {
+			continue
+		}
+		for _, groupnetwork := range groupnets {
 			gnet := groupnetwork.GetNetwork()
 			if gnet.WireId == net.WireId {
 				ips = append(ips, groupnetwork.IpAddr)
@@ -589,4 +595,20 @@ func (manager *SGuestnetworkManager) getRecentlyReleasedIPAddresses(networkId st
 		}
 	}
 	return ret
+}
+
+func (manager *SGuestnetworkManager) FilterByParams(q *sqlchemy.SQuery, params jsonutils.JSONObject) *sqlchemy.SQuery {
+	macStr := jsonutils.GetAnyString(params, []string{"mac", "mac_addr"})
+	if len(macStr) > 0 {
+		q = q.Filter(sqlchemy.Equals(q.Field("mac_addr"), macStr))
+	}
+	ipStr := jsonutils.GetAnyString(params, []string{"ipaddr", "ip_addr", "ip"})
+	if len(ipStr) > 0 {
+		q = q.Filter(sqlchemy.Equals(q.Field("ip_addr"), ipStr))
+	}
+	ip6Str := jsonutils.GetAnyString(params, []string{"ip6addr", "ip6_addr", "ip6"})
+	if len(ip6Str) > 0 {
+		q = q.Filter(sqlchemy.Equals(q.Field("ip6_addr"), ip6Str))
+	}
+	return q
 }
