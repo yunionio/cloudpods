@@ -60,3 +60,44 @@ func (backendgroup *SLoadbalancerDefaultBackendGroup) GetILoadbalancerBackends()
 	}
 	return ibackends, nil
 }
+
+func (backendgroup *SLoadbalancerDefaultBackendGroup) Sync(name string) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (backendgroup *SLoadbalancerDefaultBackendGroup) Delete() error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (region *SRegion) AddBackendServer(loadbalancerId, serverId string, weight, port int) error {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["LoadBalancerId"] = loadbalancerId
+	servers := jsonutils.NewArray()
+	servers.Add(jsonutils.Marshal(map[string]string{"ServerId": serverId, "Weight": fmt.Sprintf("%d", weight)}))
+	params["BackendServers"] = servers.String()
+	_, err := region.lbRequest("AddBackendServers", params)
+	return err
+}
+
+func (backendgroup *SLoadbalancerDefaultBackendGroup) AddBackendServer(serverId string, weight, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
+	if err := backendgroup.lb.region.AddBackendServer(backendgroup.lb.LoadBalancerId, serverId, weight, port); err != nil {
+		return nil, err
+	}
+	return &SLoadbalancerDefaultBackend{lbbg: backendgroup, ServerId: serverId, Weight: weight}, nil
+}
+
+func (region *SRegion) RemoveBackendServer(loadbalancerId, serverId string) error {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["LoadBalancerId"] = loadbalancerId
+	servers := jsonutils.NewArray()
+	servers.Add(jsonutils.NewString(serverId))
+	params["BackendServers"] = servers.String()
+	_, err := region.lbRequest("RemoveBackendServers", params)
+	return err
+}
+
+func (backendgroup *SLoadbalancerDefaultBackendGroup) RemoveBackendServer(serverId string, weight, port int) error {
+	return backendgroup.lb.region.RemoveBackendServer(backendgroup.lb.LoadBalancerId, serverId)
+}

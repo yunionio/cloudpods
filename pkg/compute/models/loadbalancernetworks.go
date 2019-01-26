@@ -51,10 +51,10 @@ func (ln *SLoadbalancerNetwork) Network() *SNetwork {
 }
 
 type SLoadbalancerNetworkRequestData struct {
-	loadbalancer *SLoadbalancer
-	networkId    string
+	Loadbalancer *SLoadbalancer
+	NetworkId    string
 	reserved     bool                   // allocate from reserved
-	address      string                 // the address user intends to use
+	Address      string                 // the address user intends to use
 	strategy     IPAddlocationDirection // allocate bottom up, top down, randomly
 }
 
@@ -68,13 +68,13 @@ func (m *SLoadbalancernetworkManager) NewLoadbalancerNetwork(ctx context.Context
 	if networkMan == nil {
 		return nil, fmt.Errorf("failed getting network manager")
 	}
-	im, err := networkMan.FetchById(req.networkId)
+	im, err := networkMan.FetchById(req.NetworkId)
 	if err != nil {
 		return nil, err
 	}
 	network := im.(*SNetwork)
 	ln := &SLoadbalancerNetwork{
-		LoadbalancerId: req.loadbalancer.Id,
+		LoadbalancerId: req.Loadbalancer.Id,
 		NetworkId:      network.Id,
 	}
 	ln.SetModelManager(m)
@@ -84,7 +84,7 @@ func (m *SLoadbalancernetworkManager) NewLoadbalancerNetwork(ctx context.Context
 	usedMap := network.GetUsedAddresses()
 	recentReclaimed := map[string]bool{}
 	ipAddr, err := network.GetFreeIP(ctx, userCred,
-		usedMap, recentReclaimed, req.address, req.strategy, req.reserved)
+		usedMap, recentReclaimed, req.Address, req.strategy, req.reserved)
 	if err != nil {
 		return nil, err
 	}
@@ -125,32 +125,32 @@ func (m *SLoadbalancernetworkManager) DeleteLoadbalancerNetwork(ctx context.Cont
 }
 
 func (m *SLoadbalancernetworkManager) SyncLoadbalancerNetwork(ctx context.Context, userCred mcclient.TokenCredential, req *SLoadbalancerNetworkRequestData) error {
-	_network, err := NetworkManager.FetchById(req.networkId)
+	_network, err := NetworkManager.FetchById(req.NetworkId)
 	if err != nil {
 		return err
 	}
 	network := _network.(*SNetwork)
-	ip, err := netutils.NewIPV4Addr(req.address)
+	ip, err := netutils.NewIPV4Addr(req.Address)
 	if err != nil {
 		return err
 	}
 	if !network.isAddressInRange(ip) {
-		return fmt.Errorf("address %s is not in the range of network %s(%s)", req.address, network.Id, network.Name)
+		return fmt.Errorf("address %s is not in the range of network %s(%s)", req.Address, network.Id, network.Name)
 	}
-	q := m.Query().Equals("loadbalancer_id", req.loadbalancer.Id).Equals("network_id", req.networkId)
+	q := m.Query().Equals("loadbalancer_id", req.Loadbalancer.Id).Equals("network_id", req.NetworkId)
 	lns := []SLoadbalancerNetwork{}
 	if err := db.FetchModelObjects(m, q, &lns); err != nil {
 		return err
 	}
 	if len(lns) == 0 {
-		ln := &SLoadbalancerNetwork{LoadbalancerId: req.loadbalancer.Id, NetworkId: req.networkId, IpAddr: req.address}
+		ln := &SLoadbalancerNetwork{LoadbalancerId: req.Loadbalancer.Id, NetworkId: req.NetworkId, IpAddr: req.Address}
 		return m.TableSpec().Insert(ln)
 	}
 	for i := 0; i < len(lns); i++ {
 		if i == 0 {
-			if lns[i].IpAddr != req.address {
+			if lns[i].IpAddr != req.Address {
 				_, err := lns[i].GetModelManager().TableSpec().Update(&lns[i], func() error {
-					lns[i].IpAddr = req.address
+					lns[i].IpAddr = req.Address
 					return nil
 				})
 				if err != nil {

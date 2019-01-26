@@ -117,6 +117,10 @@ func (listerner *SLoadbalancerHTTPListener) GetBackendGroupId() string {
 	return listerner.VServerGroupId
 }
 
+func (listerner *SLoadbalancerHTTPListener) GetBackendServerPort() int {
+	return listerner.BackendServerPort
+}
+
 func (listerner *SLoadbalancerHTTPListener) GetScheduler() string {
 	return listerner.Scheduler
 }
@@ -246,4 +250,95 @@ func (region *SRegion) GetLoadbalancerHTTPListener(loadbalancerId string, listen
 	}
 	listener := SLoadbalancerHTTPListener{}
 	return &listener, body.Unmarshal(&listener)
+}
+
+func (region *SRegion) DeleteLoadbalancerListener(loadbalancerId string, listenerPort int) error {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["LoadBalancerId"] = loadbalancerId
+	params["ListenerPort"] = fmt.Sprintf("%d", listenerPort)
+	_, err := region.lbRequest("DeleteLoadBalancerListener", params)
+	return err
+}
+
+func (region *SRegion) CreateLoadbalancerHTTPListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+	params := region.constructBaseCreateListenerParams(lb, listener)
+	params = region.constructHTTPCreateListenerParams(params, listener)
+	_, err := region.lbRequest("CreateLoadBalancerHTTPListener", params)
+	if err != nil {
+		return nil, err
+	}
+	iListener, err := region.GetLoadbalancerHTTPListener(lb.LoadBalancerId, listener.ListenerPort)
+	if err != nil {
+		return nil, err
+	}
+	iListener.lb = lb
+	return iListener, nil
+}
+
+func (listerner *SLoadbalancerHTTPListener) Delete() error {
+	return listerner.lb.region.DeleteLoadbalancerListener(listerner.lb.LoadBalancerId, listerner.ListenerPort)
+}
+
+func (listerner *SLoadbalancerHTTPListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SLoadbalancerListenerRule) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
+	_rule := &SLoadbalancerListenerRule{
+		Domain:   rule.Domain,
+		Url:      rule.Path,
+		RuleName: rule.Name,
+	}
+	if len(rule.BackendGroupID) > 0 { //&& rule.BackendGroupType == models.LB_BACKENDGROUP_TYPE_NORMAL {
+		_rule.VServerGroupId = rule.BackendGroupID
+	}
+	listenerRule, err := listerner.lb.region.CreateLoadbalancerListenerRule(listerner.ListenerPort, listerner.lb.LoadBalancerId, _rule)
+	if err != nil {
+		return nil, err
+	}
+	listenerRule.httpListener = listerner
+	return listenerRule, nil
+}
+
+func (listerner *SLoadbalancerHTTPListener) GetILoadBalancerListenerRuleById(ruleId string) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
+	rule, err := listerner.lb.region.GetLoadbalancerListenerRule(ruleId)
+	if err != nil {
+		return nil, err
+	}
+	rule.httpListener = listerner
+	return rule, nil
+}
+
+func (region *SRegion) startListener(listenerPort int, loadbalancerId string) error {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["LoadBalancerId"] = loadbalancerId
+	params["ListenerPort"] = fmt.Sprintf("%d", listenerPort)
+	_, err := region.lbRequest("StartLoadBalancerListener", params)
+	return err
+}
+
+func (region *SRegion) stopListener(listenerPort int, loadbalancerId string) error {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["LoadBalancerId"] = loadbalancerId
+	params["ListenerPort"] = fmt.Sprintf("%d", listenerPort)
+	_, err := region.lbRequest("StopLoadBalancerListener", params)
+	return err
+}
+
+func (listerner *SLoadbalancerHTTPListener) Start() error {
+	return listerner.lb.region.startListener(listerner.ListenerPort, listerner.lb.LoadBalancerId)
+}
+
+func (listerner *SLoadbalancerHTTPListener) Stop() error {
+	return listerner.lb.region.stopListener(listerner.ListenerPort, listerner.lb.LoadBalancerId)
+}
+
+func (region *SRegion) SyncLoadbalancerHTTPListener(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListener) error {
+	params := region.constructBaseCreateListenerParams(lb, listener)
+	params = region.constructHTTPCreateListenerParams(params, listener)
+	_, err := region.lbRequest("SetLoadBalancerHTTPListenerAttribute", params)
+	return err
+}
+
+func (listerner *SLoadbalancerHTTPListener) Sync(lblis *cloudprovider.SLoadbalancerListener) error {
+	return listerner.lb.region.SyncLoadbalancerHTTPListener(listerner.lb, lblis)
 }

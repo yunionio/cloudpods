@@ -22,6 +22,10 @@ func InitDB() error {
 		NetworkManager,
 		LoadbalancerCertificateManager,
 		LoadbalancerManager,
+		LoadbalancerListenerManager,
+		LoadbalancerListenerRuleManager,
+		LoadbalancerBackendGroupManager,
+		LoadbalancerBackendManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {

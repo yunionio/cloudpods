@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"strings"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
@@ -198,9 +199,9 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 }
 
 func syncRegionLoadbalancerCertificates(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localRegion *models.SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *models.SSyncRange) {
-	certificates, err := remoteRegion.GetILoadbalancerCertificates()
+	certificates, err := remoteRegion.GetILoadBalancerCertificates()
 	if err != nil {
-		msg := fmt.Sprintf("GetILoadbalancerCertificates for region %s failed %s", remoteRegion.GetName(), err)
+		msg := fmt.Sprintf("GetILoadBalancerCertificates for region %s failed %s", remoteRegion.GetName(), err)
 		log.Errorf(msg)
 		logSyncFailed(provider, task, msg)
 		return
@@ -215,9 +216,9 @@ func syncRegionLoadbalancerCertificates(ctx context.Context, provider *models.SC
 }
 
 func syncRegionLoadbalancerAcls(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localRegion *models.SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *models.SSyncRange) {
-	acls, err := remoteRegion.GetILoadbalancerAcls()
+	acls, err := remoteRegion.GetILoadBalancerAcls()
 	if err != nil {
-		msg := fmt.Sprintf("GetILoadbalancerAcls for region %s failed %s", remoteRegion.GetName(), err)
+		msg := fmt.Sprintf("GetILoadBalancerAcls for region %s failed %s", remoteRegion.GetName(), err)
 		log.Errorf(msg)
 		logSyncFailed(provider, task, msg)
 		return
@@ -254,9 +255,9 @@ func syncRegionLoadbalancers(ctx context.Context, provider *models.SCloudprovide
 }
 
 func syncLoadbalancerListeners(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localLoadbalancer *models.SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *models.SSyncRange) {
-	remoteListeners, err := remoteLoadbalancer.GetILoadbalancerListeners()
+	remoteListeners, err := remoteLoadbalancer.GetILoadBalancerListeners()
 	if err != nil {
-		msg := fmt.Sprintf("GetILoadbalancerListeners for loadbalancer %s failed %s", localLoadbalancer.Name, err)
+		msg := fmt.Sprintf("GetILoadBalancerListeners for loadbalancer %s failed %s", localLoadbalancer.Name, err)
 		log.Errorf(msg)
 		logSyncFailed(provider, task, msg)
 		return
@@ -291,9 +292,9 @@ func syncLoadbalancerListenerRules(ctx context.Context, provider *models.SCloudp
 }
 
 func syncLoadbalancerBackendgroups(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localLoadbalancer *models.SLoadbalancer, remoteLoadbalancer cloudprovider.ICloudLoadbalancer, syncRange *models.SSyncRange) {
-	remoteBackendgroups, err := remoteLoadbalancer.GetILoadbalancerBackendGroups()
+	remoteBackendgroups, err := remoteLoadbalancer.GetILoadBalancerBackendGroups()
 	if err != nil {
-		msg := fmt.Sprintf("GetILoadbalancerBackendGroups for loadbalancer %s failed %s", localLoadbalancer.Name, err)
+		msg := fmt.Sprintf("GetILoadBalancerBackendGroups for loadbalancer %s failed %s", localLoadbalancer.Name, err)
 		log.Errorf(msg)
 		logSyncFailed(provider, task, msg)
 		return

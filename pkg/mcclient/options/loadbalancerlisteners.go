@@ -3,10 +3,11 @@ package options
 type LoadbalancerListenerCreateOptions struct {
 	NAME string
 
-	Loadbalancer string `required:"true"`
-	ListenerType string `required:"true" choices:"tcp|udp|http|https"`
-	ListenerPort *int   `required:"true"`
-	BackendGroup string
+	Loadbalancer      string `required:"true"`
+	ListenerType      string `required:"true" choices:"tcp|udp|http|https"`
+	ListenerPort      *int   `required:"true"`
+	BackendServerPort *int
+	BackendGroup      string
 
 	Scheduler string `required:"true" choices:"rr|wrr|wlc|sch|tch"`
 
@@ -159,4 +160,8 @@ type LoadbalancerListenerDeleteOptions struct {
 type LoadbalancerListenerActionStatusOptions struct {
 	ID     string
 	Status string `choices:"enabled|disabled"`
+}
+
+type LoadbalancerListenerActionSyncStatusOptions struct {
+	ID string
 }
