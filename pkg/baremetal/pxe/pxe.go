@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/dhcp"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
@@ -115,7 +116,11 @@ func (s *Server) Serve() error {
 	//tftpSrv := tftp.NewServer(tftpHandler.ReadHandler, nil)
 	//tftpSrv.SetTimeout(5 * time.Second)
 
-	dhcpSrv := dhcp.NewDHCPServer(s.Address, s.DHCPPort)
+	log.Infof("DHCPServer Bind %s %d", s.Address, s.DHCPPort)
+	dhcpSrv, _, err := dhcp.NewDHCPServer2(s.Address, s.DHCPPort)
+	if err != nil {
+		return err
+	}
 
 	s.errs = make(chan error)
 
