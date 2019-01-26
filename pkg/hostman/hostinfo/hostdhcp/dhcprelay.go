@@ -27,6 +27,8 @@ type SDHCPRelay struct {
 	OnRecv recvFunc
 	conn   *dhcp.Conn
 
+	guestDHCPConn *dhcp.Conn
+
 	srcaddr string
 
 	destaddr net.IP
@@ -35,8 +37,9 @@ type SDHCPRelay struct {
 	cache sync.Map
 }
 
-func NewDHCPRelay(addrs []string) (*SDHCPRelay, error) {
+func NewDHCPRelay(guestDHCPConn *dhcp.Conn, addrs []string) (*SDHCPRelay, error) {
 	relay := new(SDHCPRelay)
+	relay.guestDHCPConn = guestDHCPConn
 	addr := addrs[0]
 	port, err := strconv.Atoi(addrs[1])
 	if err != nil {
@@ -75,15 +78,21 @@ func (r *SDHCPRelay) Setup(addr string) error {
 
 func (r *SDHCPRelay) ServeDHCP(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
 	log.Infof("Receive DHCP Relay Reply TO %s", pkt.CHAddr())
-	if v, ok := r.cache.Load(pkt.TransactionID()); ok {
+
+	v, ok := r.cache.Load(pkt.TransactionID())
+	log.Infof("DHCPcache %s, %v", r.cache, ok)
+	if ok {
 		r.cache.Delete(pkt.TransactionID())
 		val := v.(*SRelayCache)
 		udpAddr := &net.UDPAddr{
 			IP:   pkt.CIAddr(),
 			Port: val.srcPort,
 		}
+		log.Infof("DHCPReply %s %s", pkt.CIAddr(), val.srcPort)
 
-		r.conn.SendDHCP(pkt, udpAddr, intf)
+		if err := r.guestDHCPConn.SendDHCP(pkt, udpAddr, intf); err != nil {
+			log.Errorln(err)
+		}
 	}
 	return nil, nil
 }

@@ -56,9 +56,9 @@ func (s *DHCPServer) serveDHCP(handler DHCPHandler) error {
 		if err != nil {
 			return fmt.Errorf("Receiving DHCP packet: %s", err)
 		}
-		if intf == nil {
-			return fmt.Errorf("Received DHCP packet with no interface information (this is a violation of dhcp4.Conn's contract)")
-		}
+		// if intf == nil {
+		// 	return fmt.Errorf("Received DHCP packet with no interface information (this is a violation of dhcp4.Conn's contract)")
+		// }
 
 		go func() {
 			defer func() {

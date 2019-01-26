@@ -21,6 +21,7 @@ var DEFAULT_DHCP_BIND_ADDR = "0.0.0.0"
 type SGuestDHCPServer struct {
 	server *dhcp.DHCPServer
 	relay  *SDHCPRelay
+	conn   *dhcp.Conn
 
 	iface string
 }
@@ -31,13 +32,18 @@ func NewGuestDHCPServer(iface string, relay []string) (*SGuestDHCPServer, error)
 		guestdhcp = new(SGuestDHCPServer)
 	)
 
+	guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCPServer2(DEFAULT_DHCP_BIND_ADDR, options.HostOptions.DhcpServerPort)
+	if err != nil {
+		return nil, err
+	}
+
 	if len(relay) == 2 {
-		guestdhcp.relay, err = NewDHCPRelay(relay)
+		guestdhcp.relay, err = NewDHCPRelay(guestdhcp.conn, relay)
 		if err != nil {
 			return nil, err
 		}
 	}
-	guestdhcp.server = dhcp.NewDHCPServer(DEFAULT_DHCP_BIND_ADDR, options.HostOptions.DhcpServerPort)
+
 	guestdhcp.iface = iface
 	return guestdhcp, nil
 }
@@ -47,7 +53,7 @@ func (s *SGuestDHCPServer) Start() {
 	go func() {
 		err := s.server.ListenAndServe(s)
 		if err != nil {
-			log.Errorf("DHCP error %s", err)
+			log.Errorf("DHCP serve error: %s", err)
 		}
 	}()
 }

@@ -142,7 +142,7 @@ func (c *Conn) Close() error {
 func (c *Conn) RecvDHCP() (Packet, *net.UDPAddr, *net.Interface, error) {
 	var buf [1500]byte
 	for {
-		b, addr, ifidx, err := c.conn.Recv(buf[:])
+		b, addr, _, err := c.conn.Recv(buf[:])
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -151,14 +151,14 @@ func (c *Conn) RecvDHCP() (Packet, *net.UDPAddr, *net.Interface, error) {
 			continue
 		}*/
 		pkt := Unmarshal(b)
-		intf, err := net.InterfaceByIndex(ifidx)
-		if err != nil {
-			return nil, nil, nil, err
-		}
+		// intf, err := net.InterfaceByIndex(ifidx)
+		// if err != nil {
+		// 	return nil, nil, nil, err
+		// }
 
 		// TODO: possibly more validation that the source lines up
 		// with what the packet says.
-		return pkt, addr, intf, nil
+		return pkt, addr, nil, nil
 	}
 }
 
@@ -281,6 +281,9 @@ func newSocketConn(addr net.IP, port int) (conn, error) {
 		return nil, err
 	}
 	if err = syscall.SetsockoptInt(sock, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1); err != nil {
+		return nil, err
+	}
+	if err = syscall.SetsockoptInt(sock, syscall.SOL_SOCKET, syscall.SO_BROADCAST, 1); err != nil {
 		return nil, err
 	}
 	byteAddr := [4]byte{}
