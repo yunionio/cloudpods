@@ -404,7 +404,9 @@ func (d *SLocalDisk) PrepareSaveToGlance(ctx context.Context, params interface{}
 		procutils.NewCommand("rm", "-f", backupPath).Run()
 		return nil, err
 	}
-	return jsonutils.NewDict(jsonutils.NewPair("backup", jsonutils.NewString(backupPath))), nil
+	res := jsonutils.NewDict()
+	res.Set("backup", jsonutils.NewString(backupPath))
+	return res, nil
 }
 
 func (d *SLocalDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
