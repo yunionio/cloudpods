@@ -40,7 +40,7 @@ func (s *BaremetalService) StartService() {
 		}
 
 		if app.IsInServe() {
-			if err := app.ShowDown(context.Background()); err != nil {
+			if err := app.ShotDown(context.Background()); err != nil {
 				log.Errorf("App shutdown err: %v", err)
 			}
 		}
