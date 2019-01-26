@@ -431,12 +431,17 @@ func (manager *SSecurityGroupRuleManager) newFromCloudSecurityGroup(rule secrule
 		protocol = secrules.PROTO_ANY
 	}
 
+	cidr := "0.0.0.0/0"
+	if rule.IPNet != nil && rule.IPNet.String() != "<nil>" {
+		cidr = rule.IPNet.String()
+	}
+
 	secrule := &SSecurityGroupRule{
 		Priority:    int64(rule.Priority),
 		Protocol:    protocol,
 		Ports:       "",
 		Direction:   string(rule.Direction),
-		CIDR:        rule.IPNet.String(),
+		CIDR:        cidr,
 		Action:      string(rule.Action),
 		Description: rule.Description,
 		SecgroupID:  secgroup.Id,
