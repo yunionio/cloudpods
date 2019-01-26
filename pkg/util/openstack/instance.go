@@ -47,17 +47,13 @@ type SecurityGroup struct {
 	Description string
 }
 
-type SAddresses struct {
-	Private []SInstanceNic
-	Public  []SInstanceNic
-}
-
 type ExtraSpecs struct {
 	CpuPolicy   string `json:"hw:cpu_policy,omitempty"`
 	MemPageSize int    `json:"hw:mem_page_size,omitempty"`
 }
 
 type SFlavor struct {
+	ID           string
 	Disk         int
 	Ephemeral    int
 	ExtraSpecs   ExtraSpecs
@@ -83,11 +79,7 @@ type VolumesAttached struct {
 }
 
 type SInstance struct {
-	host   cloudprovider.ICloudHost
-	hostV2 *SHostV2
-	hostV3 *SHostV3
-
-	flavor *SFlavor
+	host *SHost
 
 	DiskConfig         string `json:"OS-DCF:diskConfig,omitempty"`
 	AvailabilityZone   string `json:"OS-EXT-AZ:availability_zone,omitempty"`
@@ -109,11 +101,11 @@ type SInstance struct {
 
 	AccessIPv4               string
 	AccessIPv6               string
-	Addresses                SAddresses
+	Addresses                map[string][]SInstanceNic
 	ConfigDrive              string
 	Created                  time.Time
 	Description              string
-	Flavor                   Resource
+	Flavor                   SFlavor
 	HostID                   string
 	HostStatus               string
 	ID                       string
@@ -176,7 +168,7 @@ func (region *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 func (instance *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 
-	secgroups, err := instance.getRegion().GetSecurityGroupsByInstance(instance.ID)
+	secgroups, err := instance.host.zone.region.GetSecurityGroupsByInstance(instance.ID)
 	if err == nil {
 		secgroupIds := jsonutils.NewArray()
 		for _, secgroup := range secgroups {
@@ -185,17 +177,12 @@ func (instance *SInstance) GetMetadata() *jsonutils.JSONDict {
 		data.Add(secgroupIds, "secgroupIds")
 	}
 
-	if instance.flavor == nil {
-		if err := instance.fetchFlavor(); err != nil {
-			log.Errorf("fetch flavor for instance %s failed error: %v", instance.Name, err)
-		}
-	}
-	if instance.flavor != nil {
-		priceKey := fmt.Sprintf("%s::%s", instance.getZone().ZoneName, instance.flavor.OriginalName)
-		data.Add(jsonutils.NewString(priceKey), "price_key")
-	}
+	instance.fetchFlavor()
 
-	data.Add(jsonutils.NewString(instance.getZone().GetGlobalId()), "zone_ext_id")
+	priceKey := fmt.Sprintf("%s::%s", instance.host.zone.ZoneName, instance.Flavor.OriginalName)
+	data.Add(jsonutils.NewString(priceKey), "price_key")
+
+	data.Add(jsonutils.NewString(instance.host.zone.GetGlobalId()), "zone_ext_id")
 	return data
 }
 
@@ -204,10 +191,7 @@ func (instance *SInstance) GetCreateTime() time.Time {
 }
 
 func (instance *SInstance) GetIHost() cloudprovider.ICloudHost {
-	if instance.hostV3 != nil {
-		return instance.hostV3
-	}
-	return instance.hostV2
+	return instance.host
 }
 
 func (instance *SInstance) GetId() string {
@@ -227,28 +211,26 @@ func (instance *SInstance) IsEmulated() bool {
 }
 
 func (instance *SInstance) fetchFlavor() error {
-	_, resp, err := instance.getRegion().Get("compute", "/flavors/"+instance.Flavor.ID, "", nil)
-	if err != nil {
-		log.Errorf("fetch instance %s flavor error: %v", instance.Name, err)
-		return err
+	if len(instance.Flavor.ID) > 0 && instance.Flavor.Vcpus == 0 {
+		_, resp, err := instance.host.zone.region.Get("compute", "/flavors/"+instance.Flavor.ID, "", nil)
+		if err != nil {
+			log.Errorf("fetch instance %s flavor error: %v", instance.Name, err)
+			return err
+		}
+		return resp.Unmarshal(&instance.Flavor, "flavor")
 	}
-	instance.flavor = &SFlavor{}
-	return resp.Unmarshal(instance.flavor, "flavor")
+	return nil
 }
 
 func (instance *SInstance) GetInstanceType() string {
-	if instance.flavor == nil {
-		if err := instance.fetchFlavor(); err != nil {
-			return ""
-		}
-	}
-	return instance.flavor.OriginalName
+	instance.fetchFlavor()
+	return instance.Flavor.OriginalName
 }
 
 func (instance *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	disks := []SDisk{}
 	for i := 0; i < len(instance.VolumesAttached); i++ {
-		disk, err := instance.getRegion().GetDisk(instance.VolumesAttached[i].ID)
+		disk, err := instance.host.zone.region.GetDisk(instance.VolumesAttached[i].ID)
 		if err != nil {
 			return nil, err
 		}
@@ -256,7 +238,7 @@ func (instance *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	}
 	iDisks := []cloudprovider.ICloudDisk{}
 	for i := 0; i < len(disks); i++ {
-		store, err := instance.getZone().getStorageByCategory(disks[i].VolumeType)
+		store, err := instance.host.zone.getStorageByCategory(disks[i].VolumeType)
 		if err != nil {
 			return nil, err
 		}
@@ -268,33 +250,23 @@ func (instance *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 
 func (instance *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	nics := []cloudprovider.ICloudNic{}
-	for i := 0; i < len(instance.Addresses.Private); i++ {
-		instance.Addresses.Private[i].instance = instance
-		nics = append(nics, &instance.Addresses.Private[i])
-	}
-	for i := 0; i < len(instance.Addresses.Public); i++ {
-		instance.Addresses.Public[i].instance = instance
-		nics = append(nics, &instance.Addresses.Public[i])
+	for networkName, address := range instance.Addresses {
+		for i := 0; i < len(address); i++ {
+			instance.Addresses[networkName][i].instance = instance
+			nics = append(nics, &instance.Addresses[networkName][i])
+		}
 	}
 	return nics, nil
 }
 
 func (instance *SInstance) GetVcpuCount() int8 {
-	if instance.flavor == nil {
-		if err := instance.fetchFlavor(); err != nil {
-			return 0
-		}
-	}
-	return instance.flavor.Vcpus
+	instance.fetchFlavor()
+	return instance.Flavor.Vcpus
 }
 
 func (instance *SInstance) GetVmemSizeMB() int {
-	if instance.flavor == nil {
-		if err := instance.fetchFlavor(); err != nil {
-			return 0
-		}
-	}
-	return instance.flavor.RAM
+	instance.fetchFlavor()
+	return instance.Flavor.RAM
 }
 
 func (instance *SInstance) GetBootOrder() string {
@@ -349,7 +321,7 @@ func (instance *SInstance) GetStatus() string {
 }
 
 func (instance *SInstance) Refresh() error {
-	new, err := instance.getRegion().GetInstance(instance.ID)
+	new, err := instance.host.zone.region.GetInstance(instance.ID)
 	if err != nil {
 		return err
 	}
@@ -388,7 +360,7 @@ func (region *SRegion) GetInstanceVNCUrl(instanceId string) (string, error) {
 }
 
 func (instance *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
-	url, err := instance.getRegion().GetInstanceVNCUrl(instance.ID)
+	url, err := instance.host.zone.region.GetInstanceVNCUrl(instance.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -415,23 +387,12 @@ func (instance *SInstance) ChangeConfig2(ctx context.Context, instanceType strin
 	return cloudprovider.ErrNotImplemented
 }
 
-func (instance *SInstance) getZone() *SZone {
-	if instance.hostV3 != nil {
-		return instance.hostV3.zone
-	}
-	return instance.hostV2.zone
-}
-
-func (instance *SInstance) getRegion() *SRegion {
-	return instance.getZone().region
-}
-
 func (instance *SInstance) AttachDisk(ctx context.Context, diskId string) error {
-	return instance.getRegion().AttachDisk(instance.ID, diskId)
+	return instance.host.zone.region.AttachDisk(instance.ID, diskId)
 }
 
 func (instance *SInstance) DetachDisk(ctx context.Context, diskId string) error {
-	return instance.getRegion().DetachDisk(instance.ID, diskId)
+	return instance.host.zone.region.DetachDisk(instance.ID, diskId)
 }
 
 func (region *SRegion) CreateInstance(name string, imageId string, instanceType string, securityGroupId string,
