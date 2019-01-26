@@ -10,7 +10,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/ansible"
-	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SHost struct {
@@ -67,18 +66,15 @@ func (self *SHost) searchNetorkInterface(IPAddr string, networkId string, secgro
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int,
-	networkId string, ipAddr string, desc string, passwd string, storageType string,
-	diskSizes []int, publicKey string, secgroupId string, userData string,
-	bc *billing.SBillingCycle) (cloudprovider.ICloudVM, error) {
-	net := self.zone.getNetworkById(networkId)
+func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
+	net := self.zone.getNetworkById(desc.ExternalNetworkId)
 	if net == nil {
-		return nil, fmt.Errorf("invalid network ID %s", networkId)
+		return nil, fmt.Errorf("invalid network ID %s", desc.ExternalNetworkId)
 	}
-	nic, err := self.searchNetorkInterface(ipAddr, net.GetId(), secgroupId)
+	nic, err := self.searchNetorkInterface(desc.IpAddr, net.GetId(), desc.ExternalSecgroupId)
 	if err != nil {
 		if err == cloudprovider.ErrNotFound {
-			nic, err = self.zone.region.CreateNetworkInterface(fmt.Sprintf("%s-ipconfig", name), ipAddr, net.GetId(), secgroupId)
+			nic, err = self.zone.region.CreateNetworkInterface(fmt.Sprintf("%s-ipconfig", desc.Name), desc.IpAddr, net.GetId(), desc.ExternalSecgroupId)
 			if err != nil {
 				return nil, err
 			}
@@ -86,7 +82,7 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 			return nil, err
 		}
 	}
-	vmId, err := self._createVM(name, imgId, int32(sysDiskSize), cpu, memMB, "", nic.ID, ipAddr, desc, passwd, storageType, diskSizes, publicKey, userData)
+	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB, desc.InstanceType, desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Password, desc.DataDisks, desc.PublicKey, desc.UserData)
 	if err != nil {
 		self.zone.region.DeleteNetworkInterface(nic.ID)
 		return nil, err
@@ -99,38 +95,7 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 	}
 }
 
-func (self *SHost) CreateVM2(name string, imgId string, sysDiskSize int, instanceType string,
-	networkId string, ipAddr string, desc string, passwd string, storageType string,
-	diskSizes []int, publicKey string, secgroupId string, userData string, bc *billing.SBillingCycle) (cloudprovider.ICloudVM, error) {
-	net := self.zone.getNetworkById(networkId)
-	if net == nil {
-		return nil, fmt.Errorf("invalid network ID %s", networkId)
-	}
-	nic, err := self.searchNetorkInterface(ipAddr, net.GetId(), secgroupId)
-	if err != nil {
-		if err == cloudprovider.ErrNotFound {
-			nic, err = self.zone.region.CreateNetworkInterface(fmt.Sprintf("%s-ipconfig", name), ipAddr, net.GetId(), secgroupId)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, err
-		}
-	}
-	vmId, err := self._createVM(name, imgId, int32(sysDiskSize), 0, 0, instanceType, nic.ID, ipAddr, desc, passwd, storageType, diskSizes, publicKey, userData)
-	if err != nil {
-		self.zone.region.DeleteNetworkInterface(nic.ID)
-		return nil, err
-	}
-	if vm, err := self.zone.region.GetInstance(vmId); err != nil {
-		return nil, err
-	} else {
-		vm.host = self
-		return vm, err
-	}
-}
-
-func (self *SHost) _createVM(name string, imgId string, sysDiskSize int32, cpu int, memMB int, instanceType string, nicId string, ipAddr string, desc string, passwd string, storageType string, diskSizes []int, publicKey string, userData string) (string, error) {
+func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SDiskInfo, cpu int, memMB int, instanceType string, nicId string, ipAddr string, desc string, passwd string, dataDisks []cloudprovider.SDiskInfo, publicKey string, userData string) (string, error) {
 	image, err := self.zone.region.GetImageById(imgId)
 	if err != nil {
 		log.Errorf("Get Image %s fail %s", imgId, err)
@@ -141,11 +106,11 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int32, cpu i
 		log.Errorf("image %s status %s", imgId, image.Properties.ProvisioningState)
 		return "", fmt.Errorf("image not ready")
 	}
-	storage, err := self.zone.getStorageByType(storageType)
+	storage, err := self.zone.getStorageByType(sysDisk.StorageType)
 	if err != nil {
-		return "", fmt.Errorf("Storage %s not avaiable: %s", storageType, err)
+		return "", fmt.Errorf("Storage %s not avaiable: %s", sysDisk.StorageType, err)
 	}
-
+	sysDiskSize := int32(sysDisk.SizeGB)
 	instance := SInstance{
 		Name:     name,
 		Location: self.zone.region.Name,
@@ -193,20 +158,20 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int32, cpu i
 		}
 	}
 
-	dataDisks := []DataDisk{}
-	for i := 0; i < len(diskSizes); i++ {
+	_dataDisks := []DataDisk{}
+	for i := 0; i < len(dataDisks); i++ {
 		diskName := fmt.Sprintf("vdisk_%s_%d", name, time.Now().UnixNano())
-		size := int32(diskSizes[i])
+		size := int32(dataDisks[i].SizeGB)
 		lun := int32(i)
-		dataDisks = append(dataDisks, DataDisk{
+		_dataDisks = append(_dataDisks, DataDisk{
 			Name:         diskName,
 			DiskSizeGB:   &size,
 			CreateOption: "Empty",
 			Lun:          lun,
 		})
 	}
-	if len(dataDisks) > 0 {
-		instance.Properties.StorageProfile.DataDisks = dataDisks
+	if len(_dataDisks) > 0 {
+		instance.Properties.StorageProfile.DataDisks = _dataDisks
 	}
 
 	if len(instanceType) > 0 {
