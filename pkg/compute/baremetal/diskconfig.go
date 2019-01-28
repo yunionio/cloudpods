@@ -3,6 +3,7 @@ package baremetal
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -127,27 +128,36 @@ func ParseDiskConfig(desc string) (bdc BaremetalDiskConfig, err error) {
 		} else if len(p) > 2 && p[0] == '(' && p[len(p)-1] == ')' {
 			bdc.Splits = p[1 : len(p)-1]
 		} else if utils.HasPrefix(p, "strip") {
-			bdc.Strip = parseStrip(p[len("strip"):], "k")
+			strip := parseStrip(p[len("strip"):], "k")
+			bdc.Strip = &strip
 		} else if utils.HasPrefix(p, "adapter") {
 			ada, _ := strconv.ParseInt(p[len("adapter"):], 0, 64)
 			pada := int(ada)
 			bdc.Adapter = &pada
 		} else if p == "ra" {
-			bdc.RA = true
+			hasRA := true
+			bdc.RA = &hasRA
 		} else if p == "nora" {
-			bdc.RA = false
+			noRA := false
+			bdc.RA = &noRA
 		} else if p == "wt" {
-			bdc.WT = true
+			wt := true
+			bdc.WT = &wt
 		} else if p == "wb" {
-			bdc.WT = false
+			wt := false
+			bdc.WT = &wt
 		} else if p == "direct" {
-			bdc.Direct = true
+			direct := true
+			bdc.Direct = &direct
 		} else if p == "cached" {
-			bdc.Direct = false
+			direct := false
+			bdc.Direct = &direct
 		} else if p == "cachedbadbbu" {
-			bdc.Cachedbadbbu = true
+			cached := true
+			bdc.Cachedbadbbu = &cached
 		} else if p == "nocachedbadbbu" {
-			bdc.Cachedbadbbu = false
+			cached := false
+			bdc.Cachedbadbbu = &cached
 		} else {
 			err = fmt.Errorf("ParseDiskConfig unkown option %q", p)
 			return
@@ -310,13 +320,13 @@ func MeetConfig(
 		}
 	}
 
-	if driver == DISK_DRIVER_MEGARAID && conf.Strip != 0 {
+	if driver == DISK_DRIVER_MEGARAID && conf.Strip != nil {
 		minStripSize := storages[0].MinStripSize
 		maxStripSize := storages[0].MaxStripSize
-		if maxStripSize != 0 && minStripSize != 0 {
-			size := conf.Strip
+		if maxStripSize != -1 && minStripSize != -1 {
+			size := *conf.Strip
 			if size > maxStripSize || size < minStripSize {
-				return fmt.Errorf("%q input strip size out of range(%d, %d)", DISK_DRIVER_MEGARAID, minStripSize, maxStripSize)
+				return fmt.Errorf("%q input strip size out of range(%d, %d), input: %d", DISK_DRIVER_MEGARAID, minStripSize, maxStripSize, size)
 			}
 		}
 	}
@@ -407,6 +417,33 @@ func ExpandNoneConf(layouts []Layout) (ret []Layout) {
 	return ret
 }
 
+func GetLayoutRaidConfig(layouts []Layout) []*BaremetalDiskConfig {
+	var disk []*BaremetalStorage
+	ret := make([]*BaremetalDiskConfig, 0)
+	for _, layout := range layouts {
+		if layout.Conf.Conf == DISK_CONF_NONE &&
+			sets.NewString(DISK_DRIVER_LINUX, DISK_DRIVER_PCIE).Has(layout.Disks[0].Driver) {
+			continue
+		}
+		if !reflect.DeepEqual(disk, layout.Disks) {
+			ret = append(ret, layout.Conf)
+			disk = layout.Disks
+			lastConf := ret[len(ret)-1]
+			/*
+				if 'size' in ret[-1]:
+				    ret[-1]['size'] = [ret[-1]['size']]
+			*/
+			if lastConf.Size == nil {
+				lastConf.Size = make([]int64, 0)
+			}
+		} else {
+			lastConf := ret[len(ret)-1]
+			lastConf.Size = append(lastConf.Size, layout.Conf.Size...)
+		}
+	}
+	return ret
+}
+
 func CalculateLayout(confs []*BaremetalDiskConfig, storages []*BaremetalStorage) (layouts []Layout, err error) {
 	var confIdx = 0
 	for len(storages) > 0 {
@@ -415,7 +452,7 @@ func CalculateLayout(confs []*BaremetalDiskConfig, storages []*BaremetalStorage)
 			conf = confs[confIdx]
 			confIdx += 1
 		} else {
-			noneConf, _ := ParseDiskConfig("none")
+			noneConf, _ := ParseDiskConfig(DISK_CONF_NONE)
 			conf = &noneConf
 		}
 		selected, storage1 := RetrieveStorages(conf, storages)
@@ -598,4 +635,63 @@ func GetDiskSpecV2(storages []*BaremetalStorage) DiskDriverSpecs {
 		spec[driver] = getSpec(storages)
 	}
 	return spec
+}
+
+type DiskConfiguration struct {
+	Driver  string
+	Adapter int
+	Block   int64
+	Size    int64
+}
+
+func GetDiskConfigurations(layouts []Layout) []DiskConfiguration {
+	disks := make([]DiskConfiguration, 0)
+	for _, rr := range layouts {
+		driver := rr.Disks[0].Driver
+		adapter := rr.Disks[0].Adapter
+		block := rr.Disks[0].GetBlock()
+		raidConf := rr.Conf.Conf
+		if raidConf == DISK_CONF_NONE {
+			for _, d := range rr.Disks {
+				disks = append(disks, DiskConfiguration{Driver: driver, Adapter: adapter, Block: block, Size: d.Size})
+			}
+		} else {
+			if len(rr.Conf.Size) != 0 {
+				for _, sz := range rr.Conf.Size {
+					disks = append(disks, DiskConfiguration{Driver: driver, Adapter: adapter, Block: block, Size: sz})
+				}
+			} else {
+				disks = append(disks, DiskConfiguration{Driver: driver, Adapter: adapter, Block: block, Size: rr.Size})
+			}
+		}
+	}
+	return disks
+}
+
+type DriverAdapterDiskConfig struct {
+	Driver  string
+	Adapter int
+	Configs []*BaremetalDiskConfig
+}
+
+func GroupLayoutResultsByDriverAdapter(layouts []Layout) []*DriverAdapterDiskConfig {
+	ret := make([]*DriverAdapterDiskConfig, 0)
+	tbl := make(map[string]*DriverAdapterDiskConfig)
+	for _, layout := range layouts {
+		driver := layout.Disks[0].Driver
+		adapter := layout.Disks[0].Adapter
+		key := fmt.Sprintf("%s.%d", driver, adapter)
+		if item, ok := tbl[key]; ok {
+			item.Configs = append(item.Configs, layout.Conf)
+		} else {
+			item := &DriverAdapterDiskConfig{
+				Driver:  driver,
+				Adapter: adapter,
+				Configs: []*BaremetalDiskConfig{layout.Conf},
+			}
+			ret = append(ret, item)
+			tbl[key] = item
+		}
+	}
+	return ret
 }

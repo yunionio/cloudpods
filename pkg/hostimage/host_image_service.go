@@ -130,7 +130,7 @@ func getImage(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	defer f.Close() // Remenber close fd
+	defer f.Close()
 
 	endPos = f.Length() - 1
 	reqRange := r.Header.Get("Range")
@@ -224,7 +224,7 @@ func getImageMeta(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	defer f.Close() // Remenber close fd
+	defer f.Close()
 
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", f.Length()))
 	w.Header().Set("Content-Type", "application/octet-stream")

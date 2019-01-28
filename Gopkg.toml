@@ -195,3 +195,7 @@
 [prune]
   go-tests = true
   unused-packages = true
+
+[[constraint]]
+  name = "github.com/shirou/gopsutil"
+  version = "2.18.10"

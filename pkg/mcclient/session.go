@@ -92,6 +92,10 @@ func SplitVersionedURL(url string) (string, string) {
 	return base
 }*/
 
+func (this *ClientSession) GetEndpointType() string {
+	return this.endpointType
+}
+
 func (this *ClientSession) GetClient() *Client {
 	return this.client
 }
