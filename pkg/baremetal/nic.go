@@ -15,7 +15,7 @@ import (
 )
 
 func GetNicDHCPConfig(
-	n *types.Nic,
+	n *types.SNic,
 	serverIP string,
 	hostName string,
 	isPxe bool,

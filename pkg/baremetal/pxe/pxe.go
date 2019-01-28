@@ -76,11 +76,11 @@ type IBaremetalManager interface {
 
 type IBaremetalInstance interface {
 	NeedPXEBoot() bool
-	GetIPMINic(cliMac net.HardwareAddr) *types.Nic
+	GetIPMINic(cliMac net.HardwareAddr) *types.SNic
 	GetPXEDHCPConfig(arch uint16) (*dhcp.ResponseConfig, error)
 	GetDHCPConfig(cliMac net.HardwareAddr) (*dhcp.ResponseConfig, error)
-	InitAdminNetif(cliMac net.HardwareAddr, netConf *types.NetworkConfig, nicType string) error
-	RegisterNetif(cliMac net.HardwareAddr, netConf *types.NetworkConfig) error
+	InitAdminNetif(cliMac net.HardwareAddr, netConf *types.SNetworkConfig, nicType string) error
+	RegisterNetif(cliMac net.HardwareAddr, netConf *types.SNetworkConfig) error
 	GetTFTPResponse() string
 }
 

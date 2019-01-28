@@ -33,8 +33,8 @@ type SCPUInfo struct {
 	cpuFreq     int64 // MHZ
 	cpuFeatures []string
 
-	cpuInfoProc *types.CPUInfo
-	cpuInfoDmi  *types.DMICPUInfo
+	cpuInfoProc *types.SCPUInfo
+	cpuInfoDmi  *types.SDMICPUInfo
 }
 
 func DetectCpuInfo() (*SCPUInfo, error) {
@@ -119,7 +119,7 @@ type SMemory struct {
 	Total   int
 	Free    int
 	Used    int
-	MemInfo *types.DMIMemInfo
+	MemInfo *types.SDMIMemInfo
 }
 
 func DetectMemoryInfo() (*SMemory, error) {
@@ -280,7 +280,7 @@ func NewNIC(desc string) (*SNIC, error) {
 }
 
 type SSysInfo struct {
-	*types.DMISystemInfo
+	*types.SDMISystemInfo
 
 	Nest           string `json:"nest,omitempty"`
 	OsDistribution string `json:"os_distribution"`

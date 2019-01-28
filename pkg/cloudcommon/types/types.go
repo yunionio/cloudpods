@@ -8,15 +8,15 @@ type SSHConfig struct {
 	Password string `json:"password"`
 }
 
-type DMISystemInfo struct {
+type SDMISystemInfo struct {
 	Manufacture string `json:"manufacture"`
 	Model       string `json:"model"`
 	Version     string `json:"version,omitempty"`
 	SN          string `json:"sn"`
 }
 
-func (info *DMISystemInfo) ToIPMISystemInfo() *IPMISystemInfo {
-	return &IPMISystemInfo{
+func (info *SDMISystemInfo) ToIPMISystemInfo() *SIPMISystemInfo {
+	return &SIPMISystemInfo{
 		Manufacture: info.Manufacture,
 		Model:       info.Model,
 		Version:     info.Version,
@@ -24,22 +24,22 @@ func (info *DMISystemInfo) ToIPMISystemInfo() *IPMISystemInfo {
 	}
 }
 
-type CPUInfo struct {
+type SCPUInfo struct {
 	Count int    `json:"count"`
 	Model string `json:"desc"`
 	Freq  int    `json:"freq"`
 	Cache int    `json:"cache"`
 }
 
-type DMICPUInfo struct {
+type SDMICPUInfo struct {
 	Nodes int `json:"nodes"`
 }
 
-type DMIMemInfo struct {
+type SDMIMemInfo struct {
 	Total int `json:"total"`
 }
 
-type NicDevInfo struct {
+type SNicDevInfo struct {
 	Dev   string           `json:"dev"`
 	Mac   net.HardwareAddr `json:"mac"`
 	Speed int              `json:"speed"`
@@ -52,7 +52,7 @@ func getMac(macStr string) net.HardwareAddr {
 	return mac
 }
 
-type DiskInfo struct {
+type SDiskInfo struct {
 	Dev        string `json:"dev"`
 	Sector     int64  `json:"sector"`
 	Block      int64  `json:"block"`
@@ -64,7 +64,7 @@ type DiskInfo struct {
 	Driver     string `json:"driver"`
 }
 
-type IPMISystemInfo struct {
+type SIPMISystemInfo struct {
 	Manufacture string `json:"manufacture"`
 	Model       string `json:"model"`
 	SN          string `json:"sn"`
@@ -72,7 +72,7 @@ type IPMISystemInfo struct {
 	BSN         string `json:"bsn"`
 }
 
-type IPMILanConfig struct {
+type SIPMILanConfig struct {
 	IPSrc   string           `json:"ipsrc"`
 	IPAddr  string           `json:"ipaddr"`
 	Netmask string           `json:"netmask"`
@@ -80,7 +80,7 @@ type IPMILanConfig struct {
 	Gateway string           `json:"gateway"`
 }
 
-type IPMIBootFlags struct {
+type SIPMIBootFlags struct {
 	Dev string `json:"dev"`
 	Sol *bool  `json:"sol"`
 }

@@ -83,7 +83,7 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 		return err
 	}
 
-	ipmiInfo := &types.IPMIInfo{
+	ipmiInfo := &types.SIPMIInfo{
 		Present: ipmiEnable,
 	}
 	// set ipmi nic DHCP
@@ -108,7 +108,7 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 				log.Errorf("Lan channel %d MAC address is empty", lanChannel)
 				continue
 			}
-			ipmiNic := &types.NicDevInfo{
+			ipmiNic := &types.SNicDevInfo{
 				Mac:   conf.Mac,
 				Up:    false,
 				Speed: 100,
@@ -307,7 +307,7 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 	return nil
 }
 
-func (task *sBaremetalPrepareTask) getIPMIUserPasswd(sysInfo *types.IPMISystemInfo) (string, string, string) {
+func (task *sBaremetalPrepareTask) getIPMIUserPasswd(sysInfo *types.SIPMISystemInfo) (string, string, string) {
 	var (
 		ipmiUser   string
 		ipmiPasswd string
@@ -381,7 +381,7 @@ func (task *sBaremetalPrepareTask) removeAllNics() error {
 	return task.baremetal.SaveDesc(resp)
 }
 
-func getDMISysinfo(cli *ssh.Client) (*types.DMISystemInfo, error) {
+func getDMISysinfo(cli *ssh.Client) (*types.SDMISystemInfo, error) {
 	ret, err := cli.Run("/usr/sbin/dmidecode -t 1")
 	if err != nil {
 		return nil, err
@@ -389,7 +389,7 @@ func getDMISysinfo(cli *ssh.Client) (*types.DMISystemInfo, error) {
 	return sysutils.ParseDMISysinfo(ret)
 }
 
-func getCPUInfo(cli *ssh.Client) (*types.CPUInfo, error) {
+func getCPUInfo(cli *ssh.Client) (*types.SCPUInfo, error) {
 	ret, err := cli.Run("cat /proc/cpuinfo")
 	if err != nil {
 		return nil, err
@@ -397,7 +397,7 @@ func getCPUInfo(cli *ssh.Client) (*types.CPUInfo, error) {
 	return sysutils.ParseCPUInfo(ret)
 }
 
-func getDMICPUInfo(cli *ssh.Client) (*types.DMICPUInfo, error) {
+func getDMICPUInfo(cli *ssh.Client) (*types.SDMICPUInfo, error) {
 	ret, err := cli.Run("/usr/sbin/dmidecode -t 4")
 	if err != nil {
 		return nil, err
@@ -405,7 +405,7 @@ func getDMICPUInfo(cli *ssh.Client) (*types.DMICPUInfo, error) {
 	return sysutils.ParseDMICPUInfo(ret), nil
 }
 
-func getDMIMemInfo(cli *ssh.Client) (*types.DMIMemInfo, error) {
+func getDMIMemInfo(cli *ssh.Client) (*types.SDMIMemInfo, error) {
 	ret, err := cli.Run("/usr/sbin/dmidecode -t 17")
 	if err != nil {
 		return nil, err
@@ -413,7 +413,7 @@ func getDMIMemInfo(cli *ssh.Client) (*types.DMIMemInfo, error) {
 	return sysutils.ParseDMIMemInfo(ret), nil
 }
 
-func getNicsInfo(cli *ssh.Client) ([]*types.NicDevInfo, error) {
+func getNicsInfo(cli *ssh.Client) ([]*types.SNicDevInfo, error) {
 	ret, err := cli.Run("/lib/mos/lsnic")
 	if err != nil {
 		return nil, fmt.Errorf("Failed to retrieve NIC info: %v", err)
@@ -429,7 +429,7 @@ func isIPMIEnable(cli *ssh.Client) (bool, error) {
 	return sysutils.ParseDMIIPMIInfo(ret), nil
 }
 
-func (task *sBaremetalPrepareTask) sendNicInfo(nic *types.NicDevInfo, idx int, nicType string, reset bool, ipAddr string) error {
+func (task *sBaremetalPrepareTask) sendNicInfo(nic *types.SNicDevInfo, idx int, nicType string, reset bool, ipAddr string) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(nic.Mac.String()), "mac")
 	params.Add(jsonutils.NewInt(int64(nic.Speed)), "rate")
@@ -469,7 +469,7 @@ func (task *sBaremetalPrepareTask) sendStorageInfo(size int64) error {
 	return err
 }
 
-func (task *sBaremetalPrepareTask) doNicWireProbe(cli *ssh.Client, nic *types.NicDevInfo) error {
+func (task *sBaremetalPrepareTask) doNicWireProbe(cli *ssh.Client, nic *types.SNicDevInfo) error {
 	maxTries := 6
 	for tried := 0; tried < maxTries; tried++ {
 		log.Infof("doNicWireProbe %v", nic)
@@ -509,7 +509,7 @@ func (task *sBaremetalPrepareTask) collectDiskInfo(updateInfo map[string]interfa
 	updateInfo["storage_type"] = diskType
 }
 
-func SetIPMILanPortShared(cli ipmitool.IPMIExecutor, sysInfo *types.IPMISystemInfo) {
+func SetIPMILanPortShared(cli ipmitool.IPMIExecutor, sysInfo *types.SIPMISystemInfo) {
 	if !o.Options.IpmiLanPortShared {
 		return
 	}

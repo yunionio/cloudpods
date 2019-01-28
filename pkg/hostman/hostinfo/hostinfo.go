@@ -267,7 +267,7 @@ func (h *SHostInfo) detectHostInfo() error {
 	if err != nil {
 		return err
 	}
-	h.sysinfo.DMISystemInfo = sysinfo
+	h.sysinfo.SDMISystemInfo = sysinfo
 
 	h.detectiveKVMModuleSupport()
 	h.detectiveNestSupport()

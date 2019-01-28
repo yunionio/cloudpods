@@ -28,7 +28,7 @@ func DumpMapToObject(data map[string]string, obj interface{}) error {
 	return jsonutils.Marshal(data).Unmarshal(obj)
 }
 
-func ParseDMISysinfo(lines []string) (*types.DMISystemInfo, error) {
+func ParseDMISysinfo(lines []string) (*types.SDMISystemInfo, error) {
 	if len(lines) == 0 {
 		return nil, fmt.Errorf("Empty input")
 	}
@@ -47,7 +47,7 @@ func ParseDMISysinfo(lines []string) (*types.DMISystemInfo, error) {
 			}
 		}
 	}
-	info := types.DMISystemInfo{}
+	info := types.SDMISystemInfo{}
 	err := DumpMapToObject(ret, &info)
 	if err != nil {
 		return nil, err
@@ -58,7 +58,7 @@ func ParseDMISysinfo(lines []string) (*types.DMISystemInfo, error) {
 	return &info, nil
 }
 
-func ParseCPUInfo(lines []string) (*types.CPUInfo, error) {
+func ParseCPUInfo(lines []string) (*types.SCPUInfo, error) {
 	cnt := 0
 	var (
 		model string
@@ -92,7 +92,7 @@ func ParseCPUInfo(lines []string) (*types.CPUInfo, error) {
 		return nil, fmt.Errorf("Not found cache size")
 	}
 	model = strings.TrimSpace(model)
-	info := &types.CPUInfo{
+	info := &types.SCPUInfo{
 		Count: cnt,
 		Model: model,
 	}
@@ -102,19 +102,19 @@ func ParseCPUInfo(lines []string) (*types.CPUInfo, error) {
 	return info, nil
 }
 
-func ParseDMICPUInfo(lines []string) *types.DMICPUInfo {
+func ParseDMICPUInfo(lines []string) *types.SDMICPUInfo {
 	cnt := 0
 	for _, line := range lines {
 		if strings.HasPrefix(line, "Processor Information") {
 			cnt += 1
 		}
 	}
-	return &types.DMICPUInfo{
+	return &types.SDMICPUInfo{
 		Nodes: cnt,
 	}
 }
 
-func ParseDMIMemInfo(lines []string) *types.DMIMemInfo {
+func ParseDMIMemInfo(lines []string) *types.SDMIMemInfo {
 	size := 0
 	for _, line := range lines {
 		val := valueOfKeyword(line, "Size:")
@@ -138,7 +138,7 @@ func ParseDMIMemInfo(lines []string) *types.DMIMemInfo {
 			size += sizeGb * 1024
 		}
 	}
-	return &types.DMIMemInfo{Total: size}
+	return &types.SDMIMemInfo{Total: size}
 }
 
 func ParseDMIIPMIInfo(lines []string) bool {
@@ -151,8 +151,8 @@ func ParseDMIIPMIInfo(lines []string) bool {
 	return false
 }
 
-func ParseNicInfo(lines []string) []*types.NicDevInfo {
-	ret := make([]*types.NicDevInfo, 0)
+func ParseNicInfo(lines []string) []*types.SNicDevInfo {
+	ret := make([]*types.SNicDevInfo, 0)
 	for _, line := range lines {
 		dat := strings.Split(line, " ")
 		if len(dat) > 4 {
@@ -164,7 +164,7 @@ func ParseNicInfo(lines []string) []*types.NicDevInfo {
 				up = true
 			}
 			mtu, _ := strconv.Atoi(dat[4])
-			ret = append(ret, &types.NicDevInfo{
+			ret = append(ret, &types.SNicDevInfo{
 				Dev:   dev,
 				Mac:   mac,
 				Speed: speed,
@@ -176,8 +176,8 @@ func ParseNicInfo(lines []string) []*types.NicDevInfo {
 	return ret
 }
 
-func ParseDiskInfo(lines []string, driver string) []*types.DiskInfo {
-	ret := make([]*types.DiskInfo, 0)
+func ParseDiskInfo(lines []string, driver string) []*types.SDiskInfo {
+	ret := make([]*types.SDiskInfo, 0)
 	for _, line := range lines {
 		data := strings.Split(line, " ")
 		if len(data) <= 6 {
@@ -194,7 +194,7 @@ func ParseDiskInfo(lines []string, driver string) []*types.DiskInfo {
 		kernel := data[4]
 		pciCls := data[5]
 		modinfo := strings.Join(data[6:], " ")
-		ret = append(ret, &types.DiskInfo{
+		ret = append(ret, &types.SDiskInfo{
 			Dev:        dev,
 			Sector:     int64(sector),
 			Block:      int64(block),
@@ -209,11 +209,11 @@ func ParseDiskInfo(lines []string, driver string) []*types.DiskInfo {
 	return ret
 }
 
-func ParsePCIEDiskInfo(lines []string) []*types.DiskInfo {
+func ParsePCIEDiskInfo(lines []string) []*types.SDiskInfo {
 	return ParseDiskInfo(lines, baremetal.DISK_DRIVER_PCIE)
 }
 
-func ParseSCSIDiskInfo(lines []string) []*types.DiskInfo {
+func ParseSCSIDiskInfo(lines []string) []*types.SDiskInfo {
 	return ParseDiskInfo(lines, baremetal.DISK_DRIVER_LINUX)
 }
 

@@ -83,7 +83,7 @@ var (
 	}
 )
 
-func GetProfile(sysinfo *types.IPMISystemInfo) IPMIProfile {
+func GetProfile(sysinfo *types.SIPMISystemInfo) IPMIProfile {
 	profile, ok := PROFILES[strings.ToLower(sysinfo.Manufacture)]
 	if ok {
 		return profile
@@ -91,18 +91,18 @@ func GetProfile(sysinfo *types.IPMISystemInfo) IPMIProfile {
 	return DefaultProfile()
 }
 
-func GetLanChannel(sysinfo *types.IPMISystemInfo) []int {
+func GetLanChannel(sysinfo *types.SIPMISystemInfo) []int {
 	return GetProfile(sysinfo).LanChannel
 }
 
-func GetRootId(sysinfo *types.IPMISystemInfo) int {
+func GetRootId(sysinfo *types.SIPMISystemInfo) int {
 	return GetProfile(sysinfo).RootId
 }
 
-func GetRootName(sysinfo *types.IPMISystemInfo) string {
+func GetRootName(sysinfo *types.SIPMISystemInfo) string {
 	return GetProfile(sysinfo).RootName
 }
 
-func IsStrongPass(sysinfo *types.IPMISystemInfo) bool {
+func IsStrongPass(sysinfo *types.SIPMISystemInfo) bool {
 	return GetProfile(sysinfo).StrongPass
 }

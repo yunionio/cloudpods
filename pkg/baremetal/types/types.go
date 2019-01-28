@@ -22,5 +22,5 @@ type IBaremetalServer interface {
 	SyncPartitionSize(term *ssh.Client, parts []*disktool.Partition) ([]jsonutils.JSONObject, error)
 	DoDeploy(term *ssh.Client, data jsonutils.JSONObject, isInit bool) (jsonutils.JSONObject, error)
 	SaveDesc(desc jsonutils.JSONObject) error
-	GetNicByMac(mac net.HardwareAddr) *types.Nic
+	GetNicByMac(mac net.HardwareAddr) *types.SNic
 }

@@ -457,7 +457,7 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 		mainIp, _ = mainNic.GetString("ip")
 	}
 	for _, nic := range nics {
-		var nicDesc = new(types.ServerNic)
+		var nicDesc = new(types.SServerNic)
 		err := nic.Unmarshal(nicDesc)
 		if err != nil {
 			return err
@@ -706,7 +706,7 @@ func (r *sRedhatLikeRootFs) Centos5DeployNetworkingScripts(rootFs IDiskPartition
 	if rootFs.Exists(udevPath, false) {
 		var nicRules = ""
 		for _, nic := range nics {
-			var nicdesc = new(types.ServerNic)
+			var nicdesc = new(types.SServerNic)
 			if err := nic.Unmarshal(nicdesc); err != nil {
 				return err
 			}
@@ -744,7 +744,7 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 	}
 	for _, nic := range nics {
 		var cmds string
-		var nicdesc = new(types.ServerNic)
+		var nicdesc = new(types.SServerNic)
 		if err := nic.Unmarshal(nicdesc); err != nil {
 			return err
 		}
@@ -803,7 +803,7 @@ func (r *sRedhatLikeRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition
 	}
 	for _, nic := range nicsStandby {
 		var cmds string
-		var nicdesc = new(types.ServerNic)
+		var nicdesc = new(types.SServerNic)
 		if err := nic.Unmarshal(nicdesc); err != nil {
 			return err
 		}

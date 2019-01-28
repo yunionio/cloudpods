@@ -546,8 +546,8 @@ func (b *SBaremetalInstance) SyncServerStatus(status string) {
 	log.Infof("Update server %s to status %s", b.GetServerName(), status)
 }
 
-func (b *SBaremetalInstance) getNics() []types.Nic {
-	nics := []types.Nic{}
+func (b *SBaremetalInstance) getNics() []types.SNic {
+	nics := []types.SNic{}
 	err := b.desc.Unmarshal(&nics, "nic_info")
 	if err != nil {
 		log.Errorf("Unmarshal desc to get nics error: %v", err)
@@ -556,7 +556,7 @@ func (b *SBaremetalInstance) getNics() []types.Nic {
 	return nics
 }
 
-func (b *SBaremetalInstance) getNicByType(nicType string) *types.Nic {
+func (b *SBaremetalInstance) getNicByType(nicType string) *types.SNic {
 	nics := b.getNics()
 	if len(nics) == 0 {
 		return nil
@@ -570,7 +570,7 @@ func (b *SBaremetalInstance) getNicByType(nicType string) *types.Nic {
 	return nil
 }
 
-func (b *SBaremetalInstance) GetNicByMac(mac net.HardwareAddr) *types.Nic {
+func (b *SBaremetalInstance) GetNicByMac(mac net.HardwareAddr) *types.SNic {
 	nics := b.getNics()
 	if len(nics) == 0 {
 		return nil
@@ -584,7 +584,7 @@ func (b *SBaremetalInstance) GetNicByMac(mac net.HardwareAddr) *types.Nic {
 	return nil
 }
 
-func (b *SBaremetalInstance) GetAdminNic() *types.Nic {
+func (b *SBaremetalInstance) GetAdminNic() *types.SNic {
 	return b.getNicByType(NIC_TYPE_ADMIN)
 }
 
@@ -607,7 +607,7 @@ func (b *SBaremetalInstance) NeedPXEBoot() bool {
 	return ret
 }
 
-func (b *SBaremetalInstance) GetIPMINic(cliMac net.HardwareAddr) *types.Nic {
+func (b *SBaremetalInstance) GetIPMINic(cliMac net.HardwareAddr) *types.SNic {
 	nic := b.getNicByType(types.NIC_TYPE_IPMI)
 	if nic == nil {
 		return nil
@@ -627,7 +627,7 @@ func (b *SBaremetalInstance) GetIPMINicIPAddr() string {
 }
 
 func (b *SBaremetalInstance) GetDHCPConfig(cliMac net.HardwareAddr) (*dhcp.ResponseConfig, error) {
-	var nic *types.Nic
+	var nic *types.SNic
 	var hostname string
 	if b.GetServer() != nil && (b.GetTask() == nil || !b.GetTask().NeedPXEBoot()) {
 		nic = b.GetServer().GetNicByMac(cliMac)
@@ -646,7 +646,7 @@ func (b *SBaremetalInstance) GetPXEDHCPConfig(arch uint16) (*dhcp.ResponseConfig
 }
 
 func (b *SBaremetalInstance) getDHCPConfig(
-	nic *types.Nic,
+	nic *types.SNic,
 	hostName string,
 	isPxe bool,
 	arch uint16,
@@ -695,7 +695,7 @@ func (b *SBaremetalInstance) SetTask(task tasks.ITask) {
 
 func (b *SBaremetalInstance) InitAdminNetif(
 	cliMac net.HardwareAddr,
-	netConf *types.NetworkConfig,
+	netConf *types.SNetworkConfig,
 	nicType string,
 ) error {
 	// start prepare task
@@ -726,7 +726,7 @@ func (b *SBaremetalInstance) InitAdminNetif(
 
 func (b *SBaremetalInstance) RegisterNetif(
 	cliMac net.HardwareAddr,
-	netConf *types.NetworkConfig,
+	netConf *types.SNetworkConfig,
 ) error {
 	nic := b.GetNicByMac(cliMac)
 	if nic == nil || nic.WireId == "" || nic.WireId != netConf.WireId {
@@ -783,13 +783,13 @@ func (b *SBaremetalInstance) enableWire(mac net.HardwareAddr, ipAddr string, nic
 	return modules.Hosts.PerformAction(session, b.GetId(), "enable-netif", params)
 }
 
-func (b *SBaremetalInstance) GetIPMIConfig() *types.IPMIInfo {
+func (b *SBaremetalInstance) GetIPMIConfig() *types.SIPMIInfo {
 	conf := b.GetRawIPMIConfig()
 	if conf == nil || conf.Password == "" {
 		return nil
 	}
 	if conf.Username == "" {
-		sysInfo := types.IPMISystemInfo{}
+		sysInfo := types.SIPMISystemInfo{}
 		err := b.desc.Unmarshal(&sysInfo, "sys_info")
 		if err != nil {
 			log.Errorf("Unmarshal get sys_info error: %v", err)
@@ -809,8 +809,8 @@ func (b *SBaremetalInstance) GetIPMIConfig() *types.IPMIInfo {
 	return conf
 }
 
-func (b *SBaremetalInstance) GetRawIPMIConfig() *types.IPMIInfo {
-	ipmiInfo := types.IPMIInfo{}
+func (b *SBaremetalInstance) GetRawIPMIConfig() *types.SIPMIInfo {
+	ipmiInfo := types.SIPMIInfo{}
 	err := b.desc.Unmarshal(&ipmiInfo, "ipmi_info")
 	if err != nil {
 		log.Errorf("Unmarshal IPMIInfo error: %v", err)
@@ -1450,8 +1450,8 @@ func (s *SBaremetalServer) deployFs(term *ssh.Client, deployInfo *guestfs.SDeplo
 	return guestfs.DeployGuestFs(rootfs, s.desc, deployInfo)
 }
 
-func (s *SBaremetalServer) GetNics() []types.ServerNic {
-	nics := []types.ServerNic{}
+func (s *SBaremetalServer) GetNics() []types.SServerNic {
+	nics := []types.SServerNic{}
 	err := s.desc.Unmarshal(&nics, "nics")
 	if err != nil {
 		log.Errorf("Unmarshal desc to get server nics error: %v", err)
@@ -1460,7 +1460,7 @@ func (s *SBaremetalServer) GetNics() []types.ServerNic {
 	return nics
 }
 
-func (s *SBaremetalServer) GetNicByMac(mac net.HardwareAddr) *types.Nic {
+func (s *SBaremetalServer) GetNicByMac(mac net.HardwareAddr) *types.SNic {
 	for _, n := range s.GetNics() {
 		if n.GetMac().String() == mac.String() {
 			nic := n.ToNic()

@@ -121,7 +121,7 @@ func (ipmi *LanPlusIPMI) ExecuteCommand(args ...string) ([]string, error) {
 	return ssh.ParseOutput(out), nil
 }
 
-func GetSysInfo(exector IPMIExecutor) (*types.IPMISystemInfo, error) {
+func GetSysInfo(exector IPMIExecutor) (*types.SIPMISystemInfo, error) {
 	// TODO: do cache
 	args := []string{"fru", "print", "0"}
 	lines, err := exector.ExecuteCommand(args...)
@@ -155,30 +155,30 @@ func GetSysInfo(exector IPMIExecutor) (*types.IPMISystemInfo, error) {
 		// no product serial
 		ret["sn"] = bsn
 	}
-	info := types.IPMISystemInfo{}
+	info := types.SIPMISystemInfo{}
 	err = sysutils.DumpMapToObject(ret, &info)
 	return &info, err
 }
 
-func GetLanChannels(sysinfo *types.IPMISystemInfo) []int {
+func GetLanChannels(sysinfo *types.SIPMISystemInfo) []int {
 	return profiles.GetLanChannel(sysinfo)
 }
 
-func GetDefaultLanChannel(sysinfo *types.IPMISystemInfo) int {
+func GetDefaultLanChannel(sysinfo *types.SIPMISystemInfo) int {
 	return GetLanChannels(sysinfo)[0]
 }
 
-func GetRootId(sysinfo *types.IPMISystemInfo) int {
+func GetRootId(sysinfo *types.SIPMISystemInfo) int {
 	return profiles.GetRootId(sysinfo)
 }
 
-func GetLanConfig(exector IPMIExecutor, channel int) (*types.IPMILanConfig, error) {
+func GetLanConfig(exector IPMIExecutor, channel int) (*types.SIPMILanConfig, error) {
 	args := newArgs("lan", "print", channel)
 	lines, err := ExecuteCommands(exector, args)
 	if err != nil {
 		return nil, err
 	}
-	ret := new(types.IPMILanConfig)
+	ret := new(types.SIPMILanConfig)
 	for _, line := range lines {
 		key, val := stringutils.SplitKeyValue(line)
 		if key == "" {
@@ -347,7 +347,7 @@ func GetChassisPowerStatus(exector IPMIExecutor) (string, error) {
 	return "", fmt.Errorf("Unknown chassis status")
 }
 
-func GetBootFlags(exector IPMIExecutor) (*types.IPMIBootFlags, error) {
+func GetBootFlags(exector IPMIExecutor) (*types.SIPMIBootFlags, error) {
 	args := newArgs("raw", "0x00", "0x09", "0x05", "0x00", "0x00")
 	ret, err := ExecuteCommands(exector, args)
 	if err != nil {
@@ -362,7 +362,7 @@ func GetBootFlags(exector IPMIExecutor) (*types.IPMIBootFlags, error) {
 	if bootdevIdx >= 0 && int(bootdevIdx) < len(BOOTDEVS) {
 		bootdev = BOOTDEVS[bootdevIdx]
 	}
-	flags := &types.IPMIBootFlags{
+	flags := &types.SIPMIBootFlags{
 		Dev: bootdev,
 	}
 	solIdx := (bytes[4] & 0x03)

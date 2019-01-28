@@ -106,7 +106,7 @@ func addRoute(routes *[][]string, net, gw string) {
 	*routes = append(*routes, []string{net, gw})
 }
 
-func extendRoutes(routes *[][]string, nicRoutes []types.Route) error {
+func extendRoutes(routes *[][]string, nicRoutes []types.SRoute) error {
 	for i := 0; i < len(nicRoutes); i++ {
 		addRoute(routes, nicRoutes[i][0], nicRoutes[i][1])
 	}
@@ -121,7 +121,7 @@ func isExitAddress(ip string) bool {
 	return !netutils.IsPrivate(ipv4) || netutils.IsHostLocal(ipv4) || netutils.IsLinkLocal(ipv4)
 }
 
-func AddNicRoutes(routes *[][]string, nicDesc *types.ServerNic, mainIp string, nicCnt int, privatePrefixes []string) {
+func AddNicRoutes(routes *[][]string, nicDesc *types.SServerNic, mainIp string, nicCnt int, privatePrefixes []string) {
 	if mainIp == nicDesc.Ip {
 		return
 	}
@@ -135,7 +135,7 @@ func AddNicRoutes(routes *[][]string, nicDesc *types.ServerNic, mainIp string, n
 	}
 }
 
-func GetNicDns(nicdesc *types.ServerNic) []string {
+func GetNicDns(nicdesc *types.SServerNic) []string {
 	dnslist := []string{}
 	if len(nicdesc.Dns) > 0 {
 		dnslist = append(dnslist, nicdesc.Dns)
