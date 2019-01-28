@@ -2766,6 +2766,7 @@ func (self *SHost) StartPrepareTask(ctx context.Context, userCred mcclient.Token
 	if len(onfinish) > 0 {
 		data.Set("on_finish", jsonutils.NewString(onfinish))
 	}
+	self.SetStatus(userCred, BAREMETAL_PREPARE, "start prepare task")
 	if task, err := taskman.TaskManager.NewTask(ctx, "BaremetalPrepareTask", self, userCred, data, parentTaskId, "", nil); err != nil {
 		log.Errorf(err.Error())
 		return err
