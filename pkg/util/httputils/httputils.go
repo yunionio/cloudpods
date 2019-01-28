@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/moul/http2curl"
@@ -104,6 +105,12 @@ func GetClient(insecure bool) *http.Client {
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: insecure},
 	}
 	return &http.Client{Transport: tr}
+}
+
+func GetTimeoutClient(timeout time.Duration) *http.Client {
+	client := GetClient(true)
+	client.Timeout = timeout
+	return client
 }
 
 var defaultHttpClient *http.Client

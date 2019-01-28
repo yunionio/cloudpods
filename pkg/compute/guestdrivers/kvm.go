@@ -282,7 +282,7 @@ func (self *SKVMGuestDriver) GetChangeConfigStatus() ([]string, error) {
 }
 
 func (self *SKVMGuestDriver) GetDeployStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING, models.VM_ADMIN}, nil
+	return []string{models.VM_READY, models.VM_ADMIN}, nil
 }
 
 func (self *SKVMGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {

@@ -86,7 +86,7 @@ func StartService() {
 
 	models.CheckImages()
 
-	cron := cronman.GetCronJobManager()
+	cron := cronman.GetCronJobManager(true)
 	cron.AddJob1("CleanPendingDeleteImages", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.ImageManager.CleanPendingDeleteImages)
 
 	cron.Start()

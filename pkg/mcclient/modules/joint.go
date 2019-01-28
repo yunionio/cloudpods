@@ -138,7 +138,17 @@ func (this *JointResourceManager) BatchDetach2(s *mcclient.ClientSession, mid st
 }
 
 func (this *JointResourceManager) Update(s *mcclient.ClientSession, mid, sid string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return this.Update2(s, mid, sid, params, nil)
+}
+
+func (this *JointResourceManager) Update2(s *mcclient.ClientSession, mid, sid string, params jsonutils.JSONObject, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s/%s/%s/%s", this.Master.KeyString(), url.PathEscape(mid), this.Slave.KeyString(), url.PathEscape(sid))
+	if query != nil {
+		qs := query.QueryString()
+		if len(qs) > 0 {
+			path = fmt.Sprintf("%s?%s", path, qs)
+		}
+	}
 	result, err := this._put(s, path, this.params2Body(s, params), this.Keyword)
 	if err != nil {
 		return nil, err

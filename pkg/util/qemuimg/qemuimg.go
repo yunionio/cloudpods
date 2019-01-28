@@ -230,6 +230,17 @@ func (img *SQemuImage) convert(format TImageFormat, options []string, compact bo
 	return img.parse()
 }
 
+func (img *SQemuImage) convertTo(
+	format TImageFormat, options []string, compact bool, password string, output string,
+) error {
+	err := img.doConvert(output, format, options, compact, password)
+	if err != nil {
+		return err
+	}
+	img.Password = password
+	return img.parse()
+}
+
 func (img *SQemuImage) Copy(name string) (*SQemuImage, error) {
 	if !img.IsValid() {
 		return nil, fmt.Errorf("self is not valid")
@@ -242,6 +253,18 @@ func (img *SQemuImage) Copy(name string) (*SQemuImage, error) {
 		return nil, err
 	}
 	return NewQemuImage(name)
+}
+
+func (img *SQemuImage) Convert2Qcow2To(output string, compact bool) error {
+	options := make([]string, 0)
+	// if len(backPath) > 0 {
+	//	options = append(options, fmt.Sprintf("backing_file=%s", backPath))
+	//} else
+	if !compact {
+		sparseOpts := qcow2SparseOptions()
+		options = append(options, sparseOpts...)
+	}
+	return img.convertTo(QCOW2, options, compact, "", output)
 }
 
 func (img *SQemuImage) Convert2Qcow2(compact bool) error {
@@ -442,4 +465,18 @@ func (img *SQemuImage) Fallocate() error {
 
 func (img *SQemuImage) String() string {
 	return fmt.Sprintf("Qemu %s %d(%d) %s", img.Format, img.GetSizeMB(), img.GetActualSizeMB(), img.Path)
+}
+
+func (img *SQemuImage) WholeChainFormatIs(format string) (bool, error) {
+	if img.Format.String() != format {
+		return false, nil
+	}
+	if len(img.BackFilePath) > 0 {
+		backImg, err := NewQemuImage(img.BackFilePath)
+		if err != nil {
+			return false, err
+		}
+		return backImg.WholeChainFormatIs(format)
+	}
+	return true, nil
 }

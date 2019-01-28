@@ -613,11 +613,17 @@ func newBaremetalDiskConfigFromSimpleJson(sjson *simplejson.Json) (*baremetal.Ba
 	baremetalDiskConfig.Range = rangeArray
 
 	baremetalDiskConfig.Splits = sjson.Get("splits").MustString()
-	baremetalDiskConfig.Strip = sjson.Get("strip").MustInt64()
 	baremetalDiskConfig.Type = sjson.Get("type").MustString()
 	ada := sjson.Get("adapter").MustInt()
 	baremetalDiskConfig.Adapter = &ada
-	baremetalDiskConfig.Cachedbadbbu = sjson.Get("cachedbadbbu").MustBool()
+	if val, ok := sjson.CheckGet("strip"); ok {
+		strip := val.MustInt64()
+		baremetalDiskConfig.Strip = &strip
+	}
+	if val, ok := sjson.CheckGet("cachedbadbbu"); ok {
+		cachedbadbbu := val.MustBool()
+		baremetalDiskConfig.Cachedbadbbu = &cachedbadbbu
+	}
 
 	return baremetalDiskConfig, nil
 }
