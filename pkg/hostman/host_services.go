@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/downloader"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
+	"yunion.io/x/onecloud/pkg/hostman/hostmetrics"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
@@ -50,6 +51,7 @@ func (host *SHostService) StartService() {
 
 		hostinfo.Stop()
 		storageman.Stop()
+		hostmetrics.Stop()
 		guestman.Stop()
 		hostutils.GetWorkManager().Stop()
 		os.Exit(0)
@@ -63,7 +65,13 @@ func (host *SHostService) StartService() {
 	cloudcommon.InitAuth(&options.HostOptions.CommonOptions, func() {
 		log.Infof("Auth complete!!")
 		// ??? Why wait 5 seconds
-		hostInstance.StartRegister(2, guestman.GetGuestManager().Bootstrap)
+
+		hostInstance.StartRegister(2, func() {
+			guestman.GetGuestManager().Bootstrap()
+			// hostmetrics after guestmanager bootstrap
+			hostmetrics.Init()
+			hostmetrics.Start()
+		})
 	})
 	host.initHandlers(app)
 	<-hostinfo.Instance().IsRegistered // wait host and guest init
