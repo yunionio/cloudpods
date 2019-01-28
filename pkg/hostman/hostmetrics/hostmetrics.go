@@ -79,7 +79,6 @@ func (m *SHostMetricsCollector) runMain() {
 
 func (m *SHostMetricsCollector) runMonitor() {
 	reportData := m.collectReportData()
-	log.Errorln(reportData)
 	if options.HostOptions.EnableTelegraf && len(reportData) > 0 {
 		m.reportUsageToTelegraf(reportData)
 	}
