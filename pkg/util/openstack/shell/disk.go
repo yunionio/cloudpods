@@ -1,8 +1,6 @@
 package shell
 
 import (
-	"fmt"
-
 	"yunion.io/x/onecloud/pkg/util/openstack"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -42,13 +40,33 @@ func init() {
 		CATEGORY string `help:"Disk category"`
 		NAME     string `help:"Disk Name"`
 		SIZE     int    `help:"Disk Size GB"`
+		Desc     string `help:"Description of disk"`
 	}
 	shellutils.R(&DiskCreateOptions{}, "disk-create", "Create disk", func(cli *openstack.SRegion, args *DiskCreateOptions) error {
-		diskId, err := cli.CreateDisk(args.ZONE, args.CATEGORY, args.NAME, args.SIZE, "")
+		disk, err := cli.CreateDisk(args.ZONE, args.CATEGORY, args.NAME, args.SIZE, args.Desc)
 		if err != nil {
 			return err
 		}
-		fmt.Println(diskId)
+		printObject(disk)
 		return nil
 	})
+
+	type DiskResetOptions struct {
+		DISK     string `help:"ID of disk"`
+		SNAPSHOT string `help:"ID of snapshot"`
+	}
+
+	shellutils.R(&DiskResetOptions{}, "disk-reset", "Reset disk", func(cli *openstack.SRegion, args *DiskResetOptions) error {
+		return cli.ResetDisk(args.DISK, args.SNAPSHOT)
+	})
+
+	type DiskResizeOptions struct {
+		DISK string `help:"ID of disk"`
+		SIZE int64  `help:"Disk size GB"`
+	}
+
+	shellutils.R(&DiskResizeOptions{}, "disk-resize", "Resize disk", func(cli *openstack.SRegion, args *DiskResizeOptions) error {
+		return cli.ResizeDisk(args.DISK, args.SIZE*1024)
+	})
+
 }

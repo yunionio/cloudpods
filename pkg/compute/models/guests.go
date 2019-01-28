@@ -161,6 +161,7 @@ var PUBLIC_CLOUD_HYPERVISORS = []string{
 	HYPERVISOR_AZURE,
 	HYPERVISOR_QCLOUD,
 	HYPERVISOR_HUAWEI,
+	HYPERVISOR_OPENSTACK,
 }
 
 // var HYPERVISORS = []string{HYPERVISOR_ALIYUN}
@@ -2909,9 +2910,9 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 		registerVpcId := vpc.ExternalId
 		externalVpcId := vpc.ExternalId
 		switch self.Hypervisor {
-		case HYPERVISOR_ALIYUN, HYPERVISOR_AWS, HYPERVISOR_OPENSTACK, HYPERVISOR_HUAWEI:
+		case HYPERVISOR_ALIYUN, HYPERVISOR_AWS, HYPERVISOR_HUAWEI:
 			break
-		case HYPERVISOR_QCLOUD:
+		case HYPERVISOR_QCLOUD, HYPERVISOR_OPENSTACK:
 			registerVpcId = "normal"
 		case HYPERVISOR_AZURE:
 			registerVpcId, externalVpcId = "normal", "normal"

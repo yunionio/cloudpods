@@ -119,6 +119,10 @@ func (self *SESXiProvider) IsOnPremiseInfrastructure() bool {
 	return true
 }
 
+func (self *SESXiProvider) SyncSkuFromCloud() bool {
+	return false
+}
+
 func (self *SESXiProvider) GetId() string {
 	return esxi.CLOUD_PROVIDER_VMWARE
 }

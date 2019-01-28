@@ -135,21 +135,12 @@ func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.T
 		nameIdx++
 	}
 
-	params := map[string]string{
-		"container_format": "bare",
-		"disk_format":      "vmdk",
-		"name":             imageName,
-		"id":               imageId,
-	}
-
-	_, resp, err := cache.region.Post("images", "/v2/images", "", jsonutils.Marshal(params))
+	image, err := cache.region.CreateImage(imageName)
 	if err != nil {
 		return "", err
 	}
-	image := &SImage{storageCache: cache}
-	if err := resp.Unmarshal(image); err != nil {
-		return "", err
-	}
+
+	image.storageCache = cache
 
 	_, err = cache.region.client.StreamRequest(cache.region.Name, "image", "PUT", fmt.Sprintf("/v2/images/%s/file", image.ID), "", reader)
 	if err != nil {

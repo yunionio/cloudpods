@@ -74,6 +74,8 @@ type ICloudRegion interface {
 	CreateILoadBalancerAcl(acl *SLoadbalancerAccessControlList) (ICloudLoadbalancerAcl, error)
 	CreateILoadBalancerCertificate(cert *SLoadbalancerCertificate) (ICloudLoadbalancerCertificate, error)
 
+	GetSkus(zoneId string) ([]ICloudSku, error)
+
 	GetProvider() string
 }
 
@@ -521,4 +523,39 @@ type ICloudLoadbalancerAcl interface {
 	GetAclEntries() []SLoadbalancerAccessControlListEntry
 	Sync(acl *SLoadbalancerAccessControlList) error
 	Delete() error
+}
+
+type ICloudSku interface {
+	ICloudResource
+
+	GetInstanceTypeFamily() string
+	GetInstanceTypeCategory() string
+
+	GetPrepaidStatus() string
+	GetPostpaidStatus() string
+
+	GetCpuCoreCount() int
+	GetMemorySizeMB() int
+
+	GetOsName() string
+
+	GetSysDiskResizable() bool
+	GetSysDiskType() string
+	GetSysDiskMinSizeGB() int
+	GetSysDiskMaxSizeGB() int
+
+	GetAttachedDiskType() string
+	GetAttachedDiskSizeGB() int
+	GetAttachedDiskCount() int
+
+	GetDataDiskTypes() string
+	GetDataDiskMaxCount() int
+
+	GetNicType() string
+	GetNicMaxCount() int
+
+	GetGpuAttachable() bool
+	GetGpuSpec() string
+	GetGpuCount() int
+	GetGpuMaxCount() int
 }

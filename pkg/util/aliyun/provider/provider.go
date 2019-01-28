@@ -98,6 +98,10 @@ func (self *SAliyunProvider) IsOnPremiseInfrastructure() bool {
 	return false
 }
 
+func (self *SAliyunProvider) SyncSkuFromCloud() bool {
+	return false
+}
+
 func (self *SAliyunProvider) GetId() string {
 	return aliyun.CLOUD_PROVIDER_ALIYUN
 }

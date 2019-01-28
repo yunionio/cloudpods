@@ -35,6 +35,7 @@ type ICloudProvider interface {
 	GetVersion() string
 	IsPublicCloud() bool
 	IsOnPremiseInfrastructure() bool
+	SyncSkuFromCloud() bool
 
 	GetIRegions() []ICloudRegion
 	GetIRegionById(id string) (ICloudRegion, error)

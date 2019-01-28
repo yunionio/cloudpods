@@ -111,13 +111,15 @@ func (image *SImage) GetStatus() string {
 func (image *SImage) GetImageStatus() string {
 	switch image.Status {
 	case QUEUED, SAVING, UPLOADING, IMPORTING:
-		return models.CACHED_IMAGE_STATUS_CACHING
+		return cloudprovider.IMAGE_STATUS_SAVING
 	case ACTIVE:
-		return models.CACHED_IMAGE_STATUS_READY
-	case DELETED, DEACTIVATED, PENDING_DELETE, KILLED:
-		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+		return cloudprovider.IMAGE_STATUS_ACTIVE
+	case DELETED, DEACTIVATED, PENDING_DELETE:
+		return cloudprovider.IMAGE_STATUS_DELETED
+	case KILLED:
+		return cloudprovider.IMAGE_STATUS_KILLED
 	default:
-		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+		return cloudprovider.IMAGE_STATUS_DELETED
 	}
 }
 
@@ -178,6 +180,9 @@ func (region *SRegion) GetImage(imageId string) (*SImage, error) {
 	if len(images) == 0 {
 		return nil, cloudprovider.ErrNotFound
 	}
+	if len(images) > 1 {
+		return nil, cloudprovider.ErrDuplicateId
+	}
 	return &images[0], nil
 }
 
@@ -209,23 +214,17 @@ func (region *SRegion) GetImageByName(name string) (*SImage, error) {
 	return &images[0], nil
 }
 
-// func (region *SRegion) ImportImage(name string, osArch, osDist, osVersion string, imageUrl string) (*SImage, error) {
-// 	params, err := region.GetImportImageParams(name, osArch, osDist, osVersion, imageUrl)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+func (region *SRegion) CreateImage(imageName string) (*SImage, error) {
+	params := map[string]string{
+		"container_format": "bare",
+		"disk_format":      "vmdk",
+		"name":             imageName,
+	}
 
-// 	log.Debugf("Upload image with params %#v", params)
-
-// 	if _, err := region.cvmRequest("ImportImage", params); err != nil {
-// 		return nil, err
-// 	}
-// 	for i := 0; i < 8; i++ {
-// 		image, err := region.GetImageByName(name)
-// 		if err == nil {
-// 			return image, nil
-// 		}
-// 		time.Sleep(time.Minute * time.Duration(i))
-// 	}
-// 	return nil, cloudprovider.ErrNotFound
-// }
+	_, resp, err := region.Post("image", "/v2/images", "", jsonutils.Marshal(params))
+	if err != nil {
+		return nil, err
+	}
+	image := &SImage{}
+	return image, resp.Unmarshal(image)
+}

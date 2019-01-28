@@ -94,6 +94,10 @@ func (self *SQcloudProvider) IsOnPremiseInfrastructure() bool {
 	return false
 }
 
+func (self *SQcloudProvider) SyncSkuFromCloud() bool {
+	return true
+}
+
 func (self *SQcloudProvider) GetId() string {
 	return qcloud.CLOUD_PROVIDER_QCLOUD
 }

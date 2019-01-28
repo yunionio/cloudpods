@@ -43,7 +43,7 @@ func (region *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloud
 	if err != nil {
 		return nil, err
 	}
-	snapshot := SSnapshot{}
+	snapshot := SSnapshot{region: region}
 	if err := resp.Unmarshal(&snapshot, "snapshot"); err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func (region *SRegion) DeleteSnapshot(snapshotId string) error {
 	return err
 }
 
-func (region *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
+func (region *SRegion) CreateSnapshot(diskId, name, desc string) (*SSnapshot, error) {
 	params := map[string]map[string]interface{}{
 		"snapshot": {
 			"volume_id":   diskId,
@@ -158,7 +158,8 @@ func (region *SRegion) CreateSnapshot(diskId, name, desc string) (string, error)
 	}
 	_, resp, err := region.CinderCreate("/snapshots", "", jsonutils.Marshal(params))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return resp.GetString("snapshot", "id")
+	snapshot := &SSnapshot{region: region}
+	return snapshot, resp.Unmarshal(snapshot, "snapshot")
 }

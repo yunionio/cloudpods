@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -69,7 +69,12 @@ func (cli *SOpenStackClient) Request(region, service, method string, url string,
 	}
 	ctx := context.Background()
 	session := cli.client.NewSession(ctx, region, "", "internal", cli.tokenCredential, "")
-	return session.JSONRequest(service, "", httputils.THttpMethod(method), url, header, body)
+	header, resp, err := session.JSONRequest(service, "", httputils.THttpMethod(method), url, header, body)
+	if err != nil && body != nil {
+		uri, _ := session.GetServiceURL(service, "")
+		log.Errorf("microversion %s url: %s, params: %s", microversion, uri+url, body.PrettyString())
+	}
+	return header, resp, err
 }
 
 func (cli *SOpenStackClient) RawRequest(region, service, method string, url string, microversion string, body jsonutils.JSONObject) (*http.Response, error) {

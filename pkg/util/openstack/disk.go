@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -228,7 +227,7 @@ func (disk *SDisk) GetMountpoint() string {
 	return ""
 }
 
-func (region *SRegion) CreateDisk(zoneName string, category string, name string, sizeGb int, desc string) (string, error) {
+func (region *SRegion) CreateDisk(zoneName string, category string, name string, sizeGb int, desc string) (*SDisk, error) {
 	params := map[string]map[string]interface{}{
 		"volume": {
 			"size":              sizeGb,
@@ -240,9 +239,10 @@ func (region *SRegion) CreateDisk(zoneName string, category string, name string,
 	}
 	_, resp, err := region.CinderCreate("/volumes", "", jsonutils.Marshal(params))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return resp.GetString("volume", "id")
+	disk := &SDisk{}
+	return disk, resp.Unmarshal(disk, "volume")
 }
 
 func (region *SRegion) GetDisk(diskId string) (*SDisk, error) {
@@ -269,17 +269,24 @@ func (region *SRegion) ResizeDisk(diskId string, sizeMb int64) error {
 	return err
 }
 
-func (disk *SRegion) ResetDisk(diskId, snapshotId string) error {
-	return cloudprovider.ErrNotImplemented
+func (region *SRegion) ResetDisk(diskId, snapshotId string) error {
+	//目前测试接口不能使用
+	return cloudprovider.ErrNotSupported
+	// params := map[string]map[string]interface{}{
+	// 	"revert": {
+	// 		"snapshot_id": snapshotId,
+	// 	},
+	// }
+	// _, _, err := region.CinderAction(fmt.Sprintf("/volumes/%s/action", diskId), "3.40", jsonutils.Marshal(params))
+	// return err
 }
 
 func (disk *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
-	snapshotId, err := disk.storage.zone.region.CreateSnapshot(disk.ID, name, desc)
+	snapshot, err := disk.storage.zone.region.CreateSnapshot(disk.ID, name, desc)
 	if err != nil {
-		log.Errorf("createSnapshot fail %v", err)
 		return nil, err
 	}
-	return disk.storage.zone.region.GetISnapshotById(snapshotId)
+	return snapshot, cloudprovider.WaitStatus(snapshot, models.SNAPSHOT_READY, time.Second*5, time.Minute*5)
 }
 
 func (disk *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
@@ -291,7 +298,7 @@ func (disk *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 }
 
 func (disk *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
-	return "", cloudprovider.ErrNotSupported
+	return disk.ID, disk.storage.zone.region.ResetDisk(disk.ID, snapshotId)
 }
 
 func (disk *SDisk) GetBillingType() string {

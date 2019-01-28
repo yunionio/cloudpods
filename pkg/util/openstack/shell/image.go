@@ -33,4 +33,21 @@ func init() {
 		return nil
 	})
 
+	shellutils.R(&ImageOptions{}, "image-delete", "Delete image", func(cli *openstack.SRegion, args *ImageOptions) error {
+		return cli.DeleteImage(args.ID)
+	})
+
+	type ImageCreateOptions struct {
+		NAME string
+	}
+
+	shellutils.R(&ImageCreateOptions{}, "image-create", "Create image", func(cli *openstack.SRegion, args *ImageCreateOptions) error {
+		image, err := cli.CreateImage(args.NAME)
+		if err != nil {
+			return err
+		}
+		printObject(image)
+		return nil
+	})
+
 }

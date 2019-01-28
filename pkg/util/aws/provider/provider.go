@@ -109,6 +109,10 @@ func (self *SAwsProvider) IsOnPremiseInfrastructure() bool {
 	return false
 }
 
+func (self *SAwsProvider) SyncSkuFromCloud() bool {
+	return false
+}
+
 func (self *SAwsProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegionById(id)
 }

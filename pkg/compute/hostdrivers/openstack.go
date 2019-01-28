@@ -20,3 +20,7 @@ func (self *SOpenStackHostDriver) GetHostType() string {
 func (self *SOpenStackHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	return nil
 }
+
+func (driver *SOpenStackHostDriver) GetStoragecacheQuota(host *models.SHost) int {
+	return 100
+}

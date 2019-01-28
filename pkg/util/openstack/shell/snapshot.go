@@ -1,8 +1,6 @@
 package shell
 
 import (
-	"fmt"
-
 	"yunion.io/x/onecloud/pkg/util/openstack"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -44,11 +42,11 @@ func init() {
 	}
 
 	shellutils.R(&SnapshotCreateOptions{}, "snapshot-create", "Create snapshot", func(cli *openstack.SRegion, args *SnapshotCreateOptions) error {
-		snapshotId, err := cli.CreateSnapshot(args.DISKID, args.Name, args.Desc)
+		snapshot, err := cli.CreateSnapshot(args.DISKID, args.Name, args.Desc)
 		if err != nil {
 			return err
 		}
-		fmt.Println(snapshotId)
+		printObject(snapshot)
 		return nil
 	})
 

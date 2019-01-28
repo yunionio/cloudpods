@@ -1,6 +1,7 @@
 package openstack
 
 import (
+	"fmt"
 	"net"
 	"sort"
 	"strings"
@@ -199,11 +200,31 @@ func (region *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name s
 		}
 	}
 	if len(secgroupId) == 0 {
-		secgroupId, err := region.CreateSecurityGroup(name, desc)
+		secgroups, err := region.GetSecurityGroups()
 		if err != nil {
 			return "", err
 		}
-		secgroupId = secgroupId
+
+		secgroupNames := []string{}
+		for _, secgroup := range secgroups {
+			secgroupNames = append(secgroupNames, strings.ToLower(secgroup.Name))
+		}
+
+		uniqName := strings.ToLower(name)
+		if utils.IsInStringArray(uniqName, secgroupNames) {
+			for i := 0; i < 20; i++ {
+				uniqName = fmt.Sprintf("%s-%d", strings.ToLower(name), i)
+				if !utils.IsInStringArray(uniqName, secgroupNames) {
+					break
+				}
+			}
+		}
+		log.Errorf("create secgroup %s", uniqName)
+		secgroup, err := region.CreateSecurityGroup(uniqName, desc)
+		if err != nil {
+			return "", err
+		}
+		secgroupId = secgroup.ID
 	}
 	return region.syncSecgroupRules(secgroupId, rules)
 }
@@ -217,6 +238,10 @@ func (region *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Sec
 	sort.Sort(secrules.SecurityRuleSet(rules))
 	sort.Sort(SecurigyGroupRuleSet(secgroup.SecurityGroupRules))
 
+	delSecgroupRuleIds := []string{}
+	addSecgroupRules := []secrules.SecurityRule{}
+	addSecgroupRuleStrings := []string{}
+
 	i, j := 0, 0
 	for i < len(rules) || j < len(secgroup.SecurityGroupRules) {
 		if i < len(rules) && j < len(secgroup.SecurityGroupRules) {
@@ -227,30 +252,38 @@ func (region *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Sec
 				i++
 				j++
 			} else if cmp > 0 {
-				if err := region.delSecurityGroupRule(secgroup.SecurityGroupRules[j].ID); err != nil {
-					log.Errorf("delSecurityGroupRule error %v", err)
-					return "", err
-				}
+				delSecgroupRuleIds = append(delSecgroupRuleIds, secgroup.SecurityGroupRules[j].ID)
 				j++
 			} else {
-				if err := region.addSecurityGroupRules(secgroupId, &rules[i]); err != nil {
-					log.Errorf("addSecurityGroupRule error %v", rules[i])
-					return "", err
+				if !utils.IsInStringArray(ruleStr, addSecgroupRuleStrings) {
+					addSecgroupRules = append(addSecgroupRules, rules[i])
+					addSecgroupRuleStrings = append(addSecgroupRuleStrings, ruleStr)
 				}
 				i++
 			}
 		} else if i >= len(rules) {
-			if err := region.delSecurityGroupRule(secgroup.SecurityGroupRules[j].ID); err != nil {
-				log.Errorf("delSecurityGroupRule error %v", err)
-				return "", err
-			}
+			delSecgroupRuleIds = append(delSecgroupRuleIds, secgroup.SecurityGroupRules[j].ID)
 			j++
 		} else if j >= len(secgroup.SecurityGroupRules) {
-			if err := region.addSecurityGroupRules(secgroupId, &rules[i]); err != nil {
-				log.Errorf("addSecurityGroupRule error %v", rules[i])
-				return "", err
+			ruleStr := rules[i].String()
+			if !utils.IsInStringArray(ruleStr, addSecgroupRuleStrings) {
+				addSecgroupRules = append(addSecgroupRules, rules[i])
+				addSecgroupRuleStrings = append(addSecgroupRuleStrings, ruleStr)
 			}
 			i++
+		}
+	}
+
+	for _, ruleId := range delSecgroupRuleIds {
+		if err := region.delSecurityGroupRule(ruleId); err != nil {
+			log.Errorf("delSecurityGroupRule error %v", err)
+			return "", err
+		}
+	}
+	for i := 0; i < len(addSecgroupRules); i++ {
+		if err := region.addSecurityGroupRules(secgroupId, &addSecgroupRules[i]); err != nil {
+			log.Errorf("addSecurityGroupRule error %v", rules[i])
+			return "", err
 		}
 	}
 
@@ -267,6 +300,11 @@ func (region *SRegion) addSecurityGroupRules(secgroupId string, rule *secrules.S
 	if rule.Direction == secrules.SecurityRuleEgress {
 		direction = "egress"
 	}
+
+	if rule.Protocol == secrules.PROTO_ANY {
+		rule.Protocol = "0"
+	}
+
 	params := map[string]map[string]interface{}{
 		"security_group_rule": {
 			"direction":         direction,
@@ -278,7 +316,7 @@ func (region *SRegion) addSecurityGroupRules(secgroupId string, rule *secrules.S
 	if len(rule.Ports) > 0 {
 		for _, port := range rule.Ports {
 			params["security_group_rule"]["port_range_max"] = port
-			params["security_group_rule"]["port_range_max"] = port
+			params["security_group_rule"]["port_range_min"] = port
 			_, _, err := region.Post("network", "/v2.0/security-group-rules", "", jsonutils.Marshal(params))
 			if err != nil {
 				return err
@@ -287,7 +325,7 @@ func (region *SRegion) addSecurityGroupRules(secgroupId string, rule *secrules.S
 		return nil
 	}
 	if rule.PortEnd > 0 && rule.PortStart > 0 {
-		params["security_group_rule"]["port_range_max"] = rule.PortStart
+		params["security_group_rule"]["port_range_min"] = rule.PortStart
 		params["security_group_rule"]["port_range_max"] = rule.PortEnd
 	}
 	_, _, err := region.Post("network", "/v2.0/security-group-rules", "", jsonutils.Marshal(params))
@@ -299,7 +337,7 @@ func (region *SRegion) DeleteSecurityGroup(vpcId, secGroupId string) error {
 	return err
 }
 
-func (region *SRegion) CreateSecurityGroup(name, description string) (string, error) {
+func (region *SRegion) CreateSecurityGroup(name, description string) (*SSecurityGroup, error) {
 	params := map[string]map[string]interface{}{
 		"security_group": {
 			"name":        name,
@@ -308,7 +346,8 @@ func (region *SRegion) CreateSecurityGroup(name, description string) (string, er
 	}
 	_, resp, err := region.Post("network", "/v2.0/security-groups", "", jsonutils.Marshal(params))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return resp.GetString("security_group", "id")
+	secgroup := &SSecurityGroup{}
+	return secgroup, resp.Unmarshal(secgroup, "security_group")
 }

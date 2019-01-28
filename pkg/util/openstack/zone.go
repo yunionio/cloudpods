@@ -2,6 +2,7 @@ package openstack
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -76,7 +77,7 @@ func (zone *SZone) getStorageByCategory(category string) (*SStorage, error) {
 	}
 	for i := 0; i < len(storages); i++ {
 		storage := storages[i].(*SStorage)
-		if storage.Name == category {
+		if strings.ToLower(storage.Name) == strings.ToLower(category) {
 			return storage, nil
 		}
 	}

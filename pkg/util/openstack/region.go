@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SRegion struct {
@@ -251,8 +252,10 @@ func (region *SRegion) Get(service, url string, microversion string, body jsonut
 	}
 	header, resp, err := region.client.Request(region.Name, service, "GET", url, microversion, body)
 	if err != nil {
-		if strings.Contains(err.Error(), "404") {
-			return nil, nil, cloudprovider.ErrNotFound
+		if jsonErr, ok := err.(*httputils.JSONClientError); ok {
+			if jsonErr.Code == 404 || strings.HasSuffix(jsonErr.Class, "NotFound") {
+				return nil, nil, cloudprovider.ErrNotFound
+			}
 		}
 		return nil, nil, err
 	}
@@ -262,8 +265,10 @@ func (region *SRegion) Get(service, url string, microversion string, body jsonut
 func (region *SRegion) List(service, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
 	header, resp, err := region.client.Request(region.Name, service, "GET", url, microversion, body)
 	if err != nil {
-		if strings.Contains(err.Error(), "404") {
-			return nil, nil, cloudprovider.ErrNotFound
+		if jsonErr, ok := err.(*httputils.JSONClientError); ok {
+			if jsonErr.Code == 404 || strings.HasSuffix(jsonErr.Class, "NotFound") {
+				return nil, nil, cloudprovider.ErrNotFound
+			}
 		}
 		return nil, nil, err
 	}
@@ -272,6 +277,10 @@ func (region *SRegion) List(service, url string, microversion string, body jsonu
 
 func (region *SRegion) Post(service, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
 	return region.client.Request(region.Name, service, "POST", url, microversion, body)
+}
+
+func (region *SRegion) Update(service, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+	return region.client.Request(region.Name, service, "PUT", url, microversion, body)
 }
 
 func (region *SRegion) Delete(service, url string, microversion string) (*http.Response, error) {
@@ -295,8 +304,8 @@ func (region *SRegion) CinderGet(url string, microversion string, body jsonutils
 	}
 	for _, service := range []string{"volumev3", "volumev2", "volume"} {
 		header, resp, err := region.Get(service, url, microversion, body)
-		if err == nil {
-			return header, resp, nil
+		if err == nil || err == cloudprovider.ErrNotFound {
+			return header, resp, err
 		}
 		log.Debugf("failed to get %s by service %s error: %v, try another", url, service, err)
 	}
@@ -364,7 +373,7 @@ func (region *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 }
 
 func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (region *SRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpType string) (cloudprovider.ICloudEIP, error) {
@@ -409,4 +418,17 @@ func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbala
 
 func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
 	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
+	flavors, err := region.GetFlavors()
+	if err != nil {
+		return nil, err
+	}
+	iskus := make([]cloudprovider.ICloudSku, len(flavors))
+	for i := 0; i < len(flavors); i++ {
+		flavors[i].region = region
+		iskus[i] = &flavors[i]
+	}
+	return iskus, nil
 }

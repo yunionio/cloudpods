@@ -101,6 +101,10 @@ func (self *SHuaweiProvider) IsOnPremiseInfrastructure() bool {
 	return false
 }
 
+func (self *SHuaweiProvider) SyncSkuFromCloud() bool {
+	return false
+}
+
 func (self *SHuaweiProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }
