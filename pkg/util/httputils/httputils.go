@@ -229,12 +229,16 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 		ce.Class = "redirect"
 		return nil, nil, &ce
 	} else {
-		ce := JSONClientError{
-			Code:    resp.StatusCode,
-			Details: resp.Status,
-		}
+		ce := JSONClientError{}
 
 		if jrbody == nil {
+			ce.Code = resp.StatusCode
+			ce.Details = resp.Status
+			return nil, nil, &ce
+		}
+
+		err = jrbody.Unmarshal(&ce)
+		if len(ce.Class) > 0 && ce.Code >= 400 && len(ce.Details) > 0 {
 			return nil, nil, &ce
 		}
 

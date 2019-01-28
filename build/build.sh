@@ -128,7 +128,9 @@ getent passwd %{owner} >/dev/null || /usr/sbin/useradd -r -s /sbin/nologin -d %{
 $(for b in $EXTRA_BINS; do echo /opt/yunion/bin/$b; done)
 " > $SPEC_FILE
 
-find $ROOT/root/ -type f | sed -e "s:$ROOT/root::g" >> $SPEC_FILE
+if [ -d $ROOT/root/ ]; then
+    find $ROOT/root/ -type f | sed -e "s:$ROOT/root::g" >> $SPEC_FILE
+fi
 
 rpmbuild --define "_topdir $BUILDROOT" -bb $SPEC_FILE
 
