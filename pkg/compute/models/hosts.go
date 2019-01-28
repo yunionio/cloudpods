@@ -154,13 +154,13 @@ type SHost struct {
 	// Status  string = Column(VARCHAR(16, charset='ascii'), nullable=False, default=baremetalstatus.INIT) # status
 	HostStatus string `width:"16" charset:"ascii" nullable:"false" default:"offline" list:"admin"` // Column(VARCHAR(16, charset='ascii'), nullable=False, server_default=HOST_OFFLINE, default=HOST_OFFLINE)
 
-	ZoneId string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_optional"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
+	ZoneId string `width:"128" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
 
 	HostType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 
 	Version string `width:"64" charset:"ascii" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(64, charset='ascii'))
 
-	IsBaremetal bool `nullable:"true" default:"false" list:"admin" create:"admin_optional"` // Column(Boolean, nullable=True, default=False)
+	IsBaremetal bool `nullable:"true" default:"false" list:"admin" update:"admin" create:"admin_optional"` // Column(Boolean, nullable=True, default=False)
 
 	IsMaintenance bool `nullable:"true" default:"false" list:"admin"` // Column(Boolean, nullable=True, default=False)
 
