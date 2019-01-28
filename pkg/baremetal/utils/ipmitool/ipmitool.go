@@ -16,6 +16,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/ssh"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 	stage_stringutils "yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
@@ -326,7 +327,10 @@ func SetLanUserPasswd(exector IPMIExecutor, channel int, user string, password s
 }
 
 func SetLanPasswd(exector IPMIExecutor, rootId int, password string) error {
-	// TODO: escape password
+	password, err := stringutils2.EscapeEchoString(password)
+	if err != nil {
+		return fmt.Errorf("EscapeEchoString for password: %v", err)
+	}
 	args := newArgs("user", "set", "password", rootId, fmt.Sprint("\"%s\"", password))
 	return doActions(exector, "set_lan_passwd", args)
 }
@@ -373,12 +377,10 @@ func GetBootFlags(exector IPMIExecutor) (*types.SIPMIBootFlags, error) {
 		sol := true
 		flags.Sol = &sol
 	}
-	log.Errorf("====bytes: %v, flags: %#v", bytes, flags)
 	return flags, nil
 }
 
 func HexStr2Bytes(hs string) ([]int64, error) {
-	log.Errorf("======HexStr2Bytes: %#v", hs)
 	b := []int64{}
 	for _, x := range strings.Split(hs, " ") {
 		intV, err := strconv.ParseInt(x, 16, 64)
