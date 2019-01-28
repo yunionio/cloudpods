@@ -685,7 +685,7 @@ func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), &pendingUsage); err != nil {
 		return nil, httperrors.NewOutOfQuotaError(err.Error())
 	}
-	return nil, self.StartDiskResizeTask(ctx, userCred, int64(sizeMb), "", &pendingUsage)
+	return nil, self.StartDiskResizeTask(ctx, userCred, int64(sizeMb), "", &pendingUsage, nil)
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
@@ -1099,23 +1099,23 @@ func totalDiskSize(projectId string, active tristate.TriState, ready tristate.Tr
 }
 
 type SDiskConfig struct {
-	ImageId string
+	ImageId string `json:"image_id"`
 
-	SnapshotId string
-	DiskType   string // sys, data, swap, volume
+	SnapshotId string `json:"snapshot_id"`
+	DiskType   string `json:"disk_type"` // sys, data, swap, volume
 
 	// ImageDiskFormat string
-	SizeMb          int    // MB
-	Fs              string // file system
-	Format          string //
-	Driver          string //
-	Cache           string //
-	Mountpoint      string //
-	Backend         string // stroageType
-	Medium          string
-	ImageProperties map[string]string
+	SizeMb          int               `json:"size"`       // MB
+	Fs              string            `json:"fs"`         // file system
+	Format          string            `json:"format"`     //
+	Driver          string            `json:"driver"`     //
+	Cache           string            `json:"cache"`      //
+	Mountpoint      string            `json:"mountpoint"` //
+	Backend         string            `json:"backend"`    // stroageType
+	Medium          string            `json:"medium"`
+	ImageProperties map[string]string `json:"image_properties"`
 
-	DiskId string // import only
+	DiskId string `json:"-"` // import only
 }
 
 func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info jsonutils.JSONObject) (*SDiskConfig, error) {
@@ -1399,9 +1399,12 @@ func (self *SDisk) GetCustomizeColumns(ctx context.Context, userCred mcclient.To
 	return self.getMoreDetails(extra)
 }
 
-func (self *SDisk) StartDiskResizeTask(ctx context.Context, userCred mcclient.TokenCredential, sizeMb int64, parentTaskId string, pendingUsage quotas.IQuota) error {
+func (self *SDisk) StartDiskResizeTask(ctx context.Context, userCred mcclient.TokenCredential, sizeMb int64, parentTaskId string, pendingUsage quotas.IQuota, guest *SGuest) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewInt(sizeMb), "size")
+	if guest != nil {
+		params.Add(jsonutils.NewString(guest.Id), "guest_id")
+	}
 	if task, err := taskman.TaskManager.NewTask(ctx, "DiskResizeTask", self, userCred, params, parentTaskId, "", pendingUsage); err != nil {
 		return err
 	} else {

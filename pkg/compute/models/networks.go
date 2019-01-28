@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -26,7 +27,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"time"
 )
 
 const (
@@ -1391,8 +1391,8 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		vpcs := VpcManager.Query().SubQuery()
 		sq := wires.Query(wires.Field("id")).
 			Join(vpcs, sqlchemy.AND(
-			sqlchemy.Equals(vpcs.Field("cloudregion_id"), region.GetId()),
-			sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))))
+				sqlchemy.Equals(vpcs.Field("cloudregion_id"), region.GetId()),
+				sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))))
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
 	}
 

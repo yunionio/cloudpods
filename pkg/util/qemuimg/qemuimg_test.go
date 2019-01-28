@@ -110,6 +110,7 @@ func TestQcow2(t *testing.T) {
 	img4.Delete()
 	img.Delete()
 }
+
 func TestVhd(t *testing.T) {
 	img, err := NewQemuImage("test")
 	if err != nil {

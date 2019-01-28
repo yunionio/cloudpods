@@ -1,7 +1,6 @@
 package openstack
 
 import (
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -90,7 +89,6 @@ func (vpc *SVpc) GetStatus() string {
 	default:
 		return models.VPC_STATUS_UNKNOWN
 	}
-	return strings.ToLower(vpc.Status)
 }
 
 func (vpc *SVpc) Delete() error {

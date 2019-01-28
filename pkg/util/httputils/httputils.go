@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/moul/http2curl"
@@ -104,6 +105,12 @@ func GetClient(insecure bool) *http.Client {
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: insecure},
 	}
 	return &http.Client{Transport: tr}
+}
+
+func GetTimeoutClient(timeout time.Duration) *http.Client {
+	client := GetClient(true)
+	client.Timeout = timeout
+	return client
 }
 
 var defaultHttpClient *http.Client
@@ -205,7 +212,7 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 	}
 	rbody, err := ioutil.ReadAll(resp.Body)
 	if debug {
-		fmt.Fprintf(os.Stderr, "%s\n", string(rbody))
+		fmt.Fprintf(os.Stderr, "Response body: %s\n", string(rbody))
 	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("Fail to read body: %s", err)
@@ -229,12 +236,16 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 		ce.Class = "redirect"
 		return nil, nil, &ce
 	} else {
-		ce := JSONClientError{
-			Code:    resp.StatusCode,
-			Details: resp.Status,
-		}
+		ce := JSONClientError{}
 
 		if jrbody == nil {
+			ce.Code = resp.StatusCode
+			ce.Details = resp.Status
+			return nil, nil, &ce
+		}
+
+		err = jrbody.Unmarshal(&ce)
+		if len(ce.Class) > 0 && ce.Code >= 400 && len(ce.Details) > 0 {
 			return nil, nil, &ce
 		}
 

@@ -81,7 +81,7 @@ func (self *GuestChangeConfigTask) OnDisksResizeComplete(ctx context.Context, ob
 				self.markStageFailed(ctx, guest, fmt.Sprintf("self.GetPendingUsage(&pendingUsage) fail %s", err))
 				return
 			}
-			err = disk.StartDiskResizeTask(ctx, self.UserCred, size, self.GetTaskId(), &pendingUsage)
+			err = disk.StartDiskResizeTask(ctx, self.UserCred, size, self.GetTaskId(), &pendingUsage, guest)
 			if err != nil {
 				self.markStageFailed(ctx, guest, fmt.Sprintf("disk.StartDiskResizeTask fail %s", err))
 				return
@@ -111,109 +111,109 @@ func (self *GuestChangeConfigTask) OnCreateDisksCompleteFailed(ctx context.Conte
 
 func (self *GuestChangeConfigTask) OnCreateDisksComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	var vcpuCount, vmemSize int64
-	var paramsError error
-	var err error
-	iSku, paramsError := self.Params.GetString("sku_id")
-	if paramsError == nil {
-		isku, err := models.ServerSkuManager.FetchById(iSku)
-		if err != nil {
-			self.markStageFailed(ctx, guest, fmt.Sprintf("Sku_id fail %s", err))
-			logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, err, self.UserCred, false)
-			return
-		}
 
-		sku := isku.(*models.SServerSku)
-		self.Params.Set("instance_type", jsonutils.NewString(sku.GetName()))
-		vcpuCount = int64(sku.CpuCoreCount)
-		vmemSize = int64(sku.MemorySizeMB)
+	if self.Params.Contains("instance_type") || self.Params.Contains("vcpu_count") || self.Params.Contains("vmem_size") {
+		self.SetStage("OnGuestChangeCpuMemSpecComplete", nil)
+		instanceType, _ := self.Params.GetString("instance_type")
+		vcpuCount, _ := self.Params.Int("vcpu_count")
+		vmemSize, _ := self.Params.Int("vmem_size")
+		if vcpuCount == 0 {
+			vcpuCount = int64(guest.VcpuCount)
+		}
+		if vmemSize == 0 {
+			vmemSize = int64(guest.VmemSize)
+		}
+		self.startGuestChangeCpuMemSpec(ctx, guest, instanceType, vcpuCount, vmemSize)
 	} else {
-		iVcpuCount, cpuError := self.Params.Get("vcpu_count")
-		if iVcpuCount != nil {
-			vcpuCount, err = iVcpuCount.Int()
-			if err != nil {
-				self.markStageFailed(ctx, guest, fmt.Sprintf("iVcpuCount.Int() fail %s", err))
-				return
-			}
-		}
-
-		iVmemSize, memError := self.Params.Get("vmem_size")
-		if iVmemSize != nil {
-			vmemSize, err = iVmemSize.Int()
-			if err != nil {
-				self.markStageFailed(ctx, guest, fmt.Sprintf("iVmemSize.Int fail %s", err))
-				return
-			}
-		}
-
-		if cpuError == nil || memError == nil {
-			paramsError = nil
-		}
+		self.OnGuestChangeCpuMemSpecComplete(ctx, obj, data)
 	}
+}
 
-	if paramsError == nil {
-		err = guest.GetDriver().RequestChangeVmConfig(ctx, guest, self, vcpuCount, vmemSize)
-		if err != nil {
-			self.markStageFailed(ctx, guest, fmt.Sprintf("guest.GetDriver().RequestChangeVmConfig fail %s", err))
-			return
-		}
-		var addCpu, addMem = 0, 0
+func (self *GuestChangeConfigTask) startGuestChangeCpuMemSpec(ctx context.Context, guest *models.SGuest, instanceType string, vcpuCount int64, vmemSize int64) {
+	err := guest.GetDriver().RequestChangeVmConfig(ctx, guest, self, instanceType, vcpuCount, vmemSize)
+	if err != nil {
+		self.markStageFailed(ctx, guest, fmt.Sprintf("guest.GetDriver().RequestChangeVmConfig fail %s", err))
+		return
+	}
+}
+
+func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	self.markStageFailed(ctx, guest, fmt.Sprintf("guest.GetDriver().RequestChangeVmConfig fail %s", err))
+}
+
+func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+
+	instanceType, _ := self.Params.GetString("instance_type")
+	vcpuCount, _ := self.Params.Int("vcpu_count")
+	vmemSize, _ := self.Params.Int("vmem_size")
+
+	addCpu := int(vcpuCount - int64(guest.VcpuCount))
+	addMem := int(vmemSize - int64(guest.VmemSize))
+
+	_, err := guest.GetModelManager().TableSpec().Update(guest, func() error {
 		if vcpuCount > 0 {
-			addCpu = int(vcpuCount - int64(guest.VcpuCount))
-			if addCpu < 0 {
-				addCpu = 0
-			}
+			guest.VcpuCount = int8(vcpuCount)
 		}
 		if vmemSize > 0 {
-			addMem = int(vmemSize - int64(guest.VmemSize))
-			if addMem < 0 {
-				addMem = 0
-			}
+			guest.VmemSize = int(vmemSize)
 		}
-		_, err = guest.GetModelManager().TableSpec().Update(guest, func() error {
-			if vcpuCount > 0 {
-				guest.VcpuCount = int8(vcpuCount)
-			}
-			if vmemSize > 0 {
-				guest.VmemSize = int(vmemSize)
-			}
-			return nil
-		})
-		if err != nil {
-			self.markStageFailed(ctx, guest, fmt.Sprintf("Update fail %s", err))
-			return
+		if len(instanceType) > 0 {
+			guest.InstanceType = instanceType
 		}
-		var pendingUsage models.SQuota
-		err = self.GetPendingUsage(&pendingUsage)
-		if err != nil {
-			self.markStageFailed(ctx, guest, fmt.Sprintf("GetPendingUsage %s", err))
-			return
-		}
-		// ownerCred := guest.GetOwnerUserCred()
-		var cancelUsage models.SQuota
-		if addCpu > 0 {
-			cancelUsage.Cpu = addCpu
-		}
-		if addMem > 0 {
-			cancelUsage.Memory = addMem
-		}
-
-		lockman.LockClass(ctx, guest.GetModelManager(), guest.ProjectId)
-		defer lockman.ReleaseClass(ctx, guest.GetModelManager(), guest.ProjectId)
-
-		err = models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, guest.ProjectId, &pendingUsage, &cancelUsage)
-		if err != nil {
-			self.markStageFailed(ctx, guest, fmt.Sprintf("CancelPendingUsage fail %s", err))
-			return
-		}
-		err = self.SetPendingUsage(&pendingUsage)
-		if err != nil {
-			self.markStageFailed(ctx, guest, fmt.Sprintf("SetPendingUsage fail %s", err))
-			return
-		}
+		return nil
+	})
+	if err != nil {
+		self.markStageFailed(ctx, guest, fmt.Sprintf("Update fail %s", err))
+		return
 	}
+
+	var pendingUsage models.SQuota
+	err = self.GetPendingUsage(&pendingUsage)
+	if err != nil {
+		self.markStageFailed(ctx, guest, fmt.Sprintf("GetPendingUsage %s", err))
+		return
+	}
+	var cancelUsage models.SQuota
+	if addCpu > 0 {
+		cancelUsage.Cpu = addCpu
+	}
+	if addMem > 0 {
+		cancelUsage.Memory = addMem
+	}
+
+	lockman.LockClass(ctx, guest.GetModelManager(), guest.ProjectId)
+	defer lockman.ReleaseClass(ctx, guest.GetModelManager(), guest.ProjectId)
+
+	err = models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, guest.ProjectId, &pendingUsage, &cancelUsage)
+	if err != nil {
+		self.markStageFailed(ctx, guest, fmt.Sprintf("CancelPendingUsage fail %s", err))
+		return
+	}
+	err = self.SetPendingUsage(&pendingUsage)
+	if err != nil {
+		self.markStageFailed(ctx, guest, fmt.Sprintf("SetPendingUsage fail %s", err))
+		return
+	}
+
+	self.OnGuestChangeCpuMemSpecFinish(ctx, guest)
+}
+
+func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecFinish(ctx context.Context, guest *models.SGuest) {
+	self.SetStage("on_sync_config_complete", nil)
+	err := guest.StartSyncTask(ctx, self.UserCred, false, self.GetTaskId())
+	if err != nil {
+		self.markStageFailed(ctx, guest, fmt.Sprintf("StartSyncstatus fail %s", err))
+		return
+	}
+}
+
+func (self *GuestChangeConfigTask) OnSyncConfigComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+
 	self.SetStage("on_sync_status_complete", nil)
-	err = guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
+	err := guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
 	if err != nil {
 		self.markStageFailed(ctx, guest, fmt.Sprintf("StartSyncstatus fail %s", err))
 		return

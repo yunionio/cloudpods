@@ -246,8 +246,9 @@ func (self *SKVMGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context, gues
 	return nil
 }
 
-func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, vcpuCount, vmemSize int64) error {
+func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
 	// pass
+	task.ScheduleRun(nil)
 	return nil
 }
 
@@ -277,11 +278,11 @@ func (self *SKVMGuestDriver) GetRebuildRootStatus() ([]string, error) {
 }
 
 func (self *SKVMGuestDriver) GetChangeConfigStatus() ([]string, error) {
-	return []string{models.VM_READY}, nil
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
 }
 
 func (self *SKVMGuestDriver) GetDeployStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING, models.VM_ADMIN}, nil
+	return []string{models.VM_READY, models.VM_ADMIN}, nil
 }
 
 func (self *SKVMGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
