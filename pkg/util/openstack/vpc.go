@@ -96,7 +96,8 @@ func (vpc *SVpc) Delete() error {
 }
 
 func (region *SRegion) DeleteVpc(vpcId string) error {
-	return cloudprovider.ErrNotImplemented
+	_, err := region.Delete("network", "/v2.0/networks/"+vpcId, "")
+	return err
 }
 
 func (vpc *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, error) {
@@ -191,7 +192,7 @@ func (region *SRegion) GetVpc(vpcId string) (*SVpc, error) {
 }
 
 func (region *SRegion) GetVpcs() ([]SVpc, error) {
-	_, resp, err := region.Get("network", "/v2.0/networks", "", nil)
+	_, resp, err := region.List("network", "/v2.0/networks", "", nil)
 	if err != nil {
 		return nil, err
 	}

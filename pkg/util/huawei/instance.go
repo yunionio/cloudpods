@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"sort"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -363,10 +364,10 @@ func (self *SInstance) GetMachine() string {
 }
 
 func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return self.AssignSecurityGroups([]string{secgroupId})
+	return self.SetSecurityGroups([]string{secgroupId})
 }
 
-func (self *SInstance) AssignSecurityGroups(secgroupIds []string) error {
+func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	currentSecgroups, err := self.host.zone.region.GetInstanceSecrityGroupIds(self.GetId())
 	if err != nil {
 		return err

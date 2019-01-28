@@ -3,6 +3,7 @@ package openstack
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -69,6 +70,31 @@ func (cli *SOpenStackClient) Request(region, service, method string, url string,
 	ctx := context.Background()
 	session := cli.client.NewSession(ctx, region, "", "internal", cli.tokenCredential, "")
 	return session.JSONRequest(service, "", httputils.THttpMethod(method), url, header, body)
+}
+
+func (cli *SOpenStackClient) RawRequest(region, service, method string, url string, microversion string, body jsonutils.JSONObject) (*http.Response, error) {
+	header := http.Header{}
+	if len(microversion) > 0 {
+		header.Set("X-Openstack-Nova-API-Version", microversion)
+	}
+	ctx := context.Background()
+	session := cli.client.NewSession(ctx, region, "", "internal", cli.tokenCredential, "")
+	data := strings.NewReader("")
+	if body != nil {
+		data = strings.NewReader(body.String())
+	}
+	return session.RawRequest(service, "", httputils.THttpMethod(method), url, header, data)
+}
+
+func (cli *SOpenStackClient) StreamRequest(region, service, method string, url string, microversion string, body io.Reader) (*http.Response, error) {
+	header := http.Header{}
+	if len(microversion) > 0 {
+		header.Set("X-Openstack-Nova-API-Version", microversion)
+	}
+	header.Set("Content-Type", "application/octet-stream")
+	ctx := context.Background()
+	session := cli.client.NewSession(ctx, region, "", "internal", cli.tokenCredential, "")
+	return session.RawRequest(service, "", httputils.THttpMethod(method), url, header, body)
 }
 
 func (cli *SOpenStackClient) getVersion(region string, service string) (string, string, error) {

@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/pkg/utils"
 )
 
 const (
@@ -137,7 +138,7 @@ func (region *SRegion) GetSecurityGroupsByInstance(instanceId string) ([]Securit
 
 func (region *SRegion) GetInstances(zoneName string, hostName string) ([]SInstance, error) {
 	_, maxVersion, _ := region.GetVersion("compute")
-	_, resp, err := region.Get("compute", "/servers/detail", maxVersion, nil)
+	_, resp, err := region.List("compute", "/servers/detail", maxVersion, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -337,11 +338,17 @@ func (instance *SInstance) GetHypervisor() string {
 }
 
 func (instance *SInstance) StartVM(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	if err := instance.host.zone.region.StartVM(instance.ID); err != nil {
+		return err
+	}
+	return cloudprovider.WaitStatus(instance, models.VM_RUNNING, 10*time.Second, 8*time.Minute)
 }
 
 func (instance *SInstance) StopVM(ctx context.Context, isForce bool) error {
-	return cloudprovider.ErrNotImplemented
+	if err := instance.host.zone.region.StopVM(instance.ID, isForce); err != nil {
+		return err
+	}
+	return cloudprovider.WaitStatus(instance, models.VM_RUNNING, 10*time.Second, 8*time.Minute)
 }
 
 func (region *SRegion) GetInstanceVNCUrl(instanceId string) (string, error) {
@@ -401,20 +408,23 @@ func (region *SRegion) CreateInstance(name string, imageId string, instanceType 
 	return "", cloudprovider.ErrNotImplemented
 }
 
-func (region *SRegion) doStartVM(instanceId string) error {
-	return cloudprovider.ErrNotImplemented
+func (region *SRegion) instanceOperation(instanceId, operate string) error {
+	params := jsonutils.Marshal(map[string]string{operate: ""})
+	_, maxVersion, _ := region.GetVersion("compute")
+	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/action", instanceId), maxVersion, params)
+	return err
 }
 
 func (region *SRegion) doStopVM(instanceId string, isForce bool) error {
-	return cloudprovider.ErrNotImplemented
+	return region.instanceOperation(instanceId, "os-stop")
 }
 
 func (region *SRegion) doDeleteVM(instanceId string) error {
-	return cloudprovider.ErrNotImplemented
+	return region.instanceOperation(instanceId, "forceDelete")
 }
 
 func (region *SRegion) StartVM(instanceId string) error {
-	return cloudprovider.ErrNotImplemented
+	return region.instanceOperation(instanceId, "os-start")
 }
 
 func (region *SRegion) StopVM(instanceId string, isForce bool) error {
@@ -422,7 +432,20 @@ func (region *SRegion) StopVM(instanceId string, isForce bool) error {
 }
 
 func (region *SRegion) DeleteVM(instanceId string) error {
-	return cloudprovider.ErrNotImplemented
+	instance, err := region.GetInstance(instanceId)
+	if err != nil {
+		if err == cloudprovider.ErrNotFound {
+			return nil
+		}
+		log.Errorf("failed to get instance %s %v", instanceId, err)
+		return err
+	}
+	status := instance.GetStatus()
+	log.Debugf("Instance status on delete is %s", status)
+	if status != models.VM_READY {
+		log.Warningf("DeleteVM: vm status is %s expect %s", status, models.VM_READY)
+	}
+	return region.doDeleteVM(instanceId)
 }
 
 func (region *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, deleteKeypair bool, description string) error {
@@ -430,7 +453,7 @@ func (region *SRegion) DeployVM(instanceId string, name string, password string,
 }
 
 func (instance *SInstance) DeleteVM(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	return instance.host.zone.region.DeleteVM(instance.ID)
 }
 
 func (region *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd string, keypairName string, sysDiskSizeGB int) error {
@@ -454,11 +477,55 @@ func (region *SRegion) AttachDisk(instanceId string, diskId string) error {
 }
 
 func (instance *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return cloudprovider.ErrNotImplemented
+	secgroup, err := instance.host.zone.region.GetSecurityGroup(secgroupId)
+	if err != nil {
+		return err
+	}
+	params := map[string]map[string]string{
+		"addSecurityGroup": {
+			"name": secgroup.Name,
+		},
+	}
+	_, _, err = instance.host.zone.region.Post("compute", fmt.Sprintf("/servers/%s/action", instance.ID), "", jsonutils.Marshal(params))
+	return err
 }
 
-func (instance *SInstance) AssignSecurityGroups(secgroupIds []string) error {
-	return cloudprovider.ErrNotImplemented
+func (instance *SInstance) RevokeSecurityGroup(secgroupId string) error {
+	secgroup, err := instance.host.zone.region.GetSecurityGroup(secgroupId)
+	if err != nil {
+		return err
+	}
+	params := map[string]map[string]string{
+		"removeSecurityGroup": {
+			"name": secgroup.Name,
+		},
+	}
+	_, _, err = instance.host.zone.region.Post("compute", fmt.Sprintf("/servers/%s/action", instance.ID), "", jsonutils.Marshal(params))
+	return err
+}
+
+func (instance *SInstance) SetSecurityGroups(secgroupIds []string) error {
+	secgroups, err := instance.host.zone.region.GetSecurityGroupsByInstance(instance.ID)
+	if err != nil {
+		return err
+	}
+	originIds := []string{}
+	for _, secgroup := range secgroups {
+		if !utils.IsInStringArray(secgroup.ID, secgroupIds) {
+			if err := instance.RevokeSecurityGroup(secgroup.ID); err != nil {
+				return err
+			}
+		}
+		originIds = append(originIds, secgroup.ID)
+	}
+	for _, secgroupId := range secgroupIds {
+		if !utils.IsInStringArray(secgroupId, originIds) {
+			if err := instance.AssignSecurityGroup(secgroupId); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (instance *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {

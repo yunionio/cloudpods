@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -94,7 +95,12 @@ func (storage *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 }
 
 func (storage *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	diskId, err := storage.zone.region.CreateDisk(storage.zone.ZoneName, storage.Name, name, sizeGb, desc)
+	if err != nil {
+		log.Errorf("createDisk fail %v", err)
+		return nil, err
+	}
+	return storage.GetIDiskById(diskId)
 }
 
 func (storage *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {

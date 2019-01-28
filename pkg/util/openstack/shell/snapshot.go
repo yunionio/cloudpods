@@ -1,6 +1,8 @@
 package shell
 
 import (
+	"fmt"
+
 	"yunion.io/x/onecloud/pkg/util/openstack"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -18,16 +20,35 @@ func init() {
 		return nil
 	})
 
-	type SnapshotShowOptions struct {
+	type SnapshotOptions struct {
 		ID string `help:"ID of snapshot"`
 	}
 
-	shellutils.R(&SnapshotShowOptions{}, "snapshot-show", "Show snapshot", func(cli *openstack.SRegion, args *SnapshotShowOptions) error {
+	shellutils.R(&SnapshotOptions{}, "snapshot-show", "Show snapshot", func(cli *openstack.SRegion, args *SnapshotOptions) error {
 		snapshot, err := cli.GetISnapshotById(args.ID)
 		if err != nil {
 			return err
 		}
 		printObject(snapshot)
+		return nil
+	})
+
+	shellutils.R(&SnapshotOptions{}, "snapshot-delete", "Delete snapshot", func(cli *openstack.SRegion, args *SnapshotOptions) error {
+		return cli.DeleteSnapshot(args.ID)
+	})
+
+	type SnapshotCreateOptions struct {
+		DISKID string `help:"Disk ID"`
+		Name   string `help:"Disk Name"`
+		Desc   string `help:"Disk description"`
+	}
+
+	shellutils.R(&SnapshotCreateOptions{}, "snapshot-create", "Create snapshot", func(cli *openstack.SRegion, args *SnapshotCreateOptions) error {
+		snapshotId, err := cli.CreateSnapshot(args.DISKID, args.Name, args.Desc)
+		if err != nil {
+			return err
+		}
+		fmt.Println(snapshotId)
 		return nil
 	})
 

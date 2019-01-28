@@ -461,7 +461,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.
 				}
 				externalIds = append(externalIds, extID)
 			}
-			return nil, iVM.AssignSecurityGroups(externalIds)
+			return nil, iVM.SetSecurityGroups(externalIds)
 		}
 
 		iDisks, err := iVM.GetIDisks()

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -56,7 +57,13 @@ func (wire *SWire) GetBandwidth() int {
 }
 
 func (wire *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	networkId, err := wire.zone.region.CreateNetwork(wire.vpc.ID, name, cidr, desc)
+	if err != nil {
+		log.Errorf("CreateNetwork error %s", err)
+		return nil, err
+	}
+	wire.inetworks = nil
+	return wire.GetINetworkById(networkId)
 }
 
 func (wire *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, error) {

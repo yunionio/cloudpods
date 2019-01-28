@@ -94,7 +94,7 @@ func (zone *SZone) fetchStorages() error {
 	zone.istorages = []cloudprovider.ICloudStorage{}
 
 	for _, service := range []string{"volumev3", "volumev2", "volume"} {
-		_, resp, err := zone.region.Get(service, "/types", "", nil)
+		_, resp, err := zone.region.List(service, "/types", "", nil)
 		if err == nil {
 			storages := []SStorage{}
 			if err := resp.Unmarshal(&storages, "volume_types"); err != nil {
@@ -142,7 +142,7 @@ func (zone *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 	hosts := []SHost{}
 	_, maxVersion, err := zone.region.GetVersion("compute")
 	if err == nil && version.GE(maxVersion, HYPERVISORS_VERSION) {
-		_, resp, err := zone.region.Get("compute", "/os-hypervisors/detail", maxVersion, nil)
+		_, resp, err := zone.region.List("compute", "/os-hypervisors/detail", maxVersion, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -156,7 +156,7 @@ func (zone *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 		return ihosts, nil
 	}
 
-	_, resp, err := zone.region.Get("compute", "/os-hosts", "", nil)
+	_, resp, err := zone.region.List("compute", "/os-hosts", "", nil)
 	if err != nil {
 		return nil, err
 	}

@@ -60,7 +60,7 @@ func (region *SRegion) GetPorts(macAddress string) ([]SPort, error) {
 		params.Set("mac_address", macAddress)
 	}
 	url := fmt.Sprintf("%s?%s", base, params.Encode())
-	_, resp, err := region.Get("network", url, "", nil)
+	_, resp, err := region.List("network", url, "", nil)
 	if err != nil {
 		return nil, err
 	}

@@ -2,10 +2,12 @@ package openstack
 
 import (
 	"net"
+	"sort"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
@@ -45,6 +47,20 @@ type SSecurityGroup struct {
 	TenantID           string
 }
 
+type SecurigyGroupRuleSet []SSecurityGroupRule
+
+func (v SecurigyGroupRuleSet) Len() int {
+	return len(v)
+}
+
+func (v SecurigyGroupRuleSet) Swap(i, j int) {
+	v[i], v[j] = v[j], v[i]
+}
+
+func (v SecurigyGroupRuleSet) Less(i, j int) bool {
+	return strings.Compare(v[i].String(), v[j].String()) <= 0
+}
+
 func (region *SRegion) GetSecurityGroup(secgroupId string) (*SSecurityGroup, error) {
 	_, resp, err := region.Get("network", "/v2.0/security-groups/"+secgroupId, "", nil)
 	if err != nil {
@@ -55,7 +71,7 @@ func (region *SRegion) GetSecurityGroup(secgroupId string) (*SSecurityGroup, err
 }
 
 func (region *SRegion) GetSecurityGroups() ([]SSecurityGroup, error) {
-	_, resp, err := region.Get("network", "/v2.0/security-groups", "", nil)
+	_, resp, err := region.List("network", "/v2.0/security-groups", "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -172,14 +188,127 @@ func (secgroup *SSecurityGroup) Refresh() error {
 	return jsonutils.Update(secgroup, new)
 }
 
-func (secgroup *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+func (region *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
+	if len(secgroupId) > 0 {
+		_, err := region.GetSecurityGroup(secgroupId)
+		if err != nil {
+			if err != cloudprovider.ErrNotFound {
+				return "", err
+			}
+			secgroupId = ""
+		}
+	}
+	if len(secgroupId) == 0 {
+		secgroupId, err := region.CreateSecurityGroup(name, desc)
+		if err != nil {
+			return "", err
+		}
+		secgroupId = secgroupId
+	}
+	return region.syncSecgroupRules(secgroupId, rules)
+}
+
+func (region *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.SecurityRule) (string, error) {
+	secgroup, err := region.GetSecurityGroup(secgroupId)
+	if err != nil {
+		return "", err
+	}
+
+	sort.Sort(secrules.SecurityRuleSet(rules))
+	sort.Sort(SecurigyGroupRuleSet(secgroup.SecurityGroupRules))
+
+	i, j := 0, 0
+	for i < len(rules) || j < len(secgroup.SecurityGroupRules) {
+		if i < len(rules) && j < len(secgroup.SecurityGroupRules) {
+			secruleStr := secgroup.SecurityGroupRules[j].String()
+			ruleStr := rules[i].String()
+			cmp := strings.Compare(secruleStr, ruleStr)
+			if cmp == 0 {
+				i++
+				j++
+			} else if cmp > 0 {
+				if err := region.delSecurityGroupRule(secgroup.SecurityGroupRules[j].ID); err != nil {
+					log.Errorf("delSecurityGroupRule error %v", err)
+					return "", err
+				}
+				j++
+			} else {
+				if err := region.addSecurityGroupRules(secgroupId, &rules[i]); err != nil {
+					log.Errorf("addSecurityGroupRule error %v", rules[i])
+					return "", err
+				}
+				i++
+			}
+		} else if i >= len(rules) {
+			if err := region.delSecurityGroupRule(secgroup.SecurityGroupRules[j].ID); err != nil {
+				log.Errorf("delSecurityGroupRule error %v", err)
+				return "", err
+			}
+			j++
+		} else if j >= len(secgroup.SecurityGroupRules) {
+			if err := region.addSecurityGroupRules(secgroupId, &rules[i]); err != nil {
+				log.Errorf("addSecurityGroupRule error %v", rules[i])
+				return "", err
+			}
+			i++
+		}
+	}
+
+	return secgroupId, nil
+}
+
+func (region *SRegion) delSecurityGroupRule(ruleId string) error {
+	_, err := region.Delete("network", "/v2.0/security-group-rules/"+ruleId, "")
+	return err
+}
+
+func (region *SRegion) addSecurityGroupRules(secgroupId string, rule *secrules.SecurityRule) error {
+	direction := "ingress"
+	if rule.Direction == secrules.SecurityRuleEgress {
+		direction = "egress"
+	}
+	params := map[string]map[string]interface{}{
+		"security_group_rule": {
+			"direction":         direction,
+			"protocol":          rule.Protocol,
+			"security_group_id": secgroupId,
+			"remote_ip_prefix":  rule.IPNet.String(),
+		},
+	}
+	if len(rule.Ports) > 0 {
+		for _, port := range rule.Ports {
+			params["security_group_rule"]["port_range_max"] = port
+			params["security_group_rule"]["port_range_max"] = port
+			_, _, err := region.Post("network", "/v2.0/security-group-rules", "", jsonutils.Marshal(params))
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if rule.PortEnd > 0 && rule.PortStart > 0 {
+		params["security_group_rule"]["port_range_max"] = rule.PortStart
+		params["security_group_rule"]["port_range_max"] = rule.PortEnd
+	}
+	_, _, err := region.Post("network", "/v2.0/security-group-rules", "", jsonutils.Marshal(params))
+	return err
 }
 
 func (region *SRegion) DeleteSecurityGroup(vpcId, secGroupId string) error {
-	return cloudprovider.ErrNotImplemented
+	_, err := region.Delete("network", "/v2.0/security-groups/"+secGroupId, "")
+	return err
 }
 
-func (region *SRegion) CreateSecurityGroup(name, description string) (*SSecurityGroup, error) {
-	return nil, cloudprovider.ErrNotImplemented
+func (region *SRegion) CreateSecurityGroup(name, description string) (string, error) {
+	params := map[string]map[string]interface{}{
+		"security_group": {
+			"name":        name,
+			"description": description,
+		},
+	}
+	_, resp, err := region.Post("network", "/v2.0/security-groups", "", jsonutils.Marshal(params))
+	if err != nil {
+		return "", err
+	}
+	return resp.GetString("security_group", "id")
 }

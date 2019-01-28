@@ -16,3 +16,7 @@ func init() {
 func (self *SOpenStackHostDriver) GetHostType() string {
 	return models.HOST_TYPE_OPENSTACK
 }
+
+func (self *SOpenStackHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
+	return nil
+}
