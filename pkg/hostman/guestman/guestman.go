@@ -139,9 +139,6 @@ func (m *SGuestManager) OnLoadExistingGuestsComplete() {
 		log.Errorln(err)
 	}
 
-	// TODO
-	// hostmetrics.Init()
-
 	if !options.HostOptions.EnableCpuBinding {
 		m.ClenaupCpuset()
 	}
@@ -641,8 +638,6 @@ func (m *SGuestManager) ExitGuestCleanup() {
 	}
 
 	cgrouputils.CgroupCleanAll()
-	// TODO
-	// hostmetrics?
 }
 
 func (m *SGuestManager) GetHost() hostutils.IHost {
