@@ -16,13 +16,13 @@ type IBaremetal interface {
 	GetTaskQueue() *TaskQueue
 	GetSSHConfig() (*types.SSHConfig, error)
 	TestSSHConfig() bool
-	GetAdminNic() *types.Nic
+	GetAdminNic() *types.SNic
 	GetName() string
 	GetClientSession() *mcclient.ClientSession
 	SaveDesc(desc jsonutils.JSONObject) error
-	GetNicByMac(net.HardwareAddr) *types.Nic
-	GetRawIPMIConfig() *types.IPMIInfo
-	GetIPMINic(mac net.HardwareAddr) *types.Nic
+	GetNicByMac(net.HardwareAddr) *types.SNic
+	GetRawIPMIConfig() *types.SIPMIInfo
+	GetIPMINic(mac net.HardwareAddr) *types.SNic
 	SetExistingIPMIIPAddr(ipAddr string)
 	GetServer() baremetaltypes.IBaremetalServer
 

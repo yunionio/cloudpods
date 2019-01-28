@@ -1,6 +1,6 @@
 package types
 
-type NetworkConfig struct {
+type SNetworkConfig struct {
 	GuestDhcp    string `json:"guest_dhcp"`
 	GuestGateway string `json:"guest_gateway"`
 	GuestIpStart string `json:"guest_ip_start"`

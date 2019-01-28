@@ -66,7 +66,7 @@ func DetectStorageInfo(term *ssh.Client, wait bool) ([]*baremetal.BaremetalStora
 
 	maxTries := 6
 	sleep := 10 * time.Second
-	nonRaidDiskInfo := []*types.DiskInfo{}
+	nonRaidDiskInfo := []*types.SDiskInfo{}
 	for tried := 0; len(nonRaidDiskInfo) <= len(lvDiskInfo) && tried < maxTries; tried++ {
 		ret, err := term.Run("/lib/mos/lsdisk --nonraid")
 		if err != nil {
@@ -94,7 +94,7 @@ func DetectStorageInfo(term *ssh.Client, wait bool) ([]*baremetal.BaremetalStora
 	return raidDiskInfo, convertDiskInfos(nonRaidDiskInfo), convertDiskInfos(pcieDiskInfo), nil
 }
 
-func convertDiskInfos(infos []*types.DiskInfo) []*baremetal.BaremetalStorage {
+func convertDiskInfos(infos []*types.SDiskInfo) []*baremetal.BaremetalStorage {
 	ret := make([]*baremetal.BaremetalStorage, 0)
 	for _, info := range infos {
 		ret = append(ret, convertDiskInfo(info))
@@ -102,7 +102,7 @@ func convertDiskInfos(infos []*types.DiskInfo) []*baremetal.BaremetalStorage {
 	return ret
 }
 
-func convertDiskInfo(info *types.DiskInfo) *baremetal.BaremetalStorage {
+func convertDiskInfo(info *types.SDiskInfo) *baremetal.BaremetalStorage {
 	return &baremetal.BaremetalStorage{
 		Driver:     info.Driver,
 		Size:       int64(info.Size),

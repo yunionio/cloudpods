@@ -66,7 +66,7 @@ func (s *SGuestDHCPServer) RelaySetup(addr string) error {
 }
 
 func (s *SGuestDHCPServer) getGuestConfig(guestDesc, guestNic jsonutils.JSONObject) *dhcp.ResponseConfig {
-	var nicdesc = new(types.ServerNic)
+	var nicdesc = new(types.SServerNic)
 	if err := guestNic.Unmarshal(nicdesc); err != nil {
 		log.Errorln(err)
 		return nil

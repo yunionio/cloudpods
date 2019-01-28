@@ -7,7 +7,7 @@ const (
 	POWER_STATUS_OFF = "off"
 )
 
-type IPMIInfo struct {
+type SIPMIInfo struct {
 	Username   string `json:"username"`
 	Password   string `json:"password"`
 	IpAddr     string `json:"ip_addr"`
@@ -15,7 +15,7 @@ type IPMIInfo struct {
 	LanChannel int    `json:"lan_channel"`
 }
 
-func (info IPMIInfo) ToPrepareParams() jsonutils.JSONObject {
+func (info SIPMIInfo) ToPrepareParams() jsonutils.JSONObject {
 	data := jsonutils.NewDict()
 	if info.Username != "" {
 		data.Add(jsonutils.NewString(info.Username), "ipmi_username")

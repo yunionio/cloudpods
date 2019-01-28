@@ -40,7 +40,7 @@ type DHCPHandler struct {
 	// baremetal instance
 	baremetalInstance IBaremetalInstance
 	// cloud network config
-	netConfig *types.NetworkConfig
+	netConfig *types.SNetworkConfig
 }
 
 func (h *DHCPHandler) ServeDHCP(pkt dhcp.Packet, _ *net.UDPAddr, _ *net.Interface) (dhcp.Packet, error) {
@@ -178,7 +178,7 @@ func (h *DHCPHandler) fetchConfig() (*dhcp.ResponseConfig, error) {
 	}
 }
 
-func (h *DHCPHandler) findNetworkConf(filterUseIp bool) (*types.NetworkConfig, error) {
+func (h *DHCPHandler) findNetworkConf(filterUseIp bool) (*types.SNetworkConfig, error) {
 	params := jsonutils.NewDict()
 	if filterUseIp {
 		params.Add(jsonutils.NewString(h.RelayAddr.String()), "ip")
@@ -204,7 +204,7 @@ func (h *DHCPHandler) findNetworkConf(filterUseIp bool) (*types.NetworkConfig, e
 		return nil, fmt.Errorf("DHCP relay from %s(%s) for %s, find no match network", h.RelayAddr, h.ClientAddr, h.ClientMac)
 	}
 
-	network := types.NetworkConfig{}
+	network := types.SNetworkConfig{}
 	err = ret.Data[0].Unmarshal(&network)
 	return &network, err
 }

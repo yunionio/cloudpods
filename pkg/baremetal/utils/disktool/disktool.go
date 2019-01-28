@@ -213,7 +213,7 @@ func newDiskPartitions(driver string, adapter int, sizeMB int64, blockSize int64
 	return ps
 }
 
-func (p *DiskPartitions) SetInfo(info *types.DiskInfo) *DiskPartitions {
+func (p *DiskPartitions) SetInfo(info *types.SDiskInfo) *DiskPartitions {
 	p.dev = fmt.Sprintf("/dev/%s", info.Dev)
 	p.devName = info.Dev
 	p.sectors = info.Sector
