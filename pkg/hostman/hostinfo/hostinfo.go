@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
+	"yunion.io/x/onecloud/pkg/util/winutils"
 )
 
 var (
@@ -216,8 +217,9 @@ func (h *SHostInfo) prepareEnv() error {
 		log.Errorf("Failed to activate nbd device: %s", output)
 	}
 
-	// TODO: winRegTool还未实现
-	// if not WinRegTool.check_tool(options.chntpw_path)...
+	if !winutils.CheckTool(options.HostOptions.ChntpwPath) {
+		return fmt.Errorf("Failed to find chntpw tool")
+	}
 
 	if err := hostbridge.Prepare(options.HostOptions.BridgeDriver); err != nil {
 		log.Errorln(err)

@@ -1418,7 +1418,7 @@ func (s *SBaremetalServer) DoDeploy(term *ssh.Client, data jsonutils.JSONObject,
 	if resetPassword && len(password) == 0 {
 		password = seclib.RandomPassword(12)
 	}
-	deployInfo := guestfs.NewDeployInfo(publicKey, deploys, password, isInit, true, o.Options.LinuxDefaultRootUser)
+	deployInfo := guestfs.NewDeployInfo(publicKey, deploys, password, isInit, true, o.Options.LinuxDefaultRootUser, o.Options.WindowsDefaultAdminUser)
 	return s.deployFs(term, deployInfo)
 }
 
