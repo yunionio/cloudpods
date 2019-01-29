@@ -739,9 +739,18 @@ func parseNetworkInfo(userCred mcclient.TokenCredential, info jsonutils.JSONObje
 		} else {
 			netObj, err := NetworkManager.FetchByIdOrName(userCred, p)
 			if err != nil {
-				return nil, err
+				if err == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError2(NetworkManager.Keyword(), p)
+				} else {
+					return nil, err
+				}
 			}
-			netConfig.Network = netObj.GetId()
+			net := netObj.(*SNetwork)
+			if net.IsOwner(userCred) || net.IsPublic || db.IsAdminAllowGet(userCred, net) {
+				netConfig.Network = netObj.GetId()
+			} else {
+				return nil, httperrors.NewForbiddenError("no allow to access network %s", p)
+			}
 		}
 	}
 	if netConfig.BwLimit == 0 {
