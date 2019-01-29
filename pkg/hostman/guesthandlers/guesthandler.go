@@ -1,4 +1,4 @@
-package guestman
+package guesthandlers
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/hostman/guestman"
 )
 
 type strDict map[string]string
@@ -88,12 +89,12 @@ func guestActions(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 
 func getStatus(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, _ := appsrv.FetchEnv(ctx, w, r)
-	var status = guestManger.Status(params["<sid>"])
+	var status = guestman.GetGuestManager().Status(params["<sid>"])
 	appsrv.SendStruct(w, strDict{"status": status})
 }
 
 func cpusetBalance(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	hostutils.DelayTask(ctx, guestManger.CpusetBalance, nil)
+	hostutils.DelayTask(ctx, guestman.GetGuestManager().CpusetBalance, nil)
 	hostutils.ResponseOk(ctx, w)
 }
 
@@ -101,7 +102,7 @@ func deleteGuest(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, body := appsrv.FetchEnv(ctx, w, r)
 	var sid = params["<sid>"]
 	var migrated = jsonutils.QueryBoolean(body, "migrated", false)
-	guest, err := guestManger.Delete(sid)
+	guest, err := guestman.GetGuestManager().Delete(sid)
 	if err != nil {
 		hostutils.Response(ctx, w, err)
 	} else {
@@ -111,25 +112,25 @@ func deleteGuest(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 }
 
 func guestCreate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	err := guestManger.PrepareCreate(sid)
+	err := guestman.GetGuestManager().PrepareCreate(sid)
 	if err != nil {
 		return nil, err
 	}
-	hostutils.DelayTask(ctx, guestManger.GuestDeploy, &SGuestDeploy{sid, body, true})
+	hostutils.DelayTask(ctx, guestman.GetGuestManager().GuestDeploy, &guestman.SGuestDeploy{sid, body, true})
 	return nil, nil
 }
 
 func guestDeploy(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	err := guestManger.PrepareDeploy(sid)
+	err := guestman.GetGuestManager().PrepareDeploy(sid)
 	if err != nil {
 		return nil, err
 	}
-	hostutils.DelayTask(ctx, guestManger.GuestDeploy, &SGuestDeploy{sid, body, false})
+	hostutils.DelayTask(ctx, guestman.GetGuestManager().GuestDeploy, &guestman.SGuestDeploy{sid, body, false})
 	return nil, nil
 }
 
 func guestStart(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	return guestManger.GuestStart(ctx, sid, body)
+	return guestman.GetGuestManager().GuestStart(ctx, sid, body)
 }
 
 func guestStop(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
@@ -137,11 +138,11 @@ func guestStop(ctx context.Context, sid string, body jsonutils.JSONObject) (inte
 	if err != nil {
 		timeout = 30
 	}
-	return nil, guestManger.GuestStop(ctx, sid, timeout)
+	return nil, guestman.GetGuestManager().GuestStop(ctx, sid, timeout)
 }
 
 func guestMonitor(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	if !guestManger.IsGuestExist(sid) {
+	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
 
@@ -151,7 +152,7 @@ func guestMonitor(ctx context.Context, sid string, body jsonutils.JSONObject) (i
 			c <- res
 		}
 		cmd, _ := body.GetString("cmd")
-		err := guestManger.Monitor(sid, cmd, cb)
+		err := guestman.GetGuestManager().Monitor(sid, cmd, cb)
 		if err != nil {
 			return nil, err
 		} else {
@@ -169,33 +170,33 @@ func guestMonitor(ctx context.Context, sid string, body jsonutils.JSONObject) (i
 }
 
 func guestSync(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	if !guestManger.IsGuestExist(sid) {
+	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
-	hostutils.DelayTask(ctx, guestManger.GuestSync, &SBaseParms{sid, body})
+	hostutils.DelayTask(ctx, guestman.GetGuestManager().GuestSync, &guestman.SBaseParms{sid, body})
 	return nil, nil
 }
 
 func guestSuspend(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	if !guestManger.IsGuestExist(sid) {
+	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
-	hostutils.DelayTaskWithoutReqctx(ctx, guestManger.GuestSuspend, sid)
+	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().GuestSuspend, sid)
 	return nil, nil
 }
 
 func guestSrcPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	if !guestManger.IsGuestExist(sid) {
+	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
 	liveMigrate := jsonutils.QueryBoolean(body, "live_migrate", false)
-	hostutils.DelayTask(ctx, guestManger.SrcPrepareMigrate,
-		&SSrcPrepareMigrate{sid, liveMigrate})
+	hostutils.DelayTask(ctx, guestman.GetGuestManager().SrcPrepareMigrate,
+		&guestman.SSrcPrepareMigrate{sid, liveMigrate})
 	return nil, nil
 }
 
 func guestDestPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	if !guestManger.CanMigrate(sid) {
+	if !guestman.GetGuestManager().CanMigrate(sid) {
 		return nil, httperrors.NewBadRequestError("Guest exist")
 	}
 	desc, err := body.Get("desc")
@@ -211,7 +212,7 @@ func guestDestPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSO
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("is_local_storage")
 	}
-	var params = &SDestPrepareMigrate{}
+	var params = &guestman.SDestPrepareMigrate{}
 	params.Sid = sid
 	params.Desc = desc
 	params.QemuVersion = qemuVersion
@@ -258,12 +259,12 @@ func guestDestPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSO
 			params.TargetStorageId = targetStorageId
 		}
 	}
-	hostutils.DelayTask(ctx, guestManger.DestPrepareMigrate, params)
+	hostutils.DelayTask(ctx, guestman.GetGuestManager().DestPrepareMigrate, params)
 	return nil, nil
 }
 
 func guestLiveMigrate(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	if !guestManger.IsGuestExist(sid) {
+	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
 	destPort, err := body.Int("live_migrate_dest_port")
@@ -278,18 +279,18 @@ func guestLiveMigrate(ctx context.Context, sid string, body jsonutils.JSONObject
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("is_local_storage")
 	}
-	hostutils.DelayTaskWithoutReqctx(ctx, guestManger.LiveMigrate, &SLiveMigrate{
+	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().LiveMigrate, &guestman.SLiveMigrate{
 		Sid: sid, DestPort: int(destPort), DestIp: destIp, IsLocal: isLocal,
 	})
 	return nil, nil
 }
 
 func guestResume(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	if !guestManger.IsGuestExist(sid) {
+	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
 	isLiveMigrate := jsonutils.QueryBoolean(body, "live_migrate", false)
-	guestManger.Resume(ctx, sid, isLiveMigrate)
+	guestman.GetGuestManager().Resume(ctx, sid, isLiveMigrate)
 	return nil, nil
 }
 
@@ -302,20 +303,20 @@ func guestResume(ctx context.Context, sid string, body jsonutils.JSONObject) (in
 // }
 
 func guestDriveMirror(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	if !guestManger.IsGuestExist(sid) {
+	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
 	backupNbdServerUri, err := body.GetString("backup_ndb_server_uri")
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("backup_ndb_server_uri")
 	}
-	hostutils.DelayTaskWithoutReqctx(ctx, guestManger.StartDriveMirror,
-		&SDriverMirror{sid, backupNbdServerUri})
+	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().StartDriveMirror,
+		&guestman.SDriverMirror{sid, backupNbdServerUri})
 	return nil, nil
 }
 
 func guestReloadDiskSnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	if !guestManger.IsGuestExist(sid) {
+	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
 	diskId, err := body.GetString("disk_id")
@@ -324,7 +325,7 @@ func guestReloadDiskSnapshot(ctx context.Context, sid string, body jsonutils.JSO
 	}
 
 	var disk storageman.IDisk
-	guest := guestManger.Servers[sid]
+	guest := guestman.GetGuestManager().Servers[sid]
 	disks, _ := guest.Desc.GetArray("disks")
 	for _, d := range disks {
 		id, _ := d.GetString("disk_id")
@@ -338,12 +339,12 @@ func guestReloadDiskSnapshot(ctx context.Context, sid string, body jsonutils.JSO
 		return nil, httperrors.NewNotFoundError("Disk not found")
 	}
 
-	hostutils.DelayTaskWithoutReqctx(ctx, guestManger.ReloadDiskSnapshot, &SReloadDisk{sid, disk})
+	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().ReloadDiskSnapshot, &guestman.SReloadDisk{sid, disk})
 	return nil, nil
 }
 
 func guestSnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
-	if !guestManger.IsGuestExist(sid) {
+	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
 	snapshotId, err := body.GetString("snapshot_id")
@@ -356,7 +357,7 @@ func guestSnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (
 	}
 
 	var disk storageman.IDisk
-	guest := guestManger.Servers[sid]
+	guest := guestman.GetGuestManager().Servers[sid]
 	disks, _ := guest.Desc.GetArray("disks")
 	for _, d := range disks {
 		id, _ := d.GetString("disk_id")
@@ -370,7 +371,7 @@ func guestSnapshot(ctx context.Context, sid string, body jsonutils.JSONObject) (
 		return nil, httperrors.NewNotFoundError("Disk not found")
 	}
 
-	hostutils.DelayTask(ctx, guestManger.DoSnapshot, &SDiskSnapshot{sid, snapshotId, disk})
+	hostutils.DelayTask(ctx, guestman.GetGuestManager().DoSnapshot, &guestman.SDiskSnapshot{sid, snapshotId, disk})
 	return nil, nil
 }
 
@@ -385,7 +386,7 @@ func guestDeleteSnapshot(ctx context.Context, sid string, body jsonutils.JSONObj
 	}
 
 	var disk storageman.IDisk
-	guest := guestManger.Servers[sid]
+	guest := guestman.GetGuestManager().Servers[sid]
 	disks, _ := guest.Desc.GetArray("disks")
 	for _, d := range disks {
 		id, _ := d.GetString("disk_id")
@@ -399,7 +400,7 @@ func guestDeleteSnapshot(ctx context.Context, sid string, body jsonutils.JSONObj
 		return nil, httperrors.NewNotFoundError("Disk not found")
 	}
 
-	params := &SDeleteDiskSnapshot{
+	params := &guestman.SDeleteDiskSnapshot{
 		Sid:            sid,
 		DeleteSnapshot: deleteSnapshot,
 		Disk:           disk,
@@ -417,6 +418,6 @@ func guestDeleteSnapshot(ctx context.Context, sid string, body jsonutils.JSONObj
 		}
 		params.PendingDelete = pendingDelete
 	}
-	hostutils.DelayTask(ctx, guestManger.DeleteSnapshot, params)
+	hostutils.DelayTask(ctx, guestman.GetGuestManager().DeleteSnapshot, params)
 	return nil, nil
 }

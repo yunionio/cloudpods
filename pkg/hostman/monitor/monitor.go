@@ -19,7 +19,7 @@ type Monitor interface {
 
 	// The callback function will be called in another goroutine
 	SimpleCommand(cmd string, callback StringCallback)
-	HumanMonirotCommand(cmd string, callback StringCallback)
+	HumanMonitorCommand(cmd string, callback StringCallback)
 
 	QueryStatus(StringCallback)
 	GetVersion(StringCallback)
@@ -45,6 +45,8 @@ type Monitor interface {
 	ReloadDiskBlkdev(device, path string, callback StringCallback)
 	SetVncPassword(proto, password string, callback StringCallback)
 	StartNbdServer(port int, exportAllDevice, writable bool, callback StringCallback)
+
+	ResizeDisk(driveName string, sizeMB int64, callback StringCallback)
 }
 
 type MonitorErrorFunc func(error)
