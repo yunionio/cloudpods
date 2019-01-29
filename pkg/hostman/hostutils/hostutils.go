@@ -82,8 +82,8 @@ func RemoteStoragecacheCacheImage(ctx context.Context, storagecacheId, imageId, 
 	var params = jsonutils.NewDict()
 	params.Set("status", jsonutils.NewString(status))
 	params.Set("path", jsonutils.NewString(spath))
-	return modules.Storagecachedimages.Update2(GetComputeSession(ctx),
-		storagecacheId, imageId, params, query)
+	return modules.Storagecachedimages.Update(GetComputeSession(ctx),
+		storagecacheId, imageId, query, params)
 }
 
 func UpdateServerStatus(ctx context.Context, sid, status string) (jsonutils.JSONObject, error) {

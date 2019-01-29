@@ -35,10 +35,12 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 		config.PublicKey = guest.GetKeypairPublicKey()
 	}
 
-	nics := guest.GetNetworks()
-	net := nics[0].GetNetwork()
-	config.ExternalNetworkId = net.ExternalId
-	config.IpAddr = nics[0].IpAddr
+	nics, _ := guest.GetNetworks("")
+	if len(nics) > 0 {
+		net := nics[0].GetNetwork()
+		config.ExternalNetworkId = net.ExternalId
+		config.IpAddr = nics[0].IpAddr
+	}
 
 	disks := guest.GetDisks()
 	config.DataDisks = []cloudprovider.SDiskInfo{}
@@ -426,7 +428,11 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.
 
 		if fwOnly, _ := task.GetParams().Bool("fw_only"); fwOnly {
 			vpcId := ""
-			for _, network := range guest.GetNetworks() {
+			guestnets, err := guest.GetNetworks("")
+			if err != nil {
+				return nil, err
+			}
+			for _, network := range guestnets {
 				if vpc := network.GetNetwork().GetVpc(); vpc != nil {
 					vpcId = vpc.ExternalId
 					break

@@ -82,7 +82,7 @@ func init() {
 		if params.Size() == 0 {
 			return InvalidUpdateError()
 		}
-		srv, err := modules.Serverdisks.Update(s, args.SERVER, args.DISK, params)
+		srv, err := modules.Serverdisks.Update(s, args.SERVER, args.DISK, nil, params)
 		if err != nil {
 			return err
 		}

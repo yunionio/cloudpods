@@ -163,7 +163,7 @@ func init() {
 			params.Add(jsonutils.NewString(args.MonitorConfig), "monitor_conf_value")
 		}
 
-		monitor_template_inputs, err := modules.MonitorTemplateInputs.Update(s, args.MONITOR_TEMPLATE_ID, args.MONITOR_INPUT_NAME, params)
+		monitor_template_inputs, err := modules.MonitorTemplateInputs.Update(s, args.MONITOR_TEMPLATE_ID, args.MONITOR_INPUT_NAME, nil, params)
 
 		if err != nil {
 			return err

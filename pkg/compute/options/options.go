@@ -76,6 +76,8 @@ type ComputeOptions struct {
 	HostOfflineMaxSeconds        int `help:"Maximal seconds interval that a host considered offline during which it did not ping region, default is 3 minues" default:"180"`
 	HostOfflineDetectionInterval int `help:"Interval to check offline hosts, defualt is half a minute" default:"30"`
 
+	MinimalIpAddrReusedIntervalSeconds int `help:"Minimal seconds when a release IP address can be reallocate" default:"30"`
+
 	cloudcommon.CommonOptions
 	cloudcommon.DBOptions
 }

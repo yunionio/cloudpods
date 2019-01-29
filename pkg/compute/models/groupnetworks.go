@@ -56,7 +56,7 @@ func (self *SGroupnetwork) GetExtraDetails(ctx context.Context, userCred mcclien
 	return db.JointModelExtra(self, extra), nil
 }
 
-func (self *SGroupnetwork) getNetwork() *SNetwork {
+func (self *SGroupnetwork) GetNetwork() *SNetwork {
 	obj, err := NetworkManager.FetchById(self.NetworkId)
 	if err != nil {
 		log.Errorf("%s", err)
