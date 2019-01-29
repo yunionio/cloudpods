@@ -25,7 +25,7 @@ type SGroupJointsBase struct {
 	SrvtagId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
-func (self *SGroupJointsBase) GetGroup() *SGuest {
+func (self *SGroupJointsBase) GetGroup() *SGroup {
 	guest, _ := GroupManager.FetchById(self.SrvtagId)
-	return guest.(*SGuest)
+	return guest.(*SGroup)
 }

@@ -1,7 +1,12 @@
 package shell
 
 import (
+	"fmt"
+	"strconv"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/regutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -31,9 +36,6 @@ func init() {
 		if len(args.Ip) > 0 {
 			params.Add(jsonutils.NewString(args.Ip), "ip_addr")
 		}
-		if len(args.Network) > 0 {
-			params.Add(jsonutils.NewString(args.Network), "network_id")
-		}
 		var result *modules.ListResult
 		var err error
 		if len(args.Server) > 0 {
@@ -53,9 +55,14 @@ func init() {
 	type ServerNetworkDetailOptions struct {
 		SERVER  string `help:"ID or Name of Server"`
 		NETWORK string `help:"ID or Name of Network"`
+		Mac     string `help:"Mac of the guest NIC"`
 	}
 	R(&ServerNetworkDetailOptions{}, "server-network-show", "Show server network details", func(s *mcclient.ClientSession, args *ServerNetworkDetailOptions) error {
-		result, err := modules.Servernetworks.Get(s, args.SERVER, args.NETWORK, nil)
+		query := jsonutils.NewDict()
+		if len(args.Mac) > 0 {
+			query.Add(jsonutils.NewString(args.Mac), "mac")
+		}
+		result, err := modules.Servernetworks.Get(s, args.SERVER, args.NETWORK, query)
 		if err != nil {
 			return err
 		}
@@ -66,6 +73,7 @@ func init() {
 	type ServerNetworkUpdateOptions struct {
 		SERVER  string `help:"ID or Name of Server"`
 		NETWORK string `help:"ID or Name of Wire"`
+		Mac     string `help:"Mac of NIC"`
 		Driver  string `help:"Driver model of vNIC" choices:"virtio|e1000|vmxnet3|rtl8139"`
 		Index   int64  `help:"Index of NIC" default:"-1"`
 		Ifname  string `help:"Interface name of vNIC on host"`
@@ -84,7 +92,11 @@ func init() {
 		if params.Size() == 0 {
 			return InvalidUpdateError()
 		}
-		result, err := modules.Servernetworks.Update(s, args.SERVER, args.NETWORK, params)
+		query := jsonutils.NewDict()
+		if len(args.Mac) > 0 {
+			query.Add(jsonutils.NewString(args.Mac), "mac")
+		}
+		result, err := modules.Servernetworks.Update(s, args.SERVER, args.NETWORK, query, params)
 		if err != nil {
 			return err
 		}
@@ -93,13 +105,25 @@ func init() {
 	})
 
 	type ServerNetworkBWOptions struct {
-		SERVER string `help:"ID or Name of server"`
-		INDEX  int64  `help:"Index of NIC"`
-		BW     int64  `help:"Bandwidth in Mbps"`
+		SERVER  string `help:"ID or Name of server"`
+		MACORIP string `help:"IP, Mac, or Index of NIC"`
+		BW      int64  `help:"Bandwidth in Mbps"`
 	}
 	R(&ServerNetworkBWOptions{}, "server-change-bandwidth", "Change server network bandwidth in Mbps", func(s *mcclient.ClientSession, args *ServerNetworkBWOptions) error {
 		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewInt(args.INDEX), "index")
+		if regutils.MatchMacAddr(args.MACORIP) {
+			params.Add(jsonutils.NewString(args.MACORIP), "mac")
+		} else if regutils.MatchIP4Addr(args.MACORIP) {
+			params.Add(jsonutils.NewString(args.MACORIP), "ip_addr")
+		} else if regutils.MatchInteger(args.MACORIP) {
+			index, err := strconv.ParseInt(args.MACORIP, 10, 64)
+			if err != nil {
+				return err
+			}
+			params.Add(jsonutils.NewInt(index), "index")
+		} else {
+			return fmt.Errorf("Please specify Ip or Mac")
+		}
 		params.Add(jsonutils.NewInt(args.BW), "bandwidth")
 		server, err := modules.Servers.PerformAction(s, args.SERVER, "change-bandwidth", params)
 		if err != nil {
@@ -126,16 +150,64 @@ func init() {
 
 	type ServerDetachNetworkOptions struct {
 		SERVER  string `help:"ID or Name of server"`
-		NETWORK string `help:"ID or Name of network to detach"`
+		MACORIP string `help:"Mac Or IP of NIC"`
 		Reserve bool   `help:"Put the release IP address into reserved address pool"`
 	}
 	R(&ServerDetachNetworkOptions{}, "server-detach-network", "Detach the virtual network fron a virtual server", func(s *mcclient.ClientSession, args *ServerDetachNetworkOptions) error {
 		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.NETWORK), "net_id")
+		// params.Add(jsonutils.NewString(args.NETWORK), "net_id")
 		if args.Reserve {
 			params.Add(jsonutils.JSONTrue, "reserve")
 		}
+		if regutils.MatchMacAddr(args.MACORIP) {
+			params.Add(jsonutils.NewString(args.MACORIP), "mac")
+		} else if regutils.MatchIP4Addr(args.MACORIP) {
+			params.Add(jsonutils.NewString(args.MACORIP), "ip_addr")
+		} else if regutils.MatchInteger(args.MACORIP) {
+			index, err := strconv.ParseInt(args.MACORIP, 10, 64)
+			if err != nil {
+				return err
+			}
+			params.Add(jsonutils.NewInt(index), "index")
+		} else if len(args.MACORIP) > 0 {
+			params.Add(jsonutils.NewString(args.MACORIP), "net_id")
+		} else {
+			return fmt.Errorf("Please specify Ip or Mac")
+		}
 		srv, err := modules.Servers.PerformAction(s, args.SERVER, "detachnetwork", params)
+		if err != nil {
+			return err
+		}
+		printObject(srv)
+		return nil
+	})
+
+	type ServerChangeIPAddressOptions struct {
+		SERVER  string `help:"ID or Name of server"`
+		MACORIP string `help:"Mac Or IP of NIC"`
+		NETDESC string `help:"Network description"`
+		Reserve bool   `help:"Put the release IP address into reserved address pool"`
+	}
+	R(&ServerChangeIPAddressOptions{}, "server-change-ipaddr", "Change ipaddr of a virtual server", func(s *mcclient.ClientSession, args *ServerChangeIPAddressOptions) error {
+		params := jsonutils.NewDict()
+		if args.Reserve {
+			params.Add(jsonutils.JSONTrue, "reserve")
+		}
+		if regutils.MatchMacAddr(args.MACORIP) {
+			params.Add(jsonutils.NewString(args.MACORIP), "mac")
+		} else if regutils.MatchIP4Addr(args.MACORIP) {
+			params.Add(jsonutils.NewString(args.MACORIP), "ip_addr")
+		} else if regutils.MatchInteger(args.MACORIP) {
+			index, err := strconv.ParseInt(args.MACORIP, 10, 64)
+			if err != nil {
+				return err
+			}
+			params.Add(jsonutils.NewInt(index), "index")
+		} else {
+			return fmt.Errorf("Please specify Ip or Mac")
+		}
+		params.Add(jsonutils.NewString(args.NETDESC), "net_desc")
+		srv, err := modules.Servers.PerformAction(s, args.SERVER, "change-ipaddr", params)
 		if err != nil {
 			return err
 		}

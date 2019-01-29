@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -671,6 +672,7 @@ type SNetworkConfig struct {
 	BwLimit  int
 	Vip      bool
 	Reserved bool
+	Ifname   string
 }
 
 func parseNetworkInfo(userCred mcclient.TokenCredential, info jsonutils.JSONObject) (*SNetworkConfig, error) {
@@ -1797,4 +1799,12 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	logclient.AddActionLog(self, logclient.ACT_SPLIT, note, userCred, true)
 	db.OpsLog.LogEvent(network, db.ACT_CREATE, map[string]string{"network": self.Id}, userCred)
 	return nil, nil
+}
+
+func (network *SNetwork) getAllocTimoutDuration() time.Duration {
+	tos := network.AllocTimoutSeconds
+	if tos < options.Options.MinimalIpAddrReusedIntervalSeconds {
+		tos = options.Options.MinimalIpAddrReusedIntervalSeconds
+	}
+	return time.Duration(tos) * time.Second
 }

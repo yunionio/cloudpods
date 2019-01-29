@@ -136,9 +136,9 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	fakeHost.IsMaintenance = false
 	fakeHost.ResourceType = HostResourceTypePrepaidRecycle
 
-	guestnics := self.GetNetworks()
-	if len(guestnics) == 0 {
-		msg := "no network info on guest????"
+	guestnics, err := self.GetNetworks("")
+	if err != nil || len(guestnics) == 0 {
+		msg := fmt.Sprintf("no network info on guest???? %s", err)
 		log.Errorf(msg)
 		return fmt.Errorf(msg)
 	}
@@ -159,7 +159,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	fakeHost.IsEmulated = true
 	fakeHost.Description = "fake host for prepaid vm recycling"
 
-	err := HostManager.TableSpec().Insert(&fakeHost)
+	err = HostManager.TableSpec().Insert(&fakeHost)
 	if err != nil {
 		log.Errorf("fail to insert fake host %s", err)
 		return err
@@ -523,7 +523,10 @@ func (host *SHost) IsPrepaidRecycle() bool {
 }
 
 func (self *SHost) BorrowIpAddrsFromGuest(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest) error {
-	guestnics := guest.GetNetworks()
+	guestnics, err := guest.GetNetworks("")
+	if err != nil {
+		return err
+	}
 	for i := 0; i < len(guestnics); i += 1 {
 		err := guestnics[i].Detach(ctx, userCred)
 		if err != nil {

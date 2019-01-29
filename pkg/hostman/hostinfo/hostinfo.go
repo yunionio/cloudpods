@@ -1006,7 +1006,7 @@ func (h *SHostInfo) doSyncNicInfo(nic *SNIC) {
 	content.Set("bridge", jsonutils.NewString(nic.Bridge))
 	content.Set("interface", jsonutils.NewString(nic.Inter))
 	_, err := modules.Hostwires.Update(h.GetSession(),
-		h.HostId, nic.Network, content)
+		h.HostId, nic.Network, nil, content)
 	if err != nil {
 		log.Errorln(err)
 		h.onFail()

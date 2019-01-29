@@ -171,8 +171,8 @@ func (lbb *SLoadbalancerBackend) GetIRegion() (cloudprovider.ICloudRegion, error
 }
 
 func (man *SLoadbalancerBackendManager) GetGuestAddress(guest *SGuest) (string, error) {
-	gns := guest.GetNetworks()
-	if len(gns) == 0 {
+	gns, err := guest.GetNetworks("")
+	if err != nil || len(gns) == 0 {
 		return "", fmt.Errorf("guest %s has no network attached", guest.GetId())
 	}
 	for _, gn := range gns {
