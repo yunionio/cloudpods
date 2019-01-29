@@ -97,7 +97,7 @@ func (self *SBaremetalGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk
 }
 
 func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig) (*models.SNetwork, string, int8, models.IPAddlocationDirection) {
-	netif, net := host.GetNetinterfaceWithNetworkAndCredential(netConfig.Network, userCred, netConfig.Reserved)
+	netif, net := host.GetNetinterfaceWithIdAndCredential(netConfig.Network, userCred, netConfig.Reserved)
 	if netif != nil {
 		return net, netif.Mac, netif.Index, models.IPAllocationStepup
 	}
