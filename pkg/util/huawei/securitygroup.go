@@ -196,7 +196,7 @@ func (self *SSecurityGroup) GetSecurityRule(ruleId string, withRuleId bool) (sec
 	}
 	// todo: icmp 可能不兼容
 	rule := secrules.SecurityRule{
-		Priority:    0,
+		Priority:    1,
 		Action:      secrules.SecurityRuleAllow,
 		IPNet:       ipNet,
 		Protocol:    protocol,
