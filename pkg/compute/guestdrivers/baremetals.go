@@ -105,7 +105,7 @@ func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SG
 }
 
 func (self *SBaremetalGuestDriver) GetRandomNetworkTypes() []string {
-	return []string{models.SERVER_TYPE_BAREMETAL}
+	return []string{models.NETWORK_TYPE_BAREMETAL, models.NETWORK_TYPE_GUEST}
 }
 
 func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig, pendingUsage quotas.IQuota) error {
@@ -113,6 +113,10 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 	netsAvaiable := make([]models.SNetwork, 0)
 	netifIndexs := make(map[string]*models.SNetInterface, 0)
 
+	netTypes := guest.GetDriver().GetRandomNetworkTypes()
+	if len(netConfig.NetType) > 0 {
+		netTypes = []string{netConfig.NetType}
+	}
 	var wirePattern *regexp.Regexp
 	if len(netConfig.Wire) > 0 {
 		wirePattern = regexp.MustCompile(netConfig.Wire)
@@ -130,9 +134,9 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 		}
 		var net *models.SNetwork
 		if netConfig.Private {
-			net, _ = wire.GetCandidatePrivateNetwork(userCred, netConfig.Exit, models.SERVER_TYPE_BAREMETAL)
+			net, _ = wire.GetCandidatePrivateNetwork(userCred, netConfig.Exit, netTypes)
 		} else {
-			net, _ = wire.GetCandidatePublicNetwork(netConfig.Exit, models.SERVER_TYPE_BAREMETAL)
+			net, _ = wire.GetCandidatePublicNetwork(netConfig.Exit, netTypes)
 		}
 		if net != nil {
 			netsAvaiable = append(netsAvaiable, *net)
@@ -142,7 +146,7 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 	if len(netsAvaiable) == 0 {
 		return fmt.Errorf("No appropriate host virtual network...")
 	}
-	net := models.ChooseCandidateNetworks(netsAvaiable, netConfig.Exit, models.SERVER_TYPE_BAREMETAL)
+	net := models.ChooseCandidateNetworks(netsAvaiable, netConfig.Exit, netTypes)
 	if net != nil {
 		netif := netifIndexs[net.Id]
 		return guest.Attach2Network(ctx, userCred, net, pendingUsage, "", netif.Mac, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, netif.Index, false, models.IPAllocationStepup, false, "")

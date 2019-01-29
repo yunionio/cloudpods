@@ -697,6 +697,7 @@ func (b *SBaremetalInstance) InitAdminNetif(
 	cliMac net.HardwareAddr,
 	netConf *types.SNetworkConfig,
 	nicType string,
+	netType string,
 ) error {
 	// start prepare task
 	// sync status to PREPARE
@@ -717,9 +718,9 @@ func (b *SBaremetalInstance) InitAdminNetif(
 		if err != nil {
 			return err
 		}
-		return b.postAttachWire(cliMac, nicType)
+		return b.postAttachWire(cliMac, nicType, netType)
 	} else if nic.IpAddr == "" {
-		return b.postAttachWire(cliMac, nicType)
+		return b.postAttachWire(cliMac, nicType, netType)
 	}
 	return nil
 }
@@ -751,7 +752,7 @@ func (b *SBaremetalInstance) attachWire(mac net.HardwareAddr, wireId string, nic
 	return modules.Hosts.PerformAction(session, b.GetId(), "add-netif", params)
 }
 
-func (b *SBaremetalInstance) postAttachWire(mac net.HardwareAddr, nicType string) error {
+func (b *SBaremetalInstance) postAttachWire(mac net.HardwareAddr, nicType string, netType string) error {
 	ipAddr := ""
 	if nicType == types.NIC_TYPE_IPMI {
 		oldIPMIConf := b.GetRawIPMIConfig()
@@ -759,14 +760,14 @@ func (b *SBaremetalInstance) postAttachWire(mac net.HardwareAddr, nicType string
 			ipAddr = oldIPMIConf.IpAddr
 		}
 	}
-	desc, err := b.enableWire(mac, ipAddr, nicType)
+	desc, err := b.enableWire(mac, ipAddr, nicType, netType)
 	if err != nil {
 		return err
 	}
 	return b.SaveDesc(desc)
 }
 
-func (b *SBaremetalInstance) enableWire(mac net.HardwareAddr, ipAddr string, nicType string) (jsonutils.JSONObject, error) {
+func (b *SBaremetalInstance) enableWire(mac net.HardwareAddr, ipAddr string, nicType string, netType string) (jsonutils.JSONObject, error) {
 	session := b.manager.GetClientSession()
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(mac.String()), "mac")
@@ -778,6 +779,9 @@ func (b *SBaremetalInstance) enableWire(mac net.HardwareAddr, ipAddr string, nic
 	}
 	if nicType == types.NIC_TYPE_IPMI {
 		params.Add(jsonutils.NewString("stepup"), "alloc_dir") // alloc bottom up
+	}
+	if len(netType) > 0 {
+		params.Add(jsonutils.NewString(netType), "net_type")
 	}
 	log.Errorf("enable net if params: %s", params.String())
 	return modules.Hosts.PerformAction(session, b.GetId(), "enable-netif", params)

@@ -79,7 +79,7 @@ type IBaremetalInstance interface {
 	GetIPMINic(cliMac net.HardwareAddr) *types.SNic
 	GetPXEDHCPConfig(arch uint16) (*dhcp.ResponseConfig, error)
 	GetDHCPConfig(cliMac net.HardwareAddr) (*dhcp.ResponseConfig, error)
-	InitAdminNetif(cliMac net.HardwareAddr, netConf *types.SNetworkConfig, nicType string) error
+	InitAdminNetif(cliMac net.HardwareAddr, netConf *types.SNetworkConfig, nicType string, netType string) error
 	RegisterNetif(cliMac net.HardwareAddr, netConf *types.SNetworkConfig) error
 	GetTFTPResponse() string
 }
