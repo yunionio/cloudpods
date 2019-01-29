@@ -13,7 +13,7 @@ func init() {
 	 * 创建一条报警规则
 	 */
 	type MeterAlertCreateOptions struct {
-		TYPE       string  `help:"Alert rule type" choices:"balance|resFee"`
+		TYPE       string  `help:"Alert rule type" choices:"balance|resFee|monthFee"`
 		PROVIDER   string  `help:"Name of the cloud platform"`
 		ACCOUNT_ID string  `help:"ID of the cloud platform"`
 		THRESHOLD  float64 `help:"Threshold value of the metric"`
