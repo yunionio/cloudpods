@@ -1681,96 +1681,46 @@ func (self *SHost) getNetworkOfIPOnHost(ipAddr string) (*SNetwork, error) {
 	return net, nil
 }
 
-func (self *SHost) GetNetinterfaceWithNetworkAndCredential(netId string, userCred mcclient.TokenCredential, reserved bool) (*SNetInterface, *SNetwork) {
-	netif, net := self.getNetifWithNetworkAndCredential(netId, userCred, true, reserved)
-	if netif != nil {
-		return netif, net
+func (self *SHost) GetNetinterfaceWithIdAndCredential(netId string, userCred mcclient.TokenCredential, reserved bool) (*SNetInterface, *SNetwork) {
+	netObj, err := NetworkManager.FetchById(netId)
+	if err != nil {
+		return nil, nil
 	}
-	return self.getNetifWithNetworkAndCredential(netId, userCred, false, reserved)
-}
-
-func (self *SHost) getNetifWithNetworkAndCredential(netId string, userCred mcclient.TokenCredential, isPublic bool, reserved bool) (*SNetInterface, *SNetwork) {
+	net := netObj.(*SNetwork)
+	if net.getFreeAddressCount() == 0 && !reserved {
+		return nil, nil
+	}
 	netifs := self.GetNetInterfaces()
-	var maxFreeCnt = 0
-	var maxFreeNet *SNetwork
-	var maxFreeNetif *SNetInterface
 	for i := 0; i < len(netifs); i++ {
 		if !netifs[i].IsUsableServernic() {
 			continue
 		}
-		wire := netifs[i].GetWire()
-		if wire != nil {
-			if isPublic {
-				nets, _ := wire.getPublicNetworks()
-				for _, net := range nets {
-					if net.Id == netId || net.GetName() == netId {
-						freeCnt := net.getFreeAddressCount()
-						if maxFreeNet == nil || maxFreeCnt < freeCnt {
-							maxFreeNetif = &netifs[i]
-							maxFreeNet = &net
-						}
-					}
-				}
-			} else {
-				nets, _ := wire.getPrivateNetworks(userCred)
-				for _, net := range nets {
-					if net.Id == netId || net.GetName() == netId {
-						freeCnt := net.getFreeAddressCount()
-						if maxFreeNet == nil || maxFreeCnt < freeCnt {
-							maxFreeNetif = &netifs[i]
-							maxFreeNet = &net
-						}
-					}
-				}
-			}
+		if netifs[i].WireId == net.WireId {
+			return &netifs[i], net
 		}
 	}
-	return maxFreeNetif, maxFreeNet
+	return nil, nil
 }
 
 func (self *SHost) GetNetworkWithIdAndCredential(netId string, userCred mcclient.TokenCredential, reserved bool) (*SNetwork, error) {
-	net, err := self.getNetworkWithIdAndCredential(netId, userCred, true, reserved)
-	if err == nil {
-		return net, nil
-	}
-	return self.getNetworkWithIdAndCredential(netId, userCred, false, reserved)
-}
-
-func (self *SHost) getNetworkWithIdAndCredential(netId string, userCred mcclient.TokenCredential, isPublic bool, reserved bool) (*SNetwork, error) {
 	networks := NetworkManager.Query().SubQuery()
 	hostwires := HostwireManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
 
 	q := networks.Query()
-	q = q.Join(hostwires, sqlchemy.AND(sqlchemy.Equals(hostwires.Field("wire_id"), networks.Field("wire_id")),
-		sqlchemy.IsFalse(hostwires.Field("deleted"))))
-	q = q.Join(hosts, sqlchemy.AND(sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")),
-		sqlchemy.IsFalse(hosts.Field("deleted"))))
+	q = q.Join(hostwires, sqlchemy.Equals(hostwires.Field("wire_id"), networks.Field("wire_id")))
+	q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
 	q = q.Filter(sqlchemy.Equals(hosts.Field("id"), self.Id))
-	q = q.Filter(sqlchemy.OR(sqlchemy.Equals(networks.Field("id"), netId),
-		sqlchemy.Equals(networks.Field("name"), netId)))
-	if isPublic {
-		q = q.Filter(sqlchemy.IsTrue(networks.Field("is_public")))
-	} else {
-		q = q.Filter(sqlchemy.Equals(networks.Field("tenant_id"), userCred.GetProjectId()))
-	}
+	q = q.Filter(sqlchemy.Equals(networks.Field("id"), netId))
 
-	nets := make([]SNetwork, 0)
-	err := db.FetchModelObjects(NetworkManager, q, &nets)
+	net := SNetwork{}
+	net.SetModelManager(NetworkManager)
+	err := q.First(&net)
 	if err != nil {
 		return nil, err
 	}
-	var maxFreeNet *SNetwork
-	maxFrees := 0
-	for i := 0; i < len(nets); i += 1 {
-		freeCnt := nets[i].getFreeAddressCount()
-		if maxFreeNet == nil || maxFrees < freeCnt {
-			maxFrees = freeCnt
-			maxFreeNet = &nets[i]
-		}
-	}
-	if reserved || maxFrees > 0 {
-		return maxFreeNet, nil
+	if reserved || net.getFreeAddressCount() > 0 {
+		return &net, nil
 	}
 	return nil, fmt.Errorf("No IP address")
 }
