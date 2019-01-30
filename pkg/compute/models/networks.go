@@ -1472,6 +1472,24 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq.SubQuery()))
 	}
 
+	if query.Contains("is_private") && jsonutils.QueryBoolean(query, "is_private", false) {
+		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		subq := wires.Query(wires.Field("id"))
+		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		subq = subq.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
+		q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq.SubQuery()))
+	}
+
+	if query.Contains("is_public") && jsonutils.QueryBoolean(query, "is_public", false) {
+		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		subq := wires.Query(wires.Field("id"))
+		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		subq = subq.Filter(sqlchemy.IsNotEmpty(vpcs.Field("manager_id")))
+		q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq.SubQuery()))
+	}
+
 	return q, nil
 }
 
