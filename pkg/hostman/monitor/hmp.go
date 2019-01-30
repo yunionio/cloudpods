@@ -175,7 +175,7 @@ func (m *HmpMonitor) SimpleCommand(cmd string, callback StringCallback) {
 	m.Query(cmd, callback)
 }
 
-func (m *HmpMonitor) HumanMonirotCommand(cmd string, callback StringCallback) {
+func (m *HmpMonitor) HumanMonitorCommand(cmd string, callback StringCallback) {
 	m.Query(cmd, callback)
 }
 
@@ -349,5 +349,10 @@ func (m *HmpMonitor) StartNbdServer(port int, exportAllDevice, writable bool, ca
 		cmd += " -w"
 	}
 	cmd += fmt.Sprintf(" 0.0.0.0:%d", port)
+	m.Query(cmd, callback)
+}
+
+func (m *HmpMonitor) ResizeDisk(driveName string, sizeMB int64, callback StringCallback) {
+	cmd := fmt.Sprintf("block_resize %s %d", driveName, sizeMB)
 	m.Query(cmd, callback)
 }
