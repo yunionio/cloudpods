@@ -23,6 +23,7 @@ type ServerListOptions struct {
 	WithEip       *bool  `help:"Show Servers with EIP"`
 	WithoutEip    *bool  `help:"Show Servers without EIP"`
 	OsType        string `help:"OS Type" choices:"linux|windows|vmware"`
+	OrderByDisk   string `help:"Order by disk" choices:"asc|desc"`
 
 	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 
