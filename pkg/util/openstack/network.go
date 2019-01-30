@@ -113,7 +113,7 @@ func (network *SNetwork) GetIsPublic() bool {
 }
 
 func (network *SNetwork) GetServerType() string {
-	return models.SERVER_TYPE_GUEST
+	return models.NETWORK_TYPE_GUEST
 }
 
 func (region *SRegion) GetNetwork(networkId string) (*SNetwork, error) {

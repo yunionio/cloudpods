@@ -14,7 +14,6 @@ import (
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
-	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -33,9 +32,11 @@ const (
 	// # DEFAULT_BANDWIDTH = options.default_bandwidth
 	MAX_BANDWIDTH = 100000
 
-	SERVER_TYPE_GUEST     = "guest"
-	SERVER_TYPE_BAREMETAL = "baremetal"
-	SERVER_TYPE_CONTAINER = "container"
+	NETWORK_TYPE_GUEST     = "guest"
+	NETWORK_TYPE_BAREMETAL = "baremetal"
+	NETWORK_TYPE_CONTAINER = "container"
+	NETWORK_TYPE_PXE       = "pxe"
+	NETWORK_TYPE_IPMI      = "ipmi"
 
 	STATIC_ALLOC = "static"
 
@@ -52,6 +53,16 @@ const (
 	NETWORK_STATUS_DELETING      = "deleting"
 	NETWORK_STATUS_DELETED       = "deleted"
 	NETWORK_STATUS_DELETE_FAILED = "delete_failed"
+)
+
+var (
+	ALL_NETWORK_TYPES = []string{
+		NETWORK_TYPE_GUEST,
+		NETWORK_TYPE_BAREMETAL,
+		NETWORK_TYPE_CONTAINER,
+		NETWORK_TYPE_PXE,
+		NETWORK_TYPE_IPMI,
+	}
 )
 
 type IPAddlocationDirection string
@@ -109,7 +120,7 @@ type SNetwork struct {
 
 	// IsChanged = Column(Boolean, nullable=False, default=False)
 
-	ServerType string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	ServerType string `width:"16" charset:"ascii" default:"guest" nullable:"true" list:"user" update:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
 
 	AllocPolicy string `width:"16" charset:"ascii" nullable:"true" get:"user" update:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
 
@@ -673,6 +684,7 @@ type SNetworkConfig struct {
 	Vip      bool
 	Reserved bool
 	Ifname   string
+	NetType  string
 }
 
 func parseNetworkInfo(userCred mcclient.TokenCredential, info jsonutils.JSONObject) (*SNetworkConfig, error) {
@@ -722,6 +734,8 @@ func parseNetworkInfo(userCred mcclient.TokenCredential, info jsonutils.JSONObje
 			netConfig.BwLimit = bw
 		} else if p == "[vip]" {
 			netConfig.Vip = true
+		} else if utils.IsInStringArray(p, ALL_NETWORK_TYPES) {
+			netConfig.NetType = p
 		} else {
 			netObj, err := NetworkManager.FetchByIdOrName(userCred, p)
 			if err != nil {
@@ -1130,8 +1144,8 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 
 	serverTypeStr, _ := data.GetString("server_type")
 	if len(serverTypeStr) == 0 {
-		serverTypeStr = SERVER_TYPE_GUEST
-	} else if !sets.NewString(SERVER_TYPE_GUEST, SERVER_TYPE_BAREMETAL, SERVER_TYPE_CONTAINER).Has(serverTypeStr) {
+		serverTypeStr = NETWORK_TYPE_GUEST
+	} else if !utils.IsInStringArray(serverTypeStr, ALL_NETWORK_TYPES) {
 		return nil, httperrors.NewInputParameterError("Invalid server_type: %s", serverTypeStr)
 	}
 	data.Add(jsonutils.NewString(serverTypeStr), "server_type")
@@ -1257,7 +1271,7 @@ func isOverlapNetworks(nets []SNetwork, startIp netutils.IPV4Addr, endIp netutil
 }
 
 func (self *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if db.IsAdminAllowCreate(userCred, self.GetModelManager()) && ownerProjId == userCred.GetProjectId() {
+	if db.IsAdminAllowCreate(userCred, self.GetModelManager()) && ownerProjId == userCred.GetProjectId() && self.ServerType == NETWORK_TYPE_GUEST {
 		self.IsPublic = true
 	} else {
 		self.IsPublic = false

@@ -115,7 +115,7 @@ func (self *SVSwitch) GetGateway() string {
 }
 
 func (self *SVSwitch) GetServerType() string {
-	return models.SERVER_TYPE_GUEST
+	return models.NETWORK_TYPE_GUEST
 }
 
 func (self *SVSwitch) GetIsPublic() bool {

@@ -38,7 +38,7 @@ func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.
 }
 
 func (self *SVirtualizedGuestDriver) GetRandomNetworkTypes() []string {
-	return []string{models.SERVER_TYPE_GUEST}
+	return []string{models.NETWORK_TYPE_GUEST}
 }
 
 func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig, pendingUsage quotas.IQuota) error {
@@ -49,6 +49,9 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 	hostwires := host.GetHostwires()
 	netsAvaiable := make([]models.SNetwork, 0)
 	netTypes := guest.GetDriver().GetRandomNetworkTypes()
+	if len(netConfig.NetType) > 0 {
+		netTypes = []string{netConfig.NetType}
+	}
 	for i := 0; i < len(hostwires); i += 1 {
 		hostwire := hostwires[i]
 		wire := hostwire.GetWire()
@@ -67,19 +70,9 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 
 		var net *models.SNetwork
 		if netConfig.Private {
-			for _, netType := range netTypes {
-				net, _ = wire.GetCandidatePrivateNetwork(userCred, netConfig.Exit, netType)
-				if net != nil {
-					break
-				}
-			}
+			net, _ = wire.GetCandidatePrivateNetwork(userCred, netConfig.Exit, netTypes)
 		} else {
-			for _, netType := range netTypes {
-				net, _ = wire.GetCandidatePublicNetwork(netConfig.Exit, netType)
-				if net != nil {
-					break
-				}
-			}
+			net, _ = wire.GetCandidatePublicNetwork(netConfig.Exit, netTypes)
 		}
 		if net != nil {
 			netsAvaiable = append(netsAvaiable, *net)
@@ -88,13 +81,7 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 	if len(netsAvaiable) == 0 {
 		return fmt.Errorf("No appropriate host virtual network...")
 	}
-	var selNet *models.SNetwork
-	for _, netType := range netTypes {
-		selNet = models.ChooseCandidateNetworks(netsAvaiable, netConfig.Exit, netType)
-		if selNet != nil {
-			break
-		}
-	}
+	selNet := models.ChooseCandidateNetworks(netsAvaiable, netConfig.Exit, netTypes)
 	if selNet == nil {
 		return fmt.Errorf("Not enough address in virtual network")
 	}

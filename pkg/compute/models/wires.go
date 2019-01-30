@@ -412,20 +412,20 @@ func (self *SWire) getPrivateNetworks(userCred mcclient.TokenCredential) ([]SNet
 	return nets, nil
 }
 
-func (self *SWire) GetCandidatePrivateNetwork(userCred mcclient.TokenCredential, isExit bool, serverType string) (*SNetwork, error) {
+func (self *SWire) GetCandidatePrivateNetwork(userCred mcclient.TokenCredential, isExit bool, serverTypes []string) (*SNetwork, error) {
 	nets, err := self.getPrivateNetworks(userCred)
 	if err != nil {
 		return nil, err
 	}
-	return ChooseCandidateNetworks(nets, isExit, serverType), nil
+	return ChooseCandidateNetworks(nets, isExit, serverTypes), nil
 }
 
-func (self *SWire) GetCandidatePublicNetwork(isExit bool, serverType string) (*SNetwork, error) {
+func (self *SWire) GetCandidatePublicNetwork(isExit bool, serverTypes []string) (*SNetwork, error) {
 	nets, err := self.getPublicNetworks()
 	if err != nil {
 		return nil, err
 	}
-	return ChooseCandidateNetworks(nets, isExit, serverType), nil
+	return ChooseCandidateNetworks(nets, isExit, serverTypes), nil
 }
 
 func (self *SWire) GetCandidateNetworkForIp(userCred mcclient.TokenCredential, ipAddr string) (*SNetwork, error) {
@@ -476,7 +476,17 @@ func chooseNetworkByAddressCount(nets []*SNetwork) (*SNetwork, *SNetwork) {
 	return minSel, maxSel
 }
 
-func ChooseCandidateNetworks(nets []SNetwork, isExit bool, serverType string) *SNetwork {
+func ChooseCandidateNetworks(nets []SNetwork, isExit bool, serverTypes []string) *SNetwork {
+	for _, s := range serverTypes {
+		net := chooseCandidateNetworksByNetworkType(nets, isExit, s)
+		if net != nil {
+			return net
+		}
+	}
+	return nil
+}
+
+func chooseCandidateNetworksByNetworkType(nets []SNetwork, isExit bool, serverType string) *SNetwork {
 	matchingNets := make([]*SNetwork, 0)
 	notMatchingNets := make([]*SNetwork, 0)
 
@@ -485,7 +495,7 @@ func ChooseCandidateNetworks(nets []SNetwork, isExit bool, serverType string) *S
 		if isExit != net.IsExitNetwork() {
 			continue
 		}
-		if serverType == net.ServerType || (len(net.ServerType) == 0 && serverType == SERVER_TYPE_GUEST) {
+		if serverType == net.ServerType || (len(net.ServerType) == 0 && serverType == NETWORK_TYPE_GUEST) {
 			matchingNets = append(matchingNets, &net)
 		} else {
 			notMatchingNets = append(notMatchingNets, &net)

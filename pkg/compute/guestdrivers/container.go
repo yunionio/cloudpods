@@ -173,5 +173,5 @@ func (self *SContainerDriver) RequestRebuildRootDisk(ctx context.Context, guest 
 }
 
 func (self *SContainerDriver) GetRandomNetworkTypes() []string {
-	return []string{models.SERVER_TYPE_CONTAINER, models.SERVER_TYPE_GUEST}
+	return []string{models.NETWORK_TYPE_CONTAINER, models.NETWORK_TYPE_GUEST}
 }

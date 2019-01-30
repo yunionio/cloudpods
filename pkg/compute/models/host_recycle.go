@@ -541,7 +541,7 @@ func (self *SHost) BorrowIpAddrsFromGuest(ctx context.Context, userCred mcclient
 			return fmt.Errorf(msg)
 		}
 
-		err = self.EnableNetif(ctx, userCred, netif, "", guestnics[i].IpAddr, "", false, false)
+		err = self.EnableNetif(ctx, userCred, netif, "", guestnics[i].IpAddr, "", "", false, false)
 		if err != nil {
 			log.Errorf("fail to enable netif %s %s", guestnics[i].IpAddr, err)
 			return err

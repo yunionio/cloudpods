@@ -2884,7 +2884,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 		}
 	}
 	if len(ipAddr) > 0 {
-		err = self.EnableNetif(ctx, userCred, netif, "", ipAddr, "", reserve, requireDesignatedIp)
+		err = self.EnableNetif(ctx, userCred, netif, "", ipAddr, "", "", reserve, requireDesignatedIp)
 		if err != nil {
 			return httperrors.NewBadRequestError(err.Error())
 		}
@@ -2911,16 +2911,17 @@ func (self *SHost) PerformEnableNetif(ctx context.Context, userCred mcclient.Tok
 	network, _ := data.GetString("network")
 	ipAddr, _ := data.GetString("ip_addr")
 	allocDir, _ := data.GetString("alloc_dir")
+	netType, _ := data.GetString("net_type")
 	reserve := jsonutils.QueryBoolean(data, "reserve", false)
 	requireDesignatedIp := jsonutils.QueryBoolean(data, "require_designated_ip", false)
-	err := self.EnableNetif(ctx, userCred, netif, network, ipAddr, allocDir, reserve, requireDesignatedIp)
+	err := self.EnableNetif(ctx, userCred, netif, network, ipAddr, allocDir, netType, reserve, requireDesignatedIp)
 	if err != nil {
 		return nil, httperrors.NewBadRequestError(err.Error())
 	}
 	return nil, nil
 }
 
-func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCredential, netif *SNetInterface, network, ipAddr, allocDir string, reserve, requireDesignatedIp bool) error {
+func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCredential, netif *SNetInterface, network, ipAddr, allocDir string, netType string, reserve, requireDesignatedIp bool) error {
 	bn := netif.GetBaremetalNetwork()
 	if bn != nil {
 		return nil
@@ -2956,8 +2957,17 @@ func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCrede
 				return fmt.Errorf("Network %s not reacheable on mac %s", network, netif.Mac)
 			}
 		} else {
-			net, err = wire.GetCandidatePrivateNetwork(userCred, false, SERVER_TYPE_BAREMETAL)
-			if err != nil || net == nil {
+			var netTypes []string
+			if len(netType) > 0 && netType != NETWORK_TYPE_BAREMETAL {
+				netTypes = []string{netType, NETWORK_TYPE_BAREMETAL}
+			} else {
+				netTypes = []string{NETWORK_TYPE_BAREMETAL}
+			}
+			net, err = wire.GetCandidatePrivateNetwork(userCred, false, netTypes)
+			if err != nil {
+				return fmt.Errorf("fail to find network %s", err)
+			}
+			if net == nil {
 				return fmt.Errorf("No network found")
 			}
 		}
@@ -3454,7 +3464,7 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 
 	for i := 0; i < len(enables); i += 1 {
 		netif := host.GetNetInterface(enables[i].GetMac())
-		err = host.EnableNetif(ctx, userCred, netif, "", enables[i].GetIpAddr(), "", false, true)
+		err = host.EnableNetif(ctx, userCred, netif, "", enables[i].GetIpAddr(), "", "", false, true)
 		if err != nil {
 			result.AddError(err)
 		} else {
