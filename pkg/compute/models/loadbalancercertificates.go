@@ -194,7 +194,11 @@ func (lbcert *SLoadbalancerCertificate) ValidateUpdateData(ctx context.Context, 
 	if _, err := lbcert.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data); err != nil {
 		return nil, err
 	}
-	return lbcert.GetRegion().GetDriver().ValidateUpdateLoadbalancerCertificateData(ctx, userCred, data)
+	region := lbcert.GetRegion()
+	if region == nil {
+		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer certificate %s", lbcert.Name)
+	}
+	return region.GetDriver().ValidateUpdateLoadbalancerCertificateData(ctx, userCred, data)
 }
 
 func (lbcert *SLoadbalancerCertificate) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -242,6 +246,7 @@ func (lbcert *SLoadbalancerCertificate) Delete(ctx context.Context, userCred mcc
 func (lbcert *SLoadbalancerCertificate) GetRegion() *SCloudregion {
 	region, err := CloudregionManager.FetchById(lbcert.CloudregionId)
 	if err != nil {
+		log.Errorf("failed to find region for loadbalancer certificate %s", lbcert.Name)
 		return nil
 	}
 	return region.(*SCloudregion)

@@ -128,7 +128,12 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
 		return nil, err
 	}
-	return listener.GetRegion().GetDriver().ValidateCreateLoadbalancerListenerRuleData(ctx, userCred, data, backendGroupV.Model)
+	region := listener.GetRegion()
+	if region == nil {
+		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer listener %s", listener.Name)
+	}
+
+	return region.GetDriver().ValidateCreateLoadbalancerListenerRuleData(ctx, userCred, data, backendGroupV.Model)
 }
 
 func (lbr *SLoadbalancerListenerRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -229,6 +234,7 @@ func (lbr *SLoadbalancerListenerRule) GetExtraDetails(ctx context.Context, userC
 func (lbr *SLoadbalancerListenerRule) GetLoadbalancerListener() *SLoadbalancerListener {
 	listener, err := LoadbalancerListenerManager.FetchById(lbr.ListenerId)
 	if err != nil {
+		log.Errorf("failed to find listener for loadbalancer listener rule %s", lbr.Name)
 		return nil
 	}
 	return listener.(*SLoadbalancerListener)

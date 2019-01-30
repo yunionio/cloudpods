@@ -187,6 +187,7 @@ func (lbacl *SLoadbalancerAcl) StartLoadBalancerAclCreateTask(ctx context.Contex
 func (lbacl *SLoadbalancerAcl) GetRegion() *SCloudregion {
 	region, err := CloudregionManager.FetchById(lbacl.CloudregionId)
 	if err != nil {
+		log.Errorf("failed to find region for loadbalancer acl %s", lbacl.Name)
 		return nil
 	}
 	return region.(*SCloudregion)
