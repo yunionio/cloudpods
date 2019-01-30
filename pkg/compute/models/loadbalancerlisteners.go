@@ -271,7 +271,11 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
 		return nil, err
 	}
-	return lb.GetRegion().GetDriver().ValidateCreateLoadbalancerListenerData(ctx, userCred, data, backendGroupV.Model)
+	region := lb.GetRegion()
+	if region == nil {
+		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer %s", lb.Name)
+	}
+	return region.GetDriver().ValidateCreateLoadbalancerListenerData(ctx, userCred, data, backendGroupV.Model)
 }
 
 func (man *SLoadbalancerListenerManager) checkTypeV(listenerType string) validators.IValidator {
@@ -426,7 +430,13 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 	if _, err := lblis.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data); err != nil {
 		return nil, err
 	}
-	return lblis.GetRegion().GetDriver().ValidateUpdateLoadbalancerListenerData(ctx, userCred, data, backendGroupV.Model)
+
+	region := lblis.GetRegion()
+	if region == nil {
+		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer listener %s", lblis.Name)
+	}
+
+	return region.GetDriver().ValidateUpdateLoadbalancerListenerData(ctx, userCred, data, backendGroupV.Model)
 }
 
 func (lblis *SLoadbalancerListener) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -621,6 +631,7 @@ func (lblis *SLoadbalancerListener) GetLoadbalancerBackendGroup() *SLoadbalancer
 func (lblis *SLoadbalancerListener) GetLoadbalancer() *SLoadbalancer {
 	loadbalancer, err := LoadbalancerManager.FetchById(lblis.LoadbalancerId)
 	if err != nil {
+		log.Errorf("failed to find loadbalancer for loadbalancer listener %s", lblis.Name)
 		return nil
 	}
 	return loadbalancer.(*SLoadbalancer)

@@ -256,6 +256,7 @@ func (lb *SLoadbalancer) GetCloudprovider() *SCloudprovider {
 func (lb *SLoadbalancer) GetRegion() *SCloudregion {
 	region, err := CloudregionManager.FetchById(lb.CloudregionId)
 	if err != nil {
+		log.Errorf("failed to find region for loadbalancer %s", lb.Name)
 		return nil
 	}
 	return region.(*SCloudregion)
