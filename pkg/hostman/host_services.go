@@ -10,15 +10,15 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
+	"yunion.io/x/onecloud/pkg/hostman/diskhandlers"
 	"yunion.io/x/onecloud/pkg/hostman/downloader"
+	"yunion.io/x/onecloud/pkg/hostman/guesthandlers"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/hostmetrics"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
-	"yunion.io/x/onecloud/pkg/hostman/guesthandlers"
-	"yunion.io/x/onecloud/pkg/hostman/diskhandlers"
 )
 
 type SHostService struct {

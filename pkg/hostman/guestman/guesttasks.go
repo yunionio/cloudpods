@@ -955,7 +955,6 @@ func (s *SDriveMirrorTask) startMirror(res string) {
 	}
 }
 
-
 /**
  *  GuestOnlineResizeDiskTask
 **/
@@ -963,9 +962,9 @@ func (s *SDriveMirrorTask) startMirror(res string) {
 type SGuestOnlineResizeDiskTask struct {
 	*SKVMGuestInstance
 
-	ctx      context.Context
-	diskId   string
-	sizeMB   int64
+	ctx    context.Context
+	diskId string
+	sizeMB int64
 }
 
 func NewGuestOnlineResizeDiskTask(
@@ -975,7 +974,7 @@ func NewGuestOnlineResizeDiskTask(
 		SKVMGuestInstance: s,
 		ctx:               ctx,
 		diskId:            diskId,
-		sizeMB:          sizeMB,
+		sizeMB:            sizeMB,
 	}
 }
 
