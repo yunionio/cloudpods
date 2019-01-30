@@ -62,21 +62,16 @@ func StartService() {
 		log.Infof("Auth complete!!")
 	})
 
+	trackers := torrent.GetTrackers()
+	if len(trackers) == 0 {
+		log.Errorf("no valid torrent-tracker")
+		return
+	}
+
 	cloudcommon.InitDB(dbOpts)
-	defer cloudcommon.CloseDB()
 
 	app := cloudcommon.InitApp(commonOpts, true)
 	initHandlers(app)
-
-	if opts.EnableTorrentService {
-		err := torrent.InitTorrentClient()
-		if err != nil {
-			log.Errorf("fail to initialize torrent client: %s", err)
-			return
-		}
-		torrent.InitTorrentHandler(app)
-		defer torrent.CloseTorrentClient()
-	}
 
 	if !db.CheckSync(opts.AutoSyncTable) {
 		log.Fatalf("database schema not in sync!")
@@ -84,13 +79,20 @@ func StartService() {
 
 	models.InitDB()
 
-	models.CheckImages()
+	go models.CheckImages()
 
 	cron := cronman.GetCronJobManager()
 	cron.AddJob1("CleanPendingDeleteImages", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.ImageManager.CleanPendingDeleteImages)
 
 	cron.Start()
-	defer cron.Stop()
 
-	cloudcommon.ServeForever(app, commonOpts)
+	cloudcommon.ServeForever(app, commonOpts, func() {
+		cloudcommon.CloseDB()
+
+		cron.Stop()
+
+		if options.Options.EnableTorrentService {
+			torrent.StopTorrents()
+		}
+	})
 }

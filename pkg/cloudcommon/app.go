@@ -23,7 +23,7 @@ func InitApp(options *CommonOptions, dbAccess bool) *appsrv.Application {
 	return app
 }
 
-func ServeForever(app *appsrv.Application, options *CommonOptions) {
+func ServeForever(app *appsrv.Application, options *CommonOptions, onStop func()) {
 	AppDBInit(app)
 	addr := net.JoinHostPort(options.Address, strconv.Itoa(options.Port))
 	proto := "http"
@@ -47,8 +47,8 @@ func ServeForever(app *appsrv.Application, options *CommonOptions) {
 		if len(options.SslKeyfile) == 0 {
 			log.Fatalf("Missing ssl-keyfile")
 		}
-		app.ListenAndServeTLS(addr, certfile, options.SslKeyfile)
+		app.ListenAndServeTLS(addr, certfile, options.SslKeyfile, onStop)
 	} else {
-		app.ListenAndServe(addr)
+		app.ListenAndServe(addr, onStop)
 	}
 }

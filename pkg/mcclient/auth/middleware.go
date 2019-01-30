@@ -12,6 +12,12 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
+var (
+	GuestToken = mcclient.SSimpleToken{
+		User: "guest",
+	}
+)
+
 const (
 	AUTH_TOKEN = appctx.AppContextKey("X_AUTH_TOKEN")
 )
@@ -23,24 +29,26 @@ func Authenticate(f appsrv.FilterHandler) appsrv.FilterHandler {
 func AuthenticateWithDelayDecision(f appsrv.FilterHandler, delayDecision bool) appsrv.FilterHandler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		tokenStr := r.Header.Get(mcclient.AUTH_TOKEN)
+		var token mcclient.TokenCredential
 		if len(tokenStr) == 0 {
 			log.Errorf("no auth_token found!")
 			if !delayDecision {
 				httperrors.UnauthorizedError(w, "Unauthorized")
 				return
 			}
-		}
-		token, err := Verify(tokenStr)
-		if err != nil {
-			log.Errorf("Verify token failed: %s", err)
-			if !delayDecision {
-				httperrors.UnauthorizedError(w, "InvalidToken")
-				return
+			token = &GuestToken
+		} else {
+			var err error
+			token, err = Verify(tokenStr)
+			if err != nil {
+				log.Errorf("Verify token failed: %s", err)
+				if !delayDecision {
+					httperrors.UnauthorizedError(w, "InvalidToken")
+					return
+				}
 			}
 		}
-		if token != nil {
-			ctx = context.WithValue(ctx, AUTH_TOKEN, token)
-		}
+		ctx = context.WithValue(ctx, AUTH_TOKEN, token)
 
 		if taskId := r.Header.Get(mcclient.TASK_ID); taskId != "" {
 			ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_TASK_ID, taskId)

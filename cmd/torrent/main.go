@@ -1,7 +1,10 @@
 package main
 
 import (
+	"crypto/sha1"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -10,14 +13,13 @@ import (
 
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
+	"github.com/anacrolix/torrent/storage"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/structarg"
 
-	"github.com/anacrolix/torrent/storage"
-	"io/ioutil"
-	"net/http"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/nodeid"
 	"yunion.io/x/onecloud/pkg/util/torrentutils"
 )
@@ -30,7 +32,8 @@ type Options struct {
 
 	Tracker []string `help:"Tracker urls, e.g. http://10.168.222.252:6969/announce or udp://tracker.istole.it:6969"`
 
-	Debug bool `help:"turn on debug"`
+	Debug   bool `help:"turn on debug" default:"false"`
+	Verbose bool `help:"verbose mode" default:"false"`
 
 	CallbackURL string `help:"callback notification URL"`
 }
@@ -77,7 +80,7 @@ func main() {
 	var mi *metainfo.MetaInfo
 	var rootDir string
 
-	if len(options.Tracker) > 0 {
+	if len(options.Tracker) > 0 && !fileutils2.Exists(options.TORRENT) {
 		// server mode
 		mi, err = torrentutils.GenerateTorrent(root, options.Tracker, options.TORRENT)
 		if err != nil {
@@ -94,30 +97,38 @@ func main() {
 		rootDir = root
 	}
 
+	info, err := mi.UnmarshalInfo()
+	if err != nil {
+		log.Errorf("fail to unmarshalinfo %s", err)
+		return
+	}
+
+	hasher := sha1.New()
+
 	nodeId, err := nodeid.GetNodeId()
 	if err != nil {
 		log.Errorf("fail to generate node id: %s", err)
 		return
 	}
 
-	log.Infof("Set torrent server as node %s", nodeId)
+	hasher.Write(nodeId)
+	hasher.Write(info.Pieces)
+
+	peerIdStr := fmt.Sprintf("%x", hasher.Sum(nil))
+
+	log.Infof("Set torrent server as node %s", peerIdStr[:20])
 
 	clientConfig := torrent.NewDefaultClientConfig()
-	clientConfig.PeerID = nodeId[:20]
+	clientConfig.PeerID = peerIdStr[:20]
 	clientConfig.Debug = options.Debug
 	clientConfig.Seed = true
 	clientConfig.NoUpload = false
 
-	info, err := mi.UnmarshalInfo()
-	if err != nil {
-		log.Errorf("fail to unmarshalinfo %s", err)
-		return
-	}
-	log.Infof("To download file %s", info.Name)
+	log.Infof("To sync torrent files for %s", info.Name)
 	tmpDir := filepath.Join(rootDir, fmt.Sprintf("%s%s", info.Name, ".tmp"))
 
 	os.RemoveAll(tmpDir)
-	os.MkdirAll(tmpDir, 0755)
+	os.MkdirAll(tmpDir, 0700)
 	defer os.RemoveAll(tmpDir)
 
 	clientConfig.DefaultStorage = storage.NewFileWithCustomPathMaker(tmpDir,
@@ -141,6 +152,8 @@ func main() {
 
 	go exitSignalHandlers(client)
 
+	start := time.Now()
+
 	t, err := client.AddTorrent(mi)
 	if err != nil {
 		log.Fatalf("%s", err)
@@ -158,24 +171,32 @@ func main() {
 		stop = true
 	}()
 
+	finish := false
+
 	for !stop {
 		if t.BytesCompleted() == t.Info().TotalLength() {
-			fmt.Printf("\rSeeding.............")
-			if len(options.CallbackURL) > 0 {
-				for tried := 0; tried < 10; tried += 1 {
-					resp, err := http.Get(options.CallbackURL)
-					if err == nil && resp.StatusCode < 300 {
-						break
+			if !finish {
+				finish = true
+				fmt.Printf("Download complete, takes %d seconds\n", time.Now().Sub(start)/time.Second)
+				if len(options.CallbackURL) > 0 {
+					maxTried := 10
+					for tried := 0; tried < maxTried; tried += 1 {
+						resp, err := http.Post(options.CallbackURL, "", nil)
+						if err == nil && resp.StatusCode < 300 {
+							break
+						}
+						if err != nil {
+							log.Errorf("callback fail %s", err)
+						} else {
+							defer resp.Body.Close()
+							respBody, _ := ioutil.ReadAll(resp.Body)
+							log.Errorf("callback response error %s", string(respBody))
+						}
+						time.Sleep(time.Duration(tried+1) * 10 * time.Second)
 					}
-					if err != nil {
-						log.Errorf("callback fail %s", err)
-					} else {
-						respBody, _ := ioutil.ReadAll(resp.Body)
-						log.Errorf("callback response error %s", string(respBody))
-					}
-					time.Sleep(time.Duration(tried+1) * 10 * time.Second)
 				}
 			}
+			fmt.Printf("\rSeeding.............")
 		} else {
 			fmt.Printf("\rDownload: %.1f%%", float64(t.BytesCompleted())*100.0/float64(t.Info().TotalLength()))
 		}

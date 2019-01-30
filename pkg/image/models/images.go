@@ -877,7 +877,7 @@ func (self *SImage) StopTorrents() {
 func (self *SImage) seedTorrents() {
 	subimgs := ImageSubformatManager.GetAllSubImages(self.Id)
 	for i := 0; i < len(subimgs); i += 1 {
-		subimgs[i].seedTorrent()
+		subimgs[i].seedTorrent(self.Id)
 	}
 }
 
@@ -1024,7 +1024,7 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 		if needConvert {
 			log.Infof("Image %s is active and need convert", self.Name)
 			self.StartImageConvertTask(ctx, userCred, "")
-		} else {
+		} else if options.Options.EnableTorrentService {
 			self.seedTorrents()
 		}
 	}
@@ -1057,5 +1057,22 @@ func (self *SImage) PerformMarkPublicProtected(
 			return nil, httperrors.NewGeneralError(err)
 		}
 	}
+	return nil, nil
+}
+
+func (self *SImage) AllowPerformUpdateTorrentStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return true
+}
+
+func (self *SImage) PerformUpdateTorrentStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	formatStr, _ := query.GetString("format")
+	if len(formatStr) == 0 {
+		return nil, httperrors.NewInputParameterError("missing parameter format")
+	}
+	subimg := ImageSubformatManager.FetchSubImage(self.Id, formatStr)
+	if subimg == nil {
+		return nil, httperrors.NewResourceNotFoundError("format %s not found", formatStr)
+	}
+	subimg.SetStatusSeeding(true)
 	return nil, nil
 }

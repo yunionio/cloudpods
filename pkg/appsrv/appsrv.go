@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -36,6 +39,8 @@ type Application struct {
 	defHandlerInfo    SHandlerInfo
 	cors              *Cors
 	middlewares       []MiddlewareFunc
+
+	idleConnsClosed chan struct{}
 }
 
 const (
@@ -325,20 +330,44 @@ func (app *Application) initServer(addr string) *http.Server {
 	return s
 }
 
-func (app *Application) ListenAndServe(addr string) {
-	s := app.initServer(addr)
-	err := s.ListenAndServe()
-	if err != nil {
-		log.Fatalf("ListAndServer fail: %s", err)
-	}
+func (app *Application) registerCleanShutdown(s *http.Server, onStop func()) {
+	app.idleConnsClosed = make(chan struct{})
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+		log.Infof("Close signal received: %+v", <-c)
+		if err := s.Shutdown(context.Background()); err != nil {
+			// Error from closing listeners, or context timeout:
+			log.Errorf("HTTP server Shutdown: %v", err)
+		}
+		onStop()
+
+		close(app.idleConnsClosed)
+	}()
 }
 
-func (app *Application) ListenAndServeTLS(addr string, certFile, keyFile string) {
+func (app *Application) waitCleanShutdown() {
+	<-app.idleConnsClosed
+}
+
+func (app *Application) ListenAndServe(addr string, onStop func()) {
 	s := app.initServer(addr)
-	err := s.ListenAndServeTLS(certFile, keyFile)
+	app.registerCleanShutdown(s, onStop)
+	err := s.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatalf("ListAndServer fail: %s", err)
 	}
+	app.waitCleanShutdown()
+}
+
+func (app *Application) ListenAndServeTLS(addr string, certFile, keyFile string, onStop func()) {
+	s := app.initServer(addr)
+	app.registerCleanShutdown(s, onStop)
+	err := s.ListenAndServeTLS(certFile, keyFile)
+	if err != nil && err != http.ErrServerClosed {
+		log.Fatalf("ListAndServerTLS fail: %s", err)
+	}
+	app.waitCleanShutdown()
 }
 
 func isJsonContentType(r *http.Request) bool {
