@@ -485,6 +485,23 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 		q = q.Filter(cond(q.Field("id"), sgq))
 	}
+
+	orderByDisk, _ := queryDict.GetString("order_by_disk")
+	if orderByDisk == "asc" {
+		guestdisks := GuestdiskManager.Query().SubQuery()
+		disks := DiskManager.Query().SubQuery()
+		q.AppendField(sqlchemy.SUM("disks_size", disks.Field("disk_size")))
+		q = q.Join(guestdisks, sqlchemy.Equals(q.Field("id"), guestdisks.Field("guest_id"))).
+			Join(disks, sqlchemy.Equals(guestdisks.Field("disk_id"), disks.Field("id"))).
+			Asc(q.Field("disks_size")).GroupBy(q.Field("id"))
+	} else if orderByDisk == "desc" {
+		guestdisks := GuestdiskManager.Query().SubQuery()
+		disks := DiskManager.Query().SubQuery()
+		q.AppendField(sqlchemy.SUM("disks_size", disks.Field("disk_size")))
+		q = q.Join(guestdisks, sqlchemy.Equals(q.Field("id"), guestdisks.Field("guest_id"))).
+			Join(disks, sqlchemy.Equals(guestdisks.Field("disk_id"), disks.Field("id"))).
+			Desc(q.Field("disks_size")).GroupBy(q.Field("id"))
+	}
 	return q, nil
 }
 
