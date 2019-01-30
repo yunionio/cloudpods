@@ -104,7 +104,7 @@ func (this *JointResourceManager) Attach(s *mcclient.ClientSession, mid, sid str
 	return this.filterSingleResult(s, result, nil)
 }
 
-/*func (this *JointResourceManager) BatchAttach(s *mcclient.ClientSession, mid string, sids []string, params jsonutils.JSONObject) []SubmitResult {
+func (this *JointResourceManager) BatchAttach(s *mcclient.ClientSession, mid string, sids []string, params jsonutils.JSONObject) []SubmitResult {
 	return BatchDo(sids, func(sid string) (jsonutils.JSONObject, error) {
 		return this.Attach(s, mid, sid, params)
 	})
@@ -114,7 +114,7 @@ func (this *JointResourceManager) BatchAttach2(s *mcclient.ClientSession, mid st
 	return BatchDo(sids, func(sid string) (jsonutils.JSONObject, error) {
 		return this.Attach(s, sid, mid, params)
 	})
-}*/
+}
 
 func (this *JointResourceManager) Detach(s *mcclient.ClientSession, mid, sid string) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s/%s/%s/%s", this.Master.KeyString(), url.PathEscape(mid), this.Slave.KeyString(), url.PathEscape(sid))
@@ -125,7 +125,7 @@ func (this *JointResourceManager) Detach(s *mcclient.ClientSession, mid, sid str
 	return this.filterSingleResult(s, result, nil)
 }
 
-/*func (this *JointResourceManager) BatchDetach(s *mcclient.ClientSession, mid string, sids []string) []SubmitResult {
+func (this *JointResourceManager) BatchDetach(s *mcclient.ClientSession, mid string, sids []string) []SubmitResult {
 	return BatchDo(sids, func(sid string) (jsonutils.JSONObject, error) {
 		return this.Detach(s, mid, sid)
 	})
@@ -135,7 +135,7 @@ func (this *JointResourceManager) BatchDetach2(s *mcclient.ClientSession, mid st
 	return BatchDo(sids, func(sid string) (jsonutils.JSONObject, error) {
 		return this.Detach(s, sid, mid)
 	})
-}*/
+}
 
 func (this *JointResourceManager) Update(s *mcclient.ClientSession, mid, sid string, query jsonutils.JSONObject, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s/%s/%s/%s", this.Master.KeyString(), url.PathEscape(mid), this.Slave.KeyString(), url.PathEscape(sid))

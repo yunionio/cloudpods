@@ -12,7 +12,7 @@ type SImageOptions struct {
 
 	pending_delete.SPendingDeleteOptions
 
-	DefaultImageQuota int `default:"5" help:"Common image quota per tenant, default 5"`
+	DefaultImageQuota int `default:"10" help:"Common image quota per tenant, default 10"`
 
 	PortV2 int `help:"Listening port for region V2"`
 

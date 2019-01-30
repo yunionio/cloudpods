@@ -1,4 +1,4 @@
-package storageman
+package diskhandlers
 
 import (
 	"context"
@@ -10,7 +10,9 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/workmanager"
+	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
@@ -28,7 +30,7 @@ var (
 	}
 )
 
-type actionFunc func(context.Context, IStorage, string, IDisk, jsonutils.JSONObject) (interface{}, error)
+type actionFunc func(context.Context, storageman.IStorage, string, storageman.IDisk, jsonutils.JSONObject) (interface{}, error)
 
 func AddDiskHandler(prefix string, app *appsrv.Application) {
 	for _, keyWord := range keyWords {
@@ -70,7 +72,7 @@ func performImageCache(
 		httperrors.MissingParameterError(w, "disk")
 		return
 	}
-	storagecache := storageManager.GetStoragecacheById(scId)
+	storagecache := storageman.GetManager().GetStoragecacheById(scId)
 	if storagecache == nil {
 		httperrors.NotFoundError(w, "Storagecache %s not found", scId)
 		return
@@ -102,7 +104,7 @@ func saveToGlance(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		storageId   = params["<storageId>"]
 		diskInfo, _ = body.Get("disk")
 	)
-	storage := storageManager.GetStorage(storageId)
+	storage := storageman.GetManager().GetStorage(storageId)
 	if storage == nil {
 		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Storage %s not found", storageId))
 		return
@@ -131,7 +133,7 @@ func perfomrDiskActions(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Not found"))
 		return
 	}
-	storage := storageManager.GetStorage(storageId)
+	storage := storageman.GetManager().GetStorage(storageId)
 	if storage == nil {
 		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Storage %s not found", storageId))
 		return
@@ -152,17 +154,17 @@ func perfomrDiskActions(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	}
 }
 
-func diskCreate(ctx context.Context, storage IStorage, diskId string, disk IDisk, body jsonutils.JSONObject) (interface{}, error) {
+func diskCreate(ctx context.Context, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
 	diskInfo, err := body.Get("disk")
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("disk")
 	}
 	hostutils.DelayTask(ctx, storage.CreateDiskByDiskinfo,
-		&SDiskCreateByDiskinfo{diskId, disk, diskInfo, storage})
+		&storageman.SDiskCreateByDiskinfo{diskId, disk, diskInfo, storage})
 	return nil, nil
 }
 
-func diskDelete(ctx context.Context, storage IStorage, diskId string, disk IDisk, body jsonutils.JSONObject) (interface{}, error) {
+func diskDelete(ctx context.Context, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
 	if disk != nil {
 		hostutils.DelayTask(ctx, disk.Delete, nil)
 	} else {
@@ -171,16 +173,22 @@ func diskDelete(ctx context.Context, storage IStorage, diskId string, disk IDisk
 	return nil, nil
 }
 
-func diskResize(ctx context.Context, storage IStorage, diskId string, disk IDisk, body jsonutils.JSONObject) (interface{}, error) {
+func diskResize(ctx context.Context, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
 	diskInfo, err := body.Get("disk")
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("disk")
 	}
-	hostutils.DelayTask(ctx, disk.Resize, diskInfo)
-	return nil, nil
+	serverId, _ := diskInfo.GetString("server_id")
+	if len(serverId) > 0 && guestman.GetGuestManager().Status(serverId) == "running" {
+		sizeMb, _ := diskInfo.Int("size")
+		return guestman.GetGuestManager().OnlineResizeDisk(ctx, serverId, diskId, sizeMb)
+	} else {
+		hostutils.DelayTask(ctx, disk.Resize, diskInfo)
+		return nil, nil
+	}
 }
 
-func diskSavePrepare(ctx context.Context, storage IStorage, diskId string, disk IDisk, body jsonutils.JSONObject) (interface{}, error) {
+func diskSavePrepare(ctx context.Context, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
 	diskInfo, err := body.Get("disk")
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("disk")
@@ -189,7 +197,7 @@ func diskSavePrepare(ctx context.Context, storage IStorage, diskId string, disk 
 	return nil, nil
 }
 
-func diskReset(ctx context.Context, storage IStorage, diskId string, disk IDisk, body jsonutils.JSONObject) (interface{}, error) {
+func diskReset(ctx context.Context, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
 	snapshotId, err := body.GetString("snapshot_id")
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("snapshot_id")
@@ -198,7 +206,7 @@ func diskReset(ctx context.Context, storage IStorage, diskId string, disk IDisk,
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("out_of_chain")
 	}
-	hostutils.DelayTask(ctx, disk.ResetFromSnapshot, &SDiskReset{snapshotId, outOfChain})
+	hostutils.DelayTask(ctx, disk.ResetFromSnapshot, &storageman.SDiskReset{snapshotId, outOfChain})
 	return nil, nil
 }
 
@@ -211,7 +219,7 @@ func diskReset(ctx context.Context, storage IStorage, diskId string, disk IDisk,
 // 	return nil, nil
 // }
 
-func diskCleanupSnapshots(ctx context.Context, storage IStorage, diskId string, disk IDisk, body jsonutils.JSONObject) (interface{}, error) {
+func diskCleanupSnapshots(ctx context.Context, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
 	convertSnapshots, err := body.GetArray("convert_snapshots")
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("convert_snapshots")
@@ -220,6 +228,6 @@ func diskCleanupSnapshots(ctx context.Context, storage IStorage, diskId string, 
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("delete_snapshots")
 	}
-	hostutils.DelayTask(ctx, disk.CleanupSnapshots, &SDiskCleanupSnapshots{convertSnapshots, deleteSnapshots})
+	hostutils.DelayTask(ctx, disk.CleanupSnapshots, &storageman.SDiskCleanupSnapshots{convertSnapshots, deleteSnapshots})
 	return nil, nil
 }

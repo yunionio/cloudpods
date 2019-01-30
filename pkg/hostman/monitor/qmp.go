@@ -297,7 +297,7 @@ func (m *QmpMonitor) SimpleCommand(cmd string, callback StringCallback) {
 	m.Query(c, cb)
 }
 
-func (m *QmpMonitor) HumanMonirotCommand(cmd string, callback StringCallback) {
+func (m *QmpMonitor) HumanMonitorCommand(cmd string, callback StringCallback) {
 	var (
 		c = &Command{
 			Execute: "human-monitor-command",
@@ -382,7 +382,7 @@ func (m *QmpMonitor) GetBlocks(callback func(*jsonutils.JSONArray)) {
 }
 
 func (m *QmpMonitor) ChangeCdrom(dev string, path string, callback StringCallback) {
-	m.HumanMonirotCommand(fmt.Sprintf("change %s %s", dev, path), callback)
+	m.HumanMonitorCommand(fmt.Sprintf("change %s %s", dev, path), callback)
 	// var (
 	// 	args = map[string]interface{}{
 	// 		"arguments": map[string]interface{}{
@@ -404,7 +404,7 @@ func (m *QmpMonitor) ChangeCdrom(dev string, path string, callback StringCallbac
 }
 
 func (m *QmpMonitor) EjectCdrom(dev string, callback StringCallback) {
-	m.HumanMonirotCommand(fmt.Sprintf("eject -f %s", dev), callback)
+	m.HumanMonitorCommand(fmt.Sprintf("eject -f %s", dev), callback)
 	// XXX: 同下
 	// var (
 	// 	args = map[string]interface{}{
@@ -427,7 +427,7 @@ func (m *QmpMonitor) EjectCdrom(dev string, callback StringCallback) {
 }
 
 func (m *QmpMonitor) DriveDel(idstr string, callback StringCallback) {
-	m.HumanMonirotCommand(fmt.Sprintf("drive_del %s", idstr), callback)
+	m.HumanMonitorCommand(fmt.Sprintf("drive_del %s", idstr), callback)
 	// XXX: 同下
 	// var (
 	// 	args = map[string]interface{}{
@@ -449,7 +449,7 @@ func (m *QmpMonitor) DriveDel(idstr string, callback StringCallback) {
 }
 
 func (m *QmpMonitor) DeviceDel(idstr string, callback StringCallback) {
-	m.HumanMonirotCommand(fmt.Sprintf("device_del %s", idstr), callback)
+	m.HumanMonitorCommand(fmt.Sprintf("device_del %s", idstr), callback)
 	// XXX: 同下
 	// var (
 	// 	args = map[string]interface{}{
@@ -476,7 +476,7 @@ func (m *QmpMonitor) DriveAdd(bus string, params map[string]string, callback Str
 		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%s", k, v))
 	}
 	cmd := fmt.Sprintf("drive_add %s %s", bus, strings.Join(paramsKvs, ","))
-	m.HumanMonirotCommand(cmd, callback)
+	m.HumanMonitorCommand(cmd, callback)
 	// XXX: 同下
 	// var (
 	// 	args = map[string]interface{}{
@@ -504,7 +504,7 @@ func (m *QmpMonitor) DeviceAdd(dev string, params map[string]interface{}, callba
 		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%v", k, v))
 	}
 	cmd := fmt.Sprintf("device_add %s,%s", dev, strings.Join(paramsKvs, ","))
-	m.HumanMonirotCommand(cmd, callback)
+	m.HumanMonitorCommand(cmd, callback)
 
 	// XXX: 参数不对，之后再调，先用着hmp的参数
 	// var (
@@ -696,5 +696,10 @@ func (m *QmpMonitor) StartNbdServer(port int, exportAllDevice, writable bool, ca
 		cmd += " -w"
 	}
 	cmd += fmt.Sprintf(" 0.0.0.0:%d", port)
-	m.HumanMonirotCommand(cmd, callback)
+	m.HumanMonitorCommand(cmd, callback)
+}
+
+func (m *QmpMonitor) ResizeDisk(driveName string, sizeMB int64, callback StringCallback) {
+	cmd := fmt.Sprintf("block_resize %s %d", driveName, sizeMB)
+	m.HumanMonitorCommand(cmd, callback)
 }

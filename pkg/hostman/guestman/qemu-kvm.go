@@ -1169,3 +1169,8 @@ func (s *SKVMGuestInstance) PrepareMigrate(liveMigrage bool) (*jsonutils.JSONDic
 	}
 	return disksBackFile, nil
 }
+
+func (s *SKVMGuestInstance) onlineResizeDisk(ctx context.Context, diskId string, sizeMB int64) {
+	task := NewGuestOnlineResizeDiskTask(ctx, s, diskId, sizeMB)
+	task.Start()
+}

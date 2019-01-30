@@ -147,12 +147,17 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 		}
 	}
 	data.Set("backends", jsonutils.Marshal(backends))
-	return lb.GetRegion().GetDriver().ValidateCreateLoadbalancerBackendGroupData(ctx, userCred, data, lb, backends)
+	region := lb.GetRegion()
+	if region == nil {
+		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer %s", lb.Name)
+	}
+	return region.GetDriver().ValidateCreateLoadbalancerBackendGroupData(ctx, userCred, data, lb, backends)
 }
 
 func (lbbg *SLoadbalancerBackendGroup) GetLoadbalancer() *SLoadbalancer {
 	lb, err := LoadbalancerManager.FetchById(lbbg.LoadbalancerId)
 	if err != nil {
+		fmt.Errorf("failed to find loadbalancer for backendgroup %s", lbbg.Name)
 		return nil
 	}
 	return lb.(*SLoadbalancer)
@@ -196,7 +201,11 @@ func (lbbg *SLoadbalancerBackendGroup) ValidateDeleteCondition(ctx context.Conte
 		}
 	}
 
-	return lbbg.GetRegion().GetDriver().ValidateDeleteLoadbalancerBackendGroupCondition(ctx, lbbg)
+	region := lbbg.GetRegion()
+	if region != nil {
+		return nil
+	}
+	return region.GetDriver().ValidateDeleteLoadbalancerBackendGroupCondition(ctx, lbbg)
 }
 
 func (lbbg *SLoadbalancerBackendGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {

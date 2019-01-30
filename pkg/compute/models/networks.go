@@ -917,24 +917,35 @@ func (self *SNetwork) AllowPerformReserveIp(ctx context.Context, userCred mcclie
 }
 
 func (self *SNetwork) PerformReserveIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	ipstr, _ := data.GetString("ip")
-	notes, _ := data.GetString("notes")
-	if len(ipstr) == 0 || len(notes) == 0 {
-		return nil, httperrors.NewInputParameterError("both reserved ip and notes should be provided")
-	}
-	ipAddr, err := netutils.NewIPV4Addr(ipstr)
+	ips, err := data.GetArray("ips")
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("not a valid ip address %s: %s", ipstr, err)
+		if data.Contains("ip") {
+			ip, _ := data.Get("ip")
+			ips = []jsonutils.JSONObject{ip}
+		} else {
+			return nil, httperrors.NewMissingParameterError("ips")
+		}
 	}
-	if !self.isAddressInRange(ipAddr) {
-		return nil, httperrors.NewInputParameterError("Address %s not in network", ipstr)
-	}
-	if self.isAddressUsed(ipstr) {
-		return nil, httperrors.NewConflictError("Address %s has been used", ipstr)
-	}
-	err = ReservedipManager.ReserveIP(userCred, self, ipstr, notes)
+	notes, err := data.GetString("notes")
 	if err != nil {
-		return nil, err
+		return nil, httperrors.NewMissingParameterError("ips")
+	}
+	for _, ip := range ips {
+		ipstr, _ := ip.GetString()
+		ipAddr, err := netutils.NewIPV4Addr(ipstr)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("not a valid ip address %s: %s", ipstr, err)
+		}
+		if !self.isAddressInRange(ipAddr) {
+			return nil, httperrors.NewInputParameterError("Address %s not in network", ipstr)
+		}
+		if self.isAddressUsed(ipstr) {
+			return nil, httperrors.NewConflictError("Address %s has been used", ipstr)
+		}
+		err = ReservedipManager.ReserveIP(userCred, self, ipstr, notes)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return nil, nil
 }
@@ -1472,6 +1483,24 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), vpcs.Field("manager_id")))
 		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr))
 
+		q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq.SubQuery()))
+	}
+
+	if query.Contains("is_private") && jsonutils.QueryBoolean(query, "is_private", false) {
+		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		subq := wires.Query(wires.Field("id"))
+		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		subq = subq.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
+		q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq.SubQuery()))
+	}
+
+	if query.Contains("is_public") && jsonutils.QueryBoolean(query, "is_public", false) {
+		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		subq := wires.Query(wires.Field("id"))
+		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		subq = subq.Filter(sqlchemy.IsNotEmpty(vpcs.Field("manager_id")))
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq.SubQuery()))
 	}
 

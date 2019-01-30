@@ -132,11 +132,11 @@ type JointManager interface {
 	ListDescendent2(s *mcclient.ClientSession, sid string, params jsonutils.JSONObject) (*ListResult, error)
 	ListAscendent(s *mcclient.ClientSession, mid string, params jsonutils.JSONObject) (*ListResult, error)
 	Attach(s *mcclient.ClientSession, mid, sid string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
-	// BatchAttach(s *mcclient.ClientSession, mid string, sids []string, params jsonutils.JSONObject) []SubmitResult
-	// BatchAttach2(s *mcclient.ClientSession, mid string, sids []string, params jsonutils.JSONObject) []SubmitResult
+	BatchAttach(s *mcclient.ClientSession, mid string, sids []string, params jsonutils.JSONObject) []SubmitResult
+	BatchAttach2(s *mcclient.ClientSession, mid string, sids []string, params jsonutils.JSONObject) []SubmitResult
 	Detach(s *mcclient.ClientSession, mid, sid string, query jsonutils.JSONObject) (jsonutils.JSONObject, error)
-	// BatchDetach(s *mcclient.ClientSession, mid string, sids []string) []SubmitResult
-	// BatchDetach2(s *mcclient.ClientSession, mid string, sids []string) []SubmitResult
+	BatchDetach(s *mcclient.ClientSession, mid string, sids []string) []SubmitResult
+	BatchDetach2(s *mcclient.ClientSession, mid string, sids []string) []SubmitResult
 	Update(s *mcclient.ClientSession, mid, sid string, query jsonutils.JSONObject, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	Patch(s *mcclient.ClientSession, mid, sid string, query jsonutils.JSONObject, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 }

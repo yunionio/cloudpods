@@ -954,3 +954,49 @@ func (s *SDriveMirrorTask) startMirror(res string) {
 		}
 	}
 }
+
+/**
+ *  GuestOnlineResizeDiskTask
+**/
+
+type SGuestOnlineResizeDiskTask struct {
+	*SKVMGuestInstance
+
+	ctx    context.Context
+	diskId string
+	sizeMB int64
+}
+
+func NewGuestOnlineResizeDiskTask(
+	ctx context.Context, s *SKVMGuestInstance, diskId string, sizeMB int64,
+) *SGuestOnlineResizeDiskTask {
+	return &SGuestOnlineResizeDiskTask{
+		SKVMGuestInstance: s,
+		ctx:               ctx,
+		diskId:            diskId,
+		sizeMB:            sizeMB,
+	}
+}
+
+func (task *SGuestOnlineResizeDiskTask) Start() {
+	task.Monitor.GetBlocks(task.OnGetBlocksSucc)
+}
+
+func (task *SGuestOnlineResizeDiskTask) OnGetBlocksSucc(results *jsonutils.JSONArray) {
+	for i := 0; i < results.Size(); i += 1 {
+		result, _ := results.GetAt(i)
+		fileStr, _ := result.GetString("inserted", "file")
+		if len(fileStr) > 0 && strings.HasSuffix(fileStr, task.diskId) {
+			driveName, _ := result.GetString("device")
+			task.Monitor.ResizeDisk(driveName, task.sizeMB, task.OnResizeSucc)
+			return
+		}
+	}
+	hostutils.TaskFailed(task.ctx, fmt.Sprintf("disk %s not found on this guest", task.diskId))
+}
+
+func (task *SGuestOnlineResizeDiskTask) OnResizeSucc(result string) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewInt(task.sizeMB), "disk_size")
+	hostutils.TaskComplete(task.ctx, params)
+}
