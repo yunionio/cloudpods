@@ -257,7 +257,7 @@ func (m *SGuestManager) PrepareDeploy(sid string) error {
 func (m *SGuestManager) Monitor(sid, cmd string, callback func(string)) error {
 	if guest, ok := m.Servers[sid]; ok {
 		if guest.IsRunning() {
-			guest.Monitor.HumanMonirotCommand(cmd, callback)
+			guest.Monitor.HumanMonitorCommand(cmd, callback)
 			return nil
 		} else {
 			return httperrors.NewBadRequestError("Server stopped??")
@@ -609,6 +609,19 @@ func (m *SGuestManager) Resume(ctx context.Context, sid string, isLiveMigrate bo
 	}
 	resumeTask.Start()
 	return nil, nil
+}
+
+func (m *SGuestManager) OnlineResizeDisk(ctx context.Context, sid string, diskId string, sizeMb int64) (jsonutils.JSONObject, error) {
+	guest, ok := guestManger.Servers[sid]
+	if !ok {
+		return nil, httperrors.NewNotFoundError("guest %s not found", sid)
+	}
+	if guest.IsRunning() {
+		guest.onlineResizeDisk(ctx, diskId, sizeMb)
+		return nil, nil
+	} else {
+		return nil, httperrors.NewInvalidStatusError("guest is not runnign")
+	}
 }
 
 // func (m *SGuestManager) StartNbdServer(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
