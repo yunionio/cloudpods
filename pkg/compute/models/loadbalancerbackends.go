@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -133,7 +134,11 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
 		return nil, err
 	}
-	return backendGroup.GetLoadbalancer().GetRegion().GetDriver().ValidateCreateLoadbalancerBackendData(ctx, userCred, data, backendType, lb, backendGroup, backendV.Model)
+	region := lb.GetRegion()
+	if region == nil {
+		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer %s", lb.Name)
+	}
+	return region.GetDriver().ValidateCreateLoadbalancerBackendData(ctx, userCred, data, backendType, lb, backendGroup, backendV.Model)
 }
 
 func (lbb *SLoadbalancerBackend) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -143,6 +148,7 @@ func (lbb *SLoadbalancerBackend) AllowPerformStatus(ctx context.Context, userCre
 func (lbb *SLoadbalancerBackend) GetLoadbalancerBackendGroup() *SLoadbalancerBackendGroup {
 	backendgroup, err := LoadbalancerBackendGroupManager.FetchById(lbb.BackendGroupId)
 	if err != nil {
+		log.Errorf("failed to find backendgroup for backend %s", lbb.Name)
 		return nil
 	}
 	return backendgroup.(*SLoadbalancerBackendGroup)
@@ -255,7 +261,11 @@ func (lbb *SLoadbalancerBackend) ValidateDeleteCondition(ctx context.Context) er
 	if err := lbb.SVirtualResourceBase.ValidateDeleteCondition(ctx); err != nil {
 		return err
 	}
-	return lbb.GetRegion().GetDriver().ValidateDeleteLoadbalancerBackendCondition(ctx, lbb)
+	region := lbb.GetRegion()
+	if region == nil {
+		return nil
+	}
+	return region.GetDriver().ValidateDeleteLoadbalancerBackendCondition(ctx, lbb)
 }
 
 func (man *SLoadbalancerBackendManager) SyncLoadbalancerBackends(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, loadbalancerBackendgroup *SLoadbalancerBackendGroup, lbbs []cloudprovider.ICloudLoadbalancerBackend, syncRange *SSyncRange) compare.SyncResult {
