@@ -113,8 +113,6 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 			if disk.SizeMb < 5*1024 || disk.SizeMb > 800*1024 {
 				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 5GB ~ 800GB", disk.Backend)
 			}
-		default:
-			return nil, httperrors.NewInputParameterError("Unkonwn disk type %s", disk.Backend)
 		}
 	}
 	return data, nil
