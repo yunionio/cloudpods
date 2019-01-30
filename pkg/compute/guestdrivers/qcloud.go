@@ -129,8 +129,6 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 			if disk.SizeMb < 100*1024 || disk.SizeMb > 16000*1024 {
 				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 100GB ~ 16000GB", disk.Backend)
 			}
-		default:
-			return nil, httperrors.NewInputParameterError("Unkonwn disk type %s", disk.Backend)
 		}
 	}
 	return data, nil
