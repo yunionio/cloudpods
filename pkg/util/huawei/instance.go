@@ -803,8 +803,18 @@ func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212679.html
 // 只删除主机。弹性IP和数据盘需要单独删除
 func (self *SRegion) DeleteVM(instanceId string) error {
-	if err := self.instanceStatusChecking(instanceId, InstanceStatusStopped); err != nil {
+	remoteStatus, err := self.GetInstanceStatus(instanceId)
+	if err != nil {
 		return err
+	}
+
+	if remoteStatus == InstanceStatusTerminated {
+		return nil
+	}
+
+	if remoteStatus != InstanceStatusStopped {
+		log.Errorf("DeleteVM vm status is %s expect %s", remoteStatus, InstanceStatusStopped)
+		return cloudprovider.ErrInvalidStatus
 	}
 
 	params := jsonutils.NewDict()
@@ -816,7 +826,7 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 	params.Add(jsonutils.NewBool(false), "delete_publicip")
 	params.Add(jsonutils.NewBool(false), "delete_volume")
 
-	_, err := self.ecsClient.Servers.PerformAction2("delete", "", params, "")
+	_, err = self.ecsClient.Servers.PerformAction2("delete", "", params, "")
 	return err
 }
 

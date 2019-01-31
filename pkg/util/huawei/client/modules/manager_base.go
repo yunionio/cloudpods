@@ -119,7 +119,24 @@ func (self *BaseManager) jsonRequest(request requests.IRequest) (http.Header, js
 	}
 
 	// 发送 request。todo: 支持debug
-	return httputils.JSONRequest(self.httpClient, ctx, httputils.THttpMethod(request.GetMethod()), request.BuildUrl(), header, jsonBody, self.debug)
+	retry := 3
+	for {
+		h, b, e := httputils.JSONRequest(self.httpClient, ctx, httputils.THttpMethod(request.GetMethod()), request.BuildUrl(), header, jsonBody, self.debug)
+		if e == nil {
+			return h, b, e
+		}
+
+		switch err := e.(type) {
+		case *httputils.JSONClientError:
+			if err.Code == 499 && retry > 0 && request.GetMethod() == "GET" {
+				retry -= 1
+			} else {
+				return h, b, e
+			}
+		default:
+			return h, b, e
+		}
+	}
 }
 
 func (self *BaseManager) rawRequest(request requests.IRequest) (*http.Response, error) {
