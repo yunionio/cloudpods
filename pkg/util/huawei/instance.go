@@ -761,8 +761,18 @@ func (self *SRegion) instanceStatusChecking(instanceId, status string) error {
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212207.html
 func (self *SRegion) StartVM(instanceId string) error {
-	if err := self.instanceStatusChecking(instanceId, InstanceStatusStopped); err != nil {
+	rstatus, err := self.GetInstanceStatus(instanceId)
+	if err != nil {
 		return err
+	}
+
+	if rstatus == InstanceStatusRunning {
+		return nil
+	}
+
+	if rstatus != InstanceStatusStopped {
+		log.Errorf("instanceStatusChecking: vm status is %s expect %s", rstatus, InstanceStatusStopped)
+		return cloudprovider.ErrInvalidStatus
 	}
 
 	params := jsonutils.NewDict()
@@ -773,14 +783,24 @@ func (self *SRegion) StartVM(instanceId string) error {
 	serversObj.Add(serverObj)
 	startObj.Add(serversObj, "servers")
 	params.Add(startObj, "os-start")
-	_, err := self.ecsClient.Servers.PerformAction2("action", "", params, "")
+	_, err = self.ecsClient.Servers.PerformAction2("action", "", params, "")
 	return err
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212651.html
 func (self *SRegion) StopVM(instanceId string, isForce bool) error {
-	if err := self.instanceStatusChecking(instanceId, InstanceStatusRunning); err != nil {
+	rstatus, err := self.GetInstanceStatus(instanceId)
+	if err != nil {
 		return err
+	}
+
+	if rstatus == InstanceStatusStopped {
+		return nil
+	}
+
+	if rstatus != InstanceStatusRunning {
+		log.Errorf("instanceStatusChecking: vm status is %s expect %s", rstatus, InstanceStatusRunning)
+		return cloudprovider.ErrInvalidStatus
 	}
 
 	params := jsonutils.NewDict()
@@ -796,15 +816,25 @@ func (self *SRegion) StopVM(instanceId string, isForce bool) error {
 		stopObj.Add(jsonutils.NewString("SOFT"), "type")
 	}
 	params.Add(stopObj, "os-stop")
-	_, err := self.ecsClient.Servers.PerformAction2("action", "", params, "")
+	_, err = self.ecsClient.Servers.PerformAction2("action", "", params, "")
 	return err
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212679.html
 // 只删除主机。弹性IP和数据盘需要单独删除
 func (self *SRegion) DeleteVM(instanceId string) error {
-	if err := self.instanceStatusChecking(instanceId, InstanceStatusStopped); err != nil {
+	remoteStatus, err := self.GetInstanceStatus(instanceId)
+	if err != nil {
 		return err
+	}
+
+	if remoteStatus == InstanceStatusTerminated {
+		return nil
+	}
+
+	if remoteStatus != InstanceStatusStopped {
+		log.Errorf("DeleteVM vm status is %s expect %s", remoteStatus, InstanceStatusStopped)
+		return cloudprovider.ErrInvalidStatus
 	}
 
 	params := jsonutils.NewDict()
@@ -816,7 +846,7 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 	params.Add(jsonutils.NewBool(false), "delete_publicip")
 	params.Add(jsonutils.NewBool(false), "delete_volume")
 
-	_, err := self.ecsClient.Servers.PerformAction2("delete", "", params, "")
+	_, err = self.ecsClient.Servers.PerformAction2("delete", "", params, "")
 	return err
 }
 
@@ -976,8 +1006,8 @@ func (self *SRegion) AttachDisk(instanceId string, diskId string, device string)
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0022472988.html
 // 默认非强制卸载。delete_flag=0
 func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
-	path := fmt.Sprintf("%s/detachvolume/%s", instanceId, diskId)
-	return DoDelete(self.ecsClient.Servers.Delete, path, nil, nil)
+	path := fmt.Sprintf("detachvolume/%s", diskId)
+	return DoDeleteWithSpec(self.ecsClient.Servers.DeleteInContextWithSpec, nil, instanceId, path, nil)
 }
 
 // 目前无接口支持

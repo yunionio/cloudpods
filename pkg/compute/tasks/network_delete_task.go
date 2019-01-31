@@ -20,7 +20,7 @@ func init() {
 }
 
 func (self *NetworkDeleteTask) taskFailed(ctx context.Context, network *models.SNetwork, err error) {
-	log.Errorf("network create task fail: %s", err)
+	log.Errorf("network delete task fail: %s", err)
 	network.SetStatus(self.UserCred, models.NETWORK_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(network, db.ACT_ALLOCATE_FAIL, err.Error(), self.UserCred)
 	self.SetStageFailed(ctx, err.Error())
