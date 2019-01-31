@@ -18,6 +18,7 @@ type createFunc func(params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 type updateFunc func(id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 type updateFunc2 func(ctx manager.IManagerContext, id string, spec string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error)
 type deleteFunc func(id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
+type deleteFunc2 func(ctx manager.IManagerContext, id string, spec string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error)
 type listInCtxFunc func(ctx manager.IManagerContext, querys map[string]string) (*responses.ListResult, error)
 type listInCtxWithSpecFunc func(ctx manager.IManagerContext, spec string, querys map[string]string, responseKey string) (*responses.ListResult, error)
 
@@ -109,4 +110,13 @@ func DoDelete(deleteFunc deleteFunc, id string, params jsonutils.JSONObject, res
 
 	ret, err := deleteFunc(id, params)
 	return unmarshalResult(ret, err, result)
+}
+
+func DoDeleteWithSpec(deleteFunc deleteFunc2, ctx manager.IManagerContext, id string, spec string, params jsonutils.JSONObject) error {
+	if len(id) == 0 {
+		return fmt.Errorf(" id should not be empty")
+	}
+
+	_, err := deleteFunc(ctx, id, spec, params, "")
+	return err
 }

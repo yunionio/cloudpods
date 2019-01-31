@@ -47,7 +47,8 @@ type IManager interface {
 	Delete(id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	// 根据上文删除单个资源 DELETE <base_url>/cloudservers/<cloudserver_id>/nics/<nic_id>
 	DeleteInContext(ctx IManagerContext, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
-
+	// 根据上文和spec删除单个资源
+	DeleteInContextWithSpec(ctx IManagerContext, id string, spec string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error)
 	// 批量执行操作 POST <base_url>/cloudservers/<action>
 	// BatchPerformAction(action string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	// 执行操作 POST <base_url>/cloudservers/<cloudserver_id>/<action>

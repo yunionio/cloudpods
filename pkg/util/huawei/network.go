@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/huawei/client/modules"
 	"yunion.io/x/pkg/util/netutils"
 )
 
@@ -121,7 +122,7 @@ func (self *SNetwork) GetIsPublic() bool {
 }
 
 func (self *SNetwork) Delete() error {
-	return self.wire.region.deleteNetwork(self.GetId())
+	return self.wire.region.deleteNetwork(self.VpcID, self.GetId())
 }
 
 func (self *SNetwork) GetAllocTimeoutSeconds() int {
@@ -150,6 +151,7 @@ func (self *SRegion) GetNetwroks(vpcId string, limit int, marker string) ([]SNet
 	return networks, len(networks), err
 }
 
-func (self *SRegion) deleteNetwork(networkId string) error {
-	return DoDelete(self.ecsClient.Subnets.Delete, networkId, nil, nil)
+func (self *SRegion) deleteNetwork(vpcId string, networkId string) error {
+	ctx := &modules.ManagerContext{InstanceId:vpcId, InstanceManager:self.ecsClient.Vpcs}
+	return DoDeleteWithSpec(self.ecsClient.Subnets.DeleteInContextWithSpec, ctx, networkId, "", nil)
 }
