@@ -9,6 +9,7 @@ import (
 )
 
 type IDiskPartition interface {
+	GetLocalPath(sPath string, caseInsensitive bool) string
 	FileGetContents(sPath string, caseInsensitive bool) ([]byte, error)
 	FilePutContents(sPath, content string, modAppend, caseInsensitive bool) error
 	Exists(sPath string, caseInsensitive bool) bool
@@ -44,7 +45,7 @@ type IRootFsDriver interface {
 	DeployStandbyNetworkingScripts(part IDiskPartition, nics, nicsStandby []jsonutils.JSONObject) error
 	DeployUdevSubsystemScripts(IDiskPartition) error
 	DeployFstabScripts(IDiskPartition, []jsonutils.JSONObject) error
-	GetLoginAccount(IDiskPartition, bool) string
+	GetLoginAccount(IDiskPartition, bool, bool) string
 	DeployPublicKey(IDiskPartition, string, *sshkeys.SSHKeys) error
 	ChangeUserPasswd(part IDiskPartition, account, gid, publicKey, password string) (string, error)
 	DeployYunionroot(IDiskPartition, *sshkeys.SSHKeys) error

@@ -17,6 +17,6 @@ func init() {
 	rootfsDrivers = append(rootfsDrivers, linuxFsDrivers...)
 	//rootfsDrivers = append(rootfsDrivers, NewMacOSRootFs)
 	//rootfsDrivers = append(rootfsDrivers, NewEsxiRootFs)
-	//rootfsDrivers = append(rootfsDrivers, NewWindowsRootFs)
+	rootfsDrivers = append(rootfsDrivers, NewWindowsRootFs)
 	//rootfsDrivers = append(rootfsDrivers, NewAndroidRootFs)
 }

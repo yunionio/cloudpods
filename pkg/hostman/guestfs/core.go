@@ -15,12 +15,13 @@ import (
 )
 
 type SDeployInfo struct {
-	publicKey       *sshkeys.SSHKeys
-	deploys         []jsonutils.JSONObject
-	password        string
-	isInit          bool
-	enableTty       bool
-	defaultRootUser bool
+	publicKey               *sshkeys.SSHKeys
+	deploys                 []jsonutils.JSONObject
+	password                string
+	isInit                  bool
+	enableTty               bool
+	defaultRootUser         bool
+	windowsDefaultAdminUser bool
 }
 
 func NewDeployInfo(
@@ -30,14 +31,16 @@ func NewDeployInfo(
 	isInit bool,
 	enableTty bool,
 	defaultRootUser bool,
+	windowsDefaultAdminUser bool,
 ) *SDeployInfo {
 	return &SDeployInfo{
-		publicKey:       publicKey,
-		deploys:         deploys,
-		password:        password,
-		isInit:          isInit,
-		enableTty:       enableTty,
-		defaultRootUser: defaultRootUser,
+		publicKey:               publicKey,
+		deploys:                 deploys,
+		password:                password,
+		isInit:                  isInit,
+		enableTty:               enableTty,
+		defaultRootUser:         defaultRootUser,
+		windowsDefaultAdminUser: windowsDefaultAdminUser,
 	}
 }
 
@@ -176,7 +179,8 @@ func DeployGuestFs(
 		}
 	}
 	if len(deployInfo.password) > 0 {
-		if account := rootfs.GetLoginAccount(partition, deployInfo.defaultRootUser); len(account) > 0 {
+		if account := rootfs.GetLoginAccount(partition,
+			deployInfo.defaultRootUser, deployInfo.windowsDefaultAdminUser); len(account) > 0 {
 			ret.Set("account", jsonutils.NewString(account))
 			if err = rootfs.DeployPublicKey(partition, account, deployInfo.publicKey); err != nil {
 				return nil, fmt.Errorf("DeployPublicKey: %v", err)

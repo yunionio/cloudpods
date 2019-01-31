@@ -69,15 +69,15 @@ func (p *SSHPartition) osMkdirP(dir string, mode uint32) error {
 func (p *SSHPartition) Mkdir(sPath string, mode int, caseInsensitive bool) error {
 	segs := strings.Split(sPath, "/")
 	sp := ""
-	pPath := p.getLocalPath("/", caseInsensitive)
+	pPath := p.GetLocalPath("/", caseInsensitive)
 	var err error
 	for _, s := range segs {
 		if len(s) > 0 {
 			sp = path.Join(sp, s)
-			vPath := p.getLocalPath(sp, caseInsensitive)
+			vPath := p.GetLocalPath(sp, caseInsensitive)
 			if len(vPath) == 0 {
 				err = p.osMkdirP(path.Join(pPath, s), uint32(mode))
-				pPath = p.getLocalPath(sp, caseInsensitive)
+				pPath = p.GetLocalPath(sp, caseInsensitive)
 			} else {
 				pPath = vPath
 			}
@@ -160,7 +160,7 @@ func (p *SSHPartition) IsMounted() bool {
 }
 
 func (p *SSHPartition) Chmod(sPath string, mode uint32, caseI bool) error {
-	sPath = p.getLocalPath(sPath, caseI)
+	sPath = p.GetLocalPath(sPath, caseI)
 	if sPath != "" {
 		return p.osChmod(sPath, mode)
 	}
@@ -193,7 +193,7 @@ func (p *SSHPartition) osListDir(path string) ([]string, error) {
 	return files, nil
 }
 
-func (p *SSHPartition) getLocalPath(sPath string, caseI bool) string {
+func (p *SSHPartition) GetLocalPath(sPath string, caseI bool) string {
 	var fullPath = p.mountPath
 	pathSegs := strings.Split(sPath, "/")
 	for _, seg := range pathSegs {
@@ -221,7 +221,7 @@ func (p *SSHPartition) getLocalPath(sPath string, caseI bool) string {
 }
 
 func (p *SSHPartition) Exists(sPath string, caseInsensitive bool) bool {
-	sPath = p.getLocalPath(sPath, caseInsensitive)
+	sPath = p.GetLocalPath(sPath, caseInsensitive)
 	if len(sPath) > 0 {
 		return p.osPathExists(sPath)
 	}
@@ -242,7 +242,7 @@ func (p *SSHPartition) sshFileGetContents(path string) ([]byte, error) {
 }
 
 func (p *SSHPartition) FileGetContents(sPath string, caseInsensitive bool) ([]byte, error) {
-	sPath = p.getLocalPath(sPath, caseInsensitive)
+	sPath = p.GetLocalPath(sPath, caseInsensitive)
 	if len(sPath) > 0 {
 		return p.sshFileGetContents(sPath)
 	}
@@ -282,11 +282,11 @@ func (p *SSHPartition) sshFilePutContents(sPath, content string, modAppend bool)
 }
 
 func (p *SSHPartition) FilePutContents(sPath, content string, modAppend, caseInsensitive bool) error {
-	sFilePath := p.getLocalPath(sPath, caseInsensitive)
+	sFilePath := p.GetLocalPath(sPath, caseInsensitive)
 	if len(sFilePath) > 0 {
 		sPath = sFilePath
 	} else {
-		dirPath := p.getLocalPath(path.Dir(sPath), caseInsensitive)
+		dirPath := p.GetLocalPath(path.Dir(sPath), caseInsensitive)
 		if len(dirPath) > 0 {
 			sPath = path.Join(dirPath, path.Base(sPath))
 		}
@@ -298,7 +298,7 @@ func (p *SSHPartition) FilePutContents(sPath, content string, modAppend, caseIns
 }
 
 func (p *SSHPartition) ListDir(sPath string, caseInsensitive bool) []string {
-	sPath = p.getLocalPath(sPath, caseInsensitive)
+	sPath = p.GetLocalPath(sPath, caseInsensitive)
 	if len(sPath) > 0 {
 		ret, err := p.osListDir(sPath)
 		if err != nil {
@@ -317,7 +317,7 @@ func (p *SSHPartition) osChown(sPath string, uid, gid int) error {
 }
 
 func (p *SSHPartition) Chown(sPath string, uid, gid int, caseInsensitive bool) error {
-	sPath = p.getLocalPath(sPath, caseInsensitive)
+	sPath = p.GetLocalPath(sPath, caseInsensitive)
 	if len(sPath) == 0 {
 		return fmt.Errorf("Can't get local path: %s", sPath)
 	}
@@ -331,7 +331,7 @@ func (p *SSHPartition) osRemove(sPath string) error {
 }
 
 func (p *SSHPartition) Remove(sPath string, caseInsensitive bool) {
-	sPath = p.getLocalPath(sPath, caseInsensitive)
+	sPath = p.GetLocalPath(sPath, caseInsensitive)
 	if len(sPath) > 0 {
 		p.osRemove(sPath)
 	}
@@ -445,7 +445,7 @@ func (info sFileInfo) Sys() interface{} {
 }
 
 func (p *SSHPartition) Stat(sPath string, caseInsensitive bool) os.FileInfo {
-	sPath = p.getLocalPath(sPath, caseInsensitive)
+	sPath = p.GetLocalPath(sPath, caseInsensitive)
 	if len(sPath) == 0 {
 		return nil
 	}

@@ -26,6 +26,8 @@ type BaremetalOptions struct {
 
 	DefaultIpmiPassword       string `help:"Default IPMI passowrd"`
 	DefaultStrongIpmiPassword string `help:"Default strong IPMI passowrd"`
+
+	WindowsDefaultAdminUser bool `default:"true" help:"Default account for Windows system is Administrator"`
 }
 
 var (

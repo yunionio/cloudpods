@@ -23,7 +23,7 @@ func (f *SLocalGuestFS) SupportSerialPorts() bool {
 	return false
 }
 
-func (f *SLocalGuestFS) getLocalPath(sPath string, caseInsensitive bool) string {
+func (f *SLocalGuestFS) GetLocalPath(sPath string, caseInsensitive bool) string {
 	var fullPath = f.mountPath
 	pathSegs := strings.Split(sPath, "/")
 	for _, seg := range pathSegs {
@@ -51,7 +51,7 @@ func (f *SLocalGuestFS) getLocalPath(sPath string, caseInsensitive bool) string 
 }
 
 func (f *SLocalGuestFS) Remove(path string, caseInsensitive bool) {
-	path = f.getLocalPath(path, caseInsensitive)
+	path = f.GetLocalPath(path, caseInsensitive)
 	if len(path) > 0 {
 		os.Remove(path)
 	}
@@ -60,16 +60,16 @@ func (f *SLocalGuestFS) Remove(path string, caseInsensitive bool) {
 func (f *SLocalGuestFS) Mkdir(sPath string, mode int, caseInsensitive bool) error {
 	segs := strings.Split(sPath, "/")
 	sPath = ""
-	pPath := f.getLocalPath("/", caseInsensitive)
+	pPath := f.GetLocalPath("/", caseInsensitive)
 	for _, s := range segs {
 		if len(s) > 0 {
 			sPath = path.Join(sPath, s)
-			vPath := f.getLocalPath(sPath, caseInsensitive)
+			vPath := f.GetLocalPath(sPath, caseInsensitive)
 			if len(vPath) == 0 {
 				if err := os.Mkdir(path.Join(pPath, s), os.FileMode(mode)); err != nil {
 					return err
 				}
-				pPath = f.getLocalPath(sPath, caseInsensitive)
+				pPath = f.GetLocalPath(sPath, caseInsensitive)
 			} else {
 				pPath = vPath
 			}
@@ -79,7 +79,7 @@ func (f *SLocalGuestFS) Mkdir(sPath string, mode int, caseInsensitive bool) erro
 }
 
 func (f *SLocalGuestFS) ListDir(sPath string, caseInsensitive bool) []string {
-	sPath = f.getLocalPath(sPath, caseInsensitive)
+	sPath = f.GetLocalPath(sPath, caseInsensitive)
 	if len(sPath) > 0 {
 		files, err := ioutil.ReadDir(sPath)
 		if err != nil {
@@ -96,7 +96,7 @@ func (f *SLocalGuestFS) ListDir(sPath string, caseInsensitive bool) []string {
 }
 
 func (f *SLocalGuestFS) Cleandir(dir string, keepdir, caseInsensitive bool) error {
-	sPath := f.getLocalPath(dir, caseInsensitive)
+	sPath := f.GetLocalPath(dir, caseInsensitive)
 	if len(sPath) > 0 {
 		return fileutils2.Cleandir(sPath, keepdir)
 	}
@@ -104,7 +104,7 @@ func (f *SLocalGuestFS) Cleandir(dir string, keepdir, caseInsensitive bool) erro
 }
 
 func (f *SLocalGuestFS) Zerofiles(dir string, caseInsensitive bool) error {
-	sPath := f.getLocalPath(dir, caseInsensitive)
+	sPath := f.GetLocalPath(dir, caseInsensitive)
 	if len(sPath) > 0 {
 		return fileutils2.Zerofiles(sPath)
 	}
@@ -149,7 +149,7 @@ func (f *SLocalGuestFS) Passwd(account, password string, caseInsensitive bool) e
 }
 
 func (f *SLocalGuestFS) Stat(usrDir string, caseInsensitive bool) os.FileInfo {
-	sPath := f.getLocalPath(usrDir, caseInsensitive)
+	sPath := f.GetLocalPath(usrDir, caseInsensitive)
 	if len(sPath) > 0 {
 		fileInfo, err := os.Stat(sPath)
 		if err != nil {
@@ -161,7 +161,7 @@ func (f *SLocalGuestFS) Stat(usrDir string, caseInsensitive bool) os.FileInfo {
 }
 
 func (f *SLocalGuestFS) Exists(sPath string, caseInsensitive bool) bool {
-	sPath = f.getLocalPath(sPath, caseInsensitive)
+	sPath = f.GetLocalPath(sPath, caseInsensitive)
 	if len(sPath) > 0 {
 		return fileutils2.Exists(sPath)
 	}
@@ -169,7 +169,7 @@ func (f *SLocalGuestFS) Exists(sPath string, caseInsensitive bool) bool {
 }
 
 func (f *SLocalGuestFS) Chown(sPath string, uid, gid int, caseInsensitive bool) error {
-	sPath = f.getLocalPath(sPath, caseInsensitive)
+	sPath = f.GetLocalPath(sPath, caseInsensitive)
 	if len(sPath) > 0 {
 		return os.Chown(sPath, uid, gid)
 	}
@@ -177,7 +177,7 @@ func (f *SLocalGuestFS) Chown(sPath string, uid, gid int, caseInsensitive bool) 
 }
 
 func (f *SLocalGuestFS) Chmod(sPath string, mode uint32, caseInsensitive bool) error {
-	sPath = f.getLocalPath(sPath, caseInsensitive)
+	sPath = f.GetLocalPath(sPath, caseInsensitive)
 	if len(sPath) > 0 {
 		return os.Chmod(sPath, os.FileMode(mode))
 	}
@@ -196,7 +196,7 @@ func (f *SLocalGuestFS) UserAdd(user string, caseInsensitive bool) error {
 }
 
 func (f *SLocalGuestFS) FileGetContents(sPath string, caseInsensitive bool) ([]byte, error) {
-	sPath = f.getLocalPath(sPath, caseInsensitive)
+	sPath = f.GetLocalPath(sPath, caseInsensitive)
 	if len(sPath) > 0 {
 		return ioutil.ReadFile(sPath)
 	}
@@ -204,11 +204,11 @@ func (f *SLocalGuestFS) FileGetContents(sPath string, caseInsensitive bool) ([]b
 }
 
 func (f *SLocalGuestFS) FilePutContents(sPath, content string, modAppend, caseInsensitive bool) error {
-	sFilePath := f.getLocalPath(sPath, caseInsensitive)
+	sFilePath := f.GetLocalPath(sPath, caseInsensitive)
 	if len(sFilePath) > 0 {
 		sPath = sFilePath
 	} else {
-		dirPath := f.getLocalPath(path.Dir(sPath), caseInsensitive)
+		dirPath := f.GetLocalPath(path.Dir(sPath), caseInsensitive)
 		if len(dirPath) > 0 {
 			sPath = path.Join(dirPath, path.Base(sPath))
 		}

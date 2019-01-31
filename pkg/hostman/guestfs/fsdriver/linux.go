@@ -60,7 +60,7 @@ func (l *sLinuxRootFs) DeployHosts(rootFs IDiskPartition, hostname, domain strin
 	return rootFs.FilePutContents(etcHosts, hf.String(), false, false)
 }
 
-func (l *sLinuxRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser bool) string {
+func (l *sLinuxRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser bool, windowsDefaultAdminUser bool) string {
 	var selUsr string
 	if defaultRootUser && rootFs.Exists("/root", false) {
 		selUsr = ROOT_USER
