@@ -647,12 +647,12 @@ func (w *SWinRegTool) installGpeditStartScript(script, scriptPath string) {
 		w.MkdirP(scriptPath + `\Shutdown`)
 		dsname := "Local Group Policy"
 		kvts := [][3]string{
-			[3]string{"GPO-ID", "LocalGPO", "REG_SZ"},
-			[3]string{"SOM-ID", "Local", "REG_SZ"},
-			[3]string{"FileSysPath", `C:\Windows\System32\GroupPolicy\Machine`, "REG_SZ"},
-			[3]string{"DisplayName", dsname, "REG_SZ"},
-			[3]string{"GPOName", dsname, "REG_SZ"},
-			[3]string{"PSScriptOrder", "1", "REG_DWORD"},
+			{"GPO-ID", "LocalGPO", "REG_SZ"},
+			{"SOM-ID", "Local", "REG_SZ"},
+			{"FileSysPath", `C:\Windows\System32\GroupPolicy\Machine`, "REG_SZ"},
+			{"DisplayName", dsname, "REG_SZ"},
+			{"GPOName", dsname, "REG_SZ"},
+			{"PSScriptOrder", "1", "REG_DWORD"},
 		}
 		for _, kvt := range kvts {
 			w.SetRegistry(fmt.Sprintf(`%s\Startup\0\%s`, scriptPath, kvt[0]), kvt[1], kvt[2])
@@ -665,10 +665,10 @@ func (w *SWinRegTool) installGpeditStartScript(script, scriptPath string) {
 	}
 
 	kvts := [][3]string{
-		[3]string{"Script", script, "REG_SZ"},
-		[3]string{"Parameters", "", "REG_SZ"},
-		[3]string{"ExecTime", "", "REG_QWORD"},
-		[3]string{"IsPowershell", "0", "REG_DWORD"},
+		{"Script", script, "REG_SZ"},
+		{"Parameters", "", "REG_SZ"},
+		{"ExecTime", "", "REG_QWORD"},
+		{"IsPowershell", "0", "REG_DWORD"},
 	}
 	for _, kvt := range kvts {
 		w.SetRegistry(fmt.Sprintf(`%s\Startup\0\%d\%s`, scriptPath, idx, kvt[0]), kvt[1], kvt[2])

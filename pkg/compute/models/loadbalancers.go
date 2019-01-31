@@ -66,7 +66,8 @@ type SLoadbalancer struct {
 	ChargeType       string `list:"user" get:"user" create:"optional"`
 	LoadbalancerSpec string `list:"user" get:"user" create:"optional"`
 
-	BackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" update:"user"`
+	BackendGroupId string               `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" update:"user"`
+	LBInfo         jsonutils.JSONObject `charset:"utf8" nullable:"true" list:"user" update:"admin" create:"admin_required"`
 }
 
 func (man *SLoadbalancerManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {

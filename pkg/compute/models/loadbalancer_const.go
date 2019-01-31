@@ -160,6 +160,11 @@ var LB_STICKY_SESSION_TYPES = validators.NewChoices(
 
 // TODO maybe https check when field need comes ;)
 const (
+	LB_HEALTH_CHECK_ENABLE  = "on"
+	LB_HEALTH_CHECK_DISABLE = "off"
+)
+
+const (
 	LB_HEALTH_CHECK_TCP  = "tcp"
 	LB_HEALTH_CHECK_UDP  = "udp"
 	LB_HEALTH_CHECK_HTTP = "http"
@@ -181,6 +186,7 @@ var LB_HEALTH_CHECK_TYPES_UDP = validators.NewChoices(
 )
 
 const (
+	LB_HEALTH_CHECK_HTTP_CODE_1xx     = "http_1xx"
 	LB_HEALTH_CHECK_HTTP_CODE_2xx     = "http_2xx"
 	LB_HEALTH_CHECK_HTTP_CODE_3xx     = "http_3xx"
 	LB_HEALTH_CHECK_HTTP_CODE_4xx     = "http_4xx"

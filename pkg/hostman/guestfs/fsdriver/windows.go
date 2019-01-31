@@ -97,7 +97,7 @@ func (w *SWindowsRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser 
 	if _, ok := users[admin]; ok && windowsDefaultAdminUser {
 		selUsr = admin
 	} else {
-		for user, _ := range users {
+		for user := range users {
 			if user != admin && (len(selUsr) == 0 || len(selUsr) > len(user)) {
 				selUsr = user
 			}
@@ -402,14 +402,14 @@ func (w *SWindowsRootFs) deploySetupCompleteScripts(uname, passwd string) bool {
 		"Net stop wuauserv",
 	}
 	for _, v := range [][3]string{
-		[3]string{"AUOptions", "REG_DWORD", "3"},
-		[3]string{"NoAutoUpdate", "REG_DWORD", "0"},
-		[3]string{"ScheduledInstallDay", "REG_DWORD", "0"},
-		[3]string{"ScheduledInstallTime", "REG_DWORD", "4"},
-		[3]string{"AutoInstallMinorUpdates", "REG_DWORD", "1"},
-		[3]string{"NoAutoRebootWithLoggedOnUsers", "REG_DWORD", "1"},
-		[3]string{"IncludeRecommendedUpdates", "REG_DWORD", "0"},
-		[3]string{"EnableFeaturedSoftware", "REG_DWORD", "1"},
+		{"AUOptions", "REG_DWORD", "3"},
+		{"NoAutoUpdate", "REG_DWORD", "0"},
+		{"ScheduledInstallDay", "REG_DWORD", "0"},
+		{"ScheduledInstallTime", "REG_DWORD", "4"},
+		{"AutoInstallMinorUpdates", "REG_DWORD", "1"},
+		{"NoAutoRebootWithLoggedOnUsers", "REG_DWORD", "1"},
+		{"IncludeRecommendedUpdates", "REG_DWORD", "0"},
+		{"EnableFeaturedSoftware", "REG_DWORD", "1"},
 	} {
 		cmds = append(cmds, `REG ADD "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update" /v %s /t %s /d %s /f`,
 			v[0], v[1], v[2])

@@ -45,6 +45,7 @@ type SLoadbalancerListenerRule struct {
 	Domain string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	Path   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 
+	SLoadbalancerHealthCheck // 目前只有腾讯云HTTP、HTTPS类型的健康检查是和规则绑定的。
 	SLoadbalancerHTTPRateLimiter
 }
 

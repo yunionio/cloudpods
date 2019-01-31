@@ -439,6 +439,15 @@ func (self *SRegion) cbsRequest(apiName string, params map[string]string) (jsonu
 	return self.client.cbsRequest(apiName, params)
 }
 
+func (self *SRegion) clbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	params["Region"] = self.Region
+	return self.client.clbRequest(apiName, params)
+}
+
+func (self *SRegion) wssRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	return self.client.wssRequest(apiName, params)
+}
+
 func (self *SRegion) GetNetworks(ids []string, vpcId string, offset int, limit int) ([]SNetwork, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50

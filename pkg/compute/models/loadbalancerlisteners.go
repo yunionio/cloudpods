@@ -42,6 +42,23 @@ type SLoadbalancerHTTPRateLimiter struct {
 	HTTPRequestRatePerSrc int `nullable:"false" list:"user" create:"optional" update:"user"`
 }
 
+type SLoadbalancerHealthCheck struct {
+	HealthCheck     string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	HealthCheckType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+
+	HealthCheckDomain   string `charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	HealthCheckURI      string `charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	HealthCheckHttpCode string `charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+
+	HealthCheckRise     int `nullable:"false" list:"user" create:"optional" update:"user"`
+	HealthCheckFall     int `nullable:"false" list:"user" create:"optional" update:"user"`
+	HealthCheckTimeout  int `nullable:"false" list:"user" create:"optional" update:"user"`
+	HealthCheckInterval int `nullable:"false" list:"user" create:"optional" update:"user"`
+
+	HealthCheckReq string `list:"user" create:"optional" update:"user"`
+	HealthCheckExp string `list:"user" create:"optional" update:"user"`
+}
+
 type SLoadbalancerTCPListener struct{}
 type SLoadbalancerUDPListener struct{}
 
@@ -90,26 +107,12 @@ type SLoadbalancerListener struct {
 	AclType   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 	AclId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 
-	HealthCheck     string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	HealthCheckType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-
-	HealthCheckDomain   string `charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	HealthCheckURI      string `charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	HealthCheckHttpCode string `charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-
-	HealthCheckRise     int `nullable:"false" list:"user" create:"optional" update:"user"`
-	HealthCheckFall     int `nullable:"false" list:"user" create:"optional" update:"user"`
-	HealthCheckTimeout  int `nullable:"false" list:"user" create:"optional" update:"user"`
-	HealthCheckInterval int `nullable:"false" list:"user" create:"optional" update:"user"`
-
-	HealthCheckReq string `list:"user" create:"optional" update:"user"`
-	HealthCheckExp string `list:"user" create:"optional" update:"user"`
-
 	SLoadbalancerTCPListener
 	SLoadbalancerUDPListener
 	SLoadbalancerHTTPListener
 	SLoadbalancerHTTPSListener
 
+	SLoadbalancerHealthCheck
 	SLoadbalancerHTTPRateLimiter
 }
 
