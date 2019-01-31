@@ -52,11 +52,12 @@ type SLoadbalancer struct {
 }
 
 func (self *SLoadbalancer) GetLoadbalancerSpec() string {
-	panic("implement me")
+	return ""
 }
 
+// todo: 实际是按小时计费
 func (self *SLoadbalancer) GetChargeType() string {
-	panic("implement me")
+	return "traffic"
 }
 
 func (self *SLoadbalancer) Delete() error {
