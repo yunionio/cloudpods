@@ -33,6 +33,141 @@ type SRegion struct {
 	fetchLocation bool
 }
 
+// todo: 确认这个方法是不是有问题
+func (self *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+	certs, err := self.GetILoadBalancerCertificatesById(certId)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(certs) == 1 {
+		return certs[0], nil
+	} else {
+		return nil, fmt.Errorf("GetILoadBalancerCertificateById %d certificate found", len(certs))
+	}
+}
+
+func (self *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
+	lbs, err := self.GetLoadbalancers(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	ilbs := make([]cloudprovider.ICloudLoadbalancer, len(lbs))
+	for i := range lbs {
+		lbs[i].region = self
+		ilbs[i] = &lbs[i]
+	}
+
+	return ilbs, nil
+}
+
+// 腾讯云不支持acl
+func (self *SRegion) GetILoadBalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
+	return []cloudprovider.ICloudLoadbalancerAcl{}, nil
+}
+
+func inList(lst []string, entry string) bool {
+	for _, m := range lst {
+		if entry == m {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
+	lbs, err := self.GetLoadbalancers(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	icerts := []cloudprovider.ICloudLoadbalancerCertificate{}
+	for _, lb := range lbs {
+		listeners, err := lb.GetLoadbalancerListeners("HTTPS")
+		if err != nil {
+			return nil, err
+		}
+
+		certIds := []string{}
+		for _, listener := range listeners {
+			if len(listener.Certificate.CERTID) > 0 && inList(certIds, listener.Certificate.CERTID) {
+				certIds = append(certIds, listener.Certificate.CERTID)
+			}
+
+			if len(listener.Certificate.CERTCAID) > 0 && inList(certIds, listener.Certificate.CERTCAID) {
+				certIds = append(certIds, listener.Certificate.CERTCAID)
+			}
+
+			for _, rule := range listener.Rules {
+				if len(rule.Certificate.CERTID) > 0 && inList(certIds, rule.Certificate.CERTID) {
+					certIds = append(certIds, rule.Certificate.CERTID)
+				}
+
+				if len(rule.Certificate.CERTCAID) > 0 && inList(certIds, rule.Certificate.CERTCAID) {
+					certIds = append(certIds, rule.Certificate.CERTCAID)
+				}
+			}
+		}
+
+		for _, cid := range certIds {
+			parts, err := self.GetILoadBalancerCertificatesById(cid)
+			if err != nil {
+				return nil, err
+			}
+
+			icerts = append(icerts, parts...)
+		}
+	}
+
+	return icerts, nil
+}
+
+func (self *SRegion) GetILoadBalancerCertificatesById(certId string) ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
+	certs, _, err := self.GetCertificates(certId, true, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	icerts := []cloudprovider.ICloudLoadbalancerCertificate{}
+	for i := 0; i < len(certs); i++ {
+		cert := SLBCertificate{region: self, SCertificate: certs[i]}
+		icerts = append(icerts, &cert)
+	}
+	return icerts, nil
+}
+
+func (self *SRegion) GetILoadBalancerById(loadbalancerId string) (cloudprovider.ICloudLoadbalancer, error) {
+	lbs, err := self.GetLoadbalancers([]string{loadbalancerId})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(lbs) == 1 {
+		lbs[0].region = self
+		return &lbs[0], nil
+	} else {
+		return nil, fmt.Errorf("GetILoadBalancerById %d loadbalancer found", len(lbs))
+	}
+}
+
+func (self *SRegion) GetILoadBalancerAclById(aclId string) (cloudprovider.ICloudLoadbalancerAcl, error) {
+	return nil, nil
+}
+
+func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
+	panic("implement me")
+}
+
+func (self *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
+	panic("implement me")
+}
+
+func (self *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+	panic("implement me")
+}
+
 func (self *SRegion) GetId() string {
 	return self.Region
 }
@@ -599,40 +734,4 @@ func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
 		return "", err
 	}
 	return instance.InstanceState, nil
-}
-
-func (region *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) GetILoadBalancerById(loadbalancerId string) (cloudprovider.ICloudLoadbalancer, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) GetILoadBalancerAclById(aclId string) (cloudprovider.ICloudLoadbalancerAcl, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) GetILoadBalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
-	return nil, cloudprovider.ErrNotImplemented
 }

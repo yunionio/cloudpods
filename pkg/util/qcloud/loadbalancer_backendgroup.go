@@ -36,7 +36,6 @@ func backendGroupIdGen(lbid string, secondId string) string {
 	} else {
 		return lbid
 	}
-
 }
 
 // http https 后端服务器只与规则绑定

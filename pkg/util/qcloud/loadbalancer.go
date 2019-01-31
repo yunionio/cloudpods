@@ -51,6 +51,50 @@ type SLoadbalancer struct {
 	SubnetId         string    `json:"SubnetId"`
 }
 
+func (self *SLoadbalancer) GetLoadbalancerSpec() string {
+	panic("implement me")
+}
+
+func (self *SLoadbalancer) GetChargeType() string {
+	panic("implement me")
+}
+
+func (self *SLoadbalancer) Delete() error {
+	panic("implement me")
+}
+
+func (self *SLoadbalancer) Start() error {
+	panic("implement me")
+}
+
+func (self *SLoadbalancer) Stop() error {
+	panic("implement me")
+}
+
+func (self *SLoadbalancer) GetILoadBalancerListeners() ([]cloudprovider.ICloudLoadbalancerListener, error) {
+	panic("implement me")
+}
+
+func (self *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	panic("implement me")
+}
+
+func (self *SLoadbalancer) CreateILoadBalancerBackendGroup(group *cloudprovider.SLoadbalancerBackendGroup) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	panic("implement me")
+}
+
+func (self *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	panic("implement me")
+}
+
+func (self *SLoadbalancer) CreateILoadBalancerListener(listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+	panic("implement me")
+}
+
+func (self *SLoadbalancer) GetILoadBalancerListenerById(listenerId string) (cloudprovider.ICloudLoadbalancerListener, error) {
+	panic("implement me")
+}
+
 func (self *SLoadbalancer) GetId() string {
 	return self.LoadBalancerID
 }

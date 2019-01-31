@@ -16,6 +16,14 @@ type SLBCertificate struct {
 	SCertificate
 }
 
+func (self *SLBCertificate) Sync(name, privateKey, publickKey string) error {
+	panic("implement me")
+}
+
+func (self *SLBCertificate) Delete() error {
+	panic("implement me")
+}
+
 func (self *SLBCertificate) GetId() string {
 	return self.ID
 }
