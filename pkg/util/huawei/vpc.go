@@ -206,7 +206,7 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
 	vpc := SVpc{}
 	err := DoGet(self.ecsClient.Vpcs.Get, vpcId, nil, &vpc)
-	if strings.Contains(err.Error(), "RouterNotFound") {
+	if err != nil && strings.Contains(err.Error(), "RouterNotFound") {
 		return nil, cloudprovider.ErrNotFound
 	}
 	vpc.region = self
