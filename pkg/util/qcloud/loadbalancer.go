@@ -72,20 +72,23 @@ func (self *SLoadbalancer) Stop() error {
 	panic("implement me")
 }
 
-func (self *SLoadbalancer) GetILoadBalancerListeners() ([]cloudprovider.ICloudLoadbalancerListener, error) {
-	panic("implement me")
-}
-
-func (self *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
-	panic("implement me")
-}
-
 func (self *SLoadbalancer) CreateILoadBalancerBackendGroup(group *cloudprovider.SLoadbalancerBackendGroup) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
 	panic("implement me")
 }
 
 func (self *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
-	panic("implement me")
+	groups, err := self.GetILoadBalancerBackendGroups()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, group := range groups {
+		if group.GetId() == groupId {
+			return group, nil
+		}
+	}
+
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SLoadbalancer) CreateILoadBalancerListener(listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
@@ -93,7 +96,18 @@ func (self *SLoadbalancer) CreateILoadBalancerListener(listener *cloudprovider.S
 }
 
 func (self *SLoadbalancer) GetILoadBalancerListenerById(listenerId string) (cloudprovider.ICloudLoadbalancerListener, error) {
-	panic("implement me")
+	listeners, err := self.GetLoadbalancerListeners("")
+	if err != nil {
+		return nil, err
+	}
+
+	for _, listener := range listeners {
+		if listener.GetId() == listenerId {
+			return &listener, nil
+		}
+	}
+
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SLoadbalancer) GetId() string {
@@ -189,7 +203,7 @@ func (self *SLoadbalancer) GetLoadbalancerListeners(protocal string) ([]SLBListe
 	return listeners, nil
 }
 
-func (self *SLoadbalancer) GetILoadbalancerListeners() ([]cloudprovider.ICloudLoadbalancerListener, error) {
+func (self *SLoadbalancer) GetILoadBalancerListeners() ([]cloudprovider.ICloudLoadbalancerListener, error) {
 	listeners, err := self.GetLoadbalancerListeners("")
 	if err != nil {
 		return nil, err
@@ -204,7 +218,7 @@ func (self *SLoadbalancer) GetILoadbalancerListeners() ([]cloudprovider.ICloudLo
 	return ilisteners, nil
 }
 
-func (self *SLoadbalancer) GetILoadbalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+func (self *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
 	listeners, err := self.GetLoadbalancerListeners("")
 	if err != nil {
 		return nil, err

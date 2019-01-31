@@ -55,8 +55,9 @@ type SLBListener struct {
 	ClassicListener   bool              // 这个字段是在qcloud返回字段基础上,额外增加的字段。用于区分listener 是否是classic。
 }
 
+// todo: 腾讯云后端端口不是与listener绑定的
 func (self *SLBListener) GetBackendServerPort() int {
-	panic("implement me")
+	return 0
 }
 
 func (self *SLBListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SLoadbalancerListenerRule) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
@@ -64,7 +65,18 @@ func (self *SLBListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SLo
 }
 
 func (self *SLBListener) GetILoadBalancerListenerRuleById(ruleId string) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
-	panic("implement me")
+	rules, err := self.GetILoadbalancerListenerRules()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, rule := range rules {
+		if rule.GetId() == ruleId {
+			return rule, nil
+		}
+	}
+
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SLBListener) Start() error {
