@@ -186,7 +186,7 @@ func (self *ResourceManager) Delete(id string, params jsonutils.JSONObject) (jso
 }
 
 func (self *ResourceManager) DeleteInContext(ctx manager.IManagerContext, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return self.DeleteInContextWithSpec(ctx, id, "",params,self.Keyword)
+	return self.DeleteInContextWithSpec(ctx, id, "", params, self.Keyword)
 }
 
 func (self *ResourceManager) DeleteInContextWithSpec(ctx manager.IManagerContext, id string, spec string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error) {

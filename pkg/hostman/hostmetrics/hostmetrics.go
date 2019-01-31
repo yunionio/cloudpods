@@ -250,7 +250,7 @@ func (s *SGuestMonitorCollector) addTelegrafLine(
 }
 
 func (s *SGuestMonitorCollector) cleanedPrevData(gms map[string]*SGuestMonitor) {
-	for guestId, _ := range s.prevReportData.Value() {
+	for guestId := range s.prevReportData.Value() {
 		if gm, ok := gms[guestId]; !ok {
 			s.prevReportData.Remove(guestId)
 			delete(s.prevPids, guestId)
