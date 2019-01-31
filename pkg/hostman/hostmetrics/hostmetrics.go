@@ -44,7 +44,7 @@ func Init() {
 
 func Start() {
 	if hostMetricsCollector != nil {
-		hostMetricsCollector.Start()
+		go hostMetricsCollector.Start()
 	}
 }
 

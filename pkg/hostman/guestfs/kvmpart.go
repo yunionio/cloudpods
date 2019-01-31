@@ -116,7 +116,7 @@ func (p *SKVMGuestDiskPartition) fsck() error {
 				if err == nil {
 					break
 				} else {
-					return err
+					continue
 				}
 			}
 		}
@@ -125,7 +125,7 @@ func (p *SKVMGuestDiskPartition) fsck() error {
 }
 
 func (p *SKVMGuestDiskPartition) Exists(sPath string, caseInsensitive bool) bool {
-	sPath = p.getLocalPath(sPath, caseInsensitive)
+	sPath = p.GetLocalPath(sPath, caseInsensitive)
 	if len(sPath) > 0 {
 		return fileutils2.Exists(sPath)
 	}
