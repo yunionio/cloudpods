@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -56,7 +57,21 @@ func (self *SLBBackend) GetStatus() string {
 }
 
 func (self *SLBBackend) Refresh() error {
-	panic("implement me")
+	backends, err := self.group.GetBackends()
+	if err != nil {
+		return err
+	}
+
+	for _, backend := range backends {
+		if backend.GetId() == self.GetId() {
+			err := jsonutils.Update(self, backend)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return cloudprovider.ErrNotFound
 }
 
 func (self *SLBBackend) IsEmulated() bool {

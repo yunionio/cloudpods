@@ -1,7 +1,11 @@
 package qcloud
 
 import (
+	"fmt"
+	"time"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -17,8 +21,14 @@ type SLBListenerRule struct {
 	SessionExpireTime int64       `json:"SessionExpireTime"`
 }
 
+// https://cloud.tencent.com/document/api/214/30688
 func (self *SLBListenerRule) Delete() error {
-	panic("implement me")
+	_, err := self.listener.lb.region.DeleteLBListenerRule(self.listener.lb.GetId(), self.listener.GetId(), self.GetId())
+	if err != nil {
+		return err
+	}
+
+	return cloudprovider.WaitDeleted(self, 5*time.Second, 60*time.Second)
 }
 
 func (self *SLBListenerRule) GetId() string {
@@ -39,7 +49,22 @@ func (self *SLBListenerRule) GetStatus() string {
 }
 
 func (self *SLBListenerRule) Refresh() error {
-	return nil
+	err := self.listener.Refresh()
+	if err != nil {
+		return err
+	}
+
+	for _, rule := range self.listener.Rules {
+		if rule.GetId() == self.GetId() {
+			rule.listener = self.listener
+			err := jsonutils.Update(self, rule)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return cloudprovider.ErrNotFound
 }
 
 func (self *SLBListenerRule) IsEmulated() bool {
@@ -79,4 +104,39 @@ func (self *SLBListenerRule) GetBackendGroupId() string {
 	}
 
 	return bg.GetId()
+}
+
+// https://cloud.tencent.com/document/api/214/30688
+// 返回requestId及error
+func (self *SRegion) DeleteLBListenerRule(lbid, listenerId, ruleId string) (string, error) {
+	if len(ruleId) == 0 {
+		return "", fmt.Errorf("DeleteLBListenerRule rule id should not be empty")
+	}
+	return self.DeleteLBListenerRules(lbid, listenerId, []string{ruleId})
+}
+
+func (self *SRegion) DeleteLBListenerRules(lbid, listenerId string, ruleIds []string) (string, error) {
+	if len(lbid) == 0 {
+		return "", fmt.Errorf("DeleteLBListenerRules loadbalancer id should not be empty")
+	}
+
+	if len(listenerId) == 0 {
+		return "", fmt.Errorf("DeleteLBListenerRules listener id should not be empty")
+	}
+
+	if len(ruleIds) == 0 {
+		return "", fmt.Errorf("DeleteLBListenerRules rule id should not be empty")
+	}
+
+	params := map[string]string{"LoadBalancerId": lbid, "ListenerId": listenerId}
+	for i, ruleId := range ruleIds {
+		params[fmt.Sprintf("LocationIds.%d", i)] = ruleId
+	}
+
+	resp, err := self.clbRequest("DeleteRule", params)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.GetString("RequestId")
 }

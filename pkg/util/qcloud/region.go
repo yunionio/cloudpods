@@ -2,6 +2,7 @@ package qcloud
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/nelsonken/cos-go-sdk-v5/cos"
 
@@ -156,12 +157,50 @@ func (self *SRegion) GetILoadBalancerAclById(aclId string) (cloudprovider.ICloud
 	return nil, nil
 }
 
+// https://cloud.tencent.com/document/api/214/30692
+/*
+todo:
+Forward	否	Integer	负载均衡实例。1：应用型，0：传统型，默认为应用型负载均衡实例。
+ProjectId	否	Integer	负载均衡实例所属的项目 ID，可以通过 DescribeProject 接口获取。不填则属于默认项目。
+*/
 func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
-	panic("implement me")
+	LoadBalancerType := "INTERNAL"
+	if loadbalancer.AddressType == "public" {
+		LoadBalancerType = "OPEN"
+	}
+	params := map[string]string{
+		"LoadBalancerType": LoadBalancerType,
+		"LoadBalancerName": loadbalancer.Name,
+		"VpcId":            loadbalancer.VpcID, // todo: vpc id ok??
+		"SubnetId":         loadbalancer.NetworkID,
+	}
+
+	resp, err := self.clbRequest("CreateLoadBalancer", params)
+	if err != nil {
+		return nil, err
+	}
+
+	requestId, err := resp.GetString("RequestId")
+	if err != nil {
+		return nil, err
+	}
+
+	lbs, err := resp.GetArray("LoadBalancerIds")
+	if err != nil || len(lbs) != 1 {
+		log.Debugf("CreateILoadBalancer %s", resp.String())
+		return nil, err
+	}
+
+	err = self.WaitLBTaskSuccess(requestId, 5*time.Second, 60*time.Second)
+	if err != nil {
+		return nil, err
+	}
+
+	return self.GetLoadbalancer(lbs[0].String())
 }
 
 func (self *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
-	panic("implement me")
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {

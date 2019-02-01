@@ -2,6 +2,8 @@ package qcloud
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -14,16 +16,100 @@ type SLBBackendGroup struct {
 	rule     *SLBListenerRule // tcp、udp、tcp_ssl监听rule 为nil
 }
 
+// 返回requestid
+func (self *SLBBackendGroup) appLBBackendServer(action string, serverId string, weight int, port int) (string, error) {
+	params := map[string]string{
+		"LoadBalancerId":       self.lb.GetId(),
+		"ListenerId":           self.listener.GetId(),
+		"Targets.0.InstanceId": serverId,
+		"Targets.0.Port":       strconv.Itoa(port),
+		"Targets.0.Weight":     strconv.Itoa(weight),
+	}
+
+	if self.rule != nil {
+		params["LocationId"] = self.rule.GetId()
+	}
+
+	resp, err := self.lb.region.clbRequest(action, params)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.GetString("RequestId")
+}
+
+// 返回requestid
+func (self *SLBBackendGroup) classicLBBackendServer(action string, serverId string, weight int, port int) (string, error) {
+	// 传统型负载均衡忽略了port参数
+	params := map[string]string{
+		"LoadBalancerId":       self.lb.GetId(),
+		"Targets.0.InstanceId": serverId,
+		"Targets.0.Weight":     strconv.Itoa(weight),
+	}
+
+	resp, err := self.lb.region.clbRequest(action, params)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.GetString("RequestId")
+}
+
 // https://cloud.tencent.com/document/product/214/30676
 // https://cloud.tencent.com/document/product/214/31789
 func (self *SLBBackendGroup) AddBackendServer(serverId string, weight int, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
-	panic("implement me")
+	var requestId string
+	var err error
+	if self.lb.Forward == LB_TYPE_APPLICATION {
+		requestId, err = self.appLBBackendServer("RegisterTargets", serverId, weight, port)
+	} else {
+		requestId, err = self.classicLBBackendServer("RegisterTargetsWithClassicalLB", serverId, weight, port)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = self.lb.region.WaitLBTaskSuccess(requestId, 5*time.Second, 60*time.Second)
+	if err != nil {
+		return nil, err
+	}
+
+	err = self.Refresh()
+	if err != nil {
+		return nil, err
+	}
+
+	backends, err := self.GetBackends()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, backend := range backends {
+		if backend.GetBackendId() == serverId {
+			return &backend, nil
+		}
+	}
+
+	return nil, cloudprovider.ErrNotFound
 }
 
 // https://cloud.tencent.com/document/product/214/30687
 // https://cloud.tencent.com/document/product/214/31794
 func (self *SLBBackendGroup) RemoveBackendServer(serverId string, weight int, port int) error {
-	panic("implement me")
+	var requestId string
+	var err error
+	if self.lb.Forward == LB_TYPE_APPLICATION {
+		requestId, err = self.appLBBackendServer("DeregisterTargets", serverId, weight, port)
+	} else {
+		requestId, err = self.classicLBBackendServer("DeregisterTargetsFromClassicalLB", serverId, weight, port)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return self.lb.region.WaitLBTaskSuccess(requestId, 5*time.Second, 60*time.Second)
 }
 
 // 腾讯云无后端服务器组
@@ -91,6 +177,20 @@ func (self *SLBBackendGroup) GetType() string {
 }
 
 func (self *SLBBackendGroup) GetILoadbalancerBackends() ([]cloudprovider.ICloudLoadbalancerBackend, error) {
+	backends, err := self.GetBackends()
+	if err != nil {
+		return nil, err
+	}
+
+	ibackends := make([]cloudprovider.ICloudLoadbalancerBackend, len(backends))
+	for i := range backends {
+		ibackends[i] = &backends[i]
+	}
+
+	return ibackends, nil
+}
+
+func (self *SLBBackendGroup) GetBackends() ([]SLBBackend, error) {
 	backends := []SLBBackend{}
 	var err error
 	if self.rule != nil {
@@ -107,11 +207,9 @@ func (self *SLBBackendGroup) GetILoadbalancerBackends() ([]cloudprovider.ICloudL
 		}
 	}
 
-	ibackends := make([]cloudprovider.ICloudLoadbalancerBackend, len(backends))
 	for i := range backends {
 		backends[i].group = self
-		ibackends[i] = &backends[i]
 	}
 
-	return ibackends, nil
+	return backends, nil
 }

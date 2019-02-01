@@ -1,7 +1,10 @@
 package qcloud
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -29,7 +32,7 @@ type certificate struct {
 */
 type healthCheck struct {
 	HTTPCheckDomain string `json:"HttpCheckDomain"`
-	HealthSwitch    int64  `json:"HealthSwitch"`
+	HealthSwitch    int    `json:"HealthSwitch"`
 	HTTPCheckPath   string `json:"HttpCheckPath"`
 	HTTPCheckMethod string `json:"HttpCheckMethod"`
 	UnHealthNum     int    `json:"UnHealthNum"`
@@ -61,9 +64,35 @@ func (self *SLBListener) GetBackendServerPort() int {
 }
 
 // https://cloud.tencent.com/document/product/214/30691
-//
+// todo: 调度规则原用监听器的Scheduler ok？ https 协议怎么兼容？
 func (self *SLBListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SLoadbalancerListenerRule) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
-	panic("implement me")
+	requestId, err := self.lb.region.CreateLoadbalancerListenerRule(self.lb.GetId(),
+		self.GetId(),
+		rule.Domain,
+		rule.Path,
+		&self.Scheduler,
+		&self.SessionExpireTime)
+	if err != nil {
+		return nil, err
+	}
+
+	err = self.lb.region.WaitLBTaskSuccess(requestId, 5*time.Second, 60*time.Second)
+	if err != nil {
+		return nil, err
+	}
+
+	err = self.Refresh()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, r := range self.Rules {
+		if r.GetPath() == rule.Path {
+			return &r, nil
+		}
+	}
+
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SLBListener) GetILoadBalancerListenerRuleById(ruleId string) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
@@ -95,7 +124,12 @@ func (self *SLBListener) Sync(listener *cloudprovider.SLoadbalancerListener) err
 }
 
 func (self *SLBListener) Delete() error {
-	panic("implement me")
+	requestId, err := self.lb.region.DeleteLoadbalancerListener(self.lb.GetId(), self.GetId())
+	if err != nil {
+		return err
+	}
+
+	return self.lb.region.WaitLBTaskSuccess(requestId, 5*time.Second, 60*time.Second)
 }
 
 // https://cloud.tencent.com/document/api/214/30694#ClassicalListener
@@ -114,7 +148,7 @@ type SLBClassicListener struct {
 	HTTPCheckPath string `json:"HttpCheckPath"`
 	HealthNum     int    `json:"HealthNum"`
 	ListenerName  string `json:"ListenerName"`
-	HealthSwitch  int64  `json:"HealthSwitch"`
+	HealthSwitch  int    `json:"HealthSwitch"`
 	SSLMode       string `json:"SSLMode"`
 	SessionExpire int    `json:"SessionExpire"`
 	HTTPCode      int    `json:"HttpCode"`
@@ -168,7 +202,22 @@ func (self *SLBListener) GetStatus() string {
 }
 
 func (self *SLBListener) Refresh() error {
-	panic("implement me")
+	listeners, err := self.lb.region.GetLoadbalancerListeners(self.lb.GetId(), self.lb.Forward, "")
+	if err != nil {
+		return err
+	}
+
+	for _, listener := range listeners {
+		if listener.GetId() == self.GetId() {
+			listener.lb = self.lb
+			err := jsonutils.Update(self, listener)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return cloudprovider.ErrNotFound
 }
 
 func (self *SLBListener) IsEmulated() bool {
@@ -417,4 +466,52 @@ func (self *SRegion) GetLoadbalancerListeners(lbid string, t LB_TYPE, protocol s
 	}
 
 	return listeners, nil
+}
+
+//  返回requestID
+func (self *SRegion) CreateLoadbalancerListenerRule(lbid string, listenerId string, domain string, url string, scheduler *string, sessionExpireTime *int) (string, error) {
+	if len(lbid) == 0 {
+		return "", fmt.Errorf("loadbalancer id should not be empty")
+	}
+
+	params := map[string]string{
+		"LoadBalancerId": lbid,
+		"ListenerId":     listenerId,
+		"Rules.0.Domain": domain,
+		"Rules.0.Url":    url,
+	}
+
+	if scheduler != nil && len(*scheduler) > 0 {
+		params["Rules.0.Scheduler"] = *scheduler
+	}
+
+	if sessionExpireTime != nil {
+		params["Rules.0.SessionExpireTime"] = strconv.Itoa(*sessionExpireTime)
+	}
+
+	resp, err := self.clbRequest("CreateRule", params)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.GetString("RequestId")
+}
+
+//  返回requestID
+func (self *SRegion) DeleteLoadbalancerListener(lbid string, listenerId string) (string, error) {
+	if len(lbid) == 0 {
+		return "", fmt.Errorf("loadbalancer id should not be empty")
+	}
+
+	params := map[string]string{
+		"LoadBalancerId": lbid,
+		"ListenerId":     listenerId,
+	}
+
+	resp, err := self.clbRequest("DeleteListener", params)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.GetString("RequestId")
 }

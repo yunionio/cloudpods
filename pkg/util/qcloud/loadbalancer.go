@@ -3,9 +3,11 @@ package qcloud
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -100,10 +102,79 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (clo
 	return nil, cloudprovider.ErrNotFound
 }
 
-// https://cloud.tencent.com/document/product/214/30693
-func (self *SLoadbalancer) CreateILoadBalancerListener(listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+func onecloudHealthCodeToQcloud(codes string) int {
+	qcode := 0
+	for i, code := range HTTP_CODES {
+		if strings.Contains(code, codes) {
+			c := 1 << uint(i)
+			qcode += c
+		}
+	}
 
-	panic("implement me")
+	return qcode
+}
+
+// https://cloud.tencent.com/document/product/214/30693
+// Onecloud 不支持双向证书
+/*
+todo:  限制比较多必须加参数校验
+HealthSwitch	Integer	否	是否开启健康检查：1（开启）、0（关闭）。
+TimeOut	Integer	否	健康检查的响应超时时间，可选值：2~60，默认值：2，单位：秒。响应超时时间要小于检查间隔时间。
+IntervalTime	Integer	否	健康检查探测间隔时间，默认值：5，可选值：5~300，单位：秒。
+HealthNum	Integer	否	健康阈值，默认值：3，表示当连续探测三次健康则表示该转发正常，可选值：2~10，单位：次。
+UnHealthNum	Integer	否	不健康阈值，默认值：3，表示当连续探测三次不健康则表示该转发异常，可选值：2~10，单位：次。
+HttpCode	Integer	否	健康检查状态码（仅适用于HTTP/HTTPS转发规则）。可选值：1~31，默认 31。
+1 表示探测后返回值 1xx 表示健康，2 表示返回 2xx 表示健康，4 表示返回 3xx 表示健康，8 表示返回 4xx 表示健康，16 表示返回 5xx 表示健康。若希望多种码都表示健康，则将相应的值相加。
+HttpCheckPath	String	否	健康检查路径（仅适用于HTTP/HTTPS转发规则）。
+HttpCheckDomain	String	否	健康检查域名（仅适用于HTTP/HTTPS转发规则）。
+HttpCheckMethod	String	否	健康检查方法（仅适用于HTTP/HTTPS转发规则），取值为HEAD或GET。
+
+SSLMode	String	是	认证类型，UNIDIRECTIONAL：单向认证，MUTUAL：双向认证
+CertId	String	否	服务端证书的 ID，如果不填写此项则必须上传证书，包括 CertContent，CertKey，CertName。
+CertCaId	String	否	客户端证书的 ID，如果 SSLMode=mutual，监听器如果不填写此项则必须上传客户端证书，包括 CertCaContent，CertCaName。
+*/
+func (self *SLoadbalancer) CreateILoadBalancerListener(listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+	sniSwitch := 0
+	var hc healthCheck
+	if listener.HealthCheck == models.LB_HEALTH_CHECK_ENABLE {
+		hc := healthCheck{
+			HTTPCheckDomain: listener.HealthCheckDomain,
+			HealthSwitch:    1,
+			HTTPCheckPath:   listener.HealthCheckURI,
+			HTTPCheckMethod: listener.HealthCheck,
+			UnHealthNum:     listener.HealthCheckFail,
+			IntervalTime:    listener.HealthCheckInterval,
+			HealthNum:       listener.HealthCheckRise,
+			TimeOut:         listener.HealthCheckTimeout,
+		}
+
+		httpCode := onecloudHealthCodeToQcloud(listener.HealthCheckHttpCode)
+		if httpCode > 0 {
+			hc.HTTPCode = httpCode
+		}
+	}
+
+	cert := certificate{
+		SSLMode:  "UNIDIRECTIONAL",
+		CERTCAID: listener.CertificateID,
+		CERTID:   "",
+	}
+
+	listenId, err := self.region.CreateLoadbalancerListener(self.GetId(),
+		listener.Name,
+		listener.ListenerType,
+		listener.ListenerPort,
+		&listener.Scheduler,
+		&listener.StickySessionCookieTimeout,
+		&sniSwitch,
+		&hc,
+		&cert)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return self.GetILoadBalancerListenerById(listenId)
 }
 
 func (self *SLoadbalancer) GetILoadBalancerListenerById(listenerId string) (cloudprovider.ICloudLoadbalancerListener, error) {
@@ -347,17 +418,8 @@ func (self *SRegion) DeleteLoadbalancer(lbid string) (string, error) {
 /*
 https://cloud.tencent.com/document/product/214/30693
 SNI 特性是什么？？
-todo: finish me
-Ports.N	是	Array of Integer	要将监听器创建到哪些端口，每个端口对应一个新的监听器
-Protocol	是	String	监听器协议：HTTP | HTTPS | TCP | TCP_SSL
-ListenerNames.N	否	Array of String	要创建的监听器名称列表，名称与Ports数组按序一一对应，如不需立即命名，则无需提供此参数
-HealthCheck	否	HealthCheck	健康检查相关参数，此参数仅适用于TCP/UDP/TCP_SSL监听器
-Certificate	否	CertificateInput	证书相关信息，此参数仅适用于HTTPS/TCP_SSL监听器
-SessionExpireTime	否	Integer	会话保持时间，单位：秒。可选值：30~3600，默认 0，表示不开启。此参数仅适用于TCP/UDP监听器。
-Scheduler	否	String	监听器转发的方式。可选值：WRR、LEAST_CONN分别表示按权重轮询、最小连接数， 默认为 WRR。此参数仅适用于TCP/UDP/TCP_SSL监听器。
-SniSwitch	否	Integer	是否开启SNI特性，此参数仅适用于HTTPS监听器。
 */
-func (self *SRegion) CreateLoadbalancerListener(lbid, name, protocol string, port int) (string, error) {
+func (self *SRegion) CreateLoadbalancerListener(lbid, name, protocol string, port int, scheduler *string, sessionExpireTime, sniSwitch *int, healthCheck *healthCheck, cert *certificate) (string, error) {
 	if len(lbid) == 0 {
 		return "", fmt.Errorf("loadbalancer id should not be empty")
 	}
@@ -371,10 +433,97 @@ func (self *SRegion) CreateLoadbalancerListener(lbid, name, protocol string, por
 	if len(name) > 0 {
 		params["ListenerNames.0"] = name
 	}
+
+	if sniSwitch != nil {
+		params["SniSwitch"] = strconv.Itoa(*sniSwitch)
+	}
+
+	if sessionExpireTime != nil {
+		params["SessionExpireTime"] = strconv.Itoa(*sessionExpireTime)
+	}
+
+	if scheduler != nil && len(*scheduler) > 0 {
+		params["Scheduler"] = *scheduler
+	}
+
+	if healthCheck != nil {
+		params["HealthCheck.HealthSwitch"] = strconv.Itoa(healthCheck.HealthSwitch)
+		params["HealthCheck.TimeOut"] = strconv.Itoa(healthCheck.TimeOut)
+		params["HealthCheck.IntervalTime"] = strconv.Itoa(healthCheck.IntervalTime)
+		params["HealthCheck.HealthNum"] = strconv.Itoa(healthCheck.HealthNum)
+		params["HealthCheck.UnHealthNum"] = strconv.Itoa(healthCheck.UnHealthNum)
+		params["HealthCheck.HttpCode"] = strconv.Itoa(healthCheck.HTTPCode)
+		params["HealthCheck.HttpCheckPath"] = healthCheck.HTTPCheckPath
+		params["HealthCheck.HttpCheckDomain"] = healthCheck.HTTPCheckDomain
+		params["HealthCheck.HttpCheckMethod"] = healthCheck.HTTPCheckMethod
+	}
+
+	if cert != nil {
+		params["Certificate.SSLMode"] = cert.SSLMode
+		params["Certificate.CertId"] = cert.CERTID
+		if len(cert.CERTCAID) > 0 {
+			params["Certificate.CertCaId"] = cert.CERTCAID
+		}
+	}
+
 	resp, err := self.clbRequest("CreateListener", params)
 	if err != nil {
 		return "", err
 	}
 
-	return resp.GetString("RequestId")
+	listeners, err := resp.GetArray("ListenerIds")
+	if err != nil {
+		return "", err
+	}
+
+	if len(listeners) == 0 {
+		return "", fmt.Errorf("CreateLoadbalancerListener no listener id returned: %s", resp.String())
+	} else if len(listeners) == 1 {
+		return listeners[0].String(), nil
+	} else {
+		return "", fmt.Errorf("CreateLoadbalancerListener mutliple listener id returned: %s", resp.String())
+	}
+}
+
+// https://cloud.tencent.com/document/product/214/30683
+// 任务的当前状态。 0：成功，1：失败，2：进行中
+func (self *SRegion) GetLBTaskStatus(requestId string) (string, error) {
+	if len(requestId) == 0 {
+		return "", fmt.Errorf("WaitTaskSuccess requestId should not be emtpy")
+	}
+
+	params := map[string]string{"TaskId": requestId}
+	resp, err := self.clbRequest("DescribeTaskStatus", params)
+	if err != nil {
+		return "", err
+	}
+
+	status, err := resp.Get("Status")
+	if err != nil {
+		log.Debugf("WaitTaskSuccess failed %s: %s", err, resp.String())
+		return "", err
+	}
+
+	return status.String(), err
+}
+
+func (self *SRegion) WaitLBTaskSuccess(requestId string, interval time.Duration, timeout time.Duration) error {
+	startTime := time.Now()
+	for time.Now().Sub(startTime) < timeout {
+		status, err := self.GetLBTaskStatus(requestId)
+		if err != nil {
+			return err
+		}
+		if status == "0" {
+			return nil
+		}
+
+		if status == "1" {
+			return fmt.Errorf("Task %s failed.", requestId)
+		}
+
+		time.Sleep(interval)
+	}
+
+	return cloudprovider.ErrTimeout
 }
