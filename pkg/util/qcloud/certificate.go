@@ -1,7 +1,9 @@
 package qcloud
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -78,4 +80,64 @@ func (self *SRegion) GetCertificates(id string, withCert bool, limit int, page i
 	}
 
 	return certs, int(total), nil
+}
+
+/*
+cert	是	String	证书内容
+certType	是	String	证书类型（目前支持：CA为客户端证书，SVR为服务器证书）
+key	否	String	证书私钥，certType=SVR时必填）
+alias	否	String	证书备注
+*/
+// https://cloud.tencent.com/document/api/400/9078
+// 返回证书ID
+func (self *SRegion) CreateCertificate(cert, certType, key, desc string) (string, error) {
+
+	params := map[string]string{
+		"cert":     cert,
+		"certType": certType,
+		"alias":    desc,
+	}
+
+	if certType == "SVR" {
+		params["key"] = key
+	}
+
+	resp, err := self.wssRequest("CertUpload", params)
+	if err != nil {
+		return "", err
+	}
+
+	code, err := resp.Get("code")
+	if err != nil {
+		return "", err
+	}
+
+	if code.String() != "0" {
+		return "", fmt.Errorf("CreateCertificate failed : %s", resp.String())
+	}
+
+	return resp.GetString("data", "id")
+}
+
+func (self *SRegion) DeleteCertificate(id string) error {
+	if len(id) == 0 {
+		return fmt.Errorf("DelteCertificate certificate id should not be empty")
+	}
+
+	params := map[string]string{"id": id}
+	resp, err := self.wssRequest("CertDelete", params)
+	if err != nil {
+		return err
+	}
+
+	status, err := resp.GetString("codeDesc")
+	if err != nil {
+		return err
+	}
+
+	if strings.ToLower(status) == "success" {
+		return nil
+	} else {
+		return fmt.Errorf("DelteCertificate failed: %s", resp.String())
+	}
 }

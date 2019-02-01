@@ -21,7 +21,7 @@ func (self *SLBCertificate) Sync(name, privateKey, publickKey string) error {
 }
 
 func (self *SLBCertificate) Delete() error {
-	panic("implement me")
+	return self.region.DeleteCertificate(self.GetId())
 }
 
 func (self *SLBCertificate) GetId() string {

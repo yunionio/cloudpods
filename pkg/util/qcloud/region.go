@@ -203,8 +203,20 @@ func (self *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAcce
 	return nil, cloudprovider.ErrNotSupported
 }
 
+// todo:目前onecloud端只能指定服务器端证书。需要兼容客户端证书？
 func (self *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
-	panic("implement me")
+	certId, err := self.CreateCertificate(cert.Certificate, "SVR", cert.PrivateKey, cert.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	certs, _, err := self.GetCertificates(certId, false, 10, 0)
+	if len(certs) != 1 || err != nil {
+		log.Debugf("CreateILoadBalancerCertificate failed. %d certificate matched", len(certs))
+		return nil, err
+	}
+
+	return &SLBCertificate{region: self, SCertificate: certs[0]}, nil
 }
 
 func (self *SRegion) GetId() string {
