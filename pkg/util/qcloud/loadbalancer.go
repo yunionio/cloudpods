@@ -60,20 +60,29 @@ func (self *SLoadbalancer) GetChargeType() string {
 	return "traffic"
 }
 
+// https://cloud.tencent.com/document/product/214/30689
 func (self *SLoadbalancer) Delete() error {
-	panic("implement me")
+	_, err := self.region.DeleteLoadbalancer(self.GetId())
+	if err != nil {
+		return err
+	}
+
+	return cloudprovider.WaitDeleted(self, 5*time.Second, 60*time.Second)
 }
 
+// 腾讯云loadbalance不支持启用/禁用
 func (self *SLoadbalancer) Start() error {
-	panic("implement me")
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SLoadbalancer) Stop() error {
-	panic("implement me")
+	return cloudprovider.ErrNotSupported
 }
 
+// 腾讯云无后端服务器组
+// todo: 是否返回一个fake的后端服务器组
 func (self *SLoadbalancer) CreateILoadBalancerBackendGroup(group *cloudprovider.SLoadbalancerBackendGroup) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
-	panic("implement me")
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
@@ -91,7 +100,9 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (clo
 	return nil, cloudprovider.ErrNotFound
 }
 
+// https://cloud.tencent.com/document/product/214/30693
 func (self *SLoadbalancer) CreateILoadBalancerListener(listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+
 	panic("implement me")
 }
 
@@ -304,9 +315,66 @@ func (self *SRegion) GetLoadbalancer(id string) (*SLoadbalancer, error) {
 	}
 
 	lbs, err := self.GetLoadbalancers([]string{id})
+	if err == nil && len(lbs) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+
 	if err != nil && len(lbs) == 1 {
 		return &lbs[0], nil
 	}
 
 	return nil, err
+}
+
+/*
+返回requstid 用于异步任务查询
+https://cloud.tencent.com/document/product/214/30689
+*/
+func (self *SRegion) DeleteLoadbalancer(lbid string) (string, error) {
+	if len(lbid) == 0 {
+		return "", fmt.Errorf("loadbalancer id should not be empty")
+	}
+
+	params := map[string]string{"LoadBalancerIds.0": lbid}
+	resp, err := self.clbRequest("DeleteLoadBalancer", params)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.GetString("RequestId")
+}
+
+/*
+https://cloud.tencent.com/document/product/214/30693
+SNI 特性是什么？？
+todo: finish me
+Ports.N	是	Array of Integer	要将监听器创建到哪些端口，每个端口对应一个新的监听器
+Protocol	是	String	监听器协议：HTTP | HTTPS | TCP | TCP_SSL
+ListenerNames.N	否	Array of String	要创建的监听器名称列表，名称与Ports数组按序一一对应，如不需立即命名，则无需提供此参数
+HealthCheck	否	HealthCheck	健康检查相关参数，此参数仅适用于TCP/UDP/TCP_SSL监听器
+Certificate	否	CertificateInput	证书相关信息，此参数仅适用于HTTPS/TCP_SSL监听器
+SessionExpireTime	否	Integer	会话保持时间，单位：秒。可选值：30~3600，默认 0，表示不开启。此参数仅适用于TCP/UDP监听器。
+Scheduler	否	String	监听器转发的方式。可选值：WRR、LEAST_CONN分别表示按权重轮询、最小连接数， 默认为 WRR。此参数仅适用于TCP/UDP/TCP_SSL监听器。
+SniSwitch	否	Integer	是否开启SNI特性，此参数仅适用于HTTPS监听器。
+*/
+func (self *SRegion) CreateLoadbalancerListener(lbid, name, protocol string, port int) (string, error) {
+	if len(lbid) == 0 {
+		return "", fmt.Errorf("loadbalancer id should not be empty")
+	}
+
+	params := map[string]string{
+		"LoadBalancerId": lbid,
+		"Ports.0":        strconv.Itoa(port),
+		"Protocol":       protocol,
+	}
+
+	if len(name) > 0 {
+		params["ListenerNames.0"] = name
+	}
+	resp, err := self.clbRequest("CreateListener", params)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.GetString("RequestId")
 }

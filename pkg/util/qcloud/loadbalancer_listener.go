@@ -60,6 +60,8 @@ func (self *SLBListener) GetBackendServerPort() int {
 	return 0
 }
 
+// https://cloud.tencent.com/document/product/214/30691
+//
 func (self *SLBListener) CreateILoadBalancerListenerRule(rule *cloudprovider.SLoadbalancerListenerRule) (cloudprovider.ICloudLoadbalancerListenerRule, error) {
 	panic("implement me")
 }
@@ -80,13 +82,14 @@ func (self *SLBListener) GetILoadBalancerListenerRuleById(ruleId string) (cloudp
 }
 
 func (self *SLBListener) Start() error {
-	panic("implement me")
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SLBListener) Stop() error {
-	panic("implement me")
+	return cloudprovider.ErrNotSupported
 }
 
+// https://cloud.tencent.com/document/product/214/30677
 func (self *SLBListener) Sync(listener *cloudprovider.SLoadbalancerListener) error {
 	panic("implement me")
 }

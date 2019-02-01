@@ -14,16 +14,21 @@ type SLBBackendGroup struct {
 	rule     *SLBListenerRule // tcp、udp、tcp_ssl监听rule 为nil
 }
 
+// https://cloud.tencent.com/document/product/214/30676
+// https://cloud.tencent.com/document/product/214/31789
 func (self *SLBBackendGroup) AddBackendServer(serverId string, weight int, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
 	panic("implement me")
 }
 
+// https://cloud.tencent.com/document/product/214/30687
+// https://cloud.tencent.com/document/product/214/31794
 func (self *SLBBackendGroup) RemoveBackendServer(serverId string, weight int, port int) error {
 	panic("implement me")
 }
 
+// 腾讯云无后端服务器组
 func (self *SLBBackendGroup) Delete() error {
-	panic("implement me")
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SLBBackendGroup) Sync(name string) error {
