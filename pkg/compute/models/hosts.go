@@ -1670,15 +1670,15 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func (self *SHost) getNetworkOfIPOnHost(ipAddr string) (*SNetwork, error) {
-	net, err := NetworkManager.GetNetworkOfIP(ipAddr, "", tristate.None)
-	if err != nil {
-		return nil, err
+	netInterfaces := self.GetNetInterfaces()
+	for _, netInterface := range netInterfaces {
+		network, err := netInterface.GetCandidateNetworkForIp(auth.AdminCredential(), ipAddr)
+		if err == nil {
+			return network, nil
+		}
 	}
-	hw := self.getHostwireOfId(net.WireId)
-	if hw == nil {
-		return nil, fmt.Errorf("IP %s not reachable on this host", ipAddr)
-	}
-	return net, nil
+
+	return nil, fmt.Errorf("IP %s not reachable on this host", ipAddr)
 }
 
 func (self *SHost) GetNetinterfaceWithIdAndCredential(netId string, userCred mcclient.TokenCredential, reserved bool) (*SNetInterface, *SNetwork) {
