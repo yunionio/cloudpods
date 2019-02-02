@@ -1673,7 +1673,7 @@ func (self *SHost) getNetworkOfIPOnHost(ipAddr string) (*SNetwork, error) {
 	netInterfaces := self.GetNetInterfaces()
 	for _, netInterface := range netInterfaces {
 		network, err := netInterface.GetCandidateNetworkForIp(auth.AdminCredential(), ipAddr)
-		if err == nil {
+		if err == nil && network != nil {
 			return network, nil
 		}
 	}
