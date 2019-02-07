@@ -1,10 +1,10 @@
 package shell
 
 import (
-	//"strings"
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
@@ -13,35 +13,38 @@ func init() {
 	/**
 	 * 新建一个通知发送任务
 	 */
+
 	type NotificationCreateOptions struct {
 		UID         string `help:"The user you wanna sent to (Keystone User ID)"`
-		CONTACTTYPE string `help:"User's contacts type, maybe email|mobile|dingtalk" choices:"email|mobile|dingtalk"`
+		CONTACTTYPE string `help:"User's contacts type, cloud be email|mobile|dingtalk|webconsole" choices:"email|mobile|dingtalk|webconsole"`
 		TOPIC       string `help:"Title or topic of the notification"`
 		PRIORITY    string `help:"Priority of the notification maybe normal|important|fatal" choices:"normal|important|fatal"`
 		MSG         string `help:"The content of the notification"`
 		Remark      string `help:"Remark or description of the notification"`
 		Group       bool   `help:"Send to group"`
+		Channel     string `help:"User's contacts type, cloud be email|mobile|dingtalk|webconsole" choices:"email|mobile|dingtalk|webconsole"`
 	}
 	R(&NotificationCreateOptions{}, "notify", "Send a notification to sb", func(s *mcclient.ClientSession, args *NotificationCreateOptions) error {
-		params := jsonutils.NewDict()
+		msg := notify.SNotifyMessage{}
 		if args.Group {
-			params.Add(jsonutils.NewString(args.UID), "gid")
+			msg.Gid = args.UID
 		} else {
-			params.Add(jsonutils.NewString(args.UID), "uid")
-		}
-		params.Add(jsonutils.NewString(args.CONTACTTYPE), "contact_type")
-		params.Add(jsonutils.NewString(args.TOPIC), "topic")
-		params.Add(jsonutils.NewString(args.PRIORITY), "priority")
-		params.Add(jsonutils.NewString(args.MSG), "msg")
-		if len(args.Remark) > 0 {
-			params.Add(jsonutils.NewString(args.Remark), "remark")
+			msg.Uid = args.UID
 		}
 
-		notification, err := modules.Notifications.Create(s, params)
+		msg.ContactType = []notify.TNotifyChannel{notify.TNotifyChannel(args.CONTACTTYPE)}
+		for _, c := range args.Channel {
+			msg.ContactType = append(msg.ContactType, notify.TNotifyChannel(c))
+		}
+		msg.Topic = args.TOPIC
+		msg.Priority = notify.TNotifyPriority(args.PRIORITY)
+		msg.Msg = args.MSG
+		msg.Remark = args.Remark
+
+		err := notify.Notifications.Send(s, msg)
 		if err != nil {
 			return err
 		}
-		printObject(notification)
 		return nil
 	})
 
@@ -60,7 +63,7 @@ func init() {
 			params.Add(jsonutils.NewString(args.Remark), "remark")
 		}
 
-		notification, err := modules.Notifications.Put(s, args.ID, params)
+		notification, err := notify.Notifications.Put(s, args.ID, params)
 		if err != nil {
 			return err
 		}
@@ -75,12 +78,12 @@ func init() {
 		options.BaseListOptions
 	}
 	R(&NotificationListOptions{}, "notify-list", "List notification history", func(s *mcclient.ClientSession, args *NotificationListOptions) error {
-		result, err := modules.Notifications.List(s, nil)
+		result, err := notify.Notifications.List(s, nil)
 		if err != nil {
 			return err
 		}
 
-		printList(result, modules.Notifications.GetColumns(s))
+		printList(result, notify.Notifications.GetColumns(s))
 		return nil
 	})
 
