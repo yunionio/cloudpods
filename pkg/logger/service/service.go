@@ -7,9 +7,10 @@ import (
 
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/logger/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/logger/options"
 )
 
 const (
@@ -17,6 +18,9 @@ const (
 )
 
 func StartService() {
+
+	consts.DisableOpsLog()
+
 	opts := &options.Options
 	commonOpts := &opts.CommonOptions
 	dbOpts := &opts.DBOptions
