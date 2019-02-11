@@ -97,12 +97,51 @@ func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonut
 	return jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params)
 }
 
+type LBRegion struct {
+	RegionEndpoint string
+	RegionId       string
+}
+
+func (self *SRegion) getLBRegions(client *sdk.Client) ([]LBRegion, error) {
+	params := map[string]string{}
+	result, err := self._lbRequest(client, "DescribeRegions", "slb.aliyuncs.com", params)
+	if err != nil {
+		return nil, err
+	}
+	regions := []LBRegion{}
+	return regions, result.Unmarshal(&regions, "Regions", "Region")
+}
+
 func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	client, err := self.getSdkClient()
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(client, "slb.aliyuncs.com", ALIYUN_API_VERSION_LB, apiName, params)
+	domain := "slb.aliyuncs.com"
+	if !utils.IsInStringArray(apiName, []string{"DescribeRegions", "DescribeZones"}) {
+		if regionId, ok := params["RegionId"]; ok {
+			regions, err := self.getLBRegions(client)
+			if err != nil {
+				return nil, err
+			}
+			find := false
+			for _, region := range regions {
+				if regionId == region.RegionId {
+					domain = region.RegionEndpoint
+					find = true
+					break
+				}
+			}
+			if !find {
+				return nil, fmt.Errorf("failed to find endpoint for lb region %s", regionId)
+			}
+		}
+	}
+	return self._lbRequest(client, apiName, domain, params)
+}
+
+func (self *SRegion) _lbRequest(client *sdk.Client, apiName string, domain string, params map[string]string) (jsonutils.JSONObject, error) {
+	return jsonRequest(client, domain, ALIYUN_API_VERSION_LB, apiName, params)
 }
 
 /////////////////////////////////////////////////////////////////////////////
