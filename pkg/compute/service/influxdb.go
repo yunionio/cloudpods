@@ -1,16 +1,11 @@
 package service
 
 import (
-	"context"
 	"fmt"
-	"io/ioutil"
-
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/influxdb"
 )
 
 func setInfluxdbRetentionPolicy() error {
@@ -28,19 +23,20 @@ func setInfluxdbRetentionPolicy() error {
 }
 
 func setInfluxdbRetentionPolicyForUrl(url string) error {
-	query := fmt.Sprintf("CREATE DATABASE telegraf; CREATE RETENTION POLICY \"30day_only\" ON \"telegraf\" DURATION %dd REPLICATION 1 DEFAULT", options.Options.MetricsRetentionDays)
-	queryDict := jsonutils.NewDict()
-	queryDict.Add(jsonutils.NewString(query), "q")
-	nurl := fmt.Sprintf("%s/query?%s", url, queryDict.QueryString())
-	resp, err := httputils.Request(httputils.GetDefaultClient(), context.Background(), "POST", nurl, nil, nil, false)
+	db := influxdb.NewInfluxdb(url)
+	err := db.SetDatabase("telegraf")
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-	respBody, err := ioutil.ReadAll(resp.Body)
+	rp := influxdb.SRetentionPolicy{
+		Name:     "30day_only",
+		Duration: fmt.Sprintf("%dd", options.Options.MetricsRetentionDays),
+		ReplicaN: 1,
+		Default:  true,
+	}
+	err = db.SetRetentionPolicy(rp)
 	if err != nil {
 		return err
 	}
-	log.Debugf("setInfluxdbRetentionPolicyForUrl: %s %s", url, string(respBody))
 	return nil
 }
