@@ -85,3 +85,7 @@ func (self *SAwsProvider) GetBalance() (float64, error) {
 func (self *SAwsProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
+
+func (self *SAwsProvider) SupportPrepaidResources() bool {
+	return true
+}
