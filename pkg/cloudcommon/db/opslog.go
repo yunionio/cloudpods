@@ -9,10 +9,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 const (
@@ -172,22 +174,23 @@ type SOpsLogManager struct {
 type SOpsLog struct {
 	SModelBase
 
-	Id        int64  `primary:"true" auto_increment:"true" list:"user"`         // = Column(BigInteger, primary_key=True)
-	ObjType   string `width:"40" charset:"ascii" nullable:"false" list:"user"`  // = Column(VARCHAR(40, charset='ascii'), nullable=False)
-	ObjId     string `width:"128" charset:"ascii" nullable:"false" list:"user"` //  = Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
-	ObjName   string `width:"128" charset:"utf8" nullable:"false" list:"user"`  //= Column(VARCHAR(128, charset='utf8'), nullable=False)
-	Action    string `width:"32" charset:"ascii" nullable:"false" list:"user"`  //= Column(VARCHAR(32, charset='ascii'), nullable=False)
-	Notes     string `width:"2048" charset:"utf8" list:"user"`                  // = Column(VARCHAR(2048, charset='utf8'))
-	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" list:"user"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
-	Project   string `name:"tenant" width:"128" charset:"utf8" list:"user"`     // tenant    = Column(VARCHAR(128, charset='utf8'))
-	UserId    string `width:"128" charset:"ascii" list:"user"`                  // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
-	User      string `width:"128" charset:"utf8" list:"user"`                   // = Column(VARCHAR(128, charset='utf8'))
-	DomainId  string `width:"128" charset:"ascii" list:"user"`
-	Domain    string `width:"128" charset:"utf8" list:"user"`
-	Roles     string `width:"64" charset:"ascii" list:"user"` // = Column(VARCHAR(64, charset='ascii'))
-	// billing_type = Column(VARCHAR(64, charset='ascii'), nullable=True)
-	OpsTime        time.Time `nullable:"false" list:"user"`                                   // = Column(DateTime, nullable=False)
-	OwnerProjectId string    `name:"owner_tenant_id" width:"128" charset:"ascii" list:"user"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
+	Id        int64  `primary:"true" auto_increment:"true" list:"user"`                           // = Column(BigInteger, primary_key=True)
+	ObjType   string `width:"40" charset:"ascii" nullable:"false" list:"user" create:"required"`  // = Column(VARCHAR(40, charset='ascii'), nullable=False)
+	ObjId     string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"` //  = Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
+	ObjName   string `width:"128" charset:"utf8" nullable:"false" list:"user" create:"required"`  //= Column(VARCHAR(128, charset='utf8'), nullable=False)
+	Action    string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"required"`   //= Column(VARCHAR(32, charset='ascii'), nullable=False)
+	Notes     string `width:"2048" charset:"utf8" list:"user" create:"required"`                  // = Column(VARCHAR(2048, charset='utf8'))
+	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" list:"user" create:"required"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
+	Project   string `name:"tenant" width:"128" charset:"utf8" list:"user" create:"required"`     // tenant    = Column(VARCHAR(128, charset='utf8'))
+	UserId    string `width:"128" charset:"ascii" list:"user" create:"required"`                  // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
+	User      string `width:"128" charset:"utf8" list:"user" create:"required"`                   // = Column(VARCHAR(128, charset='utf8'))
+	DomainId  string `width:"128" charset:"ascii" list:"user" create:"optional"`
+	Domain    string `width:"128" charset:"utf8" list:"user" create:"optional"`
+	Roles     string `width:"64" charset:"ascii" list:"user" create:"optional"` // = Column(VARCHAR(64, charset='ascii'))
+
+	// BillingType    string    `width:"64" charset:"ascii" default:"postpaid" list:"user" create:"user"`      // billing_type = Column(VARCHAR(64, charset='ascii'), nullable=True)
+	OpsTime        time.Time `nullable:"false" list:"user"`                                                     // = Column(DateTime, nullable=False)
+	OwnerProjectId string    `name:"owner_tenant_id" width:"128" charset:"ascii" list:"user" create:"optional"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
 	// owner_user_id   = Column(VARCHAR(ID_LENGTH, charset='ascii'))
 }
 
@@ -221,6 +224,9 @@ func (opslog *SOpsLog) GetModelManager() IModelManager {
 */
 
 func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes interface{}, userCred mcclient.TokenCredential) {
+	if !consts.OpsLogEnabled() {
+		return
+	}
 	if len(model.GetId()) == 0 || len(model.GetName()) == 0 {
 		return
 	}
@@ -238,10 +244,11 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 	opslog.Domain = userCred.GetDomainName()
 	opslog.Roles = strings.Join(userCred.GetRoles(), ",")
 	opslog.OpsTime = time.Now().UTC()
-	virtualModel, ok := model.(IVirtualModel)
-	if ok && virtualModel != nil {
+
+	if virtualModel, ok := model.(IVirtualModel); ok && virtualModel != nil {
 		opslog.OwnerProjectId = virtualModel.GetOwnerProjectId()
 	}
+
 	err := manager.TableSpec().Insert(&opslog)
 	if err != nil {
 		log.Errorf("fail to insert opslog: %s", err)
@@ -334,9 +341,8 @@ func (manager *SOpsLogManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 func (manager *SOpsLogManager) SyncOwner(m IModel, former *STenant, userCred mcclient.TokenCredential) {
 	notes := jsonutils.NewDict()
 	notes.Add(jsonutils.NewString(former.GetId()), "former_project_id")
-	notes.Add(jsonutils.NewString(former.GetName()), "form_project")
+	notes.Add(jsonutils.NewString(former.GetName()), "former_project")
 	manager.LogEvent(m, ACT_CHANGE_OWNER, notes, userCred)
-	logclient.AddActionLog(m, logclient.ACT_CHANGE_OWNER, nil, userCred, true)
 }
 
 func (manager *SOpsLogManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -360,7 +366,7 @@ func (self *SOpsLog) AllowDeleteItem(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SOpsLog) ValidateDeleteCondition(ctx context.Context) error {
-	return fmt.Errorf("forbidden")
+	return httperrors.NewForbiddenError("not allow to delete log")
 }
 
 func (self *SOpsLogManager) FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {

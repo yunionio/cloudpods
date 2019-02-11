@@ -14,6 +14,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SVirtualResourceBaseManager struct {
@@ -232,6 +233,7 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 		return nil, err
 	}
 	OpsLog.SyncOwner(model, former, userCred)
+	logclient.AddActionLog(model, logclient.ACT_CHANGE_OWNER, nil, userCred, true)
 	return nil, nil
 }
 
