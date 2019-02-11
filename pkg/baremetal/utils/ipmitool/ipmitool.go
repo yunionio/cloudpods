@@ -291,19 +291,16 @@ func EnableLanAccess(exector IPMIExecutor, channel int) error {
 	return setLanAccess(exector, channel, "on")
 }
 
-func SetLanUserPasswd(exector IPMIExecutor, channel int, user string, password string) error {
-	sysInfo, err := GetSysInfo(exector)
-	if err != nil {
-		return err
-	}
+func SetLanUserPasswd(exector IPMIExecutor, channel int, rootId int, user string, password string) error {
+	var err error
 	password, err = stage_stringutils.EscapeEchoString(password)
 	if err != nil {
 		return fmt.Errorf("EscapeEchoString for password: %s, error: %v", password, err)
 	}
-	rootId := GetRootId(sysInfo)
 	args := []Args{
 		newArgs("user", "enable", rootId),
-		newArgs("user", "set", "name", rootId, user, fmt.Sprintf("\"%s\"", password)),
+		newArgs("user", "set", "name", rootId, user),
+		newArgs("user", "set", "password", rootId, fmt.Sprintf("\"%s\"", password)),
 		newArgs("user", "priv", rootId, 4, channel),
 	}
 	err = doActions(exector, "set_lan_user_password", args...)
