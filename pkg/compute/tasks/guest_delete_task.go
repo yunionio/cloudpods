@@ -253,11 +253,12 @@ func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.I
 }
 
 func (self *GuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGuest) {
+	isPendingDeleted := guest.PendingDeleted
 	guest.RealDelete(ctx, self.UserCred)
 	guest.RemoveAllMetadata(ctx, self.UserCred)
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE, nil, self.UserCred)
 	logclient.AddActionLog(guest, logclient.ACT_DELETE, nil, self.UserCred, true)
-	if !guest.IsSystem && !guest.PendingDeleted {
+	if !guest.IsSystem && !isPendingDeleted {
 		self.NotifyServerDeleted(ctx, guest)
 	}
 	models.HostManager.ClearSchedDescCache(guest.HostId)

@@ -24,6 +24,7 @@ var (
 
 func init() {
 	notifyClientWorkerMan = appsrv.NewWorkerManager("NotifyClientWorkerManager", 1, 50, false)
+	templatesTable = make(map[string]*template.Template)
 }
 
 func getTemplateString(topic string, contType string, channel notify.TNotifyChannel) ([]byte, error) {
@@ -59,11 +60,12 @@ func getContent(topic string, contType string, data jsonutils.JSONObject) (strin
 	if err != nil {
 		return "", err
 	}
-	var buf *strings.Builder
-	err = tmpl.Execute(buf, data.Interface())
+	buf := strings.Builder{}
+	err = tmpl.Execute(&buf, data.Interface())
 	if err != nil {
 		return "", err
 	}
+	log.Debugf("notify.getContent %s %s %s %s", topic, contType, data, buf.String())
 	return buf.String(), nil
 }
 
