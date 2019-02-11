@@ -13,7 +13,7 @@ import (
 type SResourceBase struct {
 	SModelBase
 
-	CreatedAt     time.Time `nullable:"false" created_at:"true" get:"user" list:"user"`
+	CreatedAt     time.Time `nullable:"false" created_at:"true" index:"true" get:"user" list:"user"`
 	UpdatedAt     time.Time `nullable:"false" updated_at:"true" list:"user"`
 	UpdateVersion int       `default:"0" nullable:"false" auto_version:"true" list:"user"`
 	DeletedAt     time.Time ``
