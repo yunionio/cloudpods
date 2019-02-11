@@ -1,0 +1,17 @@
+[Unit]
+Description=Yunion Cloud Log Service
+Documentation=http://doc.yunionyun.com
+After=network.target httpd.service
+
+[Service]
+Type=simple
+User=yunion
+Group=yunion
+ExecStart=/opt/yunion/bin/logger --config /etc/yunion/log.conf
+WorkingDirectory=/opt/yunion
+KillMode=process
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

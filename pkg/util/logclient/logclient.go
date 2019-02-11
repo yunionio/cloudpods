@@ -2,12 +2,14 @@ package logclient
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/stringutils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -85,6 +87,11 @@ type IObject interface {
 	Keyword() string
 }
 
+type IVirtualObject interface {
+	IObject
+	GetOwnerProjectId() string
+}
+
 type IModule interface {
 	Create(session *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 }
@@ -100,6 +107,9 @@ func PostWebsocketNotify(model IObject, action string, iNotes interface{}, userC
 }
 
 func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool, api IModule) {
+	if !consts.OpsLogEnabled() {
+		return
+	}
 
 	token := userCred
 	notes := stringutils.Interface2String(iNotes)
@@ -122,6 +132,7 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 	}
 
 	logentry := jsonutils.NewDict()
+
 	logentry.Add(jsonutils.NewString(objName), "obj_name")
 	logentry.Add(jsonutils.NewString(model.Keyword()), "obj_type")
 	logentry.Add(jsonutils.NewString(objId), "obj_id")
@@ -130,6 +141,16 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 	logentry.Add(jsonutils.NewString(token.GetUserName()), "user")
 	logentry.Add(jsonutils.NewString(token.GetTenantId()), "tenant_id")
 	logentry.Add(jsonutils.NewString(token.GetTenantName()), "tenant")
+	logentry.Add(jsonutils.NewString(token.GetDomainId()), "domain_id")
+	logentry.Add(jsonutils.NewString(token.GetDomainName()), "domain")
+	logentry.Add(jsonutils.NewString(strings.Join(token.GetRoles(), ",")), "roles")
+
+	if virtualModel, ok := model.(IVirtualObject); ok {
+		ownerProjId := virtualModel.GetOwnerProjectId()
+		if len(ownerProjId) > 0 {
+			logentry.Add(jsonutils.NewString(ownerProjId), "owner_tenant_id")
+		}
+	}
 
 	if !success {
 		// 失败日志

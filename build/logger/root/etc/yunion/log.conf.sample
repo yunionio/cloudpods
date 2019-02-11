@@ -1,0 +1,9 @@
+region = 'LocalTest'
+port = 9999
+auth_uri = 'http://10.16.22.51:35357/v2.0'
+admin_user = 'logadmin'
+admin_password = 'password0'
+admin_tenant_name = 'system'
+sql_connection = 'mysql+pymysql://yunionlogger:password0@10.16.22.51:3306/yunionlogger?charset=utf8'
+
+auto_sync_table = True
