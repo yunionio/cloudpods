@@ -57,9 +57,8 @@ func (self *SLoadbalancer) GetLoadbalancerSpec() string {
 	return ""
 }
 
-// todo: 实际是按小时计费
 func (self *SLoadbalancer) GetChargeType() string {
-	return "traffic"
+	return models.LB_CHARGE_TYPE_BY_HOUR
 }
 
 // https://cloud.tencent.com/document/product/214/30689
@@ -135,45 +134,24 @@ CertCaId	String	否	客户端证书的 ID，如果 SSLMode=mutual，监听器如
 */
 func (self *SLoadbalancer) CreateILoadBalancerListener(listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
 	sniSwitch := 0
-	var hc healthCheck
-	if listener.HealthCheck == models.LB_HEALTH_CHECK_ENABLE {
-		hc := healthCheck{
-			HTTPCheckDomain: listener.HealthCheckDomain,
-			HealthSwitch:    1,
-			HTTPCheckPath:   listener.HealthCheckURI,
-			HTTPCheckMethod: listener.HealthCheck,
-			UnHealthNum:     listener.HealthCheckFail,
-			IntervalTime:    listener.HealthCheckInterval,
-			HealthNum:       listener.HealthCheckRise,
-			TimeOut:         listener.HealthCheckTimeout,
-		}
-
-		httpCode := onecloudHealthCodeToQcloud(listener.HealthCheckHttpCode)
-		if httpCode > 0 {
-			hc.HTTPCode = httpCode
-		}
-	}
-
-	cert := certificate{
-		SSLMode:  "UNIDIRECTIONAL",
-		CERTCAID: listener.CertificateID,
-		CERTID:   "",
-	}
+	hc := getHealthCheck(listener)
+	cert := getCertificate(listener)
 
 	listenId, err := self.region.CreateLoadbalancerListener(self.GetId(),
 		listener.Name,
-		listener.ListenerType,
+		getProtocol(listener),
 		listener.ListenerPort,
-		&listener.Scheduler,
+		getScheduler(listener),
 		&listener.StickySessionCookieTimeout,
 		&sniSwitch,
-		&hc,
-		&cert)
+		hc,
+		cert)
 
 	if err != nil {
 		return nil, err
 	}
 
+	time.Sleep(3*time.Second)
 	return self.GetILoadBalancerListenerById(listenId)
 }
 
@@ -273,7 +251,7 @@ func (self *SLoadbalancer) GetZoneId() string {
 }
 
 func (self *SLoadbalancer) GetLoadbalancerListeners(protocal string) ([]SLBListener, error) {
-	listeners, err := self.region.GetLoadbalancerListeners(self.GetId(), self.Forward, "")
+	listeners, err := self.region.GetLoadbalancerListeners(self.GetId(), self.Forward, protocal)
 	if err != nil {
 		return nil, err
 	}
@@ -446,25 +424,8 @@ func (self *SRegion) CreateLoadbalancerListener(lbid, name, protocol string, por
 		params["Scheduler"] = *scheduler
 	}
 
-	if healthCheck != nil {
-		params["HealthCheck.HealthSwitch"] = strconv.Itoa(healthCheck.HealthSwitch)
-		params["HealthCheck.TimeOut"] = strconv.Itoa(healthCheck.TimeOut)
-		params["HealthCheck.IntervalTime"] = strconv.Itoa(healthCheck.IntervalTime)
-		params["HealthCheck.HealthNum"] = strconv.Itoa(healthCheck.HealthNum)
-		params["HealthCheck.UnHealthNum"] = strconv.Itoa(healthCheck.UnHealthNum)
-		params["HealthCheck.HttpCode"] = strconv.Itoa(healthCheck.HTTPCode)
-		params["HealthCheck.HttpCheckPath"] = healthCheck.HTTPCheckPath
-		params["HealthCheck.HttpCheckDomain"] = healthCheck.HTTPCheckDomain
-		params["HealthCheck.HttpCheckMethod"] = healthCheck.HTTPCheckMethod
-	}
-
-	if cert != nil {
-		params["Certificate.SSLMode"] = cert.SSLMode
-		params["Certificate.CertId"] = cert.CERTID
-		if len(cert.CERTCAID) > 0 {
-			params["Certificate.CertCaId"] = cert.CERTCAID
-		}
-	}
+	params = healthCheckParams(params, healthCheck)
+	params = certificateParams(params, cert)
 
 	resp, err := self.clbRequest("CreateListener", params)
 	if err != nil {
@@ -479,7 +440,7 @@ func (self *SRegion) CreateLoadbalancerListener(lbid, name, protocol string, por
 	if len(listeners) == 0 {
 		return "", fmt.Errorf("CreateLoadbalancerListener no listener id returned: %s", resp.String())
 	} else if len(listeners) == 1 {
-		return listeners[0].String(), nil
+		return listeners[0].GetString()
 	} else {
 		return "", fmt.Errorf("CreateLoadbalancerListener mutliple listener id returned: %s", resp.String())
 	}
@@ -504,7 +465,8 @@ func (self *SRegion) GetLBTaskStatus(requestId string) (string, error) {
 		return "", err
 	}
 
-	return status.String(), err
+	_status, err := status.Float()
+	return fmt.Sprintf("%1.f", _status), err
 }
 
 func (self *SRegion) WaitLBTaskSuccess(requestId string, interval time.Duration, timeout time.Duration) error {

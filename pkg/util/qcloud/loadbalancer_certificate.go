@@ -16,8 +16,9 @@ type SLBCertificate struct {
 	SCertificate
 }
 
+// 证书不能修改
 func (self *SLBCertificate) Sync(name, privateKey, publickKey string) error {
-	panic("implement me")
+	return nil
 }
 
 func (self *SLBCertificate) Delete() error {
@@ -28,7 +29,6 @@ func (self *SLBCertificate) GetId() string {
 	return self.ID
 }
 
-// todo: ??
 func (self *SLBCertificate) GetName() string {
 	return self.Alias
 }
@@ -64,7 +64,6 @@ func (self *SLBCertificate) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
-// todo: ??
 func (self *SLBCertificate) GetCommonName() string {
 	return self.Domain
 }
@@ -73,7 +72,6 @@ func (self *SLBCertificate) GetSubjectAlternativeNames() string {
 	return strings.Join(self.SubjectAltName, ",")
 }
 
-// todo: ??
 func (self *SLBCertificate) GetFingerprint() string {
 	_fp := sha1.Sum([]byte(self.Cert))
 	fp := fmt.Sprintf("sha1:% x", _fp)

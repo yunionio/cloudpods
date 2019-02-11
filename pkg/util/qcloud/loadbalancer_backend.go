@@ -51,7 +51,6 @@ func (self *SLBBackend) GetGlobalId() string {
 	return self.GetId()
 }
 
-// todo: status ??
 func (self *SLBBackend) GetStatus() string {
 	return ""
 }
@@ -90,7 +89,6 @@ func (self *SLBBackend) GetPort() int {
 	return self.Port
 }
 
-// todo: self.Type ??
 func (self *SLBBackend) GetBackendType() string {
 	return models.LB_BACKEND_GUEST
 }

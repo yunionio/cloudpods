@@ -112,13 +112,14 @@ func (self *SLBBackendGroup) RemoveBackendServer(serverId string, weight int, po
 	return self.lb.region.WaitLBTaskSuccess(requestId, 5*time.Second, 60*time.Second)
 }
 
-// 腾讯云无后端服务器组
+// 腾讯云无后端服务器组。不支持该操作
 func (self *SLBBackendGroup) Delete() error {
 	return cloudprovider.ErrNotSupported
 }
 
+// 腾讯云无后端服务器组
 func (self *SLBBackendGroup) Sync(name string) error {
-	panic("implement me")
+	return nil
 }
 
 func backendGroupIdGen(lbid string, secondId string) string {
@@ -171,7 +172,6 @@ func (self *SLBBackendGroup) IsDefault() bool {
 	return false
 }
 
-// todo: ??
 func (self *SLBBackendGroup) GetType() string {
 	return models.LB_BACKENDGROUP_TYPE_NORMAL
 }

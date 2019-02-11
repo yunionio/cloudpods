@@ -2,6 +2,7 @@ package qcloud
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 // todo: 腾讯云没有LB ACL
@@ -20,7 +21,7 @@ func (self *SLBACL) GetGlobalId() string {
 }
 
 func (self *SLBACL) GetStatus() string {
-	return ""
+	return models.LB_BOOL_OFF
 }
 
 func (self *SLBACL) Refresh() error {

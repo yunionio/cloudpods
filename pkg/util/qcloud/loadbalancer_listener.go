@@ -111,7 +111,7 @@ func (self *SLBListener) GetILoadBalancerListenerRuleById(ruleId string) (cloudp
 }
 
 func (self *SLBListener) Start() error {
-	return cloudprovider.ErrNotSupported
+	return nil
 }
 
 func (self *SLBListener) Stop() error {
@@ -120,7 +120,21 @@ func (self *SLBListener) Stop() error {
 
 // https://cloud.tencent.com/document/product/214/30677
 func (self *SLBListener) Sync(listener *cloudprovider.SLoadbalancerListener) error {
-	panic("implement me")
+	hc := getHealthCheck(listener)
+	cert := getCertificate(listener)
+	requestId, err := self.lb.region.UpdateLoadbalancerListener(
+		self.lb.GetId(),
+		self.GetId(),
+		&listener.Name,
+		getScheduler(listener),
+		&listener.StickySessionCookieTimeout,
+		hc,
+		cert)
+	if err != nil {
+		return err
+	}
+
+	return self.lb.region.WaitLBTaskSuccess(requestId, 5*time.Second, 60*time.Second)
 }
 
 func (self *SLBListener) Delete() error {
@@ -263,7 +277,7 @@ func (self *SLBListener) GetScheduler() string {
 }
 
 func (self *SLBListener) GetAclStatus() string {
-	return ""
+	return models.LB_BOOL_OFF
 }
 
 func (self *SLBListener) GetAclType() string {
@@ -365,7 +379,6 @@ func (self *SLBListener) GetILoadbalancerListenerRules() ([]cloudprovider.ICloud
 	return iRules, nil
 }
 
-// todo: ??
 func (self *SLBListener) GetStickySession() string {
 	if self.SessionExpireTime == 0 {
 		return models.LB_BOOL_OFF
@@ -423,7 +436,6 @@ func (self *SLBListener) GetTLSCipherPolicy() string {
 	return ""
 }
 
-// todo: ?
 // 负载均衡能力说明 https://cloud.tencent.com/document/product/214/6534
 func (self *SLBListener) HTTP2Enabled() bool {
 	return true
@@ -514,4 +526,139 @@ func (self *SRegion) DeleteLoadbalancerListener(lbid string, listenerId string) 
 	}
 
 	return resp.GetString("RequestId")
+}
+
+// https://cloud.tencent.com/document/product/214/30681
+func (self *SRegion) UpdateLoadbalancerListener(lbid string, listenerId string,listenerName *string, scheduler *string, sessionExpireTime *int, healthCheck *healthCheck,cert *certificate) (string, error) {
+	if len(lbid) == 0 {
+		return "", fmt.Errorf("loadbalancer id should not be empty")
+	}
+
+	if len(listenerId) == 0 {
+		return "", fmt.Errorf("loadbalancer listener id should not be empty")
+	}
+
+	params := map[string]string{
+		"LoadBalancerId": lbid,
+		"ListenerId":     listenerId,
+	}
+
+	if listenerName != nil && len(*listenerName) > 0 {
+		params["ListenerName"] = *listenerName
+	}
+
+	if scheduler != nil && len(*scheduler) > 0 {
+		params["Scheduler"] = *scheduler
+	}
+
+	if sessionExpireTime != nil {
+		params["SessionExpireTime"] = strconv.Itoa(*sessionExpireTime)
+	}
+
+	params = healthCheckParams(params, healthCheck)
+	params = certificateParams(params, cert)
+
+	resp, err := self.clbRequest("ModifyListener", params)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.GetString("RequestId")
+}
+
+func getHealthCheck(listener *cloudprovider.SLoadbalancerListener) *healthCheck {
+	var hc *healthCheck
+	if listener.HealthCheck == models.LB_HEALTH_CHECK_ENABLE {
+		hc = &healthCheck{
+			HealthSwitch:    1,
+			UnHealthNum:     listener.HealthCheckFail,
+			IntervalTime:    listener.HealthCheckInterval,
+			HealthNum:       listener.HealthCheckRise,
+			TimeOut:         listener.HealthCheckTimeout,
+		}
+
+		httpCode := onecloudHealthCodeToQcloud(listener.HealthCheckHttpCode)
+		if httpCode > 0 {
+			hc.HTTPCode = httpCode
+			hc.HTTPCheckMethod = "HEAD"  // todo: add column HttpCheckMethod in model
+		    hc.HTTPCheckDomain = listener.HealthCheckDomain
+		    hc.HTTPCheckPath = listener.HealthCheckURI
+		}
+	}
+
+	return hc
+}
+
+func getCertificate(listener *cloudprovider.SLoadbalancerListener) *certificate {
+	var cert *certificate
+	if len(listener.CertificateID) > 0 {
+		cert = &certificate{
+			SSLMode:  "UNIDIRECTIONAL",
+			CERTCAID: listener.CertificateID,
+			CERTID:   "",
+		}
+	}
+
+	return cert
+}
+
+func getProtocol(listener *cloudprovider.SLoadbalancerListener) string {
+	switch listener.ListenerType {
+	case models.LB_LISTENER_TYPE_HTTPS:
+		return "HTTPS"
+	case models.LB_LISTENER_TYPE_HTTP:
+		return "HTTP"
+	case models.LB_LISTENER_TYPE_TCP:
+		return "TCP"
+	case models.LB_LISTENER_TYPE_UDP:
+		return "UDP"
+	case "tcp_ssl":
+		return "TCP_SSL"
+	default:
+		return ""
+	}
+}
+
+func getScheduler(listener *cloudprovider.SLoadbalancerListener) *string {
+	var sch string
+	switch listener.Scheduler {
+	case models.LB_SCHEDULER_WRR:
+		sch = "WRR"
+	case models.LB_SCHEDULER_WLC:
+		sch = "LEAST_CONN"
+	default:
+		return nil
+	}
+
+	return &sch
+}
+
+func healthCheckParams(params map[string]string,hc *healthCheck) map[string]string {
+	if hc != nil {
+		params["HealthCheck.HealthSwitch"] = strconv.Itoa(hc.HealthSwitch)
+		params["HealthCheck.TimeOut"] = strconv.Itoa(hc.TimeOut)
+		params["HealthCheck.IntervalTime"] = strconv.Itoa(hc.IntervalTime)
+		params["HealthCheck.HealthNum"] = strconv.Itoa(hc.HealthNum)
+		params["HealthCheck.UnHealthNum"] = strconv.Itoa(hc.UnHealthNum)
+		if hc.HTTPCode > 0 {
+			params["HealthCheck.HttpCode"] = strconv.Itoa(hc.HTTPCode)
+			params["HealthCheck.HttpCheckPath"] = hc.HTTPCheckPath
+			params["HealthCheck.HttpCheckDomain"] = hc.HTTPCheckDomain
+			params["HealthCheck.HttpCheckMethod"] = hc.HTTPCheckMethod
+		}
+	}
+
+	return params
+}
+
+func certificateParams(params map[string]string,cert *certificate) map[string]string {
+	if cert != nil {
+		params["Certificate.SSLMode"] = cert.SSLMode
+		params["Certificate.CertId"] = cert.CERTID
+		if len(cert.CERTCAID) > 0 {
+			params["Certificate.CertCaId"] = cert.CERTCAID
+		}
+	}
+
+	return params
 }
