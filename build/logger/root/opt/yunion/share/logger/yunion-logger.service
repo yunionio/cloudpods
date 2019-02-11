@@ -1,5 +1,5 @@
 [Unit]
-Description=Yunion Cloud Image Service
+Description=Yunion Cloud Logger Service
 Documentation=http://doc.yunionyun.com
 After=network.target httpd.service
 
