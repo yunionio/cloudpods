@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -508,15 +509,15 @@ func (self *SGuest) StartGuestDeployTask(ctx context.Context, userCred mcclient.
 	return nil
 }
 
-func (self *SGuest) NotifyServerEvent(event string, priority string, loginInfo bool) error {
+func (self *SGuest) NotifyServerEvent(event string, priority notify.TNotifyPriority, loginInfo bool) {
 	meta, err := self.GetAllMetadata(nil)
 	if err != nil {
-		return err
+		return
 	}
 	kwargs := jsonutils.NewDict()
 	kwargs.Add(jsonutils.NewString(self.Name), "name")
 	if loginInfo {
-		kwargs.Add(jsonutils.NewStringArray(self.getNotifyIps()), "ips")
+		kwargs.Add(jsonutils.NewString(self.getNotifyIps()), "ips")
 		osName := meta["os_name"]
 		if osName == "Windows" {
 			kwargs.Add(jsonutils.JSONTrue, "windows")
@@ -538,10 +539,10 @@ func (self *SGuest) NotifyServerEvent(event string, priority string, loginInfo b
 			}
 		}
 	}
-	return notifyclient.Notify(self.ProjectId, event, priority, kwargs)
+	notifyclient.Notify(self.ProjectId, true, priority, event, kwargs)
 }
 
-func (self *SGuest) NotifyAdminServerEvent(ctx context.Context, event string, priority string) error {
+func (self *SGuest) NotifyAdminServerEvent(ctx context.Context, event string, priority notify.TNotifyPriority) {
 	kwargs := jsonutils.NewDict()
 	kwargs.Add(jsonutils.NewString(self.Name), "name")
 	tc, _ := self.GetTenantCache(ctx)
@@ -550,7 +551,7 @@ func (self *SGuest) NotifyAdminServerEvent(ctx context.Context, event string, pr
 	} else {
 		kwargs.Add(jsonutils.NewString(self.ProjectId), "tenant")
 	}
-	return notifyclient.Notify(options.Options.NotifyAdminUser, event, priority, kwargs)
+	notifyclient.Notify(options.Options.NotifyAdminUser, true, priority, event, kwargs)
 }
 
 func (self *SGuest) StartGuestStopTask(ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {

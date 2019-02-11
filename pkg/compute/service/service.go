@@ -60,6 +60,11 @@ func StartService() {
 		log.Errorf("InitDB fail: %s", err)
 	}
 
+	err = setInfluxdbRetentionPolicy()
+	if err != nil {
+		log.Errorf("setInfluxdbRetentionPolicy fail: %s", err)
+	}
+
 	cron := cronman.GetCronJobManager(true)
 	cron.AddJob1("CleanPendingDeleteServers", time.Duration(opts.PendingDeleteCheckSeconds)*time.Second, models.GuestManager.CleanPendingDeleteServers)
 	cron.AddJob1("CleanPendingDeleteDisks", time.Duration(opts.PendingDeleteCheckSeconds)*time.Second, models.DiskManager.CleanPendingDeleteDisks)

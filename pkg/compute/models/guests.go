@@ -1560,13 +1560,13 @@ func (self *SGuest) getKeypairName() string {
 	return ""
 }
 
-func (self *SGuest) getNotifyIps() []string {
+func (self *SGuest) getNotifyIps() string {
 	ips := self.getRealIPs()
 	vips := self.getVirtualIPs()
 	if vips != nil {
 		ips = append(ips, vips...)
 	}
-	return ips
+	return strings.Join(ips, ",")
 }
 
 func (self *SGuest) getRealIPs() []string {
