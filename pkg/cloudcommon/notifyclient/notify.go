@@ -65,7 +65,7 @@ func getContent(topic string, contType string, data jsonutils.JSONObject) (strin
 	if err != nil {
 		return "", err
 	}
-	log.Debugf("notify.getContent %s %s %s %s", topic, contType, data, buf.String())
+	// log.Debugf("notify.getContent %s %s %s %s", topic, contType, data, buf.String())
 	return buf.String(), nil
 }
 
@@ -81,7 +81,7 @@ func Notify(recipientId string, isGroup bool, priority notify.TNotifyPriority, e
 }
 
 func RawNotify(recipientId string, isGroup bool, channels []notify.TNotifyChannel, priority notify.TNotifyPriority, event string, data jsonutils.JSONObject) {
-	log.Infof("notify %s event %s priority %s data %s", recipientId, event, priority, data)
+	log.Infof("notify %s event %s priority %s", recipientId, event, priority)
 	msg := notify.SNotifyMessage{}
 	if isGroup {
 		msg.Gid = recipientId
@@ -100,7 +100,7 @@ func RawNotify(recipientId string, isGroup bool, channels []notify.TNotifyChanne
 		body = data.String()
 	}
 	msg.Msg = body
-	log.Debugf("send notification %s %s", topic, body)
+	// log.Debugf("send notification %s %s", topic, body)
 	notifyClientWorkerMan.Run(func() {
 		s := auth.GetAdminSession(context.Background(), consts.GetRegion(), "")
 		notify.Notifications.Send(s, msg)
@@ -152,11 +152,6 @@ func NotifySystemError(idstr string, name string, event string, reason string) {
 	}
 	SystemNotify(SYSTEM_ERROR, jsonutils.Marshal(msg))
 }
-
-/*func NotifySystemError(id string, name string, status string, reason string) error {
-	log.Errorf("ID: %s Name %s Status %s REASON %s", id, name, status, reason)
-	return nil
-}*/
 
 func NotifySystemWarning(data jsonutils.JSONObject) {
 	SystemNotify(SYSTEM_WARNING, data)
