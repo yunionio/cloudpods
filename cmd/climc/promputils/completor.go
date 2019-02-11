@@ -1,10 +1,11 @@
 package promputils
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
-	"github.com/c-bata/go-prompt"
+	prompt "github.com/c-bata/go-prompt"
 )
 
 type Cmd struct {
@@ -118,4 +119,23 @@ func AppendPos(text, cmd, desc string) {
 func AppendOpt(text, cmd, desc string) {
 	var v = []prompt.Suggest{{Text: cmd, Description: desc}}
 	cmds[text].optArgs = append(cmds[text].optArgs, v...)
+}
+
+func GenerateAutoCompleteCmds() []string {
+	var ret = []string{}
+	for cmd, options := range cmds {
+		var (
+			strPosArgs = []string{}
+			strOptArgs = []string{}
+		)
+		for _, posArg := range options.posArgs {
+			strPosArgs = append(strPosArgs, posArg.Text)
+		}
+		for _, optArg := range options.optArgs {
+			strOptArgs = append(strOptArgs, strings.Split(optArg.Text, " ")[0])
+		}
+		ret = append(ret, fmt.Sprintf("%s# %s %s\n", cmd,
+			strings.Join(strPosArgs, " "), strings.Join(strOptArgs, " ")))
+	}
+	return ret
 }
