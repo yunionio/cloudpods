@@ -82,7 +82,15 @@ func (host *SHostService) StartService() {
 	cronManager.AddJob2(
 		"CleanRecycleDiskFiles", 1, 3, 0, 0, storageman.CleanRecycleDiskfiles, false)
 
-	cloudcommon.ServeForever(app, &options.HostOptions.CommonOptions)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Errorln(r)
+			}
+		}()
+		cloudcommon.ServeForever(app, &options.HostOptions.CommonOptions)
+	}()
+	select {} // for quit handler
 }
 
 func (host *SHostService) initHandlers(app *appsrv.Application) {

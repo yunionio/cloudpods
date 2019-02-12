@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -147,8 +148,17 @@ func (w *SWinRegTool) samChange(user string, seq ...string) error {
 		return err
 	}
 	log.Debugf("Sam change %s %s", stdoutPut, stderrOutPut)
-	if proc.ProcessState.Exited() {
-		if err := proc.Wait(); err != nil {
+
+	done := make(chan error, 1)
+	go func() {
+		done <- proc.Wait()
+	}()
+	select {
+	case <-time.After(time.Millisecond * 100):
+		proc.Process.Kill()
+		return fmt.Errorf("Failed to change SAM password, not exit cleanly")
+	case err := <-done:
+		if err != nil {
 			if exiterr, ok := err.(*exec.ExitError); ok {
 				ws := exiterr.Sys().(syscall.WaitStatus)
 				if ws.ExitStatus() == 2 {
@@ -160,9 +170,6 @@ func (w *SWinRegTool) samChange(user string, seq ...string) error {
 		} else {
 			return nil
 		}
-	} else {
-		proc.Process.Kill()
-		return fmt.Errorf("Failed to change SAM password, not exit cleanly")
 	}
 }
 
@@ -179,7 +186,7 @@ func (w *SWinRegTool) UnlockUser(user string) error {
 }
 
 func (w *SWinRegTool) GetRegFile(regPath string) (string, []string) {
-	re := regexp.MustCompile("\\")
+	re := regexp.MustCompile(`\\`)
 	vals := re.Split(regPath, -1)
 	regSeg := []string{}
 	for _, val := range vals {
@@ -225,21 +232,32 @@ func (w *SWinRegTool) showRegistry(spath string, keySeg []string, verb string) (
 	if err := proc.Start(); err != nil {
 		return nil, err
 	}
-	keypath := strings.Join(keySeg, "\\")
+	keypath := strings.Join(keySeg, `\\`)
 	io.WriteString(stdin, fmt.Sprintf("%s %s\n", verb, keypath))
 	io.WriteString(stdin, "q\n")
 	stdoutPut, err := ioutil.ReadAll(outb)
 	if err != nil {
 		return nil, err
 	}
-	if !proc.ProcessState.Exited() {
+	time.Sleep(time.Millisecond * 100)
+
+	done := make(chan error, 1)
+	go func() {
+		done <- proc.Wait()
+	}()
+	select {
+	case <-time.After(time.Millisecond * 100):
 		proc.Process.Kill()
+	case err := <-done:
+		if err != nil {
+			return nil, err
+		}
 	}
 	return strings.Split(string(stdoutPut), "\n"), nil
 }
 
 func (w *SWinRegTool) getRegistry(spath string, keySeg []string) string {
-	keyPath := strings.Join(keySeg, "\\")
+	keyPath := strings.Join(keySeg, `\\`)
 	lines, err := w.showRegistry(spath, keySeg, "cat")
 	if err != nil {
 		log.Errorln(err)
@@ -329,8 +347,16 @@ func (w *SWinRegTool) cmdRegistry(spath string, ops []string, retcode int) bool 
 		return false
 	}
 	log.Debugf("Cmd registry %s %s", stdoutPut, stderrOutPut)
-	if proc.ProcessState.Exited() {
-		if err := proc.Wait(); err != nil {
+
+	done := make(chan error, 1)
+	go func() {
+		done <- proc.Wait()
+	}()
+	select {
+	case <-time.After(time.Millisecond * 100):
+		proc.Process.Kill()
+	case err := <-done:
+		if err != nil {
 			if exiterr, ok := err.(*exec.ExitError); ok {
 				ws := exiterr.Sys().(syscall.WaitStatus)
 				if ws.ExitStatus() == retcode {
@@ -340,21 +366,19 @@ func (w *SWinRegTool) cmdRegistry(spath string, ops []string, retcode int) bool 
 		} else {
 			return retcode == 0
 		}
-	} else {
-		proc.Process.Kill()
 	}
 	return false
 }
 
 func (w *SWinRegTool) setRegistry(spath string, keySeg []string, value string) bool {
-	keyPath := strings.Join(keySeg, "\\")
+	keyPath := strings.Join(keySeg, `\\`)
 	return w.cmdRegistry(spath, []string{fmt.Sprintf("ed %s", keyPath), value}, 0)
 }
 
 func (w *SWinRegTool) mkdir(spath string, keySeg []string) bool {
 	return w.cmdRegistry(spath,
 		[]string{
-			fmt.Sprintf("cd %s", strings.Join(keySeg[:len(keySeg)-1], "\\")),
+			fmt.Sprintf("cd %s", strings.Join(keySeg[:len(keySeg)-1], `\\`)),
 			fmt.Sprintf("nk %s", keySeg[len(keySeg)-1]),
 		}, 2)
 }
@@ -420,7 +444,7 @@ func (w *SWinRegTool) newValue(spath string, keySeg []string, regtype, val strin
 	}
 
 	cmds := []string{
-		fmt.Sprintf("cd %s", strings.Join(keySeg[:len(keySeg)-1], "\\")),
+		fmt.Sprintf("cd %s", strings.Join(keySeg[:len(keySeg)-1], `\\`)),
 		fmt.Sprintf("nv %x %s", idx, keySeg[len(keySeg)-1]),
 		fmt.Sprintf("ed %s", keySeg[len(keySeg)-1]),
 	}

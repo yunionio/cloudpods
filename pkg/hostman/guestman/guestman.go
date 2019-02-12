@@ -75,6 +75,7 @@ func (m *SGuestManager) VerifyExistingGuests(pendingDelete bool) {
 	params.Set("admin", jsonutils.JSONTrue)
 	params.Set("system", jsonutils.JSONTrue)
 	params.Set("pending_delete", jsonutils.NewBool(pendingDelete))
+	params.Set("get_backup_guests_on_host", jsonutils.JSONTrue)
 	params.Set("filter.0", jsonutils.NewString(
 		fmt.Sprintf("host_id.equals(%s)", m.host.GetHostId())))
 	if len(m.CandidateServers) > 0 {
@@ -84,7 +85,7 @@ func (m *SGuestManager) VerifyExistingGuests(pendingDelete bool) {
 			keys[index] = k
 			index++
 		}
-		params.Set("filter.1", jsonutils.NewString(strings.Join(keys, ",")))
+		params.Set("filter.1", jsonutils.NewString(fmt.Sprintf("id.in(%s)", strings.Join(keys, ","))))
 	}
 	res, err := modules.Servers.List(hostutils.GetComputeSession(context.Background()), params)
 	if err != nil {

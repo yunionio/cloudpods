@@ -220,7 +220,7 @@ func DeployGuestFs(
 
 func IsPartitionReadonly(rootfs fsdriver.IDiskPartition) bool {
 	log.Infof("Test if read-only fs ...")
-	var filename = fmt.Sprintf("./%f", rand.Float32())
+	var filename = fmt.Sprintf("/.%f", rand.Float32())
 	if err := rootfs.FilePutContents(filename, fmt.Sprintf("%f", rand.Float32()), false, false); err == nil {
 		rootfs.Remove(filename, false)
 		return false

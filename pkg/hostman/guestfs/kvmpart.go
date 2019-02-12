@@ -51,8 +51,8 @@ func (p *SKVMGuestDiskPartition) Mount() bool {
 	err = p.mount(false)
 	if err != nil {
 		log.Errorf("SKVMGuestDiskPartition mount error: %s", err)
-		return false
 	}
+
 	if p.IsReadonly() {
 		log.Errorf("SKVMGuestDiskPartition %s is readonly, try mount as ro", p.partDev)
 		p.Umount()

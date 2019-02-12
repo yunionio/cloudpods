@@ -57,6 +57,10 @@ func (w *SWindowsRootFs) GetName() string {
 	return "Windows"
 }
 
+func (w *SWindowsRootFs) String() string {
+	return "WindowsRootFs"
+}
+
 func (w *SWindowsRootFs) DeployPublicKey(IDiskPartition, string, *sshkeys.SSHKeys) error {
 	return nil
 }
@@ -88,6 +92,7 @@ func (w *SWindowsRootFs) GetReleaseInfo(IDiskPartition) *SReleaseInfo {
 func (w *SWindowsRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser bool, windowsDefaultAdminUser bool) string {
 	confPath := w.rootFs.GetLocalPath("/windows/system32/config", true)
 	tool := winutils.NewWinRegTool(confPath)
+	tool.CheckPath()
 	users := tool.GetUsers()
 	admin := "Administrator"
 	selUsr := ""
@@ -120,7 +125,6 @@ func (w *SWindowsRootFs) IsWindows10() bool {
 		return true
 	}
 	return false
-
 }
 
 func (w *SWindowsRootFs) GetOs() string {

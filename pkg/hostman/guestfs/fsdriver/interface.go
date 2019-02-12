@@ -33,6 +33,7 @@ type IDiskPartition interface {
 type IRootFsDriver interface {
 	GetPartition() IDiskPartition
 	GetName() string
+	String() string
 
 	IsFsCaseInsensitive() bool
 	RootSignatures() []string
