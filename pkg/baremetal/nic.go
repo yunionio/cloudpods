@@ -10,8 +10,8 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
-	"yunion.io/x/onecloud/pkg/cloudcommon/dhcp"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/util/dhcp"
 )
 
 func GetNicDHCPConfig(
