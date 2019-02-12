@@ -18,6 +18,10 @@ type SLBBackendGroup struct {
 
 // 返回requestid
 func (self *SLBBackendGroup) appLBBackendServer(action string, serverId string, weight int, port int) (string, error) {
+	if len(serverId) == 0 {
+		return "", fmt.Errorf("loadbalancer backend instance id should not be empty.")
+	}
+
 	params := map[string]string{
 		"LoadBalancerId":       self.lb.GetId(),
 		"ListenerId":           self.listener.GetId(),
@@ -152,7 +156,7 @@ func (self *SLBBackendGroup) GetGlobalId() string {
 }
 
 func (self *SLBBackendGroup) GetStatus() string {
-	return ""
+	return models.LB_STATUS_ENABLED
 }
 
 func (self *SLBBackendGroup) Refresh() error {

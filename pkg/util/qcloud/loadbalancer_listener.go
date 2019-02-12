@@ -529,7 +529,7 @@ func (self *SRegion) DeleteLoadbalancerListener(lbid string, listenerId string) 
 }
 
 // https://cloud.tencent.com/document/product/214/30681
-func (self *SRegion) UpdateLoadbalancerListener(lbid string, listenerId string,listenerName *string, scheduler *string, sessionExpireTime *int, healthCheck *healthCheck,cert *certificate) (string, error) {
+func (self *SRegion) UpdateLoadbalancerListener(lbid string, listenerId string, listenerName *string, scheduler *string, sessionExpireTime *int, healthCheck *healthCheck, cert *certificate) (string, error) {
 	if len(lbid) == 0 {
 		return "", fmt.Errorf("loadbalancer id should not be empty")
 	}
@@ -570,19 +570,19 @@ func getHealthCheck(listener *cloudprovider.SLoadbalancerListener) *healthCheck 
 	var hc *healthCheck
 	if listener.HealthCheck == models.LB_HEALTH_CHECK_ENABLE {
 		hc = &healthCheck{
-			HealthSwitch:    1,
-			UnHealthNum:     listener.HealthCheckFail,
-			IntervalTime:    listener.HealthCheckInterval,
-			HealthNum:       listener.HealthCheckRise,
-			TimeOut:         listener.HealthCheckTimeout,
+			HealthSwitch: 1,
+			UnHealthNum:  listener.HealthCheckFail,
+			IntervalTime: listener.HealthCheckInterval,
+			HealthNum:    listener.HealthCheckRise,
+			TimeOut:      listener.HealthCheckTimeout,
 		}
 
 		httpCode := onecloudHealthCodeToQcloud(listener.HealthCheckHttpCode)
 		if httpCode > 0 {
 			hc.HTTPCode = httpCode
-			hc.HTTPCheckMethod = "HEAD"  // todo: add column HttpCheckMethod in model
-		    hc.HTTPCheckDomain = listener.HealthCheckDomain
-		    hc.HTTPCheckPath = listener.HealthCheckURI
+			hc.HTTPCheckMethod = "HEAD" // todo: add column HttpCheckMethod in model
+			hc.HTTPCheckDomain = listener.HealthCheckDomain
+			hc.HTTPCheckPath = listener.HealthCheckURI
 		}
 	}
 
@@ -633,7 +633,7 @@ func getScheduler(listener *cloudprovider.SLoadbalancerListener) *string {
 	return &sch
 }
 
-func healthCheckParams(params map[string]string,hc *healthCheck) map[string]string {
+func healthCheckParams(params map[string]string, hc *healthCheck) map[string]string {
 	if hc != nil {
 		params["HealthCheck.HealthSwitch"] = strconv.Itoa(hc.HealthSwitch)
 		params["HealthCheck.TimeOut"] = strconv.Itoa(hc.TimeOut)
@@ -651,7 +651,7 @@ func healthCheckParams(params map[string]string,hc *healthCheck) map[string]stri
 	return params
 }
 
-func certificateParams(params map[string]string,cert *certificate) map[string]string {
+func certificateParams(params map[string]string, cert *certificate) map[string]string {
 	if cert != nil {
 		params["Certificate.SSLMode"] = cert.SSLMode
 		params["Certificate.CertId"] = cert.CERTID

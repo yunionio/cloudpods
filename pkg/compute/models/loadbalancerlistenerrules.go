@@ -120,6 +120,15 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 		if backendGroup, ok := backendGroupV.Model.(*SLoadbalancerBackendGroup); ok && backendGroup.LoadbalancerId != listener.LoadbalancerId {
 			return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
 				backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, listener.LoadbalancerId)
+		} else {
+			// 腾讯云backend group只能1v1关联
+			if listener.GetProviderName() == CLOUD_PROVIDER_QCLOUD {
+				count := LoadbalancerListenerRuleManager.TableSpec().Query().Equals("backend_group_id", backendGroup.GetId()).Count()
+				count += man.TableSpec().Query().Equals("backend_group_id", backendGroup.GetId()).Count()
+				if count > 0 {
+					return nil, fmt.Errorf("backendgroup aready related with other listener/rule")
+				}
+			}
 		}
 	}
 	err := loadbalancerListenerRuleCheckUniqueness(ctx, listener, domainV.Value, pathV.Value)
@@ -335,6 +344,22 @@ func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(extRu
 	lbr.Domain = extRule.GetDomain()
 	lbr.Path = extRule.GetPath()
 	if groupId := extRule.GetBackendGroupId(); len(groupId) > 0 {
+		// 腾讯云兼容代码。主要目的是在关联listener rule时回写一个fake的backend group external id
+		if len(groupId) > 0 && len(lbr.BackendGroupId) > 0 {
+			igroup, err := LoadbalancerBackendGroupManager.FetchById(lbr.BackendGroupId)
+			group := igroup.(*SLoadbalancerBackendGroup)
+			if err == nil && (len(group.ExternalId) == 0 || group.ExternalId != groupId) {
+				_, err := LoadbalancerBackendGroupManager.TableSpec().Update(group, func() error {
+					group.ExternalId = groupId
+					return nil
+				})
+				if err != nil {
+					log.Errorf("Update loadbalancer BackendGroup(%s) external id failed: %s",group.GetId(), err)
+				}
+			}
+		}
+		// ===========
+
 		if backendgroup, err := LoadbalancerBackendGroupManager.FetchByExternalId(groupId); err == nil {
 			lbr.BackendGroupId = backendgroup.GetId()
 		}

@@ -360,6 +360,18 @@ func (lbb *SLoadbalancerBackend) SyncWithCloudLoadbalancerBackend(ctx context.Co
 	return err
 }
 
+func (lbb *SLoadbalancerBackend) UpdateCloudLoadbalancerBackendExternalId(ctx context.Context, userCred mcclient.TokenCredential,externalId string, projectId string, projectSync bool) error {
+	_, err := lbb.GetModelManager().TableSpec().Update(lbb, func() error {
+		if projectSync && len(projectId) > 0 {
+			lbb.ProjectId = projectId
+		}
+
+		lbb.ExternalId = externalId
+		return nil
+	})
+	return err
+}
+
 func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, loadbalancerBackendgroup *SLoadbalancerBackendGroup, extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend, projectId string) (*SLoadbalancerBackend, error) {
 	lbb := &SLoadbalancerBackend{}
 	lbb.SetModelManager(man)

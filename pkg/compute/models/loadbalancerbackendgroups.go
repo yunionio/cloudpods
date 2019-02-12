@@ -177,6 +177,13 @@ func (lbbg *SLoadbalancerBackendGroup) GetIRegion() (cloudprovider.ICloudRegion,
 	return nil, fmt.Errorf("failed to find loadbalancer for backendgroup %s", lbbg.Name)
 }
 
+func (lbbg *SLoadbalancerBackendGroup) GetBackends() ([]SLoadbalancerBackend, error) {
+	backends := make([]SLoadbalancerBackend, 0)
+	q := LoadbalancerBackendManager.Query()
+	err := q.Equals("backend_group_id", lbbg.GetId()).All(&backends)
+	return backends, err
+}
+
 func (lbbg *SLoadbalancerBackendGroup) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return false
 }

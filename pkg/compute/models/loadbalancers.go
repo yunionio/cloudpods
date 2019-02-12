@@ -39,7 +39,7 @@ func init() {
 const (
 	LB_CHARGE_TYPE_BY_TRAFFIC   = "traffic"
 	LB_CHARGE_TYPE_BY_BANDWIDTH = "bandwidth"
-	LB_CHARGE_TYPE_BY_HOUR = "hour"
+	LB_CHARGE_TYPE_BY_HOUR      = "hour"
 )
 
 // TODO build errors on pkg/httperrors/errors.go
