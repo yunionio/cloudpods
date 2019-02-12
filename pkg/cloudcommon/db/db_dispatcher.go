@@ -753,8 +753,16 @@ func fetchOwnerProjectId(ctx context.Context, manager IModelManager, userCred mc
 	if data != nil {
 		projId = jsonutils.GetAnyString(data, []string{"project", "tenant", "project_id", "tenant_id"})
 	}
+	ownerProjId := manager.GetOwnerId(userCred)
 	if len(projId) == 0 {
-		return manager.GetOwnerId(userCred), nil
+		return ownerProjId, nil
+	}
+	t, _ := TenantCacheManager.FetchTenantByIdOrName(ctx, projId)
+	if t == nil {
+		return "", httperrors.NewNotFoundError("Project %s not found", projId)
+	}
+	if t.GetId() == ownerProjId {
+		return ownerProjId, nil
 	}
 	var isAllow bool
 	if consts.IsRbacEnabled() {
@@ -768,10 +776,6 @@ func fetchOwnerProjectId(ctx context.Context, manager IModelManager, userCred mc
 	}
 	if !isAllow {
 		return "", httperrors.NewForbiddenError("Delegation not allowed")
-	}
-	t, _ := TenantCacheManager.FetchTenantByIdOrName(ctx, projId)
-	if t == nil {
-		return "", httperrors.NewNotFoundError("Project %s not found", projId)
 	}
 	return t.GetId(), nil
 }

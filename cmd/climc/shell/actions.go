@@ -16,6 +16,7 @@ type BaseActionListOptions struct {
 	Descending bool     `help:"Descending order"`
 	Action     []string `help:"Log action"`
 	Search     string   `help:"Filter action logs by obj_name, using 'like' syntax."`
+	Admin      bool     `help:"admin mode"`
 }
 
 type ActionListOptions struct {
