@@ -27,7 +27,6 @@ const (
 /*
 目前存在的问题：
 1.HTTP\HTTPS监听调度算法没同步成功，原因是http、https监听并不关联转发策略，因此本身就没有调度算法
-2.不能创建后端服务器组。原因是没办法找到关联的listener及生成external id
 */
 // https://cloud.tencent.com/document/api/214/30694#LoadBalancer
 type SLoadbalancer struct {

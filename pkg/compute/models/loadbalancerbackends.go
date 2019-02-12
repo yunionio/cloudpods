@@ -360,7 +360,7 @@ func (lbb *SLoadbalancerBackend) SyncWithCloudLoadbalancerBackend(ctx context.Co
 	return err
 }
 
-func (lbb *SLoadbalancerBackend) UpdateCloudLoadbalancerBackendExternalId(ctx context.Context, userCred mcclient.TokenCredential,externalId string, projectId string, projectSync bool) error {
+func (lbb *SLoadbalancerBackend) UpdateCloudLoadbalancerBackendExternalId(ctx context.Context, userCred mcclient.TokenCredential, externalId string, projectId string, projectSync bool) error {
 	_, err := lbb.GetModelManager().TableSpec().Update(lbb, func() error {
 		if projectSync && len(projectId) > 0 {
 			lbb.ProjectId = projectId

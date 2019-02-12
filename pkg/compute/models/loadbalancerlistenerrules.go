@@ -354,7 +354,7 @@ func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(extRu
 					return nil
 				})
 				if err != nil {
-					log.Errorf("Update loadbalancer BackendGroup(%s) external id failed: %s",group.GetId(), err)
+					log.Errorf("Update loadbalancer BackendGroup(%s) external id failed: %s", group.GetId(), err)
 				}
 			}
 		}
