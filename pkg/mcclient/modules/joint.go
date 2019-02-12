@@ -14,6 +14,8 @@ type JointResourceManager struct {
 	Slave  Manager
 }
 
+var _ JointManager = (*JointResourceManager)(nil)
+
 func (this *JointResourceManager) MasterManager() Manager {
 	return this.Master
 }
@@ -116,8 +118,14 @@ func (this *JointResourceManager) BatchAttach2(s *mcclient.ClientSession, mid st
 	})
 }
 
-func (this *JointResourceManager) Detach(s *mcclient.ClientSession, mid, sid string) (jsonutils.JSONObject, error) {
+func (this *JointResourceManager) Detach(s *mcclient.ClientSession, mid, sid string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	path := fmt.Sprintf("/%s/%s/%s/%s", this.Master.KeyString(), url.PathEscape(mid), this.Slave.KeyString(), url.PathEscape(sid))
+	if query != nil {
+		qs := query.QueryString()
+		if len(qs) > 0 {
+			path = fmt.Sprintf("%s?%s", path, qs)
+		}
+	}
 	result, err := this._delete(s, path, nil, this.Keyword)
 	if err != nil {
 		return nil, err
@@ -127,13 +135,13 @@ func (this *JointResourceManager) Detach(s *mcclient.ClientSession, mid, sid str
 
 func (this *JointResourceManager) BatchDetach(s *mcclient.ClientSession, mid string, sids []string) []SubmitResult {
 	return BatchDo(sids, func(sid string) (jsonutils.JSONObject, error) {
-		return this.Detach(s, mid, sid)
+		return this.Detach(s, mid, sid, nil)
 	})
 }
 
 func (this *JointResourceManager) BatchDetach2(s *mcclient.ClientSession, mid string, sids []string) []SubmitResult {
 	return BatchDo(sids, func(sid string) (jsonutils.JSONObject, error) {
-		return this.Detach(s, sid, mid)
+		return this.Detach(s, sid, mid, nil)
 	})
 }
 
