@@ -163,6 +163,15 @@ func (self *SKVMHostDriver) RequestDeallocateDiskOnHost(ctx context.Context, hos
 	return err
 }
 
+func (driver *SKVMHostDriver) RequestDeallocateBackupDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, task taskman.ITask) error {
+	log.Infof("Deallocating disk on host %s", host.GetName())
+	header := mcclient.GetTokenHeaders(task.GetUserCred())
+	url := fmt.Sprintf("/disks/%s/delete/%s", storage.Id, disk.Id)
+	body := jsonutils.NewDict()
+	_, err := host.Request(ctx, task.GetUserCred(), "POST", url, header, body)
+	return err
+}
+
 func (self *SKVMHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, guest *models.SGuest, sizeMb int64, task taskman.ITask) error {
 	header := task.GetTaskRequestHeader()
 
