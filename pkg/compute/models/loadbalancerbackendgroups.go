@@ -369,7 +369,11 @@ func (man *SLoadbalancerBackendGroupManager) SyncLoadbalancerBackendgroups(ctx c
 }
 
 func (lbbg *SLoadbalancerBackendGroup) constructFieldsFromCloudBackendgroup(lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup) {
-	lbbg.Name = extLoadbalancerBackendgroup.GetName()
+	// ============兼容腾讯云,backend group 名字以本地为准==================
+	if lbbg.GetProviderName() != CLOUD_PROVIDER_QCLOUD || len(lbbg.Name) == 0 {
+		lbbg.Name = extLoadbalancerBackendgroup.GetName()
+	}
+	// ==================================================================
 	lbbg.Type = extLoadbalancerBackendgroup.GetType()
 	lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
 }
@@ -404,8 +408,10 @@ func (man *SLoadbalancerBackendGroupManager) newFromCloudLoadbalancerBackendgrou
 	lbbg.LoadbalancerId = lb.Id
 	lbbg.ExternalId = extLoadbalancerBackendgroup.GetGlobalId()
 
-	lbbg.constructFieldsFromCloudBackendgroup(lb, extLoadbalancerBackendgroup)
+	lbbg.CloudregionId = lb.CloudregionId
+	lbbg.ManagerId = lb.ManagerId
 
+	lbbg.constructFieldsFromCloudBackendgroup(lb, extLoadbalancerBackendgroup)
 	lbbg.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		lbbg.ProjectId = projectId

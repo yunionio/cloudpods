@@ -39,12 +39,13 @@ type rule struct {
 
 // ==========================================================
 
+// todo: 待确认。backend InstanceID + Port在lb中是不是全局唯一。
 func (self *SLBBackend) GetId() string {
-	return self.InstanceID
+	return fmt.Sprintf("%s/%s-%d", self.group.lb.GetId(), self.InstanceID, self.Port)
 }
 
 func (self *SLBBackend) GetName() string {
-	return fmt.Sprintf("%s/%s", self.group.GetId(), self.GetId())
+	return self.GetId()
 }
 
 func (self *SLBBackend) GetGlobalId() string {

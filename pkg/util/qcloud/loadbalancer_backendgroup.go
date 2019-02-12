@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"strings"
 )
 
 type SLBBackendGroup struct {
@@ -90,7 +91,7 @@ func (self *SLBBackendGroup) AddBackendServer(serverId string, weight int, port 
 	}
 
 	for _, backend := range backends {
-		if backend.GetBackendId() == serverId {
+		if strings.HasSuffix(backend.GetId(), fmt.Sprintf("%s-%d", serverId, port)) {
 			return &backend, nil
 		}
 	}
@@ -110,15 +111,18 @@ func (self *SLBBackendGroup) RemoveBackendServer(serverId string, weight int, po
 	}
 
 	if err != nil {
+		if strings.Contains(err.Error(), "not registered") {
+			return nil
+		}
 		return err
 	}
 
 	return self.lb.region.WaitLBTaskSuccess(requestId, 5*time.Second, 60*time.Second)
 }
 
-// 腾讯云无后端服务器组。不支持该操作
+// 腾讯云无后端服务器组。
 func (self *SLBBackendGroup) Delete() error {
-	return cloudprovider.ErrNotSupported
+	return fmt.Errorf("Please remove related listener/rule frist")
 }
 
 // 腾讯云无后端服务器组

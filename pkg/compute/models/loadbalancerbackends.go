@@ -379,6 +379,9 @@ func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx cont
 	lbb.BackendGroupId = loadbalancerBackendgroup.Id
 	lbb.ExternalId = extLoadbalancerBackend.GetGlobalId()
 
+	lbb.CloudregionId = loadbalancerBackendgroup.CloudregionId
+	lbb.ManagerId = loadbalancerBackendgroup.ManagerId
+
 	if err := lbb.constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend); err != nil {
 		return nil, err
 	}

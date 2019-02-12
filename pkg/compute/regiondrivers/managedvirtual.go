@@ -417,9 +417,9 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackend
 		}
 
 		// ==========兼容腾讯云，在fake的backend group 关联具体的转发策略之前。不需要同步服务器==========
-		// 联具体的转发策略之前ExternalId为空
+		// 关联具体的转发策略之前ExternalId为空
 		if len(lbbg.ExternalId) == 0 {
-			return nil, lbb.UpdateCloudLoadbalancerBackendExternalId(ctx, userCred, guest.ExternalId, "", false)
+			return nil, lbb.UpdateCloudLoadbalancerBackendExternalId(ctx, userCred, "", "", false)
 		}
 		// ============q
 
@@ -468,6 +468,16 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 		if err != nil {
 			return nil, err
 		}
+
+		// ===========兼容腾讯云,未关联具体转发规则时，直接删除本地数据即可===============
+		if iRegion.GetProvider() == models.CLOUD_PROVIDER_QCLOUD {
+			count := models.LoadbalancerListenerManager.TableSpec().Query().Equals("backend_group_id", lbbg.GetId()).Count()
+			count += models.LoadbalancerListenerRuleManager.TableSpec().Query().Equals("backend_group_id", lbbg.GetId()).Count()
+			if count == 0 {
+				return nil, nil
+			}
+		}
+		// ===================================
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
 		if err != nil {
 			return nil, err
@@ -512,30 +522,35 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 		}
 
 		// ====腾讯云添加后端服务器=====
-		group := lblis.GetLoadbalancerBackendGroup()
-		if group != nil {
-			backends, err := group.GetBackends()
-			if err != nil {
-				return nil, fmt.Errorf("failed to find backends for backend group  %s: %s", group.GetId(), err)
-			}
-
-			extBgID := iListener.GetBackendGroupId()
-			if len(extBgID) == 0 {
-				return nil, fmt.Errorf("failed to find backend group for loadbalancer listener  %s", lblis.GetId())
-			}
-
-			ilbbg, err := iLoadbalancer.GetILoadBalancerBackendGroupById(extBgID)
-			if err != nil {
-				return nil, fmt.Errorf("failed to find backend group for loadbalancer listener  %s: %s", lblis.GetId(), err)
-			}
-
-			for _, backend := range backends {
-				_, err := ilbbg.AddBackendServer(backend.ExternalId, backend.Weight, backend.Port)
+		if iRegion.GetProvider() == models.CLOUD_PROVIDER_QCLOUD {
+			group := lblis.GetLoadbalancerBackendGroup()
+			if group != nil {
+				backends, err := group.GetBackends()
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to find backends for backend group  %s: %s", group.GetId(), err)
+				}
+
+				extBgID := iListener.GetBackendGroupId()
+				if len(extBgID) == 0 {
+					return nil, fmt.Errorf("failed to find backend group for loadbalancer listener  %s", lblis.GetId())
+				}
+
+				ilbbg, err := iLoadbalancer.GetILoadBalancerBackendGroupById(extBgID)
+				if err != nil {
+					return nil, fmt.Errorf("failed to find backend group for loadbalancer listener  %s: %s", lblis.GetId(), err)
+				}
+
+				for _, backend := range backends {
+					guest := backend.GetGuest()
+					if guest == nil {
+						return nil, fmt.Errorf("failed to find instance for loadbalancer backend  %s", backend.GetId())
+					}
+					_, err := ilbbg.AddBackendServer(guest.GetExternalId(), backend.Weight, backend.Port)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
-
 		}
 		// ==========================
 
@@ -722,7 +737,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 			return nil, err
 		}
 		// ====腾讯云添加后端服务器=====
-		if len(rule.BackendGroupID) > 0 {
+		if listener.GetProviderName() == models.CLOUD_PROVIDER_QCLOUD && len(rule.BackendGroupID) > 0 {
 			ilbbg, err := iLoadbalancer.GetILoadBalancerBackendGroupById(rule.BackendGroupID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to find backend group for listener rule %s: %s", lbr.Name, err)
@@ -735,7 +750,11 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 			}
 
 			for _, backend := range backends {
-				_, err := ilbbg.AddBackendServer(backend.ExternalId, backend.Weight, backend.Port)
+				guest := backend.GetGuest()
+				if guest == nil {
+					return nil, fmt.Errorf("failed to find instance for loadbalancer backend  %s", backend.GetId())
+				}
+				_, err := ilbbg.AddBackendServer(guest.GetExternalId(), backend.Weight, backend.Port)
 				if err != nil {
 					return nil, err
 				}
