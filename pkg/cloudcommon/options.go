@@ -39,7 +39,7 @@ type CommonOptions struct {
 	NotifyAdminUser string `default:"sysadmin" help:"System administrator user ID or name to notify"`
 
 	EnableSsl   bool   `help:"Enable https"`
-	SslCafile   string `help:"ssl certificate ca root file, separating ca and cert file is not encouraged" alias:"ca-file"`
+	SslCaCerts  string `help:"ssl certificate ca root file, separating ca and cert file is not encouraged" alias:"ca-file"`
 	SslCertfile string `help:"ssl certification file, normally combines all the certificates in the chain" alias:"cert-file"`
 	SslKeyfile  string `help:"ssl certification private key file" alias:"key-file"`
 
