@@ -53,7 +53,7 @@ func init() {
 	})
 
 	R(&SchedtagHostPair{}, "schedtag-host-remove", "Remove a schedtag from a host", func(s *mcclient.ClientSession, args *SchedtagHostPair) error {
-		schedtag, err := modules.Schedtaghosts.Detach(s, args.SCHEDTAG, args.HOST)
+		schedtag, err := modules.Schedtaghosts.Detach(s, args.SCHEDTAG, args.HOST, nil)
 		if err != nil {
 			return err
 		}

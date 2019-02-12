@@ -40,7 +40,7 @@ func (this *SchedtagManager) DoBatchSchedtagHostAddRemove(s *mcclient.ClientSess
 				_host, _ := host.GetString()
 				_tag, _ := tag.GetString()
 				if action == "remove" {
-					Schedtaghosts.Detach(s, _tag, _host)
+					Schedtaghosts.Detach(s, _tag, _host, nil)
 				} else if action == "add" {
 					Schedtaghosts.Attach(s, _tag, _host, nil)
 				}
