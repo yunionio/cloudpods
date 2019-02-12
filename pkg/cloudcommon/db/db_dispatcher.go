@@ -816,7 +816,11 @@ func FetchModelObjects(modelManager IModelManager, query *sqlchemy.SQuery, targe
 }
 
 func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) (IModel, error) {
-	dataDict := data.(*jsonutils.JSONDict)
+	dataDict, ok := data.(*jsonutils.JSONDict)
+	if !ok {
+		log.Errorf("doCreateItem: fail to decode json data %s", data)
+		return nil, fmt.Errorf("fail to decode json data %s", data)
+	}
 	var err error
 
 	generateName, _ := dataDict.GetString("generate_name")
