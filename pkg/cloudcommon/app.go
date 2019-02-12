@@ -33,9 +33,9 @@ func ServeForever(app *appsrv.Application, options *CommonOptions) {
 	log.Infof("Start listen on %s://%s", proto, addr)
 	if options.EnableSsl {
 		certfile := options.SslCertfile
-		if len(options.SslCafile) > 0 {
+		if len(options.SslCaCerts) > 0 {
 			var err error
-			certfile, err = seclib2.MergeCaCertFiles(options.SslCafile, options.SslCertfile)
+			certfile, err = seclib2.MergeCaCertFiles(options.SslCaCerts, options.SslCertfile)
 			if err != nil {
 				log.Fatalf("fail to merge ca+cert content: %s", err)
 			}
