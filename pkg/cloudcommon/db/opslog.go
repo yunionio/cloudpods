@@ -331,7 +331,6 @@ func (manager *SOpsLogManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 	if !until.IsZero() {
 		q = q.LE("ops_time", until)
 	}
-	log.Debugf("%s", q.String())
 	return q, nil
 }
 
