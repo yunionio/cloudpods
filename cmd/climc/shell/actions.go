@@ -61,6 +61,9 @@ func doActionList(s *mcclient.ClientSession, args *ActionListOptions) error {
 	if len(args.Action) > 0 {
 		params.Add(jsonutils.NewStringArray(args.Action), "action")
 	}
+	if args.Admin {
+		params.Add(jsonutils.JSONTrue, "admin")
+	}
 	logs, err := modules.Actions.List(s, params)
 	if err != nil {
 		return err
