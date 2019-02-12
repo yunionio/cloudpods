@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudcommon/dhcp"
+	"yunion.io/x/onecloud/pkg/util/dhcp"
 )
 
 const DEFAULT_DHCP_RELAY_PORT = 68

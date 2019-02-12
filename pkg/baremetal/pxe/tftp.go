@@ -12,7 +12,7 @@ import (
 
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/tftp"
+	"yunion.io/x/onecloud/pkg/util/tftp"
 )
 
 var (

@@ -13,4 +13,4 @@
 // limitations under the License.
 
 // Package dhcp provides building blocks for DHCP clients and servers.
-package dhcp // import "yunion.io/x/onecloud/pkg/cloudcommon/dhcp"
+package dhcp // import "yunion.io/x/onecloud/pkg/util/dhcp"
