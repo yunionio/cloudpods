@@ -137,5 +137,17 @@ var (
 			Action:   PolicyActionGet,
 			Result:   rbacutils.OwnerAllow,
 		},
+		{
+			Service:  "log",
+			Resource: "actions",
+			Action:   PolicyActionList,
+			Result:   rbacutils.OwnerAllow,
+		},
+		{
+			Service:  "log",
+			Resource: "actions",
+			Action:   PolicyActionGet,
+			Result:   rbacutils.OwnerAllow,
+		},
 	}
 )

@@ -305,28 +305,24 @@ func (manager *SOpsLogManager) LogDetachEvent(ctx context.Context, m1, m2 IModel
 }
 
 func (manager *SOpsLogManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	queryDict, ok := query.(*jsonutils.JSONDict)
-	if !ok {
-		return nil, fmt.Errorf("invalid query string")
-	}
-	objTypes := jsonutils.GetQueryStringArray(queryDict, "obj_type")
+	objTypes := jsonutils.GetQueryStringArray(query, "obj_type")
 	if objTypes != nil && len(objTypes) > 0 {
-		queryDict.RemoveIgnoreCase("obj_type")
 		q = q.Filter(sqlchemy.In(q.Field("obj_type"), objTypes))
 	}
-	objIds := jsonutils.GetQueryStringArray(queryDict, "obj_id")
+	objIds := jsonutils.GetQueryStringArray(query, "obj_id")
 	if objIds != nil && len(objIds) > 0 {
-		queryDict.RemoveIgnoreCase("obj_id")
 		q = q.Filter(sqlchemy.OR(sqlchemy.In(q.Field("obj_id"), objIds), sqlchemy.In(q.Field("obj_name"), objIds)))
 	}
-	action := jsonutils.GetQueryStringArray(queryDict, "action")
+	action := jsonutils.GetQueryStringArray(query, "action")
 	if action != nil && len(action) > 0 {
-		queryDict.RemoveIgnoreCase("action")
 		q = q.Filter(sqlchemy.In(q.Field("action"), action))
 	}
-	if !IsAdminAllowList(userCred, manager) {
-		q = q.Filter(sqlchemy.OR(sqlchemy.AND(sqlchemy.IsNotNull(q.Field("owner_tenant_id")), sqlchemy.Equals(q.Field("owner_tenant_id"), userCred.GetProjectId())), sqlchemy.Equals(q.Field("tenant_id"), userCred.GetProjectId())))
-	}
+	//if !IsAdminAllowList(userCred, manager) {
+	// 	q = q.Filter(sqlchemy.OR(
+	//		sqlchemy.Equals(q.Field("owner_tenant_id"), manager.GetOwnerId(userCred)),
+	//		sqlchemy.Equals(q.Field("tenant_id"), manager.GetOwnerId(userCred)),
+	//	))
+	//}
 	since, _ := query.GetTime("since")
 	if !since.IsZero() {
 		q = q.GT("ops_time", since)
@@ -385,8 +381,22 @@ func (self *SOpsLogManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlch
 
 func (self *SOpsLogManager) FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery {
 	if len(owner) > 0 {
-		return q.Equals("owner_project_id", owner)
-	} else {
-		return q
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.Equals(q.Field("owner_tenant_id"), owner),
+			sqlchemy.Equals(q.Field("tenant_id"), owner),
+		))
 	}
+	return q
+}
+
+func (manager *SOpsLogManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
+	return userCred.GetProjectId()
+}
+
+func (self *SOpsLog) GetOwnerProjectId() string {
+	return self.OwnerProjectId
+}
+
+func (self *SOpsLog) IsSharable() bool {
+	return false
 }

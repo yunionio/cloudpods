@@ -246,7 +246,7 @@ func (manager *SPolicyManager) allowWithoutCache(isAdmin bool, userCred mcclient
 		}
 	}
 	if consts.IsRbacDebug() {
-		log.Debugf("[RBAC: %v] %s %s %s %#v permission %s", isAdmin, service, resource, action, extra, currentPriv)
+		log.Debugf("[RBAC: %v] %s %s %s %#v permission %s userCred: %s", isAdmin, service, resource, action, extra, currentPriv, userCredJson)
 	}
 	return unifyRbacResult(isAdmin, currentPriv)
 }
