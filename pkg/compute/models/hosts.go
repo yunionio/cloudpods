@@ -1946,18 +1946,17 @@ func (self *SHost) GetBaremetalServer() *SGuest {
 	if !self.IsBaremetal {
 		return nil
 	}
-	guestObj, err := db.NewModelObject(GuestManager)
-	if err != nil {
-		log.Errorf("%s", err)
-		return nil
-	}
+	guest := SGuest{}
+	guest.SetModelManager(GuestManager)
 	q := GuestManager.Query().Equals("host_id", self.Id).Equals("hypervisor", HOST_TYPE_BAREMETAL)
-	err = q.First(guestObj)
+	err := q.First(&guest)
 	if err != nil {
-		log.Errorf("query fail %s", err)
+		if err != sql.ErrNoRows {
+			log.Errorf("query fail %s", err)
+		}
 		return nil
 	}
-	return guestObj.(*SGuest)
+	return &guest
 }
 
 func (self *SHost) getSchedtags() []SSchedtag {
