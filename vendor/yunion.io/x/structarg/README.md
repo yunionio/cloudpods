@@ -106,6 +106,8 @@ if e != nil {
     panic(e)
 }
 
+parser.SetDefault() // set default values
+
 options := parser.Options().(*Options)
 
 // then access argument values via options

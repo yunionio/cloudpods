@@ -382,7 +382,7 @@ func (this *ArgumentParser) AddArgument(arg Argument) error {
 	return nil
 }
 
-func (this *ArgumentParser) setDefault() {
+func (this *ArgumentParser) SetDefault() {
 	for _, arg := range this.posArgs {
 		arg.SetDefault()
 	}
@@ -866,7 +866,7 @@ func (this *ArgumentParser) ParseArgs(args []string, ignore_unknown bool) error 
 	if err == nil {
 		err = this.Validate()
 	}
-	this.setDefault()
+	// this.setDefault()
 	return err
 }
 
