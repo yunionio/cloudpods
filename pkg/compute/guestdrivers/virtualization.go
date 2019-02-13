@@ -119,17 +119,6 @@ func (self *SVirtualizedGuestDriver) StartGuestResetTask(guest *models.SGuest, c
 	return nil
 }
 
-func (self *SVirtualizedGuestDriver) StartGuestRestartTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
-	data := jsonutils.NewDict()
-	data.Set("is_force", jsonutils.NewBool(isForce))
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestRestartTask", guest, userCred, nil, parentTaskId, "", nil)
-	if err != nil {
-		return err
-	}
-	task.ScheduleRun(nil)
-	return nil
-}
-
 func (self *SVirtualizedGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, disk *models.SDisk, task taskman.ITask, isPurge bool) error {
 	return disk.StartDiskDeleteTask(ctx, task.GetUserCred(), task.GetTaskId(), isPurge,
 		jsonutils.QueryBoolean(task.GetParams(), "override_pending_delete", false))

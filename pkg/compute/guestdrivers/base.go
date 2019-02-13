@@ -158,7 +158,14 @@ func (self *SBaseGuestDriver) StartGuestResetTask(guest *models.SGuest, ctx cont
 }
 
 func (self *SBaseGuestDriver) StartGuestRestartTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
-	return fmt.Errorf("Not Implement")
+	data := jsonutils.NewDict()
+	data.Set("is_force", jsonutils.NewBool(isForce))
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestRestartTask", guest, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (self *SBaseGuestDriver) RequestSoftReset(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
