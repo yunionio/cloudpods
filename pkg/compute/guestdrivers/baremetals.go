@@ -380,7 +380,7 @@ func (self *SBaremetalGuestDriver) StartGuestDetachdiskTask(ctx context.Context,
 }
 
 func (self *SBaremetalGuestDriver) StartGuestAttachDiskTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
-	return fmt.Errorf("Cannot attach disk from a baremetal serer")
+	return fmt.Errorf("Cannot attach disk to a baremetal serer")
 }
 
 func (self *SBaremetalGuestDriver) StartSuspendTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {

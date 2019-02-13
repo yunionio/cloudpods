@@ -401,9 +401,6 @@ func (d *SchedData) fillNetworksInfo(sjson *simplejson.Json) error {
 		if err != nil || net.Idx == "" {
 			net = new(Network)
 			net.Idx = s.Get("network").MustString()
-			if net.Idx == "" {
-				return fmt.Errorf("Invalid network desc: %s", s.MustString())
-			}
 			net.Wire = s.Get("wire").MustString()
 			net.Driver = s.Get("driver").MustString()
 			net.Exit = s.Get("exit").MustBool()

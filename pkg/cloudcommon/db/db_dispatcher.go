@@ -811,6 +811,14 @@ func FetchModelObjects(modelManager IModelManager, query *sqlchemy.SQuery, targe
 	return nil
 }
 
+func DoCreate(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (IModel, error) {
+	ownerProjId, err := fetchOwnerProjectId(ctx, manager, userCred, data)
+	if err != nil {
+		return nil, err
+	}
+	return doCreateItem(manager, ctx, userCred, ownerProjId, nil, data)
+}
+
 func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) (IModel, error) {
 	dataDict := data.(*jsonutils.JSONDict)
 	var err error
