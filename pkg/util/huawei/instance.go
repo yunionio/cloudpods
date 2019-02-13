@@ -189,6 +189,12 @@ func (self *SInstance) Refresh() error {
 	if err != nil {
 		return err
 	}
+
+	if new.Status == InstanceStatusTerminated {
+		log.Debugf("Instance already terminated.")
+		return cloudprovider.ErrNotFound
+	}
+
 	return jsonutils.Update(self, new)
 }
 
@@ -418,6 +424,11 @@ func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 		return nil
 	}
 
+	if self.Status == InstanceStatusTerminated {
+		log.Debugf("Instance already terminated.")
+		return nil
+	}
+
 	err := self.host.zone.region.StopVM(self.GetId(), isForce)
 	if err != nil {
 		return err
@@ -426,6 +437,10 @@ func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
+	if self.Status == InstanceStatusTerminated {
+		return nil
+	}
+
 	for {
 		err := self.host.zone.region.DeleteVM(self.GetId())
 		if err != nil && self.Status != InstanceStatusTerminated {
@@ -826,10 +841,6 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 	remoteStatus, err := self.GetInstanceStatus(instanceId)
 	if err != nil {
 		return err
-	}
-
-	if remoteStatus == InstanceStatusTerminated {
-		return nil
 	}
 
 	if remoteStatus != InstanceStatusStopped {
