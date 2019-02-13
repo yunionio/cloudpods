@@ -184,27 +184,47 @@ func (lbbg *SLoadbalancerBackendGroup) GetBackends() ([]SLoadbalancerBackend, er
 	return backends, err
 }
 
+// 返回值 TotalRef
+func (lbbg *SLoadbalancerBackendGroup) RefCount() int {
+	men := lbbg.getRefManagers()
+	var count int
+	for _, m := range men {
+		count += lbbg.refCount(m)
+	}
+
+	return count
+}
+
+func (lbbg *SLoadbalancerBackendGroup) refCount(men db.IModelManager) int {
+	t := men.TableSpec().Instance()
+	pdF := t.Field("pending_deleted")
+	return t.Query().
+		Equals("backend_group_id", lbbg.Id).
+		Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
+		Count()
+}
+
+func (lbbg *SLoadbalancerBackendGroup) getRefManagers() []db.IModelManager {
+	// 引用Backend Group的数据库
+	return []db.IModelManager{
+		LoadbalancerManager,
+		LoadbalancerListenerManager,
+		LoadbalancerListenerRuleManager,
+	}
+
+}
+
 func (lbbg *SLoadbalancerBackendGroup) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return false
 }
 
 func (lbbg *SLoadbalancerBackendGroup) ValidateDeleteCondition(ctx context.Context) error {
-	men := []db.IModelManager{
-		LoadbalancerManager,
-		LoadbalancerListenerManager,
-		LoadbalancerListenerRuleManager,
-	}
-	lbbgId := lbbg.Id
-	for _, man := range men {
-		t := man.TableSpec().Instance()
-		pdF := t.Field("pending_deleted")
-		n := t.Query().
-			Equals("backend_group_id", lbbgId).
-			Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
-			Count()
+	men := lbbg.getRefManagers()
+	for _, m := range men {
+		n := lbbg.refCount(m)
 		if n > 0 {
 			return fmt.Errorf("backend group %s is still referred to by %d %s",
-				lbbgId, n, man.KeywordPlural())
+				lbbg.Id, n, m.KeywordPlural())
 		}
 	}
 
@@ -369,11 +389,11 @@ func (man *SLoadbalancerBackendGroupManager) SyncLoadbalancerBackendgroups(ctx c
 }
 
 func (lbbg *SLoadbalancerBackendGroup) constructFieldsFromCloudBackendgroup(lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup) {
-	// ============兼容腾讯云,backend group 名字以本地为准==================
+	// 对于腾讯云,backend group 名字以本地为准
 	if lbbg.GetProviderName() != CLOUD_PROVIDER_QCLOUD || len(lbbg.Name) == 0 {
 		lbbg.Name = extLoadbalancerBackendgroup.GetName()
 	}
-	// ==================================================================
+
 	lbbg.Type = extLoadbalancerBackendgroup.GetType()
 	lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
 }

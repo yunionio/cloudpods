@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"time"
 
+	"strings"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"strings"
 )
 
 type SLBBackendGroup struct {
@@ -138,10 +138,10 @@ func backendGroupIdGen(lbid string, secondId string) string {
 	}
 }
 
-// http https 后端服务器只与规则绑定
 func (self *SLBBackendGroup) GetId() string {
 	t := self.listener.GetListenerType()
 	if t == models.LB_LISTENER_TYPE_HTTP || t == models.LB_LISTENER_TYPE_HTTPS {
+		// http https 后端服务器只与规则绑定
 		return backendGroupIdGen(self.lb.GetId(), self.rule.GetId())
 	} else if self.lb.Forward == LB_TYPE_APPLICATION {
 		return backendGroupIdGen(self.lb.GetId(), self.listener.GetId())
@@ -167,7 +167,7 @@ func (self *SLBBackendGroup) Refresh() error {
 	return nil
 }
 
-// todo: model没有更新这个字段？
+// note: model没有更新这个字段？
 func (self *SLBBackendGroup) IsEmulated() bool {
 	return true
 }

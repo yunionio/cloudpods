@@ -24,10 +24,6 @@ const (
 	LB_TYPE_APPLICATION = LB_TYPE(1)
 )
 
-/*
-目前存在的问题：
-1.HTTP\HTTPS监听调度算法没同步成功，原因是http、https监听并不关联转发策略，因此本身就没有调度算法
-*/
 // https://cloud.tencent.com/document/api/214/30694#LoadBalancer
 type SLoadbalancer struct {
 	region *SRegion
@@ -60,9 +56,16 @@ func (self *SLoadbalancer) GetChargeType() string {
 
 // https://cloud.tencent.com/document/product/214/30689
 func (self *SLoadbalancer) Delete() error {
-	_, err := self.region.DeleteLoadbalancer(self.GetId())
-	if err != nil {
-		return err
+	if self.Forward == LB_TYPE_APPLICATION {
+		_, err := self.region.DeleteLoadbalancer(self.GetId())
+		if err != nil {
+			return err
+		}
+	} else {
+		_, err := self.region.DeleteClassicLoadbalancer(self.GetId())
+		if err != nil {
+			return err
+		}
 	}
 
 	return cloudprovider.WaitDeleted(self, 5*time.Second, 60*time.Second)
@@ -102,8 +105,8 @@ func onecloudHealthCodeToQcloud(codes string) int {
 	qcode := 0
 	for i, code := range HTTP_CODES {
 		if strings.Contains(code, codes) {
-			c := 1 << uint(i)
-			qcode += c
+			// 按位或然后再赋值qcode
+			qcode |= 1 << uint(i)
 		}
 	}
 
@@ -111,38 +114,47 @@ func onecloudHealthCodeToQcloud(codes string) int {
 }
 
 // https://cloud.tencent.com/document/product/214/30693
-// Onecloud 不支持双向证书
-/*
-todo:  限制比较多必须加参数校验
-HealthSwitch	Integer	否	是否开启健康检查：1（开启）、0（关闭）。
-TimeOut	Integer	否	健康检查的响应超时时间，可选值：2~60，默认值：2，单位：秒。响应超时时间要小于检查间隔时间。
-IntervalTime	Integer	否	健康检查探测间隔时间，默认值：5，可选值：5~300，单位：秒。
-HealthNum	Integer	否	健康阈值，默认值：3，表示当连续探测三次健康则表示该转发正常，可选值：2~10，单位：次。
-UnHealthNum	Integer	否	不健康阈值，默认值：3，表示当连续探测三次不健康则表示该转发异常，可选值：2~10，单位：次。
-HttpCode	Integer	否	健康检查状态码（仅适用于HTTP/HTTPS转发规则）。可选值：1~31，默认 31。
-1 表示探测后返回值 1xx 表示健康，2 表示返回 2xx 表示健康，4 表示返回 3xx 表示健康，8 表示返回 4xx 表示健康，16 表示返回 5xx 表示健康。若希望多种码都表示健康，则将相应的值相加。
-HttpCheckPath	String	否	健康检查路径（仅适用于HTTP/HTTPS转发规则）。
-HttpCheckDomain	String	否	健康检查域名（仅适用于HTTP/HTTPS转发规则）。
-HttpCheckMethod	String	否	健康检查方法（仅适用于HTTP/HTTPS转发规则），取值为HEAD或GET。
-
-SSLMode	String	是	认证类型，UNIDIRECTIONAL：单向认证，MUTUAL：双向认证
-CertId	String	否	服务端证书的 ID，如果不填写此项则必须上传证书，包括 CertContent，CertKey，CertName。
-CertCaId	String	否	客户端证书的 ID，如果 SSLMode=mutual，监听器如果不填写此项则必须上传客户端证书，包括 CertCaContent，CertCaName。
-*/
+// todo:  1.限制比较多必须加参数校验 2.Onecloud 不支持双向证书可能存在兼容性问题
+// 应用型负载均衡 https监听默认开启SNI。传统型不支持设置SNI
 func (self *SLoadbalancer) CreateILoadBalancerListener(listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
 	sniSwitch := 0
+	if listener.ListenerType == models.LB_LISTENER_TYPE_HTTPS {
+		sniSwitch = 1
+	}
+
 	hc := getHealthCheck(listener)
 	cert := getCertificate(listener)
 
-	listenId, err := self.region.CreateLoadbalancerListener(self.GetId(),
-		listener.Name,
-		getProtocol(listener),
-		listener.ListenerPort,
-		getScheduler(listener),
-		&listener.StickySessionCookieTimeout,
-		&sniSwitch,
-		hc,
-		cert)
+	var listenId string
+	var err error
+	if self.Forward == LB_TYPE_APPLICATION {
+		listenId, err = self.region.CreateLoadbalancerListener(self.GetId(),
+			listener.Name,
+			getProtocol(listener),
+			listener.ListenerPort,
+			getScheduler(listener),
+			&listener.StickySessionCookieTimeout,
+			&sniSwitch,
+			hc,
+			cert)
+	} else {
+		// 传统型内网属性负载均衡不支持指定scheduler
+		var scheduler *string
+		if self.LoadBalancerType == "OPEN" {
+			scheduler = getScheduler(listener)
+		}
+
+		listenId, err = self.region.CreateClassicLoadbalancerListener(self.GetId(),
+			listener.Name,
+			getClassicLBProtocol(listener),
+			listener.ListenerPort,
+			listener.BackendServerPort,
+			scheduler,
+			&listener.StickySessionCookieTimeout,
+			&sniSwitch,
+			hc,
+			cert)
+	}
 
 	if err != nil {
 		return nil, err
@@ -214,8 +226,7 @@ func (self *SLoadbalancer) GetMetadata() *jsonutils.JSONDict {
 	return meta
 }
 
-// todo： 腾讯云支持绑定多个地址。目前未找到相关文档描述。需要提工单询问。
-// 目前先当作只能绑定一个IP处理
+// 腾讯云当前不支持一个LB绑定多个ip，每个LB只支持绑定一个ip
 func (self *SLoadbalancer) GetAddress() string {
 	return self.LoadBalancerVips[0]
 }
@@ -309,10 +320,8 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.IClo
 
 func (self *SRegion) GetLoadbalancers(ids []string) ([]SLoadbalancer, error) {
 	params := map[string]string{}
-	if ids != nil {
-		for i, id := range ids {
-			params[fmt.Sprintf("LoadBalancerIds.%d", i)] = id
-		}
+	for i, id := range ids {
+		params[fmt.Sprintf("LoadBalancerIds.%d", i)] = id
 	}
 
 	offset := 0
@@ -344,7 +353,7 @@ func (self *SRegion) GetLoadbalancers(ids []string) ([]SLoadbalancer, error) {
 		}
 
 		lbs = append(lbs, parts...)
-		offset += limit
+		offset += len(parts)
 		if offset >= total {
 			for i := range lbs {
 				lbs[i].region = self
@@ -361,15 +370,18 @@ func (self *SRegion) GetLoadbalancer(id string) (*SLoadbalancer, error) {
 	}
 
 	lbs, err := self.GetLoadbalancers([]string{id})
-	if err == nil && len(lbs) == 0 {
+	if err != nil {
+		return nil, err
+	}
+
+	switch len(lbs) {
+	case 0:
 		return nil, cloudprovider.ErrNotFound
-	}
-
-	if err != nil && len(lbs) == 1 {
+	case 1:
 		return &lbs[0], nil
+	default:
+		return nil, fmt.Errorf("GetLoadbalancer %s found %d", id, len(lbs))
 	}
-
-	return nil, err
 }
 
 /*
@@ -388,6 +400,24 @@ func (self *SRegion) DeleteLoadbalancer(lbid string) (string, error) {
 	}
 
 	return resp.GetString("RequestId")
+}
+
+/*
+返回requstid 用于异步任务查询
+https://cloud.tencent.com/document/product/214/30689
+*/
+func (self *SRegion) DeleteClassicLoadbalancer(lbid string) (string, error) {
+	if len(lbid) == 0 {
+		return "", fmt.Errorf("loadbalancer id should not be empty")
+	}
+
+	params := map[string]string{"loadBalancerIds.n": lbid}
+	resp, err := self.lbRequest("DeleteLoadBalancers", params)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.GetString("requestId")
 }
 
 /*
@@ -421,8 +451,8 @@ func (self *SRegion) CreateLoadbalancerListener(lbid, name, protocol string, por
 		params["Scheduler"] = *scheduler
 	}
 
-	params = healthCheckParams(params, healthCheck)
-	params = certificateParams(params, cert)
+	params = healthCheckParams(LB_TYPE_APPLICATION, params, healthCheck, "HealthCheck.")
+	params = certificateParams(LB_TYPE_APPLICATION, params, cert, "Certificate.")
 
 	resp, err := self.clbRequest("CreateListener", params)
 	if err != nil {
@@ -430,6 +460,61 @@ func (self *SRegion) CreateLoadbalancerListener(lbid, name, protocol string, por
 	}
 
 	listeners, err := resp.GetArray("ListenerIds")
+	if err != nil {
+		return "", err
+	}
+
+	if len(listeners) == 0 {
+		return "", fmt.Errorf("CreateLoadbalancerListener no listener id returned: %s", resp.String())
+	} else if len(listeners) == 1 {
+		return listeners[0].GetString()
+	} else {
+		return "", fmt.Errorf("CreateLoadbalancerListener mutliple listener id returned: %s", resp.String())
+	}
+}
+
+// https://cloud.tencent.com/document/api/214/1255
+// 不支持sniSwitch
+// todo: 待测试
+func (self *SRegion) CreateClassicLoadbalancerListener(lbid, name string, protocol, port, backendServerPort int, scheduler *string, sessionExpireTime, sniSwitch *int, healthCheck *healthCheck, cert *certificate) (string, error) {
+	if len(lbid) == 0 {
+		return "", fmt.Errorf("loadbalancer id should not be empty")
+	}
+
+	// 负载均衡实例监听器协议类型 1：HTTP，2：TCP，3：UDP，4：HTTPS。
+	// todo: 待测试 。 这里没有判断是否为公网负载均衡，可能存在问题.内网传统型负载均衡监听协议只支持TCP、UDP，并且不能指定调度算法
+	params := map[string]string{
+		"loadBalancerId":               lbid,
+		"listeners.0.loadBalancerPort": strconv.Itoa(port),
+		"listeners.0.instancePort":     strconv.Itoa(backendServerPort),
+		"listeners.0.protocol":         strconv.Itoa(protocol),
+	}
+
+	if len(name) > 0 {
+		params["listeners.0.listenerName"] = name
+	}
+
+	if sessionExpireTime != nil {
+		params["listeners.0.sessionExpire"] = strconv.Itoa(*sessionExpireTime)
+	}
+
+	if scheduler != nil && len(*scheduler) > 0 && (protocol == 2 || protocol == 3) {
+		params["listeners.0.scheduler"] = strings.ToLower(*scheduler)
+	}
+
+	if scheduler != nil && len(*scheduler) > 0 && (protocol == 1 || protocol == 4) {
+		params["listeners.0.httpHash"] = strings.ToLower(*scheduler)
+	}
+
+	params = healthCheckParams(LB_TYPE_CLASSIC, params, healthCheck, "listeners.0.")
+	params = certificateParams(LB_TYPE_CLASSIC, params, cert, "listeners.0.")
+
+	resp, err := self.lbRequest("CreateLoadBalancerListeners", params)
+	if err != nil {
+		return "", err
+	}
+
+	listeners, err := resp.GetArray("listenerIds")
 	if err != nil {
 		return "", err
 	}

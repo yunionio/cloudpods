@@ -43,7 +43,6 @@ func (self *SLBListenerRule) GetGlobalId() string {
 	return self.LocationID
 }
 
-// todo： rule status？？
 func (self *SLBListenerRule) GetStatus() string {
 	return ""
 }
@@ -57,10 +56,7 @@ func (self *SLBListenerRule) Refresh() error {
 	for _, rule := range self.listener.Rules {
 		if rule.GetId() == self.GetId() {
 			rule.listener = self.listener
-			err := jsonutils.Update(self, rule)
-			if err != nil {
-				return err
-			}
+			return jsonutils.Update(self, rule)
 		}
 	}
 

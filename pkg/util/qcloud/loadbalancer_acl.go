@@ -5,7 +5,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
-// todo: 腾讯云没有LB ACL
+// 腾讯云没有LB ACL
 type SLBACL struct{}
 
 func (self *SLBACL) GetId() string {

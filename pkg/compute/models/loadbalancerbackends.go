@@ -251,6 +251,7 @@ func (lbb *SLoadbalancerBackend) StartLoadBalancerBackendDeleteTask(ctx context.
 func (man *SLoadbalancerBackendManager) getLoadbalancerBackendsByLoadbalancerBackendgroup(loadbalancerBackendgroup *SLoadbalancerBackendGroup) ([]SLoadbalancerBackend, error) {
 	loadbalancerBackends := []SLoadbalancerBackend{}
 	q := man.Query().Equals("backend_group_id", loadbalancerBackendgroup.Id)
+	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("pending_deleted")), sqlchemy.IsFalse(q.Field("pending_deleted"))))
 	if err := db.FetchModelObjects(man, q, &loadbalancerBackends); err != nil {
 		return nil, err
 	}
@@ -298,7 +299,7 @@ func (man *SLoadbalancerBackendManager) SyncLoadbalancerBackends(ctx context.Con
 				syncResult.Delete()
 			}
 		} else {
-			err = removed[i].Delete(ctx, userCred)
+			err = removed[i].PendingDelete()
 			if err != nil {
 				syncResult.DeleteError(err)
 			} else {
@@ -356,18 +357,6 @@ func (lbb *SLoadbalancerBackend) SyncWithCloudLoadbalancerBackend(ctx context.Co
 			lbb.ProjectId = projectId
 		}
 		return lbb.constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend)
-	})
-	return err
-}
-
-func (lbb *SLoadbalancerBackend) UpdateCloudLoadbalancerBackendExternalId(ctx context.Context, userCred mcclient.TokenCredential, externalId string, projectId string, projectSync bool) error {
-	_, err := lbb.GetModelManager().TableSpec().Update(lbb, func() error {
-		if projectSync && len(projectId) > 0 {
-			lbb.ProjectId = projectId
-		}
-
-		lbb.ExternalId = externalId
-		return nil
 	})
 	return err
 }

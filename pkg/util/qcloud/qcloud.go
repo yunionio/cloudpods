@@ -78,16 +78,22 @@ func cbsRequest(client *common.Client, apiName string, params map[string]string)
 	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params)
 }
 
-// loadbalancer服务
+// loadbalancer服务 api 3.0
 func clbRequest(client *common.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	domain := apiDomain("clb", params)
 	return _jsonRequest(client, domain, QCLOUD_CLB_API_VERSION, apiName, params)
 }
 
+// loadbalancer服务 api 2017
+func lbRequest(client *common.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	domain := "lb.api.qcloud.com"
+	return _phpJsonRequest(client, &lbJsonResponse{}, domain, "/v2/index.php", "", apiName, params)
+}
+
 // ssl 证书服务
 func wssRequest(client *common.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	domain := "wss.api.qcloud.com"
-	return _wssJsonRequest(client, domain, "/v2/index.php", "", apiName, params)
+	return _phpJsonRequest(client, &wssJsonResponse{}, domain, "/v2/index.php", "", apiName, params)
 }
 
 func billingRequest(client *common.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -95,18 +101,18 @@ func billingRequest(client *common.Client, apiName string, params map[string]str
 	return _jsonRequest(client, domain, QCLOUD_BILLING_API_VERSION, apiName, params)
 }
 
-// ============wssJsonRequest============
+// ============phpJsonRequest============
 type qcloudResponse interface {
 	tchttp.Response
 	GetResponse() *interface{}
 }
 
-type wssJsonRequest struct {
+type phpJsonRequest struct {
 	tchttp.BaseRequest
 	Path string
 }
 
-func (r *wssJsonRequest) GetUrl() string {
+func (r *phpJsonRequest) GetUrl() string {
 	url := r.BaseRequest.GetUrl()
 	if url == "" {
 		return url
@@ -115,7 +121,7 @@ func (r *wssJsonRequest) GetUrl() string {
 	index := strings.Index(url, "?")
 	if index == -1 {
 		// POST request
-		url = strings.TrimSuffix(url, "/") + r.Path
+		return strings.TrimSuffix(url, "/") + r.Path
 	}
 
 	p1, p2 := url[:index], url[index:]
@@ -123,10 +129,11 @@ func (r *wssJsonRequest) GetUrl() string {
 	return p1 + r.Path + p2
 }
 
-func (r *wssJsonRequest) GetPath() string {
+func (r *phpJsonRequest) GetPath() string {
 	return r.Path
 }
 
+// SSL证书专用response
 type wssJsonResponse struct {
 	Code     int          `json:"code"`
 	CodeDesc string       `json:"codeDesc"`
@@ -151,8 +158,37 @@ func (r *wssJsonResponse) GetResponse() *interface{} {
 	return r.Response
 }
 
-// ==================================
+// 2017版负载均衡API专用response
+type lbJsonResponse struct {
+	Response map[string]interface{}
+}
 
+func (r *lbJsonResponse) ParseErrorFromHTTPResponse(body []byte) (err error) {
+	resp := &wssJsonResponse{}
+	err = json.Unmarshal(body, resp)
+	if err != nil {
+		return
+	}
+	if resp.Code != 0 {
+		return errors.NewTencentCloudSDKError(resp.CodeDesc, resp.Message, "")
+	}
+
+	// hook 由于目前只能从这个方法中拿到原始的body.这里将原始body hook 到 Response
+	err = json.Unmarshal(body, &r.Response)
+	if err != nil {
+		return
+	}
+
+	return nil
+}
+
+func (r *lbJsonResponse) GetResponse() *interface{} {
+	return func(resp interface{}) *interface{} {
+		return &resp
+	}(r.Response)
+}
+
+// 3.0版本通用response
 type QcloudResponse struct {
 	*tchttp.BaseResponse
 	Response *interface{} `json:"Response"`
@@ -182,13 +218,13 @@ func _jsonRequest(client *common.Client, domain string, version string, apiName 
 	resp := &QcloudResponse{
 		BaseResponse: &tchttp.BaseResponse{},
 	}
-
 	return _baseJsonRequest(client, req, resp)
 }
 
-// wss 专用的
-func _wssJsonRequest(client *common.Client, domain string, path string, version string, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	req := &wssJsonRequest{Path: path}
+// 老版本腾讯云api。 适用于类似 https://cvm.api.qcloud.com/v2/index.php 这样的带/v2/index.php路径的接口
+// todo: 添加自定义response参数
+func _phpJsonRequest(client *common.Client, resp qcloudResponse, domain string, path string, version string, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	req := &phpJsonRequest{Path: path}
 	if region, ok := params["Region"]; ok {
 		client = client.Init(region)
 	}
@@ -204,7 +240,6 @@ func _wssJsonRequest(client *common.Client, domain string, path string, version 
 		req.GetParams()[k] = v
 	}
 
-	resp := &wssJsonResponse{}
 	return _baseJsonRequest(client, req, resp)
 }
 
@@ -267,6 +302,14 @@ func (client *SQcloudClient) clbRequest(apiName string, params map[string]string
 		return nil, err
 	}
 	return clbRequest(cli, apiName, params)
+}
+
+func (client *SQcloudClient) lbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return lbRequest(cli, apiName, params)
 }
 
 func (client *SQcloudClient) wssRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {

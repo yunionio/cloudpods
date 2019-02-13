@@ -333,11 +333,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackend
 			return nil, err
 		}
 
-		// ========= 腾讯云本身没有后端服务器组，因此不需要在qcloud端执行创建操作 =========
+		// 腾讯云本身没有后端服务器组，因此不需要在qcloud端执行创建操作
 		if iRegion.GetProvider() == models.CLOUD_PROVIDER_QCLOUD {
 			return nil, nil
 		}
-		// ============================================
 
 		loadbalancer := lbbg.GetLoadbalancer()
 		if loadbalancer == nil {
@@ -416,12 +415,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackend
 			return nil, fmt.Errorf("failed to find guest for lbb %s", lbb.Name)
 		}
 
-		// ==========兼容腾讯云，在fake的backend group 关联具体的转发策略之前。不需要同步服务器==========
-		// 关联具体的转发策略之前ExternalId为空
-		if len(lbbg.ExternalId) == 0 {
-			return nil, lbb.UpdateCloudLoadbalancerBackendExternalId(ctx, userCred, "", "", false)
+		// 兼容腾讯云，在fake的backend group 关联具体的转发策略之前。不需要同步后端服务器
+		if lbbg.GetProviderName() == models.CLOUD_PROVIDER_QCLOUD && lbbg.RefCount() == 0 {
+			return nil, nil
 		}
-		// ============q
 
 		lb := lbbg.GetLoadbalancer()
 		if lb == nil {
@@ -471,13 +468,12 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 
 		// ===========兼容腾讯云,未关联具体转发规则时，直接删除本地数据即可===============
 		if iRegion.GetProvider() == models.CLOUD_PROVIDER_QCLOUD {
-			count := models.LoadbalancerListenerManager.TableSpec().Query().Equals("backend_group_id", lbbg.GetId()).Count()
-			count += models.LoadbalancerListenerRuleManager.TableSpec().Query().Equals("backend_group_id", lbbg.GetId()).Count()
+			count := lbbg.RefCount()
 			if count == 0 {
 				return nil, nil
 			}
 		}
-		// ===================================
+
 		iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
 		if err != nil {
 			return nil, err
@@ -532,7 +528,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 
 				extBgID := iListener.GetBackendGroupId()
 				if len(extBgID) == 0 {
-					return nil, fmt.Errorf("failed to find backend group for loadbalancer listener  %s", lblis.GetId())
+					return nil, fmt.Errorf("the backend group external id of loadbalancer listener  %s is empty", lblis.GetId())
 				}
 
 				ilbbg, err := iLoadbalancer.GetILoadBalancerBackendGroupById(extBgID)

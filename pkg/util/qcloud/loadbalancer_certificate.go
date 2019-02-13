@@ -49,7 +49,7 @@ func (self *SLBCertificate) Refresh() error {
 	}
 
 	if total != 1 {
-		return fmt.Errorf("%d Certificate found", total)
+		return fmt.Errorf("Expecting 1 certificate, got %d", total)
 	}
 
 	cert := SLBCertificate{region: self.region, SCertificate: certs[0]}

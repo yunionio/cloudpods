@@ -34,20 +34,6 @@ type SRegion struct {
 	fetchLocation bool
 }
 
-// todo: 确认这个方法是不是有问题
-func (self *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
-	certs, err := self.GetILoadBalancerCertificatesById(certId)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(certs) == 1 {
-		return certs[0], nil
-	} else {
-		return nil, fmt.Errorf("GetILoadBalancerCertificateById %d certificate found", len(certs))
-	}
-}
-
 func (self *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
 	lbs, err := self.GetLoadbalancers(nil)
 	if err != nil {
@@ -68,16 +54,6 @@ func (self *SRegion) GetILoadBalancerAcls() ([]cloudprovider.ICloudLoadbalancerA
 	return []cloudprovider.ICloudLoadbalancerAcl{}, nil
 }
 
-func inList(lst []string, entry string) bool {
-	for _, m := range lst {
-		if entry == m {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
 	lbs, err := self.GetLoadbalancers(nil)
 	if err != nil {
@@ -93,39 +69,39 @@ func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadb
 
 		certIds := []string{}
 		for _, listener := range listeners {
-			if len(listener.Certificate.CERTID) > 0 && inList(certIds, listener.Certificate.CERTID) {
+			if len(listener.Certificate.CERTID) > 0 && !utils.IsInStringArray(listener.Certificate.CERTID, certIds) {
 				certIds = append(certIds, listener.Certificate.CERTID)
 			}
 
-			if len(listener.Certificate.CERTCAID) > 0 && inList(certIds, listener.Certificate.CERTCAID) {
+			if len(listener.Certificate.CERTCAID) > 0 && !utils.IsInStringArray(listener.Certificate.CERTCAID, certIds) {
 				certIds = append(certIds, listener.Certificate.CERTCAID)
 			}
 
 			for _, rule := range listener.Rules {
-				if len(rule.Certificate.CERTID) > 0 && inList(certIds, rule.Certificate.CERTID) {
+				if len(rule.Certificate.CERTID) > 0 && !utils.IsInStringArray(rule.Certificate.CERTID, certIds) {
 					certIds = append(certIds, rule.Certificate.CERTID)
 				}
 
-				if len(rule.Certificate.CERTCAID) > 0 && inList(certIds, rule.Certificate.CERTCAID) {
+				if len(rule.Certificate.CERTCAID) > 0 && !utils.IsInStringArray(rule.Certificate.CERTCAID, certIds) {
 					certIds = append(certIds, rule.Certificate.CERTCAID)
 				}
 			}
 		}
 
 		for _, cid := range certIds {
-			parts, err := self.GetILoadBalancerCertificatesById(cid)
+			icert, err := self.GetILoadBalancerCertificateById(cid)
 			if err != nil {
 				return nil, err
 			}
 
-			icerts = append(icerts, parts...)
+			icerts = append(icerts, icert)
 		}
 	}
 
 	return icerts, nil
 }
 
-func (self *SRegion) GetILoadBalancerCertificatesById(certId string) ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
+func (self *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
 	certs, _, err := self.GetCertificates(certId, true, 0, 0)
 	if err != nil {
 		return nil, err
@@ -136,7 +112,12 @@ func (self *SRegion) GetILoadBalancerCertificatesById(certId string) ([]cloudpro
 		cert := SLBCertificate{region: self, SCertificate: certs[i]}
 		icerts = append(icerts, &cert)
 	}
-	return icerts, nil
+
+	if len(certs) == 1 {
+		return icerts[0], nil
+	} else {
+		return nil, fmt.Errorf("GetILoadBalancerCertificateById %d certificate found, expect 1", len(certs))
+	}
 }
 
 func (self *SRegion) GetILoadBalancerById(loadbalancerId string) (cloudprovider.ICloudLoadbalancer, error) {
@@ -158,11 +139,8 @@ func (self *SRegion) GetILoadBalancerAclById(aclId string) (cloudprovider.ICloud
 }
 
 // https://cloud.tencent.com/document/api/214/30692
-/*
-todo:
-Forward	否	Integer	负载均衡实例。1：应用型，0：传统型，默认为应用型负载均衡实例。
-ProjectId	否	Integer	负载均衡实例所属的项目 ID，可以通过 DescribeProject 接口获取。不填则属于默认项目。
-*/
+// todo: 1. 支持跨地域绑定负载均衡 及 https://cloud.tencent.com/document/product/214/12014
+// todo: 2. 支持指定Project。 ProjectId可以通过 DescribeProject 接口获取。不填则属于默认项目。
 func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
 	LoadBalancerType := "INTERNAL"
 	if loadbalancer.AddressType == "public" {
@@ -171,7 +149,7 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 	params := map[string]string{
 		"LoadBalancerType": LoadBalancerType,
 		"LoadBalancerName": loadbalancer.Name,
-		"VpcId":            loadbalancer.VpcID, // todo: vpc id ok??
+		"VpcId":            loadbalancer.VpcID,
 		"SubnetId":         loadbalancer.NetworkID,
 	}
 
@@ -628,6 +606,11 @@ func (self *SRegion) cbsRequest(apiName string, params map[string]string) (jsonu
 func (self *SRegion) clbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	params["Region"] = self.Region
 	return self.client.clbRequest(apiName, params)
+}
+
+func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	params["Region"] = self.Region
+	return self.client.lbRequest(apiName, params)
 }
 
 func (self *SRegion) wssRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {

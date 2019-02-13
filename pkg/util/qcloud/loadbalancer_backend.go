@@ -39,9 +39,9 @@ type rule struct {
 
 // ==========================================================
 
-// todo: 待确认。backend InstanceID + Port在lb中是不是全局唯一。
+// backend InstanceID + protocol  +Port + ip + rip全局唯一
 func (self *SLBBackend) GetId() string {
-	return fmt.Sprintf("%s/%s-%d", self.group.lb.GetId(), self.InstanceID, self.Port)
+	return fmt.Sprintf("%s/%s-%d", self.group.GetId(), self.InstanceID, self.Port)
 }
 
 func (self *SLBBackend) GetName() string {
@@ -64,10 +64,7 @@ func (self *SLBBackend) Refresh() error {
 
 	for _, backend := range backends {
 		if backend.GetId() == self.GetId() {
-			err := jsonutils.Update(self, backend)
-			if err != nil {
-				return err
-			}
+			return jsonutils.Update(self, backend)
 		}
 	}
 
@@ -127,9 +124,6 @@ func (self *SRegion) getBackends(lbId, listenerId, ruleId string) ([]SLBBackend,
 		params["ListenerIds.0"] = listenerId
 	}
 
-	if len(listenerId) > 0 {
-		params["ListenerIds.0"] = listenerId
-	}
 	resp, err := self.clbRequest("DescribeTargets", params)
 	if err != nil {
 		return nil, err
@@ -143,7 +137,7 @@ func (self *SRegion) getBackends(lbId, listenerId, ruleId string) ([]SLBBackend,
 
 	for _, entry := range lbackends {
 		if (entry.Protocol == "HTTP" || entry.Protocol == "HTTPS") && len(ruleId) == 0 {
-			return nil, fmt.Errorf("GetBackends http、https listener must specific rule id")
+			return nil, fmt.Errorf("GetBackends for http/https listener %s must specific rule id", listenerId)
 		}
 
 		if len(ruleId) > 0 {
