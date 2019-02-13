@@ -711,3 +711,37 @@ func (self *SCloudprovider) GetDetailsBalance(ctx context.Context, userCred mccl
 	ret.Add(jsonutils.NewFloat(balance), "balance")
 	return ret, nil
 }
+
+func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	accountStr, _ := query.GetString("account")
+	if len(accountStr) > 0 {
+		queryDict := query.(*jsonutils.JSONDict)
+		queryDict.Remove("account")
+		accountObj, err := CloudaccountManager.FetchByIdOrName(userCred, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), accountStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		q = q.Equals("cloudaccount_id", accountObj.GetId())
+	}
+	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	managerStr, _ := query.GetString("manager")
+	if len(managerStr) > 0 {
+		providerObj, err := manager.FetchByIdOrName(userCred, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		q = q.Equals("id", providerObj.GetId())
+	}
+	return q, nil
+}
