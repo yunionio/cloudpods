@@ -141,3 +141,7 @@ func (self *SAliyunProvider) GetBalance() (float64, error) {
 func (self *SAliyunProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
+
+func (self *SAliyunProvider) SupportPrepaidResources() bool {
+	return true
+}
