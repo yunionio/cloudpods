@@ -640,6 +640,7 @@ func (self *SRegion) addSecurityGroupRules(secGrpId string, rule *secrules.Secur
 	return nil
 }
 
+// todo: icmp协议目前存在差异，华为云能指定icmp code，onecloud不支持
 func (self *SRegion) addSecurityGroupRule(secGrpId, direction, portStart, portEnd, protocol, ipNet string) error {
 	params := jsonutils.NewDict()
 	secgroupObj := jsonutils.NewDict()
@@ -647,10 +648,11 @@ func (self *SRegion) addSecurityGroupRule(secGrpId, direction, portStart, portEn
 	secgroupObj.Add(jsonutils.NewString(direction), "direction")
 	secgroupObj.Add(jsonutils.NewString(ipNet), "remote_ip_prefix")
 	secgroupObj.Add(jsonutils.NewString("IPV4"), "ethertype")
-	if len(portStart) > 0 && portStart != "0" {
+	// 端口为空或者1-65535
+	if len(portStart) > 0 && portStart != "0" && portStart != "-1" {
 		secgroupObj.Add(jsonutils.NewString(portStart), "port_range_min")
 	}
-	if len(portEnd) > 0 && portEnd != "0" {
+	if len(portEnd) > 0 && portEnd != "0" && portEnd != "-1" {
 		secgroupObj.Add(jsonutils.NewString(portEnd), "port_range_max")
 	}
 	if len(protocol) > 0 {

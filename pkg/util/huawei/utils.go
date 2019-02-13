@@ -22,11 +22,21 @@ type deleteFunc2 func(ctx manager.IManagerContext, id string, spec string, param
 type listInCtxFunc func(ctx manager.IManagerContext, querys map[string]string) (*responses.ListResult, error)
 type listInCtxWithSpecFunc func(ctx manager.IManagerContext, spec string, querys map[string]string, responseKey string) (*responses.ListResult, error)
 
+func notFound(code string) bool {
+	for _, c := range NOT_FOUND_CODES {
+		if code == c {
+			return true
+		}
+	}
+
+	return false
+}
+
 func unmarshalResult(resp jsonutils.JSONObject, respErr error, result interface{}) error {
 	if respErr != nil {
 		switch e := respErr.(type) {
 		case *httputils.JSONClientError:
-			if e.Code == 404 {
+			if e.Code == 404 || notFound(e.Class) {
 				return cloudprovider.ErrNotFound
 			}
 			return e
