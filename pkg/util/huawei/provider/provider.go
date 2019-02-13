@@ -124,3 +124,7 @@ func (self *SHuaweiProvider) GetBalance() (float64, error) {
 func (self *SHuaweiProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return self.client.GetSubAccounts()
 }
+
+func (self *SHuaweiProvider) SupportPrepaidResources() bool {
+	return true
+}
