@@ -251,16 +251,17 @@ func init() {
 		ID string `help:"Image ID or name"`
 	}
 
-	R(&ImageDetailOptions{}, "image-delete", "Delete a image", func(s *mcclient.ClientSession, args *ImageDetailOptions) error {
-		imgID, err := modules.Images.GetId(s, args.ID, nil)
+	type ImageDeleteOptions struct {
+		ID                    []string `help:"Image ID or name"`
+		OverridePendingDelete *bool    `help:"Delete image directly instead of pending delete"`
+	}
+	R(&ImageDeleteOptions{}, "image-delete", "Delete a image", func(s *mcclient.ClientSession, args *ImageDeleteOptions) error {
+		params, err := options.StructToParams(args)
 		if err != nil {
 			return err
 		}
-		if result, err := modules.Images.Delete(s, imgID, nil); err != nil {
-			return err
-		} else {
-			printObject(result)
-		}
+		ret := modules.Images.BatchDeleteWithParam(s, args.ID, params, nil)
+		printBatchResults(ret, modules.Images.GetColumns(s))
 		return nil
 	})
 

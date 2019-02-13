@@ -1676,7 +1676,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:d6ade8116269bb2ef419e7e16e109c1316821e067823794a9470c65b1340705f"
+  digest = "1:6277045f9c9a63d84e1aa48c7ad3c1f42ea6523bc54ea92e772d541c78e37404"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1710,7 +1710,7 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "4d8dfcd77e8817d5dc37eacf4b6b098429c7d259"
+  revision = "e2e42205d868c26829b9322b40cdc48f24fed379"
 
 [[projects]]
   branch = "master"
@@ -1722,11 +1722,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:6ea9ac8f317e7dd79309bb1633642bc9d1822011c5175bd241552534d216ac6d"
+  digest = "1:3d0328d99a24ded8844a4e4115692f22dbaeabf03942b03c4bf03d741e103483"
   name = "yunion.io/x/structarg"
   packages = ["."]
   pruneopts = "UT"
-  revision = "e4f0f5201b4acad185ebfb76e65905fe5ae7c1b1"
+  revision = "a4ab4a4d0a3e4e99a8a230fce57f4eb1e177f039"
 
 [solve-meta]
   analyzer-name = "dep"

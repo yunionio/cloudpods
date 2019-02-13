@@ -20,13 +20,15 @@ func isLowerChar(ch byte) bool {
 func CamelSplit(str string, sep string) string {
 	tokens := make([]string, 0)
 	var buf bytes.Buffer
+	upperCount := 0
 	for i := 0; i < len(str); i++ {
 		c := str[i]
 		split := false
 		var nchar byte
 		if isUpperChar(c) {
-			if i > 0 && isUpperChar(str[i-1]) {
-				if i+1 < len(str) && isLowerChar(str[i+1]) {
+			upperCount += 1
+			if upperCount > 1 {
+				if i+1 < len(str) && isLowerChar(str[i+1]) && upperCount > 2 {
 					split = true
 				}
 			} else {
@@ -35,7 +37,9 @@ func CamelSplit(str string, sep string) string {
 			nchar = c - 'A' + 'a'
 		} else if isLowerChar(c) {
 			nchar = c
+			upperCount = 0
 		} else {
+			upperCount = 0
 			split = true
 		}
 		if split && buf.Len() > 0 {

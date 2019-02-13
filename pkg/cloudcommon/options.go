@@ -121,6 +121,8 @@ func ParseOptions(optStruct interface{}, args []string, configFileName string, s
 		}
 	}
 
+	parser.SetDefault()
+
 	if len(optionsRef.ApplicationID) == 0 {
 		optionsRef.ApplicationID = serviceName
 	}
