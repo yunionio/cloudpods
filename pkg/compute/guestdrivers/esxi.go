@@ -12,6 +12,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
@@ -26,6 +27,14 @@ func init() {
 
 func (self *SESXiGuestDriver) GetHypervisor() string {
 	return models.HYPERVISOR_ESXI
+}
+
+func (self *SESXiGuestDriver) GetDefaultSysDiskBackend() string {
+	return models.STORAGE_LOCAL
+}
+
+func (self *SESXiGuestDriver) GetMinimalSysDiskSizeGb() int {
+	return options.Options.DefaultDiskSizeMB / 1024
 }
 
 func (self *SESXiGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {

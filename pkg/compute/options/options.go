@@ -19,7 +19,7 @@ type ComputeOptions struct {
 	DefaultSecurityRules      string `help:"Default security rules" default:"allow any"`
 	DefaultAdminSecurityRules string `help:"Default admin security rules" default:""`
 
-	DefaultDiskSize int `default:"30720" help:"Default disk size in MB if not specified, default to 30GiB"`
+	DefaultDiskSizeMB int `default:"30720" help:"Default disk size in MB if not specified, default to 30GiB" json:"default_disk_size"`
 
 	EnablePendingDelete            bool `default:"true" help:"Turn on/off pending delete VM and disk, default is on"`
 	PendingDeleteCheckSeconds      int  `default:"3600" help:"How long to wait to scan pending delete VM or disks, default is 1 hour"`
