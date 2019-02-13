@@ -166,6 +166,15 @@ func init() {
 		return nil
 	})
 
+	R(&options.ServerDeleteBackupOptions{}, "server-delete-backup", "Guest delete backup", func(s *mcclient.ClientSession, opts *options.ServerDeleteBackupOptions) error {
+		ret, err := modules.Servers.PerformAction(s, opts.ID, "delete-backup", nil)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
+		return nil
+	})
+
 	R(&options.ServerStopOptions{}, "server-stop", "Stop servers", func(s *mcclient.ClientSession, opts *options.ServerStopOptions) error {
 		params, err := options.StructToParams(opts)
 		if err != nil {

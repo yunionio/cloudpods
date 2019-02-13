@@ -361,7 +361,7 @@ func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 			}
 		}
 	} else if event.Event == "BLOCK_JOB_ERROR" && s.IsMaster() {
-		hostutils.UpdateServerStatus(context.Background(), s.GetId(), "mirror_failed")
+		modules.Servers.PerformAction(hostutils.GetComputeSession(context.Background()), s.GetId(), "mirror-job-failed", nil)
 	}
 }
 

@@ -123,6 +123,7 @@ func (self *GuestStartAndSyncToBackupTask) OnStartBackupGuestFailed(ctx context.
 }
 
 func (self *GuestStartAndSyncToBackupTask) OnRequestSyncToBackup(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	guest.SetStatus(self.UserCred, models.VM_BLOCK_STREAM, "OnSyncToBackup")
 	self.SetStageComplete(ctx, nil)
 }
 
