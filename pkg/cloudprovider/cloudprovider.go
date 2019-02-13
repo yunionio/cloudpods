@@ -40,6 +40,8 @@ type ICloudProvider interface {
 	GetBalance() (float64, error)
 
 	GetSubAccounts() ([]SSubAccount, error)
+
+	SupportPrepaidResources() bool
 }
 
 var providerTable map[string]ICloudProviderFactory

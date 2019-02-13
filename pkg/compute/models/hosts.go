@@ -1603,7 +1603,7 @@ func (self *SHost) newCloudHostWire(ctx context.Context, userCred mcclient.Token
 	return err
 }
 
-func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, vms []cloudprovider.ICloudVM, projectId string, projectSync bool) ([]SGuest, []cloudprovider.ICloudVM, compare.SyncResult) {
+func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, vms []cloudprovider.ICloudVM, projectId string, projectSync bool) ([]SGuest, []cloudprovider.ICloudVM, compare.SyncResult) {
 	localVMs := make([]SGuest, 0)
 	remoteVMs := make([]cloudprovider.ICloudVM, 0)
 	syncResult := compare.SyncResult{}
@@ -1631,7 +1631,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
-		err := commondb[i].syncWithCloudVM(ctx, userCred, self, commonext[i], projectId, projectSync)
+		err := commondb[i].syncWithCloudVM(ctx, userCred, iprovider, self, commonext[i], projectId, projectSync)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -1649,7 +1649,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 				continue
 			}
 		}
-		new, err := GuestManager.newCloudVM(ctx, userCred, self, added[i], projectId)
+		new, err := GuestManager.newCloudVM(ctx, userCred, iprovider, self, added[i], projectId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -1927,9 +1927,14 @@ func (self *SHost) GetIZone() (cloudprovider.ICloudZone, error) {
 */
 
 func (self *SHost) GetIHost() (cloudprovider.ICloudHost, error) {
+	host, _, err := self.GetIHostAndProvider()
+	return host, err
+}
+
+func (self *SHost) GetIHostAndProvider() (cloudprovider.ICloudHost, cloudprovider.ICloudProvider, error) {
 	provider, err := self.GetDriver()
 	if err != nil {
-		return nil, fmt.Errorf("No cloudprovide for host: %s", err)
+		return nil, nil, fmt.Errorf("No cloudprovide for host: %s", err)
 	}
 	var iregion cloudprovider.ICloudRegion
 	if provider.IsOnPremiseInfrastructure() {
@@ -1939,20 +1944,20 @@ func (self *SHost) GetIHost() (cloudprovider.ICloudHost, error) {
 		if region == nil {
 			msg := "fail to find region of host???"
 			log.Errorf(msg)
-			return nil, fmt.Errorf(msg)
+			return nil, nil, fmt.Errorf(msg)
 		}
 		iregion, err = provider.GetIRegionById(region.ExternalId)
 	}
 	if err != nil {
 		log.Errorf("fail to find iregion: %s", err)
-		return nil, err
+		return nil, nil, err
 	}
 	ihost, err := iregion.GetIHostById(self.ExternalId)
 	if err != nil {
 		log.Errorf("fail to find ihost by id %s %s", self.ExternalId, err)
-		return nil, fmt.Errorf("fail to find ihost by id %s", err)
+		return nil, nil, fmt.Errorf("fail to find ihost by id %s", err)
 	}
-	return ihost, nil
+	return ihost, provider, nil
 }
 
 func (self *SHost) GetIRegion() (cloudprovider.ICloudRegion, error) {

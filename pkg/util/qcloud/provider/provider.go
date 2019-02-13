@@ -91,3 +91,7 @@ func (self *SQcloudProvider) GetBalance() (float64, error) {
 func (self *SQcloudProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
+
+func (self *SQcloudProvider) SupportPrepaidResources() bool {
+	return true
+}

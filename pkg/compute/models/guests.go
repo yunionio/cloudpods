@@ -1647,10 +1647,13 @@ func (self *SGuest) GetIsolatedDevices() []SIsolatedDevice {
 	return IsolatedDeviceManager.findAttachedDevicesOfGuest(self)
 }
 
-func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, extVM cloudprovider.ICloudVM, projectId string, projectSync bool) error {
+func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, projectId string, projectSync bool) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
 	recycle := false
 
-	if self.IsPrepaidRecycle() {
+	if provider.SupportPrepaidResources() && self.IsPrepaidRecycle() {
 		recycle = true
 	}
 
@@ -1696,7 +1699,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 
 		self.IsEmulated = extVM.IsEmulated()
 
-		if !recycle {
+		if provider.SupportPrepaidResources() && !recycle {
 			self.BillingType = extVM.GetBillingType()
 			self.ExpiredAt = extVM.GetExpiredAt()
 		}
@@ -1746,7 +1749,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		}
 	}
 
-	if recycle {
+	if provider.SupportPrepaidResources() && recycle {
 		vhost := self.GetHost()
 		err = vhost.syncWithCloudPrepaidVM(extVM, host, projectSync)
 		if err != nil {
@@ -1757,7 +1760,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 	return nil
 }
 
-func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, extVM cloudprovider.ICloudVM, projectId string) (*SGuest, error) {
+func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, projectId string) (*SGuest, error) {
 
 	guest := SGuest{}
 	guest.SetModelManager(manager)
@@ -1776,8 +1779,10 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 	guest.IsEmulated = extVM.IsEmulated()
 
-	guest.BillingType = extVM.GetBillingType()
-	guest.ExpiredAt = extVM.GetExpiredAt()
+	if provider.SupportPrepaidResources() {
+		guest.BillingType = extVM.GetBillingType()
+		guest.ExpiredAt = extVM.GetExpiredAt()
+	}
 
 	guest.HostId = host.Id
 
@@ -2130,7 +2135,7 @@ type sSyncDiskPair struct {
 	vdisk cloudprovider.ICloudDisk
 }
 
-func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, vdisks []cloudprovider.ICloudDisk, projectId string, projectSync bool) compare.SyncResult {
+func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, vdisks []cloudprovider.ICloudDisk, projectId string, projectSync bool) compare.SyncResult {
 	result := compare.SyncResult{}
 
 	newdisks := make([]sSyncDiskPair, 0)
@@ -2138,7 +2143,7 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 		if len(vdisks[i].GetGlobalId()) == 0 {
 			continue
 		}
-		disk, err := DiskManager.syncCloudDisk(ctx, userCred, vdisks[i], i, projectId, projectSync)
+		disk, err := DiskManager.syncCloudDisk(ctx, userCred, provider, vdisks[i], i, projectId, projectSync)
 		if err != nil {
 			log.Errorf("syncCloudDisk error: %v", err)
 			result.Error(err)
@@ -3413,13 +3418,37 @@ func (manager *SGuestManager) getExpiredPrepaidGuests() []SGuest {
 	return guests
 }
 
+func (self *SGuest) doExternalSync(ctx context.Context, userCred mcclient.TokenCredential) error {
+	host := self.GetHost()
+	if host == nil {
+		return fmt.Errorf("no host???")
+	}
+	ihost, iprovider, err := host.GetIHostAndProvider()
+	if err != nil {
+		return err
+	}
+	iVM, err := ihost.GetIVMById(self.ExternalId)
+	if err != nil {
+		return err
+	}
+	return self.syncWithCloudVM(ctx, userCred, iprovider, host, iVM, "", false)
+}
+
 func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	guests := manager.getExpiredPrepaidGuests()
 	if guests == nil {
 		return
 	}
 	for i := 0; i < len(guests); i += 1 {
-		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, true)
+		if len(guests[i].ExternalId) > 0 {
+			err := guests[i].doExternalSync(ctx, userCred)
+			if err == nil && guests[i].IsValidPrePaid() {
+				continue
+			}
+		}
+
+		guests[i].SetDisableDelete(false)
+		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, false)
 	}
 }
 
