@@ -3272,7 +3272,7 @@ func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclie
 	if err != nil {
 		return nil, httperrors.NewNotAcceptableError("Convert error: %s", err.Error())
 	}
-	guest, err := GuestManager.DoCreate(ctx, userCred, data, params, GuestManager)
+	guest, err := db.DoCreate(GuestManager, ctx, userCred, nil, params)
 	if err != nil {
 		return nil, err
 	}

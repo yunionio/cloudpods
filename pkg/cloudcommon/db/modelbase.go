@@ -162,10 +162,6 @@ func (manager *SModelBaseManager) InitializeData() error {
 	return nil
 }
 
-func (manager *SModelBaseManager) DoCreate(ctx context.Context, userCred mcclient.TokenCredential, kwargs jsonutils.JSONObject, data jsonutils.JSONObject, realManager IModelManager) (IModel, error) {
-	return nil, fmt.Errorf("Do create not implement?")
-}
-
 func (manager *SModelBaseManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	return q, nil
 }
