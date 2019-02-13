@@ -3272,10 +3272,16 @@ func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclie
 	if err != nil {
 		return nil, httperrors.NewNotAcceptableError("Convert error: %s", err.Error())
 	}
-	guest, err := db.DoCreate(GuestManager, ctx, userCred, nil, params)
+	ownerProjId := userCred.GetProjectId()
+	guest, err := db.DoCreate(GuestManager, ctx, userCred, nil, params, ownerProjId)
 	if err != nil {
 		return nil, err
 	}
+	func() {
+		lockman.LockObject(ctx, guest)
+		defer lockman.ReleaseObject(ctx, guest)
+		guest.PostCreate(ctx, userCred, ownerProjId, nil, params)
+	}()
 	log.Infof("Host convert to %s", guest.GetName())
 	db.OpsLog.LogEvent(self, db.ACT_CONVERT_START, "", userCred)
 	db.OpsLog.LogEvent(guest, db.ACT_CREATE, "Convert hypervisor", userCred)

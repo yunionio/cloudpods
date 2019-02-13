@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"net/http"
 
 	"yunion.io/x/jsonutils"

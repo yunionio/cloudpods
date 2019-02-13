@@ -811,11 +811,10 @@ func FetchModelObjects(modelManager IModelManager, query *sqlchemy.SQuery, targe
 	return nil
 }
 
-func DoCreate(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (IModel, error) {
-	ownerProjId, err := fetchOwnerProjectId(ctx, manager, userCred, data)
-	if err != nil {
-		return nil, err
-	}
+func DoCreate(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject, ownerProjId string) (IModel, error) {
+	lockman.LockClass(ctx, manager, ownerProjId)
+	defer lockman.ReleaseClass(ctx, manager, ownerProjId)
+
 	return doCreateItem(manager, ctx, userCred, ownerProjId, nil, data)
 }
 
@@ -900,22 +899,18 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		return nil, httperrors.NewForbiddenError("Not allow to create item")
 	}
 
-	model, err := func() (IModel, error) {
-		lockman.LockClass(ctx, dispatcher.modelManager, ownerProjId)
-		defer lockman.ReleaseClass(ctx, dispatcher.modelManager, ownerProjId)
-
-		return doCreateItem(dispatcher.modelManager, ctx, userCred, ownerProjId, query, data)
-	}()
-
+	model, err := DoCreate(dispatcher.modelManager, ctx, userCred, query, data, ownerProjId)
 	if err != nil {
 		log.Errorf("fail to doCreateItem %s", err)
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	lockman.LockObject(ctx, model)
-	defer lockman.ReleaseObject(ctx, model)
+	func() {
+		lockman.LockObject(ctx, model)
+		defer lockman.ReleaseObject(ctx, model)
 
-	model.PostCreate(ctx, userCred, ownerProjId, query, data)
+		model.PostCreate(ctx, userCred, ownerProjId, query, data)
+	}()
 
 	OpsLog.LogEvent(model, ACT_CREATE, model.GetShortDesc(ctx), userCred)
 	logclient.AddActionLog(model, logclient.ACT_CREATE, "", userCred, true)
