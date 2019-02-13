@@ -170,3 +170,7 @@ func (self *SContainerDriver) RequestRebuildRootDisk(ctx context.Context, guest 
 func (self *SContainerDriver) GetRandomNetworkTypes() []string {
 	return []string{models.SERVER_TYPE_CONTAINER, models.SERVER_TYPE_GUEST}
 }
+
+func (self *SContainerDriver) StartGuestRestartTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
+	return fmt.Errorf("Not Implement")
+}
