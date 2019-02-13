@@ -144,8 +144,8 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 				if len(syncRange.Zone) > 0 && !utils.IsInStringArray(localZones[j].Id, syncRange.Zone) {
 					continue
 				}
-				syncZoneStorages(ctx, provider, task, &localZones[j], remoteZones[j], syncRange)
-				syncZoneHosts(ctx, provider, task, &localZones[j], remoteZones[j], syncRange)
+				syncZoneStorages(ctx, provider, task, driver, &localZones[j], remoteZones[j], syncRange)
+				syncZoneHosts(ctx, provider, task, driver, &localZones[j], remoteZones[j], syncRange)
 			}
 		}
 		syncRegionSnapshots(ctx, provider, task, &localRegions[i], remoteRegions[i], syncRange)
@@ -468,7 +468,7 @@ func syncWireNetworks(ctx context.Context, provider *models.SCloudprovider, task
 	logclient.AddActionLog(provider, getAction(task.GetParams()), notes, task.GetUserCred(), true)
 }
 
-func syncZoneStorages(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localZone *models.SZone, remoteZone cloudprovider.ICloudZone, syncRange *models.SSyncRange) {
+func syncZoneStorages(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, driver cloudprovider.ICloudProvider, localZone *models.SZone, remoteZone cloudprovider.ICloudZone, syncRange *models.SSyncRange) {
 	storages, err := remoteZone.GetIStorages()
 	if err != nil {
 		msg := fmt.Sprintf("GetIStorages for zone %s failed %s", remoteZone.GetName(), err)
@@ -489,7 +489,7 @@ func syncZoneStorages(ctx context.Context, provider *models.SCloudprovider, task
 
 	for i := 0; i < len(localStorages); i += 1 {
 		syncStorageCaches(ctx, provider, task, &localStorages[i], remoteStorages[i])
-		syncStorageDisks(ctx, provider, task, &localStorages[i], remoteStorages[i], syncRange)
+		syncStorageDisks(ctx, provider, task, driver, &localStorages[i], remoteStorages[i], syncRange)
 	}
 }
 
@@ -510,7 +510,7 @@ func syncStorageCaches(ctx context.Context, provider *models.SCloudprovider, tas
 	}
 }
 
-func syncStorageDisks(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localStorage *models.SStorage, remoteStorage cloudprovider.ICloudStorage, syncRange *models.SSyncRange) {
+func syncStorageDisks(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, driver cloudprovider.ICloudProvider, localStorage *models.SStorage, remoteStorage cloudprovider.ICloudStorage, syncRange *models.SSyncRange) {
 	disks, err := remoteStorage.GetIDisks()
 	if err != nil {
 		msg := fmt.Sprintf("GetIDisks for storage %s failed %s", remoteStorage.GetName(), err)
@@ -518,7 +518,7 @@ func syncStorageDisks(ctx context.Context, provider *models.SCloudprovider, task
 		logSyncFailed(provider, task, msg)
 		return
 	}
-	_, _, result := models.DiskManager.SyncDisks(ctx, task.UserCred, localStorage, disks, provider.ProjectId, syncRange.ProjectSync)
+	_, _, result := models.DiskManager.SyncDisks(ctx, task.UserCred, driver, localStorage, disks, provider.ProjectId, syncRange.ProjectSync)
 	msg := result.Result()
 	notes := fmt.Sprintf("SyncDisks for storage %s result: %s", localStorage.Name, msg)
 	log.Infof(notes)
@@ -530,7 +530,7 @@ func syncStorageDisks(ctx context.Context, provider *models.SCloudprovider, task
 	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
 }
 
-func syncZoneHosts(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localZone *models.SZone, remoteZone cloudprovider.ICloudZone, syncRange *models.SSyncRange) {
+func syncZoneHosts(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, driver cloudprovider.ICloudProvider, localZone *models.SZone, remoteZone cloudprovider.ICloudZone, syncRange *models.SSyncRange) {
 	hosts, err := remoteZone.GetIHosts()
 	if err != nil {
 		msg := fmt.Sprintf("GetIHosts for zone %s failed %s", remoteZone.GetName(), err)
@@ -554,7 +554,7 @@ func syncZoneHosts(ctx context.Context, provider *models.SCloudprovider, task *C
 		}
 		syncHostStorages(ctx, provider, task, &localHosts[i], remoteHosts[i])
 		syncHostWires(ctx, provider, task, &localHosts[i], remoteHosts[i])
-		syncHostVMs(ctx, provider, task, &localHosts[i], remoteHosts[i], syncRange)
+		syncHostVMs(ctx, provider, task, driver, &localHosts[i], remoteHosts[i], syncRange)
 	}
 }
 
@@ -602,7 +602,7 @@ func syncHostWires(ctx context.Context, provider *models.SCloudprovider, task ta
 	logclient.AddActionLog(provider, getAction(task.GetParams()), notes, task.GetUserCred(), true)
 }
 
-func syncHostVMs(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localHost *models.SHost, remoteHost cloudprovider.ICloudHost, syncRange *models.SSyncRange) {
+func syncHostVMs(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, driver cloudprovider.ICloudProvider, localHost *models.SHost, remoteHost cloudprovider.ICloudHost, syncRange *models.SSyncRange) {
 	vms, err := remoteHost.GetIVMs()
 	if err != nil {
 		msg := fmt.Sprintf("GetIVMs for host %s failed %s", remoteHost.GetName(), err)
@@ -610,7 +610,7 @@ func syncHostVMs(ctx context.Context, provider *models.SCloudprovider, task *Clo
 		logSyncFailed(provider, task, msg)
 		return
 	}
-	localVMs, remoteVMs, result := localHost.SyncHostVMs(ctx, task.UserCred, vms, provider.ProjectId, syncRange.ProjectSync)
+	localVMs, remoteVMs, result := localHost.SyncHostVMs(ctx, task.UserCred, driver, vms, provider.ProjectId, syncRange.ProjectSync)
 	msg := result.Result()
 	notes := fmt.Sprintf("SyncHostVMs for host %s result: %s", localHost.Name, msg)
 	log.Infof(notes)
@@ -622,7 +622,7 @@ func syncHostVMs(ctx context.Context, provider *models.SCloudprovider, task *Clo
 	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
 	for i := 0; i < len(localVMs); i += 1 {
 		syncVMNics(ctx, provider, task, localHost, &localVMs[i], remoteVMs[i])
-		syncVMDisks(ctx, provider, task, localHost, &localVMs[i], remoteVMs[i], syncRange)
+		syncVMDisks(ctx, provider, task, driver, localHost, &localVMs[i], remoteVMs[i], syncRange)
 		syncVMEip(ctx, provider, task, &localVMs[i], remoteVMs[i])
 
 		if localVMs[i].Status == models.VM_RUNNING {
@@ -651,7 +651,7 @@ func syncVMNics(ctx context.Context, provider *models.SCloudprovider, task *Clou
 	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
 }
 
-func syncVMDisks(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, host *models.SHost, localVM *models.SGuest, remoteVM cloudprovider.ICloudVM, syncRange *models.SSyncRange) {
+func syncVMDisks(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, driver cloudprovider.ICloudProvider, host *models.SHost, localVM *models.SGuest, remoteVM cloudprovider.ICloudVM, syncRange *models.SSyncRange) {
 	disks, err := remoteVM.GetIDisks()
 	if err != nil {
 		msg := fmt.Sprintf("GetIDisks for VM %s failed %s", remoteVM.GetName(), err)
@@ -659,7 +659,7 @@ func syncVMDisks(ctx context.Context, provider *models.SCloudprovider, task *Clo
 		logSyncFailed(provider, task, msg)
 		return
 	}
-	result := localVM.SyncVMDisks(ctx, task.UserCred, host, disks, provider.ProjectId, syncRange.ProjectSync)
+	result := localVM.SyncVMDisks(ctx, task.UserCred, driver, host, disks, provider.ProjectId, syncRange.ProjectSync)
 	msg := result.Result()
 	notes := fmt.Sprintf("syncVMDisks for VM %s result: %s", localVM.Name, msg)
 	log.Infof(notes)

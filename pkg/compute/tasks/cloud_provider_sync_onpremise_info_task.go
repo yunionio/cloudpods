@@ -47,7 +47,7 @@ func syncOnPremiseCloudProviderInfo(ctx context.Context, provider *models.SCloud
 		}
 		syncHostStorages(ctx, provider, task, &localHosts[i], remoteHosts[i])
 		syncHostNics(ctx, provider, task, &localHosts[i], remoteHosts[i])
-		syncHostVMs(ctx, provider, task, &localHosts[i], remoteHosts[i], syncRange)
+		syncHostVMs(ctx, provider, task, driver, &localHosts[i], remoteHosts[i], syncRange)
 	}
 }
 
