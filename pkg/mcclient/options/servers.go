@@ -45,6 +45,11 @@ type ServerIdsOptions struct {
 	ID []string `help:"ID of servers to operate" metavar:"SERVER" json:"-"`
 }
 
+type ServerDeleteBackupOptions struct {
+	ID    string `help:"ID of the server" json:"-"`
+	Purge bool   `help:"Purge Guest Backup" json:"purge"`
+}
+
 type ServerShowOptions struct {
 	ID       string `help:"ID or name of the server" json:"-"`
 	WithMeta *bool  `help:"With meta data"`

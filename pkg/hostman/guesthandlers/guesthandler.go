@@ -307,9 +307,9 @@ func guestDriveMirror(ctx context.Context, sid string, body jsonutils.JSONObject
 	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
-	backupNbdServerUri, err := body.GetString("backup_ndb_server_uri")
+	backupNbdServerUri, err := body.GetString("backup_nbd_server_uri")
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("backup_ndb_server_uri")
+		return nil, httperrors.NewMissingParameterError("backup_nbd_server_uri")
 	}
 	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().StartDriveMirror,
 		&guestman.SDriverMirror{sid, backupNbdServerUri})
