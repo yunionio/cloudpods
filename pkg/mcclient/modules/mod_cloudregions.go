@@ -20,11 +20,11 @@ type sNameCounter struct {
 	Count int
 }
 
-type cityCounters []sNameCounter
+type tNameCounters []sNameCounter
 
-func (cc cityCounters) Len() int      { return len(cc) }
-func (cc cityCounters) Swap(i, j int) { cc[i], cc[j] = cc[j], cc[i] }
-func (cc cityCounters) Less(i, j int) bool {
+func (cc tNameCounters) Len() int      { return len(cc) }
+func (cc tNameCounters) Swap(i, j int) { cc[i], cc[j] = cc[j], cc[i] }
+func (cc tNameCounters) Less(i, j int) bool {
 	if cc[i].Count != cc[j].Count {
 		return cc[i].Count > cc[j].Count
 	}
@@ -59,7 +59,7 @@ func (this *SCloudregionManager) getRegionAttributeList(session *mcclient.Client
 		i += 1
 	}
 
-	sort.Sort(cityCounters(cityList))
+	sort.Sort(tNameCounters(cityList))
 
 	return jsonutils.Marshal(cityList), nil
 }
