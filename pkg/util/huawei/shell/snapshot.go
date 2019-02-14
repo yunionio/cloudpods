@@ -9,16 +9,14 @@ func init() {
 	type SnapshotListOptions struct {
 		DiskId string `help:"Disk ID"`
 		Name   string `help:"Snapshot Name"`
-		Limit  int    `help:"page size"`
-		Offset int    `help:"page offset"`
 	}
 	shellutils.R(&SnapshotListOptions{}, "snapshot-list", "List snapshot", func(cli *huawei.SRegion, args *SnapshotListOptions) error {
-		if snapshots, total, err := cli.GetSnapshots(args.DiskId, args.Name, args.Offset, args.Limit); err != nil {
+		snapshots, err := cli.GetSnapshots(args.DiskId, args.Name)
+		if err != nil {
 			return err
-		} else {
-			printList(snapshots, total, args.Offset, args.Limit, []string{})
-			return nil
 		}
+		printList(snapshots, 0, 0, 0, nil)
+		return nil
 	})
 
 	type SnapshotDeleteOptions struct {

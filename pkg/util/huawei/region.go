@@ -3,18 +3,17 @@ package huawei
 import (
 	"fmt"
 	"sort"
-	"strconv"
-	"time"
-
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/secrules"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/huawei/client"
 	"yunion.io/x/onecloud/pkg/util/huawei/obs"
-	"yunion.io/x/pkg/util/secrules"
 )
 
 type Locales struct {
@@ -61,12 +60,10 @@ func (self *SRegion) getECSClient() (*client.Client, error) {
 	}
 
 	if self.ecsClient == nil {
-		self.ecsClient, err = client.NewClientWithAccessKey(self.ID, self.client.projectId, self.client.accessKey, self.client.secret)
+		self.ecsClient, err = client.NewClientWithAccessKey(self.ID, self.client.projectId, self.client.accessKey, self.client.secret, self.client.debug)
 		if err != nil {
 			return nil, err
 		}
-
-		return self.ecsClient, err
 	}
 
 	return self.ecsClient, err
@@ -88,7 +85,7 @@ func (self *SRegion) getOBSClient() (*obs.ObsClient, error) {
 
 func (self *SRegion) fetchZones() error {
 	zones := make([]SZone, 0)
-	err := DoList(self.ecsClient.Zones.List, nil, &zones)
+	err := doListAll(self.ecsClient.Zones.List, nil, &zones)
 	if err != nil {
 		return err
 	}
@@ -108,7 +105,7 @@ func (self *SRegion) fetchIVpcs() error {
 	querys := map[string]string{
 		"limit": "2048",
 	}
-	err := DoList(self.ecsClient.Vpcs.List, querys, &vpcs)
+	err := doListAllWithMarker(self.ecsClient.Vpcs.List, querys, &vpcs)
 	if err != nil {
 		return err
 	}
@@ -256,19 +253,16 @@ func (self *SRegion) GetEipById(eipId string) (SEipAddress, error) {
 }
 
 // 返回参数分别为eip 列表、列表长度、error。
-func (self *SRegion) GetEips(marker string, limit int) ([]SEipAddress, int, error) {
-	querys := map[string]string{"limit": "50"}
-	if len(marker) > 0 {
-		querys["marker"] = marker
-	}
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090598.html
+func (self *SRegion) GetEips() ([]SEipAddress, error) {
+	querys := make(map[string]string)
 
-	querys["limit"] = strconv.Itoa(limit)
 	eips := make([]SEipAddress, 0)
-	err := DoList(self.ecsClient.Eips.List, querys, &eips)
+	err := doListAllWithMarker(self.ecsClient.Eips.List, querys, &eips)
 	for i := range eips {
 		eips[i].region = self
 	}
-	return eips, len(eips), err
+	return eips, err
 }
 
 func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
@@ -277,23 +271,9 @@ func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 		return nil, err
 	}
 
-	marker := ""
-	limit := 100
-	eips := make([]SEipAddress, 0)
-	for {
-		var parts []SEipAddress
-		parts, count, err := self.GetEips(marker, limit)
-		if err != nil {
-			return nil, err
-		}
-
-		eips = append(eips, parts...)
-
-		if count < limit {
-			break
-		}
-
-		marker = parts[count-1].ID
+	eips, err := self.GetEips()
+	if err != nil {
+		return nil, err
 	}
 
 	ret := make([]cloudprovider.ICloudEIP, len(eips))
@@ -417,22 +397,10 @@ func (self *SRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpTy
 }
 
 func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	snapshots := make([]SSnapshot, 0)
-	offset := 0
-	limit := 100
-	for {
-		var parts []SSnapshot
-		parts, count, err := self.GetSnapshots("", "", offset, limit)
-		if err != nil {
-			return nil, err
-		}
-		snapshots = append(snapshots, parts...)
-
-		if count < limit {
-			break
-		}
-
-		offset += limit
+	snapshots, err := self.GetSnapshots("", "")
+	if err != nil {
+		log.Errorf("self.GetSnapshots fail %s", err)
+		return nil, err
 	}
 
 	ret := make([]cloudprovider.ICloudSnapshot, len(snapshots))

@@ -1,8 +1,6 @@
 package huawei
 
 import (
-	"strconv"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -135,23 +133,19 @@ func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
 	return &network, err
 }
 
-func (self *SRegion) GetNetwroks(vpcId string, limit int, marker string) ([]SNetwork, int, error) {
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090592.html
+func (self *SRegion) GetNetwroks(vpcId string) ([]SNetwork, error) {
 	querys := map[string]string{}
 	if len(vpcId) > 0 {
 		querys["vpc_id"] = vpcId
 	}
 
-	if len(marker) > 0 {
-		querys["marker"] = marker
-	}
-
-	querys["limit"] = strconv.Itoa(limit)
 	networks := make([]SNetwork, 0)
-	err := DoList(self.ecsClient.Subnets.List, querys, &networks)
-	return networks, len(networks), err
+	err := doListAllWithMarker(self.ecsClient.Subnets.List, querys, &networks)
+	return networks, err
 }
 
 func (self *SRegion) deleteNetwork(vpcId string, networkId string) error {
-	ctx := &modules.ManagerContext{InstanceId: vpcId, InstanceManager: self.ecsClient.Vpcs}
+	ctx := &modules.SManagerContext{InstanceId: vpcId, InstanceManager: self.ecsClient.Vpcs}
 	return DoDeleteWithSpec(self.ecsClient.Subnets.DeleteInContextWithSpec, ctx, networkId, "", nil)
 }

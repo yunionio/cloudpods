@@ -45,32 +45,15 @@ func (self *SHost) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	vms := make([]SInstance, 0)
-	limit := 100
-	offset := 0
-	for {
-		parts, count, err := self.zone.region.GetInstances(offset, limit)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, vm := range parts {
-			vm.host = self
-			vms = append(vms, vm)
-		}
-
-		if count < limit {
-			break
-		}
-
-		offset += limit
+	vms, err := self.zone.region.GetInstances()
+	if err != nil {
+		return nil, err
 	}
 
 	filtedVms := make([]SInstance, 0)
 	for i := range vms {
-		vm := vms[i]
-		if vm.OSEXTAZAvailabilityZone == self.zone.GetId() {
-			filtedVms = append(filtedVms, vm)
+		if vms[i].OSEXTAZAvailabilityZone == self.zone.GetId() {
+			filtedVms = append(filtedVms, vms[i])
 		}
 	}
 

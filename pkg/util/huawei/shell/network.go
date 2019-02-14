@@ -7,16 +7,14 @@ import (
 
 func init() {
 	type VSwitchListOptions struct {
-		Vpc    string `help:"Vpc ID"`
-		Limit  int    `help:"page size"`
-		Marker string `help:"page marker"`
+		Vpc string `help:"Vpc ID"`
 	}
-	shellutils.R(&VSwitchListOptions{}, "vswitch-list", "List vswitches", func(cli *huawei.SRegion, args *VSwitchListOptions) error {
-		vswitches, total, e := cli.GetNetwroks(args.Vpc, args.Limit, args.Marker)
+	shellutils.R(&VSwitchListOptions{}, "subnet-list", "List subnets", func(cli *huawei.SRegion, args *VSwitchListOptions) error {
+		vswitches, e := cli.GetNetwroks(args.Vpc)
 		if e != nil {
 			return e
 		}
-		printList(vswitches, total, 0, args.Limit, []string{})
+		printList(vswitches, 0, 0, 0, nil)
 		return nil
 	})
 }

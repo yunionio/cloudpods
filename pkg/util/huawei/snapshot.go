@@ -121,24 +121,24 @@ func (self *SSnapshot) Delete() error {
 }
 
 // https://support.huaweicloud.com/api-evs/zh-cn_topic_0051408627.html
-func (self *SRegion) GetSnapshots(diskId string, snapshotName string, offset int, limit int) ([]SSnapshot, int, error) {
+func (self *SRegion) GetSnapshots(diskId string, snapshotName string) ([]SSnapshot, error) {
 	params := make(map[string]string)
-	params["limit"] = fmt.Sprintf("%d", limit)
-	params["offset"] = fmt.Sprintf("%d", offset)
 
 	if len(diskId) > 0 {
 		params["volume_id"] = diskId
 	}
+
 	if len(snapshotName) > 0 {
 		params["name"] = snapshotName
 	}
 
 	snapshots := make([]SSnapshot, 0)
-	err := DoList(self.ecsClient.Snapshots.List, params, &snapshots)
+	err := doListAllWithOffset(self.ecsClient.Snapshots.List, params, &snapshots, 1)
 	for i := range snapshots {
 		snapshots[i].region = self
 	}
-	return snapshots, len(snapshots), err
+
+	return snapshots, err
 }
 
 func (self *SRegion) GetSnapshotById(snapshotId string) (SSnapshot, error) {

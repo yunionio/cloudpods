@@ -310,7 +310,7 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 		return nil, nil
 	}
 
-	eips, _, err := self.host.zone.region.GetEips("", 65535)
+	eips, err := self.host.zone.region.GetEips()
 	if err != nil {
 		return nil, err
 	}
@@ -507,18 +507,17 @@ func (self *SInstance) Renew(bc billing.SBillingCycle) error {
 	return self.host.zone.region.RenewInstance(self.GetId(), bc)
 }
 
-func (self *SRegion) GetInstances(offset int, limit int) ([]SInstance, int, error) {
-	querys := map[string]string{}
-	querys["offset"] = strconv.Itoa(offset)
-	querys["limit"] = strconv.Itoa(limit)
+// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0094148850.html
+func (self *SRegion) GetInstances() ([]SInstance, error) {
+	queries := make(map[string]string)
 
 	if len(self.client.projectId) > 0 {
-		querys["project_id"] = self.client.projectId
+		queries["project_id"] = self.client.projectId
 	}
 
 	instances := make([]SInstance, 0)
-	err := DoList(self.ecsClient.Servers.List, querys, &instances)
-	return instances, len(instances), err
+	err := doListAllWithOffset(self.ecsClient.Servers.List, queries, &instances, 1)
+	return instances, err
 }
 
 func (self *SRegion) GetInstanceByID(instanceId string) (SInstance, error) {
@@ -1022,7 +1021,7 @@ func (self *SRegion) GetInstanceSecrityGroupIds(instanceId string) ([]string, er
 	}
 
 	securitygroups := make([]SSecurityGroup, 0)
-	ctx := &modules.ManagerContext{InstanceManager: self.ecsClient.NovaServers, InstanceId: instanceId}
+	ctx := &modules.SManagerContext{InstanceManager: self.ecsClient.NovaServers, InstanceId: instanceId}
 	err := DoListInContext(self.ecsClient.NovaSecurityGroups.ListInContext, ctx, nil, &securitygroups)
 	if err != nil {
 		return nil, err

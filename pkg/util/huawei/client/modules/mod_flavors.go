@@ -1,18 +1,16 @@
 package modules
 
 import (
-	"net/http"
-
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 )
 
 type SFlavorManager struct {
-	ResourceManager
+	SResourceManager
 }
 
-func NewFlavorManager(regionId string, projectId string, signer auth.Signer) *SFlavorManager {
-	return &SFlavorManager{ResourceManager: ResourceManager{
-		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}},
+func NewFlavorManager(regionId string, projectId string, signer auth.Signer, debug bool) *SFlavorManager {
+	return &SFlavorManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameECS,
 		Region:        regionId,
 		ProjectId:     projectId,

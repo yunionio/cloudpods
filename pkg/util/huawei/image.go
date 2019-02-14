@@ -13,12 +13,15 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
-type ImageOwnerType string
+type TImageOwnerType string
 
 const (
-	ImageOwnerPublic ImageOwnerType = "gold"    // 公共镜像：gold
-	ImageOwnerSelf   ImageOwnerType = "private" // 私有镜像：private
-	ImageOwnerShared ImageOwnerType = "shared"  // 共享镜像：shared
+	ImageOwnerPublic TImageOwnerType = "gold"    // 公共镜像：gold
+	ImageOwnerSelf   TImageOwnerType = "private" // 私有镜像：private
+	ImageOwnerShared TImageOwnerType = "shared"  // 共享镜像：shared
+
+	EnvFusionCompute = "FusionCompute"
+	EnvIronic        = "Ironic"
 )
 
 const (
@@ -193,27 +196,30 @@ func (self *SRegion) GetImage(imageId string) (SImage, error) {
 	return image, err
 }
 
-func (self *SRegion) GetImages(status string, imagetype ImageOwnerType, name string, limit int, marker string) ([]SImage, int, error) {
-	querys := map[string]string{}
+// https://support.huaweicloud.com/api-ims/zh-cn_topic_0060804959.html
+func (self *SRegion) GetImages(status string, imagetype TImageOwnerType, name string, envType string) ([]SImage, error) {
+	queries := map[string]string{}
 	if len(status) > 0 {
-		querys["status"] = status
+		queries["status"] = status
 	}
 
 	if len(imagetype) > 0 {
-		querys["__imagetype"] = string(imagetype)
+		queries["__imagetype"] = string(imagetype)
+		if imagetype == ImageOwnerPublic {
+			queries["protected"] = "True"
+		}
+	}
+	if len(envType) > 0 {
+		queries["virtual_env_type"] = envType
 	}
 
 	if len(name) > 0 {
-		querys["name"] = name
-	}
-
-	if len(marker) > 0 {
-		querys["marker"] = marker
+		queries["name"] = name
 	}
 
 	images := make([]SImage, 0)
-	err := DoList(self.ecsClient.Images.List, querys, &images)
-	return images, len(images), err
+	err := doListAllWithMarker(self.ecsClient.Images.List, queries, &images)
+	return images, err
 }
 
 func (self *SRegion) DeleteImage(imageId string) error {
@@ -225,7 +231,7 @@ func (self *SRegion) GetImageByName(name string) (*SImage, error) {
 		return nil, fmt.Errorf("image name should not be empty")
 	}
 
-	images, _, err := self.GetImages("", ImageOwnerType(""), name, 1, "")
+	images, err := self.GetImages("", TImageOwnerType(""), name, "")
 	if err != nil {
 		return nil, err
 	}

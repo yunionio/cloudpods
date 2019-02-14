@@ -1,14 +1,12 @@
 package modules
 
 import (
-	"net/http"
-
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/requests"
 )
 
 type SPortManager struct {
-	ResourceManager
+	SResourceManager
 }
 
 type portProject struct {
@@ -21,14 +19,14 @@ func (self *portProject) Process(request requests.IRequest) {
 	request.AddHeaderParam("X-Project-Id", self.projectId)
 }
 
-func NewPortManager(regionId string, projectId string, signer auth.Signer) *SPortManager {
+func NewPortManager(regionId string, projectId string, signer auth.Signer, debug bool) *SPortManager {
 	var requestHook portProject
 	if len(projectId) > 0 {
 		requestHook = portProject{projectId: projectId}
 	}
 
-	return &SPortManager{ResourceManager: ResourceManager{
-		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}, requestHook: &requestHook},
+	return &SPortManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager2(signer, debug, &requestHook),
 		ServiceName:   ServiceNameVPC,
 		Region:        regionId,
 		ProjectId:     "",
