@@ -96,7 +96,6 @@ type SInstance struct {
 	Tags                             []string                           `json:"tags"`
 	Description                      string                             `json:"description"`
 	Locked                           bool                               `json:"locked"`
-	Image                            Image                              `json:"image"`
 	ConfigDrive                      string                             `json:"config_drive"`
 	TenantID                         string                             `json:"tenant_id"`
 	UserID                           string                             `json:"user_id"`
@@ -154,6 +153,25 @@ func compareSet(currentSet []string, newSet []string) (add []string, remove []st
 	}
 
 	return add, remove, keep
+}
+
+func markDiskType(server *SInstance, disk *SDisk) {
+	if disk.Bootable != "true" {
+		return
+	}
+
+	if len(disk.Attachments) == 0 {
+		return
+	}
+
+	for _, attachment := range disk.Attachments {
+		if attachment.ServerID == server.GetId() && attachment.Device == server.OSEXTSRVATTRRootDeviceName {
+			disk.DiskType = models.DISK_TYPE_SYS
+			return
+		}
+	}
+
+	return
 }
 
 func (self *SInstance) GetId() string {
@@ -216,9 +234,9 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	priceKey := fmt.Sprintf("%s::%s::%s", self.host.zone.region.GetId(), self.GetInstanceType(), lowerOs)
 	data.Add(jsonutils.NewString(priceKey), "price_key")
 	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
-	if len(self.Image.ID) > 0 {
-		if image, err := self.host.zone.region.GetImage(self.Image.ID); err != nil {
-			log.Errorf("Failed to find image %s for instance %s zone %s", self.Image.ID, self.GetId(), self.OSEXTAZAvailabilityZone)
+	if len(self.Metadata.MeteringImageID) > 0 {
+		if image, err := self.host.zone.region.GetImage(self.Metadata.MeteringImageID); err != nil {
+			log.Errorf("Failed to find image %s for instance %s zone %s", self.Metadata.MeteringImageID, self.GetId(), self.OSEXTAZAvailabilityZone)
 		} else if meta := image.GetMetadata(); meta != nil {
 			data.Update(meta)
 		}
@@ -281,6 +299,7 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		}
 		disks[i].storage = storage
 		idisks[i] = &disks[i]
+		markDiskType(self, &disks[i])
 		// todo: 通过这个字段判断可能更准确 "OS-EXT-SRV-ATTR:root_device_name": "/dev/vda"
 		// 将系统盘放到第0个位置
 		if disks[i].GetDiskType() == models.DISK_TYPE_SYS {
@@ -481,20 +500,40 @@ func (self *SInstance) UpdateUserData(userData string) error {
 // todo: 支持注入user_data
 func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
 	var err error
-	if self.Image.ID == imageId {
-		err = self.host.zone.region.RebuildRoot(ctx, self.GetId(), passwd, publicKey)
+	var jobId string
+	if self.Metadata.MeteringImageID == imageId {
+		jobId, err = self.host.zone.region.RebuildRoot(ctx, self.GetId(), passwd, publicKey)
 		if err != nil {
 			return "", err
 		}
 	} else {
-		err = self.host.zone.region.ChangeRoot(ctx, self.GetId(), imageId, passwd, publicKey)
+		jobId, err = self.host.zone.region.ChangeRoot(ctx, self.GetId(), imageId, passwd, publicKey)
 		if err != nil {
 			return "", err
 		}
 	}
 
-	// todo: wait job finished here
-	return "", nil
+	err = self.host.zone.region.waitTaskStatus(self.host.zone.region.ecsClient.Servers.ServiceType(), jobId, TASK_SUCCESS, 15*time.Second, 900*time.Second)
+	if err != nil {
+		log.Errorf("RebuildRoot task error %s", err)
+		return "", err
+	}
+
+	err = self.Refresh()
+	if err != nil {
+		return "", err
+	}
+
+	idisks, err := self.GetIDisks()
+	if err != nil {
+		return "", err
+	}
+
+	if len(idisks) == 0 {
+		return "", fmt.Errorf("server %s has no volume attached.", self.GetId())
+	}
+
+	return idisks[0].GetId(), nil
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
@@ -883,7 +922,9 @@ func (self *SRegion) UpdateVM(instanceId, name string) error {
 	return err
 }
 
-func (self *SRegion) RebuildRoot(ctx context.Context, instanceId, passwd, publicKeyName string) error {
+// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067876349.html
+// 返回job id
+func (self *SRegion) RebuildRoot(ctx context.Context, instanceId, passwd, publicKeyName string) (string, error) {
 	params := jsonutils.NewDict()
 	reinstallObj := jsonutils.NewDict()
 	// meta := jsonutils.NewDict()
@@ -893,15 +934,21 @@ func (self *SRegion) RebuildRoot(ctx context.Context, instanceId, passwd, public
 	} else if len(publicKeyName) > 0 {
 		reinstallObj.Add(jsonutils.NewString(publicKeyName), "keyname")
 	} else {
-		return fmt.Errorf("both password and publicKey are empty.")
+		return "", fmt.Errorf("both password and publicKey are empty.")
 	}
 
 	params.Add(reinstallObj, "os-reinstall")
-	_, err := self.ecsClient.Servers.PerformAction2("reinstallos", instanceId, params, "")
-	return err
+	ret, err := self.ecsClient.Servers.PerformAction2("reinstallos", instanceId, params, "")
+	if err != nil {
+		return "", err
+	}
+
+	return ret.GetString("job_id")
 }
 
-func (self *SRegion) ChangeRoot(ctx context.Context, instanceId, imageId, passwd, publicKeyName string) error {
+// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067876971.html
+// 返回job id
+func (self *SRegion) ChangeRoot(ctx context.Context, instanceId, imageId, passwd, publicKeyName string) (string, error) {
 	params := jsonutils.NewDict()
 	changeOsObj := jsonutils.NewDict()
 	// meta := jsonutils.NewDict()
@@ -911,14 +958,18 @@ func (self *SRegion) ChangeRoot(ctx context.Context, instanceId, imageId, passwd
 	} else if len(publicKeyName) > 0 {
 		changeOsObj.Add(jsonutils.NewString(publicKeyName), "keyname")
 	} else {
-		return fmt.Errorf("both password and publicKey are empty.")
+		return "", fmt.Errorf("both password and publicKey are empty.")
 	}
 
 	changeOsObj.Add(jsonutils.NewString(imageId), "imageid")
 	params.Add(changeOsObj, "os-change")
 
-	_, err := self.ecsClient.Servers.PerformAction2("changeos", instanceId, params, "")
-	return err
+	ret, err := self.ecsClient.Servers.PerformAction2("changeos", instanceId, params, "")
+	if err != nil {
+		return "", err
+	}
+
+	return ret.GetString("job_id")
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212692.html

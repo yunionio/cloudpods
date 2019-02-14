@@ -4,7 +4,10 @@ package huawei
 const DATETIME_FORMAT = "2006-01-02T15:04:05.999999999"
 
 // Task status
-const TASK_SUCCESS = "SUCCESS"
+const (
+	TASK_SUCCESS = "SUCCESS"
+	TASK_FAIL    = "FAIL"
+)
 
 // Charging Type
 const (

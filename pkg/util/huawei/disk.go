@@ -95,6 +95,7 @@ type SDisk struct {
 	ConsistencygroupID  string              `json:"consistencygroup_id"`
 	UpdatedAt           string              `json:"updated_at"`
 
+	DiskType string // 额外添加的字段用于标记是否为系统盘
 	/*下面这些字段也许不需要*/
 	ExpiredTime time.Time
 }
@@ -233,8 +234,14 @@ func (self *SDisk) GetTemplateId() string {
 	return self.VolumeImageMetadata.ImageID
 }
 
+// Bootable 表示硬盘是否为启动盘。
+// 启动盘 != 系统盘(必须是启动盘且挂载在root device上)
 func (self *SDisk) GetDiskType() string {
-	if self.Bootable == "true" {
+	if self.Bootable != "true" || len(self.Attachments) == 0 {
+		return models.DISK_TYPE_DATA
+	}
+
+	if self.DiskType == models.DISK_TYPE_SYS {
 		return models.DISK_TYPE_SYS
 	} else {
 		return models.DISK_TYPE_DATA
