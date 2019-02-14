@@ -239,6 +239,11 @@ func (o *SOVSBridgeDriver) Setup() error {
 		}
 	}
 
+	if o.inter != nil && !utils.IsInStringArray(o.inter.String(), o.Interfaces()) {
+		if err := o.SetupInterface(); err != nil {
+			return err
+		}
+	}
 	if len(o.bridge.Addr) == 0 {
 		if len(o.ip) > 0 {
 			if err := o.SetupAddresses(o.inter.Mask); err != nil {
@@ -262,6 +267,17 @@ func (o *SOVSBridgeDriver) Setup() error {
 	}
 
 	return o.BringupInterface()
+}
+
+func (o *SOVSBridgeDriver) SetupInterface() error {
+	if o.inter != nil && !utils.IsInStringArray(o.inter.String(), o.Interfaces()) {
+		output, err := procutils.NewCommand("ovs-vsctl", "--", "--may-exist",
+			"add-port", o.bridge.String(), o.inter.String()).Run()
+		if err != nil {
+			return fmt.Errorf("Failed to add interface %s", output)
+		}
+	}
+	return nil
 }
 
 func (o *SOVSBridgeDriver) SetupBridgeDev() error {
