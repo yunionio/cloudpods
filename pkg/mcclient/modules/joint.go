@@ -150,7 +150,7 @@ func (this *JointResourceManager) Update(s *mcclient.ClientSession, mid, sid str
 	if query != nil {
 		queryStr := query.QueryString()
 		if len(queryStr) > 0 {
-			path = fmt.Sprint("%s?%s", path, queryStr)
+			path = fmt.Sprintf("%s?%s", path, queryStr)
 		}
 	}
 	result, err := this._put(s, path, this.params2Body(s, params), this.Keyword)

@@ -275,7 +275,7 @@ func (m *HmpMonitor) Migrate(
 	cmd := "migrate -d"
 	if copyIncremental {
 		cmd += " -i"
-	} else if copyIncremental {
+	} else if copyFull {
 		cmd += " -b"
 	}
 	cmd += " " + destStr

@@ -298,7 +298,7 @@ func StartDetachStorages(hs []jsonutils.JSONObject) {
 		storageId, _ := hs[0].GetString("storage_id")
 		_, err := modules.Hoststorages.Detach(
 			hostutils.GetComputeSession(context.Background()),
-			hostId, storageId)
+			hostId, storageId, nil)
 		if err != nil {
 			log.Errorf("Host %s detach storage %s failed: %s",
 				hostId, storageId, err)

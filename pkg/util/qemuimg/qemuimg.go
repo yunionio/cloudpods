@@ -366,6 +366,7 @@ func (img *SQemuImage) create(sizeMB int, format TImageFormat, options []string)
 	if sizeMB > 0 {
 		args = append(args, fmt.Sprintf("%dM", sizeMB))
 	}
+	log.Debugf("%s %s", qemutils.GetQemuImg(), args)
 	cmd := exec.Command(qemutils.GetQemuImg(), args...)
 	err := cmd.Run()
 	if err != nil {

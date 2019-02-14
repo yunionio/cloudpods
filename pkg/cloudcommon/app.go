@@ -51,5 +51,4 @@ func ServeForever(app *appsrv.Application, options *CommonOptions) {
 	} else {
 		app.ListenAndServe(addr)
 	}
-	select {} // for quit handler
 }

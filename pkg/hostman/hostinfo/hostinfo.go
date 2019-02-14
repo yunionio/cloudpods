@@ -722,6 +722,7 @@ func (h *SHostInfo) fetchAccessNetworkInfo() {
 	}
 	params := jsonutils.NewDict()
 	params.Set("ip", jsonutils.NewString(masterIp))
+	params.Set("is_private", jsonutils.JSONTrue)
 	params.Set("limit", jsonutils.NewInt(0))
 	wire, err := hostutils.GetWireOfIp(context.Background(), params)
 	if err != nil {
@@ -958,6 +959,7 @@ func (h *SHostInfo) uploadNetworkInfo() {
 			if len(nic.Network) == 0 {
 				kwargs := jsonutils.NewDict()
 				kwargs.Set("ip", jsonutils.NewString(nic.Ip))
+				kwargs.Set("is_private", jsonutils.JSONTrue)
 				kwargs.Set("limit", jsonutils.NewInt(0))
 
 				wireInfo, err := hostutils.GetWireOfIp(context.Background(), kwargs)

@@ -513,6 +513,10 @@ func NewDebianRootFs(part IDiskPartition) IRootFsDriver {
 	return driver
 }
 
+func (d *SDebianRootFs) String() string {
+	return "DebianRootFs"
+}
+
 func (d *SDebianRootFs) GetName() string {
 	return "Debian"
 }
@@ -556,6 +560,10 @@ func (d *SCirrosRootFs) GetName() string {
 	return "Cirros"
 }
 
+func (d *SCirrosRootFs) String() string {
+	return "CirrosRootFs"
+}
+
 func (d *SCirrosRootFs) DistroName() string {
 	return d.GetName()
 }
@@ -584,6 +592,10 @@ func NewCirrosNewRootFs(part IDiskPartition) IRootFsDriver {
 
 func (d *SCirrosNewRootFs) GetName() string {
 	return "Cirros"
+}
+
+func (d *SCirrosNewRootFs) String() string {
+	return "CirrosNewRootFs"
 }
 
 func (d *SCirrosNewRootFs) DistroName() string {
@@ -619,6 +631,10 @@ func (d *SUbuntuRootFs) RootSignatures() []string {
 
 func (d *SUbuntuRootFs) GetName() string {
 	return "Ubuntu"
+}
+
+func (d *SUbuntuRootFs) String() string {
+	return "UbuntuRootFs"
 }
 
 func (d *SUbuntuRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
@@ -833,6 +849,10 @@ func NewCentosRootFs(part IDiskPartition) IRootFsDriver {
 	return &SCentosRootFs{sRedhatLikeRootFs: newRedhatLikeRootFs(part)}
 }
 
+func (c *SCentosRootFs) String() string {
+	return "CentosRootFs"
+}
+
 func (c *SCentosRootFs) GetName() string {
 	return "CentOS"
 }
@@ -884,6 +904,10 @@ func NewFedoraRootFs(part IDiskPartition) IRootFsDriver {
 	return &SFedoraRootFs{sRedhatLikeRootFs: newRedhatLikeRootFs(part)}
 }
 
+func (c *SFedoraRootFs) String() string {
+	return "FedoraRootFs"
+}
+
 func (c *SFedoraRootFs) GetName() string {
 	return "Fedora"
 }
@@ -919,6 +943,10 @@ func NewRhelRootFs(part IDiskPartition) IRootFsDriver {
 
 func (d *SRhelRootFs) GetName() string {
 	return "RHEL"
+}
+
+func (d *SRhelRootFs) String() string {
+	return "RhelRootFs"
 }
 
 func (d *SRhelRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
