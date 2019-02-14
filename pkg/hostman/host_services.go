@@ -85,8 +85,13 @@ func (host *SHostService) StartService() {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Errorln(r)
+				if !host.isExiting {
+					log.Fatalf("%s", r)
+				} else {
+					log.Errorln(r)
+				}
 			}
+
 		}()
 		cloudcommon.ServeForever(app, &options.HostOptions.CommonOptions)
 	}()

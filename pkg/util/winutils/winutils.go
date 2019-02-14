@@ -232,7 +232,7 @@ func (w *SWinRegTool) showRegistry(spath string, keySeg []string, verb string) (
 	if err := proc.Start(); err != nil {
 		return nil, err
 	}
-	keypath := strings.Join(keySeg, `\\`)
+	keypath := strings.Join(keySeg, "\\")
 	io.WriteString(stdin, fmt.Sprintf("%s %s\n", verb, keypath))
 	io.WriteString(stdin, "q\n")
 	stdoutPut, err := ioutil.ReadAll(outb)
@@ -257,7 +257,7 @@ func (w *SWinRegTool) showRegistry(spath string, keySeg []string, verb string) (
 }
 
 func (w *SWinRegTool) getRegistry(spath string, keySeg []string) string {
-	keyPath := strings.Join(keySeg, `\\`)
+	keyPath := strings.Join(keySeg, "\\")
 	lines, err := w.showRegistry(spath, keySeg, "cat")
 	if err != nil {
 		log.Errorln(err)
@@ -371,14 +371,14 @@ func (w *SWinRegTool) cmdRegistry(spath string, ops []string, retcode int) bool 
 }
 
 func (w *SWinRegTool) setRegistry(spath string, keySeg []string, value string) bool {
-	keyPath := strings.Join(keySeg, `\\`)
+	keyPath := strings.Join(keySeg, "\\")
 	return w.cmdRegistry(spath, []string{fmt.Sprintf("ed %s", keyPath), value}, 0)
 }
 
 func (w *SWinRegTool) mkdir(spath string, keySeg []string) bool {
 	return w.cmdRegistry(spath,
 		[]string{
-			fmt.Sprintf("cd %s", strings.Join(keySeg[:len(keySeg)-1], `\\`)),
+			fmt.Sprintf("cd %s", strings.Join(keySeg[:len(keySeg)-1], "\\")),
 			fmt.Sprintf("nk %s", keySeg[len(keySeg)-1]),
 		}, 2)
 }
@@ -444,7 +444,7 @@ func (w *SWinRegTool) newValue(spath string, keySeg []string, regtype, val strin
 	}
 
 	cmds := []string{
-		fmt.Sprintf("cd %s", strings.Join(keySeg[:len(keySeg)-1], `\\`)),
+		fmt.Sprintf("cd %s", strings.Join(keySeg[:len(keySeg)-1], "\\")),
 		fmt.Sprintf("nv %x %s", idx, keySeg[len(keySeg)-1]),
 		fmt.Sprintf("ed %s", keySeg[len(keySeg)-1]),
 	}

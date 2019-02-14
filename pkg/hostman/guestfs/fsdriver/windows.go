@@ -1,7 +1,6 @@
 package fsdriver
 
 import (
-	"crypto/md5"
 	"fmt"
 	"math/rand"
 	"path"
@@ -17,6 +16,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/onecloud/pkg/util/version"
 	"yunion.io/x/onecloud/pkg/util/winutils"
 	"yunion.io/x/pkg/utils"
@@ -156,7 +156,6 @@ func (w *SWindowsRootFs) putGuestScriptContents(spath, content string) error {
 	}
 
 	content = strings.Join(contentArr, "\r\n")
-
 	return w.rootFs.FilePutContents(spath, content, false, true)
 }
 
@@ -370,7 +369,7 @@ func (w *SWindowsRootFs) deployPublicKeyByGuest(uname, passwd string) bool {
 	}, "\r\n")
 	w.prependGuestBootScript(bootScript)
 	logPath := w.guestDebugLogPath
-	chksum := md5.Sum([]byte(passwd + logPath[(len(logPath)-10):]))
+	chksum := stringutils2.GetMD5Hash(passwd + logPath[(len(logPath)-10):])
 
 	chgpwdScript := strings.Join([]string{
 		w.MakeGuestDebugCmd("change password step 1"),
@@ -415,8 +414,8 @@ func (w *SWindowsRootFs) deploySetupCompleteScripts(uname, passwd string) bool {
 		{"IncludeRecommendedUpdates", "REG_DWORD", "0"},
 		{"EnableFeaturedSoftware", "REG_DWORD", "1"},
 	} {
-		cmds = append(cmds, `REG ADD "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update" /v %s /t %s /d %s /f`,
-			v[0], v[1], v[2])
+		cmds = append(cmds, fmt.Sprintf(`REG ADD "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update" /v %s /t %s /d %s /f`,
+			v[0], v[1], v[2]))
 	}
 	cmds = append(cmds, "Net start wuauserv")
 	cmds = append(cmds, "wuauclt /detectnow")

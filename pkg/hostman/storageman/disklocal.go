@@ -174,6 +174,21 @@ func (d *SLocalDisk) CreateFromImageFuse(ctx context.Context, url string) error 
 }
 
 func (d *SLocalDisk) CreateFromTemplate(ctx context.Context, imageId, format string, size int64) (jsonutils.JSONObject, error) {
+	ret, err := d.createFromTemplate(ctx, imageId, format)
+	if err != nil {
+		return nil, err
+	}
+	retSize, _ := ret.Int("disk_size")
+	log.Infof("REQSIZE: %d, RETSIZE: %d", size, retSize)
+	if size > retSize {
+		params := jsonutils.NewDict()
+		params.Set("size", jsonutils.NewInt(size))
+		return d.Resize(ctx, params)
+	}
+	return ret, nil
+}
+
+func (d *SLocalDisk) createFromTemplate(ctx context.Context, imageId, format string) (jsonutils.JSONObject, error) {
 	var imageCacheManager = storageManager.LocalStorageImagecacheManager
 	imageCache := imageCacheManager.AcquireImage(ctx, imageId, d.GetZone(), "", "")
 	if imageCache != nil {
@@ -193,7 +208,7 @@ func (d *SLocalDisk) CreateFromTemplate(ctx context.Context, imageId, format str
 			log.Errorln(err)
 			return nil, err
 		}
-		if err := newImg.CreateQcow2(int(size), false, cacheImagePath); err != nil {
+		if err := newImg.CreateQcow2(0, false, cacheImagePath); err != nil {
 			log.Errorln(err)
 			return nil, fmt.Errorf("Fail to create disk %s", d.Id)
 		}
