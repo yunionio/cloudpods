@@ -194,7 +194,7 @@ func (self *SSecurityGroup) GetSecurityRule(ruleId string, withRuleId bool) (sec
 	} else {
 		desc = remoteRule.Description
 	}
-	// todo: icmp 可能不兼容。华为云能指定icmp code，onecloud不支持
+	// todo: icmp 可能不兼容。华为云能指定icmp code，但是onecloud端不支持
 	rule := secrules.SecurityRule{
 		Priority:    1,
 		Action:      secrules.SecurityRuleAllow,

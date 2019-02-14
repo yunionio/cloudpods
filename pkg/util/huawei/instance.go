@@ -300,7 +300,6 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		disks[i].storage = storage
 		idisks[i] = &disks[i]
 		markDiskType(self, &disks[i])
-		// todo: 通过这个字段判断可能更准确 "OS-EXT-SRV-ATTR:root_device_name": "/dev/vda"
 		// 将系统盘放到第0个位置
 		if disks[i].GetDiskType() == models.DISK_TYPE_SYS {
 			_temp := idisks[0]
