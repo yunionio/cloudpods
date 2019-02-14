@@ -332,7 +332,8 @@ func (app *Application) ListenAndServe(addr string) {
 	app.server = app.initServer(addr)
 	err := app.server.ListenAndServe()
 	if err != nil {
-		log.Infof("ListAndServer: %s", err)
+		log.Errorf("ListAndServer: %s", err)
+		panic(err)
 	}
 }
 

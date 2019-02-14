@@ -241,7 +241,7 @@ func (l *SLocalImageCache) Remove(ctx context.Context) error {
 
 	go func() {
 		_, err := modules.Storagecachedimages.Detach(hostutils.GetComputeSession(ctx),
-			l.Manager.GetId(), l.imageId)
+			l.Manager.GetId(), l.imageId, nil)
 		if err != nil {
 			log.Errorf("Fail to delete host cached image: %s", err)
 		}

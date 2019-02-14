@@ -1,6 +1,10 @@
 package storageman
 
-import "yunion.io/x/jsonutils"
+import (
+	"fmt"
+
+	"yunion.io/x/jsonutils"
+)
 
 type SDiskCreateByDiskinfo struct {
 	DiskId   string
@@ -8,6 +12,10 @@ type SDiskCreateByDiskinfo struct {
 	DiskInfo jsonutils.JSONObject
 
 	Storage IStorage
+}
+
+func (i *SDiskCreateByDiskinfo) String() string {
+	return fmt.Sprintf("disk_id: %s, disk_info: %s", i.DiskId, i.DiskInfo)
 }
 
 type SDiskReset struct {

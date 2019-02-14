@@ -212,8 +212,8 @@ func (s *SLocalStorage) saveToGlance(ctx context.Context, imageId, imagePath str
 		if kvmDisk.Connect() {
 			defer kvmDisk.Disconnect()
 
-			if root := kvmDisk.Mount(); root != nil {
-				defer kvmDisk.Umount(root)
+			if root := kvmDisk.MountKvmRootfs(); root != nil {
+				defer kvmDisk.UmountKvmRootfs(root)
 
 				osInfo = root.GetOs()
 				relInfo = root.GetReleaseInfo(root.GetPartition())

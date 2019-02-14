@@ -141,25 +141,23 @@ func (c *Conn) Close() error {
 // packet and the interface it was received on.
 func (c *Conn) RecvDHCP() (Packet, *net.UDPAddr, *net.Interface, error) {
 	var buf [1500]byte
-	for {
-		b, addr, _, err := c.conn.Recv(buf[:])
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		/*if c.ifIndex != 0 && ifidx != c.ifIndex {
-			log.Errorf("======= ifIndex continue, c.ifIndex: %d, ifidx: %d", c.ifIndex, ifidx)
-			continue
-		}*/
-		pkt := Unmarshal(b)
-		// intf, err := net.InterfaceByIndex(ifidx)
-		// if err != nil {
-		// 	return nil, nil, nil, err
-		// }
-
-		// TODO: possibly more validation that the source lines up
-		// with what the packet says.
-		return pkt, addr, nil, nil
+	b, addr, _, err := c.conn.Recv(buf[:])
+	if err != nil {
+		return nil, nil, nil, err
 	}
+	/*if c.ifIndex != 0 && ifidx != c.ifIndex {
+		log.Errorf("======= ifIndex continue, c.ifIndex: %d, ifidx: %d", c.ifIndex, ifidx)
+		continue
+	}*/
+	pkt := Unmarshal(b)
+	// intf, err := net.InterfaceByIndex(ifidx)
+	// if err != nil {
+	// 	return nil, nil, nil, err
+	// }
+
+	// TODO: possibly more validation that the source lines up
+	// with what the packet says.
+	return pkt, addr, nil, nil
 }
 
 // SendDHCP sends pkt. The precise transmission mechanism depends
