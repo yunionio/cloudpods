@@ -390,7 +390,7 @@ func (instance *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int)
 		if err != nil {
 			return err
 		}
-		return instance.host.zone.region.ChageConfig(instance.ID, flavorId)
+		return instance.host.zone.region.ChangeConfig(instance, flavorId)
 	}
 	return nil
 }
@@ -401,12 +401,12 @@ func (instance *SInstance) ChangeConfig2(ctx context.Context, instanceType strin
 		if err != nil {
 			return err
 		}
-		return instance.host.zone.region.ChageConfig(instance.ID, flavorId)
+		return instance.host.zone.region.ChangeConfig(instance, flavorId)
 	}
 	return nil
 }
 
-func (region *SRegion) ChageConfig(instanceId string, flavorId string) error {
+func (region *SRegion) ChangeConfig(instance *SInstance, flavorId string) error {
 	params := map[string]map[string]string{
 		"resize": {
 			"flavorRef": flavorId,

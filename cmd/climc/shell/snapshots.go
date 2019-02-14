@@ -10,11 +10,13 @@ import (
 func init() {
 	type SnapshotsListOptions struct {
 		options.BaseListOptions
-		Disk        string `help:"Disk snapshots" json:"disk_id"`
-		FakeDeleted bool   `help:"Show fake deleted snapshot or not"`
-		Local       *bool  `help:"Show local snapshots"`
-		Share       *bool  `help:"Show shared snapshots"`
-		DiskType    string `help:"Filter by disk type" choices:"sys|data"`
+		Disk         string `help:"Disk snapshots" json:"disk_id"`
+		FakeDeleted  bool   `help:"Show fake deleted snapshot or not"`
+		Local        *bool  `help:"Show local snapshots"`
+		Share        *bool  `help:"Show shared snapshots"`
+		DiskType     string `help:"Filter by disk type" choices:"sys|data"`
+		PublicCloud  *bool  `help:"Show public cloud snapshots"`
+		PrivateCloud *bool  `help:"Show private cloud snapshots"`
 	}
 	R(&SnapshotsListOptions{}, "snapshot-list", "Show snapshots", func(s *mcclient.ClientSession, args *SnapshotsListOptions) error {
 		params, err := options.ListStructToParams(args)
