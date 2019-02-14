@@ -80,7 +80,7 @@ func ParseOptions(optStruct interface{}, args []string, configFileName string, s
 		log.Fatalf("Error define argument parser: %v", err)
 	}
 
-	err = parser.ParseArgs(args[1:], false)
+	err = parser.ParseArgs2(args[1:], false, false)
 	if err != nil {
 		log.Fatalf("Parse arguments error: %v", err)
 	}
