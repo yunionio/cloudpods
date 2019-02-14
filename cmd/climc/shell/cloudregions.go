@@ -59,6 +59,24 @@ func init() {
 		return nil
 	})
 
+	R(&CloudregionCityListOptions{}, "cloud-region-providers", "List cities where cloud region resides", func(s *mcclient.ClientSession, args *CloudregionCityListOptions) error {
+		params, err := options.StructToParams(args)
+		if err != nil {
+			return err
+		}
+		results, err := modules.Cloudregions.GetRegionProviders(s, params)
+		if err != nil {
+			return err
+		}
+		listResult := modules.ListResult{}
+		listResult.Data, err = results.GetArray()
+		if err != nil {
+			return err
+		}
+		printList(&listResult, nil)
+		return nil
+	})
+
 	type CloudregionCreateOptions struct {
 		Id          string  `help:"ID of the region"`
 		NAME        string  `help:"Name of the region"`
