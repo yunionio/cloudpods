@@ -132,6 +132,9 @@ func (model *SStandaloneResourceBase) GetShortDesc() *jsonutils.JSONDict {
 	desc := model.SResourceBase.GetShortDesc()
 	desc.Add(jsonutils.NewString(model.GetName()), "name")
 	desc.Add(jsonutils.NewString(model.GetId()), "id")
+	if len(model.ExternalId) > 0 {
+		desc.Add(jsonutils.NewString(model.ExternalId), "external_id")
+	}
 	return desc
 }
 
