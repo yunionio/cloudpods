@@ -1,18 +1,16 @@
 package modules
 
 import (
-	"net/http"
-
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 )
 
 type SDomainManager struct {
-	ResourceManager
+	SResourceManager
 }
 
-func NewDomainManager(signer auth.Signer) *SDomainManager {
-	return &SDomainManager{ResourceManager: ResourceManager{
-		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}},
+func NewDomainManager(signer auth.Signer, debug bool) *SDomainManager {
+	return &SDomainManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameIAM,
 		Region:        "",
 		ProjectId:     "",

@@ -7,16 +7,14 @@ import (
 
 func init() {
 	type SecurityGroupListOptions struct {
-		VpcId  string `help:"VPC ID"`
-		Limit  int    `help:"page size"`
-		Marker string `help:"page marker"`
+		VpcId string `help:"VPC ID"`
 	}
 	shellutils.R(&SecurityGroupListOptions{}, "security-group-list", "List security group", func(cli *huawei.SRegion, args *SecurityGroupListOptions) error {
-		secgrps, total, e := cli.GetSecurityGroups(args.VpcId, args.Limit, args.Marker)
+		secgrps, e := cli.GetSecurityGroups(args.VpcId)
 		if e != nil {
 			return e
 		}
-		printList(secgrps, total, 0, 0, []string{})
+		printList(secgrps, 0, 0, 0, nil)
 		return nil
 	})
 

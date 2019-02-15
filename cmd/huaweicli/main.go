@@ -13,8 +13,9 @@ import (
 )
 
 type BaseOptions struct {
-	Help       bool   `help:"Show help"`
-	AccessUrl  string `help:"Access key" default:"$HUAWEI_ACCESS_URL" choices:"ChinaCloud|InternationalCloud"`
+	Help       bool   `help:"Show help" default:"false"`
+	Debug      bool   `help:"Show debug" default:"false"`
+	CloudEnv   string `help:"Cloud environment" default:"$HUAWEI_CLOUD_ENV" choices:"ChinaCloud|InternationalCloud"`
 	AccessKey  string `help:"Access key" default:"$HUAWEI_ACCESS_KEY"`
 	Secret     string `help:"Secret" default:"$HUAWEI_SECRET"`
 	RegionId   string `help:"RegionId" default:"$HUAWEI_REGION"`
@@ -78,7 +79,7 @@ func newClient(options *BaseOptions) (*huawei.SRegion, error) {
 		account = options.AccessKey
 	}
 
-	cli, err := huawei.NewHuaweiClient("", "", options.AccessUrl, account, options.Secret)
+	cli, err := huawei.NewHuaweiClient("", "", options.CloudEnv, account, options.Secret, options.Debug)
 	if err != nil {
 		return nil, err
 	}

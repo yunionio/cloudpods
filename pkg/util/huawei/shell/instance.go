@@ -9,15 +9,13 @@ import (
 
 func init() {
 	type InstanceListOptions struct {
-		Limit  int `help:"page size"`
-		Offset int `help:"page offset"`
 	}
 	shellutils.R(&InstanceListOptions{}, "instance-list", "List intances", func(cli *huawei.SRegion, args *InstanceListOptions) error {
-		instances, total, e := cli.GetInstances(args.Offset, args.Limit)
+		instances, e := cli.GetInstances()
 		if e != nil {
 			return e
 		}
-		printList(instances, total, args.Offset, args.Limit, []string{})
+		printList(instances, 0, 0, 0, nil)
 		return nil
 	})
 
