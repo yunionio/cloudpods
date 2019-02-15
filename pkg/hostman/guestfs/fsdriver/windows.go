@@ -145,6 +145,11 @@ func (w *SWindowsRootFs) putGuestScriptContents(spath, content string) error {
 	contentLen := len(content)
 
 	var j = 0
+	if content[0] == '\n' {
+		contentArr = append(contentArr, "")
+		j += 1
+	}
+
 	for i := 1; i < contentLen; i++ {
 		if content[i] == '\n' && content[i-1] != '\r' {
 			contentArr = append(contentArr, content[j:i])
@@ -156,6 +161,7 @@ func (w *SWindowsRootFs) putGuestScriptContents(spath, content string) error {
 	}
 
 	content = strings.Join(contentArr, "\r\n")
+	log.Errorln("GUESTPATH:", spath)
 	return w.rootFs.FilePutContents(spath, content, false, true)
 }
 
@@ -400,7 +406,7 @@ func (w *SWindowsRootFs) deploySetupCompleteScripts(uname, passwd string) bool {
 		return false
 	}
 	cmds := []string{
-		`%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -executionpolicy bypass %SystemRoot%\chgpwd_setup.ps1 '` +
+		`%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -executionpolicy bypass %SystemRoot%\chgpwd_setup.ps1 ` +
 			fmt.Sprintf("%s %s", uname, passwd),
 		"Net stop wuauserv",
 	}

@@ -19,6 +19,10 @@ type SLocalGuestFS struct {
 	mountPath string
 }
 
+func (f *SLocalGuestFS) GetMountPath() string {
+	return f.mountPath
+}
+
 func (f *SLocalGuestFS) SupportSerialPorts() bool {
 	return false
 }

@@ -12,11 +12,11 @@ func init() {
 	linuxFsDrivers := []newRootFsDriverFunc{
 		NewCentosRootFs, NewFedoraRootFs, NewRhelRootFs,
 		NewDebianRootFs, NewCirrosRootFs, NewCirrosNewRootFs, NewUbuntuRootFs,
-		//NewGentooRootFs, NewArchLinuxRootFs, NewOpenWrtRootFs, NewCoreOsRootFs,
+		NewGentooRootFs, NewArchLinuxRootFs, NewOpenWrtRootFs, NewCoreOsRootFs,
 	}
 	rootfsDrivers = append(rootfsDrivers, linuxFsDrivers...)
-	//rootfsDrivers = append(rootfsDrivers, NewMacOSRootFs)
-	//rootfsDrivers = append(rootfsDrivers, NewEsxiRootFs)
+	rootfsDrivers = append(rootfsDrivers, NewMacOSRootFs)
+	rootfsDrivers = append(rootfsDrivers, NewEsxiRootFs)
 	rootfsDrivers = append(rootfsDrivers, NewWindowsRootFs)
-	//rootfsDrivers = append(rootfsDrivers, NewAndroidRootFs)
+	rootfsDrivers = append(rootfsDrivers, NewAndroidRootFs)
 }
