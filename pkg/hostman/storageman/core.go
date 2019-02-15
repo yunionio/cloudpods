@@ -250,7 +250,7 @@ func (s *SStorageManager) NewSharedStorageInstance(mountPoint, storageType strin
 	} else if storageType == storagetypes.STORAGE_RBD ||
 		strings.HasPrefix(mountPoint, storagetypes.STORAGE_RBD) {
 		// TODO
-		// return NewRBDStorage(s, mountPoint)
+		return NewRBDStorage(s, mountPoint)
 	}
 	return nil
 }
