@@ -30,6 +30,14 @@ func (self *SAliyunGuestDriver) GetHypervisor() string {
 	return models.HYPERVISOR_ALIYUN
 }
 
+func (self *SAliyunGuestDriver) GetDefaultSysDiskBackend() string {
+	return models.STORAGE_CLOUD_EFFICIENCY
+}
+
+func (self *SAliyunGuestDriver) GetMinimalSysDiskSizeGb() int {
+	return 20
+}
+
 func (self *SAliyunGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
 	storages := host.GetAttachedStorages("")
 	for i := 0; i < len(storages); i += 1 {
@@ -37,7 +45,13 @@ func (self *SAliyunGuestDriver) ChooseHostStorage(host *models.SHost, backend st
 			return &storages[i]
 		}
 	}
-	for _, stype := range []string{"cloud_efficiency", "cloud_ssd", "cloud", "ephemeral_ssd"} {
+	for _, stype := range []string{
+		models.STORAGE_CLOUD_EFFICIENCY,
+		models.STORAGE_CLOUD_SSD,
+		models.STORAGE_CLOUD_ESSD,
+		models.STORAGE_PUBLIC_CLOUD,
+		models.STORAGE_EPHEMERAL_SSD,
+	} {
 		for i := 0; i < len(storages); i += 1 {
 			if storages[i].StorageType == stype {
 				return &storages[i]

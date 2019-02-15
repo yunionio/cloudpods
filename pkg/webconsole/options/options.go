@@ -16,4 +16,5 @@ type WebConsoleOptions struct {
 	IpmitoolPath    string `help:"ipmitool binary path used to connect baremetal sol" default:"/usr/bin/ipmitool"`
 	SshToolPath     string `help:"sshtool binary path used to connect server sol" default:"/usr/bin/ssh"`
 	SshpassToolPath string `help:"sshpass tool binary path used to connect server sol" default:"/usr/bin/sshpass"`
+	EnableAutoLogin bool   `help:"allow webconsole to log in directly with the cloudroot public key" default:"false"`
 }
