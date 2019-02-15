@@ -62,6 +62,9 @@ const (
 	STORAGE_HUAWEI_SSD  = "SSD"  // 超高IO云硬盘
 	STORAGE_HUAWEI_SAS  = "SAS"  // 高IO云硬盘
 	STORAGE_HUAWEI_SATA = "SATA" // 普通IO云硬盘
+
+	// openstack
+	STORAGE_OPENSTACK_ISCSI = "iscsi"
 )
 
 const (
