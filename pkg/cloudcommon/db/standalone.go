@@ -131,6 +131,9 @@ func (model *SStandaloneResourceBase) GetShortDesc(ctx context.Context) *jsonuti
 	desc := model.SResourceBase.GetShortDesc(ctx)
 	desc.Add(jsonutils.NewString(model.GetName()), "name")
 	desc.Add(jsonutils.NewString(model.GetId()), "id")
+	if len(model.ExternalId) > 0 {
+		desc.Add(jsonutils.NewString(model.ExternalId), "external_id")
+	}
 	return desc
 }
 
