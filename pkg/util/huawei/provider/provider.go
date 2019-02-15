@@ -53,7 +53,7 @@ func (self *SHuaweiProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 }
 
 func (self *SHuaweiProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	client, err := huawei.NewHuaweiClient(providerId, providerName, url, account, secret)
+	client, err := huawei.NewHuaweiClient(providerId, providerName, url, account, secret, false)
 	if err != nil {
 		return nil, err
 	}

@@ -56,7 +56,7 @@ type DBOptions struct {
 	AutoSyncTable bool   `help:"Automatically synchronize table changes if differences are detected"`
 
 	GlobalVirtualResourceNamespace bool `help:"Per project namespace or global namespace for virtual resources"`
-	DebugSqlchemy                  bool `default:"False" help:"Print SQL executed by sqlchemy"`
+	DebugSqlchemy                  bool `default:"false" help:"Print SQL executed by sqlchemy"`
 }
 
 func (this *DBOptions) GetDBConnection() (dialect, connstr string, err error) {
