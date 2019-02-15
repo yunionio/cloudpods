@@ -59,8 +59,7 @@ func (self *SBaseManager) _list(request requests.IRequest, responseKey string) (
 	if err != nil {
 		return nil, err
 	}
-	total := 0
-	// total, _ := body.Int("count")
+	total, _ := body.Int("count")
 	// if err != nil {
 	//	total = int64(len(rets))
 	//}

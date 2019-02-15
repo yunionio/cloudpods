@@ -133,7 +133,7 @@ func (self *SRegion) GetSnapshots(diskId string, snapshotName string) ([]SSnapsh
 	}
 
 	snapshots := make([]SSnapshot, 0)
-	err := doListAllWithOffset(self.ecsClient.Snapshots.List, params, &snapshots, 1)
+	err := doListAllWithOffset(self.ecsClient.Snapshots.List, params, &snapshots)
 	for i := range snapshots {
 		snapshots[i].region = self
 	}

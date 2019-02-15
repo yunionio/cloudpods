@@ -346,7 +346,7 @@ func (self *SRegion) GetDisks(zoneId string) ([]SDisk, error) {
 	}
 
 	disks := make([]SDisk, 0)
-	err := doListAllWithOffset(self.ecsClient.Disks.List, queries, &disks, 1)
+	err := doListAllWithOffset(self.ecsClient.Disks.List, queries, &disks)
 	return disks, err
 }
 

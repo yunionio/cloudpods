@@ -51,7 +51,8 @@ func unmarshalResult(resp jsonutils.JSONObject, respErr error, result interface{
 
 var pageLimit = 1000
 
-func doListAllWithOffset(doList listFunc, queries map[string]string, result interface{}, startIndex int) error {
+func doListAllWithOffset(doList listFunc, queries map[string]string, result interface{}) error {
+	startIndex := 0
 	resultValue := reflect.Indirect(reflect.ValueOf(result))
 	queries["limit"] = fmt.Sprintf("%d", pageLimit)
 	queries["offset"] = fmt.Sprintf("%d", startIndex)

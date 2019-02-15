@@ -516,7 +516,7 @@ func (self *SRegion) GetInstances() ([]SInstance, error) {
 	}
 
 	instances := make([]SInstance, 0)
-	err := doListAllWithOffset(self.ecsClient.Servers.List, queries, &instances, 1)
+	err := doListAllWithOffset(self.ecsClient.Servers.List, queries, &instances)
 	return instances, err
 }
 
