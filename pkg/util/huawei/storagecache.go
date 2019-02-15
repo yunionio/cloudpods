@@ -2,13 +2,13 @@ package huawei
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
-	"fmt"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -30,26 +30,24 @@ func GetBucketName(regionId string, imageId string) string {
 }
 
 func (self *SStoragecache) fetchImages() error {
-	limit := 100
-	marker := ""
-	images := make([]SImage, 0)
-	for {
-		parts, count, err := self.region.GetImages("", ImageOwnerSelf, "", limit, marker)
-		if err != nil {
-			return err
-		}
-		images = append(images, parts...)
-		if count <= limit {
-			break
-		}
-
-		marker = parts[count-1].ID
+	imagesGold, err := self.region.GetImages("", ImageOwnerPublic, "", EnvFusionCompute)
+	if err != nil {
+		return err
 	}
 
-	self.iimages = make([]cloudprovider.ICloudImage, len(images))
-	for i := 0; i < len(images); i += 1 {
-		images[i].storageCache = self
-		self.iimages[i] = &images[i]
+	imagesSelf, err := self.region.GetImages("", ImageOwnerSelf, "", EnvFusionCompute)
+	if err != nil {
+		return err
+	}
+
+	self.iimages = make([]cloudprovider.ICloudImage, len(imagesGold)+len(imagesSelf))
+	for i := range imagesGold {
+		imagesGold[i].storageCache = self
+		self.iimages[i] = &imagesGold[i]
+	}
+	for i := range imagesSelf {
+		imagesSelf[i].storageCache = self
+		self.iimages[i+len(imagesGold)] = &imagesSelf[i]
 	}
 	return nil
 }

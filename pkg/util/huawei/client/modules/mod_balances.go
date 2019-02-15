@@ -2,7 +2,6 @@ package modules
 
 import (
 	"fmt"
-	"net/http"
 
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/responses"
@@ -17,7 +16,7 @@ https://support.huaweicloud.com/api-oce/zh-cn_topic_0075195195.html
 */
 type SBalanceManager struct {
 	domainId string // 租户ID
-	ResourceManager
+	SResourceManager
 }
 
 type balanceCtx struct {
@@ -31,9 +30,9 @@ func (self *balanceCtx) GetPath() string {
 }
 
 // 这个manager非常特殊。只有List	和 SetDomainId方法可用。其他方法未验证
-func NewBalanceManager(signer auth.Signer) *SBalanceManager {
-	return &SBalanceManager{ResourceManager: ResourceManager{
-		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}},
+func NewBalanceManager(signer auth.Signer, debug bool) *SBalanceManager {
+	return &SBalanceManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameBSS,
 		Region:        "cn-north-1",
 		ProjectId:     "",

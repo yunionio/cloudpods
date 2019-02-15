@@ -2,9 +2,9 @@ package modules
 
 import (
 	"fmt"
-	"net/http"
 
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/manager"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/responses"
@@ -13,7 +13,7 @@ import (
 // domian 客户账号ID https://support.huaweicloud.com/oce_faq/zh-cn_topic_0113714840.html
 type SOrderManager struct {
 	orderCtx manager.IManagerContext
-	ResourceManager
+	SResourceManager
 }
 
 type orderCtx struct {
@@ -27,9 +27,9 @@ func (self *orderCtx) GetPath() string {
 }
 
 // https://support.huaweicloud.com/api-oce/zh-cn_topic_0084961226.html
-func NewOrderManager(regionId string, signer auth.Signer) *SOrderManager {
-	return &SOrderManager{ResourceManager: ResourceManager{
-		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}},
+func NewOrderManager(regionId string, signer auth.Signer, debug bool) *SOrderManager {
+	return &SOrderManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameBSS,
 		Region:        regionId,
 		ProjectId:     "",

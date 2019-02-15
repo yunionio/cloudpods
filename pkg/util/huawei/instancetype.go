@@ -15,6 +15,7 @@ type OSExtraSpecs struct {
 	EcsPerformancetype string `json:"ecs:performancetype"`
 }
 
+// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212656.html
 func (self *SRegion) fetchInstanceTypes(zoneId string) ([]SInstanceType, error) {
 	querys := map[string]string{}
 	if len(zoneId) > 0 {
@@ -22,7 +23,7 @@ func (self *SRegion) fetchInstanceTypes(zoneId string) ([]SInstanceType, error) 
 	}
 
 	instanceTypes := make([]SInstanceType, 0)
-	err := DoList(self.ecsClient.Flavors.List, querys, &instanceTypes)
+	err := doListAll(self.ecsClient.Flavors.List, querys, &instanceTypes)
 	return instanceTypes, err
 }
 
