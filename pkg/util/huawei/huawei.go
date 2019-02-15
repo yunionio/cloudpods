@@ -67,17 +67,33 @@ func NewHuaweiClient(providerId, providerName, accessurl, account, secret string
 		secret:       secret,
 		debug:        debug,
 	}
-	err := client.fetchRegions()
-	if err != nil {
-		return nil, err
-	}
-
-	cred := credentials.NewAccessKeyCredential(client.accessKey, client.accessKey)
-	client.signer, err = auth.NewSignerWithCredential(cred)
+	err := client.init()
 	if err != nil {
 		return nil, err
 	}
 	return &client, nil
+}
+
+func (self *SHuaweiClient) init() error {
+	err := self.fetchRegions()
+	if err != nil {
+		return err
+	}
+	err = self.initSigner()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (self *SHuaweiClient) initSigner() error {
+	var err error
+	cred := credentials.NewAccessKeyCredential(self.accessKey, self.accessKey)
+	self.signer, err = auth.NewSignerWithCredential(cred)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (self *SHuaweiClient) fetchRegions() error {
