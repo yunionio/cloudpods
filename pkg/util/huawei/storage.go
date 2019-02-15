@@ -50,22 +50,9 @@ func (self *SStorage) GetIZone() cloudprovider.ICloudZone {
 }
 
 func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	disks := make([]SDisk, 0)
-	limit := 100
-	offset := 0
-	for {
-		parts, count, err := self.zone.region.GetDisks(self.zone.GetId(), offset, limit)
-		if err != nil {
-			log.Errorf("GetDisks fail %s", err)
-			return nil, err
-		}
-
-		disks = append(disks, parts...)
-		if count < limit {
-			break
-		}
-
-		offset += limit
+	disks, err := self.zone.region.GetDisks(self.zone.GetId())
+	if err != nil {
+		return nil, err
 	}
 
 	// 按storage type 过滤出disk

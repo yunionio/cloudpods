@@ -28,9 +28,10 @@ func (self *SRegion) getFingerprint(publicKey string) (string, error) {
 	return fingerprint, nil
 }
 
+// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212676.html
 func (self *SRegion) GetKeypairs() ([]SKeypair, int, error) {
 	keypairs := make([]SKeypair, 0)
-	err := DoList(self.ecsClient.Keypairs.List, nil, &keypairs)
+	err := doListAll(self.ecsClient.Keypairs.List, nil, &keypairs)
 	return keypairs, len(keypairs), err
 }
 

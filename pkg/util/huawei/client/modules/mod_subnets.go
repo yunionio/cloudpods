@@ -1,18 +1,16 @@
 package modules
 
 import (
-	"net/http"
-
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 )
 
 type SSubnetManager struct {
-	ResourceManager
+	SResourceManager
 }
 
-func NewSubnetManager(regionId string, projectId string, signer auth.Signer) *SSubnetManager {
-	return &SSubnetManager{ResourceManager: ResourceManager{
-		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}},
+func NewSubnetManager(regionId string, projectId string, signer auth.Signer, debug bool) *SSubnetManager {
+	return &SSubnetManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameVPC,
 		Region:        regionId,
 		ProjectId:     projectId,

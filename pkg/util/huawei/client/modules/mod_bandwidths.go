@@ -1,18 +1,16 @@
 package modules
 
 import (
-	"net/http"
-
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 )
 
 type SBandwidthManager struct {
-	ResourceManager
+	SResourceManager
 }
 
-func NewBandwidthManager(regionId string, projectId string, signer auth.Signer) *SBandwidthManager {
-	return &SBandwidthManager{ResourceManager: ResourceManager{
-		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}},
+func NewBandwidthManager(regionId string, projectId string, signer auth.Signer, debug bool) *SBandwidthManager {
+	return &SBandwidthManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameVPC,
 		Region:        regionId,
 		ProjectId:     projectId,

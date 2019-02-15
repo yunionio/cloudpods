@@ -1,18 +1,16 @@
 package modules
 
 import (
-	"net/http"
-
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 )
 
 type SEipManager struct {
-	ResourceManager
+	SResourceManager
 }
 
-func NewEipManager(regionId string, projectId string, signer auth.Signer) *SEipManager {
-	return &SEipManager{ResourceManager: ResourceManager{
-		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}},
+func NewEipManager(regionId string, projectId string, signer auth.Signer, debug bool) *SEipManager {
+	return &SEipManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameVPC,
 		Region:        regionId,
 		ProjectId:     projectId,

@@ -1,7 +1,6 @@
 package modules
 
 import (
-	"net/http"
 	"strconv"
 
 	"fmt"
@@ -11,14 +10,14 @@ import (
 )
 
 type SServerManager struct {
-	ResourceManager
+	SResourceManager
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212668.html
 // v.1.1 新增支持创建包年/包月的弹性云服务器。！！但是不支持查询等调用 https://support.huaweicloud.com/api-ecs/zh-cn_topic_0093055772.html
-func NewServerManager(regionId, projectId string, signer auth.Signer) *SServerManager {
-	return &SServerManager{ResourceManager: ResourceManager{
-		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}},
+func NewServerManager(regionId, projectId string, signer auth.Signer, debug bool) *SServerManager {
+	return &SServerManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameECS,
 		Region:        regionId,
 		ProjectId:     projectId,
@@ -77,9 +76,9 @@ func (self *SServerManager) Create(params jsonutils.JSONObject) (jsonutils.JSONO
 }
 
 // 不推荐使用这个manager
-func NewNovaServerManager(regionId, projectId string, signer auth.Signer) *SServerManager {
-	return &SServerManager{ResourceManager: ResourceManager{
-		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}},
+func NewNovaServerManager(regionId, projectId string, signer auth.Signer, debug bool) *SServerManager {
+	return &SServerManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameECS,
 		Region:        regionId,
 		ProjectId:     projectId,

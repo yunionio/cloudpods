@@ -34,9 +34,9 @@ func (self *SProject) GetHealthStatus() string {
 }
 
 func (self *SHuaweiClient) fetchProjects() ([]SProject, error) {
-	huawei, _ := client.NewClientWithAccessKey("", "", self.accessKey, self.secret)
+	huawei, _ := client.NewClientWithAccessKey("", "", self.accessKey, self.secret, self.debug)
 	projects := make([]SProject, 0)
-	err := DoList(huawei.Projects.List, nil, &projects)
+	err := doListAll(huawei.Projects.List, nil, &projects)
 	return projects, err
 }
 
@@ -52,4 +52,8 @@ func (self *SHuaweiClient) GetProjectById(projectId string) (SProject, error) {
 		}
 	}
 	return SProject{}, fmt.Errorf("project %s not found", projectId)
+}
+
+func (self *SHuaweiClient) GetProjects() ([]SProject, error) {
+	return self.fetchProjects()
 }
