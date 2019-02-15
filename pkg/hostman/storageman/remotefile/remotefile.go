@@ -183,8 +183,8 @@ func (r *SRemoteFile) download(getData bool, preChksum string) bool {
 		log.Errorln(err)
 		return false
 	} else {
+		defer resp.Body.Close()
 		if resp.StatusCode < 300 {
-			defer resp.Body.Close()
 			if getData {
 				var reader = resp.Body
 
