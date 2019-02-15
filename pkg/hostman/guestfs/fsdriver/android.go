@@ -26,7 +26,7 @@ func ParsePropStr(lines string) map[string]string {
 
 func BuildPropStr(prop map[string]string) string {
 	keys := []string{}
-	for k, _ := range prop {
+	for k := range prop {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
