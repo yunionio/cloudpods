@@ -161,7 +161,6 @@ func (w *SWindowsRootFs) putGuestScriptContents(spath, content string) error {
 	}
 
 	content = strings.Join(contentArr, "\r\n")
-	log.Errorln("GUESTPATH:", spath)
 	return w.rootFs.FilePutContents(spath, content, false, true)
 }
 

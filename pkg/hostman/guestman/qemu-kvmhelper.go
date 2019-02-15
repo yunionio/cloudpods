@@ -10,10 +10,10 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/ethernet"
-	"yunion.io/x/onecloud/pkg/cloudcommon/ethernet/arp"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/util/ethernet"
+	"yunion.io/x/onecloud/pkg/util/ethernet/arp"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 )
