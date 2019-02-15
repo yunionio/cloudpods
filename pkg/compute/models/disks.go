@@ -1173,9 +1173,11 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 			}
 		}
 	}
-	if len(diskConfig.ImageId) > 0 && diskConfig.SizeMb == 0 {
-		diskConfig.SizeMb = options.Options.DefaultDiskSize // MB
-	} else if len(diskConfig.ImageId) == 0 && diskConfig.SizeMb == 0 {
+	// XXX: do not set default disk size here, set it by each hypervisor driver
+	// if len(diskConfig.ImageId) > 0 && diskConfig.SizeMb == 0 {
+	// 	diskConfig.SizeMb = options.Options.DefaultDiskSize // MB
+	// else
+	if len(diskConfig.ImageId) == 0 && diskConfig.SizeMb == 0 {
 		return nil, httperrors.NewInputParameterError("Diskinfo not contains either imageID or size")
 	}
 	return &diskConfig, nil
