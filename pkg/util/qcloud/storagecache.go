@@ -14,6 +14,7 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -84,7 +85,7 @@ func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imag
 func (self *SStoragecache) fetchImages() error {
 	images := make([]SImage, 0)
 	for {
-		parts, total, err := self.region.GetImages("", "PRIVATE_IMAGE", nil, "", len(images), 50)
+		parts, total, err := self.region.GetImages("", "", nil, "", len(images), 50)
 		if err != nil {
 			return err
 		}
@@ -112,14 +113,14 @@ func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 }
 
 func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {
-	parts, _, err := self.region.GetImages("", "PRIVATE_IMAGE", []string{extId}, "", 0, 1)
+	parts, _, err := self.region.GetImages("", "", []string{extId}, "", 0, 1)
 	if err != nil {
 		return nil, err
 	}
 	if len(parts) == 0 {
 		return nil, cloudprovider.ErrNotFound
 	}
-	parts[1].storageCache = self
+	parts[0].storageCache = self
 	return &parts[0], nil
 }
 
@@ -221,7 +222,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	log.Debugf("Import image %s", imageName)
 	if image, err := self.region.ImportImage(imageName, osArch, osDist, osVersion, self.region.getCosUrl(bucketName, imageId)); err != nil {
 		return "", err
-	} else if cloudprovider.WaitStatus(image, string(ImageStatusAvailable), 15*time.Second, 3600*time.Second); err != nil {
+	} else if cloudprovider.WaitStatus(image, models.CACHED_IMAGE_STATUS_READY, 15*time.Second, 3600*time.Second); err != nil {
 		return "", err
 	} else {
 		return image.ImageId, nil

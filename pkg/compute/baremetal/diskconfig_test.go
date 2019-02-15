@@ -81,7 +81,7 @@ func TestParseDiskConfig(t *testing.T) {
 				Count:   0,
 				Splits:  splits100_32,
 				Adapter: &zAda,
-				Strip:   tStrip64k,
+				Strip:   &tStrip64k,
 				Range:   []int64{12, 13},
 			},
 			wantErr: false,
@@ -342,24 +342,14 @@ func TestCalculateLayout(t *testing.T) {
   {
     "disks": [
       {
-        "slot": 0,
-        "status": "",
         "rotate": true,
-        "adapter": 0,
         "driver": "MegaRaid",
-        "model": "",
-        "enclousure": 0,
         "size": 953344,
         "index": 12
       },
       {
-        "slot": 0,
-        "status": "",
         "rotate": true,
-        "adapter": 0,
         "driver": "MegaRaid",
-        "model": "",
-        "enclousure": 0,
         "size": 953344,
         "index": 13
       }
@@ -379,79 +369,51 @@ func TestCalculateLayout(t *testing.T) {
         818176
       ],
       "adapter": 0,
-      "cachedbadbbu": false,
-      "strip": 0,
-      "ra": false,
-      "wt": false,
-      "direct": false
+	  "driver": ""
     },
     "size": 953344
   },
   {
     "disks": [
       {
-        "slot": 0,
-        "status": "",
-        "rotate": true,
         "adapter": 2,
         "driver": "MegaRaid",
-        "model": "",
-        "enclousure": 0,
         "size": 2861056,
+        "rotate": true,
         "index": 0
       },
       {
-        "slot": 0,
-        "status": "",
         "rotate": true,
         "adapter": 2,
         "driver": "MegaRaid",
-        "model": "",
-        "enclousure": 0,
         "size": 2861056,
         "index": 1
       },
       {
-        "slot": 0,
-        "status": "",
         "rotate": true,
         "adapter": 2,
         "driver": "MegaRaid",
-        "model": "",
-        "enclousure": 0,
         "size": 2861056,
         "index": 2
       },
       {
-        "slot": 0,
-        "status": "",
         "rotate": true,
         "adapter": 2,
         "driver": "MegaRaid",
-        "model": "",
-        "enclousure": 0,
         "size": 2861056,
         "index": 3
       },
       {
-        "slot": 0,
-        "status": "",
         "rotate": true,
         "adapter": 2,
         "driver": "MegaRaid",
-        "model": "",
-        "enclousure": 0,
         "size": 2861056,
         "index": 4
       },
       {
-        "slot": 0,
-        "status": "",
         "rotate": true,
         "adapter": 2,
         "driver": "MegaRaid",
-        "model": "",
-        "enclousure": 0,
         "size": 2861056,
         "index": 5
       }
@@ -464,79 +426,51 @@ func TestCalculateLayout(t *testing.T) {
       "splits": "",
       "size": null,
       "adapter": 2,
-      "cachedbadbbu": false,
-      "strip": 0,
-      "ra": false,
-      "wt": false,
-      "direct": false
+	  "driver": ""
     },
     "size": 14305280
   },
   {
     "disks": [
       {
-        "slot": 0,
-        "status": "",
         "rotate": true,
         "adapter": 2,
         "driver": "MegaRaid",
-        "model": "",
-        "enclousure": 0,
         "size": 2861056,
         "index": 6
       },
       {
-        "slot": 0,
-        "status": "",
         "rotate": true,
         "adapter": 2,
         "driver": "MegaRaid",
-        "model": "",
-        "enclousure": 0,
         "size": 2861056,
         "index": 7
       },
       {
-        "slot": 0,
-        "status": "",
         "rotate": true,
         "adapter": 2,
         "driver": "MegaRaid",
-        "model": "",
-        "enclousure": 0,
         "size": 2861056,
         "index": 8
       },
       {
-        "slot": 0,
-        "status": "",
         "rotate": true,
         "adapter": 2,
         "driver": "MegaRaid",
-        "model": "",
-        "enclousure": 0,
         "size": 2861056,
         "index": 9
       },
       {
-        "slot": 0,
-        "status": "",
         "rotate": true,
         "adapter": 2,
         "driver": "MegaRaid",
-        "model": "",
-        "enclousure": 0,
         "size": 2861056,
         "index": 10
       },
       {
-        "slot": 0,
-        "status": "",
         "rotate": true,
         "adapter": 2,
         "driver": "MegaRaid",
-        "model": "",
-        "enclousure": 0,
         "size": 2861056,
         "index": 11
       }
@@ -549,11 +483,7 @@ func TestCalculateLayout(t *testing.T) {
       "splits": "",
       "size": null,
       "adapter": 2,
-      "cachedbadbbu": false,
-      "strip": 0,
-      "ra": false,
-      "wt": false,
-      "direct": false
+	  "driver": ""
     },
     "size": 14305280
   }
@@ -1089,4 +1019,40 @@ func TestStorageLoad(t *testing.T) {
 		t.Fatalf("CalculateLayout err: %v", err)
 	}
 	log.Debugf("layout: %s", layout)
+}
+
+func TestCalculateSize(t *testing.T) {
+	type args struct {
+		conf     string
+		storages []*BaremetalStorage
+	}
+	tests := []struct {
+		name string
+		args args
+		want int64
+	}{
+		{
+			name: "NoneRaid",
+			args: args{
+				conf:     "",
+				storages: testStorages,
+			},
+			want: 2861056*12 + 953344*2,
+		},
+		{
+			name: "RAID1",
+			args: args{
+				conf:     DISK_CONF_RAID1,
+				storages: testStorages,
+			},
+			want: 953344 * (12 + 2) / 2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CalculateSize(tt.args.conf, tt.args.storages); got != tt.want {
+				t.Errorf("CalculateSize() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

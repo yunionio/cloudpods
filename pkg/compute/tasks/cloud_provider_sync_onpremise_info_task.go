@@ -41,13 +41,29 @@ func syncOnPremiseCloudProviderInfo(ctx context.Context, provider *models.SCloud
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
 	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
 
+	storageCachePairs := make([]sStoragecacheSyncPair, 0)
+
 	for i := 0; i < len(localHosts); i += 1 {
 		if len(syncRange.Host) > 0 && !utils.IsInStringArray(localHosts[i].Id, syncRange.Host) {
 			continue
 		}
-		syncHostStorages(ctx, provider, task, &localHosts[i], remoteHosts[i])
+		newCachePairs := syncHostStorages(ctx, provider, task, &localHosts[i], remoteHosts[i], storageCachePairs)
+		if len(newCachePairs) > 0 {
+			storageCachePairs = append(storageCachePairs, newCachePairs...)
+		}
 		syncHostNics(ctx, provider, task, &localHosts[i], remoteHosts[i])
-		syncHostVMs(ctx, provider, task, &localHosts[i], remoteHosts[i], syncRange)
+		syncHostVMs(ctx, provider, task, driver, &localHosts[i], remoteHosts[i], syncRange)
+	}
+
+	log.Debugf("storageCachePairs count %d", len(storageCachePairs))
+	for i := range storageCachePairs {
+		result := storageCachePairs[i].syncCloudImages(ctx, task.GetUserCred())
+		msg := result.Result()
+		log.Infof("syncCloudImages result: %s", msg)
+		if result.IsError() {
+			logSyncFailed(provider, task, msg)
+			return
+		}
 	}
 }
 

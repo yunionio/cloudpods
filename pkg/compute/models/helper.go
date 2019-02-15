@@ -84,6 +84,13 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 		if err != nil {
 			return nil, err
 		}
+
+		data.Set("prefer_baremetal_id", jsonutils.NewString(baremetal.Id))
+		data.Set("prefer_host_id", jsonutils.NewString(baremetal.Id))
+		zone := baremetal.GetZone()
+		data.Set("prefer_zone_id", jsonutils.NewString(zone.Id))
+		region := zone.GetRegion()
+		data.Set("prefer_region_id", jsonutils.NewString(region.Id))
 	} else {
 		schedtags := make(map[string]string)
 		if data.Contains("aggregate_strategy") {
@@ -121,9 +128,11 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 				}
 			}
 			wire := wireObj.(*SWire)
-			data.Add(jsonutils.NewString(wire.Id), "prefer_wire_id")
+			data.Set("prefer_wire_id", jsonutils.NewString(wire.Id))
 			zone := wire.GetZone()
-			data.Add(jsonutils.NewString(zone.Id), "prefer_zone_id")
+			data.Set("prefer_zone_id", jsonutils.NewString(zone.Id))
+			region := zone.GetRegion()
+			data.Set("prefer_region_id", jsonutils.NewString(region.Id))
 		} else if data.Contains("prefer_zone") {
 			zoneStr, _ := data.GetString("prefer_zone")
 			zoneObj, err := ZoneManager.FetchById(zoneStr)
@@ -135,7 +144,21 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 				}
 			}
 			zone := zoneObj.(*SZone)
-			data.Add(jsonutils.NewString(zone.Id), "prefer_zone_id")
+			data.Set("prefer_zone_id", jsonutils.NewString(zone.Id))
+			region := zone.GetRegion()
+			data.Set("prefer_region_id", jsonutils.NewString(region.Id))
+		} else if data.Contains("prefer_region") {
+			regionStr, _ := data.GetString("prefer_region")
+			regionObj, err := CloudregionManager.FetchById(regionStr)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError("Region %s not found", regionStr)
+				} else {
+					return nil, httperrors.NewGeneralError(err)
+				}
+			}
+			region := regionObj.(*SCloudregion)
+			data.Set("prefer_region_id", jsonutils.NewString(region.Id))
 		}
 	}
 

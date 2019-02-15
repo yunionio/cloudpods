@@ -37,10 +37,12 @@ type SAliyunClient struct {
 	accessKey    string
 	secret       string
 	iregions     []cloudprovider.ICloudRegion
+
+	Debug bool
 }
 
-func NewAliyunClient(providerId string, providerName string, accessKey string, secret string) (*SAliyunClient, error) {
-	client := SAliyunClient{providerId: providerId, providerName: providerName, accessKey: accessKey, secret: secret}
+func NewAliyunClient(providerId string, providerName string, accessKey string, secret string, isDebug bool) (*SAliyunClient, error) {
+	client := SAliyunClient{providerId: providerId, providerName: providerName, accessKey: accessKey, secret: secret, Debug: isDebug}
 	err := client.fetchRegions()
 	if err != nil {
 		return nil, err
@@ -53,7 +55,12 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 		resp, err := _jsonRequest(client, domain, apiVersion, apiName, params)
 		retry := false
 		if err != nil {
-			for _, code := range []string{"SignatureNonceUsed", "InvalidInstance.NotSupported"} {
+			for _, code := range []string{"404 Not Found"} {
+				if strings.Contains(err.Error(), code) {
+					return nil, cloudprovider.ErrNotFound
+				}
+			}
+			for _, code := range []string{"SignatureNonceUsed", "InvalidInstance.NotSupported", "try later", "BackendServer.configuring"} {
 				if strings.Contains(err.Error(), code) {
 					retry = true
 					break

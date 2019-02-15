@@ -142,6 +142,10 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 	if !cloudprovider.IsSupported(provider) {
 		return nil, httperrors.NewInputParameterError("Unsupported provider %s", provider)
 	}
+	providerDriver, _ := cloudprovider.GetProviderDriver(provider)
+	if err := providerDriver.ValidateCreateCloudaccountData(ctx, userCred, data); err != nil {
+		return nil, err
+	}
 	// check duplication
 	// url, account, provider must be unique
 	account, _ := data.GetString("account")
@@ -165,8 +169,8 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		if err == cloudprovider.ErrNoSuchProvder {
 			return nil, httperrors.NewResourceNotFoundError("no such provider %s", provider)
 		}
-		log.Debugf("ValidateCreateData %s", err.Error())
-		return nil, httperrors.NewInputParameterError("invalid cloud account info")
+		//log.Debugf("ValidateCreateData %s", err.Error())
+		return nil, httperrors.NewInputParameterError("invalid cloud account info error: %s", err.Error())
 	}
 
 	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
@@ -245,47 +249,36 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		return nil, httperrors.NewInvalidStatusError("Account disabled")
 	}
 
-	var err error
-	changed := false
-	secret, _ := data.GetString("secret")
-	account, _ := data.GetString("account")
-	if len(account) > 0 && self.Provider == CLOUD_PROVIDER_AZURE {
-		return nil, httperrors.NewInputParameterError("not allow update azure tenant info")
+	providerDriver, _ := cloudprovider.GetProviderDriver(self.Provider)
+	account, err := providerDriver.ValidateUpdateCloudaccountCredential(ctx, userCred, data, self.Account)
+	if err != nil {
+		return nil, err
 	}
-	accessUrl, _ := data.GetString("access_url")
-	if len(secret) > 0 || len(account) > 0 || len(accessUrl) > 0 {
+
+	changed := false
+	if len(account.Secret) > 0 || len(account.Account) > 0 {
 		// check duplication
 		q := self.GetModelManager().Query()
-		q = q.Equals("access_url", accessUrl)
-		q = q.Equals("account", account)
+		q = q.Equals("account", account.Account)
+		q = q.Equals("access_url", self.AccessUrl)
 		q = q.NotEquals("id", self.Id)
 		if q.Count() > 0 {
-			return nil, httperrors.NewConflictError("Access url and account conflict")
+			return nil, httperrors.NewConflictError("account %s conflict", account.Account)
 		}
 	}
 
-	validateUrl := self.AccessUrl
-	if len(accessUrl) > 0 {
-		validateUrl = accessUrl
-	}
-	validateAccount := self.Account
-	if len(account) > 0 {
-		validateAccount = account
-	}
-	validateSecret, _ := self.getPassword()
-	if len(secret) > 0 {
-		validateSecret = secret
-	}
-	if err := cloudprovider.IsValidCloudAccount(validateUrl, validateAccount, validateSecret, self.Provider); err != nil {
-		return nil, httperrors.NewInputParameterError("invalid cloud account info")
+	originSecret, _ := self.getPassword()
+
+	if err := cloudprovider.IsValidCloudAccount(self.AccessUrl, account.Account, account.Secret, self.Provider); err != nil {
+		return nil, httperrors.NewInputParameterError("invalid cloud account info error: %s", err.Error())
 	}
 
-	if (len(account) > 0 && account != self.Account) || (len(accessUrl) > 0 && accessUrl != self.AccessUrl) {
-		if len(account) > 0 && account != self.Account {
+	if (account.Account != self.Account) || (account.Secret != originSecret) {
+		if account.Account != self.Account {
 			for _, cloudprovider := range self.GetCloudproviders() {
 				if cloudprovider.Account == self.Account {
 					_, err = cloudprovider.GetModelManager().TableSpec().Update(&cloudprovider, func() error {
-						cloudprovider.Account = account
+						cloudprovider.Account = account.Account
 						return nil
 					})
 					if err != nil {
@@ -295,30 +288,21 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 			}
 		}
 		_, err = self.GetModelManager().TableSpec().Update(self, func() error {
-			if len(account) > 0 {
-				self.Account = account
-			}
-			if len(accessUrl) > 0 {
-				self.AccessUrl = accessUrl
-			}
+			self.Account = account.Account
 			return nil
 		})
 		if err != nil {
 			return nil, err
 		}
-		changed = true
-	}
 
-	if len(secret) > 0 {
-		err = self.savePassword(secret)
+		err = self.savePassword(account.Secret)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, provider := range self.GetCloudproviders() {
-			provider.savePassword(secret)
+			provider.savePassword(account.Secret)
 		}
-
 		changed = true
 	}
 
@@ -345,10 +329,13 @@ func (self *SCloudaccount) StartSyncCloudProviderInfoTask(ctx context.Context, u
 			taskItems = append(taskItems, &cloudProviders[i])
 		}
 	}
+	originState := self.Status
+	self.MarkStartSync(userCred)
 
 	task, err := taskman.TaskManager.NewParallelTask(ctx, "CloudAccountSyncInfoTask", taskItems, userCred, params, "", "", nil)
 	if err != nil {
 		log.Errorf("CloudAccountSyncInfoTask newTask error %s", err)
+		self.SetStatus(userCred, originState, err.Error())
 	} else {
 		task.ScheduleRun(nil)
 	}
@@ -828,4 +815,40 @@ func (self *SCloudaccount) PerformChangeProject(ctx context.Context, userCred mc
 		return nil, httperrors.NewInvalidStatusError("no subaccount")
 	}
 	return providers[0].PerformChangeProject(ctx, userCred, query, data)
+}
+
+func (manager *SCloudaccountManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	accountStr, _ := query.GetString("account")
+	if len(accountStr) > 0 {
+		queryDict := query.(*jsonutils.JSONDict)
+		queryDict.Remove("account")
+		accountObj, err := manager.FetchByIdOrName(userCred, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), accountStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		q = q.Equals("id", accountObj.GetId())
+	}
+
+	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	managerStr, _ := query.GetString("manager")
+	if len(managerStr) > 0 {
+		providerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		provider := providerObj.(*SCloudprovider)
+		q = q.Equals("id", provider.CloudaccountId)
+	}
+	return q, nil
 }

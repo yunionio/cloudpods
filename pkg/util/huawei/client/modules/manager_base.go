@@ -5,27 +5,48 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/requests"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/responses"
 )
 
-type BaseManager struct {
-	signer     auth.Signer
-	httpClient *http.Client
+type IRequestHook interface {
+	Process(r requests.IRequest)
+}
+
+type SBaseManager struct {
+	signer      auth.Signer
+	httpClient  *http.Client
+	requestHook IRequestHook // 用于对request做特殊处理。非必要请不要使用！！！。目前只有port接口用到。
 
 	columns []string
 	debug   bool
 }
 
-func (self *BaseManager) GetColumns() []string {
+func NewBaseManager2(signer auth.Signer, debug bool, requesthk IRequestHook) SBaseManager {
+	return SBaseManager{
+		signer:      signer,
+		httpClient:  httputils.GetDefaultClient(),
+		debug:       debug,
+		requestHook: requesthk,
+	}
+}
+
+func NewBaseManager(signer auth.Signer, debug bool) SBaseManager {
+	return NewBaseManager2(signer, debug, nil)
+}
+
+func (self *SBaseManager) GetColumns() []string {
 	return self.columns
 }
 
-func (self *BaseManager) _list(request requests.IRequest, responseKey string) (*responses.ListResult, error) {
+func (self *SBaseManager) _list(request requests.IRequest, responseKey string) (*responses.ListResult, error) {
 	_, body, err := self.jsonRequest(request)
 	if err != nil {
 		return nil, err
@@ -38,31 +59,29 @@ func (self *BaseManager) _list(request requests.IRequest, responseKey string) (*
 	if err != nil {
 		return nil, err
 	}
-	total, err := body.Int("count")
-	if err != nil {
-		total = int64(len(rets))
-	}
+	total, _ := body.Int("count")
+	// if err != nil {
+	//	total = int64(len(rets))
+	//}
 
-	if total == 0 {
-		total = int64(len(rets))
-	}
+	//if total == 0 {
+	//	total = int64(len(rets))
+	//}
 
 	limit := 0
-	v, exists := request.GetQueryParams()["limit"]
-	if exists {
-		limit, err = strconv.Atoi(v)
+	if v, exists := request.GetQueryParams()["limit"]; exists {
+		limit, _ = strconv.Atoi(v)
 	}
 
 	offset := 0
-	v, exists = request.GetQueryParams()["offset"]
-	if !exists {
-		offset, err = strconv.Atoi(v)
+	if v, exists := request.GetQueryParams()["offset"]; exists {
+		offset, _ = strconv.Atoi(v)
 	}
 
 	return &responses.ListResult{rets, int(total), limit, offset}, nil
 }
 
-func (self *BaseManager) _do(request requests.IRequest, responseKey string) (jsonutils.JSONObject, error) {
+func (self *SBaseManager) _do(request requests.IRequest, responseKey string) (jsonutils.JSONObject, error) {
 	_, resp, e := self.jsonRequest(request)
 	if e != nil {
 		return nil, e
@@ -84,12 +103,16 @@ func (self *BaseManager) _do(request requests.IRequest, responseKey string) (jso
 	return ret, nil
 }
 
-func (self *BaseManager) _get(request requests.IRequest, responseKey string) (jsonutils.JSONObject, error) {
+func (self *SBaseManager) _get(request requests.IRequest, responseKey string) (jsonutils.JSONObject, error) {
 	return self._do(request, responseKey)
 }
 
-func (self *BaseManager) jsonRequest(request requests.IRequest) (http.Header, jsonutils.JSONObject, error) {
+func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, jsonutils.JSONObject, error) {
 	ctx := context.Background()
+	// hook request
+	if self.requestHook != nil {
+		self.requestHook.Process(request)
+	}
 	// 拼接、编译、签名 requests here。
 	err := self.buildRequestWithSigner(request, self.signer)
 	if err != nil {
@@ -109,11 +132,37 @@ func (self *BaseManager) jsonRequest(request requests.IRequest) (http.Header, js
 		}
 	}
 
-	// 发送 request。
-	return httputils.JSONRequest(self.httpClient, ctx, httputils.THttpMethod(request.GetMethod()), request.BuildUrl(), header, jsonBody, self.debug)
+	if self.debug {
+		log.Debugf("url: %s", request.BuildUrl())
+	}
+
+	// 发送 request。todo: 支持debug
+	const MAX_RETRY = 3
+	retry := MAX_RETRY
+	for {
+		h, b, e := httputils.JSONRequest(self.httpClient, ctx, httputils.THttpMethod(request.GetMethod()), request.BuildUrl(), header, jsonBody, self.debug)
+		if e == nil {
+			if self.debug {
+				log.Debugf("response: %s body: %s", h, b.String())
+			}
+			return h, b, e
+		}
+
+		switch err := e.(type) {
+		case *httputils.JSONClientError:
+			if err.Code == 499 && retry > 0 && request.GetMethod() == "GET" {
+				retry -= 1
+				time.Sleep(time.Second * time.Duration(MAX_RETRY-retry))
+			} else {
+				return h, b, e
+			}
+		default:
+			return h, b, e
+		}
+	}
 }
 
-func (self *BaseManager) rawRequest(request requests.IRequest) (*http.Response, error) {
+func (self *SBaseManager) rawRequest(request requests.IRequest) (*http.Response, error) {
 	ctx := context.Background()
 	// 拼接、编译requests here。
 	header := http.Header{}
@@ -123,6 +172,6 @@ func (self *BaseManager) rawRequest(request requests.IRequest) (*http.Response, 
 	return httputils.Request(self.httpClient, ctx, httputils.THttpMethod(request.GetMethod()), request.BuildUrl(), header, request.GetBodyReader(), self.debug)
 }
 
-func (self *BaseManager) buildRequestWithSigner(request requests.IRequest, signer auth.Signer) error {
+func (self *SBaseManager) buildRequestWithSigner(request requests.IRequest, signer auth.Signer) error {
 	return auth.Sign(request, signer)
 }

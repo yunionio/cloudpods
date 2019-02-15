@@ -1,19 +1,17 @@
 package modules
 
 import (
-	"net/http"
-
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 )
 
 type SInterfaceManager struct {
-	ResourceManager
+	SResourceManager
 }
 
 // 不建议使用
-func NewInterfaceManager(regionId, projectId string, signer auth.Signer) *SInterfaceManager {
-	return &SInterfaceManager{ResourceManager: ResourceManager{
-		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}},
+func NewInterfaceManager(regionId, projectId string, signer auth.Signer, debug bool) *SInterfaceManager {
+	return &SInterfaceManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameECS,
 		Region:        regionId,
 		ProjectId:     projectId,

@@ -48,7 +48,7 @@ type ICloudRegion interface {
 	SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error)
 
 	CreateIVpc(name string, desc string, cidr string) (ICloudVpc, error)
-	CreateEIP(name string, bwMbps int, chargeType string) (ICloudEIP, error)
+	CreateEIP(name string, bwMbps int, chargeType string, bgpType string) (ICloudEIP, error)
 
 	GetISnapshots() ([]ICloudSnapshot, error)
 	GetISnapshotById(snapshotId string) (ICloudSnapshot, error)
@@ -59,9 +59,20 @@ type ICloudRegion interface {
 	GetIStorages() ([]ICloudStorage, error)
 	GetIStorageById(id string) (ICloudStorage, error)
 
+	GetIStoragecaches() ([]ICloudStoragecache, error)
+	GetIStoragecacheById(id string) (ICloudStoragecache, error)
+
 	GetILoadBalancers() ([]ICloudLoadbalancer, error)
-	GetILoadbalancerAcls() ([]ICloudLoadbalancerAcl, error)
-	GetILoadbalancerCertificates() ([]ICloudLoadbalancerCertificate, error)
+	GetILoadBalancerAcls() ([]ICloudLoadbalancerAcl, error)
+	GetILoadBalancerCertificates() ([]ICloudLoadbalancerCertificate, error)
+
+	GetILoadBalancerById(loadbalancerId string) (ICloudLoadbalancer, error)
+	GetILoadBalancerAclById(aclId string) (ICloudLoadbalancerAcl, error)
+	GetILoadBalancerCertificateById(certId string) (ICloudLoadbalancerCertificate, error)
+
+	CreateILoadBalancer(loadbalancer *SLoadbalancer) (ICloudLoadbalancer, error)
+	CreateILoadBalancerAcl(acl *SLoadbalancerAccessControlList) (ICloudLoadbalancerAcl, error)
+	CreateILoadBalancerCertificate(cert *SLoadbalancerCertificate) (ICloudLoadbalancerCertificate, error)
 
 	GetProvider() string
 }
@@ -83,6 +94,17 @@ type ICloudImage interface {
 
 	Delete(ctx context.Context) error
 	GetIStoragecache() ICloudStoragecache
+
+	GetSize() int64
+	GetImageType() string
+	GetImageStatus() string
+	GetOsType() string
+	GetOsDist() string
+	GetOsVersion() string
+	GetOsArch() string
+	GetMinOsDiskSizeGb() int
+	GetImageFormat() string
+	GetCreateTime() time.Time
 }
 
 type ICloudStoragecache interface {
@@ -123,6 +145,8 @@ type ICloudStorage interface {
 	GetIDiskById(idStr string) (ICloudDisk, error)
 
 	GetMountPoint() string
+
+	IsSysDiskStore() bool
 }
 
 type ICloudHost interface {
@@ -156,12 +180,7 @@ type ICloudHost interface {
 
 	GetManagerId() string
 
-	CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, vswitchId string, ipAddr string, desc string,
-		passwd string, storageType string, diskSizes []int, publicKey string, extSecGrpId string, userData string, billingCycle *billing.SBillingCycle) (ICloudVM, error)
-	// 使用instanceType创建实例。
-	CreateVM2(name string, imgId string, sysDiskSize int, instanceType string, vswitchId string, ipAddr string, desc string,
-		passwd string, storageType string, diskSizes []int, publicKey string, extSecGrpId string, userData string, billingCycle *billing.SBillingCycle) (ICloudVM, error)
-
+	CreateVM(desc *SManagedVMCreateConfig) (ICloudVM, error)
 	GetIHostNics() ([]ICloudHostNetInterface, error)
 }
 
@@ -384,9 +403,22 @@ type ICloudLoadbalancer interface {
 	GetNetworkId() string
 	GetVpcId() string
 	GetZoneId() string
+	GetLoadbalancerSpec() string
+	GetChargeType() string
 
-	GetILoadbalancerListeners() ([]ICloudLoadbalancerListener, error)
-	GetILoadbalancerBackendGroups() ([]ICloudLoadbalancerBackendGroup, error)
+	Delete() error
+
+	Start() error
+	Stop() error
+
+	GetILoadBalancerListeners() ([]ICloudLoadbalancerListener, error)
+	GetILoadBalancerBackendGroups() ([]ICloudLoadbalancerBackendGroup, error)
+
+	CreateILoadBalancerBackendGroup(group *SLoadbalancerBackendGroup) (ICloudLoadbalancerBackendGroup, error)
+	GetILoadBalancerBackendGroupById(groupId string) (ICloudLoadbalancerBackendGroup, error)
+
+	CreateILoadBalancerListener(listener *SLoadbalancerListener) (ICloudLoadbalancerListener, error)
+	GetILoadBalancerListenerById(listenerId string) (ICloudLoadbalancerListener, error)
 }
 
 type ICloudLoadbalancerListener interface {
@@ -410,11 +442,14 @@ type ICloudLoadbalancerListener interface {
 	GetHealthCheckExp() string
 
 	GetBackendGroupId() string
+	GetBackendServerPort() int
 
 	// HTTP && HTTPS
 	GetHealthCheckDomain() string
 	GetHealthCheckURI() string
 	GetHealthCheckCode() string
+	CreateILoadBalancerListenerRule(rule *SLoadbalancerListenerRule) (ICloudLoadbalancerListenerRule, error)
+	GetILoadBalancerListenerRuleById(ruleId string) (ICloudLoadbalancerListenerRule, error)
 	GetILoadbalancerListenerRules() ([]ICloudLoadbalancerListenerRule, error)
 	GetStickySession() string
 	GetStickySessionType() string
@@ -427,6 +462,12 @@ type ICloudLoadbalancerListener interface {
 	GetCertificateId() string
 	GetTLSCipherPolicy() string
 	HTTP2Enabled() bool
+
+	Start() error
+	Stop() error
+	Sync(listener *SLoadbalancerListener) error
+
+	Delete() error
 }
 
 type ICloudLoadbalancerListenerRule interface {
@@ -435,6 +476,8 @@ type ICloudLoadbalancerListenerRule interface {
 	GetDomain() string
 	GetPath() string
 	GetBackendGroupId() string
+
+	Delete() error
 }
 
 type ICloudLoadbalancerBackendGroup interface {
@@ -443,6 +486,11 @@ type ICloudLoadbalancerBackendGroup interface {
 	IsDefault() bool
 	GetType() string
 	GetILoadbalancerBackends() ([]ICloudLoadbalancerBackend, error)
+	AddBackendServer(serverId string, weight int, port int) (ICloudLoadbalancerBackend, error)
+	RemoveBackendServer(serverId string, weight int, port int) error
+
+	Delete() error
+	Sync(name string) error
 }
 
 type ICloudLoadbalancerBackend interface {
@@ -458,6 +506,9 @@ type ICloudLoadbalancerBackend interface {
 type ICloudLoadbalancerCertificate interface {
 	ICloudResource
 
+	Sync(name, privateKey, publickKey string) error
+	Delete() error
+
 	GetCommonName() string
 	GetSubjectAlternativeNames() string
 	GetFingerprint() string // return value format: <algo>:<fingerprint>，比如sha1:7454a14fdb8ae1ea8b2f72e458a24a76bd23ec19
@@ -467,16 +518,7 @@ type ICloudLoadbalancerCertificate interface {
 type ICloudLoadbalancerAcl interface {
 	ICloudResource
 
-	// return array data like this:
-	// [
-	// 	{
-	// 		"cidr":"10.10.12.0/24",
-	// 		"comment":"test data"
-	// 	},
-	// 	{
-	// 		"cidr":"192.168.10.12",
-	// 		"comment":"test data2"
-	// 	}
-	// ]
-	GetAclEntries() *jsonutils.JSONArray
+	GetAclEntries() []SLoadbalancerAccessControlListEntry
+	Sync(acl *SLoadbalancerAccessControlList) error
+	Delete() error
 }

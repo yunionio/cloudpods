@@ -28,7 +28,7 @@ func StartService() {
 
 	initHandlers(app)
 
-	cloudcommon.ServeForever(app, commonOpts, func() {
+	cloudcommon.ServeForeverWithCleanup(app, commonOpts, func() {
 		etcd.CloseDefaultEtcdClient()
 	})
 }

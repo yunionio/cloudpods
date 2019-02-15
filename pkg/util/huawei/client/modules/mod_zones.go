@@ -1,18 +1,16 @@
 package modules
 
 import (
-	"net/http"
-
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 )
 
 type SZoneManager struct {
-	ResourceManager
+	SResourceManager
 }
 
-func NewZoneManager(regionId string, projectId string, signer auth.Signer) *SZoneManager {
-	return &SZoneManager{ResourceManager: ResourceManager{
-		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}},
+func NewZoneManager(regionId string, projectId string, signer auth.Signer, debug bool) *SZoneManager {
+	return &SZoneManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameECS,
 		Region:        regionId,
 		ProjectId:     projectId,

@@ -16,6 +16,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -67,7 +68,7 @@ func (man *SLoadbalancerCertificateManager) PreDeleteSubs(ctx context.Context, u
 	subs := []SLoadbalancerCertificate{}
 	db.FetchModelObjects(man, q, &subs)
 	for _, sub := range subs {
-		sub.PreDelete(ctx, userCred)
+		sub.DoPendingDelete(ctx, userCred)
 	}
 }
 
@@ -125,7 +126,17 @@ func (man *SLoadbalancerCertificateManager) ValidateCreateData(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
-	return man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
+		return nil, err
+	}
+
+	regionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerProjId)
+	regionV.Default("default")
+	if err := regionV.Validate(data); err != nil {
+		return nil, err
+	}
+	region := regionV.Model.(*SCloudregion)
+	return region.GetDriver().ValidateCreateLoadbalancerCertificateData(ctx, userCred, data)
 }
 
 func (man *SLoadbalancerCertificateManager) InitializeData() error {
@@ -180,7 +191,32 @@ func (lbcert *SLoadbalancerCertificate) ValidateUpdateData(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-	return lbcert.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	if _, err := lbcert.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data); err != nil {
+		return nil, err
+	}
+	region := lbcert.GetRegion()
+	if region == nil {
+		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer certificate %s", lbcert.Name)
+	}
+	return region.GetDriver().ValidateUpdateLoadbalancerCertificateData(ctx, userCred, data)
+}
+
+func (lbcert *SLoadbalancerCertificate) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	lbcert.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+
+	lbcert.SetStatus(userCred, LB_CREATING, "")
+	if err := lbcert.StartLoadBalancerCertificateCreateTask(ctx, userCred, ""); err != nil {
+		log.Errorf("Failed to create loadbalancercertificate error: %v", err)
+	}
+}
+
+func (lbcert *SLoadbalancerCertificate) StartLoadBalancerCertificateCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerCertificateCreateTask", lbcert, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (lbcert *SLoadbalancerCertificate) ValidateDeleteCondition(ctx context.Context) error {
@@ -203,11 +239,52 @@ func (lbcert *SLoadbalancerCertificate) ValidateDeleteCondition(ctx context.Cont
 	return nil
 }
 
-func (lbcert *SLoadbalancerCertificate) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	lbcert.DoPendingDelete(ctx, userCred)
+func (lbcert *SLoadbalancerCertificate) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return nil
 }
 
-func (lbcert *SLoadbalancerCertificate) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (lbcert *SLoadbalancerCertificate) GetRegion() *SCloudregion {
+	region, err := CloudregionManager.FetchById(lbcert.CloudregionId)
+	if err != nil {
+		log.Errorf("failed to find region for loadbalancer certificate %s", lbcert.Name)
+		return nil
+	}
+	return region.(*SCloudregion)
+}
+
+func (lbcert *SLoadbalancerCertificate) GetIRegion() (cloudprovider.ICloudRegion, error) {
+	provider, err := lbcert.GetDriver()
+	if err != nil {
+		return nil, fmt.Errorf("No cloudprovide for lbcert %s: %s", lbcert.Name, err)
+	}
+	region := lbcert.GetRegion()
+	if region == nil {
+		return nil, fmt.Errorf("failed to find region for lbcert %s", lbcert.Name)
+	}
+	return provider.GetIRegionById(region.ExternalId)
+}
+
+func (lbcert *SLoadbalancerCertificate) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, lbcert, "purge")
+}
+
+func (lbcert *SLoadbalancerCertificate) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	parasm := jsonutils.NewDict()
+	parasm.Add(jsonutils.JSONTrue, "purge")
+	return nil, lbcert.StartLoadBalancerCertificateDeleteTask(ctx, userCred, parasm, "")
+}
+
+func (lbcert *SLoadbalancerCertificate) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	lbcert.SetStatus(userCred, LB_STATUS_DELETING, "")
+	return lbcert.StartLoadBalancerCertificateDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
+}
+
+func (lbcert *SLoadbalancerCertificate) StartLoadBalancerCertificateDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerCertificateDeleteTask", lbcert, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
 	return nil
 }
 

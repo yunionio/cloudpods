@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SLoadbalancerDefaultBackendGroup struct {
@@ -24,15 +25,15 @@ func (backendgroup *SLoadbalancerDefaultBackendGroup) GetGlobalId() string {
 }
 
 func (backendgroup *SLoadbalancerDefaultBackendGroup) GetStatus() string {
-	return ""
+	return models.LB_STATUS_ENABLED
 }
 
 func (backendgroup *SLoadbalancerDefaultBackendGroup) IsDefault() bool {
-	return false
+	return true
 }
 
 func (backendgroup *SLoadbalancerDefaultBackendGroup) GetType() string {
-	return "default"
+	return models.LB_BACKENDGROUP_TYPE_DEFAULT
 }
 
 func (backendgroup *SLoadbalancerDefaultBackendGroup) GetMetadata() *jsonutils.JSONDict {
@@ -58,4 +59,45 @@ func (backendgroup *SLoadbalancerDefaultBackendGroup) GetILoadbalancerBackends()
 		ibackends = append(ibackends, &loadbalancer.BackendServers.BackendServer[i])
 	}
 	return ibackends, nil
+}
+
+func (backendgroup *SLoadbalancerDefaultBackendGroup) Sync(name string) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (backendgroup *SLoadbalancerDefaultBackendGroup) Delete() error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (region *SRegion) AddBackendServer(loadbalancerId, serverId string, weight, port int) error {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["LoadBalancerId"] = loadbalancerId
+	servers := jsonutils.NewArray()
+	servers.Add(jsonutils.Marshal(map[string]string{"ServerId": serverId, "Weight": fmt.Sprintf("%d", weight)}))
+	params["BackendServers"] = servers.String()
+	_, err := region.lbRequest("AddBackendServers", params)
+	return err
+}
+
+func (backendgroup *SLoadbalancerDefaultBackendGroup) AddBackendServer(serverId string, weight, port int) (cloudprovider.ICloudLoadbalancerBackend, error) {
+	if err := backendgroup.lb.region.AddBackendServer(backendgroup.lb.LoadBalancerId, serverId, weight, port); err != nil {
+		return nil, err
+	}
+	return &SLoadbalancerDefaultBackend{lbbg: backendgroup, ServerId: serverId, Weight: weight}, nil
+}
+
+func (region *SRegion) RemoveBackendServer(loadbalancerId, serverId string) error {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["LoadBalancerId"] = loadbalancerId
+	servers := jsonutils.NewArray()
+	servers.Add(jsonutils.NewString(serverId))
+	params["BackendServers"] = servers.String()
+	_, err := region.lbRequest("RemoveBackendServers", params)
+	return err
+}
+
+func (backendgroup *SLoadbalancerDefaultBackendGroup) RemoveBackendServer(serverId string, weight, port int) error {
+	return backendgroup.lb.region.RemoveBackendServer(backendgroup.lb.LoadBalancerId, serverId)
 }

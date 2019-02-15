@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"reflect"
 
@@ -69,37 +68,8 @@ func (manager *SJointResourceBaseManager) SlaveField(q *sqlchemy.SQuery) sqlchem
 	return queryField(q, manager.GetSlaveManager())
 }
 
-func (manager *SJointResourceBaseManager) FetchByIds(masterId string, slaveId string) (IJointModel, error) {
-	obj, err := NewModelObject(manager)
-	if err != nil {
-		return nil, err
-	}
-	jointObj, ok := obj.(IJointModel)
-	if !ok {
-		return nil, fmt.Errorf("FetchByIds not a IJointModel")
-	}
-	q := manager.Query()
-	masterField := queryField(q, manager.GetMasterManager())
-	if masterField == nil {
-		return nil, fmt.Errorf("cannot find master id")
-	}
-	slaveField := queryField(q, manager.GetSlaveManager())
-	if slaveField == nil {
-		return nil, fmt.Errorf("cannot find slave id")
-	}
-	cond := sqlchemy.AND(sqlchemy.Equals(masterField, masterId), sqlchemy.Equals(slaveField, slaveId))
-	q = q.Filter(cond)
-	count := q.Count()
-	if count > 1 {
-		return nil, sqlchemy.ErrDuplicateEntry
-	} else if count == 0 {
-		return nil, sql.ErrNoRows
-	}
-	err = q.First(jointObj)
-	if err != nil {
-		return nil, err
-	}
-	return jointObj, nil
+func (manager *SJointResourceBaseManager) FilterByParams(q *sqlchemy.SQuery, params jsonutils.JSONObject) *sqlchemy.SQuery {
+	return q
 }
 
 func (manager *SJointResourceBaseManager) AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, model IStandaloneModel, query jsonutils.JSONObject) bool {
@@ -160,7 +130,7 @@ func JointSlaveID(joint IJointModel) string { // need override
 func JointMaster(joint IJointModel) IStandaloneModel { // need override
 	masterMan := joint.GetJointModelManager().GetMasterManager()
 	masterId := JointMasterID(joint)
-	log.Debugf("MasterID: %s %s", masterId, masterMan.KeywordPlural())
+	//log.Debugf("MasterID: %s %s", masterId, masterMan.KeywordPlural())
 	if len(masterId) > 0 {
 		master, _ := masterMan.FetchById(masterId)
 		return master
@@ -171,7 +141,7 @@ func JointMaster(joint IJointModel) IStandaloneModel { // need override
 func JointSlave(joint IJointModel) IStandaloneModel { // need override
 	slaveMan := joint.GetJointModelManager().GetSlaveManager()
 	slaveId := JointSlaveID(joint)
-	log.Debugf("SlaveID: %s %s", slaveId, slaveMan.KeywordPlural())
+	//log.Debugf("SlaveID: %s %s", slaveId, slaveMan.KeywordPlural())
 	if len(slaveId) > 0 {
 		slave, _ := slaveMan.FetchById(slaveId)
 		return slave

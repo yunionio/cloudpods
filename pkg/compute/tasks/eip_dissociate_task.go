@@ -68,7 +68,9 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 
 	self.SetStageComplete(ctx, nil)
 
-	if eip.AutoDellocate.IsTrue() {
+	autoDelete := jsonutils.QueryBoolean(self.GetParams(), "auto_delete", false)
+
+	if eip.AutoDellocate.IsTrue() || autoDelete {
 		eip.StartEipDeallocateTask(ctx, self.UserCred, "")
 	}
 }

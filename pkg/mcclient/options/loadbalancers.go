@@ -1,9 +1,14 @@
 package options
 
 type LoadbalancerCreateOptions struct {
-	NAME    string
-	Network string
-	Address string
+	NAME             string
+	Network          string
+	Address          string
+	AddressType      string `choices:"intranet|internet"`
+	LoadbalancerSpec string `choices:"slb.s1.small|slb.s2.small|slb.s2.medium|slb.s3.small|slb.s3.medium|slb.s3.large"`
+	ChargeType       string `choices:"traffic|bandwidth"`
+	Zone             string
+	ManagerId        string
 }
 
 type LoadbalancerGetOptions struct {
@@ -21,6 +26,10 @@ type LoadbalancerDeleteOptions struct {
 	ID string
 }
 
+type LoadbalancerPurgeOptions struct {
+	ID string
+}
+
 type LoadbalancerListOptions struct {
 	BaseListOptions
 	Zone         string
@@ -34,4 +43,8 @@ type LoadbalancerListOptions struct {
 type LoadbalancerActionStatusOptions struct {
 	ID     string
 	Status string `choices:"enabled|disabled"`
+}
+
+type LoadbalancerActionSyncStatusOptions struct {
+	ID string
 }

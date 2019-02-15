@@ -37,7 +37,7 @@ func StartService() {
 	if db.CheckSync(opts.AutoSyncTable) {
 		err := models.InitDB()
 		if err == nil {
-			cloudcommon.ServeForever(app, commonOpts, func() {
+			cloudcommon.ServeForeverWithCleanup(app, commonOpts, func() {
 				cloudcommon.CloseDB()
 			})
 		} else {

@@ -35,3 +35,13 @@ type SGroup struct {
 
 	SchedStrategy string `width:"16" charset:"ascii" nullable:"true" default:"" list:"user" update:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True, default='')
 }
+
+func (group *SGroup) GetNetworks() ([]SGroupnetwork, error) {
+	q := GroupnetworkManager.Query().Equals("group_id", group.Id)
+	groupnets := make([]SGroupnetwork, 0)
+	err := db.FetchModelObjects(GroupnetworkManager, q, &groupnets)
+	if err != nil {
+		return nil, err
+	}
+	return groupnets, nil
+}

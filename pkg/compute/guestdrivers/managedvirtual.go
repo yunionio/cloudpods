@@ -8,7 +8,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/util/secrules"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -23,33 +22,11 @@ type SManagedVirtualizedGuestDriver struct {
 	SVirtualizedGuestDriver
 }
 
-type SManagedVMCreateConfig struct {
-	Name              string
-	ExternalImageId   string
-	OsDistribution    string
-	OsVersion         string
-	InstanceType      string // InstanceType 不为空时，直接采用InstanceType创建机器。
-	Cpu               int
-	Memory            int
-	ExternalNetworkId string
-	IpAddr            string
-	Description       string
-	StorageType       string
-	SysDiskSize       int
-	DataDisks         []int
-	PublicKey         string
-	SecGroupId        string
-	SecGroupName      string
-	SecRules          []secrules.SecurityRule
-
-	BillingCycle billing.SBillingCycle
-}
-
-func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
-	config := SManagedVMCreateConfig{}
+func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
+	config := cloudprovider.SManagedVMCreateConfig{}
 	config.Name = guest.Name
 	config.Cpu = int(guest.VcpuCount)
-	config.Memory = guest.VmemSize
+	config.MemoryMB = guest.VmemSize
 	config.Description = guest.Description
 
 	config.InstanceType = guest.InstanceType
@@ -58,23 +35,22 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 		config.PublicKey = guest.GetKeypairPublicKey()
 	}
 
-	nics := guest.GetNetworks()
-	net := nics[0].GetNetwork()
-	config.ExternalNetworkId = net.ExternalId
-	config.IpAddr = nics[0].IpAddr
-
-	config.SecGroupId = guest.SecgrpId
-	config.SecGroupName = guest.GetSecgroupName()
-	config.SecRules = guest.GetSecRules()
+	nics, _ := guest.GetNetworks("")
+	if len(nics) > 0 {
+		net := nics[0].GetNetwork()
+		config.ExternalNetworkId = net.ExternalId
+		config.IpAddr = nics[0].IpAddr
+	}
 
 	disks := guest.GetDisks()
-	config.DataDisks = make([]int, len(disks)-1)
+	config.DataDisks = []cloudprovider.SDiskInfo{}
 
 	for i := 0; i < len(disks); i += 1 {
 		disk := disks[i].GetDisk()
+		storage := disk.GetStorage()
 		if i == 0 {
-			storage := disk.GetStorage()
-			config.StorageType = storage.StorageType
+			config.SysDisk.StorageType = storage.StorageType
+			config.SysDisk.SizeGB = disk.DiskSize / 1024
 			cache := storage.GetStoragecache()
 			imageId := disk.GetTemplateId()
 			//避免因同步过来的instance没有对应的imagecache信息，重置密码时引发空指针访问
@@ -84,9 +60,12 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 				config.OsDistribution, _ = img.Info.GetString("properties", "os_distribution")
 				config.OsVersion, _ = img.Info.GetString("properties", "os_version")
 			}
-			config.SysDiskSize = disk.DiskSize / 1024 // MB => GB
 		} else {
-			config.DataDisks[i-1] = disk.DiskSize / 1024 // MB => GB
+			dataDisk := cloudprovider.SDiskInfo{
+				SizeGB:      disk.DiskSize / 1024,
+				StorageType: storage.StorageType,
+			}
+			config.DataDisks = append(config.DataDisks, dataDisk)
 		}
 	}
 
@@ -95,7 +74,9 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 		if err != nil {
 			log.Errorf("fail to parse billing cycle %s: %s", guest.BillingCycle, err)
 		}
-		config.BillingCycle = bc
+		if bc.IsValid() {
+			config.BillingCycle = &bc
+		}
 	}
 
 	return jsonutils.Marshal(&config)
@@ -295,38 +276,25 @@ type SManagedVMChangeConfig struct {
 	Memory       int
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, vcpuCount, vmemSize int64) error {
-	config := SManagedVMChangeConfig{}
-	config.InstanceId = guest.GetExternalId()
-	if instanceType, err := task.GetParams().GetString("instance_type"); err == nil {
-		config.InstanceType = instanceType
-	}
-
-	config.Cpu = int(vcpuCount)
-	config.Memory = int(vmemSize)
+func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
 	ihost, err := guest.GetHost().GetIHost()
 	if err != nil {
 		return err
 	}
 
-	iVM, err := ihost.GetIVMById(config.InstanceId)
+	iVM, err := ihost.GetIVMById(guest.GetExternalId())
 	if err != nil {
 		return err
 	}
 
-	if int(guest.VcpuCount) != config.Cpu || guest.VmemSize != config.Memory {
-		if len(config.InstanceType) > 0 {
-			err = iVM.ChangeConfig2(ctx, config.InstanceType)
-			if err != nil {
-				return err
-			}
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		if len(instanceType) > 0 {
+			return nil, iVM.ChangeConfig2(ctx, instanceType)
 		} else {
-			err = iVM.ChangeConfig(ctx, config.Cpu, config.Memory)
-			if err != nil {
-				return err
-			}
+			return nil, iVM.ChangeConfig(ctx, int(vcpuCount), int(vmemSize))
 		}
-	}
+	})
+
 	return nil
 }
 
@@ -353,6 +321,11 @@ func (self *SManagedVirtualizedGuestDriver) RequestDiskSnapshot(ctx context.Cont
 
 func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
 
+	uuid, _ := data.GetString("uuid")
+	if len(uuid) > 0 {
+		guest.SetExternalId(uuid)
+	}
+
 	recycle := false
 	if guest.IsPrepaidRecycle() {
 		recycle = true
@@ -367,7 +340,7 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 
 		disks := guest.GetDisks()
 		if len(disks) != len(diskInfo) {
-			msg := fmt.Sprintf("inconsistent disk number: have %d want %d", len(disks), len(diskInfo))
+			msg := fmt.Sprintf("inconsistent disk number: guest have %d disks, data contains %d disks", len(disks), len(diskInfo))
 			log.Errorf(msg)
 			return fmt.Errorf(msg)
 		}
@@ -419,10 +392,6 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 			}
 		}
 	}
-	uuid, _ := data.GetString("uuid")
-	if len(uuid) > 0 {
-		guest.SetExternalId(uuid)
-	}
 
 	if metaData, _ := data.Get("metadata"); metaData != nil {
 		meta := make(map[string]string, 0)
@@ -459,7 +428,11 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.
 
 		if fwOnly, _ := task.GetParams().Bool("fw_only"); fwOnly {
 			vpcId := ""
-			for _, network := range guest.GetNetworks() {
+			guestnets, err := guest.GetNetworks("")
+			if err != nil {
+				return nil, err
+			}
+			for _, network := range guestnets {
 				if vpc := network.GetNetwork().GetVpc(); vpc != nil {
 					vpcId = vpc.ExternalId
 					break
@@ -585,4 +558,8 @@ func (self *SManagedVirtualizedGuestDriver) RequestRenewInstance(guest *models.S
 		return time.Time{}, err
 	}
 	return iVM.GetExpiredAt(), nil
+}
+
+func (self *SManagedVirtualizedGuestDriver) IsSupportEip() bool {
+	return true
 }

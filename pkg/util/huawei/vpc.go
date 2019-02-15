@@ -1,6 +1,8 @@
 package huawei
 
 import (
+	"strings"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -27,15 +29,15 @@ func (self *SVpc) addWire(wire *SWire) {
 	self.iwires = append(self.iwires, wire)
 }
 
-func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
+func (self *SVpc) getWireByRegionId(regionId string) *SWire {
+	if len(regionId) == 0 {
+		return nil
+	}
+
 	for i := 0; i < len(self.iwires); i++ {
 		wire := self.iwires[i].(*SWire)
 
-		if zoneId == "" {
-			return wire
-		}
-
-		if wire.zone.ZoneName == zoneId {
+		if wire.region.GetId() == regionId {
 			return wire
 		}
 	}
@@ -44,25 +46,19 @@ func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
 }
 
 func (self *SVpc) fetchNetworks() error {
-	limit := 100
-	marker := ""
-	networks := make([]SNetwork, 0)
-	for {
-		parts, count, err := self.region.GetNetwroks(self.ID, limit, marker)
-		if err != nil {
-			return err
-		}
+	networks, err := self.region.GetNetwroks(self.ID)
+	if err != nil {
+		return err
+	}
 
-		networks = append(networks, parts...)
-		if count <= limit {
-			break
-		}
-
-		marker = parts[count-1].ID
+	// ???????
+	if len(networks) == 0 {
+		self.iwires = append(self.iwires, &SWire{region: self.region, vpc: self})
+		return nil
 	}
 
 	for i := 0; i < len(networks); i += 1 {
-		wire := self.getWireByZoneId(networks[i].AvailabilityZone)
+		wire := self.getWireByRegionId(self.region.GetId())
 		networks[i].wire = wire
 		wire.addNetwork(&networks[i])
 	}
@@ -71,25 +67,14 @@ func (self *SVpc) fetchNetworks() error {
 
 // 华为云安全组可以被同region的VPC使用
 func (self *SVpc) fetchSecurityGroups() error {
-	limit := 100
-	marker := ""
-	secgroups := make([]SSecurityGroup, 0)
-	for {
-		// todo： vpc 和 安全组的关联关系还需要进一步确认。
-		parts, count, err := self.region.GetSecurityGroups("", limit, marker)
-		if err != nil {
-			return err
-		}
-
-		secgroups = append(secgroups, parts...)
-		if count <= limit {
-			break
-		}
-
-		marker = parts[count-1].ID
+	// todo： vpc 和 安全组的关联关系还需要进一步确认。
+	secgroups, err := self.region.GetSecurityGroups("")
+	if err != nil {
+		return err
 	}
 
 	self.secgroups = make([]cloudprovider.ICloudSecurityGroup, len(secgroups))
+	// 这里已经填充了vpc。 所以是不是不需要在GetSecurityGroups方法中填充vpc和region了？
 	for i := 0; i < len(secgroups); i++ {
 		secgroups[i].vpc = self
 		self.secgroups[i] = &secgroups[i]
@@ -175,7 +160,8 @@ func (self *SVpc) GetManagerId() string {
 }
 
 func (self *SVpc) Delete() error {
-	panic("implement me")
+	// todo: 确定删除VPC的逻辑
+	return self.region.DeleteVpc(self.GetId())
 }
 
 func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) {
@@ -196,5 +182,29 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
 	vpc := SVpc{}
 	err := DoGet(self.ecsClient.Vpcs.Get, vpcId, nil, &vpc)
+	if err != nil && strings.Contains(err.Error(), "RouterNotFound") {
+		return nil, cloudprovider.ErrNotFound
+	}
+	vpc.region = self
 	return &vpc, err
+}
+
+func (self *SRegion) DeleteVpc(vpcId string) error {
+	return DoDelete(self.ecsClient.Vpcs.Delete, vpcId, nil, nil)
+}
+
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090625.html
+func (self *SRegion) GetVpcs() ([]SVpc, error) {
+	querys := make(map[string]string)
+
+	vpcs := make([]SVpc, 0)
+	err := doListAllWithMarker(self.ecsClient.Vpcs.List, querys, &vpcs)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range vpcs {
+		vpcs[i].region = self
+	}
+	return vpcs, err
 }

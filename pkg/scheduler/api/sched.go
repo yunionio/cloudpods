@@ -401,9 +401,6 @@ func (d *SchedData) fillNetworksInfo(sjson *simplejson.Json) error {
 		if err != nil || net.Idx == "" {
 			net = new(Network)
 			net.Idx = s.Get("network").MustString()
-			if net.Idx == "" {
-				return fmt.Errorf("Invalid network desc: %s", s.MustString())
-			}
 			net.Wire = s.Get("wire").MustString()
 			net.Driver = s.Get("driver").MustString()
 			net.Exit = s.Get("exit").MustBool()
@@ -613,11 +610,17 @@ func newBaremetalDiskConfigFromSimpleJson(sjson *simplejson.Json) (*baremetal.Ba
 	baremetalDiskConfig.Range = rangeArray
 
 	baremetalDiskConfig.Splits = sjson.Get("splits").MustString()
-	baremetalDiskConfig.Strip = sjson.Get("strip").MustInt64()
 	baremetalDiskConfig.Type = sjson.Get("type").MustString()
 	ada := sjson.Get("adapter").MustInt()
 	baremetalDiskConfig.Adapter = &ada
-	baremetalDiskConfig.Cachedbadbbu = sjson.Get("cachedbadbbu").MustBool()
+	if val, ok := sjson.CheckGet("strip"); ok {
+		strip := val.MustInt64()
+		baremetalDiskConfig.Strip = &strip
+	}
+	if val, ok := sjson.CheckGet("cachedbadbbu"); ok {
+		cachedbadbbu := val.MustBool()
+		baremetalDiskConfig.Cachedbadbbu = &cachedbadbbu
+	}
 
 	return baremetalDiskConfig, nil
 }

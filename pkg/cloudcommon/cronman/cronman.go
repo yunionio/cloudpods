@@ -17,13 +17,6 @@ type TCronJobFunction func(ctx context.Context, userCred mcclient.TokenCredentia
 
 var manager *SCronJobManager
 
-func init() {
-	manager = &SCronJobManager{
-		jobs:    make([]*SCronJob, 0),
-		workers: appsrv.NewWorkerManager("CronJobWorkers", 4, 1024, true),
-	}
-}
-
 type ICronTimer interface {
 	Next(time.Time) time.Time
 }
@@ -93,7 +86,14 @@ type SCronJobManager struct {
 	workers *appsrv.SWorkerManager
 }
 
-func GetCronJobManager() *SCronJobManager {
+func GetCronJobManager(idDbWorker bool) *SCronJobManager {
+	if manager == nil {
+		manager = &SCronJobManager{
+			jobs:    make([]*SCronJob, 0),
+			workers: appsrv.NewWorkerManager("CronJobWorkers", 4, 1024, idDbWorker),
+		}
+	}
+
 	return manager
 }
 

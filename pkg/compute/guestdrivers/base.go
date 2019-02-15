@@ -158,7 +158,14 @@ func (self *SBaseGuestDriver) StartGuestResetTask(guest *models.SGuest, ctx cont
 }
 
 func (self *SBaseGuestDriver) StartGuestRestartTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
-	return fmt.Errorf("Not Implement")
+	data := jsonutils.NewDict()
+	data.Set("is_force", jsonutils.NewBool(isForce))
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestRestartTask", guest, userCred, nil, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (self *SBaseGuestDriver) RequestSoftReset(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
@@ -173,7 +180,7 @@ func (self *SBaseGuestDriver) DoGuestCreateDisksTask(ctx context.Context, guest 
 	return fmt.Errorf("Not Implement")
 }
 
-func (self *SBaseGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, vcpuCount, vmemSize int64) error {
+func (self *SBaseGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
 	return fmt.Errorf("Not Implement")
 }
 
@@ -219,4 +226,12 @@ func (self *SBaseGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) 
 
 func (self *SBaseGuestDriver) RequestRenewInstance(guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
 	return time.Time{}, nil
+}
+
+func (self *SBaseGuestDriver) IsSupportEip() bool {
+	return false
+}
+
+func (self *SBaseGuestDriver) NeedStopForChangeSpec() bool {
+	return true
 }

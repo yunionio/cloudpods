@@ -71,15 +71,12 @@ func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImag
 		return nil, fmt.Errorf("GetIImageById image id should not be empty")
 	}
 
-	parts, _, err := self.region.GetImages(ImageStatusType(""), ImageOwnerSelf, []string{extId}, "", 0, 1)
+	part, err := self.region.GetImage(extId)
 	if err != nil {
 		return nil, err
 	}
-	if len(parts) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	parts[0].storageCache = self
-	return &parts[0], nil
+	part.storageCache = self
+	return part, nil
 }
 
 func (self *SStoragecache) GetPath() string {
@@ -91,20 +88,22 @@ func (self *SStoragecache) GetManagerId() string {
 }
 
 func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
-	if imageId, err := self.region.createIImage(snapshotId, imageName, imageDesc); err != nil {
+	imageId, err := self.region.createIImage(snapshotId, imageName, imageDesc)
+	if err != nil {
 		return nil, err
-	} else if image, err := self.region.GetImage(imageId); err != nil {
-		return nil, err
-	} else {
-		image.storageCache = self
-		iimage := make([]cloudprovider.ICloudImage, 1)
-		iimage[0] = image
-		//todo : implement me
-		if err := cloudprovider.WaitStatus(iimage[0], "avaliable", 15*time.Second, 3600*time.Second); err != nil {
-			return nil, err
-		}
-		return iimage[0], nil
 	}
+	image, err := self.region.GetImage(imageId)
+	if err != nil {
+		return nil, err
+	}
+	image.storageCache = self
+	iimage := make([]cloudprovider.ICloudImage, 1)
+	iimage[0] = image
+	//todo : implement me
+	if err := cloudprovider.WaitStatus(iimage[0], "avaliable", 15*time.Second, 3600*time.Second); err != nil {
+		return nil, err
+	}
+	return iimage[0], nil
 }
 
 func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
@@ -131,16 +130,9 @@ func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SStoragecache) fetchImages() error {
-	images := make([]SImage, 0)
-	for {
-		parts, total, err := self.region.GetImages(ImageStatusType(""), ImageOwnerSelf, nil, "", len(images), 50)
-		if err != nil {
-			return err
-		}
-		images = append(images, parts...)
-		if len(images) >= total {
-			break
-		}
+	images, err := self.region.GetImages("", ImageOwnerSelfSystem, nil, "", "hvm", nil, "", true)
+	if err != nil {
+		return err
 	}
 	self.iimages = make([]cloudprovider.ICloudImage, len(images))
 	for i := 0; i < len(images); i += 1 {
@@ -220,7 +212,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 
 	// check image name, avoid name conflict
 	for {
-		_, err = self.region.GetImageByName(imageName)
+		_, err = self.region.GetImageByName(imageName, ImageOwnerSelf)
 		if err != nil {
 			if err == cloudprovider.ErrNotFound {
 				break
@@ -257,6 +249,8 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		log.Debugf("DescribeImportImage Task %s", ret.String())
 		for _, item := range ret.ImportImageTasks {
 			if *item.Status == "completed" {
+				// add name tag
+				self.region.addTags(*item.ImageId, "Name", imageId)
 				return *item.ImageId, nil
 			}
 		}
@@ -533,4 +527,9 @@ func (self *SRegion) getStoragecache() *SStoragecache {
 		self.storageCache = &SStoragecache{region: self}
 	}
 	return self.storageCache
+}
+
+func (region *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
+	storageCache := region.getStoragecache()
+	return []cloudprovider.ICloudStoragecache{storageCache}, nil
 }

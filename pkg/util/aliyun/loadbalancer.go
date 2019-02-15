@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -58,7 +59,8 @@ type SLoadbalancer struct {
 	InternetChargeType       string //公网实例的计费方式。取值：paybybandwidth：按带宽计费 paybytraffic：按流量计费（默认值） 说明 当 PayType参数的值为PrePay时，只支持按带宽计费。
 	PayType                  string //实例的计费类型，取值：PayOnDemand：按量付费 PrePay：预付费
 	ResourceGroupId          string //企业资源组ID。
-
+	LoadBalancerSpec         string //负载均衡实例的的性能规格
+	Bandwidth                int    //按带宽计费的公网型实例的带宽峰值
 }
 
 func (lb *SLoadbalancer) GetName() string {
@@ -97,11 +99,16 @@ func (lb *SLoadbalancer) GetNetworkType() string {
 }
 
 func (lb *SLoadbalancer) GetNetworkId() string {
-	return ""
+	return lb.VSwitchId
 }
 
 func (lb *SLoadbalancer) GetZoneId() string {
-	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_ALIYUN, lb.MasterZoneId)
+	zone, err := lb.region.getZoneById(lb.MasterZoneId)
+	if err != nil {
+		log.Errorf("failed to find zone for lb %s error: %v", lb.LoadBalancerName, err)
+		return ""
+	}
+	return zone.GetGlobalId()
 }
 
 func (lb *SLoadbalancer) IsEmulated() bool {
@@ -142,11 +149,19 @@ func (region *SRegion) GetLoadbalancerDetail(loadbalancerId string) (*SLoadbalan
 	if err != nil {
 		return nil, err
 	}
-	lb := SLoadbalancer{}
+	lb := SLoadbalancer{region: region}
 	return &lb, body.Unmarshal(&lb)
 }
 
-func (lb *SLoadbalancer) GetILoadbalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+func (lb *SLoadbalancer) Delete() error {
+	params := map[string]string{}
+	params["RegionId"] = lb.region.RegionId
+	params["LoadBalancerId"] = lb.LoadBalancerId
+	_, err := lb.region.lbRequest("DeleteLoadBalancer", params)
+	return err
+}
+
+func (lb *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
 	ibackendgroups := []cloudprovider.ICloudLoadbalancerBackendGroup{}
 	{
 		backendgroups, err := lb.region.GetLoadbalancerBackendgroups(lb.LoadBalancerId)
@@ -177,7 +192,108 @@ func (lb *SLoadbalancer) GetILoadbalancerBackendGroups() ([]cloudprovider.ICloud
 	return ibackendgroups, nil
 }
 
-func (lb *SLoadbalancer) GetILoadbalancerListeners() ([]cloudprovider.ICloudLoadbalancerListener, error) {
+func (lb *SLoadbalancer) CreateILoadBalancerBackendGroup(group *cloudprovider.SLoadbalancerBackendGroup) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	switch group.GroupType {
+	case models.LB_BACKENDGROUP_TYPE_NORMAL:
+		group, err := lb.region.CreateLoadbalancerBackendGroup(group.Name, lb.LoadBalancerId, group.Backends)
+		if err != nil {
+			return nil, err
+		}
+		group.lb = lb
+		return group, nil
+	case models.LB_BACKENDGROUP_TYPE_MASTER_SLAVE:
+		group, err := lb.region.CreateLoadbalancerMasterSlaveBackendGroup(group.Name, lb.LoadBalancerId, group.Backends)
+		if err != nil {
+			return nil, err
+		}
+		group.lb = lb
+		return group, nil
+	default:
+		return nil, fmt.Errorf("Unsupport backendgroup type %s", group.GroupType)
+	}
+}
+
+func (lb *SLoadbalancer) CreateILoadBalancerListener(listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
+	switch listener.ListenerType {
+	case models.LB_LISTENER_TYPE_TCP:
+		return lb.region.CreateLoadbalancerTCPListener(lb, listener)
+	case models.LB_LISTENER_TYPE_UDP:
+		return lb.region.CreateLoadbalancerUDPListener(lb, listener)
+	case models.LB_LISTENER_TYPE_HTTP:
+		return lb.region.CreateLoadbalancerHTTPListener(lb, listener)
+	case models.LB_LISTENER_TYPE_HTTPS:
+		return lb.region.CreateLoadbalancerHTTPSListener(lb, listener)
+	}
+	return nil, fmt.Errorf("unsupport listener type %s", listener.ListenerType)
+}
+
+func (lb *SLoadbalancer) GetLoadbalancerSpec() string {
+	if len(lb.LoadBalancerSpec) == 0 {
+		lb.Refresh()
+	}
+	return lb.LoadBalancerSpec
+}
+
+func (lb *SLoadbalancer) GetChargeType() string {
+	switch lb.InternetChargeType {
+	case "paybybandwidth":
+		return "bandwidth"
+	case "paybytraffic":
+		return "traffic"
+	}
+	return "unknown"
+}
+
+func (lb *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	groups, err := lb.GetILoadBalancerBackendGroups()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(groups); i++ {
+		if groups[i].GetGlobalId() == groupId {
+			return groups[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (region *SRegion) loadbalancerOperation(loadbalancerId, status string) error {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["LoadBalancerId"] = loadbalancerId
+	params["LoadBalancerStatus"] = status
+	_, err := region.lbRequest("SetLoadBalancerStatus", params)
+	return err
+}
+
+func (lb *SLoadbalancer) Start() error {
+	if lb.LoadBalancerStatus != "active" {
+		return lb.region.loadbalancerOperation(lb.LoadBalancerId, "active")
+	}
+	return nil
+}
+
+func (lb *SLoadbalancer) Stop() error {
+	if lb.LoadBalancerStatus != "inactive" {
+		return lb.region.loadbalancerOperation(lb.LoadBalancerId, "inactive")
+	}
+	return nil
+}
+
+func (lb *SLoadbalancer) GetILoadBalancerListenerById(listenerId string) (cloudprovider.ICloudLoadbalancerListener, error) {
+	listener, err := lb.GetILoadBalancerListeners()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(listener); i++ {
+		if listener[i].GetGlobalId() == listenerId {
+			return listener[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (lb *SLoadbalancer) GetILoadBalancerListeners() ([]cloudprovider.ICloudLoadbalancerListener, error) {
 	loadbalancer, err := lb.region.GetLoadbalancerDetail(lb.LoadBalancerId)
 	if err != nil {
 		return nil, err

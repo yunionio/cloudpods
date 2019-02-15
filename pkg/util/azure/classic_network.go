@@ -92,7 +92,7 @@ func (self *SClassicNetwork) GetIsPublic() bool {
 }
 
 func (self *SClassicNetwork) GetServerType() string {
-	return models.SERVER_TYPE_GUEST
+	return models.NETWORK_TYPE_GUEST
 }
 
 func (self *SClassicNetwork) Refresh() error {

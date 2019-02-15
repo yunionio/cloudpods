@@ -9,6 +9,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -200,10 +201,37 @@ func (self *SStoragecache) GetCustomizeColumns(ctx context.Context, userCred mcc
 	return extra
 }
 
+func (self *SStoragecache) getCachedImageList(excludeIds []string, imageType string) []SCachedimage {
+	images := make([]SCachedimage, 0)
+
+	cachedImages := CachedimageManager.Query().SubQuery()
+	storagecachedImages := StoragecachedimageManager.Query().SubQuery()
+
+	q := cachedImages.Query()
+	q = q.Join(storagecachedImages, sqlchemy.Equals(cachedImages.Field("id"), storagecachedImages.Field("cachedimage_id")))
+	q = q.Filter(sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), self.Id))
+
+	if len(excludeIds) > 0 {
+		q = q.Filter(sqlchemy.NotIn(cachedImages.Field("id"), excludeIds))
+	}
+	if len(imageType) > 0 {
+		q = q.Filter(sqlchemy.Equals(cachedImages.Field("image_type"), imageType))
+	}
+
+	err := db.FetchModelObjects(CachedimageManager, q, &images)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			log.Errorf("%s", err)
+		}
+		return nil
+	}
+	return images
+}
+
 func (self *SStoragecache) getCachedImages() []SStoragecachedimage {
 	images := make([]SStoragecachedimage, 0)
 	q := StoragecachedimageManager.Query().Equals("storagecache_id", self.Id)
-	err := q.All(&images)
+	err := db.FetchModelObjects(StoragecachedimageManager, q, &images)
 	if err != nil {
 		log.Errorf("%s", err)
 		return nil
@@ -239,7 +267,7 @@ func (self *SStoragecache) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.
 }
 
 func (self *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, format string, isForce bool, parentTaskId string) error {
-	StoragecachedimageManager.Register(ctx, userCred, self.Id, imageId)
+	StoragecachedimageManager.Register(ctx, userCred, self.Id, imageId, "")
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewString(imageId), "image_id")
 	if len(format) > 0 {
@@ -255,6 +283,7 @@ func (self *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcc
 		data.Add(jsonutils.NewString(imgInfo.OsArch), "os_arch")
 		data.Add(jsonutils.NewString(imgInfo.OsDistro), "os_distribution")
 		data.Add(jsonutils.NewString(imgInfo.OsVersion), "os_version")
+		data.Add(jsonutils.NewString(imgInfo.OsFullVersion), "os_full_version")
 	}
 
 	if isForce {
@@ -269,11 +298,11 @@ func (self *SStoragecache) StartImageCacheTask(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (self *SStoragecache) StartImageUncacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, isForce bool, parentTaskId string) error {
+func (self *SStoragecache) StartImageUncacheTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, isPurge bool, parentTaskId string) error {
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewString(imageId), "image_id")
-	if isForce {
-		data.Add(jsonutils.JSONTrue, "is_force")
+	if isPurge {
+		data.Add(jsonutils.JSONTrue, "is_purge")
 	}
 	task, err := taskman.TaskManager.NewTask(ctx, "StorageUncacheImageTask", self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
@@ -349,19 +378,31 @@ func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcc
 	if len(imageStr) == 0 {
 		return nil, httperrors.NewInputParameterError("missing image id or name")
 	}
+
 	isForce := jsonutils.QueryBoolean(data, "is_force", false)
 
 	var imageId string
-	image, err := CachedimageManager.getImageInfo(ctx, userCred, imageStr, isForce)
+
+	imgObj, err := CachedimageManager.FetchByIdOrName(nil, imageStr)
 	if err != nil {
-		log.Infof("image %s not found %s", imageStr, err)
-		if !isForce {
-			return nil, httperrors.NewImageNotFoundError(imageStr)
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError2(CachedimageManager.Keyword(), imageStr)
 		} else {
-			imageId = imageStr
+			return nil, httperrors.NewGeneralError(err)
 		}
 	} else {
-		imageId = image.Id
+		cachedImage := imgObj.(*SCachedimage)
+		if cachedImage.ImageType != cloudprovider.CachedImageTypeCustomized && !isForce {
+			return nil, httperrors.NewForbiddenError("cannot uncache non-customized images")
+		}
+		imageId = imgObj.GetId()
+		_, err := CachedimageManager.getImageInfo(ctx, userCred, imageStr, isForce)
+		if err != nil {
+			log.Infof("image %s not found %s", imageStr, err)
+			if !isForce {
+				return nil, httperrors.NewImageNotFoundError(imageStr)
+			}
+		}
 	}
 
 	scimg := StoragecachedimageManager.GetStoragecachedimage(self.Id, imageId)
@@ -369,7 +410,7 @@ func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcc
 		return nil, httperrors.NewResourceNotFoundError("storage not cache image")
 	}
 
-	if scimg.Status == CACHED_IMAGE_STATUS_INIT {
+	if scimg.Status == CACHED_IMAGE_STATUS_INIT || isForce {
 		err = scimg.Detach(ctx, userCred)
 		return nil, err
 	}
@@ -409,4 +450,97 @@ func (self *SStoragecache) PerformCacheImage(ctx context.Context, userCred mccli
 
 	err = self.StartImageCacheTask(ctx, userCred, image.Id, format, isForce, "")
 	return nil, err
+}
+
+func (cache *SStoragecache) SyncCloudImages(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	iStoragecache cloudprovider.ICloudStoragecache,
+) compare.SyncResult {
+	syncResult := compare.SyncResult{}
+
+	localCachedImages := cache.getCachedImages()
+	log.Debugf("localCachedImages %d", len(localCachedImages))
+
+	remoteImages, err := iStoragecache.GetIImages()
+	if err != nil {
+		log.Errorf("fail to get images %s", err)
+		syncResult.Error(err)
+		return syncResult
+	}
+
+	removed := make([]SStoragecachedimage, 0)
+	commondb := make([]SStoragecachedimage, 0)
+	commonext := make([]cloudprovider.ICloudImage, 0)
+	added := make([]cloudprovider.ICloudImage, 0)
+
+	err = compare.CompareSets(localCachedImages, remoteImages, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		log.Errorf("compare.CompareSets error %s", err)
+		syncResult.Error(err)
+		return syncResult
+	}
+
+	for i := 0; i < len(removed); i += 1 {
+		image := removed[i].GetCachedimage()
+		err := removed[i].Detach(ctx, userCred)
+		if err != nil {
+			log.Errorf("storagecachedimage %s %s detach fail %s", removed[i].StoragecacheId, removed[i].CachedimageId, err)
+			syncResult.DeleteError(err)
+		} else {
+			syncResult.Delete()
+			if image != nil && image.getStoragecacheCount() == 0 {
+				err = image.Delete(ctx, userCred)
+				if err != nil {
+					log.Errorf("image delete error %s", err)
+				}
+			}
+		}
+	}
+	for i := 0; i < len(commondb); i += 1 {
+		err = commondb[i].syncWithCloudImage(ctx, userCred, commonext[i])
+		if err != nil {
+			syncResult.UpdateError(err)
+		} else {
+			syncResult.Update()
+		}
+	}
+	for i := 0; i < len(added); i += 1 {
+		err = StoragecachedimageManager.newFromCloudImage(ctx, userCred, added[i], cache)
+		if err != nil {
+			syncResult.AddError(err)
+		} else {
+			syncResult.Add()
+		}
+	}
+
+	return syncResult
+}
+
+func (self *SStoragecache) IsReachCapacityLimit(imageId string) bool {
+	imgObj, _ := CachedimageManager.FetchById(imageId)
+	if imgObj == nil {
+		return false
+	}
+	cachedImage := imgObj.(*SCachedimage)
+	if cachedImage.ImageType != cloudprovider.CachedImageTypeCustomized {
+		// no need to cache
+		return false
+	}
+	cachedImages := self.getCachedImageList([]string{imageId}, cloudprovider.CachedImageTypeCustomized)
+	host, _ := self.GetHost()
+	return host.GetHostDriver().IsReachStoragecacheCapacityLimit(host, cachedImages)
+}
+
+func (self *SStoragecache) StartRelinquishLeastUsedCachedImageTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, parentTaskId string) error {
+	cachedImages := self.getCachedImageList([]string{imageId}, cloudprovider.CachedImageTypeCustomized)
+	leastUsedIdx := -1
+	leastRefCount := -1
+	for i := range cachedImages {
+		if leastRefCount < 0 || leastRefCount > cachedImages[i].RefCount {
+			leastRefCount = cachedImages[i].RefCount
+			leastUsedIdx = i
+		}
+	}
+	return self.StartImageUncacheTask(ctx, userCred, cachedImages[leastUsedIdx].GetId(), false, parentTaskId)
 }

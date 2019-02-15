@@ -25,21 +25,21 @@ func (nic *SInstanceNic) GetDriver() string {
 }
 
 func (nic *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
-	ports, err := nic.instance.getRegion().GetPorts(nic.MacAddr)
+	ports, err := nic.instance.host.zone.region.GetPorts(nic.MacAddr)
 	if err == nil {
 		for i := 0; i < len(ports); i++ {
 			for j := 0; j < len(ports[i].FixedIps); j++ {
 				if ports[i].FixedIps[j].IpAddress == nic.Addr {
-					network, err := nic.instance.getRegion().GetNetwork(ports[i].FixedIps[j].SubnetID)
+					network, err := nic.instance.host.zone.region.GetNetwork(ports[i].FixedIps[j].SubnetID)
 					if err != nil {
 						return nil
 					}
-					wires, err := nic.instance.getZone().GetIWires()
+					wires, err := nic.instance.host.zone.GetIWires()
 					if err != nil {
 						return nil
 					}
 					for k := 0; k < len(wires); k++ {
-						wire := wires[i].(*SWire)
+						wire := wires[k].(*SWire)
 						if net, _ := wire.GetINetworkById(network.ID); net != nil {
 							return net
 						}

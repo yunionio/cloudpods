@@ -24,7 +24,23 @@ func (self *StorageCacheImageTask) OnInit(ctx context.Context, obj db.IStandalon
 	// isForce := jsonutils.QueryBoolean(self.Params, "is_force", false)
 
 	storageCache := obj.(*models.SStoragecache)
-	scimg := models.StoragecachedimageManager.Register(ctx, self.UserCred, storageCache.Id, imageId)
+
+	// first check if the storageCache reach cache limit
+	if storageCache.IsReachCapacityLimit(imageId) {
+		self.SetStage("OnRelinquishLeastUsedCachedImageComplete", nil)
+		storageCache.StartRelinquishLeastUsedCachedImageTask(ctx, self.UserCred, imageId, self.GetTaskId())
+	} else {
+		self.OnRelinquishLeastUsedCachedImageComplete(ctx, obj, data)
+	}
+}
+
+func (self *StorageCacheImageTask) OnRelinquishLeastUsedCachedImageComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	imageId, _ := self.Params.GetString("image_id")
+	// isForce := jsonutils.QueryBoolean(self.Params, "is_force", false)
+
+	storageCache := obj.(*models.SStoragecache)
+
+	scimg := models.StoragecachedimageManager.Register(ctx, self.UserCred, storageCache.Id, imageId, "")
 	if scimg.Status != models.CACHED_IMAGE_STATUS_READY {
 		scimg.SetStatus(self.UserCred, models.CACHED_IMAGE_STATUS_CACHING, "storage_cache_image_task")
 	}
@@ -50,7 +66,7 @@ func (self *StorageCacheImageTask) OnImageCacheComplete(ctx context.Context, obj
 func (self *StorageCacheImageTask) OnImageCacheCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	storageCache := obj.(*models.SStoragecache)
 	imageId, _ := self.Params.GetString("image_id")
-	scimg := models.StoragecachedimageManager.Register(ctx, self.UserCred, storageCache.Id, imageId)
+	scimg := models.StoragecachedimageManager.Register(ctx, self.UserCred, storageCache.Id, imageId, "")
 	err := fmt.Errorf(data.String())
 	extImgId, _ := data.GetString("image_id")
 	self.OnCacheFailed(ctx, storageCache, imageId, scimg, err, extImgId)
@@ -70,7 +86,7 @@ func (self *StorageCacheImageTask) OnCacheFailed(ctx context.Context, cache *mod
 
 func (self *StorageCacheImageTask) OnCacheSucc(ctx context.Context, cache *models.SStoragecache, data *jsonutils.JSONDict) {
 	imageId, _ := self.Params.GetString("image_id")
-	scimg := models.StoragecachedimageManager.Register(ctx, self.UserCred, cache.Id, imageId)
+	scimg := models.StoragecachedimageManager.Register(ctx, self.UserCred, cache.Id, imageId, "")
 	extImgId, _ := data.GetString("image_id")
 
 	scimg.SetStatus(self.UserCred, models.CACHED_IMAGE_STATUS_READY, "cached")

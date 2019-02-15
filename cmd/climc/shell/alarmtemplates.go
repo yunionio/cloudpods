@@ -346,7 +346,7 @@ func init() {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewInt(args.ENABLED), "enabled")
 
-		_, err := modules.AlarmTemplateAlarms.Update(s, args.ALARMTEMPLATE_ID, args.ALARM_ID, params)
+		_, err := modules.AlarmTemplateAlarms.Update(s, args.ALARMTEMPLATE_ID, args.ALARM_ID, nil, params)
 		if err != nil {
 			return err
 		}

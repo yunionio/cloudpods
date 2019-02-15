@@ -81,12 +81,12 @@ func StartService() {
 
 	go models.CheckImages()
 
-	cron := cronman.GetCronJobManager()
+	cron := cronman.GetCronJobManager(true)
 	cron.AddJob1("CleanPendingDeleteImages", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.ImageManager.CleanPendingDeleteImages)
 
 	cron.Start()
 
-	cloudcommon.ServeForever(app, commonOpts, func() {
+	cloudcommon.ServeForeverWithCleanup(app, commonOpts, func() {
 		cloudcommon.CloseDB()
 
 		cron.Stop()

@@ -166,11 +166,8 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 	return inst, nil
 }
 
-func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int, memMB int,
-	vswitchId string, ipAddr string, desc string, passwd string,
-	storageType string, diskSizes []int, publicKey string, secgroupId string, userData string,
-	bc *billing.SBillingCycle) (cloudprovider.ICloudVM, error) {
-	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, "", vswitchId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId, userData, bc)
+func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
+	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB, desc.InstanceType, desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Password, desc.DataDisks, desc.PublicKey, desc.ExternalSecgroupId, desc.UserData, desc.BillingCycle)
 	if err != nil {
 		return nil, err
 	}
@@ -182,25 +179,9 @@ func (self *SHost) CreateVM(name string, imgId string, sysDiskSize int, cpu int,
 	return vm, err
 }
 
-func (self *SHost) CreateVM2(name string, imgId string, sysDiskSize int, instanceType string,
+func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SDiskInfo, cpu int, memMB int, instanceType string,
 	vswitchId string, ipAddr string, desc string, passwd string,
-	storageType string, diskSizes []int, publicKey string, secgroupId string,
-	userData string, bc *billing.SBillingCycle) (cloudprovider.ICloudVM, error) {
-	vmId, err := self._createVM(name, imgId, sysDiskSize, 0, 0, instanceType, vswitchId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId, userData, bc)
-	if err != nil {
-		return nil, err
-	}
-	vm, err := self.GetInstanceById(vmId)
-	if err != nil {
-		return nil, err
-	}
-	// err = vm.waitStatus(InstanceStatusStopped, time.Second*10, time.Second*1800)
-	return vm, err
-}
-
-func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int, memMB int, instanceType string,
-	vswitchId string, ipAddr string, desc string, passwd string,
-	storageType string, diskSizes []int, publicKey string, secgroupId string,
+	dataDisks []cloudprovider.SDiskInfo, publicKey string, secgroupId string,
 	userData string, bc *billing.SBillingCycle) (string, error) {
 	net := self.zone.getNetworkById(vswitchId)
 	if net == nil {
@@ -226,7 +207,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 
 	img, err := self.zone.region.GetImage(imgId)
 	if err != nil {
-		log.Errorf("getiamge fail %s", err)
+		log.Errorf("GetImage fail %s", err)
 		return "", err
 	}
 	if img.Status != ImageStatusAvailable {
@@ -234,21 +215,24 @@ func (self *SHost) _createVM(name string, imgId string, sysDiskSize int, cpu int
 		return "", fmt.Errorf("image not ready")
 	}
 
-	_, err = self.zone.getStorageByCategory(storageType)
-	if err != nil {
-		return "", fmt.Errorf("Storage %s not avaiable: %s", storageType, err)
-	}
-
-	disks := make([]SDisk, len(diskSizes)+1)
+	disks := make([]SDisk, len(dataDisks)+1)
 	disks[0].Size = img.Size
-	if sysDiskSize > 0 && sysDiskSize > img.Size {
-		disks[0].Size = sysDiskSize
+	if sysDisk.SizeGB > 0 && sysDisk.SizeGB > img.Size {
+		disks[0].Size = sysDisk.SizeGB
 	}
-	disks[0].Category = storageType
+	storage, err := self.zone.getStorageByCategory(sysDisk.StorageType)
+	if err != nil {
+		return "", fmt.Errorf("Storage %s not avaiable: %s", sysDisk.StorageType, err)
+	}
+	disks[0].Category = storage.storageType
 
-	for i, sz := range diskSizes {
-		disks[i+1].Size = sz
-		disks[i+1].Category = storageType
+	for i, dataDisk := range dataDisks {
+		disks[i+1].Size = dataDisk.SizeGB
+		storage, err := self.zone.getStorageByCategory(dataDisk.StorageType)
+		if err != nil {
+			return "", fmt.Errorf("Storage %s not avaiable: %s", dataDisk.StorageType, err)
+		}
+		disks[i+1].Category = storage.storageType
 	}
 
 	if len(instanceType) > 0 {

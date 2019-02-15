@@ -623,6 +623,14 @@ func (self *SDatastore) DeleteVmdk(ctx context.Context, remotePath string) error
 	return nil
 }
 
+func (self *SDatastore) GetVmdkInfo(ctx context.Context, remotePath string) (*vmdkutils.SVMDKInfo, error) {
+	vmdkContent, err := self.FileGetContent(ctx, remotePath)
+	if err != nil {
+		return nil, err
+	}
+	return vmdkutils.Parse(string(vmdkContent))
+}
+
 func (self *SDatastore) CheckVmdk(ctx context.Context, remotePath string) error {
 	dm := object.NewVirtualDiskManager(self.manager.client.Client)
 	defer dm.Destroy(ctx)
@@ -670,4 +678,8 @@ func (self *SDatastore) RemoveDir(ctx context.Context, remotePath string) error 
 	dcObj := dc.getObjectDatacenter()
 
 	return dnm.DeleteDirectory(ctx, dcObj, remotePath)
+}
+
+func (self *SDatastore) IsSysDiskStore() bool {
+	return true
 }

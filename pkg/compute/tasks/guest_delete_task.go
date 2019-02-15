@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -73,7 +74,7 @@ func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, obj db.ISt
 			self.OnEipDissociateComplete(ctx, guest, nil)
 		} else {
 			self.SetStage("on_eip_dissociate_complete", nil)
-			eip.StartEipDissociateTask(ctx, self.UserCred, self.GetTaskId())
+			eip.StartEipDissociateTask(ctx, self.UserCred, false, self.GetTaskId())
 		}
 	} else {
 		self.OnEipDissociateComplete(ctx, obj, nil)
@@ -252,11 +253,12 @@ func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.I
 }
 
 func (self *GuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGuest) {
+	isPendingDeleted := guest.PendingDeleted
 	guest.RealDelete(ctx, self.UserCred)
 	guest.RemoveAllMetadata(ctx, self.UserCred)
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE, nil, self.UserCred)
 	logclient.AddActionLog(guest, logclient.ACT_DELETE, nil, self.UserCred, true)
-	if !guest.IsSystem && !guest.PendingDeleted {
+	if !guest.IsSystem && !isPendingDeleted {
 		self.NotifyServerDeleted(ctx, guest)
 	}
 	models.HostManager.ClearSchedDescCache(guest.HostId)
@@ -264,6 +266,6 @@ func (self *GuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGue
 }
 
 func (self *GuestDeleteTask) NotifyServerDeleted(ctx context.Context, guest *models.SGuest) {
-	guest.NotifyServerEvent(notifyclient.SERVER_DELETED, notifyclient.PRIORITY_IMPORTANT, false)
-	guest.NotifyAdminServerEvent(ctx, notifyclient.SERVER_DELETED_ADMIN, notifyclient.PRIORITY_IMPORTANT)
+	guest.NotifyServerEvent(notifyclient.SERVER_DELETED, notify.NotifyPriorityImportant, false)
+	guest.NotifyAdminServerEvent(ctx, notifyclient.SERVER_DELETED_ADMIN, notify.NotifyPriorityImportant)
 }

@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/utils"
 
+	"fmt"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -20,19 +21,29 @@ const (
 	VSwitchAvailable = "Available"
 )
 
+type SCloudResources struct {
+	CloudResourceSetType []string
+}
+
 type SVSwitch struct {
 	wire *SWire
 
 	AvailableIpAddressCount int
-	CidrBlock               string
-	CreationTime            time.Time
-	Description             string
-	IsDefault               bool
-	Status                  string
-	VSwitchId               string
-	VSwitchName             string
-	VpcId                   string
-	ZoneId                  string
+
+	CidrBlock     string
+	Ipv6CidrBlock string
+	CreationTime  time.Time
+	Description   string
+	IsDefault     bool
+	Status        string
+	VSwitchId     string
+	VSwitchName   string
+	VpcId         string
+	ZoneId        string
+
+	CloudResources  SCloudResources
+	ResourceGroupId string
+	RouteTable      SRouteTable
 }
 
 func (self *SVSwitch) GetMetadata() *jsonutils.JSONDict {
@@ -64,7 +75,7 @@ func (self *SVSwitch) GetStatus() string {
 
 func (self *SVSwitch) Refresh() error {
 	log.Debugf("vsiwtch refresh %s", self.VSwitchId)
-	new, err := self.wire.zone.region.getVSwitch(self.VSwitchId)
+	new, err := self.wire.zone.region.GetVSwitchAttributes(self.VSwitchId)
 	if err != nil {
 		return err
 	}
@@ -104,7 +115,7 @@ func (self *SVSwitch) GetGateway() string {
 }
 
 func (self *SVSwitch) GetServerType() string {
-	return models.SERVER_TYPE_GUEST
+	return models.NETWORK_TYPE_GUEST
 }
 
 func (self *SVSwitch) GetIsPublic() bool {
@@ -123,37 +134,108 @@ func (self *SRegion) createVSwitch(zoneId string, vpcId string, name string, cid
 	}
 	params["ClientToken"] = utils.GenRequestId(20)
 
-	body, err := self.ecsRequest("CreateVSwitch", params)
+	body, err := self.vpcRequest("CreateVSwitch", params)
 	if err != nil {
 		return "", err
 	}
 	return body.GetString("VSwitchId")
 }
 
-func (self *SRegion) getVSwitch(vswitchId string) (*SVSwitch, error) {
-	vswitches, total, err := self.GetVSwitches([]string{vswitchId}, "", 0, 1)
-	log.Debugf("getVSwitch %d %d %s %s", len(vswitches), total, err, vswitchId)
-	if err != nil {
-		return nil, err
-	}
-	if total != 1 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	return &vswitches[0], nil
-}
-
-func (self *SRegion) deleteVSwitch(vswitchId string) error {
+func (self *SRegion) DeleteVSwitch(vswitchId string) error {
 	params := make(map[string]string)
 	params["VSwitchId"] = vswitchId
 
-	_, err := self.ecsRequest("DeleteVSwitch", params)
+	_, err := self.vpcRequest("DeleteVSwitch", params)
 	return err
 }
 
 func (self *SVSwitch) Delete() error {
-	return self.wire.zone.region.deleteVSwitch(self.VSwitchId)
+	err := self.Refresh()
+	if err != nil {
+		log.Errorf("refresh vswitch fail %s", err)
+		return err
+	}
+	if len(self.RouteTable.RouteTableId) > 0 && !self.RouteTable.IsSystem() {
+		err = self.wire.zone.region.UnassociateRouteTable(self.RouteTable.RouteTableId, self.VSwitchId)
+		if err != nil {
+			log.Errorf("unassociate routetable fail %s", err)
+			return err
+		}
+	}
+	err = self.dissociateWithSNAT()
+	if err != nil {
+		log.Errorf("fail to dissociateWithSNAT")
+		return err
+	}
+	return self.wire.zone.region.DeleteVSwitch(self.VSwitchId)
 }
 
 func (self *SVSwitch) GetAllocTimeoutSeconds() int {
 	return 120 // 2 minutes
+}
+
+func (self *SRegion) GetVSwitches(ids []string, vpcId string, offset int, limit int) ([]SVSwitch, int, error) {
+	if limit > 50 || limit <= 0 {
+		limit = 50
+	}
+	params := make(map[string]string)
+	params["RegionId"] = self.RegionId
+	params["PageSize"] = fmt.Sprintf("%d", limit)
+	params["PageNumber"] = fmt.Sprintf("%d", (offset/limit)+1)
+	if ids != nil && len(ids) > 0 {
+		params["VSwitchId"] = strings.Join(ids, ",")
+	}
+	if len(vpcId) > 0 {
+		params["VpcId"] = vpcId
+	}
+
+	body, err := self.vpcRequest("DescribeVSwitches", params)
+	if err != nil {
+		log.Errorf("GetVSwitches fail %s", err)
+		return nil, 0, err
+	}
+
+	switches := make([]SVSwitch, 0)
+	err = body.Unmarshal(&switches, "VSwitches", "VSwitch")
+	if err != nil {
+		log.Errorf("Unmarshal vswitches fail %s", err)
+		return nil, 0, err
+	}
+	total, _ := body.Int("TotalCount")
+	return switches, int(total), nil
+}
+
+func (self *SRegion) GetVSwitchAttributes(idstr string) (*SVSwitch, error) {
+	params := make(map[string]string)
+	params["VSwitchId"] = idstr
+
+	body, err := self.vpcRequest("DescribeVSwitchAttributes", params)
+	if err != nil {
+		log.Errorf("DescribeVSwitchAttributes fail %s", err)
+		return nil, err
+	}
+	if self.client.Debug {
+		log.Debugf("%s", body.PrettyString())
+	}
+	switches := SVSwitch{}
+	err = body.Unmarshal(&switches)
+	if err != nil {
+		log.Errorf("Unmarshal vswitches fail %s", err)
+		return nil, err
+	}
+	return &switches, nil
+}
+
+func (vsw *SVSwitch) dissociateWithSNAT() error {
+	natgatways, err := vsw.wire.vpc.getNatGateways()
+	if err != nil {
+		return err
+	}
+	for i := range natgatways {
+		err = natgatways[i].dissociateWithVswitch(vsw.VSwitchId)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

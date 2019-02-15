@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -22,13 +24,19 @@ const (
 	ImageStatusCreateFailed ImageStatusType = "failed"
 )
 
-type ImageOwnerType string
+type TImageOwnerType string
 
 const (
-	ImageOwnerSystem      ImageOwnerType = "amazon"
-	ImageOwnerSelf        ImageOwnerType = "self"
-	ImageOwnerOthers      ImageOwnerType = "microsoft"
-	ImageOwnerMarketplace ImageOwnerType = "aws-marketplace"
+	ImageOwnerTypeSystem = TImageOwnerType("system")
+	ImageOwnerTypeSelf   = TImageOwnerType("self")
+	ImageOwnerTypeOther  = TImageOwnerType("other")
+)
+
+var (
+	ImageOwnerAll        = []TImageOwnerType(nil)
+	ImageOwnerSelf       = []TImageOwnerType{ImageOwnerTypeSelf}
+	ImageOwnerSystem     = []TImageOwnerType{ImageOwnerTypeSystem}
+	ImageOwnerSelfSystem = []TImageOwnerType{ImageOwnerTypeSystem, ImageOwnerTypeSelf}
 )
 
 type ImageImportTask struct {
@@ -46,21 +54,32 @@ type RootDevice struct {
 type SImage struct {
 	storageCache *SStoragecache
 
-	Architecture         string
-	CreationTime         string
-	Description          string
-	ImageId              string
-	ImageName            string
-	OSName               string
-	OSType               string
-	ImageType            string
-	IsSupportCloudinit   bool
-	IsSupportIoOptimized bool
-	Platform             string
-	Size                 int
-	Status               ImageStatusType
-	Usage                string
-	RootDevice           RootDevice
+	Architecture string
+	CreationTime time.Time
+	Description  string
+	ImageId      string
+	ImageName    string
+	OSType       string
+	ImageType    string
+	// IsSupportCloudinit   bool
+	EnaSupport bool
+	Platform   string
+	SizeGB     int
+	Status     ImageStatusType
+	OwnerType  string
+	// Usage                string
+	RootDevice RootDevice
+
+	Public             bool
+	Hypervisor         string
+	VirtualizationType string
+	OwnerId            string
+
+	ProductCodes []*ec2.ProductCode
+
+	OSVersion string
+	OSDist    string
+	OSBuildId string
 }
 
 func (self *SImage) GetId() string {
@@ -78,13 +97,26 @@ func (self *SImage) GetGlobalId() string {
 func (self *SImage) GetStatus() string {
 	switch self.Status {
 	case ImageStatusCreating:
-		return models.IMAGE_STATUS_QUEUED
+		return models.CACHED_IMAGE_STATUS_CACHING
 	case ImageStatusAvailable:
-		return models.IMAGE_STATUS_ACTIVE
+		return models.CACHED_IMAGE_STATUS_READY
 	case ImageStatusCreateFailed:
-		return models.IMAGE_STATUS_KILLED
+		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
 	default:
-		return models.IMAGE_STATUS_KILLED
+		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+	}
+}
+
+func (self *SImage) GetImageStatus() string {
+	switch self.Status {
+	case ImageStatusCreating:
+		return cloudprovider.IMAGE_STATUS_QUEUED
+	case ImageStatusAvailable:
+		return cloudprovider.IMAGE_STATUS_ACTIVE
+	case ImageStatusCreateFailed:
+		return cloudprovider.IMAGE_STATUS_KILLED
+	default:
+		return cloudprovider.IMAGE_STATUS_KILLED
 	}
 }
 
@@ -94,6 +126,42 @@ func (self *SImage) Refresh() error {
 		return err
 	}
 	return jsonutils.Update(self, new)
+}
+
+func (self *SImage) GetImageType() string {
+	return self.ImageType
+}
+
+func (self *SImage) GetSize() int64 {
+	return int64(self.SizeGB) * 1024 * 1024 * 1024
+}
+
+func (self *SImage) GetOsType() string {
+	return self.OSType
+}
+
+func (self *SImage) GetOsArch() string {
+	return self.Architecture
+}
+
+func (self *SImage) GetOsDist() string {
+	return self.OSDist
+}
+
+func (self *SImage) GetOsVersion() string {
+	return self.OSVersion
+}
+
+func (self *SImage) GetMinOsDiskSizeGb() int {
+	return self.SizeGB
+}
+
+func (self *SImage) GetImageFormat() string {
+	return "vhd"
+}
+
+func (self *SImage) GetCreateTime() time.Time {
+	return self.CreationTime
 }
 
 func (self *SImage) IsEmulated() bool {
@@ -108,11 +176,11 @@ func (self *SImage) GetMetadata() *jsonutils.JSONDict {
 	if len(self.OSType) > 0 {
 		data.Add(jsonutils.NewString(self.OSType), "os_name")
 	}
-	if len(self.Platform) > 0 {
-		data.Add(jsonutils.NewString(self.Platform), "os_distribution")
+	if len(self.OSDist) > 0 {
+		data.Add(jsonutils.NewString(self.OSDist), "os_distribution")
 	}
-	if len(self.OSName) > 0 {
-		data.Add(jsonutils.NewString(self.OSName), "os_version")
+	if len(self.OSVersion) > 0 {
+		data.Add(jsonutils.NewString(self.OSVersion), "os_version")
 	}
 	return data
 }
@@ -178,22 +246,22 @@ func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 		return nil, fmt.Errorf("GetImage image id should not be empty")
 	}
 
-	images, _, err := self.GetImages("", ImageOwnerType(""), []string{imageId}, "", 0, 1)
+	images, err := self.getImages("", ImageOwnerAll, []string{imageId}, "", "", nil, "")
 	if err != nil {
 		return nil, err
 	}
 	if len(images) == 0 {
-		return nil, fmt.Errorf("image %s not found", imageId)
+		return nil, cloudprovider.ErrNotFound
 	}
 	return &images[0], nil
 }
 
-func (self *SRegion) GetImageByName(name string) (*SImage, error) {
+func (self *SRegion) GetImageByName(name string, owners []TImageOwnerType) (*SImage, error) {
 	if len(name) == 0 {
 		return nil, fmt.Errorf("image name should not be empty")
 	}
 
-	images, _, err := self.GetImages("", ImageOwnerType(""), nil, name, 0, 1)
+	images, err := self.getImages("", owners, nil, name, "hvm", nil, "")
 	if err != nil {
 		return nil, err
 	}
@@ -216,15 +284,53 @@ func (self *SRegion) GetImageStatus(imageId string) (ImageStatusType, error) {
 func getRootDiskSize(image *ec2.Image) (int, error) {
 	rootDeivce := *image.RootDeviceName
 	for _, volume := range image.BlockDeviceMappings {
-		if len(rootDeivce) > 0 && *volume.DeviceName == rootDeivce {
+		if len(rootDeivce) > 0 && *volume.DeviceName == rootDeivce && volume.Ebs != nil && volume.Ebs.VolumeSize != nil {
 			return int(*volume.Ebs.VolumeSize), nil
 		}
 	}
-
 	return 0, fmt.Errorf("image size not found: %s", image.String())
 }
 
-func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, imageId []string, name string, offset int, limit int) ([]SImage, int, error) {
+func getLatestImage(images []SImage) SImage {
+	var latestBuild string
+	latestBuildIdx := -1
+	for i := range images {
+		if latestBuildIdx < 0 || comapreImageBuildIds(latestBuild, images[i]) < 0 {
+			latestBuild = images[i].OSBuildId
+			latestBuildIdx = i
+		}
+	}
+	return images[latestBuildIdx]
+}
+
+func (self *SRegion) GetImages(status ImageStatusType, owners []TImageOwnerType, imageId []string, name string, virtualizationType string, ownerIds []string, volumeType string, latest bool) ([]SImage, error) {
+	images, err := self.getImages(status, owners, imageId, name, virtualizationType, ownerIds, volumeType)
+	if err != nil {
+		return nil, err
+	}
+	if !latest {
+		return images, err
+	}
+	noVersionImages := make([]SImage, 0)
+	versionedImages := make(map[string][]SImage)
+	for i := range images {
+		key := fmt.Sprintf("%s%s", images[i].OSDist, images[i].OSVersion)
+		if len(key) == 0 {
+			noVersionImages = append(noVersionImages, images[i])
+			continue
+		}
+		if _, ok := versionedImages[key]; !ok {
+			versionedImages[key] = make([]SImage, 0)
+		}
+		versionedImages[key] = append(versionedImages[key], images[i])
+	}
+	for key := range versionedImages {
+		noVersionImages = append(noVersionImages, getLatestImage(versionedImages[key]))
+	}
+	return noVersionImages, nil
+}
+
+func (self *SRegion) getImages(status ImageStatusType, owners []TImageOwnerType, imageId []string, name string, virtualizationType string, ownerIds []string, volumeType string) ([]SImage, error) {
 	params := &ec2.DescribeImagesInput{}
 	filters := make([]*ec2.Filter, 0)
 	if len(status) > 0 {
@@ -235,9 +341,18 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 		filters = AppendSingleValueFilter(filters, "name", name)
 	}
 
-	if len(owner) > 0 {
-		own := string(owner)
-		params.SetOwners([]*string{&own})
+	if len(virtualizationType) > 0 {
+		filters = AppendSingleValueFilter(filters, "virtualization-type", virtualizationType)
+	}
+
+	if len(volumeType) > 0 {
+		filters = AppendSingleValueFilter(filters, "block-device-mapping.volume-type", volumeType)
+	}
+
+	filters = AppendSingleValueFilter(filters, "image-type", "machine")
+
+	if len(owners) > 0 || len(ownerIds) > 0 {
+		params.SetOwners(imageOwnerTypes2Strings(owners, ownerIds))
 	}
 
 	if len(imageId) > 0 {
@@ -251,15 +366,17 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 	ret, err := self.ec2Client.DescribeImages(params)
 	if err != nil {
 		if strings.Contains(err.Error(), ".NotFound") {
-			return nil, 0, cloudprovider.ErrNotFound
+			return nil, cloudprovider.ErrNotFound
 		}
-		return nil, 0, err
+		return nil, err
 	}
 
 	images := []SImage{}
-	for _, image := range ret.Images {
+	for i := range ret.Images {
+		image := ret.Images[i]
+
 		if err := FillZero(image); err != nil {
-			return nil, 0, err
+			return nil, err
 		}
 
 		tagspec := TagSpec{}
@@ -267,7 +384,9 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 
 		size, err := getRootDiskSize(image)
 		if err != nil {
-			log.Debugf(err.Error())
+			// fail to get disk size, ignore the image
+			/// log.Debugf(err.Error())
+			continue
 		}
 
 		var rootDevice RootDevice
@@ -286,25 +405,43 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 			osType = "Windows"
 		}
 
-		images = append(images, SImage{
-			storageCache:         self.getStoragecache(),
-			Architecture:         *image.Architecture,
-			Description:          *image.Description,
-			ImageId:              *image.ImageId,
-			ImageName:            tagspec.GetNameTag(),
-			ImageType:            *image.ImageType,
-			IsSupportIoOptimized: *image.EnaSupport,
-			Platform:             *image.Platform,
-			Status:               ImageStatusType(*image.State),
-			CreationTime:         *image.CreationDate,
-			Size:                 size,
-			RootDevice:           rootDevice,
-			OSType:               osType,
-			// Usage:                "",
-		})
+		createTime, _ := timeutils.ParseTimeStr(*image.CreationDate)
+
+		name := tagspec.GetNameTag()
+		if len(name) == 0 && image.Name != nil {
+			name = *image.Name
+		}
+
+		sImage := SImage{
+			storageCache: self.getStoragecache(),
+			Architecture: *image.Architecture,
+			Description:  *image.Description,
+			ImageId:      *image.ImageId,
+			Public:       *image.Public,
+			ImageName:    name,
+			OSType:       osType,
+			// ImageType:          *image.ImageType,
+			OwnerType:          *image.ImageOwnerAlias,
+			EnaSupport:         *image.EnaSupport,
+			Platform:           *image.Platform,
+			Status:             ImageStatusType(*image.State),
+			CreationTime:       createTime,
+			SizeGB:             size,
+			RootDevice:         rootDevice,
+			VirtualizationType: *image.VirtualizationType,
+			Hypervisor:         *image.Hypervisor,
+			ProductCodes:       image.ProductCodes,
+			OwnerId:            *image.OwnerId,
+		}
+		sImage.ImageType = getImageType(sImage)
+		sImage.OSType = getImageOSType(sImage)
+		sImage.OSDist = getImageOSDist(sImage)
+		sImage.OSVersion = getImageOSVersion(sImage)
+		sImage.OSBuildId = getImageOSBuildID(sImage)
+		images = append(images, sImage)
 	}
 
-	return images, len(images), nil
+	return images, nil
 }
 
 func (self *SRegion) DeleteImage(imageId string) error {
@@ -312,4 +449,18 @@ func (self *SRegion) DeleteImage(imageId string) error {
 	params.SetImageId(imageId)
 	_, err := self.ec2Client.DeregisterImage(params)
 	return err
+}
+
+func (self *SRegion) addTags(resId string, key string, value string) error {
+	input := &ec2.CreateTagsInput{}
+	input.SetResources([]*string{&resId})
+	tag := ec2.Tag{}
+	tag.Key = &key
+	tag.Value = &value
+	input.SetTags([]*ec2.Tag{&tag})
+	_, err := self.ec2Client.CreateTags(input)
+	if err != nil {
+		return err
+	}
+	return nil
 }

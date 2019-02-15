@@ -33,10 +33,10 @@ func init() {
 type SHostnetwork struct {
 	SHostJointsBase
 
-	BaremetalId string `width:"36" charset:"ascii" nullable:"false" list:"admin" key_index:"true"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
-	NetworkId   string `width:"36" charset:"ascii" nullable:"false" list:"admin" key_index:"true"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
-	IpAddr      string `width:"16" charset:"ascii" list:"admin"`                                   // Column(VARCHAR(16, charset='ascii'))
-	MacAddr     string `width:"18" charset:"ascii" list:"admin"`                                   // Column(VARCHAR(18, charset='ascii'))
+	BaremetalId string `width:"36" charset:"ascii" nullable:"false" list:"admin"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	NetworkId   string `width:"36" charset:"ascii" nullable:"false" list:"admin"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	IpAddr      string `width:"16" charset:"ascii" list:"admin"`                  // Column(VARCHAR(16, charset='ascii'))
+	MacAddr     string `width:"18" charset:"ascii" list:"admin"`                  // Column(VARCHAR(18, charset='ascii'))
 }
 
 func (bn *SHostnetwork) Master() db.IStandaloneModel {

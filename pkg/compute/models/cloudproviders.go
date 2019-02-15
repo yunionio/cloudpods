@@ -45,6 +45,17 @@ const (
 
 var (
 	CLOUD_PROVIDER_VALID_STATUS = []string{CLOUD_PROVIDER_CONNECTED, CLOUD_PROVIDER_START_SYNC, CLOUD_PROVIDER_SYNCING}
+
+	CLOUD_PROVIDERS = []string{
+		CLOUD_PROVIDER_KVM,
+		CLOUD_PROVIDER_VMWARE,
+		CLOUD_PROVIDER_ALIYUN,
+		CLOUD_PROVIDER_QCLOUD,
+		CLOUD_PROVIDER_AZURE,
+		CLOUD_PROVIDER_AWS,
+		CLOUD_PROVIDER_HUAWEI,
+		CLOUD_PROVIDER_OPENSTACK,
+	}
 )
 
 type SCloudproviderManager struct {
@@ -75,7 +86,7 @@ type SCloudprovider struct {
 	Account string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
 	Secret  string `width:"256" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
 
-	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" key_index:"true"`
+	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 
 	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"true" list:"admin"`
 
@@ -122,6 +133,7 @@ func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
 	}
 	usage := self.getUsage()
 	if !usage.isEmpty() {
+		log.Errorf("======Usage %#v", usage)
 		return httperrors.NewNotEmptyError("Not an empty cloud provider")
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -587,7 +599,7 @@ func (self *SCloudprovider) getMoreDetails(ctx context.Context, extra *jsonutils
 	}
 	account := self.GetCloudaccount()
 	if account != nil {
-		extra.Add(jsonutils.NewString(account.GetName()), "account")
+		extra.Add(jsonutils.NewString(account.GetName()), "cloudaccount")
 	}
 	return extra
 }
@@ -698,4 +710,38 @@ func (self *SCloudprovider) GetDetailsBalance(ctx context.Context, userCred mccl
 	ret := jsonutils.NewDict()
 	ret.Add(jsonutils.NewFloat(balance), "balance")
 	return ret, nil
+}
+
+func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	accountStr, _ := query.GetString("account")
+	if len(accountStr) > 0 {
+		queryDict := query.(*jsonutils.JSONDict)
+		queryDict.Remove("account")
+		accountObj, err := CloudaccountManager.FetchByIdOrName(userCred, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), accountStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		q = q.Equals("cloudaccount_id", accountObj.GetId())
+	}
+	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	managerStr, _ := query.GetString("manager")
+	if len(managerStr) > 0 {
+		providerObj, err := manager.FetchByIdOrName(userCred, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		q = q.Equals("id", providerObj.GetId())
+	}
+	return q, nil
 }

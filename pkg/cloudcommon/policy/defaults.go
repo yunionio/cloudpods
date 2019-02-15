@@ -64,6 +64,18 @@ var (
 			Result:   rbacutils.UserAllow,
 		},
 		{
+			Service:  "compute",
+			Resource: "cachedimages",
+			Action:   PolicyActionList,
+			Result:   rbacutils.UserAllow,
+		},
+		{
+			Service:  "compute",
+			Resource: "cachedimages",
+			Action:   PolicyActionGet,
+			Result:   rbacutils.UserAllow,
+		},
+		{
 			// quotas for any services
 			// Service:  "compute",
 			Resource: "quotas",
@@ -131,6 +143,18 @@ var (
 			Action:   PolicyActionPerform,
 			Extra:    []string{"update-torrent-status"},
 			Result:   rbacutils.GuestAllow,
+		},
+		{
+			Service:  "log",
+			Resource: "actions",
+			Action:   PolicyActionList,
+			Result:   rbacutils.OwnerAllow,
+		},
+		{
+			Service:  "log",
+			Resource: "actions",
+			Action:   PolicyActionGet,
+			Result:   rbacutils.OwnerAllow,
 		},
 	}
 )

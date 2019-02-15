@@ -219,7 +219,7 @@ func (self *SNetInterface) Remove(ctx context.Context, userCred mcclient.TokenCr
 	host := self.GetBaremetal()
 	wire := self.GetWire()
 	if host != nil && wire != nil {
-		hw, err := HostwireManager.FetchByIds(host.Id, wire.Id)
+		hw, err := db.FetchJointByIds(HostwireManager, host.Id, wire.Id, nil)
 		if err != nil {
 			log.Errorf("NetInterface remove HostwireManager.FetchByIds error %s", err)
 			return err

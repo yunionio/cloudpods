@@ -29,3 +29,19 @@ func RetryOnError(tryFunc func() error, errs []string, maxTries int) error {
 	}
 	return ErrTimeout
 }
+
+func RetryUntil(tryFunc func() (bool, error), maxTries int) error {
+	tried := 0
+	for tried < maxTries {
+		stop, err := tryFunc()
+		if stop {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		tried += 1
+		time.Sleep(10 * time.Duration(tried) * time.Second)
+	}
+	return ErrTimeout
+}

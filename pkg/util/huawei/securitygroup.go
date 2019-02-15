@@ -13,8 +13,6 @@ https://support.huaweicloud.com/usermanual-vpc/zh-cn_topic_0073379079.html
 
 import (
 	"net"
-	"strconv"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/secrules"
 )
@@ -44,7 +42,8 @@ type SecurityGroupRuleDetail struct {
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090615.html
 type SSecurityGroup struct {
-	vpc *SVpc
+	region *SRegion
+	vpc    *SVpc // 安全组对应的vpc可能为空
 
 	ID                  string              `json:"id"`
 	Name                string              `json:"name"`
@@ -52,6 +51,21 @@ type SSecurityGroup struct {
 	VpcID               string              `json:"vpc_id"`
 	EnterpriseProjectID string              `json:"enterprise_project_id "`
 	SecurityGroupRules  []SecurityGroupRule `json:"security_group_rules"`
+}
+
+// 判断是否兼容云端安全组规则
+func compatibleSecurityGroupRule(r SecurityGroupRule) bool {
+	// 忽略了源地址是安全组的规则
+	if len(r.RemoteGroupID) > 0 {
+		return false
+	}
+
+	// 忽略IPV6
+	if r.Ethertype == "IPv6" {
+		return false
+	}
+
+	return true
 }
 
 func (self *SSecurityGroup) GetId() string {
@@ -83,7 +97,7 @@ func (self *SSecurityGroup) GetStatus() string {
 }
 
 func (self *SSecurityGroup) Refresh() error {
-	if new, err := self.vpc.region.GetSecurityGroupDetails(self.GetId()); err != nil {
+	if new, err := self.region.GetSecurityGroupDetails(self.GetId()); err != nil {
 		return err
 	} else {
 		return jsonutils.Update(self, new)
@@ -103,15 +117,15 @@ func (self *SSecurityGroup) GetDescription() string {
 	return self.Description
 }
 
+// todo: 这里需要优化查询太多了
 func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 	rules := make([]secrules.SecurityRule, 0)
 	for _, r := range self.SecurityGroupRules {
-		// 忽略了源地址是安全组的规则
-		if len(r.RemoteGroupID) > 0 {
+		if !compatibleSecurityGroupRule(r) {
 			continue
 		}
 
-		rule, err := self.GetSecurityRule(r.ID)
+		rule, err := self.GetSecurityRule(r.ID, false)
 		if err != nil {
 			return rules, err
 		}
@@ -122,9 +136,28 @@ func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 	return rules, nil
 }
 
-func (self *SSecurityGroup) GetSecurityRule(ruleId string) (secrules.SecurityRule, error) {
+func (self *SSecurityGroup) GetRulesWithExtId() ([]secrules.SecurityRule, error) {
+	rules := make([]secrules.SecurityRule, 0)
+	for _, r := range self.SecurityGroupRules {
+		if !compatibleSecurityGroupRule(r) {
+			continue
+		}
+
+		rule, err := self.GetSecurityRule(r.ID, true)
+		if err != nil {
+			return rules, err
+		}
+
+		rules = append(rules, rule)
+	}
+
+	return rules, nil
+}
+
+// withRuleId.
+func (self *SSecurityGroup) GetSecurityRule(ruleId string, withRuleId bool) (secrules.SecurityRule, error) {
 	remoteRule := SecurityGroupRuleDetail{}
-	err := DoGet(self.vpc.region.ecsClient.SecurityGroupRules.Get, ruleId, nil, &remoteRule)
+	err := DoGet(self.region.ecsClient.SecurityGroupRules.Get, ruleId, nil, &remoteRule)
 	if err != nil {
 		return secrules.SecurityRule{}, err
 	}
@@ -136,19 +169,32 @@ func (self *SSecurityGroup) GetSecurityRule(ruleId string) (secrules.SecurityRul
 		direction = secrules.SecurityRuleEgress
 	}
 
-	protocol := "any"
+	protocol := secrules.PROTO_ANY
 	if remoteRule.Protocol != "" {
 		protocol = remoteRule.Protocol
 	}
 
-	// todo: 没考虑ipv6。可能报错
 	ipNet := &net.IPNet{}
 	if len(remoteRule.RemoteIPPrefix) > 0 {
 		_, ipNet, err = net.ParseCIDR(remoteRule.RemoteIPPrefix)
+	} else {
+		_, ipNet, err = net.ParseCIDR("0.0.0.0/0")
 	}
 
+	if err != nil {
+		return secrules.SecurityRule{}, err
+	}
+
+	// withRuleId.将ruleId附加到description字段。该hook有特殊目的，仅在同步安全组时使用。
+	desc := ""
+	if withRuleId {
+		desc = ruleId
+	} else {
+		desc = remoteRule.Description
+	}
+	// todo: icmp 可能不兼容
 	rule := secrules.SecurityRule{
-		Priority:    0,
+		Priority:    1,
 		Action:      secrules.SecurityRuleAllow,
 		IPNet:       ipNet,
 		Protocol:    protocol,
@@ -156,29 +202,63 @@ func (self *SSecurityGroup) GetSecurityRule(ruleId string) (secrules.SecurityRul
 		PortStart:   int(remoteRule.PortRangeMin),
 		PortEnd:     int(remoteRule.PortRangeMax),
 		Ports:       nil,
-		Description: remoteRule.Description,
+		Description: desc,
 	}
+
+	err = rule.ValidateRule()
 	return rule, err
 }
 
 func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup, error) {
 	securitygroup := SSecurityGroup{}
 	err := DoGet(self.ecsClient.SecurityGroups.Get, secGroupId, nil, &securitygroup)
+	if err != nil {
+		return nil, err
+	}
+
+	securitygroup.region = self
+	if len(securitygroup.VpcID) > 0 && securitygroup.VpcID != "default" {
+		securitygroup.vpc, err = self.getVpc(securitygroup.VpcID)
+	}
+
 	return &securitygroup, err
 }
 
-func (self *SRegion) GetSecurityGroups(vpcId string, limit int, marker string) ([]SSecurityGroup, int, error) {
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090617.html
+func (self *SRegion) GetSecurityGroups(vpcId string) ([]SSecurityGroup, error) {
 	querys := map[string]string{}
 	if len(vpcId) > 0 {
 		querys["vpc_id"] = vpcId
 	}
 
-	if len(marker) > 0 {
-		querys["marker"] = marker
+	securitygroups := make([]SSecurityGroup, 0)
+	err := doListAllWithMarker(self.ecsClient.SecurityGroups.List, querys, &securitygroups)
+	if err != nil {
+		return nil, err
 	}
 
-	querys["limit"] = strconv.Itoa(limit)
-	securitygroups := make([]SSecurityGroup, 0)
-	err := DoList(self.ecsClient.SecurityGroups.List, querys, &securitygroups)
-	return securitygroups, len(securitygroups), err
+	vpcCache := map[string]*SVpc{}
+	for i := range securitygroups {
+		securitygroup := &securitygroups[i]
+		securitygroup.region = self
+		// 未绑定VPC的安全组
+		// todo:确认 vpc_id  = default的安全组有什么含义？
+		if len(securitygroup.VpcID) == 0 || securitygroup.VpcID == "default" {
+			continue
+		}
+
+		if vpc, exists := vpcCache[securitygroup.VpcID]; exists {
+			securitygroup.vpc = vpc
+		} else {
+			vpc, err := self.getVpc(securitygroup.VpcID)
+			if err != nil {
+				return nil, err
+			}
+
+			vpcCache[securitygroup.VpcID] = vpc
+			securitygroup.vpc = vpc
+		}
+	}
+
+	return securitygroups, nil
 }

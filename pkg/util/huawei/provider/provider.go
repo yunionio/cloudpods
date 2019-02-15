@@ -1,8 +1,12 @@
 package provider
 
 import (
+	"context"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/huawei"
 )
 
@@ -10,12 +14,46 @@ type SHuaweiProviderFactory struct {
 }
 
 func (self *SHuaweiProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
-	// todo: implement me
 	return nil
 }
 
+func (self *SHuaweiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
+	accessKeyID, _ := data.GetString("access_key_id")
+	if len(accessKeyID) == 0 {
+		return httperrors.NewMissingParameterError("access_key_id")
+	}
+	accessKeySecret, _ := data.GetString("access_key_secret")
+	if len(accessKeySecret) == 0 {
+		return httperrors.NewMissingParameterError("access_key_secret")
+	}
+	environment, _ := data.GetString("environment")
+	if len(environment) == 0 {
+		return httperrors.NewMissingParameterError("environment")
+	}
+	data.Set("account", jsonutils.NewString(accessKeyID))
+	data.Set("secret", jsonutils.NewString(accessKeySecret))
+	data.Set("access_url", jsonutils.NewString(environment))
+	return nil
+}
+
+func (self *SHuaweiProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
+	accessKeyID, _ := data.GetString("access_key_id")
+	if len(accessKeyID) == 0 {
+		return nil, httperrors.NewMissingParameterError("access_key_id")
+	}
+	accessKeySecret, _ := data.GetString("access_key_secret")
+	if len(accessKeySecret) == 0 {
+		return nil, httperrors.NewMissingParameterError("access_key_secret")
+	}
+	account := &cloudprovider.SCloudaccount{
+		Account: accessKeyID,
+		Secret:  accessKeySecret,
+	}
+	return account, nil
+}
+
 func (self *SHuaweiProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	client, err := huawei.NewHuaweiClient(providerId, providerName, url, account, secret)
+	client, err := huawei.NewHuaweiClient(providerId, providerName, url, account, secret, false)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +110,7 @@ func (self *SHuaweiProvider) GetIRegionById(extId string) (cloudprovider.ICloudR
 }
 
 func (self *SHuaweiProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
-	panic("implement me")
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SHuaweiProvider) GetBalance() (float64, error) {
@@ -85,4 +123,8 @@ func (self *SHuaweiProvider) GetBalance() (float64, error) {
 
 func (self *SHuaweiProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return self.client.GetSubAccounts()
+}
+
+func (self *SHuaweiProvider) SupportPrepaidResources() bool {
+	return true
 }

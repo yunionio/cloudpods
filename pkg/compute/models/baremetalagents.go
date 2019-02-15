@@ -17,6 +17,12 @@ const (
 	BAREMETAL_AGENT_OFFLINE  = "offline"
 )
 
+const (
+	AgentTypeBaremetal = "baremetal"
+	AgentTypeEsxi      = "esxiagent"
+	AgentTypeDefault   = AgentTypeBaremetal
+)
+
 type SBaremetalagentManager struct {
 	db.SStandaloneResourceBaseManager
 }
@@ -79,14 +85,6 @@ func (self *SBaremetalagent) ValidateUpdateData(ctx context.Context, userCred mc
 			return nil, httperrors.NewConflictError("Conflict manager_uri %s", mangerUri)
 		}
 	}
-	accessIp, err := data.GetString("access_ip")
-	if err == nil {
-		count := BaremetalagentManager.Query().Equals("access_ip", accessIp).
-			NotEquals("id", self.Id).Count()
-		if count > 0 {
-			return nil, httperrors.NewConflictError("Conflict access_ip %s", accessIp)
-		}
-	}
 	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
@@ -96,11 +94,6 @@ func (manager *SBaremetalagentManager) ValidateCreateData(ctx context.Context, u
 	if count > 0 {
 		return nil, httperrors.NewDuplicateResourceError("Duplicate manager_uri %s", mangerUri)
 	}
-	//accessIp, _ := data.GetString("access_ip")
-	//count = manager.Query().Equals("access_ip", accessIp).Count()
-	//if count > 0 {
-	//	return nil, httperrors.NewDuplicateResourceError("Duplicate access_ip %s", accessIp)
-	//}
 	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
 

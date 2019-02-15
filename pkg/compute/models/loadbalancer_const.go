@@ -26,14 +26,24 @@ const (
 	LB_STATUS_ENABLED  = "enabled"
 	LB_STATUS_DISABLED = "disabled"
 
-	LB_STATUS_INIT           = "init"
-	LB_STATUS_UNKNOWN        = "unknown"
-	LB_STATUS_RUNNING        = "running"
-	LB_STATUS_STOPPED        = "stopped"
-	LB_STATUS_CONFIGURING    = "configuring" // config changes pending
-	LB_STATUS_STOPPING       = "stopping"
-	LB_STATUS_DELETE_PENDING = "delete_pending"
-	LB_STATUS_ERROR          = "error" // bad things happen
+	LB_STATUS_INIT = "init"
+
+	LB_CREATING      = "creating"
+	LB_CREATE_FAILED = "create_failed"
+
+	LB_SYNC_CONF        = "sync_conf"
+	LB_SYNC_CONF_FAILED = "sync_conf_failed"
+
+	LB_SYNC_STATUS        = "sync_status"
+	LB_SYNC_STATUS_FAILED = "sync_status_failed"
+
+	LB_STATUS_DELETING      = "deleting"
+	LB_STATUS_DELETE_FAILED = "delete_failed"
+
+	LB_STATUS_START_FAILED = "start_failed"
+	LB_STATUS_STOP_FAILED  = "stop_failed"
+
+	LB_STATUS_UNKNOWN = "unknown"
 )
 
 var LB_STATUS_SPEC = validators.NewChoices(
@@ -54,15 +64,6 @@ var LB_BACKENDGROUP_TYPE = validators.NewChoices(
 	LB_BACKENDGROUP_TYPE_DEFAULT,
 	LB_BACKENDGROUP_TYPE_NORMAL,
 	LB_BACKENDGROUP_TYPE_MASTER_SLAVE,
-)
-
-var LB_STATUS_RUNTIME = validators.NewChoices(
-	LB_STATUS_INIT,
-	LB_STATUS_CONFIGURING,
-	LB_STATUS_RUNNING,
-	LB_STATUS_STOPPING,
-	LB_STATUS_STOPPED,
-	LB_STATUS_ERROR,
 )
 
 // Load Balancer network type (vpc or classic) determines viable backend

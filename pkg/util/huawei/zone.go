@@ -158,3 +158,14 @@ func (self *SRegion) getZoneById(id string) (*SZone, error) {
 	}
 	return nil, fmt.Errorf("no such zone %s", id)
 }
+
+func (self *SZone) getNetworkById(networkId string) *SNetwork {
+	for i := 0; i < len(self.iwires); i += 1 {
+		wire := self.iwires[i].(*SWire)
+		net := wire.getNetworkById(networkId)
+		if net != nil {
+			return net
+		}
+	}
+	return nil
+}

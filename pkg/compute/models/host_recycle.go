@@ -136,9 +136,9 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	fakeHost.IsMaintenance = false
 	fakeHost.ResourceType = HostResourceTypePrepaidRecycle
 
-	guestnics := self.GetNetworks()
-	if len(guestnics) == 0 {
-		msg := "no network info on guest????"
+	guestnics, err := self.GetNetworks("")
+	if err != nil || len(guestnics) == 0 {
+		msg := fmt.Sprintf("no network info on guest???? %s", err)
 		log.Errorf(msg)
 		return fmt.Errorf(msg)
 	}
@@ -159,7 +159,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	fakeHost.IsEmulated = true
 	fakeHost.Description = "fake host for prepaid vm recycling"
 
-	err := HostManager.TableSpec().Insert(&fakeHost)
+	err = HostManager.TableSpec().Insert(&fakeHost)
 	if err != nil {
 		log.Errorf("fail to insert fake host %s", err)
 		return err
@@ -523,7 +523,10 @@ func (host *SHost) IsPrepaidRecycle() bool {
 }
 
 func (self *SHost) BorrowIpAddrsFromGuest(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest) error {
-	guestnics := guest.GetNetworks()
+	guestnics, err := guest.GetNetworks("")
+	if err != nil {
+		return err
+	}
 	for i := 0; i < len(guestnics); i += 1 {
 		err := guestnics[i].Detach(ctx, userCred)
 		if err != nil {
@@ -538,7 +541,7 @@ func (self *SHost) BorrowIpAddrsFromGuest(ctx context.Context, userCred mcclient
 			return fmt.Errorf(msg)
 		}
 
-		err = self.EnableNetif(ctx, userCred, netif, "", guestnics[i].IpAddr, "", false, false)
+		err = self.EnableNetif(ctx, userCred, netif, "", guestnics[i].IpAddr, "", "", false, false)
 		if err != nil {
 			log.Errorf("fail to enable netif %s %s", guestnics[i].IpAddr, err)
 			return err
@@ -646,7 +649,13 @@ func (host *SHost) RebuildRecycledGuest(ctx context.Context, userCred mcclient.T
 		return err
 	}
 
-	err = guest.syncWithCloudVM(ctx, userCred, &oHost, extVM, "", false)
+	iprovider, err := oHost.GetDriver()
+	if err != nil {
+		log.Errorf("oHost.GetDriver fail %s", err)
+		return err
+	}
+
+	err = guest.syncWithCloudVM(ctx, userCred, iprovider, &oHost, extVM, "", false)
 	if err != nil {
 		log.Errorf("guest.syncWithCloudVM fail %s", err)
 		return err
@@ -666,7 +675,7 @@ func (host *SHost) RebuildRecycledGuest(ctx context.Context, userCred mcclient.T
 			log.Errorf("disk.SetExternalId fail %s", err)
 			return err
 		}
-		err = disk.syncWithCloudDisk(ctx, userCred, idisks[i], i, "", false)
+		err = disk.syncWithCloudDisk(ctx, userCred, iprovider, idisks[i], i, "", false)
 		if err != nil {
 			log.Errorf("disk.syncWithCloudDisk fail %s", err)
 			return err

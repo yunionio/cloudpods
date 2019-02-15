@@ -156,7 +156,11 @@ func (self *SRegion) getStorageAccountID(storageAccount string) (*SStorageAccoun
 
 func (self *SRegion) GetStorageAccountDetail(accountId string) (*SStorageAccount, error) {
 	account := SStorageAccount{region: self}
-	return &account, self.client.Get(accountId, []string{}, &account)
+	err := self.client.Get(accountId, []string{}, &account)
+	if err != nil {
+		return nil, err
+	}
+	return &account, nil
 }
 
 type AccountKeys struct {
@@ -267,6 +271,19 @@ func (self *SStorageAccount) GetContainers() ([]SContainer, error) {
 		containers[i].storageaccount = self
 	}
 	return containers, nil
+}
+
+func (self *SStorageAccount) GetContainer(name string) (*SContainer, error) {
+	containers, err := self.GetContainers()
+	if err != nil {
+		return nil, err
+	}
+	for i := range containers {
+		if containers[i].Name == name {
+			return &containers[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SContainer) ListFiles() ([]storage.Blob, error) {

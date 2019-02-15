@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -100,8 +101,8 @@ func (self *GuestCreateTask) OnDeployGuestDescComplete(ctx context.Context, obj 
 }
 
 func (self *GuestCreateTask) notifyServerCreated(ctx context.Context, guest *models.SGuest) {
-	guest.NotifyServerEvent(notifyclient.SERVER_CREATED, notifyclient.PRIORITY_IMPORTANT, true)
-	guest.NotifyAdminServerEvent(ctx, notifyclient.SERVER_CREATED_ADMIN, notifyclient.PRIORITY_IMPORTANT)
+	guest.NotifyServerEvent(notifyclient.SERVER_CREATED, notify.NotifyPriorityImportant, true)
+	guest.NotifyAdminServerEvent(ctx, notifyclient.SERVER_CREATED_ADMIN, notify.NotifyPriorityImportant)
 }
 
 func (self *GuestCreateTask) OnDeployGuestDescCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -116,9 +117,36 @@ func (self *GuestCreateTask) OnDeployGuestDescCompleteFailed(ctx context.Context
 func (self *GuestCreateTask) OnAutoStartGuest(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
+	self.StartEipSubTask(ctx, guest)
 }
 
 func (self *GuestCreateTask) OnSyncStatusComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
+	self.StartEipSubTask(ctx, guest)
+}
+
+func (self *GuestCreateTask) StartEipSubTask(ctx context.Context, guest *models.SGuest) {
+	eipId, _ := self.Params.GetString("eip_id")
+	if len(eipId) > 0 {
+		eipObj, err := models.ElasticipManager.FetchById(eipId)
+		if err != nil {
+			log.Errorf("fail to get eip %s %s", eipId, err)
+			return
+		}
+		eip := eipObj.(*models.SElasticip)
+		eip.StartEipAssociateInstanceTask(ctx, self.UserCred, guest, "")
+		return
+	}
+	eipBw, _ := self.Params.Int("eip_bw")
+	if eipBw > 0 {
+		pendingUsage := models.SQuota{}
+		err := self.GetPendingUsage(&pendingUsage)
+		if err != nil {
+			log.Errorf("GetPendingUsage fail %s", err)
+		}
+		eipChargeType, _ := self.Params.GetString("eip_charge_type")
+		models.ElasticipManager.AllocateEipAndAssociateVM(ctx, self.UserCred, guest, int(eipBw), eipChargeType, &pendingUsage)
+		self.SetPendingUsage(&pendingUsage)
+	}
 }

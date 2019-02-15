@@ -1,6 +1,8 @@
 package shell
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -31,13 +33,25 @@ func init() {
 	})
 
 	type CloudaccountCreateOptions struct {
-		NAME      string `help:"Name of cloud account"`
-		ACCOUNT   string `help:"Account to access the cloud account"`
-		SECRET    string `help:"Secret to access the cloud account, clientId/clientScret for Azure"`
-		PROVIDER  string `help:"Driver for cloud account" choices:"VMware|Aliyun|Azure|Qcloud|OpenStack|Huawei"`
-		AccessURL string `helo:"hello" metavar:"Azure choices: <AzureGermanCloud、AzureChinaCloud、AzureUSGovernmentCloud、AzurePublicCloud>"`
-		Desc      string `help:"Description"`
-		Enabled   bool   `help:"Enabled the account automatically"`
+		NAME            string `help:"Name of cloud account"`
+		AccessKeyID     string `help:"Aiyun|HuaWei|Aws access_key_id"`
+		AccessKeySecret string `help:"Aiyun|HuaWei|Aws access_key_secret"`
+		AppID           string `help:"Qcloud appid"`
+		SecretID        string `help:"Qcloud secret_id"`
+		SecretKey       string `help:"Qcloud secret_key"`
+		ProjectName     string `help:"OpenStack project_name"`
+		Username        string `help:"OpenStack|VMware username"`
+		Password        string `help:"OpenStack|VMware password"`
+		AuthURL         string `help:"OpenStack auth_url"`
+		Host            string `help:"VMware host"`
+		Port            string `help:"VMware host port" default:"443"`
+		DirectoryID     string `help:"Azure directory_id"`
+		ClientID        string `help:"Azure client_id"`
+		ClientSecret    string `help:"Azure clinet_secret"`
+		Environment     string `help:"Azure|Huawei|Aws environment" choices:"AzureGermanCloud|AzureChinaCloud|AzureUSGovernmentCloud|AzurePublicCloud|InternationalCloud|ChinaCloud|"`
+		PROVIDER        string `help:"Driver for cloud account" choices:"VMware|Aliyun|Azure|Qcloud|OpenStack|Huawei|Aws"`
+		Desc            string `help:"Description"`
+		Enabled         bool   `help:"Enabled the account automatically"`
 
 		Import            bool `help:"Import all sub account automatically"`
 		AutoSync          bool `help:"Enabled the account automatically"`
@@ -46,9 +60,31 @@ func init() {
 	R(&CloudaccountCreateOptions{}, "cloud-account-create", "Create a cloud account", func(s *mcclient.ClientSession, args *CloudaccountCreateOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.NAME), "name")
-		params.Add(jsonutils.NewString(args.ACCOUNT), "account")
-		params.Add(jsonutils.NewString(args.SECRET), "secret")
 		params.Add(jsonutils.NewString(args.PROVIDER), "provider")
+		data := jsonutils.Marshal(args)
+
+		requireParamsMap := map[string][]string{
+			"VMware":    {"username", "password", "host", "port"},
+			"Aliyun":    {"access_key_id", "access_key_secret"},
+			"Azure":     {"directory_id", "client_id", "client_secret", "environment"},
+			"Qcloud":    {"app_id", "secret_id", "secret_key"},
+			"OpenStack": {"project_name", "username", "password", "auth_url"},
+			"Huawei":    {"access_key_id", "access_key_secret", "environment"},
+			"Aws":       {"access_key_id", "access_key_secret", "environment"},
+		}
+
+		requireParams, ok := requireParamsMap[args.PROVIDER]
+		if !ok {
+			return fmt.Errorf("Unsupport provider %s", args.PROVIDER)
+		}
+
+		for _, key := range requireParams {
+			v, _ := data.GetString(key)
+			if len(v) == 0 {
+				return fmt.Errorf("Missing %s", key)
+			}
+			params.Add(jsonutils.NewString(v), key)
+		}
 
 		if args.Enabled {
 			params.Add(jsonutils.JSONTrue, "enabled")
@@ -64,9 +100,6 @@ func init() {
 			}
 		}
 
-		if len(args.AccessURL) > 0 {
-			params.Add(jsonutils.NewString(args.AccessURL), "access_url")
-		}
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
 		}
@@ -182,15 +215,20 @@ func init() {
 	})
 
 	type CloudaccountUpdateCredentialOptions struct {
-		ID      string `help:"ID or Name of cloud account"`
-		ACCOUNT string `help:"new account"`
-		SECRET  string `help:"new secret"`
+		ID              string `help:"ID or Name of cloud account"`
+		AccessKeyID     string `help:"Aiyun|HuaWei|Aws access_key_id"`
+		AccessKeySecret string `help:"Aiyun|HuaWei|Aws access_key_secret"`
+		AppID           string `help:"Qcloud appid"`
+		SecretID        string `help:"Qcloud secret_id"`
+		SecretKey       string `help:"Qcloud secret_key"`
+		ProjectName     string `help:"OpenStack project_name"`
+		Username        string `help:"OpenStack|VMware username"`
+		Password        string `help:"OpenStack|VMware password"`
+		ClientID        string `help:"Azure tenant_id"`
+		ClientSecret    string `help:"Azure clinet_secret"`
 	}
 	R(&CloudaccountUpdateCredentialOptions{}, "cloud-account-update-credential", "Update credential of a cloud account", func(s *mcclient.ClientSession, args *CloudaccountUpdateCredentialOptions) error {
-		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.ACCOUNT), "account")
-		params.Add(jsonutils.NewString(args.SECRET), "secret")
-
+		params := jsonutils.Marshal(args)
 		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "update-credential", params)
 		if err != nil {
 			return err

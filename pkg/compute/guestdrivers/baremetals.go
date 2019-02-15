@@ -34,6 +34,14 @@ func (self *SBaremetalGuestDriver) GetHypervisor() string {
 	return models.HYPERVISOR_BAREMETAL
 }
 
+func (self *SBaremetalGuestDriver) GetDefaultSysDiskBackend() string {
+	return models.STORAGE_LOCAL
+}
+
+func (self *SBaremetalGuestDriver) GetMinimalSysDiskSizeGb() int {
+	return options.Options.DefaultDiskSizeMB / 1024
+}
+
 func (self *SBaremetalGuestDriver) GetMaxSecurityGroupCount() int {
 	//暂不支持绑定安全组
 	return 0
@@ -97,7 +105,7 @@ func (self *SBaremetalGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk
 }
 
 func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig) (*models.SNetwork, string, int8, models.IPAddlocationDirection) {
-	netif, net := host.GetNetinterfaceWithNetworkAndCredential(netConfig.Network, userCred, netConfig.Reserved)
+	netif, net := host.GetNetinterfaceWithIdAndCredential(netConfig.Network, userCred, netConfig.Reserved)
 	if netif != nil {
 		return net, netif.Mac, netif.Index, models.IPAllocationStepup
 	}
@@ -105,7 +113,7 @@ func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SG
 }
 
 func (self *SBaremetalGuestDriver) GetRandomNetworkTypes() []string {
-	return []string{models.SERVER_TYPE_BAREMETAL}
+	return []string{models.NETWORK_TYPE_BAREMETAL, models.NETWORK_TYPE_GUEST}
 }
 
 func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig, pendingUsage quotas.IQuota) error {
@@ -113,6 +121,10 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 	netsAvaiable := make([]models.SNetwork, 0)
 	netifIndexs := make(map[string]*models.SNetInterface, 0)
 
+	netTypes := guest.GetDriver().GetRandomNetworkTypes()
+	if len(netConfig.NetType) > 0 {
+		netTypes = []string{netConfig.NetType}
+	}
 	var wirePattern *regexp.Regexp
 	if len(netConfig.Wire) > 0 {
 		wirePattern = regexp.MustCompile(netConfig.Wire)
@@ -130,9 +142,9 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 		}
 		var net *models.SNetwork
 		if netConfig.Private {
-			net, _ = wire.GetCandidatePrivateNetwork(userCred, netConfig.Exit, models.SERVER_TYPE_BAREMETAL)
+			net, _ = wire.GetCandidatePrivateNetwork(userCred, netConfig.Exit, netTypes)
 		} else {
-			net, _ = wire.GetCandidatePublicNetwork(netConfig.Exit, models.SERVER_TYPE_BAREMETAL)
+			net, _ = wire.GetCandidatePublicNetwork(netConfig.Exit, netTypes)
 		}
 		if net != nil {
 			netsAvaiable = append(netsAvaiable, *net)
@@ -142,10 +154,10 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 	if len(netsAvaiable) == 0 {
 		return fmt.Errorf("No appropriate host virtual network...")
 	}
-	net := models.ChooseCandidateNetworks(netsAvaiable, netConfig.Exit, models.SERVER_TYPE_BAREMETAL)
+	net := models.ChooseCandidateNetworks(netsAvaiable, netConfig.Exit, netTypes)
 	if net != nil {
 		netif := netifIndexs[net.Id]
-		return guest.Attach2Network(ctx, userCred, net, pendingUsage, "", netif.Mac, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, netif.Index, false, models.IPAllocationStepup, false)
+		return guest.Attach2Network(ctx, userCred, net, pendingUsage, "", netif.Mac, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, netif.Index, false, models.IPAllocationStepup, false, "")
 	}
 	return fmt.Errorf("No appropriate host virtual network...")
 }
@@ -283,13 +295,12 @@ func (self *SBaremetalGuestDriver) ValidateCreateHostData(ctx context.Context, u
 	if host.GetBaremetalServer() != nil {
 		return nil, httperrors.NewInsufficientResourceError("Baremetal %s is occupied", bmName)
 	}
-	data.Set("prefer_baremetal_id", jsonutils.NewString(host.Id))
 	data.Set("vmem_size", jsonutils.NewInt(int64(host.MemSize)))
 	data.Set("vcpu_count", jsonutils.NewInt(int64(host.CpuCount)))
 	return data, nil
 }
 
-func (self *SBaremetalGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
+func (self *SBaremetalGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
 	return guest.GetJsonDescAtBaremetal(ctx, host)
 }
 
@@ -352,7 +363,11 @@ func (self *SBaremetalGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Con
 }
 
 func (self *SBaremetalGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
+	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
+	if err != nil {
+		log.Errorf("GetDeployConfigOnHost error: %v", err)
+		return err
+	}
 	val, _ := config.GetString("action")
 	if len(val) == 0 {
 		val = "deploy"
@@ -362,7 +377,7 @@ func (self *SBaremetalGuestDriver) RequestDeployGuestOnHost(ctx context.Context,
 	}
 	url := fmt.Sprintf("/baremetals/%s/servers/%s/%s", host.Id, guest.Id, val)
 	headers := task.GetTaskRequestHeader()
-	_, err := host.BaremetalSyncRequest(ctx, "POST", url, headers, config)
+	_, err = host.BaremetalSyncRequest(ctx, "POST", url, headers, config)
 	return err
 }
 
@@ -380,7 +395,7 @@ func (self *SBaremetalGuestDriver) StartGuestDetachdiskTask(ctx context.Context,
 }
 
 func (self *SBaremetalGuestDriver) StartGuestAttachDiskTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
-	return fmt.Errorf("Cannot attach disk from a baremetal serer")
+	return fmt.Errorf("Cannot attach disk to a baremetal serer")
 }
 
 func (self *SBaremetalGuestDriver) StartSuspendTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {

@@ -5,9 +5,11 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -46,6 +48,14 @@ func (self *SContainerDriver) newUnsupportOperationError(option string) error {
 
 func (self *SContainerDriver) GetHypervisor() string {
 	return models.HYPERVISOR_CONTAINER
+}
+
+func (self *SContainerDriver) GetDefaultSysDiskBackend() string {
+	return models.STORAGE_LOCAL
+}
+
+func (self *SContainerDriver) GetMinimalSysDiskSizeGb() int {
+	return options.Options.DefaultDiskSizeMB / 1024
 }
 
 func (self *SContainerDriver) RequestGuestCreateAllDisks(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
@@ -126,12 +136,16 @@ func (self *SContainerDriver) OnGuestDeployTaskComplete(ctx context.Context, gue
 	return nil
 }
 
-func (self *SContainerDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
+func (self *SContainerDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
 	return guest.GetJsonDescAtHypervisor(ctx, host)
 }
 
 func (self *SContainerDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
+	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
+	if err != nil {
+		log.Errorf("GetDeployConfigOnHost error: %v", err)
+		return err
+	}
 	config.Add(jsonutils.JSONTrue, "k8s_pod")
 	action, err := config.GetString("action")
 	if err != nil {
@@ -158,7 +172,7 @@ func (self *SContainerDriver) DoGuestCreateDisksTask(ctx context.Context, guest 
 	return self.newUnsupportOperationError("create disk")
 }
 
-func (self *SContainerDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, vcpuCount, vmemSize int64) error {
+func (self *SContainerDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
 	return self.newUnsupportOperationError("change config")
 }
 
@@ -168,5 +182,9 @@ func (self *SContainerDriver) RequestRebuildRootDisk(ctx context.Context, guest 
 }
 
 func (self *SContainerDriver) GetRandomNetworkTypes() []string {
-	return []string{models.SERVER_TYPE_CONTAINER, models.SERVER_TYPE_GUEST}
+	return []string{models.NETWORK_TYPE_CONTAINER, models.NETWORK_TYPE_GUEST}
+}
+
+func (self *SContainerDriver) StartGuestRestartTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
+	return fmt.Errorf("Not Implement")
 }

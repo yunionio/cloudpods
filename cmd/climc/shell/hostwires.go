@@ -78,7 +78,7 @@ func init() {
 				params.Add(jsonutils.JSONFalse, "is_master")
 			}
 		}
-		result, err := modules.Hostwires.Update(s, args.HOST, args.WIRE, params)
+		result, err := modules.Hostwires.Update(s, args.HOST, args.WIRE, nil, params)
 		if err != nil {
 			return err
 		}
@@ -91,7 +91,7 @@ func init() {
 		WIRE string `help:"ID or Name of Wire"`
 	}
 	R(&HostWireDetachOptions{}, "host-wire-detach", "Detach host from wire", func(s *mcclient.ClientSession, args *HostWireDetachOptions) error {
-		result, err := modules.Hostwires.Detach(s, args.HOST, args.WIRE)
+		result, err := modules.Hostwires.Detach(s, args.HOST, args.WIRE, nil)
 		if err != nil {
 			return err
 		}

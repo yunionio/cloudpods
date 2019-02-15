@@ -72,7 +72,9 @@ func signRequest(request requests.IRequest, signer Signer) error {
 func fillRequiredHeaders(request requests.IRequest, t time.Time) {
 	request.AddHeaderParam("HOST", request.GetHost())
 	request.AddHeaderParam("X-Sdk-Date", formattedSignTime(t, "DateTime"))
-	request.AddHeaderParam("X-Project-Id", request.GetProjectId())
+	if len(request.GetProjectId()) > 0 {
+		request.AddHeaderParam("X-Project-Id", request.GetProjectId())
+	}
 	return
 }
 

@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -125,6 +126,17 @@ func (self *SCloudregion) GetVpcCount() int {
 	} else {
 		return vpcs.Equals("cloudregion_id", self.Id).Count()
 	}
+}
+
+func (self *SCloudregion) GetDriver() IRegionDriver {
+	provider := self.Provider
+	if len(provider) == 0 {
+		provider = CLOUD_PROVIDER_KVM
+	}
+	if !utils.IsInStringArray(provider, CLOUD_PROVIDERS) {
+		log.Fatalf("Unsupported region provider %s", provider)
+	}
+	return GetRegionDriver(provider)
 }
 
 func (self *SCloudregion) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
@@ -347,11 +359,29 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 	}
 	managerStr, _ := query.GetString("manager")
 	if len(managerStr) > 0 {
-		manager := CloudproviderManager.FetchCloudproviderByIdOrName(managerStr)
-		if manager == nil {
-			return nil, httperrors.NewResourceNotFoundError("Cloud provider/manager %s not found", managerStr)
+		managerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
 		}
+		manager := managerObj.(*SCloudprovider)
 		q = q.Equals("provider", manager.Provider)
+	}
+	accountStr, _ := query.GetString("account")
+	if len(accountStr) > 0 {
+		accountObj, err := CloudaccountManager.FetchByIdOrName(userCred, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		account := accountObj.(*SCloudaccount)
+		q = q.In("provider", account.Provider)
 	}
 
 	if jsonutils.QueryBoolean(query, "usable", false) || jsonutils.QueryBoolean(query, "usable_vpc", false) {

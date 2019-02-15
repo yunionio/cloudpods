@@ -10,6 +10,7 @@ import (
 
 	_ "yunion.io/x/onecloud/pkg/compute/guestdrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
+	_ "yunion.io/x/onecloud/pkg/compute/regiondrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks"
 	_ "yunion.io/x/onecloud/pkg/util/aliyun/provider"
 	_ "yunion.io/x/onecloud/pkg/util/aws/provider"
@@ -59,7 +60,12 @@ func StartService() {
 		log.Errorf("InitDB fail: %s", err)
 	}
 
-	cron := cronman.GetCronJobManager()
+	err = setInfluxdbRetentionPolicy()
+	if err != nil {
+		log.Errorf("setInfluxdbRetentionPolicy fail: %s", err)
+	}
+
+	cron := cronman.GetCronJobManager(true)
 	cron.AddJob1("CleanPendingDeleteServers", time.Duration(opts.PendingDeleteCheckSeconds)*time.Second, models.GuestManager.CleanPendingDeleteServers)
 	cron.AddJob1("CleanPendingDeleteDisks", time.Duration(opts.PendingDeleteCheckSeconds)*time.Second, models.DiskManager.CleanPendingDeleteDisks)
 	cron.AddJob1("CleanPendingDeleteLoadbalancers", time.Duration(opts.LoadbalancerPendingDeleteCheckInterval)*time.Second, models.LoadbalancerAgentManager.CleanPendingDeleteLoadbalancers)

@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -148,7 +149,7 @@ func (self *GuestRebuildRootTask) OnRebuildAllDisksComplete(ctx context.Context,
 		}
 	}
 	db.OpsLog.LogEvent(guest, db.ACT_REBUILD_ROOT, "", self.UserCred)
-	guest.NotifyServerEvent(notifyclient.SERVER_REBUILD_ROOT, notifyclient.PRIORITY_IMPORTANT, true)
+	guest.NotifyServerEvent(notifyclient.SERVER_REBUILD_ROOT, notify.NotifyPriorityImportant, true)
 	self.SetStage("OnSyncStatusComplete", nil)
 	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
 }

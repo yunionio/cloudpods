@@ -3,12 +3,14 @@ package aliyun
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
@@ -21,12 +23,16 @@ type SRegion struct {
 	sdkClient *sdk.Client
 	ossClient *oss.Client
 
+	Debug bool
+
 	RegionId  string
 	LocalName string
 
 	izones []cloudprovider.ICloudZone
 
 	ivpcs []cloudprovider.ICloudVpc
+
+	lbEndpints map[string]string
 
 	storageCache *SStoragecache
 
@@ -87,12 +93,62 @@ func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonu
 	return jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params)
 }
 
+func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
+	client, err := self.getSdkClient()
+	if err != nil {
+		return nil, err
+	}
+	return jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params)
+}
+
+type LBRegion struct {
+	RegionEndpoint string
+	RegionId       string
+}
+
+func (self *SRegion) fetchLBRegions(client *sdk.Client) error {
+	if len(self.lbEndpints) > 0 {
+		return nil
+	}
+	params := map[string]string{}
+	result, err := self._lbRequest(client, "DescribeRegions", "slb.aliyuncs.com", params)
+	if err != nil {
+		return err
+	}
+	self.lbEndpints = map[string]string{}
+	regions := []LBRegion{}
+	if err := result.Unmarshal(&regions, "Regions", "Region"); err != nil {
+		return err
+	}
+	for _, region := range regions {
+		self.lbEndpints[region.RegionId] = region.RegionEndpoint
+	}
+	return nil
+}
+
 func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	client, err := self.getSdkClient()
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(client, "slb.aliyuncs.com", ALIYUN_API_VERSION_LB, apiName, params)
+	domain := "slb.aliyuncs.com"
+	if !utils.IsInStringArray(apiName, []string{"DescribeRegions", "DescribeZones"}) {
+		if regionId, ok := params["RegionId"]; ok {
+			if err := self.fetchLBRegions(client); err != nil {
+				return nil, err
+			}
+			endpoint, ok := self.lbEndpints[regionId]
+			if !ok {
+				return nil, fmt.Errorf("failed to find endpoint for lb region %s", regionId)
+			}
+			domain = endpoint
+		}
+	}
+	return self._lbRequest(client, apiName, domain, params)
+}
+
+func (self *SRegion) _lbRequest(client *sdk.Client, apiName string, domain string, params map[string]string) (jsonutils.JSONObject, error) {
+	return jsonRequest(client, domain, ALIYUN_API_VERSION_LB, apiName, params)
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -365,37 +421,6 @@ func (self *SRegion) GetRouteTables(ids []string, offset int, limit int) ([]SRou
 	return routetables, int(total), nil
 }
 
-func (self *SRegion) GetVSwitches(ids []string, vpcId string, offset int, limit int) ([]SVSwitch, int, error) {
-	if limit > 50 || limit <= 0 {
-		limit = 50
-	}
-	params := make(map[string]string)
-	params["RegionId"] = self.RegionId
-	params["PageSize"] = fmt.Sprintf("%d", limit)
-	params["PageNumber"] = fmt.Sprintf("%d", (offset/limit)+1)
-	if ids != nil && len(ids) > 0 {
-		params["VSwitchId"] = strings.Join(ids, ",")
-	}
-	if len(vpcId) > 0 {
-		params["VpcId"] = vpcId
-	}
-
-	body, err := self.ecsRequest("DescribeVSwitches", params)
-	if err != nil {
-		log.Errorf("GetVSwitches fail %s", err)
-		return nil, 0, err
-	}
-
-	switches := make([]SVSwitch, 0)
-	err = body.Unmarshal(&switches, "VSwitches", "VSwitch")
-	if err != nil {
-		log.Errorf("Unmarshal vswitches fail %s", err)
-		return nil, 0, err
-	}
-	total, _ := body.Int("TotalCount")
-	return switches, int(total), nil
-}
-
 func (self *SRegion) GetMatchInstanceTypes(cpu int, memMB int, gpu int, zoneId string) ([]SInstanceType, error) {
 	if self.instanceTypes == nil {
 		types, err := self.GetInstanceTypes()
@@ -434,7 +459,21 @@ func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, me
 		log.Debugf("Search in zone %s", z.LocalName)
 		net := z.getNetworkById(vswitchId)
 		if net != nil {
-			inst, err := z.getHost().CreateVM(name, imgId, 0, cpu, memGB*1024, vswitchId, "", "", passwd, storageType, dataDiskSizesGB, publicKey, "", "", nil)
+			desc := &cloudprovider.SManagedVMCreateConfig{
+				Name:              name,
+				ExternalImageId:   imgId,
+				SysDisk:           cloudprovider.SDiskInfo{SizeGB: 0, StorageType: storageType},
+				Cpu:               cpu,
+				MemoryMB:          memGB * 1024,
+				ExternalNetworkId: vswitchId,
+				Password:          passwd,
+				DataDisks:         []cloudprovider.SDiskInfo{},
+				PublicKey:         publicKey,
+			}
+			for _, sizeGB := range dataDiskSizesGB {
+				desc.DataDisks = append(desc.DataDisks, cloudprovider.SDiskInfo{SizeGB: sizeGB, StorageType: storageType})
+			}
+			inst, err := z.getHost().CreateVM(desc)
 			if err != nil {
 				return nil, err
 			}
@@ -586,14 +625,6 @@ func (self *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	return iStores, nil
 }
 
-func (self *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
-	storageCache := self.getStoragecache()
-	if storageCache.GetGlobalId() == id {
-		return self.storageCache, nil
-	}
-	return nil, cloudprovider.ErrNotFound
-}
-
 func (self *SRegion) updateInstance(instId string, name, desc, passwd, hostname, userData string) error {
 	params := make(map[string]string)
 	params["InstanceId"] = instId
@@ -707,8 +738,47 @@ func (region *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, 
 	return ilbs, nil
 }
 
-func (region *SRegion) GetILoadbalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
-	acls, err := region.GetLoadbalancerAcls()
+func (region *SRegion) GetILoadBalancerById(loadbalancerId string) (cloudprovider.ICloudLoadbalancer, error) {
+	return region.GetLoadbalancerDetail(loadbalancerId)
+}
+
+func (region *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+	certs, err := region.GetLoadbalancerServerCertificates()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(certs); i++ {
+		if certs[i].GetGlobalId() == certId {
+			certs[i].region = region
+			return &certs[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (region *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["ServerCertificateName"] = cert.Name
+	params["PrivateKey"] = cert.PrivateKey
+	params["ServerCertificate"] = cert.Certificate
+	body, err := region.lbRequest("UploadServerCertificate", params)
+	if err != nil {
+		return nil, err
+	}
+	certID, err := body.GetString("ServerCertificateId")
+	if err != nil {
+		return nil, err
+	}
+	return region.GetILoadBalancerCertificateById(certID)
+}
+
+func (region *SRegion) GetILoadBalancerAclById(aclId string) (cloudprovider.ICloudLoadbalancerAcl, error) {
+	return region.GetLoadbalancerAclDetail(aclId)
+}
+
+func (region *SRegion) GetILoadBalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
+	acls, err := region.GetLoadBalancerAcls()
 	if err != nil {
 		return nil, err
 	}
@@ -720,7 +790,7 @@ func (region *SRegion) GetILoadbalancerAcls() ([]cloudprovider.ICloudLoadbalance
 	return iAcls, nil
 }
 
-func (region *SRegion) GetILoadbalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
+func (region *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
 	certificates, err := region.GetLoadbalancerServerCertificates()
 	if err != nil {
 		return nil, err
@@ -731,4 +801,90 @@ func (region *SRegion) GetILoadbalancerCertificates() ([]cloudprovider.ICloudLoa
 		iCertificates = append(iCertificates, &certificates[i])
 	}
 	return iCertificates, nil
+}
+
+func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["LoadBalancerName"] = loadbalancer.Name
+	if len(loadbalancer.ZoneID) > 0 {
+		params["MasterZoneId"] = loadbalancer.ZoneID
+	}
+
+	if len(loadbalancer.VpcID) > 0 {
+		params["VpcId"] = loadbalancer.VpcID
+	}
+
+	if len(loadbalancer.NetworkID) > 0 {
+		params["VSwitchId"] = loadbalancer.NetworkID
+	}
+
+	if len(loadbalancer.Address) > 0 {
+		params["Address"] = loadbalancer.Address
+	}
+
+	if len(loadbalancer.AddressType) > 0 {
+		params["AddressType"] = loadbalancer.AddressType
+	}
+
+	if len(loadbalancer.LoadbalancerSpec) > 0 {
+		params["LoadBalancerSpec"] = loadbalancer.LoadbalancerSpec
+	}
+
+	if loadbalancer.Bandwidth > 0 {
+		params["Bandwidth"] = fmt.Sprintf("%d", loadbalancer.Bandwidth)
+	}
+
+	body, err := region.lbRequest("CreateLoadBalancer", params)
+	if err != nil {
+		return nil, err
+	}
+	loadBalancerID, err := body.GetString("LoadBalancerId")
+	if err != nil {
+		return nil, err
+	}
+	iLoadbalancer, err := region.GetLoadbalancerDetail(loadBalancerID)
+	if err != nil {
+		return nil, err
+	}
+	return iLoadbalancer, cloudprovider.WaitStatus(iLoadbalancer, models.LB_STATUS_ENABLED, time.Second*5, time.Minute*5)
+}
+
+func (region *SRegion) AddAccessControlListEntry(aclId string, entrys []cloudprovider.SLoadbalancerAccessControlListEntry) error {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["AclId"] = aclId
+	aclArray := jsonutils.NewArray()
+	for i := 0; i < len(entrys); i++ {
+		//阿里云AclEntrys参数必须是CIDR格式的。
+		if regutils.MatchIPAddr(entrys[i].CIDR) {
+			entrys[i].CIDR += "/32"
+		}
+		aclArray.Add(jsonutils.Marshal(map[string]string{"entry": entrys[i].CIDR, "comment": entrys[i].Comment}))
+	}
+	if aclArray.Length() == 0 {
+		return nil
+	}
+	params["AclEntrys"] = aclArray.String()
+	_, err := region.lbRequest("AddAccessControlListEntry", params)
+	return err
+}
+
+func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["AclName"] = acl.Name
+	body, err := region.lbRequest("CreateAccessControlList", params)
+	if err != nil {
+		return nil, err
+	}
+	aclId, err := body.GetString("AclId")
+	if err != nil {
+		return nil, err
+	}
+	iAcl, err := region.GetLoadbalancerAclDetail(aclId)
+	if err != nil {
+		return nil, err
+	}
+	return iAcl, region.AddAccessControlListEntry(aclId, acl.Entrys)
 }

@@ -62,6 +62,9 @@ const (
 	STORAGE_HUAWEI_SSD  = "SSD"  // 超高IO云硬盘
 	STORAGE_HUAWEI_SAS  = "SAS"  // 高IO云硬盘
 	STORAGE_HUAWEI_SATA = "SATA" // 普通IO云硬盘
+
+	// openstack
+	STORAGE_OPENSTACK_ISCSI = "iscsi"
 )
 
 const (
@@ -90,6 +93,7 @@ var (
 		STORAGE_STANDARD_LRS, STORAGE_STANDARDSSD_LRS, STORAGE_PREMIUM_LRS,
 		STORAGE_GP2_SSD, STORAGE_IO1_SSD, STORAGE_ST1_HDD, STORAGE_SC1_HDD, STORAGE_STANDARD_HDD,
 		STORAGE_LOCAL_BASIC, STORAGE_LOCAL_SSD, STORAGE_CLOUD_BASIC, STORAGE_CLOUD_PREMIUM,
+		STORAGE_HUAWEI_SSD, STORAGE_HUAWEI_SAS, STORAGE_HUAWEI_SATA,
 	}
 
 	STORAGE_LIMITED_TYPES = []string{STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_NAS, STORAGE_RBD, STORAGE_NFS}
@@ -129,6 +133,9 @@ type SStorage struct {
 
 	Enabled bool   `nullable:"false" default:"true" list:"user" create:"optional"`
 	Status  string `width:"36" charset:"ascii" nullable:"false" default:"offline" list:"user" create:"optional"`
+
+	// indicating whether system disk can be allocated in this storage
+	IsSysDiskStore bool `nullable:"false" default:"true" list:"user" create:"optional" update:"admin"`
 }
 
 func (manager *SStorageManager) GetContextManager() []db.IModelManager {
@@ -741,6 +748,8 @@ func (self *SStorage) syncWithCloudStorage(extStorage cloudprovider.ICloudStorag
 		self.IsEmulated = extStorage.IsEmulated()
 		self.ManagerId = extStorage.GetManagerId()
 
+		self.IsSysDiskStore = extStorage.IsSysDiskStore()
+
 		return nil
 	})
 	if err != nil {
@@ -767,6 +776,8 @@ func (manager *SStorageManager) newFromCloudStorage(extStorage cloudprovider.ICl
 
 	storage.IsEmulated = extStorage.IsEmulated()
 	storage.ManagerId = extStorage.GetManagerId()
+
+	storage.IsSysDiskStore = extStorage.IsSysDiskStore()
 
 	err := manager.TableSpec().Insert(&storage)
 	if err != nil {

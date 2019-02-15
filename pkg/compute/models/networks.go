@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -13,7 +14,6 @@ import (
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
-	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -32,9 +32,11 @@ const (
 	// # DEFAULT_BANDWIDTH = options.default_bandwidth
 	MAX_BANDWIDTH = 100000
 
-	SERVER_TYPE_GUEST     = "guest"
-	SERVER_TYPE_BAREMETAL = "baremetal"
-	SERVER_TYPE_CONTAINER = "container"
+	NETWORK_TYPE_GUEST     = "guest"
+	NETWORK_TYPE_BAREMETAL = "baremetal"
+	NETWORK_TYPE_CONTAINER = "container"
+	NETWORK_TYPE_PXE       = "pxe"
+	NETWORK_TYPE_IPMI      = "ipmi"
 
 	STATIC_ALLOC = "static"
 
@@ -51,6 +53,16 @@ const (
 	NETWORK_STATUS_DELETING      = "deleting"
 	NETWORK_STATUS_DELETED       = "deleted"
 	NETWORK_STATUS_DELETE_FAILED = "delete_failed"
+)
+
+var (
+	ALL_NETWORK_TYPES = []string{
+		NETWORK_TYPE_GUEST,
+		NETWORK_TYPE_BAREMETAL,
+		NETWORK_TYPE_CONTAINER,
+		NETWORK_TYPE_PXE,
+		NETWORK_TYPE_IPMI,
+	}
 )
 
 type IPAddlocationDirection string
@@ -108,7 +120,7 @@ type SNetwork struct {
 
 	// IsChanged = Column(Boolean, nullable=False, default=False)
 
-	ServerType string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
+	ServerType string `width:"16" charset:"ascii" default:"guest" nullable:"true" list:"user" update:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
 
 	AllocPolicy string `width:"16" charset:"ascii" nullable:"true" get:"user" update:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
 
@@ -671,6 +683,8 @@ type SNetworkConfig struct {
 	BwLimit  int
 	Vip      bool
 	Reserved bool
+	Ifname   string
+	NetType  string
 }
 
 func parseNetworkInfo(userCred mcclient.TokenCredential, info jsonutils.JSONObject) (*SNetworkConfig, error) {
@@ -720,12 +734,23 @@ func parseNetworkInfo(userCred mcclient.TokenCredential, info jsonutils.JSONObje
 			netConfig.BwLimit = bw
 		} else if p == "[vip]" {
 			netConfig.Vip = true
+		} else if utils.IsInStringArray(p, ALL_NETWORK_TYPES) {
+			netConfig.NetType = p
 		} else {
 			netObj, err := NetworkManager.FetchByIdOrName(userCred, p)
 			if err != nil {
-				return nil, err
+				if err == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError2(NetworkManager.Keyword(), p)
+				} else {
+					return nil, err
+				}
 			}
-			netConfig.Network = netObj.GetId()
+			net := netObj.(*SNetwork)
+			if net.IsOwner(userCred) || net.IsPublic || db.IsAdminAllowGet(userCred, net) {
+				netConfig.Network = netObj.GetId()
+			} else {
+				return nil, httperrors.NewForbiddenError("no allow to access network %s", p)
+			}
 		}
 	}
 	if netConfig.BwLimit == 0 {
@@ -831,6 +856,7 @@ func (self *SNetwork) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSOND
 	extra.Add(jsonutils.NewInt(int64(self.GetTotalNicCount())), "ports_used")
 	extra.Add(jsonutils.NewInt(int64(self.GetGuestnicsCount())), "vnics")
 	extra.Add(jsonutils.NewInt(int64(self.GetBaremetalNicsCount())), "bm_vnics")
+	extra.Add(jsonutils.NewInt(int64(self.GetLoadbalancerIpsCount())), "lb_vnics")
 	extra.Add(jsonutils.NewInt(int64(self.GetGroupNicsCount())), "group_vnics")
 	extra.Add(jsonutils.NewInt(int64(self.GetReservedNicsCount())), "reserve_vnics")
 
@@ -891,24 +917,35 @@ func (self *SNetwork) AllowPerformReserveIp(ctx context.Context, userCred mcclie
 }
 
 func (self *SNetwork) PerformReserveIp(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	ipstr, _ := data.GetString("ip")
-	notes, _ := data.GetString("notes")
-	if len(ipstr) == 0 || len(notes) == 0 {
-		return nil, httperrors.NewInputParameterError("both reserved ip and notes should be provided")
-	}
-	ipAddr, err := netutils.NewIPV4Addr(ipstr)
+	ips, err := data.GetArray("ips")
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("not a valid ip address %s: %s", ipstr, err)
+		if data.Contains("ip") {
+			ip, _ := data.Get("ip")
+			ips = []jsonutils.JSONObject{ip}
+		} else {
+			return nil, httperrors.NewMissingParameterError("ips")
+		}
 	}
-	if !self.isAddressInRange(ipAddr) {
-		return nil, httperrors.NewInputParameterError("Address %s not in network", ipstr)
-	}
-	if self.isAddressUsed(ipstr) {
-		return nil, httperrors.NewConflictError("Address %s has been used", ipstr)
-	}
-	err = ReservedipManager.ReserveIP(userCred, self, ipstr, notes)
+	notes, err := data.GetString("notes")
 	if err != nil {
-		return nil, err
+		return nil, httperrors.NewMissingParameterError("ips")
+	}
+	for _, ip := range ips {
+		ipstr, _ := ip.GetString()
+		ipAddr, err := netutils.NewIPV4Addr(ipstr)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("not a valid ip address %s: %s", ipstr, err)
+		}
+		if !self.isAddressInRange(ipAddr) {
+			return nil, httperrors.NewInputParameterError("Address %s not in network", ipstr)
+		}
+		if self.isAddressUsed(ipstr) {
+			return nil, httperrors.NewConflictError("Address %s has been used", ipstr)
+		}
+		err = ReservedipManager.ReserveIP(userCred, self, ipstr, notes)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return nil, nil
 }
@@ -1045,7 +1082,19 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 				}
 				vpc := vpcObj.(*SVpc)
 				zone := zoneObj.(*SZone)
-				wires, err := WireManager.getWiresByVpcAndZone(vpc, zone)
+				region := zone.GetRegion()
+				if region == nil {
+					return nil, httperrors.NewInternalServerError("zone %s related region not found", zone.Id)
+				}
+
+				// 华为云wire zone_id 为空
+				var wires []SWire
+				if region.Provider == CLOUD_PROVIDER_HUAWEI {
+					wires, err = WireManager.getWiresByVpcAndZone(vpc, nil)
+				} else {
+					wires, err = WireManager.getWiresByVpcAndZone(vpc, zone)
+				}
+
 				if err != nil {
 					if err == sql.ErrNoRows {
 						return nil, httperrors.NewNotFoundError("wire not found for zone %s and vpc %s", zoneStr, vpcStr)
@@ -1095,8 +1144,8 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 
 	serverTypeStr, _ := data.GetString("server_type")
 	if len(serverTypeStr) == 0 {
-		serverTypeStr = SERVER_TYPE_GUEST
-	} else if !sets.NewString(SERVER_TYPE_GUEST, SERVER_TYPE_BAREMETAL, SERVER_TYPE_CONTAINER).Has(serverTypeStr) {
+		serverTypeStr = NETWORK_TYPE_GUEST
+	} else if !utils.IsInStringArray(serverTypeStr, ALL_NETWORK_TYPES) {
 		return nil, httperrors.NewInputParameterError("Invalid server_type: %s", serverTypeStr)
 	}
 	data.Add(jsonutils.NewString(serverTypeStr), "server_type")
@@ -1222,7 +1271,7 @@ func isOverlapNetworks(nets []SNetwork, startIp netutils.IPV4Addr, endIp netutil
 }
 
 func (self *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if db.IsAdminAllowCreate(userCred, self.GetModelManager()) && ownerProjId == userCred.GetProjectId() {
+	if db.IsAdminAllowCreate(userCred, self.GetModelManager()) && ownerProjId == userCred.GetProjectId() && self.ServerType == NETWORK_TYPE_GUEST {
 		self.IsPublic = true
 	} else {
 		self.IsPublic = false
@@ -1437,6 +1486,24 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq.SubQuery()))
 	}
 
+	if query.Contains("is_private") && jsonutils.QueryBoolean(query, "is_private", false) {
+		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		subq := wires.Query(wires.Field("id"))
+		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		subq = subq.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
+		q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq.SubQuery()))
+	}
+
+	if query.Contains("is_public") && jsonutils.QueryBoolean(query, "is_public", false) {
+		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		subq := wires.Query(wires.Field("id"))
+		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		subq = subq.Filter(sqlchemy.IsNotEmpty(vpcs.Field("manager_id")))
+		q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq.SubQuery()))
+	}
+
 	return q, nil
 }
 
@@ -1529,7 +1596,7 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 
 	if ipNE.StepUp() == ipSS {
 		startIp, endIp = net.GuestIpStart, self.GuestIpEnd
-	} else if ipSE == ipNS {
+	} else if ipSE.StepUp() == ipNS {
 		startIp, endIp = self.GuestIpStart, net.GuestIpEnd
 	} else {
 		note := "Incontinuity Network for %s and %s"
@@ -1560,10 +1627,13 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range guestnetworks {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if self.isAddressInRange(addr) {
-			GuestnetworkManager.TableSpec().Update(gn, func() error {
+			_, err = GuestnetworkManager.TableSpec().Update(&gn, func() error {
 				gn.NetworkId = net.Id
 				return nil
 			})
+			if err != nil {
+				log.Errorln(err)
+			}
 		}
 	}
 
@@ -1576,10 +1646,13 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range hostnetworks {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if self.isAddressInRange(addr) {
-			HostnetworkManager.TableSpec().Update(gn, func() error {
+			_, err = HostnetworkManager.TableSpec().Update(&gn, func() error {
 				gn.NetworkId = net.Id
 				return nil
 			})
+			if err != nil {
+				log.Errorln(err)
+			}
 		}
 	}
 
@@ -1592,10 +1665,13 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range reservedips {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if self.isAddressInRange(addr) {
-			ReservedipManager.TableSpec().Update(gn, func() error {
+			_, err = ReservedipManager.TableSpec().Update(&gn, func() error {
 				gn.NetworkId = net.Id
 				return nil
 			})
+			if err != nil {
+				log.Errorln(err)
+			}
 		}
 	}
 
@@ -1608,10 +1684,13 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range groupnetwroks {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if self.isAddressInRange(addr) {
-			GroupnetworkManager.TableSpec().Update(gn, func() error {
+			_, err = GroupnetworkManager.TableSpec().Update(&gn, func() error {
 				gn.NetworkId = net.Id
 				return nil
 			})
+			if err != nil {
+				log.Errorln(err)
+			}
 		}
 	}
 
@@ -1700,10 +1779,13 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range guestnetworks {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if network.isAddressInRange(addr) {
-			GuestnetworkManager.TableSpec().Update(gn, func() error {
+			_, err := GuestnetworkManager.TableSpec().Update(&gn, func() error {
 				gn.NetworkId = network.Id
 				return nil
 			})
+			if err != nil {
+				log.Errorln(err)
+			}
 		}
 	}
 
@@ -1716,10 +1798,13 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range hostnetworks {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if network.isAddressInRange(addr) {
-			HostnetworkManager.TableSpec().Update(gn, func() error {
+			_, err = HostnetworkManager.TableSpec().Update(&gn, func() error {
 				gn.NetworkId = network.Id
 				return nil
 			})
+			if err != nil {
+				log.Errorln(err)
+			}
 		}
 	}
 
@@ -1732,10 +1817,13 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range reservedips {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if network.isAddressInRange(addr) {
-			ReservedipManager.TableSpec().Update(gn, func() error {
+			_, err = ReservedipManager.TableSpec().Update(&gn, func() error {
 				gn.NetworkId = network.Id
 				return nil
 			})
+			if err != nil {
+				log.Errorln(err)
+			}
 		}
 	}
 
@@ -1748,10 +1836,13 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range groupnetworks {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if network.isAddressInRange(addr) {
-			GroupnetworkManager.TableSpec().Update(gn, func() error {
+			_, err = GroupnetworkManager.TableSpec().Update(&gn, func() error {
 				gn.NetworkId = network.Id
 				return nil
 			})
+			if err != nil {
+				log.Errorln(err)
+			}
 		}
 	}
 
@@ -1760,4 +1851,12 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	logclient.AddActionLog(self, logclient.ACT_SPLIT, note, userCred, true)
 	db.OpsLog.LogEvent(network, db.ACT_CREATE, map[string]string{"network": self.Id}, userCred)
 	return nil, nil
+}
+
+func (network *SNetwork) getAllocTimoutDuration() time.Duration {
+	tos := network.AllocTimoutSeconds
+	if tos < options.Options.MinimalIpAddrReusedIntervalSeconds {
+		tos = options.Options.MinimalIpAddrReusedIntervalSeconds
+	}
+	return time.Duration(tos) * time.Second
 }

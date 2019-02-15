@@ -382,7 +382,7 @@ func (this *ArgumentParser) AddArgument(arg Argument) error {
 	return nil
 }
 
-func (this *ArgumentParser) setDefault() {
+func (this *ArgumentParser) SetDefault() {
 	for _, arg := range this.posArgs {
 		arg.SetDefault()
 	}
@@ -797,6 +797,10 @@ func (this *ArgumentParser) reset() {
 }
 
 func (this *ArgumentParser) ParseArgs(args []string, ignore_unknown bool) error {
+	return this.ParseArgs2(args, ignore_unknown, true)
+}
+
+func (this *ArgumentParser) ParseArgs2(args []string, ignore_unknown bool, setDefaults bool) error {
 	var pos_idx int = 0
 	var arg Argument = nil
 	var err error = nil
@@ -866,7 +870,9 @@ func (this *ArgumentParser) ParseArgs(args []string, ignore_unknown bool) error 
 	if err == nil {
 		err = this.Validate()
 	}
-	this.setDefault()
+	if setDefaults {
+		this.SetDefault()
+	}
 	return err
 }
 

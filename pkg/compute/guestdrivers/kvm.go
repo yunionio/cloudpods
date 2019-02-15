@@ -13,6 +13,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -28,6 +29,14 @@ func init() {
 
 func (self *SKVMGuestDriver) GetHypervisor() string {
 	return models.HYPERVISOR_KVM
+}
+
+func (self *SKVMGuestDriver) GetDefaultSysDiskBackend() string {
+	return models.STORAGE_LOCAL
+}
+
+func (self *SKVMGuestDriver) GetMinimalSysDiskSizeGb() int {
+	return options.Options.DefaultDiskSizeMB / 1024
 }
 
 func (self *SKVMGuestDriver) RequestDetachDisksFromGuestForDelete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
@@ -179,12 +188,16 @@ func (self *SKVMGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, gue
 	return nil
 }
 
-func (self *SKVMGuestDriver) GetJsonDescAtHost(ctx context.Context, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
+func (self *SKVMGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
 	return guest.GetJsonDescAtHypervisor(ctx, host)
 }
 
 func (self *SKVMGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	config := guest.GetDeployConfigOnHost(ctx, host, task.GetParams())
+	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
+	if err != nil {
+		log.Errorf("GetDeployConfigOnHost error: %v", err)
+		return err
+	}
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
 	if config.Contains("container") {
 		// ...
@@ -211,7 +224,7 @@ func (self *SKVMGuestDriver) RequestStartOnHost(ctx context.Context, guest *mode
 	header := self.getTaskRequestHeader(task)
 
 	config := jsonutils.NewDict()
-	desc := guest.GetDriver().GetJsonDescAtHost(ctx, guest, host)
+	desc := guest.GetDriver().GetJsonDescAtHost(ctx, userCred, guest, host)
 	config.Add(desc, "desc")
 	params := task.GetParams()
 	if params.Length() > 0 {
@@ -242,8 +255,9 @@ func (self *SKVMGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context, gues
 	return nil
 }
 
-func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, vcpuCount, vmemSize int64) error {
+func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
 	// pass
+	task.ScheduleRun(nil)
 	return nil
 }
 
@@ -273,11 +287,11 @@ func (self *SKVMGuestDriver) GetRebuildRootStatus() ([]string, error) {
 }
 
 func (self *SKVMGuestDriver) GetChangeConfigStatus() ([]string, error) {
-	return []string{models.VM_READY}, nil
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
 }
 
 func (self *SKVMGuestDriver) GetDeployStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING, models.VM_ADMIN}, nil
+	return []string{models.VM_READY, models.VM_ADMIN}, nil
 }
 
 func (self *SKVMGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
@@ -288,7 +302,7 @@ func (self *SKVMGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mode
 }
 
 func (self *SKVMGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	desc := guest.GetDriver().GetJsonDescAtHost(ctx, guest, host)
+	desc := guest.GetDriver().GetJsonDescAtHost(ctx, task.GetUserCred(), guest, host)
 	body := jsonutils.NewDict()
 	body.Add(desc, "desc")
 	if fw_only, _ := task.GetParams().Bool("fw_only"); fw_only {

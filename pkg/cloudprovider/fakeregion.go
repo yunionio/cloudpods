@@ -68,7 +68,7 @@ func (region *SFakeOnPremiseRegion) CreateIVpc(name string, desc string, cidr st
 	return nil, ErrNotSupported
 }
 
-func (region *SFakeOnPremiseRegion) CreateEIP(name string, bwMbps int, chargeType string) (ICloudEIP, error) {
+func (region *SFakeOnPremiseRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpType string) (ICloudEIP, error) {
 	return nil, ErrNotSupported
 }
 
@@ -84,10 +84,34 @@ func (region *SFakeOnPremiseRegion) GetILoadBalancers() ([]ICloudLoadbalancer, e
 	return nil, ErrNotSupported
 }
 
-func (region *SFakeOnPremiseRegion) GetILoadbalancerAcls() ([]ICloudLoadbalancerAcl, error) {
+func (region *SFakeOnPremiseRegion) GetILoadBalancerById(loadbalancerId string) (ICloudLoadbalancer, error) {
 	return nil, ErrNotSupported
 }
 
-func (region *SFakeOnPremiseRegion) GetILoadbalancerCertificates() ([]ICloudLoadbalancerCertificate, error) {
+func (region *SFakeOnPremiseRegion) GetILoadBalancerAclById(aclId string) (ICloudLoadbalancerAcl, error) {
+	return nil, ErrNotSupported
+}
+
+func (region *SFakeOnPremiseRegion) GetILoadBalancerCertificateById(certId string) (ICloudLoadbalancerCertificate, error) {
+	return nil, ErrNotSupported
+}
+
+func (region *SFakeOnPremiseRegion) CreateILoadBalancerCertificate(cert *SLoadbalancerCertificate) (ICloudLoadbalancerCertificate, error) {
+	return nil, ErrNotImplemented
+}
+
+func (region *SFakeOnPremiseRegion) GetILoadBalancerAcls() ([]ICloudLoadbalancerAcl, error) {
+	return nil, ErrNotSupported
+}
+
+func (region *SFakeOnPremiseRegion) GetILoadBalancerCertificates() ([]ICloudLoadbalancerCertificate, error) {
+	return nil, ErrNotSupported
+}
+
+func (region *SFakeOnPremiseRegion) CreateILoadBalancer(loadbalancer *SLoadbalancer) (ICloudLoadbalancer, error) {
+	return nil, ErrNotSupported
+}
+
+func (region *SFakeOnPremiseRegion) CreateILoadBalancerAcl(acl *SLoadbalancerAccessControlList) (ICloudLoadbalancerAcl, error) {
 	return nil, ErrNotSupported
 }

@@ -533,7 +533,7 @@ func (self *SImage) CustomizeDelete(ctx context.Context, userCred mcclient.Token
 		overridePendingDelete = jsonutils.QueryBoolean(query, "override_pending_delete", false)
 		purge = jsonutils.QueryBoolean(query, "purge", false)
 	}
-	if self.Status != IMAGE_STATUS_ACTIVE {
+	if self.Status != IMAGE_STATUS_ACTIVE && self.Status != IMAGE_STATUS_CONVERTING {
 		overridePendingDelete = true
 	}
 	return self.startDeleteImageTask(ctx, userCred, "", purge, overridePendingDelete)
@@ -827,6 +827,7 @@ func (self *SImage) MakeSubImages() error {
 	if self.GetImageType() == ImageTypeISO {
 		return nil
 	}
+	log.Debugf("[MakeSubImages] convert image to %#v", options.Options.TargetImageFormats)
 	for _, format := range options.Options.TargetImageFormats {
 		if !qemuimg.IsSupportedImageFormat(format) {
 			continue
@@ -848,6 +849,9 @@ func (self *SImage) MakeSubImages() error {
 func (self *SImage) ConvertAllSubformats() error {
 	subimgs := ImageSubformatManager.GetAllSubImages(self.Id)
 	for i := 0; i < len(subimgs); i += 1 {
+		if !utils.IsInStringArray(subimgs[i].Format, options.Options.TargetImageFormats) {
+			continue
+		}
 		err := subimgs[i].DoConvert(self)
 		if err != nil {
 			return err
@@ -1016,7 +1020,7 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 	}
 	for i := 0; i < len(subimgs); i += 1 {
 		subimgs[i].checkStatus(useFast)
-		if subimgs[i].Status != IMAGE_STATUS_ACTIVE || subimgs[i].TorrentStatus != IMAGE_STATUS_ACTIVE {
+		if (subimgs[i].Status != IMAGE_STATUS_ACTIVE || subimgs[i].TorrentStatus != IMAGE_STATUS_ACTIVE) && utils.IsInStringArray(subimgs[i].Format, options.Options.TargetImageFormats) {
 			needConvert = true
 		}
 	}

@@ -30,7 +30,13 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 	osArch, _ := params.GetString("os_arch")
 	osType, _ := params.GetString("os_type")
 	osDist, _ := params.GetString("os_distribution")
-	osVersion, _ := params.GetString("os_version")
+	var osVersion string
+	providerName := storageCache.GetProviderName()
+	if providerName == models.CLOUD_PROVIDER_HUAWEI {
+		osVersion, _ = params.GetString("os_full_version")
+	} else {
+		osVersion, _ = params.GetString("os_version")
+	}
 
 	isForce := jsonutils.QueryBoolean(params, "is_force", false)
 	userCred := task.GetUserCred()
@@ -39,14 +45,29 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 		lockman.LockRawObject(ctx, "cachedimages", fmt.Sprintf("%s-%s", storageCache.Id, imageId))
 		defer lockman.ReleaseRawObject(ctx, "cachedimages", fmt.Sprintf("%s-%s", storageCache.Id, imageId))
 
-		scimg := models.StoragecachedimageManager.Register(ctx, task.GetUserCred(), storageCache.Id, imageId)
+		scimg := models.StoragecachedimageManager.Register(ctx, task.GetUserCred(), storageCache.Id, imageId, "")
+
+		cachedImage := scimg.GetCachedimage()
+		if cachedImage == nil {
+			return nil, fmt.Errorf("cached image not found???")
+		}
 
 		iStorageCache, err := storageCache.GetIStorageCache()
 		if err != nil {
 			return nil, err
 		}
 
-		extImgId, err := iStorageCache.UploadImage(ctx, userCred, imageId, osArch, osType, osDist, osVersion, scimg.ExternalId, isForce)
+		var extImgId string
+		if cachedImage.ImageType == cloudprovider.CachedImageTypeCustomized {
+			extImgId, err = iStorageCache.UploadImage(ctx, userCred, imageId, osArch, osType, osDist, osVersion, scimg.ExternalId, isForce)
+		} else {
+			_, err = iStorageCache.GetIImageById(cachedImage.ExternalId)
+			if err != nil {
+				log.Errorf("remote image fetch error %s", err)
+				return nil, err
+			}
+			extImgId = cachedImage.ExternalId
+		}
 
 		if err != nil {
 			return nil, err
@@ -68,7 +89,7 @@ func (self *SManagedVirtualizationHostDriver) RequestUncacheImage(ctx context.Co
 		return err
 	}
 
-	scimg := models.StoragecachedimageManager.Register(ctx, task.GetUserCred(), storageCache.Id, imageId)
+	scimg := models.StoragecachedimageManager.Register(ctx, task.GetUserCred(), storageCache.Id, imageId, "")
 	if scimg == nil {
 		task.ScheduleRun(nil)
 		return nil
@@ -136,7 +157,7 @@ func (self *SManagedVirtualizationHostDriver) RequestSaveUploadImageOnHost(ctx c
 		params := task.GetParams()
 		osType, _ := params.GetString("properties", "os_type")
 
-		scimg := models.StoragecachedimageManager.Register(ctx, task.GetUserCred(), iStoragecache.GetId(), imageId)
+		scimg := models.StoragecachedimageManager.Register(ctx, task.GetUserCred(), iStoragecache.GetId(), imageId, "")
 		if scimg.Status != models.CACHED_IMAGE_STATUS_READY {
 			scimg.SetStatus(task.GetUserCred(), models.CACHED_IMAGE_STATUS_CACHING, "request_prepare_save_disk_on_host")
 		}
@@ -169,11 +190,7 @@ func (self *SManagedVirtualizationHostDriver) RequestSaveUploadImageOnHost(ctx c
 	return nil
 }
 
-func (self *SManagedVirtualizationHostDriver) RequestResizeDiskOnHostOnline(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, size int64, task taskman.ITask) error {
-	return self.RequestResizeDiskOnHost(ctx, host, storage, disk, size, task)
-}
-
-func (self *SManagedVirtualizationHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, sizeMb int64, task taskman.ITask) error {
+func (self *SManagedVirtualizationHostDriver) RequestResizeDiskOnHost(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, guest *models.SGuest, sizeMb int64, task taskman.ITask) error {
 	iCloudStorage, err := storage.GetIStorage()
 	if err != nil {
 		log.Errorf("storage.GetIStorage fail %s", err)
@@ -310,4 +327,12 @@ func (self *SManagedVirtualizationHostDriver) RequestRebuildDiskOnStorage(ctx co
 		return data, nil
 	})
 	return nil
+}
+
+func (driver *SManagedVirtualizationHostDriver) IsReachStoragecacheCapacityLimit(host *models.SHost, cachedImages []models.SCachedimage) bool {
+	quota := host.GetHostDriver().GetStoragecacheQuota(host)
+	if quota > 0 && len(cachedImages) >= quota {
+		return true
+	}
+	return false
 }

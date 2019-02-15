@@ -46,8 +46,16 @@ func init() {
 		printObject(lblistenerrule)
 		return nil
 	})
-	R(&options.LoadbalancerListenerRuleDeleteOptions{}, "lblistenerrule-delete", "Show lblistenerrule", func(s *mcclient.ClientSession, opts *options.LoadbalancerListenerRuleDeleteOptions) error {
+	R(&options.LoadbalancerListenerRuleDeleteOptions{}, "lblistenerrule-delete", "Delete lblistenerrule", func(s *mcclient.ClientSession, opts *options.LoadbalancerListenerRuleDeleteOptions) error {
 		lblistenerrule, err := modules.LoadbalancerListenerRules.Delete(s, opts.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(lblistenerrule)
+		return nil
+	})
+	R(&options.LoadbalancerListenerRuleDeleteOptions{}, "lblistenerrule-purge", "Purge lblistenerrule", func(s *mcclient.ClientSession, opts *options.LoadbalancerListenerRuleDeleteOptions) error {
+		lblistenerrule, err := modules.LoadbalancerListenerRules.PerformAction(s, opts.ID, "purge", nil)
 		if err != nil {
 			return err
 		}

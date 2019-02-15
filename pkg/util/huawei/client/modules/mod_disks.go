@@ -1,19 +1,17 @@
 package modules
 
 import (
-	"net/http"
-
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/responses"
 )
 
 type SDiskManager struct {
-	ResourceManager
+	SResourceManager
 }
 
-func NewDiskManager(regionId string, projectId string, signer auth.Signer) *SDiskManager {
-	return &SDiskManager{ResourceManager: ResourceManager{
-		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}},
+func NewDiskManager(regionId string, projectId string, signer auth.Signer, debug bool) *SDiskManager {
+	return &SDiskManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameEVS,
 		Region:        regionId,
 		ProjectId:     projectId,
@@ -26,5 +24,5 @@ func NewDiskManager(regionId string, projectId string, signer auth.Signer) *SDis
 }
 
 func (self *SDiskManager) List(querys map[string]string) (*responses.ListResult, error) {
-	return self.ListInContext(nil, "detail", querys)
+	return self.ListInContextWithSpec(nil, "detail", querys, self.KeywordPlural)
 }

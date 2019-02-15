@@ -126,7 +126,7 @@ func fetchJointItem(dispatcher *DBJointModelDispatcher, ctx context.Context, use
 	if err != nil {
 		return nil, nil, nil, httperrors.NewGeneralError(err)
 	}
-	item, err := dispatcher.JointModelManager().FetchByIds(master.GetId(), slave.GetId())
+	item, err := FetchJointByIds(dispatcher.JointModelManager(), master.GetId(), slave.GetId(), query)
 	if err != nil {
 		return nil, nil, nil, err
 	}

@@ -154,13 +154,13 @@ type SHost struct {
 	// Status  string = Column(VARCHAR(16, charset='ascii'), nullable=False, default=baremetalstatus.INIT) # status
 	HostStatus string `width:"16" charset:"ascii" nullable:"false" default:"offline" list:"admin"` // Column(VARCHAR(16, charset='ascii'), nullable=False, server_default=HOST_OFFLINE, default=HOST_OFFLINE)
 
-	ZoneId string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_optional"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
+	ZoneId string `width:"128" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
 
 	HostType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 
 	Version string `width:"64" charset:"ascii" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(64, charset='ascii'))
 
-	IsBaremetal bool `nullable:"true" default:"false" list:"admin" create:"admin_optional"` // Column(Boolean, nullable=True, default=False)
+	IsBaremetal bool `nullable:"true" default:"false" list:"admin" update:"admin" create:"admin_optional"` // Column(Boolean, nullable=True, default=False)
 
 	IsMaintenance bool `nullable:"true" default:"false" list:"admin"` // Column(Boolean, nullable=True, default=False)
 
@@ -1606,7 +1606,7 @@ func (self *SHost) newCloudHostWire(ctx context.Context, userCred mcclient.Token
 	return err
 }
 
-func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, vms []cloudprovider.ICloudVM, projectId string, projectSync bool) ([]SGuest, []cloudprovider.ICloudVM, compare.SyncResult) {
+func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, vms []cloudprovider.ICloudVM, projectId string, projectSync bool) ([]SGuest, []cloudprovider.ICloudVM, compare.SyncResult) {
 	localVMs := make([]SGuest, 0)
 	remoteVMs := make([]cloudprovider.ICloudVM, 0)
 	syncResult := compare.SyncResult{}
@@ -1634,7 +1634,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
-		err := commondb[i].syncWithCloudVM(ctx, userCred, self, commonext[i], projectId, projectSync)
+		err := commondb[i].syncWithCloudVM(ctx, userCred, iprovider, self, commonext[i], projectId, projectSync)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -1656,7 +1656,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 				continue
 			}
 		}
-		new, err := GuestManager.newCloudVM(ctx, userCred, self, added[i], projectId)
+		new, err := GuestManager.newCloudVM(ctx, userCred, iprovider, self, added[i], projectId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -1681,96 +1681,46 @@ func (self *SHost) getNetworkOfIPOnHost(ipAddr string) (*SNetwork, error) {
 	return net, nil
 }
 
-func (self *SHost) GetNetinterfaceWithNetworkAndCredential(netId string, userCred mcclient.TokenCredential, reserved bool) (*SNetInterface, *SNetwork) {
-	netif, net := self.getNetifWithNetworkAndCredential(netId, userCred, true, reserved)
-	if netif != nil {
-		return netif, net
+func (self *SHost) GetNetinterfaceWithIdAndCredential(netId string, userCred mcclient.TokenCredential, reserved bool) (*SNetInterface, *SNetwork) {
+	netObj, err := NetworkManager.FetchById(netId)
+	if err != nil {
+		return nil, nil
 	}
-	return self.getNetifWithNetworkAndCredential(netId, userCred, false, reserved)
-}
-
-func (self *SHost) getNetifWithNetworkAndCredential(netId string, userCred mcclient.TokenCredential, isPublic bool, reserved bool) (*SNetInterface, *SNetwork) {
+	net := netObj.(*SNetwork)
+	if net.getFreeAddressCount() == 0 && !reserved {
+		return nil, nil
+	}
 	netifs := self.GetNetInterfaces()
-	var maxFreeCnt = 0
-	var maxFreeNet *SNetwork
-	var maxFreeNetif *SNetInterface
 	for i := 0; i < len(netifs); i++ {
 		if !netifs[i].IsUsableServernic() {
 			continue
 		}
-		wire := netifs[i].GetWire()
-		if wire != nil {
-			if isPublic {
-				nets, _ := wire.getPublicNetworks()
-				for _, net := range nets {
-					if net.Id == netId || net.GetName() == netId {
-						freeCnt := net.getFreeAddressCount()
-						if maxFreeNet == nil || maxFreeCnt < freeCnt {
-							maxFreeNetif = &netifs[i]
-							maxFreeNet = &net
-						}
-					}
-				}
-			} else {
-				nets, _ := wire.getPrivateNetworks(userCred)
-				for _, net := range nets {
-					if net.Id == netId || net.GetName() == netId {
-						freeCnt := net.getFreeAddressCount()
-						if maxFreeNet == nil || maxFreeCnt < freeCnt {
-							maxFreeNetif = &netifs[i]
-							maxFreeNet = &net
-						}
-					}
-				}
-			}
+		if netifs[i].WireId == net.WireId {
+			return &netifs[i], net
 		}
 	}
-	return maxFreeNetif, maxFreeNet
+	return nil, nil
 }
 
 func (self *SHost) GetNetworkWithIdAndCredential(netId string, userCred mcclient.TokenCredential, reserved bool) (*SNetwork, error) {
-	net, err := self.getNetworkWithIdAndCredential(netId, userCred, true, reserved)
-	if err == nil {
-		return net, nil
-	}
-	return self.getNetworkWithIdAndCredential(netId, userCred, false, reserved)
-}
-
-func (self *SHost) getNetworkWithIdAndCredential(netId string, userCred mcclient.TokenCredential, isPublic bool, reserved bool) (*SNetwork, error) {
 	networks := NetworkManager.Query().SubQuery()
 	hostwires := HostwireManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
 
 	q := networks.Query()
-	q = q.Join(hostwires, sqlchemy.AND(sqlchemy.Equals(hostwires.Field("wire_id"), networks.Field("wire_id")),
-		sqlchemy.IsFalse(hostwires.Field("deleted"))))
-	q = q.Join(hosts, sqlchemy.AND(sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")),
-		sqlchemy.IsFalse(hosts.Field("deleted"))))
+	q = q.Join(hostwires, sqlchemy.Equals(hostwires.Field("wire_id"), networks.Field("wire_id")))
+	q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
 	q = q.Filter(sqlchemy.Equals(hosts.Field("id"), self.Id))
-	q = q.Filter(sqlchemy.OR(sqlchemy.Equals(networks.Field("id"), netId),
-		sqlchemy.Equals(networks.Field("name"), netId)))
-	if isPublic {
-		q = q.Filter(sqlchemy.IsTrue(networks.Field("is_public")))
-	} else {
-		q = q.Filter(sqlchemy.Equals(networks.Field("tenant_id"), userCred.GetProjectId()))
-	}
+	q = q.Filter(sqlchemy.Equals(networks.Field("id"), netId))
 
-	nets := make([]SNetwork, 0)
-	err := db.FetchModelObjects(NetworkManager, q, &nets)
+	net := SNetwork{}
+	net.SetModelManager(NetworkManager)
+	err := q.First(&net)
 	if err != nil {
 		return nil, err
 	}
-	var maxFreeNet *SNetwork
-	maxFrees := 0
-	for i := 0; i < len(nets); i += 1 {
-		freeCnt := nets[i].getFreeAddressCount()
-		if maxFreeNet == nil || maxFrees < freeCnt {
-			maxFrees = freeCnt
-			maxFreeNet = &nets[i]
-		}
-	}
-	if reserved || maxFrees > 0 {
-		return maxFreeNet, nil
+	if reserved || net.getFreeAddressCount() > 0 {
+		return &net, nil
 	}
 	return nil, fmt.Errorf("No IP address")
 }
@@ -1934,9 +1884,14 @@ func (self *SHost) GetIZone() (cloudprovider.ICloudZone, error) {
 */
 
 func (self *SHost) GetIHost() (cloudprovider.ICloudHost, error) {
+	host, _, err := self.GetIHostAndProvider()
+	return host, err
+}
+
+func (self *SHost) GetIHostAndProvider() (cloudprovider.ICloudHost, cloudprovider.ICloudProvider, error) {
 	provider, err := self.GetDriver()
 	if err != nil {
-		return nil, fmt.Errorf("No cloudprovide for host: %s", err)
+		return nil, nil, fmt.Errorf("No cloudprovide for host: %s", err)
 	}
 	var iregion cloudprovider.ICloudRegion
 	if provider.IsOnPremiseInfrastructure() {
@@ -1946,20 +1901,20 @@ func (self *SHost) GetIHost() (cloudprovider.ICloudHost, error) {
 		if region == nil {
 			msg := "fail to find region of host???"
 			log.Errorf(msg)
-			return nil, fmt.Errorf(msg)
+			return nil, nil, fmt.Errorf(msg)
 		}
 		iregion, err = provider.GetIRegionById(region.ExternalId)
 	}
 	if err != nil {
 		log.Errorf("fail to find iregion: %s", err)
-		return nil, err
+		return nil, nil, err
 	}
 	ihost, err := iregion.GetIHostById(self.ExternalId)
 	if err != nil {
 		log.Errorf("fail to find ihost by id %s %s", self.ExternalId, err)
-		return nil, fmt.Errorf("fail to find ihost by id %s", err)
+		return nil, nil, fmt.Errorf("fail to find ihost by id %s", err)
 	}
-	return ihost, nil
+	return ihost, provider, nil
 }
 
 func (self *SHost) GetIRegion() (cloudprovider.ICloudRegion, error) {
@@ -1991,18 +1946,17 @@ func (self *SHost) GetBaremetalServer() *SGuest {
 	if !self.IsBaremetal {
 		return nil
 	}
-	guestObj, err := db.NewModelObject(GuestManager)
-	if err != nil {
-		log.Errorf("%s", err)
-		return nil
-	}
+	guest := SGuest{}
+	guest.SetModelManager(GuestManager)
 	q := GuestManager.Query().Equals("host_id", self.Id).Equals("hypervisor", HOST_TYPE_BAREMETAL)
-	err = q.First(guestObj)
+	err := q.First(&guest)
 	if err != nil {
-		log.Errorf("query fail %s", err)
+		if err != sql.ErrNoRows {
+			log.Errorf("query fail %s", err)
+		}
 		return nil
 	}
-	return guestObj.(*SGuest)
+	return &guest
 }
 
 func (self *SHost) getSchedtags() []SSchedtag {
@@ -2766,6 +2720,7 @@ func (self *SHost) StartPrepareTask(ctx context.Context, userCred mcclient.Token
 	if len(onfinish) > 0 {
 		data.Set("on_finish", jsonutils.NewString(onfinish))
 	}
+	self.SetStatus(userCred, BAREMETAL_PREPARE, "start prepare task")
 	if task, err := taskman.TaskManager.NewTask(ctx, "BaremetalPrepareTask", self, userCred, data, parentTaskId, "", nil); err != nil {
 		log.Errorf(err.Error())
 		return err
@@ -2907,7 +2862,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 				bridge = fmt.Sprintf("br%s", sw.GetName())
 			}
 			var isMaster = netif.NicType == NIC_TYPE_ADMIN
-			ihw, err := HostwireManager.FetchByIds(self.Id, sw.Id)
+			ihw, err := db.FetchJointByIds(HostwireManager, self.Id, sw.Id, nil)
 			if err != nil {
 				hw := &SHostwire{}
 				hw.Bridge = bridge
@@ -2933,7 +2888,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 		}
 	}
 	if len(ipAddr) > 0 {
-		err = self.EnableNetif(ctx, userCred, netif, "", ipAddr, "", reserve, requireDesignatedIp)
+		err = self.EnableNetif(ctx, userCred, netif, "", ipAddr, "", "", reserve, requireDesignatedIp)
 		if err != nil {
 			return httperrors.NewBadRequestError(err.Error())
 		}
@@ -2960,20 +2915,22 @@ func (self *SHost) PerformEnableNetif(ctx context.Context, userCred mcclient.Tok
 	network, _ := data.GetString("network")
 	ipAddr, _ := data.GetString("ip_addr")
 	allocDir, _ := data.GetString("alloc_dir")
+	netType, _ := data.GetString("net_type")
 	reserve := jsonutils.QueryBoolean(data, "reserve", false)
 	requireDesignatedIp := jsonutils.QueryBoolean(data, "require_designated_ip", false)
-	err := self.EnableNetif(ctx, userCred, netif, network, ipAddr, allocDir, reserve, requireDesignatedIp)
+	err := self.EnableNetif(ctx, userCred, netif, network, ipAddr, allocDir, netType, reserve, requireDesignatedIp)
 	if err != nil {
 		return nil, httperrors.NewBadRequestError(err.Error())
 	}
 	return nil, nil
 }
 
-func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCredential, netif *SNetInterface, network, ipAddr, allocDir string, reserve, requireDesignatedIp bool) error {
+func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCredential, netif *SNetInterface, network, ipAddr, allocDir string, netType string, reserve, requireDesignatedIp bool) error {
 	bn := netif.GetBaremetalNetwork()
 	if bn != nil {
 		return nil
 	}
+	log.Errorf("==========EnableNetif %#v, net: %s, ipAddr: %s, allocDir: %s, reserve: %v, requireDesignatedIp: %v", netif, network, ipAddr, allocDir, reserve, requireDesignatedIp)
 	var net *SNetwork
 	var err error
 	if len(ipAddr) > 0 {
@@ -2989,7 +2946,7 @@ func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCrede
 	if wire == nil {
 		return fmt.Errorf("No wire attached")
 	}
-	hw, err := HostwireManager.FetchByIds(self.Id, wire.Id)
+	hw, err := db.FetchJointByIds(HostwireManager, self.Id, wire.Id, nil)
 	if hw == nil {
 		return fmt.Errorf("host not attach to this wire")
 	}
@@ -3004,8 +2961,17 @@ func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCrede
 				return fmt.Errorf("Network %s not reacheable on mac %s", network, netif.Mac)
 			}
 		} else {
-			net, err = wire.GetCandidatePrivateNetwork(userCred, false, SERVER_TYPE_BAREMETAL)
-			if err != nil || net == nil {
+			var netTypes []string
+			if len(netType) > 0 && netType != NETWORK_TYPE_BAREMETAL {
+				netTypes = []string{netType, NETWORK_TYPE_BAREMETAL}
+			} else {
+				netTypes = []string{NETWORK_TYPE_BAREMETAL}
+			}
+			net, err = wire.GetCandidatePrivateNetwork(userCred, false, netTypes)
+			if err != nil {
+				return fmt.Errorf("fail to find network %s", err)
+			}
+			if net == nil {
 				return fmt.Errorf("No network found")
 			}
 		}
@@ -3105,7 +3071,7 @@ func (self *SHost) RemoveNetif(ctx context.Context, userCred mcclient.TokenCrede
 		log.Infof("Remove wire")
 		others := self.GetNetifsOnWire(wire)
 		if len(others) == 0 {
-			hw, _ := HostwireManager.FetchByIds(self.Id, wire.Id)
+			hw, _ := db.FetchJointByIds(HostwireManager, self.Id, wire.Id, nil)
 			if hw != nil {
 				db.OpsLog.LogDetachEvent(ctx, self, wire, userCred, jsonutils.NewString(fmt.Sprintf("disable netif %s", self.AccessMac)))
 				log.Infof("Detach host wire because of remove netif %s", netif.Mac)
@@ -3316,10 +3282,16 @@ func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclie
 	if err != nil {
 		return nil, httperrors.NewNotAcceptableError("Convert error: %s", err.Error())
 	}
-	guest, err := GuestManager.DoCreate(ctx, userCred, data, params, GuestManager)
+	ownerProjId := userCred.GetProjectId()
+	guest, err := db.DoCreate(GuestManager, ctx, userCred, nil, params, ownerProjId)
 	if err != nil {
 		return nil, err
 	}
+	func() {
+		lockman.LockObject(ctx, guest)
+		defer lockman.ReleaseObject(ctx, guest)
+		guest.PostCreate(ctx, userCred, ownerProjId, nil, params)
+	}()
 	log.Infof("Host convert to %s", guest.GetName())
 	db.OpsLog.LogEvent(self, db.ACT_CONVERT_START, "", userCred)
 	db.OpsLog.LogEvent(guest, db.ACT_CREATE, "Convert hypervisor", userCred)
@@ -3502,7 +3474,7 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 
 	for i := 0; i < len(enables); i += 1 {
 		netif := host.GetNetInterface(enables[i].GetMac())
-		err = host.EnableNetif(ctx, userCred, netif, "", enables[i].GetIpAddr(), "", false, true)
+		err = host.EnableNetif(ctx, userCred, netif, "", enables[i].GetIpAddr(), "", "", false, true)
 		if err != nil {
 			result.AddError(err)
 		} else {

@@ -23,38 +23,43 @@ func init() {
 
 func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	disk := obj.(*models.SDisk)
+
+	guestId, _ := self.Params.GetString("guest_id")
+	var masterGuest *models.SGuest
+	if len(guestId) > 0 {
+		masterGuest = models.GuestManager.FetchGuestById(guestId)
+	}
+
 	storage := disk.GetStorage()
 	host := storage.GetMasterHost()
-	online := disk.GetRuningGuestCount() > 0
-	if online {
-		for _, guest := range disk.GetGuests() {
-			host = guest.GetHost()
-		}
+
+	if masterGuest != nil {
+		host = masterGuest.GetHost()
 	}
+
 	reason := "Cannot find host for disk"
 	if host == nil || host.HostStatus != models.HOST_ONLINE {
 		disk.SetDiskReady(ctx, self.GetUserCred(), reason)
 		self.SetStageFailed(ctx, reason)
 		db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, reason, self.GetUserCred())
 		logclient.AddActionLog(disk, logclient.ACT_RESIZE, reason, self.UserCred, false)
-	} else {
-		disk.SetStatus(self.GetUserCred(), models.DISK_START_RESIZE, "")
+		return
+	}
+
+	disk.SetStatus(self.GetUserCred(), models.DISK_START_RESIZE, "")
+	if masterGuest == nil {
 		for _, guest := range disk.GetGuests() {
 			guest.SetStatus(self.GetUserCred(), models.VM_RESIZE_DISK, "")
 		}
-		self.StartResizeDisk(ctx, host, storage, disk, online)
 	}
+	self.StartResizeDisk(ctx, host, storage, disk, masterGuest)
 }
 
-func (self *DiskResizeTask) StartResizeDisk(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, online bool) {
+func (self *DiskResizeTask) StartResizeDisk(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, guest *models.SGuest) {
 	log.Infof("Resizing disk on host %s ...", host.GetName())
 	self.SetStage("on_disk_resize_complete", nil)
 	sizeMb, _ := self.GetParams().Int("size")
-	proc := host.GetHostDriver().RequestResizeDiskOnHost
-	if online {
-		proc = host.GetHostDriver().RequestResizeDiskOnHostOnline
-	}
-	if err := proc(ctx, host, storage, disk, sizeMb, self); err != nil {
+	if err := host.GetHostDriver().RequestResizeDiskOnHost(ctx, host, storage, disk, guest, sizeMb, self); err != nil {
 		log.Errorf("request_resize_disk_on_host: %v", err)
 		self.OnStartResizeDiskFailed(ctx, disk, err)
 		return

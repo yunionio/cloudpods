@@ -1,10 +1,13 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/azure"
 	// "yunion.io/x/log"
 )
@@ -18,6 +21,45 @@ func (self *SAzureProviderFactory) GetId() string {
 
 func (self *SAzureProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
 	return fmt.Errorf("Changing %s bandwidth is not supported", azure.CLOUD_PROVIDER_AZURE)
+}
+
+func (self *SAzureProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
+	directoryID, _ := data.GetString("directory_id")
+	if len(directoryID) == 0 {
+		return httperrors.NewMissingParameterError("directory_id")
+	}
+	clientID, _ := data.GetString("client_id")
+	if len(clientID) == 0 {
+		return httperrors.NewMissingParameterError("client_id")
+	}
+	clientSecret, _ := data.GetString("client_secret")
+	if len(clientSecret) == 0 {
+		return httperrors.NewMissingParameterError("client_secret")
+	}
+	environment, _ := data.GetString("environment")
+	if len(environment) == 0 {
+		return httperrors.NewMissingParameterError("environment")
+	}
+	data.Set("account", jsonutils.NewString(directoryID))
+	data.Set("secret", jsonutils.NewString(fmt.Sprintf("%s/%s", clientID, clientSecret)))
+	data.Set("access_url", jsonutils.NewString(environment))
+	return nil
+}
+
+func (self *SAzureProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
+	clientID, _ := data.GetString("client_id")
+	if len(clientID) == 0 {
+		return nil, httperrors.NewMissingParameterError("client_id")
+	}
+	clientSecret, _ := data.GetString("client_secret")
+	if len(clientSecret) == 0 {
+		return nil, httperrors.NewMissingParameterError("client_secret")
+	}
+	account := &cloudprovider.SCloudaccount{
+		Account: cloudaccount,
+		Secret:  fmt.Sprintf("%s/%s", clientID, clientSecret),
+	}
+	return account, nil
 }
 
 func (self *SAzureProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
@@ -87,4 +129,8 @@ func (self *SAzureProvider) GetBalance() (float64, error) {
 
 func (self *SAzureProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SAzureProvider) SupportPrepaidResources() bool {
+	return true
 }

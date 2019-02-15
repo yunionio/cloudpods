@@ -13,7 +13,6 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	compute "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -63,7 +62,7 @@ func (self *SStoragecache) GetManagerId() string {
 func (self *SStoragecache) fetchImages() error {
 	images := make([]SImage, 0)
 	for {
-		parts, total, err := self.region.GetImages(ImageStatusType(""), ImageOwnerSelf, nil, "", len(images), 50)
+		parts, total, err := self.region.GetImages(ImageStatusType(""), "", nil, "", len(images), 50)
 		if err != nil {
 			return err
 		}
@@ -91,7 +90,7 @@ func (self *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 }
 
 func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {
-	parts, _, err := self.region.GetImages(ImageStatusType(""), ImageOwnerSelf, []string{extId}, "", 0, 1)
+	parts, _, err := self.region.GetImages(ImageStatusType(""), "", []string{extId}, "", 0, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +227,7 @@ func (self *SStoragecache) CreateIImage(snapshoutId, imageName, osType, imageDes
 		image.storageCache = self
 		iimage := make([]cloudprovider.ICloudImage, 1)
 		iimage[0] = image
-		if err := cloudprovider.WaitStatus(iimage[0], compute.IMAGE_STATUS_ACTIVE, 15*time.Second, 3600*time.Second); err != nil {
+		if err := cloudprovider.WaitStatus(iimage[0], cloudprovider.IMAGE_STATUS_ACTIVE, 15*time.Second, 3600*time.Second); err != nil {
 			return nil, err
 		}
 		return iimage[0], nil
@@ -354,4 +353,17 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 			return result, nil
 		}
 	}
+}
+
+func (region *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
+	storageCache := region.getStoragecache()
+	return []cloudprovider.ICloudStoragecache{storageCache}, nil
+}
+
+func (region *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
+	storageCache := region.getStoragecache()
+	if id == storageCache.GetGlobalId() {
+		return storageCache, nil
+	}
+	return nil, cloudprovider.ErrNotFound
 }

@@ -8,7 +8,7 @@ import (
 
 func init() {
 	R(&options.LoadbalancerBackendGroupCreateOptions{}, "lbbackendgroup-create", "Create lbbackendgroup", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendGroupCreateOptions) error {
-		params, err := options.StructToParams(opts)
+		params, err := opts.Params()
 		if err != nil {
 			return err
 		}
@@ -51,8 +51,16 @@ func init() {
 		printObject(lbbackendgroup)
 		return nil
 	})
-	R(&options.LoadbalancerBackendGroupDeleteOptions{}, "lbbackendgroup-delete", "Show lbbackendgroup", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendGroupDeleteOptions) error {
+	R(&options.LoadbalancerBackendGroupDeleteOptions{}, "lbbackendgroup-delete", "Delete lbbackendgroup", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendGroupDeleteOptions) error {
 		lbbackendgroup, err := modules.LoadbalancerBackendGroups.Delete(s, opts.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(lbbackendgroup)
+		return nil
+	})
+	R(&options.LoadbalancerBackendGroupDeleteOptions{}, "lbbackendgroup-purge", "Purge lbbackendgroup", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendGroupDeleteOptions) error {
+		lbbackendgroup, err := modules.LoadbalancerBackendGroups.PerformAction(s, opts.ID, "purge", nil)
 		if err != nil {
 			return err
 		}

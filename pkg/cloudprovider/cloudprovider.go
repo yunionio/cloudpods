@@ -1,22 +1,31 @@
 package cloudprovider
 
 import (
+	"context"
 	"fmt"
 
 	"errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 var (
 	ErrNoSuchProvder = errors.New("no such provider")
 )
 
+type SCloudaccount struct {
+	Account string
+	Secret  string
+}
+
 type ICloudProviderFactory interface {
 	GetProvider(providerId, providerName, url, account, secret string) (ICloudProvider, error)
 	GetId() string
 	ValidateChangeBandwidth(instanceId string, bandwidth int64) error
+	ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error
+	ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*SCloudaccount, error)
 }
 
 type ICloudProvider interface {
@@ -40,6 +49,8 @@ type ICloudProvider interface {
 	GetBalance() (float64, error)
 
 	GetSubAccounts() ([]SSubAccount, error)
+
+	SupportPrepaidResources() bool
 }
 
 var providerTable map[string]ICloudProviderFactory

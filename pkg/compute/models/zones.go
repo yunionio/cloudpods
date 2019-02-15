@@ -17,6 +17,7 @@ import (
 )
 
 const (
+	ZONE_INIT    = "init"
 	ZONE_ENABLE  = "enable"
 	ZONE_DISABLE = "disable"
 	ZONE_SOLDOUT = "soldout"
@@ -469,7 +470,7 @@ func (manager *SZoneManager) InitializeData() error {
 				return nil
 			})
 		}
-		if z.Status == "init" {
+		if z.Status == ZONE_INIT || z.Status == ZONE_DISABLE {
 			manager.TableSpec().Update(&z, func() error {
 				z.Status = ZONE_ENABLE
 				return nil
@@ -477,6 +478,116 @@ func (manager *SZoneManager) InitializeData() error {
 		}
 	}
 	return nil
+}
+
+/*
+Query 1:
+vpc.manager_id is not empty && wire.zone_id is not empty
+*/
+func (manager *SZoneManager) usableZoneQ1(providers, vpcs, wires, networks *sqlchemy.SSubQuery, usableNet, usableVpc bool) *sqlchemy.SSubQuery {
+	// join tables
+	sq := wires.Query(sqlchemy.DISTINCT("zone_id", wires.Field("zone_id")))
+	if usableNet {
+		sq = sq.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+	}
+	sq = sq.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
+	sq = sq.Join(providers, sqlchemy.Equals(vpcs.Field("manager_id"), providers.Field("id")))
+
+	// add filters
+	if usableNet {
+		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+	}
+	sq = sq.Filter(sqlchemy.IsNotEmpty(wires.Field("zone_id")))
+	sq = sq.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
+	sq = sq.Filter(sqlchemy.In(providers.Field("status"), CLOUD_PROVIDER_VALID_STATUS))
+	if usableVpc {
+		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+	}
+
+	return sq.SubQuery()
+}
+
+/*
+Query 2:
+vpc.manager_id is empty && wire.zone_id is not empty
+*/
+func (manager *SZoneManager) usableZoneQ2(vpcs, wires, networks *sqlchemy.SSubQuery, usableNet, usableVpc bool) *sqlchemy.SSubQuery {
+	// join tables
+	sq := wires.Query(sqlchemy.DISTINCT("zone_id", wires.Field("zone_id")))
+	if usableNet {
+		sq = sq.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+	}
+	sq = sq.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
+
+	// add filters
+	if usableNet {
+		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+	}
+	sq = sq.Filter(sqlchemy.IsNotEmpty(wires.Field("zone_id")))
+	sq = sq.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
+	if usableVpc {
+		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+	}
+
+	return sq.SubQuery()
+}
+
+/*
+Query 3:
+vpc.manager_id is not empty && wire.zone_id is empty
+
+2019.01.17 目前华为云子网在整个region 可用。wire中zone_id留空。
+*/
+func (manager *SZoneManager) usableZoneQ3(providers, vpcs, wires, networks, zones *sqlchemy.SSubQuery, usableNet, usableVpc bool) *sqlchemy.SSubQuery {
+	// join tables
+	sq := zones.Query(sqlchemy.DISTINCT("zone_id", zones.Field("id")))
+	sq = sq.Join(vpcs, sqlchemy.Equals(zones.Field("cloudregion_id"), vpcs.Field("cloudregion_id")))
+	sq = sq.Join(wires, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
+	if usableNet {
+		sq = sq.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+	}
+	sq = sq.Join(providers, sqlchemy.Equals(vpcs.Field("manager_id"), providers.Field("id")))
+
+	// add filters
+	if usableNet {
+		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+	}
+	sq = sq.Filter(sqlchemy.IsNullOrEmpty(wires.Field("zone_id")))
+	sq = sq.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
+	sq = sq.Filter(sqlchemy.In(providers.Field("status"), CLOUD_PROVIDER_VALID_STATUS))
+	if usableVpc {
+		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+	}
+
+	return sq.SubQuery()
+}
+
+/*
+Query 4:
+vpc.manager_id is empty && wire.zone_id is empty
+
+2019.01.17 目前华为云子网在整个region 可用。wire中zone_id留空。
+*/
+func (manager *SZoneManager) usableZoneQ4(vpcs, wires, networks, zones *sqlchemy.SSubQuery, usableNet, usableVpc bool) *sqlchemy.SSubQuery {
+	// join tables
+	sq := zones.Query(sqlchemy.DISTINCT("zone_id", zones.Field("id")))
+	sq = sq.Join(vpcs, sqlchemy.Equals(zones.Field("cloudregion_id"), vpcs.Field("cloudregion_id")))
+	sq = sq.Join(wires, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
+	if usableNet {
+		sq = sq.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+	}
+
+	// add filters
+	if usableNet {
+		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+	}
+	sq = sq.Filter(sqlchemy.IsNullOrEmpty(wires.Field("zone_id")))
+	sq = sq.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
+	if usableVpc {
+		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+	}
+
+	return sq.SubQuery()
 }
 
 func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
@@ -495,55 +606,54 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	}
 
 	if jsonutils.QueryBoolean(query, "usable", false) || jsonutils.QueryBoolean(query, "usable_vpc", false) {
+		usableNet := jsonutils.QueryBoolean(query, "usable", false)
+		usableVpc := jsonutils.QueryBoolean(query, "usable_vpc", false)
+
 		networks := NetworkManager.Query().SubQuery()
 		wires := WireManager.Query().SubQuery()
 		vpcs := VpcManager.Query().SubQuery()
 		providers := CloudproviderManager.Query().SubQuery()
+		zones := ZoneManager.Query().SubQuery()
 
-		usableNet := jsonutils.QueryBoolean(query, "usable", false)
-		usableVpc := jsonutils.QueryBoolean(query, "usable_vpc", false)
-
-		sq := wires.Query(sqlchemy.DISTINCT("zone_id", wires.Field("zone_id")))
-		if usableNet {
-			sq = sq.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
-		}
-		sq = sq.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
-		sq = sq.Join(providers, sqlchemy.Equals(vpcs.Field("manager_id"), providers.Field("id")))
-		if usableNet {
-			sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
-		}
-		sq = sq.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
-		sq = sq.Filter(sqlchemy.In(providers.Field("status"), CLOUD_PROVIDER_VALID_STATUS))
-		if usableVpc {
-			sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
-		}
-
-		sq2 := wires.Query(sqlchemy.DISTINCT("zone_id", wires.Field("zone_id")))
-		if usableNet {
-			sq2 = sq2.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
-		}
-		sq2 = sq2.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
-		if usableNet {
-			sq2 = sq2.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
-		}
-		sq2 = sq2.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
-		if usableVpc {
-			sq2 = sq2.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
-		}
+		sq1 := manager.usableZoneQ1(providers, vpcs, wires, networks, usableNet, usableVpc)
+		sq2 := manager.usableZoneQ2(vpcs, wires, networks, usableNet, usableVpc)
+		sq3 := manager.usableZoneQ3(providers, vpcs, wires, networks, zones, usableNet, usableVpc)
+		sq4 := manager.usableZoneQ4(vpcs, wires, networks, zones, usableNet, usableVpc)
 
 		q = q.Filter(sqlchemy.OR(
-			sqlchemy.In(q.Field("id"), sq.SubQuery()),
-			sqlchemy.In(q.Field("id"), sq2.SubQuery()),
+			sqlchemy.In(q.Field("id"), sq1),
+			sqlchemy.In(q.Field("id"), sq2),
+			sqlchemy.In(q.Field("id"), sq3),
+			sqlchemy.In(q.Field("id"), sq4),
 		))
 		q = q.Equals("status", ZONE_ENABLE)
 	}
 	managerStr, _ := query.GetString("manager")
 	if len(managerStr) > 0 {
-		provider := CloudproviderManager.FetchCloudproviderByIdOrName(managerStr)
-		if provider == nil {
-			return nil, httperrors.NewResourceNotFoundError("Cloud provider/manager %s not found", managerStr)
+		providerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
 		}
+		provider := providerObj.(*SCloudprovider)
 		subq := CloudregionManager.Query("id").Equals("provider", provider.Provider).SubQuery()
+		q = q.In("cloudregion_id", subq)
+	}
+	accountStr, _ := query.GetString("account")
+	if len(accountStr) > 0 {
+		accountObj, err := CloudaccountManager.FetchByIdOrName(userCred, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		account := accountObj.(*SCloudaccount)
+		subq := CloudregionManager.Query("id").Equals("provider", account.Provider).SubQuery()
 		q = q.In("cloudregion_id", subq)
 	}
 	providerStr, _ := query.GetString("provider")

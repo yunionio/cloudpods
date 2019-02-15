@@ -753,8 +753,16 @@ func fetchOwnerProjectId(ctx context.Context, manager IModelManager, userCred mc
 	if data != nil {
 		projId = jsonutils.GetAnyString(data, []string{"project", "tenant", "project_id", "tenant_id"})
 	}
+	ownerProjId := manager.GetOwnerId(userCred)
 	if len(projId) == 0 {
-		return manager.GetOwnerId(userCred), nil
+		return ownerProjId, nil
+	}
+	t, _ := TenantCacheManager.FetchTenantByIdOrName(ctx, projId)
+	if t == nil {
+		return "", httperrors.NewNotFoundError("Project %s not found", projId)
+	}
+	if t.GetId() == ownerProjId {
+		return ownerProjId, nil
 	}
 	var isAllow bool
 	if consts.IsRbacEnabled() {
@@ -768,10 +776,6 @@ func fetchOwnerProjectId(ctx context.Context, manager IModelManager, userCred mc
 	}
 	if !isAllow {
 		return "", httperrors.NewForbiddenError("Delegation not allowed")
-	}
-	t, _ := TenantCacheManager.FetchTenantByIdOrName(ctx, projId)
-	if t == nil {
-		return "", httperrors.NewNotFoundError("Project %s not found", projId)
 	}
 	return t.GetId(), nil
 }
@@ -811,8 +815,19 @@ func FetchModelObjects(modelManager IModelManager, query *sqlchemy.SQuery, targe
 	return nil
 }
 
+func DoCreate(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject, ownerProjId string) (IModel, error) {
+	lockman.LockClass(ctx, manager, ownerProjId)
+	defer lockman.ReleaseClass(ctx, manager, ownerProjId)
+
+	return doCreateItem(manager, ctx, userCred, ownerProjId, nil, data)
+}
+
 func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) (IModel, error) {
-	dataDict := data.(*jsonutils.JSONDict)
+	dataDict, ok := data.(*jsonutils.JSONDict)
+	if !ok {
+		log.Errorf("doCreateItem: fail to decode json data %s", data)
+		return nil, fmt.Errorf("fail to decode json data %s", data)
+	}
 	var err error
 
 	generateName, _ := dataDict.GetString("generate_name")
@@ -892,22 +907,18 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		return nil, httperrors.NewForbiddenError("Not allow to create item")
 	}
 
-	model, err := func() (IModel, error) {
-		lockman.LockClass(ctx, dispatcher.modelManager, ownerProjId)
-		defer lockman.ReleaseClass(ctx, dispatcher.modelManager, ownerProjId)
-
-		return doCreateItem(dispatcher.modelManager, ctx, userCred, ownerProjId, query, data)
-	}()
-
+	model, err := DoCreate(dispatcher.modelManager, ctx, userCred, query, data, ownerProjId)
 	if err != nil {
 		log.Errorf("fail to doCreateItem %s", err)
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	lockman.LockObject(ctx, model)
-	defer lockman.ReleaseObject(ctx, model)
+	func() {
+		lockman.LockObject(ctx, model)
+		defer lockman.ReleaseObject(ctx, model)
 
-	model.PostCreate(ctx, userCred, ownerProjId, query, data)
+		model.PostCreate(ctx, userCred, ownerProjId, query, data)
+	}()
 
 	OpsLog.LogEvent(model, ACT_CREATE, model.GetShortDesc(ctx), userCred)
 	logclient.AddActionLog(model, logclient.ACT_CREATE, "", userCred, true)
@@ -1283,7 +1294,7 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 
 func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IModel) error {
 	manager := item.GetModelManager()
-	log.Debugf("Ready to delete %s %s %#v", jsonutils.Marshal(item), item, manager)
+	// log.Debugf("Ready to delete %s %s %#v", jsonutils.Marshal(item), item, manager)
 	_, err := manager.TableSpec().Update(item, func() error {
 		return item.MarkDelete()
 	})

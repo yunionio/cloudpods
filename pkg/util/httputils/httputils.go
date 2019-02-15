@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/moul/http2curl"
@@ -54,8 +55,13 @@ type JSONClientError struct {
 	Data    Error
 }
 
+type JSONClientErrorMsg struct {
+	Error *JSONClientError
+}
+
 func (e *JSONClientError) Error() string {
-	return fmt.Sprintf("JSONClientError: %s %d %s", e.Details, e.Code, e.Class)
+	errMsg := JSONClientErrorMsg{Error: e}
+	return jsonutils.Marshal(errMsg).String()
 }
 
 func headerExists(header *http.Header, key string) bool {
@@ -99,6 +105,12 @@ func GetClient(insecure bool) *http.Client {
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: insecure},
 	}
 	return &http.Client{Transport: tr}
+}
+
+func GetTimeoutClient(timeout time.Duration) *http.Client {
+	client := GetClient(true)
+	client.Timeout = timeout
+	return client
 }
 
 var defaultHttpClient *http.Client
@@ -200,7 +212,7 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 	}
 	rbody, err := ioutil.ReadAll(resp.Body)
 	if debug {
-		fmt.Fprintf(os.Stderr, "%s\n", string(rbody))
+		fmt.Fprintf(os.Stderr, "Response body: %s\n", string(rbody))
 	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("Fail to read body: %s", err)
@@ -232,26 +244,41 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 			return nil, nil, &ce
 		}
 
-		jrbody2, err := jrbody.Get("error")
-		if err == nil {
-			ecode, err := jrbody2.Int("code")
-			if err == nil {
-				ce.Code = int(ecode)
-				ce.Details, _ = jrbody2.GetString("message")
-				ce.Class, _ = jrbody2.GetString("title")
-				return nil, nil, &ce
-			} else {
-				ce.Code = resp.StatusCode
-				ce.Details = jrbody2.String()
-				return nil, nil, &ce
-			}
-		}
-
 		err = jrbody.Unmarshal(&ce)
-		if err != nil {
-			return nil, nil, err
-		} else {
+		if len(ce.Class) > 0 && ce.Code >= 400 && len(ce.Details) > 0 {
 			return nil, nil, &ce
 		}
+
+		jrbody1, err := jrbody.GetMap()
+		if err != nil {
+			err = jrbody.Unmarshal(&ce)
+			if err != nil {
+				ce.Details = err.Error()
+			}
+			return nil, nil, &ce
+		}
+		var jrbody2 jsonutils.JSONObject
+		if len(jrbody1) > 1 {
+			jrbody2 = jsonutils.Marshal(jrbody1)
+		} else {
+			for _, v := range jrbody1 {
+				jrbody2 = v
+			}
+		}
+		if ecode, _ := jrbody2.GetString("code"); len(ecode) > 0 {
+			code, err := strconv.Atoi(ecode)
+			if err != nil {
+				ce.Class = ecode
+			} else {
+				ce.Code = code
+			}
+		}
+		if edetail := jsonutils.GetAnyString(jrbody2, []string{"message", "detail", "error_msg"}); len(edetail) > 0 {
+			ce.Details = edetail
+		}
+		if eclass := jsonutils.GetAnyString(jrbody2, []string{"title", "type", "error_code"}); len(eclass) > 0 {
+			ce.Class = eclass
+		}
+		return nil, nil, &ce
 	}
 }

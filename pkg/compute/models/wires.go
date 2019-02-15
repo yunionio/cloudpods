@@ -40,9 +40,9 @@ func init() {
 type SWire struct {
 	db.SStandaloneResourceBase
 
-	Bandwidth    int    `list:"admin" update:"admin" nullable:"false" create:"admin_required"`             // = Column(Integer, nullable=False) # bandwidth of network in Mbps
-	ScheduleRank int    `list:"admin" update:"admin"`                                                      // = Column(Integer, default=0, nullable=True)
-	ZoneId       string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // = Column(VARCHAR(36, charset='ascii'), nullable=False)
+	Bandwidth    int    `list:"admin" update:"admin" nullable:"false" create:"admin_required"`            // = Column(Integer, nullable=False) # bandwidth of network in Mbps
+	ScheduleRank int    `list:"admin" update:"admin"`                                                     // = Column(Integer, default=0, nullable=True)
+	ZoneId       string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"admin_required"` // = Column(VARCHAR(36, charset='ascii'), nullable=False)
 	VpcId        string `wdith:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
 }
 
@@ -259,16 +259,20 @@ func (manager *SWireManager) newFromCloudWire(extWire cloudprovider.ICloudWire, 
 	wire.ExternalId = extWire.GetGlobalId()
 	wire.Bandwidth = extWire.GetBandwidth()
 	wire.VpcId = vpc.Id
-	zoneObj, err := ZoneManager.FetchByExternalId(extWire.GetIZone().GetGlobalId())
-	if err != nil {
-		log.Errorf("cannot find zone for wire %s", err)
-		return nil, err
+	izone := extWire.GetIZone()
+	if izone != nil {
+		zoneObj, err := ZoneManager.FetchByExternalId(izone.GetGlobalId())
+		if err != nil {
+			log.Errorf("cannot find zone for wire %s", err)
+			return nil, err
+		}
+
+		wire.ZoneId = zoneObj.(*SZone).Id
 	}
-	wire.ZoneId = zoneObj.(*SZone).Id
 
 	wire.IsEmulated = extWire.IsEmulated()
 
-	err = manager.TableSpec().Insert(&wire)
+	err := manager.TableSpec().Insert(&wire)
 	if err != nil {
 		log.Errorf("newFromCloudWire fail %s", err)
 		return nil, err
@@ -408,20 +412,20 @@ func (self *SWire) getPrivateNetworks(userCred mcclient.TokenCredential) ([]SNet
 	return nets, nil
 }
 
-func (self *SWire) GetCandidatePrivateNetwork(userCred mcclient.TokenCredential, isExit bool, serverType string) (*SNetwork, error) {
+func (self *SWire) GetCandidatePrivateNetwork(userCred mcclient.TokenCredential, isExit bool, serverTypes []string) (*SNetwork, error) {
 	nets, err := self.getPrivateNetworks(userCred)
 	if err != nil {
 		return nil, err
 	}
-	return ChooseCandidateNetworks(nets, isExit, serverType), nil
+	return ChooseCandidateNetworks(nets, isExit, serverTypes), nil
 }
 
-func (self *SWire) GetCandidatePublicNetwork(isExit bool, serverType string) (*SNetwork, error) {
+func (self *SWire) GetCandidatePublicNetwork(isExit bool, serverTypes []string) (*SNetwork, error) {
 	nets, err := self.getPublicNetworks()
 	if err != nil {
 		return nil, err
 	}
-	return ChooseCandidateNetworks(nets, isExit, serverType), nil
+	return ChooseCandidateNetworks(nets, isExit, serverTypes), nil
 }
 
 func (self *SWire) GetCandidateNetworkForIp(userCred mcclient.TokenCredential, ipAddr string) (*SNetwork, error) {
@@ -472,7 +476,17 @@ func chooseNetworkByAddressCount(nets []*SNetwork) (*SNetwork, *SNetwork) {
 	return minSel, maxSel
 }
 
-func ChooseCandidateNetworks(nets []SNetwork, isExit bool, serverType string) *SNetwork {
+func ChooseCandidateNetworks(nets []SNetwork, isExit bool, serverTypes []string) *SNetwork {
+	for _, s := range serverTypes {
+		net := chooseCandidateNetworksByNetworkType(nets, isExit, s)
+		if net != nil {
+			return net
+		}
+	}
+	return nil
+}
+
+func chooseCandidateNetworksByNetworkType(nets []SNetwork, isExit bool, serverType string) *SNetwork {
 	matchingNets := make([]*SNetwork, 0)
 	notMatchingNets := make([]*SNetwork, 0)
 
@@ -481,7 +495,7 @@ func ChooseCandidateNetworks(nets []SNetwork, isExit bool, serverType string) *S
 		if isExit != net.IsExitNetwork() {
 			continue
 		}
-		if serverType == net.ServerType || (len(net.ServerType) == 0 && serverType == SERVER_TYPE_GUEST) {
+		if serverType == net.ServerType || (len(net.ServerType) == 0 && serverType == NETWORK_TYPE_GUEST) {
 			matchingNets = append(matchingNets, &net)
 		} else {
 			notMatchingNets = append(notMatchingNets, &net)

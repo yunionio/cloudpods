@@ -25,7 +25,7 @@ func init() {
 type SGroupnetwork struct {
 	SGroupJointsBase
 
-	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" key_index:"true"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 
 	IpAddr string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
 	// # ip6_addr = Column(VARCHAR(64, charset='ascii'), nullable=True)
@@ -56,7 +56,7 @@ func (self *SGroupnetwork) GetExtraDetails(ctx context.Context, userCred mcclien
 	return db.JointModelExtra(self, extra), nil
 }
 
-func (self *SGroupnetwork) getNetwork() *SNetwork {
+func (self *SGroupnetwork) GetNetwork() *SNetwork {
 	obj, err := NetworkManager.FetchById(self.NetworkId)
 	if err != nil {
 		log.Errorf("%s", err)

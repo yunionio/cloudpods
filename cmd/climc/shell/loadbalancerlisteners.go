@@ -48,8 +48,16 @@ func init() {
 		printObject(lblistener)
 		return nil
 	})
-	R(&options.LoadbalancerListenerDeleteOptions{}, "lblistener-delete", "Show lblistener", func(s *mcclient.ClientSession, opts *options.LoadbalancerListenerDeleteOptions) error {
+	R(&options.LoadbalancerListenerDeleteOptions{}, "lblistener-delete", "Delete lblistener", func(s *mcclient.ClientSession, opts *options.LoadbalancerListenerDeleteOptions) error {
 		lblistener, err := modules.LoadbalancerListeners.Delete(s, opts.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(lblistener)
+		return nil
+	})
+	R(&options.LoadbalancerListenerDeleteOptions{}, "lblistener-purge", "Purge lblistener", func(s *mcclient.ClientSession, opts *options.LoadbalancerListenerDeleteOptions) error {
+		lblistener, err := modules.LoadbalancerListeners.PerformAction(s, opts.ID, "purge", nil)
 		if err != nil {
 			return err
 		}
@@ -62,6 +70,14 @@ func init() {
 			return err
 		}
 		lblistener, err := modules.LoadbalancerListeners.PerformAction(s, opts.ID, "status", params)
+		if err != nil {
+			return err
+		}
+		printObject(lblistener)
+		return nil
+	})
+	R(&options.LoadbalancerListenerActionSyncStatusOptions{}, "lblistener-syncstatus", "Sync lblistener status", func(s *mcclient.ClientSession, opts *options.LoadbalancerListenerActionSyncStatusOptions) error {
+		lblistener, err := modules.LoadbalancerListeners.PerformAction(s, opts.ID, "syncstatus", nil)
 		if err != nil {
 			return err
 		}

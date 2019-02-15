@@ -5,12 +5,26 @@ import (
 	"strings"
 	"time"
 
-	"strconv"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
+
+/*
+华为云云硬盘
+======创建==========
+1.磁盘只能挂载到同一可用区的云服务器内，创建后不支持更换可用区
+2.计费模式 包年包月/按需计费
+3.*支持自动备份
+
+
+共享盘 和 普通盘：https://support.huaweicloud.com/productdesc-evs/zh-cn_topic_0032860759.html
+根据是否支持挂载至多台云服务器可以将云硬盘分为非共享云硬盘和共享云硬盘。
+一个非共享云硬盘只能挂载至一台云服务器，而一个共享云硬盘可以同时挂载至多台云服务器。
+单个共享云硬盘最多可同时挂载给16个云服务器。目前，共享云硬盘只适用于数据盘，不支持系统盘。
+*/
 
 type Attachment struct {
 	ServerID     string `json:"server_id"`
@@ -41,7 +55,7 @@ type VolumeImageMetadata struct {
 	MinDisk                string `json:"min_disk"`
 	SupportKVM             string `json:"__support_kvm"`
 	VirtualEnvType         string `json:"virtual_env_type"`
-	Size                   string `json:"size"`
+	SizeGB                 string `json:"size"`
 	OSVersion              string `json:"__os_version"`
 	OSBit                  string `json:"__os_bit"`
 	SupportKVMHi1822Hiovs  string `json:"__support_kvm_hi1822_hiovs"`
@@ -65,7 +79,7 @@ type SDisk struct {
 	Status              string              `json:"status"`
 	Attachments         []Attachment        `json:"attachments"`
 	Description         string              `json:"description"`
-	Size                int64               `json:"size"`
+	SizeGB              int                 `json:"size"`
 	Metadata            DiskMeta            `json:"metadata"`
 	Encrypted           bool                `json:"encrypted"`
 	Bootable            string              `json:"bootable"`
@@ -182,7 +196,7 @@ func (self *SDisk) GetDiskFormat() string {
 }
 
 func (self *SDisk) GetDiskSizeMB() int {
-	return int(self.Size * 1024)
+	return int(self.SizeGB * 1024)
 }
 
 func (self *SDisk) checkAutoDelete(attachments []Attachment) bool {
@@ -259,11 +273,26 @@ func (self *SDisk) GetAccessPath() string {
 }
 
 func (self *SDisk) Delete(ctx context.Context) error {
-	panic("implement me")
+	if _, err := self.storage.zone.region.GetDisk(self.GetId()); err == cloudprovider.ErrNotFound {
+		log.Errorf("Failed to find disk %s when delete", self.GetId())
+		return nil
+	}
+	return self.storage.zone.region.DeleteDisk(self.GetId())
 }
 
 func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
-	panic("implement me")
+	if snapshotId, err := self.storage.zone.region.CreateSnapshot(self.GetId(), name, desc); err != nil {
+		log.Errorf("createSnapshot fail %s", err)
+		return nil, err
+	} else if snapshot, err := self.getSnapshot(snapshotId); err != nil {
+		return nil, err
+	} else {
+		snapshot.region = self.storage.zone.region
+		if err := cloudprovider.WaitStatus(snapshot, models.SNAPSHOT_READY, 15*time.Second, 3600*time.Second); err != nil {
+			return nil, err
+		}
+		return snapshot, nil
+	}
 }
 
 func (self *SDisk) getSnapshot(snapshotId string) (*SSnapshot, error) {
@@ -277,21 +306,9 @@ func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot
 }
 
 func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	snapshots := make([]SSnapshot, 0)
-	limit := 20
-	offset := 0
-	for {
-		if parts, count, err := self.storage.zone.region.GetSnapshots(self.ID, "", offset, limit); err != nil {
-			log.Errorf("GetDisks fail %s", err)
-			return nil, err
-		} else {
-			snapshots = append(snapshots, parts...)
-			if count < limit {
-				break
-			}
-
-			offset += limit
-		}
+	snapshots, err := self.storage.zone.region.GetSnapshots(self.ID, "")
+	if err != nil {
+		return nil, err
 	}
 
 	isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots))
@@ -302,15 +319,17 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 }
 
 func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
-	panic("implement me")
+	sizeGb := newSizeMB / 1024
+	return self.storage.zone.region.resizeDisk(self.GetId(), sizeGb)
 }
 
 func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
-	panic("implement me")
+	return self.storage.zone.region.resetDisk(self.GetId(), snapshotId)
 }
 
+// 华为云不支持重置
 func (self *SDisk) Rebuild(ctx context.Context) error {
-	panic("implement me")
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
@@ -319,16 +338,67 @@ func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	return &disk, err
 }
 
-func (self *SRegion) GetDisks(zoneId string, offset int, limit int) ([]SDisk, int, error) {
-	querys := map[string]string{}
+// https://support.huaweicloud.com/api-evs/zh-cn_topic_0058762430.html
+func (self *SRegion) GetDisks(zoneId string) ([]SDisk, error) {
+	queries := map[string]string{}
 	if len(zoneId) > 0 {
-		querys["availability_zone"] = zoneId
+		queries["availability_zone"] = zoneId
 	}
 
-	querys["limit"] = strconv.Itoa(limit)
-	querys["offset"] = strconv.Itoa(offset)
-
 	disks := make([]SDisk, 0)
-	err := DoList(self.ecsClient.Disks.List, querys, &disks)
-	return disks, len(disks), err
+	err := doListAllWithOffset(self.ecsClient.Disks.List, queries, &disks)
+	return disks, err
+}
+
+// https://support.huaweicloud.com/api-evs/zh-cn_topic_0058762427.html
+func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, snapshotId string, desc string) (string, error) {
+	params := jsonutils.NewDict()
+	volumeObj := jsonutils.NewDict()
+	volumeObj.Add(jsonutils.NewString(name), "name")
+	volumeObj.Add(jsonutils.NewString(zoneId), "availability_zone")
+	volumeObj.Add(jsonutils.NewString(desc), "description")
+	volumeObj.Add(jsonutils.NewString(category), "volume_type")
+	volumeObj.Add(jsonutils.NewInt(int64(sizeGb)), "size")
+	if len(snapshotId) > 0 {
+		volumeObj.Add(jsonutils.NewString(snapshotId), "snapshot_id")
+	}
+
+	params.Add(volumeObj, "volume")
+
+	disk := SDisk{}
+	err := DoCreate(self.ecsClient.Disks.Create, params, &disk)
+	return disk.ID, err
+}
+
+func (self *SRegion) DeleteDisk(diskId string) error {
+	return DoDelete(self.ecsClient.Disks.Delete, diskId, nil, nil)
+}
+
+/*
+扩容状态为available的云硬盘时，没有约束限制。
+扩容状态为in-use的云硬盘时，有以下约束：
+不支持共享云硬盘，即multiattach参数值必须为false。
+云硬盘所挂载的云服务器状态必须为ACTIVE、PAUSED、SUSPENDED、SHUTOFF才支持扩容
+*/
+func (self *SRegion) resizeDisk(diskId string, sizeGB int64) error {
+	params := jsonutils.NewDict()
+	osExtendObj := jsonutils.NewDict()
+	osExtendObj.Add(jsonutils.NewInt(sizeGB), "new_size") // GB
+	params.Add(osExtendObj, "os-extend")
+	_, err := self.ecsClient.Disks.PerformAction2("action", diskId, params, "")
+	return err
+}
+
+/*
+https://support.huaweicloud.com/api-evs/zh-cn_topic_0051408629.html
+只支持快照回滚到源云硬盘，不支持快照回滚到其它指定云硬盘。
+只有云硬盘状态处于“available”或“error_rollbacking”状态才允许快照回滚到源云硬盘。
+*/
+func (self *SRegion) resetDisk(diskId, snapshotId string) (string, error) {
+	params := jsonutils.NewDict()
+	rollbackObj := jsonutils.NewDict()
+	rollbackObj.Add(jsonutils.NewString(diskId), "volume_id")
+	params.Add(rollbackObj, "rollback")
+	_, err := self.ecsClient.OsSnapshots.PerformAction2("rollback", snapshotId, params, "")
+	return diskId, err
 }

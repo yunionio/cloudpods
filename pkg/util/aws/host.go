@@ -8,7 +8,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SHost struct {
@@ -161,10 +160,8 @@ func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 	return inst, nil
 }
 
-func (self *SHost) CreateVM(name, imgId string, sysDiskSize, cpu, memMB int, networkId, ipAddr, desc,
-	passwd, storageType string, diskSizes []int, publicKey string, secgroupId string, userData string,
-	bc *billing.SBillingCycle) (cloudprovider.ICloudVM, error) {
-	vmId, err := self._createVM(name, imgId, sysDiskSize, cpu, memMB, "", networkId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId, userData)
+func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
+	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB, desc.InstanceType, desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Password, desc.DataDisks, desc.PublicKey, desc.ExternalSecgroupId, desc.UserData)
 	if err != nil {
 		return nil, err
 	}
@@ -177,24 +174,9 @@ func (self *SHost) CreateVM(name, imgId string, sysDiskSize, cpu, memMB int, net
 	return vm, err
 }
 
-func (self *SHost) CreateVM2(name, imgId string, sysDiskSize int, instanceType string, networkId, ipAddr, desc,
-	passwd, storageType string, diskSizes []int, publicKey string, secgroupId string, userData string, bc *billing.SBillingCycle) (cloudprovider.ICloudVM, error) {
-	vmId, err := self._createVM(name, imgId, sysDiskSize, 0, 0, instanceType, networkId, ipAddr, desc, passwd, storageType, diskSizes, publicKey, secgroupId, userData)
-	if err != nil {
-		return nil, err
-	}
-
-	vm, err := self.GetInstanceById(vmId)
-	if err != nil {
-		return nil, err
-	}
-
-	return vm, err
-}
-
-func (self *SHost) _createVM(name, imgId string, sysDiskSize int, cpu, memMB int, instanceType string,
-	networkId, ipAddr, desc, passwd,
-	storageType string, diskSizes []int, publicKey string, secgroupId string, userData string) (string, error) {
+func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo, cpu, memMB int, instanceType string,
+	networkId, ipAddr, desc, passwd string,
+	dataDisks []cloudprovider.SDiskInfo, publicKey string, secgroupId string, userData string) (string, error) {
 	// 网络配置及安全组绑定
 	net := self.zone.getNetworkById(networkId)
 	if net == nil {
@@ -250,16 +232,16 @@ func (self *SHost) _createVM(name, imgId string, sysDiskSize int, cpu, memMB int
 		return "", fmt.Errorf("image not ready")
 	}
 
-	disks := make([]SDisk, len(diskSizes)+1)
-	disks[0].Size = img.Size
-	if sysDiskSize > 0 && sysDiskSize > img.Size {
-		disks[0].Size = sysDiskSize
+	disks := make([]SDisk, len(dataDisks)+1)
+	disks[0].Size = img.SizeGB
+	if sysDisk.SizeGB > 0 && sysDisk.SizeGB > img.SizeGB {
+		disks[0].Size = sysDisk.SizeGB
 	}
-	disks[0].Category = storageType
+	disks[0].Category = sysDisk.StorageType
 
-	for i, sz := range diskSizes {
-		disks[i+1].Size = sz
-		disks[i+1].Category = storageType
+	for i, dataDisk := range dataDisks {
+		disks[i+1].Size = dataDisk.SizeGB
+		disks[i+1].Category = dataDisk.StorageType
 	}
 
 	// 创建实例

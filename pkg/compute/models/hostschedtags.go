@@ -32,8 +32,8 @@ func init() {
 type SHostschedtag struct {
 	SHostJointsBase
 
-	HostId     string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required" key_index:"true"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
-	SchedtagId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required" key_index:"true"` // =Column(VARCHAR(36, charset='ascii'), nullable=False)
+	HostId     string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	SchedtagId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // =Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
 func (joint *SHostschedtag) Master() db.IStandaloneModel {

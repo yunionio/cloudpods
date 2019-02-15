@@ -120,24 +120,25 @@ func (self *SSnapshot) Delete() error {
 	return self.region.DeleteSnapshot(self.GetId())
 }
 
-func (self *SRegion) GetSnapshots(diskId string, snapshotName string, offset int, limit int) ([]SSnapshot, int, error) {
+// https://support.huaweicloud.com/api-evs/zh-cn_topic_0051408627.html
+func (self *SRegion) GetSnapshots(diskId string, snapshotName string) ([]SSnapshot, error) {
 	params := make(map[string]string)
-	params["limit"] = fmt.Sprintf("%d", limit)
-	params["offset"] = fmt.Sprintf("%d", offset)
 
 	if len(diskId) > 0 {
 		params["volume_id"] = diskId
 	}
+
 	if len(snapshotName) > 0 {
 		params["name"] = snapshotName
 	}
 
 	snapshots := make([]SSnapshot, 0)
-	err := DoList(self.ecsClient.Snapshots.List, params, &snapshots)
+	err := doListAllWithOffset(self.ecsClient.Snapshots.List, params, &snapshots)
 	for i := range snapshots {
 		snapshots[i].region = self
 	}
-	return snapshots, len(snapshots), err
+
+	return snapshots, err
 }
 
 func (self *SRegion) GetSnapshotById(snapshotId string) (SSnapshot, error) {
@@ -147,7 +148,24 @@ func (self *SRegion) GetSnapshotById(snapshotId string) (SSnapshot, error) {
 	return snapshot, err
 }
 
+// 不能删除以autobk_snapshot_为前缀的快照。
+// 当快照状态为available、error状态时，才可以删除。
 func (self *SRegion) DeleteSnapshot(snapshotId string) error {
-	// todo: implement me
-	return nil
+	return DoDelete(self.ecsClient.Snapshots.Delete, snapshotId, nil, nil)
+}
+
+// https://support.huaweicloud.com/api-evs/zh-cn_topic_0051408624.html
+// 目前已设置force字段。云硬盘处于挂载状态时，能强制创建快照。
+func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
+	params := jsonutils.NewDict()
+	snapshotObj := jsonutils.NewDict()
+	snapshotObj.Add(jsonutils.NewString(name), "name")
+	snapshotObj.Add(jsonutils.NewString(desc), "description")
+	snapshotObj.Add(jsonutils.NewString(diskId), "volume_id")
+	snapshotObj.Add(jsonutils.JSONTrue, "force")
+	params.Add(snapshotObj, "snapshot")
+
+	snapshot := SSnapshot{}
+	err := DoCreate(self.ecsClient.Snapshots.Create, params, &snapshot)
+	return snapshot.ID, err
 }

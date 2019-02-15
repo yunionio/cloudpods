@@ -21,7 +21,6 @@ type IColumnSpec interface {
 	IsSupportDefault() bool
 	IsNullable() bool
 	IsPrimary() bool
-	IsKeyIndex() bool
 	IsUnique() bool
 	IsIndex() bool
 	ExtraDefs() string
@@ -50,7 +49,6 @@ type SBaseColumn struct {
 	isPointer     bool
 	isNullable    bool
 	isPrimary     bool
-	isKeyIndex    bool
 	isUnique      bool
 	isIndex       bool
 	tags          map[string]string
@@ -90,10 +88,6 @@ func (c *SBaseColumn) IsNullable() bool {
 
 func (c *SBaseColumn) IsPrimary() bool {
 	return c.isPrimary
-}
-
-func (c *SBaseColumn) IsKeyIndex() bool {
-	return c.isKeyIndex
 }
 
 func (c *SBaseColumn) IsUnique() bool {
@@ -201,11 +195,6 @@ func NewBaseColumn(name string, sqltype string, tagmap map[string]string) SBaseC
 	if ok {
 		isPrimary = utils.ToBool(val)
 	}
-	isKeyIndex := false
-	tagmap, val, ok = utils.TagPop(tagmap, TAG_KEY_INDEX)
-	if ok {
-		isKeyIndex = utils.ToBool(val)
-	}
 	isUnique := false
 	tagmap, val, ok = utils.TagPop(tagmap, TAG_UNIQUE)
 	if ok {
@@ -226,7 +215,6 @@ func NewBaseColumn(name string, sqltype string, tagmap map[string]string) SBaseC
 		defaultString: defStr,
 		isNullable:    isNullable,
 		isPrimary:     isPrimary,
-		isKeyIndex:    isKeyIndex,
 		isUnique:      isUnique,
 		isIndex:       isIndex,
 		tags:          tagmap,

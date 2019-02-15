@@ -17,7 +17,9 @@ func init() {
 		Wire       string `help:"search networks belongs to a wire" json:"-"`
 		Vpc        string `help:"search networks belongs to a VPC"`
 		Region     string `help:"search networks belongs to a CloudRegion" json:"cloudregion"`
-		ServerType string `help:"search networks belongs to a ServerType"`
+		ServerType string `help:"search networks belongs to a ServerType" choices:"guest|baremetal|container|pxe|ipmi"`
+		Private    *bool  `help:"show private cloud networks only" json:"is_private"`
+		Public     *bool  `help:"show public cloud networks only" json:"is_public"`
 	}
 	R(&NetworkListOptions{}, "network-list", "List networks", func(s *mcclient.ClientSession, opts *NetworkListOptions) error {
 		params, err := options.ListStructToParams(opts)
@@ -41,7 +43,7 @@ func init() {
 		ID          string `help:"ID or Name of zone to update"`
 		Name        string `help:"Name of zone"`
 		Desc        string `metavar:"<DESCRIPTION>" help:"Description"`
-		ServerType  string `help:"server type," choices:"baremetal|guest|container"`
+		ServerType  string `help:"server type," choices:"baremetal|guest|container|pxe|ipmi"`
 		StartIp     string `help:"Start ip"`
 		EndIp       string `help:"end ip"`
 		NetMask     int64  `help:"Netmask"`
@@ -183,7 +185,7 @@ func init() {
 		Gateway     string `help:"Default gateway"`
 		VlanId      int64  `help:"Vlan ID" default:"1"`
 		AllocPolicy string `help:"Address allocation policy" choices:"none|stepdown|stepup|random"`
-		ServerType  string `help:"Server type" choices:"baremetal|guest|container"`
+		ServerType  string `help:"Server type" choices:"baremetal|guest|container|pxe|ipmi"`
 		Desc        string `help:"Description" metavar:"DESCRIPTION"`
 	}
 	R(&NetworkCreateOptions{}, "network-create", "Create a virtual network", func(s *mcclient.ClientSession, args *NetworkCreateOptions) error {

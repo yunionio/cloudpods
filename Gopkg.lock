@@ -95,6 +95,14 @@
   version = "v1.20.0"
 
 [[projects]]
+  digest = "1:e92f5581902c345eb4ceffdcd4a854fb8f73cf436d47d837d1ec98ef1fe0a214"
+  name = "github.com/StackExchange/wmi"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "5d049714c4a64225c3c79a7cf7d02f7fb5b96338"
+  version = "1.0.0"
+
+[[projects]]
   digest = "1:8c3176921eb3a8c3b9cadd2bbb2e8e39f62a99ee2e0965074a857868cc18a10b"
   name = "github.com/aliyun/alibaba-cloud-sdk-go"
   packages = [
@@ -532,6 +540,17 @@
   pruneopts = "UT"
   revision = "07c9b44f60d7ffdfb7d8efe1ad539965737836dc"
   version = "v0.4.0"
+
+[[projects]]
+  digest = "1:c96d16a4451e48e2c44b2c3531fd8ec9248d822637f1911a88959ca0bcae4a64"
+  name = "github.com/go-ole/go-ole"
+  packages = [
+    ".",
+    "oleutil",
+  ]
+  pruneopts = "UT"
+  revision = "39dc8486bd0952279431257138bc428275b86797"
+  version = "v1.2.2"
 
 [[projects]]
   digest = "1:ec6f9bf5e274c833c911923c9193867f3f18788c461f76f05f62bb1510e0ae65"
@@ -1118,6 +1137,29 @@
   revision = "49a4782e9908fe098c907022a1bd7519c79803d6"
 
 [[projects]]
+  digest = "1:946db283b5540b64c60e7517b5afa54dc148b4672d69b38423a1c8d7fe24f3d1"
+  name = "github.com/shirou/gopsutil"
+  packages = [
+    "cpu",
+    "host",
+    "internal/common",
+    "mem",
+    "net",
+    "process",
+  ]
+  pruneopts = "UT"
+  revision = "3ec50d2876a36047b2ca39f955ba88fb7a455e92"
+  version = "v2.18.10"
+
+[[projects]]
+  branch = "master"
+  digest = "1:99c6a6dab47067c9b898e8c8b13d130c6ab4ffbcc4b7cc6236c2cd0b1e344f5b"
+  name = "github.com/shirou/w32"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "bb4de0191aa41b5507caa14b0650cdbddcd9280b"
+
+[[projects]]
   digest = "1:69b1cc331fca23d702bd72f860c6a647afd0aa9fcbc1d0659b1365e26546dd70"
   name = "github.com/sirupsen/logrus"
   packages = ["."]
@@ -1615,11 +1657,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9e1972be6a76a8ef37aebcf94dedbe0508274464b5091baff4a8780583affebb"
+  digest = "1:9a92b34083e218c123d21a4b0d74228df6b186de9dcd6489e5b4cf68f4e90104"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "c191216583f759c3d54a1d1d84c9832fdee68596"
+  revision = "c40afc81cccc4618168f722c64deba7cfbb1f8bd"
 
 [[projects]]
   branch = "master"
@@ -1634,7 +1676,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:c6edf85623ec3a8c5e688dafbdc5bbde1d6057b9d0d9b78e6cb6dd84a52b23c0"
+  digest = "1:6277045f9c9a63d84e1aa48c7ad3c1f42ea6523bc54ea92e772d541c78e37404"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1657,6 +1699,7 @@
     "util/seclib",
     "util/secrules",
     "util/sets",
+    "util/signalutils",
     "util/stringutils",
     "util/timeutils",
     "util/trace",
@@ -1667,23 +1710,23 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "9075712a1c3ff8c0bad1c413e18f0b7f2c18f29c"
+  revision = "e2e42205d868c26829b9322b40cdc48f24fed379"
 
 [[projects]]
   branch = "master"
-  digest = "1:82629c6aeecc1e6e3ea7108385aaac2bdcceeba8f8dc3175daca256602e3be71"
+  digest = "1:0e3c8da76b7b7ba0f67ef0737d361e117b65bd328bfbcb28fb030268df587ca9"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "c2445071ddf7b3f2a22ccdd3be684b67ac2f9008"
+  revision = "0b1ca973f3e5140dee7e773fc51cfc8c07ce0f69"
 
 [[projects]]
   branch = "master"
-  digest = "1:6ea9ac8f317e7dd79309bb1633642bc9d1822011c5175bd241552534d216ac6d"
+  digest = "1:cec4892868ae1c9fec0d2cace79d4c43e620345cc3c070d004dec09caf197208"
   name = "yunion.io/x/structarg"
   packages = ["."]
   pruneopts = "UT"
-  revision = "e4f0f5201b4acad185ebfb76e65905fe5ae7c1b1"
+  revision = "f39549642b91f03f0b46403f9856d4750e3e59eb"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1759,6 +1802,11 @@
     "github.com/nelsonken/cos-go-sdk-v5/cos",
     "github.com/pierrec/lz4",
     "github.com/serialx/hashring",
+    "github.com/shirou/gopsutil/cpu",
+    "github.com/shirou/gopsutil/host",
+    "github.com/shirou/gopsutil/mem",
+    "github.com/shirou/gopsutil/net",
+    "github.com/shirou/gopsutil/process",
     "github.com/stretchr/testify/assert",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http",
@@ -1774,6 +1822,9 @@
     "github.com/vmware/govmomi/vim25/types",
     "go.etcd.io/etcd/clientv3",
     "golang.org/x/crypto/ssh",
+    "golang.org/x/net/bpf",
+    "golang.org/x/net/ipv4",
+    "golang.org/x/sys/unix",
     "gopkg.in/gin-gonic/gin.v1",
     "k8s.io/api/core/v1",
     "k8s.io/apimachinery/pkg/api/errors",
@@ -1804,6 +1855,7 @@
     "yunion.io/x/pkg/util/seclib",
     "yunion.io/x/pkg/util/secrules",
     "yunion.io/x/pkg/util/sets",
+    "yunion.io/x/pkg/util/signalutils",
     "yunion.io/x/pkg/util/stringutils",
     "yunion.io/x/pkg/util/timeutils",
     "yunion.io/x/pkg/util/trace",

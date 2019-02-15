@@ -9,13 +9,13 @@ import (
 
 func init() {
 	type NetworkReserveIPOptions struct {
-		NETWORK string `help:"IP or name of network"`
-		IP      string `help:"IP to reserve"`
-		NOTES   string `help:"Why reserve this IP"`
+		NETWORK string   `help:"IP or name of network"`
+		NOTES   string   `help:"Why reserve this IP"`
+		IPS     []string `help:"IPs to reserve"`
 	}
 	R(&NetworkReserveIPOptions{}, "network-reserve-ip", "Reserve an IP address from pool", func(s *mcclient.ClientSession, args *NetworkReserveIPOptions) error {
 		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.IP), "ip")
+		params.Add(jsonutils.NewStringArray(args.IPS), "ips")
 		params.Add(jsonutils.NewString(args.NOTES), "notes")
 		net, err := modules.Networks.PerformAction(s, args.NETWORK, "reserve-ip", params)
 		if err != nil {

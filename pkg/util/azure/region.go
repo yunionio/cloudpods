@@ -407,8 +407,21 @@ func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, me
 		log.Debugf("Search in zone %s", z.Name)
 		net := z.getNetworkById(networkId)
 		if net != nil {
-			passwd := seclib2.RandomPassword2(12)
-			inst, err := z.getHost().CreateVM(name, imgId, 30, cpu, memGB*1024, networkId, "", "", passwd, storageType, dataDiskSizesGB, publicKey, "", "", nil)
+			desc := &cloudprovider.SManagedVMCreateConfig{
+				Name:              name,
+				ExternalImageId:   imgId,
+				SysDisk:           cloudprovider.SDiskInfo{SizeGB: 0, StorageType: storageType},
+				Cpu:               cpu,
+				MemoryMB:          memGB * 1024,
+				ExternalNetworkId: networkId,
+				Password:          seclib2.RandomPassword2(12),
+				DataDisks:         []cloudprovider.SDiskInfo{},
+				PublicKey:         publicKey,
+			}
+			for _, sizeGB := range dataDiskSizesGB {
+				desc.DataDisks = append(desc.DataDisks, cloudprovider.SDiskInfo{SizeGB: sizeGB, StorageType: storageType})
+			}
+			inst, err := z.getHost().CreateVM(desc)
 			if err != nil {
 				return nil, err
 			}
@@ -507,10 +520,34 @@ func (region *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, 
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (region *SRegion) GetILoadbalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
+func (region *SRegion) GetILoadBalancerById(loadbalancerId string) (cloudprovider.ICloudLoadbalancer, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (region *SRegion) GetILoadbalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
+func (region *SRegion) GetILoadBalancerAclById(aclId string) (cloudprovider.ICloudLoadbalancerAcl, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetILoadBalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }

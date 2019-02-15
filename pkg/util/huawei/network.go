@@ -1,12 +1,11 @@
 package huawei
 
 import (
-	"strconv"
-	"strings"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/huawei/client/modules"
 	"yunion.io/x/pkg/util/netutils"
 )
 
@@ -50,13 +49,21 @@ func (self *SNetwork) GetGlobalId() string {
 	return self.ID
 }
 
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090591.html
 func (self *SNetwork) GetStatus() string {
-	return strings.ToLower(self.Status)
+	switch self.Status {
+	case "ACTIVE", "UNKNOWN":
+		return models.NETWORK_STATUS_AVAILABLE // ? todo: // UNKNOWN
+	case "ERROR":
+		return models.NETWORK_STATUS_UNKNOWN
+	default:
+		return models.NETWORK_STATUS_UNKNOWN
+	}
 }
 
 func (self *SNetwork) Refresh() error {
 	log.Debugf("network refresh %s", self.GetId())
-	new, err := self.wire.zone.region.getNetwork(self.GetId())
+	new, err := self.wire.region.getNetwork(self.GetId())
 	if err != nil {
 		return err
 	}
@@ -79,6 +86,7 @@ func (self *SNetwork) GetIpStart() string {
 	pref, _ := netutils.NewIPV4Prefix(self.CIDR)
 	startIp := pref.Address.NetAddr(pref.MaskLen) // 0
 	startIp = startIp.StepUp()                    // 1
+	startIp = startIp.StepUp()                    // 2
 	return startIp.String()
 }
 
@@ -104,7 +112,7 @@ func (self *SNetwork) GetGateway() string {
 }
 
 func (self *SNetwork) GetServerType() string {
-	return models.SERVER_TYPE_GUEST
+	return models.NETWORK_TYPE_GUEST
 }
 
 func (self *SNetwork) GetIsPublic() bool {
@@ -112,8 +120,7 @@ func (self *SNetwork) GetIsPublic() bool {
 }
 
 func (self *SNetwork) Delete() error {
-	// todo: implement me
-	return nil
+	return self.wire.region.deleteNetwork(self.VpcID, self.GetId())
 }
 
 func (self *SNetwork) GetAllocTimeoutSeconds() int {
@@ -126,18 +133,19 @@ func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
 	return &network, err
 }
 
-func (self *SRegion) GetNetwroks(vpcId string, limit int, marker string) ([]SNetwork, int, error) {
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090592.html
+func (self *SRegion) GetNetwroks(vpcId string) ([]SNetwork, error) {
 	querys := map[string]string{}
 	if len(vpcId) > 0 {
 		querys["vpc_id"] = vpcId
 	}
 
-	if len(marker) > 0 {
-		querys["marker"] = marker
-	}
-
-	querys["limit"] = strconv.Itoa(limit)
 	networks := make([]SNetwork, 0)
-	err := DoList(self.ecsClient.Subnets.List, querys, &networks)
-	return networks, len(networks), err
+	err := doListAllWithMarker(self.ecsClient.Subnets.List, querys, &networks)
+	return networks, err
+}
+
+func (self *SRegion) deleteNetwork(vpcId string, networkId string) error {
+	ctx := &modules.SManagerContext{InstanceId: vpcId, InstanceManager: self.ecsClient.Vpcs}
+	return DoDeleteWithSpec(self.ecsClient.Subnets.DeleteInContextWithSpec, ctx, networkId, "", nil)
 }
