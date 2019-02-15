@@ -724,7 +724,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 
 	var err error
 	var hypervisor string
-	var rootStorageType string
+	// var rootStorageType string
 	var osProf osprofile.SOSProfile
 	hypervisor, _ = data.GetString("hypervisor")
 	if hypervisor != HYPERVISOR_CONTAINER {
@@ -745,10 +745,10 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			return nil, httperrors.NewBadRequestError("Miss operating system???")
 		}
 
-		if len(diskConfig.Backend) == 0 {
-			diskConfig.Backend = STORAGE_LOCAL
-		}
-		rootStorageType = diskConfig.Backend
+		// if len(diskConfig.Backend) == 0 {
+		// 	diskConfig.Backend = STORAGE_LOCAL
+		// }
+		// rootStorageType = diskConfig.Backend
 
 		data.Add(jsonutils.Marshal(diskConfig), "disk.0")
 
@@ -827,7 +827,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		dataDiskDefs := make([]string, 0)
 		if sku != nil && sku.AttachedDiskCount > 0 {
 			for i := 0; i < sku.AttachedDiskCount; i += 1 {
-				dataDiskDefs = append(dataDiskDefs, fmt.Sprintf("%dgb:%s", sku.AttachedDiskSizeGB, sku.AttachedDiskType))
+				dataDiskDefs = append(dataDiskDefs, fmt.Sprintf("%dg:%s", sku.AttachedDiskSizeGB, sku.AttachedDiskType))
 			}
 		}
 
@@ -841,6 +841,18 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			dataDiskDefs = append(dataDiskDefs, diskJson)
 		}
 
+		rootDiskConfig, err := parseDiskInfo(ctx, userCred, jsonArray[0])
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err) // should no error
+		}
+		if len(rootDiskConfig.Backend) == 0 {
+			rootDiskConfig.Backend = GetDriver(hypervisor).GetDefaultSysDiskBackend()
+		}
+		if rootDiskConfig.SizeMb == 0 {
+			rootDiskConfig.SizeMb = GetDriver(hypervisor).GetMinimalSysDiskSizeGb() * 1024
+		}
+		data.Set("disk.0", jsonutils.Marshal(rootDiskConfig))
+
 		for i := 0; i < len(dataDiskDefs); i += 1 {
 			diskConfig, err := parseDiskInfo(ctx, userCred, jsonutils.NewString(dataDiskDefs[i]))
 			if err != nil {
@@ -850,12 +862,12 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 				return nil, httperrors.NewBadRequestError("Snapshot error: disk index %d > 0 but disk type is %s", i+1, DISK_TYPE_SYS)
 			}
 			if len(diskConfig.Backend) == 0 {
-				diskConfig.Backend = rootStorageType
+				diskConfig.Backend = rootDiskConfig.Backend
 			}
 			if len(diskConfig.Driver) == 0 {
 				diskConfig.Driver = osProf.DiskDriver
 			}
-			data.Add(jsonutils.Marshal(diskConfig), fmt.Sprintf("disk.%d", i+1))
+			data.Set(fmt.Sprintf("disk.%d", i+1), jsonutils.Marshal(diskConfig))
 		}
 
 		resourceTypeStr := jsonutils.GetAnyString(data, []string{"resource_type"})

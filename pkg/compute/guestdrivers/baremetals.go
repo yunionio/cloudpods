@@ -34,6 +34,14 @@ func (self *SBaremetalGuestDriver) GetHypervisor() string {
 	return models.HYPERVISOR_BAREMETAL
 }
 
+func (self *SBaremetalGuestDriver) GetDefaultSysDiskBackend() string {
+	return models.STORAGE_LOCAL
+}
+
+func (self *SBaremetalGuestDriver) GetMinimalSysDiskSizeGb() int {
+	return options.Options.DefaultDiskSizeMB / 1024
+}
+
 func (self *SBaremetalGuestDriver) GetMaxSecurityGroupCount() int {
 	//暂不支持绑定安全组
 	return 0
