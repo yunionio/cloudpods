@@ -33,15 +33,13 @@ func (self *CloudAccountSyncInfoTask) OnInit(ctx context.Context, objs []db.ISta
 			self.SetStageFailed(ctx, "cloudprovide fail to get valid cloudaccount")
 			return
 		}
-		account.MarkStartSync(self.UserCred)
 	} else {
-		account.SetStatus(self.UserCred, models.CLOUD_PROVIDER_CONNECTED, "")
-		self.SetStageComplete(ctx, nil)
+		self.SetStageFailed(ctx, "no cloudprovider for sync")
 		return
 	}
 
 	if _, err := account.GetSubAccounts(); err != nil {
-		account.SetStatus(self.UserCred, models.CLOUD_PROVIDER_DISCONNECTED, "")
+		account.SetStatus(self.UserCred, models.CLOUD_PROVIDER_DISCONNECTED, err.Error())
 		self.SetStageFailed(ctx, err.Error())
 		return
 	}

@@ -345,10 +345,13 @@ func (self *SCloudaccount) StartSyncCloudProviderInfoTask(ctx context.Context, u
 			taskItems = append(taskItems, &cloudProviders[i])
 		}
 	}
+	originState := self.Status
+	self.MarkStartSync(userCred)
 
 	task, err := taskman.TaskManager.NewParallelTask(ctx, "CloudAccountSyncInfoTask", taskItems, userCred, params, "", "", nil)
 	if err != nil {
 		log.Errorf("CloudAccountSyncInfoTask newTask error %s", err)
+		self.SetStatus(userCred, originState, err.Error())
 	} else {
 		task.ScheduleRun(nil)
 	}
