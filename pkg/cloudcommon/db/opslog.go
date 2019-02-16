@@ -175,7 +175,7 @@ type SOpsLog struct {
 	ObjType   string `width:"40" charset:"ascii" nullable:"false" list:"user"`  // = Column(VARCHAR(40, charset='ascii'), nullable=False)
 	ObjId     string `width:"128" charset:"ascii" nullable:"false" list:"user"` //  = Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
 	ObjName   string `width:"128" charset:"utf8" nullable:"false" list:"user"`  //= Column(VARCHAR(128, charset='utf8'), nullable=False)
-	Action    string `width:"32" charset:"ascii" nullable:"false" list:"user"`  //= Column(VARCHAR(32, charset='ascii'), nullable=False)
+	Action    string `width:"32" charset:"utf8" nullable:"false" list:"user"`   //= Column(VARCHAR(32, charset='ascii'), nullable=False)
 	Notes     string `width:"2048" charset:"utf8" list:"user"`                  // = Column(VARCHAR(2048, charset='utf8'))
 	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" list:"user"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
 	Project   string `name:"tenant" width:"128" charset:"utf8" list:"user"`     // tenant    = Column(VARCHAR(128, charset='utf8'))
