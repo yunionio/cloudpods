@@ -333,9 +333,23 @@ func (self *SKVMHostDriver) PrepareConvert(host *models.SHost, image, raid strin
 	if err != nil {
 		return nil, err
 	}
+	portStr := authLoc.Port()
+	useSsl := ""
+	if authLoc.Scheme == "https" {
+		useSsl = "yes"
+		if len(portStr) == 0 {
+			portStr = "443"
+		}
+	} else {
+		if len(portStr) == 0 {
+			portStr = "80"
+		}
+	}
 	authInfo := fmt.Sprintf("YUNION_REGION=%s\n", options.Options.Region)
 	authInfo += fmt.Sprintf("YUNION_KEYSTONE=%s\n", options.Options.AuthURL)
 	authInfo += fmt.Sprintf("YUNION_KEYSTONE_HOST=%s\n", authLoc.Hostname())
+	authInfo += fmt.Sprintf("YUNION_KEYSTONE_PORT=%s\n", portStr)
+	authInfo += fmt.Sprintf("YUNION_KEYSTONE_USE_SSL=%s\n", useSsl)
 	authInfo += fmt.Sprintf("YUNION_HOST_NAME=%s\n", host.GetName())
 	authInfo += fmt.Sprintf("YUNION_HOST_ADMIN=%s\n", options.Options.AdminUser)
 	authInfo += fmt.Sprintf("YUNION_HOST_PASSWORD=%s\n", options.Options.AdminPassword)
