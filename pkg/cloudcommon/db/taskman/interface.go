@@ -6,9 +6,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/cloudcommon"
 )
 
 type ITask interface {
+	cloudcommon.IStartable
+
 	ScheduleRun(data jsonutils.JSONObject)
 	GetParams() *jsonutils.JSONDict
 	GetUserCred() mcclient.TokenCredential

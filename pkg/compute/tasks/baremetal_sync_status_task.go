@@ -69,7 +69,7 @@ func (self *BaremetalSyncAllGuestsStatusTask) OnInit(ctx context.Context, obj db
 		}
 		if first {
 			db.OpsLog.LogEvent(guest, db.ACT_CONVERT_COMPLETE, "", self.UserCred)
-			logclient.AddActionLog(guest, logclient.ACT_BM_CONVERT_HYPER, "", self.UserCred, true)
+			logclient.AddActionLogWithStartable(self, guest, logclient.ACT_BM_CONVERT_HYPER, "", self.UserCred, true)
 		}
 	}
 	self.SetStage("OnGuestSyncStatusComplete", nil)

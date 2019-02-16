@@ -75,12 +75,12 @@ func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, guest *m
 	if guest.Status == models.VM_READY && guest.DisableDelete.IsFalse() && guest.ShutdownBehavior == models.SHUTDOWN_TERMINATE {
 		guest.StartAutoDeleteGuestTask(ctx, self.UserCred, "")
 	}
-	logclient.AddActionLog(guest, logclient.ACT_VM_STOP, "", self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP, "", self.UserCred, true)
 }
 
 func (self *GuestStopTask) OnGuestStopTaskCompleteFailed(ctx context.Context, guest *models.SGuest, resion jsonutils.JSONObject) {
 	guest.SetStatus(self.UserCred, models.VM_STOP_FAILED, resion.String())
 	db.OpsLog.LogEvent(guest, db.ACT_STOP_FAIL, resion.String(), self.UserCred)
 	self.SetStageFailed(ctx, resion.String())
-	logclient.AddActionLog(guest, logclient.ACT_VM_STOP, resion.String(), self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP, resion.String(), self.UserCred, false)
 }

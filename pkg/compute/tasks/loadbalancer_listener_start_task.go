@@ -24,7 +24,7 @@ func init() {
 func (self *LoadbalancerListenerStartTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason string) {
 	lblis.SetStatus(self.GetUserCred(), models.LB_STATUS_DISABLED, reason)
 	db.OpsLog.LogEvent(lblis, db.ACT_ENABLE, reason, self.UserCred)
-	logclient.AddActionLog(lblis, logclient.ACT_ENABLE, reason, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_ENABLE, reason, self.UserCred, false)
 	notifyclient.NotifySystemError(lblis.Id, lblis.Name, models.LB_STATUS_DISABLED, reason)
 	self.SetStageFailed(ctx, reason)
 }
@@ -45,7 +45,7 @@ func (self *LoadbalancerListenerStartTask) OnInit(ctx context.Context, obj db.IS
 func (self *LoadbalancerListenerStartTask) OnLoadbalancerListenerStartComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
 	lblis.SetStatus(self.GetUserCred(), models.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lblis, db.ACT_ENABLE, lblis.GetShortDesc(ctx), self.UserCred)
-	logclient.AddActionLog(lblis, logclient.ACT_ENABLE, nil, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_ENABLE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 

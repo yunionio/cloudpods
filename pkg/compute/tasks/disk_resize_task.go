@@ -42,7 +42,7 @@ func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		disk.SetDiskReady(ctx, self.GetUserCred(), reason)
 		self.SetStageFailed(ctx, reason)
 		db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, reason, self.GetUserCred())
-		logclient.AddActionLog(disk, logclient.ACT_RESIZE, reason, self.UserCred, false)
+		logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESIZE, reason, self.UserCred, false)
 		return
 	}
 
@@ -75,7 +75,7 @@ func (self *DiskResizeTask) OnStartResizeDiskFailed(ctx context.Context, disk *m
 	disk.SetDiskReady(ctx, self.GetUserCred(), reason.Error())
 	self.SetStageFailed(ctx, reason.Error())
 	db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, reason.Error(), self.GetUserCred())
-	logclient.AddActionLog(disk, logclient.ACT_RESIZE, reason.Error(), self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESIZE, reason.Error(), self.UserCred, false)
 }
 
 func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
@@ -107,7 +107,7 @@ func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *mode
 	db.OpsLog.LogEvent(disk, db.ACT_UPDATE_STATUS, notes, self.UserCred)
 	self.CleanHostSchedCache(disk)
 	db.OpsLog.LogEvent(disk, db.ACT_RESIZE, disk.GetShortDesc(ctx), self.UserCred)
-	logclient.AddActionLog(disk, logclient.ACT_RESIZE, nil, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESIZE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, disk.GetShortDesc(ctx))
 	self.finalReleasePendingUsage(ctx)
 }
@@ -115,6 +115,6 @@ func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *mode
 func (self *DiskResizeTask) OnDiskResizeCompleteFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	disk.SetDiskReady(ctx, self.GetUserCred(), data.String())
 	db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, disk.GetShortDesc(ctx), self.UserCred)
-	logclient.AddActionLog(disk, logclient.ACT_RESIZE, data.String(), self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESIZE, data.String(), self.UserCred, false)
 	self.SetStageFailed(ctx, data.String())
 }

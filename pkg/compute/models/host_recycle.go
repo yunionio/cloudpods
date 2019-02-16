@@ -67,12 +67,12 @@ func (self *SGuest) PerformPrepaidRecycle(ctx context.Context, userCred mcclient
 func (self *SGuest) DoPerformPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential, autoDelete bool) (jsonutils.JSONObject, error) {
 	err := self.doPrepaidRecycle(ctx, userCred)
 	if err != nil {
-		logclient.AddActionLog(self, logclient.ACT_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, false)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, false)
 		return nil, httperrors.NewGeneralError(err)
 	}
 
 	db.OpsLog.LogEvent(self, db.ACT_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred)
-	logclient.AddActionLog(self, logclient.ACT_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, true)
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, true)
 
 	if autoDelete {
 		self.StartDeleteGuestTask(ctx, userCred, "", false, true)
@@ -305,12 +305,12 @@ func (self *SGuest) PerformUndoPrepaidRecycle(ctx context.Context, userCred mccl
 
 	err := doUndoPrepaidRecycleLockHost(ctx, userCred, host, self)
 	if err != nil {
-		logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, false)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, false)
 		return nil, httperrors.NewGeneralError(err)
 	}
 
 	db.OpsLog.LogEvent(self, db.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred)
-	logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, true)
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, true)
 
 	return nil, nil
 }
@@ -348,12 +348,12 @@ func (self *SHost) PerformUndoPrepaidRecycle(ctx context.Context, userCred mccli
 
 	err := doUndoPrepaidRecycleLockGuest(ctx, userCred, self, &guests[0])
 	if err != nil {
-		logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, false)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, false)
 		return nil, httperrors.NewGeneralError(err)
 	}
 
 	db.OpsLog.LogEvent(self, db.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred)
-	logclient.AddActionLog(self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, true)
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_UNDO_RECYCLE_PREPAID, self.GetShortDesc(ctx), userCred, true)
 
 	return nil, nil
 }

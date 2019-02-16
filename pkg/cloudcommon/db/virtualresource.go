@@ -233,7 +233,7 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 		return nil, err
 	}
 	OpsLog.SyncOwner(model, former, userCred)
-	logclient.AddActionLog(model, logclient.ACT_CHANGE_OWNER, nil, userCred, true)
+	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CHANGE_OWNER, nil, userCred, true)
 	return nil, nil
 }
 
@@ -261,7 +261,7 @@ func (model *SVirtualResourceBase) Delete(ctx context.Context, userCred mcclient
 	if !model.PendingDeleted {
 		model.DoPendingDelete(ctx, userCred)
 	}
-	return model.SStandaloneResourceBase.Delete(ctx, userCred)
+	return DeleteModel(ctx, userCred, model)
 }
 
 func (model *SVirtualResourceBase) AllowPerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

@@ -13,6 +13,10 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"time"
+	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/onecloud/pkg/cloudcommon"
+	"yunion.io/x/onecloud/pkg/appctx"
 )
 
 const (
@@ -28,6 +32,7 @@ const (
 	ACT_CLOUD_SYNC                   = "同步"
 	ACT_CREATE                       = "创建"
 	ACT_DELETE                       = "删除"
+	ACT_PENDING_DELETE               = "预删除"
 	ACT_DISABLE                      = "禁用"
 	ACT_ENABLE                       = "启用"
 	ACT_GUEST_ATTACH_ISOLATED_DEVICE = "挂载透传设备"
@@ -97,16 +102,24 @@ type IModule interface {
 }
 
 // save log to db.
-func AddActionLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
-	addLog(model, action, iNotes, userCred, success, &modules.Actions)
+func AddSimpleActionLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
+	addLog(model, action, iNotes, userCred, success, time.Time{}, &modules.Actions)
+}
+
+func AddActionLogWithContext(ctx context.Context, model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
+	addLog(model, action, iNotes, userCred, success, appctx.AppContextStartTime(ctx), &modules.Actions)
+}
+
+func AddActionLogWithStartable(task cloudcommon.IStartable, model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
+	addLog(model, action, iNotes, userCred, success, task.GetStartTime(), &modules.Actions)
 }
 
 // add websocket log to notify active browser users
 func PostWebsocketNotify(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
-	addLog(model, action, iNotes, userCred, success, &modules.Websockets)
+	addLog(model, action, iNotes, userCred, success, time.Time{}, &modules.Websockets)
 }
 
-func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool, api IModule) {
+func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool, startTime time.Time, api IModule) {
 	if !consts.OpsLogEnabled() {
 		return
 	}
@@ -144,6 +157,10 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 	logentry.Add(jsonutils.NewString(token.GetDomainId()), "domain_id")
 	logentry.Add(jsonutils.NewString(token.GetDomainName()), "domain")
 	logentry.Add(jsonutils.NewString(strings.Join(token.GetRoles(), ",")), "roles")
+
+	if !startTime.IsZero() {
+		logentry.Add(jsonutils.NewString(timeutils.FullIsoTime(startTime)), "start_time")
+	}
 
 	if virtualModel, ok := model.(IVirtualObject); ok {
 		ownerProjId := virtualModel.GetOwnerProjectId()

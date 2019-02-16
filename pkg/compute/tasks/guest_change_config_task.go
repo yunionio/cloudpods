@@ -225,13 +225,12 @@ func (self *GuestChangeConfigTask) OnSyncStatusComplete(ctx context.Context, obj
 	if guest.Status == models.VM_READY && jsonutils.QueryBoolean(self.Params, "auto_start", false) {
 		self.SetStage("on_guest_start_complete", nil)
 		guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
-		logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, "", self.UserCred, true)
 	} else {
 		dt := jsonutils.NewDict()
 		dt.Add(jsonutils.NewString(guest.Id), "id")
-		logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, "", self.UserCred, true)
 		self.SetStageComplete(ctx, dt)
 	}
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_CHANGE_FLAVOR, "", self.UserCred, true)
 }
 
 func (self *GuestChangeConfigTask) OnGuestStartComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -244,6 +243,6 @@ func (self *GuestChangeConfigTask) OnGuestStartComplete(ctx context.Context, obj
 func (self *GuestChangeConfigTask) markStageFailed(ctx context.Context, guest *models.SGuest, reason string) {
 	guest.SetStatus(self.UserCred, models.VM_CHANGE_FLAVOR_FAIL, reason)
 	db.OpsLog.LogEvent(guest, db.ACT_CHANGE_FLAVOR_FAIL, reason, self.UserCred)
-	logclient.AddActionLog(guest, logclient.ACT_VM_CHANGE_FLAVOR, reason, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_CHANGE_FLAVOR, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }

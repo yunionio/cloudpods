@@ -117,20 +117,20 @@ func (self *GuestStartTask) OnStartComplete(ctx context.Context, obj db.IStandal
 	db.OpsLog.LogEvent(guest, db.ACT_START, guest.GetShortDesc(ctx), self.UserCred)
 	self.SetStage("OnGuestSyncstatusAfterStart", nil)
 	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
-	logclient.AddActionLog(guest, logclient.ACT_VM_START, "", self.UserCred, true)
 	// self.taskComplete(ctx, guest)
 }
 
 func (self *GuestStartTask) OnGuestSyncstatusAfterStart(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	self.taskComplete(ctx, guest)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_START, "", self.UserCred, true)
 }
 
 func (self *GuestStartTask) OnStartCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.UserCred, models.VM_START_FAILED, err.String())
 	db.OpsLog.LogEvent(guest, db.ACT_START_FAIL, err, self.UserCred)
-	logclient.AddActionLog(guest, logclient.ACT_VM_START, err, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_START, err, self.UserCred, false)
 	self.SetStageFailed(ctx, err.String())
 }
 

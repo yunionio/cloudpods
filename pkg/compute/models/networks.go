@@ -1569,22 +1569,22 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	iNet, err := NetworkManager.FetchByIdOrName(userCred, target)
 	if err == sql.ErrNoRows {
 		err = httperrors.NewNotFoundError("Network %s not found", target)
-		logclient.AddActionLog(self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
 	} else if err != nil {
-		logclient.AddActionLog(self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
 	}
 
 	net := iNet.(*SNetwork)
 	if net == nil {
 		err = fmt.Errorf("Network is nil")
-		logclient.AddActionLog(self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
 	}
 	if self.WireId != net.WireId || self.GuestGateway != net.GuestGateway {
 		err = httperrors.NewInputParameterError("Invalid Target Network: %s", target)
-		logclient.AddActionLog(self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
 	}
 
@@ -1600,7 +1600,7 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 		startIp, endIp = self.GuestIpStart, net.GuestIpEnd
 	} else {
 		note := "Incontinuity Network for %s and %s"
-		logclient.AddActionLog(self, logclient.ACT_MERGE,
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE,
 			fmt.Sprintf(note, self.Name, net.Name), userCred, false)
 		return nil, httperrors.NewBadRequestError(note, self.Name, net.Name)
 	}
@@ -1614,14 +1614,14 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 		return nil
 	})
 	if err != nil {
-		logclient.AddActionLog(self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
 	}
 
 	guestnetworks := make([]SGuestnetwork, 0)
 	err = GuestnetworkManager.Query().Equals("network_id", self.Id).All(&guestnetworks)
 	if err != nil {
-		logclient.AddActionLog(self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
 	}
 	for _, gn := range guestnetworks {
@@ -1640,7 +1640,7 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	hostnetworks := make([]SHostnetwork, 0)
 	err = HostnetworkManager.Query().Equals("network_id", self.Id).All(&hostnetworks)
 	if err != nil {
-		logclient.AddActionLog(self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
 	}
 	for _, gn := range hostnetworks {
@@ -1659,7 +1659,7 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	reservedips := make([]SReservedip, 0)
 	err = ReservedipManager.Query().Equals("network_id", self.Id).All(&reservedips)
 	if err != nil {
-		logclient.AddActionLog(self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
 	}
 	for _, gn := range reservedips {
@@ -1678,7 +1678,7 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	groupnetwroks := make([]SGroupnetwork, 0)
 	err = GroupnetworkManager.Query().Equals("network_id", self.Id).All(&groupnetwroks)
 	if err != nil {
-		logclient.AddActionLog(self, logclient.ACT_MERGE, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
 	}
 	for _, gn := range groupnetwroks {
@@ -1696,14 +1696,14 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 
 	note := map[string]string{"start_ip": startIp, "end_ip": endIp}
 	db.OpsLog.LogEvent(self, db.ACT_MERGE, note, userCred)
-	logclient.AddActionLog(self, logclient.ACT_MERGE, note, userCred, true)
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, note, userCred, true)
 
 	if err = self.RealDelete(ctx, userCred); err != nil {
 		return nil, err
 	}
 	note = map[string]string{"network": self.Id}
 	db.OpsLog.LogEvent(self, db.ACT_DELETE, note, userCred)
-	logclient.AddActionLog(self, logclient.ACT_DELETE, note, userCred, true)
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_DELETE, note, userCred, true)
 	return nil, nil
 }
 
@@ -1773,7 +1773,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	guestnetworks := make([]SGuestnetwork, 0)
 	err = GuestnetworkManager.Query().Equals("network_id", self.Id).All(&guestnetworks)
 	if err != nil {
-		logclient.AddActionLog(self, logclient.ACT_SPLIT, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SPLIT, err.Error(), userCred, false)
 		return nil, err
 	}
 	for _, gn := range guestnetworks {
@@ -1792,7 +1792,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	hostnetworks := make([]SHostnetwork, 0)
 	err = HostnetworkManager.Query().Equals("network_id", self.Id).All(&hostnetworks)
 	if err != nil {
-		logclient.AddActionLog(self, logclient.ACT_SPLIT, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SPLIT, err.Error(), userCred, false)
 		return nil, err
 	}
 	for _, gn := range hostnetworks {
@@ -1811,7 +1811,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	reservedips := make([]SReservedip, 0)
 	err = ReservedipManager.Query().Equals("network_id", self.Id).All(&reservedips)
 	if err != nil {
-		logclient.AddActionLog(self, logclient.ACT_SPLIT, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SPLIT, err.Error(), userCred, false)
 		return nil, err
 	}
 	for _, gn := range reservedips {
@@ -1830,7 +1830,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	groupnetworks := make([]SGroupnetwork, 0)
 	err = GroupnetworkManager.Query().Equals("network_id", self.Id).All(&groupnetworks)
 	if err != nil {
-		logclient.AddActionLog(self, logclient.ACT_SPLIT, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SPLIT, err.Error(), userCred, false)
 		return nil, err
 	}
 	for _, gn := range groupnetworks {
@@ -1848,7 +1848,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 
 	note := map[string]string{"split_ip": splitIp, "end_ip": network.GuestIpEnd}
 	db.OpsLog.LogEvent(self, db.ACT_SPLIT, note, userCred)
-	logclient.AddActionLog(self, logclient.ACT_SPLIT, note, userCred, true)
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SPLIT, note, userCred, true)
 	db.OpsLog.LogEvent(network, db.ACT_CREATE, map[string]string{"network": self.Id}, userCred)
 	return nil, nil
 }

@@ -24,7 +24,7 @@ func init() {
 func (self *LoadbalancerListenerRuleDeleteTask) taskFail(ctx context.Context, lbr *models.SLoadbalancerListenerRule, reason string) {
 	lbr.SetStatus(self.GetUserCred(), models.LB_STATUS_DELETE_FAILED, reason)
 	db.OpsLog.LogEvent(lbr, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
-	logclient.AddActionLog(lbr, logclient.ACT_DELETE, reason, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, lbr, logclient.ACT_DELETE, reason, self.UserCred, false)
 	notifyclient.NotifySystemError(lbr.Id, lbr.Name, models.LB_STATUS_DELETE_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
@@ -44,7 +44,7 @@ func (self *LoadbalancerListenerRuleDeleteTask) OnInit(ctx context.Context, obj 
 
 func (self *LoadbalancerListenerRuleDeleteTask) OnLoadbalancerListenerRuleDeleteComplete(ctx context.Context, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(lbr, db.ACT_DELETE, lbr.GetShortDesc(ctx), self.UserCred)
-	logclient.AddActionLog(lbr, logclient.ACT_DELETE, nil, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, lbr, logclient.ACT_DELETE, nil, self.UserCred, true)
 	lbr.DoPendingDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
