@@ -775,7 +775,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 
 	var err error
 	var hypervisor string
-	var rootStorageType string
+	// var rootStorageType string
 	var osProf osprofile.SOSProfile
 	hypervisor, _ = data.GetString("hypervisor")
 	if hypervisor != HYPERVISOR_CONTAINER {
@@ -796,10 +796,10 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			return nil, httperrors.NewBadRequestError("Miss operating system???")
 		}
 
-		if len(diskConfig.Backend) == 0 {
-			diskConfig.Backend = STORAGE_LOCAL
-		}
-		rootStorageType = diskConfig.Backend
+		// if len(diskConfig.Backend) == 0 {
+		// 	diskConfig.Backend = STORAGE_LOCAL
+		// }
+		// rootStorageType = diskConfig.Backend
 
 		data.Add(jsonutils.Marshal(diskConfig), "disk.0")
 
@@ -878,7 +878,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		dataDiskDefs := make([]string, 0)
 		if sku != nil && sku.AttachedDiskCount > 0 {
 			for i := 0; i < sku.AttachedDiskCount; i += 1 {
-				dataDiskDefs = append(dataDiskDefs, fmt.Sprintf("%dgb:%s", sku.AttachedDiskSizeGB, sku.AttachedDiskType))
+				dataDiskDefs = append(dataDiskDefs, fmt.Sprintf("%dg:%s", sku.AttachedDiskSizeGB, sku.AttachedDiskType))
 			}
 		}
 
@@ -892,6 +892,18 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			dataDiskDefs = append(dataDiskDefs, diskJson)
 		}
 
+		rootDiskConfig, err := parseDiskInfo(ctx, userCred, jsonArray[0])
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err) // should no error
+		}
+		if len(rootDiskConfig.Backend) == 0 {
+			rootDiskConfig.Backend = GetDriver(hypervisor).GetDefaultSysDiskBackend()
+		}
+		if rootDiskConfig.SizeMb == 0 {
+			rootDiskConfig.SizeMb = GetDriver(hypervisor).GetMinimalSysDiskSizeGb() * 1024
+		}
+		data.Set("disk.0", jsonutils.Marshal(rootDiskConfig))
+
 		for i := 0; i < len(dataDiskDefs); i += 1 {
 			diskConfig, err := parseDiskInfo(ctx, userCred, jsonutils.NewString(dataDiskDefs[i]))
 			if err != nil {
@@ -901,12 +913,12 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 				return nil, httperrors.NewBadRequestError("Snapshot error: disk index %d > 0 but disk type is %s", i+1, DISK_TYPE_SYS)
 			}
 			if len(diskConfig.Backend) == 0 {
-				diskConfig.Backend = rootStorageType
+				diskConfig.Backend = rootDiskConfig.Backend
 			}
 			if len(diskConfig.Driver) == 0 {
 				diskConfig.Driver = osProf.DiskDriver
 			}
-			data.Add(jsonutils.Marshal(diskConfig), fmt.Sprintf("disk.%d", i+1))
+			data.Set(fmt.Sprintf("disk.%d", i+1), jsonutils.Marshal(diskConfig))
 		}
 
 		resourceTypeStr := jsonutils.GetAnyString(data, []string{"resource_type"})
@@ -1771,10 +1783,13 @@ func (self *SGuest) GetIsolatedDevices() []SIsolatedDevice {
 	return IsolatedDeviceManager.findAttachedDevicesOfGuest(self)
 }
 
-func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, extVM cloudprovider.ICloudVM, projectId string, projectSync bool) error {
+func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, projectId string, projectSync bool) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
 	recycle := false
 
-	if self.IsPrepaidRecycle() {
+	if provider.SupportPrepaidResources() && self.IsPrepaidRecycle() {
 		recycle = true
 	}
 
@@ -1820,7 +1835,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 
 		self.IsEmulated = extVM.IsEmulated()
 
-		if !recycle {
+		if provider.SupportPrepaidResources() && !recycle {
 			self.BillingType = extVM.GetBillingType()
 			self.ExpiredAt = extVM.GetExpiredAt()
 		}
@@ -1870,7 +1885,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		}
 	}
 
-	if recycle {
+	if provider.SupportPrepaidResources() && recycle {
 		vhost := self.GetHost()
 		err = vhost.syncWithCloudPrepaidVM(extVM, host, projectSync)
 		if err != nil {
@@ -1881,7 +1896,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 	return nil
 }
 
-func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, extVM cloudprovider.ICloudVM, projectId string) (*SGuest, error) {
+func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, projectId string) (*SGuest, error) {
 
 	guest := SGuest{}
 	guest.SetModelManager(manager)
@@ -1900,8 +1915,10 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 	guest.IsEmulated = extVM.IsEmulated()
 
-	guest.BillingType = extVM.GetBillingType()
-	guest.ExpiredAt = extVM.GetExpiredAt()
+	if provider.SupportPrepaidResources() {
+		guest.BillingType = extVM.GetBillingType()
+		guest.ExpiredAt = extVM.GetExpiredAt()
+	}
 
 	guest.HostId = host.Id
 
@@ -2265,7 +2282,7 @@ type sSyncDiskPair struct {
 	vdisk cloudprovider.ICloudDisk
 }
 
-func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, vdisks []cloudprovider.ICloudDisk, projectId string, projectSync bool) compare.SyncResult {
+func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, vdisks []cloudprovider.ICloudDisk, projectId string, projectSync bool) compare.SyncResult {
 	result := compare.SyncResult{}
 
 	newdisks := make([]sSyncDiskPair, 0)
@@ -2273,7 +2290,7 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 		if len(vdisks[i].GetGlobalId()) == 0 {
 			continue
 		}
-		disk, err := DiskManager.syncCloudDisk(ctx, userCred, vdisks[i], i, projectId, projectSync)
+		disk, err := DiskManager.syncCloudDisk(ctx, userCred, provider, vdisks[i], i, projectId, projectSync)
 		if err != nil {
 			log.Errorf("syncCloudDisk error: %v", err)
 			result.Error(err)
@@ -3604,6 +3621,22 @@ func (manager *SGuestManager) getExpiredPrepaidGuests() []SGuest {
 	return guests
 }
 
+func (self *SGuest) doExternalSync(ctx context.Context, userCred mcclient.TokenCredential) error {
+	host := self.GetHost()
+	if host == nil {
+		return fmt.Errorf("no host???")
+	}
+	ihost, iprovider, err := host.GetIHostAndProvider()
+	if err != nil {
+		return err
+	}
+	iVM, err := ihost.GetIVMById(self.ExternalId)
+	if err != nil {
+		return err
+	}
+	return self.syncWithCloudVM(ctx, userCred, iprovider, host, iVM, "", false)
+}
+
 func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	guests := manager.getExpiredPrepaidGuests()
 	if guests == nil {
@@ -3611,6 +3644,12 @@ func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, u
 	}
 	for i := 0; i < len(guests); i += 1 {
 		// fake delete expired prepaid servers
+		if len(guests[i].ExternalId) > 0 {
+			err := guests[i].doExternalSync(ctx, userCred)
+			if err == nil && guests[i].IsValidPrePaid() {
+				continue
+			}
+		}
 		guests[i].SetDisableDelete(false)
 		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, false)
 	}

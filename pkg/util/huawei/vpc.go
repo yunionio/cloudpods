@@ -1,7 +1,6 @@
 package huawei
 
 import (
-	"strconv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -47,23 +46,12 @@ func (self *SVpc) getWireByRegionId(regionId string) *SWire {
 }
 
 func (self *SVpc) fetchNetworks() error {
-	limit := 100
-	marker := ""
-	networks := make([]SNetwork, 0)
-	for {
-		parts, count, err := self.region.GetNetwroks(self.ID, limit, marker)
-		if err != nil {
-			return err
-		}
-
-		networks = append(networks, parts...)
-		if count <= limit {
-			break
-		}
-
-		marker = parts[count-1].ID
+	networks, err := self.region.GetNetwroks(self.ID)
+	if err != nil {
+		return err
 	}
 
+	// ???????
 	if len(networks) == 0 {
 		self.iwires = append(self.iwires, &SWire{region: self.region, vpc: self})
 		return nil
@@ -79,22 +67,10 @@ func (self *SVpc) fetchNetworks() error {
 
 // 华为云安全组可以被同region的VPC使用
 func (self *SVpc) fetchSecurityGroups() error {
-	limit := 100
-	marker := ""
-	secgroups := make([]SSecurityGroup, 0)
-	for {
-		// todo： vpc 和 安全组的关联关系还需要进一步确认。
-		parts, count, err := self.region.GetSecurityGroups("", limit, marker)
-		if err != nil {
-			return err
-		}
-
-		secgroups = append(secgroups, parts...)
-		if count <= limit {
-			break
-		}
-
-		marker = parts[count-1].ID
+	// todo： vpc 和 安全组的关联关系还需要进一步确认。
+	secgroups, err := self.region.GetSecurityGroups("")
+	if err != nil {
+		return err
 	}
 
 	self.secgroups = make([]cloudprovider.ICloudSecurityGroup, len(secgroups))
@@ -218,21 +194,17 @@ func (self *SRegion) DeleteVpc(vpcId string) error {
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090625.html
-func (self *SRegion) GetVpcs(limit int, marker string) ([]SVpc, int, error) {
-	querys := map[string]string{"limit": "100"}
-	if limit > 0 {
-		querys["limit"] = strconv.Itoa(limit)
-	}
-
-	if len(marker) > 0 {
-		querys["marker"] = marker
-	}
+func (self *SRegion) GetVpcs() ([]SVpc, error) {
+	querys := make(map[string]string)
 
 	vpcs := make([]SVpc, 0)
-	err := DoList(self.ecsClient.Vpcs.List, querys, &vpcs)
+	err := doListAllWithMarker(self.ecsClient.Vpcs.List, querys, &vpcs)
+	if err != nil {
+		return nil, err
+	}
 
 	for i := range vpcs {
 		vpcs[i].region = self
 	}
-	return vpcs, len(vpcs), err
+	return vpcs, err
 }

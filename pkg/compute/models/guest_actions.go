@@ -509,7 +509,7 @@ func (self *SGuest) StartGuestDeployTask(ctx context.Context, userCred mcclient.
 	return nil
 }
 
-func (self *SGuest) NotifyServerEvent(event string, priority notify.TNotifyPriority, loginInfo bool) {
+func (self *SGuest) NotifyServerEvent(userCred mcclient.TokenCredential, event string, priority notify.TNotifyPriority, loginInfo bool) {
 	meta, err := self.GetAllMetadata(nil)
 	if err != nil {
 		return
@@ -539,7 +539,7 @@ func (self *SGuest) NotifyServerEvent(event string, priority notify.TNotifyPrior
 			}
 		}
 	}
-	notifyclient.Notify(self.ProjectId, true, priority, event, kwargs)
+	notifyclient.Notify(userCred.GetUserId(), false, priority, event, kwargs)
 }
 
 func (self *SGuest) NotifyAdminServerEvent(ctx context.Context, event string, priority notify.TNotifyPriority) {
@@ -551,7 +551,7 @@ func (self *SGuest) NotifyAdminServerEvent(ctx context.Context, event string, pr
 	} else {
 		kwargs.Add(jsonutils.NewString(self.ProjectId), "tenant")
 	}
-	notifyclient.Notify(options.Options.NotifyAdminUser, true, priority, event, kwargs)
+	notifyclient.SystemNotify(priority, event, kwargs)
 }
 
 func (self *SGuest) StartGuestStopTask(ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
@@ -2291,11 +2291,11 @@ func (manager *SGuestManager) PerformDirtyServerStart(ctx context.Context, userC
 		// slave guest
 		err := guest.GuestStartAndSyncToBackup(ctx, userCred, nil, "")
 		return nil, err
-	} else if guest.BackupHostId != hostId {
-		// abandon guest
-		err := guest.StartUndeployGuestTask(ctx, userCred, "", hostId)
-		return nil, err
 	}
+	// else { // 这里是清除这台机器最后的机会
+	// 	err := guest.StartUndeployGuestTask(ctx, userCred, "", hostId)
+	// 	return nil, err
+	// }
 	return nil, nil
 }
 
@@ -2317,7 +2317,7 @@ func (self *SGuest) AllowPerformCreateBackup(ctx context.Context, userCred mccli
 
 func (self *SGuest) PerformCreateBackup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if len(self.BackupHostId) > 0 {
-		return nil, httperrors.NewBadRequestError("Already have create backup server")
+		return nil, httperrors.NewBadRequestError("Already have backup server")
 	}
 	if self.getDefaultStorageType() != STORAGE_LOCAL {
 		return nil, httperrors.NewBadRequestError("Cannot create backup with shared storage")
@@ -2326,7 +2326,7 @@ func (self *SGuest) PerformCreateBackup(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewBadRequestError("Backup only support hypervisor kvm")
 	}
 	if len(self.GetIsolatedDevices()) > 0 {
-		return nil, httperrors.NewBadRequestError("Cannot create backup with isolated degices")
+		return nil, httperrors.NewBadRequestError("Cannot create backup with isolated devices")
 	}
 	if self.GuestDisksHasSnapshot() {
 		return nil, httperrors.NewBadRequestError("Cannot create backup with snapshot")
@@ -2343,6 +2343,35 @@ func (self *SGuest) PerformCreateBackup(ctx context.Context, userCred mcclient.T
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateBackupTask", self, userCred, params, "", "", &req)
 	if err != nil {
 		QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, &req)
+		log.Errorf(err.Error())
+		return nil, err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil, nil
+}
+
+func (self *SGuest) AllowPerformDeleteBackup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "delete-backup")
+}
+
+func (self *SGuest) PerformDeleteBackup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if len(self.BackupHostId) == 0 {
+		return nil, httperrors.NewBadRequestError("Guest without backup")
+	}
+	backupHost := HostManager.FetchHostById(self.BackupHostId)
+	if backupHost == nil {
+		return nil, httperrors.NewNotFoundError("Guest backup host not found")
+	}
+	if backupHost.Status == HOST_OFFLINE && !jsonutils.QueryBoolean(data, "purge", false) {
+		return nil, httperrors.NewBadRequestError("Backup host is offline")
+	}
+
+	taskData := jsonutils.NewDict()
+	taskData.Set("pruge", jsonutils.NewBool(jsonutils.QueryBoolean(data, "purge", false)))
+	taskData.Set("host_id", jsonutils.NewString(self.BackupHostId))
+	if task, err := taskman.TaskManager.NewTask(
+		ctx, "GuestDeleteOnHostTask", self, userCred, taskData, "", "", nil); err != nil {
 		log.Errorf(err.Error())
 		return nil, err
 	} else {
@@ -2373,6 +2402,18 @@ func (self *SGuest) StartCreateBackup(ctx context.Context, userCred mcclient.Tok
 		task.ScheduleRun(nil)
 	}
 	return nil
+}
+
+func (self *SGuest) AllowPerformMirrorJobFailed(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "mirror-job-failed")
+}
+
+func (self *SGuest) PerformMirrorJobFailed(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if len(self.BackupHostId) == 0 {
+		return nil, nil
+	} else {
+		return nil, self.SetStatus(userCred, VM_MIRROR_FAIL, "OnSyncToBackup")
+	}
 }
 
 func (self *SGuest) AllowPerformSetExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

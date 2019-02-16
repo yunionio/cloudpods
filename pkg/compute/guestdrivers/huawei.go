@@ -28,6 +28,14 @@ func (self *SHuaweiGuestDriver) GetHypervisor() string {
 	return models.HYPERVISOR_HUAWEI
 }
 
+func (self *SHuaweiGuestDriver) GetDefaultSysDiskBackend() string {
+	return models.STORAGE_HUAWEI_SATA
+}
+
+func (self *SHuaweiGuestDriver) GetMinimalSysDiskSizeGb() int {
+	return 10
+}
+
 func (self *SHuaweiGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
 	storages := host.GetAttachedStorages("")
 	for i := 0; i < len(storages); i += 1 {

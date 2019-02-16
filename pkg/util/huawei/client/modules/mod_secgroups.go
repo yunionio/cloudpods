@@ -1,18 +1,16 @@
 package modules
 
 import (
-	"net/http"
-
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 )
 
 type SSecurityGroupManager struct {
-	ResourceManager
+	SResourceManager
 }
 
-func NewSecurityGroupManager(regionId string, projectId string, signer auth.Signer) *SSecurityGroupManager {
-	return &SSecurityGroupManager{ResourceManager: ResourceManager{
-		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}},
+func NewSecurityGroupManager(regionId string, projectId string, signer auth.Signer, debug bool) *SSecurityGroupManager {
+	return &SSecurityGroupManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameVPC,
 		Region:        regionId,
 		ProjectId:     projectId,
@@ -24,9 +22,9 @@ func NewSecurityGroupManager(regionId string, projectId string, signer auth.Sign
 	}}
 }
 
-func NewNovaSecurityGroupManager(regionId string, projectId string, signer auth.Signer) *SSecurityGroupManager {
-	return &SSecurityGroupManager{ResourceManager: ResourceManager{
-		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}},
+func NewNovaSecurityGroupManager(regionId string, projectId string, signer auth.Signer, debug bool) *SSecurityGroupManager {
+	return &SSecurityGroupManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameECS,
 		Region:        regionId,
 		ProjectId:     projectId,

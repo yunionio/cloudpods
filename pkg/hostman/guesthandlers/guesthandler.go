@@ -102,7 +102,10 @@ func cpusetBalance(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 func deleteGuest(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, body := appsrv.FetchEnv(ctx, w, r)
 	var sid = params["<sid>"]
-	var migrated = jsonutils.QueryBoolean(body, "migrated", false)
+	var migrated bool
+	if body != nil {
+		migrated = jsonutils.QueryBoolean(body, "migrated", false)
+	}
 	guest, err := guestman.GetGuestManager().Delete(sid)
 	if err != nil {
 		hostutils.Response(ctx, w, err)
@@ -307,9 +310,9 @@ func guestDriveMirror(ctx context.Context, sid string, body jsonutils.JSONObject
 	if !guestman.GetGuestManager().IsGuestExist(sid) {
 		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
 	}
-	backupNbdServerUri, err := body.GetString("backup_ndb_server_uri")
+	backupNbdServerUri, err := body.GetString("backup_nbd_server_uri")
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("backup_ndb_server_uri")
+		return nil, httperrors.NewMissingParameterError("backup_nbd_server_uri")
 	}
 	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().StartDriveMirror,
 		&guestman.SDriverMirror{sid, backupNbdServerUri})

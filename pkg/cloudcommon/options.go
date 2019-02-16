@@ -36,7 +36,8 @@ type CommonOptions struct {
 	ApplicationID      string `help:"Application ID"`
 	RequestWorkerCount int    `default:"4" help:"Request worker thread count, default is 4"`
 
-	NotifyAdminUser string `default:"sysadmin" help:"System administrator user ID or name to notify"`
+	NotifyAdminUsers  []string `default:"sysadmin" help:"System administrator user ID or name to notify system events"`
+	NotifyAdminGroups []string `help:"System administrator group ID or name to notify system events"`
 
 	EnableSsl   bool   `help:"Enable https"`
 	SslCaCerts  string `help:"ssl certificate ca root file, separating ca and cert file is not encouraged" alias:"ca-file"`
@@ -56,7 +57,7 @@ type DBOptions struct {
 	AutoSyncTable bool   `help:"Automatically synchronize table changes if differences are detected"`
 
 	GlobalVirtualResourceNamespace bool `help:"Per project namespace or global namespace for virtual resources"`
-	DebugSqlchemy                  bool `default:"False" help:"Print SQL executed by sqlchemy"`
+	DebugSqlchemy                  bool `default:"false" help:"Print SQL executed by sqlchemy"`
 }
 
 func (this *DBOptions) GetDBConnection() (dialect, connstr string, err error) {
@@ -80,7 +81,7 @@ func ParseOptions(optStruct interface{}, args []string, configFileName string, s
 		log.Fatalf("Error define argument parser: %v", err)
 	}
 
-	err = parser.ParseArgs(args[1:], false)
+	err = parser.ParseArgs2(args[1:], false, false)
 	if err != nil {
 		log.Fatalf("Parse arguments error: %v", err)
 	}
@@ -120,6 +121,8 @@ func ParseOptions(optStruct interface{}, args []string, configFileName string, s
 			log.Fatalf("Parse configuration file: %v", err)
 		}
 	}
+
+	parser.SetDefault()
 
 	if len(optionsRef.ApplicationID) == 0 {
 		optionsRef.ApplicationID = serviceName

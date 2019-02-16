@@ -94,6 +94,8 @@ The attributes of an argument are defined in the comment tags of the member vari
 
 ## Example usage
 
+# use ParseArgs which set default value automatically
+
 ```go
 
 parser, e := structarg.NewArgumentParser(&Options{},
@@ -110,4 +112,36 @@ options := parser.Options().(*Options)
 
 // then access argument values via options
 // ...
+```
+
+# use ParseArgs2 which set default value according to parameter
+# call SetDefault() to set options default value
+
+```go
+
+parser, e := structarg.NewArgumentParser(&Options{},
+                                        "programname",
+                                        `description text`,
+                                        `epilog of the program`)
+
+// do not set default value after parse
+e = parser.ParseArgs2(os.Args[1:], false, false)
+if e != nil {
+    panic(e)
+}
+
+options := parser.Options().(*Options)
+
+if len(options.Config) > 0 {
+    e = parser.ParseFile(options.Config)
+    if e != nil {
+        panic(e)
+    }
+}
+
+parser.SetDefault() // set option default here
+
+// then access argument values via options
+// ...
+
 ```

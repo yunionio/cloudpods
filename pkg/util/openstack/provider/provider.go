@@ -137,3 +137,7 @@ func (self *SOpenStackProvider) GetBalance() (float64, error) {
 func (self *SOpenStackProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
+
+func (self *SOpenStackProvider) SupportPrepaidResources() bool {
+	return false
+}

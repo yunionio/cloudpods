@@ -189,7 +189,7 @@ type BaseListOptions struct {
 
 	Manager  string `help:"List objects belonging to the cloud provider"`
 	Account  string `help:"List objects belonging to the cloud account"`
-	Provider string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei"`
+	Provider string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei|Openstack"`
 }
 
 func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {

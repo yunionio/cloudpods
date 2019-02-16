@@ -16,7 +16,7 @@ import (
 	"net"
 	"time"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/ethernet"
+	"yunion.io/x/onecloud/pkg/util/ethernet"
 )
 
 var (

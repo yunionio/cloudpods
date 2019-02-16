@@ -770,7 +770,8 @@ func (manager *SElasticipManager) AllocateEipAndAssociateVM(ctx context.Context,
 	eip.SetModelManager(manager)
 
 	eip.Mode = EIP_MODE_STANDALONE_EIP
-	eip.AutoDellocate = tristate.True
+	// do not implicitly auto dellocate EIP, should be set by user explicitly
+	// eip.AutoDellocate = tristate.True
 	eip.Bandwidth = bw
 	eip.ChargeType = chargeType
 	eip.ProjectId = vm.ProjectId

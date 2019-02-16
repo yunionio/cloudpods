@@ -3,8 +3,6 @@ package guestfs
 import (
 	"fmt"
 	"math/rand"
-	"path/filepath"
-	"syscall"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -76,35 +74,6 @@ func testRootfs(d fsdriver.IRootFsDriver) bool {
 	return true
 }
 
-func DeployFiles(rootfs fsdriver.IRootFsDriver, deploys []jsonutils.JSONObject) error {
-	caseInsensitive := rootfs.IsFsCaseInsensitive()
-	for _, deploy := range deploys {
-		var modAppend = false
-		if action, _ := deploy.GetString("action"); action == "append" {
-			modAppend = true
-		}
-		sPath, err := deploy.GetString("path")
-		if err != nil {
-			return err
-		}
-		dirname := filepath.Dir(sPath)
-		if !rootfs.GetPartition().Exists(sPath, caseInsensitive) {
-			modeRWXOwner := syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
-			err := rootfs.GetPartition().Mkdir(dirname, modeRWXOwner, caseInsensitive)
-			if err != nil {
-				return err
-			}
-		}
-		if content, err := deploy.GetString("content"); err != nil {
-			err := rootfs.GetPartition().FilePutContents(sPath, content, modAppend, caseInsensitive)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func DeployGuestFs(
 	rootfs fsdriver.IRootFsDriver,
 	guestDesc *jsonutils.JSONDict,
@@ -151,7 +120,7 @@ func DeployGuestFs(
 	}
 
 	if len(deployInfo.deploys) > 0 {
-		if err = DeployFiles(rootfs, deployInfo.deploys); err != nil {
+		if err = rootfs.DeployFiles(deployInfo.deploys); err != nil {
 			return nil, fmt.Errorf("DeployFiles: %v", err)
 		}
 	}
@@ -220,7 +189,7 @@ func DeployGuestFs(
 
 func IsPartitionReadonly(rootfs fsdriver.IDiskPartition) bool {
 	log.Infof("Test if read-only fs ...")
-	var filename = fmt.Sprintf("./%f", rand.Float32())
+	var filename = fmt.Sprintf("/.%f", rand.Float32())
 	if err := rootfs.FilePutContents(filename, fmt.Sprintf("%f", rand.Float32()), false, false); err == nil {
 		rootfs.Remove(filename, false)
 		return false

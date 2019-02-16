@@ -33,12 +33,12 @@ const (
 
 )
 
-type ManagerContext struct {
+type SManagerContext struct {
 	InstanceManager manager.IManager
 	InstanceId      string
 }
 
-func (self *ManagerContext) GetPath() string {
+func (self *SManagerContext) GetPath() string {
 	path := self.InstanceManager.KeyString()
 	if len(self.InstanceId) > 0 {
 		path += fmt.Sprintf("/%s", url.PathEscape(self.InstanceId))
@@ -47,8 +47,8 @@ func (self *ManagerContext) GetPath() string {
 	return path
 }
 
-type ResourceManager struct {
-	BaseManager
+type SResourceManager struct {
+	SBaseManager
 	ServiceName   ServiceNameType // 服务名称： ecs
 	Region        string          // 区域： cn-north-1
 	ProjectId     string          // 项目ID： uuid
@@ -67,23 +67,23 @@ func getContent(params jsonutils.JSONObject) string {
 	return params.String()
 }
 
-func (self *ResourceManager) Version() string {
+func (self *SResourceManager) Version() string {
 	return self.version
 }
 
-func (self *ResourceManager) KeyString() string {
+func (self *SResourceManager) KeyString() string {
 	return self.ResourceKeyword
 }
 
-func (self *ResourceManager) ServiceType() string {
+func (self *SResourceManager) ServiceType() string {
 	return string(self.ServiceName)
 }
 
-func (self *ResourceManager) GetColumns() []string {
+func (self *SResourceManager) GetColumns() []string {
 	return []string{}
 }
 
-func (self *ResourceManager) getReourcePath(ctx manager.IManagerContext, rid string, spec string) string {
+func (self *SResourceManager) getReourcePath(ctx manager.IManagerContext, rid string, spec string) string {
 	segs := []string{}
 	if ctx != nil {
 		segs = append(segs, ctx.GetPath())
@@ -105,20 +105,20 @@ func (self *ResourceManager) getReourcePath(ctx manager.IManagerContext, rid str
 	return strings.Join(segs, "/")
 }
 
-func (self *ResourceManager) newRequest(method, rid, spec string, ctx manager.IManagerContext) *requests.SRequest {
+func (self *SResourceManager) newRequest(method, rid, spec string, ctx manager.IManagerContext) *requests.SRequest {
 	resourcePath := self.getReourcePath(ctx, rid, spec)
 	return requests.NewResourceRequest(method, string(self.ServiceName), self.version, self.Region, self.ProjectId, resourcePath)
 }
 
-func (self *ResourceManager) List(querys map[string]string) (*responses.ListResult, error) {
-	return self.ListInContext(nil, querys)
+func (self *SResourceManager) List(queries map[string]string) (*responses.ListResult, error) {
+	return self.ListInContext(nil, queries)
 }
 
-func (self *ResourceManager) ListInContext(ctx manager.IManagerContext, querys map[string]string) (*responses.ListResult, error) {
-	return self.ListInContextWithSpec(ctx, "", querys, self.KeywordPlural)
+func (self *SResourceManager) ListInContext(ctx manager.IManagerContext, queries map[string]string) (*responses.ListResult, error) {
+	return self.ListInContextWithSpec(ctx, "", queries, self.KeywordPlural)
 }
 
-func (self *ResourceManager) ListInContextWithSpec(ctx manager.IManagerContext, spec string, querys map[string]string, responseKey string) (*responses.ListResult, error) {
+func (self *SResourceManager) ListInContextWithSpec(ctx manager.IManagerContext, spec string, querys map[string]string, responseKey string) (*responses.ListResult, error) {
 	request := self.newRequest("GET", "", spec, ctx)
 	for k, v := range querys {
 		request.AddQueryParam(k, v)
@@ -127,15 +127,15 @@ func (self *ResourceManager) ListInContextWithSpec(ctx manager.IManagerContext, 
 	return self._list(request, responseKey)
 }
 
-func (self *ResourceManager) Get(id string, querys map[string]string) (jsonutils.JSONObject, error) {
+func (self *SResourceManager) Get(id string, querys map[string]string) (jsonutils.JSONObject, error) {
 	return self.GetInContext(nil, id, querys)
 }
 
-func (self *ResourceManager) GetInContext(ctx manager.IManagerContext, id string, querys map[string]string) (jsonutils.JSONObject, error) {
+func (self *SResourceManager) GetInContext(ctx manager.IManagerContext, id string, querys map[string]string) (jsonutils.JSONObject, error) {
 	return self.GetInContextWithSpec(ctx, id, "", querys, self.Keyword)
 }
 
-func (self *ResourceManager) GetInContextWithSpec(ctx manager.IManagerContext, id string, spec string, querys map[string]string, responseKey string) (jsonutils.JSONObject, error) {
+func (self *SResourceManager) GetInContextWithSpec(ctx manager.IManagerContext, id string, spec string, querys map[string]string, responseKey string) (jsonutils.JSONObject, error) {
 	request := self.newRequest("GET", id, spec, ctx)
 	for k, v := range querys {
 		request.AddQueryParam(k, v)
@@ -144,34 +144,34 @@ func (self *ResourceManager) GetInContextWithSpec(ctx manager.IManagerContext, i
 	return self._get(request, responseKey)
 }
 
-func (self *ResourceManager) Create(params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SResourceManager) Create(params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return self.CreateInContext(nil, params)
 }
 
-func (self *ResourceManager) CreateInContext(ctx manager.IManagerContext, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SResourceManager) CreateInContext(ctx manager.IManagerContext, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return self.CreateInContextWithSpec(ctx, "", params, self.Keyword)
 }
 
-func (self *ResourceManager) CreateInContextWithSpec(ctx manager.IManagerContext, spec string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error) {
+func (self *SResourceManager) CreateInContextWithSpec(ctx manager.IManagerContext, spec string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error) {
 	request := self.newRequest("POST", "", spec, ctx)
 	request.SetContent([]byte(params.String()))
 
 	return self._do(request, responseKey)
 }
 
-func (self *ResourceManager) AsyncCreate(params jsonutils.JSONObject) (string, error) {
+func (self *SResourceManager) AsyncCreate(params jsonutils.JSONObject) (string, error) {
 	return "", fmt.Errorf("not supported")
 }
 
-func (self *ResourceManager) Update(id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SResourceManager) Update(id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return self.UpdateInContext(nil, id, params)
 }
 
-func (self *ResourceManager) UpdateInContext(ctx manager.IManagerContext, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SResourceManager) UpdateInContext(ctx manager.IManagerContext, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return self.UpdateInContextWithSpec(ctx, id, "", params, self.Keyword)
 }
 
-func (self *ResourceManager) UpdateInContextWithSpec(ctx manager.IManagerContext, id string, spec string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error) {
+func (self *SResourceManager) UpdateInContextWithSpec(ctx manager.IManagerContext, id string, spec string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error) {
 	request := self.newRequest("PUT", id, spec, ctx)
 	content := getContent(params)
 	if len(content) > 0 {
@@ -181,15 +181,15 @@ func (self *ResourceManager) UpdateInContextWithSpec(ctx manager.IManagerContext
 	return self._do(request, responseKey)
 }
 
-func (self *ResourceManager) Delete(id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SResourceManager) Delete(id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return self.DeleteInContext(nil, id, params)
 }
 
-func (self *ResourceManager) DeleteInContext(ctx manager.IManagerContext, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SResourceManager) DeleteInContext(ctx manager.IManagerContext, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return self.DeleteInContextWithSpec(ctx, id, "", params, self.Keyword)
 }
 
-func (self *ResourceManager) DeleteInContextWithSpec(ctx manager.IManagerContext, id string, spec string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error) {
+func (self *SResourceManager) DeleteInContextWithSpec(ctx manager.IManagerContext, id string, spec string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error) {
 	request := self.newRequest("DELETE", id, spec, ctx)
 	content := getContent(params)
 	if len(content) > 0 {
@@ -199,26 +199,26 @@ func (self *ResourceManager) DeleteInContextWithSpec(ctx manager.IManagerContext
 	return self._do(request, responseKey)
 }
 
-func (self *ResourceManager) PerformAction(action string, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (self *SResourceManager) PerformAction(action string, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return self.PerformAction2(action, id, params, self.Keyword)
 }
 
-func (self *ResourceManager) PerformAction2(action string, id string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error) {
+func (self *SResourceManager) PerformAction2(action string, id string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error) {
 	request := self.newRequest("POST", id, action, nil)
 	request.SetContent([]byte(getContent(params)))
 
 	return self._do(request, responseKey)
 }
 
-func (self *ResourceManager) SetVersion(v string) {
+func (self *SResourceManager) SetVersion(v string) {
 	self.version = v
 }
 
-func (self *ResourceManager) versionedURL(path string) string {
+func (self *SResourceManager) versionedURL(path string) string {
 	return ""
 }
 
 // todo: Init a manager with environment variables
-func (self *ResourceManager) Init() error {
+func (self *SResourceManager) Init() error {
 	return nil
 }

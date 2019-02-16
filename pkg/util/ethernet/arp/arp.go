@@ -17,7 +17,7 @@ import (
 	"io"
 	"net"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/ethernet"
+	"yunion.io/x/onecloud/pkg/util/ethernet"
 )
 
 /*

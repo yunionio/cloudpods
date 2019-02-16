@@ -168,10 +168,13 @@ func (s *SBaseStorage) CreateDiskByDiskinfo(ctx context.Context, params interfac
 
 	switch {
 	case createParams.DiskInfo.Contains("snapshot"):
+		log.Infof("CreateDiskFromSnpashot %s", createParams)
 		return s.CreateDiskFromSnpashot(ctx, disk, createParams)
 	case createParams.DiskInfo.Contains("image_id"):
+		log.Infof("CreateDiskFromTemplate %s", createParams)
 		return s.CreateDiskFromTemplate(ctx, disk, createParams)
 	case createParams.DiskInfo.Contains("size"):
+		log.Infof("CreateRawDisk %s", createParams)
 		return s.CreateRawDisk(ctx, disk, createParams)
 	default:
 		return nil, fmt.Errorf("Not fount")

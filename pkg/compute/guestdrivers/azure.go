@@ -35,6 +35,14 @@ func (self *SAzureGuestDriver) GetHypervisor() string {
 	return models.HYPERVISOR_AZURE
 }
 
+func (self *SAzureGuestDriver) GetDefaultSysDiskBackend() string {
+	return models.STORAGE_STANDARD_LRS
+}
+
+func (self *SAzureGuestDriver) GetMinimalSysDiskSizeGb() int {
+	return 10
+}
+
 func (self *SAzureGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
 	storages := host.GetAttachedStorages("")
 	for i := 0; i < len(storages); i += 1 {
@@ -42,7 +50,11 @@ func (self *SAzureGuestDriver) ChooseHostStorage(host *models.SHost, backend str
 			return &storages[i]
 		}
 	}
-	for _, stype := range []string{"standard_lrs", "standardssd_lrs", "premium_lrs"} {
+	for _, stype := range []string{
+		models.STORAGE_STANDARD_LRS,
+		models.STORAGE_STANDARDSSD_LRS,
+		models.STORAGE_PREMIUM_LRS,
+	} {
 		for i := 0; i < len(storages); i += 1 {
 			if storages[i].StorageType == stype {
 				return &storages[i]

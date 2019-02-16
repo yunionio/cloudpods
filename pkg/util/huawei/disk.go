@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"strconv"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -308,21 +308,9 @@ func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot
 }
 
 func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	snapshots := make([]SSnapshot, 0)
-	limit := 20
-	offset := 0
-	for {
-		if parts, count, err := self.storage.zone.region.GetSnapshots(self.ID, "", offset, limit); err != nil {
-			log.Errorf("GetDisks fail %s", err)
-			return nil, err
-		} else {
-			snapshots = append(snapshots, parts...)
-			if count < limit {
-				break
-			}
-
-			offset += limit
-		}
+	snapshots, err := self.storage.zone.region.GetSnapshots(self.ID, "")
+	if err != nil {
+		return nil, err
 	}
 
 	isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots))
@@ -352,18 +340,16 @@ func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	return &disk, err
 }
 
-func (self *SRegion) GetDisks(zoneId string, offset int, limit int) ([]SDisk, int, error) {
-	querys := map[string]string{}
+// https://support.huaweicloud.com/api-evs/zh-cn_topic_0058762430.html
+func (self *SRegion) GetDisks(zoneId string) ([]SDisk, error) {
+	queries := map[string]string{}
 	if len(zoneId) > 0 {
-		querys["availability_zone"] = zoneId
+		queries["availability_zone"] = zoneId
 	}
 
-	querys["limit"] = strconv.Itoa(limit)
-	querys["offset"] = strconv.Itoa(offset)
-
 	disks := make([]SDisk, 0)
-	err := DoList(self.ecsClient.Disks.List, querys, &disks)
-	return disks, len(disks), err
+	err := doListAllWithOffset(self.ecsClient.Disks.List, queries, &disks)
+	return disks, err
 }
 
 // https://support.huaweicloud.com/api-evs/zh-cn_topic_0058762427.html

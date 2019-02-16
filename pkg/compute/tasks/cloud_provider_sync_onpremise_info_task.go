@@ -52,7 +52,7 @@ func syncOnPremiseCloudProviderInfo(ctx context.Context, provider *models.SCloud
 			storageCachePairs = append(storageCachePairs, newCachePairs...)
 		}
 		syncHostNics(ctx, provider, task, &localHosts[i], remoteHosts[i])
-		syncHostVMs(ctx, provider, task, &localHosts[i], remoteHosts[i], syncRange)
+		syncHostVMs(ctx, provider, task, driver, &localHosts[i], remoteHosts[i], syncRange)
 	}
 
 	log.Debugf("storageCachePairs count %d", len(storageCachePairs))

@@ -13,8 +13,6 @@ https://support.huaweicloud.com/usermanual-vpc/zh-cn_topic_0073379079.html
 
 import (
 	"net"
-	"strconv"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/secrules"
 )
@@ -226,21 +224,17 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 	return &securitygroup, err
 }
 
-func (self *SRegion) GetSecurityGroups(vpcId string, limit int, marker string) ([]SSecurityGroup, int, error) {
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090617.html
+func (self *SRegion) GetSecurityGroups(vpcId string) ([]SSecurityGroup, error) {
 	querys := map[string]string{}
 	if len(vpcId) > 0 {
 		querys["vpc_id"] = vpcId
 	}
 
-	if len(marker) > 0 {
-		querys["marker"] = marker
-	}
-
-	querys["limit"] = strconv.Itoa(limit)
 	securitygroups := make([]SSecurityGroup, 0)
-	err := DoList(self.ecsClient.SecurityGroups.List, querys, &securitygroups)
+	err := doListAllWithMarker(self.ecsClient.SecurityGroups.List, querys, &securitygroups)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	vpcCache := map[string]*SVpc{}
@@ -258,14 +252,13 @@ func (self *SRegion) GetSecurityGroups(vpcId string, limit int, marker string) (
 		} else {
 			vpc, err := self.getVpc(securitygroup.VpcID)
 			if err != nil {
-				return nil, 0, err
+				return nil, err
 			}
 
 			vpcCache[securitygroup.VpcID] = vpc
 			securitygroup.vpc = vpc
 		}
-
 	}
 
-	return securitygroups, len(securitygroups), err
+	return securitygroups, nil
 }
