@@ -91,7 +91,7 @@ type SInstance struct {
 	Progress                         string                             `json:"progress"`
 	HostID                           string                             `json:"hostId"`
 	Updated                          string                             `json:"updated"`
-	Created                          string                             `json:"created"`
+	Created                          time.Time                          `json:"created"`
 	Metadata                         VMMetadata                         `json:"metadata"`
 	Tags                             []string                           `json:"tags"`
 	Description                      string                             `json:"description"`
@@ -114,13 +114,13 @@ type SInstance struct {
 	OSEXTSRVATTRRamdiskID            string                             `json:"OS-EXT-SRV-ATTR:ramdisk_id"`
 	EnterpriseProjectID              string                             `json:"enterprise_project_id"`
 	OSEXTSRVATTRUserData             string                             `json:"OS-EXT-SRV-ATTR:user_data"`
-	OSSRVUSGLaunchedAt               string                             `json:"OS-SRV-USG:launched_at"`
+	OSSRVUSGLaunchedAt               time.Time                          `json:"OS-SRV-USG:launched_at"`
 	OSEXTSRVATTRKernelID             string                             `json:"OS-EXT-SRV-ATTR:kernel_id"`
 	OSEXTSRVATTRLaunchIndex          int64                              `json:"OS-EXT-SRV-ATTR:launch_index"`
 	HostStatus                       string                             `json:"host_status"`
 	OSEXTSRVATTRReservationID        string                             `json:"OS-EXT-SRV-ATTR:reservation_id"`
 	OSEXTSRVATTRHostname             string                             `json:"OS-EXT-SRV-ATTR:hostname"`
-	OSSRVUSGTerminatedAt             string                             `json:"OS-SRV-USG:terminated_at"`
+	OSSRVUSGTerminatedAt             time.Time                          `json:"OS-SRV-USG:terminated_at"`
 	SysTags                          []SysTag                           `json:"sys_tags"`
 	SecurityGroups                   []SecurityGroup                    `json:"security_groups"`
 }
@@ -155,23 +155,19 @@ func compareSet(currentSet []string, newSet []string) (add []string, remove []st
 	return add, remove, keep
 }
 
-func markDiskType(server *SInstance, disk *SDisk) {
-	if disk.Bootable != "true" {
-		return
-	}
-
-	if len(disk.Attachments) == 0 {
-		return
+// 启动盘 != 系统盘(必须是启动盘且挂载在root device上)
+func isBootDisk(server *SInstance, disk *SDisk) bool {
+	if disk.GetDiskType() != models.DISK_TYPE_SYS {
+		return false
 	}
 
 	for _, attachment := range disk.Attachments {
 		if attachment.ServerID == server.GetId() && attachment.Device == server.OSEXTSRVATTRRootDeviceName {
-			disk.DiskType = models.DISK_TYPE_SYS
-			return
+			return true
 		}
 	}
 
-	return
+	return false
 }
 
 func (self *SInstance) GetId() string {
@@ -265,14 +261,23 @@ func (self *SInstance) GetBillingType() string {
 	}
 }
 
+// charging_mode “0”：按需计费  “1”：按包年包月计费
 func (self *SInstance) GetExpiredAt() time.Time {
-	t, _ := time.Parse(DATETIME_FORMAT, self.OSSRVUSGTerminatedAt)
-	return t
+	var expiredTime time.Time
+	if self.Metadata.ChargingMode == "1" {
+		res, err := self.host.zone.region.GetOrderResourceDetail(self.GetId())
+		if err != nil {
+			log.Debugf(err.Error())
+		}
+
+		expiredTime = res.ExpireTime
+	}
+
+	return expiredTime
 }
 
 func (self *SInstance) GetCreateTime() time.Time {
-	t, _ := time.Parse(DATETIME_FORMAT, self.Created)
-	return t
+	return self.Created
 }
 
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
@@ -299,14 +304,11 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		}
 		disks[i].storage = storage
 		idisks[i] = &disks[i]
-		markDiskType(self, &disks[i])
 		// 将系统盘放到第0个位置
-		if disks[i].GetDiskType() == models.DISK_TYPE_SYS {
+		if isBootDisk(self, &disks[i]) {
 			_temp := idisks[0]
 			idisks[0] = &disks[i]
 			idisks[i] = _temp
-		} else {
-			idisks[i] = &disks[i]
 		}
 	}
 	return idisks, nil
@@ -733,6 +735,16 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	} else {
 		// 包年包月
 		err = cloudprovider.WaitCreated(10*time.Second, 180*time.Second, func() bool {
+			order, e := self.GetOrder(_id)
+			if e != nil {
+				log.Debugf(err.Error())
+				return false
+			}
+
+			if order.TotalSize == 0 {
+				return false
+			}
+
 			ids, err = self.getAllResIdsByType(_id, RESOURCE_TYPE_VM)
 			if err != nil {
 				log.Debugf(err.Error())

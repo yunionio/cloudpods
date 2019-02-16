@@ -52,11 +52,7 @@ func (self *SOrderManager) SetDomainId(domainId string) error {
 
 // 查询客户包周期资源列表  https://support.huaweicloud.com/api-oce/zh-cn_topic_0084961226.html
 func (self *SOrderManager) List(querys map[string]string) (*responses.ListResult, error) {
-	if self.orderCtx == nil {
-		return nil, fmt.Errorf("domainId is emtpy.Use SetDomainId method to set.")
-	}
-
-	return self.ListInContextWithSpec(self.orderCtx, "resources/detail", querys, "data")
+	return nil, fmt.Errorf("Not Suppport List Order")
 }
 
 // 查询订单的资源开通详情 https://support.huaweicloud.com/api-oce/api_order_00001.html
@@ -74,4 +70,12 @@ func (self *SOrderManager) PerformAction(action string, id string, params jsonut
 	request.SetContent([]byte(getContent(params)))
 
 	return self._do(request, "")
+}
+
+func (self *SOrderManager) GetPeriodResourceList(querys map[string]string) (*responses.ListResult, error) {
+	if self.orderCtx == nil {
+		return nil, fmt.Errorf("domainId is emtpy.Use SetDomainId method to set.")
+	}
+
+	return self.ListInContextWithSpec(self.orderCtx, "resources/detail", querys, "data")
 }
