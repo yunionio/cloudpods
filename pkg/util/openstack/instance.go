@@ -413,7 +413,7 @@ func (region *SRegion) ChangeConfig(instance *SInstance, flavorId string) error 
 		},
 	}
 	_, maxVersion, _ := region.GetVersion("compute")
-	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/action", instanceId), maxVersion, jsonutils.Marshal(params))
+	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/action", instance.ID), maxVersion, jsonutils.Marshal(params))
 	return err
 }
 

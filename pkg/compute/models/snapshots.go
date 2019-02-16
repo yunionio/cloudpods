@@ -118,14 +118,6 @@ func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy
 			sqlchemy.In(q.Field("storage_id"), sq)))
 	}
 
-	// if jsonutils.QueryBoolean(query, "public_cloud", false) {
-	// 	publicRegionIds := CloudregionManager.GetPublicRegionIds()
-	// 	q = q.Filter(sqlchemy.In(q.Field("cloudregion_id"), publicRegionIds))
-	// } else if jsonutils.QueryBoolean(query, "private_cloud", false) {
-	// 	privateRegionIds := CloudregionManager.GetPrivateRegionIds()
-	// 	q = q.Filter(sqlchemy.In(q.Field("cloudregion_id"), privateRegionIds))
-	// }
-
 	if diskType, err := query.GetString("disk_type"); err == nil {
 		diskTbl := DiskManager.Query().SubQuery()
 		sq := diskTbl.Query(diskTbl.Field("id")).Equals("disk_type", diskType).SubQuery()
