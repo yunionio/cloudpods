@@ -16,8 +16,10 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	bare2 "yunion.io/x/onecloud/pkg/baremetal"
+	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
 	bare1 "yunion.io/x/onecloud/pkg/compute/baremetal"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
@@ -1214,6 +1216,54 @@ func (h *SHostInfo) uploadIsolatedDevices() {
 			h.onFail()
 			return
 		}
+	}
+	h.deployAdminAuthorizedKeys()
+}
+
+func (h *SHostInfo) deployAdminAuthorizedKeys() {
+	onErr := func(format string, args ...interface{}) {
+		log.Errorf(format, args...)
+		h.onFail()
+	}
+
+	sshDir := path.Join("/root", ".ssh")
+	if _, err := os.Stat(sshDir); err != nil {
+		if os.IsNotExist(err) {
+			if err := os.MkdirAll(sshDir, 0755); err != nil {
+				onErr("Create ssh dir %s: %v", sshDir, err)
+				return
+			}
+		} else {
+			onErr("Stat %s dir: %v", sshDir, err)
+		}
+	}
+
+	query := jsonutils.NewDict()
+	query.Add(jsonutils.JSONTrue, "admin")
+	ret, err := modules.Sshkeypairs.List(h.GetSession(), query)
+	if err != nil {
+		onErr("Get admin sshkey: %v", err)
+		return
+	}
+	if len(ret.Data) == 0 {
+		onErr("Not found admin sshkey")
+		return
+	}
+	keys := ret.Data[0]
+	adminPublicKey, _ := keys.GetString("public_key")
+	pubKeys := &sshkeys.SSHKeys{AdminPublicKey: adminPublicKey}
+
+	authFile := path.Join(sshDir, "authorized_keys")
+	oldKeysBytes, _ := fileutils2.FileGetContents(authFile)
+	oldKeys := string(oldKeysBytes)
+	newKeys := fsdriver.MergeAuthorizedKeys(oldKeys, pubKeys)
+	if err := fileutils2.FilePutContents(authFile, newKeys, false); err != nil {
+		onErr("Write public keys: %v", err)
+		return
+	}
+	if err := os.Chmod(authFile, 0644); err != nil {
+		onErr("Chmod %s to 0644: %v", authFile, err)
+		return
 	}
 	h.onSucc()
 }
