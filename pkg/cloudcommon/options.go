@@ -36,7 +36,8 @@ type CommonOptions struct {
 	ApplicationID      string `help:"Application ID"`
 	RequestWorkerCount int    `default:"4" help:"Request worker thread count, default is 4"`
 
-	NotifyAdminUser string `default:"sysadmin" help:"System administrator user ID or name to notify"`
+	NotifyAdminUsers  []string `default:"sysadmin" help:"System administrator user ID or name to notify system events"`
+	NotifyAdminGroups []string `help:"System administrator group ID or name to notify system events"`
 
 	EnableSsl   bool   `help:"Enable https"`
 	SslCaCerts  string `help:"ssl certificate ca root file, separating ca and cert file is not encouraged" alias:"ca-file"`

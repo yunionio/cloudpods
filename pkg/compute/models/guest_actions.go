@@ -509,7 +509,7 @@ func (self *SGuest) StartGuestDeployTask(ctx context.Context, userCred mcclient.
 	return nil
 }
 
-func (self *SGuest) NotifyServerEvent(event string, priority notify.TNotifyPriority, loginInfo bool) {
+func (self *SGuest) NotifyServerEvent(userCred mcclient.TokenCredential, event string, priority notify.TNotifyPriority, loginInfo bool) {
 	meta, err := self.GetAllMetadata(nil)
 	if err != nil {
 		return
@@ -539,7 +539,7 @@ func (self *SGuest) NotifyServerEvent(event string, priority notify.TNotifyPrior
 			}
 		}
 	}
-	notifyclient.Notify(self.ProjectId, true, priority, event, kwargs)
+	notifyclient.Notify(userCred.GetUserId(), false, priority, event, kwargs)
 }
 
 func (self *SGuest) NotifyAdminServerEvent(ctx context.Context, event string, priority notify.TNotifyPriority) {
@@ -551,7 +551,7 @@ func (self *SGuest) NotifyAdminServerEvent(ctx context.Context, event string, pr
 	} else {
 		kwargs.Add(jsonutils.NewString(self.ProjectId), "tenant")
 	}
-	notifyclient.Notify(options.Options.NotifyAdminUser, true, priority, event, kwargs)
+	notifyclient.SystemNotify(priority, event, kwargs)
 }
 
 func (self *SGuest) StartGuestStopTask(ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {

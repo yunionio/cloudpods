@@ -12,13 +12,13 @@ var (
 )
 
 type SNotifyMessage struct {
-	Uid         string           `json:"uid,omitempty"`
-	Gid         string           `json:"uid,omitempty"`
-	ContactType []TNotifyChannel `json:"contact_type,omitempty"`
-	Topic       string           `json:"topic,omitempty"`
-	Priority    TNotifyPriority  `json:"priority,omitempty"`
-	Msg         string           `json:"msg,omitempty"`
-	Remark      string           `json:"remark,omitempty"`
+	Uid         string          `json:"uid,omitempty"`
+	Gid         string          `json:"uid,omitempty"`
+	ContactType TNotifyChannel  `json:"contact_type,omitempty"`
+	Topic       string          `json:"topic,omitempty"`
+	Priority    TNotifyPriority `json:"priority,omitempty"`
+	Msg         string          `json:"msg,omitempty"`
+	Remark      string          `json:"remark,omitempty"`
 }
 
 type NotificationManager struct {
