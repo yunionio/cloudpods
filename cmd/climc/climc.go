@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -20,7 +19,6 @@ import (
 	"yunion.io/x/onecloud/cmd/climc/promputils"
 	"yunion.io/x/onecloud/cmd/climc/shell"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
 
 	_ "yunion.io/x/onecloud/cmd/climc/shell/etcd"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/k8s"
@@ -36,7 +34,7 @@ type BaseOptions struct {
 	CertFile string `default:"$YUNION_CERT_FILE" help:"certificate file"`
 	KeyFile  string `default:"$YUNION_KEY_FILE" help:"private key file"`
 
-	AutoComplete   bool   `default:"false" help:"Generate climc auto complete script"`
+	Completion     string `default:"" help:"Generate climc auto complete script" choices:"bash"`
 	UseCachedToken bool   `default:"$YUNION_USE_CACHED_TOKEN|false" help:"Use cached token"`
 	OsUsername     string `default:"$OS_USERNAME" help:"Username, defaults to env[OS_USERNAME]"`
 	OsPassword     string `default:"$OS_PASSWORD" help:"Password, defaults to env[OS_PASSWORD]"`
@@ -240,6 +238,14 @@ func main() {
 	e = parser.ParseArgs(os.Args[1:], false)
 	options := parser.Options().(*BaseOptions)
 
+	if len(options.Completion) > 0 {
+		completeScript := promputils.GenerateAutoCompleteCmds(options.Completion)
+		if len(completeScript) > 0 {
+			fmt.Printf("%s", completeScript)
+		}
+		return
+	}
+
 	if options.Help {
 		fmt.Print(parser.HelpString())
 		return
@@ -247,27 +253,6 @@ func main() {
 
 	if options.Version {
 		fmt.Printf("Yunion API client version:\n %s\n", version.GetJsonString())
-		return
-	}
-
-	if options.AutoComplete {
-		options := strings.Join(promputils.GenerateAutoCompleteCmds(), "")
-		optionsDir := "/etc/bash_completion.d/helpers"
-		optionsFileName := "climc.options"
-		scriptPath := "/etc/bash_completion.d/climc"
-		if !fileutils2.Exists(scriptPath) {
-			if err := fileutils2.FilePutContents(scriptPath, AUTO_COMPLETE_SCRIPT, false); err != nil {
-				log.Fatalf("%s", err)
-			}
-		}
-		if !fileutils2.Exists(optionsDir) {
-			if err := os.Mkdir(optionsDir, os.ModePerm); err != nil {
-				log.Fatalf("%s", err)
-			}
-		}
-		if err := fileutils2.FilePutContents(path.Join(optionsDir, optionsFileName), options, false); err != nil {
-			log.Fatalf("%s", err)
-		}
 		return
 	}
 

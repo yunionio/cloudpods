@@ -121,8 +121,12 @@ func AppendOpt(text, cmd, desc string) {
 	cmds[text].optArgs = append(cmds[text].optArgs, v...)
 }
 
-func GenerateAutoCompleteCmds() []string {
+func GenerateAutoCompleteCmds(shell string) string {
 	var ret = []string{}
+	var i = 0
+	if strings.ToLower(shell) == "zsh" {
+		i = 1
+	}
 	for cmd, options := range cmds {
 		var (
 			strPosArgs = []string{}
@@ -134,8 +138,14 @@ func GenerateAutoCompleteCmds() []string {
 		for _, optArg := range options.optArgs {
 			strOptArgs = append(strOptArgs, strings.Split(optArg.Text, " ")[0])
 		}
-		ret = append(ret, fmt.Sprintf("%s# %s %s\n", cmd,
+		ret = append(ret, fmt.Sprintf(`arr[%d]="%s# %s %s"`, i, cmd,
 			strings.Join(strPosArgs, " "), strings.Join(strOptArgs, " ")))
+		i += 1
 	}
-	return ret
+	options := strings.Join(ret, "\n")
+	if strings.ToLower(shell) == "bash" {
+		return fmt.Sprintf(BASH_COMPLETE_SCRIPT_1, options, BASH_COMPLETE_SCRIPT_2)
+	} else {
+		return ""
+	}
 }
