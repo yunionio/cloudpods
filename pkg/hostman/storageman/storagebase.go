@@ -78,6 +78,14 @@ func (s *SBaseStorage) GetId() string {
 	return s.StorageId
 }
 
+func (s *SBaseStorage) GetName(generateName func() string) string {
+	if len(s.StorageName) > 0 {
+		return s.StorageName
+	} else {
+		return generateName()
+	}
+}
+
 func (s *SBaseStorage) GetPath() string {
 	return s.Path
 }
