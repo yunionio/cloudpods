@@ -105,7 +105,7 @@ func (self *SRegion) GetOrderResources(orderId string, resource_ids []string, on
 		queries["only_main_resource"] = "1"
 	}
 
-	err = DoList(self.ecsClient.Orders.GetPeriodResourceList, queries, &resources)
+	err = doListAll(self.ecsClient.Orders.GetPeriodResourceList, queries, &resources)
 	return resources, err
 }
 

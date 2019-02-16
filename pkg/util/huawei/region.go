@@ -338,6 +338,8 @@ func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name str
 		secgroupId = extID
 	}
 
+	// 华为云默认deny。不需要显式指定
+	rules = SecurityRuleSetToAllowSet(rules)
 	return secgroupId, self.syncSecgroupRules(secgroupId, rules)
 }
 
