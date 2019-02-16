@@ -136,7 +136,6 @@ func DeployAuthorizedKeys(rootFs IDiskPartition, usrDir string, pubkeys *sshkeys
 		if err := rootFs.FilePutContents(authFile, newKeys, false, false); err != nil {
 			return fmt.Errorf("Put keys to %s: %v", authFile, err)
 		}
-		log.Infof("after merge keys=====%s, put to: %s", newKeys, authFile)
 		if err := rootFs.Chown(authFile, int(fStat.Uid), int(fStat.Gid), false); err != nil {
 			return fmt.Errorf("Chown %s to uid: %d, gid: %d: %v", authFile, fStat.Uid, fStat.Gid, err)
 		}
