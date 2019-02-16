@@ -157,6 +157,19 @@ func (self *SStorage) AllowUpdateItem(ctx context.Context, userCred mcclient.Tok
 	return db.IsAdminAllowUpdate(userCred, self)
 }
 
+func (self *SStorage) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SEnabledStatusStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
+
+	if data.Contains("cmtbound") {
+		hosts := self.GetAttachedHosts()
+		for _, host := range hosts {
+			if err := host.ClearSchedDescCache(); err != nil {
+				log.Errorf("clear host %s sched cache failed %v", host.GetName(), err)
+			}
+		}
+	}
+}
+
 func (self *SStorage) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowDelete(userCred, self)
 }
