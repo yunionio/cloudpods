@@ -158,6 +158,11 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 	logentry.Add(jsonutils.NewString(token.GetDomainName()), "domain")
 	logentry.Add(jsonutils.NewString(strings.Join(token.GetRoles(), ",")), "roles")
 
+	service := consts.GetServiceType()
+	if len(service) > 0 {
+		logentry.Add(jsonutils.NewString(service), "service")
+	}
+
 	if !startTime.IsZero() {
 		logentry.Add(jsonutils.NewString(timeutils.FullIsoTime(startTime)), "start_time")
 	}

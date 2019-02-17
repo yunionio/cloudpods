@@ -283,7 +283,8 @@ func (model *SVirtualResourceBase) PerformCancelDelete(ctx context.Context, user
 func (model *SVirtualResourceBase) DoCancelPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	err := model.CancelPendingDelete(ctx, userCred)
 	if err == nil {
-		OpsLog.LogEvent(model, ACT_CANCEL_DELETE, nil, userCred)
+		OpsLog.LogEvent(model, ACT_CANCEL_DELETE, model.GetShortDesc(ctx), userCred)
+		logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CANCEL_DELETE, model.GetShortDesc(ctx), userCred, true)
 	}
 	return err
 }
