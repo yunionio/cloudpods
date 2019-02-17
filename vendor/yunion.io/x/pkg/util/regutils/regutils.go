@@ -27,6 +27,7 @@ var FULLISO_TIME_REG *regexp.Regexp
 var COMPACT_TIME_REG *regexp.Regexp
 var MYSQL_TIME_REG *regexp.Regexp
 var NORMAL_TIME_REG *regexp.Regexp
+var FULLNORMAL_TIME_REG *regexp.Regexp
 var RFC2882_TIME_REG *regexp.Regexp
 var EMAIL_REG *regexp.Regexp
 var CHINA_MOBILE_REG *regexp.Regexp
@@ -56,6 +57,7 @@ func init() {
 	COMPACT_TIME_REG = regexp.MustCompile(`^\d{14}$`)
 	MYSQL_TIME_REG = regexp.MustCompile(`^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$`)
 	NORMAL_TIME_REG = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$`)
+	FULLNORMAL_TIME_REG = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}$`)
 	RFC2882_TIME_REG = regexp.MustCompile(`[A-Z][a-z]{2}, [0-9]{1,2} [A-Z][a-z]{2} [0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2} [A-Z]{3}`)
 	EMAIL_REG = regexp.MustCompile(`^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}$`)
 	CHINA_MOBILE_REG = regexp.MustCompile(`^1[0-9-]{10}$`)
@@ -169,6 +171,10 @@ func MatchMySQLTime(str string) bool {
 
 func MatchNormalTime(str string) bool {
 	return NORMAL_TIME_REG.MatchString(str)
+}
+
+func MatchFullNormalTime(str string) bool {
+	return FULLNORMAL_TIME_REG.MatchString(str)
 }
 
 func MatchRFC2882Time(str string) bool {
