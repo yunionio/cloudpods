@@ -1,7 +1,10 @@
 package huawei
 
 import (
+	"fmt"
 	"time"
+
+	"yunion.io/x/log"
 )
 
 func (self *SRegion) waitTaskStatus(serviceType string, taskId string, targetStatus string, interval time.Duration, timeout time.Duration) error {
@@ -13,6 +16,8 @@ func (self *SRegion) waitTaskStatus(serviceType string, taskId string, targetSta
 		}
 		if status == targetStatus {
 			break
+		} else if status == TASK_FAIL {
+			return fmt.Errorf("task %s failed", taskId)
 		} else {
 			time.Sleep(interval)
 		}
@@ -27,7 +32,12 @@ func (self *SRegion) GetTaskStatus(serviceType string, taskId string) (string, e
 		return "", err
 	}
 
-	return task.GetString("status")
+	status, err := task.GetString("status")
+	if status == TASK_FAIL {
+		log.Debugf("task %s failed: %s", taskId, task.String())
+	}
+
+	return status, err
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0022225398.html
