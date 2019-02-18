@@ -130,6 +130,18 @@ func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		q = q.In("manager_id", sq)
 	}
 
+	publicProviderIds := CloudproviderManager.GetPublicProviderIds()
+	if jsonutils.QueryBoolean(query, "public_cloud", false) {
+		q = q.Filter(sqlchemy.In(q.Field("manager_id"), publicProviderIds))
+	} else if jsonutils.QueryBoolean(query, "private_cloud", false) {
+		q = q.Filter(
+			sqlchemy.OR(
+				sqlchemy.NotIn(q.Field("manager_id"), publicProviderIds),
+				sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
+			),
+		)
+	}
+
 	if managerStr := jsonutils.GetAnyString(query, []string{"manager", "manager_id"}); len(managerStr) > 0 {
 		managerObj, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
 		if err != nil {

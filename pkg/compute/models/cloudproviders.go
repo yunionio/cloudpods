@@ -127,6 +127,44 @@ func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
+func (manager *SCloudproviderManager) GetPublicProviderIds() []string {
+	return manager.GetProviderIds(true)
+}
+
+func (manager *SCloudproviderManager) GetPrivateProviderIds() []string {
+	return manager.GetProviderIds(false)
+}
+
+func (manager *SCloudproviderManager) GetProviderIds(isPublic bool) []string {
+	providerIds := []string{}
+	q := manager.Query("id")
+	account := CloudaccountManager.Query().SubQuery()
+	q = q.Join(account, sqlchemy.Equals(
+		account.Field("id"), q.Field("cloudaccount_id")),
+	)
+	if isPublic {
+		q = q.Filter(sqlchemy.IsTrue(account.Field("is_public_cloud")))
+	} else {
+		q = q.Filter(sqlchemy.IsFalse(account.Field("is_public_cloud")))
+	}
+	rows, err := q.Rows()
+	if err != nil {
+		log.Errorf("Get providerIds err: %v", err)
+		return providerIds
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var providerId string
+		err = rows.Scan(&providerId)
+		if err != nil {
+			log.Errorf("Get providerId err: %v", err)
+			return providerIds
+		}
+		providerIds = append(providerIds, providerId)
+	}
+	return providerIds
+}
+
 func (self *SCloudprovider) CleanSchedCache() {
 	hosts := []SHost{}
 	q := HostManager.Query().Equals("manager_id", self.Id)

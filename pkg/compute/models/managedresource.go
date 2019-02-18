@@ -28,6 +28,17 @@ func (self *SManagedResourceBase) GetCloudaccount() *SCloudaccount {
 	return cp.GetCloudaccount()
 }
 
+func (self *SManagedResourceBase) GetProviderDriver() (cloudprovider.ICloudProviderFactory, error) {
+	provider := self.GetCloudprovider()
+	if provider == nil {
+		if len(self.ManagerId) > 0 {
+			return nil, cloudprovider.ErrInvalidProvider
+		}
+		return nil, fmt.Errorf("Resource is self managed")
+	}
+	return provider.GetProviderDriver()
+}
+
 func (self *SManagedResourceBase) GetDriver() (cloudprovider.ICloudProvider, error) {
 	provider := self.GetCloudprovider()
 	if provider == nil {
