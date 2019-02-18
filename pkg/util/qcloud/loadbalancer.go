@@ -24,6 +24,12 @@ const (
 	LB_TYPE_APPLICATION = LB_TYPE(1)
 )
 
+/*
+todo:
+1.统一LB 证书fingerprint算法.另外缺少一个回写指纹算法到数据库的方法。
+2.需要同步腾讯云LB 所在的project
+*/
+
 // https://cloud.tencent.com/document/api/214/30694#LoadBalancer
 type SLoadbalancer struct {
 	region *SRegion
