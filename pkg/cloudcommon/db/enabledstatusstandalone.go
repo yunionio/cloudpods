@@ -39,7 +39,7 @@ func (self *SEnabledStatusStandaloneResourceBase) PerformEnable(ctx context.Cont
 			return nil, err
 		}
 		OpsLog.LogEvent(self, ACT_ENABLE, "", userCred)
-		logclient.AddActionLog(self, logclient.ACT_ENABLE, nil, userCred, true)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_ENABLE, nil, userCred, true)
 	}
 	return nil, nil
 }
@@ -59,7 +59,7 @@ func (self *SEnabledStatusStandaloneResourceBase) PerformDisable(ctx context.Con
 			return nil, err
 		}
 		OpsLog.LogEvent(self, ACT_DISABLE, "", userCred)
-		logclient.AddActionLog(self, logclient.ACT_DISABLE, nil, userCred, true)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_DISABLE, nil, userCred, true)
 	}
 	return nil, nil
 }

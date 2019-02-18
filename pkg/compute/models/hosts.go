@@ -2616,7 +2616,7 @@ func (self *SHost) PerformOffline(ctx context.Context, userCred mcclient.TokenCr
 			return nil, err
 		}
 		db.OpsLog.LogEvent(self, db.ACT_OFFLINE, "", userCred)
-		logclient.AddActionLog(self, logclient.ACT_ONLINE, nil, userCred, true)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_ONLINE, nil, userCred, true)
 		self.SyncAttachedStorageStatus()
 	}
 	return nil, nil
@@ -2641,7 +2641,7 @@ func (self *SHost) PerformOnline(ctx context.Context, userCred mcclient.TokenCre
 			return nil, err
 		}
 		db.OpsLog.LogEvent(self, db.ACT_ONLINE, "", userCred)
-		logclient.AddActionLog(self, logclient.ACT_ONLINE, nil, userCred, true)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_ONLINE, nil, userCred, true)
 		self.SyncAttachedStorageStatus()
 		self.StartSyncAllGuestsStatusTask(ctx, userCred)
 	}

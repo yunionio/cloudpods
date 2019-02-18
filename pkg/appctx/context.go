@@ -2,6 +2,7 @@ package appctx
 
 import (
 	"context"
+	"time"
 
 	"yunion.io/x/pkg/trace"
 )
@@ -23,6 +24,7 @@ const (
 	APP_CONTEXT_KEY_TASK_NOTIFY_URL = AppContextKey("tasknotifyurl")
 	APP_CONTEXT_KEY_OBJECT_ID       = AppContextKey("objectid")
 	APP_CONTEXT_KEY_OBJECT_TYPE     = AppContextKey("objecttype")
+	APP_CONTEXT_KEY_START_TIME      = AppContextKey("starttime")
 )
 
 func AppContextServiceName(ctx context.Context) string {
@@ -121,6 +123,15 @@ func AppContextObjectType(ctx context.Context) string {
 		return val.(string)
 	} else {
 		return ""
+	}
+}
+
+func AppContextStartTime(ctx context.Context) time.Time {
+	val := ctx.Value(APP_CONTEXT_KEY_START_TIME)
+	if val != nil {
+		return val.(time.Time)
+	} else {
+		return time.Time{}
 	}
 }
 

@@ -54,9 +54,9 @@ func (self *BaremetalConvertHypervisorTask) OnGuestDeployComplete(ctx context.Co
 	err := driver.FinishConvert(self.UserCred, baremetal, guest, driver.GetHostType())
 	if err != nil {
 		log.Errorln(err)
-		logclient.AddActionLog(baremetal, logclient.ACT_BM_CONVERT_HYPER, fmt.Sprintf("convert deploy falied %s", err.Error()), self.UserCred, false)
+		logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_BM_CONVERT_HYPER, fmt.Sprintf("convert deploy falied %s", err.Error()), self.UserCred, false)
 	}
-	logclient.AddActionLog(baremetal, logclient.ACT_BM_CONVERT_HYPER, nil, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_BM_CONVERT_HYPER, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
@@ -71,7 +71,7 @@ func (self *BaremetalConvertHypervisorTask) OnGuestDeployCompleteFailed(ctx cont
 	})
 	self.SetStage("OnGuestDeleteComplete", nil)
 	guest.StartDeleteGuestTask(ctx, self.UserCred, self.GetTaskId(), false, true)
-	logclient.AddActionLog(baremetal, logclient.ACT_BM_CONVERT_HYPER, "convert deploy failed", self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_BM_CONVERT_HYPER, "convert deploy failed", self.UserCred, false)
 }
 
 func (self *BaremetalConvertHypervisorTask) OnGuestDeleteComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
@@ -83,7 +83,7 @@ func (self *BaremetalConvertHypervisorTask) OnGuestDeleteComplete(ctx context.Co
 	}
 	err := driver.ConvertFailed(baremetal)
 	if err != nil {
-		logclient.AddActionLog(baremetal, logclient.ACT_BM_CONVERT_HYPER, fmt.Sprintf("convert failed: %s", err), self.UserCred, false)
+		logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_BM_CONVERT_HYPER, fmt.Sprintf("convert failed: %s", err), self.UserCred, false)
 	}
 	self.SetStage("OnFailedSyncstatusComplete", nil)
 	baremetal.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())

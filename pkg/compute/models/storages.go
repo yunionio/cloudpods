@@ -20,7 +20,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 const (
@@ -357,9 +356,9 @@ func (self *SStorage) SetStatus(userCred mcclient.TokenCredential, status string
 			notes = fmt.Sprintf("%s: %s", notes, reason)
 		}
 		db.OpsLog.LogEvent(self, db.ACT_UPDATE_STATUS, notes, userCred)
-		if strings.Contains(notes, "fail") {
-			logclient.AddActionLog(self, logclient.ACT_VM_SYNC_STATUS, notes, userCred, false)
-		}
+		// if strings.Contains(notes, "fail") {
+		// 	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_SYNC_STATUS, notes, userCred, false)
+		// }
 	}
 	return nil
 }

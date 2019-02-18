@@ -70,7 +70,7 @@ func (self *StorageUncacheImageTask) OnTaskFailed(ctx context.Context, storageCa
 
 	db.OpsLog.LogEvent(storageCache, db.ACT_UNCACHE_IMAGE_FAIL, body, self.UserCred)
 
-	logclient.AddActionLog(storageCache, logclient.ACT_UNCACHED_IMAGE, body, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, storageCache, logclient.ACT_UNCACHED_IMAGE, body, self.UserCred, false)
 
 	self.SetStageFailed(ctx, reason)
 }
@@ -95,7 +95,7 @@ func (self *StorageUncacheImageTask) OnImageUncacheComplete(ctx context.Context,
 	body.Add(jsonutils.NewString(imageId), "image_id")
 	db.OpsLog.LogEvent(storageCache, db.ACT_UNCACHED_IMAGE, body, self.UserCred)
 
-	logclient.AddActionLog(storageCache, db.ACT_UNCACHED_IMAGE, body, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, storageCache, db.ACT_UNCACHED_IMAGE, body, self.UserCred, true)
 
 	self.SetStageComplete(ctx, nil)
 }

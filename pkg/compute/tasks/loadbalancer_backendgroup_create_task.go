@@ -25,7 +25,7 @@ func init() {
 func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) taskFail(ctx context.Context, lbacl *models.SLoadbalancerBackendGroup, reason string) {
 	lbacl.SetStatus(self.GetUserCred(), models.LB_CREATE_FAILED, reason)
 	db.OpsLog.LogEvent(lbacl, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
-	logclient.AddActionLog(lbacl, logclient.ACT_CREATE, reason, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_CREATE, reason, self.UserCred, false)
 	notifyclient.NotifySystemError(lbacl.Id, lbacl.Name, models.LB_CREATE_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
@@ -48,7 +48,7 @@ func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx context.C
 func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) OnLoadbalancerBackendGroupCreateComplete(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup, data jsonutils.JSONObject) {
 	lbbg.SetStatus(self.GetUserCred(), models.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lbbg, db.ACT_ALLOCATE, lbbg.GetShortDesc(ctx), self.UserCred)
-	logclient.AddActionLog(lbbg, logclient.ACT_CREATE, nil, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
