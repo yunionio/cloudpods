@@ -25,6 +25,10 @@ func (self *SOpenStackProviderFactory) ValidateChangeBandwidth(instanceId string
 	return nil
 }
 
+func (self *SOpenStackProviderFactory) IsPublicCloud() bool {
+	return false
+}
+
 func (self *SOpenStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	projectName, _ := data.GetString("project_name")
 	if len(projectName) == 0 {
@@ -92,10 +96,6 @@ func init() {
 
 type SOpenStackProvider struct {
 	client *openstack.SOpenStackClient
-}
-
-func (self *SOpenStackProvider) IsPublicCloud() bool {
-	return false
 }
 
 func (self *SOpenStackProvider) GetVersion() string {

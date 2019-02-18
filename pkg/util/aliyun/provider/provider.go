@@ -23,6 +23,10 @@ func (self *SAliyunProviderFactory) ValidateChangeBandwidth(instanceId string, b
 	return nil
 }
 
+func (self *SAliyunProviderFactory) IsPublicCloud() bool {
+	return true
+}
+
 func (self *SAliyunProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	accessKeyID, _ := data.GetString("access_key_id")
 	if len(accessKeyID) == 0 {
@@ -88,10 +92,6 @@ func init() {
 
 type SAliyunProvider struct {
 	client *aliyun.SAliyunClient
-}
-
-func (self *SAliyunProvider) IsPublicCloud() bool {
-	return true
 }
 
 func (self *SAliyunProvider) IsOnPremiseInfrastructure() bool {
