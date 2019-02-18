@@ -528,7 +528,7 @@ func (dc *SVirtualMachine) ChangeConfig2(ctx context.Context, instanceType strin
 	return cloudprovider.ErrNotImplemented
 }
 
-func (self *SVirtualMachine) AssignSecurityGroups(secgroupIds []string) error {
+func (self *SVirtualMachine) SetSecurityGroups(secgroupIds []string) error {
 	return cloudprovider.ErrNotImplemented
 }
 

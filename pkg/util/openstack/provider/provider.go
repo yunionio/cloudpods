@@ -106,6 +106,10 @@ func (self *SOpenStackProvider) IsOnPremiseInfrastructure() bool {
 	return false
 }
 
+func (self *SOpenStackProvider) SyncSkuFromCloud() bool {
+	return true
+}
+
 func (self *SOpenStackProvider) GetId() string {
 	return openstack.CLOUD_PROVIDER_OPENSTACK
 }
