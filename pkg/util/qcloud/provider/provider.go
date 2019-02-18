@@ -27,6 +27,10 @@ func (self *SQcloudProviderFactory) ValidateChangeBandwidth(instanceId string, b
 	return nil
 }
 
+func (self *SQcloudProviderFactory) IsPublicCloud() bool {
+	return true
+}
+
 func (self *SQcloudProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	appID, _ := data.GetString("app_id")
 	if len(appID) == 0 {
@@ -84,10 +88,6 @@ func init() {
 
 type SQcloudProvider struct {
 	client *qcloud.SQcloudClient
-}
-
-func (self *SQcloudProvider) IsPublicCloud() bool {
-	return true
 }
 
 func (self *SQcloudProvider) IsOnPremiseInfrastructure() bool {

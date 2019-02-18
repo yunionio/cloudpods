@@ -1710,7 +1710,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		diskIdx += 1
 	}
 
-	provider, e := self.GetHost().GetDriver()
+	provider, e := self.GetHost().GetProviderDriver()
 	if e != nil || !provider.IsPublicCloud() {
 		for storageId, needSize := range diskSizes {
 			iStorage, err := StorageManager.FetchById(storageId)
@@ -1723,7 +1723,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 			}
 		}
 	} else {
-		log.Debugf("Skip storage free capacity validating for public cloud: %s", provider.GetName())
+		log.Debugf("Skip storage free capacity validating for public cloud: %s", provider.GetId())
 	}
 
 	if newDisks.Length() > 0 {
