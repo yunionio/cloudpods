@@ -190,7 +190,7 @@ func queryKey(isAdmin bool, userCred mcclient.TokenCredential, service string, r
 }
 
 func (manager *SPolicyManager) Allow(isAdmin bool, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) rbacutils.TRbacResult {
-	if manager.cache != nil {
+	if manager.cache != nil && userCred != nil {
 		key := queryKey(isAdmin, userCred, service, resource, action, extra...)
 		val := manager.cache.Get(key)
 		if val != nil {
@@ -231,7 +231,12 @@ func (manager *SPolicyManager) allowWithoutCache(isAdmin bool, userCred mcclient
 		log.Warningf("no policies fetched")
 		return rbacutils.Deny
 	}
-	userCredJson := userCred.ToJson()
+	var userCredJson jsonutils.JSONObject
+	if userCred != nil {
+		userCredJson = userCred.ToJson()
+	} else {
+		userCredJson = jsonutils.NewDict()
+	}
 	currentPriv := rbacutils.Deny
 	for _, p := range policies {
 		result := p.Allow(userCredJson, service, resource, action, extra...)
