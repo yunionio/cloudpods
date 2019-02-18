@@ -147,7 +147,7 @@ func (self *SStorage) AllowUpdateItem(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SStorage) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SEnabledStatusStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
+	self.SStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
 
 	if data.Contains("cmtbound") {
 		hosts := self.GetAttachedHosts()
