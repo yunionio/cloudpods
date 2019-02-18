@@ -348,16 +348,34 @@ func (self *SImage) GetPath(format string) string {
 }
 
 func (self *SImage) OnSaveFailed(ctx context.Context, userCred mcclient.TokenCredential, msg string) {
-	log.Errorf(msg)
-	self.SetStatus(userCred, IMAGE_STATUS_QUEUED, msg)
-	db.OpsLog.LogEvent(self, db.ACT_SAVE_FAIL, msg, userCred)
-	logclient.AddActionLog(self, logclient.ACT_IMAGE_SAVE, nil, userCred, false)
+	self.saveFailed(userCred, msg)
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_IMAGE_SAVE, nil, userCred, false)
+}
+
+func (self *SImage) OnSaveTaskFailed(task taskman.ITask, userCred mcclient.TokenCredential, msg string) {
+	self.saveFailed(userCred, msg)
+	logclient.AddActionLogWithStartable(task, self, logclient.ACT_IMAGE_SAVE, nil, userCred, false)
 }
 
 func (self *SImage) OnSaveSuccess(ctx context.Context, userCred mcclient.TokenCredential, msg string) {
+	self.saveSuccess(userCred, msg)
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_IMAGE_SAVE, nil, userCred, true)
+}
+
+func (self *SImage) OnSaveTaskSuccess(task taskman.ITask, userCred mcclient.TokenCredential, msg string) {
+	self.saveSuccess(userCred, msg)
+	logclient.AddActionLogWithStartable(task, self, logclient.ACT_IMAGE_SAVE, nil, userCred, true)
+}
+
+func (self *SImage) saveSuccess(userCred mcclient.TokenCredential, msg string) {
 	self.SetStatus(userCred, IMAGE_STATUS_ACTIVE, msg)
 	db.OpsLog.LogEvent(self, db.ACT_SAVE, msg, userCred)
-	logclient.AddActionLog(self, logclient.ACT_IMAGE_SAVE, nil, userCred, true)
+}
+
+func (self *SImage) saveFailed(userCred mcclient.TokenCredential, msg string) {
+	log.Errorf(msg)
+	self.SetStatus(userCred, IMAGE_STATUS_QUEUED, msg)
+	db.OpsLog.LogEvent(self, db.ACT_SAVE_FAIL, msg, userCred)
 }
 
 func (self *SImage) saveImageFromStream(localPath string, reader io.Reader) (*streamutils.SStreamProperty, error) {
