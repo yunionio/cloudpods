@@ -91,12 +91,11 @@ type SInstance struct {
 	Progress                         string                             `json:"progress"`
 	HostID                           string                             `json:"hostId"`
 	Updated                          string                             `json:"updated"`
-	Created                          string                             `json:"created"`
+	Created                          time.Time                          `json:"created"`
 	Metadata                         VMMetadata                         `json:"metadata"`
 	Tags                             []string                           `json:"tags"`
 	Description                      string                             `json:"description"`
 	Locked                           bool                               `json:"locked"`
-	Image                            Image                              `json:"image"`
 	ConfigDrive                      string                             `json:"config_drive"`
 	TenantID                         string                             `json:"tenant_id"`
 	UserID                           string                             `json:"user_id"`
@@ -115,13 +114,13 @@ type SInstance struct {
 	OSEXTSRVATTRRamdiskID            string                             `json:"OS-EXT-SRV-ATTR:ramdisk_id"`
 	EnterpriseProjectID              string                             `json:"enterprise_project_id"`
 	OSEXTSRVATTRUserData             string                             `json:"OS-EXT-SRV-ATTR:user_data"`
-	OSSRVUSGLaunchedAt               string                             `json:"OS-SRV-USG:launched_at"`
+	OSSRVUSGLaunchedAt               time.Time                          `json:"OS-SRV-USG:launched_at"`
 	OSEXTSRVATTRKernelID             string                             `json:"OS-EXT-SRV-ATTR:kernel_id"`
 	OSEXTSRVATTRLaunchIndex          int64                              `json:"OS-EXT-SRV-ATTR:launch_index"`
 	HostStatus                       string                             `json:"host_status"`
 	OSEXTSRVATTRReservationID        string                             `json:"OS-EXT-SRV-ATTR:reservation_id"`
 	OSEXTSRVATTRHostname             string                             `json:"OS-EXT-SRV-ATTR:hostname"`
-	OSSRVUSGTerminatedAt             string                             `json:"OS-SRV-USG:terminated_at"`
+	OSSRVUSGTerminatedAt             time.Time                          `json:"OS-SRV-USG:terminated_at"`
 	SysTags                          []SysTag                           `json:"sys_tags"`
 	SecurityGroups                   []SecurityGroup                    `json:"security_groups"`
 }
@@ -154,6 +153,21 @@ func compareSet(currentSet []string, newSet []string) (add []string, remove []st
 	}
 
 	return add, remove, keep
+}
+
+// 启动盘 != 系统盘(必须是启动盘且挂载在root device上)
+func isBootDisk(server *SInstance, disk *SDisk) bool {
+	if disk.GetDiskType() != models.DISK_TYPE_SYS {
+		return false
+	}
+
+	for _, attachment := range disk.Attachments {
+		if attachment.ServerID == server.GetId() && attachment.Device == server.OSEXTSRVATTRRootDeviceName {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (self *SInstance) GetId() string {
@@ -189,6 +203,12 @@ func (self *SInstance) Refresh() error {
 	if err != nil {
 		return err
 	}
+
+	if new.Status == InstanceStatusTerminated {
+		log.Debugf("Instance already terminated.")
+		return cloudprovider.ErrNotFound
+	}
+
 	return jsonutils.Update(self, new)
 }
 
@@ -210,9 +230,9 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	priceKey := fmt.Sprintf("%s::%s::%s", self.host.zone.region.GetId(), self.GetInstanceType(), lowerOs)
 	data.Add(jsonutils.NewString(priceKey), "price_key")
 	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
-	if len(self.Image.ID) > 0 {
-		if image, err := self.host.zone.region.GetImage(self.Image.ID); err != nil {
-			log.Errorf("Failed to find image %s for instance %s zone %s", self.Image.ID, self.GetId(), self.OSEXTAZAvailabilityZone)
+	if len(self.Metadata.MeteringImageID) > 0 {
+		if image, err := self.host.zone.region.GetImage(self.Metadata.MeteringImageID); err != nil {
+			log.Errorf("Failed to find image %s for instance %s zone %s", self.Metadata.MeteringImageID, self.GetId(), self.OSEXTAZAvailabilityZone)
 		} else if meta := image.GetMetadata(); meta != nil {
 			data.Update(meta)
 		}
@@ -241,14 +261,23 @@ func (self *SInstance) GetBillingType() string {
 	}
 }
 
+// charging_mode “0”：按需计费  “1”：按包年包月计费
 func (self *SInstance) GetExpiredAt() time.Time {
-	t, _ := time.Parse(DATETIME_FORMAT, self.OSSRVUSGTerminatedAt)
-	return t
+	var expiredTime time.Time
+	if self.Metadata.ChargingMode == "1" {
+		res, err := self.host.zone.region.GetOrderResourceDetail(self.GetId())
+		if err != nil {
+			log.Debugf(err.Error())
+		}
+
+		expiredTime = res.ExpireTime
+	}
+
+	return expiredTime
 }
 
 func (self *SInstance) GetCreateTime() time.Time {
-	t, _ := time.Parse(DATETIME_FORMAT, self.Created)
-	return t
+	return self.Created
 }
 
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
@@ -275,6 +304,12 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		}
 		disks[i].storage = storage
 		idisks[i] = &disks[i]
+		// 将系统盘放到第0个位置
+		if isBootDisk(self, &disks[i]) {
+			_temp := idisks[0]
+			idisks[0] = &disks[i]
+			idisks[i] = _temp
+		}
 	}
 	return idisks, nil
 }
@@ -418,6 +453,11 @@ func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 		return nil
 	}
 
+	if self.Status == InstanceStatusTerminated {
+		log.Debugf("Instance already terminated.")
+		return nil
+	}
+
 	err := self.host.zone.region.StopVM(self.GetId(), isForce)
 	if err != nil {
 		return err
@@ -426,6 +466,10 @@ func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
+	if self.Status == InstanceStatusTerminated {
+		return nil
+	}
+
 	for {
 		err := self.host.zone.region.DeleteVM(self.GetId())
 		if err != nil && self.Status != InstanceStatusTerminated {
@@ -457,20 +501,40 @@ func (self *SInstance) UpdateUserData(userData string) error {
 // todo: 支持注入user_data
 func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
 	var err error
-	if self.Image.ID == imageId {
-		err = self.host.zone.region.RebuildRoot(ctx, self.GetId(), passwd, publicKey)
+	var jobId string
+	if self.Metadata.MeteringImageID == imageId {
+		jobId, err = self.host.zone.region.RebuildRoot(ctx, self.GetId(), passwd, publicKey)
 		if err != nil {
 			return "", err
 		}
 	} else {
-		err = self.host.zone.region.ChangeRoot(ctx, self.GetId(), imageId, passwd, publicKey)
+		jobId, err = self.host.zone.region.ChangeRoot(ctx, self.GetId(), imageId, passwd, publicKey)
 		if err != nil {
 			return "", err
 		}
 	}
 
-	// todo: wait job finished here
-	return "", nil
+	err = self.host.zone.region.waitTaskStatus(self.host.zone.region.ecsClient.Servers.ServiceType(), jobId, TASK_SUCCESS, 15*time.Second, 900*time.Second)
+	if err != nil {
+		log.Errorf("RebuildRoot task error %s", err)
+		return "", err
+	}
+
+	err = self.Refresh()
+	if err != nil {
+		return "", err
+	}
+
+	idisks, err := self.GetIDisks()
+	if err != nil {
+		return "", err
+	}
+
+	if len(idisks) == 0 {
+		return "", fmt.Errorf("server %s has no volume attached.", self.GetId())
+	}
+
+	return idisks[0].GetId(), nil
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
@@ -670,6 +734,16 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	} else {
 		// 包年包月
 		err = cloudprovider.WaitCreated(10*time.Second, 180*time.Second, func() bool {
+			order, e := self.GetOrder(_id)
+			if e != nil {
+				log.Debugf(err.Error())
+				return false
+			}
+
+			if order.TotalSize == 0 {
+				return false
+			}
+
 			ids, err = self.getAllResIdsByType(_id, RESOURCE_TYPE_VM)
 			if err != nil {
 				log.Debugf(err.Error())
@@ -827,10 +901,6 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 		return err
 	}
 
-	if remoteStatus == InstanceStatusTerminated {
-		return nil
-	}
-
 	if remoteStatus != InstanceStatusStopped {
 		log.Errorf("DeleteVM vm status is %s expect %s", remoteStatus, InstanceStatusStopped)
 		return cloudprovider.ErrInvalidStatus
@@ -862,7 +932,9 @@ func (self *SRegion) UpdateVM(instanceId, name string) error {
 	return err
 }
 
-func (self *SRegion) RebuildRoot(ctx context.Context, instanceId, passwd, publicKeyName string) error {
+// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067876349.html
+// 返回job id
+func (self *SRegion) RebuildRoot(ctx context.Context, instanceId, passwd, publicKeyName string) (string, error) {
 	params := jsonutils.NewDict()
 	reinstallObj := jsonutils.NewDict()
 	// meta := jsonutils.NewDict()
@@ -872,15 +944,21 @@ func (self *SRegion) RebuildRoot(ctx context.Context, instanceId, passwd, public
 	} else if len(publicKeyName) > 0 {
 		reinstallObj.Add(jsonutils.NewString(publicKeyName), "keyname")
 	} else {
-		return fmt.Errorf("both password and publicKey are empty.")
+		return "", fmt.Errorf("both password and publicKey are empty.")
 	}
 
 	params.Add(reinstallObj, "os-reinstall")
-	_, err := self.ecsClient.Servers.PerformAction2("reinstallos", instanceId, params, "")
-	return err
+	ret, err := self.ecsClient.Servers.PerformAction2("reinstallos", instanceId, params, "")
+	if err != nil {
+		return "", err
+	}
+
+	return ret.GetString("job_id")
 }
 
-func (self *SRegion) ChangeRoot(ctx context.Context, instanceId, imageId, passwd, publicKeyName string) error {
+// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067876971.html
+// 返回job id
+func (self *SRegion) ChangeRoot(ctx context.Context, instanceId, imageId, passwd, publicKeyName string) (string, error) {
 	params := jsonutils.NewDict()
 	changeOsObj := jsonutils.NewDict()
 	// meta := jsonutils.NewDict()
@@ -890,14 +968,18 @@ func (self *SRegion) ChangeRoot(ctx context.Context, instanceId, imageId, passwd
 	} else if len(publicKeyName) > 0 {
 		changeOsObj.Add(jsonutils.NewString(publicKeyName), "keyname")
 	} else {
-		return fmt.Errorf("both password and publicKey are empty.")
+		return "", fmt.Errorf("both password and publicKey are empty.")
 	}
 
 	changeOsObj.Add(jsonutils.NewString(imageId), "imageid")
 	params.Add(changeOsObj, "os-change")
 
-	_, err := self.ecsClient.Servers.PerformAction2("changeos", instanceId, params, "")
-	return err
+	ret, err := self.ecsClient.Servers.PerformAction2("changeos", instanceId, params, "")
+	if err != nil {
+		return "", err
+	}
+
+	return ret.GetString("job_id")
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212692.html

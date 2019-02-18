@@ -26,6 +26,7 @@ const (
 	FullIsoTimeFormat     = "2006-01-02T15:04:05.000000Z"
 	MysqlTimeFormat       = "2006-01-02 15:04:05"
 	NormalTimeFormat      = "2006-01-02T15:04:05"
+	FullNormalTimeFormat  = "2006-01-02T15:04:05.000000"
 	CompactTimeFormat     = "20060102150405"
 	DateFormat            = "2006-01-02"
 	ShortDateFormat       = "20060102"
@@ -84,6 +85,10 @@ func ParseNormalTime(str string) (time.Time, error) {
 	return time.Parse(NormalTimeFormat, str)
 }
 
+func ParseFullNormalTime(str string) (time.Time, error) {
+	return time.Parse(FullNormalTimeFormat, str)
+}
+
 func ParseCompactTime(str string) (time.Time, error) {
 	return time.Parse(CompactTimeFormat, str)
 }
@@ -111,6 +116,8 @@ func ParseTimeStr(str string) (time.Time, error) {
 		return ParseMysqlTime(str)
 	} else if regutils.MatchNormalTime(str) {
 		return ParseNormalTime(str)
+	} else if regutils.MatchFullNormalTime(str) {
+		return ParseFullNormalTime(str)
 	} else if regutils.MatchRFC2882Time(str) {
 		return ParseRFC2882Time(str)
 	} else if regutils.MatchCompactTime(str) {

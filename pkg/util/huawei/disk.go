@@ -233,6 +233,8 @@ func (self *SDisk) GetTemplateId() string {
 	return self.VolumeImageMetadata.ImageID
 }
 
+// Bootable 表示硬盘是否为启动盘。
+// 启动盘 != 系统盘(必须是启动盘且挂载在root device上)
 func (self *SDisk) GetDiskType() string {
 	if self.Bootable == "true" {
 		return models.DISK_TYPE_SYS
@@ -263,6 +265,14 @@ func (self *SDisk) GetCacheMode() string {
 func (self *SDisk) GetMountpoint() string {
 	if len(self.Attachments) > 0 {
 		return self.Attachments[0].Device
+	}
+
+	return ""
+}
+
+func (self *SDisk) GetMountServerId() string {
+	if len(self.Attachments) > 0 {
+		return self.Attachments[0].ServerID
 	}
 
 	return ""
@@ -323,8 +333,55 @@ func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
 	return self.storage.zone.region.resizeDisk(self.GetId(), sizeGb)
 }
 
+func (self *SDisk) Detach() error {
+	err := self.storage.zone.region.DetachDisk(self.GetMountServerId(), self.GetId())
+	if err != nil {
+		log.Debugf("detach server %s disk %s failed: %s", self.GetMountServerId(), self.GetId(), err)
+		return err
+	}
+
+	return cloudprovider.WaitStatus(self, models.DISK_READY, 5*time.Second, 60*time.Second)
+}
+
+func (self *SDisk) Attach(device string) error {
+	err := self.storage.zone.region.AttachDisk(self.GetMountServerId(), self.GetId(), device)
+	if err != nil {
+		log.Debugf("attach server %s disk %s failed: %s", self.GetMountServerId(), self.GetId(), err)
+		return err
+	}
+
+	return cloudprovider.WaitStatus(self, models.DISK_READY, 5*time.Second, 60*time.Second)
+}
+
+// 在线卸载磁盘 https://support.huaweicloud.com/usermanual-ecs/zh-cn_topic_0036046828.html
+// 对于挂载在系统盘盘位（也就是“/dev/sda”或“/dev/vda”挂载点）上的磁盘，当前仅支持离线卸载
 func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
-	return self.storage.zone.region.resetDisk(self.GetId(), snapshotId)
+	mountpoint := self.GetMountpoint()
+	if mountpoint == "/dev/sda" || mountpoint == "/dev/vda" {
+		err := self.Detach()
+		if err != nil {
+			return "", err
+		}
+	}
+
+	diskId, err := self.storage.zone.region.resetDisk(self.GetId(), snapshotId)
+	if err != nil {
+		return diskId, err
+	}
+
+	err = cloudprovider.WaitStatus(self, models.DISK_READY, 5*time.Second, 300*time.Second)
+	if err != nil {
+		return "", err
+	}
+
+	if mountpoint == "/dev/sda" || mountpoint == "/dev/vda" {
+		err := self.Attach(mountpoint)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return diskId, nil
 }
 
 // 华为云不支持重置
