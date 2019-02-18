@@ -710,7 +710,7 @@ func (self *SZone) getMaxDataDiskCount() int {
 }
 
 func (manager *SZoneManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	regionStr := jsonutils.GetAnyString(query, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
+	regionStr := jsonutils.GetAnyString(data, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
 	var regionId string
 	if len(regionStr) > 0 {
 		regionObj, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
