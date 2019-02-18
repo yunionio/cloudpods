@@ -46,6 +46,7 @@ func (self *ImageCopyFromUrlTask) OnInit(ctx context.Context, obj db.IStandalone
 
 func (self *ImageCopyFromUrlTask) OnImageImportComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	image := obj.(*models.SImage)
+	image.OnSaveTaskSuccess(self, self.UserCred, "create upload success")
 	image.StartImageConvertTask(ctx, self.UserCred, "")
 	self.SetStageComplete(ctx, nil)
 }
@@ -54,6 +55,6 @@ func (self *ImageCopyFromUrlTask) OnImageImportCompleteFailed(ctx context.Contex
 	image := obj.(*models.SImage)
 	copyFrom, _ := self.Params.GetString("copy_from")
 	msg := fmt.Sprintf("copy from url %s request fail %s", copyFrom, err)
-	image.OnSaveFailed(ctx, self.UserCred, msg)
+	image.OnSaveTaskFailed(self, self.UserCred, msg)
 	self.SetStageFailed(ctx, msg)
 }

@@ -2,6 +2,7 @@ package shell
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/onecloud/pkg/util/huawei"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -108,11 +109,11 @@ func init() {
 
 	shellutils.R(&InstanceRebuildRootOptions{}, "instance-rebuild-root", "Reinstall virtual server system image", func(cli *huawei.SRegion, args *InstanceRebuildRootOptions) error {
 		ctx := context.Background()
-		err := cli.ChangeRoot(ctx, args.ID, args.Image, args.Password, args.PublicKey)
+		jobId, err := cli.ChangeRoot(ctx, args.ID, args.Image, args.Password, args.PublicKey)
 		if err != nil {
 			return err
 		}
-		// fmt.Printf("New diskID is %s", diskID)
+		fmt.Printf("ChangeRoot jobID is %s", jobId)
 		return nil
 	})
 
