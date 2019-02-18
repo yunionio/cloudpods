@@ -34,7 +34,7 @@ func (self *BaremetalMaintenanceTask) OnInit(ctx context.Context, obj db.IStanda
 func (self *BaremetalMaintenanceTask) OnEnterMaintenantModeSucc(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
 	action := self.Action()
 	if len(action) > 0 {
-		logclient.AddActionLog(baremetal, action, "", self.UserCred, true)
+		logclient.AddActionLogWithStartable(self, baremetal, action, "", self.UserCred, true)
 	}
 	baremetal.GetModelManager().TableSpec().Update(baremetal, func() error {
 		baremetal.IsMaintenance = true
@@ -65,6 +65,6 @@ func (self *BaremetalMaintenanceTask) OnEnterMaintenantModeSuccFailed(ctx contex
 	}
 	action := self.Action()
 	if len(action) > 0 {
-		logclient.AddActionLog(baremetal, action, body.String(), self.UserCred, false)
+		logclient.AddActionLogWithStartable(self, baremetal, action, body.String(), self.UserCred, false)
 	}
 }

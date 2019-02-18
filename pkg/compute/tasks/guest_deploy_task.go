@@ -90,7 +90,7 @@ func (self *GuestDeployTask) OnUndeployBackupGuest(ctx context.Context, guest *m
 func (self *GuestDeployTask) OnDeployGuestFail(ctx context.Context, guest *models.SGuest, err error) {
 	guest.SetStatus(self.UserCred, models.VM_DEPLOY_FAILED, err.Error())
 	self.SetStageFailed(ctx, err.Error())
-	logclient.AddActionLog(guest, logclient.ACT_VM_DEPLOY, err, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_DEPLOY, err, self.UserCred, false)
 }
 
 func (self *GuestDeployTask) OnDeployGuestComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -106,21 +106,21 @@ func (self *GuestDeployTask) OnDeployGuestComplete(ctx context.Context, obj db.I
 	if action == "deploy" {
 		if len(keypair) >= 32 {
 			if unbind_kp {
-				logclient.AddActionLog(guest, logclient.ACT_VM_UNBIND_KEYPAIR, nil, self.UserCred, true)
+				logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_UNBIND_KEYPAIR, nil, self.UserCred, true)
 				_log = true
 			} else {
-				logclient.AddActionLog(guest, logclient.ACT_VM_BIND_KEYPAIR, nil, self.UserCred, true)
+				logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_BIND_KEYPAIR, nil, self.UserCred, true)
 				_log = true
 			}
 
 		} else if reset_password {
-			logclient.AddActionLog(guest, logclient.ACT_VM_RESET_PSWD, "", self.UserCred, true)
+			logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_RESET_PSWD, "", self.UserCred, true)
 			_log = true
 		}
 	}
 	if !_log {
 		// 如果 deploy 有其他事件，统一记在这里。
-		logclient.AddActionLog(guest, "misc部署", self.Params, self.UserCred, true)
+		logclient.AddActionLogWithStartable(self, guest, "misc部署", "", self.UserCred, true)
 	}
 }
 

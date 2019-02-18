@@ -23,7 +23,7 @@ func init() {
 }
 
 func (self *DiskResetTask) TaskFailed(ctx context.Context, disk *models.SDisk, reason string) {
-	logclient.AddActionLog(disk, logclient.ACT_RESET_DISK, reason, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESET_DISK, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -32,7 +32,7 @@ func (self *DiskResetTask) TaskCompleted(ctx context.Context, disk *models.SDisk
 	if data == nil {
 		data = jsonutils.NewDict()
 	}
-	logclient.AddActionLog(disk, logclient.ACT_RESET_DISK, data, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESET_DISK, data, self.UserCred, true)
 	self.SetStageComplete(ctx, data)
 }
 
