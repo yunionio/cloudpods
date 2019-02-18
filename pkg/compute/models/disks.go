@@ -167,12 +167,17 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.NotIn(storages.Field("storage_type"), STORAGE_LOCAL_TYPES))
 		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
 	}
-
+	publicProviderIds := CloudproviderManager.GetPublicProviderIds()
 	if jsonutils.QueryBoolean(query, "public_cloud", false) {
-		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.IsNotNull(storages.Field("manager_id")))
+		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.In(storages.Field("manager_id"), publicProviderIds))
 		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
 	} else if jsonutils.QueryBoolean(query, "private_cloud", false) {
-		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.IsNull(storages.Field("manager_id")))
+		sq := storages.Query(storages.Field("id")).Filter(
+			sqlchemy.OR(
+				sqlchemy.NotIn(storages.Field("manager_id"), publicProviderIds),
+				sqlchemy.IsNullOrEmpty(storages.Field("manager_id")),
+			),
+		)
 		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
 	}
 

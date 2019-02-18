@@ -18,6 +18,10 @@ func (self *SHuaweiProviderFactory) ValidateChangeBandwidth(instanceId string, b
 	return nil
 }
 
+func (self *SHuaweiProviderFactory) IsPublicCloud() bool {
+	return true
+}
+
 func (self *SHuaweiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	accessKeyID, _ := data.GetString("access_key_id")
 	if len(accessKeyID) == 0 {
@@ -92,10 +96,6 @@ func (self *SHuaweiProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	info.Add(jsonutils.NewInt(int64(len(regions))), "region_count")
 	info.Add(jsonutils.NewString(huawei.HUAWEI_API_VERSION), "api_version")
 	return info, nil
-}
-
-func (self *SHuaweiProvider) IsPublicCloud() bool {
-	return true
 }
 
 func (self *SHuaweiProvider) IsOnPremiseInfrastructure() bool {

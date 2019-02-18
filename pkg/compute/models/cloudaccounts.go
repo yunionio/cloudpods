@@ -52,8 +52,8 @@ type SCloudaccount struct {
 	LastSync   time.Time `get:"admin" list:"admin"` // = Column(DateTime, nullable=True)
 
 	// Sysinfo jsonutils.JSONObject `get:"admin"` // Column(JSONEncodedDict, nullable=True)
-
-	Provider string `width:"64" charset:"ascii" list:"admin" create:"admin_required"`
+	IsPublicCloud bool   `nullable:"false" get:"user" create:"required" list:"user"`
+	Provider      string `width:"64" charset:"ascii" list:"admin" create:"admin_required"`
 }
 
 func (self *SCloudaccountManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -146,6 +146,7 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 	if err := providerDriver.ValidateCreateCloudaccountData(ctx, userCred, data); err != nil {
 		return nil, err
 	}
+	data.Set("is_public_cloud", jsonutils.NewBool(providerDriver.IsPublicCloud()))
 	// check duplication
 	// url, account, provider must be unique
 	account, _ := data.GetString("account")
@@ -317,6 +318,18 @@ func (self *SCloudaccount) StartSyncCloudProviderInfoTask(ctx context.Context, u
 	params := jsonutils.NewDict()
 	if syncRange != nil {
 		params.Add(jsonutils.Marshal(syncRange), "sync_range")
+	}
+
+	providerDriver, _ := cloudprovider.GetProviderDriver(self.Provider)
+	isPublicCloud := providerDriver.IsPublicCloud()
+	if self.IsPublicCloud != isPublicCloud {
+		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+			self.IsPublicCloud = isPublicCloud
+			return nil
+		})
+		if err != nil {
+			log.Errorf("Update cloudaccount %s public attr error: %v", self.Name, err)
+		}
 	}
 
 	if cloudProviders == nil {
