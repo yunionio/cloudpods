@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/manager"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/responses"
+	"yunion.io/x/pkg/utils"
 )
 
 // 常用的方法
@@ -28,7 +29,7 @@ func unmarshalResult(resp jsonutils.JSONObject, respErr error, result interface{
 	if respErr != nil {
 		switch e := respErr.(type) {
 		case *httputils.JSONClientError:
-			if e.Code == 404 {
+			if e.Code == 404 || utils.IsInStringArray(e.Class, NOT_FOUND_CODES) {
 				return cloudprovider.ErrNotFound
 			}
 			return e

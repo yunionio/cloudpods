@@ -147,6 +147,12 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 			log.Errorf("host.GetIHost fail %s", err)
 			return nil, err
 		}
+
+		// 创建失败时external id为空。此时直接返回即可。不需要再调用公有云api
+		if len(guest.ExternalId) == 0 {
+			return nil, nil
+		}
+
 		ivm, err := ihost.GetIVMById(guest.ExternalId)
 		if err != nil {
 			if err == cloudprovider.ErrNotFound {
