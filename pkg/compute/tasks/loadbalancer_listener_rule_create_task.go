@@ -24,7 +24,7 @@ func init() {
 func (self *LoadbalancerListenerRuleCreateTask) taskFail(ctx context.Context, lbr *models.SLoadbalancerListenerRule, reason string) {
 	lbr.SetStatus(self.GetUserCred(), models.LB_CREATE_FAILED, reason)
 	db.OpsLog.LogEvent(lbr, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
-	logclient.AddActionLog(lbr, logclient.ACT_CREATE, reason, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, lbr, logclient.ACT_CREATE, reason, self.UserCred, false)
 	notifyclient.NotifySystemError(lbr.Id, lbr.Name, models.LB_CREATE_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
@@ -45,7 +45,7 @@ func (self *LoadbalancerListenerRuleCreateTask) OnInit(ctx context.Context, obj 
 func (self *LoadbalancerListenerRuleCreateTask) OnLoadbalancerListenerRuleCreateComplete(ctx context.Context, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject) {
 	lbr.SetStatus(self.GetUserCred(), models.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lbr, db.ACT_ALLOCATE, lbr.GetShortDesc(ctx), self.UserCred)
-	logclient.AddActionLog(lbr, logclient.ACT_CREATE, nil, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, lbr, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 

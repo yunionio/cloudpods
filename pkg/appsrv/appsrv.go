@@ -235,6 +235,7 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_CUR_ROOT, hand.path)
 						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_CUR_PATH, segs[len(hand.path):])
 						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_PARAMS, params)
+						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_START_TIME, time.Now().UTC())
 						if hand.metadata != nil {
 							ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_METADATA, hand.metadata)
 						}

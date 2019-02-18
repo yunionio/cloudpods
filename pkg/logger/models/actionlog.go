@@ -17,9 +17,9 @@ type SActionlogManager struct {
 type SActionlog struct {
 	db.SOpsLog
 
-	// StartTime time.Time `nullable:"false" list:"user"`                           // = Column(DateTime, nullable=False)
-	Success bool `default:"true" list:"user" create:"required"` // = Column(Boolean, default=True)
-	// Action    string    `width:"32" charset:"utf8" nullable:"false" list:"user"` //= Column(VARCHAR(32, charset='utf8'), nullable=False)
+	StartTime time.Time `nullable:"false" list:"user" create:"optional"`                          // = Column(DateTime, nullable=False)
+	Success   bool      `default:"true" list:"user" create:"required"`                            // = Column(Boolean, default=True)
+	Service   string    `width:"32" charset:"utf8" nullable:"true" list:"user" create:"optional"` //= Column(VARCHAR(32, charset='utf8'), nullable=False)
 }
 
 var ActonLog *SActionlogManager
@@ -29,6 +29,10 @@ func init() {
 }
 
 func (action *SActionlog) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	action.OpsTime = time.Now().UTC()
+	now := time.Now().UTC()
+	action.OpsTime = now
+	if action.StartTime.IsZero() {
+		action.StartTime = now
+	}
 	return nil
 }

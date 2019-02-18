@@ -24,7 +24,7 @@ func init() {
 func (self *LoadbalancerStopTask) taskFail(ctx context.Context, lb *models.SLoadbalancer, reason string) {
 	lb.SetStatus(self.GetUserCred(), models.LB_STATUS_ENABLED, reason)
 	db.OpsLog.LogEvent(lb, db.ACT_DISABLE, reason, self.UserCred)
-	logclient.AddActionLog(lb, logclient.ACT_DISABLE, reason, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_DISABLE, reason, self.UserCred, false)
 	notifyclient.NotifySystemError(lb.Id, lb.Name, models.LB_STATUS_ENABLED, reason)
 	self.SetStageFailed(ctx, reason)
 }
@@ -45,7 +45,7 @@ func (self *LoadbalancerStopTask) OnInit(ctx context.Context, obj db.IStandalone
 func (self *LoadbalancerStopTask) OnLoadbalancerStopComplete(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
 	lb.SetStatus(self.GetUserCred(), models.LB_STATUS_DISABLED, "")
 	db.OpsLog.LogEvent(lb, db.ACT_DISABLE, lb.GetShortDesc(ctx), self.UserCred)
-	logclient.AddActionLog(lb, logclient.ACT_DISABLE, nil, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_DISABLE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 

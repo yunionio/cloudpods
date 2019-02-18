@@ -44,14 +44,14 @@ func (self *BaremetalUnconvertHypervisorTask) OnGuestDeleteComplete(ctx context.
 	}
 	self.SetStage("OnPrepareComplete", nil)
 	baremetal.StartPrepareTask(ctx, self.UserCred, "", self.GetTaskId())
-	logclient.AddActionLog(baremetal, logclient.ACT_BM_UNCONVERT_HYPER, nil, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_BM_UNCONVERT_HYPER, nil, self.UserCred, true)
 }
 
 func (self *BaremetalUnconvertHypervisorTask) OnGuestDeleteCompleteFailed(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(baremetal, db.ACT_UNCONVERT_FAIL, body, self.UserCred)
 	self.SetStage("OnFailSyncstatusComplete", nil)
 	baremetal.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
-	logclient.AddActionLog(baremetal, logclient.ACT_BM_UNCONVERT_HYPER, nil, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_BM_UNCONVERT_HYPER, nil, self.UserCred, false)
 }
 
 func (self *BaremetalUnconvertHypervisorTask) OnPrepareComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {

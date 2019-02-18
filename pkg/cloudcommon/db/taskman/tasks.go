@@ -673,3 +673,7 @@ func (task *STask) GetTaskRequestHeader() http.Header {
 	header.Set(mcclient.TASK_ID, task.GetTaskId())
 	return header
 }
+
+func (task *STask) GetStartTime() time.Time {
+	return task.CreatedAt
+}

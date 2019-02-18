@@ -91,12 +91,12 @@ func (self *CloudProviderSyncInfoTask) OnInit(ctx context.Context, obj db.IStand
 	provider.SetStatus(self.UserCred, models.CLOUD_PROVIDER_CONNECTED, "")
 	provider.CleanSchedCache()
 	self.SetStageComplete(ctx, nil)
-	logclient.AddActionLog(provider, getAction(self.Params), body, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, provider, getAction(self.Params), body, self.UserCred, true)
 }
 
 func logSyncFailed(provider *models.SCloudprovider, task taskman.ITask, reason string) {
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, reason, task.GetUserCred())
-	logclient.AddActionLog(provider, getAction(task.GetParams()), reason, task.GetUserCred(), false)
+	logclient.AddActionLogWithStartable(task, provider, getAction(task.GetParams()), reason, task.GetUserCred(), false)
 }
 
 func syncCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, driver cloudprovider.ICloudProvider, syncRange *models.SSyncRange) {
@@ -150,7 +150,7 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 	storageCachePairs := make([]sStoragecacheSyncPair, 0)
 
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
-	logclient.AddActionLog(provider, getAction(task.Params), "", task.UserCred, true)
+	// logclient.AddActionLog(provider, getAction(task.Params), "", task.UserCred, true)
 	for i := 0; i < len(localRegions); i += 1 {
 		if len(syncRange.Region) > 0 && !utils.IsInStringArray(localRegions[i].Id, syncRange.Region) {
 			continue
@@ -403,7 +403,7 @@ func syncRegionZones(ctx context.Context, provider *models.SCloudprovider, task 
 		return nil, nil
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
-	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
+	// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
 	return localZones, remoteZones
 }
 
@@ -425,7 +425,7 @@ func syncRegionVPCs(ctx context.Context, provider *models.SCloudprovider, task *
 		return
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
-	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
+	// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
 	for j := 0; j < len(localVpcs); j += 1 {
 		syncVpcWires(ctx, provider, task, &localVpcs[j], remoteVpcs[j], syncRange)
 		syncVpcSecGroup(ctx, provider, task, &localVpcs[j], remoteVpcs[j], syncRange)
@@ -486,7 +486,7 @@ func syncVpcWires(ctx context.Context, provider *models.SCloudprovider, task tas
 		return
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.GetUserCred())
-	logclient.AddActionLog(provider, getAction(task.GetParams()), notes, task.GetUserCred(), true)
+	// logclient.AddActionLog(provider, getAction(task.GetParams()), notes, task.GetUserCred(), true)
 	for i := 0; i < len(localWires); i += 1 {
 		syncWireNetworks(ctx, provider, task, &localWires[i], remoteWires[i], syncRange)
 	}
@@ -509,7 +509,7 @@ func syncWireNetworks(ctx context.Context, provider *models.SCloudprovider, task
 		return
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.GetUserCred())
-	logclient.AddActionLog(provider, getAction(task.GetParams()), notes, task.GetUserCred(), true)
+	// logclient.AddActionLog(provider, getAction(task.GetParams()), notes, task.GetUserCred(), true)
 }
 
 func syncZoneStorages(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, driver cloudprovider.ICloudProvider, localZone *models.SZone, remoteZone cloudprovider.ICloudZone, syncRange *models.SSyncRange, storageCachePairs []sStoragecacheSyncPair) []sStoragecacheSyncPair {
@@ -529,7 +529,7 @@ func syncZoneStorages(ctx context.Context, provider *models.SCloudprovider, task
 		return nil
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
-	logclient.AddActionLog(provider, getAction(task.GetParams()), notes, task.GetUserCred(), true)
+	// logclient.AddActionLog(provider, getAction(task.GetParams()), notes, task.GetUserCred(), true)
 
 	newCacheIds := make([]sStoragecacheSyncPair, 0)
 	for i := 0; i < len(localStorages); i += 1 {
@@ -581,7 +581,7 @@ func syncStorageDisks(ctx context.Context, provider *models.SCloudprovider, task
 		return
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
-	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
+	// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
 }
 
 func syncZoneHosts(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, driver cloudprovider.ICloudProvider, localZone *models.SZone, remoteZone cloudprovider.ICloudZone, syncRange *models.SSyncRange, storageCachePairs []sStoragecacheSyncPair) []sStoragecacheSyncPair {
@@ -602,7 +602,7 @@ func syncZoneHosts(ctx context.Context, provider *models.SCloudprovider, task *C
 	}
 	var newCachePairs []sStoragecacheSyncPair
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
-	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
+	// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
 	for i := 0; i < len(localHosts); i += 1 {
 		if len(syncRange.Host) > 0 && !utils.IsInStringArray(localHosts[i].Id, syncRange.Host) {
 			continue
@@ -631,7 +631,7 @@ func syncHostStorages(ctx context.Context, provider *models.SCloudprovider, task
 		return nil
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
-	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
+	// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
 
 	newCacheIds := make([]sStoragecacheSyncPair, 0)
 	for i := 0; i < len(localStorages); i += 1 {
@@ -662,7 +662,7 @@ func syncHostWires(ctx context.Context, provider *models.SCloudprovider, task ta
 		return
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.GetUserCred())
-	logclient.AddActionLog(provider, getAction(task.GetParams()), notes, task.GetUserCred(), true)
+	// logclient.AddActionLog(provider, getAction(task.GetParams()), notes, task.GetUserCred(), true)
 }
 
 func syncHostVMs(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, driver cloudprovider.ICloudProvider, localHost *models.SHost, remoteHost cloudprovider.ICloudHost, syncRange *models.SSyncRange) {
@@ -682,7 +682,7 @@ func syncHostVMs(ctx context.Context, provider *models.SCloudprovider, task *Clo
 		return
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
-	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
+	// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
 	for i := 0; i < len(localVMs); i += 1 {
 		syncVMNics(ctx, provider, task, localHost, &localVMs[i], remoteVMs[i])
 		syncVMDisks(ctx, provider, task, driver, localHost, &localVMs[i], remoteVMs[i], syncRange)
@@ -711,7 +711,7 @@ func syncVMNics(ctx context.Context, provider *models.SCloudprovider, task *Clou
 		return
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
-	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
+	// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
 }
 
 func syncVMDisks(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, driver cloudprovider.ICloudProvider, host *models.SHost, localVM *models.SGuest, remoteVM cloudprovider.ICloudVM, syncRange *models.SSyncRange) {
@@ -731,7 +731,7 @@ func syncVMDisks(ctx context.Context, provider *models.SCloudprovider, task *Clo
 		return
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
-	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
+	// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
 }
 
 func syncVMEip(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localVM *models.SGuest, remoteVM cloudprovider.ICloudVM) {

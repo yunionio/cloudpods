@@ -48,7 +48,7 @@ func (self *BaremetalServerRebuildRootTask) StartRebuildRootDisk(ctx context.Con
 	})
 	if err != nil {
 		self.SetStageFailed(ctx, err.Error())
-		logclient.AddActionLog(guest, logclient.ACT_VM_REBUILD, err, self.UserCred, false)
+		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_REBUILD, err, self.UserCred, false)
 		return
 	} else {
 		db.OpsLog.LogEvent(gds.Root, db.ACT_UPDATE_STATUS,

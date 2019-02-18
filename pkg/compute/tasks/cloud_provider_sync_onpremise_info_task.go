@@ -10,7 +10,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 func syncOnPremiseCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, driver cloudprovider.ICloudProvider, syncRange *models.SSyncRange) {
@@ -39,7 +38,7 @@ func syncOnPremiseCloudProviderInfo(ctx context.Context, provider *models.SCloud
 		// return
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
-	logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
+	// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
 
 	storageCachePairs := make([]sStoragecacheSyncPair, 0)
 
@@ -77,5 +76,5 @@ func syncHostNics(ctx context.Context, provider *models.SCloudprovider, task *Cl
 		return
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.GetUserCred())
-	logclient.AddActionLog(provider, getAction(task.GetParams()), notes, task.GetUserCred(), true)
+	// logclient.AddActionLog(provider, getAction(task.GetParams()), notes, task.GetUserCred(), true)
 }

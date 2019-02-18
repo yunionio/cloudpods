@@ -921,7 +921,7 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 	}()
 
 	OpsLog.LogEvent(model, ACT_CREATE, model.GetShortDesc(ctx), userCred)
-	logclient.AddActionLog(model, logclient.ACT_CREATE, "", userCred, true)
+	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CREATE, "", userCred, true)
 	dispatcher.modelManager.OnCreateComplete(ctx, []IModel{model}, userCred, query, data)
 	return getItemDetails(dispatcher.modelManager, model, ctx, userCred, query)
 }
@@ -1202,13 +1202,13 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 
 	if err != nil {
 		log.Errorf("validate update condition error: %s", err)
-		logclient.AddActionLog(item, logclient.ACT_UPDATE, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, err.Error(), userCred, false)
 		return nil, httperrors.NewGeneralError(err)
 	}
 
 	dataDict, ok := data.(*jsonutils.JSONDict)
 	if !ok {
-		logclient.AddActionLog(item, logclient.ACT_UPDATE, "Invalid data JSONObject", userCred, false)
+		logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, "Invalid data JSONObject", userCred, false)
 		return nil, httperrors.NewInternalServerError("Invalid data JSONObject")
 	}
 
@@ -1216,7 +1216,7 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 	if len(name) > 0 {
 		err = alterNameValidator(item, name)
 		if err != nil {
-			logclient.AddActionLog(item, logclient.ACT_UPDATE, err.Error(), userCred, false)
+			logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, err.Error(), userCred, false)
 			return nil, err
 		}
 	}
@@ -1225,7 +1225,7 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 	if err != nil {
 		errMsg := fmt.Sprintf("validate update data error: %s", err)
 		log.Errorf(errMsg)
-		logclient.AddActionLog(item, logclient.ACT_UPDATE, errMsg, userCred, false)
+		logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, errMsg, userCred, false)
 		return nil, httperrors.NewGeneralError(err)
 	}
 
@@ -1236,7 +1236,7 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 		err = filterData.Unmarshal(item)
 		if err != nil {
 			errMsg := fmt.Sprintf("unmarshal fail: %s", err)
-			logclient.AddActionLog(item, logclient.ACT_UPDATE, errMsg, userCred, false)
+			logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, errMsg, userCred, false)
 			log.Errorf(errMsg)
 			return httperrors.NewGeneralError(err)
 		}
@@ -1252,10 +1252,10 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 		if len(diffStr) > 0 {
 			item.PostUpdate(ctx, userCred, query, dataDict)
 			OpsLog.LogEvent(item, ACT_UPDATE, diffStr, userCred)
-			logclient.AddActionLog(item, logclient.ACT_UPDATE, diffStr, userCred, true)
+			logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, diffStr, userCred, true)
 		}
 	} else {
-		logclient.AddActionLog(item, logclient.ACT_UPDATE, "", userCred, true)
+		logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, "", userCred, true)
 	}
 
 	item.PostUpdate(ctx, userCred, query, data)
@@ -1301,11 +1301,11 @@ func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IM
 	if err != nil {
 		msg := fmt.Sprintf("save update error %s", err)
 		log.Errorf(msg)
-		logclient.AddActionLog(item, logclient.ACT_DELETE, msg, userCred, false)
+		logclient.AddActionLogWithContext(ctx, item, logclient.ACT_DELETE, msg, userCred, false)
 		return httperrors.NewGeneralError(err)
 	}
 	OpsLog.LogEvent(item, ACT_DELETE, item.GetShortDesc(ctx), userCred)
-	logclient.AddActionLog(item, logclient.ACT_DELETE, item.GetShortDesc(ctx), userCred, true)
+	logclient.AddActionLogWithContext(ctx, item, logclient.ACT_DELETE, item.GetShortDesc(ctx), userCred, true)
 	return nil
 }
 
