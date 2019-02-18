@@ -179,7 +179,7 @@ func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred
 	storageType, _ := data.GetString("storage_type")
 	mediumType, _ := data.GetString("medium_type")
 	capacity, _ := data.Int("capacity")
-	if capacity <= 0 {
+	if capacity < 0 {
 		return nil, httperrors.NewInputParameterError("Invalid capacity")
 	}
 	data.Set("capacity", jsonutils.NewInt(capacity))
