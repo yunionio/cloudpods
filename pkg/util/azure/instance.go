@@ -1020,7 +1020,7 @@ func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
 	return self.host.zone.region.AssiginSecurityGroup(self.ID, secgroupId)
 }
 
-func (self *SInstance) AssignSecurityGroups(secgroupIds []string) error {
+func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	return cloudprovider.ErrNotSupported
 }
 

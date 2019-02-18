@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/pkg/utils"
 )
 
 const (
@@ -50,17 +51,6 @@ type SecurityGroup struct {
 type ExtraSpecs struct {
 	CpuPolicy   string `json:"hw:cpu_policy,omitempty"`
 	MemPageSize int    `json:"hw:mem_page_size,omitempty"`
-}
-
-type SFlavor struct {
-	ID           string
-	Disk         int
-	Ephemeral    int
-	ExtraSpecs   ExtraSpecs
-	OriginalName string
-	RAM          int
-	Swap         string
-	Vcpus        int8
 }
 
 type Resource struct {
@@ -137,7 +127,7 @@ func (region *SRegion) GetSecurityGroupsByInstance(instanceId string) ([]Securit
 
 func (region *SRegion) GetInstances(zoneName string, hostName string) ([]SInstance, error) {
 	_, maxVersion, _ := region.GetVersion("compute")
-	_, resp, err := region.Get("compute", "/servers/detail", maxVersion, nil)
+	_, resp, err := region.List("compute", "/servers/detail", maxVersion, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -212,19 +202,18 @@ func (instance *SInstance) IsEmulated() bool {
 
 func (instance *SInstance) fetchFlavor() error {
 	if len(instance.Flavor.ID) > 0 && instance.Flavor.Vcpus == 0 {
-		_, resp, err := instance.host.zone.region.Get("compute", "/flavors/"+instance.Flavor.ID, "", nil)
+		flavor, err := instance.host.zone.region.GetFlavor(instance.Flavor.ID)
 		if err != nil {
-			log.Errorf("fetch instance %s flavor error: %v", instance.Name, err)
 			return err
 		}
-		return resp.Unmarshal(&instance.Flavor, "flavor")
+		instance.Flavor = *flavor
 	}
 	return nil
 }
 
 func (instance *SInstance) GetInstanceType() string {
 	instance.fetchFlavor()
-	return instance.Flavor.OriginalName
+	return instance.Flavor.GetName()
 }
 
 func (instance *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
@@ -329,7 +318,16 @@ func (instance *SInstance) Refresh() error {
 }
 
 func (instance *SInstance) UpdateVM(ctx context.Context, name string) error {
-	return cloudprovider.ErrNotImplemented
+	if instance.Name != name {
+		params := map[string]map[string]string{
+			"server": {
+				"name": name,
+			},
+		}
+		_, _, err := instance.host.zone.region.Update("compute", "/servers/"+instance.ID, "", jsonutils.Marshal(params))
+		return err
+	}
+	return nil
 }
 
 func (instance *SInstance) GetHypervisor() string {
@@ -337,11 +335,17 @@ func (instance *SInstance) GetHypervisor() string {
 }
 
 func (instance *SInstance) StartVM(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	if err := instance.host.zone.region.StartVM(instance.ID); err != nil {
+		return err
+	}
+	return cloudprovider.WaitStatus(instance, models.VM_RUNNING, 10*time.Second, 8*time.Minute)
 }
 
 func (instance *SInstance) StopVM(ctx context.Context, isForce bool) error {
-	return cloudprovider.ErrNotImplemented
+	if err := instance.host.zone.region.StopVM(instance.ID, isForce); err != nil {
+		return err
+	}
+	return cloudprovider.WaitStatus(instance, models.VM_RUNNING, 10*time.Second, 8*time.Minute)
 }
 
 func (region *SRegion) GetInstanceVNCUrl(instanceId string) (string, error) {
@@ -372,19 +376,45 @@ func (instance *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 }
 
 func (instance *SInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
-	return cloudprovider.ErrNotImplemented
+	return instance.host.zone.region.DeployVM(instance.ID, name, password, publicKey, deleteKeypair, description)
 }
 
 func (instance *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+	return "", instance.host.zone.region.ReplaceSystemDisk(instance.ID, imageId, passwd, publicKey, sysSizeGB)
+
 }
 
 func (instance *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
-	return cloudprovider.ErrNotImplemented
+	if instance.GetVcpuCount() != int8(ncpu) || instance.GetVmemSizeMB() != vmem {
+		flavorId, err := instance.host.zone.region.syncFlavor("", ncpu, vmem, 40)
+		if err != nil {
+			return err
+		}
+		return instance.host.zone.region.ChangeConfig(instance, flavorId)
+	}
+	return nil
 }
 
 func (instance *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
-	return cloudprovider.ErrNotImplemented
+	if instance.GetInstanceType() != instanceType {
+		flavorId, err := instance.host.zone.region.syncFlavor(instanceType, 0, 0, 0)
+		if err != nil {
+			return err
+		}
+		return instance.host.zone.region.ChangeConfig(instance, flavorId)
+	}
+	return nil
+}
+
+func (region *SRegion) ChangeConfig(instance *SInstance, flavorId string) error {
+	params := map[string]map[string]string{
+		"resize": {
+			"flavorRef": flavorId,
+		},
+	}
+	_, maxVersion, _ := region.GetVersion("compute")
+	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/action", instance.ID), maxVersion, jsonutils.Marshal(params))
+	return err
 }
 
 func (instance *SInstance) AttachDisk(ctx context.Context, diskId string) error {
@@ -401,40 +431,86 @@ func (region *SRegion) CreateInstance(name string, imageId string, instanceType 
 	return "", cloudprovider.ErrNotImplemented
 }
 
-func (region *SRegion) doStartVM(instanceId string) error {
-	return cloudprovider.ErrNotImplemented
+func (region *SRegion) instanceOperation(instanceId, operate string) error {
+	params := jsonutils.Marshal(map[string]string{operate: ""})
+	_, maxVersion, _ := region.GetVersion("compute")
+	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/action", instanceId), maxVersion, params)
+	return err
 }
 
 func (region *SRegion) doStopVM(instanceId string, isForce bool) error {
-	return cloudprovider.ErrNotImplemented
+	return region.instanceOperation(instanceId, "os-stop")
 }
 
 func (region *SRegion) doDeleteVM(instanceId string) error {
-	return cloudprovider.ErrNotImplemented
+	return region.instanceOperation(instanceId, "forceDelete")
 }
 
 func (region *SRegion) StartVM(instanceId string) error {
-	return cloudprovider.ErrNotImplemented
+	return region.instanceOperation(instanceId, "os-start")
 }
 
 func (region *SRegion) StopVM(instanceId string, isForce bool) error {
-	return cloudprovider.ErrNotImplemented
+	return region.doStopVM(instanceId, isForce)
 }
 
 func (region *SRegion) DeleteVM(instanceId string) error {
-	return cloudprovider.ErrNotImplemented
+	instance, err := region.GetInstance(instanceId)
+	if err != nil {
+		if err == cloudprovider.ErrNotFound {
+			return nil
+		}
+		log.Errorf("failed to get instance %s %v", instanceId, err)
+		return err
+	}
+	status := instance.GetStatus()
+	log.Debugf("Instance status on delete is %s", status)
+	if status != models.VM_READY {
+		log.Warningf("DeleteVM: vm status is %s expect %s", status, models.VM_READY)
+	}
+	return region.doDeleteVM(instanceId)
 }
 
 func (region *SRegion) DeployVM(instanceId string, name string, password string, keypairName string, deleteKeypair bool, description string) error {
-	return cloudprovider.ErrNotImplemented
+	if len(password) > 0 {
+		params := map[string]map[string]string{
+			"changePassword": {
+				"adminPass": password,
+			},
+		}
+		_, maxVersion, _ := region.GetVersion("compute")
+		_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/action", instanceId), maxVersion, jsonutils.Marshal(params))
+		return err
+	}
+	return nil
 }
 
 func (instance *SInstance) DeleteVM(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	return instance.host.zone.region.DeleteVM(instance.ID)
 }
 
-func (region *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd string, keypairName string, sysDiskSizeGB int) error {
-	return cloudprovider.ErrNotImplemented
+func (region *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd string, publicKey string, sysDiskSizeGB int) error {
+	params := map[string]map[string]string{
+		"rebuild": {
+			"imageRef": imageId,
+		},
+	}
+
+	if len(publicKey) > 0 {
+		keypairName, err := region.syncKeypair(instanceId, publicKey)
+		if err != nil {
+			return err
+		}
+		params["rebuild"]["key_name"] = keypairName
+	}
+
+	if len(passwd) > 0 {
+		params["rebuild"]["adminPass"] = passwd
+	}
+
+	_, maxVersion, _ := region.GetVersion("compute")
+	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/action", instanceId), maxVersion, jsonutils.Marshal(params))
+	return err
 }
 
 func (region *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, vmem int, disks []*SDisk) error {
@@ -446,27 +522,78 @@ func (region *SRegion) ChangeVMConfig2(zoneId string, instanceId string, instanc
 }
 
 func (region *SRegion) DetachDisk(instanceId string, diskId string) error {
-	return cloudprovider.ErrNotImplemented
+	_, err := region.Delete("compute", fmt.Sprintf("/servers/%s/os-volume_attachments/%s", instanceId, diskId), "")
+	return err
 }
 
 func (region *SRegion) AttachDisk(instanceId string, diskId string) error {
-	return cloudprovider.ErrNotImplemented
+	params := map[string]map[string]string{
+		"volumeAttachment": {
+			"volumeId": diskId,
+		},
+	}
+	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/os-volume_attachments", instanceId), "", jsonutils.Marshal(params))
+	return err
 }
 
 func (instance *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return cloudprovider.ErrNotImplemented
+	secgroup, err := instance.host.zone.region.GetSecurityGroup(secgroupId)
+	if err != nil {
+		return err
+	}
+	params := map[string]map[string]string{
+		"addSecurityGroup": {
+			"name": secgroup.Name,
+		},
+	}
+	_, _, err = instance.host.zone.region.Post("compute", fmt.Sprintf("/servers/%s/action", instance.ID), "", jsonutils.Marshal(params))
+	return err
 }
 
-func (instance *SInstance) AssignSecurityGroups(secgroupIds []string) error {
-	return cloudprovider.ErrNotImplemented
+func (instance *SInstance) RevokeSecurityGroup(secgroupId string) error {
+	secgroup, err := instance.host.zone.region.GetSecurityGroup(secgroupId)
+	if err != nil {
+		return err
+	}
+	params := map[string]map[string]string{
+		"removeSecurityGroup": {
+			"name": secgroup.Name,
+		},
+	}
+	_, _, err = instance.host.zone.region.Post("compute", fmt.Sprintf("/servers/%s/action", instance.ID), "", jsonutils.Marshal(params))
+	return err
+}
+
+func (instance *SInstance) SetSecurityGroups(secgroupIds []string) error {
+	secgroups, err := instance.host.zone.region.GetSecurityGroupsByInstance(instance.ID)
+	if err != nil {
+		return err
+	}
+	originIds := []string{}
+	for _, secgroup := range secgroups {
+		if !utils.IsInStringArray(secgroup.ID, secgroupIds) {
+			if err := instance.RevokeSecurityGroup(secgroup.ID); err != nil {
+				return err
+			}
+		}
+		originIds = append(originIds, secgroup.ID)
+	}
+	for _, secgroupId := range secgroupIds {
+		if !utils.IsInStringArray(secgroupId, originIds) {
+			if err := instance.AssignSecurityGroup(secgroupId); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (instance *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (instance *SInstance) GetBillingType() string {
-	return models.BILLING_TYPE_PREPAID
+	return models.BILLING_TYPE_POSTPAID
 }
 
 func (instance *SInstance) GetExpiredAt() time.Time {
@@ -482,9 +609,9 @@ func (instance *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid stri
 }
 
 func (instance *SInstance) Renew(bc billing.SBillingCycle) error {
-	return cloudprovider.ErrNotImplemented
+	return cloudprovider.ErrNotSupported
 }
 
 func (region *SRegion) RenewInstances(instanceId []string, bc billing.SBillingCycle) error {
-	return cloudprovider.ErrNotImplemented
+	return cloudprovider.ErrNotSupported
 }

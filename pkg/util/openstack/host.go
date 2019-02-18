@@ -1,9 +1,16 @@
 package openstack
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/version"
+)
+
+const (
+	VOLUME_TYPES_API_VERSION = "2.67"
 )
 
 type CpuInfo struct {
@@ -116,7 +123,128 @@ func (host *SHost) GetIVMById(gid string) (cloudprovider.ICloudVM, error) {
 }
 
 func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	network, err := host.zone.region.GetNetwork(desc.ExternalNetworkId)
+	if err != nil {
+		return nil, err
+	}
+
+	secgroups := []map[string]string{}
+
+	for _, secgroupId := range desc.ExternalSecgroupIds {
+		secgroups = append(secgroups, map[string]string{"name": secgroupId})
+	}
+
+	image, err := host.zone.region.GetImage(desc.ExternalImageId)
+	if err != nil {
+		return nil, err
+	}
+
+	storage, err := host.zone.getStorageByCategory(desc.SysDisk.StorageType)
+	if err != nil {
+		return nil, err
+	}
+
+	sysDiskSizeGB := image.Size / 1024 / 1024
+	if desc.SysDisk.SizeGB < sysDiskSizeGB {
+		desc.SysDisk.SizeGB = sysDiskSizeGB
+	}
+
+	_, maxVersion, _ := host.zone.region.GetVersion("compute")
+
+	BlockDeviceMappingV2 := []map[string]interface{}{
+		{
+			"boot_index":            0,
+			"uuid":                  desc.ExternalImageId,
+			"source_type":           "image",
+			"destination_type":      "volume",
+			"volume_size":           desc.SysDisk.SizeGB,
+			"delete_on_termination": true,
+		},
+	}
+
+	if version.GE(maxVersion, VOLUME_TYPES_API_VERSION) {
+		BlockDeviceMappingV2[0]["volume_type"] = storage.Name
+	}
+
+	var _disk *SDisk
+	for _, disk := range desc.DataDisks {
+		storage, err = host.zone.getStorageByCategory(disk.StorageType)
+		if err != nil {
+			break
+		}
+		_disk, err = host.zone.region.CreateDisk(host.zone.ZoneName, storage.Name, "", disk.SizeGB, disk.Name)
+		if err != nil {
+			break
+		}
+
+		mapping := map[string]interface{}{
+			"source_type":           "volume",
+			"destination_type":      "volume",
+			"delete_on_termination": true,
+			"uuid":                  _disk.ID,
+		}
+
+		BlockDeviceMappingV2 = append(BlockDeviceMappingV2, mapping)
+	}
+	if err != nil {
+		for _, blockMap := range BlockDeviceMappingV2 {
+			if blockMap["source_type"] == "volume" {
+				if uuid, ok := blockMap["uuid"].(string); ok {
+					host.zone.region.DeleteDisk(uuid)
+				}
+			}
+		}
+		return nil, err
+	}
+
+	params := map[string]map[string]interface{}{
+		"server": {
+			"name":      desc.Name,
+			"adminPass": desc.Password,
+			//"description":       desc.Description,
+			"accessIPv4":        desc.IpAddr,
+			"availability_zone": fmt.Sprintf("%s:%s", host.zone.ZoneName, host.GetName()),
+			"networks": []map[string]string{
+				{
+					"uuid":     network.NetworkID,
+					"fixed_ip": desc.IpAddr,
+				},
+			},
+			"security_groups":         secgroups,
+			"user_data":               desc.UserData,
+			"imageRef":                desc.ExternalImageId,
+			"block_device_mapping_v2": BlockDeviceMappingV2,
+		},
+	}
+
+	flavorId, err := host.zone.region.syncFlavor(desc.InstanceType, desc.Cpu, desc.MemoryMB, desc.SysDisk.SizeGB)
+	if err != nil {
+		return nil, err
+	}
+	params["server"]["flavorRef"] = flavorId
+
+	if len(desc.PublicKey) > 0 {
+		keypairName, err := host.zone.region.syncKeypair(desc.Name, desc.PublicKey)
+		if err != nil {
+			return nil, err
+		}
+		params["server"]["key_name"] = keypairName
+	}
+
+	_, resp, err := host.zone.region.Post("compute", "/servers", "", jsonutils.Marshal(params))
+	if err != nil {
+		return nil, err
+	}
+	serverId, err := resp.GetString("server", "id")
+	if err != nil {
+		return nil, err
+	}
+	instance, err := host.zone.region.GetInstance(serverId)
+	if err != nil {
+		return nil, err
+	}
+	instance.host = host
+	return instance, nil
 }
 
 func (host *SHost) GetEnabled() bool {

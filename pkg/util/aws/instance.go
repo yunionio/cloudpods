@@ -283,10 +283,10 @@ func (self *SInstance) GetMachine() string {
 }
 
 func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return self.AssignSecurityGroups([]string{secgroupId})
+	return self.SetSecurityGroups([]string{secgroupId})
 }
 
-func (self *SInstance) AssignSecurityGroups(secgroupIds []string) error {
+func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	ids := []*string{}
 	for i := 0; i < len(secgroupIds); i++ {
 		ids = append(ids, &secgroupIds[i])

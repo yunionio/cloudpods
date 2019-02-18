@@ -87,6 +87,10 @@ func (self *SAzureProvider) IsOnPremiseInfrastructure() bool {
 	return false
 }
 
+func (self *SAzureProvider) SyncSkuFromCloud() bool {
+	return false
+}
+
 func (self *SAzureProvider) GetId() string {
 	return azure.CLOUD_PROVIDER_AZURE
 }

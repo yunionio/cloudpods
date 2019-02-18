@@ -36,6 +36,7 @@ type ICloudProvider interface {
 	GetSysInfo() (jsonutils.JSONObject, error)
 	GetVersion() string
 	IsOnPremiseInfrastructure() bool
+	SyncSkuFromCloud() bool
 
 	GetIRegions() []ICloudRegion
 	GetIRegionById(id string) (ICloudRegion, error)

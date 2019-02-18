@@ -115,3 +115,7 @@ func (region *SFakeOnPremiseRegion) CreateILoadBalancer(loadbalancer *SLoadbalan
 func (region *SFakeOnPremiseRegion) CreateILoadBalancerAcl(acl *SLoadbalancerAccessControlList) (ICloudLoadbalancerAcl, error) {
 	return nil, ErrNotSupported
 }
+
+func (region *SFakeOnPremiseRegion) GetSkus(zoneId string) ([]ICloudSku, error) {
+	return nil, ErrNotSupported
+}

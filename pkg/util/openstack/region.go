@@ -3,11 +3,13 @@ package openstack
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SRegion struct {
@@ -63,7 +65,25 @@ func (region *SRegion) Refresh() error {
 }
 
 func (region *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	params := map[string]map[string]string{
+		"network": {
+			"name":        name,
+			"description": desc,
+		},
+	}
+	_, resp, err := region.Post("network", "/v2.0/networks", "", jsonutils.Marshal(params))
+	if err != nil {
+		return nil, err
+	}
+	err = region.fetchInfrastructure()
+	if err != nil {
+		return nil, err
+	}
+	vpcId, err := resp.GetString("network", "id")
+	if err != nil {
+		return nil, err
+	}
+	return region.GetIVpcById(vpcId)
 }
 
 func (region *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
@@ -173,7 +193,7 @@ func (region *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error)
 }
 
 func (region *SRegion) fetchZones() error {
-	_, resp, err := region.Get("compute", "/os-availability-zone", "", jsonutils.NewDict())
+	_, resp, err := region.List("compute", "/os-availability-zone", "", jsonutils.NewDict())
 	if err != nil {
 		return err
 	}
@@ -227,22 +247,105 @@ func (region *SRegion) fetchInfrastructure() error {
 }
 
 func (region *SRegion) Get(service, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	return region.client.Request(region.Name, service, "GET", url, microversion, body)
+	if strings.HasSuffix(url, "/") {
+		return nil, nil, cloudprovider.ErrNotFound
+	}
+	header, resp, err := region.client.Request(region.Name, service, "GET", url, microversion, body)
+	if err != nil {
+		if jsonErr, ok := err.(*httputils.JSONClientError); ok {
+			if jsonErr.Code == 404 || strings.HasSuffix(jsonErr.Class, "NotFound") {
+				return nil, nil, cloudprovider.ErrNotFound
+			}
+		}
+		return nil, nil, err
+	}
+	return header, resp, nil
+}
+
+func (region *SRegion) List(service, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+	header, resp, err := region.client.Request(region.Name, service, "GET", url, microversion, body)
+	if err != nil {
+		if jsonErr, ok := err.(*httputils.JSONClientError); ok {
+			if jsonErr.Code == 404 || strings.HasSuffix(jsonErr.Class, "NotFound") {
+				return nil, nil, cloudprovider.ErrNotFound
+			}
+		}
+		return nil, nil, err
+	}
+	return header, resp, nil
 }
 
 func (region *SRegion) Post(service, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
 	return region.client.Request(region.Name, service, "POST", url, microversion, body)
 }
 
-func (region *SRegion) CinderGet(url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+func (region *SRegion) Update(service, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+	return region.client.Request(region.Name, service, "PUT", url, microversion, body)
+}
+
+func (region *SRegion) Delete(service, url string, microversion string) (*http.Response, error) {
+	return region.client.RawRequest(region.Name, service, "DELETE", url, microversion, nil)
+}
+
+func (region *SRegion) CinderList(url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
 	for _, service := range []string{"volumev3", "volumev2", "volume"} {
 		header, resp, err := region.Get(service, url, microversion, body)
 		if err == nil {
 			return header, resp, nil
 		}
+		log.Debugf("failed to list %s by service %s error: %v, try another", url, service, err)
+	}
+	return nil, nil, fmt.Errorf("failed to get %s by cinder service", url)
+}
+
+func (region *SRegion) CinderGet(url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+	if strings.HasSuffix(url, "/") {
+		return nil, nil, cloudprovider.ErrNotFound
+	}
+	for _, service := range []string{"volumev3", "volumev2", "volume"} {
+		header, resp, err := region.Get(service, url, microversion, body)
+		if err == nil || err == cloudprovider.ErrNotFound {
+			return header, resp, err
+		}
 		log.Debugf("failed to get %s by service %s error: %v, try another", url, service, err)
 	}
 	return nil, nil, fmt.Errorf("failed to get %s by cinder service", url)
+}
+
+func (region *SRegion) CinderCreate(url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+	for _, service := range []string{"volumev3", "volumev2", "volume"} {
+		header, resp, err := region.Post(service, url, microversion, body)
+		if err == nil {
+			return header, resp, nil
+		}
+		log.Debugf("failed to create %s by service %s error: %v, try another", url, service, err)
+	}
+	return nil, nil, fmt.Errorf("failed to create %s by cinder service", url)
+}
+
+func (region *SRegion) CinderDelete(url string, microversion string) (*http.Response, error) {
+	if strings.HasSuffix(url, "/") {
+		return nil, cloudprovider.ErrNotFound
+	}
+	for _, service := range []string{"volumev3", "volumev2", "volume"} {
+		resp, err := region.Delete(service, url, microversion)
+		if err == nil {
+			return resp, nil
+		}
+		log.Debugf("failed to delete %s by service %s error: %v, try another", url, service, err)
+	}
+	return nil, fmt.Errorf("failed to delete %s by cinder service", url)
+}
+
+func (region *SRegion) CinderAction(url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
+	for _, service := range []string{"volumev3", "volumev2", "volume"} {
+		header, resp, err := region.Post(service, url, microversion, body)
+		if err == nil {
+			return header, resp, nil
+		}
+		log.Debugf("failed to operate %s by service %s error: %v, try another", url, service, err)
+	}
+	return nil, nil, fmt.Errorf("failed to operate %s by cinder service", url)
 }
 
 func (region *SRegion) ProjectId() string {
@@ -270,7 +373,7 @@ func (region *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 }
 
 func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (region *SRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpType string) (cloudprovider.ICloudEIP, error) {
@@ -315,4 +418,17 @@ func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbala
 
 func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
 	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
+	flavors, err := region.GetFlavors()
+	if err != nil {
+		return nil, err
+	}
+	iskus := make([]cloudprovider.ICloudSku, len(flavors))
+	for i := 0; i < len(flavors); i++ {
+		flavors[i].region = region
+		iskus[i] = &flavors[i]
+	}
+	return iskus, nil
 }
