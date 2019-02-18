@@ -154,10 +154,11 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 			}
 
 			iVM, createErr := ihost.CreateVM(&desc)
-
 			if createErr != nil {
 				return nil, createErr
 			}
+
+			guest.SetExternalId(iVM.GetGlobalId())
 
 			log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
 			if err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800); err != nil {
