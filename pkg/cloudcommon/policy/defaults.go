@@ -138,6 +138,13 @@ var (
 			Result:   rbacutils.OwnerAllow,
 		},
 		{
+			Service:  "image",
+			Resource: "images",
+			Action:   PolicyActionPerform,
+			Extra:    []string{"update-torrent-status"},
+			Result:   rbacutils.GuestAllow,
+		},
+		{
 			Service:  "log",
 			Resource: "actions",
 			Action:   PolicyActionList,
