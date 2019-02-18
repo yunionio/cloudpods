@@ -72,12 +72,7 @@ func (s *SBaseSystemService) IsInstalled() bool {
 }
 
 func (s *SBaseSystemService) GetStatus() map[string]string {
-	res, err := procutils.NewCommand("systemctl", "status", s.name).Run()
-	if err != nil {
-		log.Errorln(err)
-		return nil
-	}
-
+	res, _ := procutils.NewCommand("systemctl", "status", s.name).Run()
 	var ret = make(map[string]string, 0)
 	lines := strings.Split(string(res), "\n")
 	for _, line := range lines {

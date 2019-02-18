@@ -184,7 +184,7 @@ func (n *SNIC) EnableDHCPRelay() bool {
 		log.Errorln(err)
 		return false
 	}
-	if len(options.HostOptions.GoDhcpRelay) > 0 && !netutils.IsExitAddress(v4Ip) {
+	if len(options.HostOptions.DhcpRelay) > 0 && !netutils.IsExitAddress(v4Ip) {
 		return true
 	} else {
 		return false
@@ -269,7 +269,7 @@ func NewNIC(desc string) (*SNIC, error) {
 
 	var dhcpRelay []string
 	if nic.EnableDHCPRelay() {
-		dhcpRelay = options.HostOptions.GoDhcpRelay
+		dhcpRelay = options.HostOptions.DhcpRelay
 	}
 	nic.dhcpServer, err = hostdhcp.NewGuestDHCPServer(nic.Bridge, dhcpRelay)
 	if err != nil {

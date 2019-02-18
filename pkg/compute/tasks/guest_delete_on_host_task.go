@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -33,8 +35,8 @@ func (self *GuestDeleteOnHostTask) OnInit(ctx context.Context, obj db.IStandalon
 	self.SetStage("OnStopGuest", nil)
 	self.Params.Set("is_force", jsonutils.JSONTrue)
 	if err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self); err != nil {
-		self.SetStageFailed(ctx, err.Error())
-		return
+		log.Errorf("RequestStopGuestForDelete fail %s", err)
+		self.OnStopGuest(ctx, guest, nil)
 	}
 }
 

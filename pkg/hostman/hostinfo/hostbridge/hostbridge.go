@@ -45,7 +45,7 @@ func NewBaseBridgeDriver(bridge, inter, ip string) (*SBaseBridgeDriver, error) {
 	bd.bridge = netutils2.NewNetInterface(bridge)
 	if len(inter) > 0 {
 		bd.inter = netutils2.NewNetInterface(inter)
-		if bd.inter == nil {
+		if !bd.inter.Exist() {
 			return nil, fmt.Errorf("%s not exists", inter)
 		}
 		bd.ip = ip
@@ -132,7 +132,7 @@ func (d *SBaseBridgeDriver) ConfirmToConfig(exists bool, infs []string) (bool, e
 
 func (d *SBaseBridgeDriver) SetupAddresses(mask net.IPMask) error {
 	var addr string
-	if len(d.ip) > 0 {
+	if len(d.ip) == 0 {
 		addr, mask = netutils2.GetSecretInterfaceAddress()
 	} else {
 		addr = d.ip

@@ -544,10 +544,11 @@ func (s *SKVMGuestInstance) StartGuest(ctx context.Context, params jsonutils.JSO
 func (s *SKVMGuestInstance) DeployFs(deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error) {
 	disks, _ := s.Desc.GetArray("disks")
 	if len(disks) > 0 {
-		storageId, _ := disks[0].GetString("storage_id")
-		diskId, _ := disks[0].GetString("disk_id")
-
-		disk := storageman.GetManager().GetStorageDisk(storageId, diskId)
+		diskPath, _ := disks[0].GetString("path")
+		disk := storageman.GetManager().GetDiskByPath(diskPath)
+		if disk == nil {
+			return nil, fmt.Errorf("Cannot find disk index 0")
+		}
 		return disk.DeployGuestFs(disk.GetPath(), s.Desc, deployInfo)
 	} else {
 		return nil, fmt.Errorf("Guest dosen't have disk ??")
