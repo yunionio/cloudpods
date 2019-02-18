@@ -641,3 +641,7 @@ func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbala
 func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
+
+func (region *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}

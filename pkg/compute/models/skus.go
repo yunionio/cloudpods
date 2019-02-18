@@ -9,9 +9,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -644,6 +646,15 @@ func (manager *SServerSkuManager) GetSkuCountByRegion(regionId string) int {
 	return q.Count()
 }
 
+func (manager *SServerSkuManager) GetSkuCountByZone(zoneId string) []SServerSku {
+	skus := []SServerSku{}
+	q := manager.Query().Equals("zone_id", zoneId)
+	if err := db.FetchModelObjects(manager, q, &skus); err != nil {
+		log.Errorf("failed to get skus by zoneId %s error: %v", zoneId, err)
+	}
+	return skus
+}
+
 // 删除表中zone not found的记录
 func (manager *SServerSkuManager) PendingDeleteInvalidSku() error {
 	sq := ZoneManager.Query("id").Distinct().SubQuery()
@@ -669,4 +680,100 @@ func (manager *SServerSkuManager) PendingDeleteInvalidSku() error {
 	}
 
 	return nil
+}
+
+func (manager *SServerSkuManager) SyncCloudSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, skus []cloudprovider.ICloudSku) compare.SyncResult {
+	syncResult := compare.SyncResult{}
+	dbSkus := manager.GetSkuCountByZone(zone.Id)
+
+	removed := []SServerSku{}
+	commondb := []SServerSku{}
+	commonext := []cloudprovider.ICloudSku{}
+	added := []cloudprovider.ICloudSku{}
+
+	if err := compare.CompareSets(dbSkus, skus, &removed, &commondb, &commonext, &added); err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+	for i := 0; i < len(removed); i++ {
+		if err := removed[i].ValidateDeleteCondition(ctx); err == nil {
+			removed[i].Delete(ctx, userCred)
+		}
+		syncResult.Delete()
+	}
+
+	for i := 0; i < len(commondb); i++ {
+		err := commondb[i].syncWithCloudSku(ctx, userCred, commonext[i], zone, provider)
+		if err != nil {
+			syncResult.UpdateError(err)
+		} else {
+			syncResult.Update()
+		}
+	}
+
+	for i := 0; i < len(added); i++ {
+		err := manager.newFromCloudSku(ctx, userCred, added[i], zone, provider)
+		if err != nil {
+			syncResult.AddError(err)
+		} else {
+			syncResult.Add()
+		}
+	}
+	return syncResult
+}
+
+func (self *SServerSku) constructSku(extSku cloudprovider.ICloudSku) {
+	self.InstanceTypeFamily = extSku.GetInstanceTypeFamily()
+	self.InstanceTypeCategory = extSku.GetInstanceTypeCategory()
+
+	self.PrepaidStatus = extSku.GetPrepaidStatus()
+	self.PostpaidStatus = extSku.GetPostpaidStatus()
+
+	self.CpuCoreCount = extSku.GetCpuCoreCount()
+	self.MemorySizeMB = extSku.GetMemorySizeMB()
+
+	self.OsName = extSku.GetOsName()
+
+	self.SysDiskResizable = extSku.GetSysDiskResizable()
+	self.SysDiskType = extSku.GetSysDiskType()
+	self.SysDiskMinSizeGB = extSku.GetSysDiskMinSizeGB()
+	self.SysDiskMaxSizeGB = extSku.GetSysDiskMaxSizeGB()
+
+	self.AttachedDiskType = extSku.GetAttachedDiskType()
+	self.AttachedDiskSizeGB = extSku.GetAttachedDiskSizeGB()
+	self.AttachedDiskCount = extSku.GetAttachedDiskCount()
+
+	self.DataDiskTypes = extSku.GetDataDiskTypes()
+	self.DataDiskMaxCount = extSku.GetDataDiskMaxCount()
+
+	self.NicType = extSku.GetNicType()
+	self.NicMaxCount = extSku.GetNicMaxCount()
+
+	self.GpuAttachable = extSku.GetGpuAttachable()
+	self.GpuSpec = extSku.GetGpuSpec()
+	self.GpuCount = extSku.GetGpuCount()
+	self.GpuMaxCount = extSku.GetGpuMaxCount()
+	self.Name = extSku.GetName()
+}
+
+func (self *SServerSku) syncWithCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku cloudprovider.ICloudSku, zone *SZone, provider *SCloudprovider) error {
+	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		self.constructSku(extSku)
+		return nil
+	})
+	return err
+}
+
+func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku cloudprovider.ICloudSku, zone *SZone, provider *SCloudprovider) error {
+	region := zone.GetRegion()
+	sku := &SServerSku{
+		CloudregionId: region.Id,
+		ZoneId:        zone.Id,
+		Provider:      provider.Provider,
+	}
+	sku.constructSku(extSku)
+	sku.Name = extSku.GetName()
+	sku.ExternalId = extSku.GetGlobalId()
+	sku.SetModelManager(manager)
+	return manager.TableSpec().Insert(sku)
 }

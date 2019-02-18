@@ -29,4 +29,18 @@ func init() {
 		return nil
 	})
 
+	type SecurityGroupCreateOptions struct {
+		NAME string `help:"Name of security group"`
+		Desc string `help:"Description of security group"`
+	}
+
+	shellutils.R(&SecurityGroupCreateOptions{}, "security-group-create", "Create security group", func(cli *openstack.SRegion, args *SecurityGroupCreateOptions) error {
+		secgroup, err := cli.CreateSecurityGroup(args.NAME, args.Desc)
+		if err != nil {
+			return err
+		}
+		printObject(secgroup)
+		return nil
+	})
+
 }

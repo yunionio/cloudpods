@@ -41,6 +41,10 @@ func (self *SOpenStackProviderFactory) IsSupportPrepaidResources() bool {
 	return false
 }
 
+func (self *SOpenStackProviderFactory) NeedSyncSkuFromCloud() bool {
+	return true
+}
+
 func (self *SOpenStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	projectName, _ := data.GetString("project_name")
 	if len(projectName) == 0 {

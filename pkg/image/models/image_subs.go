@@ -6,8 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	t "github.com/anacrolix/torrent"
-
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -89,10 +87,12 @@ func (self *SImageSubformat) DoConvert(image *SImage) error {
 		log.Errorf("fail to convert image torrent %s", err)
 		return err
 	}
-	err = self.seedTorrent()
-	if err != nil {
-		log.Errorf("fail to seed torrent %s", err)
-		return err
+	if options.Options.EnableTorrentService {
+		err = self.seedTorrent(image.Id)
+		if err != nil {
+			log.Errorf("fail to seed torrent %s", err)
+			return err
+		}
 	}
 	// log.Infof("Start seeding...")
 	return nil
@@ -206,10 +206,10 @@ func (self *SImageSubformat) getLocalTorrentLocation() string {
 	return ""
 }
 
-func (self *SImageSubformat) seedTorrent() error {
+func (self *SImageSubformat) seedTorrent(imageId string) error {
 	file := self.getLocalTorrentLocation()
 	log.Debugf("add torrent %s to seed...", file)
-	return torrent.AddTorrent(file)
+	return torrent.SeedTorrent(file, imageId, self.Format)
 }
 
 func (self *SImageSubformat) StopTorrent() {
@@ -237,14 +237,6 @@ func (self *SImageSubformat) RemoveFiles() error {
 	return nil
 }
 
-func (self *SImageSubformat) getTorrent() *t.Torrent {
-	torrentPath := self.getLocalTorrentLocation()
-	if len(torrentPath) > 0 {
-		return torrent.GetTorrent(torrentPath)
-	}
-	return nil
-}
-
 type SImageSubformatDetails struct {
 	Format string
 
@@ -258,7 +250,6 @@ type SImageSubformatDetails struct {
 	TorrentStatus   string
 
 	TorrentSeeding bool
-	TorrentStats   t.TorrentStats
 }
 
 func (self *SImageSubformat) GetDetails() SImageSubformatDetails {
@@ -273,14 +264,11 @@ func (self *SImageSubformat) GetDetails() SImageSubformatDetails {
 	details.TorrentChecksum = self.TorrentChecksum
 	details.TorrentStatus = self.TorrentStatus
 
-	t := self.getTorrent()
-
-	if t != nil {
-		if t.BytesMissing() == 0 {
-			details.TorrentSeeding = true
-		}
-		details.TorrentStats = t.Stats()
+	filePath := self.getLocalTorrentLocation()
+	if len(filePath) > 0 {
+		details.TorrentSeeding = torrent.GetTorrentSeeding(filePath)
 	}
+
 	return details
 }
 
@@ -340,5 +328,12 @@ func (self *SImageSubformat) checkStatus(useFast bool) {
 		if self.TorrentStatus != IMAGE_STATUS_QUEUED {
 			self.setTorrentStatus(IMAGE_STATUS_QUEUED)
 		}
+	}
+}
+
+func (self *SImageSubformat) SetStatusSeeding(seeding bool) {
+	filePath := self.getLocalTorrentLocation()
+	if len(filePath) > 0 {
+		torrent.SetTorrentSeeding(filePath, seeding)
 	}
 }

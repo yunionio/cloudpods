@@ -148,7 +148,9 @@ func (self *SCronJobManager) Start() {
 }
 
 func (self *SCronJobManager) Stop() {
-	close(self.stop)
+	if self.stop != nil {
+		close(self.stop)
+	}
 }
 
 func (self *SCronJobManager) run() {

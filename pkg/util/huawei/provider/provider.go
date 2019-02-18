@@ -37,6 +37,10 @@ func (self *SHuaweiProviderFactory) IsSupportPrepaidResources() bool {
 	return true
 }
 
+func (self *SHuaweiProviderFactory) NeedSyncSkuFromCloud() bool {
+	return false
+}
+
 func (self *SHuaweiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	accessKeyID, _ := data.GetString("access_key_id")
 	if len(accessKeyID) == 0 {

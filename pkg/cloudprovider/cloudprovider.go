@@ -33,6 +33,7 @@ type ICloudProviderFactory interface {
 	IsPublicCloud() bool
 	IsOnPremise() bool
 	IsSupportPrepaidResources() bool
+	NeedSyncSkuFromCloud() bool
 }
 
 type ICloudProvider interface {

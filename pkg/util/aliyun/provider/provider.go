@@ -38,6 +38,10 @@ func (self *SAliyunProviderFactory) IsSupportPrepaidResources() bool {
 	return true
 }
 
+func (self *SAliyunProviderFactory) NeedSyncSkuFromCloud() bool {
+	return false
+}
+
 func (self *SAliyunProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	accessKeyID, _ := data.GetString("access_key_id")
 	if len(accessKeyID) == 0 {

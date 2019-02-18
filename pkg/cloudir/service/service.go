@@ -23,11 +23,12 @@ func StartService() {
 		log.Fatalf("init etcd fail: %s", err)
 		return
 	}
-	defer etcd.CloseDefaultEtcdClient()
 
 	app := cloudcommon.InitApp(commonOpts, false)
 
 	initHandlers(app)
 
-	cloudcommon.ServeForever(app, commonOpts)
+	cloudcommon.ServeForeverWithCleanup(app, commonOpts, func() {
+		etcd.CloseDefaultEtcdClient()
+	})
 }

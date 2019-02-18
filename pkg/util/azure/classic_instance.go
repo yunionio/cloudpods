@@ -487,7 +487,7 @@ type assignProperties struct {
 	NetworkSecurityGroup SubResource `json:"networkSecurityGroup,omitempty"`
 }
 
-func (self *SClassicInstance) AssignSecurityGroups(secgroupIds []string) error {
+func (self *SClassicInstance) SetSecurityGroups(secgroupIds []string) error {
 	return cloudprovider.ErrNotSupported
 }
 

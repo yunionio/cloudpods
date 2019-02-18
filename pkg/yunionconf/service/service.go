@@ -30,7 +30,6 @@ func StartService() {
 	}
 
 	cloudcommon.InitDB(dbOpts)
-	defer cloudcommon.CloseDB()
 
 	app := cloudcommon.InitApp(commonOpts, true)
 	yunionconf.InitHandlers(app)
@@ -38,7 +37,9 @@ func StartService() {
 	if db.CheckSync(opts.AutoSyncTable) {
 		err := models.InitDB()
 		if err == nil {
-			cloudcommon.ServeForever(app, commonOpts)
+			cloudcommon.ServeForeverWithCleanup(app, commonOpts, func() {
+				cloudcommon.CloseDB()
+			})
 		} else {
 			log.Errorf("InitDB fail: %s", err)
 		}

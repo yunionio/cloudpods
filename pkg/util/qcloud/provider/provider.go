@@ -44,6 +44,10 @@ func (self *SQcloudProviderFactory) IsSupportPrepaidResources() bool {
 	return true
 }
 
+func (self *SQcloudProviderFactory) NeedSyncSkuFromCloud() bool {
+	return false
+}
+
 func (self *SQcloudProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	appID, _ := data.GetString("app_id")
 	if len(appID) == 0 {

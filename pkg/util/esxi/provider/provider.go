@@ -43,6 +43,10 @@ func (self *SESXiProviderFactory) IsSupportPrepaidResources() bool {
 	return false
 }
 
+func (self *SESXiProviderFactory) NeedSyncSkuFromCloud() bool {
+	return false
+}
+
 func (self *SESXiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	username, _ := data.GetString("username")
 	if len(username) == 0 {

@@ -43,7 +43,7 @@ func (region *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloud
 	if err != nil {
 		return nil, err
 	}
-	snapshot := SSnapshot{}
+	snapshot := SSnapshot{region: region}
 	if err := resp.Unmarshal(&snapshot, "snapshot"); err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func (snapshot *SSnapshot) Refresh() error {
 }
 
 func (region *SRegion) GetSnapshots(diskId string) ([]cloudprovider.ICloudSnapshot, error) {
-	_, resp, err := region.CinderGet("/snapshots/detail", "", nil)
+	_, resp, err := region.CinderList("/snapshots/detail", "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -121,6 +121,9 @@ func (snapshot *SSnapshot) GetGlobalId() string {
 }
 
 func (snapshot *SSnapshot) GetName() string {
+	if len(snapshot.Name) == 0 {
+		return snapshot.ID
+	}
 	return snapshot.Name
 }
 
@@ -139,10 +142,24 @@ func (snapshot *SSnapshot) GetDiskType() string {
 	return models.DISK_TYPE_DATA
 }
 
-func (snapshot *SRegion) DeleteSnapshot(snapshotId string) error {
-	return cloudprovider.ErrNotImplemented
+func (region *SRegion) DeleteSnapshot(snapshotId string) error {
+	_, err := region.CinderDelete("/snapshots/"+snapshotId, "")
+	return err
 }
 
-func (snapshot *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+func (region *SRegion) CreateSnapshot(diskId, name, desc string) (*SSnapshot, error) {
+	params := map[string]map[string]interface{}{
+		"snapshot": {
+			"volume_id":   diskId,
+			"name":        name,
+			"description": desc,
+			"force":       true,
+		},
+	}
+	_, resp, err := region.CinderCreate("/snapshots", "", jsonutils.Marshal(params))
+	if err != nil {
+		return nil, err
+	}
+	snapshot := &SSnapshot{region: region}
+	return snapshot, resp.Unmarshal(snapshot, "snapshot")
 }

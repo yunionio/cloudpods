@@ -39,6 +39,10 @@ func (self *SAzureProviderFactory) IsSupportPrepaidResources() bool {
 	return true
 }
 
+func (self *SAzureProviderFactory) NeedSyncSkuFromCloud() bool {
+	return false
+}
+
 func (self *SAzureProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	directoryID, _ := data.GetString("directory_id")
 	if len(directoryID) == 0 {

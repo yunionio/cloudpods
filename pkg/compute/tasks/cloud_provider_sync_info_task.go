@@ -159,7 +159,9 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 
 		localZones, remoteZones := syncRegionZones(ctx, provider, task, &localRegions[i], remoteRegions[i])
 
-		syncRegionSkus(ctx, provider, task, &localRegions[i])
+		if !driver.GetFactory().NeedSyncSkuFromCloud() {
+			syncRegionSkus(ctx, provider, task, &localRegions[i])
+		}
 
 		syncRegionVPCs(ctx, provider, task, &localRegions[i], remoteRegions[i], syncRange)
 
@@ -176,6 +178,10 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 				newPairs = syncZoneHosts(ctx, provider, task, driver, &localZones[j], remoteZones[j], syncRange, storageCachePairs)
 				if len(newPairs) > 0 {
 					storageCachePairs = append(storageCachePairs, newPairs...)
+				}
+
+				if driver.GetFactory().NeedSyncSkuFromCloud() {
+					syncRegionSkusFromCloud(ctx, provider, task, &localZones[i], remoteRegions[i], remoteZones[j])
 				}
 			}
 		}
@@ -323,6 +329,24 @@ func syncLoadbalancerBackends(ctx context.Context, provider *models.SCloudprovid
 	result := models.LoadbalancerBackendManager.SyncLoadbalancerBackends(ctx, task.GetUserCred(), provider, localLbbg, remoteLbbs, syncRange)
 	msg := result.Result()
 	log.Infof("SyncLoadbalancerBackends for LoadbalancerBackendgroup %s result: %s", localLbbg.Name, msg)
+	if result.IsError() {
+		logSyncFailed(provider, task, msg)
+		return
+	}
+}
+
+func syncRegionSkusFromCloud(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localZone *models.SZone, remoteRegion cloudprovider.ICloudRegion, remoteZone cloudprovider.ICloudZone) {
+	skus, err := remoteRegion.GetSkus(remoteZone.GetId())
+	if err != nil {
+		msg := fmt.Sprintf("GetSkus for zone %s failed %v", localZone.Name, err)
+		log.Errorf(msg)
+		logSyncFailed(provider, task, msg)
+		return
+	}
+
+	result := models.ServerSkuManager.SyncCloudSkusByRegion(ctx, task.GetUserCred(), provider, localZone, skus)
+	msg := result.Result()
+	log.Infof("SyncCloudSkusByRegion for zone %s result: %s", localZone.Name, msg)
 	if result.IsError() {
 		logSyncFailed(provider, task, msg)
 		return
