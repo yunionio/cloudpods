@@ -22,7 +22,6 @@ func init() {
 		MSG         string `help:"The content of the notification"`
 		Remark      string `help:"Remark or description of the notification"`
 		Group       bool   `help:"Send to group"`
-		Channel     string `help:"User's contacts type, cloud be email|mobile|dingtalk|webconsole" choices:"email|mobile|dingtalk|webconsole"`
 	}
 	R(&NotificationCreateOptions{}, "notify", "Send a notification to sb", func(s *mcclient.ClientSession, args *NotificationCreateOptions) error {
 		msg := notify.SNotifyMessage{}
@@ -32,10 +31,7 @@ func init() {
 			msg.Uid = args.UID
 		}
 
-		msg.ContactType = []notify.TNotifyChannel{notify.TNotifyChannel(args.CONTACTTYPE)}
-		for _, c := range args.Channel {
-			msg.ContactType = append(msg.ContactType, notify.TNotifyChannel(c))
-		}
+		msg.ContactType = notify.TNotifyChannel(args.CONTACTTYPE)
 		msg.Topic = args.TOPIC
 		msg.Priority = notify.TNotifyPriority(args.PRIORITY)
 		msg.Msg = args.MSG
