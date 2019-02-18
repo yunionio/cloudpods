@@ -27,6 +27,10 @@ func (self *SESXiProviderFactory) ValidateChangeBandwidth(instanceId string, ban
 	return fmt.Errorf("Changing %s bandwidth is not supported", esxi.CLOUD_PROVIDER_VMWARE)
 }
 
+func (self *SESXiProviderFactory) IsPublicCloud() bool {
+	return false
+}
+
 func (self *SESXiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	username, _ := data.GetString("username")
 	if len(username) == 0 {
@@ -109,10 +113,6 @@ func init() {
 
 type SESXiProvider struct {
 	client *esxi.SESXiClient
-}
-
-func (self *SESXiProvider) IsPublicCloud() bool {
-	return false
 }
 
 func (self *SESXiProvider) IsOnPremiseInfrastructure() bool {

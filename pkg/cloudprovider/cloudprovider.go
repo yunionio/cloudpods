@@ -26,6 +26,8 @@ type ICloudProviderFactory interface {
 	ValidateChangeBandwidth(instanceId string, bandwidth int64) error
 	ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error
 	ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*SCloudaccount, error)
+
+	IsPublicCloud() bool
 }
 
 type ICloudProvider interface {
@@ -33,7 +35,6 @@ type ICloudProvider interface {
 	GetName() string
 	GetSysInfo() (jsonutils.JSONObject, error)
 	GetVersion() string
-	IsPublicCloud() bool
 	IsOnPremiseInfrastructure() bool
 
 	GetIRegions() []ICloudRegion
