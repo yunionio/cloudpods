@@ -1,28 +1,52 @@
 package torrent
 
 import (
-	"context"
 	"fmt"
-	"net/http"
-
-	"github.com/anacrolix/torrent"
-	"github.com/anacrolix/torrent/metainfo"
+	"os"
+	"time"
 
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/nodeid"
+	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
+
+type STorrentProcessState struct {
+	process *os.Process
+	seeding bool
+}
 
 var (
-	torrentClient *torrent.Client
-	torrentTable  = make(map[string]*torrent.Torrent)
+	torrentTable      = make(map[string]*STorrentProcessState)
+	seedTaskWorkerMan *appsrv.SWorkerManager
 )
 
+const (
+	TORRENT_TRACKER_SERVICE = "torrent-tracker"
+)
+
+func init() {
+	seedTaskWorkerMan = appsrv.NewWorkerManager("seedTaskWorkerManager", 1, 1024, false)
+}
+
+func (stat *STorrentProcessState) StopAndWait() error {
+	err := stat.process.Kill()
+	if err != nil {
+		log.Errorf("kill error %s", err)
+		return err
+	}
+	_, err = stat.process.Wait()
+	if err != nil {
+		log.Errorf("wait error %s", err)
+		return err
+	}
+	return nil
+}
+
 func GetTrackers() []string {
-	urls, err := auth.GetServiceURLs("torrent-tracker", options.Options.Region, "", "")
+	urls, err := auth.GetServiceURLs(TORRENT_TRACKER_SERVICE, options.Options.Region, "", "")
 	if err != nil {
 		log.Errorf("fail to get torrent-tracker")
 		return nil
@@ -30,93 +54,62 @@ func GetTrackers() []string {
 	return urls
 }
 
-func InitTorrentClient() error {
-	urls := GetTrackers()
-	if len(urls) == 0 {
-		log.Errorf("no valid torrent-tracker")
-		return fmt.Errorf("no valid torrent-tracker")
-	}
-
-	nodeId, err := nodeid.GetNodeId()
-	if err != nil {
-		log.Errorf("fail to generate node id: %s", err)
-		return err
-	}
-
-	log.Infof("Set torrent server as node %s", nodeId)
-
-	clientConfig := torrent.NewDefaultClientConfig()
-	clientConfig.PeerID = nodeId[:20]
-	clientConfig.Debug = false
-	clientConfig.Seed = true
-	clientConfig.NoUpload = false
-	clientConfig.DataDir = options.Options.FilesystemStoreDatadir
-	clientConfig.DisableTrackers = false
-	clientConfig.DisablePEX = true
-	clientConfig.NoDHT = true
-
-	client, err := torrent.NewClient(clientConfig)
-	if err != nil {
-		log.Errorf("error creating client: %s", err)
-		return err
-	}
-	torrentClient = client
-
-	log.Infof("torrent client initialized")
-
+func SeedTorrent(torrentpath string, imageId, format string) error {
+	seedTaskWorkerMan.Run(func() {
+		log.Infof("Start seed %s ...", torrentpath)
+		err := seedTorrent(torrentpath, imageId, format)
+		if err == nil {
+			time.Sleep(10 * time.Second)
+		}
+	}, nil, nil)
 	return nil
 }
 
-func InitTorrentHandler(app *appsrv.Application) {
-	app.AddDefaultHandler("GET", "/torrent_stats", TorrentStatsHandler, "torrent_stats")
-}
-
-func TorrentStatsHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	if torrentClient != nil {
-		torrentClient.WriteStatus(w)
-	}
-}
-
-func CloseTorrentClient() {
-	if torrentClient != nil {
-		torrentClient.Close()
-	}
-}
-
-func AddTorrent(filepath string) error {
-	if torrentClient == nil {
-		return nil
-	}
-
-	mi, err := metainfo.LoadFromFile(filepath)
+func seedTorrent(torrentpath string, imageId, format string) error {
+	url, err := auth.GetServiceURL("image", options.Options.Region, "", "public")
 	if err != nil {
-		log.Errorf("fail to open torrent file %s", err)
 		return err
 	}
-	t, err := torrentClient.AddTorrent(mi)
+	args := []string{
+		options.Options.TorrentClientPath,
+		options.Options.FilesystemStoreDatadir,
+		torrentpath,
+		"--callback-url",
+		fmt.Sprintf("%s/images/%s/update-torrent-status?format=%s", url, imageId, format),
+	}
+	proc, err := sysutils.Start(false, args...)
 	if err != nil {
-		log.Errorf("AddTorrent fail %s", err)
 		return err
 	}
-
-	torrentTable[filepath] = t
-
-	<-t.GotInfo()
-	t.DownloadAll()
-
+	torrentTable[torrentpath] = &STorrentProcessState{
+		process: proc,
+		seeding: false,
+	}
 	return nil
 }
 
-func GetTorrent(filepath string) *torrent.Torrent {
+func SetTorrentSeeding(filepath string, seeding bool) {
+	if _, ok := torrentTable[filepath]; ok {
+		torrentTable[filepath].seeding = seeding
+	}
+}
+
+func GetTorrentSeeding(filepath string) bool {
 	if t, ok := torrentTable[filepath]; ok {
-		return t
+		return t.seeding
 	}
-	return nil
+	return false
 }
 
 func RemoveTorrent(filepath string) {
 	if t, ok := torrentTable[filepath]; ok {
-		t.Drop()
+		t.StopAndWait()
 		delete(torrentTable, filepath)
+	}
+}
+
+func StopTorrents() {
+	for k := range torrentTable {
+		torrentTable[k].StopAndWait()
 	}
 }
