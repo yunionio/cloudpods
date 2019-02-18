@@ -963,7 +963,7 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, extDisk cloudprovider.ICloudDisk, index int, projectId string, projectSync bool) error {
 	recycle := false
 	guests := self.GetGuests()
-	if provider.SupportPrepaidResources() && len(guests) == 1 && guests[0].IsPrepaidRecycle() {
+	if provider.GetFactory().IsSupportPrepaidResources() && len(guests) == 1 && guests[0].IsPrepaidRecycle() {
 		recycle = true
 	}
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
@@ -986,7 +986,7 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 
 		self.IsEmulated = extDisk.IsEmulated()
 
-		if provider.SupportPrepaidResources() && !recycle {
+		if provider.GetFactory().IsSupportPrepaidResources() && !recycle {
 			self.BillingType = extDisk.GetBillingType()
 			self.ExpiredAt = extDisk.GetExpiredAt()
 		}
@@ -1041,7 +1041,7 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 
 	disk.IsEmulated = extDisk.IsEmulated()
 
-	if provider.SupportPrepaidResources() {
+	if provider.GetFactory().IsSupportPrepaidResources() {
 		disk.BillingType = extDisk.GetBillingType()
 		disk.ExpiredAt = extDisk.GetExpiredAt()
 	}

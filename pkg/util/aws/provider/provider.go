@@ -17,11 +17,23 @@ func (self *SAwsProviderFactory) GetId() string {
 	return aws.CLOUD_PROVIDER_AWS
 }
 
+func (self *SAwsProviderFactory) GetName() string {
+	return aws.CLOUD_PROVIDER_AWS_CN
+}
+
 func (self *SAwsProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
 	return nil
 }
 
 func (self *SAwsProviderFactory) IsPublicCloud() bool {
+	return true
+}
+
+func (self *SAwsProviderFactory) IsOnPremise() bool {
+	return false
+}
+
+func (self *SAwsProviderFactory) IsSupportPrepaidResources() bool {
 	return true
 }
 
@@ -65,7 +77,10 @@ func (self *SAwsProviderFactory) GetProvider(providerId, providerName, url, acco
 	if err != nil {
 		return nil, err
 	}
-	return &SAwsProvider{client: client}, nil
+	return &SAwsProvider{
+		SBaseProvider: cloudprovider.NewBaseProvider(self),
+		client: client,
+	}, nil
 }
 
 func init() {
@@ -74,19 +89,12 @@ func init() {
 }
 
 type SAwsProvider struct {
+	cloudprovider.SBaseProvider
 	client *aws.SAwsClient
 }
 
 func (self *SAwsProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return self.client.GetSubAccounts()
-}
-
-func (self *SAwsProvider) GetId() string {
-	return aws.CLOUD_PROVIDER_AWS
-}
-
-func (self *SAwsProvider) GetName() string {
-	return aws.CLOUD_PROVIDER_AWS_CN
 }
 
 func (self *SAwsProvider) GetIRegions() []cloudprovider.ICloudRegion {
@@ -105,10 +113,6 @@ func (self *SAwsProvider) GetVersion() string {
 	return aws.AWS_API_VERSION
 }
 
-func (self *SAwsProvider) IsOnPremiseInfrastructure() bool {
-	return false
-}
-
 func (self *SAwsProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
 	return self.client.GetIRegionById(id)
 }
@@ -123,8 +127,4 @@ func (self *SAwsProvider) GetBalance() (float64, error) {
 
 func (self *SAwsProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SAwsProvider) SupportPrepaidResources() bool {
-	return true
 }

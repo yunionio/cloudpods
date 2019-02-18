@@ -1894,7 +1894,7 @@ func (self *SHost) GetIHostAndProvider() (cloudprovider.ICloudHost, cloudprovide
 		return nil, nil, fmt.Errorf("No cloudprovide for host: %s", err)
 	}
 	var iregion cloudprovider.ICloudRegion
-	if provider.IsOnPremiseInfrastructure() {
+	if provider.GetFactory().IsOnPremise() {
 		iregion, err = provider.GetOnPremiseIRegion()
 	} else {
 		region := self.GetRegion()

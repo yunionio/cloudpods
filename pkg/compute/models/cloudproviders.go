@@ -12,9 +12,9 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -133,7 +133,6 @@ func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
 	}
 	usage := self.getUsage()
 	if !usage.isEmpty() {
-		log.Errorf("======Usage %#v", usage)
 		return httperrors.NewNotEmptyError("Not an empty cloud provider")
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -511,11 +510,11 @@ func (self *SCloudprovider) MarkStartSync(userCred mcclient.TokenCredential) {
 	self.SetStatus(userCred, CLOUD_PROVIDER_START_SYNC, "")
 }
 
-func (self *SCloudprovider) GetProviderDriver() (cloudprovider.ICloudProviderFactory, error) {
-	return cloudprovider.GetProviderDriver(self.Provider)
+func (self *SCloudprovider) GetProviderFactory() (cloudprovider.ICloudProviderFactory, error) {
+	return cloudprovider.GetProviderFactory(self.Provider)
 }
 
-func (self *SCloudprovider) GetDriver() (cloudprovider.ICloudProvider, error) {
+func (self *SCloudprovider) GetProvider() (cloudprovider.ICloudProvider, error) {
 	if !self.Enabled {
 		return nil, fmt.Errorf("Cloud provider is not enabled")
 	}
@@ -726,28 +725,6 @@ func (manager *SCloudproviderManager) migrateVCenterInfo(vc *SVCenter) error {
 	cp.Provider = CLOUD_PROVIDER_VMWARE
 
 	return manager.TableSpec().Insert(&cp)
-}
-
-func (self *SCloudprovider) GetBalance() (float64, error) {
-	driver, err := self.GetDriver()
-	if err != nil {
-		return 0.0, err
-	}
-	return driver.GetBalance()
-}
-
-func (self *SCloudprovider) AllowGetDetailsBalance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGetSpec(userCred, self, "balance")
-}
-
-func (self *SCloudprovider) GetDetailsBalance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	balance, err := self.GetBalance()
-	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
-	}
-	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.NewFloat(balance), "balance")
-	return ret, nil
 }
 
 func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {

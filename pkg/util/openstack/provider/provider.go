@@ -21,11 +21,23 @@ func (self *SOpenStackProviderFactory) GetId() string {
 	return openstack.CLOUD_PROVIDER_OPENSTACK
 }
 
+func (self *SOpenStackProviderFactory) GetName() string {
+	return openstack.CLOUD_PROVIDER_OPENSTACK
+}
+
 func (self *SOpenStackProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
 	return nil
 }
 
 func (self *SOpenStackProviderFactory) IsPublicCloud() bool {
+	return false
+}
+
+func (self *SOpenStackProviderFactory) IsOnPremise() bool {
+	return false
+}
+
+func (self *SOpenStackProviderFactory) IsSupportPrepaidResources() bool {
 	return false
 }
 
@@ -86,7 +98,10 @@ func (self *SOpenStackProviderFactory) GetProvider(providerId, providerName, url
 	if err != nil {
 		return nil, err
 	}
-	return &SOpenStackProvider{client: client}, nil
+	return &SOpenStackProvider{
+		SBaseProvider: cloudprovider.NewBaseProvider(self),
+		client: client,
+	}, nil
 }
 
 func init() {
@@ -95,23 +110,12 @@ func init() {
 }
 
 type SOpenStackProvider struct {
+	cloudprovider.SBaseProvider
 	client *openstack.SOpenStackClient
 }
 
 func (self *SOpenStackProvider) GetVersion() string {
 	return ""
-}
-
-func (self *SOpenStackProvider) IsOnPremiseInfrastructure() bool {
-	return false
-}
-
-func (self *SOpenStackProvider) GetId() string {
-	return openstack.CLOUD_PROVIDER_OPENSTACK
-}
-
-func (self *SOpenStackProvider) GetName() string {
-	return openstack.CLOUD_PROVIDER_OPENSTACK
 }
 
 func (self *SOpenStackProvider) GetSysInfo() (jsonutils.JSONObject, error) {
@@ -136,8 +140,4 @@ func (self *SOpenStackProvider) GetBalance() (float64, error) {
 
 func (self *SOpenStackProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SOpenStackProvider) SupportPrepaidResources() bool {
-	return false
 }

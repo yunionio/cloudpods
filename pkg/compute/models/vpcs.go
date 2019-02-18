@@ -455,7 +455,7 @@ func (self *SVpc) GetIVpc() (cloudprovider.ICloudVpc, error) {
 		return nil, err
 	}
 	var iregion cloudprovider.ICloudRegion
-	if provider.IsOnPremiseInfrastructure() {
+	if provider.GetFactory().IsOnPremise() {
 		iregion, err = provider.GetOnPremiseIRegion()
 	} else {
 		region, err := self.GetRegion()

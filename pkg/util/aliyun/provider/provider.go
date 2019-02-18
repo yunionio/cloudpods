@@ -12,11 +12,14 @@ import (
 )
 
 type SAliyunProviderFactory struct {
-	// providerTable map[string]*SAliyunProvider
 }
 
 func (self *SAliyunProviderFactory) GetId() string {
 	return aliyun.CLOUD_PROVIDER_ALIYUN
+}
+
+func (self *SAliyunProviderFactory) GetName() string {
+	return aliyun.CLOUD_PROVIDER_ALIYUN_CN
 }
 
 func (self *SAliyunProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
@@ -24,6 +27,14 @@ func (self *SAliyunProviderFactory) ValidateChangeBandwidth(instanceId string, b
 }
 
 func (self *SAliyunProviderFactory) IsPublicCloud() bool {
+	return true
+}
+
+func (self *SAliyunProviderFactory) IsOnPremise() bool {
+	return false
+}
+
+func (self *SAliyunProviderFactory) IsSupportPrepaidResources() bool {
 	return true
 }
 
@@ -59,51 +70,24 @@ func (self *SAliyunProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 }
 
 func (self *SAliyunProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	/*	provider, ok := self.providerTable[providerId]
-		if ok {
-			err := provider.client.UpdateAccount(account, secret)
-			if err != nil {
-				return nil, err
-			} else {
-				return provider, nil
-			}
-		}
-		client, err := aliyun.NewAliyunClient(providerId, providerName, account, secret)
-		if err != nil {
-			return nil, err
-		}
-		self.providerTable[providerId] = &SAliyunProvider{client: client}
-		return self.providerTable[providerId], nil
-	*/
-
 	client, err := aliyun.NewAliyunClient(providerId, providerName, account, secret, false)
 	if err != nil {
 		return nil, err
 	}
-	return &SAliyunProvider{client: client}, nil
+	return &SAliyunProvider{
+		SBaseProvider: cloudprovider.NewBaseProvider(self),
+		client: client,
+	}, nil
 }
 
 func init() {
-	factory := SAliyunProviderFactory{
-		// providerTable: make(map[string]*SAliyunProvider),
-	}
+	factory := SAliyunProviderFactory{}
 	cloudprovider.RegisterFactory(&factory)
 }
 
 type SAliyunProvider struct {
+	cloudprovider.SBaseProvider
 	client *aliyun.SAliyunClient
-}
-
-func (self *SAliyunProvider) IsOnPremiseInfrastructure() bool {
-	return false
-}
-
-func (self *SAliyunProvider) GetId() string {
-	return aliyun.CLOUD_PROVIDER_ALIYUN
-}
-
-func (self *SAliyunProvider) GetName() string {
-	return aliyun.CLOUD_PROVIDER_ALIYUN_CN
 }
 
 func (self *SAliyunProvider) GetSysInfo() (jsonutils.JSONObject, error) {
@@ -140,8 +124,4 @@ func (self *SAliyunProvider) GetBalance() (float64, error) {
 
 func (self *SAliyunProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SAliyunProvider) SupportPrepaidResources() bool {
-	return true
 }

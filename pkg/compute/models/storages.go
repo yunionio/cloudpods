@@ -1050,7 +1050,7 @@ func (self *SStorage) GetIStorage() (cloudprovider.ICloudStorage, error) {
 		return nil, err
 	}
 	var iRegion cloudprovider.ICloudRegion
-	if provider.IsOnPremiseInfrastructure() {
+	if provider.GetFactory().IsOnPremise() {
 		iRegion, err = provider.GetOnPremiseIRegion()
 	} else {
 		region := self.GetRegion()

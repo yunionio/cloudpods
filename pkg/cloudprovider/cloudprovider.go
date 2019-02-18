@@ -22,36 +22,33 @@ type SCloudaccount struct {
 
 type ICloudProviderFactory interface {
 	GetProvider(providerId, providerName, url, account, secret string) (ICloudProvider, error)
+
 	GetId() string
+	GetName() string
+
 	ValidateChangeBandwidth(instanceId string, bandwidth int64) error
 	ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error
 	ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*SCloudaccount, error)
 
 	IsPublicCloud() bool
+	IsOnPremise() bool
+	IsSupportPrepaidResources() bool
 }
 
 type ICloudProvider interface {
-	GetId() string
-	GetName() string
+	GetFactory() ICloudProviderFactory
+
 	GetSysInfo() (jsonutils.JSONObject, error)
 	GetVersion() string
-	IsOnPremiseInfrastructure() bool
 
 	GetIRegions() []ICloudRegion
 	GetIRegionById(id string) (ICloudRegion, error)
 
 	GetOnPremiseIRegion() (ICloudRegion, error)
 
-	// GetIHostById(id string) (ICloudHost, error)
-	// GetIVpcById(id string) (ICloudVpc, error)
-	// GetIStorageById(id string) (ICloudStorage, error)
-	// GetIStoragecacheById(id string) (ICloudStoragecache, error)
-
 	GetBalance() (float64, error)
 
 	GetSubAccounts() ([]SSubAccount, error)
-
-	SupportPrepaidResources() bool
 }
 
 var providerTable map[string]ICloudProviderFactory
@@ -64,7 +61,7 @@ func RegisterFactory(factory ICloudProviderFactory) {
 	providerTable[factory.GetId()] = factory
 }
 
-func GetProviderDriver(provider string) (ICloudProviderFactory, error) {
+func GetProviderFactory(provider string) (ICloudProviderFactory, error) {
 	factory, ok := providerTable[provider]
 	if ok {
 		return factory, nil
@@ -78,12 +75,11 @@ func GetRegistedProviderIds() []string {
 	for id := range providerTable {
 		providers = append(providers, id)
 	}
-
 	return providers
 }
 
 func GetProvider(providerId, providerName, accessUrl, account, secret, provider string) (ICloudProvider, error) {
-	driver, err := GetProviderDriver(provider)
+	driver, err := GetProviderFactory(provider)
 	if err != nil {
 		return nil, err
 	}
@@ -103,4 +99,16 @@ func IsValidCloudAccount(accessUrl, account, secret, provider string) error {
 	} else {
 		return ErrNoSuchProvder
 	}
+}
+
+type SBaseProvider struct {
+	factory ICloudProviderFactory
+}
+
+func (provider *SBaseProvider) GetFactory() ICloudProviderFactory {
+	return provider.factory
+}
+
+func NewBaseProvider(factory ICloudProviderFactory) SBaseProvider {
+	return SBaseProvider{factory: factory}
 }

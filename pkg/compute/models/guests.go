@@ -1789,7 +1789,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 
 	recycle := false
 
-	if provider.SupportPrepaidResources() && self.IsPrepaidRecycle() {
+	if provider.GetFactory().IsSupportPrepaidResources() && self.IsPrepaidRecycle() {
 		recycle = true
 	}
 
@@ -1835,7 +1835,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 
 		self.IsEmulated = extVM.IsEmulated()
 
-		if provider.SupportPrepaidResources() && !recycle {
+		if provider.GetFactory().IsSupportPrepaidResources() && !recycle {
 			self.BillingType = extVM.GetBillingType()
 			self.ExpiredAt = extVM.GetExpiredAt()
 		}
@@ -1885,7 +1885,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		}
 	}
 
-	if provider.SupportPrepaidResources() && recycle {
+	if provider.GetFactory().IsSupportPrepaidResources() && recycle {
 		vhost := self.GetHost()
 		err = vhost.syncWithCloudPrepaidVM(extVM, host, projectSync)
 		if err != nil {
@@ -1915,7 +1915,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 	guest.IsEmulated = extVM.IsEmulated()
 
-	if provider.SupportPrepaidResources() {
+	if provider.GetFactory().IsSupportPrepaidResources() {
 		guest.BillingType = extVM.GetBillingType()
 		guest.ExpiredAt = extVM.GetExpiredAt()
 	}

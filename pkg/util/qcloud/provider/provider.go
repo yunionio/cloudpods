@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -20,6 +21,10 @@ func (self *SQcloudProviderFactory) GetId() string {
 	return qcloud.CLOUD_PROVIDER_QCLOUD
 }
 
+func (self *SQcloudProviderFactory) GetName() string {
+	return qcloud.CLOUD_PROVIDER_QCLOUD_CN
+}
+
 func (self *SQcloudProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
 	if len(instanceId) == 0 {
 		return fmt.Errorf("Only changes to the binding machine's EIP bandwidth are supported")
@@ -28,6 +33,14 @@ func (self *SQcloudProviderFactory) ValidateChangeBandwidth(instanceId string, b
 }
 
 func (self *SQcloudProviderFactory) IsPublicCloud() bool {
+	return true
+}
+
+func (self *SQcloudProviderFactory) IsOnPremise() bool {
+	return false
+}
+
+func (self *SQcloudProviderFactory) IsSupportPrepaidResources() bool {
 	return true
 }
 
@@ -78,7 +91,10 @@ func (self *SQcloudProviderFactory) GetProvider(providerId, providerName, url, a
 	if err != nil {
 		return nil, err
 	}
-	return &SQcloudProvider{client: client}, nil
+	return &SQcloudProvider{
+		SBaseProvider: cloudprovider.NewBaseProvider(self),
+		client:        client,
+	}, nil
 }
 
 func init() {
@@ -87,19 +103,8 @@ func init() {
 }
 
 type SQcloudProvider struct {
+	cloudprovider.SBaseProvider
 	client *qcloud.SQcloudClient
-}
-
-func (self *SQcloudProvider) IsOnPremiseInfrastructure() bool {
-	return false
-}
-
-func (self *SQcloudProvider) GetId() string {
-	return qcloud.CLOUD_PROVIDER_QCLOUD
-}
-
-func (self *SQcloudProvider) GetName() string {
-	return qcloud.CLOUD_PROVIDER_QCLOUD_CN
 }
 
 func (self *SQcloudProvider) GetSysInfo() (jsonutils.JSONObject, error) {
@@ -136,8 +141,4 @@ func (self *SQcloudProvider) GetBalance() (float64, error) {
 
 func (self *SQcloudProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SQcloudProvider) SupportPrepaidResources() bool {
-	return true
 }

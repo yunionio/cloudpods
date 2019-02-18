@@ -19,11 +19,23 @@ func (self *SAzureProviderFactory) GetId() string {
 	return azure.CLOUD_PROVIDER_AZURE
 }
 
+func (self *SAzureProviderFactory) GetName() string {
+	return azure.CLOUD_PROVIDER_AZURE_CN
+}
+
 func (self *SAzureProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
 	return fmt.Errorf("Changing %s bandwidth is not supported", azure.CLOUD_PROVIDER_AZURE)
 }
 
 func (self *SAzureProviderFactory) IsPublicCloud() bool {
+	return true
+}
+
+func (self *SAzureProviderFactory) IsOnPremise() bool {
+	return false
+}
+
+func (self *SAzureProviderFactory) IsSupportPrepaidResources() bool {
 	return true
 }
 
@@ -70,7 +82,10 @@ func (self *SAzureProviderFactory) GetProvider(providerId, providerName, url, ac
 	if client, err := azure.NewAzureClient(providerId, providerName, account, secret, url); err != nil {
 		return nil, err
 	} else {
-		return &SAzureProvider{client: client}, nil
+		return &SAzureProvider{
+			SBaseProvider: cloudprovider.NewBaseProvider(self),
+			client:        client,
+		}, nil
 	}
 }
 
@@ -80,19 +95,8 @@ func init() {
 }
 
 type SAzureProvider struct {
+	cloudprovider.SBaseProvider
 	client *azure.SAzureClient
-}
-
-func (self *SAzureProvider) IsOnPremiseInfrastructure() bool {
-	return false
-}
-
-func (self *SAzureProvider) GetId() string {
-	return azure.CLOUD_PROVIDER_AZURE
-}
-
-func (self *SAzureProvider) GetName() string {
-	return azure.CLOUD_PROVIDER_AZURE_CN
 }
 
 func (self *SAzureProvider) GetSysInfo() (jsonutils.JSONObject, error) {
@@ -129,8 +133,4 @@ func (self *SAzureProvider) GetBalance() (float64, error) {
 
 func (self *SAzureProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (self *SAzureProvider) SupportPrepaidResources() bool {
-	return true
 }
